@@ -12,6 +12,11 @@ namespace outshine {
 
 namespace Ground {
 
+struct TileAt {
+  int X = 0;
+  int Y = 0;
+};
+
 struct TileSpot {
   int Zoom = 0;
   long X = 0;

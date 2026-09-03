@@ -40,8 +40,7 @@ public:
   [[nodiscard]] bool Open(std::string_view cacheDir,
                           std::string_view assetsDir,
                           std::span<const Scenario::Provider> providers,
-                          double focusLat,
-                          double focusLon,
+                          LongitudeLatitude focus,
                           Data::Transport &wire,
                           Sink &say,
                           double patienceS = 0.0);

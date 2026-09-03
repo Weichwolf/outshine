@@ -34,7 +34,16 @@ constexpr int kMinuteMost = 59;
 constexpr int kSecondMost = 59;
 constexpr size_t kIsoLength = 20;
 
-constexpr int64_t DaysFromCivil(int64_t y, unsigned m, unsigned d) {
+struct Civil {
+  int64_t Year = 0;
+  unsigned Month = 0;
+  unsigned Day = 0;
+};
+
+constexpr int64_t DaysFromCivil(Civil on) {
+  int64_t y = on.Year;
+  const unsigned m = on.Month;
+  const unsigned d = on.Day;
   y -= static_cast<int64_t>(m <= kFebruary);
   const int64_t era = (y >= 0 ? y : y - (kYearsPerEra - 1)) / kYearsPerEra;
   const auto yoe = static_cast<unsigned>(y - era * kYearsPerEra);
@@ -44,7 +53,10 @@ constexpr int64_t DaysFromCivil(int64_t y, unsigned m, unsigned d) {
   return era * kDaysPerEra + static_cast<int64_t>(doe) - kEpochShiftDays;
 }
 
-constexpr void CivilFromDays(int64_t z, int64_t &y, unsigned &m, unsigned &d) {
+constexpr Civil CivilFromDays(int64_t z) {
+  int64_t y = 0;
+  unsigned m = 0;
+  unsigned d = 0;
   z += kEpochShiftDays;
   const int64_t era = (z >= 0 ? z : z - kLastDayOfEra) / kDaysPerEra;
   const auto doe = static_cast<unsigned>(z - era * kDaysPerEra);
@@ -57,6 +69,7 @@ constexpr void CivilFromDays(int64_t z, int64_t &y, unsigned &m, unsigned &d) {
   m = (mp < kMonthsPerYear - kFebruary) ? mp + kMonthsShifted
                                         : mp - (kMonthsPerYear - kMonthsShifted);
   y = static_cast<int64_t>(yoe) + era * kYearsPerEra + static_cast<int64_t>(m <= kFebruary);
+  return {.Year = y, .Month = m, .Day = d};
 }
 
 [[nodiscard]] constexpr bool IsLeapYear(int64_t y) {
@@ -97,8 +110,11 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
   if (day < 1 || day > DaysInMonth(year, mon)) { return false; }
 
   if (hour > kHourMost || min > kMinuteMost || sec > kSecondMost) { return false; }
-  outUnixS = DaysFromCivil(year, mon, day) * kSecondsPerDay + hour * kSecondsPerHour +
-             min * kSecondsPerMinute + sec;
+  outUnixS =
+      DaysFromCivil(
+          {.Year = year, .Month = static_cast<unsigned>(mon), .Day = static_cast<unsigned>(day)}) *
+          kSecondsPerDay +
+      hour * kSecondsPerHour + min * kSecondsPerMinute + sec;
   return true;
 }
 
@@ -109,10 +125,10 @@ inline const char *FormatIsoUtc(int64_t unixS, char *buf, size_t n) {
     rem += kSecondsPerDay;
     days -= 1;
   }
-  int64_t y;
-  unsigned m;
-  unsigned d;
-  CivilFromDays(days, y, m, d);
+  const Civil at = CivilFromDays(days);
+  const int64_t y = at.Year;
+  const unsigned m = at.Month;
+  const unsigned d = at.Day;
   snprintf(buf,
            n,
            "%04lld-%02u-%02uT%02u:%02u:%02uZ",

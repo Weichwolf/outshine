@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -84,7 +85,14 @@ private:
   int32_t ParseValueInside();
   static constexpr size_t kMostDepth = 256;
   size_t Depth_ = 0;
-  [[nodiscard]] bool ParseString(uint32_t &off, uint32_t &len, bool &escaped);
+
+  struct Quoted {
+    uint32_t Off = 0;
+    uint32_t Len = 0;
+    bool Escaped = false;
+  };
+
+  [[nodiscard]] std::optional<Quoted> ParseString();
   void Skip();
   [[nodiscard]] std::string Decode(uint32_t off, uint32_t len, bool escaped) const;
 

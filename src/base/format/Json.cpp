@@ -42,11 +42,11 @@ void Json::Skip() {
   }
 }
 
-bool Json::ParseString(uint32_t &off, uint32_t &len, bool &escaped) {
-  if (P_ >= Text_.size() || Text_[P_] != '"') { return false; }
+std::optional<Json::Quoted> Json::ParseString() {
+  if (P_ >= Text_.size() || Text_[P_] != '"') { return std::nullopt; }
   P_++;
   const size_t start = P_;
-  escaped = false;
+  bool escaped = false;
   while (P_ < Text_.size()) {
     const char c = Text_[P_];
     if (c == '\\') {
@@ -55,14 +55,15 @@ bool Json::ParseString(uint32_t &off, uint32_t &len, bool &escaped) {
       continue;
     }
     if (c == '"') {
-      off = static_cast<uint32_t>(start);
-      len = static_cast<uint32_t>(P_ - start);
+      const Quoted said{.Off = static_cast<uint32_t>(start),
+                        .Len = static_cast<uint32_t>(P_ - start),
+                        .Escaped = escaped};
       P_++;
-      return true;
+      return said;
     }
     P_++;
   }
-  return false;
+  return std::nullopt;
 }
 
 int32_t Json::ParseValue() {
@@ -103,7 +104,11 @@ int32_t Json::ParseValueInside() {
       uint32_t klen = 0;
       bool kesc = false;
       if (obj) {
-        if (!ParseString(koff, klen, kesc)) { return -1; }
+        const std::optional<Quoted> key = ParseString();
+        if (!key) { return -1; }
+        koff = key->Off;
+        klen = key->Len;
+        kesc = key->Escaped;
         Skip();
         if (P_ >= Text_.size() || Text_[P_] != ':') { return -1; }
         P_++;
@@ -138,7 +143,11 @@ int32_t Json::ParseValueInside() {
     uint32_t off = 0;
     uint32_t len = 0;
     bool esc = false;
-    if (!ParseString(off, len, esc)) { return -1; }
+    const std::optional<Quoted> said = ParseString();
+    if (!said) { return -1; }
+    off = said->Off;
+    len = said->Len;
+    esc = said->Escaped;
     Node &n = Nodes_[static_cast<size_t>(id)];
     n.K = Kind::String;
     n.Str = off;

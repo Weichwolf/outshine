@@ -210,8 +210,7 @@ bool Engine::State::Composes() {
       !World.Stack.Open(Session.Under.Cache,
                         Session.Under.Shipped,
                         {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
-                        atLat,
-                        atLon,
+                        {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                         *World.Wire,
                         say,
                         Session.Declared.Ground.PatienceS)) {

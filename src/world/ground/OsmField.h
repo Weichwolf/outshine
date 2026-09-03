@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "GroundQuery.h"
 #include "OsmLayer.h"
 #include "TilePool.h"
 
@@ -68,9 +69,9 @@ public:
     std::vector<double> LatLon;
   };
 
-  void Declare(std::span<const Declared> these, int tx, int ty);
+  void Declare(std::span<const Declared> these, TileAt at);
 
-  void Declare(std::span<const Declared> these, double latDeg, double lonDeg);
+  void Declare(std::span<const Declared> these, LongitudeLatitude at);
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
 
@@ -128,7 +129,14 @@ private:
   static uint32_t Intern(std::vector<std::string> &pool,
                          std::unordered_map<std::string, uint32_t> &index,
                          std::string_view s);
-  [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused);
+
+  struct Fetched {
+    bool Held = false;
+    int Added = 0;
+    bool Refused = false;
+  };
+
+  [[nodiscard]] Fetched AddTile(TilePool &tiles, TileAt at);
   void Settle(int x, int y);
 
   std::vector<std::string> Layers_;

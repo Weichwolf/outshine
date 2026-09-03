@@ -91,7 +91,12 @@ bool AssembleDrive(const Scene &scene,
     return false;
   }
 
-  if (!stack.Open(kept.CacheDir, kept.AssetsDir, kept.Providers, middleLat, middleLon, wire, say)) {
+  if (!stack.Open(kept.CacheDir,
+                  kept.AssetsDir,
+                  kept.Providers,
+                  {.LongitudeDeg = middleLon, .LatitudeDeg = middleLat},
+                  wire,
+                  say)) {
     return false;
   }
 

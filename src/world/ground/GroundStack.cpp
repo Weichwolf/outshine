@@ -19,14 +19,13 @@ namespace outshine::Ground {
 bool GroundStack::Open(std::string_view cacheDir,
                        std::string_view assetsDir,
                        std::span<const Scenario::Provider> providers,
-                       double focusLat,
-                       double focusLon,
+                       LongitudeLatitude focus,
                        Data::Transport &wire,
                        Sink &say,
                        double patienceS) {
   Close();
-  const bool onTheBand = std::fabs(focusLat) <= kMercatorLatMaxDeg;
-  say.Number("the focus latitude the stack was asked for", focusLat, "deg");
+  const bool onTheBand = std::fabs(focus.LatitudeDeg) <= kMercatorLatMaxDeg;
+  say.Number("the focus latitude the stack was asked for", focus.LatitudeDeg, "deg");
   say.Number("the furthest the tiling reaches", kMercatorLatMaxDeg, "deg");
   if (!onTheBand) {
     say.Say("REFUSED the focus is off the tiling band");
@@ -51,13 +50,10 @@ bool GroundStack::Open(std::string_view cacheDir,
   surface.Grid = outshine::Ground::kStreamGrid;
   surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
   Pool_ = std::make_unique<outshine::Ground::TilePool>(
-      outshine::Ground::GroundPoolConfig({.LongitudeDeg = focusLon, .LatitudeDeg = focusLat},
-                                         {.PatienceS = patienceS}),
-      sources,
-      wire);
+      outshine::Ground::GroundPoolConfig(focus, {.PatienceS = patienceS}), sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   SurfaceZoom_ = surface.Z;
-  Cls_.Open(focusLat, focusLon);
+  Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg);
 
   const std::string assets(assetsDir);
   Vegetated_ = Materials_.Load((assets + "/world/ground-materials.json").c_str()) &&
@@ -113,8 +109,7 @@ void GroundStack::Restand(LongitudeLatitude at) {
   if (Declared_.empty()) {
     (void)Vectors_->Build(*Pool_, at, kVectorRing);
   } else {
-    Vectors_->Declare(
-        std::span<const OsmField::Declared>(Declared_), at.LongitudeDeg, at.LatitudeDeg);
+    Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), at);
   }
   if (Vectors_->PendingTiles() > 0) { return; }
   for (int pass = 0; pass < kVectorTiles; ++pass) {

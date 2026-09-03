@@ -223,8 +223,8 @@ void ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
     (void)Coarse_.Field->Build(tiles, at, Coarse_.TileRadius);
   } else {
     const std::span<const OsmField::Declared> these(Declared_);
-    Fine_.Field->Declare(these, at.LongitudeDeg, at.LatitudeDeg);
-    Coarse_.Field->Declare(these, at.LongitudeDeg, at.LatitudeDeg);
+    Fine_.Field->Declare(these, at);
+    Coarse_.Field->Declare(these, at);
   }
   const double t1 = Clock();
   Ingest(Fine_);
