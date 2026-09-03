@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <iterator>
 #include <expected>
+#include <format>
 #include <memory>
 #include <cmath>
 #include "Heap.h"
@@ -966,84 +967,52 @@ std::vector<double> Engine::State::ReachedAlong(std::span<const Generators::Road
   return reached;
 }
 
-void Engine::State::PaveLane(const Paving &on,
-                             int phase,
-                             size_t laneAt,
-                             Paved &into,
-                             std::vector<Yields> &corridor,
-                             Generators::RoadRaised &pavement) const {
-  const Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
-  if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
-      !(lane.HalfWidthM > 0.0f)) {
-    into.RefusedWays += phase == 0 ? 1u : 0u;
-    return;
+void Engine::State::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into) const {
+  double overWaterM = 0.0;
+  for (size_t at = 1; at < into.Along.size(); ++at) {
+    double lat = 0.0;
+    double lon = 0.0;
+    const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
+    const double midS = 0.5 * (into.Along[at - 1].SouthM + into.Along[at].SouthM);
+    const LongitudeLatitude midAt = on.Standing.Geo({.EastM = midE, .NorthM = -midS});
+    lat = midAt.LatitudeDeg;
+    lon = midAt.LongitudeDeg;
+    double edgeM = 0.0;
+    int second = -1;
+    const int which = World.Stack.Classes().ClassAt(
+        *on.Classes, {.LongitudeDeg = lon, .LatitudeDeg = lat}, &edgeM, &second);
+    ++into.AskedOverBridge;
+    if (which < 0 || static_cast<size_t>(which) >= World.Stack.Vegetation().TemplateCount()) {
+      continue;
+    }
+    ++into.NamedOverBridge;
+    if (World.Stack.Vegetation().Rows()[static_cast<size_t>(which)].GroundClass != on.WaterRow) {
+      continue;
+    }
+    ++into.WetOverBridge;
+    overWaterM += StepAlongM(into.Along, at);
   }
-  if (phase == 1) {
-    into.Along = into.Designed[laneAt];
-    if (into.Along.size() < 2) { return; }
-  } else {
-    DesignLane(on, lane, laneAt, into);
-    return;
+  if (overWaterM > 0.0) {
+    double clear = 0.0;
+    for (const Ground::VegetationTemplates::WaterBand &band :
+         World.Stack.Vegetation().WaterBands()) {
+      clear = static_cast<double>(band.ClearanceM);
+      if (overWaterM <= static_cast<double>(band.RunM)) { break; }
+    }
+    if (clear > 0.0) {
+      double stood = -kBeyondAnyCoordinate;
+      for (const Generators::RoadStation &one : into.Along) { stood = std::max(stood, one.GradeM); }
+      into.DeckM[laneAt] = std::max(into.DeckM[laneAt], stood + clear);
+      ++into.DecksOverWater;
+      into.MostOverWaterM = std::max(into.MostOverWaterM, clear);
+    }
   }
+}
 
-  auto tookFrom = std::chrono::steady_clock::now();
-  const auto since = [&tookFrom] {
-    const auto was = tookFrom;
-    tookFrom = std::chrono::steady_clock::now();
-    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
-  };
-  {
-    const Heap::Tagged fitting("road-fit");
-    FitLane(laneAt, into);
-  }
-  into.FitMs += since();
-  if (into.Along.size() < 2) {
-    ++into.RefusedWays;
-    return;
-  }
-  if (lane.Bridge && on.WaterRow >= 0 && on.Classes) {
-    double overWaterM = 0.0;
-    for (size_t at = 1; at < into.Along.size(); ++at) {
-      double lat = 0.0;
-      double lon = 0.0;
-      const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
-      const double midS = 0.5 * (into.Along[at - 1].SouthM + into.Along[at].SouthM);
-      const LongitudeLatitude midAt = on.Standing.Geo({.EastM = midE, .NorthM = -midS});
-      lat = midAt.LatitudeDeg;
-      lon = midAt.LongitudeDeg;
-      double edgeM = 0.0;
-      int second = -1;
-      const int which = World.Stack.Classes().ClassAt(
-          *on.Classes, {.LongitudeDeg = lon, .LatitudeDeg = lat}, &edgeM, &second);
-      ++into.AskedOverBridge;
-      if (which < 0 || static_cast<size_t>(which) >= World.Stack.Vegetation().TemplateCount()) {
-        continue;
-      }
-      ++into.NamedOverBridge;
-      if (World.Stack.Vegetation().Rows()[static_cast<size_t>(which)].GroundClass != on.WaterRow) {
-        continue;
-      }
-      ++into.WetOverBridge;
-      overWaterM += StepAlongM(into.Along, at);
-    }
-    if (overWaterM > 0.0) {
-      double clear = 0.0;
-      for (const Ground::VegetationTemplates::WaterBand &band :
-           World.Stack.Vegetation().WaterBands()) {
-        clear = static_cast<double>(band.ClearanceM);
-        if (overWaterM <= static_cast<double>(band.RunM)) { break; }
-      }
-      if (clear > 0.0) {
-        double stood = -kBeyondAnyCoordinate;
-        for (const Generators::RoadStation &one : into.Along) {
-          stood = std::max(stood, one.GradeM);
-        }
-        into.DeckM[laneAt] = std::max(into.DeckM[laneAt], stood + clear);
-        ++into.DecksOverWater;
-        into.MostOverWaterM = std::max(into.MostOverWaterM, clear);
-      }
-    }
-  }
+void Engine::State::LevelsDeckOrApproach(const Paving &on,
+                                         const Ground::StreetField::Way &lane,
+                                         size_t laneAt,
+                                         Paved &into) {
   if (lane.Bridge) {
     double deck = into.DeckM[laneAt];
     for (const Generators::RoadStation &one : into.Along) { deck = std::max(deck, one.GradeM); }
@@ -1067,6 +1036,45 @@ void Engine::State::PaveLane(const Paving &on,
       }
     }
   }
+}
+
+void Engine::State::PaveLane(const Paving &on,
+                             Pass pass,
+                             size_t laneAt,
+                             Paved &into,
+                             std::vector<Yields> &corridor,
+                             Generators::RoadRaised &pavement) const {
+  const Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
+  if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
+      !(lane.HalfWidthM > 0.0f)) {
+    into.RefusedWays += pass == Pass::Designing ? 1u : 0u;
+    return;
+  }
+  if (pass == Pass::Paving) {
+    into.Along = into.Designed[laneAt];
+    if (into.Along.size() < 2) { return; }
+  } else {
+    DesignLane(on, lane, laneAt, into);
+    return;
+  }
+
+  auto tookFrom = std::chrono::steady_clock::now();
+  const auto since = [&tookFrom] {
+    const auto was = tookFrom;
+    tookFrom = std::chrono::steady_clock::now();
+    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
+  };
+  {
+    const Heap::Tagged fitting("road-fit");
+    FitLane(laneAt, into);
+  }
+  into.FitMs += since();
+  if (into.Along.size() < 2) {
+    ++into.RefusedWays;
+    return;
+  }
+  if (lane.Bridge && on.WaterRow >= 0 && on.Classes) { MarksWaterCrossing(on, laneAt, into); }
+  LevelsDeckOrApproach(on, lane, laneAt, into);
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
   const bool sealed =
@@ -1746,30 +1754,19 @@ void Engine::State::Paves(const TangentFrame &standing,
                     .Classes = classStructure,
                     .WaterRow = waterRow};
     const Heap::Tagged paving("road-pave");
-    for (int phase = 0; phase < 2; ++phase) {
+    for (const Pass pass : {Pass::Designing, Pass::Paving}) {
+      const std::string_view doing = Doing(pass);
       for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
-        PaveLane(on, phase, laneAt, into, corridor, pavement);
+        PaveLane(on, pass, laneAt, into, corridor, pavement);
       }
-      Published.Places(phase == 0 ? "streets: of that, designing every lane"
-                                  : "streets: of that, paving every lane",
-                       since(),
-                       "ms");
-      Published.Places(phase == 0 ? "streets: of designing, the fit"
-                                  : "streets: of paving, the fit",
-                       into.FitMs,
-                       "ms");
-      Published.Places(phase == 0 ? "streets: of designing, the water"
-                                  : "streets: of paving, the water",
-                       into.WaterMs,
-                       "ms");
-      Published.Places(phase == 0 ? "streets: of designing, the sweep"
-                                  : "streets: of paving, the sweep",
-                       into.SweepMs,
-                       "ms");
+      Published.Places(std::format("streets: of that, {} every lane", doing), since(), "ms");
+      Published.Places(std::format("streets: of {}, the fit", doing), into.FitMs, "ms");
+      Published.Places(std::format("streets: of {}, the water", doing), into.WaterMs, "ms");
+      Published.Places(std::format("streets: of {}, the sweep", doing), into.SweepMs, "ms");
       into.FitMs = 0.0;
       into.WaterMs = 0.0;
       into.SweepMs = 0.0;
-      if (phase == 0) {
+      if (pass == Pass::Designing) {
         double movedM = 0.0;
         std::unordered_map<uint64_t, std::vector<std::pair<uint32_t, uint32_t>>> atNode;
         for (uint32_t lane = 0; lane < static_cast<uint32_t>(into.Designed.size()); ++lane) {
@@ -1787,7 +1784,7 @@ void Engine::State::Paves(const TangentFrame &standing,
 
         std::vector<double> pullM(into.Designed.size(), 0.0);
         std::vector<uint32_t> pulls(into.Designed.size(), 0u);
-        for (int pass = 0; pass < kLevelPasses; ++pass) {
+        for (int round = 0; round < kLevelPasses; ++round) {
           std::ranges::fill(pullM, 0.0);
           std::ranges::fill(pulls, 0u);
           for (const uint64_t node : levelling) {

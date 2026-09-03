@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <array>
+#include <string_view>
+#include <cstdint>
 #include <Outshine.h>
 #include "math/Units.h"
 #include "math/Vec2.h"
@@ -613,8 +615,21 @@ struct Engine::State {
   [[nodiscard]] static std::vector<double>
   ReachedAlong(std::span<const Generators::RoadStation> along);
 
+  void MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into) const;
+
+  static void LevelsDeckOrApproach(const Paving &on,
+                                   const Ground::StreetField::Way &lane,
+                                   size_t laneAt,
+                                   Paved &into);
+
+  enum class Pass : uint8_t { Designing, Paving };
+
+  [[nodiscard]] static constexpr std::string_view Doing(Pass pass) {
+    return pass == Pass::Designing ? "designing" : "paving";
+  }
+
   void PaveLane(const Paving &on,
-                int phase,
+                Pass pass,
                 size_t laneAt,
                 Paved &into,
                 std::vector<Yields> &corridor,
