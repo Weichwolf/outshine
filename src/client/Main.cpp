@@ -60,7 +60,7 @@ void Tell(const Shot &shot, std::string_view name) {
     return;
   }
   std::printf("SHOT    %-26s %s  p50 %6.2f  p95 %6.2f  p99 %6.2f ms  %zu of %zu over %.2f, "
-              "worst at %zu\n",
+              "worst at %zu  [sim p99 %.2f worst %.2f | draw p99 %.2f worst %.2f]\n",
               std::string(name).c_str(),
               shot.Digest.empty() ? "--------" : shot.Digest.c_str(),
               shot.P50Ms,
@@ -69,7 +69,11 @@ void Tell(const Shot &shot, std::string_view name) {
               shot.OverBudget,
               shot.Frames,
               outshine::Shots::kFrameBudgetMs,
-              shot.WorstAt);
+              shot.WorstAt,
+              shot.AdvanceP99Ms,
+              shot.AdvanceWorstMs,
+              shot.RenderP99Ms,
+              shot.RenderWorstMs);
   std::printf("        %.0f triangle(s), %.0f bare tile(s), varies by %.3f of 255 along its rows; "
               "%.1f s stood, %.1f s waited (%.1f s streamed); %s\n",
               shot.Triangles,

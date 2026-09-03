@@ -364,7 +364,11 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   }
 
   std::vector<double> heldMs;
+  std::vector<double> advancedMs;
+  std::vector<double> renderedMs;
   heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  advancedMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  renderedMs.reserve(static_cast<std::size_t>(kTimedFrames));
   for (int at = 0; at < kTimedFrames; ++at) {
     const int step = at * kWalkViews / kTimedFrames;
     if (!engine.setView("walk" + std::to_string(step))) {
@@ -373,10 +377,13 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
       return shot;
     }
     const auto before = std::chrono::steady_clock::now();
-    if (!engine.advance() || !engine.renderer().render(Extent{})) { break; }
-    heldMs.push_back(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - before)
-            .count());
+    if (!engine.advance()) { break; }
+    const auto advanced = std::chrono::steady_clock::now();
+    if (!engine.renderer().render(Extent{})) { break; }
+    const auto rendered = std::chrono::steady_clock::now();
+    advancedMs.push_back(std::chrono::duration<double, std::milli>(advanced - before).count());
+    renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
+    heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
     if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
     shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
   }
@@ -391,6 +398,17 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   shot.P50Ms = quantile(0.50);
   shot.P95Ms = quantile(kBroadQuantile);
   shot.P99Ms = quantile(kWidestQuantile);
+
+  const auto widest = [](std::vector<double> &of) {
+    if (of.empty()) { return std::pair<double, double>{0.0, 0.0}; }
+    const double worst = *std::ranges::max_element(of);
+    std::ranges::sort(of);
+    const auto which = static_cast<std::size_t>(
+        std::llround(kWidestQuantile * static_cast<double>(of.size() - 1)));
+    return std::pair<double, double>{of[which < of.size() ? which : of.size() - 1], worst};
+  };
+  std::tie(shot.AdvanceP99Ms, shot.AdvanceWorstMs) = widest(advancedMs);
+  std::tie(shot.RenderP99Ms, shot.RenderWorstMs) = widest(renderedMs);
 
   shot.Measures = engine.measures();
 

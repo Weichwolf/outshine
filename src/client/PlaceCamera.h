@@ -51,6 +51,12 @@ struct Shot {
   std::string Why;
 
   double P50Ms = 0.0, P95Ms = 0.0, P99Ms = 0.0;
+  /// The same frames split at the handover: what the SIMULATION spent, and what the RENDERER did.
+  /// A frame that reads seconds is not drawing for seconds, and until these two stand apart there
+  /// is no way to say which half a late frame was in.
+  double AdvanceP99Ms = 0.0, RenderP99Ms = 0.0;
+  /// And the worst single frame of each, because a p99 over 120 frames hides one outlier.
+  double AdvanceWorstMs = 0.0, RenderWorstMs = 0.0;
   std::size_t Frames = 0, OverBudget = 0, WorstAt = 0;
 
   /// Building triangles the LAST REBUILD meshed -- a delta and not a total, so a settled frame
