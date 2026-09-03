@@ -147,8 +147,14 @@ ground, and is the mechanism behind "the frame holds the sky and the ground and 
 the geometry that was built for it": the buildings are meshed onto a ring that is partly
 in the mantle.
 
-The next question is which 441 and what they have in common -- a tile edge, a seam, a
-missing sample -- and that is where this item continues.
+**And they are not one tile.** Their box spans -2 583.9 to +2 193.8 m east and -1 722.3 to
++2 921.2 m south -- the whole of the 3.2 km neighbourhood, not a corner of it. So this is
+not one bad tile and not one bad fetch: it is a rule that fires all over the ring, on 0.33
+per cent of its vertices.
+
+`GroundYield` cuts seams and sews them (`ground: of that, cutting the seams`, `sewing
+them`), which is the pass that joins detail levels and the one place a vertex can be
+given a neighbour's height. That is where this item looks next.
 
 ## What is not yet known
 

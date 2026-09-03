@@ -394,14 +394,28 @@ void Engine::State::Models(const TangentFrame &standing,
           "ground: the deepest of those is vertex", static_cast<double>(deepest), "index");
       Published.Places("ground: and it lies this far out", deepestOut, "m");
       size_t sunken = 0;
+      double sunkEastLeast = kBeyondAnyCoordinate;
+      double sunkEastMost = -kBeyondAnyCoordinate;
+      double sunkSouthLeast = kBeyondAnyCoordinate;
+      double sunkSouthMost = -kBeyondAnyCoordinate;
       for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
         const auto east = static_cast<double>(inFrame[at]);
         const auto south = static_cast<double>(inFrame[at + 2]);
         if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
-        sunken += static_cast<double>(inFrame[at + 1]) < -100.0 ? 1u : 0u;
+        if (static_cast<double>(inFrame[at + 1]) >= -100.0) { continue; }
+        ++sunken;
+        sunkEastLeast = std::min(sunkEastLeast, east);
+        sunkEastMost = std::max(sunkEastMost, east);
+        sunkSouthLeast = std::min(sunkSouthLeast, south);
+        sunkSouthMost = std::max(sunkSouthMost, south);
       }
       Published.Places(
           "ground: of those, how many sit below -100 m", static_cast<double>(sunken), "vertices");
+      Published.Places(
+          "ground: the sunken ones span, east from", sunken > 0 ? sunkEastLeast : 0.0, "m");
+      Published.Places("ground: east to", sunken > 0 ? sunkEastMost : 0.0, "m");
+      Published.Places("ground: south from", sunken > 0 ? sunkSouthLeast : 0.0, "m");
+      Published.Places("ground: south to", sunken > 0 ? sunkSouthMost : 0.0, "m");
     }
   }
   const auto builtAt = std::chrono::steady_clock::now();
