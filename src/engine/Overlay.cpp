@@ -51,9 +51,10 @@ void AsOverlay(const std::vector<Ui::Quad> &from,
 
 bool Overlay::Compose(Render::SceneRenderer &renderer,
                       std::span<const Shows> surfaces,
-                      double surfaceWidthPx,
-                      double surfaceHeightPx,
+                      SurfacePx over,
                       std::string &error) {
+  const double surfaceWidthPx = over.WidthPx;
+  const double surfaceHeightPx = over.HeightPx;
   Laid_.clear();
   Quads_.clear();
   Laid_.resize(surfaces.size());

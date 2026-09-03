@@ -117,21 +117,17 @@ private:
   return under.back() == '/' ? under + named : under + "/" + named;
 }
 
-[[nodiscard]] inline bool
-SlurpFile(const std::string &held, std::string &text, std::string &error) {
+[[nodiscard]] inline std::expected<std::string, std::string> SlurpFile(const std::string &held) {
   std::FILE *const file = std::fopen(held.c_str(), "rb");
-  if (file == nullptr) {
-    error = held + ": no scenario at that path";
-    return false;
-  }
-  text.clear();
+  if (file == nullptr) { return std::unexpected(held + ": no scenario at that path"); }
+  std::string text;
   std::array<char, 4096> block{};
   size_t read = 0;
   while ((read = std::fread(block.data(), 1, block.size(), file)) > 0) {
     text.append(block.data(), read);
   }
   std::fclose(file);
-  return true;
+  return text;
 }
 
 class Forwarding final : public Script::Host {

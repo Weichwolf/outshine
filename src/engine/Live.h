@@ -357,8 +357,8 @@ private:
   [[nodiscard]] bool Compose(std::string &error) {
     return Over_.Compose(*Renderer_,
                          Declared_.Surfaces,
-                         static_cast<double>(Declared_.SurfaceWidthPx),
-                         static_cast<double>(Declared_.SurfaceHeightPx),
+                         {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
+                          .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)},
                          error);
   }
 

@@ -386,8 +386,12 @@ bool Engine::generated(const Scenario::Document &scenario) {
 
 bool Engine::readScenarioInto(std::string_view path, Scenario::Document &out) {
   const std::string held(path);
-  std::string text;
-  if (!SlurpFile(held, text, S_->Error)) { return false; }
+  const std::expected<std::string, std::string> slurped = SlurpFile(held);
+  if (!slurped) {
+    S_->Error = slurped.error();
+    return false;
+  }
+  const std::string &text = *slurped;
 
   if (!ReadScenario(text.c_str(), text.size(), out, S_->Error)) {
     S_->Error = held + ": " + S_->Error;
@@ -408,8 +412,12 @@ bool Engine::readScenarioInto(std::string_view path, Scenario::Document &out) {
     }
     const std::string at =
         (!layer.Path.empty() && layer.Path.front() == '/') ? layer.Path : dir + layer.Path;
-    std::string fragmentText;
-    if (!SlurpFile(at, fragmentText, S_->Error)) { return false; }
+    const std::expected<std::string, std::string> read = SlurpFile(at);
+    if (!read) {
+      S_->Error = read.error();
+      return false;
+    }
+    const std::string &fragmentText = *read;
     if (!ApplyLayer(out,
                     fragmentText.c_str(),
                     fragmentText.size(),

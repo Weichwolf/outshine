@@ -76,8 +76,12 @@ Result Engine::restore(std::string_view path) {
                 "and then applying the state -- one arrival route";
     return std::unexpected(S_->Error);
   }
-  std::string text;
-  if (!SlurpFile(std::string(path), text, S_->Error)) { return std::unexpected(S_->Error); }
+  const std::expected<std::string, std::string> slurped = SlurpFile(std::string(path));
+  if (!slurped) {
+    S_->Error = slurped.error();
+    return std::unexpected(S_->Error);
+  }
+  const std::string &text = *slurped;
   size_t at = text.find('\n');
   const std::string head = text.substr(0, at == std::string::npos ? text.size() : at);
   const std::string wanted = "outshine-save 1 " + S_->Session.Declared.Named.Name + " " +

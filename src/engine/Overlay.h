@@ -29,10 +29,14 @@ public:
 
   [[nodiscard]] const Ui::Font *Face() const { return Font_; }
 
+  struct SurfacePx {
+    double WidthPx = 0.0;
+    double HeightPx = 0.0;
+  };
+
   [[nodiscard]] bool Compose(Render::SceneRenderer &renderer,
                              std::span<const Shows> surfaces,
-                             double surfaceWidthPx,
-                             double surfaceHeightPx,
+                             SurfacePx over,
                              std::string &error);
 
   void Wheeled(double xPx, double yPx, double byPx, bool &again);
