@@ -140,7 +140,7 @@ namespace {
 
 void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }
-  (void)S_->World.Offering.offers(S_->World.Shipped);
+  (void)S_->World.Offering.offers(S_->World.Shipping.Offered());
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {

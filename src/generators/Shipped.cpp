@@ -1,6 +1,10 @@
 #include <span>
 #include "Shipped.h"
 
+#include "BuildingMesh.h"
+#include "Structures.h"
+#include "RoadMesh.h"
+
 #include "ForestDraw.h"
 #include "BuildingDraw.h"
 #include "Buildings.h"
@@ -13,6 +17,14 @@
 #include <utility>
 
 namespace outshine::Generators {
+
+Shipping::Shipping()
+    : Offered_(std::make_unique<Structures>()),
+      Shaper_(std::make_unique<BuildingMesh>()),
+      Paver_(std::make_unique<RoadMesh>()) {}
+
+Shipping::~Shipping() = default;
+
 namespace {
 
 constexpr Rank kRankBuilding{100};

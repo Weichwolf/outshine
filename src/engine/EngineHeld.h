@@ -12,13 +12,11 @@
 #include "Fetching.h"
 #include "HeapProbe.h"
 #include "Shipped.h"
-#include "BuildingMesh.h"
-#include "RoadMesh.h"
+#include "RoadMesher.h"
+#include "StructureMesher.h"
 #include "Wayfinding.h"
-#include "RoofSurface.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
-#include "Structures.h"
 #include "Unwired.h"
 
 #include <chrono>
@@ -269,7 +267,6 @@ struct Players {
 struct Surrounds {
   std::unique_ptr<Data::Transport> Wire;
   Ground::GroundStack Stack;
-  Generators::Structures Shipped;
   Generators::Registry Offering;
   Generators::Shipping Shipping;
 
@@ -298,7 +295,6 @@ struct Surrounds {
   double RebuildMs = 0.0;
   size_t Rebuilds = 0;
   bool Grown = false;
-  Generators::BuildingMesh Shaper;
   std::chrono::steady_clock::time_point LaidAt;
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;
@@ -467,9 +463,9 @@ struct Engine::State {
   };
 
   struct Paved {
-    std::vector<std::vector<Generators::RoadStation>> Designed;
-    std::vector<Generators::RoadStation> Along;
-    std::vector<Generators::RoadStation> Finer;
+    std::vector<std::vector<RoadStation>> Designed;
+    std::vector<RoadStation> Along;
+    std::vector<RoadStation> Finer;
     std::vector<double> FitOffsetM;
     std::vector<double> FitRadiusM;
     std::vector<double> FitEastNorth;
@@ -477,10 +473,10 @@ struct Engine::State {
     std::vector<double> DeckM;
     std::vector<double> TrimM;
     std::unordered_map<uint64_t, std::vector<Meets>> AtCrossing;
-    std::unordered_map<uint64_t, std::vector<Generators::RoadGate>> Gates;
+    std::unordered_map<uint64_t, std::vector<RoadGate>> Gates;
     std::unordered_map<uint64_t, double> EndM;
     std::unordered_map<uint64_t, double> GroundEndM;
-    Generators::Tallied Swept;
+    RoadTallied Swept;
     size_t ChordAdded = 0;
     size_t DecksOverWater = 0;
     size_t AskedOverBridge = 0;
@@ -607,10 +603,9 @@ struct Engine::State {
   static void
   Shortens(const Ground::StreetField &ways, const Ground::OsmField &vectors, Paved &into);
 
-  [[nodiscard]] static double StepAlongM(std::span<const Generators::RoadStation> along, size_t at);
+  [[nodiscard]] static double StepAlongM(std::span<const RoadStation> along, size_t at);
 
-  [[nodiscard]] static std::vector<double>
-  ReachedAlong(std::span<const Generators::RoadStation> along);
+  [[nodiscard]] static std::vector<double> ReachedAlong(std::span<const RoadStation> along);
 
   void MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into) const;
 
@@ -630,13 +625,13 @@ struct Engine::State {
                 size_t laneAt,
                 Paved &into,
                 std::vector<Yields> &corridor,
-                Generators::RoadRaised &pavement) const;
+                RoadRaised &pavement) const;
 
   void Paves(const TangentFrame &standing,
              const std::shared_ptr<const ClassStructure> &classStructure,
              const Drape &drapedOver,
              std::vector<Yields> &corridor,
-             Generators::RoadRaised &pavement,
+             RoadRaised &pavement,
              Geometry &ground,
              Phasing &clocks);
 

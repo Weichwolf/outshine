@@ -69,7 +69,9 @@ void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
 
 } // namespace
 
-void RaiseJunction(std::span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into) {
+void RoadMesh::Junction(std::span<const RoadGate> gates,
+                        const Vec3f &wearsLinear,
+                        RoadRaised &into) const {
   if (gates.size() < 2) { return; }
   double centreE = 0.0;
   double centreS = 0.0;
@@ -257,7 +259,7 @@ bool LayPiece(std::span<const double> eastNorthM,
 
 } // namespace
 
-void DesignProfile(std::span<RoadStation> along, double mostGradient, double leastCrestK) {
+void RoadMesh::Design(std::span<RoadStation> along, double mostGradient, double leastCrestK) const {
   if (along.size() < 3 || !(mostGradient > 0.0) || !(leastCrestK > 0.0)) { return; }
 
   std::vector<double> reached(along.size(), 0.0);
@@ -321,13 +323,13 @@ void DesignProfile(std::span<RoadStation> along, double mostGradient, double lea
   for (auto &one : along) { one.GradeM -= apart; }
 }
 
-Tallied SweepRoad(std::span<const RoadStation> along,
-                  double halfWidthM,
-                  RoadProfile profile,
-                  const Vec3f &wearsLinear,
-                  double crossfall,
-                  RoadRaised &into) {
-  Tallied tally;
+RoadTallied
+RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const {
+  const double halfWidthM = how.HalfWidthM;
+  const RoadProfile profile = how.Profile;
+  const Vec3f &wearsLinear = how.WearsLinear;
+  const double crossfall = how.Crossfall;
+  RoadTallied tally;
   RoadRefusals *const why = &tally.Why;
   if (along.size() < 3 || !(halfWidthM > 0.0)) { return tally; }
 
@@ -408,7 +410,7 @@ Tallied SweepRoad(std::span<const RoadStation> along,
                                                           .OutE = on.first,
                                                           .OutS = on.second,
                                                           .HalfWidthM = halfWidthM}}};
-        RaiseJunction(std::span<const RoadGate>(corner.data(), 2), wearsLinear, into);
+        Junction(std::span<const RoadGate>(corner.data(), 2), wearsLinear, into);
       }
     }
     from += upTo;

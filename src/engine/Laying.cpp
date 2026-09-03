@@ -792,13 +792,13 @@ void Engine::State::TrimLaneEnds(size_t laneAt, Paved &into) {
     while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
     const double span = reached[at] - reached[at - 1];
     const double part = span > kLeastTurnRad ? (alongM - reached[at - 1]) / span : 0.0;
-    const Generators::RoadStation &from = into.Along[at - 1];
-    const Generators::RoadStation &to = into.Along[at];
-    return Generators::RoadStation{.EastM = from.EastM + (to.EastM - from.EastM) * part,
-                                   .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
-                                   .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
+    const RoadStation &from = into.Along[at - 1];
+    const RoadStation &to = into.Along[at];
+    return RoadStation{.EastM = from.EastM + (to.EastM - from.EastM) * part,
+                       .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
+                       .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
   };
-  std::vector<Generators::RoadStation> kept;
+  std::vector<RoadStation> kept;
   kept.push_back(standAt(fromM));
   for (size_t at = 0; at < into.Along.size(); ++at) {
     if (reached[at] > fromM && reached[at] < toM) { kept.push_back(into.Along[at]); }
@@ -810,7 +810,7 @@ void Engine::State::TrimLaneEnds(size_t laneAt, Paved &into) {
 void Engine::State::FitLane(size_t laneAt, Paved &into) {
   into.FitEastNorth.clear();
   into.FitEastNorth.reserve(into.Along.size() * 2u);
-  for (const Generators::RoadStation &one : into.Along) {
+  for (const RoadStation &one : into.Along) {
     into.FitEastNorth.push_back(one.EastM);
     into.FitEastNorth.push_back(-one.SouthM);
   }
@@ -830,7 +830,7 @@ void Engine::State::RefineChords(const Paving &on, Paved &into) {
       const double chord = 0.5 * (into.Along[at - 1u].GradeM + into.Along[at].GradeM);
       const double overM = on.Draped.At({.EastM = midE, .SouthM = midS}, chord);
       if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
-      into.Finer.push_back(Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
+      into.Finer.push_back(RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
       ++added;
     }
     into.Finer.push_back(into.Along.back());
@@ -899,12 +899,11 @@ void Engine::State::DesignLane(const Paving &on,
   RefineChords(on, into);
 
   if (lane.MaxGradient > 0.0f) {
-    Generators::DesignProfile(
-        std::span<Generators::RoadStation>(into.Along.data(), into.Along.size()),
-        static_cast<double>(lane.MaxGradient),
-        kLeastCrestK);
+    World.Shipping.Paving().Design(std::span<RoadStation>(into.Along.data(), into.Along.size()),
+                                   static_cast<double>(lane.MaxGradient),
+                                   kLeastCrestK);
   }
-  for (Generators::RoadStation &one : into.Along) {
+  for (RoadStation &one : into.Along) {
     if (one.Node != 0u || into.AtCrossing.empty()) { continue; }
     const auto east = static_cast<int64_t>(std::floor(one.EastM / kCrossCellM));
     const auto south = static_cast<int64_t>(std::floor(one.SouthM / kCrossCellM));
@@ -924,14 +923,14 @@ void Engine::State::DesignLane(const Paving &on,
   into.Designed[laneAt] = into.Along;
 }
 
-double Engine::State::StepAlongM(std::span<const Generators::RoadStation> along, size_t at) {
+double Engine::State::StepAlongM(std::span<const RoadStation> along, size_t at) {
   if (at == 0 || at >= along.size()) { return 0.0; }
   const double spanE = along[at].EastM - along[at - 1].EastM;
   const double spanS = along[at].SouthM - along[at - 1].SouthM;
   return std::sqrt(spanE * spanE + spanS * spanS);
 }
 
-std::vector<double> Engine::State::ReachedAlong(std::span<const Generators::RoadStation> along) {
+std::vector<double> Engine::State::ReachedAlong(std::span<const RoadStation> along) {
   std::vector<double> reached(along.size(), 0.0);
   for (size_t at = 1; at < along.size(); ++at) {
     reached[at] = reached[at - 1] + StepAlongM(along, at);
@@ -973,7 +972,7 @@ void Engine::State::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &i
     }
     if (clear > 0.0) {
       double stood = -kBeyondAnyCoordinate;
-      for (const Generators::RoadStation &one : into.Along) { stood = std::max(stood, one.GradeM); }
+      for (const RoadStation &one : into.Along) { stood = std::max(stood, one.GradeM); }
       into.DeckM[laneAt] = std::max(into.DeckM[laneAt], stood + clear);
       ++into.DecksOverWater;
       into.MostOverWaterM = std::max(into.MostOverWaterM, clear);
@@ -987,8 +986,8 @@ void Engine::State::LevelsDeckOrApproach(const Paving &on,
                                          Paved &into) {
   if (lane.Bridge) {
     double deck = into.DeckM[laneAt];
-    for (const Generators::RoadStation &one : into.Along) { deck = std::max(deck, one.GradeM); }
-    for (Generators::RoadStation &one : into.Along) { one.GradeM = deck; }
+    for (const RoadStation &one : into.Along) { deck = std::max(deck, one.GradeM); }
+    for (RoadStation &one : into.Along) { one.GradeM = deck; }
   } else if (!into.EndM.empty()) {
     const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
     const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2;
@@ -1015,7 +1014,7 @@ void Engine::State::PaveLane(const Paving &on,
                              size_t laneAt,
                              Paved &into,
                              std::vector<Yields> &corridor,
-                             Generators::RoadRaised &pavement) const {
+                             RoadRaised &pavement) const {
   const Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
       !(lane.HalfWidthM > 0.0f)) {
@@ -1053,10 +1052,8 @@ void Engine::State::PaveLane(const Paving &on,
       lane.CoverRow >= 0 &&
       static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount() &&
       World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
-  Generators::RoadProfile profile = Generators::RoadProfile::Rounded;
-  if (sealed) {
-    profile = lane.Lanes >= 2 ? Generators::RoadProfile::Kerbed : Generators::RoadProfile::Simple;
-  }
+  RoadProfile profile = RoadProfile::Rounded;
+  if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
   Vec3f wears = {{0.5f, 0.5f, 0.5f}};
   if (lane.CoverRow >= 0 &&
       static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount()) {
@@ -1065,12 +1062,12 @@ void Engine::State::PaveLane(const Paving &on,
   }
   into.WaterMs += since();
   if (lane.Bridge) {
-    into.Swept += Generators::SweepRoad(
-        std::span<const Generators::RoadStation>(into.Along.data(), into.Along.size()),
-        static_cast<double>(lane.HalfWidthM),
-        profile,
-        wears,
-        std::atan(Generators::kCrossfall),
+    into.Swept += World.Shipping.Paving().Sweep(
+        std::span<const RoadStation>(into.Along.data(), into.Along.size()),
+        {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
+         .Profile = profile,
+         .WearsLinear = wears,
+         .Crossfall = std::atan(kCrossfall)},
         pavement);
   }
   into.SweepMs += since();
@@ -1092,7 +1089,7 @@ void Engine::State::PaveLane(const Paving &on,
     double reliefM = std::fabs(groundAt - groundBefore);
     for (const double hand : {1.0, -1.0}) {
       for (int end = 0; end < 2; ++end) {
-        const Generators::RoadStation &one = end == 0 ? into.Along[at - 1u] : into.Along[at];
+        const RoadStation &one = end == 0 ? into.Along[at - 1u] : into.Along[at];
         const double sideE = one.EastM + outE * half * hand;
         const double sideS = one.SouthM + outS * half * hand;
         reliefM = std::max(
@@ -1152,7 +1149,7 @@ void Engine::State::PaveLane(const Paving &on,
       island.LowE = island.HighE = into.Along.front().EastM;
       island.LowS = island.HighS = into.Along.front().SouthM;
       double summed = 0.0;
-      for (const Generators::RoadStation &one : into.Along) {
+      for (const RoadStation &one : into.Along) {
         island.RingEastSouthM.push_back(one.EastM);
         island.RingEastSouthM.push_back(one.SouthM);
         island.LowE = std::min(island.LowE, one.EastM);
@@ -1178,9 +1175,8 @@ void Engine::State::PaveLane(const Paving &on,
           {PlaceKey({.LongitudeDeg = on.Points[first + 1], .LatitudeDeg = on.Points[first]}),
            PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})}};
       for (int side = 0; side < 2; ++side) {
-        const Generators::RoadStation &at = side == 0 ? into.Along.front() : into.Along.back();
-        const Generators::RoadStation &to =
-            side == 0 ? into.Along[1] : into.Along[into.Along.size() - 2u];
+        const RoadStation &at = side == 0 ? into.Along.front() : into.Along.back();
+        const RoadStation &to = side == 0 ? into.Along[1] : into.Along[into.Along.size() - 2u];
         double outE = to.EastM - at.EastM;
         double outS = to.SouthM - at.SouthM;
         const double run = std::sqrt(outE * outE + outS * outS);
@@ -1188,12 +1184,12 @@ void Engine::State::PaveLane(const Paving &on,
         outE /= run;
         outS /= run;
         into.Gates[key[side]].push_back(
-            Generators::RoadGate{.EastM = at.EastM,
-                                 .SouthM = at.SouthM,
-                                 .GradeM = at.GradeM,
-                                 .OutE = outE,
-                                 .OutS = outS,
-                                 .HalfWidthM = static_cast<double>(lane.HalfWidthM)});
+            RoadGate{.EastM = at.EastM,
+                     .SouthM = at.SouthM,
+                     .GradeM = at.GradeM,
+                     .OutE = outE,
+                     .OutS = outS,
+                     .HalfWidthM = static_cast<double>(lane.HalfWidthM)});
       }
     }
   }
@@ -1644,7 +1640,7 @@ void Engine::State::Paves(const TangentFrame &standing,
                           const std::shared_ptr<const ClassStructure> &classStructure,
                           const Drape &drapedOver,
                           std::vector<Yields> &corridor,
-                          Generators::RoadRaised &pavement,
+                          RoadRaised &pavement,
                           Geometry &ground,
                           Phasing &clocks) {
   Published.Places(
@@ -1771,7 +1767,7 @@ void Engine::State::Paves(const TangentFrame &standing,
           for (size_t lane = 0; lane < into.Designed.size(); ++lane) {
             if (pulls[lane] == 0u) { continue; }
             const double by = pullM[lane] / static_cast<double>(pulls[lane]);
-            for (Generators::RoadStation &one : into.Designed[lane]) { one.GradeM += by; }
+            for (RoadStation &one : into.Designed[lane]) { one.GradeM += by; }
             most = std::max(most, std::fabs(by));
           }
           movedM = most;
@@ -1807,9 +1803,9 @@ void Engine::State::Paves(const TangentFrame &standing,
     Vec3f wears = {{0.5f, 0.5f, 0.5f}};
     if (asphalt >= 0) { wears = World.Stack.Materials().At(static_cast<size_t>(asphalt)).Albedo; }
     for (const uint64_t node : nodes) {
-      const std::vector<Generators::RoadGate> &met = into.Gates[node];
-      Generators::RaiseJunction(
-          std::span<const Generators::RoadGate>(met.data(), met.size()), wears, pavement);
+      const std::vector<RoadGate> &met = into.Gates[node];
+      World.Shipping.Paving().Junction(
+          std::span<const RoadGate>(met.data(), met.size()), wears, pavement);
       ++junctionsRaised;
     }
   }
@@ -2307,7 +2303,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   std::unordered_map<uint64_t, float> drawnGround;
   std::array<std::unordered_map<uint64_t, std::vector<uint32_t>>, kDrapeRungs> facesAt;
   std::vector<Yields> corridor;
-  Generators::RoadRaised pavement;
+  RoadRaised pavement;
   {
     Published.Places(
         "rebuild: of that, the ring and the buildings into the frame",
