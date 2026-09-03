@@ -377,25 +377,16 @@ double GroundStream::PostM(double latDeg) const {
 }
 
 GroundBlock GroundStream::BlockAt(TileSpot at) const {
-  GroundBlock block;
-  if (at.Zoom != Surface_.Z) { return block; }
+  if (at.Zoom != Surface_.Z) { return {}; }
   long hx = at.X;
-  const long hy = at.Y;
-  if (!WrapTile(at.Zoom, &hx, &hy)) { return block; }
+  long hy = at.Y;
+  if (!WrapTile(at.Zoom, &hx, &hy)) { return {}; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
-  if (t == nullptr) {
-    block.Where_ = Held_->Pending ? GroundBlock::State::Pending : GroundBlock::State::Missing;
-    return block;
-  }
-  block.Nodes_ = t->H.data();
-  block.X_ = hx;
-  block.Y_ = hy;
-  block.Zoom_ = at.Zoom;
-  block.Side_ = t->Nodes;
-  block.Postings_ = t->Postings;
-  block.Where_ = GroundBlock::State::Resolved;
-  return block;
+  if (t == nullptr) { return Held_->Pending ? GroundBlock::Waiting() : GroundBlock{}; }
+  return GroundBlock::Over(t->H.data(),
+                           {.Zoom = at.Zoom, .X = hx, .Y = hy},
+                           {.Side = t->Nodes, .Postings = t->Postings});
 }
 
 void GroundBlock::AslMRow(LongitudeLatitude from,

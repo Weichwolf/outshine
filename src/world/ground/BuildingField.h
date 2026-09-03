@@ -120,8 +120,8 @@ private:
 
   [[nodiscard]] double AwayFromCentreM(const OsmField &field, uint32_t tile) const;
 
-  [[nodiscard]] static bool TileGroundResolved(
-      const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer);
+  [[nodiscard]] static bool
+  TileGroundResolved(const GroundQuery &ground, const OsmField &field, FeatureRun over, int layer);
   void Raise(const OsmField &field, const Footprint &f);
 
   const StructureMesher *Mesher_ = nullptr;

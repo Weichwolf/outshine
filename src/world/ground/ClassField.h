@@ -131,8 +131,20 @@ private:
     bool Stale = true;
     bool ArraysLent = false;
 
-    Tier(int zoom, int tileRadius, double cellM, int halfCells, double slackM)
-        : TileRadius(tileRadius), CellM(cellM), HalfCells(halfCells), SlackM(slackM), Zoom(zoom) {}
+    struct Grained {
+      int Zoom = 0;
+      int TileRadius = 0;
+      double CellM = 0.0;
+      int HalfCells = 0;
+      double SlackM = 0.0;
+    };
+
+    explicit Tier(Grained how)
+        : TileRadius(how.TileRadius),
+          CellM(how.CellM),
+          HalfCells(how.HalfCells),
+          SlackM(how.SlackM),
+          Zoom(how.Zoom) {}
 
     void Settle();
     [[nodiscard]] size_t HeapBytes() const;
@@ -146,8 +158,16 @@ private:
 
   const VegetationTemplates *Veg_ = nullptr;
 
-  Tier Fine_{kFineZoom, kFineRings, kFineCellM, kFineSide, kFineReachM};
-  Tier Coarse_{kCoarseZoom, kCoarseRings, kCoarseCellM, kCoarseSide, kCoarseReachM};
+  Tier Fine_{{.Zoom = kFineZoom,
+              .TileRadius = kFineRings,
+              .CellM = kFineCellM,
+              .HalfCells = kFineSide,
+              .SlackM = kFineReachM}};
+  Tier Coarse_{{.Zoom = kCoarseZoom,
+                .TileRadius = kCoarseRings,
+                .CellM = kCoarseCellM,
+                .HalfCells = kCoarseSide,
+                .SlackM = kCoarseReachM}};
 
   ClassBuilder Builder_;
   std::optional<ClassGrain> Submitted_;

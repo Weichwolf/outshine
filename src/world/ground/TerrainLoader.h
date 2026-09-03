@@ -20,6 +20,11 @@ namespace outshine::Ground {
 
 constexpr int kStreamGrid = 64;
 
+struct Raster {
+  int Side = 0;
+  uint32_t Postings = 0;
+};
+
 struct GroundSurface {
   int Z;
   int Grid;
@@ -44,22 +49,25 @@ public:
 
   void AslMRow(LongitudeLatitude from, double lonStepDeg, std::span<double> out) const noexcept;
 
-  static GroundBlock
-  Over(const float *nodes, int zoom, long x, long y, int side, uint32_t postings) {
+  static GroundBlock Over(const float *nodes, TileSpot at, Raster raster) {
     GroundBlock out;
     out.Nodes_ = nodes;
-    out.Zoom_ = zoom;
-    out.X_ = x;
-    out.Y_ = y;
-    out.Side_ = side;
-    out.Postings_ = postings;
+    out.Zoom_ = at.Zoom;
+    out.X_ = at.X;
+    out.Y_ = at.Y;
+    out.Side_ = raster.Side;
+    out.Postings_ = raster.Postings;
     out.Where_ = nodes != nullptr ? State::Resolved : State::Missing;
     return out;
   }
 
-private:
-  friend class GroundStream;
+  static GroundBlock Waiting() {
+    GroundBlock out;
+    out.Where_ = State::Pending;
+    return out;
+  }
 
+private:
   const float *Nodes_ = nullptr;
   long X_ = 0, Y_ = 0;
   int Zoom_ = 0, Side_ = 0;

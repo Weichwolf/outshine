@@ -14,6 +14,16 @@
 
 namespace outshine::Ground {
 
+struct FeatureRun {
+  size_t From = 0;
+  size_t To = 0;
+};
+
+struct OnLayers {
+  int Poly = 0;
+  int Line = 0;
+};
+
 class OsmField {
 public:
   struct Ring {

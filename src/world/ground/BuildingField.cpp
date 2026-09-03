@@ -49,30 +49,37 @@ constexpr double kOnTheStreetM = 16.0;
 
 constexpr double kCarriagewayM = 4.0;
 
-uint32_t PlaceHash(double latDeg, double lonDeg) {
+uint32_t PlaceHash(LongitudeLatitude at) {
   uint32_t h =
-      static_cast<uint32_t>(static_cast<int32_t>(std::llround(latDeg * kMicroDegree))) * kKnuthWord;
-  h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(lonDeg * kMicroDegree))) *
+      static_cast<uint32_t>(static_cast<int32_t>(std::llround(at.LatitudeDeg * kMicroDegree))) *
+      kKnuthWord;
+  h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(at.LongitudeDeg * kMicroDegree))) *
        kSecondKnuthWord;
   h ^= h >> 13u;
   h *= kPlaceMixWord;
   return h ^ (h >> 16u);
 }
 
-int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latDeg, double lonDeg) {
-  const uint32_t h = PlaceHash(latDeg, lonDeg);
-  const bool onStreet = standBackM >= 0.0 && standBackM <= kOnTheStreetM;
+struct Plot {
+  double AreaM2 = 0.0;
+  double AcrossM = 0.0;
+  double StandBackM = 0.0;
+};
 
-  const bool aPlot = areaM2 >= 70.0;
+int DefaultStoreys(Plot of, LongitudeLatitude at) {
+  const uint32_t h = PlaceHash(at);
+  const bool onStreet = of.StandBackM >= 0.0 && of.StandBackM <= kOnTheStreetM;
+
+  const bool aPlot = of.AreaM2 >= 70.0;
   int least = 1;
   int most = 2;
-  if (onStreet && aPlot && acrossM <= kOnStreetAcrossM) {
+  if (onStreet && aPlot && of.AcrossM <= kOnStreetAcrossM) {
     least = 3;
     most = 5;
   } else if (onStreet && aPlot) {
     least = 2;
     most = 4;
-  } else if (!aPlot || acrossM > kOffStreetAcrossM) {
+  } else if (!aPlot || of.AcrossM > kOffStreetAcrossM) {
     least = 1;
     most = 2;
   } else {
@@ -282,10 +289,12 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
   return GroundSample::At(lowest).Coarser(coarsest);
 }
 
-bool BuildingField::TileGroundResolved(
-    const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) {
+bool BuildingField::TileGroundResolved(const GroundQuery &ground,
+                                       const OsmField &field,
+                                       FeatureRun over,
+                                       int layer) {
   const std::span<const OsmField::Feature> feats = field.Features();
-  for (size_t i = from; i < to; i++) {
+  for (size_t i = over.From; i < over.To; i++) {
     const OsmField::Feature &f = feats[i];
     if (f.Type != 3 || std::cmp_not_equal(f.Layer, layer)) { continue; }
     for (uint32_t r = 0; r < f.RingCount; r++) {
@@ -351,11 +360,13 @@ int BuildingField::Build(const GroundQuery &ground,
   const auto firstPrint = static_cast<uint32_t>(Prints_.size());
   int added = 0;
 
-  const TileWatermark::Next next = Mark_.Ask(
-      feats,
-      field.Tiles(),
-      {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
-      [&](size_t from, size_t to) { return TileGroundResolved(ground, field, from, to, layer); });
+  const TileWatermark::Next next =
+      Mark_.Ask(feats,
+                field.Tiles(),
+                {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
+                [&](size_t from, size_t to) {
+                  return TileGroundResolved(ground, field, {.From = from, .To = to}, layer);
+                });
   if (!next.Found) { return static_cast<int>(Prints_.size()); }
   Mark_.Take(next.Tile);
 
@@ -420,11 +431,12 @@ int BuildingField::Build(const GroundQuery &ground,
         fp.Source = HeightSource::Osm;
         OsmHeights_++;
       } else {
-        const int storeys = DefaultStoreys(RingAreaM2(field, ring),
-                                           AcrossM(field, ring),
-                                           standBackM,
-                                           pts[static_cast<size_t>(ring.First) * 2],
-                                           pts[static_cast<size_t>(ring.First) * 2 + 1]);
+        const int storeys =
+            DefaultStoreys({.AreaM2 = RingAreaM2(field, ring),
+                            .AcrossM = AcrossM(field, ring),
+                            .StandBackM = standBackM},
+                           {.LongitudeDeg = pts[static_cast<size_t>(ring.First) * 2 + 1],
+                            .LatitudeDeg = pts[static_cast<size_t>(ring.First) * 2]});
         fp.HeightM = static_cast<float>(static_cast<double>(storeys) * kStoreyM + kRoofAllowanceM);
         fp.Source = HeightSource::Default;
         DefaultHeights_++;

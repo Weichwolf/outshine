@@ -71,8 +71,10 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
-  [[nodiscard]] static bool TileGroundResolved(
-      const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int poly, int line);
+  [[nodiscard]] static bool TileGroundResolved(const GroundQuery &ground,
+                                               const OsmField &field,
+                                               FeatureRun over,
+                                               OnLayers on);
   std::vector<Surface> Surfaces_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;

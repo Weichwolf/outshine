@@ -29,15 +29,17 @@ constexpr double kLiftM = 0.15;
 
 } // namespace
 
-bool WaterField::TileGroundResolved(
-    const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int poly, int line) {
+bool WaterField::TileGroundResolved(const GroundQuery &ground,
+                                    const OsmField &field,
+                                    FeatureRun over,
+                                    OnLayers on) {
   const std::span<const double> pts = field.Points();
   const std::span<const OsmField::Feature> feats = field.Features();
-  for (size_t i = from; i < to; i++) {
+  for (size_t i = over.From; i < over.To; i++) {
     const OsmField::Feature &f = feats[i];
     if (field.Num(f, "tunnel", 0.0) > 0.5) { continue; }
-    const bool isLine = f.Type == 2 && std::cmp_equal(f.Layer, line);
-    const bool isPoly = f.Type == 3 && std::cmp_equal(f.Layer, poly);
+    const bool isLine = f.Type == 2 && std::cmp_equal(f.Layer, on.Line);
+    const bool isPoly = f.Type == 3 && std::cmp_equal(f.Layer, on.Poly);
     if (!isLine && !isPoly) { continue; }
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
@@ -76,7 +78,8 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
                 field.Tiles(),
                 {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
                 [&](size_t from, size_t to) {
-                  return TileGroundResolved(ground, field, from, to, poly, line);
+                  return TileGroundResolved(
+                      ground, field, {.From = from, .To = to}, {.Poly = poly, .Line = line});
                 });
   if (!next.Found) { return static_cast<uint32_t>(Surfaces_.size()); }
   Mark_.Take(next.Tile);
