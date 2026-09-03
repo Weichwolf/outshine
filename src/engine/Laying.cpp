@@ -1928,6 +1928,83 @@ void Engine::State::Paves(const TangentFrame &standing,
   }
 }
 
+void Engine::State::TellsWhatTheSeamsCost(std::span<const float> inFrame,
+                                          std::span<const float> normals) {
+  std::unordered_map<uint64_t, float> met;
+  std::unordered_map<uint64_t, size_t> met2;
+  met.reserve(inFrame.size() / 3);
+  met2.reserve(inFrame.size() / 3);
+  double widest = 0.0;
+  double leaning = 0.0;
+  double leanSum = 0.0;
+  size_t shared = 0;
+  size_t leanCount = 0;
+  for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+    const auto east = static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) * 4.0));
+    const auto south =
+        static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at + 2]) * 4.0));
+    const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
+    const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
+    const uint64_t key = (atE << 32U) | atS;
+    const auto stood = met.find(key);
+    if (stood == met.end()) {
+      met.emplace(key, inFrame[at + 1]);
+      met2.emplace(key, at);
+      continue;
+    }
+    ++shared;
+    const double apart =
+        std::fabs(static_cast<double>(inFrame[at + 1]) - static_cast<double>(stood->second));
+    widest = std::max(apart, widest);
+    if (at + 2 < normals.size() && stood->second == inFrame[at + 1]) {
+      const size_t twin = met2[key];
+      double dot = 0.0;
+      double one = 0.0;
+      double two = 0.0;
+      for (size_t axis = 0; axis < 3; ++axis) {
+        const auto a = static_cast<double>(normals[at + axis]);
+        const auto b = static_cast<double>(normals[twin + axis]);
+        dot += a * b;
+        one += a * a;
+        two += b * b;
+      }
+      if (one > 0.0 && two > 0.0) {
+        const double leanDeg =
+            std::acos(std::fmin(1.0, std::fmax(-1.0, dot / std::sqrt(one * two)))) *
+            kDegPerHalfTurn / std::numbers::pi;
+        leaning = std::max(leaning, leanDeg);
+        leanSum += leanDeg;
+        ++leanCount;
+      }
+    }
+  }
+  Published.Places(
+      "vertices two tiles put in the same place", static_cast<double>(shared), "vertices");
+  Published.Places("and the widest they disagree on height", widest, "m");
+  Published.Places("the widest their NORMALS disagree", leaning, "deg");
+  Published.Places("and how far those disagree on average",
+                   leanCount > 0 ? leanSum / static_cast<double>(leanCount) : 0.0,
+                   "deg");
+}
+
+void Engine::State::TellsTheRelief(Relieved over) {
+  Published.Places("relief: the ring's tallest vertex ABOVE THE ELLIPSOID", over.Tallest, "m");
+  Published.Places("relief: and how far out it lies", over.TallestOutM, "m");
+  Published.Places("relief: the ring's lowest vertex above the ellipsoid", over.Lowest, "m");
+  Published.Places(
+      "relief: so the true relief, with the sphere taken out", over.Tallest - over.Lowest, "m");
+}
+
+void Engine::State::TellsWhatCrossed(const Geometry &ground) {
+  size_t handed = 0;
+  for (int part = 0; part < ground.parts(); ++part) {
+    handed += ground.trianglesOf(part).size() / 3u;
+  }
+  Published.Places(
+      "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
+  Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying("world-ground");
   auto phaseAt = std::chrono::steady_clock::now();
@@ -2041,67 +2118,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
     lowest = std::min(where.HeightM, lowest);
   }
-  Published.Places("relief: the ring's tallest vertex ABOVE THE ELLIPSOID", tallest, "m");
-  Published.Places("relief: and how far out it lies", tallestOut, "m");
-  Published.Places("relief: the ring's lowest vertex above the ellipsoid", lowest, "m");
-  Published.Places("relief: so the true relief, with the sphere taken out", tallest - lowest, "m");
-  {
-    std::unordered_map<uint64_t, float> met;
-    std::unordered_map<uint64_t, size_t> met2;
-    met.reserve(inFrame.size() / 3);
-    met2.reserve(inFrame.size() / 3);
-    double widest = 0.0;
-    double leaning = 0.0;
-    double leanSum = 0.0;
-    size_t shared = 0;
-    size_t leanCount = 0;
-    for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const auto east = static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) * 4.0));
-      const auto south =
-          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at + 2]) * 4.0));
-      const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
-      const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
-      const uint64_t key = (atE << 32U) | atS;
-      const auto stood = met.find(key);
-      if (stood == met.end()) {
-        met.emplace(key, inFrame[at + 1]);
-        met2.emplace(key, at);
-        continue;
-      }
-      ++shared;
-      const double apart =
-          std::fabs(static_cast<double>(inFrame[at + 1]) - static_cast<double>(stood->second));
-      widest = std::max(apart, widest);
-      if (at + 2 < laid->NormalM.size() && stood->second == inFrame[at + 1]) {
-        const size_t twin = met2[key];
-        double dot = 0.0;
-        double one = 0.0;
-        double two = 0.0;
-        for (size_t axis = 0; axis < 3; ++axis) {
-          const auto a = static_cast<double>(laid->NormalM[at + axis]);
-          const auto b = static_cast<double>(laid->NormalM[twin + axis]);
-          dot += a * b;
-          one += a * a;
-          two += b * b;
-        }
-        if (one > 0.0 && two > 0.0) {
-          const double leanDeg =
-              std::acos(std::fmin(1.0, std::fmax(-1.0, dot / std::sqrt(one * two)))) *
-              kDegPerHalfTurn / std::numbers::pi;
-          leaning = std::max(leaning, leanDeg);
-          leanSum += leanDeg;
-          ++leanCount;
-        }
-      }
-    }
-    Published.Places(
-        "vertices two tiles put in the same place", static_cast<double>(shared), "vertices");
-    Published.Places("and the widest they disagree on height", widest, "m");
-    Published.Places("the widest their NORMALS disagree", leaning, "deg");
-    Published.Places("and how far those disagree on average",
-                     leanCount > 0 ? leanSum / static_cast<double>(leanCount) : 0.0,
-                     "deg");
-  }
+  TellsTheRelief({.Tallest = tallest, .Lowest = lowest, .TallestOutM = tallestOut});
+  TellsWhatTheSeamsCost(inFrame, laid->NormalM);
   Classed classed;
   {
     const Heap::Tagged classing("ground-classify");
@@ -2624,6 +2642,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     return false;
   }
   Picture.Standing->Digests(declared.Render.Audits);
+  {
+    size_t handed = 0;
+    for (int part = 0; part < ground.parts(); ++part) {
+      handed += ground.trianglesOf(part).size() / 3u;
+    }
+    Published.Places(
+        "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
+    Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
+  }
   if (!Picture.Standing->Restand(std::move(ground), drivenParts, wearing, Error)) { return false; }
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");

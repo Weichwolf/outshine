@@ -533,6 +533,15 @@ struct Engine::State {
              Geometry &ground,
              Phasing &clocks);
 
+  struct Relieved {
+    double Tallest = 0.0;
+    double Lowest = 0.0;
+    double TallestOutM = 0.0;
+  };
+
+  void TellsWhatTheSeamsCost(std::span<const float> inFrame, std::span<const float> normals);
+  void TellsTheRelief(Relieved over);
+  void TellsWhatCrossed(const Geometry &ground);
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
   [[nodiscard]] bool Asks();
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const Vec3 &shiftM);
