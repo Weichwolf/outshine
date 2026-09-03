@@ -546,6 +546,25 @@ struct Engine::State {
                const Drape &drapedOver,
                Paved &into) const;
 
+  struct Ends {
+    std::array<uint64_t, 2> Key{};
+    std::array<double, 4> At{};
+  };
+
+  [[nodiscard]] static std::optional<Ends> EndsOf(const Ground::OsmField &vectors,
+                                                  const Ground::StreetField::Way &lane);
+
+  [[nodiscard]] std::optional<double>
+  GroundUnder(const TangentFrame &standing, const Drape &drapedOver, LongitudeLatitude at) const;
+
+  static void RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into);
+
+  void SeedsBridgeEnds(const Ground::StreetField &ways,
+                       const Ground::OsmField &vectors,
+                       const TangentFrame &standing,
+                       const Drape &drapedOver,
+                       Paved &into) const;
+
   void Bridges(const Ground::StreetField &ways,
                const Ground::OsmField &vectors,
                const TangentFrame &standing,

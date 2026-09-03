@@ -1419,52 +1419,59 @@ void Engine::State::Crosses(const Ground::StreetField &ways,
   }
 }
 
-void Engine::State::Bridges(const Ground::StreetField &ways,
-                            const Ground::OsmField &vectors,
-                            const TangentFrame &standing,
-                            const Drape &drapedOver,
-                            Paved &into) {
+std::optional<Engine::State::Ends> Engine::State::EndsOf(const Ground::OsmField &vectors,
+                                                         const Ground::StreetField::Way &lane) {
   const std::span<const double> points = vectors.Points();
-  const auto endsOf = [&](const Ground::StreetField::Way &lane,
-                          std::span<uint64_t, 2> out,
-                          std::span<double, 4> at) {
-    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
-    const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
-    if (last + 1 >= points.size()) { return false; }
-    at[0] = points[first];
-    at[1] = points[first + 1];
-    at[2] = points[last];
-    at[3] = points[last + 1];
-    out[0] = PlaceKey({.LongitudeDeg = at[1], .LatitudeDeg = at[0]});
-    out[1] = PlaceKey({.LongitudeDeg = at[3], .LatitudeDeg = at[2]});
-    return true;
-  };
-  const auto groundAt = [&](double lat, double lon, double *out) {
-    const std::optional<double> stood =
-        World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
-    if (!stood) { return false; }
-    const double aslM = *stood;
-    double eastM = 0.0;
-    double upM = 0.0;
-    double northM = 0.0;
-    const EastNorthUp eastMEnu =
-        standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
-    eastM = eastMEnu.EastM;
-    upM = eastMEnu.UpM;
-    northM = eastMEnu.NorthM;
-    *out = drapedOver.At({.EastM = eastM, .SouthM = -northM}, upM);
-    return true;
-  };
+  const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
+  const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
+  if (last + 1 >= points.size()) { return std::nullopt; }
+  Ends out;
+  out.At = {{points[first], points[first + 1], points[last], points[last + 1]}};
+  out.Key = {{PlaceKey({.LongitudeDeg = out.At[1], .LatitudeDeg = out.At[0]}),
+              PlaceKey({.LongitudeDeg = out.At[3], .LatitudeDeg = out.At[2]})}};
+  return out;
+}
+
+std::optional<double> Engine::State::GroundUnder(const TangentFrame &standing,
+                                                 const Drape &drapedOver,
+                                                 LongitudeLatitude at) const {
+  const std::optional<double> stood = World.Stack.Ground().At(at).AslM();
+  if (!stood) { return std::nullopt; }
+  const EastNorthUp enu = standing.Place(
+      {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = *stood});
+  return drapedOver.At({.EastM = enu.EastM, .SouthM = -enu.NorthM}, enu.UpM);
+}
+
+void Engine::State::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into) {
+  for (const uint64_t one : key) {
+    const auto found = into.EndM.find(one);
+    if (found == into.EndM.end()) {
+      into.EndM.emplace(one, deckM);
+      continue;
+    }
+    found->second = std::max(found->second, deckM);
+  }
+}
+
+void Engine::State::SeedsBridgeEnds(const Ground::StreetField &ways,
+                                    const Ground::OsmField &vectors,
+                                    const TangentFrame &standing,
+                                    const Drape &drapedOver,
+                                    Paved &into) const {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const Ground::StreetField::Way &lane = ways.Ways()[at];
     if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
-    std::array<uint64_t, 2> key = {{0, 0}};
-    std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-    if (!endsOf(lane, key, corner)) { continue; }
+    const std::optional<Ends> ends = EndsOf(vectors, lane);
+    if (!ends) { continue; }
+    const std::array<uint64_t, 2> &key = ends->Key;
     for (int side = 0; side < 2; ++side) {
-      double stood = 0.0;
       const size_t axis = static_cast<size_t>(side) * 2u;
-      if (!groundAt(corner[axis], corner[axis + 1u], &stood)) { continue; }
+      const std::optional<double> under =
+          GroundUnder(standing,
+                      drapedOver,
+                      {.LongitudeDeg = ends->At[axis + 1u], .LatitudeDeg = ends->At[axis]});
+      if (!under) { continue; }
+      const double stood = *under;
       const auto found = into.EndM.find(key[side]);
       if (found == into.EndM.end()) {
         into.EndM.emplace(key[side], stood);
@@ -1475,17 +1482,16 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
         if (seeded != into.GroundEndM.end()) { seeded->second = std::max(seeded->second, stood); }
       }
     }
-    if (lane.Bridge && into.DeckM[at] > kUnraisedDeckM) {
-      for (const uint64_t one : key) {
-        const auto found = into.EndM.find(one);
-        if (found == into.EndM.end()) {
-          into.EndM.emplace(one, into.DeckM[at]);
-        } else {
-          found->second = std::max(found->second, into.DeckM[at]);
-        }
-      }
-    }
+    if (lane.Bridge && into.DeckM[at] > kUnraisedDeckM) { RaisesEnds(key, into.DeckM[at], into); }
   }
+}
+
+void Engine::State::Bridges(const Ground::StreetField &ways,
+                            const Ground::OsmField &vectors,
+                            const TangentFrame &standing,
+                            const Drape &drapedOver,
+                            Paved &into) {
+  SeedsBridgeEnds(ways, vectors, standing, drapedOver, into);
   double mostDeckM = 0.0;
   for (const auto &one : into.EndM) {
     const auto seeded = into.GroundEndM.find(one.first);
@@ -1497,15 +1503,15 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
     for (const Ground::StreetField::Way &lane : ways.Ways()) {
       if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
       if (!(lane.MaxGradient > 0.0f)) { continue; }
-      std::array<uint64_t, 2> key = {{0, 0}};
-      std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-      if (!endsOf(lane, key, corner)) { continue; }
+      const std::optional<Ends> ends = EndsOf(vectors, lane);
+      if (!ends) { continue; }
+      const std::array<uint64_t, 2> &key = ends->Key;
       const auto low = into.EndM.find(key[0]);
       const auto high = into.EndM.find(key[1]);
       if (low == into.EndM.end() || high == into.EndM.end()) { continue; }
-      const double perLon = 111320.0 * std::cos(corner[0] * kDeg2Rad);
-      const double runE = (corner[3] - corner[1]) * perLon;
-      const double runN = (corner[2] - corner[0]) * kMPerDegLat;
+      const double perLon = 111320.0 * std::cos(ends->At[0] * kDeg2Rad);
+      const double runE = (ends->At[3] - ends->At[1]) * perLon;
+      const double runN = (ends->At[2] - ends->At[0]) * kMPerDegLat;
       const double runM = std::sqrt(runE * runE + runN * runN);
       const double mostM = runM * static_cast<double>(lane.MaxGradient);
       const double apartM = high->second - low->second;
@@ -1522,14 +1528,16 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
   }
   for (const Ground::StreetField::Way &lane : ways.Ways()) {
     if (lane.Bridge || lane.Form != Ground::StreetField::Shape::Ribbon) { continue; }
-    std::array<uint64_t, 2> key = {{0, 0}};
-    std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-    if (lane.PointCount < 2 || !endsOf(lane, key, corner)) { continue; }
-    Vec2 stood = {{0.0, 0.0}};
-    if (!groundAt(corner[0], corner[1], stood.data()) ||
-        !groundAt(corner[2], corner[3], &stood[1])) {
-      continue;
-    }
+    if (lane.PointCount < 2) { continue; }
+    const std::optional<Ends> ends = EndsOf(vectors, lane);
+    if (!ends) { continue; }
+    const std::array<uint64_t, 2> &key = ends->Key;
+    const std::optional<double> low = GroundUnder(
+        standing, drapedOver, {.LongitudeDeg = ends->At[1], .LatitudeDeg = ends->At[0]});
+    const std::optional<double> high = GroundUnder(
+        standing, drapedOver, {.LongitudeDeg = ends->At[3], .LatitudeDeg = ends->At[2]});
+    if (!low || !high) { continue; }
+    const Vec2 stood = {{*low, *high}};
     double rose = 0.0;
     for (int side = 0; side < 2; ++side) {
       const auto found = into.EndM.find(key[side]);
