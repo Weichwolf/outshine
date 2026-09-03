@@ -435,6 +435,28 @@ void Live::StandsShadowRadius() {
   ShadowRadiusStoodM_ = 0.5 * std::sqrt(across);
 }
 
+PunctualLight Live::KeyLight() const {
+  const Vec3f toSun = TowardTheKey();
+  PunctualLight key;
+  key.Kind = LightKind::Directional;
+  key.Intensity = static_cast<float>(Declared_.KeyLux);
+  if (Declared_.KeyFromClock) {
+    const AirReach reach = SunThroughTheAir(static_cast<double>(toSun[1]));
+    key.Intensity = static_cast<float>(kSolarIlluminanceLx);
+    for (int channel = 0; channel < 3; ++channel) { key.Colour[channel] = reach.SunReach[channel]; }
+  }
+  for (int axis = 0; axis < 3; ++axis) { key.Direction[axis] = -toSun[axis]; }
+  return key;
+}
+
+Vec3f Live::TowardTheKey() const {
+  const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
+  const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
+  return {{static_cast<float>(std::cos(elevation) * std::sin(bearing)),
+           static_cast<float>(std::sin(elevation)),
+           static_cast<float>(std::cos(elevation) * std::cos(bearing))}};
+}
+
 void Live::StandsKeyLight() {
   if (Declared_.DrawsSky) {
     Renderer_->SetMedium(Render::Hazed(Render::kEarthAir, Declared_.Haze));
@@ -535,7 +557,7 @@ bool Live::Build(std::string &error) {
   StandsShadowRadius();
 
   if (!StandsPlan(error)) { return false; }
-  if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) { StandsKeyLight(); }
+  if (DeclaresKeyLight()) { StandsKeyLight(); }
 
   Renderer_->SetCameraBasis(Render::CameraBasis{});
 
@@ -672,6 +694,51 @@ bool Live::Look(std::string &error) {
       *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
 }
 
+void Live::StandsEnvironment() {
+  Render::SubjectEnvironment environment;
+  for (int channel = 0; channel < 3; ++channel) {
+    environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
+  }
+  if (Declared_.DrawsSky && DeclaresKeyLight()) { LightsFromTheSky(environment); }
+  for (int channel = 0; channel < 3; ++channel) {
+    AmbientStood_[channel] = environment.RadianceLinear[channel];
+    GroundStood_[channel] = environment.GroundLinear[channel];
+  }
+  Stood_.Around(environment);
+}
+
+void Live::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
+  const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
+  const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
+  const AirReach reach = SunThroughTheAir(cosSun);
+  const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
+  for (int channel = 0; channel < 3; ++channel) {
+    environment.RadianceLinear[channel] +=
+        static_cast<double>(reach.Skylight[channel] / std::numbers::pi_v<float>) * aboveTheAir;
+    const float onTheGround =
+        static_cast<float>(aboveTheAir) *
+        static_cast<float>(straightDown * reach.SunReach[channel] + reach.Skylight[channel]);
+    environment.GroundLinear[channel] +=
+        GroundAlbedo_[channel] * static_cast<double>(onTheGround / std::numbers::pi_v<float>);
+  }
+}
+
+void Live::EmitsPerPart() {
+  for (size_t part = 0; part < Table_.PartSlot.size(); ++part) {
+    const uint32_t slot = Table_.PartSlot[part];
+    if (slot >= Table_.Slots.size()) { continue; }
+    const Material &row = Table_.Slots[slot].Row;
+    const bool emits = row.Emission[0] > 0.0f || row.Emission[1] > 0.0f || row.Emission[2] > 0.0f;
+    std::array<float, 3> radiance{};
+    for (int channel = 0; channel < 3; ++channel) {
+      radiance[static_cast<size_t>(channel)] =
+          emits ? row.Emission[channel]
+                : row.BaseColour[channel] * static_cast<float>(Declared_.IndirectLight[channel]);
+    }
+    (void)Stood_.Emits(part, radiance);
+  }
+}
+
 bool Live::Stand(std::string &error) {
   auto standFrom = std::chrono::steady_clock::now();
   const auto sinceStand = [&standFrom] {
@@ -700,65 +767,13 @@ bool Live::Stand(std::string &error) {
   PlacesMs_ = sinceStand();
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
   WearsMs_ = sinceStand();
-  for (size_t part = 0; part < Table_.PartSlot.size(); ++part) {
-    const uint32_t slot = Table_.PartSlot[part];
-    if (slot >= Table_.Slots.size()) { continue; }
-    const Material &row = Table_.Slots[slot].Row;
-    const bool emits = row.Emission[0] > 0.0f || row.Emission[1] > 0.0f || row.Emission[2] > 0.0f;
-    std::array<float, 3> radiance{};
-    for (int channel = 0; channel < 3; ++channel) {
-      radiance[static_cast<size_t>(channel)] =
-          emits ? row.Emission[channel]
-                : row.BaseColour[channel] * static_cast<float>(Declared_.IndirectLight[channel]);
-    }
-    (void)Stood_.Emits(part, radiance);
-  }
+  EmitsPerPart();
 
   LampsMs_ = sinceStand();
   for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.Lit(placed); }
-  if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) {
-    const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
-    const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
-    PunctualLight key;
-    key.Kind = LightKind::Directional;
-    key.Intensity = static_cast<float>(Declared_.KeyLux);
-    if (Declared_.KeyFromClock) {
-      const AirReach reach = SunThroughTheAir(std::sin(elevation));
-      key.Intensity = static_cast<float>(kSolarIlluminanceLx);
-      for (int channel = 0; channel < 3; ++channel) {
-        key.Colour[channel] = reach.SunReach[channel];
-      }
-    }
-    key.Direction[0] = static_cast<float>(-std::cos(elevation) * std::sin(bearing));
-    key.Direction[1] = static_cast<float>(-std::sin(elevation));
-    key.Direction[2] = static_cast<float>(-std::cos(elevation) * std::cos(bearing));
-    Stood_.Lit(key);
-  }
-  Render::SubjectEnvironment environment;
-  for (int channel = 0; channel < 3; ++channel) {
-    environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
-  }
+  if (DeclaresKeyLight()) { Stood_.Lit(KeyLight()); }
   LitMs_ = sinceStand();
-  if (Declared_.DrawsSky && (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock)) {
-    const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
-    const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
-    const AirReach reach = SunThroughTheAir(cosSun);
-    const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
-    for (int channel = 0; channel < 3; ++channel) {
-      environment.RadianceLinear[channel] +=
-          static_cast<double>(reach.Skylight[channel] / std::numbers::pi_v<float>) * aboveTheAir;
-      const float onTheGround =
-          static_cast<float>(aboveTheAir) *
-          static_cast<float>(straightDown * reach.SunReach[channel] + reach.Skylight[channel]);
-      environment.GroundLinear[channel] +=
-          GroundAlbedo_[channel] * static_cast<double>(onTheGround / std::numbers::pi_v<float>);
-    }
-  }
-  for (int channel = 0; channel < 3; ++channel) {
-    AmbientStood_[channel] = environment.RadianceLinear[channel];
-    GroundStood_[channel] = environment.GroundLinear[channel];
-  }
-  Stood_.Around(environment);
+  StandsEnvironment();
   MediumMs_ = sinceStand();
 
   std::string why;

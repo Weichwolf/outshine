@@ -146,6 +146,20 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   DOORS; the rest of `src/` keeps nothing, and seeing that on every build is what forces code that
   speaks for itself. `git log -p` holds every line removed. Prose stands in a PROOF — any source
   carrying `Covers("`
+- **ONE SOURCE PER RULE, AND EVERYTHING ELSE DERIVES FROM IT VISIBLY.** This is SQL's normal form
+  carried into code: a functional dependency lives in one place, or the copies drift. But the test
+  is **do these change together**, never do these look alike -- and both mistakes were made here in
+  one day. `[12 + axis]` stood eight times across five files and a regex would have unified all of
+  them; it was FOUR meanings, six reading a translation column and two transforming a point, and
+  they never change together. The sun's direction stood twice, once negated, so it did not look
+  alike at all and no duplicate finder would have seen it -- and those two cannot change apart
+  without lighting a scene from one side and shadowing it from the other. Duplication is cheaper
+  than the wrong abstraction: two things forced into one source grow a flag, then a second flag,
+  then a `bool isTheOtherCase`. **For NUMBERS the rule is stricter and has no exception**: a value
+  that follows from others is derived and never restated. `kSPerHour = kSPerMin * kMinPerHour`, not
+  `3600` -- the second is not duplication, it is an unstated derivation, which is worse because
+  nothing checks it. `VisualRangeM(haze)` is the same idea as a function: the rule is the source
+  and the number falls out of it
 - **A name is a promise.** A word that means something else in Unreal or RAGE spends a reader's
   knowledge against them. The engine's vocabulary is LAW — body, joint, degree of freedom, drive,
   constraint, force, contact, integration — and a car, a seat or a door is a SUBJECT a scenario
@@ -267,6 +281,25 @@ code to zero and lets old code be repaired at the pace it is touched. `make help
 **Order: repair the VISION first if it is short of the benchmark · rebuild onto it · then close
 the feature gaps.** A refactor toward a short target arrives somewhere that still has to be left.
 
+**THE GATES RUN ALONE, AND THE NUMBER COMES FROM THE RUN.** `make`, `make test`, `make shots` and
+`make lint` share one nest and one tree. Editing while one runs makes it compile a half-written
+file and report BUILD on cases that are fine; starting a second makes
+`TheNestRefusesASecondRunner` correctly go red about ME. No edit and no second build until it has
+printed its trailer. And a gate cut short by a timeout leaves its report STALE: a count read out of
+`build/lint/tidy.unique` after an interrupted run is the PREVIOUS run's, which is how a commit here
+once claimed a number that had already risen.
+
+**THE COMPILER IS THE CHEAPEST ORACLE IN THE TREE, and a suite is the most expensive.**
+`c++ -std=c++23 -fsyntax-only -Iinclude <file>` answers "did I catch every call site" in a second;
+a suite answers it in three minutes and one site at a time. Measured: four broken calls in one
+file, found by four separate suite runs, nine minutes, where one syntax check would have listed
+all four. Let the compiler judge SHAPE and keep the suite for BEHAVIOUR.
+
+**A SWEEP OVER A WORD IS A SWEEP OVER FOUR MEANINGS.** `[12 + axis]` appeared eight times in five
+files; six read a translation column and two transformed a point. `grep -c` says eight copies and
+is wrong. Read every site before writing the regex, and prefer a rename the compiler can refuse:
+change the declaration first, then let the errors name the callers.
+
 **Every item carries the benchmark and the choice** — what Unreal does, what RAGE does, which is
 taken and why. An item that cannot say it is not understood yet, and writing that line is most of
 the thinking. **Titles say what WILL BE TRUE**: one in the present tense is a complaint, one in the
@@ -303,3 +336,7 @@ Measured failure modes, each of which cost a day here.
 | **a measure that cannot see** | a count that missed every source without a header — or one that counted ITSELF, because the walk looked in the file it was measuring | ask what the measure cannot see before trusting the number it produced |
 | **a truncated count** | a `head -24` inside the pipeline that produced a declared ceiling | a declared number is quoted rather than re-derived, so it has to be right before it is written |
 | **a green negative control** | the control passes, so the proof proves nothing | restate the claim or delete it; never keep a false proof |
+| **a watcher that waits on itself** | `until ! pgrep -f "test/run.sh"` never returns, because pgrep matches its OWN command line -- 33 minutes spent waiting for a process to end that was the wait | ask what a check must NOT see, which is the same question as asking what it cannot see |
+| **a finding that is not the defect** | the checker says "declared twice" and BOTH definitions are dead; or the two are different quantities sharing one word | read both sites before repairing either. Three of three went this way in one session, and repairing the reported thing would have fixed none of them |
+| **a rename that moves the collision** | `Surface` renamed to `Meshed`, which another header already owned: the count fell by five instead of six and the claim caught it | a rename is only a rename if the NEW name is checked as carefully as the old one was |
+| **a case green on a stale binary** | the program proving the generators link alone was written against an API that no longer existed, at four call sites, and passed -- until a header change forced the rebuild | a gate whose freshness check cannot see headers is guarding yesterday's API |

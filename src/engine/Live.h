@@ -313,7 +313,18 @@ private:
   PaintsPart(Wearing what, const Scenario::SurfaceOverride &said, std::vector<uint32_t> &wearers);
   [[nodiscard]] size_t WornByNodeOrPart();
   [[nodiscard]] bool WearsOverrides(std::string &error);
+  void StandsEnvironment();
+  void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
+  void EmitsPerPart();
   [[nodiscard]] bool StandsPlan(std::string &error);
+
+  [[nodiscard]] bool DeclaresKeyLight() const {
+    return Declared_.KeyLux > 0.0 || Declared_.KeyFromClock;
+  }
+
+  [[nodiscard]] Vec3f TowardTheKey() const;
+  [[nodiscard]] PunctualLight KeyLight() const;
+
   void StandsKeyLight();
   void StandsShadowRadius();
   void ClearsSubject();
