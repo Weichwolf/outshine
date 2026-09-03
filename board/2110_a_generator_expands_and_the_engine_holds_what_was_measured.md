@@ -1,6 +1,21 @@
 # A generator expands, and the engine holds what was measured
 
-State: open
+State: active
+
+## The order the move goes in
+
+Each step builds, `make shots` holds its eight digests, and nothing else is touched in between --
+a rename that lands beside an unrelated edit is a rename nobody can bisect.
+
+  1. `flora/`    -- 25 files, the widest spread, so it proves the shape or breaks it first
+  2. `building/` -- 13 files
+  3. `road/`, `water/` -- the rest of what OSM feeds
+  4. `terrain/`, `scatter/`, `cloud/`
+  5. a `reaches` per area, which is where the split stops being a convention
+
+`base/` is emptied INTO the areas rather than deleted: what one subject uses moves to it, and what
+survives in `base/` is by definition what all of them share. That is the test for the file, applied
+one file at a time, rather than a judgement made up front.
 
 `src/generators/` is cut by PROCESSING STAGE -- `base/`, `path/`, `draw/` -- which runs across
 every subject at right angles. Measured on 2026-09-03: the tree is 25 files across three
