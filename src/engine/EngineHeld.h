@@ -411,6 +411,8 @@ struct Engine::State {
     std::chrono::steady_clock::time_point WiresAt;
   };
 
+  void TellsHowTheRingSinks(std::span<const float> inFrame);
+  void TellsWhatTheGroundHolds(const TangentFrame &standing, std::span<const float> inFrame);
   void Models(const TangentFrame &standing,
               std::span<const float> inFrame,
               LongitudeLatitude stands,

@@ -307,125 +307,130 @@ Engine::State::Classed Engine::State::Classify(Patchwork &laid, std::vector<floa
   return out;
 }
 
+void Engine::State::TellsHowTheRingSinks(std::span<const float> inFrame) {
+  double least = kBeyondAnyCoordinate;
+  double most = -kBeyondAnyCoordinate;
+  size_t within = 0;
+  size_t deepest = 0;
+  double deepestOut = 0.0;
+  for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+    const auto east = static_cast<double>(inFrame[at]);
+    const auto south = static_cast<double>(inFrame[at + 2]);
+    if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
+    const auto up = static_cast<double>(inFrame[at + 1]);
+    if (up < least) {
+      least = up;
+      deepest = at / 3u;
+      deepestOut = std::sqrt(east * east + south * south);
+    }
+    most = up > most ? up : most;
+    ++within;
+  }
+  Published.Places("ground: the ring within 3.2 km runs from", within > 0 ? least : 0.0, "m up");
+  Published.Places("ground: to", within > 0 ? most : 0.0, "m up");
+  Published.Places("ground: over this many ring vertices", static_cast<double>(within), "vertices");
+  Published.Places("ground: the deepest of those is vertex", static_cast<double>(deepest), "index");
+  Published.Places("ground: and it lies this far out", deepestOut, "m");
+  size_t sunken = 0;
+  double sunkEastLeast = kBeyondAnyCoordinate;
+  double sunkEastMost = -kBeyondAnyCoordinate;
+  double sunkSouthLeast = kBeyondAnyCoordinate;
+  double sunkSouthMost = -kBeyondAnyCoordinate;
+  for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+    const auto east = static_cast<double>(inFrame[at]);
+    const auto south = static_cast<double>(inFrame[at + 2]);
+    if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
+    if (static_cast<double>(inFrame[at + 1]) >= -100.0) { continue; }
+    ++sunken;
+    sunkEastLeast = std::min(sunkEastLeast, east);
+    sunkEastMost = std::max(sunkEastMost, east);
+    sunkSouthLeast = std::min(sunkSouthLeast, south);
+    sunkSouthMost = std::max(sunkSouthMost, south);
+  }
+  Published.Places(
+      "ground: of those, how many sit below -100 m", static_cast<double>(sunken), "vertices");
+  Published.Places(
+      "ground: the sunken ones span, east from", sunken > 0 ? sunkEastLeast : 0.0, "m");
+  Published.Places("ground: east to", sunken > 0 ? sunkEastMost : 0.0, "m");
+  Published.Places("ground: south from", sunken > 0 ? sunkSouthLeast : 0.0, "m");
+  Published.Places("ground: south to", sunken > 0 ? sunkSouthMost : 0.0, "m");
+}
+
+void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing,
+                                            std::span<const float> inFrame) {
+  constexpr double kGroundCellM = 25.0;
+  const Ground::BuildingField &prints = World.Stack.Footprints();
+  const Raised &built = prints.Built();
+  const Vec3 &anchor = prints.Anchor();
+  double away = 0.0;
+  for (int axis = 0; axis < 3; ++axis) {
+    const double step = anchor[axis] - standing.OriginEcef()[axis];
+    away += step * step;
+  }
+  Published.Places("buildings: their anchor lies from the frame's origin", std::sqrt(away), "m");
+  Published.Places("buildings: floats in the soup",
+                   static_cast<double>(built.WallCorners.size() + built.RoofCorners.size()),
+                   "floats");
+  Published.Places("buildings: the field's last delta began at",
+                   static_cast<double>(prints.AddedFirst()),
+                   "floats");
+  Published.Places("buildings: and ran for", static_cast<double>(prints.AddedCount()), "floats");
+  {
+    std::vector<double> fill = prints.SeatSpreadM();
+    std::vector<double> across = prints.FootprintAcrossM();
+    if (!fill.empty()) {
+      std::ranges::sort(fill);
+      std::ranges::sort(across);
+      const auto pick = [](const std::vector<double> &of, double part) {
+        return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
+      };
+      size_t wouldStamp = 0;
+      for (const double filled : fill) {
+        if (filled > kStampWorthM) { ++wouldStamp; }
+      }
+      size_t underOneCell = 0;
+      for (const double wide : across) {
+        if (wide < kGroundCellM) { ++underOneCell; }
+      }
+      Published.Places("buildings: a stamp would fill, p50", pick(fill, 0.5), "m");
+      Published.Places("buildings: a stamp would fill, p95", pick(fill, kBroadQuantile), "m");
+      Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
+      Published.Places(
+          "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
+      Published.Places("buildings: footprint across, p50", pick(across, 0.5), "m");
+      Published.Places("buildings: footprint across, p05", pick(across, kFifthPart), "m");
+      Published.Places("buildings: and the narrowest of them", across.front(), "m");
+      Published.Places("buildings: footprints narrower than a ground cell",
+                       static_cast<double>(underOneCell),
+                       "footprints");
+    }
+  }
+  Published.Places("buildings: footprints the field holds",
+                   static_cast<double>(prints.Footprints().size()),
+                   "footprints");
+  if (World.Stack.Vectors() != nullptr) {
+    Published.Places("buildings: vector tiles the field settled",
+                     static_cast<double>(World.Stack.Vectors()->Tiles().size()),
+                     "tiles");
+    Published.Places("buildings: OSM features it holds",
+                     static_cast<double>(World.Stack.Vectors()->Features().size()),
+                     "features");
+  }
+  TellsHowTheRingSinks(inFrame);
+}
+
 void Engine::State::Models(const TangentFrame &standing,
                            std::span<const float> inFrame,
                            LongitudeLatitude stands,
                            Geometry &ground,
                            Phasing &clocks) {
-  constexpr double kGroundCellM = 25.0;
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = stands.LatitudeDeg;
   const double anchorLon = stands.LongitudeDeg;
   const Ground::BuildingField &prints = World.Stack.Footprints();
   const Raised &built = prints.Built();
   const Vec3 &anchor = prints.Anchor();
-  {
-    double away = 0.0;
-    for (int axis = 0; axis < 3; ++axis) {
-      const double step = anchor[axis] - standing.OriginEcef()[axis];
-      away += step * step;
-    }
-    Published.Places("buildings: their anchor lies from the frame's origin", std::sqrt(away), "m");
-    Published.Places("buildings: floats in the soup",
-                     static_cast<double>(built.WallCorners.size() + built.RoofCorners.size()),
-                     "floats");
-    Published.Places("buildings: the field's last delta began at",
-                     static_cast<double>(prints.AddedFirst()),
-                     "floats");
-    Published.Places("buildings: and ran for", static_cast<double>(prints.AddedCount()), "floats");
-    {
-      std::vector<double> fill = prints.SeatSpreadM();
-      std::vector<double> across = prints.FootprintAcrossM();
-      if (!fill.empty()) {
-        std::ranges::sort(fill);
-        std::ranges::sort(across);
-        const auto pick = [](const std::vector<double> &of, double part) {
-          return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
-        };
-        size_t wouldStamp = 0;
-        for (const double filled : fill) {
-          if (filled > kStampWorthM) { ++wouldStamp; }
-        }
-        size_t underOneCell = 0;
-        for (const double wide : across) {
-          if (wide < kGroundCellM) { ++underOneCell; }
-        }
-        Published.Places("buildings: a stamp would fill, p50", pick(fill, 0.5), "m");
-        Published.Places("buildings: a stamp would fill, p95", pick(fill, kBroadQuantile), "m");
-        Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
-        Published.Places(
-            "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
-        Published.Places("buildings: footprint across, p50", pick(across, 0.5), "m");
-        Published.Places("buildings: footprint across, p05", pick(across, kFifthPart), "m");
-        Published.Places("buildings: and the narrowest of them", across.front(), "m");
-        Published.Places("buildings: footprints narrower than a ground cell",
-                         static_cast<double>(underOneCell),
-                         "footprints");
-      }
-    }
-    Published.Places("buildings: footprints the field holds",
-                     static_cast<double>(prints.Footprints().size()),
-                     "footprints");
-    if (World.Stack.Vectors() != nullptr) {
-      Published.Places("buildings: vector tiles the field settled",
-                       static_cast<double>(World.Stack.Vectors()->Tiles().size()),
-                       "tiles");
-      Published.Places("buildings: OSM features it holds",
-                       static_cast<double>(World.Stack.Vectors()->Features().size()),
-                       "features");
-    }
-    {
-      double least = kBeyondAnyCoordinate;
-      double most = -kBeyondAnyCoordinate;
-      size_t within = 0;
-      size_t deepest = 0;
-      double deepestOut = 0.0;
-      for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-        const auto east = static_cast<double>(inFrame[at]);
-        const auto south = static_cast<double>(inFrame[at + 2]);
-        if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
-        const auto up = static_cast<double>(inFrame[at + 1]);
-        if (up < least) {
-          least = up;
-          deepest = at / 3u;
-          deepestOut = std::sqrt(east * east + south * south);
-        }
-        most = up > most ? up : most;
-        ++within;
-      }
-      Published.Places(
-          "ground: the ring within 3.2 km runs from", within > 0 ? least : 0.0, "m up");
-      Published.Places("ground: to", within > 0 ? most : 0.0, "m up");
-      Published.Places(
-          "ground: over this many ring vertices", static_cast<double>(within), "vertices");
-      Published.Places(
-          "ground: the deepest of those is vertex", static_cast<double>(deepest), "index");
-      Published.Places("ground: and it lies this far out", deepestOut, "m");
-      size_t sunken = 0;
-      double sunkEastLeast = kBeyondAnyCoordinate;
-      double sunkEastMost = -kBeyondAnyCoordinate;
-      double sunkSouthLeast = kBeyondAnyCoordinate;
-      double sunkSouthMost = -kBeyondAnyCoordinate;
-      for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-        const auto east = static_cast<double>(inFrame[at]);
-        const auto south = static_cast<double>(inFrame[at + 2]);
-        if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
-        if (static_cast<double>(inFrame[at + 1]) >= -100.0) { continue; }
-        ++sunken;
-        sunkEastLeast = std::min(sunkEastLeast, east);
-        sunkEastMost = std::max(sunkEastMost, east);
-        sunkSouthLeast = std::min(sunkSouthLeast, south);
-        sunkSouthMost = std::max(sunkSouthMost, south);
-      }
-      Published.Places(
-          "ground: of those, how many sit below -100 m", static_cast<double>(sunken), "vertices");
-      Published.Places(
-          "ground: the sunken ones span, east from", sunken > 0 ? sunkEastLeast : 0.0, "m");
-      Published.Places("ground: east to", sunken > 0 ? sunkEastMost : 0.0, "m");
-      Published.Places("ground: south from", sunken > 0 ? sunkSouthLeast : 0.0, "m");
-      Published.Places("ground: south to", sunken > 0 ? sunkSouthMost : 0.0, "m");
-    }
-  }
+  TellsWhatTheGroundHolds(standing, inFrame);
   const auto builtAt = std::chrono::steady_clock::now();
   if (built.WallRun.size() + built.RoofRun.size() >= 3) {
     if (World.CarriedFrom[0] != anchorLat || World.CarriedFrom[1] != anchorLon) {
