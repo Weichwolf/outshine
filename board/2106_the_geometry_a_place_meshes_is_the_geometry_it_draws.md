@@ -28,6 +28,33 @@ buildings is fast, and the p99 column cannot tell that from a place that draws t
 This was invisible while the place refused to preload at all -- one loud refusal uncovered the
 next, which is the argument for making them loud.
 
+## And the ring cut made it a SECOND place, which sharpens what it is
+
+After buildings were held to one tile-ring (board:2105), `outshine/places` reads 8 PASS /
+2 UNPREPARED with Shibuya green and **Jura** newly red:
+
+| place | triangles | variation | camera |
+|---|---|---|---|
+| CentralPark | 1 239 419 | 0.959 | a park |
+| Jura | 62 328 | 0.743 | 94 km at the Alps |
+
+The bar is `Triangles > 0 && Variation < 1.0`, and the case's own words are that a picture
+of nothing is a vertical gradient with no horizontal variation. Jura passed before the cut
+and fails after it -- so the cut removed the buildings that were carrying its horizontal
+variation, and what is left is built and not seen.
+
+**That is this item exactly, and it is now the cheaper case to reason about.** Jura's
+camera looks at mountains 94 km away; the buildings inside one kilometre are behind or
+below it. Sixty-two thousand triangles are meshed for a frame that cannot contain them.
+Whichever way it resolves -- they should be drawn, or they should never have been built --
+the defect is the same one: **nothing in this engine compares what was BUILT against what
+was DRAWN**, so neither answer can be told from the other.
+
+The ring cut is a distance test. What Jura wants is a FRUSTUM test, which is the same
+question Unreal answers with `MaxDrawDistance` PLUS its cull volumes and RAGE with
+streaming radii PLUS the portal graph: distance is the cheap half and visibility is the
+other. This tree has the cheap half now.
+
 ## What is not yet known
 
 Whether the geometry is outside the frustum, behind the near plane, culled by the cluster pass, or
