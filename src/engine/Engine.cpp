@@ -382,9 +382,10 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
   for (;;) {
     S_->Published.Opens();
     if (!S_->Asks()) { return std::unexpected(S_->Error); }
-    const double atLat = S_->Session.Declared.Ground.Origin.LatitudeDeg;
-    const double atLon = S_->Session.Declared.Ground.Origin.LongitudeDeg;
-    S_->World.Stack.Restand({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
+    const LongitudeLatitude stands = S_->WhereTheEyeStands();
+    const double atLat = stands.LatitudeDeg;
+    const double atLon = stands.LongitudeDeg;
+    S_->World.Stack.Restand(stands);
     (void)S_->Grows(atLat, atLon);
     say();
     if (S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&
