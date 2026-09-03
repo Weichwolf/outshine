@@ -1092,17 +1092,13 @@ void Engine::State::PaveLane(const Paving &on,
   }
   into.WaterMs += since();
   if (lane.Bridge) {
-    Generators::SweepRoad(
+    into.Swept += Generators::SweepRoad(
         std::span<const Generators::RoadStation>(into.Along.data(), into.Along.size()),
         static_cast<double>(lane.HalfWidthM),
         profile,
         wears,
         std::atan(Generators::kCrossfall),
-        pavement,
-        &into.SweptPieces,
-        &into.SweptCuts,
-        &into.SweptRefused,
-        &into.SweptWhy);
+        pavement);
   }
   into.SweepMs += since();
   for (size_t at = 1; at < into.Along.size(); ++at) {
@@ -1860,22 +1856,23 @@ void Engine::State::Paves(const TangentFrame &standing,
     Published.Places(
         "streets: stations a chord asked for", static_cast<double>(into.ChordAdded), "stations");
     Published.Places("streets: pieces the sweep laid on a line",
-                     static_cast<double>(into.SweptPieces),
+                     static_cast<double>(into.Swept.Pieces),
                      "pieces");
-    Published.Places("streets: cuts the sweep made", static_cast<double>(into.SweptCuts), "cuts");
+    Published.Places("streets: cuts the sweep made", static_cast<double>(into.Swept.Cuts), "cuts");
     Published.Places("streets: pieces the sweep could not lay",
-                     static_cast<double>(into.SweptRefused),
+                     static_cast<double>(into.Swept.Refused),
                      "pieces");
     Published.Places(
-        "streets: of those, the fit refused", static_cast<double>(into.SweptWhy.Fit), "pieces");
+        "streets: of those, the fit refused", static_cast<double>(into.Swept.Why.Fit), "pieces");
     Published.Places(
-        "streets: of those, the rise refused", static_cast<double>(into.SweptWhy.Rise), "pieces");
+        "streets: of those, the rise refused", static_cast<double>(into.Swept.Why.Rise), "pieces");
     Published.Places(
-        "streets: of those, the bank refused", static_cast<double>(into.SweptWhy.Bank), "pieces");
-    Published.Places(
-        "streets: of those, the sweep refused", static_cast<double>(into.SweptWhy.Sweep), "pieces");
+        "streets: of those, the bank refused", static_cast<double>(into.Swept.Why.Bank), "pieces");
+    Published.Places("streets: of those, the sweep refused",
+                     static_cast<double>(into.Swept.Why.Sweep),
+                     "pieces");
     Published.Places("streets: of those, too short to lay",
-                     static_cast<double>(into.SweptWhy.TooShort),
+                     static_cast<double>(into.Swept.Why.TooShort),
                      "pieces");
     Published.Places("streets: pieces the split still could not lay",
                      static_cast<double>(into.FitUnsplittable),

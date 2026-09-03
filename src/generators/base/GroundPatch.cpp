@@ -27,15 +27,13 @@ GroundPatch::Complete(const Tile &region, int side, std::span<const Posting> pos
     if (p.Height.Where() != GroundSample::State::Resolved) { return nullptr; }
   }
   const auto steps = static_cast<double>(side - 1);
-  return std::shared_ptr<const GroundPatch>(
-      new GroundPatch(side, region.SpanEm() / steps, region.SpanNm() / steps, postings));
+  return std::shared_ptr<const GroundPatch>(new GroundPatch(
+      {.Side = side, .EastM = region.SpanEm() / steps, .NorthM = region.SpanNm() / steps},
+      postings));
 }
 
-GroundPatch::GroundPatch(int side,
-                         double spacingEm,
-                         double spacingNm,
-                         std::span<const Posting> postings)
-    : Side_(side), SpacingEm_(spacingEm), SpacingNm_(spacingNm) {
+GroundPatch::GroundPatch(Laid grid, std::span<const Posting> postings)
+    : Side_(grid.Side), SpacingEm_(grid.EastM), SpacingNm_(grid.NorthM) {
   AslM_.reserve(postings.size());
   for (const Posting &p : postings) {
     double aslM = 0.0;

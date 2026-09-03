@@ -480,7 +480,7 @@ struct Engine::State {
     std::unordered_map<uint64_t, std::vector<Generators::RoadGate>> Gates;
     std::unordered_map<uint64_t, double> EndM;
     std::unordered_map<uint64_t, double> GroundEndM;
-    Generators::RoadRefusals SweptWhy;
+    Generators::Swept Swept;
     size_t ChordAdded = 0;
     size_t DecksOverWater = 0;
     size_t AskedOverBridge = 0;
@@ -495,9 +495,6 @@ struct Engine::State {
     size_t FitTooTight = 0;
     size_t FitUnsplittable = 0;
     size_t FitCuts = 0;
-    size_t SweptPieces = 0;
-    size_t SweptCuts = 0;
-    size_t SweptRefused = 0;
     size_t CrossingsSeen = 0;
     size_t DecksRaised = 0;
     double MostRaisedM = 0.0;

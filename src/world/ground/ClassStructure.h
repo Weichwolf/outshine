@@ -28,13 +28,17 @@ public:
     double BuildMs = 0.0, PackMs = 0.0;
   };
 
+  struct FromRun {
+    uint64_t Version = 0;
+    int UnmappedRow = 0;
+    double BuildMs = 0.0;
+    int Overflow = 0;
+  };
+
   ClassStructure(const TangentFrame &frame,
                  std::shared_ptr<const Grid> fine,
                  std::shared_ptr<const Grid> coarse,
-                 uint64_t version,
-                 int unmappedRow,
-                 double buildMs,
-                 int overflow);
+                 FromRun of);
 
   [[nodiscard]] const TangentFrame &Frame() const { return Frame_; }
 

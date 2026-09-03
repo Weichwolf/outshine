@@ -321,17 +321,15 @@ void DesignProfile(std::span<RoadStation> along, double mostGradient, double lea
   for (auto &one : along) { one.GradeM -= apart; }
 }
 
-void SweepRoad(std::span<const RoadStation> along,
-               double halfWidthM,
-               RoadProfile profile,
-               const Vec3f &wearsLinear,
-               double crossfall,
-               RoadRaised &into,
-               size_t *piecesLaid,
-               size_t *cutsMade,
-               size_t *piecesRefused,
-               RoadRefusals *why) {
-  if (along.size() < 3 || !(halfWidthM > 0.0)) { return; }
+Swept SweepRoad(std::span<const RoadStation> along,
+                double halfWidthM,
+                RoadProfile profile,
+                const Vec3f &wearsLinear,
+                double crossfall,
+                RoadRaised &into) {
+  Swept tally;
+  RoadRefusals *const why = &tally.Why;
+  if (along.size() < 3 || !(halfWidthM > 0.0)) { return tally; }
 
   std::vector<double> eastNorth;
   std::vector<double> grade;
@@ -372,20 +370,20 @@ void SweepRoad(std::span<const RoadStation> along,
                    crossfall,
                    into,
                    why)) {
-        if (piecesLaid != nullptr) { ++*piecesLaid; }
-      } else if (piecesRefused != nullptr) {
-        ++*piecesRefused;
+        ++tally.Pieces;
+      } else {
+        ++tally.Refused;
       }
-    } else if (piecesRefused != nullptr) {
-      ++*piecesRefused;
+    } else {
+      ++tally.Refused;
       if (why != nullptr) { ++why->TooShort; }
     }
     if (got.Laid) { break; }
     if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
-      if (piecesRefused != nullptr) { ++*piecesRefused; }
+      ++tally.Refused;
       break;
     }
-    if (cutsMade != nullptr) { ++*cutsMade; }
+    ++tally.Cuts;
     {
       const size_t at = from + upTo;
       if (at > 0 && at + 1u < along.size()) {
@@ -415,5 +413,6 @@ void SweepRoad(std::span<const RoadStation> along,
     }
     from += upTo;
   }
+  return tally;
 }
 } // namespace outshine::Generators

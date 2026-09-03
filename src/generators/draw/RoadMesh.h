@@ -48,16 +48,31 @@ struct RoadRefusals {
 
 void DesignProfile(std::span<RoadStation> along, double mostGradient, double leastCrestK);
 
-void SweepRoad(std::span<const RoadStation> along,
-               double halfWidthM,
-               RoadProfile profile,
-               const Vec3f &wearsLinear,
-               double crossfall,
-               RoadRaised &into,
-               size_t *piecesLaid,
-               size_t *cutsMade,
-               size_t *piecesRefused,
-               RoadRefusals *why);
+struct Swept {
+  size_t Pieces = 0;
+  size_t Cuts = 0;
+  size_t Refused = 0;
+  RoadRefusals Why;
+
+  Swept &operator+=(const Swept &more) {
+    Pieces += more.Pieces;
+    Cuts += more.Cuts;
+    Refused += more.Refused;
+    Why.Fit += more.Why.Fit;
+    Why.Rise += more.Why.Rise;
+    Why.Bank += more.Why.Bank;
+    Why.Sweep += more.Why.Sweep;
+    Why.TooShort += more.Why.TooShort;
+    return *this;
+  }
+};
+
+[[nodiscard]] Swept SweepRoad(std::span<const RoadStation> along,
+                              double halfWidthM,
+                              RoadProfile profile,
+                              const Vec3f &wearsLinear,
+                              double crossfall,
+                              RoadRaised &into);
 
 } // namespace outshine::Generators
 #endif

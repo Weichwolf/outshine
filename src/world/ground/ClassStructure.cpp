@@ -87,16 +87,13 @@ double SegDist(Vec2 from, Edge of) {
 ClassStructure::ClassStructure(const TangentFrame &frame,
                                std::shared_ptr<const Grid> fine,
                                std::shared_ptr<const Grid> coarse,
-                               uint64_t version,
-                               int unmappedRow,
-                               double buildMs,
-                               int overflow)
-    : Frame_(frame), Fine_(std::move(fine)), Coarse_(std::move(coarse)), Version_(version) {
+                               FromRun of)
+    : Frame_(frame), Fine_(std::move(fine)), Coarse_(std::move(coarse)), Version_(of.Version) {
   const double t0 = Clock();
-  Pack(unmappedRow);
+  Pack(of.UnmappedRow);
   Measures_.PackMs = Clock() - t0;
-  Measures_.BuildMs = buildMs;
-  Measures_.Overflow = overflow;
+  Measures_.BuildMs = of.BuildMs;
+  Measures_.Overflow = of.Overflow;
   Measures_.Edges = static_cast<long>((Fine_->Edges.size() + Coarse_->Edges.size()) / 4);
   Measures_.Seeds = static_cast<long>((Fine_->Seeds.size() + Coarse_->Seeds.size()) / 3);
   Probe();

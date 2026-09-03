@@ -86,21 +86,16 @@ private:
 
 [[nodiscard]] bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error);
 
-[[nodiscard]] bool Moved(SceneRenderer &renderer,
-                         size_t rows,
-                         size_t from,
-                         size_t to,
-                         const Mat4 &ecef,
-                         std::string &error);
+struct Placing {
+  size_t Rows = 0;
+  size_t Many = 1;
+  size_t Which = 0;
+  size_t FromPart = 0;
+  size_t ToPart = 0;
+};
 
-[[nodiscard]] bool MovedInstance(SceneRenderer &renderer,
-                                 size_t rows,
-                                 size_t instances,
-                                 size_t instance,
-                                 size_t fromPart,
-                                 size_t toPart,
-                                 const Mat4 &ecef,
-                                 std::string &error);
+[[nodiscard]] bool
+Moved(SceneRenderer &renderer, Placing what, const Mat4 &ecef, std::string &error);
 
 struct SubjectScratch {
   bool Digests = false;

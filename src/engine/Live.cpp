@@ -1020,12 +1020,19 @@ bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std
   Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
 
   if ((bodyMoved && joined > 0) &&
-      (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, bodyM, error))) {
+      (!Render::Moved(*Renderer_,
+                      {.Rows = rows, .Many = instances, .Which = body, .ToPart = joined},
+                      bodyM,
+                      error))) {
     return false;
   }
 
   if ((builtMoved && joined < parts) &&
-      (!Render::MovedInstance(*Renderer_, rows, instances, body, joined, parts, built, error))) {
+      (!Render::Moved(
+          *Renderer_,
+          {.Rows = rows, .Many = instances, .Which = body, .FromPart = joined, .ToPart = parts},
+          built,
+          error))) {
     return false;
   }
 

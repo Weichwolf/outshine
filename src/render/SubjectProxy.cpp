@@ -101,30 +101,12 @@ bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &err
   return renderer.HandSubjectPlacements(error);
 }
 
-bool MovedInstance(SceneRenderer &renderer,
-                   size_t rows,
-                   size_t instances,
-                   size_t instance,
-                   size_t fromPart,
-                   size_t toPart,
-                   const Mat4 &ecef,
-                   std::string &error) {
-  if (instances == 0 || instance >= instances) { return true; }
-  if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
-  for (size_t part = fromPart; part < toPart; ++part) {
-    renderer.MoveSubjectPlacement(part * instances + instance, ecef);
+bool Moved(SceneRenderer &renderer, Placing what, const Mat4 &ecef, std::string &error) {
+  if (what.Many == 0 || what.Which >= what.Many) { return true; }
+  if (!renderer.SubjectPlacementRows(what.Rows, error)) { return false; }
+  for (size_t part = what.FromPart; part < what.ToPart; ++part) {
+    renderer.MoveSubjectPlacement(part * what.Many + what.Which, ecef);
   }
-  return renderer.HandSubjectPlacements(error);
-}
-
-bool Moved(SceneRenderer &renderer,
-           size_t rows,
-           size_t from,
-           size_t to,
-           const Mat4 &ecef,
-           std::string &error) {
-  if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
-  for (size_t part = from; part < to; ++part) { renderer.MoveSubjectPlacement(part, ecef); }
   return renderer.HandSubjectPlacements(error);
 }
 
