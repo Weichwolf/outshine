@@ -1177,11 +1177,6 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
     const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
     Published.Places(
         "building triangles the world meshed", static_cast<double>(triangles), "triangles");
-    constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
-    const uint64_t geometry = DigestOver(standing);
-    Published.Places(
-        "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
-    Published.Places("and its low half", static_cast<double>(geometry & kLowWord), "digest");
   }
   Published.Places(
       "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
@@ -1220,6 +1215,14 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
                    static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
                    "tiles");
   if (World.EverLaid && !elsewhere && !grew && !renamed) { return Laid::Unchanged; }
+
+  {
+    constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
+    const uint64_t geometry = DigestOver(World.Stack.Footprints().Built());
+    Published.Places(
+        "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
+    Published.Places("and its low half", static_cast<double>(geometry & kLowWord), "digest");
+  }
   Published.Places(
       "rebuilds since the world stood", static_cast<double>(World.Relaid + 1u), "rebuilds");
   Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");

@@ -110,6 +110,7 @@ private:
   GroundMaterials Materials_;
   VegetationTemplates Templates_;
   std::size_t Overflowed_ = 0;
+  bool Settled_ = false;
   bool Overflowing_ = false;
   std::unique_ptr<OsmField> Vectors_;
   BuildingField Footprints_;

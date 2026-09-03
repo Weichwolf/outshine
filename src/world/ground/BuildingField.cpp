@@ -22,6 +22,8 @@
 
 namespace outshine::Ground {
 
+constexpr int kBuildingRings = 1;
+
 constexpr uint32_t kKnuthWord = 2654435761u;
 constexpr uint32_t kSecondKnuthWord = 2246822519u;
 constexpr double kNoNearestYet = 1.0e29;
@@ -316,9 +318,10 @@ int BuildingField::Build(const GroundQuery &ground,
   int added = 0;
 
   const TileWatermark::Next next = Mark_.Ask(
-      feats, field.Tiles(), field.CentreX(), field.CentreY(), [&](size_t from, size_t to) {
-        return TileGroundResolved(ground, field, from, to, layer);
-      });
+      feats,
+      field.Tiles(),
+      {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kBuildingRings},
+      [&](size_t from, size_t to) { return TileGroundResolved(ground, field, from, to, layer); });
   if (!next.Found) { return static_cast<int>(Prints_.size()); }
   Mark_.Take(next.Tile);
 

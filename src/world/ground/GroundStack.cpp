@@ -95,6 +95,7 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
 void GroundStack::Restand(LongitudeLatitude at) {
   if (!Pool_ || StandsAt(at)) { return; }
   Stood_ = at;
+  Settled_ = false;
   Cls_.Update(*Pool_, at);
   if (!Vegetated_) { return; }
   if (!Vectors_) {
@@ -119,6 +120,7 @@ void GroundStack::Restand(LongitudeLatitude at) {
   for (int pass = 0; pass < kVectorTiles; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       Settle();
+      Settled_ = true;
       if (HeapBytes() > kHoldsBytes) {
         ++Overflowed_;
         Overflowing_ = true;
@@ -134,7 +136,10 @@ void GroundStack::Restand(LongitudeLatitude at) {
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after == before || Drained()) { break; }
   }
-  if (Drained()) { Settle(); }
+  if (Drained() && !Settled_) {
+    Settle();
+    Settled_ = true;
+  }
 }
 
 void GroundStack::Settle() {

@@ -11,6 +11,7 @@
 
 namespace outshine::Ground {
 
+constexpr int kEveryRing = 1 << 20;
 constexpr uint64_t kNoWatermark = 0xffffffffffffffffull;
 constexpr unsigned kAwayShift = 48u;
 constexpr unsigned kZoomShift = 40u;
@@ -24,12 +25,19 @@ public:
     bool Found = false;
   };
 
+  struct Reach {
+    int CentreX = 0;
+    int CentreY = 0;
+    int Rings = kEveryRing;
+  };
+
   template <typename Consumable>
   Next Ask(std::span<const OsmField::Feature> feats,
            std::span<const OsmField::Tile> tiles,
-           int centreX,
-           int centreY,
+           Reach over,
            Consumable consumable) {
+    const int centreX = over.CentreX;
+    const int centreY = over.CentreY;
     Candidates_.clear();
     size_t at = Mark_;
     while (at < feats.size()) {
@@ -37,7 +45,13 @@ public:
       size_t end = at;
       while (end < feats.size() && feats[end].Tile == tile) { end++; }
       if (!Taken(tile)) {
-        Candidates_.push_back(Next{.From = at, .To = end, .Tile = tile, .Found = true});
+        if (Beyond(tiles, tile, over)) {
+          Skipped_.insert(std::ranges::lower_bound(Skipped_, tile), tile);
+          Ahead_.insert(std::ranges::lower_bound(Ahead_, tile), tile);
+          ++Beyond_;
+        } else {
+          Candidates_.push_back(Next{.From = at, .To = end, .Tile = tile, .Found = true});
+        }
       }
       at = end;
     }
@@ -86,12 +100,25 @@ public:
 
   [[nodiscard]] size_t AheadCount() const { return Ahead_.size(); }
 
-  [[nodiscard]] size_t HeapBytes() const { return CapacityBytes(Ahead_); }
+  [[nodiscard]] size_t BeyondCount() const { return Beyond_; }
+
+  [[nodiscard]] size_t HeapBytes() const { return CapacityBytes(Ahead_) + CapacityBytes(Skipped_); }
 
 private:
   [[nodiscard]] bool Taken(uint32_t tile) const { return std::ranges::binary_search(Ahead_, tile); }
 
+  [[nodiscard]] static bool
+  Beyond(std::span<const OsmField::Tile> tiles, uint32_t tile, Reach over) {
+    if (over.Rings >= kEveryRing || tile >= tiles.size()) { return false; }
+    const OsmField::Tile &which = tiles[tile];
+    const int across = which.X - over.CentreX;
+    const int down = which.Y - over.CentreY;
+    return std::abs(across) > over.Rings || std::abs(down) > over.Rings;
+  }
+
   std::vector<uint32_t> Ahead_;
+  std::vector<uint32_t> Skipped_;
+  size_t Beyond_ = 0;
   size_t Mark_ = 0;
   std::vector<Next> Candidates_;
   size_t Takes_ = 0;

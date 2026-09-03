@@ -16,8 +16,11 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
   const std::span<const OsmField::Feature> feats = field.Features();
   if (Mark_.Done(feats)) { return static_cast<uint32_t>(Ways_.size()); }
 
-  const TileWatermark::Next next = Mark_.Ask(
-      feats, field.Tiles(), field.CentreX(), field.CentreY(), [](size_t, size_t) { return true; });
+  const TileWatermark::Next next =
+      Mark_.Ask(feats,
+                field.Tiles(),
+                {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
+                [](size_t, size_t) { return true; });
   if (!next.Found) { return static_cast<uint32_t>(Ways_.size()); }
   Mark_.Take(next.Tile);
   Mark_.Advance(feats);
