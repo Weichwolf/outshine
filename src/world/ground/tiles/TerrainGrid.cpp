@@ -5,6 +5,8 @@
 #include "Log.h"
 #include "Png.h"
 #include <algorithm>
+#include <vector>
+#include <cmath>
 #include <cstdint>
 #include <cstddef>
 #include <utility>
@@ -49,6 +51,43 @@ bool AnySoundSample(const TerrainField &field) {
     }
   }
   return false;
+}
+
+constexpr float kOutlierDeviations = 20.0f;
+constexpr float kLeastDeviationM = 1.0f;
+
+float MedianOf(std::vector<float> &held) {
+  if (held.empty()) { return 0.0f; }
+  const size_t middle = held.size() / 2;
+  std::ranges::nth_element(held, held.begin() + static_cast<ptrdiff_t>(middle));
+  return held[middle];
+}
+
+size_t FlattenOutliers(TerrainField &field) {
+  std::vector<float> sound;
+  sound.reserve(static_cast<size_t>(field.Rows()) * field.Cols());
+  for (uint32_t r = 0; r < field.Rows(); ++r) {
+    for (uint32_t c = 0; c < field.Cols(); ++c) {
+      const float held = field.AtM(r, c);
+      if (GroundSample::HeightIsOnEarth(held)) { sound.push_back(held); }
+    }
+  }
+  if (sound.size() * 2 < static_cast<size_t>(field.Rows()) * field.Cols()) { return 0; }
+
+  const float middle = MedianOf(sound);
+  for (float &one : sound) { one = std::fabs(one - middle); }
+  const float spread = std::max(MedianOf(sound), kLeastDeviationM);
+  const float reach = kOutlierDeviations * spread;
+
+  size_t caught = 0;
+  for (uint32_t r = 0; r < field.Rows(); ++r) {
+    for (uint32_t c = 0; c < field.Cols(); ++c) {
+      if (std::fabs(field.AtM(r, c) - middle) <= reach) { continue; }
+      field.SetM(r, c, middle);
+      ++caught;
+    }
+  }
+  return caught;
 }
 
 bool FillOffEarth(TerrainField &field) {
@@ -103,6 +142,12 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
                {{"pixels", static_cast<int>(offEarth)},
                 {"ofPixels", static_cast<int>(read.High * read.Wide)}});
     return Undecodable();
+  }
+  if (const size_t caught = FlattenOutliers(field); caught > 0) {
+    Log::Error("world",
+               "dem_outliers",
+               {{"pixels", static_cast<int>(caught)},
+                {"ofPixels", static_cast<int>(read.High * read.Wide)}});
   }
   if (offEarth > 0) {
     Log::Error("world",

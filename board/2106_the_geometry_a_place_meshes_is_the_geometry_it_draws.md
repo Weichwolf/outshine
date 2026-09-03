@@ -208,10 +208,35 @@ not only as scattered pixels. A pixel inside a band has bad neighbours, so it ag
 them and no neighbourhood test can see it. Only the 256x253 case is scattered.
 
 **So the shape of the damage is two shapes, and one predicate cannot hold both.** Scattered
-pixels want their neighbours' mean, which is in and works. Bands want something that knows
-a band when it sees one -- a run along a row or column, or the tile's own distribution --
-and that is what this item still owes. The measurement that would have said so was already
-on the page, which is the lesson worth more than the filter.
+pixels want their neighbours' mean. Bands want something that knows a band when it sees
+one -- and the tile's own distribution does, whatever shape the damage takes:
+
+    median +/- 20 * median-absolute-deviation, over the samples that are on Earth at all
+
+With 0.7 per cent damaged, both statistics are carried by the sound 99.3 per cent, and a
+band sits outside them however wide it is. A tile of real mountains has a large deviation
+and the same arithmetic leaves it alone, so this needs no knowledge of the place.
+
+| | before | after |
+|---|---|---|
+| CentralPark's deepest near vertex | -24 149.8 m | **-76.6 m** |
+| near vertices below -100 m | 441 | **0** |
+| Jura's variation (the Alps, real relief) | 0.7432 | 0.7421 |
+| OldTown's variation | 1.6656 | 1.6656 |
+| ZurichPlan's variation | 6.5414 | 6.5399 |
+
+**The ring is sound at every place and no place lost its relief.**
+
+## AND THE PICTURE IS STILL EMPTY
+
+CentralPark's ground now runs from -76.6 m, and its variation is 0.9584 against 0.9592
+before. **So the sunken ring was not why the frame holds none of its geometry.** It was a
+real defect, measured and repaired, and it was not this one.
+
+What that leaves is the counter this item has owed from the first line: built, submitted
+and drawn as three numbers. Every hypothesis reachable by arithmetic on the existing
+measures has now been spent -- the geometry doubles and the picture does not, the ground
+is sound and the picture does not, and nothing published says which pass drops it.
 
 What it does NOT do is repair it. What stands in for a sample that decoded off the planet
 -- the neighbour, the tile's median, a refusal of the whole tile -- is a decision about
