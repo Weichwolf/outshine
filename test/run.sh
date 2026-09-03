@@ -2080,7 +2080,15 @@ JudgeInstrument() {
 Record() {
   recordId=$1
   recordMs=$2
-  if wanted=$(DeclaredFailures "$recordId"); then
+  # A DECLARATION BELONGS TO THE CASE, NOT TO THE ARM. Every case runs twice -- once plain, once
+  # under the sanitiser -- and both arms run the same claims and report the same failures, so an
+  # EXPECT_FAIL or EXPECT_UNPREPARED entry naming the case has to be found from either. It was
+  # looked up under the ARM's name, which matches only the plain arm, so every declared failure
+  # went red on its sanitised twin: 74 of them, permanently, for behaviour that is DECLARED.
+  # The list is the proof this is the lookup's defect and not the list's -- it carries no
+  # `~sanitised` entry at all and never did, because the arms are the harness's own split.
+  recordCase=${recordId%~sanitised}
+  if wanted=$(DeclaredFailures "$recordCase"); then
     if [ "$verdict" = FAIL ] && [ "$failures" -eq "$wanted" ]; then
       verdict=PASS
       inverted=$((inverted + 1))
@@ -2094,7 +2102,7 @@ Record() {
   case "$verdict" in
     PASS)
       passed=$((passed + 1))
-      if DeclaredUnprepared "$recordId"; then
+      if DeclaredUnprepared "$recordCase"; then
         staleUnprepared=$((staleUnprepared + 1))
         printf 'run.sh: %s PREPARED and EXPECT_UNPREPARED still names it -- the declaration outlived what it declared, so take it out\n' \
           "$recordId" >&2
@@ -2112,7 +2120,7 @@ Record() {
       ;;
     BUILD) unbuilt=$((unbuilt + 1)) ;;
     UNPREP)
-      if DeclaredUnprepared "$recordId"; then
+      if DeclaredUnprepared "$recordCase"; then
         declaredUnprepared=$((declaredUnprepared + 1))
         printf 'run.sh: %s has no oracle and EXPECT_UNPREPARED says why -- board:1923\n' \
           "$recordId" >&2
@@ -2124,7 +2132,7 @@ Record() {
       ;;
     SKIP)
       skipped=$((skipped + 1))
-      if ! SkipAllowed "$recordId"; then
+      if ! SkipAllowed "$recordCase"; then
         undeclaredSkips=$((undeclaredSkips + 1))
         printf 'run.sh: %s skipped and no --allow-skip %s was given\n' "$recordId" "$recordId" >&2
       fi
