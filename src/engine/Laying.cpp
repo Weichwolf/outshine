@@ -370,12 +370,18 @@ void Engine::State::Models(const TangentFrame &standing,
       double least = kBeyondAnyCoordinate;
       double most = -kBeyondAnyCoordinate;
       size_t within = 0;
+      size_t deepest = 0;
+      double deepestOut = 0.0;
       for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
         const auto east = static_cast<double>(inFrame[at]);
         const auto south = static_cast<double>(inFrame[at + 2]);
         if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
         const auto up = static_cast<double>(inFrame[at + 1]);
-        least = up < least ? up : least;
+        if (up < least) {
+          least = up;
+          deepest = at / 3u;
+          deepestOut = std::sqrt(east * east + south * south);
+        }
         most = up > most ? up : most;
         ++within;
       }
@@ -384,6 +390,18 @@ void Engine::State::Models(const TangentFrame &standing,
       Published.Places("ground: to", within > 0 ? most : 0.0, "m up");
       Published.Places(
           "ground: over this many ring vertices", static_cast<double>(within), "vertices");
+      Published.Places(
+          "ground: the deepest of those is vertex", static_cast<double>(deepest), "index");
+      Published.Places("ground: and it lies this far out", deepestOut, "m");
+      size_t sunken = 0;
+      for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+        const auto east = static_cast<double>(inFrame[at]);
+        const auto south = static_cast<double>(inFrame[at + 2]);
+        if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
+        sunken += static_cast<double>(inFrame[at + 1]) < -100.0 ? 1u : 0u;
+      }
+      Published.Places(
+          "ground: of those, how many sit below -100 m", static_cast<double>(sunken), "vertices");
     }
   }
   const auto builtAt = std::chrono::steady_clock::now();

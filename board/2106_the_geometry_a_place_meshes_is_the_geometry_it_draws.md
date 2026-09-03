@@ -124,6 +124,32 @@ A vertex 24 km down, 3 km away, at nearly the same depth as the farthest point o
 393 km ring. That is not a place on Earth; it is one vertex carrying a value from
 somewhere else in the ring, and the buildings inside 3.2 km are meshed onto it.
 
+## FOUR HUNDRED AND FORTY-ONE OF THEM, AND NONE AT OLDTOWN
+
+Instrumented and measured, 2026-09-03:
+
+| | CentralPark | OldTown |
+|---|---|---|
+| ring vertices within 3.2 km | 132 660 | 150 033 |
+| of those, below -100 m | **441** | **0** |
+| the deepest one | vertex 5690 | -- |
+| how far out it lies | 2 110.8 m | -- |
+| how deep | -24 149.8 m | -- |
+
+A sphere sinks a vertex by `R(1 - cos t)` and moves it out by `R sin t`, so a 24 km sink
+belongs 554 km away. This one sits 2.1 km out, where the sphere accounts for 0.35 m --
+**a factor of 69 000** -- and it is not alone: 441 of CentralPark's near vertices are
+below -100 m and none of OldTown's are.
+
+So it is a shape, not a bad row. Each of those 441 drags every triangle that touches it
+24 km down, which is geometry that reaches the frame as near-vertical sheets rather than
+ground, and is the mechanism behind "the frame holds the sky and the ground and NONE of
+the geometry that was built for it": the buildings are meshed onto a ring that is partly
+in the mantle.
+
+The next question is which 441 and what they have in common -- a tile edge, a seam, a
+missing sample -- and that is where this item continues.
+
 ## What is not yet known
 
 Whether the geometry is outside the frustum, behind the near plane, culled by the cluster pass, or
