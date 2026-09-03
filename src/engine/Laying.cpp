@@ -39,6 +39,20 @@
 
 namespace outshine {
 
+namespace {
+
+[[nodiscard]] uint64_t DigestOver(const Raised &built) {
+  uint64_t mixed = kDigestBasis;
+  const auto fold = [&mixed](uint64_t one) { mixed = (mixed ^ one) * kDigestPrime; };
+  for (const float one : built.WallCorners) { fold(std::bit_cast<uint32_t>(one)); }
+  for (const float one : built.RoofCorners) { fold(std::bit_cast<uint32_t>(one)); }
+  for (const uint32_t one : built.WallRun) { fold(one); }
+  for (const uint32_t one : built.RoofRun) { fold(one); }
+  return mixed;
+}
+
+} // namespace
+
 constexpr double kNoLeastYet = 1.0e9;
 
 static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
@@ -1163,6 +1177,11 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
     const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
     Published.Places(
         "building triangles the world meshed", static_cast<double>(triangles), "triangles");
+    constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
+    const uint64_t geometry = DigestOver(standing);
+    Published.Places(
+        "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
+    Published.Places("and its low half", static_cast<double>(geometry & kLowWord), "digest");
   }
   Published.Places(
       "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
