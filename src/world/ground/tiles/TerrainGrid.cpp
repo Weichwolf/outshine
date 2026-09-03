@@ -1,5 +1,7 @@
 #include "TerrainGrid.h"
 
+#include "GroundSample.h"
+
 #include "Log.h"
 #include "Png.h"
 #include <cstdint>
@@ -23,14 +25,26 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
 
   TerrainField field(read.High, read.Wide);
   const size_t stride = static_cast<size_t>(read.Wide) * read.Channels;
+  size_t offEarth = 0;
+  float deepest = 0.0f;
   for (uint32_t r = 0; r < read.High; r++) {
     const uint8_t *p = read.Bytes.data() + static_cast<size_t>(r) * stride;
     for (uint32_t c = 0; c < read.Wide; c++, p += read.Channels) {
-      field.SetM(r,
-                 c,
-                 static_cast<float>(p[0]) * kByteSteps + static_cast<float>(p[1]) +
-                     static_cast<float>(p[2]) * (1.0f / kByteSteps) - kTerrariumOffsetM);
+      const float aslM = static_cast<float>(p[0]) * kByteSteps + static_cast<float>(p[1]) +
+                         static_cast<float>(p[2]) * (1.0f / kByteSteps) - kTerrariumOffsetM;
+      if (!GroundSample::HeightIsOnEarth(aslM)) {
+        ++offEarth;
+        deepest = aslM < deepest ? aslM : deepest;
+      }
+      field.SetM(r, c, aslM);
     }
+  }
+  if (offEarth > 0) {
+    Log::Error("world",
+               "dem_off_earth",
+               {{"pixels", static_cast<int>(offEarth)},
+                {"deepestM", static_cast<int>(deepest)},
+                {"ofPixels", static_cast<int>(read.High * read.Wide)}});
   }
   return Holding(std::move(field));
 }

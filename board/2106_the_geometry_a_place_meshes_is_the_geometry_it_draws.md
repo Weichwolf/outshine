@@ -158,6 +158,27 @@ carries its 441, unchanged, digest unmoved. So nothing enters the tree at -24 14
 value is correct at the sample and wrong by the time it is a ring vertex. That rules out
 the elevation source and the sampler, and leaves the pass between them and `inFrame`.
 
+## FOUND: the elevation tiles decode off the planet
+
+`TerrainGrid::FromTerrariumPng` turns every byte triple into a height and checked nothing.
+Terrarium packs `R*256 + G + B/256 - 32768`, so ANY three bytes decode to something: a
+green pixel of (33, 171, 0) reads as -24 149 m. The decoder now says when a tile leaves
+the planet, and at CentralPark it says it fifteen times:
+
+    dem_off_earth pixels=475 deepestM=-24651 ofPixels=65536
+    dem_off_earth pixels=475 deepestM=-24651 ofPixels=65536
+    dem_off_earth pixels=214 deepestM=-14939 ofPixels=65536
+
+Four hundred and seventy-five of 65 536 pixels -- 0.7 per cent of one tile. OldTown,
+Venice and Kaiserberg report zero. **That is the whole chain**: bad pixels in this place's
+elevation tiles, 441 ring vertices dragged 24 km down, triangles that reach the frame as
+near-vertical sheets, and a picture that does not change when the buildings double.
+
+What it does NOT do is repair it. What stands in for a sample that decoded off the planet
+-- the neighbour, the tile's median, a refusal of the whole tile -- is a decision about
+what the world IS, and inventing one quietly is how a place ends up drawn from data nobody
+checked. That is the next item's to make.
+
 `GroundYield` cuts seams and sews them (`ground: of that, cutting the seams`, `sewing
 them`), which is the pass that joins detail levels and the one place a vertex can be
 given a neighbour's height. That is where this item looks next.
