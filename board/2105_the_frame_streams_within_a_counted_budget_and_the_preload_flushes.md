@@ -71,6 +71,26 @@ two that wander. Kaiserberg is the caveat: it preloads and still drew a second d
 twice, so preloading is necessary and not yet sufficient -- it stands close enough to
 the ceiling that the round it stops on still varies.
 
+## Where it stands, 2026-09-03
+
+`shots --all`, three runs, after the ceiling began refusing out loud, `Settle` freed
+96 MB, and `Restand` stopped ingesting while tiles were in flight:
+
+| place | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| OldTown, Heidelberg, CentralPark, Venice, Jura, ZurichPlan, Kaiserberg, Koehlbrand | identical | identical | identical |
+| Shibuya | refuses | refuses | refuses |
+
+**Eight of nine hold a steady digest across three runs, and the ninth does not draw at
+all.** CentralPark was one of the two that wandered.
+
+Two things this does NOT settle. Shibuya still holds 537 951 538 bytes against a
+536 870 912 ceiling, so its determinism is untested rather than proven. And CentralPark
+draws `d56ae2e1` inside `--all` against `3cdca8d5` over sixteen runs of `--rows
+CentralPark` alone -- steady within each shape of the command and not across them, so
+what ran BEFORE a place still reaches it. That is the same sentence as the original
+defect, one level up.
+
 ## Preloading is necessary and NOT sufficient: there is a second source
 
 Measured 2026-09-03, after `Settle` freed 96 MB and CentralPark began to preload:
