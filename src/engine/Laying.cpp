@@ -871,6 +871,19 @@ void Engine::State::RefineChords(const Paving &on, Paved &into) {
   }
 }
 
+size_t Engine::State::StepsAcross(const Paving &on, Spanning between) {
+  const double perLon = kMPerDegLon * std::cos(on.Points[between.Here] * kDeg2Rad);
+  const double spanE = (on.Points[between.Next + 1] - on.Points[between.Here + 1]) * perLon;
+  const double spanN = (on.Points[between.Next] - on.Points[between.Here]) * kMPerDegLat;
+  return static_cast<size_t>(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
+}
+
+uint64_t Engine::State::SharedNodeAt(const Paving &on, double latDeg, double lonDeg) {
+  const uint64_t key = PlaceKey({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg});
+  const auto seen = on.SharedNodes.find(key);
+  return seen != on.SharedNodes.end() && seen->second > 1u ? key : 0u;
+}
+
 void Engine::State::DesignLane(const Paving &on,
                                const Ground::StreetField::Way &lane,
                                size_t laneAt,
@@ -878,22 +891,11 @@ void Engine::State::DesignLane(const Paving &on,
   into.Along.clear();
   bool whole = true;
   const auto station = [&](double lat, double lon, uint64_t node) {
-    const std::optional<double> stood =
-        World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
+    const std::optional<Grounded> stood =
+        GroundUnder(on.Standing, on.Draped, {.LongitudeDeg = lon, .LatitudeDeg = lat});
     if (!stood) { return false; }
-    const double aslM = *stood;
-    double eastM = 0.0;
-    double upM = 0.0;
-    double northM = 0.0;
-    const EastNorthUp eastMEnu =
-        on.Standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
-    eastM = eastMEnu.EastM;
-    upM = eastMEnu.UpM;
-    northM = eastMEnu.NorthM;
-    into.Along.push_back({.EastM = eastM,
-                          .SouthM = -northM,
-                          .GradeM = on.Draped.At({.EastM = eastM, .SouthM = -northM}, upM),
-                          .Node = node});
+    into.Along.push_back(
+        {.EastM = stood->EastM, .SouthM = stood->SouthM, .GradeM = stood->GradeM, .Node = node});
     return true;
   };
   for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
@@ -903,23 +905,12 @@ void Engine::State::DesignLane(const Paving &on,
       whole = false;
       break;
     }
-    const double perLon = 111320.0 * std::cos(on.Points[here] * kDeg2Rad);
-    const double spanE = (on.Points[next + 1] - on.Points[here + 1]) * perLon;
-    const double spanN = (on.Points[next] - on.Points[here]) * kMPerDegLat;
-    const auto pieces =
-        static_cast<size_t>(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
+    const size_t pieces = StepsAcross(on, {.Here = here, .Next = next});
     for (size_t piece = 0; piece < pieces && whole; ++piece) {
       const double at = static_cast<double>(piece) / static_cast<double>(pieces);
       const double onLat = on.Points[here] + (on.Points[next] - on.Points[here]) * at;
       const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
-      const auto seen =
-          piece == 0 ? on.SharedNodes.find(PlaceKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat}))
-                     : on.SharedNodes.end();
-      whole = station(onLat,
-                      onLon,
-                      seen != on.SharedNodes.end() && seen->second > 1u
-                          ? PlaceKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat})
-                          : 0u);
+      whole = station(onLat, onLon, piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u);
     }
   }
   if (whole) {
@@ -1432,14 +1423,15 @@ std::optional<Engine::State::Ends> Engine::State::EndsOf(const Ground::OsmField 
   return out;
 }
 
-std::optional<double> Engine::State::GroundUnder(const TangentFrame &standing,
-                                                 const Drape &drapedOver,
-                                                 LongitudeLatitude at) const {
+std::optional<Engine::State::Grounded> Engine::State::GroundUnder(const TangentFrame &standing,
+                                                                  const Drape &drapedOver,
+                                                                  LongitudeLatitude at) const {
   const std::optional<double> stood = World.Stack.Ground().At(at).AslM();
   if (!stood) { return std::nullopt; }
   const EastNorthUp enu = standing.Place(
       {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = *stood});
-  return drapedOver.At({.EastM = enu.EastM, .SouthM = -enu.NorthM}, enu.UpM);
+  const Drape::EastSouth on = {.EastM = enu.EastM, .SouthM = -enu.NorthM};
+  return Grounded{.EastM = on.EastM, .SouthM = on.SouthM, .GradeM = drapedOver.At(on, enu.UpM)};
 }
 
 void Engine::State::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into) {
@@ -1466,12 +1458,12 @@ void Engine::State::SeedsBridgeEnds(const Ground::StreetField &ways,
     const std::array<uint64_t, 2> &key = ends->Key;
     for (int side = 0; side < 2; ++side) {
       const size_t axis = static_cast<size_t>(side) * 2u;
-      const std::optional<double> under =
+      const std::optional<Grounded> under =
           GroundUnder(standing,
                       drapedOver,
                       {.LongitudeDeg = ends->At[axis + 1u], .LatitudeDeg = ends->At[axis]});
       if (!under) { continue; }
-      const double stood = *under;
+      const double stood = under->GradeM;
       const auto found = into.EndM.find(key[side]);
       if (found == into.EndM.end()) {
         into.EndM.emplace(key[side], stood);
@@ -1540,12 +1532,12 @@ void Engine::State::GradesApproaches(const Ground::StreetField &ways,
     const std::optional<Ends> ends = EndsOf(vectors, lane);
     if (!ends) { continue; }
     const std::array<uint64_t, 2> &key = ends->Key;
-    const std::optional<double> low = GroundUnder(
+    const std::optional<Grounded> low = GroundUnder(
         standing, drapedOver, {.LongitudeDeg = ends->At[1], .LatitudeDeg = ends->At[0]});
-    const std::optional<double> high = GroundUnder(
+    const std::optional<Grounded> high = GroundUnder(
         standing, drapedOver, {.LongitudeDeg = ends->At[3], .LatitudeDeg = ends->At[2]});
     if (!low || !high) { continue; }
-    const Vec2 stood = {{*low, *high}};
+    const Vec2 stood = {{low->GradeM, high->GradeM}};
     double rose = 0.0;
     for (int side = 0; side < 2; ++side) {
       const auto found = into.EndM.find(key[side]);

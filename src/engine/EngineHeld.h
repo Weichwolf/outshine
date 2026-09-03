@@ -515,6 +515,16 @@ struct Engine::State {
   };
 
   static void RefineChords(const Paving &on, Paved &into);
+
+  struct Spanning {
+    size_t Here = 0;
+    size_t Next = 0;
+  };
+
+  [[nodiscard]] static size_t StepsAcross(const Paving &on, Spanning between);
+
+  [[nodiscard]] static uint64_t SharedNodeAt(const Paving &on, double latDeg, double lonDeg);
+
   void DesignLane(const Paving &on,
                   const Ground::StreetField::Way &lane,
                   size_t laneAt,
@@ -554,7 +564,13 @@ struct Engine::State {
   [[nodiscard]] static std::optional<Ends> EndsOf(const Ground::OsmField &vectors,
                                                   const Ground::StreetField::Way &lane);
 
-  [[nodiscard]] std::optional<double>
+  struct Grounded {
+    double EastM = 0.0;
+    double SouthM = 0.0;
+    double GradeM = 0.0;
+  };
+
+  [[nodiscard]] std::optional<Grounded>
   GroundUnder(const TangentFrame &standing, const Drape &drapedOver, LongitudeLatitude at) const;
 
   static void RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into);
