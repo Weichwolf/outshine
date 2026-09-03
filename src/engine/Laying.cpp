@@ -1486,19 +1486,20 @@ void Engine::State::SeedsBridgeEnds(const Ground::StreetField &ways,
   }
 }
 
-void Engine::State::Bridges(const Ground::StreetField &ways,
-                            const Ground::OsmField &vectors,
-                            const TangentFrame &standing,
-                            const Drape &drapedOver,
-                            Paved &into) {
-  SeedsBridgeEnds(ways, vectors, standing, drapedOver, into);
+double Engine::State::HighestDeckM(const Paved &over) {
   double mostDeckM = 0.0;
-  for (const auto &one : into.EndM) {
-    const auto seeded = into.GroundEndM.find(one.first);
-    if (seeded == into.GroundEndM.end()) { continue; }
+  for (const auto &one : over.EndM) {
+    const auto seeded = over.GroundEndM.find(one.first);
+    if (seeded == over.GroundEndM.end()) { continue; }
     mostDeckM = std::max(mostDeckM, one.second - seeded->second);
   }
-  Published.Places("streets: the highest deck a ramp must reach", mostDeckM, "m");
+  return mostDeckM;
+}
+
+void Engine::State::EasesRamps(const Ground::StreetField &ways,
+                               const Ground::OsmField &vectors,
+                               double mostDeckM,
+                               Paved &into) {
   for (int pass = 0; pass < kRampPasses; ++pass) {
     for (const Ground::StreetField::Way &lane : ways.Ways()) {
       if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
@@ -1526,6 +1527,13 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
       }
     }
   }
+}
+
+void Engine::State::GradesApproaches(const Ground::StreetField &ways,
+                                     const Ground::OsmField &vectors,
+                                     const TangentFrame &standing,
+                                     const Drape &drapedOver,
+                                     Paved &into) const {
   for (const Ground::StreetField::Way &lane : ways.Ways()) {
     if (lane.Bridge || lane.Form != Ground::StreetField::Shape::Ribbon) { continue; }
     if (lane.PointCount < 2) { continue; }
@@ -1549,6 +1557,17 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
       into.SteepestRamp = std::max(into.SteepestRamp, rose);
     }
   }
+}
+
+void Engine::State::Bridges(const Ground::StreetField &ways,
+                            const Ground::OsmField &vectors,
+                            const TangentFrame &standing,
+                            const Drape &drapedOver,
+                            Paved &into) {
+  SeedsBridgeEnds(ways, vectors, standing, drapedOver, into);
+  Published.Places("streets: the highest deck a ramp must reach", HighestDeckM(into), "m");
+  EasesRamps(ways, vectors, HighestDeckM(into), into);
+  GradesApproaches(ways, vectors, standing, drapedOver, into);
 }
 
 namespace {

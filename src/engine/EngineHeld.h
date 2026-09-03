@@ -559,6 +559,19 @@ struct Engine::State {
 
   static void RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into);
 
+  [[nodiscard]] static double HighestDeckM(const Paved &over);
+
+  static void EasesRamps(const Ground::StreetField &ways,
+                         const Ground::OsmField &vectors,
+                         double mostDeckM,
+                         Paved &into);
+
+  void GradesApproaches(const Ground::StreetField &ways,
+                        const Ground::OsmField &vectors,
+                        const TangentFrame &standing,
+                        const Drape &drapedOver,
+                        Paved &into) const;
+
   void SeedsBridgeEnds(const Ground::StreetField &ways,
                        const Ground::OsmField &vectors,
                        const TangentFrame &standing,
