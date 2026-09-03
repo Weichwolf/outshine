@@ -17,6 +17,53 @@ enum class Transfer { Linear, Filmic };
 
 enum class ScenePrecision { Half, Float };
 
+template <typename Held> struct Spelt {
+  std::string_view Said;
+  Held Means{};
+};
+
+template <typename Held, size_t Count>
+[[nodiscard]] constexpr bool SpellsEvery(const std::array<Spelt<Held>, Count> &rows, size_t many) {
+  if (rows.size() != many) { return false; }
+  for (size_t at = 0; at < rows.size(); ++at) {
+    if (rows[at].Said.empty()) { return false; }
+    for (size_t other = at + 1; other < rows.size(); ++other) {
+      if (rows[at].Said == rows[other].Said) { return false; }
+      if (static_cast<int>(rows[at].Means) == static_cast<int>(rows[other].Means)) { return false; }
+    }
+  }
+  return true;
+}
+
+inline constexpr std::array<Spelt<Transfer>, 2> kTransfers = {
+    {{.Said = "linear", .Means = Transfer::Linear}, {.Said = "filmic", .Means = Transfer::Filmic}}};
+
+inline constexpr std::array<Spelt<ScenePrecision>, 2> kPrecisions = {
+    {{.Said = "half", .Means = ScenePrecision::Half},
+     {.Said = "float", .Means = ScenePrecision::Float}}};
+
+static_assert(SpellsEvery(kTransfers, 2), "both transfer curves are spelt, once each");
+static_assert(SpellsEvery(kPrecisions, 2), "and both precisions");
+
+template <typename Held, size_t Count>
+[[nodiscard]] constexpr std::optional<Held> Spells(const std::array<Spelt<Held>, Count> &rows,
+                                                   std::string_view said) {
+  for (const Spelt<Held> &row : rows) {
+    if (row.Said == said) { return row.Means; }
+  }
+  return std::nullopt;
+}
+
+template <typename Held, size_t Count>
+[[nodiscard]] inline std::string Spellings(const std::array<Spelt<Held>, Count> &rows) {
+  std::string said;
+  for (size_t at = 0; at < rows.size(); ++at) {
+    if (at > 0) { said += at + 1 == rows.size() ? " and " : ", "; }
+    said += rows[at].Said;
+  }
+  return said;
+}
+
 template <typename T> class Declared {
 public:
   Declared() = default;

@@ -451,23 +451,25 @@ bool Live::Build(std::string &error) {
                    error)) {
     return false;
   }
-  if (Declared_.Transfer == "linear") {
-    declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Linear);
-  } else if (Declared_.Transfer == "filmic") {
-    declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
-  } else if (!Declared_.Transfer.empty()) {
-    error = "the declaration transfers the frame as '" + Declared_.Transfer +
-            "', and this engine has two: linear and filmic";
-    return false;
+  if (!Declared_.Transfer.empty()) {
+    const std::optional<Render::Transfer> meant =
+        Render::Spells(Render::kTransfers, Declared_.Transfer);
+    if (!meant) {
+      error = "the declaration transfers the frame as '" + Declared_.Transfer +
+              "', and this engine spells " + Render::Spellings(Render::kTransfers);
+      return false;
+    }
+    declaration.Display = Render::Declared<Render::Transfer>(*meant);
   }
-  if (Declared_.Precision == "float") {
-    declaration.Precision = Render::Declared<Render::ScenePrecision>(Render::ScenePrecision::Float);
-  } else if (Declared_.Precision == "half") {
-    declaration.Precision = Render::Declared<Render::ScenePrecision>(Render::ScenePrecision::Half);
-  } else if (!Declared_.Precision.empty()) {
-    error = "the declaration carries the scene at '" + Declared_.Precision +
-            "' precision, and this engine has two: half and float";
-    return false;
+  if (!Declared_.Precision.empty()) {
+    const std::optional<Render::ScenePrecision> meant =
+        Render::Spells(Render::kPrecisions, Declared_.Precision);
+    if (!meant) {
+      error = "the declaration carries the scene at '" + Declared_.Precision +
+              "' precision, and this engine spells " + Render::Spellings(Render::kPrecisions);
+      return false;
+    }
+    declaration.Precision = Render::Declared<Render::ScenePrecision>(*meant);
   }
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>(static_cast<float>(Declared_.Exposure));
