@@ -99,6 +99,31 @@ That is a sharper question than "built but not drawn", and probably the same one
 does reach the frame and sits below the world. The counter this item owes would have said
 `drawn > 0` and sent the search here in one step instead of three.
 
+## The vertex is NEAR, and the sphere does not put it there
+
+Following it one step further, all at CentralPark:
+
+| measure | value |
+|---|---|
+| `ground: the ring within 3.2 km runs from` | -24 149.775 m |
+| `relief: the ring's lowest vertex above the ellipsoid` | -24 149.425 m |
+| `the ring's vertex that sinks furthest below its own altitude` | 12 128.314 m |
+| `a sphere would sink it by` | 12 115.279 m |
+| `relief: and how far out` the tallest lies | 149 142.865 m |
+
+The curvature check passes: the deepest sink is 12 128 m against 12 115 m the sphere
+accounts for, thirteen metres apart over a ring that reaches 393 km. **So the sphere is
+modelled correctly and is not the cause.**
+
+But `kFootprintReachM` is 3 200.0 and the filter is
+`east*east + south*south > kFootprintReachM*kFootprintReachM`, so the -24 149.775 m vertex
+lies within 3.2 km of the frame origin, where curvature drops 0.8 m. And it is within
+0.35 m of the ring's GLOBAL minimum, on a ring that runs out to 393 km.
+
+A vertex 24 km down, 3 km away, at nearly the same depth as the farthest point of a
+393 km ring. That is not a place on Earth; it is one vertex carrying a value from
+somewhere else in the ring, and the buildings inside 3.2 km are meshed onto it.
+
 ## What is not yet known
 
 Whether the geometry is outside the frustum, behind the near plane, culled by the cluster pass, or
