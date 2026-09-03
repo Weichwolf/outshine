@@ -92,11 +92,17 @@ struct Running {
   return std::clamp(shift, kDopplerLeast, kDopplerMost);
 }
 
+struct Voicing {
+  double Pitch = 1.0;
+  int Rate = 0;
+};
+
 void Voiced(const Scenario::Sound &sound,
             std::vector<Running> &state,
-            double pitch,
-            int rate,
+            Voicing how,
             std::vector<double> &into) {
+  const double pitch = how.Pitch;
+  const int rate = how.Rate;
   const size_t frames = into.size();
   for (double &one : into) { one = 0.0; }
   if (sound.Graph.empty()) { return; }
@@ -327,7 +333,7 @@ bool Mixer::Fills(std::span<float> stereo,
     }
     if (!(gain > 0.0)) { continue; }
 
-    Voiced(sound, Held_->State[at], pitch, Rate_, Held_->Scratch);
+    Voiced(sound, Held_->State[at], {.Pitch = pitch, .Rate = Rate_}, Held_->Scratch);
     if (dullHz > 0.0) {
       const double alpha = 1.0 - std::exp(-2.0 * kPi * dullHz / static_cast<double>(Rate_));
       double &kept = Held_->Dulled[at];

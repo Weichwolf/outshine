@@ -310,7 +310,7 @@ bool LayCorridor(const Path::Route &route,
   say.Number("the elevation where the route ends", heightM.empty() ? 0.0 : heightM.back(), "m");
 
   outshine::SpeedProfile inPlan;
-  if (!inPlan.Over(corridor, stood.Envelope, postM, 0.0, error)) {
+  if (!inPlan.Over(corridor, stood.Envelope, {.StepM = postM, .EntryMs = 0.0}, error)) {
     say.Refuse(Line("the plan view carries no speed: %s", error.c_str()));
     return false;
   }
@@ -726,7 +726,7 @@ bool LayCorridor(const Path::Route &route,
   const double profileStepM = 0.5 * shortestCornerM;
   say.Number("the shortest corner the fit can produce", shortestCornerM, "m");
   say.Number("the step the speed profile is sampled at", profileStepM, "m");
-  if (!profile.Over(corridor, planning, profileStepM, 0.0, error)) {
+  if (!profile.Over(corridor, planning, {.StepM = profileStepM, .EntryMs = 0.0}, error)) {
     say.Refuse(Line("no speed profile solves over the corridor: %s", error.c_str()));
     return false;
   }

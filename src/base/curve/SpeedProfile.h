@@ -47,6 +47,11 @@ struct Envelope {
   }
 };
 
+struct Walking {
+  double StepM = 0.0;
+  double EntryMs = 0.0;
+};
+
 class SpeedProfile {
 public:
   enum class Held : uint8_t {
@@ -68,11 +73,8 @@ public:
     Held By = Held::Free;
   };
 
-  [[nodiscard]] bool Over(const ReferenceLine &along,
-                          const Envelope &within,
-                          double stepM,
-                          double entryMs,
-                          std::string &error);
+  [[nodiscard]] bool
+  Over(const ReferenceLine &along, const Envelope &within, Walking by, std::string &error);
 
   [[nodiscard]] Bound Slowest() const noexcept { return Slowest_; }
 

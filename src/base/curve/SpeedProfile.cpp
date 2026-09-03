@@ -21,9 +21,10 @@ const char *SpeedProfile::NameOf(Held term) noexcept {
 
 bool SpeedProfile::Over(const ReferenceLine &along,
                         const Envelope &within,
-                        double stepM,
-                        double entryMs,
+                        Walking by,
                         std::string &error) {
+  const double stepM = by.StepM;
+  const double entryMs = by.EntryMs;
   Held_.clear();
   Curvature_.clear();
   StepM_ = 0.0;
