@@ -32,27 +32,30 @@ int main(void) {
   std::vector<std::string> spelt;
   std::vector<std::string> macro;
   std::vector<std::string> alias;
-  for (const auto &entry : std::filesystem::recursive_directory_iterator("src")) {
-    if (!entry.is_regular_file()) { continue; }
-    const std::string ext = entry.path().extension().string();
-    if (ext != ".h" && ext != ".cpp" && ext != ".msl") { continue; }
-    std::string text;
-    CHECK(Slurp(entry.path(), text), "a source the walk found can be read");
-    ++files;
-    for (const char *needle : kDigits) {
-      for (size_t at = text.find(needle); at != std::string::npos; at = text.find(needle, at + 1)) {
-        spelt.push_back(entry.path().string() + " spells " + needle);
+  for (const char *root : {"src", "include"}) {
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
+      if (!entry.is_regular_file()) { continue; }
+      const std::string ext = entry.path().extension().string();
+      if (ext != ".h" && ext != ".cpp" && ext != ".msl") { continue; }
+      std::string text;
+      CHECK(Slurp(entry.path(), text), "a source the walk found can be read");
+      ++files;
+      for (const char *needle : kDigits) {
+        for (size_t at = text.find(needle); at != std::string::npos;
+             at = text.find(needle, at + 1)) {
+          spelt.push_back(entry.path().string() + " spells " + needle);
+        }
       }
-    }
-    for (size_t at = text.find("M_PI"); at != std::string::npos; at = text.find("M_PI", at + 1)) {
-      const char before = at == 0 ? ' ' : text[at - 1];
-      if (std::isalnum((unsigned char)before) || before == '_') { continue; }
-      macro.push_back(entry.path().string());
-      break;
-    }
-    for (size_t at = text.find("double kPi ="); at != std::string::npos;
-         at = text.find("double kPi =", at + 1)) {
-      alias.push_back(entry.path().string());
+      for (size_t at = text.find("M_PI"); at != std::string::npos; at = text.find("M_PI", at + 1)) {
+        const char before = at == 0 ? ' ' : text[at - 1];
+        if (std::isalnum((unsigned char)before) || before == '_') { continue; }
+        macro.push_back(entry.path().string());
+        break;
+      }
+      for (size_t at = text.find("double kPi ="); at != std::string::npos;
+           at = text.find("double kPi =", at + 1)) {
+        alias.push_back(entry.path().string());
+      }
     }
   }
 
@@ -60,7 +63,8 @@ int main(void) {
 
   for (const std::string &one : spelt) { std::printf("NOTE %s\n", one.c_str()); }
   CHECK(spelt.empty(),
-        "**NO PI STANDS AS DIGITS.** Every pi in src/, the .msl shader files included "
+        "**NO PI STANDS AS DIGITS.** Every pi in src/ and include/, the .msl shader files "
+        "included "
         "(board:1651) -- tau, half-pi, deg2rad, rad2deg, quarter-pi, the golden angle -- "
         "derives from std::numbers; a digit spelling is a second origin for the one constant "
         "and it drifts (board:1630)");
@@ -71,11 +75,12 @@ int main(void) {
         "for pi (board:1630)");
 
   CHECK(
-      alias.size() == 1 && alias[0] == std::filesystem::path("src/base/math/Units.h").string(),
-      "the kPi alias stands ONCE, in src/base/math/Units.h -- a second alias is the duplicate this "
-      "item removed from TileMath.h");
+      alias.size() == 1 && alias[0] == std::filesystem::path("include/math/Units.h").string(),
+      "the kPi alias stands ONCE, in include/math/Units.h -- a second alias is the duplicate this "
+      "item removed from TileMath.h, and the header is in the DOOR because a client computing "
+      "against the engine reads the same pi the engine does");
 
-  Covers("pi stands once and it is std::numbers: every pi in src/ derives from "
+  Covers("pi stands once and it is std::numbers: every pi in src/ AND include/ derives from "
          "std::numbers::pi and the alias lives in one header (board:1630)");
   return Report();
 }
