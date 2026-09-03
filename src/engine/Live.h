@@ -303,6 +303,19 @@ private:
   Render::PlanSpec PlanDeclared_;
 
   Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
+
+  struct Wearing {
+    size_t Part = 0;
+    uint32_t Slot = 0;
+  };
+
+  void
+  PaintsPart(Wearing what, const Scenario::SurfaceOverride &said, std::vector<uint32_t> &wearers);
+  [[nodiscard]] size_t WornByNodeOrPart();
+  [[nodiscard]] bool WearsOverrides(std::string &error);
+  [[nodiscard]] bool JoinsBuilt(std::string &error);
+  [[nodiscard]] bool JoinsSubjects(std::string &error);
+  [[nodiscard]] bool StandsSubjects(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool Pose(double seconds, std::string &error);

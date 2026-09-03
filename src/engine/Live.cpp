@@ -204,6 +204,175 @@ double Live::MeteredLux() const {
   return kSolarIlluminanceLx * (straightDown * Photopic(reach.SunReach) + Photopic(reach.Skylight));
 }
 
+void Live::PaintsPart(Wearing what,
+                      const Scenario::SurfaceOverride &said,
+                      std::vector<uint32_t> &wearers) {
+  Render::SubjectMaterial made =
+      said.KeepsMaps ? Table_.Slots[what.Slot] : Render::SubjectMaterial{};
+  made.Row = said.Row;
+  if (what.Slot < wearers.size() && wearers[what.Slot] == 1u) {
+    Table_.Slots[what.Slot] = made;
+    return;
+  }
+  if (what.Slot < wearers.size()) { wearers[what.Slot] -= 1u; }
+  const int carried = what.Slot < Table_.Material.size() ? Table_.Material[what.Slot] : -1;
+  Table_.Slots.push_back(made);
+  Table_.Material.push_back(carried);
+  Table_.Decoded.emplace_back();
+  Table_.PartSlot[what.Part] = static_cast<uint32_t>(Table_.Slots.size() - 1u);
+}
+
+size_t Live::WornByNodeOrPart() {
+  size_t took = 0;
+  const std::vector<Gltf::Part> &standing = Held_.Assembled().Parts();
+  const size_t many =
+      standing.size() < Table_.PartSlot.size() ? standing.size() : Table_.PartSlot.size();
+  std::vector<uint32_t> wearers(Table_.Slots.size(), 0u);
+  for (const uint32_t worn : Table_.PartSlot) {
+    if (worn < wearers.size()) { wearers[worn] += 1u; }
+  }
+  Table_.Slots.reserve(Table_.Slots.size() + many);
+  Table_.Material.reserve(Table_.Material.size() + many);
+  Table_.Decoded.reserve(Table_.Decoded.size() + many);
+  for (size_t part = 0; part < many; ++part) {
+    const uint32_t slot = Table_.PartSlot[part];
+    if (slot >= Table_.Slots.size()) { continue; }
+    for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
+      const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
+      const bool byPart = said.Part >= 0 && std::cmp_equal(said.Part, part);
+      if (!byNode && !byPart) { continue; }
+      PaintsPart({.Part = part, .Slot = slot}, said, wearers);
+      ++took;
+      break;
+    }
+  }
+  return took;
+}
+
+bool Live::WearsOverrides(std::string &error) {
+  size_t took = 0;
+  for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
+    const int index = Table_.Material[slot];
+    if (index < 0 || static_cast<size_t>(index) >= Held_.File().Materials().size()) { continue; }
+    const std::string &named = Held_.File().Materials()[static_cast<size_t>(index)].Name;
+    for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
+      if (said.Named != named) { continue; }
+      if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
+      Table_.Slots[slot].Row = said.Row;
+      ++took;
+      break;
+    }
+  }
+  took += WornByNodeOrPart();
+  if (took == 0) {
+    error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
+            " surface(s) of '" + Declared_.Stands +
+            "' and the file carries neither those "
+            "material names, those node names nor those part indices -- a surface declared "
+            "onto nothing changes "
+            "no pixel and says it did";
+    return false;
+  }
+  return true;
+}
+
+bool Live::JoinsSubjects(std::string &error) {
+  for (const std::string &joining : Declared_.Joins) {
+    Core::Posed arriving;
+    if (!arriving.Reads(joining, "", Declared_.Animation, Declared_.Clip, Declared_.Fps, error)) {
+      return false;
+    }
+    if (!arriving.Poses(0.0, error)) { return false; }
+    AssetReads_ += 1;
+    if (!Held_.Appends(arriving.Assembled())) {
+      error = "the subject '" + joining + "' would not append onto the one before it";
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Live::JoinsBuilt(std::string &error) {
+  const auto base = static_cast<uint32_t>(Table_.Slots.size());
+  for (const Material &declaredSurface : Declared_.Surfacing) {
+    Render::SurfaceTable joining;
+    Render::ShapeStore joiningParts;
+    Render::ResolveDeclaredSurface(
+        Gltf::Shaped(*Declared_.Built, joiningParts), declaredSurface, joining);
+    if (joining.Slots.empty()) {
+      error = "a declared surface for the built geometry resolved to no slot, so the parts "
+              "joining this picture would name a surface that is not there";
+      return false;
+    }
+    Table_.Slots.push_back(joining.Slots.front());
+  }
+  const size_t before = Held_.Assembled().Parts().size();
+  if (!Held_.Appends(*Declared_.Built)) {
+    error = Held_.Assembled().Error();
+    return false;
+  }
+  Table_.PartSlot.resize(Held_.Assembled().Parts().size(), base);
+  for (size_t part = before; part < Held_.Assembled().Parts().size(); ++part) {
+    const int wanted = Held_.Assembled().Parts()[part].Material;
+    const uint32_t at = wanted > 0 && static_cast<size_t>(wanted) < Declared_.Surfacing.size()
+                            ? static_cast<uint32_t>(wanted)
+                            : 0u;
+    Table_.PartSlot[part] = base + at;
+  }
+  Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
+  return true;
+}
+
+bool Live::StandsSubjects(std::string &error) {
+  if (!Held_.Stands()) {
+    if (!Held_.Reads(Declared_.Stands,
+                     Declared_.Variant,
+                     Declared_.Animation,
+                     Declared_.Clip,
+                     Declared_.Fps,
+                     error)) {
+      return false;
+    }
+    AssetReads_ += 1;
+  }
+  if (!Pose(0.0, error)) { return false; }
+  if (!JoinsSubjects(error)) { return false; }
+  Gltf::ResolveSurfaceTable(Held_.File(), Held_.Assembled(), true, true, Table_);
+  if (!Gltf::ResolveFileSurface(Held_.File(),
+                                Held_.Assembled(),
+                                Render::ColourFrom::Row,
+                                Render::ColourCarrier::Texture,
+                                Table_,
+                                error)) {
+    return false;
+  }
+  if (!Declared_.Overriding.empty() && !WearsOverrides(error)) { return false; }
+  if (Declared_.Built != nullptr && !JoinsBuilt(error)) { return false; }
+
+  if (Declared_.Built == nullptr && Held_.HoldsBuilt()) {
+    const auto base = static_cast<uint32_t>(Table_.Slots.size());
+    const outshine::Geometry &also = Held_.Built();
+    for (int surface = 0; surface < also.surfaces(); ++surface) {
+      Render::SubjectMaterial made;
+      made.Row = also.surfaceAt(MaterialInstance(surface));
+      Table_.Slots.push_back(made);
+      Table_.Material.push_back(-1);
+      Table_.Decoded.emplace_back();
+    }
+    const size_t before = Table_.PartSlot.size();
+    Table_.PartSlot.resize(before + static_cast<size_t>(also.parts()), base);
+    for (int part = 0; part < also.parts(); ++part) {
+      const int wears = also.materialOf(part).index();
+      const uint32_t at =
+          wears >= 0 && wears < also.surfaces() ? base + static_cast<uint32_t>(wears) : base;
+      Table_.PartSlot[before + static_cast<size_t>(part)] = at;
+    }
+    Joined_ = before;
+    Carrying_ = before;
+  }
+  return true;
+}
+
 bool Live::Build(std::string &error) {
   if (Declared_.Built == nullptr && !Held_.HoldsBuilt() && Declared_.Stands.empty()) {
     Held_.Clears();
@@ -249,154 +418,7 @@ bool Live::Build(std::string &error) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
             .count();
   }
-  if (!Declared_.Stands.empty()) {
-    if (!Held_.Stands()) {
-      if (!Held_.Reads(Declared_.Stands,
-                       Declared_.Variant,
-                       Declared_.Animation,
-                       Declared_.Clip,
-                       Declared_.Fps,
-                       error)) {
-        return false;
-      }
-      AssetReads_ += 1;
-    }
-    if (!Pose(0.0, error)) { return false; }
-    for (const std::string &joining : Declared_.Joins) {
-      Core::Posed arriving;
-      if (!arriving.Reads(joining, "", Declared_.Animation, Declared_.Clip, Declared_.Fps, error)) {
-        return false;
-      }
-      if (!arriving.Poses(0.0, error)) { return false; }
-      AssetReads_ += 1;
-      if (!Held_.Appends(arriving.Assembled())) {
-        error = "the subject '" + joining + "' would not append onto the one before it";
-        return false;
-      }
-    }
-    Gltf::ResolveSurfaceTable(Held_.File(), Held_.Assembled(), true, true, Table_);
-    if (!Gltf::ResolveFileSurface(Held_.File(),
-                                  Held_.Assembled(),
-                                  Render::ColourFrom::Row,
-                                  Render::ColourCarrier::Texture,
-                                  Table_,
-                                  error)) {
-      return false;
-    }
-    if (!Declared_.Overriding.empty()) {
-      size_t took = 0;
-      for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
-        const int index = Table_.Material[slot];
-        if (index < 0 || static_cast<size_t>(index) >= Held_.File().Materials().size()) {
-          continue;
-        }
-        const std::string &named = Held_.File().Materials()[static_cast<size_t>(index)].Name;
-        for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
-          if (said.Named != named) { continue; }
-          if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
-          Table_.Slots[slot].Row = said.Row;
-          ++took;
-          break;
-        }
-      }
-      {
-        const std::vector<Gltf::Part> &standing = Held_.Assembled().Parts();
-        const size_t many =
-            standing.size() < Table_.PartSlot.size() ? standing.size() : Table_.PartSlot.size();
-        std::vector<uint32_t> wearers(Table_.Slots.size(), 0u);
-        for (const uint32_t worn : Table_.PartSlot) {
-          if (worn < wearers.size()) { wearers[worn] += 1u; }
-        }
-        Table_.Slots.reserve(Table_.Slots.size() + many);
-        Table_.Material.reserve(Table_.Material.size() + many);
-        Table_.Decoded.reserve(Table_.Decoded.size() + many);
-        for (size_t part = 0; part < many; ++part) {
-          const uint32_t slot = Table_.PartSlot[part];
-          if (slot >= Table_.Slots.size()) { continue; }
-          for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
-            const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
-            const bool byPart = said.Part >= 0 && std::cmp_equal(said.Part, part);
-            if (!byNode && !byPart) { continue; }
-            Render::SubjectMaterial made =
-                said.KeepsMaps ? Table_.Slots[slot] : Render::SubjectMaterial{};
-            made.Row = said.Row;
-            if (slot < wearers.size() && wearers[slot] == 1u) {
-              Table_.Slots[slot] = made;
-            } else {
-              if (slot < wearers.size()) { wearers[slot] -= 1u; }
-              const int carried = slot < Table_.Material.size() ? Table_.Material[slot] : -1;
-              Table_.Slots.push_back(made);
-              Table_.Material.push_back(carried);
-              Table_.Decoded.emplace_back();
-              Table_.PartSlot[part] = static_cast<uint32_t>(Table_.Slots.size() - 1u);
-            }
-            ++took;
-            break;
-          }
-        }
-      }
-      if (took == 0) {
-        error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
-                " surface(s) of '" + Declared_.Stands +
-                "' and the file carries neither those "
-                "material names, those node names nor those part indices -- a surface declared "
-                "onto nothing changes "
-                "no pixel and says it did";
-        return false;
-      }
-    }
-    if (Declared_.Built != nullptr) {
-      const auto base = static_cast<uint32_t>(Table_.Slots.size());
-      for (const Material &declaredSurface : Declared_.Surfacing) {
-        Render::SurfaceTable joining;
-        Render::ShapeStore joiningParts;
-        Render::ResolveDeclaredSurface(
-            Gltf::Shaped(*Declared_.Built, joiningParts), declaredSurface, joining);
-        if (joining.Slots.empty()) {
-          error = "a declared surface for the built geometry resolved to no slot, so the parts "
-                  "joining this picture would name a surface that is not there";
-          return false;
-        }
-        Table_.Slots.push_back(joining.Slots.front());
-      }
-      const size_t before = Held_.Assembled().Parts().size();
-      if (!Held_.Appends(*Declared_.Built)) {
-        error = Held_.Assembled().Error();
-        return false;
-      }
-      Table_.PartSlot.resize(Held_.Assembled().Parts().size(), base);
-      for (size_t part = before; part < Held_.Assembled().Parts().size(); ++part) {
-        const int wanted = Held_.Assembled().Parts()[part].Material;
-        const uint32_t at = wanted > 0 && static_cast<size_t>(wanted) < Declared_.Surfacing.size()
-                                ? static_cast<uint32_t>(wanted)
-                                : 0u;
-        Table_.PartSlot[part] = base + at;
-      }
-      Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
-    }
-
-    if (Declared_.Built == nullptr && Held_.HoldsBuilt()) {
-      const auto base = static_cast<uint32_t>(Table_.Slots.size());
-      const outshine::Geometry &also = Held_.Built();
-      for (int surface = 0; surface < also.surfaces(); ++surface) {
-        Render::SubjectMaterial made;
-        made.Row = also.surfaceAt(MaterialInstance(surface));
-        Table_.Slots.push_back(made);
-        Table_.Material.push_back(-1);
-        Table_.Decoded.emplace_back();
-      }
-      const size_t before = Table_.PartSlot.size();
-      Table_.PartSlot.resize(before + static_cast<size_t>(also.parts()), base);
-      for (int part = 0; part < also.parts(); ++part) {
-        const int wears = also.materialOf(part).index();
-        const uint32_t at =
-            wears >= 0 && wears < also.surfaces() ? base + static_cast<uint32_t>(wears) : base;
-        Table_.PartSlot[before + static_cast<size_t>(part)] = at;
-      }
-      Joined_ = before;
-      Carrying_ = before;
-    }
-  }
+  if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
 
   if (!Held_.HoldsBuilt()) { Reshape(); }
   if (Declared_.Built == nullptr) { Joined_ = Shaped_.Parts.size(); }
