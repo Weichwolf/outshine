@@ -133,6 +133,41 @@ generator file is all of `src/generators`'s subdirectories at once. The split is
 convention until `LayerReaches` learns nested tiers -- which is the step that turns "generators do
 not reach into each other" from a rule into something the compiler refuses.
 
+## The planet is a parameter, the Earth is the yardstick
+
+Asked whether outshine should hand over a bare SPHERE WITH AN ATMOSPHERE -- any planet -- and let
+generators make a living Earth of it, or a Mars with a different catalogue. Yes to the shape, and
+the measurement says the tree is nearly there already: `kWgs84A`, `kWgs84F` and `kEarthAir` are
+named parameters at one place each, not assumptions baked through the code.
+
+No to one consequence, though: the Earth must not become one case among many, because it is the
+YARDSTICK. CLAUDE.md requires that what comes out be comparable with reality, and a picture of Mars
+compares with nothing -- there is no photograph that says whether it is right. Going generic here
+means making the parameters visible, never giving up the standard.
+
+And the line does not move at all. On Mars, MOLA elevation is MEASURED and a dune's shape is
+INVENTED, exactly as SRTM is measured here and a tree's shape is invented. A Mars needs no other
+engine: it needs other providers and another catalogue of generators, and both are already
+declarable. That the idea demands no rebuild is the argument that it is right.
+
+## Displacement is a generator too
+
+The engine hands out the FIELD; a generator makes the SURFACE.
+
+A height field is a datum -- SRTM says how high a point is and there is one answer. A triangle mesh
+of it is a CHOICE: resolution, triangulation, the LOD cascade, skirt height, how normals are
+derived. Two meshers produce two different and equally correct meshes from the same tiles, which is
+what a generator is.
+
+It works because the engine never needs the mesh. `HeightAslM(at)` is the question, and the camera
+standing on the ground, the physics finding contact and a building finding its footing all ask THAT
+-- not the geometry. So without a terrain generator the engine still knows every height and simply
+draws none of them. Which is the test that the line is in the right place.
+
+  what moves: `src/compositor/` (GroundPatchwork, GroundYield) and `src/world/ground/tiles/`
+  (TerrainGrid, TerrainTiles, TileGeodesy) -- about 2500 lines FROM the engine TO the generators.
+  The refactor makes the engine smaller, not larger.
+
 ## terrain, scatter and cloud do not exist yet
 
 Three of the seven areas have no files to move, and that is worth writing down rather than

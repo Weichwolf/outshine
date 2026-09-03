@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GENERATORS_PATH_FIT_H
-#define OUTSHINE_GENERATORS_PATH_FIT_H
+#ifndef OUTSHINE_BASE_CURVE_FIT_H
+#define OUTSHINE_BASE_CURVE_FIT_H
 
 #include <cstddef>
 #include <span>

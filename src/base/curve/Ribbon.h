@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GENERATORS_PATH_RIBBON_H
-#define OUTSHINE_GENERATORS_PATH_RIBBON_H
+#ifndef OUTSHINE_BASE_CURVE_RIBBON_H
+#define OUTSHINE_BASE_CURVE_RIBBON_H
 
 #include <cstddef>
 #include <cstdint>
