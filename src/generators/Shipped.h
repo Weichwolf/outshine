@@ -12,7 +12,6 @@
 #include "GroundMesher.h"
 #include "RoadMesher.h"
 #include "StructureMesher.h"
-#include "Forest.h"
 #include "GeneratorSet.h"
 #include "VegetationTemplates.h"
 
@@ -48,8 +47,6 @@ private:
   std::unique_ptr<GroundMesher> Coverer_;
   std::unique_ptr<StructureMesher> Shaper_;
   std::unique_ptr<RoadMesher> Paver_;
-  std::vector<Forest::Stem> Stems_;
-  std::vector<float> PerM2_;
   std::vector<std::unique_ptr<Making>> Made_;
   std::vector<std::unique_ptr<DrawSource>> Draws_;
   GeneratorSet Placing_;

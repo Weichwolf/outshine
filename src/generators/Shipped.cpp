@@ -2,6 +2,7 @@
 #include "Shipped.h"
 
 #include "BuildingMesh.h"
+#include "Forest.h"
 #include "GroundPatchwork.h"
 #include "Structures.h"
 #include "RoadMesh.h"
@@ -43,28 +44,28 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
     return false;
   }
 
-  PerM2_.clear();
+  std::vector<float> perM2;
+  perM2.reserve(declared.TemplateCount());
   for (size_t row = 0; row < declared.TemplateCount(); ++row) {
-    PerM2_.push_back(declared.Rows()[row].Edge[2]);
+    perM2.push_back(declared.Rows()[row].Edge[2]);
   }
 
   std::vector<TreeSpecies> species;
   if (!ReadSpecies(std::string(speciesDir).c_str(), species, error)) { return false; }
-  Stems_.clear();
+  std::vector<Forest::Stem> stems;
+  stems.reserve(species.size());
   for (const TreeSpecies &one : species) {
-    Forest::Stem stem;
-    stem.HeightM = static_cast<double>(one.HeightM());
-    Stems_.push_back(stem);
+    stems.push_back({.HeightM = static_cast<double>(one.HeightM())});
   }
-  if (Stems_.empty() || PerM2_.empty()) {
+  if (stems.empty() || perM2.empty()) {
     error = "the declaration names no species or no density, so nothing shipped can stand";
     return false;
   }
 
-  auto made = std::make_unique<Forest>(std::span<const Forest::Stem>(Stems_.data(), Stems_.size()),
-                                       std::span<const float>(PerM2_.data(), PerM2_.size()),
+  auto made = std::make_unique<Forest>(std::span<const Forest::Stem>(stems.data(), stems.size()),
+                                       std::span<const float>(perM2.data(), perM2.size()),
                                        declared.Limit());
-  auto drawn = std::make_unique<ForestDraw>(ClusterId{0}, Stems_.front().HeightM);
+  auto drawn = std::make_unique<ForestDraw>(ClusterId{0}, stems.front().HeightM);
   if (!Placing_.Add(kRankFlora, *made) || !Drawing_.Add(kRankFlora, *drawn)) {
     error = "the shipped catalogue names one rank twice";
     return false;

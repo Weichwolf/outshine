@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_FLORA_FOREST_H
 
 #include <span>
+#include <vector>
 #include "AlpineLimit.h"
 #include <array>
 
@@ -84,7 +85,7 @@ private:
   std::array<Stem, kMostSpecies> Stems_{};
   size_t Held_ = 0;
   size_t Refused_ = 0;
-  std::span<const float> PerM2_;
+  std::vector<float> PerM2_;
   AlpineLimit Limit_;
 };
 
