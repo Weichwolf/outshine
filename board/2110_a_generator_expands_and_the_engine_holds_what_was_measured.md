@@ -2,6 +2,34 @@
 
 State: active
 
+## Where it stands, measured 2026-09-03
+
+  subject reaches subject              0, over five subjects
+  engine names a concrete generator    0 -- the three includes left are the registry
+  base/ can see a subject              impossible; the negative control fails to compile
+  areas with their own `reaches`       base, building, flora, road, terrain, water
+
+Five of the seven exist because five have code. `scatter/` and `cloud/` have none: there is no
+grass and there are no clouds yet, and an empty directory is not an area. They arrive with their
+first file.
+
+`src/compositor/` is gone -- it was the terrain generator wearing a stage's name. `src/generators/
+path/` is gone too: `Alignment`, `Fit` and `Ribbon` were curve mathematics the ENGINE depends on,
+so they belong in `src/base/curve/` beside `ReferenceLine` and `Carriageway`, which is where their
+own includes already pointed.
+
+Three seams carry the whole boundary, and they are the same shape three times: the engine owns the
+TYPES and holds the result, a generator is the one implementer, and `Shipping` owns the concrete
+one so the engine never names it.
+
+  StructureMesher   plan -> Raised       BuildingMesh
+  RoadMesher        stations -> RoadRaised   RoadMesh
+  GroundMesher      Around -> Patchwork  Patchworker
+
+What remains for this item: `Registry::offers` takes no RANK, so a client can register a generator
+but not say when it takes ground; and `Shipping` still holds `std::vector<Forest::Stem>`, knowing
+one generator's insides rather than knowing it through `Making`.
+
 ## The order the move goes in
 
 Each step builds, `make shots` holds its eight digests, and nothing else is touched in between --
