@@ -313,6 +313,7 @@ private:
   PaintsPart(Wearing what, const Scenario::SurfaceOverride &said, std::vector<uint32_t> &wearers);
   [[nodiscard]] size_t WornByNodeOrPart();
   [[nodiscard]] bool WearsOverrides(std::string &error);
+  [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
   void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
   void EmitsPerPart();

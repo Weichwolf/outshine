@@ -965,15 +965,17 @@ bool Live::Carry(const Mat4 &worldFromBodyM, const Mat4 &built, std::string &err
   return Carry(0, worldFromBodyM, built, error);
 }
 
-bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error) {
+Mat4 Live::InMetres(const Mat4 &placed) const {
   const double perUnit = Declared_.MetresPerUnit > 0.0 ? Declared_.MetresPerUnit : 1.0;
-  Mat4 bodyM{};
-  for (int column = 0; column < 4; ++column) {
-    for (int row = 0; row < 4; ++row) {
-      bodyM[column * 4 + row] = column < 3 ? worldFromBodyM[column * 4 + row] * perUnit
-                                           : worldFromBodyM[column * 4 + row];
-    }
+  Mat4 out = placed;
+  for (int column = 0; column < 3; ++column) {
+    for (int row = 0; row < 4; ++row) { out[column * 4 + row] *= perUnit; }
   }
+  return out;
+}
+
+bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error) {
+  const Mat4 bodyM = InMetres(worldFromBodyM);
   if (Joined_ == 0) {
     error = "nothing joined this picture from a file, so there is no body to carry -- every part "
             "stands where the world put it";
@@ -999,10 +1001,8 @@ bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std
   }
   const size_t instances = Stood_.Instances();
   const size_t rows = parts * instances;
-  bool bodyMoved = false;
-  bool builtMoved = false;
-  for (int at = 0; at < 16 && !bodyMoved; ++at) { bodyMoved = SentBody_[body][at] != bodyM[at]; }
-  for (int at = 0; at < 16 && !builtMoved; ++at) { builtMoved = SentBuilt_[at] != built[at]; }
+  const bool bodyMoved = !(SentBody_[body] == bodyM);
+  const bool builtMoved = !(SentBuilt_ == built);
   if (!bodyMoved && !builtMoved) { return true; }
 
   const size_t joined = Joined_ < parts ? Joined_ : parts;
