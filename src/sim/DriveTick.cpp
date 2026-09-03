@@ -166,7 +166,8 @@ const Ridden &DriveTick(const Corridor &way,
     const double armAlongM = std::cos(headingRad) * armEastM + std::sin(headingRad) * armNorthM;
     const double armAcrossM = -std::sin(headingRad) * armEastM + std::cos(headingRad) * armNorthM;
     const double acrossM = at.OffsetM + armAcrossM;
-    const outshine::Astride on = outshine::StandAt(corridor, at.AlongM + armAlongM, acrossM, 0.0);
+    const outshine::Astride on = outshine::StandAt(
+        corridor, {.AlongM = at.AlongM + armAlongM, .AcrossM = acrossM, .HalfWidthM = 0.0});
     const bool onMade = std::fabs(acrossM) <= edgeM;
     offMade += onMade ? 0u : 1u;
     under[which].Found = true;

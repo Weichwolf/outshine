@@ -1150,8 +1150,8 @@ bool Subject::AssembledPartHolds(const outshine::Geometry &what, int slot, size_
   const std::span<const float> pPos = what.positionsOf(slot);
   const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
   const std::span<const float> pNormals = what.normalsOf(slot);
-  const std::span<const float> pUv = what.textureOf(slot, 0);
-  const std::span<const float> pUv1 = what.textureOf(slot, 1);
+  const std::span<const float> pUv = what.textureOf(slot, Geometry::UvSet::Uv0);
+  const std::span<const float> pUv1 = what.textureOf(slot, Geometry::UvSet::Uv1);
   const std::span<const float> pTangents = what.tangentsOf(slot);
   const std::span<const float> pColours = what.coloursOf(slot);
   const std::string where = "assembled piece " + std::to_string(slot);
@@ -1194,8 +1194,8 @@ bool Subject::AssemblePartInto(const outshine::Geometry &what,
                                size_t wholeFloats) {
   const std::span<const float> pPos = what.positionsOf(slot);
   const std::span<const float> pNormals = what.normalsOf(slot);
-  const std::span<const float> pUv = what.textureOf(slot, 0);
-  const std::span<const float> pUv1 = what.textureOf(slot, 1);
+  const std::span<const float> pUv = what.textureOf(slot, Geometry::UvSet::Uv0);
+  const std::span<const float> pUv1 = what.textureOf(slot, Geometry::UvSet::Uv1);
   const std::span<const float> pTangents = what.tangentsOf(slot);
   const std::span<const float> pColours = what.coloursOf(slot);
   const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
@@ -1273,8 +1273,8 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   for (size_t index = 0; std::cmp_less(index, what.parts()); ++index) {
     const int slot = static_cast<int>(index);
     const std::span<const float> pNormals = what.normalsOf(slot);
-    const std::span<const float> pUv = what.textureOf(slot, 0);
-    const std::span<const float> pUv1 = what.textureOf(slot, 1);
+    const std::span<const float> pUv = what.textureOf(slot, Geometry::UvSet::Uv0);
+    const std::span<const float> pUv1 = what.textureOf(slot, Geometry::UvSet::Uv1);
     const std::span<const float> pTangents = what.tangentsOf(slot);
     const std::span<const float> pColours = what.coloursOf(slot);
     const std::span<const uint32_t> pIndices = what.trianglesOf(slot);

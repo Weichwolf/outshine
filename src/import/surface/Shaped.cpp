@@ -87,8 +87,8 @@ void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
     made.PositionsM = from.positionsOf(part);
     made.Normals = from.normalsOf(part);
     made.Tangents = from.tangentsOf(part);
-    made.Uv = from.textureOf(part, 0);
-    made.Uv1 = from.textureOf(part, 1);
+    made.Uv = from.textureOf(part, Geometry::UvSet::Uv0);
+    made.Uv1 = from.textureOf(part, Geometry::UvSet::Uv1);
     made.Colours = from.coloursOf(part);
     made.HasUv = !made.Uv.empty();
     made.HasUv1 = !made.Uv1.empty();

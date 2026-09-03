@@ -32,7 +32,7 @@ Demand Hold(const ReferenceLine &along,
       ReachOf(with, {.SpeedMs = speedMs, .CurvatureRatePerM = at.CurvatureRatePerM});
   out.ReachM = reachM;
 
-  const Sighting ahead = Sight(along, at, reachM, with.AsideM);
+  const Sighting ahead = Sight(along, at, {.ChordM = reachM, .AsideM = with.AsideM});
   if (!ahead.Found) { return out; }
   out.AtEnd = ahead.AtEnd;
   out.OutOfReach = ahead.OutOfReach;

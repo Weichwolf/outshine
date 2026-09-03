@@ -107,7 +107,18 @@ public:
   [[nodiscard]] const Mat4 &lampPlacementOf(int lamp) const;
   [[nodiscard]] std::span<const float> positionsOf(int part) const;
   [[nodiscard]] std::span<const float> normalsOf(int part) const;
-  [[nodiscard]] std::span<const float> textureOf(int part, int set = 0) const;
+  /// Which of a part's texture coordinate sets is meant.
+  ///
+  /// glTF gives a primitive `TEXCOORD_0` and `TEXCOORD_1`, and Filament names the same two `UV0`
+  /// and `UV1`. As an `int` beside the part index it was two numbers of one type in a row -- and
+  /// `textureOf(0, 1)` reads exactly like `textureOf(1, 0)` while meaning something else entirely.
+  enum class UvSet : uint8_t { Uv0, Uv1 };
+
+  /// A part's texture coordinates for @p set, or an empty span when it carries none.
+  /// @param part Which part of the geometry.
+  /// @param set Which coordinate set, defaulting to the first.
+  /// @return Two floats per vertex, or nothing.
+  [[nodiscard]] std::span<const float> textureOf(int part, UvSet set = UvSet::Uv0) const;
   [[nodiscard]] std::span<const float> tangentsOf(int part) const;
   [[nodiscard]] std::span<const float> coloursOf(int part) const;
   [[nodiscard]] std::span<const uint32_t> trianglesOf(int part) const;

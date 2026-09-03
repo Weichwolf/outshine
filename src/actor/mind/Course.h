@@ -35,8 +35,12 @@ struct Sighting {
   double ClimbRad = 0.0;
 };
 
-[[nodiscard]] Sighting
-Sight(const ReferenceLine &along, const Where &from, double chordM, double asideM = 0.0);
+struct Seeing {
+  double ChordM = 0.0;
+  double AsideM = 0.0;
+};
+
+[[nodiscard]] Sighting Sight(const ReferenceLine &along, const Where &from, Seeing by);
 
 } // namespace outshine::Pilot
 

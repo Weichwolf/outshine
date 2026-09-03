@@ -73,7 +73,8 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
       out.Error = "the reference line places nothing at " + std::to_string(fromM) + " m";
       return out;
     }
-    const Astride surface = StandAt(along, fromM > toM ? toM : fromM, 0.0, 0.0);
+    const Astride surface =
+        StandAt(along, {.AlongM = fromM > toM ? toM : fromM, .AcrossM = 0.0, .HalfWidthM = 0.0});
     out.OriginM[0] = first.EastM;
     out.OriginM[1] = surface.HeightM;
     out.OriginM[2] = -first.NorthM;
@@ -90,7 +91,8 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
 
     std::array<Astride, kRibbonAcross> stood{};
     for (size_t which = 0; which < kRibbonAcross; ++which) {
-      stood[which] = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
+      stood[which] = StandAt(
+          along, {.AlongM = atM > toM ? toM : atM, .AcrossM = acrossAt[which], .HalfWidthM = 0.0});
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
       Put(out.PositionM,

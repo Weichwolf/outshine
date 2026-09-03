@@ -58,7 +58,9 @@ Where Locate(const ReferenceLine &along, const Where &from, Nearby about) {
   return out;
 }
 
-Sighting Sight(const ReferenceLine &along, const Where &from, double chordM, double asideM) {
+Sighting Sight(const ReferenceLine &along, const Where &from, Seeing by) {
+  const double chordM = by.ChordM;
+  const double asideM = by.AsideM;
   Sighting out;
   if (!from.Found || !(chordM > 0.0)) { return out; }
 

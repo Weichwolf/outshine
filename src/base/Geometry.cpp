@@ -348,10 +348,10 @@ std::span<const float> Geometry::normalsOf(int part) const {
   return piece != nullptr ? std::span<const float>(piece->Normals) : std::span<const float>();
 }
 
-std::span<const float> Geometry::textureOf(int part, int set) const {
+std::span<const float> Geometry::textureOf(int part, UvSet set) const {
   const Held::Piece *piece = Held_->At(part);
-  if (piece == nullptr || (set != 0 && set != 1)) { return {}; }
-  return {set == 0 ? piece->Uv : piece->Uv1};
+  if (piece == nullptr) { return {}; }
+  return {set == UvSet::Uv0 ? piece->Uv : piece->Uv1};
 }
 
 std::span<const float> Geometry::tangentsOf(int part) const {
