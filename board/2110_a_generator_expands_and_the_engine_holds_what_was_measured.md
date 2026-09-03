@@ -108,10 +108,11 @@ directory under `src/generators/` gets its `-I` for free and every existing incl
 resolving. The 27 files moved and the build was green on the first try. The guards were renamed to
 spell their new folder, which `EveryGuardSpellsItsFolder` requires.
 
-  out of flora/  4 includes, ALL of them shared machinery -- `Making.h`, `ModelLadder.h`,
-                 `ClusterId.h`, `DrawSource.h`. Not one names another subject
-  into flora/    3 includes, ALL of them from `Shipped`, which is the registry that stands the
-                 generators up and is entitled to know each of them
+  subject reaches subject          0, over four subjects and 51 files
+  shared machinery, real          `Making.h` (4 subjects), `FeatureField.h` (3), `DrawSource.h` (2)
+  shared machinery, only in name  `ClusterId.h` and `ModelLadder.h` were flora's alone;
+                                  `Meshed` was building's. They sat in `base/` because `base/`
+                                  was where anything not obviously a stage went
 
 So the cut holds where it has been tested: flora touches no other subject, and no other subject
 touches flora. `ClusterId.h` and `DrawSource.h` sitting in `draw/` is the next thing to fix --
@@ -124,6 +125,22 @@ area inside `generators/` cannot carry its own `reaches` today, and the include 
 generator file is all of `src/generators`'s subdirectories at once. The split is therefore a
 convention until `LayerReaches` learns nested tiers -- which is the step that turns "generators do
 not reach into each other" from a rule into something the compiler refuses.
+
+## terrain, scatter and cloud do not exist yet
+
+Three of the seven areas have no files to move, and that is worth writing down rather than
+discovering later.
+
+`base/` holds `Ground`, `GroundPatch`, `GroundTable` and `Cover`, and measured baumweit NONE of
+them is included by a subject -- they are read by `Registry`, `Shipped`, `GroundSnapshot` and
+`RegionPool`. They are not a terrain generator; they are the VIEW of the ground a generator is
+handed, which is shared machinery and stays in `base/`.
+
+The ground is actually meshed in `src/compositor/GroundPatchwork.cpp` and
+`src/world/ground/tiles/`, on the engine side. By this item's own line that is wrong -- a height
+field becoming a surface is an EXPANSION and belongs to a generator -- but it is a move across
+tiers rather than inside one, and it is the next thing this item does. `scatter/` and `cloud/`
+have no code at all: there is no grass and there are no clouds yet.
 
 `Shipping` holds `std::vector<Forest::Stem>`: the registry knows one generator's INSIDES rather
 than knowing it through `Making` and `DrawSource`. That is the same rule pointed at the door
