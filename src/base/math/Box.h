@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "math/Mat4.h"
 #include "math/Vec3.h"
 
 namespace outshine {
@@ -52,6 +53,21 @@ template <typename Number> struct BoxOf {
     return span[0] * span[1] + span[1] * span[2] + span[2] * span[0];
   }
 
+  [[nodiscard]] constexpr Vector3<Number> Corner(unsigned which) const {
+    return {{((which & 1u) != 0) ? Max[0] : Min[0],
+             ((which & 2u) != 0) ? Max[1] : Min[1],
+             ((which & 4u) != 0) ? Max[2] : Min[2]}};
+  }
+
+  [[nodiscard]] constexpr BoxOf Through(const Matrix4<Number> &placed) const {
+    if (Empty()) { return {}; }
+    BoxOf out;
+    for (unsigned which = 0; which < 8u; ++which) {
+      out.Cover(placed.TransformPoint(Corner(which)));
+    }
+    return out;
+  }
+
   [[nodiscard]] constexpr bool operator==(const BoxOf &) const = default;
 };
 
@@ -94,6 +110,20 @@ static_assert(BoxOverTwoPoints().Span() == kBoxBothSpan, "and so is the span");
 static_assert(Box{}.HalfArea() == 0.0 && BoxOverOnePoint().HalfArea() == 0.0,
               "a box of no span encloses no area, and an empty one must not answer with infinity "
               "-- a surface-area heuristic divides by this");
+
+constexpr Box BoxThroughShift() {
+  Mat4 shifted;
+  shifted.SetTranslation(kBoxFirstPoint);
+  return BoxOverTwoPoints().Through(shifted);
+}
+
+static_assert(Box{}.Through(Mat4{}).Empty(), "an empty box stays empty through any transform");
+static_assert(BoxOverTwoPoints().Through(Mat4{}) == BoxOverTwoPoints(),
+              "and the identity leaves a box where it stood");
+static_assert(BoxThroughShift().Span() == BoxOverTwoPoints().Span(),
+              "a pure translation moves a box without growing it -- the growth an axis-aligned box "
+              "pays for is ROTATION, and a translation that grew one would mean the corners were "
+              "not all transformed the same way");
 static_assert(BoxOverTwoPoints().HalfArea() == kBoxBothSpan[0] * kBoxBothSpan[1] +
                                                    kBoxBothSpan[1] * kBoxBothSpan[2] +
                                                    kBoxBothSpan[2] * kBoxBothSpan[0],

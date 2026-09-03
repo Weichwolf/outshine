@@ -73,7 +73,7 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
       for (size_t slot = 0; slot < slots && slot < CastsBelow_; ++slot) {
         const double *const model = placed.data() + slot * 16u;
         for (int axis = 0; axis < 3; ++axis) {
-          const double at = model[12 + axis];
+          const double at = model[12 + static_cast<size_t>(axis)];
           least[axis] = at < least[axis] ? at : least[axis];
           most[axis] = at > most[axis] ? at : most[axis];
         }

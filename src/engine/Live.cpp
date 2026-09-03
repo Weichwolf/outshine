@@ -550,31 +550,28 @@ void Live::Eye(const Render::Viewpoint &from) {
   Aimed_ = false;
 }
 
+void Live::CoverShapedParts() {
+  for (size_t part = 0; part < PartBounds_.size() && part < Shaped_.Parts.size(); ++part) {
+    const Render::ShapePart &one = Shaped_.Parts[part];
+    Box &held = PartBounds_[part];
+    for (size_t vertex = 0; vertex < one.VertexCount && (vertex + 1) * 3 <= one.PositionsM.size();
+         ++vertex) {
+      const float *const from = one.PositionsM.data() + vertex * 3;
+      held.Cover(Vec3{{from[0], from[1], from[2]}});
+    }
+  }
+}
+
 bool Live::PartVolumes(std::string &error) {
   if (!PartBounds_.empty()) { return true; }
   const size_t parts = Shaped_.Parts.size();
   if (parts == 0) { return true; }
-  PartBounds_.assign(parts, Volume{});
-  const auto fold = [this, parts] {
-    for (size_t part = 0; part < parts; ++part) {
-      const Render::ShapePart &one = Shaped_.Parts[part];
-      Volume &held = PartBounds_[part];
-      for (size_t vertex = 0; vertex < one.VertexCount && (vertex + 1) * 3 <= one.PositionsM.size();
-           ++vertex) {
-        const float *const from = one.PositionsM.data() + vertex * 3;
-        for (int axis = 0; axis < 3; ++axis) {
-          if (held.Empty || from[axis] < held.LeastM[axis]) { held.LeastM[axis] = from[axis]; }
-          if (held.Empty || from[axis] > held.MostM[axis]) { held.MostM[axis] = from[axis]; }
-        }
-        held.Empty = false;
-      }
-    }
-  };
-  fold();
+  PartBounds_.assign(parts, Box{});
+  CoverShapedParts();
   for (int sample = 0; sample < Sweeps(); ++sample) {
     if (Seconds(sample) == Held_.AtS()) { continue; }
     if (!Measure(Seconds(sample), error)) { return false; }
-    fold();
+    CoverShapedParts();
   }
   return Held_.Frames() <= 1 || Measure(Held_.AtS(), error);
 }
@@ -582,27 +579,12 @@ bool Live::PartVolumes(std::string &error) {
 bool Live::PlacedBounds(Extents &into, std::string &error) {
   if (!PartVolumes(error)) { return false; }
   const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
-  bool first = true;
-  std::array<double, 3> leastM = {0.0, 0.0, 0.0};
-  std::array<double, 3> mostM = {0.0, 0.0, 0.0};
-  const Mat4 identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Box grown;
   for (size_t part = 0; part < framed; ++part) {
-    const Volume &held = PartBounds_[part];
-    if (held.Empty) { continue; }
-    const Mat4 &placed = part < Stood_.Parts() ? Stood_.Placement(part) : identity;
-    for (uint32_t corner = 0; corner < 8u; ++corner) {
-      std::array<double, 3> from = {((corner & 1u) != 0) ? held.MostM[0] : held.LeastM[0],
-                                    ((corner & 2u) != 0) ? held.MostM[1] : held.LeastM[1],
-                                    ((corner & 4u) != 0) ? held.MostM[2] : held.LeastM[2]};
-      for (int axis = 0; axis < 3; ++axis) {
-        const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
-                           placed[8 + axis] * from[2] + placed[12 + axis];
-        if (first || out < leastM[axis]) { leastM[axis] = out; }
-        if (first || out > mostM[axis]) { mostM[axis] = out; }
-      }
-      first = false;
-    }
+    grown.Cover(PartBounds_[part].Through(part < Stood_.Parts() ? Stood_.Placement(part) : Mat4{}));
   }
+  const Vec3 leastM = grown.Empty() ? Vec3{} : grown.Min;
+  const Vec3 mostM = grown.Empty() ? Vec3{} : grown.Max;
   for (int axis = 0; axis < 3; ++axis) {
     into.LeastM[axis] = leastM[axis];
     into.MostM[axis] = mostM[axis];

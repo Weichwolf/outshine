@@ -68,8 +68,9 @@ void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   for (int lamp = 0; lamp < from.lamps(); ++lamp) {
     PunctualLight standing = from.lampAt(lamp);
     const Mat4 &at = from.lampPlacementOf(lamp);
+    const Vec3 stood = at.Translation();
     for (int axis = 0; axis < 3; ++axis) {
-      standing.Position[axis] = static_cast<float>(at[12 + axis]);
+      standing.Position[axis] = static_cast<float>(stood[axis]);
     }
     into.Lamps.push_back(standing);
   }

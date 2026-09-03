@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <span>
 
+#include "math/Vec3.h"
+
 namespace outshine {
 
 /// A 4x4 transform, stored COLUMN-MAJOR.
@@ -70,6 +72,44 @@ template <typename Number> struct Matrix4 {
   /// The components as writable contiguous storage.
   [[nodiscard]] constexpr Number *data() { return Column.data(); }
 
+  /// Where this transform puts the origin -- its translation, the fourth column.
+  ///
+  /// Reading it by hand is `[12 + axis]` in a loop, which is how six places in this tree asked
+  /// "where does this stand". The column index is storage order and belongs to the type.
+  [[nodiscard]] constexpr Vector3<Number> Translation() const {
+    return {{Column[12], Column[13], Column[14]}};
+  }
+
+  /// Moves this transform's origin to @p at, leaving its rotation and scale as they were.
+  constexpr void SetTranslation(const Vector3<Number> &at) {
+    Column[12] = at[0];
+    Column[13] = at[1];
+    Column[14] = at[2];
+  }
+
+  /// @p point through this transform, translation INCLUDED.
+  ///
+  /// A point and a direction are not the same argument: a direction must not pick up the
+  /// translation, or a normal moves when the object does. @ref TransformDirection is the other
+  /// one, and a caller that cannot say which it holds does not yet know what it is transforming.
+  [[nodiscard]] constexpr Vector3<Number> TransformPoint(const Vector3<Number> &point) const {
+    Vector3<Number> out{};
+    for (size_t axis = 0; axis < 3; ++axis) {
+      out[axis] = Column[axis] * point[0] + Column[4 + axis] * point[1] +
+                  Column[8 + axis] * point[2] + Column[12 + axis];
+    }
+    return out;
+  }
+
+  /// @p direction through this transform, translation EXCLUDED.
+  [[nodiscard]] constexpr Vector3<Number> TransformDirection(const Vector3<Number> &way) const {
+    Vector3<Number> out{};
+    for (size_t axis = 0; axis < 3; ++axis) {
+      out[axis] = Column[axis] * way[0] + Column[4 + axis] * way[1] + Column[8 + axis] * way[2];
+    }
+    return out;
+  }
+
   /// Two transforms are the same transform when their components are.
   [[nodiscard]] constexpr bool operator==(const Matrix4 &) const = default;
 };
@@ -104,6 +144,28 @@ template <typename Number>
 }
 
 static_assert((Mat4{} * Mat4{}) == Mat4{}, "the identity composed with itself is the identity");
+
+constexpr Vec3 kMat4Point{{2.0, 3.0, 5.0}};
+constexpr Vec3 kMat4Shift{{10.0, 20.0, 30.0}};
+
+constexpr Mat4 Mat4ShiftedBy(const Vec3 &at) {
+  Mat4 out;
+  out.SetTranslation(at);
+  return out;
+}
+
+static_assert(Mat4{}.Translation() == Vec3{}, "the identity stands at the origin");
+static_assert(Mat4ShiftedBy(kMat4Shift).Translation() == kMat4Shift,
+              "and a transform stands where its translation was set");
+static_assert(Mat4{}.TransformPoint(kMat4Point) == kMat4Point, "the identity moves no point");
+static_assert(Mat4ShiftedBy(kMat4Shift).TransformPoint(kMat4Point) ==
+                  Vec3{{kMat4Point[0] + kMat4Shift[0],
+                        kMat4Point[1] + kMat4Shift[1],
+                        kMat4Point[2] + kMat4Shift[2]}},
+              "a POINT picks the translation up");
+static_assert(Mat4ShiftedBy(kMat4Shift).TransformDirection(kMat4Point) == kMat4Point,
+              "and a DIRECTION does not -- a normal that moved with its object is the defect this "
+              "pair of names exists to make impossible to write by accident");
 
 } // namespace outshine
 

@@ -177,3 +177,51 @@ one tree: editing while the gate runs makes it compile a half-written file and r
 cases that are fine, and running `make` beside it makes
 `harness/claims/TheNestRefusesASecondRunner` correctly go red about ME. The gate runs alone: no
 edit, no second build, until it has printed its trailer.
+
+## 2026-09-03: the tail is TWO checks, and both dissolve into types rather than shrink
+
+| check | 09-02 | now |
+|---|---|---|
+| `bugprone-easily-swappable-parameters` | 227 | 113 |
+| `readability-function-cognitive-complexity` | 138 | 101 |
+| the total | ~700 | **206** |
+
+`readability-function-size` is empty. Nothing else is left: the two above are the whole count.
+
+**THE SWEEP THAT PAYS IS THE ONE THAT FINDS A DUPLICATED STRUCTURE, and it pays both checks at
+once.** Measured over six files taken to zero -- Document 782, Subject 540, Layout 467, Script 442,
+Style 406, GroundYield 8 findings -- the split that worked was never "cut this function in half".
+It was: name the thing the parameters ARE, and the function that took them shrinks on its own.
+
+`GroundYield.cpp` is the clearest case and it is worth the paragraph, because the two findings had
+ONE cause. The file wrote a uniform hash grid over the east/south plane six times by hand, and the
+four-case red-green triangle refinement twice, character for character. Nine copies of one bias
+constant, two copies of one 256-cell refusal. Writing `CellGrid` and `LayCutFace` took the file
+from 8 findings to 0 -- four functions over threshold and four swappable-parameter reports -- and
+the nine pictures came back BIT-IDENTICAL. That is the shape to look for: a check counting 8 was
+counting one missing type twice over.
+
+**AND A MISSING TYPE HIDES BEHIND A LOOP AS WELL AS BEHIND A PARAMETER LIST.** `[12 + axis]` in a
+`for` appears eight times in five files, and a grep says "eight copies of transform-a-point". It is
+not: SIX of them read or write the translation column and two transform a point. Writing the regex
+would have been CLAUDE.md's blind-rename trap exactly. `Mat4::Translation` / `SetTranslation` /
+`TransformPoint` / `TransformDirection` now carry all four meanings, with `static_assert`s that a
+direction does NOT pick up the translation -- the defect the name pair exists to prevent.
+
+`Live::Volume` was a fourth hand-rolled bounding box and it took a name `include/scenario/Scenario.h`
+already spends on a trigger volume. It is `Box` now, and the eight-corner transform is
+`Box::Through`, asserted at compile time to leave a translated box the same size -- growth is what
+ROTATION costs, and a translation that grew one would mean the corners were not all transformed
+alike.
+
+**What is left is 101 complexity findings across ~60 files and 113 swappable-parameter reports.**
+The seven heaviest are known: `Live::Build` 200, `Grounds` 173, `Paves` 136, `Models` 123,
+`PaveLane` 110, `Classify` 85, `Bridges` 79. Those are board:2091's, and they are the last of it.
+
+**One name found while sweeping, left standing with its reason.** `Render::Transfer{Linear,
+Filmic}` is a tonemap curve; `SubjectResidency::Transfer{Srgb, Linear}` is a texture's colour
+encoding. Two meanings, one word, and a `Linear` in each. Both are qualified where they are used
+so no compiler and no reader is actually ambiguous, and renaming a nested enum to fix a collision
+that the qualification already prevents would spend a commit on nothing. It is written down
+because the NEXT one may not be nested -- and a collision noticed and not recorded is one that gets
+rediscovered.

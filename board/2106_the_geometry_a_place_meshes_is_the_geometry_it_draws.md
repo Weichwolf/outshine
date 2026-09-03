@@ -247,6 +247,28 @@ checked. That is the next item's to make.
 them`), which is the pass that joins detail levels and the one place a vertex can be
 given a neighbour's height. That is where this item looks next.
 
+## 2026-09-03: the first of the three numbers now stands, and it moves the search
+
+`Engine::State::TellsWhatCrossed` reads the `Geometry` at the last statement before
+`Picture.Standing->Restand` -- the handover itself -- and counts the triangles in it. Every count
+this tree published about ground geometry before it read `inFrame`, the BUILDER's array, so the
+handover was the one boundary nothing looked at.
+
+| place | built | handed to the renderer | parts |
+|---|---|---|---|
+| CentralPark | 1 239 419 | 2 190 429 | 5 |
+| OldTown | 251 526 | 592 583 | 5 |
+
+**The geometry crosses, and it crosses LARGER than it was built.** So whatever loses CentralPark's
+buildings is downstream of the handover -- the frustum, the near plane, the cluster pass or the
+submission -- and every hypothesis on the build side of it is closed. That is the first measurement
+in this chain that moves the search instead of narrowing it, and it cost three lines.
+
+Two things it does NOT say. It does not say why handed exceeds built: the ring is meshed per
+detail level and `inFrame` is one of them, so the excess is expected and unquantified -- naming the
+factor is the next reading, not a conclusion to draw here. And it says nothing about what the
+renderer then does, which is the other two numbers.
+
 ## What is not yet known
 
 Whether the geometry is outside the frustum, behind the near plane, culled by the cluster pass, or
@@ -259,7 +281,8 @@ draw-argument buffer, so the third number is one readback away from standing bes
 
 ## What will be true
 
-- every place publishes triangles meshed, triangles submitted and triangles drawn
+- [x] every place publishes triangles HANDED OVER -- `TellsWhatCrossed`, 2026-09-03
+- every place publishes triangles submitted and triangles drawn beside it
 - a place whose drawn count is zero while its meshed count is not REFUSES, the way one that fails
   to preload now does
 - CentralPark draws what it meshed, or says which pass dropped it

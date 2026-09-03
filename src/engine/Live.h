@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <span>
 #include <array>
+#include "math/Box.h"
 #include "math/Mat4.h"
 #include "Shape.h"
 #include <cstdint>
@@ -342,13 +343,8 @@ private:
   std::vector<Mat4> SentBody_;
   Mat4 SentBuilt_{};
 
-  struct Volume {
-    bool Empty = true;
-    std::array<double, 3> LeastM = {0.0, 0.0, 0.0};
-    std::array<double, 3> MostM = {0.0, 0.0, 0.0};
-  };
-
-  std::vector<Volume> PartBounds_;
+  std::vector<Box> PartBounds_;
+  void CoverShapedParts();
   [[nodiscard]] bool PartVolumes(std::string &error);
   Render::SurfaceTable Table_;
   Posed Held_;

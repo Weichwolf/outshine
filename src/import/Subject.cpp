@@ -1064,7 +1064,7 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
   }
   for (const PlacedLight &lit : Lights_) {
     Mat4 placed;
-    for (int axis = 0; axis < 3; ++axis) { placed[12 + axis] = lit.Light.Position[axis]; }
+    placed.SetTranslation({{lit.Light.Position[0], lit.Light.Position[1], lit.Light.Position[2]}});
     (void)out.addLamp(lit.NodeName, lit.Light, placed);
   }
   const auto floats = [](const std::vector<double> &from, size_t first, size_t many) {
@@ -1138,9 +1138,9 @@ void Subject::AssembleLights(const outshine::Geometry &what) {
     placed.NodeName = std::string(what.lampNameOf(lamp));
     placed.LightName = placed.NodeName;
     placed.Light = what.lampAt(lamp);
-    const Mat4 &at = what.lampPlacementOf(lamp);
+    const Vec3 stood = what.lampPlacementOf(lamp).Translation();
     for (int axis = 0; axis < 3; ++axis) {
-      placed.Light.Position[axis] = static_cast<float>(at[12 + axis]);
+      placed.Light.Position[axis] = static_cast<float>(stood[axis]);
     }
     Lights_.push_back(std::move(placed));
   }
