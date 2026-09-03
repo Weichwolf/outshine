@@ -190,10 +190,28 @@ global and the nonsense is local.** [-11 500, +9 500] m admits the Mariana Trenc
 Manhattan pixel reading -9 514 m passes it and gets filled INTO the neighbourhood rather
 than out of it. A height that is possible on Earth can still be impossible here.
 
-What catches the rest is a continuity test rather than a range test: a sample that departs
-from its neighbours by more than the terrain's own slope can manage is an outlier wherever
-it sits, and needs no knowledge of where that is. That is the next step and it is a
-different predicate, not a wider one.
+### A continuity test was tried and MADE IT WORSE, and the reason was already measured
+
+The obvious next predicate: at zoom 14 a Terrarium texel spans 28.9 m, so a step of 200 m
+over one texel is a slope of 82 degrees, steeper than any rock face holds across 29 m. A
+sample departing from every sound neighbour by more than that is an outlier wherever it
+sits. Written, measured, and reverted:
+
+| | before | after the filter |
+|---|---|---|
+| deepest near vertex | -9 513.7 m | -9 145.7 m |
+| near vertices below -100 m | 375 | **426** |
+
+Worse. And the reason was in a measurement taken twenty minutes earlier and not used: the
+damage comes in BANDS -- `rowsSpanned=11 colsSpanned=2`, `rowsSpanned=55 colsSpanned=4` --
+not only as scattered pixels. A pixel inside a band has bad neighbours, so it agrees with
+them and no neighbourhood test can see it. Only the 256x253 case is scattered.
+
+**So the shape of the damage is two shapes, and one predicate cannot hold both.** Scattered
+pixels want their neighbours' mean, which is in and works. Bands want something that knows
+a band when it sees one -- a run along a row or column, or the tile's own distribution --
+and that is what this item still owes. The measurement that would have said so was already
+on the page, which is the lesson worth more than the filter.
 
 What it does NOT do is repair it. What stands in for a sample that decoded off the planet
 -- the neighbour, the tile's median, a refusal of the whole tile -- is a decision about
