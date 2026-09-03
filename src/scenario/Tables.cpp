@@ -67,32 +67,27 @@ std::expected<TableBook, std::string> TableBook::Stand(std::span<const Scenario:
   return standing;
 }
 
-const TableBook::Cell *TableBook::At(std::string_view table,
-                                     std::string_view row,
-                                     std::string_view column,
-                                     bool wantNumber) const {
-  const auto held = Held_.find(table);
+const TableBook::Cell *TableBook::At(CellAt where, bool wantNumber) const {
+  const auto held = Held_.find(where.Table);
   if (held == Held_.end()) { return nullptr; }
   const Stood &stood = held->second;
-  const auto keyed = stood.ByKey.find(row);
+  const auto keyed = stood.ByKey.find(where.Row);
   if (keyed == stood.ByKey.end()) { return nullptr; }
   for (size_t at = 0; at < stood.Columns.size(); ++at) {
-    if (stood.Columns[at] != column) { continue; }
+    if (stood.Columns[at] != where.Column) { continue; }
     if (stood.Numeric[at] != wantNumber) { return nullptr; }
     return &stood.Rows()[keyed->second, at];
   }
   return nullptr;
 }
 
-const double *
-TableBook::Number(std::string_view table, std::string_view row, std::string_view column) const {
-  const Cell *cell = At(table, row, column, true);
+const double *TableBook::Number(CellAt where) const {
+  const Cell *cell = At(where, true);
   return cell == nullptr ? nullptr : &cell->Value;
 }
 
-const std::string *
-TableBook::Text(std::string_view table, std::string_view row, std::string_view column) const {
-  const Cell *cell = At(table, row, column, false);
+const std::string *TableBook::Text(CellAt where) const {
+  const Cell *cell = At(where, false);
   return cell == nullptr ? nullptr : &cell->Spelling;
 }
 

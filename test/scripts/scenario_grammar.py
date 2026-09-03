@@ -20,7 +20,13 @@ WRITER = TREE / "src" / "scenario" / "ScenarioWrite.cpp"
 def declared():
     source = READER.read_text()
     rows = {}
-    for row in re.finditer(r'\{"(scenario[^"]*)",((?:\s*"[^"]*")*)', source):
+    # THE ROWS ARE DESIGNATED INITIALISERS. They were positional once, and this walk still looked
+    # for `{"scenario/..."` long after the table had become `{.Path = "scenario/...", .Children =`.
+    # It then found NO rows and reported every child the reader reads as undeclared -- a measure
+    # that cannot see, reporting 76 defects where there were none. Both spellings are read now, so
+    # the walk survives the table changing its mind again.
+    for row in re.finditer(r'\{(?:\.Path = )?"(scenario[^"]*)",\s*(?:\.Children =)?((?:\s*"[^"]*")*)',
+                           source):
         joined = "".join(re.findall(r'"([^"]*)"', row.group(2)))
         rows[row.group(1)] = set(joined.split())
     return rows

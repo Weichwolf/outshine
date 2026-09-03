@@ -20,15 +20,15 @@ double Brushed(double linearN, double holdN) {
   return sign * holdN * (1.0 - left * left * left);
 }
 
-Shear ShedAt(const Shearing &through, double loadN, double slipRad, double askedAlongN) {
+Shear ShedAt(const Shearing &through, Loading under) {
   Shear out;
-  if (!(loadN > 0.0)) { return out; }
+  if (!(under.LoadN > 0.0)) { return out; }
 
-  out.HoldN = FrictionAt(through, loadN) * loadN;
-  out.AngleRad = slipRad;
+  out.HoldN = FrictionAt(through, under.LoadN) * under.LoadN;
+  out.AngleRad = under.SlipRad;
 
   double across = Brushed(through.CorneringNPerRad * out.AngleRad, out.HoldN);
-  double along = askedAlongN;
+  double along = under.AskedAlongN;
 
   const double asked = std::sqrt(across * across + along * along);
   if (out.HoldN > 0.0 && asked > out.HoldN) {
@@ -43,11 +43,11 @@ Shear ShedAt(const Shearing &through, double loadN, double slipRad, double asked
   return out;
 }
 
-Shear Shed(
-    const Shearing &through, double loadN, double acrossMs, double alongMs, double askedAlongN) {
-  const double rollingMs = std::fabs(alongMs);
-  const double slipRad = rollingMs > 0.0 ? std::atan2(-acrossMs, rollingMs) : 0.0;
-  return ShedAt(through, loadN, slipRad, askedAlongN);
+Shear Shed(const Shearing &through, Rolling under) {
+  const double rollingMs = std::fabs(under.AlongMs);
+  const double slipRad = rollingMs > 0.0 ? std::atan2(-under.AcrossMs, rollingMs) : 0.0;
+  return ShedAt(through,
+                {.LoadN = under.LoadN, .SlipRad = slipRad, .AskedAlongN = under.AskedAlongN});
 }
 
 double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM) {

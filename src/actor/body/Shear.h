@@ -21,11 +21,22 @@ struct Shear {
   bool Sliding = false;
 };
 
-[[nodiscard]] Shear
-ShedAt(const Shearing &through, double loadN, double slipRad, double askedAlongN);
+struct Loading {
+  double LoadN = 0.0;
+  double SlipRad = 0.0;
+  double AskedAlongN = 0.0;
+};
 
-[[nodiscard]] Shear
-Shed(const Shearing &through, double loadN, double acrossMs, double alongMs, double askedAlongN);
+struct Rolling {
+  double LoadN = 0.0;
+  double AcrossMs = 0.0;
+  double AlongMs = 0.0;
+  double AskedAlongN = 0.0;
+};
+
+[[nodiscard]] Shear ShedAt(const Shearing &through, Loading under);
+
+[[nodiscard]] Shear Shed(const Shearing &through, Rolling under);
 
 [[nodiscard]] double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM);
 

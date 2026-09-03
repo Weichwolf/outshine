@@ -15,6 +15,12 @@ PATH="$LLVM:$PATH"
 export PATH
 BASELINE=test/lint-baseline
 REPORT=build/lint
+# EVERY GUARD REPORTS, AND THE VERDICT COMES AT THE END. An `exit 1` at the first red made every
+# check below it unreachable for as long as the tree was over its baseline -- the repository rules,
+# the door's documentation, the unreached count, the grammar against its own reader and writer, the
+# shader entry points. Five guards asleep because the first one was awake. A gate that stops at its
+# first finding reports one thing and hides five.
+red=0
 
 for tool in clang-format clang-tidy run-clang-tidy; do
   [ -x "$LLVM/$tool" ] || {
@@ -33,7 +39,7 @@ if "$LLVM/clang-format" --dry-run --Werror $ours 2>"$REPORT/format.log"; then
 else
   printf 'lint: %s file(s) are not formatted -- `clang-format -i` on them, or see %s\n' \
     "$(cut -d: -f1 "$REPORT/format.log" | sort -u | wc -l | tr -d ' ')" "$REPORT/format.log" >&2
-  exit 1
+  red=$((red + 1))
 fi
 
 printf '\n== analysis ==\n'
@@ -68,7 +74,7 @@ if [ "$found" -gt "$allowed" ]; then
   printf 'lint: THE BASELINE GREW by %s. A commit lowers it or leaves it; it never raises it.\n' \
     "$((found - allowed))" >&2
   printf 'lint: what is new is in %s\n' "$REPORT/tidy.unique" >&2
-  exit 1
+  red=$((red + 1))
 fi
 if [ "$found" -lt "$allowed" ]; then
   printf '%s\n' "$found" > "$BASELINE"
@@ -97,7 +103,7 @@ if [ -x "$(command -v doxygen)" ]; then
     printf 'lint: THE DOCUMENTATION BASELINE GREW by %s -- a new public name arrived undocumented.\n' \
       "$((undocumented - allowedDoc))" >&2
     printf 'lint: they are named in build/doc/warnings.txt\n' >&2
-    exit 1
+    red=$((red + 1))
   fi
   if [ "$undocumented" -lt "$allowedDoc" ]; then
     printf '%s\n' "$undocumented" > test/doc-baseline
@@ -121,7 +127,7 @@ if [ -f build/liboutshine.a ]; then
     printf 'lint: THE UNREACHED BASELINE GREW by %s -- something was written that nothing calls.\n' \
       "$((unreached - allowedUnreached))" >&2
     printf 'lint: they are named by `python3 test/scripts/unreached.py`\n' >&2
-    exit 1
+    red=$((red + 1))
   fi
   if [ "$unreached" -lt "$allowedUnreached" ]; then
     printf '%s\n' "$unreached" > test/unreached-baseline
@@ -138,7 +144,7 @@ fi
 if ! python3 test/scripts/grammar_vs_reader.py; then
   printf 'lint: the scenario reader reads a child its grammar refuses -- a capability no\n' >&2
   printf 'lint: declaration can reach. Add the row, or stop reading it.\n' >&2
-  exit 1
+  red=$((red + 1))
 fi
 
 # AND THE GRAMMAR AGAINST ITS OWN WRITER, which is the half `roundtrip` cannot see. Reading a place,
@@ -149,7 +155,7 @@ fi
 if ! python3 test/scripts/grammar_vs_writer.py; then
   printf 'lint: the scenario grammar declares a child its writer cannot write back, and the\n' >&2
   printf 'lint: count GREW. A declaration that cannot be handed back is not declared.\n' >&2
-  exit 1
+  red=$((red + 1))
 fi
 
 # THE SHADER VARIANTS AGAINST THE NAMES THAT ASK FOR THEM. The subject's variant set is written
@@ -160,5 +166,12 @@ fi
 # it does.
 if ! python3 test/scripts/entries_vs_shaders.py; then
   printf 'lint: the renderer names a shader entry no .msl defines, or defines one nobody asks\n' >&2
+  red=$((red + 1))
+fi
+
+printf '\n'
+if [ "$red" -gt 0 ]; then
+  printf 'lint: %s guard(s) are RED. Each one printed its own number above.\n' "$red" >&2
   exit 1
 fi
+printf 'lint: every guard is green.\n' 

@@ -77,7 +77,9 @@ Reading Bear(Rig &of,
 
     Shearing sheds = mount.Sheds;
     sheds.Grip *= ground.Friction;
-    const Shear shed = ShedAt(sheds, against.LoadN, of.HeldSlipRad[which], askedAlongN);
+    const Shear shed = ShedAt(
+        sheds,
+        {.LoadN = against.LoadN, .SlipRad = of.HeldSlipRad[which], .AskedAlongN = askedAlongN});
     out.SlipRad[which] = of.HeldSlipRad[which];
     out.RatioOfHold[which] = shed.Ratio;
     out.Sliding = out.Sliding || shed.Sliding;

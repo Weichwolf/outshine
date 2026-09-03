@@ -119,7 +119,10 @@ bool LayCorridor(const Path::Route &route,
     const double other = before > 0.0 ? before : half;
     const double intoM = std::sqrt(eastIn * eastIn + northIn * northIn);
     const double outOfM = std::sqrt(eastOut * eastOut + northOut * northOut);
-    const double heldM = JunctionKerbM(half, other, turn, intoM < outOfM ? intoM : outOfM);
+    const double heldM = JunctionKerbM({.HalfAM = half,
+                                        .HalfBM = other,
+                                        .DeflectionRad = turn,
+                                        .ShorterLegM = intoM < outOfM ? intoM : outOfM});
     withinAtM[at] = std::max(heldM, withinAtM[at]);
     widestJunctionM = std::max(withinAtM[at], widestJunctionM);
   }

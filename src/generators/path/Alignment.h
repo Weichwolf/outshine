@@ -53,8 +53,14 @@ struct Laid {
   double LengthM = 0.0;
 };
 
-[[nodiscard]] double
-JunctionKerbM(double halfAM, double halfBM, double deflectionRad, double shorterLegM);
+struct Junction {
+  double HalfAM = 0.0;
+  double HalfBM = 0.0;
+  double DeflectionRad = 0.0;
+  double ShorterLegM = 0.0;
+};
+
+[[nodiscard]] double JunctionKerbM(Junction of);
 
 [[nodiscard]] std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
                                                     double withinM,

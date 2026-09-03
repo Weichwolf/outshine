@@ -244,14 +244,14 @@ SpiralInto(double radiusM, double swingRad, double roomM, bool againstAStraight)
 
 } // namespace
 
-double JunctionKerbM(double halfAM, double halfBM, double deflectionRad, double shorterLegM) {
-  const double swing = std::fabs(deflectionRad);
+double JunctionKerbM(Junction of) {
+  const double swing = std::fabs(of.DeflectionRad);
   if (!(swing > kLeastTurnRad) || swing >= std::numbers::pi - kLeastTurnRad) { return 0.0; }
-  const double kerbM =
-      std::sqrt(halfAM * halfAM + halfBM * halfBM - 2.0 * halfAM * halfBM * std::cos(swing)) /
-      std::sin(swing);
-  if (!(shorterLegM > 0.0)) { return kerbM; }
-  return kerbM < shorterLegM ? kerbM : shorterLegM;
+  const double kerbM = std::sqrt(of.HalfAM * of.HalfAM + of.HalfBM * of.HalfBM -
+                                 2.0 * of.HalfAM * of.HalfBM * std::cos(swing)) /
+                       std::sin(swing);
+  if (!(of.ShorterLegM > 0.0)) { return kerbM; }
+  return kerbM < of.ShorterLegM ? kerbM : of.ShorterLegM;
 }
 
 std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,

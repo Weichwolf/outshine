@@ -29,10 +29,14 @@ public:
   [[nodiscard]] static std::expected<TableBook, std::string>
   Stand(std::span<const Scenario::Table> declared);
 
-  [[nodiscard]] const double *
-  Number(std::string_view table, std::string_view row, std::string_view column) const;
-  [[nodiscard]] const std::string *
-  Text(std::string_view table, std::string_view row, std::string_view column) const;
+  struct CellAt {
+    std::string_view Table;
+    std::string_view Row;
+    std::string_view Column;
+  };
+
+  [[nodiscard]] const double *Number(CellAt where) const;
+  [[nodiscard]] const std::string *Text(CellAt where) const;
 
   [[nodiscard]] size_t TableCount() const { return Held_.size(); }
 
@@ -56,8 +60,7 @@ private:
     [[nodiscard]] Grid Rows() const { return Grid(Cells.data(), RowCount, Columns.size()); }
   };
 
-  [[nodiscard]] const Cell *
-  At(std::string_view table, std::string_view row, std::string_view column, bool wantNumber) const;
+  [[nodiscard]] const Cell *At(CellAt where, bool wantNumber) const;
   std::unordered_map<std::string, Stood, ByName, std::equal_to<>> Held_;
 };
 

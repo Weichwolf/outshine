@@ -21,11 +21,16 @@ constexpr double kControlShare = 0.75;
 
 namespace {
 
-double AwayFromChordM(std::span<const double> points, size_t point, size_t from, size_t to) {
-  const double fromE = points[2 * from];
-  const double fromN = points[2 * from + 1];
-  const double toE = points[2 * to];
-  const double toN = points[2 * to + 1];
+struct Chord {
+  size_t From = 0;
+  size_t To = 0;
+};
+
+double AwayFromChordM(std::span<const double> points, size_t point, Chord of) {
+  const double fromE = points[2 * of.From];
+  const double fromN = points[2 * of.From + 1];
+  const double toE = points[2 * of.To];
+  const double toN = points[2 * of.To + 1];
   const double atE = points[2 * point];
   const double atN = points[2 * point + 1];
   const double runE = toE - fromE;
@@ -59,7 +64,7 @@ void KeepBetween(std::span<const double> points,
     size_t worst = from;
     double worstM = 0.0;
     for (size_t point = from + 1; point < to; ++point) {
-      const double awayM = AwayFromChordM(points, point, from, to);
+      const double awayM = AwayFromChordM(points, point, {.From = from, .To = to});
       if (awayM > worstM) {
         worstM = awayM;
         worst = point;

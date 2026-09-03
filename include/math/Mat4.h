@@ -35,52 +35,72 @@ template <typename Number> struct Matrix4 {
                                    Number{1}};
 
   /// Reads one component in storage order.
+  /// @param at Which of the sixteen, column-major.
+  /// @return That component.
   [[nodiscard]] constexpr Number operator[](size_t at) const { return Column[at]; }
 
   /// Reaches one component for writing.
+  /// @param at Which of the sixteen, column-major.
+  /// @return A reference to that component.
   [[nodiscard]] constexpr Number &operator[](size_t at) { return Column[at]; }
 
   /// The component at @p row of @p column, for a reader who thinks in rows and columns.
+  /// @param row Which row, 0 to 3.
+  /// @param column Which column, 0 to 3.
+  /// @return That component.
   [[nodiscard]] constexpr Number At(size_t row, size_t column) const {
     return Column[column * 4 + row];
   }
 
   /// The component at @p row of @p column, for writing.
+  /// @param row Which row, 0 to 3.
+  /// @param column Which column, 0 to 3.
+  /// @return A reference to that component.
   [[nodiscard]] constexpr Number &At(size_t row, size_t column) { return Column[column * 4 + row]; }
 
   /// The first component, so a transform reads in a range-for.
+  /// @return An iterator to the first of the sixteen.
   [[nodiscard]] constexpr auto begin() const { return Column.begin(); }
 
   /// One past the last component.
+  /// @return An iterator one past the sixteenth.
   [[nodiscard]] constexpr auto end() const { return Column.end(); }
 
   /// The first component, writable.
+  /// @return A writable iterator to the first of the sixteen.
   [[nodiscard]] constexpr auto begin() { return Column.begin(); }
 
   /// One past the last component, writable.
+  /// @return A writable iterator one past the sixteenth.
   [[nodiscard]] constexpr auto end() { return Column.end(); }
 
   /// The sixteen components as a fixed-extent view.
+  /// @return A span over all sixteen, in storage order.
   [[nodiscard]] constexpr std::span<const Number, 16> Row() const { return Column; }
 
   /// The sixteen components as a writable fixed-extent view.
+  /// @return A writable span over all sixteen, in storage order.
   [[nodiscard]] constexpr std::span<Number, 16> Row() { return Column; }
 
   /// The components as contiguous storage, for the one boundary that takes a pointer: the device.
+  /// @return A pointer to the first of the sixteen.
   [[nodiscard]] constexpr const Number *data() const { return Column.data(); }
 
   /// The components as writable contiguous storage.
+  /// @return A writable pointer to the first of the sixteen.
   [[nodiscard]] constexpr Number *data() { return Column.data(); }
 
   /// Where this transform puts the origin -- its translation, the fourth column.
   ///
   /// Reading it by hand is `[12 + axis]` in a loop, which is how six places in this tree asked
   /// "where does this stand". The column index is storage order and belongs to the type.
+  /// @return Where the origin lands under this transform.
   [[nodiscard]] constexpr Vector3<Number> Translation() const {
     return {{Column[12], Column[13], Column[14]}};
   }
 
   /// Moves this transform's origin to @p at, leaving its rotation and scale as they were.
+  /// @param at Where the origin is to land.
   constexpr void SetTranslation(const Vector3<Number> &at) {
     Column[12] = at[0];
     Column[13] = at[1];
@@ -92,6 +112,8 @@ template <typename Number> struct Matrix4 {
   /// A point and a direction are not the same argument: a direction must not pick up the
   /// translation, or a normal moves when the object does. @ref TransformDirection is the other
   /// one, and a caller that cannot say which it holds does not yet know what it is transforming.
+  /// @param point A position in this transform's source space.
+  /// @return That position in its target space.
   [[nodiscard]] constexpr Vector3<Number> TransformPoint(const Vector3<Number> &point) const {
     Vector3<Number> out{};
     for (size_t axis = 0; axis < 3; ++axis) {
@@ -102,6 +124,8 @@ template <typename Number> struct Matrix4 {
   }
 
   /// @p direction through this transform, translation EXCLUDED.
+  /// @param way A direction in this transform's source space.
+  /// @return That direction in its target space, unmoved by the translation.
   [[nodiscard]] constexpr Vector3<Number> TransformDirection(const Vector3<Number> &way) const {
     Vector3<Number> out{};
     for (size_t axis = 0; axis < 3; ++axis) {
@@ -111,6 +135,7 @@ template <typename Number> struct Matrix4 {
   }
 
   /// Two transforms are the same transform when their components are.
+  /// @return True when every one of the sixteen agrees.
   [[nodiscard]] constexpr bool operator==(const Matrix4 &) const = default;
 };
 
