@@ -152,6 +152,12 @@ in the mantle.
 not one bad tile and not one bad fetch: it is a rule that fires all over the ring, on 0.33
 per cent of its vertices.
 
+**The height is sound when it is READ.** `GroundSample::At` now refuses anything outside
+[-11 500, +9 500] m -- the Mariana Trench to Everest with margin -- and CentralPark still
+carries its 441, unchanged, digest unmoved. So nothing enters the tree at -24 149 m: the
+value is correct at the sample and wrong by the time it is a ring vertex. That rules out
+the elevation source and the sampler, and leaves the pass between them and `inFrame`.
+
 `GroundYield` cuts seams and sews them (`ground: of that, cutting the seams`, `sewing
 them`), which is the pass that joins detail levels and the one place a vertex can be
 given a neighbour's height. That is where this item looks next.

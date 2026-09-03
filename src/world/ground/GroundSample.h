@@ -11,9 +11,20 @@ class GroundSample {
 public:
   enum class State { Resolved, Pending, Hole };
 
-  static GroundSample At(double aslM) { return GroundSample(State::Resolved, aslM); }
+  static constexpr double kDeepestM = -11500.0;
+  static constexpr double kTallestM = 9500.0;
+
+  [[nodiscard]] static bool HeightIsOnEarth(double aslM) {
+    return aslM >= kDeepestM && aslM <= kTallestM;
+  }
+
+  static GroundSample At(double aslM) {
+    if (!HeightIsOnEarth(aslM)) { return Missing(); }
+    return GroundSample(State::Resolved, aslM);
+  }
 
   static GroundSample At(double aslM, const Vec3 &normal) {
+    if (!HeightIsOnEarth(aslM)) { return Missing(); }
     GroundSample out(State::Resolved, aslM);
     out.NormalM_[0] = normal[0];
     out.NormalM_[1] = normal[1];
