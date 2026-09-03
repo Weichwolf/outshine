@@ -380,10 +380,10 @@ void Engine::State::Models(const TangentFrame &standing,
         ++within;
       }
       Published.Places(
-          "buildings: the ring within 3.2 km runs from", within > 0 ? least : 0.0, "m up");
-      Published.Places("buildings: to", within > 0 ? most : 0.0, "m up");
+          "ground: the ring within 3.2 km runs from", within > 0 ? least : 0.0, "m up");
+      Published.Places("ground: to", within > 0 ? most : 0.0, "m up");
       Published.Places(
-          "buildings: over this many ring vertices", static_cast<double>(within), "vertices");
+          "ground: over this many ring vertices", static_cast<double>(within), "vertices");
     }
   }
   const auto builtAt = std::chrono::steady_clock::now();
