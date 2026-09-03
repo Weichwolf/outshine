@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <map>
 #include <vector>
 
 #include "Capacity.h"
@@ -99,6 +100,26 @@ private:
                                const OsmField::Ring &ring,
                                std::vector<double> *corners,
                                double *seatAslM = nullptr);
+
+  struct Lumped {
+    double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
+    double BaseSum = 0.0, SeatSum = 0.0, HeightSum = 0.0;
+    int Count = 0;
+  };
+
+  struct Spread {
+    double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
+  };
+
+  struct Standing {
+    double BaseM = 0.0, SeatM = 0.0, HeightM = 0.0;
+  };
+
+  static void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cellM);
+
+  void RaiseLump(const Lumped &of);
+
+  [[nodiscard]] double AwayFromCentreM(const OsmField &field, uint32_t tile) const;
 
   [[nodiscard]] static bool TileGroundResolved(
       const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer);

@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <numbers>
+#include <array>
+#include <map>
 #include <optional>
 #include <span>
 #include <utility>
@@ -21,6 +23,8 @@
 #include <ratio>
 
 namespace outshine::Ground {
+
+constexpr int64_t kCellBiasTiles = 0x20000000LL;
 
 constexpr uint32_t kKnuthWord = 2654435761u;
 constexpr uint32_t kSecondKnuthWord = 2246822519u;
@@ -300,6 +304,38 @@ void BuildingField::AnchorAt(const Vec3 &ecef) {
   Anchored_ = true;
 }
 
+void BuildingField::Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cellM) {
+  const auto cellLat =
+      static_cast<int64_t>(std::floor(0.5 * (over.LowLat + over.HighLat) * kMPerDegLat / cellM));
+  const auto cellLon =
+      static_cast<int64_t>(std::floor(0.5 * (over.LowLon + over.HighLon) * kMPerDegLon / cellM));
+  Lumped &block = into[(static_cast<uint64_t>(cellLat + kCellBiasTiles) << 32U) |
+                       static_cast<uint64_t>(cellLon + kCellBiasTiles)];
+  if (block.Count == 0) {
+    block.LowLat = over.LowLat;
+    block.HighLat = over.HighLat;
+    block.LowLon = over.LowLon;
+    block.HighLon = over.HighLon;
+  } else {
+    block.LowLat = std::min(block.LowLat, over.LowLat);
+    block.HighLat = std::max(block.HighLat, over.HighLat);
+    block.LowLon = std::min(block.LowLon, over.LowLon);
+    block.HighLon = std::max(block.HighLon, over.HighLon);
+  }
+  block.BaseSum += at.BaseM;
+  block.SeatSum += at.SeatM;
+  block.HeightSum += at.HeightM;
+  ++block.Count;
+}
+
+double BuildingField::AwayFromCentreM(const OsmField &field, uint32_t tile) const {
+  const std::span<const OsmField::Tile> tiles = field.Tiles();
+  if (tile >= tiles.size() || !(TileSpanM_ > 0.0)) { return 0.0; }
+  const auto across = static_cast<double>(tiles[tile].X - field.CentreX());
+  const auto down = static_cast<double>(tiles[tile].Y - field.CentreY());
+  return std::sqrt(across * across + down * down) * TileSpanM_;
+}
+
 int BuildingField::Build(const GroundQuery &ground,
                          const OsmField &field,
                          std::span<const WayLine> ways) {
@@ -323,6 +359,12 @@ int BuildingField::Build(const GroundQuery &ground,
   if (!next.Found) { return static_cast<int>(Prints_.size()); }
   Mark_.Take(next.Tile);
 
+  const double awayM = AwayFromCentreM(field, next.Tile);
+  const double smallestSeenM = awayM > 0.0 && FocalPx_ > 0.0 ? awayM / FocalPx_ : 0.0;
+
+  std::map<uint64_t, Lumped> lumps;
+  size_t lumped = 0;
+
   for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
     if (f.Type != 3 || std::cmp_not_equal(f.Layer, layer)) { continue; }
@@ -333,6 +375,11 @@ int BuildingField::Build(const GroundQuery &ground,
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) { continue; }
 
       double seat = 0.0;
+      double acrossM = 0.0;
+      double lowLat = 0.0;
+      double highLat = 0.0;
+      double lowLon = 0.0;
+      double highLon = 0.0;
       const std::optional<double> stood = RingBase(ground, field, ring, &Corners_, &seat).AslM();
       if (!stood) {
         NoGround_++;
@@ -342,10 +389,10 @@ int BuildingField::Build(const GroundQuery &ground,
 
       {
         const std::span<const double> ringPts = field.Points();
-        double lowLat = kNoLeastYet;
-        double highLat = -kNoLeastYet;
-        double lowLon = kNoLeastYet;
-        double highLon = -kNoLeastYet;
+        lowLat = kNoLeastYet;
+        highLat = -kNoLeastYet;
+        lowLon = kNoLeastYet;
+        highLon = -kNoLeastYet;
         for (uint32_t k = 0; k < ring.Count; k++) {
           const double atLat = ringPts[2 * (static_cast<size_t>(ring.First) + k)];
           const double atLon = ringPts[2 * (static_cast<size_t>(ring.First) + k) + 1];
@@ -356,7 +403,8 @@ int BuildingField::Build(const GroundQuery &ground,
         }
         const double perLonM = 111320.0 * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
         SeatSpread_.push_back(seat - base);
-        Across_.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
+        acrossM = std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM);
+        Across_.push_back(acrossM);
       }
 
       double standBackM = -1.0;
@@ -385,6 +433,17 @@ int BuildingField::Build(const GroundQuery &ground,
       fp.FootM = static_cast<float>(base);
       fp.SeatM = static_cast<float>(seat);
       Prints_.push_back(fp);
+
+      if (acrossM > 0.0 && acrossM < smallestSeenM) {
+        Lump(lumps,
+             {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
+             {.BaseM = base, .SeatM = seat, .HeightM = fp.HeightM},
+             smallestSeenM);
+        ++lumped;
+        added++;
+        continue;
+      }
+
       const auto meshFrom = std::chrono::steady_clock::now();
       Raise(field, fp);
       MeshMs_ +=
@@ -412,8 +471,31 @@ int BuildingField::Build(const GroundQuery &ground,
              {"onStreet", Fronted_},
              {"deferrals", Mark_.Deferrals()},
              {"builtAhead", static_cast<int>(Mark_.AheadCount())},
+             {"lumped", static_cast<int>(lumped)},
+             {"blocks", static_cast<int>(lumps.size())},
+             {"awayKm", awayM / kMPerKm},
              {"meshMs", MeshMs_}});
   return static_cast<int>(Prints_.size());
+}
+
+void BuildingField::RaiseLump(const BuildingField::Lumped &of) {
+  if (Mesher_ == nullptr || of.Count == 0) { return; }
+  const auto over = static_cast<double>(of.Count);
+  const std::array<double, 8> ring = {
+      of.LowLat, of.LowLon, of.LowLat, of.HighLon, of.HighLat, of.HighLon, of.HighLat, of.LowLon};
+  Corners_.assign(4, of.BaseSum / over);
+  StructurePlan plan;
+  plan.RingLatLon = std::span<const double>(ring.data(), ring.size());
+  plan.BaseAslM = of.BaseSum / over;
+  plan.SeatAslM = of.SeatSum / over;
+  plan.FootAslM = of.BaseSum / over;
+  plan.CornerAslM = std::span<const double>(Corners_.data(), Corners_.size());
+  plan.HeightM = of.HeightSum / over;
+  plan.HeightMeasured = false;
+  plan.Street = {};
+  plan.AnchorEcef = Anchor_;
+  plan.FocalPx = FocalPx_;
+  (void)Mesher_->Mesh(plan, Built_);
 }
 
 void BuildingField::Raise(const OsmField &field, const Footprint &f) {
