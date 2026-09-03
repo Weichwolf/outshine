@@ -277,9 +277,7 @@ int main(int argc, char **argv) {
   if (verb == "height") { return AskHeight(rest, from); }
   if (verb == "roundtrip") {
     int apart = 0;
-    const std::string held =
-        std::string((std::getenv("TMPDIR") != nullptr) ? std::getenv("TMPDIR") : "/tmp") +
-        "/outshine-roundtrip.scn";
+    const std::string held = "build/outshine-roundtrip.scn";
     for (const Place &one : outshine::Shots::Places()) {
       outshine::Engine engine;
       if (!engine.declare(outshine::Shots::ScenarioFor(one))) {
@@ -288,10 +286,14 @@ int main(int argc, char **argv) {
         continue;
       }
       const std::string first = engine.writeScenario();
-      if (std::FILE *const file = std::fopen(held.c_str(), "wb")) {
-        std::fwrite(first.data(), 1, first.size(), file);
-        std::fclose(file);
+      std::FILE *const file = std::fopen(held.c_str(), "wb");
+      if (file == nullptr) {
+        std::printf("APART   %-14s cannot write %s\n", one.Name, held.c_str());
+        ++apart;
+        continue;
       }
+      std::fwrite(first.data(), 1, first.size(), file);
+      std::fclose(file);
       outshine::Engine again;
       if (!again.readScenario(held)) {
         std::printf("APART   %-14s the written scenario did not read back: %s\n",
