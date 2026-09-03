@@ -403,6 +403,34 @@ struct Engine::State {
   [[nodiscard]] static std::vector<float> PaletteOver(const Ground::VegetationTemplates &wearing,
                                                       const Render::Medium &fallback);
 
+  struct Dividing {
+    Patchwork &Laid;
+    std::vector<float> &InFrame;
+    std::vector<float> &Tinted;
+    std::vector<float> &Uv;
+  };
+
+  struct Halving {
+    uint32_t From = 0;
+    uint32_t To = 0;
+  };
+
+  [[nodiscard]] size_t NamesEveryVertex(Dividing over,
+                                        const ClassStructure &classes,
+                                        std::vector<int> &classOf,
+                                        std::vector<double> &atGeo) const;
+
+  [[nodiscard]] uint32_t HalvesEdge(Dividing over,
+                                    const ClassStructure &classes,
+                                    Halving across,
+                                    std::vector<int> &classOf,
+                                    std::vector<double> &atGeo) const;
+
+  [[nodiscard]] size_t DividesAtClassEdges(Dividing over,
+                                           const ClassStructure &classes,
+                                           std::vector<int> &classOf,
+                                           std::vector<double> &atGeo) const;
+
   [[nodiscard]] Classed Classify(Patchwork &laid, std::vector<float> &inFrame);
 
   struct Phasing {

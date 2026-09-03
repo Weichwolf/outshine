@@ -145,6 +145,132 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
   return palette;
 }
 
+uint32_t Engine::State::HalvesEdge(Dividing over,
+                                   const ClassStructure &classes,
+                                   Halving across,
+                                   std::vector<int> &classOf,
+                                   std::vector<double> &atGeo) const {
+  const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
+  const Render::Medium fallback = Render::kEarthAir;
+  Patchwork &laid = over.Laid;
+  std::vector<float> &inFrame = over.InFrame;
+  std::vector<float> &tinted = over.Tinted;
+  std::vector<float> &classUv = over.Uv;
+  const uint32_t a = across.From;
+  const uint32_t b = across.To;
+  const auto made = static_cast<uint32_t>(inFrame.size() / 3u);
+  for (int axis = 0; axis < 3; ++axis) {
+    inFrame.push_back(0.5f * (inFrame[static_cast<size_t>(a) * 3u + static_cast<size_t>(axis)] +
+                              inFrame[static_cast<size_t>(b) * 3u + static_cast<size_t>(axis)]));
+    laid.NormalM.push_back(0.5f *
+                           (laid.NormalM[static_cast<size_t>(a) * 3u + static_cast<size_t>(axis)] +
+                            laid.NormalM[static_cast<size_t>(b) * 3u + static_cast<size_t>(axis)]));
+  }
+  const double lat =
+      0.5 * (atGeo[static_cast<size_t>(a) * 2u] + atGeo[static_cast<size_t>(b) * 2u]);
+  const double lon =
+      0.5 * (atGeo[static_cast<size_t>(a) * 2u + 1u] + atGeo[static_cast<size_t>(b) * 2u + 1u]);
+  atGeo.push_back(lat);
+  atGeo.push_back(lon);
+  double edgeM = 0.0;
+  int second = -1;
+  const LongitudeLatitude at = {.LongitudeDeg = lon, .LatitudeDeg = lat};
+  const int names = World.Stack.Classes().ClassAt(classes, at, &edgeM, &second);
+  classOf.push_back(names);
+  const EastNorth on = World.Stack.Classes().Project(at);
+  classUv.push_back(static_cast<float>(on.EastM));
+  classUv.push_back(static_cast<float>(on.NorthM));
+  const bool named = names >= 0 && static_cast<size_t>(names) < wearing.TemplateCount();
+  const Ground::VegetationTemplates::Row &wore =
+      wearing.Rows()[named ? static_cast<size_t>(names) : 0];
+  for (int channel = 0; channel < 3; ++channel) {
+    tinted.push_back(named ? wore.Ground[channel]
+                           : fallback.GroundAlbedo[static_cast<size_t>(channel)]);
+  }
+  tinted.push_back(1.0f);
+  return made;
+}
+
+size_t Engine::State::DividesAtClassEdges(Dividing over,
+                                          const ClassStructure &classes,
+                                          std::vector<int> &classOf,
+                                          std::vector<double> &atGeo) const {
+  Patchwork &laid = over.Laid;
+  size_t classDivided = 0;
+  for (int pass = 0; pass < kClassPasses; ++pass) {
+    std::unordered_map<uint64_t, uint32_t> split;
+    for (size_t at = 0; at + 2 < laid.Index.size(); at += 3) {
+      for (int edge = 0; edge < 3; ++edge) {
+        const uint32_t a = laid.Index[at + static_cast<size_t>(edge)];
+        const uint32_t b = laid.Index[at + static_cast<size_t>((edge + 1) % 3)];
+        if (classOf[a] == classOf[b]) { continue; }
+        split.emplace(EdgeKey(a, b), kNoVertex);
+      }
+    }
+    if (split.empty()) { break; }
+    const auto halve = [&](uint32_t a, uint32_t b) {
+      const auto found = split.find(EdgeKey(a, b));
+      if (found == split.end()) { return kNoVertex; }
+      if (found->second != kNoVertex) { return found->second; }
+      found->second = HalvesEdge(over, classes, {.From = a, .To = b}, classOf, atGeo);
+      return found->second;
+    };
+    std::vector<uint32_t> finer;
+    finer.reserve(laid.Index.size() * 2u);
+    for (size_t at = 0; at + 2 < laid.Index.size(); at += 3) {
+      const std::array<uint32_t, 3> face = {
+          {laid.Index[at], laid.Index[at + 1u], laid.Index[at + 2u]}};
+      const std::array<uint32_t, 3> cut = {
+          {halve(face[0], face[1]), halve(face[1], face[2]), halve(face[2], face[0])}};
+      Divide(face, cut, finer);
+    }
+    classDivided += (finer.size() - laid.Index.size()) / 3u;
+    laid.Index.swap(finer);
+  }
+  return classDivided;
+}
+
+size_t Engine::State::NamesEveryVertex(Dividing over,
+                                       const ClassStructure &classes,
+                                       std::vector<int> &classOf,
+                                       std::vector<double> &atGeo) const {
+  const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
+  const Render::Medium fallback = Render::kEarthAir;
+  const Patchwork &laid = over.Laid;
+  std::vector<float> &tinted_ = over.Tinted;
+  std::vector<float> &classUv_ = over.Uv;
+  size_t named = 0;
+  for (size_t at = 0, one = 0; at + 2 < laid.PositionM.size(); at += 3, ++one) {
+    const Vec3 held = {{laid.OriginEcef[0] + static_cast<double>(laid.PositionM[at]),
+                        laid.OriginEcef[1] + static_cast<double>(laid.PositionM[at + 1]),
+                        laid.OriginEcef[2] + static_cast<double>(laid.PositionM[at + 2])}};
+    const Ground::Geo where =
+        Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
+    double edgeM = 0.0;
+    int second = -1;
+    const LongitudeLatitude place = {.LongitudeDeg = where.LongitudeDeg,
+                                     .LatitudeDeg = where.LatitudeDeg};
+    const int which = World.Stack.Classes().ClassAt(classes, place, &edgeM, &second);
+    {
+      const EastNorth on = World.Stack.Classes().Project(place);
+      classUv_[one * 2] = static_cast<float>(on.EastM);
+      classUv_[one * 2 + 1] = static_cast<float>(on.NorthM);
+    }
+    const bool stands = which >= 0 && static_cast<size_t>(which) < wearing.TemplateCount();
+    if (stands) { ++named; }
+    const Ground::VegetationTemplates::Row &wore =
+        wearing.Rows()[stands ? static_cast<size_t>(which) : 0];
+    tinted_[one * 4] = stands ? wore.Ground[0] : fallback.GroundAlbedo[0];
+    tinted_[one * 4 + 1] = stands ? wore.Ground[1] : fallback.GroundAlbedo[1];
+    tinted_[one * 4 + 2] = stands ? wore.Ground[2] : fallback.GroundAlbedo[2];
+    tinted_[one * 4 + 3] = 1.0f;
+    classOf.push_back(which);
+    atGeo.push_back(where.LatitudeDeg);
+    atGeo.push_back(where.LongitudeDeg);
+  }
+  return named;
+}
+
 Engine::State::Classed Engine::State::Classify(Patchwork &laid, std::vector<float> &inFrame) {
   Classed out;
   const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
@@ -159,95 +285,15 @@ Engine::State::Classed Engine::State::Classify(Patchwork &laid, std::vector<floa
     out.Palette = PaletteOver(wearing, fallback);
     out.Tinted.resize((inFrame.size() / 3) * 4);
     out.Uv.resize((inFrame.size() / 3) * 2);
-    for (size_t at = 0, one = 0; at + 2 < laid.PositionM.size(); at += 3, ++one) {
-      const Vec3 held = {{laid.OriginEcef[0] + static_cast<double>(laid.PositionM[at]),
-                          laid.OriginEcef[1] + static_cast<double>(laid.PositionM[at + 1]),
-                          laid.OriginEcef[2] + static_cast<double>(laid.PositionM[at + 2])}};
-      const Ground::Geo where =
-          Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
-      double edgeM = 0.0;
-      int second = -1;
-      const LongitudeLatitude place = {.LongitudeDeg = where.LongitudeDeg,
-                                       .LatitudeDeg = where.LatitudeDeg};
-      const int which = World.Stack.Classes().ClassAt(*classes, place, &edgeM, &second);
-      {
-        const EastNorth on = World.Stack.Classes().Project(place);
-        out.Uv[one * 2] = static_cast<float>(on.EastM);
-        out.Uv[one * 2 + 1] = static_cast<float>(on.NorthM);
-      }
-      const bool stands = which >= 0 && static_cast<size_t>(which) < wearing.TemplateCount();
-      if (stands) { ++named; }
-      const Ground::VegetationTemplates::Row &wore =
-          wearing.Rows()[stands ? static_cast<size_t>(which) : 0];
-      out.Tinted[one * 4] = stands ? wore.Ground[0] : fallback.GroundAlbedo[0];
-      out.Tinted[one * 4 + 1] = stands ? wore.Ground[1] : fallback.GroundAlbedo[1];
-      out.Tinted[one * 4 + 2] = stands ? wore.Ground[2] : fallback.GroundAlbedo[2];
-      out.Tinted[one * 4 + 3] = 1.0f;
-      classOf.push_back(which);
-      atGeo.push_back(where.LatitudeDeg);
-      atGeo.push_back(where.LongitudeDeg);
-    }
-    for (int pass = 0; pass < kClassPasses; ++pass) {
-      std::unordered_map<uint64_t, uint32_t> split;
-      for (size_t at = 0; at + 2 < laid.Index.size(); at += 3) {
-        for (int edge = 0; edge < 3; ++edge) {
-          const uint32_t a = laid.Index[at + static_cast<size_t>(edge)];
-          const uint32_t b = laid.Index[at + static_cast<size_t>((edge + 1) % 3)];
-          if (classOf[a] == classOf[b]) { continue; }
-          split.emplace(EdgeKey(a, b), kNoVertex);
-        }
-      }
-      if (split.empty()) { break; }
-      const auto halve = [&](uint32_t a, uint32_t b) {
-        const auto found = split.find(EdgeKey(a, b));
-        if (found == split.end()) { return kNoVertex; }
-        if (found->second != kNoVertex) { return found->second; }
-        const auto made = static_cast<uint32_t>(inFrame.size() / 3u);
-        for (int axis = 0; axis < 3; ++axis) {
-          inFrame.push_back(0.5f *
-                            (inFrame[static_cast<size_t>(a) * 3u + static_cast<size_t>(axis)] +
-                             inFrame[static_cast<size_t>(b) * 3u + static_cast<size_t>(axis)]));
-          laid.NormalM.push_back(
-              0.5f * (laid.NormalM[static_cast<size_t>(a) * 3u + static_cast<size_t>(axis)] +
-                      laid.NormalM[static_cast<size_t>(b) * 3u + static_cast<size_t>(axis)]));
-        }
-        const double lat =
-            0.5 * (atGeo[static_cast<size_t>(a) * 2u] + atGeo[static_cast<size_t>(b) * 2u]);
-        const double lon = 0.5 * (atGeo[static_cast<size_t>(a) * 2u + 1u] +
-                                  atGeo[static_cast<size_t>(b) * 2u + 1u]);
-        atGeo.push_back(lat);
-        atGeo.push_back(lon);
-        double edgeM = 0.0;
-        int second = -1;
-        const LongitudeLatitude at = {.LongitudeDeg = lon, .LatitudeDeg = lat};
-        const int names = World.Stack.Classes().ClassAt(*classes, at, &edgeM, &second);
-        classOf.push_back(names);
-        const EastNorth on = World.Stack.Classes().Project(at);
-        out.Uv.push_back(static_cast<float>(on.EastM));
-        out.Uv.push_back(static_cast<float>(on.NorthM));
-        const bool named = names >= 0 && static_cast<size_t>(names) < wearing.TemplateCount();
-        const Ground::VegetationTemplates::Row &wore =
-            wearing.Rows()[named ? static_cast<size_t>(names) : 0];
-        for (int channel = 0; channel < 3; ++channel) {
-          out.Tinted.push_back(named ? wore.Ground[channel]
-                                     : fallback.GroundAlbedo[static_cast<size_t>(channel)]);
-        }
-        out.Tinted.push_back(1.0f);
-        found->second = made;
-        return made;
-      };
-      std::vector<uint32_t> finer;
-      finer.reserve(laid.Index.size() * 2u);
-      for (size_t at = 0; at + 2 < laid.Index.size(); at += 3) {
-        const std::array<uint32_t, 3> face = {
-            {laid.Index[at], laid.Index[at + 1u], laid.Index[at + 2u]}};
-        const std::array<uint32_t, 3> cut = {
-            {halve(face[0], face[1]), halve(face[1], face[2]), halve(face[2], face[0])}};
-        Divide(face, cut, finer);
-      }
-      classDivided += (finer.size() - laid.Index.size()) / 3u;
-      laid.Index.swap(finer);
-    }
+    named = NamesEveryVertex({.Laid = laid, .InFrame = inFrame, .Tinted = out.Tinted, .Uv = out.Uv},
+                             *classes,
+                             classOf,
+                             atGeo);
+    classDivided =
+        DividesAtClassEdges({.Laid = laid, .InFrame = inFrame, .Tinted = out.Tinted, .Uv = out.Uv},
+                            *classes,
+                            classOf,
+                            atGeo);
     Published.Places("class field: triangles the boundary divided",
                      static_cast<double>(classDivided),
                      "triangles");
