@@ -222,7 +222,7 @@ Fitted Fit(std::span<const double> eastNorthM,
     const double inM = vertex > 0 ? legM[vertex - 1] : 0.0;
     const double outM = vertex + 1 < points ? legM[vertex] : 0.0;
     const Nearby about = vertex == 0
-                             ? Nearby{.AboutM = 0.5 * out.LengthM, .WithinM = out.LengthM}
+                             ? Nearby{.AboutM = 0.0, .WithinM = kFitWindowLegs * outM + kFitWindowM}
                              : Nearby{.AboutM = sweptM + inM,
                                       .WithinM = kFitWindowLegs * (inM + outM) + kFitWindowM};
     const std::optional<double> found = into.Nearest({.EastM = eastM, .NorthM = northM}, about);

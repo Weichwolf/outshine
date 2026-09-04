@@ -272,9 +272,9 @@ std::optional<double> ReferenceLine::Nearest(EastNorth at, Nearby about) const {
   double bestM = lowM;
   double bestAway = 0.0;
   bool have = false;
-  const auto steps = static_cast<size_t>((highM - lowM) / kResectionCoarseM);
-  for (size_t step = 0; step <= steps; ++step) {
-    const double atM = lowM + static_cast<double>(step) * kResectionCoarseM;
+  const double strideM = (highM - lowM) / static_cast<double>(kResectionCoarseSteps);
+  for (int step = 0; step <= kResectionCoarseSteps; ++step) {
+    const double atM = lowM + static_cast<double>(step) * strideM;
     Placed there;
     if (!At(atM, there)) { continue; }
     const double is = away(there);
@@ -286,8 +286,8 @@ std::optional<double> ReferenceLine::Nearest(EastNorth at, Nearby about) const {
   }
   if (!have) { return std::nullopt; }
 
-  double lowBracket = bestM - kResectionCoarseM;
-  double highBracket = bestM + kResectionCoarseM;
+  double lowBracket = bestM - strideM;
+  double highBracket = bestM + strideM;
   lowBracket = std::max(lowBracket, lowM);
   highBracket = std::min(highBracket, highM);
 

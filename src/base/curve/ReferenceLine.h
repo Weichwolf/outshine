@@ -25,7 +25,7 @@ struct Curving {
 
 inline constexpr size_t kMaxCorridorSegments = 262144;
 inline constexpr size_t kMaxCorridorKnots = 262144;
-inline constexpr double kResectionCoarseM = 1.0;
+inline constexpr int kResectionCoarseSteps = 24;
 inline constexpr int kResectionRefinements = 24;
 inline constexpr double kTangentTolerance = kLeastTurnRad;
 
