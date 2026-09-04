@@ -25,8 +25,10 @@ The world is EARTH and the engine is online by definition: a picture can be made
 it, and what comes out has to be comparable with reality. Elevation always, vector data where a
 scenario asks for it, and the sun, the moon, the stars and the weather standing where the place and
 the hour put them rather than where a number says. A hand-set sun is a sun that disagrees with its
-own shadows the moment the clock moves. **How far the tree is from any of this is `board/`'s to
-say, never this page's.**
+own shadows the moment the clock moves. **Reachable providers are PRESUMED** -- elevation, vectors,
+weather and whatever a scenario declares next are servers this engine may count on, so no design
+here pays for their absence, and an offline world is a cache and never a second architecture.
+**How far the tree is from any of this is `board/`'s to say, never this page's.**
 
 **WHO AUTHORS: NOBODY, AND THAT IS THE DIFFERENCE.** RAGE and Unreal are engines UNDER an
 authoring tool -- a studio places every prop, and the map is content. outshine has no tool for a
