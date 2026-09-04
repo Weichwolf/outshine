@@ -5,6 +5,33 @@ Tags: measured, owner, gate
 
 # clang-tidy reports NOTHING, and the baseline is 0 because it is the target
 
+## Where it stands, and the method that got there
+
+  2026-09-03 morning   198
+  2026-09-04           146     54 swappable parameters, 89 cognitive complexity
+
+**What works, measured over about forty repairs:** a finding is almost never a style complaint, it
+is a defect with a name. `bugprone-easily-swappable-parameters` found a swapped latitude in three
+calls, a UV set spelled as an `int` beside a part index, `Attr("no", "bridge")` answering "bridge",
+and a lookup whose FALLBACK was the argument next to the key. Every one of those compiles and lies.
+
+The four moves that dissolve them, in the order they usually apply:
+
+  a bundle of parameters   -> a TYPE, and the type is usually already in the tree
+  an out-parameter         -> the RETURN value, `std::optional` or `std::expected`
+  a fallback argument      -> `.value_or(...)` at the caller, because it belongs to whoever asks
+  a repeated section       -> one method, and a repeated expression -> one table
+
+**And the check is a checker, not a judge.** `LogField(const char *key, const char *v)` is flagged
+and STAYS: removing the overload makes `{"name", "car"}` bind to the `bool` one and narrow. A
+finding traded for a worse construct is not progress, and the reason is written where the overload
+is declared.
+
+**What the number does NOT say:** `Grounds` at 173 and `LayCorridor` at 221 are each ONE finding,
+and `Attr` was one finding across 98 call sites. The count measures findings, never work -- so it
+falls in steps of one or two while the tree changes underneath it, and a batch that dissolves real
+debt can move it by nothing at all.
+
 **Benchmark** — Unreal builds with `bWarningsAsErrors` and gates a static-analyser pass; a warning
 does not travel. RAGE cannot be read on this, so it does not get a column. **This tree already
 states the rule itself** -- CLAUDE.md's craft list says `-Wall -Werror -Wpedantic` and *"a warning
