@@ -284,3 +284,27 @@ warm, the preload holds. The field cache belongs beside the pool's byte cache, o
 **What the switch needs from here**: the owner's eye on the nine lattice pictures against the
 references, then the lattice becomes the default, the ring's Refine/Cut/Sew/Press and its
 vertex upload go (step 4), and nine new references are written with this item's word.
+
+## The nine, lattice against reference, measured 2026-09-04 (pixels.py; the pictures in the item's commit)
+
+```
+  place        lattice digest  differ    >1/255    p50 ms (ring)
+  OldTown      4e7837d7        47 488    22 995    2.91 (2.22)
+  Heidelberg   0e755a78       307 403   142 706    3.21 (2.57)
+  Shibuya      3b0df398        74 359    55 633    7.25 (6.81)
+  CentralPark  e8d1c6e6       414 416   225 139    5.85 (4.76)
+  Venice       a6fb124b       112 609    81 636    3.67 (2.74)
+  Jura         c54b6613       156 030    25 340    3.77 (2.84)
+  ZurichPlan   85111fff       163 348    25 082    6.22 (4.43)
+  Kaiserberg   b0b40a3c        88 860     8 399    4.34 (3.43)
+  Koehlbrand   ebba37d2        91 312    19 067    4.41 (2.84)
+```
+
+Looked at, all nine: the same places. What differs and why -- the ground's SHADING over
+whole slopes (CentralPark's 45 per cent is the park's lawn a few units darker: the normal is a
+central difference on the page, the ring's was averaged over its triangles), buildings and
+roads standing on the fine ground instead of the chord, and at Heidelberg the near hillside
+darker for the same normal reason. What has to be right BEFORE the switch: the normal
+(measure it against the ring's on one slope), the frame cost (+0.5..1.6 ms, instances drawn
+whether in view or not -- a frustum test per tile), the cold preload (the field cache), and
+the OldTown wedge.
