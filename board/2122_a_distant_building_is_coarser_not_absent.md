@@ -78,6 +78,38 @@ construction; the REBUILD leaves the frame path because the frame only places fi
 (board:2124). Determinism: pieces are placed in the watermark's DECLARED order whatever order the
 workers finished them in.
 
+## The design, decided 2026-09-04 after reading the renderer end to end
+
+The renderer's machinery for pieces already exists and is used for ONE mesh: a placement ROW
+per batch (`rows[2*slot]` in the vertex shader, `shift = -eye` added on the GPU), cluster JOBS
+per batch over one absolute index buffer, an indirect draw-argument row per batch, and the
+model space is the ENU frame at the declared origin with the eye subtracted per frame.
+
+- **a piece is a RANGE** in one arena per stream -- vertex, normal, uv, colour, index -- with
+  a first-fit free list, so the cull's single index space and its one dispatch survive; the
+  reference is Nanite's page pool rather than one buffer per drawable, because the cull is
+  what would otherwise run four hundred times
+- **the arena is a SECOND residency** beside the subject's: the animated glTF subject keeps
+  `SetMesh`/`SetPose`, the world's pieces live in `PieceStore`, and `SubjectDraw::Encode`,
+  the shadow cast, the cull and `ReadKeptIndices` walk BOTH; nothing about a piece is
+  world-grained
+- **a piece's row** is `[R_enu | R_enu · (origin_piece - origin_frame)]` in double, cast to
+  float once -- the same 3 cm quantum at 300 km the frame's float positions have today, and
+  Cesium's RTC exactly; the cull applies the row to the piece's cluster spheres, so the
+  spheres are in piece space
+- **the stored vertex stays packed** (`StoredVertex`, 20 bytes) up to the staging write, where
+  it is unfolded into the SoA streams the pipelines bind; a packed vertex LAYOUT for the GPU
+  is a later step and a separate measurement
+- **upload is per piece into its range** (`Crossing.Offset`), and a stream that outgrows its
+  arena is copied into a doubled one on the GPU (`SDL_CopyGPUBufferToBuffer`), never
+  re-uploaded from the CPU, because the CPU no longer holds it
+
+The order: the renderer's arena first (measured by the glTF corpus staying green and
+OldTown's picture unmoved with nothing placed); then buildings as pieces per vector tile
+(OldTown looked at, Shibuya preloading); then the bake on workers; then terrain tiles as
+pieces, which waits on board:2115 because the ground's per-vertex classify and press are
+still world-grained passes.
+
 ## What will be true
 
 - [ ] `BuildingField::Built_` is gone; the CPU holds footprints and per-tile pieces in flight
