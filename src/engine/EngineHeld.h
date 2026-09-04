@@ -453,7 +453,6 @@ struct Engine::State {
     std::vector<std::vector<RoadStation>> Designed;
     std::vector<RoadStation> Along;
     std::vector<RoadStation> Finer;
-    double FitOffsetWorstM = 0.0;
     double FitRadiusTightestM = 0.0;
     size_t FitsMeasured = 0;
     std::vector<double> FitEastNorth;

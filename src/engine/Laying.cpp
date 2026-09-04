@@ -741,7 +741,6 @@ void Engine::State::FitAlongLane(Paved &into) {
                            fitted);
     if (got.Laid) {
       ++into.FitLaid;
-      into.FitOffsetWorstM = std::max(into.FitOffsetWorstM, got.WorstOffsetM);
       ++into.FitsMeasured;
       if (got.TightestRadiusM > 0.0) {
         into.FitRadiusTightestM = into.FitRadiusTightestM > 0.0
@@ -766,7 +765,6 @@ void Engine::State::FitAlongLane(Paved &into) {
               piece);
       if (head.Laid) {
         ++into.FitLaid;
-        into.FitOffsetWorstM = std::max(into.FitOffsetWorstM, head.WorstOffsetM);
         ++into.FitsMeasured;
         if (head.TightestRadiusM > 0.0) {
           into.FitRadiusTightestM = into.FitRadiusTightestM > 0.0
@@ -1769,7 +1767,6 @@ void Engine::State::TellsWhatTheFitFound(Paved &into) {
                    static_cast<double>(into.FitUnsplittable),
                    "pieces");
   Published.Places("streets: the tightest radius a corner demanded", into.TightestDemandM, "m");
-  Published.Places("streets: the offset a fitted line needed, worst", into.FitOffsetWorstM, "m");
   Published.Places(
       "streets: the radius a fitted line found, tightest", into.FitRadiusTightestM, "m");
   Published.Places(

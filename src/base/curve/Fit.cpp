@@ -16,11 +16,6 @@
 
 namespace outshine {
 
-constexpr double kFitWindowLegs = 0.9;
-constexpr double kFitWindowM = 6.0;
-
-constexpr double kControlShare = 0.75;
-
 namespace {
 
 struct Chord {
@@ -146,15 +141,7 @@ Fitted Fit(std::span<const double> eastNorthM,
   }
   std::vector<double> turnRad(points, 0.0);
   for (size_t vertex = 1; vertex + 1 < points; ++vertex) {
-    const double turn = Wrapped(headingRad[vertex] - headingRad[vertex - 1]);
-    turnRad[vertex] = turn;
-    const double swing = std::fabs(turn);
-    if (swing > out.SharpestTurnRad) {
-      out.SharpestTurnRad = swing;
-      out.SharpestTurnAtM = static_cast<double>(vertex);
-    }
-    if (swing > 0.5 * std::numbers::pi) { ++out.TurnsPastRightAngle; }
-    if (swing > kControlShare * std::numbers::pi) { ++out.TurnsPastHalfCircle; }
+    turnRad[vertex] = Wrapped(headingRad[vertex] - headingRad[vertex - 1]);
   }
 
   if (points < 3) {
@@ -193,60 +180,11 @@ Fitted Fit(std::span<const double> eastNorthM,
   out.Passes = 1;
   out.Corners = aligned->Bends.size();
   out.Runs = aligned->Runs;
-  out.LongestRunVertices = aligned->LongestRunVertices;
-  out.SplitByAccuracy = aligned->SplitByAccuracy;
   out.TightestRadiusM = aligned->TightestRadiusM;
   out.TightestDemandedM = aligned->TightestRadiusM;
   out.LengthM = into.LengthM();
   out.Straights = laid->Straights;
 
-  for (const Bend &bend : aligned->Bends) {
-    const size_t held = bend.LastVertex - bend.FirstVertex + 1u;
-    if (held > 2) { out.SheltredVertices += held - 2; }
-    if (bend.RadiusM <= out.TightestRadiusM) { out.TightestAtVertex = bend.FirstVertex; }
-    for (size_t vertex = bend.FirstVertex; vertex <= bend.LastVertex; ++vertex) {
-      const double classM = vertex < classTightestM.size() ? classTightestM[vertex] : 0.0;
-      if (!(classM > 0.0) || bend.RadiusM >= classM) { continue; }
-      ++out.UnderClass;
-      const double shortfall = bend.RadiusM / classM;
-      if (out.UnderClass == 1 || shortfall < out.UnderClassRadiusM / out.UnderClassMinimumM) {
-        out.UnderClassAtVertex = vertex;
-        out.UnderClassRadiusM = bend.RadiusM;
-        out.UnderClassMinimumM = classM;
-      }
-    }
-  }
-
-  double sweptM = 0.0;
-  for (size_t vertex = 0; vertex < points; ++vertex) {
-    const double eastM = eastNorthM[2 * vertex];
-    const double northM = eastNorthM[2 * vertex + 1];
-    const double inM = vertex > 0 ? legM[vertex - 1] : 0.0;
-    const double outM = vertex + 1 < points ? legM[vertex] : 0.0;
-    const Nearby about = vertex == 0
-                             ? Nearby{.AboutM = 0.0, .WithinM = kFitWindowLegs * outM + kFitWindowM}
-                             : Nearby{.AboutM = sweptM + inM,
-                                      .WithinM = kFitWindowLegs * (inM + outM) + kFitWindowM};
-    const std::optional<double> found = into.Nearest({.EastM = eastM, .NorthM = northM}, about);
-    if (!found) { continue; }
-    const double alongM = *found;
-    sweptM = alongM;
-    Placed on;
-    if (!into.At(alongM, on)) { continue; }
-    const double east = eastM - on.EastM;
-    const double north = northM - on.NorthM;
-    const double awayM = std::sqrt(east * east + north * north);
-    if (awayM <= out.WorstOffsetM) { continue; }
-    out.WorstOffsetM = awayM;
-    out.WorstOffsetAtM = alongM;
-    out.WorstVertex = static_cast<double>(vertex);
-    out.WorstLegInM = vertex > 0 ? legM[vertex - 1] : 0.0;
-    out.WorstLegOutM = vertex + 1 < points ? legM[vertex] : 0.0;
-    out.WorstTurnRad = turnRad[vertex];
-    out.WorstStationM = alongM;
-  }
-  out.DriftM = out.WorstOffsetM > withinM ? out.WorstOffsetM - withinM : 0.0;
-  out.DriftPerCornerM = out.Corners > 0 ? out.DriftM / static_cast<double>(out.Corners) : 0.0;
   out.Laid = true;
   return out;
 }
