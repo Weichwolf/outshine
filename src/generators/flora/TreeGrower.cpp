@@ -188,9 +188,8 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   }
 }
 
-void TreeGrower::EmitLeafPoints(
-    Vec3f pos, Vec3f dir, Vec3f up, float radius, int count, float roll) {
-  const Frame frame = FrameFrom({.Along = dir, .Reference = up});
+void TreeGrower::EmitLeafPoints(Vec3f pos, Framing over, float radius, int count, float roll) {
+  const Frame frame = FrameFrom(over);
   const Vec3f &n = frame.Normal;
   const Vec3f &b = frame.Binormal;
   count = std::max(count, 1);
@@ -201,13 +200,15 @@ void TreeGrower::EmitLeafPoints(
     const float az = roll + kTau * (static_cast<float>(i) / static_cast<float>(count)) +
                      Rng_.Signed() * kAzimuthJitterRad;
     const Vec3f radial = n * std::cos(az) + b * std::sin(az);
-    Plant_->LeafPoints.push_back(LeafPoint{.Pos = pos + radial * (radius * kSeatOfRadius),
-                                           .Dir = DirectionOrUp(radial + dir * kForwardTilt)});
+    Plant_->LeafPoints.push_back(
+        LeafPoint{.Pos = pos + radial * (radius * kSeatOfRadius),
+                  .Dir = DirectionOrUp(radial + over.Along * kForwardTilt)});
   }
 }
 
-void TreeGrower::SpawnLateral(
-    const Tip &t, const TreeSpecies::Growth &g, int node, float roll, int parentStep) {
+void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, Sprout from, float roll) {
+  const int node = from.Node;
+  const int parentStep = from.ParentStep;
   const Vec3f fn = RadialAt(t.Dir, t.Up, roll);
   const float a = (g.BranchAngle + Rng_.Signed() * g.BranchAngleVar) * kDeg;
   const Vec3f dir = DirectionOrUp(t.Dir * std::cos(a) + fn * std::sin(a));
@@ -335,7 +336,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
                             ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold));
       if (foliated && t.Radius < leafThreshold) {
         leafRoll += kGolden;
-        EmitLeafPoints(t.Pos, t.Dir, t.Up, t.Radius, 3, leafRoll);
+        EmitLeafPoints(t.Pos, {.Along = t.Dir, .Reference = t.Up}, t.Radius, 3, leafRoll);
       }
 
       if (t.Bare > 0) {
@@ -346,15 +347,14 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
             for (int wb = 0; wb < g.WhorlCount; ++wb) {
               SpawnLateral(t,
                            g,
-                           last,
+                           {.Node = last, .ParentStep = s},
                            static_cast<float>(wb) * kTau / static_cast<float>(g.WhorlCount) +
-                               Rng_.Signed() * kWhorlJitterRad,
-                           s);
+                               Rng_.Signed() * kWhorlJitterRad);
             }
           }
         } else if (Rng_.Unit() < g.BranchChance) {
           t.Roll += kGolden + Rng_.Signed() * kSpiralJitterRad;
-          SpawnLateral(t, g, last, t.Roll, s);
+          SpawnLateral(t, g, {.Node = last, .ParentStep = s}, t.Roll);
         }
       }
       if (t.Radius < g.MinRadius) { break; }
@@ -380,7 +380,11 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     if (t.Foliate &&
         ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * kLeafRadiusFactor)) &&
         t.Radius < leafThreshold * kLeafRadiusFactor) {
-      EmitLeafPoints(t.Pos, t.Dir, t.Up, t.Radius, kLeafPointsPerWhorl, leafRoll + kLeafRollTurn);
+      EmitLeafPoints(t.Pos,
+                     {.Along = t.Dir, .Reference = t.Up},
+                     t.Radius,
+                     kLeafPointsPerWhorl,
+                     leafRoll + kLeafRollTurn);
     }
   }
 

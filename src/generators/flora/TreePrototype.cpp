@@ -113,7 +113,8 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
     if (rank == 0) { crownProjM2 = foliage.CrownProjM2(); }
     out.CardCount = nCards;
     out.CardLeafM =
-        foliage.CardLeafM(kElementsPerSheet, nCards, static_cast<double>(sp.Lai()), crownProjM2);
+        foliage.CardLeafM({.LeavesPerCard = kElementsPerSheet, .Cards = nCards},
+                          {.Lai = static_cast<double>(sp.Lai()), .CrownProjM2 = crownProjM2});
     out.BarkVerts = mesh.BarkVerts;
     out.BarkVertCount = static_cast<uint32_t>(mesh.BarkVertexCount());
     out.BarkIdx = mesh.BarkIdx;

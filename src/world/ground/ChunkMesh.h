@@ -18,13 +18,8 @@ namespace outshine::Ground {
 
 constexpr double kLeastNormalM = 1e-9;
 
-inline int ChunkBuildEcef(const TerrainMesh &mesh,
-                          int z,
-                          uint32_t x,
-                          uint32_t y,
-                          int grid,
-                          Chunk *out,
-                          Vec3 &origin_out) {
+inline int
+ChunkBuildEcef(const TerrainMesh &mesh, Data::TileId over, int grid, Chunk *out, Vec3 &origin_out) {
   if (out == nullptr) { return 0; }
   out->verts = nullptr;
   out->nverts = 0;
@@ -62,8 +57,9 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
   {
     const int rc = W3_RI(gr / 2);
     const int cc = W3_CI(gc / 2);
-    Geo gc0 =
-        TileFracToGeo({.X = static_cast<double>(x) + 0.5, .Y = static_cast<double>(y) + 0.5}, z);
+    Geo gc0 = TileFracToGeo(
+        {.X = static_cast<double>(over.X) + 0.5, .Y = static_cast<double>(over.Y) + 0.5},
+        over.Zoom);
     gc0.HeightM = W3_MH(rc, cc);
     const Ecef o = GeoToEcefWgs84(gc0);
     origin_out[0] = o.X;
@@ -78,8 +74,9 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
       const double fx = static_cast<double>(c) / static_cast<double>(C - 1);
       const double fy = static_cast<double>(r) / static_cast<double>(R - 1);
       const float h = W3_MH(r, c);
-      Geo g =
-          TileFracToGeo({.X = static_cast<double>(x) + fx, .Y = static_cast<double>(y) + fy}, z);
+      Geo g = TileFracToGeo(
+          {.X = static_cast<double>(over.X) + fx, .Y = static_cast<double>(over.Y) + fy},
+          over.Zoom);
       g.HeightM = h;
       const Ecef e = GeoToEcefWgs84(g);
       double *d = pe + (static_cast<size_t>(j) * gc + i) * 3;

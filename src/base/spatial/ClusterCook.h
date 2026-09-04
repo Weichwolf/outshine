@@ -21,10 +21,13 @@ struct Cooked {
                                   std::span<const uint32_t> indices,
                                   uint32_t mostTriangles);
 
-[[nodiscard]] Cooked CookDag(std::span<const float> positionsM,
-                             std::span<const uint32_t> indices,
-                             uint32_t mostTriangles,
-                             uint32_t mostLevels);
+struct Limits {
+  uint32_t MostTriangles = 0;
+  uint32_t MostLevels = 0;
+};
+
+[[nodiscard]] Cooked
+CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices, Limits within);
 
 } // namespace outshine
 #endif

@@ -147,10 +147,10 @@ struct CellHash {
 
 } // namespace
 
-Cooked CookDag(std::span<const float> positionsM,
-               std::span<const uint32_t> indices,
-               uint32_t mostTriangles,
-               uint32_t mostLevels) {
+Cooked
+CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices, Limits within) {
+  const uint32_t mostTriangles = within.MostTriangles;
+  const uint32_t mostLevels = within.MostLevels;
   Cooked out = CookClusters(positionsM, indices, mostTriangles);
   out.PositionsM.assign(positionsM.begin(), positionsM.end());
   out.FirstOwnVertex = static_cast<uint32_t>(positionsM.size() / 3);

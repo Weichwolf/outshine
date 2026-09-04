@@ -39,8 +39,17 @@ public:
 
   [[nodiscard]] double LaminaAreaLocal() const { return LocalArea_; }
 
-  [[nodiscard]] float
-  CardLeafM(int leavesPerCard, size_t cards, double lai, double crownProjM2) const;
+  struct Sheets {
+    int LeavesPerCard = 0;
+    size_t Cards = 0;
+  };
+
+  struct Canopy {
+    double Lai = 0.0;
+    double CrownProjM2 = 0.0;
+  };
+
+  [[nodiscard]] float CardLeafM(Sheets over, Canopy under) const;
 
 private:
   std::vector<float> Inst_;

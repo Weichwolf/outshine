@@ -93,10 +93,11 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
   AreaM2_ = oneM2 * static_cast<double>(Count());
 }
 
-float TreeFoliage::CardLeafM(int leavesPerCard,
-                             size_t cards,
-                             double lai,
-                             double crownProjM2) const {
+float TreeFoliage::CardLeafM(Sheets over, Canopy under) const {
+  const int leavesPerCard = over.LeavesPerCard;
+  const size_t cards = over.Cards;
+  const double lai = under.Lai;
+  const double crownProjM2 = under.CrownProjM2;
   const double per = static_cast<double>(leavesPerCard > 0 ? leavesPerCard : 1) *
                      static_cast<double>(cards) * LocalArea_;
   if (per <= 0.0 || lai <= 0.0 || crownProjM2 <= 0.0) { return ScaleM_; }

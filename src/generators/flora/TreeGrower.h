@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "TreeFrame.h"
 #include "TreeRandom.h"
 #include "TreeSkeleton.h"
 #include "TreeSpecies.h"
@@ -45,11 +46,15 @@ private:
     bool Foliate = true;
   };
 
-  void
-  SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int node, float roll, int parentStep);
+  struct Sprout {
+    int Node = 0;
+    int ParentStep = 0;
+  };
+
+  void SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, Sprout from, float roll);
 
   void SpawnShoot(const Tip &parent, const Request &request, const TreeSpecies::Growth &g);
-  void EmitLeafPoints(Vec3f pos, Vec3f dir, Vec3f up, float radius, int count, float roll);
+  void EmitLeafPoints(Vec3f pos, Framing over, float radius, int count, float roll);
 
   void SetCrown(const TreeSpecies &species, float growHeight);
   void SeedLeaders(const TreeSpecies::Growth &g, int bareSteps);

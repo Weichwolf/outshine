@@ -16,7 +16,9 @@ constexpr size_t kDecimalDigits = 40;
 
 constexpr uint32_t kNoIndex = 0xffffffffu;
 
-bool GlbFits(size_t jsonBytes, size_t binaryBytes) {
+bool GlbFits(GlbParts of) {
+  const size_t jsonBytes = of.JsonBytes;
+  const size_t binaryBytes = of.BinaryBytes;
   const size_t jsonPadded = (jsonBytes + 3) & ~size_t{3};
   const size_t binaryPadded = (binaryBytes + 3) & ~size_t{3};
   constexpr size_t kCeiling = kNoIndex;
@@ -113,7 +115,7 @@ public:
     json += Materials();
     json += Parts();
     json += R"(,"buffers":[{"byteLength":)" + Integer(Binary_.size()) + "}]}";
-    if (!GlbFits(json.size(), Binary_.size())) {
+    if (!GlbFits({.JsonBytes = json.size(), .BinaryBytes = Binary_.size()})) {
       return Refuse("the subject needs " + Integer(json.size()) + " bytes of JSON and " +
                     Integer(Binary_.size()) +
                     " of geometry, and a GLB container's 32-bit header cannot carry them "

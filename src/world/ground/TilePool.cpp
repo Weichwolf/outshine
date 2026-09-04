@@ -388,7 +388,8 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   const char *stage = "source";
   Miss miss = MissOf(mesh.Where());
   if (miss == Miss::None &&
-      ((ChunkBuildEcef(mesh, job.Z, job.X, job.Y, job.Grid, &chunk, origin) == 0) ||
+      ((ChunkBuildEcef(mesh, {.Zoom = job.Z, .X = job.X, .Y = job.Y}, job.Grid, &chunk, origin) ==
+        0) ||
        chunk.nverts <= 0)) {
     miss = Miss::Refused;
     stage = "grid";

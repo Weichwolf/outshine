@@ -19,7 +19,12 @@ struct Emission {
 
 [[nodiscard]] bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error);
 
-[[nodiscard]] bool GlbFits(size_t jsonBytes, size_t binaryBytes);
+struct GlbParts {
+  size_t JsonBytes = 0;
+  size_t BinaryBytes = 0;
+};
+
+[[nodiscard]] bool GlbFits(GlbParts of);
 
 } // namespace outshine::Gltf
 #endif
