@@ -18,6 +18,8 @@
 #include "TileRanges.h"
 #include "TileWatermark.h"
 
+#include <generate/Generate.h>
+
 namespace outshine::Ground {
 
 class BuildingField {
@@ -32,6 +34,8 @@ public:
     float FootM = 0.0f;
     HeightSource Source = HeightSource::Default;
     Frontage Street;
+
+    Generators::Detail Coarseness = Generators::Detail::Fine;
   };
 
   void SeenWith(double focalPx) { FocalPx_ = focalPx; }

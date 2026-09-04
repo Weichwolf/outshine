@@ -113,11 +113,14 @@ public:
     ReachM_ =
         std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);
     FocalPx_ = plan.FocalPx;
+    Coarseness_ = plan.Coarseness;
   }
 
   [[nodiscard]] double ReachM() const { return ReachM_; }
 
   [[nodiscard]] double FocalPx() const { return FocalPx_; }
+
+  [[nodiscard]] Detail Coarseness() const { return Coarseness_; }
 
   [[nodiscard]] static Vtx Snapped(const Vtx &v) {
     Vtx out = v;
@@ -210,6 +213,7 @@ private:
   Vec3 Origin_, East_, North_, Up_;
   double ReachM_ = 0.0;
   double FocalPx_ = 0.0;
+  Detail Coarseness_ = Detail::Fine;
 };
 
 struct Levels {
@@ -733,17 +737,6 @@ constexpr double kRoofRiseM = 3.0;
 constexpr double kResolvedPx = 2.0;
 
 constexpr double kArchitectureTris = 262.0;
-constexpr double kBoxTris = 12.0;
-
-struct Rung {
-  Detail Level = Detail::Fine;
-  double Tris = 0.0;
-};
-
-constexpr Rung kRungs[] = {
-    {.Level = Detail::Fine, .Tris = kArchitectureTris},
-    {.Level = Detail::Shell, .Tris = kBoxTris},
-};
 
 [[nodiscard]] double FitsInPixelsM(double focalPx, double heightM, double widthM, double tris) {
   if (heightM <= 0.0 || widthM <= 0.0 || tris <= 0.0) { return 0.0; }
@@ -834,14 +827,9 @@ void RaisePart(const BuildingShape &s, Site &site) {
     }
     const double wideM = 0.5 * ((mostE - leastE) + (mostN - leastN));
     const double highM = s.TopM() - s.SoleM;
-    Detail level = Detail::Fine;
-    for (size_t at = std::size(kRungs); at > 0; --at) {
-      const Rung &rung = kRungs[at - 1u];
-      double reachM = FitsInPixelsM(focalPx, highM, wideM, rung.Tris);
-      if (rung.Level == Detail::Fine) { reachM = std::min(reachM, ArchitectureReachM(focalPx)); }
-      if (outM <= reachM) { level = rung.Level; }
-    }
-    if (level != Detail::Fine) {
+    const double asDetailed = std::min(ArchitectureReachM(focalPx),
+                                       FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
+    if (site.Coarseness() != Detail::Fine || outM > asDetailed) {
       Box(s, Hull(s.Ring), site);
       return;
     }

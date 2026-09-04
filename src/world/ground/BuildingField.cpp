@@ -449,6 +449,7 @@ int BuildingField::Build(const GroundQuery &ground,
       fp.BaseM = static_cast<float>(base);
       fp.FootM = static_cast<float>(base);
       fp.SeatM = static_cast<float>(seat);
+      fp.Coarseness = level;
       Prints_.push_back(fp);
 
       if (level != Generators::Detail::Fine) {
@@ -530,6 +531,7 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   plan.Street = f.Street;
   plan.AnchorEcef = Anchor_;
   plan.FocalPx = FocalPx_;
+  plan.Coarseness = f.Coarseness;
   if (!Mesher_->Mesh(plan, Built_)) { return; }
 }
 

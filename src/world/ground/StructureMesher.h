@@ -7,6 +7,8 @@
 
 #include "math/Vec3.h"
 
+#include <generate/Generate.h>
+
 namespace outshine {
 
 inline constexpr double kSteepestRoof = 0.5;
@@ -70,6 +72,8 @@ struct StructurePlan {
   Vec3 AnchorEcef;
 
   double FocalPx = 0.0;
+
+  Generators::Detail Coarseness = Generators::Detail::Fine;
 };
 
 class StructureMesher {
