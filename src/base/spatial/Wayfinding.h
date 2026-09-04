@@ -227,7 +227,7 @@ private:
     double Ax = 0.0, Ay = 0.0, Bx = 0.0, By = 0.0;
   };
 
-  static_assert(sizeof(Filed) == 40);
+  static_assert(sizeof(Filed) == 2 * sizeof(uint32_t) + 4 * sizeof(double));
   static_assert(std::is_trivially_copyable_v<Filed>);
 
   struct Filing {
@@ -241,12 +241,12 @@ private:
     uint32_t To = 0;
   };
 
-  void CrossingsInCell(const Filing &filed,
-                       CellSpan span,
-                       const Gridded &grid,
-                       Spanned box,
-                       std::vector<Crossing> &into,
-                       Swept &swept) const;
+  static void CrossingsInCell(const Filing &filed,
+                              CellSpan span,
+                              const Gridded &grid,
+                              Spanned box,
+                              std::vector<Crossing> &into,
+                              Swept &swept);
 
   struct EdgeEnds {
     size_t From = 0;

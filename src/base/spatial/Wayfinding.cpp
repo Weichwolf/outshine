@@ -681,7 +681,7 @@ void Network::CrossingsInCell(const Filing &filed,
                               const Gridded &grid,
                               Spanned box,
                               std::vector<Crossing> &into,
-                              Swept &swept) const {
+                              Swept &swept) {
   const uint32_t begins = span.From;
   const uint32_t ends = span.To;
   for (uint32_t one = begins; one + 1u < ends; ++one) {

@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <expected>
 #include <numbers>
+#include <utility>
 #include <optional>
 #include <span>
 #include <string>
@@ -18,10 +19,15 @@ namespace outshine {
 namespace {
 
 constexpr double kGoldenCut = std::numbers::phi - 1.0;
-static_assert(kGoldenCut > 0.6180339 && kGoldenCut < 0.6180340);
-static_assert(kGoldenCut * kGoldenCut + kGoldenCut > 0.999999 &&
-                  kGoldenCut * kGoldenCut + kGoldenCut < 1.000001,
-              "phi's defining identity: 1/phi^2 + 1/phi == 1, which is why one probe is reusable");
+
+constexpr double kIdentitySlack = 1.0e-12;
+
+constexpr double kGoldenIdentity = kGoldenCut * kGoldenCut + kGoldenCut;
+static_assert(kGoldenIdentity > 1.0 - kIdentitySlack && kGoldenIdentity < 1.0 + kIdentitySlack,
+              "phi's defining identity: 1/phi^2 + 1/phi == 1, and that is why one probe carries");
+static_assert(kGoldenCut > 0.0 && kGoldenCut < 1.0, "a cut lies inside its bracket");
+
+constexpr int kCrowdingPasses = 8;
 
 constexpr double kRadiusExactM = 1.0e-3;
 constexpr int kSpiralSteps = 96;
@@ -283,6 +289,117 @@ struct Arc {
   return bend;
 }
 
+void ShrinkTo(Bend &bend, double toM) {
+  const double swing = std::fabs(bend.TurnRad);
+  bend.RadiusM = toM / TangentFor(1.0, swing, SpiralAtLeast(1.0, true));
+  bend.SpiralM = SpiralInto({.RadiusM = bend.RadiusM, .SwingRad = swing, .RoomM = toM}, true);
+  bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
+  bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
+  bend.IntoEastM = bend.PiEastM - toM * std::cos(bend.IntoHeadingRad);
+  bend.IntoNorthM = bend.PiNorthM - toM * std::sin(bend.IntoHeadingRad);
+  bend.OutOfEastM = bend.PiEastM + toM * std::cos(bend.OutOfHeadingRad);
+  bend.OutOfNorthM = bend.PiNorthM + toM * std::sin(bend.OutOfHeadingRad);
+}
+
+void SettleOverlaps(Aligned &out) {
+  for (int pass = 0; pass < kCrowdingPasses; ++pass) {
+    bool crowded = false;
+    for (size_t one = 0; one + 1 < out.Bends.size(); ++one) {
+      Bend &before = out.Bends[one];
+      Bend &after = out.Bends[one + 1];
+      const double betweenM = AwayM({.EastM = before.PiEastM, .NorthM = before.PiNorthM},
+                                    {.EastM = after.PiEastM, .NorthM = after.PiNorthM});
+      if (before.TangentM + after.TangentM <= betweenM) { continue; }
+      crowded = true;
+      const double halfM = 0.5 * betweenM;
+      if (before.TangentM <= halfM) {
+        ShrinkTo(after, betweenM - before.TangentM);
+      } else if (after.TangentM <= halfM) {
+        ShrinkTo(before, betweenM - after.TangentM);
+      } else {
+        ShrinkTo(before, halfM);
+        ShrinkTo(after, halfM);
+      }
+    }
+    if (!crowded) { break; }
+  }
+}
+
+std::expected<Aligned, Refusal> TightestOf(Aligned out, double tightestM) {
+  out.TightestRadiusM = 0.0;
+  for (const Bend &bend : out.Bends) {
+    if (bend.RadiusM < tightestM) {
+      return std::unexpected(Refusal{
+          .Said = "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
+                  std::to_string(bend.LastVertex) +
+                  " shares its straights with its neighbours and what is left carries only " +
+                  std::to_string(bend.RadiusM) + " m, tighter than the " +
+                  std::to_string(tightestM) + " m this body can bend to",
+          .DemandedM = bend.RadiusM,
+          .AtVertex = bend.FirstVertex,
+          .Undrivable = 1});
+    }
+    if (out.TightestRadiusM <= 0.0 || bend.RadiusM < out.TightestRadiusM) {
+      out.TightestRadiusM = bend.RadiusM;
+    }
+  }
+  return out;
+}
+
+std::vector<Turned> LegsOf(std::span<const double> eastNorthM) {
+  const size_t points = eastNorthM.size() / 2;
+  std::vector<Turned> legs(points - 1);
+  for (size_t leg = 0; leg + 1 < points; ++leg) {
+    const double east = eastNorthM[2 * (leg + 1)] - eastNorthM[2 * leg];
+    const double north = eastNorthM[2 * (leg + 1) + 1] - eastNorthM[2 * leg + 1];
+    legs[leg].LegM = std::sqrt(east * east + north * north);
+    legs[leg].HeadingRad = std::atan2(north, east);
+  }
+  for (size_t vertex = 1; vertex + 1 < points; ++vertex) {
+    legs[vertex].TurnRad = Wrapped(legs[vertex].HeadingRad - legs[vertex - 1].HeadingRad);
+  }
+  return legs;
+}
+
+struct Turning {
+  std::span<const double> EastNorthM;
+  std::span<const Turned> Legs;
+  std::span<const double> WithinAtM;
+};
+
+struct Bounding {
+  size_t At = 0;
+  double WithinM = 0.0;
+  double TightestM = 0.0;
+};
+
+struct Widened {
+  Bend Held;
+  bool Split = false;
+};
+
+std::expected<Widened, Refusal> WidestBendFrom(Turning over, Bounding within) {
+  const size_t points = over.EastNorthM.size() / 2;
+  const size_t at = within.At;
+  const bool leftward = over.Legs[at].TurnRad > 0.0;
+  size_t last = at;
+  while (last + 2 < points && std::fabs(over.Legs[last + 1].TurnRad) >= kLeastTurnRad &&
+         (over.Legs[last + 1].TurnRad > 0.0) == leftward) {
+    ++last;
+  }
+  const size_t runs = last;
+
+  for (;;) {
+    const auto held = BendOver(
+        over.EastNorthM, over.Legs, at, last, within.WithinM, within.TightestM, over.WithinAtM);
+    if (!held) { return std::unexpected(held.error()); }
+    if (held->AwayShare <= 1.0 || last == at) {
+      return Widened{.Held = *held, .Split = last < runs};
+    }
+    --last;
+  }
+}
+
 } // namespace
 
 double JunctionKerbM(Junction of) {
@@ -312,16 +429,7 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
             std::to_string(withinM) + " m"});
   }
 
-  std::vector<Turned> legs(points - 1);
-  for (size_t leg = 0; leg + 1 < points; ++leg) {
-    const double east = eastNorthM[2 * (leg + 1)] - eastNorthM[2 * leg];
-    const double north = eastNorthM[2 * (leg + 1) + 1] - eastNorthM[2 * leg + 1];
-    legs[leg].LegM = std::sqrt(east * east + north * north);
-    legs[leg].HeadingRad = std::atan2(north, east);
-  }
-  for (size_t vertex = 1; vertex + 1 < points; ++vertex) {
-    legs[vertex].TurnRad = Wrapped(legs[vertex].HeadingRad - legs[vertex - 1].HeadingRad);
-  }
+  const std::vector<Turned> legs = LegsOf(eastNorthM);
 
   Aligned out;
   size_t at = 1;
@@ -330,25 +438,12 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
       ++at;
       continue;
     }
-    const bool leftward = legs[at].TurnRad > 0.0;
-    size_t last = at;
-    while (last + 2 < points && std::fabs(legs[last + 1].TurnRad) >= kLeastTurnRad &&
-           (legs[last + 1].TurnRad > 0.0) == leftward) {
-      ++last;
-    }
-    const size_t runs = last;
-
-    Bend bend;
-    for (;;) {
-      const auto held = BendOver(eastNorthM, legs, at, last, withinM, tightestM, withinAtM);
-      if (!held) { return std::unexpected(held.error()); }
-      if (held->AwayShare <= 1.0 || last == at) {
-        bend = *held;
-        out.SplitByAccuracy += last < runs ? 1u : 0u;
-        break;
-      }
-      --last;
-    }
+    const auto widest =
+        WidestBendFrom({.EastNorthM = eastNorthM, .Legs = legs, .WithinAtM = withinAtM},
+                       {.At = at, .WithinM = withinM, .TightestM = tightestM});
+    if (!widest) { return std::unexpected(widest.error()); }
+    const Bend &bend = widest->Held;
+    out.SplitByAccuracy += widest->Split ? 1u : 0u;
 
     ++out.Runs;
     const size_t vertices = bend.LastVertex - bend.FirstVertex + 1u;
@@ -361,60 +456,8 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
     at = bend.LastVertex + 1u;
   }
 
-  const auto shrink = [&](Bend &bend, double toM) {
-    const double swing = std::fabs(bend.TurnRad);
-    bend.RadiusM = toM / TangentFor(1.0, swing, SpiralAtLeast(1.0, true));
-    bend.SpiralM = SpiralInto({.RadiusM = bend.RadiusM, .SwingRad = swing, .RoomM = toM}, true);
-    bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
-    bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
-    bend.IntoEastM = bend.PiEastM - toM * std::cos(bend.IntoHeadingRad);
-    bend.IntoNorthM = bend.PiNorthM - toM * std::sin(bend.IntoHeadingRad);
-    bend.OutOfEastM = bend.PiEastM + toM * std::cos(bend.OutOfHeadingRad);
-    bend.OutOfNorthM = bend.PiNorthM + toM * std::sin(bend.OutOfHeadingRad);
-  };
-
-  for (int pass = 0; pass < 8; ++pass) {
-    bool crowded = false;
-    for (size_t one = 0; one + 1 < out.Bends.size(); ++one) {
-      Bend &before = out.Bends[one];
-      Bend &after = out.Bends[one + 1];
-      const double betweenM = AwayM({.EastM = before.PiEastM, .NorthM = before.PiNorthM},
-                                    {.EastM = after.PiEastM, .NorthM = after.PiNorthM});
-      const double wantedM = before.TangentM + after.TangentM;
-      if (wantedM <= betweenM) { continue; }
-      crowded = true;
-      const double halfM = 0.5 * betweenM;
-      if (before.TangentM <= halfM) {
-        shrink(after, betweenM - before.TangentM);
-      } else if (after.TangentM <= halfM) {
-        shrink(before, betweenM - after.TangentM);
-      } else {
-        shrink(before, halfM);
-        shrink(after, halfM);
-      }
-    }
-    if (!crowded) { break; }
-  }
-
-  out.TightestRadiusM = 0.0;
-  for (const Bend &bend : out.Bends) {
-    if (bend.RadiusM < tightestM) {
-      return std::unexpected(Refusal{
-          .Said = "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
-                  std::to_string(bend.LastVertex) +
-                  " shares its straights with its neighbours and what is left carries only " +
-                  std::to_string(bend.RadiusM) + " m, tighter than the " +
-                  std::to_string(tightestM) + " m this body can bend to",
-          .DemandedM = bend.RadiusM,
-          .AtVertex = bend.FirstVertex,
-          .Undrivable = 1});
-    }
-    if (out.TightestRadiusM <= 0.0 || bend.RadiusM < out.TightestRadiusM) {
-      out.TightestRadiusM = bend.RadiusM;
-    }
-  }
-
-  return out;
+  SettleOverlaps(out);
+  return TightestOf(std::move(out), tightestM);
 }
 
 std::expected<Laid, Refusal>
