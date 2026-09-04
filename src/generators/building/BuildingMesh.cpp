@@ -797,6 +797,7 @@ constexpr double kArchitectureTris = 262.0;
 void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
   const double lowZ = s.SoleM;
   const double topZ = s.TopM();
+  const Facade roof = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i < 4; i++) {
     const size_t j = (i + 1) % 4;
     site.Quad(Face(s, ring[i], lowZ, Facade::Wall),
@@ -804,10 +805,10 @@ void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
               Face(s, ring[j], topZ, Facade::Wall),
               Face(s, ring[i], topZ, Facade::Wall));
   }
-  site.Quad(Face(s, ring[0], topZ, Facade::RoofFlat),
-            Face(s, ring[1], topZ, Facade::RoofFlat),
-            Face(s, ring[2], topZ, Facade::RoofFlat),
-            Face(s, ring[3], topZ, Facade::RoofFlat));
+  site.Quad(Face(s, ring[0], topZ, roof),
+            Face(s, ring[1], topZ, roof),
+            Face(s, ring[2], topZ, roof),
+            Face(s, ring[3], topZ, roof));
   Floor(s, ring, lowZ, site);
 }
 
