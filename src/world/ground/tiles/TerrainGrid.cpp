@@ -108,7 +108,8 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
 
   const Io::Png read = Io::ReadPng(png, len);
   if (!read.Read) {
-    Log::Error("world", "dem_undecodable", {{"bytes", static_cast<int>(len)}, {"why", read.Error}});
+    Log::Error(
+        LogTag::World, "dem_undecodable", {{"bytes", static_cast<int>(len)}, {"why", read.Error}});
     return Undecodable();
   }
 
@@ -137,20 +138,20 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
     }
   }
   if (offEarth > 0 && !FillOffEarth(field)) {
-    Log::Error("world",
+    Log::Error(LogTag::World,
                "dem_all_off_earth",
                {{"pixels", static_cast<int>(offEarth)},
                 {"ofPixels", static_cast<int>(read.High * read.Wide)}});
     return Undecodable();
   }
   if (const size_t caught = FlattenOutliers(field); caught > 0) {
-    Log::Error("world",
+    Log::Error(LogTag::World,
                "dem_outliers",
                {{"pixels", static_cast<int>(caught)},
                 {"ofPixels", static_cast<int>(read.High * read.Wide)}});
   }
   if (offEarth > 0) {
-    Log::Error("world",
+    Log::Error(LogTag::World,
                "dem_off_earth",
                {{"pixels", static_cast<int>(offEarth)},
                 {"deepestM", static_cast<int>(deepest)},

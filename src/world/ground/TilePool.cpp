@@ -95,7 +95,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
   for (int i = 0; i < carriers; i++) {
     Carriers_.emplace_back([this] { Carry(); });
   }
-  Log::Info("world",
+  Log::Info(LogTag::World,
             "tilepool",
             {{"threads", n},
              {"inFlightCap", n},
@@ -111,29 +111,6 @@ TilePool::~TilePool() {
   Wake_.notify_all();
   for (std::thread &t : Threads_) { t.join(); }
   for (std::thread &t : Carriers_) { t.join(); }
-  const Ledger &l = Ledger_;
-  const double meshes = l.MeshTiles > 0 ? static_cast<double>(l.MeshTiles) : 1.0;
-  const double fetches = l.Fetches > 0 ? static_cast<double>(l.Fetches) : 1.0;
-  Log::Debug("world",
-             "tilepool_closed",
-             {{"meshTiles", l.MeshTiles},
-              {"meshAbsent", l.MeshAbsent},
-              {"meshRefused", l.MeshRefused},
-              {"meshCpuMs", l.MeshCpuMs},
-              {"meshCpuMsPerTile", l.MeshCpuMs / meshes},
-              {"fetches", l.Fetches},
-              {"fetchAbsent", l.FetchAbsent},
-              {"fetchRefused", l.FetchRefused},
-              {"fetchGaveUp", l.FetchGaveUp},
-              {"fetchMs", l.FetchMs},
-              {"fetchMsPerGet", l.FetchMs / fetches},
-              {"fetchBlockedMs", l.FetchBlockedMs},
-              {"fetchOnCompute", static_cast<int>(l.FetchOnCompute)},
-              {"retryWaitMs", l.FetchBlockedMs - l.FetchMs},
-              {"fetchedMB", l.FetchedMB},
-              {"byteCacheMB", static_cast<double>(ByteCacheBytes()) / kBytesPerMB},
-              {"byteCacheEntries", static_cast<int>(Cache_.size())},
-              {"evictions", l.Evictions}});
 }
 
 void TilePool::Focus(LongitudeLatitude at) {
@@ -294,12 +271,12 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
         break;
       case Data::Delivery::State::Undeclared:
 
-        Log::Error("world", "tile_undeclared", {{"request", key}});
+        Log::Error(LogTag::World, "tile_undeclared", {{"request", key}});
         reply = Reply::Undeclared;
         break;
       case Data::Delivery::State::Refused:
         RefuseUntil(key, Wire_.NowMs() + answer.AfterMs());
-        Log::Error("world", "tile_refused", {{"request", key}});
+        Log::Error(LogTag::World, "tile_refused", {{"request", key}});
         reply = Reply::Refused;
         break;
       case Data::Delivery::State::Delivered: break;
@@ -438,7 +415,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     return;
   }
   if (miss == Miss::Refused) {
-    Log::Warn("world",
+    Log::Warn(LogTag::World,
               "tile_mesh_refused",
               {{"z", job.Z},
                {"x", static_cast<int>(job.X)},
@@ -520,7 +497,7 @@ void TilePool::Work(int slot) {
       EnuFrame::At(Geo{.LongitudeDeg = OriginLonDeg_, .LatitudeDeg = OriginLatDeg_});
 
   if (frame.Where() != EnuFrame::State::Usable) {
-    Log::Error("world", "tilepool_origin_too_polar", {{"lat", OriginLatDeg_}});
+    Log::Error(LogTag::World, "tilepool_origin_too_polar", {{"lat", OriginLatDeg_}});
     std::abort();
   }
   PoolTerrain source(*this);

@@ -27,8 +27,6 @@ namespace outshine::Ground {
 
 constexpr double kMsPerMicrosecond = 1e-3;
 
-constexpr double kBytesPerKB = 1024.0;
-
 namespace {
 
 double Clock() {
@@ -114,7 +112,7 @@ void ClassField::Ingest(Tier &t) {
       std::string key(layer);
       key.append("/").append(kind);
       if (Unknown_.insert(key).second) {
-        Log::Error("world",
+        Log::Error(LogTag::World,
                    "class_unknown_kind",
                    {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
       }
@@ -128,7 +126,7 @@ void ClassField::Ingest(Tier &t) {
       std::string key(layer);
       key.append("/").append(kind).append("#width");
       if (Unknown_.insert(key).second) {
-        Log::Error("world",
+        Log::Error(LogTag::World,
                    "class_line_without_width",
                    {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
       }
@@ -247,16 +245,6 @@ void ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
     Submitted_.reset();
     const double buildMs = done->Structure->Measured().BuildMs;
     BuildMsMax_ = std::max(buildMs, BuildMsMax_);
-    Log::Debug("world",
-               "class_built",
-               {{"version", static_cast<double>(done->Structure->Version())},
-                {"buildMs", buildMs},
-                {"packMs", done->Structure->Measured().PackMs},
-                {"bufferKB", static_cast<double>(done->Structure->Bytes()) / kBytesPerKB},
-                {"lentKB",
-                 static_cast<double>(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
-                                     CapacityBytes(t.Feats)) /
-                     kBytesPerKB}});
     const std::scoped_lock lk(Mu_);
     Published_ = std::move(done->Structure);
   }

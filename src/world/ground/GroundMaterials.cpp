@@ -138,7 +138,7 @@ bool GroundMaterials::Load(const char *path) {
     if (!litterName[i].empty()) { Mats_[i].LitterClass = Find(litterName[i]); }
   }
 
-  Log::Info("ground",
+  Log::Info(LogTag::Ground,
             "materials",
             {{"path", path},
              {"classes", static_cast<int>(Mats_.size())},

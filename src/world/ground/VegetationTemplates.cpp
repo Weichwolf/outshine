@@ -260,7 +260,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     return false;
   }
 
-  Log::Info("veg",
+  Log::Info(LogTag::Veg,
             "table",
             {{"path", path},
              {"classRows", static_cast<int>(Table_.size())},

@@ -472,7 +472,7 @@ int BuildingField::Build(const GroundQuery &ground,
       static_cast<uint32_t>(Built_.WallCorners.size() + Built_.RoofCorners.size()) - AddedFirst_;
   if (added == 0) { return static_cast<int>(Prints_.size()); }
 
-  Log::Info("world",
+  Log::Info(LogTag::World,
             "buildings",
             {{"added", added},
              {"total", static_cast<int>(Prints_.size())},

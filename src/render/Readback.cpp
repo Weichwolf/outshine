@@ -8,20 +8,20 @@ namespace outshine::Render {
 ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
   SDL_GPUFence *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
   if (fence == nullptr) {
-    Log::Error("render", "readback_submit_failed", {{"msg", SDL_GetError()}});
+    Log::Error(LogTag::Render, "readback_submit_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
   }
   const bool waited = SDL_WaitForGPUFences(Device, true, &fence, 1);
   SDL_ReleaseGPUFence(Device, fence);
   if (!waited) {
-    Log::Error("render", "readback_wait_failed", {{"msg", SDL_GetError()}});
+    Log::Error(LogTag::Render, "readback_wait_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
   }
   Mapped = static_cast<const uint8_t *>(SDL_MapGPUTransferBuffer(Device, Transfer, false));
   if (Mapped == nullptr) {
-    Log::Error("render", "readback_map_failed", {{"msg", SDL_GetError()}});
+    Log::Error(LogTag::Render, "readback_map_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
   }
@@ -41,7 +41,7 @@ ReadState Readback::FromTexture(SDL_GPUDevice *device,
   wanted.size = Row * height;
   Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
   if (Transfer == nullptr) {
-    Log::Error("render", "readback_buffer_failed", {{"msg", SDL_GetError()}});
+    Log::Error(LogTag::Render, "readback_buffer_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
   }
@@ -71,7 +71,7 @@ ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uin
   wanted.size = bytes;
   Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
   if (Transfer == nullptr) {
-    Log::Error("render", "readback_buffer_failed", {{"msg", SDL_GetError()}});
+    Log::Error(LogTag::Render, "readback_buffer_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
   }

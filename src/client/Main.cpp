@@ -25,7 +25,12 @@ public:
              Saying who,
              std::span<const outshine::LogField> fields) override {
     if (level == outshine::LogLevel::Debug && !Loud) { return; }
-    std::printf("t=%.1f %-5s %-8s %s", simTimeS, Name(level), who.Unit, who.Event);
+    std::printf("t=%.1f %-5s %-8s %-7s %s",
+                simTimeS,
+                Name(level),
+                who.Unit,
+                outshine::nameOf(who.Tag),
+                who.Event);
     for (const outshine::LogField &one : fields) {
       std::printf(" %s=%s", one.Key, one.Value.c_str());
     }

@@ -236,7 +236,7 @@ bool SceneRenderer::Executable(Stage stage) {
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
   if (SDL_WasInit(SDL_INIT_VIDEO) == 0u) {
-    Log::Error("render", "no_video", {{"msg", "the client did not initialise SDL video"}});
+    Log::Error(LogTag::Render, "no_video", {{"msg", "the client did not initialise SDL video"}});
     WhyNot_ =
         "SDL's video subsystem is not running: outshine renders through SDL3 and the CLIENT owns "
         "the process, so the client calls SDL_Init(SDL_INIT_VIDEO) before it declares a scenario";
@@ -244,7 +244,7 @@ bool SceneRenderer::Stands() {
   }
   SDL_GPUDevice *device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
   if (device == nullptr) {
-    Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
+    Log::Error(LogTag::Render, "no_device", {{"msg", SDL_GetError()}});
     WhyNot_ = std::string("no gpu device: ") + SDL_GetError();
     return false;
   }
@@ -283,7 +283,7 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
 
   for (const Stage stage : Plan_->Order()) {
     if (Executable(stage)) { continue; }
-    Log::Error("render", "stage_not_executed", {{"stage", Row(stage).Name}});
+    Log::Error(LogTag::Render, "stage_not_executed", {{"stage", Row(stage).Name}});
     WhyNot_ = std::string("this device layer does not execute the stage '") + Row(stage).Name +
               "', which the catalogue offers and the consumer declared";
     return;
@@ -329,14 +329,14 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
     std::string why;
     Handles_.SceneColours = coloursOfPassWith(stage);
     if (Configure(stage, why)) { continue; }
-    Log::Error("render", "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
+    Log::Error(LogTag::Render, "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
     WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
     return;
   }
   if (!StandsOffscreen()) { return; }
   Ready_ = true;
 
-  Log::Info("render",
+  Log::Info(LogTag::Render,
             "device_ready",
             {{"width", Width_},
              {"height", Height_},
@@ -348,13 +348,13 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
   for (size_t at = 0; at < kStageCount; ++at) {
     const auto stage = static_cast<Stage>(at);
     if (Executable(stage)) { continue; }
-    Log::Info("render", "stage_without_a_body", {{"stage", Row(stage).Name}});
+    Log::Info(LogTag::Render, "stage_without_a_body", {{"stage", Row(stage).Name}});
   }
   for (const std::string &merge : Plan_->Merges()) {
-    Log::Info("render", "plan_merge", {{"merge", merge}});
+    Log::Info(LogTag::Render, "plan_merge", {{"merge", merge}});
   }
   for (const std::string &alias : Plan_->Aliases()) {
-    Log::Info("render", "plan_alias", {{"alias", alias}});
+    Log::Info(LogTag::Render, "plan_alias", {{"alias", alias}});
   }
 }
 
@@ -810,7 +810,7 @@ void SceneRenderer::EncodePresent(const FrameContext &ctx, const PassRecording &
   {
     std::string why;
     if (!Present_.For(Handles_, SurfaceFormat(), why)) {
-      Log::Error("render", "present_not_built", {{"msg", why}});
+      Log::Error(LogTag::Render, "present_not_built", {{"msg", why}});
       return;
     }
   }
@@ -1135,14 +1135,14 @@ void SceneRenderer::RenderFrame() {
       Shown_.HeightPx = static_cast<int>(gotH);
       HostSurface_ = swapchain;
     } else {
-      Log::Error("render", "no_swapchain", {{"msg", SDL_GetError()}});
+      Log::Error(LogTag::Render, "no_swapchain", {{"msg", SDL_GetError()}});
     }
   }
 
   {
     std::string why;
     if (!Subjects_.HandDrawArguments(true, why)) {
-      Log::Error("render", "cull_arguments_not_reset", {{"msg", why}});
+      Log::Error(LogTag::Render, "cull_arguments_not_reset", {{"msg", why}});
     }
   }
   Subjects_.FlushCrossings(commands);

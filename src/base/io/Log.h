@@ -22,45 +22,40 @@ public:
 
   static void SetThreadSink(LogSink *sink) { ThreadSink_ = sink; }
 
-  static void
-  Debug(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
+  static void Debug(LogTag tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Debug, tag, event, {fields.begin(), fields.size()});
   }
 
-  static void Debug(const char *tag, const char *event, std::span<const LogField> fields) {
+  static void Debug(LogTag tag, const char *event, std::span<const LogField> fields) {
     Emit(LogLevel::Debug, tag, event, fields);
   }
 
-  static void
-  Info(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
+  static void Info(LogTag tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Info, tag, event, {fields.begin(), fields.size()});
   }
 
-  static void Info(const char *tag, const char *event, std::span<const LogField> fields) {
+  static void Info(LogTag tag, const char *event, std::span<const LogField> fields) {
     Emit(LogLevel::Info, tag, event, fields);
   }
 
-  static void
-  Warn(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
+  static void Warn(LogTag tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Warn, tag, event, {fields.begin(), fields.size()});
   }
 
-  static void Warn(const char *tag, const char *event, std::span<const LogField> fields) {
+  static void Warn(LogTag tag, const char *event, std::span<const LogField> fields) {
     Emit(LogLevel::Warn, tag, event, fields);
   }
 
-  static void
-  Error(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
+  static void Error(LogTag tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Error, tag, event, {fields.begin(), fields.size()});
   }
 
-  static void Error(const char *tag, const char *event, std::span<const LogField> fields) {
+  static void Error(LogTag tag, const char *event, std::span<const LogField> fields) {
     Emit(LogLevel::Error, tag, event, fields);
   }
 
 private:
-  static void
-  Emit(LogLevel level, const char *tag, const char *event, std::span<const LogField> fields);
+  static void Emit(LogLevel level, LogTag tag, const char *event, std::span<const LogField> fields);
 
   static LogSink *Sink_;
   static LogLevel Level_;

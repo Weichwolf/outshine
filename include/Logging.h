@@ -1,12 +1,39 @@
 #ifndef OUTSHINE_LOGGING_H
 #define OUTSHINE_LOGGING_H
 
+#include <cstdint>
 #include <span>
 #include <string>
 
 namespace outshine {
 
 enum class LogLevel { Debug, Info, Warn, Error };
+
+/// WHICH SUBSYSTEM IS SPEAKING, and it is a closed set rather than a string.
+///
+/// A `const char *` here is a bin: every caller may spell its own, so `ground` and `Ground` and
+/// `terrain` become three subsystems that are one and no query over the log finds them all. The
+/// tree has four, measured, and four is a type. The EVENT stays text because it is open -- a new
+/// diagnostic names a new event -- but the speaker is not.
+///
+/// **A log is for events a HUMAN reads backwards after something went wrong.** Frequency decides
+/// the channel: once per run or per load is a log line; once per frame is a number the ledger
+/// carries; once per entity per frame is neither, and outshine will hold hundreds of thousands of
+/// those. A thousand NPCs losing their target is ONE number, never a thousand lines.
+enum class LogTag : uint8_t { Ground, Render, Veg, World };
+
+/// The tag as it is written in a line.
+/// @param tag Which subsystem.
+/// @return Its spelling, stable enough to grep for.
+[[nodiscard]] constexpr const char *nameOf(LogTag tag) {
+  switch (tag) {
+    case LogTag::Ground: return "ground";
+    case LogTag::Render: return "render";
+    case LogTag::Veg: return "veg";
+    case LogTag::World: return "world";
+  }
+  return "";
+}
 
 struct LogField {
   const char *Key;
@@ -33,7 +60,7 @@ public:
   /// tag and the event reversed reads as a different subsystem saying nothing recognisable.
   struct Saying {
     const char *Unit = nullptr;
-    const char *Tag = nullptr;
+    LogTag Tag = LogTag::World;
     const char *Event = nullptr;
   };
 

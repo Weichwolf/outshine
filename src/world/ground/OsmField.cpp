@@ -150,7 +150,7 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
     if (!mvt.Parse(vectorTile.data(), static_cast<size_t>(got), Layers_[li].c_str(), &present)) {
       if (present) {
         Bad_++;
-        Log::Error("world",
+        Log::Error(LogTag::World,
                    "vectile_undecodable",
                    {{"z", Zoom_}, {"x", tx}, {"y", ty}, {"bytes", got}, {"layer", Layers_[li]}});
       } else {
@@ -213,16 +213,6 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
       Features_.push_back(f);
       added++;
     }
-    Log::Debug("world",
-               "vectile",
-               {{"z", Zoom_},
-                {"x", tx},
-                {"y", ty},
-                {"bytes", got},
-                {"layer", Layers_[li]},
-                {"parsed", true},
-                {"feats", static_cast<int>(mvt.Features().size())},
-                {"rings", static_cast<int>(mvt.Rings().size())}});
   }
   Tiles_[tile].FeatureCount = static_cast<uint32_t>(Features_.size()) - Tiles_[tile].FirstFeature;
   return added;

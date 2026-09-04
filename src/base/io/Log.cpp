@@ -38,10 +38,7 @@ void Log::SetUnit(const char *label) {
   snprintf(Unit_.data(), Unit_.size(), "%s", label);
 }
 
-void Log::Emit(LogLevel level,
-               const char *tag,
-               const char *event,
-               std::span<const LogField> fields) {
+void Log::Emit(LogLevel level, LogTag tag, const char *event, std::span<const LogField> fields) {
   if ((Sink_ == nullptr) || level < Level_) { return; }
 
   LogSink *out = (ThreadSink_ != nullptr) ? ThreadSink_ : Sink_;

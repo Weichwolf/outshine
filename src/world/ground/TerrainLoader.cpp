@@ -34,8 +34,6 @@ namespace {
 
 constexpr double kPollsPerSecond = 1000.0;
 
-constexpr double kBytesPerMB = 1048576.0;
-
 constexpr int kMaxTileThreads = 6;
 
 constexpr size_t kByteBudget = size_t{64} * 1024 * 1024;
@@ -47,7 +45,6 @@ constexpr uint32_t kCoarseDrop = 3;
 constexpr int kCoarseSlots = 4;
 
 constexpr int kGroundStitchGrids = 5;
-constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
 
 double Clamped01(double v) {
   return std::clamp(v, 0.0, 1.0);
@@ -162,21 +159,7 @@ GroundStream::GroundStream(TilePool &tiles, GroundSurface surface)
     : Tiles_(tiles), Surface_(surface), Held_(std::make_unique<Held>(tiles)) {}
 
 GroundStream::~GroundStream() {
-  if (Held_ && Held_->Builds > 0) {
-    Log::Debug("world",
-               "ground_oracle",
-               {{"tileBuilds", static_cast<int>(Held_->Builds)},
-                {"demDecodes", static_cast<int>(Held_->Decodes)},
-                {"decodesPerBuild",
-                 (Held_->Builds != 0)
-                     ? static_cast<double>(Held_->Decodes) / static_cast<double>(Held_->Builds)
-                     : 0.0},
-                {"stitchMs", Held_->StitchMs},
-                {"stitchMsPerBuild",
-                 (Held_->Builds != 0) ? Held_->StitchMs / static_cast<double>(Held_->Builds) : 0.0},
-                {"gridCache", kGroundStitchGrids},
-                {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / kBytesPerMB}});
-  }
+  if (Held_ && Held_->Builds > 0) {}
 }
 
 const Tile *GroundStream::CoarseResident(long x, long y) const {
@@ -325,7 +308,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   const TerrainField *field = grid.TryField();
   if (grid.Where() == TerrainGrid::State::Undecodable) {
-    Log::Error("world",
+    Log::Error(LogTag::World,
                "ground_grid_failed",
                {{"z", Surface_.Z}, {"x", static_cast<int>(x)}, {"y", static_cast<int>(y)}});
   }
