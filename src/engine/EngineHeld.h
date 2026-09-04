@@ -453,10 +453,11 @@ struct Engine::State {
     std::vector<std::vector<RoadStation>> Designed;
     std::vector<RoadStation> Along;
     std::vector<RoadStation> Finer;
-    std::vector<double> FitOffsetM;
-    std::vector<double> FitRadiusM;
+    double FitOffsetWorstM = 0.0;
+    double FitRadiusTightestM = 0.0;
+    size_t FitsMeasured = 0;
     std::vector<double> FitEastNorth;
-    std::vector<double> TightDemandM;
+    double TightestDemandM = 0.0;
     std::vector<double> DeckM;
     std::vector<double> TrimM;
     std::unordered_map<uint64_t, std::vector<Meets>> AtCrossing;
@@ -485,9 +486,11 @@ struct Engine::State {
     double SteepestRamp = 0.0;
     size_t EndsTrimmed = 0;
     size_t EndsStillCrossing = 0;
-    std::vector<double> ForkDeg;
+    double SharpestForkDeg = 0.0;
     double DeepestTrimM = 0.0;
-    std::vector<double> ShortByM;
+    double ShortestByM = 0.0;
+    double LongestShortM = 0.0;
+    size_t CapsBit = 0;
     double MostOverWaterM = 0.0;
     double FitMs = 0.0;
     double WaterMs = 0.0;

@@ -741,8 +741,13 @@ void Engine::State::FitAlongLane(Paved &into) {
                            fitted);
     if (got.Laid) {
       ++into.FitLaid;
-      into.FitOffsetM.push_back(got.WorstOffsetM);
-      if (got.TightestRadiusM > 0.0) { into.FitRadiusM.push_back(got.TightestRadiusM); }
+      into.FitOffsetWorstM = std::max(into.FitOffsetWorstM, got.WorstOffsetM);
+      ++into.FitsMeasured;
+      if (got.TightestRadiusM > 0.0) {
+        into.FitRadiusTightestM = into.FitRadiusTightestM > 0.0
+                                      ? std::min(into.FitRadiusTightestM, got.TightestRadiusM)
+                                      : got.TightestRadiusM;
+      }
       into.FitUndrivable += got.Undrivable;
       break;
     }
@@ -761,15 +766,24 @@ void Engine::State::FitAlongLane(Paved &into) {
               piece);
       if (head.Laid) {
         ++into.FitLaid;
-        into.FitOffsetM.push_back(head.WorstOffsetM);
-        if (head.TightestRadiusM > 0.0) { into.FitRadiusM.push_back(head.TightestRadiusM); }
+        into.FitOffsetWorstM = std::max(into.FitOffsetWorstM, head.WorstOffsetM);
+        ++into.FitsMeasured;
+        if (head.TightestRadiusM > 0.0) {
+          into.FitRadiusTightestM = into.FitRadiusTightestM > 0.0
+                                        ? std::min(into.FitRadiusTightestM, head.TightestRadiusM)
+                                        : head.TightestRadiusM;
+        }
       } else {
         ++into.FitUnsplittable;
       }
     }
     ++into.FitTooTight;
     ++cuts;
-    if (got.TightestDemandedM > 0.0) { into.TightDemandM.push_back(got.TightestDemandedM); }
+    if (got.TightestDemandedM > 0.0) {
+      into.TightestDemandM = into.TightestDemandM > 0.0
+                                 ? std::min(into.TightestDemandM, got.TightestDemandedM)
+                                 : got.TightestDemandedM;
+    }
     from += upTo + 1u;
     wholeWay = false;
   }
@@ -1624,8 +1638,12 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
       }
       if (back > capped + kLeastCapM) {
         ++into.EndsStillCrossing;
-        into.ShortByM.push_back(back - capped);
-        into.ForkDeg.push_back(SharpestForkFor(mine, leaving));
+        const double shortBy = back - capped;
+        into.LongestShortM = std::max(into.LongestShortM, shortBy);
+        into.ShortestByM = into.CapsBit == 0 ? shortBy : std::min(into.ShortestByM, shortBy);
+        const double fork = SharpestForkFor(mine, leaving);
+        into.SharpestForkDeg = into.CapsBit == 0 ? fork : std::min(into.SharpestForkDeg, fork);
+        ++into.CapsBit;
       }
     }
   }
@@ -1720,9 +1738,7 @@ size_t Engine::State::RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement)
 }
 
 void Engine::State::TellsWhatTheFitFound(Paved &into) {
-  if (into.FitOffsetM.empty()) { return; }
-  std::ranges::sort(into.FitOffsetM);
-  std::ranges::sort(into.FitRadiusM);
+  if (into.FitsMeasured == 0) { return; }
   Published.Places(
       "streets: ways a reference line was fitted to", static_cast<double>(into.FitLaid), "ways");
   Published.Places(
@@ -1752,25 +1768,12 @@ void Engine::State::TellsWhatTheFitFound(Paved &into) {
   Published.Places("streets: pieces the split still could not lay",
                    static_cast<double>(into.FitUnsplittable),
                    "pieces");
-  if (!into.TightDemandM.empty()) {
-    std::ranges::sort(into.TightDemandM);
-    Published.Places("streets: the radius such a corner demanded, p50",
-                     into.TightDemandM[into.TightDemandM.size() / 2u],
-                     "m");
-    Published.Places("streets: and the tightest", into.TightDemandM.front(), "m");
-  }
-  Published.Places("streets: the offset a fitted line needed, p50",
-                   QuantileOf(into.FitOffsetM, kMiddleQuantile),
-                   "m");
-  Published.Places("streets: the offset a fitted line needed, p95",
-                   QuantileOf(into.FitOffsetM, kBroadQuantile),
-                   "m");
-  Published.Places("streets: the offset a fitted line needed, worst", into.FitOffsetM.back(), "m");
+  Published.Places("streets: the tightest radius a corner demanded", into.TightestDemandM, "m");
+  Published.Places("streets: the offset a fitted line needed, worst", into.FitOffsetWorstM, "m");
   Published.Places(
-      "streets: the radius a fitted line found, tightest", QuantileOf(into.FitRadiusM, 0.0), "m");
-  Published.Places("streets: the radius a fitted line found, p50",
-                   QuantileOf(into.FitRadiusM, kMiddleQuantile),
-                   "m");
+      "streets: the radius a fitted line found, tightest", into.FitRadiusTightestM, "m");
+  Published.Places(
+      "streets: reference lines measured", static_cast<double>(into.FitsMeasured), "ways");
   Published.Places("streets: stations the fit calls undrivable",
                    static_cast<double>(into.FitUndrivable),
                    "stations");
@@ -1851,19 +1854,9 @@ void Engine::State::Paves(const TangentFrame &standing,
   Published.Places("streets: of that, raising the decks", since(), "ms");
   if (vectors != nullptr) { Shortens(ways, *vectors, into); }
   Published.Places("streets: of that, shortening the ends", since(), "ms");
-  if (!into.ShortByM.empty()) {
-    std::ranges::sort(into.ShortByM);
-    std::ranges::sort(into.ForkDeg);
-    Published.Places("streets: what a capped end was short by, p50",
-                     QuantileOf(into.ShortByM, kMiddleQuantile),
-                     "m");
-    Published.Places("streets: and p95", QuantileOf(into.ShortByM, kBroadQuantile), "m");
-    Published.Places("streets: and the most", into.ShortByM.back(), "m");
-    Published.Places("streets: the fork angle where the cap bit, p50",
-                     QuantileOf(into.ForkDeg, kMiddleQuantile),
-                     "deg");
-    Published.Places("streets: and the sharpest", into.ForkDeg.front(), "deg");
-  }
+  Published.Places("streets: ends a cap shortened", static_cast<double>(into.CapsBit), "ends");
+  Published.Places("streets: and the most one lost", into.LongestShortM, "m");
+  Published.Places("streets: the sharpest fork a cap bit at", into.SharpestForkDeg, "deg");
   Published.Places(
       "streets: way ends a junction trimmed", static_cast<double>(into.EndsTrimmed), "ends");
   Published.Places("streets: and the deepest trim", into.DeepestTrimM, "m");
