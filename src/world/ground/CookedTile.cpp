@@ -1,4 +1,8 @@
 #include "CookedTile.h"
+
+#include <span>
+
+#include "spatial/ClusterCook.h"
 #include "math/Vec3.h"
 
 #include <cstddef>
@@ -15,7 +19,9 @@ namespace {
 
 constexpr size_t kTileSoupFloats = 8;
 
-}
+constexpr uint32_t kTileClusterTriangles = 128;
+
+} // namespace
 
 void CookTile(const float *soup,
               int nverts,
@@ -30,12 +36,18 @@ void CookTile(const float *soup,
   if ((soup == nullptr) || nverts <= 0) { return; }
   if (gridverts <= 0 || gridverts > nverts) { gridverts = nverts; }
 
-  {
-    outVerts.assign(soup, soup + static_cast<size_t>(gridverts) * kTileSoupFloats);
-    outIdx.resize(static_cast<size_t>(gridverts));
-    for (int vertex = 0; vertex < gridverts; ++vertex) {
-      outIdx[static_cast<size_t>(vertex)] = static_cast<uint32_t>(vertex);
-    }
+  outVerts.assign(soup, soup + static_cast<size_t>(gridverts) * kTileSoupFloats);
+  outIdx.resize(static_cast<size_t>(gridverts));
+  for (int vertex = 0; vertex < gridverts; ++vertex) {
+    outIdx[static_cast<size_t>(vertex)] = static_cast<uint32_t>(vertex);
+  }
+
+  const Cooked cut =
+      CookClusters(std::span<const float>(soup, static_cast<size_t>(gridverts) * kTileSoupFloats),
+                   outIdx,
+                   kTileClusterTriangles,
+                   static_cast<int>(kTileSoupFloats));
+  if (cut.Clusters.empty() || cut.Index.size() != outIdx.size()) {
     DagCluster whole{};
     whole.Count = static_cast<uint32_t>(gridverts);
     whole.ParentErr = kDagRootErr;
@@ -45,7 +57,10 @@ void CookTile(const float *soup,
     whole.SelfCenter = around.CentreM;
     whole.SelfRadius = around.RadiusM;
     outClusters.push_back(whole);
+    return;
   }
+  outIdx = cut.Index;
+  outClusters = cut.Clusters;
 }
 
 } // namespace outshine::Ground

@@ -48,16 +48,21 @@ namespace {
 
 Cooked CookClusters(std::span<const float> positionsM,
                     std::span<const uint32_t> indices,
-                    uint32_t mostTriangles) {
+                    uint32_t mostTriangles,
+                    int strideFloats) {
   Cooked out;
   const size_t triangles = indices.size() / 3;
+  const auto stride = static_cast<size_t>(strideFloats < 3 ? 3 : strideFloats);
   if (triangles == 0 || positionsM.size() < 3 || mostTriangles == 0) { return out; }
+  const auto axisOf = [&](size_t vertex, int axis) {
+    return positionsM[vertex * stride + static_cast<size_t>(axis)];
+  };
 
   Vec3f least = {{positionsM[0], positionsM[1], positionsM[2]}};
   Vec3f most = {{positionsM[0], positionsM[1], positionsM[2]}};
-  for (size_t vertex = 0; vertex * 3 + 2 < positionsM.size(); ++vertex) {
+  for (size_t vertex = 0; vertex * stride + 2 < positionsM.size(); ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
-      const float held = positionsM[vertex * 3 + static_cast<size_t>(axis)];
+      const float held = axisOf(vertex, axis);
       least[axis] = held < least[axis] ? held : least[axis];
       most[axis] = held > most[axis] ? held : most[axis];
     }
@@ -71,14 +76,14 @@ Cooked CookClusters(std::span<const float> positionsM,
 
   std::vector<Sorted> order;
   order.reserve(triangles);
-  const size_t vertices = positionsM.size() / 3;
+  const size_t vertices = positionsM.size() / stride;
   for (size_t triangle = 0; triangle < triangles; ++triangle) {
     Vec3f centre;
     for (int corner = 0; corner < 3; ++corner) {
-      const uint32_t at = indices[triangle * 3 + static_cast<size_t>(corner)];
-      if (static_cast<size_t>(at) >= vertices) { continue; }
+      const uint32_t corner3 = indices[triangle * 3 + static_cast<size_t>(corner)];
+      if (static_cast<size_t>(corner3) >= vertices) { continue; }
       for (int axis = 0; axis < 3; ++axis) {
-        centre[axis] += positionsM[static_cast<size_t>(at) * 3 + static_cast<size_t>(axis)] / 3.0f;
+        centre[axis] += axisOf(static_cast<size_t>(corner3), axis) / 3.0f;
       }
     }
     order.push_back(
@@ -106,7 +111,7 @@ Cooked CookClusters(std::span<const float> positionsM,
         out.Index.push_back(index);
         if (static_cast<size_t>(index) >= vertices) { continue; }
         for (int axis = 0; axis < 3; ++axis) {
-          const float held = positionsM[static_cast<size_t>(index) * 3 + static_cast<size_t>(axis)];
+          const float held = axisOf(static_cast<size_t>(index), axis);
           if (!any || held < low[axis]) { low[axis] = held; }
           if (!any || held > high[axis]) { high[axis] = held; }
         }

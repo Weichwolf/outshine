@@ -19,7 +19,8 @@ struct Cooked {
 
 [[nodiscard]] Cooked CookClusters(std::span<const float> positionsM,
                                   std::span<const uint32_t> indices,
-                                  uint32_t mostTriangles);
+                                  uint32_t mostTriangles,
+                                  int strideFloats = 3);
 
 struct Limits {
   uint32_t MostTriangles = 0;
