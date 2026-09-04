@@ -32,6 +32,20 @@ and `Attr` was one finding across 98 call sites. The count measures findings, ne
 falls in steps of one or two while the tree changes underneath it, and a batch that dissolves real
 debt can move it by nothing at all.
 
+## Where the 89 complexity findings actually are, measured
+
+  Paves          330 lines, 145 of them ledger  (43%)
+  Grounds        837 lines, 226 of them ledger  (27%)
+  LayCorridor    717 lines, 173 of them ledger  (24%)
+
+A quarter to nearly half of the biggest functions is MEASURING rather than building. That is the
+lever: `Models` lost 106 lines of published numbers in one move on 2026-09-03 and became legible
+without a single behaviour change, and the digests did not move because publishing a number is not
+building anything.
+
+So the first cut on any of these is the same: the ledger leaves, as one method that says what the
+pass cost. What remains is the work, and it is then short enough to read.
+
 **Benchmark** — Unreal builds with `bWarningsAsErrors` and gates a static-analyser pass; a warning
 does not travel. RAGE cannot be read on this, so it does not get a column. **This tree already
 states the rule itself** -- CLAUDE.md's craft list says `-Wall -Werror -Wpedantic` and *"a warning
