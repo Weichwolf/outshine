@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: world, engine, render, generators
 Tags: measured, memory, performance, determinism, owner
 Supersedes: 2112
