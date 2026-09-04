@@ -38,13 +38,21 @@ debt can move it by nothing at all.
   Grounds        837 lines, 226 of them ledger  (27%)
   LayCorridor    717 lines, 173 of them ledger  (24%)
 
-A quarter to nearly half of the biggest functions is MEASURING rather than building. That is the
-lever: `Models` lost 106 lines of published numbers in one move on 2026-09-03 and became legible
-without a single behaviour change, and the digests did not move because publishing a number is not
-building anything.
+A quarter to nearly half of the biggest functions is MEASURING rather than building.
 
-So the first cut on any of these is the same: the ledger leaves, as one method that says what the
-pass cost. What remains is the work, and it is then short enough to read.
+**AND THAT IS NOT THE LEVER, which is written here because the first version of this paragraph
+said it was.** The metric counts BRANCHES, and a ledger line is straight:
+
+  Paves   45 branches, of which 3 sit inside a `Published.Places` call
+
+So lifting the ledger out removes 43% of the LINES and about 7% of the complexity. The proof was
+already on the board and I did not read it: `Models` lost 106 ledger lines on 2026-09-03 and still
+stands at 92, well over the threshold of 25.
+
+Lifting the ledger is still worth doing -- a function half of which is printing is a function
+nobody can read -- but it is a LEGIBILITY move and it will not clear a single finding on its own.
+What clears a finding is cutting the WORK into named sections, and there are 42 branches in `Paves`
+waiting to be named. The count falls when a piece lands under 25, never before.
 
 **Benchmark** — Unreal builds with `bWarningsAsErrors` and gates a static-analyser pass; a warning
 does not travel. RAGE cannot be read on this, so it does not get a column. **This tree already
