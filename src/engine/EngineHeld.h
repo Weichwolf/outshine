@@ -622,6 +622,14 @@ struct Engine::State {
                 std::vector<Yields> &corridor,
                 RoadRaised &pavement) const;
 
+  [[nodiscard]] static double LevelsWhereWaysMeet(Paved &into);
+
+  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement);
+
+  void TellsWhatTheFitFound(Paved &into);
+  void TellsWhatThePavingCost(const RoadRaised &pavement, const Drape &drapedOver);
+  void HandsThePavingOver(const RoadRaised &pavement, Geometry &ground);
+
   void Paves(const TangentFrame &standing,
              const std::shared_ptr<const ClassStructure> &classStructure,
              const Drape &drapedOver,

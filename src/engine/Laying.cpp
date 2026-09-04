@@ -1632,6 +1632,223 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
   }
 }
 
+namespace {
+
+struct Meeting {
+  uint64_t Node = 0;
+  uint32_t Lane = 0;
+  double GradeM = 0.0;
+};
+
+struct MetAt {
+  uint32_t First = 0;
+  uint32_t Count = 0;
+};
+
+} // namespace
+
+double Engine::State::LevelsWhereWaysMeet(Paved &into) {
+  std::vector<Meeting> met;
+  for (uint32_t lane = 0; lane < static_cast<uint32_t>(into.Designed.size()); ++lane) {
+    for (const RoadStation &one : into.Designed[lane]) {
+      if (one.Node == 0u) { continue; }
+      met.push_back({.Node = one.Node, .Lane = lane, .GradeM = one.GradeM});
+    }
+  }
+  std::ranges::stable_sort(met, {}, &Meeting::Node);
+
+  std::vector<MetAt> meetings;
+  for (uint32_t at = 0; at < static_cast<uint32_t>(met.size());) {
+    uint32_t past = at;
+    while (past < met.size() && met[past].Node == met[at].Node) { ++past; }
+    if (past - at >= 2) { meetings.push_back({.First = at, .Count = past - at}); }
+    at = past;
+  }
+
+  std::vector<double> shiftM(into.Designed.size(), 0.0);
+  std::vector<double> pullM(into.Designed.size(), 0.0);
+  std::vector<uint32_t> pulls(into.Designed.size(), 0u);
+  double movedM = 0.0;
+  for (int round = 0; round < kLevelPasses; ++round) {
+    std::ranges::fill(pullM, 0.0);
+    std::ranges::fill(pulls, 0u);
+    for (const MetAt &node : meetings) {
+      const std::span<const Meeting> held(met.data() + node.First, node.Count);
+      double wanted = 0.0;
+      for (const Meeting &one : held) { wanted += one.GradeM + shiftM[one.Lane]; }
+      wanted /= static_cast<double>(node.Count);
+      for (const Meeting &one : held) {
+        pullM[one.Lane] += wanted - (one.GradeM + shiftM[one.Lane]);
+        ++pulls[one.Lane];
+      }
+    }
+    double most = 0.0;
+    for (size_t lane = 0; lane < shiftM.size(); ++lane) {
+      if (pulls[lane] == 0u) { continue; }
+      const double by = pullM[lane] / static_cast<double>(pulls[lane]);
+      shiftM[lane] += by;
+      most = std::max(most, std::fabs(by));
+    }
+    movedM = most;
+    if (most < kLevelledM) { break; }
+  }
+
+  for (size_t lane = 0; lane < into.Designed.size(); ++lane) {
+    if (shiftM[lane] == 0.0) { continue; }
+    for (RoadStation &one : into.Designed[lane]) { one.GradeM += shiftM[lane]; }
+  }
+  return movedM;
+}
+
+size_t Engine::State::RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement) {
+  std::vector<uint64_t> nodes;
+  nodes.reserve(into.Gates.size());
+  for (const auto &one : into.Gates) {
+    if (one.second.size() >= 2) { nodes.push_back(one.first); }
+  }
+  std::ranges::sort(nodes);
+  const int asphalt = World.Stack.Materials().Find("asphalt");
+  Vec3f wears = {{0.5f, 0.5f, 0.5f}};
+  if (asphalt >= 0) { wears = World.Stack.Materials().At(static_cast<size_t>(asphalt)).Albedo; }
+  size_t raised = 0;
+  for (const uint64_t node : nodes) {
+    const std::vector<RoadGate> &met = into.Gates[node];
+    World.Shipping.Paving().Junction(
+        std::span<const RoadGate>(met.data(), met.size()), wears, pavement);
+    ++raised;
+  }
+  return raised;
+}
+
+void Engine::State::TellsWhatTheFitFound(Paved &into) {
+  if (into.FitOffsetM.empty()) { return; }
+  std::ranges::sort(into.FitOffsetM);
+  std::ranges::sort(into.FitRadiusM);
+  Published.Places(
+      "streets: ways a reference line was fitted to", static_cast<double>(into.FitLaid), "ways");
+  Published.Places(
+      "streets: and ways the fit refused", static_cast<double>(into.FitRefused), "ways");
+  Published.Places("streets: corners too tight to drive, cut instead",
+                   static_cast<double>(into.FitTooTight),
+                   "corners");
+  Published.Places("streets: cuts the split made", static_cast<double>(into.FitCuts), "cuts");
+  Published.Places(
+      "streets: stations a chord asked for", static_cast<double>(into.ChordAdded), "stations");
+  Published.Places(
+      "streets: pieces the sweep laid on a line", static_cast<double>(into.Swept.Pieces), "pieces");
+  Published.Places("streets: cuts the sweep made", static_cast<double>(into.Swept.Cuts), "cuts");
+  Published.Places(
+      "streets: pieces the sweep could not lay", static_cast<double>(into.Swept.Refused), "pieces");
+  Published.Places(
+      "streets: of those, the fit refused", static_cast<double>(into.Swept.Why.Fit), "pieces");
+  Published.Places(
+      "streets: of those, the rise refused", static_cast<double>(into.Swept.Why.Rise), "pieces");
+  Published.Places(
+      "streets: of those, the bank refused", static_cast<double>(into.Swept.Why.Bank), "pieces");
+  Published.Places(
+      "streets: of those, the sweep refused", static_cast<double>(into.Swept.Why.Sweep), "pieces");
+  Published.Places("streets: of those, too short to lay",
+                   static_cast<double>(into.Swept.Why.TooShort),
+                   "pieces");
+  Published.Places("streets: pieces the split still could not lay",
+                   static_cast<double>(into.FitUnsplittable),
+                   "pieces");
+  if (!into.TightDemandM.empty()) {
+    std::ranges::sort(into.TightDemandM);
+    Published.Places("streets: the radius such a corner demanded, p50",
+                     into.TightDemandM[into.TightDemandM.size() / 2u],
+                     "m");
+    Published.Places("streets: and the tightest", into.TightDemandM.front(), "m");
+  }
+  Published.Places("streets: the offset a fitted line needed, p50",
+                   QuantileOf(into.FitOffsetM, kMiddleQuantile),
+                   "m");
+  Published.Places("streets: the offset a fitted line needed, p95",
+                   QuantileOf(into.FitOffsetM, kBroadQuantile),
+                   "m");
+  Published.Places("streets: the offset a fitted line needed, worst", into.FitOffsetM.back(), "m");
+  Published.Places(
+      "streets: the radius a fitted line found, tightest", QuantileOf(into.FitRadiusM, 0.0), "m");
+  Published.Places("streets: the radius a fitted line found, p50",
+                   QuantileOf(into.FitRadiusM, kMiddleQuantile),
+                   "m");
+  Published.Places("streets: stations the fit calls undrivable",
+                   static_cast<double>(into.FitUndrivable),
+                   "stations");
+}
+
+void Engine::State::TellsWhatThePavingCost(const RoadRaised &pavement, const Drape &drapedOver) {
+  std::unordered_map<uint64_t, uint32_t> corner;
+  corner.reserve(pavement.PositionM.size() / 3);
+  size_t shared = 0;
+  for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
+    uint64_t keyed = kDigestBasis;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      keyed = (keyed ^ std::bit_cast<uint32_t>(pavement.PositionM[at + axis])) * kDigestPrime;
+    }
+    if (++corner[keyed] == 2u) { shared += 2; }
+  }
+  const size_t corners = pavement.PositionM.size() / 3u;
+  Published.Places("streets: vertices two bodies SHARE", static_cast<double>(shared), "vertices");
+  Published.Places("streets: vertices in all", static_cast<double>(corners), "vertices");
+
+  std::vector<double> aboveM;
+  aboveM.reserve(pavement.PositionM.size() / 3u);
+  size_t flying = 0;
+  for (size_t vertex = 0; vertex + 2 < pavement.PositionM.size(); vertex += 3) {
+    const double under = drapedOver.At(
+        {.EastM = pavement.PositionM[vertex], .SouthM = pavement.PositionM[vertex + 2]},
+        -kBeyondAnyCoordinate);
+    if (under < kUnraisedDeckM) { continue; }
+    const double aloft = static_cast<double>(pavement.PositionM[vertex + 1]) - under;
+    aboveM.push_back(aloft);
+    if (aloft > kFlyingM) { ++flying; }
+  }
+  if (!aboveM.empty()) {
+    std::ranges::sort(aboveM);
+    Published.Places(
+        "streets: a vertex stands over the ground, p50", QuantileOf(aboveM, kMiddleQuantile), "m");
+    Published.Places(
+        "streets: a vertex stands over the ground, p95", QuantileOf(aboveM, kBroadQuantile), "m");
+    Published.Places("streets: a vertex stands over the ground, highest", aboveM.back(), "m");
+    Published.Places("streets: a vertex stands under it, deepest", aboveM.front(), "m");
+    Published.Places(
+        "streets: vertices FLYING, over the bar", static_cast<double>(flying), "vertices");
+  }
+}
+
+void Engine::State::HandsThePavingOver(const RoadRaised &pavement, Geometry &ground) {
+  if (pavement.Index.size() < 3) { return; }
+  Material tarmac;
+  for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
+  {
+    const int asphalt = World.Stack.Materials().Find("asphalt");
+    tarmac.Roughness = asphalt >= 0
+                           ? World.Stack.Materials().At(static_cast<size_t>(asphalt)).Roughness
+                           : kUnlitTint;
+  }
+  const MaterialInstance paved = ground.addSurface("streets", tarmac);
+  const int pavedPart = ground.addPart("streets", paved);
+  const bool tookPaving =
+      pavedPart >= 0 &&
+      ground.setPositions(
+          pavedPart,
+          std::span<const float>(pavement.PositionM.data(), pavement.PositionM.size())) &&
+      ground.setNormals(pavedPart,
+                        std::span<const float>(pavement.NormalM.data(), pavement.NormalM.size())) &&
+      ground.setColours(
+          pavedPart,
+          std::span<const float>(pavement.ColourRgba.data(), pavement.ColourRgba.size())) &&
+      ground.setTriangles(pavedPart,
+                          std::span<const uint32_t>(pavement.Index.data(), pavement.Index.size()));
+  Published.Places(
+      "streets: the surface they were given", static_cast<double>(paved.index()), "index");
+  Published.Places("streets: the part they were given", static_cast<double>(pavedPart), "index");
+  Published.Places("streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
+  Published.Places(
+      "streets: parts the geometry now holds", static_cast<double>(ground.parts()), "parts");
+}
+
 void Engine::State::Paves(const TangentFrame &standing,
                           const std::shared_ptr<const ClassStructure> &classStructure,
                           const Drape &drapedOver,
@@ -1727,49 +1944,7 @@ void Engine::State::Paves(const TangentFrame &standing,
       into.WaterMs = 0.0;
       into.SweepMs = 0.0;
       if (pass == Pass::Designing) {
-        double movedM = 0.0;
-        std::unordered_map<uint64_t, std::vector<std::pair<uint32_t, uint32_t>>> atNode;
-        for (uint32_t lane = 0; lane < static_cast<uint32_t>(into.Designed.size()); ++lane) {
-          for (uint32_t one = 0; one < static_cast<uint32_t>(into.Designed[lane].size()); ++one) {
-            if (into.Designed[lane][one].Node == 0u) { continue; }
-            atNode[into.Designed[lane][one].Node].emplace_back(lane, one);
-          }
-        }
-        std::vector<uint64_t> levelling;
-        levelling.reserve(atNode.size());
-        for (const auto &one : atNode) {
-          if (one.second.size() >= 2) { levelling.push_back(one.first); }
-        }
-        std::ranges::sort(levelling);
-
-        std::vector<double> pullM(into.Designed.size(), 0.0);
-        std::vector<uint32_t> pulls(into.Designed.size(), 0u);
-        for (int round = 0; round < kLevelPasses; ++round) {
-          std::ranges::fill(pullM, 0.0);
-          std::ranges::fill(pulls, 0u);
-          for (const uint64_t node : levelling) {
-            const std::vector<std::pair<uint32_t, uint32_t>> &met = atNode[node];
-            double wanted = 0.0;
-            for (const auto &held : met) {
-              wanted += into.Designed[held.first][held.second].GradeM;
-            }
-            wanted /= static_cast<double>(met.size());
-            for (const auto &held : met) {
-              pullM[held.first] += wanted - into.Designed[held.first][held.second].GradeM;
-              ++pulls[held.first];
-            }
-          }
-          double most = 0.0;
-          for (size_t lane = 0; lane < into.Designed.size(); ++lane) {
-            if (pulls[lane] == 0u) { continue; }
-            const double by = pullM[lane] / static_cast<double>(pulls[lane]);
-            for (RoadStation &one : into.Designed[lane]) { one.GradeM += by; }
-            most = std::max(most, std::fabs(by));
-          }
-          movedM = most;
-          if (most < kLevelledM) { break; }
-        }
-        Published.Places("streets: the levelling's last shift", movedM, "m");
+        Published.Places("streets: the levelling's last shift", LevelsWhereWaysMeet(into), "m");
         Published.Places("streets: of that, levelling the junctions", since(), "ms");
       }
     }
@@ -1787,85 +1962,10 @@ void Engine::State::Paves(const TangentFrame &standing,
   Published.Places(
       "streets: decks a WATERWAY raised", static_cast<double>(into.DecksOverWater), "decks");
   Published.Places("streets: and the clearance the widest one took", into.MostOverWaterM, "m");
-  size_t junctionsRaised = 0;
-  {
-    std::vector<uint64_t> nodes;
-    nodes.reserve(into.Gates.size());
-    for (const auto &one : into.Gates) {
-      if (one.second.size() >= 2) { nodes.push_back(one.first); }
-    }
-    std::ranges::sort(nodes);
-    const int asphalt = World.Stack.Materials().Find("asphalt");
-    Vec3f wears = {{0.5f, 0.5f, 0.5f}};
-    if (asphalt >= 0) { wears = World.Stack.Materials().At(static_cast<size_t>(asphalt)).Albedo; }
-    for (const uint64_t node : nodes) {
-      const std::vector<RoadGate> &met = into.Gates[node];
-      World.Shipping.Paving().Junction(
-          std::span<const RoadGate>(met.data(), met.size()), wears, pavement);
-      ++junctionsRaised;
-    }
-  }
-  Published.Places(
-      "streets: junction bodies raised", static_cast<double>(junctionsRaised), "junctions");
-  if (!into.FitOffsetM.empty()) {
-    std::ranges::sort(into.FitOffsetM);
-    std::ranges::sort(into.FitRadiusM);
-    Published.Places(
-        "streets: ways a reference line was fitted to", static_cast<double>(into.FitLaid), "ways");
-    Published.Places(
-        "streets: and ways the fit refused", static_cast<double>(into.FitRefused), "ways");
-    Published.Places("streets: corners too tight to drive, cut instead",
-                     static_cast<double>(into.FitTooTight),
-                     "corners");
-    Published.Places("streets: cuts the split made", static_cast<double>(into.FitCuts), "cuts");
-    Published.Places(
-        "streets: stations a chord asked for", static_cast<double>(into.ChordAdded), "stations");
-    Published.Places("streets: pieces the sweep laid on a line",
-                     static_cast<double>(into.Swept.Pieces),
-                     "pieces");
-    Published.Places("streets: cuts the sweep made", static_cast<double>(into.Swept.Cuts), "cuts");
-    Published.Places("streets: pieces the sweep could not lay",
-                     static_cast<double>(into.Swept.Refused),
-                     "pieces");
-    Published.Places(
-        "streets: of those, the fit refused", static_cast<double>(into.Swept.Why.Fit), "pieces");
-    Published.Places(
-        "streets: of those, the rise refused", static_cast<double>(into.Swept.Why.Rise), "pieces");
-    Published.Places(
-        "streets: of those, the bank refused", static_cast<double>(into.Swept.Why.Bank), "pieces");
-    Published.Places("streets: of those, the sweep refused",
-                     static_cast<double>(into.Swept.Why.Sweep),
-                     "pieces");
-    Published.Places("streets: of those, too short to lay",
-                     static_cast<double>(into.Swept.Why.TooShort),
-                     "pieces");
-    Published.Places("streets: pieces the split still could not lay",
-                     static_cast<double>(into.FitUnsplittable),
-                     "pieces");
-    if (!into.TightDemandM.empty()) {
-      std::ranges::sort(into.TightDemandM);
-      Published.Places("streets: the radius such a corner demanded, p50",
-                       into.TightDemandM[into.TightDemandM.size() / 2u],
-                       "m");
-      Published.Places("streets: and the tightest", into.TightDemandM.front(), "m");
-    }
-    Published.Places("streets: the offset a fitted line needed, p50",
-                     QuantileOf(into.FitOffsetM, kMiddleQuantile),
-                     "m");
-    Published.Places("streets: the offset a fitted line needed, p95",
-                     QuantileOf(into.FitOffsetM, kBroadQuantile),
-                     "m");
-    Published.Places(
-        "streets: the offset a fitted line needed, worst", into.FitOffsetM.back(), "m");
-    Published.Places(
-        "streets: the radius a fitted line found, tightest", QuantileOf(into.FitRadiusM, 0.0), "m");
-    Published.Places("streets: the radius a fitted line found, p50",
-                     QuantileOf(into.FitRadiusM, kMiddleQuantile),
-                     "m");
-    Published.Places("streets: stations the fit calls undrivable",
-                     static_cast<double>(into.FitUndrivable),
-                     "stations");
-  }
+  Published.Places("streets: junction bodies raised",
+                   static_cast<double>(RaisesTheJunctionBodies(into, pavement)),
+                   "junctions");
+  TellsWhatTheFitFound(into);
   Published.Places("streets: ways laid as ribbons, all of them FLOATING",
                    static_cast<double>(into.LaidWays),
                    "ways");
@@ -1889,79 +1989,10 @@ void Engine::State::Paves(const TangentFrame &standing,
   Published.Places(
       "streets: ways whose layer is a STRING", static_cast<double>(ways.LayerSaidCount()), "ways");
   Published.Places("streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
-  {
-    std::unordered_map<uint64_t, uint32_t> corner;
-    corner.reserve(pavement.PositionM.size() / 3);
-    size_t shared = 0;
-    for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
-      uint64_t keyed = kDigestBasis;
-      for (size_t axis = 0; axis < 3; ++axis) {
-        keyed = (keyed ^ std::bit_cast<uint32_t>(pavement.PositionM[at + axis])) * kDigestPrime;
-      }
-      if (++corner[keyed] == 2u) { shared += 2; }
-    }
-    const size_t corners = pavement.PositionM.size() / 3u;
-    Published.Places("streets: vertices two bodies SHARE", static_cast<double>(shared), "vertices");
-    Published.Places("streets: vertices in all", static_cast<double>(corners), "vertices");
-  }
-  {
-    std::vector<double> aboveM;
-    aboveM.reserve(pavement.PositionM.size() / 3u);
-    size_t flying = 0;
-    for (size_t vertex = 0; vertex + 2 < pavement.PositionM.size(); vertex += 3) {
-      const double under = drapedOver.At(
-          {.EastM = pavement.PositionM[vertex], .SouthM = pavement.PositionM[vertex + 2]},
-          -kBeyondAnyCoordinate);
-      if (under < kUnraisedDeckM) { continue; }
-      const double aloft = static_cast<double>(pavement.PositionM[vertex + 1]) - under;
-      aboveM.push_back(aloft);
-      if (aloft > kFlyingM) { ++flying; }
-    }
-    if (!aboveM.empty()) {
-      std::ranges::sort(aboveM);
-      Published.Places("streets: a vertex stands over the ground, p50",
-                       QuantileOf(aboveM, kMiddleQuantile),
-                       "m");
-      Published.Places(
-          "streets: a vertex stands over the ground, p95", QuantileOf(aboveM, kBroadQuantile), "m");
-      Published.Places("streets: a vertex stands over the ground, highest", aboveM.back(), "m");
-      Published.Places("streets: a vertex stands under it, deepest", aboveM.front(), "m");
-      Published.Places(
-          "streets: vertices FLYING, over the bar", static_cast<double>(flying), "vertices");
-    }
-  }
+  TellsWhatThePavingCost(pavement, drapedOver);
   const size_t pavedTriangles = pavement.Index.size() / 3;
   Published.Places("streets: triangles", static_cast<double>(pavedTriangles), "triangles");
-  if (pavement.Index.size() >= 3) {
-    Material tarmac;
-    for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
-    {
-      const int asphalt = World.Stack.Materials().Find("asphalt");
-      tarmac.Roughness = asphalt >= 0
-                             ? World.Stack.Materials().At(static_cast<size_t>(asphalt)).Roughness
-                             : kUnlitTint;
-    }
-    const MaterialInstance paved = ground.addSurface("streets", tarmac);
-    const int pavedPart = ground.addPart("streets", paved);
-    const bool tookPaving =
-        pavedPart >= 0 &&
-        ground.setPositions(
-            pavedPart,
-            std::span<const float>(pavement.PositionM.data(), pavement.PositionM.size())) &&
-        ground.setNormals(
-            pavedPart, std::span<const float>(pavement.NormalM.data(), pavement.NormalM.size())) &&
-        ground.setColours(
-            pavedPart,
-            std::span<const float>(pavement.ColourRgba.data(), pavement.ColourRgba.size())) &&
-        ground.setTriangles(
-            pavedPart, std::span<const uint32_t>(pavement.Index.data(), pavement.Index.size()));
-    Published.Places(
-        "streets: the surface they were given", static_cast<double>(paved.index()), "index");
-    Published.Places("streets: the part they were given", static_cast<double>(pavedPart), "index");
-    Published.Places("streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
-    Published.Places(
-        "streets: parts the geometry now holds", static_cast<double>(ground.parts()), "parts");
-  }
+  HandsThePavingOver(pavement, ground);
 }
 
 void Engine::State::TellsWhatTheSeamsCost(std::span<const float> inFrame,
