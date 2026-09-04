@@ -1,5 +1,7 @@
 #include "math/Units.h"
 #include "Digest.h"
+#include <generate/Generate.h>
+
 #include "BuildingMesh.h"
 #include "math/Vec3.h"
 
@@ -733,6 +735,16 @@ constexpr double kResolvedPx = 2.0;
 constexpr double kArchitectureTris = 262.0;
 constexpr double kBoxTris = 12.0;
 
+struct Rung {
+  Detail Level = Detail::Fine;
+  double Tris = 0.0;
+};
+
+constexpr Rung kRungs[] = {
+    {.Level = Detail::Fine, .Tris = kArchitectureTris},
+    {.Level = Detail::Shell, .Tris = kBoxTris},
+};
+
 [[nodiscard]] double FitsInPixelsM(double focalPx, double heightM, double widthM, double tris) {
   if (heightM <= 0.0 || widthM <= 0.0 || tris <= 0.0) { return 0.0; }
   return focalPx * std::sqrt(heightM * widthM / tris);
@@ -822,14 +834,17 @@ void RaisePart(const BuildingShape &s, Site &site) {
     }
     const double wideM = 0.5 * ((mostE - leastE) + (mostN - leastN));
     const double highM = s.TopM() - s.SoleM;
-    const double asDetailed = std::min(ArchitectureReachM(focalPx),
-                                       FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
-    if (outM > FitsInPixelsM(focalPx, highM, wideM, kBoxTris)) {}
-    if (outM > asDetailed) {
+    Detail level = Detail::Fine;
+    for (size_t at = std::size(kRungs); at > 0; --at) {
+      const Rung &rung = kRungs[at - 1u];
+      double reachM = FitsInPixelsM(focalPx, highM, wideM, rung.Tris);
+      if (rung.Level == Detail::Fine) { reachM = std::min(reachM, ArchitectureReachM(focalPx)); }
+      if (outM <= reachM) { level = rung.Level; }
+    }
+    if (level != Detail::Fine) {
       Box(s, Hull(s.Ring), site);
       return;
     }
-  } else {
   }
   const RoofSurface roof(s);
   const double lowZ = s.OnGround() ? s.SoleM : s.SeatM + s.FootM - kSinkM;
