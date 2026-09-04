@@ -25,8 +25,7 @@ constexpr uint32_t kTileClusterTriangles = 128;
 
 } // namespace
 
-void CookTile(const float *soup,
-              int nverts,
+void CookTile(std::span<const ChunkVtx> soup,
               int gridverts,
               [[maybe_unused]] const Vec3 &origin,
               std::vector<TileVertex> &outVerts,
@@ -35,18 +34,19 @@ void CookTile(const float *soup,
   outVerts.clear();
   outIdx.clear();
   outClusters.clear();
-  if ((soup == nullptr) || nverts <= 0) { return; }
+  const auto nverts = static_cast<int>(soup.size());
+  if (soup.empty()) { return; }
   if (gridverts <= 0 || gridverts > nverts) { gridverts = nverts; }
 
-  outVerts.resize(static_cast<size_t>(gridverts));
-  std::memcpy(outVerts.data(), soup, static_cast<size_t>(gridverts) * sizeof(TileVertex));
+  outVerts.assign(soup.begin(), soup.begin() + gridverts);
   outIdx.resize(static_cast<size_t>(gridverts));
   for (int vertex = 0; vertex < gridverts; ++vertex) {
     outIdx[static_cast<size_t>(vertex)] = static_cast<uint32_t>(vertex);
   }
 
   const Cooked cut =
-      CookClusters(std::span<const float>(soup, static_cast<size_t>(gridverts) * kTileSoupFloats),
+      CookClusters(std::span<const float>(reinterpret_cast<const float *>(soup.data()),
+                                          static_cast<size_t>(gridverts) * kTileSoupFloats),
                    outIdx,
                    kTileClusterTriangles,
                    static_cast<int>(kTileSoupFloats));
@@ -54,7 +54,7 @@ void CookTile(const float *soup,
     DagCluster whole{};
     whole.Count = static_cast<uint32_t>(gridverts);
     whole.ParentErr = kDagRootErr;
-    const Bounding around = BoundingSphere({.Floats = soup,
+    const Bounding around = BoundingSphere({.Floats = reinterpret_cast<const float *>(soup.data()),
                                             .Count = static_cast<uint32_t>(gridverts),
                                             .Stride = static_cast<int>(kTileSoupFloats)});
     whole.SelfCenter = around.CentreM;

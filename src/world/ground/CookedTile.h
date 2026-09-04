@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_COOKEDTILE_H
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "math/Vec3.h"
@@ -10,8 +11,7 @@
 
 namespace outshine::Ground {
 
-void CookTile(const float *soup,
-              int nverts,
+void CookTile(std::span<const ChunkVtx> soup,
               int gridverts,
               const Vec3 &origin,
               std::vector<TileVertex> &outVerts,
