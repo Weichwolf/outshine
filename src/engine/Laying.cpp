@@ -1254,6 +1254,11 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
       static_cast<double>(CapacityBytes(World.WallPlaces) + CapacityBytes(World.WallFacing) +
                           CapacityBytes(World.RoofPlaces) + CapacityBytes(World.RoofFacing)),
       "bytes");
+  Published.Places("world: of those copies, the bytes actually filled",
+                   static_cast<double>((World.WallPlaces.size() + World.WallFacing.size() +
+                                        World.RoofPlaces.size() + World.RoofFacing.size()) *
+                                       sizeof(float)),
+                   "bytes");
   Published.Places(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
   Published.Places(
