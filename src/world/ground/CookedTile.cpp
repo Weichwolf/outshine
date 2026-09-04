@@ -39,8 +39,9 @@ void CookTile(const float *soup,
     DagCluster whole{};
     whole.Count = static_cast<uint32_t>(gridverts);
     whole.ParentErr = kDagRootErr;
-    const Bounding around =
-        BoundingSphere(soup, static_cast<uint32_t>(gridverts), static_cast<int>(kTileSoupFloats));
+    const Bounding around = BoundingSphere({.Floats = soup,
+                                            .Count = static_cast<uint32_t>(gridverts),
+                                            .Stride = static_cast<int>(kTileSoupFloats)});
     whole.SelfCenter = around.CentreM;
     whole.SelfRadius = around.RadiusM;
     outClusters.push_back(whole);

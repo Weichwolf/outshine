@@ -35,7 +35,16 @@ struct Bounding {
   float RadiusM = 0.0f;
 };
 
-[[nodiscard]] inline Bounding BoundingSphere(const float *verts, uint32_t nverts, int stride) {
+struct Strided {
+  const float *Floats = nullptr;
+  uint32_t Count = 0;
+  int Stride = 0;
+};
+
+[[nodiscard]] inline Bounding BoundingSphere(Strided over) {
+  const float *const verts = over.Floats;
+  const uint32_t nverts = over.Count;
+  const int stride = over.Stride;
   Bounding out;
   Vec3f &ctr = out.CentreM;
   if ((verts == nullptr) || nverts == 0) {

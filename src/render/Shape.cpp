@@ -94,8 +94,10 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
       whole.First = static_cast<uint32_t>(part.FirstIndex);
       whole.Count = static_cast<uint32_t>(part.IndexCount);
       whole.ParentErr = kDagRootErr;
-      const Bounding around = BoundingSphere(
-          part.PositionsM.data(), static_cast<uint32_t>(part.PositionsM.size() / 3), 3);
+      const Bounding around =
+          BoundingSphere({.Floats = part.PositionsM.data(),
+                          .Count = static_cast<uint32_t>(part.PositionsM.size() / 3),
+                          .Stride = 3});
       whole.SelfCenter = around.CentreM;
       whole.SelfRadius = around.RadiusM;
       keep(whole);
