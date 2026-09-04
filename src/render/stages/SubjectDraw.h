@@ -22,6 +22,8 @@
 
 namespace outshine::Render {
 
+class PieceStore;
+
 class SubjectDraw {
 public:
   struct SourceOptions {
@@ -156,6 +158,18 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
+  struct Drawable {
+    const SubjectResidency *Res = nullptr;
+    const std::vector<DrawBatch> *Batches = nullptr;
+    const std::vector<VertexLayout> *Layouts = nullptr;
+    bool Cut = false;
+    bool Still = false;
+  };
+
+  void EncodeBatches(const Drawable &over, const PassRecording &into);
+
+  const PieceStore *Pieces_ = nullptr;
+
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
   [[nodiscard]] bool HandClusters(const SubjectMesh &mesh, std::string &error);
 
@@ -191,6 +205,10 @@ public:
   }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
+
+  void DrawsPieces(const PieceStore *pieces) { Pieces_ = pieces; }
+
+  [[nodiscard]] const PieceStore *Pieces() const { return Pieces_; }
 
   [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
 

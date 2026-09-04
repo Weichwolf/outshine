@@ -105,10 +105,10 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
       *stood = 0;
       continue;
     }
-    if (*stood < one.Bytes || !into) {
+    if (*stood < one.Offset + one.Bytes || !into) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
-      wanted.size = one.Bytes;
+      wanted.size = one.Offset + one.Bytes;
       into = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
       gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
       if (!into) {
@@ -116,7 +116,7 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
         error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
         return false;
       }
-      *stood = one.Bytes;
+      *stood = one.Offset + one.Bytes;
     }
 
     total = (total + one.Bytes + 15u) & ~15u;
@@ -164,8 +164,11 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
   for (const auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     if (StagedCount_ == Staged_.size()) { Staged_.push_back(Staged{}); }
-    Staged_[StagedCount_++] = Staged{
-        .Into = Buffer(one.Which).Get(), .From = at, .Bytes = one.Bytes, .Staging = Staging_.Get()};
+    Staged_[StagedCount_++] = Staged{.Into = Buffer(one.Which).Get(),
+                                     .From = at,
+                                     .Bytes = one.Bytes,
+                                     .Offset = one.Offset,
+                                     .Staging = Staging_.Get()};
     at = (at + one.Bytes + 15u) & ~15u;
   }
   StagingUsed_ = at;
@@ -215,12 +218,44 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Bulk_.Get(), .offset = at};
     const SDL_GPUBufferRegion into{
-        .buffer = Buffer(one.Which).Get(), .offset = 0, .size = one.Bytes};
+        .buffer = Buffer(one.Which).Get(), .offset = one.Offset, .size = one.Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
     at = (at + one.Bytes + 15u) & ~15u;
   }
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(commands);
+  return true;
+}
+
+bool SubjectResidency::Grow(Stream which,
+                            uint32_t bytes,
+                            SDL_GPUBufferUsageFlags usage,
+                            std::string &error) {
+  OwnedBuffer &held = Buffer(which);
+  uint32_t *const stood = HeldAt(which);
+  if (held && *stood >= bytes) { return true; }
+  uint32_t widened = *stood > 0 ? *stood : bytes;
+  while (widened < bytes) { widened *= 2u; }
+  SDL_GPUBufferCreateInfo wanted{};
+  wanted.usage = usage;
+  wanted.size = widened;
+  OwnedBuffer fresh(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+  gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
+  if (!fresh) {
+    error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
+    return false;
+  }
+  if (held && *stood > 0) {
+    SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device_);
+    SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+    const SDL_GPUBufferLocation from{.buffer = held.Get(), .offset = 0};
+    const SDL_GPUBufferLocation to{.buffer = fresh.Get(), .offset = 0};
+    SDL_CopyGPUBufferToBuffer(copy, &from, &to, *stood, false);
+    SDL_EndGPUCopyPass(copy);
+    SDL_SubmitGPUCommandBuffer(commands);
+  }
+  held = std::move(fresh);
+  *stood = widened;
   return true;
 }
 
@@ -231,7 +266,7 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Staged_[at].Staging,
                                                .offset = Staged_[at].From};
     const SDL_GPUBufferRegion into{
-        .buffer = Staged_[at].Into, .offset = 0, .size = Staged_[at].Bytes};
+        .buffer = Staged_[at].Into, .offset = Staged_[at].Offset, .size = Staged_[at].Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
     gCrossingsFlushed.fetch_add(1u, std::memory_order_relaxed);
   }

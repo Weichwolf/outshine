@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_STOREDVERTEX_H
-#define OUTSHINE_WORLD_GROUND_STOREDVERTEX_H
+#ifndef OUTSHINE_BASE_SPATIAL_STOREDVERTEX_H
+#define OUTSHINE_BASE_SPATIAL_STOREDVERTEX_H
 #include "math/Octahedral.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"

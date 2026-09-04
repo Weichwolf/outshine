@@ -51,6 +51,7 @@ struct SubjectResidency {
     SDL_GPUBufferUsageFlags Usage = 0;
     const void *From = nullptr;
     uint32_t Bytes = 0;
+    uint32_t Offset = 0;
 
     void (*Writes)(const void *carrying, float *into, uint32_t floats) = nullptr;
     const void *Carrying = nullptr;
@@ -112,6 +113,8 @@ struct SubjectResidency {
 
   [[nodiscard]] bool Cross(std::span<Crossing> what, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(std::span<Crossing> what, uint32_t total, std::string &error);
+  [[nodiscard]] bool
+  Grow(Stream which, uint32_t bytes, SDL_GPUBufferUsageFlags usage, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
 
   void DropStaged() {
@@ -127,6 +130,7 @@ private:
     SDL_GPUBuffer *Into = nullptr;
     uint32_t From = 0;
     uint32_t Bytes = 0;
+    uint32_t Offset = 0;
     SDL_GPUTransferBuffer *Staging = nullptr;
   };
 

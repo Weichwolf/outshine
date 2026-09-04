@@ -13,6 +13,8 @@
 namespace outshine::Render {
 
 class SubjectDraw;
+class PieceStore;
+struct SubjectResidency;
 
 class SubjectCullStage {
 public:
@@ -32,6 +34,8 @@ public:
       .ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128};
 
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
+
+  void CullsPieces(const PieceStore *pieces) { Pieces_ = pieces; }
 
   void EncodeCull(const FrameContext &ctx, const PassRecording &into);
   void EncodeScan(const FrameContext &ctx, const PassRecording &into);
@@ -54,7 +58,20 @@ private:
                                      const ComputeShape &shape,
                                      OwnedComputePipeline &into,
                                      std::string &error);
-  [[nodiscard]] uint32_t Standing(const FrameContext &ctx, void *view);
+  [[nodiscard]] uint32_t Standing(const FrameContext &ctx, void *view, uint32_t jobs);
+  void CullOver(const void *view,
+                uint32_t jobs,
+                const SubjectResidency &resident,
+                const PassRecording &into);
+  void ScanOver(const void *view,
+                uint32_t batches,
+                const SubjectResidency &resident,
+                const PassRecording &into);
+  void CompactOver(const void *view,
+                   uint32_t jobs,
+                   const SubjectResidency &resident,
+                   const PassRecording &into);
+  const PieceStore *Pieces_ = nullptr;
 
   SubjectDraw *Subjects_ = nullptr;
   OwnedComputePipeline Cull_, Scan_, Compact_;
