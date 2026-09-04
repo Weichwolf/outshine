@@ -7,10 +7,13 @@
 
 namespace outshine::Render {
 
+inline ShaderText &NormalFromMap(ShaderText &into) {
+  return into.Reads("src/render/shaders/normalFromMap.msl");
+}
+
 [[nodiscard]] inline std::string NormalFromMapMsl(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/normalFromMap.msl", body, error)) { return {}; }
-  return body;
+  ShaderText source;
+  return NormalFromMap(source).Take(error);
 }
 
 } // namespace outshine::Render

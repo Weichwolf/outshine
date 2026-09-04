@@ -4,7 +4,6 @@
 #include <string>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 
 namespace outshine::Render {
 
@@ -18,9 +17,7 @@ struct Reducing {
 } // namespace
 
 std::string DepthPyramidStage::KernelSource(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/depthPyramid.msl", body, error)) { return {}; }
-  return MslPrelude(error) + body;
+  return ShaderText().Begins().Reads("src/render/shaders/depthPyramid.msl").Take(error);
 }
 
 bool DepthPyramidStage::Configure(const Gpu &gpu,

@@ -37,10 +37,13 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
   return {made.data()};
 }
 
+inline ShaderText &VelocityStatic(ShaderText &into) {
+  return into.Reads("src/render/shaders/velocityStatic.msl");
+}
+
 [[nodiscard]] inline std::string VelocityStaticMsl(std::string &error) {
-  std::string held;
-  if (!LoadShaderText("src/render/shaders/velocityStatic.msl", held, error)) { return {}; }
-  return held;
+  ShaderText source;
+  return VelocityStatic(source).Take(error);
 }
 
 } // namespace outshine::Render

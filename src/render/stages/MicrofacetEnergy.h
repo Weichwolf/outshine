@@ -73,9 +73,7 @@ inline constexpr int kEnergySamples = 2048;
 inline constexpr int kEnergyRoughnessSteps = 32;
 inline constexpr int kEnergyViewSteps = 16;
 
-[[nodiscard]] inline std::string MicrofacetEnergyMsl(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/microfacetEnergy.msl", body, error)) { return {}; }
+inline ShaderText &MicrofacetEnergy(ShaderText &into) {
   std::string albedo;
   albedo.reserve(size_t{kEnergyRoughnessSteps} * kEnergyViewSteps * 12);
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
@@ -107,8 +105,19 @@ inline constexpr int kEnergyViewSteps = 16;
                 "constant int kEnergyRoughnessSteps = %d;\nconstant int kEnergyViewSteps = %d;\n",
                 kEnergyRoughnessSteps,
                 kEnergyViewSteps);
-  return std::string(head.data()) + "constant float kGgxAlbedo[] = { " + albedo + " };\n" +
-         "constant float kGgxAlbedoAverage[] = { " + average + " };\n" + body;
+  return into.Adds(head.data())
+      .Adds("constant float kGgxAlbedo[] = { ")
+      .Adds(albedo)
+      .Adds(" };\n")
+      .Adds("constant float kGgxAlbedoAverage[] = { ")
+      .Adds(average)
+      .Adds(" };\n")
+      .Reads("src/render/shaders/microfacetEnergy.msl");
+}
+
+[[nodiscard]] inline std::string MicrofacetEnergyMsl(std::string &error) {
+  ShaderText source;
+  return MicrofacetEnergy(source).Take(error);
 }
 
 [[nodiscard]] inline std::string MicrofacetEnergyMsl() {

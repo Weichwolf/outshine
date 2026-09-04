@@ -7,7 +7,6 @@
 #include <string>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 
 namespace outshine::Render {
 namespace {
@@ -24,13 +23,9 @@ std::string Kernel(std::string &error) {
                 static_cast<unsigned>(kMultiScatterGrid),
                 static_cast<double>(kMediumLuminanceSegment),
                 static_cast<double>(kMediumGroundLiftKm));
-  std::string core;
-  std::string body;
-  if (!ParticipatingMediumMsl(core, error) ||
-      !LoadShaderText("src/render/shaders/mediumMultiScatter.msl", body, error)) {
-    return {};
-  }
-  return MslPrelude(error) + declared.data() + core + body;
+  ShaderText source;
+  source.Begins().Adds(declared.data());
+  return ParticipatingMedium(source).Reads("src/render/shaders/mediumMultiScatter.msl").Take(error);
 }
 
 } // namespace

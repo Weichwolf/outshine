@@ -1,7 +1,6 @@
 #include "PresentStage.h"
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 #include <string>
 
 namespace outshine::Render {
@@ -71,9 +70,7 @@ std::string PresentStage::ShaderSource() {
 }
 
 std::string PresentStage::ShaderSource(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/present.msl", body, error)) { return {}; }
-  return MslPrelude(error) + body;
+  return ShaderText().Begins().Reads("src/render/shaders/present.msl").Take(error);
 }
 
 } // namespace outshine::Render

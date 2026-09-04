@@ -3,7 +3,6 @@
 #include "math/Vec3.h"
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 #include <array>
 #include <cstdint>
 #include <string>
@@ -23,14 +22,12 @@ std::string TonemapStage::ShaderSource(const DisplayOptions &options) {
 }
 
 std::string TonemapStage::ShaderSource(const DisplayOptions &options, std::string &error) {
-  std::string body;
-  if (!LoadShaderText(options.Temporal ? "src/render/shaders/temporalResolve.msl"
-                                       : "src/render/shaders/tonemap.msl",
-                      body,
-                      error)) {
-    return {};
-  }
-  return MslPrelude(error) + DisplayMsl(options) + body;
+  ShaderText source;
+  return source.Begins()
+      .Adds(DisplayMsl(options))
+      .Reads(options.Temporal ? "src/render/shaders/temporalResolve.msl"
+                              : "src/render/shaders/tonemap.msl")
+      .Take(error);
 }
 
 bool TonemapStage::Configure(const Gpu &gpu,

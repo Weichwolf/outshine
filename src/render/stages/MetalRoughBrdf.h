@@ -17,12 +17,15 @@ namespace outshine::Render {
          (nl * std::sqrt(nv * nv * (1.0 - a2) + a2) + nv * std::sqrt(nl * nl * (1.0 - a2) + a2));
 }
 
-[[nodiscard]] inline std::string MetalRoughBrdfMsl(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/metalRoughBrdf.msl", body, error)) { return {}; }
+inline ShaderText &MetalRoughBrdf(ShaderText &into) {
   std::array<char, 256> constants{};
   std::snprintf(constants.data(), constants.size(), "constant float kPi = %.17g;\n", kPi);
-  return std::string(constants.data()) + body;
+  return into.Adds(constants.data()).Reads("src/render/shaders/metalRoughBrdf.msl");
+}
+
+[[nodiscard]] inline std::string MetalRoughBrdfMsl(std::string &error) {
+  ShaderText source;
+  return MetalRoughBrdf(source).Take(error);
 }
 
 [[nodiscard]] inline std::string MetalRoughBrdfMsl() {

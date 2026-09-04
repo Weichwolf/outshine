@@ -7,7 +7,6 @@
 #include <string>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 
 namespace outshine::Render {
 namespace {
@@ -20,13 +19,11 @@ std::string Kernel(std::string &error) {
                 "constant float kMediumSampleSegment = %.9g;\n",
                 static_cast<unsigned>(kTransmittanceSteps),
                 static_cast<double>(kMediumSampleSegment));
-  std::string core;
-  std::string body;
-  if (!ParticipatingMediumMsl(core, error) ||
-      !LoadShaderText("src/render/shaders/mediumTransmittance.msl", body, error)) {
-    return {};
-  }
-  return MslPrelude(error) + declared.data() + core + body;
+  ShaderText source;
+  source.Begins().Adds(declared.data());
+  return ParticipatingMedium(source)
+      .Reads("src/render/shaders/mediumTransmittance.msl")
+      .Take(error);
 }
 
 } // namespace

@@ -29,7 +29,6 @@
 #include "SheenLobe.h"
 #include "NormalFromMap.h"
 #include "SceneTargets.h"
-#include "ShaderPrelude.h"
 #include "VertexArms.h"
 #include "scene/SurfaceState.h"
 #include "ShaderFile.h"
@@ -141,38 +140,33 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options) {
 }
 
 std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string &error) {
-  std::string bindings;
-  std::string body;
-  std::string lit;
-  std::string litTextured;
-  std::string mapped;
-  std::string ground;
-  if (!LoadShaderText("src/render/shaders/subjectBindings.msl", bindings, error) ||
-      !LoadShaderText("src/render/shaders/subject.msl", body, error) ||
-      !LoadShaderText("src/render/shaders/subjectLit.msl", lit, error) ||
-      !LoadShaderText("src/render/shaders/subjectLitTextured.msl", litTextured, error) ||
-      !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error) ||
-      !LoadShaderText("src/render/shaders/subjectGround.msl", ground, error)) {
-    return {};
-  }
-  const std::string brdf = MetalRoughBrdfMsl(error);
-  const std::string sheen = SheenLobeMsl(error);
-  const std::string iridescence = IridescenceLobeMsl(error);
-  const std::string energy = MicrofacetEnergyMsl(error);
-  const std::string normalMap = NormalFromMapMsl(error);
-  if (brdf.empty() || sheen.empty() || iridescence.empty() || energy.empty() || normalMap.empty()) {
-    return {};
-  }
-  return MslPrelude(error) + VelocityStaticDefine() + VelocityStaticMsl(error) +
-         "\n#define SUBJECT_WRITES_VELOCITY " + (options.WritesVelocity ? "1" : "0") +
-         "\n#define SUBJECT_WRITES_SHADING_NORMAL " + (options.NormalIndex >= 0 ? "1" : "0") +
-         "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
-         std::to_string(options.NormalIndex < 0 ? 0 : options.NormalIndex) +
-         "\n#define SUBJECT_WRITES_SURFACE_IDENTITY " + (options.IdentityIndex >= 0 ? "1" : "0") +
-         "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
-         std::to_string(options.IdentityIndex < 0 ? 0 : options.IdentityIndex) + "\n" + bindings +
-         body + brdf + sheen + iridescence + energy + lit + litTextured + normalMap + mapped +
-         ground + VertexArmsMsl();
+  ShaderText source;
+  source.Begins().Adds(VelocityStaticDefine());
+  VelocityStatic(source)
+      .Adds("\n#define SUBJECT_WRITES_VELOCITY ")
+      .Adds(options.WritesVelocity ? "1" : "0")
+      .Adds("\n#define SUBJECT_WRITES_SHADING_NORMAL ")
+      .Adds(options.NormalIndex >= 0 ? "1" : "0")
+      .Adds("\n#define SUBJECT_NORMAL_COLOUR_INDEX ")
+      .Adds(std::to_string(options.NormalIndex < 0 ? 0 : options.NormalIndex))
+      .Adds("\n#define SUBJECT_WRITES_SURFACE_IDENTITY ")
+      .Adds(options.IdentityIndex >= 0 ? "1" : "0")
+      .Adds("\n#define SUBJECT_IDENTITY_COLOUR_INDEX ")
+      .Adds(std::to_string(options.IdentityIndex < 0 ? 0 : options.IdentityIndex))
+      .Adds("\n")
+      .Reads("src/render/shaders/subjectBindings.msl")
+      .Reads("src/render/shaders/subject.msl");
+  MetalRoughBrdf(source);
+  SheenLobe(source);
+  IridescenceLobe(source);
+  MicrofacetEnergy(source);
+  source.Reads("src/render/shaders/subjectLit.msl")
+      .Reads("src/render/shaders/subjectLitTextured.msl");
+  NormalFromMap(source);
+  return source.Reads("src/render/shaders/subjectMapped.msl")
+      .Reads("src/render/shaders/subjectGround.msl")
+      .Adds(VertexArmsMsl())
+      .Take(error);
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {

@@ -9,7 +9,6 @@
 
 #include "SceneTargets.h"
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 
 namespace outshine::Render {
 
@@ -111,16 +110,14 @@ std::string SkyStage::ShaderSource() {
 }
 
 std::string SkyStage::ShaderSource(std::string &error) {
-  std::string layout;
-  std::string core;
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/mediumLayout.msl", layout, error) ||
-      !LoadShaderText("src/render/stages/MediumCore.h", core, error) ||
-      !LoadShaderText("src/render/shaders/sky.msl", body, error)) {
-    return {};
-  }
-  return MslPrelude(error) + VelocityStaticDefine() +
-         "#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n" + layout + core + body;
+  ShaderText source;
+  return source.Begins()
+      .Adds(VelocityStaticDefine())
+      .Adds("#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n")
+      .Reads("src/render/shaders/mediumLayout.msl")
+      .Reads("src/render/stages/MediumCore.h")
+      .Reads("src/render/shaders/sky.msl")
+      .Take(error);
 }
 
 } // namespace outshine::Render

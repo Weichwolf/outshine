@@ -1,7 +1,6 @@
 #include "CompositeTransmissionStage.h"
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 #include <array>
 #include <cstdint>
 #include <string>
@@ -71,9 +70,7 @@ std::string CompositeTransmissionStage::ShaderSource() {
 }
 
 std::string CompositeTransmissionStage::ShaderSource(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/compositeTransmission.msl", body, error)) { return {}; }
-  return MslPrelude(error) + body;
+  return ShaderText().Begins().Reads("src/render/shaders/compositeTransmission.msl").Take(error);
 }
 
 } // namespace outshine::Render

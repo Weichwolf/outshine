@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 #include "SubjectDraw.h"
 
 namespace outshine::Render {
@@ -145,9 +144,7 @@ std::string LightVisibilityStage::DepthOnlySource() {
 }
 
 std::string LightVisibilityStage::DepthOnlySource(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/subjectDepthOnly.msl", body, error)) { return {}; }
-  return MslPrelude(error) + body;
+  return ShaderText().Begins().Reads("src/render/shaders/subjectDepthOnly.msl").Take(error);
 }
 
 bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {

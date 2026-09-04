@@ -9,7 +9,6 @@
 #include <cstring>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 
 namespace outshine::Render {
 
@@ -40,13 +39,9 @@ std::string Kernel(std::string &error) {
                 static_cast<double>(kMediumSampleSegment),
                 static_cast<double>(kMediumLuminanceSegment),
                 static_cast<double>(kMediumGroundLiftKm));
-  std::string core;
-  std::string body;
-  if (!ParticipatingMediumMsl(core, error) ||
-      !LoadShaderText("src/render/shaders/irradiance.msl", body, error)) {
-    return {};
-  }
-  return MslPrelude(error) + declared.data() + core + body;
+  ShaderText source;
+  source.Begins().Adds(declared.data());
+  return ParticipatingMedium(source).Reads("src/render/shaders/irradiance.msl").Take(error);
 }
 
 } // namespace

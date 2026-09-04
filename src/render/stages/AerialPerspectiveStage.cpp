@@ -2,7 +2,6 @@
 #include "math/Vec3.h"
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 #include <array>
 #include <string>
 #include <cstdint>
@@ -100,18 +99,14 @@ std::string AerialPerspectiveStage::ShaderSource() {
 }
 
 std::string AerialPerspectiveStage::ShaderSource(std::string &error) {
-  std::string layout;
-  std::string core;
-  std::string medium;
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/mediumLayout.msl", layout, error) ||
-      !LoadShaderText("src/render/stages/MediumCore.h", core, error) ||
-      !LoadShaderText("src/render/shaders/medium.msl", medium, error) ||
-      !LoadShaderText("src/render/shaders/aerialPerspective.msl", body, error)) {
-    return {};
-  }
-  return MslPrelude(error) + "#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n" +
-         layout + core + medium + body;
+  ShaderText source;
+  return source.Begins()
+      .Adds("#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n")
+      .Reads("src/render/shaders/mediumLayout.msl")
+      .Reads("src/render/stages/MediumCore.h")
+      .Reads("src/render/shaders/medium.msl")
+      .Reads("src/render/shaders/aerialPerspective.msl")
+      .Take(error);
 }
 
 } // namespace outshine::Render

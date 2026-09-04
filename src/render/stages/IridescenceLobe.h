@@ -26,9 +26,7 @@ inline constexpr std::array<std::array<double, 3>, 3> kXyzToRec709 = {{
     {0.0556434, -0.2040259, 1.0572252},
 }};
 
-[[nodiscard]] inline std::string IridescenceLobeMsl(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/iridescenceLobe.msl", body, error)) { return {}; }
+inline ShaderText &IridescenceLobe(ShaderText &into) {
   std::array<char, 1024> constants{};
   std::snprintf(constants.data(),
                 constants.size(),
@@ -68,7 +66,12 @@ inline constexpr std::array<std::array<double, 3>, 3> kXyzToRec709 = {{
                 kXyzToRec709[0][2],
                 kXyzToRec709[1][2],
                 kXyzToRec709[2][2]);
-  return std::string(constants.data()) + body;
+  return into.Adds(constants.data()).Reads("src/render/shaders/iridescenceLobe.msl");
+}
+
+[[nodiscard]] inline std::string IridescenceLobeMsl(std::string &error) {
+  ShaderText source;
+  return IridescenceLobe(source).Take(error);
 }
 
 [[nodiscard]] inline std::string IridescenceLobeMsl() {

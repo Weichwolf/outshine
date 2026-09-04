@@ -13,7 +13,6 @@
 #include <cstdio>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 #include "SubjectDraw.h"
 
 namespace outshine::Render {
@@ -40,9 +39,7 @@ struct CullView {
 static_assert(sizeof(CullView) % 16u == 0u, "the cull uniform keeps its float4x4 aligned");
 
 std::string Kernel(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/subjectCull.msl", body, error)) { return {}; }
-  return MslPrelude(error) + body;
+  return ShaderText().Begins().Reads("src/render/shaders/subjectCull.msl").Take(error);
 }
 
 std::atomic<float> gErrorPerMetre{0.0f};

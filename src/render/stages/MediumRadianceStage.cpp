@@ -9,7 +9,6 @@
 #include <string>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 
 namespace outshine::Render {
 
@@ -36,13 +35,9 @@ std::string Kernel(std::string &error) {
                 static_cast<unsigned>(kSkyViewSteps),
                 static_cast<double>(kMediumLuminanceSegment),
                 static_cast<double>(kMediumGroundLiftKm));
-  std::string core;
-  std::string body;
-  if (!ParticipatingMediumMsl(core, error) ||
-      !LoadShaderText("src/render/shaders/mediumRadiance.msl", body, error)) {
-    return {};
-  }
-  return MslPrelude(error) + declared.data() + core + body;
+  ShaderText source;
+  source.Begins().Adds(declared.data());
+  return ParticipatingMedium(source).Reads("src/render/shaders/mediumRadiance.msl").Take(error);
 }
 
 } // namespace

@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "ShaderFile.h"
-#include "ShaderPrelude.h"
 
 namespace outshine::Render {
 
@@ -213,9 +212,7 @@ std::string OverlayDraw::ShaderSource() {
 }
 
 std::string OverlayDraw::ShaderSource(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/overlay.msl", body, error)) { return {}; }
-  return MslPrelude(error) + body;
+  return ShaderText().Begins().Reads("src/render/shaders/overlay.msl").Take(error);
 }
 
 } // namespace outshine::Render

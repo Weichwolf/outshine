@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <string>
 
+#include "ShaderFile.h"
+
 namespace outshine::Render {
 
 constexpr size_t kMediumBytes = size_t{5} * 4 * sizeof(float);
@@ -402,7 +404,7 @@ template <typename ToSun, typename Psi>
   return out;
 }
 
-[[nodiscard]] bool ParticipatingMediumMsl(std::string &into, std::string &error);
+ShaderText &ParticipatingMedium(ShaderText &into);
 
 } // namespace outshine::Render
 #endif

@@ -76,9 +76,7 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   return total * dPhi * dMu;
 }
 
-[[nodiscard]] inline std::string SheenLobeMsl(std::string &error) {
-  std::string body;
-  if (!LoadShaderText("src/render/shaders/sheenLobe.msl", body, error)) { return {}; }
+inline ShaderText &SheenLobe(ShaderText &into) {
   std::string table;
   table.reserve(size_t{kSheenAlbedoSteps} * kSheenAlbedoSteps * 12);
   for (int r = 0; r < kSheenAlbedoSteps; ++r) {
@@ -96,7 +94,16 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   }
   std::array<char, kPreludeBytes> head{};
   std::snprintf(head.data(), head.size(), "constant int kSheenSteps = %d;\n", kSheenAlbedoSteps);
-  return std::string(head.data()) + "constant float kSheenAlbedo[] = { " + table + " };\n" + body;
+  return into.Adds(head.data())
+      .Adds("constant float kSheenAlbedo[] = { ")
+      .Adds(table)
+      .Adds(" };\n")
+      .Reads("src/render/shaders/sheenLobe.msl");
+}
+
+[[nodiscard]] inline std::string SheenLobeMsl(std::string &error) {
+  ShaderText source;
+  return SheenLobe(source).Take(error);
 }
 
 [[nodiscard]] inline std::string SheenLobeMsl() {
