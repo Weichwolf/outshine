@@ -1,6 +1,8 @@
 #include <span>
 #include "Structures.h"
 
+#include "ground/TileMeshes.h"
+
 #include <array>
 #include <cmath>
 
@@ -77,8 +79,8 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   const auto spread = [&soup](const std::vector<float> &corners, const std::vector<uint32_t> &run) {
     for (const uint32_t corner : run) {
       soup.insert(soup.end(),
-                  corners.begin() + static_cast<std::ptrdiff_t>(corner) * 8,
-                  corners.begin() + static_cast<std::ptrdiff_t>(corner) * 8 + 8);
+                  corners.begin() + static_cast<std::ptrdiff_t>(corner * kTileVertexFloats),
+                  corners.begin() + static_cast<std::ptrdiff_t>((corner + 1) * kTileVertexFloats));
     }
   };
   spread(raised.WallCorners, raised.WallRun);

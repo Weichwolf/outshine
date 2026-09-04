@@ -3,6 +3,8 @@
 #include <generate/Generate.h>
 
 #include "BuildingMesh.h"
+
+#include "ground/TileMeshes.h"
 #include "math/Vec3.h"
 
 #include <array>
@@ -192,7 +194,7 @@ private:
     const uint64_t key = (static_cast<uint64_t>(at) * kDigestPrime) ^ facing;
     const auto found = Corners_[side].find(key);
     if (found != Corners_[side].end()) { return found->second; }
-    const auto made = static_cast<uint32_t>(soup.size() / 8u);
+    const auto made = static_cast<uint32_t>(soup.size() / kTileVertexFloats);
     Corners_[side].emplace(key, made);
     for (int c = 0; c < 3; c++) {
       soup.push_back(static_cast<float>(Origin_[c] + v.P.EastM * East_[c] + v.P.NorthM * North_[c] +
