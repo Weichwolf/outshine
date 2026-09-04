@@ -645,7 +645,7 @@ struct Engine::State {
   void Falls();
   [[nodiscard]] bool Composes();
   bool Grows(double atLat, double atLon);
-  [[nodiscard]] bool GrowsOver(const Generators::Tile &region);
+  [[nodiscard]] bool GrowsOver(const Generators::Tile &region, Generators::Detail coarseness);
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
   [[nodiscard]] bool Stood();
   [[nodiscard]] bool Updates();

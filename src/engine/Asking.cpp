@@ -113,10 +113,11 @@ bool Engine::State::Grows(double atLat, double atLon) {
     return false;
   }
   return GrowsOver(Generators::Tile::Of(World.Stack.Vectors()->Zoom(),
-                                        {.LongitudeDeg = atLon, .LatitudeDeg = atLat}));
+                                        {.LongitudeDeg = atLon, .LatitudeDeg = atLat}),
+                   Generators::Detail::Fine);
 }
 
-bool Engine::State::GrowsOver(const Generators::Tile &region) {
+bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail coarseness) {
   Generators::Fields stands;
   stands.Vectors = World.Stack.Vectors();
   stands.Footprints = &World.Stack.Footprints();
@@ -148,11 +149,6 @@ bool Engine::State::GrowsOver(const Generators::Tile &region) {
                    "yes/no");
   World.Grown = how == Generators::Snapped::Taken;
   if (how != Generators::Snapped::Taken) { return false; }
-  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::VectorMap);
-  const Generators::Detail coarseness = Generators::DetailAtRung(finestZoom - region.Zoom());
-  Published.Places("generators: rungs coarser than the finest",
-                   static_cast<double>(finestZoom - region.Zoom()),
-                   "rungs");
   const std::optional<Generators::Ground> over =
       Generators::Ground::Of(region, snapshot, coarseness);
   Published.Places("generators: a ground of that snapshot", over ? 1.0 : 0.0, "yes/no");
