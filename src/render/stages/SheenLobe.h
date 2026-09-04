@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <string>
 
+#include "Lobe.h"
 #include "ShaderFile.h"
 
 namespace outshine::Render {
@@ -15,7 +16,9 @@ constexpr size_t kPreludeBytes = 192;
 
 inline constexpr double kSheenPi = std::numbers::pi;
 
-[[nodiscard]] inline double SheenDistribution(double nh, double roughness) {
+[[nodiscard]] inline double SheenDistribution(Slant at) {
+  const double nh = at.Cosine;
+  const double roughness = at.Roughness;
   const double alpha = roughness * roughness;
   if (!(alpha > 0.0)) { return 0.0; }
   const double inverse = 1.0 / alpha;
@@ -24,7 +27,9 @@ inline constexpr double kSheenPi = std::numbers::pi;
   return (2.0 + inverse) * std::pow(sin2h, inverse * 0.5) / (2.0 * kSheenPi);
 }
 
-[[nodiscard]] inline double SheenLambdaFit(double x, double alpha) {
+[[nodiscard]] inline double SheenLambdaFit(Slant at) {
+  const double x = at.Cosine;
+  const double alpha = at.Roughness;
   const double smooth = (1.0 - alpha) * (1.0 - alpha);
   const auto mix = [smooth](double rough, double polished) {
     return rough + (polished - rough) * smooth;
@@ -37,22 +42,31 @@ inline constexpr double kSheenPi = std::numbers::pi;
   return a / (1.0 + b * std::pow(x, c)) + d * x + e;
 }
 
-[[nodiscard]] inline double SheenLambda(double cosTheta, double alpha) {
+[[nodiscard]] inline double SheenLambda(Slant at) {
+  const double cosTheta = at.Cosine;
+  const double alpha = at.Roughness;
   return std::fabs(cosTheta) < 0.5
-             ? std::exp(SheenLambdaFit(cosTheta, alpha))
-             : std::exp(2.0 * SheenLambdaFit(0.5, alpha) - SheenLambdaFit(1.0 - cosTheta, alpha));
+             ? std::exp(SheenLambdaFit({.Cosine = cosTheta, .Roughness = alpha}))
+             : std::exp(2.0 * SheenLambdaFit({.Cosine = 0.5, .Roughness = alpha}) -
+                        SheenLambdaFit({.Cosine = 1.0 - cosTheta, .Roughness = alpha}));
 }
 
-[[nodiscard]] inline double SheenVisibility(double nl, double nv, double roughness) {
+[[nodiscard]] inline double SheenVisibility(Grazing over, double roughness) {
+  const double nl = over.NoL;
+  const double nv = over.NoV;
   const double alpha = roughness * roughness;
   if (!(alpha > 0.0) || !(nl > 0.0) || !(nv > 0.0)) { return 0.0; }
-  return 1.0 / ((1.0 + SheenLambda(nv, alpha) + SheenLambda(nl, alpha)) * (4.0 * nv * nl));
+  return 1.0 / ((1.0 + SheenLambda({.Cosine = nv, .Roughness = alpha}) +
+                 SheenLambda({.Cosine = nl, .Roughness = alpha})) *
+                (4.0 * nv * nl));
 }
 
 inline constexpr int kSheenAlbedoSteps = 16;
 inline constexpr int kSheenAlbedoQuadrature = 64;
 
-[[nodiscard]] inline double SheenDirectionalAlbedo(double nv, double roughness) {
+[[nodiscard]] inline double SheenDirectionalAlbedo(Slant at) {
+  const double nv = at.Cosine;
+  const double roughness = at.Roughness;
   if (!(roughness > 0.0) || !(nv > 0.0)) { return 0.0; }
   const double sinV = std::sqrt(1.0 - nv * nv);
   double total = 0.0;
@@ -68,7 +82,8 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
       const double length = std::sqrt(hx * hx + hy * hy + hz * hz);
       if (!(length > 0.0)) { continue; }
       const double nh = hz / length;
-      total += SheenDistribution(nh, roughness) * SheenVisibility(nl, nv, roughness) * nl * nl;
+      total += SheenDistribution({.Cosine = nh, .Roughness = roughness}) *
+               SheenVisibility({.NoL = nl, .NoV = nv}, roughness) * nl * nl;
     }
   }
   const double dPhi = 2.0 * kSheenPi / kSheenAlbedoQuadrature;
@@ -88,7 +103,7 @@ inline ShaderText &SheenLobe(ShaderText &into) {
                     cell.size(),
                     "%s%.6ff",
                     table.empty() ? "" : ", ",
-                    SheenDirectionalAlbedo(nv, roughness));
+                    SheenDirectionalAlbedo({.Cosine = nv, .Roughness = roughness}));
       table += cell.data();
     }
   }

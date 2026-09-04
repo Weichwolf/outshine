@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <string>
 
+#include "Lobe.h"
 #include "ShaderFile.h"
 
 #include "math/Units.h"
@@ -28,7 +29,9 @@ constexpr double kSchlickTail = 21.0;
 inline constexpr int kEnergyQuadrature = 64;
 inline constexpr int kEnergySamples = 2048;
 
-[[nodiscard]] inline double GgxDirectionalAlbedo(double nv, double roughness) {
+[[nodiscard]] inline double GgxDirectionalAlbedo(Slant at) {
+  const double nv = at.Cosine;
+  const double roughness = at.Roughness;
   const double alpha = roughness * roughness;
   const double a2 = alpha * alpha;
   if (!(a2 > 0.0)) { return 1.0; }
@@ -65,7 +68,7 @@ inline constexpr int kEnergySamples = 2048;
   double total = 0.0;
   for (int m = 0; m < kEnergyQuadrature; ++m) {
     const double mu = (m + 0.5) / kEnergyQuadrature;
-    total += GgxDirectionalAlbedo(mu, roughness) * mu;
+    total += GgxDirectionalAlbedo({.Cosine = mu, .Roughness = roughness}) * mu;
   }
   return std::fmin(2.0 * total / kEnergyQuadrature, 1.0);
 }
@@ -85,7 +88,7 @@ inline ShaderText &MicrofacetEnergy(ShaderText &into) {
                     cell.size(),
                     "%s%.6ff",
                     albedo.empty() ? "" : ", ",
-                    GgxDirectionalAlbedo(nv, roughness));
+                    GgxDirectionalAlbedo({.Cosine = nv, .Roughness = roughness}));
       albedo += cell.data();
     }
   }

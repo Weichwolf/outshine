@@ -643,12 +643,13 @@ bool SceneRenderer::ConfigureGlass(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureCompositeTransmission(std::string &error) {
-  return CompositeTransmission_.Configure(Handles_,
-                                          HdrTex_.Get(),
-                                          TransmissiveTex_.Get(),
-                                          Samp_.Get(),
-                                          FormatOf(Plan_->Format(Resource::SceneComposited)),
-                                          error);
+  return CompositeTransmission_.Configure(
+      Handles_,
+      {.Opaque = HdrTex_.Get(),
+       .Transmissive = TransmissiveTex_.Get(),
+       .Exact = Samp_.Get(),
+       .Target = FormatOf(Plan_->Format(Resource::SceneComposited))},
+      error);
 }
 
 bool SceneRenderer::ConfigureOverlay(std::string &error) {
@@ -662,10 +663,10 @@ bool SceneRenderer::ConfigurePresent(std::string &error) {
 
 bool SceneRenderer::ConfigureTonemap(std::string &error) {
   return Tonemap_.Configure(Handles_,
-                            Target(Plan_->Bound(Resource::SceneLinear)),
-                            DepthTex_.Get(),
-                            Samp_.Get(),
-                            FormatOf(Plan_->Format(Resource::SceneLinear)),
+                            {.Scene = Target(Plan_->Bound(Resource::SceneLinear)),
+                             .Depth = DepthTex_.Get(),
+                             .Exact = Samp_.Get(),
+                             .Linear = FormatOf(Plan_->Format(Resource::SceneLinear))},
                             Display(),
                             error);
 }

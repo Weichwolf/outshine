@@ -31,15 +31,12 @@ std::string TonemapStage::ShaderSource(const DisplayOptions &options, std::strin
 }
 
 bool TonemapStage::Configure(const Gpu &gpu,
-                             SDL_GPUTexture *scene,
-                             SDL_GPUTexture *depth,
-                             SDL_GPUSampler *exact,
-                             SDL_GPUTextureFormat linear,
+                             const Feeds &from,
                              const DisplayOptions &options,
                              std::string &error) {
-  Scene = scene;
-  Depth = depth;
-  Exact = exact;
+  Scene = from.Scene;
+  Depth = from.Depth;
+  Exact = from.Exact;
 
   Temporal = options.Temporal;
   const std::string source = ShaderSource(options, error);
@@ -55,7 +52,7 @@ bool TonemapStage::Configure(const Gpu &gpu,
   }
 
   std::array<SDL_GPUColorTargetDescription, 2> target = {{}};
-  target[0].format = options.Temporal ? linear : gpu.SurfaceFormat;
+  target[0].format = options.Temporal ? from.Linear : gpu.SurfaceFormat;
   target[1].format = gpu.SurfaceFormat;
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
   pipeline.vertex_shader = vertex.Get();

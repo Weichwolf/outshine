@@ -21,13 +21,15 @@ public:
   static constexpr DrawShape TemporalShaderShape{.FragmentSamplers = 4,
                                                  .FragmentUniformBuffers = 1};
 
-  [[nodiscard]] bool Configure(const Gpu &gpu,
-                               SDL_GPUTexture *scene,
-                               SDL_GPUTexture *depth,
-                               SDL_GPUSampler *exact,
-                               SDL_GPUTextureFormat linear,
-                               const DisplayOptions &options,
-                               std::string &error);
+  struct Feeds {
+    SDL_GPUTexture *Scene = nullptr;
+    SDL_GPUTexture *Depth = nullptr;
+    SDL_GPUSampler *Exact = nullptr;
+    SDL_GPUTextureFormat Linear{};
+  };
+
+  [[nodiscard]] bool
+  Configure(const Gpu &gpu, const Feeds &from, const DisplayOptions &options, std::string &error);
 
   void Bind(SDL_GPUTexture *scene) { Scene = scene; }
 

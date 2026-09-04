@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <numbers>
 #include <string>
+#include <expected>
 #include <string_view>
 #include <utility>
 
@@ -14,36 +15,38 @@ namespace {
 constexpr size_t kReadBlockBytes = 1u << 14u;
 constexpr size_t kPreludeDefineBytes = 48;
 
-bool LoadShaderText(std::string_view treePath, std::string &into, std::string &error) {
+std::expected<std::string, std::string> ReadShaderFile(std::string_view treePath) {
   const std::string path(treePath);
   std::FILE *const file = std::fopen(path.c_str(), "rb");
   if (file == nullptr) {
-    error = "the shader source " + path +
-            " is not readable from here -- the engine reads its shaders from the tree, so the "
-            "process must start at the repository root";
-    return false;
+    return std::unexpected("the shader source " + path +
+                           " is not readable from here -- the engine reads its shaders from the "
+                           "tree, so the process must start at the repository root");
   }
-  into.clear();
+  std::string held;
   std::array<char, kReadBlockBytes> block;
   for (size_t read = std::fread(block.data(), 1, block.size(), file); read > 0;
        read = std::fread(block.data(), 1, block.size(), file)) {
-    into.append(block.data(), read);
+    held.append(block.data(), read);
   }
   std::fclose(file);
-  if (into.empty()) {
-    error = "the shader source " + path + " is empty, and an empty kernel is a picture refusal";
-    return false;
+  if (held.empty()) {
+    return std::unexpected("the shader source " + path +
+                           " is empty, and an empty kernel is a picture refusal");
   }
-  return true;
+  return held;
 }
 
 } // namespace
 
 ShaderText &ShaderText::Reads(std::string_view treePath) {
   if (!Why_.empty()) { return *this; }
-  std::string read;
-  if (!LoadShaderText(treePath, read, Why_)) { return *this; }
-  Held_ += read;
+  const std::expected<std::string, std::string> read = ReadShaderFile(treePath);
+  if (!read) {
+    Why_ = read.error();
+    return *this;
+  }
+  Held_ += *read;
   return *this;
 }
 

@@ -13,15 +13,10 @@ constexpr uint32_t kCompositeImages = CompositeTransmissionStage::ShaderShape.Fr
 
 }
 
-bool CompositeTransmissionStage::Configure(const Gpu &gpu,
-                                           SDL_GPUTexture *opaque,
-                                           SDL_GPUTexture *transmissive,
-                                           SDL_GPUSampler *exact,
-                                           SDL_GPUTextureFormat targetFormat,
-                                           std::string &error) {
-  Opaque = opaque;
-  Transmissive = transmissive;
-  Exact = exact;
+bool CompositeTransmissionStage::Configure(const Gpu &gpu, const Feeds &from, std::string &error) {
+  Opaque = from.Opaque;
+  Transmissive = from.Transmissive;
+  Exact = from.Exact;
 
   const std::string source = ShaderSource(error);
   if (source.empty()) { return false; }
@@ -35,7 +30,7 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu,
   }
 
   SDL_GPUColorTargetDescription target{};
-  target.format = targetFormat;
+  target.format = from.Target;
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
   pipeline.vertex_shader = vertex.Get();
   pipeline.fragment_shader = fragment.Get();
