@@ -618,7 +618,6 @@ struct Engine::State {
   [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement) const;
 
   void TellsWhatTheFitFound(Paved &into);
-  void TellsWhatThePavingCost(const RoadRaised &pavement, const Drape &drapedOver);
   void HandsThePavingOver(const RoadRaised &pavement, Geometry &ground);
 
   void Paves(const TangentFrame &standing,
@@ -635,7 +634,6 @@ struct Engine::State {
     double TallestOutM = 0.0;
   };
 
-  void TellsWhatTheSeamsCost(std::span<const float> inFrame, std::span<const float> normals);
   void TellsTheRelief(Relieved over);
   void TellsWhatCrossed(const Geometry &ground);
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);

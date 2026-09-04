@@ -28,6 +28,7 @@
 #include <unordered_set>
 #include <utility>
 #include <chrono>
+#include <cstdio>
 #include <vector>
 
 #include "Fit.h"
@@ -111,7 +112,6 @@ constexpr double kLeastApronM = 3.0;
 constexpr double kMostApronM = 240.0;
 constexpr double kFinestGroundM = 3.0;
 constexpr size_t kMostYieldTriangles = 24000;
-constexpr double kFlyingM = 1.0;
 constexpr double kTrimMostWidths = 4.0;
 constexpr double kFitWithinM = 0.5;
 
@@ -1776,46 +1776,6 @@ void Engine::State::TellsWhatTheFitFound(Paved &into) {
                    "stations");
 }
 
-void Engine::State::TellsWhatThePavingCost(const RoadRaised &pavement, const Drape &drapedOver) {
-  std::unordered_map<uint64_t, uint32_t> corner;
-  corner.reserve(pavement.PositionM.size() / 3);
-  size_t shared = 0;
-  for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
-    uint64_t keyed = kDigestBasis;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      keyed = (keyed ^ std::bit_cast<uint32_t>(pavement.PositionM[at + axis])) * kDigestPrime;
-    }
-    if (++corner[keyed] == 2u) { shared += 2; }
-  }
-  const size_t corners = pavement.PositionM.size() / 3u;
-  Published.Places("streets: vertices two bodies SHARE", static_cast<double>(shared), "vertices");
-  Published.Places("streets: vertices in all", static_cast<double>(corners), "vertices");
-
-  std::vector<double> aboveM;
-  aboveM.reserve(pavement.PositionM.size() / 3u);
-  size_t flying = 0;
-  for (size_t vertex = 0; vertex + 2 < pavement.PositionM.size(); vertex += 3) {
-    const double under = drapedOver.At(
-        {.EastM = pavement.PositionM[vertex], .SouthM = pavement.PositionM[vertex + 2]},
-        -kBeyondAnyCoordinate);
-    if (under < kUnraisedDeckM) { continue; }
-    const double aloft = static_cast<double>(pavement.PositionM[vertex + 1]) - under;
-    aboveM.push_back(aloft);
-    if (aloft > kFlyingM) { ++flying; }
-  }
-  if (!aboveM.empty()) {
-    std::ranges::sort(aboveM);
-    Published.Places(
-        "streets: a vertex stands over the ground, p50", QuantileOf(aboveM, kMiddleQuantile), "m");
-    Published.Places(
-        "streets: a vertex stands over the ground, p95", QuantileOf(aboveM, kBroadQuantile), "m");
-    Published.Places("streets: a vertex stands over the ground, highest", aboveM.back(), "m");
-    Published.Places("streets: a vertex stands under it, deepest", aboveM.front(), "m");
-    Published.Places(
-        "streets: vertices FLYING, over the bar", static_cast<double>(flying), "vertices");
-  }
-}
-
 void Engine::State::HandsThePavingOver(const RoadRaised &pavement, Geometry &ground) {
   if (pavement.Index.size() < 3) { return; }
   Material tarmac;
@@ -1988,69 +1948,9 @@ void Engine::State::Paves(const TangentFrame &standing,
   Published.Places(
       "streets: ways whose layer is a STRING", static_cast<double>(ways.LayerSaidCount()), "ways");
   Published.Places("streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
-  TellsWhatThePavingCost(pavement, drapedOver);
   const size_t pavedTriangles = pavement.Index.size() / 3;
   Published.Places("streets: triangles", static_cast<double>(pavedTriangles), "triangles");
   HandsThePavingOver(pavement, ground);
-}
-
-void Engine::State::TellsWhatTheSeamsCost(std::span<const float> inFrame,
-                                          std::span<const float> normals) {
-  std::unordered_map<uint64_t, float> met;
-  std::unordered_map<uint64_t, size_t> met2;
-  met.reserve(inFrame.size() / 3);
-  met2.reserve(inFrame.size() / 3);
-  double widest = 0.0;
-  double leaning = 0.0;
-  double leanSum = 0.0;
-  size_t shared = 0;
-  size_t leanCount = 0;
-  for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-    const auto east = static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) * 4.0));
-    const auto south =
-        static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at + 2]) * 4.0));
-    const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
-    const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
-    const uint64_t key = (atE << 32U) | atS;
-    const auto stood = met.find(key);
-    if (stood == met.end()) {
-      met.emplace(key, inFrame[at + 1]);
-      met2.emplace(key, at);
-      continue;
-    }
-    ++shared;
-    const double apart =
-        std::fabs(static_cast<double>(inFrame[at + 1]) - static_cast<double>(stood->second));
-    widest = std::max(apart, widest);
-    if (at + 2 < normals.size() && stood->second == inFrame[at + 1]) {
-      const size_t twin = met2[key];
-      double dot = 0.0;
-      double one = 0.0;
-      double two = 0.0;
-      for (size_t axis = 0; axis < 3; ++axis) {
-        const auto a = static_cast<double>(normals[at + axis]);
-        const auto b = static_cast<double>(normals[twin + axis]);
-        dot += a * b;
-        one += a * a;
-        two += b * b;
-      }
-      if (one > 0.0 && two > 0.0) {
-        const double leanDeg =
-            std::acos(std::fmin(1.0, std::fmax(-1.0, dot / std::sqrt(one * two)))) *
-            kDegPerHalfTurn / std::numbers::pi;
-        leaning = std::max(leaning, leanDeg);
-        leanSum += leanDeg;
-        ++leanCount;
-      }
-    }
-  }
-  Published.Places(
-      "vertices two tiles put in the same place", static_cast<double>(shared), "vertices");
-  Published.Places("and the widest they disagree on height", widest, "m");
-  Published.Places("the widest their NORMALS disagree", leaning, "deg");
-  Published.Places("and how far those disagree on average",
-                   leanCount > 0 ? leanSum / static_cast<double>(leanCount) : 0.0,
-                   "deg");
 }
 
 void Engine::State::TellsTheRelief(Relieved over) {
@@ -2183,7 +2083,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     lowest = std::min(where.HeightM, lowest);
   }
   TellsTheRelief({.Tallest = tallest, .Lowest = lowest, .TallestOutM = tallestOut});
-  TellsWhatTheSeamsCost(inFrame, laid->NormalM);
   Classed classed;
   {
     const Heap::Tagged classing("ground-classify");
