@@ -71,3 +71,20 @@ is checked against a total that was never meant to exist all at once.
 
 So this is the next block, and it is one change rather than three: bake a tile, hand it over, reuse
 the buffer. Peak, preload and the moving camera all sit on it.
+
+## And what holds the buffer open, read rather than assumed
+
+After `CarryIntoTheFrame` runs, `Models()` reads only `WallRun` and `RoofRun` off the built
+geometry -- the INDICES. Positions and normals it takes from the frame copies, which are the arrays
+the renderer is handed. So the 198 MB of vertices on the CPU side are not being read for anything
+after the handover; they are held so the NEXT tile can be appended and carried incrementally
+(`Already = World.WallCarried` skips what has already crossed).
+
+That is the whole knot, and it names the fix: the mesher should write into the frame copy and there
+should be one buffer, not a soup that is later transcribed into one. A vector cannot release its
+front, so no amount of clearing after the fact reaches this -- the second buffer has to stop
+existing rather than be freed sooner.
+
+THE GRAIN IS ALREADY RIGHT: `Build()` works on `next.Tile` from `field.Tiles()`, which is a VECTOR
+tile, not a terrain tile, and since the rung stopped bounding the detail decision the two ladders
+are independent as they should be. What is world-grained is only the buffer.
