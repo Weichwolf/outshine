@@ -2,6 +2,8 @@
 #include "math/Vec2.h"
 #include "BuildingShape.h"
 
+#include <cstdio>
+
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -348,6 +350,26 @@ struct Proportions {
 }
 
 [[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double aspect) {
+  {
+    static int gFlat = 0;
+    static int gPitched = 0;
+    static int gSeen = 0;
+    ++gSeen;
+    if (gSeen % 2000 == 0) {
+      std::fprintf(stderr,
+                   "TRACE roof: seen=%d flat=%d pitched=%d fill=%.2f use=%d\n",
+                   gSeen,
+                   gFlat,
+                   gPitched,
+                   s.Fill,
+                   static_cast<int>(s.Use));
+    }
+    if (s.Fill >= kPitchableFromFill) {
+      ++gPitched;
+    } else {
+      ++gFlat;
+    }
+  }
   if (ReadsAsRound(s)) { return RoofKind::Dome; }
   const bool pitchable = s.Fill >= kPitchableFromFill;
   switch (s.Use) {
