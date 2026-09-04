@@ -419,7 +419,20 @@ bool Live::CarriesBuilt(std::string &error) {
   ResolveMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
           .count();
+  WearsPieces();
   return true;
+}
+
+void Live::WearsPieces() {
+  if (Renderer_ == nullptr) { return; }
+  std::vector<uint32_t> slotOf(Shaped_.Surfaces.size(), Render::kNoSlot);
+  for (size_t slot = 0; slot < Table_.Material.size(); ++slot) {
+    const int surface = Table_.Material[slot];
+    if (surface >= 0 && static_cast<size_t>(surface) < slotOf.size()) {
+      slotOf[static_cast<size_t>(surface)] = static_cast<uint32_t>(slot);
+    }
+  }
+  Renderer_->WearPieces(slotOf);
 }
 
 void Live::StandsShadowRadius() {

@@ -1,4 +1,5 @@
 #include "Surfacing.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 
@@ -40,6 +41,16 @@ void ResolveDeclaredSurface(const Shape &geometry,
       out.Material.push_back(material);
     }
     out.PartSlot[part] = static_cast<uint32_t>(slot);
+  }
+  for (size_t surface = 0; surface < geometry.Surfaces.size(); ++surface) {
+    if (std::ranges::find(out.Material, static_cast<int>(surface)) != out.Material.end()) {
+      continue;
+    }
+    SubjectMaterial unworn;
+    unworn.Row = geometry.Surfaces[surface];
+    out.Slots.push_back(unworn);
+    out.Decoded.emplace_back();
+    out.Material.push_back(static_cast<int>(surface));
   }
 }
 

@@ -83,6 +83,18 @@ struct StructurePlan {
   double PitchedShare = kPitchedShareUnknown;
 };
 
+class RaisedSink {
+public:
+  virtual ~RaisedSink() = default;
+  RaisedSink(const RaisedSink &) = delete;
+  RaisedSink &operator=(const RaisedSink &) = delete;
+
+  virtual void Hands(uint32_t tile, const Raised &built, const Vec3 &anchorEcef) = 0;
+
+protected:
+  RaisedSink() = default;
+};
+
 class StructureMesher {
 public:
   virtual ~StructureMesher() = default;

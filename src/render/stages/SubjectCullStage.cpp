@@ -2,7 +2,6 @@
 #include "math/Mat4.h"
 #include "math/Vec4.h"
 #include "SubjectCullStage.h"
-#include "PieceStore.h"
 
 #include <span>
 #include <array>
@@ -113,8 +112,10 @@ float SubjectCullStage::ErrorPerMetreTaken() {
   return gErrorPerMetre.load(std::memory_order_relaxed);
 }
 
-uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view, uint32_t jobs) {
-  if (Subjects_ == nullptr || jobs == 0) { return 0; }
+uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
+  if (Subjects_ == nullptr) { return 0; }
+  const uint32_t jobs = Subjects_->ClusterJobs();
+  if (jobs == 0) { return 0; }
   auto &into = *static_cast<CullView *>(view);
   into = CullView{};
   PlanesOf(ctx.Mvp, into.Planes);
@@ -142,10 +143,12 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view, uint32_
   return jobs;
 }
 
-void SubjectCullStage::CullOver(const void *view,
-                                uint32_t jobs,
-                                const SubjectResidency &resident,
-                                const PassRecording &into) {
+void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
+  Swept_ = 0;
+  CullView view{};
+  const uint32_t jobs = Standing(ctx, &view);
+  if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
+  const SubjectResidency &resident = Subjects_->Resident();
   std::array<SDL_GPUBuffer *const, 5> read = {
       resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get(),
       resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get(),
@@ -156,34 +159,38 @@ void SubjectCullStage::CullOver(const void *view,
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, view, static_cast<uint32_t>(sizeof(CullView)));
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Cull_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 5);
   Stood_ = true;
   SDL_DispatchGPUCompute(into.Dispatch, (jobs + CullShape.GroupX - 1u) / CullShape.GroupX, 1u, 1u);
-  Swept_ += jobs;
+  Swept_ = jobs;
+  gJobsSwept.store(jobs, std::memory_order_relaxed);
 }
 
-void SubjectCullStage::ScanOver(const void *view,
-                                uint32_t batches,
-                                const SubjectResidency &resident,
-                                const PassRecording &into) {
+void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &into) {
+  CullView view{};
+  const uint32_t jobs = Standing(ctx, &view);
+  const uint32_t batches = Subjects_ != nullptr ? Subjects_->ClusterBatchRows() : 0u;
+  if (jobs == 0 || batches == 0 || !Scan_ || into.Dispatch == nullptr) { return; }
+  const SubjectResidency &resident = Subjects_->Resident();
   std::array<SDL_GPUBuffer *const, 2> read = {
       resident.Buffer(SubjectResidency::Stream::ClusterKept).Get(),
       resident.Buffer(SubjectResidency::Stream::ClusterBatches).Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, view, static_cast<uint32_t>(sizeof(CullView)));
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Scan_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 2);
   SDL_DispatchGPUCompute(into.Dispatch, batches, 1u, 1u);
 }
 
-void SubjectCullStage::CompactOver(const void *view,
-                                   uint32_t jobs,
-                                   const SubjectResidency &resident,
-                                   const PassRecording &into) {
+void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecording &into) {
+  CullView view{};
+  const uint32_t jobs = Standing(ctx, &view);
+  if (jobs == 0 || !Compact_ || into.Dispatch == nullptr) { return; }
+  const SubjectResidency &resident = Subjects_->Resident();
   std::array<SDL_GPUBuffer *const, 4> read = {
       resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get(),
       resident.Buffer(SubjectResidency::Stream::Index).Get(),
@@ -192,46 +199,10 @@ void SubjectCullStage::CompactOver(const void *view,
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, view, static_cast<uint32_t>(sizeof(CullView)));
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Compact_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 4);
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);
-}
-
-void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
-  Swept_ = 0;
-  if (Subjects_ == nullptr || !Cull_ || into.Dispatch == nullptr) { return; }
-  CullView view{};
-  if (Standing(ctx, &view, Subjects_->ClusterJobs()) > 0) {
-    CullOver(&view, view.Jobs, Subjects_->Resident(), into);
-  }
-  if (Pieces_ != nullptr && Standing(ctx, &view, Pieces_->ClusterJobs()) > 0) {
-    CullOver(&view, view.Jobs, Pieces_->Resident(), into);
-  }
-  gJobsSwept.store(Swept_, std::memory_order_relaxed);
-}
-
-void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &into) {
-  if (Subjects_ == nullptr || !Scan_ || into.Dispatch == nullptr) { return; }
-  CullView view{};
-  if (Standing(ctx, &view, Subjects_->ClusterJobs()) > 0 && Subjects_->ClusterBatchRows() > 0) {
-    ScanOver(&view, Subjects_->ClusterBatchRows(), Subjects_->Resident(), into);
-  }
-  if (Pieces_ != nullptr && Standing(ctx, &view, Pieces_->ClusterJobs()) > 0 &&
-      Pieces_->ClusterBatchRows() > 0) {
-    ScanOver(&view, Pieces_->ClusterBatchRows(), Pieces_->Resident(), into);
-  }
-}
-
-void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecording &into) {
-  if (Subjects_ == nullptr || !Compact_ || into.Dispatch == nullptr) { return; }
-  CullView view{};
-  if (Standing(ctx, &view, Subjects_->ClusterJobs()) > 0) {
-    CompactOver(&view, view.Jobs, Subjects_->Resident(), into);
-  }
-  if (Pieces_ != nullptr && Standing(ctx, &view, Pieces_->ClusterJobs()) > 0) {
-    CompactOver(&view, view.Jobs, Pieces_->Resident(), into);
-  }
 }
 
 std::string SubjectCullStage::KernelSource() {

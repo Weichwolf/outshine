@@ -2,6 +2,7 @@
 #include <array>
 #include <atomic>
 #include "SubjectResidency.h"
+#include <algorithm>
 
 #include <cmath>
 #include <cstdint>
@@ -93,6 +94,37 @@ size_t SubjectResidency::BuffersMadeTaken() {
 
 size_t SubjectResidency::StagingMadeTaken() {
   return gStagingMade.exchange(0u);
+}
+
+SubjectResidency::Range
+SubjectResidency::Take(std::vector<Range> &free, uint32_t count, uint32_t &top) {
+  for (size_t at = 0; at < free.size(); ++at) {
+    if (free[at].Count < count) { continue; }
+    const Range taken{.First = free[at].First, .Count = count};
+    free[at].First += count;
+    free[at].Count -= count;
+    if (free[at].Count == 0) { free.erase(free.begin() + static_cast<long>(at)); }
+    return taken;
+  }
+  const Range taken{.First = top, .Count = count};
+  top += count;
+  return taken;
+}
+
+void SubjectResidency::Give(std::vector<Range> &free, Range back) {
+  if (back.Count == 0) { return; }
+  const auto after =
+      std::ranges::lower_bound(free, back.First, {}, [](const Range &one) { return one.First; });
+  const auto at = free.insert(after, back);
+  const size_t here = static_cast<size_t>(at - free.begin());
+  if (here + 1 < free.size() && free[here].First + free[here].Count == free[here + 1].First) {
+    free[here].Count += free[here + 1].Count;
+    free.erase(free.begin() + static_cast<long>(here) + 1);
+  }
+  if (here > 0 && free[here - 1].First + free[here - 1].Count == free[here].First) {
+    free[here - 1].Count += free[here].Count;
+    free.erase(free.begin() + static_cast<long>(here));
+  }
 }
 
 bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::string &error) {

@@ -78,6 +78,32 @@ struct SubjectResidency {
 
   static constexpr size_t kStreams = static_cast<size_t>(Stream::Count);
 
+  struct Range {
+    uint32_t First = 0;
+    uint32_t Count = 0;
+  };
+
+  [[nodiscard]] Range TakeVertices(uint32_t count) { return Take(FreeV_, count, TopV_); }
+
+  void GiveVertices(Range back) { Give(FreeV_, back); }
+
+  [[nodiscard]] Range TakeIndices(uint32_t count) { return Take(FreeI_, count, TopI_); }
+
+  void GiveIndices(Range back) { Give(FreeI_, back); }
+
+  [[nodiscard]] uint32_t VertexRoom() const { return TopV_; }
+
+  [[nodiscard]] uint32_t IndexRoom() const { return TopI_; }
+
+  [[nodiscard]] const Range &SubjectVertices() const { return SubjectV_; }
+
+  [[nodiscard]] const Range &SubjectIndices() const { return SubjectI_; }
+
+  void SubjectStands(Range vertices, Range indices) {
+    SubjectV_ = vertices;
+    SubjectI_ = indices;
+  }
+
   void StandsOn(SDL_GPUDevice *device, bool filtersFloat32) {
     Device_ = device;
     FiltersFloat32_ = filtersFloat32;
@@ -126,6 +152,15 @@ struct SubjectResidency {
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
+  [[nodiscard]] static Range Take(std::vector<Range> &free, uint32_t count, uint32_t &top);
+  static void Give(std::vector<Range> &free, Range back);
+  std::vector<Range> FreeV_;
+  std::vector<Range> FreeI_;
+  uint32_t TopV_ = 0;
+  uint32_t TopI_ = 0;
+  Range SubjectV_;
+  Range SubjectI_;
+
   struct Staged {
     SDL_GPUBuffer *Into = nullptr;
     uint32_t From = 0;

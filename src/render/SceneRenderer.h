@@ -29,7 +29,6 @@
 #include "stages/PresentStage.h"
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
-#include "stages/PieceStore.h"
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
@@ -145,16 +144,18 @@ public:
   [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
-    return Pieces_.Place(piece, error);
+    return Subjects_.PlacePiece(piece, error);
   }
 
-  void ReleasePiece(PieceId which) { Pieces_.Release(which); }
+  void ReleasePiece(PieceId which) { Subjects_.ReleasePiece(which); }
 
-  [[nodiscard]] uint32_t PiecesStanding() const { return Pieces_.Pieces(); }
+  void WearPieces(std::span<const uint32_t> slotOfSurface) { Subjects_.WearPieces(slotOfSurface); }
 
-  [[nodiscard]] uint32_t PieceTriangles() const { return Pieces_.TrianglesLive(); }
+  [[nodiscard]] uint32_t PiecesStanding() const { return Subjects_.PiecesStanding(); }
 
-  [[nodiscard]] uint32_t PieceBytesHeld() const { return Pieces_.Resident().HeldBytes(); }
+  [[nodiscard]] uint32_t PieceTriangles() const { return Subjects_.PieceTriangles(); }
+
+  [[nodiscard]] uint32_t PieceBytesHeld() const { return Subjects_.Resident().HeldBytes(); }
 
   [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);
 
@@ -422,7 +423,6 @@ private:
   OwnedTexture SurfaceIdentityTex_;
   OwnedSampler Samp_, LutSamp_;
   SubjectDraw Subjects_;
-  PieceStore Pieces_;
 
   SubjectDraw Glass_;
 

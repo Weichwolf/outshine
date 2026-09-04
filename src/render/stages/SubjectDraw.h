@@ -22,8 +22,6 @@
 
 namespace outshine::Render {
 
-class PieceStore;
-
 class SubjectDraw {
 public:
   struct SourceOptions {
@@ -71,6 +69,17 @@ public:
 
   [[nodiscard]] bool HandDrawArguments(bool deferred, std::string &error);
 
+  [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
+  void ReleasePiece(PieceId which);
+  void WearPieces(std::span<const uint32_t> slotOfSurface);
+  [[nodiscard]] bool HandTables(std::string &error);
+
+  [[nodiscard]] uint32_t PiecesStanding() const { return PiecesLive_; }
+
+  [[nodiscard]] uint32_t PieceTriangles() const { return PieceTriangles_; }
+
+  [[nodiscard]] uint32_t SubjectRows() const { return SubjectRows_; }
+
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
 
   [[nodiscard]] uint32_t ClusterBatchRows() const {
@@ -84,7 +93,7 @@ public:
       Stamped_.clear();
       return true;
     }
-    for (const DrawBatch &batch : Batches) {
+    for (const DrawBatch &batch : SubjectBatches_) {
       if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
         continue;
       }
@@ -138,7 +147,7 @@ public:
     Placed_.assign(models, models + rows * 16u);
     Before_ = Placed_;
     Stamped_.assign(rows, Frame_);
-    for (const DrawBatch &batch : Batches) {
+    for (const DrawBatch &batch : SubjectBatches_) {
       if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
         continue;
       }
@@ -158,20 +167,7 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
-  struct Drawable {
-    const SubjectResidency *Res = nullptr;
-    const std::vector<DrawBatch> *Batches = nullptr;
-    const std::vector<VertexLayout> *Layouts = nullptr;
-    bool Cut = false;
-    bool Still = false;
-  };
-
-  void EncodeBatches(const Drawable &over, const PassRecording &into);
-
-  const PieceStore *Pieces_ = nullptr;
-
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
-  [[nodiscard]] bool HandClusters(const SubjectMesh &mesh, std::string &error);
 
   [[nodiscard]] bool
   Room(SubjectResidency::Stream held, SDL_GPUBufferUsageFlags usage, uint32_t bytes) {
@@ -205,10 +201,6 @@ public:
   }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
-
-  void DrawsPieces(const PieceStore *pieces) { Pieces_ = pieces; }
-
-  [[nodiscard]] const PieceStore *Pieces() const { return Pieces_; }
 
   [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
 
@@ -350,6 +342,30 @@ private:
   std::vector<uint32_t> Args_;
   uint32_t Jobs_ = 0;
   bool RowsStale_ = false;
+
+  struct Piece {
+    SubjectResidency::Range V;
+    SubjectResidency::Range I;
+    uint32_t Surface = 0;
+    VertexLayout Layout = VertexLayout::PositionNormal;
+    Mat4 Row;
+    std::vector<DagCluster> Clusters;
+    bool Live = false;
+  };
+
+  std::vector<DrawBatch> SubjectBatches_;
+  std::vector<uint32_t> SubjectJobs_;
+  std::vector<float> SubjectSpheres_;
+  uint32_t SubjectRows_ = 0;
+  std::vector<Piece> Pieces_;
+  std::vector<uint32_t> Spare_;
+  std::vector<uint32_t> SlotOf_;
+  uint32_t PiecesLive_ = 0;
+  uint32_t PieceTriangles_ = 0;
+  bool TablesStale_ = false;
+
+  [[nodiscard]] bool RoomForStreams(std::string &error);
+  [[nodiscard]] bool Retable(std::string &error);
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
 

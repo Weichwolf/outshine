@@ -43,24 +43,6 @@
 
 namespace outshine {
 
-namespace {
-
-[[nodiscard]] uint64_t DigestOver(const Raised &built) {
-  uint64_t mixed = kDigestBasis;
-  const auto fold = [&mixed](uint64_t one) { mixed = (mixed ^ one) * kDigestPrime; };
-  const auto foldVertex = [&fold](const StoredVertex &one) {
-    const auto *const held = reinterpret_cast<const float *>(&one);
-    for (size_t at = 0; at < kStoredVertexFloats; ++at) { fold(std::bit_cast<uint32_t>(held[at])); }
-  };
-  for (const StoredVertex &one : built.WallCorners) { foldVertex(one); }
-  for (const StoredVertex &one : built.RoofCorners) { foldVertex(one); }
-  for (const uint32_t one : built.WallRun) { fold(one); }
-  for (const uint32_t one : built.RoofRun) { fold(one); }
-  return mixed;
-}
-
-} // namespace
-
 constexpr double kNoLeastYet = 1.0e9;
 
 static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
@@ -84,9 +66,6 @@ constexpr float kLagoonRoughness = 0.14f;
 
 constexpr double kPerMille = 1000.0;
 constexpr double kFootprintReachM = 3200.0;
-constexpr double kSliverAreaM2 = 0.01;
-constexpr double kSliverEdgeM = 5.0;
-constexpr double kLongEdgeM = 20.0;
 constexpr double kUnraisedDeckM = -1.0e29;
 constexpr double kRoseLeast = 0.05;
 
@@ -407,7 +386,6 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing,
                                             std::span<const float> inFrame) {
   constexpr double kGroundCellM = 25.0;
   const Ground::BuildingField &prints = World.Stack.Footprints();
-  const Raised &built = prints.Built();
   const Vec3 &anchor = prints.Anchor();
   double away = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
@@ -415,13 +393,6 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing,
     away += step * step;
   }
   Published.Places("buildings: their anchor lies from the frame's origin", std::sqrt(away), "m");
-  Published.Places("buildings: floats in the soup",
-                   static_cast<double>(built.WallCorners.size() + built.RoofCorners.size()),
-                   "floats");
-  Published.Places("buildings: the field's last delta began at",
-                   static_cast<double>(prints.AddedFirst()),
-                   "floats");
-  Published.Places("buildings: and ran for", static_cast<double>(prints.AddedCount()), "floats");
   {
     std::vector<double> fill = prints.SeatSpreadM();
     std::vector<double> across = prints.FootprintAcrossM();
@@ -471,260 +442,51 @@ void Engine::State::Models(const TangentFrame &standing,
                            LongitudeLatitude stands,
                            Geometry &ground,
                            Phasing &clocks) {
-  const Scenario::Document &declared = Session.Declared;
-  const double anchorLat = stands.LatitudeDeg;
-  const double anchorLon = stands.LongitudeDeg;
-  const Ground::BuildingField &prints = World.Stack.Footprints();
-  const Raised &built = prints.Built();
-  const Vec3 &anchor = prints.Anchor();
+  (void)stands;
   TellsWhatTheGroundHolds(standing, inFrame);
-  const auto builtAt = std::chrono::steady_clock::now();
-  if (built.WallRun.size() + built.RoofRun.size() >= 3) {
-    if (World.CarriedFrom[0] != anchorLat || World.CarriedFrom[1] != anchorLon) {
-      World.WallCarried = 0;
-      World.RoofCarried = 0;
-      World.CarriedFrom[0] = anchorLat;
-      World.CarriedFrom[1] = anchorLon;
-    }
-    std::vector<float> &wallPlaces = World.WallPlaces;
-    std::vector<float> &wallFacing = World.WallFacing;
-    std::vector<float> &roofPlaces = World.RoofPlaces;
-    std::vector<float> &roofFacing = World.RoofFacing;
-    World.WallCarried = CarryIntoTheFrame(
-        {.Corners = built.WallCorners, .AnchorEcefM = anchor, .Already = World.WallCarried},
-        standing,
-        {.PlacesM = wallPlaces, .Turned = wallFacing});
-    World.RoofCarried = CarryIntoTheFrame(
-        {.Corners = built.RoofCorners, .AnchorEcefM = anchor, .Already = World.RoofCarried},
-        standing,
-        {.PlacesM = roofPlaces, .Turned = roofFacing});
-    const std::vector<uint32_t> &wallRun = built.WallRun;
-    const std::vector<uint32_t> &roofRun = built.RoofRun;
-    const size_t wallVerts = wallPlaces.size() / 3;
-    const size_t wallTris = wallRun.size() / 3;
-    const size_t vertices = wallVerts + roofPlaces.size() / 3;
-    const size_t triangles = wallTris + roofRun.size() / 3;
-    const auto placeAt = [&](size_t one) {
-      return one < wallVerts ? wallPlaces.data() + one * 3
-                             : roofPlaces.data() + (one - wallVerts) * 3;
-    };
-    const auto turnAt = [&](size_t one) {
-      return one < wallVerts ? wallFacing.data() + one * 3
-                             : roofFacing.data() + (one - wallVerts) * 3;
-    };
-    const auto cornerOf = [&](size_t tri, size_t corner) -> size_t {
-      return tri < wallTris ? wallRun[tri * 3 + corner]
-                            : wallVerts + roofRun[(tri - wallTris) * 3 + corner];
-    };
-    Material walls;
-    walls.BaseColour[0] = kWallRed;
-    walls.BaseColour[1] = kWallGreen;
-    walls.BaseColour[2] = kWallBlue;
-    walls.Roughness = kWallRoughness;
-    Material tiles;
-    tiles.BaseColour[0] = kTileRed;
-    tiles.BaseColour[1] = kTileGreen;
-    tiles.BaseColour[2] = kTileBlue;
-    tiles.Roughness = kTileRoughness;
-    const MaterialInstance wallSurface = ground.addSurface("walls", walls);
-    const MaterialInstance roofSurface = ground.addSurface("roofs", tiles);
-    Published.Places(
-        "rebuild: the ground ring took",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.PhaseAt)
-            .count(),
-        "ms");
-    clocks.PhaseAt = std::chrono::steady_clock::now();
-    const int builtPart = ground.addPart("walls", wallSurface);
-    const int roofPart = ground.addPart("roofs", roofSurface);
-    Published.Places(
-        "rebuild: of that, carrying both parts into the frame",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.PhaseAt)
-            .count(),
-        "ms");
-    clocks.CensusAt = std::chrono::steady_clock::now();
-    if (declared.Render.Audits) {
-      const std::array<Counted, 2> made = {
-          {{.PlacesM = wallPlaces, .Facing = wallFacing, .Run = wallRun},
-           {.PlacesM = roofPlaces, .Facing = roofFacing, .Run = roofRun}}};
-      const Census counted = CensusOver(made);
-      Published.Places("solid: building corners identical in POSITION AND NORMAL",
-                       static_cast<double>(counted.Identical),
-                       "corners");
-      Published.Places("solid: and how many distinct ones remain",
-                       static_cast<double>(counted.Distinct),
-                       "corners");
-      Published.Places("solid: building vertices welded away as coincident",
-                       static_cast<double>(counted.Coincident),
-                       "vertices");
-      Published.Places("solid: building vertices standing apart",
-                       static_cast<double>(counted.Apart),
-                       "vertices");
-      Published.Places("rebuild: of that, welding and counting edges",
-                       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
-                                                                 clocks.CensusAt)
-                           .count(),
-                       "ms");
-      clocks.CensusAt = std::chrono::steady_clock::now();
-      Published.Places("solid: building triangles with two corners in one place",
-                       static_cast<double>(counted.Degenerate),
-                       "triangles");
-      Published.Places("solid: building edges on ONE triangle, so a HOLE",
-                       static_cast<double>(counted.Open),
-                       "edges");
-      Published.Places("solid: building edges on MORE than two, so not a surface",
-                       static_cast<double>(counted.Overused),
-                       "edges");
-      Published.Places("solid: building edges in all", static_cast<double>(counted.Edges), "edges");
-    }
-    const size_t roofTriangles = roofRun.size() / 3;
-    const size_t wallTriangles = wallRun.size() / 3;
-    Published.Places("buildings: roof triangles", static_cast<double>(roofTriangles), "triangles");
-    Published.Places("buildings: wall triangles", static_cast<double>(wallTriangles), "triangles");
-    {
-      size_t upright = 0;
-      size_t facingDown = 0;
-      for (size_t one = 0; one + 2 < wallFacing.size(); one += 3) {
-        const auto aloft = static_cast<double>(wallFacing[one + 1]);
-        if (aloft < -0.5) {
-          ++facingDown;
-        } else if (aloft > -0.5 && aloft < 0.5) {
-          ++upright;
-        }
-      }
-      Published.Places(
-          "buildings: wall normals standing upright", static_cast<double>(upright), "normals");
-      Published.Places(
-          "buildings: wall normals facing DOWN", static_cast<double>(facingDown), "normals");
-    }
-    const bool tookPlaces =
-        builtPart >= 0 && roofPart >= 0 &&
-        ground.setPositions(builtPart,
-                            std::span<const float>(wallPlaces.data(), wallPlaces.size())) &&
-        ground.setPositions(roofPart, std::span<const float>(roofPlaces.data(), roofPlaces.size()));
-    const bool tookFacing =
-        tookPlaces &&
-        ground.setNormals(builtPart,
-                          std::span<const float>(wallFacing.data(), wallFacing.size())) &&
-        ground.setNormals(roofPart, std::span<const float>(roofFacing.data(), roofFacing.size()));
-    const bool tookRun =
-        tookFacing &&
-        ground.setTriangles(builtPart, std::span<const uint32_t>(wallRun.data(), wallRun.size())) &&
-        ground.setTriangles(roofPart, std::span<const uint32_t>(roofRun.data(), roofRun.size()));
-    Published.Places(
-        "buildings: the part they were given", static_cast<double>(builtPart), "index");
-    Published.Places(
-        "buildings: the wall surface", static_cast<double>(wallSurface.index()), "index");
-    Published.Places(
-        "buildings: the roof surface", static_cast<double>(roofSurface.index()), "index");
-    Published.Places("buildings: positions taken", tookPlaces ? 1.0 : 0.0, "yes/no");
-    Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
-    Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
-    Published.Places(
-        "buildings: parts the geometry holds", static_cast<double>(ground.parts()), "parts");
-    Published.Places(
-        "buildings: triangles this rebuild meshed", static_cast<double>(triangles), "triangles");
-    Published.Places(
-        "rebuild: of that, carrying the buildings into the frame",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - builtAt)
-            .count(),
-        "ms");
-    Published.Places("buildings: corners the soup holds", static_cast<double>(vertices), "corners");
-    if (declared.Render.Audits) {
-      double up = 0.0;
-      double down = 0.0;
-      double sideways = 0.0;
-      double unlengthed = 0.0;
-      const double inward = 0.0;
-      for (size_t at = 0; at < vertices; ++at) {
-        const float *const aim = turnAt(at);
-        const double x = aim[0];
-        const double y = aim[1];
-        const double z = aim[2];
-        const double length = std::sqrt(x * x + y * y + z * z);
-        if (!(length > 0.5)) {
-          unlengthed += 1.0;
-          continue;
-        }
-        const double aloft = y / length;
-        if (aloft > 0.5) {
-          up += 1.0;
-        } else if (aloft < -0.5) {
-          down += 1.0;
-        } else {
-          sideways += 1.0;
-        }
-      }
-      Published.Places("buildings: normals pointing up", up, "normals");
-      Published.Places("buildings: normals pointing DOWN", down, "normals");
-      Published.Places("buildings: normals lying sideways", sideways, "normals");
-      Published.Places("buildings: normals with no length", unlengthed, "normals");
-      Published.Places("buildings: normals in all", static_cast<double>(vertices), "normals");
-      (void)inward;
-    }
-    if (declared.Render.Audits) {
-      size_t needles = 0;
-      size_t reaching = 0;
-      double longest = 0.0;
-      double furthest = 0.0;
-      for (size_t tri = 0; tri < triangles; ++tri) {
-        const float *const a = placeAt(cornerOf(tri, 0));
-        const float *const b = placeAt(cornerOf(tri, 1));
-        const float *const c = placeAt(cornerOf(tri, 2));
-        const double ux = b[0] - a[0];
-        const double uy = b[1] - a[1];
-        const double uz = b[2] - a[2];
-        const double vx = c[0] - a[0];
-        const double vy = c[1] - a[1];
-        const double vz = c[2] - a[2];
-        const double wx = c[0] - b[0];
-        const double wy = c[1] - b[1];
-        const double wz = c[2] - b[2];
-        const double nx = uy * vz - uz * vy;
-        const double ny = uz * vx - ux * vz;
-        const double nz = ux * vy - uy * vx;
-        const double area = 0.5 * std::sqrt(nx * nx + ny * ny + nz * nz);
-        const double edge = std::sqrt(std::max({ux * ux + uy * uy + uz * uz,
-                                                vx * vx + vy * vy + vz * vz,
-                                                wx * wx + wy * wy + wz * wz}));
-        if (area < kSliverAreaM2 && edge > kSliverEdgeM) {
-          ++needles;
-          longest = edge > longest ? edge : longest;
-        }
-        if (edge > kLongEdgeM) {
-          ++reaching;
-          furthest = edge > furthest ? edge : furthest;
-        }
-      }
-      Published.Places(
-          "buildings: triangles that are needles", static_cast<double>(needles), "triangles");
-      Published.Places("buildings: the longest edge one carries", longest, "m");
-      Published.Places(
-          "buildings: triangles reaching over 20 m", static_cast<double>(reaching), "triangles");
-      Published.Places("buildings: the furthest any reaches", furthest, "m");
-    }
-    if (declared.Render.Audits) {
-      double least = kBeyondAnyCoordinate;
-      double most = -kBeyondAnyCoordinate;
-      double nearest = kBeyondAnyCoordinate;
-      double farthest = 0.0;
-      for (size_t at = 0; at < vertices; ++at) {
-        const float *const held = placeAt(at);
-        const auto up = static_cast<double>(held[1]);
-        const auto east = static_cast<double>(held[0]);
-        const auto south = static_cast<double>(held[2]);
-        const double away = std::sqrt(east * east + south * south);
-        least = up < least ? up : least;
-        most = up > most ? up : most;
-        nearest = away < nearest ? away : nearest;
-        farthest = away > farthest ? away : farthest;
-      }
-      Published.Places("buildings stand between", least, "m up");
-      Published.Places("and", most, "m up");
-      Published.Places("their nearest vertex lies", nearest, "m out");
-      Published.Places("their farthest", farthest, "m out");
-    }
-  } else {
-    Published.Places("buildings: triangles this rebuild meshed", 0.0, "triangles");
+  Material walls;
+  walls.BaseColour[0] = kWallRed;
+  walls.BaseColour[1] = kWallGreen;
+  walls.BaseColour[2] = kWallBlue;
+  walls.Roughness = kWallRoughness;
+  Material tiles;
+  tiles.BaseColour[0] = kTileRed;
+  tiles.BaseColour[1] = kTileGreen;
+  tiles.BaseColour[2] = kTileBlue;
+  tiles.Roughness = kTileRoughness;
+  const MaterialInstance wallSurface = ground.addSurface("walls", walls);
+  const MaterialInstance roofSurface = ground.addSurface("roofs", tiles);
+  World.Pieces.Wears({.Walls = static_cast<uint32_t>(wallSurface.index()),
+                      .Roofs = static_cast<uint32_t>(roofSurface.index())});
+  Published.Places(
+      "rebuild: the ground ring took",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.PhaseAt)
+          .count(),
+      "ms");
+  clocks.PhaseAt = std::chrono::steady_clock::now();
+  clocks.CensusAt = clocks.PhaseAt;
+  Published.Places(
+      "buildings: the wall surface", static_cast<double>(wallSurface.index()), "index");
+  Published.Places(
+      "buildings: the roof surface", static_cast<double>(roofSurface.index()), "index");
+  Published.Places("buildings: tiles handed to the arena as pieces",
+                   static_cast<double>(World.Pieces.Handed()),
+                   "tiles");
+  Published.Places(
+      "buildings: pieces the arena refused", static_cast<double>(World.Pieces.Refused()), "pieces");
+  Published.Places("buildings: triangles the tiles handed over",
+                   static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
+                   "triangles");
+  if (Picture.Standing) {
+    Published.Places("buildings: pieces standing in the arena",
+                     static_cast<double>(Picture.Standing->PiecesStanding()),
+                     "pieces");
+    Published.Places("buildings: triangles the arena holds",
+                     static_cast<double>(Picture.Standing->PieceTriangles()),
+                     "triangles");
+    Published.Places("buildings: bytes the arena holds on the device",
+                     static_cast<double>(Picture.Standing->PieceBytesHeld()),
+                     "bytes");
   }
 }
 
@@ -1227,12 +989,9 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   const bool elsewhere = from != World.LaidFrom;
   const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
   const bool renamed = classes != World.LaidClasses;
-  {
-    const Raised &standing = World.Stack.Footprints().Built();
-    const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
-    Published.Places(
-        "building triangles the world meshed", static_cast<double>(triangles), "triangles");
-  }
+  Published.Places("building triangles the world meshed",
+                   static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
+                   "triangles");
   Published.Places(
       "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
   Published.Places("world: of that, the land classes",
@@ -1243,21 +1002,11 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   Published.Places("world: of those, the footprints it keeps",
                    static_cast<double>(World.Stack.Footprints().PrintBytes()),
                    "bytes");
-  Published.Places("world: and the raised geometry",
-                   static_cast<double>(World.Stack.Footprints().RaisedBytes()),
+  Published.Places("world: and the scratch one tile is baked in",
+                   static_cast<double>(World.Stack.Footprints().ScratchBytes()),
                    "bytes");
-  Published.Places("world: of that, the bytes it actually fills",
-                   static_cast<double>(World.Stack.Footprints().RaisedUsedBytes()),
-                   "bytes");
-  Published.Places(
-      "world: the frame copies the renderer reads",
-      static_cast<double>(CapacityBytes(World.WallPlaces) + CapacityBytes(World.WallFacing) +
-                          CapacityBytes(World.RoofPlaces) + CapacityBytes(World.RoofFacing)),
-      "bytes");
-  Published.Places("world: of those copies, the bytes actually filled",
-                   static_cast<double>((World.WallPlaces.size() + World.WallFacing.size() +
-                                        World.RoofPlaces.size() + World.RoofFacing.size()) *
-                                       sizeof(float)),
+  Published.Places("world: the building pieces the device holds",
+                   Picture.Standing ? static_cast<double>(Picture.Standing->PieceBytesHeld()) : 0.0,
                    "bytes");
   Published.Places(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
@@ -1281,7 +1030,7 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
 
   {
     constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
-    const uint64_t geometry = DigestOver(World.Stack.Footprints().Built());
+    const uint64_t geometry = World.Pieces.Digest();
     Published.Places(
         "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
     Published.Places("and its low half", static_cast<double>(geometry & kLowWord), "digest");
@@ -2010,16 +1759,6 @@ void Engine::State::TellsTheRelief(Relieved over) {
   Published.Places("relief: the ring's lowest vertex above the ellipsoid", over.Lowest, "m");
   Published.Places(
       "relief: so the true relief, with the sphere taken out", over.Tallest - over.Lowest, "m");
-}
-
-void Engine::State::TellsWhatCrossed(const Geometry &ground) {
-  size_t handed = 0;
-  for (int part = 0; part < ground.parts(); ++part) {
-    handed += ground.trianglesOf(part).size() / 3u;
-  }
-  Published.Places(
-      "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
-  Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
 }
 
 std::expected<Around, Engine::State::Laid> Engine::State::RingWanted(bool alsoWhenTilesLanded) {

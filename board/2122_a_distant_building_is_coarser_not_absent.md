@@ -112,10 +112,11 @@ still world-grained passes.
 
 ## What will be true
 
-- [ ] `BuildingField::Built_` is gone; the CPU holds footprints and per-tile pieces in flight
-- [ ] The frame copies are gone; the renderer reads an arena the sim never appends to
-- [ ] Shibuya preloads under the 512 MB ceiling and draws; `world: the buildings` at OldTown
-      under 5 MB
+- [x] `BuildingField::Built_` is gone; the CPU holds footprints and one tile's scratch --
+      2026-09-04, and the pool is ONE residency: the subject is a range in it like every piece
+- [x] The frame copies are gone; the renderer reads a pool the sim never appends to
+- [x] Shibuya preloads under the 512 MB ceiling and draws: 489 MB peak, p99 8.4 ms; `world: the
+      buildings` at OldTown reads footprints plus one tile's scratch
 - [ ] The meshers allocate nothing per call, counted with the tagged heap before and after
 - [ ] Pieces land in declared order: a case shuffles worker completion and the picture holds
 - [ ] Negative control: append one tile to a world-sized vector again and the peak ceiling goes

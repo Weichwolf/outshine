@@ -185,6 +185,16 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   return true;
 }
 
+void Engine::State::HandsPiecesOver() {
+  World.Pieces.Into(Picture.Standing.get());
+  if (World.PiecesFramed) { return; }
+  World.Pieces.Framed(
+      TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
+                        .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}));
+  World.Stack.HandsRaisedTo(&World.Pieces);
+  World.PiecesFramed = true;
+}
+
 bool Engine::State::Updates() {
   if (Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = WhereTheEyeStands();
@@ -193,6 +203,7 @@ bool Engine::State::Updates() {
       const size_t heldBefore = World.Stack.Footprints().IngestedTiles();
       {
         const Heap::Tagged restanding("world-restand");
+        HandsPiecesOver();
         World.Stack.Restand(stands);
         {
           const Heap::Tagged growing("world-grow");

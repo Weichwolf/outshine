@@ -63,3 +63,21 @@ ZurichPlan     2e0d5f12  p50   6.51  p95   7.80  p99   8.15 ms    0 of 120
 # What it says today: the lake is NOT THERE. 73 458 OSM features are held, the buildings consume
 # them, and the street field and the water field walk zero. Two of the three consumers are dead and
 # a perspective view from head height hid it behind its own horizon for as long as it has existed.
+
+# board:2122, 2026-09-04: the buildings are PIECES in the renderer's pool, one per vector tile and
+# material, and the frame copies are gone. Every place moved by a handful of silhouette pixels
+# (OldTown 12, ZurichPlan 10, Heidelberg 4, Venice 4, CentralPark 2, Kaiserberg 1, Koehlbrand 1,
+# Jura 0 -- measured with test/scripts/pixels.py against the pictures before) because a vertex now
+# crosses the placement row on the GPU in float instead of the CPU in double. Shibuya stands for
+# the first time: 489 MB peak against 857 MB refused. And the occlusion test stopped judging a
+# cluster whose footprint its 4x4 window cannot hold whole -- a tower at CentralPark and a block at
+# Shibuya had been culled by a window that saw the ground and not them.
+OldTown        303146af  p50   2.22  p95   2.59  p99   2.98 ms    0 of 120
+Heidelberg     7a4c69f7  p50   2.57  p95   2.95  p99   3.19 ms    0 of 120
+Shibuya        d31a22a3  p50   6.91  p95   8.02  p99   8.35 ms    0 of 120
+CentralPark    ed6903ff  p50   4.60  p95   5.07  p99   5.47 ms    0 of 120
+Venice         63b8df31  p50   2.59  p95   2.99  p99   3.23 ms    0 of 120
+Jura           78f5d62e  p50   2.94  p95   3.44  p99   3.75 ms    0 of 120
+ZurichPlan     1164ef91  p50   4.48  p95   5.16  p99   5.79 ms    0 of 120
+Kaiserberg     7a52aaf9  p50   3.43  p95   3.82  p99   4.20 ms    0 of 120
+Koehlbrand     b7041a12  p50   2.96  p95   3.22  p99   3.48 ms    0 of 120

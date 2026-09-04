@@ -5,6 +5,7 @@
 #include <cstdint>
 #include "math/Mat4.h"
 #include "ClusterDag.h"
+#include "StoredVertex.h"
 #include <span>
 
 #include "scene/PunctualLight.h"
@@ -119,6 +120,20 @@ struct SubjectPose {
   Vec3 Anchor = {{0, 0, 0}};
   Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 };
+
+struct PieceMesh {
+  std::span<const StoredVertex> Verts;
+  std::span<const uint32_t> Indices;
+  std::span<const DagCluster> Clusters;
+  std::span<const float> Colours;
+  Mat4 Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  uint32_t Surface = 0;
+  bool Textured = false;
+};
+
+using PieceId = uint32_t;
+inline constexpr PieceId kNoPiece = ~0u;
+inline constexpr uint32_t kNoSlot = ~0u;
 
 struct SubjectMesh : SubjectPose {
   const uint32_t *Indices = nullptr;

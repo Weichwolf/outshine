@@ -633,8 +633,6 @@ bool SceneRenderer::Configure(Stage stage, std::string &error) {
 
 bool SceneRenderer::ConfigureSubjects(std::string &error) {
   if (DrawsGlass_) { Subjects_.GlassIsDrawnElsewhere(); }
-  Pieces_.StandsOn(Handles_.Device, Handles_.FiltersFloat32);
-  Subjects_.DrawsPieces(&Pieces_);
   return Subjects_.Configure(Handles_, error);
 }
 
@@ -712,7 +710,6 @@ bool SceneRenderer::ConfigureAerialPerspective(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureLightVisibility(std::string &error) {
-  Shadow_.CastsPieces(&Pieces_);
   return Shadow_.Configure(Subjects_, Handles_, error);
 }
 
@@ -766,12 +763,6 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
       surfaces = batch.MaterialSlot + 1u > surfaces ? batch.MaterialSlot + 1u : surfaces;
       const uint32_t past = batch.ModelSlot + batch.Instances;
       placements = past > placements ? past : placements;
-    }
-    if (stage == Stage::Subjects) {
-      for (const DrawBatch &batch : Pieces_.Drawn()) {
-        spent.Draws += 1u;
-        spent.Triangles += batch.IndexCount / 3u;
-      }
     }
     spent.Surfaces = surfaces;
     spent.Placements = placements;
@@ -963,7 +954,6 @@ bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
   Cull_.PyramidFrom(Pyramid_.Get(),
                     PyramidOver({.WidthPx = static_cast<uint32_t>(Width_),
                                  .HeightPx = static_cast<uint32_t>(Height_)}));
-  Cull_.CullsPieces(&Pieces_);
   return Cull_.Configure(Subjects_, Handles_, error);
 }
 
@@ -1156,15 +1146,14 @@ void SceneRenderer::RenderFrame() {
 
   {
     std::string why;
+    if (!Subjects_.HandTables(why) || (DrawsGlass_ && !Glass_.HandTables(why))) {
+      Log::Error(LogTag::Render, "pool_tables_not_handed", {{"msg", why}});
+    }
     if (!Subjects_.HandDrawArguments(true, why)) {
       Log::Error(LogTag::Render, "cull_arguments_not_reset", {{"msg", why}});
     }
-    if (!Pieces_.Hand(why) || !Pieces_.HandDrawArguments(true, why)) {
-      Log::Error(LogTag::Render, "pieces_not_handed", {{"msg", why}});
-    }
   }
   Subjects_.FlushCrossings(commands);
-  Pieces_.FlushCrossings(commands);
   if (DrawsGlass_) { Glass_.FlushCrossings(commands); }
 
   for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) { EncodePass(commands, pass); }
@@ -1321,26 +1310,19 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
-  if (!Ready_) { return ReadState::Failed; }
-  const auto sum = [this, &into](const SubjectResidency &resident, uint32_t rows) {
-    SDL_GPUBuffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
-    if (args == nullptr || rows == 0) { return ReadState::Failed; }
-    Readback read;
-    const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
-    if (read.FromBuffer(Device_.Get(), args, bytes) != ReadState::Ready) {
-      return ReadState::Failed;
-    }
-    const auto *const held = reinterpret_cast<const uint32_t *>(read.Rows());
-    for (uint32_t at = 0; at < rows; ++at) {
-      into.Indices += held[static_cast<size_t>(at) * 5];
-      into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
-    }
-    return ReadState::Ready;
-  };
-  const ReadState subject = sum(Subjects_.Resident(), Subjects_.ClusterBatchRows());
-  const ReadState pieces = sum(Pieces_.Resident(), Pieces_.ClusterBatchRows());
-  return subject == ReadState::Ready || pieces == ReadState::Ready ? ReadState::Ready
-                                                                   : ReadState::Failed;
+  const SubjectResidency &resident = Subjects_.Resident();
+  SDL_GPUBuffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
+  const uint32_t rows = Subjects_.ClusterBatchRows();
+  if (!Ready_ || args == nullptr || rows == 0) { return ReadState::Failed; }
+  Readback read;
+  const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
+  if (read.FromBuffer(Device_.Get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
+  const auto *const held = reinterpret_cast<const uint32_t *>(read.Rows());
+  for (uint32_t at = 0; at < rows; ++at) {
+    into.Indices += held[static_cast<size_t>(at) * 5];
+    into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
+  }
+  return ReadState::Ready;
 }
 
 ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {

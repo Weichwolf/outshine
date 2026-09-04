@@ -19,6 +19,7 @@
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "Unwired.h"
+#include "TilePieces.h"
 
 #include <chrono>
 #include <thread>
@@ -281,9 +282,8 @@ struct Surrounds {
   size_t LaidResident = 0;
   uint64_t LaidClasses = 0;
 
-  std::vector<float> WallPlaces, WallFacing, RoofPlaces, RoofFacing;
-  size_t WallCarried = 0, RoofCarried = 0;
-  Vec2 CarriedFrom = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
+  TilePieces Pieces;
+  bool PiecesFramed = false;
   bool EverLaid = false;
   size_t Relaid = 0;
   size_t Asked = 0;
@@ -648,7 +648,6 @@ struct Engine::State {
   };
 
   void TellsTheRelief(Relieved over);
-  void TellsWhatCrossed(const Geometry &ground);
   [[nodiscard]] std::expected<Around, Laid> RingWanted(bool alsoWhenTilesLanded);
 
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
@@ -661,6 +660,7 @@ struct Engine::State {
   [[nodiscard]] bool GrowsOver(const Generators::Tile &region, Generators::Detail coarseness);
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
   [[nodiscard]] bool Stood();
+  void HandsPiecesOver();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();

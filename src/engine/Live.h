@@ -110,6 +110,26 @@ public:
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
+  [[nodiscard]] Render::PieceId PlacePiece(const Render::PieceMesh &piece, std::string &error) {
+    return Renderer_ == nullptr ? Render::kNoPiece : Renderer_->PlacePiece(piece, error);
+  }
+
+  void ReleasePiece(Render::PieceId which) {
+    if (Renderer_ != nullptr) { Renderer_->ReleasePiece(which); }
+  }
+
+  [[nodiscard]] uint32_t PiecesStanding() const {
+    return Renderer_ == nullptr ? 0u : Renderer_->PiecesStanding();
+  }
+
+  [[nodiscard]] uint32_t PieceTriangles() const {
+    return Renderer_ == nullptr ? 0u : Renderer_->PieceTriangles();
+  }
+
+  [[nodiscard]] uint32_t PieceBytesHeld() const {
+    return Renderer_ == nullptr ? 0u : Renderer_->PieceBytesHeld();
+  }
+
   [[nodiscard]] bool GroundClasses(const uint32_t *words,
                                    size_t wordCount,
                                    const float *palette,
@@ -391,6 +411,7 @@ private:
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
   int GroundSurface_ = -1;
+  void WearsPieces();
   uint64_t ShapedAt_ = 0;
   bool EverShaped_ = false;
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;

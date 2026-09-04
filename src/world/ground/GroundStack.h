@@ -81,6 +81,8 @@ public:
 
   void ShapesFootprintsWith(const StructureMesher *mesher) { Footprints_.Shapes(mesher); }
 
+  void HandsRaisedTo(RaisedSink *sink) { Footprints_.HandsTo(sink); }
+
   void SeeFootprintsWith(double focalPx) { Footprints_.SeenWith(focalPx); }
 
   void FootprintTilesSpan(double tileSpanM) { Footprints_.TilesSpan(tileSpanM); }

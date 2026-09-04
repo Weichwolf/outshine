@@ -371,8 +371,7 @@ int BuildingField::Build(const GroundQuery &ground,
                          const OsmField &field,
                          std::span<const WayLine> ways) {
   assert(Anchored_);
-  AddedFirst_ = static_cast<uint32_t>(Built_.WallCorners.size() + Built_.RoofCorners.size());
-  AddedCount_ = 0;
+  Scratch_.Clear();
 
   const std::span<const OsmField::Feature> feats = field.Features();
   if (Mark_.Done(feats)) { return static_cast<int>(Prints_.size()); }
@@ -516,8 +515,10 @@ int BuildingField::Build(const GroundQuery &ground,
   ByTile_.Set(next.Tile, firstPrint, static_cast<uint32_t>(Prints_.size()));
   Mark_.Advance(feats);
 
-  AddedCount_ =
-      static_cast<uint32_t>(Built_.WallCorners.size() + Built_.RoofCorners.size()) - AddedFirst_;
+  if (Sink_ != nullptr && Scratch_.WallRun.size() + Scratch_.RoofRun.size() >= 3) {
+    TrianglesHanded_ += (Scratch_.WallRun.size() + Scratch_.RoofRun.size()) / 3u;
+    Sink_->Hands(next.Tile, Scratch_, Anchor_);
+  }
   if (added == 0) { return static_cast<int>(Prints_.size()); }
 
   Log::Info(LogTag::World,
@@ -526,7 +527,7 @@ int BuildingField::Build(const GroundQuery &ground,
              {"total", static_cast<int>(Prints_.size())},
              {"osmHeight", OsmHeights_},
              {"defaultHeight", DefaultHeights_},
-             {"vertsMB", static_cast<double>(Built_.HeapBytes()) / kMicroDegree},
+             {"vertsMB", static_cast<double>(Scratch_.UsedBytes()) / kMicroDegree},
              {"noGround", NoGround_},
              {"onStreet", Fronted_},
              {"deferrals", Mark_.Deferrals()},
@@ -573,7 +574,7 @@ void BuildingField::RaiseLump(const BuildingField::Lumped &of) {
   plan.FocalPx = FocalPx_;
   plan.Coarseness = of.Level;
   plan.PitchedShare = of.RoofAreaM2 > 0.0 ? of.PitchedAreaM2 / of.RoofAreaM2 : kPitchedShareUnknown;
-  (void)Mesher_->Mesh(plan, Built_);
+  (void)Mesher_->Mesh(plan, Scratch_);
 }
 
 void BuildingField::Raise(const OsmField &field, const Footprint &f) {
@@ -592,7 +593,7 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   plan.AnchorEcef = Anchor_;
   plan.FocalPx = FocalPx_;
   plan.Coarseness = f.Coarseness;
-  if (!Mesher_->Mesh(plan, Built_)) { return; }
+  if (!Mesher_->Mesh(plan, Scratch_)) { return; }
 }
 
 } // namespace outshine::Ground

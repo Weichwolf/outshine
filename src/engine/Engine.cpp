@@ -257,6 +257,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     const LongitudeLatitude stands = S_->WhereTheEyeStands();
     const double atLat = stands.LatitudeDeg;
     const double atLon = stands.LongitudeDeg;
+    S_->HandsPiecesOver();
     S_->World.Stack.Restand(stands);
     (void)S_->Grows(atLat, atLon);
     say();

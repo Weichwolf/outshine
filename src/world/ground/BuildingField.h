@@ -46,17 +46,15 @@ public:
 
   void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
 
+  void HandsTo(RaisedSink *sink) { Sink_ = sink; }
+
   void AnchorAt(const Vec3 &ecef);
 
   int Build(const GroundQuery &ground, const OsmField &field, std::span<const WayLine> ways);
 
-  [[nodiscard]] uint32_t AddedFirst() const { return AddedFirst_; }
-
-  [[nodiscard]] uint32_t AddedCount() const { return AddedCount_; }
-
-  [[nodiscard]] const Raised &Built() const { return Built_; }
-
   [[nodiscard]] double MeshMs() const { return MeshMs_; }
+
+  [[nodiscard]] size_t TrianglesHanded() const { return TrianglesHanded_; }
 
   [[nodiscard]] const Vec3 &Anchor() const { return Anchor_; }
 
@@ -78,19 +76,14 @@ public:
 
   [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
 
-  void Settle() {
-    Built_.Settle();
-    Prints_.shrink_to_fit();
-  }
+  void Settle() { Prints_.shrink_to_fit(); }
 
   [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_); }
 
-  [[nodiscard]] size_t RaisedBytes() const { return Built_.HeapBytes(); }
-
-  [[nodiscard]] size_t RaisedUsedBytes() const { return Built_.UsedBytes(); }
+  [[nodiscard]] size_t ScratchBytes() const { return Scratch_.HeapBytes(); }
 
   [[nodiscard]] size_t HeapBytes() const {
-    return CapacityBytes(Prints_) + Built_.HeapBytes() + Mark_.HeapBytes() + ByTile_.HeapBytes();
+    return CapacityBytes(Prints_) + Scratch_.HeapBytes() + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
@@ -136,14 +129,15 @@ private:
   void Raise(const OsmField &field, const Footprint &f);
 
   const StructureMesher *Mesher_ = nullptr;
+  RaisedSink *Sink_ = nullptr;
   std::vector<Footprint> Prints_;
-  Raised Built_;
+  Raised Scratch_;
+  size_t TrianglesHanded_ = 0;
   double MeshMs_ = 0.0;
   TileRanges ByTile_;
   TileWatermark Mark_;
   double FocalPx_ = 0.0;
   double TileSpanM_ = 0.0;
-  uint32_t AddedFirst_ = 0, AddedCount_ = 0;
 
   std::vector<double> Corners_;
   Vec3 Anchor_;

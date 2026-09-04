@@ -105,6 +105,15 @@ kernel void subjectCullKernel(constant CullView &view [[buffer(0)]],
                                min(uint(lo.y * float(high)), high - 1u));
       const uint2 to = uint2(min(uint(hi.x * float(wide)), wide - 1u),
                              min(uint(hi.y * float(high)), high - 1u));
+      // A FOOTPRINT THE WINDOW CANNOT HOLD IS NOT JUDGED. The walk below reads at most 4x4 cells
+      // from the footprint's corner; a cluster wider than that at the coarsest level would be
+      // tested against a part of its own footprint, where the ground can be nearer than the
+      // cluster's box, and a tall building vanished exactly that way. Nanite's HZB test keeps
+      // what it cannot see whole, and so does this one.
+      if (to.x - from.x >= 4u || to.y - from.y >= 4u) {
+        kept[id] = job.w;
+        return;
+      }
       float farthest = 1.0;
       for (uint down = from.y; down <= to.y && down < from.y + 4u; ++down) {
         for (uint sideways = from.x; sideways <= to.x && sideways < from.x + 4u; ++sideways) {

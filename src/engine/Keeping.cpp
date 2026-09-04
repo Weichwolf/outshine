@@ -184,6 +184,7 @@ Result Engine::park() {
     return std::unexpected(S_->Error);
   }
   S_->Session.Asleep.push_back(S_->Session.Declared);
+  S_->World.Pieces.Clear();
   S_->Picture.Standing.reset();
   S_->Error.clear();
   return {};

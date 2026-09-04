@@ -316,6 +316,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
 
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
+  S_->World.Pieces.Clear();
+  S_->World.PiecesFramed = false;
   S_->Picture.Standing.reset();
   S_->Picture.Shown = declared;
   if (!S_->Picture.Targeted) {
@@ -330,6 +332,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
                         &S_->Picture.Face,
                         S_->Picture.Standing,
                         S_->Error)) {
+    S_->World.Pieces.Clear();
     S_->Picture.Standing.reset();
     return std::unexpected(S_->Error);
   }
