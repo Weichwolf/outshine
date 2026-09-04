@@ -1,140 +1,64 @@
 Type: chore
 State: open
 Area: include
-Tags: measured
+Tags: measured, door
 
 # A reader who knows Filament finds every door name where Filament puts it
 
-**Benchmark** — Unreal answers this with a PREFIX system and one class per file (`UWorld`,
-`AActor`, `FVector`); RAGE answers it with a two-letter subsystem prefix on every type (`grcTexture`,
-`fwEntity`, `rage::sysTaskManager`), so a name says which library owns it before you open anything.
-The two agree on the property and differ on the mechanism, and this tree takes the third that both
-of its door's sources take -- a NAMESPACE plus one header per type. Filament ships one header per
-public type: `Engine.h`, `View.h`, `Camera.h`,
-`Scene.h`, `Material.h`, and groups them under `filament/`, `math/`, `utils/`. Cesium does the same
-with `CesiumGltf/Model.h`. Unreal has no namespaces and answers the same question with a prefix
-system (`U`, `A`, `F`) plus one class per file. **All three agree that a public type is findable by
-its own name**, and this tree does not yet.
+**Benchmark** -- Unreal answers this with a prefix system and one class per file (`UWorld`,
+`AActor`); RAGE with a two-letter subsystem prefix on every type (`grcTexture`, `fwEntity`).
+The two agree on the property and differ on the mechanism, and this tree takes the third that
+both of its door's sources take: a NAMESPACE plus one header per public type, grouped as
+Filament groups `filament/`, `math/`, `utils/`. **All three agree that a public type is findable
+by its own name**, and this door is not yet.
 
-## Measured 2026-09-01, after board:2093 grouped include/ and named the schema
+## Where it stands, measured 2026-09-04
 
-| what | now | what a reference would do |
+| what | now | reference |
 |---|---|---|
-| `include/scenario/Scenario.h` | 638 lines, **54 types** | Filament: `View.h`, `Camera.h`, one per type |
-| the header's name | `Scenario.h` | its root type is `Scenario::Document`, so `Document.h` |
-| `include/scene/Geometry.h` | holds `Geometry`, and three managers | Filament splits `RenderableManager.h`, `TransformManager.h`, `LightManager.h` |
-| `Geometry` the type | parts, surfaces, lamps | in Filament that word means VERTEX DATA; ours is Cesium's `Model` |
-| `Loaded` the type | reads a file, holds animations and cameras | Filament calls this `FilamentAsset` |
+| `include/scenario/Scenario.h` | 708 lines, 51 top-level types | Filament: one header per type a client reaches for |
+| `Geometry` | parts, surfaces, lamps | Filament's word for VERTEX DATA; ours is Cesium's `Model` |
+| `Loaded` | reads a file, holds animations and cameras | `FilamentAsset` -> `Asset` |
+| `Engine::setView(id)` + `Renderer::render(Extent)` | which view is engine state, how big is the argument | Filament: `Renderer::render(View*)` |
+| `SwapChain::logsTo` | DECLARED at `Outshine.h:68`, defined nowhere | a dead door declaration |
+| `Engine::logsTo` | `static`; the sink is process-wide | a free `outshine::logsTo` beside `LogSink` |
+| a word declared twice | 9 type names, exactly at the claim's ceiling: `Node` `Document` `Attribute` `Value` `Scene` `Host` `Declaration` `Camera` `Sampler` | one meaning per word in `include/` |
 
-The last two are RENAMES that board:2093 could not make, and the reason is written down rather than
-guessed: `Asset` and `Camera` were taken by the schema until it got its namespace, and they are free
-now. That is the whole reason this item exists as a separate one.
+Done and holding: `Camera::Perspective` / `Ortho` / `Exposure` as named records chosen by type
+(glTF's shape, half-extents never edges); `sampleHeight(const LongitudeLatitudeHeight &)`.
 
-## The cut, and why these lines
-
-Splitting 54 types by file is not the goal -- a header per type would put `Falls` and `Makes` in
-files of their own. The cut is by **what a client is doing when it reaches for the name**:
+## The cut, by what a client is doing when it reaches for the name
 
 | header | holds |
 |---|---|
 | `scenario/Document.h` | the root, `Identity`, `Layer`, `Persisted`, `Binding`, `Clock` |
 | `scenario/View.h` | `View`, `Camera`, `Patch` |
-| `scenario/World.h` | `Georeference`, `Weather`, `Relief`, `Structure`, `WorldSettings`, `Provider`, `Setting`, `Generator`, `Compositor` |
+| `scenario/World.h` | `Georeference`, `Weather`, `Relief`, `Structure`, `WorldSettings`, `Provider`, `Setting`, `Generating`, `Compositor` |
 | `scenario/Render.h` | `RenderPlan`, `Lighting`, `Light`, `SurfaceOverride` |
-| `scenario/Body.h` | `Body`, `Drive`, `Slip`, `Contact`, `Prismatic`, `Slot`, `Journey`, `Player`, `PhysicsSettings`, `Standing`, `Placement` |
+| `scenario/Body.h` | `Body`, `Drive`, `Prismatic`, `Slot`, `Standing`, `Placement`, `PhysicsSettings` -- after board:2127 has taken the tyre out |
 | `scenario/Mind.h` | `Mind`, `Kind`, `Instance`, `Region`, `Door`, `Volume` |
 | `scenario/Sound.h` | `Emitter`, `Voice`, `Sound`, `Room`, `Bus`, `Falls`, `Makes` |
 | `scenario/Asset.h` | `Asset`, `AssetAnimation`, `Surface`, `Table`, `Event` |
 
-## What measurement shows this was wrong
+`Renderer::render(Extent)` is the one STRUCTURAL question and the answer is written here so it
+is not re-argued: the view stays engine state. A scenario DECLARES its views by id and the engine
+owns the document; a `View*` a client holds would be a handle into a document it does not own,
+and that is the reason ours differs from Filament rather than an oversight. `render(Extent)`
+keeps the canvas as the argument because the canvas is the client's.
 
-`make doc` counts undocumented public entities and 359 of the 719 are in Scenario.h alone. A header
-that carries half the door's undocumented surface is a header nobody has read end to end, which is
-the same finding from the other side.
+## What will be true
 
-## Done when
+- [ ] Every public type stands in the header above; `Scenario.h` is an umbrella include and
+      nothing else
+- [ ] `Geometry` is `Model`, `Loaded` is `Asset` -- renamed at the declaration, callers named by
+      the compiler
+- [ ] `SwapChain::logsTo` is gone; `outshine::logsTo(LogSink *)` is the one door onto the sink
+- [ ] The nine collisions are decided per word -- which meaning keeps it, what the other becomes
+      -- and the claim's ceiling falls to 0
+- [ ] `make doc` reports 0 undocumented entities in `include/scenario/` (board:2131 holds the
+      rest)
 
-Every public type is in a header named for what a client would look under, `Geometry` is `Model`,
-`Loaded` is `Asset`, and a stranger asked to find the camera declaration finds it without grep.
+## What will show I was wrong
 
-## The SHAPES, measured 2026-09-02 -- and they are a separate half of the same debt
-
-Where the names go is above. This is what a client PASSES, and clang-tidy found it before I did:
-five door verbs take a run of bare doubles that a caller can transpose in silence.
-
-| the verb | now | what the reference does |
-|---|---|---|
-| `Camera::setProjection` | `(fovDeg, nearM, farM)` and `(left, right, bottom, top, near, far)` | Filament leads the second with `Projection::ORTHO`, so the two are told apart by a NAME rather than by counting arguments |
-| `Camera::setExposure` | `(apertureFStops, shutterS, sensitivityIso)` | Filament's is the same three, and Filament would be flagged here too |
-| `Engine::sampleHeight` | `(latitudeDeg, longitudeDeg, heightM&)` | Cesium passes a `Cartographic`; this tree already HAS `LongitudeLatitudeHeight` and does not use it at its own door |
-
-**The ortho overload is worse than a swap risk: it DROPS what it is handed.** It takes the four
-frustum edges and keeps `0.5 * (right - left)` and `0.5 * (top - bottom)`, so a client that declares
-an off-centre frustum gets a centred one and is told nothing. The one caller in this tree
-(`Render::CameraOf`) passes `-XMagM, +XMagM, -YMagM, +YMagM` -- it builds the symmetry the setter
-immediately undoes. Accepting a declaration and doing something else with it is the failure
-CLAUDE.md names by name.
-
-**The answer is glTF's camera, because that is where the numbers come from**: `perspective` is
-`{yfov, znear, zfar}` and `orthographic` is `{xmag, ymag, znear, zfar}` -- half-extents, never
-edges. Two named records, two overloads told apart by TYPE, and the asymmetry that cannot be held
-is refused at the door instead of silently centred.
-
-**DONE 2026-09-02.** `Camera::Perspective`, `Camera::Ortho` and `Camera::Exposure` stand in
-`include/scenario/Scenario.h`, each field with its unit in its name and its Doxygen; the two
-`setProjection` overloads are chosen by type; and `Render::CameraOf` hands over the half-extents it
-already had instead of building four symmetric edges for the setter to undo. `Engine::sampleHeight`
-went the same way in the same round -- `Holds<double> sampleHeight(const LongitudeLatitudeHeight &)`
--- so the third row of the table above is closed too.
-
-## `Renderer::render(Extent)` is the one STRUCTURAL question here, and it is not a rename
-
-Filament's is `Renderer::render(View*)` -- the view carries its own viewport, and rendering names
-what it draws. Ours is `Engine::setView(std::string_view)` followed by `Renderer::render(Extent)`:
-WHICH view is engine state and HOW BIG is the argument, which is the split Filament does not make.
-Whoever takes this states which of the two is right for a tree whose views are DECLARED by id in a
-scenario -- a `View*` a client holds is a handle into a document it does not own, and that may be
-the reason ours differs rather than an oversight. An item that cannot say which is not understood
-yet.
-
-
-## A word that means two things: 14 types and 2 constants, measured 2026-09-02
-
-`harness/claims/EveryTypeNameIsDeclaredOnce` declares a ceiling of 9 and 1; the tree stands at 14
-and 2, so this half is a REGRESSION and the ceiling was raised by work that did not look.
-
-| the word | where it is declared |
-|---|---|
-| `Node` | `ui/Markup.h` · `import/Types.h` · `generators/draw/TreeSkeleton.h` · `base/format/Json.h` · `base/format/Script.h` · `base/format/Xml.h` · `base/spatial/Capacity.h` · `base/spatial/Wayfinding.h` |
-| `Document` | `import/Variant.h` · `import/Document.h` · `import/Pose.h` · `import/Subject.h` · `scenario/Scenario.h` |
-| `Attribute` | `ui/Markup.h` · `import/Types.h` · `import/Emit.cpp` · `base/format/Xml.h` |
-| `Value` | `ui/Style.h` · `world/ground/OsmField.h` · `base/format/Script.h` |
-| `Request` | `world/data/Request.h` · `generators/draw/TreeGrower.h` · `generate/Generate.h` |
-| `Scene` | `scene/Scene.cpp` · `import/Types.h` · `scene/Scene.h` |
-| `Body` | `generators/base/ContactMaterial.h` · `generators/base/BodyId.h` · `scenario/Scenario.h` |
-| `Attitude` | `actor/mind/Fly.h` · `Earth.h` |
-| `Camera` | `import/Viewport.h` · `scenario/Scenario.h` |
-| `Declaration` | `ui/Style.h` · `engine/Live.h` |
-| `Generator` | `generate/Generate.h` · `scenario/Scenario.h` |
-| `Host` | `base/format/Script.h` · `scenario/Event.h` |
-| `Instance` | `generators/draw/ClusterId.h` · `scenario/Scenario.h` |
-| `Sampler` | `import/Types.h` · `scene/Texture.h` |
-
-**Five of them were added by the door's own renames** -- `Document`, `Request`, `Attitude`,
-`Camera`, `Generator` -- and that is the finding: a rename that makes ONE header read better and
-does not look at the tree buys its clarity with somebody else's. The repair is not a regex; it is
-per-word, and each one has to say which meaning keeps the word and what the other becomes. `Node` is
-the loudest at eight files, and a `Node` in a JSON reader and a `Node` in a road graph share nothing
-but four letters.
-
-## `Engine::logsTo` looks per-engine and is process-wide
-
-Found 2026-09-02 by `readability-convert-member-functions-to-static`, which is right that the method
-never touches `this`: `Engine::logsTo(sink)` calls `Log::SetSink(sink)`, one pointer for the whole
-process. `SwapChain::logsTo` is a second door onto the same one.
-
-Both references keep logging global and say so -- Unreal's `UE_LOG` and Filament's `utils::slog` are
-free, and neither hangs a sink off an engine handle. So the global is not the finding; the METHOD
-is, because a client holding two engines would watch the second silently take the first's sink. It
-is `static` for now, which at least stops the signature from lying, and the repair is a free
-`outshine::logsTo` beside `LogSink` -- or a sink per engine, if a client ever needs two.
+A client in the tree -- `src/client/` -- that gets LONGER after the cut. The door is measured by
+the client's line count and a split that costs the client includes is the wrong split.

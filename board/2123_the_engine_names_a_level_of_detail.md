@@ -1,75 +1,62 @@
-# The engine names a level of detail
-
+Type: debt
 State: open
+Area: generators, world, render
+Tags: architecture, performance
+Depends: 2122
+
+# Every drawable carries a level of detail, chosen by ONE rule
+
+**Benchmark** -- Unreal: `LODIndex` per mesh chosen by `ScreenSize`, HLOD clusters baked into
+proxy meshes per cell, chosen in the frame. RAGE: LOD models per entity plus a coarser SLOD per
+block, baked offline, chosen in the frame. **Both agree** that it is a property in the TYPE
+SYSTEM every drawable carries, chosen by projected size, and that the proxy is built when the
+geometry is built. Here "offline" is "during preload" -- the substitution board:2110 made for
+every generator.
+
+## Where it stands, measured 2026-09-04
 
 ```
-grep -rIn '\bLod\b|\bLOD\b' src/ include/   ->   0
+  the type                 Generators::Detail { Fine, Shell, Massed, Skyline }    include/generate/Generate.h:60
+  who obeys it             Forest (lattice spacing), BuildingMesh (rung)
+  who ignores it           roads, water, terrain generators
+  the ground               a cluster DAG per tile, selected by parent error in the shader -- a
+                           SECOND mechanism, board:2122's
+  the rule                 buildings: Unseen(errorM, focalPx, awayM) -- a screen-error rule, at INGEST
+                           DetailAtRung (Generate.h:79)              -- the rung->level rule, ZERO callers
+  GrowsOver                always Detail::Fine (Asking.cpp:115)
+  what is baked            coarse OR fine per building, decided at ingest -- not both
 ```
 
-**A game engine with no level of detail in its vocabulary.** Measured 2026-09-04, and it explains
-the memory and the frame times at once rather than as two problems.
+The concept exists and has two rules, one of them dead. The buildings' geometry per building is
+already minimal (14.2 triangles); the COUNT is the whole problem -- 575 805 at Shibuya -- and the
+answer is the decision not to mesh most of them at full standing, taken from ONE rule.
 
-## What is actually there, and why it is not LOD
+## The solution
 
-- **the ground has it**: tiles carry zoom levels, and a cascade of rungs
-- **the buildings have a hint of it**: `BuildingField::Lump` merges neighbours into a block, which
-  is RAGE's SLOD idea by another name
-- **nothing else has any**, and the buildings' version barely fires:
+One rule, the one both references use: projected error in PIXELS. `Unseen(errorM, focalPx,
+awayM)` is that rule and it stays; `DetailAtRung` goes, because a rung is a distance in
+disguise and the screen is the yardstick. The ground's cluster DAG uses the same quantity --
+parent error over distance -- so the two mechanisms become one number read twice.
 
-```
-  Shibuya   total=252338   lumped=3832  blocks=3612    1.5%
-            total=280057   lumped=473   blocks=443     0.2%
-  awayKm=5.62 -- every building within 5.6 km is meshed individually
-```
-
-## The measurement that killed the obvious explanation
-
-I assumed 618 MB of building geometry meant buildings were too detailed. They are not:
-
-```
-  575805 buildings, 8154327 triangles  ->  14.2 triangles a building
-```
-
-A cuboid is 12. **The geometry per building is already minimal; the COUNT is the whole problem.**
-575805 buildings meshed at once, against OldTown's 37057. No amount of simplifying one building
-helps -- what is missing is the decision not to mesh most of them at full standing.
-
-## What the references do, and they agree
-
-| | Unreal | RAGE |
-|---|---|---|
-| per mesh | `LODIndex` chosen by `ScreenSize` | LOD models per entity |
-| per area | HLOD clusters baked into proxy meshes | SLOD per block |
-| when | baked offline, chosen in the frame | baked offline, chosen in the frame |
-
-Both name it in the type system: it is not a heuristic inside one field's ingest, it is a property
-every drawable carries. **That is what "not immediately visible in the engine" means here** -- the
-concept has no name, so it cannot be asked for, measured per subject, or declared by a scenario.
+With board:2122 both levels are BAKED per tile and the frame CHOOSES: a building's fine mesh
+and its block's massed shell exist together, and the per-frame choice is a threshold on the
+same error. Roads and water carry the rung the same way: a corridor at `Massed` is its
+centreline swept at one lane, water at `Massed` is its outline's convex hull.
 
 ## What will be true
 
-- a level of detail is a NAMED thing the engine holds, and every drawable has one
-- the tile cascade the ground already uses is what the OSM geometry hangs from -- one rung coarser
-  ground means one step coarser buildings, because they are the same distance away
-- the proxy is built WHEN the geometry is built, never in the frame (board:2122)
-- a distant building is coarser, never absent
+- [ ] `DetailAtRung` is gone; `Unseen` is the one rule, and the ground's cluster selection
+      reads the same error-in-pixels threshold
+- [ ] Every generator's `make` honours `Request::Coarseness`: roads, water, terrain too, each
+      with a picture at `Massed` looked at
+- [ ] Fine and proxy are baked together (board:2122) and the frame chooses; a case moves the
+      camera away and the triangle count falls in steps while the picture's horizon does not
+      flicker
+- [ ] Shibuya draws under the 512 MB ceiling
+- [ ] Negative control: force `Fine` everywhere and the ceiling goes RED at Shibuya
 
 ## What will show I was wrong
 
-`world: and the raised geometry` on Shibuya under the 512 MB ceiling for the whole world, and
-`sim p99` under 16.7 ms on all eight places. Today: 618.2 MB and 775-2217 ms.
-
-
-## Looked at, 2026-09-04
-
-`kMassedAtPx = 8` moved 1.07% of OldTown's pixels, 9477 of them by more than 1 of 255, so the rule
-applies: LOOK before believing the number. Both images read side by side.
-
-**The foreground is identical** -- the old town's tiled roofs, the church tower, every facade
-unchanged. **The change sits on the HORIZON**, which is where it belongs: the far right skyline
-carried a scatter of individual bright points before, and now carries fewer, larger, merged
-shapes. **Nothing vanished** -- the mass on the horizon is still there, standing as blocks.
-
-That is the distinction the goal draws and the one that decides whether this is LOD or damage:
-`Lump` MERGES rather than drops, so a skyline cannot flicker as the camera moves. Measured 1.07%,
-and every one of those pixels is at the far distance.
+A `Massed` picture whose foreground changed. Measured once: `kMassedAtPx = 8` moved 1.07 % of
+OldTown's pixels, all on the horizon, foreground identical -- that is the shape a correct rule
+produces, and a rule that moves the foreground is a distance rule wearing a pixel's name.

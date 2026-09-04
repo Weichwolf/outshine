@@ -1,114 +1,75 @@
-# A distant building is coarser, not absent
-
+Type: bug
 State: open
+Area: world, engine, render, generators
+Tags: measured, memory, performance, determinism, owner
+Supersedes: 2112
 
-Shibuya is the one place that does not preload, and the reason has never been broken down before.
-Measured 2026-09-04 with the ceiling temporarily lifted, then restored:
+# A tile is baked by a WORKER into its own scratch and handed over WHOLE
+
+**Benchmark** -- RAGE: a streaming thread builds one map section into a buffer, swaps the
+completed buffer in, and reuses the buffer; the render thread only ever sees finished sections.
+Unreal: a cook per level chunk, the resource created on the RHI thread, the render thread sees
+finished resources; `FMemStack` with `FScopedMemMark` hands a worker scratch that is RESET, never
+freed. **Both agree** on three things at once: the peak is one cell, the handover is a snapshot
+by construction, and the frame only places what is already built.
+
+## Where it stands, measured 2026-09-04
 
 ```
-  world: the bytes its fields hold        856.7 MB
-  world: the buildings                    668.9 MB    <- 78% of it
-    of those, the footprints                50.7 MB
-    and the RAISED GEOMETRY                618.2 MB    <- the meshed buildings
-  world: of that, the land classes         59.6 MB
-  world: the frame copies the renderer reads  735.2 MB <- a SECOND copy
-  world: the streets                        3.6 MB
-  world: the water                          0.02 MB
+  Shibuya   856.7 MB held with the ceiling lifted, 668.9 MB of it buildings (618 raised geometry)
+  CentralPark   fields 281 + frame copies 168 = 449 MB of a 933 MB PEAK
+  the stored vertex                     20 bytes, asserted (StoredVertex.h)         DONE
+  a distant building is coarser         RaiseLump has a caller (BuildingField.cpp:513) DONE for Massed
+  the ground tile                       carries a cluster DAG, selected in the frame  DONE (18fd6806)
 ```
 
-For comparison, OldTown holds 26.8 MB of buildings and 16.2 MB of frame copies. Shibuya is
-twenty-five times that, against a 512 MB ceiling.
+What holds the peak is the BAKE'S GRAIN, not the geometry's size: `BuildingField::Built_` is ONE
+`Raised` for every building of every tile; nothing empties it; a `std::vector` doubling past a
+power of two holds one and a half worlds at that instant. After the handover only the INDICES
+are read off it -- positions come from the frame copies (`Surrounds::WallPlaces/RoofPlaces`),
+a SECOND copy the renderer reads and the sim appends to. Buildings are meshed synchronously in
+`GroundStack::Restand` -> `Footprints_.Build` (`GroundStack.cpp:128`) from the frame path.
 
-**SO IT IS NOT A LEAK AND NOT AN OVERHEAD: it is the geometry itself.** Every building in range is
-meshed at full detail, and the frame copy doubles it. 1.4 GB standing for one place.
+And the meshers allocate per call: `BuildingMesh` nineteen local vectors, `RoadMesh` eight, once
+per building -- 24 000 allocations per region at OldTown. Not the frame's cost (0.1 %); the
+invariant, and what makes a mesher unsafe from two workers.
 
-## The answer is the one the goal already names
+## The solution -- one change, not three
 
-HLOD, baked as Unreal and RAGE bake it: **when a building is meshed, BOTH the fine geometry and a
-proxy are produced, and frame time only CHOOSES between them.** A distant building becomes
-COARSER, never absent -- deleting it is what makes a skyline flicker, and both references refuse
-that for the same reason.
+The unit is the VECTOR tile, which the bake is already grained to (`Build()` works on
+`next.Tile`). What changes is who holds the buffer:
 
-What that changes here: `world: and the raised geometry` stops holding one mesh per building at
-one detail. It holds the fine mesh for what is near and a proxy for what is far, and the proxy for
-a city block is one box-like shell rather than thirty facades.
+- a WORKER bakes ONE tile to completion into a `Scratch` it owns -- `Mesh(plan, scratch, into)`,
+  the shape `SubjectProxy::SubjectScratch` and `OccupancySink::Storage` already have; the
+  scratch is RESET between tiles, never freed, because remains would make the result depend on
+  call order
+- the finished piece -- a `StoredVertex` run and its indices, per tile -- is HANDED OVER whole
+  through the same queue `TilePool` already hands terrain tiles through
+- the renderer's side is an ARENA of tile-sized pieces, placed and released by tile; the
+  `Raised` accumulator and the four frame-copy vectors stop existing rather than being freed
+  sooner
+- the fine mesh and its proxy are produced in the SAME bake (`Fine` and `Massed` both), so the
+  frame CHOOSES and a distant building is coarser, never absent (board:2123)
 
-## What Unreal does, what RAGE does
+Three things fall out: the PEAK is one tile's working set; the HANDOVER is a snapshot by
+construction; the REBUILD leaves the frame path because the frame only places finished pieces
+(board:2124). Determinism: pieces are placed in the watermark's DECLARED order whatever order the
+workers finished them in.
 
-Unreal bakes HLOD clusters offline into proxy meshes per cell, chosen by screen size at run time.
-RAGE bakes LOD models per entity plus an even coarser SLOD per block. **They agree on the shape and
-they agree on the timing** -- the proxy is built when the geometry is built, never in the frame.
-Here the world arrives over the wire, so "offline" becomes "during preload", which is the same
-substitution board:2110 already makes for generators.
+## What will be true
 
-## What will show I was wrong
+- [ ] `BuildingField::Built_` is gone; the CPU holds footprints and per-tile pieces in flight
+- [ ] The frame copies are gone; the renderer reads an arena the sim never appends to
+- [ ] Shibuya preloads under the 512 MB ceiling and draws; `world: the buildings` at OldTown
+      under 5 MB
+- [ ] The meshers allocate nothing per call, counted with the tagged heap before and after
+- [ ] Pieces land in declared order: a case shuffles worker completion and the picture holds
+- [ ] Negative control: append one tile to a world-sized vector again and the peak ceiling goes
+      RED
 
-`world: and the raised geometry` on Shibuya, against the 512 MB ceiling for the whole world. Today
-618.2 MB for buildings alone. And the picture: a skyline that loses a building between two frames
-means the proxy is missing rather than coarse, which is the failure mode this item exists to
-prevent.
+## Ruled out, measured
 
-## Measured 2026-09-04: the peak is the BAKE's grain, not the geometry's size
-
-The vertex went from 32 bytes to 20 -- the format every reference stores -- and the buildings fell
-from 281 MB to 198. Shibuya stayed red at 541530534 bytes against 536870912. So the ceiling is not
-about what the world weighs.
-
-`BuildingField::Built_` is ONE `Raised` for every building of every tile. Nothing empties it;
-`AddedFirst_` only remembers where the current tile's vertices begin. A std::vector doubles as it
-grows, so at the moment it crosses a power of two the process holds one and a half times the whole
-world's building geometry, and the peak is that instant rather than the resting size.
-
-Measured at CentralPark: fields hold 281 MB, frame copies 168 MB -- 449 MB of a 933 MB peak. The
-other 484 MB never appears in any held total because it is the bake's own working set. Allocation
-that flowed through the tagged regions in one run: tile-worker 1.98 GB, ground-yield 967 MB,
-world-ground 857 MB.
-
-WHAT THE REFERENCES DO: bake per cell and hand the result on. RAGE builds a map section, ships it,
-and reuses the buffer; Unreal cooks per level chunk. The peak is one cell, not the world, and the
-resting size is what the GPU holds. Here the bake is world-grained on the CPU side and the ceiling
-is checked against a total that was never meant to exist all at once.
-
-So this is the next block, and it is one change rather than three: bake a tile, hand it over, reuse
-the buffer. Peak, preload and the moving camera all sit on it.
-
-## And what holds the buffer open, read rather than assumed
-
-After `CarryIntoTheFrame` runs, `Models()` reads only `WallRun` and `RoofRun` off the built
-geometry -- the INDICES. Positions and normals it takes from the frame copies, which are the arrays
-the renderer is handed. So the 198 MB of vertices on the CPU side are not being read for anything
-after the handover; they are held so the NEXT tile can be appended and carried incrementally
-(`Already = World.WallCarried` skips what has already crossed).
-
-That is the whole knot, and it names the fix: the mesher should write into the frame copy and there
-should be one buffer, not a soup that is later transcribed into one. A vector cannot release its
-front, so no amount of clearing after the fact reaches this -- the second buffer has to stop
-existing rather than be freed sooner.
-
-THE GRAIN IS ALREADY RIGHT: `Build()` works on `next.Tile` from `field.Tiles()`, which is a VECTOR
-tile, not a terrain tile, and since the rung stopped bounding the detail decision the two ladders
-are independent as they should be. What is world-grained is only the buffer.
-
-## The threads decide the shape, and they rule out the obvious fix
-
-"Let the mesher write into the frame copy" is wrong the moment more than one thread exists: that
-copy is what the RENDERER reads, and a worker writing into it is exactly the defect CLAUDE.md names
--- a subsystem reading another's live state instead of its snapshot.
-
-What the references do instead, and it settles the buffer question as a side effect:
-
-  - a WORKER bakes ONE tile to completion into its own small buffer
-  - the finished piece is HANDED OVER whole -- RAGE swaps a completed streaming buffer in, Unreal
-    creates the resource on the RHI thread and the render thread only ever sees finished ones
-  - the renderer's side is an ARENA that finished pieces are placed into, not a vector the sim
-    appends to
-
-Three things fall out together, which is why this is one change and not three:
-
-  - the PEAK is one tile's working set, because that is all a worker holds at once
-  - the HANDOVER is a snapshot by construction: a piece is either finished and visible or not there
-  - the REBUILD leaves the frame path, because the frame only places pieces that are already built
-
-The unit of all three is the VECTOR tile, which is what the bake is already grained to. What has to
-change is that `Raised` stops being one world-sized accumulator and becomes a worker's scratch,
-and that the renderer's arrays stop being appended to by whoever is meshing.
+- "let the mesher write into the frame copy": wrong the moment two threads exist -- a worker
+  writing into what the renderer reads is the live-state defect by name
+- 32 -> 20 bytes per vertex: right, and Shibuya stayed red, because the peak is the grain
+- a distant building DELETED: a skyline that flickers; both references refuse it

@@ -2,62 +2,63 @@ Type: debt
 State: open
 Area: base, generators
 Tags: architecture, owner
+Supersedes: 2116
 
-# The geometry a generator needs is a LIBRARY, and no generator writes its own
+# The geometry a generator needs is a LIBRARY, and each primitive stands once
 
-**Benchmark** -- Unreal: `FGeomTools2D`, `FPoly`, `FDynamicMesh3` and `GeometryProcessing` are one
-library every tool and every plugin uses; a landscape spline and a procedural-mesh actor call the
+**Benchmark** -- Unreal: `FGeomTools2D`, `FPoly`, `FDynamicMesh3` and `GeometryProcessing` are
+one library every tool and plugin uses; a landscape spline and a procedural-mesh actor call the
 same triangulation. RAGE: the geometry primitives sit beside the maths in `rage` and every module
-takes them from there. **Neither lets a subsystem carry its own polygon code**, for the reason this
-tree can already measure: two copies drift, and only one of them gets the bug fixed.
+takes them from there. **Neither lets a subsystem carry its own polygon code**, because two copies
+drift and only one gets the bug fixed.
 
-## The duplication is measured, not suspected
+## Where it stands, measured 2026-09-04
 
-| primitive | where it stands today |
-|---|---|
-| segment intersection | `base/spatial/Wayfinding.cpp`, `compositor/GroundYield.cpp` |
-| ring area, point in ring | `world/ground/BuildingField.cpp`, `world/ground/WaterField.cpp`, `generators/draw/BuildingShape.cpp` |
-| triangulation | `import/Subject.cpp`, `generators/draw/RoofSurface.cpp` |
-| half-plane side | `generators/draw/BuildingShape.cpp` |
-| mesh soundness | was TWICE: `Laying.cpp`'s census and `BuildingMesh`'s `Judged`, and the second was reached by nothing |
+| primitive | copies | where |
+|---|---|---|
+| segment intersection | 2 | `base/spatial/Wayfinding.cpp:584`, `generators/terrain/GroundYield.cpp:453` (different epsilons) |
+| ring area | 4 | `world/ground/BuildingField.cpp:101`, `generators/building/BuildingShape.cpp:177`, `world/ground/WaterField.cpp:213`, `import/Tangents.cpp:252` |
+| point in ring | 3 | `BuildingField.cpp:218`, `generators/building/RoofSurface.cpp:84`, `generators/base/FeatureField.cpp:82` |
+| ear-clip triangulation | 2 | `RoofSurface.cpp:48`, `WaterField.cpp:213` |
+| red-green split | 2 | `base/spatial/Refine.h::Divide`, `GroundYield.cpp:354 LayCutFace` -- byte for byte, with `kNoVertex` redeclared |
+| undirected edge key | 2 | `Refine.h::EdgeKey`, `GroundYield.cpp:53 EdgeKey(EastSouth, EastSouth)` -- a different meaning under the same name |
+| a millisecond clock | 3 | `ClassStructure.cpp:27`, `ClassField.cpp:32`, `ClassBuilder.cpp:36` |
+| half-plane side | 1 | `BuildingShape.cpp:72` |
 
-The census is the proof of the rule. It was written once inside an engine file where no generator
-could see it, so a second one grew in `BuildingMesh` -- and that second one was dead, so nobody
-ever knew whether it agreed with the first.
+And the word `Refine` names five things: `Refine.h` (a file named for a caller), `GroundYield::Refine`
+(the adaptive loop), `RoofSurface::Refine` (dome subdivision), `Laying::RefineChords` (stations
+along a curve), `BuildingMesh::Refined` (ring densification). A sweep over the word is
+CLAUDE.md's four-meanings trap; the rename is per type with the compiler as the oracle.
 
-## What the library holds, and the owner's rule
+Already out and standing once: `Refine.h::Divide` (the engine's `DividesAtClassEdges` uses it),
+`Census.h`, `Drape.h`, `geo/PlaceKey.h`, `TriangleBvh`, `ClusterCook`.
 
-"outshine braucht wie math/ eigene geometrie bearbeitungs und modelierungs klassen, die von
-generatoren verwendet werden müssen. nicht jeder generator darf das rad neu erfinden." The OSM
-generator uses no exotic algorithm; it uses the ordinary ones badly placed.
+## The solution
 
-| | verbs |
-|---|---|
-| **polygon** | signed area, orientation, point inside, convexity, offset, clip by half-plane, simplify, triangulate |
-| **polyline** | resample at a step, arc and chord fit, offset to a ribbon, segment intersection, trim at a meeting |
-| **mesh** | refine (`Divide`), weld, census, recompute normals, stitch a seam, PRESS to a profile |
-| **field** | drape: the height of a soup at a place; the spatial index behind it |
+`src/base/geometry/` -- beside `base/math/` -- with the verbs and their vendor oracles:
 
-Four of these already stand where they belong, moved this round: `base/spatial/Refine.h`,
-`base/spatial/Census.h`, `base/spatial/Drape.h`, `base/geo/PlaceKey.h`. The rest is the work.
+| | verbs | oracle |
+|---|---|---|
+| **polygon** | signed area, orientation, point inside, convexity, offset, clip by half-plane, simplify, triangulate | area against a computed one; triangulation against a known-good result |
+| **polyline** | resample at a step, arc and chord fit (`base/curve/` already), offset to a ribbon, segment intersection, trim at a meeting | intersection against exact rational arithmetic |
+| **mesh** | `Divide` (the red-green split), weld, `CensusOver`, recompute normals, PRESS to a profile | a closed mesh's Euler characteristic |
+| **field** | `Drape`, `TriangleBvh` | height at a point against a direct sample |
 
-**Pressing is the one that matters most** and it is half-written: `YieldGround` presses the ring to
-a set of `Yields`, and the other half is the levelling loops still inside `Paves`. A rail, a runway,
-a canal and a building pad all want that verb, and today only a road can say it.
+Each primitive lands on its own with the nine places quoted before and after, and the digests are
+the proof the copies agreed. `LayCutFace` goes first because it is a byte-for-byte copy; the
+four ring areas second. The header is named for what it holds: `Refine.h` becomes `Divide.h`.
 
 ## What will be true
 
-- [ ] Each primitive above stands ONCE, under `src/base/`, reachable by every generator
-- [ ] No `src/generators/**` or `src/world/**` file carries its own copy of one, and a case walks
-      the tree to say so the way `TheEngineNamesNoSubject` walks it for subject nouns
-- [ ] Each carries a proof with a VENDOR oracle where one exists -- a triangulation against a
-      known-good result, a polygon area against a computed one -- rather than agreement with
+- [ ] Each primitive above stands ONCE under `src/base/`, reachable by every generator, and the
+      generators' door offers them
+- [ ] A claim walks `src/generators/**` and `src/world/**` for a second copy the way
+      `TheEngineNamesNoSubject` walks for nouns, and reads 0
+- [ ] `grep -rn '\bRefine' src include` names one thing
+- [ ] Each primitive carries a proof with a VENDOR oracle where one exists, never agreement with
       ourselves
-- [ ] The generators' door offers them, so a client writing its own generator reaches the same
-      library rather than writing a fifth ring-area
 
-## Why this is not a sweep
+## What will show I was wrong
 
-A shared primitive that is subtly different from the copy it replaces moves every picture. Each
-one lands on its own, with the nine places quoted before and after, and the digests are the proof
-that the two agreed.
+A shared primitive that moves a picture on landing. Then the two copies disagreed, and which one
+was right is looked at before either is kept.

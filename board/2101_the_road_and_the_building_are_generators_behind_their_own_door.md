@@ -1,104 +1,71 @@
 Type: debt
 State: open
-Area: engine, generators, compositor
+Area: engine, generators
 Tags: architecture, owner
+Depends: 2115, 2121
 
-# The road and the building are GENERATORS, and the ground is asked rather than handed over
+# The road and the building are GENERATORS, and the engine keeps only the sequence
 
 **Benchmark** -- Unreal: a `ULandscapeSplineComponent` never edits the landscape's vertices; it
-writes a deformation request into the landscape's heightmap layer, and foliage asks
-`GetHeightAtLocation`. `bAllowCPUAccess` is OFF by default, so the render mesh is not addressable
-from the CPU at all. RAGE: terrain is a heightfield the streaming owns, props query it, and roads
-are baked into it at COOK time -- no runtime hands vertices around. **Both agree on the shape**: a
-thing that stands on the ground ASKS the ground and HANDS BACK a request; it never receives the
-mesh.
+writes a deformation request into the heightmap layer, and foliage asks `GetHeightAtLocation`.
+RAGE: terrain is a heightfield the streaming owns, props query it, roads are baked into it at
+cook time. **Both agree**: a thing that stands on the ground ASKS the ground and HANDS BACK a
+request; it never receives the mesh, and the engine never derives the thing.
 
 ## Where it stands, measured 2026-09-04
 
-  subject nouns in src/engine and include/   147, was 157
+```
+  src/engine/Laying.cpp                    2727 lines
+  subject nouns in src/engine + include/    153  (Road 49, Street 44, Bridge 31, Seat 10,
+                                                  Tree 5, Wheel 4, Building 4, Tunnel 4)
+  of those in Laying.cpp                     95, EngineHeld.h 28
+  TheEngineNamesNoSubject                    RED
+```
 
-board:2110 moved the generators and built the three seams the engine talks through --
-`StructureMesher`, `RoadMesher`, `GroundMesher` -- so the engine no longer NAMES a concrete
-generator and no longer holds one. What it still names is the VOCABULARY: `Laying.cpp` knows
-`lane`, `RoadStation`, `RoadGate`, `Bridge` and `Tunnel`, because the types moved to
-`world/ground/` where the engine may see them.
+The road derivation is all `Engine::State`: `DesignLane`, `PaveLane`, `Bridges`, `Shortens`,
+`LevelsWhereWaysMeet`, `Crosses`, `RaiseDeckOver`, `EasesRamps`, `Paves` -- and `Paved`
+(`EngineHeld.h:454`) is sixty fields, most of them tallies. Only the SWEEP sits behind the seam
+(`RoadMesher` -> `generators/road/RoadMesh.cpp`). The seam types `RoadStation`, `RoadGate`,
+`Bridge`, `Tunnel` live in `world/ground/` where the engine may see them.
 
-That is the honest half-way point of this item: the engine stopped knowing WHO meshes a road and
-still knows WHAT a road is. The seam types are the remaining 147 -- moving them behind a subject-
-free vocabulary (a swept ribbon has stations and gates; it does not have to be a ROAD) is what is
-left, and it is a rename with a measurement rather than a restructuring.
+The generic helpers are OUT and reachable: `Refine.h::Divide`, `Census.h`, `Drape.h` (a BVH
+now), `geo/PlaceKey.h`, `TangentFrame::CarryIntoTheFrame`. The interface is right too: `Paves`
+writes no ground vertex, it hands `Yields` to the press.
 
-## What the tree has, and where it is wrong
+## The solution
 
-`harness/claims/TheEngineNamesNoSubject` is RED and names the file: the engine may not know a
-street, a bridge or a house. Its vocabulary is body, mesh, material, instance, tile. Today
-`src/engine/Laying.cpp` -- 3 000 lines, once two thirds of `Picturing.cpp` -- knows `lane`,
-`Bridge`, `CoverRow`, `Frontage` and `RoofKind`. That derivation is a GENERATOR's work and it sits
-in the motor.
+`Laying.cpp` becomes `generators/road/RoadDerivation.cpp` behind a fourth seam, and the seam
+speaks a subject-free vocabulary:
 
-**The good news is that the interface is already right and only the LOCATION is wrong.** `Paves`
-writes no ground vertex. It builds `corridor` as a `std::vector<Yields>` -- outlines with a target
-profile -- and `Grounds` hands those to `YieldGround` in the compositor, which presses the ring.
-That is exactly Unreal's deformation request. What is missing is the DOOR: the engine reaches into
-the derivation sideways instead of the derivation standing behind
-`include/generate/Generate.h` where a client's own generator stands.
+| the engine says | the generator hears |
+|---|---|
+| `Corridor` -- a swept ribbon with stations and gates | a road, a rail, a canal, a runway |
+| `Deck` -- a corridor raised above a crossing | a bridge |
+| `Bore` -- a corridor below the ground | a tunnel |
+| `Yields` -- an outline and the profile it wants pressed | the deformation request, unchanged |
 
-## What a generator is given, and it is never the mesh
+The engine keeps `Grounds` as the SEQUENCE -- ask the ground, collect the yields, press, compose
+-- and nothing else. The tallies in `Paved` become the generator's `Notes()` the frame pulls
+(board:2108), so the ledger lines move without the engine knowing their names.
 
-Three capabilities, and a generator that needs none of them uses none -- there is no optional
-parameter to get wrong.
-
-| | what | where it already is |
-|---|---|---|
-| **ask** | `GroundQuery`: the height, the slope and the land class at a place | `sampleHeight` stands in the door |
-| **press** | it hands back `Yields` -- an outline and the profile it wants -- and never touches a vertex | `YieldGround` in the compositor |
-| **build** | it emits its OWN mesh | the generators already do |
-
-**Handing a generator the ground mesh would cost three things**: every generator would have to know
-the mesh's layout and LOD rules; two generators pressing the same triangles would give a result
-that depends on the ORDER they ran in, which the fourth invariant forbids by name; and the mesh's
-ownership would leave the compositor, which makes board 2100's memory worse rather than better.
-
-## And the generic half is generic, so it leaves too
-
-Six helpers in `Laying.cpp` are not about ground or roads at all. They are mesh tools any generator
-could want, and while they sit in one engine file nobody else can reach them.
-
-| helper | what it actually is | where it belongs |
-|---|---|---|
-| `EdgeKey(a, b)` | an undirected edge key | `src/base/spatial/` |
-| `Divided(face, cut, finer)` | RED-GREEN triangle subdivision | `src/base/spatial/` |
-| `CensusOverEveryTriangle` | a mesh soundness audit: a hole, a non-manifold edge, a reversed face | `src/base/spatial/`, returning a RECORD rather than publishing to the engine's ledger |
-| `CarryIntoTheFrame` | ECEF corners into a tangent frame | beside `TangentFrame` |
-| `Drape` / `DrapeCellM` | the height of a triangle soup at an east/south | `src/base/spatial/` |
-| `WayEndKey(at)` | a quantised place key for matching nodes | `src/base/geo/` |
-
-`CensusOverEveryTriangle` is the sharpest of these: it answers "is this a closed surface" and it
-was written twice in this tree -- the second copy was `BuildingMesh`'s `Judged`, deleted this round
-because nothing reached it. Two copies of a mesh audit is what happens when the first one is
-locked inside an engine file.
-
-**And pressing a mesh to a profile is the seventh.** Half of it is `YieldGround` already; the other
-half is the levelling loops inside `Paves`, which iterate a corridor flat. A rail, a runway, a canal
-and a building pad all want the same verb.
+The order follows the lattice: with a projected grid and a CDT (board:2115) the corridor's
+levelling and the bridge's ramp easing are a grade along a centreline (board:2121) and not a
+relaxation over a mesh, so the derivation that moves is the SMALLER one.
 
 ## What will be true
 
-- [ ] `harness/claims/TheEngineNamesNoSubject` is GREEN: no `lane`, `Bridge`, `RoofKind` or
-      `Frontage` anywhere under `src/engine/`
-- [ ] The road derivation and the building derivation are generators, registered beside the tree
-      grower, reached only through `include/generate/Generate.h`
-- [ ] The generic mesh tools stand where any generator can use them, each with a case of its own
-- [ ] No generator receives the ground mesh. A case tries to reach it through the door and cannot
-- [ ] The pressers are applied in a DECLARED order, and a case that shuffles two generators'
-      pressers renders the same bytes
-- [ ] `src/engine/Laying.cpp` is gone the way `Picturing.cpp` went, and what is left of it in the
-      engine is the SEQUENCE: ask, press, compose
+- [ ] `TheEngineNamesNoSubject` is GREEN: 0 subject nouns under `src/engine/` and `include/`
+- [ ] The road derivation and the building derivation are generators reached only through
+      `include/generate/Generate.h`, registered beside the tree grower
+- [ ] `src/engine/Laying.cpp` is gone; what is left of it in the engine is `Grounds` as the
+      sequence, under 200 lines
+- [ ] No generator receives the ground mesh: a case reaches for it through the door and cannot
+- [ ] The pressers are applied in a DECLARED order (`YieldGround` sorts by `YieldM` only; ties
+      fall to input order today), and a case that shuffles two generators' yields renders the
+      same bytes
+- [ ] The generic helpers each carry a case with a vendor oracle where one exists (board:2103)
 
-## The order
+## What will show I was wrong
 
-1. the generic mesh tools out first -- they are the layer the rest stands on and they move without
-   touching behaviour
-2. then the derivation behind the generators' door, one subject at a time: the road, then the
-   building
-3. the engine keeps `Grounds` as the caller and nothing else
+`make shots` after the move, all nine digests: identical means the cut was a move; a moved one
+names the line that changed behaviour and the move stops until it is understood.

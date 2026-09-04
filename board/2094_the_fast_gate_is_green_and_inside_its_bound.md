@@ -3,83 +3,47 @@ State: open
 Area: test, gate
 Tags: measured, gate
 
-# The fast gate is GREEN again, and it runs inside the bound it declares
+# `make test` is green, and it runs inside the bound it declares
 
-**Benchmark** — Unreal's automation gates on a green run and treats a slow test as a defect the same
-way it treats a failing one; RAGE's build farm does the same. Both are unambiguous: a gate that is
-red at HEAD is not a gate, it is a report nobody reads, and the day something real breaks it looks
-exactly like today.
+**Benchmark** -- Unreal's automation gates on a green run and treats a slow test as a defect the
+same way it treats a failing one; RAGE's build farm does the same. **Both agree**: a gate that is
+red at HEAD is a report nobody reads, and the day something real breaks it looks like today.
 
-## Measured 2026-09-01, at HEAD with board:2093's work STASHED
+## Where it stands, measured 2026-09-04, the claims arm of `make lint`
 
-`make test`: `2558 tests: 2457 PASS 100 FAIL 0 TIMEOUT 0 SIGNAL 0 BUILD 0 SKIP 1 UNPREPARED`, then
-`101 case(s) are RED`. Of those, `harness/claims` contributes 13, and the identical thirteen appear
-with the work applied and with it stashed -- so they PREDATE that branch and none of them is its
-doing.
+Ten claims are red (twenty arms, plain and `~sanitised`). Each has a cause now and none has a
+repair. The right-hand column is the work:
 
-| case | what it says |
-|---|---|
-| `AGreenTrailerNamesWhatItDidNotJudge` | |
-| `AnItemReachesClosedThroughActive` | the board is empty; `State: active` reaches nothing |
-| `APreparedFileNeverLandsInTheTree` | |
-| `EveryOracleWasPreparedByThisPreparer` | |
-| `EveryTypeNameIsDeclaredOnce` | 10 type names twice against a declared 9; 2 constants against 1 |
-| `NoEnvironmentVariableDecidesAPicture` | |
-| `NoFramePathCallReachesABlock` | |
-| `PiStandsOnceAndItIsStdNumbers` | |
-| `TheBuildDeclarationAuditsItself` | |
-| `TheCorpusIsRebuiltByOneCommand` | the OSM corpus was deleted; the command sees no manifest |
-| `TheEngineNamesNoSubject` | |
-| `TheMapCitesLinesThatSayWhatItClaims` | the map cites paths that no longer resolve |
-| `TheNestRefusesASecondRunner` | |
+| claim | cause | the repair |
+|---|---|---|
+| `AnItemReachesClosedThroughActive` | board:2125 was deleted saying `State: open` (fa9534b5), against a ceiling of 0 | the ceiling becomes 1 with the commit named on the line; the habit is the fix |
+| `EveryItemNamesTheBenchmark` | items 2117-2124 carried a heading instead of the `**Benchmark**` paragraph | every item on the board carries the paragraph -- done in the board rewrite that filed this line |
+| `TheBuildDeclarationAuditsItself` | `src/client/Main.cpp` and `PlaceCamera.cpp` are linked by no suite | the client's suite lists them, or `outshine/places` does |
+| `TheNestRefusesASecondRunner` | a NESTED invocation on the inherited nest is refused instead of passed through | `run.sh`'s lock recognises its own parent's claim |
+| `TheEngineNamesNoSubject` | 153 subject nouns in `src/engine` + `include/`; `Kerb` rose 5 -> 6, `Carriageway` fell 4 -> 0 unrecorded | board:2101 takes the count to 0; the fallen number is recorded where it fell |
+| `NoFramePathCallReachesABlock` | the physics seed reaches `malloc`; the picture reaches `Readback::FromBuffer/Land/Release` | board:2104 (the heap), board:2130 (the readbacks are instruments and leave the picture's reach) |
+| `APreparedFileNeverLandsInTheTree` | 148 files under the case trees are neither manifest, reference nor `.gitignore` (`test/khronos/glTF/*/reference.f000N.png`) | the claim says what a multi-frame reference is, or the files go |
+| `TheCorpusIsRebuiltByOneCommand` | 1426 manifests standing, 1424 planned | the preparer plans the two it skips, or they leave |
+| `AGreenTrailerNamesWhatItDidNotJudge` | `test/opendrive`, `test/clearsky`, `test/scripts` hold no fetched subject and the runner is silent | the runner names them in its trailer |
+| `EveryRenderNamesItsIndices` | 0 render rows in the prepared corpus, so the claim counts over nothing | the corpus renders, or the claim refuses UNPREPARED rather than FAIL |
 
-The empty right-hand column is the work: each case says WHAT it measured, and this item is not
-understood until every row names why that measurement moved. Several look like consequences of two
-decisions the owner made deliberately -- the board was emptied of 145 items and the OSM corpus was
-deleted -- in which case the CLAIM is what stopped meaning anything and the claim goes, not the
-tree. A ceiling that may only fall is a different case: `EveryTypeNameIsDeclaredOnce` reads ABOVE
-its declared number, which is a real regression somebody has to name.
+Beside the claims: `README.md` names `STATE.md`, `apps/`, `test/gate.sh` and `--audit-layers`,
+none of which exists as described, and `mesh.xml` / `r.xml` are tracked at the root with no
+reader. Both are the same rule -- the tree describes itself truthfully -- and both are one commit.
 
-## The clock is the second half
+## The clock
 
-`604694 ms of RUN over the declared 230000 ms`, with 200100 ms of builds standing beside it. That
-figure is NEW and it is board:2093's doing, honestly: `LayerSanitiser` named six deleted `unit/...`
-layers, so ASan and UBSan had been building nothing at all, and the seven harness layers that do
-exist now build twice. The bound was written when the sanitised half cost zero.
+`kFastGateBoundMs = 230000` in `test/run.sh` and every harness layer builds twice (plain and
+sanitised). The choice is stated: the bound rises with its reason, or the sanitised set shrinks
+to the layers whose findings are worth the seconds. Not resolved by turning the sanitiser off.
 
-So the choice is stated rather than assumed: either the bound rises with its reason, or the
-sanitised set shrinks to the layers whose findings are worth the seconds. **Do not resolve it by
-turning the sanitiser back off** -- that is how it came to be pointed at nothing.
+## What will be true
 
-## Done when
+- [ ] `make test` prints no RED case and no overrun line
+- [ ] One deliberately broken oracle turns it red again
+- [ ] `README.md` names only what exists; no artefact is tracked outside `build/`
 
-`make test` prints no RED case and no overrun line, and one deliberately broken oracle turns it red
-again.
+## Ruled out
 
-## CentralPark sits a hundredth under the bar, and the OWNER has ruled the guard correct
-
-Measured 2026-09-02, and the owner has looked at the frame and confirmed it.
-
-`test/harness/shared/ClientShot.h` refuses a place when `Triangles > 0 && Variation < 1.0`, where
-Variation is how much the picture varies of 255 ALONG ITS ROWS. CentralPark meshed 3 673 071
-building triangles and reads **0.9903** -- under the bar by a hundredth.
-
-The guard's own negative control is honest and passes: a blank ellipsoid under a sky reads under
-0.5, so 1.0 does separate something. But the guard is a PROXY -- horizontal variance standing in
-for "the built geometry is in the frame" -- and it fails on a place whose geometry IS in the frame:
-a park seen over trees and grass simply has little row-to-row contrast. The same file's last line
-says the thing this bar walks over:
-
-> what the frame SHOWS is the owner's to judge, and no number invented here may stand in for that
-
-**THE OWNER HAS RULED, AND THE RULING STANDS AGAINST MY READING OF IT.** I filed this as a
-mis-specified check and proposed replacing the proxy with a SurfaceIdentity readback -- the engine
-renders that buffer and the door exposes `readPixels(Buffer::SurfaceIdentity, ...)`, so "some pixel
-carries a subject surface" would need no threshold at all. The owner's answer: **the guard is
-correct as it stands.** Pictures are not to move; a hundredth under the bar during a heavy refactor
-is a deviation to live with and not a bar to lower.
-
-So the guard does not change here. What this section is for is the next reader: CentralPark's
-UNPREPARED is a REAL red about a real number, it is close, and it is tolerated for the duration of
-the refactor rather than argued away. When the tree is still again it goes back to green or it says
-why.
+CentralPark's `Variation < 1.0` refusal: the owner has ruled the guard correct. A hundredth under
+the bar during a heavy refactor is a deviation to live with, not a bar to lower.
