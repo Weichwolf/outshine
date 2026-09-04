@@ -140,8 +140,16 @@ These are C++ truths rather than decisions about outshine, and they do not move.
 - **Private is the DEFAULT** and a wider door justifies itself; a public data member is an
   invariant nobody can hold. Composition usually; inheritance where a stable interface carries
   shared machinery
-- **SIMD-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch
-  over per-item; bounded terms on the frame path — no alloc, lock, disk or unbounded block
+- **THE COST OF A LINE IS NOT IN THE LINE.** An array index and a hash lookup read the same and
+  differ by two orders of magnitude, because one of them MISSES — and a miss is ~100 ns, ~300
+  cycles, long enough to have scanned a kilobyte of contiguous memory instead. So the LAYOUT sets
+  the speed and the algorithm only sets the shape: contiguous, one-width, pointer-free, the fields
+  read together stored together. A `vector<vector<T>>` or a map on a hot path is a pointer chase
+  per element wearing a container's name — measured here, a junction solver walked an
+  `unordered_map` 24 times and became one flat node-sorted vector with the same arithmetic to the
+  bit. Batch over per-item, fast path on the hot path, and nothing on the frame path allocates,
+  locks, touches disk or blocks unbounded. **Ask what the MACHINE does, not what the line says**:
+  which loads, how far apart, how many times
 - **`make` DELETES the comments.** `include/` and `src/client/` keep Doxygen because both are
   DOORS; the rest of `src/` keeps nothing, and seeing that on every build is what forces code that
   speaks for itself. `git log -p` holds every line removed. Prose stands in a PROOF — any source
@@ -305,19 +313,14 @@ code to zero and lets old code be repaired at the pace it is touched. `make help
 **Order: repair the VISION first if it is short of the benchmark · rebuild onto it · then close
 the feature gaps.** A refactor toward a short target arrives somewhere that still has to be left.
 
-**A BATCH IS AS BIG AS THE MEASUREMENT CAN STILL ATTRIBUTE.** The digest is the SAFETY, never the
-metronome. Ten independent repairs measured once cost one gate run; ten gate runs measure the same
-tree ten times and buy nothing. The bound is ATTRIBUTION -- when a digest moves, the batch has to
-be small enough that I can say WHICH change moved it. So repairs in different files batch freely,
-and two changes to the same behaviour do not. Measured here: a round of five-item batches spent
-more wall time in `make shots` than in the work it was checking.
+**A BATCH IS AS BIG AS THE MEASUREMENT CAN STILL ATTRIBUTE**, and the bound is exactly that: when
+a digest moves, the batch has to be small enough to name which change moved it. The digest is the
+SAFETY, never the metronome — repairs in different files batch freely, two changes to one behaviour
+do not.
 
-**A FUNCTION A LATER GOAL WILL OPEN IS OPENED ONCE.** The order above is a PRIORITY, not a wall.
-Where the work a later goal needs lands in the same function, cutting it now on the earlier goal's
-terms means touching it twice and cutting toward a target that is about to move -- which is the
-defect the line above already names, applied to my own plan instead of to the tree. Measured:
-`Parse` 176, `LayDown` 115, `Ingest` 80, `Load` 76 are all in `world/ground/`, and all of them are
-where the preload time is.
+**A FUNCTION A LATER GOAL WILL OPEN IS OPENED ONCE.** The order above is a priority, not a wall:
+cutting a function now, on an earlier goal's terms, when a later goal is about to reopen it is the
+same defect as refactoring toward a short target — applied to my own plan instead of to the tree.
 
 **THE GATES RUN ALONE, AND THE NUMBER COMES FROM THE RUN.** `make`, `make test`, `make shots` and
 `make lint` share one nest and one tree. Editing while one runs makes it compile a half-written
