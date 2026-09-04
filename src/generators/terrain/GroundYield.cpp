@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cstdio>
 #include "FlatMap.h"
 #include "math/Units.h"
 #include "GroundYield.h"
@@ -38,10 +39,12 @@ constexpr double kEdgeGrade = 0.35;
 constexpr double kRiseM = 1.0;
 constexpr double kNearM = 16.0;
 constexpr int kSewPasses = 6;
+constexpr uint32_t kUnclaimed = 0xffffffffu;
 constexpr double kSewCellM = 16.0;
 constexpr int kCutPasses = 5;
 constexpr double kOffEndM = 0.02;
 constexpr int64_t kMostSpreadCells = 256;
+constexpr size_t kMostDenseCells = 1u << 22u;
 
 bool LowestFirst(EastSouth from, EastSouth to) {
   return from.EastM < to.EastM || (from.EastM == to.EastM && from.SouthM < to.SouthM);
@@ -94,6 +97,11 @@ public:
     return KeyOf(CellOf(at.EastM), CellOf(at.SouthM));
   }
 
+  void Expects(size_t entries) {
+    Held_.reserve(entries);
+    What_.reserve(entries);
+  }
+
   void Spread(EastSouth low, EastSouth high, uint32_t what) {
     const int64_t fromE = CellOf(low.EastM);
     const int64_t toE = CellOf(high.EastM);
@@ -102,22 +110,75 @@ public:
     if ((toE - fromE + 1) * (toS - fromS + 1) > MostCells_) { return; }
     for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
       for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-        Held_[KeyOf(cellE, cellS)].push_back(what);
+        Held_.push_back(KeyOf(cellE, cellS));
+        What_.push_back(what);
       }
+    }
+    Settled_ = false;
+  }
+
+  void Settles() {
+    Settled_ = true;
+    First_.clear();
+    Seats_.clear();
+    Wide_ = 0;
+    if (Held_.empty()) { return; }
+    LowE_ = std::numeric_limits<int64_t>::max();
+    LowS_ = std::numeric_limits<int64_t>::max();
+    int64_t highE = std::numeric_limits<int64_t>::min();
+    int64_t highS = std::numeric_limits<int64_t>::min();
+    for (const uint64_t key : Held_) {
+      const auto cellE = static_cast<int64_t>(key >> 32U) - kBias;
+      const auto cellS = static_cast<int64_t>(key & 0xffffffffU) - kBias;
+      LowE_ = std::min(LowE_, cellE);
+      LowS_ = std::min(LowS_, cellS);
+      highE = std::max(highE, cellE);
+      highS = std::max(highS, cellS);
+    }
+    const int64_t wide = highE - LowE_ + 1;
+    const size_t cells = static_cast<size_t>(wide) * static_cast<size_t>(highS - LowS_ + 1);
+    if (cells > kMostDenseCells) { return; }
+    Wide_ = wide;
+    First_.assign(cells + 1u, 0u);
+    for (const uint64_t key : Held_) { ++First_[SeatOf(key) + 1u]; }
+    for (size_t cell = 1; cell < First_.size(); ++cell) { First_[cell] += First_[cell - 1u]; }
+    Seats_.resize(Held_.size());
+    std::vector<uint32_t> at(First_.begin(), First_.end() - 1);
+    for (size_t entry = 0; entry < Held_.size(); ++entry) {
+      Seats_[at[SeatOf(Held_[entry])]++] = What_[entry];
     }
   }
 
   [[nodiscard]] std::span<const uint32_t> At(EastSouth where) const {
-    const auto found = Held_.find(KeyAt(where));
-    return found == Held_.end() ? std::span<const uint32_t>{} : std::span(found->second);
+    if (Wide_ == 0) { return {}; }
+    const int64_t cellE = CellOf(where.EastM) - LowE_;
+    const int64_t cellS = CellOf(where.SouthM) - LowS_;
+    if (cellE < 0 || cellS < 0 || cellE >= Wide_) { return {}; }
+    const size_t cell =
+        static_cast<size_t>(cellS) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
+    if (cell + 1u >= First_.size()) { return {}; }
+    return {Seats_.data() + First_[cell], First_[cell + 1u] - First_[cell]};
   }
 
   [[nodiscard]] bool Empty() const { return Held_.empty(); }
 
 private:
+  [[nodiscard]] size_t SeatOf(uint64_t key) const {
+    const int64_t cellE = static_cast<int64_t>(key >> 32U) - kBias - LowE_;
+    const int64_t cellS = static_cast<int64_t>(key & 0xffffffffU) - kBias - LowS_;
+    return static_cast<size_t>(cellS) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
+  }
+
   double CellM_;
   int64_t MostCells_;
-  std::unordered_map<uint64_t, std::vector<uint32_t>> Held_;
+  bool Settled_ = false;
+  int64_t LowE_ = 0;
+  int64_t LowS_ = 0;
+  int64_t Wide_ = 0;
+  std::vector<uint64_t> Held_;
+  std::vector<uint32_t> What_;
+  std::vector<uint32_t> First_;
+  std::vector<uint32_t> Seats_;
 };
 
 CellGrid BucketOver(std::span<const Yields> these) {
@@ -128,6 +189,7 @@ CellGrid BucketOver(std::span<const Yields> these) {
                {.EastM = one.HighE + one.ApronM, .SouthM = one.HighS + one.ApronM},
                static_cast<uint32_t>(at));
   }
+  out.Settles();
   return out;
 }
 
@@ -433,6 +495,7 @@ Seaming SeamsOver(std::span<const Yields> these) {
                       which);
     }
   }
+  out.Over.Settles();
   return out;
 }
 
@@ -506,6 +569,7 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
 
 CellGrid FacesOver(std::span<const uint32_t> index, const float *positionM) {
   CellGrid out({.CellM = kSewCellM, .MostCells = kMostSpreadCells});
+  out.Expects(index.size() / 3u);
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
     EastSouth low = {.EastM = kBeyondAnyCoordinate, .SouthM = kBeyondAnyCoordinate};
     EastSouth high = {.EastM = -kBeyondAnyCoordinate, .SouthM = -kBeyondAnyCoordinate};
@@ -518,6 +582,7 @@ CellGrid FacesOver(std::span<const uint32_t> index, const float *positionM) {
     }
     out.Spread(low, high, static_cast<uint32_t>(at));
   }
+  out.Settles();
   return out;
 }
 
@@ -527,9 +592,12 @@ struct Standing {
   const CellGrid &Over;
 };
 
-std::unordered_map<uint32_t, uint32_t>
-ClaimFaces(Standing mesh, std::span<const double> seams, std::span<uint8_t> sewn) {
-  std::unordered_map<uint32_t, uint32_t> claimed;
+size_t ClaimFaces(Standing mesh,
+                  std::span<const double> seams,
+                  std::span<uint8_t> sewn,
+                  std::vector<uint32_t> &claimed) {
+  claimed.assign(mesh.Index.size() / 3u, kUnclaimed);
+  size_t claims = 0;
   for (uint32_t which = 0; which < static_cast<uint32_t>(sewn.size()); ++which) {
     if (sewn[which] != 0u) { continue; }
     const EastSouth at = {.EastM = seams[static_cast<size_t>(which) * 2u],
@@ -542,11 +610,15 @@ ClaimFaces(Standing mesh, std::span<const double> seams, std::span<uint8_t> sewn
                                                   at);
       if (!by.has_value() || !HoldsPlace(*by)) { continue; }
       held = true;
-      if (!claimed.contains(face)) { claimed[face] = which; }
+      uint32_t &seat = claimed[face / 3u];
+      if (seat == kUnclaimed) {
+        seat = which;
+        ++claims;
+      }
     }
     if (held) { sewn[which] = 1u; }
   }
-  return claimed;
+  return claims;
 }
 
 void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
@@ -560,28 +632,29 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
   std::vector<float> &positionM = *mesh.PositionM;
   std::vector<uint8_t> sewn(seams.size() / 2u, 0u);
   std::vector<uint32_t> next;
+  std::vector<uint32_t> claimed;
+  std::unordered_map<uint64_t, uint32_t> made;
   const Attributes lerp(mesh);
 
   for (int pass = 0; pass < kSewPasses; ++pass) {
     const CellGrid facesAt = FacesOver(index, positionM.data());
 
-    std::unordered_map<uint64_t, uint32_t> made;
-    const std::unordered_map<uint32_t, uint32_t> claimed =
-        ClaimFaces({.Index = index, .PositionM = positionM.data(), .Over = facesAt}, seams, sewn);
-    if (claimed.empty()) { break; }
+    made.clear();
+    const size_t claims = ClaimFaces(
+        {.Index = index, .PositionM = positionM.data(), .Over = facesAt}, seams, sewn, claimed);
+    if (claims == 0) { break; }
     told.Passes = std::max(told.Passes, static_cast<size_t>(pass) + 1u);
 
     next.clear();
     next.reserve(index.size() * 2u);
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
-      const auto found = claimed.find(static_cast<uint32_t>(at));
-      if (found == claimed.end()) {
+      const uint32_t which = claimed[at / 3u];
+      if (which == kUnclaimed) {
         next.push_back(index[at]);
         next.push_back(index[at + 1u]);
         next.push_back(index[at + 2u]);
         continue;
       }
-      const uint32_t which = found->second;
       const double eastM = seams[static_cast<size_t>(which) * 2u];
       const double southM = seams[static_cast<size_t>(which) * 2u + 1u];
       const uint64_t key = PlaceKey({.EastM = eastM, .SouthM = southM});
