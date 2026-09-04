@@ -1,6 +1,8 @@
 #include "math/Units.h"
 #include "Wayfinding.h"
 
+#include <cstdio>
+
 #include "math/Vec2.h"
 
 #include <array>
@@ -22,8 +24,6 @@
 #include <unordered_map>
 
 namespace outshine::Path {
-
-constexpr uint64_t kKnuthWord = 2654435761ull;
 
 constexpr uint64_t kWordMost = 0xFFFFFFFFull;
 
@@ -665,10 +665,9 @@ std::expected<Network::Gridded, std::string_view> Network::GridOver(const Sweepi
     reachSum += byLon > byLat ? byLon : byLat;
   }
   grid.CellDeg = reachSum > 0.0 ? 2.0 * reachSum / static_cast<double>(over.Segments) : 1.0;
-  grid.Cells = 2u * over.Segments + 1u;
-
   grid.Wide = static_cast<uint64_t>(std::floor((box.EastLon - box.WestLon) / grid.CellDeg)) + 2u;
   grid.High = static_cast<uint64_t>(std::floor((box.NorthLat - box.SouthLat) / grid.CellDeg)) + 2u;
+  grid.Cells = static_cast<size_t>(grid.Wide * grid.High);
   if (grid.Wide > kWordMost / grid.High) {
     return std::unexpected(
         "the network's extent over its mean segment reach needs more squares than a 32-bit "
@@ -743,10 +742,7 @@ Network::Crossings(std::vector<Crossing> &into) const {
   const auto squareOf = [&](double atLon, double atLat) {
     return SquareIn(*grid, over, {.LongitudeDeg = atLon, .LatitudeDeg = atLat});
   };
-  const auto bucketOf = [&](uint32_t square) {
-    return static_cast<size_t>((static_cast<uint64_t>(square) * kKnuthWord) %
-                               static_cast<uint64_t>(cells));
-  };
+  const auto bucketOf = [](uint32_t square) { return static_cast<size_t>(square); };
 
   const auto overSquares = [&](size_t seg, auto &&visit) {
     const size_t first = segAt[seg];
