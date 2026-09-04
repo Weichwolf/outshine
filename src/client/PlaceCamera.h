@@ -59,6 +59,13 @@ struct Shot {
   double AdvanceWorstMs = 0.0, RenderWorstMs = 0.0;
   std::size_t Frames = 0, OverBudget = 0, WorstAt = 0;
 
+  /// The most the heap ever held live, over the preload AND the timed frames -- the third number
+  /// this instrument owes, beside the frame and the preload. Sampled once a frame rather than
+  /// continuously, so it is a floor on the true peak and never an overstatement; `PeakCostMs` says
+  /// what asking cost, because a probe nobody can afford is a probe that gets switched off.
+  double PeakHeapMB = 0.0;
+  double PeakCostMs = 0.0;
+
   /// Building triangles the LAST REBUILD meshed -- a delta and not a total, so a settled frame
   /// over a world that changed nothing reads zero with a city in front of it (board:2063).
   double Triangles = 0.0;

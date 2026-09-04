@@ -55,6 +55,10 @@ size_t HeapProbe::Sample() {
   return now;
 }
 
+void HeapProbe::ForgetPeak() {
+  gPeakLive.store(0, std::memory_order_relaxed);
+}
+
 size_t HeapProbe::PeakLiveBytes() {
   return gPeakLive.load(std::memory_order_relaxed);
 }

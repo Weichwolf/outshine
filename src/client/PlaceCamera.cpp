@@ -2,6 +2,8 @@
 #include "math/Quantile.h"
 #include "PlaceCamera.h"
 
+#include "io/HeapProbe.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -271,6 +273,7 @@ Shot Take(const Place &place, bool tells) {
 
 Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view under) {
   Shot shot;
+  HeapProbe::ForgetPeak();
   const auto asked = std::chrono::steady_clock::now();
   Loading last;
   const bool ready =
@@ -308,6 +311,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
     return shot;
   }
   shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
+  (void)HeapProbe::Sample();
 
   const int settle = engine.renderer().settleFrames();
   const int wanted = settle > 2 ? settle : 2;
@@ -377,6 +381,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
     const auto advanced = std::chrono::steady_clock::now();
     if (!engine.renderer().render(Extent{})) { break; }
     const auto rendered = std::chrono::steady_clock::now();
+    (void)HeapProbe::Sample();
     advancedMs.push_back(std::chrono::duration<double, std::milli>(advanced - before).count());
     renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
     heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
@@ -384,6 +389,8 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
     shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
   }
   shot.Frames = heldMs.size();
+  shot.PeakHeapMB = static_cast<double>(HeapProbe::PeakLiveBytes()) / (1024.0 * 1024.0);
+  shot.PeakCostMs = HeapProbe::SampleCostMs();
   std::ranges::sort(heldMs);
   shot.P50Ms = QuantileOf(heldMs, kMiddleQuantile);
   shot.P95Ms = QuantileOf(heldMs, kBroadQuantile);

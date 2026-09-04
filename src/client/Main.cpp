@@ -77,13 +77,14 @@ void Tell(const Shot &shot, std::string_view name) {
               shot.RenderP99Ms,
               shot.RenderWorstMs);
   std::printf("        %.0f triangle(s), %.0f bare tile(s), varies by %.3f of 255 along its rows; "
-              "%.1f s stood, %.1f s waited (%.1f s streamed); %s\n",
+              "%.1f s stood, %.1f s waited (%.1f s streamed); peak heap %.0f MB; %s\n",
               shot.Triangles,
               shot.BareTiles,
               shot.VariationAlongRows,
               shot.StandingMs / 1000.0,
               shot.LoadingMs / 1000.0,
               shot.StreamedS,
+              shot.PeakHeapMB,
               shot.Kept ? shot.Wrote.c_str() : "NO PICTURE");
 }
 

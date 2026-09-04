@@ -47,6 +47,11 @@ constexpr double kOffStreetAcrossM = 26.0;
 constexpr double kFillHeightM = 5.0;
 
 constexpr double kStoreyM = 2.9;
+
+constexpr double kNearestSeenM = 0.5 * kStoreyM;
+
+constexpr double kArchitectureM = 0.33;
+
 constexpr double kRoofAllowanceM = 3.2;
 
 constexpr double kOnTheStreetM = 16.0;
@@ -388,9 +393,6 @@ int BuildingField::Build(const GroundQuery &ground,
   Mark_.Take(next.Tile);
 
   const double awayM = AwayFromCentreM(field, next.Tile);
-  const int rungsOut = TileSpanM_ > 0.0 ? static_cast<int>(awayM / TileSpanM_) : 0;
-
-  const Generators::Detail hint = Generators::DetailAtRung(rungsOut);
 
   std::map<uint64_t, Lumped> lumps;
   size_t lumped = 0;
@@ -464,18 +466,21 @@ int BuildingField::Build(const GroundQuery &ground,
       fp.FootM = static_cast<float>(base);
       fp.SeatM = static_cast<float>(seat);
 
-      const double highM = std::max(static_cast<double>(fp.HeightM), kStoreyM);
+      const double awayAtLeastM = std::max(awayM, kNearestSeenM);
+      const double focalPx = static_cast<double>(FocalPx_);
       const double statedM = TileSpanM_ > 0.0 && field.Extent() > 0
                                  ? TileSpanM_ / static_cast<double>(field.Extent())
                                  : 0.0;
-      const double finestM = std::max(kStoreyM, statedM);
-      const double wholePx =
-          FocalPx_ > 0.0f && awayM > 1.0 ? highM * static_cast<double>(FocalPx_) / awayM : 0.0;
-      const bool seenAtAll = FocalPx_ > 0.0f && awayM > 1.0;
-      const Generators::Detail level =
-          seenAtAll ? Generators::Coarser(
-                          Generators::DetailAtPixels(wholePx * finestM / highM, wholePx), hint)
-                    : hint;
+
+      Generators::Detail level = Generators::Detail::Fine;
+      if (Generators::Unseen(std::max(kArchitectureM, statedM), focalPx, awayAtLeastM)) {
+        level = Generators::Detail::Shell;
+      }
+      if (level == Generators::Detail::Shell &&
+          Generators::Unseen(0.5 * TileSpanM_ / kBlocksPerTile, focalPx, awayAtLeastM)) {
+        level = Generators::Detail::Massed;
+      }
+
       fp.Coarseness = level;
       Prints_.push_back(fp);
 

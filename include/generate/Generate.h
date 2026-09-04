@@ -89,44 +89,38 @@ static_assert(DetailAtRung(1) == Detail::Shell);
 static_assert(DetailAtRung(2) == Detail::Massed);
 static_assert(DetailAtRung(9) == Detail::Skyline, "every rung beyond is the horizon");
 
-/// The smallest a feature may project and still be a feature: two pixels.
+/// The most ERROR a simplification may project and still be invisible: one pixel.
 ///
-/// NYQUIST, not taste. A detail spanning one pixel cannot be told from the pixel next to it, and a
-/// detail spanning less aliases -- it flickers as the camera moves rather than fading. Two samples
-/// is the least that resolves anything, so it is the bar a rung has to clear.
-inline constexpr double kResolvedPx = 2.0;
+/// This is the bar Nanite holds a cluster to -- it draws the coarser one when the error IT
+/// introduces projects to at most a pixel and the error its PARENT would introduce does not. A
+/// deviation smaller than a pixel cannot be drawn, so it cannot be seen; a deviation larger than a
+/// pixel can, and no amount of distance makes it acceptable.
+///
+/// IT IS THE ERROR AND NOT THE SIZE. What a subject MEASURES on screen answers "is it visible at
+/// all"; what its simplification MOVES answers "is the simplification visible", and only the second
+/// licenses replacing geometry. Measured here the difference is the whole thing: judging by size,
+/// twenty houses were merged into one block whenever the houses fell under a couple of pixels --
+/// while the block itself, a hundred metres across, was plainly there and plainly wrong.
+inline constexpr double kErrorPx = 1.0;
 
-/// Below this a shape is a silhouette: still worth drawing, no longer worth its own outline.
-inline constexpr double kSilhouettePx = 0.5 * kResolvedPx;
-
-/// The detail a SUBJECT deserves, from what it actually measures on screen.
+/// Whether a simplification that moves geometry by `errorM` is invisible from `awayM`, given a
+/// camera whose focal length is `focalPx` pixels.
 ///
-/// THE PIXEL DECIDES AND THE TILE ONLY HINTS. Unreal picks a LOD by `ScreenSize` -- the projected
-/// size of the bounding sphere -- and Nanite drives the same idea down to one pixel of error per
-/// cluster; RAGE picks by `lodDist`, which is distance alone, but derives that distance from the
-/// object's SIZE when the map is built. Both make the size of the thing part of the answer. Only
-/// Unreal does it at run time, and that is the half worth taking: a cathedral and a garden shed at
-/// one distance are not the same problem, and no cascade of rungs can tell them apart.
-///
-/// A tile's rung still bounds the answer, because it says what DATA is there -- and the elevation
-/// and the vector tiles need not agree on a size, so neither can be the decision on its own.
-///
-/// `detailPx` is what the subject's finest repeated feature projects to (a storey, a bay);
-/// `wholePx` is what the whole subject projects to.
-[[nodiscard]] constexpr Detail DetailAtPixels(double detailPx, double wholePx) {
-  if (detailPx >= kResolvedPx) { return Detail::Fine; }
-  if (wholePx >= kResolvedPx) { return Detail::Shell; }
-  if (wholePx >= kSilhouettePx) { return Detail::Massed; }
-  return Detail::Skyline;
+/// `focalPx / awayM` is pixels per metre at that range, which is the same quantity Nanite's
+/// `errorPerMetre / distance` computes and Unreal's ScreenSize is a bounding-sphere form of.
+[[nodiscard]] constexpr bool Unseen(double errorM, double focalPx, double awayM) {
+  if (!(errorM > 0.0)) { return true; }
+  if (!(focalPx > 0.0) || !(awayM > 0.0)) { return false; }
+  return errorM * focalPx <= kErrorPx * awayM;
 }
 
-static_assert(DetailAtPixels(4.0, 40.0) == Detail::Fine,
-              "a storey two pixels tall is worth drawing");
-static_assert(DetailAtPixels(1.0, 12.0) == Detail::Shell,
-              "the storeys have gone, the building has not");
-static_assert(DetailAtPixels(0.1, 1.5) == Detail::Massed);
-static_assert(DetailAtPixels(0.01, 0.2) == Detail::Skyline);
-static_assert(DetailAtPixels(0.0, 0.0) == Detail::Skyline, "nothing on screen is the horizon");
+static_assert(Unseen(0.3, 691.0, 300.0), "a gable's depth at 300 m is under a pixel");
+static_assert(!Unseen(0.3, 691.0, 100.0), "at 100 m it is two pixels and has to be drawn");
+static_assert(!Unseen(100.0, 691.0, 10000.0),
+              "a block a hundred metres across is seven pixels wrong at ten kilometres");
+static_assert(Unseen(100.0, 691.0, 100000.0), "and under one at a hundred");
+static_assert(Unseen(0.0, 691.0, 1.0), "a simplification that moves nothing is always invisible");
+static_assert(!Unseen(1.0, 0.0, 1.0), "with no projection nothing may be claimed invisible");
 
 /// The coarser of two readings -- a subject is never finer than the coarsest thing that bounds it.
 [[nodiscard]] constexpr Detail Coarser(Detail one, Detail two) {

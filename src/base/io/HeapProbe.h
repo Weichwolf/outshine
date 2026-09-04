@@ -13,6 +13,8 @@ public:
 
   static size_t PeakLiveBytes();
 
+  static void ForgetPeak();
+
   static double SampleCostMs();
 
   static size_t Sample();
