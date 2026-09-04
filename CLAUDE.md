@@ -150,6 +150,13 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   bit. Batch over per-item, fast path on the hot path, and nothing on the frame path allocates,
   locks, touches disk or blocks unbounded. **Ask what the MACHINE does, not what the line says**:
   which loads, how far apart, how many times
+- **ON THE FRAME PATH AN ENTITY COSTS O(1) AND THE FRAME COSTS O(N); a preload may pay O(N log N)
+  and never O(N²).** But the CLASS is the weaker half of that rule and the constant is the number
+  of cache lines touched -- measured here on one problem: a hash map is O(N) and took 565 ms, a
+  comparison sort is O(N log N) and took 425 ms, a counting sort is O(N) and took 92 ms. The class
+  predicted the wrong order; the memory accesses predicted the right one. Where a bound genuinely
+  exceeds O(N) the answer is a STRUCTURE, not a faster loop: many lights times many objects is
+  clustered, not iterated
 - **`make` DELETES the comments.** `include/` and `src/client/` keep Doxygen because both are
   DOORS; the rest of `src/` keeps nothing, and seeing that on every build is what forces code that
   speaks for itself. `git log -p` holds every line removed. Prose stands in a PROOF — any source
