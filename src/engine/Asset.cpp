@@ -27,9 +27,10 @@ void Posed::Clears() {
 
 bool Posed::Reads(const Sited &asset,
                   Scenario::AssetAnimation animation,
-                  int clip,
-                  double fps,
+                  Playing at,
                   std::string &error) {
+  const int clip = at.Clip;
+  const double fps = at.Fps;
   const std::string &path = asset.Path;
   const std::string &variant = asset.Variant;
   if (Read_) { return true; }

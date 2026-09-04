@@ -283,8 +283,7 @@ bool Live::JoinsSubjects(std::string &error) {
     Core::Posed arriving;
     if (!arriving.Reads({.Path = joining, .Variant = ""},
                         Declared_.Animation,
-                        Declared_.Clip,
-                        Declared_.Fps,
+                        {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
                         error)) {
       return false;
     }
@@ -333,8 +332,7 @@ bool Live::StandsSubjects(std::string &error) {
   if (!Held_.Stands()) {
     if (!Held_.Reads({.Path = Declared_.Stands, .Variant = Declared_.Variant},
                      Declared_.Animation,
-                     Declared_.Clip,
-                     Declared_.Fps,
+                     {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
                      error)) {
       return false;
     }

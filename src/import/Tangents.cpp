@@ -121,23 +121,38 @@ public:
 
 private:
   [[nodiscard]] Vector PositionOf(size_t corner) const {
-    return At(Subject_.PositionsM, corner, 3);
+    return At(Subject_.PositionsM, {.Corner = corner, .Width = 3});
   }
 
-  [[nodiscard]] Vector NormalOf(size_t corner) const { return At(Subject_.Normals, corner, 3); }
+  [[nodiscard]] Vector NormalOf(size_t corner) const {
+    return At(Subject_.Normals, {.Corner = corner, .Width = 3});
+  }
 
   [[nodiscard]] Vector TexCoordOf(size_t corner) const {
     const size_t vertex = Subject_.Indices[corner];
     return {.X = Subject_.Uv[vertex * 2], .Y = -Subject_.Uv[vertex * 2 + 1], .Z = 0.0};
   }
 
-  [[nodiscard]] Vector At(const double *run, size_t corner, size_t width) const {
+  struct Indexed {
+    size_t Corner = 0;
+    size_t Width = 0;
+  };
+
+  [[nodiscard]] Vector At(const double *run, Indexed of) const {
+    const size_t corner = of.Corner;
+    const size_t width = of.Width;
     const size_t vertex = Subject_.Indices[corner];
     return {.X = run[vertex * width], .Y = run[vertex * width + 1], .Z = run[vertex * width + 2]};
   }
 
   [[nodiscard]] Space Evaluate(const std::vector<int> &faces, size_t vertex) const;
-  void Reach(int start, int group);
+
+  struct Spreading {
+    int Start = 0;
+    int Group = 0;
+  };
+
+  void Reach(Spreading from);
 
   const TangentSubject &Subject_;
 
@@ -266,8 +281,9 @@ void Basis::MatchEdges() {
   }
 }
 
-void Basis::Reach(int start, int group) {
-  std::vector<int> pending{start};
+void Basis::Reach(Spreading from) {
+  const int group = from.Group;
+  std::vector<int> pending{from.Start};
   while (!pending.empty()) {
     const int face = pending.back();
     pending.pop_back();
@@ -304,7 +320,7 @@ void Basis::BuildGroups() {
       group.Vertex = Welded_[Corner_[triangle * 3 + corner]];
       group.OrientPreserving = Triangles_[triangle].OrientPreserving;
       Groups_.push_back(std::move(group));
-      Reach(static_cast<int>(triangle), static_cast<int>(Groups_.size()) - 1);
+      Reach({.Start = static_cast<int>(triangle), .Group = static_cast<int>(Groups_.size()) - 1});
     }
   }
 }

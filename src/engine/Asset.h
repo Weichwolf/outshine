@@ -25,11 +25,13 @@ public:
     std::string Variant;
   };
 
-  [[nodiscard]] bool Reads(const Sited &asset,
-                           Scenario::AssetAnimation animation,
-                           int clip,
-                           double fps,
-                           std::string &error);
+  struct Playing {
+    int Clip = 0;
+    double Fps = 0.0;
+  };
+
+  [[nodiscard]] bool
+  Reads(const Sited &asset, Scenario::AssetAnimation animation, Playing at, std::string &error);
   [[nodiscard]] bool Poses(double seconds, std::string &error);
 
   void Carries(const Gltf::Subject &built) {
