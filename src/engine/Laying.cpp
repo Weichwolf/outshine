@@ -2341,81 +2341,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "ground: ring vertices a pad pressed", static_cast<double>(told.Pressed), "vertices");
     Published.Places("ground: and the deepest it pressed", told.DeepestM, "m");
     Published.Places("ground: and the highest it filled", told.RaisedM, "m");
-    {
-      constexpr double kUnderCellM = 16.0;
-      std::unordered_map<uint64_t, std::vector<uint32_t>> facesUnder;
-      const std::vector<uint32_t> &ringIndex = laid->Index;
-      for (size_t at = 0; at + 2 < ringIndex.size(); at += 3) {
-        double lowE = kBeyondAnyCoordinate;
-        double highE = -kBeyondAnyCoordinate;
-        double lowS = kBeyondAnyCoordinate;
-        double highS = -kBeyondAnyCoordinate;
-        for (int corner = 0; corner < 3; ++corner) {
-          const size_t one = static_cast<size_t>(ringIndex[at + static_cast<size_t>(corner)]) * 3u;
-          lowE = std::min(lowE, static_cast<double>(inFrame[one]));
-          highE = std::max(highE, static_cast<double>(inFrame[one]));
-          lowS = std::min(lowS, static_cast<double>(inFrame[one + 2u]));
-          highS = std::max(highS, static_cast<double>(inFrame[one + 2u]));
-        }
-        const auto fromE = static_cast<int64_t>(std::floor(lowE / kUnderCellM));
-        const auto toE = static_cast<int64_t>(std::floor(highE / kUnderCellM));
-        const auto fromS = static_cast<int64_t>(std::floor(lowS / kUnderCellM));
-        const auto toS = static_cast<int64_t>(std::floor(highS / kUnderCellM));
-        if ((toE - fromE + 1) * (toS - fromS + 1) > 64) { continue; }
-        for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
-          for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-            const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
-            const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
-            facesUnder[(atE << 32U) | atS].push_back(static_cast<uint32_t>(at));
-          }
-        }
-      }
-      double deepest = 0.0;
-      double summed = 0.0;
-      size_t compared = 0;
-      for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
-        const auto eastM = static_cast<double>(pavement.PositionM[at]);
-        const auto southM = static_cast<double>(pavement.PositionM[at + 2]);
-        const auto atE = static_cast<uint64_t>(
-            static_cast<int64_t>(std::floor(eastM / kUnderCellM)) + 0x20000000LL);
-        const auto atS = static_cast<uint64_t>(
-            static_cast<int64_t>(std::floor(southM / kUnderCellM)) + 0x20000000LL);
-        const auto bucket = facesUnder.find((atE << 32U) | atS);
-        if (bucket == facesUnder.end()) { continue; }
-        double stood = -kBeyondAnyCoordinate;
-        for (const uint32_t face : bucket->second) {
-          const size_t a = static_cast<size_t>(ringIndex[face]) * 3u;
-          const size_t b = static_cast<size_t>(ringIndex[face + 1u]) * 3u;
-          const size_t c = static_cast<size_t>(ringIndex[face + 2u]) * 3u;
-          const auto aE = static_cast<double>(inFrame[a]);
-          const auto aS = static_cast<double>(inFrame[a + 2u]);
-          const auto bE = static_cast<double>(inFrame[b]);
-          const auto bS = static_cast<double>(inFrame[b + 2u]);
-          const auto cE = static_cast<double>(inFrame[c]);
-          const auto cS = static_cast<double>(inFrame[c + 2u]);
-          const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
-          if (std::fabs(twice) < kLeastTurnRad) { continue; }
-          const double one = ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice;
-          const double two = ((cS - aS) * (eastM - cE) + (aE - cE) * (southM - cS)) / twice;
-          const double three = 1.0 - one - two;
-          if (one < -kLeastRunM || two < -kLeastRunM || three < -kLeastRunM) { continue; }
-          const double upM = one * static_cast<double>(inFrame[a + 1u]) +
-                             two * static_cast<double>(inFrame[b + 1u]) +
-                             three * static_cast<double>(inFrame[c + 1u]);
-          stood = std::max(stood, upM);
-        }
-        if (stood < kUnraisedDeckM) { continue; }
-        const double under = stood - static_cast<double>(pavement.PositionM[at + 1]);
-        ++compared;
-        summed += under > 0.0 ? under : 0.0;
-        deepest = under > deepest ? under : deepest;
-      }
-      Published.Places("streets: the deepest the ground stands over one", deepest, "m");
-      Published.Places("streets: how far on average",
-                       compared > 0 ? summed / static_cast<double>(compared) : 0.0,
-                       "m");
-      Published.Places("streets: vertices compared", static_cast<double>(compared), "vertices");
-    }
   }
   (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
   (void)ground.setNormals(ringPart,
@@ -2430,6 +2355,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
 
   {
+    const auto waterAt = std::chrono::steady_clock::now();
     const Ground::WaterField &wet = World.Stack.WaterBodies();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
     std::vector<float> places;
@@ -2481,6 +2407,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
       }
     }
+    Published.Places(
+        "water: of that, laying the surfaces",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt)
+            .count(),
+        "ms");
     Published.Places("water: surfaces laid", static_cast<double>(lidsLaid), "surfaces");
     Published.Places("water: surfaces refused", static_cast<double>(lidsRefused), "surfaces");
     const size_t waterTriangles = order.size() / 3;
