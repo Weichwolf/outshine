@@ -2230,97 +2230,24 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   censusAt = clocks.CensusAt;
   wiresAt = clocks.WiresAt;
 
-  FlatMap<float> drawnGround;
-  DrapeFaces facesAt;
   std::vector<Yields> corridor;
   RoadRaised pavement;
-  {
-    Published.Places(
-        "rebuild: of that, the ring and the buildings into the frame",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
-            .count(),
-        "ms");
-    censusAt = std::chrono::steady_clock::now();
-    std::unordered_map<uint64_t, std::pair<double, uint32_t>> summed;
-    summed.reserve(inFrame.size() / 3);
-    for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const auto east =
-          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) / kDrapeGridM));
-      const auto south =
-          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at + 2]) / kDrapeGridM));
-      const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
-      const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
-      const uint64_t key = (atE << 32U) | atS;
-      std::pair<double, uint32_t> &cell = summed[key];
-      cell.first += static_cast<double>(inFrame[at + 1]);
-      ++cell.second;
-    }
-    std::vector<uint64_t> cells;
-    cells.reserve(summed.size());
-    for (const auto &one : summed) { cells.push_back(one.first); }
-    std::ranges::sort(cells);
-    size_t crowded = 0;
-    for (const uint64_t key : cells) {
-      const std::pair<double, uint32_t> &one = summed[key];
-      drawnGround[key] = static_cast<float>(one.first / static_cast<double>(one.second));
-      if (one.second > 1) { ++crowded; }
-    }
-    Published.Places("ring: vertices the drape grid holds",
-                     static_cast<double>(inFrame.size()) / 3.0,
-                     "vertices");
-    Published.Places("ring: cells they fall into", static_cast<double>(summed.size()), "cells");
-    Published.Places("ring: cells holding more than one", static_cast<double>(crowded), "cells");
-
-    std::array<size_t, kDrapeRungs> rungTaken = {{}};
-    for (size_t one = 0; one + 2 < laid->Index.size(); one += 3) {
-      double lowE = kBeyondAnyCoordinate;
-      double highE = -kBeyondAnyCoordinate;
-      double lowS = kBeyondAnyCoordinate;
-      double highS = -kBeyondAnyCoordinate;
-      bool whole = true;
-      for (size_t corner = 0; corner < 3; ++corner) {
-        const size_t held = static_cast<size_t>(laid->Index[one + corner]) * 3u;
-        if (held + 2 >= inFrame.size()) {
-          whole = false;
-          break;
-        }
-        lowE = std::min(lowE, static_cast<double>(inFrame[held]));
-        highE = std::max(highE, static_cast<double>(inFrame[held]));
-        lowS = std::min(lowS, static_cast<double>(inFrame[held + 2]));
-        highS = std::max(highS, static_cast<double>(inFrame[held + 2]));
-      }
-      if (!whole) { continue; }
-      const double across = std::max(highE - lowE, highS - lowS);
-      size_t rung = 0;
-      while (rung + 1u < kDrapeRungs && across > 2.0 * DrapeCellM(rung)) { ++rung; }
-      const double cellM = DrapeCellM(rung);
-      const auto fromE = static_cast<int64_t>(std::floor(lowE / cellM));
-      const auto toE = static_cast<int64_t>(std::floor(highE / cellM));
-      const auto fromS = static_cast<int64_t>(std::floor(lowS / cellM));
-      const auto toS = static_cast<int64_t>(std::floor(highS / cellM));
-      if ((toE - fromE + 1) * (toS - fromS + 1) > 64) { continue; }
-      ++rungTaken[rung];
-      for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
-        for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-          const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
-          const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
-          facesAt[rung][(atE << 32U) | atS].push_back(static_cast<uint32_t>(one));
-        }
-      }
-    }
-    for (size_t rung = 0; rung < kDrapeRungs; ++rung) {
-      Published.Places(std::string("ring: drape triangles on rung ") +
-                           static_cast<char>('0' + rung),
-                       static_cast<double>(rungTaken[rung]),
-                       "triangles");
-    }
-    Published.Places("ring: triangles the drape can reach",
-                     static_cast<double>(laid->Index.size()) / 3.0,
-                     "triangles");
-  }
-
-  const Drape drapedOver{
-      .DrawnGround = drawnGround, .FacesAt = facesAt, .InFrame = inFrame, .Index = laid->Index};
+  Published.Places(
+      "rebuild: of that, the ring and the buildings into the frame",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
+          .count(),
+      "ms");
+  censusAt = std::chrono::steady_clock::now();
+  const TriangleBvh surface = TriangleBvh::Over(inFrame, laid->Index);
+  Published.Places(
+      "rebuild: of that, the surface the world stands on",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
+          .count(),
+      "ms");
+  Published.Places("ring: triangles the drape can reach",
+                   static_cast<double>(laid->Index.size()) / 3.0,
+                   "triangles");
+  const Drape drapedOver{.Surface = surface};
   Paves(standing, classStructure, drapedOver, corridor, pavement, ground, clocks);
 
   {

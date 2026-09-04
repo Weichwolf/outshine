@@ -1,6 +1,8 @@
 #include <span>
 #include "TriangleBvh.h"
 
+#include <optional>
+
 #include "math/Box.h"
 #include "math/Vec3.h"
 
@@ -272,6 +274,49 @@ bool TriangleBvh::Refit(std::span<const float> positionsM) {
     }
   }
   return true;
+}
+
+std::optional<float> TriangleBvh::Under(float eastM, float southM) const {
+  if (Nodes_.empty()) { return std::nullopt; }
+
+  bool have = false;
+  float highest = 0.0F;
+  uint32_t at = 0;
+  while (at != kBvhNoEscape) {
+    const BvhNode &node = Nodes_[at];
+    if (eastM < node.MinM[0] || eastM > node.MaxM[0] || southM < node.MinM[2] ||
+        southM > node.MaxM[2]) {
+      at = node.Escape;
+      continue;
+    }
+    if (!node.IsLeaf()) {
+      at = at + 1u;
+      continue;
+    }
+    const uint32_t first = node.FirstTriangle();
+    const uint32_t count = node.TriangleCount();
+    for (uint32_t which = 0; which < count; ++which) {
+      const BvhTriangle &tri = Tris_[first + which];
+      const float e1x = tri.E1[0];
+      const float e1z = tri.E1[2];
+      const float e2x = tri.E2[0];
+      const float e2z = tri.E2[2];
+      const float under = e1x * e2z - e1z * e2x;
+      if (under == 0.0F) { continue; }
+      const float toX = eastM - tri.V0[0];
+      const float toZ = southM - tri.V0[2];
+      const float one = (toX * e2z - toZ * e2x) / under;
+      const float two = (e1x * toZ - e1z * toX) / under;
+      if (one < 0.0F || two < 0.0F || one + two > 1.0F) { continue; }
+      const float heightM = tri.V0[1] + one * tri.E1[1] + two * tri.E2[1];
+      if (!have || heightM > highest) {
+        have = true;
+        highest = heightM;
+      }
+    }
+    at = node.Escape;
+  }
+  return have ? std::optional<float>(highest) : std::nullopt;
 }
 
 bool TriangleBvh::Occludes(const Ray &along, float nearM, float distanceM) const {

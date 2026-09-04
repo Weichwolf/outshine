@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_TRIANGLEBVH_H
 #define OUTSHINE_BASE_SPATIAL_TRIANGLEBVH_H
 
+#include <optional>
 #include <span>
 #include <cstdint>
 #include <vector>
@@ -55,6 +56,8 @@ public:
                                         std::span<const uint32_t> indices);
 
   [[nodiscard]] bool Occludes(const Ray &along, float nearM, float distanceM) const;
+
+  [[nodiscard]] std::optional<float> Under(float eastM, float southM) const;
 
   [[nodiscard]] std::span<const BvhNode> Nodes() const { return {Nodes_.data(), Nodes_.size()}; }
 
