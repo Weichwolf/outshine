@@ -17,6 +17,12 @@ namespace outshine {
 
 namespace {
 
+constexpr double kGoldenCut = std::numbers::phi - 1.0;
+static_assert(kGoldenCut > 0.6180339 && kGoldenCut < 0.6180340);
+static_assert(kGoldenCut * kGoldenCut + kGoldenCut > 0.999999 &&
+                  kGoldenCut * kGoldenCut + kGoldenCut < 1.000001,
+              "phi's defining identity: 1/phi^2 + 1/phi == 1, which is why one probe is reusable");
+
 constexpr double kRadiusExactM = 1.0e-3;
 constexpr int kSpiralSteps = 96;
 constexpr double kShiftDenominator = 96.0;
@@ -201,30 +207,38 @@ struct Arc {
         AllowedAt(withinAtM, at, withinM) / (ShiftShare(swing) / std::cos(half) - 1.0);
     bend.RadiusM = byAccuracy < byRoom ? byAccuracy : byRoom;
   } else {
+    const auto probe = [&](double radiusM) {
+      double centreE = 0.0;
+      double centreN = 0.0;
+      centreOf(radiusM, centreE, centreN);
+      return FurthestShareOfArc(points,
+                                {.From = at,
+                                 .To = last,
+                                 .Centre = {.EastM = centreE, .NorthM = centreN},
+                                 .RadiusM = radiusM},
+                                withinAtM,
+                                withinM);
+    };
+
     double low = tightestM;
     double high = byRoom;
+    double nearRadius = high - kGoldenCut * (high - low);
+    double farRadius = low + kGoldenCut * (high - low);
+    double nearShare = probe(nearRadius);
+    double farShare = probe(farRadius);
     for (int step = 0; step < kSpiralSteps && high - low > kRadiusExactM; ++step) {
-      const double oneThird = low + (high - low) / 3.0;
-      const double twoThirds = high - (high - low) / 3.0;
-      double aE = 0.0;
-      double aN = 0.0;
-      double bE = 0.0;
-      double bN = 0.0;
-      centreOf(oneThird, aE, aN);
-      centreOf(twoThirds, bE, bN);
-      if (FurthestShareOfArc(
-              points,
-              {.From = at, .To = last, .Centre = {.EastM = aE, .NorthM = aN}, .RadiusM = oneThird},
-              withinAtM,
-              withinM) <
-          FurthestShareOfArc(
-              points,
-              {.From = at, .To = last, .Centre = {.EastM = bE, .NorthM = bN}, .RadiusM = twoThirds},
-              withinAtM,
-              withinM)) {
-        high = twoThirds;
+      if (nearShare < farShare) {
+        high = farRadius;
+        farRadius = nearRadius;
+        farShare = nearShare;
+        nearRadius = high - kGoldenCut * (high - low);
+        nearShare = probe(nearRadius);
       } else {
-        low = oneThird;
+        low = nearRadius;
+        nearRadius = farRadius;
+        nearShare = farShare;
+        farRadius = low + kGoldenCut * (high - low);
+        farShare = probe(farRadius);
       }
     }
     bend.RadiusM = 0.5 * (low + high);

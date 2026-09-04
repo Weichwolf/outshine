@@ -125,26 +125,17 @@ Fitted Fit(std::span<const double> eastNorthM,
     return out;
   }
 
-  std::vector<double> legM(points - 1, 0.0);
-  std::vector<double> headingRad(points - 1, 0.0);
-  for (size_t leg = 0; leg + 1 < points; ++leg) {
-    const double east = eastNorthM[2 * (leg + 1)] - eastNorthM[2 * leg];
-    const double north = eastNorthM[2 * (leg + 1) + 1] - eastNorthM[2 * leg + 1];
-    legM[leg] = std::sqrt(east * east + north * north);
-    headingRad[leg] = std::atan2(north, east);
-  }
-  std::vector<double> turnRad(points, 0.0);
-  for (size_t vertex = 1; vertex + 1 < points; ++vertex) {
-    turnRad[vertex] = Wrapped(headingRad[vertex] - headingRad[vertex - 1]);
-  }
-
   if (points < 3) {
+    const double east = eastNorthM[2] - eastNorthM[0];
+    const double north = eastNorthM[3] - eastNorthM[1];
     Placed from;
     from.EastM = eastNorthM[0];
     from.NorthM = eastNorthM[1];
-    from.HeadingRad = headingRad[0];
-    const Segment only{
-        .Shape = Curve::Straight, .LengthM = legM[0], .EntryCurvature = 0.0, .ExitCurvature = 0.0};
+    from.HeadingRad = std::atan2(north, east);
+    const Segment only{.Shape = Curve::Straight,
+                       .LengthM = std::sqrt(east * east + north * north),
+                       .EntryCurvature = 0.0,
+                       .ExitCurvature = 0.0};
     if (!into.Lay(from, std::span<const Segment>(&only, 1), out.Error)) { return out; }
     out.Straights = 1;
     out.LengthM = into.LengthM();
