@@ -1835,6 +1835,7 @@ void Engine::State::Paves(const TangentFrame &standing,
     tookFrom = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::milli>(tookFrom - was).count();
   };
+  const auto pavesAt = std::chrono::steady_clock::now();
   if (vectors != nullptr) { Crosses(ways, *vectors, standing, drapedOver, into); }
   Published.Places("streets: of that, finding the crossings", since(), "ms");
   if (vectors != nullptr && into.DecksRaised > 0) {
@@ -1911,9 +1912,15 @@ void Engine::State::Paves(const TangentFrame &standing,
   Published.Places(
       "streets: decks a WATERWAY raised", static_cast<double>(into.DecksOverWater), "decks");
   Published.Places("streets: and the clearance the widest one took", into.MostOverWaterM, "m");
+  const auto junctionsAt = std::chrono::steady_clock::now();
   Published.Places("streets: junction bodies raised",
                    static_cast<double>(RaisesTheJunctionBodies(into, pavement)),
                    "junctions");
+  Published.Places(
+      "streets: of that, raising the junction bodies",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - junctionsAt)
+          .count(),
+      "ms");
   TellsWhatTheFitFound(into);
   Published.Places("streets: ways laid as ribbons, all of them FLOATING",
                    static_cast<double>(into.LaidWays),
@@ -1940,7 +1947,17 @@ void Engine::State::Paves(const TangentFrame &standing,
   Published.Places("streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
   const size_t pavedTriangles = pavement.Index.size() / 3;
   Published.Places("streets: triangles", static_cast<double>(pavedTriangles), "triangles");
+  const auto handingAt = std::chrono::steady_clock::now();
   HandsThePavingOver(pavement, ground);
+  Published.Places(
+      "streets: of that, handing the paving over",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handingAt)
+          .count(),
+      "ms");
+  Published.Places(
+      "streets: everything Paves did",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pavesAt).count(),
+      "ms");
 }
 
 void Engine::State::TellsTheRelief(Relieved over) {
