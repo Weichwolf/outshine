@@ -48,8 +48,13 @@ namespace {
 [[nodiscard]] uint64_t DigestOver(const Raised &built) {
   uint64_t mixed = kDigestBasis;
   const auto fold = [&mixed](uint64_t one) { mixed = (mixed ^ one) * kDigestPrime; };
-  for (const float one : built.WallCorners) { fold(std::bit_cast<uint32_t>(one)); }
-  for (const float one : built.RoofCorners) { fold(std::bit_cast<uint32_t>(one)); }
+  const auto foldVertex = [&fold](const TileVertex &one) {
+    for (const float held : one.PlaceM) { fold(std::bit_cast<uint32_t>(held)); }
+    for (const float held : one.Uv) { fold(std::bit_cast<uint32_t>(held)); }
+    for (const float held : one.Facing) { fold(std::bit_cast<uint32_t>(held)); }
+  };
+  for (const TileVertex &one : built.WallCorners) { foldVertex(one); }
+  for (const TileVertex &one : built.RoofCorners) { foldVertex(one); }
   for (const uint32_t one : built.WallRun) { fold(one); }
   for (const uint32_t one : built.RoofRun) { fold(one); }
   return mixed;
@@ -486,20 +491,14 @@ void Engine::State::Models(const TangentFrame &standing,
     std::vector<float> &wallFacing = World.WallFacing;
     std::vector<float> &roofPlaces = World.RoofPlaces;
     std::vector<float> &roofFacing = World.RoofFacing;
-    World.WallCarried = CarryIntoTheFrame({.Corners = built.WallCorners,
-                                           .Stride = kTileVertexFloats,
-                                           .FacingAt = kTileVertexFacingAt,
-                                           .AnchorEcefM = anchor,
-                                           .Already = World.WallCarried},
-                                          standing,
-                                          {.PlacesM = wallPlaces, .Turned = wallFacing});
-    World.RoofCarried = CarryIntoTheFrame({.Corners = built.RoofCorners,
-                                           .Stride = kTileVertexFloats,
-                                           .FacingAt = kTileVertexFacingAt,
-                                           .AnchorEcefM = anchor,
-                                           .Already = World.RoofCarried},
-                                          standing,
-                                          {.PlacesM = roofPlaces, .Turned = roofFacing});
+    World.WallCarried = CarryIntoTheFrame(
+        {.Corners = built.WallCorners, .AnchorEcefM = anchor, .Already = World.WallCarried},
+        standing,
+        {.PlacesM = wallPlaces, .Turned = wallFacing});
+    World.RoofCarried = CarryIntoTheFrame(
+        {.Corners = built.RoofCorners, .AnchorEcefM = anchor, .Already = World.RoofCarried},
+        standing,
+        {.PlacesM = roofPlaces, .Turned = roofFacing});
     const std::vector<uint32_t> &wallRun = built.WallRun;
     const std::vector<uint32_t> &roofRun = built.RoofRun;
     const size_t wallVerts = wallPlaces.size() / 3;

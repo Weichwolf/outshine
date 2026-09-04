@@ -181,7 +181,7 @@ public:
 
 private:
   [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const Vec3 &nrm) {
-    std::vector<float> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
+    std::vector<TileVertex> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
     const uint64_t facing =
         (static_cast<uint64_t>(
              static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[0] * 4096.0))))
@@ -194,17 +194,17 @@ private:
     const uint64_t key = (static_cast<uint64_t>(at) * kDigestPrime) ^ facing;
     const auto found = Corners_[side].find(key);
     if (found != Corners_[side].end()) { return found->second; }
-    const auto made = static_cast<uint32_t>(soup.size() / kTileVertexFloats);
+    const auto made = static_cast<uint32_t>(soup.size());
     Corners_[side].emplace(key, made);
+    TileVertex held{};
     for (int c = 0; c < 3; c++) {
-      soup.push_back(static_cast<float>(Origin_[c] + v.P.EastM * East_[c] + v.P.NorthM * North_[c] +
-                                        v.Z * Up_[c]));
+      held.PlaceM[static_cast<size_t>(c)] = static_cast<float>(
+          Origin_[c] + v.P.EastM * East_[c] + v.P.NorthM * North_[c] + v.Z * Up_[c]);
+      held.Facing[static_cast<size_t>(c)] =
+          static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]);
     }
-    soup.push_back(v.U);
-    soup.push_back(v.V);
-    for (int c = 0; c < 3; c++) {
-      soup.push_back(static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]));
-    }
+    held.Uv = {{v.U, v.V}};
+    soup.push_back(held);
     return made;
   }
 

@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_CONTENT_SHADE_TANGENTFRAME_H
 #define OUTSHINE_CONTENT_SHADE_TANGENTFRAME_H
 
+#include "ground/TileMeshes.h"
+
 #include <vector>
 #include <span>
 #include <cmath>
@@ -68,10 +70,7 @@ private:
 };
 
 struct Carrying {
-  std::span<const float> Corners;
-  size_t Stride = 0;
-
-  size_t FacingAt = 5;
+  std::span<const TileVertex> Corners;
   Vec3 AnchorEcefM = {{0.0, 0.0, 0.0}};
   size_t Already = 0;
 };
@@ -82,22 +81,22 @@ struct Carried {
 };
 
 inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standing, Carried into) {
-  const std::span<const float> corners = from.Corners;
+  const std::span<const TileVertex> corners = from.Corners;
   const Vec3 &anchor = from.AnchorEcefM;
   std::vector<float> &places = into.PlacesM;
   std::vector<float> &turned = into.Turned;
   size_t already = from.Already;
-  const size_t count = corners.size() / from.Stride;
+  const size_t count = corners.size();
   if (already > count || places.size() != already * 3 || turned.size() != already * 3) {
     already = 0;
   }
   places.resize(count * 3);
   turned.resize(count * 3);
   for (size_t at = already; at < count; ++at) {
-    const float *const one = corners.data() + at * from.Stride;
-    const Vec3 held = {{anchor[0] + static_cast<double>(one[0]),
-                        anchor[1] + static_cast<double>(one[1]),
-                        anchor[2] + static_cast<double>(one[2])}};
+    const TileVertex &one = corners[at];
+    const Vec3 held = {{anchor[0] + static_cast<double>(one.PlaceM[0]),
+                        anchor[1] + static_cast<double>(one.PlaceM[1]),
+                        anchor[2] + static_cast<double>(one.PlaceM[2])}};
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
@@ -108,9 +107,9 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
     places[at * 3] = static_cast<float>(eastM);
     places[at * 3 + 1] = static_cast<float>(upM);
     places[at * 3 + 2] = static_cast<float>(-northM);
-    const Vec3 aim = {{static_cast<double>(one[from.FacingAt]),
-                       static_cast<double>(one[from.FacingAt + 1]),
-                       static_cast<double>(one[from.FacingAt + 2])}};
+    const Vec3 aim = {{static_cast<double>(one.Facing[0]),
+                       static_cast<double>(one.Facing[1]),
+                       static_cast<double>(one.Facing[2])}};
     double alongEast = 0.0;
     double alongUp = 0.0;
     double alongNorth = 0.0;
@@ -124,6 +123,5 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
   }
   return count;
 }
-
 } // namespace outshine
 #endif
