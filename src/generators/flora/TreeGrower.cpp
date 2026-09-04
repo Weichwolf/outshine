@@ -188,7 +188,10 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   }
 }
 
-void TreeGrower::EmitLeafPoints(Vec3f pos, Framing over, float radius, int count, float roll) {
+void TreeGrower::EmitLeafPoints(Vec3f pos, Framing over, Whorl spray) {
+  const float radius = spray.RadiusM;
+  int count = spray.Count;
+  const float roll = spray.RollRad;
   const Frame frame = FrameFrom(over);
   const Vec3f &n = frame.Normal;
   const Vec3f &b = frame.Binormal;
@@ -336,7 +339,9 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
                             ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold));
       if (foliated && t.Radius < leafThreshold) {
         leafRoll += kGolden;
-        EmitLeafPoints(t.Pos, {.Along = t.Dir, .Reference = t.Up}, t.Radius, 3, leafRoll);
+        EmitLeafPoints(t.Pos,
+                       {.Along = t.Dir, .Reference = t.Up},
+                       {.RadiusM = t.Radius, .Count = 3, .RollRad = leafRoll});
       }
 
       if (t.Bare > 0) {
@@ -380,11 +385,10 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     if (t.Foliate &&
         ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * kLeafRadiusFactor)) &&
         t.Radius < leafThreshold * kLeafRadiusFactor) {
-      EmitLeafPoints(t.Pos,
-                     {.Along = t.Dir, .Reference = t.Up},
-                     t.Radius,
-                     kLeafPointsPerWhorl,
-                     leafRoll + kLeafRollTurn);
+      EmitLeafPoints(
+          t.Pos,
+          {.Along = t.Dir, .Reference = t.Up},
+          {.RadiusM = t.Radius, .Count = kLeafPointsPerWhorl, .RollRad = leafRoll + kLeafRollTurn});
     }
   }
 

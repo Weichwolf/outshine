@@ -54,7 +54,14 @@ private:
   void SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, Sprout from, float roll);
 
   void SpawnShoot(const Tip &parent, const Request &request, const TreeSpecies::Growth &g);
-  void EmitLeafPoints(Vec3f pos, Framing over, float radius, int count, float roll);
+
+  struct Whorl {
+    float RadiusM = 0.0f;
+    int Count = 0;
+    float RollRad = 0.0f;
+  };
+
+  void EmitLeafPoints(Vec3f pos, Framing over, Whorl spray);
 
   void SetCrown(const TreeSpecies &species, float growHeight);
   void SeedLeaders(const TreeSpecies::Growth &g, int bareSteps);
