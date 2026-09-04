@@ -13,6 +13,11 @@ footprint is a breakline the edit layer honours. RAGE's terrain is gridded and b
 in at cook time. **Neither searches for seams**, because neither creates them. What is mine is
 the resolution rule, because the world arrives over the wire.
 
+**Cited beside the two**: Cesium's terrain is `quantized-mesh` per tile -- a TIN with its edge
+vertices listed so neighbours match, and a SKIRT down every tile edge so a crack between two
+levels never shows -- and its `sampleHeightMostDetailed` is the ray down a tile that step 1 of
+board:2121 already is. The lattice comes from Unreal; the seam discipline comes from Cesium.
+
 ## Where it stands, measured 2026-09-04
 
 ```

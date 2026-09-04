@@ -12,6 +12,11 @@ screen-space reflections on wet roads, planar reflection for the sea. **Both agr
 ladder: a probe answers what the screen cannot see, the screen answers what the probe has too
 coarsely, and a plane answers a plane. Where they differ is only how many rungs the budget buys.
 
+**Cited beside the two**: Filament's `IndirectLight` is a prefiltered cube map read by the
+specular lobe per roughness (`cmgen`), and its screen-space reflections read the depth and
+colour of the previous frame -- both readable, both on phones. The probe rung here is Filament's
+`IndirectLight` with the sky replaced by a capture.
+
 ## Where it stands, measured 2026-09-04
 
 ```

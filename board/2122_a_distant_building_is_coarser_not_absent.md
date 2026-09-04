@@ -50,6 +50,12 @@ The terrain worker churns 17 MB per resident tile for a 33x33 grid -- the cook (
 principle this item lands is wider than the buildings: **every generator delivers in CHUNKS
 the size of a tile, into a scratch it borrows, and nothing it makes is world-grained.**
 
+**Cited beside the two**: Cesium's 3D Tiles hold every tile RELATIVE TO ITS OWN CENTRE
+(`RTC_CENTER`) in float and place the tile with one double transform -- which is exactly what a
+piece is here: `StoredVertex` relative to the tile's origin, one placement row per piece, and
+the frame's pre-view translation applied once on the GPU. `CarryIntoTheFrame` transforming
+every vertex on the CPU is the thing RTC exists to avoid.
+
 ## The solution -- one change, not three
 
 The unit is the VECTOR tile, which the bake is already grained to (`Build()` works on

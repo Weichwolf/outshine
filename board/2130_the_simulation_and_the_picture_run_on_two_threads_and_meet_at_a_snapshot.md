@@ -12,6 +12,11 @@ draws the previous frame's `drawList`, and the two never share live state. **Bot
 CLAUDE.md's fourth invariant restates them: *SIM · VIDEO · AUDIO · IO run independently and what
 passes between them is a SNAPSHOT.*
 
+**Cited beside the two**: Filament, which ships on phones, runs its driver on its OWN thread
+behind a `CommandStream` -- the main thread records, the driver thread executes a frame behind,
+and the two share nothing but the stream. That is the shape for a 2P+4E part: the snapshot is
+a command stream, not a copied world.
+
 ## Where it stands, measured 2026-09-04
 
 ```

@@ -31,6 +31,12 @@ The concept exists and has two rules, one of them dead. The buildings' geometry 
 already minimal (14.2 triangles); the COUNT is the whole problem -- 575 805 at Shibuya -- and the
 answer is the decision not to mesh most of them at full standing, taken from ONE rule.
 
+**Cited beside the two**: Cesium names the number -- every tile carries a `geometricError` in
+metres and the refinement rule is one screen-space error threshold (`maximumScreenSpaceError`)
+over the whole world, for terrain and buildings alike. `DagCluster.SelfErr` IS that number for
+the ground and `Unseen(errorM, ...)` is the same rule for buildings; the item's one rule is
+Cesium's, already in the tree twice.
+
 ## The solution
 
 One rule, the one both references use: projected error in PIXELS. `Unseen(errorM, focalPx,

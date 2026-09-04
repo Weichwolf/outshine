@@ -14,6 +14,11 @@ flight over the city sees the whole city as blocks and streams the detail under 
 **Both agree**: the ring is not centred on the eye, it is ahead of it; the far field is coarse
 and RESIDENT, and the fine field is streamed under the velocity vector.
 
+**Cited beside the two**: Cesium's tile scheduler orders requests by SCREEN-SPACE ERROR --
+the tile that would change the picture most lands first, whatever its distance -- and its
+cache evicts by a memory budget (`cacheBytes`) in order of last use. `TileWatermark::Ask` sorts
+by distance today; the pushed centre and the error rule make it Cesium's order.
+
 ## Where it stands, measured 2026-09-04
 
 ```

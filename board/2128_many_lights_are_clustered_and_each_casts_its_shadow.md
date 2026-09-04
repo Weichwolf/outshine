@@ -12,6 +12,11 @@ pass with light volumes, local shadow maps per shadow-casting light from a fixed
 sun shadows. **Both agree**: the light count times the object count is a STRUCTURE, never a
 loop; every light may shadow; the sun is cascaded.
 
+**Cited beside the two**: Filament's `Froxelizer` bins lights into a 16x8x24 froxel grid on
+the CPU per frame and the fragment reads its froxel's light list -- on a phone GPU, which is
+this target -- with cascaded shadow maps for the sun and a shadow map per spot light. It is the
+readable implementation of what both references do, and the one this item copies.
+
 ## Where it stands, measured 2026-09-04
 
 ```
