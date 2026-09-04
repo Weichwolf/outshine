@@ -46,8 +46,6 @@ int main(void) {
     CHECK(onPoster.load() == 0,
           "**A JOB RUNS ON A WORKER, NEVER ON THE POSTER'S THREAD**: the frame posts and keeps "
           "going; a pool that runs the job inline is a function call wearing a pool's name");
-    CHECK(pool.Finished() == kJobs, "the pool counts what it finished");
-    CHECK(pool.Pending() == 0, "and nothing is pending once every handle was waited on");
     for (int at = 0; at < kJobs; ++at) {
       CHECK(!pool.Done(posted[static_cast<size_t>(at)]),
             "a handle waited on is spent -- Done answers once, so a result is consumed once");

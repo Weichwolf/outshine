@@ -1,6 +1,11 @@
 #include "Tasks.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <mutex>
+#include <thread>
+#include <utility>
 
 namespace outshine {
 
@@ -59,16 +64,6 @@ void Tasks::Wait(Handle which) {
   Done_.erase(which);
 }
 
-size_t Tasks::Pending() {
-  const std::scoped_lock lock(Mutex_);
-  return Queue_.size() + Running_;
-}
-
-uint64_t Tasks::Finished() {
-  const std::scoped_lock lock(Mutex_);
-  return Finished_;
-}
-
 void Tasks::Work() {
   for (;;) {
     Posted taken;
@@ -78,13 +73,10 @@ void Tasks::Work() {
       if (Stopping_) { return; }
       taken = std::move(Queue_.front());
       Queue_.pop_front();
-      ++Running_;
     }
     taken.Run();
     {
       const std::scoped_lock lock(Mutex_);
-      --Running_;
-      ++Finished_;
       Done_.insert(taken.Which);
     }
     Landed_.notify_all();

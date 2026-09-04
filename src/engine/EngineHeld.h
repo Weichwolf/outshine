@@ -20,6 +20,8 @@
 #include "RegionPool.h"
 #include "Unwired.h"
 #include "TilePieces.h"
+#include "StructureBakes.h"
+#include "Tasks.h"
 
 #include <chrono>
 #include <thread>
@@ -57,6 +59,8 @@ constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
 
 inline constexpr size_t kParkedBound = 8;
+inline constexpr size_t kBakesLandedPerFrame = 2;
+inline constexpr size_t kBakesLandedInPreload = size_t{1} << 20u;
 inline constexpr size_t kMostSaveBytes = 1u << 20u;
 
 class Collecting : public Sink {
@@ -284,6 +288,8 @@ struct Surrounds {
 
   TilePieces Pieces;
   bool PiecesFramed = false;
+  std::unique_ptr<Tasks> Pool;
+  StructureBakes Bakes;
   bool EverLaid = false;
   size_t Relaid = 0;
   size_t Asked = 0;
@@ -661,6 +667,7 @@ struct Engine::State {
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
   [[nodiscard]] bool Stood();
   void HandsPiecesOver();
+  void Bakes(size_t landsMost);
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();

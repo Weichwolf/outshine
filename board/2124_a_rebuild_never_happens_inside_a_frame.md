@@ -29,6 +29,10 @@ is a seam, and the expensive half behind it still runs on the frame path. No amo
 that half cheaper fixes this: 1132 ms cut by ninety per cent is 113 ms in one frame, seven
 frames missed.
 
+Measured 2026-09-04 at Shibuya with the bake on a worker (board:2122): while tiles landed
+two a frame, `PlacePiece` (upload + `Retable`) on the frame path read sim p99 46 ms, worst
+102 ms; with every tile landed, sim p99 1.0 ms. The landing is a rebuild by another name.
+
 ## The solution
 
 Two halves, and board:2122 supplies the first:

@@ -280,7 +280,6 @@ bool Engine::State::Composes() {
         "ground: structures a scenario declared", static_cast<double>(told.size()), "structures");
   }
 
-  World.Stack.ShapesFootprintsWith(&World.Shipping.Shaping());
   {
     const double fovDeg =
         Session.Declared.Views.empty() || Session.Declared.Views.front().Sees.FovDeg <= 0.0

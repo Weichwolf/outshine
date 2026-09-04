@@ -30,6 +30,9 @@ struct Fields {
 [[nodiscard]] std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region,
                                                                const Fields &stands);
 
+[[nodiscard]] std::shared_ptr<const GroundPatch>
+PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how);
+
 [[nodiscard]] Snapped SnapshotOver(const Tile &region,
                                    const outshine::GroundQuery &heights,
                                    const outshine::Ground::ClassField &classes,

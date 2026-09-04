@@ -125,7 +125,6 @@ void GroundStack::Restand(LongitudeLatitude at) {
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     (void)Ways_.Ingest(*Vectors_, Templates_);
     (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
-    (void)Footprints_.Build(*Ground_, *Vectors_, std::span<const WayLine>());
     const size_t after =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after == before || Drained()) { break; }

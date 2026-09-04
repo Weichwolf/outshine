@@ -5,15 +5,13 @@
 #include "math/Vec3.h"
 #include "OsmField.h"
 
-#include <algorithm>
 #include <cstdint>
-#include <map>
+#include <functional>
+#include <optional>
 #include <vector>
 
 #include "Capacity.h"
-#include "GroundSample.h"
 #include <Earth.h>
-#include "GroundQuery.h"
 #include "StructureMesher.h"
 #include "TileRanges.h"
 #include "TileWatermark.h"
@@ -38,21 +36,39 @@ public:
     Generators::Detail Coarseness = Generators::Detail::Fine;
   };
 
+  struct Baked {
+    std::span<const Footprint> Prints;
+    std::span<const double> SeatSpreadM;
+    std::span<const double> AcrossM;
+    size_t Triangles = 0;
+    int OsmHeights = 0;
+    int DefaultHeights = 0;
+    int Fronted = 0;
+  };
+
   void SeenWith(double focalPx) { FocalPx_ = focalPx; }
 
   void TilesSpan(double tileSpanM) { TileSpanM_ = tileSpanM; }
 
   [[nodiscard]] double CarriesFromM() const { return outshine::CarriesFromM(TileSpanM_); }
 
-  void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
+  [[nodiscard]] double FocalPx() const { return FocalPx_; }
 
-  void HandsTo(RaisedSink *sink) { Sink_ = sink; }
+  [[nodiscard]] double TileSpanM() const { return TileSpanM_; }
 
   void AnchorAt(const Vec3 &ecef);
 
-  int Build(const GroundQuery &ground, const OsmField &field, std::span<const WayLine> ways);
+  [[nodiscard]] std::optional<TileWatermark::Next>
+  Next(const OsmField &field, const std::function<bool(FeatureRun)> &groundStands);
 
-  [[nodiscard]] double MeshMs() const { return MeshMs_; }
+  void Take(uint32_t tile) {
+    Mark_.Take(tile);
+    ++Taken_;
+  }
+
+  void Accept(uint32_t tile, const OsmField &field, const Baked &baked);
+
+  [[nodiscard]] double AwayFromCentreM(const OsmField &field, uint32_t tile) const;
 
   [[nodiscard]] size_t TrianglesHanded() const { return TrianglesHanded_; }
 
@@ -80,69 +96,27 @@ public:
 
   [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_); }
 
-  [[nodiscard]] size_t ScratchBytes() const { return Scratch_.HeapBytes(); }
-
   [[nodiscard]] size_t HeapBytes() const {
-    return CapacityBytes(Prints_) + Scratch_.HeapBytes() + Mark_.HeapBytes() + ByTile_.HeapBytes();
+    return CapacityBytes(Prints_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
-  [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
+  [[nodiscard]] bool Ingested(const OsmField &field) const {
+    return Mark_.Done(field.Features()) && Taken_ == Accepted_;
+  }
 
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
-  static GroundSample RingBase(const GroundQuery &ground,
-                               const OsmField &field,
-                               const OsmField::Ring &ring,
-                               std::vector<double> *corners,
-                               double *seatAslM = nullptr);
-
-  struct Lumped {
-    double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
-    double BaseSum = 0.0, SeatSum = 0.0, HeightSum = 0.0;
-    int Count = 0;
-
-    double PitchedAreaM2 = 0.0, RoofAreaM2 = 0.0;
-
-    Generators::Detail Level = Generators::Detail::Fine;
-  };
-
-  struct Spread {
-    double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
-  };
-
-  struct Standing {
-    double BaseM = 0.0, SeatM = 0.0, HeightM = 0.0;
-    double RoofAreaM2 = 0.0;
-    bool Pitched = false;
-    Generators::Detail Level = Generators::Detail::Fine;
-  };
-
-  static void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cellM);
-
-  void RaiseLump(const Lumped &of);
-
-  [[nodiscard]] double AwayFromCentreM(const OsmField &field, uint32_t tile) const;
-
-  [[nodiscard]] static bool
-  TileGroundResolved(const GroundQuery &ground, const OsmField &field, FeatureRun over, int layer);
-  void Raise(const OsmField &field, const Footprint &f);
-
-  const StructureMesher *Mesher_ = nullptr;
-  RaisedSink *Sink_ = nullptr;
   std::vector<Footprint> Prints_;
-  Raised Scratch_;
   size_t TrianglesHanded_ = 0;
-  double MeshMs_ = 0.0;
+  size_t Taken_ = 0, Accepted_ = 0;
   TileRanges ByTile_;
   TileWatermark Mark_;
   double FocalPx_ = 0.0;
   double TileSpanM_ = 0.0;
-
-  std::vector<double> Corners_;
   Vec3 Anchor_;
   bool Anchored_ = false;
-  int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0, Fronted_ = 0;
+  int OsmHeights_ = 0, DefaultHeights_ = 0, Fronted_ = 0;
   std::vector<double> SeatSpread_;
   std::vector<double> Across_;
 };

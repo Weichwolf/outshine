@@ -79,9 +79,7 @@ public:
 
   [[nodiscard]] const BuildingField &Footprints() const { return Footprints_; }
 
-  void ShapesFootprintsWith(const StructureMesher *mesher) { Footprints_.Shapes(mesher); }
-
-  void HandsRaisedTo(RaisedSink *sink) { Footprints_.HandsTo(sink); }
+  [[nodiscard]] BuildingField &Footprints() { return Footprints_; }
 
   void SeeFootprintsWith(double focalPx) { Footprints_.SeenWith(focalPx); }
 

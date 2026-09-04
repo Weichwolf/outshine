@@ -16,7 +16,7 @@ class Live;
 
 namespace outshine {
 
-class TilePieces final : public RaisedSink {
+class TilePieces {
 public:
   void Into(Core::Live *live) { Live_ = live; }
 
@@ -32,7 +32,7 @@ public:
     RoofsSurface_ = these.Roofs;
   }
 
-  void Hands(uint32_t tile, const Raised &built, const Vec3 &anchorEcef) override;
+  void Hands(uint32_t tile, const Raised &built, const Vec3 &anchorEcef);
 
   void Forgets(uint32_t tile);
   void Clear();

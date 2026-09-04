@@ -259,17 +259,14 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
   return true;
 }
 
-bool SubjectResidency::Grow(Stream which,
-                            uint32_t bytes,
-                            SDL_GPUBufferUsageFlags usage,
-                            std::string &error) {
+bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
   OwnedBuffer &held = Buffer(which);
   uint32_t *const stood = HeldAt(which);
-  if (held && *stood >= bytes) { return true; }
-  uint32_t widened = *stood > 0 ? *stood : bytes;
-  while (widened < bytes) { widened *= 2u; }
+  if (held && *stood >= need.Bytes) { return true; }
+  uint32_t widened = *stood > 0 ? *stood : need.Bytes;
+  while (widened < need.Bytes) { widened *= 2u; }
   SDL_GPUBufferCreateInfo wanted{};
-  wanted.usage = usage;
+  wanted.usage = need.Usage;
   wanted.size = widened;
   OwnedBuffer fresh(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
   gBuffersMade.fetch_add(1u, std::memory_order_relaxed);

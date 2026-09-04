@@ -529,16 +529,22 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
   };
   const auto vertex = SDL_GPU_BUFFERUSAGE_VERTEX;
   using S = SubjectResidency::Stream;
-  return res.Grow(S::Vertex, bytes(verts, kPositionFloats), vertex, error) &&
-         res.Grow(S::Normal, bytes(verts, kPositionFloats), vertex, error) &&
-         res.Grow(S::Uv, bytes(verts, kPairFloats), vertex, error) &&
-         res.Grow(S::Colour, bytes(verts, kQuadFloats), vertex, error) &&
-         (!WritesVelocity || res.Grow(S::Previous, bytes(verts, kPositionFloats), vertex, error)) &&
-         (subject == 0 || (res.Grow(S::Emitted, bytes(subject, kPositionFloats), vertex, error) &&
-                           res.Grow(S::Tangent, bytes(subject, kQuadFloats), vertex, error) &&
-                           res.Grow(S::Uv1, bytes(subject, kPairFloats), vertex, error))) &&
-         res.Grow(
-             S::Index, res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t)), kIndexUse, error);
+  return res.Grow(S::Vertex, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
+         res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
+         res.Grow(S::Uv, {.Usage = vertex, .Bytes = bytes(verts, kPairFloats)}, error) &&
+         res.Grow(S::Colour, {.Usage = vertex, .Bytes = bytes(verts, kQuadFloats)}, error) &&
+         (!WritesVelocity || res.Grow(S::Previous,
+                                      {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)},
+                                      error)) &&
+         (subject == 0 ||
+          (res.Grow(
+               S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error) &&
+           res.Grow(S::Tangent, {.Usage = vertex, .Bytes = bytes(subject, kQuadFloats)}, error) &&
+           res.Grow(S::Uv1, {.Usage = vertex, .Bytes = bytes(subject, kPairFloats)}, error))) &&
+         res.Grow(S::Index,
+                  {.Usage = kIndexUse,
+                   .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t))},
+                  error);
 }
 
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
@@ -1037,18 +1043,17 @@ bool SubjectDraw::Retable(std::string &error) {
     return false;
   }
 
-  if (!Room(SubjectResidency::Stream::ClusterKept,
-            SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-            Jobs_ * static_cast<uint32_t>(sizeof(uint32_t))) ||
-      !Room(SubjectResidency::Stream::ClusterSlot,
-            SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-            Jobs_ * static_cast<uint32_t>(sizeof(uint32_t))) ||
+  constexpr SDL_GPUBufferUsageFlags kCullUse =
+      SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
+  const uint32_t jobBytes = Jobs_ * static_cast<uint32_t>(sizeof(uint32_t));
+  if (!Room(SubjectResidency::Stream::ClusterKept, {.Usage = kCullUse, .Bytes = jobBytes}) ||
+      !Room(SubjectResidency::Stream::ClusterSlot, {.Usage = kCullUse, .Bytes = jobBytes}) ||
       !Room(SubjectResidency::Stream::DrawIndex,
-            SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-            base * static_cast<uint32_t>(sizeof(uint32_t))) ||
+            {.Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+             .Bytes = base * static_cast<uint32_t>(sizeof(uint32_t))}) ||
       !Room(SubjectResidency::Stream::DrawArguments,
-            SDL_GPU_BUFFERUSAGE_INDIRECT | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-            static_cast<uint32_t>(Args_.size() * sizeof(uint32_t)))) {
+            {.Usage = SDL_GPU_BUFFERUSAGE_INDIRECT | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+             .Bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t))})) {
     Args_.clear();
     Jobs_ = 0;
     error = std::string("the cut's compacted run found no room on the device: ") + SDL_GetError();
@@ -1069,7 +1074,7 @@ bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
 }
 
 bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
-  size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
+  const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
   const size_t all = needed + Pieces_.size();
   if (!RowsStale_ && Rows_.size() == all * 32u) { return true; }
   RowsStale_ = false;
@@ -1338,5 +1343,4 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
         into.Pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0, batch.ModelSlot);
   }
 }
-
 } // namespace outshine::Render

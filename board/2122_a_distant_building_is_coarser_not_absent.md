@@ -115,12 +115,46 @@ still world-grained passes.
 - [x] `BuildingField::Built_` is gone; the CPU holds footprints and one tile's scratch --
       2026-09-04, and the pool is ONE residency: the subject is a range in it like every piece
 - [x] The frame copies are gone; the renderer reads a pool the sim never appends to
-- [x] Shibuya preloads under the 512 MB ceiling and draws: 489 MB peak, p99 8.4 ms; `world: the
-      buildings` at OldTown reads footprints plus one tile's scratch
+- [x] The bake runs on a WORKER (`base/io/Tasks`, threads = hardware - 2, at most two bakes in
+      flight per thread) and lands in POST order; all nine references unmoved to the pixel,
+      2026-09-04 -- `pixels.py` 0 of 921 600 at every place
+- [x] Shibuya preloads and draws: p99 8.0 ms, sim p99 1.0 ms once every tile has landed
+- [ ] Shibuya's PROCESS peak under 512 MB: 539 MB measured 2026-09-04, and the bake is NOT it
+      (below) -- the number belongs to board:2104
 - [ ] The meshers allocate nothing per call, counted with the tagged heap before and after
 - [ ] Pieces land in declared order: a case shuffles worker completion and the picture holds
 - [ ] Negative control: append one tile to a world-sized vector again and the peak ceiling goes
       RED
+
+## The bake on a worker, landed 2026-09-04
+
+`StructureBakes` (engine) takes the next tile the watermark yields, copies the tile's RAW rings
+and tags into a `RawTile`, copies EVERY elevation block the rings' bounding boxes touch into a
+`Ground::HeightField`, and posts `Generators::BakeStructures` to the pool. The seats are
+bit-identical to the frame path's because the field samples with the same `GroundBlock::AslMRow`
+over the same nodes -- a bilinear `Patch` at the post spacing was the plan and would have moved
+every seat by the difference of two interpolations; copying the block costs `side²` floats per
+block and moves nothing. A block still `Waiting` defers the tile, as `TileGroundResolved` did.
+
+Three defects found on the way, each with its picture:
+
+- **an empty tile never landed**: a tile with no polygons gathered no block, the field refused to
+  exist, the watermark deferred it every round and the preload timed out at 15 s with "0 of 100
+  pending". A tile without structures lands with an EMPTY field
+- **the watermark was done when every tile was TAKEN, not landed**: `Advance` walks the mark
+  over every taken tile, in flight or not, so `Ingested()` went true with 17 bakes queued and
+  they landed INSIDE the measured frames -- Shibuya's far towers missing from the picture, sim
+  p99 46 ms, and the digest differing between two runs. `Ingested` is now taken == accepted
+- **interior samples**: the frame path SKIPPED a missing interior sample and only refused a
+  missing corner; the port refused both. Heidelberg said so with 343 pixels
+
+Measured 2026-09-04 at Shibuya, live heap per landing: 463 MB before the first tile lands,
+455 MB after the 49th, 538 MB after `Grounds(true)`. The buildings cost the CPU nothing to hold
+and the peak is the world's base plus the ground pass, which is board:2104's and board:2115's
+number: `world: the bytes its fields hold` 315 MB, of which the OSM features 190 MB.
+
+Landing two tiles a frame costs the frame: `PlacePiece` uploads and re-tables on the frame
+path, and at Shibuya the sim read p99 46 ms while tiles landed. That is board:2124's number.
 
 ## Ruled out, measured
 
@@ -129,32 +163,3 @@ still world-grained passes.
 - 32 -> 20 bytes per vertex: right, and Shibuya stayed red, because the peak is the grain
 - a distant building DELETED: a skyline that flickers; both references refuse it
 
-## What is next in this item, decided 2026-09-04
-
-**Pages, not first-fit ranges.** The pool's free list will fragment on a long drive; Nanite's
-page pool allocates in fixed PAGES (64 KB), a piece takes N pages, and fragmentation ends at the
-page's grain. `SubjectResidency::Take/Give` become page allocation before the worker lands.
-
-**The bake on a worker, and its shape is already in the tree.** `Generators::Ground::Snapshot`
--- a height `Patch`, the `Classes`, a `FeatureField` in tile metres, a `Table`, all immutable
-shared_ptrs -- is the worker-safe view a generator is handed today for PLACING. The building
-derivation (`BuildingField::Build`: seat and base from heights, storeys from `PlaceHash`,
-frontage from the ways, lump for massed, `StructureMesher::Mesh`) is the same shape and moves to
-`generators/building/StructureBake` over a snapshot (board:2101's "the building derivation is a
-generator", landed here because the worker needs it first):
-
-  1. `base/io/Tasks`: a compute pool, threads = hardware - 2 (the frame keeps two), post in
-     order, results consumed by the poster IN POST ORDER -- Unreal `FQueuedThreadPool`, RAGE
-     `sysTaskManager`; the fourth invariant's compute half, sized by cores
-  2. the engine takes a snapshot of the next vector tile the watermark yields (heights at the
-     post spacing + the tile's RAW structures: rings, `height`, `roof:shape`) and posts the bake
-  3. a worker bakes into ITS scratch (`Raised`, `Footprint` rows), which is board:2112's
-     borrowed scratch by construction
-  4. each frame the engine places the queue's HEAD if it finished -- declared order, one or two
-     tiles a frame, which is board:2105's counted budget
-  5. `BuildingField` keeps the footprints per tile (the physics prisms) and the watermark;
-     `Build()` and `RingBase` on the frame path go
-
-The heights a worker samples come from the snapshot's `Patch` (bilinear over postings), not from
-`GroundQuery::At`; seats move by the difference between the two interpolations, which is
-measured with pixels.py at the building bases before it is accepted.

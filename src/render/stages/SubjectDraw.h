@@ -169,15 +169,14 @@ public:
 private:
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
 
-  [[nodiscard]] bool
-  Room(SubjectResidency::Stream held, SDL_GPUBufferUsageFlags usage, uint32_t bytes) {
+  [[nodiscard]] bool Room(SubjectResidency::Stream held, SubjectResidency::Need need) {
     OwnedBuffer &into = Bound().Buffer(held);
     uint32_t *const stood = Bound().HeldAt(held);
-    if (into && *stood >= bytes) { return true; }
+    if (into && *stood >= need.Bytes) { return true; }
     SDL_GPUBufferCreateInfo wanted{};
-    wanted.usage = usage;
-    wanted.size = *stood > 0 ? *stood : bytes;
-    while (wanted.size < bytes) { wanted.size *= 2u; }
+    wanted.usage = need.Usage;
+    wanted.size = *stood > 0 ? *stood : need.Bytes;
+    while (wanted.size < need.Bytes) { wanted.size *= 2u; }
     into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
     *stood = into ? wanted.size : 0u;
     return static_cast<bool>(into);

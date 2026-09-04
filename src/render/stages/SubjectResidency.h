@@ -46,6 +46,11 @@ struct SubjectResidency {
     Count
   };
 
+  struct Need {
+    SDL_GPUBufferUsageFlags Usage = 0;
+    uint32_t Bytes = 0;
+  };
+
   struct Crossing {
     Stream Which = Stream::Count;
     SDL_GPUBufferUsageFlags Usage = 0;
@@ -150,8 +155,7 @@ struct SubjectResidency {
 
   [[nodiscard]] bool Cross(std::span<Crossing> what, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(std::span<Crossing> what, uint32_t total, std::string &error);
-  [[nodiscard]] bool
-  Grow(Stream which, uint32_t bytes, SDL_GPUBufferUsageFlags usage, std::string &error);
+  [[nodiscard]] bool Grow(Stream which, Need need, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
 
   void DropStaged() {

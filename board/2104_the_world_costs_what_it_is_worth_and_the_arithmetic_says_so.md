@@ -21,6 +21,9 @@ the CPU keeps the cheap representation only.
 ```
   CentralPark   fields 281 MB + frame copies 168 MB = 449 MB of a 933 MB peak   (c3daf1cc)
   Shibuya       856.7 MB with the ceiling lifted; 668.9 MB of it buildings         (2122)
+  Shibuya       539 MB peak with the buildings baked on a worker (2122, 2026-09-04):
+                463 MB live BEFORE the first building lands, 455 MB after the 49th tile,
+                538 MB after the ground pass; fields 315 MB, of which OSM features 190 MB
   the arithmetic for OldTown's ring                                       ~45 MB
   OldTown today: 301 MB live for 51.6 MB of fields; churn of two rebuilds:
     tile-worker 2 248 MB · untagged 1 433 MB · ground-yield 881 MB · world-ground 421 MB

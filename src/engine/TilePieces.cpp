@@ -2,6 +2,10 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <string>
 
 #include "Digest.h"
 #include "Live.h"

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "ChunkSurface.h"
+#include "geo/Geodesy.h"
 #include "GroundSample.h"
 #include "Heap.h"
 
@@ -48,12 +49,6 @@ constexpr int kGroundStitchGrids = 5;
 
 double Clamped01(double v) {
   return std::clamp(v, 0.0, 1.0);
-}
-
-double Wrapped180(double lonDeg) {
-  while (lonDeg > kDegPerHalfTurn) { lonDeg -= kDegPerTurn; }
-  while (lonDeg < -kDegPerHalfTurn) { lonDeg += kDegPerTurn; }
-  return lonDeg;
 }
 
 int DerivedThreads(int workers) {
@@ -259,7 +254,7 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, LongitudeLatit
 }
 
 GroundSample GroundStream::Resident(LongitudeLatitude at) const {
-  const Geo place = {.LongitudeDeg = Wrapped180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
+  const Geo place = {.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
   const long hy = static_cast<long>(f.Y);
@@ -342,7 +337,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
 }
 
 GroundSample GroundStream::At(LongitudeLatitude at) const {
-  const Geo place = {.LongitudeDeg = Wrapped180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
+  const Geo place = {.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
   const long hy = static_cast<long>(f.Y);
@@ -381,10 +376,10 @@ void GroundBlock::AslMRow(LongitudeLatitude from,
                           std::span<double> out) const noexcept {
   Geo begins;
   begins.LatitudeDeg = from.LatitudeDeg;
-  begins.LongitudeDeg = Wrapped180(from.LongitudeDeg);
+  begins.LongitudeDeg = Wrap180(from.LongitudeDeg);
   Geo to;
   to.LatitudeDeg = from.LatitudeDeg;
-  to.LongitudeDeg = Wrapped180(from.LongitudeDeg + lonStepDeg);
+  to.LongitudeDeg = Wrap180(from.LongitudeDeg + lonStepDeg);
   const TileFrac fromFrac = ToTileFracClamped(begins, Zoom_);
   const double tx0 = fromFrac.X;
   const double ty = fromFrac.Y;

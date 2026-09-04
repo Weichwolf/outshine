@@ -63,6 +63,12 @@ public:
     return out;
   }
 
+  [[nodiscard]] const float *Nodes() const noexcept { return Nodes_; }
+
+  [[nodiscard]] TileSpot Spot() const noexcept { return {.Zoom = Zoom_, .X = X_, .Y = Y_}; }
+
+  [[nodiscard]] Sampling Raster() const noexcept { return {.Side = Side_, .Postings = Postings_}; }
+
 private:
   const float *Nodes_ = nullptr;
   long X_ = 0, Y_ = 0;

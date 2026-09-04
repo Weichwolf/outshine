@@ -88,13 +88,8 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
                           std::span<const FeatureField::Vertex>(vertices.data(), vertices.size()));
 }
 
-Snapped SnapshotOver(const Tile &region,
-                     const outshine::GroundQuery &heights,
-                     const outshine::Ground::ClassField &classes,
-                     const Fields &stands,
-                     std::shared_ptr<const GroundTable> table,
-                     Ground::Snapshot *out) {
-  const auto done = [](Snapped how) { return how; };
+std::shared_ptr<const GroundPatch>
+PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how) {
   const int blockZoom = heights.BlockZoom() > 0 ? heights.BlockZoom() : region.Zoom();
   const int coarser = region.Zoom() - blockZoom;
   const outshine::Ground::GroundBlock block =
@@ -105,11 +100,10 @@ Snapped SnapshotOver(const Tile &region,
                                                             static_cast<uint32_t>(coarser))})
                   : heights.BlockAt({.Zoom = blockZoom, .X = region.X(), .Y = region.Y()});
   switch (block.Where()) {
-    case outshine::Ground::GroundBlock::State::Pending: return done(Snapped::Waiting);
-    case outshine::Ground::GroundBlock::State::Missing: return done(Snapped::NoGround);
+    case outshine::Ground::GroundBlock::State::Pending: *how = Snapped::Waiting; return nullptr;
+    case outshine::Ground::GroundBlock::State::Missing: *how = Snapped::NoGround; return nullptr;
     case outshine::Ground::GroundBlock::State::Resolved: break;
   }
-
   const int side =
       static_cast<int>(std::lround(region.SpanNm() / heights.PostM(region.AnchorLat()))) + 1;
   std::vector<GroundPatch::Posting> postings(static_cast<size_t>(side) * static_cast<size_t>(side));
@@ -129,12 +123,25 @@ Snapped SnapshotOver(const Tile &region,
           GroundSample::At(row[static_cast<size_t>(i)]);
     }
   }
-  out->Patch = GroundPatch::Complete(
+  std::shared_ptr<const GroundPatch> patch = GroundPatch::Complete(
       region, side, std::span<const GroundPatch::Posting>(postings.data(), postings.size()));
+  *how = patch ? Snapped::Taken : Snapped::Waiting;
+  return patch;
+}
+
+Snapped SnapshotOver(const Tile &region,
+                     const outshine::GroundQuery &heights,
+                     const outshine::Ground::ClassField &classes,
+                     const Fields &stands,
+                     std::shared_ptr<const GroundTable> table,
+                     Ground::Snapshot *out) {
+  Snapped how = Snapped::Taken;
+  out->Patch = PatchOver(region, heights, &how);
+  if (!out->Patch) { return how; }
   out->Classes = classes.Read();
   out->Features = FeaturesOver(region, stands);
   out->Table = std::move(table);
-  return done(out->Patch && out->Classes && out->Features ? Snapped::Taken : Snapped::Waiting);
+  return out->Patch && out->Classes && out->Features ? Snapped::Taken : Snapped::Waiting;
 }
 
 } // namespace outshine::Generators

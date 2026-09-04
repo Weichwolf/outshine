@@ -31,9 +31,6 @@ public:
 
   [[nodiscard]] int Threads() const { return static_cast<int>(Threads_.size()); }
 
-  [[nodiscard]] size_t Pending();
-  [[nodiscard]] uint64_t Finished();
-
 private:
   struct Posted {
     Handle Which = kNoTask;
@@ -48,8 +45,6 @@ private:
   std::deque<Posted> Queue_;
   std::set<Handle> Done_;
   Handle Next_ = 1;
-  uint64_t Finished_ = 0;
-  size_t Running_ = 0;
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;
 };

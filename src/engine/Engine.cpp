@@ -259,6 +259,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     const double atLon = stands.LongitudeDeg;
     S_->HandsPiecesOver();
     S_->World.Stack.Restand(stands);
+    S_->Bakes(kBakesLandedInPreload);
     (void)S_->Grows(atLat, atLon);
     say();
     if (S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&

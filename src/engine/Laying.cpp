@@ -1002,9 +1002,9 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   Published.Places("world: of those, the footprints it keeps",
                    static_cast<double>(World.Stack.Footprints().PrintBytes()),
                    "bytes");
-  Published.Places("world: and the scratch one tile is baked in",
-                   static_cast<double>(World.Stack.Footprints().ScratchBytes()),
-                   "bytes");
+  Published.Places("world: tiles baking on the workers right now",
+                   static_cast<double>(World.Bakes.Queued()),
+                   "tiles");
   Published.Places("world: the building pieces the device holds",
                    Picture.Standing ? static_cast<double>(Picture.Standing->PieceBytesHeld()) : 0.0,
                    "bytes");

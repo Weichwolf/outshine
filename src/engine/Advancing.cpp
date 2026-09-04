@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -187,12 +188,27 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
 
 void Engine::State::HandsPiecesOver() {
   World.Pieces.Into(Picture.Standing.get());
+  if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
+  World.Bakes.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }
   World.Pieces.Framed(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                         .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}));
-  World.Stack.HandsRaisedTo(&World.Pieces);
   World.PiecesFramed = true;
+}
+
+void Engine::State::Bakes(size_t landsMost) {
+  if (!World.Stack.Opened()) { return; }
+  (void)World.Bakes.Lands(World.Stack, World.Pieces, landsMost);
+  (void)World.Bakes.Posts(World.Stack);
+  Published.Places(
+      "buildings: tiles posted to the bake", static_cast<double>(World.Bakes.Posted()), "tiles");
+  Published.Places(
+      "buildings: tiles landed from it", static_cast<double>(World.Bakes.Landed()), "tiles");
+  Published.Places(
+      "buildings: tiles in the bake right now", static_cast<double>(World.Bakes.Queued()), "tiles");
+  Published.Places(
+      "buildings: tiles deferred for ground", static_cast<double>(World.Bakes.Deferred()), "asks");
 }
 
 bool Engine::State::Updates() {
@@ -205,6 +221,7 @@ bool Engine::State::Updates() {
         const Heap::Tagged restanding("world-restand");
         HandsPiecesOver();
         World.Stack.Restand(stands);
+        Bakes(kBakesLandedPerFrame);
         {
           const Heap::Tagged growing("world-grow");
           (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);
