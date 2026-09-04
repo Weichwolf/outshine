@@ -41,6 +41,8 @@ public:
   [[nodiscard]] bool
   ConfigureDepth(SDL_GPUDevice *device, std::string_view depthSource, std::string &error);
 
+  [[nodiscard]] bool SetGrid(std::span<const float> fractions, std::string &error);
+
   [[nodiscard]] PageId PlacePage(std::span<const float> nodes, std::string &error);
   void ReleasePage(PageId which);
   [[nodiscard]] bool SetInstances(std::span<const GroundInstance> instances, std::string &error);
@@ -62,7 +64,7 @@ public:
   }
 
 private:
-  [[nodiscard]] bool BuildGrid(std::string &error);
+  [[nodiscard]] bool BuildGrid(std::span<const float> fractions, std::string &error);
   [[nodiscard]] bool BuildPages(std::string &error);
   void Draw(const PassRecording &into, SDL_GPUGraphicsPipeline *pipeline) const;
 

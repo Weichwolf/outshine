@@ -5,10 +5,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <span>
 #include <string>
 #include <vector>
 
+#include "ChunkSurface.h"
 #include "Geodesy.h"
 #include "GroundLattice.h"
 #include "Live.h"
@@ -91,6 +93,65 @@ Render::GroundInstance HeightSheets::InstanceOf(Data::TileId tile, Render::PageI
   return made;
 }
 
+namespace {
+
+[[nodiscard]] double FractionOf(int k, uint32_t postings, int side) {
+  return static_cast<double>(Ground::ChunkNodePosting(k, postings, side)) /
+         static_cast<double>(postings - 1u);
+}
+
+} // namespace
+
+size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) const {
+  if (!Framed_ || yields.empty()) { return 0; }
+  const int side = Render::GroundLattice::kSide;
+  std::vector<EastSouth> at;
+  std::vector<double> up;
+  std::vector<std::pair<size_t, size_t>> where;
+  for (size_t sheet = 0; sheet < laid.Sheets.size(); ++sheet) {
+    const Sheet &one = laid.Sheets[sheet];
+    if (one.Side != side || one.Postings < 2 || one.Nodes.size() != Render::GroundLattice::kNodes) {
+      continue;
+    }
+    for (int j = 0; j < side; ++j) {
+      const double fy = FractionOf(j, one.Postings, side);
+      for (int i = 0; i < side; ++i) {
+        const double fx = FractionOf(i, one.Postings, side);
+        const Ground::Geo geo = Ground::TileFracToGeo(
+            {.X = static_cast<double>(one.Tile.X) + fx, .Y = static_cast<double>(one.Tile.Y) + fy},
+            one.Tile.Zoom);
+        const size_t node =
+            static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i);
+        const EastNorthUp stood = Frame_.Place({.LongitudeDeg = geo.LongitudeDeg,
+                                                .LatitudeDeg = geo.LatitudeDeg,
+                                                .HeightM = static_cast<double>(one.Nodes[node])});
+        at.push_back({.EastM = stood.EastM, .SouthM = -stood.NorthM});
+        up.push_back(stood.UpM);
+        where.emplace_back(sheet, node);
+      }
+    }
+  }
+  std::vector<double> was(up);
+  const size_t moved = PressPoints(yields, at, up);
+  if (moved == 0) { return 0; }
+  const Vec3 &origin = Frame_.OriginEcef();
+  const Vec3 &east = Frame_.EastEcef();
+  const Vec3 &north = Frame_.NorthEcef();
+  const Vec3 &upward = Frame_.UpEcef();
+  for (size_t one = 0; one < up.size(); ++one) {
+    if (up[one] == was[one]) { continue; }
+    const double e = at[one].EastM;
+    const double n = -at[one].SouthM;
+    Vec3 ecef;
+    for (int axis = 0; axis < 3; ++axis) {
+      ecef[axis] = origin[axis] + e * east[axis] + n * north[axis] + up[one] * upward[axis];
+    }
+    const Ground::Geo geo = Ground::EcefToGeoWgs84({.X = ecef[0], .Y = ecef[1], .Z = ecef[2]});
+    laid.Sheets[where[one].first].Nodes[where[one].second] = static_cast<float>(geo.HeightM);
+  }
+  return moved;
+}
+
 bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
   if (Live_ == nullptr || !Framed_) { return true; }
   for (Held &one : Held_) { one.Wanted = false; }
@@ -110,6 +171,21 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
     if (page == Render::kNoPage) { return false; }
     Instances_.push_back(InstanceOf(sheet.Tile, page));
   }
+  for (const Sheet &sheet : laid.Sheets) {
+    if (sheet.Side != Render::GroundLattice::kSide || sheet.Postings < 2 ||
+        sheet.Postings == GridPostings_) {
+      continue;
+    }
+    std::vector<float> fractions;
+    fractions.reserve(static_cast<size_t>(Render::GroundLattice::kSide));
+    for (int k = 0; k < Render::GroundLattice::kSide; ++k) {
+      fractions.push_back(
+          static_cast<float>(FractionOf(k, sheet.Postings, Render::GroundLattice::kSide)));
+    }
+    if (!Live_->SetGroundGrid(fractions, error)) { return false; }
+    GridPostings_ = sheet.Postings;
+    break;
+  }
   for (const Held &one : Held_) {
     if (!one.Wanted) { Live_->ReleaseHeightPage(one.Page); }
   }
@@ -127,6 +203,7 @@ void HeightSheets::Clear() {
   Held_.clear();
   Instances_.clear();
   Zero_ = Render::kNoPage;
+  GridPostings_ = 0;
 }
 
 } // namespace outshine

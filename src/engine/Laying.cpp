@@ -1852,14 +1852,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const bool lattice = declared.Render.GroundLattice;
   if (lattice) {
     World.Sheets.Framed(standing);
-    if (!World.Sheets.Hands(*laid, Error)) { return false; }
   } else if (World.Sheets.Instances() > 0) {
     World.Sheets.Clear();
   }
-  Published.Places(
-      "ground: height pages standing", static_cast<double>(World.Sheets.Standing()), "pages");
-  Published.Places(
-      "ground: tiles the lattice draws", static_cast<double>(World.Sheets.Instances()), "tiles");
   std::vector<float> inFrame;
   inFrame.resize(laid->PositionM.size());
   double sank = 0.0;
@@ -2146,7 +2141,20 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "ground: ring vertices a pad pressed", static_cast<double>(told.Pressed), "vertices");
     Published.Places("ground: and the deepest it pressed", told.DeepestM, "m");
     Published.Places("ground: and the highest it filled", told.RaisedM, "m");
+    if (lattice) {
+      std::vector<Yields> taken;
+      taken.reserve(told.TakenWhich.size());
+      for (const uint32_t which : told.TakenWhich) { taken.push_back(yielding[which]); }
+      Published.Places("ground: lattice nodes the stamps pressed",
+                       static_cast<double>(World.Sheets.Press(taken, *laid)),
+                       "nodes");
+      if (!World.Sheets.Hands(*laid, Error)) { return false; }
+    }
   }
+  Published.Places(
+      "ground: height pages standing", static_cast<double>(World.Sheets.Standing()), "pages");
+  Published.Places(
+      "ground: tiles the lattice draws", static_cast<double>(World.Sheets.Instances()), "tiles");
   if (ringPart >= 0) {
     (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
     (void)ground.setNormals(ringPart,

@@ -35,6 +35,7 @@ struct Sheet {
   Data::TileId Tile;
   std::vector<float> Nodes;
   int Side = 0;
+  uint32_t Postings = 0;
 };
 
 struct Patchwork {
@@ -110,6 +111,7 @@ struct Yielded {
   size_t Seams = 0;
   size_t SeamsShared = 0;
   size_t Taken = 0;
+  std::vector<uint32_t> TakenWhich;
   size_t Refused = 0;
   size_t VerticesAdded = 0;
   size_t TrianglesAdded = 0;

@@ -126,6 +126,10 @@ public:
     if (Renderer_ != nullptr) { Renderer_->ReleaseHeightPage(which); }
   }
 
+  [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
+    return Renderer_ == nullptr || Renderer_->SetGroundGrid(fractions, error);
+  }
+
   [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundInstance> instances,
                                       std::string &error) {
     return Renderer_ == nullptr || Renderer_->SetGroundLattice(instances, error);

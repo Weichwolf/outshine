@@ -302,8 +302,9 @@ void FillNodeHeights(const TerrainField &field,
   }
 }
 
-int TerrainTiles::NodesOf(Data::TileId of, int grid, std::vector<float> *out) {
+int TerrainTiles::NodesOf(Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings) {
   out->clear();
+  *postings = 0;
   const TerrainGrid stitched = StitchedGrid(of.Zoom, of.X, of.Y);
   const TerrainField *field = stitched.TryField();
   if (field == nullptr) { return 0; }
@@ -312,6 +313,7 @@ int TerrainTiles::NodesOf(Data::TileId of, int grid, std::vector<float> *out) {
   const int nodes = ChunkNodes({.Postings = rows, .Grid = grid});
   if (nodes < 2 || nodes != ChunkNodes({.Postings = cols, .Grid = grid})) { return 0; }
   FillNodeHeights(*field, rows, cols, nodes, out);
+  *postings = cols;
   return nodes;
 }
 

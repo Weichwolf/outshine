@@ -220,7 +220,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                      over.Grid,
                      &built);
         }
-        out.Sheets.push_back({.Tile = asked, .Nodes = std::move(built.Nodes), .Side = built.Side});
+        out.Sheets.push_back({.Tile = asked,
+                              .Nodes = std::move(built.Nodes),
+                              .Side = built.Side,
+                              .Postings = built.Postings});
         if (built.Verts.empty() || built.Idx.empty()) { continue; }
 
         if (!anchored) {

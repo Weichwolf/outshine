@@ -88,7 +88,7 @@ public:
 
   TerrainMesh MeshOf(int z, uint32_t x, uint32_t y);
 
-  int NodesOf(Data::TileId of, int grid, std::vector<float> *out);
+  int NodesOf(Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings);
 
   [[nodiscard]] uint32_t Stride() const { return Config_.Stride; }
 

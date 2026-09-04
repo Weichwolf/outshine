@@ -8,6 +8,7 @@
 
 #include "Address.h"
 #include "GroundMesher.h"
+#include "GroundYield.h"
 #include "SubjectTypes.h"
 #include "TangentFrame.h"
 
@@ -27,6 +28,7 @@ public:
   }
 
   [[nodiscard]] bool Hands(const Patchwork &laid, std::string &error);
+  [[nodiscard]] size_t Press(std::span<const Yields> yields, Patchwork &laid) const;
   void Clear();
 
   [[nodiscard]] size_t Standing() const { return Held_.size(); }
@@ -47,6 +49,7 @@ private:
   std::vector<Held> Held_;
   std::vector<Render::GroundInstance> Instances_;
   Render::PageId Zero_ = Render::kNoPage;
+  uint32_t GridPostings_ = 0;
   Core::Live *Live_ = nullptr;
   TangentFrame Frame_ = TangentFrame::At({});
   bool Framed_ = false;

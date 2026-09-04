@@ -869,6 +869,7 @@ void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, 
     }
     wouldCost += costs;
     taking.push_back(one);
+    told.TakenWhich.push_back(which);
   }
   told.Taken = taking.size();
   const std::span<const Yields> held(taking);
@@ -905,4 +906,19 @@ void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, 
   }
   told.SeamMs = since();
 }
+
+size_t
+PressPoints(std::span<const Yields> these, std::span<const EastSouth> at, std::span<double> upM) {
+  if (these.empty() || at.size() != upM.size()) { return 0; }
+  const CellGrid buckets = BucketOver(these);
+  size_t moved = 0;
+  for (size_t one = 0; one < at.size(); ++one) {
+    const Pressing under = PressesAt(these, buckets.At(at[one]), at[one], upM[one]);
+    if (!under.Moves) { continue; }
+    upM[one] = under.WantedM;
+    ++moved;
+  }
+  return moved;
+}
+
 } // namespace outshine

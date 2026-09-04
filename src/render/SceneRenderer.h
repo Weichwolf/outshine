@@ -155,6 +155,10 @@ public:
 
   void ReleaseHeightPage(PageId which) { Subjects_.Ground().ReleasePage(which); }
 
+  [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
+    return Subjects_.Ground().SetGrid(fractions, error);
+  }
+
   [[nodiscard]] bool SetGroundLattice(std::span<const GroundInstance> instances,
                                       std::string &error) {
     return Subjects_.Ground().SetInstances(instances, error);

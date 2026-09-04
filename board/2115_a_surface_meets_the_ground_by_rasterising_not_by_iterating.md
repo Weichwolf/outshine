@@ -196,3 +196,25 @@ the near field refined past the DEM's posting -- a footprint's rim at 36 m texel
 Unreal's Landscape is authored at a metre, so the levels nearer than the finest tile are
 VIRTUAL pages (the DEM upsampled, the stamps rasterised at that level's texel). Then the
 pictures are looked at, and the references move with the owner's word.
+
+## Landed 2026-09-04, step 5 at the DEM's own texel: the stamps press the NODES
+
+The ring's `Press` rule now presses the sheets' nodes (`PressPoints`, the same `PressesAt` over
+the same buckets) with the SAME subset the triangle budget takes (`Yielded::TakenWhich`) --
+measured first with every yield and the nodes rose where the ring had not moved, 24 m at one
+node, because `YieldGround` presses only what the budget took. The grid's vertices stand at
+the chunk's own posting fractions (`ChunkNodePosting`), handed to the lattice once per stride.
+
+```
+  OldTown, --lattice   7c23fd78   pixels.py against the reference: 25 376 differ,
+                                  7 275 by more than 1 of 255, 593 by more than 40 of 255
+    593 strong: 317 in ONE cluster at (480..640, 480..600) -- a row house whose footprint is
+    smaller than the 36 m node spacing, so no node falls inside it and the pad's stamp has
+    nowhere to land; the ring had refined vertices INSIDE the footprint. The rest of the 7 275
+    is the far band (rows 240..360): the normal by central differences against the mesh's
+```
+
+The number says what the next step is: the near field needs texels finer than the DEM's
+posting -- VIRTUAL levels nearer than the finest tile, the page upsampled from the DEM and the
+stamps rasterised at that level's texel, which is what Unreal's metre-grid Landscape has and
+a 30 m DEM has not.

@@ -22,6 +22,7 @@ struct TileBuild {
   float ErrM = 0.0f;
   std::vector<float> Nodes;
   int Side = 0;
+  uint32_t Postings = 0;
 };
 
 class TileMeshes {

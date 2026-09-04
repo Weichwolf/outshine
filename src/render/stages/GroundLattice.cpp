@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <utility>
 #include <cstring>
 #include <format>
 #include <span>
@@ -83,10 +84,14 @@ bool UploadBuffer(SDL_GPUDevice *device,
 
 } // namespace
 
-bool GroundLattice::BuildGrid(std::string &error) {
+bool GroundLattice::BuildGrid(std::span<const float> fractions, std::string &error) {
   std::vector<float> grid;
   grid.reserve(static_cast<size_t>(kVertices) * kGridFloats);
-  const auto step = [](int k) { return static_cast<float>(k) / static_cast<float>(kSide - 1); };
+  const auto step = [fractions](int k) {
+    return std::cmp_less(k, fractions.size())
+               ? fractions[static_cast<size_t>(k)]
+               : static_cast<float>(k) / static_cast<float>(kSide - 1);
+  };
   for (int j = 0; j < kSide; ++j) {
     for (int i = 0; i < kSide; ++i) { grid.insert(grid.end(), {step(i), step(j), 0.0f}); }
   }
@@ -197,7 +202,7 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
     Spare_.clear();
     PagesMade_ = 0;
     PagesLive_ = 0;
-    if (!BuildGrid(error) || !BuildPages(error)) { return false; }
+    if (!BuildGrid({}, error) || !BuildPages(error)) { return false; }
   }
   const OwnedShader vertex(
       Device_,
@@ -278,6 +283,18 @@ bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device,
   }
   Depth_ = OwnedPipeline(device, made);
   return true;
+}
+
+bool GroundLattice::SetGrid(std::span<const float> fractions, std::string &error) {
+  if (Device_ == nullptr) {
+    error = std::string(Says::kNoDevice);
+    return false;
+  }
+  if (fractions.size() != static_cast<size_t>(kSide)) {
+    error = std::format(Says::kPageWrongSize, kSide, fractions.size());
+    return false;
+  }
+  return BuildGrid(fractions, error);
 }
 
 PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error) {

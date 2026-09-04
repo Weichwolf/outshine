@@ -403,8 +403,8 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
              out->Build.Idx,
              out->Build.Clusters);
     out->Build.ErrM = chunk.err;
-    out->Build.Side =
-        tiles.NodesOf({.Zoom = job.Z, .X = job.X, .Y = job.Y}, job.Grid, &out->Build.Nodes);
+    out->Build.Side = tiles.NodesOf(
+        {.Zoom = job.Z, .X = job.X, .Y = job.Y}, job.Grid, &out->Build.Nodes, &out->Build.Postings);
     if (out->Build.Verts.empty() || out->Build.Idx.empty() || out->Build.Clusters.empty()) {
       miss = Miss::Refused;
       stage = "partition";
