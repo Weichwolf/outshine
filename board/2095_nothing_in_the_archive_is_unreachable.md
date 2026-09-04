@@ -1,5 +1,5 @@
 Type: chore
-State: open
+State: withdrawn
 Area: all
 Tags: measured
 

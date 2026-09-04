@@ -1,6 +1,6 @@
 # The digest covers the frames the camera moves through
 
-State: open
+State: withdrawn
 
 `make shots` renders one still view per place, digests THAT, and then renders 120 more frames along
 a walk to time them. Not one of the 120 is digested.

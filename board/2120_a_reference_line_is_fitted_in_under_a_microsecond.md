@@ -1,6 +1,6 @@
 # A reference line is fitted in under a microsecond
 
-State: open
+State: withdrawn
 
 `streets: of paving, the fit` is 620 ms of a 1.0 s preload on OldTown -- the largest single line in
 the rebuild once the ground seams were repaired, and it has nothing to do with the terrain.

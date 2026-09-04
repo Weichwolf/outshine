@@ -1,6 +1,6 @@
 # A generator owns its state and borrows its scratch
 
-State: open
+State: withdrawn
 
 A generator needs two kinds of memory and this tree only names one of them.
 

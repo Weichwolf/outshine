@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: withdrawn
 Area: world, compositor, render
 Tags: measured, memory, owner
 

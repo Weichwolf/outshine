@@ -1,6 +1,6 @@
 # A declared table is a table a generator can read
 
-State: open
+State: withdrawn
 
 A scenario may declare `<tables>`; `include/scenario/Scenario.h` carries `std::vector<Table>`, the
 reader fills it, `Engine::Declare` builds a `TableBook` and puts it in the session. And then

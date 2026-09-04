@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: withdrawn
 Area: engine, compositor, render
 Tags: measured, owner
 

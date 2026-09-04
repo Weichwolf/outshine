@@ -1,6 +1,6 @@
 # The tree holds no driving AI
 
-State: open
+State: active
 
 Roughly 2700 lines of autonomous-driving code stand in the tree and are wanted gone. It is reached
 from `engine/Advancing.cpp` and `engine/EngineHeld.h` and from nowhere else, and its door type

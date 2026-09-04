@@ -1,6 +1,6 @@
 # The door declares no wheel
 
-State: open
+State: withdrawn
 
 board:2117 took the autopilot out of `src/`. The DOOR still carries the shape of the vehicle it
 drove, and the parts are not all the same kind of thing:

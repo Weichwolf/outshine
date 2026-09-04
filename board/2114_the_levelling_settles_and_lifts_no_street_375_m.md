@@ -1,6 +1,6 @@
 # The levelling settles, and no street is lifted 375 m
 
-State: open
+State: withdrawn
 
 Where ways meet, `LevelsWhereWaysMeet` averages the grade at the shared node and pulls every lane
 toward that average by a uniform offset. It is Jacobi relaxation with a FIXED round count

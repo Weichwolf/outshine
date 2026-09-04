@@ -1,6 +1,6 @@
 # A generator includes what it uses
 
-State: open
+State: withdrawn
 
 Measured 2026-09-04, after board:2110 cut the generators by subject:
 
