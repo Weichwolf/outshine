@@ -31,7 +31,14 @@ struct Around {
   Vec3f Up = {{0.0f, 1.0f, 0.0f}};
 };
 
+struct Sheet {
+  Data::TileId Tile;
+  std::vector<float> Nodes;
+  int Side = 0;
+};
+
 struct Patchwork {
+  std::vector<Sheet> Sheets;
   std::vector<float> PositionM;
   std::vector<float> NormalM;
   std::vector<float> Uv;

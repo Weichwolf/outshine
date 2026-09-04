@@ -149,6 +149,19 @@ public:
 
   void ReleasePiece(PieceId which) { Subjects_.ReleasePiece(which); }
 
+  [[nodiscard]] PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
+    return Subjects_.Ground().PlacePage(nodes, error);
+  }
+
+  void ReleaseHeightPage(PageId which) { Subjects_.Ground().ReleasePage(which); }
+
+  [[nodiscard]] bool SetGroundLattice(std::span<const GroundInstance> instances,
+                                      std::string &error) {
+    return Subjects_.Ground().SetInstances(instances, error);
+  }
+
+  [[nodiscard]] uint32_t GroundLatticeTriangles() const { return Subjects_.Ground().Triangles(); }
+
   void WearPieces(std::span<const uint32_t> slotOfSurface) { Subjects_.WearPieces(slotOfSurface); }
 
   [[nodiscard]] uint32_t PiecesStanding() const { return Subjects_.PiecesStanding(); }

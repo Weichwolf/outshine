@@ -180,6 +180,8 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
   NormalFromMap(source);
   return source.Reads("src/render/shaders/subjectMapped.msl")
       .Reads("src/render/shaders/subjectGround.msl")
+      .Reads("src/render/shaders/groundLatticeCore.msl")
+      .Reads("src/render/shaders/groundLattice.msl")
       .Adds(VertexArmsMsl())
       .Take(error);
 }
@@ -233,6 +235,14 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
 
     if (identityIndex >= 0) {
       targets[identityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+    }
+    if (kind == SurfaceKind::Opaque && !glass &&
+        !Ground_.Configure(
+            Device,
+            source,
+            std::span<const SDL_GPUColorTargetDescription>(targets.data(), Colours.size()),
+            error)) {
+      return false;
     }
 
     for (const SurfaceDomain domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
@@ -1210,11 +1220,48 @@ static_assert(sizeof(SDL_GPUIndexedIndirectDrawCommand) == 5u * sizeof(uint32_t)
               "the indirect argument table is written as five uints a batch");
 inline constexpr size_t kIndirectStride = sizeof(SDL_GPUIndexedIndirectDrawCommand);
 
-void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (Batches.empty() || !Bound().Buffer(SubjectResidency::Stream::Vertex) ||
-      !Bound().Buffer(SubjectResidency::Stream::Index)) {
+void SubjectDraw::BindSlot(const PassRecording &into, size_t slot) const {
+  const SurfaceSlot &surface = Slots[slot];
+  const std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> images = {
+      {{.texture = surface.Colour.Image.Get(), .sampler = surface.Colour.Sample.Get()},
+       {.texture = surface.Normal.Image.Get(), .sampler = surface.Normal.Sample.Get()},
+       {.texture = surface.MetalRough.Image.Get(), .sampler = surface.MetalRough.Sample.Get()},
+       {.texture = surface.Emissive.Image.Get(), .sampler = surface.Emissive.Sample.Get()},
+       {.texture = surface.SpecularStrength.Image.Get(),
+        .sampler = surface.SpecularStrength.Sample.Get()},
+       {.texture = surface.SpecularTint.Image.Get(), .sampler = surface.SpecularTint.Sample.Get()},
+
+       {.texture = Behind != nullptr ? Behind : surface.Colour.Image.Get(),
+        .sampler = BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
+
+       {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
+        .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}}};
+  SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kSubjectImages);
+  if (SkyIrradiance_ != nullptr && GroundClasses_ != nullptr && GroundPalette_ != nullptr) {
+    std::array<SDL_GPUBuffer *const, kSubjectFragmentStorage> storage = {
+        SkyIrradiance_, GroundClasses_, GroundPalette_};
+    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), kSubjectFragmentStorage);
+  }
+  SDL_PushGPUFragmentUniformData(into.Commands,
+                                 0,
+                                 surface.Row.data(),
+                                 static_cast<uint32_t>(surface.Row.size() * sizeof(float)));
+}
+
+void SubjectDraw::EncodeGround(const PassRecording &into) const {
+  if (Behind != nullptr || Ground_.Instances() == 0) { return; }
+  for (size_t slot = 0; slot < Slots.size(); ++slot) {
+    if (Slots[slot].Domain != SurfaceDomain::Ground) { continue; }
+    BindSlot(into, slot);
+    Ground_.Encode(into);
     return;
   }
+}
+
+void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
+  const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
+                            Bound().Buffer(SubjectResidency::Stream::Index);
+  if (!drawsBatches && (Behind != nullptr || Ground_.Instances() == 0)) { return; }
   std::array<float, kUniFloats> uniform = {{}};
   const auto place = [this, &ctx, &uniform, &into] {
     for (int axis = 0; axis < 3; ++axis) {
@@ -1249,7 +1296,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   bool slotBound = false;
   const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
                    Bound().Buffer(SubjectResidency::Stream::DrawArguments) && !Args_.empty();
-  for (size_t at = 0; at < Batches.size(); ++at) {
+  for (size_t at = 0; drawsBatches && at < Batches.size(); ++at) {
     const DrawBatch &batch = Batches[at];
     const bool culled = cut && batch.JobCount > 0;
     const SurfaceSlot &surface = Slots[batch.MaterialSlot];
@@ -1303,31 +1350,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       bound = wantedPipeline;
     }
     if (!slotBound || boundSlot != batch.MaterialSlot) {
-      const std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> images = {
-          {{.texture = surface.Colour.Image.Get(), .sampler = surface.Colour.Sample.Get()},
-           {.texture = surface.Normal.Image.Get(), .sampler = surface.Normal.Sample.Get()},
-           {.texture = surface.MetalRough.Image.Get(), .sampler = surface.MetalRough.Sample.Get()},
-           {.texture = surface.Emissive.Image.Get(), .sampler = surface.Emissive.Sample.Get()},
-           {.texture = surface.SpecularStrength.Image.Get(),
-            .sampler = surface.SpecularStrength.Sample.Get()},
-           {.texture = surface.SpecularTint.Image.Get(),
-            .sampler = surface.SpecularTint.Sample.Get()},
-
-           {.texture = Behind != nullptr ? Behind : surface.Colour.Image.Get(),
-            .sampler = BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
-
-           {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
-            .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}}};
-      SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kSubjectImages);
-      if (SkyIrradiance_ != nullptr && GroundClasses_ != nullptr && GroundPalette_ != nullptr) {
-        std::array<SDL_GPUBuffer *const, kSubjectFragmentStorage> storage = {
-            SkyIrradiance_, GroundClasses_, GroundPalette_};
-        SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), kSubjectFragmentStorage);
-      }
-      SDL_PushGPUFragmentUniformData(into.Commands,
-                                     0,
-                                     surface.Row.data(),
-                                     static_cast<uint32_t>(surface.Row.size() * sizeof(float)));
+      BindSlot(into, batch.MaterialSlot);
       boundSlot = batch.MaterialSlot;
       slotBound = true;
     }
@@ -1351,5 +1374,6 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     SDL_DrawGPUIndexedPrimitives(
         into.Pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0, batch.ModelSlot);
   }
+  EncodeGround(into);
 }
 } // namespace outshine::Render

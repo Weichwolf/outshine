@@ -210,6 +210,12 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   `3600` -- the second is not duplication, it is an unstated derivation, which is worse because
   nothing checks it. `VisualRangeM(haze)` is the same idea as a function: the rule is the source
   and the number falls out of it
+- **A NAME IS THE ONE THE READER EXPECTS, and the reader is the engineer arriving from Unreal,
+  Filament or a textbook -- never this tree's own metaphor.** A verb is `Set`, `Get`, `Place`,
+  `Remove`, `Build`, `Update`, `Attach`; a class is the noun of what it holds. `Hands`, `Wears`,
+  `Framed`, `Forgets`, `Restand`, `Grounds` cost a reader a grep per call site, and measured here
+  in one day: a session spent more reads on names than on design. A name that has to be looked
+  up is a name that is wrong, and the sweep that repairs the old ones is board:2139
 - **A name is a promise.** A word that means something else in Unreal or RAGE spends a reader's
   knowledge against them. The engine's vocabulary is LAW — body, joint, degree of freedom, drive,
   constraint, force, contact, integration — and a car, a seat or a door is a SUBJECT a scenario

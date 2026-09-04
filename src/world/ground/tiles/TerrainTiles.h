@@ -51,6 +51,12 @@ public:
   [[nodiscard]] virtual TerrainBytes Take(Data::TileId at) = 0;
 };
 
+void FillNodeHeights(const TerrainField &field,
+                     uint32_t rowPostings,
+                     uint32_t colPostings,
+                     int nodes,
+                     std::vector<float> *out);
+
 class TerrainTiles {
 public:
   struct Config {
@@ -81,6 +87,8 @@ public:
   TerrainGrid StitchedGrid(int z, uint32_t x, uint32_t y);
 
   TerrainMesh MeshOf(int z, uint32_t x, uint32_t y);
+
+  int NodesOf(Data::TileId of, int grid, std::vector<float> *out);
 
   [[nodiscard]] uint32_t Stride() const { return Config_.Stride; }
 

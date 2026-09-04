@@ -764,6 +764,8 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
       const uint32_t past = batch.ModelSlot + batch.Instances;
       placements = past > placements ? past : placements;
     }
+    spent.Triangles += drew.Ground().Triangles();
+    spent.Draws += drew.Ground().Instances() > 0 ? 1u : 0u;
     spent.Surfaces = surfaces;
     spent.Placements = placements;
     spent.Textured = drew.Textured();

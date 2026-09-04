@@ -203,7 +203,13 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
     return false;
   }
   DepthOnly_ = OwnedPipeline(device, made);
-  return true;
+  const std::string lattice = ShaderText()
+                                  .Begins()
+                                  .Reads("src/render/shaders/subjectDepthOnly.msl")
+                                  .Reads("src/render/shaders/groundLatticeCore.msl")
+                                  .Reads("src/render/shaders/groundLatticeDepth.msl")
+                                  .Take(error);
+  return !lattice.empty() && Subjects_->Ground().ConfigureDepth(device, lattice, error);
 }
 
 void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
@@ -252,6 +258,7 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
     SDL_DrawGPUIndexedPrimitives(
         into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, batch.ModelSlot);
   }
+  Subjects_->Ground().Cast(into);
 }
 
 } // namespace outshine::Render

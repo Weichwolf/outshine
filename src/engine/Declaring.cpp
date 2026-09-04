@@ -318,6 +318,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
   S_->World.Bakes.Clear();
   S_->World.Pieces.Clear();
+  S_->World.Sheets.Clear();
   S_->World.PiecesFramed = false;
   S_->Picture.Standing.reset();
   S_->Picture.Shown = declared;
@@ -335,6 +336,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
                         S_->Error)) {
     S_->World.Bakes.Clear();
     S_->World.Pieces.Clear();
+    S_->World.Sheets.Clear();
     S_->Picture.Standing.reset();
     return std::unexpected(S_->Error);
   }

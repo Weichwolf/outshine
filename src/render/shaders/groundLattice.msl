@@ -1,0 +1,25 @@
+vertex LOut vsGroundLattice(GIn v [[stage_in]], constant S &s [[buffer(0)]],
+                            texture2d_array<float> pages [[texture(0)]],
+                            sampler pageSampler [[sampler(0)]]) {
+  const GroundPoint g = groundPointAt(v, pages);
+  const float4x4 stood = float4x4(v.c0, v.c1, v.c2, v.c3);
+  const float4x4 m = float4x4(v.c0, v.c1, v.c2, v.c3 + float4(s.shift.xyz, 0.0));
+  const float4 local = float4(g.local, 1.0);
+  const float4 frame = stood * local;
+  const float4 wp = m * local;
+  LOut o;
+  o.pos = s.viewProj * wp;
+  o.uv = float2(frame.x, -frame.z);
+  o.uv1 = float2(0.0);
+  o.colour = float4(1.0);
+  o.n = normalize(m[0].xyz * g.normal.x + m[1].xyz * g.normal.y + m[2].xyz * g.normal.z);
+  o.p = wp.xyz;
+  o.lp = g.local;
+  o.ls = s.lightFromWorld * wp;
+#if SUBJECT_WRITES_VELOCITY
+  o.curClip = o.pos;
+  o.prevClip = s.prevViewProj *
+               (float4x4(v.c0, v.c1, v.c2, v.c3 + float4(s.prevShift.xyz, 0.0)) * local);
+#endif
+  return o;
+}

@@ -19,6 +19,7 @@
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "Unwired.h"
+#include "HeightSheets.h"
 #include "TilePieces.h"
 #include "StructureBakes.h"
 #include "Tasks.h"
@@ -287,6 +288,7 @@ struct Surrounds {
   uint64_t LaidClasses = 0;
 
   TilePieces Pieces;
+  HeightSheets Sheets;
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
   StructureBakes Bakes;

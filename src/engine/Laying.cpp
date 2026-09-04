@@ -1849,6 +1849,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double frameLon = anchorLon;
   const TangentFrame standing =
       TangentFrame::At({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat});
+  const bool lattice = declared.Render.GroundLattice;
+  if (lattice) {
+    World.Sheets.Framed(standing);
+    if (!World.Sheets.Hands(*laid, Error)) { return false; }
+  } else if (World.Sheets.Instances() > 0) {
+    World.Sheets.Clear();
+  }
+  Published.Places(
+      "ground: height pages standing", static_cast<double>(World.Sheets.Standing()), "pages");
+  Published.Places(
+      "ground: tiles the lattice draws", static_cast<double>(World.Sheets.Instances()), "tiles");
   std::vector<float> inFrame;
   inFrame.resize(laid->PositionM.size());
   double sank = 0.0;
@@ -2012,7 +2023,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     for (int channel = 0; channel < 3; ++channel) { bare.BaseColour[channel] = 1.0f; }
   }
   const MaterialInstance ringSurface = ground.addSurface("ground", bare);
-  const int ringPart = ground.addPart("ground", ringSurface);
+  const int ringPart = lattice ? -1 : ground.addPart("ground", ringSurface);
 
   Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
   {
@@ -2136,16 +2147,18 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("ground: and the deepest it pressed", told.DeepestM, "m");
     Published.Places("ground: and the highest it filled", told.RaisedM, "m");
   }
-  (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
-  (void)ground.setNormals(ringPart,
-                          std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
-  (void)ground.setTriangles(ringPart,
-                            std::span<const uint32_t>(laid->Index.data(), laid->Index.size()));
-  if (!tinted.empty()) {
-    (void)ground.setColours(ringPart, std::span<const float>(tinted.data(), tinted.size()));
-  }
-  if (!classUv.empty()) {
-    (void)ground.setTexture(ringPart, std::span<const float>(classUv.data(), classUv.size()), 0);
+  if (ringPart >= 0) {
+    (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
+    (void)ground.setNormals(ringPart,
+                            std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
+    (void)ground.setTriangles(ringPart,
+                              std::span<const uint32_t>(laid->Index.data(), laid->Index.size()));
+    if (!tinted.empty()) {
+      (void)ground.setColours(ringPart, std::span<const float>(tinted.data(), tinted.size()));
+    }
+    if (!classUv.empty()) {
+      (void)ground.setTexture(ringPart, std::span<const float>(classUv.data(), classUv.size()), 0);
+    }
   }
 
   {

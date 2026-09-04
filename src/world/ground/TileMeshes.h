@@ -20,6 +20,8 @@ struct TileBuild {
   std::vector<DagCluster> Clusters;
   Vec3 OriginEcef;
   float ErrM = 0.0f;
+  std::vector<float> Nodes;
+  int Side = 0;
 };
 
 class TileMeshes {

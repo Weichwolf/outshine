@@ -6,6 +6,7 @@
 #include "math/Units.h"
 #include "math/Vec4.h"
 #include "TerrainTiles.h"
+#include "ChunkSurface.h"
 
 #include <algorithm>
 #include <limits>
@@ -283,6 +284,35 @@ TerrainMesh TerrainTiles::MeshOf(int z, uint32_t x, uint32_t y) {
   constexpr uint32_t kTileExtent = 4096;
   return TerrainMesh::Over(
       *field, TileEnuMap::Over(Frame_, {.Zoom = z, .X = x, .Y = y}, kTileExtent), Config_.Stride);
+}
+
+void FillNodeHeights(const TerrainField &field,
+                     uint32_t rowPostings,
+                     uint32_t colPostings,
+                     int nodes,
+                     std::vector<float> *out) {
+  out->resize(static_cast<size_t>(nodes) * static_cast<size_t>(nodes));
+  for (int j = 0; j < nodes; j++) {
+    const double fr = PostingFrac(ChunkNodePosting(j, rowPostings, nodes), rowPostings);
+    for (int i = 0; i < nodes; i++) {
+      const double fc = PostingFrac(ChunkNodePosting(i, colPostings, nodes), colPostings);
+      (*out)[static_cast<size_t>(j) * static_cast<size_t>(nodes) + static_cast<size_t>(i)] =
+          field.PostingM({.Col = fc, .Row = fr});
+    }
+  }
+}
+
+int TerrainTiles::NodesOf(Data::TileId of, int grid, std::vector<float> *out) {
+  out->clear();
+  const TerrainGrid stitched = StitchedGrid(of.Zoom, of.X, of.Y);
+  const TerrainField *field = stitched.TryField();
+  if (field == nullptr) { return 0; }
+  const uint32_t rows = PostingsPerEdge(field->Rows(), Config_.Stride);
+  const uint32_t cols = PostingsPerEdge(field->Cols(), Config_.Stride);
+  const int nodes = ChunkNodes({.Postings = rows, .Grid = grid});
+  if (nodes < 2 || nodes != ChunkNodes({.Postings = cols, .Grid = grid})) { return 0; }
+  FillNodeHeights(*field, rows, cols, nodes, out);
+  return nodes;
 }
 
 size_t TerrainTiles::HeapBytes() const {

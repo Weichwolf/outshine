@@ -29,11 +29,6 @@ struct GroundSurface {
 class TerrainField;
 class TerrainTiles;
 
-void FillNodeHeights(const TerrainField &field,
-                     uint32_t rowPostings,
-                     uint32_t colPostings,
-                     int nodes,
-                     std::vector<float> *out);
 [[nodiscard]] double
 TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy);
 

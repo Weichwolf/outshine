@@ -1,0 +1,56 @@
+// THE GROUND'S LATTICE, Unreal's Landscape by construction: one grid mesh instanced per tile,
+// the height fetched from the tile's page in the vertex shader, and nothing uploaded per vertex.
+// A vertex stands in the tile's own east/north/up; the instance's row turns it into the frame.
+// The sag term is the sphere's second order under a flat tile, Outerra's clipmap form, and the
+// skirt is Cesium's: a rim dropped down the tile's edge so the crack between two levels never
+// shows, instead of a seam pass that would have to find it.
+struct GIn {
+  float3 g [[attribute(0)]];
+  float4 c0 [[attribute(1)]];
+  float4 c1 [[attribute(2)]];
+  float4 c2 [[attribute(3)]];
+  float4 c3 [[attribute(4)]];
+  float4 north [[attribute(5)]];
+  float4 south [[attribute(6)]];
+  float4 page [[attribute(7)]];
+};
+
+constexpr constant int kGroundSide = 34;
+constexpr constant float kGroundSkirtSteps = 16.0;
+
+static inline float groundNodeAt(texture2d_array<float> pages, uint page, int i, int j) {
+  const int2 c = clamp(int2(i, j), int2(0), int2(kGroundSide - 1));
+  return pages.read(uint2(c), page).x;
+}
+
+struct GroundPoint {
+  float3 local;
+  float3 normal;
+};
+
+static inline GroundPoint groundPointAt(GIn v, texture2d_array<float> pages) {
+  const float u = v.g.x;
+  const float w = v.g.y;
+  const uint page = uint(v.page.x);
+  const float sagInv = v.page.y;
+  const float stepE = max(v.page.z, 1.0e-3);
+  const float stepN = max(v.page.w, 1.0e-3);
+  const int i = int(round(u * float(kGroundSide - 1)));
+  const int j = int(round(w * float(kGroundSide - 1)));
+  const float h = groundNodeAt(pages, page, i, j);
+  const float2 en = mix(mix(v.north.xy, v.north.zw, u), mix(v.south.xy, v.south.zw, u), w);
+  const float sag = 0.5 * dot(en, en) * sagInv;
+  const float skirt = v.g.z * kGroundSkirtSteps * max(stepE, stepN);
+  GroundPoint p;
+  p.local = float3(en.x, en.y, h - sag - skirt);
+  const int iw = max(i - 1, 0);
+  const int ie = min(i + 1, kGroundSide - 1);
+  const int jn = max(j - 1, 0);
+  const int js = min(j + 1, kGroundSide - 1);
+  const float dhE = (groundNodeAt(pages, page, ie, j) - groundNodeAt(pages, page, iw, j)) /
+                    (float(ie - iw) * stepE);
+  const float dhN = (groundNodeAt(pages, page, i, jn) - groundNodeAt(pages, page, i, js)) /
+                    (float(js - jn) * stepN);
+  p.normal = normalize(float3(-dhE, -dhN, 1.0));
+  return p;
+}

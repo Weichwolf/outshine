@@ -133,6 +133,22 @@ struct PieceMesh {
 
 using PieceId = uint32_t;
 inline constexpr PieceId kNoPiece = ~0u;
+
+struct GroundInstance {
+  Mat4f Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  std::array<float, 8> Corners = {{}};
+  float Page = 0.0f;
+  float SagInv = 0.0f;
+  float StepE = 0.0f;
+  float StepN = 0.0f;
+};
+
+inline constexpr uint32_t kGroundInstanceFloats = 28;
+static_assert(sizeof(GroundInstance) == kGroundInstanceFloats * sizeof(float),
+              "an instance is the twenty-eight floats the lattice's vertex shader reads");
+
+using PageId = uint32_t;
+inline constexpr PageId kNoPage = ~0u;
 inline constexpr uint32_t kNoSlot = ~0u;
 
 struct SubjectMesh : SubjectPose {

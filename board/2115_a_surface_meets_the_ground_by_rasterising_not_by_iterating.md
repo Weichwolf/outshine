@@ -165,3 +165,34 @@ shader fetching the height from a texture (Landscape's vertex-texture fetch).
 **What will show this was wrong**: a crack SEEN at a level boundary the skirt does not hide;
 a seat that disagrees with the drawn ground by more than the float's quantum; a frame at
 Kaiserberg slower than today's 3.4 ms p50 with the ring drawn by the lattice.
+
+## Landed 2026-09-04: the lattice stands BESIDE the ring, declared, off by default
+
+`Render.GroundLattice` (grammar child `groundLattice`, written back, `shots --lattice`) draws the
+ground as `GroundLattice`: one 34 x 34 grid with a skirt, instanced per ring tile, the height
+fetched from an `R32_FLOAT` page array (512 pages, 4.6 KB each), the tile's four corner offsets
+bilinear inside the tile, the sphere's sag on the GPU, the class decided by the same
+`fsGroundLit`. The page holds the nodes the patchwork's own chunk is built from (`kPatchGrid + 1`,
+asserted), so the lattice IS today's ring surface before `Refine/Cut/Sew/Press`; the CPU ring
+stays for the drape and the physics while the two are measured beside each other.
+
+```
+  OldTown, --lattice   5f8ca8d5   p50 2.18 ms   100 pages, 100 tiles, 0.07 M triangles
+  OldTown, ring        303146af   p50 2.22 ms   -- the reference, unmoved by default
+  pixels.py, lattice against the reference   30 019 differ, 11 244 by more than 1 of 255
+    WHERE the ring was PRESSED: a road pixel (590, 590) is ground because the corridor's cut is
+    in the ring and not in the nodes; a gable at (310..390, 510..560 of the near crop) has the
+    ground through it because the pad's stamp is in the ring and not in the nodes; and the far
+    band (rows 240..360) by the normal, central differences on the page against the mesh's
+```
+
+Found on the way: `SubjectDraw::Configure` runs TWICE per place (the plan recompiles once the
+scene is declared), and a stage that rebuilds its residency there loses what was placed --
+the residency now survives a reconfigure the way `SubjectResidency` does, and only the
+pipelines are rebuilt.
+
+**What decides the switch**: the stamps written into the NODES on the worker (step 5), and
+the near field refined past the DEM's posting -- a footprint's rim at 36 m texels is not a rim,
+Unreal's Landscape is authored at a metre, so the levels nearer than the finest tile are
+VIRTUAL pages (the DEM upsampled, the stamps rasterised at that level's texel). Then the
+pictures are looked at, and the references move with the owner's word.

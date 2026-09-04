@@ -63,22 +63,6 @@ int DerivedThreads(int workers) {
 
 namespace outshine::Ground {
 
-void FillNodeHeights(const TerrainField &field,
-                     uint32_t rowPostings,
-                     uint32_t colPostings,
-                     int nodes,
-                     std::vector<float> *out) {
-  out->resize(static_cast<size_t>(nodes) * static_cast<size_t>(nodes));
-  for (int j = 0; j < nodes; j++) {
-    const double fr = PostingFrac(Ground::ChunkNodePosting(j, rowPostings, nodes), rowPostings);
-    for (int i = 0; i < nodes; i++) {
-      const double fc = PostingFrac(Ground::ChunkNodePosting(i, colPostings, nodes), colPostings);
-      (*out)[static_cast<size_t>(j) * static_cast<size_t>(nodes) + static_cast<size_t>(i)] =
-          field.PostingM({.Col = fc, .Row = fr});
-    }
-  }
-}
-
 double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy) {
   const double px = Clamped01(fx) * static_cast<double>(postings - 1);
   const double py = Clamped01(fy) * static_cast<double>(postings - 1);

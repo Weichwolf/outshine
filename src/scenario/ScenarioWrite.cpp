@@ -108,6 +108,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
     Number(said, "fps", declared.Render.Fps);
     Number(said, "fill", declared.Render.Fill);
     Yes(said, "audits", declared.Render.Audits);
+    Yes(said, "groundLattice", declared.Render.GroundLattice);
     said += "/>\n";
   }
   if (declared.Time.Declared) {

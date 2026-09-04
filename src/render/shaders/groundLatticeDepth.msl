@@ -1,0 +1,9 @@
+vertex VOut vsGroundLatticeDepth(GIn v [[stage_in]], constant S &s [[buffer(0)]],
+                                 texture2d_array<float> pages [[texture(0)]],
+                                 sampler pageSampler [[sampler(0)]]) {
+  const GroundPoint g = groundPointAt(v, pages);
+  const float4x4 m = float4x4(v.c0, v.c1, v.c2, v.c3 + float4(s.shift.xyz, 0.0));
+  VOut o;
+  o.pos = s.lightFromWorld * (m * float4(g.local, 1.0));
+  return o;
+}

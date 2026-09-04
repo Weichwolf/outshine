@@ -118,6 +118,23 @@ public:
     if (Renderer_ != nullptr) { Renderer_->ReleasePiece(which); }
   }
 
+  [[nodiscard]] Render::PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
+    return Renderer_ == nullptr ? Render::kNoPage : Renderer_->PlaceHeightPage(nodes, error);
+  }
+
+  void ReleaseHeightPage(Render::PageId which) {
+    if (Renderer_ != nullptr) { Renderer_->ReleaseHeightPage(which); }
+  }
+
+  [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundInstance> instances,
+                                      std::string &error) {
+    return Renderer_ == nullptr || Renderer_->SetGroundLattice(instances, error);
+  }
+
+  [[nodiscard]] uint32_t GroundLatticeTriangles() const {
+    return Renderer_ == nullptr ? 0u : Renderer_->GroundLatticeTriangles();
+  }
+
   [[nodiscard]] uint32_t PiecesStanding() const {
     return Renderer_ == nullptr ? 0u : Renderer_->PiecesStanding();
   }

@@ -17,6 +17,7 @@
 #include "GpuOwned.h"
 
 #include "KernelShape.h"
+#include "GroundLattice.h"
 #include "SubjectResidency.h"
 #include "SubjectTypes.h"
 
@@ -68,6 +69,10 @@ public:
   [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
   [[nodiscard]] bool HandDrawArguments(bool deferred, std::string &error);
+
+  [[nodiscard]] GroundLattice &Ground() { return Ground_; }
+
+  [[nodiscard]] const GroundLattice &Ground() const { return Ground_; }
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
   void ReleasePiece(PieceId which);
@@ -168,6 +173,8 @@ public:
 
 private:
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
+  void BindSlot(const PassRecording &into, size_t slot) const;
+  void EncodeGround(const PassRecording &into) const;
 
   [[nodiscard]] bool Room(SubjectResidency::Stream held, SubjectResidency::Need need) {
     OwnedBuffer &into = Bound().Buffer(held);
@@ -272,6 +279,7 @@ private:
     bool ReadsSecondUv = false;
   };
 
+  GroundLattice Ground_;
   SDL_GPUTexture *Behind = nullptr;
   SDL_GPUSampler *BehindSampler = nullptr;
 
