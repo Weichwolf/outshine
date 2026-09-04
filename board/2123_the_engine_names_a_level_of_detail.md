@@ -58,3 +58,18 @@ concept has no name, so it cannot be asked for, measured per subject, or declare
 
 `world: and the raised geometry` on Shibuya under the 512 MB ceiling for the whole world, and
 `sim p99` under 16.7 ms on all eight places. Today: 618.2 MB and 775-2217 ms.
+
+
+## Looked at, 2026-09-04
+
+`kMassedAtPx = 8` moved 1.07% of OldTown's pixels, 9477 of them by more than 1 of 255, so the rule
+applies: LOOK before believing the number. Both images read side by side.
+
+**The foreground is identical** -- the old town's tiled roofs, the church tower, every facade
+unchanged. **The change sits on the HORIZON**, which is where it belongs: the far right skyline
+carried a scatter of individual bright points before, and now carries fewer, larger, merged
+shapes. **Nothing vanished** -- the mass on the horizon is still there, standing as blocks.
+
+That is the distinction the goal draws and the one that decides whether this is LOD or damage:
+`Lump` MERGES rather than drops, so a skyline cannot flicker as the camera moves. Measured 1.07%,
+and every one of those pixels is at the far distance.
