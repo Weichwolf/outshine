@@ -2,7 +2,6 @@
 #define OUTSHINE_BASE_MATH_OCTAHEDRAL_H
 
 #include <array>
-#include <bit>
 #include <cmath>
 #include <cstdint>
 
@@ -40,14 +39,14 @@ namespace outshine {
     return static_cast<uint32_t>(
         static_cast<uint16_t>(std::lround((bounded * 0.5f + 0.5f) * 65535.0f)));
   };
-  return (quantise(pair[0]) << 16u) | quantise(pair[1]);
+  return (quantise(pair[0]) << 16U) | quantise(pair[1]);
 }
 
 [[nodiscard]] inline std::array<float, 2> UnpackedPair(uint32_t word) {
   const auto held = [](uint32_t part) {
     return (static_cast<float>(part) / 65535.0f) * 2.0f - 1.0f;
   };
-  return {{held(word >> 16u), held(word & 0xffffu)}};
+  return {{held(word >> 16U), held(word & 0xffffU)}};
 }
 
 } // namespace outshine

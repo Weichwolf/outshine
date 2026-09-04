@@ -84,13 +84,13 @@ void SphereTile(Data::TileId over, int grid, TileBuild *out) {
           .HeightM = 0.0};
       const Ground::Ecef at = Ground::GeoToEcefWgs84(where);
       const double away = std::sqrt(at.X * at.X + at.Y * at.Y + at.Z * at.Z);
-      out->Verts.push_back(TileVertex{.pos = {{static_cast<float>(at.X - anchor.X),
+      out->Verts.push_back(ChunkVtx::Of(Vec3f{{static_cast<float>(at.X - anchor.X),
                                                static_cast<float>(at.Y - anchor.Y),
                                                static_cast<float>(at.Z - anchor.Z)}},
-                                      .uv = {{static_cast<float>(u), static_cast<float>(v)}},
-                                      .norm = {{static_cast<float>(at.X / away),
-                                                static_cast<float>(at.Y / away),
-                                                static_cast<float>(at.Z / away)}}});
+                                        Vec2f{{static_cast<float>(u), static_cast<float>(v)}},
+                                        Vec3f{{static_cast<float>(at.X / away),
+                                               static_cast<float>(at.Y / away),
+                                               static_cast<float>(at.Z / away)}}));
     }
   }
   out->Idx.reserve(static_cast<size_t>(side - 1) * static_cast<size_t>(side - 1) * 6u);
@@ -235,8 +235,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
             out.PositionM.push_back(static_cast<float>(
                 static_cast<double>(one.pos[static_cast<size_t>(axis)]) + shift[axis]));
           }
-          out.Uv.insert(out.Uv.end(), one.uv.begin(), one.uv.end());
-          out.NormalM.insert(out.NormalM.end(), one.norm.begin(), one.norm.end());
+          const Vec2f uv = one.uv();
+          const Vec3f facing = one.norm();
+          out.Uv.insert(out.Uv.end(), uv.begin(), uv.end());
+          out.NormalM.insert(out.NormalM.end(), facing.begin(), facing.end());
         }
         out.ClustersHeld += built.Clusters.size();
         const auto rebase = static_cast<uint32_t>(out.AllIndex.size());

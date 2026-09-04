@@ -196,15 +196,15 @@ private:
     if (found != Corners_[side].end()) { return found->second; }
     const auto made = static_cast<uint32_t>(soup.size());
     Corners_[side].emplace(key, made);
-    TileVertex held{};
+    Vec3f placeM{};
+    Vec3f turned{};
     for (int c = 0; c < 3; c++) {
-      held.pos[static_cast<size_t>(c)] = static_cast<float>(Origin_[c] + v.P.EastM * East_[c] +
-                                                            v.P.NorthM * North_[c] + v.Z * Up_[c]);
-      held.norm[static_cast<size_t>(c)] =
+      placeM[static_cast<size_t>(c)] = static_cast<float>(Origin_[c] + v.P.EastM * East_[c] +
+                                                          v.P.NorthM * North_[c] + v.Z * Up_[c]);
+      turned[static_cast<size_t>(c)] =
           static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]);
     }
-    held.uv = {{v.U, v.V}};
-    soup.push_back(held);
+    soup.push_back(ChunkVtx::Of(placeM, Vec2f{{v.U, v.V}}, turned));
     return made;
   }
 

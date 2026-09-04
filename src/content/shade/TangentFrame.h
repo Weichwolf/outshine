@@ -107,9 +107,10 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
     places[at * 3] = static_cast<float>(eastM);
     places[at * 3 + 1] = static_cast<float>(upM);
     places[at * 3 + 2] = static_cast<float>(-northM);
-    const Vec3 aim = {{static_cast<double>(one.norm[0]),
-                       static_cast<double>(one.norm[1]),
-                       static_cast<double>(one.norm[2])}};
+    const Vec3f facing = one.norm();
+    const Vec3 aim = {{static_cast<double>(facing[0]),
+                       static_cast<double>(facing[1]),
+                       static_cast<double>(facing[2])}};
     double alongEast = 0.0;
     double alongUp = 0.0;
     double alongNorth = 0.0;

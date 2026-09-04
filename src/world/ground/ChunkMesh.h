@@ -165,15 +165,11 @@ ChunkBuildEcef(const TerrainMesh &mesh, Data::TileId over, int grid, Chunk *out,
         const int qi = i + corner.Col;
         const double *P = pe + (static_cast<size_t>(qj) * gc + qi) * 3;
         const float *N = nv + (static_cast<size_t>(qj) * gc + qi) * 3;
-        ChunkVtx *d = &v[o++];
-        d->pos[0] = static_cast<float>(P[0]);
-        d->pos[1] = static_cast<float>(P[1]);
-        d->pos[2] = static_cast<float>(P[2]);
-        d->uv[0] = static_cast<float>(static_cast<double> W3_CI(qi) / static_cast<double>(C - 1));
-        d->uv[1] = static_cast<float>(static_cast<double> W3_RI(qj) / static_cast<double>(R - 1));
-        d->norm[0] = N[0];
-        d->norm[1] = N[1];
-        d->norm[2] = N[2];
+        v[o++] = ChunkVtx::Of(
+            Vec3f{{static_cast<float>(P[0]), static_cast<float>(P[1]), static_cast<float>(P[2])}},
+            Vec2f{{static_cast<float>(static_cast<double> W3_CI(qi) / static_cast<double>(C - 1)),
+                   static_cast<float>(static_cast<double> W3_RI(qj) / static_cast<double>(R - 1))}},
+            Vec3f{{N[0], N[1], N[2]}});
       }
     }
   }
