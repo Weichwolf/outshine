@@ -229,9 +229,10 @@ bool ApplyLayer(Scenario::Document &into,
     trace.push_back("layer '" + std::string(named) + "' merged into the " + section.What +
                     " -- omitted attributes keep the base's values");
   }
-  std::string why;
   if (!ReadSectionsOnto(document.Root(), into)) {
-    error = why;
+    error = "a layer's sections were read and one of them refused, and the reader carries no "
+            "reason for it -- the layer is '" +
+            std::string(named) + "'";
     return false;
   }
   return true;

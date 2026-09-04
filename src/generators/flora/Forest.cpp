@@ -71,15 +71,22 @@ std::span<const char *const> Forest::NoteNames() const noexcept {
   return {kNames.data(), kNames.size()};
 }
 
+namespace {
+
+constexpr double kSpacingPerRung = 2.0;
+
 [[nodiscard]] constexpr double SpacedFor(Detail coarseness) {
-  switch (coarseness) {
-    case Detail::Fine: return 1.0;
-    case Detail::Shell: return 2.0;
-    case Detail::Massed: return 4.0;
-    case Detail::Skyline: return 8.0;
-  }
-  return 1.0;
+  double spacing = 1.0;
+  for (int rung = 0; rung < static_cast<int>(coarseness); ++rung) { spacing *= kSpacingPerRung; }
+  return spacing;
 }
+
+static_assert(SpacedFor(Detail::Fine) == 1.0);
+static_assert(SpacedFor(Detail::Shell) == 2.0);
+static_assert(SpacedFor(Detail::Massed) == 4.0);
+static_assert(SpacedFor(Detail::Skyline) == 8.0, "the horizon stands them eight steps apart");
+
+} // namespace
 
 Forest::Lattice Forest::Of(const Tile &region, Detail coarseness) {
   Lattice l;

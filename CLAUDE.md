@@ -108,6 +108,11 @@ commit, which is why they cannot be skipped quietly — an empty answer is visib
    what it reads if the change is bad. A change with no such number is a guess wearing a commit
    message
 
+**A PIXEL COUNT IS NOT A LOOK.** Measured 2026-09-04: a rewrite of one function's signature moved
+59% of OldTown's pixels, and 59% reads as "a lot changed" -- large, arguable, possibly acceptable.
+The IMAGE said the entire city was gone, grass to the horizon, in one second. The number and the
+picture answered different questions, and only one of them was the question.
+
 **The third question outranks anything already written down.** A cause recorded in an item or a
 commit is a HYPOTHESIS until it is measured again — including one written on this page. They fail
 that test often enough that the habit is worth more than any of them: state the measurement before
