@@ -86,8 +86,7 @@ void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
     way.MaxLon = lon > way.MaxLon ? lon : way.MaxLon;
   }
   Ways_.push_back(way);
-  Points_.reserve(Points_.size() + 2 * points);
-  WayOf_.reserve(WayOf_.size() + points);
+
   for (size_t which = 0; which < points; ++which) {
     Points_.push_back(latLonPairs[2 * which]);
     Points_.push_back(latLonPairs[2 * which + 1]);
@@ -687,33 +686,34 @@ void Network::CrossingsInCell(const Filing &filed,
   const uint32_t ends = span.To;
   for (uint32_t one = begins; one + 1u < ends; ++one) {
     const Filed &ours = filed.InCell[one];
-    const size_t mine = ours.Seg;
-    const size_t firstA = filed.SegAt[mine];
-    const double ax = filed.Lon[firstA];
-    const double ay = Points_[2 * firstA];
-    const double bx = filed.Lon[firstA + 1];
-    const double by = Points_[2 * firstA + 2];
+    const double loX = std::fmin(ours.Ax, ours.Bx);
+    const double hiX = std::fmax(ours.Ax, ours.Bx);
+    const double loY = std::fmin(ours.Ay, ours.By);
+    const double hiY = std::fmax(ours.Ay, ours.By);
     for (uint32_t two = one + 1u; two < ends; ++two) {
       const Filed &yours = filed.InCell[two];
-      if (filed.SegWay[mine] == filed.SegWay[yours.Seg] || ours.Square != yours.Square) {
+      if (ours.Way == yours.Way) { continue; }
+
+      if (hiX < std::fmin(yours.Ax, yours.Bx) || std::fmax(yours.Ax, yours.Bx) < loX ||
+          hiY < std::fmin(yours.Ay, yours.By) || std::fmax(yours.Ay, yours.By) < loY) {
+        ++swept.PairsPruned;
         continue;
       }
+
       ++swept.PairsTested;
-      const size_t firstB = filed.SegAt[yours.Seg];
       const std::optional<Vec2> met =
-          SegmentsMeet({.From = Vec2{{ax, ay}}, .To = Vec2{{bx, by}}},
-                       {.From = Vec2{{filed.Lon[firstB], Points_[2 * firstB]}},
-                        .To = Vec2{{filed.Lon[firstB + 1], Points_[2 * firstB + 2]}}});
+          SegmentsMeet({.From = Vec2{{ours.Ax, ours.Ay}}, .To = Vec2{{ours.Bx, ours.By}}},
+                       {.From = Vec2{{yours.Ax, yours.Ay}}, .To = Vec2{{yours.Bx, yours.By}}});
       if (!met || SquareIn(grid, box, {.LongitudeDeg = (*met)[0], .LatitudeDeg = (*met)[1]}) !=
-                      ours.Square) {
+                      span.Square) {
         continue;
       }
-      into.push_back(Crossing{.OverWay = filed.SegWay[mine],
-                              .UnderWay = filed.SegWay[yours.Seg],
+      into.push_back(Crossing{.OverWay = ours.Way,
+                              .UnderWay = yours.Way,
                               .LatitudeDeg = (*met)[1],
                               .LongitudeDeg = AboutTheMeridian((*met)[0]),
-                              .OverAt = static_cast<uint32_t>(firstA),
-                              .UnderAt = static_cast<uint32_t>(firstB)});
+                              .OverAt = static_cast<uint32_t>(filed.SegAt[ours.Seg]),
+                              .UnderAt = static_cast<uint32_t>(filed.SegAt[yours.Seg])});
     }
   }
 }
@@ -770,10 +770,14 @@ Network::Crossings(std::vector<Crossing> &into) const {
     std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
     inCell.assign(holds[cells], Filed{});
     for (size_t seg = 0; seg < segments; ++seg) {
-      overSquares(seg, [&](uint32_t square) {
-        inCell[filled[bucketOf(square)]++] =
-            Filed{.Square = square, .Seg = static_cast<uint32_t>(seg)};
-      });
+      const size_t first = segAt[seg];
+      const Filed held{.Seg = static_cast<uint32_t>(seg),
+                       .Way = segWay[seg],
+                       .Ax = lon[first],
+                       .Ay = Points_[2 * first],
+                       .Bx = lon[first + 1],
+                       .By = Points_[2 * first + 2]};
+      overSquares(seg, [&](uint32_t square) { inCell[filled[bucketOf(square)]++] = held; });
     }
   }
   for (size_t cell = 0; cell < cells; ++cell) {
@@ -781,12 +785,13 @@ Network::Crossings(std::vector<Crossing> &into) const {
   }
 
   for (size_t cell = 0; cell < cells; ++cell) {
-    CrossingsInCell({.Lon = lon, .SegWay = segWay, .SegAt = segAt, .InCell = inCell},
-                    {.From = holds[cell], .To = holds[cell + 1u]},
-                    *grid,
-                    over,
-                    into,
-                    swept);
+    CrossingsInCell(
+        {.SegAt = segAt, .InCell = inCell},
+        {.Square = static_cast<uint32_t>(cell), .From = holds[cell], .To = holds[cell + 1u]},
+        *grid,
+        over,
+        into,
+        swept);
   }
   swept.Found = into.size();
   return swept;

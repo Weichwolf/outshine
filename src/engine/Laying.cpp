@@ -1374,17 +1374,32 @@ void Engine::State::Crosses(const Ground::StreetField &ways,
                             const TangentFrame &standing,
                             const Drape &drapedOver,
                             Paved &into) const {
+  auto partAt = std::chrono::steady_clock::now();
+  const auto part = [&partAt] {
+    const auto was = partAt;
+    partAt = std::chrono::steady_clock::now();
+    return std::chrono::duration<double, std::milli>(partAt - was).count();
+  };
+
   Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
   std::vector<size_t> netToLane;
   LayLanesIntoNetwork(ways, vectors.Points(), net, netToLane);
+  into.CrossNetworkMs = part();
 
   std::vector<Path::Network::Crossing> crossed;
-  if (!net.Crossings(crossed)) { return; }
+  const auto swept = net.Crossings(crossed);
+  if (!swept) { return; }
+  into.CrossSweepMs = part();
   into.CrossingsSeen = crossed.size();
+  into.PairsTested = swept->PairsTested;
+  into.PairsPruned = swept->PairsPruned;
+  into.FullestCell = swept->FullestCell;
   for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, standing, into); }
+  into.CrossFilingMs = part();
   for (const Path::Network::Crossing &one : crossed) {
     RaiseDeckOver(one, ways, netToLane, standing, drapedOver, into);
   }
+  into.CrossDecksMs = part();
 }
 
 std::optional<Engine::State::Ends> Engine::State::EndsOf(const Ground::OsmField &vectors,
@@ -1838,6 +1853,19 @@ void Engine::State::Paves(const TangentFrame &standing,
   const auto pavesAt = std::chrono::steady_clock::now();
   if (vectors != nullptr) { Crosses(ways, *vectors, standing, drapedOver, into); }
   Published.Places("streets: of that, finding the crossings", since(), "ms");
+  Published.Places(
+      "streets: of finding them, laying the lanes into a network", into.CrossNetworkMs, "ms");
+  Published.Places("streets: of finding them, the sweep itself", into.CrossSweepMs, "ms");
+  Published.Places("streets: of finding them, filing each one", into.CrossFilingMs, "ms");
+  Published.Places("streets: of finding them, raising a deck over each", into.CrossDecksMs, "ms");
+  Published.Places("streets: of finding them, pairs the sweep tested",
+                   static_cast<double>(into.PairsTested),
+                   "pairs");
+  Published.Places("streets: and pairs its boxes threw out first",
+                   static_cast<double>(into.PairsPruned),
+                   "pairs");
+  Published.Places(
+      "streets: segments in the fullest square", static_cast<double>(into.FullestCell), "segments");
   if (vectors != nullptr && into.DecksRaised > 0) {
     Bridges(ways, *vectors, standing, drapedOver, into);
   }

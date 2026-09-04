@@ -222,21 +222,21 @@ private:
   [[nodiscard]] static uint32_t SquareIn(const Gridded &grid, Spanned box, LongitudeLatitude at);
 
   struct Filed {
-    uint32_t Square = 0;
     uint32_t Seg = 0;
+    uint32_t Way = 0;
+    double Ax = 0.0, Ay = 0.0, Bx = 0.0, By = 0.0;
   };
 
-  static_assert(sizeof(Filed) == 8);
+  static_assert(sizeof(Filed) == 40);
   static_assert(std::is_trivially_copyable_v<Filed>);
 
   struct Filing {
-    std::span<const double> Lon;
-    std::span<const uint32_t> SegWay;
     std::span<const uint32_t> SegAt;
     std::span<const Filed> InCell;
   };
 
   struct CellSpan {
+    uint32_t Square = 0;
     uint32_t From = 0;
     uint32_t To = 0;
   };

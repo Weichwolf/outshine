@@ -479,6 +479,13 @@ struct Engine::State {
     size_t FitUnsplittable = 0;
     size_t FitCuts = 0;
     size_t CrossingsSeen = 0;
+    size_t PairsTested = 0;
+    size_t PairsPruned = 0;
+    size_t FullestCell = 0;
+    double CrossNetworkMs = 0.0;
+    double CrossSweepMs = 0.0;
+    double CrossFilingMs = 0.0;
+    double CrossDecksMs = 0.0;
     size_t DecksRaised = 0;
     double MostRaisedM = 0.0;
     size_t RampsRaised = 0;
