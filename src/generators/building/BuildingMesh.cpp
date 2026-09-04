@@ -312,17 +312,17 @@ void FrontWall(const BuildingShape &s,
   if (door + 1.0 < bays) { WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Fields::Front, site); }
 }
 
-void BreaksBoth(const RoofSurface &roof,
-                const En &p,
-                const En &q,
-                const En &wp,
-                const En &wq,
-                bool overhung,
-                std::vector<double> &at) {
+struct Stretch {
+  En From;
+  En To;
+};
+
+void BreaksBoth(
+    const RoofSurface &roof, Stretch face, Stretch eave, bool overhung, std::vector<double> &at) {
   std::vector<double> other;
-  roof.BreaksAlong(p, q, at);
+  roof.BreaksAlong(face.From, face.To, at);
   if (overhung) {
-    roof.BreaksAlong(wp, wq, other);
+    roof.BreaksAlong(eave.From, eave.To, other);
     at.insert(at.end(), other.begin(), other.end());
     std::ranges::sort(at);
     at.erase(std::ranges::unique(at,
@@ -345,10 +345,8 @@ std::vector<En> RefinedLike(std::span<const En> along,
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
     BreaksBoth(roof,
-               along[i],
-               along[j],
-               overhung ? wide[i] : along[i],
-               overhung ? wide[j] : along[j],
+               {.From = along[i], .To = along[j]},
+               {.From = overhung ? wide[i] : along[i], .To = overhung ? wide[j] : along[j]},
                overhung,
                at);
     out.push_back(emit[i]);
@@ -368,10 +366,8 @@ std::vector<En> Refined(std::span<const En> ring,
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
     BreaksBoth(roof,
-               ring[i],
-               ring[j],
-               overhung ? wide[i] : ring[i],
-               overhung ? wide[j] : ring[j],
+               {.From = ring[i], .To = ring[j]},
+               {.From = overhung ? wide[i] : ring[i], .To = overhung ? wide[j] : ring[j]},
                overhung,
                at);
     const En &from = takeWide && overhung ? wide[i] : ring[i];
@@ -401,8 +397,11 @@ void Walls(const BuildingShape &s,
       continue;
     }
     const bool overhung = wide.size() == n;
-    BreaksBoth(
-        roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung, breaks);
+    BreaksBoth(roof,
+               {.From = p, .To = q},
+               {.From = overhung ? wide[i] : p, .To = overhung ? wide[(i + 1) % n] : q},
+               overhung,
+               breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
@@ -472,10 +471,8 @@ void Plinth(const BuildingShape &s,
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
     BreaksBoth(roof,
-               s.Ring[i],
-               s.Ring[j],
-               overhung ? wide[i] : s.Ring[i],
-               overhung ? wide[j] : s.Ring[j],
+               {.From = s.Ring[i], .To = s.Ring[j]},
+               {.From = overhung ? wide[i] : s.Ring[i], .To = overhung ? wide[j] : s.Ring[j]},
                overhung,
                breaks);
     double was = 0.0;
@@ -522,8 +519,11 @@ void Gables(const BuildingShape &s,
     if (len < kLeastEdgeM) { continue; }
     const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
-    BreaksBoth(
-        roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung, breaks);
+    BreaksBoth(roof,
+               {.From = p, .To = q},
+               {.From = overhung ? wide[i] : p, .To = overhung ? wide[(i + 1) % n] : q},
+               overhung,
+               breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
@@ -571,7 +571,8 @@ void Eaves(const BuildingShape &s,
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    BreaksBoth(roof, s.Ring[i], s.Ring[j], wide[i], wide[j], true, breaks);
+    BreaksBoth(
+        roof, {.From = s.Ring[i], .To = s.Ring[j]}, {.From = wide[i], .To = wide[j]}, true, breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
@@ -635,14 +636,22 @@ void Crown(const BuildingShape &s,
   }
 }
 
-void Box(Site &site,
-         const BuildingShape &s,
-         const En &centre,
-         double halfU,
-         double halfV,
-         double lowZ,
-         double highZ,
-         Facade side) {
+struct Halves {
+  double U = 0.0;
+  double V = 0.0;
+};
+
+struct Storey {
+  double LowM = 0.0;
+  double HighM = 0.0;
+};
+
+void Box(
+    Site &site, const BuildingShape &s, const En &centre, Halves half, Storey over, Facade side) {
+  const double halfU = half.U;
+  const double halfV = half.V;
+  const double lowZ = over.LowM;
+  const double highZ = over.HighM;
   std::array<En, 4> c{};
   const En u{.EastM = s.AxisU.EastM * halfU, .NorthM = s.AxisU.NorthM * halfU};
   const En v{.EastM = -s.AxisU.NorthM * halfV, .NorthM = s.AxisU.EastM * halfV};
@@ -684,10 +693,8 @@ void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   Box(site,
       s,
       foot,
-      kChimneyHalfWide * kChimneyWideM,
-      kChimneyHalfDeep * kChimneyWideM,
-      eaves,
-      stack,
+      {.U = kChimneyHalfWide * kChimneyWideM, .V = kChimneyHalfDeep * kChimneyWideM},
+      {.LowM = eaves, .HighM = stack},
       Facade::Trim);
 }
 
@@ -698,7 +705,12 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   const double along =
       ((static_cast<double>(s.Seed >> 13u & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
   const En foot = s.FromBox({.U = along, .V = 0.0});
-  Box(site, s, foot, halfU, halfV, deckZ, deckZ + kDormerRiseM, Facade::Metal);
+  Box(site,
+      s,
+      foot,
+      {.U = halfU, .V = halfV},
+      {.LowM = deckZ, .HighM = deckZ + kDormerRiseM},
+      Facade::Metal);
 }
 
 double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {

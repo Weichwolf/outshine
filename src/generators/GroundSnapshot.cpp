@@ -40,17 +40,17 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
   std::vector<FeatureField::Feature> features;
   std::vector<FeatureField::Ring> rings;
   std::vector<FeatureField::Vertex> vertices;
-  const auto take = [&](const FeatureField::Feature &proto, uint32_t firstPoint, uint32_t count) {
+  const auto take = [&](const FeatureField::Feature &proto, FeatureField::Ring over) {
     const uint32_t least = proto.Form == FeatureForm::Ribbon ? 2u : 3u;
-    if (count < least) { return; }
+    if (over.Count < least) { return; }
     FeatureField::Feature f = proto;
     f.FirstRing = static_cast<uint32_t>(rings.size());
     f.RingCount = 1;
-    rings.push_back({.First = static_cast<uint32_t>(vertices.size()), .Count = count});
-    for (uint32_t k = 0; k < count; k++) {
+    rings.push_back({.First = static_cast<uint32_t>(vertices.size()), .Count = over.Count});
+    for (uint32_t k = 0; k < over.Count; k++) {
       const EastNorth on =
-          region.Enu({.LongitudeDeg = points[(static_cast<size_t>(firstPoint) + k) * 2 + 1],
-                      .LatitudeDeg = points[(static_cast<size_t>(firstPoint) + k) * 2]});
+          region.Enu({.LongitudeDeg = points[(static_cast<size_t>(over.First) + k) * 2 + 1],
+                      .LatitudeDeg = points[(static_cast<size_t>(over.First) + k) * 2]});
       vertices.push_back({.Em = static_cast<float>(on.EastM), .Nm = static_cast<float>(on.NorthM)});
     }
     features.push_back(f);
@@ -63,7 +63,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     f.Form = FeatureForm::Area;
     f.Base = FeatureLevel::At(fp.BaseM);
     f.Top = FeatureLevel::At(fp.BaseM + fp.HeightM);
-    take(f, fp.FirstPoint, fp.PointCount);
+    take(f, {.First = fp.FirstPoint, .Count = fp.PointCount});
   }
   for (const outshine::Ground::WaterField::Surface &s : stands.WaterBodies->OfTile(tile)) {
     FeatureField::Feature f{};
@@ -71,7 +71,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     f.Kind = FeatureKind::Water;
     f.Form = FeatureForm::Area;
     f.Top = FeatureLevel::At(s.LevelM);
-    take(f, s.FirstPoint, s.PointCount);
+    take(f, {.First = s.FirstPoint, .Count = s.PointCount});
   }
   for (const outshine::Ground::StreetField::Way &w : stands.Ways->OfTile(tile)) {
     FeatureField::Feature f{};
@@ -80,7 +80,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     f.Form = w.Form == outshine::Ground::StreetField::Shape::Ribbon ? FeatureForm::Ribbon
                                                                     : FeatureForm::Area;
     f.HalfWidthM = w.HalfWidthM;
-    take(f, w.FirstPoint, w.PointCount);
+    take(f, {.First = w.FirstPoint, .Count = w.PointCount});
   }
 
   return FeatureField::Of(std::span<const FeatureField::Feature>(features.data(), features.size()),

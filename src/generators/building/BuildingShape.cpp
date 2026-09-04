@@ -564,7 +564,12 @@ En UnitFrom(const En &a, const En &b) {
   return l < kLeastRunM ? En{.EastM = 1.0, .NorthM = 0.0} : En{.EastM = e / l, .NorthM = n / l};
 }
 
-[[nodiscard]] bool WingCut(const Piece &whole, Piece *main, Piece *wing) {
+struct Winged {
+  Piece Main;
+  Piece Wing;
+};
+
+[[nodiscard]] std::optional<Winged> WingCut(const Piece &whole) {
   const std::vector<En> &ring = whole.P;
   const double wholeM2 = std::fabs(SignedArea(ring));
   double bestLen = kBeyondAnyCoordinate;
@@ -590,11 +595,9 @@ En UnitFrom(const En &a, const En &b) {
       found = true;
     }
   }
-  if (!found) { return false; }
+  if (!found) { return std::nullopt; }
   const bool aIsMain = std::fabs(SignedArea(a.P)) >= std::fabs(SignedArea(b.P));
-  *main = aIsMain ? a : b;
-  *wing = aIsMain ? b : a;
-  return true;
+  return Winged{.Main = aIsMain ? a : b, .Wing = aIsMain ? b : a};
 }
 
 int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
@@ -702,9 +705,8 @@ Massing MassOf(std::span<const double> ringLatLon,
 
   std::array<Piece, kMaxParts> row{};
   const int plots = RowCut(WholeOf(out.Outline), one, row);
-  Piece main;
-  Piece wing;
-  const bool winged = plots == 0 && one.Fill < 0.94 && WingCut(WholeOf(out.Outline), &main, &wing);
+  const std::optional<Winged> winged =
+      plots == 0 && one.Fill < 0.94 ? WingCut(WholeOf(out.Outline)) : std::nullopt;
 
   if (plots > 1) {
     for (int k = 0; k < plots; k++) {
@@ -721,13 +723,13 @@ Massing MassOf(std::span<const double> ringLatLon,
   } else if (winged) {
     PartOrder m = whole;
     m.Seed = Mix(seed + kMainWord);
-    BuildingShape mainPart = Finish(main, m);
+    BuildingShape mainPart = Finish(winged->Main, m);
     PartOrder w = whole;
     w.Seed = Mix(seed + kWingWord);
 
     w.TopOverFootM = std::max(
         topM * (kWingTopFloor + kWingTopSwing * UnitOf(w.Seed, kWingTopStream)), kWingLeastM);
-    BuildingShape wingPart = Finish(wing, w);
+    BuildingShape wingPart = Finish(winged->Wing, w);
     if (mainPart.Valid()) { out.Parts.push_back(std::move(mainPart)); }
     if (wingPart.Valid()) { out.Parts.push_back(std::move(wingPart)); }
   }

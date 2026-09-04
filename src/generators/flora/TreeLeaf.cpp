@@ -87,7 +87,14 @@ float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
   return w;
 }
 
-void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, float ang, float lenScale) {
+struct Blade {
+  float AngleRad = 0.0f;
+  float LengthScale = 1.0f;
+};
+
+void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, Blade held) {
+  const float ang = held.AngleRad;
+  const float lenScale = held.LengthScale;
   int n = p.Segments;
   n = std::max(n, 4);
   const int nv = (n + 1) * 3;
@@ -279,10 +286,10 @@ void BuildPinnate(Sink &sink, const TreeSpecies::Leaf &p) {
     const float t =
         0.14f + 0.78f * (pairs > 1 ? static_cast<float>(i) / static_cast<float>(pairs - 1) : 0.5f);
     const Vec3f base = Vec3f{{0, t * len, 0}};
-    BuildBlade(sink, p, base, ang, ls);
-    BuildBlade(sink, p, base, -ang, ls);
+    BuildBlade(sink, p, base, {.AngleRad = ang, .LengthScale = ls});
+    BuildBlade(sink, p, base, {.AngleRad = -ang, .LengthScale = ls});
   }
-  BuildBlade(sink, p, Vec3f{{0, len * kBladeTipShare, 0}}, 0.0f, ls);
+  BuildBlade(sink, p, Vec3f{{0, len * kBladeTipShare, 0}}, {.AngleRad = 0.0f, .LengthScale = ls});
 }
 
 void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
@@ -292,7 +299,7 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
     const float t = (n > 1) ? static_cast<float>(i) / static_cast<float>(n - 1) : 0.5f;
     const float ang = -spread + 2.0f * spread * t;
     const float ls = 0.62f + 0.38f * (1.0f - std::fabs(2.0f * t - 1.0f));
-    BuildBlade(sink, p, Vec3f{{0, 0, 0}}, ang, ls);
+    BuildBlade(sink, p, Vec3f{{0, 0, 0}}, {.AngleRad = ang, .LengthScale = ls});
   }
 }
 
@@ -307,7 +314,9 @@ void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
     case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;
     case TreeSpecies::LeafKind::PalmateCompound: BuildPalmateCompound(sink, leaf); break;
     case TreeSpecies::LeafKind::Needle: BuildNeedleShoot(sink, leaf); break;
-    case TreeSpecies::LeafKind::Broad: BuildBlade(sink, leaf, Vec3f{{0, 0, 0}}, 0.0f, 1.0f); break;
+    case TreeSpecies::LeafKind::Broad:
+      BuildBlade(sink, leaf, Vec3f{{0, 0, 0}}, {.AngleRad = 0.0f, .LengthScale = 1.0f});
+      break;
   }
 }
 
