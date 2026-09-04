@@ -94,9 +94,9 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
   turned.resize(count * 3);
   for (size_t at = already; at < count; ++at) {
     const TileVertex &one = corners[at];
-    const Vec3 held = {{anchor[0] + static_cast<double>(one.PlaceM[0]),
-                        anchor[1] + static_cast<double>(one.PlaceM[1]),
-                        anchor[2] + static_cast<double>(one.PlaceM[2])}};
+    const Vec3 held = {{anchor[0] + static_cast<double>(one.pos[0]),
+                        anchor[1] + static_cast<double>(one.pos[1]),
+                        anchor[2] + static_cast<double>(one.pos[2])}};
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
@@ -107,9 +107,9 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
     places[at * 3] = static_cast<float>(eastM);
     places[at * 3 + 1] = static_cast<float>(upM);
     places[at * 3 + 2] = static_cast<float>(-northM);
-    const Vec3 aim = {{static_cast<double>(one.Facing[0]),
-                       static_cast<double>(one.Facing[1]),
-                       static_cast<double>(one.Facing[2])}};
+    const Vec3 aim = {{static_cast<double>(one.norm[0]),
+                       static_cast<double>(one.norm[1]),
+                       static_cast<double>(one.norm[2])}};
     double alongEast = 0.0;
     double alongUp = 0.0;
     double alongNorth = 0.0;
