@@ -47,3 +47,27 @@ substitution board:2110 already makes for generators.
 618.2 MB for buildings alone. And the picture: a skyline that loses a building between two frames
 means the proxy is missing rather than coarse, which is the failure mode this item exists to
 prevent.
+
+## Measured 2026-09-04: the peak is the BAKE's grain, not the geometry's size
+
+The vertex went from 32 bytes to 20 -- the format every reference stores -- and the buildings fell
+from 281 MB to 198. Shibuya stayed red at 541530534 bytes against 536870912. So the ceiling is not
+about what the world weighs.
+
+`BuildingField::Built_` is ONE `Raised` for every building of every tile. Nothing empties it;
+`AddedFirst_` only remembers where the current tile's vertices begin. A std::vector doubles as it
+grows, so at the moment it crosses a power of two the process holds one and a half times the whole
+world's building geometry, and the peak is that instant rather than the resting size.
+
+Measured at CentralPark: fields hold 281 MB, frame copies 168 MB -- 449 MB of a 933 MB peak. The
+other 484 MB never appears in any held total because it is the bake's own working set. Allocation
+that flowed through the tagged regions in one run: tile-worker 1.98 GB, ground-yield 967 MB,
+world-ground 857 MB.
+
+WHAT THE REFERENCES DO: bake per cell and hand the result on. RAGE builds a map section, ships it,
+and reuses the buffer; Unreal cooks per level chunk. The peak is one cell, not the world, and the
+resting size is what the GPU holds. Here the bake is world-grained on the CPU side and the ceiling
+is checked against a total that was never meant to exist all at once.
+
+So this is the next block, and it is one change rather than three: bake a tile, hand it over, reuse
+the buffer. Peak, preload and the moving camera all sit on it.
