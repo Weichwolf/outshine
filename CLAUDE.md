@@ -305,6 +305,20 @@ code to zero and lets old code be repaired at the pace it is touched. `make help
 **Order: repair the VISION first if it is short of the benchmark · rebuild onto it · then close
 the feature gaps.** A refactor toward a short target arrives somewhere that still has to be left.
 
+**A BATCH IS AS BIG AS THE MEASUREMENT CAN STILL ATTRIBUTE.** The digest is the SAFETY, never the
+metronome. Ten independent repairs measured once cost one gate run; ten gate runs measure the same
+tree ten times and buy nothing. The bound is ATTRIBUTION -- when a digest moves, the batch has to
+be small enough that I can say WHICH change moved it. So repairs in different files batch freely,
+and two changes to the same behaviour do not. Measured here: a round of five-item batches spent
+more wall time in `make shots` than in the work it was checking.
+
+**A FUNCTION A LATER GOAL WILL OPEN IS OPENED ONCE.** The order above is a PRIORITY, not a wall.
+Where the work a later goal needs lands in the same function, cutting it now on the earlier goal's
+terms means touching it twice and cutting toward a target that is about to move -- which is the
+defect the line above already names, applied to my own plan instead of to the tree. Measured:
+`Parse` 176, `LayDown` 115, `Ingest` 80, `Load` 76 are all in `world/ground/`, and all of them are
+where the preload time is.
+
 **THE GATES RUN ALONE, AND THE NUMBER COMES FROM THE RUN.** `make`, `make test`, `make shots` and
 `make lint` share one nest and one tree. Editing while one runs makes it compile a half-written
 file and report BUILD on cases that are fine; starting a second makes
