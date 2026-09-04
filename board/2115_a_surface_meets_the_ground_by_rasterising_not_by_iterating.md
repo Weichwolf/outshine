@@ -59,3 +59,43 @@ number is not recorded yet -- taking it is the first step, not the second.
 ## Not in this item
 
 board:2116 -- `Refine` names four unrelated things and a sweep over the word would hit all four.
+
+## It is a TESSELLATED PROJECTED GRID, and that is the whole item
+
+Named 2026-09-04, and it reframes everything above. The three passes this item was circling --
+`Refine` (split edges until fine enough), `Cut` (find where seams cross faces), `Sew` (stitch the
+holes) -- are not three problems. They are one problem stated backwards: the mesh is built
+irregular and then REPAIRED into coherence.
+
+A projected grid is coherent BY CONSTRUCTION. A regular lattice is projected onto the surface and
+displaced by the height field; neighbouring cells share vertices because they are neighbours in the
+lattice, so there is no seam to find and none to sew. Resolution comes from the lattice's own
+level, which is indexed rather than approached.
+
+## What the three passes cost today, measured on OldTown
+
+```
+  ground: of that, refining               87 ms
+  ground: of that, cutting the seams       71 ms   (was 146)
+  ground: of that, sewing them             98 ms   (was 692)
+  heap taken under ground-yield          2787 MB   cumulative, four rebuilds
+```
+
+**All three go to zero under a projected grid**, and so does most of that heap: the allocations are
+`next.reserve(index.size() * 2)` once per pass per rebuild and a fresh `CellGrid` per pass, both of
+which exist only to rebuild an index that a lattice never rebuilds.
+
+## What Unreal does, what RAGE does
+
+Unreal's Landscape IS a regular grid per component, displaced by a heightmap, with LOD as lattice
+level -- the seams between components are a KNOWN, ENUMERATED edge case, not a search. RAGE's
+terrain is likewise gridded and baked. **Neither searches for seams**, because neither creates
+them. That agreement closes the question of shape; what is mine is the resolution rule, since the
+world arrives over the wire.
+
+## What will show I was wrong
+
+`ground: of that, refining`, `cutting the seams`, `sewing them` all reading 0.000 ms because the
+passes no longer exist, and `heap taken under ground-yield` falling by the order the arithmetic
+above predicts. If a projected grid still needs a seam pass, the construction was not coherent and
+this item misread the problem.
