@@ -523,19 +523,20 @@ void WritePieceUv(const void *carrying, float *into, uint32_t floats) {
 bool SubjectDraw::RoomForStreams(std::string &error) {
   SubjectResidency &res = Bound();
   const uint32_t verts = res.VertexRoom();
-  const auto bytes = [verts](uint32_t wide) {
-    return verts * wide * static_cast<uint32_t>(sizeof(float));
+  const uint32_t subject = res.SubjectVertices().First + res.SubjectVertices().Count;
+  const auto bytes = [](uint32_t count, uint32_t wide) {
+    return count * wide * static_cast<uint32_t>(sizeof(float));
   };
   const auto vertex = SDL_GPU_BUFFERUSAGE_VERTEX;
   using S = SubjectResidency::Stream;
-  return res.Grow(S::Vertex, bytes(kPositionFloats), vertex, error) &&
-         res.Grow(S::Emitted, bytes(kPositionFloats), vertex, error) &&
-         res.Grow(S::Normal, bytes(kPositionFloats), vertex, error) &&
-         res.Grow(S::Tangent, bytes(kQuadFloats), vertex, error) &&
-         res.Grow(S::Uv, bytes(kPairFloats), vertex, error) &&
-         res.Grow(S::Uv1, bytes(kPairFloats), vertex, error) &&
-         res.Grow(S::Colour, bytes(kQuadFloats), vertex, error) &&
-         (!WritesVelocity || res.Grow(S::Previous, bytes(kPositionFloats), vertex, error)) &&
+  return res.Grow(S::Vertex, bytes(verts, kPositionFloats), vertex, error) &&
+         res.Grow(S::Normal, bytes(verts, kPositionFloats), vertex, error) &&
+         res.Grow(S::Uv, bytes(verts, kPairFloats), vertex, error) &&
+         res.Grow(S::Colour, bytes(verts, kQuadFloats), vertex, error) &&
+         (!WritesVelocity || res.Grow(S::Previous, bytes(verts, kPositionFloats), vertex, error)) &&
+         (subject == 0 || (res.Grow(S::Emitted, bytes(subject, kPositionFloats), vertex, error) &&
+                           res.Grow(S::Tangent, bytes(subject, kQuadFloats), vertex, error) &&
+                           res.Grow(S::Uv1, bytes(subject, kPairFloats), vertex, error))) &&
          res.Grow(
              S::Index, res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t)), kIndexUse, error);
 }

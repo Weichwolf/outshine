@@ -83,11 +83,22 @@ struct SubjectResidency {
     uint32_t Count = 0;
   };
 
-  [[nodiscard]] Range TakeVertices(uint32_t count) { return Take(FreeV_, count, TopV_); }
+  static constexpr uint32_t kVertexPage = 1024;
+  static constexpr uint32_t kIndexPage = 4096;
+
+  [[nodiscard]] static constexpr uint32_t Paged(uint32_t count, uint32_t page) {
+    return (count + page - 1u) / page * page;
+  }
+
+  [[nodiscard]] Range TakeVertices(uint32_t count) {
+    return Take(FreeV_, Paged(count, kVertexPage), TopV_);
+  }
 
   void GiveVertices(Range back) { Give(FreeV_, back); }
 
-  [[nodiscard]] Range TakeIndices(uint32_t count) { return Take(FreeI_, count, TopI_); }
+  [[nodiscard]] Range TakeIndices(uint32_t count) {
+    return Take(FreeI_, Paged(count, kIndexPage), TopI_);
+  }
 
   void GiveIndices(Range back) { Give(FreeI_, back); }
 
@@ -186,6 +197,14 @@ private:
   OwnedTransfer Bulk_;
   uint32_t BulkBytes_ = 0;
 };
+
+static_assert(
+    SubjectResidency::Paged(1, SubjectResidency::kVertexPage) == SubjectResidency::kVertexPage &&
+        SubjectResidency::Paged(SubjectResidency::kVertexPage, SubjectResidency::kVertexPage) ==
+            SubjectResidency::kVertexPage &&
+        SubjectResidency::Paged(SubjectResidency::kVertexPage + 1, SubjectResidency::kVertexPage) ==
+            2 * SubjectResidency::kVertexPage,
+    "a piece takes whole pages, so a freed piece leaves a hole another piece fits");
 
 } // namespace outshine::Render
 
