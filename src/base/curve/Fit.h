@@ -31,13 +31,9 @@ struct Fitted {
   std::string Error;
 };
 
-[[nodiscard]] Fitted
-Fit(std::span<const double> eastNorthM, double withinM, double tightestM, ReferenceLine &into);
-
 [[nodiscard]] Fitted Fit(std::span<const double> eastNorthM,
                          double withinM,
                          double tightestM,
-                         std::span<const double> classTightestM,
                          ReferenceLine &into,
                          std::span<const double> withinAtM = {});
 

@@ -342,8 +342,7 @@ void ReadLighting(const Xml::Ref &from, Scenario::Document &into) {
 
 } // namespace
 
-[[nodiscard]] bool
-ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
+[[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into) {
   ReadWorld(root.Child("world"), into);
   ReadRender(root.Child("render"), into);
   ReadLighting(root.Child("lighting"), into);
@@ -411,7 +410,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
         Scenario::Layer{.Id = one.Attr("id"), .Path = one.Attr("path"), .Set = one.Attr("set")});
   }
 
-  if (!ReadSectionsOnto(root, into, error)) { return false; }
+  if (!ReadSectionsOnto(root, into)) { return false; }
 
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {

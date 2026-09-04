@@ -48,7 +48,7 @@ private:
     int Sides = 0;
   };
 
-  void BreakProfile(Splintered of, std::span<float> out);
+  static void BreakProfile(Splintered of, std::span<float> out);
   void Cap(const TreeSkeleton::Node &node,
            std::span<const int> ring,
            int sides,

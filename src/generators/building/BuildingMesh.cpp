@@ -597,10 +597,14 @@ void Eaves(const BuildingShape &s,
   }
 }
 
-void Crown(const BuildingShape &s,
-           const std::vector<En> &inner,
-           const std::vector<En> &out,
-           Site &site) {
+struct Crowning {
+  const std::vector<En> &Inner;
+  const std::vector<En> &Out;
+};
+
+void Crown(const BuildingShape &s, Crowning over, Site &site) {
+  const std::vector<En> &inner = over.Inner;
+  const std::vector<En> &out = over.Out;
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
   const double band = eaves - 0.34;
@@ -849,7 +853,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
   if (s.Roof == RoofKind::Flat) {
     const double deckZ = crowned ? EavesZ(s) - kSlabM : EavesZ(s) + s.RiseM;
     Covering(s, roof, crowned ? crownInner : s.Ring, deckZ, site);
-    if (crowned) { Crown(s, crownInner, crownOut, site); }
+    if (crowned) { Crown(s, {.Inner = crownInner, .Out = crownOut}, site); }
     RoofPlant(s, deckZ, site);
     return;
   }

@@ -230,7 +230,7 @@ bool ApplyLayer(Scenario::Document &into,
                     " -- omitted attributes keep the base's values");
   }
   std::string why;
-  if (!ReadSectionsOnto(document.Root(), into, why)) {
+  if (!ReadSectionsOnto(document.Root(), into)) {
     error = why;
     return false;
   }

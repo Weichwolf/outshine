@@ -105,15 +105,9 @@ Simplify(std::span<const double> eastNorthM, double withinM, std::vector<size_t>
   return out;
 }
 
-Fitted
-Fit(std::span<const double> eastNorthM, double withinM, double tightestM, ReferenceLine &into) {
-  return Fit(eastNorthM, withinM, tightestM, std::span<const double>(), into);
-}
-
 Fitted Fit(std::span<const double> eastNorthM,
            double withinM,
            double tightestM,
-           std::span<const double> classTightestM,
            ReferenceLine &into,
            std::span<const double> withinAtM) {
   Fitted out;
