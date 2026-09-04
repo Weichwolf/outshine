@@ -126,3 +126,41 @@ A structural rewrite MOVES EVERY DIGEST, so the digest stops being the guard and
 it. `test/scripts/pixels.py` reads two shots and reports how many differ and by how much of 255.
 Reference for the eight places is kept under `build/shots/reference/`. The bar: no pixel differs by
 more than 1 of 255 unless the difference is looked at and named.
+
+## The reference, looked up 2026-09-04, and what it corrects above
+
+"Projected grid" is HALF the answer and the half it leaves out is the one the loop exists for.
+A lattice projected onto a field settles RESOLUTION. It does not settle whether a building's
+outline or a kerb lands on a triangle EDGE, and that is what `Cut` and `Sew` are doing: a grid
+edge crosses the outline, so the triangle is split and the halves are stitched back.
+
+The standard answer names it: a footprint or a kerb is a BREAKLINE, and the structure that carries
+one is a CONSTRAINED DELAUNAY TRIANGULATION. ArcGIS's TIN documentation states the property this
+whole item is about -- "using constrained Delaunay triangulation, no densification occurs, and each
+breakline segment is added as a single edge" -- against the unconstrained case, where "breaklines
+are densified by the software with Steiner points" and one input segment becomes many. PostGIS
+ships it as `ST_TriangulatePolygon`; CGAL's 2D CDT is what Intergraph's LPS uses for exactly this
+(terrain segmentation and building footprint delineation); the technique is twenty years old and
+in every GIS.
+
+So the four phases map onto ONE structure:
+
+| here | with a CDT |
+|---|---|
+| grid, then `Refine` until the edge is approached | the grid's points are input points |
+| `Cut` where an outline crosses a triangle | the outline is a CONSTRAINT, and therefore an edge |
+| `Sew` the halves back together | there is no seam to sew |
+| `Press` | -- |
+
+Refine/Cut/Sew is the detour taken when an edge cannot be REQUIRED. Requiring it is the primitive,
+and it is one this tree does not have yet.
+
+MEASURED 2026-09-04, Kaiserberg, one rebuild: refining 94 ms, cutting the seams 93, sewing them 81,
+pressing 42, counting 12 -- 322 ms of a 1051 ms rebuild, and the rebuild is what stands between
+this tree and both halves of goal 3 (the preload is 1.9-4.3 s of which roughly half is compute, and
+the same rebuild is what a moving camera used to trip over).
+
+The bar stays as written above: pixels, not digests.
+
+Sources: ArcGIS "Fundamentals of TIN triangulation"; PostGIS `ST_TriangulatePolygon`;
+Wikipedia "Constrained Delaunay triangulation"; GeometryFactory, CDT for photogrammetry.
