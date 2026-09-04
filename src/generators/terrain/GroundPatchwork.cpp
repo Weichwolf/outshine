@@ -73,7 +73,7 @@ void SphereTile(Data::TileId over, int grid, TileBuild *out) {
   out->Clusters.clear();
   out->Verts.clear();
   out->Idx.clear();
-  out->Verts.reserve(static_cast<size_t>(side) * static_cast<size_t>(side) * kTileVertexFloats);
+  out->Verts.reserve(static_cast<size_t>(side) * static_cast<size_t>(side));
   for (int row = 0; row < side; ++row) {
     const double v = static_cast<double>(row) / static_cast<double>(side - 1);
     for (int column = 0; column < side; ++column) {
@@ -84,14 +84,13 @@ void SphereTile(Data::TileId over, int grid, TileBuild *out) {
           .HeightM = 0.0};
       const Ground::Ecef at = Ground::GeoToEcefWgs84(where);
       const double away = std::sqrt(at.X * at.X + at.Y * at.Y + at.Z * at.Z);
-      out->Verts.push_back(static_cast<float>(at.X - anchor.X));
-      out->Verts.push_back(static_cast<float>(at.Y - anchor.Y));
-      out->Verts.push_back(static_cast<float>(at.Z - anchor.Z));
-      out->Verts.push_back(static_cast<float>(u));
-      out->Verts.push_back(static_cast<float>(v));
-      out->Verts.push_back(static_cast<float>(at.X / away));
-      out->Verts.push_back(static_cast<float>(at.Y / away));
-      out->Verts.push_back(static_cast<float>(at.Z / away));
+      out->Verts.push_back(TileVertex{.PlaceM = {{static_cast<float>(at.X - anchor.X),
+                                                  static_cast<float>(at.Y - anchor.Y),
+                                                  static_cast<float>(at.Z - anchor.Z)}},
+                                      .Uv = {{static_cast<float>(u), static_cast<float>(v)}},
+                                      .Facing = {{static_cast<float>(at.X / away),
+                                                  static_cast<float>(at.Y / away),
+                                                  static_cast<float>(at.Z / away)}}});
     }
   }
   out->Idx.reserve(static_cast<size_t>(side - 1) * static_cast<size_t>(side - 1) * 6u);
@@ -231,19 +230,13 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                              built.OriginEcef[1] - out.OriginEcef[1],
                              built.OriginEcef[2] - out.OriginEcef[2]}};
         const auto first = static_cast<uint32_t>(out.PositionM.size() / 3);
-        for (size_t vertex = 0; vertex + kTileVertexFloats <= built.Verts.size();
-             vertex += kTileVertexFloats) {
-          out.PositionM.push_back(
-              static_cast<float>(static_cast<double>(built.Verts[vertex]) + shift[0]));
-          out.PositionM.push_back(
-              static_cast<float>(static_cast<double>(built.Verts[vertex + 1]) + shift[1]));
-          out.PositionM.push_back(
-              static_cast<float>(static_cast<double>(built.Verts[vertex + 2]) + shift[2]));
-          out.Uv.push_back(built.Verts[vertex + kTileVertexUvAt]);
-          out.Uv.push_back(built.Verts[vertex + kTileVertexUvAt + 1]);
-          out.NormalM.push_back(built.Verts[vertex + kTileVertexFacingAt]);
-          out.NormalM.push_back(built.Verts[vertex + kTileVertexFacingAt + 1]);
-          out.NormalM.push_back(built.Verts[vertex + kTileVertexFacingAt + 2]);
+        for (const TileVertex &one : built.Verts) {
+          for (int axis = 0; axis < 3; ++axis) {
+            out.PositionM.push_back(static_cast<float>(
+                static_cast<double>(one.PlaceM[static_cast<size_t>(axis)]) + shift[axis]));
+          }
+          out.Uv.insert(out.Uv.end(), one.Uv.begin(), one.Uv.end());
+          out.NormalM.insert(out.NormalM.end(), one.Facing.begin(), one.Facing.end());
         }
         out.ClustersHeld += built.Clusters.size();
         const auto rebase = static_cast<uint32_t>(out.AllIndex.size());

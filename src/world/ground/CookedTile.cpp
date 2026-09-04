@@ -1,5 +1,7 @@
 #include "CookedTile.h"
 
+#include <cstring>
+
 #include <span>
 
 #include "spatial/ClusterCook.h"
@@ -17,7 +19,7 @@ namespace outshine::Ground {
 
 namespace {
 
-constexpr size_t kTileSoupFloats = 8;
+constexpr size_t kTileSoupFloats = kTileVertexFloats;
 
 constexpr uint32_t kTileClusterTriangles = 128;
 
@@ -27,7 +29,7 @@ void CookTile(const float *soup,
               int nverts,
               int gridverts,
               [[maybe_unused]] const Vec3 &origin,
-              std::vector<float> &outVerts,
+              std::vector<TileVertex> &outVerts,
               std::vector<uint32_t> &outIdx,
               std::vector<DagCluster> &outClusters) {
   outVerts.clear();
@@ -36,7 +38,8 @@ void CookTile(const float *soup,
   if ((soup == nullptr) || nverts <= 0) { return; }
   if (gridverts <= 0 || gridverts > nverts) { gridverts = nverts; }
 
-  outVerts.assign(soup, soup + static_cast<size_t>(gridverts) * kTileSoupFloats);
+  outVerts.resize(static_cast<size_t>(gridverts));
+  std::memcpy(outVerts.data(), soup, static_cast<size_t>(gridverts) * sizeof(TileVertex));
   outIdx.resize(static_cast<size_t>(gridverts));
   for (int vertex = 0; vertex < gridverts; ++vertex) {
     outIdx[static_cast<size_t>(vertex)] = static_cast<uint32_t>(vertex);

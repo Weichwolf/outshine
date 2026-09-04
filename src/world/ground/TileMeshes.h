@@ -37,7 +37,7 @@ static_assert(kTileVertexUvAt == 3);
 static_assert(kTileVertexFacingAt == 5);
 
 struct TileBuild {
-  std::vector<float> Verts;
+  std::vector<TileVertex> Verts;
   std::vector<uint32_t> Idx;
   std::vector<DagCluster> Clusters;
   Vec3 OriginEcef;
