@@ -12,6 +12,7 @@
 
 #include "Heap.h"
 #include "Log.h"
+#include "Shape.h"
 #include "OsmLayer.h"
 
 namespace outshine {
@@ -40,6 +41,7 @@ void RawOf(const Ground::OsmField &vectors,
   raw.FocalPx = prints.FocalPx();
   raw.TileSpanM = prints.TileSpanM();
   raw.Extent = vectors.Extent();
+  raw.ClusterTriangles = Render::kClusterTriangles;
   const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
   const std::span<const Ground::OsmField::Feature> feats = vectors.Features();
   const std::span<const double> points = vectors.Points();
@@ -170,7 +172,7 @@ size_t StructureBakes::Lands(Ground::GroundStack &stack, TilePieces &pieces, siz
                                .OsmHeights = baked.OsmHeights,
                                .DefaultHeights = baked.DefaultHeights,
                                .Fronted = baked.Fronted});
-    if (triangles > 0) { pieces.Hands(job.Tile, baked.Built, job.Raw->AnchorEcef); }
+    if (triangles > 0) { pieces.Hands(job.Tile, baked, job.Raw->AnchorEcef); }
     Log::Info(LogTag::World,
               "buildings",
               {{"added", static_cast<int>(baked.Prints.size())},

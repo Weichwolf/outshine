@@ -7,7 +7,7 @@
 
 #include "math/Vec3.h"
 #include "SubjectTypes.h"
-#include "StructureMesher.h"
+#include "StructureBake.h"
 #include "TangentFrame.h"
 
 namespace outshine::Core {
@@ -32,7 +32,7 @@ public:
     RoofsSurface_ = these.Roofs;
   }
 
-  void Hands(uint32_t tile, const Raised &built, const Vec3 &anchorEcef);
+  void Hands(uint32_t tile, const Generators::BakedTile &baked, const Vec3 &anchorEcef);
 
   void Forgets(uint32_t tile);
   void Clear();

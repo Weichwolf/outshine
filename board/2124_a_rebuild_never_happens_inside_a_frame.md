@@ -32,6 +32,15 @@ Measured 2026-09-04 at Shibuya with the bake on a worker (board:2122): while til
 two a frame, `PlacePiece` (upload + `Retable`) on the frame path read sim p99 46 ms, worst
 102 ms; with every tile landed, sim p99 1.0 ms. The landing is a rebuild by another name.
 
+Measured 2026-09-04 after the cook and the digest moved into the worker's bake (board:2122's
+`BakedTile` carries `Walls`, `Roofs`, `Digest`): at Shibuya a landing costs the frame
+0.3-0.7 ms per piece for the upload, and `Retable` 3 ms per frame in which a piece landed
+(20 ms the first time, while its tables grow). The cook read 2-4 ms per piece before and is
+gone from the frame. What `Retable` still does is rebuild the WHOLE cluster table -- 67 000
+jobs and spheres for 98 pieces -- for one piece that entered; that is the "one tile costs the
+ring" of the pool, and the answer is Nanite's: a piece's jobs are a RANGE in a persistent
+table, written once at placement, and the table is uploaded by the range that changed.
+
 ## The solution
 
 Two halves, and board:2122 supplies the first:
@@ -51,7 +60,7 @@ budget is measured where it is missed.
 
 - [ ] `Grounds` runs off the frame path; `the step's own time, most` never carries a rebuild
 - [ ] A recentre by one tile costs one tile: a case measures the work of a one-tile move as
-      proportional to one tile, not the ring
+      proportional to one tile, not the ring -- the cluster table included (measured above)
 - [ ] 0 of 120 frames over 16.67 ms on all nine places WITH the camera walking
 - [ ] The frame draws the last complete world: a case captures a frame during a rebuild and it
       is the previous world, whole, never a half

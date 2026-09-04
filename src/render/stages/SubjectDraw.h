@@ -355,6 +355,8 @@ private:
   std::vector<DrawBatch> SubjectBatches_;
   std::vector<uint32_t> SubjectJobs_;
   std::vector<float> SubjectSpheres_;
+  std::vector<uint32_t> TableJobs_, TableOrder_, TableRows_;
+  std::vector<float> TableSpheres_;
   uint32_t SubjectRows_ = 0;
   std::vector<Piece> Pieces_;
   std::vector<uint32_t> Spare_;

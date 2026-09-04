@@ -1,4 +1,6 @@
 #include "StructureBake.h"
+#include <bit>
+#include "Digest.h"
 
 #include <algorithm>
 #include <array>
@@ -370,6 +372,29 @@ void RaiseLump(const Lumped &of,
   (void)mesher.Mesh(plan, scratch, into);
 }
 
+[[nodiscard]] uint64_t DigestOver(const Raised &built) {
+  uint64_t mixed = kDigestBasis;
+  const auto fold = [&mixed](uint64_t one) { mixed = (mixed ^ one) * kDigestPrime; };
+  const auto foldVertex = [&fold](const StoredVertex &one) {
+    const auto *const held = reinterpret_cast<const float *>(&one);
+    for (size_t at = 0; at < kStoredVertexFloats; ++at) { fold(std::bit_cast<uint32_t>(held[at])); }
+  };
+  for (const StoredVertex &one : built.WallCorners) { foldVertex(one); }
+  for (const StoredVertex &one : built.RoofCorners) { foldVertex(one); }
+  for (const uint32_t one : built.WallRun) { fold(one); }
+  for (const uint32_t one : built.RoofRun) { fold(one); }
+  return mixed;
+}
+
+[[nodiscard]] Cooked CookedOver(const RawTile &raw,
+                                std::span<const StoredVertex> corners,
+                                std::span<const uint32_t> run) {
+  if (run.size() < 3 || raw.ClusterTriangles == 0) { return {}; }
+  const std::span<const float> positions(reinterpret_cast<const float *>(corners.data()),
+                                         corners.size() * kStoredVertexFloats);
+  return CookClusters(positions, run, raw.ClusterTriangles, static_cast<int>(kStoredVertexFloats));
+}
+
 std::vector<WayLine> LinesOf(const RawTile &raw) {
   const std::span<const double> pts = raw.LatLon;
   std::vector<WayLine> ways;
@@ -518,6 +543,9 @@ void BakeStructures(const RawTile &raw,
     RaiseLump(block, raw, mesher, scratch, corners, out.Built);
   }
   out.Blocks = static_cast<int>(lumps.size());
+  out.Walls = CookedOver(raw, out.Built.WallCorners, out.Built.WallRun);
+  out.Roofs = CookedOver(raw, out.Built.RoofCorners, out.Built.RoofRun);
+  out.Digest = DigestOver(out.Built);
 }
 
 } // namespace outshine::Generators

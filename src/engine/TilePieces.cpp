@@ -10,27 +10,8 @@
 #include "Digest.h"
 #include "Live.h"
 #include "Shape.h"
-#include "spatial/ClusterCook.h"
 
 namespace outshine {
-
-namespace {
-
-[[nodiscard]] uint64_t DigestOver(const Raised &built) {
-  uint64_t mixed = kDigestBasis;
-  const auto fold = [&mixed](uint64_t one) { mixed = (mixed ^ one) * kDigestPrime; };
-  const auto foldVertex = [&fold](const StoredVertex &one) {
-    const auto *const held = reinterpret_cast<const float *>(&one);
-    for (size_t at = 0; at < kStoredVertexFloats; ++at) { fold(std::bit_cast<uint32_t>(held[at])); }
-  };
-  for (const StoredVertex &one : built.WallCorners) { foldVertex(one); }
-  for (const StoredVertex &one : built.RoofCorners) { foldVertex(one); }
-  for (const uint32_t one : built.WallRun) { fold(one); }
-  for (const uint32_t one : built.RoofRun) { fold(one); }
-  return mixed;
-}
-
-} // namespace
 
 Mat4 TilePieces::RowFor(const Vec3 &anchorEcef) const {
   const Vec3 &east = Frame_.EastEcef();
@@ -51,7 +32,7 @@ Mat4 TilePieces::RowFor(const Vec3 &anchorEcef) const {
   return row;
 }
 
-void TilePieces::Hands(uint32_t tile, const Raised &built, const Vec3 &anchorEcef) {
+void TilePieces::Hands(uint32_t tile, const Generators::BakedTile &baked, const Vec3 &anchorEcef) {
   Forgets(tile);
   if (Live_ == nullptr) { return; }
   const Mat4 row = RowFor(anchorEcef);
@@ -59,12 +40,9 @@ void TilePieces::Hands(uint32_t tile, const Raised &built, const Vec3 &anchorEce
   std::string why;
   const auto place = [this, &row, &why](std::span<const StoredVertex> corners,
                                         std::span<const uint32_t> run,
+                                        const Cooked &cut,
                                         uint32_t surface) {
     if (run.size() < 3) { return Render::kNoPiece; }
-    const std::span<const float> positions(reinterpret_cast<const float *>(corners.data()),
-                                           corners.size() * kStoredVertexFloats);
-    const Cooked cut = CookClusters(
-        positions, run, Render::kClusterTriangles, static_cast<int>(kStoredVertexFloats));
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
     return Live_->PlacePiece({.Verts = corners,
                               .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
@@ -74,14 +52,15 @@ void TilePieces::Hands(uint32_t tile, const Raised &built, const Vec3 &anchorEce
                               .Surface = surface},
                              why);
   };
-  stood.Walls = place(built.WallCorners, built.WallRun, WallsSurface_);
-  stood.Roofs = place(built.RoofCorners, built.RoofRun, RoofsSurface_);
+  const Raised &built = baked.Built;
+  stood.Walls = place(built.WallCorners, built.WallRun, baked.Walls, WallsSurface_);
+  stood.Roofs = place(built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_);
   if (!why.empty()) {
     ++Refused_;
     Why_ = why;
   }
   Standing_.push_back(stood);
-  Digest_ = (Digest_ ^ DigestOver(built)) * kDigestPrime;
+  Digest_ = (Digest_ ^ baked.Digest) * kDigestPrime;
   ++Handed_;
 }
 

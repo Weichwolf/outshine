@@ -10,6 +10,7 @@
 #include "BuildingField.h"
 #include "HeightField.h"
 #include "StructureMesher.h"
+#include "spatial/ClusterCook.h"
 
 namespace outshine::Generators {
 
@@ -36,10 +37,13 @@ struct RawTile {
   double FocalPx = 0.0;
   double TileSpanM = 0.0;
   int Extent = 4096;
+  uint32_t ClusterTriangles = 0;
 };
 
 struct BakedTile {
   Raised Built;
+  Cooked Walls, Roofs;
+  uint64_t Digest = 0;
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
   std::vector<double> SeatSpreadM;
   std::vector<double> AcrossM;

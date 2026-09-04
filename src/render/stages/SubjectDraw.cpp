@@ -903,6 +903,7 @@ bool SubjectDraw::HandTables(std::string &error) {
 }
 
 bool SubjectDraw::Retable(std::string &error) {
+
   const Heap::Tagged uploading("mesh-cull");
   const uint32_t subjectIndexFirst = Bound().SubjectIndices().First;
   Batches.clear();
@@ -934,8 +935,10 @@ bool SubjectDraw::Retable(std::string &error) {
   }
   if (Borrows()) { return true; }
 
-  std::vector<uint32_t> jobs = SubjectJobs_;
-  std::vector<float> spheres = SubjectSpheres_;
+  std::vector<uint32_t> &jobs = TableJobs_;
+  std::vector<float> &spheres = TableSpheres_;
+  jobs.assign(SubjectJobs_.begin(), SubjectJobs_.end());
+  spheres.assign(SubjectSpheres_.begin(), SubjectSpheres_.end());
   for (size_t at = 2; at < jobs.size(); at += DrawList::kJobWords) {
     jobs[at] += subjectIndexFirst;
   }
@@ -952,12 +955,17 @@ bool SubjectDraw::Retable(std::string &error) {
   const auto slotOf = [this](const Piece &one) {
     return one.Surface < SlotOf_.size() ? SlotOf_[one.Surface] : kNoSlot;
   };
-  std::vector<uint32_t> order;
+  std::vector<uint32_t> &order = TableOrder_;
+  order.clear();
+  size_t clusters = 0;
   for (uint32_t at = 0; at < Pieces_.size(); ++at) {
     if (Pieces_[at].Live && slotOf(Pieces_[at]) != kNoSlot && slotOf(Pieces_[at]) < Slots.size()) {
       order.push_back(at);
+      clusters += Pieces_[at].Clusters.size();
     }
   }
+  jobs.reserve(jobs.size() + clusters * DrawList::kJobWords);
+  spheres.reserve(spheres.size() + clusters * kSphereFloats);
   std::ranges::sort(order, [this, &slotOf](uint32_t a, uint32_t b) {
     const Piece &left = Pieces_[a];
     const Piece &right = Pieces_[b];
@@ -1002,7 +1010,8 @@ bool SubjectDraw::Retable(std::string &error) {
 
   if (jobs.empty() || spheres.empty()) { return true; }
   Args_.assign(Batches.size() * kArgWords, 0u);
-  std::vector<uint32_t> rows(Batches.size() * kBatchWords, 0u);
+  std::vector<uint32_t> &rows = TableRows_;
+  rows.assign(Batches.size() * kBatchWords, 0u);
   uint32_t base = 0;
   for (size_t at = 0; at < Batches.size(); ++at) {
     const DrawBatch &batch = Batches[at];
