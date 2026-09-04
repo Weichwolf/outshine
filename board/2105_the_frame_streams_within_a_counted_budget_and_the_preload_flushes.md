@@ -218,3 +218,15 @@ termination condition, which is the second half of the wander.
 place, not just ZurichPlan. If the counted budget is set so low that the walk never catches up, the
 picture at frame 119 differs from the picture at frame 0 by more than the camera moved -- that is
 the negative control, and it goes red by comparing those two frames.
+
+## Measured 2026-09-04
+
+Shibuya is the one place that does not preload, and by how little is the point:
+
+```
+539509334 bytes held against a ceiling of 536870912 -- OVER BY 2638422 (0.49%)
+```
+
+So the case reports UNPREPARED rather than a number, and `make shots` writes no digest for it --
+which is why the eight digests quoted in every commit are eight and not nine. Half a percent
+decides whether this place can be measured at all.
