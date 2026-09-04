@@ -253,7 +253,7 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
   wanted.vertex_input_state.vertex_attributes = in.Attributes.data();
   wanted.vertex_input_state.num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size());
   wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
+  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
   wanted.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
   wanted.target_info.color_target_descriptions = targets.data();
   wanted.target_info.num_color_targets = static_cast<Uint32>(targets.size());
@@ -298,7 +298,7 @@ bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device,
   wanted.vertex_input_state.vertex_attributes = in.Attributes.data();
   wanted.vertex_input_state.num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size());
   wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
+  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
   wanted.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
   wanted.depth_stencil_state.enable_depth_test = true;
   wanted.depth_stencil_state.enable_depth_write = true;

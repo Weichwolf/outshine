@@ -15,7 +15,7 @@ vertex LOut vsGroundLattice(GIn v [[stage_in]], constant S &s [[buffer(0)]],
   o.n = normalize(m[0].xyz * g.normal.x + m[1].xyz * g.normal.y + m[2].xyz * g.normal.z);
   o.p = wp.xyz;
   o.lp = g.local;
-  o.ls = s.lightFromWorld * wp;
+  o.ls = s.lightFromWorld * (m * float4(g.rim, 1.0));
 #if SUBJECT_WRITES_VELOCITY
   o.curClip = o.pos;
   o.prevClip = s.prevViewProj *

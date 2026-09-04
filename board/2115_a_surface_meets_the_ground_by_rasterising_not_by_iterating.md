@@ -400,7 +400,25 @@ hillside at Heidelberg shades smoothly where the ring was faceted: the central d
 the reference's own normal, so the comparison on a slope is settled by construction and not by
 a number. The nine references unmoved by default.
 
-Named and still open: single dark pixels on Jura's plain (150 of 255, the skirt of a finer
-tile seen through a crack at a level boundary where the coarser edge's chord lies below the
-finer node -- Unreal stitches the finer edge to the coarser one, Cesium hides it with the
-skirt and a texture; this tree's skirt is lit and shows) and the OldTown wedge.
+Both leftovers named, measured 2026-09-05, and one repaired:
+
+- **the OldTown wedge** is a hip-roofed house between two others whose seat fell with the
+  fine field (step 6); its roof's silhouette moved down by a few pixels and the mask drew a
+  wedge. Not a defect: the house stands where the ground is
+- **Jura's dark pixels** were skirts. Without skirts the 150-of-255 pixels read the
+  reference's lit ground (401 pixels moved, all of them); with the back-face normal flip
+  disabled in `fsGroundLit` the near-black count fell 167 -> 40, the 40 being houses' dark
+  walls. So: a skirt seen from its BACK got a flipped normal and no sun. Unreal's Landscape
+  is single-sided and so is a height field, so the lattice's lit pipeline culls back faces
+  now (the depth pipeline still casts both sides), and the skirt borrows its rim's light-space
+  position (Cesium's skirt copies the edge vertex's attributes wholesale). Measured against
+  the halo's pictures: OldTown 50 pixels moved (4 near-black -> lit), Kaiserberg 78 (30 ->
+  lit, 2 -> what lies behind the crack), Jura 475 (126 -> lit, 7 -> behind). Digests OldTown
+  92bff02f, Kaiserberg 6af69818, Jura e5b4c53c
+
+What remains of it is the CRACK itself, a T-junction at a level boundary: the finer edge's
+odd node stands where the DEM says and the coarser chord runs under it. Unreal stitches the
+finer edge to the coarser chord in the vertex factory; that is exact here for the VIRTUAL
+levels, which share one field, and only approximate between real levels, whose fields are
+different DEM sources -- there Cesium's skirt stays. Filed as the next step of the lattice's
+seams, after the switch.

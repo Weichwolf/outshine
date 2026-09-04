@@ -26,6 +26,7 @@ static inline float groundNodeAt(texture2d_array<float> pages, uint page, int i,
 
 struct GroundPoint {
   float3 local;
+  float3 rim;
   float3 normal;
 };
 
@@ -44,6 +45,7 @@ static inline GroundPoint groundPointAt(GIn v, texture2d_array<float> pages) {
   const float skirt = v.g.z * kGroundSkirtSteps * max(stepE, stepN);
   GroundPoint p;
   p.local = float3(en.x, en.y, h - sag - skirt);
+  p.rim = float3(en.x, en.y, h - sag);
   const float dhE =
       (groundNodeAt(pages, page, i + 1, j) - groundNodeAt(pages, page, i - 1, j)) / (2.0 * stepE);
   const float dhN =
