@@ -645,6 +645,8 @@ struct Engine::State {
 
   void TellsTheRelief(Relieved over);
   void TellsWhatCrossed(const Geometry &ground);
+  [[nodiscard]] std::expected<Around, Laid> RingWanted(bool alsoWhenTilesLanded);
+
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
   [[nodiscard]] bool Asks();
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const Vec3 &shiftM);

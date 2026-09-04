@@ -2006,17 +2006,10 @@ void Engine::State::TellsWhatCrossed(const Geometry &ground) {
   Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
 }
 
-bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
-  const Heap::Tagged laying("world-ground");
-  auto phaseAt = std::chrono::steady_clock::now();
-  auto censusAt = phaseAt;
-  auto wiresAt = phaseAt;
+std::expected<Around, Engine::State::Laid> Engine::State::RingWanted(bool alsoWhenTilesLanded) {
   const Scenario::Document &declared = Session.Declared;
-  if (!declared.Ground.Declared) { return true; }
-  if (!Picture.Standing || !World.Stack.Opened()) { return true; }
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
-
   const LongitudeLatitude eyeStands = WhereTheEyeStands();
   const double atLat = eyeStands.LatitudeDeg;
   const double atLon = eyeStands.LongitudeDeg;
@@ -2044,7 +2037,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                      over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
                      "m");
   }
-  if (!Watches()) { return false; }
+  if (!Watches()) { return std::unexpected(Laid::Refused); }
   if (Picture.Standing->Watched()) {
     const Vec3 &at = Picture.Standing->Watching().EyeM;
     const TangentFrame eyed = TangentFrame::At({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
@@ -2060,10 +2053,28 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         static_cast<float>(0.5 * static_cast<double>(Picture.Frame.HeightPx) / std::tan(halfFov));
   }
   switch (Focuses(over, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded)) {
-    case Laid::Refused: return false;
-    case Laid::Unchanged: return true;
+    case Laid::Refused: return std::unexpected(Laid::Refused);
+    case Laid::Unchanged: return std::unexpected(Laid::Unchanged);
     case Laid::Wanted: break;
   }
+  return over;
+}
+
+bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
+  const Heap::Tagged laying("world-ground");
+  auto phaseAt = std::chrono::steady_clock::now();
+  auto censusAt = phaseAt;
+  auto wiresAt = phaseAt;
+  const Scenario::Document &declared = Session.Declared;
+  if (!declared.Ground.Declared) { return true; }
+  if (!Picture.Standing || !World.Stack.Opened()) { return true; }
+  const double anchorLat = declared.Ground.Origin.LatitudeDeg;
+  const double anchorLon = declared.Ground.Origin.LongitudeDeg;
+
+  const auto asked = RingWanted(alsoWhenTilesLanded);
+  if (!asked) { return asked.error() == Laid::Unchanged; }
+  const Around over = *asked;
+
   const auto rebuildBegan = std::chrono::steady_clock::now();
   {}
 
