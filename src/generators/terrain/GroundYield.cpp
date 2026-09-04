@@ -502,13 +502,18 @@ Seaming SeamsOver(std::span<const Yields> these) {
 void MarkCutEdges(std::span<const uint32_t> index,
                   const float *positionM,
                   const Seaming &seaming,
-                  FlatMap<std::pair<uint32_t, double>> &split) {
+                  FlatMap<std::pair<uint32_t, double>> &split,
+                  std::vector<uint8_t> &touched) {
+  touched.assign(index.size() / 3u, 0u);
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
     for (int edge = 0; edge < 3; ++edge) {
       const EastSouth from = PlaceOf(positionM, index[at + static_cast<size_t>(edge)]);
       const EastSouth to = PlaceOf(positionM, index[at + static_cast<size_t>((edge + 1) % 3)]);
       const uint64_t key = EdgeKey(from, to);
-      if (split.Holds(key)) { continue; }
+      if (split.Holds(key)) {
+        touched[at / 3u] = 1u;
+        continue;
+      }
       double part = 0.0;
       bool met = false;
       for (const uint32_t which : seaming.Over.At({.EastM = 0.5 * (from.EastM + to.EastM),
@@ -519,6 +524,7 @@ void MarkCutEdges(std::span<const uint32_t> index,
         }
       }
       if (!met) { continue; }
+      touched[at / 3u] = 1u;
       (void)split.Emplace(
           key, std::pair<uint32_t, double>{kNoVertex, LowestFirst(from, to) ? part : 1.0 - part});
     }
@@ -533,10 +539,11 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
   const Attributes lerp(mesh);
   std::vector<uint32_t> next;
   FlatMap<std::pair<uint32_t, double>> split;
+  std::vector<uint8_t> touched;
 
   for (int pass = 0; pass < kCutPasses; ++pass) {
     split.Clear();
-    MarkCutEdges(index, mesh.PositionM->data(), seaming, split);
+    MarkCutEdges(index, mesh.PositionM->data(), seaming, split, touched);
     if (split.Empty()) { break; }
     told.Passes = std::max(told.Passes, static_cast<size_t>(pass) + 1u);
 
@@ -558,6 +565,12 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
     next.reserve(index.size() * 2u);
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
       const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
+      if (touched[at / 3u] == 0u) {
+        next.push_back(face[0]);
+        next.push_back(face[1]);
+        next.push_back(face[2]);
+        continue;
+      }
       const std::array<uint32_t, 3> cut = {
           {cutOf(face[0], face[1]), cutOf(face[1], face[2]), cutOf(face[2], face[0])}};
       LayCutFace(face, cut, next);
@@ -892,5 +905,4 @@ void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, 
   }
   told.SeamMs = since();
 }
-
 } // namespace outshine
