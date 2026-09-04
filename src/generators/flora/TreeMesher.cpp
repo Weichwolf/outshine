@@ -52,7 +52,9 @@ Vec3f TreeMesher::FaceCentroid(int fi) const {
   return s * (1.0f / static_cast<float>(n));
 }
 
-int TreeMesher::SidesFor(float radius, int declared) const {
+int TreeMesher::SidesFor(Sided of) const {
+  const float radius = of.RadiusM;
+  const int declared = of.Declared;
   int cap = declared < kMaxSides ? declared : kMaxSides;
   cap = std::max(cap, 3);
   if (PixelGrow_ <= 0.0f || radius <= 0.0f) { return cap; }
@@ -126,7 +128,9 @@ void TreeMesher::Wall(std::span<const int> from, std::span<const int> to, int si
   }
 }
 
-void TreeMesher::BreakProfile(uint32_t seed, int sides, std::span<float> out) {
+void TreeMesher::BreakProfile(Splintered of, std::span<float> out) {
+  const uint32_t seed = of.Seed;
+  const int sides = of.Sides;
   std::array<float, kMaxSides> splinter{};
   TreeRandom rng(seed);
   for (float &i : splinter) { i = rng.Unit(); }
@@ -158,7 +162,7 @@ void TreeMesher::Cap(const TreeSkeleton::Node &node,
   }
   const int ci = AddVert(node.Pos + node.Dir * (node.Radius * apex));
   std::array<float, kMaxSides> splinter = {{}};
-  if (cap == RingCap::Broken) { BreakProfile(seed, sides, splinter); }
+  if (cap == RingCap::Broken) { BreakProfile({.Seed = seed, .Sides = sides}, splinter); }
   for (int j = 0; j < sides; ++j) {
     if (cap == RingCap::Broken) {
       Verts_[static_cast<size_t>(ring[j])] =
@@ -175,8 +179,7 @@ void TreeMesher::Cap(const TreeSkeleton::Node &node,
 bool TreeMesher::Collar(int face,
                         const TreeSkeleton::Node &anchor,
                         const TreeSkeleton::Node &first,
-                        int sides,
-                        float room,
+                        Fitted within,
                         std::span<int> out) {
   if (face < 0 || (Dead_[static_cast<size_t>(face)] != 0u)) { return false; }
   const Face parent = Faces_[static_cast<size_t>(face)];
@@ -184,35 +187,36 @@ bool TreeMesher::Collar(int face,
   if (parent.D < 0) { return false; }
 
   const Vec3f ctr = anchor.Pos;
-  const float r = anchor.Radius < room ? anchor.Radius : room;
+  const float r = anchor.Radius < within.RoomM ? anchor.Radius : within.RoomM;
 
   Dead_[static_cast<size_t>(face)] = 1;
 
   std::array<int, kMaxSides> inner{};
-  for (int j = 0; j < sides; ++j) {
-    const float a = kTau * static_cast<float>(j) / static_cast<float>(sides);
+  for (int j = 0; j < within.Sides; ++j) {
+    const float a = kTau * static_cast<float>(j) / static_cast<float>(within.Sides);
     inner[j] = AddVert(ctr + RingDir(anchor, a) * r);
   }
-  Ring(first, first.Radius, sides, out);
-  Wall(inner, out, sides);
+  Ring(first, first.Radius, within.Sides, out);
+  Wall(inner, out, within.Sides);
 
   const Vec3f b = DirectionOrUp(Cross(anchor.Dir, anchor.Up));
   const Vec3f rel = Verts_[static_cast<size_t>(o[0])] - ctr;
   float a0 = std::atan2(Dot(rel, b), Dot(rel, anchor.Up));
   if (a0 < 0) { a0 += kTau; }
-  int s = static_cast<int>(std::lround(a0 / kTau * static_cast<float>(sides))) % sides;
-  if (s < 0) { s += sides; }
+  int s =
+      static_cast<int>(std::lround(a0 / kTau * static_cast<float>(within.Sides))) % within.Sides;
+  if (s < 0) { s += within.Sides; }
   int ia = 0;
   int ib = 0;
-  while (ia < 4 || ib < sides) {
+  while (ia < 4 || ib < within.Sides) {
     const int oc = o[ia % 4];
     const float ta = static_cast<float>(ia) / 4.0f;
-    const float tb = static_cast<float>(ib) / static_cast<float>(sides);
-    if (ib >= sides || (ia < 4 && ta <= tb)) {
-      AddFace(oc, o[(ia + 1) % 4], inner[(s + ib) % sides], -1);
+    const float tb = static_cast<float>(ib) / static_cast<float>(within.Sides);
+    if (ib >= within.Sides || (ia < 4 && ta <= tb)) {
+      AddFace(oc, o[(ia + 1) % 4], inner[(s + ib) % within.Sides], -1);
       ia++;
     } else {
-      AddFace(oc, inner[(s + ib + 1) % sides], inner[(s + ib) % sides], -1);
+      AddFace(oc, inner[(s + ib + 1) % within.Sides], inner[(s + ib) % within.Sides], -1);
       ib++;
     }
   }
@@ -239,7 +243,7 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
     const TreeSkeleton::Shoot &shoot = plant.Shoots[i];
     const int last = shoot.First + shoot.Count - 1;
     const TreeSkeleton::Node &anchor = plant.Nodes[static_cast<size_t>(shoot.First)];
-    const int sides = SidesFor(anchor.Radius, shoot.Sides);
+    const int sides = SidesFor({.RadiusM = anchor.Radius, .Declared = shoot.Sides});
 
     int face = -1;
     if (shoot.Parent >= 0 && (Drawn_[static_cast<size_t>(shoot.Parent)] != 0u)) {
@@ -255,8 +259,7 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
     if (face >= 0 && Collar(face,
                             anchor,
                             plant.Nodes[static_cast<size_t>(shoot.First) + 1u],
-                            sides,
-                            RoomAt(plant, shoot),
+                            {.Sides = sides, .RoomM = RoomAt(plant, shoot)},
                             ring)) {
       at = shoot.First + 1;
       Bands_[static_cast<size_t>(at)] = Band{.First = wall, .Sides = sides};

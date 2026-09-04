@@ -31,24 +31,39 @@ private:
   int AddFace(int a, int b, int c, int d);
   [[nodiscard]] Vec3f FaceCentroid(int fi) const;
 
-  [[nodiscard]] int SidesFor(float radius, int declared) const;
+  struct Sided {
+    float RadiusM = 0.0f;
+    int Declared = 0;
+  };
+
+  [[nodiscard]] int SidesFor(Sided of) const;
 
   void RingsOf(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot, int from);
   [[nodiscard]] bool ChordHolds(const TreeSkeleton &plant, int from, int last, int stride) const;
   void Ring(const TreeSkeleton::Node &node, float radius, int sides, std::span<int> out);
   void Wall(std::span<const int> from, std::span<const int> to, int sides);
-  static void BreakProfile(uint32_t seed, int sides, std::span<float> out);
+
+  struct Splintered {
+    uint32_t Seed = 0;
+    int Sides = 0;
+  };
+
+  void BreakProfile(Splintered of, std::span<float> out);
   void Cap(const TreeSkeleton::Node &node,
            std::span<const int> ring,
            int sides,
            RingCap cap,
            uint32_t seed);
 
+  struct Fitted {
+    int Sides = 0;
+    float RoomM = 0.0f;
+  };
+
   [[nodiscard]] bool Collar(int face,
                             const TreeSkeleton::Node &anchor,
                             const TreeSkeleton::Node &first,
-                            int sides,
-                            float room,
+                            Fitted within,
                             std::span<int> out);
   [[nodiscard]] static float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot);
   void Export(TreeMesh &out);

@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "ChunkSurface.h"
 #include "GroundQuery.h"
 #include "GroundSample.h"
 #include "TilePool.h"
@@ -19,11 +20,6 @@ class Transport;
 namespace outshine::Ground {
 
 constexpr int kStreamGrid = 64;
-
-struct Sampling {
-  int Side = 0;
-  uint32_t Postings = 0;
-};
 
 struct GroundSurface {
   int Z;

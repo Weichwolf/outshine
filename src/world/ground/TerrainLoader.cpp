@@ -87,8 +87,8 @@ void FillNodeHeights(const TerrainField &field,
 double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy) {
   const double px = Clamped01(fx) * static_cast<double>(postings - 1);
   const double py = Clamped01(fy) * static_cast<double>(postings - 1);
-  const int i = Ground::ChunkNodeCell(px, postings, side);
-  const int j = Ground::ChunkNodeCell(py, postings, side);
+  const int i = Ground::ChunkNodeCell(px, {.Side = side, .Postings = postings});
+  const int j = Ground::ChunkNodeCell(py, {.Side = side, .Postings = postings});
   const uint32_t c0 = Ground::ChunkNodePosting(i, postings, side);
   const uint32_t c1 = Ground::ChunkNodePosting(i + 1, postings, side);
   const uint32_t r0 = Ground::ChunkNodePosting(j, postings, side);
@@ -190,8 +190,10 @@ void GroundStream::KeepCoarse(long x, long y) const {
   const uint32_t stride = held.Stitched->Stride();
   const uint32_t rowPostings = field != nullptr ? PostingsPerEdge(field->Rows(), stride) : 0;
   const uint32_t colPostings = field != nullptr ? PostingsPerEdge(field->Cols(), stride) : 0;
-  const int gr = field != nullptr ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
-  const int gc = field != nullptr ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
+  const int gr =
+      field != nullptr ? Ground::ChunkNodes({.Postings = rowPostings, .Grid = Surface_.Grid}) : 0;
+  const int gc =
+      field != nullptr ? Ground::ChunkNodes({.Postings = colPostings, .Grid = Surface_.Grid}) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
   victim->X = x;
   victim->Y = y;
@@ -315,8 +317,10 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   const uint32_t stride = held.Stitched->Stride();
   const uint32_t rowPostings = field != nullptr ? PostingsPerEdge(field->Rows(), stride) : 0;
   const uint32_t colPostings = field != nullptr ? PostingsPerEdge(field->Cols(), stride) : 0;
-  const int gr = field != nullptr ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
-  const int gc = field != nullptr ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
+  const int gr =
+      field != nullptr ? Ground::ChunkNodes({.Postings = rowPostings, .Grid = Surface_.Grid}) : 0;
+  const int gc =
+      field != nullptr ? Ground::ChunkNodes({.Postings = colPostings, .Grid = Surface_.Grid}) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
   if (held.Pending) { return nullptr; }
   held.Builds++;

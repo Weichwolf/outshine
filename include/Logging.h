@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <span>
+#include <concepts>
 #include <string>
 
 namespace outshine {
@@ -42,13 +43,15 @@ struct LogField {
   LogField(const char *key, int v);
 
   LogField(const char *key, long long v);
-  LogField(const char *key, bool v);
 
-  /// Two `const char *` in a row, which `bugprone-easily-swappable-parameters` flags and which is
-  /// kept ANYWAY: dropping it makes `{"name", "car"}` bind to the `bool` overload and narrow, and
-  /// the alternative -- a strong key type -- would put ceremony at every one of the tree's logging
-  /// sites. The finding stands recorded rather than traded for something worse.
-  LogField(const char *key, const char *v);
+  /// Constrained to `bool` ITSELF, and that constraint is the whole reason this type needs no
+  /// `const char *` overload beside its `std::string` one: an unconstrained `bool` parameter wins
+  /// `{"name", "car"}` outright, because pointer-to-bool is a standard conversion and
+  /// pointer-to-string is a user-defined one. Narrow the greedy overload and the right one wins.
+  template <typename B>
+    requires std::same_as<B, bool>
+  LogField(const char *key, B v) : Key(key), Value(v ? "1" : "0") {}
+
   LogField(const char *key, std::string v);
 };
 

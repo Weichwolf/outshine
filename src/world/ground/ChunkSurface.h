@@ -4,10 +4,18 @@
 #include <utility>
 #include <stdint.h>
 
+#include <cstdint>
+
 namespace outshine::Ground {
 
-inline int ChunkNodes(uint32_t postings, int grid) {
-  const int wanted = (grid < 2 ? 2 : grid) + 1;
+struct Posted {
+  uint32_t Postings = 0;
+  int Grid = 0;
+};
+
+inline int ChunkNodes(Posted over) {
+  const uint32_t postings = over.Postings;
+  const int wanted = (over.Grid < 2 ? 2 : over.Grid) + 1;
   return std::cmp_less(postings, wanted) ? static_cast<int>(postings) : wanted;
 }
 
@@ -16,9 +24,14 @@ inline uint32_t ChunkNodePosting(int k, uint32_t postings, int nodes) {
                                static_cast<long>(nodes - 1));
 }
 
-inline int ChunkNodeCell(double posting, uint32_t postings, int nodes) {
-  const long span = static_cast<long>(postings) - 1;
-  const long last = static_cast<long>(nodes) - 2;
+struct Sampling {
+  int Side = 0;
+  uint32_t Postings = 0;
+};
+
+inline int ChunkNodeCell(double posting, Sampling over) {
+  const long span = static_cast<long>(over.Postings) - 1;
+  const long last = static_cast<long>(over.Side) - 2;
   if (span <= 0 || last <= 0) { return 0; }
   long p = static_cast<long>(posting);
   if (posting < 0.0) {
@@ -26,7 +39,7 @@ inline int ChunkNodeCell(double posting, uint32_t postings, int nodes) {
   } else if (p > span) {
     p = span;
   }
-  long k = ((p + 1) * static_cast<long>(nodes - 1) + span - 1) / span - 1;
+  long k = ((p + 1) * static_cast<long>(over.Side - 1) + span - 1) / span - 1;
   if (k < 0) {
     k = 0;
   } else if (k > last) {

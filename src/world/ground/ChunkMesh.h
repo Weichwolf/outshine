@@ -41,8 +41,8 @@ ChunkBuildEcef(const TerrainMesh &mesh, Data::TileId over, int grid, Chunk *out,
   const uint32_t R = (C != 0u) ? nVertices / C : 0;
   if (C < 2 || R < 2 || nVertices % C != 0) { return 0; }
 
-  const int gc = ChunkNodes(C, grid);
-  const int gr = ChunkNodes(R, grid);
+  const int gc = ChunkNodes({.Postings = C, .Grid = grid});
+  const int gr = ChunkNodes({.Postings = R, .Grid = grid});
 #define W3_MH(r, c) (p[((size_t)(r) * C + (size_t)(c)) * 3 + 2])
 #define W3_RI(j) ((int)ChunkNodePosting((j), R, gr))
 #define W3_CI(i) ((int)ChunkNodePosting((i), C, gc))
