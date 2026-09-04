@@ -253,3 +253,34 @@ Three things the pictures said, each measured to its cause:
 The frame cost is the instance count: 304 tiles x 2 178 triangles drawn whether or not in
 view; CDLOD selects by frustum, and a sphere test per instance on the CPU is the next
 millisecond.
+
+## Landed 2026-09-04, step 6 under the flag: the seats and the roads read the FIELD
+
+With `Render.GroundLattice` on, the bake's `HeightField` copies the finest source tile's
+stitched field itself (`HeightField::CopiesField`, 256 x 256 postings, `TileHeightAslM` with
+side == postings is the field's own bilinear) instead of the stream's 65-node block, and the
+roads drape through `Drape::Field` -- `HeightSheets::FieldUpM`, the same `PostingM` the virtual
+sheets sample, cached per tile -- instead of the ring's BVH. Seats and roads now stand on the
+surface the lattice draws to the centimetre (bilinear against the triangulated 2.3 m nodes).
+
+```
+                       lattice+field   pixels >1/255   >40/255   p50 ms
+  OldTown   4e7837d7                   22 995          10 632    2.92     (ring 2.22)
+  Kaiserberg b0b40a3c                   8 399           1 025    4.36     (ring 3.43)
+```
+
+Looked at: the two pictures read as the references do -- the same town, the same roads, the
+same fields -- and every strong pixel is a building or a road standing where the FINE ground
+is rather than where the 36 m chord was; that is the move the switch will make deliberately.
+One cluster stays unexplained: 132 strong pixels beside a row house at OldTown (480..640,
+480..600), a hillside 8 m above the reference's road cut, present with 0 virtual levels, with
+no skirt and with the chunk's diagonal -- the next thing to measure is that house's seat and
+the corridor's cut at its wall.
+
+Found on the way: the first lattice run at a place fetches the finest tiles' fields through the
+stream's own cache (5 stitch grids, `kGroundStitchGrids`) and missed the 15 s patience cold;
+warm, the preload holds. The field cache belongs beside the pool's byte cache, once.
+
+**What the switch needs from here**: the owner's eye on the nine lattice pictures against the
+references, then the lattice becomes the default, the ring's Refine/Cut/Sew/Press and its
+vertex upload go (step 4), and nine new references are written with this item's word.

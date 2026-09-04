@@ -190,7 +190,8 @@ void Engine::State::HandsPiecesOver() {
   World.Pieces.Into(Picture.Standing.get());
   World.Sheets.Into(Picture.Standing.get());
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  World.Bakes.Opens(World.Pool.get(), &World.Shipping.Shaping());
+  World.Bakes.Opens(
+      World.Pool.get(), &World.Shipping.Shaping(), Session.Declared.Render.GroundLattice);
   if (World.PiecesFramed) { return; }
   World.Pieces.Framed(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,

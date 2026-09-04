@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "geo/Geodesy.h"
+#include "TerrainGrid.h"
 #include "TerrainLoader.h"
 #include "TileGeodesy.h"
 
@@ -36,6 +37,16 @@ public:
     into.At = block.Spot();
     into.Raster = raster;
     into.Nodes.assign(block.Nodes(), block.Nodes() + side * side);
+    return true;
+  }
+
+  [[nodiscard]] static bool CopiesField(const TerrainGrid &grid, Data::TileId at, Block &into) {
+    const TerrainField *field = grid.TryField();
+    if (field == nullptr || field->Rows() != field->Cols() || field->Cols() < 2) { return false; }
+    into.At = {.Zoom = at.Zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
+    into.Raster = {.Side = static_cast<int>(field->Cols()), .Postings = field->Cols()};
+    into.Nodes.assign(field->Data(),
+                      field->Data() + static_cast<size_t>(field->Rows()) * field->Cols());
     return true;
   }
 

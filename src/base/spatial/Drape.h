@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_SPATIAL_DRAPE_H
 
 #include <array>
+#include <functional>
 #include <optional>
 #include <cmath>
 #include <cstdint>
@@ -28,6 +29,7 @@ inline constexpr double kDrapeGridM = 32.0;
 
 struct Drape {
   const TriangleBvh &Surface;
+  std::function<std::optional<double>(double, double)> Field;
 
   struct EastSouth {
     double EastM = 0.0;
@@ -35,6 +37,10 @@ struct Drape {
   };
 
   [[nodiscard]] double At(EastSouth at, double fallback) const {
+    if (Field) {
+      const std::optional<double> field = Field(at.EastM, at.SouthM);
+      return field ? *field : fallback;
+    }
     const std::optional<float> under =
         Surface.Under(static_cast<float>(at.EastM), static_cast<float>(at.SouthM));
     return under ? static_cast<double>(*under) : fallback;

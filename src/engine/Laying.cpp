@@ -2057,7 +2057,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("ring: triangles the drape can reach",
                    static_cast<double>(laid->Index.size()) / 3.0,
                    "triangles");
-  const Drape drapedOver{.Surface = surface};
+  Drape drapedOver{.Surface = surface};
+  if (lattice) {
+    World.Sheets.ForgetsFields();
+    drapedOver.Field = [this, &over](double eastM, double southM) {
+      return World.Sheets.FieldUpM(
+          World.Stack.Ground(), over.Zoom, {.EastM = eastM, .SouthM = southM});
+    };
+  }
   Paves(standing, classStructure, drapedOver, corridor, pavement, ground, clocks);
 
   {

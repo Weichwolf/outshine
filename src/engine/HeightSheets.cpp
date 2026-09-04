@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <utility>
 #include <span>
 #include <string>
@@ -296,6 +297,40 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
   return Live_->SetGroundLattice(Instances_, Virtual_, error);
 }
 
+std::optional<double>
+HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastSouth at) {
+  const double eastM = at.EastM;
+  const double southM = at.SouthM;
+  if (!Framed_) { return std::nullopt; }
+  const Vec3 &origin = Frame_.OriginEcef();
+  const Vec3 &east = Frame_.EastEcef();
+  const Vec3 &north = Frame_.NorthEcef();
+  Vec3 ecef;
+  for (int axis = 0; axis < 3; ++axis) {
+    ecef[axis] = origin[axis] + eastM * east[axis] - southM * north[axis];
+  }
+  const Ground::Geo geo = Ground::EcefToGeoWgs84({.X = ecef[0], .Y = ecef[1], .Z = ecef[2]});
+  const Ground::TileFrac frac = Ground::ToTileFracClamped(
+      {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}, zoom);
+  const Data::TileId tile{.Zoom = zoom,
+                          .X = static_cast<uint32_t>(std::floor(frac.X)),
+                          .Y = static_cast<uint32_t>(std::floor(frac.Y))};
+  const Ground::TerrainField *field = nullptr;
+  for (const auto &one : Fields_) {
+    if (one.first == tile) { field = one.second.TryField(); }
+  }
+  if (field == nullptr) {
+    Fields_.emplace_back(tile, ground.FieldOf(tile));
+    field = Fields_.back().second.TryField();
+  }
+  if (field == nullptr || !field->Meshable()) { return std::nullopt; }
+  const double aslM =
+      field->PostingM({.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});
+  return Frame_
+      .Place({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = aslM})
+      .UpM;
+}
+
 void HeightSheets::Clear() {
   if (Live_ != nullptr) {
     for (const Held &one : Held_) { Live_->ReleaseHeightPage(one.Page); }
@@ -306,6 +341,7 @@ void HeightSheets::Clear() {
   Held_.clear();
   Instances_.clear();
   Virtual_.clear();
+  Fields_.clear();
   Zero_ = Render::kNoPage;
   GridPostings_ = 0;
 }

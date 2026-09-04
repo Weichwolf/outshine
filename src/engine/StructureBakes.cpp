@@ -66,8 +66,9 @@ void RawOf(const Ground::OsmField &vectors,
   }
 }
 
-bool Gathers(const GroundQuery &ground,
+bool Gathers(const Ground::GroundStream &ground,
              Ground::TileSpot spot,
+             bool fineField,
              std::vector<Ground::HeightField::Block> &into) {
   if (std::ranges::any_of(into, [spot](const Ground::HeightField::Block &one) {
         return one.At.X == spot.X && one.At.Y == spot.Y;
@@ -75,15 +76,27 @@ bool Gathers(const GroundQuery &ground,
     return true;
   }
   Ground::HeightField::Block block;
-  if (!Ground::HeightField::Copies(ground.BlockAt(spot), block)) { return false; }
+  const bool copied =
+      fineField
+          ? Ground::HeightField::CopiesField(ground.FieldOf({.Zoom = spot.Zoom,
+                                                             .X = static_cast<uint32_t>(spot.X),
+                                                             .Y = static_cast<uint32_t>(spot.Y)}),
+                                             {.Zoom = spot.Zoom,
+                                              .X = static_cast<uint32_t>(spot.X),
+                                              .Y = static_cast<uint32_t>(spot.Y)},
+                                             block)
+          : Ground::HeightField::Copies(ground.BlockAt(spot), block);
+  if (!copied) { return false; }
   into.push_back(std::move(block));
   return true;
 }
 
-std::optional<std::vector<Ground::HeightField::Block>> BlocksUnder(const GroundQuery &ground,
-                                                                   int zoom,
-                                                                   const Ground::OsmField &vectors,
-                                                                   Ground::FeatureRun over) {
+std::optional<std::vector<Ground::HeightField::Block>>
+BlocksUnder(const Ground::GroundStream &ground,
+            bool fineField,
+            int zoom,
+            const Ground::OsmField &vectors,
+            Ground::FeatureRun over) {
   const std::span<const Ground::OsmField::Feature> feats = vectors.Features();
   const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
   std::vector<Ground::HeightField::Block> blocks;
@@ -96,7 +109,9 @@ std::optional<std::vector<Ground::HeightField::Block>> BlocksUnder(const GroundQ
         Ground::HeightField::SpotOf({.LongitudeDeg = f.MaxLon, .LatitudeDeg = f.MinLat}, zoom);
     for (long y = low.Y; y <= high.Y; ++y) {
       for (long x = low.X; x <= high.X; ++x) {
-        if (!Gathers(ground, {.Zoom = zoom, .X = x, .Y = y}, blocks)) { return std::nullopt; }
+        if (!Gathers(ground, {.Zoom = zoom, .X = x, .Y = y}, fineField, blocks)) {
+          return std::nullopt;
+        }
       }
     }
   }
@@ -118,12 +133,13 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
   Ground::BuildingField &prints = stack.Footprints();
   size_t posted = 0;
   const size_t inFlightMost = static_cast<size_t>(Pool_->Threads()) * kBakesPerThread;
-  const int blockZoom = stack.Ground().BlockZoom();
+  const int blockZoom =
+      FineField_ ? stack.FinestZoomOf(Data::DataKind::Elevation) : stack.Ground().BlockZoom();
   while (Queue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
     const auto groundStands = [&](Ground::FeatureRun over) {
       std::optional<std::vector<Ground::HeightField::Block>> blocks =
-          BlocksUnder(stack.Ground(), blockZoom, vectors, over);
+          BlocksUnder(stack.Ground(), FineField_, blockZoom, vectors, over);
       if (!blocks) {
         ++Deferred_;
         return false;

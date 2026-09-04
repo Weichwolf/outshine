@@ -9,6 +9,9 @@
 #include "Address.h"
 #include "GroundMesher.h"
 #include "GroundYield.h"
+#include "TerrainGrid.h"
+#include <optional>
+#include <utility>
 #include "TerrainLoader.h"
 #include "SubjectTypes.h"
 #include "TangentFrame.h"
@@ -39,6 +42,12 @@ public:
 
   [[nodiscard]] static size_t
   Refine(Patchwork &laid, const Ground::GroundStream &ground, Nearer how);
+
+  [[nodiscard]] std::optional<double>
+  FieldUpM(const Ground::GroundStream &ground, int zoom, EastSouth at);
+
+  void ForgetsFields() { Fields_.clear(); }
+
   void Clear();
 
   [[nodiscard]] size_t Standing() const { return Held_.size(); }
@@ -60,6 +69,7 @@ private:
   std::vector<Held> Held_;
   std::vector<Render::GroundInstance> Instances_;
   std::vector<Render::GroundInstance> Virtual_;
+  std::vector<std::pair<Data::TileId, Ground::TerrainGrid>> Fields_;
   Render::PageId Zero_ = Render::kNoPage;
   uint32_t GridPostings_ = 0;
   Core::Live *Live_ = nullptr;
