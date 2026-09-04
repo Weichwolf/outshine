@@ -17,8 +17,14 @@ This is the whole difficulty, and a `git rm` over the word would take both.
 | `AssetAnimation::Driven` | `include/scenario/Scenario.h` | door change -- decide separately |
 
 The same care applies to `src/base/curve/`: `ReferenceLine`, `Ribbon`, `Fit` and `Alignment` are
-ROAD GEOMETRY and `generators/road/RoadMesh.cpp` builds on them, so they stay. `SpeedProfile` and
-`Carriageway` describe how fast a vehicle may go through a curve, and go with the driver.
+ROAD GEOMETRY and `generators/road/RoadMesh.cpp` builds on them, so they stay. `SpeedProfile`
+describes how fast a vehicle may go through a curve and went with the driver.
+
+**`Carriageway` did NOT, and this line is corrected rather than deleted because the mistake is the
+lesson.** I grepped for `Carriageway::`, found nothing outside the driver, and removed it -- the
+symbols are called `Astride` and `StandAt`, `Ribbon.cpp` builds on them, and the link caught it.
+The measure could not see the thing it was asked about, because I searched for the FILE's name and
+the file exports neither symbol under it.
 
 ## What is not yet decided
 
