@@ -4,6 +4,8 @@
 #include "Angle.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdio>
 #include <cmath>
 #include <cstddef>
 #include <numbers>

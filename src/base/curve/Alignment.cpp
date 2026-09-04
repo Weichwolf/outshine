@@ -17,6 +17,7 @@ namespace outshine {
 
 namespace {
 
+constexpr double kRadiusExactM = 1.0e-3;
 constexpr int kSpiralSteps = 96;
 constexpr double kShiftDenominator = 96.0;
 constexpr double kSpiralShiftDenominator = 24.0;
@@ -202,7 +203,7 @@ struct Arc {
   } else {
     double low = tightestM;
     double high = byRoom;
-    for (int step = 0; step < kSpiralSteps; ++step) {
+    for (int step = 0; step < kSpiralSteps && high - low > kRadiusExactM; ++step) {
       const double oneThird = low + (high - low) / 3.0;
       const double twoThirds = high - (high - low) / 3.0;
       double aE = 0.0;
