@@ -112,8 +112,11 @@ bool Engine::State::Grows(double atLat, double atLon) {
       World.Stack.Vectors() == nullptr) {
     return false;
   }
-  const Generators::Tile region = Generators::Tile::Of(
-      World.Stack.Vectors()->Zoom(), {.LongitudeDeg = atLon, .LatitudeDeg = atLat});
+  return GrowsOver(Generators::Tile::Of(World.Stack.Vectors()->Zoom(),
+                                        {.LongitudeDeg = atLon, .LatitudeDeg = atLat}));
+}
+
+bool Engine::State::GrowsOver(const Generators::Tile &region) {
   Generators::Fields stands;
   stands.Vectors = World.Stack.Vectors();
   stands.Footprints = &World.Stack.Footprints();
