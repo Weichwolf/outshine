@@ -64,11 +64,12 @@ private:
   [[nodiscard]] bool HandsGrid(const Patchwork &laid, std::string &error);
   [[nodiscard]] Render::PageId
   PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error);
-  [[nodiscard]] Render::GroundInstance InstanceOf(Data::TileId tile, Render::PageId page) const;
+  [[nodiscard]] Render::GroundTile
+  TileOf(Data::TileId tile, Render::PageId page, std::span<const float> nodes) const;
 
   std::vector<Held> Held_;
-  std::vector<Render::GroundInstance> Instances_;
-  std::vector<Render::GroundInstance> Virtual_;
+  std::vector<Render::GroundTile> Instances_;
+  std::vector<Render::GroundTile> Virtual_;
   std::vector<std::pair<Data::TileId, Ground::TerrainGrid>> Fields_;
   Render::PageId Zero_ = Render::kNoPage;
   uint32_t GridPostings_ = 0;

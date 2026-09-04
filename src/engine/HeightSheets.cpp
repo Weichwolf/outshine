@@ -37,6 +37,10 @@ namespace {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
+[[nodiscard]] float Dot2(std::array<float, 2> v) {
+  return v[0] * v[0] + v[1] * v[1];
+}
+
 } // namespace
 
 Render::PageId
@@ -53,7 +57,8 @@ HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes, std::stri
   return page;
 }
 
-Render::GroundInstance HeightSheets::InstanceOf(Data::TileId tile, Render::PageId page) const {
+Render::GroundTile
+HeightSheets::TileOf(Data::TileId tile, Render::PageId page, std::span<const float> nodes) const {
   const Ground::GeoBounds bounds = Ground::TileBounds(tile);
   const double midLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
   const double midLat = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg);
@@ -92,7 +97,12 @@ Render::GroundInstance HeightSheets::InstanceOf(Data::TileId tile, Render::PageI
   const auto steps = static_cast<float>(Render::GroundLattice::kSide - 1);
   made.StepE = 0.5f * ((ne[0] - nw[0]) + (se[0] - sw[0])) / steps;
   made.StepN = 0.5f * ((nw[1] - sw[1]) + (ne[1] - se[1])) / steps;
-  return made;
+  const auto [low, high] = std::ranges::minmax_element(nodes);
+  const float skirt = Render::GroundLattice::kSkirtSteps * std::max(made.StepE, made.StepN);
+  const float sag = 0.5f * std::max({Dot2(nw), Dot2(ne), Dot2(sw), Dot2(se)}) * made.SagInv;
+  return {.Instance = made,
+          .LowM = (nodes.empty() ? 0.0f : *low) - skirt - sag,
+          .HighM = nodes.empty() ? 0.0f : *high};
 }
 
 namespace {
@@ -287,7 +297,7 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
       page = Zero_;
     }
     if (page == Render::kNoPage) { return false; }
-    (sheet.Virtual ? Virtual_ : Instances_).push_back(InstanceOf(sheet.Tile, page));
+    (sheet.Virtual ? Virtual_ : Instances_).push_back(TileOf(sheet.Tile, page, sheet.Nodes));
   }
   if (!HandsGrid(laid, error)) { return false; }
   for (const Held &one : Held_) {

@@ -1,6 +1,8 @@
 #include "GroundLattice.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <utility>
 #include <cstring>
@@ -24,6 +26,26 @@ constexpr std::string_view kPageWrongSize =
 constexpr std::string_view kPagesFull = "every one of the {} height pages is placed";
 constexpr std::string_view kStagingDidNotMap = "the height page's staging did not map: {}";
 } // namespace Says
+
+using SidePlanes = std::array<std::array<float, 4>, 4>;
+
+[[nodiscard]] SidePlanes SidePlanesOf(const Mat4f &mvp) {
+  const auto row = [&mvp](size_t i, size_t k) { return mvp[k * 4u + i]; };
+  SidePlanes planes{};
+  for (size_t k = 0; k < 4; ++k) {
+    planes[0][k] = row(3, k) + row(0, k);
+    planes[1][k] = row(3, k) - row(0, k);
+    planes[2][k] = row(3, k) + row(1, k);
+    planes[3][k] = row(3, k) - row(1, k);
+  }
+  for (std::array<float, 4> &plane : planes) {
+    const float length = std::sqrt(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
+    if (length > 0.0f) {
+      for (float &c : plane) { c /= length; }
+    }
+  }
+  return planes;
+}
 
 struct LatticeInput {
   std::array<SDL_GPUVertexBufferDescription, 2> Buffers{};
@@ -359,20 +381,41 @@ void GroundLattice::ReleasePage(PageId which) {
   --PagesLive_;
 }
 
-bool GroundLattice::SetInstances(std::span<const GroundInstance> real,
-                                 std::span<const GroundInstance> virtual_,
+bool GroundLattice::SetInstances(std::span<const GroundTile> real,
+                                 std::span<const GroundTile> virtual_,
                                  std::string &error) {
   RealCount_ = 0;
   VirtualCount_ = 0;
+  VisibleReal_ = 0;
+  VisibleVirtual_ = 0;
+  Held_.clear();
+  Bounds_.clear();
   if (real.empty() && virtual_.empty()) { return true; }
   if (Device_ == nullptr) {
     error = std::string(Says::kNoDevice);
     return false;
   }
-  std::vector<GroundInstance> instances;
+  std::vector<GroundInstance> &instances = Held_;
   instances.reserve(real.size() + virtual_.size());
-  instances.insert(instances.end(), real.begin(), real.end());
-  instances.insert(instances.end(), virtual_.begin(), virtual_.end());
+  Bounds_.reserve(real.size() + virtual_.size());
+  for (const std::span<const GroundTile> tiles : {real, virtual_}) {
+    for (const GroundTile &tile : tiles) {
+      const GroundInstance &one = tile.Instance;
+      instances.push_back(one);
+      float reach = 0.0f;
+      for (size_t corner = 0; corner < 4; ++corner) {
+        const float e = one.Corners[corner * 2u];
+        const float n = one.Corners[corner * 2u + 1u];
+        reach = std::max(reach, e * e + n * n);
+      }
+      const float mid = 0.5f * (tile.LowM + tile.HighM);
+      const float half = 0.5f * (tile.HighM - tile.LowM);
+      Bounds_.push_back({{one.Row[12] + one.Row[8] * mid,
+                          one.Row[13] + one.Row[9] * mid,
+                          one.Row[14] + one.Row[10] * mid,
+                          std::sqrt(reach + half * half)}});
+    }
+  }
   const auto count = static_cast<uint32_t>(instances.size());
   if (!Instances_ || InstanceRoom_ < count) {
     uint32_t room = InstanceRoom_ > 0 ? InstanceRoom_ : 64u;
@@ -397,12 +440,86 @@ bool GroundLattice::SetInstances(std::span<const GroundInstance> real,
   }
   RealCount_ = static_cast<uint32_t>(real.size());
   VirtualCount_ = static_cast<uint32_t>(virtual_.size());
+  VisibleReal_ = RealCount_;
+  VisibleVirtual_ = VirtualCount_;
   return true;
 }
 
-void GroundLattice::Draw(const PassRecording &into, SDL_GPUGraphicsPipeline *pipeline) const {
-  if (pipeline == nullptr || Instances() == 0 || into.Pass == nullptr || !Grid_ || !UniformGrid_ ||
-      !Index_ || !Instances_ || !Pages_) {
+void GroundLattice::Cull(const FrameContext &ctx,
+                         const Vec3 &anchorM,
+                         SDL_GPUCommandBuffer *commands) {
+  VisibleReal_ = 0;
+  VisibleVirtual_ = 0;
+  if (Held_.empty() || Device_ == nullptr || commands == nullptr) { return; }
+  std::array<float, 3> shift{};
+  for (size_t axis = 0; axis < 3; ++axis) {
+    shift[axis] = static_cast<float>(anchorM[static_cast<int>(axis)] +
+                                     ctx.PreViewTranslation[static_cast<int>(axis)]);
+  }
+  const SidePlanes planes = SidePlanesOf(ctx.Mvp);
+  Seen_.clear();
+  for (size_t at = 0; at < Held_.size(); ++at) {
+    const std::array<float, 4> &sphere = Bounds_[at];
+    const float x = sphere[0] + shift[0];
+    const float y = sphere[1] + shift[1];
+    const float z = sphere[2] + shift[2];
+    bool inside = true;
+    for (const std::array<float, 4> &plane : planes) {
+      if (plane[0] * x + plane[1] * y + plane[2] * z + plane[3] < -sphere[3]) {
+        inside = false;
+        break;
+      }
+    }
+    if (!inside) { continue; }
+    Seen_.push_back(Held_[at]);
+    if (at < RealCount_) {
+      ++VisibleReal_;
+    } else {
+      ++VisibleVirtual_;
+    }
+  }
+  if (!Seen_.empty() && !HandsVisible(commands)) {
+    VisibleReal_ = 0;
+    VisibleVirtual_ = 0;
+  }
+}
+
+bool GroundLattice::HandsVisible(SDL_GPUCommandBuffer *commands) {
+  const auto count = static_cast<uint32_t>(Seen_.size());
+  const uint32_t bytes = count * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float));
+  if (!Visible_ || VisibleRoom_ < count) {
+    uint32_t room = VisibleRoom_ > 0 ? VisibleRoom_ : 64u;
+    while (room < count) { room *= 2u; }
+    SDL_GPUBufferCreateInfo wanted{};
+    wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+    wanted.size = room * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float));
+    Visible_ = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+    SDL_GPUTransferBufferCreateInfo staging{};
+    staging.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    staging.size = wanted.size;
+    VisibleStaging_ = OwnedTransfer(Device_, SDL_CreateGPUTransferBuffer(Device_, &staging));
+    VisibleRoom_ = Visible_ && VisibleStaging_ ? room : 0;
+    if (VisibleRoom_ == 0) { return false; }
+  }
+  void *const mapped = SDL_MapGPUTransferBuffer(Device_, VisibleStaging_.Get(), true);
+  if (mapped == nullptr) { return false; }
+  std::memcpy(mapped, Seen_.data(), bytes);
+  SDL_UnmapGPUTransferBuffer(Device_, VisibleStaging_.Get());
+  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  const SDL_GPUTransferBufferLocation source{.transfer_buffer = VisibleStaging_.Get(), .offset = 0};
+  const SDL_GPUBufferRegion region{.buffer = Visible_.Get(), .offset = 0, .size = bytes};
+  SDL_UploadToGPUBuffer(copy, &source, &region, true);
+  SDL_EndGPUCopyPass(copy);
+  return true;
+}
+
+void GroundLattice::Draw(const PassRecording &into,
+                         SDL_GPUGraphicsPipeline *pipeline,
+                         const OwnedBuffer &instances,
+                         uint32_t real,
+                         uint32_t virtual_) const {
+  if (pipeline == nullptr || real + virtual_ == 0 || into.Pass == nullptr || !Grid_ ||
+      !UniformGrid_ || !Index_ || !instances || !Pages_) {
     return;
   }
   SDL_BindGPUGraphicsPipeline(into.Pass, pipeline);
@@ -410,23 +527,23 @@ void GroundLattice::Draw(const PassRecording &into, SDL_GPUGraphicsPipeline *pip
   SDL_BindGPUIndexBuffer(into.Pass, &index, SDL_GPU_INDEXELEMENTSIZE_32BIT);
   const SDL_GPUTextureSamplerBinding pages{.texture = Pages_.Get(), .sampler = Nearest_.Get()};
   SDL_BindGPUVertexSamplers(into.Pass, 0, &pages, 1);
-  const auto draw = [&into, this](const OwnedBuffer &grid, uint32_t first, uint32_t count) {
+  const auto draw = [&into, &instances](const OwnedBuffer &grid, uint32_t first, uint32_t count) {
     if (count == 0) { return; }
     const std::array<SDL_GPUBufferBinding, 2> runs = {
-        {{.buffer = grid.Get(), .offset = 0}, {.buffer = Instances_.Get(), .offset = 0}}};
+        {{.buffer = grid.Get(), .offset = 0}, {.buffer = instances.Get(), .offset = 0}}};
     SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), static_cast<uint32_t>(runs.size()));
     SDL_DrawGPUIndexedPrimitives(into.Pass, kIndices, count, 0, 0, first);
   };
-  draw(Grid_, 0, RealCount_);
-  draw(UniformGrid_, RealCount_, VirtualCount_);
+  draw(Grid_, 0, real);
+  draw(UniformGrid_, real, virtual_);
 }
 
 void GroundLattice::Encode(const PassRecording &into) const {
-  Draw(into, Lit_.Get());
+  Draw(into, Lit_.Get(), Visible_, VisibleReal_, VisibleVirtual_);
 }
 
 void GroundLattice::Cast(const PassRecording &into) const {
-  Draw(into, Depth_.Get());
+  Draw(into, Depth_.Get(), Instances_, RealCount_, VirtualCount_);
 }
 
 } // namespace outshine::Render

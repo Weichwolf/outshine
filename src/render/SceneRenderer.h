@@ -159,8 +159,8 @@ public:
     return Subjects_.Ground().SetGrid(fractions, error);
   }
 
-  [[nodiscard]] bool SetGroundLattice(std::span<const GroundInstance> real,
-                                      std::span<const GroundInstance> virtual_,
+  [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,
+                                      std::span<const GroundTile> virtual_,
                                       std::string &error) {
     return Subjects_.Ground().SetInstances(real, virtual_, error);
   }

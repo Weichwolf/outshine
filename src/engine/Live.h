@@ -130,8 +130,8 @@ public:
     return Renderer_ == nullptr || Renderer_->SetGroundGrid(fractions, error);
   }
 
-  [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundInstance> real,
-                                      std::span<const Render::GroundInstance> virtual_,
+  [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundTile> real,
+                                      std::span<const Render::GroundTile> virtual_,
                                       std::string &error) {
     return Renderer_ == nullptr || Renderer_->SetGroundLattice(real, virtual_, error);
   }

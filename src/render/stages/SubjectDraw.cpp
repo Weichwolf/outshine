@@ -1249,7 +1249,7 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot) const {
 }
 
 void SubjectDraw::EncodeGround(const PassRecording &into) const {
-  if (Behind != nullptr || Ground_.Instances() == 0) { return; }
+  if (Behind != nullptr || Ground_.Drawn() == 0) { return; }
   for (size_t slot = 0; slot < Slots.size(); ++slot) {
     if (Slots[slot].Domain != SurfaceDomain::Ground) { continue; }
     BindSlot(into, slot);
@@ -1261,7 +1261,7 @@ void SubjectDraw::EncodeGround(const PassRecording &into) const {
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
                             Bound().Buffer(SubjectResidency::Stream::Index);
-  if (!drawsBatches && (Behind != nullptr || Ground_.Instances() == 0)) { return; }
+  if (!drawsBatches && (Behind != nullptr || Ground_.Drawn() == 0)) { return; }
   std::array<float, kUniFloats> uniform = {{}};
   const auto place = [this, &ctx, &uniform, &into] {
     for (int axis = 0; axis < 3; ++axis) {

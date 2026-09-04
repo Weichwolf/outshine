@@ -250,9 +250,8 @@ Three things the pictures said, each measured to its cause:
   the lattice draws (`PostingM` on the stitched source, not the 65-node tile), which moves every
   seat -- and every reference -- to where the ground actually is
 
-The frame cost is the instance count: 304 tiles x 2 178 triangles drawn whether or not in
-view; CDLOD selects by frustum, and a sphere test per instance on the CPU is the next
-millisecond.
+The frame cost was the instance count, every tile drawn whether in view or not; the frustum
+now decides, below.
 
 ## Landed 2026-09-04, step 6 under the flag: the seats and the roads read the FIELD
 
@@ -305,6 +304,59 @@ whole slopes (CentralPark's 45 per cent is the park's lawn a few units darker: t
 central difference on the page, the ring's was averaged over its triangles), buildings and
 roads standing on the fine ground instead of the chord, and at Heidelberg the near hillside
 darker for the same normal reason. What has to be right BEFORE the switch: the normal
-(measure it against the ring's on one slope), the frame cost (+0.5..1.6 ms, instances drawn
-whether in view or not -- a frustum test per tile), the cold preload (the field cache), and
-the OldTown wedge.
+(the page's halo, then measured against the ring's on one slope), the cold preload (the
+field cache), and the OldTown wedge; the frame cost is the frustum's now.
+
+## Landed 2026-09-04: the frustum decides which tiles draw, and what a moved digest under the lattice means
+
+Unreal's Landscape culls a component by its bounds against the view frustum on the CPU;
+CDLOD selects nodes by the frustum during its quadtree walk. Here: every tile carries its
+height range from its own nodes (`GroundTile::LowM` is the lowest node less the skirt's
+drop and the sphere's sag, `HighM` the highest), the renderer keeps a sphere per instance
+from that range and the tile's corners, and `GroundLattice::Cull` tests the four side planes
+of the frame's MVP against every sphere before the frame's copy passes, writing the survivors
+-- real first, then virtual, in their held order -- into a cycled buffer the lit pass draws.
+The shadow pass still casts every tile: a caster outside the camera's frustum shadows what
+is inside it. A first try with a constant 6 km slack passed 260 of 292 tiles; the tile's own
+range passes 60 to 70.
+
+```
+  place        instances  drawn   p50 before  p50 after  ring
+  OldTown      292        ~60     2.90        2.30       2.22
+  Kaiserberg   300        ~70     4.43        3.65       3.43
+  Jura         292        ~65     3.72        3.16       2.84
+```
+
+**The digests moved and the reason was measured, not assumed.** Every culled tile's height box
+projects off screen (checked corner by corner), yet 57 pixels at OldTown changed by 1..7 of
+255, 42 of them within one pixel of a projected tile edge (7 of 57 for random pixels in the
+same band). The experiments, each one run of `shots --lattice OldTown`:
+
+```
+  nothing culled, through the new buffer                 digest as before
+  nothing culled, forty sunk instances APPENDED           unchanged
+  nothing culled, the real draw split into two draws      unchanged
+  nothing culled, one sunk instance PREPENDED             moved
+  nothing culled, the instances REVERSED                  moved
+  depth compare GREATER -> GREATER_OR_EQUAL               unchanged  (no depth ties)
+  no skirts / a constant normal                           still moved
+  ONE tile alone, drawn as instance 0                     A
+  the same tile as instance 1 via base instance, alone    A
+  the same tile after a degenerate (zero-area) instance   B
+  the same, the degenerate one in its OWN draw call       A
+```
+
+No overlapping tiles, no duplicates (checked). So on this GPU an instance's rasterization
+depends on how many instances the SAME draw call processed before it, by an ulp, at
+edge-on far pixels -- a property of the instanced draw, deterministic for a given stream
+(three runs, one digest). The ring never showed it because it is one mesh in one draw whose
+stream never changes. Under the lattice a digest that moves by a few pixels of a few units at
+tile edges in the far band is this and nothing else; anything larger, or anywhere else, is a
+change. That is the reading rule for every lattice digest from here on, and it is why the
+cull's own digests (OldTown 32e0b780, Kaiserberg 9c6b446e, Jura 14daf15a) stand.
+
+Found on the way: the normal at a page's rim is a one-sided difference, so two neighbours
+disagree about the normal along their shared edge -- a shading seam on every tile border.
+Unreal's heightmap carries a one-texel border from the neighbour so the difference is
+central on both sides; the page here needs the same halo (`kSide + 2`, the ring pressed like
+any node), and it is next before the normal comparison on a slope.

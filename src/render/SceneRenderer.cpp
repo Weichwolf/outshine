@@ -765,7 +765,7 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
       placements = past > placements ? past : placements;
     }
     spent.Triangles += drew.Ground().Triangles();
-    spent.Draws += drew.Ground().Instances() > 0 ? 1u : 0u;
+    spent.Draws += drew.Ground().Drawn() > 0 ? 1u : 0u;
     spent.Surfaces = surfaces;
     spent.Placements = placements;
     spent.Textured = drew.Textured();
@@ -1155,6 +1155,7 @@ void SceneRenderer::RenderFrame() {
       Log::Error(LogTag::Render, "cull_arguments_not_reset", {{"msg", why}});
     }
   }
+  Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands);
   Subjects_.FlushCrossings(commands);
   if (DrawsGlass_) { Glass_.FlushCrossings(commands); }
 
