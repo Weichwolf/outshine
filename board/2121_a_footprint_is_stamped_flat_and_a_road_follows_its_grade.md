@@ -55,7 +55,11 @@ On the lattice (board:2115), every step is a write into a grid and not a search 
   grade a corridor of that class may carry, a number with a derivation (a road class's maximum
   gradient), so 375 m cannot happen
 - **bridge**: a corridor whose profile is ABOVE the lattice is a deck by definition; the ramp
-  is the profile's own easing and the lattice under it is not touched
+  is the profile's own easing and the lattice under it is not touched. Where OSM does not say
+  (`bridge=yes`, `layer`, `tunnel`), the HEURISTIC decides: a way crossing water, a rail or a
+  way of a higher `layer` without a shared node is raised, with the approach graded at the
+  class's maximum gradient -- the `Crosses` / `Bridges` passes carry this today and move with
+  board:2101, as a rule with its numbers derived rather than tuned
 
 ## What will be true
 

@@ -73,6 +73,11 @@ claims.
       edge of the ground mesh, a case counting the edges that coincide with it
 - [ ] No pixel of the eight references differs by more than 1 of 255 unless the difference is
       looked at and named
+- [ ] THE GEOMETRY IS GAP-FREE AND SNAPPED: `CensusOver` the composed ring -- ground, stamps,
+      corridors, water -- reads 0 open edges besides the ring's outer rim and 0 overused edges,
+      and every vertex two pieces share is ONE vertex (welded at the lattice's quantum, never
+      two within an epsilon). This is a case, and it is the oracle every later change to the
+      ground is held to
 - [ ] `kDigestBasis == kFnv64Basis`, and the commit says every digest moved and why
 
 ## What will show I was wrong

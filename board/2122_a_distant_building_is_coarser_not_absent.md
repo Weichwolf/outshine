@@ -34,6 +34,22 @@ And the meshers allocate per call: `BuildingMesh` nineteen local vectors, `RoadM
 per building -- 24 000 allocations per region at OldTown. Not the frame's cost (0.1 %); the
 invariant, and what makes a mesher unsafe from two workers.
 
+## Measured 2026-09-04, OldTown, `shots --measures`, two rebuilds
+
+```
+  heap taken under tile-worker      2 248 MB    the terrain tiles: fetch, decode, mesh, cook
+  heap taken under untagged         1 433 MB
+  heap taken under ground-yield       881 MB    board:2115's passes
+  heap taken under world-ground       421 MB
+  heap taken under ground-patchwork   168 MB
+  heap: bytes LIVE right now          301 MB    for 51.6 MB of fields
+```
+
+The terrain worker churns 17 MB per resident tile for a 33x33 grid -- the cook (`CookDag`,
+`CookTile`) and the decode allocate per tile what a sized scratch would hold once. So the
+principle this item lands is wider than the buildings: **every generator delivers in CHUNKS
+the size of a tile, into a scratch it borrows, and nothing it makes is world-grained.**
+
 ## The solution -- one change, not three
 
 The unit is the VECTOR tile, which the bake is already grained to (`Build()` works on
