@@ -50,6 +50,8 @@
 
 namespace outshine {
 
+struct Fitted;
+
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
 
@@ -529,6 +531,8 @@ struct Engine::State {
 
   [[nodiscard]] Laid Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded);
 
+  static double LeastSeen(double held, double seen);
+  static void NotesFit(Paved &into, const Fitted &got);
   static void FitAlongLane(Paved &into);
   static void TrimLaneEnds(size_t laneAt, Paved &into);
   static void FitLane(size_t laneAt, Paved &into);

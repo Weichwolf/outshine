@@ -728,6 +728,17 @@ void Engine::State::Models(const TangentFrame &standing,
   }
 }
 
+double Engine::State::LeastSeen(double held, double seen) {
+  if (!(seen > 0.0)) { return held; }
+  return held > 0.0 ? std::min(held, seen) : seen;
+}
+
+void Engine::State::NotesFit(Paved &into, const Fitted &got) {
+  ++into.FitLaid;
+  ++into.FitsMeasured;
+  into.FitRadiusTightestM = LeastSeen(into.FitRadiusTightestM, got.TightestRadiusM);
+}
+
 void Engine::State::FitAlongLane(Paved &into) {
   size_t from = 0;
   size_t cuts = 0;
@@ -740,13 +751,7 @@ void Engine::State::FitAlongLane(Paved &into) {
                            kFitTightestM,
                            fitted);
     if (got.Laid) {
-      ++into.FitLaid;
-      ++into.FitsMeasured;
-      if (got.TightestRadiusM > 0.0) {
-        into.FitRadiusTightestM = into.FitRadiusTightestM > 0.0
-                                      ? std::min(into.FitRadiusTightestM, got.TightestRadiusM)
-                                      : got.TightestRadiusM;
-      }
+      NotesFit(into, got);
       into.FitUndrivable += got.Undrivable;
       break;
     }
@@ -755,6 +760,7 @@ void Engine::State::FitAlongLane(Paved &into) {
       ++into.FitUnsplittable;
       break;
     }
+
     const size_t upTo = got.TightestDemandedAtVertex;
     if (upTo + 1u >= 3u) {
       ReferenceLine piece;
@@ -764,24 +770,14 @@ void Engine::State::FitAlongLane(Paved &into) {
               kFitTightestM,
               piece);
       if (head.Laid) {
-        ++into.FitLaid;
-        ++into.FitsMeasured;
-        if (head.TightestRadiusM > 0.0) {
-          into.FitRadiusTightestM = into.FitRadiusTightestM > 0.0
-                                        ? std::min(into.FitRadiusTightestM, head.TightestRadiusM)
-                                        : head.TightestRadiusM;
-        }
+        NotesFit(into, head);
       } else {
         ++into.FitUnsplittable;
       }
     }
     ++into.FitTooTight;
     ++cuts;
-    if (got.TightestDemandedM > 0.0) {
-      into.TightestDemandM = into.TightestDemandM > 0.0
-                                 ? std::min(into.TightestDemandM, got.TightestDemandedM)
-                                 : got.TightestDemandedM;
-    }
+    into.TightestDemandM = LeastSeen(into.TightestDemandM, got.TightestDemandedM);
     from += upTo + 1u;
     wholeWay = false;
   }
@@ -1675,18 +1671,19 @@ struct MetAt {
   uint32_t Count = 0;
 };
 
-} // namespace
-
-double Engine::State::LevelsWhereWaysMeet(Paved &into) {
+std::vector<Meeting> MeetingsIn(std::span<const std::vector<RoadStation>> designed) {
   std::vector<Meeting> met;
-  for (uint32_t lane = 0; lane < static_cast<uint32_t>(into.Designed.size()); ++lane) {
-    for (const RoadStation &one : into.Designed[lane]) {
+  for (uint32_t lane = 0; lane < static_cast<uint32_t>(designed.size()); ++lane) {
+    for (const RoadStation &one : designed[lane]) {
       if (one.Node == 0u) { continue; }
       met.push_back({.Node = one.Node, .Lane = lane, .GradeM = one.GradeM});
     }
   }
   std::ranges::stable_sort(met, {}, &Meeting::Node);
+  return met;
+}
 
+std::vector<MetAt> JunctionsIn(std::span<const Meeting> met) {
   std::vector<MetAt> meetings;
   for (uint32_t at = 0; at < static_cast<uint32_t>(met.size());) {
     uint32_t past = at;
@@ -1694,10 +1691,14 @@ double Engine::State::LevelsWhereWaysMeet(Paved &into) {
     if (past - at >= 2) { meetings.push_back({.First = at, .Count = past - at}); }
     at = past;
   }
+  return meetings;
+}
 
-  std::vector<double> shiftM(into.Designed.size(), 0.0);
-  std::vector<double> pullM(into.Designed.size(), 0.0);
-  std::vector<uint32_t> pulls(into.Designed.size(), 0u);
+double RelaxMeetings(std::span<const Meeting> met,
+                     std::span<const MetAt> meetings,
+                     std::span<double> shiftM) {
+  std::vector<double> pullM(shiftM.size(), 0.0);
+  std::vector<uint32_t> pulls(shiftM.size(), 0u);
   double movedM = 0.0;
   for (int round = 0; round < kLevelPasses; ++round) {
     std::ranges::fill(pullM, 0.0);
@@ -1722,6 +1723,16 @@ double Engine::State::LevelsWhereWaysMeet(Paved &into) {
     movedM = most;
     if (most < kLevelledM) { break; }
   }
+  return movedM;
+}
+
+} // namespace
+
+double Engine::State::LevelsWhereWaysMeet(Paved &into) {
+  const std::vector<Meeting> met = MeetingsIn(into.Designed);
+  const std::vector<MetAt> meetings = JunctionsIn(met);
+  std::vector<double> shiftM(into.Designed.size(), 0.0);
+  const double movedM = RelaxMeetings(met, meetings, shiftM);
 
   for (size_t lane = 0; lane < into.Designed.size(); ++lane) {
     if (shiftM[lane] == 0.0) { continue; }
