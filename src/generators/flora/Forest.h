@@ -78,7 +78,7 @@ private:
     WoodyDraw
   };
 
-  static Lattice Of(const Tile &region);
+  static Lattice Of(const Tile &region, Detail coarseness);
   [[nodiscard]] Outcome
   Consider(const Ground &ground, const Lattice &lattice, Cell cell, Solid *out) const noexcept;
 

@@ -4,18 +4,23 @@
 namespace outshine::Generators {
 
 std::optional<Ground> Ground::Of(const Tile &region, const Snapshot &snapshot) {
+  return Of(region, snapshot, Detail::Fine);
+}
+
+std::optional<Ground> Ground::Of(const Tile &region, const Snapshot &snapshot, Detail coarseness) {
   if (!snapshot.Patch || !snapshot.Classes || !snapshot.Features || !snapshot.Table) {
     return std::nullopt;
   }
-  return Ground(region, snapshot);
+  return Ground(region, snapshot, coarseness);
 }
 
-Ground::Ground(const Tile &region, const Snapshot &snapshot)
+Ground::Ground(const Tile &region, const Snapshot &snapshot, Detail coarseness)
     : Region_(region),
       Patch_(snapshot.Patch),
       Classes_(snapshot.Classes),
       Features_(snapshot.Features),
-      Table_(snapshot.Table) {
+      Table_(snapshot.Table),
+      Coarseness_(coarseness) {
   region.AnchorEcef(0.0, AnchorEcef_);
 }
 

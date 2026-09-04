@@ -71,10 +71,21 @@ std::span<const char *const> Forest::NoteNames() const noexcept {
   return {kNames.data(), kNames.size()};
 }
 
-Forest::Lattice Forest::Of(const Tile &region) {
+[[nodiscard]] constexpr double SpacedFor(Detail coarseness) {
+  switch (coarseness) {
+    case Detail::Fine: return 1.0;
+    case Detail::Shell: return 2.0;
+    case Detail::Massed: return 4.0;
+    case Detail::Skyline: return 8.0;
+  }
+  return 1.0;
+}
+
+Forest::Lattice Forest::Of(const Tile &region, Detail coarseness) {
   Lattice l;
-  l.Cols = static_cast<int>(std::lround(region.SpanEm() / kCellM));
-  l.Rows = static_cast<int>(std::lround(region.SpanNm() / kCellM));
+  const double cellM = kCellM * SpacedFor(coarseness);
+  l.Cols = static_cast<int>(std::lround(region.SpanEm() / cellM));
+  l.Rows = static_cast<int>(std::lround(region.SpanNm() / cellM));
   l.Cols = std::max(l.Cols, 1);
   l.Rows = std::max(l.Rows, 1);
   l.Em = region.SpanEm() / static_cast<double>(l.Cols);
@@ -142,7 +153,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
 }
 
 void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
-  const Lattice lattice = Of(ground.Where());
+  const Lattice lattice = Of(ground.Where(), ground.Coarseness());
   for (int j = 0; j < lattice.Rows; j++) {
     for (int i = 0; i < lattice.Cols; i++) {
       Solid body;

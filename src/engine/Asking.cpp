@@ -145,7 +145,13 @@ bool Engine::State::Grows(double atLat, double atLon) {
                    "yes/no");
   World.Grown = how == Generators::Snapped::Taken;
   if (how != Generators::Snapped::Taken) { return false; }
-  const std::optional<Generators::Ground> over = Generators::Ground::Of(region, snapshot);
+  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::VectorMap);
+  const Generators::Detail coarseness = Generators::DetailAtRung(finestZoom - region.Zoom());
+  Published.Places("generators: rungs coarser than the finest",
+                   static_cast<double>(finestZoom - region.Zoom()),
+                   "rungs");
+  const std::optional<Generators::Ground> over =
+      Generators::Ground::Of(region, snapshot, coarseness);
   Published.Places("generators: a ground of that snapshot", over ? 1.0 : 0.0, "yes/no");
   if (!over) { return false; }
   const Generators::RegionPool::Shape shape;

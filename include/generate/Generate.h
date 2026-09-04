@@ -70,6 +70,25 @@ enum class Detail : uint8_t {
   Skyline,
 };
 
+/// The detail a tile carries, given how many rungs coarser than the finest it is.
+///
+/// ONE RULE IN ONE PLACE. Every caller that hands a generator a window has to answer the same
+/// question, and two callers answering it separately is how two subsystems come to disagree about
+/// the same ground. The rungs are the ground's own cascade: a rung coarser is ground that is
+/// further away, so what stands on it is further away by exactly as much.
+[[nodiscard]] constexpr Detail DetailAtRung(int rungsCoarser) {
+  if (rungsCoarser <= 0) { return Detail::Fine; }
+  if (rungsCoarser == 1) { return Detail::Shell; }
+  if (rungsCoarser == 2) { return Detail::Massed; }
+  return Detail::Skyline;
+}
+
+static_assert(DetailAtRung(-1) == Detail::Fine, "a finer rung than the finest is still the finest");
+static_assert(DetailAtRung(0) == Detail::Fine);
+static_assert(DetailAtRung(1) == Detail::Shell);
+static_assert(DetailAtRung(2) == Detail::Massed);
+static_assert(DetailAtRung(9) == Detail::Skyline, "every rung beyond is the horizon");
+
 /// Where a generator is asked to make something, and what it may ask about that place.
 struct Request {
   /// The centre, in DEGREES. A generator that reads a public map has to know where on Earth it is,
