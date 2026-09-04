@@ -4,11 +4,11 @@
 #include "math/Vec3.h"
 #include <stddef.h>
 #include <stdint.h>
+
+#include <type_traits>
 #include <stdlib.h>
 
 namespace outshine {
-
-constexpr size_t kChunkVtxBytes = 20;
 
 struct ChunkVtx {
   Vec3f pos;
@@ -16,17 +16,29 @@ struct ChunkVtx {
   Vec3f norm;
 };
 
-constexpr uint64_t kVertexStrideB = 8 * sizeof(float);
+static_assert(std::is_trivially_copyable_v<ChunkVtx>);
+static_assert(std::is_standard_layout_v<ChunkVtx>);
+static_assert(sizeof(ChunkVtx) == 8 * sizeof(float),
+              "tightly packed: a run of these is a float run");
+static_assert(offsetof(ChunkVtx, pos) == 0);
+static_assert(offsetof(ChunkVtx, uv) == 3 * sizeof(float));
+static_assert(offsetof(ChunkVtx, norm) == 5 * sizeof(float));
+
+constexpr size_t kChunkVtxFloats = sizeof(ChunkVtx) / sizeof(float);
+
+constexpr size_t kChunkVtxUvAt = offsetof(ChunkVtx, uv) / sizeof(float);
+constexpr size_t kChunkVtxNormAt = offsetof(ChunkVtx, norm) / sizeof(float);
 
 struct PlainVtx {
   Vec3f pos;
   Vec3f norm;
 };
 
-constexpr uint64_t kPlainVertexStrideB = 6 * sizeof(float);
-static_assert(sizeof(PlainVtx) == kPlainVertexStrideB,
-              "vertex must be tightly packed (no padding)");
-static_assert(offsetof(PlainVtx, norm) == 12, "aNorm offset");
+static_assert(std::is_standard_layout_v<PlainVtx>);
+static_assert(sizeof(PlainVtx) == 6 * sizeof(float), "tightly packed");
+static_assert(offsetof(PlainVtx, norm) == 3 * sizeof(float));
+
+constexpr uint64_t kPlainVertexStrideB = sizeof(PlainVtx);
 
 struct Chunk {
   ChunkVtx *verts;
@@ -43,11 +55,6 @@ inline void ChunkFree(Chunk *c) {
   c->gridverts = 0;
   c->err = 0.f;
 }
-
-static_assert(sizeof(ChunkVtx) == kVertexStrideB, "vertex must be tightly packed (no padding)");
-static_assert(offsetof(ChunkVtx, pos) == 0, "aPos offset");
-static_assert(offsetof(ChunkVtx, uv) == 12, "aUV offset");
-static_assert(offsetof(ChunkVtx, norm) == kChunkVtxBytes, "aNorm offset");
 
 } // namespace outshine
 #endif
