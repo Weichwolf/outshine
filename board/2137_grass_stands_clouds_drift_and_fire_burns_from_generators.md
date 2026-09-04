@@ -2,7 +2,7 @@ Type: feature
 State: open
 Area: generators, render, engine
 Tags: architecture, look, owner
-Depends: 2126, 2122, 2128
+Depends: 2126, 2128
 
 # Grass stands, clouds drift and fire burns -- from generators, lit by the engine
 

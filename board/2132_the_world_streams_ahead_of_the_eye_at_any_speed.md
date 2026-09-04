@@ -2,7 +2,7 @@ Type: feature
 State: open
 Area: engine, world, generators
 Tags: architecture, performance, owner
-Depends: 2122, 2124, 2123
+Depends: 2124, 2123
 
 # The world streams AHEAD of the eye at any speed, from a walk to a flight
 

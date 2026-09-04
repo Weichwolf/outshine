@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_BUILDINGMESH_H
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGMESH_H
 
+#include <memory>
+
 #include "FacadeUv.h"
 #include "StructureMesher.h"
 
@@ -8,7 +10,10 @@ namespace outshine::Generators {
 
 class BuildingMesh : public StructureMesher {
 public:
-  [[nodiscard]] bool Mesh(const StructurePlan &plan, Raised &into) const noexcept override;
+  [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;
+
+  [[nodiscard]] bool
+  Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept override;
 };
 
 } // namespace outshine::Generators

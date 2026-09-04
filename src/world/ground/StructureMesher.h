@@ -1,8 +1,10 @@
 #ifndef OUTSHINE_WORLD_GROUND_STRUCTUREMESHER_H
 #define OUTSHINE_WORLD_GROUND_STRUCTUREMESHER_H
 
-#include <span>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <span>
 #include <vector>
 
 #include "math/Vec3.h"
@@ -83,13 +85,26 @@ struct StructurePlan {
   double PitchedShare = kPitchedShareUnknown;
 };
 
+class MeshScratch {
+public:
+  virtual ~MeshScratch() = default;
+  MeshScratch(const MeshScratch &) = delete;
+  MeshScratch &operator=(const MeshScratch &) = delete;
+
+protected:
+  MeshScratch() = default;
+};
+
 class StructureMesher {
 public:
   virtual ~StructureMesher() = default;
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
-  [[nodiscard]] virtual bool Mesh(const StructurePlan &plan, Raised &into) const noexcept = 0;
+  [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
+
+  [[nodiscard]] virtual bool
+  Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept = 0;
 
 protected:
   StructureMesher() = default;

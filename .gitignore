@@ -1,19 +1,6 @@
 # --- build outputs ---
 build/
-temp/build/
-temp/flightbox/web/cc.js
-temp/flightbox/web/cc.wasm
-temp/flightbox/web/tw.js
-temp/flightbox/web/tw.wasm
-temp/flightbox/web/cc.data
 *.o
-*.elf
-
-
-# --- generated working trees ---
-temp/inav-sitl/
-temp/aircraft/SITL.elf
-**/eeprom.bin
 
 # --- what a declared run writes where it was started: `give` paths and stills. A measurement
 # series is regenerated on demand and never versioned. ---
@@ -26,13 +13,9 @@ temp/aircraft/SITL.elf
 __pycache__/
 *.pyc
 
-# --- windows download markers ---
-*Zone.Identifier
-
 # --- Claude runtime artifacts (config itself IS tracked) ---
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
-temp/inav-src/
 .DS_Store
 
 # --- the compile database: DERIVED from test/run.sh's own tier graph on every `make db`, and it
@@ -40,3 +23,6 @@ temp/inav-src/
 # artefact like every other and is never versioned. ---
 /compile_commands.json
 /build/doc/
+
+# --- clangd's own index ---
+.cache/

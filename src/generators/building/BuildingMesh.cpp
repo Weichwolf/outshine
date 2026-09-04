@@ -13,11 +13,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <span>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "BuildingScratch.h"
 #include "BuildingShape.h"
 #include "Geodesy.h"
 #include "RoofSurface.h"
@@ -102,7 +103,9 @@ Vtx Face(const BuildingShape &s, const En &p, double z, Facade kind) {
 
 class Site {
 public:
-  Site(const StructurePlan &plan, Raised &into) : Out_(into) {
+  Site(const StructurePlan &plan, BuildingScratch &scratch, Raised &into)
+      : Out_(into), Scratch_(scratch) {
+    Scratch_.ClearWelds();
     const double lat = plan.RingLatLon[0];
     const double lon = plan.RingLatLon[1];
     Vec3 origin;
@@ -124,6 +127,8 @@ public:
 
   [[nodiscard]] Detail Coarseness() const { return Coarseness_; }
 
+  [[nodiscard]] BuildingScratch &Scratch() { return Scratch_; }
+
   [[nodiscard]] static Vtx Snapped(const Vtx &v) {
     Vtx out = v;
     out.P.EastM = std::round(v.P.EastM * kWeldPerM) / kWeldPerM;
@@ -139,10 +144,9 @@ public:
     const uint64_t key = static_cast<uint64_t>(ce * 73856093LL) ^
                          static_cast<uint64_t>(cn * 19349663LL) ^
                          static_cast<uint64_t>(cz * 83492791LL);
-    const auto found = Welded_.find(key);
-    if (found != Welded_.end()) { return found->second; }
-    const auto made = static_cast<uint32_t>(Welded_.size());
-    Welded_.emplace(key, made);
+    if (const uint32_t *found = Scratch_.Welded.Find(key)) { return *found; }
+    const auto made = static_cast<uint32_t>(Scratch_.Welded.Size());
+    (void)Scratch_.Welded.Emplace(key, made);
     return made;
   }
 
@@ -163,9 +167,6 @@ public:
     Vec3 nrm = {{n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2}};
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
     if (len < kParallelCross) { return; }
-    Face_.push_back(ia);
-    Face_.push_back(ib);
-    Face_.push_back(ic);
     for (double &c2 : nrm) { c2 /= len; }
     const int side = nrm[2] > kSteepestRoof ? 1 : 0;
     std::vector<uint32_t> &run = side == 1 ? Out_.RoofRun : Out_.WallRun;
@@ -192,10 +193,10 @@ private:
         static_cast<uint64_t>(
             static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[2] * 4096.0))));
     const uint64_t key = (static_cast<uint64_t>(at) * kDigestPrime) ^ facing;
-    const auto found = Corners_[side].find(key);
-    if (found != Corners_[side].end()) { return found->second; }
+    FlatMap<uint32_t> &corners = Scratch_.Corners[static_cast<size_t>(side)];
+    if (const uint32_t *found = corners.Find(key)) { return *found; }
     const auto made = static_cast<uint32_t>(soup.size());
-    Corners_[side].emplace(key, made);
+    (void)corners.Emplace(key, made);
     Vec3f placeM{};
     Vec3f turned{};
     for (int c = 0; c < 3; c++) {
@@ -209,9 +210,7 @@ private:
   }
 
   Raised &Out_;
-  std::unordered_map<uint64_t, uint32_t> Welded_;
-  std::array<std::unordered_map<uint64_t, uint32_t>, 2> Corners_;
-  std::vector<uint32_t> Face_;
+  BuildingScratch &Scratch_;
   Vec3 Origin_, East_, North_, Up_;
   double ReachM_ = 0.0;
   double FocalPx_ = 0.0;
@@ -325,9 +324,20 @@ struct Stretch {
   En To;
 };
 
-void BreaksBoth(
-    const RoofSurface &roof, Stretch face, Stretch eave, bool overhung, std::vector<double> &at) {
-  std::vector<double> other;
+struct Breaking {
+  Stretch Face;
+  Stretch Eave;
+  bool Overhung = false;
+};
+
+void BreaksBoth(const RoofSurface &roof,
+                Breaking along,
+                BuildingScratch &scratch,
+                std::vector<double> &at) {
+  const Stretch &face = along.Face;
+  const Stretch &eave = along.Eave;
+  const bool overhung = along.Overhung;
+  std::vector<double> &other = scratch.Other;
   roof.BreaksAlong(face.From, face.To, at);
   if (overhung) {
     roof.BreaksAlong(eave.From, eave.To, other);
@@ -341,59 +351,64 @@ void BreaksBoth(
   }
 }
 
-std::vector<En> RefinedLike(std::span<const En> along,
-                            const std::vector<En> &wide,
-                            std::span<const En> emit,
-                            const RoofSurface &roof) {
+void RefinedLike(std::span<const En> along,
+                 std::span<const En> wide,
+                 std::span<const En> emit,
+                 const RoofSurface &roof,
+                 BuildingScratch &scratch,
+                 std::vector<En> &out) {
   const size_t n = along.size();
   const bool overhung = wide.size() == n;
-  std::vector<En> out;
-  std::vector<double> at;
-  if (emit.size() != n) { return out; }
+  out.clear();
+  std::vector<double> &at = scratch.At;
+  if (emit.size() != n) { return; }
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    BreaksBoth(roof,
-               {.From = along[i], .To = along[j]},
-               {.From = overhung ? wide[i] : along[i], .To = overhung ? wide[j] : along[j]},
-               overhung,
-               at);
+    BreaksBoth(
+        roof,
+        {.Face = {.From = along[i], .To = along[j]},
+         .Eave = {.From = overhung ? wide[i] : along[i], .To = overhung ? wide[j] : along[j]},
+         .Overhung = overhung},
+        scratch,
+        at);
     out.push_back(emit[i]);
     for (const double t : at) { out.push_back(Along(emit[i], emit[j], t)); }
   }
-  return out;
 }
 
-std::vector<En> Refined(std::span<const En> ring,
-                        const std::vector<En> &wide,
-                        const RoofSurface &roof,
-                        bool takeWide) {
+void Refined(std::span<const En> ring,
+             std::span<const En> wide,
+             const RoofSurface &roof,
+             bool takeWide,
+             BuildingScratch &scratch,
+             std::vector<En> &out) {
   const size_t n = ring.size();
   const bool overhung = wide.size() == n;
-  std::vector<En> out;
-  std::vector<double> at;
+  out.clear();
+  std::vector<double> &at = scratch.At;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
     BreaksBoth(roof,
-               {.From = ring[i], .To = ring[j]},
-               {.From = overhung ? wide[i] : ring[i], .To = overhung ? wide[j] : ring[j]},
-               overhung,
+               {.Face = {.From = ring[i], .To = ring[j]},
+                .Eave = {.From = overhung ? wide[i] : ring[i], .To = overhung ? wide[j] : ring[j]},
+                .Overhung = overhung},
+               scratch,
                at);
     const En &from = takeWide && overhung ? wide[i] : ring[i];
     const En &to = takeWide && overhung ? wide[j] : ring[j];
     out.push_back(from);
     for (const double t : at) { out.push_back(Along(from, to, t)); }
   }
-  return out;
 }
 
 void Walls(const BuildingShape &s,
            const RoofSurface &roof,
-           const std::vector<En> &wide,
+           std::span<const En> wide,
            double lowZ,
            double topZ,
            Site &site) {
   const size_t n = s.Ring.size();
-  std::vector<double> breaks;
+  std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i];
     const En &q = s.Ring[(i + 1) % n];
@@ -406,9 +421,10 @@ void Walls(const BuildingShape &s,
     }
     const bool overhung = wide.size() == n;
     BreaksBoth(roof,
-               {.From = p, .To = q},
-               {.From = overhung ? wide[i] : p, .To = overhung ? wide[(i + 1) % n] : q},
-               overhung,
+               {.Face = {.From = p, .To = q},
+                .Eave = {.From = overhung ? wide[i] : p, .To = overhung ? wide[(i + 1) % n] : q},
+                .Overhung = overhung},
+               site.Scratch(),
                breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
@@ -467,22 +483,25 @@ double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
 
 void Plinth(const BuildingShape &s,
             const RoofSurface &roof,
-            const std::vector<En> &wide,
+            std::span<const En> wide,
             double topZ,
             Site &site) {
-  const std::vector<En> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
+  std::vector<En> &out = site.Scratch().Proud;
+  RoofSurface::Widened(s.Ring, kPlinthProudM, {}, out);
   if (out.size() != s.Ring.size()) { return; }
   const size_t n = s.Ring.size();
   const double lowZ = s.SoleM;
   const bool overhung = wide.size() == n;
-  std::vector<double> breaks;
+  std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    BreaksBoth(roof,
-               {.From = s.Ring[i], .To = s.Ring[j]},
-               {.From = overhung ? wide[i] : s.Ring[i], .To = overhung ? wide[j] : s.Ring[j]},
-               overhung,
-               breaks);
+    BreaksBoth(
+        roof,
+        {.Face = {.From = s.Ring[i], .To = s.Ring[j]},
+         .Eave = {.From = overhung ? wide[i] : s.Ring[i], .To = overhung ? wide[j] : s.Ring[j]},
+         .Overhung = overhung},
+        site.Scratch(),
+        breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
@@ -503,9 +522,10 @@ void Plinth(const BuildingShape &s,
   }
 }
 
-void Floor(const BuildingShape &s, const std::vector<En> &ring, double atZ, Site &site) {
-  std::vector<En> tris;
-  (void)RoofSurface::Fill(ring, tris);
+void Floor(const BuildingShape &s, std::span<const En> ring, double atZ, Site &site) {
+  std::vector<En> &tris = site.Scratch().Tris;
+  tris.clear();
+  (void)RoofSurface::Fill(ring, site.Scratch(), tris);
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
     site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth),
              Face(s, tris[i + 1], atZ, Facade::Plinth),
@@ -513,13 +533,10 @@ void Floor(const BuildingShape &s, const std::vector<En> &ring, double atZ, Site
   }
 }
 
-void Gables(const BuildingShape &s,
-            const RoofSurface &roof,
-            const std::vector<En> &wide,
-            Site &site) {
+void Gables(const BuildingShape &s, const RoofSurface &roof, std::span<const En> wide, Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
-  std::vector<double> breaks;
+  std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i];
     const En &q = s.Ring[(i + 1) % n];
@@ -528,9 +545,10 @@ void Gables(const BuildingShape &s,
     const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
     BreaksBoth(roof,
-               {.From = p, .To = q},
-               {.From = overhung ? wide[i] : p, .To = overhung ? wide[(i + 1) % n] : q},
-               overhung,
+               {.Face = {.From = p, .To = q},
+                .Eave = {.From = overhung ? wide[i] : p, .To = overhung ? wide[(i + 1) % n] : q},
+                .Overhung = overhung},
+               site.Scratch(),
                breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
@@ -551,11 +569,12 @@ void Gables(const BuildingShape &s,
 
 void Covering(const BuildingShape &s,
               const RoofSurface &roof,
-              const std::vector<En> &plan,
+              std::span<const En> plan,
               double deckZ,
               Site &site) {
-  std::vector<En> tris;
-  roof.Cover(plan, tris);
+  std::vector<En> &tris = site.Scratch().Tris;
+  tris.clear();
+  roof.Cover(plan, site.Scratch(), tris);
   const Facade kind = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
     std::array<Vtx, 3> v{};
@@ -569,18 +588,19 @@ void Covering(const BuildingShape &s,
   }
 }
 
-void Eaves(const BuildingShape &s,
-           const RoofSurface &roof,
-           const std::vector<En> &wide,
-           Site &site) {
+void Eaves(const BuildingShape &s, const RoofSurface &roof, std::span<const En> wide, Site &site) {
   const size_t n = s.Ring.size();
   if (wide.size() != n) { return; }
   const double eaves = EavesZ(s);
-  std::vector<double> breaks;
+  std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    BreaksBoth(
-        roof, {.From = s.Ring[i], .To = s.Ring[j]}, {.From = wide[i], .To = wide[j]}, true, breaks);
+    BreaksBoth(roof,
+               {.Face = {.From = s.Ring[i], .To = s.Ring[j]},
+                .Eave = {.From = wide[i], .To = wide[j]},
+                .Overhung = true},
+               site.Scratch(),
+               breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
@@ -606,13 +626,13 @@ void Eaves(const BuildingShape &s,
 }
 
 struct Crowning {
-  const std::vector<En> &Inner;
-  const std::vector<En> &Out;
+  std::span<const En> Inner;
+  std::span<const En> Out;
 };
 
 void Crown(const BuildingShape &s, Crowning over, Site &site) {
-  const std::vector<En> &inner = over.Inner;
-  const std::vector<En> &out = over.Out;
+  const std::span<const En> inner = over.Inner;
+  const std::span<const En> out = over.Out;
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
   const double band = eaves - 0.34;
@@ -749,7 +769,7 @@ constexpr double kArchitectureTris = 262.0;
   return focalPx * kRoofRiseM / kResolvedPx;
 }
 
-[[nodiscard]] std::vector<En> Hull(const std::vector<En> &ring) {
+[[nodiscard]] std::array<En, 4> Hull(std::span<const En> ring) {
   const size_t n = ring.size();
   double bestArea = kBeyondAnyCoordinate;
   double axE = 1.0;
@@ -796,7 +816,7 @@ constexpr double kArchitectureTris = 262.0;
   return {at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)};
 }
 
-void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
+void Box(const BuildingShape &s, std::span<const En> ring, Site &site) {
   const double lowZ = s.SoleM;
   const double topZ = s.TopM();
   const Facade roof = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
@@ -838,19 +858,25 @@ void RaisePart(const BuildingShape &s, Site &site) {
     }
   }
   const RoofSurface roof(s);
+  BuildingScratch &scratch = site.Scratch();
   const double lowZ = s.OnGround() ? s.SoleM : s.SeatM + s.FootM - kSinkM;
-  const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);
-  const std::vector<En> crownInner = RoofSurface::Widened(s.Ring, -kParapetThickM);
-  const std::vector<En> crownOut = RoofSurface::Widened(s.Ring, kCorniceM);
+  std::vector<En> &overhang = scratch.Overhang;
+  std::vector<En> &crownInner = scratch.CrownInner;
+  std::vector<En> &crownOut = scratch.CrownOut;
+  RoofSurface::Widened(s.Ring, s.OverhangM, {}, overhang);
+  RoofSurface::Widened(s.Ring, -kParapetThickM, {}, crownInner);
+  RoofSurface::Widened(s.Ring, kCorniceM, {}, crownOut);
   const bool crowned = s.Roof == RoofKind::Flat && crownInner.size() == s.Ring.size() &&
                        crownOut.size() == s.Ring.size() && s.HalfVm > 2.2 && s.RiseM > 0.0;
   const double flatTopZ = crowned ? EavesZ(s) - 0.34 : EavesZ(s) + s.RiseM;
   const double wallTopZ = s.Roof != RoofKind::Flat ? EavesZ(s) : flatTopZ;
   if (s.OnGround()) {
     Plinth(s, roof, overhang, s.SeatM, site);
-    const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
-    const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
-    Floor(s, foot.empty() ? s.Ring : foot, s.SoleM, site);
+    std::vector<En> &proud = scratch.Proud;
+    RoofSurface::Widened(s.Ring, kPlinthProudM, {}, proud);
+    std::vector<En> &foot = scratch.Foot;
+    RefinedLike(s.Ring, overhang, proud, roof, scratch, foot);
+    Floor(s, foot.empty() ? std::span<const En>(s.Ring) : std::span<const En>(foot), s.SoleM, site);
   } else {
     Floor(s, s.Ring, lowZ, site);
   }
@@ -858,15 +884,25 @@ void RaisePart(const BuildingShape &s, Site &site) {
 
   if (s.Roof == RoofKind::Flat) {
     const double deckZ = crowned ? EavesZ(s) - kSlabM : EavesZ(s) + s.RiseM;
-    Covering(s, roof, crowned ? crownInner : s.Ring, deckZ, site);
+    Covering(s,
+             roof,
+             crowned ? std::span<const En>(crownInner) : std::span<const En>(s.Ring),
+             deckZ,
+             site);
     if (crowned) { Crown(s, {.Inner = crownInner, .Out = crownOut}, site); }
     RoofPlant(s, deckZ, site);
     return;
   }
 
-  const std::vector<En> wide = RoofSurface::Widened(s.Ring, s.OverhangM);
-  const std::vector<En> covered = Refined(s.Ring, wide, roof, true);
-  Covering(s, roof, covered.empty() ? s.Ring : covered, EavesZ(s), site);
+  std::vector<En> &wide = scratch.Wide;
+  RoofSurface::Widened(s.Ring, s.OverhangM, {}, wide);
+  std::vector<En> &covered = scratch.Covered;
+  Refined(s.Ring, wide, roof, true, scratch, covered);
+  Covering(s,
+           roof,
+           covered.empty() ? std::span<const En>(s.Ring) : std::span<const En>(covered),
+           EavesZ(s),
+           site);
   Gables(s, roof, wide, site);
   if (!wide.empty()) { Eaves(s, roof, wide, site); }
   if (WantsChimney(s)) { Chimney(s, roof, site); }
@@ -934,23 +970,32 @@ void Pavement(const BuildingShape &s,
 
 } // namespace
 
-bool BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
-  if (plan.RingLatLon.size() < 6) { return false; }
-  try {
-    Massing mass =
-        MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street, plan.PitchedShare);
-    if (mass.Parts.empty()) { return false; }
+std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
+  return std::make_unique<BuildingScratch>();
+}
 
-    Site site(plan, into);
+bool BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept {
+  if (plan.RingLatLon.size() < 6) { return false; }
+  auto &scratch = static_cast<BuildingScratch &>(lent);
+  try {
+    const std::span<BuildingShape> parts = MassOf(plan.RingLatLon,
+                                                  {.HeightM = plan.HeightM,
+                                                   .HeightMeasured = plan.HeightMeasured,
+                                                   .PitchedShare = plan.PitchedShare},
+                                                  plan.Street,
+                                                  scratch);
+    if (parts.empty()) { return false; }
+
+    Site site(plan, scratch, into);
     const Site2Ground ground(
         plan.RingLatLon,
         plan.CornerAslM,
         {.BaseAslM = plan.BaseAslM, .SeatAslM = plan.SeatAslM, .FootAslM = plan.FootAslM});
-    for (BuildingShape &part : mass.Parts) {
+    for (BuildingShape &part : parts) {
       part.SeatM = PlinthTopZ(part, ground);
       part.SoleM = PlinthFootZ(part, ground);
     }
-    for (const BuildingShape &part : mass.Parts) {
+    for (const BuildingShape &part : parts) {
       RaisePart(part, site);
       Pavement(part, plan.Street, ground, part.SeatM, site);
     }

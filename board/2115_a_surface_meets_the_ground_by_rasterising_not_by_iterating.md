@@ -3,7 +3,6 @@ State: open
 Area: generators, base, engine
 Tags: architecture, performance, owner
 Supersedes: 2097
-Depends: 2122
 
 # The ground is a HEIGHT FIELD the GPU tessellates, and nothing is refined, cut or sewn
 
@@ -114,3 +113,10 @@ The measurement this is held to: `ground: of that, refining/cutting/sewing/press
 `heap taken under ground-yield` and `ground-patchwork` fall to the height tiles' bytes; the
 eight references move only where the lattice's level differs from today's refinement and the
 pixels are looked at; and a tile crossing uploads ONE height tile, not a ring.
+
+## Inherited from board:2122, closed 2026-09-04
+
+The buildings are pieces in the renderer's pool, baked per vector tile on a worker. The
+terrain tile is NOT yet a piece: the ground's classify and press are world-grained passes
+(`ground-yield` took 830 MB of heap at Shibuya, `Grounds(true)` adds 83 MB live), and a tile
+can only become a piece once its surface is produced per tile -- which is this item.

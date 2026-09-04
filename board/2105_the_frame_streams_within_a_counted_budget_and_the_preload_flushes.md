@@ -3,7 +3,6 @@ State: open
 Area: engine, world
 Tags: measured, performance, determinism, owner
 Supersedes: 2109
-Depends: 2122
 
 # The frame streams within a COUNTED budget, and every timed frame is digested
 

@@ -64,16 +64,18 @@ struct BuildingShape {
   [[nodiscard]] En FromBox(Boxed at) const;
 };
 
-struct Massing {
-  std::vector<En> Outline;
-  std::vector<BuildingShape> Parts;
+struct BuildingScratch;
+
+struct Order {
+  double HeightM = 0.0;
+  bool HeightMeasured = false;
+  double PitchedShare = -1.0;
 };
 
-Massing MassOf(std::span<const double> ringLatLon,
-               double heightM,
-               bool heightMeasured,
-               const Frontage &street,
-               double pitchedShare);
+[[nodiscard]] std::span<BuildingShape> MassOf(std::span<const double> ringLatLon,
+                                              Order order,
+                                              const Frontage &street,
+                                              BuildingScratch &scratch);
 
 } // namespace outshine::Generators
 #endif

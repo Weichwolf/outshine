@@ -3,7 +3,6 @@ State: open
 Area: world, generators, engine, base
 Tags: measured, memory, performance, owner
 Supersedes: 2100, 2102, 2099
-Depends: 2122
 
 # A place costs what its geometry is worth, and a tile that leaves gives its memory back
 
@@ -24,6 +23,11 @@ the CPU keeps the cheap representation only.
   Shibuya       539 MB peak with the buildings baked on a worker (2122, 2026-09-04):
                 463 MB live BEFORE the first building lands, 455 MB after the 49th tile,
                 538 MB after the ground pass; fields 315 MB, of which OSM features 190 MB
+  Shibuya       568 MB peak with the mesher on a borrowed scratch (2122 closed, 2026-09-04):
+                four workers hold one BuildingScratch and one RawTile each (~7 MB a slot);
+                the handed-over Raised is released on landing, because keeping four of
+                them read 650 MB. The bake's own heap: 4.6 GB -> 1.36 GB, all of it the
+                output vectors doubling per tile; massing and raising take ~1 MB per place
   the arithmetic for OldTown's ring                                       ~45 MB
   OldTown today: 301 MB live for 51.6 MB of fields; churn of two rebuilds:
     tile-worker 2 248 MB · untagged 1 433 MB · ground-yield 881 MB · world-ground 421 MB

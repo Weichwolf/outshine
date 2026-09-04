@@ -3,7 +3,7 @@ State: open
 Area: engine, world, render, client
 Tags: measured, performance, owner
 Supersedes: 2106, 2120
-Depends: 2124, 2122
+Depends: 2124
 
 # Every place holds 16.7 ms at p99 with a MOVING camera, and stands in under a second
 

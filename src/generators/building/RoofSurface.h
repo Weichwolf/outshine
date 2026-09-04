@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <span>
 
-#include "BuildingShape.h"
+#include "BuildingScratch.h"
 
 namespace outshine::Generators {
 
@@ -15,14 +15,16 @@ public:
 
   [[nodiscard]] double HeightAt(const En &enu) const noexcept;
 
-  void Cover(std::span<const En> plan, std::vector<En> &tris) const;
+  void Cover(std::span<const En> plan, BuildingScratch &scratch, std::vector<En> &tris) const;
 
   void BreaksAlong(const En &from, const En &to, std::vector<double> &at) const;
 
-  static bool Fill(std::span<const En> plan, std::vector<En> &tris);
+  static bool Fill(std::span<const En> plan, BuildingScratch &scratch, std::vector<En> &tris);
 
-  static std::vector<En>
-  Widened(std::span<const En> ring, double byM, std::span<const uint8_t> held = {});
+  static void Widened(std::span<const En> ring,
+                      double byM,
+                      std::span<const uint8_t> held,
+                      std::vector<En> &out);
 
 private:
   const BuildingShape &Shape_;

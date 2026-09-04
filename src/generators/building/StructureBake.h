@@ -54,6 +54,7 @@ struct BakedTile {
 void BakeStructures(const RawTile &raw,
                     const outshine::Ground::HeightField &heights,
                     const StructureMesher &mesher,
+                    MeshScratch &scratch,
                     BakedTile &out);
 
 } // namespace outshine::Generators

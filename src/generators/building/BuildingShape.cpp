@@ -12,6 +12,7 @@
 #include <vector>
 #include <utility>
 
+#include "BuildingScratch.h"
 #include "FacadeUv.h"
 #include "Geodesy.h"
 #include "RoofSurface.h"
@@ -85,12 +86,15 @@ constexpr double kPitchHallDeg = 6.0;
 constexpr double kPitchSpireDeg = 62.0;
 
 constexpr double kPlotM = 8.5;
-constexpr int kMaxParts = 9;
 
 constexpr double kLeastPieceM2 = 16.0;
 constexpr double kLeastPieceFrac = 0.16;
 
+constexpr double kLeastTopM = 2.6;
 constexpr double kSetbackM = 2.4;
+constexpr double kWingUnderFill = 0.94;
+constexpr double kDeepFromHalfM = 8.0;
+constexpr int kDeepFromStoreys = 5;
 
 constexpr double kOutbuildingUnderM2 = 26.0;
 constexpr double kSpireOverM = 21.0;
@@ -152,12 +156,11 @@ double UnitOf(uint32_t seed, int stream) {
          kMantissaSteps;
 }
 
-std::vector<En> RingInMetres(std::span<const double> latLon) {
-  std::vector<En> ring;
-  if (latLon.size() < 6) { return ring; }
+void RingInMetres(std::span<const double> latLon, std::vector<En> &ring) {
+  ring.clear();
+  if (latLon.size() < 6) { return; }
   const double refLat = latLon[0];
   const double refLon = latLon[1];
-  ring.reserve(latLon.size() / 2);
   for (size_t k = 0; k + 1 < latLon.size(); k += 2) {
     const En p = EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
                             {.LongitudeDeg = latLon[k + 1], .LatitudeDeg = latLon[k]});
@@ -171,10 +174,9 @@ std::vector<En> RingInMetres(std::span<const double> latLon) {
                                         ring.front().NorthM - ring.back().NorthM) < kSameCornerM) {
     ring.pop_back();
   }
-  return ring;
 }
 
-double SignedArea(const std::vector<En> &ring) {
+double SignedArea(std::span<const En> ring) {
   double a = 0.0;
   for (size_t i = 0, n = ring.size(); i < n; i++) {
     const En &p = ring[i];
@@ -184,16 +186,9 @@ double SignedArea(const std::vector<En> &ring) {
   return 0.5 * a;
 }
 
-struct Piece {
-  std::vector<En> P;
-  std::vector<uint8_t> Party;
-};
-
-Piece WholeOf(const std::vector<En> &ring) {
-  Piece p;
-  p.P = ring;
+void WholeOf(std::span<const En> ring, Piece &p) {
+  p.P.assign(ring.begin(), ring.end());
   p.Party.assign(ring.size(), 0u);
-  return p;
 }
 
 double SideOf(const En &at, const En &normal, const En &p) {
@@ -224,12 +219,25 @@ void DropSpurs(Piece *p) {
   }
 }
 
-[[nodiscard]] bool CutPiece(
-    const Piece &in, const En &at, const En &normal, Piece *back, Piece *front, double *cutLenM) {
+struct Cut {
+  En At;
+  En Normal;
+};
+
+[[nodiscard]] bool CutPiece(const Piece &in,
+                            Cut along,
+                            BuildingScratch &scratch,
+                            Piece *back,
+                            Piece *front,
+                            double *cutLenM) {
+  const En &at = along.At;
+  const En &normal = along.Normal;
   const size_t n = in.P.size();
   if (n < 3) { return false; }
-  std::vector<double> s(n);
-  std::vector<int> sg(n);
+  std::vector<double> &s = scratch.Side;
+  std::vector<int> &sg = scratch.Sign;
+  s.assign(n, 0.0);
+  sg.assign(n, 0);
   for (size_t i = 0; i < n; i++) {
     s[i] = SideOf(at, normal, in.P[i]);
     sg[i] = SideSign(s[i]);
@@ -289,7 +297,7 @@ void DropSpurs(Piece *p) {
   return std::fabs(SignedArea(a.P)) >= least && std::fabs(SignedArea(b.P)) >= least;
 }
 
-void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
+void MinAreaBox(std::span<const En> ring, BuildingShape *out) {
   double best = kBeyondAnyCoordinate;
   for (size_t i = 0, n = ring.size(); i < n; i++) {
     const En &p = ring[i];
@@ -511,13 +519,19 @@ size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
   return dropped;
 }
 
-BuildingShape Finish(Piece piece, const PartOrder &order) {
-  BuildingShape s;
-  if (piece.P.size() < 3) { return s; }
-  s.Ring = std::move(piece.P);
-  s.Party = std::move(piece.Party);
+void Finish(Piece &piece, const PartOrder &order, BuildingShape &s) {
+  s.Ring.clear();
+  s.Party.clear();
+  s.TidiedAway = 0;
+  s.FrontEdge = -1;
+  if (piece.P.size() < 3) { return; }
+  s.Ring.swap(piece.P);
+  s.Party.swap(piece.Party);
   s.TidiedAway = TidyRing(s.Ring, s.Party);
-  if (s.Ring.size() < 3) { return BuildingShape{}; }
+  if (s.Ring.size() < 3) {
+    s.Ring.clear();
+    return;
+  }
   const double signed2 = SignedArea(s.Ring);
   if (signed2 < 0.0) {
     std::ranges::reverse(s.Ring);
@@ -529,14 +543,14 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   MinAreaBox(s.Ring, &s);
   if (s.HalfUm < 0.5 || s.HalfVm < 0.5) {
     s.Ring.clear();
-    return s;
+    return;
   }
   s.Fill = s.AreaM2 / (4.0 * s.HalfUm * s.HalfVm);
   s.Seed = order.Seed;
   s.Ident = static_cast<int>(Mix(order.Seed ^ kIdentWord) % static_cast<uint32_t>(kIdentCount));
   s.FootM = order.FootM;
 
-  const double top = std::max(order.TopOverFootM, 2.6);
+  const double top = std::max(order.TopOverFootM, kLeastTopM);
   const double aspect = s.HalfUm / s.HalfVm;
   s.Use = order.Use ? *order.Use : UseOf({.AreaM2 = s.AreaM2, .Aspect = aspect, .HeightM = top});
   s.PeriodM = std::max(kPeriodLeastM,
@@ -552,10 +566,9 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   const bool verged = s.Roof != RoofKind::Flat && s.Roof != RoofKind::Dome;
   const double eaves = s.Use == BuildingUse::Hall ? kOverhangHallM : kOverhangEavesM;
   s.OverhangM = verged ? eaves : 0.0;
-  return s;
 }
 
-[[nodiscard]] bool IsReflex(const std::vector<En> &ring, size_t i) {
+[[nodiscard]] bool IsReflex(std::span<const En> ring, size_t i) {
   const size_t n = ring.size();
   const En &a = ring[(i + n - 1) % n];
   const En &b = ring[i];
@@ -571,43 +584,54 @@ En UnitFrom(const En &a, const En &b) {
   return l < kLeastRunM ? En{.EastM = 1.0, .NorthM = 0.0} : En{.EastM = e / l, .NorthM = n / l};
 }
 
-struct Winged {
-  Piece Main;
-  Piece Wing;
-};
-
-[[nodiscard]] std::optional<Winged> WingCut(const Piece &whole) {
+[[nodiscard]] bool WingCut(const Piece &whole, BuildingScratch &scratch) {
   const std::vector<En> &ring = whole.P;
   const double wholeM2 = std::fabs(SignedArea(ring));
   double bestLen = kBeyondAnyCoordinate;
   bool found = false;
-  Piece a;
-  Piece b;
+  Piece &a = scratch.Plot;
+  Piece &b = scratch.Beyond;
   for (size_t i = 0; i < ring.size(); i++) {
     if (!IsReflex(ring, i)) { continue; }
     const std::array<En, 2> dirs = {{UnitFrom(ring[(i + ring.size() - 1) % ring.size()], ring[i]),
                                      UnitFrom(ring[i], ring[(i + 1) % ring.size()])}};
     for (const En &dir : dirs) {
-      Piece lo;
-      Piece hi;
+      Piece &lo = scratch.Lo;
+      Piece &hi = scratch.Hi;
       double len = 0.0;
-      if (!CutPiece(whole, ring[i], {.EastM = dir.NorthM, .NorthM = -dir.EastM}, &lo, &hi, &len)) {
+      if (!CutPiece(whole,
+                    {.At = ring[i], .Normal = {.EastM = dir.NorthM, .NorthM = -dir.EastM}},
+                    scratch,
+                    &lo,
+                    &hi,
+                    &len)) {
         continue;
       }
       if (len < 1.0 || len >= bestLen) { continue; }
       if (!BothWorthIt(lo, hi, wholeM2)) { continue; }
-      a = lo;
-      b = hi;
+      a.P = lo.P;
+      a.Party = lo.Party;
+      b.P = hi.P;
+      b.Party = hi.Party;
       bestLen = len;
       found = true;
     }
   }
-  if (!found) { return std::nullopt; }
+  if (!found) { return false; }
   const bool aIsMain = std::fabs(SignedArea(a.P)) >= std::fabs(SignedArea(b.P));
-  return Winged{.Main = aIsMain ? a : b, .Wing = aIsMain ? b : a};
+  Piece &main = aIsMain ? a : b;
+  Piece &wing = aIsMain ? b : a;
+  scratch.Main.P.swap(main.P);
+  scratch.Main.Party.swap(main.Party);
+  scratch.Wing.P.swap(wing.P);
+  scratch.Wing.Party.swap(wing.Party);
+  return true;
 }
 
-int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
+int RowCut(const Piece &whole,
+           const BuildingShape &box,
+           BuildingScratch &scratch,
+           std::span<Piece> out) {
   const double lengthM = 2.0 * box.HalfUm;
 
   if (lengthM < kPlotLengthFactor * kPlotM || box.HalfUm < kPlotAspectFactor * box.HalfVm ||
@@ -619,14 +643,16 @@ int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
   if (want < 2) { return 0; }
   const double step = lengthM / static_cast<double>(want);
   const double wholeM2 = std::fabs(SignedArea(whole.P));
-  Piece rest = whole;
+  Piece &rest = scratch.Rest;
+  rest.P = whole.P;
+  rest.Party = whole.Party;
   int made = 0;
   for (int k = 1; k < want; k++) {
     const En at = box.FromBox({.U = -box.HalfUm + step * static_cast<double>(k), .V = 0.0});
-    Piece plot;
-    Piece beyond;
+    Piece &plot = scratch.Plot;
+    Piece &beyond = scratch.Beyond;
     double len = 0.0;
-    if (!CutPiece(rest, at, box.AxisU, &plot, &beyond, &len)) { break; }
+    if (!CutPiece(rest, {.At = at, .Normal = box.AxisU}, scratch, &plot, &beyond, &len)) { break; }
     if (std::fabs(SignedArea(plot.P)) < std::max(kLeastPieceM2, kSliverShare * kPlotM * kPlotM)) {
       break;
     }
@@ -634,11 +660,16 @@ int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
         std::max(kLeastPieceM2, kLeastPieceFrac * wholeM2 * kSliverShare)) {
       break;
     }
-    out[made++] = plot;
-    rest = beyond;
+    out[made].P.swap(plot.P);
+    out[made].Party.swap(plot.Party);
+    ++made;
+    rest.P.swap(beyond.P);
+    rest.Party.swap(beyond.Party);
   }
   if (made == 0) { return 0; }
-  out[made++] = std::move(rest);
+  out[made].P.swap(rest.P);
+  out[made].Party.swap(rest.Party);
+  ++made;
   return made;
 }
 
@@ -686,77 +717,54 @@ En BuildingShape::FromBox(Boxed at) const {
           .NorthM = Centre.NorthM + u * AxisU.NorthM + v * AxisU.EastM};
 }
 
-Massing MassOf(std::span<const double> ringLatLon,
-               double heightM,
-               bool heightMeasured,
-               const Frontage &street,
-               double pitchedShare) {
-  Massing out;
-  out.Outline = RingInMetres(ringLatLon);
-  if (out.Outline.size() < 3) {
-    out.Outline.clear();
-    return out;
+namespace {
+
+void PlotParts(const PartOrder &whole, int plots, BuildingScratch &scratch) {
+  const BuildingShape &one = scratch.One;
+  for (int k = 0; k < plots; k++) {
+    PartOrder o = whole;
+    o.Seed = Mix(whole.Seed + kPlotWord * static_cast<uint32_t>(k + 1));
+    o.TopOverFootM =
+        whole.TopOverFootM * (kPlotTopFloor + kPlotTopSwing * UnitOf(o.Seed, kPlotTopStream));
+    o.Use = one.Use == BuildingUse::Terrace || one.Use == BuildingUse::House
+                ? std::optional<BuildingUse>(BuildingUse::Terrace)
+                : std::optional<BuildingUse>();
+    BuildingShape &part = scratch.Made;
+    Finish(scratch.Row[static_cast<size_t>(k)], o, part);
+    if (part.Valid()) { scratch.Parts.Next() = part; }
   }
-  if (SignedArea(out.Outline) < 0.0) { std::ranges::reverse(out.Outline); }
+}
 
-  const uint32_t seed = SeedOfPlace({.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]});
-  const double topM = std::max(heightM, 2.6);
-  PartOrder whole;
-  whole.TopOverFootM = topM;
-  whole.Seed = seed;
-  whole.HeightMeasured = heightMeasured;
-  whole.PitchedShare = pitchedShare;
-  const BuildingShape one = Finish(WholeOf(out.Outline), whole);
-  if (!one.Valid()) {
-    out.Outline.clear();
-    return out;
-  }
+void WingParts(const PartOrder &whole, BuildingScratch &scratch) {
+  PartOrder m = whole;
+  m.Seed = Mix(whole.Seed + kMainWord);
+  BuildingShape &mainPart = scratch.Made;
+  Finish(scratch.Main, m, mainPart);
+  if (mainPart.Valid()) { scratch.Parts.Next() = mainPart; }
+  PartOrder w = whole;
+  w.Seed = Mix(whole.Seed + kWingWord);
+  w.TopOverFootM = std::max(whole.TopOverFootM *
+                                (kWingTopFloor + kWingTopSwing * UnitOf(w.Seed, kWingTopStream)),
+                            kWingLeastM);
+  BuildingShape &wingPart = scratch.Made;
+  Finish(scratch.Wing, w, wingPart);
+  if (wingPart.Valid()) { scratch.Parts.Next() = wingPart; }
+}
 
-  std::array<Piece, kMaxParts> row{};
-  const int plots = RowCut(WholeOf(out.Outline), one, row);
-  const std::optional<Winged> winged =
-      plots == 0 && one.Fill < 0.94 ? WingCut(WholeOf(out.Outline)) : std::nullopt;
-
-  if (plots > 1) {
-    for (int k = 0; k < plots; k++) {
-      PartOrder o = whole;
-      o.Seed = Mix(seed + kPlotWord * static_cast<uint32_t>(k + 1));
-
-      o.TopOverFootM = topM * (kPlotTopFloor + kPlotTopSwing * UnitOf(o.Seed, kPlotTopStream));
-      o.Use = one.Use == BuildingUse::Terrace || one.Use == BuildingUse::House
-                  ? std::optional<BuildingUse>(BuildingUse::Terrace)
-                  : std::optional<BuildingUse>();
-      BuildingShape part = Finish(row[k], o);
-      if (part.Valid()) { out.Parts.push_back(std::move(part)); }
-    }
-  } else if (winged) {
-    PartOrder m = whole;
-    m.Seed = Mix(seed + kMainWord);
-    BuildingShape mainPart = Finish(winged->Main, m);
-    PartOrder w = whole;
-    w.Seed = Mix(seed + kWingWord);
-
-    w.TopOverFootM = std::max(
-        topM * (kWingTopFloor + kWingTopSwing * UnitOf(w.Seed, kWingTopStream)), kWingLeastM);
-    BuildingShape wingPart = Finish(winged->Wing, w);
-    if (mainPart.Valid()) { out.Parts.push_back(std::move(mainPart)); }
-    if (wingPart.Valid()) { out.Parts.push_back(std::move(wingPart)); }
-  }
-
-  if (out.Parts.empty()) { out.Parts.push_back(one); }
-
-  std::vector<BuildingShape> stacked;
-  for (BuildingShape &s : out.Parts) {
-    const bool deep =
-        std::min(s.HalfUm, s.HalfVm) >= 8.0 && s.Storeys >= 5 && s.Roof == RoofKind::Flat;
-    std::vector<En> inner = deep ? RoofSurface::Widened(s.Ring, -kSetbackM) : std::vector<En>();
+void StackDeep(bool heightMeasured, BuildingScratch &scratch) {
+  for (BuildingShape &s : scratch.Parts.Standing()) {
+    const bool deep = std::min(s.HalfUm, s.HalfVm) >= kDeepFromHalfM &&
+                      s.Storeys >= kDeepFromStoreys && s.Roof == RoofKind::Flat;
+    std::vector<En> &inner = scratch.Inner;
+    inner.clear();
+    if (deep) { RoofSurface::Widened(s.Ring, -kSetbackM, {}, inner); }
     if (inner.size() < 3) {
-      stacked.push_back(std::move(s));
+      scratch.Stacked.Next() = s;
       continue;
     }
     const double lower = s.EavesM - s.FloorM;
-    Piece cap;
-    cap.P = std::move(inner);
+    Piece &cap = scratch.Cap;
+    cap.P.swap(inner);
     cap.Party.assign(cap.P.size(), 0u);
     PartOrder o;
     o.FootM = s.FootM + lower;
@@ -764,15 +772,51 @@ Massing MassOf(std::span<const double> ringLatLon,
     o.Seed = Mix(s.Seed + kOutbuildingWord);
     o.HeightMeasured = heightMeasured;
     o.Use = s.Use;
-    BuildingShape top = Finish(std::move(cap), o);
-    BuildingShape base = s;
+    BuildingShape &top = scratch.Made;
+    Finish(cap, o, top);
+    BuildingShape &base = scratch.Stacked.Next();
+    base = s;
     SplitHeight(&base, {.TopM = lower, .PitchDeg = 0.0});
-    stacked.push_back(std::move(base));
-    if (top.Valid()) { stacked.push_back(std::move(top)); }
+    if (top.Valid()) { scratch.Stacked.Next() = top; }
   }
-  out.Parts.swap(stacked);
+  scratch.Parts.Swap(scratch.Stacked);
+}
 
-  for (BuildingShape &s : out.Parts) { FaceTheStreet(&s, street); }
-  return out;
+} // namespace
+
+std::span<BuildingShape> MassOf(std::span<const double> ringLatLon,
+                                Order order,
+                                const Frontage &street,
+                                BuildingScratch &scratch) {
+  scratch.Parts.Reset();
+  scratch.Stacked.Reset();
+  std::vector<En> &outline = scratch.Outline;
+  RingInMetres(ringLatLon, outline);
+  if (outline.size() < 3) { return {}; }
+  if (SignedArea(outline) < 0.0) { std::ranges::reverse(outline); }
+
+  PartOrder whole;
+  whole.TopOverFootM = std::max(order.HeightM, kLeastTopM);
+  whole.Seed = SeedOfPlace({.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]});
+  whole.HeightMeasured = order.HeightMeasured;
+  whole.PitchedShare = order.PitchedShare;
+  BuildingShape &one = scratch.One;
+  WholeOf(outline, scratch.Whole);
+  Finish(scratch.Whole, whole, one);
+  if (!one.Valid()) { return {}; }
+
+  WholeOf(outline, scratch.Whole);
+  const int plots = RowCut(scratch.Whole, one, scratch, scratch.Row);
+  if (plots > 1) {
+    PlotParts(whole, plots, scratch);
+  } else if (plots == 0 && one.Fill < kWingUnderFill) {
+    WholeOf(outline, scratch.Whole);
+    if (WingCut(scratch.Whole, scratch)) { WingParts(whole, scratch); }
+  }
+  if (scratch.Parts.Count() == 0) { scratch.Parts.Next() = one; }
+
+  StackDeep(order.HeightMeasured, scratch);
+  for (BuildingShape &s : scratch.Parts.Standing()) { FaceTheStreet(&s, street); }
+  return scratch.Parts.Standing();
 }
 } // namespace outshine::Generators

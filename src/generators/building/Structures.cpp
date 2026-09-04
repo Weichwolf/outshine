@@ -9,6 +9,7 @@
 #include "math/Vec3.h"
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -73,8 +74,9 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   plan.AnchorEcef = anchor;
 
   const BuildingMesh mesher;
+  const std::unique_ptr<MeshScratch> scratch = mesher.Scratch();
   Raised raised;
-  if (!mesher.Mesh(plan, raised)) { return false; }
+  if (!mesher.Mesh(plan, *scratch, raised)) { return false; }
   std::vector<StoredVertex> soup;
   const auto spread = [&soup](const std::vector<StoredVertex> &corners,
                               const std::vector<uint32_t> &run) {

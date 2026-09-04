@@ -45,10 +45,11 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   out.push_back(c);
 }
 
-[[nodiscard]] bool EarClip(std::span<const En> ring, std::vector<En> &tris) {
+[[nodiscard]] bool
+EarClip(std::span<const En> ring, std::vector<uint32_t> &poly, std::vector<En> &tris) {
   const size_t n = ring.size();
   if (n < 3) { return false; }
-  std::vector<uint32_t> poly(n);
+  poly.resize(n);
   for (size_t i = 0; i < n; i++) { poly[i] = static_cast<uint32_t>(i); }
   const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
     return (ring[b].EastM - ring[a].EastM) * (ring[c].NorthM - ring[a].NorthM) -
@@ -81,7 +82,7 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   return poly.size() <= 2;
 }
 
-[[nodiscard]] bool Inside(const std::vector<En> &ring, const En &p, double marginM) {
+[[nodiscard]] bool Inside(std::span<const En> ring, const En &p, double marginM) {
   const size_t n = ring.size();
   if (n < 3) { return true; }
   bool in = false;
@@ -167,10 +168,9 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
   return 0;
 }
 
-void Refine(std::vector<En> &tris, int passes) {
+void Refine(std::vector<En> &tris, std::vector<En> &out, int passes) {
   for (int p = 0; p < passes; p++) {
-    std::vector<En> out;
-    out.reserve(tris.size() * 4);
+    out.clear();
     for (size_t i = 0; i + 2 < tris.size(); i += 3) {
       const En a = tris[i];
       const En b = tris[i + 1];
@@ -230,9 +230,9 @@ double RoofSurface::HeightAt(const En &enu) const noexcept {
   return f * rise;
 }
 
-bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
+bool RoofSurface::Fill(std::span<const En> plan, BuildingScratch &scratch, std::vector<En> &tris) {
   const size_t first = tris.size();
-  if (!EarClip(plan, tris)) {
+  if (!EarClip(plan, scratch.Poly, tris)) {
     tris.resize(first);
     return false;
   }
@@ -241,11 +241,13 @@ bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
 
 namespace {
 
-std::vector<En>
-ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line, double sign) {
-  std::vector<En> out;
+void ClipHalf(const BuildingShape &shape,
+              std::span<const En> poly,
+              const Line &line,
+              double sign,
+              std::vector<En> &out) {
+  out.clear();
   const size_t n = poly.size();
-  out.reserve(n + 2);
   for (size_t i = 0; i < n; i++) {
     const En &a = poly[i];
     const En &b = poly[(i + 1) % n];
@@ -274,7 +276,6 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
       out.push_back(cut);
     }
   }
-  return out;
 }
 } // namespace
 
@@ -309,37 +310,44 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
            at.end());
 }
 
-void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
+void RoofSurface::Cover(std::span<const En> plan,
+                        BuildingScratch &scratch,
+                        std::vector<En> &tris) const {
   const size_t first = tris.size();
 
   std::array<Line, kMaxCreases> lines{};
   const int n = CreasesOf(Shape_, lines);
-  std::vector<std::vector<En>> cells;
-  cells.emplace_back(plan.begin(), plan.end());
+  Slots<std::vector<En>> &cells = scratch.Cells;
+  Slots<std::vector<En>> &next = scratch.NextCells;
+  cells.Reset();
+  cells.Next().assign(plan.begin(), plan.end());
   for (int i = 0; i < n; i++) {
-    std::vector<std::vector<En>> next;
-    for (const std::vector<En> &cell : cells) {
-      std::vector<En> above = ClipHalf(Shape_, cell, lines[i], 1.0);
-      std::vector<En> below = ClipHalf(Shape_, cell, lines[i], -1.0);
+    next.Reset();
+    for (std::vector<En> &cell : cells.Standing()) {
+      std::vector<En> &above = scratch.Above;
+      std::vector<En> &below = scratch.Below;
+      ClipHalf(Shape_, cell, lines[i], 1.0, above);
+      ClipHalf(Shape_, cell, lines[i], -1.0, below);
       if (above.size() >= 3 && below.size() >= 3) {
-        next.push_back(std::move(above));
-        next.push_back(std::move(below));
+        next.Next().swap(above);
+        next.Next().swap(below);
         continue;
       }
-      next.push_back(cell);
+      next.Next().swap(cell);
     }
-    cells.swap(next);
+    cells.Swap(next);
   }
 
-  std::vector<En> mine;
-  for (const std::vector<En> &cell : cells) {
-    if (!EarClip(cell, mine)) {
+  std::vector<En> &mine = scratch.Mine;
+  mine.clear();
+  for (const std::vector<En> &cell : cells.Standing()) {
+    if (!EarClip(cell, scratch.Poly, mine)) {
       tris.resize(first);
       return;
     }
   }
   if (mine.empty()) { return; }
-  if (Shape_.Roof == RoofKind::Dome) { Refine(mine, 4); }
+  if (Shape_.Roof == RoofKind::Dome) { Refine(mine, scratch.Refined, 4); }
   for (size_t at = 0; at + 2 < mine.size(); at += 3) {
     for (size_t corner = 0; corner < 3; ++corner) {
       const double reach = 4.0 * std::max({Shape_.OverhangM, kCorniceM, kOverhangM});
@@ -349,12 +357,13 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 
-std::vector<En>
-RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8_t> held) {
+void RoofSurface::Widened(std::span<const En> ring,
+                          double byM,
+                          std::span<const uint8_t> held,
+                          std::vector<En> &out) {
+  out.clear();
   const size_t n = ring.size();
-  if (n < 3 || std::fabs(byM) < kSameLineM) { return {}; }
-  std::vector<En> out;
-  out.reserve(n);
+  if (n < 3 || std::fabs(byM) < kSameLineM) { return; }
   for (size_t i = 0; i < n; i++) {
     const size_t before = (i + n - 1) % n;
     const En &p = ring[i];
@@ -366,7 +375,10 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const double e1 = b.EastM - p.EastM;
     const double n1 = b.NorthM - p.NorthM;
     const double l1 = std::hypot(e1, n1);
-    if (l0 < kLeastRunM || l1 < kLeastRunM) { return {}; }
+    if (l0 < kLeastRunM || l1 < kLeastRunM) {
+      out.clear();
+      return;
+    }
 
     const double a0 = n0 / l0;
     const double b0 = -e0 / l0;
@@ -376,16 +388,21 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const double d1 = i < held.size() && (held[i] != 0u) ? 0.0 : byM;
     const double det = a0 * b1 - b0 * a1;
     if (std::fabs(det) < kLeastRunM) {
-      if (std::fabs(d0 - d1) > kLeastTurnRad) { return {}; }
+      if (std::fabs(d0 - d1) > kLeastTurnRad) {
+        out.clear();
+        return;
+      }
       out.push_back({.EastM = p.EastM + a0 * d0, .NorthM = p.NorthM + b0 * d0});
       continue;
     }
     const double yE = (d0 * b1 - d1 * b0) / det;
     const double yN = (a0 * d1 - a1 * d0) / det;
-    if (std::hypot(yE, yN) > 4.0 * std::fabs(byM)) { return {}; }
+    if (std::hypot(yE, yN) > 4.0 * std::fabs(byM)) {
+      out.clear();
+      return;
+    }
     out.push_back({.EastM = p.EastM + yE, .NorthM = p.NorthM + yN});
   }
-  return out;
 }
 
 } // namespace outshine::Generators

@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "HeightField.h"
 #include "GroundStack.h"
@@ -36,15 +38,29 @@ public:
 private:
   struct Job {
     uint32_t Tile = 0;
-    std::shared_ptr<Generators::RawTile> Raw;
+    std::unique_ptr<Generators::RawTile> Raw;
     std::shared_ptr<const Ground::HeightField> Heights;
-    std::shared_ptr<Generators::BakedTile> Out;
+    std::unique_ptr<Generators::BakedTile> Out;
+    std::unique_ptr<MeshScratch> Scratch;
     Tasks::Handle Handle = Tasks::kNoTask;
   };
+
+  template <typename T>
+  [[nodiscard]] static std::unique_ptr<T> Borrowed(std::vector<std::unique_ptr<T>> &idle) {
+    if (idle.empty()) { return std::make_unique<T>(); }
+    std::unique_ptr<T> one = std::move(idle.back());
+    idle.pop_back();
+    return one;
+  }
+
+  [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
 
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<Job> Queue_;
+  std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
+  std::vector<std::unique_ptr<Generators::BakedTile>> IdleOut_;
+  std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;

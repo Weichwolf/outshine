@@ -2,7 +2,6 @@ Type: debt
 State: open
 Area: generators, world, render
 Tags: architecture, performance
-Depends: 2122
 
 # Every drawable carries a level of detail, chosen by ONE rule
 

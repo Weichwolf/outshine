@@ -332,6 +332,7 @@ void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cel
 void RaiseLump(const Lumped &of,
                const RawTile &raw,
                const StructureMesher &mesher,
+               MeshScratch &scratch,
                std::vector<double> &corners,
                Raised &into) {
   if (of.Count == 0) { return; }
@@ -366,7 +367,7 @@ void RaiseLump(const Lumped &of,
   plan.FocalPx = raw.FocalPx;
   plan.Coarseness = of.Level;
   plan.PitchedShare = of.RoofAreaM2 > 0.0 ? of.PitchedAreaM2 / of.RoofAreaM2 : kPitchedShareUnknown;
-  (void)mesher.Mesh(plan, into);
+  (void)mesher.Mesh(plan, scratch, into);
 }
 
 std::vector<WayLine> LinesOf(const RawTile &raw) {
@@ -398,6 +399,7 @@ std::vector<WayLine> LinesOf(const RawTile &raw) {
 void BakeStructures(const RawTile &raw,
                     const outshine::Ground::HeightField &heights,
                     const StructureMesher &mesher,
+                    MeshScratch &scratch,
                     BakedTile &out) {
   out.Built.Clear();
   out.Prints.clear();
@@ -508,12 +510,12 @@ void BakeStructures(const RawTile &raw,
     plan.AnchorEcef = raw.AnchorEcef;
     plan.FocalPx = raw.FocalPx;
     plan.Coarseness = fp.Coarseness;
-    (void)mesher.Mesh(plan, out.Built);
+    (void)mesher.Mesh(plan, scratch, out.Built);
   }
 
   for (const auto &[where, block] : lumps) {
     (void)where;
-    RaiseLump(block, raw, mesher, corners, out.Built);
+    RaiseLump(block, raw, mesher, scratch, corners, out.Built);
   }
   out.Blocks = static_cast<int>(lumps.size());
 }

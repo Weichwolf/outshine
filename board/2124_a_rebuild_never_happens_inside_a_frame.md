@@ -2,7 +2,6 @@ Type: bug
 State: open
 Area: engine, world
 Tags: measured, performance, owner
-Depends: 2122
 
 # A rebuild never happens inside a frame, and the ring recentres by what changed
 
