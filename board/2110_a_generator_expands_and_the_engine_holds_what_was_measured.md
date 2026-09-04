@@ -271,3 +271,32 @@ than refusing it.
 
 **The five areas that have code are cut and independent; the other two are a feature, and the goal
 that names them should say so.**
+
+## Measured 2026-09-04: the cut holds, and two of the seven areas have no subject
+
+The three tests this item is finished by, run rather than argued:
+
+**Every area carries its own `reaches`, and the cut is ENFORCED rather than observed.** Each of
+terrain/ road/ building/ water/ flora/ declares `generators/base base content world` -- and names
+no sibling. An area therefore CANNOT include another; the include path refuses it at the `#include`
+with a file and a line.
+
+**Cross-area includes: 0.** Counted over all five areas in both directions. The bar was "more than
+a handful disproves the cut", and the number is zero because the declaration above makes any other
+number impossible.
+
+**No subject spans two directories.** `base/` was read file by file rather than sorted by name, and
+the reading corrected the guess: `Ground.h`, `Tile.h`, `GroundTable.h` and `GroundPatch.h` LOOK
+like terrain and are not -- `Making.h`, `OccupancySink.h` and `DrawSource.h` are built on them, so
+they are the shared way a generator asks about the ground. `FeatureField.h` is reached by water/,
+road/ AND building/. base/ is already what the rule says is left over: the shared part.
+`GroundSnapshot.h` and `Shipped.h` in the root name every subject, and that is what an AGGREGATOR
+is -- they hand the areas through, they are not a subject living outside its own directory. The
+fields they name (`BuildingField`, `WaterField`) are `outshine::Ground`, engine-side, which is
+where the checkability rule puts them: OSM is a truth outside this tree.
+
+**scatter/ and cloud/ hold no subject.** There is no cloud code in the tree, and "scatter" occurs
+only as a word inside `ClusterId.h` and `DrawSink.h`. Creating the two directories with a `reaches`
+apiece would make this item's test pass while proving nothing -- the count of areas is not the
+claim, the cut is. They are filed when there is something to put in them.
+
