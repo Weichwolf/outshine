@@ -239,11 +239,11 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
               static_cast<float>(static_cast<double>(built.Verts[vertex + 1]) + shift[1]));
           out.PositionM.push_back(
               static_cast<float>(static_cast<double>(built.Verts[vertex + 2]) + shift[2]));
-          out.Uv.push_back(built.Verts[vertex + 3]);
-          out.Uv.push_back(built.Verts[vertex + 4]);
-          out.NormalM.push_back(built.Verts[vertex + 5]);
-          out.NormalM.push_back(built.Verts[vertex + 6]);
-          out.NormalM.push_back(built.Verts[vertex + 7]);
+          out.Uv.push_back(built.Verts[vertex + kTileVertexUvAt]);
+          out.Uv.push_back(built.Verts[vertex + kTileVertexUvAt + 1]);
+          out.NormalM.push_back(built.Verts[vertex + kTileVertexFacingAt]);
+          out.NormalM.push_back(built.Verts[vertex + kTileVertexFacingAt + 1]);
+          out.NormalM.push_back(built.Verts[vertex + kTileVertexFacingAt + 2]);
         }
         out.ClustersHeld += built.Clusters.size();
         const auto rebase = static_cast<uint32_t>(out.AllIndex.size());
