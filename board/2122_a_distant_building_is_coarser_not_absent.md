@@ -88,3 +88,27 @@ existing rather than be freed sooner.
 THE GRAIN IS ALREADY RIGHT: `Build()` works on `next.Tile` from `field.Tiles()`, which is a VECTOR
 tile, not a terrain tile, and since the rung stopped bounding the detail decision the two ladders
 are independent as they should be. What is world-grained is only the buffer.
+
+## The threads decide the shape, and they rule out the obvious fix
+
+"Let the mesher write into the frame copy" is wrong the moment more than one thread exists: that
+copy is what the RENDERER reads, and a worker writing into it is exactly the defect CLAUDE.md names
+-- a subsystem reading another's live state instead of its snapshot.
+
+What the references do instead, and it settles the buffer question as a side effect:
+
+  - a WORKER bakes ONE tile to completion into its own small buffer
+  - the finished piece is HANDED OVER whole -- RAGE swaps a completed streaming buffer in, Unreal
+    creates the resource on the RHI thread and the render thread only ever sees finished ones
+  - the renderer's side is an ARENA that finished pieces are placed into, not a vector the sim
+    appends to
+
+Three things fall out together, which is why this is one change and not three:
+
+  - the PEAK is one tile's working set, because that is all a worker holds at once
+  - the HANDOVER is a snapshot by construction: a piece is either finished and visible or not there
+  - the REBUILD leaves the frame path, because the frame only places pieces that are already built
+
+The unit of all three is the VECTOR tile, which is what the bake is already grained to. What has to
+change is that `Raised` stops being one world-sized accumulator and becomes a worker's scratch,
+and that the renderer's arrays stop being appended to by whoever is meshing.
