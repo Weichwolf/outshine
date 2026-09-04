@@ -9,19 +9,13 @@
 #include <cstddef>
 #include <type_traits>
 #include "math/Vec3.h"
-#include "ChunkVtx.h"
+#include "StoredVertex.h"
 #include "ClusterDag.h"
 
 namespace outshine {
 
-using TileVertex = ChunkVtx;
-
-inline constexpr size_t kTileVertexFloats = kChunkVtxFloats;
-inline constexpr size_t kTileVertexUvAt = kChunkVtxUvAt;
-inline constexpr size_t kTileVertexFacingAt = kChunkVtxNormAt;
-
 struct TileBuild {
-  std::vector<TileVertex> Verts;
+  std::vector<StoredVertex> Verts;
   std::vector<uint32_t> Idx;
   std::vector<DagCluster> Clusters;
   Vec3 OriginEcef;

@@ -48,12 +48,12 @@ namespace {
 [[nodiscard]] uint64_t DigestOver(const Raised &built) {
   uint64_t mixed = kDigestBasis;
   const auto fold = [&mixed](uint64_t one) { mixed = (mixed ^ one) * kDigestPrime; };
-  const auto foldVertex = [&fold](const TileVertex &one) {
+  const auto foldVertex = [&fold](const StoredVertex &one) {
     const auto *const held = reinterpret_cast<const float *>(&one);
-    for (size_t at = 0; at < kChunkVtxFloats; ++at) { fold(std::bit_cast<uint32_t>(held[at])); }
+    for (size_t at = 0; at < kStoredVertexFloats; ++at) { fold(std::bit_cast<uint32_t>(held[at])); }
   };
-  for (const TileVertex &one : built.WallCorners) { foldVertex(one); }
-  for (const TileVertex &one : built.RoofCorners) { foldVertex(one); }
+  for (const StoredVertex &one : built.WallCorners) { foldVertex(one); }
+  for (const StoredVertex &one : built.RoofCorners) { foldVertex(one); }
   for (const uint32_t one : built.WallRun) { fold(one); }
   for (const uint32_t one : built.RoofRun) { fold(one); }
   return mixed;

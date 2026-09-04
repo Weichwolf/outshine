@@ -11,10 +11,10 @@
 
 namespace outshine::Ground {
 
-void CookTile(std::span<const ChunkVtx> soup,
+void CookTile(std::span<const StoredVertex> soup,
               int gridverts,
               const Vec3 &origin,
-              std::vector<TileVertex> &outVerts,
+              std::vector<StoredVertex> &outVerts,
               std::vector<uint32_t> &outIdx,
               std::vector<DagCluster> &outClusters);
 

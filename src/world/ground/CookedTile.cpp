@@ -21,7 +21,7 @@ namespace outshine::Ground {
 
 namespace {
 
-constexpr size_t kTileSoupFloats = kTileVertexFloats;
+constexpr size_t kTileSoupFloats = kStoredVertexFloats;
 
 constexpr uint32_t kTileClusterTriangles = 128;
 
@@ -30,10 +30,10 @@ constexpr uint32_t kTileDagLevels = static_cast<uint32_t>(Generators::Detail::Sk
 
 } // namespace
 
-void CookTile(std::span<const ChunkVtx> soup,
+void CookTile(std::span<const StoredVertex> soup,
               int gridverts,
               [[maybe_unused]] const Vec3 &origin,
-              std::vector<TileVertex> &outVerts,
+              std::vector<StoredVertex> &outVerts,
               std::vector<uint32_t> &outIdx,
               std::vector<DagCluster> &outClusters) {
   outVerts.clear();
@@ -70,7 +70,7 @@ void CookTile(std::span<const ChunkVtx> soup,
   const auto ownFrom = static_cast<uint32_t>(gridverts);
   for (const uint32_t from : cut.MadeFrom) {
     const size_t at = from < ownFrom ? from : outVerts.size() - (ownFrom - from);
-    ChunkVtx made = outVerts[std::min(at, outVerts.size() - 1)];
+    StoredVertex made = outVerts[std::min(at, outVerts.size() - 1)];
     const size_t which = outVerts.size();
     made.pos = Vec3f{
         {cut.PositionsM[which * 3], cut.PositionsM[which * 3 + 1], cut.PositionsM[which * 3 + 2]}};

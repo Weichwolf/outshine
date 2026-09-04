@@ -75,8 +75,8 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   const BuildingMesh mesher;
   Raised raised;
   if (!mesher.Mesh(plan, raised)) { return false; }
-  std::vector<TileVertex> soup;
-  const auto spread = [&soup](const std::vector<TileVertex> &corners,
+  std::vector<StoredVertex> soup;
+  const auto spread = [&soup](const std::vector<StoredVertex> &corners,
                               const std::vector<uint32_t> &run) {
     for (const uint32_t corner : run) { soup.push_back(corners[corner]); }
   };
@@ -88,7 +88,7 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   if (!made.Take("structure",
                  MaterialInstance(0),
                  reinterpret_cast<const float *>(soup.data()),
-                 soup.size() * kTileVertexFloats)) {
+                 soup.size() * kStoredVertexFloats)) {
     return false;
   }
   const Geometry stood = made.Handed();

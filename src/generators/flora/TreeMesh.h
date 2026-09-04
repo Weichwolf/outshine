@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "ChunkVtx.h"
+#include "StoredVertex.h"
 
 namespace outshine::Generators {
 

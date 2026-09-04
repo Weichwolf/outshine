@@ -395,7 +395,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     stage = "grid";
   }
   if (miss == Miss::None) {
-    CookTile(std::span<const ChunkVtx>(chunk.verts, static_cast<size_t>(chunk.nverts)),
+    CookTile(std::span<const StoredVertex>(chunk.verts, static_cast<size_t>(chunk.nverts)),
              chunk.gridverts,
              origin,
              out->Build.Verts,

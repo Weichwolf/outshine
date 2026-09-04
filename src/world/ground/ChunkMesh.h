@@ -2,7 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_CHUNKMESH_H
 #include "math/Vec3.h"
 #include "ChunkSurface.h"
-#include "ChunkVtx.h"
+#include "StoredVertex.h"
 #include "Heap.h"
 #include <math.h>
 #include "TerrainGrid.h"
@@ -13,6 +13,26 @@
 #include <string.h>
 
 #include <algorithm>
+
+namespace outshine {
+
+struct Chunk {
+  StoredVertex *verts;
+  int nverts;
+  int gridverts;
+  float err;
+};
+
+inline void ChunkFree(Chunk *c) {
+  if (c == nullptr) { return; }
+  free(c->verts);
+  c->verts = nullptr;
+  c->nverts = 0;
+  c->gridverts = 0;
+  c->err = 0.f;
+}
+
+} // namespace outshine
 
 namespace outshine::Ground {
 
@@ -155,8 +175,8 @@ ChunkBuildEcef(const TerrainMesh &mesh, Data::TileId over, int grid, Chunk *out,
   out->err = err;
 
   const int nquad = (gr - 1) * (gc - 1);
-  auto *v = static_cast<ChunkVtx *>(
-      Heap::Take("terrain tile vertices", static_cast<size_t>(nquad) * 6 * sizeof(ChunkVtx)));
+  auto *v = static_cast<StoredVertex *>(
+      Heap::Take("terrain tile vertices", static_cast<size_t>(nquad) * 6 * sizeof(StoredVertex)));
   size_t o = 0;
   for (int j = 0; j < gr - 1; j++) {
     for (int i = 0; i < gc - 1; i++) {
@@ -165,7 +185,7 @@ ChunkBuildEcef(const TerrainMesh &mesh, Data::TileId over, int grid, Chunk *out,
         const int qi = i + corner.Col;
         const double *P = pe + (static_cast<size_t>(qj) * gc + qi) * 3;
         const float *N = nv + (static_cast<size_t>(qj) * gc + qi) * 3;
-        v[o++] = ChunkVtx::Of(
+        v[o++] = StoredVertex::Of(
             Vec3f{{static_cast<float>(P[0]), static_cast<float>(P[1]), static_cast<float>(P[2])}},
             Vec2f{{static_cast<float>(static_cast<double> W3_CI(qi) / static_cast<double>(C - 1)),
                    static_cast<float>(static_cast<double> W3_RI(qj) / static_cast<double>(R - 1))}},

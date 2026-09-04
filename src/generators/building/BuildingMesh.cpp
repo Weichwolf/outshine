@@ -181,7 +181,7 @@ public:
 
 private:
   [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const Vec3 &nrm) {
-    std::vector<TileVertex> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
+    std::vector<StoredVertex> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
     const uint64_t facing =
         (static_cast<uint64_t>(
              static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[0] * 4096.0))))
@@ -204,7 +204,7 @@ private:
       turned[static_cast<size_t>(c)] =
           static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]);
     }
-    soup.push_back(ChunkVtx::Of(placeM, Vec2f{{v.U, v.V}}, turned));
+    soup.push_back(StoredVertex::Of(placeM, Vec2f{{v.U, v.V}}, turned));
     return made;
   }
 

@@ -16,7 +16,7 @@ namespace outshine {
 inline constexpr double kSteepestRoof = 0.5;
 
 struct Raised {
-  std::vector<TileVertex> WallCorners, RoofCorners;
+  std::vector<StoredVertex> WallCorners, RoofCorners;
   std::vector<uint32_t> WallRun, RoofRun;
 
   void Clear() noexcept {
@@ -34,13 +34,13 @@ struct Raised {
   }
 
   [[nodiscard]] std::size_t HeapBytes() const noexcept {
-    return WallCorners.capacity() * sizeof(TileVertex) +
-           RoofCorners.capacity() * sizeof(TileVertex) + WallRun.capacity() * sizeof(uint32_t) +
+    return WallCorners.capacity() * sizeof(StoredVertex) +
+           RoofCorners.capacity() * sizeof(StoredVertex) + WallRun.capacity() * sizeof(uint32_t) +
            RoofRun.capacity() * sizeof(uint32_t);
   }
 
   [[nodiscard]] std::size_t UsedBytes() const noexcept {
-    return WallCorners.size() * sizeof(TileVertex) + RoofCorners.size() * sizeof(TileVertex) +
+    return WallCorners.size() * sizeof(StoredVertex) + RoofCorners.size() * sizeof(StoredVertex) +
            WallRun.size() * sizeof(uint32_t) + RoofRun.size() * sizeof(uint32_t);
   }
 };

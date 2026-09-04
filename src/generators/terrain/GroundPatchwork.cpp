@@ -84,13 +84,13 @@ void SphereTile(Data::TileId over, int grid, TileBuild *out) {
           .HeightM = 0.0};
       const Ground::Ecef at = Ground::GeoToEcefWgs84(where);
       const double away = std::sqrt(at.X * at.X + at.Y * at.Y + at.Z * at.Z);
-      out->Verts.push_back(ChunkVtx::Of(Vec3f{{static_cast<float>(at.X - anchor.X),
-                                               static_cast<float>(at.Y - anchor.Y),
-                                               static_cast<float>(at.Z - anchor.Z)}},
-                                        Vec2f{{static_cast<float>(u), static_cast<float>(v)}},
-                                        Vec3f{{static_cast<float>(at.X / away),
-                                               static_cast<float>(at.Y / away),
-                                               static_cast<float>(at.Z / away)}}));
+      out->Verts.push_back(StoredVertex::Of(Vec3f{{static_cast<float>(at.X - anchor.X),
+                                                   static_cast<float>(at.Y - anchor.Y),
+                                                   static_cast<float>(at.Z - anchor.Z)}},
+                                            Vec2f{{static_cast<float>(u), static_cast<float>(v)}},
+                                            Vec3f{{static_cast<float>(at.X / away),
+                                                   static_cast<float>(at.Y / away),
+                                                   static_cast<float>(at.Z / away)}}));
     }
   }
   out->Idx.reserve(static_cast<size_t>(side - 1) * static_cast<size_t>(side - 1) * 6u);
@@ -230,7 +230,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                              built.OriginEcef[1] - out.OriginEcef[1],
                              built.OriginEcef[2] - out.OriginEcef[2]}};
         const auto first = static_cast<uint32_t>(out.PositionM.size() / 3);
-        for (const TileVertex &one : built.Verts) {
+        for (const StoredVertex &one : built.Verts) {
           for (int axis = 0; axis < 3; ++axis) {
             out.PositionM.push_back(static_cast<float>(
                 static_cast<double>(one.pos[static_cast<size_t>(axis)]) + shift[axis]));

@@ -70,7 +70,7 @@ private:
 };
 
 struct Carrying {
-  std::span<const TileVertex> Corners;
+  std::span<const StoredVertex> Corners;
   Vec3 AnchorEcefM = {{0.0, 0.0, 0.0}};
   size_t Already = 0;
 };
@@ -81,7 +81,7 @@ struct Carried {
 };
 
 inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standing, Carried into) {
-  const std::span<const TileVertex> corners = from.Corners;
+  const std::span<const StoredVertex> corners = from.Corners;
   const Vec3 &anchor = from.AnchorEcefM;
   std::vector<float> &places = into.PlacesM;
   std::vector<float> &turned = into.Turned;
@@ -93,7 +93,7 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
   places.resize(count * 3);
   turned.resize(count * 3);
   for (size_t at = already; at < count; ++at) {
-    const TileVertex &one = corners[at];
+    const StoredVertex &one = corners[at];
     const Vec3 held = {{anchor[0] + static_cast<double>(one.pos[0]),
                         anchor[1] + static_cast<double>(one.pos[1]),
                         anchor[2] + static_cast<double>(one.pos[2])}};
