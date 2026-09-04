@@ -159,6 +159,7 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
       continue;
     }
     const auto ext = static_cast<double>(mvt.Extent());
+    if (mvt.Extent() > 0 && mvt.Extent() < Extent_) { Extent_ = mvt.Extent(); }
     const std::vector<int32_t> &pts = mvt.Points();
 
     for (const OsmVector::Feature &sf : mvt.Features()) {

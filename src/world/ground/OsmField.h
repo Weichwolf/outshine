@@ -117,7 +117,11 @@ public:
 
   [[nodiscard]] std::string_view Str(const Feature &f, const char *key) const;
 
+  [[nodiscard]] int Extent() const { return Extent_; }
+
 private:
+  int Extent_ = 4096;
+
   int CentreX_ = 0, CentreY_ = 0;
 
   struct Value {

@@ -389,7 +389,8 @@ int BuildingField::Build(const GroundQuery &ground,
 
   const double awayM = AwayFromCentreM(field, next.Tile);
   const int rungsOut = TileSpanM_ > 0.0 ? static_cast<int>(awayM / TileSpanM_) : 0;
-  const Generators::Detail level = Generators::DetailAtRung(rungsOut);
+
+  const Generators::Detail hint = Generators::DetailAtRung(rungsOut);
 
   std::map<uint64_t, Lumped> lumps;
   size_t lumped = 0;
@@ -462,10 +463,23 @@ int BuildingField::Build(const GroundQuery &ground,
       fp.BaseM = static_cast<float>(base);
       fp.FootM = static_cast<float>(base);
       fp.SeatM = static_cast<float>(seat);
+
+      const double highM = std::max(static_cast<double>(fp.HeightM), kStoreyM);
+      const double statedM = TileSpanM_ > 0.0 && field.Extent() > 0
+                                 ? TileSpanM_ / static_cast<double>(field.Extent())
+                                 : 0.0;
+      const double finestM = std::max(kStoreyM, statedM);
+      const double wholePx =
+          FocalPx_ > 0.0f && awayM > 1.0 ? highM * static_cast<double>(FocalPx_) / awayM : 0.0;
+      const bool seenAtAll = FocalPx_ > 0.0f && awayM > 1.0;
+      const Generators::Detail level =
+          seenAtAll ? Generators::Coarser(
+                          Generators::DetailAtPixels(wholePx * finestM / highM, wholePx), hint)
+                    : hint;
       fp.Coarseness = level;
       Prints_.push_back(fp);
 
-      if (level != Generators::Detail::Fine) {
+      if (level >= Generators::Detail::Massed) {
         Lump(lumps,
              {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
              {.BaseM = base,
@@ -487,6 +501,11 @@ int BuildingField::Build(const GroundQuery &ground,
               .count();
       added++;
     }
+  }
+
+  for (const auto &[where, block] : lumps) {
+    (void)where;
+    RaiseLump(block);
   }
 
   ByTile_.Set(next.Tile, firstPrint, static_cast<uint32_t>(Prints_.size()));
@@ -517,8 +536,24 @@ int BuildingField::Build(const GroundQuery &ground,
 void BuildingField::RaiseLump(const BuildingField::Lumped &of) {
   if (Mesher_ == nullptr || of.Count == 0) { return; }
   const auto over = static_cast<double>(of.Count);
+
+  const double midLat = 0.5 * (of.LowLat + of.HighLat);
+  const double midLon = 0.5 * (of.LowLon + of.HighLon);
+  const double spanLatM = (of.HighLat - of.LowLat) * kMPerDegLat;
+  const double spanLonM = (of.HighLon - of.LowLon) * kMPerDegLon * std::cos(midLat * kDeg2Rad);
+  const double boxM2 = spanLatM * spanLonM;
+  const double shrink = boxM2 > 0.0 && of.RoofAreaM2 > 0.0 && of.RoofAreaM2 < boxM2
+                            ? std::sqrt(of.RoofAreaM2 / boxM2)
+                            : 1.0;
+  const double halfLat = 0.5 * (of.HighLat - of.LowLat) * shrink;
+  const double halfLon = 0.5 * (of.HighLon - of.LowLon) * shrink;
+  const double lowLat = midLat - halfLat;
+  const double highLat = midLat + halfLat;
+  const double lowLon = midLon - halfLon;
+  const double highLon = midLon + halfLon;
+
   const std::array<double, 8> ring = {
-      of.LowLat, of.LowLon, of.LowLat, of.HighLon, of.HighLat, of.HighLon, of.HighLat, of.LowLon};
+      lowLat, lowLon, lowLat, highLon, highLat, highLon, highLat, lowLon};
   Corners_.assign(4, of.BaseSum / over);
   StructurePlan plan;
   plan.RingLatLon = std::span<const double>(ring.data(), ring.size());

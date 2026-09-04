@@ -89,6 +89,53 @@ static_assert(DetailAtRung(1) == Detail::Shell);
 static_assert(DetailAtRung(2) == Detail::Massed);
 static_assert(DetailAtRung(9) == Detail::Skyline, "every rung beyond is the horizon");
 
+/// The smallest a feature may project and still be a feature: two pixels.
+///
+/// NYQUIST, not taste. A detail spanning one pixel cannot be told from the pixel next to it, and a
+/// detail spanning less aliases -- it flickers as the camera moves rather than fading. Two samples
+/// is the least that resolves anything, so it is the bar a rung has to clear.
+inline constexpr double kResolvedPx = 2.0;
+
+/// Below this a shape is a silhouette: still worth drawing, no longer worth its own outline.
+inline constexpr double kSilhouettePx = 0.5 * kResolvedPx;
+
+/// The detail a SUBJECT deserves, from what it actually measures on screen.
+///
+/// THE PIXEL DECIDES AND THE TILE ONLY HINTS. Unreal picks a LOD by `ScreenSize` -- the projected
+/// size of the bounding sphere -- and Nanite drives the same idea down to one pixel of error per
+/// cluster; RAGE picks by `lodDist`, which is distance alone, but derives that distance from the
+/// object's SIZE when the map is built. Both make the size of the thing part of the answer. Only
+/// Unreal does it at run time, and that is the half worth taking: a cathedral and a garden shed at
+/// one distance are not the same problem, and no cascade of rungs can tell them apart.
+///
+/// A tile's rung still bounds the answer, because it says what DATA is there -- and the elevation
+/// and the vector tiles need not agree on a size, so neither can be the decision on its own.
+///
+/// `detailPx` is what the subject's finest repeated feature projects to (a storey, a bay);
+/// `wholePx` is what the whole subject projects to.
+[[nodiscard]] constexpr Detail DetailAtPixels(double detailPx, double wholePx) {
+  if (detailPx >= kResolvedPx) { return Detail::Fine; }
+  if (wholePx >= kResolvedPx) { return Detail::Shell; }
+  if (wholePx >= kSilhouettePx) { return Detail::Massed; }
+  return Detail::Skyline;
+}
+
+static_assert(DetailAtPixels(4.0, 40.0) == Detail::Fine,
+              "a storey two pixels tall is worth drawing");
+static_assert(DetailAtPixels(1.0, 12.0) == Detail::Shell,
+              "the storeys have gone, the building has not");
+static_assert(DetailAtPixels(0.1, 1.5) == Detail::Massed);
+static_assert(DetailAtPixels(0.01, 0.2) == Detail::Skyline);
+static_assert(DetailAtPixels(0.0, 0.0) == Detail::Skyline, "nothing on screen is the horizon");
+
+/// The coarser of two readings -- a subject is never finer than the coarsest thing that bounds it.
+[[nodiscard]] constexpr Detail Coarser(Detail one, Detail two) {
+  return static_cast<uint8_t>(one) > static_cast<uint8_t>(two) ? one : two;
+}
+
+static_assert(Coarser(Detail::Fine, Detail::Massed) == Detail::Massed);
+static_assert(Coarser(Detail::Skyline, Detail::Shell) == Detail::Skyline);
+
 /// Where a generator is asked to make something, and what it may ask about that place.
 struct Request {
   /// The centre, in DEGREES. A generator that reads a public map has to know where on Earth it is,
