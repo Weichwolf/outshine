@@ -58,3 +58,12 @@ to the layers whose findings are worth the seconds. Not resolved by turning the 
 
 CentralPark's `Variation < 1.0` refusal: the owner has ruled the guard correct. A hundredth under
 the bar during a heavy refactor is a deviation to live with, not a bar to lower.
+
+## 2026-09-04: a place equal to its reference is prepared by that fact
+
+Kaiserberg and Koehlbrand had rows in `pictures.txt`, references under `build/shots/reference/`
+and no case, so the places suite rewrote `build/shots/places` without them after every
+`make test`. With cases they read UNPREPARED: the variation-along-rows bar (1.0) took their
+broad fields for an empty frame (0.67, 0.6 with a town and a bridge in view). The bar stays for
+a place without a reference; a picture byte for byte equal to a reference an eye accepted is
+prepared by that fact, which is the stronger oracle.

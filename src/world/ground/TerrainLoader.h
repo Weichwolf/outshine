@@ -27,6 +27,7 @@ struct GroundSurface {
 };
 
 class TerrainField;
+class TerrainGrid;
 class TerrainTiles;
 
 [[nodiscard]] double
@@ -82,6 +83,8 @@ public:
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const override;
   [[nodiscard]] GroundSample Resident(LongitudeLatitude at) const override;
   [[nodiscard]] GroundBlock BlockAt(TileSpot at) const override;
+
+  [[nodiscard]] TerrainGrid FieldOf(Data::TileId of) const;
 
   [[nodiscard]] int BlockZoom() const override { return Surface_.Z; }
 

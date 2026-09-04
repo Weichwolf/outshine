@@ -130,9 +130,10 @@ public:
     return Renderer_ == nullptr || Renderer_->SetGroundGrid(fractions, error);
   }
 
-  [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundInstance> instances,
+  [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundInstance> real,
+                                      std::span<const Render::GroundInstance> virtual_,
                                       std::string &error) {
-    return Renderer_ == nullptr || Renderer_->SetGroundLattice(instances, error);
+    return Renderer_ == nullptr || Renderer_->SetGroundLattice(real, virtual_, error);
   }
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const {

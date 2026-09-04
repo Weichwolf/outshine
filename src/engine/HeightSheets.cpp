@@ -12,6 +12,7 @@
 
 #include "ChunkSurface.h"
 #include "Geodesy.h"
+#include "TerrainGrid.h"
 #include "GroundLattice.h"
 #include "Live.h"
 #include "TileGeodesy.h"
@@ -102,6 +103,96 @@ namespace {
 
 } // namespace
 
+namespace {
+
+constexpr long kBlockTiles = 8;
+constexpr long kHalfBlock = kBlockTiles / 2;
+
+struct Block {
+  long X0 = 0;
+  long Y0 = 0;
+};
+
+[[nodiscard]] Block BlockAround(LongitudeLatitude eye, int zoom) {
+  const Ground::TileFrac at = Ground::ToTileFracClamped(
+      Ground::Geo{.LongitudeDeg = eye.LongitudeDeg, .LatitudeDeg = eye.LatitudeDeg}, zoom);
+  const auto origin = [](double f) {
+    return kHalfBlock *
+           static_cast<long>(std::floor((std::floor(f) - static_cast<double>(kHalfBlock - 1)) /
+                                        static_cast<double>(kHalfBlock)));
+  };
+  return {.X0 = origin(at.X), .Y0 = origin(at.Y)};
+}
+
+[[nodiscard]] bool Covers(Block finer, long x, long y) {
+  return x >= finer.X0 / 2 && x < finer.X0 / 2 + kHalfBlock && y >= finer.Y0 / 2 &&
+         y < finer.Y0 / 2 + kHalfBlock;
+}
+
+void SampleVirtual(const Ground::TerrainField &field,
+                   Data::TileId tile,
+                   uint32_t drop,
+                   Sheet &sheet) {
+  const int side = Render::GroundLattice::kSide;
+  const double span = 1.0 / static_cast<double>(1u << drop);
+  const double offX = static_cast<double>(tile.X & ((1u << drop) - 1u)) * span;
+  const double offY = static_cast<double>(tile.Y & ((1u << drop) - 1u)) * span;
+  sheet.Nodes.resize(Render::GroundLattice::kNodes);
+  for (int j = 0; j < side; ++j) {
+    const double fy = offY + span * static_cast<double>(j) / static_cast<double>(side - 1);
+    for (int i = 0; i < side; ++i) {
+      const double fx = offX + span * static_cast<double>(i) / static_cast<double>(side - 1);
+      sheet.Nodes[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)] =
+          field.PostingM({.Col = fx, .Row = fy});
+    }
+  }
+}
+
+} // namespace
+
+size_t HeightSheets::Refine(Patchwork &laid, const Ground::GroundStream &ground, Nearer how) {
+  if (how.Levels <= 0) { return 0; }
+  std::vector<std::pair<Data::TileId, Ground::TerrainGrid>> fields;
+  const auto fieldOf = [&](Data::TileId parent) -> const Ground::TerrainField * {
+    for (const auto &one : fields) {
+      if (one.first == parent) { return one.second.TryField(); }
+    }
+    fields.emplace_back(parent, ground.FieldOf(parent));
+    return fields.back().second.TryField();
+  };
+  std::vector<Sheet> made;
+  Block finer = BlockAround(how.Eye, how.FinestZoom + how.Levels + 1);
+  for (int level = how.Levels; level >= 1; --level) {
+    const int zoom = how.FinestZoom + level;
+    const Block block = BlockAround(how.Eye, zoom);
+    const bool anyFiner = level < how.Levels;
+    for (long row = 0; row < kBlockTiles; ++row) {
+      for (long column = 0; column < kBlockTiles; ++column) {
+        const long x = block.X0 + column;
+        const long y = block.Y0 + row;
+        if (anyFiner && Covers(finer, x, y)) { continue; }
+        const auto drop = static_cast<uint32_t>(level);
+        const Data::TileId tile{
+            .Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
+        const Ground::TerrainField *field =
+            fieldOf({.Zoom = how.FinestZoom, .X = tile.X >> drop, .Y = tile.Y >> drop});
+        Sheet sheet{
+            .Tile = tile, .Side = Render::GroundLattice::kSide, .Postings = 0, .Virtual = true};
+        if (field != nullptr && field->Meshable()) { SampleVirtual(*field, tile, drop, sheet); }
+        made.push_back(std::move(sheet));
+      }
+    }
+    finer = block;
+  }
+  std::erase_if(laid.Sheets, [&](const Sheet &one) {
+    return one.Tile.Zoom == how.FinestZoom &&
+           Covers(finer, static_cast<long>(one.Tile.X), static_cast<long>(one.Tile.Y));
+  });
+  const size_t count = made.size();
+  for (Sheet &one : made) { laid.Sheets.push_back(std::move(one)); }
+  return count;
+}
+
 size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) const {
   if (!Framed_ || yields.empty()) { return 0; }
   const int side = Render::GroundLattice::kSide;
@@ -110,13 +201,19 @@ size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) cons
   std::vector<std::pair<size_t, size_t>> where;
   for (size_t sheet = 0; sheet < laid.Sheets.size(); ++sheet) {
     const Sheet &one = laid.Sheets[sheet];
-    if (one.Side != side || one.Postings < 2 || one.Nodes.size() != Render::GroundLattice::kNodes) {
+    if (one.Side != side || (!one.Virtual && one.Postings < 2) ||
+        one.Nodes.size() != Render::GroundLattice::kNodes) {
       continue;
     }
+    const auto fractionOf = [&one](int k) {
+      constexpr int side = Render::GroundLattice::kSide;
+      return one.Virtual ? static_cast<double>(k) / static_cast<double>(side - 1)
+                         : FractionOf(k, one.Postings, side);
+    };
     for (int j = 0; j < side; ++j) {
-      const double fy = FractionOf(j, one.Postings, side);
+      const double fy = fractionOf(j);
       for (int i = 0; i < side; ++i) {
-        const double fx = FractionOf(i, one.Postings, side);
+        const double fx = fractionOf(i);
         const Ground::Geo geo = Ground::TileFracToGeo(
             {.X = static_cast<double>(one.Tile.X) + fx, .Y = static_cast<double>(one.Tile.Y) + fy},
             one.Tile.Zoom);
@@ -152,10 +249,30 @@ size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) cons
   return moved;
 }
 
+bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
+  for (const Sheet &sheet : laid.Sheets) {
+    if (sheet.Side != Render::GroundLattice::kSide || sheet.Virtual || sheet.Postings < 2 ||
+        sheet.Postings == GridPostings_) {
+      continue;
+    }
+    std::vector<float> fractions;
+    fractions.reserve(static_cast<size_t>(Render::GroundLattice::kSide));
+    for (int k = 0; k < Render::GroundLattice::kSide; ++k) {
+      fractions.push_back(
+          static_cast<float>(FractionOf(k, sheet.Postings, Render::GroundLattice::kSide)));
+    }
+    if (!Live_->SetGroundGrid(fractions, error)) { return false; }
+    GridPostings_ = sheet.Postings;
+    return true;
+  }
+  return true;
+}
+
 bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
   if (Live_ == nullptr || !Framed_) { return true; }
   for (Held &one : Held_) { one.Wanted = false; }
   Instances_.clear();
+  Virtual_.clear();
   const size_t nodes = Render::GroundLattice::kNodes;
   for (const Sheet &sheet : laid.Sheets) {
     Render::PageId page = Render::kNoPage;
@@ -169,28 +286,14 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
       page = Zero_;
     }
     if (page == Render::kNoPage) { return false; }
-    Instances_.push_back(InstanceOf(sheet.Tile, page));
+    (sheet.Virtual ? Virtual_ : Instances_).push_back(InstanceOf(sheet.Tile, page));
   }
-  for (const Sheet &sheet : laid.Sheets) {
-    if (sheet.Side != Render::GroundLattice::kSide || sheet.Postings < 2 ||
-        sheet.Postings == GridPostings_) {
-      continue;
-    }
-    std::vector<float> fractions;
-    fractions.reserve(static_cast<size_t>(Render::GroundLattice::kSide));
-    for (int k = 0; k < Render::GroundLattice::kSide; ++k) {
-      fractions.push_back(
-          static_cast<float>(FractionOf(k, sheet.Postings, Render::GroundLattice::kSide)));
-    }
-    if (!Live_->SetGroundGrid(fractions, error)) { return false; }
-    GridPostings_ = sheet.Postings;
-    break;
-  }
+  if (!HandsGrid(laid, error)) { return false; }
   for (const Held &one : Held_) {
     if (!one.Wanted) { Live_->ReleaseHeightPage(one.Page); }
   }
   std::erase_if(Held_, [](const Held &one) { return !one.Wanted; });
-  return Live_->SetGroundLattice(Instances_, error);
+  return Live_->SetGroundLattice(Instances_, Virtual_, error);
 }
 
 void HeightSheets::Clear() {
@@ -198,10 +301,11 @@ void HeightSheets::Clear() {
     for (const Held &one : Held_) { Live_->ReleaseHeightPage(one.Page); }
     if (Zero_ != Render::kNoPage) { Live_->ReleaseHeightPage(Zero_); }
     std::string ignored;
-    (void)Live_->SetGroundLattice({}, ignored);
+    (void)Live_->SetGroundLattice({}, {}, ignored);
   }
   Held_.clear();
   Instances_.clear();
+  Virtual_.clear();
   Zero_ = Render::kNoPage;
   GridPostings_ = 0;
 }

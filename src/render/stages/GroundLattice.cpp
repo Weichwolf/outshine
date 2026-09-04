@@ -84,7 +84,9 @@ bool UploadBuffer(SDL_GPUDevice *device,
 
 } // namespace
 
-bool GroundLattice::BuildGrid(std::span<const float> fractions, std::string &error) {
+bool GroundLattice::BuildGrid(std::span<const float> fractions,
+                              OwnedBuffer &into,
+                              std::string &error) {
   std::vector<float> grid;
   grid.reserve(static_cast<size_t>(kVertices) * kGridFloats);
   const auto step = [fractions](int k) {
@@ -107,7 +109,7 @@ bool GroundLattice::BuildGrid(std::span<const float> fractions, std::string &err
     for (int i = 0; i + 1 < kSide; ++i) {
       index.insert(
           index.end(),
-          {at(i, j), at(i, j + 1), at(i + 1, j), at(i + 1, j), at(i, j + 1), at(i + 1, j + 1)});
+          {at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i, j), at(i + 1, j + 1), at(i + 1, j)});
     }
   }
   const auto skirt = [&index](uint32_t edgeA, uint32_t edgeB, uint32_t dropA, uint32_t dropB) {
@@ -133,24 +135,26 @@ bool GroundLattice::BuildGrid(std::span<const float> fractions, std::string &err
   SDL_GPUBufferCreateInfo wanted{};
   wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
   wanted.size = static_cast<uint32_t>(grid.size() * sizeof(float));
-  Grid_ = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
-  wanted.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-  wanted.size = static_cast<uint32_t>(index.size() * sizeof(uint32_t));
-  Index_ = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
-  if (!Grid_ || !Index_) {
+  into = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+  if (!Index_) {
+    wanted.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+    wanted.size = static_cast<uint32_t>(index.size() * sizeof(uint32_t));
+    Index_ = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+    if (!Index_ || !UploadBuffer(Device_,
+                                 Index_.Get(),
+                                 index.data(),
+                                 static_cast<uint32_t>(index.size() * sizeof(uint32_t)),
+                                 error)) {
+      error = std::format(Says::kBufferRefused, "grid", SDL_GetError());
+      return false;
+    }
+  }
+  if (!into) {
     error = std::format(Says::kBufferRefused, "grid", SDL_GetError());
     return false;
   }
-  return UploadBuffer(Device_,
-                      Grid_.Get(),
-                      grid.data(),
-                      static_cast<uint32_t>(grid.size() * sizeof(float)),
-                      error) &&
-         UploadBuffer(Device_,
-                      Index_.Get(),
-                      index.data(),
-                      static_cast<uint32_t>(index.size() * sizeof(uint32_t)),
-                      error);
+  return UploadBuffer(
+      Device_, into.Get(), grid.data(), static_cast<uint32_t>(grid.size() * sizeof(float)), error);
 }
 
 bool GroundLattice::BuildPages(std::string &error) {
@@ -197,12 +201,16 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
   if (Device_ != device || !Pages_ || !Grid_) {
     Device_ = device;
     Instances_.Reset();
+    Index_.Reset();
     InstanceRoom_ = 0;
-    InstanceCount_ = 0;
+    RealCount_ = 0;
+    VirtualCount_ = 0;
     Spare_.clear();
     PagesMade_ = 0;
     PagesLive_ = 0;
-    if (!BuildGrid({}, error) || !BuildPages(error)) { return false; }
+    if (!BuildGrid({}, Grid_, error) || !BuildGrid({}, UniformGrid_, error) || !BuildPages(error)) {
+      return false;
+    }
   }
   const OwnedShader vertex(
       Device_,
@@ -294,7 +302,7 @@ bool GroundLattice::SetGrid(std::span<const float> fractions, std::string &error
     error = std::format(Says::kPageWrongSize, kSide, fractions.size());
     return false;
   }
-  return BuildGrid(fractions, error);
+  return BuildGrid(fractions, Grid_, error);
 }
 
 PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error) {
@@ -351,13 +359,20 @@ void GroundLattice::ReleasePage(PageId which) {
   --PagesLive_;
 }
 
-bool GroundLattice::SetInstances(std::span<const GroundInstance> instances, std::string &error) {
-  InstanceCount_ = 0;
-  if (instances.empty()) { return true; }
+bool GroundLattice::SetInstances(std::span<const GroundInstance> real,
+                                 std::span<const GroundInstance> virtual_,
+                                 std::string &error) {
+  RealCount_ = 0;
+  VirtualCount_ = 0;
+  if (real.empty() && virtual_.empty()) { return true; }
   if (Device_ == nullptr) {
     error = std::string(Says::kNoDevice);
     return false;
   }
+  std::vector<GroundInstance> instances;
+  instances.reserve(real.size() + virtual_.size());
+  instances.insert(instances.end(), real.begin(), real.end());
+  instances.insert(instances.end(), virtual_.begin(), virtual_.end());
   const auto count = static_cast<uint32_t>(instances.size());
   if (!Instances_ || InstanceRoom_ < count) {
     uint32_t room = InstanceRoom_ > 0 ? InstanceRoom_ : 64u;
@@ -376,28 +391,34 @@ bool GroundLattice::SetInstances(std::span<const GroundInstance> instances, std:
   if (!UploadBuffer(Device_,
                     Instances_.Get(),
                     instances.data(),
-                    static_cast<uint32_t>(instances.size_bytes()),
+                    static_cast<uint32_t>(instances.size() * sizeof(GroundInstance)),
                     error)) {
     return false;
   }
-  InstanceCount_ = count;
+  RealCount_ = static_cast<uint32_t>(real.size());
+  VirtualCount_ = static_cast<uint32_t>(virtual_.size());
   return true;
 }
 
 void GroundLattice::Draw(const PassRecording &into, SDL_GPUGraphicsPipeline *pipeline) const {
-  if (pipeline == nullptr || InstanceCount_ == 0 || into.Pass == nullptr || !Grid_ || !Index_ ||
-      !Instances_ || !Pages_) {
+  if (pipeline == nullptr || Instances() == 0 || into.Pass == nullptr || !Grid_ || !UniformGrid_ ||
+      !Index_ || !Instances_ || !Pages_) {
     return;
   }
   SDL_BindGPUGraphicsPipeline(into.Pass, pipeline);
-  const std::array<SDL_GPUBufferBinding, 2> runs = {
-      {{.buffer = Grid_.Get(), .offset = 0}, {.buffer = Instances_.Get(), .offset = 0}}};
-  SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), static_cast<uint32_t>(runs.size()));
   const SDL_GPUBufferBinding index{.buffer = Index_.Get(), .offset = 0};
   SDL_BindGPUIndexBuffer(into.Pass, &index, SDL_GPU_INDEXELEMENTSIZE_32BIT);
   const SDL_GPUTextureSamplerBinding pages{.texture = Pages_.Get(), .sampler = Nearest_.Get()};
   SDL_BindGPUVertexSamplers(into.Pass, 0, &pages, 1);
-  SDL_DrawGPUIndexedPrimitives(into.Pass, kIndices, InstanceCount_, 0, 0, 0);
+  const auto draw = [&into, this](const OwnedBuffer &grid, uint32_t first, uint32_t count) {
+    if (count == 0) { return; }
+    const std::array<SDL_GPUBufferBinding, 2> runs = {
+        {{.buffer = grid.Get(), .offset = 0}, {.buffer = Instances_.Get(), .offset = 0}}};
+    SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), static_cast<uint32_t>(runs.size()));
+    SDL_DrawGPUIndexedPrimitives(into.Pass, kIndices, count, 0, 0, first);
+  };
+  draw(Grid_, 0, RealCount_);
+  draw(UniformGrid_, RealCount_, VirtualCount_);
 }
 
 void GroundLattice::Encode(const PassRecording &into) const {

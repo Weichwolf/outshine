@@ -36,6 +36,7 @@ struct Sheet {
   std::vector<float> Nodes;
   int Side = 0;
   uint32_t Postings = 0;
+  bool Virtual = false;
 };
 
 struct Patchwork {

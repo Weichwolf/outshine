@@ -159,9 +159,10 @@ public:
     return Subjects_.Ground().SetGrid(fractions, error);
   }
 
-  [[nodiscard]] bool SetGroundLattice(std::span<const GroundInstance> instances,
+  [[nodiscard]] bool SetGroundLattice(std::span<const GroundInstance> real,
+                                      std::span<const GroundInstance> virtual_,
                                       std::string &error) {
-    return Subjects_.Ground().SetInstances(instances, error);
+    return Subjects_.Ground().SetInstances(real, virtual_, error);
   }
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const { return Subjects_.Ground().Triangles(); }

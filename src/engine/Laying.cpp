@@ -94,6 +94,7 @@ constexpr double kBatterRun = 1.5;
 constexpr double kLeastApronM = 3.0;
 constexpr double kMostApronM = 240.0;
 constexpr double kFinestGroundM = 3.0;
+constexpr int kLatticeVirtualLevels = 4;
 constexpr size_t kMostYieldTriangles = 24000;
 constexpr double kTrimMostWidths = 4.0;
 constexpr double kFitWithinM = 0.5;
@@ -1852,6 +1853,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const bool lattice = declared.Render.GroundLattice;
   if (lattice) {
     World.Sheets.Framed(standing);
+    Published.Places(
+        "ground: virtual tiles the lattice refines to",
+        static_cast<double>(HeightSheets::Refine(
+            *laid,
+            World.Stack.Ground(),
+            {.FinestZoom = over.Zoom,
+             .Levels = kLatticeVirtualLevels,
+             .Eye = {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}})),
+        "tiles");
   } else if (World.Sheets.Instances() > 0) {
     World.Sheets.Clear();
   }
@@ -2143,8 +2153,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("ground: and the highest it filled", told.RaisedM, "m");
     if (lattice) {
       std::vector<Yields> taken;
-      taken.reserve(told.TakenWhich.size());
-      for (const uint32_t which : told.TakenWhich) { taken.push_back(yielding[which]); }
+      for (const Yields &one : yielding) {
+        if (!one.Fills) { taken.push_back(one); }
+      }
+      for (const uint32_t which : told.TakenWhich) {
+        if (yielding[which].Fills) { taken.push_back(yielding[which]); }
+      }
+      Published.Places(
+          "ground: stamps the lattice takes", static_cast<double>(taken.size()), "yields");
       Published.Places("ground: lattice nodes the stamps pressed",
                        static_cast<double>(World.Sheets.Press(taken, *laid)),
                        "nodes");

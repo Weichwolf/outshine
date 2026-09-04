@@ -218,3 +218,38 @@ The number says what the next step is: the near field needs texels finer than th
 posting -- VIRTUAL levels nearer than the finest tile, the page upsampled from the DEM and the
 stamps rasterised at that level's texel, which is what Unreal's metre-grid Landscape has and
 a 30 m DEM has not.
+
+## Landed 2026-09-04, the near field VIRTUAL: four levels past the finest tile, 8 x 8 blocks
+
+`HeightSheets::Refine` mirrors the ring's block rule downward: at zoom z+1 .. z+4 an 8 x 8 block of
+tiles around the eye, each finer block replacing the centre 4 x 4 of the coarser, the nodes sampled
+bilinearly from the SOURCE tile's stitched field (`GroundStream::FieldOf`, once per parent) -- the
+DEM's own 4.8 m posting at z+3, and z+4 (2.3 m texels) already an upsample. A virtual sheet's grid
+is uniform (a second grid buffer beside the posting-fraction one; two instanced draws), and the
+stamps press its nodes like any other. Every pad presses the lattice (the ring's triangle budget
+took ONE pad of 12 874 at OldTown -- the reference stands on unstamped pads), the corridors as the
+budget took them, until board:2121 bounds a fill by its class.
+
+```
+                           ring      lattice   tiles  nodes pressed  pixels >1/255  >40/255
+  OldTown   p50 ms         2.22      2.96      304    29 442         4 411          310
+  Kaiserberg p50 ms        3.43      4.28      308    11 941         3 787           80
+```
+
+Three things the pictures said, each measured to its cause:
+
+- **the lattice cast a shadow the ring never did** (317 of 593 strong pixels at OldTown: a
+  terrain shadow on a gable roof). The ring's ground rows never cast (`CastsBelow`), so the
+  lattice casts only under the same rule; whether terrain SHOULD shadow a house is board:2128's
+- **the diagonal**: the lattice split each quad the other way from `ChunkQuadWinding`; on a saddle
+  the two surfaces differ by metres. Matched -- 9 479 -> 6 105 pixels over 1/255 at one stroke
+- **what remains is the SEAT**: a house stands where the coarse query (the stream's 65 nodes at
+  z-1, a 36 m chord) put it, and the fine field is metres above that chord on a slope, so the true
+  ground passes through the house's eaves. The pad's stamp cuts inside the footprint and its
+  apron, not the hillside beside the wall. The answer is step 6: the query reads the SAME field
+  the lattice draws (`PostingM` on the stitched source, not the 65-node tile), which moves every
+  seat -- and every reference -- to where the ground actually is
+
+The frame cost is the instance count: 304 tiles x 2 178 triangles drawn whether or not in
+view; CDLOD selects by frustum, and a sphere test per instance on the CPU is the next
+millisecond.

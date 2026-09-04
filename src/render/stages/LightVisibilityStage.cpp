@@ -258,7 +258,6 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
     SDL_DrawGPUIndexedPrimitives(
         into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, batch.ModelSlot);
   }
-  Subjects_->Ground().Cast(into);
 }
 
 } // namespace outshine::Render

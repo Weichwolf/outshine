@@ -45,16 +45,18 @@ public:
 
   [[nodiscard]] PageId PlacePage(std::span<const float> nodes, std::string &error);
   void ReleasePage(PageId which);
-  [[nodiscard]] bool SetInstances(std::span<const GroundInstance> instances, std::string &error);
+  [[nodiscard]] bool SetInstances(std::span<const GroundInstance> real,
+                                  std::span<const GroundInstance> virtual_,
+                                  std::string &error);
 
   void Encode(const PassRecording &into) const;
   void Cast(const PassRecording &into) const;
 
-  [[nodiscard]] uint32_t Instances() const { return InstanceCount_; }
+  [[nodiscard]] uint32_t Instances() const { return RealCount_ + VirtualCount_; }
 
   [[nodiscard]] uint32_t PagesStanding() const { return PagesLive_; }
 
-  [[nodiscard]] uint32_t Triangles() const { return InstanceCount_ * (kIndices / 3u); }
+  [[nodiscard]] uint32_t Triangles() const { return Instances() * (kIndices / 3u); }
 
   [[nodiscard]] uint32_t HeldBytes() const {
     return PagesMade_ * kNodes * static_cast<uint32_t>(sizeof(float)) +
@@ -64,7 +66,8 @@ public:
   }
 
 private:
-  [[nodiscard]] bool BuildGrid(std::span<const float> fractions, std::string &error);
+  [[nodiscard]] bool
+  BuildGrid(std::span<const float> fractions, OwnedBuffer &into, std::string &error);
   [[nodiscard]] bool BuildPages(std::string &error);
   void Draw(const PassRecording &into, SDL_GPUGraphicsPipeline *pipeline) const;
 
@@ -74,13 +77,15 @@ private:
   OwnedTexture Pages_;
   OwnedSampler Nearest_;
   OwnedBuffer Grid_;
+  OwnedBuffer UniformGrid_;
   OwnedBuffer Index_;
   OwnedBuffer Instances_;
   std::vector<PageId> Spare_;
   uint32_t PagesMade_ = 0;
   uint32_t PagesLive_ = 0;
   uint32_t InstanceRoom_ = 0;
-  uint32_t InstanceCount_ = 0;
+  uint32_t RealCount_ = 0;
+  uint32_t VirtualCount_ = 0;
 };
 
 } // namespace outshine::Render

@@ -342,6 +342,10 @@ double GroundStream::PostM(double latDeg) const {
          static_cast<double>(Surface_.Grid);
 }
 
+TerrainGrid GroundStream::FieldOf(Data::TileId of) const {
+  return Held_->Stitched->StitchedGrid(of.Zoom, of.X, of.Y);
+}
+
 GroundBlock GroundStream::BlockAt(TileSpot at) const {
   if (at.Zoom != Surface_.Z) { return {}; }
   long hx = at.X;

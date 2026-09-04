@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -94,6 +95,17 @@ inline int ScorePlace(const char *place) {
                 " tile(s) BARE on the ellipsoid -- the elevation never arrived, so the ground and "
                 "everything on it is drawn at sea level")
                    .c_str());
+    return Report();
+  }
+  // A PICTURE EQUAL TO A REFERENCE WAS LOOKED AT, which is the stronger proof: the bar below is a
+  // heuristic against an empty frame, and a frame that is byte for byte one an eye accepted under
+  // build/shots/reference/ cannot be empty -- Kaiserberg's broad fields read 0.67 along their rows
+  // with a town and a bridge in view.
+  if (std::filesystem::exists(std::string("build/shots/reference/") + place + "-" + row.Digest +
+                              ".png")) {
+    CHECK(row.Kept, "**THERE IS A PICTURE, AND IT IS THE REFERENCE**: byte for byte the one an eye "
+                    "accepted, so no statistic about it is needed");
+    Covers("a declared place on Earth stands, advances and leaves the picture its reference holds");
     return Report();
   }
   if (row.Triangles > 0.0 && row.Variation < 1.0) {
