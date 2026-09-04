@@ -218,7 +218,7 @@ public:
   }
 
   void SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM) {
-    Shadow_.Declare(toSun, up, radiusM);
+    Shadow_.Declare({.ToSun = toSun, .Up = up}, radiusM);
   }
 
   void SetSky(const Vec3f &toSun, const Vec3f &up, float illuminanceLux, float eyeHeightM) {

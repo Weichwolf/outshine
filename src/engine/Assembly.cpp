@@ -92,7 +92,7 @@ bool Assemble(const Scenario::Document &declared,
     for (const Scenario::Setting &attribute : kind.Attributes) {
       double value = 0.0;
       if (!Numbered(attribute, kind.Name, value, error)) { return false; }
-      if (!given.Put(Interned(out.TraitNames, attribute.Name), value)) {
+      if (!given.Put({.Key = Interned(out.TraitNames, attribute.Name), .Value = value})) {
         error = "the kind '" + kind.Name + "' declares more than " + std::to_string(Traits::kMost) +
                 " attributes, and the budget is declared";
         return false;
@@ -135,7 +135,7 @@ bool Assemble(const Scenario::Document &declared,
       for (size_t up = depth; up > 0; --up) {
         if (const Traits *held = traits.Get(chain[up - 1])) {
           for (size_t attr = 0; attr < held->Count; ++attr) {
-            if (!resolved.Put(held->Keys[attr], held->Values[attr])) {
+            if (!resolved.Put({.Key = held->Keys[attr], .Value = held->Values[attr]})) {
               error = "the resolved attributes of '" +
                       (instance.Id.empty() ? instance.Of : instance.Id) +
                       "' overflow the declared budget of " + std::to_string(Traits::kMost) +
@@ -151,7 +151,7 @@ bool Assemble(const Scenario::Document &declared,
       if (!Numbered(attribute, instance.Id.empty() ? instance.Of : instance.Id, value, error)) {
         return false;
       }
-      if (!resolved.Put(Interned(out.TraitNames, attribute.Name), value)) {
+      if (!resolved.Put({.Key = Interned(out.TraitNames, attribute.Name), .Value = value})) {
         error = "the instance '" + instance.Id + "' overflows the declared attribute budget of " +
                 std::to_string(Traits::kMost);
         return false;

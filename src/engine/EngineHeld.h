@@ -509,7 +509,7 @@ struct Engine::State {
   [[nodiscard]] static bool
   StationsAlong(const Paving &on,
                 const Ground::StreetField::Way &lane,
-                const std::function<bool(double, double, uint64_t)> &station);
+                const std::function<bool(LongitudeLatitude, uint64_t)> &station);
 
   void DesignLane(const Paving &on,
                   const Ground::StreetField::Way &lane,

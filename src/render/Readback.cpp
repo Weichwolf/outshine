@@ -3,6 +3,8 @@
 #include "Log.h"
 #include <cstdint>
 
+#include <Extent.h>
+
 namespace outshine::Render {
 
 ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
@@ -30,9 +32,10 @@ ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
 
 ReadState Readback::FromTexture(SDL_GPUDevice *device,
                                 SDL_GPUTexture *texture,
-                                uint32_t width,
-                                uint32_t height,
+                                Extent size,
                                 uint32_t texelBytes) {
+  const auto width = static_cast<uint32_t>(size.WidthPx);
+  const auto height = static_cast<uint32_t>(size.HeightPx);
   Release();
   Device = device;
   Row = width * texelBytes;

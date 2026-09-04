@@ -28,8 +28,14 @@ public:
 
   void Count(size_t name) noexcept { Notes_[name].Times++; }
 
-  void Raise(size_t name, double value) noexcept {
-    Note &note = Notes_[name];
+  struct Peak {
+    size_t Name = 0;
+    double Value = 0.0;
+  };
+
+  void Raise(Peak held) noexcept {
+    const double value = held.Value;
+    Note &note = Notes_[held.Name];
     if (!note.Raised || value > note.Peak) { note.Peak = value; }
     note.Raised = true;
     note.Times++;

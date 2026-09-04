@@ -16,8 +16,7 @@
 
 namespace outshine::Ground {
 
-bool GroundStack::Open(std::string_view cacheDir,
-                       std::string_view assetsDir,
+bool GroundStack::Open(const Roots &under,
                        std::span<const Scenario::Provider> providers,
                        LongitudeLatitude focus,
                        Data::Transport &wire,
@@ -32,13 +31,13 @@ bool GroundStack::Open(std::string_view cacheDir,
     return false;
   }
   outshine::Data::ContentStore::Config keeping;
-  keeping.Directory = std::string(cacheDir);
+  keeping.Directory = under.Cache;
   Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
   Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
   outshine::Data::SourceSet &sources = *Sources_;
   std::string refused;
-  const bool registered = outshine::Data::RegisterDeclared(
-      sources, providers, std::string(assetsDir) + "/sky", refused);
+  const bool registered =
+      outshine::Data::RegisterDeclared(sources, providers, under.Shipped + "/sky", refused);
   if (!registered) {
     say.Say(Line("REFUSED %s", refused.c_str()));
     Close();
@@ -55,7 +54,7 @@ bool GroundStack::Open(std::string_view cacheDir,
   SurfaceZoom_ = surface.Z;
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg);
 
-  const std::string assets(assetsDir);
+  const std::string &assets = under.Shipped;
   Vegetated_ = Materials_.Load((assets + "/world/ground-materials.json").c_str()) &&
                Templates_.Load((assets + "/world/vegetation.json").c_str(), Materials_);
   if (Vegetated_) {

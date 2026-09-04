@@ -22,7 +22,14 @@ struct Traits {
     return nullptr;
   }
 
-  [[nodiscard]] bool Put(uint32_t key, double value) {
+  struct Trait {
+    uint32_t Key = 0;
+    double Value = 0.0;
+  };
+
+  [[nodiscard]] bool Put(Trait held) {
+    const uint32_t key = held.Key;
+    const double value = held.Value;
     for (size_t at = 0; at < Count; ++at) {
       if (Keys[at] == key) {
         Values[at] = value;

@@ -22,9 +22,9 @@ public:
 
   [[nodiscard]] size_t Count() const { return Offsets_.size(); }
 
-  [[nodiscard]] std::optional<Tile> At(size_t i, double lat, double lon) const;
+  [[nodiscard]] std::optional<Tile> At(size_t i, LongitudeLatitude over) const;
 
-  [[nodiscard]] std::optional<Tile> Widest(double lat, double lon) const;
+  [[nodiscard]] std::optional<Tile> Widest(LongitudeLatitude over) const;
 
   [[nodiscard]] Tile Broadest() const;
 

@@ -61,10 +61,12 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
     const WaterDepth depth =
         WaterDepth::Between(static_cast<double>(levelAslM),
                             ground.HeightAslM({.EastM = e / count, .NorthM = n / count}));
-    if (const std::optional<double> m = depth.DepthM()) { yield.Raise(DeepestM, *m); }
+    if (const std::optional<double> m = depth.DepthM()) {
+      yield.Raise({.Name = DeepestM, .Value = *m});
+    }
 
     if (const std::optional<double> m = depth.DisagreementM()) {
-      yield.Raise(LevelBelowGround, *m);
+      yield.Raise({.Name = LevelBelowGround, .Value = *m});
     }
   }
 }

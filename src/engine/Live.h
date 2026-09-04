@@ -182,9 +182,14 @@ public:
 
   [[nodiscard]] const Vec3 &ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
 
-  [[nodiscard]] bool
-  Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error);
-  [[nodiscard]] bool Carry(const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error);
+  struct Bearing {
+    Mat4 WorldFromBodyM;
+    Mat4 AsBuilt;
+  };
+
+  [[nodiscard]] bool Carry(size_t body, const Bearing &held, std::string &error);
+
+  [[nodiscard]] bool Carry(const Bearing &held, std::string &error);
 
   [[nodiscard]] bool Present(std::string &error);
   [[nodiscard]] bool Settle(std::string &error);

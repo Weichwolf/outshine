@@ -22,9 +22,9 @@ Schedule::Schedule(const Ring &ring) : Zoom_(ring.Zoom) {
   });
 }
 
-std::optional<Tile> Schedule::At(size_t i, double lat, double lon) const {
+std::optional<Tile> Schedule::At(size_t i, LongitudeLatitude over) const {
   if (i >= Offsets_.size()) { return std::nullopt; }
-  const Tile centre = Tile::Of(Zoom_, {.LongitudeDeg = lon, .LatitudeDeg = lat});
+  const Tile centre = Tile::Of(Zoom_, over);
   const auto side = static_cast<int>(1u << static_cast<uint32_t>(Zoom_));
   const int y = centre.Y() + Offsets_[i].Y;
   if (y < 0 || y >= side) { return std::nullopt; }
@@ -35,10 +35,10 @@ Tile Schedule::Broadest() const {
   return {Zoom_, 0, static_cast<int>(1u << static_cast<uint32_t>(Zoom_ - 1))};
 }
 
-std::optional<Tile> Schedule::Widest(double lat, double lon) const {
+std::optional<Tile> Schedule::Widest(LongitudeLatitude over) const {
   std::optional<Tile> widest;
   for (size_t i = 0; i < Offsets_.size(); i++) {
-    const std::optional<Tile> r = At(i, lat, lon);
+    const std::optional<Tile> r = At(i, over);
     if (!r) { continue; }
     if (!widest || r->SpanEm() * r->SpanNm() > widest->SpanEm() * widest->SpanNm()) { widest = r; }
   }

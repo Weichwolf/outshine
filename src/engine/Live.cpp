@@ -44,17 +44,21 @@ constexpr double kLuminanceBlue = 0.0722;
 
 namespace {
 
+struct Listed {
+  const std::vector<std::string> &Stages;
+  const std::vector<std::string> &Outputs;
+};
+
 bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
                  bool sky,
                  bool shadows,
                  bool presents,
-                 const std::vector<std::string> &stages,
-                 const std::vector<std::string> &outputs,
+                 const Listed &lists,
                  Render::PlanSpec &declaration,
                  std::string &error) {
   declaration.Outputs = {Render::Resource::FrameTex};
   if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
-  for (const std::string &named : outputs) {
+  for (const std::string &named : lists.Outputs) {
     const std::optional<Render::Resource> row = Render::Compiled::ResourceByName(named);
     if (!row) {
       error = "the declaration asks the frame to keep '" + named +
@@ -68,10 +72,10 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
     if (!already) { declaration.Outputs.push_back(*row); }
   }
 
-  if (!stages.empty()) {
+  if (!lists.Stages.empty()) {
 
     declaration.Content.clear();
-    for (const std::string &named : stages) {
+    for (const std::string &named : lists.Stages) {
       const std::optional<Render::Stage> row = Render::Compiled::StageByName(named);
       if (!row) {
         error = "the declaration names render stage '" + named +
@@ -484,8 +488,7 @@ bool Live::StandsPlan(std::string &error) {
                    Declared_.DrawsSky,
                    ShadowRadiusStoodM_ > 0.0,
                    Renderer_ != nullptr && Renderer_->Presents(),
-                   Declared_.Stages,
-                   Declared_.Outputs,
+                   {.Stages = Declared_.Stages, .Outputs = Declared_.Outputs},
                    declaration,
                    error)) {
     return false;
@@ -962,8 +965,8 @@ bool Live::Carries(size_t bodies, std::string &error) {
   return true;
 }
 
-bool Live::Carry(const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error) {
-  return Carry(0, worldFromBodyM, built, error);
+bool Live::Carry(const Bearing &held, std::string &error) {
+  return Carry(0, held, error);
 }
 
 Mat4 Live::InMetres(const Mat4 &placed) const {
@@ -975,8 +978,8 @@ Mat4 Live::InMetres(const Mat4 &placed) const {
   return out;
 }
 
-bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error) {
-  const Mat4 bodyM = InMetres(worldFromBodyM);
+bool Live::Carry(size_t body, const Bearing &held, std::string &error) {
+  const Mat4 bodyM = InMetres(held.WorldFromBodyM);
   if (Joined_ == 0) {
     error = "nothing joined this picture from a file, so there is no body to carry -- every part "
             "stands where the world put it";
@@ -986,7 +989,7 @@ bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std
   if (Stood_.Parts() != parts) {
     error = "the subject proxy stands over " + std::to_string(Stood_.Parts()) +
             " parts and the geometry carries " + std::to_string(parts) +
-            ", so nothing standing was built from what is being carried";
+            ", so nothing standing was held.AsBuilt from what is being carried";
     return false;
   }
   if (SentBody_.empty()) {
@@ -1003,7 +1006,7 @@ bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std
   const size_t instances = Stood_.Instances();
   const size_t rows = parts * instances;
   const bool bodyMoved = !(SentBody_[body] == bodyM);
-  const bool builtMoved = !(SentBuilt_ == built);
+  const bool builtMoved = !(SentBuilt_ == held.AsBuilt);
   if (!bodyMoved && !builtMoved) { return true; }
 
   const size_t joined = Joined_ < parts ? Joined_ : parts;
@@ -1014,7 +1017,7 @@ bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std
   }
   if (builtMoved) {
     for (size_t part = joined; part < parts; ++part) {
-      if (!Stood_.Places(part, body, built)) { return false; }
+      if (!Stood_.Places(part, body, held.AsBuilt)) { return false; }
     }
   }
   PartBounds_.clear();
@@ -1032,13 +1035,13 @@ bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std
       (!Render::Moved(
           *Renderer_,
           {.Rows = rows, .Many = instances, .Which = body, .FromPart = joined, .ToPart = parts},
-          built,
+          held.AsBuilt,
           error))) {
     return false;
   }
 
   SentBody_[body] = bodyM;
-  SentBuilt_ = built;
+  SentBuilt_ = held.AsBuilt;
   return true;
 }
 

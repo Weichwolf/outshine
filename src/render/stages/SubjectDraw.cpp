@@ -79,7 +79,14 @@ struct VertexShape {
   uint32_t Count = 0;
 };
 
-SDL_GPUVertexBufferDescription Run(uint32_t slot, uint32_t floats) {
+struct Feed {
+  uint32_t Slot = 0;
+  uint32_t Floats = 0;
+};
+
+SDL_GPUVertexBufferDescription Run(Feed of) {
+  const uint32_t slot = of.Slot;
+  const uint32_t floats = of.Floats;
   SDL_GPUVertexBufferDescription description{};
   description.slot = slot;
   description.pitch = floats * static_cast<uint32_t>(sizeof(float));
@@ -87,7 +94,14 @@ SDL_GPUVertexBufferDescription Run(uint32_t slot, uint32_t floats) {
   return description;
 }
 
-SDL_GPUVertexAttribute At(uint32_t location, uint32_t slot, SDL_GPUVertexElementFormat format) {
+struct Attribute {
+  uint32_t Location = 0;
+  uint32_t Slot = 0;
+};
+
+SDL_GPUVertexAttribute At(Attribute of, SDL_GPUVertexElementFormat format) {
+  const uint32_t location = of.Location;
+  const uint32_t slot = of.Slot;
   SDL_GPUVertexAttribute attribute{};
   attribute.location = location;
   attribute.buffer_slot = slot;
@@ -109,8 +123,9 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   const uint32_t count = RunsOf(layout, writesVelocity, runs);
   VertexShape shape;
   for (uint32_t at = 0; at < count; ++at) {
-    shape.Buffers[at] = Run(at, runs[at].Floats);
-    shape.Attributes[at] = At(runs[at].Location, at, FormatOf(runs[at].Floats));
+    shape.Buffers[at] = Run({.Slot = at, .Floats = runs[at].Floats});
+    shape.Attributes[at] =
+        At({.Location = runs[at].Location, .Slot = at}, FormatOf(runs[at].Floats));
     ++shape.Count;
   }
   return shape;

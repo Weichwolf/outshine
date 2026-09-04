@@ -145,7 +145,7 @@ Result Engine::restore(std::string_view path) {
                   "declaration moved on and the save did not, and NOTHING was applied";
       return std::unexpected(S_->Error);
     }
-    if (!row->Put(landing.Key, landing.Value)) {
+    if (!row->Put({.Key = landing.Key, .Value = landing.Value})) {
       S_->Error = "the saved value found no seat -- the holder already carries its full " +
                   std::to_string(Traits::kMost) + " traits, and NOTHING was applied";
       return std::unexpected(S_->Error);

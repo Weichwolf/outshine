@@ -937,8 +937,12 @@ void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecordin
 }
 
 bool SceneRenderer::ConfigureDepthPyramid(std::string &error) {
-  return PyramidStage_.Configure(
-      Handles_, DepthTex_.Get(), Samp_.Get(), Pyramid_.Get(), Width_, Height_, error);
+  return PyramidStage_.Configure(Handles_,
+                                 DepthTex_.Get(),
+                                 Samp_.Get(),
+                                 Pyramid_.Get(),
+                                 {.WidthPx = Width_, .HeightPx = Height_},
+                                 error);
 }
 
 void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into) {
@@ -1228,11 +1232,8 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     SDL_GPUTexture *const held = FrameTex_.Get() != nullptr ? FrameTex_.Get() : HostSurface_;
     if (held == nullptr) { return ReadState::Failed; }
     Readback read;
-    if (read.FromTexture(Device_.Get(),
-                         held,
-                         static_cast<uint32_t>(Width_),
-                         static_cast<uint32_t>(Height_),
-                         4u) != ReadState::Ready) {
+    if (read.FromTexture(Device_.Get(), held, {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
+        ReadState::Ready) {
       return ReadState::Failed;
     }
     rgba.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
@@ -1255,11 +1256,9 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
 ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
   if (!Ready_ || !DepthTex_) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(),
-                       DepthTex_.Get(),
-                       static_cast<uint32_t>(Width_),
-                       static_cast<uint32_t>(Height_),
-                       4u) != ReadState::Ready) {
+  if (read.FromTexture(
+          Device_.Get(), DepthTex_.Get(), {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
+      ReadState::Ready) {
     return ReadState::Failed;
   }
   depth.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_));
@@ -1272,11 +1271,9 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
-  if (read.FromTexture(Device_.Get(),
-                       source,
-                       static_cast<uint32_t>(Width_),
-                       static_cast<uint32_t>(Height_),
-                       wide ? 16u : 8u) != ReadState::Ready) {
+  if (read.FromTexture(
+          Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, wide ? 16u : 8u) !=
+      ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
@@ -1299,8 +1296,7 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   Readback read;
   if (read.FromTexture(Device_.Get(),
                        ShadowAtlas_.Get(),
-                       static_cast<uint32_t>(kShadowAtlasPx),
-                       static_cast<uint32_t>(kShadowAtlasPx),
+                       {.WidthPx = kShadowAtlasPx, .HeightPx = kShadowAtlasPx},
                        4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
@@ -1369,11 +1365,8 @@ ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
   SDL_GPUTexture *source = ShadingNormalTex_.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(),
-                       source,
-                       static_cast<uint32_t>(Width_),
-                       static_cast<uint32_t>(Height_),
-                       8u) != ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, 8u) !=
+      ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
@@ -1390,11 +1383,8 @@ ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
   SDL_GPUTexture *source = VelTex_.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(),
-                       source,
-                       static_cast<uint32_t>(Width_),
-                       static_cast<uint32_t>(Height_),
-                       4u) != ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
+      ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 2u;
@@ -1411,11 +1401,8 @@ ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
   SDL_GPUTexture *source = SurfaceIdentityTex_.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(),
-                       source,
-                       static_cast<uint32_t>(Width_),
-                       static_cast<uint32_t>(Height_),
-                       16u) != ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, 16u) !=
+      ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;

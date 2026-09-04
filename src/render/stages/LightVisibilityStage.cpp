@@ -22,10 +22,10 @@ bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std:
   return ConfigureDepthOnly(gpu, error);
 }
 
-void LightVisibilityStage::Declare(const Vec3f &toSun, const Vec3f &up, double radiusM) {
+void LightVisibilityStage::Declare(Overhead sky, double radiusM) {
   for (int axis = 0; axis < 3; ++axis) {
-    ToSun_[axis] = static_cast<double>(toSun[axis]);
-    Up_[axis] = static_cast<double>(up[axis]);
+    ToSun_[axis] = static_cast<double>(sky.ToSun[axis]);
+    Up_[axis] = static_cast<double>(sky.Up[axis]);
   }
   RadiusM_ = radiusM;
   double sunLength = 0.0;

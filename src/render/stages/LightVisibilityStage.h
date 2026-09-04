@@ -22,7 +22,12 @@ class LightVisibilityStage {
 public:
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
 
-  void Declare(const Vec3f &toSun, const Vec3f &up, double radiusM);
+  struct Overhead {
+    Vec3f ToSun;
+    Vec3f Up;
+  };
+
+  void Declare(Overhead sky, double radiusM);
 
   void Prepare(const FrameContext &ctx);
 

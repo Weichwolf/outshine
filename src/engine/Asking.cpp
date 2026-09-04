@@ -219,8 +219,7 @@ bool Engine::State::Composes() {
 
   Collecting say;
   if (!World.Stack.Opened() &&
-      !World.Stack.Open(Session.Under.Cache,
-                        Session.Under.Shipped,
+      !World.Stack.Open(Session.Under,
                         {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
                         {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                         *World.Wire,

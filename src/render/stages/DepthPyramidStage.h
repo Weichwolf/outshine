@@ -8,6 +8,8 @@
 #include "GpuOwned.h"
 #include "KernelShape.h"
 
+#include <Extent.h>
+
 namespace outshine::Render {
 
 class DepthPyramidStage {
@@ -20,8 +22,7 @@ public:
                                SDL_GPUTexture *depth,
                                SDL_GPUSampler *held,
                                SDL_GPUBuffer *into,
-                               int widePx,
-                               int highPx,
+                               Extent size,
                                std::string &error);
 
   void Encode(const PassRecording &into);

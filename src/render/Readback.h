@@ -5,6 +5,8 @@
 
 #include <SDL3/SDL_gpu.h>
 
+#include <Extent.h>
+
 namespace outshine::Render {
 
 enum class ReadState { Ready, Failed };
@@ -17,11 +19,8 @@ public:
   Readback(const Readback &) = delete;
   Readback &operator=(const Readback &) = delete;
 
-  [[nodiscard]] ReadState FromTexture(SDL_GPUDevice *device,
-                                      SDL_GPUTexture *texture,
-                                      uint32_t width,
-                                      uint32_t height,
-                                      uint32_t texelBytes);
+  [[nodiscard]] ReadState
+  FromTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture, Extent size, uint32_t texelBytes);
   [[nodiscard]] ReadState FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes);
 
   [[nodiscard]] const uint8_t *Rows() const { return Mapped; }

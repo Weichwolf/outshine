@@ -160,7 +160,9 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
       const Claim claim = yield.Place(body);
 
       if (claim.Why() == Claim::Outcome::Full) { return; }
-      if (claim.Why() == Claim::Outcome::Placed) { yield.Raise(HighestStandAslM, body.BaseAslM); }
+      if (claim.Why() == Claim::Outcome::Placed) {
+        yield.Raise({.Name = HighestStandAslM, .Value = body.BaseAslM});
+      }
     }
   }
 }

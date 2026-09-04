@@ -131,7 +131,10 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
 
   if (!Picture.Standing) { return true; }
   const Mat4 stillM = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-  if (!Picture.Standing->Carry(which, bodyFromWorld, stillM, Error)) { return false; }
+  if (!Picture.Standing->Carry(
+          which, {.WorldFromBodyM = bodyFromWorld, .AsBuilt = stillM}, Error)) {
+    return false;
+  }
   if (which > 0) { return true; }
   Published.Places("the body, east", body.PositionM[0], "m");
   Published.Places("the body, up", body.PositionM[1], "m");

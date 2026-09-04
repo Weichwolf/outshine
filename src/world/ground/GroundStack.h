@@ -19,6 +19,8 @@
 #include "VegetationTemplates.h"
 #include "WaterField.h"
 
+#include <Outshine.h>
+
 namespace outshine {
 class Sink;
 }
@@ -37,8 +39,7 @@ public:
   GroundStack(const GroundStack &) = delete;
   GroundStack &operator=(const GroundStack &) = delete;
 
-  [[nodiscard]] bool Open(std::string_view cacheDir,
-                          std::string_view assetsDir,
+  [[nodiscard]] bool Open(const Roots &under,
                           std::span<const Scenario::Provider> providers,
                           LongitudeLatitude focus,
                           Data::Transport &wire,

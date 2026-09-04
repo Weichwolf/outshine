@@ -851,7 +851,7 @@ uint64_t Engine::State::SharedNodeAt(const Paving &on, double latDeg, double lon
 
 bool Engine::State::StationsAlong(const Paving &on,
                                   const Ground::StreetField::Way &lane,
-                                  const std::function<bool(double, double, uint64_t)> &station) {
+                                  const std::function<bool(LongitudeLatitude, uint64_t)> &station) {
   for (uint32_t step = 0; step + 1 < lane.PointCount; ++step) {
     const size_t here = (static_cast<size_t>(lane.FirstPoint) + step) * 2;
     const size_t next = here + 2;
@@ -861,15 +861,15 @@ bool Engine::State::StationsAlong(const Paving &on,
       const double at = static_cast<double>(piece) / static_cast<double>(pieces);
       const double onLat = on.Points[here] + (on.Points[next] - on.Points[here]) * at;
       const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
-      if (!station(onLat, onLon, piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u)) {
+      if (!station({.LongitudeDeg = onLon, .LatitudeDeg = onLat},
+                   piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u)) {
         return false;
       }
     }
   }
   const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
   return last + 1 < on.Points.size() &&
-         station(on.Points[last],
-                 on.Points[last + 1],
+         station({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]},
                  SharedNodeAt(on, on.Points[last], on.Points[last + 1]));
 }
 
@@ -879,9 +879,8 @@ void Engine::State::DesignLane(const Paving &on,
                                Paved &into) const {
   into.Along.clear();
   bool whole = true;
-  const auto station = [&](double lat, double lon, uint64_t node) {
-    const std::optional<Grounded> stood =
-        GroundUnder(on.Standing, on.Draped, {.LongitudeDeg = lon, .LatitudeDeg = lat});
+  const auto station = [&](LongitudeLatitude over, uint64_t node) {
+    const std::optional<Grounded> stood = GroundUnder(on.Standing, on.Draped, over);
     if (!stood) { return false; }
     into.Along.push_back(
         {.EastM = stood->EastM, .SouthM = stood->SouthM, .GradeM = stood->GradeM, .Node = node});

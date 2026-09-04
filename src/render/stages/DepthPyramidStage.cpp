@@ -5,6 +5,8 @@
 
 #include "ShaderFile.h"
 
+#include <Extent.h>
+
 namespace outshine::Render {
 
 namespace {
@@ -24,14 +26,13 @@ bool DepthPyramidStage::Configure(const Gpu &gpu,
                                   SDL_GPUTexture *depth,
                                   SDL_GPUSampler *held,
                                   SDL_GPUBuffer *into,
-                                  int widePx,
-                                  int highPx,
+                                  Extent size,
                                   std::string &error) {
   Depth_ = depth;
   Held_ = held;
   Into_ = into;
-  Wide_ = static_cast<uint32_t>(widePx > 0 ? widePx : 0);
-  High_ = static_cast<uint32_t>(highPx > 0 ? highPx : 0);
+  Wide_ = static_cast<uint32_t>(size.WidthPx > 0 ? size.WidthPx : 0);
+  High_ = static_cast<uint32_t>(size.HeightPx > 0 ? size.HeightPx : 0);
   Shape_ = PyramidOver({.WidthPx = Wide_, .HeightPx = High_});
   if (Depth_ == nullptr || Held_ == nullptr || Into_ == nullptr || Wide_ == 0 || High_ == 0) {
     error = "the depth pyramid needs the frame's depth, a sampler and a buffer of its own, and "
