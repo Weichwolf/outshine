@@ -227,3 +227,47 @@ have no code at all: there is no grass and there are no clouds yet.
 `Shipping` holds `std::vector<Forest::Stem>`: the registry knows one generator's INSIDES rather
 than knowing it through `Making` and `DrawSource`. That is the same rule pointed at the door
 itself, and it is where this item goes after the seven directories exist.
+
+## Where the cut stands, measured 2026-09-04
+
+```
+  area        files  reaches   cross-area includes
+  terrain         4  yes       0
+  road            4  yes       0
+  building       15  yes       0
+  water           3  yes       0
+  flora          28  yes       0
+  scatter         -  -         NO CODE EXISTS
+  cloud           -  -         NO CODE EXISTS
+```
+
+**base/ IS emptied, and here is the test rather than the claim.** Every header left in it is used
+by two or more areas, or is infrastructure the generator ROOT needs and no area does:
+
+```
+  Yield.h, Ground.h            5 areas
+  Making.h                     4
+  FeatureField.h               3
+  Claim, ClusterId,            2
+  ContactMaterial, DrawSink, DrawSource
+  Cover.h (building),          1 area TODAY, and shared by the test that matters: Cover changes
+  Rank.h (flora),                with the ground classification, Rank with generator ORDER, Tile
+  Tile.h (flora)                 with the tiling scheme -- none of them with the one area that
+                                 happens to be their only caller yet
+  BodyId, DrawSet,             0 areas -- reached only from the root (Shipped, GroundSnapshot,
+  FeatureLevel, GeneratorSet,    RegionPool) or through other base headers
+  GroundPatch, GroundTable,
+  OccupancySink
+```
+
+## scatter/ and cloud/ are FEATURE work and this item cannot finish them
+
+A refactor moves what exists. Measured today: nothing in the tree scatters instances over an area
+and nothing builds a cloud volume -- every `Scatter` in `src/` is the renderer's MULTIPLE
+SCATTERING in a participating medium, and `VegetationTemplates` is in `world/ground`. So two of the
+seven areas have nothing to receive. Declaring the directories anyway would put a `reaches` file in
+front of an empty room, and CLAUDE.md calls accepting a declaration and doing nothing with it worse
+than refusing it.
+
+**The five areas that have code are cut and independent; the other two are a feature, and the goal
+that names them should say so.**
