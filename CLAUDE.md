@@ -28,6 +28,17 @@ the hour put them rather than where a number says. A hand-set sun is a sun that 
 own shadows the moment the clock moves. **How far the tree is from any of this is `board/`'s to
 say, never this page's.**
 
+**WHO AUTHORS: NOBODY, AND THAT IS THE DIFFERENCE.** RAGE and Unreal are engines UNDER an
+authoring tool -- a studio places every prop, and the map is content. outshine has no tool for a
+person and is not going to get one: the world is DATA (the Earth, fetched), the assets are glTF
+an AI built, the game is a SCENARIO an AI declared over a real place, and the engine does the
+rest. A Fallout is Boston plus a layer that ruins it; a Cyberpunk is a city plus a layer that
+lights it. So everything a level designer does by hand in the references is here either a
+GENERATOR or a DECLARATION -- placing, dressing, lighting, populating -- and the door's round trip
+(read, write, diff) plus the instrument's picture are the author's only hands and eyes. A verb
+that cannot be declared, or a result that cannot be looked at through the door, is a verb the
+only author this engine has cannot use. **A WORLDWIDE SANDBOX, data-driven and never authored.**
+
 ## Why
 
 Because a frame that holds 16.7 ms while a world lives inside it is one of the few things in
