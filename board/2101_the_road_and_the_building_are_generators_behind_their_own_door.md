@@ -13,6 +13,21 @@ are baked into it at COOK time -- no runtime hands vertices around. **Both agree
 thing that stands on the ground ASKS the ground and HANDS BACK a request; it never receives the
 mesh.
 
+## Where it stands, measured 2026-09-04
+
+  subject nouns in src/engine and include/   147, was 157
+
+board:2110 moved the generators and built the three seams the engine talks through --
+`StructureMesher`, `RoadMesher`, `GroundMesher` -- so the engine no longer NAMES a concrete
+generator and no longer holds one. What it still names is the VOCABULARY: `Laying.cpp` knows
+`lane`, `RoadStation`, `RoadGate`, `Bridge` and `Tunnel`, because the types moved to
+`world/ground/` where the engine may see them.
+
+That is the honest half-way point of this item: the engine stopped knowing WHO meshes a road and
+still knows WHAT a road is. The seam types are the remaining 147 -- moving them behind a subject-
+free vocabulary (a swept ribbon has stations and gates; it does not have to be a ROAD) is what is
+left, and it is a rename with a measurement rather than a restructuring.
+
 ## What the tree has, and where it is wrong
 
 `harness/claims/TheEngineNamesNoSubject` is RED and names the file: the engine may not know a
