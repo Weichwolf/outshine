@@ -77,6 +77,9 @@ def apart(one, two):
     moved = 0
     worst = 0
     over1 = 0
+    box = [wideA, highA, -1, -1]
+    rows = {}
+    loudest = []
     for at in range(0, len(a), chA):
         gap = max(abs(a[at + k] - b[at + k]) for k in range(min(3, chA)))
         if gap:
@@ -84,7 +87,20 @@ def apart(one, two):
             worst = max(worst, gap)
             if gap > 1:
                 over1 += 1
-    return {"Pixels": pixels, "Moved": moved, "Worst": worst, "OverOne": over1}
+            x, y = (at // chA) % wideA, (at // chA) // wideA
+            box = [min(box[0], x), min(box[1], y), max(box[2], x), max(box[3], y)]
+            rows[y] = rows.get(y, 0) + 1
+            loudest.append((gap, x, y, tuple(a[at : at + 3]), tuple(b[at : at + 3])))
+    loudest.sort(reverse=True)
+    return {
+        "Pixels": pixels,
+        "Moved": moved,
+        "Worst": worst,
+        "OverOne": over1,
+        "Box": box,
+        "Rows": len(rows),
+        "Loudest": loudest[:6],
+    }
 
 
 def main(argv):
@@ -100,6 +116,11 @@ def main(argv):
         f"{told['Moved']} of {told['Pixels']} pixel(s) differ ({share:.4f} %), "
         f"{told['OverOne']} by more than 1 of 255, worst {told['Worst']} of 255"
     )
+    if told["Moved"]:
+        x0, y0, x1, y1 = told["Box"]
+        print(f"  WHERE x {x0}..{x1} y {y0}..{y1}, over {told['Rows']} row(s)")
+        for gap, x, y, before, after in told["Loudest"]:
+            print(f"  {gap:3d} at ({x:4d},{y:4d}) before {before} after {after}")
     return 0
 
 

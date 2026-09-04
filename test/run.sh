@@ -282,7 +282,7 @@ LayerGroups() {
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     outshine/scenario) printf '%s' "src/base/Geometry.cpp src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp src/scenario/ScenarioRead.cpp src/scenario/Tables.cpp" ;;
-    outshine/content) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/import" ;;
+    outshine/content) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
     outshine/geo) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground src/import src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators" ;;
     outshine/fuzz) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/world/weather src/world/sky src/base/io src/import" ;;
     outshine/physics) printf '%s' "src/base src/base/math src/base/geo src/base/spatial src/actor/body src/base/curve" ;;
