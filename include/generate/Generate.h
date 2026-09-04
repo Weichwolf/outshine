@@ -41,6 +41,35 @@ protected:
   HeightSampler() = default;
 };
 
+/// How coarse a generator may build here, decided by the ENGINE and never by the generator.
+///
+/// A level of detail is the oldest idea in real-time graphics and this engine had no word for it:
+/// measured 2026-09-04, `grep -rIn '\bLod\b|\bLOD\b'` over the whole tree returned zero, while
+/// Shibuya meshed 575805 buildings at full standing -- 8.15 M triangles, 618 MB, and 14.2 triangles
+/// a building, which is a cuboid. The geometry per building was already minimal; what was missing
+/// was the decision not to build most of them finely.
+///
+/// **RAGE IS THE MODEL AND IT DECIDES THREE THINGS.** Its entities carry HD, LOD, SLOD1, SLOD2 and
+/// SLOD3, and a coarser entity REPLACES the finer ones under it rather than standing beside them.
+/// The choice is made by DISTANCE -- Unreal picks by screen size, RAGE by `lodDistance`, and
+/// distance is what this engine already has in its tile cascade. And every level is BAKED when the
+/// geometry is built, never in a frame, which is what keeps a frame from meshing.
+///
+/// So: the ground's tile rungs decide, the generator obeys, and one rung coarser ground means one
+/// step coarser everything standing on it -- because it is the same distance away.
+enum class Detail : uint8_t {
+  /// Every facade, every branch, every kerb. RAGE's HD.
+  Fine,
+  /// The subject as one closed shell: a building keeps its footprint and height and loses its
+  /// facades. RAGE's LOD.
+  Shell,
+  /// Neighbours MERGED, so a city block is one body rather than thirty. RAGE's SLOD1, and the
+  /// reason a distant skyline does not shimmer: the merge is stable because the block is.
+  Massed,
+  /// A silhouette, and the last thing before the horizon. RAGE's SLOD2 and SLOD3.
+  Skyline,
+};
+
 /// Where a generator is asked to make something, and what it may ask about that place.
 struct Request {
   /// The centre, in DEGREES. A generator that reads a public map has to know where on Earth it is,
@@ -60,6 +89,10 @@ struct Request {
   /// The ground beneath, or nothing when the caller has none to offer. A generator that needs a
   /// height and is given no answerer refuses rather than assuming a plain at zero.
   const HeightSampler *Ground = nullptr;
+
+  /// How coarse to build. A generator that ignores this builds a city at full detail to the
+  /// horizon, which is measurable rather than theoretical: see `Detail`.
+  Detail Coarseness = Detail::Fine;
 };
 
 /// A generator's request that the ground become FLAT under what it made, and OPTIONAL by design: a

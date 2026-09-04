@@ -24,6 +24,8 @@
 
 namespace outshine::Ground {
 
+constexpr double kMassedAtPx = 8.0;
+
 constexpr int64_t kCellBiasTiles = 0x20000000LL;
 
 constexpr uint32_t kKnuthWord = 2654435761u;
@@ -371,7 +373,7 @@ int BuildingField::Build(const GroundQuery &ground,
   Mark_.Take(next.Tile);
 
   const double awayM = AwayFromCentreM(field, next.Tile);
-  const double smallestSeenM = awayM > 0.0 && FocalPx_ > 0.0 ? awayM / FocalPx_ : 0.0;
+  const double smallestSeenM = awayM > 0.0 && FocalPx_ > 0.0 ? kMassedAtPx * awayM / FocalPx_ : 0.0;
 
   std::map<uint64_t, Lumped> lumps;
   size_t lumped = 0;
