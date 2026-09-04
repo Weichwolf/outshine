@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <cstddef>
 #include <vector>
@@ -152,13 +153,22 @@ struct CellHash {
 
 } // namespace
 
-Cooked
-CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices, Limits within) {
+Cooked CookDag(std::span<const float> positionsM,
+               std::span<const uint32_t> indices,
+               Limits within,
+               int strideFloats) {
   const uint32_t mostTriangles = within.MostTriangles;
   const uint32_t mostLevels = within.MostLevels;
-  Cooked out = CookClusters(positionsM, indices, mostTriangles);
-  out.PositionsM.assign(positionsM.begin(), positionsM.end());
-  out.FirstOwnVertex = static_cast<uint32_t>(positionsM.size() / 3);
+  const auto stride = static_cast<size_t>(strideFloats < 3 ? 3 : strideFloats);
+  Cooked out = CookClusters(positionsM, indices, mostTriangles, strideFloats);
+
+  out.PositionsM.resize(positionsM.size() / stride * 3);
+  for (size_t vertex = 0; vertex * stride + 2 < positionsM.size(); ++vertex) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      out.PositionsM[vertex * 3 + axis] = positionsM[vertex * stride + axis];
+    }
+  }
+  out.FirstOwnVertex = static_cast<uint32_t>(positionsM.size() / stride);
   if (out.Clusters.empty() || mostLevels == 0) { return out; }
 
   std::vector<uint32_t> coarseIndex(out.Index.begin(), out.Index.end());
@@ -225,6 +235,25 @@ CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices, Li
                                static_cast<double>(counted[slot] > 0 ? counted[slot] : 1)));
       }
     }
+
+    std::vector<double> nearest(counted.size(), std::numeric_limits<double>::max());
+    std::vector<uint32_t> stoodFor(counted.size(), 0u);
+    for (size_t at = 0; at < coarseIndex.size(); ++at) {
+      const uint32_t index = coarseIndex[at];
+      const uint32_t slot = standsFor[at];
+      double away = 0.0;
+      for (size_t axis = 0; axis < 3; ++axis) {
+        const double gap =
+            static_cast<double>(out.PositionsM[static_cast<size_t>(index) * 3 + axis]) -
+            static_cast<double>(out.PositionsM[(static_cast<size_t>(firstMade) + slot) * 3 + axis]);
+        away += gap * gap;
+      }
+      if (away < nearest[slot]) {
+        nearest[slot] = away;
+        stoodFor[slot] = index;
+      }
+    }
+    out.MadeFrom.insert(out.MadeFrom.end(), stoodFor.begin(), stoodFor.end());
 
     double worst = 0.0;
     for (size_t at = 0; at < coarseIndex.size(); ++at) {

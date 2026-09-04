@@ -15,6 +15,8 @@ struct Cooked {
 
   std::vector<float> PositionsM;
   uint32_t FirstOwnVertex = 0;
+
+  std::vector<uint32_t> MadeFrom;
 };
 
 [[nodiscard]] Cooked CookClusters(std::span<const float> positionsM,
@@ -27,8 +29,10 @@ struct Limits {
   uint32_t MostLevels = 0;
 };
 
-[[nodiscard]] Cooked
-CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices, Limits within);
+[[nodiscard]] Cooked CookDag(std::span<const float> positionsM,
+                             std::span<const uint32_t> indices,
+                             Limits within,
+                             int strideFloats = 3);
 
 } // namespace outshine
 #endif

@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include <generate/Generate.h>
+
 #include <span>
 
 #include "spatial/ClusterCook.h"
@@ -22,6 +24,9 @@ namespace {
 constexpr size_t kTileSoupFloats = kTileVertexFloats;
 
 constexpr uint32_t kTileClusterTriangles = 128;
+
+constexpr uint32_t kTileDagLevels = static_cast<uint32_t>(Generators::Detail::Skyline) -
+                                    static_cast<uint32_t>(Generators::Detail::Fine);
 
 } // namespace
 
@@ -45,12 +50,12 @@ void CookTile(std::span<const ChunkVtx> soup,
   }
 
   const Cooked cut =
-      CookClusters(std::span<const float>(reinterpret_cast<const float *>(soup.data()),
-                                          static_cast<size_t>(gridverts) * kTileSoupFloats),
-                   outIdx,
-                   kTileClusterTriangles,
-                   static_cast<int>(kTileSoupFloats));
-  if (cut.Clusters.empty() || cut.Index.size() != outIdx.size()) {
+      CookDag(std::span<const float>(reinterpret_cast<const float *>(soup.data()),
+                                     static_cast<size_t>(gridverts) * kTileSoupFloats),
+              outIdx,
+              {.MostTriangles = kTileClusterTriangles, .MostLevels = kTileDagLevels},
+              static_cast<int>(kTileSoupFloats));
+  if (cut.Clusters.empty() || cut.Index.size() < outIdx.size()) {
     DagCluster whole{};
     whole.Count = static_cast<uint32_t>(gridverts);
     whole.ParentErr = kDagRootErr;
@@ -61,6 +66,15 @@ void CookTile(std::span<const ChunkVtx> soup,
     whole.SelfRadius = around.RadiusM;
     outClusters.push_back(whole);
     return;
+  }
+  const auto ownFrom = static_cast<uint32_t>(gridverts);
+  for (const uint32_t from : cut.MadeFrom) {
+    const size_t at = from < ownFrom ? from : outVerts.size() - (ownFrom - from);
+    ChunkVtx made = outVerts[std::min(at, outVerts.size() - 1)];
+    const size_t which = outVerts.size();
+    made.pos = Vec3f{
+        {cut.PositionsM[which * 3], cut.PositionsM[which * 3 + 1], cut.PositionsM[which * 3 + 2]}};
+    outVerts.push_back(made);
   }
   outIdx = cut.Index;
   outClusters = cut.Clusters;
