@@ -81,10 +81,8 @@ private:
 } // namespace
 
 LongitudeLatitude Engine::State::WhereTheEyeStands() const {
-  const Sim::Corridor &way = Ticking.Drive.Way;
-  const bool overADrive = Ticking.Drove && !way.Fine.empty();
-  const double anchorLat = overADrive ? way.FrameLat : Session.Declared.Ground.Origin.LatitudeDeg;
-  const double anchorLon = overADrive ? way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
+  const double anchorLat = Session.Declared.Ground.Origin.LatitudeDeg;
+  const double anchorLon = Session.Declared.Ground.Origin.LongitudeDeg;
   LongitudeLatitude stands{.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat};
   if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return stands; }
   const TangentFrame anchored =
@@ -205,14 +203,12 @@ bool Engine::State::Composes() {
     return false;
   }
   const Scenario::Document &declared = Session.Declared;
-  const Sim::Corridor &way = Ticking.Drive.Way;
-  const bool overADrive = Ticking.Drove && !way.Fine.empty();
   if (Session.Views && !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
     return false;
   }
-  if (!declared.Ground.Declared && !overADrive) { return true; }
-  const double atLat = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
-  const double atLon = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
+  if (!declared.Ground.Declared) { return true; }
+  const double atLat = declared.Ground.Origin.LatitudeDeg;
+  const double atLon = declared.Ground.Origin.LongitudeDeg;
   if (!World.Wire) {
     if (Session.Under.Offline) {
       Error = "the ground is FETCHED and the engine was declared offline";
@@ -311,13 +307,11 @@ bool Engine::State::Composes() {
 
 bool Engine::State::Asks() {
   const Scenario::Document &declared = Session.Declared;
-  const Sim::Corridor &way = Ticking.Drive.Way;
-  const bool overADrive = Ticking.Drove && !way.Fine.empty();
-  if (!declared.Ground.Declared && !overADrive) { return true; }
+  if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
   Around over;
-  over.LatitudeDeg = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
-  over.LongitudeDeg = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
+  over.LatitudeDeg = declared.Ground.Origin.LatitudeDeg;
+  over.LongitudeDeg = declared.Ground.Origin.LongitudeDeg;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Asking = true;
   {

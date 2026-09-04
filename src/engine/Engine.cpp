@@ -29,25 +29,17 @@ Result Engine::assemble() {
   const Scenario::Document &declared = S_->Session.Declared;
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
-    S_->Ticking.Drove = false;
     if (!S_->Routes()) { return std::unexpected(S_->Error); }
-    if (!S_->Composes()) { return std::unexpected(S_->Error); }
-    const bool standsOnAWorld = S_->Ticking.Drove;
-    return (!standsOnAWorld || S_->Rides()) ? Result{} : std::unexpected(S_->Error);
+    return S_->Composes() ? Result{} : std::unexpected(S_->Error);
   }
   if (!S_->Cast.Scene.open(named) || !S_->Cast.Bodies.Open(S_->Cast.Scene) ||
-      !S_->Cast.Drives.Open(S_->Cast.Scene) || !S_->Cast.Kinds.Open(S_->Cast.Scene)) {
+      !S_->Cast.Kinds.Open(S_->Cast.Scene)) {
     S_->Error = "the scene did not open for the " + std::to_string(named) +
                 " entities the declaration names";
     return std::unexpected(S_->Error);
   }
-  if (!outshine::Assemble(declared,
-                          S_->Cast.Scene,
-                          S_->Cast.Bodies,
-                          S_->Cast.Drives,
-                          S_->Cast.Kinds,
-                          S_->Cast.Stood,
-                          S_->Error)) {
+  if (!outshine::Assemble(
+          declared, S_->Cast.Scene, S_->Cast.Bodies, S_->Cast.Kinds, S_->Cast.Stood, S_->Error)) {
     return std::unexpected(S_->Error);
   }
   if (!declared.Tables.empty()) {
@@ -63,53 +55,8 @@ Result Engine::assemble() {
   return S_->Routes() ? Result{} : std::unexpected(S_->Error);
 }
 
-namespace {
-
-using Assembler = bool (*)(const Scene &,
-                           const Assembled &,
-                           const Column<Scenario::Body> &,
-                           const Column<Scenario::Journey> &,
-                           const Scenario::WorldSettings &,
-                           Ground::GroundStack &,
-                           Data::Transport &,
-                           const Sim::Provision &,
-                           Sink &,
-                           Sim::DriveProduct &);
-
-struct Travelling_ {
-  Scenario::Travels By;
-  const char *Named;
-  Assembler How;
-};
-
-constexpr size_t kTravels = 4;
-
-const std::array<Travelling_, kTravels> kAssemblers = {{
-    {.By = Scenario::Travels::Walk, .Named = "foot", .How = nullptr},
-    {.By = Scenario::Travels::Drive, .Named = "road", .How = &Sim::AssembleDrive},
-    {.By = Scenario::Travels::Fly, .Named = "air", .How = nullptr},
-    {.By = Scenario::Travels::Rail, .Named = "rail", .How = nullptr},
-}};
-
-[[nodiscard]] Assembler Assembles(Scenario::Travels by) {
-  for (const Travelling_ &one : kAssemblers) {
-    if (one.By == by) { return one.How; }
-  }
-  return nullptr;
-}
-
-[[nodiscard]] const char *Travelling(Scenario::Travels by) {
-  for (const Travelling_ &one : kAssemblers) {
-    if (one.By == by) { return one.Named; }
-  }
-  return "an unnamed way";
-}
-
-} // namespace
-
 bool Engine::State::Routes() {
   const Scenario::Document &declared = Session.Declared;
-  Ticking.Drove = false;
   Ticking.Freestanding.clear();
   for (const Scenario::Body &stands : declared.Bodies) {
     if (!stands.Placed) { continue; }
@@ -122,74 +69,7 @@ bool Engine::State::Routes() {
     held.OrientationQ = stands.Stands.Facing;
     Ticking.Freestanding.push_back(held);
   }
-  if (!declared.Routed.Declared) { return true; }
-  if (Assembles(declared.Routed.By) == nullptr) {
-    Error = std::string("the scenario declares a journey travelling by ") +
-            Travelling(declared.Routed.By) +
-            ", and nothing assembles that -- a mode the engine cannot lay a corridor for is a "
-            "refusal, never a journey that quietly does not happen";
-    return false;
-  }
-  if (!World.Wire) {
-    if (Session.Under.Offline) {
-      World.Wire = std::make_unique<Unwired>();
-    } else {
-      World.Wire = std::make_unique<Fetching>(Fetching::Config{});
-    }
-  }
-  Collecting say;
-  const Sim::Provision kept{
-      .CacheDir = Session.Under.Cache,
-      .AssetsDir = Session.Under.Shipped,
-      .Providers = {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
-  const bool routed = Assembles(declared.Routed.By)(Cast.Scene,
-                                                    Cast.Stood,
-                                                    Cast.Bodies,
-                                                    Cast.Drives,
-                                                    declared.Ground,
-                                                    World.Stack,
-                                                    *World.Wire,
-                                                    kept,
-                                                    say,
-                                                    Ticking.Drive);
-  if (routed) {
-    World.Stack.Restand(
-        {.LongitudeDeg = Ticking.Drive.Way.FrameLon, .LatitudeDeg = Ticking.Drive.Way.FrameLat});
-    Ticking.Surface = std::make_unique<Sim::GroundSupport>(World.Stack, Ticking.Drive.Surfaces);
-    Ticking.Surface->Restand();
-  }
-  Session.Carried.insert(Session.Carried.end(),
-                         std::make_move_iterator(say.Lines().begin()),
-                         std::make_move_iterator(say.Lines().end()));
-  Published.Stands(std::move(say.Numbers()));
-  if (!routed) {
-    Error = say.WhyNot();
-    return false;
-  }
-  Published.Places("how long the corridor is", Ticking.Drive.Way.Line.LengthM(), "m");
-  Published.Places("how far along it the body has come", 0.0, "m");
-  if (Picture.Standing && Ticking.Drive.Stood.MetresPerAssetUnit > 0.0) {
-    Picture.Standing->ScaledBy(Ticking.Drive.Stood.MetresPerAssetUnit);
-  }
-  Ticking.Drove = true;
-  {
-    const double slowestMs = Ticking.Drive.Way.Profile.Quantile(0.01);
-    if (!(slowestMs > 0.0)) {
-      Error = "a hundredth of this speed plan stands still, so the drive has no pace to be "
-              "bounded by and would never arrive -- p01 is " +
-              Said(slowestMs) + " m/s";
-      return false;
-    }
-    const double stepS = Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0;
-    Ticking.MostSteps =
-        static_cast<size_t>(Ticking.Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
-    Published.Places("the steps the plan allows at its slowest station",
-                     static_cast<double>(Ticking.MostSteps),
-                     "steps");
-  }
-  if (!Composes()) { return false; }
-  const bool aWorldStands = Ticking.Drove;
-  return !aWorldStands || Rides();
+  return true;
 }
 
 Engine::~Engine() = default;

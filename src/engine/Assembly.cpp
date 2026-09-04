@@ -15,7 +15,7 @@ size_t AssembledCapacity(const Scenario::Document &declared) {
     ++instanced;
   }
   return declared.Room + declared.Bodies.size() + (declared.Played.Is.empty() ? 0u : 1u) +
-         (declared.Routed.Declared ? 2u : 0u) + declared.Kinds.size() + instanced;
+         declared.Kinds.size() + instanced;
 }
 
 namespace {
@@ -47,7 +47,6 @@ namespace {
 bool Assemble(const Scenario::Document &declared,
               Scene &into,
               Column<Scenario::Body> &bodies,
-              Column<Scenario::Journey> &driven,
               Column<Traits> &traits,
               Assembled &out,
               std::string &error) {
@@ -225,29 +224,6 @@ bool Assemble(const Scenario::Document &declared,
     if (!into.alive(out.PlayerMind) ||
         !into.link(out.PlayerBody, Relation::DrivenBy, out.PlayerMind)) {
       error = into.error();
-      return false;
-    }
-  }
-  if (declared.Routed.Declared) {
-    if (declared.Routed.FromLatDeg == declared.Routed.ToLatDeg &&
-        declared.Routed.FromLonDeg == declared.Routed.ToLonDeg) {
-      error = "the drive's ends coincide at (" + std::to_string(declared.Routed.FromLatDeg) + ", " +
-              std::to_string(declared.Routed.FromLonDeg) +
-              "), which declares no route -- a zoom without a base route is a layer over "
-              "nothing";
-      return false;
-    }
-    if (!into.alive(out.PlayerMind)) {
-      error = "a drive is declared and no mind stands to take it -- declare a player";
-      return false;
-    }
-    out.Nav = into.addEntity(Role::Tool);
-    out.Assignment = into.addEntity(Role::Assignment);
-    if (!into.alive(out.Nav) || !into.alive(out.Assignment) ||
-        !into.link(out.PlayerMind, Relation::Uses, out.Nav) ||
-        !into.link(out.PlayerMind, Relation::Assigned, out.Assignment) ||
-        !driven.Put(out.Assignment, declared.Routed)) {
-      error = into.error().empty() ? "the drive's numbers found no column seat" : into.error();
       return false;
     }
   }

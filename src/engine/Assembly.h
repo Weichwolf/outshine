@@ -18,7 +18,6 @@ namespace outshine {
 [[nodiscard]] bool Assemble(const Scenario::Document &declared,
                             Scene &into,
                             Column<Scenario::Body> &bodies,
-                            Column<Scenario::Journey> &driven,
                             Column<Traits> &traits,
                             Assembled &out,
                             std::string &error);

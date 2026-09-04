@@ -378,28 +378,6 @@ ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &er
     into.Played.RunMs = player.Num("runMs", into.Played.RunMs);
   }
 
-  const Xml::Ref drive = root.Child("drive");
-  if (drive.Valid()) {
-    into.Routed.Declared = true;
-    const std::string by = drive.Attr("by");
-    if (by.empty() || by == "drive") {
-      into.Routed.By = Scenario::Travels::Drive;
-    } else if (by == "walk") {
-      into.Routed.By = Scenario::Travels::Walk;
-    } else if (by == "fly") {
-      into.Routed.By = Scenario::Travels::Fly;
-    } else if (by == "rail") {
-      into.Routed.By = Scenario::Travels::Rail;
-    } else {
-      error =
-          "a journey travels '" + by + "', and walk, drive, fly and rail are the whole catalogue";
-      return false;
-    }
-    into.Routed.FromLatDeg = drive.Num("fromLat", into.Routed.FromLatDeg);
-    into.Routed.FromLonDeg = drive.Num("fromLon", into.Routed.FromLonDeg);
-    into.Routed.ToLatDeg = drive.Num("toLat", into.Routed.ToLatDeg);
-    into.Routed.ToLonDeg = drive.Num("toLon", into.Routed.ToLonDeg);
-  }
   return true;
 }
 

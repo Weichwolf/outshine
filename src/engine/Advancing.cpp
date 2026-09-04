@@ -24,10 +24,6 @@ namespace outshine {
 constexpr double kFovUnsaidDeg = 55.0;
 constexpr double kBelowAnyGroundM = -1.0e3;
 
-bool Engine::State::Rides() {
-  return Carries(Ticking.Drive.State.Body, Ticking.Drive.Stood.ModelShiftM);
-}
-
 bool Engine::State::Watches() {
   if (!Session.Views || !Picture.Standing) { return true; }
   const Scenario::View &seen = Session.Views->Active();
@@ -158,7 +154,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   const Scenario::View &seen = Session.Views->Active();
   if (seen.Sees.Placed) { return Watches(); }
 
-  const Vec3 seatM = seen.OffsetM - Ticking.Drive.Stood.CentreM;
+  const Vec3 &seatM = seen.OffsetM;
   Vec3 at;
   for (int axis = 0; axis < 3; ++axis) {
     at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seatM[0] +
@@ -187,7 +183,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
 }
 
 bool Engine::State::Updates() {
-  if (Ticking.Drove || Session.Declared.Ground.Declared) {
+  if (Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = WhereTheEyeStands();
     if (World.Stack.Opened()) {
       const auto streamingFrom = std::chrono::steady_clock::now();
@@ -210,53 +206,13 @@ bool Engine::State::Updates() {
     }
   }
 
-  if (Ticking.Drove) {
-    if (Ticking.Steps >= Ticking.MostSteps) {
-      Error = "the drive has taken " + Said(static_cast<double>(Ticking.Steps)) +
-              " steps and its own plan allows " + Said(static_cast<double>(Ticking.MostSteps)) +
-              " at the slowest station on it, so it is not arriving";
-      return false;
-    }
-    ++Ticking.Steps;
-    const Heap::Tagged ticking("drive-tick");
-    const Sim::Ridden &rode = Sim::DriveTick(Ticking.Drive.Way,
-                                             Ticking.Drive.Stood,
-                                             *Ticking.Surface,
-                                             Ticking.Drive.State,
-                                             Session.Declared.Motion.StepS,
-                                             nullptr);
-    if (!rode.Found || rode.Lost) {
-      Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
-      return false;
-    }
-    if (rode.Arrived) {
-      Published.Places("wheel-steps that asked the ground what it is",
-                       static_cast<double>(rode.GroundAsked),
-                       "steps");
-      Published.Places("steps it could answer", static_cast<double>(rode.GroundAnswered), "steps");
-      return false;
-    }
-    {
-      const Heap::Tagged riding("drive-ride");
-      if (!Rides()) { return false; }
-    }
-  }
-  if (Ticking.Drove) {
-    Published.Places("how far along it the body has come", Ticking.Drive.State.Tally.ReachedM, "m");
-    Published.Places(
-        "ticks the one lane task has kept", static_cast<double>(Ticking.Drive.State.Kept), "ticks");
-    Published.Places("bytes the world holds while it drives",
-                     static_cast<double>(HeapProbe::LiveBytes()),
-                     "bytes");
-  }
   Falls();
   if (!Watches()) { return false; }
   return Grounds(false);
 }
 
 bool Engine::State::Draws() {
-  if (!Ticking.Drove && !Ticking.Freestanding.empty() && Picture.Standing &&
-      Picture.Standing->Stands()) {
+  if (!Ticking.Freestanding.empty() && Picture.Standing && Picture.Standing->Stands()) {
     const Vec3 unshifted;
     if (!Picture.Standing->Carries(Ticking.Freestanding.size(), Error)) { return false; }
     for (size_t which = 0; which < Ticking.Freestanding.size(); ++which) {

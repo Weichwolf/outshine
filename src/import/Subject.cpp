@@ -9,6 +9,7 @@
 #include <array>
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <ranges>
 #include <span>
 

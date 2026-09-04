@@ -143,11 +143,7 @@ void Engine::State::Tells() {
       continue;
     }
     const Physics::Rigid *stood = nullptr;
-    if (Ticking.Drove && Session.Declared.Bodies.size() == 1) {
-      stood = &Ticking.Drive.State.Body;
-    } else if (!Ticking.Freestanding.empty()) {
-      stood = &Ticking.Freestanding.front();
-    }
+    if (!Ticking.Freestanding.empty()) { stood = &Ticking.Freestanding.front(); }
     if (stood != nullptr) {
       where.Standing = true;
       for (int axis = 0; axis < 3; ++axis) {

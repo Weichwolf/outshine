@@ -362,7 +362,7 @@ double GroundStream::PostM(double latDeg) const {
 GroundBlock GroundStream::BlockAt(TileSpot at) const {
   if (at.Zoom != Surface_.Z) { return {}; }
   long hx = at.X;
-  long hy = at.Y;
+  const long hy = at.Y;
   if (!WrapTile(at.Zoom, &hx, &hy)) { return {}; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);

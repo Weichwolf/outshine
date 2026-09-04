@@ -36,10 +36,6 @@ struct Seed {
 };
 
 constexpr Seed kStepSeeds[] = {
-    {"Sim9DriveTick", "the physics step: one call integrates one body over one dt"},
-    {"GroundSupport2AtEdd",
-     "the one virtual the step crosses -- the ground query the engine installs behind "
-     "`Sim::Support`, which a relocation graph cannot follow from the call site"},
 };
 
 // THE PICTURE IS THE FRAME PATH TOO, AND IT WAS NEVER WALKED (board:2007). For as long as this

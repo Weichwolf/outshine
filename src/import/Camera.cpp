@@ -1,4 +1,5 @@
 #include <numbers>
+#include <optional>
 
 #include "math/Units.h"
 #include "math/Mat4.h"

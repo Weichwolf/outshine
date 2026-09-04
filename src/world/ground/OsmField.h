@@ -69,7 +69,7 @@ public:
     std::vector<double> LatLon;
   };
 
-  void Declare(std::span<const Declared> these, TileAt at);
+  void Declare(std::span<const Declared> these, TileAt over);
 
   void Declare(std::span<const Declared> these, LongitudeLatitude at);
 

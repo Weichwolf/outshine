@@ -15,6 +15,7 @@
 #include "RoadMesher.h"
 #include "StructureMesher.h"
 #include "Wayfinding.h"
+#include "Rigid.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "Unwired.h"
@@ -41,8 +42,6 @@
 #include "Sink.h"
 #include "DeclaredSources.h"
 #include "GroundStack.h"
-#include "GroundSupport.h"
-#include "DriveAssembly.h"
 #include "GroundMesher.h"
 #include "spatial/Drape.h"
 #include "TileGeodesy.h"
@@ -254,7 +253,6 @@ struct Kept {
 struct Players {
   Scene Scene;
   Column<Scenario::Body> Bodies;
-  Column<Scenario::Journey> Drives;
   Column<Traits> Kinds;
   Assembled Stood;
 };
@@ -357,15 +355,10 @@ struct Spent {
 };
 
 struct Ticks {
-  Sim::DriveProduct Drive;
   std::vector<Physics::Rigid> Freestanding;
-  std::unique_ptr<Sim::GroundSupport> Surface;
-  bool Drove = false;
   double OwedS = 0.0;
 
   double ElapsedS = 0.0;
-  size_t Steps = 0;
-  size_t MostSteps = 0;
 };
 
 struct Engine::State {
@@ -381,7 +374,6 @@ struct Engine::State {
 
   void Drew();
   void Inspected();
-  [[nodiscard]] bool Rides();
   [[nodiscard]] bool Watches();
 
   struct Classed {
@@ -500,7 +492,6 @@ struct Engine::State {
     double FitMs = 0.0;
     double WaterMs = 0.0;
     double SweepMs = 0.0;
-    double CorridorMs = 0.0;
     double RestMs = 0.0;
   };
 
@@ -624,7 +615,7 @@ struct Engine::State {
 
   [[nodiscard]] static double LevelsWhereWaysMeet(Paved &into);
 
-  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement);
+  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement) const;
 
   void TellsWhatTheFitFound(Paved &into);
   void TellsWhatThePavingCost(const RoadRaised &pavement, const Drape &drapedOver);

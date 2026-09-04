@@ -45,7 +45,7 @@ using outshine::Test::Lines;
 //
 // WHAT IS DELIBERATELY NOT ON THE LIST, because a blacklist that cries wolf gets ignored:
 //   Drive     CLAUDE.md's own vocabulary -- EFFORT or MOTION on a degree of freedom. A drive is
-//             a law. `DriveTick` and `DriveAssembly` are named for it, not for a car.
+//             a law, and `Scenario::Drives` is that law rather than a car (board:2117).
 //   Bus       an audio bus, which is Unreal's submix and RAGE's mixer bus. A law of routing.
 //   Engine    this engine. Only an internal-combustion `engine` would be a subject, and the
 //             walk cannot tell them apart, so the word is left to the reader.

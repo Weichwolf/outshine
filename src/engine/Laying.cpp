@@ -1700,7 +1700,7 @@ double Engine::State::LevelsWhereWaysMeet(Paved &into) {
   return movedM;
 }
 
-size_t Engine::State::RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement) {
+size_t Engine::State::RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement) const {
   std::vector<uint64_t> nodes;
   nodes.reserve(into.Gates.size());
   for (const auto &one : into.Gates) {
@@ -2078,12 +2078,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   auto censusAt = phaseAt;
   auto wiresAt = phaseAt;
   const Scenario::Document &declared = Session.Declared;
-  const Sim::Corridor &way = Ticking.Drive.Way;
-  const bool overADrive = Ticking.Drove && !way.Fine.empty();
-  if (!declared.Ground.Declared && !overADrive) { return true; }
+  if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
-  const double anchorLat = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
-  const double anchorLon = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
+  const double anchorLat = declared.Ground.Origin.LatitudeDeg;
+  const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 
   const LongitudeLatitude eyeStands = WhereTheEyeStands();
   const double atLat = eyeStands.LatitudeDeg;
@@ -2293,7 +2291,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     {
       double least = kBeyondAnyCoordinate;
       double most = -kBeyondAnyCoordinate;
-      const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
+      const std::vector<float> &held = laid->PositionM;
       for (size_t at = 1; at < held.size(); at += 3) {
         const auto y = static_cast<double>(held[at]);
         least = std::min(least, y);

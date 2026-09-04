@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "math/Vec2.h"
+#include "Carriageway.h"
 #include "Ribbon.h"
 
 #include <array>
@@ -8,8 +9,6 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-
-#include "Carriageway.h"
 
 namespace outshine {
 

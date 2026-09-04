@@ -223,7 +223,6 @@ bool ApplyLayer(Scenario::Document &into,
       {.DeclaredByLayer = fragment.Motion.Declared, .What = "physics"},
       {.DeclaredByLayer = fragment.Time.Declared, .What = "clock"},
       {.DeclaredByLayer = fragment.Played.Declared, .What = "player"},
-      {.DeclaredByLayer = fragment.Routed.Declared, .What = "drive"},
   }};
   for (const SectionRow &section : sections) {
     if (!section.DeclaredByLayer) { continue; }
