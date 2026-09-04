@@ -1,4 +1,6 @@
 #include "math/Units.h"
+#include <generate/Generate.h>
+
 #include "BuildingField.h"
 #include "math/Vec3.h"
 
@@ -24,7 +26,7 @@
 
 namespace outshine::Ground {
 
-constexpr double kMassedAtPx = 8.0;
+constexpr double kBlocksPerTile = 8.0;
 
 constexpr int64_t kCellBiasTiles = 0x20000000LL;
 
@@ -373,7 +375,8 @@ int BuildingField::Build(const GroundQuery &ground,
   Mark_.Take(next.Tile);
 
   const double awayM = AwayFromCentreM(field, next.Tile);
-  const double smallestSeenM = awayM > 0.0 && FocalPx_ > 0.0 ? kMassedAtPx * awayM / FocalPx_ : 0.0;
+  const int rungsOut = TileSpanM_ > 0.0 ? static_cast<int>(awayM / TileSpanM_) : 0;
+  const Generators::Detail level = Generators::DetailAtRung(rungsOut);
 
   std::map<uint64_t, Lumped> lumps;
   size_t lumped = 0;
@@ -448,11 +451,11 @@ int BuildingField::Build(const GroundQuery &ground,
       fp.SeatM = static_cast<float>(seat);
       Prints_.push_back(fp);
 
-      if (acrossM > 0.0 && acrossM < smallestSeenM) {
+      if (level != Generators::Detail::Fine) {
         Lump(lumps,
              {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
              {.BaseM = base, .SeatM = seat, .HeightM = fp.HeightM},
-             smallestSeenM);
+             TileSpanM_ / kBlocksPerTile);
         ++lumped;
         added++;
         continue;
