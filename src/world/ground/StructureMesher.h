@@ -56,6 +56,8 @@ struct Frontage {
   double ToStreetE = 0.0, ToStreetN = 0.0;
 };
 
+inline constexpr double kPitchedShareUnknown = -1.0;
+
 struct StructurePlan {
   std::span<const double> RingLatLon;
   double BaseAslM = 0.0;
@@ -74,6 +76,8 @@ struct StructurePlan {
   double FocalPx = 0.0;
 
   Generators::Detail Coarseness = Generators::Detail::Fine;
+
+  double PitchedShare = kPitchedShareUnknown;
 };
 
 class StructureMesher {

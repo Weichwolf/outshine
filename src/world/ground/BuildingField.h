@@ -108,6 +108,10 @@ private:
     double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
     double BaseSum = 0.0, SeatSum = 0.0, HeightSum = 0.0;
     int Count = 0;
+
+    double PitchedAreaM2 = 0.0, RoofAreaM2 = 0.0;
+
+    Generators::Detail Level = Generators::Detail::Fine;
   };
 
   struct Spread {
@@ -116,6 +120,9 @@ private:
 
   struct Standing {
     double BaseM = 0.0, SeatM = 0.0, HeightM = 0.0;
+    double RoofAreaM2 = 0.0;
+    bool Pitched = false;
+    Generators::Detail Level = Generators::Detail::Fine;
   };
 
   static void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cellM);

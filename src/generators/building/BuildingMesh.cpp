@@ -935,7 +935,8 @@ void Pavement(const BuildingShape &s,
 bool BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
   if (plan.RingLatLon.size() < 6) { return false; }
   try {
-    Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
+    Massing mass =
+        MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street, plan.PitchedShare);
     if (mass.Parts.empty()) { return false; }
 
     Site site(plan, into);

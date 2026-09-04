@@ -72,7 +72,8 @@ struct Massing {
 Massing MassOf(std::span<const double> ringLatLon,
                double heightM,
                bool heightMeasured,
-               const Frontage &street);
+               const Frontage &street,
+               double pitchedShare);
 
 } // namespace outshine::Generators
 #endif

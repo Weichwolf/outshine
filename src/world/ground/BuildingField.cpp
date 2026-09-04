@@ -317,6 +317,16 @@ void BuildingField::AnchorAt(const Vec3 &ecef) {
   Anchored_ = true;
 }
 
+namespace {
+
+[[nodiscard]] std::optional<bool> PitchedByOsm(const OsmField &field, const OsmField::Feature &f) {
+  const std::string_view said = field.Str(f, "roof:shape");
+  if (said.empty()) { return std::nullopt; }
+  return said != "flat";
+}
+
+} // namespace
+
 void BuildingField::Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cellM) {
   const auto cellLat =
       static_cast<int64_t>(std::floor(0.5 * (over.LowLat + over.HighLat) * kMPerDegLat / cellM));
@@ -338,6 +348,9 @@ void BuildingField::Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing
   block.BaseSum += at.BaseM;
   block.SeatSum += at.SeatM;
   block.HeightSum += at.HeightM;
+  block.RoofAreaM2 += at.RoofAreaM2;
+  if (at.Pitched) { block.PitchedAreaM2 += at.RoofAreaM2; }
+  if (at.Level > block.Level) { block.Level = at.Level; }
   ++block.Count;
 }
 
@@ -455,7 +468,12 @@ int BuildingField::Build(const GroundQuery &ground,
       if (level != Generators::Detail::Fine) {
         Lump(lumps,
              {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
-             {.BaseM = base, .SeatM = seat, .HeightM = fp.HeightM},
+             {.BaseM = base,
+              .SeatM = seat,
+              .HeightM = fp.HeightM,
+              .RoofAreaM2 = RingAreaM2(field, ring),
+              .Pitched = PitchedByOsm(field, f).value_or(true),
+              .Level = level},
              TileSpanM_ / kBlocksPerTile);
         ++lumped;
         added++;
@@ -513,6 +531,8 @@ void BuildingField::RaiseLump(const BuildingField::Lumped &of) {
   plan.Street = {};
   plan.AnchorEcef = Anchor_;
   plan.FocalPx = FocalPx_;
+  plan.Coarseness = of.Level;
+  plan.PitchedShare = of.RoofAreaM2 > 0.0 ? of.PitchedAreaM2 / of.RoofAreaM2 : kPitchedShareUnknown;
   (void)Mesher_->Mesh(plan, Built_);
 }
 

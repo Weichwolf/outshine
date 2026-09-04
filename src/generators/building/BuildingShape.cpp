@@ -2,8 +2,6 @@
 #include "math/Vec2.h"
 #include "BuildingShape.h"
 
-#include <cstdio>
-
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -107,6 +105,8 @@ constexpr size_t kRoundLeastCorners = 8;
 constexpr double kRoundOverFill = 0.70;
 constexpr double kRoundUnderFill = 0.84;
 constexpr double kRoundUnderAspect = 1.30;
+
+constexpr double kPitchedMajority = 0.5;
 
 constexpr double kPitchableFromFill = 0.74;
 constexpr double kSawtoothOverAspect = 1.8;
@@ -349,29 +349,12 @@ struct Proportions {
          s.Fill < kRoundUnderFill && s.HalfUm < kRoundUnderAspect * s.HalfVm;
 }
 
-[[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double aspect) {
-  {
-    static int gFlat = 0;
-    static int gPitched = 0;
-    static int gSeen = 0;
-    ++gSeen;
-    if (gSeen % 2000 == 0) {
-      std::fprintf(stderr,
-                   "TRACE roof: seen=%d flat=%d pitched=%d fill=%.2f use=%d\n",
-                   gSeen,
-                   gFlat,
-                   gPitched,
-                   s.Fill,
-                   static_cast<int>(s.Use));
-    }
-    if (s.Fill >= kPitchableFromFill) {
-      ++gPitched;
-    } else {
-      ++gFlat;
-    }
-  }
+[[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double aspect, double pitchedShare) {
   if (ReadsAsRound(s)) { return RoofKind::Dome; }
-  const bool pitchable = s.Fill >= kPitchableFromFill;
+
+  const bool pitchable =
+      pitchedShare >= 0.0 ? pitchedShare >= kPitchedMajority : s.Fill >= kPitchableFromFill;
+
   switch (s.Use) {
     case BuildingUse::Outbuilding: return pitchable ? RoofKind::Shed : RoofKind::Flat;
     case BuildingUse::Spire: return pitchable ? RoofKind::Hip : RoofKind::Flat;
@@ -387,6 +370,7 @@ struct Proportions {
     case BuildingUse::Terrace: return pitchable ? RoofKind::Gable : RoofKind::Flat;
     case BuildingUse::House: break;
   }
+
   if (!pitchable) { return RoofKind::Flat; }
   return aspect >= kHouseGableFromAspect ? RoofKind::Gable : RoofKind::Hip;
 }
@@ -484,6 +468,7 @@ void SplitHeight(BuildingShape *s, Roofing under) {
 struct PartOrder {
   double FootM = 0.0;
   double TopOverFootM = 0.0;
+  double PitchedShare = -1.0;
   uint32_t Seed = 0;
   bool HeightMeasured = false;
   std::optional<BuildingUse> Use;
@@ -558,7 +543,7 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
                        kPeriodHalvesLeast * s.HalfUm /
                            std::max(kPeriodHalvesLeast, std::round(s.HalfUm / kPeriodPerHalfM)));
   s.Storeys = std::max(1, static_cast<int>(std::lround(top / FloorPreferenceM(s.Use))));
-  s.Roof = RoofOf(s, aspect);
+  s.Roof = RoofOf(s, aspect, order.PitchedShare);
   SplitHeight(&s, {.TopM = top, .PitchDeg = PitchDegOf(s.Use, s.Seed, order.HeightMeasured)});
 
   const double bay = BayPreferenceM(s.Use);
@@ -704,7 +689,8 @@ En BuildingShape::FromBox(Boxed at) const {
 Massing MassOf(std::span<const double> ringLatLon,
                double heightM,
                bool heightMeasured,
-               const Frontage &street) {
+               const Frontage &street,
+               double pitchedShare) {
   Massing out;
   out.Outline = RingInMetres(ringLatLon);
   if (out.Outline.size() < 3) {
@@ -719,6 +705,7 @@ Massing MassOf(std::span<const double> ringLatLon,
   whole.TopOverFootM = topM;
   whole.Seed = seed;
   whole.HeightMeasured = heightMeasured;
+  whole.PitchedShare = pitchedShare;
   const BuildingShape one = Finish(WholeOf(out.Outline), whole);
   if (!one.Valid()) {
     out.Outline.clear();
@@ -788,5 +775,4 @@ Massing MassOf(std::span<const double> ringLatLon,
   for (BuildingShape &s : out.Parts) { FaceTheStreet(&s, street); }
   return out;
 }
-
 } // namespace outshine::Generators
