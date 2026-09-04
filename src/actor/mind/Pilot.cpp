@@ -6,8 +6,6 @@
 
 namespace outshine::Pilot {
 
-namespace {}
-
 double ReachOf(const Holding &with, Travelling how) {
   double reachM = with.SettleS * (how.SpeedMs > 0.0 ? how.SpeedMs : 0.0);
   const double ramp = std::fabs(how.CurvatureRatePerM);

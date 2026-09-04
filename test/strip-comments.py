@@ -20,6 +20,7 @@ and a door is documented where a generator can render it. Everywhere else in `sr
 nothing survives at all, which is the point: seeing the deletion on every build is what forces code
 that speaks for itself.
 """
+import re
 import sys
 import os
 
@@ -102,6 +103,11 @@ def strip(text, doxygen=True):
         out.append(ch)
         at += 1
     body = "".join(out)
+    # AN ANONYMOUS NAMESPACE THAT HELD ONLY A COMMENT LEAVES ITS SHELL BEHIND. Fifteen of them
+    # stood in eleven files -- `Laying.cpp` had two in a row -- because the strip removes what is
+    # inside and keeps the braces. They compile and mean nothing, which is the definition of noise
+    # in a tree whose whole argument for stripping is that the code should speak for itself.
+    body = re.sub(r"\nnamespace \{\s*\}\n", "\n", body)
     kept = []
     blank = 0
     for line in body.split("\n"):

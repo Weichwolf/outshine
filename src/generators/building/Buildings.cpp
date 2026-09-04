@@ -9,8 +9,6 @@
 
 namespace outshine::Generators {
 
-namespace {}
-
 Buildings::Buildings(ContactMaterial contact) : Contact_(contact) {}
 
 std::span<const char *const> Buildings::NoteNames() const noexcept {

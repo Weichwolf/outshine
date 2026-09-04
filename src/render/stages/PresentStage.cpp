@@ -5,7 +5,6 @@
 #include <string>
 
 namespace outshine::Render {
-namespace {}
 
 bool PresentStage::Configure(const Gpu &gpu,
                              SDL_GPUTexture *frame,

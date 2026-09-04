@@ -568,8 +568,6 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
   return own + frame + margins;
 }
 
-namespace {}
-
 double Placer::Width(std::string_view text, FontFace face) const {
   const FontMetrics metrics = Face->At(face);
   double width = 0;

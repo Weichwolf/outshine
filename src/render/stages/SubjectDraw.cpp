@@ -823,8 +823,6 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
   return packed;
 }
 
-namespace {}
-
 uint32_t SubjectDraw::DrawCount() const {
   uint32_t drawn = 0;
   for (const DrawBatch &batch : Batches) { drawn += batch.Draws; }

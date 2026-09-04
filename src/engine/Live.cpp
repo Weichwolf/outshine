@@ -141,8 +141,6 @@ double Live::Framing() const {
   return Declared_.Fill > 0.0 ? Declared_.Fill : Render::kFramingFill;
 }
 
-namespace {}
-
 void Live::Reshape() {
   if (EverShaped_ && ShapedAt_ == Held_.Changed()) { return; }
   ShapedAt_ = Held_.Changed();

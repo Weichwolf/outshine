@@ -6,8 +6,6 @@
 
 namespace outshine::Sim {
 
-namespace {}
-
 namespace {
 
 bool Refuse(Rigged &out, const std::string &why) {

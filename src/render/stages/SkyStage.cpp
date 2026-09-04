@@ -15,8 +15,6 @@ namespace outshine::Render {
 
 constexpr float kMPerKmF = 1000.0f;
 
-namespace {}
-
 bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
   SkyView = from.SkyView;
   Veil = from.Transmittance;

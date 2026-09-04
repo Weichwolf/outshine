@@ -14,8 +14,6 @@ constexpr double kNoBestYet = 1e30;
 constexpr int kFitSteps = 1150;
 constexpr double kSingularDet = 1e-12;
 
-namespace {}
-
 void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
   Samples_.fill(0.0f);
   Histogram_.fill(0.0f);

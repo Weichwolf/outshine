@@ -17,8 +17,6 @@ namespace outshine {
 
 constexpr double kBitsPerByte = 8.0;
 
-namespace {}
-
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
 Result Engine::assemble() {
@@ -233,19 +231,13 @@ void Engine::setRoots(Roots roots) {
   S_->Session.Under = std::move(roots);
 }
 
-namespace {}
-
 void Engine::offers(Host *host) {
   S_->Offered = host;
 }
 
-namespace {}
-
 void Engine::offers(const Generators::Generator &maker) {
   (void)S_->World.Offering.offers(maker);
 }
-
-namespace {}
 
 const std::vector<std::string> &Engine::unacted() const {
   return S_->Session.Carried;

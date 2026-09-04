@@ -124,10 +124,6 @@ constexpr int kClassPasses = 0;
 
 } // namespace
 
-namespace {}
-
-namespace {}
-
 std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
                                               const Render::Medium &fallback) {
   const size_t rows = wearing.TemplateCount();

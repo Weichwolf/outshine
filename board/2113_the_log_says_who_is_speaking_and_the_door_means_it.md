@@ -33,6 +33,30 @@ Unreal: `UE_LOG` for events, `stat` groups for aggregates, Unreal Insights
 faults, timebar and sampled telemetry channels for the rest. Neither ever puts mass data through
 the log. Taken: theirs, and the third channel does not exist here yet.
 
+## Done 2026-09-04
+
+`LogTag` is an enum in the door with `nameOf`, ten files went with it, both sinks print it. The
+four `Log::Debug` calls are gone -- every one was a COUNTER written as text, `vectile` fired once
+per vector tile, and the fields are built before `Emit` filters the level, so each tile allocated
+five `std::string` and threw them away with Debug switched off. What fell out with them proves
+they were nothing else's: `kBytesPerKB`, `kBytesPerMB`, `kGroundGridBytes` and two locals in
+`TilePool` had no other reader.
+
+The level stays in the door -- a client may filter on it -- and this tree no longer emits it. What
+remains is 23 errors, 1 warning and 8 infos, and the infos are the BOOT LOG, which is a fair use of
+a line that runs once per run.
+
+## What is left, and it is the reason those counters were logged
+
+`world/ground/` CANNOT write to the ledger: `Published` belongs to the engine. Those classes logged
+their numbers because the stats channel does not reach them. Removing the log lines removed the
+symptom.
+
+The shape that fixes it is already in the tree, for generators only: `Making::NoteNames()` declares
+what a class counts and the frame PULLS it. Every class that keeps numbers should be able to say so
+the same way, rather than pushing them somewhere or writing them as prose. That is the next step
+here, and it is the same missing piece board:2108 names from the other side.
+
 ## What this item does
 
 **Benchmark**: Unreal declares the CATEGORY as a symbol (`DECLARE_LOG_CATEGORY_EXTERN`) and leaves
