@@ -5,9 +5,13 @@
 #include <optional>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <span>
+#include <vector>
+#include <limits>
 #include <unordered_map>
 
+#include "FlatMap.h"
 #include "math/Units.h"
 
 namespace outshine {
@@ -23,10 +27,10 @@ inline constexpr double kDrapeGridM = 32.0;
   return cellM;
 }
 
-using DrapeFaces = std::array<std::unordered_map<uint64_t, std::vector<uint32_t>>, kDrapeRungs>;
+using DrapeFaces = std::array<FlatMap<std::vector<uint32_t>>, kDrapeRungs>;
 
 struct Drape {
-  const std::unordered_map<uint64_t, float> &DrawnGround;
+  const FlatMap<float> &DrawnGround;
   const DrapeFaces &FacesAt;
   std::span<const float> InFrame;
   std::span<const uint32_t> Index;
@@ -55,9 +59,9 @@ inline std::optional<double> Drape::OnAFace(EastSouth at) const {
     const auto cellS = static_cast<int64_t>(std::floor(at.SouthM / cellM));
     const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
     const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
-    const auto bucket = FacesAt[rung].find((atE << 32U) | atS);
-    if (bucket == FacesAt[rung].end()) { continue; }
-    for (const uint32_t face : bucket->second) {
+    const std::vector<uint32_t> *const bucket = FacesAt[rung].Find((atE << 32U) | atS);
+    if (bucket == nullptr) { continue; }
+    for (const uint32_t face : *bucket) {
       const size_t a = static_cast<size_t>(Index[face]) * 3u;
       const size_t b = static_cast<size_t>(Index[face + 1u]) * 3u;
       const size_t c = static_cast<size_t>(Index[face + 2u]) * 3u;
@@ -88,9 +92,9 @@ inline std::optional<double> Drape::OnAFace(EastSouth at) const {
 inline bool Drape::CellAt(Cell at, double *out) const {
   const auto atE = static_cast<uint64_t>(at.East + 0x20000000LL);
   const auto atS = static_cast<uint64_t>(at.South + 0x20000000LL);
-  const auto stood = DrawnGround.find((atE << 32U) | atS);
-  if (stood == DrawnGround.end()) { return false; }
-  *out = static_cast<double>(stood->second);
+  const float *const stood = DrawnGround.Find((atE << 32U) | atS);
+  if (stood == nullptr) { return false; }
+  *out = static_cast<double>(*stood);
   return true;
 }
 

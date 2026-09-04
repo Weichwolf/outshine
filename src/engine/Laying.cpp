@@ -2230,8 +2230,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   censusAt = clocks.CensusAt;
   wiresAt = clocks.WiresAt;
 
-  std::unordered_map<uint64_t, float> drawnGround;
-  std::array<std::unordered_map<uint64_t, std::vector<uint32_t>>, kDrapeRungs> facesAt;
+  FlatMap<float> drawnGround;
+  DrapeFaces facesAt;
   std::vector<Yields> corridor;
   RoadRaised pavement;
   {
@@ -2255,7 +2255,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       cell.first += static_cast<double>(inFrame[at + 1]);
       ++cell.second;
     }
-    drawnGround.reserve(summed.size());
     std::vector<uint64_t> cells;
     cells.reserve(summed.size());
     for (const auto &one : summed) { cells.push_back(one.first); }
@@ -2272,7 +2271,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("ring: cells they fall into", static_cast<double>(summed.size()), "cells");
     Published.Places("ring: cells holding more than one", static_cast<double>(crowded), "cells");
 
-    facesAt[0].reserve(laid->Index.size() / 3u);
     std::array<size_t, kDrapeRungs> rungTaken = {{}};
     for (size_t one = 0; one + 2 < laid->Index.size(); one += 3) {
       double lowE = kBeyondAnyCoordinate;
