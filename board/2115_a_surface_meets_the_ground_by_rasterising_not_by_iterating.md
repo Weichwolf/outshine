@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Area: generators, base, engine
 Tags: architecture, performance, owner
 Supersedes: 2097
@@ -120,3 +120,48 @@ The buildings are pieces in the renderer's pool, baked per vector tile on a work
 terrain tile is NOT yet a piece: the ground's classify and press are world-grained passes
 (`ground-yield` took 830 MB of heap at Shibuya, `Grounds(true)` adds 83 MB live), and a tile
 can only become a piece once its surface is produced per tile -- which is this item.
+
+## The order it lands in, decided 2026-09-04 after reading the renderer and the ring
+
+Read before writing: the ring is `kBlockTiles` = 4 x 4 tiles per level, a level per doubling of
+the sight (Kaiserberg 7 levels, ~100 tiles); the CPU samples every tile through 65 x 65 NODES
+(`kStreamGrid` = 64, `FillNodeHeights`) and the drawn mesh is a 33-grid chunk cooked into a
+DAG per tile on the pool; the classes are ALREADY decided in the fragment shader from
+`ClassStructure::Words()` with `in.uv` = (east, north) in the anchor's tangent frame; a
+piece's row is `[R_enu | t]` and the eye shift is added on the GPU. SDL_GPU has no mesh
+shader, so the lattice is Unreal's: a shared grid mesh, INSTANCED per tile, the vertex
+shader fetching the height from a texture (Landscape's vertex-texture fetch).
+
+1. **Height pages.** The pool's `TileBuild` carries the tile's 65 x 65 nodes beside the chunk,
+   made by the same `FillNodeHeights` the CPU query reads -- ONE grid for physics and picture,
+   so a seat and the drawn ground agree to the float. The renderer holds them as pages in one
+   `R32_FLOAT` 2D-array texture with a free list (17 KB a page; the ring is ~100 pages), placed
+   and released by tile like a piece. Measured: bytes on the device, upload ms per page
+2. **The lattice stage** (`Stage::Ground`, raster, fused into the subjects' pass, the same
+   `SUBJECT_SURFACE` bindings and `fsGroundLit`): one 65 x 65 grid mesh with a SKIRT ring
+   (Cesium's answer to the crack between two levels; CDLOD's morph is the Unreal refinement,
+   added later if the skirt is SEEN), an instance per ring tile: row, the tile's four corner
+   offsets in its own ENU (bilinear inside the tile keeps Mercator's north spacing to mm),
+   page index, spacing. The vertex: height fetched, e/n from the corners, up = h - (e² + n²)/2R
+   (the sphere's sag, Outerra's clipmap form; 6 cm at a 50 km tile), normal by central
+   differences on the page, uv = the frame's east/north. A depth-only twin casts the shadow
+   through `LightVisibilityStage`. Measured: the ring's triangles and ms in `Spent_`, and the
+   nine pictures against their references with `pixels.py` -- the difference is the
+   refinement's own (33-grid + refine/cut/sew) against the 65-node lattice, looked at
+3. **Selection by the ring** as today (`LayPatchwork`'s per-level walk decides which tile at
+   which zoom stands), the instances rebuilt when the ring moves, which is a list of ~100 rows
+   and not a mesh. A tile crossing then uploads ONE page
+4. **Deletion**: `Refine`, `Cut`, `Sew`, `Press`, `Classify`'s per-vertex walk,
+   `DividesAtClassEdges`, the chunk cook and the ring's vertex upload; the road stays a
+   ribbon, the buildings pieces, water a lattice at its own level. The four `ground: of that`
+   measures read 0.000 ms and `ground-yield` leaves the heap
+5. **Stamps (board:2121) on the worker, into the NODES**, not into the texture: the footprint
+   and the corridor are rasterised into a tile's 65 x 65 grid where the tile is made, and the
+   page uploaded stamped. One rule in one place, and the CPU query reads the same stamped
+   nodes -- a compute pass would put the rule on the GPU where the headless path cannot read
+   it back. Deviation from the paragraph above, with this reason
+6. **Physics** reads what it reads today (`GroundStream::At` over the nodes), stamped
+
+**What will show this was wrong**: a crack SEEN at a level boundary the skirt does not hide;
+a seat that disagrees with the drawn ground by more than the float's quantum; a frame at
+Kaiserberg slower than today's 3.4 ms p50 with the ring drawn by the lattice.
