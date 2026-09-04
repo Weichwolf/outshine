@@ -99,3 +99,30 @@ world arrives over the wire.
 passes no longer exist, and `heap taken under ground-yield` falling by the order the arithmetic
 above predicts. If a projected grid still needs a seam pass, the construction was not coherent and
 this item misread the problem.
+
+## WHERE IT LIVES: the engine core, beside the shadow
+
+Decided 2026-09-04. Projecting a lattice onto a surface and tessellating it is a VERB, not a
+subject -- the same kind of thing as a shadow. A shadow is not owned by whatever casts it; the
+engine computes it and every subject gets one. A projected grid is the same shape of answer:
+
+  - the ENGINE provides `project a lattice onto this field at this resolution`
+  - a GENERATOR asks for it and receives geometry -- terrain, water, and anything else with a
+    surface to cover
+
+This follows the rule already written down for the seam solver: generic MATHEMATICS and PHYSICS
+belong to the engine, and what NAMES something stays in the generator. A lattice, a projection and
+a displacement name nothing; `TreeFoliage` and `BuildingShape` do.
+
+It also settles who else may use it. `water/` covers a polygon with a surface and today has its own
+path; a projected grid is the same verb at a different resolution with a different displacement.
+Two callers is the number that makes the abstraction real rather than guessed -- and unlike the
+seam relaxation, which had one caller and therefore stayed put, this one has two before it is
+written.
+
+## The measurement this rebuild is held to
+
+A structural rewrite MOVES EVERY DIGEST, so the digest stops being the guard and the PIXELS become
+it. `test/scripts/pixels.py` reads two shots and reports how many differ and by how much of 255.
+Reference for the eight places is kept under `build/shots/reference/`. The bar: no pixel differs by
+more than 1 of 255 unless the difference is looked at and named.
