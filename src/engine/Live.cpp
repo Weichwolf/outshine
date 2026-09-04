@@ -279,7 +279,11 @@ bool Live::WearsOverrides(std::string &error) {
 bool Live::JoinsSubjects(std::string &error) {
   for (const std::string &joining : Declared_.Joins) {
     Core::Posed arriving;
-    if (!arriving.Reads(joining, "", Declared_.Animation, Declared_.Clip, Declared_.Fps, error)) {
+    if (!arriving.Reads({.Path = joining, .Variant = ""},
+                        Declared_.Animation,
+                        Declared_.Clip,
+                        Declared_.Fps,
+                        error)) {
       return false;
     }
     if (!arriving.Poses(0.0, error)) { return false; }
@@ -325,8 +329,7 @@ bool Live::JoinsBuilt(std::string &error) {
 
 bool Live::StandsSubjects(std::string &error) {
   if (!Held_.Stands()) {
-    if (!Held_.Reads(Declared_.Stands,
-                     Declared_.Variant,
+    if (!Held_.Reads({.Path = Declared_.Stands, .Variant = Declared_.Variant},
                      Declared_.Animation,
                      Declared_.Clip,
                      Declared_.Fps,

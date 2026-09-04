@@ -19,8 +19,13 @@ namespace outshine::Core {
 class Posed {
 public:
   void Clears();
-  [[nodiscard]] bool Reads(const std::string &path,
-                           const std::string &variant,
+
+  struct Sited {
+    std::string Path;
+    std::string Variant;
+  };
+
+  [[nodiscard]] bool Reads(const Sited &asset,
                            Scenario::AssetAnimation animation,
                            int clip,
                            double fps,

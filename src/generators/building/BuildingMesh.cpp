@@ -210,14 +210,17 @@ private:
   double FocalPx_ = 0.0;
 };
 
+struct Levels {
+  double BaseAslM = 0.0;
+  double SeatAslM = 0.0;
+  double FootAslM = 0.0;
+};
+
 class Site2Ground {
 public:
-  Site2Ground(std::span<const double> ringLatLon,
-              std::span<const double> cornerAslM,
-              double baseAslM,
-              double seatAslM,
-              double footAslM)
-      : HighM_(seatAslM - baseAslM), LowM_(footAslM - baseAslM) {
+  Site2Ground(std::span<const double> ringLatLon, std::span<const double> cornerAslM, Levels at)
+      : HighM_(at.SeatAslM - at.BaseAslM), LowM_(at.FootAslM - at.BaseAslM) {
+    const double baseAslM = at.BaseAslM;
     const size_t n = std::min(cornerAslM.size(), ringLatLon.size() / 2);
     if (n < 3) { return; }
     std::array<std::array<double, 4>, 3> m = {};
@@ -917,7 +920,9 @@ bool BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept 
 
     Site site(plan, into);
     const Site2Ground ground(
-        plan.RingLatLon, plan.CornerAslM, plan.BaseAslM, plan.SeatAslM, plan.FootAslM);
+        plan.RingLatLon,
+        plan.CornerAslM,
+        {.BaseAslM = plan.BaseAslM, .SeatAslM = plan.SeatAslM, .FootAslM = plan.FootAslM});
     for (BuildingShape &part : mass.Parts) {
       part.SeatM = PlinthTopZ(part, ground);
       part.SoleM = PlinthFootZ(part, ground);

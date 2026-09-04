@@ -25,12 +25,13 @@ void Posed::Clears() {
   Changed_ += 1;
 }
 
-bool Posed::Reads(const std::string &path,
-                  const std::string &variant,
+bool Posed::Reads(const Sited &asset,
                   Scenario::AssetAnimation animation,
                   int clip,
                   double fps,
                   std::string &error) {
+  const std::string &path = asset.Path;
+  const std::string &variant = asset.Variant;
   if (Read_) { return true; }
   if (!variant.empty()) { Variant_ = Gltf::VariantSelection(variant); }
   if (!File_.ReadFile(path)) {
