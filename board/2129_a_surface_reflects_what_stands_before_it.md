@@ -17,6 +17,13 @@ specular lobe per roughness (`cmgen`), and its screen-space reflections read the
 colour of the previous frame -- both readable, both on phones. The probe rung here is Filament's
 `IndirectLight` with the sky replaced by a capture.
 
+**And the target has ray-tracing hardware.** A18 Pro traces rays in hardware (Metal 3 ray
+tracing); Unreal's Lumen uses hardware RT for reflections where it exists. The ladder here gains a
+rung: the NEAR field reflects by a ray at quarter resolution against the pool's geometry (one
+acceleration structure over the pieces, rebuilt per tile), SSR stays the fallback, the probe
+answers the far field. Measured at 720p before SSR is written, because a rung that costs more
+than it saves is not built.
+
 ## Where it stands, measured 2026-09-04
 
 ```

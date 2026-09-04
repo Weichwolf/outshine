@@ -43,7 +43,7 @@ by the shared OSM node ids `WayEndKey` already quantises:
 | **lane** | an offset along the edge's centreline; a vehicle drives a lane, a walker a footway edge |
 | **junction** | the node's turning relations: which lane continues into which, derived from the geometry |
 | **rail** | the same three types from the transportation layer's `rail` class, with track, gauge and no lanes |
-| **query** | `Route(from, to, mode)` over the graph, A* with the class's speed as the cost; `Nearest(place, mode)` to snap a body onto the network |
+| **query** | `Route(from, to, mode)`; A* with the class's speed as the cost inside a ring, and CONTRACTION HIERARCHIES (OSRM's answer, Geisberger 2008) for a route across a country -- a worldwide sandbox routes worldwide; `Nearest(place, mode)` to snap a body onto the network |
 
 The graph is part of the SNAPSHOT (board:2130): the simulation reads it, the renderer never
 does, and a tile that leaves takes its nodes with it while the edges to a resident tile stay

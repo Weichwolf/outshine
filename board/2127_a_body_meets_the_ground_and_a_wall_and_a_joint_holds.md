@@ -14,6 +14,15 @@ a constraint solver for joints. **Both agree**: a physics engine is contact plus
 collision representation that is NOT the render mesh, and the render mesh is never what a body
 touches.
 
+**Cited beside the two, and it decides the solver**: Jolt Physics (MIT, readable, ships in
+Horizon Forbidden West) is DETERMINISTIC across platforms by design -- a fixed solver order, no
+floating-point atomics, a broad phase rebuilt in a declared order -- which is the fourth
+invariant's demand and what neither Chaos nor RAGE's `phSimulator` promise. Its contact solver is
+sequential impulses with warm starting; XPBD (Muller 2016) and TGS are the two order-stable
+alternatives. Taken: Jolt's SHAPE -- body, shape, constraint, a fixed-order islands solver --
+over a heightfield bound for the ground (board:2115's height texture, read on the CPU) and
+convex prisms for footprints.
+
 ## Where it stands, measured 2026-09-04
 
 CLAUDE.md's first sentence defines the engine as an INTERACTIVE PHYSICS SIMULATION. The tree

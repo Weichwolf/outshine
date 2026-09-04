@@ -60,3 +60,14 @@ budget is measured where it is missed.
 - making the rebuild cheaper (b18fb9df, 7c98b7d3): 2211 -> 1132 ms; right to do and not the
   answer
 - a still camera: the frame column went green and the engine did not change
+
+## Decided 2026-09-04: the order the rebuild leaves the frame in
+
+1. buildings bake on `Tasks` workers from a snapshot and are PLACED in post order, N per frame
+   (board:2122's next block) -- the first synchronous mesh leaves `Restand`
+2. the ground becomes a GPU height field (board:2115): `Grounds`' gather, classify, yield and
+   the ring upload go; a tile crossing uploads one height tile
+3. the road derivation moves to the generator (board:2101) and runs per tile on the same workers
+   over the same snapshot; the ribbon pieces are placed like buildings
+4. what `Grounds` keeps is the SEQUENCE: place finished pieces, write finished stamps, hand the
+   frame its snapshot -- and the camera walks again in `make shots`

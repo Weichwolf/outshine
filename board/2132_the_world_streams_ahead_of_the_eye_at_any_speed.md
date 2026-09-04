@@ -51,6 +51,12 @@ a flight at 250 m/s crosses one every second and the engine stands still.
   WALK and a FLIGHT per place, with the walk digest (board:2105) and the frame budget scored on
   both
 
+**And the wire**: `Fetching` opens up to 8 HTTP/1.1 connections; Cesium's request scheduler
+rides HTTP/2, one connection multiplexing every stream, which libcurl's multi interface gives for
+one flag. Measured today: 35 MB in 1.1 s at 260-300 Mbit/s cold -- the wire's rate on 8
+connections; the server's rate limit after 3 601 requests in a burst is what a cold cache hit
+this afternoon, and a scheduler that orders by error asks for fewer tiles first.
+
 ## What will be true
 
 - [ ] `make shots` walks and flies every place: 0 of 120 over 16.67 ms at a walk (1.5 m/s) and
@@ -59,6 +65,8 @@ a flight at 250 m/s crosses one every second and the engine stands still.
       moves the eye at speed and counts tiles that were asked for AFTER the eye reached them,
       which reads 0
 - [ ] The far field is resident: a case flies 50 km and the horizon's piece count never drops
+- [ ] The fetch multiplexes on HTTP/2 and a cold place stands no slower than today's warm one
+      divided by the wire's headroom, quoted per place
 - [ ] Negative control: centre the ring on the eye again and the late-tile count at a flight
       goes RED
 

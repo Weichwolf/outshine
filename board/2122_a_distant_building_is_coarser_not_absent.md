@@ -128,3 +128,33 @@ still world-grained passes.
   writing into what the renderer reads is the live-state defect by name
 - 32 -> 20 bytes per vertex: right, and Shibuya stayed red, because the peak is the grain
 - a distant building DELETED: a skyline that flickers; both references refuse it
+
+## What is next in this item, decided 2026-09-04
+
+**Pages, not first-fit ranges.** The pool's free list will fragment on a long drive; Nanite's
+page pool allocates in fixed PAGES (64 KB), a piece takes N pages, and fragmentation ends at the
+page's grain. `SubjectResidency::Take/Give` become page allocation before the worker lands.
+
+**The bake on a worker, and its shape is already in the tree.** `Generators::Ground::Snapshot`
+-- a height `Patch`, the `Classes`, a `FeatureField` in tile metres, a `Table`, all immutable
+shared_ptrs -- is the worker-safe view a generator is handed today for PLACING. The building
+derivation (`BuildingField::Build`: seat and base from heights, storeys from `PlaceHash`,
+frontage from the ways, lump for massed, `StructureMesher::Mesh`) is the same shape and moves to
+`generators/building/StructureBake` over a snapshot (board:2101's "the building derivation is a
+generator", landed here because the worker needs it first):
+
+  1. `base/io/Tasks`: a compute pool, threads = hardware - 2 (the frame keeps two), post in
+     order, results consumed by the poster IN POST ORDER -- Unreal `FQueuedThreadPool`, RAGE
+     `sysTaskManager`; the fourth invariant's compute half, sized by cores
+  2. the engine takes a snapshot of the next vector tile the watermark yields (heights at the
+     post spacing + the tile's RAW structures: rings, `height`, `roof:shape`) and posts the bake
+  3. a worker bakes into ITS scratch (`Raised`, `Footprint` rows), which is board:2112's
+     borrowed scratch by construction
+  4. each frame the engine places the queue's HEAD if it finished -- declared order, one or two
+     tiles a frame, which is board:2105's counted budget
+  5. `BuildingField` keeps the footprints per tile (the physics prisms) and the watermark;
+     `Build()` and `RingBase` on the frame path go
+
+The heights a worker samples come from the snapshot's `Patch` (bilinear over postings), not from
+`GroundQuery::At`; seats move by the difference between the two interpolations, which is
+measured with pixels.py at the building bases before it is accepted.

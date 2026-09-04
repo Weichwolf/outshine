@@ -17,6 +17,13 @@ the CPU per frame and the fragment reads its froxel's light list -- on a phone G
 this target -- with cascaded shadow maps for the sun and a shadow map per spot light. It is the
 readable implementation of what both references do, and the one this item copies.
 
+**And the hardware's own answer, to be MEASURED against the froxel**: this target is a
+tile-based deferred GPU. Metal's single-pass deferred lighting keeps the G-buffer in tile memory
+(imageblocks) and lights every tile without a round trip to memory -- Apple's own sample, and what
+Unreal's Metal backend does on this class of GPU. On A18 Pro that is likely cheaper than a froxel
+grid at 720p; the item builds the froxel path (portable, Filament's) and measures tile shading
+beside it before the second is deleted.
+
 ## Where it stands, measured 2026-09-04
 
 ```

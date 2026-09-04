@@ -78,3 +78,22 @@ On the lattice (board:2115), every step is a write into a grid and not a search 
   digests bit-identical; it was the cost, not the verdict
 - a continuity filter on the elevation tiles made the sunken-ring count WORSE; the damage came
   in bands, and the tile's own distribution (median ± MAD) was the predicate
+
+## Decided 2026-09-04, with board:2115's height field: a stamp is a WRITE into the height texture
+
+With the ground a GPU height field, steps 2 to 6 become one compute pass and one ribbon:
+
+- **stamp**: every footprint polygon and every corridor is rasterised into the height texture
+  of each level it touches (a compute kernel over the polygon's bounding box, a point-in-polygon
+  per texel, the seat height written); the slab is level because every texel under it holds one
+  number, and the rim is as sharp as the finest level's texel (sub-metre near the eye)
+- **grade**: a corridor writes its centreline profile across its width, level across, so the
+  road's texels carry the grade; the ribbon mesh is swept on the same profile, so ribbon and
+  ground agree by construction
+- **junction**: the profiles meeting at a node are solved ONCE (least squares over the meeting
+  profiles, bounded by the class's gradient) before the stamp is written; no relaxation
+- **bridge**: a corridor above the field is a ribbon with no stamp; the heuristic (OSM tags, a
+  crossing without a shared node) decides, board:2101 carries it
+
+The floor's spread across a footprint is then measured on the texture, and it is zero by
+construction; the oracle case reads it anyway.

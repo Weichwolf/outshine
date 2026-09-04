@@ -78,6 +78,14 @@ neither faces the question, the item says exactly that and says why the choice i
 
 **A measurement of THIS tree outranks both.**
 
+**THE HARDWARE HAS A VOICE TOO, AND IT IS MEASURED, NEVER ASSUMED.** The target is one GPU with
+properties the references were not designed around -- tile memory a deferred pass never leaves,
+mesh shaders that tessellate a height field without a vertex upload, ray-tracing units. Where
+the target's own answer differs from both references (Apple's tile shading against Filament's
+froxels), the item builds the reference's path, measures the hardware's beside it on THIS tree,
+and keeps the one the number picks. A hardware feature named without a measurement is a
+brochure, not a decision.
+
 **THE DOOR SPEAKS FILAMENT AND CESIUM; THE MOTOR HOLDS RAGE AND UNREAL.** `include/` uses the names
 a reader already owns — **Filament** for the renderer (`Engine` · `Scene` · `View` · `Camera` · `Renderer` · `Material` ·
 `MaterialInstance` · `TransformManager`) and **Cesium** for the Earth (`Georeference` ·
@@ -100,7 +108,9 @@ column has to be READABLE: Unreal is source, RAGE is reconstruction. Ubisoft's t
 Anvil, Snowdrop, Dunia — are strong where outshine is weak (crowds, vegetation, procedural
 authorship) and none of them can be read, so a column for them would be a vote cast from a slide
 deck. **id Tech 4 is GPL and therefore readable**, so it may stand beside a decision as evidence
-the way a paper does — inside the item, never as a third column. A source that cannot be read
+the way a paper does — inside the item, never as a third column. **Jolt Physics is MIT and
+readable** and is the one body that promises determinism across platforms, so for a physics
+question it is cited before Chaos. **Cesium** is cited for anything that streams a planet. A source that cannot be read
 supports a TECHNIQUE and never decides a STRUCTURE.
 
 ## Before I write
@@ -120,6 +130,13 @@ commit, which is why they cannot be skipped quietly — an empty answer is visib
 4. **What measurement will show I was wrong?** Name the case, the audit flag or the number, and
    what it reads if the change is bad. A change with no such number is a guess wearing a commit
    message
+
+**A MOVED DIGEST IS ACCEPTED WITH THREE THINGS OR NOT AT ALL**: `test/scripts/pixels.py`'s count
+against the kept reference, WHERE the pixels are and why they moved (a silhouette, a cluster, a
+seat), and the picture looked at. Measured 2026-09-04: a 618-pixel move at CentralPark that read
+as "small" was a tower culled by a wrong occlusion window; the coordinates named it, the count
+did not. The references under `build/shots/reference/` are the regression test of this tree, and
+a change that cannot show all three goes back.
 
 **A PIXEL COUNT IS NOT A LOOK.** Measured 2026-09-04: a rewrite of one function's signature moved
 59% of OldTown's pixels, and 59% reads as "a lot changed" -- large, arguable, possibly acceptable.

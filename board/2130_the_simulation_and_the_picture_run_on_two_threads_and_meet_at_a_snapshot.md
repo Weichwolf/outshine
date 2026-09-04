@@ -51,6 +51,12 @@ cores carry one of them.
 - [ ] `make shots` reports sim p99 and draw p99 as two numbers that no longer add
 - [ ] Negative control: pin both to one thread and the frame time is their sum again
 
+## The cores, named
+
+2P + 4E: the simulation and the picture take the two performance cores, one each, and the
+bakes (board:2122's `Tasks`) take the efficiency cores. `Tasks` sizes itself as hardware minus the
+two the frame keeps, which is that sentence as arithmetic.
+
 ## The order
 
 After board:2124: a rebuild that still runs inside `advance` would make the snapshot a second of

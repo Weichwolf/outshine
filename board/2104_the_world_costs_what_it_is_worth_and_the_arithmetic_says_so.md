@@ -49,7 +49,11 @@ its wall triangles -- is board:2127's.
 1. board:2122 first: per-tile bake, whole-piece handover, the CPU copy released on upload
 2. then removal: `OsmField` keyed per tile with an erase; `BuildingField` and `StreetField` the
    same; a ring recentring by one tile erases one and bakes one
-3. then the heap: size header, no `malloc_size`; the ceiling reads the tagged heap
+3. then the heap: size header, no `malloc_size`; the ceiling reads the tagged heap; and the
+   CHURN goes to a BUMP allocator per job -- Unreal's `FMemStack` with a mark reset after each
+   tile, RAGE's frame heaps -- because 2.25 GB in the tile worker and 881 MB in the yield are
+   allocation PATTERNS (a `std::map` of lumps per tile, `reserve` per pass), and a linear
+   allocator reset per tile takes them to the size of one tile's working set
 4. the point type at the store: `Points()` per tile as `span<const LongitudeLatitude>`, which
    deletes twelve `[i*2+1]` readers and the last swappable pair
 

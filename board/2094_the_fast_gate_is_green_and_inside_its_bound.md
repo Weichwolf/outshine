@@ -31,6 +31,17 @@ Beside the claims: `README.md` names `STATE.md`, `apps/`, `test/gate.sh` and `--
 none of which exists as described, and `mesh.xml` / `r.xml` are tracked at the root with no
 reader. Both are the same rule -- the tree describes itself truthfully -- and both are one commit.
 
+## Measured 2026-09-04 evening, after board:2122's pool
+
+```
+  2556 tests: 2538 PASS  18 FAIL  0 BUILD  0 UNPREPARED   in 718 620 ms
+  RUN 346 066 ms over the declared 230 000 ms; builds 372 554 ms beside it
+```
+
+The 18 are the nine claims below, twice; `EveryItemNamesTheBenchmark` went green with the
+board's rewrite; Shibuya is PREPARED for the first time. The overrun is 116 s and it is the
+sanitised twin of every claim.
+
 ## The clock
 
 `kFastGateBoundMs = 230000` in `test/run.sh` and every harness layer builds twice (plain and
