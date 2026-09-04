@@ -86,6 +86,8 @@ public:
 
   [[nodiscard]] TerrainGrid FieldOf(Data::TileId of) const;
 
+  [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(Data::TileId of) const;
+
   [[nodiscard]] int BlockZoom() const override { return Surface_.Z; }
 
   [[nodiscard]] double PostM(double latDeg) const override;

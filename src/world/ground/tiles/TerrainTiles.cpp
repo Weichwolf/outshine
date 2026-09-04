@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <memory>
 
 namespace outshine::Ground {
 
@@ -42,6 +43,7 @@ constexpr int kDemCacheCeiling = 128;
 TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
     : Source_(source), Frame_(frame), Config_(config) {
   if (Config_.Stride == 0) { Config_.Stride = 1; }
+  if (Config_.DemCacheBytes > 0) { return; }
   const int slots = (config.DemCacheTiles > 0 && config.DemCacheTiles < kDemCacheCeiling)
                         ? config.DemCacheTiles
                         : kDemCacheCeiling;
@@ -58,7 +60,24 @@ const TerrainField *TerrainTiles::CacheLookup(Data::TileId of) {
 }
 
 void TerrainTiles::CacheStore(Data::TileId of, const TerrainField &field) {
-  if (Cache_.empty() || !field.Meshable()) { return; }
+  if (!field.Meshable()) { return; }
+  if (Config_.DemCacheBytes > 0) {
+    if (field.Bytes() > Config_.DemCacheBytes) { return; }
+    size_t held = field.Bytes();
+    for (const CacheEntry &e : Cache_) { held += e.Field.Bytes(); }
+    while (held > Config_.DemCacheBytes && !Cache_.empty()) {
+      size_t oldest = 0;
+      for (size_t at = 1; at < Cache_.size(); ++at) {
+        if (Cache_[at].Seq < Cache_[oldest].Seq) { oldest = at; }
+      }
+      held -= Cache_[oldest].Field.Bytes();
+      Cache_[oldest] = std::move(Cache_.back());
+      Cache_.pop_back();
+    }
+    Cache_.push_back({.Seq = ++Seq_, .Used = true, .Of = of, .Field = field});
+    return;
+  }
+  if (Cache_.empty()) { return; }
   CacheEntry *victim = Cache_.data();
   uint64_t oldest = std::numeric_limits<uint64_t>::max();
   for (CacheEntry &e : Cache_) {
@@ -236,6 +255,36 @@ TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, 
   return TerrainGrid::State::Decoded;
 }
 
+std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t x, uint32_t y) {
+  const Data::TileId of{.Zoom = z, .X = x, .Y = y};
+  for (StitchedEntry &held : Stitched_) {
+    if (held.Of == of) {
+      held.Seq = ++Seq_;
+      return held.Field;
+    }
+  }
+  TerrainGrid grid = StitchedGrid(z, x, y);
+  TerrainField *field = grid.TryFieldMutable();
+  if (field == nullptr) { return nullptr; }
+  auto shared = std::make_shared<const TerrainField>(std::move(*field));
+  if (Config_.StitchedFieldBytes == 0 || shared->Bytes() > Config_.StitchedFieldBytes) {
+    return shared;
+  }
+  size_t held = shared->Bytes();
+  for (const StitchedEntry &one : Stitched_) { held += one.Field->Bytes(); }
+  while (held > Config_.StitchedFieldBytes && !Stitched_.empty()) {
+    size_t oldest = 0;
+    for (size_t at = 1; at < Stitched_.size(); ++at) {
+      if (Stitched_[at].Seq < Stitched_[oldest].Seq) { oldest = at; }
+    }
+    held -= Stitched_[oldest].Field->Bytes();
+    Stitched_[oldest] = std::move(Stitched_.back());
+    Stitched_.pop_back();
+  }
+  Stitched_.push_back({.Seq = ++Seq_, .Of = of, .Field = shared});
+  return shared;
+}
+
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainGrid grid = RawGrid({.Zoom = z, .X = x, .Y = y});
   TerrainField *field = grid.TryFieldMutable();
@@ -321,6 +370,9 @@ size_t TerrainTiles::HeapBytes() const {
   size_t bytes = sizeof(*this);
   for (const CacheEntry &e : Cache_) {
     if (e.Used) { bytes += e.Field.Bytes(); }
+  }
+  for (const StitchedEntry &held : Stitched_) {
+    if (held.Field) { bytes += held.Field->Bytes(); }
   }
   return bytes;
 }

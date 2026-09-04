@@ -1857,11 +1857,20 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "ground: virtual tiles the lattice refines to",
         static_cast<double>(HeightSheets::Refine(
             *laid,
-            World.Stack.Ground(),
             {.FinestZoom = over.Zoom,
              .Levels = kLatticeVirtualLevels,
              .Eye = {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}})),
         "tiles");
+    const auto haloAt = std::chrono::steady_clock::now();
+    Published.Places(
+        "ground: sheets the lattice haloed",
+        static_cast<double>(World.Sheets.Halos(*laid, World.Stack.Ground(), over.Zoom)),
+        "sheets");
+    Published.Places(
+        "ground: of that, haloing",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - haloAt)
+            .count(),
+        "ms");
   } else if (World.Sheets.Instances() > 0) {
     World.Sheets.Clear();
   }
@@ -2066,6 +2075,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     };
   }
   Paves(standing, classStructure, drapedOver, corridor, pavement, ground, clocks);
+  if (lattice) { World.Sheets.ForgetsFields(); }
 
   {
     const Ground::BuildingField &pads = World.Stack.Footprints();

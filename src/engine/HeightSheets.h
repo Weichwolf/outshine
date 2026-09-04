@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_HEIGHTSHEETS_H
 
 #include <cstddef>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -40,8 +41,8 @@ public:
     LongitudeLatitude Eye;
   };
 
-  [[nodiscard]] static size_t
-  Refine(Patchwork &laid, const Ground::GroundStream &ground, Nearer how);
+  [[nodiscard]] static size_t Refine(Patchwork &laid, Nearer how);
+  [[nodiscard]] size_t Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom);
 
   [[nodiscard]] std::optional<double>
   FieldUpM(const Ground::GroundStream &ground, int zoom, EastSouth at);
@@ -70,7 +71,13 @@ private:
   std::vector<Held> Held_;
   std::vector<Render::GroundTile> Instances_;
   std::vector<Render::GroundTile> Virtual_;
-  std::vector<std::pair<Data::TileId, Ground::TerrainGrid>> Fields_;
+  [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
+                                                    Data::TileId tile);
+  [[nodiscard]] std::optional<float>
+  AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFrac at);
+  [[nodiscard]] bool HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom);
+
+  std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
   Render::PageId Zero_ = Render::kNoPage;
   uint32_t GridPostings_ = 0;
   Core::Live *Live_ = nullptr;

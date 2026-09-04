@@ -355,8 +355,52 @@ tile edges in the far band is this and nothing else; anything larger, or anywher
 change. That is the reading rule for every lattice digest from here on, and it is why the
 cull's own digests (OldTown 32e0b780, Kaiserberg 9c6b446e, Jura 14daf15a) stand.
 
-Found on the way: the normal at a page's rim is a one-sided difference, so two neighbours
-disagree about the normal along their shared edge -- a shading seam on every tile border.
-Unreal's heightmap carries a one-texel border from the neighbour so the difference is
-central on both sides; the page here needs the same halo (`kSide + 2`, the ring pressed like
-any node), and it is next before the normal comparison on a slope.
+Found on the way: the normal at a page's rim was a one-sided difference, so two neighbours
+disagreed about the normal along their shared edge -- a shading seam on every tile border.
+Landed below.
+
+## Landed 2026-09-05: the page carries a one-node HALO, and the stitched field is held once
+
+Unreal's Landscape heightmap carries a one-texel border from the neighbouring component, so
+the normal is a central difference on both sides of a seam and the seam is not there; CDLOD
+and Cesium's terrain compute normals over the neighbour's data for the same reason. Here: a
+page is `kPageSide = kSide + 2` nodes a side; the grid's vertex (i, j) reads texel (i + 1,
+j + 1) and the normal is `(h[i+1] - h[i-1]) / 2 step` everywhere, rim included. The engine
+builds the halo (`HeightSheets::Halos`): a real sheet keeps the pool's 34 x 34 nodes bit for
+bit and gets its rim from the neighbours' stitched fields at the mirrored posting fraction
+(`NodeFraction`: -f(1) and 2 - f(32), which is the neighbour's own node wherever the walk is
+symmetric); a virtual sheet is sampled whole from its parent's field and the parent's
+neighbours through one `AslAt(zoom, fx, fy)`. The stamps press the halo like any node, so
+a stamp that crosses a tile edge presses both sides to the same value.
+
+The halo made the field cost visible: 300 sheets asked for 284 stitched fields, each a stitch
+of up to 13 raw grids through a FIVE-slot decoded cache -- 9 400 PNG decodes and 1.86 s at
+Kaiserberg, and 3 s more waiting than before the halo. Two caches by BYTES, Cesium's rule for
+a decoded-tile cache: the stitch pool's raw cache holds 8 MB [SET, ~30 fields of 264 KB,
+three rows of an 8-wide block walk], and the stream keeps STITCHED fields once, shared
+(`GroundStream::StitchedField` -> `shared_ptr<const TerrainField>`, 16 MB [SET]); the engine
+borrows them instead of copying (`HeightSheets::Fields_`) and forgets them after the drape.
+
+```
+                        before halo   halo, 5 slots   halo, byte caches
+  Kaiserberg waited     8.5 s         13.3 s          5.8 s
+  Kaiserberg haloing    --            1 860 ms        612 ms
+  Kaiserberg peak heap  343 MB        343 MB          296 MB
+  Shibuya default heap  574..577 MB   --              585..589 MB   (the raw cache's 8 MB; board:2104's)
+  Shibuya lattice heap  --            645 MB          595 MB
+  Shibuya lattice wait  --            13.9 s          9.9 s
+```
+
+Digests (lattice): OldTown dcdb6248, Jura 9bf77900, Kaiserberg f1436e28, Heidelberg f04e740b;
+the caches moved none of them. Against the cull's pictures the halo moved OldTown by 1 985
+pixels, 260 over 1/255, worst 7 -- looked at: thin LINES along the tile edges in the far band,
+the seam's other half, and nothing else; Jura 13 699 and 1 975, the same lines plus the
+hillside's shading where the rim normal now has two sides. Against the references (ring) the
+hillside at Heidelberg shades smoothly where the ring was faceted: the central difference is
+the reference's own normal, so the comparison on a slope is settled by construction and not by
+a number. The nine references unmoved by default.
+
+Named and still open: single dark pixels on Jura's plain (150 of 255, the skirt of a finer
+tile seen through a crack at a level boundary where the coarser edge's chord lies below the
+finer node -- Unreal stitches the finer edge to the coarser one, Cesium hides it with the
+skirt and a texture; this tree's skirt is lit and shows) and the OldTown wedge.

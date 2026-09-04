@@ -16,10 +16,11 @@ struct GIn {
 };
 
 constexpr constant int kGroundSide = 34;
+constexpr constant int kGroundPageSide = kGroundSide + 2;
 constexpr constant float kGroundSkirtSteps = 16.0;
 
 static inline float groundNodeAt(texture2d_array<float> pages, uint page, int i, int j) {
-  const int2 c = clamp(int2(i, j), int2(0), int2(kGroundSide - 1));
+  const int2 c = clamp(int2(i, j) + 1, int2(0), int2(kGroundPageSide - 1));
   return pages.read(uint2(c), page).x;
 }
 
@@ -43,14 +44,10 @@ static inline GroundPoint groundPointAt(GIn v, texture2d_array<float> pages) {
   const float skirt = v.g.z * kGroundSkirtSteps * max(stepE, stepN);
   GroundPoint p;
   p.local = float3(en.x, en.y, h - sag - skirt);
-  const int iw = max(i - 1, 0);
-  const int ie = min(i + 1, kGroundSide - 1);
-  const int jn = max(j - 1, 0);
-  const int js = min(j + 1, kGroundSide - 1);
-  const float dhE = (groundNodeAt(pages, page, ie, j) - groundNodeAt(pages, page, iw, j)) /
-                    (float(ie - iw) * stepE);
-  const float dhN = (groundNodeAt(pages, page, i, jn) - groundNodeAt(pages, page, i, js)) /
-                    (float(js - jn) * stepN);
+  const float dhE =
+      (groundNodeAt(pages, page, i + 1, j) - groundNodeAt(pages, page, i - 1, j)) / (2.0 * stepE);
+  const float dhN =
+      (groundNodeAt(pages, page, i, j - 1) - groundNodeAt(pages, page, i, j + 1)) / (2.0 * stepN);
   p.normal = normalize(float3(-dhE, -dhN, 1.0));
   return p;
 }

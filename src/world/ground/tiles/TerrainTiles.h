@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_TILES_TERRAINTILES_H
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -63,6 +64,8 @@ public:
     uint32_t Stride = 1;
 
     int DemCacheTiles = 0;
+    size_t DemCacheBytes = 0;
+    size_t StitchedFieldBytes = 0;
   };
 
   struct Shaped {
@@ -86,6 +89,8 @@ public:
 
   TerrainGrid StitchedGrid(int z, uint32_t x, uint32_t y);
 
+  [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(int z, uint32_t x, uint32_t y);
+
   TerrainMesh MeshOf(int z, uint32_t x, uint32_t y);
 
   int NodesOf(Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings);
@@ -108,6 +113,13 @@ private:
   };
 
   TerrainGrid RawGrid(Data::TileId of);
+
+  struct StitchedEntry {
+    uint64_t Seq = 0;
+    Data::TileId Of;
+    std::shared_ptr<const TerrainField> Field;
+  };
+
   [[nodiscard]] TerrainGrid::State
   StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, Corner corner);
 
@@ -121,6 +133,7 @@ private:
   EnuFrame Frame_;
   Config Config_;
   std::vector<CacheEntry> Cache_;
+  std::vector<StitchedEntry> Stitched_;
   uint64_t Seq_ = 0;
 };
 

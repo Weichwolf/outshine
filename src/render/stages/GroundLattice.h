@@ -22,6 +22,9 @@ namespace outshine::Render {
 class GroundLattice {
 public:
   static constexpr int kSide = 34;
+  static constexpr int kPageSide = kSide + 2;
+  static constexpr uint32_t kPageNodes =
+      static_cast<uint32_t>(kPageSide) * static_cast<uint32_t>(kPageSide);
   static constexpr float kSkirtSteps = 16.0f;
   static constexpr uint32_t kNodes = static_cast<uint32_t>(kSide) * static_cast<uint32_t>(kSide);
   static constexpr uint32_t kPages = 512;
@@ -66,7 +69,7 @@ public:
   [[nodiscard]] uint32_t Triangles() const { return Drawn() * (kIndices / 3u); }
 
   [[nodiscard]] uint32_t HeldBytes() const {
-    return PagesMade_ * kNodes * static_cast<uint32_t>(sizeof(float)) +
+    return PagesMade_ * kPageNodes * static_cast<uint32_t>(sizeof(float)) +
            InstanceRoom_ * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float)) +
            kVertices * kGridFloats * static_cast<uint32_t>(sizeof(float)) +
            kIndices * static_cast<uint32_t>(sizeof(uint32_t));

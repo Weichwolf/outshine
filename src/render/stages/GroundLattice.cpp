@@ -184,8 +184,8 @@ bool GroundLattice::BuildPages(std::string &error) {
   wanted.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
   wanted.format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
   wanted.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = static_cast<uint32_t>(kSide);
-  wanted.height = static_cast<uint32_t>(kSide);
+  wanted.width = static_cast<uint32_t>(kPageSide);
+  wanted.height = static_cast<uint32_t>(kPageSide);
   wanted.layer_count_or_depth = kPages;
   wanted.num_levels = 1;
   wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
@@ -332,8 +332,8 @@ PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error
     error = std::string(Says::kNoDevice);
     return kNoPage;
   }
-  if (nodes.size() != kNodes) {
-    error = std::format(Says::kPageWrongSize, kSide, nodes.size());
+  if (nodes.size() != kPageNodes) {
+    error = std::format(Says::kPageWrongSize, kPageSide, nodes.size());
     return kNoPage;
   }
   PageId page = kNoPage;
@@ -365,8 +365,8 @@ PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error
   SDL_GPUTextureRegion into{};
   into.texture = Pages_.Get();
   into.layer = page;
-  into.w = static_cast<uint32_t>(kSide);
-  into.h = static_cast<uint32_t>(kSide);
+  into.w = static_cast<uint32_t>(kPageSide);
+  into.h = static_cast<uint32_t>(kPageSide);
   into.d = 1;
   SDL_UploadToGPUTexture(copy, &source, &into, false);
   SDL_EndGPUCopyPass(copy);

@@ -112,6 +112,19 @@ namespace {
          static_cast<double>(postings - 1u);
 }
 
+[[nodiscard]] double NodeFraction(const Sheet &sheet, int k) {
+  constexpr int side = Render::GroundLattice::kSide;
+  if (sheet.Virtual) { return static_cast<double>(k) / static_cast<double>(side - 1); }
+  if (k < 0) { return -FractionOf(1, sheet.Postings, side); }
+  if (k >= side) { return 2.0 - FractionOf(side - 2, sheet.Postings, side); }
+  return FractionOf(k, sheet.Postings, side);
+}
+
+[[nodiscard]] size_t PageNode(int i, int j) {
+  constexpr int pageSide = Render::GroundLattice::kPageSide;
+  return static_cast<size_t>(j + 1) * static_cast<size_t>(pageSide) + static_cast<size_t>(i + 1);
+}
+
 } // namespace
 
 namespace {
@@ -140,37 +153,75 @@ struct Block {
          y < finer.Y0 / 2 + kHalfBlock;
 }
 
-void SampleVirtual(const Ground::TerrainField &field,
-                   Data::TileId tile,
-                   uint32_t drop,
-                   Sheet &sheet) {
-  const int side = Render::GroundLattice::kSide;
-  const double span = 1.0 / static_cast<double>(1u << drop);
-  const double offX = static_cast<double>(tile.X & ((1u << drop) - 1u)) * span;
-  const double offY = static_cast<double>(tile.Y & ((1u << drop) - 1u)) * span;
-  sheet.Nodes.resize(Render::GroundLattice::kNodes);
-  for (int j = 0; j < side; ++j) {
-    const double fy = offY + span * static_cast<double>(j) / static_cast<double>(side - 1);
-    for (int i = 0; i < side; ++i) {
-      const double fx = offX + span * static_cast<double>(i) / static_cast<double>(side - 1);
-      sheet.Nodes[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)] =
-          field.PostingM({.Col = fx, .Row = fy});
-    }
-  }
-}
-
 } // namespace
 
-size_t HeightSheets::Refine(Patchwork &laid, const Ground::GroundStream &ground, Nearer how) {
-  if (how.Levels <= 0) { return 0; }
-  std::vector<std::pair<Data::TileId, Ground::TerrainGrid>> fields;
-  const auto fieldOf = [&](Data::TileId parent) -> const Ground::TerrainField * {
-    for (const auto &one : fields) {
-      if (one.first == parent) { return one.second.TryField(); }
+const Ground::TerrainField *HeightSheets::FieldAt(const Ground::GroundStream &ground,
+                                                  Data::TileId tile) {
+  for (const auto &one : Fields_) {
+    if (one.first == tile) { return one.second.get(); }
+  }
+  Fields_.emplace_back(tile, ground.StitchedField(tile));
+  return Fields_.back().second.get();
+}
+
+std::optional<float>
+HeightSheets::AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFrac at) {
+  long x = static_cast<long>(std::floor(at.X));
+  const long y = static_cast<long>(std::floor(at.Y));
+  const double col = at.X - static_cast<double>(x);
+  const double row = at.Y - static_cast<double>(y);
+  if (!Ground::WrapTile(zoom, &x, &y)) { return std::nullopt; }
+  const Ground::TerrainField *field =
+      FieldAt(ground, {.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+  if (field == nullptr || !field->Meshable()) { return std::nullopt; }
+  return field->PostingM({.Col = col, .Row = row});
+}
+
+bool HeightSheets::HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom) {
+  constexpr int side = Render::GroundLattice::kSide;
+  const bool whole = sheet.Virtual && sheet.Nodes.size() != Render::GroundLattice::kNodes;
+  if (!whole && sheet.Nodes.size() != Render::GroundLattice::kNodes) { return false; }
+  std::vector<float> page(Render::GroundLattice::kPageNodes, 0.0f);
+  const auto drop = sheet.Virtual ? static_cast<uint32_t>(sheet.Tile.Zoom - finestZoom) : 0u;
+  const int zoom = sheet.Tile.Zoom - static_cast<int>(drop);
+  const double span = 1.0 / static_cast<double>(1u << drop);
+  const double atX = static_cast<double>(sheet.Tile.X >> drop) +
+                     static_cast<double>(sheet.Tile.X & ((1u << drop) - 1u)) * span;
+  const double atY = static_cast<double>(sheet.Tile.Y >> drop) +
+                     static_cast<double>(sheet.Tile.Y & ((1u << drop) - 1u)) * span;
+  for (int j = -1; j <= side; ++j) {
+    for (int i = -1; i <= side; ++i) {
+      const bool inside = i >= 0 && i < side && j >= 0 && j < side;
+      if (inside && !whole) {
+        page[PageNode(i, j)] =
+            sheet
+                .Nodes[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)];
+        continue;
+      }
+      const std::optional<float> asl = AslAt(
+          ground,
+          zoom,
+          {.X = atX + span * NodeFraction(sheet, i), .Y = atY + span * NodeFraction(sheet, j)});
+      if (!asl) { return false; }
+      page[PageNode(i, j)] = *asl;
     }
-    fields.emplace_back(parent, ground.FieldOf(parent));
-    return fields.back().second.TryField();
-  };
+  }
+  sheet.Nodes = std::move(page);
+  return true;
+}
+
+size_t HeightSheets::Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom) {
+  size_t haloed = 0;
+  for (Sheet &sheet : laid.Sheets) {
+    if (sheet.Side == Render::GroundLattice::kSide && HaloOf(sheet, ground, finestZoom)) {
+      ++haloed;
+    }
+  }
+  return haloed;
+}
+
+size_t HeightSheets::Refine(Patchwork &laid, Nearer how) {
+  if (how.Levels <= 0) { return 0; }
   std::vector<Sheet> made;
   Block finer = BlockAround(how.Eye, how.FinestZoom + how.Levels + 1);
   for (int level = how.Levels; level >= 1; --level) {
@@ -182,15 +233,10 @@ size_t HeightSheets::Refine(Patchwork &laid, const Ground::GroundStream &ground,
         const long x = block.X0 + column;
         const long y = block.Y0 + row;
         if (anyFiner && Covers(finer, x, y)) { continue; }
-        const auto drop = static_cast<uint32_t>(level);
         const Data::TileId tile{
             .Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
-        const Ground::TerrainField *field =
-            fieldOf({.Zoom = how.FinestZoom, .X = tile.X >> drop, .Y = tile.Y >> drop});
-        Sheet sheet{
-            .Tile = tile, .Side = Render::GroundLattice::kSide, .Postings = 0, .Virtual = true};
-        if (field != nullptr && field->Meshable()) { SampleVirtual(*field, tile, drop, sheet); }
-        made.push_back(std::move(sheet));
+        made.push_back(
+            {.Tile = tile, .Side = Render::GroundLattice::kSide, .Postings = 0, .Virtual = true});
       }
     }
     finer = block;
@@ -213,23 +259,17 @@ size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) cons
   for (size_t sheet = 0; sheet < laid.Sheets.size(); ++sheet) {
     const Sheet &one = laid.Sheets[sheet];
     if (one.Side != side || (!one.Virtual && one.Postings < 2) ||
-        one.Nodes.size() != Render::GroundLattice::kNodes) {
+        one.Nodes.size() != Render::GroundLattice::kPageNodes) {
       continue;
     }
-    const auto fractionOf = [&one](int k) {
-      constexpr int side = Render::GroundLattice::kSide;
-      return one.Virtual ? static_cast<double>(k) / static_cast<double>(side - 1)
-                         : FractionOf(k, one.Postings, side);
-    };
-    for (int j = 0; j < side; ++j) {
-      const double fy = fractionOf(j);
-      for (int i = 0; i < side; ++i) {
-        const double fx = fractionOf(i);
+    for (int j = -1; j <= side; ++j) {
+      const double fy = NodeFraction(one, j);
+      for (int i = -1; i <= side; ++i) {
+        const double fx = NodeFraction(one, i);
         const Ground::Geo geo = Ground::TileFracToGeo(
             {.X = static_cast<double>(one.Tile.X) + fx, .Y = static_cast<double>(one.Tile.Y) + fy},
             one.Tile.Zoom);
-        const size_t node =
-            static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i);
+        const size_t node = PageNode(i, j);
         const EastNorthUp stood = Frame_.Place({.LongitudeDeg = geo.LongitudeDeg,
                                                 .LatitudeDeg = geo.LatitudeDeg,
                                                 .HeightM = static_cast<double>(one.Nodes[node])});
@@ -284,7 +324,7 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
   for (Held &one : Held_) { one.Wanted = false; }
   Instances_.clear();
   Virtual_.clear();
-  const size_t nodes = Render::GroundLattice::kNodes;
+  const size_t nodes = Render::GroundLattice::kPageNodes;
   for (const Sheet &sheet : laid.Sheets) {
     Render::PageId page = Render::kNoPage;
     if (sheet.Side == Render::GroundLattice::kSide && sheet.Nodes.size() == nodes) {
@@ -325,14 +365,7 @@ HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastSouth a
   const Data::TileId tile{.Zoom = zoom,
                           .X = static_cast<uint32_t>(std::floor(frac.X)),
                           .Y = static_cast<uint32_t>(std::floor(frac.Y))};
-  const Ground::TerrainField *field = nullptr;
-  for (const auto &one : Fields_) {
-    if (one.first == tile) { field = one.second.TryField(); }
-  }
-  if (field == nullptr) {
-    Fields_.emplace_back(tile, ground.FieldOf(tile));
-    field = Fields_.back().second.TryField();
-  }
+  const Ground::TerrainField *field = FieldAt(ground, tile);
   if (field == nullptr || !field->Meshable()) { return std::nullopt; }
   const double aslM =
       field->PostingM({.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});

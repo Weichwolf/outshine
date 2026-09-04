@@ -45,7 +45,8 @@ constexpr int kGroundSlots = 96;
 constexpr uint32_t kCoarseDrop = 3;
 constexpr int kCoarseSlots = 4;
 
-constexpr int kGroundStitchGrids = 5;
+constexpr size_t kStitchRawBytes = size_t{8} * 1024 * 1024;
+constexpr size_t kStitchedFieldBytes = size_t{16} * 1024 * 1024;
 
 double Clamped01(double v) {
   return std::clamp(v, 0.0, 1.0);
@@ -118,7 +119,8 @@ struct GroundStream::Held {
 
   explicit Held(TilePool &pool) : Pool(pool), Source(*this) {
     TerrainTiles::Config config;
-    config.DemCacheTiles = kGroundStitchGrids;
+    config.DemCacheBytes = kStitchRawBytes;
+    config.StitchedFieldBytes = kStitchedFieldBytes;
     Stitched = std::make_unique<TerrainTiles>(Source, EnuFrame::At(Geo{}), config);
   }
 
@@ -344,6 +346,10 @@ double GroundStream::PostM(double latDeg) const {
 
 TerrainGrid GroundStream::FieldOf(Data::TileId of) const {
   return Held_->Stitched->StitchedGrid(of.Zoom, of.X, of.Y);
+}
+
+std::shared_ptr<const TerrainField> GroundStream::StitchedField(Data::TileId of) const {
+  return Held_->Stitched->StitchedField(of.Zoom, of.X, of.Y);
 }
 
 GroundBlock GroundStream::BlockAt(TileSpot at) const {
