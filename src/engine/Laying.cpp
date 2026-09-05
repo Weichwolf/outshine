@@ -752,6 +752,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         at + "odd nodes off the coarser chord before the stitch, worst", kind.OddBeforeM, "m");
     Published.Places(at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
   }
+  {
+    const uint64_t sheets = World.Sheets.Digest();
+    Published.Places(
+        "ground: the sheets' digest, low half", static_cast<double>(sheets & kLowWord), "digest");
+    Published.Places(
+        "ground: the sheets' digest, high half", static_cast<double>(sheets >> 32U), "digest");
+  }
   Published.Places("ground: sheets NOT drawn for want of nodes",
                    static_cast<double>(World.Sheets.Flat()),
                    "tiles");

@@ -128,8 +128,11 @@ const std::vector<Measure> &Engine::measures() const {
 }
 
 bool Engine::settled() const {
+  const std::shared_ptr<const ClassStructure> classes = S_->World.Stack.Classes().Read();
+  const uint64_t version = classes ? classes->Version() : 0;
   return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
-         S_->World.RimsMissing == 0 && S_->World.Grown && S_->World.Stack.Ingested();
+         S_->World.RimsMissing == 0 && S_->World.Grown && S_->World.Stack.Ingested() &&
+         S_->World.Stack.Classes().Complete() && S_->World.LaidClasses == version;
 }
 
 Result Renderer::render(Extent frame) {

@@ -79,6 +79,8 @@ public:
 
   [[nodiscard]] size_t Flat() const { return Flat_; }
 
+  [[nodiscard]] uint64_t Digest() const;
+
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }
 
   struct SeamKind {

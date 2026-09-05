@@ -1,7 +1,10 @@
 #include "HeightSheets.h"
+
+#include "Digest.h"
 #include "math/RenderFrame.h"
 
 #include <algorithm>
+#include <bit>
 #include <array>
 #include <cmath>
 #include <limits>
@@ -633,6 +636,33 @@ void HeightSheets::Clear() {
   Virtual_.clear();
   Fields_.clear();
   GridPostings_ = 0;
+}
+
+uint64_t HeightSheets::Digest() const {
+  uint64_t digest = kDigestBasis;
+  const auto fold = [&digest](uint32_t word) { digest = (digest ^ word) * kDigestPrime; };
+  const auto foldFloat = [&fold](float value) { fold(std::bit_cast<uint32_t>(value)); };
+  for (const std::vector<Render::GroundTile> *tiles : {&Instances_, &Virtual_}) {
+    for (const Render::GroundTile &one : *tiles) {
+      for (const float value : one.Instance.Row) { foldFloat(value); }
+      for (const float value : one.Instance.Corners) { foldFloat(value); }
+      foldFloat(one.Instance.Page);
+      foldFloat(one.Instance.SagInv);
+      foldFloat(one.Instance.StepE);
+      foldFloat(one.Instance.StepN);
+      for (const float value : one.Instance.Stitched) { foldFloat(value); }
+      foldFloat(one.LowM);
+      foldFloat(one.HighM);
+    }
+  }
+  for (const Held &held : Held_) {
+    fold(static_cast<uint32_t>(held.Tile.Zoom));
+    fold(static_cast<uint32_t>(held.Tile.X));
+    fold(static_cast<uint32_t>(held.Tile.Y));
+    fold(held.Page);
+    for (const float value : held.Nodes) { foldFloat(value); }
+  }
+  return digest;
 }
 
 } // namespace outshine

@@ -61,7 +61,8 @@ does not, and either answer names the next suspect.
 - [x] the features paint in a declared order
 - [x] the class structure's digest is the same across every run that says complete (and
       so the field is not the cause; the pool's rungs at the shot's frame are next)
-- [ ] `settled()` waits for the class field, and a place shot right after preload reads the
-      same digest as one shot a second later
+- [x] `settled()` waits for the class field complete and the ground laid at its version; the
+      nine references unmoved by it; and `ground: the sheets' digest` folds every number the
+      lattice reads at the shot's frame, so the next wandering run says whether the sheets moved
 - [ ] ten runs of OldTown, Heidelberg and Kaiserberg read one digest each
 - [ ] Negative control: the rank-only stable sort put back reads more than one digest in ten
