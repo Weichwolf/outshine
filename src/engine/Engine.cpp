@@ -280,7 +280,9 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
       const bool built = S_->Grounds(true);
       S_->Error = "the world at this place did not become resident within " +
                   std::to_string(bound) + " s -- " + std::to_string(S_->World.Pending) + " of " +
-                  std::to_string(S_->World.Wanted) + " tile(s) still pending" +
+                  std::to_string(S_->World.Wanted) + " tile(s) still pending, " +
+                  std::to_string(S_->World.Bare) + " bare, " +
+                  std::to_string(S_->World.RimsMissing) + " rim(s) copied for want of a neighbour" +
                   (built ? "" : ", and what did arrive would not build");
       return std::unexpected(S_->Error);
     }

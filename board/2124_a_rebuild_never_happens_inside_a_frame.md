@@ -67,6 +67,67 @@ budget is measured where it is missed.
 - [ ] Negative control: call `Grounds` synchronously from `Updates` again and `OverBudget` goes
       RED at the tile crossing
 
+## Landed 2026-09-05: a stitched field is a POOL job, and the halo stops stitching on the frame
+
+With board:2115 closed the ground's lay stood at ~700 ms at Kaiserberg, and 620-680 ms of it
+was the HALO: every sheet's rim asks its neighbours' stitched fields, and a stitch reads up to
+thirteen raw grids through one cache on the main thread. Unreal's `FIoDispatcher` and RAGE's
+streaming threads both put exactly this kind of work -- decode, assemble, hand over whole --
+beside the frame, and this tree's pool already runs its mesh jobs that way. So a stitched
+field is a pool job (`TilePool::Field`, `Rank::Field`): a worker stitches on its own
+`TerrainTiles`, the result is a `shared_ptr<const TerrainField>` in the job's result, the
+stream asks the pool (`GroundStream::StitchedField`, non-blocking, and `StitchedFieldAwaited`)
+and holds what lands in its budgeted cache. The halo ASKS every neighbour field of every sheet
+first (`HeightSheets::AsksFields`, a post per tile, 6 workers stitch in parallel) and only then
+walks the sheets waiting on each -- deterministic, because a stitched field is a pure function
+of its bytes whichever thread computed it, and the sheets are walked in their declared order.
+
+```
+                       before     after
+  Kaiserberg haloing   657 ms     18 ms
+  OldTown haloing      700 ms     34 ms
+  the nine digests     unmoved
+```
+
+Three pool defects the gate found the same day, each measured before it was touched:
+
+- **the pool's kept list held every result, held or consumed.** Each field stitch on a worker
+  fetches its raw grids through the pool, and every fetch result took a slot in the one
+  kept list (1 024) beside the mesh results that landed first -- so after the second lay
+  the mesh results were the oldest, fell out, and the asking lay saw every tile pending
+  again; the pool re-meshed the whole ring in the background and the client read 128 bare
+  tiles at Kaiserberg where the picture was right. A result consumed on its poll leaves no
+  trace now; the kept list bounds only what is held, and field results keep their own
+  bounded list. Measured: 122 frames of `resident 128` after the second lay, 0 bare
+- **six workers decoded the same raw grids six times.** Each worker's `TerrainTiles` had its
+  own 16-slot decoded cache, and the queue hands neighbouring tiles to neighbouring workers,
+  so a raw grid a stitch needs was decoded once per worker; the preload read 7.2 s waited
+  against 5.5 before the field jobs. The decoded cache is one object with its own lock
+  (`Ground::DecodedCache`, 32 MB [SET, three working sets of a 3 x 3 stitch neighbourhood at
+  264 KB a grid]), shared by the pool's workers; the stream's stitch pool keeps its own.
+  Measured: Kaiserberg waited 7.2 -> 5.0 s (5.5 before the field jobs), peak heap 282 ->
+  302 MB, the cache's own bytes
+- **a fetch job handed its bytes over through the LRU byte cache, not in its result.** The
+  carrier ran the fetch into a scratch landing, `Remember`ed the bytes in the pool's 64 MB
+  byte cache and put a bytes-less result in `Done_`; the worker that had parked on that
+  fetch then polled the result and READ THE CACHE for the bytes. A three-level halo pulls
+  in ~700 raw tiles, so by the time the parked job ran again its entry was the LRU victim:
+  the worker's ask came back pending with the fetch neither done nor posted, the job was
+  dropped, the halo copied the rim, the next relay re-posted it and the same thing happened
+  again. Measured at ZurichPlan: 716 entries in the 64 MB cache, 956 landings lost, 23 rims
+  copied on every relay, the place refused after 15 s with `0 of 100 tile(s) still
+  pending` -- a refusal that named nothing, so it now names the bare tiles and the copied
+  rims too. A handoff through a cache is a read of live state where a snapshot belongs
+  (the invariant on the front page); the result carries its landing (`Result::Landed`) and
+  `Bytes` takes it from the consumed result. The cache serves only a repeat ask. And the
+  kept-list repair above had landed in the CARRIER loop, which runs no field job, while
+  the worker still pushed every field result into the held list: one `Lands(key, holds)`
+  now serves both loops, so the two lists cannot be maintained apart again
+
+What the frame's lay still carries at Kaiserberg: the streets and the water 2 783 ms (board:2101's
+move to the workers), pressing 230 ms, the soup's BVH 149 ms, the whole rebuild 2 896 ms --
+and the instrument that will show it is the walk (board:2092).
+
 ## Ruled out, measured
 
 - making the rebuild cheaper (b18fb9df, 7c98b7d3): 2211 -> 1132 ms; right to do and not the

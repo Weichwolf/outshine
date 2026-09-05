@@ -8,7 +8,6 @@
 #include <cmath>
 #include <cstdint>
 #include <optional>
-#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <ratio>
@@ -39,7 +38,7 @@ constexpr int kMaxTileThreads = 6;
 
 constexpr size_t kByteBudget = size_t{64} * 1024 * 1024;
 
-constexpr int kPoolDemCacheTiles = 16;
+constexpr size_t kPoolDecodedBytes = size_t{32} * 1024 * 1024;
 
 constexpr int kGroundSlots = 96;
 constexpr uint32_t kCoarseDrop = 3;
@@ -349,7 +348,21 @@ TerrainGrid GroundStream::FieldOf(Data::TileId of) const {
 }
 
 std::shared_ptr<const TerrainField> GroundStream::StitchedField(Data::TileId of) const {
-  return Held_->Stitched->StitchedField(of.Zoom, of.X, of.Y);
+  if (std::shared_ptr<const TerrainField> held = Held_->Stitched->HeldStitched(of)) { return held; }
+  std::shared_ptr<const TerrainField> stitched;
+  if (Held_->Pool.Field(of, &stitched) == TilePool::Reply::Ready) {
+    Held_->Stitched->HoldsStitched(of, stitched);
+  }
+  return stitched;
+}
+
+std::shared_ptr<const TerrainField> GroundStream::StitchedFieldAwaited(Data::TileId of) const {
+  if (std::shared_ptr<const TerrainField> held = Held_->Stitched->HeldStitched(of)) { return held; }
+  std::shared_ptr<const TerrainField> stitched;
+  if (Held_->Pool.FieldAwaited(of, &stitched) == TilePool::Reply::Ready) {
+    Held_->Stitched->HoldsStitched(of, stitched);
+  }
+  return stitched;
 }
 
 GroundBlock GroundStream::BlockAt(TileSpot at) const {
@@ -395,7 +408,7 @@ TilePool::Config GroundPoolConfig(LongitudeLatitude at, Pooling how) {
   config.OriginLonDeg = at.LongitudeDeg;
   config.Threads = DerivedThreads(how.Workers);
   config.ByteBudget = kByteBudget;
-  config.DemCacheTiles = kPoolDemCacheTiles;
+  config.DecodedBytes = kPoolDecodedBytes;
   if (how.PatienceS > 0.0) {
     config.PollAttempts = static_cast<int>(how.PatienceS * kPollsPerSecond);
   }

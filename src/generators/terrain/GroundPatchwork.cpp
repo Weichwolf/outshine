@@ -113,7 +113,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           ++out.Refused;
           ofTheGround = false;
         }
-        if (ofTheGround && (built.Side < 2 || built.Nodes.empty())) { ofTheGround = false; }
+        if (ofTheGround && (built.Side < 2 || built.Nodes.empty())) {
+          ofTheGround = false;
+          if (!over.Asking) {}
+        }
         if (!ofTheGround && !over.Asking) { ++out.Bare; }
         if (over.Asking) {
           ++out.Tiles;
@@ -141,6 +144,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     out.CoarsestZoom = zoom;
   }
 
+  if (!over.Asking) {}
   if (out.Tiles == 0) {
     return std::unexpected("no tile of the " + std::to_string(levels) + "-level cascade around " +
                            std::to_string(over.LatitudeDeg) + ", " +

@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <mutex>
 
 namespace outshine::Ground {
 
@@ -20,8 +21,6 @@ constexpr double kWaveShoulder = 0.25;
 constexpr double kQuarterOfFour = 0.25;
 
 namespace {
-
-constexpr int kDemCacheCeiling = 128;
 
 [[nodiscard]] int Severity(TerrainGrid::State s) {
   switch (s) {
@@ -41,59 +40,50 @@ constexpr int kDemCacheCeiling = 128;
 } // namespace
 
 TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
-    : Source_(source), Frame_(frame), Config_(config) {
+    : Source_(source), Frame_(frame), Config_(std::move(config)) {
   if (Config_.Stride == 0) { Config_.Stride = 1; }
-  if (Config_.DemCacheBytes > 0) { return; }
-  const int slots = (config.DemCacheTiles > 0 && config.DemCacheTiles < kDemCacheCeiling)
-                        ? config.DemCacheTiles
-                        : kDemCacheCeiling;
-  Cache_.resize(static_cast<size_t>(slots));
+  SharesDecoded_ = Config_.Shared != nullptr;
+  Decoded_ =
+      SharesDecoded_ ? Config_.Shared : std::make_shared<DecodedCache>(Config_.DemCacheBytes);
 }
 
-const TerrainField *TerrainTiles::CacheLookup(Data::TileId of) {
-  for (CacheEntry &e : Cache_) {
-    if (!e.Used || !(e.Of == of)) { continue; }
-    e.Seq = ++Seq_;
-    return &e.Field;
+bool DecodedCache::Take(Data::TileId of, TerrainField *out) {
+  const std::scoped_lock lock(Lock_);
+  for (Entry &one : Held_) {
+    if (one.Of == of) {
+      one.Seq = ++Seq_;
+      *out = one.Field;
+      return true;
+    }
   }
-  return nullptr;
+  return false;
 }
 
-void TerrainTiles::CacheStore(Data::TileId of, const TerrainField &field) {
-  if (!field.Meshable()) { return; }
-  if (Config_.DemCacheBytes > 0) {
-    if (field.Bytes() > Config_.DemCacheBytes) { return; }
-    size_t held = field.Bytes();
-    for (const CacheEntry &e : Cache_) { held += e.Field.Bytes(); }
-    while (held > Config_.DemCacheBytes && !Cache_.empty()) {
-      size_t oldest = 0;
-      for (size_t at = 1; at < Cache_.size(); ++at) {
-        if (Cache_[at].Seq < Cache_[oldest].Seq) { oldest = at; }
-      }
-      held -= Cache_[oldest].Field.Bytes();
-      Cache_[oldest] = std::move(Cache_.back());
-      Cache_.pop_back();
-    }
-    Cache_.push_back({.Seq = ++Seq_, .Used = true, .Of = of, .Field = field});
-    return;
+void DecodedCache::Store(Data::TileId of, const TerrainField &field) {
+  if (!field.Meshable() || field.Bytes() > Budget_) { return; }
+  const std::scoped_lock lock(Lock_);
+  for (const Entry &one : Held_) {
+    if (one.Of == of) { return; }
   }
-  if (Cache_.empty()) { return; }
-  CacheEntry *victim = Cache_.data();
-  uint64_t oldest = std::numeric_limits<uint64_t>::max();
-  for (CacheEntry &e : Cache_) {
-    if (!e.Used) {
-      victim = &e;
-      break;
+  size_t held = field.Bytes();
+  for (const Entry &one : Held_) { held += one.Field.Bytes(); }
+  while (held > Budget_ && !Held_.empty()) {
+    size_t oldest = 0;
+    for (size_t at = 1; at < Held_.size(); ++at) {
+      if (Held_[at].Seq < Held_[oldest].Seq) { oldest = at; }
     }
-    if (e.Seq < oldest) {
-      oldest = e.Seq;
-      victim = &e;
-    }
+    held -= Held_[oldest].Field.Bytes();
+    Held_[oldest] = std::move(Held_.back());
+    Held_.pop_back();
   }
-  victim->Used = true;
-  victim->Of = of;
-  victim->Field = field;
-  victim->Seq = ++Seq_;
+  Held_.push_back({.Seq = ++Seq_, .Of = of, .Field = field});
+}
+
+size_t DecodedCache::Bytes() const {
+  const std::scoped_lock lock(Lock_);
+  size_t bytes = 0;
+  for (const Entry &one : Held_) { bytes += one.Field.Bytes(); }
+  return bytes;
 }
 
 double TerrainTiles::ShapedAslM(LongitudeLatitude at) const noexcept {
@@ -145,8 +135,9 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
     }
     return TerrainGrid::Holding(std::move(field));
   }
-  if (const TerrainField *cached = CacheLookup(of)) {
-    return TerrainGrid::Holding(TerrainField(*cached));
+  {
+    TerrainField cached;
+    if (Decoded_->Take(of, &cached)) { return TerrainGrid::Holding(std::move(cached)); }
   }
 
   TerrainBytes answer = Source_.Take(of);
@@ -188,7 +179,7 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
   }
 
   if (!field->Meshable()) { return TerrainGrid::NotHere(); }
-  CacheStore(of, *field);
+  Decoded_->Store(of, *field);
   return grid;
 }
 
@@ -255,6 +246,13 @@ TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, 
   return TerrainGrid::State::Decoded;
 }
 
+std::shared_ptr<const TerrainField> TerrainTiles::HeldStitched(Data::TileId of) const {
+  for (const StitchedEntry &held : Stitched_) {
+    if (held.Of == of) { return held.Field; }
+  }
+  return nullptr;
+}
+
 std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t x, uint32_t y) {
   const Data::TileId of{.Zoom = z, .X = x, .Y = y};
   for (StitchedEntry &held : Stitched_) {
@@ -267,8 +265,14 @@ std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t 
   TerrainField *field = grid.TryFieldMutable();
   if (field == nullptr) { return nullptr; }
   auto shared = std::make_shared<const TerrainField>(std::move(*field));
-  if (Config_.StitchedFieldBytes == 0 || shared->Bytes() > Config_.StitchedFieldBytes) {
-    return shared;
+  HoldsStitched(of, shared);
+  return shared;
+}
+
+void TerrainTiles::HoldsStitched(Data::TileId of,
+                                 const std::shared_ptr<const TerrainField> &shared) {
+  if (!shared || Config_.StitchedFieldBytes == 0 || shared->Bytes() > Config_.StitchedFieldBytes) {
+    return;
   }
   size_t held = shared->Bytes();
   for (const StitchedEntry &one : Stitched_) { held += one.Field->Bytes(); }
@@ -282,7 +286,6 @@ std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t 
     Stitched_.pop_back();
   }
   Stitched_.push_back({.Seq = ++Seq_, .Of = of, .Field = shared});
-  return shared;
 }
 
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
@@ -354,9 +357,7 @@ TerrainGrid::State TerrainTiles::NodesOf(
 
 size_t TerrainTiles::HeapBytes() const {
   size_t bytes = sizeof(*this);
-  for (const CacheEntry &e : Cache_) {
-    if (e.Used) { bytes += e.Field.Bytes(); }
-  }
+  if (!SharesDecoded_) { bytes += Decoded_->Bytes(); }
   for (const StitchedEntry &held : Stitched_) {
     if (held.Field) { bytes += held.Field->Bytes(); }
   }

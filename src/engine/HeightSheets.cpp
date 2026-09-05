@@ -182,7 +182,7 @@ const Ground::TerrainField *HeightSheets::FieldAt(const Ground::GroundStream &gr
   for (const auto &one : Fields_) {
     if (one.first == tile) { return one.second.get(); }
   }
-  Fields_.emplace_back(tile, ground.StitchedField(tile));
+  Fields_.emplace_back(tile, ground.StitchedFieldAwaited(tile));
   return Fields_.back().second.get();
 }
 
@@ -331,9 +331,30 @@ void HeightSheets::MeasuresSeams(const Sheet &fine,
   }
 }
 
+void HeightSheets::AsksFields(const Ground::GroundStream &ground,
+                              const Patchwork &laid,
+                              int finestZoom) {
+  for (const Sheet &sheet : laid.Sheets) {
+    const auto drop = sheet.Virtual ? static_cast<uint32_t>(sheet.Tile.Zoom - finestZoom) : 0u;
+    const int zoom = sheet.Tile.Zoom - static_cast<int>(drop);
+    const long x = static_cast<long>(sheet.Tile.X >> drop);
+    const long y = static_cast<long>(sheet.Tile.Y >> drop);
+    for (long dy = -1; dy <= 1; ++dy) {
+      for (long dx = -1; dx <= 1; ++dx) {
+        long nx = x + dx;
+        const long ny = y + dy;
+        if (ny < 0 || !Ground::WrapTile(zoom, &nx, &ny)) { continue; }
+        (void)ground.StitchedField(
+            {.Zoom = zoom, .X = static_cast<uint32_t>(nx), .Y = static_cast<uint32_t>(ny)});
+      }
+    }
+  }
+}
+
 size_t HeightSheets::Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom) {
   RimsMissing_ = 0;
   size_t haloed = 0;
+  AsksFields(ground, laid, finestZoom);
   for (Sheet &sheet : laid.Sheets) {
     if (sheet.Side == Render::GroundLattice::kSide && HaloOf(sheet, ground, finestZoom)) {
       ++haloed;

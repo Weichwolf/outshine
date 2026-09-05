@@ -23,8 +23,8 @@ constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
 constexpr double kSeamToleranceM = 1.0e-3;
 
-[[nodiscard]] double
-Measured(const std::vector<outshine::Measure> &measures, const std::string &what) {
+[[nodiscard]] double Measured(const std::vector<outshine::Measure> &measures,
+                              const std::string &what) {
   for (const outshine::Measure &one : measures) {
     if (one.What == what) { return one.How; }
   }
@@ -74,9 +74,9 @@ int main(void) {
   stands.Views.push_back(watches);
   if (!(engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
         engine.advance())) {
-    Unprepared(("this place needs terrain tiles and this machine has none cached: " +
-                engine.error())
-                   .c_str());
+    Unprepared(
+        ("this place needs terrain tiles and this machine has none cached: " + engine.error())
+            .c_str());
     return Report();
   }
 
@@ -89,7 +89,8 @@ int main(void) {
   const double virtualOddAfter =
       Measured(told, "ground: seam, virtual, odd nodes off the coarser chord after it, worst");
   const double realEdges = Measured(told, "ground: seam, real, edges stitched");
-  const double realEven = Measured(told, "ground: seam, real, even nodes off the coarser node, worst");
+  const double realEven =
+      Measured(told, "ground: seam, real, even nodes off the coarser node, worst");
   const double realOddAfter =
       Measured(told, "ground: seam, real, odd nodes off the coarser chord after it, worst");
 

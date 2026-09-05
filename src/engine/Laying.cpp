@@ -28,7 +28,6 @@
 #include <unordered_set>
 #include <utility>
 #include <chrono>
-#include <cstdio>
 #include <vector>
 
 #include "Fit.h"

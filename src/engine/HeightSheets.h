@@ -119,6 +119,7 @@ private:
   std::vector<Render::GroundTile> Virtual_;
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
                                                     Data::TileId tile);
+  static void AsksFields(const Ground::GroundStream &ground, const Patchwork &laid, int finestZoom);
   [[nodiscard]] std::optional<float>
   AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFrac at);
   [[nodiscard]] bool HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom);

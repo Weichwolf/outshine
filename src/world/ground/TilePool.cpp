@@ -8,6 +8,7 @@
 #include <optional>
 #include <span>
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <numbers>
@@ -34,6 +35,7 @@ namespace outshine::Ground {
 
 constexpr unsigned kKindShift = 62u;
 constexpr uint64_t kTerrainKind = 1;
+constexpr uint64_t kFieldKind = 2;
 constexpr uint64_t kVectorKind = 3;
 constexpr uint64_t kZoomMask = 31;
 constexpr unsigned kZoomShift = 56u;
@@ -50,6 +52,7 @@ constexpr int kPollAttempts = 30000;
 thread_local double tFetchBlockedMs = 0.0;
 thread_local bool tCarries = false;
 constexpr size_t kMostKept = 1024;
+constexpr size_t kMostPassing = 1024;
 
 thread_local uint64_t tAwaited = 0;
 
@@ -58,6 +61,10 @@ uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
          (static_cast<uint64_t>(static_cast<uint32_t>(z) & kZoomMask) << kZoomShift) |
          (static_cast<uint64_t>(x & kColumnMask) << kColumnShift) |
          static_cast<uint64_t>(y & kColumnMask);
+}
+
+uint64_t FieldKey(int z, uint32_t x, uint32_t y) {
+  return (kFieldKind << kKindShift) | (MeshKey(z, x, y) & ~(kTerrainKind << kKindShift));
 }
 
 uint64_t RequestKey(const std::string &key) {
@@ -76,7 +83,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       OriginLatDeg_(config.OriginLatDeg),
       OriginLonDeg_(config.OriginLonDeg),
       ByteBudget_(config.ByteBudget),
-      DemCacheTiles_(config.DemCacheTiles),
+      Decoded_(std::make_shared<Ground::DecodedCache>(config.DecodedBytes)),
       PollAttempts_(config.PollAttempts),
       CarrierCount_(config.Carriers),
       FocusLatDeg_(config.OriginLatDeg),
@@ -97,7 +104,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
             {{"threads", n},
              {"inFlightCap", n},
              {"byteBudgetMB", static_cast<double>(ByteBudget_) / kBytesPerMB},
-             {"demCacheTilesPerThread", DemCacheTiles_}});
+             {"decodedCacheBytes", static_cast<double>(Decoded_->Bytes())}});
 }
 
 TilePool::~TilePool() {
@@ -166,7 +173,7 @@ size_t TilePool::SchedulerBytes() const {
   bytes += TreeNodeBytes<uint64_t>(Posted_.size());
   bytes += TreeNodeBytes<std::pair<const uint64_t, Result>>(Done_.size());
   for (const std::pair<const uint64_t, Result> &d : Done_) {
-    bytes += CapacityBytes(d.second.Build.Nodes);
+    bytes += CapacityBytes(d.second.Build.Nodes) + CapacityBytes(d.second.Landed.Bytes);
   }
   return bytes;
 }
@@ -309,10 +316,9 @@ TilePool::Reply TilePool::Bytes(const Data::Fetch &request, Landing *out) {
   job.Ask = request;
   Result result;
   const Reply posted = Poll(job, &result);
-  if (posted == Reply::Pending) { return Reply::Pending; }
-
-  if (posted == Reply::Undeclared) { return Reply::Undeclared; }
-  return Lookup(key, out);
+  if (posted != Reply::Ready) { return posted; }
+  *out = std::move(result.Landed);
+  return Reply::Ready;
 }
 
 TilePool::Reply TilePool::BytesBlocking(const Data::Fetch &request, Landing *out) {
@@ -413,7 +419,6 @@ void TilePool::Carry() {
   const Heap::Tagged carrying("tile-carrier");
   StackProbe::Enter(StackProbe::Purpose::Tile);
   tCarries = true;
-  Landing scratch;
   for (;;) {
     Job job;
     {
@@ -426,7 +431,7 @@ void TilePool::Carry() {
     Result result;
     const double blockedBefore = tFetchBlockedMs;
     const auto t0 = std::chrono::steady_clock::now();
-    result.State = job.Ask ? FetchInto(*job.Ask, &scratch) : Reply::Refused;
+    result.State = job.Ask ? FetchInto(*job.Ask, &result.Landed) : Reply::Refused;
     const double spanMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     {
@@ -441,14 +446,7 @@ void TilePool::Carry() {
         Posted_.erase(job.Key);
       } else if (Posted_.contains(job.Key)) {
         Done_[job.Key] = std::move(result);
-        Kept_.push_back(job.Key);
-        while (Kept_.size() > kMostKept) {
-          const uint64_t oldest = Kept_.front();
-          Kept_.pop_front();
-          if (std::ranges::find(Kept_, oldest) != Kept_.end()) { continue; }
-          Done_.erase(oldest);
-          Posted_.erase(oldest);
-        }
+        Lands(job.Key, false);
       }
       const auto parked = Awaiting_.find(job.Key);
       if (parked != Awaiting_.end()) {
@@ -477,12 +475,11 @@ void TilePool::Work(int slot) {
   }
   PoolTerrain source(*this);
   TerrainTiles::Config config;
-  config.DemCacheTiles = DemCacheTiles_;
+  config.Shared = Decoded_;
   TerrainTiles tiles(source, frame, config);
 
   ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
 
-  Landing scratch;
   for (;;) {
     Job job;
     {
@@ -528,8 +525,12 @@ void TilePool::Work(int slot) {
       }
         result.Holds = true;
         break;
+      case Rank::Field:
+        RunField(tiles, job, &result);
+        result.Holds = false;
+        break;
       case Rank::Fetch:
-        result.State = job.Ask ? FetchInto(*job.Ask, &scratch) : Reply::Refused;
+        result.State = job.Ask ? FetchInto(*job.Ask, &result.Landed) : Reply::Refused;
         break;
     }
     if (result.State == Reply::Pending && tAwaited != 0) {
@@ -578,20 +579,27 @@ void TilePool::Work(int slot) {
         if (result.State == Reply::Absent || result.State == Reply::Undeclared) {
           result.Build = TileBuild{};
         }
+        const bool holds = result.Holds;
         Done_[job.Key] = std::move(result);
-        Kept_.push_back(job.Key);
-        while (Kept_.size() > kMostKept) {
-          const uint64_t oldest = Kept_.front();
-          Kept_.pop_front();
-          if (std::ranges::find(Kept_, oldest) != Kept_.end()) { continue; }
-          Done_.erase(oldest);
-          Posted_.erase(oldest);
-        }
+        Lands(job.Key, holds);
         Landed_.notify_all();
       }
     }
   }
   ContextBytes_[static_cast<size_t>(slot)].store(0, std::memory_order_relaxed);
+}
+
+void TilePool::Lands(uint64_t key, bool holds) {
+  std::deque<uint64_t> &kept = holds ? Kept_ : Passing_;
+  const size_t most = holds ? kMostKept : kMostPassing;
+  kept.push_back(key);
+  while (kept.size() > most) {
+    const uint64_t oldest = kept.front();
+    kept.pop_front();
+    if (std::ranges::find(kept, oldest) != kept.end()) { continue; }
+    Done_.erase(oldest);
+    Posted_.erase(oldest);
+  }
 }
 
 TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
@@ -623,7 +631,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   if (Posted_.insert(job.Key).second) {
     Posts_++;
     Job posting = job;
-    if (posting.Kind == Rank::Mesh) {
+    if (posting.Kind == Rank::Mesh || posting.Kind == Rank::Field) {
       posting.TileDist = TileDistance({.Zoom = posting.Z, .X = posting.X, .Y = posting.Y});
     }
     const bool carries = posting.Kind == Rank::Fetch;
@@ -683,6 +691,47 @@ TilePool::Reply TilePool::Mesh(Data::TileId of, int grid, TileBuild *out) {
   const Reply state = Poll(job, &result);
   if (state == Reply::Ready) { *out = std::move(result.Build); }
   return state;
+}
+
+void TilePool::RunField(TerrainTiles &tiles, const Job &job, Result *out) {
+  TerrainGrid grid = tiles.StitchedGrid(job.Z, job.X, job.Y);
+  TerrainField *field = grid.TryFieldMutable();
+  const Miss miss = MissOf(grid.Where());
+  if (miss == Miss::None && field != nullptr) {
+    out->Field = std::make_shared<const TerrainField>(std::move(*field));
+    out->State = Reply::Ready;
+    return;
+  }
+  switch (miss) {
+    case Miss::Hole: out->State = Reply::Absent; break;
+    case Miss::Refused: out->State = Reply::Refused; break;
+    case Miss::Wait:
+    case Miss::None: out->State = Reply::Pending; break;
+  }
+}
+
+TilePool::Reply TilePool::Field(Data::TileId of, std::shared_ptr<const TerrainField> *out) {
+  Job job;
+  job.Kind = Rank::Field;
+  job.Z = of.Zoom;
+  job.X = of.X;
+  job.Y = of.Y;
+  job.Key = FieldKey(of.Zoom, of.X, of.Y);
+  Result result;
+  const Reply state = Poll(job, &result);
+  if (state == Reply::Ready) { *out = std::move(result.Field); }
+  return state;
+}
+
+TilePool::Reply TilePool::FieldAwaited(Data::TileId of, std::shared_ptr<const TerrainField> *out) {
+  const Reply asked = Field(of, out);
+  if (asked != Reply::Pending) { return asked; }
+  const uint64_t key = FieldKey(of.Zoom, of.X, of.Y);
+  {
+    std::unique_lock<std::mutex> lock(QueueMutex_);
+    Landed_.wait(lock, [&] { return Done_.contains(key) || !Posted_.contains(key); });
+  }
+  return Field(of, out);
 }
 
 TilePool::Reply TilePool::MeshAwaited(Data::TileId of, int grid, TileBuild *out) {

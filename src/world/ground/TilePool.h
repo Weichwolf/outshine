@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <set>
@@ -16,6 +17,8 @@
 
 #include "Earth.h"
 #include "ClusterDag.h"
+#include "TerrainGrid.h"
+#include "TerrainTiles.h"
 #include "TileMeshes.h"
 #include "Fetch.h"
 
@@ -72,7 +75,7 @@ public:
     int Threads = 1;
     size_t ByteBudget = 0;
 
-    int DemCacheTiles = 0;
+    size_t DecodedBytes = 0;
 
     int PollAttempts = 0;
 
@@ -90,6 +93,9 @@ public:
   [[nodiscard]] Reply Wants(Data::TileId of, int grid) override;
 
   [[nodiscard]] Reply MeshAwaited(Data::TileId of, int grid, TileBuild *out) override;
+
+  [[nodiscard]] Reply Field(Data::TileId of, std::shared_ptr<const TerrainField> *out);
+  [[nodiscard]] Reply FieldAwaited(Data::TileId of, std::shared_ptr<const TerrainField> *out);
 
   void ForgetMesh(int z, uint32_t x, uint32_t y);
 
@@ -117,7 +123,7 @@ public:
   [[nodiscard]] bool AwaitLanding(double seconds);
 
 private:
-  enum class Rank { Fetch = 0, Mesh = 1 };
+  enum class Rank { Fetch = 0, Mesh = 1, Field = 2 };
 
   struct Job {
     Rank Kind = Rank::Mesh;
@@ -132,7 +138,8 @@ private:
   struct Result {
     Reply State = Reply::Pending;
     TileBuild Build;
-
+    std::shared_ptr<const TerrainField> Field;
+    Landing Landed;
     bool Holds = false;
   };
 
@@ -149,9 +156,11 @@ private:
   void Work(int slot);
   void Carry();
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
+  static void RunField(TerrainTiles &tiles, const Job &job, Result *out);
 
   ShapedGround Shape_;
   [[nodiscard]] Reply Poll(const Job &job, Result *out);
+  void Lands(uint64_t key, bool holds);
   [[nodiscard]] bool Known(uint64_t key);
   double TileDistance(Data::TileId of) const;
 
@@ -168,7 +177,7 @@ private:
   Data::Transport &Wire_;
   const double OriginLatDeg_, OriginLonDeg_;
   const size_t ByteBudget_;
-  const int DemCacheTiles_;
+  std::shared_ptr<Ground::DecodedCache> Decoded_;
   const int PollAttempts_;
   const int CarrierCount_;
 
@@ -191,6 +200,7 @@ private:
   std::map<uint64_t, Result> Done_;
   std::set<uint64_t> Posted_;
   std::deque<uint64_t> Kept_;
+  std::deque<uint64_t> Passing_;
 
   long long Posts_ = 0, Repeats_ = 0;
   double FocusLatDeg_ = 0.0, FocusLonDeg_ = 0.0;

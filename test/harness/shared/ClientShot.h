@@ -103,8 +103,9 @@ inline int ScorePlace(const char *place) {
   // with a town and a bridge in view.
   if (std::filesystem::exists(std::string("build/shots/reference/") + place + "-" + row.Digest +
                               ".png")) {
-    CHECK(row.Kept, "**THERE IS A PICTURE, AND IT IS THE REFERENCE**: byte for byte the one an eye "
-                    "accepted, so no statistic about it is needed");
+    CHECK(row.Kept,
+          "**THERE IS A PICTURE, AND IT IS THE REFERENCE**: byte for byte the one an eye "
+          "accepted, so no statistic about it is needed");
     Covers("a declared place on Earth stands, advances and leaves the picture its reference holds");
     return Report();
   }
