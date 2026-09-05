@@ -232,11 +232,11 @@ struct RenderPlan {
   bool Audits = false;
 
   /// Whether the ground is drawn as a HEIGHT-FIELD LATTICE on the GPU -- one grid mesh instanced
-  /// per tile, the height fetched from the tile's page in the vertex shader -- instead of the
-  /// ring mesh the CPU refines, cuts and sews. Off by default while the two are measured beside
-  /// each other; the lattice does not yet carry the stamps a footprint or a road presses into
-  /// the ground.
-  bool GroundLattice = false;
+  /// per tile, the height fetched from the tile's page in the vertex shader, the stamps a
+  /// footprint or a road presses written into the page's nodes. On by default: this is the
+  /// ground. `no` draws the ring mesh the CPU refines, cuts and sews instead, kept beside the
+  /// lattice for comparison until board:2115 deletes it.
+  bool GroundLattice = true;
 };
 
 struct Lighting {

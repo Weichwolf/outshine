@@ -33,7 +33,6 @@ constexpr unsigned kNorthingShift = 24u;
 constexpr int kMostPasses = 6;
 constexpr double kWeldM = 0.01;
 constexpr double kMovedM = 0.01;
-constexpr double kBatterRise = 1.0 / 1.5;
 constexpr double kCoarsestM = 40.0;
 constexpr double kEdgeGrade = 0.35;
 constexpr double kRiseM = 1.0;
@@ -719,7 +718,7 @@ double OutsideRingM(const Yields &held, EastSouth at) {
     const double offS = at.SouthM - (aS + runS * part);
     nearest = std::min(nearest, std::sqrt(offE * offE + offS * offS));
   }
-  return inside ? 0.0 : nearest;
+  return inside ? -nearest : nearest;
 }
 
 void RelightMoved(const GroundMesh &mesh, std::span<const uint8_t> moved) {
@@ -789,20 +788,30 @@ Pressing PressesAt(std::span<const Yields> these,
   double lowest = wasM;
   double highest = wasM;
   double roofM = kBeyondAnyCoordinate;
+  double basinM = wasM;
+  bool landHeld = false;
   for (const uint32_t which : over) {
     const Yields &held = these[which];
     if (at.EastM < held.LowE - held.ApronM || at.EastM > held.HighE + held.ApronM ||
         at.SouthM < held.LowS - held.ApronM || at.SouthM > held.HighS + held.ApronM) {
       continue;
     }
-    const double out = OutsideRingM(held, at);
-    if (out > held.ApronM) { continue; }
+    const double signedM = OutsideRingM(held, at);
     const double onRoad = held.WantsAt(at);
+    if (held.Basin) {
+      if (signedM > 0.0) { continue; }
+      basinM = std::min(basinM, onRoad + std::max(0.0, held.ApronM + signedM) * kBatterRise);
+      continue;
+    }
+    const double out = std::max(signedM, 0.0);
+    if (out > held.ApronM) { continue; }
+    landHeld = true;
     const double cutAt = onRoad + out * kBatterRise;
     lowest = std::min(lowest, cutAt);
     roofM = std::min(roofM, cutAt);
     if (held.Fills) { highest = std::max(highest, onRoad - out * kBatterRise); }
   }
+  if (!landHeld) { lowest = std::min(lowest, basinM); }
   if (lowest < wasM) { return {.WantedM = lowest, .Moves = true}; }
   if (highest > wasM) {
     const double wanted = std::min(highest, roofM);

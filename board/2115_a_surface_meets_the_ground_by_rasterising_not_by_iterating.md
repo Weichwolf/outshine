@@ -422,3 +422,72 @@ finer edge to the coarser chord in the vertex factory; that is exact here for th
 levels, which share one field, and only approximate between real levels, whose fields are
 different DEM sources -- there Cesium's skirt stays. Filed as the next step of the lattice's
 seams, after the switch.
+
+## Landed 2026-09-05: THE LATTICE IS THE GROUND -- declared on by default, nine new references
+
+`Render.GroundLattice` defaults to `yes` (the reader's undeclared value follows), the client's
+flag turned into `--ring` for the comparison, and the ring stands beside the lattice only
+until step 4 deletes it. Two defects the switch exposed, both measured before a reference
+moved:
+
+- **a held page was never re-uploaded**: `HeightSheets::PageFor` reused a tile's page from
+  the first lay of a place, so the second lay's pressed nodes never reached the device.
+  The page is re-placed when its nodes changed. OldTown moved by 606 pixels, 210 over
+  1/255, thin rows at the horizon where the second lay's far tiles replaced the first's
+- **the water at Venice**: the ring never showed it because its 36 m chord stood ABOVE the
+  water lid inside every water polygon (the lid sits at the 5th percentile of its shore),
+  and the picture's "water" was the ground's water CLASS; the lattice's finer levels dipped
+  under the lid in places and green patches of lid (its own material, lit warm) broke
+  through. Unreal carves the landscape under a water body with the water brush; Cesium
+  flattens water at the provider. So every water surface is a YIELD now: a BASIN that cuts
+  the bed `kWaterBedM` = 2 m [SET, the least a bed lies under its lid so a DEM's noise over
+  flat water stays under it] below the level with a bank rising inward at the batter
+  (`Yields::Basin`, `OutsideRingM` signed), never outside its ring; a yield's plane carries
+  the sphere's sag (`Yields::SagInv`, the lattice shader's own term) so a lagoon's bed follows
+  the lid; a pad or a road holds its ground against a basin inside its ring and apron (a
+  palazzo's fondamenta, a causeway). The lid itself draws through the ground surface with
+  its uv, so water has ONE look, the water class's -- the lid's own material is gone. Looked
+  at: the lagoon is water near and sky at the horizon, Koehlbrand's dock basin is water
+  where the reference had a grass field, and one island inside the lagoon polygon is under
+  the lid because a water surface carries its outer ring only (the same fan that
+  triangulates it); two dark wedges of ~40 px at a Venice quay are houses standing over
+  water beyond their own apron, the bake's foundation to give (board:2101)
+
+```
+  place        reference  lattice   differ    >1/255   worst   p50 (ring)
+  OldTown      303146af   99057d18   48 588   23 436    141    2.24 (2.22)
+  Heidelberg   7a4c69f7   dd6f636e  309 015  150 943    171    2.51 (2.57)
+  Shibuya      d31a22a3   4d4edad6   74 411   55 632    170    6.93 (6.81)
+  CentralPark  ed6903ff   1f6405dd  419 543  230 030    127    5.12 (4.76)
+  Venice       63b8df31   23351032  120 632   78 416    140    2.56 (2.74)
+  Jura         78f5d62e   36d0bda3  162 303   28 546    134    2.80 (2.84)
+  ZurichPlan   1164ef91   acee4f89  175 912   31 171    144    5.70 (4.43)
+  Kaiserberg   7a52aaf9   adad12e5  102 613   21 260    127    3.42 (3.43)
+  Koehlbrand   b7041a12   ab537e6d  120 002   49 325    126    3.44 (2.84)
+```
+
+Two more, found by the gates after the switch:
+
+- **the sun case read a first frame.** `ScoreWhichWaysTheSunMovesTheGround` renders one
+  frame per declaration and demands that two identical declarations agree to the bit; under
+  the lattice they differed by 7 pixels of 1 in 255 on the horizon line, and a third render
+  agreed with the second. Measured: the lattice's stream and cull are identical in every
+  frame, and with the ring declared the frames agree, so what remains is the SUBJECT cull:
+  its occlusion test reads the previous frame's depth pyramid (Unreal's HZB carries the same
+  frame of latency), the first frame has none, and the lattice's finer far ground can occlude
+  a piece the ring's chord never did, which changes the compacted draw stream and moves
+  edge-on far pixels by an ulp -- named as the one candidate left, not measured. The case's
+  own text names exposure as carried state and reads "from the same history"; the picture's
+  history is `settleFrames()` long, the client renders that many before a shot, and the case
+  does now too. Both controls green
+- **a rim without a neighbour.** A real sheet whose neighbour field has not arrived lost its
+  whole page (a flat plane at sea level, the green floor of one experiment); now its rim
+  copies its edge (the one-sided normal, a seam until the neighbour lands) and a sheet
+  without nodes draws nothing. `ground: sheets NOT drawn for want of nodes` counts them
+
+All nine looked at side by side: the same places. What moved and why, per place: the
+ground's shading (the reference's normal is the central difference now, the ring's was
+averaged over triangles; CentralPark's lawn a few units darker across the park), buildings
+and roads standing on the fine field instead of the chord, the water on its lid, and the
+far band's edges. The nine lattice pictures are the references from here; the ring's stay
+in git's history under their digests.

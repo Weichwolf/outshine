@@ -198,7 +198,7 @@ double ControlVariation() {
 
 LogSink *Telling = nullptr;
 bool Audits = false;
-bool Lattice = false;
+bool Ring = false;
 
 Scenario::Document ScenarioFor(const Place &place) {
   Scenario::Document stands;
@@ -212,7 +212,7 @@ Scenario::Document ScenarioFor(const Place &place) {
   stands.Render.Frame = Extent{.WidthPx = kWidePx, .HeightPx = kHighPx};
   stands.Render.Fill = kFillShare;
   stands.Render.Audits = Audits;
-  stands.Render.GroundLattice = Lattice;
+  stands.Render.GroundLattice = !Ring;
   stands.Lit.Declared = true;
   stands.Time.Declared = true;
   stands.Time.Live = false;

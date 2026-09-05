@@ -47,13 +47,21 @@ Render::PageId
 HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error) {
   for (Held &one : Held_) {
     if (one.Tile == tile) {
-      one.Wanted = true;
+      if (one.Nodes != std::vector<float>(nodes.begin(), nodes.end())) {
+        Live_->ReleaseHeightPage(one.Page);
+        one.Page = Live_->PlaceHeightPage(nodes, error);
+        one.Nodes.assign(nodes.begin(), nodes.end());
+      }
+      one.Wanted = one.Page != Render::kNoPage;
       return one.Page;
     }
   }
   const Render::PageId page = Live_->PlaceHeightPage(nodes, error);
   if (page == Render::kNoPage) { return page; }
-  Held_.push_back({.Tile = tile, .Page = page, .Wanted = true});
+  Held_.push_back({.Tile = tile,
+                   .Page = page,
+                   .Wanted = true,
+                   .Nodes = std::vector<float>(nodes.begin(), nodes.end())});
   return page;
 }
 
@@ -125,6 +133,16 @@ namespace {
   return static_cast<size_t>(j + 1) * static_cast<size_t>(pageSide) + static_cast<size_t>(i + 1);
 }
 
+void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missing) {
+  constexpr int side = Render::GroundLattice::kSide;
+  for (int j = -1; j <= side; ++j) {
+    for (int i = -1; i <= side; ++i) {
+      if (!missing[PageNode(i, j)]) { continue; }
+      page[PageNode(i, j)] = page[PageNode(std::clamp(i, 0, side - 1), std::clamp(j, 0, side - 1))];
+    }
+  }
+}
+
 } // namespace
 
 namespace {
@@ -189,6 +207,8 @@ bool HeightSheets::HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int 
                      static_cast<double>(sheet.Tile.X & ((1u << drop) - 1u)) * span;
   const double atY = static_cast<double>(sheet.Tile.Y >> drop) +
                      static_cast<double>(sheet.Tile.Y & ((1u << drop) - 1u)) * span;
+  std::vector<bool> missing(Render::GroundLattice::kPageNodes, false);
+  bool anyMissing = false;
   for (int j = -1; j <= side; ++j) {
     for (int i = -1; i <= side; ++i) {
       const bool inside = i >= 0 && i < side && j >= 0 && j < side;
@@ -202,10 +222,17 @@ bool HeightSheets::HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int 
           ground,
           zoom,
           {.X = atX + span * NodeFraction(sheet, i), .Y = atY + span * NodeFraction(sheet, j)});
-      if (!asl) { return false; }
-      page[PageNode(i, j)] = *asl;
+      if (asl) {
+        page[PageNode(i, j)] = *asl;
+      } else if (inside) {
+        return false;
+      } else {
+        missing[PageNode(i, j)] = true;
+        anyMissing = true;
+      }
     }
   }
+  if (anyMissing) { CopiesEdgeIntoRim(page, missing); }
   sheet.Nodes = std::move(page);
   return true;
 }
@@ -322,6 +349,7 @@ bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
 bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
   if (Live_ == nullptr || !Framed_) { return true; }
   for (Held &one : Held_) { one.Wanted = false; }
+  Flat_ = 0;
   Instances_.clear();
   Virtual_.clear();
   const size_t nodes = Render::GroundLattice::kPageNodes;
@@ -330,11 +358,8 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
     if (sheet.Side == Render::GroundLattice::kSide && sheet.Nodes.size() == nodes) {
       page = PageFor(sheet.Tile, sheet.Nodes, error);
     } else {
-      if (Zero_ == Render::kNoPage) {
-        const std::vector<float> flat(nodes, 0.0f);
-        Zero_ = Live_->PlaceHeightPage(flat, error);
-      }
-      page = Zero_;
+      ++Flat_;
+      continue;
     }
     if (page == Render::kNoPage) { return false; }
     (sheet.Virtual ? Virtual_ : Instances_).push_back(TileOf(sheet.Tile, page, sheet.Nodes));
@@ -377,7 +402,6 @@ HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastSouth a
 void HeightSheets::Clear() {
   if (Live_ != nullptr) {
     for (const Held &one : Held_) { Live_->ReleaseHeightPage(one.Page); }
-    if (Zero_ != Render::kNoPage) { Live_->ReleaseHeightPage(Zero_); }
     std::string ignored;
     (void)Live_->SetGroundLattice({}, {}, ignored);
   }
@@ -385,7 +409,6 @@ void HeightSheets::Clear() {
   Instances_.clear();
   Virtual_.clear();
   Fields_.clear();
-  Zero_ = Render::kNoPage;
   GridPostings_ = 0;
 }
 

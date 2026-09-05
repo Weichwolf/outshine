@@ -55,11 +55,14 @@ public:
 
   [[nodiscard]] size_t Instances() const { return Instances_.size() + Virtual_.size(); }
 
+  [[nodiscard]] size_t Flat() const { return Flat_; }
+
 private:
   struct Held {
     Data::TileId Tile;
     Render::PageId Page = Render::kNoPage;
     bool Wanted = false;
+    std::vector<float> Nodes;
   };
 
   [[nodiscard]] bool HandsGrid(const Patchwork &laid, std::string &error);
@@ -78,7 +81,7 @@ private:
   [[nodiscard]] bool HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom);
 
   std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
-  Render::PageId Zero_ = Render::kNoPage;
+  size_t Flat_ = 0;
   uint32_t GridPostings_ = 0;
   Core::Live *Live_ = nullptr;
   TangentFrame Frame_ = TangentFrame::At({});

@@ -116,9 +116,10 @@ extern ::outshine::LogSink *Telling;
 /// questions that change when a GENERATOR changes, never between two frames.
 extern bool Audits;
 
-/// Whether the places are drawn with the GPU height-field lattice (board:2115) instead of the
-/// CPU's ring mesh. Off by default: the references under build/shots/reference/ are the ring's.
-extern bool Lattice;
+/// Whether the places are drawn with the CPU's ring mesh instead of the GPU height-field
+/// lattice (board:2115). Off by default: the references under build/shots/reference/ are the
+/// lattice's, and the ring stands beside it for comparison until the item deletes it.
+extern bool Ring;
 
 [[nodiscard]] Shot Take(const Place &place, bool tells);
 

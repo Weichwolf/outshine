@@ -117,9 +117,15 @@ int main(void) {
     watches.Sees.Stands.PitchDeg = kPitchDeg;
     watches.Sees.FovDeg = kFovDeg;
     stands.Views.push_back(watches);
-    return engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
-           engine.advance() && engine.renderer().render(outshine::Extent{}) &&
-           engine.renderer().readPixels(rgba);
+    if (!(engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
+          engine.advance())) {
+      return false;
+    }
+    const int settle = std::max(2, engine.renderer().settleFrames());
+    for (int frame = 0; frame < settle; ++frame) {
+      if (!engine.renderer().render(outshine::Extent{})) { return false; }
+    }
+    return static_cast<bool>(engine.renderer().readPixels(rgba));
   };
 
   std::vector<uint8_t> low, lowTwice, middling, high, lowAgain;

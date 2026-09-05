@@ -59,11 +59,6 @@ constexpr double kLeastSpanM = 0.05;
 constexpr float kUnlitTint = 0.65f;
 constexpr double kAdriftMostM = 500.0;
 
-constexpr float kLagoonRed = 0.05f;
-constexpr float kLagoonGreen = 0.11f;
-constexpr float kLagoonBlue = 0.16f;
-constexpr float kLagoonRoughness = 0.14f;
-
 constexpr double kPerMille = 1000.0;
 constexpr double kFootprintReachM = 3200.0;
 constexpr double kUnraisedDeckM = -1.0e29;
@@ -89,6 +84,8 @@ constexpr int kChordPasses = 4;
 constexpr double kChordWithinM = 0.20;
 constexpr double kLeastCrestK = 10.0;
 constexpr double kPadApronM = 6.0;
+constexpr double kWaterBedM = 2.0;
+constexpr double kWaterBankM = kWaterBedM / kBatterRise;
 constexpr double kVergeM = 1.5;
 constexpr double kBatterRun = 1.5;
 constexpr double kLeastApronM = 3.0;
@@ -2125,6 +2122,53 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
     }
     const size_t builtPads = yielding.size();
+    if (shapes != nullptr) {
+      const std::span<const double> points = shapes->Points();
+      for (const Ground::WaterField::Surface &lake : World.Stack.WaterBodies().Surfaces()) {
+        if (lake.PointCount < 3) { continue; }
+        const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2u;
+        if (last > points.size()) { continue; }
+        Yields made;
+        made.RingEastSouthM.reserve(static_cast<size_t>(lake.PointCount) * 2u);
+        made.LowE = kBeyondAnyCoordinate;
+        made.HighE = -kBeyondAnyCoordinate;
+        made.LowS = kBeyondAnyCoordinate;
+        made.HighS = -kBeyondAnyCoordinate;
+        std::vector<double> bedM;
+        bedM.reserve(lake.PointCount);
+        for (uint32_t step = 0; step < lake.PointCount; ++step) {
+          const size_t at = (static_cast<size_t>(lake.FirstPoint) + step) * 2u;
+          const EastNorthUp shore =
+              standing.Place({.LongitudeDeg = points[at + 1],
+                              .LatitudeDeg = points[at],
+                              .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
+          made.RingEastSouthM.push_back(shore.EastM);
+          made.RingEastSouthM.push_back(-shore.NorthM);
+          made.LowE = std::min(made.LowE, shore.EastM);
+          made.HighE = std::max(made.HighE, shore.EastM);
+          made.LowS = std::min(made.LowS, -shore.NorthM);
+          made.HighS = std::max(made.HighS, -shore.NorthM);
+          bedM.push_back(shore.UpM);
+        }
+        made.AtE = 0.5 * (made.LowE + made.HighE);
+        made.AtS = 0.5 * (made.LowS + made.HighS);
+        made.SagInv = 1.0 / Data::kWgs84A;
+        double plateau = 0.0;
+        for (size_t corner = 0; corner < bedM.size(); ++corner) {
+          const double dE = made.RingEastSouthM[corner * 2u] - made.AtE;
+          const double dS = made.RingEastSouthM[corner * 2u + 1u] - made.AtS;
+          plateau += bedM[corner] + 0.5 * (dE * dE + dS * dS) * made.SagInv;
+        }
+        made.PlateauM = plateau / static_cast<double>(bedM.size());
+        made.ApronM = kWaterBankM;
+        made.YieldM = kWaterBedM;
+        made.Basin = true;
+        made.SeamEastSouthM = made.RingEastSouthM;
+        yielding.push_back(std::move(made));
+      }
+    }
+    const size_t builtLakes = yielding.size() - builtPads;
+    Published.Places("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
     yielding.insert(yielding.end(),
                     std::make_move_iterator(corridor.begin()),
                     std::make_move_iterator(corridor.end()));
@@ -2184,10 +2228,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       if (!World.Sheets.Hands(*laid, Error)) { return false; }
     }
   }
+
   Published.Places(
       "ground: height pages standing", static_cast<double>(World.Sheets.Standing()), "pages");
   Published.Places(
       "ground: tiles the lattice draws", static_cast<double>(World.Sheets.Instances()), "tiles");
+  Published.Places("ground: sheets NOT drawn for want of nodes",
+                   static_cast<double>(World.Sheets.Flat()),
+                   "tiles");
   if (ringPart >= 0) {
     (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
     (void)ground.setNormals(ringPart,
@@ -2208,6 +2256,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const Ground::OsmField *const vectors = World.Stack.Vectors();
     std::vector<float> places;
     std::vector<float> facing;
+    std::vector<float> lidUv;
     std::vector<uint32_t> order;
     size_t lidsLaid = 0;
     size_t lidsRefused = 0;
@@ -2245,6 +2294,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             facing.push_back(0.0f);
             facing.push_back(1.0f);
             facing.push_back(0.0f);
+            lidUv.push_back(static_cast<float>(eastM));
+            lidUv.push_back(static_cast<float>(northM));
             order.push_back(static_cast<uint32_t>(order.size()));
           }
         }
@@ -2265,19 +2316,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const size_t waterTriangles = order.size() / 3;
     Published.Places("water: triangles", static_cast<double>(waterTriangles), "triangles");
     if (order.size() >= 3) {
-      Material lagoon;
-      lagoon.BaseColour[0] = kLagoonRed;
-      lagoon.BaseColour[1] = kLagoonGreen;
-      lagoon.BaseColour[2] = kLagoonBlue;
-      lagoon.Roughness = kLagoonRoughness;
-      lagoon.DoubleSided = true;
-      const MaterialInstance wetSurface = ground.addSurface("water", lagoon);
-      const int wetPart = ground.addPart("water", wetSurface);
+      const int wetPart = ground.addPart("water", ringSurface);
       const bool tookWater =
           wetPart >= 0 &&
           ground.setPositions(wetPart, std::span<const float>(places.data(), places.size())) &&
           ground.setNormals(wetPart, std::span<const float>(facing.data(), facing.size())) &&
-          ground.setTriangles(wetPart, std::span<const uint32_t>(order.data(), order.size()));
+          ground.setTriangles(wetPart, std::span<const uint32_t>(order.data(), order.size())) &&
+          ground.setTexture(wetPart, std::span<const float>(lidUv.data(), lidUv.size()), 0);
       Published.Places("water: the geometry took it", tookWater ? 1.0 : 0.0, "yes/no");
     }
   }

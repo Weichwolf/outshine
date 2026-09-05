@@ -84,10 +84,14 @@ struct Yields {
   std::vector<double> SeamEastSouthM;
   double ApronM = 0.0;
   double YieldM = 0.0;
+  double SagInv = 0.0;
   bool Fills = false;
+  bool Basin = false;
 
   [[nodiscard]] double WantsAt(EastSouth at) const {
-    return PlateauM + SlopeE * (at.EastM - AtE) + SlopeS * (at.SouthM - AtS);
+    const double dE = at.EastM - AtE;
+    const double dS = at.SouthM - AtS;
+    return PlateauM + SlopeE * dE + SlopeS * dS - 0.5 * (dE * dE + dS * dS) * SagInv;
   }
 };
 

@@ -115,7 +115,7 @@ void Row(const Shot &shot, std::string_view name) {
 void Usage() {
   std::printf(
       "outshine-client -- the engine through its own door, from a command line.\n\n"
-      "  shots [--rows] [--measures] [--audit] [--lattice] [--all | <place>]\n"
+      "  shots [--rows] [--measures] [--audit] [--ring] [--all | <place>]\n"
       "                                   stand each place, draw it, keep the picture\n"
       "  places                           name the places it knows\n"
       "  roundtrip                        write each place, read it back, write it again\n"
@@ -156,7 +156,7 @@ int TakeShots(int argc, char *const *argv) {
     if (std::strcmp(argv[0], "--rows") == 0) { rows = true; }
     if (std::strcmp(argv[0], "--measures") == 0) { everyMeasure = true; }
     if (std::strcmp(argv[0], "--audit") == 0) { outshine::Shots::Audits = true; }
-    if (std::strcmp(argv[0], "--lattice") == 0) { outshine::Shots::Lattice = true; }
+    if (std::strcmp(argv[0], "--ring") == 0) { outshine::Shots::Ring = true; }
     --argc;
     ++argv;
   }

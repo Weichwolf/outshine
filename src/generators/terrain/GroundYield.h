@@ -10,6 +10,8 @@
 
 namespace outshine {
 
+inline constexpr double kBatterRise = 1.0 / 1.5;
+
 void DivideOnClass(const GroundMesh &mesh, double finestM, Yielded &told);
 
 void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, Yielded &told);
