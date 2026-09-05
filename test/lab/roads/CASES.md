@@ -105,6 +105,37 @@ of these; the synthetic bed is where each is held in isolation.
 | R26 | dam crest road | a road on a structure that is itself the terrain's edge |
 | R27 | elevated urban road (a bridge=yes way over a city street grid) | I4 over roads, not water |
 
+## What a bridge IS, and what a tunnel IS -- a deterministic heuristic
+
+A generator has no engineer to ask, so the TYPE follows from numbers OSM and the terrain
+already carry. The rule below is deterministic (same input, same structure) and every threshold
+is a span a real structure of that type covers; the references are the standard span tables
+(Leonhardt, *Bruecken*; the Eurocode's span ranges; FHWA's bridge inventory by type). What the
+type decides is what a viewer READS from a distance: the depth under the deck, the rhythm of
+the piers, the presence of an arch or a cable.
+
+| span between piers | structure | depth of the deck | what stands under it | seen at |
+|---|---|---|---|---|
+| < 8 m | culvert / slab | 0.3-0.6 m | the fill itself | a stream under a country road |
+| 8-25 m | reinforced concrete slab or beam | span/20 | abutments only | every motorway overpass |
+| 25-60 m | prestressed concrete beam, 4-6 girders | span/22 | piers, one row | Ruhrgebiet's Autobahn crossings |
+| 60-150 m | steel or composite box girder, haunched | span/18 at the pier, span/45 mid | tall piers | Wuppertal's valley crossings, Bern's Lorraine |
+| 150-500 m | arch (concrete or steel) or cable-stayed | deck slender, span/60 | one arch, or a pylon per 0.4 span | Kohlbrand, Zurich's Sihlhoch, SF's approaches |
+| > 500 m | suspension | span/100 | two towers, a main cable | the Golden Gate |
+| any, rail | the same, one class heavier: rail loads are 2-3x road | span/16 | more piers | every Berlin S-Bahn viaduct |
+
+The material follows the span the same way: concrete below 60 m, composite to 150 m, steel
+above. A `bridge:structure`, `bridge:material` or `man_made=bridge` tag in OSM overrides the
+heuristic where it exists (about 3 % of bridges carry one, measured on taginfo), which is the
+rule everywhere here: the data decides where it speaks, the heuristic where it is silent.
+
+| tunnel | when | portal | what the ground does |
+|---|---|---|---|
+| cut and cover | cover < 6 m, or `tunnel=building_passage` | a retaining wall each side, a lid | the ground is cut open and closed again |
+| bored | cover >= 6 m | a portal head wall in the slope | the ground is untouched above the crown |
+| gallery / avalanche shed | on a mountain side, one wall open | columns on the valley side | half cut, half built |
+| underpass | a road under a road, `layer=-1` | wing walls | a trough with a wall each side |
+
 ## Data pathologies (P)
 
 | id | pathology | must hold |
