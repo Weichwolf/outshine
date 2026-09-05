@@ -1,29 +1,78 @@
 {
- "schema": "outshine/measured-corpus-manifest",
- "schemaVersion": 1,
- "id": "opendrive/a9",
- "title": "Two surveyed sections of the German Autobahn A9, in ASAM OpenDRIVE 1.4",
- "source": {
-  "kind": "opendrive-testfeld-a9",
-  "of": "3D Mapping Solutions, via the MDM portal, mirrored by tum-gis",
-  "licence": "GeoNutzV",
-  "commit": "e75ee549659a277b55116d30561561720438fa29"
- },
- "grade": "TRUTH",
- "surveyed": "2017-04-04",
- "georeference": "+proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=500000 +y_0=0 +datum=WGS84 +units=m +no_defs",
- "files": {
-  "2017-04-04_Testfeld_A9_Nord.xodr": {
-   "bytes": 10808489,
-   "sha256": "473c6db878690906cc04ad28a12b81c30c74162912d3999cbf6c363ec85c79d4"
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "opendrive/a9",
+  "title": "Two surveyed sections of the German Autobahn A9, in ASAM OpenDRIVE 1.4",
+  "covers": [
+    "road-map",
+    "opendrive:a9"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "a road this tree derives from OpenStreetMap is measured against the SURVEYED reference line, lane widths, gradient and superelevation of the same kilometres of the A9, in ASAM OpenDRIVE 1.4 -- a measurement carried further than any derivation, so the corpus can never be the thing that is wrong",
+    "statedAt": "https://github.com/tum-gis/opendrive-testfeld-a9"
   },
-  "2017-04-04_Testfeld_A9_Sued.xodr": {
-   "bytes": 9766787,
-   "sha256": "28318b98d7dcf80b0ab5c7b002a232fb985d8bf1f335e8d0714201053e0469d6"
-  },
-  "GeoNutzV_130319.pdf": {
-   "bytes": 48713,
-   "sha256": "18ff7cc4342298f2e0d5a887887a910e5af27359335e62c861146ae04f80f89e"
-  }
- }
+  "subjects": [
+    {
+      "kind": "data",
+      "id": "a9",
+      "name": "a9",
+      "source": {
+        "kind": "tum-gis-opendrive-a9",
+        "commit": "e75ee549659a277b55116d30561561720438fa29",
+        "path": "/",
+        "pinnedOn": "2026-09-05",
+        "pinReason": "the survey of 2017-04-04 was published once; the Mobilithek migration broke the MDM download and TUM's geoinformatics chair mirrors the files, licence PDF included, so the mirror's commit is the pin"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tum-gis/opendrive-testfeld-a9/e75ee549659a277b55116d30561561720438fa29/2017-04-04_Testfeld_A9_Nord.xodr",
+          "sha256": "473c6db878690906cc04ad28a12b81c30c74162912d3999cbf6c363ec85c79d4",
+          "bytes": 10808489,
+          "as": "2017-04-04_Testfeld_A9_Nord.xodr",
+          "role": "document",
+          "licence": [
+            {
+              "spdx": "LicenseRef-GeoNutzV-2013",
+              "holder": "Bundesrepublik Deutschland; surveyed by 3D Mapping Solutions GmbH, published through the MDM portal",
+              "statedAt": "https://raw.githubusercontent.com/tum-gis/opendrive-testfeld-a9/e75ee549659a277b55116d30561561720438fa29/GeoNutzV_130319.pdf",
+              "covers": "the two surveyed sections and the licence text beside them"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tum-gis/opendrive-testfeld-a9/e75ee549659a277b55116d30561561720438fa29/2017-04-04_Testfeld_A9_Sued.xodr",
+          "sha256": "28318b98d7dcf80b0ab5c7b002a232fb985d8bf1f335e8d0714201053e0469d6",
+          "bytes": 9766787,
+          "as": "2017-04-04_Testfeld_A9_Sued.xodr",
+          "role": "document",
+          "licence": [
+            {
+              "spdx": "LicenseRef-GeoNutzV-2013",
+              "holder": "Bundesrepublik Deutschland; surveyed by 3D Mapping Solutions GmbH, published through the MDM portal",
+              "statedAt": "https://raw.githubusercontent.com/tum-gis/opendrive-testfeld-a9/e75ee549659a277b55116d30561561720438fa29/GeoNutzV_130319.pdf",
+              "covers": "the two surveyed sections and the licence text beside them"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tum-gis/opendrive-testfeld-a9/e75ee549659a277b55116d30561561720438fa29/GeoNutzV_130319.pdf",
+          "sha256": "18ff7cc4342298f2e0d5a887887a910e5af27359335e62c861146ae04f80f89e",
+          "bytes": 48713,
+          "as": "GeoNutzV_130319.pdf",
+          "role": "document",
+          "licence": [
+            {
+              "spdx": "LicenseRef-GeoNutzV-2013",
+              "holder": "Bundesrepublik Deutschland; surveyed by 3D Mapping Solutions GmbH, published through the MDM portal",
+              "statedAt": "https://raw.githubusercontent.com/tum-gis/opendrive-testfeld-a9/e75ee549659a277b55116d30561561720438fa29/GeoNutzV_130319.pdf",
+              "covers": "the two surveyed sections and the licence text beside them"
+            }
+          ]
+        }
+      ],
+      "entry": "2017-04-04_Testfeld_A9_Nord.xodr",
+      "notes": "grade TRUTH; surveyed 2017-04-04; georeference +proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=500000 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    }
+  ]
 }

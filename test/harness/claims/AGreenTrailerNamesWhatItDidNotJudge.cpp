@@ -29,6 +29,14 @@ namespace {
   return false;
 }
 
+bool HoldsACase(const std::filesystem::path &family) {
+  std::error_code failed;
+  for (const auto &held : std::filesystem::recursive_directory_iterator(family, failed)) {
+    if (held.is_regular_file() && held.path().filename() == "manifest.json") { return true; }
+  }
+  return false;
+}
+
 } // namespace
 
 int main(void) {
@@ -60,6 +68,7 @@ int main(void) {
     if (!entry.is_directory()) { continue; }
     const std::string family = entry.path().filename().string();
     if (family == "harness" || family == "outshine") { continue; }
+    if (!HoldsACase(entry.path())) { continue; }
     ++families;
     const std::string stem = "test-" + family;
     const bool fetched = HoldsAFetchedSubject(where, stem);

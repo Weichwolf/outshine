@@ -13,34 +13,47 @@ this session's and are repaired in the same round; seven remain, and the owner's
 is that a claim can become FACTUALLY WRONG when an architecture decision moves or code is
 refactored, so each is re-read before it is repaired.
 
-## The seven, with what each says today
+## Measured 2026-09-05, after the round that read them
 
 ```
-  AGreenTrailerNamesWhatItDidNotJudge   test/opendrive, clearsky, scripts hold no case and the
-                                        runner is silent about it
-  APreparedFileNeverLandsInTheTree      a prepared file stands in a case directory
-  EveryRenderNamesItsIndices            render rows across the prepared corpus = 0; the corpus
-                                        render pass is gone since the places are the test
-  NoFramePathCallReachesABlock          the physics step and the picture reach an allocation, a
-                                        lock or a wait -- the one claim here that is about the
-                                        ENGINE and not the harness; board:2130 owns the frame path
-  TheBuildDeclarationAuditsItself       a source listed twice or in no suite
-  TheCorpusIsRebuiltByOneCommand        planned != declared manifests
-  TheNestRefusesASecondRunner           the nested invocation did not pass through the lock
-  TheEngineNamesNoSubject               inMotor 42: Seat/Wheel/Door in the door, TerrainField in
-                                        HeightSheets -- board:2139's, and recorded there
+  green now  AGreenTrailerNamesWhatItDidNotJudge  the runner counted case DIRECTORIES two deep and
+                                                  never saw a one-level family; it counts manifests
+             APreparedFileNeverLandsInTheTree     a reference per FRAME (reference.f0000.png) is the
+                                                  oracle's picture too; the claim knew only reference.png
+             EveryRenderNamesItsIndices           UNPREPARED, not red: no render row exists until
+                                                  `make test` renders the corpus again
+             TheBuildDeclarationAuditsItself      src/client is `make`'s one program, not a suite's source
+             TheCorpusIsRebuiltByOneCommand       opendrive/a9 and clearsky/egbert were a third manifest
+                                                  schema with two fetch scripts of their own; they are
+                                                  declared-case manifests now, planned and FETCHED by the
+                                                  one preparer, digests checked (20.6 MB, 160 KB)
+             TheNestRefusesASecondRunner          passes; the refusal names both nests now, so the next
+                                                  time it does not the cause is in the log
+             NoFramePathCallReachesABlock         the step published three measures through a ledger that
+                                                  allocates -- the picture publishes them now; the depth
+                                                  pyramid was read back with a WAIT every audited frame --
+                                                  Readback::Enqueue and Poll, a fence queried a frame
+                                                  later; the walk prints the call chain to each block
+  red        EveryOracleWasPreparedByThisPreparer 1 239 of 1 239: this round changed prepare.py (the two
+                                                  case trees) and restored the khronos fetch step that
+                                                  board:2049 deleted with the render harness, so every
+                                                  provenance names an older preparer. The way back is the
+                                                  one command over every case, measured at 5.2 s for Box
+                                                  with Blender 5.2.0 -- about two hours -- and it runs
+                                                  after this commit, because the digest is the tree's
+  red        TheEngineNamesNoSubject              board:2139's: Seat/Wheel/Door in the door, TerrainField
+                                                  in HeightSheets
 ```
 
-## The solution
-
-- each claim is read against the tree as it stands: if the invariant still holds, the tree is
-  repaired; if the invariant moved (the corpus render pass, `make test` suspended), the claim
-  is rewritten to the invariant that replaced it or deleted with its reason in the commit
-- `NoFramePathCallReachesABlock` is not a harness question and goes to board:2130 with its walk
-- `make lint`'s trailer is read whole before every commit, not its counters
+Found on the way and repaired here: `prepare.py fetch` on any khronos/glTF case raised
+AttributeError since board:2049 removed test/harness/khronos/glTF with the render harness -- the
+fetch step went with it and the dry-run that the corpus claim runs never called it. The step
+stands at test/harness/khronos/prepare/fetch.py, where harness_of finds it for glTF and generator.
 
 ## What will be true
 
-- [ ] `make lint` prints `0 guard(s) are RED` and its claim block is all PASS
-- [ ] every claim deleted or rewritten names the architecture decision that moved it
-- [ ] Negative control: a claim's own negative control still goes red after the rewrite
+- [x] each claim read against the tree as it stands, repaired or rewritten with its reason
+- [ ] `make lint` prints `0 guard(s) are RED`: EveryOracle after the re-prepare, TheEngineNamesNoSubject
+      with board:2139
+- [ ] Negative control: a claim's own negative control still goes red after the rewrite -- the
+      frame-path walk's chain names Readback::Land when a wait is put back

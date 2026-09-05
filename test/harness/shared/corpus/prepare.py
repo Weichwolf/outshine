@@ -34,7 +34,7 @@ def prepared_directory(manifest_path):
 
 CASE_TREES = ("test/khronos/glTF", "test/khronos/generator", "test/outshine/grown",
               "test/wpt/css", "test/test262/js", "test/khronos/validator",
-              "test/geographiclib/geodesic")
+              "test/geographiclib/geodesic", "test/opendrive", "test/clearsky")
 
 def every_manifest():
     """Every case's declaration, in a stable order so two runs report the same list."""

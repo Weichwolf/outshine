@@ -578,6 +578,22 @@
             "pinReason": "text"
           }
         },
+        "tum-gis-opendrive-a9": {
+          "required": {
+            "commit": "sha1",
+            "path": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          }
+        },
+        "clear-sky-models": {
+          "required": {
+            "commit": "sha1",
+            "path": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          }
+        },
         "web-platform-tests": {
           "required": {
             "commit": "sha1",

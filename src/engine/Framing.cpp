@@ -91,6 +91,15 @@ bool Engine::render(Extent frame) {
   S_->Published.Places("cull: jobs it swept",
                        static_cast<double>(Render::SubjectCullStage::JobsSweptTaken()),
                        "jobs");
+  if (!S_->Ticking.Freestanding.empty()) {
+    S_->Published.Places("bodies standing on no route",
+                         static_cast<double>(S_->Ticking.Freestanding.size()),
+                         "bodies");
+    S_->Published.Places(
+        "the first of them, up", S_->Ticking.Freestanding.front().PositionM[1], "m");
+    S_->Published.Places(
+        "and how fast it falls", S_->Ticking.Freestanding.front().VelocityMs[1], "m/s");
+  }
   if (S_->Session.Declared.Render.Audits) {
     Render::PyramidDepths depths;
     if (S_->Picture.Standing->Pyramid(depths) == Render::ReadState::Ready) {

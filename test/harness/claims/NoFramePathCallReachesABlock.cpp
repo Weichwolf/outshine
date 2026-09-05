@@ -84,10 +84,14 @@ constexpr Forbidden kPictureForbidden[] = {
     {"sleep", "an unbounded block on the path that draws"},
     {"nanosleep", "the same, one layer down"},
     {"BytesBlocking", "the tile pool's waiting fetch, reached while drawing"},
-    {"8Readback",
-     "a GPU->CPU readback: the CPU waits on the device, which is the one thing a "
-     "frame must never do. This is what board:2007 measured -- 43.6 MB and a sync "
-     "every frame, spent publishing two numbers"},
+    {"8Readback4Land",
+     "a GPU->CPU readback that WAITS: the CPU stalls on the device for a number, which is the "
+     "one thing a frame must never do. This is what board:2007 measured -- 43.6 MB and a sync "
+     "every frame, spent publishing two numbers. Readback::Enqueue and Readback::Poll, a fence "
+     "queried a frame later, are Unreal's FRHIGPUBufferReadback and allowed. Two other waits "
+     "stay legitimate and unlisted: the frame-pacing wait on the fence of the frame that held "
+     "this ring slot kFramesInFlight ago, which Unreal (RHIWaitForFrame) and RAGE both do, and "
+     "the wait a client's readPixels asks for by name"},
     {"_fopen", "disk"},
     {"_pread", "disk"},
 };
@@ -203,11 +207,15 @@ int main(void) {
     if (!everySeedTook) { return Report(); }
 
     const size_t fromSeeds = queue.size();
+    std::map<std::string, std::string> parent;
     for (size_t at = 0; at < queue.size(); ++at) {
       const auto found = calls.find(queue[at]);
       if (found == calls.end()) { continue; }
       for (const std::string &to : found->second) {
-        if (seen.insert(to).second) { queue.push_back(to); }
+        if (seen.insert(to).second) {
+          parent[to] = queue[at];
+          queue.push_back(to);
+        }
       }
     }
 
@@ -215,7 +223,15 @@ int main(void) {
     for (const std::string &symbol : seen) {
       for (size_t one = 0; one < walk.ForbidCount; ++one) {
         if (symbol.find(walk.Forbid[one].Symbol) != std::string::npos) {
-          blocking.push_back(std::string(walk.Forbid[one].Symbol) + "  via  " + Demangled(symbol));
+          std::string chain = Demangled(symbol);
+          std::string up = symbol;
+          for (int hop = 0; hop < 4; ++hop) {
+            const auto above = parent.find(up);
+            if (above == parent.end()) { break; }
+            up = above->second;
+            chain += "  <-  " + Demangled(up);
+          }
+          blocking.push_back(std::string(walk.Forbid[one].Symbol) + "  via  " + chain);
           break;
         }
       }
@@ -225,9 +241,11 @@ int main(void) {
         "EDGES %zu over the archive, REACHABLE from %s %zu\n", edgeCount, walk.Name, seen.size());
     for (const std::string &one : blocking) { std::printf("  BLOCKS  %s\n", one.c_str()); }
 
-    CHECK(seen.size() > fromSeeds && seen.size() > 10,
+    CHECK(seen.size() > fromSeeds,
           "the walk reached past its own seeds -- a graph that resolves nothing would report no "
-          "block for the same reason an empty one does");
+          "block for the same reason an empty one does. The physics step reaches four symbols "
+          "since board:2117 (gravity onto free bodies, one Physics::Step each), so a floor of "
+          "ten here was a number without an origin");
     CHECK(blocking.empty(), walk.Claim);
   }
 

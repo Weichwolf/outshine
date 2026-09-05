@@ -1,31 +1,78 @@
 {
- "schema": "outshine/measured-corpus-manifest",
- "schemaVersion": 1,
- "id": "clearsky/egbert",
- "title": "Kider et al.'s clear day at Egbert, Ontario, and ASTM G173",
- "source": {
-  "kind": "clear-sky-models",
-  "of": "E. Bruneton",
-  "licence": "BSD"
- },
- "site": {
-  "name": "Egbert, Ontario",
-  "latitudeDeg": 44.23,
-  "longitudeDeg": -79.78
- },
- "day": "2013-05-27",
- "files": {
-  "astm-g173.txt": {
-   "bytes": 87246,
-   "sha256": "0b4b5ba91b8709acf7bded8776be36443fed963da08cdbfd9ba91b0ec1887d6f"
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "clearsky/egbert",
+  "title": "Kider et al.'s clear day at Egbert, Ontario, and ASTM G173",
+  "covers": [
+    "atmosphere",
+    "clear-sky:egbert"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "the sky's radiance and irradiance at Egbert, Ontario on 2013-05-27 against Kider et al.'s measured full day and the ASTM G173 solar spectrum -- a measurement, so the model is the thing that can be wrong",
+    "statedAt": "https://github.com/ebruneton/clear-sky-models"
   },
-  "kider_full_day_irradiance_raw_2013_5_27.txt": {
-   "bytes": 50522,
-   "sha256": "d64cb7ba000e2c939162d492e294ee50d799e8f6045fc6d896e66b0153df589f"
-  },
-  "130527_130527_Egbert.pfn": {
-   "bytes": 22288,
-   "sha256": "083761b5546d1fe9e855945afebca104c7589c333136b34dbfbc5a47a2de3379"
-  }
- }
+  "subjects": [
+    {
+      "kind": "data",
+      "id": "egbert",
+      "name": "egbert",
+      "source": {
+        "kind": "clear-sky-models",
+        "commit": "4df2ec6609bc0127a478bd34fff29c94352579cc",
+        "path": "input",
+        "pinnedOn": "2026-09-05",
+        "pinReason": "the measurements are from 2013 and do not change; the commit is master's head on the day of the pin, and the three digests were checked against it"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/ebruneton/clear-sky-models/4df2ec6609bc0127a478bd34fff29c94352579cc/input/astm-g173.txt",
+          "sha256": "0b4b5ba91b8709acf7bded8776be36443fed963da08cdbfd9ba91b0ec1887d6f",
+          "bytes": 87246,
+          "as": "astm-g173.txt",
+          "role": "document",
+          "licence": [
+            {
+              "spdx": "BSD-3-Clause",
+              "holder": "Eric Bruneton",
+              "statedAt": "https://github.com/ebruneton/clear-sky-models/blob/master/LICENSE",
+              "covers": "the repository, its input data included"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/ebruneton/clear-sky-models/4df2ec6609bc0127a478bd34fff29c94352579cc/input/kider_full_day_irradiance_raw_2013_5_27.txt",
+          "sha256": "d64cb7ba000e2c939162d492e294ee50d799e8f6045fc6d896e66b0153df589f",
+          "bytes": 50522,
+          "as": "kider_full_day_irradiance_raw_2013_5_27.txt",
+          "role": "document",
+          "licence": [
+            {
+              "spdx": "BSD-3-Clause",
+              "holder": "Eric Bruneton",
+              "statedAt": "https://github.com/ebruneton/clear-sky-models/blob/master/LICENSE",
+              "covers": "the repository, its input data included"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/ebruneton/clear-sky-models/4df2ec6609bc0127a478bd34fff29c94352579cc/input/130527_130527_Egbert.pfn",
+          "sha256": "083761b5546d1fe9e855945afebca104c7589c333136b34dbfbc5a47a2de3379",
+          "bytes": 22288,
+          "as": "130527_130527_Egbert.pfn",
+          "role": "document",
+          "licence": [
+            {
+              "spdx": "BSD-3-Clause",
+              "holder": "Eric Bruneton",
+              "statedAt": "https://github.com/ebruneton/clear-sky-models/blob/master/LICENSE",
+              "covers": "the repository, its input data included"
+            }
+          ]
+        }
+      ],
+      "entry": "kider_full_day_irradiance_raw_2013_5_27.txt",
+      "notes": "grade TRUTH; site Egbert, Ontario, latitude 44.23 deg, longitude -79.78 deg; day 2013-05-27"
+    }
+  ]
 }

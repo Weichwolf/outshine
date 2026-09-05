@@ -7,20 +7,39 @@
 
 namespace outshine::Render {
 
-ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
-  SDL_GPUFence *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-  if (fence == nullptr) {
+ReadState Readback::Submit(SDL_GPUCommandBuffer *commands) {
+  Fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+  if (Fence == nullptr) {
     Log::Error(LogTag::Render, "readback_submit_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
   }
-  const bool waited = SDL_WaitForGPUFences(Device, true, &fence, 1);
-  SDL_ReleaseGPUFence(Device, fence);
+  return ReadState::Pending;
+}
+
+ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
+  if (Submit(commands) == ReadState::Failed) { return ReadState::Failed; }
+  const bool waited = SDL_WaitForGPUFences(Device, true, &Fence, 1);
+  SDL_ReleaseGPUFence(Device, Fence);
+  Fence = nullptr;
   if (!waited) {
     Log::Error(LogTag::Render, "readback_wait_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
   }
+  return Map();
+}
+
+ReadState Readback::Poll() {
+  if (Mapped != nullptr) { return ReadState::Ready; }
+  if (Fence == nullptr) { return ReadState::Failed; }
+  if (!SDL_QueryGPUFence(Device, Fence)) { return ReadState::Pending; }
+  SDL_ReleaseGPUFence(Device, Fence);
+  Fence = nullptr;
+  return Map();
+}
+
+ReadState Readback::Map() {
   Mapped = static_cast<const uint8_t *>(SDL_MapGPUTransferBuffer(Device, Transfer, false));
   if (Mapped == nullptr) {
     Log::Error(LogTag::Render, "readback_map_failed", {{"msg", SDL_GetError()}});
@@ -66,6 +85,14 @@ ReadState Readback::FromTexture(SDL_GPUDevice *device,
 }
 
 ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
+  return Copies(device, source, bytes) == ReadState::Failed ? ReadState::Failed : Land(Commands);
+}
+
+ReadState Readback::Enqueue(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
+  return Copies(device, source, bytes) == ReadState::Failed ? ReadState::Failed : Submit(Commands);
+}
+
+ReadState Readback::Copies(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
   Release();
   Device = device;
   Row = bytes;
@@ -88,10 +115,17 @@ ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uin
   into.transfer_buffer = Transfer;
   SDL_DownloadFromGPUBuffer(copy, &region, &into);
   SDL_EndGPUCopyPass(copy);
-  return Land(commands);
+  Commands = commands;
+  return ReadState::Pending;
 }
 
 void Readback::Release() {
+  if (Fence != nullptr) {
+    SDL_WaitForGPUFences(Device, true, &Fence, 1);
+    SDL_ReleaseGPUFence(Device, Fence);
+    Fence = nullptr;
+  }
+  Commands = nullptr;
   if (Mapped != nullptr) { SDL_UnmapGPUTransferBuffer(Device, Transfer); }
   if (Transfer != nullptr) { SDL_ReleaseGPUTransferBuffer(Device, Transfer); }
   Mapped = nullptr;

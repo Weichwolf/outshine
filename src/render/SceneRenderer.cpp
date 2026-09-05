@@ -1340,13 +1340,16 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
       {.WidthPx = static_cast<uint32_t>(Width_), .HeightPx = static_cast<uint32_t>(Height_)});
   const uint32_t texels = shape.Wide[0] * shape.High[0];
   if (texels == 0) { return ReadState::Failed; }
-  Readback read;
-  if (read.FromBuffer(Device_.Get(),
-                      Pyramid_.Get(),
-                      texels * static_cast<uint32_t>(sizeof(float))) != ReadState::Ready) {
-    return ReadState::Failed;
+  const ReadState landed = PyramidRead_.Poll();
+  if (landed == ReadState::Failed) {
+    return PyramidRead_.Enqueue(Device_.Get(),
+                                Pyramid_.Get(),
+                                texels * static_cast<uint32_t>(sizeof(float))) == ReadState::Failed
+               ? ReadState::Failed
+               : ReadState::Pending;
   }
-  const auto *const held = reinterpret_cast<const float *>(read.Rows());
+  if (landed == ReadState::Pending) { return ReadState::Pending; }
+  const auto *const held = reinterpret_cast<const float *>(PyramidRead_.Rows());
   double summed = 0.0;
   into.Nearest = held[0];
   into.Farthest = held[0];
@@ -1356,6 +1359,7 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
     summed += static_cast<double>(held[at]);
   }
   into.Mean = static_cast<float>(summed / static_cast<double>(texels));
+  PyramidRead_.Release();
   return ReadState::Ready;
 }
 

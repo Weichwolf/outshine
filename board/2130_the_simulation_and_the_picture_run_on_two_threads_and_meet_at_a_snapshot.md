@@ -67,3 +67,11 @@ split.
 
 If the snapshot copy costs more than the parallelism buys at this scene size, the copy is the
 wrong shape -- a delta rather than a state -- and the item says which before the split lands.
+
+## 2026-09-05: the pyramid readback polls
+
+`NoFramePathCallReachesABlock` is green: the depth pyramid's readback (board:2007's 43.6 MB and a
+sync per audited frame) is `Readback::Enqueue` + `Readback::Poll`, a fence queried a frame later and
+the numbers one frame old -- Unreal's FRHIGPUBufferReadback. The frame-pacing wait on the ring slot's
+fence and the wait a client's readPixels asks for stay, both named in the claim as legitimate.
+

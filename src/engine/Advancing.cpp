@@ -292,10 +292,6 @@ void Engine::State::Falls() {
     pulled.ForceN[1] = -held.MassKg * gravityMs2;
     Physics::Step(held, pulled, stepS);
   }
-  Published.Places(
-      "bodies standing on no route", static_cast<double>(Ticking.Freestanding.size()), "bodies");
-  Published.Places("the first of them, up", Ticking.Freestanding.front().PositionM[1], "m");
-  Published.Places("and how fast it falls", Ticking.Freestanding.front().VelocityMs[1], "m/s");
 }
 
 void Engine::State::Drew() {

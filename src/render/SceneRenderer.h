@@ -457,6 +457,7 @@ private:
   uint32_t GroundPaletteBytes_ = 0;
   OwnedBuffer IrradianceBuffer_;
   OwnedBuffer Pyramid_;
+  Readback PyramidRead_;
   SkyStage Sky_;
   LightVisibilityStage Shadow_;
   SubjectCullStage Cull_;

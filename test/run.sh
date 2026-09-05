@@ -152,7 +152,7 @@ if [ "$INHERITED_NEST" != "$BUILD" ]; then
     fi
     otherPid=$(cat "$NESTLOCK" 2>/dev/null)
     if [ -n "$otherPid" ] && kill -0 "$otherPid" 2>/dev/null; then
-      Die "another runner (pid $otherPid) holds this checkout's nest -- two gates in one nest read each other's half-written objects, so the second refuses instead of corrupting both"
+      Die "another runner (pid $otherPid) holds this checkout's nest (inherited '$INHERITED_NEST', computed '$BUILD') -- two gates in one nest read each other's half-written objects, so the second refuses instead of corrupting both"
     fi
     claimAttempts=$((claimAttempts + 1))
     [ "$claimAttempts" -le 6 ] || Die "the nest lock at $NESTLOCK would not settle after six breaks -- inspect it by hand"
@@ -805,7 +805,7 @@ WhatNoCorpusJudges() {
   for family in test/*/; do
     family=${family%/}
     [ "$family" = test/outshine ] && continue
-    declared=$(find "$family" -mindepth 2 -maxdepth 3 -type d 2>/dev/null | wc -l | tr -d ' ')
+    declared=$(find "$family" -name manifest.json 2>/dev/null | wc -l | tr -d ' ')
     [ "${declared:-0}" -eq 0 ] && continue
     stem=$(printf '%s' "$family" | tr / -)
     fetched=$(find "$PREPARED" -maxdepth 2 -type f -path "$PREPARED/$stem-*" \
@@ -1501,7 +1501,9 @@ if [ "$AUDIT" = 1 ]; then
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
     done
   done | sort -u > "$BUILD/audit-linked.txt"
-  find src -name '*.cpp' -not -path 'src/assets/*' | sort > "$BUILD/audit-carried.txt"
+  # src/client is the ONE program `make` links, not a suite's source: the client audits itself
+  # by building, and a suite that listed it would link a second main
+  find src -name '*.cpp' -not -path 'src/assets/*' -not -path 'src/client/*' | sort > "$BUILD/audit-carried.txt"
   stranded=$(comm -23 "$BUILD/audit-carried.txt" "$BUILD/audit-linked.txt")
   strandedCount=$(printf '%s' "$stranded" | grep -c . || true)
   if [ "$strandedCount" != "$STRANDED" ]; then

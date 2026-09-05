@@ -138,6 +138,13 @@ int main() {
   Note("index passes placed by those rows", (double)all.WithAnIndexPass, "passes");
   Note("index passes whose mapping came back with them", (double)all.Named, "passes");
 
+  if (all.Rows == 0) {
+    Unprepared("the prepared corpus carries no render row: nothing has rendered it on this "
+               "machine, and `make test` is what does -- suspended until the engine stands on "
+               "the reference design (board:2153)");
+    return Report();
+  }
+
   CHECK(all.Refusing == 0,
         "every index pass on disk carries the mapping its integers are read through, whether the "
         "render that produced it ran in this run or was served from the store");

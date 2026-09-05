@@ -9,7 +9,7 @@
 
 namespace outshine::Render {
 
-enum class ReadState { Ready, Failed };
+enum class ReadState { Ready, Pending, Failed };
 
 class Readback {
 public:
@@ -22,6 +22,8 @@ public:
   [[nodiscard]] ReadState
   FromTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture, Extent size, uint32_t texelBytes);
   [[nodiscard]] ReadState FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes);
+  [[nodiscard]] ReadState Enqueue(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes);
+  [[nodiscard]] ReadState Poll();
 
   [[nodiscard]] const uint8_t *Rows() const { return Mapped; }
 
@@ -30,9 +32,14 @@ public:
   void Release();
 
 private:
+  [[nodiscard]] ReadState Submit(SDL_GPUCommandBuffer *commands);
+  [[nodiscard]] ReadState Map();
   [[nodiscard]] ReadState Land(SDL_GPUCommandBuffer *commands);
+  [[nodiscard]] ReadState Copies(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes);
 
   SDL_GPUDevice *Device = nullptr;
+  SDL_GPUFence *Fence = nullptr;
+  SDL_GPUCommandBuffer *Commands = nullptr;
   SDL_GPUTransferBuffer *Transfer = nullptr;
   const uint8_t *Mapped = nullptr;
   uint32_t Row = 0;

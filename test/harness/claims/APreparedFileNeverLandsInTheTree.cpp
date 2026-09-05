@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -11,7 +12,11 @@ const char *const kCaseTrees[] = {"test/khronos/glTF", "test/test262/js", "test/
 
 bool Declared(const std::filesystem::path &file) {
   const std::string name = file.filename().string();
-  return name == "manifest.json" || name == "reference.png" || name == ".gitignore";
+  if (name == "manifest.json" || name == "reference.png" || name == ".gitignore") { return true; }
+  // a reference per FRAME of an animated case, reference.f0000.png .. as prep/manifest.py names it
+  return name.size() == 19 && name.starts_with("reference.f") && name.ends_with(".png") &&
+         std::all_of(
+             name.begin() + 11, name.begin() + 15, [](char c) { return c >= '0' && c <= '9'; });
 }
 
 } // namespace
