@@ -42,7 +42,7 @@ constexpr double kOnTheStreetM = 16.0;
 constexpr double kCarriagewayM = 4.0;
 constexpr int kInteriorGrid = 4;
 constexpr double kInteriorSpanM = 20.0;
-constexpr double kMetresPerDegree = 111320.0;
+constexpr double kPadReachM = 60.0;
 constexpr double kMostRingPoints = 512;
 
 struct Ring {
@@ -152,7 +152,7 @@ Frontage NearestStreet(std::span<const double> pts,
   }
   cE /= static_cast<double>(ring.Count);
   cN /= static_cast<double>(ring.Count);
-  const double padDeg = (kOnTheStreetM + 60.0) / 111000.0;
+  const double padDeg = (kOnTheStreetM + kPadReachM) / kMPerDegLat;
   double best = kBeyondAnyCoordinate;
   double bE = 0.0;
   double bN = 0.0;
@@ -259,9 +259,9 @@ Seated RingBase(const outshine::Ground::HeightField &heights,
     westest = std::min(westest, lon);
     eastest = std::max(eastest, lon);
   }
-  const double tall = (northest - southest) * kMetresPerDegree;
+  const double tall = (northest - southest) * kMPerDegLat;
   const double wide =
-      (eastest - westest) * kMetresPerDegree * std::cos(0.5 * (northest + southest) * kDeg2Rad);
+      (eastest - westest) * kMPerDegLon * std::cos(0.5 * (northest + southest) * kDeg2Rad);
   if (std::max(tall, wide) >= kInteriorSpanM) {
     for (int row = 1; row < kInteriorGrid; ++row) {
       for (int column = 1; column < kInteriorGrid; ++column) {
@@ -467,7 +467,7 @@ void BakeStructures(const RawTile &raw,
       lowLon = std::min(lowLon, LonOf(pts, ring.First + k));
       highLon = std::max(highLon, LonOf(pts, ring.First + k));
     }
-    const double perLonM = kMetresPerDegree * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
+    const double perLonM = kMPerDegLon * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
     out.SeatSpreadM.push_back(seat - base);
     out.AcrossM.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
 

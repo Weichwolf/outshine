@@ -51,8 +51,8 @@ Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
   const double east = TileLonDeg(x + 1, zoom);
   AnchorLat_ = south;
   AnchorLon_ = west;
-  SpanNm_ = (north - south) * kMPerDeg;
-  SpanEm_ = (east - west) * kMPerDeg * std::cos(0.5 * (north + south) * kDeg2Rad);
+  SpanNm_ = (north - south) * kMPerDegLat;
+  SpanEm_ = (east - west) * kMPerDegLon * std::cos(0.5 * (north + south) * kDeg2Rad);
 }
 
 Tile Tile::Of(int zoom, LongitudeLatitude at) {
@@ -70,14 +70,14 @@ uint64_t Tile::Seed(uint64_t stream) const {
 }
 
 EastNorth Tile::Enu(LongitudeLatitude at) const {
-  return {.EastM = Wrap180(at.LongitudeDeg - AnchorLon_) * kMPerDeg *
+  return {.EastM = Wrap180(at.LongitudeDeg - AnchorLon_) * kMPerDegLon *
                    std::cos(at.LatitudeDeg * kDeg2Rad),
-          .NorthM = (at.LatitudeDeg - AnchorLat_) * kMPerDeg};
+          .NorthM = (at.LatitudeDeg - AnchorLat_) * kMPerDegLat};
 }
 
 LongitudeLatitude Tile::Geo(EastNorth at) const {
-  const double atLat = AnchorLat_ + at.NorthM / kMPerDeg;
-  return {.LongitudeDeg = AnchorLon_ + at.EastM / (kMPerDeg * std::cos(atLat * kDeg2Rad)),
+  const double atLat = AnchorLat_ + at.NorthM / kMPerDegLat;
+  return {.LongitudeDeg = AnchorLon_ + at.EastM / (kMPerDegLon * std::cos(atLat * kDeg2Rad)),
           .LatitudeDeg = atLat};
 }
 

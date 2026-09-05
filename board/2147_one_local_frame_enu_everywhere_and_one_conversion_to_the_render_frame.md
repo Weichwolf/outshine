@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: base, world, generators, engine, render
 Tags: architecture, owner, determinism, audit
 
@@ -55,3 +55,22 @@ with about TWENTY hand-written sign flips in nine files.
       a picture that does NOT move is a place where the wrong constant never reached a body
 - [ ] Negative control: `RenderFrame::Of` with the sign of z flipped mirrors OldTown and
       the round-trip case goes red
+
+## Landed 2026-09-05: the degree constants, first
+
+The cheaper half with the larger error went first: `kMPerDeg` (the longitude figure) stood
+for a degree of LATITUDE at six sites, and four literals restated a constant that existed.
+Every site names `kMPerDegLat` or `kMPerDegLon * cos(lat)` by what it means; the alias, the
+two `kMetresPerDegree` copies and the bare `111000` are gone; WGS84's `a` and `e2` live in
+`Units.h` under "The Earth's shape" and `Wgs84.h` and `Geodesy.h` derive from them; the
+engine's `55.0`, `720.0` and `40075017.0` are `kFovUnsaidDeg`, `kFrameUnsaidHighPx` and
+`Data::kMercatorGirthM`. A generated footprint that was square in DEGREES (the same half
+side in latitude and longitude) is square in metres.
+
+Measured 2026-09-05 against 351583c6's pictures, the north correction alone: OldTown 3.6 %
+of pixels, Heidelberg 1.7 %, Shibuya 1.6 %, CentralPark 1.0 %, Venice 3.4 %, Jura 0.3 %,
+ZurichPlan 0.2 %, Kaiserberg 0.15 %, Koehlbrand 0.35 %. Looked at OldTown around (516, 422):
+the church tower and the far roofs stand a pixel or two further north, the near roofs where
+they were -- a shift that grows with the distance from the anchor, which is what a 0.17 %
+error in the metres of a degree of latitude does. Buildings were placed through the wrong
+constant and the terrain through the right one; they agree now. Pure black 0 everywhere.

@@ -51,8 +51,8 @@ public:
 
   [[nodiscard]] LongitudeLatitude Geo(EastNorth at) const {
     return {.LongitudeDeg = Anchor_.LongitudeDeg +
-                            at.EastM / (kMPerDeg * std::cos(Anchor_.LatitudeDeg * kDeg2Rad)),
-            .LatitudeDeg = Anchor_.LatitudeDeg + at.NorthM / kMPerDeg};
+                            at.EastM / (kMPerDegLon * std::cos(Anchor_.LatitudeDeg * kDeg2Rad)),
+            .LatitudeDeg = Anchor_.LatitudeDeg + at.NorthM / kMPerDegLat};
   }
 
 private:

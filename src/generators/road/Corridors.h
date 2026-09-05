@@ -245,6 +245,7 @@ private:
   static void SplitsEdges(Paved &into);
   [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
                                                                              const Paved &into);
+  static void GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made);
   static void LiesOnItsPlane(const Paving &on, Junction &made, Paved &into);
   static void PressesUnder(const Junction &made, double rootsM, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);

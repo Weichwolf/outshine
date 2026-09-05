@@ -43,8 +43,9 @@ constexpr double kMPerDegLon = 111320.0;
 /// Metres per degree of latitude, which barely varies -- the meridian is nearly a circle.
 constexpr double kMPerDegLat = 111132.0;
 
-/// The equatorial figure, for a caller that means "a degree" without saying which.
-constexpr double kMPerDeg = kMPerDegLon;
+/// WGS84's semi-major axis and first eccentricity squared, the ellipsoid every ECEF here stands on.
+constexpr double kWgs84A = 6378137.0;
+constexpr double kWgs84E2 = 6.69437999014e-3;
 /// @}
 
 /// @name Units

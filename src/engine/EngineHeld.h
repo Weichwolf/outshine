@@ -54,6 +54,7 @@ namespace outshine {
 
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
+constexpr double kFovUnsaidDeg = 55.0;
 
 inline constexpr size_t kParkedBound = 8;
 inline constexpr size_t kBakesLandedPerFrame = 2;

@@ -22,7 +22,6 @@
 
 namespace outshine {
 
-constexpr double kFovUnsaidDeg = 55.0;
 constexpr double kBelowAnyGroundM = -1.0e3;
 
 bool Engine::State::Watches() {

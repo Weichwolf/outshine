@@ -127,8 +127,8 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   const double aslM = ground.HeightAslM({.EastM = eastM, .NorthM = northM});
 
   const double latDeg = region.AnchorLat();
-  const double jitterE = Wrap180(region.AnchorLon()) * kMPerDeg * std::cos(latDeg * kDeg2Rad);
-  const double jitterN = latDeg * kMPerDeg;
+  const double jitterE = Wrap180(region.AnchorLon()) * kMPerDegLon * std::cos(latDeg * kDeg2Rad);
+  const double jitterN = latDeg * kMPerDegLat;
   const double woody = Limit_.WoodyFraction(
       {.LongitudeDeg = region.AnchorLon(), .LatitudeDeg = latDeg, .HeightM = aslM},
       {.EastM = jitterE + eastM, .NorthM = jitterN + northM});

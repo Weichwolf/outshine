@@ -283,15 +283,15 @@ bool Engine::State::Composes() {
   {
     const double fovDeg =
         Session.Declared.Views.empty() || Session.Declared.Views.front().Sees.FovDeg <= 0.0
-            ? 55.0
+            ? kFovUnsaidDeg
             : Session.Declared.Views.front().Sees.FovDeg;
     const double highPx = Session.Declared.Render.Frame.HeightPx > 0
                               ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)
-                              : 720.0;
+                              : static_cast<double>(kFrameUnsaidHighPx);
     World.Stack.SeeFootprintsWith(highPx /
                                   (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn)));
     const int vectorZoom = World.Stack.FinestZoomOf(Data::DataKind::VectorMap);
-    const double vectorSpanM = 40075017.0 *
+    const double vectorSpanM = Data::kMercatorGirthM *
                                std::cos(Session.Declared.Ground.Origin.LatitudeDeg * kDeg2Rad) /
                                std::ldexp(1.0, vectorZoom);
     World.Stack.FootprintTilesSpan(vectorSpanM);

@@ -983,6 +983,36 @@ std::unordered_map<uint64_t, std::vector<Corridors::Leg>> Corridors::LegsOf(cons
   return legsAt;
 }
 
+void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made) {
+  for (const Leg &leg : legs) {
+    const Edge &edge = into.Edges[leg.Edge];
+    const std::span<const RoadStation> stations(into.Designed[edge.Lane].data() + edge.First,
+                                                edge.Count);
+    const Bound line = BoundaryOf(stations,
+                                  leg.End == 1,
+                                  {.SideM = 0.0, .ReachM = leg.CutM},
+                                  {.EastM = made.EastM, .SouthM = made.SouthM, .Stands = true});
+    const size_t rim = line.EastM.size() - 1u;
+    const size_t before = rim == 0 ? 0 : rim - 1u;
+    double outE = line.EastM[rim] - line.EastM[before];
+    double outS = -(line.NorthM[rim] - line.NorthM[before]);
+    const double run = std::sqrt(outE * outE + outS * outS);
+    if (run > kLeastRunM) {
+      outE /= run;
+      outS /= run;
+    }
+    const double along =
+        line.AlongM[rim] > kLeastRunM ? std::min(1.0, leg.CutM / line.AlongM[rim]) : 0.0;
+    made.Gates.push_back(RoadGate{
+        .EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
+        .SouthM = -(line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along),
+        .GradeM = made.GradeM,
+        .OutE = outE,
+        .OutS = outS,
+        .HalfWidthM = leg.HalfM});
+  }
+}
+
 void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into) {
   Junction made{.Node = node};
   const size_t n = legs.size();
@@ -1044,33 +1074,7 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
     into.DeepestCutM = std::max(into.DeepestCutM, leg.CutM);
     ++into.LegsCut;
   }
-  for (const Leg &leg : legs) {
-    const Edge &edge = into.Edges[leg.Edge];
-    const std::span<const RoadStation> stations(into.Designed[edge.Lane].data() + edge.First,
-                                                edge.Count);
-    const Bound line = BoundaryOf(stations,
-                                  leg.End == 1,
-                                  {.SideM = 0.0, .ReachM = leg.CutM},
-                                  {.EastM = made.EastM, .SouthM = made.SouthM, .Stands = true});
-    const size_t rim = line.EastM.size() - 1u;
-    const size_t before = rim == 0 ? 0 : rim - 1u;
-    double outE = line.EastM[rim] - line.EastM[before];
-    double outS = -(line.NorthM[rim] - line.NorthM[before]);
-    const double run = std::sqrt(outE * outE + outS * outS);
-    if (run > kLeastRunM) {
-      outE /= run;
-      outS /= run;
-    }
-    const double along =
-        line.AlongM[rim] > kLeastRunM ? std::min(1.0, leg.CutM / line.AlongM[rim]) : 0.0;
-    made.Gates.push_back(RoadGate{
-        .EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
-        .SouthM = -(line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along),
-        .GradeM = made.GradeM,
-        .OutE = outE,
-        .OutS = outS,
-        .HalfWidthM = leg.HalfM});
-  }
+  GatesOf(legs, into, made);
   if (!(decked && seeded != into.EndM.end())) { LiesOnItsPlane(on, made, into); }
   for (const Leg &leg : legs) {
     const RoadGate &gate = made.Gates[static_cast<size_t>(&leg - legs.data())];

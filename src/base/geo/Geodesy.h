@@ -110,8 +110,8 @@ inline void GeoToEcef(const LongitudeLatitudeHeight &at, Vec3 &out) {
   const double latDeg = at.LatitudeDeg;
   const double lonDeg = at.LongitudeDeg;
   const double altM = at.HeightM;
-  const double a = 6378137.0;
-  const double e2 = 6.69437999014e-3;
+  const double a = kWgs84A;
+  const double e2 = kWgs84E2;
   const double lat = latDeg * kDeg2Rad;
   const double lon = lonDeg * kDeg2Rad;
   const double sl = std::sin(lat);
@@ -155,8 +155,8 @@ inline double Wrap180(double deg) {
 [[nodiscard]] inline EastNorth EnuOffsetM(const LongitudeLatitudeHeight &from,
                                           const LongitudeLatitudeHeight &at) {
   const double coslat = std::cos(from.LatitudeDeg * kDeg2Rad);
-  return {.EastM = Wrap180(at.LongitudeDeg - from.LongitudeDeg) * kMPerDeg * coslat,
-          .NorthM = (at.LatitudeDeg - from.LatitudeDeg) * kMPerDeg};
+  return {.EastM = Wrap180(at.LongitudeDeg - from.LongitudeDeg) * kMPerDegLon * coslat,
+          .NorthM = (at.LatitudeDeg - from.LatitudeDeg) * kMPerDegLat};
 }
 
 [[nodiscard]] inline double PlanarDistM(const LongitudeLatitudeHeight &from,

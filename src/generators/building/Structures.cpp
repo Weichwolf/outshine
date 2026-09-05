@@ -36,7 +36,6 @@ constexpr float kWallBlue = 0.56f;
 constexpr float kWallRoughness = 0.85f;
 
 constexpr size_t kCorners = 4;
-constexpr double kMetresPerDegree = 111320.0;
 
 [[nodiscard]] double Spun(uint64_t seed, uint32_t at) {
   uint64_t held = seed * kSplitMixWord + static_cast<uint64_t>(at) * kSplitMixOffset + 1u;
@@ -50,18 +49,19 @@ constexpr double kMetresPerDegree = 111320.0;
 
 bool Structures::make(const Request &asked, Geometry &into) const {
   const double sideM = asked.ExtentM > 0.0 && asked.ExtentM < 200.0 ? asked.ExtentM : 12.0;
-  const double halfDeg = 0.5 * sideM / kMetresPerDegree;
   const double lat = asked.LatitudeDeg;
   const double lon = asked.LongitudeDeg;
+  const double halfLatDeg = 0.5 * sideM / kMPerDegLat;
+  const double halfLonDeg = 0.5 * sideM / (kMPerDegLon * std::cos(lat * kDeg2Rad));
 
-  const std::array<double, kCorners * 2> ring = {{lat - halfDeg,
-                                                  lon - halfDeg,
-                                                  lat - halfDeg,
-                                                  lon + halfDeg,
-                                                  lat + halfDeg,
-                                                  lon + halfDeg,
-                                                  lat + halfDeg,
-                                                  lon - halfDeg}};
+  const std::array<double, kCorners * 2> ring = {{lat - halfLatDeg,
+                                                  lon - halfLonDeg,
+                                                  lat - halfLatDeg,
+                                                  lon + halfLonDeg,
+                                                  lat + halfLatDeg,
+                                                  lon + halfLonDeg,
+                                                  lat + halfLatDeg,
+                                                  lon - halfLonDeg}};
   const std::array<double, kCorners> corners = {{0.0, 0.0, 0.0, 0.0}};
   const Vec3 anchor;
 
