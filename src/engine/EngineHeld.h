@@ -301,10 +301,13 @@ struct Surrounds {
   std::chrono::steady_clock::time_point LaidAt;
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;
+  size_t RimsMissing = 0;
   size_t Placed = 0;
   size_t Instanced = 0;
   int Reached = 0;
   TriangleBvh Blocking;
+  std::vector<float> GroundPositionsM;
+  std::vector<uint32_t> GroundIndex;
 };
 
 struct Spent {
@@ -387,8 +390,6 @@ struct Engine::State {
   [[nodiscard]] bool Watches();
 
   struct Classed {
-    std::vector<float> Tinted;
-    std::vector<float> Uv;
     std::vector<float> Palette;
     std::shared_ptr<const ClassStructure> Structure;
   };
@@ -398,35 +399,7 @@ struct Engine::State {
   [[nodiscard]] static std::vector<float> PaletteOver(const Ground::VegetationTemplates &wearing,
                                                       const Render::Medium &fallback);
 
-  struct Dividing {
-    Patchwork &Laid;
-    std::vector<float> &InFrame;
-    std::vector<float> &Tinted;
-    std::vector<float> &Uv;
-  };
-
-  struct Halving {
-    uint32_t From = 0;
-    uint32_t To = 0;
-  };
-
-  [[nodiscard]] size_t NamesEveryVertex(Dividing over,
-                                        const ClassStructure &classes,
-                                        std::vector<int> &classOf,
-                                        std::vector<double> &atGeo) const;
-
-  [[nodiscard]] uint32_t HalvesEdge(Dividing over,
-                                    const ClassStructure &classes,
-                                    Halving across,
-                                    std::vector<int> &classOf,
-                                    std::vector<double> &atGeo) const;
-
-  [[nodiscard]] size_t DividesAtClassEdges(Dividing over,
-                                           const ClassStructure &classes,
-                                           std::vector<int> &classOf,
-                                           std::vector<double> &atGeo) const;
-
-  [[nodiscard]] Classed Classify(Patchwork &laid, std::vector<float> &inFrame);
+  [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM);
 
   struct Phasing {
     std::chrono::steady_clock::time_point PhaseAt;
@@ -434,13 +407,9 @@ struct Engine::State {
     std::chrono::steady_clock::time_point WiresAt;
   };
 
-  void TellsHowTheRingSinks(std::span<const float> inFrame);
-  void TellsWhatTheGroundHolds(const TangentFrame &standing, std::span<const float> inFrame);
-  void Models(const TangentFrame &standing,
-              std::span<const float> inFrame,
-              LongitudeLatitude stands,
-              Geometry &ground,
-              Phasing &clocks);
+  void TellsWhatTheGroundHolds(const TangentFrame &standing);
+  void
+  Models(const TangentFrame &standing, LongitudeLatitude stands, Geometry &ground, Phasing &clocks);
 
   struct Meets {
     double EastM = 0.0;

@@ -18,10 +18,9 @@ namespace outshine {
 
 class StructureBakes {
 public:
-  void Opens(Tasks *pool, const StructureMesher *mesher, bool fineField) {
+  void Opens(Tasks *pool, const StructureMesher *mesher) {
     Pool_ = pool;
     Mesher_ = mesher;
-    FineField_ = fineField;
   }
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack);
@@ -57,7 +56,6 @@ private:
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
 
   Tasks *Pool_ = nullptr;
-  bool FineField_ = false;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<Job> Queue_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;

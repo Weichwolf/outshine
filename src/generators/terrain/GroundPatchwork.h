@@ -16,11 +16,6 @@ class Patchworker final : public GroundMesher {
 public:
   [[nodiscard]] std::expected<Patchwork, std::string> Lay(TileMeshes &tiles,
                                                           const Around &over) const override;
-
-  void Yield(std::span<const Yields> these,
-             Budget within,
-             GroundMesh mesh,
-             Yielded &told) const override;
 };
 
 [[nodiscard]] std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles,

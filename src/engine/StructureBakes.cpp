@@ -133,13 +133,12 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
   Ground::BuildingField &prints = stack.Footprints();
   size_t posted = 0;
   const size_t inFlightMost = static_cast<size_t>(Pool_->Threads()) * kBakesPerThread;
-  const int blockZoom =
-      FineField_ ? stack.FinestZoomOf(Data::DataKind::Elevation) : stack.Ground().BlockZoom();
+  const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   while (Queue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
     const auto groundStands = [&](Ground::FeatureRun over) {
       std::optional<std::vector<Ground::HeightField::Block>> blocks =
-          BlocksUnder(stack.Ground(), FineField_, blockZoom, vectors, over);
+          BlocksUnder(stack.Ground(), true, blockZoom, vectors, over);
       if (!blocks) {
         ++Deferred_;
         return false;

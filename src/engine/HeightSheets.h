@@ -32,8 +32,28 @@ public:
     Framed_ = true;
   }
 
+  struct Soup {
+    std::vector<float> PositionM;
+    std::vector<uint32_t> Index;
+    double TallestM = 0.0;
+    double LowestM = 0.0;
+    double TallestOutM = 0.0;
+  };
+
+  [[nodiscard]] Soup SoupOf(const Patchwork &laid, int zoomAtLeast = 0) const;
+
   [[nodiscard]] bool Hands(const Patchwork &laid, std::string &error);
-  [[nodiscard]] size_t Press(std::span<const Yields> yields, Patchwork &laid) const;
+
+  struct Pressed {
+    size_t Nodes = 0;
+    size_t Structures = 0;
+    size_t Held = 0;
+    double DeepestM = 0.0;
+    double RaisedM = 0.0;
+  };
+
+  [[nodiscard]] Pressed
+  Press(std::span<const Yields> yields, Patchwork &laid, double mostEarthworkM) const;
 
   struct Nearer {
     int FinestZoom = 0;
@@ -56,6 +76,8 @@ public:
   [[nodiscard]] size_t Instances() const { return Instances_.size() + Virtual_.size(); }
 
   [[nodiscard]] size_t Flat() const { return Flat_; }
+
+  [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }
 
 private:
   struct Held {
@@ -82,6 +104,7 @@ private:
 
   std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
   size_t Flat_ = 0;
+  size_t RimsMissing_ = 0;
   uint32_t GridPostings_ = 0;
   Core::Live *Live_ = nullptr;
   TangentFrame Frame_ = TangentFrame::At({});

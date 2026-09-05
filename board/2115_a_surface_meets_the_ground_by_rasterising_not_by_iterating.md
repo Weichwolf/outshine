@@ -491,3 +491,70 @@ averaged over triangles; CentralPark's lawn a few units darker across the park),
 and roads standing on the fine field instead of the chord, the water on its lid, and the
 far band's edges. The nine lattice pictures are the references from here; the ring's stay
 in git's history under their digests.
+
+## Landed 2026-09-05, step 4: the ring's CPU path is GONE from the engine
+
+Unreal never refines a Landscape on the CPU and RAGE's terrain is baked; the ring's refine,
+cut, sew and triangle-budgeted press were the CPU path both refuse, and the engine does not
+call it any more: `YieldGround`, `Refine`, `Cut`, `Sew`, the mesh press, `DivideOnClass`, the
+mesher's `Yield` door and the `Yielded` record are deleted; the ring part, its per-vertex
+classing (`NamesEveryVertex`, `DividesAtClassEdges`), its upload and every measure of its
+vertices and clusters with them; `Render.GroundLattice` and `--ring` no longer exist, since
+there is nothing to choose. What the ring gave the rest of the engine is given by the sheets:
+
+- **a triangle soup** (`HeightSheets::SoupOf`, the 34 x 34 interiors in the frame) for the
+  drape's fallback BVH, for `World.Blocking` (the occlusion volume the telling walks, built
+  from the subject's pieces plus the soup) and for the relief telling
+- **the ground's bounce albedo** was the mean over the ring's tinted vertices, which its
+  refinement crowded onto roads; it is an AREA mean now, the class structure probed every
+  16th node of the near field (finest real zoom and the virtual levels). OldTown moved from
+  (0.112, 0.117, 0.063) to (0.140, 0.114, 0.073), a tint of a few units over every lit pixel
+- **every yield presses** -- pads, lakes and all corridor pieces, fills included -- where the
+  ring's triangle budget had taken ~250 of 90 000 and the reference stood on unstamped
+  hillsides. Measured first without a bound: Jura cut 144 m and filled 125 m, Heidelberg
+  filled 281 m, a corridor's plane chorded across a valley and its apron, derived from the
+  fill height up to 240 m, dug a canyon on a slope steeper than the batter. A stamp is
+  EARTHWORK and earthwork has a bound: `kMostEarthworkM` = 30 m [SET, the deepest road
+  cuttings of the references' world; beyond it a road is a gallery or a viaduct, a structure
+  a generator raises (board:2101), never a stamp]. `PressPoints` runs two passes: the first
+  attributes every node that would move past the bound to the yield that asked and refuses
+  that yield whole (a STRUCTURE), the second presses without them and holds a node another
+  yield still asks past the bound; the widest apron derives from the bound
+  (`kMostApronM = kMostEarthworkM * kBatterRun`, 45 m). Jura refuses 1 185 yields and holds
+  2 382 nodes, Heidelberg 452 and 531, OldTown 12 and 12; cut and fill read 30 m everywhere
+
+```
+  place        before      after       differ    >1/255   worst   waited s   heap MB
+  OldTown      99057d18    a4ff0209   342 408  246 307    120    4.5 -> 4.3   235
+  Heidelberg   dd6f636e    de00e653   442 224  326 577    154    5.9 -> 5.3   271
+  Shibuya      4d4edad6    63713659   448 977  403 042    122    9.9 -> 9.7   631
+  CentralPark  1f6405dd    cde612ba   346 913  275 586    125    7.6         389
+  Venice       23351032    77b57490   291 593  236 606     81    3.9         223
+  Jura         36d0bda3    b3d2a4e8   212 317  131 608    141    5.3         233
+  ZurichPlan   acee4f89    e0f7c0d5   262 016   71 196    109    6.7         319
+  Kaiserberg   adad12e5    139b0dd5   154 897  120 493    124    6.0         312
+  Koehlbrand   ab537e6d    bf267bc2   229 865  151 244    124    5.3         252
+```
+
+Looked at, all nine: the same places, the whole picture a few units warmer from the bounce
+mean, roads on hillsides standing on benches cut into the slope with the batter face in
+shadow (Heidelberg's bank, Jura's flank) where the reference floated them, the ridges intact.
+`rebuild: the ground ring took` fell from ~2 000 ms to ~700 at Kaiserberg, of which the halo
+is 670 and the soup's BVH 180. The nine are the references from here.
+
+**A picture that waited for its rims.** The gate rendered Kaiserberg as 139b0dd5 three times
+where the run before had given 96ea412b: a sheet whose neighbour field had not landed took
+the edge-copy rim, the preload counted nothing for it and called itself settled, and the
+picture depended on what the byte cache held at lay time. The ring never had this because
+its tiles were the pool's own and a landing re-laid. So `HeightSheets::RimsMissing` counts
+the sheets that copied an edge, the lay publishes it (`ground: rims copied for want of a
+neighbour`), `settled()` is false while it is not zero, and a lay with rims missing re-lays
+when the engine advances. With that, Kaiserberg reads 139b0dd5 under `make shots` every time
+and 96ea412b when rendered alone in its own process, the two 77 pixels apart, every one by 1
+of 255, on the horizon line: the instanced draw's reading rule above, and the reference is
+the gate's.
+
+What the generators still build for nobody: `LayPatchwork` assembles the ring's mesh
+(positions, normals, index, clusters) from the pool's chunk meshes, and the pool meshes every
+chunk. That is the next deletion, on the generators' side, and it is where the cook churn of
+board:2124 lives.

@@ -61,9 +61,13 @@ void Engine::State::Blocks(const Gltf::Subject &standing) {
   for (size_t at = 0; at < positionsM.size(); ++at) {
     corners[at] = static_cast<float>(positionsM[at]);
   }
-  World.Blocking = TriangleBvh::Over(
-      std::span<const float>(corners.data(), corners.size()),
-      std::span<const uint32_t>(standing.Indices().data(), standing.Indices().size()));
+  std::vector<uint32_t> faces(standing.Indices().begin(), standing.Indices().end());
+  const auto groundFirst = static_cast<uint32_t>(corners.size() / 3u);
+  corners.insert(corners.end(), World.GroundPositionsM.begin(), World.GroundPositionsM.end());
+  faces.reserve(faces.size() + World.GroundIndex.size());
+  for (const uint32_t vertex : World.GroundIndex) { faces.push_back(groundFirst + vertex); }
+  World.Blocking = TriangleBvh::Over(std::span<const float>(corners.data(), corners.size()),
+                                     std::span<const uint32_t>(faces.data(), faces.size()));
 }
 
 void Engine::State::Tells() {

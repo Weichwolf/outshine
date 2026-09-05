@@ -12,12 +12,16 @@ namespace outshine {
 
 inline constexpr double kBatterRise = 1.0 / 1.5;
 
-void DivideOnClass(const GroundMesh &mesh, double finestM, Yielded &told);
+struct Pressed {
+  size_t Moved = 0;
+  size_t Structures = 0;
+  size_t Held = 0;
+};
 
-void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, Yielded &told);
-
-size_t
-PressPoints(std::span<const Yields> these, std::span<const EastSouth> at, std::span<double> upM);
+[[nodiscard]] Pressed PressPoints(std::span<const Yields> these,
+                                  std::span<const EastSouth> at,
+                                  std::span<double> upM,
+                                  double mostEarthworkM);
 
 } // namespace outshine
 #endif

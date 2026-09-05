@@ -232,12 +232,16 @@ bool HeightSheets::HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int 
       }
     }
   }
-  if (anyMissing) { CopiesEdgeIntoRim(page, missing); }
+  if (anyMissing) {
+    CopiesEdgeIntoRim(page, missing);
+    ++RimsMissing_;
+  }
   sheet.Nodes = std::move(page);
   return true;
 }
 
 size_t HeightSheets::Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom) {
+  RimsMissing_ = 0;
   size_t haloed = 0;
   for (Sheet &sheet : laid.Sheets) {
     if (sheet.Side == Render::GroundLattice::kSide && HaloOf(sheet, ground, finestZoom)) {
@@ -277,8 +281,60 @@ size_t HeightSheets::Refine(Patchwork &laid, Nearer how) {
   return count;
 }
 
-size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) const {
-  if (!Framed_ || yields.empty()) { return 0; }
+HeightSheets::Soup HeightSheets::SoupOf(const Patchwork &laid, int zoomAtLeast) const {
+  constexpr int side = Render::GroundLattice::kSide;
+  Soup out;
+  out.TallestM = -kBeyondAnyCoordinate;
+  out.LowestM = kBeyondAnyCoordinate;
+  if (!Framed_) { return out; }
+  for (const Sheet &one : laid.Sheets) {
+    if (one.Side != side || (!one.Virtual && one.Postings < 2) || one.Tile.Zoom < zoomAtLeast ||
+        one.Nodes.size() != Render::GroundLattice::kPageNodes) {
+      continue;
+    }
+    const auto first = static_cast<uint32_t>(out.PositionM.size() / 3u);
+    for (int j = 0; j < side; ++j) {
+      const double fy = NodeFraction(one, j);
+      for (int i = 0; i < side; ++i) {
+        const double fx = NodeFraction(one, i);
+        const Ground::Geo geo = Ground::TileFracToGeo(
+            {.X = static_cast<double>(one.Tile.X) + fx, .Y = static_cast<double>(one.Tile.Y) + fy},
+            one.Tile.Zoom);
+        const auto heightM = static_cast<double>(one.Nodes[PageNode(i, j)]);
+        const EastNorthUp stood = Frame_.Place(
+            {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = heightM});
+        out.PositionM.push_back(static_cast<float>(stood.EastM));
+        out.PositionM.push_back(static_cast<float>(stood.UpM));
+        out.PositionM.push_back(static_cast<float>(-stood.NorthM));
+        if (heightM > out.TallestM) {
+          out.TallestM = heightM;
+          out.TallestOutM = std::hypot(stood.EastM, stood.NorthM);
+        }
+        out.LowestM = std::min(out.LowestM, heightM);
+      }
+    }
+    const auto at = [first](int i, int j) {
+      return first + static_cast<uint32_t>(j) * static_cast<uint32_t>(side) +
+             static_cast<uint32_t>(i);
+    };
+    for (int j = 0; j + 1 < side; ++j) {
+      for (int i = 0; i + 1 < side; ++i) {
+        out.Index.insert(
+            out.Index.end(),
+            {at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i, j), at(i + 1, j + 1), at(i + 1, j)});
+      }
+    }
+  }
+  if (out.PositionM.empty()) {
+    out.TallestM = 0.0;
+    out.LowestM = 0.0;
+  }
+  return out;
+}
+
+HeightSheets::Pressed
+HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid, double mostEarthworkM) const {
+  if (!Framed_ || yields.empty()) { return {}; }
   const int side = Render::GroundLattice::kSide;
   std::vector<EastSouth> at;
   std::vector<double> up;
@@ -307,14 +363,17 @@ size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) cons
     }
   }
   std::vector<double> was(up);
-  const size_t moved = PressPoints(yields, at, up);
-  if (moved == 0) { return 0; }
+  const outshine::Pressed pressed = PressPoints(yields, at, up, mostEarthworkM);
+  Pressed told{.Nodes = pressed.Moved, .Structures = pressed.Structures, .Held = pressed.Held};
+  if (pressed.Moved == 0) { return told; }
   const Vec3 &origin = Frame_.OriginEcef();
   const Vec3 &east = Frame_.EastEcef();
   const Vec3 &north = Frame_.NorthEcef();
   const Vec3 &upward = Frame_.UpEcef();
   for (size_t one = 0; one < up.size(); ++one) {
     if (up[one] == was[one]) { continue; }
+    told.DeepestM = std::max(told.DeepestM, was[one] - up[one]);
+    told.RaisedM = std::max(told.RaisedM, up[one] - was[one]);
     const double e = at[one].EastM;
     const double n = -at[one].SouthM;
     Vec3 ecef;
@@ -324,7 +383,7 @@ size_t HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid) cons
     const Ground::Geo geo = Ground::EcefToGeoWgs84({.X = ecef[0], .Y = ecef[1], .Z = ecef[2]});
     laid.Sheets[where[one].first].Nodes[where[one].second] = static_cast<float>(geo.HeightM);
   }
-  return moved;
+  return told;
 }
 
 bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {

@@ -306,7 +306,6 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   into.Render.Fps = from.Num("fps", into.Render.Fps);
   into.Render.Fill = from.Num("fill", into.Render.Fill);
   into.Render.Audits = std::string(from.Said("audits").value_or("no")) == "yes";
-  into.Render.GroundLattice = std::string(from.Said("groundLattice").value_or("yes")) == "yes";
   into.Render.OrbitDegPerFrame = from.Num("orbitDegPerFrame", into.Render.OrbitDegPerFrame);
   into.Render.Transfer = from.Said("transfer").value_or(into.Render.Transfer.c_str());
   into.Render.Exposure = from.Num("exposure", into.Render.Exposure);

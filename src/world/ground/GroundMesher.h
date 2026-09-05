@@ -95,42 +95,6 @@ struct Yields {
   }
 };
 
-struct GroundMesh {
-  std::vector<float> *PositionM = nullptr;
-  std::vector<float> *NormalM = nullptr;
-  std::vector<float> *ColourRgba = nullptr;
-  std::vector<float> *Uv = nullptr;
-  std::vector<uint32_t> *Index = nullptr;
-
-  int (*ClassAt)(const void *with, EastSouth at) = nullptr;
-  const void *With = nullptr;
-};
-
-struct Yielded {
-  size_t Divided = 0;
-  double RefineMs = 0.0;
-  double CutMs = 0.0;
-  double SewMs = 0.0;
-  double PressMs = 0.0;
-  double SeamMs = 0.0;
-  size_t Seams = 0;
-  size_t SeamsShared = 0;
-  size_t Taken = 0;
-  std::vector<uint32_t> TakenWhich;
-  size_t Refused = 0;
-  size_t VerticesAdded = 0;
-  size_t TrianglesAdded = 0;
-  size_t Pressed = 0;
-  double DeepestM = 0.0;
-  double RaisedM = 0.0;
-  size_t Passes = 0;
-};
-
-struct Budget {
-  double FinestM = 0.0;
-  size_t MostTriangles = 0;
-};
-
 class GroundMesher {
 public:
   virtual ~GroundMesher() = default;
@@ -139,9 +103,6 @@ public:
 
   [[nodiscard]] virtual std::expected<Patchwork, std::string> Lay(TileMeshes &tiles,
                                                                   const Around &over) const = 0;
-
-  virtual void
-  Yield(std::span<const Yields> these, Budget within, GroundMesh mesh, Yielded &told) const = 0;
 
 protected:
   GroundMesher() = default;

@@ -129,7 +129,7 @@ const std::vector<Measure> &Engine::measures() const {
 
 bool Engine::settled() const {
   return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
-         S_->World.Grown && S_->World.Stack.Ingested();
+         S_->World.RimsMissing == 0 && S_->World.Grown && S_->World.Stack.Ingested();
 }
 
 Result Renderer::render(Extent frame) {

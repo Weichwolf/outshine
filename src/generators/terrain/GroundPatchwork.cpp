@@ -310,11 +310,4 @@ std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,
   return LayPatchwork(tiles, over);
 }
 
-void Patchworker::Yield(std::span<const Yields> these,
-                        Budget within,
-                        GroundMesh mesh,
-                        Yielded &told) const {
-  YieldGround(these, within, mesh, told);
-}
-
 } // namespace outshine
