@@ -3,7 +3,6 @@ State: open
 Area: generators, engine
 Tags: architecture, owner
 Supersedes: 2114
-Depends: 2115
 
 # A footprint is stamped flat, a road follows its grade, and a junction agrees in one solve
 
@@ -70,7 +69,9 @@ On the lattice (board:2115), every step is a write into a grid and not a search 
 - [ ] The junction solve publishes its residual and it is under the bar it derives; no lane
       moves further than its class's gradient allows over its length
 - [ ] `streets: vertices FLYING` returns as a CASE with an oracle, not a ledger line, and reads 0
-- [ ] `refining`, `cutting the seams`, `sewing them` read 0.000 ms (board:2115)
+- [x] `refining`, `cutting the seams`, `sewing them` no longer exist as passes or as measures:
+      board:2115 closed 2026-09-05 with the lattice as the ground and the ring's CPU path
+      deleted; a stamp is a press into the sheets' nodes, bounded by `kMostEarthworkM`
 - [ ] FROM board:2115: the constrained edge exists only at the KERB. The CDT shrank to the kerb
       the day the ground moved to the GPU lattice; the road stays a ribbon (a car drives on it,
       a kerb has an edge) pressed by its corridor stamp under it, and a case counts the kerb's

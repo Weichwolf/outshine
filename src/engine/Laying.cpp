@@ -43,7 +43,7 @@
 
 namespace outshine {
 
-static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
+static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
               "the elevation stream is opened ONE zoom below the finest tile so its posting equals "
               "the patchwork's vertex spacing; that holds only while a stream tile carries twice "
               "the intervals a patchwork tile lays, and if either grid moves the zoom must be "
@@ -1852,6 +1852,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       "ground: height pages standing", static_cast<double>(World.Sheets.Standing()), "pages");
   Published.Places(
       "ground: tiles the lattice draws", static_cast<double>(World.Sheets.Instances()), "tiles");
+  for (const auto &[name, kind] : {std::pair{"virtual", World.Sheets.Seams().Virtual},
+                                   std::pair{"real", World.Sheets.Seams().Real}}) {
+    const std::string at = std::string("ground: seam, ") + name + ", ";
+    Published.Places(at + "edges stitched", static_cast<double>(kind.Edges), "edges");
+    Published.Places(at + "even nodes off the coarser node, worst", kind.EvenM, "m");
+    Published.Places(
+        at + "odd nodes off the coarser chord before the stitch, worst", kind.OddBeforeM, "m");
+    Published.Places(at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
+  }
   Published.Places("ground: sheets NOT drawn for want of nodes",
                    static_cast<double>(World.Sheets.Flat()),
                    "tiles");

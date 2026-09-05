@@ -13,9 +13,10 @@ struct GIn {
   float4 north [[attribute(5)]];
   float4 south [[attribute(6)]];
   float4 page [[attribute(7)]];
+  float4 stitched [[attribute(8)]];
 };
 
-constexpr constant int kGroundSide = 34;
+constexpr constant int kGroundSide = 33;
 constexpr constant int kGroundPageSide = kGroundSide + 2;
 constexpr constant float kGroundSkirtSteps = 16.0;
 
@@ -39,7 +40,14 @@ static inline GroundPoint groundPointAt(GIn v, texture2d_array<float> pages) {
   const float stepN = max(v.page.w, 1.0e-3);
   const int i = int(round(u * float(kGroundSide - 1)));
   const int j = int(round(w * float(kGroundSide - 1)));
-  const float h = groundNodeAt(pages, page, i, j);
+  float h = groundNodeAt(pages, page, i, j);
+  const bool oddI = (i & 1) == 1;
+  const bool oddJ = (j & 1) == 1;
+  if (oddJ && ((i == 0 && v.stitched.x > 0.5) || (i == kGroundSide - 1 && v.stitched.y > 0.5))) {
+    h = 0.5 * (groundNodeAt(pages, page, i, j - 1) + groundNodeAt(pages, page, i, j + 1));
+  } else if (oddI && ((j == 0 && v.stitched.z > 0.5) || (j == kGroundSide - 1 && v.stitched.w > 0.5))) {
+    h = 0.5 * (groundNodeAt(pages, page, i - 1, j) + groundNodeAt(pages, page, i + 1, j));
+  }
   const float2 en = mix(mix(v.north.xy, v.north.zw, u), mix(v.south.xy, v.south.zw, u), w);
   const float sag = 0.5 * dot(en, en) * sagInv;
   const float skirt = v.g.z * kGroundSkirtSteps * max(stepE, stepN);

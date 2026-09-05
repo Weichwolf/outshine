@@ -79,6 +79,20 @@ public:
 
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }
 
+  struct SeamKind {
+    double EvenM = 0.0;
+    double OddBeforeM = 0.0;
+    double OddAfterM = 0.0;
+    size_t Edges = 0;
+  };
+
+  struct Seam {
+    SeamKind Virtual;
+    SeamKind Real;
+  };
+
+  [[nodiscard]] const Seam &Seams() const { return Seams_; }
+
 private:
   struct Held {
     Data::TileId Tile;
@@ -88,10 +102,17 @@ private:
   };
 
   [[nodiscard]] bool HandsGrid(const Patchwork &laid, std::string &error);
+  void MeasuresSeams(const Sheet &fine, const Patchwork &laid, std::array<float, 4> &stitched);
+  [[nodiscard]] std::array<float, 4> StitchOf(const Sheet &sheet,
+                                              const Patchwork &laid,
+                                              std::span<const Data::TileId> present,
+                                              int coarsest);
   [[nodiscard]] Render::PageId
   PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error);
-  [[nodiscard]] Render::GroundTile
-  TileOf(Data::TileId tile, Render::PageId page, std::span<const float> nodes) const;
+  [[nodiscard]] Render::GroundTile TileOf(Data::TileId tile,
+                                          Render::PageId page,
+                                          std::span<const float> nodes,
+                                          std::array<float, 4> stitched) const;
 
   std::vector<Held> Held_;
   std::vector<Render::GroundTile> Instances_;
@@ -105,6 +126,7 @@ private:
   std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
   size_t Flat_ = 0;
   size_t RimsMissing_ = 0;
+  Seam Seams_;
   uint32_t GridPostings_ = 0;
   Core::Live *Live_ = nullptr;
   TangentFrame Frame_ = TangentFrame::At({});

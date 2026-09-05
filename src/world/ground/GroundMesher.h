@@ -16,7 +16,7 @@ namespace outshine {
 
 constexpr size_t kZoomLevels = 24;
 
-constexpr int kPatchGrid = 33;
+constexpr int kPatchGrid = 32;
 
 struct Around {
   double LatitudeDeg = 0.0;

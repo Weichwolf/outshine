@@ -21,7 +21,7 @@ namespace outshine::Render {
 
 class GroundLattice {
 public:
-  static constexpr int kSide = 34;
+  static constexpr int kSide = 33;
   static constexpr int kPageSide = kSide + 2;
   static constexpr uint32_t kPageNodes =
       static_cast<uint32_t>(kPageSide) * static_cast<uint32_t>(kPageSide);

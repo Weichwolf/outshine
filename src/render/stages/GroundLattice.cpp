@@ -50,7 +50,7 @@ using SidePlanes = std::array<std::array<float, 4>, 4>;
 
 struct LatticeInput {
   std::array<SDL_GPUVertexBufferDescription, 2> Buffers{};
-  std::array<SDL_GPUVertexAttribute, 8> Attributes{};
+  std::array<SDL_GPUVertexAttribute, 9> Attributes{};
 };
 
 LatticeInput InputOf() {
@@ -66,7 +66,7 @@ LatticeInput InputOf() {
   in.Attributes[0].buffer_slot = 0;
   in.Attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
   in.Attributes[0].offset = 0;
-  for (uint32_t at = 1; at < 8; ++at) {
+  for (uint32_t at = 1; at < 9; ++at) {
     in.Attributes[at].location = at;
     in.Attributes[at].buffer_slot = 1;
     in.Attributes[at].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;

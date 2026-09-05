@@ -141,11 +141,12 @@ struct GroundInstance {
   float SagInv = 0.0f;
   float StepE = 0.0f;
   float StepN = 0.0f;
+  std::array<float, 4> Stitched = {{}};
 };
 
-inline constexpr uint32_t kGroundInstanceFloats = 28;
+inline constexpr uint32_t kGroundInstanceFloats = 32;
 static_assert(sizeof(GroundInstance) == kGroundInstanceFloats * sizeof(float),
-              "an instance is the twenty-eight floats the lattice's vertex shader reads");
+              "an instance is the thirty-two floats the lattice's vertex shader reads");
 
 struct GroundTile {
   GroundInstance Instance;

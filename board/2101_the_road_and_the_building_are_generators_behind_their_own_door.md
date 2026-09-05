@@ -2,7 +2,7 @@ Type: debt
 State: open
 Area: engine, generators
 Tags: architecture, owner
-Depends: 2115, 2121
+Depends: 2121
 
 # The road and the building are GENERATORS, and the engine keeps only the sequence
 
