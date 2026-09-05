@@ -45,3 +45,13 @@ another.
       (a counter a client reads), and the nine references stay bit-identical
 - [ ] Negative control: the jitter sign flipped in one branch moves the temporal
       reference by a measured count
+
+## Measured 2026-09-05: a dark vertical face in shadow reads 1.8 % of its lit value
+
+With board:2148 the road's kerb faces are drawn. A shadowed house wall (albedo ~0.6) reads
+70 of 165 lit, 16 % linear -- the sky's share of the sun, right. The kerb (asphalt, albedo
+~0.05) reads (16, 15, 16) against a lit top of (118, 113, 109): 1.8 % linear. The same sky
+should give the same share; a factor of nine says the vertical dark face is missing a term
+(the sky's irradiance for a horizontal normal, a bounce, or an occlusion applied twice).
+Filament's IndirectLight gives a horizontal normal half the sky and the ground's bounce;
+the number to reach is the wall's 16 %, measured on that kerb.

@@ -44,9 +44,59 @@ void Vertex(RoadRaised &into,
                          {wearsLinear[0], wearsLinear[1], wearsLinear[2], 1.0f});
 }
 
+struct Corner {
+  double EastM = 0.0;
+  double ZM = 0.0;
+  double GradeM = 0.0;
+  double AroundRad = 0.0;
+  size_t Gate = 0;
+};
+
+void StarShaped(std::vector<Corner> &around) {
+  for (bool trimmed = true; trimmed && around.size() > 3;) {
+    trimmed = false;
+    for (size_t at = 0; at < around.size(); ++at) {
+      const Corner &prev = around[(at + around.size() - 1u) % around.size()];
+      const Corner &here = around[at];
+      const Corner &next = around[(at + 1u) % around.size()];
+      const double turn = (here.EastM - prev.EastM) * (next.ZM - here.ZM) -
+                          (here.ZM - prev.ZM) * (next.EastM - here.EastM);
+      if (turn <= 0.0) {
+        around.erase(around.begin() + static_cast<long>(at));
+        trimmed = true;
+        break;
+      }
+    }
+  }
+}
+
+std::vector<Corner>
+WedgeOf(const std::vector<Corner> &around, double centreE, double centreZ, double centreGrade) {
+  const auto apart = [&around](size_t a, size_t b) {
+    const double dE = around[a].EastM - around[b].EastM;
+    const double dZ = around[a].ZM - around[b].ZM;
+    return dE * dE + dZ * dZ;
+  };
+  size_t bestA = 0;
+  size_t bestB = 1;
+  for (size_t a = 0; a < around.size(); ++a) {
+    for (size_t b = a + 1; b < around.size(); ++b) {
+      if (around[a].Gate / 2u != around[b].Gate / 2u && apart(a, b) > apart(bestA, bestB)) {
+        bestA = a;
+        bestB = b;
+      }
+    }
+  }
+  return {
+      Corner{.EastM = centreE, .ZM = centreZ, .GradeM = centreGrade, .AroundRad = 0.0, .Gate = 0},
+      around[bestA],
+      around[bestB]};
+}
+
 } // namespace
 
 void RoadMesh::Junction(std::span<const RoadGate> gates,
+                        RoadPlane plane,
                         const Vec3f &wearsLinear,
                         RoadRaised &into) const {
   if (gates.size() < 2) { return; }
@@ -62,14 +112,6 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
   centreZ /= static_cast<double>(gates.size());
   centreGrade /= static_cast<double>(gates.size());
 
-  struct Corner {
-    double EastM = 0.0;
-    double ZM = 0.0;
-    double GradeM = 0.0;
-    double AroundRad = 0.0;
-    size_t Gate = 0;
-  };
-
   std::vector<Corner> around;
   around.reserve(gates.size() * 2u);
   for (size_t at = 0; at < gates.size(); ++at) {
@@ -79,9 +121,11 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
     for (const double hand : {1.0, -1.0}) {
       const double eastM = gate.EastM + sideE * hand;
       const double zM = RenderFrame::ZOfNorth(gate.NorthM) + sideZ * hand;
+      const double northM = RenderFrame::NorthOfZ(zM);
       around.push_back(Corner{.EastM = eastM,
                               .ZM = zM,
-                              .GradeM = gate.GradeM,
+                              .GradeM = gate.GradeM + plane.SlopeE * (eastM - gate.EastM) +
+                                        plane.SlopeN * (northM - gate.NorthM),
                               .AroundRad = std::atan2(zM - centreZ, eastM - centreE),
                               .Gate = at * 2u + (hand > 0.0 ? 0u : 1u)});
     }
@@ -89,20 +133,13 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
   std::ranges::sort(around, [](const Corner &a, const Corner &b) {
     return a.AroundRad != b.AroundRad ? a.AroundRad < b.AroundRad : a.Gate < b.Gate;
   });
+  StarShaped(around);
+  if (gates.size() == 2) { around = WedgeOf(around, centreE, centreZ, centreGrade); }
   const auto rim = static_cast<uint32_t>(around.size());
-  Vec3 up = {{0.0, 1.0, 0.0}};
+  Vec3 up = {{-plane.SlopeE, 1.0, RenderFrame::ZOfNorth(-plane.SlopeN)}};
   {
-    const Vec3 u = {
-        {around[0].EastM - centreE, around[0].GradeM - centreGrade, around[0].ZM - centreZ}};
-    const Vec3 v = {
-        {around[1].EastM - centreE, around[1].GradeM - centreGrade, around[1].ZM - centreZ}};
-    const Vec3 n = {
-        {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]}};
-    const double run = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-    if (run > kParallelCross) {
-      const double sign = n[1] < 0.0 ? -1.0 : 1.0;
-      for (int axis = 0; axis < 3; ++axis) { up[axis] = sign * n[axis] / run; }
-    }
+    const double run = std::sqrt(up[0] * up[0] + up[1] * up[1] + up[2] * up[2]);
+    for (int axis = 0; axis < 3; ++axis) { up[axis] /= run; }
   }
   const Vec3 down = {{-up[0], -up[1], -up[2]}};
   const auto top = static_cast<uint32_t>(into.PositionM.size() / 3);
@@ -117,6 +154,11 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
   }
   for (uint32_t at = 0; at < rim; ++at) {
     const uint32_t next = (at + 1u) % rim;
+    {
+      const double apartE = around[next].EastM - around[at].EastM;
+      const double apartZ = around[next].ZM - around[at].ZM;
+      if (apartE * apartE + apartZ * apartZ < kSnapM * kSnapM) { continue; }
+    }
     into.Index.insert(into.Index.end(), {top, top + 1u + next, top + 1u + at});
     into.Index.insert(into.Index.end(), {bottom, bottom + 1u + at, bottom + 1u + next});
     const Corner &here = around[at];
@@ -132,7 +174,7 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
     Vertex(into, {here.EastM, here.GradeM - kSealedDepthM, here.ZM}, outward, wearsLinear);
     Vertex(into, {after.EastM, after.GradeM, after.ZM}, outward, wearsLinear);
     Vertex(into, {after.EastM, after.GradeM - kSealedDepthM, after.ZM}, outward, wearsLinear);
-    into.Index.insert(into.Index.end(), {side, side + 1u, side + 3u, side, side + 3u, side + 2u});
+    into.Index.insert(into.Index.end(), {side, side + 3u, side + 1u, side, side + 2u, side + 3u});
   }
 }
 
@@ -355,7 +397,7 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
                                                           .OutE = on.first,
                                                           .OutN = on.second,
                                                           .HalfWidthM = halfWidthM}}};
-        Junction(std::span<const RoadGate>(corner.data(), 2), wearsLinear, into);
+        Junction(std::span<const RoadGate>(corner.data(), 2), {}, wearsLinear, into);
       }
     }
     from += upTo;

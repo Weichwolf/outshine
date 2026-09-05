@@ -23,6 +23,29 @@ void Put(std::vector<float> &into, double a, double b, double c) {
   into.push_back(static_cast<float>(c));
 }
 
+void WallsAt(const Placed &on,
+             const Vec2 &left,
+             const std::array<Astride, kRibbonAcross> &stood,
+             const std::array<double, kRibbonAcross> &acrossAt,
+             double thicknessM,
+             Ribbon &out) {
+  for (const size_t which : {size_t{0}, kRibbonAcross - 1u}) {
+    const Astride &surface = stood[which];
+    const double outward = which == 0 ? -1.0 : 1.0;
+    const double eastM = on.EastM + left[0] * acrossAt[which];
+    const double northM = on.NorthM + left[1] * acrossAt[which];
+    for (const bool below : {false, true}) {
+      const double sink = below ? thicknessM : 0.0;
+      Put(out.PositionM,
+          eastM - surface.NormalM[0] * sink - out.OriginM[0],
+          surface.HeightM - surface.NormalM[1] * sink - out.OriginM[1],
+          RenderFrame::ZOfNorth(northM - surface.NormalM[2] * sink) - out.OriginM[2]);
+      Put(out.NormalM, left[0] * outward, 0.0, RenderFrame::ZOfNorth(left[1] * outward));
+      out.AcrossM.push_back(static_cast<float>(acrossAt[which]));
+    }
+  }
+}
+
 } // namespace
 
 Ribbon
@@ -116,9 +139,10 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
       Put(out.NormalM, -surface.NormalM[0], -surface.NormalM[1], surface.NormalM[2]);
       out.AcrossM.push_back(static_cast<float>(acrossAt[which]));
     }
+    WallsAt(on, left, stood, acrossAt, section.ThicknessM, out);
   }
 
-  const auto perStation = static_cast<uint32_t>(kRibbonAcross * 2);
+  const auto perStation = static_cast<uint32_t>(kRibbonAcross * 2 + 4);
   for (size_t station = 0; station + 1 < stations; ++station) {
     const uint32_t here = static_cast<uint32_t>(station) * perStation;
     const uint32_t next = here + perStation;
@@ -139,16 +163,20 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
                         next + under + which + 1,
                         next + under + which});
     }
-    const auto under = static_cast<uint32_t>(kRibbonAcross);
-    const uint32_t edge = static_cast<uint32_t>(kRibbonAcross) - 1;
-    out.Index.insert(out.Index.end(), {here, here + under, next, next, here + under, next + under});
+    const auto wall = static_cast<uint32_t>(kRibbonAcross * 2);
+    const uint32_t leftTop = here + wall;
+    const uint32_t leftBottom = here + wall + 1u;
+    const uint32_t rightTop = here + wall + 2u;
+    const uint32_t rightBottom = here + wall + 3u;
+    const uint32_t nextLeftTop = next + wall;
+    const uint32_t nextLeftBottom = next + wall + 1u;
+    const uint32_t nextRightTop = next + wall + 2u;
+    const uint32_t nextRightBottom = next + wall + 3u;
     out.Index.insert(out.Index.end(),
-                     {here + edge,
-                      next + edge,
-                      here + under + edge,
-                      next + edge,
-                      next + under + edge,
-                      here + under + edge});
+                     {leftTop, leftBottom, nextLeftTop, nextLeftTop, leftBottom, nextLeftBottom});
+    out.Index.insert(
+        out.Index.end(),
+        {rightTop, nextRightTop, rightBottom, nextRightTop, nextRightBottom, rightBottom});
   }
 
   for (const bool atEnd : {false, true}) {
@@ -160,7 +188,8 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     const double aheadE = std::cos(on.HeadingRad) * outward;
     const double aheadN = std::sin(on.HeadingRad) * outward;
     const auto base = static_cast<uint32_t>(out.PositionM.size() / 3);
-    const uint32_t ring = atEnd ? static_cast<uint32_t>((stations - 1) * kRibbonAcross * 2) : 0u;
+    const uint32_t ring =
+        atEnd ? static_cast<uint32_t>((stations - 1) * (kRibbonAcross * 2 + 4)) : 0u;
     for (size_t which = 0; which < kRibbonAcross * 2; ++which) {
       const size_t from = (static_cast<size_t>(ring) + which) * 3;
       Put(out.PositionM, out.PositionM[from], out.PositionM[from + 1], out.PositionM[from + 2]);

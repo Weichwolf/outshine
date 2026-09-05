@@ -1214,8 +1214,10 @@ size_t Corridors::RaisesTheJunctionBodies(const outshine::Ground::GroundMaterial
   Vec3f wears = {{0.5f, 0.5f, 0.5f}};
   if (asphalt >= 0) { wears = wearing.At(static_cast<size_t>(asphalt)).Albedo; }
   for (const Junction &one : into.Junctions) {
-    Sweeper_.Junction(
-        std::span<const RoadGate>(one.Gates.data(), one.Gates.size()), wears, pavement);
+    Sweeper_.Junction(std::span<const RoadGate>(one.Gates.data(), one.Gates.size()),
+                      {.SlopeE = one.SlopeE, .SlopeN = one.SlopeN},
+                      wears,
+                      pavement);
   }
   return into.Junctions.size();
 }
@@ -1308,6 +1310,10 @@ void Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wear
   Notes(into, "streets: the surface they were given", static_cast<double>(paved.index()), "index");
   Notes(into, "streets: the part they were given", static_cast<double>(pavedPart), "index");
   Notes(into, "streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
+  Notes(into,
+        "streets: triangles wound against their normals",
+        static_cast<double>(ground.windingAgainstNormals(pavedPart)),
+        "triangles");
   Notes(
       into, "streets: parts the geometry now holds", static_cast<double>(ground.parts()), "parts");
 }

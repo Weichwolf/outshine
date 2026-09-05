@@ -1,4 +1,6 @@
 #include "math/Mat4.h"
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstddef>
 #include <memory>
@@ -93,6 +95,9 @@ int Geometry::addPart(std::string_view named, MaterialInstance material) {
 
 namespace {
 
+constexpr double kUnitWithin = 1.0e-3;
+constexpr double kNoAreaM4 = 1.0e-12;
+
 [[nodiscard]] bool Into(std::vector<float> &slot, std::span<const float> from) {
   slot.assign(from.begin(), from.end());
   return true;
@@ -111,7 +116,43 @@ bool Geometry::setNormals(int part, std::span<const float> unit) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || unit.size() % 3 != 0) {
     return false;
   }
+  for (size_t at = 0; at + 2 < unit.size(); at += 3) {
+    const double length = std::sqrt(static_cast<double>(unit[at]) * unit[at] +
+                                    static_cast<double>(unit[at + 1]) * unit[at + 1] +
+                                    static_cast<double>(unit[at + 2]) * unit[at + 2]);
+    if (std::fabs(length - 1.0) > kUnitWithin) { return false; }
+  }
   return Into(Held_->Parts[static_cast<size_t>(part)].Normals, unit);
+}
+
+int Geometry::windingAgainstNormals(int part) const {
+  const Held::Piece *piece = Held_->At(part);
+  if (piece == nullptr) { return 0; }
+  const std::vector<float> &p = piece->PositionsM;
+  const std::vector<float> &n = piece->Normals;
+  int against = 0;
+  for (size_t at = 0; at + 2 < piece->Indices.size(); at += 3) {
+    const std::array<size_t, 3> corner = {
+        piece->Indices[at], piece->Indices[at + 1], piece->Indices[at + 2]};
+    if (corner[2] * 3 + 2 >= p.size() || corner[2] * 3 + 2 >= n.size() ||
+        corner[0] * 3 + 2 >= p.size() || corner[1] * 3 + 2 >= p.size()) {
+      continue;
+    }
+    std::array<double, 3> u{};
+    std::array<double, 3> v{};
+    std::array<double, 3> sum{};
+    for (size_t axis = 0; axis < 3; ++axis) {
+      u[axis] = static_cast<double>(p[corner[1] * 3 + axis]) - p[corner[0] * 3 + axis];
+      v[axis] = static_cast<double>(p[corner[2] * 3 + axis]) - p[corner[0] * 3 + axis];
+      sum[axis] = static_cast<double>(n[corner[0] * 3 + axis]) + n[corner[1] * 3 + axis] +
+                  n[corner[2] * 3 + axis];
+    }
+    const std::array<double, 3> face = {
+        u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]};
+    if (face[0] * face[0] + face[1] * face[1] + face[2] * face[2] < kNoAreaM4) { continue; }
+    if (face[0] * sum[0] + face[1] * sum[1] + face[2] * sum[2] < 0.0) { ++against; }
+  }
+  return against;
 }
 
 bool Geometry::setTexture(int part, std::span<const float> uv, int set) {

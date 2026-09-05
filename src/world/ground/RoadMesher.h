@@ -38,6 +38,11 @@ struct RoadGate {
   double HalfWidthM = 0.0;
 };
 
+struct RoadPlane {
+  double SlopeE = 0.0;
+  double SlopeN = 0.0;
+};
+
 struct RoadRefusals {
   size_t Fit = 0;
   size_t Rise = 0;
@@ -81,8 +86,10 @@ public:
   [[nodiscard]] virtual RoadTallied
   Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const = 0;
 
-  virtual void
-  Junction(std::span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into) const = 0;
+  virtual void Junction(std::span<const RoadGate> gates,
+                        RoadPlane plane,
+                        const Vec3f &wearsLinear,
+                        RoadRaised &into) const = 0;
 
 protected:
   RoadMesher() = default;

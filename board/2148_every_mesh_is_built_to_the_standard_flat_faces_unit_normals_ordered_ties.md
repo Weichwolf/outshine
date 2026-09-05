@@ -48,3 +48,50 @@ the audit of 2026-09-05 found this tree's road mesher on the wrong side of every
 - [ ] near-black under 20/255 at Heidelberg reads at or below the reference's 164, counted
       by `test/scripts/pixels.py`, and the picture looked at
 - [ ] every float-keyed sort feeding geometry carries a tiebreak, listed in the item
+
+## Landed 2026-09-05: the door holds the standard, and the road mesher meets it
+
+`Geometry::setNormals` refuses a normal that is not unit length (`kUnitWithin` 1e-3 [SET, a
+thousand float roundings]) -- glTF's own rule, at the door where every mesh enters --
+and `Geometry::windingAgainstNormals(part)` counts the triangles whose counter-clockwise face
+normal opposes their vertex normals, ignoring zero-area faces (`kNoAreaM4` 1e-12). The road
+generator publishes that count for the streets part, `TheDoorRefusesANormalThatIsNotUnit`
+holds the door with the flipped triangle as its negative control, and
+`ScoreEveryMeshFacesOutward` holds the streets at OldTown. What the count found, in order,
+each measured before it was touched:
+
+```
+  OldTown, streets part, triangles against their normals
+  38 970   the junction body's side quads were wound inward (culled, so the sides were
+           never drawn and the specks were the tops seen through the missing sides)
+     226   the ribbon's kerb walls shared vertices with the top and the underside, so a
+           vertical face carried a vertical normal -- the sweep gets four wall vertices per
+           station with outward normals
+      85   the body's "up" was the cross product of two adjacent corners of ONE gate, a
+           sliver; the mesher takes the junction's plane (`RoadPlane`) and puts every corner
+           on it
+      24   zero-area faces where two corners coincide -- skipped by the mesher and ignored
+           by the count
+       8   reflex corners where two nearly parallel legs overlap: the ring is trimmed to
+           star shape before the fan (SUMO joins parallel legs instead; that is the map's
+           business, board:2101)
+       0
+```
+
+- [x] the case holds the streets at OldTown, the door's case holds the refusal and the
+      flipped triangle
+- [x] no accumulated normal across a crease in the road mesher; the building mesher never had
+      one
+- [ ] near-black at Heidelberg against the reference -- measured in the commit
+- [x] every float-keyed sort feeding geometry carries a tiebreak (ByBearing, the corner's
+      gate index)
+
+Measured 2026-09-05 against c71f1bb0's pictures: OldTown 0.7 % of pixels, Heidelberg 1.3 %,
+Shibuya 1.9 %, CentralPark 1.0 %, Venice 0.01 %, Jura 0.2 %, ZurichPlan 2.8 %, Kaiserberg 0.6 %,
+Koehlbrand 1.9 % -- the junction bodies' sides and the ribbons' kerb walls, drawn for the
+first time. Looked at Kaiserberg's motorway edge and Koehlbrand's ramps: a thin dark line
+along every band's lower edge, the kerb face. It reads (16, 15, 16) in shadow, where a
+shadowed wall reads 70 of 165: the kerb gets 1.8 % of its lit value against the wall's
+16 %, which is not the standard's business but the lighting of a dark vertical face --
+recorded in board:2149. Near-black under 20/255 rises by exactly those faces (Heidelberg
+25 -> 97, Kaiserberg 41 -> 294, Shibuya 116 -> 387); pure black 0 everywhere.

@@ -87,6 +87,14 @@ public:
   bool setColours(int part, std::span<const float> rgba);
   bool setTriangles(int part, std::span<const uint32_t> indices);
 
+  /// How many of a part's triangles are wound against their own vertex normals: a triangle
+  /// whose counter-clockwise face normal opposes the sum of its three vertex normals. A mesh
+  /// built to the standard reads 0; a flipped face or a normal pointing into a body reads here
+  /// before it reads as a black pixel. Zero-area triangles are not counted.
+  /// @param part the part to count, as addPart returned it
+  /// @return the count, or 0 for a part that does not exist
+  [[nodiscard]] int windingAgainstNormals(int part) const;
+
   [[nodiscard]] int parts() const;
   [[nodiscard]] std::string_view nameOf(int part) const;
   [[nodiscard]] MaterialInstance materialOf(int part) const;

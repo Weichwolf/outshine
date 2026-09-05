@@ -16,6 +16,7 @@ public:
   Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const override;
 
   void Junction(std::span<const RoadGate> gates,
+                RoadPlane plane,
                 const Vec3f &wearsLinear,
                 RoadRaised &into) const override;
 };
