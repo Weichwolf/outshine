@@ -71,6 +71,11 @@ On the lattice (board:2115), every step is a write into a grid and not a search 
       moves further than its class's gradient allows over its length
 - [ ] `streets: vertices FLYING` returns as a CASE with an oracle, not a ledger line, and reads 0
 - [ ] `refining`, `cutting the seams`, `sewing them` read 0.000 ms (board:2115)
+- [ ] FROM board:2115: the constrained edge exists only at the KERB. The CDT shrank to the kerb
+      the day the ground moved to the GPU lattice; the road stays a ribbon (a car drives on it,
+      a kerb has an edge) pressed by its corridor stamp under it, and a case counts the kerb's
+      edges that coincide with the ribbon's -- a footprint's outline is likewise the pad's
+      rim, stamped, never a ground edge
 
 ## Ruled out, measured
 

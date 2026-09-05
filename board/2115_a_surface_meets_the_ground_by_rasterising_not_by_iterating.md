@@ -69,20 +69,33 @@ claims.
 
 ## What will be true
 
-- [ ] `ground: of that, refining`, `cutting the seams`, `sewing them` read 0.000 ms because the
-      passes no longer exist; `heap taken under ground-yield` falls by the order the arithmetic
-      predicts
-- [ ] The lattice is an engine verb with two callers, terrain and water
-- [ ] The CDT stands in `base/geometry/` with a vendor oracle, and a footprint's outline is an
-      edge of the ground mesh, a case counting the edges that coincide with it
-- [ ] No pixel of the eight references differs by more than 1 of 255 unless the difference is
-      looked at and named
-- [ ] THE GEOMETRY IS GAP-FREE AND SNAPPED: `CensusOver` the composed ring -- ground, stamps,
-      corridors, water -- reads 0 open edges besides the ring's outer rim and 0 overused edges,
-      and every vertex two pieces share is ONE vertex (welded at the lattice's quantum, never
-      two within an epsilon). This is a case, and it is the oracle every later change to the
-      ground is held to
-- [ ] `kDigestBasis == kFnv64Basis`, and the commit says every digest moved and why
+- [x] `ground: of that, refining`, `cutting the seams`, `sewing them` no longer exist as passes
+      or as measures; the ground's lay fell from ~2 000 ms to ~700 ms at Kaiserberg and the
+      pool's mesh buffers went with it (Shibuya's peak heap 631 -> 591 MB, OldTown 235 -> 195)
+- [x] Water stands on its own plane: the lid is a flat surface at the level the provider read,
+      drawn through the ground surface with the water class, over a bed the basin carved --
+      Unreal's water body over its brush, which is what "a lattice at its own level" comes to
+      when the level is one number
+- [ ] MOVED to board:2121: the constrained edge at the kerb. The CDT shrank to the kerb the day
+      the lattice moved to the GPU; the ribbon is the edge and the corridor stamp presses under
+      it, and the case that counts the kerb's edges belongs with the stamps
+- [x] No pixel of the nine references differs by more than 1 of 255 unless the difference is
+      looked at and named -- every switch of the nine in this item carries its count, its
+      place and its reading
+- [ ] THE LATTICE IS GAP-FREE at a level boundary. A T-junction crack opens where the finer
+      edge's node stands off the coarser chord; the virtual levels share one field and can
+      close it exactly, the real levels are different DEM sources and keep the skirt. CDLOD's
+      morph and Unreal's edge stitch both presume a power-of-two patch (2:1 nodes between
+      levels); this tree's patch is 33 quads (`kPatchGrid`), so the finer tile's nodes do not
+      fall on the coarser's and a snap has nothing to snap to. The stitch therefore starts
+      with the patch: 32 quads, stride 8 over 256 postings, then the finer edge's odd node
+      takes the mean of its even neighbours on every edge whose same-level neighbour is
+      absent. The oracle: a render of the ground alone with a clear colour no class wears,
+      and 0 pixels of that colour below the horizon line; today's dark specks are the
+      negative control
+- [x] `kDigestBasis == kFnv64Basis`: the digest is FNV-1a's, basis and all; no picture digest
+      descends from it (the nine kept their names to the byte), the cache keys and the bake
+      digests do, and a cache built under the dropped digit is filled once more
 
 ## What will show I was wrong
 
