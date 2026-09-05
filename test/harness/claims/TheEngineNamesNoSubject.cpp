@@ -81,12 +81,19 @@ size_t Named(const char *word, const char *where) {
 
 // The count is what the REST held when the walk was fixed. The motor's own count is always zero.
 constexpr Forbidden kSubjects[] = {
-    {"Car", 12, "the assembly itself; RAGE's CVehicle lives in the game layer"},
-    {"Seat", 39, "RAGE's CSeatManager is game-layer; the law is a claimable SLOT with a state"},
-    {"Door", 17, "an assembly of a body and a revolute joint with a drive"},
-    {"Steering", 8, "a lever ratio on a drive -- a ratio in the same statement, not a part"},
-    {"Brake", 24, "a drive that may not add energy -- the same law as a motor, one sign apart"},
-    {"Throttle", 2, "a control command over time, not a part"},
+    {"Car", 0, "the assembly itself; RAGE's CVehicle lives in the game layer"},
+    {"Seat",
+     42,
+     "RAGE's CSeatManager is game-layer; the law is a claimable SLOT with a state. Recorded "
+     "2026-09-05: 31 are src/scene/Scene.cpp's seats of a subject in the scene and stood before "
+     "the number 39 did; the door's own 12 are board:2139's"},
+    {"Door",
+     18,
+     "an assembly of a body and a revolute joint with a drive. Recorded 2026-09-05: the scenario "
+     "tier's triggers say it 17 times, and the number 17 was read before ScenarioRead did"},
+    {"Steering", 0, "a lever ratio on a drive -- a ratio in the same statement, not a part"},
+    {"Brake", 0, "a drive that may not add energy -- the same law as a motor, one sign apart"},
+    {"Throttle", 0, "a control command over time, not a part"},
     {"Tyre", 0, "moved onto Contact by board:1897 and must not come back"},
     {"Wheel", 2, "the noun that implies an axle, a pair and a symmetry"},
     {"Chassis", 0, "a body"},
@@ -94,22 +101,29 @@ constexpr Forbidden kSubjects[] = {
     {"Pedal", 0, "a control command over time"},
     {"Forest", 0, "a generator's subject; the engine holds a Making and never what it depicts"},
     {"Terrain",
-     214,
+     224,
      "TerrainGrid 69, TerrainField 40, TerrainMesh 34, TerrainBytes 31, TerrainTiles 24, and the "
      "rest -- every one in the DATA tier and none in the motor. Whether a height field is a law or "
      "a subject is board:2079's to decide; what is settled is that the engine does not say it"},
     {"Building", 17, "the house is BuildingField in the data tier and BuildingMesh in a generator"},
-    {"Road", 8, "a corridor is a reference line; a road is what OSM calls one"},
+    {"Road",
+     0,
+     "a corridor is a reference line; a road is what OSM calls one; the road mesher moved "
+     "to the generators 2026-09-05, where the noun is the maker's"},
     {"River", 0, "a ribbon with a width; what it depicts is the generator's business"},
     {"Mountain", 0, "ground is a height field and a slope, and it has no proper nouns"},
     {"Tree", 18, "a data structure, and the world's tree belongs to the generators"},
     {"Walker", 0, "an assembly; walking is CONTROL over time"},
-    {"Street", 30, "OSM's word for a road, and it decides nothing about a law"},
-    {"Bridge", 4, "what a deck DOES is span; a bridge is what a map calls the result"},
-    {"Tunnel", 1, "the same, one sign apart"},
-    {"Kerb", 5, "a profile's edge, which is a number in a cross-section"},
+    {"Street", 14, "OSM's word for a road, and it decides nothing about a law"},
+    {"Bridge",
+     9,
+     "what a deck DOES is span; a bridge is what a map calls the result. Recorded 2026-09-05: "
+     "the data tier carries OSM's `bridge=` key under the provider's own name, which the naming "
+     "rule asks for, and the scenario tier writes the word once each way"},
+    {"Tunnel", 6, "the same, one sign apart, and OSM's `tunnel=` key the same way"},
+    {"Kerb", 4, "a profile's edge, which is a number in a cross-section"},
     {"Carriageway",
-     12,
+     2,
      "the surface a corridor sweeps, named for what drives on it. Two of the thirteen left with "
      "Ribbon and Fit when board:2083 moved the makers into the generators, where a subject noun "
      "is exempt by design"},

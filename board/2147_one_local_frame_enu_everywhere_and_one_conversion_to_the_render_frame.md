@@ -6,8 +6,9 @@ Tags: architecture, owner, determinism, audit
 # ONE local frame -- ENU in every geographic struct, ONE named conversion to the render frame, and the degree constants right
 
 **Benchmark** -- Cesium: a local frame is East-North-Up, right-handed, and nothing else;
-glTF and Filament: the render frame is +Y up, +X right, -Z forward, right-handed; Unreal is
-Z-up left-handed and says so ONCE. **All agree** that a tree has one geographic frame, one
+Filament: the render frame is +Y up, +X right, -Z forward, right-handed; Unreal is Z-up
+left-handed and says so ONCE; RAGE is Z-up right-handed with one `rage::Matrix34` convention
+and one place where a world position meets the camera. **All agree** that a tree has one geographic frame, one
 render frame and one place where they meet. Measured by the convention audit of 2026-09-05:
 this tree carries SIX frames in flight (ECEF, ENU, an East-SOUTH 2D pair, the render frame
 (E, Up, S), a Z-up tile frame in the lattice shader, glTF Y-up) and converts between them

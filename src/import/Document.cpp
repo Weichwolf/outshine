@@ -1268,7 +1268,7 @@ bool Document::HoldNodeReferences() {
   return true;
 }
 
-bool Document::HoldNodeForest() {
+bool Document::HoldNodeHierarchy() {
   std::vector<uint8_t> rooted(Nodes_.size(), 0);
   std::vector<int> walked;
   for (size_t i = 0; i < Nodes_.size(); ++i) {
@@ -1307,7 +1307,7 @@ bool Document::ReadNodes(const Json::Ref &root) {
     for (size_t k = 0; k < children.Size(); ++k) { node.Children.push_back(children[k].Int(-1)); }
     Nodes_.push_back(std::move(node));
   }
-  return HoldNodeReferences() && HoldNodeForest();
+  return HoldNodeReferences() && HoldNodeHierarchy();
 }
 
 bool Document::ReadScenes(const Json::Ref &root) {

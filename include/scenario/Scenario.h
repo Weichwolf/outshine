@@ -25,6 +25,9 @@ constexpr double kSightUnsaidM = 240000.0;
 /// What Fps stands at when a scenario declares none.
 constexpr double kFpsUnsaid = 60.0;
 
+/// What a view's FovDeg stands at when it declares none: the vertical field of view, in degrees.
+constexpr double kFovUnsaidDeg = 55.0;
+
 /// What Fill stands at when a scenario declares none.
 constexpr double kFillUnsaid = 0.9;
 

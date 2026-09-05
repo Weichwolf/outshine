@@ -43,8 +43,6 @@
 
 namespace outshine::Render {
 
-constexpr float kFovUnsaidDeg = 60.0f;
-
 struct KeptDraws {
   uint32_t Indices = 0;
   uint32_t Batches = 0;
@@ -53,7 +51,7 @@ struct KeptDraws {
 struct Lens {
   double WidePx = 0;
   double HighPx = 0;
-  float FovDeg = kFovUnsaidDeg;
+  float FovDeg = 0.0f;
   float OrthoM = 0.0f;
   float NearM = 0.0f;
   Vec2f Jitter = {{0.0f, 0.0f}};
@@ -493,7 +491,7 @@ private:
   [[nodiscard]] Placed PictureRect() const;
   [[nodiscard]] Lens Through() const;
   CameraBasis Camera_;
-  float FovDeg_ = kFovUnsaidDeg;
+  float FovDeg_ = 0.0f;
   float OrthoM_ = 0.0f;
   float NearM_ = kNearM;
 

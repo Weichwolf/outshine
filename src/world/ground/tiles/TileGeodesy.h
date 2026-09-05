@@ -29,8 +29,8 @@ struct TileFrac {
 };
 
 using Data::kMercatorGirthM;
-using Data::kWgs84A;
 using Data::kWgs84F;
+using outshine::kWgs84A;
 
 class TileIndex {
 public:

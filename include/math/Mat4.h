@@ -11,10 +11,10 @@ namespace outshine {
 
 /// A 4x4 transform, stored COLUMN-MAJOR.
 ///
-/// The order is not a preference: glTF states it for `node.matrix`, Metal states it for a bound
-/// uniform, and the tree already held these as sixteen loose doubles in that order. Writing it in
-/// the member's name is what stops the next reader from transposing a matrix that was already
-/// right -- the commonest way a scene ends up mirrored.
+/// The order is not a preference: GLSL and SPIR-V's std140 layout state it for a bound uniform,
+/// and the tree already held these as sixteen loose doubles in that order. Writing it in the
+/// member's name is what stops the next reader from transposing a matrix that was already right
+/// -- the commonest way a scene ends up mirrored.
 template <typename Number> struct Matrix4 {
   /// The sixteen components, four columns of four, column 0 first.
   std::array<Number, 16> Column = {Number{1},

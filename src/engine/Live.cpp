@@ -764,7 +764,7 @@ bool Live::Stand(std::string &error) {
     return ms;
   };
   Stood_ = Render::SubjectProxy{};
-  const Vec3 anchorEcefM = {{Data::kWgs84A, 0.0, 0.0}};
+  const Vec3 anchorEcefM = {{kWgs84A, 0.0, 0.0}};
   Reshape();
   ReshapeAgainMs_ = sinceStand();
   Stood_.Stands(Shaped_, anchorEcefM);

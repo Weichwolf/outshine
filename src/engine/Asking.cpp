@@ -283,7 +283,7 @@ bool Engine::State::Composes() {
   {
     const double fovDeg =
         Session.Declared.Views.empty() || Session.Declared.Views.front().Sees.FovDeg <= 0.0
-            ? kFovUnsaidDeg
+            ? Scenario::kFovUnsaidDeg
             : Session.Declared.Views.front().Sees.FovDeg;
     const double highPx = Session.Declared.Render.Frame.HeightPx > 0
                               ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)

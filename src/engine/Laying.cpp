@@ -629,7 +629,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         made.AtE = 0.5 * (made.LowE + made.HighE);
         made.AtN = 0.5 * (made.LowN + made.HighN);
-        made.SagInv = 1.0 / Data::kWgs84A;
+        made.SagInv = 1.0 / kWgs84A;
         double plateau = 0.0;
         for (size_t corner = 0; corner < bedM.size(); ++corner) {
           const double dE = made.RingEastNorthM[corner * 2u] - made.AtE;

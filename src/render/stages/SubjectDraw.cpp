@@ -41,7 +41,7 @@ constexpr size_t kAnchorSlot = 48;
 
 namespace {
 
-constexpr SDL_GPUFrontFace kGltfFrontFace = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+constexpr SDL_GPUFrontFace kFrontFace = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 
 constexpr Winding kSubjectWinding = Winding::Trusted;
 
@@ -269,7 +269,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
         wanted.vertex_input_state.vertex_attributes = shape.Attributes.data();
         wanted.vertex_input_state.num_vertex_attributes = shape.Count;
         wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-        wanted.rasterizer_state.front_face = kGltfFrontFace;
+        wanted.rasterizer_state.front_face = kFrontFace;
         wanted.target_info.color_target_descriptions = targets.data();
         wanted.target_info.num_color_targets = static_cast<Uint32>(Colours.size());
         wanted.target_info.has_depth_stencil_target = true;

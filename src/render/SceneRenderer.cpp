@@ -3,6 +3,7 @@
 #include "math/Vec2.h"
 #include "Heap.h"
 #include <algorithm>
+#include <cassert>
 #include <span>
 #include <array>
 #include <chrono>
@@ -59,10 +60,12 @@ Mat4f MvpCamRel(const CameraBasis &stands, const Lens &through) {
   const Vec3 &forward = stands.Forward;
   const double widePx = through.WidePx;
   const double highPx = through.HighPx;
-  const float fov = through.FovDeg * static_cast<float>(kDeg2Rad);
   const float asp = static_cast<float>(widePx) / static_cast<float>(highPx);
   const float zn = through.NearM;
-  const float f = 1.0f / std::tan(fov / 2.0f);
+  assert(through.OrthoM > 0.0f || through.FovDeg > 0.0f);
+  const float f = through.OrthoM > 0.0f
+                      ? 0.0f
+                      : 1.0f / std::tan(through.FovDeg * static_cast<float>(kDeg2Rad) / 2.0f);
   const Mat4f v = {{static_cast<float>(right[0]),
                     static_cast<float>(up[0]),
                     -static_cast<float>(forward[0]),
@@ -983,8 +986,10 @@ void SceneRenderer::SettleShadow() {
 }
 
 EyeBasis SceneRenderer::Eye() const {
+  assert(OrthoM_ > 0.0f || FovDeg_ > 0.0f);
   EyeBasis eye;
-  eye.TanHalfHeight = std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
+  eye.TanHalfHeight =
+      OrthoM_ > 0.0f ? 0.0f : std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
   eye.TanHalfWidth =
       eye.TanHalfHeight * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
   for (int axis = 0; axis < 3; ++axis) {

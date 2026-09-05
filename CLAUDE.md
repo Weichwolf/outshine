@@ -1,7 +1,7 @@
 # outshine
 
 A game engine at RAGE/Unreal level, in C++23. The development platform **is** the target: Apple
-A18 Pro — 2P+4E cores, 5 GPU cores, 8 GB, Metal 4 — holding **720p60**, measured as p50/p95/p99
+A18 Pro — 2P+4E cores, 5 GPU cores, 8 GB — holding **720p60**, measured as p50/p95/p99
 over a moving camera and never as a mean.
 
 An engine is an **interactive physics simulation with a focus on graphics**, and each word is a
@@ -97,13 +97,19 @@ neither faces the question, the item says exactly that and says why the choice i
 
 **A measurement of THIS tree outranks both.**
 
-**THE HARDWARE HAS A VOICE TOO, AND IT IS MEASURED, NEVER ASSUMED.** The target is one GPU with
-properties the references were not designed around -- tile memory a deferred pass never leaves,
-mesh shaders that tessellate a height field without a vertex upload, ray-tracing units. Where
-the target's own answer differs from both references (Apple's tile shading against Filament's
-froxels), the item builds the reference's path, measures the hardware's beside it on THIS tree,
-and keeps the one the number picks. A hardware feature named without a measurement is a
-brochure, not a decision.
+**THE GPU IS SDL_GPU, THE SHADER IS SPIR-V, AND KHRONOS IS THE REFERENCE.** The engine reaches
+the GPU through SDL3's `SDL_GPU` and nothing else, so that it ports; what Apple does with Metal
+is SDL's problem and never this tree's. A shader is written once in GLSL, compiled to SPIR-V by
+Khronos's own tools, and the tree hands SDL_GPU that SPIR-V -- a Metal or DXIL derivation is a
+build product the tree never reads, and a source file in a vendor's shading language is a
+finding. **THE ENGINE DOES NOT KNOW THE HARDWARE.** No path in this tree is chosen by a GPU's name, a
+vendor's extension or a feature the API does not carry: programmable tile shading, mesh
+shaders and ray-tracing units are a brochure until SDL_GPU exposes them, however loudly the
+hardware advertises them. What SDL_GPU does expose (a render pass's load and store actions, a
+compute pass) is chosen by a measurement on THIS tree against the reference's path, and the
+number decides, never the spec sheet. The machine named at the top of this page is the
+POPULATION every number here is measured on, and the reason it is named: it is roughly a PS4's
+class, so what a PS4 title reached is what this engine can reach here, and that bounds the look.
 
 **THE DOOR SPEAKS FILAMENT AND CESIUM; THE MOTOR HOLDS RAGE AND UNREAL.** `include/` uses the names
 a reader already owns — **Filament** for the renderer (`Engine` · `Scene` · `View` · `Camera` · `Renderer` · `Material` ·
@@ -201,6 +207,12 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   already enforces stays out of this page
 - **The type system over checkers**: `std::span` / `std::string_view` at boundaries, `std::mdspan`
   for field and instance views, `std::expected` where a refusal carries its reason
+- **GEOMETRY HAS ONE CONVENTION AND IT IS OURS.** A normal is unit length, a front face is
+  counter-clockwise seen from outside, the render frame is right-handed with +y up and the
+  geodetic frame is East-North-Up; the door refuses what breaks it. A file format is somebody
+  else's convention: glTF is ONE format this tree ships an importer for, and apart from that
+  importer nothing in the engine, the door or a generator knows or allows for it -- an
+  importer converts INTO the tree's convention the way a generator produces in it
 - **`alignas` BELONGS AT THE DEVICE BOUNDARY, and equality is `operator==`, never `memcmp`.** A
   record a driver reads keeps the alignment that driver's rows demand and a `static_assert` on its
   size, because the layout is the boundary's word and not ours -- the same rule as SDL3's. But that
@@ -257,10 +269,16 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   knowledge against them. The engine's vocabulary is LAW — body, joint, degree of freedom, drive,
   constraint, force, contact, integration — and a car, a seat or a door is a SUBJECT a scenario
   assembles. Generators are the exception: a tree grower's whole job is to make one concrete thing
-- **WHERE SDL3 SUPPLIES THE STRUCTURE OR THE FUNCTION, IT IS THE ONE USED.** SDL3 is a hard
-  dependency rather than a choice, so a second mechanism beside one it already carries is not
-  insulation, it is a duplicate that has to be kept true to a driver nobody here wrote. A thin RAII handle
-  over an SDL type is ownership and stays; a scheme that re-decides what SDL decides is a finding
+- **SDL3 IS THE PLATFORM, AND WHAT EXISTS IS NOT WRITTEN AGAIN.** SDL3 is a hard dependency
+  rather than a choice: the window, the GPU, input, audio, threads, files, time, the clipboard
+  -- where SDL3 or one of its satellites supplies the structure or the function, it is the one
+  used, and a second mechanism beside it is not insulation but a duplicate that has to be kept
+  true to a driver nobody here wrote. A thin RAII handle over an SDL type is ownership and
+  stays; a scheme that re-decides what SDL decides is a finding. The rule reaches past SDL with
+  one bound: a capability that is PLUMBING (a format, a codec, a compressor, a font rasteriser,
+  a shader compiler) is taken from a library whose source can be READ, and is never written
+  here; what the engine IS (the frame, the lattice, the meshers, the atmosphere, the scheduler)
+  is written here, because that is the reference design and nothing else supplies it
 - **TELEMETRY IS A TOOL FOR PEOPLE, AND I AM NOT ONE.** A person plants a counter ON SPEC because
   a rebuild costs minutes and the moment may not come again; I rebuild this tree in twenty seconds
   and `make shots` hands me the same place back. So a number worth keeping is one a CLIENT reads —

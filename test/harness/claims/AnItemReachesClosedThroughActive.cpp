@@ -298,7 +298,8 @@ int main(void) {
   // Recording it this way rather than widening the rule is the point. A claim that quietly
   // tolerated "active and deleted together" would tolerate it forever, and the whole value of
   // `State: active` is that a separate commit shows the item owned BEFORE the work starts.
-  constexpr size_t kSkippedInHistory = 0;
+  // fa9534b5 (2026-09-04) closed board:2125 from `State: open` in the commit that did the work.
+  constexpr size_t kSkippedInHistory = 1;
 
   std::printf("SKIPPED THE DOOR %zu, declared %zu\n", skipped.size(), kSkippedInHistory);
   CHECK(skipped.size() <= kSkippedInHistory,

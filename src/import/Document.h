@@ -184,7 +184,7 @@ private:
   [[nodiscard]] bool ReadNodeTransform(const Json::Ref &declaration, size_t index, Node &into);
   [[nodiscard]] bool ReadNodeInstancing(const Json::Ref &declaration, size_t index, Node &into);
   [[nodiscard]] bool HoldNodeReferences();
-  [[nodiscard]] bool HoldNodeForest();
+  [[nodiscard]] bool HoldNodeHierarchy();
   [[nodiscard]] bool ReadNodes(const Json::Ref &root);
   [[nodiscard]] bool ReadScenes(const Json::Ref &root);
   [[nodiscard]] bool ReadSkin(const Json::Ref &declaration, size_t index, Skin &skin);

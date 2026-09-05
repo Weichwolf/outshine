@@ -57,3 +57,14 @@ A name from the references' vocabulary wins over a plain one where both fit (`Re
       name against a small allowed vocabulary of verbs and the tree's nouns, and reads 0 outside it
 - [ ] The nine references unmoved after every sweep (a rename moves no byte)
 - [ ] Negative control: rename one method back to a metaphor and the case names it
+
+## Measured 2026-09-05 by TheEngineNamesNoSubject
+
+The door itself names subjects: `Seat` (12), `Wheel` (4), `Door` (2) in `include/scenario`,
+where CLAUDE.md says a seat is a subject a scenario ASSEMBLES from body, joint and drive. And the
+engine's `HeightSheets` names the data tier's `TerrainField` (8) since board:2124, because the
+type's own name says Terrain; `HeightField` is already taken by a bake helper, so the rename is
+this sweep's, with board:2079's decision on what a height field is called. The claim stays red
+on `inMotor == 0` until both are done, and the number is 42 today, 60 before board:2101's
+bridge decls left the engine.
+

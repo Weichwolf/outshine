@@ -89,7 +89,8 @@ bool Engine::State::Watches() {
       Render::Viewpoint::LookAt({.EyeM = station, .AimM = onto}, seen.Sees.UpM);
   if (!held) { return true; }
   standing = *held;
-  standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : kFovUnsaidDeg) * kDeg2Rad;
+  standing.YfovRad =
+      (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : Scenario::kFovUnsaidDeg) * kDeg2Rad;
   standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
   standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;
   if (seen.Sees.Orthographic) {
@@ -180,7 +181,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
       Render::Viewpoint::LookAt({.EyeM = eye, .AimM = seen.DistanceM > 0.0 ? at : ahead}, 0.0);
   if (!stood) { return true; }
   Render::Viewpoint from = *stood;
-  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : kFovUnsaidDeg) * kDeg2Rad;
+  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : Scenario::kFovUnsaidDeg) * kDeg2Rad;
   if (Picture.Standing) { Picture.Standing->Eye(from); }
   return true;
 }

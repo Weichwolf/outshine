@@ -599,15 +599,13 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
 
 std::optional<double>
 HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastNorth at) {
-  const double eastM = at.EastM;
-  const double southM = -at.NorthM;
   if (!Framed_) { return std::nullopt; }
   const Vec3 &origin = Frame_.OriginEcef();
   const Vec3 &east = Frame_.EastEcef();
   const Vec3 &north = Frame_.NorthEcef();
   Vec3 ecef;
   for (int axis = 0; axis < 3; ++axis) {
-    ecef[axis] = origin[axis] + eastM * east[axis] - southM * north[axis];
+    ecef[axis] = origin[axis] + at.EastM * east[axis] + at.NorthM * north[axis];
   }
   const Ground::Geo geo = Ground::EcefToGeoWgs84({.X = ecef[0], .Y = ecef[1], .Z = ecef[2]});
   const Ground::TileFrac frac = Ground::ToTileFracClamped(

@@ -8,7 +8,8 @@ Tags: owner, audit
 **Benchmark** -- Filament and Unreal: a view's far plane is the view's; a per-frame upload
 goes through a persistent, cycled transfer buffer (SDL3's `cycle = true` on a retained
 buffer, exactly what this tree does at GroundLattice.cpp:505); a matrix multiply exists
-once. The audit of 2026-09-05 found three places where the renderer says one thing and does
+once. RAGE: `grcViewport` holds its own near and far, a per-frame upload is a ring the
+`grcBufferEditor` cycles, and `rage::Matrix44` multiplies in one place. The audit of 2026-09-05 found three places where the renderer says one thing and does
 another.
 
 ## Where it stands, measured 2026-09-05
