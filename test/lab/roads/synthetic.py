@@ -1358,6 +1358,25 @@ class Structure:
         fall = left if offset < 0.0 else right
         return z - fall * abs(offset)
 
+    def frame_point(self, way, station, offset):
+        """The point at (station, offset) in the WAY'S OWN FRAME -- on its arc, with the normal
+        taken AT that station.
+
+        A straight tangent struck from the junction node is not the same place: on a curved way
+        the point it reaches projects back to a DIFFERENT station, and `major_surface` reads the
+        section there. The gap is the grade times that station error and it grows with the
+        curvature -- 0.18 m on the Golden Gate's approach after the frame's sign was repaired
+        (measured). Building the point ON the arc makes the projection recover the station it
+        was built from, so the leg and the junction read one surface by construction."""
+        line = self.map.centreline(way)
+        s = min(max(float(station), 0.0), line.length)
+        q = line.interpolate(s)
+        ahead = line.interpolate(min(s + 0.05, line.length))
+        back = line.interpolate(max(s - 0.05, 0.0))
+        d = (ahead.x - back.x, ahead.y - back.y)
+        n = math.hypot(*d) or 1.0
+        return (q.x - d[1] / n * offset, q.y + d[0] / n * offset)
+
     def major_surface(self, nid, x, y):
         """The junction's surface IS the major way's surface, crown and all, extended over the
         polygon: RAS-K's and AASHTO's rule that the through road keeps its section."""
@@ -1393,9 +1412,7 @@ class Structure:
         if u >= 1.0:
             return z_own
         alpha = 1.0 - (3 * u * u - 2 * u * u * u) if u > 0.0 else 1.0
-        d = self.map._direction(way, k, sgn)
-        x0, y0 = self.net.nodes[at]
-        px, py = x0 + d[0] * along - d[1] * offset, y0 + d[1] * along + d[0] * offset
+        px, py = self.frame_point(way, station, offset)
         return (1.0 - alpha) * z_own + alpha * self.major_surface(head, px, py)
 
     def check_junction_steps(self):
@@ -1407,11 +1424,9 @@ class Structure:
                 cut = self.cuts[(w["id"], at)]
                 s_node = self.map.stations[w["id"]][k]
                 station = s_node + sgn * cut
-                d = self.map._direction(w, k, sgn)
-                x0, y0 = self.net.nodes[at]
                 half = w["tags"]["width"] / 2.0
                 for t in np.linspace(-half, half, 9):
-                    px, py = x0 + d[0] * cut - d[1] * t, y0 + d[1] * cut + d[0] * t
+                    px, py = self.frame_point(w, station, t)
                     leg = self.leg_surface(w, station, t, at, sgn)
                     junction = self.major_surface(nid, px, py)
                     worst = max(worst, abs(leg - junction))
