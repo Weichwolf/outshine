@@ -10,6 +10,8 @@
 namespace outshine {
 
 inline constexpr double kCrossfall = 0.025;
+inline constexpr double kPavementLipM = 0.05;
+inline constexpr double kSealedDepthM = 0.30;
 
 enum class RoadProfile : uint8_t { Rounded, Simple, Kerbed };
 
@@ -75,9 +77,6 @@ public:
   virtual ~RoadMesher() = default;
   RoadMesher(const RoadMesher &) = delete;
   RoadMesher &operator=(const RoadMesher &) = delete;
-
-  virtual void
-  Design(std::span<RoadStation> along, double mostGradient, double leastCrestK) const = 0;
 
   [[nodiscard]] virtual RoadTallied
   Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const = 0;

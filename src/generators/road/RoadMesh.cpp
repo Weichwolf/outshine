@@ -25,7 +25,6 @@ constexpr double kKerbAcrossM = 0.35;
 constexpr double kShoulderDipM = 0.10;
 constexpr double kShoulderFraction = 0.35;
 
-constexpr double kSealedDepthM = 0.30;
 constexpr double kTrackDepthM = 0.25;
 
 constexpr double kSnapM = 0.001;
@@ -34,37 +33,14 @@ double Snapped(double metres) {
   return std::round(metres / kSnapM) * kSnapM;
 }
 
-void Push(RoadRaised &into, double eastM, double upM, double southM, const Vec3f &wearsLinear) {
-  into.PositionM.push_back(static_cast<float>(Snapped(eastM)));
-  into.PositionM.push_back(static_cast<float>(Snapped(upM)));
-  into.PositionM.push_back(static_cast<float>(Snapped(southM)));
-  into.NormalM.insert(into.NormalM.end(), {0.0f, 1.0f, 0.0f});
+void Vertex(RoadRaised &into,
+            const std::array<double, 3> &at,
+            const Vec3 &normal,
+            const Vec3f &wearsLinear) {
+  for (const double one : at) { into.PositionM.push_back(static_cast<float>(Snapped(one))); }
+  for (int axis = 0; axis < 3; ++axis) { into.NormalM.push_back(static_cast<float>(normal[axis])); }
   into.ColourRgba.insert(into.ColourRgba.end(),
                          {wearsLinear[0], wearsLinear[1], wearsLinear[2], 1.0f});
-}
-
-void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
-  const auto at = [&into](uint32_t one) { return &into.PositionM[static_cast<size_t>(one) * 3]; };
-  const float *pa = at(a);
-  const float *pb = at(b);
-  const float *pc = at(c);
-  const Vec3 u = {{static_cast<double>(pb[0]) - pa[0],
-                   static_cast<double>(pb[1]) - pa[1],
-                   static_cast<double>(pb[2]) - pa[2]}};
-  const Vec3 v = {{static_cast<double>(pc[0]) - pa[0],
-                   static_cast<double>(pc[1]) - pa[1],
-                   static_cast<double>(pc[2]) - pa[2]}};
-  const Vec3 n = {
-      {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]}};
-  const double run = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-  if (!(run > kParallelCross)) { return; }
-  for (const uint32_t one : {a, b, c}) {
-    for (int axis = 0; axis < 3; ++axis) {
-      into.NormalM[static_cast<size_t>(one) * 3 + static_cast<size_t>(axis)] +=
-          static_cast<float>(n[axis] / run);
-    }
-  }
-  into.Index.insert(into.Index.end(), {a, b, c});
 }
 
 } // namespace
@@ -86,12 +62,17 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
   centreGrade /= static_cast<double>(gates.size());
 
   struct Corner {
-    double EastM, SouthM, GradeM, AroundRad;
+    double EastM = 0.0;
+    double SouthM = 0.0;
+    double GradeM = 0.0;
+    double AroundRad = 0.0;
+    size_t Gate = 0;
   };
 
   std::vector<Corner> around;
   around.reserve(gates.size() * 2u);
-  for (const auto &gate : gates) {
+  for (size_t at = 0; at < gates.size(); ++at) {
+    const RoadGate &gate = gates[at];
     const double sideE = -gate.OutS * gate.HalfWidthM;
     const double sideS = gate.OutE * gate.HalfWidthM;
     for (const double hand : {1.0, -1.0}) {
@@ -100,28 +81,44 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
       around.push_back(Corner{.EastM = eastM,
                               .SouthM = southM,
                               .GradeM = gate.GradeM,
-                              .AroundRad = std::atan2(southM - centreS, eastM - centreE)});
+                              .AroundRad = std::atan2(southM - centreS, eastM - centreE),
+                              .Gate = at * 2u + (hand > 0.0 ? 0u : 1u)});
     }
   }
-  std::ranges::sort(around,
-                    [](const Corner &a, const Corner &b) { return a.AroundRad < b.AroundRad; });
-
-  const auto first = static_cast<uint32_t>(into.PositionM.size() / 3);
-  Push(into, centreE, centreGrade, centreS, wearsLinear);
-  Push(into, centreE, centreGrade - kSealedDepthM, centreS, wearsLinear);
-  for (const Corner &one : around) {
-    Push(into, one.EastM, one.GradeM, one.SouthM, wearsLinear);
-    Push(into, one.EastM, one.GradeM - kSealedDepthM, one.SouthM, wearsLinear);
-  }
-
+  std::ranges::sort(around, [](const Corner &a, const Corner &b) {
+    return a.AroundRad != b.AroundRad ? a.AroundRad < b.AroundRad : a.Gate < b.Gate;
+  });
   const auto rim = static_cast<uint32_t>(around.size());
+  const auto top = static_cast<uint32_t>(into.PositionM.size() / 3);
+  Vertex(into, {centreE, centreGrade, centreS}, {{0.0, 1.0, 0.0}}, wearsLinear);
+  for (const Corner &one : around) {
+    Vertex(into, {one.EastM, one.GradeM, one.SouthM}, {{0.0, 1.0, 0.0}}, wearsLinear);
+  }
+  const auto bottom = static_cast<uint32_t>(into.PositionM.size() / 3);
+  Vertex(into, {centreE, centreGrade - kSealedDepthM, centreS}, {{0.0, -1.0, 0.0}}, wearsLinear);
+  for (const Corner &one : around) {
+    Vertex(
+        into, {one.EastM, one.GradeM - kSealedDepthM, one.SouthM}, {{0.0, -1.0, 0.0}}, wearsLinear);
+  }
   for (uint32_t at = 0; at < rim; ++at) {
-    const uint32_t here = first + 2u + at * 2u;
-    const uint32_t next = first + 2u + ((at + 1u) % rim) * 2u;
-    Facet(into, first, here, next);
-    Facet(into, first + 1u, next + 1u, here + 1u);
-    Facet(into, here, here + 1u, next + 1u);
-    Facet(into, here, next + 1u, next);
+    const uint32_t next = (at + 1u) % rim;
+    into.Index.insert(into.Index.end(), {top, top + 1u + next, top + 1u + at});
+    into.Index.insert(into.Index.end(), {bottom, bottom + 1u + at, bottom + 1u + next});
+    const Corner &here = around[at];
+    const Corner &after = around[next];
+    Vec3 outward = {{0.5 * (here.EastM + after.EastM) - centreE,
+                     0.0,
+                     0.5 * (here.SouthM + after.SouthM) - centreS}};
+    const double run = std::sqrt(outward[0] * outward[0] + outward[2] * outward[2]);
+    if (!(run > kParallelCross)) { continue; }
+    outward[0] /= run;
+    outward[2] /= run;
+    const auto side = static_cast<uint32_t>(into.PositionM.size() / 3);
+    Vertex(into, {here.EastM, here.GradeM, here.SouthM}, outward, wearsLinear);
+    Vertex(into, {here.EastM, here.GradeM - kSealedDepthM, here.SouthM}, outward, wearsLinear);
+    Vertex(into, {after.EastM, after.GradeM, after.SouthM}, outward, wearsLinear);
+    Vertex(into, {after.EastM, after.GradeM - kSealedDepthM, after.SouthM}, outward, wearsLinear);
+    into.Index.insert(into.Index.end(), {side, side + 1u, side + 3u, side, side + 3u, side + 2u});
   }
 }
 
@@ -130,9 +127,7 @@ namespace {
 constexpr double kLayWithinM = 0.5;
 constexpr double kLayTightestM = 5.5;
 constexpr double kSagittaM = 0.20;
-constexpr int kProfilePasses = 24;
 constexpr double kLeastStepM = 2.0;
-constexpr double kShutM = 0.5;
 constexpr double kMostStepM = 32.0;
 
 double StepFor(double radiusM) {
@@ -258,70 +253,6 @@ bool LayPiece(std::span<const double> eastNorthM,
 }
 
 } // namespace
-
-void RoadMesh::Design(std::span<RoadStation> along, double mostGradient, double leastCrestK) const {
-  if (along.size() < 3 || !(mostGradient > 0.0) || !(leastCrestK > 0.0)) { return; }
-
-  std::vector<double> reached(along.size(), 0.0);
-  for (size_t one = 1; one < along.size(); ++one) {
-    const double spanE = along[one].EastM - along[one - 1u].EastM;
-    const double spanS = along[one].SouthM - along[one - 1u].SouthM;
-    reached[one] = reached[one - 1u] + std::sqrt(spanE * spanE + spanS * spanS);
-  }
-
-  std::vector<double> grade(along.size() - 1u, 0.0);
-  for (size_t one = 0; one + 1u < along.size(); ++one) {
-    const double span = reached[one + 1u] - reached[one];
-    grade[one] = span > kLeastTurnRad ? (along[one + 1u].GradeM - along[one].GradeM) / span : 0.0;
-    grade[one] = std::clamp(grade[one], -mostGradient, mostGradient);
-  }
-
-  for (int pass = 0; pass < kProfilePasses; ++pass) {
-    for (size_t one = 0; one + 2u < along.size(); ++one) {
-      const double span = 0.5 * (reached[one + 2u] - reached[one]);
-      if (!(span > kLeastTurnRad)) { continue; }
-      const double most = span / (100.0 * leastCrestK);
-      const double apart = grade[one + 1u] - grade[one];
-      if (std::fabs(apart) <= most) { continue; }
-      const double give = 0.5 * (std::fabs(apart) - most) * (apart > 0.0 ? 1.0 : -1.0);
-      grade[one] += give;
-      grade[one + 1u] -= give;
-      grade[one] = std::clamp(grade[one], -mostGradient, mostGradient);
-      grade[one + 1u] = std::clamp(grade[one + 1u], -mostGradient, mostGradient);
-    }
-  }
-
-  std::vector<double> asFound(along.size(), 0.0);
-  for (size_t one = 0; one < along.size(); ++one) { asFound[one] = along[one].GradeM; }
-  for (size_t one = 1; one < along.size(); ++one) {
-    along[one].GradeM =
-        along[one - 1u].GradeM + grade[one - 1u] * (reached[one] - reached[one - 1u]);
-  }
-  {
-    const double shutE = along[along.size() - 1u].EastM - along[0].EastM;
-    const double shutS = along[along.size() - 1u].SouthM - along[0].SouthM;
-    const double whole = reached[along.size() - 1u];
-    if (shutE * shutE + shutS * shutS < kShutM * kShutM && whole > kLeastTurnRad) {
-      const double adrift = along[along.size() - 1u].GradeM - along[0].GradeM;
-      for (size_t one = 0; one < along.size(); ++one) {
-        along[one].GradeM -= adrift * reached[one] / whole;
-      }
-    }
-  }
-  double apart = 0.0;
-  size_t over = 0;
-  for (size_t one = 0; one < along.size(); ++one) {
-    if (along[one].Node == 0u) { continue; }
-    apart += along[one].GradeM - asFound[one];
-    ++over;
-  }
-  if (over == 0) {
-    for (size_t one = 0; one < along.size(); ++one) { apart += along[one].GradeM - asFound[one]; }
-    over = along.size();
-  }
-  apart /= static_cast<double>(over);
-  for (auto &one : along) { one.GradeM -= apart; }
-}
 
 RoadTallied
 RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const {

@@ -100,7 +100,30 @@ def apart(one, two):
         "Box": box,
         "Rows": len(rows),
         "Loudest": loudest[:6],
+        "Dark": (darkness(a, chA, wideA), darkness(b, chB, wideB)),
     }
+
+
+def darkness(pixels, channels, wide):
+    """Pure black cannot happen under a sky: every surface the sun misses still gets the sky's
+    light, so a (0, 0, 0) pixel is a hole, an unlit face or a normal pointing the wrong way.
+    Counts the pure black and the near-black (every channel under kDarkOf255) with where the
+    first ones stand, for both pictures, so a change that makes a picture darker is named."""
+    black = 0
+    dark = 0
+    first = []
+    for at in range(0, len(pixels), channels):
+        r, g, b = pixels[at], pixels[at + 1], pixels[at + 2]
+        if r == 0 and g == 0 and b == 0:
+            black += 1
+            if len(first) < 3:
+                first.append(((at // channels) % wide, (at // channels) // wide))
+        elif r < kDarkOf255 and g < kDarkOf255 and b < kDarkOf255:
+            dark += 1
+    return {"Black": black, "Dark": dark, "First": first}
+
+
+kDarkOf255 = 20
 
 
 def main(argv):
@@ -121,6 +144,14 @@ def main(argv):
         print(f"  WHERE x {x0}..{x1} y {y0}..{y1}, over {told['Rows']} row(s)")
         for gap, x, y, before, after in told["Loudest"]:
             print(f"  {gap:3d} at ({x:4d},{y:4d}) before {before} after {after}")
+    before, after = told["Dark"]
+    print(
+        f"  BLACK (0,0,0) before {before['Black']} after {after['Black']}; "
+        f"near-black (every channel under {kDarkOf255}) before {before['Dark']} after {after['Dark']}"
+    )
+    for name, one in (("before", before), ("after", after)):
+        if one["First"]:
+            print(f"  black {name} stands first at {one['First']}")
     return 0
 
 

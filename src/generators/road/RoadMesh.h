@@ -12,8 +12,6 @@ namespace outshine::Generators {
 
 class RoadMesh final : public RoadMesher {
 public:
-  void Design(std::span<RoadStation> along, double mostGradient, double leastCrestK) const override;
-
   [[nodiscard]] RoadTallied
   Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const override;
 

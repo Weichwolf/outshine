@@ -68,8 +68,11 @@ On the lattice (board:2115), every step is a write into a grid and not a search 
       so the floor claim is one-sided and the foundation's depth is published beside it
 - [x] A road's cross-slope is level: every node inside a filling corridor piece reads the
       piece's graded plane, 0.000027 m at OldTown, 17.8 m above and 26.6 m below before
-- [ ] A road's grade along matches the terrain it crosses within the class's bound: corridor
-      pieces at OldTown ask for 60-90 m of yield, the grade solve's defect, with board:2101
+- [x] A road's grade along IS the terrain's: `RoadMesh::Design`, which clamped the grade to the
+      class bound and integrated the clamp into a road floating for the rest of its length,
+      left the seam (board:2101, 2026-09-05); the 60-90 m yields were the corridor's drape
+      sampled mirrored across the east axis, not the grade -- corrected there. The class bound
+      is a measure now and no longer an edit
 - [ ] The junction solve publishes its residual and it is under the bar it derives; no lane
       moves further than its class's gradient allows over its length
 - [ ] `streets: vertices FLYING` returns as a CASE with an oracle, not a ledger line, and reads 0

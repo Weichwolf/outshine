@@ -40,6 +40,9 @@ public:
     const Drape &Draped;
     const std::shared_ptr<const ClassStructure> &Classes;
     std::chrono::steady_clock::time_point CensusAt;
+    double EyeLatDeg = 0.0;
+    double EyeLonDeg = 0.0;
+    double FocalPx = 0.0;
   };
 
   void Lay(const Site &site,
@@ -64,11 +67,55 @@ private:
     const TangentFrame &Standing;
     const std::shared_ptr<const ClassStructure> &Classes;
     int WaterRow = -1;
+    double EyeLatDeg = 0.0;
+    double EyeLonDeg = 0.0;
+    double FocalPx = 0.0;
+  };
+
+  struct Edge {
+    uint32_t Lane = 0;
+    uint32_t First = 0;
+    uint32_t Count = 0;
+    std::array<uint64_t, 2> NodeAt{};
+    std::array<double, 2> CutM{};
+    std::array<double, 2> GradeAtM{};
+    std::array<bool, 2> Joined{};
+  };
+
+  struct Leg {
+    uint32_t Edge = 0;
+    uint8_t End = 0;
+    double AngleRad = 0.0;
+    double HalfM = 0.0;
+    double CutM = 0.0;
+  };
+
+  struct Junction {
+    uint64_t Node = 0;
+    double EastM = 0.0;
+    double SouthM = 0.0;
+    double GradeM = 0.0;
+    std::vector<Leg> Legs;
+    std::vector<RoadGate> Gates;
   };
 
   struct Paved {
     std::vector<Measure> Notes;
     std::vector<std::vector<RoadStation>> Designed;
+    std::vector<Edge> Edges;
+    std::vector<std::pair<uint32_t, uint32_t>> EdgesOf;
+    std::vector<Junction> Junctions;
+    std::vector<Yields> UnderJunctions;
+    size_t Continuations = 0;
+    size_t UnseenWays = 0;
+    size_t LegsCut = 0;
+    double DeepestCutM = 0.0;
+    double MostOffGroundM = 0.0;
+    size_t RampStations = 0;
+    double LongestRampM = 0.0;
+    double MostLiftedM = 0.0;
+    double YieldsMs = 0.0;
+    size_t EdgeStations = 0;
     std::vector<RoadStation> Along;
     std::vector<RoadStation> Finer;
     double FitRadiusTightestM = 0.0;
@@ -76,9 +123,7 @@ private:
     std::vector<double> FitEastNorth;
     double TightestDemandM = 0.0;
     std::vector<double> DeckM;
-    std::vector<double> TrimM;
     std::unordered_map<uint64_t, std::vector<Meets>> AtCrossing;
-    std::unordered_map<uint64_t, std::vector<RoadGate>> Gates;
     std::unordered_map<uint64_t, double> EndM;
     std::unordered_map<uint64_t, double> GroundEndM;
     RoadTallied Swept;
@@ -108,13 +153,6 @@ private:
     double MostRaisedM = 0.0;
     size_t RampsRaised = 0;
     double SteepestRamp = 0.0;
-    size_t EndsTrimmed = 0;
-    size_t EndsStillCrossing = 0;
-    double SharpestForkDeg = 0.0;
-    double DeepestTrimM = 0.0;
-    double ShortestByM = 0.0;
-    double LongestShortM = 0.0;
-    size_t CapsBit = 0;
     double MostOverWaterM = 0.0;
     double FitMs = 0.0;
     double WaterMs = 0.0;
@@ -132,22 +170,24 @@ private:
   [[nodiscard]] static size_t StepsAcross(const Paving &on, Spanning between);
 
   [[nodiscard]] static uint64_t SharedNodeAt(const Paving &on, double latDeg, double lonDeg);
+  [[nodiscard]] static double AwayM(const Paving &on,
+                                    const outshine::Ground::StreetField::Way &lane);
 
   [[nodiscard]] static bool
   StationsAlong(const Paving &on,
                 const outshine::Ground::StreetField::Way &lane,
                 const std::function<bool(LongitudeLatitude, uint64_t)> &station);
 
-  void DesignLane(const Paving &on,
-                  const outshine::Ground::StreetField::Way &lane,
-                  size_t laneAt,
-                  Paved &into) const;
+  static void DesignLane(const Paving &on,
+                         const outshine::Ground::StreetField::Way &lane,
+                         size_t laneAt,
+                         Paved &into);
 
   static double LeastSeen(double held, double seen);
   static void NotesFit(Paved &into, const Fitted &got);
   static void FitAlongLane(Paved &into);
-  static void TrimLaneEnds(size_t laneAt, Paved &into);
-  static void FitLane(size_t laneAt, Paved &into);
+  static void TrimLaneEnds(const Edge &edge, Paved &into);
+  static void FitLane(const Edge &edge, Paved &into);
 
   static void LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
                                   std::span<const double> points,
@@ -192,20 +232,33 @@ private:
 
   static void Bridges(const Paving &on, Paved &into);
 
-  static void Shortens(const outshine::Ground::StreetField &ways,
-                       const outshine::Ground::OsmField &vectors,
-                       Paved &into);
-
   [[nodiscard]] static double StepAlongM(std::span<const RoadStation> along, size_t at);
 
   [[nodiscard]] static std::vector<double> ReachedAlong(std::span<const RoadStation> along);
 
   static void MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into);
 
-  static void LevelsDeckOrApproach(const Paving &on,
-                                   const outshine::Ground::StreetField::Way &lane,
-                                   size_t laneAt,
-                                   Paved &into);
+  static void SplitsEdges(Paved &into);
+  [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
+                                                                             const Paved &into);
+  static void PressesUnder(const Junction &made, double rootsM, Paved &into);
+  static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
+  static void ShapesJunctions(const Paving &on, Paved &into);
+  static void
+  DeckOrRamp(const outshine::Ground::StreetField::Way &lane, const Edge &edge, Paved &into);
+  static void YieldsOf(const Paving &on,
+                       const outshine::Ground::StreetField::Way &lane,
+                       Paved &into,
+                       std::vector<Yields> &corridor);
+  static void IslandOf(const Paving &on,
+                       const outshine::Ground::StreetField::Way &lane,
+                       std::span<const RoadStation> along,
+                       std::vector<Yields> &corridor);
+  void PaveEdge(const Paving &on,
+                size_t edgeAt,
+                Paved &into,
+                std::vector<Yields> &corridor,
+                RoadRaised &pavement) const;
 
   enum class Pass : uint8_t { Designing, Paving };
 
@@ -219,8 +272,6 @@ private:
                 Paved &into,
                 std::vector<Yields> &corridor,
                 RoadRaised &pavement) const;
-
-  [[nodiscard]] static double LevelsWhereWaysMeet(Paved &into);
 
   [[nodiscard]] size_t RaisesTheJunctionBodies(const outshine::Ground::GroundMaterials &wearing,
                                                Paved &into,

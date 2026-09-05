@@ -107,3 +107,145 @@ That is the item's `Corridor` seam filled with CARLA's content.
 Order: the type table and the network first (they replace `DesignLane`'s guesses and feed
 board:2133), then the junction polygon (it deletes the four passes above), then the lane mesh
 with marks and sidewalks, then the per-tile split.
+
+## Landed 2026-09-05: a way is EDGES between nodes, a junction is ONE polygon at ONE height, and a road follows the terrain
+
+The first CARLA/SUMO stage from the table above, and three defects it uncovered on the way,
+each measured before it was touched:
+
+- **edges.** `SplitsEdges` cuts every designed way at its shared nodes (an OSM vertex more
+  than one way owns, or a crossing the snap filed), the way netconvert makes edges of ways;
+  paving, yields, fit and trim run per edge. OldTown: 13 931 edges from the ways
+- **the junction polygon.** `ShapesJunctions` is `NBNodeShapeComputer` reduced to what a
+  height field needs: the legs at a node sorted by their angle 10 m out (`kAngleLookaheadM`,
+  SUMO's `ANGLE_LOOKAHEAD`), every boundary ray -- centreline ± half width, from the ONE
+  centre (the mean of the roots; netconvert joins nodes to one point, this tree's snapped
+  crossings stood up to 10 m apart and their boundaries missed each other by 97 m) -- cut
+  against its clockwise neighbour's, legs within 22.5° or past 160° of each other uncut
+  (SUMO's parallel and continuation rules), the cut plus a 4 m radius (`kJunctionRadiusM`,
+  SUMO's default junction radius), capped by the leg's length. The polygon's height is the
+  DRAPE at the centre, or the deck's `EndM` where a leg is a bridge. The body is the same
+  sealed fan, its gates now on the rim; the legs' rim stations take the rim's height; a
+  node with two continuing legs (past 160°) gets no body. OldTown: 6 074 junctions, 686
+  continuations, deepest cut 31.8 m
+- **the approach.** `DeckOrRamp` fades the rim's OFFSET from the leg's own profile over
+  `|offset| / gradient` metres (the class gradient, 10 % where a class states none,
+  `kSteepestApproach` [SET, the steepest a car road gets]) -- the profile keeps its shape
+  and the junction pulls only its end. Deleted: `Shortens` and its cap bit (`BackOffFor`,
+  `SharpestForkFor`, `kTrimMostWidths`), the Jacobi levelling (`RelaxMeetings`, 24 rounds
+  that never converged and shifted whole lanes), `LevelsDeckOrApproach` (which raised every
+  station of a lane to the CHORD between its end heights -- a road across a valley filled to
+  the earthwork bound), and the gates at lane ends
+
+Three defects found by the measures on the way, and where they stood:
+
+1. **the corridor's yield was measured against the ground MIRRORED across the frame's east
+   axis.** `PaveLane` sampled the drape at `{E, -S}` where `GroundUnder` and the drape both
+   speak south-positive; the yield and the verge relief of every corridor piece compared the
+   road with the ground on the other side of the origin (`Laying.cpp` before the move, the
+   same three lines). Measured at OldTown: 87 000 corridor pieces "worth a stamp" -> 15 000
+   once the sample stood on the road; the 60-90 m yields of board:2121's note were this
+2. **`RoadMesh::Design` clamped the grade to the class bound and INTEGRATED from the first
+   station**, so a road on a hill steeper than its class floated off the ground for the rest
+   of its length (the 40 m "rim lifts"); its crest relaxation (24 passes) then smoothed a
+   whole hill into an arc. The profile follows the terrain now, as RAGE's, CARLA's and
+   OpenDRIVE's do; `Design` left the seam, the class gradient is a measure and no longer an
+   edit
+3. **the junction rays took the 100 m chord** and two legs 30° apart at the node read as
+   parallel 100 m out; the angle and the ray share the 10 m lookahead now
+
+```
+  OldTown, measured 2026-09-05             before      after
+  corridor pieces that press the ground    87 016      15 119
+  above the graded plane before the press  17.8 m      3.4 m
+  below it, filling, before the press      26.6 m      10.6 m
+  the most a rim lifts a road              --          11.2 m
+  the longest approach                     --          112 m
+  the deepest cut                          --          31.8 m
+  everything Paves did                     1 235 ms    814 ms
+```
+
+Two more things the gate found before this landed, both measured:
+
+- **the junction body and the pressed ground were COPLANAR, and the picture was not
+  deterministic.** The polygon's yield pressed the lattice to the deck's height, the body's
+  top stood at the same height, and which triangle won a pixel depended on the order the
+  lattice instances rasterised: Heidelberg rendered four different digests in eight runs
+  (`git stash` of the change: eight of eight identical). Bisected by switching each stage
+  off: the bodies alone or the yields alone were deterministic; both together were not. The
+  references' answer (RAGE, Unreal, CARLA) is that the terrain is the SUBGRADE and the
+  pavement lies on it: the yield presses to the deck less a pavement lip
+  (`kPavementLipM` 0.05 m [SET, an asphalt course over its base]), the body keeps its
+  0.30 m of sealed depth below the deck, and nothing is coplanar. Eight of eight identical
+  after
+- **the body's normals were seeded up and summed across creases**, never normalised, and
+  four float sorts on a bearing decided its fan with no tiebreak (board:2148 carries the
+  audit's list). The body is flat faces with their own vertices now, each normal written
+  unit length from a known winding, and every sort on a bearing breaks its ties by edge and
+  end. Pure black at Heidelberg 11 -> 0; the near-black under 20/255 that remains (164 in
+  the reference, 473 after) is the wedge of board:2144 between two houses, which a pressed
+  node beside it widened -- counted there
+
+**And the lesson the owner named before the numbers did: CARLA shapes every junction because
+CARLA is offline.** The first cut shaped all 95 830 junctions of Shibuya's ring and its heap
+read 1.1 GB. A road is held to the same rule as a building (`Unseen(size, focalPx, awayM)`:
+a feature narrower than a pixel at its distance is not built): a way whose width projects
+under a pixel is left to the ground's class, and two-leg nodes are continuations with no
+body. Measured 2026-09-05:
+
+```
+                             Shibuya                 OldTown
+  ways left to the ground    67 954 of 79 674        3 045 of 5 419
+  junctions shaped           88 858 -> 17 465        5 643 -> 2 476
+  everything Paves did       3 553 -> 1 428 ms       792 -> 638 ms
+  heap live after the lay    929 -> 666 MB           249 -> 240 MB
+  preload waited             9.3 -> 6.8 s
+```
+
+## Decided 2026-09-05: the road is TWO products -- a MAP that is information, and a STRUCTURE that is its picture
+
+Decided with the owner. The engine has one kind of thing a generator hands it: a STRUCTURE
+-- a footprint that stamps the ground, a body, a material -- baked per tile on a worker and
+placed as a piece in the arena (board:2122) under the tile's level of detail. A paved road is
+that: a long thin footprint from kerb to kerb, stamped like a pad but with a grade along it,
+and a slab for a body; a bridge is a roof, a body with no stamp under its deck and stamps
+only where it touches (abutments, piers). Unreal's spline mesh and RAGE's road bounds are
+the same thing beside their buildings; only CARLA separates them, because it is offline.
+What stays the road's own: it crosses tile borders and must meet itself there with one
+profile (a halo of neighbouring stations, as the terrain's), it is a NETWORK with lanes
+and turns (board:2133, board:2134), and a deck's clearance is a crossing's question. So the
+road generator keeps netconvert's semantics and hands STRUCTURE pieces to the buildings'
+pipeline -- the next stage of this item, replacing the corridor bodies and the whole-ring
+lay.
+
+Decided with the owner, and the separation is the design: the generator's two products are
+kept APART.
+
+| product | what it is | level of detail | who reads it |
+|---|---|---|---|
+| **the MAP** | the network: nodes, edges, lanes, widths, one-way, turns, right of way, crossings and their clearance -- netconvert's output as data | none; whole, held as data | wayfinding (board:2133), the driver (board:2134), a mind's `walk(to)` (board:2142) |
+| **the STRUCTURE** | the picture of a piece of the map: footprint stamp, slab, kerb, marks; a bridge a roof | the tile's rung, baked and placed like a building (board:2122) | the renderer, the press |
+
+The structure DERIVES from the map, per tile, and never the other way round; a junction's
+polygon is computed from the map's edges at that node and becomes structure. Nothing in the
+map knows a vertex; nothing in the structure knows a turn.
+
+**Seen by the owner in the final Heidelberg picture, lower left**: a road on a steep cross-slope
+stands on a grey SHELF. It is not a road mesh (a ground road is no geometry yet); it is the
+corridor's fill on the downhill side with its 2:3 batter, which a 26 m lattice cannot draw
+and so draws as a cliff. And the owner's question follows: once a road IS geometry, how does
+it not float? CARLA's answer: there are no projected roads at all; every way is a lane mesh,
+sidewalks are lanes of it, and the Landscape takes its heights by line trace FROM the road
+mesh (`GetHeightForLandscape`) -- the terrain follows the road, so nothing floats and the
+same shelves appear. This tree's answer, by the type table's surface:
+
+| kind | the structure | the ground |
+|---|---|---|
+| sealed road (asphalt, concrete) | slab, kerb, and a SKIRT: side faces from the kerb down to the ground, as a house's walls reach `FootM` | stamped kerb to kerb only (the subgrade); no batter apron on the lattice any more |
+| unsealed way (track, path, bridleway) | none, projected | the class, a shallow rut, no fill |
+| paved area (parking, plaza, pedestrian area) | a pad slab with a skirt, a building of no height | stamped flat |
+| bridge | a roof: deck without a stamp, abutments as skirts | nothing under the deck |
+
+A road cannot float because its skirt always reaches the ground, however coarse the lattice;
+the lattice gets no cliffs because the batter belongs to the structure and not to the
+ground. The corridor's `ApronM` and the `kBatterRun` fill of a corridor go with that stage.

@@ -30,3 +30,10 @@ applies) or a skirt drawn two-sided and lit as ground.
 - [ ] Heidelberg's reference has no pixel darker than the darkest lit ground in that window,
       with the count and the picture in the item
 - [ ] Negative control: the skirt switched off makes the sliver sky-coloured and the count rises
+
+Measured 2026-09-05 with `pixels.py`'s near-black count (every channel under 20/255):
+Heidelberg reads 164 such pixels in the reference and 473 after board:2101's junction press,
+the biggest cluster at (576..600, 624..632): the same wedge, wider, because a corridor yield
+pressed the lattice node beside it. Its colour is (9, 7, 6) -- darker than any shadowed
+wall (70) or roof (90) in the picture, so it is not a lit surface at all: a back face or a
+gap. The stamp made it bigger; the stamp did not make it.

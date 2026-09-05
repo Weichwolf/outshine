@@ -525,7 +525,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                                     .Standing = standing,
                                     .Draped = drapedOver,
                                     .Classes = classStructure,
-                                    .CensusAt = clocks.CensusAt},
+                                    .CensusAt = clocks.CensusAt,
+                                    .EyeLatDeg = over.LatitudeDeg,
+                                    .EyeLonDeg = over.LongitudeDeg,
+                                    .FocalPx = World.Stack.Footprints().FocalPx()},
                                    ground,
                                    &corridor,
                                    &notes);

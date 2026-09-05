@@ -81,3 +81,14 @@ Jura           78f5d62e  p50   2.94  p95   3.44  p99   3.75 ms    0 of 120
 ZurichPlan     1164ef91  p50   4.48  p95   5.16  p99   5.79 ms    0 of 120
 Kaiserberg     7a52aaf9  p50   3.43  p95   3.82  p99   4.20 ms    0 of 120
 Koehlbrand     b7041a12  p50   2.96  p95   3.22  p99   3.48 ms    0 of 120
+
+# 2026-09-05 board:2101 -- edges, one junction polygon at one height on a pressed subgrade, the profile follows the terrain, the LOD gate
+OldTown        b28b86da  p50   2.31  p95   2.44  p99   2.80 ms  0 of 120
+Heidelberg     18673ba9  p50   2.58  p95   2.71  p99   3.01 ms  0 of 120
+Shibuya        94028ab1  p50   7.53  p95   8.63  p99   9.21 ms  0 of 120
+CentralPark    5398441b  p50   4.89  p95   5.72  p99   6.08 ms  0 of 120
+Venice         e381bae5  p50   2.91  p95   3.33  p99   3.66 ms  0 of 120
+Jura           021f9d70  p50   3.03  p95   3.37  p99   3.81 ms  0 of 120
+ZurichPlan     10730b36  p50   6.37  p95   7.14  p99   7.79 ms  0 of 120
+Kaiserberg     77343014  p50   3.59  p95   4.07  p99   4.38 ms  0 of 120
+Koehlbrand     6c627fd3  p50   3.48  p95   3.77  p99   4.31 ms  0 of 120
