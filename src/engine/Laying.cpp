@@ -516,9 +516,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                    "triangles");
   Drape drapedOver{.Surface = surface};
   World.Sheets.ForgetsFields();
-  drapedOver.Field = [this, &over](double eastM, double southM) {
-    return World.Sheets.FieldUpM(
-        World.Stack.Ground(), over.Zoom, {.EastM = eastM, .NorthM = -southM});
+  drapedOver.Field = [this, &over](Drape::EastNorth at) {
+    return World.Sheets.FieldUpM(World.Stack.Ground(), over.Zoom, at);
   };
   if (World.Stack.Ways().Ways().size() != World.NetworkOfWays) {
     const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
@@ -530,6 +529,23 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("network: nodes where three or more edges meet",
                      static_cast<double>(mapped.Junctions),
                      "nodes");
+    Published.Places(
+        "network: points with a height", static_cast<double>(mapped.Elevated.Points), "points");
+    Published.Places("network: points the ground refused a height",
+                     static_cast<double>(mapped.Elevated.Refused),
+                     "points");
+    Published.Places("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
+    Published.Places(
+        "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
+    Published.Places("network: sealed points over ten percent grade",
+                     static_cast<double>(mapped.Elevated.SealedOverTenPercent),
+                     "points");
+    Published.Places("network: points over ten percent grade",
+                     static_cast<double>(mapped.Elevated.OverTenPercent),
+                     "points");
+    Published.Places("network: points over thirty percent grade",
+                     static_cast<double>(mapped.Elevated.OverThirtyPercent),
+                     "points");
     if (!mapped.Refusal.empty()) { Published.Places("network: refused to weave", 1.0, "yes/no"); }
   }
   {

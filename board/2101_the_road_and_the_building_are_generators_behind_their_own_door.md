@@ -270,3 +270,45 @@ ground. The corridor's `ApronM` and the `kBatterRun` fill of a corridor go with 
 Still to come for the map: its own elevation profile (C1, the driving surface analytic,
 errors under a centimetre), the junction polygons computed from it, the lanes as geometry;
 `Path::Network` then stops being a routing graph with a tag and becomes the map.
+
+## Landed 2026-09-05: the MAP, second slice -- an elevation profile per way, C1, analytic
+
+SUMO's netconvert carries z per shape point and interpolates linearly; OpenDRIVE carries an
+`<elevation>` polynomial per section, C1 where sections meet, and CARLA drives on that; Unreal's
+spline meshes are Hermite. Taken: cubic Hermite per segment through the DEM's height at every
+way point, with the slope at a point the central difference of its neighbours (one-sided at the
+ends), so the profile is C1 along a way by construction and interpolates every sample. A point
+that is a NODE takes the node's height, sampled once, so every way through a junction meets it
+at ONE height (C0 across ways). `Path::Network::Elevate(heightOf)`, `Profile(way, s)` giving
+height and grade, `LengthM(way)`; stations are haversine chords on the sphere the network was
+laid on. The driving surface is that function -- analytic, no mesh, no level of detail -- and a
+structure that reads it is within a centimetre of it by reading the same function.
+
+Measured 2026-09-05 from the DEM alone, before any design grade:
+
+```
+  place       points   refused   steepest   sealed steepest   >10 %    sealed >10 %   >30 %
+  OldTown     33 960        0    0.547        0.385            2 955     1 013            95
+  Heidelberg 101 648        0    7.598        5.254           22 131     8 673         2 522
+  Kaiserberg 114 899        0    0.455              --              --        --            --
+```
+
+Looked at, by reverse geocoding the steepest points: OldTown's sealed 0.385 is the
+Himmelsleiter in Detwang, highway=steps on sett -- real, and steps carry no design grade.
+Heidelberg's 7.598 is "5. Ebene" in Schriesheim's vineyard terraces, a mountain_hiking path
+-- a terrace wall inside one 30 m DEM cell, not a path. Heidelberg's sealed 5.254 is the
+Chaisenweg in the Mühltal, highway=unclassified on asphalt: a road cannot stand at 79 degrees,
+so this is the DEM's cell straddling a valley wall. Conclusion: the outliers are of two kinds
+and the type table tells them apart -- steps and paths keep the DEM, roads get a DESIGN GRADE.
+
+**Decided, next slice**: `WayClass::MaxGradient` (a column that exists and reads 0.0) is filled
+from the type table per class -- netconvert's `--geometry.max-grade` is one number, 10 % by
+default; RAS-L and AASHTO give it per class (motorway 4 %, primary 6 %, secondary 8 %,
+residential 12 %, service 15 %; steps and paths none) -- and a profile steeper than its class's
+grade is smoothed to it, nodes re-shared so C0 holds across ways, and the points still over the
+grade after the pass are published. The measure that shows it wrong: a sealed road's steepest
+grade above its class's number after the pass.
+
+Beside it: `Drape::Field` took `(eastM, southM)` and the engine negated north twice on the way
+in and out; it takes `EastNorth` now and `Drape::EastNorth` is the door's `outshine::EastNorth`.
+

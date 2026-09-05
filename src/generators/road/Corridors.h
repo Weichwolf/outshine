@@ -40,6 +40,7 @@ public:
     size_t Nodes = 0;
     size_t Edges = 0;
     size_t Junctions = 0;
+    Path::Network::Elevated Elevated;
     std::string Refusal;
   };
 

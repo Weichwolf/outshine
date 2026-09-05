@@ -574,6 +574,10 @@ bool Network::Weave(std::string &error) {
     for (const Edge &edge : outgoing[node]) { Edges_.push_back(edge); }
   }
 
+  NodeOfPoint_.resize(nodeOf.size());
+  for (size_t at = 0; at < nodeOf.size(); ++at) {
+    NodeOfPoint_[at] = static_cast<uint32_t>(nodeOf[at]);
+  }
   Cells_ = std::move(byCell);
   Woven_ = true;
   return true;
@@ -1119,6 +1123,114 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
   out.LengthM = alongM;
   out.Found = true;
   return out;
+}
+
+Network::Elevated Network::Elevate(const HeightSource &heightOf) {
+  Elevated made;
+  const size_t points = Points_.size() / 2;
+  HeightsM_.assign(points, 0.0);
+  constexpr double kUnknown = std::numeric_limits<double>::quiet_NaN();
+  std::vector<double> atNode(Nodes_.size(), kUnknown);
+  for (size_t at = 0; at < points; ++at) {
+    const size_t node = Woven_ && at < NodeOfPoint_.size() ? NodeOfPoint_[at] : Nodes_.size();
+    std::optional<double> height;
+    if (node < Nodes_.size()) {
+      if (std::isnan(atNode[node])) {
+        const std::optional<double> stood = heightOf(
+            {.LongitudeDeg = Nodes_[node].LongitudeDeg, .LatitudeDeg = Nodes_[node].LatitudeDeg});
+        if (stood) {
+          atNode[node] = *stood;
+          Nodes_[node].HeightM = *stood;
+        }
+      }
+      if (!std::isnan(atNode[node])) { height = atNode[node]; }
+    } else {
+      height = heightOf({.LongitudeDeg = Points_[2 * at + 1], .LatitudeDeg = Points_[2 * at]});
+    }
+    if (height) {
+      HeightsM_[at] = *height;
+      ++made.Points;
+    } else {
+      HeightsM_[at] = at > 0 && WayOf_[at] == WayOf_[at - 1] ? HeightsM_[at - 1] : 0.0;
+      ++made.Refused;
+    }
+  }
+  StationsOfWays();
+  SlopesOfWays();
+  for (size_t at = 0; at < SlopeM_.size(); ++at) {
+    const double grade = std::fabs(SlopeM_[at]);
+    if (grade > 0.10) { ++made.OverTenPercent; }
+    if (grade > 0.30) { ++made.OverThirtyPercent; }
+    made.SteepestGrade = std::max(made.SteepestGrade, grade);
+    if (!Ways_[WayOf_[at]].Sealed) { continue; }
+    if (grade > 0.10) { ++made.SealedOverTenPercent; }
+    made.SteepestSealedGrade = std::max(made.SteepestSealedGrade, grade);
+  }
+  return made;
+}
+
+void Network::StationsOfWays() {
+  StationM_.assign(Points_.size() / 2, 0.0);
+  const Sphere on{.RadiusM = RadiusM_};
+  for (const Way &way : Ways_) {
+    for (size_t at = way.First + 1; at < way.First + way.Count; ++at) {
+      const LongitudeLatitude from{.LongitudeDeg = Points_[2 * at - 1],
+                                   .LatitudeDeg = Points_[2 * at - 2]};
+      const LongitudeLatitude to{.LongitudeDeg = Points_[2 * at + 1],
+                                 .LatitudeDeg = Points_[2 * at]};
+      StationM_[at] = StationM_[at - 1] + ApartM(from, to, on);
+    }
+  }
+}
+
+void Network::SlopesOfWays() {
+  SlopeM_.assign(Points_.size() / 2, 0.0);
+  for (const Way &way : Ways_) {
+    if (way.Count < 2) { continue; }
+    const size_t last = way.First + way.Count - 1;
+    for (size_t at = way.First; at <= last; ++at) {
+      const size_t before = at == way.First ? at : at - 1;
+      const size_t after = at == last ? at : at + 1;
+      const double run = StationM_[after] - StationM_[before];
+      SlopeM_[at] = run > 0.0 ? (HeightsM_[after] - HeightsM_[before]) / run : 0.0;
+    }
+  }
+}
+
+double Network::LengthM(size_t way) const {
+  if (way >= Ways_.size() || Ways_[way].Count == 0 || StationM_.size() < Points_.size() / 2) {
+    return 0.0;
+  }
+  return StationM_[Ways_[way].First + Ways_[way].Count - 1];
+}
+
+std::optional<Network::Station> Network::Profile(size_t way, double stationM) const {
+  if (way >= Ways_.size() || Ways_[way].Count == 0 || HeightsM_.size() < Points_.size() / 2) {
+    return std::nullopt;
+  }
+  const Way &held = Ways_[way];
+  const size_t first = held.First;
+  const size_t last = first + held.Count - 1;
+  if (held.Count == 1) { return Station{.HeightM = HeightsM_[first], .Grade = 0.0}; }
+  const double s = std::clamp(stationM, 0.0, StationM_[last]);
+  size_t a = first;
+  while (a + 1 < last && StationM_[a + 1] <= s) { ++a; }
+  const size_t b = a + 1;
+  const double run = StationM_[b] - StationM_[a];
+  if (run <= 0.0) { return Station{.HeightM = HeightsM_[a], .Grade = SlopeM_[a]}; }
+  const double t = (s - StationM_[a]) / run;
+  const double t2 = t * t;
+  const double t3 = t2 * t;
+  const double h0 = HeightsM_[a];
+  const double h1 = HeightsM_[b];
+  const double m0 = SlopeM_[a] * run;
+  const double m1 = SlopeM_[b] * run;
+  const double height = (2.0 * t3 - 3.0 * t2 + 1.0) * h0 + (t3 - 2.0 * t2 + t) * m0 +
+                        (-2.0 * t3 + 3.0 * t2) * h1 + (t3 - t2) * m1;
+  const double slope = ((6.0 * t2 - 6.0 * t) * h0 + (3.0 * t2 - 4.0 * t + 1.0) * m0 +
+                        (-6.0 * t2 + 6.0 * t) * h1 + (3.0 * t2 - 2.0 * t) * m1) /
+                       run;
+  return Station{.HeightM = height, .Grade = slope};
 }
 
 } // namespace outshine::Path

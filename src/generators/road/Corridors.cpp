@@ -557,6 +557,8 @@ Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
   made.Nodes = net->NodeCount();
   made.Edges = net->EdgeCount();
   made.Junctions = net->JunctionCount();
+  made.Elevated =
+      net->Elevate([&stack](LongitudeLatitude at) { return stack.Ground().At(at).AslM(); });
   made.Network = std::move(net);
   return made;
 }

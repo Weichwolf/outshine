@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <string_view>
 #include <limits>
 #include <type_traits>
@@ -102,6 +103,27 @@ public:
 
   [[nodiscard]] size_t JunctionCount() const;
 
+  struct Elevated {
+    size_t Points = 0;
+    size_t Refused = 0;
+    double SteepestGrade = 0.0;
+    size_t OverTenPercent = 0;
+    size_t OverThirtyPercent = 0;
+    double SteepestSealedGrade = 0.0;
+    size_t SealedOverTenPercent = 0;
+  };
+
+  using HeightSource = std::function<std::optional<double>(LongitudeLatitude)>;
+  [[nodiscard]] Elevated Elevate(const HeightSource &heightOf);
+
+  struct Station {
+    double HeightM = 0.0;
+    double Grade = 0.0;
+  };
+
+  [[nodiscard]] std::optional<Station> Profile(size_t way, double stationM) const;
+  [[nodiscard]] double LengthM(size_t way) const;
+
   struct Crossing {
     uint32_t OverWay = 0, UnderWay = 0;
     double LatitudeDeg = 0.0, LongitudeDeg = 0.0;
@@ -179,6 +201,7 @@ private:
     double MaxGradient = 0.0;
     double MinRadiusM = 0.0;
     double Friction = 0.0;
+    double HeightM = 0.0;
     int Lanes = 0;
   };
 
@@ -198,6 +221,8 @@ private:
   using EdgesByCell = std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>>;
 
   void SortWaysIntoDeclaredOrder();
+  void StationsOfWays();
+  void SlopesOfWays();
   [[nodiscard]] size_t NodeNear(LongitudeLatitude at, const CellsByKey &byCell) const;
   static void FoldWayInto(Node &node, const Way &from);
   void SnapPointsIntoNodes(std::vector<size_t> &nodeOf, CellsByKey &byCell);
@@ -312,6 +337,10 @@ private:
   size_t LeftAlone_ = 0;
   std::vector<double> Points_;
   std::vector<uint32_t> WayOf_;
+  std::vector<uint32_t> NodeOfPoint_;
+  std::vector<double> HeightsM_;
+  std::vector<double> StationM_;
+  std::vector<double> SlopeM_;
   std::vector<Way> Ways_;
   std::vector<Node> Nodes_;
   std::vector<Edge> Edges_;
