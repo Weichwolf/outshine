@@ -172,6 +172,37 @@ of its members' node shapes, so their regions cannot overlap (ten edges carried 
 before); and a roundabout's drivable surface is an ANNULUS, not the hull's disc, because the
 island is not carriageway -- the disc's crown fell 0.375 m to a centre 15 m from the ring.
 
+## What OSM gives a building, and what a generator must decide itself
+
+Measured on taginfo 2026-09-05. `building=*` is on 707 M ways and 70 percent of them say only
+`yes`; `building:levels` is on 6.0 percent, `height` on at most 3.8, `roof:shape` on 1.4
+(gabled 56 %, flat 21, hipped 10), `start_date` -- the only EPOCH the data carries -- on about
+1.5. So the type is nearly always known and everything else nearly never is, and a generator
+that trusted `building=yes` alone would build one thing across the planet.
+
+The classification is therefore ordered, and each step says why it wins over the next: the
+GEOMETRY speaks first where it is unambiguous (eight storeys or 25 m is a tower whatever the
+tag says; 2 000 m2 with two storeys is a hall; 800 m2 with three is industry), then
+`start_date` where it is given, then what the building IS (a four-storey terrace is a
+nineteenth-century block, a two-storey detached house is post-war). The epoch then sets the
+numbers a viewer reads a period from at 200 m:
+
+| epoch | storey | bay | window | sill | cornice | balconies | roofs |
+|---|---|---|---|---|---|---|---|
+| Gruenderzeit (< 1919) | 3.6 m | 3.0 m | 1.2 x 2.2 | 0.85 | yes | yes | gabled, hipped, mansard |
+| interwar (< 1946) | 3.0 | 3.2 | 1.3 x 1.6 | 0.90 | yes | yes | gabled, hipped, flat |
+| post-war (< 1975) | 2.8 | 3.4 | 1.5 x 1.4 | 0.95 | no | yes | gabled, flat, skillion |
+| late 20th (< 2000) | 2.8 | 3.6 | 1.8 x 1.4 | 0.95 | no | yes | flat, skillion, hipped |
+| contemporary | 3.0 | 4.0 | 2.4 x 2.2 | 0.40 | no | yes | flat, skillion |
+| industrial | 6.0 | 6.0 | 2.4 x 1.8 | 3.00 | no | NO | flat, skillion, gabled |
+| hall (retail, station) | 9.0 | 8.0 | 3.0 x 2.0 | 4.00 | no | NO | flat, gabled |
+| sacral | 9.0 | 4.0 | 1.4 x 4.0 | 3.00 | yes | NO | gabled, pyramidal, dome |
+| tower (>= 8 levels) | 3.3 | 3.0 | 2.4 x 2.6 | 0.50 | no | NO | flat |
+
+What a type FORBIDS is checked: no balconies on industry, a hall, a church or a tower; no
+gabled roof on a tower; a storey height inside its band; and no entrance bay on a hall or a
+shed, which have loading doors instead.
+
 ## The facade, and the LOD ladder it hangs on
 
 A facade is a GRAMMAR, deterministic from the footprint and the tags: every wall is cut into

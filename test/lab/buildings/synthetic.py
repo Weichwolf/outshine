@@ -183,16 +183,19 @@ class Building:
         self.cell = cell
         self.levels = float(tags.get("building:levels", 0) or 0)
         self.min_m = float(tags.get("min_height", 0) or 0)
-        self.roof = tags.get("roof:shape", "flat")
+        told_height = float(tags.get("height", 0) or 0)
+        self.style = Style(tags, poly, self.levels, told_height or self.levels * LEVEL_M)
+        self.roof = self.style.roof_for(tags.get("roof:shape"))
         self.axis = principal_axis(poly)
         self.roof_h = float(tags.get("roof:height", 0) or 0) or self._roof_height()
         # OSM's rule, and it decides where the eaves stand: `height` is the WHOLE building,
         # ridge included, while `building:levels` counts the storeys UNDER the roof. Reading
         # levels as the whole height put the eaves inside the top storey and left a three-storey
         # house with one row of windows (seen in the elevation, measured as levels 1 of 3)
-        told = float(tags.get("height", 0) or 0)
-        self.height_m = told if told > 0 else (self.levels * LEVEL_M + self.roof_h if self.levels
-                                               else 3 * LEVEL_M + self.roof_h)
+        told = told_height
+        level_m = self.style.level_m
+        self.height_m = told if told > 0 else (self.levels * level_m + self.roof_h if self.levels
+                                               else 3 * level_m + self.roof_h)
         self.corners = [(x, y, ground.at(x, y)) for (x, y) in list(poly.exterior.coords)[:-1]]
         self.lowest = min(c[2] for c in self.corners)
         self.highest = max(c[2] for c in self.corners)
@@ -429,6 +432,107 @@ class Building:
         return abs(top - want)
 
 
+# ----------------------------------------------------------------------------- type and epoch
+
+# WHAT OSM ACTUALLY DELIVERS, measured on taginfo 2026-09-05 and stated where it matters:
+#   building=*            707 M ways; the top values are yes (70 %), house, residential,
+#                         apartments, garage, hut, detached, industrial, retail, commercial,
+#                         church, school, warehouse, office, farm_auxiliary, barn
+#   building:levels        6.0 % of them
+#   height                <= 3.8 %
+#   roof:shape             1.4 % (gabled 56, flat 21, hipped 10, pyramidal 3, skillion 3)
+#   start_date            ~1.5 % -- the EPOCH where it is given, and nothing where it is not
+#   building:material,    ~1 % each
+#   roof:material
+# So the type is nearly always known and everything else nearly never is. A generator therefore
+# reads the TYPE, reads the EPOCH where start_date says it, and otherwise DERIVES both from
+# what the geometry itself shows -- a footprint of 4 000 m2 with two storeys is a shed whatever
+# the tag says, and twenty storeys is a tower.
+
+EPOCHS = {
+    # name: (level height m, bay m, window w x h, sill m, cornice, balconies, roofs allowed)
+    "gruenderzeit": (3.6, 3.0, (1.2, 2.2), 0.85, True, True, ("gabled", "hipped", "mansard")),
+    "interwar":     (3.0, 3.2, (1.3, 1.6), 0.9, True, True, ("gabled", "hipped", "flat")),
+    "postwar":      (2.8, 3.4, (1.5, 1.4), 0.95, False, True, ("gabled", "flat", "skillion")),
+    "late20":       (2.8, 3.6, (1.8, 1.4), 0.95, False, True, ("flat", "skillion", "hipped")),
+    "contemporary": (3.0, 4.0, (2.4, 2.2), 0.4, False, True, ("flat", "skillion")),
+    "industrial":   (6.0, 6.0, (2.4, 1.8), 3.0, False, False, ("flat", "skillion", "gabled")),
+    "hall":         (9.0, 8.0, (3.0, 2.0), 4.0, False, False, ("flat", "gabled")),
+    "sacral":       (9.0, 4.0, (1.4, 4.0), 3.0, True, False, ("gabled", "pyramidal", "dome")),
+    "tower":        (3.3, 3.0, (2.4, 2.6), 0.5, False, False, ("flat",)),
+}
+
+INDUSTRIAL = {"industrial", "warehouse", "factory", "hangar", "shed", "barn", "farm_auxiliary",
+              "silo", "storage_tank", "works"}
+HALL = {"retail", "supermarket", "sports_hall", "stadium", "hangar", "train_station", "exhibition"}
+SACRAL = {"church", "cathedral", "chapel", "mosque", "synagogue", "temple"}
+HOUSE = {"house", "detached", "semidetached_house", "terrace", "bungalow", "hut", "cabin"}
+
+
+def classify(tags, poly, levels, height_m):
+    """TYPE and EPOCH, deterministically, from what OSM gives and what the geometry shows.
+
+    The order matters and each step says why it wins: a `start_date` is a measurement and beats
+    every inference; a footprint's shape and size beat a vague `building=yes`; and the tag is
+    read last. `building=yes` is 70 percent of the planet's buildings, so a generator that
+    trusted it alone would build one thing everywhere."""
+    kind = (tags.get("building") or "yes").lower()
+    area = poly.area
+    slender = math.sqrt(area) if area > 0 else 1.0
+    # 1. the geometry speaks first where it is unambiguous
+    if levels >= 8 or height_m >= 25.0:
+        return kind, "tower"
+    if kind in SACRAL:
+        return kind, "sacral"
+    if kind in HALL or (area > 2000.0 and levels <= 2):
+        return kind, "hall"
+    if kind in INDUSTRIAL or (area > 800.0 and levels <= 3 and kind in ("yes", "commercial")):
+        return kind, "industrial"
+    # 2. the epoch, from start_date where it is given
+    told = tags.get("start_date")
+    if told:
+        try:
+            year = int(str(told)[:4])
+        except ValueError:
+            year = 0
+        if year:
+            if year < 1919:
+                return kind, "gruenderzeit"
+            if year < 1946:
+                return kind, "interwar"
+            if year < 1975:
+                return kind, "postwar"
+            if year < 2000:
+                return kind, "late20"
+            return kind, "contemporary"
+    # 3. and where it is not, from what the building IS: a tall narrow terrace with 4+ storeys
+    #    is a nineteenth-century block; a low detached house is post-war; the rest is late 20th
+    if levels >= 4 and kind in ("apartments", "residential", "terrace", "yes"):
+        return kind, "gruenderzeit"
+    if kind in HOUSE and levels <= 2:
+        return kind, "postwar"
+    if slender > 40.0:
+        return kind, "late20"
+    return kind, "late20"
+
+
+class Style:
+    """The epoch's numbers, and what they forbid. A style is not decoration: it sets the storey
+    height, the bay, the window's proportion and whether a balcony or a cornice belongs at all,
+    and those are what a viewer reads a period from at 200 m."""
+
+    def __init__(self, tags, poly, levels, height_m):
+        self.kind, self.epoch = classify(tags, poly, levels, height_m)
+        (self.level_m, self.bay_m, (self.win_w, self.win_h), self.sill_m,
+         self.cornice, self.balconies, self.roofs) = EPOCHS[self.epoch]
+
+    def roof_for(self, told):
+        """The roof OSM says, if this epoch can carry it; otherwise the epoch's first."""
+        if told and told in self.roofs:
+            return told
+        return told if told else self.roofs[0]
+
+
 # ----------------------------------------------------------------------------- the facade
 
 BAY_M = 3.2               # [SET] the bay a European street facade repeats, 2.4 to 4.0 m
@@ -474,7 +578,7 @@ class Facade:
                 # the bays divide the wall EXACTLY: a partial bay at a corner is what makes a
                 # generated facade read as wallpaper, so the count is rounded and the width
                 # follows from it
-                bays = max(1, int(round(length / BAY_M)))
+                bays = max(1, int(round(length / self.b.style.bay_m)))
                 d = ((b[0] - a[0]) / length, (b[1] - a[1]) / length)
                 left = (-d[1], d[0])
                 # on a counter-clockwise ring the interior is to the LEFT; an inner ring (a
@@ -487,10 +591,10 @@ class Facade:
         return out
 
     def levels(self):
-        """FULL levels only: a storey that does not fit under the eaves is not a storey, and
-        rounding up gave a top-floor window standing through the roof (measured)."""
+        """FULL levels only, at the EPOCH's storey height: a storey that does not fit under the
+        eaves is not a storey, and rounding up gave a top-floor window through the roof."""
         rise = self.b.eaves - self.b.pad
-        return max(1, int(math.floor(rise / LEVEL_M + 1e-6)))
+        return max(1, int(math.floor(rise / self.b.style.level_m + 1e-6)))
 
     def cells(self):
         """Every (wall, bay, level) cell and what it carries. Deterministic: the entrance goes in
@@ -505,9 +609,9 @@ class Facade:
                 mid = (bay + 0.5) * w["bay_m"]
                 for level in range(self.levels()):
                     what = "window"
-                    if level == 0 and w is street and bay == w["bays"] // 2:
+                    if level == 0 and w is street and bay == w["bays"] // 2 and self.b.style.epoch not in ("hall", "industrial"):
                         what = "door"
-                    elif level > 0 and self._carries_balcony(w, mid):
+                    elif level > 0 and self.b.style.balconies and self.b.style.epoch in ("gruenderzeit", "interwar", "postwar", "late20", "contemporary") and self._carries_balcony(w, mid):
                         what = "balcony-door"
                     out.append({"wall": w, "bay": bay, "level": level, "what": what})
         return out
@@ -527,7 +631,7 @@ class Facade:
         for c in self.cells():
             w = c["wall"]
             mid = (c["bay"] + 0.5) * w["bay_m"]
-            base = self.b.pad + c["level"] * LEVEL_M
+            base = self.b.pad + c["level"] * self.b.style.level_m
             if c["what"] == "door":
                 one = (w, mid, base + 0.02, DOOR_W, DOOR_H, "door")
             elif c["what"] == "balcony-door":
@@ -536,7 +640,7 @@ class Facade:
                 # door -- full height, no sill -- and the balcony's slab sits at its threshold
                 one = (w, mid, base + 0.02, DOOR_W, DOOR_H, "balcony-door")
             else:
-                one = (w, mid, base + SILL_M, WINDOW_W, WINDOW_H, "window")
+                one = (w, mid, base + self.b.style.sill_m, self.b.style.win_w, self.b.style.win_h, "window")
             if self._fits(one):
                 out.append(one)
         return out
@@ -612,6 +716,14 @@ class Facade:
 
 
 CASES = [
+    ("F1-rect", "G1-flat", {"building": "apartments", "building:levels": 5, "start_date": "1895"}),
+    ("F1-rect", "G1-flat", {"building": "house", "building:levels": 2, "start_date": "1962"}),
+    ("F1-rect", "G1-flat", {"building": "residential", "building:levels": 4, "start_date": "2015"}),
+    ("F7-tower", "G1-flat", {"building": "office", "building:levels": 24}),
+    ("F3-U", "G1-flat", {"building": "industrial", "building:levels": 2}),
+    ("F7-tower", "G1-flat", {"building": "retail", "building:levels": 1}),
+    ("F1-rect", "G1-flat", {"building": "church", "building:levels": 1, "roof:shape": "gabled"}),
+    ("F1-rect", "G1-flat", {"building": "yes", "building:levels": 5}),
     ("F1-rect", "G1-flat", {"building:levels": 3, "roof:shape": "gabled"}),
     ("F1-rect", "G2-cross15", {"building:levels": 3, "roof:shape": "gabled"}),
     ("F1-rect", "G3-cross40", {"building:levels": 2, "roof:shape": "hipped"}),
@@ -660,7 +772,7 @@ def draw(case, b, f):
     for hole in b.poly.interiors:
         ax.add_patch(MplPoly(np.array(hole.coords), closed=True, facecolor="white", edgecolor=ink, lw=1.4))
     for (w, mid, up, ww, hh, kind) in f.openings():
-        if up - b.pad > LEVEL_M * 0.5:
+        if up - b.pad > b.style.level_m * 0.5:
             continue                                     # the plan cuts the ground floor
         p0 = f._point(w, mid - ww / 2)
         p1 = f._point(w, mid + ww / 2)
@@ -736,9 +848,9 @@ def draw(case, b, f):
                 axe.plot([r, r], [base + 0.18, base + 1.0], color=ink, lw=0.5)
             axe.plot([mid - width / 2, mid + width / 2], [base + 1.0] * 2, color=ink, lw=0.8)
         for level in range(f.levels() + 1):
-            z = b.pad + level * LEVEL_M
+            z = b.pad + level * b.style.level_m
             axe.plot([-0.6, 0.0], [z, z], color=ink, lw=0.6)
-            axe.text(-0.8, z, f"+{level * LEVEL_M:.2f}", ha="right", va="center", fontsize=7, color=ink)
+            axe.text(-0.8, z, f"+{level * b.style.level_m:.2f}", ha="right", va="center", fontsize=7, color=ink)
         axe.set_xlim(-4.0, wall["length"] + 1.0)
         axe.set_ylim(min(foot) - 1.5, max(max(sky), max(top)) + 1.0)
         axe.set_aspect("equal"); axe.set_title(label, fontsize=9, loc="left")
@@ -771,9 +883,9 @@ def draw(case, b, f):
     ax.plot(ss, gnd, color=ink, lw=1.4)
     ax.fill_between(ss, min(footz) - 1.2, gnd, facecolor="none", edgecolor="0.55", hatch="////", lw=0.0)
     for level in range(f.levels() + 1):
-        z = b.pad + level * LEVEL_M
+        z = b.pad + level * b.style.level_m
         ax.plot([-half, half], [z, z], color=ink, lw=0.5, ls=(0, (6, 4)))
-        ax.text(half + 0.4, z, f"+{level * LEVEL_M:.2f}", ha="left", va="center", fontsize=7, color=ink)
+        ax.text(half + 0.4, z, f"+{level * b.style.level_m:.2f}", ha="left", va="center", fontsize=7, color=ink)
     ax.annotate("", xy=(-half - 1.2, b.pad), xytext=(-half - 1.2, b.ridge),
                 arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
     ax.text(-half - 1.5, (b.pad + b.ridge) / 2, f"{b.ridge - b.pad:.2f}", rotation=90,
@@ -784,7 +896,8 @@ def draw(case, b, f):
         s.set_visible(False)
 
     tags = ", ".join(f"{k}={v}" for k, v in case[2].items())
-    fig.suptitle(f"{case[0]}  on  {case[1]}   |   {tags}", fontsize=11, x=0.02, ha="left")
+    fig.suptitle(f"{case[0]}  on  {case[1]}   |   {tags}   |   {b.style.kind} / {b.style.epoch}",
+                 fontsize=11, x=0.02, ha="left")
     fig.text(0.02, 0.015,
              f"levels {f.levels()}   bays {sum(w['bays'] for w in f.walls)}   openings {len(f.openings())}   "
              f"balconies {len(f.balconies())}   pad +{b.pad:.2f}   eaves +{b.eaves:.2f}   ridge +{b.ridge:.2f}   "
@@ -805,6 +918,14 @@ def run(case):
     f = Facade(b)
     red = []
     red += f.faults()
+    # what a TYPE forbids: an industrial hall has no balconies and no front door bay, a tower
+    # no gabled roof, a church no bay grid of dwellings
+    if b.style.epoch in ("industrial", "hall", "sacral", "tower") and f.balconies():
+        red.append("balconies on " + b.style.epoch)
+    if b.style.epoch == "tower" and b.roof != "flat":
+        red.append("a tower with a " + b.roof + " roof")
+    if not (2.4 <= b.style.level_m <= 12.0):
+        red.append("storey height out of band")
     ladder = [f.counts(k) for k in range(4)]
     if not all(ladder[k]["triangles"] <= ladder[k + 1]["triangles"] for k in range(3)):
         red.append("LOD not monotone")
@@ -830,7 +951,7 @@ def main(argv):
     for case in picked:
         b, red, f, ladder = run(case)
         flag = "RED " + ",".join(red) if red else "ok"
-        print(f"{case[0]:14s} {case[1]:12s} {str(case[2].get('roof:shape')):10s} {flag:34s} "
+        print(f"{case[0]:12s} {case[1]:11s} {b.style.kind[:11]:11s} {b.style.epoch:13s} {b.roof:9s} {flag:28s} "
               f"open {b.open_edges():3d} bad {b.bad_edges():2d} vol {b.volume():8.1f} "
               f"gap {b.skirt_gap_m():.3f} roof {b.ridge_error_m():.3f} | bays {ladder[0]['bays']:3d} "
               f"levels {ladder[0]['levels']:2d} openings {ladder[3]['openings']:3d} "
