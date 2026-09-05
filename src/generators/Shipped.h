@@ -11,6 +11,7 @@
 #include "DrawSet.h"
 #include "GroundMesher.h"
 #include "RoadMesher.h"
+#include "road/Corridors.h"
 #include "StructureMesher.h"
 #include "GeneratorSet.h"
 #include "VegetationTemplates.h"
@@ -38,6 +39,8 @@ public:
 
   [[nodiscard]] const RoadMesher &Paving() const { return *Paver_; }
 
+  [[nodiscard]] const Corridors &Corridors() const { return *Corridors_; }
+
   [[nodiscard]] const Generator &Offered() const { return *Offered_; }
 
   [[nodiscard]] const GroundMesher &Covering() const { return *Coverer_; }
@@ -47,6 +50,7 @@ private:
   std::unique_ptr<GroundMesher> Coverer_;
   std::unique_ptr<StructureMesher> Shaper_;
   std::unique_ptr<RoadMesher> Paver_;
+  std::unique_ptr<Generators::Corridors> Corridors_;
   std::vector<std::unique_ptr<Making>> Made_;
   std::vector<std::unique_ptr<DrawSource>> Draws_;
   GeneratorSet Placing_;

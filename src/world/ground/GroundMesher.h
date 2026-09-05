@@ -18,6 +18,14 @@ constexpr size_t kZoomLevels = 24;
 
 constexpr int kPatchGrid = 32;
 
+constexpr double kBatterRun = 1.5;
+constexpr double kBatterRise = 1.0 / kBatterRun;
+constexpr double kMostEarthworkM = 30.0;
+constexpr double kLeastApronM = 3.0;
+constexpr double kMostApronM = kMostEarthworkM * kBatterRun;
+constexpr double kStampWorthM = 0.25;
+constexpr double kBrokenGroundM = 1.0;
+
 struct Around {
   double LatitudeDeg = 0.0;
   double LongitudeDeg = 0.0;

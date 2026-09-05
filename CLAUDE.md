@@ -41,6 +41,25 @@ GENERATOR or a DECLARATION -- placing, dressing, lighting, populating -- and the
 that cannot be declared, or a result that cannot be looked at through the door, is a verb the
 only author this engine has cannot use. **A WORLDWIDE SANDBOX, data-driven and never authored.**
 
+**WHAT IT IS FOR: ONE GAME, AND I AM THE ONE WHO BUILDS IT.** The engine is MINE -- the author it
+has no tool for is an AI, and when the engine is done I build the games with it, for one person,
+by declaring them. The game is a single-player open-world RPG over the real Earth, at the level
+of GTA, Cyberpunk and Fallout in what a player does and sees, with this difference: the map is
+the planet, and every character in it is a MIND -- an LLM with a prompt, a memory and a place
+to stand -- and every quest is a scenario's text that those minds carry out. So the engine holds
+no dialogue tree and no quest script. It holds the VERBS a mind needs -- PERCEIVE (what stands
+here, who, when, what weather, by the names the Earth's data gives them) · ACT (walk, say, give,
+take, trigger) · REMEMBER -- and the RULES a declaration sets, against which every act an LLM
+proposes is checked before it happens, because a mind may want what the world does not hold.
+The mind is a PROVIDER on the IO pool and never on the frame path: a character acts on its last
+snapshot while its answer is on the wire, and every answer is logged as an EVENT so a run plays
+back frame for frame without the model. **A game is a scenario, a scenario is text, and a
+scenario that cannot be written is a game I cannot make** -- inventory, ownership, state, time,
+save and load are DECLARATIONS with a round trip, or they do not exist. The proof the engine owes
+before a game is built on it: a minimal RPG (one place, three minds, one quest) declared, played,
+written back and replayed bit for bit; and hours at the frame budget with a walking camera and
+a heap that does not grow.
+
 ## Why
 
 Because a frame that holds 16.7 ms while a world lives inside it is one of the few things in
@@ -112,6 +131,24 @@ the way a paper does — inside the item, never as a third column. **Jolt Physic
 readable** and is the one body that promises determinism across platforms, so for a physics
 question it is cited before Chaos. **Cesium** is cited for anything that streams a planet. A source that cannot be read
 supports a TECHNIQUE and never decides a STRUCTURE.
+
+**CARLA IS CITED FOR THE ROAD AND FOR THE DRIVER, AND SUMO'S netconvert STANDS BEHIND IT.** CARLA
+is MIT and READABLE, and its Digital Twin Tool is the one shipped pipeline that turns an OSM
+extract into a drivable town with no hand in between -- the outshine premise, built by somebody
+else. Read to the bottom it is three bodies: SUMO's `netconvert` (EPL-2.0, readable) imports the
+OSM ways through a type table (`osmNetconvert.typ.xml`: lanes, speed, priority and permissions
+per `highway=*`), joins the nodes, and computes every junction's polygon from the extended lane
+boundaries of its edges (`NBNodeShapeComputer`); its OpenDRIVE writer turns edges into reference
+lines with per-lane widths, an elevation profile and one internal road per connection through a
+junction; and CARLA's `MeshFactory` samples each lane at `vertex_distance` across
+`vertex_width_resolution`, marks it, walls it and adds sidewalks. For anything a road IS -- its
+lanes, its junction, its marks, its network (board:2101, board:2133) -- that is the readable
+baseline, and the driver that CARLA's Traffic Manager puts on it is board:2134's. **CARLA IS
+CITED FOR WHAT A ROAD IS AND HOW A CAR DRIVES IT, AND FOR NOTHING A VIEWER SEES**: its look is
+a simulator's, and the picture stays measured against RAGE and Unreal. **A REFERENCE IS A
+BASELINE**: it is adopted where it is right, corrected where it is measured wrong (a
+Laplacian relaxation of 100 rounds where a grade profile belongs; a flat map where a DEM stands;
+a bake where a frame has to stream), and never a ceiling.
 
 ## Before I write
 

@@ -10,8 +10,6 @@
 
 namespace outshine {
 
-inline constexpr double kBatterRise = 1.0 / 1.5;
-
 inline constexpr uint32_t kNoStamp = 0xFFFFFFFFu;
 inline constexpr uint32_t kHeldStamp = 0xFFFFFFFEu;
 

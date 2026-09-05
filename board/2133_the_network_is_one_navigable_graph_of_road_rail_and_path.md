@@ -71,3 +71,12 @@ says so.
 A junction whose turning relations cannot be derived from the geometry alone -- a grade-
 separated interchange whose ramps OSM tags but does not draw as connected. Then the relation
 comes from the tags (`junction`, `turn:lanes`) and the graph carries a second source, named.
+
+## Cited 2026-09-05: SUMO's netconvert is the readable network builder
+
+CARLA's Digital Twin Tool builds its network with SUMO's `netconvert` (EPL-2.0, readable):
+`NIImporter_OpenStreetMap` reads ways through `osmNetconvert.typ.xml` (per `highway=*` and
+`railway=*`: lanes, speed, priority, one-way, permissions -- road, rail, tram, path in ONE
+table), `NBNodeCont` joins nodes, `NBEdgeCont` resolves lanes and connections, and the same
+graph carries rail. That table and that join are this item's baseline; board:2101 carries the
+per-tile form.

@@ -12,9 +12,7 @@
 #include "Fetching.h"
 #include "HeapProbe.h"
 #include "Shipped.h"
-#include "RoadMesher.h"
 #include "StructureMesher.h"
-#include "Wayfinding.h"
 #include "Rigid.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
@@ -53,8 +51,6 @@
 #include "ScenarioRead.h"
 
 namespace outshine {
-
-struct Fitted;
 
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
@@ -411,212 +407,9 @@ struct Engine::State {
   void
   Models(const TangentFrame &standing, LongitudeLatitude stands, Geometry &ground, Phasing &clocks);
 
-  struct Meets {
-    double EastM = 0.0;
-    double SouthM = 0.0;
-    uint64_t Named = 0;
-  };
-
-  struct Paving {
-    const Ground::StreetField &Ways;
-    const Ground::OsmField &Vectors;
-    std::span<const double> Points;
-    const std::unordered_map<uint64_t, uint32_t> &SharedNodes;
-    const Drape &Draped;
-    const TangentFrame &Standing;
-    const std::shared_ptr<const ClassStructure> &Classes;
-    int WaterRow = -1;
-  };
-
-  struct Paved {
-    std::vector<std::vector<RoadStation>> Designed;
-    std::vector<RoadStation> Along;
-    std::vector<RoadStation> Finer;
-    double FitRadiusTightestM = 0.0;
-    size_t FitsMeasured = 0;
-    std::vector<double> FitEastNorth;
-    double TightestDemandM = 0.0;
-    std::vector<double> DeckM;
-    std::vector<double> TrimM;
-    std::unordered_map<uint64_t, std::vector<Meets>> AtCrossing;
-    std::unordered_map<uint64_t, std::vector<RoadGate>> Gates;
-    std::unordered_map<uint64_t, double> EndM;
-    std::unordered_map<uint64_t, double> GroundEndM;
-    RoadTallied Swept;
-    size_t ChordAdded = 0;
-    size_t DecksOverWater = 0;
-    size_t AskedOverBridge = 0;
-    size_t NamedOverBridge = 0;
-    size_t WetOverBridge = 0;
-    size_t RefusedWays = 0;
-    size_t LaidWays = 0;
-    size_t GroundWays = 0;
-    size_t FitLaid = 0;
-    size_t FitRefused = 0;
-    size_t FitUndrivable = 0;
-    size_t FitTooTight = 0;
-    size_t FitUnsplittable = 0;
-    size_t FitCuts = 0;
-    size_t CrossingsSeen = 0;
-    size_t PairsTested = 0;
-    size_t PairsPruned = 0;
-    size_t FullestCell = 0;
-    double CrossNetworkMs = 0.0;
-    double CrossSweepMs = 0.0;
-    double CrossFilingMs = 0.0;
-    double CrossDecksMs = 0.0;
-    size_t DecksRaised = 0;
-    double MostRaisedM = 0.0;
-    size_t RampsRaised = 0;
-    double SteepestRamp = 0.0;
-    size_t EndsTrimmed = 0;
-    size_t EndsStillCrossing = 0;
-    double SharpestForkDeg = 0.0;
-    double DeepestTrimM = 0.0;
-    double ShortestByM = 0.0;
-    double LongestShortM = 0.0;
-    size_t CapsBit = 0;
-    double MostOverWaterM = 0.0;
-    double FitMs = 0.0;
-    double WaterMs = 0.0;
-    double SweepMs = 0.0;
-    double RestMs = 0.0;
-  };
-
-  static void RefineChords(const Paving &on, Paved &into);
-
-  struct Spanning {
-    size_t Here = 0;
-    size_t Next = 0;
-  };
-
-  [[nodiscard]] static size_t StepsAcross(const Paving &on, Spanning between);
-
-  [[nodiscard]] static uint64_t SharedNodeAt(const Paving &on, double latDeg, double lonDeg);
-
-  [[nodiscard]] static bool
-  StationsAlong(const Paving &on,
-                const Ground::StreetField::Way &lane,
-                const std::function<bool(LongitudeLatitude, uint64_t)> &station);
-
-  void DesignLane(const Paving &on,
-                  const Ground::StreetField::Way &lane,
-                  size_t laneAt,
-                  Paved &into) const;
-
   enum class Laid : uint8_t { Refused, Unchanged, Wanted };
 
   [[nodiscard]] Laid Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded);
-
-  static double LeastSeen(double held, double seen);
-  static void NotesFit(Paved &into, const Fitted &got);
-  static void FitAlongLane(Paved &into);
-  static void TrimLaneEnds(size_t laneAt, Paved &into);
-  static void FitLane(size_t laneAt, Paved &into);
-
-  static void LayLanesIntoNetwork(const Ground::StreetField &ways,
-                                  std::span<const double> points,
-                                  Path::Network &net,
-                                  std::vector<size_t> &netToLane);
-  static void
-  FileCrossing(const Path::Network::Crossing &one, const TangentFrame &standing, Paved &into);
-  void RaiseDeckOver(const Path::Network::Crossing &one,
-                     const Ground::StreetField &ways,
-                     std::span<const size_t> netToLane,
-                     const TangentFrame &standing,
-                     const Drape &drapedOver,
-                     Paved &into) const;
-  void Crosses(const Ground::StreetField &ways,
-               const Ground::OsmField &vectors,
-               const TangentFrame &standing,
-               const Drape &drapedOver,
-               Paved &into) const;
-
-  struct Ends {
-    std::array<uint64_t, 2> Key{};
-    std::array<double, 4> At{};
-  };
-
-  [[nodiscard]] static std::optional<Ends> EndsOf(const Ground::OsmField &vectors,
-                                                  const Ground::StreetField::Way &lane);
-
-  struct Grounded {
-    double EastM = 0.0;
-    double SouthM = 0.0;
-    double GradeM = 0.0;
-  };
-
-  [[nodiscard]] std::optional<Grounded>
-  GroundUnder(const TangentFrame &standing, const Drape &drapedOver, LongitudeLatitude at) const;
-
-  static void RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into);
-
-  [[nodiscard]] static double HighestDeckM(const Paved &over);
-
-  static void EasesRamps(const Ground::StreetField &ways,
-                         const Ground::OsmField &vectors,
-                         double mostDeckM,
-                         Paved &into);
-
-  void GradesApproaches(const Ground::StreetField &ways,
-                        const Ground::OsmField &vectors,
-                        const TangentFrame &standing,
-                        const Drape &drapedOver,
-                        Paved &into) const;
-
-  void SeedsBridgeEnds(const Ground::StreetField &ways,
-                       const Ground::OsmField &vectors,
-                       const TangentFrame &standing,
-                       const Drape &drapedOver,
-                       Paved &into) const;
-
-  void Bridges(const Ground::StreetField &ways,
-               const Ground::OsmField &vectors,
-               const TangentFrame &standing,
-               const Drape &drapedOver,
-               Paved &into);
-
-  static void
-  Shortens(const Ground::StreetField &ways, const Ground::OsmField &vectors, Paved &into);
-
-  [[nodiscard]] static double StepAlongM(std::span<const RoadStation> along, size_t at);
-
-  [[nodiscard]] static std::vector<double> ReachedAlong(std::span<const RoadStation> along);
-
-  void MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into) const;
-
-  static void LevelsDeckOrApproach(const Paving &on,
-                                   const Ground::StreetField::Way &lane,
-                                   size_t laneAt,
-                                   Paved &into);
-
-  enum class Pass : uint8_t { Designing, Paving };
-
-  [[nodiscard]] static constexpr std::string_view Doing(Pass pass) {
-    return pass == Pass::Designing ? "designing" : "paving";
-  }
-
-  void PaveLane(const Paving &on,
-                Pass pass,
-                size_t laneAt,
-                Paved &into,
-                std::vector<Yields> &corridor,
-                RoadRaised &pavement) const;
-
-  [[nodiscard]] static double LevelsWhereWaysMeet(Paved &into);
-
-  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadRaised &pavement) const;
-
-  void TellsWhatTheFitFound(Paved &into);
-  void HandsThePavingOver(const RoadRaised &pavement, Geometry &ground);
-
-  void Paves(const TangentFrame &standing,
-             const std::shared_ptr<const ClassStructure> &classStructure,
-             const Drape &drapedOver,
-             std::vector<Yields> &corridor,
-             RoadRaised &pavement,
-             Geometry &ground,
-             Phasing &clocks);
 
   struct Relieved {
     double Tallest = 0.0;

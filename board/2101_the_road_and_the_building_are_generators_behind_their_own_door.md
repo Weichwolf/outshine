@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Area: engine, generators
 Tags: architecture, owner
 Depends: 2121
@@ -12,7 +12,18 @@ RAGE: terrain is a heightfield the streaming owns, props query it, roads are bak
 cook time. **Both agree**: a thing that stands on the ground ASKS the ground and HANDS BACK a
 request; it never receives the mesh, and the engine never derives the thing.
 
-## Where it stands, measured 2026-09-04
+## Landed 2026-09-05: the road derivation is `Generators::Corridors`
+
+Every function of the derivation moved as it stood into `src/generators/road/Corridors.{h,cpp}`
+(1 285 + 243 lines), one class behind `Shipping::Corridors()`: `Lay(site, geometry, yields,
+notes)` takes the ground stack, the frame, the drape and the class field, appends the streets
+part, hands back the corridor `Yields` and its measures as `Measure`s the engine publishes
+verbatim. `Laying.cpp` 2 155 -> 964 lines, `Grounds` still 560 of them. `Road` and `Street`
+read 0 in `src/engine` and `include/`; what the claim still counts there: `Bridge` 3, `Tunnel`
+3 (`Asking.cpp`, the OSM way counters), `Building` 5, `Terrain` 8 (`TerrainField` and its kin,
+world-tier type names the halo uses), `Seat` 12, `Tree` 5. The nine references bit-identical.
+
+## Where it stood, measured 2026-09-04
 
 ```
   src/engine/Laying.cpp                    2727 lines
@@ -69,3 +80,30 @@ relaxation over a mesh, so the derivation that moves is the SMALLER one.
 
 `make shots` after the move, all nine digests: identical means the cut was a move; a moved one
 names the line that changed behaviour and the move stops until it is understood.
+
+## Decided 2026-09-05: the road generator adopts CARLA's Digital Twin pipeline, corrected
+
+Read to the source, CARLA's Digital Twin Tool (`CarlaTools/.../OpenDriveToMap.cpp`, MIT) is a
+thin driver over two readable bodies, and both are adopted here as the BASELINE of what a road
+generator produces:
+
+| stage | CARLA / SUMO holds | outshine takes | corrected because |
+|---|---|---|---|
+| **type table** | `osmNetconvert.typ.xml`: per `highway=*` the lanes, speed, priority, one-way and permissions (motorway 2 lanes 39.44 m/s prio 14 … residential 1 lane 13.89 m/s prio 3; footway/path 2 m wide, pedestrians only; `railway.*` with `rail`/`tram`) | the same table as a JSON catalogue the way generator reads, one source for lanes, width, speed, class | none -- a declared table where `kLeastRoadM` and per-class guesses stand today |
+| **network** | `netconvert`: ways become edges between nodes, nodes joined within a radius, one-way and lane counts resolved, connections computed per lane | the network of board:2133 (road, rail, path in one graph) | none in kind; built per TILE on the pool so a walk streams it, which netconvert never has to |
+| **junction shape** | `NBNodeShapeComputer`: each edge's left and right lane boundaries extended by `EXT` (100 m, 50 past four edges), parallel edges within `20°` joined, each boundary intersected with its clockwise neighbour, the cut-back distance = intersection offset + a turn radius (`radius * tan(0.5 * turnAngle)`), corners smoothed to `EXT2 = 10 m` | the junction body as that polygon, meshed once per node; the lanes cut back to its rim | replaces `Shortens` (cap bit by fork angle), `BackOffFor`, the `375 m` lift and the 24-round Jacobi levelling: a junction is ONE polygon at ONE height, solved from the meeting profiles |
+| **lane geometry** | OpenDRIVE: a reference line (the inner lane border), `<width sOffset a b c d>` per lane, `<elevation>` profile, marks solid/broken per lane position, `driving`/`sidewalk`/`biking`/`rail` lane types | the corridor model: reference line + lane widths + grade profile + lane types, subject-free at the seam | elevation from the DEM's drape along the line and level across (board:2121), not from the OSM z which is absent |
+| **mesh** | `MeshFactory`: sample each lane every `vertex_distance` (0.5 m) across `vertex_width_resolution` (8), straight lanes as two vertices, marks as quads (`solid` at the resolution, `broken` stepped `resolution * 3`), sidewalks extruded 6 vertices a sample, walls to `wall_height`, chunks of `max_road_length`, then `MergeAndSmooth`: a 100-round Laplacian (λ 0.5) over an R-tree of all vertices | the sweep by lanes at a vertex distance derived from the LOD (board:2123), marks and sidewalks as CARLA cuts them, chunked by tile | NO relaxation: the seam between two chunks is the same profile evaluated twice, so it meets by construction; CARLA smooths because its heights come from a heightmap sampled after the fact |
+| **buildings** | `ProceduralBuildingUtilities`: footprint from OSM, height from OSM or by area, style by size | already the building generator's (board:2138 fronts it to the street) | -- |
+| **terrain** | a 12 800 m landscape from a heightmap or a synthetic deformation | the DEM lattice of board:2115 | CARLA's twin is flat where OSM is silent; the Earth is not |
+
+What "real time" means here and CARLA never needed: netconvert and the mesher run once per
+map over the whole extract. Here the same three stages run PER TILE on the pool, in declared
+order, with the junction polygons of a tile's nodes computed from the edges of the tile and its
+halo (a node's shape needs every edge that meets it, so the halo is one edge length deep),
+and the frame places finished corridor pieces the way it places baked buildings (board:2122).
+That is the item's `Corridor` seam filled with CARLA's content.
+
+Order: the type table and the network first (they replace `DesignLane`'s guesses and feed
+board:2133), then the junction polygon (it deletes the four passes above), then the lane mesh
+with marks and sidewalks, then the per-tile split.

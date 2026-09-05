@@ -43,3 +43,10 @@ today, and nothing should until the network it would drive on exists.
 
 If the physics step cannot hold ten contacting vehicles at 16.7 ms, the graph rung has to
 carry more of them and the crossover is measured before the traffic manager is written.
+
+## Cited 2026-09-05: CARLA is the baseline for the driver, never for the picture
+
+Decided with the owner: CARLA and its Digital Twin Tool are the templates for the OSM half
+(board:2101, board:2133) and for the driver (this item); the look stays measured against RAGE
+and Unreal. The `Traffic Manager` is adopted as a baseline and corrected where a measurement
+of this tree says so -- a reference is a floor, never a ceiling.

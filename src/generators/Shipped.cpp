@@ -24,7 +24,8 @@ Shipping::Shipping()
     : Offered_(std::make_unique<Structures>()),
       Coverer_(std::make_unique<Patchworker>()),
       Shaper_(std::make_unique<BuildingMesh>()),
-      Paver_(std::make_unique<RoadMesh>()) {}
+      Paver_(std::make_unique<RoadMesh>()),
+      Corridors_(std::make_unique<Generators::Corridors>(*Paver_)) {}
 
 Shipping::~Shipping() = default;
 
