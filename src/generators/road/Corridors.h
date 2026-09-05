@@ -53,7 +53,7 @@ public:
 private:
   struct Meets {
     double EastM = 0.0;
-    double SouthM = 0.0;
+    double NorthM = 0.0;
     uint64_t Named = 0;
   };
 
@@ -93,10 +93,10 @@ private:
   struct Junction {
     uint64_t Node = 0;
     double EastM = 0.0;
-    double SouthM = 0.0;
+    double NorthM = 0.0;
     double GradeM = 0.0;
     double SlopeE = 0.0;
-    double SlopeS = 0.0;
+    double SlopeN = 0.0;
     std::vector<Leg> Legs;
     std::vector<RoadGate> Gates;
   };
@@ -215,7 +215,7 @@ private:
 
   struct Grounded {
     double EastM = 0.0;
-    double SouthM = 0.0;
+    double NorthM = 0.0;
     double GradeM = 0.0;
   };
 

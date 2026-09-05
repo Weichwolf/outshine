@@ -1,4 +1,5 @@
 #include "HeightSheets.h"
+#include "math/RenderFrame.h"
 
 #include <algorithm>
 #include <array>
@@ -95,12 +96,13 @@ Render::GroundTile HeightSheets::TileOf(Data::TileId tile,
   for (size_t column = 0; column < 3; ++column) {
     made.Row[column * 4u] = static_cast<float>(Dot(east, *axes[column]));
     made.Row[column * 4u + 1u] = static_cast<float>(Dot(up, *axes[column]));
-    made.Row[column * 4u + 2u] = static_cast<float>(-Dot(north, *axes[column]));
+    made.Row[column * 4u + 2u] =
+        static_cast<float>(RenderFrame::ZOfNorth(Dot(north, *axes[column])));
     made.Row[column * 4u + 3u] = 0.0f;
   }
   made.Row[12] = static_cast<float>(at.EastM);
   made.Row[13] = static_cast<float>(at.UpM);
-  made.Row[14] = static_cast<float>(-at.NorthM);
+  made.Row[14] = static_cast<float>(RenderFrame::ZOfNorth(at.NorthM));
   made.Row[15] = 1.0f;
   made.Corners = {{nw[0], nw[1], ne[0], ne[1], sw[0], sw[1], se[0], se[1]}};
   made.Page = static_cast<float>(page);
@@ -417,7 +419,7 @@ HeightSheets::Soup HeightSheets::SoupOf(const Patchwork &laid, int zoomAtLeast) 
             {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = heightM});
         out.PositionM.push_back(static_cast<float>(stood.EastM));
         out.PositionM.push_back(static_cast<float>(stood.UpM));
-        out.PositionM.push_back(static_cast<float>(-stood.NorthM));
+        out.PositionM.push_back(static_cast<float>(RenderFrame::ZOfNorth(stood.NorthM)));
         if (heightM > out.TallestM) {
           out.TallestM = heightM;
           out.TallestOutM = std::hypot(stood.EastM, stood.NorthM);
@@ -448,7 +450,7 @@ HeightSheets::Pressed
 HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid, double mostEarthworkM) const {
   if (!Framed_ || yields.empty()) { return {}; }
   const int side = Render::GroundLattice::kSide;
-  std::vector<EastSouth> at;
+  std::vector<EastNorth> at;
   std::vector<double> up;
   std::vector<std::pair<size_t, size_t>> where;
   for (size_t sheet = 0; sheet < laid.Sheets.size(); ++sheet) {
@@ -468,7 +470,7 @@ HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid, double most
         const EastNorthUp stood = Frame_.Place({.LongitudeDeg = geo.LongitudeDeg,
                                                 .LatitudeDeg = geo.LatitudeDeg,
                                                 .HeightM = static_cast<double>(one.Nodes[node])});
-        at.push_back({.EastM = stood.EastM, .SouthM = -stood.NorthM});
+        at.push_back({.EastM = stood.EastM, .NorthM = stood.NorthM});
         up.push_back(stood.UpM);
         where.emplace_back(sheet, node);
       }
@@ -487,7 +489,7 @@ HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid, double most
     told.DeepestM = std::max(told.DeepestM, was[one] - up[one]);
     told.RaisedM = std::max(told.RaisedM, up[one] - was[one]);
     const double e = at[one].EastM;
-    const double n = -at[one].SouthM;
+    const double n = at[one].NorthM;
     Vec3 ecef;
     for (int axis = 0; axis < 3; ++axis) {
       ecef[axis] = origin[axis] + e * east[axis] + n * north[axis] + up[one] * upward[axis];
@@ -596,9 +598,9 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
 }
 
 std::optional<double>
-HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastSouth at) {
+HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastNorth at) {
   const double eastM = at.EastM;
-  const double southM = at.SouthM;
+  const double southM = -at.NorthM;
   if (!Framed_) { return std::nullopt; }
   const Vec3 &origin = Frame_.OriginEcef();
   const Vec3 &east = Frame_.EastEcef();

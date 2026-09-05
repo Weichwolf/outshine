@@ -1,4 +1,5 @@
 #include "math/Units.h"
+#include "math/RenderFrame.h"
 #include "RoadMesh.h"
 #include "math/Vec3.h"
 
@@ -50,20 +51,20 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
                         RoadRaised &into) const {
   if (gates.size() < 2) { return; }
   double centreE = 0.0;
-  double centreS = 0.0;
+  double centreZ = 0.0;
   double centreGrade = 0.0;
   for (const auto &gate : gates) {
     centreE += gate.EastM;
-    centreS += gate.SouthM;
+    centreZ += RenderFrame::ZOfNorth(gate.NorthM);
     centreGrade += gate.GradeM;
   }
   centreE /= static_cast<double>(gates.size());
-  centreS /= static_cast<double>(gates.size());
+  centreZ /= static_cast<double>(gates.size());
   centreGrade /= static_cast<double>(gates.size());
 
   struct Corner {
     double EastM = 0.0;
-    double SouthM = 0.0;
+    double ZM = 0.0;
     double GradeM = 0.0;
     double AroundRad = 0.0;
     size_t Gate = 0;
@@ -73,15 +74,15 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
   around.reserve(gates.size() * 2u);
   for (size_t at = 0; at < gates.size(); ++at) {
     const RoadGate &gate = gates[at];
-    const double sideE = -gate.OutS * gate.HalfWidthM;
-    const double sideS = gate.OutE * gate.HalfWidthM;
+    const double sideE = gate.OutN * gate.HalfWidthM;
+    const double sideZ = gate.OutE * gate.HalfWidthM;
     for (const double hand : {1.0, -1.0}) {
       const double eastM = gate.EastM + sideE * hand;
-      const double southM = gate.SouthM + sideS * hand;
+      const double zM = RenderFrame::ZOfNorth(gate.NorthM) + sideZ * hand;
       around.push_back(Corner{.EastM = eastM,
-                              .SouthM = southM,
+                              .ZM = zM,
                               .GradeM = gate.GradeM,
-                              .AroundRad = std::atan2(southM - centreS, eastM - centreE),
+                              .AroundRad = std::atan2(zM - centreZ, eastM - centreE),
                               .Gate = at * 2u + (hand > 0.0 ? 0u : 1u)});
     }
   }
@@ -92,9 +93,9 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
   Vec3 up = {{0.0, 1.0, 0.0}};
   {
     const Vec3 u = {
-        {around[0].EastM - centreE, around[0].GradeM - centreGrade, around[0].SouthM - centreS}};
+        {around[0].EastM - centreE, around[0].GradeM - centreGrade, around[0].ZM - centreZ}};
     const Vec3 v = {
-        {around[1].EastM - centreE, around[1].GradeM - centreGrade, around[1].SouthM - centreS}};
+        {around[1].EastM - centreE, around[1].GradeM - centreGrade, around[1].ZM - centreZ}};
     const Vec3 n = {
         {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]}};
     const double run = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
@@ -105,14 +106,14 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
   }
   const Vec3 down = {{-up[0], -up[1], -up[2]}};
   const auto top = static_cast<uint32_t>(into.PositionM.size() / 3);
-  Vertex(into, {centreE, centreGrade, centreS}, up, wearsLinear);
+  Vertex(into, {centreE, centreGrade, centreZ}, up, wearsLinear);
   for (const Corner &one : around) {
-    Vertex(into, {one.EastM, one.GradeM, one.SouthM}, up, wearsLinear);
+    Vertex(into, {one.EastM, one.GradeM, one.ZM}, up, wearsLinear);
   }
   const auto bottom = static_cast<uint32_t>(into.PositionM.size() / 3);
-  Vertex(into, {centreE, centreGrade - kSealedDepthM, centreS}, down, wearsLinear);
+  Vertex(into, {centreE, centreGrade - kSealedDepthM, centreZ}, down, wearsLinear);
   for (const Corner &one : around) {
-    Vertex(into, {one.EastM, one.GradeM - kSealedDepthM, one.SouthM}, down, wearsLinear);
+    Vertex(into, {one.EastM, one.GradeM - kSealedDepthM, one.ZM}, down, wearsLinear);
   }
   for (uint32_t at = 0; at < rim; ++at) {
     const uint32_t next = (at + 1u) % rim;
@@ -120,18 +121,17 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
     into.Index.insert(into.Index.end(), {bottom, bottom + 1u + at, bottom + 1u + next});
     const Corner &here = around[at];
     const Corner &after = around[next];
-    Vec3 outward = {{0.5 * (here.EastM + after.EastM) - centreE,
-                     0.0,
-                     0.5 * (here.SouthM + after.SouthM) - centreS}};
+    Vec3 outward = {
+        {0.5 * (here.EastM + after.EastM) - centreE, 0.0, 0.5 * (here.ZM + after.ZM) - centreZ}};
     const double run = std::sqrt(outward[0] * outward[0] + outward[2] * outward[2]);
     if (!(run > kParallelCross)) { continue; }
     outward[0] /= run;
     outward[2] /= run;
     const auto side = static_cast<uint32_t>(into.PositionM.size() / 3);
-    Vertex(into, {here.EastM, here.GradeM, here.SouthM}, outward, wearsLinear);
-    Vertex(into, {here.EastM, here.GradeM - kSealedDepthM, here.SouthM}, outward, wearsLinear);
-    Vertex(into, {after.EastM, after.GradeM, after.SouthM}, outward, wearsLinear);
-    Vertex(into, {after.EastM, after.GradeM - kSealedDepthM, after.SouthM}, outward, wearsLinear);
+    Vertex(into, {here.EastM, here.GradeM, here.ZM}, outward, wearsLinear);
+    Vertex(into, {here.EastM, here.GradeM - kSealedDepthM, here.ZM}, outward, wearsLinear);
+    Vertex(into, {after.EastM, after.GradeM, after.ZM}, outward, wearsLinear);
+    Vertex(into, {after.EastM, after.GradeM - kSealedDepthM, after.ZM}, outward, wearsLinear);
     into.Index.insert(into.Index.end(), {side, side + 1u, side + 3u, side, side + 3u, side + 2u});
   }
 }
@@ -286,14 +286,14 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
   reached.reserve(along.size());
   for (size_t one = 0; one < along.size(); ++one) {
     eastNorth.push_back(along[one].EastM);
-    eastNorth.push_back(-along[one].SouthM);
+    eastNorth.push_back(along[one].NorthM);
     grade.push_back(along[one].GradeM);
     if (one == 0) {
       reached.push_back(0.0);
     } else {
       const double spanE = along[one].EastM - along[one - 1u].EastM;
-      const double spanS = along[one].SouthM - along[one - 1u].SouthM;
-      reached.push_back(reached[one - 1u] + std::sqrt(spanE * spanE + spanS * spanS));
+      const double spanN = along[one].NorthM - along[one - 1u].NorthM;
+      reached.push_back(reached[one - 1u] + std::sqrt(spanE * spanE + spanN * spanN));
     }
   }
 
@@ -336,24 +336,24 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
       if (at > 0 && at + 1u < along.size()) {
         const auto facing = [&](size_t one, size_t two) {
           const double runE = along[two].EastM - along[one].EastM;
-          const double runS = along[two].SouthM - along[one].SouthM;
-          const double runM = std::sqrt(runE * runE + runS * runS);
-          return runM > kLeastTurnRad ? std::pair<double, double>{runE / runM, runS / runM}
+          const double runN = along[two].NorthM - along[one].NorthM;
+          const double runM = std::sqrt(runE * runE + runN * runN);
+          return runM > kLeastTurnRad ? std::pair<double, double>{runE / runM, runN / runM}
                                       : std::pair<double, double>{0.0, 0.0};
         };
         const auto back = facing(at, at - 1u);
         const auto on = facing(at, at + 1u);
         const std::array<RoadGate, 2> corner = {{RoadGate{.EastM = along[at].EastM,
-                                                          .SouthM = along[at].SouthM,
+                                                          .NorthM = along[at].NorthM,
                                                           .GradeM = along[at].GradeM,
                                                           .OutE = back.first,
-                                                          .OutS = back.second,
+                                                          .OutN = back.second,
                                                           .HalfWidthM = halfWidthM},
                                                  RoadGate{.EastM = along[at].EastM,
-                                                          .SouthM = along[at].SouthM,
+                                                          .NorthM = along[at].NorthM,
                                                           .GradeM = along[at].GradeM,
                                                           .OutE = on.first,
-                                                          .OutS = on.second,
+                                                          .OutN = on.second,
                                                           .HalfWidthM = halfWidthM}}};
         Junction(std::span<const RoadGate>(corner.data(), 2), wearsLinear, into);
       }

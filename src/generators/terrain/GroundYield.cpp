@@ -43,12 +43,12 @@ public:
     return static_cast<int64_t>(std::floor(metres / CellM_));
   }
 
-  static constexpr uint64_t KeyOf(int64_t cellE, int64_t cellS) {
-    return (static_cast<uint64_t>(cellE + kBias) << 32U) | static_cast<uint64_t>(cellS + kBias);
+  static constexpr uint64_t KeyOf(int64_t cellE, int64_t cellN) {
+    return (static_cast<uint64_t>(cellE + kBias) << 32U) | static_cast<uint64_t>(cellN + kBias);
   }
 
-  [[nodiscard]] uint64_t KeyAt(EastSouth at) const {
-    return KeyOf(CellOf(at.EastM), CellOf(at.SouthM));
+  [[nodiscard]] uint64_t KeyAt(EastNorth at) const {
+    return KeyOf(CellOf(at.EastM), CellOf(at.NorthM));
   }
 
   void Expects(size_t entries) {
@@ -56,15 +56,15 @@ public:
     What_.reserve(entries);
   }
 
-  void Spread(EastSouth low, EastSouth high, uint32_t what) {
+  void Spread(EastNorth low, EastNorth high, uint32_t what) {
     const int64_t fromE = CellOf(low.EastM);
     const int64_t toE = CellOf(high.EastM);
-    const int64_t fromS = CellOf(low.SouthM);
-    const int64_t toS = CellOf(high.SouthM);
-    if ((toE - fromE + 1) * (toS - fromS + 1) > MostCells_) { return; }
+    const int64_t fromN = CellOf(low.NorthM);
+    const int64_t toN = CellOf(high.NorthM);
+    if ((toE - fromE + 1) * (toN - fromN + 1) > MostCells_) { return; }
     for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
-      for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-        Held_.push_back(KeyOf(cellE, cellS));
+      for (int64_t cellN = fromN; cellN <= toN; ++cellN) {
+        Held_.push_back(KeyOf(cellE, cellN));
         What_.push_back(what);
       }
     }
@@ -78,19 +78,19 @@ public:
     Wide_ = 0;
     if (Held_.empty()) { return; }
     LowE_ = std::numeric_limits<int64_t>::max();
-    LowS_ = std::numeric_limits<int64_t>::max();
+    LowN_ = std::numeric_limits<int64_t>::max();
     int64_t highE = std::numeric_limits<int64_t>::min();
-    int64_t highS = std::numeric_limits<int64_t>::min();
+    int64_t highN = std::numeric_limits<int64_t>::min();
     for (const uint64_t key : Held_) {
       const auto cellE = static_cast<int64_t>(key >> 32U) - kBias;
-      const auto cellS = static_cast<int64_t>(key & 0xffffffffU) - kBias;
+      const auto cellN = static_cast<int64_t>(key & 0xffffffffU) - kBias;
       LowE_ = std::min(LowE_, cellE);
-      LowS_ = std::min(LowS_, cellS);
+      LowN_ = std::min(LowN_, cellN);
       highE = std::max(highE, cellE);
-      highS = std::max(highS, cellS);
+      highN = std::max(highN, cellN);
     }
     const int64_t wide = highE - LowE_ + 1;
-    const size_t cells = static_cast<size_t>(wide) * static_cast<size_t>(highS - LowS_ + 1);
+    const size_t cells = static_cast<size_t>(wide) * static_cast<size_t>(highN - LowN_ + 1);
     if (cells > kMostDenseCells) { return; }
     Wide_ = wide;
     First_.assign(cells + 1u, 0u);
@@ -103,13 +103,13 @@ public:
     }
   }
 
-  [[nodiscard]] std::span<const uint32_t> At(EastSouth where) const {
+  [[nodiscard]] std::span<const uint32_t> At(EastNorth where) const {
     if (Wide_ == 0) { return {}; }
     const int64_t cellE = CellOf(where.EastM) - LowE_;
-    const int64_t cellS = CellOf(where.SouthM) - LowS_;
-    if (cellE < 0 || cellS < 0 || cellE >= Wide_) { return {}; }
+    const int64_t cellN = CellOf(where.NorthM) - LowN_;
+    if (cellE < 0 || cellN < 0 || cellE >= Wide_) { return {}; }
     const size_t cell =
-        static_cast<size_t>(cellS) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
+        static_cast<size_t>(cellN) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
     if (cell + 1u >= First_.size()) { return {}; }
     return {Seats_.data() + First_[cell], First_[cell + 1u] - First_[cell]};
   }
@@ -119,15 +119,15 @@ public:
 private:
   [[nodiscard]] size_t SeatOf(uint64_t key) const {
     const int64_t cellE = static_cast<int64_t>(key >> 32U) - kBias - LowE_;
-    const int64_t cellS = static_cast<int64_t>(key & 0xffffffffU) - kBias - LowS_;
-    return static_cast<size_t>(cellS) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
+    const int64_t cellN = static_cast<int64_t>(key & 0xffffffffU) - kBias - LowN_;
+    return static_cast<size_t>(cellN) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
   }
 
   double CellM_;
   int64_t MostCells_;
   bool Settled_ = false;
   int64_t LowE_ = 0;
-  int64_t LowS_ = 0;
+  int64_t LowN_ = 0;
   int64_t Wide_ = 0;
   std::vector<uint64_t> Held_;
   std::vector<uint32_t> What_;
@@ -139,38 +139,38 @@ CellGrid BucketOver(std::span<const Yields> these) {
   CellGrid out({.CellM = kBucketM});
   for (size_t at = 0; at < these.size(); ++at) {
     const Yields &one = these[at];
-    out.Spread({.EastM = one.LowE - one.ApronM, .SouthM = one.LowS - one.ApronM},
-               {.EastM = one.HighE + one.ApronM, .SouthM = one.HighS + one.ApronM},
+    out.Spread({.EastM = one.LowE - one.ApronM, .NorthM = one.LowN - one.ApronM},
+               {.EastM = one.HighE + one.ApronM, .NorthM = one.HighN + one.ApronM},
                static_cast<uint32_t>(at));
   }
   out.Settles();
   return out;
 }
 
-double OutsideRingM(const Yields &held, EastSouth at) {
-  const size_t corners = held.RingEastSouthM.size() / 2u;
+double OutsideRingM(const Yields &held, EastNorth at) {
+  const size_t corners = held.RingEastNorthM.size() / 2u;
   if (corners < 3) { return kBeyondAnyCoordinate; }
   bool inside = false;
   double nearest = kBeyondAnyCoordinate;
   for (size_t edge = 0, last = corners - 1u; edge < corners; last = edge++) {
-    const double aE = held.RingEastSouthM[edge * 2u];
-    const double aS = held.RingEastSouthM[edge * 2u + 1u];
-    const double bE = held.RingEastSouthM[last * 2u];
-    const double bS = held.RingEastSouthM[last * 2u + 1u];
-    if ((aS > at.SouthM) != (bS > at.SouthM) &&
-        at.EastM < (bE - aE) * (at.SouthM - aS) / (bS - aS) + aE) {
+    const double aE = held.RingEastNorthM[edge * 2u];
+    const double aN = held.RingEastNorthM[edge * 2u + 1u];
+    const double bE = held.RingEastNorthM[last * 2u];
+    const double bN = held.RingEastNorthM[last * 2u + 1u];
+    if ((aN > at.NorthM) != (bN > at.NorthM) &&
+        at.EastM < (bE - aE) * (at.NorthM - aN) / (bN - aN) + aE) {
       inside = !inside;
     }
     const double runE = bE - aE;
-    const double runS = bS - aS;
-    const double runM = runE * runE + runS * runS;
+    const double runN = bN - aN;
+    const double runM = runE * runE + runN * runN;
     const double part =
         runM > kLeastTurnRad
-            ? std::clamp(((at.EastM - aE) * runE + (at.SouthM - aS) * runS) / runM, 0.0, 1.0)
+            ? std::clamp(((at.EastM - aE) * runE + (at.NorthM - aN) * runN) / runM, 0.0, 1.0)
             : 0.0;
     const double offE = at.EastM - (aE + runE * part);
-    const double offS = at.SouthM - (aS + runS * part);
-    nearest = std::min(nearest, std::sqrt(offE * offE + offS * offS));
+    const double offN = at.NorthM - (aN + runN * part);
+    nearest = std::min(nearest, std::sqrt(offE * offE + offN * offN));
   }
   return inside ? -nearest : nearest;
 }
@@ -238,7 +238,7 @@ void BidsLand(const Yields &held, Bid bid, Bids *bids) {
 Pressing PressesAt(std::span<const Yields> these,
                    std::span<const uint32_t> over,
                    std::span<const uint8_t> structures,
-                   EastSouth at,
+                   EastNorth at,
                    double wasM,
                    CoveredNodes covered) {
   Bids bids{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
@@ -246,7 +246,7 @@ Pressing PressesAt(std::span<const Yields> these,
     if (!structures.empty() && structures[which] != 0u) { continue; }
     const Yields &held = these[which];
     if (at.EastM < held.LowE - held.ApronM || at.EastM > held.HighE + held.ApronM ||
-        at.SouthM < held.LowS - held.ApronM || at.SouthM > held.HighS + held.ApronM) {
+        at.NorthM < held.LowN - held.ApronM || at.NorthM > held.HighN + held.ApronM) {
       continue;
     }
     const Bid bid{.Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = held.WantsAt(at)};
@@ -279,7 +279,7 @@ Pressing PressesAt(std::span<const Yields> these,
 } // namespace
 
 Pressed PressPoints(std::span<const Yields> these,
-                    std::span<const EastSouth> at,
+                    std::span<const EastNorth> at,
                     std::span<double> upM,
                     double mostEarthworkM) {
   Pressed told;
@@ -321,7 +321,7 @@ Pressed PressPoints(std::span<const Yields> these,
 Floors FloorsOf(std::span<const Yields> these,
                 const Pressed &pressed,
                 Stamp kind,
-                std::span<const EastSouth> at,
+                std::span<const EastNorth> at,
                 Heights heights) {
   const std::span<const double> upM = heights.WrittenM;
   const std::span<const double> wasM = heights.WasM;

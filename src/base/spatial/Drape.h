@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_SPATIAL_DRAPE_H
 
 #include <array>
+#include "math/RenderFrame.h"
 #include <functional>
 #include <optional>
 #include <cmath>
@@ -31,18 +32,18 @@ struct Drape {
   const TriangleBvh &Surface;
   std::function<std::optional<double>(double, double)> Field;
 
-  struct EastSouth {
+  struct EastNorth {
     double EastM = 0.0;
-    double SouthM = 0.0;
+    double NorthM = 0.0;
   };
 
-  [[nodiscard]] double At(EastSouth at, double fallback) const {
+  [[nodiscard]] double At(EastNorth at, double fallback) const {
     if (Field) {
-      const std::optional<double> field = Field(at.EastM, at.SouthM);
+      const std::optional<double> field = Field(at.EastM, RenderFrame::ZOfNorth(at.NorthM));
       return field ? *field : fallback;
     }
-    const std::optional<float> under =
-        Surface.Under(static_cast<float>(at.EastM), static_cast<float>(at.SouthM));
+    const std::optional<float> under = Surface.Under(
+        static_cast<float>(at.EastM), static_cast<float>(RenderFrame::ZOfNorth(at.NorthM)));
     return under ? static_cast<double>(*under) : fallback;
   }
 };

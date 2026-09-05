@@ -1,4 +1,5 @@
 #include <algorithm>
+#include "math/RenderFrame.h"
 #include "math/Vec2.h"
 #include "Carriageway.h"
 #include "Ribbon.h"
@@ -76,7 +77,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
         StandAt(along, {.AlongM = fromM > toM ? toM : fromM, .AcrossM = 0.0, .HalfWidthM = 0.0});
     out.OriginM[0] = first.EastM;
     out.OriginM[1] = surface.HeightM;
-    out.OriginM[2] = -first.NorthM;
+    out.OriginM[2] = RenderFrame::ZOfNorth(first.NorthM);
   }
 
   for (size_t station = 0; station < stations; ++station) {
@@ -97,8 +98,11 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
       Put(out.PositionM,
           eastM - out.OriginM[0],
           stood[which].HeightM - out.OriginM[1],
-          -northM - out.OriginM[2]);
-      Put(out.NormalM, stood[which].NormalM[0], stood[which].NormalM[1], -stood[which].NormalM[2]);
+          RenderFrame::ZOfNorth(northM) - out.OriginM[2]);
+      Put(out.NormalM,
+          stood[which].NormalM[0],
+          stood[which].NormalM[1],
+          RenderFrame::ZOfNorth(stood[which].NormalM[2]));
       out.AcrossM.push_back(static_cast<float>(acrossAt[which]));
     }
     for (size_t which = 0; which < kRibbonAcross; ++which) {
@@ -108,7 +112,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
       Put(out.PositionM,
           eastM - surface.NormalM[0] * section.ThicknessM - out.OriginM[0],
           surface.HeightM - surface.NormalM[1] * section.ThicknessM - out.OriginM[1],
-          -(northM - surface.NormalM[2] * section.ThicknessM) - out.OriginM[2]);
+          RenderFrame::ZOfNorth(northM - surface.NormalM[2] * section.ThicknessM) - out.OriginM[2]);
       Put(out.NormalM, -surface.NormalM[0], -surface.NormalM[1], surface.NormalM[2]);
       out.AcrossM.push_back(static_cast<float>(acrossAt[which]));
     }
@@ -160,7 +164,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     for (size_t which = 0; which < kRibbonAcross * 2; ++which) {
       const size_t from = (static_cast<size_t>(ring) + which) * 3;
       Put(out.PositionM, out.PositionM[from], out.PositionM[from + 1], out.PositionM[from + 2]);
-      Put(out.NormalM, aheadE, 0.0, -aheadN);
+      Put(out.NormalM, aheadE, 0.0, RenderFrame::ZOfNorth(aheadN));
       out.AcrossM.push_back(out.AcrossM[static_cast<size_t>(ring) + which]);
     }
     const auto under = static_cast<uint32_t>(kRibbonAcross);

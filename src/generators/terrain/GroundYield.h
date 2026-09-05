@@ -45,14 +45,14 @@ struct Pressed {
 };
 
 [[nodiscard]] Pressed PressPoints(std::span<const Yields> these,
-                                  std::span<const EastSouth> at,
+                                  std::span<const EastNorth> at,
                                   std::span<double> upM,
                                   double mostEarthworkM);
 
 [[nodiscard]] Floors FloorsOf(std::span<const Yields> these,
                               const Pressed &pressed,
                               Stamp kind,
-                              std::span<const EastSouth> at,
+                              std::span<const EastNorth> at,
                               Heights heights);
 
 } // namespace outshine

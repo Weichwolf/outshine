@@ -17,7 +17,7 @@ enum class RoadProfile : uint8_t { Rounded, Simple, Kerbed };
 
 struct RoadStation {
   double EastM = 0.0;
-  double SouthM = 0.0;
+  double NorthM = 0.0;
   double GradeM = 0.0;
   uint64_t Node = 0;
 };
@@ -31,10 +31,10 @@ struct RoadRaised {
 
 struct RoadGate {
   double EastM = 0.0;
-  double SouthM = 0.0;
+  double NorthM = 0.0;
   double GradeM = 0.0;
   double OutE = 0.0;
-  double OutS = 0.0;
+  double OutN = 0.0;
   double HalfWidthM = 0.0;
 };
 

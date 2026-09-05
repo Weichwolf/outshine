@@ -67,7 +67,7 @@ public:
   [[nodiscard]] size_t Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom);
 
   [[nodiscard]] std::optional<double>
-  FieldUpM(const Ground::GroundStream &ground, int zoom, EastSouth at);
+  FieldUpM(const Ground::GroundStream &ground, int zoom, EastNorth at);
 
   void ForgetsFields() { Fields_.clear(); }
 

@@ -2,6 +2,7 @@
 #define OUTSHINE_CONTENT_SHADE_TANGENTFRAME_H
 
 #include "StoredVertex.h"
+#include "math/RenderFrame.h"
 
 #include <vector>
 #include <span>
@@ -106,7 +107,7 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
     northM = eastMEnu.NorthM;
     places[at * 3] = static_cast<float>(eastM);
     places[at * 3 + 1] = static_cast<float>(upM);
-    places[at * 3 + 2] = static_cast<float>(-northM);
+    places[at * 3 + 2] = static_cast<float>(RenderFrame::ZOfNorth(northM));
     const Vec3f facing = one.norm();
     const Vec3 aim = {{static_cast<double>(facing[0]),
                        static_cast<double>(facing[1]),
@@ -120,7 +121,7 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
     alongNorth = alongEastEnu.NorthM;
     turned[at * 3] = static_cast<float>(alongEast);
     turned[at * 3 + 1] = static_cast<float>(alongUp);
-    turned[at * 3 + 2] = static_cast<float>(-alongNorth);
+    turned[at * 3 + 2] = static_cast<float>(RenderFrame::ZOfNorth(alongNorth));
   }
   return count;
 }

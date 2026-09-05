@@ -1,4 +1,5 @@
 #include "Digest.h"
+#include "math/RenderFrame.h"
 #include "math/Quantile.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
@@ -517,7 +518,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   World.Sheets.ForgetsFields();
   drapedOver.Field = [this, &over](double eastM, double southM) {
     return World.Sheets.FieldUpM(
-        World.Stack.Ground(), over.Zoom, {.EastM = eastM, .SouthM = southM});
+        World.Stack.Ground(), over.Zoom, {.EastM = eastM, .NorthM = -southM});
   };
   {
     std::vector<Measure> notes;
@@ -546,11 +547,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (const Ground::BuildingField::Footprint &one : pads.Footprints()) {
         if (one.PointCount < 3) { continue; }
         Yields made;
-        made.RingEastSouthM.reserve(static_cast<size_t>(one.PointCount) * 2u);
+        made.RingEastNorthM.reserve(static_cast<size_t>(one.PointCount) * 2u);
         made.LowE = kBeyondAnyCoordinate;
         made.HighE = -kBeyondAnyCoordinate;
-        made.LowS = kBeyondAnyCoordinate;
-        made.HighS = -kBeyondAnyCoordinate;
+        made.LowN = kBeyondAnyCoordinate;
+        made.HighN = -kBeyondAnyCoordinate;
         bool whole = true;
         for (uint32_t step = 0; step < one.PointCount && whole; ++step) {
           const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
@@ -563,12 +564,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                                                      .HeightM = static_cast<double>(one.SeatM)});
           const double eastM = seated.EastM;
           const double northM = seated.NorthM;
-          made.RingEastSouthM.push_back(eastM);
-          made.RingEastSouthM.push_back(-northM);
+          made.RingEastNorthM.push_back(eastM);
+          made.RingEastNorthM.push_back(northM);
           made.LowE = std::min(made.LowE, eastM);
           made.HighE = std::max(made.HighE, eastM);
-          made.LowS = std::min(made.LowS, -northM);
-          made.HighS = std::max(made.HighS, -northM);
+          made.LowN = std::min(made.LowN, northM);
+          made.HighN = std::max(made.HighN, northM);
         }
         if (!whole) { continue; }
         {
@@ -580,7 +581,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         made.ApronM = kPadApronM;
         made.YieldM = std::fabs(static_cast<double>(one.SeatM) - static_cast<double>(one.BaseM));
-        made.SeamEastSouthM = made.RingEastSouthM;
+        made.SeamEastNorthM = made.RingEastNorthM;
         yielding.push_back(std::move(made));
       }
     }
@@ -592,11 +593,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2u;
         if (last > points.size()) { continue; }
         Yields made;
-        made.RingEastSouthM.reserve(static_cast<size_t>(lake.PointCount) * 2u);
+        made.RingEastNorthM.reserve(static_cast<size_t>(lake.PointCount) * 2u);
         made.LowE = kBeyondAnyCoordinate;
         made.HighE = -kBeyondAnyCoordinate;
-        made.LowS = kBeyondAnyCoordinate;
-        made.HighS = -kBeyondAnyCoordinate;
+        made.LowN = kBeyondAnyCoordinate;
+        made.HighN = -kBeyondAnyCoordinate;
         std::vector<double> bedM;
         bedM.reserve(lake.PointCount);
         for (uint32_t step = 0; step < lake.PointCount; ++step) {
@@ -605,28 +606,28 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               standing.Place({.LongitudeDeg = points[at + 1],
                               .LatitudeDeg = points[at],
                               .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
-          made.RingEastSouthM.push_back(shore.EastM);
-          made.RingEastSouthM.push_back(-shore.NorthM);
+          made.RingEastNorthM.push_back(shore.EastM);
+          made.RingEastNorthM.push_back(shore.NorthM);
           made.LowE = std::min(made.LowE, shore.EastM);
           made.HighE = std::max(made.HighE, shore.EastM);
-          made.LowS = std::min(made.LowS, -shore.NorthM);
-          made.HighS = std::max(made.HighS, -shore.NorthM);
+          made.LowN = std::min(made.LowN, shore.NorthM);
+          made.HighN = std::max(made.HighN, shore.NorthM);
           bedM.push_back(shore.UpM);
         }
         made.AtE = 0.5 * (made.LowE + made.HighE);
-        made.AtS = 0.5 * (made.LowS + made.HighS);
+        made.AtN = 0.5 * (made.LowN + made.HighN);
         made.SagInv = 1.0 / Data::kWgs84A;
         double plateau = 0.0;
         for (size_t corner = 0; corner < bedM.size(); ++corner) {
-          const double dE = made.RingEastSouthM[corner * 2u] - made.AtE;
-          const double dS = made.RingEastSouthM[corner * 2u + 1u] - made.AtS;
-          plateau += bedM[corner] + 0.5 * (dE * dE + dS * dS) * made.SagInv;
+          const double dE = made.RingEastNorthM[corner * 2u] - made.AtE;
+          const double dN = made.RingEastNorthM[corner * 2u + 1u] - made.AtN;
+          plateau += bedM[corner] + 0.5 * (dE * dE + dN * dN) * made.SagInv;
         }
         made.PlateauM = plateau / static_cast<double>(bedM.size());
         made.ApronM = kWaterBankM;
         made.YieldM = kWaterBedM;
         made.Kind = Stamp::Basin;
-        made.SeamEastSouthM = made.RingEastSouthM;
+        made.SeamEastNorthM = made.RingEastNorthM;
         yielding.push_back(std::move(made));
       }
     }
@@ -751,7 +752,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             northM = placed.NorthM;
             places.push_back(static_cast<float>(eastM));
             places.push_back(static_cast<float>(upM));
-            places.push_back(static_cast<float>(-northM));
+            places.push_back(static_cast<float>(RenderFrame::ZOfNorth(northM)));
             facing.push_back(0.0f);
             facing.push_back(1.0f);
             facing.push_back(0.0f);

@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <Earth.h>
+
 #include "math/Vec3.h"
 
 #include "TileMeshes.h"
@@ -58,30 +60,25 @@ struct Patchwork {
   int CoarsestZoom = 0;
 };
 
-struct EastSouth {
-  double EastM = 0.0;
-  double SouthM = 0.0;
-};
-
 enum class Stamp : uint8_t { Pad, Corridor, Basin };
 
 struct Yields {
-  std::vector<double> RingEastSouthM;
-  double LowE = 0.0, HighE = 0.0, LowS = 0.0, HighS = 0.0;
-  double AtE = 0.0, AtS = 0.0;
+  std::vector<double> RingEastNorthM;
+  double LowE = 0.0, HighE = 0.0, LowN = 0.0, HighN = 0.0;
+  double AtE = 0.0, AtN = 0.0;
   double PlateauM = 0.0;
-  double SlopeE = 0.0, SlopeS = 0.0;
-  std::vector<double> SeamEastSouthM;
+  double SlopeE = 0.0, SlopeN = 0.0;
+  std::vector<double> SeamEastNorthM;
   double ApronM = 0.0;
   double YieldM = 0.0;
   double SagInv = 0.0;
   bool Fills = false;
   Stamp Kind = Stamp::Pad;
 
-  [[nodiscard]] double WantsAt(EastSouth at) const {
+  [[nodiscard]] double WantsAt(EastNorth at) const {
     const double dE = at.EastM - AtE;
-    const double dS = at.SouthM - AtS;
-    return PlateauM + SlopeE * dE + SlopeS * dS - 0.5 * (dE * dE + dS * dS) * SagInv;
+    const double dN = at.NorthM - AtN;
+    return PlateauM + SlopeE * dE + SlopeN * dN - 0.5 * (dE * dE + dN * dN) * SagInv;
   }
 };
 

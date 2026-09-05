@@ -145,7 +145,7 @@ void Corridors::TrimLaneEnds(const Edge &edge, Paved &into) {
     const RoadStation &from = into.Along[at - 1];
     const RoadStation &to = into.Along[at];
     return RoadStation{.EastM = from.EastM + (to.EastM - from.EastM) * part,
-                       .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
+                       .NorthM = from.NorthM + (to.NorthM - from.NorthM) * part,
                        .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
   };
   std::vector<RoadStation> kept;
@@ -162,7 +162,7 @@ void Corridors::FitLane(const Edge &edge, Paved &into) {
   into.FitEastNorth.reserve(into.Along.size() * 2u);
   for (const RoadStation &one : into.Along) {
     into.FitEastNorth.push_back(one.EastM);
-    into.FitEastNorth.push_back(-one.SouthM);
+    into.FitEastNorth.push_back(one.NorthM);
   }
   FitAlongLane(into);
   TrimLaneEnds(edge, into);
@@ -176,11 +176,11 @@ void Corridors::RefineChords(const Paving &on, Paved &into) {
     for (size_t at = 1; at < into.Along.size(); ++at) {
       into.Finer.push_back(into.Along[at - 1u]);
       const double midE = 0.5 * (into.Along[at - 1u].EastM + into.Along[at].EastM);
-      const double midS = 0.5 * (into.Along[at - 1u].SouthM + into.Along[at].SouthM);
+      const double midN = 0.5 * (into.Along[at - 1u].NorthM + into.Along[at].NorthM);
       const double chord = 0.5 * (into.Along[at - 1u].GradeM + into.Along[at].GradeM);
-      const double overM = on.Draped.At({.EastM = midE, .SouthM = midS}, chord);
+      const double overM = on.Draped.At({.EastM = midE, .NorthM = midN}, chord);
       if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
-      into.Finer.push_back(RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
+      into.Finer.push_back(RoadStation{.EastM = midE, .NorthM = midN, .GradeM = overM});
       ++added;
     }
     into.Finer.push_back(into.Along.back());
@@ -259,7 +259,7 @@ void Corridors::DesignLane(const Paving &on,
     const std::optional<Grounded> stood = GroundUnder(on, over);
     if (!stood) { return false; }
     into.Along.push_back(
-        {.EastM = stood->EastM, .SouthM = stood->SouthM, .GradeM = stood->GradeM, .Node = node});
+        {.EastM = stood->EastM, .NorthM = stood->NorthM, .GradeM = stood->GradeM, .Node = node});
     return true;
   };
   whole = StationsAlong(on, lane, station);
@@ -272,15 +272,15 @@ void Corridors::DesignLane(const Paving &on,
   for (RoadStation &one : into.Along) {
     if (one.Node != 0u || into.AtCrossing.empty()) { continue; }
     const auto east = static_cast<int64_t>(std::floor(one.EastM / kCrossCellM));
-    const auto south = static_cast<int64_t>(std::floor(one.SouthM / kCrossCellM));
+    const auto north = static_cast<int64_t>(std::floor(one.NorthM / kCrossCellM));
     const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
-    const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
+    const auto atS = static_cast<uint64_t>(north + 0x20000000LL);
     const auto near = into.AtCrossing.find((atE << 32U) | atS);
     if (near == into.AtCrossing.end()) { continue; }
     for (const auto &met : near->second) {
       const double offE = one.EastM - met.EastM;
-      const double offS = one.SouthM - met.SouthM;
-      if (offE * offE + offS * offS <= kMeetsWithinM * kMeetsWithinM) {
+      const double offN = one.NorthM - met.NorthM;
+      if (offE * offE + offN * offN <= kMeetsWithinM * kMeetsWithinM) {
         one.Node = met.Named;
         break;
       }
@@ -292,8 +292,8 @@ void Corridors::DesignLane(const Paving &on,
 double Corridors::StepAlongM(std::span<const RoadStation> along, size_t at) {
   if (at == 0 || at >= along.size()) { return 0.0; }
   const double spanE = along[at].EastM - along[at - 1].EastM;
-  const double spanS = along[at].SouthM - along[at - 1].SouthM;
-  return std::sqrt(spanE * spanE + spanS * spanS);
+  const double spanN = along[at].NorthM - along[at - 1].NorthM;
+  return std::sqrt(spanE * spanE + spanN * spanN);
 }
 
 std::vector<double> Corridors::ReachedAlong(std::span<const RoadStation> along) {
@@ -310,8 +310,8 @@ void Corridors::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into)
     double lat = 0.0;
     double lon = 0.0;
     const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
-    const double midS = 0.5 * (into.Along[at - 1].SouthM + into.Along[at].SouthM);
-    const LongitudeLatitude midAt = on.Standing.Geo({.EastM = midE, .NorthM = -midS});
+    const double midN = 0.5 * (into.Along[at - 1].NorthM + into.Along[at].NorthM);
+    const LongitudeLatitude midAt = on.Standing.Geo({.EastM = midE, .NorthM = midN});
     lat = midAt.LatitudeDeg;
     lon = midAt.LongitudeDeg;
     double edgeM = 0.0;
@@ -437,66 +437,66 @@ void Corridors::YieldsOf(const Paving &on,
   const auto yieldsAt = std::chrono::steady_clock::now();
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
-    const double runS = into.Along[at].SouthM - into.Along[at - 1u].SouthM;
-    const double runM = std::sqrt(runE * runE + runS * runS);
+    const double runN = into.Along[at].NorthM - into.Along[at - 1u].NorthM;
+    const double runM = std::sqrt(runE * runE + runN * runN);
     if (!(runM > kLeastSpanM)) { continue; }
     const double groundAt = on.Draped.At(
-        {.EastM = into.Along[at].EastM, .SouthM = into.Along[at].SouthM}, into.Along[at].GradeM);
+        {.EastM = into.Along[at].EastM, .NorthM = into.Along[at].NorthM}, into.Along[at].GradeM);
     const double groundBefore =
-        on.Draped.At({.EastM = into.Along[at - 1u].EastM, .SouthM = into.Along[at - 1u].SouthM},
+        on.Draped.At({.EastM = into.Along[at - 1u].EastM, .NorthM = into.Along[at - 1u].NorthM},
                      into.Along[at - 1u].GradeM);
     const double yieldM = std::max(std::fabs(into.Along[at].GradeM - groundAt),
                                    std::fabs(into.Along[at - 1u].GradeM - groundBefore));
-    const double outE = -runS / runM;
-    const double outS = runE / runM;
+    const double outE = runN / runM;
+    const double outN = -runE / runM;
     const double half = static_cast<double>(lane.HalfWidthM) + kVergeM;
     double reliefM = std::fabs(groundAt - groundBefore);
     for (const double hand : {1.0, -1.0}) {
       for (int end = 0; end < 2; ++end) {
         const RoadStation &one = end == 0 ? into.Along[at - 1u] : into.Along[at];
         const double sideE = one.EastM + outE * half * hand;
-        const double sideS = one.SouthM + outS * half * hand;
+        const double sideN = one.NorthM + outN * half * hand;
         reliefM = std::max(
-            reliefM, on.Draped.At({.EastM = sideE, .SouthM = sideS}, one.GradeM) - one.GradeM);
+            reliefM, on.Draped.At({.EastM = sideE, .NorthM = sideN}, one.GradeM) - one.GradeM);
       }
     }
     if (yieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
     Yields made;
-    made.RingEastSouthM = {into.Along[at - 1u].EastM + outE * half,
-                           into.Along[at - 1u].SouthM + outS * half,
+    made.RingEastNorthM = {into.Along[at - 1u].EastM + outE * half,
+                           into.Along[at - 1u].NorthM + outN * half,
                            into.Along[at].EastM + outE * half,
-                           into.Along[at].SouthM + outS * half,
+                           into.Along[at].NorthM + outN * half,
                            into.Along[at].EastM - outE * half,
-                           into.Along[at].SouthM - outS * half,
+                           into.Along[at].NorthM - outN * half,
                            into.Along[at - 1u].EastM - outE * half,
-                           into.Along[at - 1u].SouthM - outS * half};
-    made.LowE = made.HighE = made.RingEastSouthM[0];
-    made.LowS = made.HighS = made.RingEastSouthM[1];
-    for (size_t k = 2; k + 1 < made.RingEastSouthM.size(); k += 2) {
-      made.LowE = std::min(made.LowE, made.RingEastSouthM[k]);
-      made.HighE = std::max(made.HighE, made.RingEastSouthM[k]);
-      made.LowS = std::min(made.LowS, made.RingEastSouthM[k + 1]);
-      made.HighS = std::max(made.HighS, made.RingEastSouthM[k + 1]);
+                           into.Along[at - 1u].NorthM - outN * half};
+    made.LowE = made.HighE = made.RingEastNorthM[0];
+    made.LowN = made.HighN = made.RingEastNorthM[1];
+    for (size_t k = 2; k + 1 < made.RingEastNorthM.size(); k += 2) {
+      made.LowE = std::min(made.LowE, made.RingEastNorthM[k]);
+      made.HighE = std::max(made.HighE, made.RingEastNorthM[k]);
+      made.LowN = std::min(made.LowN, made.RingEastNorthM[k + 1]);
+      made.HighN = std::max(made.HighN, made.RingEastNorthM[k + 1]);
     }
     made.AtE = into.Along[at - 1u].EastM;
-    made.AtS = into.Along[at - 1u].SouthM;
+    made.AtN = into.Along[at - 1u].NorthM;
     made.PlateauM = into.Along[at - 1u].GradeM;
     const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
     made.SlopeE = rise * runE / runM;
-    made.SlopeS = rise * runS / runM;
+    made.SlopeN = rise * runN / runM;
     made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
     made.YieldM = yieldM;
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
     if (rests) {
-      made.SeamEastSouthM = {
+      made.SeamEastNorthM = {
           into.Along[at - 1u].EastM + outE * static_cast<double>(lane.HalfWidthM),
-          into.Along[at - 1u].SouthM + outS * static_cast<double>(lane.HalfWidthM),
+          into.Along[at - 1u].NorthM + outN * static_cast<double>(lane.HalfWidthM),
           into.Along[at].EastM + outE * static_cast<double>(lane.HalfWidthM),
-          into.Along[at].SouthM + outS * static_cast<double>(lane.HalfWidthM),
+          into.Along[at].NorthM + outN * static_cast<double>(lane.HalfWidthM),
           into.Along[at].EastM - outE * static_cast<double>(lane.HalfWidthM),
-          into.Along[at].SouthM - outS * static_cast<double>(lane.HalfWidthM),
+          into.Along[at].NorthM - outN * static_cast<double>(lane.HalfWidthM),
           into.Along[at - 1u].EastM - outE * static_cast<double>(lane.HalfWidthM),
-          into.Along[at - 1u].SouthM - outS * static_cast<double>(lane.HalfWidthM)};
+          into.Along[at - 1u].NorthM - outN * static_cast<double>(lane.HalfWidthM)};
     }
     made.Fills = !lane.Bridge;
     made.Kind = outshine::Stamp::Corridor;
@@ -520,21 +520,21 @@ void Corridors::IslandOf(const Paving &on,
                       std::fabs(on.Points[shutFrom + 1] - on.Points[shutTo + 1]) < 1.0e-7;
     if (shut) {
       Yields island;
-      island.RingEastSouthM.reserve(along.size() * 2u);
+      island.RingEastNorthM.reserve(along.size() * 2u);
       island.LowE = island.HighE = along.front().EastM;
-      island.LowS = island.HighS = along.front().SouthM;
+      island.LowN = island.HighN = along.front().NorthM;
       double summed = 0.0;
       for (const RoadStation &one : along) {
-        island.RingEastSouthM.push_back(one.EastM);
-        island.RingEastSouthM.push_back(one.SouthM);
+        island.RingEastNorthM.push_back(one.EastM);
+        island.RingEastNorthM.push_back(one.NorthM);
         island.LowE = std::min(island.LowE, one.EastM);
         island.HighE = std::max(island.HighE, one.EastM);
-        island.LowS = std::min(island.LowS, one.SouthM);
-        island.HighS = std::max(island.HighS, one.SouthM);
+        island.LowN = std::min(island.LowN, one.NorthM);
+        island.HighN = std::max(island.HighN, one.NorthM);
         summed += one.GradeM;
       }
       island.AtE = along.front().EastM;
-      island.AtS = along.front().SouthM;
+      island.AtN = along.front().NorthM;
       island.PlateauM = summed / static_cast<double>(along.size());
       island.ApronM = kLeastApronM;
       island.YieldM = kBrokenGroundM;
@@ -576,13 +576,13 @@ void Corridors::FileCrossing(const Path::Network::Crossing &one,
   const uint64_t named =
       PlaceKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
   const auto east = static_cast<int64_t>(std::floor(crossedAt.EastM / kCrossCellM));
-  const auto south = static_cast<int64_t>(std::floor(-crossedAt.NorthM / kCrossCellM));
+  const auto north = static_cast<int64_t>(std::floor(crossedAt.NorthM / kCrossCellM));
   for (int64_t stepE = -1; stepE <= 1; ++stepE) {
     for (int64_t stepS = -1; stepS <= 1; ++stepS) {
       const auto atE = static_cast<uint64_t>(east + stepE + 0x20000000LL);
-      const auto atS = static_cast<uint64_t>(south + stepS + 0x20000000LL);
+      const auto atS = static_cast<uint64_t>(north + stepS + 0x20000000LL);
       into.AtCrossing[(atE << 32U) | atS].push_back(
-          Meets{.EastM = crossedAt.EastM, .SouthM = -crossedAt.NorthM, .Named = named});
+          Meets{.EastM = crossedAt.EastM, .NorthM = crossedAt.NorthM, .Named = named});
     }
   }
 }
@@ -610,7 +610,7 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   if (!stood) { return; }
   const EastNorthUp at = standing.Place(
       {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = *stood});
-  const double onDrawn = drapedOver.At({.EastM = at.EastM, .SouthM = -at.NorthM}, at.UpM);
+  const double onDrawn = drapedOver.At({.EastM = at.EastM, .NorthM = at.NorthM}, at.UpM);
   const double need = onDrawn + static_cast<double>(below.ClearanceM);
   if (need <= into.DeckM[spans]) { return; }
   if (into.DeckM[spans] < kUnraisedDeckM) { ++into.DecksRaised; }
@@ -670,9 +670,9 @@ std::optional<Corridors::Grounded> Corridors::GroundUnder(const Paving &on, Long
   if (!stood) { return std::nullopt; }
   const EastNorthUp enu = standing.Place(
       {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = *stood});
-  const Drape::EastSouth here = {.EastM = enu.EastM, .SouthM = -enu.NorthM};
+  const Drape::EastNorth here = {.EastM = enu.EastM, .NorthM = enu.NorthM};
   return Grounded{
-      .EastM = here.EastM, .SouthM = here.SouthM, .GradeM = drapedOver.At(here, enu.UpM)};
+      .EastM = here.EastM, .NorthM = here.NorthM, .GradeM = drapedOver.At(here, enu.UpM)};
 }
 
 void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into) {
@@ -829,7 +829,7 @@ struct Bound {
 
 struct Origin {
   double EastM = 0.0;
-  double SouthM = 0.0;
+  double NorthM = 0.0;
   bool Stands = false;
 };
 
@@ -855,7 +855,7 @@ Heading HeadingAt(std::span<const RoadStation> along, size_t at, bool backward) 
     if (at > 0) { prev = at - 1u; }
   }
   Heading out{.EastM = along[next].EastM - along[prev].EastM,
-              .NorthM = -(along[next].SouthM - along[prev].SouthM)};
+              .NorthM = along[next].NorthM - along[prev].NorthM};
   const double run = std::sqrt(out.EastM * out.EastM + out.NorthM * out.NorthM);
   if (run > kLeastRunM) {
     out.EastM /= run;
@@ -873,18 +873,18 @@ void StartsAt(std::span<const RoadStation> along,
   const size_t n = along.size();
   const RoadStation &root = backward ? along.back() : along.front();
   const RoadStation &ahead = backward ? along[n - 2u] : along[1];
-  Heading dir{.EastM = ahead.EastM - from.EastM, .NorthM = -(ahead.SouthM - from.SouthM)};
+  Heading dir{.EastM = ahead.EastM - from.EastM, .NorthM = ahead.NorthM - from.NorthM};
   const double run = std::sqrt(dir.EastM * dir.EastM + dir.NorthM * dir.NorthM);
   if (run > kLeastRunM) {
     dir.EastM /= run;
     dir.NorthM /= run;
   }
   out->EastM.push_back(from.EastM - dir.NorthM * sideM);
-  out->NorthM.push_back(-from.SouthM + dir.EastM * sideM);
+  out->NorthM.push_back(from.NorthM + dir.EastM * sideM);
   out->AlongM.push_back(0.0);
   const double offE = root.EastM - from.EastM;
-  const double offS = root.SouthM - from.SouthM;
-  *reached = std::sqrt(offE * offE + offS * offS);
+  const double offN = root.NorthM - from.NorthM;
+  *reached = std::sqrt(offE * offE + offN * offN);
 }
 
 Bound BoundaryOf(std::span<const RoadStation> along, bool backward, Reach reach, Origin from = {}) {
@@ -898,11 +898,11 @@ Bound BoundaryOf(std::span<const RoadStation> along, bool backward, Reach reach,
     if (step > 0) {
       const size_t was = backward ? at + 1u : at - 1u;
       const double sE = along[at].EastM - along[was].EastM;
-      const double sS = along[at].SouthM - along[was].SouthM;
-      reached += std::sqrt(sE * sE + sS * sS);
+      const double sN = along[at].NorthM - along[was].NorthM;
+      reached += std::sqrt(sE * sE + sN * sN);
     }
     out.EastM.push_back(along[at].EastM - dir.NorthM * reach.SideM);
-    out.NorthM.push_back(-along[at].SouthM + dir.EastM * reach.SideM);
+    out.NorthM.push_back(along[at].NorthM + dir.EastM * reach.SideM);
     out.AlongM.push_back(reached);
     if (reached > reach.ReachM) { break; }
   }
@@ -991,25 +991,25 @@ void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &
     const Bound line = BoundaryOf(stations,
                                   leg.End == 1,
                                   {.SideM = 0.0, .ReachM = leg.CutM},
-                                  {.EastM = made.EastM, .SouthM = made.SouthM, .Stands = true});
+                                  {.EastM = made.EastM, .NorthM = made.NorthM, .Stands = true});
     const size_t rim = line.EastM.size() - 1u;
     const size_t before = rim == 0 ? 0 : rim - 1u;
     double outE = line.EastM[rim] - line.EastM[before];
-    double outS = -(line.NorthM[rim] - line.NorthM[before]);
-    const double run = std::sqrt(outE * outE + outS * outS);
+    double outN = line.NorthM[rim] - line.NorthM[before];
+    const double run = std::sqrt(outE * outE + outN * outN);
     if (run > kLeastRunM) {
       outE /= run;
-      outS /= run;
+      outN /= run;
     }
     const double along =
         line.AlongM[rim] > kLeastRunM ? std::min(1.0, leg.CutM / line.AlongM[rim]) : 0.0;
-    made.Gates.push_back(RoadGate{
-        .EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
-        .SouthM = -(line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along),
-        .GradeM = made.GradeM,
-        .OutE = outE,
-        .OutS = outS,
-        .HalfWidthM = leg.HalfM});
+    made.Gates.push_back(
+        RoadGate{.EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
+                 .NorthM = line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along,
+                 .GradeM = made.GradeM,
+                 .OutE = outE,
+                 .OutN = outN,
+                 .HalfWidthM = leg.HalfM});
   }
 }
 
@@ -1022,10 +1022,10 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
                                                 edge.Count);
     const RoadStation &root = leg.End == 1 ? stations.back() : stations.front();
     made.EastM += root.EastM / static_cast<double>(n);
-    made.SouthM += root.SouthM / static_cast<double>(n);
+    made.NorthM += root.NorthM / static_cast<double>(n);
     made.GradeM += root.GradeM / static_cast<double>(n);
   }
-  const Origin centre{.EastM = made.EastM, .SouthM = made.SouthM, .Stands = true};
+  const Origin centre{.EastM = made.EastM, .NorthM = made.NorthM, .Stands = true};
   for (Leg &leg : legs) {
     const Edge &edge = into.Edges[leg.Edge];
     const std::span<const RoadStation> stations(into.Designed[edge.Lane].data() + edge.First,
@@ -1051,7 +1051,7 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
     decked = decked || on.Ways.Ways()[into.Edges[leg.Edge].Lane].Bridge;
   }
   const double rootsM = made.GradeM;
-  made.GradeM = on.Draped.At({.EastM = made.EastM, .SouthM = made.SouthM}, made.GradeM);
+  made.GradeM = on.Draped.At({.EastM = made.EastM, .NorthM = made.NorthM}, made.GradeM);
   const auto seeded = into.EndM.find(node);
   if (decked && seeded != into.EndM.end()) { made.GradeM = seeded->second; }
   for (size_t i = 0; i < n; ++i) {
@@ -1088,33 +1088,33 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
 
 void Corridors::LiesOnItsPlane(const Paving &on, Junction &made, Paved &into) {
   const auto drape = [&](double eastM, double southM) {
-    return on.Draped.At({.EastM = eastM, .SouthM = southM}, made.GradeM);
+    return on.Draped.At({.EastM = eastM, .NorthM = southM}, made.GradeM);
   };
-  const double east = drape(made.EastM + kJunctionRadiusM, made.SouthM);
-  const double west = drape(made.EastM - kJunctionRadiusM, made.SouthM);
-  const double south = drape(made.EastM, made.SouthM + kJunctionRadiusM);
-  const double north = drape(made.EastM, made.SouthM - kJunctionRadiusM);
+  const double east = drape(made.EastM + kJunctionRadiusM, made.NorthM);
+  const double west = drape(made.EastM - kJunctionRadiusM, made.NorthM);
+  const double north = drape(made.EastM, made.NorthM + kJunctionRadiusM);
+  const double south = drape(made.EastM, made.NorthM - kJunctionRadiusM);
   made.SlopeE = (east - west) / (2.0 * kJunctionRadiusM);
-  made.SlopeS = (south - north) / (2.0 * kJunctionRadiusM);
-  const double steep = std::sqrt(made.SlopeE * made.SlopeE + made.SlopeS * made.SlopeS);
+  made.SlopeN = (north - south) / (2.0 * kJunctionRadiusM);
+  const double steep = std::sqrt(made.SlopeE * made.SlopeE + made.SlopeN * made.SlopeN);
   if (steep > kSteepestJunction) {
     made.SlopeE *= kSteepestJunction / steep;
-    made.SlopeS *= kSteepestJunction / steep;
+    made.SlopeN *= kSteepestJunction / steep;
     ++into.JunctionsLevelled;
   }
   for (RoadGate &gate : made.Gates) {
     gate.GradeM = made.GradeM + made.SlopeE * (gate.EastM - made.EastM) +
-                  made.SlopeS * (gate.SouthM - made.SouthM);
+                  made.SlopeN * (gate.NorthM - made.NorthM);
   }
   into.SteepestJunction = std::max(
-      into.SteepestJunction, std::sqrt(made.SlopeE * made.SlopeE + made.SlopeS * made.SlopeS));
+      into.SteepestJunction, std::sqrt(made.SlopeE * made.SlopeE + made.SlopeN * made.SlopeN));
 }
 
 void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
   struct Corner {
     double AroundRad = 0.0;
     double EastM = 0.0;
-    double SouthM = 0.0;
+    double NorthM = 0.0;
     size_t Gate = 0;
   };
 
@@ -1122,11 +1122,11 @@ void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
   for (size_t at = 0; at < made.Gates.size(); ++at) {
     const RoadGate &gate = made.Gates[at];
     for (const double hand : {1.0, -1.0}) {
-      const double e = gate.EastM - gate.OutS * gate.HalfWidthM * hand;
-      const double s = gate.SouthM + gate.OutE * gate.HalfWidthM * hand;
-      around.push_back({.AroundRad = std::atan2(s - made.SouthM, e - made.EastM),
+      const double e = gate.EastM + gate.OutN * gate.HalfWidthM * hand;
+      const double n = gate.NorthM - gate.OutE * gate.HalfWidthM * hand;
+      around.push_back({.AroundRad = std::atan2(made.NorthM - n, e - made.EastM),
                         .EastM = e,
-                        .SouthM = s,
+                        .NorthM = n,
                         .Gate = at * 2u + (hand > 0.0 ? 0u : 1u)});
     }
   }
@@ -1135,25 +1135,25 @@ void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
     return a.AroundRad != b.AroundRad ? a.AroundRad < b.AroundRad : a.Gate < b.Gate;
   });
   Yields under;
-  under.RingEastSouthM.reserve(around.size() * 2u);
+  under.RingEastNorthM.reserve(around.size() * 2u);
   under.LowE = under.HighE = around.front().EastM;
-  under.LowS = under.HighS = around.front().SouthM;
+  under.LowN = under.HighN = around.front().NorthM;
   for (const Corner &one : around) {
-    under.RingEastSouthM.push_back(one.EastM);
-    under.RingEastSouthM.push_back(one.SouthM);
+    under.RingEastNorthM.push_back(one.EastM);
+    under.RingEastNorthM.push_back(one.NorthM);
     under.LowE = std::min(under.LowE, one.EastM);
     under.HighE = std::max(under.HighE, one.EastM);
-    under.LowS = std::min(under.LowS, one.SouthM);
-    under.HighS = std::max(under.HighS, one.SouthM);
+    under.LowN = std::min(under.LowN, one.NorthM);
+    under.HighN = std::max(under.HighN, one.NorthM);
   }
   under.AtE = made.EastM;
-  under.AtS = made.SouthM;
+  under.AtN = made.NorthM;
   under.PlateauM = made.GradeM - kPavementLipM;
   under.SlopeE = made.SlopeE;
-  under.SlopeS = made.SlopeS;
+  under.SlopeN = made.SlopeN;
   under.YieldM = std::max(std::fabs(made.GradeM - rootsM), kBrokenGroundM);
   under.ApronM = std::clamp(kBatterRun * under.YieldM, kLeastApronM, kMostApronM);
-  under.SeamEastSouthM = under.RingEastSouthM;
+  under.SeamEastNorthM = under.RingEastNorthM;
   under.Fills = true;
   under.Kind = outshine::Stamp::Corridor;
   into.UnderJunctions.push_back(std::move(under));

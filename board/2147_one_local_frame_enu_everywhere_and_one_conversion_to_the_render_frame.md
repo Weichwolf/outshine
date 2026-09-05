@@ -74,3 +74,21 @@ the church tower and the far roofs stand a pixel or two further north, the near 
 they were -- a shift that grows with the distance from the anchor, which is what a 0.17 %
 error in the metres of a degree of latitude does. Buildings were placed through the wrong
 constant and the terrain through the right one; they agree now. Pure black 0 everywhere.
+
+## Landed 2026-09-05: East-North everywhere, and the render frame named once
+
+`SouthM` and `EastSouth` are gone from `src`, `include` and `test`; every geographic struct
+carries `EastM`/`NorthM` (the door's `EastNorth`); the renderer's z is made by
+`RenderFrame::ZOfNorth` / `RenderFrame::Of` (`src/base/math/RenderFrame.h`) and nowhere else,
+with static assertions that state the frame (east +x, up +y, north -z, right-handed, the
+conversion its own inverse). The three `-NorthM` left in the building generator are in-plane
+rotations of a footprint's axis, not frame conversions. The nine references bit-identical
+after the rename, so the rename moved nothing.
+
+- [x] `grep -rn "SouthM\|EastSouth" src include test` reads 0 (the claim that holds it there
+      is still to write)
+- [x] every ENU-to-render negation is `RenderFrame::ZOfNorth`
+- [x] the north correction, its counts and its look are above
+- [ ] the mirrored-picture control (a flipped sign in `RenderFrame::Of` mirrors OldTown) is
+      not run; the static assertions refuse the flipped sign at compile time, which is a
+      control of the definition and not of the picture

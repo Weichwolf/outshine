@@ -1,4 +1,5 @@
 #include "TilePieces.h"
+#include "math/RenderFrame.h"
 
 #include <algorithm>
 #include <bit>
@@ -22,12 +23,12 @@ Mat4 TilePieces::RowFor(const Vec3 &anchorEcef) const {
   for (size_t axis = 0; axis < 3; ++axis) {
     row[axis * 4u] = east[axis];
     row[axis * 4u + 1u] = up[axis];
-    row[axis * 4u + 2u] = -north[axis];
+    row[axis * 4u + 2u] = RenderFrame::ZOfNorth(north[axis]);
     row[axis * 4u + 3u] = 0.0;
   }
   row[12] = shift.EastM;
   row[13] = shift.UpM;
-  row[14] = -shift.NorthM;
+  row[14] = RenderFrame::ZOfNorth(shift.NorthM);
   row[15] = 1.0;
   return row;
 }
