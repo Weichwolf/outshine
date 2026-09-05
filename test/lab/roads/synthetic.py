@@ -81,6 +81,20 @@ class Terrain:
         return (g[j, i] * (1 - tx) * (1 - ty) + g[j, i + 1] * tx * (1 - ty)
                 + g[j + 1, i] * (1 - tx) * ty + g[j + 1, i + 1] * tx * ty)
 
+    def filled(self, x, y):
+        """The DEM with its holes closed by the nearest posting that has a height: a hole is a
+        missing MEASUREMENT, not a hole in the ground, and an earthwork that reads NaN cannot
+        find its toe (measured: 26 of 502 rows unreached over one missing posting)."""
+        z = self.dem(x, y)
+        if not np.isnan(z):
+            return z
+        for r in (1, 2, 3, 4):
+            for (dx, dy) in ((r, 0), (-r, 0), (0, r), (0, -r), (r, r), (-r, -r), (r, -r), (-r, r)):
+                z = self.dem(x + dx * self.posting, y + dy * self.posting)
+                if not np.isnan(z):
+                    return z
+        return 0.0
+
     def truth(self, x, y):
         return self.fn(x, y)
 
@@ -503,6 +517,77 @@ def p_layer_no_bridge():
     return net
 
 
+def r_serpentine(radius=14.0, legs=4, rise=140.0):
+    """A mountain road's hairpins: legs across the slope joined by turns of the tightest radius."""
+    net = Network()
+    pts = []
+    y = -rise / 2
+    for k in range(legs):
+        x0, x1 = (-150.0, 150.0) if k % 2 == 0 else (150.0, -150.0)
+        pts += line_pts(x0, y, x1, y, step=25.0)
+        if k < legs - 1:
+            cx = x1
+            for a in range(1, 7):
+                ang = math.pi * a / 6 * (1 if k % 2 == 0 else -1)
+                pts.append((cx + radius * math.sin(ang) * (1 if k % 2 == 0 else -1),
+                            y + radius * (1 - math.cos(ang))))
+            y += 2 * radius
+    net.polyline(pts, highway="secondary", width=7.0)
+    return net
+
+
+def r_embankment():
+    """A road carried 5 m above the plain: OSM's embankment=yes, and the fill is the earthwork."""
+    net = Network()
+    net.polyline(line_pts(-400, 0, 400, 0), highway="primary", width=10.0, embankment="yes")
+    return net
+
+
+def r_cutting():
+    net = Network()
+    net.polyline(line_pts(-400, 0, 400, 0), highway="primary", width=10.0, cutting="yes")
+    return net
+
+
+def r_parking():
+    """A paved AREA, not a ribbon: a car park polygon beside a road."""
+    net = Network()
+    net.polyline(line_pts(-400, 0, 400, 0), highway="primary", width=10.0)
+    net.area = Polygon([(20, 20), (80, 20), (80, 60), (20, 60)])
+    net.area_tags = {"amenity": "parking", "surface": "asphalt"}
+    return net
+
+
+def r_steps():
+    net = Network()
+    net.polyline(line_pts(-100, 0, 100, 0), highway="steps", width=2.0)
+    return net
+
+
+def r_track():
+    net = Network()
+    net.polyline(line_pts(-400, 0, 400, 0), highway="track", width=3.0, surface="ground")
+    return net
+
+
+def r_elevated():
+    """An elevated urban road over a street grid: bridge=yes over four cross streets."""
+    net = Network()
+    deck = [net.node(*p) for p in line_pts(-300, 0, 300, 0)]
+    net.way(deck, highway="primary", width=12.0, bridge="yes", layer=1)
+    for x in (-180, -60, 60, 180):
+        net.polyline(line_pts(x, -200, x, 200), highway="residential", width=8.0)
+    return net
+
+
+def r_tile_seam():
+    """A way crossing a tile border at x = 0: the bed builds it whole and in two halves and
+    compares the vertices where they meet (I8)."""
+    net = Network()
+    net.polyline(line_pts(-400, 30, 400, -30), highway="primary", width=10.0)
+    return net
+
+
 NETWORKS = {
     "R1-straight": r_straight,
     "R2-curve200": lambda: r_curve(200.0),
@@ -534,6 +619,13 @@ NETWORKS = {
     "R24-causeway": r_causeway,
     "R25-ford": r_ford,
     "P7-layer": p_layer_no_bridge,
+    "R2-hairpin": r_serpentine,
+    "R22-embankment": r_embankment,
+    "R23-cutting": r_cutting,
+    "R14-steps": r_steps,
+    "R14-track": r_track,
+    "R27-elevated": r_elevated,
+    "R17-seam": r_tile_seam,
 }
 
 
@@ -1507,6 +1599,103 @@ def check_mesh(map_, st):
             "drawn_vs_analytic_m": worst, "samples": samples, "worst_at": where}
 
 
+# ----------------------------------------------------------------------------- earthworks
+
+class Earthworks:
+    """The second half of the construction order: how the GROUND is made to carry the road.
+
+    At every station and on each side, the carriageway's edge stands at some height and the
+    terrain at another. The difference is the earthwork: a FILL where the road is above the
+    ground and a CUT where it is below. From the edge a batter runs at the standard's slope --
+    1:1.5 filling, 1:1 cutting (RAS-Q) -- until it meets the terrain, and where it meets is the
+    TOE. Where the batter would be taller than WALL_ABOVE_M the slope becomes a RETAINING WALL,
+    which is what every hillside road in Wuppertal or on the Cote d'Azur actually has: at 3 m
+    the land a batter eats is worth more than the wall.
+
+    What comes out is a per-station instruction -- side, kind, height, toe offset -- which is
+    what the engine stamps into the terrain. Its invariant (I11) is that the ground meets the
+    road: no gap under the kerb, no cliff the lattice cannot draw, and the toe on the terrain."""
+
+    def __init__(self, structure, step_m=4.0):
+        self.st = structure
+        self.map = structure.map
+        self.net = structure.net
+        self.step = step_m
+        self.rows = self._rows()
+
+    def _rows(self):
+        out = []
+        for w in self.net.ways:
+            if self.net.spans(w) or self.net.bores(w):
+                continue                      # a deck and a bore stand clear of the ground
+            half = w["tags"]["width"] / 2.0
+            for lo, hi in Mesh(self.st).drawn_spans(w) if False else self.map_spans(w):
+                n = max(2, int((hi - lo) / self.step) + 1)
+                for k in range(n):
+                    s = lo + (hi - lo) * k / (n - 1)
+                    for side in (-1, +1):
+                        out.append(self._row(w, s, side * half))
+        return out
+
+    def map_spans(self, way):
+        s = self.map.stations[way["id"]]
+        return [(0.0, s[-1])] if s[-1] > 0 else []
+
+    def _row(self, way, station, offset):
+        line = self.map.centreline(way)
+        p = line.interpolate(min(max(station, 0.0), line.length))
+        ahead = line.interpolate(min(station + 0.1, line.length))
+        back = line.interpolate(max(station - 0.1, 0.0))
+        d = (ahead.x - back.x, ahead.y - back.y)
+        n = math.hypot(*d) or 1.0
+        nx, ny = -d[1] / n, d[0] / n
+        x, y = p.x + nx * offset, p.y + ny * offset
+        edge = self.st.own_surface(way, station, offset)
+        ground = self.map.terrain.filled(x, y)
+        rise = edge - ground
+        slope = BATTER_FILL if rise > 0 else BATTER_CUT
+        # the toe: walk outward until the batter meets the terrain. The batter's height changes
+        # as the terrain does, so this is a root find, not a formula -- and on a cross-slope the
+        # downhill toe runs much further than the uphill one, which is the asymmetry a hillside
+        # road actually has
+        outward = (nx * (1 if offset > 0 else -1), ny * (1 if offset > 0 else -1))
+        toe = 0.0
+        for r in np.arange(0.25, 60.0, 0.25):
+            qx, qy = x + outward[0] * r, y + outward[1] * r
+            batter = edge - abs(rise) / abs(rise) * (r / slope) * (1 if rise > 0 else -1)
+            if (rise > 0 and batter <= self.map.terrain.filled(qx, qy)) or \
+               (rise <= 0 and batter >= self.map.terrain.filled(qx, qy)):
+                toe = r
+                break
+        else:
+            toe = math.inf
+        wall = abs(rise) > WALL_ABOVE_M
+        return {"way": way["id"], "station": station, "offset": offset, "x": x, "y": y,
+                "edge": edge, "ground": ground, "rise": rise,
+                "kind": ("wall" if wall else ("fill" if rise > 0 else "cut")),
+                "toe_m": toe, "height_m": abs(rise)}
+
+    def measures(self):
+        if not self.rows:
+            return {"rows": 0}
+        rise = np.array([r["rise"] for r in self.rows])
+        toe = np.array([r["toe_m"] for r in self.rows])
+        return {"rows": len(self.rows),
+                "fill_max_m": float(np.max(rise)), "cut_max_m": float(-np.min(rise)),
+                "walls": sum(1 for r in self.rows if r["kind"] == "wall"),
+                "toe_max_m": float(np.max(toe[np.isfinite(toe)])) if np.isfinite(toe).any() else math.inf,
+                "unreached": int(np.sum(~np.isfinite(toe)))}
+
+
+def check_earthworks(map_, st):
+    """I11: every carriageway edge has a batter or a wall that REACHES the terrain, and the road
+    never stands on nothing. The negative control is a road laid at the DEM's own height on a
+    cross-slope: its downhill edge then floats by half the width times the slope."""
+    work = Earthworks(st)
+    m = work.measures()
+    return m
+
+
 # ----------------------------------------------------------------------------- checks
 
 def check_c0(map_):
@@ -1651,6 +1840,9 @@ CASES = [
     ("R24-causeway", "T9-coast"), ("R25-ford", "T8-valley"), ("P7-layer", "T2-along5"),
     ("R1-straight", "T9-coast"), ("R1-straight", "T10-mountain"), ("R2-curve30", "T10-mountain"),
     ("R18-bridge", "T13-baked"), ("R1-straight", "T14-coarse"), ("R4-T90", "T14-coarse"),
+    ("R2-hairpin", "T10-mountain"), ("R22-embankment", "T1-flat"), ("R23-cutting", "T4-crest"),
+    ("R14-steps", "T10-mountain"), ("R14-track", "T3-cross30"), ("R27-elevated", "T1-flat"),
+    ("R17-seam", "T3-cross15"), ("R1-straight", "T3-cross30"), ("R4-T90", "T5-sag"),
 ]
 
 
@@ -1670,6 +1862,7 @@ def run(case):
         "I5 tunnel": check_tunnel(m),
         "P finite": check_finite(m),
         "I7/I9 mesh": check_mesh(m, st),
+        "I11 earthworks": check_earthworks(m, st),
     }
     red = []
     if verdict["I1 C0 m"] > 1e-9:
@@ -1686,6 +1879,9 @@ def run(case):
         red.append("I5")
     if verdict["I4 over road m"] is not None and verdict["I4 over road m"] < CLEARANCE_M:
         red.append("I4road")
+    earth = verdict["I11 earthworks"]
+    if earth.get("rows", 0) > 0 and earth["unreached"] > 0:
+        red.append("I11")
     mesh = verdict["I7/I9 mesh"]
     if mesh["edges_over_two_faces"] > 0 or mesh["nearest_pair_m"] < WELD_M:
         red.append("I7")
