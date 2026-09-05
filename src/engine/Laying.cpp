@@ -701,6 +701,7 @@ void Engine::State::PaveLane(const Paving &on,
           into.Along[at - 1u].SouthM - outS * static_cast<double>(lane.HalfWidthM)};
     }
     made.Fills = !lane.Bridge;
+    made.Kind = Stamp::Corridor;
     corridor.push_back(std::move(made));
   }
   if (!lane.Bridge && into.Along.size() > 3) {
@@ -730,6 +731,7 @@ void Engine::State::PaveLane(const Paving &on,
       island.ApronM = kLeastApronM;
       island.YieldM = kBrokenGroundM;
       island.Fills = true;
+      island.Kind = Stamp::Corridor;
       corridor.push_back(std::move(island));
     }
   }
@@ -1811,7 +1813,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         made.PlateauM = plateau / static_cast<double>(bedM.size());
         made.ApronM = kWaterBankM;
         made.YieldM = kWaterBedM;
-        made.Basin = true;
+        made.Kind = Stamp::Basin;
         made.SeamEastSouthM = made.RingEastSouthM;
         yielding.push_back(std::move(made));
       }
@@ -1837,6 +1839,40 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                      "nodes");
     Published.Places("ground: and the deepest it cut", pressed_.DeepestM, "m");
     Published.Places("ground: and the highest it filled", pressed_.RaisedM, "m");
+    for (const auto &[what, floors] :
+         {std::pair{"pads", &pressed_.Pads}, std::pair{"corridor pieces", &pressed_.Corridors}}) {
+      Published.Places(std::format("ground: {} with a lattice node inside", what),
+                       static_cast<double>(floors->Stamps),
+                       "stamps");
+      Published.Places(std::format("ground: {} no lattice node reaches", what),
+                       static_cast<double>(floors->Unreached),
+                       "stamps");
+      Published.Places(std::format("ground: nodes inside those {}", what),
+                       static_cast<double>(floors->Nodes),
+                       "nodes");
+      Published.Places(std::format("ground: of those {} nodes, another stamp decided", what),
+                       static_cast<double>(floors->Contested),
+                       "nodes");
+      Published.Places(
+          std::format("ground: nodes inside {} above their plane after the press, worst", what),
+          floors->AboveM,
+          "m");
+      Published.Places(
+          std::format("ground: nodes inside {} that fill, below it after the press, worst", what),
+          floors->BelowM,
+          "m");
+      Published.Places(
+          std::format("ground: nodes inside {} that do not fill, below it, worst", what),
+          floors->UnfilledM,
+          "m");
+      Published.Places(std::format("ground: those {} nodes above it before the press, worst", what),
+                       floors->WasAboveM,
+                       "m");
+      Published.Places(
+          std::format("ground: those filling {} nodes below it before the press, worst", what),
+          floors->WasBelowM,
+          "m");
+    }
     Published.Places(
         "ground: of that, pressing",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt)

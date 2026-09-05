@@ -495,6 +495,25 @@ HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid, double most
     const Ground::Geo geo = Ground::EcefToGeoWgs84({.X = ecef[0], .Y = ecef[1], .Z = ecef[2]});
     laid.Sheets[where[one].first].Nodes[where[one].second] = static_cast<float>(geo.HeightM);
   }
+  std::vector<double> written(up.size());
+  for (size_t one = 0; one < up.size(); ++one) {
+    const Sheet &sheet = laid.Sheets[where[one].first];
+    constexpr size_t pageSide = Render::GroundLattice::kPageSide;
+    const int i = static_cast<int>(where[one].second % pageSide) - 1;
+    const int j = static_cast<int>(where[one].second / pageSide) - 1;
+    const Ground::Geo geo =
+        Ground::TileFracToGeo({.X = static_cast<double>(sheet.Tile.X) + NodeFraction(sheet, i),
+                               .Y = static_cast<double>(sheet.Tile.Y) + NodeFraction(sheet, j)},
+                              sheet.Tile.Zoom);
+    written[one] = Frame_
+                       .Place({.LongitudeDeg = geo.LongitudeDeg,
+                               .LatitudeDeg = geo.LatitudeDeg,
+                               .HeightM = static_cast<double>(sheet.Nodes[where[one].second])})
+                       .UpM;
+  }
+  const Heights heights{.WrittenM = written, .WasM = was};
+  told.Pads = FloorsOf(yields, pressed, Stamp::Pad, at, heights);
+  told.Corridors = FloorsOf(yields, pressed, Stamp::Corridor, at, heights);
   return told;
 }
 

@@ -50,6 +50,8 @@ public:
     size_t Held = 0;
     double DeepestM = 0.0;
     double RaisedM = 0.0;
+    Floors Pads;
+    Floors Corridors;
   };
 
   [[nodiscard]] Pressed

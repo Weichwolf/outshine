@@ -55,6 +55,8 @@ struct EastSouth {
   double SouthM = 0.0;
 };
 
+enum class Stamp : uint8_t { Pad, Corridor, Basin };
+
 struct Yields {
   std::vector<double> RingEastSouthM;
   double LowE = 0.0, HighE = 0.0, LowS = 0.0, HighS = 0.0;
@@ -66,7 +68,7 @@ struct Yields {
   double YieldM = 0.0;
   double SagInv = 0.0;
   bool Fills = false;
-  bool Basin = false;
+  Stamp Kind = Stamp::Pad;
 
   [[nodiscard]] double WantsAt(EastSouth at) const {
     const double dE = at.EastM - AtE;

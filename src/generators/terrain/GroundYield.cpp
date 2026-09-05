@@ -179,21 +179,69 @@ struct Pressing {
   double WantedM = 0.0;
   bool Moves = false;
   uint32_t Which = 0;
+  uint32_t CappedBy = kNoStamp;
 };
+
+struct Bids {
+  double LowestM = 0.0;
+  double HighestM = 0.0;
+  double RoofM = kBeyondAnyCoordinate;
+  double BasinM = 0.0;
+  bool LandHeld = false;
+  uint32_t LowestBy = 0;
+  uint32_t HighestBy = 0;
+  uint32_t BasinBy = 0;
+  uint32_t RoofBy = kNoStamp;
+};
+
+struct CoveredNodes {
+  uint32_t Point = 0;
+  std::vector<Covered> *Into = nullptr;
+};
+
+struct Bid {
+  uint32_t Which = 0;
+  double OutsideM = 0.0;
+  double WantsM = 0.0;
+};
+
+void BidsBasin(const Yields &held, Bid bid, Bids *bids) {
+  if (bid.OutsideM > 0.0) { return; }
+  const double bankAt = bid.WantsM + std::max(0.0, held.ApronM + bid.OutsideM) * kBatterRise;
+  if (bankAt < bids->BasinM) {
+    bids->BasinM = bankAt;
+    bids->BasinBy = bid.Which;
+  }
+}
+
+void BidsLand(const Yields &held, Bid bid, Bids *bids) {
+  const double out = std::max(bid.OutsideM, 0.0);
+  if (out > held.ApronM) { return; }
+  bids->LandHeld = true;
+  const double cutAt = bid.WantsM + out * kBatterRise;
+  if (cutAt < bids->LowestM) {
+    bids->LowestM = cutAt;
+    bids->LowestBy = bid.Which;
+  }
+  if (cutAt < bids->RoofM) {
+    bids->RoofM = cutAt;
+    bids->RoofBy = bid.Which;
+  }
+  if (!held.Fills) { return; }
+  const double fillAt = bid.WantsM - out * kBatterRise;
+  if (fillAt > bids->HighestM) {
+    bids->HighestM = fillAt;
+    bids->HighestBy = bid.Which;
+  }
+}
 
 Pressing PressesAt(std::span<const Yields> these,
                    std::span<const uint32_t> over,
                    std::span<const uint8_t> structures,
                    EastSouth at,
-                   double wasM) {
-  double lowest = wasM;
-  double highest = wasM;
-  double roofM = kBeyondAnyCoordinate;
-  double basinM = wasM;
-  bool landHeld = false;
-  uint32_t lowestBy = 0;
-  uint32_t highestBy = 0;
-  uint32_t basinBy = 0;
+                   double wasM,
+                   CoveredNodes covered) {
+  Bids bids{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
   for (const uint32_t which : over) {
     if (!structures.empty() && structures[which] != 0u) { continue; }
     const Yields &held = these[which];
@@ -201,42 +249,29 @@ Pressing PressesAt(std::span<const Yields> these,
         at.SouthM < held.LowS - held.ApronM || at.SouthM > held.HighS + held.ApronM) {
       continue;
     }
-    const double signedM = OutsideRingM(held, at);
-    const double onRoad = held.WantsAt(at);
-    if (held.Basin) {
-      if (signedM > 0.0) { continue; }
-      const double bankAt = onRoad + std::max(0.0, held.ApronM + signedM) * kBatterRise;
-      if (bankAt < basinM) {
-        basinM = bankAt;
-        basinBy = which;
-      }
+    const Bid bid{.Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = held.WantsAt(at)};
+    if (held.Kind == Stamp::Basin) {
+      BidsBasin(held, bid, &bids);
       continue;
     }
-    const double out = std::max(signedM, 0.0);
-    if (out > held.ApronM) { continue; }
-    landHeld = true;
-    const double cutAt = onRoad + out * kBatterRise;
-    if (cutAt < lowest) {
-      lowest = cutAt;
-      lowestBy = which;
+    if (covered.Into != nullptr && bid.OutsideM < 0.0) {
+      covered.Into->push_back({.Point = covered.Point, .Stamp = which});
     }
-    roofM = std::min(roofM, cutAt);
-    if (held.Fills) {
-      const double fillAt = onRoad - out * kBatterRise;
-      if (fillAt > highest) {
-        highest = fillAt;
-        highestBy = which;
-      }
-    }
+    BidsLand(held, bid, &bids);
   }
-  if (!landHeld && basinM < lowest) {
-    lowest = basinM;
-    lowestBy = basinBy;
+  if (!bids.LandHeld && bids.BasinM < bids.LowestM) {
+    bids.LowestM = bids.BasinM;
+    bids.LowestBy = bids.BasinBy;
   }
-  if (lowest < wasM) { return {.WantedM = lowest, .Moves = true, .Which = lowestBy}; }
-  if (highest > wasM) {
-    const double wanted = std::min(highest, roofM);
-    return {.WantedM = wanted, .Moves = wanted > wasM, .Which = highestBy};
+  if (bids.LowestM < wasM) {
+    return {.WantedM = bids.LowestM, .Moves = true, .Which = bids.LowestBy};
+  }
+  if (bids.HighestM > wasM) {
+    const double wanted = std::min(bids.HighestM, bids.RoofM);
+    return {.WantedM = wanted,
+            .Moves = wanted > wasM,
+            .Which = bids.HighestBy,
+            .CappedBy = bids.RoofM < bids.HighestM ? bids.RoofBy : kNoStamp};
   }
   return {};
 }
@@ -252,21 +287,74 @@ Pressed PressPoints(std::span<const Yields> these,
   const CellGrid buckets = BucketOver(these);
   std::vector<uint8_t> structures(these.size(), 0u);
   for (size_t one = 0; one < at.size(); ++one) {
-    const Pressing under = PressesAt(these, buckets.At(at[one]), {}, at[one], upM[one]);
+    const Pressing under = PressesAt(these, buckets.At(at[one]), {}, at[one], upM[one], {});
     if (under.Moves && std::fabs(under.WantedM - upM[one]) > mostEarthworkM) {
       structures[under.Which] = 1u;
     }
   }
   for (const uint8_t one : structures) { told.Structures += one; }
+  told.DecidedBy.assign(at.size(), kNoStamp);
   for (size_t one = 0; one < at.size(); ++one) {
-    const Pressing under = PressesAt(these, buckets.At(at[one]), structures, at[one], upM[one]);
-    if (!under.Moves) { continue; }
+    const Pressing under = PressesAt(these,
+                                     buckets.At(at[one]),
+                                     structures,
+                                     at[one],
+                                     upM[one],
+                                     {.Point = static_cast<uint32_t>(one), .Into = &told.Inside});
+    if (!under.Moves) {
+      told.DecidedBy[one] = under.CappedBy;
+      continue;
+    }
     if (std::fabs(under.WantedM - upM[one]) > mostEarthworkM) {
+      told.DecidedBy[one] = kHeldStamp;
       ++told.Held;
       continue;
     }
+    told.DecidedBy[one] = under.CappedBy != kNoStamp ? under.CappedBy : under.Which;
     upM[one] = under.WantedM;
     ++told.Moved;
+  }
+  told.Refused = std::move(structures);
+  return told;
+}
+
+Floors FloorsOf(std::span<const Yields> these,
+                const Pressed &pressed,
+                Stamp kind,
+                std::span<const EastSouth> at,
+                Heights heights) {
+  const std::span<const double> upM = heights.WrittenM;
+  const std::span<const double> wasM = heights.WasM;
+  Floors told;
+  std::vector<uint8_t> reached(these.size(), 0u);
+  for (const Covered &claim : pressed.Inside) {
+    const Yields &held = these[claim.Stamp];
+    if (held.Kind != kind || pressed.Refused[claim.Stamp] != 0u) { continue; }
+    reached[claim.Stamp] = 1u;
+    const uint32_t by = pressed.DecidedBy[claim.Point];
+    if (by == kHeldStamp) { continue; }
+    ++told.Nodes;
+    if (by != kNoStamp && by != claim.Stamp) {
+      ++told.Contested;
+      continue;
+    }
+    const double wanted = held.WantsAt(at[claim.Point]);
+    told.AboveM = std::max(told.AboveM, upM[claim.Point] - wanted);
+    told.WasAboveM = std::max(told.WasAboveM, wasM[claim.Point] - wanted);
+    if (held.Fills) {
+      told.BelowM = std::max(told.BelowM, wanted - upM[claim.Point]);
+      told.WasBelowM = std::max(told.WasBelowM, wanted - wasM[claim.Point]);
+    } else {
+      told.UnfilledM = std::max(told.UnfilledM, wanted - upM[claim.Point]);
+    }
+  }
+  for (size_t one = 0; one < these.size(); ++one) {
+    if (these[one].Kind != kind || pressed.Refused[one] != 0u) { continue; }
+    if (reached[one] != 0u) {
+      ++told.Stamps;
+    } else {
+      ++told.Unreached;
+    }
   }
   return told;
 }

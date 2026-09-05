@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Area: generators, engine
 Tags: architecture, owner
 Supersedes: 2114
@@ -62,10 +62,14 @@ On the lattice (board:2115), every step is a write into a grid and not a search 
 
 ## What will be true
 
-- [ ] A building's floor is level: the height spread across its footprint vertices reads 0 at
-      every place, published beside the count of stamps
-- [ ] A road's cross-slope is level and its grade along matches the terrain it crosses within the
-      class's bound
+- [x] A building's floor is level: no lattice node inside a footprint stands above its seat --
+      0.000015 m at OldTown on the page the shader draws, 5.711 m before the press as the
+      control, `ScoreAFootprintStandsOnALevelFloor` (2026-09-05); a pad cuts and never fills,
+      so the floor claim is one-sided and the foundation's depth is published beside it
+- [x] A road's cross-slope is level: every node inside a filling corridor piece reads the
+      piece's graded plane, 0.000027 m at OldTown, 17.8 m above and 26.6 m below before
+- [ ] A road's grade along matches the terrain it crosses within the class's bound: corridor
+      pieces at OldTown ask for 60-90 m of yield, the grade solve's defect, with board:2101
 - [ ] The junction solve publishes its residual and it is under the bar it derives; no lane
       moves further than its class's gradient allows over its length
 - [ ] `streets: vertices FLYING` returns as a CASE with an oracle, not a ledger line, and reads 0
@@ -103,3 +107,48 @@ With the ground a GPU height field, steps 2 to 6 become one compute pass and one
 
 The floor's spread across a footprint is then measured on the texture, and it is zero by
 construction; the oracle case reads it anyway.
+
+## Landed 2026-09-05: the floor is measured on the page the shader draws, and a case holds it
+
+The stamp of board:2115 is a PRESS into the sheets' nodes (`PressPoints`, two passes, bounded by
+`kMostEarthworkM`), and nothing measured what it left: `buildings: a stamp would fill` reads
+the seat spread BEFORE the press, on the drape, which is the stamp's work and not its result.
+The press now reports, per stamp kind (`Stamp::Pad` · `Corridor` · `Basin`, one enum where a
+`bool Basin` stood), every lattice node inside a stamp's ring and WHICH stamp decided its
+height -- the stamp itself, another stamp whose cut or fill won or whose cut capped this one's
+fill (`CappedBy`), or nobody. `HeightSheets::Press` re-reads the written float pages after the
+write-back and measures the decided nodes against their stamp's plane (`FloorsOf`), signed:
+above the plane, below it where the stamp fills, below it where it does not (a pad's
+foundation, a deck's clearance). Unreal's flatten brush and RAGE's cook write the same number
+into the height field; here the number is read back from the page.
+
+```
+  OldTown, measured 2026-09-05             pads        corridor pieces
+  stamps with a lattice node inside        4 473       13 132
+  stamps no node reaches                   8 126       73 903
+  nodes inside, another stamp decided      5 972 of 57 642   16 824 of 59 901
+  above the plane before / after           5.711 / 0.000 m   17.809 / 0.000 m
+  below it, filling, before / after        -- (a pad cuts only)  26.617 / 0.000 m
+  below it, not filling                    11.222 m (foundation)  14.823 m (deck clearance)
+```
+
+`ScoreAFootprintStandsOnALevelFloor` holds both zeros at a centimetre with the before-numbers
+as the negative control. Three things the measure says that the counts did not:
+
+- **a pad CUTS and never fills, by decision.** A house on a slope stands on a foundation (its
+  walls run down to `FootM`), not on an embankment with a 2:3 batter around it -- the mound
+  would be wrong in every terraced street. The corridor fills because a road IS an embankment.
+  So the floor claim for a pad is one-sided: no ground above the seat
+- **two of three stamps reach no node.** At the base level a lattice node stands every ~26 m
+  (z15, 32 quads) and only the virtual levels near the eye refine toward the DEM's 3 m
+  posting; a footprint narrower than a cell is pressed by nothing and sits on a blend the
+  foundation hides. Unreal's Landscape writes at 0.5-2 m and RAGE's terrain is authored at
+  1-4 m: both are an order finer. The resolution is board:2123's level of detail to decide
+- **a corridor asks for 60-90 m of yield.** Pieces with `YieldM` of 62, 73, 82, 90 m at
+  OldTown: lanes whose designed grade stands that far off the terrain, filled to the 30 m
+  bound. That is the grade solve's defect (the `375 m` family above), measured per piece now,
+  and it is the junction solve's to remove -- with board:2101, which reopens that code
+
+What stays open here: the junction's one solve and its residual, the grade bound per class,
+the kerb's constrained edge, the flying-vertices case -- all in the street code that
+board:2101 moves, and opened once, there.

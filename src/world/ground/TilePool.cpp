@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <numbers>
 #include <chrono>
+#include <deque>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
