@@ -740,19 +740,50 @@ class Map:
     def _snap(self):
         """Nodes within SNAP_M of an earlier node are the earlier node (declared order), and a
         way's consecutive duplicates collapse to one -- the weave's word, so P1, P2 and P3 hold."""
+        # the search is over a GRID of SNAP_M cells and not over every node kept so far: the
+        # linear scan is O(N^2) and a real extract carries ten thousand nodes, which is fifty
+        # million distance computations for an answer a hash gives in one pass. The ANSWER is the
+        # same -- the candidates in a cell are still taken in DECLARED order and the earliest
+        # kept node still wins -- and it has to be, because the order is the invariant
         kept = {}
         alias = {}
+        rank = {}
+        cells = {}
         for nid, (x, y) in self.net.nodes.items():
-            hit = next((k for k, (kx, ky) in kept.items() if math.hypot(kx - x, ky - y) <= self.SNAP_M), None)
+            cx, cy = int(math.floor(x / self.SNAP_M)), int(math.floor(y / self.SNAP_M))
+            near = []
+            for i in (cx - 1, cx, cx + 1):
+                for j in (cy - 1, cy, cy + 1):
+                    near += cells.get((i, j), ())
+            hit = None
+            for k in sorted(near, key=lambda one: rank[one]):
+                kx, ky = kept[k]
+                if math.hypot(kx - x, ky - y) <= self.SNAP_M:
+                    hit = k
+                    break
             if hit is None:
                 kept[nid] = (x, y)
                 alias[nid] = nid
+                rank[nid] = len(rank)
+                cells.setdefault((cx, cy), []).append(nid)
             else:
                 alias[nid] = hit
         self.net.nodes = kept
+        # A WAY THAT COLLAPSES TO ONE NODE IS NOT A WAY. Real data holds them: a slip road mapped
+        # as three nodes inside two metres, a turning circle drawn as a stub. The bed carried them
+        # to `centreline`, which asked shapely for a LineString of one point and died with
+        # `point array must contain 0 or >1 elements` (measured at the Ponte Vecchio, first real
+        # case). They are dropped HERE, once, so nothing downstream has to ask
+        self.collapsed_ways = 0
+        alive = []
         for w in self.net.ways:
             refs = [alias[r] for r in w["refs"]]
             w["refs"] = [r for k, r in enumerate(refs) if k == 0 or r != refs[k - 1]]
+            if len(w["refs"]) < 2:
+                self.collapsed_ways += 1
+                continue
+            alive.append(w)
+        self.net.ways = alive
         # a way whose node sequence another way already has, either way round, is the SAME road
         # mapped twice: keeping both draws two surfaces in one place (P4), and OSM has plenty
         seen = {}
@@ -1102,11 +1133,31 @@ class Map:
                 self.slope[lw["id"]][lk] = (gx * ld[0] + gy * ld[1]) * lsgn
 
     def _direction(self, way, k, sgn):
+        """The unit direction at node k of a way, pointing the way `sgn` asks.
+
+        A CLOSED way wraps and an open one does NOT, and Python's negative index conflates the
+        two: at k = 0 with sgn = -1 an open way read `refs[-1]`, its own last node, and a
+        roundabout's first and last ref are the SAME node, so the vector was zero and the
+        normalisation divided by it (measured at the Ponte Vecchio, where a turning circle is a
+        closed way). A ring steps round; an open end takes the one segment it has."""
         refs = way["refs"]
-        a = self.net.nodes[refs[k]]
-        b = self.net.nodes[refs[k + sgn]]
+        ring = len(refs) > 2 and refs[0] == refs[-1]
+        if ring:
+            n = len(refs) - 1
+            a = self.net.nodes[refs[k % n]]
+            b = self.net.nodes[refs[(k + sgn) % n]]
+        else:
+            j = k + sgn
+            if 0 <= j < len(refs):
+                a, b = self.net.nodes[refs[k]], self.net.nodes[refs[j]]
+            else:                                   # an end: the one segment it has, signed
+                j = k - sgn
+                j = min(max(j, 0), len(refs) - 1)
+                a, b = self.net.nodes[refs[j]], self.net.nodes[refs[k]]
         v = (b[0] - a[0], b[1] - a[1])
         n = math.hypot(*v)
+        if n < 1e-12:
+            return (1.0, 0.0)
         return (v[0] / n, v[1] / n)
 
     def profile(self, way, station):
@@ -1736,7 +1787,102 @@ def free_span_of(xs, deck_z, ground_z, water=None, deep_m=25.0):
     return float(best), edges
 
 
-def bridge_type(total_m, rail=False, free_m=None):
+# WHAT THE SURVEYOR ALREADY WROTE DOWN. `bridge:structure` is OSM's own word for the carrier and
+# `material` for what it is built of, and a heuristic that ignores them is a heuristic answering a
+# question somebody already answered: the Ponte Vecchio came out a prestressed concrete beam and
+# it is a segmental stone arch from 1345 (measured, first real case). A PROVIDER beats a
+# GENERATOR wherever the data has one right answer -- this tree's own rule, applied here.
+BRIDGE_STRUCTURE = {
+    "arch": ("Bogenbruecke", "arch"), "aqueduct": ("Bogenbruecke", "arch"),
+    "humpback": ("Bogenbruecke", "arch"), "suspension": ("Haengebruecke", "suspension"),
+    "simple-suspension": ("Haengebruecke", "suspension"),
+    "cable-stayed": ("Schraegseilbruecke", "stays"), "truss": ("Stahlfachwerk", "truss"),
+    "cantilever": ("Auslegerbruecke", "truss"), "beam": ("Balkenbruecke", "piers"),
+    "girder": ("Balkenbruecke", "piers"), "box-girder": ("Hohlkasten", "piers"),
+    "viaduct": ("Viadukt", "piers"), "trestle": ("Viadukt", "piers"),
+    "floating": ("Pontonbruecke", "none"), "low-water-crossing": ("Furt", "none"),
+    "boardwalk": ("Stegbruecke", "piers"), "covered": ("Bogenbruecke", "arch"),
+}
+BRIDGE_MATERIAL = {
+    "stone": "Naturstein", "masonry": "Mauerwerk", "brick": "Ziegel", "steel": "Stahl",
+    "concrete": "Beton", "reinforced_concrete": "Stahlbeton",
+    "prestressed_concrete": "Spannbeton", "wood": "Holz", "timber": "Holz",
+    "iron": "Gusseisen", "cast_iron": "Gusseisen", "wrought_iron": "Schweisseisen",
+    "metal": "Stahl",
+}
+# slenderness by CARRIER, span over depth: what each type can span at what depth. A masonry arch
+# is thick at the crown where a steel one is thin, which is why the ring reads at all.
+CARRIER_SLENDER = {"arch": 55.0, "masonry-arch": 26.0, "truss": 12.0, "stays": 120.0,
+                   "suspension": 160.0, "piers": 22.0, "none": 15.0}
+
+
+def bridge_told(tags, total_m, free_m, rail=False, rise_m=None):
+    """The type the DATA states, or the one its DATE forces, or None.
+
+    `bridge:structure` is the survey and wins outright. Where it is absent the date still speaks:
+    wrought iron reached bridges about 1850 and reinforced concrete about 1900, so a bridge that
+    is `historic` or carries a `start_date` before 1890 is a MASONRY ARCH -- there was nothing
+    else to build it from. The Ponte Vecchio carries `historic=bridge` and no structure tag at
+    all, and without this rule it came out a prestressed concrete beam (measured).
+
+    And one thing the data cannot overrule: an arch needs RISE. A masonry arch springs from its
+    abutments and its crown stands span/6 to span/2 above them; a deck that clears its obstacle
+    by less than span/12 has no room for one, whatever the date says."""
+    if not tags:
+        return None
+    old = False
+    told = str(tags.get("bridge:structure") or tags.get("bridge_structure") or "").strip().lower()
+    if told not in BRIDGE_STRUCTURE:
+        year = _year_of(tags)
+        historic = bool(tags.get("historic") or tags.get("heritage")
+                        or tags.get("heritage:operator"))
+        if not (historic or (year and year < 1890)):
+            return None
+        if rise_m is not None and rise_m < 1.2:
+            return None                       # no room for any ring; let the span decide
+        told = "arch"
+        old = True                            # the DATE chose it, so the material follows
+    name, carrier = BRIDGE_STRUCTURE[told]
+    raw = str(tags.get("material") or tags.get("bridge:material") or "").strip().lower()
+    material = BRIDGE_MATERIAL.get(raw, "")
+    masonry = material in ("Naturstein", "Mauerwerk", "Ziegel")
+    if not material:
+        year = _year_of(tags)
+        # a bridge the DATE made an arch is a bridge built before there was anything but stone;
+        # saying so is the whole point of reading the date, and defaulting it to reinforced
+        # concrete put a 102 m concrete arch where three stone rings of 1345 stand (measured)
+        material = ("Naturstein" if old or (carrier == "arch" and year and year < 1850) else
+                    "Stahl" if carrier in ("truss", "suspension", "stays") else "Stahlbeton")
+        masonry = material == "Naturstein"
+    free = free_m if free_m and free_m > 1.0 else total_m
+    if carrier == "arch" and masonry:
+        # A FREE SPAN IS A MODERN CONSTRAINT AND A MASONRY BRIDGE IGNORES IT: an arcade puts its
+        # piers IN the river, which is what every old crossing does. What bounds a stone arch is
+        # its RISE -- a ring flatter than span/12 is at the limit of what was ever built -- and
+        # the material itself, which has never spanned much past 40 m outside a handful of
+        # records. So the field count follows from those two and not from the water's width:
+        # the Ponte Vecchio came out as ONE 102 m stone arch before this (measured).
+        limit = min(40.0, max(6.0, 12.0 * (rise_m if rise_m and rise_m > 0.5 else 4.0)))
+        fields = max(1, int(math.ceil(total_m / limit)))
+    elif carrier in ("arch", "piers"):
+        fields = max(1, int(round(total_m / max(free, 1.0))))
+    else:
+        fields = 1
+    span = total_m / fields
+    key = "masonry-arch" if (carrier == "arch" and masonry) else carrier
+    depth = max(0.3, span / CARRIER_SLENDER[key])
+    if carrier == "arch" and masonry:
+        name = "Steinbogenbruecke" if material == "Naturstein" else "Gewoelbebruecke"
+    return fields, span, name, depth, material, carrier
+
+
+def _year_of(tags):
+    raw = str(tags.get("start_date") or tags.get("year_of_construction") or "").strip()
+    digits = "".join(c for c in raw[:4] if c.isdigit())
+    return int(digits) if len(digits) == 4 else None
+
+
+def bridge_type(total_m, rail=False, free_m=None, tags=None, rise_m=None):
     """WHAT a bridge IS -- CASES.md's table, and the numbers are the standard span ranges
     (Leonhardt, *Bruecken*; the Eurocode's ranges; FHWA's inventory by type). A rail bridge is
     one class heavier because its loads are two to three times a road's. The FREE SPAN decides,
@@ -1744,6 +1890,9 @@ def bridge_type(total_m, rail=False, free_m=None):
     and whether an arch, a pylon or a main cable stands there at all.
 
     Returns (fields, span, name, deck depth, material, carrier)."""
+    told = bridge_told(tags, total_m, free_m, rail, rise_m)
+    if told is not None:
+        return told
     factor = 0.65 if rail else 1.0
     free = total_m if free_m is None else max(free_m, 0.0)
     if total_m <= 8.0:
@@ -1768,14 +1917,17 @@ def bridge_type(total_m, rail=False, free_m=None):
     return 1, free, "Haengebruecke", free / 160.0, "Stahl", "suspension"
 
 
-def draw_bridge_elevation(ax, xs, deck_z, ground_z, ink, rail=False, water=None):
+def draw_bridge_elevation(ax, xs, deck_z, ground_z, ink, rail=False, water=None, tags=None):
     """The bridge as a STRUCTURE in the longitudinal section, drawn the way its type stands.
     A slab on piers, an arch with its spandrel columns, a fan of stays from a pylon, or a main
     cable with its hangers -- these are what a viewer names a bridge by, and a generator that
     draws every span as a beam builds a world where every crossing looks the same."""
+    from matplotlib.patches import Rectangle
     total = float(xs.max() - xs.min())
     free, edges = free_span_of(xs, deck_z, ground_z, water)
-    fields, span, name, depth, material, carrier = bridge_type(total, rail=rail, free_m=free)
+    rise = float(np.nanmax(np.asarray(deck_z) - np.asarray(ground_z))) if len(deck_z) else None
+    fields, span, name, depth, material, carrier = bridge_type(total, rail=rail, free_m=free,
+                                                              tags=tags, rise_m=rise)
     x0, x1 = float(xs.min()), float(xs.max())
     # where a pier may NOT stand: the obstacle's own width
     forbid = (edges[0], edges[1]) if edges else (x1, x0)
@@ -1807,20 +1959,45 @@ def draw_bridge_elevation(ax, xs, deck_z, ground_z, ink, rail=False, water=None)
                     ax.plot([p, q], [hi, lo], color=ink, lw=0.7)
                     ax.plot([p, q], [at(p) - depth, at(q)], color=ink, lw=0.7)
     elif carrier == "arch":
-        for k in range(1):
-            a, b = forbid[0], forbid[1]
-            rise = (at(0.5 * (a + b)) - max(floor, under(0.5 * (a + b)))) * 0.72
-            base = at(0.5 * (a + b)) - depth - rise
-            xa = np.linspace(a, b, 80)
-            arch = base + rise * (1.0 - ((xa - 0.5 * (a + b)) / (0.5 * (b - a))) ** 2)
-            ax.plot(xa, arch, color=ink, lw=2.0)
-            ax.plot(xa, arch - depth * 0.6, color=ink, lw=0.9)
-            for u in np.linspace(0.12, 0.88, 7):
-                x = a + (b - a) * u
-                z = base + rise * (1.0 - ((x - 0.5 * (a + b)) / (0.5 * (b - a))) ** 2)
-                ax.plot([x, x], [z, at(x) - depth], color=ink, lw=0.8)
-            ax.plot([a, a], [base, under(a)], color=ink, lw=1.6)
-            ax.plot([b, b], [base, under(b)], color=ink, lw=1.6)
+        # AN ARCADE IS `fields` ARCHES AND NOT ONE. Every masonry crossing on the planet is a row
+        # of rings on piers -- the Ponte Vecchio has three, the Goeltzschtal 98 on four storeys --
+        # and drawing the whole length as a single span makes every old bridge look like a modern
+        # one, which is the failure this whole typology exists to prevent. Piers stand BETWEEN the
+        # rings; a masonry arcade puts them in the water and a steel arch does not
+        masonry = material in ("Naturstein", "Mauerwerk", "Ziegel")
+        ends = (x0, x1) if masonry else (forbid[0], forbid[1])
+        n = max(1, fields)
+        pier_w = max(0.8, min(0.10 * span, 4.0))
+        for k in range(n):
+            a = ends[0] + (ends[1] - ends[0]) * k / n
+            b = ends[0] + (ends[1] - ends[0]) * (k + 1) / n
+            mid = 0.5 * (a + b)
+            head = at(mid) - depth
+            spring = max(floor, min(under(a), under(b)))
+            rise = max(0.6, (head - spring) * (0.80 if masonry else 0.72))
+            base = head - rise
+            xa = np.linspace(a, b, 60)
+            ring = base + rise * (1.0 - ((xa - mid) / (0.5 * (b - a))) ** 2)
+            ax.plot(xa, ring, color=ink, lw=1.8)
+            ax.plot(xa, ring - depth * (0.9 if masonry else 0.6), color=ink, lw=0.9)
+            if masonry:
+                # a SPANDREL is filled above a stone ring, not columned: the wall between the
+                # ring and the road is what a viewer reads a viaduct's mass from
+                ax.fill_between(xa, ring, [at(float(v)) - depth for v in xa],
+                                facecolor="0.88", edgecolor="none", zorder=0)
+            else:
+                for u in np.linspace(0.15, 0.85, max(3, int((b - a) / 12))):
+                    x = a + (b - a) * u
+                    z = base + rise * (1.0 - ((x - mid) / (0.5 * (b - a))) ** 2)
+                    ax.plot([x, x], [z, at(x) - depth], color=ink, lw=0.8)
+            for edge in ((a, k == 0), (b, k == n - 1)):
+                x, outer = edge
+                ax.plot([x, x], [base, min(under(x), base)], color=ink,
+                        lw=2.0 if outer else 1.4)
+                if not outer:
+                    ax.add_patch(Rectangle((x - pier_w / 2, min(under(x), base)), pier_w,
+                                           base - min(under(x), base) + rise * 0.10,
+                                           facecolor="0.80", edgecolor=ink, lw=1.0))
     elif carrier == "stays":
         for x in (forbid[0], forbid[1]):
             top = at(x) + span * 0.20        # [SET] a stayed pylon stands about a fifth of its span
@@ -2282,7 +2459,8 @@ def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
         gnd_s = np.array([m.terrain.filled(*lw_s.interpolate(float(v)).coords[0]) for v in xs_s])
         free_s, _ = free_span_of(xs_s, deck_s, gnd_s, m.terrain.water)
         fields, field_m, what, depth, material, carrier = bridge_type(
-            span, rail=way["tags"].get("railway") is not None, free_m=free_s)
+            span, rail=way["tags"].get("railway") is not None, free_m=free_s, tags=way["tags"],
+            rise_m=float(np.nanmax(deck_s - gnd_s)) if len(deck_s) else None)
         depth = max(0.6, depth)
         axq.plot(offs, gnd, color="0.5", lw=1.0)
         axq.add_patch(Rectangle((-half, axis_z - depth), 2 * half, depth,
@@ -2339,7 +2517,7 @@ def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
     axq.set_xlabel("m von der Achse", fontsize=7)
 
 
-def build_route(m):
+def build_route(m, seed=None):
     """The TRASSE: the chain of ways that share end nodes, in order, each with its start station
     and whether it runs forward. A longitudinal section is drawn along a route and not along one
     way -- a bridge is three ways (approach, deck, approach) and a section of the longest showed
@@ -2347,7 +2525,12 @@ def build_route(m):
     ways = list(m.net.ways)
     if not ways:
         return []
-    seed = max(ways, key=lambda w: m.stations[w["id"]][-1])
+    # THE ROUTE IS SEEDED, and on a real extract that is the whole question: the longest way in
+    # a city is whatever street happens to be longest, and the sheet was then a section along a
+    # footpath while the bridge the case is named after stood beside it (measured at the Ponte
+    # Vecchio). A caller that knows which way the drawing is ABOUT hands it in
+    if seed is None or seed["id"] not in {w["id"] for w in ways}:
+        seed = max(ways, key=lambda w: m.stations[w["id"]][-1])
     chain = [(seed, True)]
     used = {seed["id"]}
     for at_end in (True, False):
@@ -2380,7 +2563,7 @@ def build_route(m):
     return out
 
 
-def plot(case, m, st, number=0):
+def plot(case, m, st, number=0, seed=None):
     """One engineering sheet per case, to DIN 1356 / RAS-Q convention:
 
         LAGEPLAN      the alignment, both carriageway edges, the junction surfaces, the
@@ -2403,25 +2586,43 @@ def plot(case, m, st, number=0):
                           left=0.05, right=0.97, top=0.92, bottom=0.07)
     work = Earthworks(st)
     mesh = Mesh(st)
-    route = build_route(m)
-    main = max((w for (w, _, _) in route), key=lambda w: m.stations[w["id"]][-1])
+    route = build_route(m, seed)
+    main = seed if seed is not None and any(w["id"] == seed["id"] for (w, _, _) in route) \
+        else max((w for (w, _, _) in route), key=lambda w: m.stations[w["id"]][-1])
 
     # ---------------------------------------------------------------- LAGEPLAN
     ax = fig.add_subplot(gs[0, :2])
     xs, ys = [], []
+    on_axis = {rw["id"] for (rw, _, _) in route}
     for w in m.net.ways:
         line = m.centreline(w)
         half = w["tags"]["width"] / 2.0
+        # A PLAN IS READ BY ITS HIERARCHY. Every way drawn at one weight is a black tangle on a
+        # real extract -- 180 ways in Florence, every kerb line 1.3 pt (measured, first real
+        # sheet). The weight follows the class the network already carries, the route the sheet
+        # is ABOUT is heavier still, and a bridge's deck is filled where a tunnel's is dashed
+        rank = float(w["tags"].get("priority", 5))
+        mine = w["id"] in on_axis
+        edge = 1.9 if mine else max(0.35, min(1.2, 0.25 + rank * 0.075))
+        spans, bores = m.net.spans(w), m.net.bores(w)
         for lo, hi in mesh.drawn_spans(w):
             ss = np.linspace(lo, hi, max(2, int((hi - lo) / 2) + 1))
-            for side, style in ((+half, "-"), (-half, "-")):
-                pts = [mesh._leg_point(w, float(s), side)[:2] for s in ss]
-                ax.plot(*zip(*pts), color=ink, lw=1.3, ls=style)
+            left = [mesh._leg_point(w, float(s), +half)[:2] for s in ss]
+            right = [mesh._leg_point(w, float(s), -half)[:2] for s in ss]
+            if spans:
+                ax.add_patch(MplPoly(np.array(left + right[::-1]), closed=True,
+                                     facecolor="0.72", edgecolor=ink, lw=edge, zorder=3))
+            for pts in (left, right):
+                ax.plot(*zip(*pts), color=ink, lw=edge,
+                        ls=(0, (3, 2)) if bores else "-", zorder=2 if not mine else 4)
                 xs += [p[0] for p in pts]; ys += [p[1] for p in pts]
-        ax.plot(*line.xy, color="0.45", lw=0.8, ls=(0, (14, 4, 2, 4)))
+        if not mine:
+            continue
+        ax.plot(*line.xy, color="0.35", lw=1.0, ls=(0, (14, 4, 2, 4)), zorder=5)
         s = m.stations[w["id"]]
         # the stationing is the ROUTE's, so three ways of one road read 0..1000 and not 0..300
-        # three times over (which is what the first plan showed)
+        # three times over (which is what the first plan showed) -- and it is drawn on the ROUTE
+        # ALONE, or a real extract carries a cross and a number every fifty metres of every lane
         on_route = next(((f, a0) for (rw, f, a0) in route if rw is w), None)
         for station in np.arange(0, s[-1] + 1, 50.0):
             p = line.interpolate(float(min(station, s[-1])))
@@ -2447,6 +2648,8 @@ def plot(case, m, st, number=0):
         for r in work.rows:
             if r["kind"] != kind or r["height_m"] <= 0.20 or not np.isfinite(r["toe_m"]):
                 continue
+            if len(m.net.ways) > 24 and r["way"] not in on_axis:
+                continue      # on a real extract the toes of every service road are the noise
             way = next(w for w in m.net.ways if w["id"] == r["way"])
             line = m.centreline(way)
             p = line.interpolate(min(r["station"], line.length))
@@ -2556,7 +2759,8 @@ def plot(case, m, st, number=0):
             if m.net.spans(w):
                 fields, field_m, what, depth, material, carrier = draw_bridge_elevation(
                     ax, xs_route, grad, np.minimum(dem, truth), ink,
-                    rail=w["tags"].get("railway") is not None, water=m.terrain.water)
+                    rail=w["tags"].get("railway") is not None, water=m.terrain.water,
+                    tags=w["tags"])
                 ax.annotate(f"{what} ({material}), {fields} x {field_m:.0f} m, d = {depth:.2f} m",
                             (xs_route.mean(), grad.mean()), fontsize=6.5, color="0.3",
                             ha="center", xytext=(0, -38), textcoords="offset points")
