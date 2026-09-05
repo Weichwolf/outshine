@@ -34,8 +34,20 @@ class Corridors {
 public:
   explicit Corridors(const RoadMesher &sweeper) : Sweeper_(sweeper) {}
 
+  struct Mapped {
+    std::shared_ptr<const Path::Network> Network;
+    size_t Ways = 0;
+    size_t Nodes = 0;
+    size_t Edges = 0;
+    size_t Junctions = 0;
+    std::string Refusal;
+  };
+
+  [[nodiscard]] static Mapped MapOf(const outshine::Ground::GroundStack &stack);
+
   struct Site {
     const outshine::Ground::GroundStack &Stack;
+    const Path::Network *Network = nullptr;
     const TangentFrame &Standing;
     const Drape &Draped;
     const std::shared_ptr<const ClassStructure> &Classes;
@@ -59,6 +71,7 @@ private:
 
   struct Paving {
     const outshine::Ground::GroundStack &Stack;
+    const Path::Network *Network = nullptr;
     const outshine::Ground::StreetField &Ways;
     const outshine::Ground::OsmField &Vectors;
     std::span<const double> Points;
@@ -195,13 +208,12 @@ private:
 
   static void LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
                                   std::span<const double> points,
-                                  Path::Network &net,
-                                  std::vector<size_t> &netToLane);
+                                  Path::Network &net);
   static void
   FileCrossing(const Path::Network::Crossing &one, const TangentFrame &standing, Paved &into);
   static void RaiseDeckOver(const Path::Network::Crossing &one,
                             const Paving &on,
-                            std::span<const size_t> netToLane,
+                            const Path::Network &net,
                             Paved &into);
   static void Crosses(const Paving &on, Paved &into);
 

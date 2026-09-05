@@ -26,6 +26,10 @@ public:
     int32_t Layer = 0;
     float ClearanceM = 0.0f;
     float MaxGradient = 0.0f;
+    float SpeedMps = 0.0f;
+    int32_t Priority = 0;
+    bool Sealed = false;
+    bool Oneway = false;
     bool Bridge = false;
   };
 

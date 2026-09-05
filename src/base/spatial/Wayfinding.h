@@ -51,8 +51,13 @@ struct WayClass {
   double MaxGradient = 0.0;
   double MinRadiusM = 0.0;
   double Friction = 0.0;
+  double SpeedMps = 0.0;
   int Lanes = 0;
+  int Priority = 0;
+  bool Oneway = false;
+  bool Sealed = false;
   bool Spans = false;
+  size_t Tag = 0;
 };
 
 struct Route {
@@ -78,6 +83,8 @@ public:
   [[nodiscard]] bool Weave(std::string &error);
 
   [[nodiscard]] size_t WayCount() const { return Ways_.size(); }
+
+  [[nodiscard]] size_t TagOf(size_t way) const { return way < Ways_.size() ? Ways_[way].Tag : 0; }
 
   [[nodiscard]] size_t PointCount() const { return Points_.size() / 2; }
 
@@ -154,8 +161,13 @@ private:
     double MaxGradient = 0.0;
     double MinRadiusM = 0.0;
     double Friction = 0.0;
+    double SpeedMps = 0.0;
     int Lanes = 0;
+    int Priority = 0;
+    bool Oneway = false;
+    bool Sealed = false;
     bool Spans = false;
+    size_t Tag = 0;
   };
 
   struct Node {

@@ -18,6 +18,7 @@
 #include "RegionPool.h"
 #include "Unwired.h"
 #include "HeightSheets.h"
+#include "Wayfinding.h"
 #include "TilePieces.h"
 #include "StructureBakes.h"
 #include "Tasks.h"
@@ -286,6 +287,8 @@ struct Surrounds {
 
   TilePieces Pieces;
   HeightSheets Sheets;
+  std::shared_ptr<const Path::Network> Network;
+  size_t NetworkOfWays = 0;
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
   StructureBakes Bakes;

@@ -73,6 +73,11 @@ void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
   way.MinRadiusM = of.MinRadiusM;
   way.Friction = of.Friction;
   way.Lanes = of.Lanes;
+  way.SpeedMps = of.SpeedMps;
+  way.Priority = of.Priority;
+  way.Oneway = of.Oneway;
+  way.Sealed = of.Sealed;
+  way.Tag = of.Tag;
   way.Spans = of.Spans;
   const auto mine = static_cast<uint32_t>(Ways_.size());
   way.MinLat = way.MaxLat = latLonPairs[0];

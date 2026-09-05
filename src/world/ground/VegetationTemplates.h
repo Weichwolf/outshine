@@ -38,6 +38,9 @@ public:
     float ClearanceM = 0.0f;
     int Lanes = 0;
     bool Oneway = false;
+    float SpeedMps = 0.0f;
+    int Priority = 0;
+    bool Sealed = false;
   };
 
   struct Blade {

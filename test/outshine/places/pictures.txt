@@ -125,3 +125,14 @@ Jura           eac570e8  p50   2.89  p95   3.12  p99   3.23 ms  0 of 120
 ZurichPlan     0b9b3895  p50   6.71  p95   6.75  p99   6.83 ms  0 of 120
 Kaiserberg     15af0f00  p50   3.29  p95   3.73  p99   3.84 ms  0 of 120
 Koehlbrand     a9e32c8b  p50   3.20  p95   3.64  p99   3.70 ms  0 of 120
+
+# 2026-09-05 board:2101 -- the map held once; the crossings in a declared order
+OldTown        372d51ce  p50   2.31  p95   2.43  p99   2.88 ms  0 of 120
+Heidelberg     e556bec1  p50   2.53  p95   2.67  p99   2.93 ms  0 of 120
+Shibuya        b1ad20b4  p50   6.50  p95   8.99  p99  11.09 ms  0 of 120
+CentralPark    ed7a5f3d  p50   4.66  p95   5.59  p99   6.08 ms  0 of 120
+Venice         bae258e2  p50   2.85  p95   3.10  p99   3.35 ms  0 of 120
+Jura           411d3a07  p50   2.79  p95   3.05  p99   3.22 ms  0 of 120
+ZurichPlan     674a9b5d  p50   6.66  p95   6.69  p99   7.20 ms  0 of 120
+Kaiserberg     f74a62fd  p50   3.14  p95   3.70  p99   3.72 ms  0 of 120
+Koehlbrand     54f5c871  p50   3.14  p95   3.62  p99   3.71 ms  0 of 120

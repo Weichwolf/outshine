@@ -458,6 +458,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 5.56,
+          "priority": 1,
+          "sealed": 0,
           "clearanceM": 4.50,
           "kind": "track",
           "rank": 80,
@@ -550,6 +553,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 5.56,
+          "priority": 1,
+          "sealed": 0,
           "clearanceM": 4.50,
           "kind": "path",
           "rank": 80,
@@ -560,6 +566,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 2.78,
+          "priority": 1,
+          "sealed": 0,
           "clearanceM": 4.50,
           "kind": "bridleway",
           "rank": 80,
@@ -942,6 +951,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 2.78,
+          "priority": 1,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "footway",
           "rank": 80,
@@ -952,6 +964,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 1.39,
+          "priority": 1,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "steps",
           "rank": 81,
@@ -962,6 +977,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 5.56,
+          "priority": 1,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "cycleway",
           "rank": 81,
@@ -972,6 +990,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 5.56,
+          "priority": 1,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "service",
           "rank": 81,
@@ -982,6 +1003,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 2.78,
+          "priority": 2,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "living_street",
           "rank": 82,
@@ -992,6 +1016,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 2.78,
+          "priority": 1,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "pedestrian",
           "rank": 82,
@@ -1002,6 +1029,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 13.89,
+          "priority": 3,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "residential",
           "rank": 83,
@@ -1012,6 +1042,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 13.89,
+          "priority": 4,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "unclassified",
           "rank": 83,
@@ -1022,6 +1055,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 22.22,
+          "priority": 10,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "tertiary",
           "rank": 84,
@@ -1033,6 +1069,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 44.44,
+          "priority": 20,
+          "sealed": 0,
           "clearanceM": 5.70,
           "kind": "rail",
           "rank": 84,
@@ -1040,6 +1079,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 19,
+          "sealed": 0,
           "clearanceM": 5.70,
           "kind": "light_rail",
           "rank": 84,
@@ -1047,6 +1089,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 13.89,
+          "priority": 17,
+          "sealed": 0,
           "clearanceM": 5.70,
           "kind": "tram",
           "rank": 84,
@@ -1054,6 +1099,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 17,
+          "sealed": 0,
           "clearanceM": 5.70,
           "kind": "narrow_gauge",
           "rank": 84,
@@ -1061,6 +1109,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 18,
+          "sealed": 0,
           "clearanceM": 5.70,
           "kind": "subway",
           "rank": 84,
@@ -1068,6 +1119,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 17,
+          "sealed": 0,
           "clearanceM": 5.70,
           "kind": "monorail",
           "rank": 84,
@@ -1075,6 +1129,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 13.89,
+          "priority": 17,
+          "sealed": 0,
           "clearanceM": 5.70,
           "kind": "funicular",
           "rank": 84,
@@ -1082,6 +1139,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 11,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "secondary",
           "rank": 85,
@@ -1093,6 +1153,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 12,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "primary",
           "rank": 86,
@@ -1104,6 +1167,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 13.89,
+          "priority": 15,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "taxiway",
           "rank": 87,
@@ -1111,6 +1177,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 13,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "trunk",
           "rank": 87,
@@ -1122,6 +1191,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 39.44,
+          "priority": 14,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "motorway",
           "rank": 88,
@@ -1133,6 +1205,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 83.33,
+          "priority": 15,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "runway",
           "rank": 88,
@@ -1145,6 +1220,9 @@
         },
         {
           "layer": "streets",
+          "speedMps": 27.78,
+          "priority": 9,
+          "sealed": 1,
           "clearanceM": 4.50,
           "kind": "busway",
           "rank": 84,
@@ -1366,5 +1444,6 @@
   "waterClearanceOrigin": "How high a deck stands over WATER, banded by how far the bridge runs over it. OSM states no fairway class and the tiles carry no water width, so the bridge itself is the measurement: the distance it spans over water is what says whether a punt or a container ship passes under. The clearances are the published headrooms of the classes those spans imply -- CEMT class I-III 4.40 m, class IV 5.25 m, class Vb 9.10 m (UNECE Blue Book / CEMT 1992 resolution) -- and the last band is 42.0 m, the standard clearance every high bridge over the Nord-Ostsee-Kanal holds, which is the smallest figure a sea-going channel in this region is built to. UNDER-BUILT BY DESIGN AND NAMED: the Koehlbrandbruecke leaves 53 m over a 325 m channel and this table gives it 42. A per-fairway figure would be truthful; this is plausible, which is the standard a world built from a patchy map is held to.",
   "osmClearanceOrigin": "The LICHTE HOEHE a structure must leave over this kind of way, in metres, and it is what decides how high a deck carrying something ELSE stands above it. 4.50 m over a road is the German carriageway clearance (RAS-Q, RIL 800); 5.70 m over an electrified standard-gauge railway is the structure gauge to the catenary. Neither is this engine's invention and neither is tuned to make a picture look right. WHAT IS MISSING, named: a navigable waterway asks for a per-fairway figure -- the Koehlbrandbruecke leaves 53 m for sea-going ships against a CEMT class IV barge's 5.25 m -- and water is not a street kind, so a bridge over a channel is UNDER-built until a waterway row carries its own (board:2075).",
   "osmRadiusOrigin": "minRadiusM is the smallest horizontal centreline radius a road of this kind is designed to carry, in metres, and it is a property of the ROAD CLASS and never of the vehicle -- the vehicle's own bound is the rear-axle centreline circle its turning circle and wheelbase imply, which is four to six metres for a car and says nothing about whether a polyline claiming to be a motorway is one. The values are tabulated, not derived: RAA 2008 gives Kurvenmindestradius 900 m (EKA 1A), 720 m (EKA 1B), 470 m (EKA 2) and 280 m (EKA 3) at a Hoechstquerneigung of 6.0 % throughout; RAL 2012 gives 500 m (EKL 1, Ve 110), 400 m (EKL 2, Ve 100), 300 m (EKL 3, Ve 90) and 200 m (EKL 4, Ve 70). The one judgement here is the MAPPING, and it is that OSM's five carriageway kinds take the standards' classes in order: motorway is the general Autobahn class EKA 1B rather than the 900 m Ueberregionalautobahn, because the tag does not distinguish one from the other and a bound must not refuse a road that is legal; trunk, primary, secondary and tertiary take EKL 1 to EKL 4. Below tertiary the kinds are RASt 06 territory, no minimum is tabulated here, and a way of such a kind carries no class bound at all -- the vehicle's own is what is left. The fahrdynamische Grundgleichung v^2/(R*g) = f_R + q (KIT ISE, Bemessungsgrundlagen im Strassenwesen -- Teil: Strassenentwurf, 04/2013, section 4.2) is what makes these numbers checkable rather than a list: at q = 0.06 the tabulated pairs imply a radial Kraftschlussbeiwert f_R of 0.130 (EKL 1), 0.137 (EKL 2), 0.152 (EKL 3), 0.133 (EKL 4) and 0.125 (EKA 1B at the RAA's 130 km/h Richtgeschwindigkeit) -- one coefficient within a fifth of itself across two standards and five classes, which is the consistency check the table has to pass and does.",
+  "osmSpeedOrigin": "speedMps and priority are SUMO netconvert's osmNetconvert.typ.xml, the readable table CARLA's Digital Twin imports through: motorway 39.44 m/s priority 14 down to living_street 2.78 and service/track/path 5.56 priority 1; rail 44.44 priority 20, tram 13.89 priority 17. sealed says whether the surface is paved -- asphalt, concrete, setts -- and is this tree's own column [SET]: a sealed way is a structure with a slab and a kerb, an unsealed one is the ground's class (board:2101).",
   "osmLaneOrigin": "lanes is the number of running lanes ACROSS the whole declared width, and oneway says whether they all run the same way. Both come from the same cross-sections the widths do: RAA RQ 28 is 2 x 3.75 m running lanes plus a 2.5 m hard shoulder per ONE-WAY carriageway, so motorway is 2 lanes oneway in 12.0 m; RAL RQ 11.5 and RQ 9.5 are two-way with 2 x 3.5 m; RASt 06's 6.5 m tertiary and 5.5 m residential are two-way at 3.25 and 2.75 m. A link is one lane because a ramp is. Service, track and everything narrower is a single shared lane. This is what stops a car driving down the centre line: its lane is width / lanes, and its own line is offset from the reference line by (lanes - 1) x laneWidth / 2 toward the driving side."
 }

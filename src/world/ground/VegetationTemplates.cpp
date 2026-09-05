@@ -203,6 +203,9 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       rule.ClearanceM = static_cast<float>(r["clearanceM"].Num(0.0));
       rule.Lanes = static_cast<int>(r["lanes"].Num(0.0));
       rule.Oneway = r["oneway"].Num(0.0) > 0.5;
+      rule.SpeedMps = static_cast<float>(r["speedMps"].Num(0.0));
+      rule.Priority = static_cast<int>(r["priority"].Num(0.0));
+      rule.Sealed = r["sealed"].Num(0.0) > 0.5;
       if (rule.Rank < 0) {
         Error_ = std::format("osm row without rank: {}/{}", layer, kind);
         return false;

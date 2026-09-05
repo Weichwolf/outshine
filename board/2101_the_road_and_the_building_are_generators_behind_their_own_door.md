@@ -249,3 +249,24 @@ same shelves appear. This tree's answer, by the type table's surface:
 A road cannot float because its skirt always reaches the ground, however coarse the lattice;
 the lattice gets no cliffs because the batter belongs to the structure and not to the
 ground. The corridor's `ApronM` and the `kBatterRun` fill of a corridor go with that stage.
+
+## Landed 2026-09-05: the MAP, first slice -- the type table's columns and the network held once
+
+- the streets rules of `vegetation.json` carry `speedMps`, `priority` and `sealed` (SUMO's
+  `osmNetconvert.typ.xml` for the first two, origin beside them; `sealed` this tree's own
+  column, the line between a structure and the ground's class); `VegetationTemplates::Rule`,
+  `StreetField::Way` and `Path::WayClass` carry them through
+- `Corridors::MapOf(stack)` lays every way into a `Path::Network` with its lane index as a
+  `Tag` and weaves it (nodes snapped within `kNodeSnapM`, edges, loose ends tied); the engine
+  holds it as `World.Network` and rebuilds it only when the ways change. OldTown: 5 411 ways,
+  27 540 nodes, 62 964 edges, 7 318 nodes where three or more edges meet
+- the crossings (the decks' source) are read from the map; weaving sorts the ways into a
+  declared order, so the crossings are sorted into one too (lane tags, then positions) --
+  the picture had inherited a sweep's order, and a station's snap to "the first crossing
+  within 10 m" with it. Moved: OldTown 136 pixels, Heidelberg 0.97 %, ZurichPlan 1.7 %, the
+  rest under 0.3 %; looked at Heidelberg's bank road and Zurich's bridge road: junction
+  bodies that changed which node they belong to, nothing else
+
+Still to come for the map: its own elevation profile (C1, the driving surface analytic,
+errors under a centimetre), the junction polygons computed from it, the lanes as geometry;
+`Path::Network` then stops being a routing graph with a tag and becomes the map.

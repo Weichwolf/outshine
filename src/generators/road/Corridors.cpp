@@ -545,11 +545,25 @@ void Corridors::IslandOf(const Paving &on,
   }
 }
 
+Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
+  Mapped made;
+  const outshine::Ground::OsmField *const vectors = stack.Vectors();
+  if (vectors == nullptr) { return made; }
+  auto net = std::make_shared<Path::Network>(Path::Snap{.CellM = kNodeSnapM},
+                                             Path::Sphere{.RadiusM = Data::kWgs84A});
+  LayLanesIntoNetwork(stack.Ways(), vectors->Points(), *net);
+  made.Ways = net->WayCount();
+  if (made.Ways > 0 && !net->Weave(made.Refusal)) { return made; }
+  made.Nodes = net->NodeCount();
+  made.Edges = net->EdgeCount();
+  made.Junctions = net->JunctionCount();
+  made.Network = std::move(net);
+  return made;
+}
+
 void Corridors::LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
                                     std::span<const double> points,
-                                    Path::Network &net,
-                                    std::vector<size_t> &netToLane) {
-  netToLane.reserve(ways.Ways().size());
+                                    Path::Network &net) {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const outshine::Ground::StreetField::Way &lane = ways.Ways()[at];
     if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
@@ -562,9 +576,13 @@ void Corridors::LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
                            .MaxGradient = 0.0,
                            .MinRadiusM = 0.0,
                            .Friction = 0.0,
+                           .SpeedMps = static_cast<double>(lane.SpeedMps),
                            .Lanes = lane.Lanes,
-                           .Spans = lane.Bridge});
-    netToLane.push_back(at);
+                           .Priority = lane.Priority,
+                           .Oneway = lane.Oneway,
+                           .Sealed = lane.Sealed,
+                           .Spans = lane.Bridge,
+                           .Tag = at});
   }
 }
 
@@ -589,15 +607,15 @@ void Corridors::FileCrossing(const Path::Network::Crossing &one,
 
 void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
                               const Paving &on,
-                              std::span<const size_t> netToLane,
+                              const Path::Network &net,
                               Paved &into) {
   const outshine::Ground::StreetField &ways = on.Ways;
   const TangentFrame &standing = on.Standing;
   const Drape &drapedOver = on.Draped;
 
-  if (one.OverWay >= netToLane.size() || one.UnderWay >= netToLane.size()) { return; }
-  const size_t a = netToLane[one.OverWay];
-  const size_t b = netToLane[one.UnderWay];
+  if (one.OverWay >= net.WayCount() || one.UnderWay >= net.WayCount()) { return; }
+  const size_t a = net.TagOf(one.OverWay);
+  const size_t b = net.TagOf(one.UnderWay);
   const outshine::Ground::StreetField::Way &first = ways.Ways()[a];
   const outshine::Ground::StreetField::Way &second = ways.Ways()[b];
   if (first.Bridge == second.Bridge) { return; }
@@ -619,8 +637,6 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
 }
 
 void Corridors::Crosses(const Paving &on, Paved &into) {
-  const outshine::Ground::StreetField &ways = on.Ways;
-  const outshine::Ground::OsmField &vectors = on.Vectors;
   const TangentFrame &standing = on.Standing;
 
   auto partAt = std::chrono::steady_clock::now();
@@ -630,14 +646,21 @@ void Corridors::Crosses(const Paving &on, Paved &into) {
     return std::chrono::duration<double, std::milli>(partAt - was).count();
   };
 
-  Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
-  std::vector<size_t> netToLane;
-  LayLanesIntoNetwork(ways, vectors.Points(), net, netToLane);
+  if (on.Network == nullptr) { return; }
+  const Path::Network &net = *on.Network;
   into.CrossNetworkMs = part();
 
   std::vector<Path::Network::Crossing> crossed;
   const auto swept = net.Crossings(crossed);
   if (!swept) { return; }
+  std::ranges::sort(crossed,
+                    [&net](const Path::Network::Crossing &a, const Path::Network::Crossing &b) {
+                      const std::array<size_t, 4> ka = {
+                          net.TagOf(a.OverWay), net.TagOf(a.UnderWay), a.OverAt, a.UnderAt};
+                      const std::array<size_t, 4> kb = {
+                          net.TagOf(b.OverWay), net.TagOf(b.UnderWay), b.OverAt, b.UnderAt};
+                      return ka < kb;
+                    });
   into.CrossSweepMs = part();
   into.CrossingsSeen = crossed.size();
   into.PairsTested = swept->PairsTested;
@@ -645,7 +668,7 @@ void Corridors::Crosses(const Paving &on, Paved &into) {
   into.FullestCell = swept->FullestCell;
   for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, standing, into); }
   into.CrossFilingMs = part();
-  for (const Path::Network::Crossing &one : crossed) { RaiseDeckOver(one, on, netToLane, into); }
+  for (const Path::Network::Crossing &one : crossed) { RaiseDeckOver(one, on, net, into); }
   into.CrossDecksMs = part();
 }
 
@@ -1358,6 +1381,7 @@ void Corridors::Lay(const Site &site,
   if (vectors != nullptr) {
     sharedNodes = SharedNodesOf(ways, vectors->Points());
     paving.emplace(Paving{.Stack = site.Stack,
+                          .Network = site.Network,
                           .Ways = ways,
                           .Vectors = *vectors,
                           .Points = vectors->Points(),

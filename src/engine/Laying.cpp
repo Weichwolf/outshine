@@ -520,9 +520,22 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     return World.Sheets.FieldUpM(
         World.Stack.Ground(), over.Zoom, {.EastM = eastM, .NorthM = -southM});
   };
+  if (World.Stack.Ways().Ways().size() != World.NetworkOfWays) {
+    const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
+    World.Network = mapped.Network;
+    World.NetworkOfWays = World.Stack.Ways().Ways().size();
+    Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
+    Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
+    Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
+    Published.Places("network: nodes where three or more edges meet",
+                     static_cast<double>(mapped.Junctions),
+                     "nodes");
+    if (!mapped.Refusal.empty()) { Published.Places("network: refused to weave", 1.0, "yes/no"); }
+  }
   {
     std::vector<Measure> notes;
     World.Shipping.Corridors().Lay({.Stack = World.Stack,
+                                    .Network = World.Network.get(),
                                     .Standing = standing,
                                     .Draped = drapedOver,
                                     .Classes = classStructure,
