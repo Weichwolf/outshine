@@ -21,6 +21,11 @@ AUDITLINK=0
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 2
 
+TREES=test
+# the sources under test/ that git holds or would hold -- the lab's .venv under test/lab carries
+# a numpy .cpp nobody wrote, and a walk that saw it died naming a directory the harness knows no
+TestSources() { git ls-files --cached --others --exclude-standard "$TREES" | grep '\.cpp$'; }
+
 BUILD=${TMPDIR:-/tmp}
 # the nest carries the checkout identity (board:1649): parallel checkouts get parallel
 # nests, a worktree gate cannot sweep this one mid-run, and a collision is unspellable
@@ -1024,7 +1029,7 @@ StateTwins() {
 StateStranded() {
 
   printf '\n## Stranded\n\nSources no declared suite links, so nothing they hold is proven.\n\n'
-  for suiteDir in $(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
@@ -1479,7 +1484,7 @@ fi
 
 if [ "$AUDIT" = 1 ]; then
   bad=0
-  for suiteDir in $(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     files=""
     for group in $groups; do
@@ -1495,7 +1500,7 @@ if [ "$AUDIT" = 1 ]; then
       bad=1
     fi
   done
-  for suiteDir in $(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
@@ -1539,7 +1544,7 @@ if [ "$AUDITLINK" = 1 ]; then
   bad=0
   auditSuites=$SUITES
   [ -n "$auditSuites" ] ||
-    auditSuites=$(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
+    auditSuites=$(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     [ -n "$groups" ] || continue
@@ -1644,7 +1649,6 @@ fi
 PRUNE_MARKER=$BUILD/prune.marker
 
 
-TREES=test
 [ -z "$SUITES" ] && TREES="test"
 for named in $SUITES; do
   case "$named" in
@@ -1653,7 +1657,7 @@ done
 
 TESTS=""
 PROGRAMS=""
-for candidate in $(find $TREES -name '*.cpp' | sort); do
+for candidate in $(TestSources | sort); do
   candidateLayer=$(dirname "${candidate#test/}")
   if Programs "$candidateLayer" >/dev/null; then
     PROGRAMS="$PROGRAMS $candidate"
@@ -1748,7 +1752,7 @@ if [ -n "$SUITES" ]; then
       case "${candidate#test/}" in "$named"/*) under="$under $candidate" ;; esac
     done
     [ -n "$under" ] ||
-      Die "no declared suite under $named -- $(find $TREES -name '*.cpp' -exec dirname {} \; | sed 's|^test/||' | sort -u | tr '\n' ' ')"
+      Die "no declared suite under $named -- $(TestSources | xargs -n1 dirname | sed 's|^test/||' | sort -u | tr '\n' ' ')"
     selected="$selected$under"
   done
   TESTS=$(printf '%s\n' $selected | sort -u | tr '\n' ' ')

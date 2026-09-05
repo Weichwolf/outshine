@@ -104,8 +104,13 @@ Khronos's own tools, and the tree hands SDL_GPU that SPIR-V -- a Metal or DXIL d
 build product the tree never reads, and a source file in a vendor's shading language is a
 finding. **THE ENGINE DOES NOT KNOW THE HARDWARE.** No path in this tree is chosen by a GPU's name, a
 vendor's extension or a feature the API does not carry: programmable tile shading, mesh
-shaders and ray-tracing units are a brochure until SDL_GPU exposes them, however loudly the
-hardware advertises them. What SDL_GPU does expose (a render pass's load and store actions, a
+shaders, hardware tessellation stages and ray-tracing units are a brochure until SDL_GPU
+exposes them, however loudly the hardware advertises them. **And that is no ceiling on
+geometry**: SDL_GPU has compute pipelines, storage buffers and indirect draws, and a compute
+pass that writes vertices and an indirect draw that reads them IS tessellation on this API
+-- Ghost of Tsushima's grass is exactly that -- while the fragment stage tessellates in its
+own way (parallax, interior mapping, decals). What moves to the GPU is decided by that
+route, per technique, in `test/lab/research/`. What SDL_GPU does expose (a render pass's load and store actions, a
 compute pass) is chosen by a measurement on THIS tree against the reference's path, and the
 number decides, never the spec sheet. The machine named at the top of this page is the
 POPULATION every number here is measured on, and the reason it is named: it is roughly a PS4's
@@ -410,6 +415,34 @@ passes proves nothing, the trap that costs most here.
 **Every baseline may only SHRINK.** A strict analysis over a grown tree is red on day one and
 switched off in the first week; a recorded count that a commit may lower and never raise holds new
 code to zero and lets old code be repaired at the pace it is touched. `make help` is the list.
+
+## Prove it first: `test/lab`
+
+**PYTHON PROVES CORRECTNESS; THE C++ MAKES IT REAL-TIME.** A non-trivial answer -- a solver, a
+profile, a mesh, a projection, anything with mathematics in it -- is found in `test/lab` before
+a line of it exists in `src/`: the engine's own inputs (the same tiles, decoded by numpy), the
+scientific libraries (numpy, scipy, shapely, trimesh, networkx, osmnx, Blender for the look),
+and a PROOF that is a check that can go red -- a constraint violated, a residual over its
+tolerance, a negative control that passes. Trying things in C++ until the picture looks right
+is the failure mode this exists to prevent: measured 2026-09-05, three grade limiters were
+written into the map in one afternoon, each diverging in its own way, before the problem had
+been written down as the bounded least-squares it is. `test/lab/README.md` is the inventory --
+every experiment with its question, its solution, its proof and what went to C++ -- and an
+experiment without a row there does not exist.
+
+Three bounds on it, mine:
+
+- **A lab result is TRUTH only when it is carried further than the C++** -- an exact solver, a
+  robust geometry kernel, an integral where the engine sums. The same algorithm written twice,
+  once in Python, is a SNAPSHOT: agreement with ourselves, and the case that compares them
+  says so
+- **The comparison is made on THIS tree's inputs, through the door.** The C++ publishes its
+  numbers as measures and the lab computes the same from the same tiles; a case compares them
+  at a place, with a tolerance that has an origin. A lab number frozen into a file is a golden
+  file, and a golden file is the previous answer preserved exactly
+- **The lab is out of the gates.** It fetches, it runs for minutes, it needs a venv; `make lint`
+  and `make shots` never wait on it. Its numbers are QUOTED in the item and the commit, dated,
+  and re-run when the question is reopened
 
 ## How I work
 

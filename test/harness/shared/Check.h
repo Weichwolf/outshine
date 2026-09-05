@@ -125,8 +125,14 @@ inline void Skip(const char *why) {
         "FAIL the tree '%s' this claim walks is not there: %s\n", root, why.message().c_str());
     return found;
   }
-  for (const auto &entry : walk) {
-    if (entry.is_regular_file()) { found.push_back(entry.path()); }
+  // a directory whose name starts with a dot is somebody else's: the lab's .venv under test/
+  // carries a numpy .cpp and a scipy .py that spell a compiler, and neither is this tree's word
+  for (auto at = std::filesystem::begin(walk); at != std::filesystem::end(walk); ++at) {
+    if (at->is_directory() && at->path().filename().string().starts_with(".")) {
+      at.disable_recursion_pending();
+      continue;
+    }
+    if (at->is_regular_file()) { found.push_back(at->path()); }
   }
   return found;
 }

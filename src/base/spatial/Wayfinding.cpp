@@ -14,6 +14,7 @@
 #include <numbers>
 #include <optional>
 #include <cmath>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -30,6 +31,8 @@ constexpr uint64_t kWordMost = 0xFFFFFFFFull;
 namespace {
 
 constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
+constexpr double kTenPercent = 0.10;
+constexpr double kThirtyPercent = 0.30;
 
 double MetresPerDegreeLat(double sphereRadiusM) {
   return sphereRadiusM * kDegToRad;
@@ -1157,16 +1160,20 @@ Network::Elevated Network::Elevate(const HeightSource &heightOf) {
   }
   StationsOfWays();
   SlopesOfWays();
+  CountGrades(made);
+  return made;
+}
+
+void Network::CountGrades(Elevated &made) const {
   for (size_t at = 0; at < SlopeM_.size(); ++at) {
     const double grade = std::fabs(SlopeM_[at]);
-    if (grade > 0.10) { ++made.OverTenPercent; }
-    if (grade > 0.30) { ++made.OverThirtyPercent; }
+    if (grade > kTenPercent) { ++made.OverTenPercent; }
+    if (grade > kThirtyPercent) { ++made.OverThirtyPercent; }
     made.SteepestGrade = std::max(made.SteepestGrade, grade);
     if (!Ways_[WayOf_[at]].Sealed) { continue; }
-    if (grade > 0.10) { ++made.SealedOverTenPercent; }
+    if (grade > kTenPercent) { ++made.SealedOverTenPercent; }
     made.SteepestSealedGrade = std::max(made.SteepestSealedGrade, grade);
   }
-  return made;
 }
 
 void Network::StationsOfWays() {
@@ -1204,7 +1211,9 @@ double Network::LengthM(size_t way) const {
   return StationM_[Ways_[way].First + Ways_[way].Count - 1];
 }
 
-std::optional<Network::Station> Network::Profile(size_t way, double stationM) const {
+std::optional<Network::Station> Network::Profile(Along at) const {
+  const size_t way = at.Way;
+  const double stationM = at.StationM;
   if (way >= Ways_.size() || Ways_[way].Count == 0 || HeightsM_.size() < Points_.size() / 2) {
     return std::nullopt;
   }

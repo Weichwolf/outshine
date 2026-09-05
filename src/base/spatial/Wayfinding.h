@@ -121,7 +121,12 @@ public:
     double Grade = 0.0;
   };
 
-  [[nodiscard]] std::optional<Station> Profile(size_t way, double stationM) const;
+  struct Along {
+    size_t Way = 0;
+    double StationM = 0.0;
+  };
+
+  [[nodiscard]] std::optional<Station> Profile(Along at) const;
   [[nodiscard]] double LengthM(size_t way) const;
 
   struct Crossing {
@@ -223,6 +228,7 @@ private:
   void SortWaysIntoDeclaredOrder();
   void StationsOfWays();
   void SlopesOfWays();
+  void CountGrades(Elevated &made) const;
   [[nodiscard]] size_t NodeNear(LongitudeLatitude at, const CellsByKey &byCell) const;
   static void FoldWayInto(Node &node, const Way &from);
   void SnapPointsIntoNodes(std::vector<size_t> &nodeOf, CellsByKey &byCell);

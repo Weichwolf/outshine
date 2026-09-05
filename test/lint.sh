@@ -33,7 +33,8 @@ done
 [ -f compile_commands.json ] || { printf 'lint: no compile_commands.json -- run `make db`\n' >&2; exit 2; }
 
 mkdir -p "$REPORT"
-ours=$(find src include test -name '*.cpp' -o -name '*.h' | grep -v '/shaders/' | sort)
+# what git holds or would hold: the lab's .venv under test/ carries 24 834 headers nobody wrote
+ours=$(git ls-files --cached --others --exclude-standard src include test | grep -E '\.(cpp|h)$' | grep -v '/shaders/' | sort)
 
 printf '== format ==\n'
 if "$LLVM/clang-format" --dry-run --Werror $ours 2>"$REPORT/format.log"; then

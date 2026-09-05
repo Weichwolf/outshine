@@ -312,3 +312,29 @@ grade above its class's number after the pass.
 Beside it: `Drape::Field` took `(eastM, southM)` and the engine negated north twice on the way
 in and out; it takes `EastNorth` now and `Drape::EastNorth` is the door's `outshine::EastNorth`.
 
+## Decided 2026-09-05, in the lab: the profile is a Tikhonov fit over the node graph
+
+Three grade limiters were written into the map in one afternoon and each diverged in its own way
+(a per-way envelope with node means re-sharing, a pairwise relaxation, a box filter): the problem
+had not been written down. Written down in `test/lab/roads/band.py` and proved:
+
+- one height per OSM NODE (every way through it shares it: C0 across ways by construction);
+  minimise `sum w (z - dem)^2 + l^4 sum kappa^2` where `kappa` is the second difference along
+  each way scaled by its stations, `l = 2 DEM postings` (the DEM cannot resolve a feature
+  shorter than its cell, and a road cannot have one either), `w = 1` for a node that owes the
+  DEM its height and `w = 0` for the interior nodes of a bridge or tunnel, whose deck is a design
+  curve between the abutments (OpenDRIVE's elevation polynomial); the band `|z - dem| <= 4 m`
+  hard [SET: Copernicus GLO-30 vertical LE90 < 4 m]; the class's design grade REPORTED as
+  netconvert warns it, never forced -- a real street stands at its real grade
+- solved as the normal equations `(W + l^4 K^T K) z = W dem` by a sparse direct solve, which is
+  the QP's KKT point while no bound is active (0 of 12 552 nodes at OldTown); an active set of
+  at most 8 rounds pins the rest. Conjugate gradients are NOT the tool: `l^4 / ds^4` conditions
+  the system at 1e5 and Jacobi-PCG stands 0.31 m off after 1 024 iterations
+- measured at OldTown: curvature RMS 0.0095 -> 0.0013 1/m, `|z - dem|` max 4.15 m (a deck),
+  the DEM's sub-posting kinks gone and the hilltops kept (`profile-OldTown.png`); controls: the
+  band shut gives the DEM back, an isolated way with the band open fits a line
+- C++: `Path::Network::Elevate` builds K from the ways' triples and W from the spans, solves
+  with Eigen's `SimplicialLDLT` (MPL2, header-only, the sparse Cholesky this tree does not
+  write again), then the C1 Hermite between nodes as landed. Heidelberg's proof and the
+  bridges' look are the next measurement before the C++ is written
+

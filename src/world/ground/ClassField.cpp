@@ -5,6 +5,7 @@
 
 #include <array>
 #include <algorithm>
+#include <tuple>
 #include <cstddef>
 #include <mutex>
 #include <cstdint>
@@ -163,11 +164,10 @@ void ClassField::Ingest(Tier &t) {
     t.Feats.push_back(rec);
   }
   t.FeatsDone = feats.size();
-  std::ranges::stable_sort(t.Feats,
-
-                           [](const ClassBuilder::Feature &a, const ClassBuilder::Feature &b) {
-                             return a.Rank < b.Rank;
-                           });
+  std::ranges::sort(t.Feats, [](const ClassBuilder::Feature &a, const ClassBuilder::Feature &b) {
+    return std::tie(a.Rank, a.MinE, a.MinN, a.MaxE, a.MaxN, a.Tpl, a.Form, a.WidthM, a.RingCount) <
+           std::tie(b.Rank, b.MinE, b.MinN, b.MaxE, b.MaxN, b.Tpl, b.Form, b.WidthM, b.RingCount);
+  });
   t.Stale = true;
 }
 

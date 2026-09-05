@@ -44,6 +44,8 @@
 
 namespace outshine {
 
+constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
+
 static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
               "the elevation stream is opened ONE zoom below the finest tile so its posting equals "
               "the patchwork's vertex spacing; that holds only while a stream tile carries twice "
@@ -147,6 +149,19 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
   Published.Places("class field: the version the colours used",
                    classes ? static_cast<double>(classes->Version()) : -1.0,
                    "version");
+  if (classes) {
+    uint64_t digest = kDigestBasis;
+    const size_t words = classes->Bytes() / sizeof(uint32_t);
+    for (size_t at = 0; at < words; ++at) {
+      digest = (digest ^ classes->Words()[at]) * kDigestPrime;
+    }
+    Published.Places("class field: the structure's digest, low half",
+                     static_cast<double>(digest & kLowWord),
+                     "digest");
+    Published.Places("class field: the structure's digest, high half",
+                     static_cast<double>(digest >> 32U),
+                     "digest");
+  }
   Published.Places("class field: it calls itself complete",
                    World.Stack.Classes().Complete() ? 1.0 : 0.0,
                    "yes/no");
@@ -335,7 +350,6 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   if (World.EverLaid && !elsewhere && !grew && !renamed) { return Laid::Unchanged; }
 
   {
-    constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
     const uint64_t geometry = World.Pieces.Digest();
     Published.Places(
         "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
