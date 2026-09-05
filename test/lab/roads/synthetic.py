@@ -28,10 +28,13 @@ POSTING_M = 25.0          # the engine's DEM at zoom 12, 49 N (measured: 24.9 m)
 DEM_ERROR_M = 4.0         # [SET] Copernicus GLO-30 LE90 < 4 m
 DECK_TIE = 1e-6           # a deck with no abutment keeps a weak tie to the DEM
 CLEARANCE_M = 4.5         # [SET] the clearance a bridge owes the water or the road below
+DECK_GRADE = 0.04         # [SET] a deck's own grade, RAA/RAL bridges: the expensive part stays near level
+DECK_STIFF = 10.0         # [SET] a deck resists bending ten times more than the fill beside it -- the lift goes to the ramps
 COVER_M = 3.0             # [SET] the least rock a tunnel keeps above its crown
 WELD_M = 1e-3
 STEP_TOL_M = 1e-3
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
+GRADE_OF = {"primary": 0.06, "secondary": 0.08, "residential": 0.12, "service": 0.15}  # [SET] RAL 2012 EKL 3 / EKL 4, RASt 06
 WARP_M = 20.0             # [SET] RAS-K: a side road's section is warped into the through road's surface over its last ~20 m
 
 
@@ -238,6 +241,116 @@ def r_tunnel_through_crest():
     return net
 
 
+def r_interchange():
+    """A bridge road (layer 1) over a ground road (layer 0): no shared node; the deck must clear
+    the road below by CLEARANCE_M at the crossing."""
+    net = Network()
+    net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0)
+    south = [net.node(*p) for p in line_pts(0, -500, 0, -110)]
+    deck = [net.node(*p) for p in line_pts(0, -90, 0, 90)]
+    north = [net.node(*p) for p in line_pts(0, 110, 0, 500)]
+    net.way(south + [deck[0]], highway="secondary", width=8.0)
+    net.way(deck, highway="secondary", width=8.0, bridge="yes", layer=1)
+    net.way([deck[-1]] + north, highway="secondary", width=8.0)
+    return net
+
+
+def r_roundabout(radius=15.0, legs=4):
+    net = Network()
+    ring = []
+    n = 16
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        ring.append(net.node(radius * math.cos(a), radius * math.sin(a)))
+    net.way(ring + [ring[0]], highway="primary", width=7.0, junction="roundabout", priority=9)
+    for k in range(legs):
+        a = 2 * math.pi * k / legs
+        at = ring[(k * n) // legs]
+        d = (math.cos(a), math.sin(a))
+        out = [net.node(*p) for p in line_pts(d[0] * (radius + 20), d[1] * (radius + 20), d[0] * 400, d[1] * 400)]
+        net.way([at] + out, highway="residential", width=7.0)
+    return net
+
+
+def r_ramp(angle_deg=8.0):
+    net = Network()
+    o = net.node(0, 0)
+    a = [net.node(*p) for p in line_pts(-500, 0, -20, 0)]
+    b = [net.node(*p) for p in line_pts(20, 0, 500, 0)]
+    net.way(a + [o] + b, highway="primary", width=10.0)
+    d = (math.cos(math.radians(angle_deg)), math.sin(math.radians(angle_deg)))
+    ramp = [net.node(*p) for p in line_pts(d[0] * 20, d[1] * 20, d[0] * 400, d[1] * 400)]
+    net.way([o] + ramp, highway="secondary", width=5.0, oneway="yes")
+    return net
+
+
+def r_dual():
+    net = Network()
+    n1 = [net.node(*p) for p in line_pts(-400, -8, -20, -8)]
+    m1 = net.node(0, -8)
+    e1 = [net.node(*p) for p in line_pts(20, -8, 400, -8)]
+    net.way(n1 + [m1] + e1, highway="primary", width=8.0, oneway="yes")
+    n2 = [net.node(*p) for p in line_pts(400, 8, 20, 8)]
+    m2 = net.node(0, 8)
+    e2 = [net.node(*p) for p in line_pts(-20, 8, -400, 8)]
+    net.way(n2 + [m2] + e2, highway="primary", width=8.0, oneway="yes")
+    s = [net.node(*p) for p in line_pts(0, -400, 0, -28)]
+    x = [net.node(*p) for p in line_pts(0, 28, 0, 400)]
+    net.way(s + [m1, m2] + x, highway="residential", width=6.0)
+    return net
+
+
+def r_cul_de_sac():
+    net = Network()
+    net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0)
+    o = net.nodes  # noqa: F841
+    return net
+
+
+def p_duplicate_nodes():
+    net = Network()
+    a = [net.node(*p) for p in line_pts(-500, 0, 0, 0)]
+    b = [net.node(*p) for p in line_pts(0, 0, 500, 0)]     # b[0] duplicates a[-1] at (0, 0)
+    net.way(a, highway="primary", width=10.0)
+    net.way(b, highway="primary", width=10.0)
+    return net
+
+
+def p_zero_length():
+    net = Network()
+    pts = line_pts(-500, 0, 500, 0)
+    pts.insert(5, pts[5])                                   # the same point twice
+    net.polyline(pts, highway="primary", width=10.0)
+    return net
+
+
+def p_gap():
+    net = Network()
+    net.polyline(line_pts(-500, 0, -0.3, 0), highway="primary", width=10.0)
+    net.polyline(line_pts(0.2, 0, 500, 0), highway="primary", width=10.0)
+    return net
+
+
+def p_duplicate_way():
+    net = Network()
+    refs = [net.node(*p) for p in line_pts(-500, 0, 500, 0)]
+    net.way(refs, highway="primary", width=10.0)
+    net.way(refs, highway="primary", width=10.0)
+    return net
+
+
+def p_bridge_no_landing():
+    net = Network()
+    net.polyline(line_pts(-200, 0, 200, 0), highway="primary", width=10.0, bridge="yes", layer=1)
+    return net
+
+
+def p_dense():
+    net = Network()
+    net.polyline(line_pts(-500, 0, -50, 0) + line_pts(-49.9, 0, 50, 0, step=0.1) + line_pts(50.1, 0, 500, 0), highway="primary", width=10.0)
+    return net
+
+
 NETWORKS = {
     "R1-straight": r_straight,
     "R2-curve200": lambda: r_curve(200.0),
@@ -248,6 +361,16 @@ NETWORKS = {
     "R5-X60": lambda: r_x_junction(60.0),
     "R18-bridge": r_bridge_over_valley,
     "R20-tunnel": r_tunnel_through_crest,
+    "R10-interchange": r_interchange,
+    "R7-roundabout": r_roundabout,
+    "R9-ramp": r_ramp,
+    "R8-dual": r_dual,
+    "P1-dupnodes": p_duplicate_nodes,
+    "P2-zerolen": p_zero_length,
+    "P3-gap": p_gap,
+    "P4-dupway": p_duplicate_way,
+    "P5-nolanding": p_bridge_no_landing,
+    "P6-dense": p_dense,
 }
 
 
@@ -256,16 +379,37 @@ NETWORKS = {
 class Map:
     """Node heights, way stations and profiles, junction planes."""
 
+    SNAP_M = 2.0   # the engine's kNodeSnapM
+
     def __init__(self, terrain, net):
         self.terrain = terrain
         self.net = net
+        self._snap()
         self.index = {nid: k for k, nid in enumerate(net.nodes)}
         self.xy = np.array([net.nodes[n] for n in net.nodes])
         self.dem = np.array([self._dem_or_neighbour(n) for n in net.nodes])
         self.stations = {w["id"]: self._stations(w) for w in net.ways}
         self.z = None
+        self.ramp_signs = {}
         self.slope = {}
         self.junctions = {}
+
+    def _snap(self):
+        """Nodes within SNAP_M of an earlier node are the earlier node (declared order), and a
+        way's consecutive duplicates collapse to one -- the weave's word, so P1, P2 and P3 hold."""
+        kept = {}
+        alias = {}
+        for nid, (x, y) in self.net.nodes.items():
+            hit = next((k for k, (kx, ky) in kept.items() if math.hypot(kx - x, ky - y) <= self.SNAP_M), None)
+            if hit is None:
+                kept[nid] = (x, y)
+                alias[nid] = nid
+            else:
+                alias[nid] = hit
+        self.net.nodes = kept
+        for w in self.net.ways:
+            refs = [alias[r] for r in w["refs"]]
+            w["refs"] = [r for k, r in enumerate(refs) if k == 0 or r != refs[k - 1]]
 
     def _dem_or_neighbour(self, nid):
         x, y = self.net.nodes[nid]
@@ -296,20 +440,26 @@ class Map:
                     (deck if self.net.spans(w) else bore)[k] = True
         rows, cols, vals, r = [], [], [], 0
         srows, scols, svals, sr = [], [], [], 0
+        deck_nodes = {r_ for w in self.net.ways if self.net.spans(w) for r_ in w["refs"]}
         for w in self.net.ways:
+            # a way that lands on a deck is a RAMP: its grade is designed, not the terrain's,
+            # so it carries no grade-fidelity row (the class grade bounds it instead); with the
+            # row it kept 0.8 m of lift 400 m from the bridge rather than come down (measured)
+            ramp = (not self.net.spans(w)) and bool(set(w["refs"]) & deck_nodes)
             refs, s = w["refs"], self.stations[w["id"]]
+            stiff = math.sqrt(DECK_STIFF) if self.net.spans(w) else 1.0
             for k in range(1, len(refs) - 1):
                 d0, d1 = s[k] - s[k - 1], s[k + 1] - s[k]
                 if d0 <= 1e-3 or d1 <= 1e-3:
                     continue
-                scale = 2.0 / (d0 + d1)
+                scale = 2.0 * stiff / (d0 + d1)
                 for ref, v in ((refs[k - 1], scale / d0), (refs[k], -scale * (1 / d0 + 1 / d1)), (refs[k + 1], scale / d1)):
                     rows.append(r); cols.append(self.index[ref]); vals.append(v)
                 r += 1
             for k in range(1, len(refs)):
                 ds = s[k] - s[k - 1]
                 a, b = self.index[refs[k - 1]], self.index[refs[k]]
-                if ds <= 1e-3 or fidelity[a] <= DECK_TIE or fidelity[b] <= DECK_TIE:
+                if ds <= 1e-3 or fidelity[a] <= DECK_TIE or fidelity[b] <= DECK_TIE or ramp:
                     continue
                 wgt = 1.0 / math.sqrt(ds)
                 srows += [sr, sr]; scols += [a, b]; svals += [-wgt, wgt]; sr += 1
@@ -320,9 +470,154 @@ class Map:
         b = fidelity * self.dem + mu * (G.T @ (G @ self.dem))
         self.z = spsolve(A.tocsc(), b)
         self.deck, self.bore, self.curvature = deck, bore, K
+        self.constraints = self._clearances(deck)
+        if self.constraints:
+            self.ramp_signs = {}
+            self._solve_with_clearances(A, b)     # once, to read the ramps' signs
+            self.ramp_signs = self._ramp_signs()
+            self._solve_with_clearances(A, b)     # again, with a fill that stays a fill
         self._slopes()
         self._junctions()
         return self
+
+    def approaches(self):
+        """The nodes within RAMP_M along a way of a deck's abutment: the ramp, a DESIGNED
+        structure whose profile owes the DEM nothing but its start and end."""
+        # the whole of a way that lands on a deck is the ramp's: the fill returns to the
+        # terrain at the class's grade and through the vertical curves the smoothing length
+        # makes, and where that ends is a NUMBER the bed reports (ramp_m), not a wall
+        near = np.zeros(len(self.index), dtype=bool)
+        deck_nodes = {r for w in self.net.ways if self.net.spans(w) for r in w["refs"]}
+        for r in deck_nodes:
+            near[self.index[r]] = True
+        for w in self.net.ways:
+            if self.net.spans(w) or not (set(w["refs"]) & deck_nodes):
+                continue
+            for r in w["refs"]:
+                near[self.index[r]] = True
+        return near
+
+    def ramp_m(self):
+        """How far from an abutment the road stands more than the DEM's error off the terrain."""
+        if self.z is None:
+            return 0.0
+        deck_nodes = {r for w in self.net.ways if self.net.spans(w) for r in w["refs"]}
+        worst = 0.0
+        for w in self.net.ways:
+            if self.net.spans(w) or not (set(w["refs"]) & deck_nodes):
+                continue
+            refs, s = w["refs"], self.stations[w["id"]]
+            anchors = [s[k] for k, r in enumerate(refs) if r in deck_nodes]
+            for k, r in enumerate(refs):
+                if abs(self.z[self.index[r]] - self.dem[self.index[r]]) > DEM_ERROR_M:
+                    worst = max(worst, min(abs(s[k] - a) for a in anchors))
+        return worst
+
+    def _clearances(self, deck):
+        """Where a deck node stands over another way's ribbon or over water, the deck owes it
+        CLEARANCE_M: a linear inequality z_node >= floor. Between nodes the deck is a smooth
+        curve, so the nodes bound it; a crossing between two deck nodes is caught by the node
+        on either side (the checks sample the profile along the deck)."""
+        floors = {}
+        for w in self.net.ways:
+            if not self.net.spans(w):
+                continue
+            refs = w["refs"]
+            for r in refs[1:-1]:
+                k = self.index[r]
+                x, y = self.net.nodes[r]
+                floor = None
+                if self.terrain.water is not None and self.terrain.truth(x, y) < self.terrain.water:
+                    floor = self.terrain.water + CLEARANCE_M
+                for other in self.net.ways:
+                    if other is w or self.net.spans(other) or set(other["refs"]) & set(refs):
+                        continue
+                    line = self.centreline(other)
+                    p = Point(x, y)
+                    reach = other["tags"]["width"] / 2.0 + w["tags"]["width"] / 2.0 + 25.0
+                    if line.distance(p) <= reach:
+                        # the road below at its nearest station: its DEM height is the floor's
+                        # best estimate before its own profile exists (they are solved together)
+                        q = line.interpolate(line.project(p))
+                        below = self.dem[self.index[other["refs"][0]]]
+                        floor2 = self.terrain.dem(q.x, q.y) + CLEARANCE_M
+                        floor = floor2 if floor is None else max(floor, floor2)
+                if floor is not None:
+                    floors[k] = max(floors.get(k, -1e9), floor)
+        return floors
+
+    def _ramp_signs(self):
+        """A fill stays a fill and a cutting stays a cutting: the sign of the abutment's lift,
+        read from the first solve, holds for the whole ramp in the second. A ramp that crosses
+        grade on its way to the deck would be a road that dips to climb, which is not one."""
+        signs = {}
+        deck_nodes = {r for w in self.net.ways if self.net.spans(w) for r in w["refs"]}
+        for w in self.net.ways:
+            if self.net.spans(w) or not (set(w["refs"]) & deck_nodes):
+                continue
+            at = next(self.index[r] for r in w["refs"] if r in deck_nodes)
+            signs[w["id"]] = 1.0 if self.z[at] >= self.dem[at] else -1.0
+        return signs
+
+    def _solve_with_clearances(self, A, b):
+        """The QP with the clearances as constraints: cvxpy/OSQP is the oracle here; the C++ form
+        is an active set over these few nodes, proved against this in band_iter's manner."""
+        import cvxpy as cp
+        n = len(self.index)
+        z = cp.Variable(n)
+        A = A.tocsc()
+        objective = 0.5 * cp.quad_form(z, cp.psd_wrap(A)) - b @ z
+        cons = [z[k] >= floor for k, floor in self.constraints.items()]
+        # the ramps: a designed structure keeps its class's grade, hard, on every segment of an
+        # approach and of the deck itself -- the lift a clearance asks for spreads back along
+        # the approach as an embankment, never as a 30 percent step (measured before this)
+        near = self.approaches()
+        # an EMBANKMENT TAPERS: the lift over the terrain falls monotonically from the abutment
+        # to where the road meets grade again, and never swings below it. Without this the
+        # minimum-curvature profile undershoots -- measured: a ramp 0.3 m under a flat plain
+        # before climbing 4 m to the deck, which is a spline's overshoot and not a road
+        deck_nodes = {r for w in self.net.ways if self.net.spans(w) for r in w["refs"]}
+        for w in self.net.ways:
+            if self.net.spans(w) or not (set(w["refs"]) & deck_nodes):
+                continue
+            refs = w["refs"]
+            at_start = refs[0] in deck_nodes
+            order = range(len(refs) - 1) if at_start else range(len(refs) - 1, 0, -1)
+            step = +1 if at_start else -1
+            for k in order:
+                a_, b_ = self.index[refs[k]], self.index[refs[k + step]]
+                lift_a = z[a_] - self.dem[a_]
+                lift_b = z[b_] - self.dem[b_]
+                sign = self.ramp_signs.get(w["id"], 1.0)
+                cons += [sign * lift_b <= sign * lift_a, sign * lift_b >= 0.0]
+        for w in self.net.ways:
+            g = GRADE_OF.get(w["tags"]["highway"], 0.12)
+            refs, s = w["refs"], self.stations[w["id"]]
+            for k in range(1, len(refs)):
+                a, b_ = self.index[refs[k - 1]], self.index[refs[k]]
+                ds = s[k] - s[k - 1]
+                if ds <= 1e-3 or not (near[a] or near[b_] or self.net.spans(w)):
+                    continue
+                if self.net.spans(w):
+                    # a deck spans what is under it: its grade is its own, bounded by the class
+                    # -- or by the chord between its abutments' terrain where the hill is steeper,
+                    # because a MAPPED bridge stands at its real grade (13 m of fill and a 410 m
+                    # ramp were the bed's answer to an 8 percent deck on a 15 percent hill)
+                    s_all = self.stations[w["id"]]
+                    chord = abs(self.dem[self.index[refs[-1]]] - self.dem[self.index[refs[0]]]) / max(s_all[-1], 1e-3)
+                    reach = max(DECK_GRADE, chord) * ds
+                    cons += [z[b_] - z[a] <= reach, z[a] - z[b_] <= reach]
+                else:
+                    # a ramp climbs off the hillside at the class's grade RELATIVE to it, so that
+                    # on a hillside as steep as the class the lift still comes back down (measured
+                    # before this: nine metres of fill that never returned, 200 m from the bridge)
+                    cons += [(z[b_] - self.dem[b_]) - (z[a] - self.dem[a]) <= g * ds,
+                             (z[a] - self.dem[a]) - (z[b_] - self.dem[b_]) <= g * ds]
+        problem = cp.Problem(cp.Minimize(objective), cons)
+        problem.solve(solver=cp.OSQP, eps_abs=1e-7, eps_rel=1e-7, max_iter=200000, polish=True)
+        if z.value is None:
+            raise RuntimeError("clearance QP: " + str(problem.status))
+        self.z = np.asarray(z.value)
 
     def _slopes(self):
         """The Hermite tangents: central differences along a way, and at a junction the plane's."""
@@ -531,8 +826,9 @@ def check_c1(map_):
 
 
 def check_dem_band(map_):
-    """I3: where the DEM is the authority, |z - dem| within its error."""
-    held = ~(map_.deck | map_.bore)
+    """I3: where the DEM is the authority, |z - dem| within its error -- not on a deck, not in
+    a bore, not on a bridge's approach, which is a designed ramp (I11 builds its fill)."""
+    held = ~(map_.deck | map_.bore | map_.approaches())
     return float(np.max(np.abs(map_.z - map_.dem)[held])) if held.any() else 0.0
 
 
@@ -542,13 +838,60 @@ def check_bridge(map_):
         return None
     water = map_.terrain.water
     lowest = float(np.min(map_.z[map_.deck] - (water if water is not None else -1e9)))
-    abut = 0.0
+    below = 0.0
+    fill = 0.0
     for w in map_.net.ways:
         if map_.net.spans(w):
             for r in (w["refs"][0], w["refs"][-1]):
                 k = map_.index[r]
-                abut = max(abut, abs(map_.z[k] - map_.dem[k]))
-    return {"clearance_m": lowest, "abutment_off_m": abut}
+                below = max(below, map_.dem[k] - map_.z[k])
+                fill = max(fill, map_.z[k] - map_.dem[k])
+    return {"clearance_m": lowest, "abutment_below_m": below, "abutment_fill_m": fill, "ramp_m": map_.ramp_m()}
+
+
+def check_finite(map_):
+    """P: every height and grade finite, and no deck thrown farther than the DEM's error where
+    it has no abutment (it keeps the weak tie and is COUNTED, never at -19 m)."""
+    finite = bool(np.all(np.isfinite(map_.z)))
+    grades = np.concatenate([np.abs(m) for m in map_.slope.values()]) if map_.slope else np.zeros(1)
+    return {"finite": finite, "grade_max": float(np.max(grades)), "deck_off_dem_max": float(np.max(np.abs(map_.z - map_.dem)[map_.deck])) if map_.deck.any() else 0.0, "ramp_grade_max": ramp_grade(map_)}
+
+
+def ramp_grade(map_):
+    near = map_.approaches()
+    worst = 0.0
+    for w in map_.net.ways:
+        refs, s = w["refs"], map_.stations[w["id"]]
+        for k in range(1, len(refs)):
+            a, b = map_.index[refs[k - 1]], map_.index[refs[k]]
+            ds = s[k] - s[k - 1]
+            if ds > 1e-3 and (near[a] or near[b] or map_.net.spans(w)):
+                worst = max(worst, abs(map_.z[b] - map_.z[a]) / ds)
+    return worst
+
+
+def check_over_road(map_, st):
+    """I4 for a bridge over a ROAD: at every deck node, the deck against the surface of any
+    other way passing underneath within its width -- the clearance."""
+    least = None
+    for w in map_.net.ways:
+        if not map_.net.spans(w):
+            continue
+        line_w = map_.centreline(w)
+        for s_deck in np.arange(0.0, map_.stations[w["id"]][-1], 1.0):
+            x, y = line_w.interpolate(s_deck).coords[0]
+            z_deck, _ = map_.profile(w, s_deck)
+            for other in map_.net.ways:
+                if other is w or map_.net.spans(other) or set(other["refs"]) & set(w["refs"]):
+                    continue
+                line = map_.centreline(other)
+                s = line.project(Point(x, y))
+                q = line.interpolate(s)
+                if q.distance(Point(x, y)) <= other["tags"]["width"] / 2.0 + w["tags"]["width"] / 2.0:
+                    below = st.own_surface(other, s, q.distance(Point(x, y)))
+                    gap = z_deck - below
+                    least = gap if least is None else min(least, gap)
+    return least
 
 
 def check_tunnel(map_):
@@ -590,6 +933,11 @@ CASES = [
     ("R4-T90", "T1-flat"), ("R4-T90", "T2-along15"), ("R4-T90", "T3-cross15"), ("R4-T30", "T3-cross15"),
     ("R5-X90", "T3-cross15"), ("R5-X60", "T2-along15"), ("R5-X90", "T4-crest"),
     ("R18-bridge", "T8-valley"), ("R20-tunnel", "T4-crest"),
+    ("R10-interchange", "T1-flat"), ("R10-interchange", "T3-cross15"),
+    ("R7-roundabout", "T1-flat"), ("R7-roundabout", "T2-along5"),
+    ("R9-ramp", "T2-along5"), ("R8-dual", "T3-cross15"),
+    ("P1-dupnodes", "T2-along5"), ("P2-zerolen", "T2-along5"), ("P3-gap", "T2-along5"),
+    ("P4-dupway", "T2-along5"), ("P5-nolanding", "T8-valley"), ("P6-dense", "T4-crest"),
 ]
 
 
@@ -605,7 +953,9 @@ def run(case):
         "I3 |z-dem| m": check_dem_band(m),
         "I6 junction step m": st.check_junction_steps() if m.junctions else None,
         "I4 bridge": check_bridge(m),
+        "I4 over road m": check_over_road(m, st),
         "I5 tunnel": check_tunnel(m),
+        "P finite": check_finite(m),
     }
     red = []
     if verdict["I1 C0 m"] > 1e-9:
@@ -616,10 +966,14 @@ def run(case):
         red.append("I3")
     if verdict["I6 junction step m"] is not None and verdict["I6 junction step m"] > STEP_TOL_M:
         red.append("I6")
-    if verdict["I4 bridge"] is not None and (verdict["I4 bridge"]["clearance_m"] < CLEARANCE_M or verdict["I4 bridge"]["abutment_off_m"] > DEM_ERROR_M):
+    if verdict["I4 bridge"] is not None and (verdict["I4 bridge"]["clearance_m"] < CLEARANCE_M or verdict["I4 bridge"]["abutment_below_m"] > DEM_ERROR_M):
         red.append("I4")
     if verdict["I5 tunnel"] is not None and (verdict["I5 tunnel"]["cover_m"] < 0.0 or verdict["I5 tunnel"]["portal_off_m"] > DEM_ERROR_M):
         red.append("I5")
+    if verdict["I4 over road m"] is not None and verdict["I4 over road m"] < CLEARANCE_M:
+        red.append("I4road")
+    if not verdict["P finite"]["finite"] or verdict["P finite"]["grade_max"] > 1.0 or verdict["P finite"]["deck_off_dem_max"] > 60.0:
+        red.append("P")
     plot(case, m, st)
     return verdict, red
 
