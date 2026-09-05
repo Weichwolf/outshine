@@ -541,6 +541,8 @@ WINDOW_H = 1.5            # [SET] and its height
 SILL_M = 0.9              # [SET] the sill above the floor
 DOOR_W = 1.1              # [SET]
 DOOR_H = 2.2              # [SET]
+GATE_W = 4.0              # [SET] a loading gate on a hall or a shed
+GATE_H = 4.5              # [SET] high enough for a lorry
 BALCONY_D = 1.4           # [SET] a balcony's depth past the wall
 REVEAL_M = 0.12           # [SET] how deep a window sits behind the wall's face
 CORNICE_M = 0.3           # [SET] the cornice's projection at the eaves
@@ -609,8 +611,10 @@ class Facade:
                 mid = (bay + 0.5) * w["bay_m"]
                 for level in range(self.levels()):
                     what = "window"
-                    if level == 0 and w is street and bay == w["bays"] // 2 and self.b.style.epoch not in ("hall", "industrial"):
-                        what = "door"
+                    if level == 0 and w is street and bay == w["bays"] // 2:
+                        # a hall and a shed have a LOADING GATE, not a house door: the entrance
+                        # a viewer reads on an industrial building is 4 m wide and 4.5 m high
+                        what = "gate" if self.b.style.epoch in ("hall", "industrial") else "door"
                     elif level > 0 and self.b.style.balconies and self.b.style.epoch in ("gruenderzeit", "interwar", "postwar", "late20", "contemporary") and self._carries_balcony(w, mid):
                         what = "balcony-door"
                     out.append({"wall": w, "bay": bay, "level": level, "what": what})
@@ -632,7 +636,9 @@ class Facade:
             w = c["wall"]
             mid = (c["bay"] + 0.5) * w["bay_m"]
             base = self.b.pad + c["level"] * self.b.style.level_m
-            if c["what"] == "door":
+            if c["what"] == "gate":
+                one = (w, mid, base + 0.02, GATE_W, GATE_H, "gate")
+            elif c["what"] == "door":
                 one = (w, mid, base + 0.02, DOOR_W, DOOR_H, "door")
             elif c["what"] == "balcony-door":
                 # a BALCONY IS REACHED THROUGH A DOOR: a balcony behind a window is a builder's
@@ -745,7 +751,7 @@ CASES = [
 
 # ----------------------------------------------------------------------------- the drawing
 
-def draw(case, b, f):
+def draw(case, b, f, number=0):
     """A sheet a builder would recognise: PLAN with the wall poched and dimensioned, two
     ELEVATIONS with the openings and the ground line, and a SECTION through the ridge with the
     storey heights. Architectural convention throughout -- cut faces solid, seen edges thin,
@@ -813,17 +819,23 @@ def draw(case, b, f):
         gnd = [b.ground.at(*f._point(wall, float(s))) for s in along]
         # the ROOF's silhouette behind the wall: at each point of the wall, the highest the roof
         # stands anywhere on the line running back into the building
+        # the ELEVATION's silhouette is a PROJECTION: at each station of the wall, the highest
+        # the building stands anywhere on that line of sight. Scanned ACROSS the building per
+        # station rather than sampled on a grid -- the grid rounded the gable ends off and left
+        # the ridge ragged (seen in B01).
+        d = wall["dir"]
         n = wall["inward"]
-        depth = max(b.poly.bounds[2] - b.poly.bounds[0], b.poly.bounds[3] - b.poly.bounds[1])
+        a0 = wall["a"]
+        reach = max(b.poly.bounds[2] - b.poly.bounds[0], b.poly.bounds[3] - b.poly.bounds[1]) * 1.5
         sky = []
         for s in along:
-            p0 = f._point(wall, float(s))
+            p0 = (a0[0] + d[0] * float(s), a0[1] + d[1] * float(s))
             best = b.eaves
-            for r in np.linspace(0.0, depth, 60):
+            for r in np.linspace(0.0, reach, 160):
                 q = (p0[0] + n[0] * r, p0[1] + n[1] * r)
-                if not b.poly.contains(Point(*q)):
-                    continue
-                best = max(best, b.eaves + roof_height_at(b.poly, q[0], q[1], b.roof, b.eaves, b.ridge, b.axis))
+                if b.poly.contains(Point(*q)):
+                    best = max(best, b.eaves + roof_height_at(b.poly, q[0], q[1], b.roof,
+                                                              b.eaves, b.ridge, b.axis))
             sky.append(best)
         axe.fill_between(along, top, sky, facecolor="0.86", edgecolor="none")
         axe.plot(along, sky, color=ink, lw=1.2)
@@ -835,7 +847,8 @@ def draw(case, b, f):
             if w is not wall:
                 continue
             axe.add_patch(Rectangle((mid - ww / 2, up), ww, hh,
-                                    facecolor={"window": "0.55", "balcony-door": "0.45"}.get(kind, "0.35"),
+                                    facecolor={"window": "0.55", "balcony-door": "0.45",
+                                               "gate": "0.28"}.get(kind, "0.35"),
                                     edgecolor=ink, lw=0.8))
             if kind in ("window", "balcony-door"):
                 axe.plot([mid, mid], [up, up + hh], color="white", lw=0.6)
@@ -896,21 +909,23 @@ def draw(case, b, f):
         s.set_visible(False)
 
     tags = ", ".join(f"{k}={v}" for k, v in case[2].items())
-    fig.suptitle(f"{case[0]}  on  {case[1]}   |   {tags}   |   {b.style.kind} / {b.style.epoch}",
-                 fontsize=11, x=0.02, ha="left")
+    fig.suptitle(f"BLATT B{number:02d}   {b.style.kind.upper()} / {b.style.epoch.upper()}   "
+                 f"auf {case[1].split('-', 1)[-1].upper()}   |   {case[0].split('-', 1)[-1]}, "
+                 f"{f.levels()} Geschosse, Dach {b.roof}   |   {tags}",
+                 fontsize=11, x=0.02, ha="left", fontweight="bold")
     fig.text(0.02, 0.015,
              f"levels {f.levels()}   bays {sum(w['bays'] for w in f.walls)}   openings {len(f.openings())}   "
              f"balconies {len(f.balconies())}   pad +{b.pad:.2f}   eaves +{b.eaves:.2f}   ridge +{b.ridge:.2f}   "
              f"volume {b.volume():.0f} m3   triangles L0/L1/L2/L3 "
              f"{'/'.join(str(f.counts(k)['triangles']) for k in range(4))}",
              fontsize=7.5, color="0.35")
-    out = OUT / f"{case[0]}_{case[1]}_{case[2].get('roof:shape', 'flat')}.png"
+    out = OUT / f"{number:02d}_{case[0]}_{case[1]}_{b.style.kind}_{b.style.epoch}.png"
     fig.savefig(out, dpi=110, bbox_inches="tight")
     plt.close(fig)
     return out
 
 
-def run(case):
+def run(case, number=0):
     fname, gname, tags = case
     poly = FOOTPRINTS[fname]()
     ground = GROUNDS[gname]()
@@ -941,15 +956,15 @@ def run(case):
         red.append("B-roof")
     if ground.water is not None and b.pad < ground.water:
         red.append("B3-water")
-    draw(case, b, f)
+    draw(case, b, f, number)
     return b, red, f, ladder
 
 
 def main(argv):
     picked = [c for c in CASES if not argv or any(a in c[0] or a in c[1] or a in str(c[2]) for a in argv)]
     reds = 0
-    for case in picked:
-        b, red, f, ladder = run(case)
+    for number, case in enumerate(picked, start=1):
+        b, red, f, ladder = run(case, number)
         flag = "RED " + ",".join(red) if red else "ok"
         print(f"{case[0]:12s} {case[1]:11s} {b.style.kind[:11]:11s} {b.style.epoch:13s} {b.roof:9s} {flag:28s} "
               f"open {b.open_edges():3d} bad {b.bad_edges():2d} vol {b.volume():8.1f} "

@@ -22,6 +22,32 @@ and never in the tree. Run an experiment as `test/lab/.venv/bin/python test/lab/
 | `roads/CASES.md` + `roads/synthetic.py` | every case of infrastructure x terrain the planet has, in isolation, as MAP and as MESH: the bed builds terrain x network, snaps and dedupes as the weave does, solves the map, meshes the legs and the junction regions, and checks I1-I9 | the map as in band.py plus the junction and ramp rules; the MESH: a ribbon per drawn span with a vertex at every break of the cross-section (the crown) and TWO rows at every polyline vertex (one per segment, the wedge between them closing the corner), the station step from the chord's sagitta per segment (L = sqrt(8 tol / k)), the junction REGION (its polygon plus every minor leg's warp band) meshed on a grid whose cell follows from the crossfall and the tolerance, all welded on a quantised key | measured 2026-09-05: 61 of 61 green -- the drawn surface stands within 1e-14 m of the analytic one on flat ground, 0.16 mm over a crest, 6.9 mm over a DEM cliff, 5 mm on noise; no edge carries more than two faces; the roundabout is one junction (netconvert's node joining, the ring whole, its surface an annulus). Four defects the mesh check found and named: a forward tangent collapsed the section at a way's end (3.1 cm), a mitred row spans two directions and no subdivision shrinks its twist (4 cm = grade x offset x tan(theta/2)), one curvature for a whole way took the step from its flattest stretch, and a way drawn through a junction put two surfaces in one place | nothing yet: joining, then the tile seam and the ground's cut and fill, then `Path::Network` and the structure stage (board:2101) ; and two products beside the map: the EARTHWORKS (batter at 1:1.5 filling and 1:1 cutting, the toe by a root find because the batter's height changes with the terrain, a retaining wall above 3 m) and the SEAM (a tile's own solve against the whole's). Measured: the seam's error falls like exp(-halo / l) with l the smoothing length -- 411 mm with no halo, 21 mm at one l, 4.8 mm at two, 1.3 mm at four -- so a tile must fetch TWO SMOOTHING LENGTHS (four DEM postings, 100 m at zoom 12) of neighbouring network or its roads cannot meet, and no welding afterwards repairs it |
 | `buildings/synthetic.py` | an OSM footprint plus its tags plus the DEM, made into a CLOSED body that stands on the ground | the roof is a DISTANCE FUNCTION and nothing else: a hipped roof of equal pitch is z = tan(pitch) x dist(p, boundary), whose ridge set is the polygon's straight skeleton and whose level sets are its inward offsets, so the mesh puts a vertex on every ridge by sampling those offsets and bisecting for the last one; a gable clamps the distance across one axis, a pyramid normalises it, a skillion is one plane, a mansard two pitches in series, a dome a circle over it. The wall's TOP follows the roof's edge (a gable end rises to the ridge) and its FOOT follows the ground, buried by 0.5 m [SET]; the pad is the footprint's HIGHEST ground corner, so a building cuts into the hill and never floats, and over water it stands a freeboard above it | measured 2026-09-05: 16 of 16 cases green -- seven footprints (rectangle, L, U, courtyard with a hole, round, thin, tower) on five grounds (flat, 15 %, 40 %, terraces, water) with seven roof shapes; every body watertight (0 open edges, 0 edges over two faces), positive volume, no gap between wall and ground, and every ridge within 5 cm of its own arithmetic (tan(pitch) x inradius, the inradius found by bisection on the inward offset -- a 40 x 40 grid read it half a cell short and the apex 0.13 m low) plus the FACADE as a grammar: bays that divide each wall exactly, storeys from `building:levels` (OSM's rule: `height` is the whole building, levels count the storeys under the roof -- reading it wrong left a three-storey house with one row of windows), an entrance in the middle bay of the street side, a French door wherever a balcony stands, and a blind bay where the roof cuts the cell. Four rungs: L0 the mass, L1 the same geometry with the facade as material parameters, L2 the reveals and the cornice, L3 the balconies -- monotone and checked, with L1 costing no geometry so it shares L0's draw. Every case is drawn as a SHEET (plan with poched walls and dimensions, two elevations with the roof's silhouette and the ground line, a section through the ridge) | nothing yet: the building stage in C++ |
 
+## The sheets
+
+Every case of both beds is drawn as an ENGINEERING SHEET and the whole set stands under
+`build/shots/lab/` as `NN_case.png` (roads) and `BNN_case.png` (buildings). The title of each
+carries what it is, where it stands and -- for a building -- its type and epoch.
+
+A road sheet is DIN 1356 / RAS-Q: LAGEPLAN with the alignment, both carriageway edges, the
+junction surfaces, the earthwork toes, stationing along the ROUTE, a north arrow and a scale
+bar; LAENGSSCHNITT along the whole route with terrain, DEM, gradient, cut and fill hatched
+apart, grades in percent, the structures marked with their span division and their piers drawn;
+three QUERSCHNITTE with the crossfall, the kerb, the batters and their slopes, the fill and cut
+heights and the toe's reach -- and for a deck the superstructure instead, a slab of its span's
+depth with parapets, piers and the clearance dimensioned. A building sheet is a plan with the
+wall poched and dimensioned, two elevations with the openings, the balconies, the storey levels
+and the roof's true silhouette, and a section through the ridge.
+
+The sheets are the review: reading them as an engineer found and fixed a junction shape that
+was a triangle pointing away from its minor leg (two opposite legs are parallel and have no
+corner between them -- the edge LINES bound the surface instead), a longitudinal section drawn
+along one way instead of the route (a bridge is three ways and the section showed a plateau
+where the valley is), a 280 m bridge given a single 14 m deep span (it is six fields of 47 m),
+a deck's cross section drawn with a 30 m embankment into the river, a building's elevation
+with no roof at all (the walk into the building used the outward normal) and gable ends rounded
+off by a grid, an industrial hall with a house door instead of a loading gate, and a sheet
+whose title block and cross section disagreed about what "Damm" means.
+
 ## Open questions -- the labs still to run
 
 Each becomes a row above when its experiment exists. Research briefs with references land in

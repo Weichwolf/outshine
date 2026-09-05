@@ -1126,37 +1126,39 @@ class Structure:
         self._junction_polygons()
 
     def _member_polygon(self, nid, legs):
-        """One node's shape, netconvert's NBNodeShapeComputer: the legs by bearing, a corner where
-        one leg's left edge meets the next leg's right edge, clipped to a reach."""
+        """One node's shape. netconvert (NBNodeShapeComputer) walks the legs by bearing and takes
+        the corner where one leg's edge line meets the next leg's; taken here in the form that
+        holds for a leg passing THROUGH -- every pairwise intersection of the legs' edge LINES,
+        hulled. A corner-only walk gave a T-junction a triangle pointing away from its minor
+        leg, because two opposite legs are parallel and have no corner between them (seen in the
+        LAGEPLAN); the edge lines of the through road bound the surface instead."""
         x0, y0 = self.net.nodes[nid]
-        ordered = []
+        lines = []
         for (w, k, sgn) in legs:
             d = self.map._direction(w, k, sgn)
-            ordered.append((math.atan2(d[1], d[0]), w, k, sgn, d, w["tags"]["width"] / 2.0))
-        ordered.sort(key=lambda l: l[0])
-        if len(ordered) < 2:
-            half = ordered[0][5] if ordered else 1.0
-            return Point(x0, y0).buffer(half, quad_segs=8)
-        reach = max(l[5] for l in ordered) * 3.0
-        corners = []
-        for a in range(len(ordered)):
-            _, wa, ka, sa, da, ha = ordered[a]
-            _, wb, kb, sb, db, hb = ordered[(a + 1) % len(ordered)]
-            na, nb = (-da[1], da[0]), (-db[1], db[0])
-            pa = (x0 + na[0] * ha, y0 + na[1] * ha)
-            pb = (x0 - nb[0] * hb, y0 - nb[1] * hb)
-            cross = da[0] * db[1] - da[1] * db[0]
-            if abs(cross) < 1e-9:
-                corner = pa
-            else:
+            n = (-d[1], d[0])
+            half = w["tags"]["width"] / 2.0
+            for side in (+1, -1):
+                p = (x0 + n[0] * half * side, y0 + n[1] * half * side)
+                lines.append((p, d, half))
+        reach = max(l[2] for l in lines) * 4.0 if lines else 1.0
+        pts = []
+        for a in range(len(lines)):
+            for b in range(a + 1, len(lines)):
+                (pa, da, _), (pb, db, _) = lines[a], lines[b]
+                cross = da[0] * db[1] - da[1] * db[0]
+                if abs(cross) < 1e-9:
+                    continue
                 rx, ry = pb[0] - pa[0], pb[1] - pa[1]
                 tt = (rx * db[1] - ry * db[0]) / cross
-                corner = (pa[0] + da[0] * tt, pa[1] + da[1] * tt)
-            dist = math.dist(corner, (x0, y0))
-            if dist > reach:
-                corner = (x0 + (corner[0] - x0) * reach / dist, y0 + (corner[1] - y0) * reach / dist)
-            corners.append(corner)
-        return Polygon(corners) if len(corners) >= 3 else Point(x0, y0).buffer(reach / 3.0, quad_segs=8)
+                q = (pa[0] + da[0] * tt, pa[1] + da[1] * tt)
+                if math.dist(q, (x0, y0)) <= reach:
+                    pts.append(q)
+        for (p, _, _) in lines:
+            pts.append(p)
+        if len(pts) < 3:
+            return Point(x0, y0).buffer(reach / 4.0, quad_segs=8)
+        return unary_union([Point(*p) for p in pts]).convex_hull
 
     def _junction_polygons(self):
         """A junction's shape is the CONVEX HULL of its members' node shapes -- one node for an
@@ -1599,6 +1601,27 @@ def check_mesh(map_, st):
             "drawn_vs_analytic_m": worst, "samples": samples, "worst_at": where}
 
 
+# ------------------------------------------------------------------- the structure's own type
+
+PIER_SPAN_M = 45.0        # [SET] the economical span of a prestressed concrete beam, 25-60 m
+def spans_of(total_m):
+    """How a deck of this length is divided, and what the division makes it. CASES.md's table:
+    under 8 m a culvert, to 25 m a slab, to 60 m a beam, to 150 m a box girder, to 500 m an arch
+    or cable-stayed, beyond that a suspension bridge. A single 280 m span would be the last of
+    those and 14 m deep; four spans of 70 m is what actually stands over a valley like this."""
+    if total_m <= 25.0:
+        return 1, total_m, "Platte", total_m / 20.0
+    fields = max(1, int(round(total_m / PIER_SPAN_M)))
+    span = total_m / fields
+    if span <= 25.0:
+        return fields, span, "Platte", span / 20.0
+    if span <= 60.0:
+        return fields, span, "Spannbetonbalken", span / 22.0
+    if span <= 150.0:
+        return fields, span, "Hohlkasten", span / 18.0
+    return fields, span, "Bogen", span / 60.0
+
+
 # ----------------------------------------------------------------------------- earthworks
 
 class Earthworks:
@@ -1898,7 +1921,7 @@ def seam_sweep(terrain, net_maker):
     return out
 
 
-def run(case):
+def run(case, number=0):
     rname, tname = case
     terrain = TERRAINS[tname]()
     net = NETWORKS[rname]()
@@ -1953,53 +1976,428 @@ def run(case):
         red.append("I9")
     if not verdict["P finite"]["finite"] or verdict["P finite"]["grade_max"] > 1.0 or verdict["P finite"]["deck_off_dem_max"] > 60.0:
         red.append("P")
-    plot(case, m, st)
+    plot(case, m, st, number)
     return verdict, red
 
 
-def plot(case, m, st):
+def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
+    """A BRIDGE's or a TUNNEL's cross section: a deck is a slab with a depth from its span and a
+    parapet each side, standing over a void; a bore is a section cut out of the rock. Neither has
+    an earthwork, and drawing one gave a deck a 30 m embankment into the river (seen in the
+    sheet). The slab's depth follows the span table in CASES.md: span/20 for a beam."""
+    from matplotlib.patches import Rectangle
+    half = way["tags"]["width"] / 2.0
+    axis_z = st.own_surface(way, station, 0.0)
+    span = m.stations[way["id"]][-1]
+    if m.net.spans(way):
+        fields, field_m, what, depth = spans_of(span)
+        depth = max(0.6, depth)
+        axq.plot(offs, gnd, color="0.5", lw=1.0)
+        axq.add_patch(Rectangle((-half, axis_z - depth), 2 * half, depth,
+                                facecolor="0.85", edgecolor=ink, lw=1.4))
+        for side in (-1, +1):
+            axq.plot([side * half, side * half], [axis_z, axis_z + 1.1], color=ink, lw=2.0)
+            for r in np.linspace(0, 1.1, 6):
+                axq.plot([side * half - 0.15, side * half + 0.15], [axis_z + r, axis_z + r],
+                         color=ink, lw=0.4)
+        pier = min(2.0, half * 0.5)
+        axq.add_patch(Rectangle((-pier / 2, gnd.min()), pier, axis_z - depth - gnd.min(),
+                                facecolor="0.9", edgecolor=ink, lw=1.0, hatch="..."))
+        water = m.terrain.water
+        floor = water if water is not None else float(np.interp(0.0, offs, gnd))
+        if water is not None:
+            axq.axhline(water, color="0.35", lw=0.9, ls="-.")
+        axq.annotate("", xy=(half * 0.6, axis_z - depth), xytext=(half * 0.6, floor),
+                     arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.8))
+        axq.text(half * 0.7, (axis_z - depth + floor) / 2, f"LR {axis_z - depth - floor:.2f} m",
+                 fontsize=6.5, color=ink, rotation=90, va="center")
+        axq.set_title(f"UEBERBAU Sta {station:.0f}   {what}  d {depth:.2f} m  "
+                      f"{fields} x {field_m:.0f} m", fontsize=8, loc="left")
+    else:
+        crown = axis_z + 5.0
+        axq.plot(offs, gnd, color="0.5", lw=1.0)
+        axq.fill_between(offs, axis_z - 1.0, gnd, facecolor="none", hatch="xxx", edgecolor="0.65", lw=0.0)
+        axq.add_patch(Rectangle((-half - 1.0, axis_z), 2 * (half + 1.0), crown - axis_z,
+                                facecolor="white", edgecolor=ink, lw=1.6))
+        axq.plot([-half, half], [axis_z, axis_z], color=ink, lw=2.6)
+        cover = float(np.interp(0.0, offs, gnd)) - crown
+        axq.annotate(f"Ueberdeckung {cover:.2f} m", (0, crown), fontsize=6.5, color=ink,
+                     ha="center", xytext=(0, 6), textcoords="offset points")
+        axq.set_title(f"TUNNEL Sta {station:.0f}   lichte Hoehe 5.00 m", fontsize=8, loc="left")
+    axq.set_aspect("equal")
+    axq.grid(alpha=0.22, lw=0.5)
+    axq.tick_params(labelsize=6.5)
+    axq.set_xlabel("m von der Achse", fontsize=7)
+
+
+def build_route(m):
+    """The TRASSE: the chain of ways that share end nodes, in order, each with its start station
+    and whether it runs forward. A longitudinal section is drawn along a route and not along one
+    way -- a bridge is three ways (approach, deck, approach) and a section of the longest showed
+    a plateau where the valley is (seen in the sheet)."""
+    ways = list(m.net.ways)
+    if not ways:
+        return []
+    seed = max(ways, key=lambda w: m.stations[w["id"]][-1])
+    chain = [(seed, True)]
+    used = {seed["id"]}
+    for at_end in (True, False):
+        while True:
+            head = chain[-1] if at_end else chain[0]
+            w, forward = head
+            node = w["refs"][-1 if forward == at_end else 0]
+            nxt = None
+            for other in ways:
+                if other["id"] in used or other["tags"].get("junction") == "roundabout":
+                    continue
+                if other["refs"][0] == node:
+                    nxt = (other, at_end)
+                    break
+                if other["refs"][-1] == node:
+                    nxt = (other, not at_end)
+                    break
+            if nxt is None:
+                break
+            used.add(nxt[0]["id"])
+            if at_end:
+                chain.append(nxt)
+            else:
+                chain.insert(0, (nxt[0], not nxt[1]))
+    out = []
+    at = 0.0
+    for (w, forward) in chain:
+        out.append((w, forward, at))
+        at += m.stations[w["id"]][-1]
+    return out
+
+
+def plot(case, m, st, number=0):
+    """One engineering sheet per case, to DIN 1356 / RAS-Q convention:
+
+        LAGEPLAN      the alignment, both carriageway edges, the junction surfaces, the
+                      earthwork toes, stationing every 50 m, a north arrow and a scale bar
+        LAENGSSCHNITT the main axis: terrain, DEM, gradient, cut and fill hatched apart,
+                      grades in percent at every 100 m, the vertical exaggeration stated
+        QUERSCHNITTE  three stations: carriageway with its crossfall, kerb, batters with
+                      their slopes, cut and fill hatched, every width and height dimensioned
+        SCHRIFTFELD   what is drawn, on what, by which standard, and the earthwork's totals
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon as MplPoly
+
     OUT.mkdir(parents=True, exist_ok=True)
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 8))
-    xs = np.linspace(-500, 500, 400)
-    for w in m.net.ways:
-        s = m.stations[w["id"]]
-        ss = np.linspace(0, s[-1], 200)
-        zz = [m.profile(w, v)[0] for v in ss]
-        pts = m.centreline(w)
-        dem = [m.terrain.dem(*pts.interpolate(v).coords[0]) for v in ss]
-        truth = [m.terrain.truth(*pts.interpolate(v).coords[0]) for v in ss]
-        ax1.plot(ss + (0 if w["id"] == 1 else s[-1] * 0), truth, color="0.7", lw=1)
-        ax1.plot(ss, dem, color="0.4", lw=1, ls=":")
-        ax1.plot(ss, zz, lw=2, label=f"way {w['id']} {w['tags']['highway']}" + (" bridge" if m.net.spans(w) else "") + (" tunnel" if m.net.bores(w) else ""))
-    if m.terrain.water is not None:
-        ax1.axhline(m.terrain.water, color="tab:blue", ls="--", lw=1, label="water")
-    ax1.set_title(f"{case[0]} on {case[1]} -- profiles (grey: terrain truth, dotted: the DEM)")
-    ax1.set_xlabel("station m"); ax1.set_ylabel("m"); ax1.grid(alpha=0.3); ax1.legend(fontsize=8)
+    ink = "0.12"
+    fig = plt.figure(figsize=(16.5, 11.7))
+    gs = fig.add_gridspec(3, 3, height_ratios=[1.5, 1.0, 1.0], hspace=0.30, wspace=0.20,
+                          left=0.05, right=0.97, top=0.92, bottom=0.07)
+    work = Earthworks(st)
+    mesh = Mesh(st)
+    route = build_route(m)
+    main = max((w for (w, _, _) in route), key=lambda w: m.stations[w["id"]][-1])
+
+    # ---------------------------------------------------------------- LAGEPLAN
+    ax = fig.add_subplot(gs[0, :2])
+    xs, ys = [], []
     for w in m.net.ways:
         line = m.centreline(w)
-        half = w["tags"]["width"] / 2
-        for side in (-1, 1):
-            off = line.parallel_offset(half, "left" if side > 0 else "right")
-            if off.geom_type == "LineString":
-                ax2.plot(*off.xy, color="0.3", lw=0.8)
-        ax2.plot(*line.xy, lw=1, ls="--")
-    for nid, poly in st.polygons.items():
-        ax2.plot(*poly.exterior.xy, color="tab:red", lw=1.5)
-    ax2.set_aspect("equal"); ax2.set_xlim(-120, 120); ax2.set_ylim(-120, 120); ax2.grid(alpha=0.3)
-    ax2.set_title("plan, the junction polygons in red")
-    fig.tight_layout()
-    fig.savefig(OUT / f"{case[0]}_{case[1]}.png", dpi=100)
+        half = w["tags"]["width"] / 2.0
+        for lo, hi in mesh.drawn_spans(w):
+            ss = np.linspace(lo, hi, max(2, int((hi - lo) / 2) + 1))
+            for side, style in ((+half, "-"), (-half, "-")):
+                pts = [mesh._leg_point(w, float(s), side)[:2] for s in ss]
+                ax.plot(*zip(*pts), color=ink, lw=1.3, ls=style)
+                xs += [p[0] for p in pts]; ys += [p[1] for p in pts]
+        ax.plot(*line.xy, color="0.45", lw=0.8, ls=(0, (14, 4, 2, 4)))
+        s = m.stations[w["id"]]
+        # the stationing is the ROUTE's, so three ways of one road read 0..1000 and not 0..300
+        # three times over (which is what the first plan showed)
+        on_route = next(((f, a0) for (rw, f, a0) in route if rw is w), None)
+        for station in np.arange(0, s[-1] + 1, 50.0):
+            p = line.interpolate(float(min(station, s[-1])))
+            ax.plot([p.x], [p.y], marker="+", color="0.45", ms=4, mew=0.7)
+            if station % 200 == 0:
+                shown = station
+                if on_route is not None:
+                    forward, at0 = on_route
+                    shown = at0 + (station if forward else s[-1] - station)
+                ax.annotate(f"{shown:.0f}", (p.x, p.y), fontsize=6, color="0.45",
+                            xytext=(0, 6), textcoords="offset points", ha="center")
+    for nid in st.polygons:
+        # the REGION, not the node polygon: the warp bands belong to the junction's surface, and
+        # a plan that drew only the polygon left a gap where the minor legs tie in
+        region = mesh.region_of(nid)
+        for part in (region.geoms if region.geom_type == "MultiPolygon" else [region]):
+            ax.add_patch(MplPoly(np.array(part.exterior.coords), closed=True,
+                                 facecolor="0.90", edgecolor=ink, lw=1.3, zorder=0))
+    for kind, colour, marker in (("fill", "0.45", "."), ("cut", "0.2", "."), ("wall", "black", "s")):
+        pts = [(r["x"] + (r["toe_m"] if np.isfinite(r["toe_m"]) else 0) * 0.0, r["y"])
+               for r in work.rows if r["kind"] == kind and r["height_m"] > 0.20]
+        toes = []
+        for r in work.rows:
+            if r["kind"] != kind or r["height_m"] <= 0.20 or not np.isfinite(r["toe_m"]):
+                continue
+            way = next(w for w in m.net.ways if w["id"] == r["way"])
+            line = m.centreline(way)
+            p = line.interpolate(min(r["station"], line.length))
+            ah = line.interpolate(min(r["station"] + 0.1, line.length))
+            bk = line.interpolate(max(r["station"] - 0.1, 0.0))
+            d = (ah.x - bk.x, ah.y - bk.y)
+            n = math.hypot(*d) or 1.0
+            nx, ny = -d[1] / n, d[0] / n
+            off = r["offset"] + math.copysign(r["toe_m"], r["offset"])
+            toes.append((p.x + nx * off, p.y + ny * off))
+        if toes:
+            ax.plot(*zip(*toes), ls="none", marker=marker, ms=1.8 if marker == "." else 2.6,
+                    color=colour, label={"fill": "Boeschungsfuss Damm", "cut": "Boeschungskante Einschnitt",
+                                         "wall": "Stuetzmauer"}[kind])
+            xs += [p[0] for p in toes]; ys += [p[1] for p in toes]
+    if xs:
+        # the plan shows what the case is ABOUT: a junction case is drawn around its junctions
+        # at a scale where the carriageway is a surface and not a hairline; a plain stretch is
+        # drawn whole. A sheet whose subject is a hairline is a sheet nobody can check.
+        structure = next((w for w in m.net.ways if m.net.spans(w) or m.net.bores(w)), None)
+        if structure is not None and not m.junctions:
+            pts = [m.net.nodes[r] for r in structure["refs"]]
+            cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+            reach = max(max(p[0] for p in pts) - min(p[0] for p in pts),
+                        max(p[1] for p in pts) - min(p[1] for p in pts)) * 0.62 + 8.0 * structure["tags"]["width"]
+        elif m.junctions:
+            jx = [m.net.nodes[nid][0] for nid in m.junctions for nid in m.junctions[nid]["members"]]
+            jy = [m.net.nodes[nid][1] for nid in m.junctions for nid in m.junctions[nid]["members"]]
+            cx, cy = (min(jx) + max(jx)) / 2, (min(jy) + max(jy)) / 2
+            widest = max(w["tags"]["width"] for w in m.net.ways)
+            reach = max(max(jx) - min(jx), max(jy) - min(jy)) * 0.6 + 6.0 * widest
+        else:
+            cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+            reach = max(max(xs) - min(xs), max(ys) - min(ys)) * 0.55 + 10.0
+        ax.set_xlim(cx - reach, cx + reach); ax.set_ylim(cy - reach * 0.62, cy + reach * 0.62)
+        bar = 10 ** math.floor(math.log10(reach)) * (5 if reach / 10 ** math.floor(math.log10(reach)) > 5 else 2)
+        x0, y0 = cx - reach * 0.92, cy - reach * 0.52
+        ax.plot([x0, x0 + bar], [y0, y0], color=ink, lw=2.4, solid_capstyle="butt")
+        ax.plot([x0, x0], [y0 - reach * 0.02, y0 + reach * 0.02], color=ink, lw=1.0)
+        ax.plot([x0 + bar, x0 + bar], [y0 - reach * 0.02, y0 + reach * 0.02], color=ink, lw=1.0)
+        ax.annotate(f"{bar:.0f} m", (x0 + bar / 2, y0), fontsize=7, color=ink, ha="center",
+                    xytext=(0, 4), textcoords="offset points")
+        ax.annotate("N", xy=(cx + reach * 0.86, cy + reach * 0.50), xytext=(cx + reach * 0.86, cy + reach * 0.30),
+                    arrowprops=dict(arrowstyle="-|>", color=ink, lw=1.2), ha="center", fontsize=9, color=ink)
+    ax.set_aspect("equal")
+    ax.set_title("LAGEPLAN", fontsize=10, loc="left", fontweight="bold")
+    ax.legend(fontsize=6.5, loc="lower right", framealpha=0.92)
+    ax.set_xticks([]); ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_edgecolor("0.7")
+
+    # ---------------------------------------------------------------- SCHRIFTFELD
+    ax = fig.add_subplot(gs[0, 2])
+    ax.axis("off")
+    em = work.measures()
+    v = DESIGN_SPEED.get(main["tags"]["highway"], 50.0)
+    rows = [("Bauwerk", f"{case[0]}"),
+            ("Gelaende", f"{case[1]}"),
+            ("Achse", f"{main['tags']['highway']}, B = {main['tags']['width']:.1f} m"),
+            ("Entwurfsgeschwindigkeit", f"{v:.0f} km/h"),
+            ("Laengsneigung zulaessig", f"{GRADE_OF.get(main['tags']['highway'], 0.12) * 100:.0f} %"),
+            ("Querneigung", f"Dach {SUPER_MIN * 100:.1f} %, max {SUPER_MAX * 100:.0f} %"),
+            ("Boeschung", f"Damm 1:{BATTER_FILL}, Einschnitt 1:{BATTER_CUT}"),
+            ("Wege / Knoten / Kreuzungen", f"{len(m.net.ways)} / {len(m.net.nodes)} / {len(m.junctions)}"),
+            ("Damm h max (Rand)", f"{max(0.0, em.get('fill_max_m', 0.0)):.2f} m"),
+            ("Einschnitt h max (Rand)", f"{max(0.0, em.get('cut_max_m', 0.0)):.2f} m"),
+            ("Stuetzmauern", f"{em.get('walls', 0)}"),
+            ("Boeschungsfuss max", f"{em.get('toe_max_m', 0):.1f} m"),
+            ("Dreiecke", f"{len(mesh.tris)}"),
+            ("Regelwerk", "RAL 2012, RAS-Q; Knoten netconvert")]
+    ax.add_patch(plt.Rectangle((0.0, 0.0), 1.0, 1.0, transform=ax.transAxes,
+                               facecolor="none", edgecolor=ink, lw=1.2))
+    ax.text(0.04, 0.955, f"BLATT {number:02d}", fontsize=10, fontweight="bold", transform=ax.transAxes)
+    for k, (what, value) in enumerate(rows):
+        y = 0.90 - k * 0.062
+        ax.text(0.04, y, what, fontsize=7, color="0.4", transform=ax.transAxes)
+        ax.text(0.97, y, value, fontsize=7.5, color=ink, ha="right", transform=ax.transAxes)
+
+    # ---------------------------------------------------------------- LAENGSSCHNITT
+    ax = fig.add_subplot(gs[1, :])
+    total = sum(m.stations[w["id"]][-1] for (w, _, _) in route)
+    for (w, forward, at0) in route:
+        sw = m.stations[w["id"]]
+        lw = m.centreline(w)
+        local = np.linspace(0, sw[-1], max(60, int(sw[-1])))
+        xs_route = at0 + (local if forward else sw[-1] - local)
+        grad = np.array([m.profile(w, float(v))[0] for v in local])
+        dem = np.array([m.terrain.dem(*lw.interpolate(float(v)).coords[0]) for v in local])
+        truth = np.array([m.terrain.truth(*lw.interpolate(float(v)).coords[0]) for v in local])
+        order = np.argsort(xs_route)
+        xs_route, grad, dem, truth = xs_route[order], grad[order], dem[order], truth[order]
+        ax.plot(xs_route, truth, color="0.6", lw=0.9)
+        ax.plot(xs_route, dem, color="0.35", lw=0.9, ls=":")
+        if not (m.net.spans(w) or m.net.bores(w)):
+            ax.fill_between(xs_route, dem, grad, where=grad > dem, facecolor="none", hatch="///",
+                            edgecolor="0.62", lw=0.0)
+            ax.fill_between(xs_route, dem, grad, where=grad < dem, facecolor="none", hatch="\\\\",
+                            edgecolor="0.62", lw=0.0)
+        style = (0, (8, 3)) if m.net.spans(w) else ((0, (2, 2)) if m.net.bores(w) else "-")
+        ax.plot(xs_route, grad, color=ink, lw=2.2, ls=style)
+        if m.net.spans(w) or m.net.bores(w):
+            ax.annotate("BRUECKE" if m.net.spans(w) else "TUNNEL",
+                        (xs_route.mean(), grad.mean()), fontsize=7.5, color=ink, ha="center",
+                        xytext=(0, -26), textcoords="offset points", fontweight="bold")
+            ax.annotate("", xy=(xs_route.min(), grad.mean()), xytext=(xs_route.max(), grad.mean()),
+                        arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.8))
+            if m.net.spans(w):
+                fields, field_m, what, depth = spans_of(sw[-1])
+                ax.annotate(f"{what}, {fields} x {field_m:.0f} m, d = {depth:.2f} m",
+                            (xs_route.mean(), grad.mean()), fontsize=6.5, color="0.3",
+                            ha="center", xytext=(0, -38), textcoords="offset points")
+                for k in range(1, fields):
+                    x = xs_route.min() + (xs_route.max() - xs_route.min()) * k / fields
+                    z = float(np.interp(x, xs_route, grad))
+                    floor = float(np.interp(x, xs_route, np.minimum(dem, truth)))
+                    ax.plot([x, x], [z - depth, floor], color=ink, lw=1.4)
+                ax.plot(xs_route, grad - depth, color=ink, lw=0.9)
+            else:
+                ax.annotate(f"L = {sw[-1]:.0f} m", (xs_route.mean(), grad.mean()), fontsize=6.5,
+                            color="0.3", ha="center", xytext=(0, -38), textcoords="offset points")
+        for station in np.arange(0, sw[-1] + 1, 100.0):
+            z, g = m.profile(w, float(min(station, sw[-1])))
+            x = at0 + (station if forward else sw[-1] - station)
+            ax.annotate(f"{g * 100:+.1f}%", (x, z), fontsize=6.5, color="0.3",
+                        xytext=(0, -13), textcoords="offset points", ha="center")
+            ax.annotate(f"{z:.2f}", (x, z), fontsize=6, color="0.45",
+                        xytext=(0, -24), textcoords="offset points", ha="center")
+    ax.plot([], [], color="0.6", lw=0.9, label="Gelaende")
+    ax.plot([], [], color="0.35", lw=0.9, ls=":", label="DEM")
+    ax.plot([], [], color=ink, lw=2.2, label="Gradiente")
+    if m.terrain.water is not None:
+        ax.axhline(m.terrain.water, color="0.35", lw=0.9, ls="-.")
+        ax.annotate("Wasserspiegel", (total * 0.02, m.terrain.water), fontsize=6.5, color="0.35",
+                    xytext=(0, 4), textcoords="offset points")
+    lo, hi = ax.get_ylim()
+    if hi - lo < 6.0:
+        mid = 0.5 * (lo + hi)
+        lo, hi = mid - 3.0, mid + 3.0
+    ax.set_ylim(lo, hi)
+    ax.ticklabel_format(axis="y", style="plain", useOffset=False)
+    fig.canvas.draw()
+    bb = ax.get_window_extent()
+    over = ((total / max(bb.width, 1e-6)) / ((hi - lo) / max(bb.height, 1e-6)))
+    ax.set_title(f"LAENGSSCHNITT  Trasse ueber {len(route)} Abschnitt(e), L = {total:.0f} m   "
+                 f"Ueberhoehung {over:.0f}:1   Damm ///  Einschnitt \\\\",
+                 fontsize=10, loc="left", fontweight="bold")
+    ax.set_xlabel("Station m (Trasse)", fontsize=8); ax.set_ylabel("m ue. NN", fontsize=8)
+    ax.grid(alpha=0.22, lw=0.5); ax.legend(fontsize=7, loc="best", framealpha=0.92)
+    ax.tick_params(labelsize=7)
+
+    # ---------------------------------------------------------------- QUERSCHNITTE
+    half = main["tags"]["width"] / 2.0
+    # the stations a reviewer would ask for: at the junction and either side of it where there
+    # is one, otherwise the quarter points
+    s = m.stations[main["id"]]
+    line = m.centreline(main)
+    at_junction = [s[k] for k, r in enumerate(main["refs"]) if r in m.cluster_of]
+    if at_junction:
+        mid = at_junction[len(at_junction) // 2]
+        picked = [(main, max(0.0, mid - 100.0)), (main, mid), (main, min(s[-1], mid + 100.0))]
+    else:
+        structure = next(((w) for (w, _, _) in route if m.net.spans(w) or m.net.bores(w)), None)
+        ground_way = max((w for (w, _, _) in route if not (m.net.spans(w) or m.net.bores(w))),
+                         key=lambda w: m.stations[w["id"]][-1], default=main)
+        if structure is not None:
+            ss = m.stations[structure["id"]]
+            sg = m.stations[ground_way["id"]]
+            # one section on the approach, one on the structure, one at its far end -- three
+            # DIFFERENT places; taking the longest way twice drew the same section twice
+            picked = [(ground_way, sg[-1] * 0.5), (structure, ss[-1] * 0.5),
+                      (structure, ss[-1] * 0.9)]
+        else:
+            picked = [(main, s[-1] * 0.25), (main, s[-1] * 0.5), (main, s[-1] * 0.75)]
+    for at, (main, station) in enumerate(picked):
+        axq = fig.add_subplot(gs[2, at])
+        station = float(station)
+        half = main["tags"]["width"] / 2.0
+        line = m.centreline(main)
+        p = line.interpolate(station)
+        ah = line.interpolate(min(station + 0.1, line.length))
+        bk = line.interpolate(max(station - 0.1, 0.0))
+        d = (ah.x - bk.x, ah.y - bk.y)
+        n = math.hypot(*d) or 1.0
+        nx, ny = -d[1] / n, d[0] / n
+        reach = half + 14.0
+        offs = np.linspace(-reach, reach, 260)
+        gnd = np.array([m.terrain.filled(p.x + nx * o, p.y + ny * o) for o in offs])
+        if m.net.spans(main) or m.net.bores(main):
+            draw_structure_section(axq, m, st, main, station, offs, gnd, ink)
+            continue
+        surf = np.array([st.own_surface(main, station, float(o)) if abs(o) <= half else np.nan for o in offs])
+        # the built section: carriageway, kerb, batters
+        built = []
+        for side in (-1, +1):
+            edge = st.own_surface(main, station, side * half)
+            g0 = m.terrain.filled(p.x + nx * side * half, p.y + ny * side * half)
+            slope = BATTER_FILL if edge > g0 else BATTER_CUT
+            toe = None
+            for r in np.arange(0.1, 60.0, 0.1):
+                q = (p.x + nx * (side * (half + r)), p.y + ny * (side * (half + r)))
+                z = edge - (r / slope) * (1 if edge > g0 else -1)
+                if (edge > g0 and z <= m.terrain.filled(*q)) or (edge <= g0 and z >= m.terrain.filled(*q)):
+                    toe = (side * (half + r), z, r, slope, edge > g0)
+                    break
+            built.append((side, edge, toe))
+        line_x = list(offs[np.abs(offs) <= half])
+        line_z = [st.own_surface(main, station, float(o)) for o in line_x]
+        poly_x = ([built[0][2][0]] if built[0][2] else [-half]) + line_x + ([built[1][2][0]] if built[1][2] else [half])
+        poly_z = ([built[0][2][1]] if built[0][2] else [built[0][1]]) + line_z + ([built[1][2][1]] if built[1][2] else [built[1][1]])
+        axq.fill_between(offs, gnd, np.interp(offs, poly_x, poly_z), where=np.interp(offs, poly_x, poly_z) > gnd,
+                         facecolor="none", hatch="///", edgecolor="0.6", lw=0.0)
+        axq.fill_between(offs, gnd, np.interp(offs, poly_x, poly_z), where=np.interp(offs, poly_x, poly_z) < gnd,
+                         facecolor="none", hatch="\\\\", edgecolor="0.6", lw=0.0)
+        axq.plot(offs, gnd, color="0.5", lw=1.0)
+        axq.plot(poly_x, poly_z, color=ink, lw=1.4)
+        axq.plot(line_x, line_z, color=ink, lw=2.6)
+        for (side, edge, toe) in built:
+            axq.plot([side * half, side * half], [edge, edge + KERB_M], color=ink, lw=2.0)
+            if toe:
+                axq.annotate(f"1:{toe[3]:.1f}", ((side * half + toe[0]) / 2, (edge + toe[1]) / 2),
+                             fontsize=6.5, color="0.3", ha="center",
+                             xytext=(0, 5 if toe[4] else -9), textcoords="offset points")
+                # the two numbers a builder needs and a viewer confuses: the RISE at the edge
+                # (how far the road stands above or below the ground THERE) and the batter's own
+                # height and reach. The sheet said 1.31 and 3.53 for one section before this.
+                rise = edge - m.terrain.filled(p.x + nx * side * half, p.y + ny * side * half)
+                axq.annotate(f"{'Damm' if toe[4] else 'Einschnitt'} h {abs(rise):.2f} m\n"
+                             f"Boeschung {abs(edge - toe[1]):.2f} m / {toe[2]:.1f} m",
+                             (toe[0], toe[1]), fontsize=6, color="0.4",
+                             xytext=(6 * side, -14), textcoords="offset points",
+                             ha="left" if side > 0 else "right")
+        axis_z = st.own_surface(main, station, 0.0)
+        axq.annotate("", xy=(-half, axis_z + 1.6), xytext=(half, axis_z + 1.6),
+                     arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
+        axq.text(0, axis_z + 1.7, f"{main['tags']['width']:.2f} m", ha="center", fontsize=6.5, color=ink)
+        left, right = m.superelevation(main, station)
+        axq.set_title(f"QUERSCHNITT Sta {station:.0f}   q {left * 100:+.1f} / {right * 100:+.1f} %   "
+                      f"Achse {axis_z:.2f}", fontsize=8, loc="left")
+        axq.set_aspect("equal")
+        axq.set_xlim(-reach, reach)
+        axq.set_ylim(min(gnd.min(), min(poly_z)) - 1.0, max(gnd.max(), max(poly_z)) + 2.6)
+        axq.grid(alpha=0.22, lw=0.5); axq.tick_params(labelsize=6.5)
+        axq.set_xlabel("m von der Achse", fontsize=7)
+
+    where = case[1].split("-", 1)[-1]
+    fig.suptitle(f"BLATT {number:02d}   {case[0].split('-', 1)[-1].upper()}   auf   {where.upper()}   "
+                 f"|   {main['tags']['highway']}, {DESIGN_SPEED.get(main['tags']['highway'], 50):.0f} km/h"
+                 f"   |   Regelwerk RAL 2012 / RAS-Q",
+                 fontsize=11.5, x=0.05, ha="left", fontweight="bold")
+    out = OUT / f"{number:02d}_{case[0]}_{case[1]}.png"
+    fig.savefig(out, dpi=110)
     plt.close(fig)
+    return out
 
 
 def main(argv):
     picked = [c for c in CASES if not argv or any(a in c[0] or a in c[1] for a in argv)]
     reds = 0
-    for case in picked:
-        verdict, red = run(case)
+    for number, case in enumerate(picked, start=1):
+        verdict, red = run(case, number)
         flag = "RED " + ",".join(red) if red else "ok"
         parts = []
         for k, v in verdict.items():
