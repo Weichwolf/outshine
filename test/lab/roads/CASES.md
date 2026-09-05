@@ -172,6 +172,31 @@ of its members' node shapes, so their regions cannot overlap (ten edges carried 
 before); and a roundabout's drivable surface is an ANNULUS, not the hull's disc, because the
 island is not carriageway -- the disc's crown fell 0.375 m to a centre 15 m from the ring.
 
+## The facade, and the LOD ladder it hangs on
+
+A facade is a GRAMMAR, deterministic from the footprint and the tags: every wall is cut into
+BAYS of an equal width near 3.2 m [SET] -- the count is rounded so the bays divide the wall
+exactly, because a partial bay at a corner is what makes a generated street read as wallpaper
+-- and every storey into a floor. Each cell carries a window, the entrance (the middle bay of
+the longest outer wall, ground floor), a balcony door, or nothing where the roof cuts it. A
+BALCONY IS REACHED THROUGH A DOOR: the cell that carries a balcony carries a French door, full
+height and no sill, and the check goes both ways -- a balcony door with no balcony and a
+balcony with no door are both faults.
+
+| rung | what it adds | geometry | who executes it |
+|---|---|---|---|
+| L0 | the mass and the roof | the body alone | vertex |
+| L1 | the facade's DIVISION -- bays, storeys, the cell grid | none: material parameters | fragment (interior mapping, van Dongen 2008; parallax sills) |
+| L2 | the openings' reveals and the cornice | ~8 triangles per opening | vertex, where the silhouette changes |
+| L3 | balconies and their railings | ~20 triangles per balcony | vertex |
+
+CARLA's `BP_Procedural_Building` places a mesh piece per cell and pays thousands of triangles
+per building, which is why its towns need impostors; the split above is world.md's and is what
+lets a street of a thousand houses stand in the frame. Measured on the bed: an L-shaped
+three-storey house costs 1 050 triangles at L0 and L1, 1 570 at L2 and 1 930 at L3; a 20-storey
+tower 952 / 952 / 3 544 / 6 584. Each rung is a superset of the one before, and L1 adds no
+geometry at all -- so L0 and L1 are one draw and the ladder is monotone, which the bed checks.
+
 ## What the bed does for each case
 
 1. builds terrain and network from the case's parameters, deterministically

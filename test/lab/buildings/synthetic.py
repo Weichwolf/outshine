@@ -182,11 +182,17 @@ class Building:
         self.ground = ground
         self.cell = cell
         self.levels = float(tags.get("building:levels", 0) or 0)
-        self.height_m = float(tags.get("height", 0) or 0) or (self.levels * LEVEL_M if self.levels else 3 * LEVEL_M)
         self.min_m = float(tags.get("min_height", 0) or 0)
         self.roof = tags.get("roof:shape", "flat")
         self.axis = principal_axis(poly)
         self.roof_h = float(tags.get("roof:height", 0) or 0) or self._roof_height()
+        # OSM's rule, and it decides where the eaves stand: `height` is the WHOLE building,
+        # ridge included, while `building:levels` counts the storeys UNDER the roof. Reading
+        # levels as the whole height put the eaves inside the top storey and left a three-storey
+        # house with one row of windows (seen in the elevation, measured as levels 1 of 3)
+        told = float(tags.get("height", 0) or 0)
+        self.height_m = told if told > 0 else (self.levels * LEVEL_M + self.roof_h if self.levels
+                                               else 3 * LEVEL_M + self.roof_h)
         self.corners = [(x, y, ground.at(x, y)) for (x, y) in list(poly.exterior.coords)[:-1]]
         self.lowest = min(c[2] for c in self.corners)
         self.highest = max(c[2] for c in self.corners)
@@ -423,6 +429,188 @@ class Building:
         return abs(top - want)
 
 
+# ----------------------------------------------------------------------------- the facade
+
+BAY_M = 3.2               # [SET] the bay a European street facade repeats, 2.4 to 4.0 m
+WINDOW_W = 1.2            # [SET] a residential window's width
+WINDOW_H = 1.5            # [SET] and its height
+SILL_M = 0.9              # [SET] the sill above the floor
+DOOR_W = 1.1              # [SET]
+DOOR_H = 2.2              # [SET]
+BALCONY_D = 1.4           # [SET] a balcony's depth past the wall
+REVEAL_M = 0.12           # [SET] how deep a window sits behind the wall's face
+CORNICE_M = 0.3           # [SET] the cornice's projection at the eaves
+
+
+class Facade:
+    """The facade as a GRAMMAR, deterministic from the footprint and the tags: every wall is cut
+    into BAYS of an equal width near BAY_M, every level into a floor, and each cell carries a
+    window, a door (ground floor, the bay nearest the street) or nothing. Mueller 2006's CGA is
+    the model and CARLA's BP_Procedural_Building the shipped baseline; the difference is where
+    it is EXECUTED. CARLA places a mesh piece per cell and pays thousands of triangles per
+    building, which is why it needs impostors. Here the cells are geometry only where they
+    change the SILHOUETTE -- a balcony, a reveal, a cornice -- and everything flat is the
+    fragment stage's (interior mapping, van Dongen 2008; parallax sills), which is world.md's
+    split and what lets a street of a thousand houses stand in the frame."""
+
+    def __init__(self, building):
+        self.b = building
+        self.walls = self._walls()
+
+    def _walls(self):
+        """One wall per edge of the footprint, with its bay grid and its OUTWARD normal. The
+        normal's sign comes from the ring's own winding (the signed area), never assumed: a
+        guess put every balcony inside the building and made the elevations look into the
+        street instead of into the house (seen in the drawing)."""
+        out = []
+        for ring_at, ring in enumerate(self.b._rings()):
+            area2 = sum(ring[k][0] * ring[(k + 1) % len(ring)][1] - ring[(k + 1) % len(ring)][0] * ring[k][1]
+                        for k in range(len(ring)))
+            ccw = area2 > 0
+            for a, b in zip(ring, ring[1:] + ring[:1]):
+                length = math.dist(a, b)
+                if length < 1e-6:
+                    continue
+                # the bays divide the wall EXACTLY: a partial bay at a corner is what makes a
+                # generated facade read as wallpaper, so the count is rounded and the width
+                # follows from it
+                bays = max(1, int(round(length / BAY_M)))
+                d = ((b[0] - a[0]) / length, (b[1] - a[1]) / length)
+                left = (-d[1], d[0])
+                # on a counter-clockwise ring the interior is to the LEFT; an inner ring (a
+                # courtyard) is wound the other way and its outward normal points into the yard
+                inward = left if (ccw == (ring_at == 0)) else (-left[0], -left[1])
+                out.append({"a": a, "b": b, "length": length, "bays": bays,
+                            "bay_m": length / bays, "outer": ring_at == 0,
+                            "dir": d, "inward": inward,
+                            "outward": (-inward[0], -inward[1])})
+        return out
+
+    def levels(self):
+        """FULL levels only: a storey that does not fit under the eaves is not a storey, and
+        rounding up gave a top-floor window standing through the roof (measured)."""
+        rise = self.b.eaves - self.b.pad
+        return max(1, int(math.floor(rise / LEVEL_M + 1e-6)))
+
+    def cells(self):
+        """Every (wall, bay, level) cell and what it carries. Deterministic: the entrance goes in
+        the middle bay of the longest outer wall (the street side), and a bay above the ground
+        floor carries a BALCONY DOOR where a balcony stands -- never a window, because a balcony
+        is reached through a door. Which bays those are is the rule below: not the corner bays,
+        and only on an outer wall long enough for one."""
+        street = max((w for w in self.walls if w["outer"]), key=lambda w: w["length"], default=None)
+        out = []
+        for w in self.walls:
+            for bay in range(w["bays"]):
+                mid = (bay + 0.5) * w["bay_m"]
+                for level in range(self.levels()):
+                    what = "window"
+                    if level == 0 and w is street and bay == w["bays"] // 2:
+                        what = "door"
+                    elif level > 0 and self._carries_balcony(w, mid):
+                        what = "balcony-door"
+                    out.append({"wall": w, "bay": bay, "level": level, "what": what})
+        return out
+
+    def _carries_balcony(self, wall, mid):
+        """A balcony stands on an OUTER wall, above the ground floor, and never within three
+        quarters of a bay of a corner -- where a real one would meet the neighbour's."""
+        return (wall["outer"]
+                and mid >= wall["bay_m"] * 0.75
+                and mid <= wall["length"] - wall["bay_m"] * 0.75)
+
+    def openings(self):
+        """Each cell's opening in wall coordinates: (wall, along, up, width, height, kind). A cell
+        whose head would stand through the wall's top carries NO opening -- under a gable end or
+        a hip the corner bays are blind, which is what those houses look like."""
+        out = []
+        for c in self.cells():
+            w = c["wall"]
+            mid = (c["bay"] + 0.5) * w["bay_m"]
+            base = self.b.pad + c["level"] * LEVEL_M
+            if c["what"] == "door":
+                one = (w, mid, base + 0.02, DOOR_W, DOOR_H, "door")
+            elif c["what"] == "balcony-door":
+                # a BALCONY IS REACHED THROUGH A DOOR: a balcony behind a window is a builder's
+                # error and reads as one, so the cell that carries a balcony carries a French
+                # door -- full height, no sill -- and the balcony's slab sits at its threshold
+                one = (w, mid, base + 0.02, DOOR_W, DOOR_H, "balcony-door")
+            else:
+                one = (w, mid, base + SILL_M, WINDOW_W, WINDOW_H, "window")
+            if self._fits(one):
+                out.append(one)
+        return out
+
+    def _fits(self, opening):
+        w, mid, up, ww, hh, kind = opening
+        if mid - ww / 2 < 0.05 or mid + ww / 2 > w["length"] - 0.05:
+            return False
+        head = up + hh
+        for u in np.linspace(mid - ww / 2, mid + ww / 2, 5):
+            if head > self.b.wall_top(*self._point(w, float(u))) - 0.1:
+                return False
+        return True
+
+    def balconies(self):
+        """One balcony per balcony DOOR, its slab at the door's threshold: the door is what makes
+        it a balcony rather than a shelf."""
+        return [(w, mid, up - 0.02, w["bay_m"] * 0.8, BALCONY_D)
+                for (w, mid, up, ww, hh, kind) in self.openings() if kind == "balcony-door"]
+
+    def counts(self, lod):
+        """What each rung ADDS, and the triangles it costs. The ladder is world.md's: L0 the mass,
+        L1 the same mass with the facade as MATERIAL PARAMETERS (bays, levels, the cell grid --
+        no geometry at all), L2 the openings' reveals and the cornice, L3 the balconies and their
+        railings. Each rung is a superset of the one before, and the silhouette only changes from
+        L2 up, which is why L0 and L1 can be one draw."""
+        openings = self.openings()
+        balconies = self.balconies()
+        tris = len(self.b.tris)
+        if lod >= 2:
+            tris += 8 * len(openings) + 2 * sum(w["bays"] for w in self.walls if w["outer"])
+        if lod >= 3:
+            tris += 20 * len(balconies)
+        return {"lod": lod, "triangles": tris,
+                "openings": len(openings) if lod >= 1 else 0,
+                "balconies": len(balconies) if lod >= 3 else 0,
+                "bays": sum(w["bays"] for w in self.walls),
+                "levels": self.levels()}
+
+    def faults(self):
+        """What must hold of a facade, whatever the footprint: every opening inside its wall and
+        under the eaves, no opening across a corner, the bays exact, a door on the ground floor
+        of the street side and nowhere else."""
+        bad = []
+        for (w, mid, up, ww, hh, kind) in self.openings():
+            if mid - ww / 2 < 0.05 or mid + ww / 2 > w["length"] - 0.05:
+                bad.append("opening across a corner")
+            top = up + hh
+            if top > self.b.wall_top(*self._point(w, mid)) - 0.1:
+                bad.append("opening through the eaves")
+            if up < self.b.pad - 1e-9:
+                bad.append("opening below the pad")
+        for w in self.walls:
+            if abs(w["bays"] * w["bay_m"] - w["length"]) > 1e-9:
+                bad.append("bays do not divide the wall")
+        doors = [o for o in self.openings() if o[5] == "door"]
+        for (w, mid, up, ww, hh, kind) in self.openings():
+            if kind == "balcony-door" and not any(abs(bm - mid) < 1e-9 and bw is w
+                                                  for (bw, bm, _, _, _) in self.balconies()):
+                bad.append("a balcony door with no balcony")
+        for (bw, bm, _, _, _) in self.balconies():
+            if not any(o[5] == "balcony-door" and o[0] is bw and abs(o[1] - bm) < 1e-9
+                       for o in self.openings()):
+                bad.append("a balcony with no door")
+        if len(doors) > 1:
+            bad.append(f"{len(doors)} doors")
+        return sorted(set(bad))
+
+    def _point(self, wall, along):
+        a, b = wall["a"], wall["b"]
+        u = along / wall["length"]
+        return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)
+
+
 CASES = [
     ("F1-rect", "G1-flat", {"building:levels": 3, "roof:shape": "gabled"}),
     ("F1-rect", "G2-cross15", {"building:levels": 3, "roof:shape": "gabled"}),
@@ -443,12 +631,185 @@ CASES = [
 ]
 
 
+# ----------------------------------------------------------------------------- the drawing
+
+def draw(case, b, f):
+    """A sheet a builder would recognise: PLAN with the wall poched and dimensioned, two
+    ELEVATIONS with the openings and the ground line, and a SECTION through the ridge with the
+    storey heights. Architectural convention throughout -- cut faces solid, seen edges thin,
+    ground hatched, dimensions outside, north arrow, scale bar, title block."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon as MplPoly, Rectangle
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    fig = plt.figure(figsize=(13.0, 9.2))
+    grid = fig.add_gridspec(2, 2, height_ratios=[1.15, 1.0], hspace=0.28, wspace=0.22)
+    ink = "0.15"
+
+    # ---- PLAN
+    ax = fig.add_subplot(grid[0, 0])
+    ring = list(b.poly.exterior.coords)
+    inner = b.poly.buffer(-0.36, join_style=2)          # [SET] a 36 cm outer wall
+    ax.add_patch(MplPoly(np.array(ring), closed=True, facecolor="0.75", edgecolor=ink, lw=1.6))
+    if not inner.is_empty:
+        for part in (inner.geoms if inner.geom_type == "MultiPolygon" else [inner]):
+            ax.add_patch(MplPoly(np.array(part.exterior.coords), closed=True,
+                                 facecolor="white", edgecolor=ink, lw=1.0))
+    for hole in b.poly.interiors:
+        ax.add_patch(MplPoly(np.array(hole.coords), closed=True, facecolor="white", edgecolor=ink, lw=1.4))
+    for (w, mid, up, ww, hh, kind) in f.openings():
+        if up - b.pad > LEVEL_M * 0.5:
+            continue                                     # the plan cuts the ground floor
+        p0 = f._point(w, mid - ww / 2)
+        p1 = f._point(w, mid + ww / 2)
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color="white", lw=3.2, zorder=3, solid_capstyle="butt")
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=ink, lw=0.8, zorder=4,
+                ls="-" if kind == "window" else "--")
+        if kind == "door":
+            ax.annotate("", xy=(p1[0], p1[1]), xytext=(p0[0], p0[1]),
+                        arrowprops=dict(arrowstyle="-|>", color=ink, lw=0.8))
+    for (w, mid, base, width, depth) in f.balconies():
+        c = f._point(w, mid)
+        d = w["dir"]
+        n = w["outward"]
+        pts = [(c[0] - d[0] * width / 2, c[1] - d[1] * width / 2),
+               (c[0] + d[0] * width / 2, c[1] + d[1] * width / 2),
+               (c[0] + d[0] * width / 2 + n[0] * depth, c[1] + d[1] * width / 2 + n[1] * depth),
+               (c[0] - d[0] * width / 2 + n[0] * depth, c[1] - d[1] * width / 2 + n[1] * depth)]
+        ax.add_patch(MplPoly(np.array(pts), closed=True, facecolor="none", edgecolor=ink, lw=0.6, ls=":"))
+    minx, miny, maxx, maxy = b.poly.bounds
+    for (x0, y0, x1, y1, text, side) in (
+            (minx, miny - 2.0, maxx, miny - 2.0, f"{maxx - minx:.2f}", "h"),
+            (minx - 2.0, miny, minx - 2.0, maxy, f"{maxy - miny:.2f}", "v")):
+        ax.annotate("", xy=(x1, y1), xytext=(x0, y0), arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
+        ax.text((x0 + x1) / 2, (y0 + y1) / 2, text, ha="center", va="bottom" if side == "h" else "center",
+                rotation=0 if side == "h" else 90, fontsize=8, color=ink)
+    ax.annotate("N", xy=(maxx + 1.5, maxy + 1.0), xytext=(maxx + 1.5, maxy - 1.5),
+                arrowprops=dict(arrowstyle="-|>", color=ink, lw=1.0), ha="center", fontsize=9, color=ink)
+    ax.set_aspect("equal"); ax.set_title("PLAN  ground floor  1:200", fontsize=9, loc="left")
+    ax.set_xticks([]); ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
+
+    # ---- ELEVATIONS
+    def elevation(axe, wall, label):
+        along = np.linspace(0, wall["length"], 120)
+        top = [b.wall_top(*f._point(wall, float(s))) for s in along]
+        foot = [b.wall_foot(*f._point(wall, float(s))) for s in along]
+        gnd = [b.ground.at(*f._point(wall, float(s))) for s in along]
+        # the ROOF's silhouette behind the wall: at each point of the wall, the highest the roof
+        # stands anywhere on the line running back into the building
+        n = wall["inward"]
+        depth = max(b.poly.bounds[2] - b.poly.bounds[0], b.poly.bounds[3] - b.poly.bounds[1])
+        sky = []
+        for s in along:
+            p0 = f._point(wall, float(s))
+            best = b.eaves
+            for r in np.linspace(0.0, depth, 60):
+                q = (p0[0] + n[0] * r, p0[1] + n[1] * r)
+                if not b.poly.contains(Point(*q)):
+                    continue
+                best = max(best, b.eaves + roof_height_at(b.poly, q[0], q[1], b.roof, b.eaves, b.ridge, b.axis))
+            sky.append(best)
+        axe.fill_between(along, top, sky, facecolor="0.86", edgecolor="none")
+        axe.plot(along, sky, color=ink, lw=1.2)
+        axe.fill_between(along, foot, top, facecolor="0.93", edgecolor=ink, lw=1.2)
+        axe.plot(along, gnd, color=ink, lw=1.4)
+        axe.fill_between(along, min(foot) - 1.2, gnd, facecolor="none", edgecolor="0.55",
+                         hatch="////", lw=0.0)
+        for (w, mid, up, ww, hh, kind) in f.openings():
+            if w is not wall:
+                continue
+            axe.add_patch(Rectangle((mid - ww / 2, up), ww, hh,
+                                    facecolor={"window": "0.55", "balcony-door": "0.45"}.get(kind, "0.35"),
+                                    edgecolor=ink, lw=0.8))
+            if kind in ("window", "balcony-door"):
+                axe.plot([mid, mid], [up, up + hh], color="white", lw=0.6)
+                axe.plot([mid - ww / 2, mid + ww / 2], [up + hh * 0.55] * 2, color="white", lw=0.6)
+        for (w, mid, base, width, depth) in f.balconies():
+            if w is not wall:
+                continue
+            axe.add_patch(Rectangle((mid - width / 2, base), width, 0.18, facecolor="0.8", edgecolor=ink, lw=0.8))
+            for r in np.linspace(mid - width / 2, mid + width / 2, 9):
+                axe.plot([r, r], [base + 0.18, base + 1.0], color=ink, lw=0.5)
+            axe.plot([mid - width / 2, mid + width / 2], [base + 1.0] * 2, color=ink, lw=0.8)
+        for level in range(f.levels() + 1):
+            z = b.pad + level * LEVEL_M
+            axe.plot([-0.6, 0.0], [z, z], color=ink, lw=0.6)
+            axe.text(-0.8, z, f"+{level * LEVEL_M:.2f}", ha="right", va="center", fontsize=7, color=ink)
+        axe.set_xlim(-4.0, wall["length"] + 1.0)
+        axe.set_ylim(min(foot) - 1.5, max(max(sky), max(top)) + 1.0)
+        axe.set_aspect("equal"); axe.set_title(label, fontsize=9, loc="left")
+        axe.set_xticks([]); axe.set_yticks([])
+        for s in axe.spines.values():
+            s.set_visible(False)
+
+    outer = [w for w in f.walls if w["outer"]]
+    longest = max(outer, key=lambda w: w["length"])
+    other = max((w for w in outer if abs(math.atan2(w["b"][1] - w["a"][1], w["b"][0] - w["a"][0])
+                                         - math.atan2(longest["b"][1] - longest["a"][1],
+                                                      longest["b"][0] - longest["a"][0])) % math.pi > 0.5),
+                key=lambda w: w["length"], default=longest)
+    elevation(fig.add_subplot(grid[0, 1]), longest, "ELEVATION  street  1:200")
+    elevation(fig.add_subplot(grid[1, 0]), other, "ELEVATION  side  1:200")
+
+    # ---- SECTION through the ridge, across the long axis
+    ax = fig.add_subplot(grid[1, 1])
+    u, v = b.axis
+    c = b.poly.centroid
+    half = axis_half(b.poly, v)
+    ss = np.linspace(-half, half, 200)
+    pts = [(c.x + v[0] * s, c.y + v[1] * s) for s in ss]
+    inside = [b.poly.contains(Point(*p)) for p in pts]
+    roofz = [b.eaves + roof_height_at(b.poly, p[0], p[1], b.roof, b.eaves, b.ridge, b.axis) if ok else np.nan
+             for p, ok in zip(pts, inside)]
+    gnd = [b.ground.at(*p) for p in pts]
+    footz = [b.wall_foot(*p) for p in pts]
+    ax.fill_between(ss, footz, roofz, facecolor="0.93", edgecolor=ink, lw=1.2)
+    ax.plot(ss, gnd, color=ink, lw=1.4)
+    ax.fill_between(ss, min(footz) - 1.2, gnd, facecolor="none", edgecolor="0.55", hatch="////", lw=0.0)
+    for level in range(f.levels() + 1):
+        z = b.pad + level * LEVEL_M
+        ax.plot([-half, half], [z, z], color=ink, lw=0.5, ls=(0, (6, 4)))
+        ax.text(half + 0.4, z, f"+{level * LEVEL_M:.2f}", ha="left", va="center", fontsize=7, color=ink)
+    ax.annotate("", xy=(-half - 1.2, b.pad), xytext=(-half - 1.2, b.ridge),
+                arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
+    ax.text(-half - 1.5, (b.pad + b.ridge) / 2, f"{b.ridge - b.pad:.2f}", rotation=90,
+            ha="right", va="center", fontsize=8, color=ink)
+    ax.set_aspect("equal"); ax.set_title("SECTION A-A  through the ridge  1:200", fontsize=9, loc="left")
+    ax.set_xticks([]); ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
+
+    tags = ", ".join(f"{k}={v}" for k, v in case[2].items())
+    fig.suptitle(f"{case[0]}  on  {case[1]}   |   {tags}", fontsize=11, x=0.02, ha="left")
+    fig.text(0.02, 0.015,
+             f"levels {f.levels()}   bays {sum(w['bays'] for w in f.walls)}   openings {len(f.openings())}   "
+             f"balconies {len(f.balconies())}   pad +{b.pad:.2f}   eaves +{b.eaves:.2f}   ridge +{b.ridge:.2f}   "
+             f"volume {b.volume():.0f} m3   triangles L0/L1/L2/L3 "
+             f"{'/'.join(str(f.counts(k)['triangles']) for k in range(4))}",
+             fontsize=7.5, color="0.35")
+    out = OUT / f"{case[0]}_{case[1]}_{case[2].get('roof:shape', 'flat')}.png"
+    fig.savefig(out, dpi=110, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
 def run(case):
     fname, gname, tags = case
     poly = FOOTPRINTS[fname]()
     ground = GROUNDS[gname]()
     b = Building(poly, tags, ground)
+    f = Facade(b)
     red = []
+    red += f.faults()
+    ladder = [f.counts(k) for k in range(4)]
+    if not all(ladder[k]["triangles"] <= ladder[k + 1]["triangles"] for k in range(3)):
+        red.append("LOD not monotone")
+    if ladder[0]["triangles"] != ladder[1]["triangles"]:
+        red.append("L1 costs geometry")
     if not b.watertight():
         red.append("B-closed")
     if b.volume() <= 0:
@@ -459,20 +820,23 @@ def run(case):
         red.append("B-roof")
     if ground.water is not None and b.pad < ground.water:
         red.append("B3-water")
-    return b, red
+    draw(case, b, f)
+    return b, red, f, ladder
 
 
 def main(argv):
     picked = [c for c in CASES if not argv or any(a in c[0] or a in c[1] or a in str(c[2]) for a in argv)]
     reds = 0
     for case in picked:
-        b, red = run(case)
+        b, red, f, ladder = run(case)
         flag = "RED " + ",".join(red) if red else "ok"
-        print(f"{case[0]:14s} {case[1]:12s} {str(case[2].get('roof:shape')):10s} {flag:16s} "
-              f"open {b.open_edges():4d}  bad {b.bad_edges():3d}  vol {b.volume():9.1f} m3  "
-              f"gap {b.skirt_gap_m():.3f} m  roof {b.ridge_error_m():.3f} m  tris {len(b.tris):5d}")
+        print(f"{case[0]:14s} {case[1]:12s} {str(case[2].get('roof:shape')):10s} {flag:34s} "
+              f"open {b.open_edges():3d} bad {b.bad_edges():2d} vol {b.volume():8.1f} "
+              f"gap {b.skirt_gap_m():.3f} roof {b.ridge_error_m():.3f} | bays {ladder[0]['bays']:3d} "
+              f"levels {ladder[0]['levels']:2d} openings {ladder[3]['openings']:3d} "
+              f"balconies {ladder[3]['balconies']:3d} tris {'/'.join(str(l['triangles']) for l in ladder)}")
         reds += bool(red)
-    print(f"\n{len(picked)} cases, {reds} red")
+    print(f"\n{len(picked)} cases, {reds} red; drawings under {OUT}")
     return 1 if reds else 0
 
 
