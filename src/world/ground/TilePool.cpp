@@ -3,8 +3,6 @@
 #include "TilePool.h"
 #include "math/Vec3.h"
 
-#include "CookedTile.h"
-
 #include <algorithm>
 #include <cstdint>
 #include <optional>
@@ -15,7 +13,6 @@
 #include <numbers>
 #include <chrono>
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -25,7 +22,6 @@
 #include <utility>
 
 #include "Capacity.h"
-#include "ChunkMesh.h"
 #include "Delivery.h"
 #include "Heap.h"
 #include "Log.h"
@@ -170,8 +166,7 @@ size_t TilePool::SchedulerBytes() const {
   bytes += TreeNodeBytes<uint64_t>(Posted_.size());
   bytes += TreeNodeBytes<std::pair<const uint64_t, Result>>(Done_.size());
   for (const std::pair<const uint64_t, Result> &d : Done_) {
-    bytes += CapacityBytes(d.second.Build.Verts) + CapacityBytes(d.second.Build.Idx) +
-             CapacityBytes(d.second.Build.Clusters);
+    bytes += CapacityBytes(d.second.Build.Nodes);
   }
   return bytes;
 }
@@ -365,17 +360,13 @@ namespace {
 
 enum class Miss { None, Hole, Wait, Refused };
 
-[[nodiscard]] Miss MissOf(TerrainMesh::State state) {
+[[nodiscard]] Miss MissOf(TerrainGrid::State state) {
   switch (state) {
-    case TerrainMesh::State::Built: return Miss::None;
-
-    case TerrainMesh::State::NoTile: return Miss::Hole;
-    case TerrainMesh::State::Deferred: return Miss::Wait;
-    case TerrainMesh::State::SourceUndecodable:
-    case TerrainMesh::State::SourceRefused:
-    case TerrainMesh::State::FieldTooSmall:
-    case TerrainMesh::State::StrideDoesNotDivide:
-    case TerrainMesh::State::FrameUnusable: return Miss::Refused;
+    case TerrainGrid::State::Decoded: return Miss::None;
+    case TerrainGrid::State::NotHere: return Miss::Hole;
+    case TerrainGrid::State::Deferred: return Miss::Wait;
+    case TerrainGrid::State::Undecodable:
+    case TerrainGrid::State::Refused: return Miss::Refused;
   }
   return Miss::Refused;
 }
@@ -383,36 +374,17 @@ enum class Miss { None, Hole, Wait, Refused };
 } // namespace
 
 void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
-  const TerrainMesh mesh = tiles.MeshOf(job.Z, job.X, job.Y);
-  Chunk chunk = {};
-  Vec3 origin;
+  const TerrainGrid::State stood = tiles.NodesOf({.Zoom = job.Z, .X = job.X, .Y = job.Y},
+                                                 job.Grid,
+                                                 &out->Build.Nodes,
+                                                 &out->Build.Postings,
+                                                 &out->Build.Side);
+  Miss miss = MissOf(stood);
   const char *stage = "source";
-  Miss miss = MissOf(mesh.Where());
-  if (miss == Miss::None &&
-      ((ChunkBuildEcef(mesh, {.Zoom = job.Z, .X = job.X, .Y = job.Y}, job.Grid, &chunk, origin) ==
-        0) ||
-       chunk.nverts <= 0)) {
+  if (miss == Miss::None && (out->Build.Side < 2 || out->Build.Nodes.empty())) {
     miss = Miss::Refused;
     stage = "grid";
   }
-  if (miss == Miss::None) {
-    CookTile(std::span<const StoredVertex>(chunk.verts, static_cast<size_t>(chunk.nverts)),
-             chunk.gridverts,
-             origin,
-             out->Build.Verts,
-             out->Build.Idx,
-             out->Build.Clusters);
-    out->Build.ErrM = chunk.err;
-    out->Build.Side = tiles.NodesOf(
-        {.Zoom = job.Z, .X = job.X, .Y = job.Y}, job.Grid, &out->Build.Nodes, &out->Build.Postings);
-    if (out->Build.Verts.empty() || out->Build.Idx.empty() || out->Build.Clusters.empty()) {
-      miss = Miss::Refused;
-      stage = "partition";
-    } else {
-      for (int a = 0; a < 3; a++) { out->Build.OriginEcef[a] = origin[a]; }
-    }
-  }
-  ChunkFree(&chunk);
   if (miss == Miss::None) {
     out->State = Reply::Ready;
     return;
@@ -424,7 +396,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
                {"x", static_cast<int>(job.X)},
                {"y", static_cast<int>(job.Y)},
                {"stage", stage},
-               {"rc", static_cast<int>(mesh.Where())}});
+               {"rc", static_cast<int>(stood)}});
     const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.MeshRefused++;
   }

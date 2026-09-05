@@ -554,7 +554,21 @@ and 96ea412b when rendered alone in its own process, the two 77 pixels apart, ev
 of 255, on the horizon line: the instanced draw's reading rule above, and the reference is
 the gate's.
 
-What the generators still build for nobody: `LayPatchwork` assembles the ring's mesh
-(positions, normals, index, clusters) from the pool's chunk meshes, and the pool meshes every
-chunk. That is the next deletion, on the generators' side, and it is where the cook churn of
-board:2124 lives.
+## Landed 2026-09-05, step 4 on the generators' side: the pool fills NODES, nothing meshes a chunk
+
+The pool's mesh job built a chunk (`ChunkBuildEcef`, `TerrainTiles::MeshOf`, `TerrainMesh`),
+cooked its DAG of clusters (`CookedTile`) and only then walked the nodes; `LayPatchwork` then
+assembled the ring's positions, normals, index and clusters and selected clusters by screen
+error against an eye and a focal length the lay computed for it. All of that is gone: a tile's
+build is its nodes, its side and its postings (`TileBuild`), `NodesOf` says where the grid
+stood (`TerrainGrid::State`) so the pool's miss reads the same, a patchwork is its sheets and
+its counts, `Around` carries no eye. The cluster machinery (`ClusterCook`, `ClusterDag`,
+`StoredVertex`) stays: the buildings' pieces are cut with it. A bare tile drew a sphere before
+and draws nothing now, which the `Bare` count names; the nine have none. A tile still pending
+is a tile the lay counts, or the first lay at assemble time refuses the place with "no tile
+meshed" -- the sphere used to count for it. The nine references bit-identical.
+
+Found on the way, about the gates: a build started while a gate chain still held the nest
+was refused with the nest's own message, the client under test stayed the previous binary,
+and two rounds of "the change did not help" were read off a stale program -- exactly the
+trap CLAUDE.md names. The chain is stopped before any build now.

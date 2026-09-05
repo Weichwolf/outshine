@@ -16,100 +16,7 @@
 
 namespace outshine {
 
-void NormalsFrom(const std::vector<float> &positionM,
-                 const std::vector<uint32_t> &index,
-                 std::vector<float> &into) {
-  into.assign(positionM.size(), 0.0f);
-  for (size_t at = 0; at + 2 < index.size(); at += 3) {
-    const uint32_t a = index[at];
-    const uint32_t b = index[at + 1];
-    const uint32_t c = index[at + 2];
-    if (static_cast<size_t>(c) * 3 + 2 >= positionM.size()) { continue; }
-    const float abx = positionM[static_cast<size_t>(b) * 3] - positionM[static_cast<size_t>(a) * 3];
-    const float aby = positionM[b * 3 + 1] - positionM[a * 3 + 1];
-    const float abz = positionM[b * 3 + 2] - positionM[a * 3 + 2];
-    const float acx = positionM[static_cast<size_t>(c) * 3] - positionM[static_cast<size_t>(a) * 3];
-    const float acy = positionM[c * 3 + 1] - positionM[a * 3 + 1];
-    const float acz = positionM[c * 3 + 2] - positionM[a * 3 + 2];
-    const float nx = aby * acz - abz * acy;
-    const float ny = abz * acx - abx * acz;
-    const float nz = abx * acy - aby * acx;
-    for (const uint32_t one : {a, b, c}) {
-      into[static_cast<size_t>(one) * 3] += nx;
-      into[one * 3 + 1] += ny;
-      into[one * 3 + 2] += nz;
-    }
-  }
-  for (size_t at = 0; at + 2 < into.size(); at += 3) {
-    const float length =
-        std::sqrt(into[at] * into[at] + into[at + 1] * into[at + 1] + into[at + 2] * into[at + 2]);
-    if (length <= 0.0f) {
-      into[at] = 0.0f;
-      into[at + 1] = 1.0f;
-      into[at + 2] = 0.0f;
-      continue;
-    }
-    into[at] /= length;
-    into[at + 1] /= length;
-    into[at + 2] /= length;
-  }
-}
-
 constexpr long kBlockTiles = 4;
-
-namespace {
-
-void SphereTile(Data::TileId over, int grid, TileBuild *out) {
-  const int side = grid < 2 ? 2 : grid;
-  const Ground::GeoBounds bounds = Ground::TileBounds(over);
-  const Ground::Geo middle{.LongitudeDeg = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg),
-                           .LatitudeDeg = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg),
-                           .HeightM = 0.0};
-  const Ground::Ecef anchor = Ground::GeoToEcefWgs84(middle);
-  out->OriginEcef[0] = anchor.X;
-  out->OriginEcef[1] = anchor.Y;
-  out->OriginEcef[2] = anchor.Z;
-  out->ErrM = 0.0f;
-  out->Clusters.clear();
-  out->Verts.clear();
-  out->Idx.clear();
-  out->Verts.reserve(static_cast<size_t>(side) * static_cast<size_t>(side));
-  for (int row = 0; row < side; ++row) {
-    const double v = static_cast<double>(row) / static_cast<double>(side - 1);
-    for (int column = 0; column < side; ++column) {
-      const double u = static_cast<double>(column) / static_cast<double>(side - 1);
-      const Ground::Geo where{
-          .LongitudeDeg = bounds.MinLonDeg + u * (bounds.MaxLonDeg - bounds.MinLonDeg),
-          .LatitudeDeg = bounds.MaxLatDeg + v * (bounds.MinLatDeg - bounds.MaxLatDeg),
-          .HeightM = 0.0};
-      const Ground::Ecef at = Ground::GeoToEcefWgs84(where);
-      const double away = std::sqrt(at.X * at.X + at.Y * at.Y + at.Z * at.Z);
-      out->Verts.push_back(StoredVertex::Of(Vec3f{{static_cast<float>(at.X - anchor.X),
-                                                   static_cast<float>(at.Y - anchor.Y),
-                                                   static_cast<float>(at.Z - anchor.Z)}},
-                                            Vec2f{{static_cast<float>(u), static_cast<float>(v)}},
-                                            Vec3f{{static_cast<float>(at.X / away),
-                                                   static_cast<float>(at.Y / away),
-                                                   static_cast<float>(at.Z / away)}}));
-    }
-  }
-  out->Idx.reserve(static_cast<size_t>(side - 1) * static_cast<size_t>(side - 1) * 6u);
-  for (int row = 0; row + 1 < side; ++row) {
-    for (int column = 0; column + 1 < side; ++column) {
-      const auto a = static_cast<uint32_t>(row * side + column);
-      const uint32_t b = a + 1;
-      const uint32_t c = a + static_cast<uint32_t>(side);
-      const uint32_t d = c + 1;
-      out->Idx.push_back(a);
-      out->Idx.push_back(c);
-      out->Idx.push_back(b);
-      out->Idx.push_back(b);
-      out->Idx.push_back(c);
-      out->Idx.push_back(d);
-    }
-  }
-}
-} // namespace
 
 std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Around &over) {
   if (over.Zoom <= 0) {
@@ -122,8 +29,6 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   }
 
   Patchwork out;
-  for (int axis = 0; axis < 3; ++axis) { out.ClusterEyeM[axis] = over.EyeM[axis]; }
-  bool anchored = false;
 
   const int levels = over.Levels < 1 ? 1 : over.Levels;
   const long widest = kBlockTiles * (1L << static_cast<uint32_t>(levels - 1));
@@ -208,76 +113,17 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           ++out.Refused;
           ofTheGround = false;
         }
-        if (ofTheGround && (built.Verts.empty() || built.Idx.empty())) { ofTheGround = false; }
+        if (ofTheGround && (built.Side < 2 || built.Nodes.empty())) { ofTheGround = false; }
         if (!ofTheGround && !over.Asking) { ++out.Bare; }
         if (over.Asking) {
           ++out.Tiles;
           if (ofTheGround) { standing.emplace_back(heldX0, heldY0); }
           continue;
         }
-        if (!ofTheGround) {
-          SphereTile({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)},
-                     over.Grid,
-                     &built);
-        }
         out.Sheets.push_back({.Tile = asked,
                               .Nodes = std::move(built.Nodes),
                               .Side = built.Side,
                               .Postings = built.Postings});
-        if (built.Verts.empty() || built.Idx.empty()) { continue; }
-
-        if (!anchored) {
-          for (int axis = 0; axis < 3; ++axis) { out.OriginEcef[axis] = built.OriginEcef[axis]; }
-          anchored = true;
-        }
-        const Vec3 shift = {{built.OriginEcef[0] - out.OriginEcef[0],
-                             built.OriginEcef[1] - out.OriginEcef[1],
-                             built.OriginEcef[2] - out.OriginEcef[2]}};
-        const auto first = static_cast<uint32_t>(out.PositionM.size() / 3);
-        for (const StoredVertex &one : built.Verts) {
-          for (int axis = 0; axis < 3; ++axis) {
-            out.PositionM.push_back(static_cast<float>(
-                static_cast<double>(one.pos[static_cast<size_t>(axis)]) + shift[axis]));
-          }
-          const Vec2f uv = one.uv();
-          const Vec3f facing = one.norm();
-          out.Uv.insert(out.Uv.end(), uv.begin(), uv.end());
-          out.NormalM.insert(out.NormalM.end(), facing.begin(), facing.end());
-        }
-        out.ClustersHeld += built.Clusters.size();
-        const auto rebase = static_cast<uint32_t>(out.AllIndex.size());
-        for (const uint32_t one : built.Idx) { out.AllIndex.push_back(first + one); }
-        for (const DagCluster &cluster : built.Clusters) {
-          DagCluster carried = cluster;
-          carried.First = rebase + cluster.First;
-          for (int axis = 0; axis < 3; ++axis) {
-            carried.SelfCenter[axis] =
-                static_cast<float>(static_cast<double>(cluster.SelfCenter[axis]) +
-                                   built.OriginEcef[axis] - out.ClusterEyeM[axis]);
-            carried.ParentCenter[axis] =
-                static_cast<float>(static_cast<double>(cluster.ParentCenter[axis]) +
-                                   built.OriginEcef[axis] - out.ClusterEyeM[axis]);
-          }
-          out.Clusters.push_back(carried);
-        }
-        if (over.FocalPx > 0.0f && !built.Clusters.empty()) {
-          const Vec3 eyeInTile = {{over.EyeM[0] - built.OriginEcef[0],
-                                   over.EyeM[1] - built.OriginEcef[1],
-                                   over.EyeM[2] - built.OriginEcef[2]}};
-          for (const DagCluster &cluster : built.Clusters) {
-            if (!DagSelect(cluster, eyeInTile, over.FocalPx, over.Tau, over.Up)) { continue; }
-            ++out.ClustersDrawn;
-            for (uint32_t step = 0; step < cluster.Count; ++step) {
-              out.Index.push_back(first + built.Idx[cluster.First + step]);
-            }
-          }
-        } else {
-          out.ClustersDrawn += built.Clusters.size();
-          for (const uint32_t one : built.Idx) { out.Index.push_back(first + one); }
-        }
-        out.WorstErrM = static_cast<double>(built.ErrM) > out.WorstErrM
-                            ? static_cast<double>(built.ErrM)
-                            : out.WorstErrM;
         ++out.Tiles;
         if (ofTheGround) { standing.emplace_back(heldX0, heldY0); }
       }

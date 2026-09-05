@@ -1596,20 +1596,6 @@ std::expected<Around, Engine::State::Laid> Engine::State::RingWanted(bool alsoWh
                      "m");
   }
   if (!Watches()) { return std::unexpected(Laid::Refused); }
-  if (Picture.Standing->Watched()) {
-    const Vec3 &at = Picture.Standing->Watching().EyeM;
-    const TangentFrame eyed = TangentFrame::At({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
-    for (int axis = 0; axis < 3; ++axis) {
-      over.EyeM[axis] = eyed.OriginEcef()[axis] + at[0] * eyed.EastEcef()[axis] +
-                        at[1] * eyed.UpEcef()[axis] - at[2] * eyed.NorthEcef()[axis];
-      over.Up[axis] = static_cast<float>(eyed.UpEcef()[axis]);
-    }
-  }
-  if (Picture.Frame.HeightPx > 0) {
-    const double halfFov = 0.5 * 55.0 * kDeg2Rad;
-    over.FocalPx =
-        static_cast<float>(0.5 * static_cast<double>(Picture.Frame.HeightPx) / std::tan(halfFov));
-  }
   switch (Focuses(over, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded)) {
     case Laid::Refused: return std::unexpected(Laid::Refused);
     case Laid::Unchanged: return std::unexpected(Laid::Unchanged);

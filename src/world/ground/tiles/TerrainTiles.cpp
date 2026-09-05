@@ -316,25 +316,6 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   return grid;
 }
 
-TerrainMesh TerrainTiles::MeshOf(int z, uint32_t x, uint32_t y) {
-  const TerrainGrid grid = StitchedGrid(z, x, y);
-  const TerrainField *field = grid.TryField();
-  if (field == nullptr) {
-    switch (grid.Where()) {
-      case TerrainGrid::State::Undecodable:
-        return TerrainMesh::Nothing(TerrainMesh::State::SourceUndecodable);
-      case TerrainGrid::State::Deferred: return TerrainMesh::Nothing(TerrainMesh::State::Deferred);
-      case TerrainGrid::State::Refused:
-        return TerrainMesh::Nothing(TerrainMesh::State::SourceRefused);
-      case TerrainGrid::State::NotHere:
-      case TerrainGrid::State::Decoded: return TerrainMesh::Nothing(TerrainMesh::State::NoTile);
-    }
-  }
-  constexpr uint32_t kTileExtent = 4096;
-  return TerrainMesh::Over(
-      *field, TileEnuMap::Over(Frame_, {.Zoom = z, .X = x, .Y = y}, kTileExtent), Config_.Stride);
-}
-
 void FillNodeHeights(const TerrainField &field,
                      uint32_t rowPostings,
                      uint32_t colPostings,
@@ -351,19 +332,24 @@ void FillNodeHeights(const TerrainField &field,
   }
 }
 
-int TerrainTiles::NodesOf(Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings) {
+TerrainGrid::State TerrainTiles::NodesOf(
+    Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings, int *side) {
   out->clear();
   *postings = 0;
+  *side = 0;
   const TerrainGrid stitched = StitchedGrid(of.Zoom, of.X, of.Y);
   const TerrainField *field = stitched.TryField();
-  if (field == nullptr) { return 0; }
+  if (field == nullptr) { return stitched.Where(); }
   const uint32_t rows = PostingsPerEdge(field->Rows(), Config_.Stride);
   const uint32_t cols = PostingsPerEdge(field->Cols(), Config_.Stride);
   const int nodes = ChunkNodes({.Postings = rows, .Grid = grid});
-  if (nodes < 2 || nodes != ChunkNodes({.Postings = cols, .Grid = grid})) { return 0; }
+  if (nodes < 2 || nodes != ChunkNodes({.Postings = cols, .Grid = grid})) {
+    return TerrainGrid::State::Refused;
+  }
   FillNodeHeights(*field, rows, cols, nodes, out);
   *postings = cols;
-  return nodes;
+  *side = nodes;
+  return TerrainGrid::State::Decoded;
 }
 
 size_t TerrainTiles::HeapBytes() const {

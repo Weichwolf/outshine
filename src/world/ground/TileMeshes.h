@@ -8,18 +8,10 @@
 #include <array>
 #include <cstddef>
 #include <type_traits>
-#include "math/Vec3.h"
-#include "StoredVertex.h"
-#include "ClusterDag.h"
 
 namespace outshine {
 
 struct TileBuild {
-  std::vector<StoredVertex> Verts;
-  std::vector<uint32_t> Idx;
-  std::vector<DagCluster> Clusters;
-  Vec3 OriginEcef;
-  float ErrM = 0.0f;
   std::vector<float> Nodes;
   int Side = 0;
   uint32_t Postings = 0;

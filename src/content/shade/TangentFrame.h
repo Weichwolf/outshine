@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CONTENT_SHADE_TANGENTFRAME_H
 #define OUTSHINE_CONTENT_SHADE_TANGENTFRAME_H
 
-#include "ground/TileMeshes.h"
+#include "StoredVertex.h"
 
 #include <vector>
 #include <span>

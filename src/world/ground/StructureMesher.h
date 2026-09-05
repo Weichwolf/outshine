@@ -11,6 +11,7 @@
 
 #include <generate/Generate.h>
 
+#include "StoredVertex.h"
 #include "TileMeshes.h"
 
 namespace outshine {

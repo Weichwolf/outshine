@@ -101,39 +101,5 @@ private:
   TerrainField Field_;
 };
 
-class TerrainMesh {
-public:
-  enum class State {
-    Built,
-    NoTile,
-    SourceUndecodable,
-    FieldTooSmall,
-    StrideDoesNotDivide,
-    FrameUnusable,
-    Deferred,
-    SourceRefused
-  };
-
-  static TerrainMesh Over(const TerrainField &field, const TileEnuMap &map, uint32_t stride);
-
-  static TerrainMesh Nothing(State why) { return TerrainMesh(why); }
-
-  [[nodiscard]] State Where() const { return Where_; }
-
-  [[nodiscard]] const std::vector<float> *TryPositionsEnuM() const {
-    return Where_ == State::Built ? &PositionsEnuM_ : nullptr;
-  }
-
-  [[nodiscard]] uint32_t VertexCount() const {
-    return static_cast<uint32_t>(PositionsEnuM_.size() / 3);
-  }
-
-private:
-  explicit TerrainMesh(State where) : Where_(where) {}
-
-  State Where_;
-  std::vector<float> PositionsEnuM_;
-};
-
 } // namespace outshine::Ground
 #endif

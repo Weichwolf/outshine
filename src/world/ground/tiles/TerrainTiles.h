@@ -91,9 +91,8 @@ public:
 
   [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(int z, uint32_t x, uint32_t y);
 
-  TerrainMesh MeshOf(int z, uint32_t x, uint32_t y);
-
-  int NodesOf(Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings);
+  TerrainGrid::State
+  NodesOf(Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings, int *side);
 
   [[nodiscard]] uint32_t Stride() const { return Config_.Stride; }
 
