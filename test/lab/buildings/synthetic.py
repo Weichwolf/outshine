@@ -810,6 +810,18 @@ class Facade:
                             "outward": (-inward[0], -inward[1])})
         return out
 
+    def _once(self, key, make):
+        """MEMOISED per facade. `openings()` walks every wall, bay and storey and the sheet asks
+        for it a dozen times -- once for the plan, once per elevation, once for the counts, once
+        for the checks. On a Speicherstadt block with 500 wall segments that is the whole cost of
+        the drawing, and it is the same answer every time."""
+        held = getattr(self, "_held", None)
+        if held is None:
+            held = self._held = {}
+        if key not in held:
+            held[key] = make()
+        return held[key]
+
     def levels(self):
         """FULL levels only, at the EPOCH's storey height: a storey that does not fit under the
         eaves is not a storey, and rounding up gave a top-floor window through the roof."""
@@ -817,6 +829,9 @@ class Facade:
         return max(1, int(math.floor(rise / self.b.style.level_m + 1e-6)))
 
     def cells(self):
+        return self._once("cells", self._cells)
+
+    def _cells(self):
         """Every (wall, bay, level) cell and what it carries. Deterministic: the entrance goes in
         the middle bay of the longest outer wall (the street side), and a bay above the ground
         floor carries a BALCONY DOOR where a balcony stands -- never a window, because a balcony
@@ -829,14 +844,16 @@ class Facade:
                 mid = (bay + 0.5) * w["bay_m"]
                 for level in range(self.levels()):
                     what = "window"
-                    if level == 0 and "Schaufenster" in ELEMENTS.get(self.b.style.epoch, ()):
-                        # a SHOPFRONT is the whole ground floor: it replaces the windows there
-                        # rather than standing behind them (they were drawn as crosses on it)
-                        what = "shopfront"
-                    elif level == 0 and w is street and bay == w["bays"] // 2:
+                    if level == 0 and w is street and bay == w["bays"] // 2:
                         # a hall and a shed have a LOADING GATE, not a house door: the entrance
                         # a viewer reads on an industrial building is 4 m wide and 4.5 m high
                         what = "gate" if self.b.style.epoch in ("hall", "industrial") else "door"
+                    elif level == 0 and "Schaufenster" in ELEMENTS.get(self.b.style.epoch, ()):
+                        # a SHOPFRONT is the whole ground floor: it replaces the windows there
+                        # rather than standing behind them (they were drawn as crosses on it).
+                        # It is decided AFTER the entrance, or a shop has no door and a hall no
+                        # gate -- which is how a 60 m retail shed came out with no opening at all
+                        what = "shopfront" if self.b.style.level_m < 5.5 else "clerestory"
                     elif level > 0 and self.b.style.balconies and self.b.style.epoch in ("gruenderzeit", "interwar", "postwar", "late20", "contemporary") and self._carries_balcony(w, mid):
                         what = "balcony-door"
                     out.append({"wall": w, "bay": bay, "level": level, "what": what})
@@ -850,6 +867,9 @@ class Facade:
                 and mid <= wall["length"] - wall["bay_m"] * 0.75)
 
     def openings(self):
+        return self._once("openings", self._openings)
+
+    def _openings(self):
         """Each cell's opening in wall coordinates: (wall, along, up, width, height, kind). A cell
         whose head would stand through the wall's top carries NO opening -- under a gable end or
         a hip the corner bays are blind, which is what those houses look like."""
@@ -869,6 +889,11 @@ class Facade:
                 # error and reads as one, so the cell that carries a balcony carries a French
                 # door -- full height, no sill -- and the balcony's slab sits at its threshold
                 one = (w, mid, base + 0.02, DOOR_W, DOOR_H, "balcony-door")
+            elif c["what"] == "clerestory" or self.b.style.level_m >= 5.5:
+                # a HALL's storey is nine metres and a window at a house's sill height reads as a
+                # doll's house: the light comes in HIGH, in a band under the eaves
+                one = (w, mid, base + self.b.style.level_m * 0.66,
+                       min(w["bay_m"] * 0.7, 3.2), min(2.4, self.b.style.level_m * 0.22), "window")
             else:
                 one = (w, mid, base + self.b.style.sill_m, self.b.style.win_w, self.b.style.win_h, "window")
             if self._fits(one):
@@ -886,6 +911,9 @@ class Facade:
         return True
 
     def balconies(self):
+        return self._once("balconies", self._balconies)
+
+    def _balconies(self):
         """One balcony per balcony DOOR, its slab at the door's threshold: the door is what makes
         it a balcony rather than a shelf."""
         return [(w, mid, up - 0.02, w["bay_m"] * 0.8, BALCONY_D)
@@ -1100,7 +1128,11 @@ def draw(case, b, f, number=0):
     # looks -- a section title with no line in the plan is a drawing that cannot be checked
     cq = b.poly.centroid
     v = b.axis[1]
-    reach_a = max(maxx - minx, maxy - miny) * 0.75
+    # the section line runs just past the building and not far into the margin: at 0.75 of the
+    # extent it made the PLAN's own drawing twice as tall as the building and pushed the panel
+    # from 1:500 to 1:1000, so the plan was drawn at half the size of its own elevations
+    reach_a = 0.5 * max(abs(v[0]) * (maxx - minx), abs(v[1]) * (maxy - miny)) \
+        + 0.10 * max(maxx - minx, maxy - miny)
     aa = [(cq.x - v[0] * reach_a, cq.y - v[1] * reach_a), (cq.x + v[0] * reach_a, cq.y + v[1] * reach_a)]
     ax.plot([aa[0][0], aa[1][0]], [aa[0][1], aa[1][1]], color=ink, lw=1.0, ls=(0, (9, 3, 2, 3)))
     for (px, py), sgn in ((aa[0], 1), (aa[1], -1)):
@@ -1109,7 +1141,7 @@ def draw(case, b, f, number=0):
                     xytext=(px, py), arrowprops=dict(arrowstyle="-|>", color=ink, lw=1.1))
         ax.text(px - v[0] * sgn * 0.9, py - v[1] * sgn * 0.9, "A", fontsize=9, color=ink,
                 ha="center", va="center", fontweight="bold")
-    ax.annotate("N", xy=(maxx + 1.5, maxy + 1.0), xytext=(maxx + 1.5, maxy - 1.5),
+    ax.annotate("N", xy=(maxx + off * 0.6, maxy + off * 0.5), xytext=(maxx + off * 0.6, maxy - off * 0.6),
                 arrowprops=dict(arrowstyle="-|>", color=ink, lw=1.0), ha="center", fontsize=9, color=ink)
     ax.set_aspect("equal", adjustable="datalim"); ax.set_title("PLAN  ground floor  1:200", fontsize=9, loc="left")
     ax.set_xticks([]); ax.set_yticks([])
@@ -1367,10 +1399,13 @@ def draw(case, b, f, number=0):
                     axe.plot([x0s + sgn * 0.09, x0s + sgn * (wall["bay_m"] * 0.55)],
                              [z1 - 0.16, z0 + 0.16], color=ink, lw=1.4)              # Strebe
         if "Schaufenster" in el:
-            axe.add_patch(Rectangle((0.6, b.pad + 0.3), wall["length"] - 1.2,
-                                    b.style.level_m - 1.1, facecolor="0.45", edgecolor=ink, lw=1.0))
-            axe.add_patch(Rectangle((0, b.pad + b.style.level_m - 0.7), wall["length"], 0.35,
-                                    facecolor="0.75", edgecolor=ink, lw=0.8))       # Vordach
+            # a SHOPFRONT is about three metres tall whatever the storey height is: tied to
+            # `level_m` it grew to eight metres on a retail shed and swallowed the whole facade
+            hs_ = min(3.2, b.style.level_m - 0.9)
+            axe.add_patch(Rectangle((0.6, b.pad + 0.3), wall["length"] - 1.2, hs_,
+                                    facecolor="0.45", edgecolor=ink, lw=1.0, zorder=3))
+            axe.add_patch(Rectangle((-0.4, b.pad + hs_ + 0.45), wall["length"] + 0.8, 0.35,
+                                    facecolor="0.75", edgecolor=ink, lw=0.8, zorder=4))  # Vordach
         if "Arkade" in el:
             # an ARCADE is a row of PIERS with arches between them, springing at the head of the
             # ground floor and dying into the first floor's band. Struck at mid-storey with a
@@ -1516,7 +1551,7 @@ def draw(case, b, f, number=0):
                                             (xr + 3.0, b.pad + 1.1), (xr - 3.0, b.pad + 1.1)]),
                                   closed=True, facecolor="0.80", edgecolor=ink, lw=0.9, zorder=5))
         if "Werbeband" in el:
-            zw = b.pad + b.style.level_m - 0.15
+            zw = b.pad + min(3.2, b.style.level_m - 0.9) + 0.85
             axe.add_patch(Rectangle((0, zw), L, 0.75, facecolor="0.30", edgecolor=ink,
                                     lw=0.9, zorder=5))
         if "Rosette" in el and street and b.ridge > b.eaves + 2.0:
@@ -1720,6 +1755,17 @@ def draw(case, b, f, number=0):
                 ax.plot([(sL + sR) / 2 - spanr * 0.26, (sL + sR) / 2 + spanr * 0.26],
                         [zk, zk], color=ink, lw=1.6)
                 ax.plot([(sL + sR) / 2, (sL + sR) / 2], [zk, b.ridge], color=ink, lw=1.0)
+    # a PART is cut by the section too: a cathedral sectioned through its nave with the towers
+    # left out is a 15 m slab, which is what the outline alone gives (seen in B02)
+    for part in getattr(b, "parts", []):
+        hit = [part.poly.contains(Point(c.x + v[0] * s, c.y + v[1] * s)) for s in ss]
+        if not any(hit):
+            continue
+        crown = [part.eaves + roof_height_at(part.poly, c.x + v[0] * s, c.y + v[1] * s,
+                                             part.roof, part.eaves, part.ridge, part.axis)
+                 if ok else np.nan for s, ok in zip(ss, hit)]
+        floorz = [part.pad if ok else np.nan for ok in hit]
+        ax.fill_between(ss, floorz, crown, facecolor="0.90", edgecolor=ink, lw=1.0, zorder=2)
     ax.plot(ss, gnd, color=ink, lw=1.4)
     ax.fill_between(ss, min(footz) - 1.4, gnd, facecolor="none", edgecolor="0.55", hatch="////", lw=0.0)
     every = 1 if f.levels() <= 8 else (5 if f.levels() <= 40 else 10)
@@ -1729,9 +1775,10 @@ def draw(case, b, f, number=0):
         if level % every == 0 or level == f.levels():
             ax.text(half + 0.4, z, f"+{level * b.style.level_m:.2f}", ha="left", va="center",
                     fontsize=7, color=ink)
-    ax.annotate("", xy=(-half - 1.2, b.pad), xytext=(-half - 1.2, b.ridge),
+    tallest_s = max([b.ridge] + [p.ridge for p in getattr(b, "parts", [])])
+    ax.annotate("", xy=(-half - 1.2, b.pad), xytext=(-half - 1.2, tallest_s),
                 arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
-    ax.text(-half - 1.5, (b.pad + b.ridge) / 2, f"{b.ridge - b.pad:.2f}", rotation=90,
+    ax.text(-half - 1.5, (b.pad + tallest_s) / 2, f"{tallest_s - b.pad:.2f}", rotation=90,
             ha="right", va="center", fontsize=8, color=ink)
     ax.set_aspect("equal", adjustable="datalim"); ax.set_title("SECTION A-A  through the ridge  1:200", fontsize=9, loc="left")
     ax.set_xticks([]); ax.set_yticks([])
@@ -1760,7 +1807,11 @@ def draw(case, b, f, number=0):
     # ONE SCALE FOR THE WHOLE SHEET. Two elevations of one building at 1:100 and 1:200 cannot be
     # compared, and comparing them is what a set of drawings is FOR (seen in B29). The coarsest
     # panel sets it, so nothing is cropped
-    coarsest = series[0]
+    coarsest = {"PLAN": series[0], "VIEW": series[0]}
+
+    def family(lbl):
+        return "PLAN" if lbl.strip().upper().startswith("PLAN") else "VIEW"
+
     for axp in fig.axes:
         if "1:" not in axp.get_title(loc="left"):
             continue
@@ -1769,7 +1820,8 @@ def draw(case, b, f, number=0):
         xx0, xx1 = axp.get_xlim()
         want = max((yy1 - yy0) * 1000.0 / max(bx.height / fig.dpi * 25.4, 1e-6),
                    (xx1 - xx0) * 1000.0 / max(bx.width / fig.dpi * 25.4, 1e-6))
-        coarsest = max(coarsest, next((s for s in series if s >= want), series[-1]))
+        fam = family(axp.get_title(loc="left").split("1:")[0])
+        coarsest[fam] = max(coarsest[fam], next((s for s in series if s >= want), series[-1]))
     for axp in fig.axes:
         label = axp.get_title(loc="left")
         if "1:" not in label:
@@ -1780,7 +1832,7 @@ def draw(case, b, f, number=0):
         y0, y1 = axp.get_ylim()
         x0, x1 = axp.get_xlim()
         need = max((y1 - y0) * 1000.0 / max(mm_h, 1e-6), (x1 - x0) * 1000.0 / max(mm_w, 1e-6))
-        pick = coarsest
+        pick = coarsest[family(label.split("1:")[0])]
         del need
         # centre on the CONTENT and not on the limits: the elevation's limits run from -4 m to
         # the wall's end, so their centre sits a metre and a half left of the building's, and

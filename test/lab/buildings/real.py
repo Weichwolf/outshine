@@ -21,8 +21,8 @@ import urllib.parse
 import urllib.request
 
 import numpy as np
-from shapely.geometry import Point, Polygon
-from shapely.ops import unary_union
+from shapely.geometry import LineString, Point, Polygon
+from shapely.ops import polygonize, unary_union
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "roads"))
@@ -40,26 +40,30 @@ OVERPASS = "https://overpass-api.de/api/interpreter"
 # Landmarks chosen so that every epoch, every use and every roof this bed knows meets a real
 # building somewhere: a Gothic cathedral, a Baroque palace, a Gruenderzeit block, a Bauhaus
 # work, a post-war slab, a steel-and-glass tower, a colliery, a station hall, a farmstead.
+# The NAME is the fourth column and it is not decoration: a coordinate lands within reach of a
+# dozen buildings and the biggest of them is usually the block, so the way or relation whose
+# `name` carries this string wins before either test. Without it the Sagrada Familia came out as
+# the apartment house across the street (measured).
 LANDMARKS = {
-    "Koelner-Dom":        (50.94133, 6.95817, "gothic cathedral, 157 m towers"),
-    "Reichstag":          (52.51863, 13.37617, "1894, Wallot, the dome of 1999"),
-    "Elbphilharmonie":    (53.54130, 9.98410, "2016 on a 1963 warehouse"),
-    "Empire-State":       (40.74844, -73.98566, "1931 art deco, 102 storeys"),
-    "Chrysler-Building":  (40.75165, -73.97551, "1930 art deco"),
-    "Transamerica":       (37.79520, -122.40280, "1972 pyramid, San Francisco"),
-    "Zollverein-XII":     (51.48660, 7.04520, "1932 colliery, Essen, Bauhaus in steel"),
-    "Villa-Savoye":       (48.92360, 2.02690, "1931 Le Corbusier"),
-    "Bundeshaus-Bern":    (46.94650, 7.44440, "1902, Swiss parliament"),
-    "Wuppertal-Rathaus":  (51.25620, 7.15020, "1900, Gruenderzeit"),
-    "Zytglogge":          (46.94790, 7.44770, "13th century tower, Bern"),
-    "Sagrada-Familia":    (41.40360, 2.17440, "Gaudi, begun 1882"),
-    "Hamburg-Speicher":   (53.54430, 9.98890, "Speicherstadt warehouse, 1888"),
-    "Paris-Gare-du-Nord": (48.88090, 2.35520, "1864 station hall"),
-    "Zuerich-HB":         (47.37790, 8.54020, "1871 station"),
+    "Koelner-Dom":        (50.94133, 6.95817, "gothic cathedral, 157 m towers", "Dom"),
+    "Reichstag":          (52.51863, 13.37617, "1894, Wallot, the dome of 1999", "Reichstag"),
+    "Elbphilharmonie":    (53.54130, 9.98410, "2016 on a 1963 warehouse", "Elbphilharmonie"),
+    "Empire-State":       (40.74844, -73.98566, "1931 art deco, 102 storeys", "Empire State"),
+    "Chrysler-Building":  (40.75165, -73.97551, "1930 art deco", "Chrysler"),
+    "Transamerica":       (37.79520, -122.40280, "1972 pyramid, San Francisco", "Transamerica"),
+    "Zollverein-XII":     (51.48630, 7.04430, "1932 colliery, Essen, Bauhaus in steel", "Kohlenw"),
+    "Villa-Savoye":       (48.92472, 2.02694, "1931 Le Corbusier", "Savoye"),
+    "Bundeshaus-Bern":    (46.94650, 7.44440, "1902, Swiss parliament", "Bundeshaus"),
+    "Wuppertal-Rathaus":  (51.25620, 7.15020, "1900, Gruenderzeit", "Rathaus"),
+    "Zytglogge":          (46.94790, 7.44770, "13th century tower, Bern", "Zytglogge"),
+    "Sagrada-Familia":    (41.40363, 2.17435, "Gaudi, begun 1882", "Sagrada"),
+    "Hamburg-Speicher":   (53.54430, 9.98890, "Speicherstadt warehouse, 1888", "Speicher"),
+    "Paris-Gare-du-Nord": (48.88090, 2.35520, "1864 station hall", "building=train_station"),
+    "Zuerich-HB":         (47.37770, 8.53990, "1871 station", "building=train_station"),
 }
 
 
-def fetch(name, lat, lon, reach=90.0):
+def fetch(name, lat, lon, reach=160.0):
     """The largest building way within `reach` of the point, with every tag it carries."""
     CACHE.mkdir(parents=True, exist_ok=True)
     held = CACHE / f"{name}.json"
@@ -77,7 +81,36 @@ def fetch(name, lat, lon, reach=90.0):
     doc = json.loads(held.read_text())
     nodes = {e["id"]: (e["lat"], e["lon"]) for e in doc["elements"] if e["type"] == "node"}
     ways = [e for e in doc["elements"] if e["type"] == "way" and "nodes" in e]
-    return nodes, ways
+    rels = [e for e in doc["elements"] if e["type"] == "relation"]
+    return nodes, ways, rels
+
+
+def from_relation(rel, ways, nodes, lat0, lon0):
+    """A MULTIPOLYGON RELATION is a building too, and the biggest ones usually are: its outer
+    members are open ways that have to be sewn into rings first. `polygonize` does exactly that,
+    and the largest ring it returns is the outline."""
+    by_id = {w["id"]: w for w in ways}
+    lines = []
+    for member in rel.get("members", ()):
+        if member.get("type") != "way" or member.get("role") not in ("outer", ""):
+            continue
+        w = by_id.get(member.get("ref"))
+        if w is None:
+            continue
+        # `as_metres` drops a way's repeated closing node, which leaves the ring OPEN, and
+        # `polygonize` returns nothing for an open line: Zurich's station relation produced no
+        # polygon at all and the 44 000 m2 platform roof won on area (measured). Close it again
+        pts = as_metres(nodes, w["nodes"], lat0, lon0)
+        if len(pts) >= 3 and pts[0] != pts[-1] and w["nodes"][0] == w["nodes"][-1]:
+            pts = pts + [pts[0]]
+        if len(pts) >= 2:
+            lines.append(LineString(pts))
+    if not lines:
+        return None
+    made = [g for g in polygonize(unary_union(lines))]
+    if not made:
+        return None
+    return max(made, key=lambda g: g.area)
 
 
 def as_metres(nodes, refs, lat0, lon0):
@@ -94,12 +127,20 @@ def as_metres(nodes, refs, lat0, lon0):
     return out
 
 
-def biggest(nodes, ways, lat0, lon0):
-    best, best_rank, parts = None, (-1, -1.0), []
+def biggest(nodes, ways, rels, lat0, lon0, want=""):
+    best, best_rank, parts = None, (-1, -1, -1.0), []
+    candidates = []
     for w in ways:
         pts = as_metres(nodes, w["nodes"], lat0, lon0)
-        if len(pts) < 3:
+        if len(pts) >= 3:
+            candidates.append((pts, w.get("tags", {})))
+    for r in rels:
+        if "building" not in r.get("tags", {}) and r.get("tags", {}).get("type") != "multipolygon":
             continue
+        got = from_relation(r, ways, nodes, lat0, lon0)
+        if got is not None:
+            candidates.append((list(got.exterior.coords)[:-1], r.get("tags", {})))
+    for pts, tags in candidates:
         try:
             poly = Polygon(pts)
             if not poly.is_valid:
@@ -108,14 +149,20 @@ def biggest(nodes, ways, lat0, lon0):
             continue
         if poly.is_empty or poly.geom_type != "Polygon":
             continue
-        tags = w.get("tags", {})
         if "building" not in tags:
             continue
-        # the way that CONTAINS the point wins over the biggest one: at the Chrysler Building
-        # the largest way within reach is the block it stands in, and the sheet came out as a
-        # two-storey hall (measured). A landmark's coordinate is the landmark
+        # the NAME wins, then the geometry that CONTAINS the point, then the area: at the
+        # Chrysler Building the largest way within reach is the block it stands in, and at the
+        # Sagrada Familia the largest one that holds the point is an apartment house
+        # the hint matches a NAME, or -- where OSM gives the landmark no name at all -- the
+        # `building` value: Zurich's main station is an unnamed `building=train_station` RELATION
+        # standing under a 44 000 m2 `building=roof` way, and area alone always picks the roof
+        if want.startswith("building="):
+            named = tags.get("building") == want.split("=", 1)[1]
+        else:
+            named = bool(want) and want.lower() in str(tags.get("name", "")).lower()
         holds = poly.contains(Point(0.0, 0.0))
-        rank = (1 if holds else 0, poly.area)
+        rank = (1 if named else 0, 1 if holds else 0, poly.area)
         if best is None or rank > best_rank:
             best, best_rank = (poly, tags), rank
     if best is None:
@@ -135,8 +182,17 @@ def biggest(nodes, ways, lat0, lon0):
         if poly.intersection(best[0]).area < poly.area * 0.4:
             continue
         parts.append((poly, tags))
-    parts.sort(key=lambda pt: -pt[0].area)
+    # a part is kept for its HEIGHT before its area: the Koelner Dom's towers are its smallest
+    # parts by footprint and its whole silhouette, and eight parts taken by area drew a
+    # cathedral with no spires (measured)
+    parts.sort(key=lambda pt: (-_told_height(pt[1]), -pt[0].area))
     return best, parts
+
+
+def _told_height(tg):
+    """What a part's tags say it is high, in metres, or zero if they say nothing."""
+    got = clean(tg)
+    return float(got.get("height", 0) or 0) or float(got.get("building:levels", 0) or 0) * 3.2
 
 
 def clean(tags):
@@ -181,31 +237,55 @@ class RealGround:
 
 
 def run(name, number):
-    lat, lon, note = LANDMARKS[name]
-    nodes, ways = fetch(name, lat, lon)
-    got, parts = biggest(nodes, ways, lat, lon)
+    lat, lon, note, want = LANDMARKS[name]
+    nodes, ways, rels = fetch(name, lat, lon)
+    got, parts = biggest(nodes, ways, rels, lat, lon, want)
     if got is None:
         print(f"{number:02d} {name:20s} no building way within reach")
         return None
     poly, tags = got
     tags = clean(tags)
     ground = RealGround(lat, lon)
-    b = bed.Building(poly, tags, ground, cell=max(0.8, math.sqrt(poly.area) / 40.0))
-    b.parts = []
-    for (ppoly, ptags) in parts[:8]:
+    # SIMPLE 3D BUILDINGS: where `building:part` ways cover the outline, THEY carry the heights
+    # and the outline way's `height` is the tallest point of the whole -- the Koelner Dom's 157 m
+    # is its towers, and extruding the entire 146 x 87 m outline to it drew a box the size of the
+    # cathedral's spires (measured). The mass then takes the LOWEST part's height, which is the
+    # aisle, and every part rises out of it: aisle 20 m, nave 61 m, towers 157 m
+    made = []
+    for (ppoly, ptags) in parts[:14]:
         merged = dict(tags)
+        merged.pop("height", None)
+        merged.pop("building:levels", None)
         merged.update(clean(ptags))
         try:
-            b.parts.append(bed.Building(ppoly, merged, ground, cell=1.2))
+            made.append(bed.Building(ppoly, merged, ground, cell=1.2))
         except Exception:
             continue
+    covered = 0.0
+    if parts:
+        covered = unary_union([pp for pp, _ in parts]).intersection(poly).area / max(poly.area, 1e-9)
+    if made and covered > 0.5:
+        # the LOWEST part is the aisle and it sets the mass, and it is read from EVERY part and
+        # not only from the eight that are drawn -- the eight are chosen for their height, so
+        # their minimum is a tower and the outline went back to 157 m (measured)
+        told = [h for h in (_told_height(pt[1]) for pt in parts) if h > 0.5]
+        tags = dict(tags)
+        tags["height"] = min(told) if told else min(m.ridge - m.pad for m in made)
+        tags.pop("building:levels", None)
+    b = bed.Building(poly, tags, ground, cell=max(0.8, math.sqrt(poly.area) / 40.0))
+    b.parts = made
     f = bed.Facade(b)
     red = f.faults()
     if not b.watertight():
         red.append("B-closed")
     if b.volume() <= 0:
         red.append("B-wound")
-    case = (name, f"{lat:.4f},{lon:.4f}", tags)
+    shown = {k: v for k, v in tags.items()
+             if k in ("building", "height", "building:levels", "start_date", "roof:shape",
+                      "building:architecture", "min_height", "name")}
+    # the sheet's title splits its first field on the first hyphen (the synthetic beds name
+    # cases `F1-rect`), so a landmark's own hyphen would print "Familia" for the Sagrada Familia
+    case = (name.replace("-", "_"), f"{lat:.4f},{lon:.4f}", shown)
     bed.OUT = CACHE
     bed.draw(case, b, f, number)
     print(f"{number:02d} {name:20s} {b.style.kind[:12]:12s} {b.style.epoch:13s} {b.roof:10s} "
