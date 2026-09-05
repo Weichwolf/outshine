@@ -35,6 +35,7 @@ COVER_M = 3.0             # [SET] the least rock a tunnel keeps above its crown
 WELD_M = 1e-3
 MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre of the analytic one
 STEP_TOL_M = 1e-3
+APPROACH_M = 60.0         # [SET] how far from a shared node a way is still the deck's approach
 CLEARANCE_ROUNDS = 40     # [SET] a bound, not a schedule: the loop stops on its own residual
 CLEARANCE_TOL_M = 1e-4    # a fixed point is reached when a round moves nothing a driver feels
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
@@ -508,6 +509,32 @@ def r_ramp_cycle():
     return net
 
 
+def r_spiral(radius=70.0, turns=1.6, rise=34.0, gap_deg=26.0):
+    """A ROAD THAT CROSSES ITSELF: a spiral ramp, and the clearance cycle is inside ONE road.
+
+    `R11-rampcycle` puts the upper deck over ANOTHER road's ramp and converges; the shape that
+    does not is the one where the road below the deck IS the road carrying it. Lifting the deck
+    lifts the spiral, which raises the floor under the deck, which lifts the deck. The Brusio
+    viaduct is this exactly, and so is every hairpin whose bridge stands over the leg below it --
+    which is what the Transfagarasan and the Stelvio are made of."""
+    net = Network()
+    pts, zs = [], []
+    n = int(turns * 48)
+    for k in range(n + 1):
+        a = 2.0 * math.pi * turns * k / n
+        pts.append((radius * math.cos(a), radius * math.sin(a)))
+        zs.append(rise * k / n)
+    # the crossing is where the last turn passes over the first: the arc there is the deck
+    over = [k for k in range(n + 1) if 2.0 * math.pi * turns * k / n > 2.0 * math.pi
+            and abs(math.degrees(2.0 * math.pi * turns * k / n) - 360.0) < gap_deg]
+    lo, hi = (min(over), max(over)) if over else (n - 4, n - 1)
+    ids = [net.node(*p) for p in pts]
+    net.way(ids[:lo + 1], highway="secondary", width=8.0)
+    net.way(ids[lo:hi + 1], highway="secondary", width=8.0, bridge="yes", layer=1)
+    net.way(ids[hi:], highway="secondary", width=8.0)
+    return net
+
+
 def r_cul_de_sac_real():
     net = Network()
     o = net.node(0, 0)
@@ -726,6 +753,7 @@ NETWORKS = {
     "R6-fork": r_fork,
     "R11-stacked": r_stacked,
     "R11-rampcycle": r_ramp_cycle,
+    "R11-spiral": r_spiral,
     "R12-culdesac": r_cul_de_sac_real,
     "R15-widths": r_widths,
     "R16-onewaypair": r_oneway_pair,
@@ -987,11 +1015,26 @@ class Map:
                 if self.terrain.water is not None and self.terrain.truth(x, y) < self.terrain.water:
                     floor = self.terrain.water + CLEARANCE_M
                 for other in self.net.ways:
-                    if other is w or self.net.spans(other) or set(other["refs"]) & set(refs):
+                    if other is w or self.net.spans(other):
                         continue
+                    # A CONNECTED ROAD IS STILL A ROAD UNDER THE BRIDGE. Skipping every way that
+                    # shares a node with the deck was meant to exclude its own APPROACHES, and it
+                    # excluded the thing the clearance exists for: on a spiral, a hairpin or any
+                    # interchange the road passing underneath is usually the same road that leads
+                    # onto the deck, joined at the abutment. Measured 2026-09-06 on `R11-spiral`,
+                    # where the deck crosses the road one turn below and `clearance_m` came back
+                    # as the sentinel 1e9 -- no road found at all. What is excluded is the
+                    # APPROACH ITSELF: the stations of `other` within APPROACH_M of a shared node
+                    shared = [q for q in other["refs"] if q in set(refs)]
                     line = self.centreline(other)
                     p = Point(x, y)
                     reach = other["tags"]["width"] / 2.0 + w["tags"]["width"] / 2.0 + 25.0
+                    if shared:
+                        st_o = self.stations[other["id"]]
+                        s_here = line.project(p)
+                        near_join = min(abs(s_here - st_o[other["refs"].index(q)]) for q in shared)
+                        if near_join <= APPROACH_M:
+                            continue
                     if line.distance(p) <= reach:
                         # the road below at its nearest station: its DEM height is the floor's
                         # best estimate before its own profile exists (they are solved together)
@@ -2390,7 +2433,8 @@ CASES = [
     ("P1-dupnodes", "T2-along5"), ("P2-zerolen", "T2-along5"), ("P3-gap", "T2-along5"),
     ("P4-dupway", "T2-along5"), ("P5-nolanding", "T8-valley"), ("P6-dense", "T4-crest"),
     ("R3-scurve", "T3-cross15"), ("R6-fork", "T2-along5"), ("R6-fork", "T3-cross15"),
-    ("R11-stacked", "T1-flat"), ("R11-rampcycle", "T1-flat"), ("R11-rampcycle", "T3-cross15"), ("R12-culdesac", "T3-cross15"), ("R15-widths", "T3-cross15"),
+    ("R11-stacked", "T1-flat"), ("R11-rampcycle", "T1-flat"), ("R11-rampcycle", "T3-cross15"),
+    ("R11-spiral", "T1-flat"), ("R11-spiral", "T10-mountain"), ("R12-culdesac", "T3-cross15"), ("R15-widths", "T3-cross15"),
     ("R16-onewaypair", "T3-cross15"), ("R19-viaduct", "T5-sag"), ("R21-underpass", "T1-flat"),
     ("R24-causeway", "T9-coast"), ("R25-ford", "T8-valley"), ("P7-layer", "T2-along5"),
     ("R1-straight", "T9-coast"), ("R1-straight", "T10-mountain"), ("R2-curve30", "T10-mountain"),
