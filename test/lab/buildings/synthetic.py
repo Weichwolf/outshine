@@ -743,6 +743,14 @@ class Style:
         self.kind, self.epoch = classify(tags, poly, levels, height_m)
         (self.level_m, self.bay_m, (self.win_w, self.win_h), self.sill_m,
          self.cornice, self.balconies, self.roofs) = EPOCHS[self.epoch]
+        # A STOREY HEIGHT FOLLOWS THE USE where the use says it plainly. A parliament, a palace,
+        # a museum or a station has rooms twice a flat's height, and dividing the Reichstag's
+        # 48 m by a dwelling's 3.6 m gave it thirteen floors (measured). [SET] from the German
+        # building types: representative 5.5 m, a concourse 7 m
+        tall = {"government": 5.5, "palace": 5.5, "castle": 5.5, "museum": 5.5, "civic": 5.5,
+                "townhall": 5.5, "public": 5.0, "train_station": 7.0, "transportation": 7.0}
+        if self.kind in tall:
+            self.level_m = max(self.level_m, tall[self.kind])
 
     def roof_for(self, told):
         """The roof OSM says, if this epoch can carry it; otherwise the epoch's first."""
@@ -1159,6 +1167,12 @@ def draw(case, b, f, number=0):
                                                  for c in pp.poly.exterior.coords]
         proj = [(px - a00[0]) * d0[0] + (py - a00[1]) * d0[1] for (px, py) in allpts]
         along = np.linspace(min(proj) - 0.5, max(proj) + 0.5, 140)
+        # THE DRAWING'S ORIGIN IS THE LEFT EDGE OF WHAT IS DRAWN, not the reference wall's own
+        # start. Every element below is written in 0..extent, so the sampling keeps the wall's
+        # frame and the plotting shifts into the sheet's
+        shift = float(min(along))
+        alongp = along - shift
+        extent = float(max(along)) - shift
         top = [b.wall_top(*f._point(wall, float(s))) for s in along]
         foot = [b.wall_foot(*f._point(wall, float(s))) for s in along]
         gnd = [b.ground.at(*f._point(wall, float(s))) for s in along]
@@ -1202,40 +1216,56 @@ def draw(case, b, f, number=0):
                         best = z if np.isnan(best) else max(best, z)
                     crest.append(best)
                 mid = [part.eaves if h else np.nan for h in hits]
-                axe.fill_between(along, mid, crest, facecolor="0.80", edgecolor=ink, lw=1.0)
-                axe.fill_between(along, [b.pad] * len(along), mid, where=hits,
+                axe.fill_between(alongp, mid, crest, facecolor="0.80", edgecolor=ink, lw=1.0)
+                axe.fill_between(alongp, [b.pad] * len(along), mid, where=hits,
                                  facecolor="0.90", edgecolor=ink, lw=1.2)
                 for level in range(1, int((part.eaves - part.pad) / part.style.level_m) + 1):
                     z = part.pad + level * part.style.level_m
-                    axe.plot([min(np.array(along)[np.array(hits)]), max(np.array(along)[np.array(hits)])],
+                    axe.plot([min(np.array(alongp)[np.array(hits)]), max(np.array(alongp)[np.array(hits)])],
                              [z, z], color=ink, lw=0.4, alpha=0.5)
-        axe.fill_between(along, top, sky, facecolor="0.86", edgecolor="none")
-        axe.plot(along, sky, color=ink, lw=1.2)
+        axe.fill_between(alongp, top, sky, facecolor="0.86", edgecolor="none")
+        axe.plot(alongp, sky, color=ink, lw=1.2)
         # the ROOF is a roof and not a band: it oversails the wall, its eaves line is where the
         # covering starts, and its ridge is a line. Without these three an elevation reads as a
         # parapet with a grey stripe on it (seen in B12)
         oversail = 0.45 if b.roof != "flat" else 0.0
         if b.roof != "flat" and b.ridge > b.eaves + 0.05:
-            x0, x1 = float(min(along)), float(max(along))
+            x0, x1 = 0.0, extent
             axe.plot([x0 - oversail, x1 + oversail], [b.eaves] * 2, color=ink, lw=1.1)
             axe.plot([x0 - oversail, x1 + oversail], [b.eaves - 0.22] * 2, color=ink, lw=0.7)
             crestz = max(sky)
-            flat_at = [s for s, z in zip(along, sky) if z > crestz - 0.02]
+            flat_at = [s for s, z in zip(alongp, sky) if z > crestz - 0.02]
             if len(flat_at) > 3:
                 axe.plot([min(flat_at), max(flat_at)], [crestz] * 2, color=ink, lw=1.4)
             if b.roof in ("gabled", "hipped", "mansard", "gambrel", "half-hipped", "skillion"):
                 for s in np.linspace(x0, x1, max(6, int((x1 - x0) / 1.6))):
-                    zz = float(np.interp(s, along, sky))
+                    zz = float(np.interp(s + shift, along, sky))
                     if zz > b.eaves + 0.15:
                         axe.plot([s, s], [b.eaves + 0.05, zz - 0.05], color="0.62", lw=0.4)
-        axe.fill_between(along, foot, top, facecolor="0.93", edgecolor=ink, lw=1.2, zorder=1)
-        axe.plot(along, gnd, color=ink, lw=1.4, zorder=6)
-        axe.fill_between(along, min(foot) - 1.2, gnd, facecolor="white", edgecolor="0.55",
+        axe.fill_between(alongp, foot, top, facecolor="0.93", edgecolor=ink, lw=1.2, zorder=1)
+        axe.plot(alongp, gnd, color=ink, lw=1.4, zorder=6)
+        axe.fill_between(alongp, min(foot) - 1.2, gnd, facecolor="white", edgecolor="0.55",
                          hatch="////", lw=0.0, zorder=6)
         el_of = ELEMENTS.get(b.style.epoch, ())
+
+        def proj(p):
+            return (p[0] - a0[0]) * d[0] + (p[1] - a0[1]) * d[1] - shift
+
+        # AN ELEVATION SHOWS EVERY WALL THAT FACES THE VIEWER, not the one it was named after.
+        # The Reichstag is 104 m across and its longest single wall is a fraction of that, so the
+        # drawing carried one strip of windows and 80 m of blank render (measured). A wall is
+        # seen when its outward normal points back along the line of sight
+        seen_walls = [w for w in f.walls
+                      if w["outer"] and (w["outward"][0] * n[0] + w["outward"][1] * n[1]) < -0.25]
+        if wall not in seen_walls:
+            seen_walls.append(wall)
         for (w, mid, up, ww, hh, kind) in f.openings():
-            if w is not wall:
+            if w not in seen_walls:
                 continue
+            mid = proj(f._point(w, mid))
+            ww = ww * abs(w["dir"][0] * d[0] + w["dir"][1] * d[1])
+            if ww < 0.2:
+                continue                      # a wall seen edge-on carries no visible opening
             axe.add_patch(Rectangle((mid - ww / 2, up), ww, hh,
                                     facecolor={"window": "0.55", "balcony-door": "0.45",
                                                "gate": "0.28"}.get(kind, "0.35"),
@@ -1294,6 +1324,13 @@ def draw(case, b, f, number=0):
         el = ELEMENTS.get(b.style.epoch, ())
         top_of_wall = max(top)
         base_of_wall = min(foot)
+        named_wall = wall
+        # a SOCKEL, a GURTGESIMS and a KRANZGESIMS run round the whole building, so on the sheet
+        # they span what is DRAWN and not the reference wall's own length
+        wall = dict(wall)
+        wall["length"] = extent
+        joints = sorted({proj(f._point(w, k * w["bay_m"]))
+                         for w in seen_walls for k in range(w["bays"] + 1)})
         if b.style.cornice:
             # a KRANZGESIMS is a PROFILE and not a stripe: a bed mould, a row of dentils, the
             # corona that throws the shadow, and a cyma above it. Four courses is what makes a
@@ -1613,7 +1650,7 @@ def draw(case, b, f, number=0):
         # the height ticks stand at the LEFT EDGE OF THE DRAWING and not at the wall's own
         # origin: a round building's walls are 1.8 m chords and the labels landed in the middle
         # of the facade (seen in B29)
-        xl = float(min(along))
+        xl = 0.0
         for level in range(f.levels() + 1):
             z = b.pad + level * b.style.level_m
             axe.plot([xl - 0.6, xl], [z, z], color=ink, lw=0.6)
@@ -1623,19 +1660,25 @@ def draw(case, b, f, number=0):
         # the BAY RHYTHM is the one horizontal dimension an elevation owes: a facade whose only
         # figures are heights cannot be set out on site
         zd = min(foot) - 1.6
-        spread = float(max(along) - min(along))
-        for bay in range(wall["bays"] if wall["length"] > 0.35 * spread else 0):
-            x0b, x1b = bay * wall["bay_m"], (bay + 1) * wall["bay_m"]
+        spread = extent
+        # the chain counts the WALL it names, drawn where that wall stands in the elevation --
+        # taken over the whole extent it read "10 x 2.86 = 138.53" for a 30 m wall (measured)
+        base_x = proj(named_wall["a"])
+        run = named_wall["dir"][0] * d[0] + named_wall["dir"][1] * d[1]
+        for bay in range(named_wall["bays"] if abs(run) * named_wall["length"] > 0.35 * spread else 0):
+            x0b = base_x + run * bay * named_wall["bay_m"]
+            x1b = base_x + run * (bay + 1) * named_wall["bay_m"]
             axe.annotate("", xy=(x1b, zd), xytext=(x0b, zd),
                          arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.55,
                                          mutation_scale=6))
-            if wall["bays"] <= 8:
-                axe.text((x0b + x1b) / 2, zd + 0.10, f"{wall['bay_m']:.2f}", ha="center",
+            if named_wall["bays"] <= 8:
+                axe.text((x0b + x1b) / 2, zd + 0.10, f"{named_wall['bay_m']:.2f}", ha="center",
                          va="bottom", fontsize=6, color=ink)
-        if wall["length"] > 0.35 * spread:
-            axe.text(wall["length"] / 2, zd - 0.75, f"{wall['bays']} x {wall['bay_m']:.2f} = "
-                     f"{wall['length']:.2f}", ha="center", va="top", fontsize=7, color=ink)
-        axe.set_xlim(float(min(along)) - 4.0, float(max(along)) + 1.0)
+        if abs(run) * named_wall["length"] > 0.35 * spread:
+            axe.text(base_x + run * named_wall["length"] / 2, zd - 0.75,
+                     f"{named_wall['bays']} x {named_wall['bay_m']:.2f} = "
+                     f"{named_wall['length']:.2f}", ha="center", va="top", fontsize=7, color=ink)
+        axe.set_xlim(-4.0, extent + 1.0)
         tallest = max([max(sky), max(top)] + [p.ridge for p in getattr(b, "parts", [])])
         axe.set_ylim(min(foot) - 3.4, tallest + 1.5)
         axe.set_aspect("equal", adjustable="datalim"); axe.set_title(label, fontsize=9, loc="left")
