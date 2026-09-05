@@ -100,6 +100,14 @@ of these; the synthetic bed is where each is held in isolation.
 | B5 | a house whose footprint touches a road | the road's kerb and the house's wall share the edge; no gap, no overlap |
 | B6 | building:levels, height, roof:shape (gabled, hipped, flat, pyramidal) | the roof is built from the tag; a missing tag falls to the generator's rule with its origin |
 
+## What stands and what does not, measured 2026-09-05
+
+31 of 33 cases green. The two red ones are the roundabout on flat ground and on a 5 percent
+grade, and the cause is named: the four ring nodes are four SEPARATE junctions whose regions
+overlap, so ten edges carry three faces. netconvert JOINS nodes closer than a threshold into
+one junction (`--junctions.join`, `NBNodeCluster`) and a roundabout is its textbook case; the
+map has no joining yet. That is the next slice, and until it lands the bed says so.
+
 ## What the bed does for each case
 
 1. builds terrain and network from the case's parameters, deterministically

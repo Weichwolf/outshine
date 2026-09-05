@@ -32,6 +32,7 @@ DECK_GRADE = 0.04         # [SET] a deck's own grade, RAA/RAL bridges: the expen
 DECK_STIFF = 10.0         # [SET] a deck resists bending ten times more than the fill beside it -- the lift goes to the ramps
 COVER_M = 3.0             # [SET] the least rock a tunnel keeps above its crown
 WELD_M = 1e-3
+MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre of the analytic one
 STEP_TOL_M = 1e-3
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
 GRADE_OF = {"primary": 0.06, "secondary": 0.08, "residential": 0.12, "service": 0.15}  # [SET] RAL 2012 EKL 3 / EKL 4, RASt 06
@@ -410,6 +411,19 @@ class Map:
         for w in self.net.ways:
             refs = [alias[r] for r in w["refs"]]
             w["refs"] = [r for k, r in enumerate(refs) if k == 0 or r != refs[k - 1]]
+        # a way whose node sequence another way already has, either way round, is the SAME road
+        # mapped twice: keeping both draws two surfaces in one place (P4), and OSM has plenty
+        seen = {}
+        kept_ways = []
+        self.duplicate_ways = 0
+        for w in self.net.ways:
+            key = tuple(w["refs"])
+            if key in seen or tuple(reversed(key)) in seen:
+                self.duplicate_ways += 1
+                continue
+            seen[key] = w["id"]
+            kept_ways.append(w)
+        self.net.ways = kept_ways
 
     def _dem_or_neighbour(self, nid):
         x, y = self.net.nodes[nid]
@@ -686,6 +700,13 @@ class Map:
         g = ((6 * t2 - 6 * t) * z0 + (3 * t2 - 4 * t + 1) * m0 + (-6 * t2 + 6 * t) * z1 + (3 * t2 - 2 * t) * m1) / h if h > 0 else 0.0
         return z, g
 
+    def worst_curvature(self, way, lo, hi):
+        """The profile's worst second derivative over a stretch, by differences of the grade."""
+        s = np.linspace(lo, hi, max(5, int((hi - lo) / 1.0) + 1))
+        g = np.array([self.profile(way, float(v))[1] for v in s])
+        d = np.diff(s)
+        return float(np.max(np.abs(np.diff(g) / np.where(d > 0, d, 1.0)))) if len(g) > 1 else 0.0
+
     def centreline(self, way):
         return LineString([self.net.nodes[r] for r in way["refs"]])
 
@@ -798,6 +819,322 @@ class Structure:
                     junction = self.major_surface(nid, px, py)
                     worst = max(worst, abs(leg - junction))
         return worst
+
+
+# ----------------------------------------------------------------------------- the mesh
+
+def w_is_major(way, junction):
+    return way["id"] == junction["major"]
+
+
+class Mesh:
+    """The drawn surface: a quad strip per leg between its junction cuts, and a fan per junction
+    polygon, all welded on one vertex table. Cesium's quantized-mesh and Unreal's Landscape both
+    weld on a QUANTISED key rather than on a distance, because a distance test is not transitive
+    and two vertices a hair apart can then weld to a third and not to each other; the key here
+    is the position rounded to the weld tolerance."""
+
+    def __init__(self, structure, step_m=2.0):
+        self.st = structure
+        self.map = structure.map
+        self.net = structure.net
+        self.step = step_m
+        self.vertices = []
+        self.byKey = {}
+        self.tris = []
+        self.faces_of = {}
+        self._legs()
+        self._junctions()
+
+    def vertex(self, x, y, z):
+        key = (round(x / WELD_M), round(y / WELD_M), round(z / WELD_M))
+        at = self.byKey.get(key)
+        if at is None:
+            at = len(self.vertices)
+            self.byKey[key] = at
+            self.vertices.append((x, y, z))
+        return at
+
+    def tri(self, a, b, c):
+        if a == b or b == c or a == c:
+            return
+        self.tris.append((a, b, c))
+        for e in ((a, b), (b, c), (c, a)):
+            self.faces_of[tuple(sorted(e))] = self.faces_of.get(tuple(sorted(e)), 0) + 1
+
+    def region_of(self, nid):
+        """The junction's REGION: its node polygon plus the warp band of every minor leg, because
+        inside the warp the leg's section is not its own and a ribbon drawn there would chord the
+        surface it is warping into (measured: 3.1 cm at a T)."""
+        j = self.map.junctions[nid]
+        poly = self.st.polygons[nid]
+        pieces = [poly]
+        for (w, k, sgn) in j["legs"]:
+            if w["id"] == j["major"]:
+                continue
+            cut = self.st.cuts[(w["id"], nid)]
+            d = self.map._direction(w, k, sgn)
+            x0, y0 = self.net.nodes[nid]
+            half = w["tags"]["width"] / 2.0
+            nx, ny = -d[1], d[0]
+            a0 = (x0 + d[0] * cut, y0 + d[1] * cut)
+            a1 = (x0 + d[0] * (cut + WARP_M), y0 + d[1] * (cut + WARP_M))
+            pieces.append(Polygon([(a0[0] + nx * half, a0[1] + ny * half), (a1[0] + nx * half, a1[1] + ny * half),
+                                   (a1[0] - nx * half, a1[1] - ny * half), (a0[0] - nx * half, a0[1] - ny * half)]))
+        return unary_union(pieces)
+
+    def drawn_spans(self, way):
+        """The stretches of a way drawn as a RIBBON: its whole length minus, around every
+        junction node it touches, the stretch the junction's region covers -- the node polygon's
+        cut, and a minor leg's warp band on top of it. A way that passes THROUGH a junction is
+        split into two ribbons; drawing it whole put two surfaces in one place (measured)."""
+        s = self.map.stations[way["id"]]
+        holes = []
+        for k, r in enumerate(way["refs"]):
+            cut = self.st.cuts.get((way["id"], r))
+            if cut is None:
+                continue
+            band = 0.0 if w_is_major(way, self.map.junctions[r]) else WARP_M
+            holes.append((s[k] - cut - band, s[k] + cut + band))
+        spans = []
+        at = 0.0
+        for a, b in sorted(holes):
+            if a > at:
+                spans.append((at, min(a, s[-1])))
+            at = max(at, b)
+        if at < s[-1]:
+            spans.append((at, s[-1]))
+        return [(lo, hi) for lo, hi in spans if hi - lo > 1e-6]
+
+    def _cuts_of(self, way):
+        spans = self.drawn_spans(way)
+        return (spans[0][0], spans[-1][1]) if spans else (0.0, 0.0)
+
+    def frame_at(self, way, station, side=None):
+        """The cross-section's frame at a station: the point, and the offset direction. Within a
+        segment it is that segment's normal; AT a vertex it is the MITRE -- the bisector of the
+        two segments' normals, lengthened by 1/cos(theta/2) so the offset edge stays parallel to
+        both. A local finite difference instead of the mitre put the offset point up to 0.7 m
+        along the road at a 24 degree vertex and read 2.2 cm off the surface (measured); every
+        road mesher offsets this way, CARLA's MeshFactory included."""
+        s = self.map.stations[way["id"]]
+        pts = [self.net.nodes[r] for r in way["refs"]]
+        station = min(max(station, 0.0), s[-1])
+        k = int(np.searchsorted(s, station, side="right") - 1)
+        k = min(max(k, 0), len(pts) - 2)
+        seg = s[k + 1] - s[k]
+        u = (station - s[k]) / seg if seg > 0 else 0.0
+        p = (pts[k][0] + (pts[k + 1][0] - pts[k][0]) * u, pts[k][1] + (pts[k + 1][1] - pts[k][1]) * u)
+
+        def normal(i):
+            a = pts[i]
+            b = pts[i + 1]
+            d = (b[0] - a[0], b[1] - a[1])
+            n = math.hypot(*d) or 1.0
+            return (-d[1] / n, d[0] / n)
+
+        at_vertex = abs(station - s[k]) < 1e-9 and 0 < k < len(pts) - 1
+        at_next = abs(station - s[k + 1]) < 1e-9 and 0 < k + 1 < len(pts) - 1
+        if at_vertex or at_next:
+            i = k if at_vertex else k + 1
+            if side == "before":
+                return p, normal(i - 1)
+            if side == "after":
+                return p, normal(i)
+            na, nb = normal(i - 1), normal(i)
+            mx, my = na[0] + nb[0], na[1] + nb[1]
+            n = math.hypot(mx, my)
+            if n > 1e-9:
+                cos_half = n / 2.0
+                return p, (mx / n / cos_half, my / n / cos_half)
+        return p, normal(k)
+
+    def _leg_point(self, way, station, offset, side=None):
+        p, (nx, ny) = self.frame_at(way, station, side)
+        x, y = p[0] + nx * offset, p[1] + ny * offset
+        # inside a junction's warp the surface is the warped one, so the ribbon and the junction
+        # are one surface at the cut
+        nid, sgn = None, +1
+        for k, r in enumerate(way["refs"]):
+            if r in self.map.junctions:
+                s_node = self.map.stations[way["id"]][k]
+                if abs(station - s_node) < WARP_M * 2:
+                    nid = r
+                    sgn = +1 if station > s_node else -1
+        z = self.st.leg_surface(way, station, offset, nid, sgn)
+        return x, y, z
+
+    @staticmethod
+    def section(way):
+        """The cross-section's BREAK OFFSETS: a vertex stands wherever the surface's slope
+        changes -- the crown at the centreline and the two edges -- and nowhere else. A strip of
+        two vertices chords the crown away and drew 8.75 cm off the analytic surface (measured);
+        CARLA samples a lane across `vertex_width_resolution` for the same reason, and every lane
+        boundary joins this list when lanes arrive."""
+        half = way["tags"]["width"] / 2.0
+        return [-half, 0.0, +half]
+
+    def _legs(self):
+        for w in self.net.ways:
+            for lo, hi in self.drawn_spans(w):
+                self._ribbon(w, lo, hi)
+
+    def _ribbon(self, w, lo, hi):
+        if True:
+            offsets = self.section(w)
+            # the station step from the CHORD's sagitta, per SEGMENT: a chord of length L across
+            # a profile of curvature k stands k L^2 / 8 below it, so L = sqrt(8 tol / k). The
+            # curvature is the segment's own -- one number for the whole way took the step from
+            # the flattest stretch and read 4 cm on a 30 m curve where the profile bends
+            # (measured). CARLA's fixed 0.5 m is the same idea with the curvature assumed.
+            edges = sorted({lo, hi} | {float(v) for v in self.map.stations[w["id"]] if lo < v < hi})
+            stations = set(edges)
+            for a_, b_ in zip(edges, edges[1:]):
+                kappa = self.map.worst_curvature(w, a_, b_)
+                step = self.step if kappa <= 0 else min(self.step, math.sqrt(8.0 * MESH_TOL_M / kappa))
+                steps = max(1, int(math.ceil((b_ - a_) / max(step, 0.25))))
+                stations |= {a_ + (b_ - a_) * k / steps for k in range(steps + 1)}
+            # at an interior VERTEX the ribbon carries TWO rows, one per adjoining segment, and
+            # the wedge between them closes the corner: a single mitred row makes a trapezoid
+            # that spans two directions, and no subdivision shrinks its twist -- it read 4 cm on
+            # a 30 m curve at 12 percent grade, which is grade x offset x tan(theta/2) exactly.
+            # Every quad then lies inside ONE segment, where (station, offset) -> (x, y) is
+            # affine and the linear surface is the analytic one to the bit.
+            rows = []
+            vertices_at = {float(v) for v in self.map.stations[w["id"]] if lo < v < hi}
+            for s in sorted(stations):
+                if s in vertices_at:
+                    rows.append((s, "before"))
+                    rows.append((s, "after"))
+                else:
+                    rows.append((s, None))
+            prev = None
+            for s, side in rows:
+                row = [self.vertex(*self._leg_point(w, s, off, side)) for off in offsets]
+                if prev is not None:
+                    for a, b in zip(range(len(row) - 1), range(1, len(row))):
+                        self.tri(prev[a], prev[b], row[b])
+                        self.tri(prev[a], row[b], row[a])
+                prev = row
+
+    def junction_surface(self, nid, x, y):
+        """The junction region's surface: the major's, and inside a minor's warp band the same
+        blend the leg carries, so the region and the ribbons are one surface at the band's end."""
+        j = self.map.junctions[nid]
+        for (w, k, sgn) in j["legs"]:
+            if w_is_major(w, j):
+                continue
+            d = self.map._direction(w, k, sgn)
+            x0, y0 = self.net.nodes[nid]
+            along = (x - x0) * d[0] + (y - y0) * d[1]
+            off = -(x - x0) * d[1] + (y - y0) * d[0]
+            cut = self.st.cuts[(w["id"], nid)]
+            if along < cut - 1e-9 or along > cut + WARP_M + 1e-9 or abs(off) > w["tags"]["width"] / 2.0 + 1e-9:
+                continue
+            s_node = self.map.stations[w["id"]][k]
+            return self.st.leg_surface(w, s_node + sgn * along, off, nid, sgn)
+        return self.st.major_surface(nid, x, y)
+
+    def _junctions(self):
+        """The region is meshed on a GRID, not fanned: a fan's triangle spans the crown line and
+        chords it (measured: 3.1 cm at a T). The cell follows from the tolerance and the sharpest
+        break the surface has, the crown: a cell of side h across a crown of slope c stands
+        c h / 4 off it at worst, so h = 4 tol / c = 1.6 m at 2.5 percent -- taken at half that."""
+        from scipy.spatial import Delaunay
+        cell = 2.0 * MESH_TOL_M / CROSSFALL
+        for nid in self.st.polygons:
+            region = self.region_of(nid)
+            if region.is_empty or region.area <= 0:
+                continue
+            # a region can come back as several polygons where a leg's band does not touch the
+            # node's own polygon (a wide junction with a narrow minor leg); each is meshed
+            for part in (region.geoms if region.geom_type == "MultiPolygon" else [region]):
+                self._mesh_region(nid, part, cell)
+
+    def _mesh_region(self, nid, region, cell):
+        from scipy.spatial import Delaunay
+        pts = []
+        for ring in [region.exterior] + list(region.interiors):
+            dense = ring.segmentize(cell) if hasattr(ring, "segmentize") else ring
+            pts += list(dense.coords)[:-1]
+        minx, miny, maxx, maxy = region.bounds
+        for x in np.arange(minx + cell / 2, maxx, cell):
+            for y in np.arange(miny + cell / 2, maxy, cell):
+                if region.contains(Point(x, y)):
+                    pts.append((float(x), float(y)))
+        pts = np.array(pts)
+        if len(pts) < 3:
+            return
+        tri = Delaunay(pts)
+        for simplex in tri.simplices:
+            a, b, c = pts[simplex]
+            cx, cy = (a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3
+            if not region.contains(Point(cx, cy)):
+                continue
+            ids = [self.vertex(px, py, self.junction_surface(nid, px, py)) for px, py in (a, b, c)]
+            self.tri(*ids)
+
+    def open_edges(self):
+        return sum(1 for _, n in self.faces_of.items() if n == 1)
+
+    def bad_edges(self):
+        return sum(1 for _, n in self.faces_of.items() if n > 2)
+
+    def nearest_pair_m(self):
+        """The closest two DISTINCT vertices: below the weld tolerance means the weld missed."""
+        pts = np.array(self.vertices)
+        if len(pts) < 2:
+            return 1e9
+        from scipy.spatial import cKDTree
+        d, _ = cKDTree(pts).query(pts, k=2)
+        return float(np.min(d[:, 1]))
+
+    def surface_at(self, x, y, near=None):
+        """The drawn surface's height at (x, y) by barycentric interpolation in the triangle that
+        contains it -- what a wheel would touch. A road is NOT a height field: under a bridge two
+        surfaces stand over one point, so the caller says which level it means and the nearest
+        answer is returned (Cesium's sampleHeight has the same rule for a 3D tileset)."""
+        best = None
+        for (ia, ib, ic) in self.tris:
+            a, b, c = self.vertices[ia], self.vertices[ib], self.vertices[ic]
+            d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+            if abs(d) < 1e-12:
+                continue
+            u = ((b[1] - c[1]) * (x - c[0]) + (c[0] - b[0]) * (y - c[1])) / d
+            v = ((c[1] - a[1]) * (x - c[0]) + (a[0] - c[0]) * (y - c[1])) / d
+            w = 1.0 - u - v
+            if u >= -1e-9 and v >= -1e-9 and w >= -1e-9:
+                z = u * a[2] + v * b[2] + w * c[2]
+                if near is None:
+                    return z
+                if best is None or abs(z - near) < abs(best - near):
+                    best = z
+        return best
+
+
+def check_mesh(map_, st):
+    """I7 (welded and closed where it should be) and I9 (the drawn surface against the analytic
+    driving surface, sampled along every lane)."""
+    mesh = Mesh(st)
+    worst = 0.0
+    samples = 0
+    where = None
+    for w in map_.net.ways:
+        half = w["tags"]["width"] / 2.0
+        for lo, hi in mesh.drawn_spans(w):
+          for s in np.arange(lo + 0.5, max(lo + 0.6, hi - 0.5), 3.0):
+            for off in (-half * 0.5, 0.0, half * 0.5):
+                x, y, z = mesh._leg_point(w, float(s), off)
+                drawn = mesh.surface_at(x, y, near=z)
+                if drawn is None:
+                    continue
+                samples += 1
+                if abs(drawn - z) > worst:
+                    worst = abs(drawn - z)
+                    where = (w["id"], float(s), off)
+    return {"vertices": len(mesh.vertices), "triangles": len(mesh.tris),
+            "edges_over_two_faces": mesh.bad_edges(), "nearest_pair_m": mesh.nearest_pair_m(),
+            "drawn_vs_analytic_m": worst, "samples": samples, "worst_at": where}
 
 
 # ----------------------------------------------------------------------------- checks
@@ -956,6 +1293,7 @@ def run(case):
         "I4 over road m": check_over_road(m, st),
         "I5 tunnel": check_tunnel(m),
         "P finite": check_finite(m),
+        "I7/I9 mesh": check_mesh(m, st),
     }
     red = []
     if verdict["I1 C0 m"] > 1e-9:
@@ -972,6 +1310,11 @@ def run(case):
         red.append("I5")
     if verdict["I4 over road m"] is not None and verdict["I4 over road m"] < CLEARANCE_M:
         red.append("I4road")
+    mesh = verdict["I7/I9 mesh"]
+    if mesh["edges_over_two_faces"] > 0 or mesh["nearest_pair_m"] < WELD_M:
+        red.append("I7")
+    if mesh["drawn_vs_analytic_m"] > 0.01:
+        red.append("I9")
     if not verdict["P finite"]["finite"] or verdict["P finite"]["grade_max"] > 1.0 or verdict["P finite"]["deck_off_dem_max"] > 60.0:
         red.append("P")
     plot(case, m, st)
