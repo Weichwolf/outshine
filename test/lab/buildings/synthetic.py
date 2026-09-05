@@ -675,6 +675,14 @@ def classify(tags, poly, levels, height_m):
             return kind, "tower"
         year_here = _year(tags)
         if not year_here:
+            # a DOME OR AN ONION over a CIVIC use dates itself: nobody has built a domed
+            # parliament, palace or museum since the 1920s, so the mass belongs to the
+            # historicist period that built almost all of them. The Bundeshaus in Bern is 1902
+            # and came out `late20` because no `start_date` stands on the way (measured)
+            if (tags.get("roof:shape") in ("dome", "onion")
+                    and kind in ("government", "palace", "castle", "museum", "townhall",
+                                 "civic", "public")):
+                return kind, "gruenderzeit"
             return kind, "postwar" if height_m < 40.0 else "late20"
     if kind in FARM:
         return kind, "farm"
@@ -1022,13 +1030,18 @@ def draw(case, b, f, number=0):
     ground hatched, dimensions outside, north arrow, scale bar, title block."""
     import matplotlib
     matplotlib.use("Agg")
+    import matplotlib.lines
     import matplotlib.patches
     import matplotlib.pyplot as plt
     from matplotlib.patches import Polygon as MplPoly, Rectangle
 
     OUT.mkdir(parents=True, exist_ok=True)
-    fig = plt.figure(figsize=(13.0, 9.2))
-    grid = fig.add_gridspec(2, 2, height_ratios=[1.15, 1.0], hspace=0.28, wspace=0.22)
+    # A2 LANDSCAPE, 594 x 420 mm -- the format a builder's plan is printed on. On the 13-inch
+    # sheet this bed started with, a 17 m house needed 1:500 to fit its panel and was drawn the
+    # size of a stamp; the scale is not free, it follows from the paper
+    fig = plt.figure(figsize=(594 / 25.4, 420 / 25.4))
+    grid = fig.add_gridspec(2, 2, height_ratios=[1.10, 1.0], hspace=0.16, wspace=0.14,
+                            left=0.05, right=0.97, top=0.93, bottom=0.10)
     ink = "0.15"
 
     # ---- PLAN
@@ -1068,9 +1081,10 @@ def draw(case, b, f, number=0):
                (c[0] - d[0] * width / 2 + n[0] * depth, c[1] - d[1] * width / 2 + n[1] * depth)]
         ax.add_patch(MplPoly(np.array(pts), closed=True, facecolor="none", edgecolor=ink, lw=0.6, ls=":"))
     minx, miny, maxx, maxy = b.poly.bounds
+    off = max(2.0, 0.09 * max(maxx - minx, maxy - miny))
     for (x0, y0, x1, y1, text, side) in (
-            (minx, miny - 2.0, maxx, miny - 2.0, f"{maxx - minx:.2f}", "h"),
-            (minx - 2.0, miny, minx - 2.0, maxy, f"{maxy - miny:.2f}", "v")):
+            (minx, miny - off, maxx, miny - off, f"{maxx - minx:.2f}", "h"),
+            (minx - off, miny, minx - off, maxy, f"{maxy - miny:.2f}", "v")):
         ax.annotate("", xy=(x1, y1), xytext=(x0, y0), arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
         ax.text((x0 + x1) / 2, (y0 + y1) / 2, text, ha="center", va="bottom" if side == "h" else "center",
                 rotation=0 if side == "h" else 90, fontsize=8, color=ink)
@@ -1089,7 +1103,7 @@ def draw(case, b, f, number=0):
                 ha="center", va="center", fontweight="bold")
     ax.annotate("N", xy=(maxx + 1.5, maxy + 1.0), xytext=(maxx + 1.5, maxy - 1.5),
                 arrowprops=dict(arrowstyle="-|>", color=ink, lw=1.0), ha="center", fontsize=9, color=ink)
-    ax.set_aspect("equal"); ax.set_title("PLAN  ground floor  1:200", fontsize=9, loc="left")
+    ax.set_aspect("equal", adjustable="datalim"); ax.set_title("PLAN  ground floor  1:200", fontsize=9, loc="left")
     ax.set_xticks([]); ax.set_yticks([])
     for s in ax.spines.values():
         s.set_visible(False)
@@ -1303,6 +1317,27 @@ def draw(case, b, f, number=0):
                                                 (x + 0.30, b.pad + H * 0.94),
                                                 (x, b.pad + H * 0.94 + 1.4)]), closed=True,
                                       facecolor="0.86", edgecolor=ink, lw=0.8, zorder=5))  # Fiale
+        if "Vorhangfassade" in el:
+            # a CURTAIN WALL is a grid hung in front of the frame: a spandrel band at every
+            # floor, a mullion at every module, a SOCKELGESCHOSS of double height at the foot
+            # and an ATTIKA that hides the plant. Drawn as 480 loose window rectangles it read
+            # as graph paper, which is what a tower without these three reads as
+            base_h = b.style.level_m * 1.7
+            axe.add_patch(Rectangle((0, b.pad), wall["length"], base_h,
+                                    facecolor="0.40", edgecolor=ink, lw=1.0, zorder=3))
+            axe.add_patch(Rectangle((-0.25, b.pad + base_h), wall["length"] + 0.5, 0.30,
+                                    facecolor="0.86", edgecolor=ink, lw=0.8, zorder=3))
+            for level in range(2, f.levels() + 1):
+                z = b.pad + level * b.style.level_m
+                if z > b.eaves:
+                    break
+                axe.add_patch(Rectangle((0, z - 0.75), wall["length"], 0.75,
+                                        facecolor="0.72", edgecolor="none", zorder=3))
+                axe.plot([0, wall["length"]], [z - 0.75, z - 0.75], color=ink, lw=0.4, zorder=3)
+            for m in np.arange(0.0, wall["length"] + 1e-6, wall["bay_m"] / 2.0):
+                axe.plot([m, m], [b.pad + base_h + 0.3, b.eaves], color=ink, lw=0.4, zorder=3)
+            axe.add_patch(Rectangle((-0.30, b.eaves - 1.1), wall["length"] + 0.60, 1.1,
+                                    facecolor="0.80", edgecolor=ink, lw=1.0, zorder=3))  # Attika
         if "Fachwerk" in el and f.levels() >= 2:
             # a FACHWERK is a frame and not a texture: a SCHWELLE and a RÄHM close each storey,
             # a STÄNDER stands on every bay joint, and the corner bays are braced with a STREBE
@@ -1329,11 +1364,21 @@ def draw(case, b, f, number=0):
             axe.add_patch(Rectangle((0, b.pad + b.style.level_m - 0.7), wall["length"], 0.35,
                                     facecolor="0.75", edgecolor=ink, lw=0.8))       # Vordach
         if "Arkade" in el:
+            # an ARCADE is a row of PIERS with arches between them, springing at the head of the
+            # ground floor and dying into the first floor's band. Struck at mid-storey with a
+            # 0.7-bay radius it read as two pencil scribbles over the shopfront (seen in B10)
+            spring = b.pad + b.style.level_m * 0.62
+            pier = min(0.6, wall["bay_m"] * 0.18)
+            for bay in range(wall["bays"] + 1):
+                x = bay * wall["bay_m"]
+                axe.add_patch(Rectangle((x - pier / 2, b.pad), pier, spring - b.pad,
+                                        facecolor="0.86", edgecolor=ink, lw=0.9, zorder=4))
             for bay in range(wall["bays"]):
                 x = (bay + 0.5) * wall["bay_m"]
-                axe.add_patch(matplotlib.patches.Arc((x, b.pad + b.style.level_m * 0.55),
-                                                     wall["bay_m"] * 0.7, wall["bay_m"] * 0.7,
-                                                     theta1=0, theta2=180, color=ink, lw=1.0))
+                clear = wall["bay_m"] - pier
+                axe.add_patch(matplotlib.patches.Wedge((x, spring), clear / 2, 0, 180,
+                                                       width=0.22, facecolor="0.86",
+                                                       edgecolor=ink, lw=0.9, zorder=4))
         if "Sheddach" in el or b.roof == "sawtooth":
             pass
         if "Schornstein" in el and b.roof in ("flat", "sawtooth", "skillion"):
@@ -1382,10 +1427,13 @@ def draw(case, b, f, number=0):
             for r in np.linspace(mid - width / 2, mid + width / 2, 9):
                 axe.plot([r, r], [base + 0.18, base + 1.0], color=ink, lw=0.5)
             axe.plot([mid - width / 2, mid + width / 2], [base + 1.0] * 2, color=ink, lw=0.8)
+        every = 1 if f.levels() <= 8 else (5 if f.levels() <= 40 else 10)
         for level in range(f.levels() + 1):
             z = b.pad + level * b.style.level_m
             axe.plot([-0.6, 0.0], [z, z], color=ink, lw=0.6)
-            axe.text(-0.8, z, f"+{level * b.style.level_m:.2f}", ha="right", va="center", fontsize=7, color=ink)
+            if level % every == 0 or level == f.levels():
+                axe.text(-0.8, z, f"+{level * b.style.level_m:.2f}", ha="right", va="center",
+                         fontsize=7, color=ink)
         # the BAY RHYTHM is the one horizontal dimension an elevation owes: a facade whose only
         # figures are heights cannot be set out on site
         zd = min(foot) - 1.6
@@ -1402,7 +1450,7 @@ def draw(case, b, f, number=0):
         axe.set_xlim(-4.0, wall["length"] + 1.0)
         tallest = max([max(sky), max(top)] + [p.ridge for p in getattr(b, "parts", [])])
         axe.set_ylim(min(foot) - 3.4, tallest + 1.5)
-        axe.set_aspect("equal"); axe.set_title(label, fontsize=9, loc="left")
+        axe.set_aspect("equal", adjustable="datalim"); axe.set_title(label, fontsize=9, loc="left")
         axe.set_xticks([]); axe.set_yticks([])
         for s in axe.spines.values():
             s.set_visible(False)
@@ -1453,6 +1501,17 @@ def draw(case, b, f, number=0):
                 continue                       # a nave is one room to the vault, not a stack
             ax.add_patch(Rectangle((sL, z - slab_t), sR - sL, slab_t,
                                    facecolor="0.55", edgecolor=ink, lw=0.9))
+        if b.style.epoch == "tower" and sR - sL > 8.0:
+            # a TOWER IS A CORE PLUS A FLOOR PLATE: lifts, stairs and risers stand in one shaft
+            # that carries the wind load, and a section without it shows 24 slabs floating
+            cw = min(7.0, (sR - sL) * 0.32)
+            cx = 0.5 * (sL + sR)
+            for sgn in (-1, 1):
+                ax.plot([cx + sgn * cw / 2] * 2, [b.pad, b.eaves], color=ink, lw=1.6, zorder=4)
+            for z in np.arange(b.pad, b.eaves, b.style.level_m):
+                ax.plot([cx - cw / 2, cx + cw / 2], [z, z], color="0.45", lw=0.4, zorder=4)
+            ax.text(cx, b.pad + (b.eaves - b.pad) * 0.5, "KERN", rotation=90, ha="center",
+                    va="center", fontsize=7, color="0.35", zorder=5)
         # a CHURCH has no ceiling slab at the eaves; it has a VAULT, and the section is the one
         # drawing that says which. A pointed barrel for gothic, a segmental one for baroque --
         # sprung from the springing line at two thirds of the wall, rising to the crown
@@ -1509,15 +1568,18 @@ def draw(case, b, f, number=0):
                 ax.plot([(sL + sR) / 2, (sL + sR) / 2], [zk, b.ridge], color=ink, lw=1.0)
     ax.plot(ss, gnd, color=ink, lw=1.4)
     ax.fill_between(ss, min(footz) - 1.4, gnd, facecolor="none", edgecolor="0.55", hatch="////", lw=0.0)
+    every = 1 if f.levels() <= 8 else (5 if f.levels() <= 40 else 10)
     for level in range(f.levels() + 1):
         z = b.pad + level * b.style.level_m
         ax.plot([half, half + 0.3], [z, z], color=ink, lw=0.6)
-        ax.text(half + 0.4, z, f"+{level * b.style.level_m:.2f}", ha="left", va="center", fontsize=7, color=ink)
+        if level % every == 0 or level == f.levels():
+            ax.text(half + 0.4, z, f"+{level * b.style.level_m:.2f}", ha="left", va="center",
+                    fontsize=7, color=ink)
     ax.annotate("", xy=(-half - 1.2, b.pad), xytext=(-half - 1.2, b.ridge),
                 arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
     ax.text(-half - 1.5, (b.pad + b.ridge) / 2, f"{b.ridge - b.pad:.2f}", rotation=90,
             ha="right", va="center", fontsize=8, color=ink)
-    ax.set_aspect("equal"); ax.set_title("SECTION A-A  through the ridge  1:200", fontsize=9, loc="left")
+    ax.set_aspect("equal", adjustable="datalim"); ax.set_title("SECTION A-A  through the ridge  1:200", fontsize=9, loc="left")
     ax.set_xticks([]); ax.set_yticks([])
     for s in ax.spines.values():
         s.set_visible(False)
@@ -1527,7 +1589,7 @@ def draw(case, b, f, number=0):
                  f"auf {case[1].split('-', 1)[-1].upper()}   |   {case[0].split('-', 1)[-1]}, "
                  f"{f.levels()} Geschosse, Dach {b.roof}   |   {tags}",
                  fontsize=11, x=0.02, ha="left", fontweight="bold")
-    fig.text(0.02, 0.015,
+    fig.text(0.05, 0.028,
              f"levels {f.levels()}   bays {sum(w['bays'] for w in f.walls)}   openings {len(f.openings())}   "
              f"balconies {len(f.balconies())}   pad +{b.pad:.2f}   eaves +{b.eaves:.2f}   ridge +{b.ridge:.2f}   "
              f"volume {b.volume():.0f} m3   triangles L0/L1/L2/L3 "
@@ -1540,8 +1602,9 @@ def draw(case, b, f, number=0):
     # the scale is MEASURED off the finished axes and rounded UP to the standard series
     fig.canvas.draw()
     series = (20, 50, 100, 200, 500, 1000, 2000, 5000)
+    drawn = []
     for axp in fig.axes:
-        label = axp.get_title()
+        label = axp.get_title(loc="left")
         if "1:" not in label:
             continue
         box = axp.get_window_extent()
@@ -1551,7 +1614,42 @@ def draw(case, b, f, number=0):
         x0, x1 = axp.get_xlim()
         need = max((y1 - y0) * 1000.0 / max(mm_h, 1e-6), (x1 - x0) * 1000.0 / max(mm_w, 1e-6))
         pick = next((s for s in series if s >= need), series[-1])
+        # centre on the CONTENT and not on the limits: the elevation's limits run from -4 m to
+        # the wall's end, so their centre sits a metre and a half left of the building's, and
+        # every drawing on the sheet stood off to one side of its panel
+        dl = axp.dataLim
+        if np.isfinite(dl.x0) and dl.width > 0:
+            x0, x1 = dl.x0, dl.x1
+        if np.isfinite(dl.y0) and dl.height > 0:
+            y0, y1 = dl.y0, dl.y1
+        drawn.append((label.split("1:")[0].strip(), pick))
+        # a DECLARED scale is one a ruler can check: the limits are then set to exactly what
+        # that scale spans on this panel, so 1:500 IS 1:500 and not "somewhere under 500"
+        axp.set_xlim(0.5 * (x0 + x1) - mm_w * pick / 2000.0, 0.5 * (x0 + x1) + mm_w * pick / 2000.0)
+        axp.set_ylim(0.5 * (y0 + y1) - mm_h * pick / 2000.0, 0.5 * (y0 + y1) + mm_h * pick / 2000.0)
         axp.set_title(label.split("1:")[0] + f"1:{pick}", fontsize=9, loc="left")
+    # the SCHRIFTFELD stands in the lower right corner, which is where DIN 6771 puts it and
+    # where a reader of any building plan looks first
+    sx, sy, sw, sh = 0.665, 0.020, 0.305, 0.078
+    fig.patches.append(matplotlib.patches.Rectangle((sx, sy), sw, sh, transform=fig.transFigure,
+                                                    facecolor="white", edgecolor=ink, lw=1.4,
+                                                    zorder=20))
+    rows = ((0.735, "Bauvorhaben", f"{case[0].split('-', 1)[-1]} auf {case[1].split('-', 1)[-1]}"),
+            (0.500, "Bauteil", f"{b.style.kind} / {b.style.epoch}, Dach {b.roof}"),
+            (0.265, "Massstab", (f"1:{drawn[0][1]}" if len({s for _, s in drawn}) == 1 else
+                                 "  ".join(f"{n.split()[0]} 1:{s}" for n, s in drawn))),
+            (0.030, "Blatt", f"B{number:02d}"))
+    for (fy, key, val) in rows:
+        fig.text(sx + 0.010, sy + sh * (fy + 0.10), key.upper(), fontsize=6.0, color="0.45",
+                 zorder=21, va="bottom")
+        fig.text(sx + 0.070, sy + sh * (fy + 0.06), val, fontsize=8.0, color=ink, zorder=21,
+                 va="bottom")
+        if fy > 0.05:
+            fig.add_artist(matplotlib.lines.Line2D([sx, sx + sw], [sy + sh * fy] * 2,
+                                                   color="0.55", lw=0.6, zorder=21,
+                                                   transform=fig.transFigure))
+    fig.add_artist(matplotlib.lines.Line2D([sx + 0.062] * 2, [sy, sy + sh], color="0.55",
+                                           lw=0.6, zorder=21, transform=fig.transFigure))
     out = OUT / f"{number:02d}_{case[0]}_{case[1]}_{b.style.kind}_{b.style.epoch}.png"
     fig.savefig(out, dpi=110)
     plt.close(fig)
