@@ -103,10 +103,18 @@ FOOTPRINTS = {
 # ----------------------------------------------------------------------------- the roof
 
 def roof_height_at(poly, x, y, shape, eaves_h, ridge_h, axis=None):
-    """The roof's height above the eaves at (x, y). One distance function and its variations."""
-    d = poly.exterior.distance(Point(x, y))
+    """The roof's height above the eaves at (x, y). One distance function and its variations.
+
+    THE DISTANCE IS SIGNED AND THE FUNCTION IS ZERO OUTSIDE. `distance` to a ring is positive on
+    both sides of it, so a point OUTSIDE the footprint reads as one deep inside and the roof was
+    evaluated there: the elevation of a round building grew two horns rising past the eaves at
+    the stations beyond its own tangent (seen in B29). A roof exists over its footprint only."""
+    here = Point(x, y)
+    if not poly.covers(here):
+        return 0.0
+    d = poly.exterior.distance(here)
     for ring in poly.interiors:
-        d = min(d, ring.distance(Point(x, y)))
+        d = min(d, ring.distance(here))
     if shape == "flat":
         return 0.0
     if shape == "pyramidal":
@@ -1385,6 +1393,145 @@ def draw(case, b, f, number=0):
             axe.add_patch(Rectangle((wall["length"] * 0.78, b.eaves), 1.2,
                                     max(6.0, (b.eaves - b.pad) * 0.5),
                                     facecolor="0.8", edgecolor=ink, lw=1.0))
+        # ---- the elements the epoch DECLARES and nothing drew ------------------------------
+        # fifteen names stood in ELEMENTS and only the easy half reached the paper. A table that
+        # lists a Stuckband and draws none is a table that describes a different building
+        H = b.eaves - b.pad
+        L = wall["length"]
+        street = wall is max((w for w in f.walls if w["outer"]), key=lambda w: w["length"])
+        if "Erker" in el and f.levels() >= 3 and wall["bays"] >= 3:
+            # an ERKER is corbelled out over the first floor and stops under the eaves, with its
+            # own little roof; in plan it is already there as the projection the mass carries
+            xe = (wall["bays"] // 2) * wall["bay_m"]
+            z0e, z1e = b.pad + b.style.level_m, b.eaves - 0.7
+            we = wall["bay_m"] * 0.88
+            # the ORIEL stands BEHIND the openings, or it hides the very windows it exists to
+            # carry and reads as a pier (seen in B05). Its cap is a low hip, not a spire
+            axe.add_patch(MplPoly(np.array([(xe - we / 2 + 0.35, z0e - 0.9), (xe + we / 2 - 0.35, z0e - 0.9),
+                                            (xe + we / 2, z0e), (xe - we / 2, z0e)]), closed=True,
+                                  facecolor="0.88", edgecolor=ink, lw=0.9, zorder=6))   # Konsole
+            # the oriel's SHAFT is drawn as an outline: filled it hides the windows it carries,
+            # behind the wall it vanishes. An elevation shows a projecting body by its edge and
+            # its shadow, which is the convention and also the only thing that reads here
+            axe.add_patch(Rectangle((xe - we / 2, z0e), we, z1e - z0e, facecolor="none",
+                                    edgecolor=ink, lw=1.4, zorder=6))
+            axe.plot([xe + we / 2 - 0.12] * 2, [z0e, z1e], color="0.45", lw=2.2, zorder=6)
+            axe.add_patch(MplPoly(np.array([(xe - we / 2 - 0.25, z1e), (xe + we / 2 + 0.25, z1e),
+                                            (xe + we / 4, z1e + 0.55), (xe - we / 4, z1e + 0.55)]),
+                                  closed=True, facecolor="0.84", edgecolor=ink, lw=0.9, zorder=6))
+            for lv in range(1, f.levels()):
+                zz = b.pad + lv * b.style.level_m
+                if z0e < zz < z1e - 0.4:
+                    axe.plot([xe - we / 2, xe + we / 2], [zz, zz], color=ink, lw=0.5, zorder=6)
+        if "Stuckband" in el:
+            zs = b.eaves - 1.15
+            axe.add_patch(Rectangle((0, zs), L, 0.55, facecolor="0.90", edgecolor=ink,
+                                    lw=0.7, zorder=4))
+            for xs_ in np.arange(0.45, L, 0.9):
+                axe.add_patch(matplotlib.patches.Circle((xs_, zs + 0.275), 0.17,
+                                                        facecolor="0.82", edgecolor=ink,
+                                                        lw=0.5, zorder=5))
+        if "geschweifter Giebel" in el and b.ridge > b.eaves + 1.2 and street:
+            # a VOLUTE GABLE over the middle bays: two S-curves meeting at a small pediment
+            xm, wg = L / 2, min(L * 0.42, wall["bay_m"] * 2.4)
+            hg = min(b.ridge - b.eaves, 3.0)
+            # a SCHWEIFGIEBEL is two S-curves rising from the shoulders to a small pediment:
+            # smoothstep is exactly that curve, concave at the foot and convex at the top
+            u = np.linspace(0.0, 1.0, 48)
+            left = [(xm - wg / 2 + (wg / 2) * uu, b.eaves + hg * (3 * uu ** 2 - 2 * uu ** 3))
+                    for uu in u]
+            volute = [(xm - wg / 2, b.eaves)] + left \
+                + [(xm + wg / 2 - (x - (xm - wg / 2)), z) for x, z in reversed(left)] \
+                + [(xm + wg / 2, b.eaves)]
+            axe.add_patch(MplPoly(np.array(volute), closed=True, facecolor="0.88", edgecolor=ink,
+                                  lw=1.0, zorder=6))
+        if "Wasserspeier" in el:
+            for bay in range(wall["bays"] + 1):
+                x = bay * wall["bay_m"]
+                axe.add_patch(MplPoly(np.array([(x - 0.14, b.eaves - 0.1), (x + 0.14, b.eaves - 0.1),
+                                                (x + 0.5, b.eaves + 0.42), (x + 0.2, b.eaves + 0.42)]),
+                                      closed=True, facecolor="0.80", edgecolor=ink, lw=0.7, zorder=7))
+        if "Kartusche" in el and street:
+            axe.add_patch(matplotlib.patches.Ellipse((L / 2, b.pad + b.style.level_m * 1.35),
+                                                     1.5, 1.1, facecolor="0.86", edgecolor=ink,
+                                                     lw=0.9, zorder=6))
+        if "Klinkerband" in el:
+            for lv in range(1, f.levels() + 1):
+                zz = min(b.pad + lv * b.style.level_m, b.eaves)
+                axe.add_patch(Rectangle((0, zz - 0.42), L, 0.30, facecolor="0.78",
+                                        edgecolor=ink, lw=0.5, zorder=3))
+        if "Loggia" in el and f.levels() >= 3 and wall["bays"] >= 3 and street:
+            xl_ = (wall["bays"] // 2) * wall["bay_m"]
+            wl = wall["bay_m"] * 0.9
+            for lv in range(1, f.levels()):
+                zz = b.pad + lv * b.style.level_m
+                axe.add_patch(Rectangle((xl_ - wl / 2, zz + 0.15), wl, b.style.level_m - 0.6,
+                                        facecolor="0.35", edgecolor=ink, lw=0.9, zorder=5))
+                axe.add_patch(Rectangle((xl_ - wl / 2, zz + 0.15), wl, 1.0, facecolor="0.80",
+                                        edgecolor=ink, lw=0.7, zorder=6))
+        if "Waschbeton" in el:
+            for lv in range(f.levels() + 1):
+                zz = min(b.pad + lv * b.style.level_m, b.eaves)
+                axe.plot([0, L], [zz, zz], color="0.55", lw=0.5, zorder=3)
+            for bay in range(wall["bays"] + 1):
+                axe.plot([bay * wall["bay_m"]] * 2, [b.pad, b.eaves], color="0.55", lw=0.5, zorder=3)
+        if "Fensterband" in el:
+            # a RIBBON WINDOW is one opening per storey and not a row of holes: the band runs
+            # between the piers and the spandrel below it is the wall
+            for lv in range(f.levels()):
+                zz = b.pad + lv * b.style.level_m
+                axe.add_patch(Rectangle((0.5, zz + b.style.level_m * 0.42), L - 1.0,
+                                        b.style.level_m * 0.40, facecolor="0.55",
+                                        edgecolor=ink, lw=0.8, zorder=4))
+                for m in np.arange(0.5, L - 0.5, wall["bay_m"] / 2.0):
+                    axe.plot([m, m], [zz + b.style.level_m * 0.42,
+                                      zz + b.style.level_m * 0.82], color="white", lw=0.6, zorder=5)
+        if "Pfosten-Riegel" in el:
+            for m in np.arange(0.0, L + 1e-6, wall["bay_m"] / 2.0):
+                axe.plot([m, m], [b.pad, b.eaves], color=ink, lw=0.7, zorder=4)
+            for lv in range(f.levels() + 1):
+                zz = min(b.pad + lv * b.style.level_m, b.eaves)
+                axe.plot([0, L], [zz, zz], color=ink, lw=0.7, zorder=4)
+        if "franzoesischer Balkon" in el:
+            for (w, mid, up, ww, hh, kind) in f.openings():
+                if w is not wall or kind not in ("window", "balcony-door") or up - b.pad < 2.0:
+                    continue
+                for r in np.linspace(mid - ww / 2, mid + ww / 2, 7):
+                    axe.plot([r, r], [up, up + 1.0], color=ink, lw=0.5, zorder=6)
+                axe.plot([mid - ww / 2, mid + ww / 2], [up + 1.0] * 2, color=ink, lw=0.9, zorder=6)
+        if "Attika" in el and "Vorhangfassade" not in el:
+            axe.add_patch(Rectangle((-0.25, b.eaves), L + 0.5, 1.0, facecolor="0.88",
+                                    edgecolor=ink, lw=1.0, zorder=4))
+        if "Stahlfenster" in el:
+            for (w, mid, up, ww, hh, kind) in f.openings():
+                if w is not wall or kind != "window":
+                    continue
+                for r in np.linspace(mid - ww / 2, mid + ww / 2, 4)[1:-1]:
+                    axe.plot([r, r], [up, up + hh], color="white", lw=0.5, zorder=5)
+                for zz in np.linspace(up, up + hh, 4)[1:-1]:
+                    axe.plot([mid - ww / 2, mid + ww / 2], [zz, zz], color="white", lw=0.5, zorder=5)
+        if "Rampe" in el and street:
+            xr = L * 0.5
+            axe.add_patch(MplPoly(np.array([(xr - 3.0, b.pad - 1.2), (xr + 3.0, b.pad - 1.2),
+                                            (xr + 3.0, b.pad + 1.1), (xr - 3.0, b.pad + 1.1)]),
+                                  closed=True, facecolor="0.80", edgecolor=ink, lw=0.9, zorder=5))
+        if "Werbeband" in el:
+            zw = b.pad + b.style.level_m - 0.15
+            axe.add_patch(Rectangle((0, zw), L, 0.75, facecolor="0.30", edgecolor=ink,
+                                    lw=0.9, zorder=5))
+        if "Rosette" in el and street and b.ridge > b.eaves + 2.0:
+            axe.add_patch(matplotlib.patches.Circle((L / 2, b.eaves - H * 0.22), min(2.2, L * 0.11),
+                                                    facecolor="0.55", edgecolor=ink, lw=1.1, zorder=6))
+            axe.add_patch(matplotlib.patches.Circle((L / 2, b.eaves - H * 0.22),
+                                                    min(2.2, L * 0.11) * 0.45, facecolor="white",
+                                                    edgecolor=ink, lw=0.7, zorder=7))
+        if "Tor" in el and street:
+            xt = (wall["bays"] // 2) * wall["bay_m"] + wall["bay_m"] / 2
+            wt = min(wall["bay_m"] * 0.9, 4.2)
+            ht = min(b.style.level_m * 1.6, H * 0.7)
+            axe.add_patch(Rectangle((xt - wt / 2, b.pad), wt, ht, facecolor="0.42",
+                                    edgecolor=ink, lw=1.2, zorder=5))
+            axe.plot([xt, xt], [b.pad, b.pad + ht], color="white", lw=0.8, zorder=6)
         # a GAUBE stands on a roof SLOPE, and a gable end has none -- drawing one there put two
         # dormers on the Gruenderzeit block's blind gable, floating at the eaves (seen in B12).
         # So the wall must face a slope, and the dormer must fit under the ridge with a margin
@@ -1428,16 +1575,21 @@ def draw(case, b, f, number=0):
                 axe.plot([r, r], [base + 0.18, base + 1.0], color=ink, lw=0.5)
             axe.plot([mid - width / 2, mid + width / 2], [base + 1.0] * 2, color=ink, lw=0.8)
         every = 1 if f.levels() <= 8 else (5 if f.levels() <= 40 else 10)
+        # the height ticks stand at the LEFT EDGE OF THE DRAWING and not at the wall's own
+        # origin: a round building's walls are 1.8 m chords and the labels landed in the middle
+        # of the facade (seen in B29)
+        xl = float(min(along))
         for level in range(f.levels() + 1):
             z = b.pad + level * b.style.level_m
-            axe.plot([-0.6, 0.0], [z, z], color=ink, lw=0.6)
+            axe.plot([xl - 0.6, xl], [z, z], color=ink, lw=0.6)
             if level % every == 0 or level == f.levels():
-                axe.text(-0.8, z, f"+{level * b.style.level_m:.2f}", ha="right", va="center",
+                axe.text(xl - 0.8, z, f"+{level * b.style.level_m:.2f}", ha="right", va="center",
                          fontsize=7, color=ink)
         # the BAY RHYTHM is the one horizontal dimension an elevation owes: a facade whose only
         # figures are heights cannot be set out on site
         zd = min(foot) - 1.6
-        for bay in range(wall["bays"]):
+        spread = float(max(along) - min(along))
+        for bay in range(wall["bays"] if wall["length"] > 0.35 * spread else 0):
             x0b, x1b = bay * wall["bay_m"], (bay + 1) * wall["bay_m"]
             axe.annotate("", xy=(x1b, zd), xytext=(x0b, zd),
                          arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.55,
@@ -1445,9 +1597,10 @@ def draw(case, b, f, number=0):
             if wall["bays"] <= 8:
                 axe.text((x0b + x1b) / 2, zd + 0.10, f"{wall['bay_m']:.2f}", ha="center",
                          va="bottom", fontsize=6, color=ink)
-        axe.text(wall["length"] / 2, zd - 0.75, f"{wall['bays']} x {wall['bay_m']:.2f} = "
-                 f"{wall['length']:.2f}", ha="center", va="top", fontsize=7, color=ink)
-        axe.set_xlim(-4.0, wall["length"] + 1.0)
+        if wall["length"] > 0.35 * spread:
+            axe.text(wall["length"] / 2, zd - 0.75, f"{wall['bays']} x {wall['bay_m']:.2f} = "
+                     f"{wall['length']:.2f}", ha="center", va="top", fontsize=7, color=ink)
+        axe.set_xlim(float(min(along)) - 4.0, float(max(along)) + 1.0)
         tallest = max([max(sky), max(top)] + [p.ridge for p in getattr(b, "parts", [])])
         axe.set_ylim(min(foot) - 3.4, tallest + 1.5)
         axe.set_aspect("equal", adjustable="datalim"); axe.set_title(label, fontsize=9, loc="left")
@@ -1557,7 +1710,8 @@ def draw(case, b, f, number=0):
             ax.plot(ss, [z - 0.22 if not np.isnan(z) else np.nan for z in roofz],
                     color=ink, lw=0.7)                                   # Schalung
             ax.plot([sL, sR], [b.eaves, b.eaves], color=ink, lw=0.9)     # Traufe / Fusspfette
-            if b.ridge - b.eaves > 2.6 and not vaulted_kind(b):
+            if (b.ridge - b.eaves > 2.6 and not vaulted_kind(b)
+                    and b.roof in ("gabled", "hipped", "mansard", "gambrel", "half-hipped")):
                 zk = b.eaves + (b.ridge - b.eaves) * 0.55                   # Kehlbalken
                 spanr = sR - sL
                 for sgn in (-1, 1):
@@ -1603,6 +1757,19 @@ def draw(case, b, f, number=0):
     fig.canvas.draw()
     series = (20, 50, 100, 200, 500, 1000, 2000, 5000)
     drawn = []
+    # ONE SCALE FOR THE WHOLE SHEET. Two elevations of one building at 1:100 and 1:200 cannot be
+    # compared, and comparing them is what a set of drawings is FOR (seen in B29). The coarsest
+    # panel sets it, so nothing is cropped
+    coarsest = series[0]
+    for axp in fig.axes:
+        if "1:" not in axp.get_title(loc="left"):
+            continue
+        bx = axp.get_window_extent()
+        yy0, yy1 = axp.get_ylim()
+        xx0, xx1 = axp.get_xlim()
+        want = max((yy1 - yy0) * 1000.0 / max(bx.height / fig.dpi * 25.4, 1e-6),
+                   (xx1 - xx0) * 1000.0 / max(bx.width / fig.dpi * 25.4, 1e-6))
+        coarsest = max(coarsest, next((s for s in series if s >= want), series[-1]))
     for axp in fig.axes:
         label = axp.get_title(loc="left")
         if "1:" not in label:
@@ -1613,7 +1780,8 @@ def draw(case, b, f, number=0):
         y0, y1 = axp.get_ylim()
         x0, x1 = axp.get_xlim()
         need = max((y1 - y0) * 1000.0 / max(mm_h, 1e-6), (x1 - x0) * 1000.0 / max(mm_w, 1e-6))
-        pick = next((s for s in series if s >= need), series[-1])
+        pick = coarsest
+        del need
         # centre on the CONTENT and not on the limits: the elevation's limits run from -4 m to
         # the wall's end, so their centre sits a metre and a half left of the building's, and
         # every drawing on the sheet stood off to one side of its panel
