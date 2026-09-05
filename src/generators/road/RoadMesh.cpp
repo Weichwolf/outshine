@@ -89,16 +89,30 @@ void RoadMesh::Junction(std::span<const RoadGate> gates,
     return a.AroundRad != b.AroundRad ? a.AroundRad < b.AroundRad : a.Gate < b.Gate;
   });
   const auto rim = static_cast<uint32_t>(around.size());
+  Vec3 up = {{0.0, 1.0, 0.0}};
+  {
+    const Vec3 u = {
+        {around[0].EastM - centreE, around[0].GradeM - centreGrade, around[0].SouthM - centreS}};
+    const Vec3 v = {
+        {around[1].EastM - centreE, around[1].GradeM - centreGrade, around[1].SouthM - centreS}};
+    const Vec3 n = {
+        {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]}};
+    const double run = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+    if (run > kParallelCross) {
+      const double sign = n[1] < 0.0 ? -1.0 : 1.0;
+      for (int axis = 0; axis < 3; ++axis) { up[axis] = sign * n[axis] / run; }
+    }
+  }
+  const Vec3 down = {{-up[0], -up[1], -up[2]}};
   const auto top = static_cast<uint32_t>(into.PositionM.size() / 3);
-  Vertex(into, {centreE, centreGrade, centreS}, {{0.0, 1.0, 0.0}}, wearsLinear);
+  Vertex(into, {centreE, centreGrade, centreS}, up, wearsLinear);
   for (const Corner &one : around) {
-    Vertex(into, {one.EastM, one.GradeM, one.SouthM}, {{0.0, 1.0, 0.0}}, wearsLinear);
+    Vertex(into, {one.EastM, one.GradeM, one.SouthM}, up, wearsLinear);
   }
   const auto bottom = static_cast<uint32_t>(into.PositionM.size() / 3);
-  Vertex(into, {centreE, centreGrade - kSealedDepthM, centreS}, {{0.0, -1.0, 0.0}}, wearsLinear);
+  Vertex(into, {centreE, centreGrade - kSealedDepthM, centreS}, down, wearsLinear);
   for (const Corner &one : around) {
-    Vertex(
-        into, {one.EastM, one.GradeM - kSealedDepthM, one.SouthM}, {{0.0, -1.0, 0.0}}, wearsLinear);
+    Vertex(into, {one.EastM, one.GradeM - kSealedDepthM, one.SouthM}, down, wearsLinear);
   }
   for (uint32_t at = 0; at < rim; ++at) {
     const uint32_t next = (at + 1u) % rim;

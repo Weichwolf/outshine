@@ -80,3 +80,15 @@ CARLA's Digital Twin Tool builds its network with SUMO's `netconvert` (EPL-2.0, 
 table), `NBNodeCont` joins nodes, `NBEdgeCont` resolves lanes and connections, and the same
 graph carries rail. That table and that join are this item's baseline; board:2101 carries the
 per-tile form.
+
+## Decided 2026-09-05: the driving surface is the MAP's profile, analytic and C1, never a mesh
+
+Decided with the owner: a car's errors must stand well under a centimetre, so nothing a car
+drives on may be a polygon. The map holds, per lane, a continuous elevation profile
+(OpenDRIVE's cubic elevation polynomials, C1 -- the vertical curve returns HERE as a
+polynomial and not as a relaxation of a mesh), queried analytically as (s, t) -> height, and
+a junction's plane meets its legs' profiles without a kink. The structure's mesh pictures
+that profile; its deviation from the profile is a measured number a case reads, and a car
+never sees it. CARLA's Traffic Manager plans on the OpenDRIVE map while its vehicles roll on
+the mesh at 0.5 m vertex distance; Jolt takes an analytic height function as a contact
+surface (board:2127), so this tree can do better than CARLA by one step.

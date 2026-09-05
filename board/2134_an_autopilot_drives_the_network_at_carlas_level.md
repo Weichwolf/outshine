@@ -50,3 +50,9 @@ Decided with the owner: CARLA and its Digital Twin Tool are the templates for th
 (board:2101, board:2133) and for the driver (this item); the look stays measured against RAGE
 and Unreal. The `Traffic Manager` is adopted as a baseline and corrected where a measurement
 of this tree says so -- a reference is a floor, never a ceiling.
+
+## Cited 2026-09-05: what the autopilot drives on
+
+Board:2133 decided it: the driving surface is the map's C1 elevation profile queried
+analytically, errors well under a centimetre by the owner's requirement; the road mesh is
+the picture and never the contact.

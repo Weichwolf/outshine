@@ -65,6 +65,7 @@ constexpr double kAngleLookaheadM = 10.0;
 constexpr double kContinuesPastDeg = 160.0;
 constexpr double kParallelWithinDeg = 22.5;
 constexpr double kSteepestApproach = 0.10;
+constexpr double kSteepestJunction = 0.35;
 
 constexpr auto ByBearing = [](const auto &a, const auto &b) {
   if (a.AngleRad != b.AngleRad) { return a.AngleRad < b.AngleRad; }
@@ -1070,10 +1071,39 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
         .OutS = outS,
         .HalfWidthM = leg.HalfM});
   }
+  if (!(decked && seeded != into.EndM.end())) { LiesOnItsPlane(on, made, into); }
+  for (const Leg &leg : legs) {
+    const RoadGate &gate = made.Gates[static_cast<size_t>(&leg - legs.data())];
+    into.Edges[leg.Edge].GradeAtM[leg.End] = gate.GradeM;
+  }
   PressesUnder(made, rootsM, into);
   made.Legs = std::move(legs);
   into.MostOffGroundM = std::max(into.MostOffGroundM, std::fabs(made.GradeM - rootsM));
   into.Junctions.push_back(std::move(made));
+}
+
+void Corridors::LiesOnItsPlane(const Paving &on, Junction &made, Paved &into) {
+  const auto drape = [&](double eastM, double southM) {
+    return on.Draped.At({.EastM = eastM, .SouthM = southM}, made.GradeM);
+  };
+  const double east = drape(made.EastM + kJunctionRadiusM, made.SouthM);
+  const double west = drape(made.EastM - kJunctionRadiusM, made.SouthM);
+  const double south = drape(made.EastM, made.SouthM + kJunctionRadiusM);
+  const double north = drape(made.EastM, made.SouthM - kJunctionRadiusM);
+  made.SlopeE = (east - west) / (2.0 * kJunctionRadiusM);
+  made.SlopeS = (south - north) / (2.0 * kJunctionRadiusM);
+  const double steep = std::sqrt(made.SlopeE * made.SlopeE + made.SlopeS * made.SlopeS);
+  if (steep > kSteepestJunction) {
+    made.SlopeE *= kSteepestJunction / steep;
+    made.SlopeS *= kSteepestJunction / steep;
+    ++into.JunctionsLevelled;
+  }
+  for (RoadGate &gate : made.Gates) {
+    gate.GradeM = made.GradeM + made.SlopeE * (gate.EastM - made.EastM) +
+                  made.SlopeS * (gate.SouthM - made.SouthM);
+  }
+  into.SteepestJunction = std::max(
+      into.SteepestJunction, std::sqrt(made.SlopeE * made.SlopeE + made.SlopeS * made.SlopeS));
 }
 
 void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
@@ -1115,6 +1145,8 @@ void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
   under.AtE = made.EastM;
   under.AtS = made.SouthM;
   under.PlateauM = made.GradeM - kPavementLipM;
+  under.SlopeE = made.SlopeE;
+  under.SlopeS = made.SlopeS;
   under.YieldM = std::max(std::fabs(made.GradeM - rootsM), kBrokenGroundM);
   under.ApronM = std::clamp(kBatterRun * under.YieldM, kLeastApronM, kMostApronM);
   under.SeamEastSouthM = under.RingEastSouthM;
@@ -1416,6 +1448,11 @@ void Corridors::Lay(const Site &site,
               static_cast<double>(into.LegsCut),
               "legs");
         Notes(into, "streets: and the deepest cut", into.DeepestCutM, "m");
+        Notes(into, "streets: and the steepest junction plane", into.SteepestJunction, "m/m");
+        Notes(into,
+              "streets: junctions held to the steepest paved grade",
+              static_cast<double>(into.JunctionsLevelled),
+              "junctions");
         Notes(into, "streets: of that, shaping the junctions", since(), "ms");
       }
     }

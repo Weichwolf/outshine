@@ -95,6 +95,8 @@ private:
     double EastM = 0.0;
     double SouthM = 0.0;
     double GradeM = 0.0;
+    double SlopeE = 0.0;
+    double SlopeS = 0.0;
     std::vector<Leg> Legs;
     std::vector<RoadGate> Gates;
   };
@@ -110,6 +112,8 @@ private:
     size_t UnseenWays = 0;
     size_t LegsCut = 0;
     double DeepestCutM = 0.0;
+    double SteepestJunction = 0.0;
+    size_t JunctionsLevelled = 0;
     double MostOffGroundM = 0.0;
     size_t RampStations = 0;
     double LongestRampM = 0.0;
@@ -241,6 +245,7 @@ private:
   static void SplitsEdges(Paved &into);
   [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
                                                                              const Paved &into);
+  static void LiesOnItsPlane(const Paving &on, Junction &made, Paved &into);
   static void PressesUnder(const Junction &made, double rootsM, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static void ShapesJunctions(const Paving &on, Paved &into);
