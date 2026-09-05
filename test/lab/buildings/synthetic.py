@@ -129,6 +129,53 @@ def roof_height_at(poly, x, y, shape, eaves_h, ridge_h, axis=None):
         steep = min(d * math.tan(math.radians(70.0)), (ridge_h - eaves_h) * 0.6)
         shallow = (ridge_h - eaves_h) * 0.6 + max(0.0, d - (ridge_h - eaves_h) * 0.6 / math.tan(math.radians(70.0))) * math.tan(math.radians(20.0))
         return min(max(steep, 0.0) if d * math.tan(math.radians(70.0)) < (ridge_h - eaves_h) * 0.6 else shallow, ridge_h - eaves_h)
+    if shape == "half-hipped":
+        # Krueppelwalm: a gable whose top is cut back by a small hip
+        u, v = axis
+        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
+        half = axis_half(poly, v)
+        along = abs((x - poly.centroid.x) * u[0] + (y - poly.centroid.y) * u[1])
+        halfu = axis_half(poly, u)
+        rise = (half - across) * math.tan(ROOF_PITCH)
+        clip = max(0.0, (halfu - along)) * math.tan(ROOF_PITCH) + (ridge_h - eaves_h) * 0.55
+        return max(0.0, min(rise, clip, ridge_h - eaves_h))
+    if shape == "gambrel":
+        # Mansarddach mit zwei Neigungen ueber die BREITE, nicht ueber den Abstand zum Rand
+        u, v = axis
+        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
+        half = axis_half(poly, v)
+        knee = half * 0.55
+        steep = math.tan(math.radians(65.0))
+        shallow = math.tan(math.radians(28.0))
+        if across > knee:
+            return max(0.0, (half - across) * steep)
+        return (half - knee) * steep + (knee - across) * shallow
+    if shape == "sawtooth":
+        # Sheddach: the roof a factory hall wears, its glazing facing north
+        u, v = axis
+        along = (x - poly.centroid.x) * u[0] + (y - poly.centroid.y) * u[1]
+        halfu = axis_half(poly, u)
+        bay = max(6.0, 2 * halfu / max(1, round(2 * halfu / 12.0)))
+        phase = ((along + halfu) % bay) / bay
+        return (ridge_h - eaves_h) * phase
+    if shape == "barrel":
+        u, v = axis
+        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
+        half = axis_half(poly, v)
+        return (ridge_h - eaves_h) * math.sqrt(max(0.0, 1.0 - (across / max(half, 1e-6)) ** 2))
+    if shape == "spire":
+        # Turmhelm: a steep pyramid, the church's own
+        return (ridge_h - eaves_h) * d / max(roof_inradius(poly), 1e-6)
+    if shape == "onion":
+        r = roof_inradius(poly)
+        u = min(1.0, d / max(r, 1e-6))
+        bulb = math.sin(u * math.pi * 0.62) * 1.25
+        return (ridge_h - eaves_h) * min(1.0, bulb * (0.45 + 0.55 * u ** 3))
+    if shape == "butterfly":
+        u, v = axis
+        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
+        half = axis_half(poly, v)
+        return (ridge_h - eaves_h) * (across / max(half, 1e-6))
     if shape == "dome":
         r = roof_inradius(poly)
         return (ridge_h - eaves_h) * math.sqrt(max(0.0, 1.0 - ((r - d) / max(r, 1e-6)) ** 2))
@@ -219,9 +266,26 @@ class Building:
     def _roof_height(self):
         if self.roof in ("flat",):
             return 0.0
+        if self.roof == "spire":
+            return roof_inradius(self.poly) * 3.2          # [SET] a steeple is far steeper
+        if self.roof == "onion":
+            return roof_inradius(self.poly) * 2.2
+        if self.roof == "sawtooth":
+            return 2.5                                     # [SET] a shed's tooth
+        if self.roof == "butterfly":
+            return axis_half(self.poly, self.axis[1]) * math.tan(math.radians(12.0))
+        if self.roof == "barrel":
+            return axis_half(self.poly, self.axis[1]) * 0.5
         if self.roof in ("pyramidal", "dome"):
             return roof_inradius(self.poly) * math.tan(ROOF_PITCH)
-        if self.roof == "gabled":
+        if self.roof == "gambrel":
+            # ONE arithmetic for the roof's height, or the mesh and the check disagree: the
+            # ridge is the steep slope up to the knee plus the shallow one above it (measured
+            # 6.30 against 11.32 when the two formulas drifted apart)
+            half = axis_half(self.poly, self.axis[1])
+            knee = half * 0.55
+            return (half - knee) * math.tan(math.radians(65.0)) + knee * math.tan(math.radians(28.0))
+        if self.roof in ("gabled", "half-hipped"):
             return axis_half(self.poly, self.axis[1]) * math.tan(ROOF_PITCH)
         return roof_inradius(self.poly) * math.tan(ROOF_PITCH)
 
@@ -423,8 +487,16 @@ class Building:
         top = max(v[2] for v in self.vertices) - self.eaves
         if self.roof == "flat":
             want = 0.0
-        elif self.roof == "gabled":
+        elif self.roof in ("gabled", "half-hipped"):
             want = min(axis_half(self.poly, self.axis[1]) * math.tan(ROOF_PITCH), self.ridge - self.eaves)
+        elif self.roof == "gambrel":
+            # a Mansarddach's ridge is its knee's rise plus the shallow slope above it
+            half = axis_half(self.poly, self.axis[1])
+            knee = half * 0.55
+            want = min((half - knee) * math.tan(math.radians(65.0)) + knee * math.tan(math.radians(28.0)),
+                       self.ridge - self.eaves)
+        elif self.roof in ("sawtooth", "butterfly", "barrel", "spire", "onion"):
+            want = self.ridge - self.eaves
         elif self.roof in ("hipped", "pyramidal", "dome", "mansard"):
             want = min(roof_inradius(self.poly) * math.tan(ROOF_PITCH), self.ridge - self.eaves)
         else:
@@ -449,6 +521,24 @@ class Building:
 # what the geometry itself shows -- a footprint of 4 000 m2 with two storeys is a shed whatever
 # the tag says, and twenty storeys is a tower.
 
+# each epoch also carries its FACADE ELEMENTS -- what a viewer names the period by
+ELEMENTS = {
+    "gothic":       ("Strebepfeiler", "Spitzbogenfenster", "Masswerk", "Wasserspeier"),
+    "baroque":      ("Pilaster", "Gesims", "Segmentbogen", "Kartusche"),
+    "gruenderzeit": ("Sockel", "Gurtgesims", "Fensterverdachung", "Erker", "Kranzgesims"),
+    "jugendstil":   ("Erker", "Stuckband", "geschweifter Giebel"),
+    "interwar":     ("Klinkerband", "Fensterbank", "Loggia"),
+    "postwar":      ("Waschbeton", "Fensterband", "Balkonbrueste"),
+    "late20":       ("Fensterband", "Vordach"),
+    "contemporary": ("Pfosten-Riegel", "franzoesischer Balkon", "Attika"),
+    "industrial":   ("Sheddach", "Stahlfenster", "Rampe", "Schornstein"),
+    "hall":         ("Schaufenster", "Vordach", "Werbeband"),
+    "commercial":   ("Schaufenster", "Arkade", "Gesims", "Attika"),
+    "sacral":       ("Turm", "Rosette", "Strebepfeiler", "Portal"),
+    "tower":        ("Vorhangfassade", "Attika", "Sockelgeschoss"),
+    "farm":         ("Tor", "Fachwerk", "Krueppelwalm"),
+}
+
 EPOCHS = {
     # name: (level height m, bay m, window w x h, sill m, cornice, balconies, roofs allowed)
     "gruenderzeit": (3.6, 3.0, (1.2, 2.2), 0.85, True, True, ("gabled", "hipped", "mansard")),
@@ -460,13 +550,31 @@ EPOCHS = {
     "hall":         (9.0, 8.0, (3.0, 2.0), 4.0, False, False, ("flat", "gabled")),
     "sacral":       (9.0, 4.0, (1.4, 4.0), 3.0, True, False, ("gabled", "pyramidal", "dome")),
     "tower":        (3.3, 3.0, (2.4, 2.6), 0.5, False, False, ("flat",)),
+    "gothic":       (12.0, 3.5, (1.6, 6.0), 4.0, True, False, ("gabled", "spire", "pyramidal")),
+    "baroque":      (5.0, 4.0, (1.5, 3.0), 1.0, True, False, ("mansard", "onion", "hipped", "dome")),
+    "jugendstil":   (3.5, 3.4, (1.3, 2.4), 0.8, True, True, ("mansard", "gabled", "half-hipped")),
+    "commercial":   (4.2, 5.0, (2.6, 2.4), 0.9, True, False, ("flat", "barrel", "butterfly")),
+    "farm":         (3.0, 4.5, (1.0, 1.2), 1.1, False, False, ("gabled", "half-hipped", "gambrel")),
 }
 
-INDUSTRIAL = {"industrial", "warehouse", "factory", "hangar", "shed", "barn", "farm_auxiliary",
+INDUSTRIAL = {"industrial", "warehouse", "factory", "hangar", "shed",
               "silo", "storage_tank", "works"}
+FARM = {"barn", "farm", "farm_auxiliary", "stable", "cowshed", "greenhouse"}
+COMMERCIAL = {"commercial", "office", "retail_park", "kiosk", "department_store"}
+GOTHIC = {"cathedral", "minster"}
 HALL = {"retail", "supermarket", "sports_hall", "stadium", "hangar", "train_station", "exhibition"}
 SACRAL = {"church", "cathedral", "chapel", "mosque", "synagogue", "temple"}
 HOUSE = {"house", "detached", "semidetached_house", "terrace", "bungalow", "hut", "cabin"}
+
+
+def _year(tags):
+    told = tags.get("start_date")
+    if not told:
+        return None
+    try:
+        return int(str(told)[:4])
+    except ValueError:
+        return None
 
 
 def classify(tags, poly, levels, height_m):
@@ -482,29 +590,40 @@ def classify(tags, poly, levels, height_m):
     # 1. the geometry speaks first where it is unambiguous
     if levels >= 8 or height_m >= 25.0:
         return kind, "tower"
+    if kind in GOTHIC or (kind in SACRAL and (tags.get("building:architecture") == "gothic"
+                                              or _year(tags) and _year(tags) < 1550)):
+        return kind, "gothic"
     if kind in SACRAL:
+        if _year(tags) and 1600 <= _year(tags) < 1780:
+            return kind, "baroque"
         return kind, "sacral"
+    if kind in FARM:
+        return kind, "farm"
     if kind in HALL or (area > 2000.0 and levels <= 2):
         return kind, "hall"
     if kind in INDUSTRIAL or (area > 800.0 and levels <= 3 and kind in ("yes", "commercial")):
         return kind, "industrial"
+    if kind in COMMERCIAL and levels <= 6:
+        return kind, "commercial"
     # 2. the epoch, from start_date where it is given
-    told = tags.get("start_date")
-    if told:
-        try:
-            year = int(str(told)[:4])
-        except ValueError:
-            year = 0
-        if year:
-            if year < 1919:
-                return kind, "gruenderzeit"
-            if year < 1946:
-                return kind, "interwar"
-            if year < 1975:
-                return kind, "postwar"
-            if year < 2000:
-                return kind, "late20"
-            return kind, "contemporary"
+    year = _year(tags)
+    if year:
+        if year < 1550:
+            return kind, "gothic"
+        if year < 1780:
+            return kind, "baroque"
+        if year < 1890:
+            return kind, "gruenderzeit"
+        if year < 1919:
+            return kind, "jugendstil" if tags.get("building:architecture") == "art_nouveau" \
+                else "gruenderzeit"
+        if year < 1946:
+            return kind, "interwar"
+        if year < 1975:
+            return kind, "postwar"
+        if year < 2000:
+            return kind, "late20"
+        return kind, "contemporary"
     # 3. and where it is not, from what the building IS: a tall narrow terrace with 4+ storeys
     #    is a nineteenth-century block; a low detached house is post-war; the rest is late 20th
     if levels >= 4 and kind in ("apartments", "residential", "terrace", "yes"):
@@ -721,7 +840,57 @@ class Facade:
         return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)
 
 
+PARTS = {}          # a footprint's parts, by identity: shapely's geometries take no attributes
+
+
+def f_church():
+    """A nave with a tower at the west end: the plan every parish church has. The tower is a
+    PART with its own height and roof -- OSM's Simple 3D Buildings calls it `building:part`, and
+    without parts a cathedral is one uniform block with its tower flattened into the nave (seen
+    in the first sheet)."""
+    nave = Polygon([(-18, -7), (10, -7), (10, 7), (-18, 7)])
+    tower = Polygon([(-24, -5), (-18, -5), (-18, 5), (-24, 5)])
+    whole = unary_union([nave, tower])
+    PARTS[id(whole)] = [(tower, {"building:part": "yes", "height": 54.0, "roof:shape": "spire",
+                                 "roof:height": 22.0})]
+    return whole
+
+
+def f_hall_shed():
+    return Polygon([(-30, -18), (30, -18), (30, 18), (-30, 18)])
+
+
+def f_terrace():
+    """A terraced house: narrow, deep, two party walls."""
+    return Polygon([(-4.5, -11), (4.5, -11), (4.5, 11), (-4.5, 11)])
+
+
+def f_farm():
+    """A farmstead: house and barn under one long roof, the Lower Saxon way."""
+    return Polygon([(-9, -22), (9, -22), (9, 22), (-9, 22)])
+
+
+FOOTPRINTS.update({"F8-church": f_church, "F9-shed": f_hall_shed,
+                   "F10-terrace": f_terrace, "F11-farm": f_farm})
+
+
 CASES = [
+    ("F8-church", "G1-flat", {"building": "cathedral", "start_date": "1290",
+                              "building:levels": 1, "roof:shape": "gabled"}),
+    ("F8-church", "G2-cross15", {"building": "church", "start_date": "1720",
+                                 "building:levels": 1, "roof:shape": "onion"}),
+    ("F8-church", "G1-flat", {"building": "church", "building:levels": 1, "roof:shape": "spire"}),
+    ("F10-terrace", "G1-flat", {"building": "terrace", "building:levels": 4, "start_date": "1888"}),
+    ("F1-rect", "G1-flat", {"building": "apartments", "building:levels": 4, "start_date": "1908",
+                            "building:architecture": "art_nouveau"}),
+    ("F11-farm", "G2-cross15", {"building": "barn", "building:levels": 2,
+                                "roof:shape": "half-hipped"}),
+    ("F11-farm", "G1-flat", {"building": "farm", "building:levels": 2, "roof:shape": "gambrel"}),
+    ("F9-shed", "G1-flat", {"building": "industrial", "building:levels": 1,
+                            "roof:shape": "sawtooth"}),
+    ("F9-shed", "G1-flat", {"building": "retail", "building:levels": 1, "roof:shape": "barrel"}),
+    ("F1-rect", "G1-flat", {"building": "commercial", "building:levels": 4, "start_date": "1955"}),
+    ("F1-rect", "G1-flat", {"building": "office", "building:levels": 5, "roof:shape": "butterfly"}),
     ("F1-rect", "G1-flat", {"building": "apartments", "building:levels": 5, "start_date": "1895"}),
     ("F1-rect", "G1-flat", {"building": "house", "building:levels": 2, "start_date": "1962"}),
     ("F1-rect", "G1-flat", {"building": "residential", "building:levels": 4, "start_date": "2015"}),
@@ -758,6 +927,7 @@ def draw(case, b, f, number=0):
     ground hatched, dimensions outside, north arrow, scale bar, title block."""
     import matplotlib
     matplotlib.use("Agg")
+    import matplotlib.patches
     import matplotlib.pyplot as plt
     from matplotlib.patches import Polygon as MplPoly, Rectangle
 
@@ -775,6 +945,11 @@ def draw(case, b, f, number=0):
         for part in (inner.geoms if inner.geom_type == "MultiPolygon" else [inner]):
             ax.add_patch(MplPoly(np.array(part.exterior.coords), closed=True,
                                  facecolor="white", edgecolor=ink, lw=1.0))
+    for part in getattr(b, "parts", []):
+        ax.add_patch(MplPoly(np.array(part.poly.exterior.coords), closed=True,
+                             facecolor="0.62", edgecolor=ink, lw=1.6))
+        ax.annotate(f"+{part.ridge - part.pad:.1f}", (part.poly.centroid.x, part.poly.centroid.y),
+                    fontsize=7, color="white", ha="center", va="center", fontweight="bold")
     for hole in b.poly.interiors:
         ax.add_patch(MplPoly(np.array(hole.coords), closed=True, facecolor="white", edgecolor=ink, lw=1.4))
     for (w, mid, up, ww, hh, kind) in f.openings():
@@ -813,7 +988,15 @@ def draw(case, b, f, number=0):
 
     # ---- ELEVATIONS
     def elevation(axe, wall, label):
-        along = np.linspace(0, wall["length"], 120)
+        # an ELEVATION shows everything the eye meets, so it runs over the whole building's
+        # projection onto the wall's direction and not only over that wall's own length -- a
+        # tower beyond the nave's end was simply missing from the street elevation
+        d0 = wall["dir"]
+        a00 = wall["a"]
+        allpts = list(b.poly.exterior.coords) + [c for pp in getattr(b, "parts", [])
+                                                 for c in pp.poly.exterior.coords]
+        proj = [(px - a00[0]) * d0[0] + (py - a00[1]) * d0[1] for (px, py) in allpts]
+        along = np.linspace(min(proj) - 0.5, max(proj) + 0.5, 200)
         top = [b.wall_top(*f._point(wall, float(s))) for s in along]
         foot = [b.wall_foot(*f._point(wall, float(s))) for s in along]
         gnd = [b.ground.at(*f._point(wall, float(s))) for s in along]
@@ -837,6 +1020,39 @@ def draw(case, b, f, number=0):
                     best = max(best, b.eaves + roof_height_at(b.poly, q[0], q[1], b.roof,
                                                               b.eaves, b.ridge, b.axis))
             sky.append(best)
+        # a PART standing behind this wall rises in the elevation too
+        for part in getattr(b, "parts", []):
+            hits = []
+            for s in along:
+                p0 = (a0[0] + d[0] * float(s), a0[1] + d[1] * float(s))
+                seen = False
+                for r in np.linspace(0.0, reach, 120):
+                    if part.poly.contains(Point(p0[0] + n[0] * r, p0[1] + n[1] * r)):
+                        seen = True
+                        break
+                hits.append(seen)
+            if any(hits):
+                # the part's own ROOF silhouette, from its own roof function -- a flat band
+                # from eaves to ridge turned a spire into a box (seen in B01)
+                crest = []
+                for s in along:
+                    p0 = (a0[0] + d[0] * float(s), a0[1] + d[1] * float(s))
+                    best = np.nan
+                    for r in np.linspace(0.0, reach, 120):
+                        q = (p0[0] + n[0] * r, p0[1] + n[1] * r)
+                        if part.poly.contains(Point(*q)):
+                            z = part.eaves + roof_height_at(part.poly, q[0], q[1], part.roof,
+                                                            part.eaves, part.ridge, part.axis)
+                            best = z if np.isnan(best) else max(best, z)
+                    crest.append(best)
+                mid = [part.eaves if h else np.nan for h in hits]
+                axe.fill_between(along, mid, crest, facecolor="0.80", edgecolor=ink, lw=1.0)
+                axe.fill_between(along, [b.pad] * len(along), mid, where=hits,
+                                 facecolor="0.90", edgecolor=ink, lw=1.2)
+                for level in range(1, int((part.eaves - part.pad) / part.style.level_m) + 1):
+                    z = part.pad + level * part.style.level_m
+                    axe.plot([min(np.array(along)[np.array(hits)]), max(np.array(along)[np.array(hits)])],
+                             [z, z], color=ink, lw=0.4, alpha=0.5)
         axe.fill_between(along, top, sky, facecolor="0.86", edgecolor="none")
         axe.plot(along, sky, color=ink, lw=1.2)
         axe.fill_between(along, foot, top, facecolor="0.93", edgecolor=ink, lw=1.2)
@@ -853,6 +1069,56 @@ def draw(case, b, f, number=0):
             if kind in ("window", "balcony-door"):
                 axe.plot([mid, mid], [up, up + hh], color="white", lw=0.6)
                 axe.plot([mid - ww / 2, mid + ww / 2], [up + hh * 0.55] * 2, color="white", lw=0.6)
+        # --- the epoch's own elements, drawn where the period puts them ---------------------
+        el = ELEMENTS.get(b.style.epoch, ())
+        top_of_wall = max(top)
+        base_of_wall = min(foot)
+        if b.style.cornice:
+            axe.add_patch(Rectangle((0, b.eaves - 0.35), wall["length"], 0.35,
+                                    facecolor="0.82", edgecolor=ink, lw=0.9))       # Kranzgesims
+        if "Sockel" in el or b.style.epoch in ("gruenderzeit", "baroque", "gothic", "jugendstil"):
+            axe.add_patch(Rectangle((0, b.pad), wall["length"], b.style.level_m * 0.28,
+                                    facecolor="0.86", edgecolor=ink, lw=0.7))       # Sockel
+        if "Gurtgesims" in el or "Gesims" in el:
+            for level in range(1, f.levels()):
+                z = b.pad + level * b.style.level_m
+                axe.plot([0, wall["length"]], [z - 0.12, z - 0.12], color=ink, lw=0.8)
+        if "Pilaster" in el:
+            for bay in range(wall["bays"] + 1):
+                x = bay * wall["bay_m"]
+                axe.add_patch(Rectangle((x - 0.18, b.pad), 0.36, b.eaves - b.pad,
+                                        facecolor="none", edgecolor=ink, lw=0.6))
+        if "Strebepfeiler" in el:
+            for bay in range(wall["bays"] + 1):
+                x = bay * wall["bay_m"]
+                axe.add_patch(Rectangle((x - 0.5, b.pad), 1.0, (b.eaves - b.pad) * 0.82,
+                                        facecolor="0.88", edgecolor=ink, lw=0.9))
+        if "Schaufenster" in el:
+            axe.add_patch(Rectangle((0.6, b.pad + 0.3), wall["length"] - 1.2,
+                                    b.style.level_m - 1.1, facecolor="0.45", edgecolor=ink, lw=1.0))
+            axe.add_patch(Rectangle((0, b.pad + b.style.level_m - 0.7), wall["length"], 0.35,
+                                    facecolor="0.75", edgecolor=ink, lw=0.8))       # Vordach
+        if "Arkade" in el:
+            for bay in range(wall["bays"]):
+                x = (bay + 0.5) * wall["bay_m"]
+                axe.add_patch(matplotlib.patches.Arc((x, b.pad + b.style.level_m * 0.55),
+                                                     wall["bay_m"] * 0.7, wall["bay_m"] * 0.7,
+                                                     theta1=0, theta2=180, color=ink, lw=1.0))
+        if "Sheddach" in el or b.roof == "sawtooth":
+            pass
+        if "Schornstein" in el:
+            axe.add_patch(Rectangle((wall["length"] * 0.78, b.eaves), 1.2,
+                                    max(6.0, (b.eaves - b.pad) * 0.5),
+                                    facecolor="0.8", edgecolor=ink, lw=1.0))
+        if b.style.epoch in ("gruenderzeit", "jugendstil", "farm", "baroque") and b.roof in (
+                "gabled", "hipped", "mansard", "half-hipped", "gambrel"):
+            # Dachgauben: one per second bay, on the roof's lower slope
+            for bay in range(0, wall["bays"], 2):
+                x = (bay + 0.5) * wall["bay_m"]
+                z = b.eaves + (b.ridge - b.eaves) * 0.22
+                axe.add_patch(Rectangle((x - 0.7, z), 1.4, 1.5, facecolor="0.9",
+                                        edgecolor=ink, lw=0.8))
+                axe.plot([x - 0.95, x, x + 0.95], [z + 1.5, z + 2.2, z + 1.5], color=ink, lw=0.8)
         for (w, mid, base, width, depth) in f.balconies():
             if w is not wall:
                 continue
@@ -865,7 +1131,8 @@ def draw(case, b, f, number=0):
             axe.plot([-0.6, 0.0], [z, z], color=ink, lw=0.6)
             axe.text(-0.8, z, f"+{level * b.style.level_m:.2f}", ha="right", va="center", fontsize=7, color=ink)
         axe.set_xlim(-4.0, wall["length"] + 1.0)
-        axe.set_ylim(min(foot) - 1.5, max(max(sky), max(top)) + 1.0)
+        tallest = max([max(sky), max(top)] + [p.ridge for p in getattr(b, "parts", [])])
+        axe.set_ylim(min(foot) - 1.5, tallest + 1.5)
         axe.set_aspect("equal"); axe.set_title(label, fontsize=9, loc="left")
         axe.set_xticks([]); axe.set_yticks([])
         for s in axe.spines.values():
@@ -917,7 +1184,8 @@ def draw(case, b, f, number=0):
              f"levels {f.levels()}   bays {sum(w['bays'] for w in f.walls)}   openings {len(f.openings())}   "
              f"balconies {len(f.balconies())}   pad +{b.pad:.2f}   eaves +{b.eaves:.2f}   ridge +{b.ridge:.2f}   "
              f"volume {b.volume():.0f} m3   triangles L0/L1/L2/L3 "
-             f"{'/'.join(str(f.counts(k)['triangles']) for k in range(4))}",
+             f"{'/'.join(str(f.counts(k)['triangles']) for k in range(4))}   |   "
+             f"Elemente: {', '.join(ELEMENTS.get(b.style.epoch, ('-',)))}",
              fontsize=7.5, color="0.35")
     out = OUT / f"{number:02d}_{case[0]}_{case[1]}_{b.style.kind}_{b.style.epoch}.png"
     fig.savefig(out, dpi=110, bbox_inches="tight")
@@ -930,6 +1198,11 @@ def run(case, number=0):
     poly = FOOTPRINTS[fname]()
     ground = GROUNDS[gname]()
     b = Building(poly, tags, ground)
+    b.parts = []
+    for (part_poly, part_tags) in PARTS.get(id(poly), []):
+        merged = dict(tags)
+        merged.update(part_tags)
+        b.parts.append(Building(part_poly, merged, ground))
     f = Facade(b)
     red = []
     red += f.faults()

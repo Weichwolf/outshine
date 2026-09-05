@@ -107,32 +107,31 @@ of these; the synthetic bed is where each is held in isolation.
 
 ## What a bridge IS, and what a tunnel IS -- a deterministic heuristic
 
-A generator has no engineer to ask, so the TYPE follows from numbers OSM and the terrain
-already carry. The rule below is deterministic (same input, same structure) and every threshold
-is a span a real structure of that type covers; the references are the standard span tables
-(Leonhardt, *Bruecken*; the Eurocode's span ranges; FHWA's bridge inventory by type). What the
-type decides is what a viewer READS from a distance: the depth under the deck, the rhythm of
-the piers, the presence of an arch or a cable.
+A generator has no engineer to ask, so the TYPE follows from numbers the data and the terrain
+already carry. What decides is not the deck's length but its FREE SPAN: the widest run where no
+pier may stand -- over water, or where the deck stands more than 25 m above the ground. A 900 m
+deck over a 240 m gorge is twenty beam spans with piers on the slopes; the same deck over a
+900 m strait is a suspension bridge, and the difference is the obstacle. A rail bridge is one
+class heavier (its loads are two to three times a road's), which the factor 0.65 carries.
 
-| span between piers | structure | depth of the deck | what stands under it | seen at |
-|---|---|---|---|---|
-| < 8 m | culvert / slab | 0.3-0.6 m | the fill itself | a stream under a country road |
-| 8-25 m | reinforced concrete slab or beam | span/20 | abutments only | every motorway overpass |
-| 25-60 m | prestressed concrete beam, 4-6 girders | span/22 | piers, one row | Ruhrgebiet's Autobahn crossings |
-| 60-150 m | steel or composite box girder, haunched | span/18 at the pier, span/45 mid | tall piers | Wuppertal's valley crossings, Bern's Lorraine |
-| 150-500 m | arch (concrete or steel) or cable-stayed | deck slender, span/60 | one arch, or a pylon per 0.4 span | Kohlbrand, Zurich's Sihlhoch, SF's approaches |
-| > 500 m | suspension | span/100 | two towers, a main cable | the Golden Gate |
-| any, rail | the same, one class heavier: rail loads are 2-3x road | span/16 | more piers | every Berlin S-Bahn viaduct |
+| free span | structure | material | deck depth | what carries it | seen at |
+|---|---|---|---|---|---|
+| < 8 m | Durchlass (culvert) | Beton | L/15 | the fill itself | a stream under a country road |
+| to 25 m | Plattenbruecke | Stahlbeton | L/20 | abutments | every field overpass |
+| to 60 m | Spannbetonbalken | Spannbeton | L/22 | piers every 45 m | the Ruhrgebiet's Autobahn crossings |
+| to 120 m | Hohlkasten (road) / Stahlfachwerk (rail) | Spannbeton / Stahl | L/18, L/12 | piers, or a truss | Wuppertal's valley crossings; every S-Bahn viaduct |
+| to 250 m | Bogenbruecke | Stahlbeton to 150 m, then Stahl | L/55 | one arch with spandrel columns | Bern's Lorraine, the Rhine's arches |
+| to 600 m | Schraegseilbruecke | Stahl-Verbund | L/120 | two pylons a fifth of the span tall, a fan of stays | Normandie, Koehlbrand |
+| beyond | Haengebruecke | Stahl | L/160 | two towers 0.115 L over the deck, a cable sagging L/10, hangers | the Golden Gate |
 
-The material follows the span the same way: concrete below 60 m, composite to 150 m, steel
-above. A `bridge:structure`, `bridge:material` or `man_made=bridge` tag in OSM overrides the
-heuristic where it exists (about 3 % of bridges carry one, measured on taginfo), which is the
-rule everywhere here: the data decides where it speaks, the heuristic where it is silent.
+The material follows the span the same way, and where OSM carries `bridge:structure` or
+`bridge:material` (about 3 % of bridges do, measured on taginfo) the DATA decides and the
+heuristic stays quiet -- the rule everywhere here.
 
 | tunnel | when | portal | what the ground does |
 |---|---|---|---|
 | cut and cover | cover < 6 m, or `tunnel=building_passage` | a retaining wall each side, a lid | the ground is cut open and closed again |
-| bored | cover >= 6 m | a portal head wall in the slope | the ground is untouched above the crown |
+| bored | cover >= 6 m | a portal head wall in the slope | untouched above the crown |
 | gallery / avalanche shed | on a mountain side, one wall open | columns on the valley side | half cut, half built |
 | underpass | a road under a road, `layer=-1` | wing walls | a trough with a wall each side |
 
@@ -202,6 +201,35 @@ numbers a viewer reads a period from at 200 m:
 What a type FORBIDS is checked: no balconies on industry, a hall, a church or a tower; no
 gabled roof on a tower; a storey height inside its band; and no entrance bay on a hall or a
 shed, which have loading doors instead.
+
+## The epochs, and what a viewer names them by
+
+| epoch | storey | bay | window | sill | roofs | elements |
+|---|---|---|---|---|---|---|
+| gothic (< 1550) | 12.0 m | 3.5 | 1.6 x 6.0 | 4.0 | gabled, spire, pyramidal | Strebepfeiler, Spitzbogenfenster, Masswerk, Wasserspeier |
+| baroque (< 1780) | 5.0 | 4.0 | 1.5 x 3.0 | 1.0 | mansard, onion, hipped, dome | Pilaster, Gesims, Segmentbogen, Kartusche |
+| Gruenderzeit (< 1890) | 3.6 | 3.0 | 1.2 x 2.2 | 0.85 | gabled, hipped, mansard | Sockel, Gurtgesims, Fensterverdachung, Erker, Kranzgesims |
+| Jugendstil (< 1919) | 3.5 | 3.4 | 1.3 x 2.4 | 0.8 | mansard, gabled, half-hipped | Erker, Stuckband, geschweifter Giebel |
+| interwar (< 1946) | 3.0 | 3.2 | 1.3 x 1.6 | 0.9 | gabled, hipped, flat | Klinkerband, Fensterbank, Loggia |
+| post-war (< 1975) | 2.8 | 3.4 | 1.5 x 1.4 | 0.95 | gabled, flat, skillion | Waschbeton, Fensterband, Balkonbrueste |
+| late 20th (< 2000) | 2.8 | 3.6 | 1.8 x 1.4 | 0.95 | flat, skillion, hipped | Fensterband, Vordach |
+| contemporary | 3.0 | 4.0 | 2.4 x 2.2 | 0.4 | flat, skillion | Pfosten-Riegel, franzoesischer Balkon, Attika |
+| commercial | 4.2 | 5.0 | 2.6 x 2.4 | 0.9 | flat, barrel, butterfly | Schaufenster, Arkade, Gesims, Attika |
+| industrial | 6.0 | 6.0 | 2.4 x 1.8 | 3.0 | flat, skillion, gabled | Sheddach, Stahlfenster, Rampe, Schornstein |
+| hall | 9.0 | 8.0 | 3.0 x 2.0 | 4.0 | flat, gabled | Schaufenster, Vordach, Werbeband |
+| farm | 3.0 | 4.5 | 1.0 x 1.2 | 1.1 | gabled, half-hipped, gambrel | Tor, Fachwerk, Krueppelwalm |
+| sacral | 9.0 | 4.0 | 1.4 x 4.0 | 3.0 | gabled, pyramidal, dome | Turm, Rosette, Strebepfeiler, Portal |
+| tower (>= 8 levels) | 3.3 | 3.0 | 2.4 x 2.6 | 0.5 | flat | Vorhangfassade, Attika, Sockelgeschoss |
+
+Fourteen ROOF SHAPES, each one function of the distance to the boundary or of the section
+across the long axis: flat, gabled, hipped, half-hipped (Krueppelwalm), gambrel (Mansard),
+pyramidal, spire (Turmhelm), onion (Zwiebelhaube), dome, barrel (Tonnendach), sawtooth
+(Sheddach, the factory's, its glazing facing north), skillion (Pultdach), butterfly
+(Schmetterling), mansard.
+
+A building may carry PARTS -- OSM's `building:part`, Simple 3D Buildings -- each with its own
+height and roof: a church's west tower rises 54 m with a spire while its nave stands at 12 m,
+and without parts a cathedral is one flat block (which is what the first sheet showed).
 
 ## The facade, and the LOD ladder it hangs on
 

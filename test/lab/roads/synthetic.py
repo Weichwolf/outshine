@@ -27,6 +27,7 @@ OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-l
 POSTING_M = 25.0          # the engine's DEM at zoom 12, 49 N (measured: 24.9 m)
 DEM_ERROR_M = 4.0         # [SET] Copernicus GLO-30 LE90 < 4 m
 DECK_TIE = 1e-6           # a deck with no abutment keeps a weak tie to the DEM
+ROAD_FREEBOARD_M = 1.0    # [SET] a causeway's carriageway stands this far above the water
 CLEARANCE_M = 4.5         # [SET] the clearance a bridge owes the water or the road below
 DECK_GRADE = 0.04         # [SET] a deck's own grade, RAA/RAL bridges: the expensive part stays near level
 DECK_STIFF = 10.0         # [SET] a deck resists bending ten times more than the fill beside it -- the lift goes to the ramps
@@ -61,7 +62,7 @@ WARP_M = 20.0             # [SET] RAS-K: a side road's section is warped into th
 class Terrain:
     """z(x, y) sampled on a posting grid, bilinear between postings, like the engine's DEM."""
 
-    def __init__(self, fn, extent=600.0, posting=POSTING_M, water=None, holes=()):
+    def __init__(self, fn, extent=1400.0, posting=POSTING_M, water=None, holes=()):
         self.fn = fn
         self.posting = posting
         self.water = water
@@ -75,6 +76,12 @@ class Terrain:
         """The DEM's answer: bilinear between postings; NaN where a posting is a hole."""
         fx = (x - self.x0) / self.posting
         fy = (y - self.x0) / self.posting
+        # a sample outside the grid is CLAMPED to its edge rather than raising: a 900 m
+        # suspension bridge reaches past a bed sized for a 600 m case, and a bed that dies
+        # there tests nothing (measured: IndexError at the first long span)
+        n = self.grid.shape[0]
+        fx = min(max(fx, 0.0), n - 1.001)
+        fy = min(max(fy, 0.0), n - 1.001)
         i, j = int(math.floor(fx)), int(math.floor(fy))
         tx, ty = fx - i, fy - j
         g = self.grid
@@ -144,6 +151,21 @@ def t_noise(sigma=1.0, seed=7):
     return Terrain(fn)
 
 
+def t_strait(width, depth=55.0, level=60.0):
+    """A strait of a stated width: the water is the obstacle and its banks are where a pier may
+    stand. The bed pairs a span with the width it must cross, because a deck that ENDS inside
+    the obstacle makes its approaches dive into it -- measured -31 % and +41 % before this."""
+    half = width / 2.0
+    return Terrain(lambda x, y: 100.0 - depth * max(0.0, min(1.0, (half + 40.0 - abs(x)) / 40.0)),
+                   water=level, extent=max(1400.0, width * 1.6))
+
+
+def t_gorge(width, depth=90.0):
+    half = width / 2.0
+    return Terrain(lambda x, y: 100.0 - depth * max(0.0, min(1.0, (half + 20.0 - abs(x)) / 20.0)),
+                   extent=max(1400.0, width * 1.8))
+
+
 def t_hole():
     t = t_slope_cross(0.15)
     n = t.grid.shape[0]
@@ -191,6 +213,13 @@ TERRAINS = {
     "T10-mountain": t_mountain,
     "T13-baked": t_baked_bridge,
     "T14-coarse": t_coarse,
+    "T3-cross60": lambda: t_slope_cross(0.60),
+    "T15-lake": lambda: Terrain(lambda x, y: 100.0 - 12.0 * max(0.0, 1.0 - abs(y) / 90.0), water=94.0),
+    "T16-strait": lambda: t_strait(420.0),
+    "T16-strait900": lambda: t_strait(900.0),
+    "T17-gorge": lambda: t_gorge(180.0),
+    "T17-gorge90": lambda: t_gorge(90.0),
+    "T18-channel": lambda: t_strait(140.0, depth=25.0, level=80.0),
 }
 
 
@@ -580,6 +609,52 @@ def r_elevated():
     return net
 
 
+def r_dam():
+    """A road on a dam crest: the terrain is a valley and the road stands on the structure that
+    closes it, so both sides fall away and the earthwork is fill on BOTH sides."""
+    net = Network()
+    net.polyline(line_pts(-300, 0, 300, 0), highway="secondary", width=8.0)
+    return net
+
+
+def p_road_in_building():
+    """A road whose way runs through a building footprint: OSM has plenty, and the building wins
+    the ground while the road keeps its surface -- the case exists so the rule is stated."""
+    net = Network()
+    net.polyline(line_pts(-400, 0, 400, 0), highway="residential", width=7.0)
+    net.building = Polygon([(-20, -12), (20, -12), (20, 12), (-20, 12)])
+    return net
+
+
+def p_road_in_water():
+    """A way over water with neither bridge nor ford: it is drawn as a causeway and COUNTED, so
+    a lake full of roads is visible as a number rather than as a picture."""
+    net = Network()
+    net.polyline(line_pts(-300, 0, 300, 0), highway="residential", width=7.0)
+    return net
+
+
+def p_hole_at_node():
+    net = Network()
+    net.polyline(line_pts(-300, 0, 300, 0), highway="primary", width=10.0)
+    return net
+
+
+def r_span(length, width=12.0, rail=False, gap=340.0):
+    """A crossing of a stated span: the type follows from the number, which is the point."""
+    net = Network()
+    left = [net.node(*p) for p in line_pts(-gap - 300, 0, -length / 2 - 20, 0)]
+    deck = [net.node(*p) for p in line_pts(-length / 2, 0, length / 2, 0, step=max(20.0, length / 12))]
+    right = [net.node(*p) for p in line_pts(length / 2 + 20, 0, gap + 300, 0)]
+    tags = {"highway": "primary", "width": width}
+    if rail:
+        tags = {"highway": "primary", "width": width, "railway": "rail"}
+    net.way(left + [deck[0]], **tags)
+    net.way(deck, bridge="yes", layer=1, **tags)
+    net.way([deck[-1]] + right, **tags)
+    return net
+
+
 def r_tile_seam():
     """A way crossing a tile border at x = 0: the bed builds it whole and in two halves and
     compares the vertices where they meet (I8)."""
@@ -626,6 +701,18 @@ NETWORKS = {
     "R14-track": r_track,
     "R27-elevated": r_elevated,
     "R17-seam": r_tile_seam,
+    "R13-parking": r_parking,
+    "R26-dam": r_dam,
+    # the deck overshoots its obstacle by 60 m each side, so its ABUTMENTS stand on the flat --
+    # a deck that ends mid-slope makes its approaches dive into the gap (measured -31 %, +41 %)
+    "R28-arch": lambda: r_span(300.0),
+    "R29-stayed": lambda: r_span(540.0, width=16.0, gap=500.0),
+    "R30-suspension": lambda: r_span(1020.0, width=18.0, gap=900.0),
+    "R31-railtruss": lambda: r_span(210.0, width=9.0, rail=True),
+    "R32-culvert": lambda: r_span(6.0, width=7.0, gap=120.0),
+    "P8-inbuilding": p_road_in_building,
+    "P9-inwater": p_road_in_water,
+    "P10-holeatnode": p_hole_at_node,
 }
 
 
@@ -646,6 +733,7 @@ class Map:
         self.stations = {w["id"]: self._stations(w) for w in net.ways}
         self.z = None
         self.ramp_signs = {}
+        self.causeway = np.zeros(len(self.index), dtype=bool)
         self.slope = {}
         self.junctions = {}
 
@@ -792,6 +880,19 @@ class Map:
         curve, so the nodes bound it; a crossing between two deck nodes is caught by the node
         on either side (the checks sample the profile along the deck)."""
         floors = {}
+        # a road that crosses WATER without spanning or fording it is a CAUSEWAY: it stands on
+        # fill a freeboard above the surface. Measured before this rule: a coast road and a
+        # bridge's approaches over a lake sat under the water, which is a road nobody can drive.
+        if self.terrain.water is not None:
+            for w in self.net.ways:
+                if self.net.spans(w) or self.net.bores(w) or w["tags"].get("ford") == "yes":
+                    continue
+                for r in w["refs"]:
+                    x, y = self.net.nodes[r]
+                    if self.terrain.truth(x, y) < self.terrain.water:
+                        k = self.index[r]
+                        floors[k] = max(floors.get(k, -1e9), self.terrain.water + ROAD_FREEBOARD_M)
+                        self.causeway[k] = True
         for w in self.net.ways:
             if not self.net.spans(w):
                 continue
@@ -1604,25 +1705,156 @@ def check_mesh(map_, st):
 # ------------------------------------------------------------------- the structure's own type
 
 PIER_SPAN_M = 45.0        # [SET] the economical span of a prestressed concrete beam, 25-60 m
-def spans_of(total_m):
-    """How a deck of this length is divided, and what the division makes it. CASES.md's table:
-    under 8 m a culvert, to 25 m a slab, to 60 m a beam, to 150 m a box girder, to 500 m an arch
-    or cable-stayed, beyond that a suspension bridge. A single 280 m span would be the last of
-    those and 14 m deep; four spans of 70 m is what actually stands over a valley like this."""
-    if total_m <= 25.0:
-        return 1, total_m, "Platte", total_m / 20.0
-    fields = max(1, int(round(total_m / PIER_SPAN_M)))
-    span = total_m / fields
-    if span <= 25.0:
-        return fields, span, "Platte", span / 20.0
-    if span <= 60.0:
-        return fields, span, "Spannbetonbalken", span / 22.0
-    if span <= 150.0:
-        return fields, span, "Hohlkasten", span / 18.0
-    return fields, span, "Bogen", span / 60.0
 
 
-# ----------------------------------------------------------------------------- earthworks
+def free_span_of(xs, deck_z, ground_z, water=None, deep_m=25.0):
+    """The width a bridge must span WITHOUT a pier. A pier stands on ground it can be founded
+    on; it cannot stand in a shipping channel, and founding one grows expensive as the valley
+    deepens. So the obstacle is the widest run where the deck stands more than `deep_m` above
+    the ground, or over water -- and THAT, not the deck's total length, decides the type. A
+    900 m deck over a 240 m gorge is twenty beam spans with piers on the slopes; the same deck
+    over a 900 m strait is a suspension bridge, and the difference is the obstacle."""
+    hard = np.zeros(len(xs), dtype=bool)
+    for k, x in enumerate(xs):
+        if water is not None and ground_z[k] <= water + 0.01:
+            hard[k] = True
+        elif deck_z[k] - ground_z[k] > deep_m:
+            hard[k] = True
+    best, run, start = 0.0, 0.0, None
+    edges = []
+    for k in range(len(xs)):
+        if hard[k]:
+            if start is None:
+                start = xs[k]
+            run = xs[k] - start
+            if run > best:
+                best = run
+                edges = [start, xs[k]]
+        else:
+            start = None
+            run = 0.0
+    return float(best), edges
+
+
+def bridge_type(total_m, rail=False, free_m=None):
+    """WHAT a bridge IS -- CASES.md's table, and the numbers are the standard span ranges
+    (Leonhardt, *Bruecken*; the Eurocode's ranges; FHWA's inventory by type). A rail bridge is
+    one class heavier because its loads are two to three times a road's. The FREE SPAN decides,
+    not the length: what a viewer reads is the depth under the deck, the rhythm of the piers,
+    and whether an arch, a pylon or a main cable stands there at all.
+
+    Returns (fields, span, name, deck depth, material, carrier)."""
+    factor = 0.65 if rail else 1.0
+    free = total_m if free_m is None else max(free_m, 0.0)
+    if total_m <= 8.0:
+        return 1, total_m, "Durchlass", max(0.3, total_m / 15.0), "Beton", "none"
+    if free <= 25.0 and total_m <= 25.0:
+        return 1, total_m, "Plattenbruecke", total_m / 20.0, "Stahlbeton", "abutments"
+    if free <= 60.0 * factor:
+        fields = max(1, int(round(total_m / (PIER_SPAN_M * factor))))
+        span = total_m / fields
+        name, mat = ("Plattenbruecke", "Stahlbeton") if span <= 25.0 else ("Spannbetonbalken", "Spannbeton")
+        return fields, span, name, span / (20.0 if span <= 25.0 else 22.0), mat, "piers"
+    if free <= 120.0:
+        if rail:
+            return 1, free, "Stahlfachwerk", free / 12.0, "Stahl", "truss"
+        return 1, free, "Hohlkasten", free / 18.0, "Spannbeton", "piers"
+    if free <= 250.0:
+        return 1, free, "Bogenbruecke", free / 55.0, "Stahl" if free > 150 else "Stahlbeton", "arch"
+    if free <= 600.0:
+        # a stayed deck is slender because the stays carry it: Normandie 856 m, deck 3.0 m
+        return 1, free, "Schraegseilbruecke", free / 120.0, "Stahl-Verbund", "stays"
+    # a suspension deck is slenderer still: Golden Gate 1280 m span, 7.6 m truss = L/168
+    return 1, free, "Haengebruecke", free / 160.0, "Stahl", "suspension"
+
+
+def draw_bridge_elevation(ax, xs, deck_z, ground_z, ink, rail=False, water=None):
+    """The bridge as a STRUCTURE in the longitudinal section, drawn the way its type stands.
+    A slab on piers, an arch with its spandrel columns, a fan of stays from a pylon, or a main
+    cable with its hangers -- these are what a viewer names a bridge by, and a generator that
+    draws every span as a beam builds a world where every crossing looks the same."""
+    total = float(xs.max() - xs.min())
+    free, edges = free_span_of(xs, deck_z, ground_z, water)
+    fields, span, name, depth, material, carrier = bridge_type(total, rail=rail, free_m=free)
+    x0, x1 = float(xs.min()), float(xs.max())
+    # where a pier may NOT stand: the obstacle's own width
+    forbid = (edges[0], edges[1]) if edges else (x1, x0)
+    ax.plot(xs, deck_z, color=ink, lw=2.4)
+    ax.plot(xs, deck_z - depth, color=ink, lw=1.0)
+    floor = float(np.min(ground_z))
+
+    def at(x):
+        return float(np.interp(x, xs, deck_z))
+
+    def under(x):
+        return float(np.interp(x, xs, ground_z))
+
+    if carrier in ("piers", "abutments", "truss"):
+        for k in range(1, fields):
+            x = x0 + total * k / fields
+            if forbid[0] < x < forbid[1]:
+                continue                        # no pier in the channel
+            ax.plot([x, x], [at(x) - depth, under(x)], color=ink, lw=1.6)
+            ax.plot([x - depth * 0.35, x + depth * 0.35], [under(x), under(x)], color=ink, lw=1.2)
+        if carrier == "truss":
+            # a steel truss: the diagonals a rail bridge shows
+            for k in range(fields):
+                a, b = x0 + total * k / fields, x0 + total * (k + 1) / fields
+                for u in np.linspace(0, 1, 9)[:-1]:
+                    p = a + (b - a) * u
+                    q = a + (b - a) * (u + 1 / 8)
+                    hi, lo = at(p), at(q) - depth
+                    ax.plot([p, q], [hi, lo], color=ink, lw=0.7)
+                    ax.plot([p, q], [at(p) - depth, at(q)], color=ink, lw=0.7)
+    elif carrier == "arch":
+        for k in range(1):
+            a, b = forbid[0], forbid[1]
+            rise = (at(0.5 * (a + b)) - max(floor, under(0.5 * (a + b)))) * 0.72
+            base = at(0.5 * (a + b)) - depth - rise
+            xa = np.linspace(a, b, 80)
+            arch = base + rise * (1.0 - ((xa - 0.5 * (a + b)) / (0.5 * (b - a))) ** 2)
+            ax.plot(xa, arch, color=ink, lw=2.0)
+            ax.plot(xa, arch - depth * 0.6, color=ink, lw=0.9)
+            for u in np.linspace(0.12, 0.88, 7):
+                x = a + (b - a) * u
+                z = base + rise * (1.0 - ((x - 0.5 * (a + b)) / (0.5 * (b - a))) ** 2)
+                ax.plot([x, x], [z, at(x) - depth], color=ink, lw=0.8)
+            ax.plot([a, a], [base, under(a)], color=ink, lw=1.6)
+            ax.plot([b, b], [base, under(b)], color=ink, lw=1.6)
+    elif carrier == "stays":
+        for x in (forbid[0], forbid[1]):
+            top = at(x) + span * 0.20        # [SET] a stayed pylon stands about a fifth of its span
+            ax.plot([x, x], [under(x), top], color=ink, lw=2.0)
+            for u in np.linspace(0.08, 0.46, 8):
+                for side in (-1, +1):
+                    xx = x + side * span * u
+                    if x0 <= xx <= x1:
+                        ax.plot([x, xx], [top, at(xx)], color=ink, lw=0.6)
+            ax.plot([x - depth * 0.5, x + depth * 0.5], [under(x), under(x)], color=ink, lw=1.4)
+    elif carrier == "suspension":
+        towers = [forbid[0], forbid[1]]
+        # [SET] Golden Gate: towers 152 m over a 1280 m span (0.119), cable sag about a tenth
+        top = max(at(t) for t in towers) + span * 0.115
+        sag = span * 0.10
+        for tx in towers:
+            ax.plot([tx, tx], [under(tx), top], color=ink, lw=2.4)
+        mid = 0.5 * (towers[0] + towers[1])
+        xa = np.linspace(towers[0], towers[1], 120)
+        cable = top - sag * (1.0 - ((xa - mid) / (0.5 * (towers[1] - towers[0]))) ** 2)
+        ax.plot(xa, cable, color=ink, lw=1.6)
+        for u in np.linspace(0.04, 0.96, 22):
+            x = towers[0] + (towers[1] - towers[0]) * u
+            z = top - sag * (1.0 - ((x - mid) / (0.5 * (towers[1] - towers[0]))) ** 2)
+            ax.plot([x, x], [z, at(x)], color=ink, lw=0.5)
+        for side, tx in ((-1, towers[0]), (+1, towers[1])):
+            end = x0 if side < 0 else x1
+            ax.plot([tx, end], [top, at(end)], color=ink, lw=1.4)
+    if water is not None:
+        ax.axhline(water, color="0.35", lw=0.9, ls="-.")
+    return fields, span, name, depth, material, carrier
+
+
+# ----------------------------------------------------------------------------- earthworks# ----------------------------------------------------------------------------- earthworks
 
 class Earthworks:
     """The second half of the construction order: how the GROUND is made to carry the road.
@@ -1747,7 +1979,18 @@ def check_c1(map_):
 def check_dem_band(map_):
     """I3: where the DEM is the authority, |z - dem| within its error -- not on a deck, not in
     a bore, not on a bridge's approach, which is a designed ramp (I11 builds its fill)."""
-    held = ~(map_.deck | map_.bore | map_.approaches())
+    # a CAUSEWAY is a structure like a ramp: its fill over the water is not a deviation from the
+    # DEM but the reason it is drivable at all, so it and its own APPROACHES leave the band and
+    # carry their fill as a number instead (measured 9.00 m on a coast road before this)
+    near_causeway = np.zeros(len(map_.index), dtype=bool)
+    if map_.causeway.any():
+        wet = {r for r in map_.net.nodes if map_.causeway[map_.index[r]]}
+        for w in map_.net.ways:
+            if not (set(w["refs"]) & wet):
+                continue
+            for r in w["refs"]:
+                near_causeway[map_.index[r]] = True
+    held = ~(map_.deck | map_.bore | map_.approaches() | map_.causeway | near_causeway)
     return float(np.max(np.abs(map_.z - map_.dem)[held])) if held.any() else 0.0
 
 
@@ -1768,12 +2011,44 @@ def check_bridge(map_):
     return {"clearance_m": lowest, "abutment_below_m": below, "abutment_fill_m": fill, "ramp_m": map_.ramp_m()}
 
 
+def check_water(map_):
+    """Water is a SURFACE with a level, and a road meets it in one of four ways: a bridge over
+    it, a ford through it, a causeway on fill above it, or a mistake. The count is what a
+    scenario reads; the rule is the type table's."""
+    water = map_.terrain.water
+    if water is None:
+        return None
+    over, under, spans, fords = 0, 0, 0, 0
+    for w in map_.net.ways:
+        for k, r in enumerate(w["refs"]):
+            x, y = map_.net.nodes[r]
+            if map_.terrain.truth(x, y) >= water:
+                continue
+            if map_.net.spans(w):
+                spans += 1
+            elif w["tags"].get("ford") == "yes":
+                fords += 1
+            elif map_.z[map_.index[r]] >= water:
+                over += 1                      # a causeway: fill above the surface
+            else:
+                under += 1                     # drowned, and that is the finding
+    fill = float(np.max((map_.z - map_.dem)[map_.causeway])) if map_.causeway.any() else 0.0
+    return {"deck": spans, "ford": fords, "causeway": over, "drowned": under,
+            "causeway_fill_m": fill}
+
+
 def check_finite(map_):
     """P: every height and grade finite, and no deck thrown farther than the DEM's error where
     it has no abutment (it keeps the weak tie and is COUNTED, never at -19 m)."""
     finite = bool(np.all(np.isfinite(map_.z)))
     grades = np.concatenate([np.abs(m) for m in map_.slope.values()]) if map_.slope else np.zeros(1)
-    return {"finite": finite, "grade_max": float(np.max(grades)), "deck_off_dem_max": float(np.max(np.abs(map_.z - map_.dem)[map_.deck])) if map_.deck.any() else 0.0, "ramp_grade_max": ramp_grade(map_)}
+    # a deck stands as far above the ground as its obstacle is deep -- 90 m over a gorge is
+    # right -- so the fault is a deck UNDER the ground, or one thrown clean out of the world
+    below = float(np.max((map_.dem - map_.z)[map_.deck])) if map_.deck.any() else 0.0
+    above = float(np.max((map_.z - map_.dem)[map_.deck])) if map_.deck.any() else 0.0
+    return {"finite": finite, "grade_max": float(np.max(grades)),
+            "deck_below_dem_m": below, "deck_above_dem_m": above,
+            "ramp_grade_max": ramp_grade(map_)}
 
 
 def ramp_grade(map_):
@@ -1864,6 +2139,11 @@ CASES = [
     ("R1-straight", "T9-coast"), ("R1-straight", "T10-mountain"), ("R2-curve30", "T10-mountain"),
     ("R18-bridge", "T13-baked"), ("R1-straight", "T14-coarse"), ("R4-T90", "T14-coarse"),
     ("R2-hairpin", "T10-mountain"), ("R22-embankment", "T1-flat"), ("R23-cutting", "T4-crest"),
+    ("R1-straight", "T3-cross60"), ("R4-T90", "T3-cross60"), ("R26-dam", "T5-sag"),
+    ("R13-parking", "T3-cross15"), ("P8-inbuilding", "T1-flat"), ("P9-inwater", "T15-lake"),
+    ("P10-holeatnode", "T12-hole"), ("R27-elevated", "T3-cross15"), ("R18-bridge", "T15-lake"),
+    ("R28-arch", "T17-gorge"), ("R29-stayed", "T16-strait"), ("R30-suspension", "T16-strait900"),
+    ("R31-railtruss", "T17-gorge90"), ("R32-culvert", "T5-sag"), ("R19-viaduct", "T8-valley"),
     ("R14-steps", "T10-mountain"), ("R14-track", "T3-cross30"), ("R27-elevated", "T1-flat"),
     ("R17-seam", "T4-crest"), ("R17-seam", "T6-terraces"), ("R1-straight", "T3-cross30"), ("R4-T90", "T5-sag"),
 ]
@@ -1936,6 +2216,7 @@ def run(case, number=0):
         "I4 over road m": check_over_road(m, st),
         "I5 tunnel": check_tunnel(m),
         "P finite": check_finite(m),
+        "water": check_water(m),
         "I7/I9 mesh": check_mesh(m, st),
         "I11 earthworks": check_earthworks(m, st),
         "I8 seam": (seam_sweep(terrain, NETWORKS[rname]) if rname == "R17-seam" else None),
@@ -1969,12 +2250,17 @@ def run(case, number=0):
     earth = verdict["I11 earthworks"]
     if earth.get("rows", 0) > 0 and earth["unreached"] > 0:
         red.append("I11")
+    wet = verdict["water"]
+    if wet is not None and wet["drowned"] > 0 and case[0] not in ("R25-ford", "P9-inwater"):
+        red.append("drowned")
     mesh = verdict["I7/I9 mesh"]
     if mesh["edges_over_two_faces"] > 0 or mesh["nearest_pair_m"] < WELD_M:
         red.append("I7")
     if mesh["drawn_vs_analytic_m"] > 0.01:
         red.append("I9")
-    if not verdict["P finite"]["finite"] or verdict["P finite"]["grade_max"] > 1.0 or verdict["P finite"]["deck_off_dem_max"] > 60.0:
+    told = verdict["P finite"]
+    if (not told["finite"] or told["grade_max"] > 1.0 or told["deck_below_dem_m"] > 1.0
+            or told["deck_above_dem_m"] > 400.0):
         red.append("P")
     plot(case, m, st, number)
     return verdict, red
@@ -1990,7 +2276,13 @@ def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
     axis_z = st.own_surface(way, station, 0.0)
     span = m.stations[way["id"]][-1]
     if m.net.spans(way):
-        fields, field_m, what, depth = spans_of(span)
+        xs_s = np.linspace(0, span, 120)
+        lw_s = m.map.centreline(way) if hasattr(m, "map") else m.centreline(way)
+        deck_s = np.array([m.profile(way, float(v))[0] for v in xs_s])
+        gnd_s = np.array([m.terrain.filled(*lw_s.interpolate(float(v)).coords[0]) for v in xs_s])
+        free_s, _ = free_span_of(xs_s, deck_s, gnd_s, m.terrain.water)
+        fields, field_m, what, depth, material, carrier = bridge_type(
+            span, rail=way["tags"].get("railway") is not None, free_m=free_s)
         depth = max(0.6, depth)
         axq.plot(offs, gnd, color="0.5", lw=1.0)
         axq.add_patch(Rectangle((-half, axis_z - depth), 2 * half, depth,
@@ -2000,9 +2292,26 @@ def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
             for r in np.linspace(0, 1.1, 6):
                 axq.plot([side * half - 0.15, side * half + 0.15], [axis_z + r, axis_z + r],
                          color=ink, lw=0.4)
-        pier = min(2.0, half * 0.5)
-        axq.add_patch(Rectangle((-pier / 2, gnd.min()), pier, axis_z - depth - gnd.min(),
-                                facecolor="0.9", edgecolor=ink, lw=1.0, hatch="..."))
+        if carrier in ("piers", "abutments"):
+            pier = min(2.0, half * 0.5)
+            axq.add_patch(Rectangle((-pier / 2, gnd.min()), pier, axis_z - depth - gnd.min(),
+                                    facecolor="0.9", edgecolor=ink, lw=1.0, hatch="..."))
+        elif carrier == "arch":
+            axq.add_patch(Rectangle((-half * 0.55, axis_z - depth - 1.2), half * 1.1, 1.2,
+                                    facecolor="0.8", edgecolor=ink, lw=1.2))
+        elif carrier == "stays":
+            axq.plot([0, 0], [axis_z, axis_z + max(8.0, span * 0.06)], color=ink, lw=2.4)
+            for side in (-1, +1):
+                axq.plot([0, side * half], [axis_z + max(8.0, span * 0.06), axis_z], color=ink, lw=0.7)
+        elif carrier == "suspension":
+            # a suspension deck hangs from VERTICAL hangers off two cables at the deck's edges
+            for side in (-1, +1):
+                axq.plot([side * half, side * half], [axis_z, axis_z + max(10.0, span * 0.03)],
+                         color=ink, lw=0.8)
+            axq.plot([-half, half], [axis_z + max(10.0, span * 0.03)] * 2, color=ink, lw=1.4)
+        elif carrier == "truss":
+            for u in np.linspace(-half, half, 9)[:-1]:
+                axq.plot([u, u + 2 * half / 8], [axis_z, axis_z - depth], color=ink, lw=0.6)
         water = m.terrain.water
         floor = water if water is not None else float(np.interp(0.0, offs, gnd))
         if water is not None:
@@ -2011,7 +2320,7 @@ def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
                      arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.8))
         axq.text(half * 0.7, (axis_z - depth + floor) / 2, f"LR {axis_z - depth - floor:.2f} m",
                  fontsize=6.5, color=ink, rotation=90, va="center")
-        axq.set_title(f"UEBERBAU Sta {station:.0f}   {what}  d {depth:.2f} m  "
+        axq.set_title(f"UEBERBAU Sta {station:.0f}   {what} ({material})  d {depth:.2f} m  "
                       f"{fields} x {field_m:.0f} m", fontsize=8, loc="left")
     else:
         crown = axis_z + 5.0
@@ -2245,16 +2554,12 @@ def plot(case, m, st, number=0):
             ax.annotate("", xy=(xs_route.min(), grad.mean()), xytext=(xs_route.max(), grad.mean()),
                         arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.8))
             if m.net.spans(w):
-                fields, field_m, what, depth = spans_of(sw[-1])
-                ax.annotate(f"{what}, {fields} x {field_m:.0f} m, d = {depth:.2f} m",
+                fields, field_m, what, depth, material, carrier = draw_bridge_elevation(
+                    ax, xs_route, grad, np.minimum(dem, truth), ink,
+                    rail=w["tags"].get("railway") is not None, water=m.terrain.water)
+                ax.annotate(f"{what} ({material}), {fields} x {field_m:.0f} m, d = {depth:.2f} m",
                             (xs_route.mean(), grad.mean()), fontsize=6.5, color="0.3",
                             ha="center", xytext=(0, -38), textcoords="offset points")
-                for k in range(1, fields):
-                    x = xs_route.min() + (xs_route.max() - xs_route.min()) * k / fields
-                    z = float(np.interp(x, xs_route, grad))
-                    floor = float(np.interp(x, xs_route, np.minimum(dem, truth)))
-                    ax.plot([x, x], [z - depth, floor], color=ink, lw=1.4)
-                ax.plot(xs_route, grad - depth, color=ink, lw=0.9)
             else:
                 ax.annotate(f"L = {sw[-1]:.0f} m", (xs_route.mean(), grad.mean()), fontsize=6.5,
                             color="0.3", ha="center", xytext=(0, -38), textcoords="offset points")
