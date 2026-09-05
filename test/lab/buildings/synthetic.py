@@ -21,6 +21,9 @@ import pathlib
 import sys
 
 import numpy as np
+import shapely
+import shapely.geometry.polygon
+import triangle
 from shapely.geometry import Point, Polygon
 from shapely.ops import unary_union
 
@@ -167,10 +170,14 @@ def roof_height_at(poly, x, y, shape, eaves_h, ridge_h, axis=None):
         # Turmhelm: a steep pyramid, the church's own
         return (ridge_h - eaves_h) * d / max(roof_inradius(poly), 1e-6)
     if shape == "onion":
+        # a ZWIEBELHAUBE has three parts and a cone has none of them: the BULB rises almost
+        # vertically off the drum, a long SHOULDER carries it in, and a LANTERN spikes at the
+        # top. A height field cannot hold the bulb's overhang -- the drum's radius is its widest
+        # -- so the flare is spent on the rate instead: steep at the rim, flat through the
+        # shoulder, steep again at the lantern. Drawn as a cone it read as a rocket (seen in B02)
         r = roof_inradius(poly)
         u = min(1.0, d / max(r, 1e-6))
-        bulb = math.sin(u * math.pi * 0.62) * 1.25
-        return (ridge_h - eaves_h) * min(1.0, bulb * (0.45 + 0.55 * u ** 3))
+        return (ridge_h - eaves_h) * (0.60 * math.sin(math.pi / 2 * u ** 0.42) + 0.40 * u ** 7)
     if shape == "butterfly":
         u, v = axis
         across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
@@ -182,7 +189,23 @@ def roof_height_at(poly, x, y, shape, eaves_h, ridge_h, axis=None):
     return 0.0
 
 
+_INRADIUS = {}
+_AXIS_HALF = {}
+
+
 def roof_inradius(poly, tol=1e-4):
+    """MEMOISED on the polygon: the bisection buffers the ring some twenty times, and
+    `roof_height_at` asks for it once PER SAMPLED POINT. On the Koelner Dom that was six
+    hundred thousand buffers of a 535-node ring -- 33 minutes on one building, measured."""
+    held = _INRADIUS.get(id(poly))
+    if held is not None and held[0] is poly:
+        return held[1]
+    got = _roof_inradius(poly, tol)
+    _INRADIUS[id(poly)] = (poly, got)
+    return got
+
+
+def _roof_inradius(poly, tol=1e-4):
     """The largest distance from the boundary to a point inside: the roof's own scale, and the
     height of a hipped apex divided by tan(pitch). It is the largest d for which the inward
     offset is still non-empty, found by bisection -- a grid found it to half a cell and read the
@@ -224,6 +247,12 @@ class Building:
     """Footprint + tags + ground -> a closed body: pad, walls, eaves, roof."""
 
     def __init__(self, poly, tags, ground, cell=1.0):
+        # ORIENTATION IS THIS TREE'S CONVENTION AND NOT THE SOURCE'S: counter-clockwise seen from
+        # outside, holes the other way. An OSM way is wound whichever way the surveyor drew it,
+        # and a clockwise footprint turned the whole body inside out -- every wall's outward
+        # normal pointed in, the volume came out negative, and B-wound went red on the Koelner
+        # Dom. So the winding is normalised HERE, once, the way an importer converts a format
+        poly = shapely.geometry.polygon.orient(poly, 1.0)
         self.poly = poly
         self.tags = tags
         self.ground = ground
@@ -233,6 +262,18 @@ class Building:
         told_height = float(tags.get("height", 0) or 0)
         self.style = Style(tags, poly, self.levels, told_height or self.levels * LEVEL_M)
         self.roof = self.style.roof_for(tags.get("roof:shape"))
+        # a ROOF OF REVOLUTION needs a COMPACT plan. An onion, a dome, a spire and a pyramid are
+        # turned about one axis, so a long nave under one of them is a 34 m onion -- which is
+        # what OSM's `roof:shape=onion` on a whole church way asked for, and what B02 drew. The
+        # tag means the TOWER's roof; the nave takes the period's own pitched roof
+        if self.roof in ("onion", "dome", "spire", "pyramidal"):
+            box = self.poly.minimum_rotated_rectangle
+            side = [Point(box.exterior.coords[i]).distance(Point(box.exterior.coords[i + 1]))
+                    for i in range(4)] if box.geom_type == "Polygon" else [1.0, 1.0]
+            aspect = max(side) / max(min(side), 1e-6)
+            if aspect > 1.7:
+                self.roof = next((r for r in self.style.roofs
+                                  if r not in ("onion", "dome", "spire", "pyramidal")), "gabled")
         self.axis = principal_axis(poly)
         self.roof_h = float(tags.get("roof:height", 0) or 0) or self._roof_height()
         # OSM's rule, and it decides where the eaves stand: `height` is the WHOLE building,
@@ -310,6 +351,18 @@ class Building:
     def _rings(self):
         return [list(self.poly.exterior.coords)[:-1]] + [list(r.coords)[:-1] for r in self.poly.interiors]
 
+    def _dense_ring(self, ring):
+        """ONE densifier for the wall and for the roof's boundary: two different ones put two
+        different vertex sets on the same edge and the body was never closed (measured on the
+        Reichstag, a fifteen-node footprint: 100+ open edges)."""
+        dense = []
+        for a, b in zip(ring, ring[1:] + ring[:1]):
+            steps = max(1, int(math.dist(a, b) / self.cell))
+            for k in range(steps):
+                u = k / steps
+                dense.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
+        return dense
+
     def wall_top(self, x, y):
         """The wall's top is the ROOF's edge above that point, not a constant: a gable end rises
         to the ridge and a skillion's high side to its eaves, and a wall cut at one height leaves
@@ -328,12 +381,7 @@ class Building:
         # walls, every ring, densified so a wall meets the ground's own steps
         for at, ring in enumerate(self._rings()):
             outward = 1 if at == 0 else -1
-            dense = []
-            for a, b in zip(ring, ring[1:] + ring[:1]):
-                steps = max(1, int(math.dist(a, b) / self.cell))
-                for k in range(steps):
-                    u = k / steps
-                    dense.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
+            dense = self._dense_ring(ring)
             for a, b in zip(dense, dense[1:] + dense[:1]):
                 la = self.vertex(a[0], a[1], self.wall_foot(*a))
                 lb = self.vertex(b[0], b[1], self.wall_foot(*b))
@@ -365,13 +413,13 @@ class Building:
         densified there by sampling the distance's own level sets."""
         minx, miny, maxx, maxy = self.poly.bounds
         cell = self.cell
+        # the footprint's boundary is a CONSTRAINT and never a hint: an unconstrained Delaunay
+        # triangulation clipped by a centroid test cuts corners and leaves holes wherever the
+        # shape is narrow (measured: 46 open edges on the Reichstag's real 15-node footprint).
+        # So the rings go in as SEGMENTS and Shewchuk's constrained Delaunay keeps every one of
+        # them, which makes the roof closed by construction rather than by repair.
+        rings = [self._dense_ring(ring) for ring in self._rings()]
         pts = []
-        for ring in self._rings():
-            for a, b in zip(ring, ring[1:] + ring[:1]):
-                steps = max(1, int(math.dist(a, b) / cell))
-                for k in range(steps):
-                    u = k / steps
-                    pts.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
         # the roof's RIDGE is where the distance function's gradient turns, and a grid misses it
         # (measured: a 12 x 8 house read 0.28 m short of its apex). The level sets of the
         # distance function are the polygon's inward offsets, so the offsets ARE the ridge lines:
@@ -423,16 +471,38 @@ class Building:
             for y in np.arange(miny + cell / 2, maxy, cell):
                 if self.poly.contains(Point(x, y)):
                     pts.append((float(x), float(y)))
-        pts = np.array(pts)
-        if len(pts) < 3:
+        if pts:
+            import shapely
+            probe = shapely.points(np.asarray(pts, dtype=float))
+            keep = shapely.distance(probe, self.poly.boundary) > 1e-6
+            pts = [p for p, k in zip(pts, keep) if k]
+        verts, segs, seen = [], [], {}
+
+        def put(p):
+            key = (round(p[0], 6), round(p[1], 6))
+            if key not in seen:
+                seen[key] = len(verts)
+                verts.append([float(p[0]), float(p[1])])
+            return seen[key]
+
+        for ring in rings:
+            ids = [put(p) for p in ring]
+            segs += [[ids[i], ids[(i + 1) % len(ids)]] for i in range(len(ids))
+                     if ids[i] != ids[(i + 1) % len(ids)]]
+        for p in pts:
+            put(p)
+        if len(verts) < 3 or not segs:
             return
-        from scipy.spatial import Delaunay
-        tri = Delaunay(pts)
-        for simplex in tri.simplices:
+        job = {"vertices": np.array(verts), "segments": np.array(segs)}
+        holes = [list(Polygon(r).representative_point().coords)[0] for r in self.poly.interiors]
+        if holes:
+            job["holes"] = np.array(holes)
+        # 'p' is the planar straight-line graph; no 'q' and no 'a', so Triangle inserts NO point
+        # of its own and the vertex set is exactly the one the roof's height field was sampled on
+        out = triangle.triangulate(job, "p")
+        pts = out["vertices"]
+        for simplex in out["triangles"]:
             a, b, c = pts[simplex]
-            cx, cy = (a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3
-            if not self.poly.contains(Point(cx, cy)):
-                continue
             ids = []
             for px, py in (a, b, c):
                 z = self.eaves + roof_height_at(self.poly, px, py, self.roof, self.eaves, self.ridge, self.axis)
@@ -587,21 +657,34 @@ def classify(tags, poly, levels, height_m):
     kind = (tags.get("building") or "yes").lower()
     area = poly.area
     slender = math.sqrt(area) if area > 0 else 1.0
-    # 1. the geometry speaks first where it is unambiguous
-    if levels >= 8 or height_m >= 25.0:
-        return kind, "tower"
+    # 1. a NAMED use wins over the geometry where the name is unambiguous: a cathedral is a
+    # cathedral at any height, and Cologne's 157 m read as an office tower (measured)
     if kind in GOTHIC or (kind in SACRAL and (tags.get("building:architecture") == "gothic"
-                                              or _year(tags) and _year(tags) < 1550)):
+                                              or (_year(tags) and _year(tags) < 1550))):
         return kind, "gothic"
     if kind in SACRAL:
         if _year(tags) and 1600 <= _year(tags) < 1780:
             return kind, "baroque"
         return kind, "sacral"
+    # 2. then the geometry, where it is unambiguous. A TOWER IS SLENDER and not merely tall:
+    # the Bundeshaus in Bern is 64 m to its dome over a 62 m wide footprint and came out as a
+    # curtain-walled tower (measured). The test is the ratio a builder uses -- height against
+    # the footprint's own width -- and 2.2 is where a mass stops reading as a block
+    if levels >= 8 or height_m >= 25.0:
+        if height_m >= 2.2 * slender or levels >= 12:
+            return kind, "tower"
+        year_here = _year(tags)
+        if not year_here:
+            return kind, "postwar" if height_m < 40.0 else "late20"
     if kind in FARM:
         return kind, "farm"
-    if kind in HALL or (area > 2000.0 and levels <= 2):
+    # the TAG wins over the area wherever it is specific: a 2 000 m2 shed tagged industrial is
+    # industry and not a shop, and it was drawn with a shopfront across its whole front
+    if kind in INDUSTRIAL:
+        return kind, "industrial"
+    if kind in HALL or (area > 2000.0 and levels <= 2 and kind in ("yes", "commercial", "retail")):
         return kind, "hall"
-    if kind in INDUSTRIAL or (area > 800.0 and levels <= 3 and kind in ("yes", "commercial")):
+    if area > 800.0 and levels <= 3 and kind in ("yes",):
         return kind, "industrial"
     if kind in COMMERCIAL and levels <= 6:
         return kind, "commercial"
@@ -730,7 +813,11 @@ class Facade:
                 mid = (bay + 0.5) * w["bay_m"]
                 for level in range(self.levels()):
                     what = "window"
-                    if level == 0 and w is street and bay == w["bays"] // 2:
+                    if level == 0 and "Schaufenster" in ELEMENTS.get(self.b.style.epoch, ()):
+                        # a SHOPFRONT is the whole ground floor: it replaces the windows there
+                        # rather than standing behind them (they were drawn as crosses on it)
+                        what = "shopfront"
+                    elif level == 0 and w is street and bay == w["bays"] // 2:
                         # a hall and a shed have a LOADING GATE, not a house door: the entrance
                         # a viewer reads on an industrial building is 4 m wide and 4.5 m high
                         what = "gate" if self.b.style.epoch in ("hall", "industrial") else "door"
@@ -755,6 +842,8 @@ class Facade:
             w = c["wall"]
             mid = (c["bay"] + 0.5) * w["bay_m"]
             base = self.b.pad + c["level"] * self.b.style.level_m
+            if c["what"] == "shopfront":
+                continue                      # drawn once per wall, not per bay
             if c["what"] == "gate":
                 one = (w, mid, base + 0.02, GATE_W, GATE_H, "gate")
             elif c["what"] == "door":
@@ -920,6 +1009,12 @@ CASES = [
 
 # ----------------------------------------------------------------------------- the drawing
 
+def vaulted_kind(b):
+    """A nave is one room to its vault: no floor slab is drawn across it."""
+    return (any(k in b.style.kind for k in ("church", "cathedral", "chapel", "basilica"))
+            or b.style.epoch in ("gothic", "sacral"))
+
+
 def draw(case, b, f, number=0):
     """A sheet a builder would recognise: PLAN with the wall poched and dimensioned, two
     ELEVATIONS with the openings and the ground line, and a SECTION through the ridge with the
@@ -979,6 +1074,19 @@ def draw(case, b, f, number=0):
         ax.annotate("", xy=(x1, y1), xytext=(x0, y0), arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
         ax.text((x0 + x1) / 2, (y0 + y1) / 2, text, ha="center", va="bottom" if side == "h" else "center",
                 rotation=0 if side == "h" else 90, fontsize=8, color=ink)
+    # the sheet names a SECTION A-A, so the plan has to say WHERE it is cut and which way it
+    # looks -- a section title with no line in the plan is a drawing that cannot be checked
+    cq = b.poly.centroid
+    v = b.axis[1]
+    reach_a = max(maxx - minx, maxy - miny) * 0.75
+    aa = [(cq.x - v[0] * reach_a, cq.y - v[1] * reach_a), (cq.x + v[0] * reach_a, cq.y + v[1] * reach_a)]
+    ax.plot([aa[0][0], aa[1][0]], [aa[0][1], aa[1][1]], color=ink, lw=1.0, ls=(0, (9, 3, 2, 3)))
+    for (px, py), sgn in ((aa[0], 1), (aa[1], -1)):
+        ax.annotate("", xy=(px + v[0] * sgn * 1.6 - b.axis[0][0] * 0.0,
+                            py + v[1] * sgn * 1.6),
+                    xytext=(px, py), arrowprops=dict(arrowstyle="-|>", color=ink, lw=1.1))
+        ax.text(px - v[0] * sgn * 0.9, py - v[1] * sgn * 0.9, "A", fontsize=9, color=ink,
+                ha="center", va="center", fontweight="bold")
     ax.annotate("N", xy=(maxx + 1.5, maxy + 1.0), xytext=(maxx + 1.5, maxy - 1.5),
                 arrowprops=dict(arrowstyle="-|>", color=ink, lw=1.0), ha="center", fontsize=9, color=ink)
     ax.set_aspect("equal"); ax.set_title("PLAN  ground floor  1:200", fontsize=9, loc="left")
@@ -996,7 +1104,7 @@ def draw(case, b, f, number=0):
         allpts = list(b.poly.exterior.coords) + [c for pp in getattr(b, "parts", [])
                                                  for c in pp.poly.exterior.coords]
         proj = [(px - a00[0]) * d0[0] + (py - a00[1]) * d0[1] for (px, py) in allpts]
-        along = np.linspace(min(proj) - 0.5, max(proj) + 0.5, 200)
+        along = np.linspace(min(proj) - 0.5, max(proj) + 0.5, 140)
         top = [b.wall_top(*f._point(wall, float(s))) for s in along]
         foot = [b.wall_foot(*f._point(wall, float(s))) for s in along]
         gnd = [b.ground.at(*f._point(wall, float(s))) for s in along]
@@ -1010,40 +1118,34 @@ def draw(case, b, f, number=0):
         n = wall["inward"]
         a0 = wall["a"]
         reach = max(b.poly.bounds[2] - b.poly.bounds[0], b.poly.bounds[3] - b.poly.bounds[1]) * 1.5
+        # the line of sight is sampled as one GRID and tested in ONE call: a point-by-point
+        # `contains` on a 535-node ring is six hundred thousand shapely calls per sheet
+        import shapely
+        Sg, Rg = np.meshgrid(np.asarray(along, float), np.linspace(0.0, reach, 40), indexing="ij")
+        QX = a0[0] + d[0] * Sg + n[0] * Rg
+        QY = a0[1] + d[1] * Sg + n[1] * Rg
+        insideq = shapely.contains_xy(b.poly, QX, QY)
         sky = []
-        for s in along:
-            p0 = (a0[0] + d[0] * float(s), a0[1] + d[1] * float(s))
+        for i in range(len(along)):
             best = b.eaves
-            for r in np.linspace(0.0, reach, 160):
-                q = (p0[0] + n[0] * r, p0[1] + n[1] * r)
-                if b.poly.contains(Point(*q)):
-                    best = max(best, b.eaves + roof_height_at(b.poly, q[0], q[1], b.roof,
-                                                              b.eaves, b.ridge, b.axis))
+            for j in np.nonzero(insideq[i])[0]:
+                best = max(best, b.eaves + roof_height_at(b.poly, QX[i, j], QY[i, j], b.roof,
+                                                          b.eaves, b.ridge, b.axis))
             sky.append(best)
         # a PART standing behind this wall rises in the elevation too
         for part in getattr(b, "parts", []):
-            hits = []
-            for s in along:
-                p0 = (a0[0] + d[0] * float(s), a0[1] + d[1] * float(s))
-                seen = False
-                for r in np.linspace(0.0, reach, 120):
-                    if part.poly.contains(Point(p0[0] + n[0] * r, p0[1] + n[1] * r)):
-                        seen = True
-                        break
-                hits.append(seen)
+            insidep = shapely.contains_xy(part.poly, QX, QY)
+            hits = list(insidep.any(axis=1))
             if any(hits):
                 # the part's own ROOF silhouette, from its own roof function -- a flat band
                 # from eaves to ridge turned a spire into a box (seen in B01)
                 crest = []
-                for s in along:
-                    p0 = (a0[0] + d[0] * float(s), a0[1] + d[1] * float(s))
+                for i in range(len(along)):
                     best = np.nan
-                    for r in np.linspace(0.0, reach, 120):
-                        q = (p0[0] + n[0] * r, p0[1] + n[1] * r)
-                        if part.poly.contains(Point(*q)):
-                            z = part.eaves + roof_height_at(part.poly, q[0], q[1], part.roof,
-                                                            part.eaves, part.ridge, part.axis)
-                            best = z if np.isnan(best) else max(best, z)
+                    for j in np.nonzero(insidep[i])[0]:
+                        z = part.eaves + roof_height_at(part.poly, QX[i, j], QY[i, j], part.roof,
+                                                        part.eaves, part.ridge, part.axis)
+                        best = z if np.isnan(best) else max(best, z)
                     crest.append(best)
                 mid = [part.eaves if h else np.nan for h in hits]
                 axe.fill_between(along, mid, crest, facecolor="0.80", edgecolor=ink, lw=1.0)
@@ -1055,10 +1157,28 @@ def draw(case, b, f, number=0):
                              [z, z], color=ink, lw=0.4, alpha=0.5)
         axe.fill_between(along, top, sky, facecolor="0.86", edgecolor="none")
         axe.plot(along, sky, color=ink, lw=1.2)
-        axe.fill_between(along, foot, top, facecolor="0.93", edgecolor=ink, lw=1.2)
-        axe.plot(along, gnd, color=ink, lw=1.4)
-        axe.fill_between(along, min(foot) - 1.2, gnd, facecolor="none", edgecolor="0.55",
-                         hatch="////", lw=0.0)
+        # the ROOF is a roof and not a band: it oversails the wall, its eaves line is where the
+        # covering starts, and its ridge is a line. Without these three an elevation reads as a
+        # parapet with a grey stripe on it (seen in B12)
+        oversail = 0.45 if b.roof != "flat" else 0.0
+        if b.roof != "flat" and b.ridge > b.eaves + 0.05:
+            x0, x1 = float(min(along)), float(max(along))
+            axe.plot([x0 - oversail, x1 + oversail], [b.eaves] * 2, color=ink, lw=1.1)
+            axe.plot([x0 - oversail, x1 + oversail], [b.eaves - 0.22] * 2, color=ink, lw=0.7)
+            crestz = max(sky)
+            flat_at = [s for s, z in zip(along, sky) if z > crestz - 0.02]
+            if len(flat_at) > 3:
+                axe.plot([min(flat_at), max(flat_at)], [crestz] * 2, color=ink, lw=1.4)
+            if b.roof in ("gabled", "hipped", "mansard", "gambrel", "half-hipped", "skillion"):
+                for s in np.linspace(x0, x1, max(6, int((x1 - x0) / 1.6))):
+                    zz = float(np.interp(s, along, sky))
+                    if zz > b.eaves + 0.15:
+                        axe.plot([s, s], [b.eaves + 0.05, zz - 0.05], color="0.62", lw=0.4)
+        axe.fill_between(along, foot, top, facecolor="0.93", edgecolor=ink, lw=1.2, zorder=1)
+        axe.plot(along, gnd, color=ink, lw=1.4, zorder=6)
+        axe.fill_between(along, min(foot) - 1.2, gnd, facecolor="white", edgecolor="0.55",
+                         hatch="////", lw=0.0, zorder=6)
+        el_of = ELEMENTS.get(b.style.epoch, ())
         for (w, mid, up, ww, hh, kind) in f.openings():
             if w is not wall:
                 continue
@@ -1069,30 +1189,140 @@ def draw(case, b, f, number=0):
             if kind in ("window", "balcony-door"):
                 axe.plot([mid, mid], [up, up + hh], color="white", lw=0.6)
                 axe.plot([mid - ww / 2, mid + ww / 2], [up + hh * 0.55] * 2, color="white", lw=0.6)
+            # a REVEAL is what makes a wall read as thick: the opening sits back from the face,
+            # so its head and one jamb carry a shadow. This is the cheapest depth on a facade and
+            # the one every epoch has (0.10 to 0.25 m; [SET] 0.14 m here)
+            reveal = 0.14
+            axe.plot([mid - ww / 2, mid + ww / 2], [up + hh - reveal] * 2, color="0.25", lw=0.7)
+            axe.plot([mid - ww / 2 + reveal] * 2, [up, up + hh], color="0.25", lw=0.7)
+            if kind in ("window", "balcony-door"):
+                axe.add_patch(Rectangle((mid - ww / 2 - 0.09, up - 0.10), ww + 0.18, 0.10,
+                                        facecolor="0.88", edgecolor=ink, lw=0.6))   # Fensterbank
+            head = up + hh
+            if "Spitzbogenfenster" in el_of or "Spitzbogen" in el_of:
+                # a POINTED ARCH is the one thing a viewer reads gothic from, and a rectangle
+                # reads as a warehouse. Two arcs struck from the opposite springing, so the rise
+                # is 0.87 of the span -- the equilateral arch, which is what the period built
+                rise = ww * 0.87
+                for sgn in (-1, 1):
+                    axe.add_patch(matplotlib.patches.Arc((mid + sgn * ww / 2, head), 2 * ww,
+                                                         2 * ww, theta1=60 if sgn < 0 else 90,
+                                                         theta2=90 if sgn < 0 else 120,
+                                                         color=ink, lw=1.0))
+                axe.add_patch(MplPoly(np.array([(mid - ww / 2, head), (mid, head + rise),
+                                                (mid + ww / 2, head)]), closed=True,
+                                      facecolor="0.55", edgecolor="none", zorder=1))
+                if "Masswerk" in el_of and hh > 2.2:                       # tracery
+                    for frac in (-0.34, 0.0, 0.34):
+                        axe.plot([mid + frac * ww] * 2, [up + 0.2, head + rise * 0.35],
+                                 color="white", lw=0.7)
+                    axe.add_patch(matplotlib.patches.Circle((mid, head + rise * 0.45),
+                                                            ww * 0.16, facecolor="none",
+                                                            edgecolor="white", lw=0.7))
+            elif "Segmentbogen" in el_of and kind in ("window", "door", "gate"):
+                axe.add_patch(matplotlib.patches.Wedge((mid, head), ww / 2 + 0.12, 0, 180,
+                                                       width=0.16, facecolor="0.84",
+                                                       edgecolor=ink, lw=0.6))
+            elif "Rundbogen" in el_of or "Portal" in el_of and kind in ("door", "gate"):
+                axe.add_patch(matplotlib.patches.Wedge((mid, head), ww / 2 + 0.14, 0, 180,
+                                                       width=0.18, facecolor="0.84",
+                                                       edgecolor=ink, lw=0.7))
+            if "Fensterverdachung" in el_of and kind == "window":
+                head = up + hh
+                axe.add_patch(Rectangle((mid - ww / 2 - 0.16, head + 0.04), ww + 0.32, 0.16,
+                                        facecolor="0.84", edgecolor=ink, lw=0.7))
+                if up - b.pad < b.style.level_m * 1.8:          # the piano nobile gets a pediment
+                    axe.add_patch(MplPoly(np.array([(mid - ww / 2 - 0.16, head + 0.20),
+                                                    (mid, head + 0.62),
+                                                    (mid + ww / 2 + 0.16, head + 0.20)]),
+                                          closed=True, facecolor="0.86", edgecolor=ink, lw=0.7))
         # --- the epoch's own elements, drawn where the period puts them ---------------------
         el = ELEMENTS.get(b.style.epoch, ())
         top_of_wall = max(top)
         base_of_wall = min(foot)
         if b.style.cornice:
-            axe.add_patch(Rectangle((0, b.eaves - 0.35), wall["length"], 0.35,
-                                    facecolor="0.82", edgecolor=ink, lw=0.9))       # Kranzgesims
+            # a KRANZGESIMS is a PROFILE and not a stripe: a bed mould, a row of dentils, the
+            # corona that throws the shadow, and a cyma above it. Four courses is what makes a
+            # cornice read at 1:200 and it is the single element a viewer reads a period from
+            oversail = 0.55
+            axe.add_patch(Rectangle((-0.10, b.eaves - 0.62), wall["length"] + 0.20, 0.12,
+                                    facecolor="0.88", edgecolor=ink, lw=0.6))       # Bettgesims
+            if b.style.epoch in ("gruenderzeit", "baroque", "commercial"):
+                for x in np.arange(0.0, wall["length"], 0.42):                       # Zahnschnitt
+                    axe.add_patch(Rectangle((x + 0.08, b.eaves - 0.50), 0.22, 0.20,
+                                            facecolor="0.80", edgecolor=ink, lw=0.4))
+            axe.add_patch(Rectangle((-oversail, b.eaves - 0.30), wall["length"] + 2 * oversail,
+                                    0.24, facecolor="0.78", edgecolor=ink, lw=0.9))  # Corona
+            axe.add_patch(Rectangle((-oversail * 0.7, b.eaves - 0.06),
+                                    wall["length"] + 1.4 * oversail, 0.10,
+                                    facecolor="0.86", edgecolor=ink, lw=0.6))        # Sima
         if "Sockel" in el or b.style.epoch in ("gruenderzeit", "baroque", "gothic", "jugendstil"):
-            axe.add_patch(Rectangle((0, b.pad), wall["length"], b.style.level_m * 0.28,
-                                    facecolor="0.86", edgecolor=ink, lw=0.7))       # Sockel
+            hs = b.style.level_m * 0.32
+            axe.add_patch(Rectangle((-0.12, b.pad), wall["length"] + 0.24, hs,
+                                    facecolor="0.86", edgecolor=ink, lw=0.9))        # Sockel
+            for z in np.arange(b.pad + 0.34, b.pad + hs - 0.05, 0.34):               # Bossierung
+                axe.plot([-0.12, wall["length"] + 0.12], [z, z], color="0.55", lw=0.45)
+            axe.add_patch(Rectangle((-0.20, b.pad + hs), wall["length"] + 0.40, 0.14,
+                                    facecolor="0.80", edgecolor=ink, lw=0.7))        # Sockelgesims
         if "Gurtgesims" in el or "Gesims" in el:
             for level in range(1, f.levels()):
                 z = b.pad + level * b.style.level_m
-                axe.plot([0, wall["length"]], [z - 0.12, z - 0.12], color=ink, lw=0.8)
+                axe.add_patch(Rectangle((-0.16, z - 0.24), wall["length"] + 0.32, 0.18,
+                                        facecolor="0.84", edgecolor=ink, lw=0.7))
+                axe.plot([-0.16, wall["length"] + 0.16], [z - 0.30] * 2, color="0.55", lw=0.5)
         if "Pilaster" in el:
             for bay in range(wall["bays"] + 1):
                 x = bay * wall["bay_m"]
-                axe.add_patch(Rectangle((x - 0.18, b.pad), 0.36, b.eaves - b.pad,
-                                        facecolor="none", edgecolor=ink, lw=0.6))
+                w_p = 0.42
+                axe.add_patch(Rectangle((x - w_p / 2, b.pad), w_p, b.eaves - b.pad,
+                                        facecolor="0.90", edgecolor=ink, lw=0.7))    # Schaft
+                axe.add_patch(Rectangle((x - w_p * 0.8, b.pad), w_p * 1.6, 0.34,
+                                        facecolor="0.84", edgecolor=ink, lw=0.7))    # Basis
+                axe.add_patch(Rectangle((x - w_p * 0.85, b.eaves - 1.05), w_p * 1.7, 0.42,
+                                        facecolor="0.82", edgecolor=ink, lw=0.7))    # Kapitell
+                for z in np.arange(b.pad + 0.7, b.eaves - 1.2, 0.55):                # Kannelur
+                    axe.plot([x - w_p * 0.22, x + w_p * 0.22], [z, z], color="0.6", lw=0.3)
         if "Strebepfeiler" in el:
+            # a STREBEPFEILER carries the vault's thrust and is therefore THICKEST AT THE FOOT,
+            # set back in stages, each stage shedding water on a weathering. A plain rectangle is
+            # a pilaster with the wrong name and carries nothing (seen in B01)
+            H = b.eaves - b.pad
             for bay in range(wall["bays"] + 1):
                 x = bay * wall["bay_m"]
-                axe.add_patch(Rectangle((x - 0.5, b.pad), 1.0, (b.eaves - b.pad) * 0.82,
-                                        facecolor="0.88", edgecolor=ink, lw=0.9))
+                for k, (wd, z0, z1) in enumerate(((0.62, 0.00, 0.42), (0.48, 0.42, 0.74),
+                                                  (0.34, 0.74, 0.94))):
+                    axe.add_patch(Rectangle((x - wd, b.pad + H * z0), 2 * wd, H * (z1 - z0),
+                                            facecolor="0.90", edgecolor=ink, lw=0.9, zorder=5))
+                    axe.add_patch(MplPoly(np.array([(x - wd, b.pad + H * z1),
+                                                    (x + wd, b.pad + H * z1),
+                                                    (x + wd * 0.72, b.pad + H * z1 + 0.34),
+                                                    (x - wd * 0.72, b.pad + H * z1 + 0.34)]),
+                                          closed=True, facecolor="0.80", edgecolor=ink,
+                                          lw=0.8, zorder=5))                   # Wasserschlag
+                axe.add_patch(MplPoly(np.array([(x - 0.30, b.pad + H * 0.94),
+                                                (x + 0.30, b.pad + H * 0.94),
+                                                (x, b.pad + H * 0.94 + 1.4)]), closed=True,
+                                      facecolor="0.86", edgecolor=ink, lw=0.8, zorder=5))  # Fiale
+        if "Fachwerk" in el and f.levels() >= 2:
+            # a FACHWERK is a frame and not a texture: a SCHWELLE and a RÄHM close each storey,
+            # a STÄNDER stands on every bay joint, and the corner bays are braced with a STREBE
+            # -- without the brace the frame is a mechanism and the drawing says so
+            for level in range(1, f.levels()):
+                z0 = b.pad + level * b.style.level_m
+                z1 = min(b.eaves, z0 + b.style.level_m)
+                axe.add_patch(Rectangle((0, z0), wall["length"], 0.16,
+                                        facecolor="0.72", edgecolor=ink, lw=0.6))   # Schwelle
+                axe.add_patch(Rectangle((0, z1 - 0.16), wall["length"], 0.16,
+                                        facecolor="0.72", edgecolor=ink, lw=0.6))   # Raehm
+                for bay in range(wall["bays"] + 1):
+                    x = bay * wall["bay_m"]
+                    axe.add_patch(Rectangle((x - 0.09, z0), 0.18, z1 - z0,
+                                            facecolor="0.72", edgecolor=ink, lw=0.6))
+                for bay in (0, wall["bays"] - 1):
+                    x0s = bay * wall["bay_m"]
+                    sgn = 1.0 if bay == 0 else -1.0
+                    axe.plot([x0s + sgn * 0.09, x0s + sgn * (wall["bay_m"] * 0.55)],
+                             [z1 - 0.16, z0 + 0.16], color=ink, lw=1.4)              # Strebe
         if "Schaufenster" in el:
             axe.add_patch(Rectangle((0.6, b.pad + 0.3), wall["length"] - 1.2,
                                     b.style.level_m - 1.1, facecolor="0.45", edgecolor=ink, lw=1.0))
@@ -1106,19 +1336,45 @@ def draw(case, b, f, number=0):
                                                      theta1=0, theta2=180, color=ink, lw=1.0))
         if "Sheddach" in el or b.roof == "sawtooth":
             pass
-        if "Schornstein" in el:
+        if "Schornstein" in el and b.roof in ("flat", "sawtooth", "skillion"):
             axe.add_patch(Rectangle((wall["length"] * 0.78, b.eaves), 1.2,
                                     max(6.0, (b.eaves - b.pad) * 0.5),
                                     facecolor="0.8", edgecolor=ink, lw=1.0))
-        if b.style.epoch in ("gruenderzeit", "jugendstil", "farm", "baroque") and b.roof in (
-                "gabled", "hipped", "mansard", "half-hipped", "gambrel"):
-            # Dachgauben: one per second bay, on the roof's lower slope
+        # a GAUBE stands on a roof SLOPE, and a gable end has none -- drawing one there put two
+        # dormers on the Gruenderzeit block's blind gable, floating at the eaves (seen in B12).
+        # So the wall must face a slope, and the dormer must fit under the ridge with a margin
+        rise = b.ridge - b.eaves
+        gable_ended = b.roof in ("gabled", "gambrel", "half-hipped", "skillion", "sawtooth")
+        faces_slope = (not gable_ended) or abs(wall["dir"][0] * b.axis[0][0]
+                                               + wall["dir"][1] * b.axis[0][1]) > 0.7
+        if (b.style.epoch in ("gruenderzeit", "jugendstil", "farm", "baroque", "interwar")
+                and b.roof in ("gabled", "hipped", "mansard", "half-hipped", "gambrel")
+                and faces_slope and rise > 2.2 and wall["bays"] >= 2):
+            hg = min(1.55, rise * 0.42)
+            zg = b.eaves + rise * 0.18
             for bay in range(0, wall["bays"], 2):
                 x = (bay + 0.5) * wall["bay_m"]
-                z = b.eaves + (b.ridge - b.eaves) * 0.22
-                axe.add_patch(Rectangle((x - 0.7, z), 1.4, 1.5, facecolor="0.9",
+                axe.add_patch(Rectangle((x - 0.72, zg), 1.44, hg, facecolor="0.90",
                                         edgecolor=ink, lw=0.8))
-                axe.plot([x - 0.95, x, x + 0.95], [z + 1.5, z + 2.2, z + 1.5], color=ink, lw=0.8)
+                axe.add_patch(MplPoly(np.array([(x - 1.00, zg + hg), (x, zg + hg + 0.62),
+                                                (x + 1.00, zg + hg)]), closed=True,
+                                      facecolor="0.84", edgecolor=ink, lw=0.8))
+                axe.add_patch(Rectangle((x - 0.42, zg + 0.28), 0.84, hg - 0.55,
+                                        facecolor="0.55", edgecolor=ink, lw=0.5))
+        # a SCHORNSTEIN stands at the RIDGE and not at the eaves: a flue is run up the party wall
+        # a SCHORNSTEIN follows the USE and never the epoch: a baroque CHURCH got two of them on
+        # its nave (seen in B02). What burns something is a dwelling, a farm or a works
+        heated = any(k in b.style.kind for k in ("house", "apartment", "residential", "terrace",
+                                                 "detached", "farm", "barn", "hotel", "yes"))
+        if b.roof != "flat" and heated and faces_slope and b.style.epoch in (
+                "gruenderzeit", "jugendstil", "farm", "interwar", "postwar", "baroque"):
+            for frac in ((0.30, 0.78) if wall["length"] > 14.0 else (0.72,)):
+                x = wall["length"] * frac
+                axe.add_patch(Rectangle((x - 0.42, b.ridge - 0.4), 0.84,
+                                        max(1.3, rise * 0.55) + 0.4,
+                                        facecolor="0.86", edgecolor=ink, lw=0.9))
+                axe.add_patch(Rectangle((x - 0.55, b.ridge + max(1.3, rise * 0.55) - 0.22),
+                                        1.10, 0.22, facecolor="0.78", edgecolor=ink, lw=0.8))
         for (w, mid, base, width, depth) in f.balconies():
             if w is not wall:
                 continue
@@ -1130,9 +1386,22 @@ def draw(case, b, f, number=0):
             z = b.pad + level * b.style.level_m
             axe.plot([-0.6, 0.0], [z, z], color=ink, lw=0.6)
             axe.text(-0.8, z, f"+{level * b.style.level_m:.2f}", ha="right", va="center", fontsize=7, color=ink)
+        # the BAY RHYTHM is the one horizontal dimension an elevation owes: a facade whose only
+        # figures are heights cannot be set out on site
+        zd = min(foot) - 1.6
+        for bay in range(wall["bays"]):
+            x0b, x1b = bay * wall["bay_m"], (bay + 1) * wall["bay_m"]
+            axe.annotate("", xy=(x1b, zd), xytext=(x0b, zd),
+                         arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.55,
+                                         mutation_scale=6))
+            if wall["bays"] <= 8:
+                axe.text((x0b + x1b) / 2, zd + 0.10, f"{wall['bay_m']:.2f}", ha="center",
+                         va="bottom", fontsize=6, color=ink)
+        axe.text(wall["length"] / 2, zd - 0.75, f"{wall['bays']} x {wall['bay_m']:.2f} = "
+                 f"{wall['length']:.2f}", ha="center", va="top", fontsize=7, color=ink)
         axe.set_xlim(-4.0, wall["length"] + 1.0)
         tallest = max([max(sky), max(top)] + [p.ridge for p in getattr(b, "parts", [])])
-        axe.set_ylim(min(foot) - 1.5, tallest + 1.5)
+        axe.set_ylim(min(foot) - 3.4, tallest + 1.5)
         axe.set_aspect("equal"); axe.set_title(label, fontsize=9, loc="left")
         axe.set_xticks([]); axe.set_yticks([])
         for s in axe.spines.values():
@@ -1159,12 +1428,90 @@ def draw(case, b, f, number=0):
              for p, ok in zip(pts, inside)]
     gnd = [b.ground.at(*p) for p in pts]
     footz = [b.wall_foot(*p) for p in pts]
-    ax.fill_between(ss, footz, roofz, facecolor="0.93", edgecolor=ink, lw=1.2)
+    ax.fill_between(ss, footz, roofz, facecolor="0.96", edgecolor=ink, lw=1.2)
+    # a SECTION shows what a saw would meet: two cut walls in poche, a slab per storey with its
+    # thickness, a footing under each wall, and the roof's rafters. A silhouette with dashed
+    # lines in it is an outline drawing and a builder cannot read a single dimension from it
+    wall_t, slab_t, foot_t, foot_w = 0.36, 0.24, 0.55, 0.80        # [SET] m, ordinary masonry
+    on = [s for s, ok in zip(ss, inside) if ok]
+    if on:
+        sL, sR = min(on), max(on)
+        for s0 in (sL, sR - wall_t):
+            here = (c.x + v[0] * (s0 + wall_t / 2), c.y + v[1] * (s0 + wall_t / 2))
+            base = min(b.ground.at(*here), b.pad) - 0.8              # frost depth [SET] 0.8 m
+            ax.add_patch(Rectangle((s0, base), wall_t, b.eaves - base,
+                                   facecolor="0.55", edgecolor=ink, lw=1.0))
+            ax.add_patch(Rectangle((s0 - (foot_w - wall_t) / 2, base - foot_t), foot_w,
+                                   foot_t, facecolor="0.45", edgecolor=ink, lw=1.0))
+        ax.add_patch(Rectangle((sL, b.pad - 0.24), sR - sL, 0.24,
+                               facecolor="0.55", edgecolor=ink, lw=0.9))     # Bodenplatte
+        for level in range(1, f.levels() + 1):
+            z = b.pad + level * b.style.level_m
+            if z > b.eaves + 0.01:
+                break
+            if vaulted_kind(b) and z > b.pad + b.style.level_m * 0.5:
+                continue                       # a nave is one room to the vault, not a stack
+            ax.add_patch(Rectangle((sL, z - slab_t), sR - sL, slab_t,
+                                   facecolor="0.55", edgecolor=ink, lw=0.9))
+        # a CHURCH has no ceiling slab at the eaves; it has a VAULT, and the section is the one
+        # drawing that says which. A pointed barrel for gothic, a segmental one for baroque --
+        # sprung from the springing line at two thirds of the wall, rising to the crown
+        vaulted = any(k in b.style.kind for k in ("church", "cathedral", "chapel", "basilica")) \
+            or b.style.epoch in ("gothic", "sacral")
+        if vaulted and sR - sL > 4.0:
+            span = sR - sL - 2 * wall_t
+            x0v, x1v = sL + wall_t, sR - wall_t
+            spring = b.pad + (b.eaves - b.pad) * 0.58
+            pointed = b.style.epoch in ("gothic", "sacral")
+            # the CROWN cannot stand above the eaves: a vault sits UNDER the roof, and one that
+            # rises through it is a lens floating outside the walls (seen in B01). So the arch is
+            # normalised and scaled to the room it has -- the two-centred equilateral arch for
+            # gothic, a segmental one for the baroque
+            crown = min(b.eaves - 0.55, spring + span * (0.62 if pointed else 0.34))
+            mid_v = 0.5 * (x0v + x1v)
+            R = 2.0                                # half-spans; R = 2 is the equilateral arch
+            topR = math.sqrt(R * R - 1.0)
+
+            def arch(u):
+                u = min(1.0, abs(u))
+                return (math.sqrt(max(0.0, R * R - (u + 1.0) ** 2)) / topR if pointed
+                        else math.sqrt(max(0.0, 1.0 - u * u)))
+
+            xs = np.linspace(x0v, x1v, 121)
+            yv = [spring + (crown - spring) * arch(2.0 * (xx - mid_v) / max(span, 1e-6))
+                  for xx in xs]
+            ax.plot(xs, yv, color=ink, lw=1.3, zorder=3)
+            ax.plot(xs, [vv - 0.30 for vv in yv], color="0.5", lw=0.6, zorder=3)
+            for xk in (x0v, x1v):
+                ax.plot([xk, xk], [spring - 0.6, spring], color=ink, lw=1.2, zorder=3)
+                ax.plot([xk - 0.30, xk + 0.30], [spring, spring], color=ink, lw=1.0, zorder=3)
+            ax.text(mid_v, spring - 1.1, "Kaempfer +%.2f" % (spring - b.pad), ha="center",
+                    va="top", fontsize=6, color="0.35")
+        if b.roof != "flat" and b.ridge > b.eaves + 0.05:
+            for s in np.linspace(sL + 0.4, sR - 0.4, max(4, int((sR - sL) / 1.1))):
+                zr = b.eaves + roof_height_at(b.poly, *(b.poly.centroid.x + b.axis[1][0] * s,
+                                                        b.poly.centroid.y + b.axis[1][1] * s),
+                                              b.roof, b.eaves, b.ridge, b.axis) \
+                    if b.poly.contains(Point(b.poly.centroid.x + b.axis[1][0] * s,
+                                             b.poly.centroid.y + b.axis[1][1] * s)) else b.eaves
+                ax.plot([s, s], [zr - 0.22, zr], color=ink, lw=0.9)      # Sparren
+            ax.plot(ss, [z - 0.22 if not np.isnan(z) else np.nan for z in roofz],
+                    color=ink, lw=0.7)                                   # Schalung
+            ax.plot([sL, sR], [b.eaves, b.eaves], color=ink, lw=0.9)     # Traufe / Fusspfette
+            if b.ridge - b.eaves > 2.6 and not vaulted_kind(b):
+                zk = b.eaves + (b.ridge - b.eaves) * 0.55                   # Kehlbalken
+                spanr = sR - sL
+                for sgn in (-1, 1):
+                    xs_ = (sL + sR) / 2 + sgn * spanr * 0.26
+                    ax.plot([xs_, xs_], [b.eaves, zk], color=ink, lw=1.6)   # Stuhlsaeule
+                ax.plot([(sL + sR) / 2 - spanr * 0.26, (sL + sR) / 2 + spanr * 0.26],
+                        [zk, zk], color=ink, lw=1.6)
+                ax.plot([(sL + sR) / 2, (sL + sR) / 2], [zk, b.ridge], color=ink, lw=1.0)
     ax.plot(ss, gnd, color=ink, lw=1.4)
-    ax.fill_between(ss, min(footz) - 1.2, gnd, facecolor="none", edgecolor="0.55", hatch="////", lw=0.0)
+    ax.fill_between(ss, min(footz) - 1.4, gnd, facecolor="none", edgecolor="0.55", hatch="////", lw=0.0)
     for level in range(f.levels() + 1):
         z = b.pad + level * b.style.level_m
-        ax.plot([-half, half], [z, z], color=ink, lw=0.5, ls=(0, (6, 4)))
+        ax.plot([half, half + 0.3], [z, z], color=ink, lw=0.6)
         ax.text(half + 0.4, z, f"+{level * b.style.level_m:.2f}", ha="left", va="center", fontsize=7, color=ink)
     ax.annotate("", xy=(-half - 1.2, b.pad), xytext=(-half - 1.2, b.ridge),
                 arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
@@ -1187,8 +1534,26 @@ def draw(case, b, f, number=0):
              f"{'/'.join(str(f.counts(k)['triangles']) for k in range(4))}   |   "
              f"Elemente: {', '.join(ELEMENTS.get(b.style.epoch, ('-',)))}",
              fontsize=7.5, color="0.35")
+    # A SHEET HAS A FORMAT AND EVERY DRAWING ON IT HAS A SCALE, and both were wrong: `tight`
+    # let one unclipped label blow the Koelner Dom's sheet out to 22000 px, and every panel was
+    # titled 1:200 whether it held a 12 m house or a 157 m cathedral. The format is fixed, and
+    # the scale is MEASURED off the finished axes and rounded UP to the standard series
+    fig.canvas.draw()
+    series = (20, 50, 100, 200, 500, 1000, 2000, 5000)
+    for axp in fig.axes:
+        label = axp.get_title()
+        if "1:" not in label:
+            continue
+        box = axp.get_window_extent()
+        mm_h = box.height / fig.dpi * 25.4
+        mm_w = box.width / fig.dpi * 25.4
+        y0, y1 = axp.get_ylim()
+        x0, x1 = axp.get_xlim()
+        need = max((y1 - y0) * 1000.0 / max(mm_h, 1e-6), (x1 - x0) * 1000.0 / max(mm_w, 1e-6))
+        pick = next((s for s in series if s >= need), series[-1])
+        axp.set_title(label.split("1:")[0] + f"1:{pick}", fontsize=9, loc="left")
     out = OUT / f"{number:02d}_{case[0]}_{case[1]}_{b.style.kind}_{b.style.epoch}.png"
-    fig.savefig(out, dpi=110, bbox_inches="tight")
+    fig.savefig(out, dpi=110)
     plt.close(fig)
     return out
 

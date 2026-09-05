@@ -21,6 +21,18 @@ mirroring**. A texture is somebody else's photograph of a surface; light and com
 engine's own and are what a viewer reads. The budget is finite, so every millisecond has a place it
 did NOT go, and that list is where it goes.
 
+**THE PICTURE LEAVES THROUGH A CAMERA, NEVER THROUGH A BUFFER.** The default world is GRADED --
+a sensor and an aperture rather than a pinhole, an exposure with a shoulder rather than a clamp, a
+180-degree shutter, a committed palette, grain over the graded image. That is the DEFAULT and not a
+setting, because a raw linear frame is what makes a picture read as a game, and this engine's claim
+is that its picture can be argued with. A LOOK is then a DECLARATION evaluated against the hour and
+the weather the providers already answer -- RAGE's timecycle carrying Unreal's physical camera --
+and the same rule reaches the generators: **mass simple, skin deep.** A baroque church is a box with
+a dome and its whole effect is a layered surface in raking light; a hull covered in greebles is the
+same grammar. So relief depth per facade area and shadow-casting edges per storey are NUMBERS a
+generator owes, and a generator that draws the median of its epoch is what makes a street read as
+generated. `board:2155` holds the carriers and the measurements.
+
 The world is EARTH and the engine is online by definition: a picture can be made of any place on
 it, and what comes out has to be comparable with reality. Elevation always, vector data where a
 scenario asks for it, and the sun, the moon, the stars and the weather standing where the place and
