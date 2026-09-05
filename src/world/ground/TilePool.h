@@ -62,7 +62,8 @@ public:
     long long Outstanding = 0, Parked = 0, ParkedJobs = 0, Held = 0;
     long long MeshDeferred = 0, MeshDropped = 0;
 
-    double FetchMs = 0.0, FetchBlockedMs = 0.0, MeshCpuMs = 0.0;
+    double FetchMs = 0.0, FetchBlockedMs = 0.0, MeshCpuMs = 0.0, FieldCpuMs = 0.0;
+    long long FieldTiles = 0, FieldDropped = 0;
     long FetchOnCompute = 0;
     double FetchedMB = 0.0;
   };

@@ -339,6 +339,11 @@ bool Engine::State::Asks() {
     const Ground::TilePool::Ledger kept = World.Stack.Pool().Counters();
     Published.Places("mesh jobs the pool finished", static_cast<double>(kept.MeshTiles), "tiles");
     Published.Places("mesh jobs it refused", static_cast<double>(kept.MeshRefused), "tiles");
+    Published.Places("field jobs the pool finished", static_cast<double>(kept.FieldTiles), "tiles");
+    Published.Places(
+        "field jobs it dropped and will retry", static_cast<double>(kept.FieldDropped), "jobs");
+    Published.Places("field jobs' worker time", kept.FieldCpuMs, "ms");
+    Published.Places("mesh jobs' worker time", kept.MeshCpuMs, "ms");
     Published.Places(
         "mesh jobs with no tile behind them", static_cast<double>(kept.MeshAbsent), "tiles");
     Published.Places("fetches it ran", static_cast<double>(kept.Fetches), "fetches");

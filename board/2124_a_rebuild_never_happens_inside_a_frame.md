@@ -83,11 +83,23 @@ walks the sheets waiting on each -- deterministic, because a stitched field is a
 of its bytes whichever thread computed it, and the sheets are walked in their declared order.
 
 ```
-                       before     after
-  Kaiserberg haloing   657 ms     18 ms
-  OldTown haloing      700 ms     34 ms
+                       before      after, the first lay     after, fields held
+  Kaiserberg haloing   657 ms      548 ms                   18 ms
+  OldTown haloing      700 ms      543 ms                   34 ms
   the nine digests     unmoved
 ```
+
+**Corrected 2026-09-05.** Commit 2f128d4a claimed 657 -> 18 ms; the 18 ms was a RELAY's
+halo over fields already held, published last because the dropped field jobs (the third
+defect below) forced that relay after the first lay had copied its rims. With the handoff
+repaired the first lay at a place waits on the workers and no relay follows: Kaiserberg 548 ms
+for 300 field jobs that cost 1 009 ms of worker time (3.4 ms a stitch, six workers) behind
+870 raw fetches; OldTown 543 ms, 288 jobs, 950 ms. The field jobs rank after the mesh jobs
+by design -- a mesh makes a tile drawable, a field only stitches its rim -- so the halo's
+wait begins where the last mesh lands. That wait is the preload's, before any frame; a lay
+whose fields are held costs the 18 and 34 ms, and a one-tile move asks only the new edge's
+fields. The ledger publishes the field jobs, their drops and their worker time beside the
+mesh jobs' so the number is a client's to read.
 
 Three pool defects the gate found the same day, each measured before it was touched:
 

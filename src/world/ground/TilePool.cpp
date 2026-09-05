@@ -559,6 +559,9 @@ void TilePool::Work(int slot) {
         Ledger_.MeshTiles++;
         Ledger_.MeshCpuMs += cpuMs;
         if (result.State == Reply::Absent) { Ledger_.MeshAbsent++; }
+      } else if (job.Kind == Rank::Field) {
+        Ledger_.FieldTiles++;
+        Ledger_.FieldCpuMs += cpuMs;
       }
     }
     StackProbe::Mark();
@@ -571,6 +574,7 @@ void TilePool::Work(int slot) {
         {
           const std::scoped_lock ledger(LedgerMutex_);
           if (job.Kind == Rank::Mesh) { Ledger_.MeshDropped++; }
+          if (job.Kind == Rank::Field) { Ledger_.FieldDropped++; }
         }
         Landed_.notify_all();
       }
@@ -763,5 +767,4 @@ bool TilePool::Known(uint64_t key) {
   const std::scoped_lock lock(QueueMutex_);
   return Done_.contains(key) || Posted_.contains(key);
 }
-
 } // namespace outshine::Ground
