@@ -250,6 +250,7 @@ def run(name, number, only=None):
         "I6 junction step m": st.check_junction_steps() if m.junctions else None,
         "I4 bridge": bed.check_bridge(m),
         "I5 tunnel": bed.check_tunnel(m),
+        "I12 clearance residual m": bed.check_clearance_fixpoint(m),
         "P finite": bed.check_finite(m),
     }
     if verdict["I1 C0 m"] > 1e-9:
@@ -260,6 +261,8 @@ def run(name, number, only=None):
         red.append("I3")
     if verdict["I6 junction step m"] is not None and verdict["I6 junction step m"] > bed.STEP_TOL_M:
         red.append("I6")
+    if verdict["I12 clearance residual m"] > bed.CLEARANCE_TOL_M:
+        red.append("I12")
     if not verdict["P finite"]:
         red.append("Pfinite")
     bed.OUT = OUT
@@ -271,7 +274,8 @@ def run(name, number, only=None):
     print(f"{number:02d} {name:20s} {'RED ' + ','.join(red) if red else 'ok':16s} "
           f"ways {kept:4d} (-{dropped:3d})  nodes {len(net.nodes):5d}  bridge {spans:3d}  "
           f"tunnel {bores:3d}  rail {rails:3d}  layers {min(layers)}..{max(layers)}  "
-          f"C0 {verdict['I1 C0 m']:.1e}  band {verdict['I3 |z-dem| m']:5.2f} m   {note}")
+          f"C0 {verdict['I1 C0 m']:.1e}  band {verdict['I3 |z-dem| m']:6.2f} m  "
+          f"fix {getattr(m, 'clearance_rounds', 0):2d}r/{verdict['I12 clearance residual m']:7.4f} m   {note}")
     return red
 
 

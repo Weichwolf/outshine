@@ -35,6 +35,8 @@ COVER_M = 3.0             # [SET] the least rock a tunnel keeps above its crown
 WELD_M = 1e-3
 MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre of the analytic one
 STEP_TOL_M = 1e-3
+CLEARANCE_ROUNDS = 40     # [SET] a bound, not a schedule: the loop stops on its own residual
+CLEARANCE_TOL_M = 1e-4    # a fixed point is reached when a round moves nothing a driver feels
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
 # --- the road builder's own numbers, each with its origin -------------------------------------
 # RAL 2012 (Richtlinien fuer die Anlage von Landstrassen) and RAS-Q; AASHTO's Green Book agrees
@@ -476,6 +478,36 @@ def r_stacked():
     return net
 
 
+def r_ramp_cycle():
+    """A DECK OVER ANOTHER DECK'S RAMP: the case the clearance fixed point cannot be proved on.
+
+    The floors are re-read from the roads below as they now stand, so lifting the lower deck
+    lifts its ramp, which lifts the floor under the upper deck, which lifts the upper deck --
+    and nothing says that loop contracts. `R11-stacked` does not reach it because its three
+    levels share no node and its middle level is a DECK, not a ramp. Here the upper bridge
+    stands over the LOWER BRIDGE'S APPROACH, which is the ordinary shape of every multi-level
+    interchange on the planet (measured 2026-09-06: the real Transfagarasan and Stelvio walk to
+    105 m and 183 m off the DEM over forty rounds and never converge)."""
+    net = Network()
+    # the ground road, west to east, crossed twice
+    net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0)
+    # the LOWER bridge: north-south over the ground road, with long approaches that ramp
+    lo_s = [net.node(*p) for p in line_pts(0, -420, 0, -60)]
+    lo_d = [net.node(*p) for p in line_pts(0, -40, 0, 40)]
+    lo_n = [net.node(*p) for p in line_pts(0, 60, 0, 420)]
+    net.way(lo_s + [lo_d[0]], highway="secondary", width=8.0)
+    net.way(lo_d, highway="secondary", width=8.0, bridge="yes", layer=1)
+    net.way([lo_d[-1]] + lo_n, highway="secondary", width=8.0)
+    # the UPPER bridge: east-west over the lower bridge's SOUTHERN APPROACH, not over its deck
+    up_w = [net.node(*p) for p in line_pts(-460, -200, -70, -200)]
+    up_d = [net.node(*p) for p in line_pts(-50, -200, 50, -200)]
+    up_e = [net.node(*p) for p in line_pts(70, -200, 460, -200)]
+    net.way(up_w + [up_d[0]], highway="secondary", width=8.0)
+    net.way(up_d, highway="secondary", width=8.0, bridge="yes", layer=2)
+    net.way([up_d[-1]] + up_e, highway="secondary", width=8.0)
+    return net
+
+
 def r_cul_de_sac_real():
     net = Network()
     o = net.node(0, 0)
@@ -546,14 +578,21 @@ def p_layer_no_bridge():
     return net
 
 
-def r_serpentine(radius=14.0, legs=4, rise=140.0):
-    """A mountain road's hairpins: legs across the slope joined by turns of the tightest radius."""
+def r_serpentine(radius=14.0, legs=4, rise=140.0, step=25.0):
+    """A mountain road's hairpins: legs across the slope joined by turns of the tightest radius.
+
+    `step` is the NODE SPACING and it is a case of its own, not a drawing detail: at 25 m the
+    nodes fall where the DEM's postings do, and at 4 m they fall where a surveyor puts them on a
+    real pass road. The smoothing weight is calibrated as l^4 with l = 2 postings, so its ratio
+    to the data term goes like (l/ds)^4 -- one at 25 m, ten thousand at 4 m -- and a bed that
+    only ever samples at the posting cannot see it (measured 2026-09-06: 37.4 m off the DEM on
+    the Transfagarasan, whose nodes are metres apart, where every synthetic case was green)."""
     net = Network()
     pts = []
     y = -rise / 2
     for k in range(legs):
         x0, x1 = (-150.0, 150.0) if k % 2 == 0 else (150.0, -150.0)
-        pts += line_pts(x0, y, x1, y, step=25.0)
+        pts += line_pts(x0, y, x1, y, step=step)
         if k < legs - 1:
             cx = x1
             for a in range(1, 7):
@@ -686,6 +725,7 @@ NETWORKS = {
     "R3-scurve": r_s_curve,
     "R6-fork": r_fork,
     "R11-stacked": r_stacked,
+    "R11-rampcycle": r_ramp_cycle,
     "R12-culdesac": r_cul_de_sac_real,
     "R15-widths": r_widths,
     "R16-onewaypair": r_oneway_pair,
@@ -695,6 +735,8 @@ NETWORKS = {
     "R25-ford": r_ford,
     "P7-layer": p_layer_no_bridge,
     "R2-hairpin": r_serpentine,
+    # the SAME road, noded as a surveyor nodes it: the pathology is the SAMPLING and nothing else
+    "R2-hairpin-dense": lambda: r_serpentine(step=4.0),
     "R22-embankment": r_embankment,
     "R23-cutting": r_cutting,
     "R14-steps": r_steps,
@@ -862,11 +904,21 @@ class Map:
             self.ramp_signs = {}
             self._solve_with_clearances(A, b)     # once, to read the ramps' signs
             self.ramp_signs = self._ramp_signs()
-            # and again, twice: the clearance floors are read from the roads BELOW as they now
-            # stand, so a deck over a deck's ramp lifts with it -- a fixed point in two rounds
-            for _ in range(2):
+            # and again: the clearance floors are read from the roads BELOW as they now stand,
+            # so a deck over a deck's ramp lifts with it. TWO ROUNDS WAS AN ASSUMPTION AND IT IS
+            # WRONG ON REAL DATA -- at the Transfagarasan the rounds moved the profile 24.4 m,
+            # then 11.5 m, then 9.1 m and the bed stopped there and called it an answer
+            # (measured 2026-09-06). A fixed point that has not converged is a number nobody may
+            # quote, so it iterates to a tolerance and REPORTS what is left when it stops.
+            self.clearance_rounds, self.clearance_residual_m = 0, 0.0
+            for _ in range(CLEARANCE_ROUNDS):
+                before = self.z.copy()
                 self.constraints = self._clearances(deck)
                 self._solve_with_clearances(A, b)
+                self.clearance_rounds += 1
+                self.clearance_residual_m = float(np.max(np.abs(self.z - before)))
+                if self.clearance_residual_m <= CLEARANCE_TOL_M:
+                    break
         self._slopes()
         self._superelevations()
         self._junctions()
@@ -2186,6 +2238,19 @@ def check_dem_band(map_):
     return float(np.max(np.abs(map_.z - map_.dem)[held])) if held.any() else 0.0
 
 
+def check_clearance_fixpoint(map_):
+    """I12: the clearance loop REACHED its fixed point.
+
+    The floors are re-read from the roads below as they now stand, so the scheme is a
+    SUBSTITUTION and nothing proves it contracts. On a mountain road where a deck stands over
+    another deck's ramp it does not: measured 2026-09-06, forty rounds left 0.44 m at the
+    Transfagarasan and 4.44 m at the Stelvio, and the profile walked to 105 m and 183 m off the
+    DEM while it did. Two fixed rounds hid it -- they stopped before the walk was visible and
+    the bed called the result an answer. A diverged profile is not a worse answer, it is NO
+    answer, and this check is what says so."""
+    return float(getattr(map_, "clearance_residual_m", 0.0))
+
+
 def check_bridge(map_):
     """I4: the deck above the water plus clearance; the abutments on the terrain."""
     if not map_.deck.any():
@@ -2325,12 +2390,12 @@ CASES = [
     ("P1-dupnodes", "T2-along5"), ("P2-zerolen", "T2-along5"), ("P3-gap", "T2-along5"),
     ("P4-dupway", "T2-along5"), ("P5-nolanding", "T8-valley"), ("P6-dense", "T4-crest"),
     ("R3-scurve", "T3-cross15"), ("R6-fork", "T2-along5"), ("R6-fork", "T3-cross15"),
-    ("R11-stacked", "T1-flat"), ("R12-culdesac", "T3-cross15"), ("R15-widths", "T3-cross15"),
+    ("R11-stacked", "T1-flat"), ("R11-rampcycle", "T1-flat"), ("R11-rampcycle", "T3-cross15"), ("R12-culdesac", "T3-cross15"), ("R15-widths", "T3-cross15"),
     ("R16-onewaypair", "T3-cross15"), ("R19-viaduct", "T5-sag"), ("R21-underpass", "T1-flat"),
     ("R24-causeway", "T9-coast"), ("R25-ford", "T8-valley"), ("P7-layer", "T2-along5"),
     ("R1-straight", "T9-coast"), ("R1-straight", "T10-mountain"), ("R2-curve30", "T10-mountain"),
     ("R18-bridge", "T13-baked"), ("R1-straight", "T14-coarse"), ("R4-T90", "T14-coarse"),
-    ("R2-hairpin", "T10-mountain"), ("R22-embankment", "T1-flat"), ("R23-cutting", "T4-crest"),
+    ("R2-hairpin", "T10-mountain"), ("R2-hairpin-dense", "T10-mountain"), ("R22-embankment", "T1-flat"), ("R23-cutting", "T4-crest"),
     ("R1-straight", "T3-cross60"), ("R4-T90", "T3-cross60"), ("R26-dam", "T5-sag"),
     ("R13-parking", "T3-cross15"), ("P8-inbuilding", "T1-flat"), ("P9-inwater", "T15-lake"),
     ("P10-holeatnode", "T12-hole"), ("R27-elevated", "T3-cross15"), ("R18-bridge", "T15-lake"),
@@ -2404,6 +2469,7 @@ def run(case, number=0):
         "I2 C1 grade": check_c1(m),
         "I3 |z-dem| m": check_dem_band(m),
         "I6 junction step m": st.check_junction_steps() if m.junctions else None,
+        "I12 clearance residual m": check_clearance_fixpoint(m),
         "I4 bridge": check_bridge(m),
         "I4 over road m": check_over_road(m, st),
         "I5 tunnel": check_tunnel(m),
@@ -2420,6 +2486,8 @@ def run(case, number=0):
         red.append("I2")
     if verdict["I3 |z-dem| m"] > DEM_ERROR_M:
         red.append("I3")
+    if verdict["I12 clearance residual m"] > CLEARANCE_TOL_M:
+        red.append("I12")
     if verdict["I6 junction step m"] is not None and verdict["I6 junction step m"] > STEP_TOL_M:
         red.append("I6")
     if verdict["I4 bridge"] is not None and (verdict["I4 bridge"]["clearance_m"] < CLEARANCE_M or verdict["I4 bridge"]["abutment_below_m"] > DEM_ERROR_M):
