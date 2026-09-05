@@ -1,6 +1,19 @@
+Type: feature
+State: open
+Area: render, scenario, generators
+Tags: look, camera, declaration
+
 # The default world is graded, and a look is DECLARED
 
-State: open
+**Benchmark** -- Unreal puts the whole chain in POST-PROCESS VOLUMES an author places and blends by
+priority: an ACES tonemapper with local exposure, colour grading with a LUT, film grain, motion
+blur driven by a shutter angle, and a `CineCameraActor` carrying a real sensor size, focal length
+and aperture, so depth of field is computed rather than dialled. RAGE puts it in the TIMECYCLE:
+every visual parameter keyframed against hour of day and weather and interpolated, with a named
+MODIFIER overriding it over a region. Taken: RAGE's STRUCTURE with Unreal's CONTENTS, because this
+engine has no author to place a volume and time, sun and weather are already PROVIDERS -- a look
+that is not a function of them would be a second source for the same fact -- while RAGE's keyframes
+are hand-drawn curves where this tree can afford the physical camera.
 
 A frame that leaves this engine has been through a camera, an exposure and a grade before anybody
 sees it. Not as an option a scenario switches on: the DEFAULT, because a raw linear buffer with a

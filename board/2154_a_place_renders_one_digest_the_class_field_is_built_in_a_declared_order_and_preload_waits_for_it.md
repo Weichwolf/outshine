@@ -46,6 +46,42 @@ colours, exactly where the pixels moved. The next measurement: per run, the rung
 sheet at the shot's frame, digested; a wandering run reads a different digest there or it
 does not, and either answer names the next suspect.
 
+## Measured 2026-09-05 evening: BOTH written controls are GREEN, and the cause is the VECTOR TILES
+
+The two repairs above were never proved, because both controls were run on a WARM cache. Put
+back one at a time and run ten times each, OldTown reads 372d51ce ten times either way: the
+rank-only stable sort does not bring the wandering back, and neither does `settled()` without
+the class-field wait. A control that passes proves nothing, so both claims are struck.
+
+What DOES bring it back is the one condition the morning had and the evening did not: a run that
+FETCHES. With one cache entry in seven deleted (7 738 -> 6 633, so about 1 100 tiles must come
+over the wire during preload) OldTown reads c803c350 on the fetching run and 372d51ce on the five
+warm runs after it. Every condition that does NOT reproduce it, for the record: a warm cache (10
+runs), a cold cache (the first two runs refuse to preload, the next three read 372d51ce), ten
+busy-loops on the cores (6 runs), and either repair reverted (10 runs each).
+
+The measures of a fetching run against a warm one, timings and heap aside, name it:
+
+| measure | warm | fetching |
+|---|---|---|
+| `generators: vector tiles that settled` | 49 | **9** |
+| `world: the bytes its fields hold` | 37 608 095 | 37 436 819 |
+| `world: of that, the land classes` | 30 673 971 | 30 502 503 |
+| `world: the buildings` / `water` / `streets` | 1 240 208 / 52 880 / 393 872 | 1 240 272 / 52 944 / 393 936 |
+| `class field: the version the colours used` | 3 | 5 |
+
+`ground: the sheets' digest` is IDENTICAL in both, so the lattice's rungs were never the cause and
+the hypothesis above is struck too. The two runs simply stand DIFFERENT WORLDS: nine of the
+forty-nine vector tiles had settled, and the buildings, streets and water were built from that.
+`Engine::settled()` waited for the terrain tiles, the rims, the stack's ingest and the class field
+-- and the class field waits for its OWN two `OsmField` tiers -- but the generators' vector field
+is a THIRD `OsmField` that nothing waited for.
+
+**The repair, one line, the same rule the class field already applies to itself**: `settled()`
+also requires `Stack.Vectors()->PendingTiles() == 0`. Measured with one entry in seven deleted
+again: four fetching runs read 372d51ce. **The negative control is RED**: the condition removed
+and the cache thinned, the fetching run reads c803c350.
+
 ## The solution
 
 - preload is settled only when the class field is complete and the ground was laid at that
@@ -53,16 +89,22 @@ does not, and either answer names the next suspect.
 - the builder's job is a snapshot of the landed tiles in DECLARED order (tile id), and a
   landing after the job was taken marks it stale so that one more build follows -- the
   `Stale` flag's hole, if the version-4 digest differs, is here
-- a case: OldTown rendered N times through the client reads one digest; its negative control
-  is the stable sort by rank alone, which reads two
+- a case: OldTown rendered N times through the client reads one digest; its negative control is
+  the vector condition removed WITH A THINNED CACHE, which reads two. A warm run is no control
 
 ## What will be true
 
 - [x] the features paint in a declared order
-- [x] the class structure's digest is the same across every run that says complete (and
-      so the field is not the cause; the pool's rungs at the shot's frame are next)
-- [x] `settled()` waits for the class field complete and the ground laid at its version; the
-      nine references unmoved by it; and `ground: the sheets' digest` folds every number the
-      lattice reads at the shot's frame, so the next wandering run says whether the sheets moved
-- [ ] ten runs of OldTown, Heidelberg and Kaiserberg read one digest each
-- [ ] Negative control: the rank-only stable sort put back reads more than one digest in ten
+- [x] the class structure's digest is the same across every run that says complete
+- [x] `settled()` waits for the class field complete and the ground laid at its version
+- [x] `settled()` waits for the GENERATORS' vector field too, which is what the wandering was
+- [x] ten runs of OldTown, Heidelberg and Kaiserberg read one digest each (372d51ce, b732280b,
+      01849439), and three full runs of all nine places read one digest each
+- [x] Negative control, RED: the vector condition removed and one cache entry in seven deleted,
+      the fetching run reads c803c350 instead of 372d51ce
+- [x] Struck as GREEN and therefore proving nothing: the rank-only stable sort put back (10 runs,
+      one digest) and `settled()` without the class-field wait (10 runs, one digest). Both
+      changes are still right -- the sort is a declared order and the wait is the invariant --
+      but neither is the cause and neither may be quoted as proof
+- [ ] a fetching run is what the gate must exercise: `make shots` on a warm cache cannot see this
+      class of defect at all, so the thinned-cache run belongs in the gate or in a case

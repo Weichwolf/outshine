@@ -130,9 +130,11 @@ const std::vector<Measure> &Engine::measures() const {
 bool Engine::settled() const {
   const std::shared_ptr<const ClassStructure> classes = S_->World.Stack.Classes().Read();
   const uint64_t version = classes ? classes->Version() : 0;
+  const Ground::OsmField *vectors = S_->World.Stack.Vectors();
   return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
          S_->World.RimsMissing == 0 && S_->World.Grown && S_->World.Stack.Ingested() &&
-         S_->World.Stack.Classes().Complete() && S_->World.LaidClasses == version;
+         S_->World.Stack.Classes().Complete() && S_->World.LaidClasses == version &&
+         vectors != nullptr && vectors->PendingTiles() == 0;
 }
 
 Result Renderer::render(Extent frame) {
