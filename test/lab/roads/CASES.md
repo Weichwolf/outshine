@@ -102,11 +102,13 @@ of these; the synthetic bed is where each is held in isolation.
 
 ## What stands and what does not, measured 2026-09-05
 
-31 of 33 cases green. The two red ones are the roundabout on flat ground and on a 5 percent
-grade, and the cause is named: the four ring nodes are four SEPARATE junctions whose regions
-overlap, so ten edges carry three faces. netconvert JOINS nodes closer than a threshold into
-one junction (`--junctions.join`, `NBNodeCluster`) and a roundabout is its textbook case; the
-map has no joining yet. That is the next slice, and until it lands the bed says so.
+All 33 cases green. The roundabout took three rules, each with its measurement: netconvert
+JOINS junction nodes into clusters (`--junctions.join`, `NBNodeCluster`) and a ring tagged
+`junction=roundabout` is one junction WHOLE, its two-legged nodes included -- leaving them out
+made the ring its own leg four times and read 8.75 cm of step; a cluster's shape is the hull
+of its members' node shapes, so their regions cannot overlap (ten edges carried three faces
+before); and a roundabout's drivable surface is an ANNULUS, not the hull's disc, because the
+island is not carriageway -- the disc's crown fell 0.375 m to a centre 15 m from the ring.
 
 ## What the bed does for each case
 

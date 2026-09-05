@@ -36,6 +36,7 @@ MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre o
 STEP_TOL_M = 1e-3
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
 GRADE_OF = {"primary": 0.06, "secondary": 0.08, "residential": 0.12, "service": 0.15}  # [SET] RAL 2012 EKL 3 / EKL 4, RASt 06
+JOIN_M = 10.0             # [SET] netconvert's --junctions.join default: nodes nearer than this are one junction
 WARP_M = 20.0             # [SET] RAS-K: a side road's section is warped into the through road's surface over its last ~20 m
 
 
@@ -654,6 +655,51 @@ class Map:
                     out.append((w, k, -1))
         return out
 
+    def _clusters(self):
+        """netconvert JOINS junction nodes that stand closer than a threshold into ONE junction
+        (`--junctions.join`, `NBNodeCluster`, default 10 m): a roundabout, a dual carriageway's
+        two halves and a staggered crossing are one place to a driver and one surface to a mesh.
+        Without it four ring nodes were four junctions whose regions overlapped and ten edges
+        carried three faces (measured). Two nodes join when they are within kJoinM AND a way
+        runs directly between them -- distance alone would join two crossings either side of a
+        narrow block."""
+        nodes = [nid for nid in self.net.nodes if len(self.legs_at(nid)) >= 3]
+        # a roundabout's WHOLE ring is the junction, its two-legged nodes included: leaving them
+        # out made the ring its own leg four times over and read 8.75 cm of step (measured)
+        for w in self.net.ways:
+            if w["tags"].get("junction") == "roundabout":
+                nodes += [r for r in w["refs"] if r not in nodes]
+        parent = {nid: nid for nid in nodes}
+
+        def find(a):
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+
+        def join(a, b):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        for w in self.net.ways:
+            refs = w["refs"]
+            s = self.stations[w["id"]]
+            # a ROUNDABOUT is one junction however long its ring: netconvert guesses it
+            # (--roundabouts.guess) or reads junction=roundabout, and joins the whole ring
+            if w["tags"].get("junction") == "roundabout":
+                ring = [r for r in refs if r in parent]
+                for r in ring[1:]:
+                    join(ring[0], r)
+            for k in range(len(refs) - 1):
+                a, b = refs[k], refs[k + 1]
+                if a in parent and b in parent and (s[k + 1] - s[k]) <= JOIN_M:
+                    join(a, b)
+        groups = {}
+        for nid in nodes:
+            groups.setdefault(find(nid), []).append(nid)
+        return groups
+
     def _junctions(self):
         """A node with three or more legs is a junction: ONE plane through the node, taken from
         its MAJOR way (highest priority, then the first declared): z = z0 + gx dx + gy dy where
@@ -661,10 +707,20 @@ class Map:
         profile ends on it: its tangent at the node is the plane's derivative along the leg.
         Unreal's spline meshes have no such rule and RAGE's junctions are authored; the rule is
         RAS-K's and AASHTO's: the through road keeps its section, the side road warps to it."""
-        for nid in self.net.nodes:
-            legs = self.legs_at(nid)
-            if len(legs) < 3:
+        self.clusters = self._clusters()
+        self.cluster_of = {nid: head for head, members in self.clusters.items() for nid in members}
+        for head, members in self.clusters.items():
+            legs = []
+            inner = set(members)
+            for nid in members:
+                for (w, k, sgn) in self.legs_at(nid):
+                    # a leg that runs to another node of the same cluster is INSIDE it
+                    if w["refs"][k + sgn] in inner:
+                        continue
+                    legs.append((w, k, sgn))
+            if not legs:
                 continue
+            nid = head
             major = max(legs, key=lambda l: (l[0]["tags"]["priority"], -l[0]["id"]))
             w, k, sgn = major
             d = self._direction(w, k, sgn)
@@ -672,7 +728,8 @@ class Map:
             # the plane: along the major its grade, across it the crown falls both ways -- taken
             # as the major's centreline plane (the crown is the section's, applied by the structure)
             gx, gy = grade * d[0], grade * d[1]
-            self.junctions[nid] = {"z0": self.z[self.index[nid]], "gx": gx, "gy": gy, "major": w["id"], "legs": legs}
+            self.junctions[nid] = {"z0": self.z[self.index[nid]], "gx": gx, "gy": gy,
+                                   "major": w["id"], "legs": legs, "members": members}
             for (lw, lk, lsgn) in legs:
                 ld = self._direction(lw, lk, lsgn)
                 self.slope[lw["id"]][lk] = (gx * ld[0] + gy * ld[1]) * lsgn
@@ -723,46 +780,75 @@ class Structure:
         self.cuts = {}   # (way id, node id) -> the station where the leg is cut back
         self._junction_polygons()
 
+    def _member_polygon(self, nid, legs):
+        """One node's shape, netconvert's NBNodeShapeComputer: the legs by bearing, a corner where
+        one leg's left edge meets the next leg's right edge, clipped to a reach."""
+        x0, y0 = self.net.nodes[nid]
+        ordered = []
+        for (w, k, sgn) in legs:
+            d = self.map._direction(w, k, sgn)
+            ordered.append((math.atan2(d[1], d[0]), w, k, sgn, d, w["tags"]["width"] / 2.0))
+        ordered.sort(key=lambda l: l[0])
+        if len(ordered) < 2:
+            half = ordered[0][5] if ordered else 1.0
+            return Point(x0, y0).buffer(half, quad_segs=8)
+        reach = max(l[5] for l in ordered) * 3.0
+        corners = []
+        for a in range(len(ordered)):
+            _, wa, ka, sa, da, ha = ordered[a]
+            _, wb, kb, sb, db, hb = ordered[(a + 1) % len(ordered)]
+            na, nb = (-da[1], da[0]), (-db[1], db[0])
+            pa = (x0 + na[0] * ha, y0 + na[1] * ha)
+            pb = (x0 - nb[0] * hb, y0 - nb[1] * hb)
+            cross = da[0] * db[1] - da[1] * db[0]
+            if abs(cross) < 1e-9:
+                corner = pa
+            else:
+                rx, ry = pb[0] - pa[0], pb[1] - pa[1]
+                tt = (rx * db[1] - ry * db[0]) / cross
+                corner = (pa[0] + da[0] * tt, pa[1] + da[1] * tt)
+            dist = math.dist(corner, (x0, y0))
+            if dist > reach:
+                corner = (x0 + (corner[0] - x0) * reach / dist, y0 + (corner[1] - y0) * reach / dist)
+            corners.append(corner)
+        return Polygon(corners) if len(corners) >= 3 else Point(x0, y0).buffer(reach / 3.0, quad_segs=8)
+
     def _junction_polygons(self):
-        """netconvert's node shape (NBNodeShapeComputer, the readable baseline): the legs sorted
-        by bearing, and between each consecutive pair the corner where this leg's left edge
-        line meets the next leg's right edge line; parallel edges (a road passing through)
-        meet at the edge's own start. A corner farther out than the reach is clipped to it. Each
-        leg is cut back to the farther of its two corners, measured along the leg."""
-        for nid, j in self.map.junctions.items():
-            x0, y0 = self.net.nodes[nid]
-            legs = []
+        """A junction's shape is the CONVEX HULL of its members' node shapes -- one node for an
+        ordinary crossing, the whole ring for a roundabout -- and every leg is cut back to where
+        its ray from its OWN node leaves that hull. A cluster whose members each kept their own
+        shape had regions that overlapped, and ten edges carried three faces (measured)."""
+        for head, j in self.map.junctions.items():
+            members = j["members"]
+            by_node = {}
             for (w, k, sgn) in j["legs"]:
-                d = self.map._direction(w, k, sgn)
-                legs.append((math.atan2(d[1], d[0]), w, k, sgn, d, w["tags"]["width"] / 2.0))
-            legs.sort(key=lambda l: l[0])
-            reach = max(l[5] for l in legs) * 3.0
-            corners = []
-            cuts = {}
-            for a in range(len(legs)):
-                _, wa, ka, sa, da, ha = legs[a]
-                _, wb, kb, sb, db, hb = legs[(a + 1) % len(legs)]
-                na = (-da[1], da[0])
-                nb = (-db[1], db[0])
-                pa = (x0 + na[0] * ha, y0 + na[1] * ha)      # leg a's LEFT edge starts here
-                pb = (x0 - nb[0] * hb, y0 - nb[1] * hb)      # leg b's RIGHT edge starts here
-                cross = da[0] * db[1] - da[1] * db[0]
-                if abs(cross) < 1e-9:
-                    corner = pa if len(legs) > 2 else pa
-                else:
-                    # pa + da*t = pb + db*u
-                    rx, ry = pb[0] - pa[0], pb[1] - pa[1]
-                    tt = (rx * db[1] - ry * db[0]) / cross
-                    corner = (pa[0] + da[0] * tt, pa[1] + da[1] * tt)
-                dist = math.dist(corner, (x0, y0))
-                if dist > reach:
-                    corner = (x0 + (corner[0] - x0) * reach / dist, y0 + (corner[1] - y0) * reach / dist)
-                corners.append(corner)
-                for (w, k, sgn, d) in ((wa, ka, sa, da), (wb, kb, sb, db)):
-                    along = (corner[0] - x0) * d[0] + (corner[1] - y0) * d[1]
-                    cuts[(w["id"], nid)] = max(cuts.get((w["id"], nid), 0.0), along)
-            self.polygons[nid] = Polygon(corners)
-            self.cuts.update(cuts)
+                by_node.setdefault(w["refs"][k], []).append((w, k, sgn))
+            shapes = [self._member_polygon(nid, by_node.get(nid, self.map.legs_at(nid))) for nid in members]
+            rings = [w for w in self.net.ways if w["tags"].get("junction") == "roundabout"
+                     and set(w["refs"]) & set(members)]
+            if rings:
+                # a ROUNDABOUT's drivable surface is an ANNULUS, not a disc: the island in the
+                # middle is not carriageway, and a convex hull over the ring made the junction's
+                # crown fall 0.375 m to a centre 15 m from the ring (measured 2.8 cm at the legs)
+                poly = unary_union(shapes + [self.map.centreline(w).buffer(w["tags"]["width"] / 2.0,
+                                                                          quad_segs=16) for w in rings])
+            else:
+                poly = unary_union(shapes).convex_hull
+            self.polygons[head] = poly
+            for nid in members:
+                for (w, k, sgn) in self.map.legs_at(nid):
+                    x0, y0 = self.net.nodes[nid]
+                    d = self.map._direction(w, k, sgn)
+                    far = 4.0 * max(math.dist((x0, y0), self.net.nodes[m]) for m in members) + 200.0
+                    ray = LineString([(x0, y0), (x0 + d[0] * far, y0 + d[1] * far)])
+                    hit = ray.intersection(poly.exterior)
+                    cut = 0.0
+                    if not hit.is_empty:
+                        pts = [hit] if hit.geom_type == "Point" else [p for p in getattr(hit, "geoms", [])]
+                        if pts:
+                            cut = max(Point(x0, y0).distance(p) for p in pts)
+                    key = (w["id"], nid)
+                    self.cuts[key] = max(self.cuts.get(key, 0.0), cut)
 
     def own_surface(self, way, station, offset):
         """A leg's own surface: the profile plus a crown that falls CROSSFALL from the centreline."""
@@ -781,16 +867,17 @@ class Structure:
         # the signed offset is not needed for a symmetric crown; the distance is
         return self.own_surface(way, s, p.distance(q))
 
-    def leg_surface(self, way, station, offset, nid=None, sgn=+1):
+    def leg_surface(self, way, station, offset, at=None, sgn=+1):
         """A leg's surface within WARP_M of a junction it is a MINOR leg of is warped from its
         own section into the major's surface at the same (x, y): alpha rises smoothly from 0 at
         the warp's start to 1 at the cut, so at the cut the two are one surface (I6 by
         construction) and the leg's centreline stays C1 through the warp."""
         z_own = self.own_surface(way, station, offset)
-        if nid is None or self.map.junctions[nid]["major"] == way["id"]:
+        head = self.map.cluster_of.get(at) if at is not None else None
+        if head is None or self.map.junctions[head]["major"] == way["id"]:
             return z_own
-        cut = self.cuts[(way["id"], nid)]
-        k = way["refs"].index(nid)
+        cut = self.cuts[(way["id"], at)]
+        k = way["refs"].index(at)
         s_node = self.map.stations[way["id"]][k]
         along = sgn * (station - s_node)          # distance from the node along the leg
         u = (along - cut) / WARP_M                # 0 at the cut, 1 at the warp's start
@@ -798,24 +885,25 @@ class Structure:
             return z_own
         alpha = 1.0 - (3 * u * u - 2 * u * u * u) if u > 0.0 else 1.0
         d = self.map._direction(way, k, sgn)
-        x0, y0 = self.net.nodes[nid]
+        x0, y0 = self.net.nodes[at]
         px, py = x0 + d[0] * along - d[1] * offset, y0 + d[1] * along + d[0] * offset
-        return (1.0 - alpha) * z_own + alpha * self.major_surface(nid, px, py)
+        return (1.0 - alpha) * z_own + alpha * self.major_surface(head, px, py)
 
     def check_junction_steps(self):
-        """I6: along each leg's cut line, the leg's surface against the plane, worst gap."""
+        """I6: along each leg's cut line, the leg's surface against the junction's, worst gap."""
         worst = 0.0
         for nid, j in self.map.junctions.items():
             for (w, k, sgn) in j["legs"]:
-                cut = self.cuts[(w["id"], nid)]
+                at = w["refs"][k]
+                cut = self.cuts[(w["id"], at)]
                 s_node = self.map.stations[w["id"]][k]
                 station = s_node + sgn * cut
                 d = self.map._direction(w, k, sgn)
-                x0, y0 = self.net.nodes[nid]
+                x0, y0 = self.net.nodes[at]
                 half = w["tags"]["width"] / 2.0
                 for t in np.linspace(-half, half, 9):
                     px, py = x0 + d[0] * cut - d[1] * t, y0 + d[1] * cut + d[0] * t
-                    leg = self.leg_surface(w, station, t, nid, sgn)
+                    leg = self.leg_surface(w, station, t, at, sgn)
                     junction = self.major_surface(nid, px, py)
                     worst = max(worst, abs(leg - junction))
         return worst
@@ -872,9 +960,10 @@ class Mesh:
         for (w, k, sgn) in j["legs"]:
             if w["id"] == j["major"]:
                 continue
-            cut = self.st.cuts[(w["id"], nid)]
+            at = w["refs"][k]
+            cut = self.st.cuts[(w["id"], at)]
             d = self.map._direction(w, k, sgn)
-            x0, y0 = self.net.nodes[nid]
+            x0, y0 = self.net.nodes[at]
             half = w["tags"]["width"] / 2.0
             nx, ny = -d[1], d[0]
             a0 = (x0 + d[0] * cut, y0 + d[1] * cut)
@@ -884,6 +973,8 @@ class Mesh:
         return unary_union(pieces)
 
     def drawn_spans(self, way):
+        if way["tags"].get("junction") == "roundabout":
+            return []
         """The stretches of a way drawn as a RIBBON: its whole length minus, around every
         junction node it touches, the stretch the junction's region covers -- the node polygon's
         cut, and a minor leg's warp band on top of it. A way that passes THROUGH a junction is
@@ -894,7 +985,10 @@ class Mesh:
             cut = self.st.cuts.get((way["id"], r))
             if cut is None:
                 continue
-            band = 0.0 if w_is_major(way, self.map.junctions[r]) else WARP_M
+            head = self.map.cluster_of.get(r)
+            if head is None:
+                continue
+            band = 0.0 if w_is_major(way, self.map.junctions[head]) else WARP_M
             holes.append((s[k] - cut - band, s[k] + cut + band))
         spans = []
         at = 0.0
@@ -956,7 +1050,7 @@ class Mesh:
         # are one surface at the cut
         nid, sgn = None, +1
         for k, r in enumerate(way["refs"]):
-            if r in self.map.junctions:
+            if r in self.map.cluster_of:
                 s_node = self.map.stations[way["id"]][k]
                 if abs(station - s_node) < WARP_M * 2:
                     nid = r
@@ -1025,14 +1119,15 @@ class Mesh:
             if w_is_major(w, j):
                 continue
             d = self.map._direction(w, k, sgn)
-            x0, y0 = self.net.nodes[nid]
+            at = w["refs"][k]
+            x0, y0 = self.net.nodes[at]
             along = (x - x0) * d[0] + (y - y0) * d[1]
             off = -(x - x0) * d[1] + (y - y0) * d[0]
-            cut = self.st.cuts[(w["id"], nid)]
+            cut = self.st.cuts[(w["id"], at)]
             if along < cut - 1e-9 or along > cut + WARP_M + 1e-9 or abs(off) > w["tags"]["width"] / 2.0 + 1e-9:
                 continue
             s_node = self.map.stations[w["id"]][k]
-            return self.st.leg_surface(w, s_node + sgn * along, off, nid, sgn)
+            return self.st.leg_surface(w, s_node + sgn * along, off, at, sgn)
         return self.st.major_surface(nid, x, y)
 
     def _junctions(self):
