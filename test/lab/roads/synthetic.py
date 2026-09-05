@@ -1842,8 +1842,60 @@ CASES = [
     ("R18-bridge", "T13-baked"), ("R1-straight", "T14-coarse"), ("R4-T90", "T14-coarse"),
     ("R2-hairpin", "T10-mountain"), ("R22-embankment", "T1-flat"), ("R23-cutting", "T4-crest"),
     ("R14-steps", "T10-mountain"), ("R14-track", "T3-cross30"), ("R27-elevated", "T1-flat"),
-    ("R17-seam", "T3-cross15"), ("R1-straight", "T3-cross30"), ("R4-T90", "T5-sag"),
+    ("R17-seam", "T4-crest"), ("R17-seam", "T6-terraces"), ("R1-straight", "T3-cross30"), ("R4-T90", "T5-sag"),
 ]
+
+
+def check_seam(terrain, net_maker, border_x=0.0, halo_m=60.0):
+    """I8: a way crossing a tile border reads IDENTICAL vertices from both tiles. The bed builds
+    the map once for the whole network and once per tile with a HALO of neighbouring nodes, and
+    compares the node heights and the mesh vertices within a metre of the border. Cesium's
+    quantized-mesh and Unreal's Landscape both solve this by making the seam's data shared
+    rather than recomputed; the halo is what makes a per-tile solve give the shared answer."""
+    whole = Map(terrain, net_maker()).solve()
+    left, right = {}, {}
+    for side, keep in ((left, lambda x: x <= border_x + halo_m), (right, lambda x: x >= border_x - halo_m)):
+        net = net_maker()
+        drop = {nid for nid, (x, y) in net.nodes.items() if not keep(x)}
+        for w in net.ways:
+            w["refs"] = [r for r in w["refs"] if r not in drop]
+        net.ways = [w for w in net.ways if len(w["refs"]) >= 2]
+        net.nodes = {nid: p for nid, p in net.nodes.items() if nid not in drop}
+        if not net.ways:
+            return {"nodes": 0, "worst_m": 0.0}
+        part = Map(terrain, net).solve()
+        for nid in part.net.nodes:
+            side[nid] = part.z[part.index[nid]]
+    worst = 0.0
+    against_whole = 0.0
+    shared = 0
+    for nid, zl in left.items():
+        if nid not in right:
+            continue
+        x, _ = whole.net.nodes.get(nid, (1e9, 0))
+        if abs(x - border_x) > 20.0:
+            continue
+        shared += 1
+        worst = max(worst, abs(zl - right[nid]))
+        against_whole = max(against_whole, abs(zl - whole.z[whole.index[nid]]))
+    return {"nodes": shared, "worst_m": worst, "vs_whole_m": against_whole}
+
+
+def seam_sweep(terrain, net_maker):
+    """How wide a HALO a tile needs so that its own solve is the whole's. The fit couples nodes
+    over the smoothing length l = 2 DEM postings (50 m here), and its influence decays like
+    exp(-d/l), so the halo is a MULTIPLE of l and the sweep says which. This is the number the
+    streamer needs: a tile that fetches less than this cannot produce the shared answer, and no
+    amount of welding afterwards repairs it."""
+    out = {}
+    for halo in (0.0, 25.0, 50.0, 100.0, 200.0):
+        got = check_seam(terrain, net_maker, halo_m=halo)
+        out[f"halo {halo:.0f} m"] = got["vs_whole_m"]
+    got = check_seam(terrain, net_maker, halo_m=200.0)
+    out["nodes"] = got["nodes"]
+    out["worst_m"] = got["worst_m"]
+    out["vs_whole_m"] = got["vs_whole_m"]
+    return out
 
 
 def run(case):
@@ -1863,6 +1915,7 @@ def run(case):
         "P finite": check_finite(m),
         "I7/I9 mesh": check_mesh(m, st),
         "I11 earthworks": check_earthworks(m, st),
+        "I8 seam": (seam_sweep(terrain, NETWORKS[rname]) if rname == "R17-seam" else None),
     }
     red = []
     if verdict["I1 C0 m"] > 1e-9:
@@ -1879,6 +1932,17 @@ def run(case):
         red.append("I5")
     if verdict["I4 over road m"] is not None and verdict["I4 over road m"] < CLEARANCE_M:
         red.append("I4road")
+    seam = verdict["I8 seam"]
+    if seam is not None:
+        # the seam must stand well inside the DRIVING tolerance, and the halo that buys it is
+        # the number the streamer needs: two smoothing lengths (four DEM postings, 100 m here).
+        # The control is the same tile with no halo, which must be OUTSIDE the tolerance.
+        if seam["nodes"] < 3 or seam["worst_m"] > MESH_TOL_M:
+            red.append("I8")
+        if seam["halo 100 m"] > MESH_TOL_M:
+            red.append("I8 halo")
+        if seam["halo 0 m"] <= MESH_TOL_M:
+            red.append("I8 control green")
     earth = verdict["I11 earthworks"]
     if earth.get("rows", 0) > 0 and earth["unreached"] > 0:
         red.append("I11")
