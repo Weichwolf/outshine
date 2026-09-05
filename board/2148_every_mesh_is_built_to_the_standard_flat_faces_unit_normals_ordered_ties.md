@@ -82,7 +82,9 @@ each measured before it was touched:
       flipped triangle
 - [x] no accumulated normal across a crease in the road mesher; the building mesher never had
       one
-- [ ] near-black at Heidelberg against the reference -- measured in the commit
+- [x] near-black at Heidelberg: 105 pixels under 20/255 against the reference's 164, measured
+      2026-09-05 by pixels.py on Heidelberg-e556bec1 and looked at -- the river bank's shadowed
+      walls, none under open sky
 - [x] every float-keyed sort feeding geometry carries a tiebreak (ByBearing, the corner's
       gate index)
 
