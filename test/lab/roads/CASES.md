@@ -1,5 +1,15 @@
 # The cases a road on this planet has to hold
 
+**What this bed produces is a CONSTRUCTION ORDER.** OSM says where a road runs and what class it
+is; the DEM says what the ground does. Out of the two comes what a civil engineer would draw: an
+ALIGNMENT (the axis in plan, the gradient in profile, the cross-section with its crossfall), and
+the EARTHWORKS that make the ground carry it (cut, fill, batter, wall, portal, abutment). The
+engine then builds exactly that -- the surface a wheel touches and the ground it stands on. So
+every number here is a road builder's number with its table beside it, not a modeller's taste:
+RAL 2012 and RAS-Q for the alignment and the section, AASHTO's Green Book where it agrees, and
+netconvert for what a junction IS. A road that is drawn without them looks like tape on a hill.
+
+
 Every case is a NETWORK (nodes, ways with tags) laid over a TERRAIN (a height function and,
 where it matters, a water level), and the lab's synthetic bed (`synthetic.py`) builds each one,
 solves the map (profile, junction polygons) and the structure (lane and junction surfaces),
@@ -22,6 +32,27 @@ of these; the synthetic bed is where each is held in isolation.
 | I9 | the driving surface (analytic, from the map) and the drawn surface (structure) agree to < 1 cm at every station and lane offset | both | a mesh sampled from the DEM instead of the profile reads decimetres |
 | I10 | determinism: the same case built twice gives identical bytes | both | a hash-map iteration order in the junction builder |
 | I11 | the ground meets the road: the terrain is stamped to the road's edge (cut or fill), the batter reaches the ground, and nothing floats or sinks | structure + ground | a road at the DEM's own height on a cross-slope floats on the downhill side |
+
+## The builder's numbers, and where each comes from
+
+| what | value | origin |
+|---|---|---|
+| design speed by class | 130 / 110 / 100 / 80 / 70 / 50 / 30 km/h | [SET] RAL 2012 EKA/EKL, RASt 06 |
+| longitudinal grade, max | 4 / 6 / 8 / 12 / 15 % by class | [SET] RAA 2008, RAL 2012, RASt 06 |
+| crossfall, normal crown | 2.5 % | [SET] RAS-Q |
+| superelevation, max | 6 % | [SET] RAL 2012 (7 % on a motorway) |
+| side friction | 0.10 at 100 km/h | [SET] RAL 2012 |
+| superelevation from radius | q = v^2 / (127 R) - f | derived, the point-mass balance |
+| rotation rate of the section | 1:200 of the half width per m at v >= 70, 1:100 below | [SET] RAL's Anrampung |
+| crest / sag radius, min | 0.75 v^2 / 0.30 v^2 (m, v in km/h) | derived from RAL's H_K, H_W |
+| kerb upstand | 0.12 m | [SET] RAS-Q, DIN 483 |
+| embankment batter | 1 : 1.5 | [SET] RAS-Q |
+| cutting batter | 1 : 1 | [SET] RAS-Q |
+| retaining wall above | 3 m of batter | [SET] the point where a slope becomes a wall |
+| deck grade, max | 4 % | [SET] RAA/RAL for a structure |
+| clearance over road or water | 4.5 m | [SET] RAS-Q / the class's Lichtraum |
+| tunnel cover, least | 3 m | [SET] the rock a bored tunnel keeps above its crown |
+| junctions joined within | 10 m along a way | [SET] netconvert --junctions.join |
 
 ## Terrain (T)
 

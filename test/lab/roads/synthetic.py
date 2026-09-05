@@ -35,6 +35,22 @@ WELD_M = 1e-3
 MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre of the analytic one
 STEP_TOL_M = 1e-3
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
+# --- the road builder's own numbers, each with its origin -------------------------------------
+# RAL 2012 (Richtlinien fuer die Anlage von Landstrassen) and RAS-Q; AASHTO's Green Book agrees
+# within a percent on all of them. A number here is [SET] from a table, never from taste.
+DESIGN_SPEED = {"motorway": 130.0, "trunk": 110.0, "primary": 100.0, "secondary": 80.0,
+                "tertiary": 70.0, "residential": 50.0, "living_street": 30.0, "service": 30.0}
+SUPER_MAX = 0.06          # [SET] RAL 2012: q_max = 6 % on a Landstrasse (7 % motorway, 6 % here)
+SUPER_MIN = 0.025         # [SET] RAS-Q: the normal crown, and the least fall a curve may carry
+FRICTION_SIDE = 0.10      # [SET] RAL: f_R at 100 km/h, the side friction the superelevation shares
+CREST_R_OF_SPEED = 0.75   # derived: RAL's H_K = 0.75 v^2 (v in km/h) gives 7 500 m at 100 km/h
+SAG_R_OF_SPEED = 0.30     # derived: RAL's H_W = 0.30 v^2 gives 3 000 m at 100 km/h
+KERB_M = 0.12             # [SET] RAS-Q / DIN 483: a kerb stands 12 cm above the carriageway
+SHOULDER_M = 0.5          # [SET] RAS-Q: the paved shoulder beside the carriageway on a Landstrasse
+BATTER_FILL = 1.5         # [SET] RAS-Q: an embankment falls 1 : 1.5 (rise : run)
+BATTER_CUT = 1.0          # [SET] RAS-Q: a cutting stands 1 : 1
+WALL_ABOVE_M = 3.0        # [SET] above this the batter becomes a retaining wall
+
 GRADE_OF = {"primary": 0.06, "secondary": 0.08, "residential": 0.12, "service": 0.15}  # [SET] RAL 2012 EKL 3 / EKL 4, RASt 06
 JOIN_M = 10.0             # [SET] netconvert's --junctions.join default: nodes nearer than this are one junction
 WARP_M = 20.0             # [SET] RAS-K: a side road's section is warped into the through road's surface over its last ~20 m
@@ -121,6 +137,28 @@ def t_hole():
     return t
 
 
+def t_coast(sea=100.0, shelf=8.0):
+    """A plateau meeting the sea: land falls to the water over 100 m and stays below it."""
+    return Terrain(lambda x, y: sea + shelf * max(-1.0, min(1.0, x / 100.0)), water=sea)
+
+
+def t_mountain(grade=0.40):
+    return Terrain(lambda x, y: 100.0 + grade * y)
+
+
+def t_baked_bridge(depth=30.0, width=120.0, deck=100.0, band=12.0):
+    """A LiDAR DEM that already holds the deck: the valley, with a ridge along y=0 at deck
+    height where the bridge stands. The profile must not stack a bridge on a bridge."""
+    def fn(x, y):
+        ground = 100.0 - depth * max(0.0, 1.0 - abs(x) / width)
+        return deck if abs(y) < band and abs(x) < width else ground
+    return Terrain(fn, water=100.0 - depth + 10.0)
+
+
+def t_coarse(posting=90.0):
+    return Terrain(lambda x, y: 100.0 + 30.0 * math.exp(-(x * x) / (2 * 300.0 * 300.0)), posting=posting)
+
+
 TERRAINS = {
     "T1-flat": t_flat,
     "T2-along5": lambda: t_slope_along(0.05),
@@ -135,6 +173,10 @@ TERRAINS = {
     "T8-valley": t_valley,
     "T11-noise": t_noise,
     "T12-hole": t_hole,
+    "T9-coast": t_coast,
+    "T10-mountain": t_mountain,
+    "T13-baked": t_baked_bridge,
+    "T14-coarse": t_coarse,
 }
 
 
@@ -353,6 +395,114 @@ def p_dense():
     return net
 
 
+def r_s_curve(radius=120.0):
+    net = Network()
+    pts = [(-400, 0)]
+    n = 24
+    for k in range(1, n + 1):
+        a = math.pi * k / n
+        pts.append((-200 + radius * math.sin(a), radius * (1 - math.cos(a))))
+    for k in range(1, n + 1):
+        a = math.pi * k / n
+        pts.append((pts[-1][0] + radius * math.sin(a) * 0.0 + 10.0, pts[-1][1] - 0.0))
+    net.polyline([p for p in pts], highway="secondary", width=8.0)
+    return net
+
+
+def r_fork(angle_deg=20.0):
+    net = Network()
+    o = net.node(0, 0)
+    stem = [net.node(*p) for p in line_pts(-400, 0, -20, 0)]
+    net.way(stem + [o], highway="primary", width=10.0)
+    for sign in (+1, -1):
+        d = (math.cos(math.radians(angle_deg * sign)), math.sin(math.radians(angle_deg * sign)))
+        arm = [net.node(*p) for p in line_pts(d[0] * 20, d[1] * 20, d[0] * 400, d[1] * 400)]
+        net.way([o] + arm, highway="secondary", width=8.0)
+    return net
+
+
+def r_stacked():
+    """A bridge over a bridge over a road: three levels, no shared node."""
+    net = r_interchange()
+    east = [net.node(*p) for p in line_pts(-500, 200, -110, 200)]
+    deck = [net.node(*p) for p in line_pts(-90, 200, 90, 200)]
+    west = [net.node(*p) for p in line_pts(110, 200, 500, 200)]
+    net.way(east + [deck[0]], highway="secondary", width=8.0)
+    net.way(deck, highway="secondary", width=8.0, bridge="yes", layer=2)
+    net.way([deck[-1]] + west, highway="secondary", width=8.0)
+    return net
+
+
+def r_cul_de_sac_real():
+    net = Network()
+    o = net.node(0, 0)
+    a = [net.node(*p) for p in line_pts(-400, 0, -20, 0)]
+    b = [net.node(*p) for p in line_pts(20, 0, 400, 0)]
+    net.way(a + [o] + b, highway="primary", width=10.0)
+    stub = [net.node(*p) for p in line_pts(0, 20, 0, 120)]
+    net.way([o] + stub, highway="service", width=5.0)
+    return net
+
+
+def r_widths():
+    net = Network()
+    o = net.node(0, 0)
+    a = [net.node(*p) for p in line_pts(-400, 0, -20, 0)]
+    b = [net.node(*p) for p in line_pts(20, 0, 400, 0)]
+    net.way(a + [o] + b, highway="primary", width=12.0)
+    c = [net.node(*p) for p in line_pts(0, 20, 0, 400)]
+    net.way([o] + c, highway="service", width=4.0)
+    return net
+
+
+def r_oneway_pair(apart=20.0):
+    net = Network()
+    net.polyline(line_pts(-400, -apart / 2, 400, -apart / 2), highway="primary", width=8.0, oneway="yes")
+    net.polyline(line_pts(400, apart / 2, -400, apart / 2), highway="primary", width=8.0, oneway="yes")
+    return net
+
+
+def r_viaduct(span=60.0, length=600.0):
+    net = Network()
+    left = [net.node(*p) for p in line_pts(-500, 0, -length / 2 - 20, 0)]
+    deck = [net.node(*p) for p in line_pts(-length / 2, 0, length / 2, 0, step=span)]
+    right = [net.node(*p) for p in line_pts(length / 2 + 20, 0, 500, 0)]
+    net.way(left + [deck[0]], highway="primary", width=10.0)
+    net.way(deck, highway="primary", width=10.0, bridge="yes", layer=1)
+    net.way([deck[-1]] + right, highway="primary", width=10.0)
+    return net
+
+
+def r_underpass():
+    net = Network()
+    net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0)   # the road above
+    south = [net.node(*p) for p in line_pts(0, -400, 0, -60)]
+    bore = [net.node(*p) for p in line_pts(0, -40, 0, 40)]
+    north = [net.node(*p) for p in line_pts(0, 60, 0, 400)]
+    net.way(south + [bore[0]], highway="secondary", width=8.0)
+    net.way(bore, highway="secondary", width=8.0, tunnel="yes", layer=-1)
+    net.way([bore[-1]] + north, highway="secondary", width=8.0)
+    return net
+
+
+def r_causeway():
+    net = Network()
+    net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0, embankment="yes")
+    return net
+
+
+def r_ford():
+    net = Network()
+    net.polyline(line_pts(-500, 0, 500, 0), highway="track", width=3.0, ford="yes")
+    return net
+
+
+def p_layer_no_bridge():
+    net = Network()
+    net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0, layer=1)
+    return net
+
+
 NETWORKS = {
     "R1-straight": r_straight,
     "R2-curve200": lambda: r_curve(200.0),
@@ -373,6 +523,17 @@ NETWORKS = {
     "P4-dupway": p_duplicate_way,
     "P5-nolanding": p_bridge_no_landing,
     "P6-dense": p_dense,
+    "R3-scurve": r_s_curve,
+    "R6-fork": r_fork,
+    "R11-stacked": r_stacked,
+    "R12-culdesac": r_cul_de_sac_real,
+    "R15-widths": r_widths,
+    "R16-onewaypair": r_oneway_pair,
+    "R19-viaduct": r_viaduct,
+    "R21-underpass": r_underpass,
+    "R24-causeway": r_causeway,
+    "R25-ford": r_ford,
+    "P7-layer": p_layer_no_bridge,
 }
 
 
@@ -490,8 +651,13 @@ class Map:
             self.ramp_signs = {}
             self._solve_with_clearances(A, b)     # once, to read the ramps' signs
             self.ramp_signs = self._ramp_signs()
-            self._solve_with_clearances(A, b)     # again, with a fill that stays a fill
+            # and again, twice: the clearance floors are read from the roads BELOW as they now
+            # stand, so a deck over a deck's ramp lifts with it -- a fixed point in two rounds
+            for _ in range(2):
+                self.constraints = self._clearances(deck)
+                self._solve_with_clearances(A, b)
         self._slopes()
+        self._superelevations()
         self._junctions()
         return self
 
@@ -554,8 +720,16 @@ class Map:
                         # the road below at its nearest station: its DEM height is the floor's
                         # best estimate before its own profile exists (they are solved together)
                         q = line.interpolate(line.project(p))
-                        below = self.dem[self.index[other["refs"][0]]]
-                        floor2 = self.terrain.dem(q.x, q.y) + CLEARANCE_M
+                        # the floor is the road BELOW as it stands, not as the DEM stands: over a
+                        # bridge's own lifted ramp the DEM was metres too low and the upper deck
+                        # cleared nothing (measured on bridge over bridge over road)
+                        s_below = line.project(p)
+                        st_below = self.stations[other["id"]]
+                        kb = int(np.searchsorted(st_below, s_below, side="right") - 1)
+                        kb = min(max(kb, 0), len(other["refs"]) - 1)
+                        below_z = (self.z[self.index[other["refs"][kb]]] if self.z is not None
+                                   else self.terrain.dem(q.x, q.y))
+                        floor2 = max(below_z, self.terrain.dem(q.x, q.y)) + CLEARANCE_M
                         floor = floor2 if floor is None else max(floor, floor2)
                 if floor is not None:
                     floors[k] = max(floors.get(k, -1e9), floor)
@@ -757,6 +931,85 @@ class Map:
         g = ((6 * t2 - 6 * t) * z0 + (3 * t2 - 4 * t + 1) * m0 + (-6 * t2 + 6 * t) * z1 + (3 * t2 - 2 * t) * m1) / h if h > 0 else 0.0
         return z, g
 
+    def plan_radius(self, way, station):
+        """The horizontal radius at a station, from three consecutive centreline points: the
+        circumradius. A straight reads infinity."""
+        pts = [self.net.nodes[r] for r in way["refs"]]
+        s = self.stations[way["id"]]
+        k = int(np.searchsorted(s, station, side="right") - 1)
+        k = min(max(k, 1), len(pts) - 2)
+        if len(pts) < 3:
+            return math.inf
+        a, b, c = pts[k - 1], pts[k], pts[k + 1]
+        ab = math.dist(a, b)
+        bc = math.dist(b, c)
+        ca = math.dist(c, a)
+        area2 = abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]))
+        return math.inf if area2 < 1e-9 else (ab * bc * ca) / (2.0 * area2)
+
+    def _superelevations(self):
+        """The cross-section along every way, as a road builder sets it. Each HALF has its own
+        crossfall, positive when that half falls away from the axis: on a straight both are the
+        normal crown; in a curve the outer half rises through zero to the superelevation while
+        the inner half deepens, which is the Verwindung (RAL 2012's Anrampung) and the only
+        continuous way through an S-curve, where the section turns from one plane to the other.
+        Each half's rate is limited to 1:200 of the half width per metre above 70 km/h and
+        1:100 below -- without the limit the crossfall jumps at a segment end and the surface
+        steps (measured), and with it a rendered curve reads as a road rather than as tape."""
+        self.section_of = {}
+        for w in self.net.ways:
+            s = self.stations[w["id"]]
+            half = w["tags"]["width"] / 2.0
+            v = DESIGN_SPEED.get(w["tags"]["highway"], 50.0)
+            rate = (1.0 / 200.0 if v >= 70.0 else 1.0 / 100.0) / max(half, 0.5)
+            left, right = [], []
+            for k in range(len(w["refs"])):
+                r = self.plan_radius(w, float(s[k]))
+                turn = self._turn_sign(w, k)
+                need = (v * v / (127.0 * r) - FRICTION_SIDE) if math.isfinite(r) else -1.0
+                q = min(SUPER_MAX, max(SUPER_MIN, need))
+                if turn > 0:            # the centre is to the LEFT: the surface falls left
+                    left.append(q)
+                    right.append(-q)
+                elif turn < 0:
+                    left.append(-q)
+                    right.append(q)
+                else:
+                    left.append(SUPER_MIN)
+                    right.append(SUPER_MIN)
+            for held in (left, right):
+                for k in range(1, len(held)):
+                    held[k] = min(max(held[k], held[k - 1] - rate * (s[k] - s[k - 1])),
+                                  held[k - 1] + rate * (s[k] - s[k - 1]))
+                for k in range(len(held) - 2, -1, -1):
+                    held[k] = min(max(held[k], held[k + 1] - rate * (s[k + 1] - s[k])),
+                                  held[k + 1] + rate * (s[k + 1] - s[k]))
+            self.section_of[w["id"]] = (np.array(left), np.array(right))
+
+    def _turn_sign(self, way, k):
+        pts = [self.net.nodes[r] for r in way["refs"]]
+        if k == 0 or k >= len(pts) - 1:
+            return 0
+        a, b, c = pts[k - 1], pts[k], pts[k + 1]
+        turn = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+        return 1 if turn > 1e-9 else (-1 if turn < -1e-9 else 0)
+
+    def superelevation(self, way, station):
+        """The carriageway's crossfall, RAL 2012's rule: on a straight the normal crown, and in a
+        curve the superelevation that holds the design speed, q = v^2 / (127 R) - f, bounded by
+        q_max and never below the crown. A road builder banks a curve; a mesh that does not is
+        why a rendered curve looks like a ribbon of tape."""
+        held = self.section_of.get(way["id"])
+        if held is None:
+            return SUPER_MIN, SUPER_MIN
+        left, right = held
+        s = self.stations[way["id"]]
+        station = min(max(station, 0.0), s[-1])
+        k = min(max(int(np.searchsorted(s, station, side="right") - 1), 0), len(left) - 2)
+        span = s[k + 1] - s[k]
+        u = (station - s[k]) / span if span > 1e-9 else 0.0
+        return (left[k] + (left[k + 1] - left[k]) * u, right[k] + (right[k + 1] - right[k]) * u)
+
     def worst_curvature(self, way, lo, hi):
         """The profile's worst second derivative over a stretch, by differences of the grade."""
         s = np.linspace(lo, hi, max(5, int((hi - lo) / 1.0) + 1))
@@ -851,9 +1104,13 @@ class Structure:
                     self.cuts[key] = max(self.cuts.get(key, 0.0), cut)
 
     def own_surface(self, way, station, offset):
-        """A leg's own surface: the profile plus a crown that falls CROSSFALL from the centreline."""
+        """A leg's own surface: the profile, plus the cross-section. On a straight that is the
+        normal CROWN, falling both ways from the axis; in a curve it is the SUPERELEVATION, one
+        plane tilted toward the curve's centre (RAL 2012). The axis keeps the profile either way."""
         z, _ = self.map.profile(way, station)
-        return z - CROSSFALL * abs(offset)
+        left, right = self.map.superelevation(way, station)
+        fall = left if offset < 0.0 else right
+        return z - fall * abs(offset)
 
     def major_surface(self, nid, x, y):
         """The junction's surface IS the major way's surface, crown and all, extended over the
@@ -864,8 +1121,14 @@ class Structure:
         p = Point(x, y)
         s = line.project(p)
         q = line.interpolate(s)
-        # the signed offset is not needed for a symmetric crown; the distance is
-        return self.own_surface(way, s, p.distance(q))
+        # the offset is SIGNED, because a superelevated section is one tilted plane and not a
+        # symmetric crown: the sign comes from the cross product with the way's direction there
+        ahead = line.interpolate(min(s + 0.1, line.length))
+        back = line.interpolate(max(s - 0.1, 0.0))
+        d = (ahead.x - back.x, ahead.y - back.y)
+        n = math.hypot(*d) or 1.0
+        off = (-(x - q.x) * d[1] + (y - q.y) * d[0]) / n
+        return self.own_surface(way, s, off)
 
     def leg_surface(self, way, station, offset, at=None, sgn=+1):
         """A leg's surface within WARP_M of a junction it is a MINOR leg of is warped from its
@@ -1068,6 +1331,10 @@ class Mesh:
         half = way["tags"]["width"] / 2.0
         return [-half, 0.0, +half]
 
+    @staticmethod
+    def crossfall_of(way):
+        return CROSSFALL
+
     def _legs(self):
         for w in self.net.ways:
             for lo, hi in self.drawn_spans(w):
@@ -1086,6 +1353,14 @@ class Mesh:
             for a_, b_ in zip(edges, edges[1:]):
                 kappa = self.map.worst_curvature(w, a_, b_)
                 step = self.step if kappa <= 0 else min(self.step, math.sqrt(8.0 * MESH_TOL_M / kappa))
+                # and the section's ROTATION: over a quad of length L the crossfall turns by
+                # dq/ds * L, and a triangulated bilinear patch stands half x that / 4 off it
+                l0, r0 = self.map.superelevation(w, a_)
+                l1, r1 = self.map.superelevation(w, b_)
+                rate = max(abs(l1 - l0), abs(r1 - r0)) / max(b_ - a_, 1e-6)
+                half = w["tags"]["width"] / 2.0
+                if rate > 1e-9:
+                    step = min(step, 4.0 * MESH_TOL_M / (half * rate))
                 steps = max(1, int(math.ceil((b_ - a_) / max(step, 0.25))))
                 stations |= {a_ + (b_ - a_) * k / steps for k in range(steps + 1)}
             # at an interior VERTEX the ribbon carries TWO rows, one per adjoining segment, and
@@ -1370,6 +1645,12 @@ CASES = [
     ("R9-ramp", "T2-along5"), ("R8-dual", "T3-cross15"),
     ("P1-dupnodes", "T2-along5"), ("P2-zerolen", "T2-along5"), ("P3-gap", "T2-along5"),
     ("P4-dupway", "T2-along5"), ("P5-nolanding", "T8-valley"), ("P6-dense", "T4-crest"),
+    ("R3-scurve", "T3-cross15"), ("R6-fork", "T2-along5"), ("R6-fork", "T3-cross15"),
+    ("R11-stacked", "T1-flat"), ("R12-culdesac", "T3-cross15"), ("R15-widths", "T3-cross15"),
+    ("R16-onewaypair", "T3-cross15"), ("R19-viaduct", "T5-sag"), ("R21-underpass", "T1-flat"),
+    ("R24-causeway", "T9-coast"), ("R25-ford", "T8-valley"), ("P7-layer", "T2-along5"),
+    ("R1-straight", "T9-coast"), ("R1-straight", "T10-mountain"), ("R2-curve30", "T10-mountain"),
+    ("R18-bridge", "T13-baked"), ("R1-straight", "T14-coarse"), ("R4-T90", "T14-coarse"),
 ]
 
 
