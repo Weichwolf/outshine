@@ -290,7 +290,7 @@ class _Detail:
     __slots__ = ("place", "bays", "epoch", "levels", "level_m", "sill_m", "win_w", "win_h",
                  "cornice", "roof", "ridge_z", "foot_z", "rise_m", "heated", "faces_slope",
                  "street", "eaves_over_m", "floor_over_ground_m", "ridge_run",
-                 "ridge_here")
+                 "ridge_here", "pitch_rad")
 
     def __init__(self, **kw):
         for k in self.__slots__:
@@ -622,7 +622,9 @@ class Building:
                 street=wall is front, eaves_over_m=self.style.eaves_m,
                 floor_over_ground_m=max(0.0, self.pad - self.ground.at(*a)),
                 ridge_run=self._ridge_run() if wall is front else None,
-                ridge_here=self._ridge_run())))
+                ridge_here=self._ridge_run(),
+                pitch_rad=math.atan2(max(self.ridge - self.eaves, 0.0),
+                                     max(roof_inradius(self.poly), 1e-6)))))
         return out
 
     def detail(self, lod=3, street_dir=None):

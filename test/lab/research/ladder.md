@@ -1,0 +1,67 @@
+# The ladder: what each generation of games solved, and where this lab stands on it
+
+**The proposal was: work up graphically from the nineties to today, through the iterations the big
+engines went through. It is right, and I would change one thing about it.**
+
+Why it is right: each generation solved a NAMEABLE problem, and the solutions COMPOSE. You cannot
+have screen-space reflections before a depth buffer, physically based materials before linear
+lighting, or a city that reads before a facade grammar. A ladder also fixes the thing I have been
+worst at all day -- saying precisely WHERE the work stands. "Not AAA yet" is a mood; "rung 5 of 8,
+and the gate is a junction that carries its own surface" is a position.
+
+**The correction: the ladder I climb is CONTENT, not shading.** The rendering ladder --
+Quake's lightmaps, Doom 3's stencil shadows, Crysis's SSAO, UE4's PBR, UE5's Lumen and Nanite --
+is the RENDERER's, and this tree's renderer is decided elsewhere: SDL_GPU, the frame budget, and
+`research/world.md`'s own split of CPU / compute / fragment. Walking it here would be work on the
+wrong axis, and it is already moot in the lab: Blender's Cycles is years past AAA and costs me
+nothing to use. What my generators owe is the CONTENT each era learned to build, and that ladder
+is just as real:
+
+| rung | the era's own answer | the gate, measurable | where this lab stands |
+|---|---|---|---|
+| **R0 the block** | Quake, 1996: mass only, one material, no openings | closed, consistently wound, welded; a place builds with no red | **cleared** -- 81/81 road cases, 41/41 building cases |
+| **R1 the silhouette** | Half-Life, 1998: what breaks the outline against the sky | no body is a plain prism; chimneys, dormers, parapets, ridges, gutters as GEOMETRY | **cleared** -- L1 adds 348 tris to a 526-tri mass |
+| **R2 the opening** | Half-Life 2, 2004: a wall is a facade with holes, and the ground floor differs | every reachable wall carries real holes with a reveal >= 0.10 m; no glass inside solid geometry | **cleared** -- the wall is meshed with its holes from L2 |
+| **R3 the material** | Crysis 2007 into PBR 2011: measured reflectance, one shading model | glTF `pbrMetallicRoughness`; every albedo inside its measured band; an 18 % card exposes to 118 | **cleared** -- 23 stock materials, exposure measured |
+| **R4 the rhythm** | Assassin's Creed / CityEngine, 2007: a grammar, not a texture | a storey hierarchy with a measurably taller beletage; party walls; no two neighbours identical | **cleared for the block**, open for the house and the hall |
+| **R5 the street** | GTA V, 2013: the street level is where the budget goes | a JUNCTION with its own surface, stop lines, crossings and drains; furniture per 100 m at the reference's order | **half** -- kerb, gutter, footway, markings, lamps, trees, walls; no junction detail, no crossing, no sign, no drain |
+| **R6 the wear** | The Witcher 3, 2015: nothing is clean, and the dirt has a REASON | a wetness/exposure field drives the material: streaks under sills, moss at a plinth, wear on a desire line | **not started** |
+| **R7 the density** | Cyberpunk 2077, 2020: the street is FULL | interiors behind glass, signage, awnings, aerials, cables, balcony clutter, parked cars; instances per m2 at the reference's order | **not started** |
+| **R8 the continuum** | UE5, 2021: LOD you cannot see | the same body at rung n and n+1 differs under a threshold in screen space at the switch distance; the world to the sight limit | **partial** -- ladders exist per generator, no morph, ground reaches 12 km of 240 |
+
+## What each open rung actually needs
+
+**R5, the junction.** A network of ribbons is not a street network. It needs: the junction's own
+paved surface (netconvert's polygon, which the road bed already computes), stop lines and give-way
+markings from the priority the network already carries, a pedestrian crossing where a footway meets
+a carriageway, a drain at every low point of the gutter, a traffic signal where OSM says
+`highway=traffic_signals`, and a sign where it says `traffic_sign`. Every one is already in the
+data or already computed -- none of it is invention.
+
+**R6, the wear.** The rule is that dirt has a REASON: water runs off a sill and streaks the wall
+under it; it stands at a plinth and grows moss; a foot wears a path where people actually walk.
+So the generator owes a field -- how wet, how sheltered, how walked -- and the material reads it.
+That is a per-vertex or per-UV quantity and it is cheap; what it is not is noise.
+
+**R7, the density.** The reference's street is FULL, and the count is the gate. A shopfront has a
+sign, an awning, a menu board and a bin; a balcony has a rail, a plant and a bicycle; a facade has
+downpipes, aerials, satellite dishes, cables and meter boxes. Interior mapping behind the glass is
+the one item that is a renderer's job and not a generator's, and `research/world.md` already places
+it in the fragment stage.
+
+**R8, the continuum.** The ladders exist -- the tree's is its recursion depth, the building's is
+its rung, the road's is its station step -- but nothing measures the SWITCH. The gate is a picture
+pair: the same body at rung n and n+1 from the distance the switch happens at, differing under a
+threshold in screen space.
+
+## How a rung is cleared
+
+A rung is cleared when three things hold at once, and never on two of them:
+
+1. **a check that can go RED**, with a live negative control
+2. **a picture, looked at**, at the distance the rung is about
+3. **a number with its origin** -- the reflectance, the standard, the count
+
+That is the same bar the rest of this tree carries, applied to a thing that is usually judged by
+feel. A rung with a green check and no picture is not cleared; a rung with a good picture and no
+check is not cleared either, because the next change will break it and nothing will say so.

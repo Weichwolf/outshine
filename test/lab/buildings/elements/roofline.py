@@ -93,41 +93,39 @@ def _schornstein(ctx):
 
 
 @register("gaube", lod=1, role="roof",
-          note="a dormer PROJECTING FROM THE SLOPE, with its own face, cheeks and roof")
+          note="a dormer SEATED IN THE SLOPE: a vertical face, two cheeks and its own little roof")
 def _gaube(ctx):
-    """A DORMER PROJECTS FROM THE ROOF and does not sit in the wall below it. Built in the wall's
-    frame it went 1.3 m INTO the body and 5 cm out of it, so nothing was visible but a sliver
-    (rendered and looked at, 2026-09-06) -- the same defect as the reveal and the shopfront, three
-    times over: geometry written in the wrong frame is geometry inside something else.
+    """A DORMER SITS IN THE ROOF, and every frame but the roof's own gets it wrong.
 
-    The dormer stands OUT of the wall plane by its own depth, seated above the eaves where the
-    slope has risen enough to carry it, and its face is vertical."""
+    Built in the wall's frame it projected HORIZONTALLY -- terracotta drawers sticking out of the
+    slope, cutting through the roof plane (rendered by Cycles and looked at, 2026-09-06). A
+    dormer is anchored on the SLOPE: its face stands where the roof has risen far enough to carry
+    it, its cheeks run back INTO the slope until they meet it, and its own roof caps them. The
+    only number it needs from outside is the pitch."""
     if ctx.roof not in ("gabled", "hipped", "mansard", "half-hipped", "gambrel"):
         return ()
     if not ctx.faces_slope or ctx.rise_m < 2.2 or ctx.bays < 2:
         return ()
     out = []
     p = ctx.place
-    # A DORMER IS SMALL AGAINST ITS ROOF and sits LOW on the slope. At 0.40 of the rise on a
-    # 2.8 m roof it reached most of the way to the ridge and read as a box parked up there
-    # (looked at, 2026-09-06); a dormer covers about a quarter of the slope's height and its
-    # cill sits a course or two above the gutter.
-    wide, high, deep = 1.25, min(1.35, ctx.rise_m * 0.30), 0.95
-    seat = p.height + max(0.22, ctx.rise_m * 0.08)
+    pitch = max(0.18, float(getattr(ctx, "pitch_rad", 0.6) or 0.6))
+    wide = 1.25
+    set_back = min(1.30, max(0.45, ctx.rise_m * 0.22 / max(math.tan(pitch), 0.2)))
+    foot = p.height + set_back * math.tan(pitch) - 0.08
+    high = min(1.40, ctx.rise_m * 0.40)
+    reach = min(2.6, max(0.8, high / max(math.tan(pitch), 0.2)))
     step = p.length / max(1, int(ctx.bays))
+    d0, d1 = -set_back, -(set_back + reach)
     for bay in range(0, int(ctx.bays), 2):
         s = (bay + 0.5) * step
         if s < 1.4 or s > p.length - 1.4:
             continue
-        # A DORMER GROWS OUT OF THE SLOPE and does not sit on it. Its cheeks run BACK into the
-        # roof far enough to be buried at the ridge end, so there is no gap under it: boxes
-        # parked on the surface with daylight beneath were what the row of four showed
-        # (rendered and looked at, 2026-09-06).
-        into = max(2.4, ctx.rise_m * 1.6)
-        out.append(("roof", *p.box(s - wide / 2, seat - 0.9, s + wide / 2, seat + high,
-                                   -into, deep)))
-        out.append(("roof", *p.box(s - wide / 2 - 0.12, seat + high, s + wide / 2 + 0.12,
-                                   seat + high + 0.13, -into, deep + 0.16)))
-        out.append(("glass", *p.box(s - wide / 2 + 0.15, seat + 0.20, s + wide / 2 - 0.15,
-                                    seat + high - 0.18, deep - 0.06, deep - 0.04)))
+        out.append(("roof", *p.box(s - wide / 2, foot, s + wide / 2, foot + high, d0 - 0.07, d0)))
+        for side in (-1, +1):
+            at = s + side * wide / 2
+            out.append(("roof", *p.box(at - 0.06, foot, at + 0.06, foot + high, d1, d0)))
+        out.append(("roof", *p.box(s - wide / 2 - 0.10, foot + high, s + wide / 2 + 0.10,
+                                   foot + high + 0.10, d1 - 0.08, d0 - 0.16)))
+        out.append(("glass", *p.box(s - wide / 2 + 0.16, foot + 0.16, s + wide / 2 - 0.16,
+                                    foot + high - 0.15, d0 - 0.10, d0 - 0.08)))
     return tuple(out)
