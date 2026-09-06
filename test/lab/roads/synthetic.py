@@ -75,6 +75,28 @@ class Terrain:
         for (i, j) in holes:
             self.grid[j, i] = np.nan
 
+    def bend(self, x, y):
+        """The DEM's own CURVATURE at (x, y), as the largest second difference of its grid.
+
+        A bilinear interpolant reproduces a PLANE exactly, so a uniform 40 % hillside costs it
+        nothing; what it cannot represent is a BEND smaller than its posting -- a ridge, a cut,
+        a hairpin whose two legs fall inside one cell. The interpolation error there is about
+        |z''| h^2 / 8, and that, not a constant, is what a road's distance from the DEM may be
+        (measured 2026-09-06: the Transfagarasan needs 11.64 m of it at a hairpin, and the same
+        road on a smooth slope needs none)."""
+        h = self.posting
+        fx = (x - self.x0) / h
+        fy = (y - self.x0) / h
+        n = self.grid.shape[0]
+        i = int(min(max(round(fx), 1), n - 2))
+        j = int(min(max(round(fy), 1), n - 2))
+        g = self.grid
+        with np.errstate(invalid="ignore"):
+            dxx = abs(g[j, i - 1] - 2.0 * g[j, i] + g[j, i + 1])
+            dyy = abs(g[j - 1, i] - 2.0 * g[j, i] + g[j + 1, i])
+        worst = np.nanmax([dxx, dyy])
+        return 0.0 if not np.isfinite(worst) else float(worst) / (h * h)
+
     def dem(self, x, y):
         """The DEM's answer: bilinear between postings; NaN where a posting is a hole."""
         fx = (x - self.x0) / self.posting
@@ -868,6 +890,20 @@ class Map:
             kept_ways.append(w)
         self.net.ways = kept_ways
 
+    def band(self):
+        """How far from the DEM a road on the ground may stand, per node: the survey's own error
+        plus what a BILINEAR interpolant cannot represent, which is |z''| h^2 / 8. ONE source --
+        the constraint inside the solve and the check afterwards read this same array, or the
+        bed would refuse a profile it then calls correct."""
+        if getattr(self, "_band", None) is None:
+            out = np.zeros(len(self.index))
+            h = self.terrain.posting
+            for r, k in self.index.items():
+                x, y = self.net.nodes[r]
+                out[k] = DEM_ERROR_M + self.terrain.bend(x, y) * h * h / 8.0
+            self._band = out
+        return self._band
+
     def _dem_or_neighbour(self, nid):
         x, y = self.net.nodes[nid]
         z = self.terrain.dem(x, y)
@@ -1092,6 +1128,43 @@ class Map:
         objective = 0.5 * cp.quad_form(z, cp.psd_wrap(A)) - b @ z
         cons = [z[k] >= floor for k, floor in self.constraints.items()]
         cons += [z[k] - z[j] >= gap for (k, j, gap) in getattr(self, "clearance_pairs", ())]
+        # I3 AS A CONSTRAINT AND NOT ONLY AS A CHECK. A road that is neither a deck, a bore, a
+        # ramp nor a causeway stands ON THE GROUND, within the DEM's own error -- that is what
+        # the invariant says, and stating it only afterwards let the QP satisfy a clearance by
+        # pushing the road BELOW the bridge into the hill instead of lifting the deck: 17.02 m
+        # under the terrain at the Transfagarasan (measured 2026-09-06, after the pairs). The
+        # band was taken out once because its active set oscillated in the ITERATIVE scheme;
+        # inside one convex solve a box has nothing to oscillate against.
+        onground = ~(self.deck | self.bore | self.approaches() | self.causeway)
+        held = np.flatnonzero(onground)
+        if len(held):
+            band = self.band()[held]
+            cons += [z[held] <= self.dem[held] + band, z[held] >= self.dem[held] - band]
+        cons += self._shape_constraints(z, cp)
+
+        problem = cp.Problem(cp.Minimize(objective), cons)
+        problem.solve(solver=cp.OSQP, eps_abs=1e-7, eps_rel=1e-7, max_iter=200000, polish=True)
+        if z.value is None:
+            # INFEASIBLE IS NOT A DIAGNOSIS. A solver saying `infeasible` names no place and no
+            # constraint, and a bed that reports it has found nothing a reader can act on. So the
+            # same problem is posed again ELASTICALLY: every clearance pair and every band bound
+            # gets a non-negative slack, the slacks are driven to zero as hard as the objective
+            # allows, and what is left is the SMALLEST violation that makes the set consistent --
+            # with the node it sits on. That is a finding with a location.
+            self.infeasible = self._elastic(A, b, cp, z, cons)
+            raise RuntimeError("clearance QP: " + str(problem.status) + "; " + self.infeasible)
+        self.z = np.asarray(z.value)
+        self.infeasible = None
+
+    def _shape_constraints(self, z, cp, slack=None):
+        """The RAMP and GRADE bounds: a designed structure keeps its class's grade and an
+        embankment tapers. Built once and used by BOTH the solve and the elastic pose, so that
+        an infeasible set can be told which FAMILY carries the violation -- with `slack` given,
+        every bound here is relaxed by that one non-negative variable and its value is the
+        answer (measured 2026-09-06: the Transfagarasan's clearance pairs and DEM band are
+        satisfiable with zero slack, so the conflict is here)."""
+        out = []
+        give = 0.0 if slack is None else slack
         # the ramps: a designed structure keeps its class's grade, hard, on every segment of an
         # approach and of the deck itself -- the lift a clearance asks for spreads back along
         # the approach as an embankment, never as a 30 percent step (measured before this)
@@ -1113,7 +1186,7 @@ class Map:
                 lift_a = z[a_] - self.dem[a_]
                 lift_b = z[b_] - self.dem[b_]
                 sign = self.ramp_signs.get(w["id"], 1.0)
-                cons += [sign * lift_b <= sign * lift_a, sign * lift_b >= 0.0]
+                out += [sign * lift_b <= sign * lift_a + give, sign * lift_b >= -give]
         for w in self.net.ways:
             g = GRADE_OF.get(w["tags"]["highway"], 0.12)
             refs, s = w["refs"], self.stations[w["id"]]
@@ -1130,18 +1203,58 @@ class Map:
                     s_all = self.stations[w["id"]]
                     chord = abs(self.dem[self.index[refs[-1]]] - self.dem[self.index[refs[0]]]) / max(s_all[-1], 1e-3)
                     reach = max(DECK_GRADE, chord) * ds
-                    cons += [z[b_] - z[a] <= reach, z[a] - z[b_] <= reach]
+                    out += [z[b_] - z[a] <= reach + give, z[a] - z[b_] <= reach + give]
                 else:
                     # a ramp climbs off the hillside at the class's grade RELATIVE to it, so that
                     # on a hillside as steep as the class the lift still comes back down (measured
                     # before this: nine metres of fill that never returned, 200 m from the bridge)
-                    cons += [(z[b_] - self.dem[b_]) - (z[a] - self.dem[a]) <= g * ds,
-                             (z[a] - self.dem[a]) - (z[b_] - self.dem[b_]) <= g * ds]
-        problem = cp.Problem(cp.Minimize(objective), cons)
-        problem.solve(solver=cp.OSQP, eps_abs=1e-7, eps_rel=1e-7, max_iter=200000, polish=True)
-        if z.value is None:
-            raise RuntimeError("clearance QP: " + str(problem.status))
-        self.z = np.asarray(z.value)
+                    out += [(z[b_] - self.dem[b_]) - (z[a] - self.dem[a]) <= g * ds + give,
+                        (z[a] - self.dem[a]) - (z[b_] - self.dem[b_]) <= g * ds + give]
+        return out
+
+    def _elastic(self, A, b, cp, z, cons):
+        """Where the constraint set breaks, and by how much."""
+        import numpy as _np
+        pairs = list(getattr(self, "clearance_pairs", ()))
+        onground = ~(self.deck | self.bore | self.approaches() | self.causeway)
+        held = _np.flatnonzero(onground)
+        n = len(self.index)
+        y = cp.Variable(n)
+        sp_ = cp.Variable(max(len(pairs), 1), nonneg=True)
+        sb = cp.Variable(max(len(held), 1), nonneg=True)
+        sg = cp.Variable(nonneg=True)
+        soft = [y[k] >= floor - 1e3 for k, floor in self.constraints.items()]
+        for i, (k, j, gap) in enumerate(pairs):
+            soft.append(y[k] - y[j] >= gap - sp_[i])
+        if len(held):
+            band = self.band()[held]
+            soft += [y[held] <= self.dem[held] + band + sb,
+                     y[held] >= self.dem[held] - band - sb]
+        soft += self._shape_constraints(y, cp, slack=sg)
+        want = cp.Minimize(1e4 * (cp.sum(sp_) + cp.sum(sb) + 100.0 * sg)
+                           + 0.5 * cp.quad_form(y, cp.psd_wrap(A.tocsc())) - b @ y)
+        cp.Problem(want, soft).solve(solver=cp.OSQP, eps_abs=1e-6, eps_rel=1e-6,
+                                     max_iter=200000)
+        if y.value is None:
+            return "elastic pose also failed"
+        back = {v: k for k, v in self.index.items()}
+        worst_pair, worst_band = 0.0, 0.0
+        where = None
+        if len(pairs) and sp_.value is not None:
+            i = int(_np.argmax(sp_.value[:len(pairs)]))
+            worst_pair = float(sp_.value[i])
+            if worst_pair > 1e-6:
+                where = f"clearance short by {worst_pair:.2f} m at node {back[pairs[i][0]]}"
+        if len(held) and sb.value is not None:
+            i = int(_np.argmax(sb.value[:len(held)]))
+            worst_band = float(sb.value[i])
+            if worst_band > worst_pair and worst_band > 1e-6:
+                where = f"band exceeded by {worst_band:.2f} m at node {back[held[i]]}"
+        shape = float(sg.value) if sg.value is not None else 0.0
+        if shape > max(worst_pair, worst_band, 1e-6):
+            return (f"the RAMP and GRADE family carries it: every bound in it has to give "
+                    f"{shape:.3f} m before the set is consistent")
+        return where or "no single constraint carries the violation"
 
     def _slopes(self):
         """The Hermite tangents: central differences along a way, and at a junction the plane's."""
@@ -2294,7 +2407,9 @@ def check_dem_band(map_):
             for r in w["refs"]:
                 near_causeway[map_.index[r]] = True
     held = ~(map_.deck | map_.bore | map_.approaches() | map_.causeway | near_causeway)
-    return float(np.max(np.abs(map_.z - map_.dem)[held])) if held.any() else 0.0
+    # measured against the SAME band the solve was given, as a ratio: 1.0 is exactly at it
+    over = np.abs(map_.z - map_.dem) / np.maximum(map_.band(), 1e-9)
+    return float(np.max(over[held])) if held.any() else 0.0
 
 
 def check_clearance_fixpoint(map_):
@@ -2536,7 +2651,7 @@ def run(case, number=0):
     verdict = {
         "I1 C0 m": check_c0(m),
         "I2 C1 grade": check_c1(m),
-        "I3 |z-dem| m": check_dem_band(m),
+        "I3 |z-dem| / band": check_dem_band(m),
         "I6 junction step m": st.check_junction_steps() if m.junctions else None,
         "I12 clearance residual m": check_clearance_fixpoint(m),
         "I4 bridge": check_bridge(m),
@@ -2553,7 +2668,7 @@ def run(case, number=0):
         red.append("I1")
     if verdict["I2 C1 grade"] > 1e-6:
         red.append("I2")
-    if verdict["I3 |z-dem| m"] > DEM_ERROR_M:
+    if verdict["I3 |z-dem| / band"] > 1.0 + 1e-6:
         red.append("I3")
     if verdict["I12 clearance residual m"] > CLEARANCE_TOL_M:
         red.append("I12")

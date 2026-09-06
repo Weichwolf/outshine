@@ -246,7 +246,7 @@ def run(name, number, only=None):
     verdict = {
         "I1 C0 m": bed.check_c0(m),
         "I2 C1 grade": bed.check_c1(m),
-        "I3 |z-dem| m": bed.check_dem_band(m),
+        "I3 |z-dem| / band": bed.check_dem_band(m),
         "I6 junction step m": st.check_junction_steps() if m.junctions else None,
         "I4 bridge": bed.check_bridge(m),
         "I5 tunnel": bed.check_tunnel(m),
@@ -257,7 +257,7 @@ def run(name, number, only=None):
         red.append("I1")
     if verdict["I2 C1 grade"] > 1e-6:
         red.append("I2")
-    if verdict["I3 |z-dem| m"] > bed.DEM_ERROR_M:
+    if verdict["I3 |z-dem| / band"] > 1.0 + 1e-6:
         red.append("I3")
     if verdict["I6 junction step m"] is not None and verdict["I6 junction step m"] > bed.STEP_TOL_M:
         red.append("I6")
@@ -274,7 +274,7 @@ def run(name, number, only=None):
     print(f"{number:02d} {name:20s} {'RED ' + ','.join(red) if red else 'ok':16s} "
           f"ways {kept:4d} (-{dropped:3d})  nodes {len(net.nodes):5d}  bridge {spans:3d}  "
           f"tunnel {bores:3d}  rail {rails:3d}  layers {min(layers)}..{max(layers)}  "
-          f"C0 {verdict['I1 C0 m']:.1e}  band {verdict['I3 |z-dem| m']:6.2f} m  "
+          f"C0 {verdict['I1 C0 m']:.1e}  band {verdict['I3 |z-dem| / band']:5.2f}x  "
           f"fix {getattr(m, 'clearance_rounds', 0):2d}r {bed.clearance_verdict(m):10s} "
           f"{verdict['I12 clearance residual m']:7.4f} m   {note}")
     return red
