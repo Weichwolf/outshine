@@ -65,21 +65,30 @@ LOOKS = {
 }
 
 
-def write_ply(path, verts, tris):
-    """Binary would be faster; this is a lab and a text PLY is one thing less to get wrong."""
+def write_ply(path, verts, tris, field=None):
+    """Binary would be faster; this is a lab and a text PLY is one thing less to get wrong.
+
+    `field` is the generator's per-vertex WEATHERING -- (N, 3) in [0, 1], polish / silt / splash --
+    and it rides on the vertex colour, which is the one channel every mesh format already has."""
     with open(path, "w") as out:
         out.write("ply\nformat ascii 1.0\n")
         out.write(f"element vertex {len(verts)}\nproperty float x\nproperty float y\nproperty float z\n")
+        if field is not None:
+            out.write("property uchar red\nproperty uchar green\nproperty uchar blue\n")
         out.write(f"element face {len(tris)}\nproperty list uchar int vertex_index\nend_header\n")
-        for v in verts:
-            out.write(f"{v[0]:.4f} {v[1]:.4f} {v[2]:.4f}\n")
+        for k, v in enumerate(verts):
+            row = f"{v[0]:.4f} {v[1]:.4f} {v[2]:.4f}"
+            if field is not None:
+                r, g, b = (int(max(0.0, min(1.0, float(c))) * 255.0 + 0.5) for c in field[k])
+                row += f" {r} {g} {b}"
+            out.write(row + "\n")
         for t in tris:
             out.write(f"3 {t[0]} {t[1]} {t[2]}\n")
 
 
 def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
            looks=None, sky_gain=SKY_GAIN, sun_gain=SUN_GAIN, exposure=EXPOSURE,
-           balance_k=BALANCE_K):
+           balance_k=BALANCE_K, fields=None):
     """`parts` is {role: (vertices, tris)}, `camera` the lab's own, `sun` the ENU direction.
 
     `looks` overrides the role table with {role: rgb} or {role: (rgb, rough, metal)}, which is how
@@ -126,12 +135,13 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
                                cutoff=0.5, two=False, transmission=0.0,
                                grain_m=0.0, relief_m=0.0, mottle=0.0,
                                unit_m=[0.0, 0.0], joint_m=0.0, bond="")
+    worn = {r: True for r in (fields or {})}
     files = {}
     for role, (verts, tris) in parts.items():
         if not tris or role not in table:
             continue
         files[role] = str(work / f"{role}.ply")
-        write_ply(files[role], verts, tris)
+        write_ply(files[role], verts, tris, (fields or {}).get(role))
     sun = np.asarray(sun, dtype=float)
     sun = sun / max(float(np.linalg.norm(sun)), 1e-9)
     elev = math.degrees(math.asin(max(-1.0, min(1.0, float(sun[2])))))
@@ -139,6 +149,7 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
     script = work / "shot.py"
     script.write_text(_SCRIPT.format(
         files=repr(files), looks=repr({k: table[k] for k in files}),
+        worn=repr({k: bool(worn.get(k)) for k in files}),
         width=camera.width, height=camera.height, fov=camera.fov_deg,
         bearing=camera.bearing_deg, pitch=camera.pitch_deg, agl=camera.agl_m,
         ortho=bool(camera.orthographic), ymag=camera.y_mag_m,
@@ -295,11 +306,15 @@ def _triplanar(nt, coord, make, sharp=6.0):
 
 files = {files}
 looks = {looks}
+worn = {worn}
 for o in list(bpy.data.objects):
     bpy.data.objects.remove(o, do_unlink=True)
 
 for role, path in files.items():
-    bpy.ops.wm.ply_import(filepath=path)
+    try:
+        bpy.ops.wm.ply_import(filepath=path, import_colors="LINEAR")
+    except TypeError:
+        bpy.ops.wm.ply_import(filepath=path)
     ob = bpy.context.selected_objects[0]
     ob.name = role
     look = looks[role]
@@ -399,6 +414,44 @@ for role, path in files.items():
             nt.links.new(coord.outputs["Object"], wide.inputs["Vector"])
             nt.links.new(wide.outputs["Fac"], mix.inputs["Factor"])
             nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    # THE WEATHERING FIELD, if the generator handed one over: polish, silt, splash on the vertex
+    # colour. Nothing here is a pattern -- a tyre polished the red channel, water left the green
+    # one and rain bounced into the blue -- and the material only has to READ them.
+    if worn.get(role):
+        nt = mat.node_tree
+        col = nt.nodes.new("ShaderNodeVertexColor")
+        chan = nt.nodes.new("ShaderNodeSeparateColor")
+        nt.links.new(col.outputs["Color"], chan.inputs["Color"])
+        base = bsdf.inputs["Base Color"]
+        got = base.links[0].from_socket if base.links else None
+        step = nt.nodes.new("ShaderNodeMix")
+        step.data_type = "RGBA"
+        if got is not None:
+            nt.links.new(got, step.inputs[6])
+        else:
+            step.inputs[6].default_value = (rgb[0], rgb[1], rgb[2], look["alpha"])
+        # SILT IS DARK AND ROUGH and it is the strongest of the three: a gutter reads at a
+        # glance, a polished wheel path only when the light is low
+        step.inputs[7].default_value = (rgb[0] * 0.55, rgb[1] * 0.55, rgb[2] * 0.52, look["alpha"])
+        silt = nt.nodes.new("ShaderNodeMath")
+        silt.operation = "MULTIPLY"
+        nt.links.new(chan.outputs["Green"], silt.inputs[0])
+        silt.inputs[1].default_value = 0.85
+        nt.links.new(silt.outputs[0], step.inputs["Factor"])
+        wet = nt.nodes.new("ShaderNodeMix")
+        wet.data_type = "RGBA"
+        nt.links.new(step.outputs[2], wet.inputs[6])
+        # SPLASH is the darkest and greenest: a plinth grows what a wall never does
+        wet.inputs[7].default_value = (rgb[0] * 0.50, rgb[1] * 0.56, rgb[2] * 0.44, look["alpha"])
+        nt.links.new(chan.outputs["Blue"], wet.inputs["Factor"])
+        nt.links.new(wet.outputs[2], bsdf.inputs["Base Color"])
+        # POLISH takes the roughness DOWN: what a tyre does to aggregate is make it smooth
+        rough = nt.nodes.new("ShaderNodeMapRange")
+        rough.clamp = True
+        nt.links.new(chan.outputs["Red"], rough.inputs["Value"])
+        rough.inputs["To Min"].default_value = look["rough"]
+        rough.inputs["To Max"].default_value = max(0.30, look["rough"] - 0.30)
+        nt.links.new(rough.outputs["Result"], bsdf.inputs["Roughness"])
     mat.use_backface_culling = not look["two"]
     if look["mode"] == "MASK":
         # A LEAF CARD IS A QUAD WITH A HOLE IN IT, and without the hole it is a quad. The engine

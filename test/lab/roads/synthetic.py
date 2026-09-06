@@ -26,6 +26,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import kerbline  # noqa: E402
 import lanes as lanework  # noqa: E402
+import wear  # noqa: E402
 import publish  # noqa: E402
 
 OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "synthetic"
@@ -64,6 +65,7 @@ CLEARANCE_ROUNDS = 40     # [SET] a bound, not a schedule: the loop stops on its
 BAND_SLACK_M = 1e-4       # [SET] the QP's own primal tolerance, allowed to the check as well
 CLEARANCE_TOL_M = 1e-4    # a fixed point is reached when a round moves nothing a driver feels
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
+TRACK_HALF_M = 0.90       # [SET] half a car's track: where the tyres run in a lane, and polish it
 # --- the road builder's own numbers, each with its origin -------------------------------------
 # RAL 2012 (Richtlinien fuer die Anlage von Landstrassen) and RAS-Q; AASHTO's Green Book agrees
 # within a percent on all of them. A number here is [SET] from a table, never from taste.
@@ -2523,13 +2525,32 @@ class Mesh:
 
     @staticmethod
     def section(way):
-        """The cross-section's BREAK OFFSETS: a vertex stands wherever the surface's slope
-        changes -- the crown at the centreline and the two edges -- and nowhere else. A strip of
-        two vertices chords the crown away and drew 8.75 cm off the analytic surface (measured);
-        CARLA samples a lane across `vertex_width_resolution` for the same reason, and every lane
-        boundary joins this list when lanes arrive."""
+        """The cross-section's BREAK OFFSETS: a vertex stands wherever the SURFACE changes.
+
+        The slope changes at the crown and at the two edges -- a strip of two vertices chords the
+        crown away and drew 8.75 cm off the analytic surface (measured). But a surface is more
+        than its slope: it changes at a LANE BOUNDARY, where the marking is and where one lane's
+        wear stops, and along a WHEEL PATH, where a tyre has polished it. CARLA samples each lane
+        across `vertex_width_resolution` for exactly this reason. So the list is the lane
+        boundaries and the wheel paths as well, and a field laid on the road has somewhere to sit."""
         half = way["tags"]["width"] / 2.0
-        return [-half, 0.0, +half]
+        got = {-half: 1, 0.0: 1, half: 1}
+        for frac in (1.0, 0.66, 0.33):
+            # the silt band needs its shoulders for the same reason the polish does
+            got[round(-half + wear.SILT_M * frac, 4)] = 1
+            got[round(half - wear.SILT_M * frac, 4)] = 1
+        for lane in lanework.of(way):
+            got[round(lane.left, 4)] = 1
+            got[round(lane.right, 4)] = 1
+            if lane.use != "drive":
+                continue
+            for side in (-1.0, +1.0):
+                # A BAND NEEDS ITS SHOULDERS. Sampled only at the wheel path the polish went from
+                # 0 to 1 between two vertices and read as a painted stripe, which I21 said (1.00
+                # against a 0.50 tolerance); the band is a Gaussian and it needs three rows.
+                for k in (-2, -1, 0, 1, 2):
+                    got[round(lane.centre + side * TRACK_HALF_M + k * wear.POLISH_M, 4)] = 1
+        return sorted(v for v in got if -half - 1e-9 <= v <= half + 1e-9)
 
     @staticmethod
     def crossfall_of(way):
@@ -2682,10 +2703,20 @@ class Mesh:
         return best
 
 
+def mesh_of(st):
+    """THE DRAWN SURFACE, BUILT ONCE PER STRUCTURE. Three checks read it and a second Mesh is a
+    second answer to the same question as well as a second minute of the ladder."""
+    got = getattr(st, "_mesh", None)
+    if got is None:
+        got = Mesh(st)
+        st._mesh = got
+    return got
+
+
 def check_mesh(map_, st):
     """I7 (welded and closed where it should be) and I9 (the drawn surface against the analytic
     driving surface, sampled along every lane)."""
-    mesh = Mesh(st)
+    mesh = mesh_of(st)
     worst = 0.0
     samples = 0
     where = None
@@ -3728,6 +3759,7 @@ def run(case, number=0):
         "I17 walk on carriageway m2": kerbline.check_walk_off_carriageway(m, st),
         "I18 carriageway pieces": kerbline.check_carriageway_connected(m, st),
         "I20 lanes": lanework.check_lane_band(m.net.ways),
+        "I21 wear field": wear.check_field_has_room(mesh_of(st), wear.carriageway(mesh_of(st), m)),
         "I8 seam": (seam_sweep(terrain, NETWORKS[rname]) if rname == "R17-seam" else None),
     }
     red = []
@@ -3761,6 +3793,8 @@ def run(case, number=0):
         red.append("I18")
     if verdict["I20 lanes"]["outside band"] or verdict["I20 lanes"]["outside carriageway m"] > 1e-6:
         red.append("I20")
+    if verdict["I21 wear field"]["saturated edges"]:
+        red.append("I21")
     seam = verdict["I8 seam"]
     if seam is not None:
         # the seam must stand well inside the DRIVING tolerance, and the halo that buys it is

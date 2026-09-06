@@ -42,6 +42,7 @@ import materials as stock  # noqa: E402
 import street  # noqa: E402
 import kerbline  # noqa: E402
 import junction  # noqa: E402
+import wear  # noqa: E402
 import ground as lab_ground  # noqa: E402
 
 _spec = _util.spec_from_file_location("outshine_road_bed", HERE / "roads" / "synthetic.py")
@@ -393,7 +394,7 @@ def parts_of(place, frame, doc, red, lod=3):
     that instrument's job is to show a crack. This one keeps every body's own palette and its
     roof's own covering, and hands the street its kerb, its gutter, its footway, its markings and
     its lamps -- which is where a large share of what a player sees at eye level actually is."""
-    parts, looks = Parts(), {}
+    parts, looks, fields = Parts(), {}, {}
 
     def put(role, verts, tris, rgb):
         parts.add(role, verts, tris)
@@ -433,6 +434,9 @@ def parts_of(place, frame, doc, red, lod=3):
             faces.append((ia, ib, ic) if float(np.cross(pb - pa, pc - pa)[2]) > 0.0
                          else (ia, ic, ib))
         put("road", road, faces, stock.STOCK["asphalt"])
+        # THE WEATHERING FIELD, and every channel of it is a consequence: a tyre polished the
+        # wheel paths, water left its silt in the last half metre before the kerb.
+        fields["road"] = wear.carriageway(mesh, mesh.map)
         colour = {"kerb": stock.STOCK["kerbstone"], "gutter": stock.STOCK["asphalt"],
                   "walk": stock.STOCK["paving"], "paint": stock.STOCK["paint"],
                   "metal": stock.STOCK["iron"], "lamp": stock.STOCK["steel"],
@@ -466,7 +470,8 @@ def parts_of(place, frame, doc, red, lod=3):
         mats = b.materials()
         for role, (vv, tt) in b.body(lod).items():
             put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30))
-    return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped)
+    return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped,
+                              fields=fields)
 
 
 def ink_share(img):
@@ -514,7 +519,8 @@ def one(place):
     shot = OUT / f"{place['name']}.png"
     blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
                  lab_camera.sun_direction(place["lat"], place["lon"], place["when"]),
-                 str(shot), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE)
+                 str(shot), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE,
+                 fields=counts.get("fields"))
     from PIL import Image
     img = np.asarray(Image.open(shot).convert("RGB"))
     share, dark = ink_share(img), dark_share(img)
