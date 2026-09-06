@@ -246,6 +246,9 @@ def run(name, number):
     poly, tags = got
     tags = clean(tags)
     ground = RealGround(lat, lon)
+    # THE COORDINATE IS AN INPUT TO THE GENERATOR, not a caption: it sets the snow the roof must
+    # shed, the eaves' oversail, what a wall is made of, and how tall masonry may go here
+    here = bed.region_of.of(lat, lon, ground.at(0.0, 0.0))
     # SIMPLE 3D BUILDINGS: where `building:part` ways cover the outline, THEY carry the heights
     # and the outline way's `height` is the tallest point of the whole -- the Koelner Dom's 157 m
     # is its towers, and extruding the entire 146 x 87 m outline to it drew a box the size of the
@@ -258,7 +261,7 @@ def run(name, number):
         merged.pop("building:levels", None)
         merged.update(clean(ptags))
         try:
-            made.append(bed.Building(ppoly, merged, ground, cell=1.2))
+            made.append(bed.Building(ppoly, merged, ground, cell=1.2, where=here))
         except Exception:
             continue
     covered = 0.0
@@ -272,7 +275,8 @@ def run(name, number):
         tags = dict(tags)
         tags["height"] = min(told) if told else min(m.ridge - m.pad for m in made)
         tags.pop("building:levels", None)
-    b = bed.Building(poly, tags, ground, cell=max(0.8, math.sqrt(poly.area) / 40.0))
+    b = bed.Building(poly, tags, ground, cell=max(0.8, math.sqrt(poly.area) / 40.0),
+                     where=here)
     b.parts = made
     f = bed.Facade(b)
     red = f.faults()
@@ -288,7 +292,8 @@ def run(name, number):
     case = (name.replace("-", "_"), f"{lat:.4f},{lon:.4f}", shown)
     bed.OUT = CACHE
     bed.draw(case, b, f, number)
-    print(f"{number:02d} {name:20s} {b.style.kind[:12]:12s} {b.style.epoch:13s} {b.roof:10s} "
+    print(f"{number:02d} {name:20s} {here.name[:14]:14s} {b.style.wall[:6]:6s} "
+          f"{b.style.kind[:12]:12s} {b.style.epoch:13s} {b.roof:10s} "
           f"{'RED ' + ','.join(red) if red else 'ok':22s} "
           f"nodes {len(poly.exterior.coords):4d} parts {len(b.parts):2d} "
           f"area {poly.area:8.0f} m2  levels {f.levels():3d}  H {b.ridge - b.pad:6.1f} m  "

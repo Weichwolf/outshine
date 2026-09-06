@@ -24,6 +24,12 @@ import numpy as np
 import shapely
 import shapely.geometry.polygon
 import triangle
+
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))
+import features
+import roofs
+import region as region_of
 from shapely.geometry import Point, Polygon
 from shapely.ops import unary_union
 
@@ -103,98 +109,33 @@ FOOTPRINTS = {
 # ----------------------------------------------------------------------------- the roof
 
 def roof_height_at(poly, x, y, shape, eaves_h, ridge_h, axis=None):
-    """The roof's height above the eaves at (x, y). One distance function and its variations.
+    """The roof's height above the eaves at (x, y), from the SHAPE REGISTRY in `roofs.py`.
 
     THE DISTANCE IS SIGNED AND THE FUNCTION IS ZERO OUTSIDE. `distance` to a ring is positive on
     both sides of it, so a point OUTSIDE the footprint reads as one deep inside and the roof was
     evaluated there: the elevation of a round building grew two horns rising past the eaves at
-    the stations beyond its own tangent (seen in B29). A roof exists over its footprint only."""
+    the stations beyond its own tangent (seen in B29). A roof exists over its footprint only.
+
+    This function is now only the CONTEXT: it computes what every shape may ask for -- the
+    distance to the boundary, the inradius, the half-widths across and along the principal axis
+    -- and hands it to the one registered shape. Adding a roof is adding a function to `roofs.py`
+    and nothing here changes."""
     here = Point(x, y)
     if not poly.covers(here):
+        return 0.0
+    if shape == "flat" or not roofs.known(shape):
         return 0.0
     d = poly.exterior.distance(here)
     for ring in poly.interiors:
         d = min(d, ring.distance(here))
-    if shape == "flat":
-        return 0.0
-    if shape == "pyramidal":
-        # the apex over the centroid: the distance function normalised by its own maximum
-        return (ridge_h - eaves_h) * d / max(roof_inradius(poly), 1e-6)
-    if shape == "hipped":
-        rise = min(d * math.tan(ROOF_PITCH), ridge_h - eaves_h)
-        return rise
-    if shape == "gabled":
-        # the distance to the two LONG sides only: the roof rises to a ridge along the long axis
-        u, v = axis
-        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
-        half = axis_half(poly, v)
-        rise = (half - across) * math.tan(ROOF_PITCH)
-        return max(0.0, min(rise, ridge_h - eaves_h))
-    if shape == "skillion":
-        u, v = axis
-        across = (x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1]
-        half = axis_half(poly, v)
-        return (ridge_h - eaves_h) * (across + half) / max(2 * half, 1e-6)
-    if shape == "mansard":
-        # two pitches: steep to a third of the rise, then shallow -- the distance function again
-        steep = min(d * math.tan(math.radians(70.0)), (ridge_h - eaves_h) * 0.6)
-        shallow = (ridge_h - eaves_h) * 0.6 + max(0.0, d - (ridge_h - eaves_h) * 0.6 / math.tan(math.radians(70.0))) * math.tan(math.radians(20.0))
-        return min(max(steep, 0.0) if d * math.tan(math.radians(70.0)) < (ridge_h - eaves_h) * 0.6 else shallow, ridge_h - eaves_h)
-    if shape == "half-hipped":
-        # Krueppelwalm: a gable whose top is cut back by a small hip
-        u, v = axis
-        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
-        half = axis_half(poly, v)
-        along = abs((x - poly.centroid.x) * u[0] + (y - poly.centroid.y) * u[1])
-        halfu = axis_half(poly, u)
-        rise = (half - across) * math.tan(ROOF_PITCH)
-        clip = max(0.0, (halfu - along)) * math.tan(ROOF_PITCH) + (ridge_h - eaves_h) * 0.55
-        return max(0.0, min(rise, clip, ridge_h - eaves_h))
-    if shape == "gambrel":
-        # Mansarddach mit zwei Neigungen ueber die BREITE, nicht ueber den Abstand zum Rand
-        u, v = axis
-        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
-        half = axis_half(poly, v)
-        knee = half * 0.55
-        steep = math.tan(math.radians(65.0))
-        shallow = math.tan(math.radians(28.0))
-        if across > knee:
-            return max(0.0, (half - across) * steep)
-        return (half - knee) * steep + (knee - across) * shallow
-    if shape == "sawtooth":
-        # Sheddach: the roof a factory hall wears, its glazing facing north
-        u, v = axis
-        along = (x - poly.centroid.x) * u[0] + (y - poly.centroid.y) * u[1]
-        halfu = axis_half(poly, u)
-        bay = max(6.0, 2 * halfu / max(1, round(2 * halfu / 12.0)))
-        phase = ((along + halfu) % bay) / bay
-        return (ridge_h - eaves_h) * phase
-    if shape == "barrel":
-        u, v = axis
-        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
-        half = axis_half(poly, v)
-        return (ridge_h - eaves_h) * math.sqrt(max(0.0, 1.0 - (across / max(half, 1e-6)) ** 2))
-    if shape == "spire":
-        # Turmhelm: a steep pyramid, the church's own
-        return (ridge_h - eaves_h) * d / max(roof_inradius(poly), 1e-6)
-    if shape == "onion":
-        # a ZWIEBELHAUBE has three parts and a cone has none of them: the BULB rises almost
-        # vertically off the drum, a long SHOULDER carries it in, and a LANTERN spikes at the
-        # top. A height field cannot hold the bulb's overhang -- the drum's radius is its widest
-        # -- so the flare is spent on the rate instead: steep at the rim, flat through the
-        # shoulder, steep again at the lantern. Drawn as a cone it read as a rocket (seen in B02)
-        r = roof_inradius(poly)
-        u = min(1.0, d / max(r, 1e-6))
-        return (ridge_h - eaves_h) * (0.60 * math.sin(math.pi / 2 * u ** 0.42) + 0.40 * u ** 7)
-    if shape == "butterfly":
-        u, v = axis
-        across = abs((x - poly.centroid.x) * v[0] + (y - poly.centroid.y) * v[1])
-        half = axis_half(poly, v)
-        return (ridge_h - eaves_h) * (across / max(half, 1e-6))
-    if shape == "dome":
-        r = roof_inradius(poly)
-        return (ridge_h - eaves_h) * math.sqrt(max(0.0, 1.0 - ((r - d) / max(r, 1e-6)) ** 2))
-    return 0.0
+    u, v = axis if axis is not None else principal_axis(poly)
+    c = poly.centroid
+    across = abs((x - c.x) * v[0] + (y - c.y) * v[1])
+    along = abs((x - c.x) * u[0] + (y - c.y) * u[1])
+    ctx = roofs.Ctx(poly=poly, x=x, y=y, d=d, eaves=eaves_h, ridge=ridge_h, axis=(u, v),
+                    inradius=roof_inradius(poly), half_v=axis_half(poly, v),
+                    half_u=axis_half(poly, u), across=across, along=along, pitch=ROOF_PITCH)
+    return roofs.height_at(shape, ctx)
 
 
 _INRADIUS = {}
@@ -254,7 +195,7 @@ def axis_half(poly, v):
 class Building:
     """Footprint + tags + ground -> a closed body: pad, walls, eaves, roof."""
 
-    def __init__(self, poly, tags, ground, cell=1.0):
+    def __init__(self, poly, tags, ground, cell=1.0, where=None):
         # ORIENTATION IS THIS TREE'S CONVENTION AND NOT THE SOURCE'S: counter-clockwise seen from
         # outside, holes the other way. An OSM way is wound whichever way the surveyor drew it,
         # and a clockwise footprint turned the whole body inside out -- every wall's outward
@@ -268,7 +209,9 @@ class Building:
         self.levels = float(tags.get("building:levels", 0) or 0)
         self.min_m = float(tags.get("min_height", 0) or 0)
         told_height = float(tags.get("height", 0) or 0)
-        self.style = Style(tags, poly, self.levels, told_height or self.levels * LEVEL_M)
+        self.where = where
+        self.style = Style(tags, poly, self.levels, told_height or self.levels * LEVEL_M,
+                           where=where)
         self.roof = self.style.roof_for(tags.get("roof:shape"))
         # a ROOF OF REVOLUTION needs a COMPACT plan. An onion, a dome, a spire and a pyramid are
         # turned about one axis, so a long nave under one of them is a 34 m onion -- which is
@@ -739,10 +682,28 @@ class Style:
     height, the bay, the window's proportion and whether a balcony or a cornice belongs at all,
     and those are what a viewer reads a period from at 200 m."""
 
-    def __init__(self, tags, poly, levels, height_m):
+    def __init__(self, tags, poly, levels, height_m, where=None):
         self.kind, self.epoch = classify(tags, poly, levels, height_m)
         (self.level_m, self.bay_m, (self.win_w, self.win_h), self.sill_m,
          self.cornice, self.balconies, self.roofs) = EPOCHS[self.epoch]
+        # THE PLACE IS AN INPUT, not a label. The generator takes an EPOCH and a COORDINATE: the
+        # epoch sets the proportions, and the coordinate sets what the epoch cannot know -- the
+        # snow a roof must shed and therefore the pitch below which nobody builds, how far the
+        # eaves oversail, what a wall is made of, and how many storeys of masonry the ground
+        # allows before a frame is needed. Where both speak, the EPOCH wins, because it is the
+        # more specific of the two; where the epoch is silent, the region answers.
+        self.where = where
+        self.wall = "brick"
+        self.eaves_m = EAVES_M
+        if where is not None:
+            self.wall = where.wall
+            self.eaves_m = where.eaves_m
+            allowed = [r for r in self.roofs if r in where.roofs] or list(self.roofs)
+            self.roofs = tuple(allowed)
+            if levels > where.storeys_masonry and self.wall in ("brick", "stone"):
+                # a wall this tall is not laid, it is FRAMED -- the fact a viewer reads from a
+                # window that runs the whole bay instead of a hole punched in masonry
+                self.wall = "frame"
         # A STOREY HEIGHT FOLLOWS THE USE where the use says it plainly. A parliament, a palace,
         # a museum or a station has rooms twice a flat's height, and dividing the Reichstag's
         # 48 m by a dwelling's 3.6 m gave it thirteen floors (measured). [SET] from the German
@@ -753,10 +714,19 @@ class Style:
             self.level_m = max(self.level_m, tall[self.kind])
 
     def roof_for(self, told):
-        """The roof OSM says, if this epoch can carry it; otherwise the epoch's first."""
-        if told and told in self.roofs:
-            return told
-        return told if told else self.roofs[0]
+        """The roof OSM says, if this epoch can carry it; otherwise the epoch's first -- and
+        never one flatter than the snow here allows.
+
+        A roof sheds what falls on it or it carries it, and that is a rule of the PLACE and not
+        of the period: the alpine 45 degrees is a snow load before it is a style. A flat roof
+        under two kilonewtons of snow is not a style choice, it is a collapse."""
+        got = told if (told and told in self.roofs) else (told or self.roofs[0])
+        if self.where is None:
+            return got
+        if self.where.min_pitch_deg > 15.0 and got in ("flat", "butterfly", "sawtooth"):
+            steep = [r for r in self.roofs if r not in ("flat", "butterfly", "sawtooth")]
+            return steep[0] if steep else got
+        return got
 
 
 # ----------------------------------------------------------------------------- the facade
@@ -1331,314 +1301,23 @@ def draw(case, b, f, number=0):
         wall["length"] = extent
         joints = sorted({proj(f._point(w, k * w["bay_m"]))
                          for w in seen_walls for k in range(w["bays"] + 1)})
-        if b.style.cornice:
-            # a KRANZGESIMS is a PROFILE and not a stripe: a bed mould, a row of dentils, the
-            # corona that throws the shadow, and a cyma above it. Four courses is what makes a
-            # cornice read at 1:200 and it is the single element a viewer reads a period from
-            oversail = 0.55
-            axe.add_patch(Rectangle((-0.10, b.eaves - 0.62), wall["length"] + 0.20, 0.12,
-                                    facecolor="0.88", edgecolor=ink, lw=0.6))       # Bettgesims
-            if b.style.epoch in ("gruenderzeit", "baroque", "commercial"):
-                for x in np.arange(0.0, wall["length"], 0.42):                       # Zahnschnitt
-                    axe.add_patch(Rectangle((x + 0.08, b.eaves - 0.50), 0.22, 0.20,
-                                            facecolor="0.80", edgecolor=ink, lw=0.4))
-            axe.add_patch(Rectangle((-oversail, b.eaves - 0.30), wall["length"] + 2 * oversail,
-                                    0.24, facecolor="0.78", edgecolor=ink, lw=0.9))  # Corona
-            axe.add_patch(Rectangle((-oversail * 0.7, b.eaves - 0.06),
-                                    wall["length"] + 1.4 * oversail, 0.10,
-                                    facecolor="0.86", edgecolor=ink, lw=0.6))        # Sima
-        if "Sockel" in el or b.style.epoch in ("gruenderzeit", "baroque", "gothic", "jugendstil"):
-            hs = b.style.level_m * 0.32
-            axe.add_patch(Rectangle((-0.12, b.pad), wall["length"] + 0.24, hs,
-                                    facecolor="0.86", edgecolor=ink, lw=0.9))        # Sockel
-            for z in np.arange(b.pad + 0.34, b.pad + hs - 0.05, 0.34):               # Bossierung
-                axe.plot([-0.12, wall["length"] + 0.12], [z, z], color="0.55", lw=0.45)
-            axe.add_patch(Rectangle((-0.20, b.pad + hs), wall["length"] + 0.40, 0.14,
-                                    facecolor="0.80", edgecolor=ink, lw=0.7))        # Sockelgesims
-        if "Gurtgesims" in el or "Gesims" in el:
-            for level in range(1, f.levels()):
-                z = b.pad + level * b.style.level_m
-                axe.add_patch(Rectangle((-0.16, z - 0.24), wall["length"] + 0.32, 0.18,
-                                        facecolor="0.84", edgecolor=ink, lw=0.7))
-                axe.plot([-0.16, wall["length"] + 0.16], [z - 0.30] * 2, color="0.55", lw=0.5)
-        if "Pilaster" in el:
-            for bay in range(wall["bays"] + 1):
-                x = bay * wall["bay_m"]
-                w_p = 0.42
-                axe.add_patch(Rectangle((x - w_p / 2, b.pad), w_p, b.eaves - b.pad,
-                                        facecolor="0.90", edgecolor=ink, lw=0.7))    # Schaft
-                axe.add_patch(Rectangle((x - w_p * 0.8, b.pad), w_p * 1.6, 0.34,
-                                        facecolor="0.84", edgecolor=ink, lw=0.7))    # Basis
-                axe.add_patch(Rectangle((x - w_p * 0.85, b.eaves - 1.05), w_p * 1.7, 0.42,
-                                        facecolor="0.82", edgecolor=ink, lw=0.7))    # Kapitell
-                for z in np.arange(b.pad + 0.7, b.eaves - 1.2, 0.55):                # Kannelur
-                    axe.plot([x - w_p * 0.22, x + w_p * 0.22], [z, z], color="0.6", lw=0.3)
-        if "Strebepfeiler" in el:
-            # a STREBEPFEILER carries the vault's thrust and is therefore THICKEST AT THE FOOT,
-            # set back in stages, each stage shedding water on a weathering. A plain rectangle is
-            # a pilaster with the wrong name and carries nothing (seen in B01)
-            H = b.eaves - b.pad
-            for bay in range(wall["bays"] + 1):
-                x = bay * wall["bay_m"]
-                for k, (wd, z0, z1) in enumerate(((0.62, 0.00, 0.42), (0.48, 0.42, 0.74),
-                                                  (0.34, 0.74, 0.94))):
-                    axe.add_patch(Rectangle((x - wd, b.pad + H * z0), 2 * wd, H * (z1 - z0),
-                                            facecolor="0.90", edgecolor=ink, lw=0.9, zorder=5))
-                    axe.add_patch(MplPoly(np.array([(x - wd, b.pad + H * z1),
-                                                    (x + wd, b.pad + H * z1),
-                                                    (x + wd * 0.72, b.pad + H * z1 + 0.34),
-                                                    (x - wd * 0.72, b.pad + H * z1 + 0.34)]),
-                                          closed=True, facecolor="0.80", edgecolor=ink,
-                                          lw=0.8, zorder=5))                   # Wasserschlag
-                axe.add_patch(MplPoly(np.array([(x - 0.30, b.pad + H * 0.94),
-                                                (x + 0.30, b.pad + H * 0.94),
-                                                (x, b.pad + H * 0.94 + 1.4)]), closed=True,
-                                      facecolor="0.86", edgecolor=ink, lw=0.8, zorder=5))  # Fiale
-        if "Vorhangfassade" in el:
-            # a CURTAIN WALL is a grid hung in front of the frame: a spandrel band at every
-            # floor, a mullion at every module, a SOCKELGESCHOSS of double height at the foot
-            # and an ATTIKA that hides the plant. Drawn as 480 loose window rectangles it read
-            # as graph paper, which is what a tower without these three reads as
-            base_h = b.style.level_m * 1.7
-            axe.add_patch(Rectangle((0, b.pad), wall["length"], base_h,
-                                    facecolor="0.40", edgecolor=ink, lw=1.0, zorder=3))
-            axe.add_patch(Rectangle((-0.25, b.pad + base_h), wall["length"] + 0.5, 0.30,
-                                    facecolor="0.86", edgecolor=ink, lw=0.8, zorder=3))
-            for level in range(2, f.levels() + 1):
-                z = b.pad + level * b.style.level_m
-                if z > b.eaves:
-                    break
-                axe.add_patch(Rectangle((0, z - 0.75), wall["length"], 0.75,
-                                        facecolor="0.72", edgecolor="none", zorder=3))
-                axe.plot([0, wall["length"]], [z - 0.75, z - 0.75], color=ink, lw=0.4, zorder=3)
-            for m in np.arange(0.0, wall["length"] + 1e-6, wall["bay_m"] / 2.0):
-                axe.plot([m, m], [b.pad + base_h + 0.3, b.eaves], color=ink, lw=0.4, zorder=3)
-            axe.add_patch(Rectangle((-0.30, b.eaves - 1.1), wall["length"] + 0.60, 1.1,
-                                    facecolor="0.80", edgecolor=ink, lw=1.0, zorder=3))  # Attika
-        if "Fachwerk" in el and f.levels() >= 2:
-            # a FACHWERK is a frame and not a texture: a SCHWELLE and a RÄHM close each storey,
-            # a STÄNDER stands on every bay joint, and the corner bays are braced with a STREBE
-            # -- without the brace the frame is a mechanism and the drawing says so
-            for level in range(1, f.levels()):
-                z0 = b.pad + level * b.style.level_m
-                z1 = min(b.eaves, z0 + b.style.level_m)
-                axe.add_patch(Rectangle((0, z0), wall["length"], 0.16,
-                                        facecolor="0.72", edgecolor=ink, lw=0.6))   # Schwelle
-                axe.add_patch(Rectangle((0, z1 - 0.16), wall["length"], 0.16,
-                                        facecolor="0.72", edgecolor=ink, lw=0.6))   # Raehm
-                for bay in range(wall["bays"] + 1):
-                    x = bay * wall["bay_m"]
-                    axe.add_patch(Rectangle((x - 0.09, z0), 0.18, z1 - z0,
-                                            facecolor="0.72", edgecolor=ink, lw=0.6))
-                for bay in (0, wall["bays"] - 1):
-                    x0s = bay * wall["bay_m"]
-                    sgn = 1.0 if bay == 0 else -1.0
-                    axe.plot([x0s + sgn * 0.09, x0s + sgn * (wall["bay_m"] * 0.55)],
-                             [z1 - 0.16, z0 + 0.16], color=ink, lw=1.4)              # Strebe
-        if "Schaufenster" in el:
-            # a SHOPFRONT is about three metres tall whatever the storey height is: tied to
-            # `level_m` it grew to eight metres on a retail shed and swallowed the whole facade
-            hs_ = min(3.2, b.style.level_m - 0.9)
-            axe.add_patch(Rectangle((0.6, b.pad + 0.3), wall["length"] - 1.2, hs_,
-                                    facecolor="0.45", edgecolor=ink, lw=1.0, zorder=3))
-            axe.add_patch(Rectangle((-0.4, b.pad + hs_ + 0.45), wall["length"] + 0.8, 0.35,
-                                    facecolor="0.75", edgecolor=ink, lw=0.8, zorder=4))  # Vordach
-        if "Arkade" in el:
-            # an ARCADE is a row of PIERS with arches between them, springing at the head of the
-            # ground floor and dying into the first floor's band. Struck at mid-storey with a
-            # 0.7-bay radius it read as two pencil scribbles over the shopfront (seen in B10)
-            spring = b.pad + b.style.level_m * 0.62
-            pier = min(0.6, wall["bay_m"] * 0.18)
-            for bay in range(wall["bays"] + 1):
-                x = bay * wall["bay_m"]
-                axe.add_patch(Rectangle((x - pier / 2, b.pad), pier, spring - b.pad,
-                                        facecolor="0.86", edgecolor=ink, lw=0.9, zorder=4))
-            for bay in range(wall["bays"]):
-                x = (bay + 0.5) * wall["bay_m"]
-                clear = wall["bay_m"] - pier
-                axe.add_patch(matplotlib.patches.Wedge((x, spring), clear / 2, 0, 180,
-                                                       width=0.22, facecolor="0.86",
-                                                       edgecolor=ink, lw=0.9, zorder=4))
-        if "Sheddach" in el or b.roof == "sawtooth":
-            pass
-        if "Schornstein" in el and b.roof in ("flat", "sawtooth", "skillion"):
-            axe.add_patch(Rectangle((wall["length"] * 0.78, b.eaves), 1.2,
-                                    max(6.0, (b.eaves - b.pad) * 0.5),
-                                    facecolor="0.8", edgecolor=ink, lw=1.0))
-        # ---- the elements the epoch DECLARES and nothing drew ------------------------------
-        # fifteen names stood in ELEMENTS and only the easy half reached the paper. A table that
-        # lists a Stuckband and draws none is a table that describes a different building
         H = b.eaves - b.pad
         L = wall["length"]
         street = wall is max((w for w in f.walls if w["outer"]), key=lambda w: w["length"])
-        if "Erker" in el and f.levels() >= 3 and wall["bays"] >= 3:
-            # an ERKER is corbelled out over the first floor and stops under the eaves, with its
-            # own little roof; in plan it is already there as the projection the mass carries
-            xe = (wall["bays"] // 2) * wall["bay_m"]
-            z0e, z1e = b.pad + b.style.level_m, b.eaves - 0.7
-            we = wall["bay_m"] * 0.88
-            # the ORIEL stands BEHIND the openings, or it hides the very windows it exists to
-            # carry and reads as a pier (seen in B05). Its cap is a low hip, not a spire
-            axe.add_patch(MplPoly(np.array([(xe - we / 2 + 0.35, z0e - 0.9), (xe + we / 2 - 0.35, z0e - 0.9),
-                                            (xe + we / 2, z0e), (xe - we / 2, z0e)]), closed=True,
-                                  facecolor="0.88", edgecolor=ink, lw=0.9, zorder=6))   # Konsole
-            # the oriel's SHAFT is drawn as an outline: filled it hides the windows it carries,
-            # behind the wall it vanishes. An elevation shows a projecting body by its edge and
-            # its shadow, which is the convention and also the only thing that reads here
-            axe.add_patch(Rectangle((xe - we / 2, z0e), we, z1e - z0e, facecolor="none",
-                                    edgecolor=ink, lw=1.4, zorder=6))
-            axe.plot([xe + we / 2 - 0.12] * 2, [z0e, z1e], color="0.45", lw=2.2, zorder=6)
-            axe.add_patch(MplPoly(np.array([(xe - we / 2 - 0.25, z1e), (xe + we / 2 + 0.25, z1e),
-                                            (xe + we / 4, z1e + 0.55), (xe - we / 4, z1e + 0.55)]),
-                                  closed=True, facecolor="0.84", edgecolor=ink, lw=0.9, zorder=6))
-            for lv in range(1, f.levels()):
-                zz = b.pad + lv * b.style.level_m
-                if z0e < zz < z1e - 0.4:
-                    axe.plot([xe - we / 2, xe + we / 2], [zz, zz], color=ink, lw=0.5, zorder=6)
-        if "Stuckband" in el:
-            zs = b.eaves - 1.15
-            axe.add_patch(Rectangle((0, zs), L, 0.55, facecolor="0.90", edgecolor=ink,
-                                    lw=0.7, zorder=4))
-            for xs_ in np.arange(0.45, L, 0.9):
-                axe.add_patch(matplotlib.patches.Circle((xs_, zs + 0.275), 0.17,
-                                                        facecolor="0.82", edgecolor=ink,
-                                                        lw=0.5, zorder=5))
-        if "geschweifter Giebel" in el and b.ridge > b.eaves + 1.2 and street:
-            # a VOLUTE GABLE over the middle bays: two S-curves meeting at a small pediment
-            xm, wg = L / 2, min(L * 0.42, wall["bay_m"] * 2.4)
-            hg = min(b.ridge - b.eaves, 3.0)
-            # a SCHWEIFGIEBEL is two S-curves rising from the shoulders to a small pediment:
-            # smoothstep is exactly that curve, concave at the foot and convex at the top
-            u = np.linspace(0.0, 1.0, 48)
-            left = [(xm - wg / 2 + (wg / 2) * uu, b.eaves + hg * (3 * uu ** 2 - 2 * uu ** 3))
-                    for uu in u]
-            volute = [(xm - wg / 2, b.eaves)] + left \
-                + [(xm + wg / 2 - (x - (xm - wg / 2)), z) for x, z in reversed(left)] \
-                + [(xm + wg / 2, b.eaves)]
-            axe.add_patch(MplPoly(np.array(volute), closed=True, facecolor="0.88", edgecolor=ink,
-                                  lw=1.0, zorder=6))
-        if "Wasserspeier" in el:
-            for bay in range(wall["bays"] + 1):
-                x = bay * wall["bay_m"]
-                axe.add_patch(MplPoly(np.array([(x - 0.14, b.eaves - 0.1), (x + 0.14, b.eaves - 0.1),
-                                                (x + 0.5, b.eaves + 0.42), (x + 0.2, b.eaves + 0.42)]),
-                                      closed=True, facecolor="0.80", edgecolor=ink, lw=0.7, zorder=7))
-        if "Kartusche" in el and street:
-            axe.add_patch(matplotlib.patches.Ellipse((L / 2, b.pad + b.style.level_m * 1.35),
-                                                     1.5, 1.1, facecolor="0.86", edgecolor=ink,
-                                                     lw=0.9, zorder=6))
-        if "Klinkerband" in el:
-            for lv in range(1, f.levels() + 1):
-                zz = min(b.pad + lv * b.style.level_m, b.eaves)
-                axe.add_patch(Rectangle((0, zz - 0.42), L, 0.30, facecolor="0.78",
-                                        edgecolor=ink, lw=0.5, zorder=3))
-        if "Loggia" in el and f.levels() >= 3 and wall["bays"] >= 3 and street:
-            xl_ = (wall["bays"] // 2) * wall["bay_m"]
-            wl = wall["bay_m"] * 0.9
-            for lv in range(1, f.levels()):
-                zz = b.pad + lv * b.style.level_m
-                axe.add_patch(Rectangle((xl_ - wl / 2, zz + 0.15), wl, b.style.level_m - 0.6,
-                                        facecolor="0.35", edgecolor=ink, lw=0.9, zorder=5))
-                axe.add_patch(Rectangle((xl_ - wl / 2, zz + 0.15), wl, 1.0, facecolor="0.80",
-                                        edgecolor=ink, lw=0.7, zorder=6))
-        if "Waschbeton" in el:
-            for lv in range(f.levels() + 1):
-                zz = min(b.pad + lv * b.style.level_m, b.eaves)
-                axe.plot([0, L], [zz, zz], color="0.55", lw=0.5, zorder=3)
-            for bay in range(wall["bays"] + 1):
-                axe.plot([bay * wall["bay_m"]] * 2, [b.pad, b.eaves], color="0.55", lw=0.5, zorder=3)
-        if "Fensterband" in el:
-            # a RIBBON WINDOW is one opening per storey and not a row of holes: the band runs
-            # between the piers and the spandrel below it is the wall
-            for lv in range(f.levels()):
-                zz = b.pad + lv * b.style.level_m
-                axe.add_patch(Rectangle((0.5, zz + b.style.level_m * 0.42), L - 1.0,
-                                        b.style.level_m * 0.40, facecolor="0.55",
-                                        edgecolor=ink, lw=0.8, zorder=4))
-                for m in np.arange(0.5, L - 0.5, wall["bay_m"] / 2.0):
-                    axe.plot([m, m], [zz + b.style.level_m * 0.42,
-                                      zz + b.style.level_m * 0.82], color="white", lw=0.6, zorder=5)
-        if "Pfosten-Riegel" in el:
-            for m in np.arange(0.0, L + 1e-6, wall["bay_m"] / 2.0):
-                axe.plot([m, m], [b.pad, b.eaves], color=ink, lw=0.7, zorder=4)
-            for lv in range(f.levels() + 1):
-                zz = min(b.pad + lv * b.style.level_m, b.eaves)
-                axe.plot([0, L], [zz, zz], color=ink, lw=0.7, zorder=4)
-        if "franzoesischer Balkon" in el:
-            for (w, mid, up, ww, hh, kind) in f.openings():
-                if w is not wall or kind not in ("window", "balcony-door") or up - b.pad < 2.0:
-                    continue
-                for r in np.linspace(mid - ww / 2, mid + ww / 2, 7):
-                    axe.plot([r, r], [up, up + 1.0], color=ink, lw=0.5, zorder=6)
-                axe.plot([mid - ww / 2, mid + ww / 2], [up + 1.0] * 2, color=ink, lw=0.9, zorder=6)
-        if "Attika" in el and "Vorhangfassade" not in el:
-            axe.add_patch(Rectangle((-0.25, b.eaves), L + 0.5, 1.0, facecolor="0.88",
-                                    edgecolor=ink, lw=1.0, zorder=4))
-        if "Stahlfenster" in el:
-            for (w, mid, up, ww, hh, kind) in f.openings():
-                if w is not wall or kind != "window":
-                    continue
-                for r in np.linspace(mid - ww / 2, mid + ww / 2, 4)[1:-1]:
-                    axe.plot([r, r], [up, up + hh], color="white", lw=0.5, zorder=5)
-                for zz in np.linspace(up, up + hh, 4)[1:-1]:
-                    axe.plot([mid - ww / 2, mid + ww / 2], [zz, zz], color="white", lw=0.5, zorder=5)
-        if "Rampe" in el and street:
-            xr = L * 0.5
-            axe.add_patch(MplPoly(np.array([(xr - 3.0, b.pad - 1.2), (xr + 3.0, b.pad - 1.2),
-                                            (xr + 3.0, b.pad + 1.1), (xr - 3.0, b.pad + 1.1)]),
-                                  closed=True, facecolor="0.80", edgecolor=ink, lw=0.9, zorder=5))
-        if "Werbeband" in el:
-            zw = b.pad + min(3.2, b.style.level_m - 0.9) + 0.85
-            axe.add_patch(Rectangle((0, zw), L, 0.75, facecolor="0.30", edgecolor=ink,
-                                    lw=0.9, zorder=5))
-        if "Rosette" in el and street and b.ridge > b.eaves + 2.0:
-            axe.add_patch(matplotlib.patches.Circle((L / 2, b.eaves - H * 0.22), min(2.2, L * 0.11),
-                                                    facecolor="0.55", edgecolor=ink, lw=1.1, zorder=6))
-            axe.add_patch(matplotlib.patches.Circle((L / 2, b.eaves - H * 0.22),
-                                                    min(2.2, L * 0.11) * 0.45, facecolor="white",
-                                                    edgecolor=ink, lw=0.7, zorder=7))
-        if "Tor" in el and street:
-            xt = (wall["bays"] // 2) * wall["bay_m"] + wall["bay_m"] / 2
-            wt = min(wall["bay_m"] * 0.9, 4.2)
-            ht = min(b.style.level_m * 1.6, H * 0.7)
-            axe.add_patch(Rectangle((xt - wt / 2, b.pad), wt, ht, facecolor="0.42",
-                                    edgecolor=ink, lw=1.2, zorder=5))
-            axe.plot([xt, xt], [b.pad, b.pad + ht], color="white", lw=0.8, zorder=6)
-        # a GAUBE stands on a roof SLOPE, and a gable end has none -- drawing one there put two
-        # dormers on the Gruenderzeit block's blind gable, floating at the eaves (seen in B12).
-        # So the wall must face a slope, and the dormer must fit under the ridge with a margin
         rise = b.ridge - b.eaves
         gable_ended = b.roof in ("gabled", "gambrel", "half-hipped", "skillion", "sawtooth")
-        faces_slope = (not gable_ended) or abs(wall["dir"][0] * b.axis[0][0]
-                                               + wall["dir"][1] * b.axis[0][1]) > 0.7
-        if (b.style.epoch in ("gruenderzeit", "jugendstil", "farm", "baroque", "interwar")
-                and b.roof in ("gabled", "hipped", "mansard", "half-hipped", "gambrel")
-                and faces_slope and rise > 2.2 and wall["bays"] >= 2):
-            hg = min(1.55, rise * 0.42)
-            zg = b.eaves + rise * 0.18
-            for bay in range(0, wall["bays"], 2):
-                x = (bay + 0.5) * wall["bay_m"]
-                axe.add_patch(Rectangle((x - 0.72, zg), 1.44, hg, facecolor="0.90",
-                                        edgecolor=ink, lw=0.8))
-                axe.add_patch(MplPoly(np.array([(x - 1.00, zg + hg), (x, zg + hg + 0.62),
-                                                (x + 1.00, zg + hg)]), closed=True,
-                                      facecolor="0.84", edgecolor=ink, lw=0.8))
-                axe.add_patch(Rectangle((x - 0.42, zg + 0.28), 0.84, hg - 0.55,
-                                        facecolor="0.55", edgecolor=ink, lw=0.5))
-        # a SCHORNSTEIN stands at the RIDGE and not at the eaves: a flue is run up the party wall
-        # a SCHORNSTEIN follows the USE and never the epoch: a baroque CHURCH got two of them on
-        # its nave (seen in B02). What burns something is a dwelling, a farm or a works
+        faces_slope = (not gable_ended) or abs(named_wall["dir"][0] * b.axis[0][0]
+                                               + named_wall["dir"][1] * b.axis[0][1]) > 0.7
         heated = any(k in b.style.kind for k in ("house", "apartment", "residential", "terrace",
                                                  "detached", "farm", "barn", "hotel", "yes"))
-        if b.roof != "flat" and heated and faces_slope and b.style.epoch in (
-                "gruenderzeit", "jugendstil", "farm", "interwar", "postwar", "baroque"):
-            for frac in ((0.30, 0.78) if wall["length"] > 14.0 else (0.72,)):
-                x = wall["length"] * frac
-                axe.add_patch(Rectangle((x - 0.42, b.ridge - 0.4), 0.84,
-                                        max(1.3, rise * 0.55) + 0.4,
-                                        facecolor="0.86", edgecolor=ink, lw=0.9))
-                axe.add_patch(Rectangle((x - 0.55, b.ridge + max(1.3, rise * 0.55) - 0.22),
-                                        1.10, 0.22, facecolor="0.78", edgecolor=ink, lw=0.8))
+        # EVERY ELEMENT COMES FROM THE REGISTRY. The sheet no longer knows what a Kranzgesims is;
+        # it hands the context to `features.draw_all` and every registered element that applies
+        # here draws itself, at or below the LOD rung asked for. Adding one is adding a function
+        # to `features.py` and one line -- there is no dispatcher here to extend.
+        features.draw_all(features.Draw(
+            axe=axe, b=b, f=f, wall=wall, el=el, ink=ink, extent=extent, joints=joints,
+            street=street, rise=rise, gable_ended=gable_ended, faces_slope=faces_slope,
+            heated=heated, named_wall=named_wall, proj=proj, H=H, L=L))
         for (w, mid, base, width, depth) in f.balconies():
             if w is not wall:
                 continue
