@@ -29,7 +29,7 @@ _spec = _util.spec_from_file_location("outshine_building_bed", HERE / "synthetic
 bed = _util.module_from_spec(_spec)
 _spec.loader.exec_module(bed)
 import publish  # noqa: E402
-import render as lab_render  # noqa: E402
+import camera as lab_camera  # noqa: E402
 import roofs  # noqa: E402
 
 OUT = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "gallery"
@@ -86,31 +86,40 @@ def _nearest_pair(b):
 
 
 def _render(b, name, number):
-    """A flat-shaded look at the body from a walking eye, so a fold or an inverted face shows."""
-    scene = lab_render.Scene()
+    """A THREE-QUARTER AERIAL, rendered by CYCLES on the GPU -- the lab's one renderer.
+
+    A roof is what this gallery is about and an eye at nine metres with a seven degree pitch sees
+    a box: the first pass drew a skillion as a flat top and a sawtooth as one dark face, and both
+    height fields were CORRECT when sampled. The camera looks DOWN at 26 degrees from 22 m with a
+    raking sun, which is how a roof is drawn."""
+    import sys as _s, pathlib as _p
+    _s.path.insert(0, str(_p.Path(__file__).resolve().parents[1]))
+    import blend
+    import materials as stock
     centre = b.poly.centroid
-    verts = [(v[0] - centre.x, v[1] - centre.y, v[2] - b.pad) for v in b.vertices]
-    scene.add(verts, b.tris, (0.78, 0.74, 0.70))
-    # a patch of ground so the body has something to stand on
-    r = 60.0
-    scene.add([(-r, -r, 0.0), (r, -r, 0.0), (r, r, 0.0), (-r, r, 0.0)],
-              [(0, 1, 2), (0, 2, 3)], (0.42, 0.46, 0.34))
-    # A THREE-QUARTER AERIAL, because a roof is what this gallery is about and an eye at nine
-    # metres with a seven degree pitch sees a box: the first pass rendered a skillion as a flat
-    # top and a sawtooth as one dark face, and both height fields were CORRECT when sampled.
-    # The camera looks DOWN at 26 degrees from 22 m, which is how a roof is drawn.
-    cam = lab_render.Camera(lat=50.0, lon=8.0, agl_m=22.0, bearing_deg=35.0, pitch_deg=-26.0,
-                            fov_deg=45.0, width=900, height=560)
+    cam = lab_camera.Camera(lat=50.0, lon=8.0, agl_m=22.0, bearing_deg=35.0, pitch_deg=-26.0,
+                            fov_deg=45.0, width=1100, height=680)
     back = 30.0
     bearing = math.radians(cam.bearing_deg)
     off = np.array([-math.sin(bearing) * back, -math.cos(bearing) * back, 0.0])
-    moved = lab_render.Scene()
-    moved.vertices = [(v[0] - off[0], v[1] - off[1], v[2]) for v in scene.vertices]
-    moved.tris, moved.colours = scene.tris, scene.colours
-    # a LOW sun from the side, so every plane of a roof takes a different tone: a light straight
-    # overhead flattens a hip and a mansard into one grey
-    img = lab_render.render(moved, cam, np.array([-0.62, -0.35, 0.70]), ambient=0.30)
-    return pathlib.Path(lab_render.save(img, OUT / f"{number:02d}_roof-{name}.png"))
+
+    def moved(points):
+        return [(p[0] - centre.x - off[0], p[1] - centre.y - off[1], p[2] - b.pad) for p in points]
+
+    mats = b.materials()
+    parts, looks = {}, {}
+    for role, (vv, tt) in b.body(3).items():
+        parts[role] = (moved(vv), tt)
+        looks[role] = mats.get(role) or stock.STOCK["render"]
+    r = 60.0
+    parts["ground"] = (moved([(centre.x - r, centre.y - r, b.pad), (centre.x + r, centre.y - r, b.pad),
+                              (centre.x + r, centre.y + r, b.pad), (centre.x - r, centre.y + r, b.pad)]),
+                       [(0, 2, 1), (0, 3, 2)])
+    looks["ground"] = stock.STOCK["grass"]
+    out = OUT / f"{number:02d}_roof-{name}.png"
+    blend.render({k: v for k, v in parts.items() if v[1]}, cam,
+                 np.array([-0.62, -0.35, 0.70]), str(out), samples=48, looks=looks)
+    return out
 
 
 def main(argv):

@@ -37,7 +37,7 @@ import importlib.util as _util  # noqa: E402
 
 import data as roaddata  # noqa: E402
 import publish  # noqa: E402
-import render as lab_render  # noqa: E402
+import camera as lab_camera  # noqa: E402
 import materials as stock  # noqa: E402
 import street  # noqa: E402
 
@@ -129,11 +129,11 @@ PLACES, CAM = client_places()
 def camera_for(place):
     """The lab camera that stands exactly where the client's does."""
     if place["plan"]:
-        return lab_render.Camera(place["lat"], place["lon"], bearing_deg=place["bearing"],
+        return lab_camera.Camera(place["lat"], place["lon"], bearing_deg=place["bearing"],
                                  pitch_deg=CAM["kOverheadPitchDeg"], fov_deg=CAM["kFovDeg"],
                                  width=int(CAM["kWidePx"]), height=int(CAM["kHighPx"]),
                                  plan_above_m=CAM["kPlanAboveM"], span_m=place["span"])
-    return lab_render.Camera(place["lat"], place["lon"], agl_m=CAM["kEyeAglM"],
+    return lab_camera.Camera(place["lat"], place["lon"], agl_m=CAM["kEyeAglM"],
                              bearing_deg=place["bearing"], pitch_deg=CAM["kPitchDeg"],
                              fov_deg=CAM["kFovDeg"], width=int(CAM["kWidePx"]),
                              height=int(CAM["kHighPx"]))
@@ -186,7 +186,7 @@ class Frame:
 
 # ------------------------------------------------------------------ the three bodies
 
-def ground_fan(frame, scene):
+def ground_fan(frame, put=None):
     """THE TERRAIN AS A POLAR FAN. A square grid fine enough for the near field and wide enough
     for the horizon is a quarter of a million triangles; two grids of different pitch meet at a
     T-junction and crack. Rings on a geometric progression with a fixed spoke count are neither:
@@ -220,7 +220,6 @@ def ground_fan(frame, scene):
             c, d = base[j + 1] + k, base[j + 1] + k2
             tris.append((a, d, c))
             tris.append((a, b, d))
-    scene.add(verts, tris, GROUND_COLOUR)
     up = 0
     for (ia, ib, ic) in tris:
         pa, pb, pc = (np.asarray(verts[i], dtype=float) for i in (ia, ib, ic))
@@ -228,7 +227,7 @@ def ground_fan(frame, scene):
     if up != len(tris):
         raise RuntimeError(f"the ground fan has {len(tris) - up} of {len(tris)} faces turned "
                            f"away from the sky -- a ground the camera sees the underside of")
-    return len(tris)
+    return verts, tris
 
 
 def _rings(doc):
@@ -331,12 +330,6 @@ class Parts:
         v.extend([tuple(map(float, p)) for p in verts])
         t.extend([(a + base, b + base, c + base) for (a, b, c) in tris])
 
-    def scene(self, colours):
-        scene = lab_render.Scene()
-        for role, (v, t) in self.of.items():
-            scene.add(v, t, colours[role])
-        return scene
-
     def counts(self):
         return {k: len(t) for k, (v, t) in self.of.items()}
 
@@ -403,9 +396,7 @@ def parts_of(place, frame, doc, red, lod=3):
         parts.add(role, verts, tris)
         looks[role] = rgb
 
-    fan = lab_render.Scene()
-    ground_fan(frame, fan)
-    put("ground", fan.vertices, fan.tris, stock.STOCK["grass"])
+    put("ground", *ground_fan(frame), stock.STOCK["grass"])
 
     mesh, ways = roads_of(place, frame, red)
     if mesh is not None:
@@ -446,57 +437,16 @@ def parts_of(place, frame, doc, red, lod=3):
     return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped)
 
 
-def scene_of(place, frame, doc, red):
-    scene = lab_render.Scene()
-    ground_fan(frame, scene)
-    mesh, ways = roads_of(place, frame, red)
-    if mesh is not None:
-        # THE ROAD BED'S DATUM IS SEA LEVEL AND THE FRAME'S IS THE CAMERA'S GROUND. Two datums in
-        # one scene is the second holder CLAUDE.md forbids, so the surface is brought to the
-        # frame's here, once, at the boundary -- and lifted a hair so a carriageway at grade wins
-        # the depth test against the terrain that carries it rather than fighting it per pixel.
-        lift = 0.05
-        # AND THE ROAD BED'S WINDING IS THE ROAD BED'S. Its surface is a strip per leg and a fan
-        # per junction, wound however each was built; drawn here with one normal per face, the
-        # ones turned away from the sky came out BLACK -- hairlines of ink across the terrain in
-        # the first OldTown twin (measured 2026-09-06). A carriageway is ground: every face of it
-        # faces up, and the flip happens once, here, at the boundary between the two beds.
-        road = [(v[0], v[1], v[2] - frame.datum + lift) for v in mesh.vertices]
-        faces = []
-        for (ia, ib, ic) in mesh.tris:
-            pa, pb, pc = (np.asarray(road[i], dtype=float) for i in (ia, ib, ic))
-            faces.append((ia, ib, ic) if float(np.cross(pb - pa, pc - pa)[2]) > 0.0
-                         else (ia, ic, ib))
-        scene.add(road, faces, ROAD_COLOUR)
-    bodies, dropped = buildings_of(place, frame, doc, red)
-    for b in bodies:
-        scene.add(b.vertices, b.tris, WALL_COLOUR.get(b.style.wall, WALL_COLOUR["brick"]))
-    return scene, dict(ways=ways, buildings=len(bodies), dropped=dropped)
-
-
-def look(place, scene, camera):
-    """The picture, with the sun where the place and the client's own instant put it."""
-    sun = lab_render.sun_direction(place["lat"], place["lon"], place["when"])
-    if sun[2] < 0.02:
-        # the client's instant is local NOON at every place, so a sun below the horizon means the
-        # instant and the longitude disagree -- worth saying rather than rendering a black frame
-        print(f"   note: the sun stands {math.degrees(math.asin(max(-1.0, min(1.0, sun[2])))):.1f} "
-              f"deg at {place['when']}")
-    return lab_render.render(scene, camera, sun, ambient=0.32, near_m=0.5)
-
-
 def ink_share(img):
-    """How much of the frame is NOT the sky. A twin whose extract failed renders a clean gradient
-    and every geometric check stays green, because there is no geometry to be wrong -- which is
-    the trap CLAUDE.md names as `a gate blind to a path`."""
-    flat = img.reshape(-1, 3).astype(np.int16)
-    rows = np.repeat(np.arange(img.shape[0]), img.shape[1])
-    band = (lab_render.SKY_LOW[None, :] * (1.0 - (rows / max(img.shape[0] - 1, 1))[:, None])
-            + lab_render.SKY_HIGH[None, :] * (rows / max(img.shape[0] - 1, 1))[:, None]) * 255.0
-    return float(np.mean(np.abs(flat - band).max(axis=1) > 6))
+    """HOW MUCH OF THE FRAME IS NOT SKY. A twin whose extract failed renders a clean gradient and
+    every geometric check stays green, because there is no geometry to be wrong -- the trap
+    CLAUDE.md names as `a gate blind to a path`. Read off the RENDERED picture now: a pixel whose
+    rows above and below it differ hardly at all is sky, and geometry is what breaks that."""
+    a = img.astype(np.int16)
+    step = np.abs(np.diff(a, axis=0)).max(axis=2)
+    return float(np.mean(step > 4))
 
 
-LOOK = os.environ.get("OUTSHINE_LAB_LOOK", "1") != "0"
 LOOK_ENGINE = os.environ.get("OUTSHINE_LAB_ENGINE", "CYCLES")
 LOOK_SAMPLES = int(os.environ.get("OUTSHINE_LAB_SAMPLES", "64"))
 INK_LEAST = 0.02
@@ -512,45 +462,41 @@ def dark_share(img):
 
 
 def one(place):
+    """ONE PLACE, RENDERED BY CYCLES ON THE GPU. There is one renderer in this lab and it is
+    Blender's -- a look that is judged has to be judged on what a player would see, and a second
+    renderer is a second answer to the same question."""
+    import blend
     red = []
     frame = Frame(place)
     doc = overpass(place, BUILT_REACH_M)
-    scene, counts = scene_of(place, frame, doc, red)
     camera = camera_for(place)
     if place["plan"]:
         # the plan camera is stated ABOVE SEA LEVEL (`SamplesHeight` is false for it), so the
         # frame's own datum is what turns that into a height over this ground
         camera.agl_m = CAM["kPlanAboveM"] - frame.datum
-    img = look(place, scene, camera)
-    share = ink_share(img)
-    dark = dark_share(img)
+    parts, looks, counts = cached_parts(place, frame, doc, red, lod=3)
+    verts = [p for (v, _) in parts.of.values() for p in v]
+    if verts and not np.isfinite(np.asarray(verts, dtype=float)).all():
+        red.append("P finite")
+    OUT.mkdir(parents=True, exist_ok=True)
+    shot = OUT / f"{place['name']}.png"
+    blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
+                 lab_camera.sun_direction(place["lat"], place["lon"], place["when"]),
+                 str(shot), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE)
+    from PIL import Image
+    img = np.asarray(Image.open(shot).convert("RGB"))
+    share, dark = ink_share(img), dark_share(img)
     if share < INK_LEAST:
         red.append(f"empty({share * 100:.1f}% ink)")
     if dark > DARK_MOST:
         red.append(f"unlit({dark * 100:.1f}% black)")
-    verts = np.asarray(scene.vertices, dtype=float)
-    if verts.size and not np.isfinite(verts).all():
-        red.append("P finite")
-    OUT.mkdir(parents=True, exist_ok=True)
-    shot = OUT / f"{place['name']}.png"
-    lab_render.save(img, shot)
     publish.take("places", place["name"], shot, red)
-    if LOOK:
-        # THE SAME WORLD, LIT. The flat picture above is the geometry's own instrument and shows
-        # a crack; this one is what a look is judged on, and it is the one the outshine client's
-        # own shot is compared against.
-        import blend
-        parts, looks, _ = cached_parts(place, frame, doc, [], lod=3)
-        lit = OUT / f"{place['name']}-lit.png"
-        blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
-                     lab_render.sun_direction(place["lat"], place["lon"], place["when"]),
-                     str(lit), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE)
-        publish.take("places", f"{place['name']}-lit", lit, red)
+    tris = sum(len(t) for (_, t) in parts.of.values())
     print(f"{place['name']:14s} {'RED ' + ','.join(red) if red else 'ok':30s} "
           f"{'PLAN ' + str(int(place['span'])) + ' m' if place['plan'] else 'EYE  '} "
           f"bearing {place['bearing']:6.2f}  buildings {counts['buildings']:5d} "
           f"(-{counts['dropped']:3d})  ways {counts['ways']:4d}  "
-          f"tris {len(scene.tris):7d}  ink {share * 100:5.1f}%  black {dark * 100:4.1f}%  "
+          f"tris {tris:8d}  ink {share * 100:5.1f}%  black {dark * 100:4.1f}%  "
           f"datum {frame.datum:7.1f} m")
     return red
 
