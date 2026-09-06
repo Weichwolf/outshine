@@ -47,6 +47,7 @@ CLEARANCE_RAIL_M = 6.00   # [SET] EBO: 5.50 m over the rail plus the catenary's 
 RAMP_REACH_M = math.ceil(CLEARANCE_RAIL_M / 0.0125 / 100.0) * 100.0
 APPROACH_M = 60.0         # [SET] how far from a shared node a way is still the deck's approach
 CLEARANCE_ROUNDS = 40     # [SET] a bound, not a schedule: the loop stops on its own residual
+BAND_SLACK_M = 1e-4       # [SET] the QP's own primal tolerance, allowed to the check as well
 CLEARANCE_TOL_M = 1e-4    # a fixed point is reached when a round moves nothing a driver feels
 CROSSFALL = 0.025         # [SET] RAS-Q / AASHTO normal crown 2.5 %
 # --- the road builder's own numbers, each with its origin -------------------------------------
@@ -70,6 +71,15 @@ WALL_ABOVE_M = 3.0        # [SET] above this the batter becomes a retaining wall
 # A TABLE: everything else fell to a 12 % default, which is far too flat for a footbridge whose
 # approach is a STAIR -- Hong Kong Central is a net of elevated walkways and its ramp bound had to
 # give 3.32 m (measured 2026-09-06) -- and far too steep to mean anything for a motorway.
+# THE RATE AT WHICH FILL MAY CHANGE is not the road's design grade. `g` in the ramp bound limits
+# how fast the LIFT OVER THE TERRAIN changes along a way, which is a property of the embankment and
+# not of the alignment: a motorway's 4 % is what its centreline may climb, while its fill over a
+# hillside may thicken far faster. Using the design table there made every road class TIGHTER than
+# the 0.12 default it replaced and cost two cases that had been green (the Etoile and Hamburg Hbf,
+# measured 2026-09-06: 26 green fell to 24). The default stays 12 %; only what is plainly steeper
+# than a road -- a stair, a path -- is listed.
+LIFT_RATE_OF = {"steps": 0.60, "path": 0.25, "track": 0.20, "footway": 0.20, "funicular": 0.60}
+
 GRADE_OF = {"motorway": 0.04, "motorway_link": 0.06, "trunk": 0.045, "trunk_link": 0.06,
             "primary": 0.06, "primary_link": 0.07, "secondary": 0.08, "secondary_link": 0.08,
             "tertiary": 0.09, "tertiary_link": 0.09, "unclassified": 0.12, "residential": 0.12,
@@ -1062,8 +1072,19 @@ class Map:
         K = sp.csr_matrix((vals, (rows, cols)), shape=(r, n))
         G = sp.csr_matrix((svals, (srows, scols)), shape=(sr, n))
         mu, lam = smooth_m ** 2, smooth_m ** 4
+        # A RIDGE WITH A PRIOR. The QP needs A POSITIVE DEFINITE and a long bore has almost no data
+        # term: a deck's or a bore's interior carries DECK_TIE against a curvature block of order
+        # lambda, and OSQP called the Etoile UNBOUNDED once the constrained solve began running
+        # for every case (measured 2026-09-06: 52 tunnels, no bridges, 2 500 nodes). [SET] 1e-6
+        # of the mean diagonal -- far below anything the road geometry cares about, far above
+        # what the factorisation needs to stay definite -- and it pulls toward the DEM, not
+        # toward zero: a ridge on A alone is a prior that the road is at SEA LEVEL, and a bridge
+        # with no landing (whose deck has no data term at all) sank 2.67 m under the terrain for
+        # exactly that reason (measured 2026-09-06, P5-nolanding).
         A = sp.diags(fidelity) + mu * (G.T @ G) + lam * (K.T @ K)
-        b = fidelity * self.dem + mu * (G.T @ (G @ self.dem))
+        ridge = 1e-6 * float(A.diagonal().mean())
+        A = A + sp.eye(n) * ridge
+        b = fidelity * self.dem + mu * (G.T @ (G @ self.dem)) + ridge * self.dem
         self.z = spsolve(A.tocsc(), b)
         self.deck, self.bore, self.curvature = deck, bore, K
         self.constraints = self._clearances(deck)
@@ -1452,7 +1473,7 @@ class Map:
                                 sign * lift_b >= -gw - room]
                         k += step
         for w in self.net.ways:
-            g = GRADE_OF.get(w["tags"]["highway"], 0.12)
+            g = LIFT_RATE_OF.get(w["tags"]["highway"], 0.12)
             refs, s = w["refs"], self.stations[w["id"]]
             for k in range(1, len(refs)):
                 a, b_ = self.index[refs[k - 1]], self.index[refs[k]]
@@ -2777,8 +2798,12 @@ def check_dem_band(map_):
     held = ~(map_.deck | map_.bore | map_.approaches() | map_.causeway | near_causeway
              | map_.open_ends())
     # measured against the SAME band the solve was given, as a ratio: 1.0 is exactly at it
-    up = (map_.z - map_.dem) / np.maximum(map_.band(), 1e-9)
-    down = (map_.dem - map_.z) / np.maximum(map_.band_down(), 1e-9)
+    # the band is a CONSTRAINT the QP solves to its own primal tolerance, so the check allows
+    # exactly that and no more: [SET] 0.1 mm, four orders below anything a driver feels and two
+    # above OSQP's residual. Without it the Etoile read 1.00x and went RED on the solver's own
+    # rounding (measured 2026-09-06)
+    up = (map_.z - map_.dem) / np.maximum(map_.band() + BAND_SLACK_M, 1e-9)
+    down = (map_.dem - map_.z) / np.maximum(map_.band_down() + BAND_SLACK_M, 1e-9)
     over = np.maximum(up, down)
     return float(np.max(over[held])) if held.any() else 0.0
 
@@ -3045,7 +3070,7 @@ def run(case, number=0):
         red.append("I12")
     if verdict["I6 junction step m"] is not None and verdict["I6 junction step m"] > STEP_TOL_M:
         red.append("I6")
-    if verdict["I4 bridge"] is not None and (verdict["I4 bridge"]["clearance_m"] < CLEARANCE_M or verdict["I4 bridge"]["abutment_below_m"] > DEM_ERROR_M):
+    if verdict["I4 bridge"] is not None and (verdict["I4 bridge"]["clearance_m"] < CLEARANCE_M - BAND_SLACK_M or verdict["I4 bridge"]["abutment_below_m"] > DEM_ERROR_M):
         red.append("I4")
     if verdict["I5 tunnel"] is not None and (verdict["I5 tunnel"]["cover_m"] < 0.0 or verdict["I5 tunnel"]["portal_off_m"] > DEM_ERROR_M):
         red.append("I5")
