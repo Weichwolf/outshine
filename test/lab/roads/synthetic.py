@@ -914,6 +914,17 @@ class Map:
             self._cross[key] = a.intersects(b)
         return self._cross[key]
 
+    def band_down(self):
+        """The band DOWNWARD, which is not the band upward: a road a deck passes over may go
+        deeper by exactly what the crossing needs, because the crossing is evidence of a grade
+        separation the DEM shows nothing of. The solve is given this; so is the check, or I3
+        reads 1.96 at Millau against a constraint it never violated (measured 2026-09-06)."""
+        room = self.clearance_room()
+        out = self.band().copy()
+        for k, gap in room.items():
+            out[int(k)] += gap
+        return out
+
     def clearance_room(self):
         """How far below the terrain each node may go: what a deck above it needs, and no more."""
         got = getattr(self, "_room", None)
@@ -1325,13 +1336,8 @@ class Map:
             # needs, and no further; upward it is still held. Measured 2026-09-06: without this
             # the DECK's own grade had to give 4.59 m at Kaiserberg and 5.04 m at the Elbtunnel,
             # because the only way left to make room was to bend a bridge.
-            lower = {}
-            for (_, j, j2, uu, gap) in getattr(self, "clearance_pairs", ()):
-                lower[j] = max(lower.get(j, 0.0), gap)
-                lower[j2] = max(lower.get(j2, 0.0), gap)
-            deeper = np.array([lower.get(int(k), 0.0) for k in held])
             cons += [z[held] <= self.dem[held] + band,
-                     z[held] >= self.dem[held] - band - deeper]
+                     z[held] >= self.dem[held] - self.band_down()[held]]
         cons += self._shape_constraints(z, cp)
 
         problem = cp.Problem(cp.Minimize(objective), cons)
@@ -1455,13 +1461,8 @@ class Map:
             soft.append(y[k] - ((1.0 - uu) * y[j] + uu * y[j2]) >= gap - sp_[i])
         if len(held):
             band = self.band()[held]
-            lower = {}
-            for (_, j, j2, uu, gap) in pairs:
-                lower[j] = max(lower.get(j, 0.0), gap)
-                lower[j2] = max(lower.get(j2, 0.0), gap)
-            deeper = np.array([lower.get(int(k), 0.0) for k in held])
             soft += [y[held] <= self.dem[held] + band + sb,
-                     y[held] >= self.dem[held] - band - deeper - sb]
+                     y[held] >= self.dem[held] - self.band_down()[held] - sb]
         soft += self._shape_constraints(y, cp, taper=s_taper, deckg=s_deck, rampg=s_ramp)
         # EVERY FAMILY WEIGHED THE SAME, or the diagnosis is about the weights. The shape slack
         # carried a factor of 100 here and the pose therefore broke a clearance PAIR every single
@@ -2706,7 +2707,9 @@ def check_dem_band(map_):
     held = ~(map_.deck | map_.bore | map_.approaches() | map_.causeway | near_causeway
              | map_.open_ends())
     # measured against the SAME band the solve was given, as a ratio: 1.0 is exactly at it
-    over = np.abs(map_.z - map_.dem) / np.maximum(map_.band(), 1e-9)
+    up = (map_.z - map_.dem) / np.maximum(map_.band(), 1e-9)
+    down = (map_.dem - map_.z) / np.maximum(map_.band_down(), 1e-9)
+    over = np.maximum(up, down)
     return float(np.max(over[held])) if held.any() else 0.0
 
 
