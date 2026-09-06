@@ -938,30 +938,22 @@ class Map:
             # then 11.5 m, then 9.1 m and the bed stopped there and called it an answer
             # (measured 2026-09-06). A fixed point that has not converged is a number nobody may
             # quote, so it iterates to a tolerance and REPORTS what is left when it stops.
-            self.clearance_rounds, self.clearance_residual_m = 0, 0.0
+            # ONE SOLVE. With the deck-over-road clearance held as a PAIR the whole set is
+            # linear in z and the problem is convex, so there is nothing to iterate: the second
+            # round exists only to PROVE it, and its residual is the proof. It is kept because a
+            # claim that a scheme converges is worth exactly the measurement that says so.
             self.clearance_diverged = False
-            worse = 0
-            last = None
-            for _ in range(CLEARANCE_ROUNDS):
-                before = self.z.copy()
-                self.constraints = self._clearances(deck)
-                self._solve_with_clearances(A, b)
-                self.clearance_rounds += 1
-                self.clearance_residual_m = float(np.max(np.abs(self.z - before)))
-                if self.clearance_residual_m <= CLEARANCE_TOL_M:
-                    break
-                # A DIVERGING SEQUENCE IS RECOGNISABLE, and grinding out the bound afterwards
-                # buys nothing: forty rounds of a city extract is forty sparse solves for an
-                # answer that was already no answer. Two rounds that do not shrink the step is
-                # the signal, and it is reported as DIVERGED rather than as a large residual
-                if last is not None and self.clearance_residual_m > last * 0.98:
-                    worse += 1
-                    if worse >= 2:
-                        self.clearance_diverged = True
-                        break
-                else:
-                    worse = 0
-                last = self.clearance_residual_m
+            before = self.z.copy()
+            self.constraints = self._clearances(deck)
+            self._solve_with_clearances(A, b)
+            self.constraints = self._clearances(deck)
+            self._solve_with_clearances(A, b)
+            self.clearance_rounds = 2
+            self.clearance_residual_m = float(np.max(np.abs(self.z - before)))
+            after = self.z.copy()
+            self.constraints = self._clearances(deck)
+            self._solve_with_clearances(A, b)
+            self.clearance_residual_m = float(np.max(np.abs(self.z - after)))
         self._slopes()
         self._superelevations()
         self._junctions()
@@ -1005,7 +997,7 @@ class Map:
         CLEARANCE_M: a linear inequality z_node >= floor. Between nodes the deck is a smooth
         curve, so the nodes bound it; a crossing between two deck nodes is caught by the node
         on either side (the checks sample the profile along the deck)."""
-        floors = {}
+        floors, pairs = {}, []
         # a road that crosses WATER without spanning or fording it is a CAUSEWAY: it stands on
         # fill a freeboard above the surface. Measured before this rule: a coast road and a
         # bridge's approaches over a lake sat under the water, which is a road nobody can drive.
@@ -1061,12 +1053,20 @@ class Map:
                         st_below = self.stations[other["id"]]
                         kb = int(np.searchsorted(st_below, s_below, side="right") - 1)
                         kb = min(max(kb, 0), len(other["refs"]) - 1)
-                        below_z = (self.z[self.index[other["refs"][kb]]] if self.z is not None
-                                   else self.terrain.dem(q.x, q.y))
-                        floor2 = max(below_z, self.terrain.dem(q.x, q.y)) + CLEARANCE_M
+                        # THE CLEARANCE IS A CONSTRAINT BETWEEN TWO UNKNOWNS, NOT A CONSTANT.
+                        # `z_deck - z_below >= 4.5 m` is linear in BOTH, and freezing the lower
+                        # side from the previous iterate is what turned one convex problem into
+                        # a substitution that is not a contraction: measured 2026-09-06, the
+                        # rounds at the Transfagarasan moved the profile 24.4 m, 11.5 m, 9.1 m
+                        # and forty of them never converged, walking to 105 m off the DEM. Held
+                        # as a PAIR the whole thing is one QP with one solution and no loop.
+                        pairs.append((k, self.index[other["refs"][kb]], CLEARANCE_M))
+                        # and the deck clears the GROUND under it as well, which is absolute
+                        floor2 = self.terrain.dem(q.x, q.y) + CLEARANCE_M
                         floor = floor2 if floor is None else max(floor, floor2)
                 if floor is not None:
                     floors[k] = max(floors.get(k, -1e9), floor)
+        self.clearance_pairs = pairs
         return floors
 
     def _ramp_signs(self):
@@ -1091,6 +1091,7 @@ class Map:
         A = A.tocsc()
         objective = 0.5 * cp.quad_form(z, cp.psd_wrap(A)) - b @ z
         cons = [z[k] >= floor for k, floor in self.constraints.items()]
+        cons += [z[k] - z[j] >= gap for (k, j, gap) in getattr(self, "clearance_pairs", ())]
         # the ramps: a designed structure keeps its class's grade, hard, on every segment of an
         # approach and of the deck itself -- the lift a clearance asks for spreads back along
         # the approach as an embankment, never as a 30 percent step (measured before this)
