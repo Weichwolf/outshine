@@ -39,6 +39,7 @@ import data as roaddata  # noqa: E402
 import publish  # noqa: E402
 import render as lab_render  # noqa: E402
 import materials as stock  # noqa: E402
+import furniture  # noqa: E402
 import street  # noqa: E402
 
 _spec = _util.spec_from_file_location("outshine_road_bed", HERE / "roads" / "synthetic.py")
@@ -150,6 +151,9 @@ def overpass(place, reach_m):
     query = ("[out:json][timeout:300];("
              f'way["building"]({bbox});way["building:part"]({bbox});'
              f'way["highway"]({bbox});way["railway"]({bbox});'
+             f'way["barrier"]({bbox});node["natural"="tree"]({bbox});'
+             f'node["barrier"]({bbox});node["highway"="street_lamp"]({bbox});'
+             f'node["amenity"]({bbox});'
              ");(._;>;);out body;")
     name = f"place-{place['name']}-{int(reach_m)}.json"
     import json
@@ -425,6 +429,15 @@ def parts_of(place, frame, doc, red, lod=3):
                                    + street.markings(mesh.map, w, z_at)
                                    + street.lamps(mesh.map, w, z_at)):
                 put(role, vv, tt, colour.get(role) or stock.STOCK["concrete"])
+
+    # WHAT THE SURVEYOR ALREADY PUT THERE: trees, walls, fences, hedges, bollards. A carriageway
+    # with a kerb is a road; a road with these is a place, and in the references a large share of
+    # what a player sees at eye level is exactly this.
+    stuff = {"leaf": stock.STOCK["leaf"], "bark": stock.STOCK["bark"],
+             "masonry": stock.STOCK["masonry"], "limestone": stock.STOCK["limestone"],
+             "timber": stock.STOCK["timber"], "iron": stock.STOCK["iron"]}
+    for (role, vv, tt) in furniture.from_osm(doc, frame, lambda x, y: frame.z(x, y)):
+        put(f"f.{role}", vv, tt, stuff.get(role) or stock.STOCK["concrete"])
 
     bodies, dropped = buildings_of(place, frame, doc, red)
     for at, b in enumerate(bodies):

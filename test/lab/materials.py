@@ -124,6 +124,8 @@ add("gravel",   base_color=(0.19, 0.18, 0.16), roughness=0.95)
 add("water",    base_color=(0.020, 0.035, 0.045), roughness=0.06, ior=1.333)
 add("leaf",     base_color=(0.10, 0.16, 0.06), roughness=0.85, alpha_mode="MASK",
     double_sided=True)
+add("bark",     base_color=(0.085, 0.070, 0.055), roughness=0.94)
+add("masonry",  base_color=(0.28, 0.26, 0.22), roughness=0.92)
 
 
 def gltf_materials(names):

@@ -176,6 +176,20 @@ for role, path in files.items():
         bsdf.inputs["Emission Color"].default_value = (e[0], e[1], e[2], 1.0)
     mat.use_backface_culling = not look["two"]
     if look["mode"] == "MASK":
+        # A LEAF CARD IS A QUAD WITH A HOLE IN IT, and without the hole it is a quad. The engine
+        # will carry a leaf texture; the lab generates the mask so the SILHOUETTE is right here
+        # too -- a radial falloff with noise, which is a leaf spray's own outline.
+        nt = mat.node_tree
+        coord = nt.nodes.new("ShaderNodeTexCoord")
+        noise = nt.nodes.new("ShaderNodeTexNoise")
+        noise.inputs["Scale"].default_value = 9.0
+        ramp = nt.nodes.new("ShaderNodeValToRGB")
+        ramp.color_ramp.elements[0].position = 0.42
+        ramp.color_ramp.elements[1].position = 0.56
+        nt.links.new(coord.outputs["Object"], noise.inputs["Vector"])
+        nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+        nt.links.new(ramp.outputs["Color"], bsdf.inputs["Alpha"])
+    if look["mode"] == "MASK":
         mat.blend_method = "CLIP" if hasattr(mat, "blend_method") else mat.blend_method
     ob.data.materials.append(mat)
     ob.data.shade_flat()
