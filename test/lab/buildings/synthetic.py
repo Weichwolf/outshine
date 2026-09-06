@@ -284,6 +284,19 @@ def metres(tags, key, otherwise=0.0):
         return otherwise
 
 
+class _Detail:
+    """What a geometry element is given. One object rather than twenty arguments."""
+
+    __slots__ = ("place", "bays", "epoch", "levels", "level_m", "sill_m", "win_w", "win_h",
+                 "cornice", "roof", "ridge_z", "foot_z", "rise_m", "heated", "faces_slope",
+                 "street", "eaves_over_m", "floor_over_ground_m", "ridge_run",
+                 "ridge_here")
+
+    def __init__(self, **kw):
+        for k in self.__slots__:
+            setattr(self, k, kw.get(k))
+
+
 class Building:
     """Footprint + tags + ground -> a closed body: pad, walls, eaves, roof."""
 
@@ -450,6 +463,107 @@ class Building:
                     self.tri(la, ua, ub)
         self._floor_mesh()
         self._roof_mesh()
+
+    def body(self, lod=3, street_dir=None):
+        """THE WHOLE BODY AT ONE RUNG, by role: {role: (vertices, triangles)}.
+
+        L0 and L1 keep the mass's own solid wall -- at that distance a wall IS a quad and a game
+        would put a texture on it. From L2 the wall is REPLACED by a facade meshed with its
+        openings, because a hole is not something you add: the first attempt put a reveal, a sill
+        and a lintel around every window and the windows stayed invisible, since the glass sat
+        inside solid geometry (rendered and looked at, 2026-09-06)."""
+        import elements
+        V = np.asarray(self.vertices, dtype=float)
+        T = np.asarray(self.tris, dtype=np.int64)
+        got = {}
+
+        def put(role, verts, tris):
+            v, s = got.setdefault(role, ([], []))
+            base = len(v)
+            v.extend([tuple(map(float, q)) for q in verts])
+            s.extend([(a + base, b + base, c + base) for (a, b, c) in tris])
+
+        if len(T):
+            z = V[T][:, :, 2]
+            roof = (z >= self.eaves - 1e-9).all(axis=1) & (z > self.eaves + 1e-9).any(axis=1)
+            put("roof", V, T[roof].tolist())
+            if lod < 2:
+                put("wall", V, T[~roof].tolist())
+            else:
+                # the mass's FLOOR and its eaves band stay; only the standing wall is replaced
+                keep = ~roof & (z <= self.eaves + 1e-9).all(axis=1) & \
+                       (z <= self.pad + 1e-6).all(axis=1)
+                put("wall", V, T[keep].tolist())
+                for (place, ctx) in self._faces(street_dir):
+                    for (role, vv, tt) in elements.holed_wall(place, elements.openings_of(ctx),
+                                                              elements.facade.FRAME_M + 0.10):
+                        put(role, vv, tt)
+        for role, (vv, tt) in self.detail(lod, street_dir).items():
+            put(role, vv, tt)
+        return got
+
+    def _faces(self, street_dir=None):
+        """Every outer wall as (Place, detail context), which is the one place both the relief
+        and the facade mesher read their geometry from."""
+        import elements
+        walls = [w for w in Facade(self)._walls() if w["outer"] and w["length"] >= 1.5]
+        if not walls:
+            return []
+        if street_dir is not None:
+            front = max(walls, key=lambda w: abs(w["dir"][0] * street_dir[0]
+                                                 + w["dir"][1] * street_dir[1]) * w["length"])
+        else:
+            front = max(walls, key=lambda w: w["length"])
+        u, _ = self.axis
+        out = []
+        for wall in walls:
+            a = wall["a"]
+            place = elements.Place(
+                origin=(a[0], a[1], self.wall_foot(*a)),
+                along=(wall["dir"][0], wall["dir"][1], 0.0),
+                out=(wall["outward"][0], wall["outward"][1], 0.0),
+                length=wall["length"], height=self.eaves - self.wall_foot(*a))
+            out.append((place, _Detail(
+                place=place, bays=wall["bays"], epoch=self.style.epoch,
+                levels=int(self.levels) or 1, level_m=self.style.level_m,
+                sill_m=self.style.sill_m, win_w=self.style.win_w, win_h=self.style.win_h,
+                cornice=self.style.cornice, roof=self.roof, ridge_z=self.ridge,
+                foot_z=self.wall_foot(*a), rise_m=self.ridge - self.eaves,
+                heated=self.style.epoch not in ("industrial", "hall", "tower"),
+                faces_slope=abs(wall["dir"][0] * u[0] + wall["dir"][1] * u[1]) > 0.7,
+                street=wall is front, eaves_over_m=self.style.eaves_m,
+                floor_over_ground_m=max(0.0, self.pad - self.ground.at(*a)),
+                ridge_run=self._ridge_run() if wall is front else None,
+                ridge_here=self._ridge_run())))
+        return out
+
+    def detail(self, lod=3, street_dir=None):
+        """THE DETAIL RUNGS, AS GEOMETRY. Returns {role: (vertices, triangles)}.
+
+        L0 is the mass this class already builds. Every rung above it ADDS -- a cornice, a
+        chimney, a reveal, a shopfront -- in the wall's own frame, and none of it moves a vertex
+        of the mass. `street_dir` is the direction the street runs, where one is known: a
+        building's front is the wall most nearly facing it, and the ground floor's whole budget
+        goes there (board:2138). Without one the longest outer wall is taken as the front."""
+        import elements
+        got = {}
+        for (place, ctx) in self._faces(street_dir):
+            for role, (vv, tt) in elements.build_all(ctx, upto=lod).items():
+                v, s = got.setdefault(role, ([], []))
+                base = len(v)
+                v.extend(vv)
+                s.extend([(x + base, y + base, z + base) for (x, y, z) in tt])
+        return got
+
+    def _ridge_run(self):
+        """The ridge as a segment, for the elements that run along it."""
+        if self.roof not in ("gabled", "half-hipped", "gambrel", "hipped"):
+            return None
+        u, _ = self.axis
+        c = self.poly.centroid
+        half = axis_half(self.poly, u) * (0.55 if self.roof in ("hipped", "half-hipped") else 0.98)
+        return ((c.x - u[0] * half, c.y - u[1] * half, self.ridge),
+                (c.x + u[0] * half, c.y + u[1] * half, self.ridge))
 
     def _floor_mesh(self):
         """ONE FLOOR, and a courtyard is a HOLE in it.

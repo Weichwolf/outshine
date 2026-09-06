@@ -49,7 +49,7 @@ def take(area, key, path, red):
     here = SHOTS / area
     here.mkdir(parents=True, exist_ok=True)
     out = here / f"{_safe(key)}.png"
-    if red:
+    if red or path is None:
         out.unlink(missing_ok=True)
         return None
     shutil.copyfile(path, out)

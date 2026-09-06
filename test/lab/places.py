@@ -57,13 +57,20 @@ DEM_ZOOM = 14                    # the engine samples FinestZoomOf(Elevation) - 
 
 # WHAT THE TWIN TAKES IN. Three radii rather than one, because they are bounded by three
 # different things and folding them into one number makes the largest of them pay for the others.
-BUILT_REACH_M = 900.0            # buildings: what a 55 deg lens at 60 m reads as a building
+# A TWIN THAT DRAWS HALF THE TOWN IS NOT A TWIN.
+# 900 m and a cap of 1400 bodies left 1900 of OldTown's 3300 buildings -- 58 percent -- never
+# built at all, while the outshine client draws the town to the horizon (measured 2026-09-06 by
+# counting the extract against the row the twin printed). The cap was there because the generator
+# cost 210 ms a body; it costs 54 now, so 3300 bodies are three minutes and the cap has no reason
+# to exist. What bounds the reach is what the LENS reads, and at 60 m with a 55 degree lens that
+# is kilometres.
+BUILT_REACH_M = 2500.0           # buildings: as far as the lens resolves a body at all
 ROAD_REACH_M = 700.0             # roads: one convex solve over the extract, and it grows with it
-GROUND_REACH_M = 6000.0          # terrain: far enough that the world does not END inside the frame
+GROUND_REACH_M = 12000.0         # terrain: far enough that the world does not END inside the frame
 GROUND_RINGS = 72                # a POLAR grid: rings times spokes, so no T-junction and no seam
 GROUND_SPOKES = 96
 GROUND_NEAR_M = 8.0
-BUILT_MOST = 1400                # [SET] the rasteriser is Python; beyond this a sheet costs minutes
+BUILT_MOST = 40000               # [SET] a guard against a runaway extract, not a quality knob
 
 WALL_COLOUR = {"brick": (0.62, 0.46, 0.40), "stone": (0.72, 0.70, 0.65),
                "timber": (0.58, 0.47, 0.36), "frame": (0.70, 0.72, 0.74)}
@@ -250,8 +257,8 @@ def buildings_of(place, frame, doc, red):
             dropped += 1
             continue
         made.append((poly, tags))
-    made.sort(key=lambda pt: pt[0].centroid.distance(Polygon([(0, 0), (1, 0), (0, 1)]).centroid))
     if len(made) > BUILT_MOST:
+        made.sort(key=lambda pt: pt[0].centroid.x ** 2 + pt[0].centroid.y ** 2)
         made = made[:BUILT_MOST]
     ground = bldbed.Ground(lambda x, y: frame.z(x, y))
     bodies = []
@@ -294,6 +301,43 @@ def roads_of(place, frame, red):
 
 
 # ------------------------------------------------------------------ the picture
+
+class Parts:
+    """GEOMETRY BY ROLE, not by body. A wall and the roof over it are two materials and that one
+    split is most of what a town reads as: measured by looking, 2026-09-06, the outshine client's
+    own OldTown carries terracotta over cream and the lab twin carried one brick colour for
+    everything, which is why the twin looked a generation behind its own C++."""
+
+    def __init__(self):
+        self.of = {}
+
+    def add(self, role, verts, tris):
+        v, t = self.of.setdefault(role, ([], []))
+        base = len(v)
+        v.extend([tuple(map(float, p)) for p in verts])
+        t.extend([(a + base, b + base, c + base) for (a, b, c) in tris])
+
+    def scene(self, colours):
+        scene = lab_render.Scene()
+        for role, (v, t) in self.of.items():
+            scene.add(v, t, colours[role])
+        return scene
+
+    def counts(self):
+        return {k: len(t) for k, (v, t) in self.of.items()}
+
+
+def split_body(b):
+    """A body's triangles as ROOF and WALL. A face standing wholly at or above the eaves, with at
+    least one vertex above them, is the roof; everything else is wall, floor or the eaves band."""
+    V = np.asarray(b.vertices, dtype=float)
+    T = np.asarray(b.tris, dtype=np.int64)
+    if not len(T):
+        return (V, []), (V, [])
+    z = V[T][:, :, 2]
+    roof = (z >= b.eaves - 1e-9).all(axis=1) & (z > b.eaves + 1e-9).any(axis=1)
+    return (V, T[~roof].tolist()), (V, T[roof].tolist())
+
 
 def scene_of(place, frame, doc, red):
     scene = lab_render.Scene()

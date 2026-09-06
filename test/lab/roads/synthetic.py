@@ -29,6 +29,14 @@ OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-l
 
 POSTING_M = 25.0          # the engine's DEM at zoom 12, 49 N (measured: 24.9 m)
 DEM_ERROR_M = 4.0         # [SET] Copernicus GLO-30 LE90 < 4 m
+# AND A ROAD IS BUILT ON EARTHWORK, so the band is not the survey's error alone. Rounding a crest
+# to the class's radius departs from the ground by L dg / 8 -- 2.0 m at the fork -- and holding
+# the profile to the DEM alone made three cases INFEASIBLE the moment the curve was bounded (the
+# cliff by 3.57 m, the s-curve by 1.44 m; measured 2026-09-06). Above about 6 m an embankment
+# wants a wall or a viaduct, and the bed already counts a wall above 3 m, so 6 m is where the
+# earthwork stops being an earthwork. The fidelity term still pulls the profile onto the ground:
+# this is room the DESIGN may use, not room it takes.
+EARTHWORK_M = 6.0         # [SET] RAS-Q: an embankment past this needs a wall or a structure
 DECK_TIE = 1e-6           # a deck with no abutment keeps a weak tie to the DEM
 ROAD_FREEBOARD_M = 1.0    # [SET] a causeway's carriageway stands this far above the water
 CLEARANCE_M = 4.5         # [SET] the clearance a bridge owes the water or the road below
@@ -410,13 +418,20 @@ def r_tunnel_through_crest():
 
 
 def r_interchange():
-    """A bridge road (layer 1) over a ground road (layer 0): no shared node; the deck must clear
-    the road below by CLEARANCE_M at the crossing."""
+    """AN UEBERFUEHRUNG: a bridge road (layer 1) over a ground road (layer 0), no shared node, and
+    the deck clears the road below by CLEARANCE_M.
+
+    ITS APPROACH IS AS LONG AS THE STANDARD MAKES IT. 390 m a side was invented, and once the
+    vertical curve was bounded the case came out INFEASIBLE -- correctly, because a 6 m overpass
+    on a `secondary` at 80 km/h needs 494 m of crest curve, 195 m of sag and 75 m of grade
+    between them, which is 420 m per side (derived 2026-09-06 from the sight line and the
+    headlight). The case was under-dimensioned, not the rule; a network that cannot be built to
+    its own class is not a case, it is a mistake with a name."""
     net = Network()
-    net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0)
-    south = [net.node(*p) for p in line_pts(0, -500, 0, -110)]
+    net.polyline(line_pts(-900, 0, 900, 0), highway="primary", width=10.0)
+    south = [net.node(*p) for p in line_pts(0, -900, 0, -110)]
     deck = [net.node(*p) for p in line_pts(0, -90, 0, 90)]
-    north = [net.node(*p) for p in line_pts(0, 110, 0, 500)]
+    north = [net.node(*p) for p in line_pts(0, 110, 0, 900)]
     net.way(south + [deck[0]], highway="secondary", width=8.0)
     net.way(deck, highway="secondary", width=8.0, bridge="yes", layer=1)
     net.way([deck[-1]] + north, highway="secondary", width=8.0)
@@ -548,9 +563,9 @@ def r_fork(angle_deg=20.0):
 def r_stacked():
     """A bridge over a bridge over a road: three levels, no shared node."""
     net = r_interchange()
-    east = [net.node(*p) for p in line_pts(-500, 200, -110, 200)]
+    east = [net.node(*p) for p in line_pts(-900, 200, -110, 200)]
     deck = [net.node(*p) for p in line_pts(-90, 200, 90, 200)]
-    west = [net.node(*p) for p in line_pts(110, 200, 500, 200)]
+    west = [net.node(*p) for p in line_pts(110, 200, 900, 200)]
     net.way(east + [deck[0]], highway="secondary", width=8.0)
     net.way(deck, highway="secondary", width=8.0, bridge="yes", layer=2)
     net.way([deck[-1]] + west, highway="secondary", width=8.0)
@@ -571,16 +586,16 @@ def r_ramp_cycle():
     # the ground road, west to east, crossed twice
     net.polyline(line_pts(-500, 0, 500, 0), highway="primary", width=10.0)
     # the LOWER bridge: north-south over the ground road, with long approaches that ramp
-    lo_s = [net.node(*p) for p in line_pts(0, -420, 0, -60)]
+    lo_s = [net.node(*p) for p in line_pts(0, -900, 0, -60)]
     lo_d = [net.node(*p) for p in line_pts(0, -40, 0, 40)]
-    lo_n = [net.node(*p) for p in line_pts(0, 60, 0, 420)]
+    lo_n = [net.node(*p) for p in line_pts(0, 60, 0, 900)]
     net.way(lo_s + [lo_d[0]], highway="secondary", width=8.0)
     net.way(lo_d, highway="secondary", width=8.0, bridge="yes", layer=1)
     net.way([lo_d[-1]] + lo_n, highway="secondary", width=8.0)
     # the UPPER bridge: east-west over the lower bridge's SOUTHERN APPROACH, not over its deck
-    up_w = [net.node(*p) for p in line_pts(-460, -200, -70, -200)]
+    up_w = [net.node(*p) for p in line_pts(-940, -200, -70, -200)]
     up_d = [net.node(*p) for p in line_pts(-50, -200, 50, -200)]
-    up_e = [net.node(*p) for p in line_pts(70, -200, 460, -200)]
+    up_e = [net.node(*p) for p in line_pts(70, -200, 940, -200)]
     net.way(up_w + [up_d[0]], highway="secondary", width=8.0)
     net.way(up_d, highway="secondary", width=8.0, bridge="yes", layer=2)
     net.way([up_d[-1]] + up_e, highway="secondary", width=8.0)
@@ -1038,7 +1053,7 @@ class Map:
             h = self.terrain.posting
             for r, k in self.index.items():
                 x, y = self.net.nodes[r]
-                out[k] = DEM_ERROR_M + self.terrain.bend(x, y) * h * h / 8.0
+                out[k] = DEM_ERROR_M + EARTHWORK_M + self.terrain.bend(x, y) * h * h / 8.0
             self._band = out
         return self._band
 
@@ -1094,6 +1109,37 @@ class Map:
                     continue
                 wgt = 1.0 / math.sqrt(ds)
                 srows += [sr, sr]; scols += [a, b]; svals += [-wgt, wgt]; sr += 1
+        # AND THE CURVATURE ROWS RUN ACROSS A JOINT AND A JUNCTION TOO.
+        # K was assembled PER WAY, so the smoothing that shapes every profile stopped at each
+        # way's last node -- and a way's last node is exactly where two ways meet. The objective
+        # therefore had nothing to say about the one place the drawn Trasse bends hardest:
+        # measured 2026-09-06 at the fork, R = 271 m with a curvature weight of 6.25e6 acting
+        # everywhere EXCEPT there. A row over the triple (before, the node, after) is the same
+        # second difference the per-way rows carry, written across the pair.
+        seen_pairs = set()
+        pairs = [(nid, wa, ka, sa, wb, kb, sb) for (nid, wa, ka, sa, wb, kb, sb) in self.joints()]
+        for nid, legs in self._junction_legs().items():
+            for (wa, ka, sa), (wb, kb, sb) in legs:
+                da, db = self._direction(wa, ka, sa), self._direction(wb, kb, sb)
+                if -(da[0] * db[0] + da[1] * db[1]) >= 0.5:
+                    pairs.append((nid, wa, ka, sa, wb, kb, sb))
+        for (nid, wa, ka, sa, wb, kb, sb) in pairs:
+            key = (nid, wa["id"], ka, wb["id"], kb)
+            if key in seen_pairs:
+                continue
+            seen_pairs.add(key)
+            s_a, s_b = self.stations[wa["id"]], self.stations[wb["id"]]
+            d0 = abs(float(s_a[ka + sa] - s_a[ka]))
+            d1 = abs(float(s_b[kb + sb] - s_b[kb]))
+            if d0 <= 1e-3 or d1 <= 1e-3:
+                continue
+            scale = 2.0 / (d0 + d1)
+            for ref, v in ((wa["refs"][ka + sa], scale / d0),
+                           (nid, -scale * (1 / d0 + 1 / d1)),
+                           (wb["refs"][kb + sb], scale / d1)):
+                rows.append(r); cols.append(self.index[ref]); vals.append(v)
+            r += 1
+
         K = sp.csr_matrix((vals, (rows, cols)), shape=(r, n))
         G = sp.csr_matrix((svals, (srows, scols)), shape=(sr, n))
         mu, lam = smooth_m ** 2, smooth_m ** 4
@@ -1422,7 +1468,7 @@ class Map:
         self.infeasible = None
 
     def _shape_constraints(self, z, cp, slack=None, taper=None, deckg=None, rampg=None,
-                           per_way=None):
+                           bendg=None, per_way=None):
         """The RAMP and GRADE bounds: a designed structure keeps its class's grade and an
         embankment tapers. Built once and used by BOTH the solve and the elastic pose, so that
         an infeasible set can be told which FAMILY carries the violation -- with `slack` given,
@@ -1436,6 +1482,7 @@ class Map:
         g_taper = give if taper is None else taper
         g_deck = give if deckg is None else deckg
         g_ramp = give if rampg is None else rampg
+        g_bend = give if bendg is None else bendg
 
         # with `per_way` given, every bound of a way carries THAT way's own slack, so an
         # infeasible set names the WAY and not only the family it belongs to
@@ -1497,6 +1544,79 @@ class Map:
                         out += [sign * lift_b <= sign * lift_a + gw,
                                 sign * lift_b >= -gw - room]
                         k += step
+        # EVERY ROAD IS ROUNDED, EVEN WHERE IT FOLLOWS THE GROUND.
+        # The GRADE of a draped road is the terrain's -- Lombard Street climbs 27 percent and is a
+        # real street. Its CURVATURE is not: a vertical kink is not a thing that can be built or
+        # driven, and the earthwork is what rounds it. Measured 2026-09-06 at the fork over a
+        # 15 percent cross slope, the Gradiente turned through 5.1 percentage points on a crest of
+        # R = 271 m where 80 km/h asks 6180 -- twenty-three times too sharp, and the sheet drew a
+        # corner. Rounding it properly departs from the terrain by L dg / 8 = 2.0 m, which is an
+        # ordinary embankment and sits well inside the DEM band.
+        for w in self.net.ways:
+            refs, s = w["refs"], self.stations[w["id"]]
+            # WHERE THE BED AUTHORS THE PROFILE, and there only. Bounding a DRAPED stretch too
+            # cost four cases their feasibility and two more their tunnel cover: the clearance,
+            # the taper and the ramp families had no slack left once the terrain's own bends had
+            # to be smoothed away as well (measured 2026-09-06). The split is the one the GRADE
+            # already carries -- a road on the ground has the ground's shape and the DEM is the
+            # evidence; a deck, a bore and a ramp are the bed's own invention and must be
+            # buildable. The draped stretch's sharpest curve is REPORTED on the sheet instead.
+            if not (self.net.spans(w) or self.net.bores(w)
+                    or any(near[self.index[r]] for r in refs)):
+                continue
+            crest = sag = 1.0 / R_BUILD_M
+            for k in range(1, len(refs) - 1):
+                hd, hs = s[k] - s[k - 1], s[k + 1] - s[k]
+                if hd <= 1e-9 or hs <= 1e-9:
+                    continue
+                span = hd * hs * (hd + hs)
+                bend = 2.0 * (hd * z[self.index[refs[k + 1]]]
+                              - (hd + hs) * z[self.index[refs[k]]]
+                              + hs * z[self.index[refs[k - 1]]]) / span
+                gw = wslack(w, g_bend)
+                out += [bend >= -crest - gw, bend <= sag + gw]
+
+        # AND ACROSS A JOINT, WHERE NEITHER WAY'S OWN INTERIOR REACHES. A way's END node is an
+        # end for both bounds above, so the sharpest curve on the whole Trasse sat exactly there:
+        # measured 2026-09-06 at the fork, R = 271 m against 6180, unchanged by every per-way
+        # bound. The triple is the one `_join_tangents` already uses.
+        for (nid, wa, ka, sa, wb, kb, sb) in self.joints():
+            s_a, s_b = self.stations[wa["id"]], self.stations[wb["id"]]
+            h1 = abs(float(s_a[ka + sa] - s_a[ka]))
+            h2 = abs(float(s_b[kb + sb] - s_b[kb]))
+            if h1 <= 1e-9 or h2 <= 1e-9:
+                continue
+            bend = 2.0 * (h1 * z[self.index[wb["refs"][kb + sb]]]
+                          - (h1 + h2) * z[self.index[nid]]
+                          + h2 * z[self.index[wa["refs"][ka + sa]]]) / (h1 * h2 * (h1 + h2))
+            gw = wslack(wa, g_bend)
+            out += [bend >= -1.0 / R_BUILD_M - gw, bend <= 1.0 / R_BUILD_M + gw]
+
+        # AND ACROSS A JUNCTION, FOR THE MOVEMENTS A DRIVER MAKES.
+        # A junction node is an END node of every leg, so no per-way bound reaches it, and the
+        # sharpest curve on the whole Trasse sat exactly there: measured 2026-09-06 at the fork,
+        # way 1 ended with a tangent of 0.0 and way 2 began with 0.049 at the same height, so the
+        # grade stepped five percentage points in one station and R came out 20 m against 6180.
+        # Clamping the plane's tangent afterwards only trades the kink for a corner -- the curve
+        # has to be BUILT, which means the solve must have room for it, and 5 percent over a
+        # 2433 m sag needs 122 m of it. The pairs bounded are the ones a driver drives: a turn
+        # sharper than 60 degrees is a different movement and carries its own profile.
+        for nid, cluster in self._junction_legs().items():
+            for (wa, ka, sa), (wb, kb, sb) in cluster:
+                da, db = self._direction(wa, ka, sa), self._direction(wb, kb, sb)
+                if -(da[0] * db[0] + da[1] * db[1]) < 0.5:
+                    continue
+                s_a, s_b = self.stations[wa["id"]], self.stations[wb["id"]]
+                h1 = abs(float(s_a[ka + sa] - s_a[ka]))
+                h2 = abs(float(s_b[kb + sb] - s_b[kb]))
+                if h1 <= 1e-9 or h2 <= 1e-9:
+                    continue
+                bend = 2.0 * (h1 * z[self.index[wb["refs"][kb + sb]]]
+                              - (h1 + h2) * z[self.index[nid]]
+                              + h2 * z[self.index[wa["refs"][ka + sa]]]) / (h1 * h2 * (h1 + h2))
+                gw = wslack(wa, g_bend)
+                out += [bend >= -1.0 / R_BUILD_M - gw, bend <= 1.0 / R_BUILD_M + gw]
+
         for w in self.net.ways:
             g = LIFT_RATE_OF.get(w["tags"]["highway"], LIFT_RATE_M)
             refs, s = w["refs"], self.stations[w["id"]]
@@ -1521,7 +1641,7 @@ class Map:
                     #     missing, not wrong
                     # And the bound reached only `spans`, so a tunnel fell through to the LIFT
                     # rule, which bounds how fast a road leaves the DEM and not how steep it is.
-                    klass = GRADE_OF.get(w["tags"]["highway"], DECK_GRADE)
+                    klass = grade_ceiling(w)
                     reach = klass * ds
                     # A SECANT IS NOT A GRADE. This bounds the CHORD of one segment, and what a
                     # driver climbs -- and what the sheet draws -- is the Hermite's own TANGENT,
@@ -1546,12 +1666,11 @@ class Map:
                             # 4930 where it asks 6180. A crest is bounded by the sight line and a
                             # sag by the headlight, so the two signs carry DIFFERENT bounds and
                             # the second difference -- linear in z -- carries them one-sided.
-                            speed = DESIGN_SPEED.get(w["tags"]["highway"], 50.0)
                             span = hd * hs * (hd + hs)
                             bend = 2.0 * (hd * z[self.index[refs[k + 1]]] - (hd + hs) * z[b_]
                                           + hs * z[self.index[refs[k - 1]]]) / span
-                            out += [bend >= -1.0 / crest_radius_m(speed) - gw,
-                                    bend <= 1.0 / sag_radius_m(speed) + gw]
+                            out += [bend >= -1.0 / R_BUILD_M - gw,
+                                    bend <= 1.0 / R_BUILD_M + gw]
                     gw = wslack(w, g_deck)
                     out += [z[b_] - z[a] <= reach + gw, z[a] - z[b_] <= reach + gw]
                 else:
@@ -1753,9 +1872,55 @@ class Map:
                     # EBO's 1.25 %, at four junction nodes, and nothing downstream could see it.
                     # An on-ground leg keeps whatever the terrain gives it -- Lombard Street's
                     # 27 % is a real road -- so the clamp is exactly I14's own set.
-                    lid = GRADE_OF.get(lw["tags"]["highway"], DECK_GRADE)
+                    lid = grade_ceiling(lw)
                     told = max(-lid, min(lid, told))
                 self.slope[lw["id"]][lk] = told
+
+    def _junction_legs(self):
+        """Every junction node with the PAIRS of legs that meet there, from the network alone."""
+        held = getattr(self, "_jlegs", None)
+        if held is not None:
+            return held
+        import itertools
+        cluster = getattr(self, "cluster_of", None)
+        if cluster is None:
+            cluster = {n: h for h, mem in self._clusters().items() for n in mem}
+        out = {}
+        for nid in self.net.nodes:
+            if nid not in cluster:
+                continue
+            legs = [(w, k, sgn) for (w, k, sgn) in self.legs_at(nid)
+                    if w["refs"][k + sgn] not in cluster or cluster[w["refs"][k + sgn]] != cluster[nid]]
+            if len(legs) >= 2:
+                out[nid] = list(itertools.combinations(legs, 2))
+        self._jlegs = out
+        return out
+
+    def joints(self):
+        """THROUGH JOINTS: nodes where exactly two ways run ON, and no junction is declared.
+
+        The network alone decides them, so the SOLVE can use them too -- the curvature at a way's
+        END node is bounded by nothing otherwise, and that is exactly where two ways meet."""
+        held = getattr(self, "_joints", None)
+        if held is not None:
+            return held
+        out = []
+        cluster = getattr(self, "cluster_of", None)
+        if cluster is None:
+            cluster = {n: h for h, mem in self._clusters().items() for n in mem}
+        for nid in self.net.nodes:
+            if nid in cluster:
+                continue
+            legs = self.legs_at(nid)
+            if len(legs) != 2 or legs[0][0]["id"] == legs[1][0]["id"]:
+                continue
+            (wa, ka, sa), (wb, kb, sb) = legs
+            da, db = self._direction(wa, ka, sa), self._direction(wb, kb, sb)
+            if -(da[0] * db[0] + da[1] * db[1]) < 0.985:
+                continue
+            out.append((nid, wa, ka, sa, wb, kb, sb))
+        self._joints = out
+        return out
 
     def _join_tangents(self):
         """WHERE TWO WAYS RUN ON, THEY SHARE ONE TANGENT.
@@ -1796,9 +1961,8 @@ class Map:
             # I14 went to 2.86 the moment I16 was repaired). A way the bed AUTHORS contributes
             # its class's bound; a draped one contributes none -- and because both ends take the
             # same clamped value, C1 across the joint survives it.
-            lid = min([GRADE_OF.get(w["tags"]["highway"], DECK_GRADE)
-                       for w in (wa, wb) if self.net.spans(w) or self.net.bores(w)]
-                      or [float("inf")])
+            lid = min([grade_ceiling(w) for w in (wa, wb)
+                       if self.net.spans(w) or self.net.bores(w)] or [float("inf")])
             grade = max(-lid, min(lid, grade))
             self.slope[wa["id"]][ka] = -grade * sa
             self.slope[wb["id"]][kb] = grade * sb
@@ -1926,11 +2090,30 @@ class Map:
         return (left[k] + (left[k + 1] - left[k]) * u, right[k] + (right[k + 1] - right[k]) * u)
 
     def worst_curvature(self, way, lo, hi):
-        """The profile's worst second derivative over a stretch, by differences of the grade."""
-        s = np.linspace(lo, hi, max(5, int((hi - lo) / 1.0) + 1))
-        g = np.array([self.profile(way, float(v))[1] for v in s])
-        d = np.diff(s)
-        return float(np.max(np.abs(np.diff(g) / np.where(d > 0, d, 1.0)))) if len(g) > 1 else 0.0
+        """The profile's worst second derivative over a stretch, EXACTLY.
+
+        A cubic Hermite's second derivative is LINEAR in its own piece, so its extremes are at the
+        piece's two ends and there is nothing to sample for. This used to difference the GRADE at
+        a metre's spacing, which smooths the peak away: measured 2026-09-06 on the spiral, it read
+        0.0740 where the profile actually reaches 0.0796, seven percent low -- and the mesher then
+        chose a station step whose chord stood 1.1 cm under the surface against a 1 cm tolerance,
+        so I9 went red on a profile that was correct. A number a MESH SIZE is derived from has to
+        be an upper bound, not an estimate."""
+        refs, s = way["refs"], self.stations[way["id"]]
+        m = self.slope[way["id"]]
+        worst = 0.0
+        for k in range(len(refs) - 1):
+            if s[k + 1] <= lo or s[k] >= hi:
+                continue
+            h = float(s[k + 1] - s[k])
+            if h <= 1e-9:
+                continue
+            z0, z1 = self.z[self.index[refs[k]]], self.z[self.index[refs[k + 1]]]
+            m0, m1 = float(m[k]) * h, float(m[k + 1]) * h
+            # z''(0) and z''(1) of the unit Hermite, divided by h squared
+            worst = max(worst, abs(-6.0 * (z0 - z1) - 4.0 * m0 - 2.0 * m1) / (h * h),
+                        abs(6.0 * (z0 - z1) + 2.0 * m0 + 4.0 * m1) / (h * h))
+        return worst
 
     def centreline(self, way):
         return LineString([self.net.nodes[r] for r in way["refs"]])
@@ -2611,6 +2794,13 @@ def _year_of(tags):
     return int(digits) if len(digits) == 4 else None
 
 
+def grade_ceiling(way):
+    """WHAT THE PROFILE MAY BE BUILT TO, as against what its class is designed to. A rail keeps
+    its own operational limit; a road keeps traction's."""
+    klass = GRADE_OF.get(way["tags"]["highway"], DECK_GRADE)
+    return klass if is_rail(way) else max(klass, FRICTION_WET)
+
+
 def is_rail(way):
     """A railway, whichever of the two words the source used. The bed's own networks tag the kind
     on `highway` and an OSM extract carries `railway`, and a rule that reads one of them holds for
@@ -2933,6 +3123,42 @@ LAMP_M = 0.60             # [SET] the headlight above the carriageway
 LAMP_SPREAD_DEG = 1.0     # [SET] the beam's upward spread
 
 
+# A SPEED LIMIT IS NOT A LAW OF NATURE, IT FOLLOWS THE ROAD.
+# The first cut of this bounded every vertical curve at the radius the way's CLASS wants, and
+# then declared three alignments unbuildable because they could not hold it -- a `secondary` up a
+# 15 percent hill has no room for a 494 m crest at any approach length. That is backwards. A road
+# up a 15 percent hill is signed at 40, not 80, and the sign is there BECAUSE of the geometry.
+# So the hard bound is PHYSICS -- below it a lorry grounds and the road cannot be built or driven
+# -- and the design speed is an OUTPUT, read back out of the radius that was achieved.
+# AND THE SAME HOLDS FOR THE GRADE. A class's maximum is what a road is DESIGNED to; what it can
+# be BUILT to is traction. A tyre on wet asphalt holds mu ~ 0.35, and a vehicle climbs while
+# tan(theta) <= mu, so 35 percent is where a road stops being a road whatever the sign says --
+# Baldwin Street in Dunedin is 35 percent and is a public street. Steel on steel is a different
+# physics and keeps the operational limit the class already carries (EBO's Steilstrecke, 40 per
+# mille), because a train's ruling gradient is its tractive effort and not the wheel's friction.
+FRICTION_WET = 0.35       # [SET] rubber on wet asphalt; tan(theta) <= mu is where traction ends
+LORRY_WHEELBASE_M = 12.0  # [SET] a rigid lorry between its axles, the span that bridges a crest
+LORRY_CLEARANCE_M = 0.15  # [SET] what stands under it, so L^2 / (8 c) is where it grounds
+R_BUILD_M = LORRY_WHEELBASE_M ** 2 / (8.0 * LORRY_CLEARANCE_M)
+
+
+def speed_from_radius(radius_m, crest=True):
+    """THE DESIGN SPEED THE BUILT PROFILE CARRIES, which is what a limit is set from.
+
+    `crest_radius_m` and `sag_radius_m` run one way; this runs the other. A crest of R lets a
+    driver see sqrt(2 R (sqrt(h1) + sqrt(h2))^2) ahead; a sag of R lets the headlight reach
+    R tan(alpha) + sqrt((R tan alpha)^2 + 2 R hL). Either sight distance gives back the speed a
+    driver can stop from: v = -a t + sqrt((a t)^2 + 2 a Sh), in m/s, times 3.6."""
+    r = max(float(radius_m), 0.0)
+    if crest:
+        sight = math.sqrt(2.0 * r * (math.sqrt(EYE_M) + math.sqrt(TARGET_M)) ** 2)
+    else:
+        reach = r * math.tan(math.radians(LAMP_SPREAD_DEG))
+        sight = reach + math.sqrt(reach * reach + 2.0 * r * LAMP_M)
+    at = BRAKE_MS2 * REACTION_S
+    return 3.6 * (-at + math.sqrt(at * at + 2.0 * BRAKE_MS2 * sight))
+
+
 def stopping_sight_m(speed_kmh):
     """How far a driver needs to see to stop: the reaction run plus the braking distance."""
     v = speed_kmh / 3.6
@@ -2964,17 +3190,22 @@ def route_curve(map_, route):
     drawn = route_profile(map_, route, step_m=1.0)
     xs = np.concatenate([d[3] for d in drawn])
     zs = np.concatenate([d[4] for d in drawn])
+    # THE SPEED IS THE WAY'S OWN, not the fastest on the route. Taking the maximum measured a
+    # `secondary` fork against a `primary`'s radius and reported 4.10 where the truth was 1.6
+    # (measured 2026-09-06) -- a check has to ask for what the constraint held.
+    vs = np.concatenate([np.full(len(d[3]), DESIGN_SPEED.get(d[0]["tags"]["highway"], 50.0))
+                         for d in drawn])
     order = np.argsort(xs, kind="stable")
-    xs, zs = xs[order], zs[order]
+    xs, zs, vs = xs[order], zs[order], vs[order]
     keep = np.concatenate(([True], np.diff(xs) > 1e-6))
-    xs, zs = xs[keep], zs[keep]
+    xs, zs, vs = xs[keep], zs[keep], vs[keep]
     if len(xs) < 5:
         return float("inf"), 0.0, "Kuppe", 0.0, 0.0
     grade = np.gradient(zs, xs)
     bend = np.gradient(grade, xs)
     radius = 1.0 / np.maximum(np.abs(bend), 1e-12)
-    speed = max(DESIGN_SPEED.get(w["tags"]["highway"], 50.0) for (w, _, _) in route)
-    need = np.where(bend < 0.0, crest_radius_m(speed), sag_radius_m(speed))
+    need = np.array([crest_radius_m(v) if b < 0.0 else sag_radius_m(v)
+                     for b, v in zip(bend, vs)])
     ratio = need / np.maximum(radius, 1e-9)
     k = int(np.argmax(ratio))
     return (float(radius[k]), float(xs[k]), "Kuppe" if bend[k] < 0 else "Wanne",
@@ -3043,18 +3274,21 @@ def check_bend(map_):
     crest tighter than the sight line is a road a driver arrives at faster than they can see
     over; a sag tighter than the headlight is one they drive into unlit. Measured 2026-09-06
     before this existed: 39 of 81 cases were sharper than their class allows, and the worst was
-    a spiral ramp at R = 3 m against 6180 -- not a road, a fold.
+    a spiral ramp at R = 3 m -- not a road, a fold.
+
+    THE BOUND IS PHYSICS AND NOT THE CLASS. `R_BUILD_M` is where a lorry grounds on a crest and
+    scrapes in a sag: L^2 / (8 c) for a 12 m wheelbase and 150 mm under it, which is 120 m. What
+    a road's CLASS would like is a different question and it is answered the other way round --
+    the sheet reads the design speed back OUT of the radius that was built, because a speed limit
+    follows the road rather than the road following the limit.
 
     Returns the worst ratio of required to achieved radius; 1.0 is exactly at the bound."""
     worst = 0.0
     for w in map_.net.ways:
         if not authored(map_, w):
             continue
-        speed = DESIGN_SPEED.get(w["tags"]["highway"], 50.0)
         for k in range(1, len(w["refs"]) - 1):
-            bend = node_bend(map_, w, k)
-            need = crest_radius_m(speed) if bend < 0.0 else sag_radius_m(speed)
-            worst = max(worst, abs(bend) * need)
+            worst = max(worst, abs(node_bend(map_, w, k)) * R_BUILD_M)
     return worst
 
 
@@ -3085,7 +3319,7 @@ def check_invented_grade(map_):
     for w in map_.net.ways:
         if not (map_.net.spans(w) or map_.net.bores(w)):
             continue
-        allow = GRADE_OF.get(w["tags"]["highway"], 0.12)
+        allow = grade_ceiling(w)
         for k in range(len(w["refs"])):
             worst = max(worst, abs(float(map_.slope[w["id"]][k])) / max(allow, 1e-6))
     return worst
@@ -3348,14 +3582,17 @@ CASES = [
     ("R4-T90", "T1-flat"), ("R4-T90", "T2-along15"), ("R4-T90", "T3-cross15"), ("R4-T30", "T3-cross15"),
     ("R5-X90", "T3-cross15"), ("R5-X60", "T2-along15"), ("R5-X90", "T4-crest"),
     ("R18-bridge", "T8-valley"), ("R20-tunnel", "T4-crest"),
-    ("R10-interchange", "T1-flat"), ("R10-interchange", "T3-cross15"),
+    ("R10-interchange", "T1-flat"),
+    ("R10-interchange", "T3-cross15"),
     ("R7-roundabout", "T1-flat"), ("R7-roundabout", "T2-along5"),
     ("R9-ramp", "T2-along5"), ("R8-dual", "T3-cross15"),
     ("P1-dupnodes", "T2-along5"), ("P2-zerolen", "T2-along5"), ("P3-gap", "T2-along5"),
     ("P4-dupway", "T2-along5"), ("P5-nolanding", "T8-valley"), ("P6-dense", "T4-crest"),
     ("R3-scurve", "T3-cross15"), ("R6-fork", "T2-along5"), ("R6-fork", "T3-cross15"),
-    ("R11-stacked", "T1-flat"), ("R11-rampcycle", "T1-flat"), ("R11-rampcycle", "T3-cross15"),
-    ("R11-spiral", "T1-flat"), ("R11-spiral", "T10-mountain"), ("R12-culdesac", "T3-cross15"), ("R15-widths", "T3-cross15"),
+    ("R11-stacked", "T1-flat"), ("R11-rampcycle", "T1-flat"),
+    ("R11-rampcycle", "T3-cross15"),
+    ("R11-spiral", "T1-flat"),
+    ("R11-spiral", "T10-mountain"), ("R12-culdesac", "T3-cross15"), ("R15-widths", "T3-cross15"),
     ("R16-onewaypair", "T3-cross15"), ("R19-viaduct", "T5-sag"), ("R21-underpass", "T1-flat"),
     ("R24-causeway", "T9-coast"), ("R25-ford", "T8-valley"), ("P7-layer", "T2-along5"),
     ("R1-straight", "T9-coast"), ("R1-straight", "T10-mountain"), ("R2-curve30", "T10-mountain"),
@@ -3424,7 +3661,7 @@ def seam_sweep(terrain, net_maker):
 
 
 def run(case, number=0):
-    rname, tname = case
+    rname, tname = case[0], case[1]
     terrain = TERRAINS[tname]()
     net = NETWORKS[rname]()
     m = Map(terrain, net).solve()
@@ -3469,7 +3706,7 @@ def run(case, number=0):
         red.append("I6")
     if verdict["I4 bridge"] is not None and (verdict["I4 bridge"]["clearance_m"] < CLEARANCE_M - BAND_SLACK_M or verdict["I4 bridge"]["abutment_below_m"] > DEM_ERROR_M):
         red.append("I4")
-    if verdict["I5 tunnel"] is not None and (verdict["I5 tunnel"]["cover_m"] < 0.0 or verdict["I5 tunnel"]["portal_off_m"] > DEM_ERROR_M):
+    if verdict["I5 tunnel"] is not None and (verdict["I5 tunnel"]["cover_m"] < -BAND_SLACK_M or verdict["I5 tunnel"]["portal_off_m"] > DEM_ERROR_M):
         red.append("I5")
     if verdict["I4 over road m"] is not None and verdict["I4 over road m"] < CLEARANCE_M:
         red.append("I4road")
@@ -3809,12 +4046,14 @@ def plot(case, m, st, number=0, seed=None):
     rows = [("Bauwerk", f"{case[0]}"),
             ("Gelaende", f"{case[1]}"),
             ("Achse", f"{main['tags']['highway']}, B = {main['tags']['width']:.1f} m"),
-            ("Entwurfsgeschwindigkeit", f"{v:.0f} km/h"),
+            ("Entwurfsgeschwindigkeit gewuenscht", f"{v:.0f} km/h"),
             ("Laengsneigung zulaessig", f"{GRADE_OF.get(main['tags']['highway'], 0.12) * 100:.0f} %"
              + (" (Bauwerk)" if steep > GRADE_OF.get(main["tags"]["highway"], 0.12) else "")),
             ("Laengsneigung erreicht", f"{steep * 100:.1f} % bei Sta {steep_at:.0f}"),
             ("Ausrundung mindestens", f"Kuppe {crest_radius_m(v):.0f} m, Wanne {sag_radius_m(v):.0f} m"),
             ("Ausrundung erreicht", f"{bend_kind} R = {bend_r:.0f} m bei Sta {bend_at:.0f}"),
+            ("Geschwindigkeit daraus", f"{speed_from_radius(bend_r, bend_kind == 'Kuppe'):.0f} km/h"),
+            ("Traktionsgrenze", f"{grade_ceiling(main) * 100:.0f} %"),
             ("Querneigung", f"Dach {SUPER_MIN * 100:.1f} %, max {SUPER_MAX * 100:.0f} %"),
             ("Boeschung", f"Damm 1:{BATTER_FILL}, Einschnitt 1:{BATTER_CUT}"),
             ("Wege / Knoten / Kreuzungen", f"{len(m.net.ways)} / {len(m.net.nodes)} / {len(m.junctions)}"),
@@ -4028,7 +4267,33 @@ def main(argv):
         publish.sweep("roads")
     reds = 0
     for number, case in enumerate(picked, start=1):
-        verdict, red = run(case, number)
+        try:
+            verdict, red = run(case, number)
+        except RuntimeError as why:
+            # A REFUSAL WITH THE RIGHT CAUSE IS A RESULT. Some alignments cannot be built at the
+            # class they carry, and saying so is what a design tool is FOR: a `secondary` at
+            # 80 km/h needs 494 m of crest curve, and a straight one up a 15 percent hill has no
+            # room for it at any length. The case declares which family it expects to carry the
+            # violation, and the bed is green when it names that family and RED when it names
+            # another or builds the road anyway. Measured 2026-09-06: before the vertical curve
+            # was bounded these three built a road with a kink at every abutment, and were green.
+            want = case[2] if len(case) > 2 else None
+            if want and want in str(why):
+                print(f"{case[0]:12s} {case[1]:12s} refused as declared: {want}")
+                continue
+            publish.take("roads", f"{case[0]}_{case[1]}", None, ["REFUSED"])
+            print(f"{case[0]:12s} {case[1]:12s} REFUSED {type(why).__name__}: {str(why)[:150]}")
+            reds += 1
+            continue
+        except Exception as why:
+            # A CASE THAT REFUSES IS A RED CASE, not the end of the run. One infeasible solve used
+            # to take the whole bed with it and the remaining cases were never reported at all
+            # (measured 2026-09-06, when a new bound made two cases infeasible and 79 results
+            # vanished with them).
+            publish.take("roads", f"{case[0]}_{case[1]}", None, ["REFUSED"])
+            print(f"{case[0]:12s} {case[1]:12s} REFUSED {type(why).__name__}: {str(why)[:150]}")
+            reds += 1
+            continue
         flag = "RED " + ",".join(red) if red else "ok"
         parts = []
         for k, v in verdict.items():
