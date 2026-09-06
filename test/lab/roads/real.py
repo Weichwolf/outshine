@@ -53,7 +53,7 @@ CASES = {
     "1I-Hohenzollern":   (50.94140, 6.96600, 300, "three steel arches, rail, 1911", "hohenzollern"),
     "1J-Landwasser":     (46.68050, 9.67520, 250, "curved viaduct straight into a tunnel, 1902", "landwasser"),
     "1K-Brusio":         (46.25550, 10.13290, 200, "open spiral viaduct, rail gains height in a circle", ""),
-    "1L-Storseisundet":  (62.99860, 7.08000, 300, "cantilever curve, the Atlantic Road", "storseisundet"),
+    "1L-Storseisundet":  (63.01300, 7.35500, 700, "cantilever curve, the Atlantic Road", "storseisund"),
 
     # -- rung 2: JUNCTIONS, where the network decides the geometry ------------------------------
     "2A-Gravelly":       (52.51170, -1.84770, 500, "Spaghetti Junction, five levels, 18 routes", "m6"),
@@ -238,6 +238,11 @@ def run(name, number, only=None):
     nodes = {e["id"]: (e["lat"], e["lon"]) for e in doc["elements"] if e["type"] == "node"}
     ways = [e for e in doc["elements"] if e["type"] == "way" and "nodes" in e]
     net, kept, dropped = net_of(nodes, ways, lat, lon)
+    if not net.ways:
+        # AN EMPTY EXTRACT IS A CASE, not a crash: a coordinate a few hundred metres out lands in
+        # open water and the bed died on `max() arg is an empty sequence` deep inside the sheet
+        raise RuntimeError(f"the extract at {lat:.5f},{lon:.5f} within {reach:.0f} m holds no "
+                           f"highway or railway way at all -- check the coordinate")
     ground = RealTerrain(lat, lon)
     terrain = bed.Terrain(ground, extent=reach + 200.0, posting=bed.POSTING_M)
     m = bed.Map(terrain, net)

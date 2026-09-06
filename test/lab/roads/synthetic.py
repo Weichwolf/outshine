@@ -914,6 +914,17 @@ class Map:
             self._cross[key] = a.intersects(b)
         return self._cross[key]
 
+    def clearance_room(self):
+        """How far below the terrain each node may go: what a deck above it needs, and no more."""
+        got = getattr(self, "_room", None)
+        if got is None:
+            got = {}
+            for (_, j, j2, uu, gap) in getattr(self, "clearance_pairs", ()):
+                got[j] = max(got.get(j, 0.0), gap)
+                got[j2] = max(got.get(j2, 0.0), gap)
+            self._room = got
+        return got
+
     def open_ends(self):
         """Nodes the extract cut off, so their profile owes the DEM nothing."""
         got = getattr(self, "_open_ends", None)
@@ -1262,6 +1273,7 @@ class Map:
                 if floor is not None:
                     floors[k] = max(floors.get(k, -1e9), floor)
         self.clearance_pairs = pairs
+        self._room = None
         return floors
 
     def _ramp_signs(self):
@@ -1359,19 +1371,46 @@ class Map:
         # minimum-curvature profile undershoots -- measured: a ramp 0.3 m under a flat plain
         # before climbing 4 m to the deck, which is a spline's overshoot and not a road
         deck_nodes = {r for w in self.net.ways if self.net.spans(w) for r in w["refs"]}
+        bore_nodes = {r for w in self.net.ways if self.net.bores(w) for r in w["refs"]}
         for w in self.net.ways:
             if self.net.spans(w) or not (set(w["refs"]) & deck_nodes):
                 continue
             refs = w["refs"]
+            # AN EMBANKMENT IS WHAT A ROAD RETURNS TO THE GROUND ON, and a way that runs from a
+            # deck straight into ANOTHER STRUCTURE never returns to it: a viaduct's next span, a
+            # bridge that ends in a tunnel portal, a monorail carried on piers the whole way.
+            # Making its lift fall monotonically to zero asks a structure to become an
+            # embankment, which is what left the Wuppertal Schwebebahn and Yerba Buena Island
+            # infeasible on the TAPER (measured 2026-09-06). Both ends in a structure: no taper.
+            ends = {refs[0], refs[-1]}
+            if len(ends & (deck_nodes | bore_nodes)) == 2:
+                continue
             at_start = refs[0] in deck_nodes
             order = range(len(refs) - 1) if at_start else range(len(refs) - 1, 0, -1)
             step = +1 if at_start else -1
+            s_w = self.stations[w["id"]]
+            s0 = s_w[0] if at_start else s_w[-1]
             for k in order:
+                # THE TAPER IS THE EMBANKMENT'S, and an embankment is what a road stands on
+                # while it comes DOWN from the abutment. Beyond that rise the way is a street
+                # again and its profile is the valley's, not the bridge's: seventy-four ordinary
+                # residential streets touching the Schwebebahn's piers were each asked to fall
+                # monotonically and never dip, and 0.196 m was all it took to make the set
+                # infeasible (measured 2026-09-06). The reach is the same APPROACH_M the
+                # clearance uses, because it is the same question about the same ramp.
+                if abs(s_w[k] - s0) > APPROACH_M:
+                    continue
                 a_, b_ = self.index[refs[k]], self.index[refs[k + step]]
                 lift_a = z[a_] - self.dem[a_]
                 lift_b = z[b_] - self.dem[b_]
                 sign = self.ramp_signs.get(w["id"], 1.0)
-                out += [sign * lift_b <= sign * lift_a + g_taper, sign * lift_b >= -g_taper]
+                # ...and it may go DOWN by what a deck above it asks for. `lift >= 0` guards
+                # against a spline's overshoot; a bridge over a road is physics, and the two
+                # contradicted wherever a street dips under a crossing (measured 2026-09-06:
+                # 0.196 m at the Schwebebahn was enough to make the whole set infeasible)
+                room = self.clearance_room().get(b_, 0.0)
+                out += [sign * lift_b <= sign * lift_a + g_taper,
+                        sign * lift_b >= -g_taper - room]
         for w in self.net.ways:
             g = GRADE_OF.get(w["tags"]["highway"], 0.12)
             refs, s = w["refs"], self.stations[w["id"]]
