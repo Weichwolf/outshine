@@ -25,6 +25,7 @@ from shapely.ops import substring, unary_union
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import kerbline  # noqa: E402
+import lanes as lanework  # noqa: E402
 import publish  # noqa: E402
 
 OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "synthetic"
@@ -3726,6 +3727,7 @@ def run(case, number=0):
         "I11 earthworks": check_earthworks(m, st),
         "I17 walk on carriageway m2": kerbline.check_walk_off_carriageway(m, st),
         "I18 carriageway pieces": kerbline.check_carriageway_connected(m, st),
+        "I20 lanes": lanework.check_lane_band(m.net.ways),
         "I8 seam": (seam_sweep(terrain, NETWORKS[rname]) if rname == "R17-seam" else None),
     }
     red = []
@@ -3757,6 +3759,8 @@ def run(case, number=0):
         red.append("I17")
     if verdict["I18 carriageway pieces"] != 0:
         red.append("I18")
+    if verdict["I20 lanes"]["outside band"] or verdict["I20 lanes"]["outside carriageway m"] > 1e-6:
+        red.append("I20")
     seam = verdict["I8 seam"]
     if seam is not None:
         # the seam must stand well inside the DRIVING tolerance, and the halo that buys it is

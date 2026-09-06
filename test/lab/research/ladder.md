@@ -22,7 +22,7 @@ is just as real:
 | **R0 the block** | Quake, 1996: mass only, one material, no openings | closed, consistently wound, welded; a place builds with no red | **cleared** -- 81/81 road cases, 41/41 building cases |
 | **R1 the silhouette** | Half-Life, 1998: what breaks the outline against the sky | no body is a plain prism; chimneys, dormers, parapets, ridges, gutters as GEOMETRY | **cleared** -- L1 adds 348 tris to a 526-tri mass |
 | **R2 the opening** | Half-Life 2, 2004: a wall is a facade with holes, and the ground floor differs | every reachable wall carries real holes with a reveal >= 0.10 m; no glass inside solid geometry | **cleared** -- the wall is meshed with its holes from L2 |
-| **R3 the material** | Crysis 2007 into PBR 2011: measured reflectance, one shading model | glTF `pbrMetallicRoughness`; every albedo inside its measured band; an 18 % card exposes to 118 | **cleared** -- 23 stock materials, exposure measured |
+| **R3 the material** | Crysis 2007 into PBR 2011: measured reflectance, one shading model | glTF `pbrMetallicRoughness`; every albedo inside its measured band; an 18 % card exposes to 118 | **cleared, and carried further** -- 25 stock materials, exposure measured, and each one now carries the surface's own DIMENSIONS (`grain_m`, `relief_m`, `mottle`, `unit_m`, `joint_m`, `bond`) in glTF `extras`. A laid material is LAID: a 240 x 71.5 brick in a stretcher bond with a 12.5 mm joint, built in METRES and projected triplanar, because noise at a brick's size reads as dirt. `material_card.py` stands the whole stock in one frame of raking light |
 | **R4 the rhythm** | Assassin's Creed / CityEngine, 2007: a grammar, not a texture | a storey hierarchy with a measurably taller beletage; party walls; no two neighbours identical | **cleared for the block**, open for the house and the hall |
 | **R5 the street** | GTA V, 2013: the street level is where the budget goes | a JUNCTION with its own surface, stop lines, crossings and drains; furniture per 100 m at the reference's order | **junction cleared** -- one kerb ring around the NETWORK with RASt 06 corner radii, dropped kerbs at every crossing, markings interrupted across a junction, give-way teeth on the minor leg only, terrain cut by the street (I17, I18, I19); open: lanes, parking, signals from OSM, gullies on a real profile |
 | **R6 the wear** | The Witcher 3, 2015: nothing is clean, and the dirt has a REASON | a wetness/exposure field drives the material: streaks under sills, moss at a plinth, wear on a desire line | **not started** |
@@ -43,9 +43,15 @@ visible in the first picture:
 | the paint read the TERRAIN's height | a zebra on a crowned road stood 0.12 m proud and Cycles drew four rows of kerbstones | every marking reads `kerbline.Surface`, which interpolates the DRAWN mesh |
 | the height off the road was the NEAREST triangle | at a corner fillet the nearest leg SWITCHES and the height jumps by the difference of their crowns: a crease and a bright wedge at every corner | eight triangles, inverse-square weighted; the footway's worst face went from 77 deg off level to 30 |
 
-What is still open on the rung: LANES (a 10 m primary drawn with one dashed line has two 4.75 m
-lanes, which no road has), parking bays, the signal and the sign from OSM at a real junction, and
-a gully on a profile that actually has a low point.
+**LANES, closed the same day (board:2158).** `roads/lanes.py` derives the lane list from the
+surveyor's tags where they exist and from RASt 06's Fahrstreifenbreite and a per-class cap where
+they do not, and every marking is a lane boundary. I20 over all 50 synthetic networks: 226 lanes,
+0 outside the 2.25-3.75 m band. Control, the one-line-down-the-middle construction: 96 of 206
+outside, widest 8.75 m, red on 32 of the 50 networks.
+
+What is still open on the rung: parked cars in the parking lanes (that is R7's), the signal and
+the sign from OSM at a real junction, a gully on a profile that has a low point, and a turn lane
+at a junction -- `turn:lanes` is in the data and nothing reads it yet.
 
 **R6, the wear.** The rule is that dirt has a REASON: water runs off a sill and streaks the wall
 under it; it stands at a plinth and grows moss; a foot wears a path where people actually walk.

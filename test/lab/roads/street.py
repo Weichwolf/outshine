@@ -9,8 +9,8 @@ and the tags a surveyor wrote -- and nothing is placed by hand.
     BORDSTEIN, RINNE, GEHWEG   the edge of the street. It is NOT here: an edge is a property of
                 the NETWORK and not of a way, because two ways that meet share one corner --
                 `kerbline.street_edge` builds all three as one ring around the whole network
-    MARKIERUNG  the centre line and the edge lines. RMS-1: a 0.12 m line, dashed 6 m on 12 m for
-                a Leitlinie, solid for a Fahrbahnbegrenzung
+    MARKIERUNG  every line is a LANE BOUNDARY and `lanes.py` says where the lanes are. RMS-1:
+                a 0.12 m line, a Leitlinie one part stroke to two parts gap, a Begrenzung solid
     LATERNE     a street lamp on the pavement, spaced by its own mounting height times four,
                 which is what a lighting designer spaces them by
     BAUM        a tree in a pit, where OSM says one stands
@@ -23,12 +23,13 @@ import math
 
 import numpy as np
 
+import lanes
+
 KERB_UP_M = 0.12          # [SET] RASt 06: the upstand at a carriageway edge
 KERB_WIDE_M = 0.30        # [SET] the kerbstone's own width
 GUTTER_M = 0.30           # [SET] the channel laid flat against it
 WALK_M = 2.50             # [SET] RASt 06's minimum clear width for a footway
 LINE_M = 0.12             # [SET] RMS-1: a carriageway marking is 120 mm wide
-DASH_ON_M, DASH_OFF_M = 6.0, 6.0   # [SET] RMS-1's Leitlinie, 6 m on 6 m off outside a junction
 LAMP_H_M = 5.0            # [SET] a residential street's mounting height
 LAMP_EVERY = 4.0          # [SET] a lighting designer spaces poles at four times the height
 # A MARKING IS PROUD OF THE ROAD AND OF NOTHING ELSE. It was once lifted over the TERRAIN, which
@@ -92,49 +93,46 @@ def _clear(windows, lo, hi):
 
 
 def markings(m, way, z_at, st=None):
-    """THE LINES ON IT. A Leitlinie down the middle where the road carries two directions, and an
-    edge line where the class has one -- both interrupted across every junction."""
+    """THE LINES ON IT, AND EVERY ONE OF THEM IS A LANE BOUNDARY.
+
+    `lanes.boundaries` says where a line goes and which one it is; nothing here decides that,
+    because a line that is not a lane boundary is a line nobody painted. All of them stop across
+    a junction -- RMS-1 interrupts every longitudinal marking there, and a centre line drawn
+    through one is the tell that the generator drew a ribbon and not a street."""
     tags = way["tags"]
-    if tags.get("highway") in ("footway", "path", "steps", "cycleway", "track", "service") \
-            or "railway" in tags or tags.get("railway"):
+    if tags.get("highway") in lanes.NO_LANES or "railway" in tags or tags.get("railway"):
         return ()
     line = m.centreline(way)
     if line.length < 12.0:
         return ()
-    half = way["tags"]["width"] / 2.0
     windows = _junction_windows(m, st, way)
+    on, off = lanes.dash(tags)
     out = []
-    # A LEITLINIE IS NOT MARKED ON EVERY ROAD THAT IS WIDE ENOUGH. RMS-1 marks one where the
-    # class carries through traffic; a residential street of the same width carries none, and
-    # drawing one there is the tell that the generator read the width and not the class.
-    if half >= 3.25 and tags.get("highway") in ("primary", "secondary", "tertiary",
-                                                "unclassified", "primary_link", "secondary_link"):
-        # the CENTRE line, dashed: 6 m on, 6 m off
-        at = 0.0
-        while at + DASH_ON_M < line.length:
-            if _clear(windows, at, at + DASH_ON_M):
-                piece = _walk_between(line, at, at + DASH_ON_M)
-                if piece:
-                    out.append(("paint", *_ribbon(piece, (-LINE_M / 2, LINE_M / 2), z_at, PAINT_M)))
-            at += DASH_ON_M + DASH_OFF_M
-    if tags.get("highway") in ("primary", "secondary", "trunk", "motorway"):
-        for side in (-1.0, +1.0):
-            e = side * (half - 0.25)
-            lo, hi = sorted((e - LINE_M / 2, e + LINE_M / 2))
-            at = 0.0
-            while at < line.length - 1.0:
-                nxt = min(line.length, at + 20.0)
-                for (a, b) in windows:
-                    if a < nxt and b > at:
-                        nxt = min(nxt, max(at, a))
-                if nxt - at > 1.0 and _clear(windows, at, nxt):
-                    piece = _walk_between(line, at, nxt)
+    for (at_off, kind) in lanes.boundaries(way):
+        lo, hi = at_off - LINE_M / 2, at_off + LINE_M / 2
+        if kind == "lead":
+            s0 = 0.0
+            while s0 + on < line.length:
+                if _clear(windows, s0, s0 + on):
+                    piece = _walk_between(line, s0, s0 + on)
                     if piece:
                         out.append(("paint", *_ribbon(piece, (lo, hi), z_at, PAINT_M)))
-                at = nxt if nxt > at else at + 1.0
-                for (a, b) in windows:
-                    if a <= at <= b:
-                        at = b
+                s0 += on + off
+            continue
+        s0 = 0.0
+        while s0 < line.length - 1.0:
+            nxt = min(line.length, s0 + 20.0)
+            for (a, b) in windows:
+                if a < nxt and b > s0:
+                    nxt = min(nxt, max(s0, a))
+            if nxt - s0 > 1.0 and _clear(windows, s0, nxt):
+                piece = _walk_between(line, s0, nxt)
+                if piece:
+                    out.append(("paint", *_ribbon(piece, (lo, hi), z_at, PAINT_M)))
+            s0 = nxt if nxt > s0 else s0 + 1.0
+            for (a, b) in windows:
+                if a <= s0 <= b:
+                    s0 = b
     return tuple(out)
 
 

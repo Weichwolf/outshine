@@ -196,12 +196,12 @@ def _radius(m, nid):
     return R_SMALL_M
 
 
-_AREAS = {}
-
-
 def drivable_area(m, st):
     """Every carriageway ribbon and every junction surface, as ONE area."""
-    got = _AREAS.get(("d", id(st)))
+    # THE MEMO HANGS ON THE STRUCTURE ITSELF. Keyed on `id(st)` in a module dict it would
+    # answer for a DIFFERENT structure the moment CPython reused a freed address, which over
+    # an 81-case ladder it certainly does.
+    got = getattr(st, "_drivable", None)
     if got is not None:
         return got
     parts = []
@@ -214,7 +214,7 @@ def drivable_area(m, st):
         parts.append(line.buffer(w["tags"]["width"] / 2.0, cap_style=2, quad_segs=ARC))
     parts += [p for p in st.polygons.values() if not p.is_empty]
     out = unary_union(parts) if parts else Polygon()
-    _AREAS[("d", id(st))] = out
+    st._drivable = out
     return out
 
 
@@ -222,7 +222,7 @@ def kerb_face_area(m, st, drivable=None):
     """The line the kerbstone runs on: the channel, with every junction's corner rounded to its
     own radius. A closing with radius R fills exactly the concave corners narrower than R and
     leaves a straight edge untouched, which is what a corner radius IS."""
-    got = _AREAS.get(("f", id(st)))
+    got = getattr(st, "_kerb_face", None)
     if got is not None:
         return got
     drivable = drivable_area(m, st) if drivable is None else drivable
@@ -240,7 +240,7 @@ def kerb_face_area(m, st, drivable=None):
         closed = near.buffer(r, join_style=1, quad_segs=ARC).buffer(-r, join_style=1, quad_segs=ARC)
         out.append(closed.intersection(window))
     face = unary_union(out)
-    _AREAS[("f", id(st))] = face
+    st._kerb_face = face
     return face
 
 
