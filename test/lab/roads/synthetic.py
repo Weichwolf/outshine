@@ -1393,35 +1393,40 @@ class Map:
             # Making its lift fall monotonically to zero asks a structure to become an
             # embankment, which is what left the Wuppertal Schwebebahn and Yerba Buena Island
             # infeasible on the TAPER (measured 2026-09-06). Both ends in a structure: no taper.
-            ends = {refs[0], refs[-1]}
-            if len(ends & (deck_nodes | bore_nodes)) == 2:
-                continue
-            at_start = refs[0] in deck_nodes
-            order = range(len(refs) - 1) if at_start else range(len(refs) - 1, 0, -1)
-            step = +1 if at_start else -1
+            # A WAY MAY CARRY MORE THAN ONE ABUTMENT, and each has its own ramp. Taking one
+            # end as THE abutment and making the lift fall monotonically across the whole way
+            # asks a chain of spans to descend from one bridge and still meet the next: the
+            # Wuppertal Schwebebahn is a row of them and Yerba Buena is bridge, tunnel, bridge,
+            # and both were infeasible on exactly this (measured 2026-09-06 by switching the two
+            # taper rules off one at a time -- the MONOTONE one carries it, the floor does not).
+            # So the taper runs OUTWARD FROM EVERY STRUCTURE NODE on the way, in both
+            # directions, and stops at APPROACH_M or at the next structure node it meets.
             s_w = self.stations[w["id"]]
-            s0 = s_w[0] if at_start else s_w[-1]
-            for k in order:
-                # THE TAPER IS THE EMBANKMENT'S, and an embankment is what a road stands on
-                # while it comes DOWN from the abutment. Beyond that rise the way is a street
-                # again and its profile is the valley's, not the bridge's: seventy-four ordinary
-                # residential streets touching the Schwebebahn's piers were each asked to fall
-                # monotonically and never dip, and 0.196 m was all it took to make the set
-                # infeasible (measured 2026-09-06). The reach is the same APPROACH_M the
-                # clearance uses, because it is the same question about the same ramp.
-                if abs(s_w[k] - s0) > APPROACH_M:
-                    continue
-                a_, b_ = self.index[refs[k]], self.index[refs[k + step]]
-                lift_a = z[a_] - self.dem[a_]
-                lift_b = z[b_] - self.dem[b_]
-                sign = self.ramp_signs.get(w["id"], 1.0)
-                # ...and it may go DOWN by what a deck above it asks for. `lift >= 0` guards
-                # against a spline's overshoot; a bridge over a road is physics, and the two
-                # contradicted wherever a street dips under a crossing (measured 2026-09-06:
-                # 0.196 m at the Schwebebahn was enough to make the whole set infeasible)
-                room = self.clearance_room().get(b_, 0.0)
-                out += [sign * lift_b <= sign * lift_a + g_taper,
-                        sign * lift_b >= -g_taper - room]
+            structure = {k for k, r in enumerate(refs) if r in deck_nodes or r in bore_nodes}
+            sign = self.ramp_signs.get(w["id"], 1.0)
+            done = set()
+            for k0 in sorted(structure):
+                for step in (+1, -1):
+                    k = k0
+                    while 0 <= k + step < len(refs):
+                        if abs(s_w[k + step] - s_w[k0]) > APPROACH_M:
+                            break
+                        if (k + step) in structure:
+                            break
+                        pair = (min(k, k + step), max(k, k + step), step)
+                        if pair in done:
+                            k += step
+                            continue
+                        done.add(pair)
+                        a_, b_ = self.index[refs[k]], self.index[refs[k + step]]
+                        lift_a = z[a_] - self.dem[a_]
+                        lift_b = z[b_] - self.dem[b_]
+                        # ...and it may go DOWN by what a deck above it asks for. `lift >= 0`
+                        # guards against a spline's overshoot; a bridge over a road is physics
+                        room = self.clearance_room().get(b_, 0.0)
+                        out += [sign * lift_b <= sign * lift_a + g_taper,
+                                sign * lift_b >= -g_taper - room]
+                        k += step
         for w in self.net.ways:
             g = GRADE_OF.get(w["tags"]["highway"], 0.12)
             refs, s = w["refs"], self.stations[w["id"]]
@@ -1811,7 +1816,13 @@ class Structure:
                     d = self.map._direction(w, k, sgn)
                     far = 4.0 * max(math.dist((x0, y0), self.net.nodes[m]) for m in members) + 200.0
                     ray = LineString([(x0, y0), (x0 + d[0] * far, y0 + d[1] * far)])
-                    hit = ray.intersection(poly.exterior)
+                    # A ROUNDABOUT'S UNION CAN FALL INTO PIECES. Where the ring's members are
+                    # mapped as separate ways that do not quite meet, `unary_union` returns a
+                    # MULTIPOLYGON and `.exterior` does not exist on one -- the Wuppertal
+                    # Schwebebahn's extract died there (measured 2026-09-06). The cut is the
+                    # farthest crossing of ANY part's boundary, which is the same answer for a
+                    # single polygon and the right one for several.
+                    hit = ray.intersection(poly.boundary)
                     cut = 0.0
                     if not hit.is_empty:
                         pts = [hit] if hit.geom_type == "Point" else [p for p in getattr(hit, "geoms", [])]
