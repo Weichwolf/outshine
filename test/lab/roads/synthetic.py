@@ -1988,7 +1988,7 @@ class Structure:
         off = -(x - q.x) * d[1] + (y - q.y) * d[0]
         return self.own_surface(way, s, off)
 
-    def leg_surface(self, way, station, offset, at=None, sgn=+1):
+    def leg_surface(self, way, station, offset, at=None, sgn=+1, k=None):
         """A leg's surface within WARP_M of a junction it is a MINOR leg of is warped from its
         own section into the major's surface at the same (x, y): alpha rises smoothly from 0 at
         the warp's start to 1 at the cut, so at the cut the two are one surface (I6 by
@@ -1998,7 +1998,14 @@ class Structure:
         if head is None or self.map.junctions[head]["major"] == way["id"]:
             return z_own
         cut = self.cuts[(way["id"], at)]
-        k = way["refs"].index(at)
+        # WHICH VISIT, not which node. A way may pass through the same junction TWICE -- a
+        # footway looping through a station hall, a service road round a block -- and
+        # `refs.index()` returns the FIRST of them, so the station was another visit's, the warp
+        # parameter was not zero at the cut and the leg blended where it should have matched.
+        # Measured 2026-09-06 at Zuerich HB: 0.085 m on a footway leg of a six-legged junction,
+        # the last I6 in the whole ladder. The caller knows which visit it is walking.
+        if k is None:
+            k = way["refs"].index(at)
         s_node = self.map.stations[way["id"]][k]
         along = sgn * (station - s_node)          # distance from the node along the leg
         u = (along - cut) / WARP_M                # 0 at the cut, 1 at the warp's start
@@ -2029,7 +2036,7 @@ class Structure:
                 half = w["tags"]["width"] / 2.0
                 for t in np.linspace(-half, half, 9):
                     px, py = self.frame_point(w, station, t)
-                    leg = self.leg_surface(w, station, t, at, sgn)
+                    leg = self.leg_surface(w, station, t, at, sgn, k)
                     junction = self.major_surface(nid, px, py)
                     worst = max(worst, abs(leg - junction))
         return worst
