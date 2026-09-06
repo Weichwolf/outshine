@@ -12,6 +12,64 @@ Environment: `python3 -m venv test/lab/.venv && test/lab/.venv/bin/pip install n
 matplotlib trimesh mapbox_earcut networkx pillow osmnx`. Data lands under `$TMPDIR/outshine-lab/`
 and never in the tree. Run an experiment as `test/lab/.venv/bin/python test/lab/<dir>/<exp>.py`.
 
+## What the bar IS, and how to know a thing has cleared it
+
+**AAA is not an adjective, it is a distance ladder.** The Witcher 3, Cyberpunk 2077, Fallout 4 and
+GTA V are the measure, and what they share is not polish -- it is that at EVERY distance a viewer
+reads something true. So the standard is written per distance, and each row is checkable:
+
+| the viewer stands | what they read | the bar |
+|---|---|---|
+| 200 m | the SILHOUETTE against the sky | nothing is a plain prism: chimneys, dormers, parapets, plant rooms, aerials, roof terraces. A row of buildings shares one eaves line and one ridge where they share party walls |
+| 100 m | the facade's RHYTHM | a bay grid the epoch owns, a piano nobile that differs from the floors above it, a cornice line, a plinth. Relief that a raking light catches: nothing proud of the wall by less than half a brick, because less does not cast a shadow at this distance |
+| 30 m | the GROUND FLOOR and the STREET | shopfronts, doors in frames, steps, canopies, railings. A kerb with a face, a gutter, a footway, markings, lamps, trees, walls, fences, hedges. In the references this is where a large share of the visible triangles is |
+| 5 m | the MATERIAL | brick, render, stone, glass, metal, timber -- distinguishable, and dirty where water runs: streaks under sills, moss at a plinth, wear on a pavement |
+| any | the JOIN | nothing intersects wrongly, nothing floats, nothing is buried, no crack, no z-fight, no comb |
+
+**Three kinds of correct, and all three at once.** ARCHITECTURALLY: a roof has the pitch its
+COVERING needs (a plain tile 40 degrees because it has no interlock, an interlocking tile 22, a
+membrane 2); a window is the size of the room behind it; a plinth is the height a splash reaches.
+FUNCTIONALLY: a carriageway is continuous, rounded and drivable; a bridge carries and has its
+fields; a tunnel keeps its cover; a stair has its riser; a door has its approach. GEOMETRICALLY:
+closed, consistently wound, welded, no self-intersection.
+
+**AND EVERY DETAIL RUNG ADDS.** L0 is the mass; each rung above it adds geometry rather than
+replacing it, each is coherent on its own, and each next one refines the last. The exception is a
+HOLE -- a wall gains its openings at the rung where a viewer can see them, and a hole is not
+something you add. That is the same split a game makes: the near LOD is cut, the far one is a
+quad with a material on it.
+
+## WHAT THE GENERATOR IS ACTUALLY FOR, and the number that says so
+
+Measured on taginfo, 2026-09-05, over 707 million `building=*`:
+
+    building:levels    6.0 %        so 94 % of footprints carry NO HEIGHT
+    height           <= 3.8 %
+    roof:shape         1.4 %        so 98.6 % carry NO ROOF SHAPE
+
+**The generator invents almost everything.** OSM gives an outline and a word; the height, the
+roof, the epoch, the material, the rhythm, the openings and everything at the street are the
+generator's own. That is why the truth a generator is measured against is a DISTRIBUTION and not a
+value -- a held-out height's error against GHS-OBAT, a facade's bay spacing against a survey of
+its period -- and why a rule with no origin is worth nothing here: there is no tag to fall back on.
+
+## HOW THIS LAB IS JUDGED
+
+A green check is not a proof of quality; it is a proof of an INVARIANT. Quality is judged by
+LOOKING, and the two are different instruments with different jobs:
+
+    the flat rasteriser (`render.py`)   one normal per face, a z-buffer, no smoothing. A crack, a
+                                        fold, an inverted normal, a comb all SHOW and nothing
+                                        hides. This is the geometry's own instrument
+    Blender (`blend.py`)                materials by role, a physical sky, the sun where the place
+                                        and the hour put it, the client's own camera, and an
+                                        exposure MEASURED against an 18 percent card. This is the
+                                        instrument a LOOK is judged on, and it runs on the GPU
+
+**What is looked at and found wrong must make a check go red.** If no check can see it, the check
+is missing and writing it is part of the repair. Everything under `build/shots/lab/` has been
+looked at, passes every check, and cleared the ladder above -- nothing else is put there.
+
 ## Inventory
 
 | experiment | question | solution | proof | to C++ |

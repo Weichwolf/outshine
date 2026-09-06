@@ -33,6 +33,29 @@ same grammar. So relief depth per facade area and shadow-casting edges per store
 generator owes, and a generator that draws the median of its epoch is what makes a street read as
 generated. `board:2155` holds the carriers and the measurements.
 
+**AAA IS NOT AN ADJECTIVE, IT IS A DISTANCE LADDER, and the generators are held to it.** The
+measure is Witcher 3, Cyberpunk 2077, Fallout 4 and GTA V, and what those share is not polish: at
+EVERY distance a viewer reads something true. At 200 m it is the SILHOUETTE -- nothing is a plain
+prism, and a row shares one eaves line where it shares a party wall. At 100 m it is the RHYTHM --
+a bay grid the epoch owns, a piano nobile unlike the floors above it, and relief no shallower than
+half a brick, because less casts no shadow at that distance. At 30 m it is the GROUND FLOOR and
+the STREET -- shopfronts, doors, steps, a kerb with a FACE, a gutter, a footway, markings, lamps,
+trees, walls; in the references that is where a large share of the visible triangles sits. At 5 m
+it is the MATERIAL, dirty where water runs. **Correct means three things at once**: architecturally
+(a roof has the pitch its COVERING needs, not a table's), functionally (a carriageway is continuous
+and rounded and drivable, a tunnel keeps its cover, a stair has its riser) and geometrically
+(closed, wound, welded, nothing floating or buried). **And every rung ADDS** -- L0 is the mass and
+each rung above it adds geometry rather than replacing it, the one exception being a HOLE, because
+a wall's openings are not something you add.
+
+**THE GENERATOR INVENTS ALMOST EVERYTHING, and the number says so.** Measured on taginfo over 707
+million `building=*`: `building:levels` on 6.0 %, `height` on at most 3.8 %, `roof:shape` on 1.4 %.
+So **94 % of the planet's footprints carry no height and 98.6 % no roof shape** -- OSM gives an
+outline and a word, and the height, the roof, the epoch, the material, the rhythm, the openings and
+everything at the street are the generator's own. That is why a generator's truth is a
+DISTRIBUTION and never a value, and why a rule without an origin is worth nothing here: there is no
+tag to fall back on.
+
 The world is EARTH and the engine is online by definition: a picture can be made of any place on
 it, and what comes out has to be comparable with reality. Elevation always, vector data where a
 scenario asks for it, and the sun, the moon, the stars and the weather standing where the place and
