@@ -66,10 +66,25 @@ def _blob(x, y, z, rx, ry, rz, rings=5, spokes=8):
     return verts, tris
 
 
-def tree(x, y, z, seed=0, height=None):
-    """A STREET TREE: a tapered trunk to the clearance a footway keeps, then a crown of three
-    overlapping blobs. Its size varies with its own seed, because a row of identical trees is the
-    second loudest tell after a row of identical houses."""
+def tree(x, y, z, seed=0, height=None, tags=None):
+    """A STREET TREE, GROWN FROM THE ENGINE'S OWN SPECIES DECLARATION.
+
+    This file first held a second tree generator, written without running CLAUDE.md's own second
+    question -- does this already exist here, unreachable? It did: `src/generators/flora/` carries
+    a declarative grower with a 23-field Growth record, a 24-field Leaf record and 31 species as
+    JSON, every number with its origin. The duplicate is gone and `flora.py` reads those same
+    files, so the lab is an ORACLE for the C++ and not a rival to it."""
+    import sys as _s, pathlib as _p
+    _s.path.insert(0, str(_p.Path(__file__).resolve().parents[1]))
+    import flora
+    sp = flora.load()
+    pick = flora.pick_species(sp, tags, seed)
+    nodes, cards = flora.grow(sp[pick], seed=seed)
+    return flora.mesh(nodes, cards, sp[pick], at=(x, y, z))
+
+
+def _old_tree(x, y, z, seed=0, height=None):
+    """kept only as the shape a blob crown had, and it is not called"""
     grow = 0.78 + 0.34 * ((seed % 17) / 16.0)
     high = (height or (CLEAR_M + CROWN_M)) * grow
     stem = CLEAR_M * grow

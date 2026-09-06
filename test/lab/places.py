@@ -39,7 +39,6 @@ import data as roaddata  # noqa: E402
 import publish  # noqa: E402
 import render as lab_render  # noqa: E402
 import materials as stock  # noqa: E402
-import furniture  # noqa: E402
 import street  # noqa: E402
 
 _spec = _util.spec_from_file_location("outshine_road_bed", HERE / "roads" / "synthetic.py")
