@@ -33,7 +33,7 @@ def _fields(ctx):
     return [((k + 0.5) * step, step) for k in range(n)]
 
 
-@register("sockel", lod=2, role="stone",
+@register("sockel", lod=2, role="plinth",
           note="the plinth: two courses proud, stopping at the ground floor's sill")
 def _sockel(ctx):
     if ctx.epoch in ("industrial", "hall", "contemporary", "bungalow"):
@@ -42,7 +42,7 @@ def _sockel(ctx):
     if top <= 0.15:
         return ()
     v, t = ctx.place.box(0.0, 0.0, ctx.place.length, top, 0.0, 2 * COURSE_M)
-    return (("stone", v, t),)
+    return (("plinth", v, t),)
 
 
 @register("gurtgesims", lod=2, role="stone", note="a string course on every floor line")

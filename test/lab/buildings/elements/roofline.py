@@ -119,10 +119,15 @@ def _gaube(ctx):
         s = (bay + 0.5) * step
         if s < 1.4 or s > p.length - 1.4:
             continue
-        # the box stands PROUD of the wall by its depth and reaches back into the slope
-        out.append(("roof", *p.box(s - wide / 2, seat, s + wide / 2, seat + high, -0.9, deep)))
+        # A DORMER GROWS OUT OF THE SLOPE and does not sit on it. Its cheeks run BACK into the
+        # roof far enough to be buried at the ridge end, so there is no gap under it: boxes
+        # parked on the surface with daylight beneath were what the row of four showed
+        # (rendered and looked at, 2026-09-06).
+        into = max(2.4, ctx.rise_m * 1.6)
+        out.append(("roof", *p.box(s - wide / 2, seat - 0.9, s + wide / 2, seat + high,
+                                   -into, deep)))
         out.append(("roof", *p.box(s - wide / 2 - 0.12, seat + high, s + wide / 2 + 0.12,
-                                   seat + high + 0.13, -1.0, deep + 0.16)))
+                                   seat + high + 0.13, -into, deep + 0.16)))
         out.append(("glass", *p.box(s - wide / 2 + 0.15, seat + 0.20, s + wide / 2 - 0.15,
                                     seat + high - 0.18, deep - 0.06, deep - 0.04)))
     return tuple(out)

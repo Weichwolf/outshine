@@ -464,6 +464,30 @@ class Building:
         self._floor_mesh()
         self._roof_mesh()
 
+    def seed(self):
+        """THE BODY'S OWN SEED, from its own place. A street where every wall carries one colour
+        reads as a diagram and one where they are random reads as a toy; the truth between them is
+        a PALETTE drawn from deterministically, and the draw has to be the same every time the
+        same building is built -- determinism is compulsory here as everywhere."""
+        c = self.poly.centroid
+        return (int(round(c.x * 37.0)) * 73856093 ^ int(round(c.y * 37.0)) * 19349663) & 0xFFFF
+
+    def covering(self):
+        """What this roof is LAID WITH, and therefore what colour it is and what pitch it needs."""
+        from elements import covering as cov
+        where = self.where.name if self.where is not None else "anywhere"
+        pitch = math.degrees(math.atan2(self.ridge - self.eaves,
+                                        max(roof_inradius(self.poly), 1e-6)))
+        return cov.for_pitch(pitch, where, self.style.epoch, self.seed())
+
+    def palette(self):
+        """Every role's colour for this body: the epoch's field, its trim, its plinth, and the
+        roof's own covering."""
+        from elements import palette as pal
+        got = pal.of(self.style.epoch, self.style.wall, self.seed())
+        got["roof"] = self.covering()["rgb"]
+        return got
+
     def body(self, lod=3, street_dir=None):
         """THE WHOLE BODY AT ONE RUNG, by role: {role: (vertices, triangles)}.
 
@@ -498,9 +522,61 @@ class Building:
                     for (role, vv, tt) in elements.holed_wall(place, elements.openings_of(ctx),
                                                               elements.facade.FRAME_M + 0.10):
                         put(role, vv, tt)
+                # A PARTY WALL KEEPS THE MASS'S OWN SOLID FACE: it is shared, unseen and unglazed
+                for at, wall in enumerate(Facade(self)._walls()):
+                    if at not in self.party_walls() or not wall["outer"]:
+                        continue
+                    a, b = wall["a"], wall["b"]
+                    lo0, lo1 = self.wall_foot(*a), self.wall_foot(*b)
+                    hi0, hi1 = self.wall_top(*a), self.wall_top(*b)
+                    v = [(a[0], a[1], lo0), (b[0], b[1], lo1), (b[0], b[1], hi1), (a[0], a[1], hi0)]
+                    n = np.cross(np.subtract(v[1], v[0]), np.subtract(v[3], v[0]))
+                    facing = n[0] * wall["outward"][0] + n[1] * wall["outward"][1]
+                    put("wall", v, [(0, 1, 2), (0, 2, 3)] if facing > 0
+                        else [(0, 2, 1), (0, 3, 2)])
         for role, (vv, tt) in self.detail(lod, street_dir).items():
             put(role, vv, tt)
         return got
+
+    PARTY_GAP_M = 0.80        # [SET] two footprints this close are one block, and OSM draws the
+                              # party wall as two lines a surveyor's width apart
+
+    def party_walls(self):
+        """WHICH OF THIS BODY'S WALLS ARE PARTY WALLS -- shared with the building next door.
+
+        A Gruenderzeit row, a terrace, a market square, a courtyard block: in all of them the
+        buildings TOUCH, and a party wall has no windows, no cornice, no gutter and no gable. Four
+        blocks standing 1 m apart with four exposed flanks and four separate ridges is the single
+        loudest tell that a street is generated (rendered a row of four and looked at,
+        2026-09-06), and it is also what the C++ side already carries as `BuildingShape::Party`.
+
+        Returns the set of wall indices, from the neighbours the caller handed over."""
+        held = getattr(self, "_party", None)
+        if held is not None:
+            return held
+        out = set()
+        near = [n for n in getattr(self, "neighbours", ())
+                if n is not self.poly and n.distance(self.poly) < self.PARTY_GAP_M]
+        if near:
+            from shapely.geometry import LineString
+            for at, wall in enumerate(Facade(self)._walls()):
+                if not wall["outer"]:
+                    continue
+                seg = LineString([wall["a"], wall["b"]])
+                mid = seg.interpolate(0.5, normalized=True)
+                probe = (mid.x + wall["outward"][0] * self.PARTY_GAP_M,
+                         mid.y + wall["outward"][1] * self.PARTY_GAP_M)
+                for n in near:
+                    # THE PROBE ALONE DECIDES. Asking whether the neighbour is near the SEGMENT
+                    # marks every wall of a body that touches anywhere, corners included: the row
+                    # of four lost every facade it had and came back with 1818 triangles instead
+                    # of 18 570 (measured 2026-09-06). A party wall is one you cannot stand in
+                    # front of, so the test is a point pushed out of its middle.
+                    if n.covers(Point(*probe)):
+                        out.add(at)
+                        break
+        self._party = out
+        return out
 
     def _faces(self, street_dir=None):
         """Every outer wall as (Place, detail context), which is the one place both the relief
@@ -515,8 +591,12 @@ class Building:
         else:
             front = max(walls, key=lambda w: w["length"])
         u, _ = self.axis
+        party = self.party_walls()
+        allwalls = Facade(self)._walls()
         out = []
         for wall in walls:
+            if allwalls.index(wall) in party:
+                continue                       # a party wall carries nothing: it is not seen
             a = wall["a"]
             place = elements.Place(
                 origin=(a[0], a[1], self.wall_foot(*a)),

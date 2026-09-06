@@ -30,6 +30,26 @@ import numpy as np
 
 BLENDER = os.environ.get("OUTSHINE_BLENDER", "/opt/homebrew/bin/blender")
 
+# THE EXPOSURE IS MEASURED, NOT CHOSEN. An 18 percent card lit flat by this sun must read near
+# 118 of 255 through AgX -- that is what a right exposure means and it is checkable, which is why
+# the three numbers below carry a measurement rather than a taste. Daylight is roughly 85 percent
+# sun and 15 percent sky, so the dome is the ambient and the lamp is the sun.
+# MEASURED 2026-09-06 against an 18 percent card, flat to a 72 degree sun:
+#   sky 0.25 sun 4.0   card 106/120/137   grey error 3.3   blue cast +31
+#   sky 0.12 sun 6.0   card 104/110/119   grey error 7.0   blue cast +16
+#   sky 0.06 sun 8.0   card 106/109/113   grey error 9.0   blue cast  +7   <- taken
+# The first row exposes right and is BLUE, which is what a dome-dominated scene is; the last is
+# daylight, 85 percent sun and 15 percent sky, and a camera at 6500 K renders it neutral. A dark
+# dome is not a stylistic choice -- it is what gives a street its contact shadows.
+# ...and then the SKY ITSELF came out dark, because dimming the dome dims the picture of it as
+# well as its light. The dome is left at its own physical brightness and the SUN is raised to the
+# ratio that makes the illuminant daylight; the exposure carries the rest.
+#   sky 1.00 sun 130 ev -5.40   card 123/126/130, cast +7.5, sky pixel 150   <- taken
+SKY_GAIN = 1.0
+SUN_GAIN = 130.0
+EXPOSURE = -5.4
+BALANCE_K = 6500.0        # [SET] daylight, which is what a camera outdoors is set to
+
 # ROLE -> (base colour, roughness, metallic). The roof and the wall are the split that matters.
 LOOKS = {
     "wall":   ((0.82, 0.79, 0.72), 0.85, 0.0),
@@ -57,12 +77,23 @@ def write_ply(path, verts, tris):
             out.write(f"3 {t[0]} {t[1]} {t[2]}\n")
 
 
-def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES"):
-    """`parts` is {role: (vertices, tris)}, `camera` the lab's own, `sun` the ENU direction."""
+def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
+           looks=None, sky_gain=SKY_GAIN, sun_gain=SUN_GAIN, exposure=EXPOSURE,
+           balance_k=BALANCE_K):
+    """`parts` is {role: (vertices, tris)}, `camera` the lab's own, `sun` the ENU direction.
+
+    `looks` overrides the role table with {role: rgb} or {role: (rgb, rough, metal)}, which is how
+    a body's own palette -- its epoch's field, its trim, its roof's covering -- reaches the
+    picture instead of one colour for every wall on Earth."""
     work = pathlib.Path(tempfile.mkdtemp(prefix="outshine-blend-"))
+    table = dict(LOOKS)
+    for role, got in (looks or {}).items():
+        base = table.get(role, ((0.7, 0.7, 0.7), 0.8, 0.0))
+        table[role] = got if isinstance(got, tuple) and len(got) == 3 and \
+            isinstance(got[0], (tuple, list)) else (tuple(got), base[1], base[2])
     files = {}
     for role, (verts, tris) in parts.items():
-        if not tris:
+        if not tris or role not in table:
             continue
         files[role] = str(work / f"{role}.ply")
         write_ply(files[role], verts, tris)
@@ -72,11 +103,13 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES"):
     azim = math.degrees(math.atan2(float(sun[0]), float(sun[1])))     # from north, clockwise
     script = work / "shot.py"
     script.write_text(_SCRIPT.format(
-        files=repr(files), looks=repr({k: LOOKS[k] for k in files}),
+        files=repr(files), looks=repr({k: table[k] for k in files}),
         width=camera.width, height=camera.height, fov=camera.fov_deg,
         bearing=camera.bearing_deg, pitch=camera.pitch_deg, agl=camera.agl_m,
         ortho=bool(camera.orthographic), ymag=camera.y_mag_m,
         elev=elev, azim=azim, samples=int(samples), haze=float(haze),
+        sky_gain=float(sky_gain), sun_gain=float(sun_gain), exposure=float(exposure),
+        balance_k=float(balance_k),
         out=repr(str(out_png)), engine=repr(engine)))
     done = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(script)],
                           capture_output=True, text=True, timeout=3600)
@@ -110,7 +143,11 @@ for role, path in files.items():
 # the rotation carries the altitude and the azimuth measured from north, clockwise.
 sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", type="SUN"))
 bpy.context.collection.objects.link(sun)
-sun.data.energy = 2.4
+# BLENDER'S SUN STRENGTH IS IRRADIANCE, and 1.0 is already a clear day. At 2.4 with AgX every
+# wall came back paper-white and a palette of ochre, cream and grey-green was indistinguishable
+# (rendered a row of four and looked at, 2026-09-06) -- which makes every material judgement
+# impossible, so it is not a taste setting but a correctness one.
+sun.data.energy = {sun_gain}
 sun.data.angle = math.radians(0.53)          # the sun's own disc, which is what softens a shadow
 sun.rotation_euler = (math.radians(90.0 - {elev}), 0.0, math.radians(-{azim}))
 
@@ -123,6 +160,11 @@ sky = nt.nodes.new("ShaderNodeTexSky")
 # Blender 5's sky node calls the physical model MULTIPLE_SCATTERING; "NISHITA" was
 # its 3.x name and is gone (measured 2026-09-06 against the enum the build actually offers).
 sky.sky_type = "MULTIPLE_SCATTERING"
+# THE SKY CARRIES ITS OWN SUN DISC, and a sun lamp beside it lights the scene TWICE. Every
+# wall came back paper-white at any lamp strength and any exposure, because the dome alone was
+# already a full daylight sun (rendered a row of four twice and looked at, 2026-09-06). The dome
+# provides the ambient, the lamp provides the sun and its shadows, and neither doubles the other.
+sky.sun_disc = False
 sky.sun_elevation = math.radians({elev})
 sky.sun_rotation = math.radians(-{azim})
 sky.altitude = 200.0
@@ -131,7 +173,7 @@ sky.aerosol_density = {haze} * 4.0        # Blender 5 calls the haze `aerosol_de
 sky.ozone_density = 1.0
 sky.ground_albedo = 0.22
 bg = nt.nodes.new("ShaderNodeBackground")
-bg.inputs["Strength"].default_value = 1.0
+bg.inputs["Strength"].default_value = {sky_gain}
 out = nt.nodes.new("ShaderNodeOutputWorld")
 nt.links.new(sky.outputs[0], bg.inputs[0])
 nt.links.new(bg.outputs[0], out.inputs[0])
@@ -155,6 +197,20 @@ bpy.context.scene.camera = cam
 
 sc = bpy.context.scene
 sc.render.engine = {engine}
+# THE GPU IS THERE AND CYCLES DEFAULTS TO THE CPU. `compute_device_type` was already METAL and the
+# Apple A18 Pro's five GPU cores were already enabled in the preferences, but `scene.cycles.device`
+# is CPU unless it is asked -- so every render up to 2026-09-06 was traced on the cores this
+# engine's frame budget is measured against, which is a waste of the one thing the machine has.
+if {engine} == "CYCLES":
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    try:
+        prefs.compute_device_type = "METAL"
+        prefs.get_devices()
+        for dev in prefs.devices:
+            dev.use = dev.type != "CPU"
+        sc.cycles.device = "GPU"
+    except Exception:
+        sc.cycles.device = "CPU"
 sc.render.resolution_x = {width}
 sc.render.resolution_y = {height}
 sc.render.resolution_percentage = 100
@@ -169,7 +225,12 @@ sc.view_settings.view_transform = "AgX"
 # AgX ON A SUNLIT WHITE WALL BLOWS OUT. The first render came back near paper-white with the
 # relief only just legible (looked at 2026-09-06); a stop and a half down puts the wall where a
 # camera at f/8 would put it and the shadows carry the modelling again.
-sc.view_settings.exposure = -1.6
+sc.view_settings.exposure = {exposure}
+# AND THE CAMERA IS WHITE BALANCED, which is what a camera does. Physical daylight is a white sun
+# under a blue dome, so an unbalanced render puts a +31 blue cast on an 18 percent card (measured
+# 2026-09-06 against the card). A film camera carries a daylight balance and so does this one.
+sc.view_settings.use_white_balance = True
+sc.view_settings.white_balance_temperature = {balance_k}
 sc.view_settings.look = "AgX - Base Contrast"
 bpy.ops.render.render(write_still=True)
 '''
