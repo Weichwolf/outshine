@@ -2766,14 +2766,36 @@ def check_c0(map_):
 
 
 def check_c1(map_):
-    """I2: the grade just before and just after every interior node agree."""
+    """I2: at every node the profile's own grade IS the tangent the solve stored there.
+
+    C1 across a node is the cubic Hermite's DEFINING property, so a probe at s +/- eps cannot
+    test it: with a fixed 1e-6 m into a 2.2 m segment the two heights agree to about 1e-13 and
+    the difference is catastrophic cancellation, which is how Hong Kong Central read 1.14e-06
+    against a 1e-6 tolerance at two nodes of 3 373 (measured 2026-09-06); widen the probe and it
+    stops measuring cancellation and starts measuring CURVATURE, which is legitimately not zero.
+    A check that pins its own probe is mis-specified and the CHECK is what changes.
+
+    What can actually be wrong is the CONSTRUCTION: that the polynomial on each side is built
+    from the stored tangent at all. So the check evaluates the profile AT the node, from the left
+    segment and from the right, and compares both with `slope[way][k]`. Exact to machine
+    precision when the construction is right, and the full size of the error when it is not."""
     worst = 0.0
     for w in map_.net.ways:
         s = map_.stations[w["id"]]
+        m = map_.slope[w["id"]]
         for k in range(1, len(w["refs"]) - 1):
-            _, g0 = map_.profile(w, s[k] - 1e-6)
-            _, g1 = map_.profile(w, s[k] + 1e-6)
-            worst = max(worst, abs(g0 - g1))
+            told = float(m[k])
+            # from the RIGHT segment: t = 0 there
+            _, g_right = map_.profile(w, s[k])
+            # and from the LEFT: t = 1 on the segment that ends here, reached by stepping back
+            # into it and asking for the end -- `profile` clamps to the segment it lands in
+            back = s[k] - min(1e-3, 0.25 * (s[k] - s[k - 1]))
+            kk = int(np.searchsorted(s, back, side="right") - 1)
+            h = s[kk + 1] - s[kk]
+            z0, z1 = map_.z[map_.index[w["refs"][kk]]], map_.z[map_.index[w["refs"][kk + 1]]]
+            m0, m1 = m[kk] * h, m[kk + 1] * h
+            g_left = ((6 - 6) * z0 + (3 - 4 + 1) * m0 + (-6 + 6) * z1 + (3 - 2) * m1) / h
+            worst = max(worst, abs(g_right - told), abs(g_left - told))
     return worst
 
 
