@@ -40,6 +40,7 @@ ROOF_PITCH = math.radians(35.0)   # [SET] the median pitch of a European gabled 
 EAVES_M = 0.4             # [SET] the eaves' overhang past the wall
 WELD_M = 1e-3
 FOOT_M = 0.5              # [SET] the wall is buried this far, which is what a foundation is
+RING_RISE_M = 0.25        # [SET] how much a roof may rise between two sampled level sets
 FREEBOARD_M = 0.3         # [SET] a deck over water stands this far above it
 
 
@@ -330,8 +331,14 @@ class Building:
 
     def _build(self):
         # walls, every ring, densified so a wall meets the ground's own steps
+        # THE WINDING IS ALREADY IN THE RING. `orient(poly, 1.0)` gives the exterior
+        # counter-clockwise and every hole clockwise, and that convention exists precisely so
+        # that the SOLID is on the same side of both -- walk either ring and the material is on
+        # your left. Flipping the wall for a hole therefore turns it inside out: the courtyard
+        # case carried 80 mismatched directed edges and twice its own volume until this went
+        # (measured 2026-09-06, by the per-face winding check on its first run).
         for at, ring in enumerate(self._rings()):
-            outward = 1 if at == 0 else -1
+            outward = 1
             dense = self._dense_ring(ring)
             for a, b in zip(dense, dense[1:] + dense[:1]):
                 la = self.vertex(a[0], a[1], self.wall_foot(*a))
@@ -344,18 +351,65 @@ class Building:
                 else:
                     self.tri(la, ub, lb)
                     self.tri(la, ua, ub)
-            # the floor (or the underside of a building on stilts), fanned from the centroid; its
-            # rim follows the wall's foot so the two meet
-            c = self.poly.representative_point()
-            floor = self.vertex(c.x, c.y, min(self.wall_foot(*p) for p in dense))
-            for a, b in zip(dense, dense[1:] + dense[:1]):
-                ia = self.vertex(a[0], a[1], self.wall_foot(*a))
-                ib = self.vertex(b[0], b[1], self.wall_foot(*b))
-                if outward > 0:
-                    self.tri(floor, ib, ia)
-                else:
-                    self.tri(floor, ia, ib)
+        self._floor_mesh()
         self._roof_mesh()
+
+    def _floor_mesh(self):
+        """ONE FLOOR, and a courtyard is a HOLE in it.
+
+        The floor used to be fanned from the polygon's representative point ONCE PER RING --
+        including the hole's -- so a courtyard got a second floor laid over the solid, wound the
+        other way. The body was still closed and its volume still positive, which is exactly why
+        a global volume proves nothing: the per-face winding check found 40 mismatched directed
+        edges on the first run it ever made (measured 2026-09-06). A polygon with a hole has one
+        floor and it is the polygon's own triangulation, the same constrained one the roof uses."""
+        rings = [self._dense_ring(r) for r in self._rings()]
+        verts, segs, seen = [], [], {}
+
+        def put(q):
+            key = (round(q[0], 6), round(q[1], 6))
+            if key not in seen:
+                seen[key] = len(verts)
+                verts.append([float(q[0]), float(q[1])])
+            return seen[key]
+
+        for ring in rings:
+            ids = [put(q) for q in ring]
+            segs += [[ids[i], ids[(i + 1) % len(ids)]] for i in range(len(ids))
+                     if ids[i] != ids[(i + 1) % len(ids)]]
+        if len(verts) < 3 or not segs:
+            return
+        job = {"vertices": np.array(verts), "segments": np.array(segs)}
+        holes = [list(Polygon(r).representative_point().coords)[0] for r in self.poly.interiors]
+        if holes:
+            job["holes"] = np.array(holes)
+        out = triangle.triangulate(job, "p")
+        pts = out["vertices"]
+        for simplex in out["triangles"]:
+            a, b, c = pts[simplex]
+            ids = [self.vertex(px, py, self.wall_foot(float(px), float(py))) for px, py in (a, b, c)]
+            # a floor's normal points DOWN, so it is wound clockwise seen from above
+            if (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]) > 0:
+                ids = [ids[0], ids[2], ids[1]]
+            self.tri(*ids)
+
+    def _roof_z(self, x, y):
+        """The roof above the eaves at (x, y), taking a ring point's OWN offset distance where
+        the mesh built it at one -- see `_ring_d`."""
+        d = getattr(self, "_ring_d", {}).get((round(x, 6), round(y, 6)))
+        if d is None:
+            return roof_height_at(self.poly, x, y, self.roof, self.eaves, self.ridge, self.axis)
+        here = Point(x, y)
+        if not self.poly.covers(here):
+            return 0.0
+        u, v = self.axis
+        c = self.poly.centroid
+        ctx = roofs.Ctx(poly=self.poly, x=x, y=y, d=d, eaves=self.eaves, ridge=self.ridge,
+                        axis=(u, v), inradius=roof_inradius(self.poly),
+                        half_v=axis_half(self.poly, v), half_u=axis_half(self.poly, u),
+                        across=abs((x - c.x) * v[0] + (y - c.y) * v[1]),
+                        along=abs((x - c.x) * u[0] + (y - c.y) * u[1]), pitch=ROOF_PITCH)
+        return roofs.height_at(self.roof, ctx)
 
     def _roof_mesh(self):
         """The roof as a height field over the footprint, sampled on a grid whose cell follows
@@ -377,6 +431,14 @@ class Building:
         # sampling them puts a vertex on every ridge and hip, which is the straight skeleton.
         step = max(cell / 2.0, 0.25)
 
+        # THE HEIGHT OF A RING POINT COMES FROM THE DISTANCE IT WAS BUILT AT, not from one
+        # recomputed afterwards. `buffer(-d)` is an approximation, so a point meant to lie d
+        # from the boundary reads back as d +/- epsilon, and where dz/dd is steep -- a barrel's
+        # crown, an onion's lantern, a mansard's break -- that epsilon becomes a COMB of spikes
+        # along the crest. Seen in the roof gallery on six of the fourteen shapes (measured
+        # 2026-09-06). Remembering d costs a dict and removes the artefact at its source.
+        self._ring_d = {}
+
         def ring_points(d):
             inner = self.poly.buffer(-d, join_style=2)
             if inner.is_empty:
@@ -385,18 +447,48 @@ class Building:
             for part in (inner.geoms if inner.geom_type == "MultiPolygon" else [inner]):
                 for ring in [part.exterior] + list(part.interiors):
                     dense_ring = ring.segmentize(cell) if hasattr(ring, "segmentize") else ring
-                    out += list(dense_ring.coords)[:-1]
+                    got = list(dense_ring.coords)[:-1]
+                    for q in got:
+                        self._ring_d[(round(q[0], 6), round(q[1], 6))] = d
+                    out += got
             return out
 
-        d = step
+        # THE RING LADDER STEPS IN HEIGHT, NOT IN DISTANCE. A dome, a barrel or an onion stands
+        # almost VERTICALLY off its eaves -- dz/dd is unbounded at the springing -- so a ladder
+        # of equal distances puts one band of near-vertical triangles there, and because the two
+        # rings carry different point counts the band zigzags and reads as a COMB of spikes
+        # along the eaves (seen in the roof gallery on six of the fourteen shapes, 2026-09-06).
+        # The next ring is the one whose crown is at most RING_RISE_M above this one, floored at
+        # a quarter cell so a flat roof does not build a thousand of them.
+        def crown(dd):
+            inner = self.poly.buffer(-dd, join_style=2)
+            if inner.is_empty:
+                return None
+            probe = inner.representative_point()
+            return self._roof_z(probe.x, probe.y)
+
+        d = min(step, max(cell / 4.0, 0.05))
         last = 0.0
-        while True:
+        guard = 0
+        while guard < 4000:
+            guard += 1
             got = ring_points(d)
             if got is None:
                 break
             pts += got
             last = d
-            d += step
+            here = crown(d)
+            nxt = d + step
+            if here is not None:
+                # halve the step while the next ring would rise more than RING_RISE_M
+                trial = step
+                for _ in range(8):
+                    ahead = crown(d + trial)
+                    if ahead is None or abs(ahead - here) <= RING_RISE_M or trial <= cell / 4.0:
+                        break
+                    trial *= 0.5
+                nxt = d + max(trial, cell / 4.0)
+            d = nxt
         # the RIDGE is the last non-empty offset, and a fixed step steps over it: bisect for it,
         # or the apex reads short by half a step times the pitch (measured: 0.28 m on a 12 x 8
         # house). The limit of these offsets IS the straight skeleton's ridge set.
@@ -456,7 +548,7 @@ class Building:
             a, b, c = pts[simplex]
             ids = []
             for px, py in (a, b, c):
-                z = self.eaves + roof_height_at(self.poly, px, py, self.roof, self.eaves, self.ridge, self.axis)
+                z = self.eaves + self._roof_z(float(px), float(py))
                 ids.append(self.vertex(px, py, z))
             # counter-clockwise seen from above is outward for a roof
             ax, ay = a
@@ -475,6 +567,36 @@ class Building:
 
     def watertight(self):
         return self.open_edges() == 0 and self.bad_edges() == 0
+
+    def winding(self):
+        """B-wound, PER FACE: is the surface consistently oriented, and outward?
+
+        A positive VOLUME is a global test and a global test can be fooled -- a handful of
+        inverted triangles cancel inside a sum and the body still reports a volume. What proves
+        it locally is the DIRECTED edge: on a closed, consistently oriented surface every edge
+        (a, b) appears exactly once, and its partner (b, a) exactly once, in the neighbouring
+        face. A flipped triangle breaks that at all three of its edges and cannot hide.
+
+        Returns (edges wrong, degenerate faces, worst normal length error). Consistency plus a
+        positive volume is what makes the orientation OUTWARD rather than merely agreed."""
+        seen = {}
+        for (ia, ib, ic) in self.tris:
+            for e in ((ia, ib), (ib, ic), (ic, ia)):
+                seen[e] = seen.get(e, 0) + 1
+        wrong = 0
+        for (a_, b_), n in seen.items():
+            if n != 1 or seen.get((b_, a_), 0) != 1:
+                wrong += 1
+        degenerate, worst = 0, 0.0
+        for (ia, ib, ic) in self.tris:
+            p, q, r = (np.array(self.vertices[i], dtype=float) for i in (ia, ib, ic))
+            nvec = np.cross(q - p, r - p)
+            ln = float(np.linalg.norm(nvec))
+            if ln <= 1e-12:
+                degenerate += 1
+                continue
+            worst = max(worst, abs(ln / ln - 1.0))
+        return wrong, degenerate, worst
 
     def volume(self):
         v = 0.0
@@ -723,7 +845,10 @@ class Style:
         got = told if (told and told in self.roofs) else (told or self.roofs[0])
         if self.where is None:
             return got
-        if self.where.min_pitch_deg > 15.0 and got in ("flat", "butterfly", "sawtooth"):
+        # only where the TRADITION has no flat roof at all: 40 degrees is the alpine rule and
+        # nothing below it forbids a flat roof -- Cologne's minimum is 22 and its flat roofs are
+        # everywhere. The region's own roof list does the rest of the work by intersection.
+        if self.where.min_pitch_deg >= 40.0 and got in ("flat", "butterfly", "sawtooth"):
             steep = [r for r in self.roofs if r not in ("flat", "butterfly", "sawtooth")]
             return steep[0] if steep else got
         return got
@@ -1626,6 +1751,9 @@ def run(case, number=0):
         red.append("L1 costs geometry")
     if not b.watertight():
         red.append("B-closed")
+    wrong, degenerate, _ = b.winding()
+    if wrong or degenerate:
+        red.append(f"B-wound({wrong}e,{degenerate}deg)")
     if b.volume() <= 0:
         red.append("B-wound")
     if b.skirt_gap_m() > 1e-6:
