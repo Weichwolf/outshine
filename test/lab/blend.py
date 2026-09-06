@@ -88,7 +88,7 @@ def write_ply(path, verts, tris, field=None):
 
 def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
            looks=None, sky_gain=SKY_GAIN, sun_gain=SUN_GAIN, exposure=EXPOSURE,
-           balance_k=BALANCE_K, fields=None):
+           balance_k=BALANCE_K, fields=None, grounds=None):
     """`parts` is {role: (vertices, tris)}, `camera` the lab's own, `sun` the ENU direction.
 
     `looks` overrides the role table with {role: rgb} or {role: (rgb, rough, metal)}, which is how
@@ -136,6 +136,7 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
                                grain_m=0.0, relief_m=0.0, mottle=0.0,
                                unit_m=[0.0, 0.0], joint_m=0.0, bond="")
     worn = {r: True for r in (fields or {})}
+    stood = dict(grounds or {})
     files = {}
     for role, (verts, tris) in parts.items():
         if not tris or role not in table:
@@ -150,6 +151,7 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
     script.write_text(_SCRIPT.format(
         files=repr(files), looks=repr({k: table[k] for k in files}),
         worn=repr({k: bool(worn.get(k)) for k in files}),
+        stood=repr({k: float(stood[k]) for k in files if k in stood}),
         width=camera.width, height=camera.height, fov=camera.fov_deg,
         bearing=camera.bearing_deg, pitch=camera.pitch_deg, agl=camera.agl_m,
         ortho=bool(camera.orthographic), ymag=camera.y_mag_m,
@@ -307,6 +309,7 @@ def _triplanar(nt, coord, make, sharp=6.0):
 files = {files}
 looks = {looks}
 worn = {worn}
+stood = {stood}
 for o in list(bpy.data.objects):
     bpy.data.objects.remove(o, do_unlink=True)
 
@@ -414,6 +417,34 @@ for role, path in files.items():
             nt.links.new(coord.outputs["Object"], wide.inputs["Vector"])
             nt.links.new(wide.outputs["Fac"], mix.inputs["Factor"])
             nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    # THE SPLASH BAND, where the generator said how high this body's ground is. Rain bounces
+    # 0.5 m off a paved surface and no higher, so what a wall needs is its own height over the
+    # ground -- one number -- and not a vertex field a wall quad cannot carry (I23 counted 198
+    # to 392 saturated edges on every building case before this moved into the shader).
+    if role in stood:
+        nt = mat.node_tree
+        geo = nt.nodes.new("ShaderNodeNewGeometry")
+        axis = nt.nodes.new("ShaderNodeSeparateXYZ")
+        nt.links.new(geo.outputs["Position"], axis.inputs["Vector"])
+        band = nt.nodes.new("ShaderNodeMapRange")
+        band.clamp = True
+        nt.links.new(axis.outputs["Z"], band.inputs["Value"])
+        band.inputs["From Min"].default_value = stood[role]
+        band.inputs["From Max"].default_value = stood[role] + 0.50
+        band.inputs["To Min"].default_value = 1.0
+        band.inputs["To Max"].default_value = 0.0
+        wet = nt.nodes.new("ShaderNodeMix")
+        wet.data_type = "RGBA"
+        base = bsdf.inputs["Base Color"]
+        if base.links:
+            nt.links.new(base.links[0].from_socket, wet.inputs[6])
+        else:
+            wet.inputs[6].default_value = (rgb[0], rgb[1], rgb[2], look["alpha"])
+        # what stands in the splash is darker and greener: a plinth grows what a wall never does
+        wet.inputs[7].default_value = (rgb[0] * 0.50, rgb[1] * 0.56, rgb[2] * 0.44, look["alpha"])
+        nt.links.new(band.outputs["Result"], wet.inputs["Factor"])
+        nt.links.new(wet.outputs[2], bsdf.inputs["Base Color"])
+
     # THE WEATHERING FIELD, if the generator handed one over: polish, silt, splash on the vertex
     # colour. Nothing here is a pattern -- a tyre polished the red channel, water left the green
     # one and rain bounced into the blue -- and the material only has to READ them.

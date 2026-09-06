@@ -25,7 +25,7 @@ is just as real:
 | **R3 the material** | Crysis 2007 into PBR 2011: measured reflectance, one shading model | glTF `pbrMetallicRoughness`; every albedo inside its measured band; an 18 % card exposes to 118 | **cleared, and carried further** -- 25 stock materials, exposure measured, and each one now carries the surface's own DIMENSIONS (`grain_m`, `relief_m`, `mottle`, `unit_m`, `joint_m`, `bond`) in glTF `extras`. A laid material is LAID: a 240 x 71.5 brick in a stretcher bond with a 12.5 mm joint, built in METRES and projected triplanar, because noise at a brick's size reads as dirt. `material_card.py` stands the whole stock in one frame of raking light |
 | **R4 the rhythm** | Assassin's Creed / CityEngine, 2007: a grammar, not a texture | a storey hierarchy with a measurably taller beletage; party walls; no two neighbours identical | **cleared for the block**, open for the house and the hall |
 | **R5 the street** | GTA V, 2013: the street level is where the budget goes | a JUNCTION with its own surface, stop lines, crossings and drains; furniture per 100 m at the reference's order | **junction cleared** -- one kerb ring around the NETWORK with RASt 06 corner radii, dropped kerbs at every crossing, markings interrupted across a junction, give-way teeth on the minor leg only, terrain cut by the street (I17, I18, I19); open: lanes, parking, signals from OSM, gullies on a real profile |
-| **R6 the wear** | The Witcher 3, 2015: nothing is clean, and the dirt has a REASON | a wetness/exposure field drives the material: streaks under sills, moss at a plinth, wear on a desire line | **started on the road** -- `roads/wear.py` carries polish (the wheel paths, from the lane list), silt (the last 0.50 m before the kerb) and splash (the bottom 0.50 m of anything standing), on the vertex colour, proven by I21 with a live control. Open: the facade -- streaks under a sill, moss at a plinth, and the desire line on a footway |
+| **R6 the wear** | The Witcher 3, 2015: nothing is clean, and the dirt has a REASON | a wetness/exposure field drives the material: streaks under sills, moss at a plinth, wear on a desire line | **the road, and the plinth** -- polish (the wheel paths, from the lane list) and silt (the last 0.50 m before the kerb) as a vertex field, proven by I21 with a live control; the splash band as a SHADER function of the height over the body's own ground, because I23 measured that a facade cannot carry even a 0.50 m band. Open: the streak under a sill, and the desire line on a footway -- both need a decal |
 | **R7 the density** | Cyberpunk 2077, 2020: the street is FULL | interiors behind glass, signage, awnings, aerials, cables, balcony clutter, parked cars; instances per m2 at the reference's order | **not started** |
 | **R8 the continuum** | UE5, 2021: LOD you cannot see | the same body at rung n and n+1 differs under a threshold in screen space at the switch distance; the world to the sight limit | **partial** -- ladders exist per generator, no morph, ground reaches 12 km of 240 |
 
@@ -53,10 +53,19 @@ What is still open on the rung: parked cars in the parking lanes (that is R7's),
 the sign from OSM at a real junction, a gully on a profile that has a low point, and a turn lane
 at a junction -- `turn:lanes` is in the data and nothing reads it yet.
 
-**R6, the wear.** The rule is that dirt has a REASON: water runs off a sill and streaks the wall
-under it; it stands at a plinth and grows moss; a foot wears a path where people actually walk.
-So the generator owes a field -- how wet, how sheltered, how walked -- and the material reads it.
-That is a per-vertex or per-UV quantity and it is cheap; what it is not is noise.
+**R6, the wear. WHICH CARRIER, and it took three measurements to settle.** The rule is that dirt
+has a REASON, and the open question was never the reason but the CARRIER:
+
+| what | scale | carrier | why |
+|---|---|---|---|
+| wheel polish | 0.35 m band on a 2 m mesh | VERTEX, and it works | I21: 0 saturated edges once the band got its shoulders; control 9 436 to 18 840 |
+| gutter silt | 0.50 m band, same mesh | VERTEX | same check, same control |
+| plinth splash | 0.50 m on a wall quad that runs 15 m in one step | SHADER, off the world height and one number per body | I23 counted 198 to 392 saturated edges on every one of the 41 building cases; a vertex field cannot see a band its geometry has no rows for |
+| sill streak | 0.20 m wide on a 15 m wall | NEITHER yet -- a decal | sampled at four points per sill it interpolated across whole storeys and the facade rendered as green bands |
+
+The rule that falls out: a field is carried by geometry only where the geometry already has a
+reason to be that fine. Everything finer is the fragment stage's, which is where the references
+put it too.
 
 **R7, the density.** The reference's street is FULL, and the count is the gate. A shopfront has a
 sign, an awning, a menu board and a bin; a balcony has a rail, a plant and a bicycle; a facade has

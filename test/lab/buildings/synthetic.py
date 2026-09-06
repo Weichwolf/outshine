@@ -508,23 +508,11 @@ class Building:
         V = np.asarray(self.vertices, dtype=float)
         T = np.asarray(self.tris, dtype=np.int64)
         got = {}
-        # THE WEATHERING FIELD RIDES ALONG. The SPLASH channel is a pure function of the height
-        # over the ground under that very point -- rain bounces half a metre and no higher -- so
-        # it needs no thread through the elements at all; a piece that also carries a STREAK
-        # (the water a sill sheds) hands its own values over.
-        self.field = {}
 
         def put(role, verts, tris, extra=None):
             v, s = got.setdefault(role, ([], []))
-            f = self.field.setdefault(role, [])
             base = len(v)
-            for at, q in enumerate(verts):
-                q = tuple(map(float, q))
-                v.append(q)
-                splash = max(0.0, min(1.0, 1.0 - (q[2] - self.wall_foot(q[0], q[1]))
-                                      / elements.facade.SPLASH_M))
-                streak = float(extra[at][1]) if extra is not None else 0.0
-                f.append((0.0, streak, splash))
+            v.extend([tuple(map(float, q)) for q in verts])
             s.extend([(a + base, b + base, c + base) for (a, b, c) in tris])
 
         if len(T):

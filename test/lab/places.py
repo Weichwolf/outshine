@@ -406,7 +406,7 @@ def parts_of(place, frame, doc, red, lod=3):
     that instrument's job is to show a crack. This one keeps every body's own palette and its
     roof's own covering, and hands the street its kerb, its gutter, its footway, its markings and
     its lamps -- which is where a large share of what a player sees at eye level actually is."""
-    parts, looks, fields = Parts(), {}, {}
+    parts, looks, fields, grounds = Parts(), {}, {}, {}
 
     def put(role, verts, tris, rgb):
         parts.add(role, verts, tris)
@@ -489,13 +489,16 @@ def parts_of(place, frame, doc, red, lod=3):
     for at, b in enumerate(bodies):
         mats = b.materials()
         made = b.body(lod)
+        # THE SPLASH BAND IS A SHADER FUNCTION of the height over THIS body's own ground, which
+        # is one number the body already knows -- and the only carrier a 0.5 m band has on
+        # geometry whose wall runs from the pavement to the eaves in one quad (I23).
+        foot = float(min(v[2] for (vv, _) in made.values() for v in vv)) if made else 0.0
         for role, (vv, tt) in made.items():
             put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30))
-            got = getattr(b, "field", {}).get(role)
-            if got and any(any(c > 1e-6 for c in row) for row in got):
-                fields[f"{role}.{at}"] = np.asarray(got, dtype=float)
+            if role in ("wall", "plinth", "stone", "wood"):
+                grounds[f"{role}.{at}"] = foot - frame.datum
     return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped,
-                              fields=fields)
+                              fields=fields, grounds=grounds)
 
 
 def ink_share(img):
@@ -544,7 +547,7 @@ def one(place):
     blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
                  lab_camera.sun_direction(place["lat"], place["lon"], place["when"]),
                  str(shot), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE,
-                 fields=counts.get("fields"))
+                 fields=counts.get("fields"), grounds=counts.get("grounds"))
     from PIL import Image
     img = np.asarray(Image.open(shot).convert("RGB"))
     share, dark = ink_share(img), dark_share(img)
