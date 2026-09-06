@@ -39,7 +39,12 @@ TANGENT_H = 0.05          # [SET] the central difference a centreline's tangent 
 # to gain the clearance at a road's own design grade takes CLEARANCE_M / grade of length, and a
 # railway's grade is a fifth of a road's, so the budget is set by the steepest thing that has to
 # climb: [SET] 4.5 m at 1.25 % is 360 m, rounded to the 400 m an embankment is actually built over
-RAMP_REACH_M = 400.0
+CLEARANCE_RAIL_M = 6.00   # [SET] EBO: 5.50 m over the rail plus the catenary's own room
+# DERIVED, not chosen: to bring the tallest clearance down at the FLATTEST class's grade takes
+# gap / g of length. A railway's 1.25 % against a 6 m clearance over a catenary is 480 m, so 400 m
+# was short by eighty and Chicago's elevated `L` could not come down inside it at all (measured
+# 2026-09-06: the DECK's own grade had to give 0.56 m at Wacker Drive, on rail ways every one).
+RAMP_REACH_M = math.ceil(CLEARANCE_RAIL_M / 0.0125 / 100.0) * 100.0
 APPROACH_M = 60.0         # [SET] how far from a shared node a way is still the deck's approach
 CLEARANCE_ROUNDS = 40     # [SET] a bound, not a schedule: the loop stops on its own residual
 CLEARANCE_TOL_M = 1e-4    # a fixed point is reached when a round moves nothing a driver feels
@@ -60,7 +65,18 @@ BATTER_FILL = 1.5         # [SET] RAS-Q: an embankment falls 1 : 1.5 (rise : run
 BATTER_CUT = 1.0          # [SET] RAS-Q: a cutting stands 1 : 1
 WALL_ABOVE_M = 3.0        # [SET] above this the batter becomes a retaining wall
 
-GRADE_OF = {"primary": 0.06, "secondary": 0.08, "residential": 0.12, "service": 0.15}  # [SET] RAL 2012 EKL 3 / EKL 4, RASt 06
+# [SET] the design grade per class: RAL 2012 (EKL 1..4) for the road classes, RASt 06 for the urban
+# ones, DIN 18040 for a ramp a person uses, and a stair's own pitch for steps. FOUR CLASSES WAS NOT
+# A TABLE: everything else fell to a 12 % default, which is far too flat for a footbridge whose
+# approach is a STAIR -- Hong Kong Central is a net of elevated walkways and its ramp bound had to
+# give 3.32 m (measured 2026-09-06) -- and far too steep to mean anything for a motorway.
+GRADE_OF = {"motorway": 0.04, "motorway_link": 0.06, "trunk": 0.045, "trunk_link": 0.06,
+            "primary": 0.06, "primary_link": 0.07, "secondary": 0.08, "secondary_link": 0.08,
+            "tertiary": 0.09, "tertiary_link": 0.09, "unclassified": 0.12, "residential": 0.12,
+            "living_street": 0.12, "service": 0.15, "track": 0.20, "bridleway": 0.20,
+            "pedestrian": 0.10, "footway": 0.15, "cycleway": 0.10, "path": 0.25, "steps": 0.60,
+            "rail": 0.0125, "light_rail": 0.04, "tram": 0.06, "subway": 0.04, "monorail": 0.06,
+            "funicular": 0.60}
 JOIN_M = 10.0             # [SET] netconvert's --junctions.join default: nodes nearer than this are one junction
 WARP_M = 20.0             # [SET] RAS-K: a side road's section is warped into the through road's surface over its last ~20 m
 
@@ -1359,7 +1375,8 @@ class Map:
         self.z = np.asarray(z.value)
         self.infeasible = None
 
-    def _shape_constraints(self, z, cp, slack=None, taper=None, deckg=None, rampg=None):
+    def _shape_constraints(self, z, cp, slack=None, taper=None, deckg=None, rampg=None,
+                           per_way=None):
         """The RAMP and GRADE bounds: a designed structure keeps its class's grade and an
         embankment tapers. Built once and used by BOTH the solve and the elastic pose, so that
         an infeasible set can be told which FAMILY carries the violation -- with `slack` given,
@@ -1373,6 +1390,12 @@ class Map:
         g_taper = give if taper is None else taper
         g_deck = give if deckg is None else deckg
         g_ramp = give if rampg is None else rampg
+
+        # with `per_way` given, every bound of a way carries THAT way's own slack, so an
+        # infeasible set names the WAY and not only the family it belongs to
+        def wslack(w, fallback):
+            return fallback if per_way is None else per_way[w["id"]]
+
         # the ramps: a designed structure keeps its class's grade, hard, on every segment of an
         # approach and of the deck itself -- the lift a clearance asks for spreads back along
         # the approach as an embankment, never as a 30 percent step (measured before this)
@@ -1424,8 +1447,9 @@ class Map:
                         # ...and it may go DOWN by what a deck above it asks for. `lift >= 0`
                         # guards against a spline's overshoot; a bridge over a road is physics
                         room = self.clearance_room().get(b_, 0.0)
-                        out += [sign * lift_b <= sign * lift_a + g_taper,
-                                sign * lift_b >= -g_taper - room]
+                        gw = wslack(w, g_taper)
+                        out += [sign * lift_b <= sign * lift_a + gw,
+                                sign * lift_b >= -gw - room]
                         k += step
         for w in self.net.ways:
             g = GRADE_OF.get(w["tags"]["highway"], 0.12)
@@ -1442,14 +1466,21 @@ class Map:
                     # ramp were the bed's answer to an 8 percent deck on a 15 percent hill)
                     s_all = self.stations[w["id"]]
                     chord = abs(self.dem[self.index[refs[-1]]] - self.dem[self.index[refs[0]]]) / max(s_all[-1], 1e-3)
-                    reach = max(DECK_GRADE, chord) * ds
-                    out += [z[b_] - z[a] <= reach + g_deck, z[a] - z[b_] <= reach + g_deck]
+                    # AND A DECK'S GRADE IS ITS OWN ROAD'S. 4 % is the figure for a motorway
+                    # bridge, where the expensive part stays near level; a double-decked city
+                    # street like Wacker Drive is a viaduct at the street's own grade, and
+                    # holding it to 4 % left it infeasible by 0.560 m (measured 2026-09-06)
+                    reach = max(DECK_GRADE, GRADE_OF.get(w["tags"]["highway"], DECK_GRADE),
+                                chord) * ds
+                    gw = wslack(w, g_deck)
+                    out += [z[b_] - z[a] <= reach + gw, z[a] - z[b_] <= reach + gw]
                 else:
                     # a ramp climbs off the hillside at the class's grade RELATIVE to it, so that
                     # on a hillside as steep as the class the lift still comes back down (measured
                     # before this: nine metres of fill that never returned, 200 m from the bridge)
-                    out += [(z[b_] - self.dem[b_]) - (z[a] - self.dem[a]) <= g * ds + g_ramp,
-                        (z[a] - self.dem[a]) - (z[b_] - self.dem[b_]) <= g * ds + g_ramp]
+                    gw = wslack(w, g_ramp)
+                    out += [(z[b_] - self.dem[b_]) - (z[a] - self.dem[a]) <= g * ds + gw,
+                        (z[a] - self.dem[a]) - (z[b_] - self.dem[b_]) <= g * ds + gw]
         return out
 
     def _elastic(self, A, b, cp, z, cons):
@@ -1497,12 +1528,36 @@ class Map:
             worst_band = float(sb.value[i])
             if worst_band > worst_pair and worst_band > 1e-6:
                 where = f"band exceeded by {worst_band:.2f} m at node {back[held[i]]}"
+        # ...and once more with a slack PER WAY, so the answer is a way id and not a family
+        ids = [w["id"] for w in self.net.ways]
+        pw = {i: cp.Variable(nonneg=True) for i in ids}
+        y2 = cp.Variable(len(self.index))
+        soft2 = [y2[k] >= floor - 1e3 for k, floor in self.constraints.items()]
+        for (k, j, j2, uu, gap) in pairs:
+            soft2.append(y2[k] - ((1.0 - uu) * y2[j] + uu * y2[j2]) >= gap)
+        if len(held):
+            soft2 += [y2[held] <= self.dem[held] + self.band()[held],
+                      y2[held] >= self.dem[held] - self.band_down()[held]]
+        soft2 += self._shape_constraints(y2, cp, per_way=pw)
+        cp.Problem(cp.Minimize(1e4 * cp.sum([pw[i] for i in ids])
+                               + 0.5 * cp.quad_form(y2, cp.psd_wrap(A.tocsc())) - b @ y2),
+                   soft2).solve(solver=cp.OSQP, eps_abs=1e-6, eps_rel=1e-6, max_iter=200000)
+        self.worst_ways = []
+        if y2.value is not None:
+            top = sorted(((float(pw[i].value or 0.0), i) for i in ids), reverse=True)[:3]
+            byid = {w["id"]: w for w in self.net.ways}
+            self.worst_ways = [(v, i, byid[i]["tags"].get("highway"),
+                                byid[i]["tags"].get("bridge"), byid[i]["tags"].get("tunnel"),
+                                round(self.stations[i][-1], 1)) for v, i in top if v > 1e-6]
         named = {"the embankment's TAPER": s_taper, "the DECK's own grade": s_deck,
                  "the RAMP's grade over the terrain": s_ramp}
         got = {k: (float(v.value) if v.value is not None else 0.0) for k, v in named.items()}
         who = max(got, key=got.get)
         if got[who] > max(worst_pair, worst_band, 1e-6) * 0.999:
-            return (f"{who} carries it: every bound of that kind has to give {got[who]:.3f} m "
+            named_ways = "; ".join(f"way {i} {h} bridge={br} tunnel={tu} L={ln} m needs {v:.2f}"
+                                   for (v, i, h, br, tu, ln) in getattr(self, "worst_ways", ()))
+            return (f"{who} carries it [{named_ways or 'no way named'}]: "
+                    f"every bound of that kind has to give {got[who]:.3f} m "
                     f"(taper {got[chr(116)+chr(104)+chr(101)+' embankment' + chr(39) + 's TAPER']:.2f}, "
                     f"deck {got[chr(116)+chr(104)+chr(101)+' DECK' + chr(39) + 's own grade']:.2f}, "
                     f"ramp {got[chr(116)+chr(104)+chr(101)+' RAMP' + chr(39) + 's grade over the terrain']:.2f} m)")
@@ -2688,7 +2743,6 @@ def check_c1(map_):
 CLEARANCE_OVER = {"footway": 2.50, "path": 2.50, "cycleway": 2.50, "steps": 2.30,
                   "bridleway": 3.40, "track": 4.00, "pedestrian": 3.50, "service": 4.00,
                   "living_street": 4.20}
-CLEARANCE_RAIL_M = 6.00   # [SET] EBO: 5.50 m over the rail plus the catenary's own room
 
 
 def clearance_over(way):
