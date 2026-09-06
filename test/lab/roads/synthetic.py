@@ -1771,17 +1771,34 @@ class Map:
             self.slope[w["id"]] = m
 
     def legs_at(self, nid):
-        out = []
-        for w in self.net.ways:
-            refs = w["refs"]
-            for k, r in enumerate(refs):
-                if r != nid:
-                    continue
-                if k + 1 < len(refs):
-                    out.append((w, k, +1))
-                if k > 0:
-                    out.append((w, k, -1))
-        return out
+        """THE LEGS AT A NODE, from an INDEX and not from a scan.
+
+        This walked every way and every ref on every call. Profiled 2026-09-06 on a 400 m extract
+        of OldTown: 28 758 calls over ~1 700 ways, which is half a billion iterations and 9.5 s of
+        one run -- and it is the same answer every time, because the network does not change once
+        it is built. CLAUDE.md: ask what the MACHINE does, not what the line says."""
+        held = getattr(self, "_legs_index", None)
+        if held is None:
+            held = {}
+            for w in self.net.ways:
+                refs = w["refs"]
+                for k, r in enumerate(refs):
+                    at = held.setdefault(r, [])
+                    if k + 1 < len(refs):
+                        at.append((w, k, +1))
+                    if k > 0:
+                        at.append((w, k, -1))
+            self._legs_index = held
+        return held.get(nid, [])
+
+    def way_by_id(self, wid):
+        """A way from its id, from an index. `next(w for w in self.net.ways if ...)` stood in the
+        junction surface's inner loop and ran 3.47 million times for 25 s (profiled 2026-09-06)."""
+        held = getattr(self, "_by_id", None)
+        if held is None:
+            held = {w["id"]: w for w in self.net.ways}
+            self._by_id = held
+        return held[wid]
 
     def _clusters(self):
         """netconvert JOINS junction nodes that stand closer than a threshold into ONE junction
@@ -2116,7 +2133,17 @@ class Map:
         return worst
 
     def centreline(self, way):
-        return LineString([self.net.nodes[r] for r in way["refs"]])
+        """THE AXIS, BUILT ONCE PER WAY. A LineString per call is an allocation and a coordinate
+        copy in the inner loop of every surface query; the network's geometry does not move."""
+        held = getattr(self, "_lines", None)
+        if held is None:
+            held = {}
+            self._lines = held
+        got = held.get(way["id"])
+        if got is None:
+            got = LineString([self.net.nodes[r] for r in way["refs"]])
+            held[way["id"]] = got
+        return got
 
 
 # ----------------------------------------------------------------------------- structure
@@ -2252,7 +2279,7 @@ class Structure:
         """The junction's surface IS the major way's surface, crown and all, extended over the
         polygon: RAS-K's and AASHTO's rule that the through road keeps its section."""
         j = self.map.junctions[nid]
-        way = next(w for w in self.net.ways if w["id"] == j["major"])
+        way = self.map.way_by_id(j["major"])
         line = self.map.centreline(way)
         p = Point(x, y)
         # THE PROJECTION IS LOCAL. `project` returns the GLOBAL nearest station, and a road that
@@ -2262,12 +2289,24 @@ class Structure:
         # in 180 m) and 0.075 m at the Magic Roundabout, both on the MAJOR way, where the leg and
         # the junction are the same surface by definition. The window is the junction's own
         # station plus what its cut and its width can reach.
-        here = self.map.stations[way["id"]][way["refs"].index(nid)] \
-            if nid in way["refs"] else line.project(p)
-        window = self.cuts.get((way["id"], nid), 0.0) + way["tags"]["width"] + 2.0 * TANGENT_H
-        lo = max(0.0, here - window)
-        hi = min(line.length, here + window)
-        piece = substring(line, lo, hi) if hi - lo > 1e-6 else None
+        # AND THE WINDOW IS THE SAME FOR EVERY POINT AROUND ONE JUNCTION. It depends on the WAY
+        # and the NODE and on nothing the query brings, yet `substring` was rebuilt per point:
+        # profiled 2026-09-06 on a 400 m extract, 1.73 million calls and 77 seconds of one run.
+        key = (way["id"], nid)
+        held = getattr(self, "_windows", None)
+        if held is None:
+            held = {}
+            self._windows = held
+        got = held.get(key)
+        if got is None:
+            here = self.map.stations[way["id"]][way["refs"].index(nid)] \
+                if nid in way["refs"] else line.project(p)
+            window = self.cuts.get(key, 0.0) + way["tags"]["width"] + 2.0 * TANGENT_H
+            lo = max(0.0, here - window)
+            hi = min(line.length, here + window)
+            got = (here, lo, substring(line, lo, hi) if hi - lo > 1e-6 else None)
+            held[key] = got
+        here, lo, piece = got
         s = (lo + piece.project(p)) if piece is not None and piece.length > 1e-9 else here
         q = line.interpolate(s)
         # the offset is SIGNED, because a superelevated section is one tilted plane and not a
@@ -3987,7 +4026,7 @@ def plot(case, m, st, number=0, seed=None):
                 continue
             if len(m.net.ways) > 24 and r["way"] not in on_axis:
                 continue      # on a real extract the toes of every service road are the noise
-            way = next(w for w in m.net.ways if w["id"] == r["way"])
+            way = m.way_by_id(r["way"])
             line = m.centreline(way)
             p = line.interpolate(min(r["station"], line.length))
             ah = line.interpolate(min(r["station"] + 0.1, line.length))

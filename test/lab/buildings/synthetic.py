@@ -488,6 +488,14 @@ class Building:
         got["roof"] = self.covering()["rgb"]
         return got
 
+    def materials(self):
+        """Every role's MATERIAL for this body, in glTF 2.0's metallic-roughness terms -- which
+        is the vocabulary the engine's own importer speaks, so the handover is a copy."""
+        from elements import palette as pal, covering as cov
+        got = pal.materials_of(self.style.epoch, self.style.wall, self.seed())
+        got["roof"] = cov.material(self.covering()["name"])
+        return got
+
     def body(self, lod=3, street_dir=None):
         """THE WHOLE BODY AT ONE RUNG, by role: {role: (vertices, triangles)}.
 

@@ -38,6 +38,8 @@ import importlib.util as _util  # noqa: E402
 import data as roaddata  # noqa: E402
 import publish  # noqa: E402
 import render as lab_render  # noqa: E402
+import materials as stock  # noqa: E402
+import street  # noqa: E402
 
 _spec = _util.spec_from_file_location("outshine_road_bed", HERE / "roads" / "synthetic.py")
 roadbed = _util.module_from_spec(_spec)
@@ -53,6 +55,7 @@ roadreal = _util.module_from_spec(_road_real)
 _road_real.loader.exec_module(roadreal)
 
 OUT = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "places"
+CACHE = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "places-cache"
 DEM_ZOOM = 14                    # the engine samples FinestZoomOf(Elevation) - 1, which is 14
 
 # WHAT THE TWIN TAKES IN. Three radii rather than one, because they are bounded by three
@@ -261,9 +264,17 @@ def buildings_of(place, frame, doc, red):
         made.sort(key=lambda pt: pt[0].centroid.x ** 2 + pt[0].centroid.y ** 2)
         made = made[:BUILT_MOST]
     ground = bldbed.Ground(lambda x, y: frame.z(x, y))
+    # A PARTY WALL NEEDS A NEIGHBOUR, and finding it by scanning every other footprint is O(n^2)
+    # over thousands of bodies. The index is shapely's own, built once.
+    import shapely
+    shapes = [p for (p, _) in made]
+    tree = shapely.STRtree(shapes) if shapes else None
     bodies = []
-    for (poly, tags) in made:
+    for at, (poly, tags) in enumerate(made):
         b = bldbed.Building(poly, tags, ground, where=where)
+        if tree is not None:
+            near = tree.query(poly.buffer(bldbed.Building.PARTY_GAP_M))
+            b.neighbours = [shapes[int(i)] for i in near if shapes[int(i)] is not poly]
         if not b.watertight():
             red.append(f"B-closed({tags.get('name', poly.centroid.wkt)})")
         wrong, degenerate, _ = b.winding()
@@ -339,6 +350,90 @@ def split_body(b):
     return (V, T[~roof].tolist()), (V, T[roof].tolist())
 
 
+def _fingerprint():
+    """WHAT THE GEOMETRY DEPENDS ON: this lab's own sources. A cache keyed on anything less is a
+    cache that hands back yesterday's answer after a repair."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in sorted(HERE.rglob("*.py")):
+        h.update(f.name.encode())
+        h.update(str(int(f.stat().st_mtime)).encode())
+    for v in (BUILT_REACH_M, ROAD_REACH_M, GROUND_REACH_M, GROUND_RINGS, GROUND_SPOKES,
+              DEM_ZOOM, BUILT_MOST):
+        h.update(repr(v).encode())
+    return h.hexdigest()[:16]
+
+
+def cached_parts(place, frame, doc, red, lod=3):
+    """THE PLACE'S GEOMETRY, BUILT ONCE. The road bed's solve is 75 percent of the time -- 260 s
+    of 346 on a 400 m extract of OldTown, profiled 2026-09-06 -- and it is DETERMINISTIC, so
+    rebuilding it to try another exposure or another palette is time spent proving something
+    already proved. The key is the place, the reaches and the mtime of every source in the lab,
+    so a repair invalidates it and nothing else does."""
+    import pickle
+    key = CACHE / f"{place['name']}-{lod}-{_fingerprint()}.pickle"
+    if key.exists():
+        try:
+            parts, looks, counts = pickle.loads(key.read_bytes())
+            got = Parts()
+            got.of = parts
+            return got, looks, counts
+        except Exception:
+            key.unlink(missing_ok=True)
+    parts, looks, counts = parts_of(place, frame, doc, red, lod)
+    if not red:
+        key.parent.mkdir(parents=True, exist_ok=True)
+        key.write_bytes(pickle.dumps((parts.of, looks, counts)))
+    return parts, looks, counts
+
+
+def parts_of(place, frame, doc, red, lod=3):
+    """THE PLACE AS GEOMETRY BY ROLE, which is what a look can be judged from.
+
+    `scene_of` below builds the same world for the FLAT rasteriser, one colour per role, because
+    that instrument's job is to show a crack. This one keeps every body's own palette and its
+    roof's own covering, and hands the street its kerb, its gutter, its footway, its markings and
+    its lamps -- which is where a large share of what a player sees at eye level actually is."""
+    parts, looks = Parts(), {}
+
+    def put(role, verts, tris, rgb):
+        parts.add(role, verts, tris)
+        looks[role] = rgb
+
+    fan = lab_render.Scene()
+    ground_fan(frame, fan)
+    put("ground", fan.vertices, fan.tris, stock.STOCK["grass"])
+
+    mesh, ways = roads_of(place, frame, red)
+    if mesh is not None:
+        road = [(v[0], v[1], v[2] - frame.datum + street.SURFACE_M) for v in mesh.vertices]
+        faces = []
+        for (ia, ib, ic) in mesh.tris:
+            pa, pb, pc = (np.asarray(road[i], dtype=float) for i in (ia, ib, ic))
+            faces.append((ia, ib, ic) if float(np.cross(pb - pa, pc - pa)[2]) > 0.0
+                         else (ia, ic, ib))
+        put("road", road, faces, stock.STOCK["asphalt"])
+        colour = {"kerb": stock.STOCK["kerbstone"], "gutter": stock.STOCK["asphalt"],
+                  "walk": stock.STOCK["paving"], "paint": stock.STOCK["paint"],
+                  "metal": stock.STOCK["iron"], "lamp": stock.STOCK["steel"]}
+
+        def z_at(x, y):
+            return frame.z(x, y)
+
+        for w in mesh.net.ways:
+            for (role, vv, tt) in (street.kerb_and_walk(mesh.map, w, z_at)
+                                   + street.markings(mesh.map, w, z_at)
+                                   + street.lamps(mesh.map, w, z_at)):
+                put(role, vv, tt, colour.get(role) or stock.STOCK["concrete"])
+
+    bodies, dropped = buildings_of(place, frame, doc, red)
+    for at, b in enumerate(bodies):
+        mats = b.materials()
+        for role, (vv, tt) in b.body(lod).items():
+            put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30))
+    return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped)
+
+
 def scene_of(place, frame, doc, red):
     scene = lab_render.Scene()
     ground_fan(frame, scene)
@@ -389,6 +484,9 @@ def ink_share(img):
     return float(np.mean(np.abs(flat - band).max(axis=1) > 6))
 
 
+LOOK = os.environ.get("OUTSHINE_LAB_LOOK", "1") != "0"
+LOOK_ENGINE = os.environ.get("OUTSHINE_LAB_ENGINE", "CYCLES")
+LOOK_SAMPLES = int(os.environ.get("OUTSHINE_LAB_SAMPLES", "64"))
 INK_LEAST = 0.02
 DARK_MOST = 0.06          # [SET] a face turned from the sky renders near black; a twin has few
 
@@ -425,6 +523,17 @@ def one(place):
     shot = OUT / f"{place['name']}.png"
     lab_render.save(img, shot)
     publish.take("places", place["name"], shot, red)
+    if LOOK:
+        # THE SAME WORLD, LIT. The flat picture above is the geometry's own instrument and shows
+        # a crack; this one is what a look is judged on, and it is the one the outshine client's
+        # own shot is compared against.
+        import blend
+        parts, looks, _ = cached_parts(place, frame, doc, [], lod=3)
+        lit = OUT / f"{place['name']}-lit.png"
+        blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
+                     lab_render.sun_direction(place["lat"], place["lon"], place["when"]),
+                     str(lit), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE)
+        publish.take("places", f"{place['name']}-lit", lit, red)
     print(f"{place['name']:14s} {'RED ' + ','.join(red) if red else 'ok':30s} "
           f"{'PLAN ' + str(int(place['span'])) + ' m' if place['plan'] else 'EYE  '} "
           f"bearing {place['bearing']:6.2f}  buildings {counts['buildings']:5d} "

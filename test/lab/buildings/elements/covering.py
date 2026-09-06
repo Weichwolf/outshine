@@ -19,36 +19,53 @@ The registry is keyed by name and a region names the coverings it builds with, m
 `for_pitch` picks the one a given pitch admits, which is how an OSM `roof:shape` with no covering
 tag still gets the right material.
 """
+# EVERY COLOUR HERE IS AN ALBEDO. A clay tile returns 0.15 to 0.25 of the light on it and slate
+# 0.08 to 0.12; a roof at 0.58 is a roof made of paper (rendered and looked at, 2026-09-06).
 COVERINGS = {}
 
 
-def register(name, *, min_pitch_deg, rgb, rough=0.85, note=""):
+def register(name, *, min_pitch_deg, rgb, rough=0.85, stock="clay_tile", note=""):
+    """`stock` names the glTF material this covering IS: the tint is the covering's own, the
+    metallic, the roughness and the IOR are the material's."""
     COVERINGS[name] = dict(name=name, min_pitch_deg=min_pitch_deg, rgb=rgb,
-                           rough=rough, note=note)
+                           rough=rough, stock=stock, note=note)
     return COVERINGS[name]
 
 
-register("reet", min_pitch_deg=45.0, rgb=(0.52, 0.42, 0.26), rough=0.98,
+def material(name):
+    """The covering as a glTF material: its stock, tinted to its own colour."""
+    import sys, pathlib as _pl
+    sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[3] / "lab"))
+    import materials
+    got = COVERINGS[name]
+    base = materials.STOCK.get(got.get("stock", "clay_tile"), materials.STOCK["clay_tile"])
+    out = base.tinted(got["rgb"])
+    out.name = name
+    out.roughness = got["rough"]
+    return out
+
+
+register("reet", stock="timber", min_pitch_deg=45.0, rgb=(0.218, 0.176, 0.109), rough=0.98,
          note="thatch: the water must leave the stems before it soaks in")
-register("biberschwanz", min_pitch_deg=40.0, rgb=(0.55, 0.28, 0.20),
+register("biberschwanz", min_pitch_deg=40.0, rgb=(0.231, 0.118, 0.084),
          note="a plain clay tile, double lapped, no interlock")
-register("schiefer", min_pitch_deg=25.0, rgb=(0.22, 0.23, 0.25), rough=0.55,
+register("schiefer", stock="slate", min_pitch_deg=25.0, rgb=(0.092, 0.097, 0.105), rough=0.55,
          note="double-lapped slate, and the alpine and British default")
-register("falzziegel", min_pitch_deg=22.0, rgb=(0.58, 0.29, 0.19),
+register("falzziegel", min_pitch_deg=22.0, rgb=(0.244, 0.122, 0.080),
          note="DIN 4108's Regeldachneigung: the interlocking clay tile")
-register("betondachstein", min_pitch_deg=22.0, rgb=(0.35, 0.34, 0.33),
+register("betondachstein", stock="concrete", min_pitch_deg=22.0, rgb=(0.147, 0.143, 0.139),
          note="the concrete tile, anthracite, which is what post-1960 Europe roofs with")
-register("schindel", min_pitch_deg=18.0, rgb=(0.34, 0.30, 0.26),
+register("schindel", stock="timber", min_pitch_deg=18.0, rgb=(0.143, 0.126, 0.109),
          note="asphalt shingle at 4:12, North America's own")
-register("wellblech", min_pitch_deg=10.0, rgb=(0.46, 0.47, 0.47), rough=0.45,
+register("wellblech", stock="zinc", min_pitch_deg=10.0, rgb=(0.193, 0.197, 0.197), rough=0.45,
          note="corrugated sheet with a sealed lap: the hall's and the shed's")
-register("stehfalz", min_pitch_deg=3.0, rgb=(0.40, 0.41, 0.42), rough=0.28,
+register("stehfalz", stock="zinc", min_pitch_deg=3.0, rgb=(0.168, 0.172, 0.176), rough=0.28,
          note="standing seam: the seam is the seal, so the pitch is only drainage")
-register("kupfer", min_pitch_deg=3.0, rgb=(0.29, 0.47, 0.40), rough=0.35,
+register("kupfer", stock="copper", min_pitch_deg=3.0, rgb=(0.122, 0.197, 0.168), rough=0.35,
          note="copper, gone green -- a dome, a spire and a civic roof")
-register("bitumen", min_pitch_deg=2.0, rgb=(0.24, 0.24, 0.24), rough=0.92,
+register("bitumen", stock="asphalt", min_pitch_deg=2.0, rgb=(0.101, 0.101, 0.101), rough=0.92,
          note="a membrane; the fall only moves water to the outlet")
-register("gruendach", min_pitch_deg=2.0, rgb=(0.31, 0.36, 0.24), rough=0.98,
+register("gruendach", stock="grass", min_pitch_deg=2.0, rgb=(0.130, 0.151, 0.101), rough=0.98,
          note="a green roof, which a contemporary flat roof usually is")
 
 # WHAT A REGION ROOFS WITH, most common first. A covering is a local answer to local weather and

@@ -86,11 +86,40 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
     a body's own palette -- its epoch's field, its trim, its roof's covering -- reaches the
     picture instead of one colour for every wall on Earth."""
     work = pathlib.Path(tempfile.mkdtemp(prefix="outshine-blend-"))
-    table = dict(LOOKS)
-    for role, got in (looks or {}).items():
-        base = table.get(role, ((0.7, 0.7, 0.7), 0.8, 0.0))
-        table[role] = got if isinstance(got, tuple) and len(got) == 3 and \
-            isinstance(got[0], (tuple, list)) else (tuple(got), base[1], base[2])
+    # A LOOK IS A glTF MATERIAL, and its fields are glTF 2.0's own: baseColorFactor (linear
+    # albedo), metallicFactor, roughnessFactor, ior, emissiveFactor and the alpha mode. Blender's
+    # Principled BSDF IS metallic-roughness, so the mapping is a copy field for field and not a
+    # translation -- which is the point of speaking the importer's vocabulary in the first place.
+    table = {}
+    for role, got in dict(LOOKS, **(looks or {})).items():
+        if hasattr(got, "to_gltf"):
+            m = got.to_gltf()
+            pbr = m["pbrMetallicRoughness"]
+            table[role] = dict(rgb=tuple(pbr["baseColorFactor"][:3]),
+                               alpha=float(pbr["baseColorFactor"][3]),
+                               metal=float(pbr["metallicFactor"]),
+                               rough=float(pbr["roughnessFactor"]),
+                               ior=float(m.get("extensions", {}).get(
+                                   "KHR_materials_ior", {}).get("ior", 1.5)),
+                               emissive=tuple(m.get("emissiveFactor", (0.0, 0.0, 0.0))),
+                               strength=float(m.get("extensions", {}).get(
+                                   "KHR_materials_emissive_strength", {}).get(
+                                       "emissiveStrength", 1.0)),
+                               mode=m.get("alphaMode", "OPAQUE"),
+                               cutoff=float(m.get("alphaCutoff", 0.5)),
+                               two=bool(m.get("doubleSided", False)),
+                               transmission=float(m.get("extensions", {}).get(
+                                   "KHR_materials_transmission", {}).get(
+                                       "transmissionFactor", 0.0)))
+        elif isinstance(got, tuple) and len(got) == 3 and isinstance(got[0], (tuple, list)):
+            table[role] = dict(rgb=tuple(got[0]), alpha=1.0, metal=float(got[2]),
+                               rough=float(got[1]), ior=1.5, emissive=(0.0, 0.0, 0.0),
+                               strength=1.0, mode="OPAQUE", cutoff=0.5, two=False,
+                               transmission=0.0)
+        else:
+            table[role] = dict(rgb=tuple(got), alpha=1.0, metal=0.0, rough=0.85, ior=1.5,
+                               emissive=(0.0, 0.0, 0.0), strength=1.0, mode="OPAQUE",
+                               cutoff=0.5, two=False, transmission=0.0)
     files = {}
     for role, (verts, tris) in parts.items():
         if not tris or role not in table:
@@ -129,13 +158,25 @@ for role, path in files.items():
     bpy.ops.wm.ply_import(filepath=path)
     ob = bpy.context.selected_objects[0]
     ob.name = role
-    rgb, rough, metal = looks[role]
+    look = looks[role]
     mat = bpy.data.materials.new(role)
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = (rgb[0], rgb[1], rgb[2], 1.0)
-    bsdf.inputs["Roughness"].default_value = rough
-    bsdf.inputs["Metallic"].default_value = metal
+    rgb = look["rgb"]
+    bsdf.inputs["Base Color"].default_value = (rgb[0], rgb[1], rgb[2], look["alpha"])
+    bsdf.inputs["Roughness"].default_value = look["rough"]
+    bsdf.inputs["Metallic"].default_value = look["metal"]
+    for named, value in (("IOR", look["ior"]), ("Alpha", look["alpha"]),
+                         ("Transmission Weight", look["transmission"]),
+                         ("Emission Strength", look["strength"])):
+        if named in bsdf.inputs:
+            bsdf.inputs[named].default_value = value
+    if "Emission Color" in bsdf.inputs:
+        e = look["emissive"]
+        bsdf.inputs["Emission Color"].default_value = (e[0], e[1], e[2], 1.0)
+    mat.use_backface_culling = not look["two"]
+    if look["mode"] == "MASK":
+        mat.blend_method = "CLIP" if hasattr(mat, "blend_method") else mat.blend_method
     ob.data.materials.append(mat)
     ob.data.shade_flat()
 
