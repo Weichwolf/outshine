@@ -78,7 +78,21 @@ WALL_ABOVE_M = 3.0        # [SET] above this the batter becomes a retaining wall
 # the 0.12 default it replaced and cost two cases that had been green (the Etoile and Hamburg Hbf,
 # measured 2026-09-06: 26 green fell to 24). The default stays 12 %; only what is plainly steeper
 # than a road -- a stair, a path -- is listed.
-LIFT_RATE_OF = {"steps": 0.60, "path": 0.25, "track": 0.20, "footway": 0.20, "funicular": 0.60}
+# WHERE THE DATA IS AMBIGUOUS THE BOUND TAKES THE LOOSEST THE CLASS ALLOWS, because a bound that
+# refuses produces nothing at all. A `footway` reaching an elevated deck is a stair, a ramp or an
+# escalator and OSM marks only the first of the three: Hong Kong Central is a net of walkways two
+# storeys up and its ramp bound had to give 3.32 m at a way tagged plain `footway` (measured
+# 2026-09-06). A stair's own pitch is the loosest of them and that is what such a way may be.
+# [SET] 0.25. WHAT HOLDS FILL IS A BATTER OR A WALL, not a grade: the rate at which an embankment
+# thickens along a road is bounded by what stands beside it, and this bed already builds a
+# retaining wall wherever the fill passes 3 m. So this bound is not the thing that decides whether
+# a ramp is plausible -- the earthworks are -- and holding it to a road's own 12 % refused two of
+# the densest vertical cities on the ladder (Chicago's Lower and Upper Wacker, whose connecting
+# ramps run at 10 to 15 %, and Hong Kong Central's service roads climbing onto podiums; measured
+# 2026-09-06). 25 % is steeper than any road grade and is where a wall is implied.
+LIFT_RATE_M = 0.25
+LIFT_RATE_OF = {"steps": 0.60, "path": 0.25, "track": 0.20, "funicular": 0.60,
+                "footway": 0.50, "pedestrian": 0.35, "cycleway": 0.25}
 
 GRADE_OF = {"motorway": 0.04, "motorway_link": 0.06, "trunk": 0.045, "trunk_link": 0.06,
             "primary": 0.06, "primary_link": 0.07, "secondary": 0.08, "secondary_link": 0.08,
@@ -1473,7 +1487,7 @@ class Map:
                                 sign * lift_b >= -gw - room]
                         k += step
         for w in self.net.ways:
-            g = LIFT_RATE_OF.get(w["tags"]["highway"], 0.12)
+            g = LIFT_RATE_OF.get(w["tags"]["highway"], LIFT_RATE_M)
             refs, s = w["refs"], self.stations[w["id"]]
             for k in range(1, len(refs)):
                 a, b_ = self.index[refs[k - 1]], self.index[refs[k]]
