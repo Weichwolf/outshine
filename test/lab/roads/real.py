@@ -275,7 +275,8 @@ def run(name, number, only=None):
           f"ways {kept:4d} (-{dropped:3d})  nodes {len(net.nodes):5d}  bridge {spans:3d}  "
           f"tunnel {bores:3d}  rail {rails:3d}  layers {min(layers)}..{max(layers)}  "
           f"C0 {verdict['I1 C0 m']:.1e}  band {verdict['I3 |z-dem| m']:6.2f} m  "
-          f"fix {getattr(m, 'clearance_rounds', 0):2d}r/{verdict['I12 clearance residual m']:7.4f} m   {note}")
+          f"fix {getattr(m, 'clearance_rounds', 0):2d}r {bed.clearance_verdict(m):10s} "
+          f"{verdict['I12 clearance residual m']:7.4f} m   {note}")
     return red
 
 

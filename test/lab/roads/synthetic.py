@@ -939,6 +939,9 @@ class Map:
             # (measured 2026-09-06). A fixed point that has not converged is a number nobody may
             # quote, so it iterates to a tolerance and REPORTS what is left when it stops.
             self.clearance_rounds, self.clearance_residual_m = 0, 0.0
+            self.clearance_diverged = False
+            worse = 0
+            last = None
             for _ in range(CLEARANCE_ROUNDS):
                 before = self.z.copy()
                 self.constraints = self._clearances(deck)
@@ -947,6 +950,18 @@ class Map:
                 self.clearance_residual_m = float(np.max(np.abs(self.z - before)))
                 if self.clearance_residual_m <= CLEARANCE_TOL_M:
                     break
+                # A DIVERGING SEQUENCE IS RECOGNISABLE, and grinding out the bound afterwards
+                # buys nothing: forty rounds of a city extract is forty sparse solves for an
+                # answer that was already no answer. Two rounds that do not shrink the step is
+                # the signal, and it is reported as DIVERGED rather than as a large residual
+                if last is not None and self.clearance_residual_m > last * 0.98:
+                    worse += 1
+                    if worse >= 2:
+                        self.clearance_diverged = True
+                        break
+                else:
+                    worse = 0
+                last = self.clearance_residual_m
         self._slopes()
         self._superelevations()
         self._junctions()
@@ -2292,6 +2307,15 @@ def check_clearance_fixpoint(map_):
     the bed called the result an answer. A diverged profile is not a worse answer, it is NO
     answer, and this check is what says so."""
     return float(getattr(map_, "clearance_residual_m", 0.0))
+
+
+def clearance_verdict(map_):
+    """Converged, diverged, or still walking when the bound ran out."""
+    if getattr(map_, "clearance_diverged", False):
+        return "DIVERGED"
+    if float(getattr(map_, "clearance_residual_m", 0.0)) <= CLEARANCE_TOL_M:
+        return "converged"
+    return "unfinished"
 
 
 def check_bridge(map_):
