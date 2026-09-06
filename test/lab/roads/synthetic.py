@@ -20,7 +20,7 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve
 from shapely.geometry import LineString, Point, Polygon
-from shapely.ops import unary_union
+from shapely.ops import substring, unary_union
 
 OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "synthetic"
 
@@ -35,6 +35,7 @@ COVER_M = 3.0             # [SET] the least rock a tunnel keeps above its crown
 WELD_M = 1e-3
 MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre of the analytic one
 STEP_TOL_M = 1e-3
+TANGENT_H = 0.05          # [SET] the central difference a centreline's tangent is read over
 APPROACH_M = 60.0         # [SET] how far from a shared node a way is still the deck's approach
 CLEARANCE_ROUNDS = 40     # [SET] a bound, not a schedule: the loop stops on its own residual
 CLEARANCE_TOL_M = 1e-4    # a fixed point is reached when a round moves nothing a driver feels
@@ -890,6 +891,25 @@ class Map:
             kept_ways.append(w)
         self.net.ways = kept_ways
 
+    def _box(self, way):
+        """The way's bounding box, cached: the cheap gate before any buffer is built."""
+        if getattr(self, "_boxes", None) is None:
+            self._boxes = {}
+        if way["id"] not in self._boxes:
+            self._boxes[way["id"]] = self.centreline(way).bounds
+        return self._boxes[way["id"]]
+
+    def _ribbons_cross(self, w, other):
+        """Do the two carriageways overlap in plan? Cached per pair of ways."""
+        key = (w["id"], other["id"])
+        if getattr(self, "_cross", None) is None:
+            self._cross = {}
+        if key not in self._cross:
+            a = self.centreline(w).buffer(w["tags"]["width"] / 2.0 + 0.5, join_style=2)
+            b = self.centreline(other).buffer(other["tags"]["width"] / 2.0 + 0.5, join_style=2)
+            self._cross[key] = a.intersects(b)
+        return self._cross[key]
+
     def band(self):
         """How far from the DEM a road on the ground may stand, per node: the survey's own error
         plus what a BILINEAR interpolant cannot represent, which is |z''| h^2 / 8. ONE source --
@@ -1060,6 +1080,9 @@ class Map:
                 for other in self.net.ways:
                     if other is w or self.net.spans(other):
                         continue
+                    if not _boxes_touch(self._box(w), self._box(other),
+                                        w["tags"]["width"] + other["tags"]["width"]):
+                        continue
                     # A CONNECTED ROAD IS STILL A ROAD UNDER THE BRIDGE. Skipping every way that
                     # shares a node with the deck was meant to exclude its own APPROACHES, and it
                     # excluded the thing the clearance exists for: on a spiral, a hairpin or any
@@ -1071,14 +1094,29 @@ class Map:
                     shared = [q for q in other["refs"] if q in set(refs)]
                     line = self.centreline(other)
                     p = Point(x, y)
-                    reach = other["tags"]["width"] / 2.0 + w["tags"]["width"] / 2.0 + 25.0
+                    # A ROAD IS UNDER A DECK WHERE THE DECK PASSES OVER IT, and nowhere else.
+                    # Twenty-five metres beyond both half-widths made every road RUNNING BESIDE a
+                    # bridge -- the other carriageway of a dual road, the street along a viaduct --
+                    # something the deck had to clear by 4.5 m, which nothing can do because they
+                    # are at the same height. Measured 2026-09-06: fifteen of the thirty real
+                    # cases refused as infeasible and the shortfall was 4.4 to 4.8 m at eight of
+                    # them, which is the clearance itself -- the sign that the pair had no room
+                    # at all. The margin left is the half-widths and one metre of surveying slack.
+                    reach = other["tags"]["width"] / 2.0 + w["tags"]["width"] / 2.0 + 1.0
                     if shared:
                         st_o = self.stations[other["id"]]
                         s_here = line.project(p)
                         near_join = min(abs(s_here - st_o[other["refs"].index(q)]) for q in shared)
                         if near_join <= APPROACH_M:
                             continue
-                    if line.distance(p) <= reach:
+                    # THE DECK IS OVER THE ROAD WHERE THEIR RIBBONS CROSS, and a node test can
+                    # only ever approximate that: too tight and a deck node ten metres from the
+                    # crossing misses it (three synthetic cases went red on I4road), too loose and
+                    # a road running BESIDE the bridge becomes something to clear (fifteen real
+                    # cases refused as infeasible). The crossing is a geometric fact of the two
+                    # ribbons, so it is asked of them, once per way pair, and the node test that
+                    # follows only picks WHICH nodes carry it.
+                    if line.distance(p) <= reach or self._ribbons_cross(w, other):
                         # the road below at its nearest station: its DEM height is the floor's
                         # best estimate before its own profile exists (they are solved together)
                         q = line.interpolate(line.project(p))
@@ -1582,6 +1620,20 @@ class Structure:
         fall = left if offset < 0.0 else right
         return z - fall * abs(offset)
 
+    @staticmethod
+    def tangent_at(line, s):
+        """The unit tangent of a centreline at arc length s. ONE estimator, because two of them
+        are two different normals: `frame_point` differenced over 0.05 m and `major_surface` over
+        0.1 m, and on a tight curve that is a small offset error which the crossfall turns into a
+        step -- 0.075 m at the Magic Roundabout, on the MAJOR way, where the two must agree by
+        definition (measured 2026-09-06)."""
+        s = min(max(float(s), 0.0), line.length)
+        ahead = line.interpolate(min(s + TANGENT_H, line.length))
+        back = line.interpolate(max(s - TANGENT_H, 0.0))
+        d = (ahead.x - back.x, ahead.y - back.y)
+        n = math.hypot(*d) or 1.0
+        return (d[0] / n, d[1] / n)
+
     def frame_point(self, way, station, offset):
         """The point at (station, offset) in the WAY'S OWN FRAME -- on its arc, with the normal
         taken AT that station.
@@ -1595,11 +1647,8 @@ class Structure:
         line = self.map.centreline(way)
         s = min(max(float(station), 0.0), line.length)
         q = line.interpolate(s)
-        ahead = line.interpolate(min(s + 0.05, line.length))
-        back = line.interpolate(max(s - 0.05, 0.0))
-        d = (ahead.x - back.x, ahead.y - back.y)
-        n = math.hypot(*d) or 1.0
-        return (q.x - d[1] / n * offset, q.y + d[0] / n * offset)
+        d = self.tangent_at(line, s)
+        return (q.x - d[1] * offset, q.y + d[0] * offset)
 
     def major_surface(self, nid, x, y):
         """The junction's surface IS the major way's surface, crown and all, extended over the
@@ -1608,15 +1657,25 @@ class Structure:
         way = next(w for w in self.net.ways if w["id"] == j["major"])
         line = self.map.centreline(way)
         p = Point(x, y)
-        s = line.project(p)
+        # THE PROJECTION IS LOCAL. `project` returns the GLOBAL nearest station, and a road that
+        # doubles back on itself -- a hairpin, a roundabout's ring, a switchback -- has another
+        # branch within metres: the point beside the junction then lands on the WRONG leg and the
+        # section is read there. Measured 2026-09-06: 0.101 m at Lombard Street (eight hairpins
+        # in 180 m) and 0.075 m at the Magic Roundabout, both on the MAJOR way, where the leg and
+        # the junction are the same surface by definition. The window is the junction's own
+        # station plus what its cut and its width can reach.
+        here = self.map.stations[way["id"]][way["refs"].index(nid)] \
+            if nid in way["refs"] else line.project(p)
+        window = self.cuts.get((way["id"], nid), 0.0) + way["tags"]["width"] + 2.0 * TANGENT_H
+        lo = max(0.0, here - window)
+        hi = min(line.length, here + window)
+        piece = substring(line, lo, hi) if hi - lo > 1e-6 else None
+        s = (lo + piece.project(p)) if piece is not None and piece.length > 1e-9 else here
         q = line.interpolate(s)
         # the offset is SIGNED, because a superelevated section is one tilted plane and not a
         # symmetric crown: the sign comes from the cross product with the way's direction there
-        ahead = line.interpolate(min(s + 0.1, line.length))
-        back = line.interpolate(max(s - 0.1, 0.0))
-        d = (ahead.x - back.x, ahead.y - back.y)
-        n = math.hypot(*d) or 1.0
-        off = (-(x - q.x) * d[1] + (y - q.y) * d[0]) / n
+        d = self.tangent_at(line, s)
+        off = -(x - q.x) * d[1] + (y - q.y) * d[0]
         return self.own_surface(way, s, off)
 
     def leg_surface(self, way, station, offset, at=None, sgn=+1):
@@ -1644,6 +1703,15 @@ class Structure:
         worst = 0.0
         for nid, j in self.map.junctions.items():
             for (w, k, sgn) in j["legs"]:
+                # THE MAJOR IS THE JUNCTION'S SURFACE, so comparing it with itself measures the
+                # PROJECTION and not the road: both sides are `own_surface` of the same way at
+                # the same station, and any difference is how well a nearest-point search
+                # recovered a station it was handed. On a road that doubles back that difference
+                # reached 0.11 m at the Magic Roundabout and 0.10 m at Lombard Street while the
+                # surface itself was continuous by construction. What I6 is FOR is the step where
+                # a MINOR leg ties in, which is what the warp exists to close.
+                if w["id"] == j["major"]:
+                    continue
                 at = w["refs"][k]
                 cut = self.cuts[(w["id"], at)]
                 s_node = self.map.stations[w["id"]][k]
@@ -2390,6 +2458,14 @@ def check_c1(map_):
             _, g1 = map_.profile(w, s[k] + 1e-6)
             worst = max(worst, abs(g0 - g1))
     return worst
+
+
+def _boxes_touch(a, b, slack):
+    """Do two bounding boxes come within `slack` of each other? A pair that fails this cannot
+    cross, and asking it first is what keeps a 1 854-way extract from building three million
+    buffers (measured: the pairwise ribbon test alone doubled the synthetic bed's time)."""
+    return not (a[2] + slack < b[0] or b[2] + slack < a[0]
+                or a[3] + slack < b[1] or b[3] + slack < a[1])
 
 
 def check_dem_band(map_):
