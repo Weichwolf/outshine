@@ -66,7 +66,7 @@ def _blob(x, y, z, rx, ry, rz, rings=5, spokes=8):
     return verts, tris
 
 
-def tree(x, y, z, seed=0, height=None, tags=None):
+def tree(x, y, z, seed=0, height=None, tags=None, lod=2):
     """A STREET TREE, GROWN FROM THE ENGINE'S OWN SPECIES DECLARATION.
 
     This file first held a second tree generator, written without running CLAUDE.md's own second
@@ -79,8 +79,20 @@ def tree(x, y, z, seed=0, height=None, tags=None):
     import flora
     sp = flora.load()
     pick = flora.pick_species(sp, tags, seed)
-    nodes, cards = flora.grow(sp[pick], seed=seed)
-    return flora.mesh(nodes, cards, sp[pick], at=(x, y, z))
+    got = dict(sp[pick])
+    # A STREET TREE IS NOT A FOREST TREE. `height_m` in a species file is the height the species
+    # REACHES in a wood -- 30 m for a lime, 25 for an oak -- and a tree on a pavement is pruned,
+    # rooted in a pit and lives half as long: rendered a street of them at their declared heights
+    # and they towered over a five-storey block with metre-thick trunks (looked at, 2026-09-06).
+    # OSM's own `height` wins where a surveyor gave one; otherwise 8 to 14 m, which is what a
+    # street tree is, and the seed varies it because a row of identical trees is the second
+    # loudest tell after a row of identical houses.
+    told = float((tags or {}).get("height", 0) or 0)
+    got["height_m"] = told or (height or (8.5 + 5.5 * ((seed % 23) / 22.0)))
+    got["spread_m"] = float(got.get("spread_m", 10.0)) * got["height_m"] / max(
+        float(sp[pick].get("height_m", 20.0)), 1e-3)
+    nodes, cards = flora.grow(got, seed=seed, lod=lod)
+    return flora.mesh(nodes, cards, got, at=(x, y, z), sides=6 if lod >= 2 else 4)
 
 
 def _old_tree(x, y, z, seed=0, height=None):

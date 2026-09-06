@@ -38,40 +38,42 @@ def shopfront(ctx):
 
 
 def openings_of(ctx):
-    """The rectangles this wall is holed by, in the wall's own frame: (s0, z0, s1, z1).
+    """The rectangles this wall is holed by, in the wall's own frame: (s0, z0, s1, z1, storey).
 
-    THE GROUND FLOOR IS ITS OWN STOREY. Above it the opening is a window on the bay grid; at the
-    street it is either a shop's wide light between the stallriser and the fascia, or -- where the
-    epoch has no shop -- a window like the rest, with the door's bay left solid for the door to
-    stand in."""
+    THE STOREYS ARE NOT ALL THE SAME. `storeys.of` gives the facade its hierarchy -- a ground
+    floor of its own height, a BELETAGE taller than the rest with taller windows, the standard
+    floors diminishing a few percent a floor, and a squat attic under the eaves. Five identical
+    floors was the loudest thing left on a generated block, and no ornament repairs it."""
+    from . import storeys as rhythm
     out = []
     n = max(1, int(ctx.bays))
     step = ctx.place.length / n
     shop = shopfront(ctx)
     door_bay = n // 2 if ctx.street else -1
-    if ctx.street:
+    floors = rhythm.of(ctx)
+    if ctx.street and floors:
         seat = max(0.0, ctx.floor_over_ground_m)
-        high = min(2.35, ctx.level_m * 0.86)
+        high = min(2.35, floors[0].height * 0.72)
         mid = (door_bay + 0.5) * step
-        out.append((mid - 0.70, seat + 0.02, mid + 0.70, seat + high))
+        out.append((mid - 0.70, seat + 0.02, mid + 0.70, seat + high, floors[0]))
     for bay in range(n):
         mid = (bay + 0.5) * step
-        w = min(ctx.win_w, step * 0.68)
-        for level in range(int(ctx.levels)):
-            if level == 0 and shop:
+        for floor in floors:
+            w = min(floor.win_w, step * 0.68)
+            if floor.at == 0 and shop:
                 if bay == door_bay:
                     continue                      # the door's own bay, cut by the door element
-                lo, hi = 0.60, ctx.level_m - 0.55  # the stallriser and the fascia
+                lo, hi = 0.60, floor.height - 0.55  # the stallriser and the fascia
                 if hi - lo < 0.6:
                     continue
-                out.append((mid - step * 0.42, lo, mid + step * 0.42, hi))
+                out.append((mid - step * 0.42, lo, mid + step * 0.42, hi, floor))
                 continue
-            if level == 0 and bay == door_bay and ctx.street:
+            if floor.at == 0 and bay == door_bay and ctx.street:
                 continue                          # the door stands here
-            z = level * ctx.level_m + ctx.sill_m
-            if z + ctx.win_h > ctx.place.height - 0.25 or z < 0.12:
+            z = floor.z0 + floor.sill
+            if z + floor.win_h > ctx.place.height - 0.25 or z < 0.12:
                 continue
-            out.append((mid - w / 2, z, mid + w / 2, z + ctx.win_h))
+            out.append((mid - w / 2, z, mid + w / 2, z + floor.win_h, floor))
     return out
 
 
@@ -83,11 +85,13 @@ def holed_wall(place, holes, depth):
     pts = [(0.0, 0.0), (place.length, 0.0), (place.length, place.height), (0.0, place.height)]
     segs = [(0, 1), (1, 2), (2, 3), (3, 0)]
     inside = []
+    holes = [h[:4] for h in holes]
     for (s0, z0, s1, z1) in holes:
         base = len(pts)
         pts += [(s0, z0), (s1, z0), (s1, z1), (s0, z1)]
         segs += [(base, base + 1), (base + 1, base + 2), (base + 2, base + 3), (base + 3, base)]
         inside.append(((s0 + s1) / 2, (z0 + z1) / 2))
+    holes = [h[:4] for h in holes]
     spec = {"vertices": np.array(pts, dtype=float), "segments": np.array(segs, dtype=np.int32)}
     if inside:
         spec["holes"] = np.array(inside, dtype=float)
@@ -121,6 +125,20 @@ def holed_wall(place, holes, depth):
         for (a0, b0, a1, b1) in ((s0, z0, s0 + f, z1), (s1 - f, z0, s1, z1),
                                  (s0 + f, z1 - f, s1 - f, z1), (s0 + f, z0, s1 - f, z0 + f)):
             out.append(("wood", *_quad(place, a0, b0, a1, b1, -depth + 0.01)))
+        # THE SASH ITSELF: a MEETING STILE down the middle, a TRANSOM across, and the glazing
+        # bars in each light. A window read as one dark pane is the difference between a hole and
+        # a window, and it is the cheapest detail on the whole facade -- four quads.
+        if (s1 - s0) > 0.75 and (z1 - z0) > 0.9:
+            mid = 0.5 * (s0 + s1)
+            out.append(("wood", *_quad(place, mid - f * 0.55, z0 + f, mid + f * 0.55, z1 - f,
+                                       -depth + 0.012)))
+            kaempfer = z0 + (z1 - z0) * 0.62
+            out.append(("wood", *_quad(place, s0 + f, kaempfer - f * 0.5, s1 - f,
+                                       kaempfer + f * 0.5, -depth + 0.012)))
+            for u in (0.5,):
+                zb = z0 + f + (kaempfer - z0 - f) * u
+                out.append(("wood", *_quad(place, s0 + f, zb - f * 0.35, s1 - f, zb + f * 0.35,
+                                           -depth + 0.010)))
     return out
 
 

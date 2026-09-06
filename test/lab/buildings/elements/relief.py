@@ -110,33 +110,70 @@ def _leibung(ctx):
     return tuple(out)
 
 
-@register("sohlbank", lod=2, role="stone", note="the sill, proud of the wall and wider than the hole")
+def _openings(ctx):
+    """Every opening this wall carries, with the storey it belongs to -- ONE source, so a sill
+    and its window cannot disagree about where the window is."""
+    from .facade import openings_of
+    return openings_of(ctx)
+
+
+@register("sohlbank", lod=2, role="stone",
+          note="the sill, proud of the wall and wider than the hole, with a drip")
 def _sohlbank(ctx):
     out = []
-    for (mid, width) in _fields(ctx):
-        w = min(ctx.win_w, width * 0.68)
-        for level in range(ctx.levels):
-            z = level * ctx.level_m + ctx.sill_m
-            if z + ctx.win_h > ctx.place.height - COURSE_M:
-                break
-            v, t = ctx.place.box(mid - w / 2 - 0.06, z - 0.07, mid + w / 2 + 0.06, z,
-                                 0.0, HEADER_M * 0.7)
-            out.append(("stone", v, t))
+    for (s0, z0, s1, z1, floor) in _openings(ctx):
+        if floor.at == 0 and z1 - z0 > 1.9:
+            continue                      # a shop's light stands on its stallriser, not a sill
+        out.append(("stone", *ctx.place.box(s0 - 0.06, z0 - 0.07, s1 + 0.06, z0,
+                                            0.0, HEADER_M * 0.7)))
     return tuple(out)
 
 
-@register("sturz", lod=2, role="stone", note="the lintel over an opening, a band the width of it")
+@register("sturz", lod=2, role="stone",
+          note="the head over an opening: a band, or a PEDIMENT where the storey asks for one")
 def _sturz(ctx):
-    if not ctx.cornice:
-        return ()
     out = []
-    for (mid, width) in _fields(ctx):
-        w = min(ctx.win_w, width * 0.68)
-        for level in range(ctx.levels):
-            z = level * ctx.level_m + ctx.sill_m + ctx.win_h
-            if z > ctx.place.height - COURSE_M:
-                break
-            v, t = ctx.place.box(mid - w / 2 - 0.10, z, mid + w / 2 + 0.10, z + 0.13,
-                                 0.0, HEADER_M * 0.6)
-            out.append(("stone", v, t))
+    for (s0, z0, s1, z1, floor) in _openings(ctx):
+        if floor.head == "none" or (floor.at == 0 and z1 - z0 > 1.9):
+            continue
+        out.append(("stone", *ctx.place.box(s0 - 0.10, z1, s1 + 0.10, z1 + 0.13,
+                                            0.0, HEADER_M * 0.6)))
+        if floor.head == "pediment":
+            # THE BELETAGE IS THE ONLY FLOOR THAT GETS A PEDIMENT, and that single fact is what
+            # a viewer reads a Gruenderzeit block's hierarchy from at a hundred metres.
+            mid = 0.5 * (s0 + s1)
+            for (a0, a1, zz, hh) in ((s0 - 0.16, s1 + 0.16, z1 + 0.13, 0.10),
+                                     (mid - (s1 - s0) * 0.30, mid + (s1 - s0) * 0.30,
+                                      z1 + 0.23, 0.12),
+                                     (mid - (s1 - s0) * 0.16, mid + (s1 - s0) * 0.16,
+                                      z1 + 0.35, 0.11)):
+                out.append(("stone", *ctx.place.box(a0, zz, a1, zz + hh, 0.0, HEADER_M * 0.9)))
+    return tuple(out)
+
+
+@register("balkon", lod=3, role="stone",
+          note="a balcony on the BELETAGE, over the door's own bay, with its balustrade")
+def _balkon(ctx):
+    """A BALCONY IS A BODY THAT STANDS OFF THE WALL, and the one thing on a facade that breaks
+    its plane. It sits on the piano nobile, over the entrance, because that is where the owner's
+    room was -- and a facade with none is a facade with nothing in front of it at all."""
+    from . import storeys as rhythm
+    if not ctx.cornice or not ctx.street or int(ctx.levels) < 3:
+        return ()
+    floors = [f for f in rhythm.of(ctx) if f.kind == "beletage"]
+    if not floors:
+        return ()
+    floor = floors[0]
+    mid = ctx.place.length * 0.5
+    half = min(2.10, ctx.place.length * 0.22)
+    z = floor.z0 - 0.02
+    out = [("stone", *ctx.place.box(mid - half, z, mid + half, z + 0.16, 0.0, 1.15))]
+    for at in (mid - half + 0.05, mid + half - 0.05):
+        out.append(("stone", *ctx.place.box(at - 0.05, z + 0.16, at + 0.05, z + 1.02, 0.0, 1.10)))
+    out.append(("stone", *ctx.place.box(mid - half, z + 0.94, mid + half, z + 1.02, 1.02, 1.15)))
+    n = max(4, int(2 * half / 0.16))
+    for k in range(1, n):
+        s = mid - half + 2 * half * k / n
+        out.append(("stone", *ctx.place.box(s - 0.028, z + 0.16, s + 0.028, z + 0.94,
+                                            1.05, 1.11)))
     return tuple(out)
