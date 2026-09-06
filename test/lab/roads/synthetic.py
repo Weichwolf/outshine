@@ -36,6 +36,10 @@ WELD_M = 1e-3
 MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre of the analytic one
 STEP_TOL_M = 1e-3
 TANGENT_H = 0.05          # [SET] the central difference a centreline's tangent is read over
+# to gain the clearance at a road's own design grade takes CLEARANCE_M / grade of length, and a
+# railway's grade is a fifth of a road's, so the budget is set by the steepest thing that has to
+# climb: [SET] 4.5 m at 1.25 % is 360 m, rounded to the 400 m an embankment is actually built over
+RAMP_REACH_M = 400.0
 APPROACH_M = 60.0         # [SET] how far from a shared node a way is still the deck's approach
 CLEARANCE_ROUNDS = 40     # [SET] a bound, not a schedule: the loop stops on its own residual
 CLEARANCE_TOL_M = 1e-4    # a fixed point is reached when a round moves nothing a driver feels
@@ -1021,15 +1025,46 @@ class Map:
         # the whole of a way that lands on a deck is the ramp's: the fill returns to the
         # terrain at the class's grade and through the vertical curves the smoothing length
         # makes, and where that ends is a NUMBER the bed reports (ramp_m), not a wall
+        if getattr(self, "_approach_cache", None) is not None:
+            return self._approach_cache
         near = np.zeros(len(self.index), dtype=bool)
         deck_nodes = {r for w in self.net.ways if self.net.spans(w) for r in w["refs"]}
         for r in deck_nodes:
             near[self.index[r]] = True
+        # AN EMBANKMENT DOES NOT END WHERE A WAY DOES. To gain h metres at the class's grade a
+        # ramp needs h/g of length -- 4.5 m at 4 % is 112 m -- and OSM splits a road wherever a
+        # tag changes, so the fill crosses several ways. Marking only the ways that TOUCH the
+        # deck pinned the second way of every embankment to the DEM band, and a railway bridge
+        # over a motorway then could not rise at all: 9.06 m short at Kaiserberg, where the DEM
+        # puts deck and motorway both at 33 m because it has never heard of either (measured
+        # 2026-09-06). The walk carries a BUDGET in metres and stops when it runs out.
+        adjacency = {}
         for w in self.net.ways:
-            if self.net.spans(w) or not (set(w["refs"]) & deck_nodes):
-                continue
             for r in w["refs"]:
-                near[self.index[r]] = True
+                adjacency.setdefault(r, []).append(w)
+        frontier = [(r, RAMP_REACH_M) for r in sorted(deck_nodes)]
+        seen = {r: RAMP_REACH_M for r in deck_nodes}
+        while frontier:
+            node, budget = frontier.pop()
+            if budget <= 0.0:
+                continue
+            for w in adjacency.get(node, ()):
+                if self.net.spans(w):
+                    continue
+                refs, s = w["refs"], self.stations[w["id"]]
+                if node not in refs:
+                    continue
+                k0 = refs.index(node)
+                for k in range(len(refs)):
+                    left = budget - abs(s[k] - s[k0])
+                    if left <= 0.0:
+                        continue
+                    r = refs[k]
+                    near[self.index[r]] = True
+                    if seen.get(r, -1.0) < left - 1e-6:
+                        seen[r] = left
+                        frontier.append((r, left))
+        self._approach_cache = near
         return near
 
     def ramp_m(self):
@@ -1078,7 +1113,14 @@ class Map:
                 if self.terrain.water is not None and self.terrain.truth(x, y) < self.terrain.water:
                     floor = self.terrain.water + CLEARANCE_M
                 for other in self.net.ways:
-                    if other is w or self.net.spans(other):
+                    if other is w or self.net.spans(other) or self.net.bores(other):
+                        continue
+                    # LAYER IS THE THIRD DIMENSION OSM ACTUALLY CARRIES, and the bed read none of
+                    # it: a way at the deck's own level or above is not underneath it, and a way
+                    # in a BORE is under the ground and owes a bridge nothing. Without both, a
+                    # motorway interchange asks its own upper ramps to clear each other -- 9.06 m
+                    # short at Kaiserberg, where five levels cross in plan (measured 2026-09-06)
+                    if int(other["tags"].get("layer", 0) or 0) >= int(w["tags"].get("layer", 1) or 1):
                         continue
                     if not _boxes_touch(self._box(w), self._box(other),
                                         w["tags"]["width"] + other["tags"]["width"]):
@@ -1134,7 +1176,17 @@ class Map:
                         # rounds at the Transfagarasan moved the profile 24.4 m, 11.5 m, 9.1 m
                         # and forty of them never converged, walking to 105 m off the DEM. Held
                         # as a PAIR the whole thing is one QP with one solution and no loop.
-                        pairs.append((k, self.index[other["refs"][kb]], CLEARANCE_M))
+                        # THE ROAD BELOW AT THE CROSSING, not at its nearest node. `kb` is the
+                        # node the station falls into and it can be tens of metres away on a
+                        # coarsely noded way, so the deck was made to clear a place it does not
+                        # pass over. The profile between two nodes is LINEAR in z, so the exact
+                        # station goes into the constraint as a two-node interpolation and the
+                        # problem stays convex.
+                        kb2 = min(kb + 1, len(other["refs"]) - 1)
+                        span_b = st_below[kb2] - st_below[kb]
+                        uu = 0.0 if span_b <= 1e-9 else min(max((s_below - st_below[kb]) / span_b, 0.0), 1.0)
+                        pairs.append((k, self.index[other["refs"][kb]],
+                                      self.index[other["refs"][kb2]], uu, clearance_over(other)))
                         # and the deck clears the GROUND under it as well, which is absolute
                         floor2 = self.terrain.dem(q.x, q.y) + CLEARANCE_M
                         floor = floor2 if floor is None else max(floor, floor2)
@@ -1165,7 +1217,8 @@ class Map:
         A = A.tocsc()
         objective = 0.5 * cp.quad_form(z, cp.psd_wrap(A)) - b @ z
         cons = [z[k] >= floor for k, floor in self.constraints.items()]
-        cons += [z[k] - z[j] >= gap for (k, j, gap) in getattr(self, "clearance_pairs", ())]
+        cons += [z[k] - ((1.0 - uu) * z[j] + uu * z[j2]) >= gap
+                 for (k, j, j2, uu, gap) in getattr(self, "clearance_pairs", ())]
         # I3 AS A CONSTRAINT AND NOT ONLY AS A CHECK. A road that is neither a deck, a bore, a
         # ramp nor a causeway stands ON THE GROUND, within the DEM's own error -- that is what
         # the invariant says, and stating it only afterwards let the QP satisfy a clearance by
@@ -1262,8 +1315,8 @@ class Map:
         sb = cp.Variable(max(len(held), 1), nonneg=True)
         sg = cp.Variable(nonneg=True)
         soft = [y[k] >= floor - 1e3 for k, floor in self.constraints.items()]
-        for i, (k, j, gap) in enumerate(pairs):
-            soft.append(y[k] - y[j] >= gap - sp_[i])
+        for i, (k, j, j2, uu, gap) in enumerate(pairs):
+            soft.append(y[k] - ((1.0 - uu) * y[j] + uu * y[j2]) >= gap - sp_[i])
         if len(held):
             band = self.band()[held]
             soft += [y[held] <= self.dem[held] + band + sb,
@@ -2458,6 +2511,24 @@ def check_c1(map_):
             _, g1 = map_.profile(w, s[k] + 1e-6)
             worst = max(worst, abs(g0 - g1))
     return worst
+
+
+# WHAT A DECK MUST CLEAR DEPENDS ON WHAT IS UNDER IT. 4.5 m is the figure for a ROAD (RAS-Q, and
+# the same in AASHTO's 16 ft); a footway or a cycleway needs headroom for a person, a railway needs
+# room for its CATENARY, and a navigable water needs what the waterway authority says. Asking 4.5 m
+# over a footpath is what made the Glenfinnan viaduct infeasible by 0.74 m and the Goeltzschtal by
+# 0.96 m -- both rail viaducts whose arches a path runs under (measured 2026-09-06).
+CLEARANCE_OVER = {"footway": 2.50, "path": 2.50, "cycleway": 2.50, "steps": 2.30,
+                  "bridleway": 3.40, "track": 4.00, "pedestrian": 3.50, "service": 4.00,
+                  "living_street": 4.20}
+CLEARANCE_RAIL_M = 6.00   # [SET] EBO: 5.50 m over the rail plus the catenary's own room
+
+
+def clearance_over(way):
+    """The headroom a deck owes the way beneath it."""
+    if way["tags"].get("railway") or "rail" in way["tags"]:
+        return CLEARANCE_RAIL_M
+    return CLEARANCE_OVER.get(way["tags"].get("highway", ""), CLEARANCE_M)
 
 
 def _boxes_touch(a, b, slack):
