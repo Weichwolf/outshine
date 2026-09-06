@@ -1051,7 +1051,12 @@ class Map:
         self.z = spsolve(A.tocsc(), b)
         self.deck, self.bore, self.curvature = deck, bore, K
         self.constraints = self._clearances(deck)
-        if self.constraints:
+        # THE BAND IS NOT OPTIONAL. The constrained solve carried it, and the constrained solve
+        # only ran when there were absolute FLOORS -- water or a deck over open ground. A pass
+        # road with no bridge at all therefore got the plain smooth solve and no band whatever:
+        # the Furka stood 6.09 m off a DEM whose band there is 4.11 m, and the check read 1.48x
+        # against a constraint that had never been posed (measured 2026-09-06). It always runs.
+        if True:
             self.ramp_signs = {}
             self._solve_with_clearances(A, b)     # once, to read the ramps' signs
             self.ramp_signs = self._ramp_signs()
