@@ -40,6 +40,9 @@ import publish  # noqa: E402
 import camera as lab_camera  # noqa: E402
 import materials as stock  # noqa: E402
 import street  # noqa: E402
+import kerbline  # noqa: E402
+import junction  # noqa: E402
+import ground as lab_ground  # noqa: E402
 
 _spec = _util.spec_from_file_location("outshine_road_bed", HERE / "roads" / "synthetic.py")
 roadbed = _util.module_from_spec(_spec)
@@ -396,11 +399,34 @@ def parts_of(place, frame, doc, red, lod=3):
         parts.add(role, verts, tris)
         looks[role] = rgb
 
-    put("ground", *ground_fan(frame), stock.STOCK["grass"])
-
     mesh, ways = roads_of(place, frame, red)
+    street_face = None
     if mesh is not None:
-        road = [(v[0], v[1], v[2] - frame.datum + street.SURFACE_M) for v in mesh.vertices]
+        # ONE SURFACE, READ OFF THE DRAWN ROAD. The kerb, every marking and every gully sit on the
+        # carriageway, so all of them interpolate the mesh rather than recompute the section --
+        # and the terrain is CUT by what the street covers, because a road has a crown and a sheet
+        # drawn straight under it swallows everything but the crown.
+        def z_at(x, y):
+            return frame.z(x, y)
+
+        surface = kerbline.Surface(mesh, z_at)
+        sites = junction.crossing_sites(mesh.map, mesh.st)
+        street_face = kerbline.street_footprint(mesh.map, mesh.st)
+
+    def drop(vv):
+        return [(v[0], v[1], v[2] - frame.datum) for v in vv]
+
+    if street_face is None:
+        put("ground", *ground_fan(frame), stock.STOCK["grass"])
+    else:
+        gv, gt = lab_ground.surface(lambda x, y: frame.z(x, y), street_face,
+                                    kerbline.edge_height(surface, sites),
+                                    reach_m=GROUND_REACH_M, rings=GROUND_RINGS,
+                                    spokes=GROUND_SPOKES)
+        put("ground", drop(gv), gt, stock.STOCK["grass"])
+
+    if mesh is not None:
+        road = drop(mesh.vertices)
         faces = []
         for (ia, ib, ic) in mesh.tris:
             pa, pb, pc = (np.asarray(road[i], dtype=float) for i in (ia, ib, ic))
@@ -409,16 +435,22 @@ def parts_of(place, frame, doc, red, lod=3):
         put("road", road, faces, stock.STOCK["asphalt"])
         colour = {"kerb": stock.STOCK["kerbstone"], "gutter": stock.STOCK["asphalt"],
                   "walk": stock.STOCK["paving"], "paint": stock.STOCK["paint"],
-                  "metal": stock.STOCK["iron"], "lamp": stock.STOCK["steel"]}
-
-        def z_at(x, y):
-            return frame.z(x, y)
-
+                  "metal": stock.STOCK["iron"], "lamp": stock.STOCK["steel"],
+                  "iron": stock.STOCK["iron"]}
+        for (role, vv, tt) in kerbline.street_edge(mesh.map, mesh.st, surface, sites):
+            put(role, drop(vv), tt, colour.get(role) or stock.STOCK["concrete"])
+        walk = kerbline.walk_area(mesh.map, mesh.st)
         for w in mesh.net.ways:
-            for (role, vv, tt) in (street.kerb_and_walk(mesh.map, w, z_at)
-                                   + street.markings(mesh.map, w, z_at)
-                                   + street.lamps(mesh.map, w, z_at)):
-                put(role, vv, tt, colour.get(role) or stock.STOCK["concrete"])
+            for (role, vv, tt) in (street.markings(mesh.map, w, surface, mesh.st)
+                                   + street.lamps(mesh.map, w, surface, walk)):
+                put(role, drop(vv), tt, colour.get(role) or stock.STOCK["concrete"])
+        for (role, vv, tt) in (junction.stop_lines(mesh.map, mesh.st, surface, street.PAINT_M)
+                               + junction.crossings(mesh.map, mesh.st, surface, street.PAINT_M)
+                               + junction.gullies(mesh.map, mesh.st, surface, kerbline.KERB_UP_M,
+                                                  kerbline.GUTTER_M * 0.5)):
+            put(f"j.{role}", drop(vv), tt, colour.get(role) or stock.STOCK["concrete"])
+        for (role, vv, tt) in junction.signals_and_signs(doc, frame, z_at):
+            put(f"j.{role}", vv, tt, colour.get(role) or stock.STOCK["concrete"])
 
     # WHAT THE SURVEYOR ALREADY PUT THERE: trees, walls, fences, hedges, bollards. A carriageway
     # with a kerb is a road; a road with these is a place, and in the references a large share of

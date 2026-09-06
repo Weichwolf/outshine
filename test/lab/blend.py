@@ -110,16 +110,22 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
                                two=bool(m.get("doubleSided", False)),
                                transmission=float(m.get("extensions", {}).get(
                                    "KHR_materials_transmission", {}).get(
-                                       "transmissionFactor", 0.0)))
+                                       "transmissionFactor", 0.0)),
+                               **dict({"grain_m": 0.0, "relief_m": 0.0, "mottle": 0.0,
+                                       "unit_m": [0.0, 0.0], "joint_m": 0.0, "bond": ""},
+                                      **m.get("extras", {})))
         elif isinstance(got, tuple) and len(got) == 3 and isinstance(got[0], (tuple, list)):
             table[role] = dict(rgb=tuple(got[0]), alpha=1.0, metal=float(got[2]),
                                rough=float(got[1]), ior=1.5, emissive=(0.0, 0.0, 0.0),
                                strength=1.0, mode="OPAQUE", cutoff=0.5, two=False,
-                               transmission=0.0)
+                               transmission=0.0, grain_m=0.0, relief_m=0.0, mottle=0.0,
+                               unit_m=[0.0, 0.0], joint_m=0.0, bond="")
         else:
             table[role] = dict(rgb=tuple(got), alpha=1.0, metal=0.0, rough=0.85, ior=1.5,
                                emissive=(0.0, 0.0, 0.0), strength=1.0, mode="OPAQUE",
-                               cutoff=0.5, two=False, transmission=0.0)
+                               cutoff=0.5, two=False, transmission=0.0,
+                               grain_m=0.0, relief_m=0.0, mottle=0.0,
+                               unit_m=[0.0, 0.0], joint_m=0.0, bond="")
     files = {}
     for role, (verts, tris) in parts.items():
         if not tris or role not in table:
@@ -149,6 +155,144 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
 
 _SCRIPT = r'''
 import bpy, math, mathutils
+
+def _bond(nt, vec, cell, joint, stagger):
+    """A COURSED BOND IN METRES, and not Blender's Brick node.
+
+    That node's Mortar Size is a fraction of the CELL, so one number gives a bed joint and a
+    perpend in the ratio of the unit's own aspect: on a 240 x 71.5 brick a 12.5 mm bed joint
+    came out as a 38 mm perpend (rendered and looked at, 2026-09-06). The joint is a DIMENSION,
+    the same one in both directions, so it is built here from the dimension.
+
+    Returns (fac, unit) -- 1.0 in the joint, and a per-unit random for the mottle."""
+    def math(op, a=None, b=None):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = op
+        for k, v in ((0, a), (1, b)):
+            if v is None:
+                continue
+            if hasattr(v, "is_linked") or hasattr(v, "links"):
+                nt.links.new(v, n.inputs[k])
+            else:
+                n.inputs[k].default_value = v
+        return n.outputs[0]
+
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(vec, sep.inputs["Vector"])
+    cx, cy = cell
+    vy = math("DIVIDE", sep.outputs["Y"], cy)
+    row = math("FLOOR", vy)
+    fv = math("MULTIPLY", math("SUBTRACT", vy, row), cy)
+    shift = math("MULTIPLY", math("FRACT", math("MULTIPLY", row, 0.5)), stagger)
+    ux = math("ADD", math("DIVIDE", sep.outputs["X"], cx), shift)
+    col = math("FLOOR", ux)
+    fu = math("MULTIPLY", math("SUBTRACT", ux, col), cx)
+    soft = max(joint * 0.30, 1e-4)
+    edges = []
+    for got in (fu, fv):
+        rng = nt.nodes.new("ShaderNodeMapRange")
+        rng.clamp = True
+        nt.links.new(got, rng.inputs["Value"])
+        rng.inputs["From Min"].default_value = joint
+        rng.inputs["From Max"].default_value = joint + soft
+        rng.inputs["To Min"].default_value = 0.0
+        rng.inputs["To Max"].default_value = 1.0
+        edges.append(rng.outputs["Result"])
+    unitness = math("MULTIPLY", edges[0], edges[1])
+    fac = math("SUBTRACT", 1.0, unitness)
+    id_vec = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(col, id_vec.inputs["X"])
+    nt.links.new(row, id_vec.inputs["Y"])
+    rand = nt.nodes.new("ShaderNodeTexWhiteNoise")
+    rand.noise_dimensions = "3D"
+    nt.links.new(id_vec.outputs["Vector"], rand.inputs["Vector"])
+    return fac, rand.outputs["Value"]
+
+
+def _triplanar(nt, coord, make, sharp=6.0):
+    """ONE PATTERN, PROJECTED FROM WORLD METRES ON ALL THREE AXES and blended by the normal.
+
+    A laid surface has to course HORIZONTALLY whatever wall it is on, and a generator that owed
+    a UV for that would owe one from every element it has. Box mapping is what a fragment stage
+    does instead, so it is what the lab does: three copies of the pattern on (x,z), (y,z), (x,y),
+    weighted by |n| raised to `sharp`. `make(vector_socket)` builds one copy and returns
+    (colour, fac)."""
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(coord.outputs["Object"], sep.inputs["Vector"])
+    planes = []
+    for (a, b) in (("X", "Z"), ("Y", "Z"), ("X", "Y")):
+        comb = nt.nodes.new("ShaderNodeCombineXYZ")
+        nt.links.new(sep.outputs[a], comb.inputs["X"])
+        nt.links.new(sep.outputs[b], comb.inputs["Y"])
+        planes.append(make(comb.outputs["Vector"]))
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    nsep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(geo.outputs["Normal"], nsep.inputs["Vector"])
+    weights = []
+    for axis in ("X", "Y", "Z"):
+        power = nt.nodes.new("ShaderNodeMath")
+        power.operation = "POWER"
+        absv = nt.nodes.new("ShaderNodeMath")
+        absv.operation = "ABSOLUTE"
+        nt.links.new(nsep.outputs[axis], absv.inputs[0])
+        nt.links.new(absv.outputs[0], power.inputs[0])
+        power.inputs[1].default_value = sharp
+        weights.append(power.outputs[0])
+
+    def blend(sockets, kind):
+        """weights are per AXIS and the planes are (x,z)=facing Y, (y,z)=facing X, (x,y)=facing Z"""
+        order = [(weights[1], sockets[0]), (weights[0], sockets[1]), (weights[2], sockets[2])]
+        total = None
+        for (w, _) in order:
+            if total is None:
+                total = w
+                continue
+            add = nt.nodes.new("ShaderNodeMath")
+            add.operation = "ADD"
+            nt.links.new(total, add.inputs[0])
+            nt.links.new(w, add.inputs[1])
+            total = add.outputs[0]
+        acc = None
+        for (w, sock) in order:
+            share = nt.nodes.new("ShaderNodeMath")
+            share.operation = "DIVIDE"
+            nt.links.new(w, share.inputs[0])
+            nt.links.new(total, share.inputs[1])
+            if kind == "RGBA":
+                scaled = nt.nodes.new("ShaderNodeMix")
+                scaled.data_type = "RGBA"
+                scaled.blend_type = "MIX"
+                scaled.inputs[6].default_value = (0.0, 0.0, 0.0, 1.0)
+                nt.links.new(share.outputs[0], scaled.inputs["Factor"])
+                nt.links.new(sock, scaled.inputs[7])
+                out, port = scaled, 2
+            else:
+                scaled = nt.nodes.new("ShaderNodeMath")
+                scaled.operation = "MULTIPLY"
+                nt.links.new(share.outputs[0], scaled.inputs[0])
+                nt.links.new(sock, scaled.inputs[1])
+                out, port = scaled, 0
+            if acc is None:
+                acc = out.outputs[port]
+                continue
+            plus = nt.nodes.new("ShaderNodeMix" if kind == "RGBA" else "ShaderNodeMath")
+            if kind == "RGBA":
+                plus.data_type = "RGBA"
+                plus.blend_type = "ADD"
+                plus.inputs["Factor"].default_value = 1.0
+                nt.links.new(acc, plus.inputs[6])
+                nt.links.new(out.outputs[port], plus.inputs[7])
+                acc = plus.outputs[2]
+            else:
+                plus.operation = "ADD"
+                nt.links.new(acc, plus.inputs[0])
+                nt.links.new(out.outputs[port], plus.inputs[1])
+                acc = plus.outputs[0]
+        return acc
+
+    return (blend([p[0] for p in planes], "RGBA"), blend([p[1] for p in planes], "FLOAT"))
+
+
 files = {files}
 looks = {looks}
 for o in list(bpy.data.objects):
@@ -174,6 +318,87 @@ for role, path in files.items():
     if "Emission Color" in bsdf.inputs:
         e = look["emissive"]
         bsdf.inputs["Emission Color"].default_value = (e[0], e[1], e[2], 1.0)
+    # THE SURFACE'S OWN DIMENSIONS, from the material's `extras`: a grain in METRES, a relief
+    # depth in METRES and an albedo mottle as a fraction. Nothing here is a texture and nothing
+    # is decoration -- a viewer at 2 m resolves 0.5 mm, so an 11 mm asphalt aggregate standing
+    # 1.5 mm proud is the whole difference between a road and grey plastic in raking light.
+    unit = look.get("unit_m", [0.0, 0.0])
+    if look.get("bond", "") and unit[0] > 0.0 and unit[1] > 0.0:
+        # A LAID SURFACE, in its own bond. Blender's Brick node IS this pattern: a cell of
+        # (brick width x row height) with a mortar band and a per-unit colour, and every number
+        # below is the material's own dimension divided by that cell.
+        nt = mat.node_tree
+        coord = nt.nodes.new("ShaderNodeTexCoord")
+        cell = (unit[0] + look["joint_m"], unit[1] + look["joint_m"])
+        mo = look.get("mottle", 0.0)
+        lo = (rgb[0] * (1 - mo), rgb[1] * (1 - mo), rgb[2] * (1 - mo), 1.0)
+        hi = (min(1.0, rgb[0] * (1 + mo)), min(1.0, rgb[1] * (1 + mo)),
+              min(1.0, rgb[2] * (1 + mo)), 1.0)
+        # the joint is LIME, and it is lighter than almost anything laid in it
+        joint_rgb = (min(1.0, rgb[0] * 1.8 + 0.10), min(1.0, rgb[1] * 1.8 + 0.10),
+                     min(1.0, rgb[2] * 1.8 + 0.10), 1.0)
+
+        stagger = 0.5 if look["bond"] == "stretcher" else 0.0
+
+        def one(vec):
+            fac, unit = _bond(nt, vec, cell, look["joint_m"], stagger)
+            shade = nt.nodes.new("ShaderNodeMix")
+            shade.data_type = "RGBA"
+            shade.inputs[6].default_value = lo
+            shade.inputs[7].default_value = hi
+            nt.links.new(unit, shade.inputs["Factor"])
+            laid = nt.nodes.new("ShaderNodeMix")
+            laid.data_type = "RGBA"
+            nt.links.new(fac, laid.inputs["Factor"])
+            nt.links.new(shade.outputs[2], laid.inputs[6])
+            laid.inputs[7].default_value = joint_rgb
+            return laid.outputs[2], fac
+
+        colour, fac = _triplanar(nt, coord, one)
+        nt.links.new(colour, bsdf.inputs["Base Color"])
+        if look.get("relief_m", 0.0) > 0.0:
+            # the joint is RAKED: the mortar sits back, so height is 1 minus the mortar factor
+            inv = nt.nodes.new("ShaderNodeMath")
+            inv.operation = "SUBTRACT"
+            inv.inputs[0].default_value = 1.0
+            nt.links.new(fac, inv.inputs[1])
+            bump = nt.nodes.new("ShaderNodeBump")
+            bump.inputs["Distance"].default_value = look["relief_m"]
+            bump.inputs["Strength"].default_value = 1.0
+            nt.links.new(inv.outputs[0], bump.inputs["Height"])
+            nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    elif look.get("grain_m", 0.0) > 0.0 or look.get("mottle", 0.0) > 0.0:
+        nt = mat.node_tree
+        grain = look.get("grain_m", 0.0) or 0.05
+        coord = nt.nodes.new("ShaderNodeTexCoord")
+        noise = nt.nodes.new("ShaderNodeTexNoise")
+        noise.inputs["Scale"].default_value = 1.0 / grain
+        noise.inputs["Detail"].default_value = 6.0
+        noise.inputs["Roughness"].default_value = 0.6
+        nt.links.new(coord.outputs["Object"], noise.inputs["Vector"])
+        if look.get("relief_m", 0.0) > 0.0:
+            bump = nt.nodes.new("ShaderNodeBump")
+            # Blender's Bump takes a DISTANCE in scene units, which is metres here
+            bump.inputs["Distance"].default_value = look["relief_m"]
+            bump.inputs["Strength"].default_value = 1.0
+            nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+            nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+        if look.get("mottle", 0.0) > 0.0:
+            mix = nt.nodes.new("ShaderNodeMix")
+            mix.data_type = "RGBA"
+            mix.inputs["Factor"].default_value = 1.0
+            lo = [c * (1.0 - look["mottle"]) for c in rgb]
+            hi = [min(1.0, c * (1.0 + look["mottle"])) for c in rgb]
+            mix.inputs[6].default_value = (lo[0], lo[1], lo[2], look["alpha"])
+            mix.inputs[7].default_value = (hi[0], hi[1], hi[2], look["alpha"])
+            # the mottle is coarser than the grain: a brick differs from its neighbour, not a
+            # grain of sand from the next
+            wide = nt.nodes.new("ShaderNodeTexNoise")
+            wide.inputs["Scale"].default_value = 1.0 / max(grain * 3.0, 0.02)
+            wide.inputs["Detail"].default_value = 3.0
+            nt.links.new(coord.outputs["Object"], wide.inputs["Vector"])
+            nt.links.new(wide.outputs["Fac"], mix.inputs["Factor"])
+            nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
     mat.use_backface_culling = not look["two"]
     if look["mode"] == "MASK":
         # A LEAF CARD IS A QUAD WITH A HOLE IN IT, and without the hole it is a quad. The engine

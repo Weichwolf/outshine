@@ -22,7 +22,9 @@ from scipy.sparse.linalg import spsolve
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import substring, unary_union
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import kerbline  # noqa: E402
 import publish  # noqa: E402
 
 OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "synthetic"
@@ -3722,6 +3724,8 @@ def run(case, number=0):
         "water": check_water(m),
         "I7/I9 mesh": check_mesh(m, st),
         "I11 earthworks": check_earthworks(m, st),
+        "I17 walk on carriageway m2": kerbline.check_walk_off_carriageway(m, st),
+        "I18 carriageway pieces": kerbline.check_carriageway_connected(m, st),
         "I8 seam": (seam_sweep(terrain, NETWORKS[rname]) if rname == "R17-seam" else None),
     }
     red = []
@@ -3749,6 +3753,10 @@ def run(case, number=0):
         red.append("I5")
     if verdict["I4 over road m"] is not None and verdict["I4 over road m"] < CLEARANCE_M:
         red.append("I4road")
+    if verdict["I17 walk on carriageway m2"] > 0.01:
+        red.append("I17")
+    if verdict["I18 carriageway pieces"] != 0:
+        red.append("I18")
     seam = verdict["I8 seam"]
     if seam is not None:
         # the seam must stand well inside the DRIVING tolerance, and the halo that buys it is

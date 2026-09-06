@@ -24,19 +24,28 @@ is just as real:
 | **R2 the opening** | Half-Life 2, 2004: a wall is a facade with holes, and the ground floor differs | every reachable wall carries real holes with a reveal >= 0.10 m; no glass inside solid geometry | **cleared** -- the wall is meshed with its holes from L2 |
 | **R3 the material** | Crysis 2007 into PBR 2011: measured reflectance, one shading model | glTF `pbrMetallicRoughness`; every albedo inside its measured band; an 18 % card exposes to 118 | **cleared** -- 23 stock materials, exposure measured |
 | **R4 the rhythm** | Assassin's Creed / CityEngine, 2007: a grammar, not a texture | a storey hierarchy with a measurably taller beletage; party walls; no two neighbours identical | **cleared for the block**, open for the house and the hall |
-| **R5 the street** | GTA V, 2013: the street level is where the budget goes | a JUNCTION with its own surface, stop lines, crossings and drains; furniture per 100 m at the reference's order | **half** -- kerb, gutter, footway, markings, lamps, trees, walls; no junction detail, no crossing, no sign, no drain |
+| **R5 the street** | GTA V, 2013: the street level is where the budget goes | a JUNCTION with its own surface, stop lines, crossings and drains; furniture per 100 m at the reference's order | **junction cleared** -- one kerb ring around the NETWORK with RASt 06 corner radii, dropped kerbs at every crossing, markings interrupted across a junction, give-way teeth on the minor leg only, terrain cut by the street (I17, I18, I19); open: lanes, parking, signals from OSM, gullies on a real profile |
 | **R6 the wear** | The Witcher 3, 2015: nothing is clean, and the dirt has a REASON | a wetness/exposure field drives the material: streaks under sills, moss at a plinth, wear on a desire line | **not started** |
 | **R7 the density** | Cyberpunk 2077, 2020: the street is FULL | interiors behind glass, signage, awnings, aerials, cables, balcony clutter, parked cars; instances per m2 at the reference's order | **not started** |
 | **R8 the continuum** | UE5, 2021: LOD you cannot see | the same body at rung n and n+1 differs under a threshold in screen space at the switch distance; the world to the sight limit | **partial** -- ladders exist per generator, no morph, ground reaches 12 km of 240 |
 
 ## What each open rung actually needs
 
-**R5, the junction.** A network of ribbons is not a street network. It needs: the junction's own
-paved surface (netconvert's polygon, which the road bed already computes), stop lines and give-way
-markings from the priority the network already carries, a pedestrian crossing where a footway meets
-a carriageway, a drain at every low point of the gutter, a traffic signal where OSM says
-`highway=traffic_signals`, and a sign where it says `traffic_sign`. Every one is already in the
-data or already computed -- none of it is invention.
+**R5, the junction. WHAT IT COST, measured 2026-09-06.** A network of ribbons is not a street
+network, and every one of the five defects below was invisible to every check that existed and
+visible in the first picture:
+
+| what was wrong | how it read | what now says so |
+|---|---|---|
+| the footway was built PER WAY | at every junction the minor leg's 2.50 m footway lay across the whole 10 m major carriageway, and the major's kerb ran unbroken across the minor's mouth | **I17** `walk on carriageway m2`, control 37-121 m2 over six networks |
+| no corner radius | two ribbons crossing, which is not a junction | the kerb line is the channel CLOSED with RASt 06's radius -- 6 m residential, 8 m where a lorry turns |
+| the terrain ran STRAIGHT UNDER the road | a road has a crown, so of a 10 m carriageway a 3 m ribbon showed and the rest was grass | **I19** `ground over street m2`, and `ground.py` cuts the sheet with the street's own outline |
+| the paint read the TERRAIN's height | a zebra on a crowned road stood 0.12 m proud and Cycles drew four rows of kerbstones | every marking reads `kerbline.Surface`, which interpolates the DRAWN mesh |
+| the height off the road was the NEAREST triangle | at a corner fillet the nearest leg SWITCHES and the height jumps by the difference of their crowns: a crease and a bright wedge at every corner | eight triangles, inverse-square weighted; the footway's worst face went from 77 deg off level to 30 |
+
+What is still open on the rung: LANES (a 10 m primary drawn with one dashed line has two 4.75 m
+lanes, which no road has), parking bays, the signal and the sign from OSM at a real junction, and
+a gully on a profile that actually has a low point.
 
 **R6, the wear.** The rule is that dirt has a REASON: water runs off a sill and streaks the wall
 under it; it stands at a plinth and grows moss; a foot wears a path where people actually walk.

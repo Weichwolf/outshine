@@ -6,13 +6,9 @@ without it reads as an architectural model however good the buildings are. Every
 generated from what OSM and the road bed already state -- the centreline, the width, the class,
 and the tags a surveyor wrote -- and nothing is placed by hand.
 
-    BORDSTEIN   the kerb: RASt 06 gives 10 to 12 cm of upstand at a carriageway edge, 3 cm at a
-                crossing, and it is the single line that makes a road read as built rather than
-                painted. 0.30 m wide, which is the stone's own dimension
-    RINNE       the gutter, a 0.30 m channel laid flat against the kerb: where the water goes,
-                and a strip of a different material along every edge
-    GEHWEG      the pavement behind it. RASt 06's minimum clear width is 2.50 m, and it stands
-                at the kerb's own height
+    BORDSTEIN, RINNE, GEHWEG   the edge of the street. It is NOT here: an edge is a property of
+                the NETWORK and not of a way, because two ways that meet share one corner --
+                `kerbline.street_edge` builds all three as one ring around the whole network
     MARKIERUNG  the centre line and the edge lines. RMS-1: a 0.12 m line, dashed 6 m on 12 m for
                 a Leitlinie, solid for a Fahrbahnbegrenzung
     LATERNE     a street lamp on the pavement, spaced by its own mounting height times four,
@@ -35,21 +31,25 @@ LINE_M = 0.12             # [SET] RMS-1: a carriageway marking is 120 mm wide
 DASH_ON_M, DASH_OFF_M = 6.0, 6.0   # [SET] RMS-1's Leitlinie, 6 m on 6 m off outside a junction
 LAMP_H_M = 5.0            # [SET] a residential street's mounting height
 LAMP_EVERY = 4.0          # [SET] a lighting designer spaces poles at four times the height
-# EVERYTHING ON A CARRIAGEWAY STACKS, and the order is the order it is laid in. The marking was
-# put 12 mm over the ground and the carriageway 20 mm, so every line was UNDER the road it was
-# painted on and none of them was visible (rendered a street and looked at, 2026-09-06).
-SURFACE_M = 0.020         # where the carriageway's own surface sits over the terrain
-PAINT_M = SURFACE_M + 0.004   # [SET] a cold plastic marking is about 3 mm proud of the asphalt
+# A MARKING IS PROUD OF THE ROAD AND OF NOTHING ELSE. It was once lifted over the TERRAIN, which
+# on a crowned carriageway put it 0.12 m in the air at the edge; the road is a surface of its own
+# now (`ground.py` cuts the terrain out from under it), so the only offset a marking needs is its
+# own thickness.
+PAINT_M = 0.004           # [SET] a cold plastic marking is about 3 mm proud of the asphalt
 
 
 def _ribbon(points, half, z_at, rise=0.0):
-    """A flat strip of a given half-width along a polyline, at the surface's own height."""
+    """A strip of a given half-width along a polyline, ON the surface it is painted on.
+
+    THE HEIGHT IS READ AT EACH EDGE AND NEVER AT THE AXIS. A carriageway has a crown, so an edge
+    line 4.75 m out stands 0.12 m below the axis; taken at the axis the line floated over the
+    road and Cycles drew the gap as a shadow, which read as a kerbstone (looked at, 2026-09-06)."""
     verts, tris = [], []
     for k, (x, y, dx, dy) in enumerate(points):
         nx, ny = -dy, dx
-        z = z_at(x, y) + rise
-        verts += [(x + nx * half[0], y + ny * half[0], z),
-                  (x + nx * half[1], y + ny * half[1], z)]
+        p0 = (x + nx * half[0], y + ny * half[0])
+        p1 = (x + nx * half[1], y + ny * half[1])
+        verts += [(p0[0], p0[1], z_at(*p0) + rise), (p1[0], p1[1], z_at(*p1) + rise)]
         if k:
             a, b = 2 * (k - 1), 2 * k
             tris += [(a, b, b + 1), (a, b + 1, a + 1)]
@@ -71,48 +71,29 @@ def _walk(line, step=2.0):
     return out
 
 
-def kerb_and_walk(m, way, z_at):
-    """THE EDGE OF THE ROAD, both sides: gutter, kerb face, kerb top, pavement.
-
-    A road's edge is four strips and not one line, and the kerb's FACE is the only vertical
-    surface at street level -- which is what makes a shadow along the whole length and what the
-    eye reads the road's own line from."""
-    if way["tags"].get("highway") in ("motorway", "motorway_link", "trunk", "trunk_link"):
-        return ()                       # a motorway has a hard shoulder, not a kerb and a footway
-    line = m.centreline(way)
-    if line.length < 4.0:
-        return ()
-    half = way["tags"]["width"] / 2.0
-    pts = _walk(line)
+def _junction_windows(m, st, way):
+    """The stations this way is INSIDE a junction, from the bed's own cut. RMS-1 interrupts every
+    longitudinal marking across a junction: a centre line drawn through one is the tell that the
+    generator drew a ribbon and not a street."""
     out = []
-    for side in (-1.0, +1.0):
-        a = side * half
-        b = side * (half + GUTTER_M)
-        c = side * (half + GUTTER_M + KERB_WIDE_M)
-        d = side * (half + GUTTER_M + KERB_WIDE_M + WALK_M)
-        lo, hi = sorted((a, b))
-        out.append(("gutter", *_ribbon(pts, (lo, hi), z_at, SURFACE_M * 0.4)))
-        # the kerb's FACE, the one vertical surface a street has
-        face_v, face_t = [], []
-        for k, (x, y, dx, dy) in enumerate(pts):
-            nx, ny = -dy, dx
-            z = z_at(x, y)
-            face_v += [(x + nx * b, y + ny * b, z), (x + nx * b, y + ny * b, z + KERB_UP_M)]
-            if k:
-                i, j = 2 * (k - 1), 2 * k
-                face_t += [(i, j, j + 1), (i, j + 1, i + 1)] if side > 0 else \
-                          [(i, j + 1, j), (i, i + 1, j + 1)]
-        out.append(("kerb", face_v, face_t))
-        lo, hi = sorted((b, c))
-        out.append(("kerb", *_ribbon(pts, (lo, hi), z_at, KERB_UP_M)))
-        lo, hi = sorted((c, d))
-        out.append(("walk", *_ribbon(pts, (lo, hi), z_at, KERB_UP_M)))
-    return tuple(out)
+    if st is None:
+        return out
+    for k, nid in enumerate(way["refs"]):
+        cut = st.cuts.get((way["id"], nid))
+        if cut is None:
+            continue
+        s = m.stations[way["id"]][k]
+        out.append((s - cut, s + cut))
+    return out
 
 
-def markings(m, way, z_at):
+def _clear(windows, lo, hi):
+    return all(hi <= a or lo >= b for (a, b) in windows)
+
+
+def markings(m, way, z_at, st=None):
     """THE LINES ON IT. A Leitlinie down the middle where the road carries two directions, and an
-    edge line where the class has one."""
+    edge line where the class has one -- both interrupted across every junction."""
     tags = way["tags"]
     if tags.get("highway") in ("footway", "path", "steps", "cycleway", "track", "service") \
             or "railway" in tags or tags.get("railway"):
@@ -121,21 +102,39 @@ def markings(m, way, z_at):
     if line.length < 12.0:
         return ()
     half = way["tags"]["width"] / 2.0
+    windows = _junction_windows(m, st, way)
     out = []
-    if half >= 2.6:
+    # A LEITLINIE IS NOT MARKED ON EVERY ROAD THAT IS WIDE ENOUGH. RMS-1 marks one where the
+    # class carries through traffic; a residential street of the same width carries none, and
+    # drawing one there is the tell that the generator read the width and not the class.
+    if half >= 3.25 and tags.get("highway") in ("primary", "secondary", "tertiary",
+                                                "unclassified", "primary_link", "secondary_link"):
         # the CENTRE line, dashed: 6 m on, 6 m off
         at = 0.0
         while at + DASH_ON_M < line.length:
-            piece = _walk_between(line, at, at + DASH_ON_M)
-            if piece:
-                out.append(("paint", *_ribbon(piece, (-LINE_M / 2, LINE_M / 2), z_at, PAINT_M)))
+            if _clear(windows, at, at + DASH_ON_M):
+                piece = _walk_between(line, at, at + DASH_ON_M)
+                if piece:
+                    out.append(("paint", *_ribbon(piece, (-LINE_M / 2, LINE_M / 2), z_at, PAINT_M)))
             at += DASH_ON_M + DASH_OFF_M
     if tags.get("highway") in ("primary", "secondary", "trunk", "motorway"):
-        pts = _walk(line)
         for side in (-1.0, +1.0):
             e = side * (half - 0.25)
             lo, hi = sorted((e - LINE_M / 2, e + LINE_M / 2))
-            out.append(("paint", *_ribbon(pts, (lo, hi), z_at, PAINT_M)))
+            at = 0.0
+            while at < line.length - 1.0:
+                nxt = min(line.length, at + 20.0)
+                for (a, b) in windows:
+                    if a < nxt and b > at:
+                        nxt = min(nxt, max(at, a))
+                if nxt - at > 1.0 and _clear(windows, at, nxt):
+                    piece = _walk_between(line, at, nxt)
+                    if piece:
+                        out.append(("paint", *_ribbon(piece, (lo, hi), z_at, PAINT_M)))
+                at = nxt if nxt > at else at + 1.0
+                for (a, b) in windows:
+                    if a <= at <= b:
+                        at = b
     return tuple(out)
 
 
@@ -200,9 +199,13 @@ def _lantern(x, y, z, length, width, height):
     return v, t
 
 
-def lamps(m, way, z_at):
+def lamps(m, way, z_at, walk=None):
     """A LAMP ON THE PAVEMENT, spaced at four times its mounting height, which is what a lighting
-    designer spaces them by. Only where a street is lit: a class that carries a footway."""
+    designer spaces them by. Only where a street is lit: a class that carries a footway.
+
+    `walk` is the footway AREA the network's kerb ring produced, and a pole whose foot is not in
+    it is not placed. Without that test the poles at a junction stood in the carriageway, because
+    a per-way offset knows nothing about the corner the ring cut away (rendered and looked at)."""
     tags = way["tags"]
     if tags.get("highway") not in ("residential", "living_street", "unclassified", "tertiary",
                                    "secondary", "primary", "pedestrian"):
@@ -210,18 +213,29 @@ def lamps(m, way, z_at):
     line = m.centreline(way)
     if line.length < 20.0:
         return ()
+    from shapely.geometry import Point
     half = way["tags"]["width"] / 2.0 + GUTTER_M + KERB_WIDE_M + 0.6
     out = []
     every = LAMP_H_M * LAMP_EVERY
-    at = every * 0.5
+    # RASt 06: one-sided on a narrow street, staggered on a wide one -- so a wide street gets a
+    # pole every half spacing, alternating, and reads as lit rather than as lined
+    sides = (+1.0, -1.0) if way["tags"]["width"] >= 9.0 else (+1.0,)
+    step = every / len(sides)
+    at, turn = step * 0.5, 0
     while at < line.length:
+        side = sides[turn % len(sides)]
+        turn += 1
         p = line.interpolate(at)
         a = line.interpolate(max(0.0, at - 0.5))
         b = line.interpolate(min(line.length, at + 0.5))
         dx, dy = b.x - a.x, b.y - a.y
         d = math.hypot(dx, dy) or 1.0
-        nx, ny = -dy / d, dx / d
+        nx, ny = -dy / d * side, dx / d * side
         x, y = p.x + nx * half, p.y + ny * half
+        at_next = at + step
+        if walk is not None and not walk.contains(Point(x, y)):
+            at = at_next
+            continue
         z = z_at(x, y) + KERB_UP_M
         out.append(("metal", *_post(x, y, z, LAMP_H_M, 0.065)))
         # THE OUTREACH IS AN ARM AND THE LANTERN A SHALLOW BOX. Drawn as a 0.62 m prism the
@@ -231,5 +245,5 @@ def lamps(m, way, z_at):
         av = [(x - nx * s, y - ny * s, top + (0.10 if s > 0.05 else 0.0)) for s in (0.0, arm)]
         out.append(("metal", *_beam(av[0], av[1], 0.05)))
         out.append(("lamp", *_lantern(x - nx * arm, y - ny * arm, top + 0.06, 0.46, 0.20, 0.14)))
-        at += every
+        at = at_next
     return tuple(out)
