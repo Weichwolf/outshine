@@ -27,7 +27,7 @@ is just as real:
 | **R5 the street** | GTA V, 2013: the street level is where the budget goes | a JUNCTION with its own surface, stop lines, crossings and drains; furniture per 100 m at the reference's order | **junction cleared** -- one kerb ring around the NETWORK with RASt 06 corner radii, dropped kerbs at every crossing, markings interrupted across a junction, give-way teeth on the minor leg only, terrain cut by the street (I17, I18, I19); open: lanes, parking, signals from OSM, gullies on a real profile |
 | **R6 the wear** | The Witcher 3, 2015: nothing is clean, and the dirt has a REASON | a wetness/exposure field drives the material: streaks under sills, moss at a plinth, wear on a desire line | **the road, and the plinth** -- polish (the wheel paths, from the lane list) and silt (the last 0.50 m before the kerb) as a vertex field, proven by I21 with a live control; the splash band as a SHADER function of the height over the body's own ground, because I23 measured that a facade cannot carry even a 0.50 m band. Open: the streak under a sill, and the desire line on a footway -- both need a decal |
 | **R7 the density** | Cyberpunk 2077, 2020: the street is FULL | interiors behind glass, signage, awnings, aerials, cables, balcony clutter, parked cars; instances per m2 at the reference's order | **not started** |
-| **R8 the continuum** | UE5, 2021: LOD you cannot see | the same body at rung n and n+1 differs under a threshold in screen space at the switch distance; the world to the sight limit | **partial** -- ladders exist per generator, no morph, ground reaches 12 km of 240 |
+| **R8 the continuum** | UE5, 2021: LOD you cannot see | the same body at rung n and n+1 differs under a threshold in screen space at the switch distance; the world to the sight limit | **partial, and now forced** -- ladders exist per generator, no morph, ground reaches 12 km of 240. The street pass made it urgent: measured on OldTown at a 240 m reach, the road mesher alone is 158 s and 1 660 149 triangles, so the wear rows, the station step, the sagitta tolerance and the footway's quality mesh all now stop at a REACH. That is LOD by radius, which is the crudest kind there is, and the rung is what replaces it |
 
 ## What each open rung actually needs
 
@@ -73,10 +73,25 @@ downpipes, aerials, satellite dishes, cables and meter boxes. Interior mapping b
 the one item that is a renderer's job and not a generator's, and `research/world.md` already places
 it in the fragment stage.
 
-**R8, the continuum.** The ladders exist -- the tree's is its recursion depth, the building's is
-its rung, the road's is its station step -- but nothing measures the SWITCH. The gate is a picture
-pair: the same body at rung n and n+1 from the distance the switch happens at, differing under a
-threshold in screen space.
+**R8, the continuum. WHAT A PLACE TWIN COSTS, measured 2026-09-07 on OldTown at a 120 m reach:**
+
+| stage | seconds | what it is |
+|---|---|---|
+| roads | 261 | 103 s of convex solve over the whole extract, 158 s of meshing |
+| wear | 18 | the field, vectorised; `region_of` per junction is what is left in it |
+| ground | 9 | the CDT with the street cut out and the surfaces as constraints |
+| street area | 3.4 | the kerb ring's outlines |
+| surfaces | 0.3 | OSM's own ground |
+
+The mesher is the block and the reason is stated where it is: it does shapely work PER STATION,
+and a dense extract's stations are OSM's own nodes, so no step or tolerance can reduce them --
+620 585 triangles even with every LOD lever pulled. Vectorising it is the next speed item and it
+is the same rewrite the C++ will want anyway.
+
+The ladders exist -- the tree's is its recursion depth, the building's is its rung, the road's is
+its station step -- but nothing measures the SWITCH. The gate is a picture pair: the same body at
+rung n and n+1 from the distance the switch happens at, differing under a threshold in screen
+space.
 
 ## How a rung is cleared
 

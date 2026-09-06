@@ -48,6 +48,7 @@ DECK_GRADE = 0.04         # [SET] a deck's own grade, RAA/RAL bridges: the expen
 DECK_STIFF = 10.0         # [SET] a deck resists bending ten times more than the fill beside it -- the lift goes to the ramps
 COVER_M = 3.0             # [SET] the least rock a tunnel keeps above its crown
 WELD_M = 1e-3
+FAR_TOL_M = 0.20          # [SET] the sagitta a twin allows beyond `Mesh.FINE_REACH_M`
 MESH_TOL_M = 0.01         # [SET] the drawn surface stands within a centimetre of the analytic one
 STEP_TOL_M = 1e-3
 TANGENT_H = 0.05          # [SET] the central difference a centreline's tangent is read over
@@ -2523,8 +2524,11 @@ class Mesh:
         z = self.st.leg_surface(way, station, offset, nid, sgn)
         return x, y, z
 
-    @staticmethod
-    def section(way):
+    FINE_REACH_M = float("inf")   # [SET] how far from the origin the wear rows are still drawn
+    FAR_STEP_M = 10.0             # [SET] and the station step out there, where MESH_TOL_M buys
+                                  # nothing a camera can resolve
+
+    def section(self, way):
         """The cross-section's BREAK OFFSETS: a vertex stands wherever the SURFACE changes.
 
         The slope changes at the crown and at the two edges -- a strip of two vertices chords the
@@ -2532,8 +2536,16 @@ class Mesh:
         than its slope: it changes at a LANE BOUNDARY, where the marking is and where one lane's
         wear stops, and along a WHEEL PATH, where a tyre has polished it. CARLA samples each lane
         across `vertex_width_resolution` for exactly this reason. So the list is the lane
-        boundaries and the wheel paths as well, and a field laid on the road has somewhere to sit."""
+        boundaries and the wheel paths as well, and a field laid on the road has somewhere to sit.
+
+        BUT ONLY WHERE ANYBODY CAN SEE IT. The wear rows multiply a way's vertices by seven, and
+        measured on OldTown at a 240 m reach that is 1 660 149 triangles and 165 s of meshing for
+        a field whose bands are 0.35 m wide -- invisible past a hundred metres. Beyond
+        `FINE_REACH_M` the section is what it always was: the crown and the two edges."""
         half = way["tags"]["width"] / 2.0
+        if self.FINE_REACH_M < float("inf") and \
+                self.map.centreline(way).distance(Point(0.0, 0.0)) > self.FINE_REACH_M:
+            return [-half, 0.0, half]
         got = {-half: 1, 0.0: 1, half: 1}
         for frac in (1.0, 0.66, 0.33):
             # the silt band needs its shoulders for the same reason the polish does
@@ -2564,6 +2576,8 @@ class Mesh:
     def _ribbon(self, w, lo, hi):
         if True:
             offsets = self.section(w)
+            far = self.FINE_REACH_M < float("inf") and \
+                self.map.centreline(w).distance(Point(0.0, 0.0)) > self.FINE_REACH_M
             # the station step from the CHORD's sagitta, per SEGMENT: a chord of length L across
             # a profile of curvature k stands k L^2 / 8 below it, so L = sqrt(8 tol / k). The
             # curvature is the segment's own -- one number for the whole way took the step from
@@ -2573,7 +2587,13 @@ class Mesh:
             stations = set(edges)
             for a_, b_ in zip(edges, edges[1:]):
                 kappa = self.map.worst_curvature(w, a_, b_)
-                step = self.step if kappa <= 0 else min(self.step, math.sqrt(8.0 * MESH_TOL_M / kappa))
+                # THE TOLERANCE IS A SCREEN QUANTITY and out there the screen cannot resolve it:
+                # measured on OldTown, the sagitta rule alone held the step at metres over the
+                # whole extract and the mesher spent 156 s on 625 405 triangles a camera at the
+                # origin never sees at that resolution.
+                near = self.FAR_STEP_M if far else self.step
+                tol = FAR_TOL_M if far else MESH_TOL_M
+                step = near if kappa <= 0 else min(near, math.sqrt(8.0 * tol / kappa))
                 # and the section's ROTATION: over a quad of length L the crossfall turns by
                 # dq/ds * L, and a triangulated bilinear patch stands half x that / 4 off it
                 l0, r0 = self.map.superelevation(w, a_)
@@ -2582,7 +2602,7 @@ class Mesh:
                 half = w["tags"]["width"] / 2.0
                 if rate > 1e-9:
                     step = min(step, 4.0 * MESH_TOL_M / (half * rate))
-                steps = max(1, int(math.ceil((b_ - a_) / max(step, 0.25))))
+                steps = max(1, int(math.ceil((b_ - a_) / max(step, 0.25 if not far else 2.0))))
                 stations |= {a_ + (b_ - a_) * k / steps for k in range(steps + 1)}
             # at an interior VERTEX the ribbon carries TWO rows, one per adjoining segment, and
             # the wedge between them closes the corner: a single mitred row makes a trapezoid

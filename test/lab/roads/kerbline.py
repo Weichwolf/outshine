@@ -37,8 +37,10 @@ WALK_FALL = 0.025         # [SET] RASt 06: a footway falls 2.5 % toward the kerb
 R_SMALL_M = 6.0           # [SET] RASt 06: the corner radius where two residential streets meet
 R_LARGE_M = 8.0           # [SET] RASt 06: where a bus or a lorry turns in
 FINE = "pq30a3.0"         # [SET] Shewchuk: 30 deg minimum angle, 3 m2 maximum area
-WALK_FINE = "pq30a0.8"    # [SET] the footway ramps at a dropped kerb, so it needs 1 m triangles
-ARC = 32                  # [SET] chords per quarter circle: at 8 the 8 m corner read as a polygon
+WALK_FINE = "pq30a3.0"    # [SET] and the footway is graded by SEEDS where a dropped kerb ramps
+ARC = 16                  # [SET] chords per quarter circle: at 8 the 8 m corner read as a
+                          # polygon, at 16 an 8 m radius is 9.5 mm off its own arc
+OUTLINE_M = 0.05          # [SET] how far the terrain's cut may leave the footway's own edge
 LARGE = ("primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link")
 
 # what has a kerb at all: a motorway has a hard shoulder, a footway IS the walk, a rail has ballast
@@ -55,7 +57,7 @@ def _rings(poly):
             yield part
 
 
-def triangulate(poly, z_of, opts="p"):
+def triangulate(poly, z_of, opts="p", seeds=()):
     """A polygon with holes, as triangles at the height the surface gives each vertex.
 
     `opts` reaches Shewchuk's switches: a footway is not flat -- it falls 2.5 % to the kerb --
@@ -77,6 +79,9 @@ def triangulate(poly, z_of, opts="p"):
                 holes.append((q.x, q.y))
     if len(pts) < 3:
         return [], []
+    # A GRADED MESH, and the seeds are where the grading is needed: a uniform quality mesh fine
+    # enough for a dropped kerb's 1.5 m ramp put 201 268 triangles in one roundabout's footway.
+    pts = pts + [(float(x), float(y)) for (x, y) in seeds]
     spec = {"vertices": np.array(pts, dtype=float), "segments": np.array(segs, dtype=np.int32)}
     if holes:
         spec["holes"] = np.array(holes, dtype=float)
@@ -129,25 +134,28 @@ class Surface:
     painted on -- which Cycles drew as four rows of kerbstones (looked at, 2026-09-06). One source
     per rule: the mesh is the source, and everything laid on the road interpolates it.
 
+    NO GEOS ON THIS PATH. It is called once per vertex of every ring in the network, and a
+    shapely `Point` plus an STRtree query per call put GEOS at the top of a place twin's profile.
+    The candidates come from one k-d tree of triangle CENTROIDS and the containment test is three
+    cross products in numpy -- the same answer, without an allocation.
+
     A point OFF the carriageway (a footway, the far side of a kerb) takes the height of the
-    nearest point ON it, which is what a kerb line is built from anyway."""
+    nearest points ON it, blended: at a corner fillet the nearest leg SWITCHES and a single
+    nearest jumps by the difference of the two crowns, which read as a crease and a bright wedge
+    along every corner."""
 
     def __init__(self, mesh, z_at, blend=8):
         from scipy.spatial import cKDTree
         self.z_at, self.blend = z_at, blend
-        self.tris, self.zs, mid = [], [], []
-        for (ia, ib, ic) in mesh.tris:
-            pa, pb, pc = (mesh.vertices[i] for i in (ia, ib, ic))
-            self.tris.append(Polygon([pa[:2], pb[:2], pc[:2]]))
-            self.zs.append((pa, pb, pc))
-            mid.append(((pa[0] + pb[0] + pc[0]) / 3.0, (pa[1] + pb[1] + pc[1]) / 3.0))
-        self.tree = STRtree(self.tris) if self.tris else None
-        self.near = cKDTree(np.asarray(mid)) if mid else None
+        tri = np.asarray([[mesh.vertices[i] for i in t] for t in mesh.tris], dtype=float) \
+            if mesh.tris else np.zeros((0, 3, 3))
+        self.a, self.b, self.c = tri[:, 0, :], tri[:, 1, :], tri[:, 2, :]
+        mid = tri.mean(axis=1)[:, :2] if len(tri) else np.zeros((0, 2))
+        self.near = cKDTree(mid) if len(mid) else None
         self.cache = {}
 
-    @staticmethod
-    def _lift(tri, x, y):
-        (ax, ay, az), (bx, by, bz), (cx, cy, cz) = tri
+    def _lift(self, i, x, y):
+        (ax, ay, az), (bx, by, bz), (cx, cy, cz) = self.a[i], self.b[i], self.c[i]
         det = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
         if abs(det) < 1e-12:
             return (az + bz + cz) / 3.0
@@ -157,6 +165,13 @@ class Surface:
         w = max(0.0, 1.0 - u - v)
         t = u + v + w
         return (u * az + v * bz + w * cz) / t
+
+    def _inside(self, i, x, y):
+        (ax, ay, _), (bx, by, _), (cx, cy, _) = self.a[i], self.b[i], self.c[i]
+        d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by)
+        d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy)
+        d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay)
+        return not ((d1 < 0 or d2 < 0 or d3 < 0) and (d1 > 0 or d2 > 0 or d3 > 0))
 
     def __call__(self, x, y):
         key = (round(x, 3), round(y, 3))
@@ -168,23 +183,16 @@ class Surface:
         return z
 
     def _solve(self, x, y):
-        if self.tree is None:
+        if self.near is None:
             return self.z_at(x, y)
-        p = Point(x, y)
-        for i in self.tree.query(p):
-            if self.tris[int(i)].intersects(p):
-                return self._lift(self.zs[int(i)], x, y)
-        # OFF THE CARRIAGEWAY THE NEAREST TRIANGLE IS NOT ENOUGH. Where a corner fillet is
-        # equidistant from two legs the nearest one SWITCHES, and the height jumps by the
-        # difference of their crowns -- 5 cm, which put a crease and a bright wedge along every
-        # corner of every junction (looked at in plan, 2026-09-06). Several of them, weighted by
-        # inverse square distance, give one smooth field and the same answer at the edge.
-        k = min(self.blend, len(self.zs))
+        k = min(max(self.blend, 12), self.near.n)
         d, idx = self.near.query([x, y], k=k)
-        d = np.atleast_1d(d)
-        idx = np.atleast_1d(idx)
-        w = 1.0 / np.maximum(d, 1e-6) ** 2
-        zs = np.array([self._lift(self.zs[int(i)], x, y) for i in idx])
+        d, idx = np.atleast_1d(d), np.atleast_1d(idx)
+        for i in idx:
+            if self._inside(int(i), x, y):
+                return self._lift(int(i), x, y)
+        w = 1.0 / np.maximum(d[:self.blend], 1e-6) ** 2
+        zs = np.array([self._lift(int(i), x, y) for i in idx[:self.blend]])
         return float((w * zs).sum() / w.sum())
 
 
@@ -263,8 +271,14 @@ def street_footprint(m, st, drivable=None):
     # outline differed from the footway's own outer ring at every corner fillet, and the terrain
     # and the footway then overlapped in slivers that Cycles drew as bright streaks along every
     # corner (looked at, 2026-09-06). The footprint IS the footway's outer ring, by construction.
+    #
+    # AND IT IS SIMPLIFIED, because this outline is a CONSTRAINT on the terrain's triangulation
+    # and not geometry anybody sees: at full resolution OldTown handed Shewchuk 260 000 segments
+    # and the noding alone took longer than the whole twin. 50 mm is a tenth of the kerbstone's
+    # own width and the terrain meets the footway at the same HEIGHT either way.
     return face.buffer(KERB_WIDE_M, join_style=1, quad_segs=ARC) \
-               .buffer(WALK_M, join_style=1, quad_segs=ARC)
+               .buffer(WALK_M, join_style=1, quad_segs=ARC) \
+               .simplify(OUTLINE_M)
 
 
 def edge_height(surface, sites=()):
@@ -300,8 +314,14 @@ def upstand(sites, half_extra=GUTTER_M):
     return up
 
 
-def street_edge(m, st, surface, sites=()):
+def street_edge(m, st, surface, sites=(), fine_reach_m=None):
     """GUTTER, KERB FACE, KERB TOP, FOOTWAY -- one ring each, around the whole network.
+
+    `fine_reach_m` is where the QUALITY mesh stops. The footway ramps at a dropped kerb and its
+    2.5 % fall needs metre triangles to carry -- near the camera. A whole city's footway meshed
+    that way is hundreds of thousands of triangles for a fall of six centimetres nobody can see
+    at two hundred metres, so beyond the disc it is a plain constrained triangulation. The disc
+    is a CONSTRAINT in both, so the two share their vertices and there is no crack.
 
     Returns [(role, vertices, triangles)]."""
     drivable = drivable_area(m, st)
@@ -320,19 +340,60 @@ def street_edge(m, st, surface, sites=()):
     def at_kerb(x, y):
         return surface(x, y) + up(x, y)
 
+    disc = None
+    if fine_reach_m:
+        disc = Point(0.0, 0.0).buffer(float(fine_reach_m), quad_segs=64)
+
+    def by_reach(role, poly, z_of, opts, seeds=()):
+        """The quality mesh inside the disc, a plain CDT outside it."""
+        if poly.is_empty:
+            return
+        if disc is None:
+            out.append((role, *triangulate(poly, z_of, opts, seeds)))
+            return
+        near = poly.intersection(disc)
+        far = poly.difference(disc)
+        if not near.is_empty:
+            out.append((role, *triangulate(near, z_of, opts,
+                                           [q for q in seeds if disc.covers(Point(*q))])))
+        if not far.is_empty:
+            out.append((role, *triangulate(far, z_of, "p")))
+
     out = []
     apron = face.difference(drivable)
     if not apron.is_empty:
-        out.append(("gutter", *triangulate(apron, at_road, FINE)))
+        by_reach("gutter", apron, at_road, FINE)
     out.append(("kerb", *extrude(face, at_road, up)))
-    out.append(("kerb", *triangulate(top_out.difference(face), at_kerb, FINE)))
+    by_reach("kerb", top_out.difference(face), at_kerb, FINE)
     walk = walk_out.difference(top_out)
     if not walk.is_empty:
+        # THE DISTANCE TO THE KERB, WITHOUT GEOS. `boundary.distance(Point)` per vertex put
+        # GEOSProject at the top of a place twin's profile; the boundary densified to 0.5 m in a
+        # k-d tree gives the same 2.5 % fall to within a centimetre.
+        from scipy.spatial import cKDTree
         edge = top_out.boundary
+        seeds = []
+        for part in (edge.geoms if hasattr(edge, "geoms") else [edge]):
+            n = max(2, int(part.length / 0.5))
+            seeds += [(p.x, p.y) for p in (part.interpolate(part.length * i / n)
+                                           for i in range(n + 1))]
+        rail = cKDTree(np.asarray(seeds)) if seeds else None
 
         def at_walk(x, y):
-            return surface(x, y) + up(x, y) + WALK_FALL * edge.distance(Point(x, y))
-        out.append(("walk", *triangulate(walk, at_walk, WALK_FINE)))
+            gap = float(rail.query([x, y], k=1)[0]) if rail is not None else 0.0
+            return surface(x, y) + up(x, y) + WALK_FALL * gap
+        seeds = []
+        for ((sx, sy), d, half) in sites:
+            nx, ny = -d[1], d[0]
+            for side in (-1.0, +1.0):
+                r = (half + GUTTER_M + KERB_WIDE_M) * side
+                cx, cy = sx + nx * r, sy + ny * r
+                for at in (0.5, 1.0, 1.6, 2.2):
+                    for k in range(10):
+                        a = 2 * math.pi * k / 10
+                        seeds.append((cx + at * math.cos(a), cy + at * math.sin(a)))
+        seeds = [q for q in seeds if walk.covers(Point(*q))]
+        by_reach("walk", walk, at_walk, WALK_FINE, seeds)
     return tuple((r, v, t) for (r, v, t) in out if t)
 
 

@@ -26,6 +26,7 @@ import os
 import pathlib
 import re
 import sys
+import time
 
 import numpy as np
 
@@ -42,6 +43,7 @@ import materials as stock  # noqa: E402
 import street  # noqa: E402
 import kerbline  # noqa: E402
 import junction  # noqa: E402
+import amenities  # noqa: E402
 import surfaces  # noqa: E402
 import wear  # noqa: E402
 import ground as lab_ground  # noqa: E402
@@ -72,8 +74,14 @@ DEM_ZOOM = 14                    # the engine samples FinestZoomOf(Elevation) - 
 # cost 210 ms a body; it costs 54 now, so 3300 bodies are three minutes and the cap has no reason
 # to exist. What bounds the reach is what the LENS reads, and at 60 m with a 55 degree lens that
 # is kilometres.
-BUILT_REACH_M = 2500.0           # buildings: as far as the lens resolves a body at all
-ROAD_REACH_M = 700.0             # roads: one convex solve over the extract, and it grows with it
+# THE REACH IS OVERRIDABLE, because a twin is a thing you have to be able to LOOK at often. The
+# road bed's profile is one convex solve over the whole extract and its cost grows faster than
+# the extract does -- OldTown at 700 m spends minutes inside cvxpy before a triangle exists -- so
+# `OUTSHINE_REACH` cuts both reaches for a look and the default is what a published twin uses.
+_REACH = float(os.environ.get("OUTSHINE_REACH", "0") or 0)
+BUILT_REACH_M = _REACH * 3.6 if _REACH else 2500.0   # buildings: as far as the lens resolves one
+ROAD_REACH_M = _REACH or 700.0   # roads: one convex solve over the extract, and it grows with it
+FINE_ROAD_M = 120.0              # and how far the carriageway carries its weathering rows
 GROUND_REACH_M = 12000.0         # terrain: far enough that the world does not END inside the frame
 GROUND_RINGS = 72                # a POLAR grid: rings times spokes, so no T-junction and no seam
 GROUND_SPOKES = 96
@@ -326,6 +334,10 @@ def roads_of(place, frame, red):
             red.append(f"{label}({value:.2e})")
     if not roadbed.check_finite(m)["finite"]:
         red.append("P finite")
+    # THE WEAR ROWS ARE DRAWN WHERE THEY CAN BE SEEN and nowhere else: their bands are 0.35 m
+    # wide, the camera stands at the origin, and past a hundred metres they cost seven times the
+    # vertices for nothing (measured: 1 660 149 triangles and 165 s at OldTown's 240 m reach).
+    roadbed.Mesh.FINE_REACH_M = FINE_ROAD_M
     return roadbed.Mesh(roadbed.Structure(m)), kept
 
 
@@ -412,7 +424,20 @@ def parts_of(place, frame, doc, red, lod=3):
         parts.add(role, verts, tris)
         looks[role] = rgb
 
+    # WHERE THE TIME WENT, said on every run. A twin is a thing you have to be able to LOOK at
+    # often, and a stage that costs minutes has to name itself rather than be sampled for.
+    clock = [time.time()]
+
+    def took(what):
+        now = time.time()
+        print(f"    {what:16s} {now - clock[0]:7.2f}s", flush=True)
+        clock[0] = now
+
+    stuffs = {"timber": stock.STOCK["timber"], "iron": stock.STOCK["iron"],
+              "steel": stock.STOCK["steel"], "glass": stock.STOCK["glass"],
+              "paint": stock.STOCK["paint"], "limestone": stock.STOCK["limestone"]}
     mesh, ways = roads_of(place, frame, red)
+    took("roads")
     street_face = None
     if mesh is not None:
         # ONE SURFACE, READ OFF THE DRAWN ROAD. The kerb, every marking and every gully sit on the
@@ -425,12 +450,14 @@ def parts_of(place, frame, doc, red, lod=3):
         surface = kerbline.Surface(mesh, z_at)
         sites = junction.crossing_sites(mesh.map, mesh.st)
         street_face = kerbline.street_footprint(mesh.map, mesh.st)
+        took("street area")
 
     def drop(vv):
         return [(v[0], v[1], v[2] - frame.datum) for v in vv]
 
     # WHAT THE GROUND IS, from OSM, with the street already spoken for
     patches = surfaces.regions(doc, frame, GROUND_REACH_M, street_face)
+    took("surfaces")
     over = surfaces.check_no_overlap(patches, street_face)
     if over > 1.0:
         red.append(f"I22 surfaces overlap {over:.1f} m2")
@@ -445,6 +472,7 @@ def parts_of(place, frame, doc, red, lod=3):
         for role, (gv, gt) in sheet.items():
             put(f"g.{role}", drop(gv), gt,
                 stock.STOCK["grass" if role == "ground" else role])
+        took("ground")
 
     if mesh is not None:
         road = drop(mesh.vertices)
@@ -457,12 +485,14 @@ def parts_of(place, frame, doc, red, lod=3):
         # THE WEATHERING FIELD, and every channel of it is a consequence: a tyre polished the
         # wheel paths, water left its silt in the last half metre before the kerb.
         fields["road"] = wear.carriageway(mesh, mesh.map)
+        took("wear")
         colour = {"kerb": stock.STOCK["kerbstone"], "gutter": stock.STOCK["asphalt"],
                   "walk": stock.STOCK["paving"], "paint": stock.STOCK["paint"],
                   "metal": stock.STOCK["iron"], "lamp": stock.STOCK["steel"],
                   "iron": stock.STOCK["iron"]}
-        for (role, vv, tt) in kerbline.street_edge(mesh.map, mesh.st, surface, sites):
+        for (role, vv, tt) in kerbline.street_edge(mesh.map, mesh.st, surface, sites, FINE_ROAD_M):
             put(role, drop(vv), tt, colour.get(role) or stock.STOCK["concrete"])
+        took("kerb ring")
         walk = kerbline.walk_area(mesh.map, mesh.st)
         for w in mesh.net.ways:
             for (role, vv, tt) in (street.markings(mesh.map, w, surface, mesh.st)
@@ -476,12 +506,43 @@ def parts_of(place, frame, doc, red, lod=3):
         for (role, vv, tt) in junction.signals_and_signs(doc, frame, z_at):
             put(f"j.{role}", vv, tt, colour.get(role) or stock.STOCK["concrete"])
 
+        # WHAT THE SURVEYOR PUT ON THE PAVEMENT: a bench, a bin, a bus shelter, a post box, a
+        # bicycle stand. OSM carries the position and the standard carries the dimensions; the
+        # one thing neither carries is which way the thing faces, so it takes that from the
+        # street it stands on -- a bench with its back to the pavement is the tell nobody looked.
+        # ONE TREE, BUILT ONCE. Asked per piece of furniture over every way in the extract this
+        # is a thousand shapely distances per bench, which is the product of two numbers a city
+        # makes large.
+        from shapely.geometry import Point
+        from shapely.strtree import STRtree
+        axes = [mesh.map.centreline(w) for w in mesh.net.ways]
+        near = STRtree(axes) if axes else None
+
+        def facing(x, y):
+            if near is None:
+                return ((1.0, 0.0), (0.0, 1.0))
+            p = Point(x, y)
+            line = axes[int(near.nearest(p))]
+            at = line.project(p)
+            a = line.interpolate(max(0.0, at - 0.5))
+            b = line.interpolate(min(line.length, at + 0.5))
+            dx, dy = b.x - a.x, b.y - a.y
+            n = math.hypot(dx, dy) or 1.0
+            q = line.interpolate(at)
+            side = 1.0 if ((x - q.x) * (-dy / n) + (y - q.y) * (dx / n)) > 0 else -1.0
+            return ((dx / n, dy / n), (-dy / n * side, dx / n * side))
+
+        for (role, vv, tt) in amenities.from_osm(doc, frame, z_at, facing, ROAD_REACH_M):
+            put(f"a.{role}", vv, tt, stuffs.get(role) or stock.STOCK["concrete"])
+        took("amenities")
+
     # WHAT THE SURVEYOR ALREADY PUT THERE: trees, walls, fences, hedges, bollards. A carriageway
     # with a kerb is a road; a road with these is a place, and in the references a large share of
     # what a player sees at eye level is exactly this.
     stuff = {"leaf": stock.STOCK["leaf"], "bark": stock.STOCK["bark"],
              "masonry": stock.STOCK["masonry"], "limestone": stock.STOCK["limestone"],
              "timber": stock.STOCK["timber"], "iron": stock.STOCK["iron"]}
+    took("markings")
     for (role, vv, tt) in furniture.from_osm(doc, frame, lambda x, y: frame.z(x, y)):
         put(f"f.{role}", vv, tt, stuff.get(role) or stock.STOCK["concrete"])
 
@@ -497,6 +558,7 @@ def parts_of(place, frame, doc, red, lod=3):
             put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30))
             if role in ("wall", "plinth", "stone", "wood"):
                 grounds[f"{role}.{at}"] = foot - frame.datum
+    took("buildings")
     return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped,
                               fields=fields, grounds=grounds)
 
