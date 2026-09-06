@@ -80,33 +80,37 @@ def seismic(lat_deg, lon_deg):
     return min(1.0, max(near(*b) for b in belts))
 
 
-# THE REGISTRY. Each entry is a predicate over (lat, lon) and the Region it names; the FIRST that
+# THE REGISTRY. Each entry is a predicate over (lat, lon, alt) and the Region it names; the FIRST that
 # answers wins, so a specialisation goes above the general case. Adding a region is one entry.
-def _europe_central(lat, lon):
+def _europe_central(lat, lon, alt):
     return 45.0 <= lat <= 56.0 and -2.0 <= lon <= 25.0
 
 
-def _europe_alpine(lat, lon):
-    return 44.5 <= lat <= 48.5 and 5.0 <= lon <= 16.0
+def _europe_alpine(lat, lon, alt):
+    # ALPINE IS A HEIGHT, NOT A BOX. A latitude-longitude rectangle from Lyon to Vienna made
+    # BERN alpine at 540 m and therefore a FRAME building, because a four-storey masonry cap is
+    # a mountain village's rule and not a capital's (measured 2026-09-06 on the Bundeshaus). The
+    # criterion is the one that produces the vernacular: enough height for real snow.
+    return 44.5 <= lat <= 48.5 and 5.0 <= lon <= 16.0 and alt >= 800.0
 
 
-def _europe_nordic(lat, lon):
+def _europe_nordic(lat, lon, alt):
     return lat > 56.0 and -25.0 <= lon <= 33.0
 
 
-def _mediterranean(lat, lon):
+def _mediterranean(lat, lon, alt):
     return 30.0 <= lat < 45.0 and -10.0 <= lon <= 40.0
 
 
-def _britain(lat, lon):
+def _britain(lat, lon, alt):
     return 49.5 <= lat <= 61.0 and -11.0 <= lon <= 2.0
 
 
-def _north_america(lat, lon):
+def _north_america(lat, lon, alt):
     return 24.0 <= lat <= 60.0 and -170.0 <= lon <= -52.0
 
 
-def _east_asia(lat, lon):
+def _east_asia(lat, lon, alt):
     return 20.0 <= lat <= 46.0 and 100.0 <= lon <= 146.0
 
 
@@ -156,7 +160,7 @@ _ANYWHERE = dict(name="anywhere", table="central-europe", wall="brick",
 
 def of(lat_deg, lon_deg, alt_m=0.0):
     """The rules where this coordinate is. The first registered region that claims it wins."""
-    got = next((r for (claims, r) in REGIONS if claims(lat_deg, lon_deg)), _ANYWHERE)
+    got = next((r for (claims, r) in REGIONS if claims(lat_deg, lon_deg, alt_m)), _ANYWHERE)
     snow = snow_kn_m2(lat_deg, alt_m)
     quake = seismic(lat_deg, lon_deg)
     region = Region(min_pitch_deg=max(got.get("min_pitch_deg", 0.0), min_pitch_deg(snow)),
