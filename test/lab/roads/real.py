@@ -25,7 +25,9 @@ import numpy as np
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent))
 import data as roaddata  # noqa: E402
+import publish  # noqa: E402
 import importlib.util as _util  # noqa: E402
 
 _spec = _util.spec_from_file_location("outshine_road_bed", HERE / "synthetic.py")
@@ -260,6 +262,10 @@ def run(name, number, only=None):
         "I4 bridge": bed.check_bridge(m),
         "I5 tunnel": bed.check_tunnel(m),
         "I12 clearance residual m": bed.check_clearance_fixpoint(m),
+        "I13 route step m": bed.check_route_c0(m, axis_of(m, CASES[name])),
+        "I14 invented grade / allowed": bed.check_invented_grade(m),
+        "I15 bend / allowed": bed.check_bend(m),
+        "I16 C1 across a joint": bed.check_c1_across(m),
         "P finite": bed.check_finite(m),
     }
     if verdict["I1 C0 m"] > 1e-9:
@@ -272,10 +278,19 @@ def run(name, number, only=None):
         red.append("I6")
     if verdict["I12 clearance residual m"] > bed.CLEARANCE_TOL_M:
         red.append("I12")
+    if verdict["I13 route step m"] > 1e-6:
+        red.append("I13")
+    if verdict["I14 invented grade / allowed"] > 1.0 + 1e-3:
+        red.append("I14")
+    if verdict["I15 bend / allowed"] > 1.0 + 1e-3:
+        red.append("I15")
+    if verdict["I16 C1 across a joint"] > 1e-6:
+        red.append("I16")
     if not verdict["P finite"]:
         red.append("Pfinite")
     bed.OUT = OUT
-    bed.plot((name, note), m, st, number, seed=axis_of(m, CASES[name]))
+    publish.take("infra", name, bed.plot((name, note), m, st, number,
+                                     seed=axis_of(m, CASES[name])), red)
     spans = sum(1 for w in net.ways if net.spans(w))
     bores = sum(1 for w in net.ways if net.bores(w))
     rails = sum(1 for w in net.ways if "rail" in w["tags"])
@@ -291,6 +306,8 @@ def run(name, number, only=None):
 
 def main(argv):
     picked = [n for n in CASES if not argv or any(a.lower() in n.lower() for a in argv)]
+    if not argv:
+        publish.sweep("infra")
     reds = 0
     for number, name in enumerate(sorted(picked), start=1):
         try:

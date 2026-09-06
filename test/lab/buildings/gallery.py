@@ -28,6 +28,7 @@ import importlib.util as _util  # noqa: E402
 _spec = _util.spec_from_file_location("outshine_building_bed", HERE / "synthetic.py")
 bed = _util.module_from_spec(_spec)
 _spec.loader.exec_module(bed)
+import publish  # noqa: E402
 import render as lab_render  # noqa: E402
 import roofs  # noqa: E402
 
@@ -63,8 +64,9 @@ def one(name, number):
         red.append(f"snap{near:.5f}")
     OUT.mkdir(parents=True, exist_ok=True)
     bed.OUT = OUT
-    bed.draw((f"R-{name}", "G1-flat", tags), b, f, number)
+    publish.take("roofs", f"sheet_{name}", bed.draw((f"R-{name}", "G1-flat", tags), b, f, number), red)
     shot = _render(b, name, number)
+    publish.take("roofs", f"view_{name}", shot, red)
     print(f"{number:02d} {name:12s} {'RED ' + ','.join(red) if red else 'ok':22s} "
           f"tris {len(b.tris):6d}  verts {len(b.vertices):6d}  volume {vol:9.1f} m3  "
           f"nearest pair {near:.4f} m  ridge +{b.ridge - b.pad:5.2f}  -> {shot.name}")
@@ -113,6 +115,8 @@ def _render(b, name, number):
 
 def main(argv):
     names = [n for n in sorted(roofs.SHAPES) if not argv or any(a in n for a in argv)]
+    if not argv:
+        publish.sweep("roofs")
     reds = 0
     for number, name in enumerate(names, start=1):
         try:

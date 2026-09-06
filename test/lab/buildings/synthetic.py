@@ -27,7 +27,9 @@ import triangle
 
 import sys as _sys, pathlib as _pl
 _sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parent.parent))
 import features
+import publish
 import roofs
 import region as region_of
 from shapely.geometry import Point, Polygon
@@ -98,6 +100,12 @@ def f_tower():
 
 FOOTPRINTS = {
     "F1-rect": f_rect,
+    "F12-bungalow": lambda: Polygon([(-7, -4.5), (7, -4.5), (7, 4.5), (1, 4.5), (1, 8.5),
+                                     (-4, 8.5), (-4, 4.5), (-7, 4.5)]),
+    "F13-detached": lambda: Polygon([(-5, -4.5), (5, -4.5), (5, 4.5), (1.8, 4.5), (1.8, 5.9),
+                                     (-1.8, 5.9), (-1.8, 4.5), (-5, 4.5)]),
+    "F14-semi": lambda: Polygon([(-7.5, -4.5), (7.5, -4.5), (7.5, 4.5), (0.2, 4.5), (0.2, 3.0),
+                                 (-0.2, 3.0), (-0.2, 4.5), (-7.5, 4.5)]),
     "F2-L": f_l,
     "F3-U": f_u,
     "F4-courtyard": f_courtyard,
@@ -108,6 +116,65 @@ FOOTPRINTS = {
 
 
 # ----------------------------------------------------------------------------- the roof
+
+class RoofField:
+    """THE ROOF'S HEIGHT FIELD OVER ONE FOOTPRINT, with everything constant computed ONCE.
+
+    `roof_height_at` used to rebuild the whole context PER SAMPLED POINT. Per building that was
+    26 960 calls to `axis_half`, each walking the ring through shapely's accessors, and 490 510
+    shapely calls in all: 210 ms for a 12 x 8 house, 4.8 buildings a second, 294 seconds of
+    geometry for one place's 1400 buildings (measured 2026-09-06 by cProfile). Nothing in that
+    context depends on the POINT except the distance and the two projections.
+
+    The polygon is also PREPARED once: `covers` on a raw polygon rebuilds the index per call."""
+
+    __slots__ = ("poly", "shape", "eaves", "ridge", "u", "v", "cx", "cy", "inradius",
+                 "half_u", "half_v", "rings", "ready", "known")
+
+    def __init__(self, poly, shape, eaves_h, ridge_h, axis=None):
+        import shapely.prepared
+        self.poly, self.shape = poly, shape
+        self.eaves, self.ridge = eaves_h, ridge_h
+        self.u, self.v = axis if axis is not None else principal_axis(poly)
+        c = poly.centroid
+        self.cx, self.cy = c.x, c.y
+        self.known = shape != "flat" and roofs.known(shape)
+        self.inradius = roof_inradius(poly) if self.known else 1.0
+        self.half_u = axis_half(poly, self.u) if self.known else 1.0
+        self.half_v = axis_half(poly, self.v) if self.known else 1.0
+        self.rings = [poly.exterior] + list(poly.interiors)
+        self.ready = shapely.prepared.prep(poly)
+
+    def at(self, x, y, d=None):
+        if not self.known:
+            return 0.0
+        here = Point(x, y)
+        if not self.ready.covers(here):
+            return 0.0
+        if d is None:
+            d = min(ring.distance(here) for ring in self.rings)
+        ctx = roofs.Ctx(poly=self.poly, x=x, y=y, d=d, eaves=self.eaves, ridge=self.ridge,
+                        axis=(self.u, self.v), inradius=self.inradius, half_v=self.half_v,
+                        half_u=self.half_u, pitch=ROOF_PITCH,
+                        across=abs((x - self.cx) * self.v[0] + (y - self.cy) * self.v[1]),
+                        along=abs((x - self.cx) * self.u[0] + (y - self.cy) * self.u[1]))
+        return roofs.height_at(self.shape, ctx)
+
+
+_FIELDS = {}
+
+
+def roof_field(poly, shape, eaves_h, ridge_h, axis=None):
+    """The field for this footprint and shape, built once and kept -- the same memoisation
+    `roof_inradius` already uses, on the same key."""
+    key = (id(poly), shape, round(float(eaves_h), 6), round(float(ridge_h), 6))
+    held = _FIELDS.get(key)
+    if held is not None and held[0] is poly:
+        return held[1]
+    got = RoofField(poly, shape, eaves_h, ridge_h, axis)
+    _FIELDS[key] = (poly, got)
+    return got
+
 
 def roof_height_at(poly, x, y, shape, eaves_h, ridge_h, axis=None):
     """The roof's height above the eaves at (x, y), from the SHAPE REGISTRY in `roofs.py`.
@@ -121,26 +188,10 @@ def roof_height_at(poly, x, y, shape, eaves_h, ridge_h, axis=None):
     distance to the boundary, the inradius, the half-widths across and along the principal axis
     -- and hands it to the one registered shape. Adding a roof is adding a function to `roofs.py`
     and nothing here changes."""
-    here = Point(x, y)
-    if not poly.covers(here):
-        return 0.0
-    if shape == "flat" or not roofs.known(shape):
-        return 0.0
-    d = poly.exterior.distance(here)
-    for ring in poly.interiors:
-        d = min(d, ring.distance(here))
-    u, v = axis if axis is not None else principal_axis(poly)
-    c = poly.centroid
-    across = abs((x - c.x) * v[0] + (y - c.y) * v[1])
-    along = abs((x - c.x) * u[0] + (y - c.y) * u[1])
-    ctx = roofs.Ctx(poly=poly, x=x, y=y, d=d, eaves=eaves_h, ridge=ridge_h, axis=(u, v),
-                    inradius=roof_inradius(poly), half_v=axis_half(poly, v),
-                    half_u=axis_half(poly, u), across=across, along=along, pitch=ROOF_PITCH)
-    return roofs.height_at(shape, ctx)
+    return roof_field(poly, shape, eaves_h, ridge_h, axis).at(x, y)
 
 
 _INRADIUS = {}
-_AXIS_HALF = {}
 
 
 def roof_inradius(poly, tol=1e-4):
@@ -185,13 +236,53 @@ def principal_axis(poly):
     return u, (-u[1], u[0])
 
 
+_AXIS_HALF = {}
+
+
 def axis_half(poly, v):
-    pts = list(poly.exterior.coords)
+    """MEMOISED, like the inradius beside it. `_AXIS_HALF` stood here as an empty dict -- the
+    memo was intended and never written -- while this walked the ring 26 960 times per building
+    (measured 2026-09-06 by cProfile: 1.90 s of a 3.01 s build)."""
+    key = (id(poly), round(float(v[0]), 9), round(float(v[1]), 9))
+    held = _AXIS_HALF.get(key)
+    if held is not None and held[0] is poly:
+        return held[1]
     c = poly.centroid
-    return max(abs((p[0] - c.x) * v[0] + (p[1] - c.y) * v[1]) for p in pts)
+    got = max(abs((p[0] - c.x) * v[0] + (p[1] - c.y) * v[1]) for p in poly.exterior.coords)
+    _AXIS_HALF[key] = (poly, got)
+    return got
 
 
 # ----------------------------------------------------------------------------- the body
+
+def metres(tags, key, otherwise=0.0):
+    """A LENGTH OUT OF AN OSM TAG, read the way a boundary reads: defensively.
+
+    `height` is free text written by a person. It arrives as `2,5` (a German decimal comma), as
+    `12 m`, as `40'` and as things that are not numbers at all, and `float()` on any of them
+    raises. Measured 2026-09-06: `height=2,5` on one building in Rothenburg's old town threw
+    `ValueError` out of the constructor and took the whole OldTown twin with it -- the picture
+    never rendered and the run reported one red place with no picture beside it.
+
+    Metres, or `otherwise`. Feet and inches are converted; anything unreadable is refused
+    quietly, because a surveyor's typo is not this bed's to repair."""
+    raw = tags.get(key)
+    if raw is None or raw == "":
+        return otherwise
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    text = str(raw).strip().lower().replace(",", ".")
+    scale = 1.0
+    for unit, factor in ((" m", 1.0), ("m", 1.0), (" ft", 0.3048), ("ft", 0.3048),
+                         ("'", 0.3048), ("\"", 0.0254)):
+        if text.endswith(unit):
+            text, scale = text[: -len(unit)].strip(), factor
+            break
+    try:
+        return float(text) * scale
+    except ValueError:
+        return otherwise
+
 
 class Building:
     """Footprint + tags + ground -> a closed body: pad, walls, eaves, roof."""
@@ -207,9 +298,9 @@ class Building:
         self.tags = tags
         self.ground = ground
         self.cell = cell
-        self.levels = float(tags.get("building:levels", 0) or 0)
-        self.min_m = float(tags.get("min_height", 0) or 0)
-        told_height = float(tags.get("height", 0) or 0)
+        self.levels = metres(tags, "building:levels")
+        self.min_m = metres(tags, "min_height")
+        told_height = metres(tags, "height")
         self.where = where
         self.style = Style(tags, poly, self.levels, told_height or self.levels * LEVEL_M,
                            where=where)
@@ -227,7 +318,7 @@ class Building:
                 self.roof = next((r for r in self.style.roofs
                                   if r not in ("onion", "dome", "spire", "pyramidal")), "gabled")
         self.axis = principal_axis(poly)
-        self.roof_h = float(tags.get("roof:height", 0) or 0) or self._roof_height()
+        self.roof_h = metres(tags, "roof:height") or self._roof_height()
         # OSM's rule, and it decides where the eaves stand: `height` is the WHOLE building,
         # ridge included, while `building:levels` counts the storeys UNDER the roof. Reading
         # levels as the whole height put the eaves inside the top storey and left a three-storey
@@ -330,6 +421,12 @@ class Building:
         return min(self.ground.at(x, y), self.pad) - FOOT_M
 
     def _build(self):
+        # A REBUILD IS A BUILD, NOT AN APPEND. Called twice -- which is what forcing a roof shape
+        # onto a body the style refused does -- this used to leave TWO copies of every face on one
+        # vertex table: 5408 triangles instead of 2704, 4056 edges with more than two faces, 8112
+        # directed edges without a partner, and a volume of exactly twice the body (measured
+        # 2026-09-06). The checks catch it; nothing stopped it happening.
+        self.vertices, self.tris, self.faces_of, self.byKey = [], [], {}, {}
         # walls, every ring, densified so a wall meets the ground's own steps
         # THE WINDING IS ALREADY IN THE RING. `orient(poly, 1.0)` gives the exterior
         # counter-clockwise and every hole clockwise, and that convention exists precisely so
@@ -439,6 +536,14 @@ class Building:
         # 2026-09-06). Remembering d costs a dict and removes the artefact at its source.
         self._ring_d = {}
 
+        # EVERY RING CARRIES THE SAME PARAMETERISATION, and this is what the COMB was.
+        # Each offset used to be re-densified on its own, so two neighbouring rings came out with
+        # different point counts at unrelated positions; the triangulation between them then
+        # alternates its apex high and low, which on a surface that is steep at the springing
+        # reads as a row of SPIKES. Measured 2026-09-06 on a 12 x 8 rectangle: the eaves ring had
+        # 80 points and the ring 0.125 m inside it had 78, at unrelated arc positions, across a
+        # band that rose 0.695 m. Sampling every ring at the SAME normalised arc fractions makes
+        # that band a clean strip. A ring that has split into several parts takes its share.
         def ring_points(d):
             inner = self.poly.buffer(-d, join_style=2)
             if inner.is_empty:
@@ -446,8 +551,13 @@ class Building:
             out = []
             for part in (inner.geoms if inner.geom_type == "MultiPolygon" else [inner]):
                 for ring in [part.exterior] + list(part.interiors):
-                    dense_ring = ring.segmentize(cell) if hasattr(ring, "segmentize") else ring
-                    got = list(dense_ring.coords)[:-1]
+                    # THE SAME DENSIFIER AS THE EAVES RING, and this is the point. Sampling an
+                    # offset at normalised ARC FRACTIONS puts its points at positions unrelated
+                    # to the eaves ring's, so the band between them zigzags. `_dense_ring` walks
+                    # a ring's own vertices and subdivides each EDGE at `cell`; a mitred offset
+                    # keeps the corner count and the edge directions, so the two rings' points
+                    # then stand above one another and the band is a strip.
+                    got = self._dense_ring(list(ring.coords)[:-1])
                     for q in got:
                         self._ring_d[(round(q[0], 6), round(q[1], 6))] = d
                     out += got
@@ -461,38 +571,69 @@ class Building:
         # The next ring is the one whose crown is at most RING_RISE_M above this one, floored at
         # a quarter cell so a flat roof does not build a thousand of them.
         def crown(dd):
+            """The roof's height AT distance dd -- which means a point ON that offset ring.
+
+            This used to probe `representative_point()`, a point somewhere in the MIDDLE of the
+            offset, and for a dome that point is already at the apex: `crown` returned 2.8008 for
+            every ring, the ladder read a rise of exactly 0.0000 between all of them, and the
+            whole height-stepping mechanism never once stepped. Measured 2026-09-06 -- the rings
+            came out at a flat 0.25 m of distance apart and the band above the eaves rose 0.81 m
+            across 0.25 m, which is the COMB. A point on the ring has geometric distance dd, so
+            the shape is asked the question the ladder is actually about."""
             inner = self.poly.buffer(-dd, join_style=2)
             if inner.is_empty:
                 return None
-            probe = inner.representative_point()
-            return self._roof_z(probe.x, probe.y)
+            part = inner if inner.geom_type == "Polygon" else max(inner.geoms, key=lambda g: g.area)
+            q = part.exterior.interpolate(0.5, normalized=True).coords[0]
+            return roof_height_at(self.poly, q[0], q[1], self.roof, self.eaves, self.ridge,
+                                  self.axis)
 
-        d = min(step, max(cell / 4.0, 0.05))
+        # THE FIRST BAND IS A BAND. The ladder used to place ring one at a fixed distance and
+        # only THEN start stepping in height, so a dome -- vertical at its springing -- rose
+        # 0.695 m across the 0.125 m between the eaves and ring one, three times RING_RISE_M
+        # (measured 2026-09-06). The step is chosen from the eaves upward like every other.
+        # A RING LADDER MUST BE ISOTROPIC, and that bound beats the height step.
+        # The points ALONG a ring stand `cell` apart. Put two rings 8 mm apart and the point set
+        # is 60:1 anisotropic: a Delaunay triangulation cannot make a strip out of that, so it
+        # makes slivers that SKIP rings -- measured 2026-09-06 on the dome, the worst faces span
+        # d = 0.000, 0.008 and 0.164 while rings at 0.039 and 0.102 sit unused between them, and
+        # that is the COMB along the eaves. So the radial step is floored at the along-ring
+        # spacing. A dome IS near-vertical at its springing and one honest band there beats six
+        # bands the mesher cannot connect; resolving that band properly needs a STRUCTURED
+        # ring-and-spoke stitch rather than a Delaunay, which is board:2156.
+        floor_d = cell
+        d = 0.0
         last = 0.0
         guard = 0
         while guard < 4000:
             guard += 1
+            here = self.eaves if d <= 0.0 else crown(d)
+            trial = step
+            for _ in range(14):
+                ahead = crown(d + trial)
+                if (ahead is None or here is None or abs(ahead - here) <= RING_RISE_M
+                        or trial <= floor_d):
+                    break
+                trial *= 0.5
+            d = d + max(trial, floor_d)
             got = ring_points(d)
             if got is None:
                 break
             pts += got
             last = d
-            here = crown(d)
-            nxt = d + step
-            if here is not None:
-                # halve the step while the next ring would rise more than RING_RISE_M
-                trial = step
-                for _ in range(8):
-                    ahead = crown(d + trial)
-                    if ahead is None or abs(ahead - here) <= RING_RISE_M or trial <= cell / 4.0:
-                        break
-                    trial *= 0.5
-                nxt = d + max(trial, cell / 4.0)
-            d = nxt
         # the RIDGE is the last non-empty offset, and a fixed step steps over it: bisect for it,
         # or the apex reads short by half a step times the pitch (measured: 0.28 m on a 12 x 8
         # house). The limit of these offsets IS the straight skeleton's ridge set.
-        lo, hi = last, last + step
+        # AND THE BRACKET HAS TO CONTAIN IT. `last + step` was the window whatever step the loop
+        # actually took, and once the ladder's step could exceed `step` the bracket no longer
+        # held the ridge: seven cases went red on B-roof with the apex 0.35 m short (measured
+        # 2026-09-06, by making the ladder isotropic). The upper bound is GROWN until it is
+        # empty, so the bracket always straddles the last non-empty offset.
+        lo, hi = last, last + max(step, floor_d)
+        for _ in range(40):
+            if ring_points(hi) is None:
+                break
+            lo, hi = hi, hi * 2.0 if hi > 0 else max(step, floor_d)
         for _ in range(20):
             mid = 0.5 * (lo + hi)
             if ring_points(mid) is None:
@@ -680,6 +821,9 @@ ELEMENTS = {
     "sacral":       ("Turm", "Rosette", "Strebepfeiler", "Portal"),
     "tower":        ("Vorhangfassade", "Attika", "Sockelgeschoss"),
     "farm":         ("Tor", "Fachwerk", "Krueppelwalm"),
+    "siedlungshaus": ("Klappladen", "Vordach", "Schornstein"),
+    "bungalow":     ("Fensterband", "Vordach", "Carport"),
+    "einfamilienhaus": ("Vordach", "Gaube", "Carport"),
 }
 
 EPOCHS = {
@@ -698,6 +842,17 @@ EPOCHS = {
     "jugendstil":   (3.5, 3.4, (1.3, 2.4), 0.8, True, True, ("mansard", "gabled", "half-hipped")),
     "commercial":   (4.2, 5.0, (2.6, 2.4), 0.9, True, False, ("flat", "barrel", "butterfly")),
     "farm":         (3.0, 4.5, (1.0, 1.2), 1.1, False, False, ("gabled", "half-hipped", "gambrel")),
+    # A HOUSE IS NOT A SMALL BLOCK. The three epochs above it -- postwar, late20, contemporary --
+    # carry an APARTMENT BUILDING's numbers: a 2.8 m storey, a 3.4 m bay, a 1.8 m window. A
+    # detached house has a 2.5 m storey, a bay of one room and a window a person stands at, and
+    # those three numbers are most of what a viewer reads the type from. Until this the bed held
+    # exactly ONE detached-house case and no bungalow at all, which for the commonest building
+    # on the planet is a hole in the middle of the default world.
+    "siedlungshaus": (2.5, 2.4, (1.0, 1.2), 0.95, False, False,
+                      ("gabled", "half-hipped", "hipped")),
+    "bungalow":     (2.5, 3.0, (2.4, 1.4), 0.90, False, False, ("flat", "hipped", "skillion")),
+    "einfamilienhaus": (2.6, 2.8, (1.4, 1.4), 0.95, False, True,
+                        ("gabled", "hipped", "half-hipped")),
 }
 
 INDUSTRIAL = {"industrial", "warehouse", "factory", "hangar", "shed",
@@ -718,6 +873,30 @@ def _year(tags):
         return int(str(told)[:4])
     except ValueError:
         return None
+
+
+def house_epoch(kind, year, levels, area):
+    """WHICH HOUSE. Three types, and each is a period with its own proportions:
+
+        siedlungshaus     1920-1955, the small settlement house: steep gable, tiny windows,
+                          two storeys on a 60 to 90 m2 plan, no balcony and no cornice
+        bungalow          1955-1980, ONE storey spread wide: a shallow hip or a flat roof, a
+                          picture window, a carport. The type is defined by the storey COUNT
+        einfamilienhaus   1980 onward, the developer's detached house: a 2.6 m storey, a gabled
+                          or hipped roof, a dormer and a balcony
+
+    A dated villa before 1919 is still a Gruenderzeit house and keeps that table."""
+    if kind == "bungalow":
+        return "bungalow"
+    if year is None:
+        return "bungalow" if levels <= 1 and area > 90.0 else "einfamilienhaus"
+    if year < 1919:
+        return "gruenderzeit"
+    if year < 1955:
+        return "siedlungshaus"
+    if year < 1980:
+        return "bungalow" if levels <= 1 else "siedlungshaus"
+    return "einfamilienhaus"
 
 
 def classify(tags, poly, levels, height_m):
@@ -771,6 +950,10 @@ def classify(tags, poly, levels, height_m):
         return kind, "commercial"
     # 2. the epoch, from start_date where it is given
     year = _year(tags)
+    # A HOUSE HAS ITS OWN LADDER and it is read first, or the block's year table catches it: a
+    # 1962 detached house came out `postwar`, which is an apartment building's proportions
+    if kind in HOUSE and levels <= 2 and area < 400.0:
+        return kind, house_epoch(kind, year, levels, area)
     if year:
         if year < 1550:
             return kind, "gothic"
@@ -1129,6 +1312,19 @@ CASES = [
     ("F1-rect", "G1-flat", {"building": "office", "building:levels": 5, "roof:shape": "butterfly"}),
     ("F1-rect", "G1-flat", {"building": "apartments", "building:levels": 5, "start_date": "1895"}),
     ("F1-rect", "G1-flat", {"building": "house", "building:levels": 2, "start_date": "1962"}),
+    # THE COMMONEST BUILDING ON THE PLANET, which this bed held one case of until 2026-09-06
+    ("F13-detached", "G1-flat", {"building": "house", "building:levels": 2,
+                                 "start_date": "1936", "roof:shape": "gabled"}),
+    ("F13-detached", "G2-cross15", {"building": "detached", "building:levels": 2,
+                                    "start_date": "1998"}),
+    ("F12-bungalow", "G1-flat", {"building": "bungalow", "building:levels": 1,
+                                 "start_date": "1966", "roof:shape": "hipped"}),
+    ("F12-bungalow", "G3-cross40", {"building": "house", "building:levels": 1,
+                                    "start_date": "1971", "roof:shape": "flat"}),
+    ("F14-semi", "G1-flat", {"building": "semidetached_house", "building:levels": 2,
+                             "start_date": "1952"}),
+    ("F13-detached", "G1-flat", {"building": "house", "building:levels": 2,
+                                 "start_date": "2019", "roof:shape": "hipped"}),
     ("F1-rect", "G1-flat", {"building": "residential", "building:levels": 4, "start_date": "2015"}),
     ("F7-tower", "G1-flat", {"building": "office", "building:levels": 24}),
     ("F3-U", "G1-flat", {"building": "industrial", "building:levels": 2}),
@@ -1762,12 +1958,15 @@ def run(case, number=0):
         red.append("B-roof")
     if ground.water is not None and b.pad < ground.water:
         red.append("B3-water")
-    draw(case, b, f, number)
+    publish.take("buildings", f"{case[0]}_{case[1]}_{b.style.kind}_{b.style.epoch}",
+                 draw(case, b, f, number), red)
     return b, red, f, ladder
 
 
 def main(argv):
     picked = [c for c in CASES if not argv or any(a in c[0] or a in c[1] or a in str(c[2]) for a in argv)]
+    if not argv:
+        publish.sweep("buildings")
     reds = 0
     for number, case in enumerate(picked, start=1):
         b, red, f, ladder = run(case, number)

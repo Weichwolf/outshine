@@ -35,6 +35,17 @@ class Camera:
         self.plan_above_m = plan_above_m
         self.span_m = span_m
 
+    @property
+    def orthographic(self):
+        """A PLAN IS ORTHOGRAPHIC, and the client says so: `ZurichPlan` sets `Orthographic` with
+        `YMagM = span/2`. Drawn in perspective instead, the same declaration gives a different
+        picture, and a twin that differs from the client by its projection is not a twin."""
+        return self.plan_above_m is not None
+
+    @property
+    def y_mag_m(self):
+        return 0.5 * self.span_m
+
     def basis(self):
         """Right, up and forward in the local ENU frame. Bearing is clockwise from north, which
         is the surveyor's convention and the client's."""
@@ -121,7 +132,9 @@ def render(scene, camera, sun, ambient=0.34, near_m=0.5):
     verts = np.asarray(scene.vertices, dtype=float) - eye
     cam = np.stack([verts @ right, verts @ up, verts @ fwd], axis=1)
 
-    f = 0.5 * h / math.tan(math.radians(camera.fov_deg) * 0.5)
+    ortho = camera.orthographic
+    f = (0.5 * h / max(camera.y_mag_m, 1e-9)) if ortho \
+        else (0.5 * h / math.tan(math.radians(camera.fov_deg) * 0.5))
     tris = np.asarray(scene.tris, dtype=np.int64)
     cols = np.asarray(scene.colours, dtype=float)
 
@@ -131,37 +144,9 @@ def render(scene, camera, sun, ambient=0.34, near_m=0.5):
 
     for k in range(len(tris)):
         ia, ib, ic = tris[k]
-        pa, pb, pc = cam[ia], cam[ib], cam[ic]
-        if pa[2] <= near_m or pb[2] <= near_m or pc[2] <= near_m:
-            continue                       # no clipping: a triangle across the near plane is cut
-        sa = (w * 0.5 + f * pa[0] / pa[2], h * 0.5 - f * pa[1] / pa[2])
-        sb = (w * 0.5 + f * pb[0] / pb[2], h * 0.5 - f * pb[1] / pb[2])
-        sc = (w * 0.5 + f * pc[0] / pc[2], h * 0.5 - f * pc[1] / pc[2])
-        x0 = max(0, int(math.floor(min(sa[0], sb[0], sc[0]))))
-        x1 = min(w - 1, int(math.ceil(max(sa[0], sb[0], sc[0]))))
-        y0 = max(0, int(math.floor(min(sa[1], sb[1], sc[1]))))
-        y1 = min(h - 1, int(math.ceil(max(sa[1], sb[1], sc[1]))))
-        if x1 < x0 or y1 < y0:
-            continue
-        ax, ay = sa
-        bx, by = sb
-        cx, cy = sc
-        area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay)
-        if abs(area) < 1e-9:
-            continue
-        xs = np.arange(x0, x1 + 1) + 0.5
-        ys = np.arange(y0, y1 + 1) + 0.5
-        gx, gy = np.meshgrid(xs, ys)
-        w0 = ((bx - ax) * (gy - ay) - (gx - ax) * (by - ay)) / area
-        w1 = ((gx - ax) * (cy - ay) - (cx - ax) * (gy - ay)) / area
-        inside = (w0 >= 0) & (w1 >= 0) & (w0 + w1 <= 1)
-        if not inside.any():
-            continue
-        u = w1
-        v = w0
-        t = 1.0 - u - v
-        depth = t * pa[2] + u * pb[2] + v * pc[2]
-        # FLAT SHADING, and the normal is the FACE's own: a fold or an inverted triangle shows
+        # FLAT SHADING, and the normal is the FACE's own: a fold or an inverted triangle shows.
+        # Taken from the WHOLE face before any clipping, because a clipped piece has the same
+        # plane and therefore the same normal.
         na = world[ia]
         nvec = np.cross(world[ib] - na, world[ic] - na)
         ln = np.linalg.norm(nvec)
@@ -172,14 +157,81 @@ def render(scene, camera, sun, ambient=0.34, near_m=0.5):
         skyward = 0.5 + 0.5 * float(nvec[2])          # a face turned up sees more sky
         shade = ambient * skyward + (1.0 - ambient) * lam
         rgb = np.clip(cols[k] * shade, 0.0, 1.0)
-        sub = zbuf[y0:y1 + 1, x0:x1 + 1]
-        take = inside & (depth < sub)
-        if not take.any():
-            continue
-        sub[take] = depth[take]
-        patch = img[y0:y1 + 1, x0:x1 + 1]
-        patch[take] = rgb
+        for (pa, pb, pc) in _clipped(cam[ia], cam[ib], cam[ic], near_m):
+            _raster(img, zbuf, pa, pb, pc, rgb, f, w, h, ortho)
     return (np.clip(img, 0.0, 1.0) * 255).astype(np.uint8)
+
+
+def _clipped(pa, pb, pc, near_m):
+    """THE TRIANGLE, CUT AT THE NEAR PLANE rather than thrown away.
+
+    Dropping a whole face because one vertex is behind the eye loses exactly the faces the eye is
+    standing ON. Every roof in the gallery was drawn floating in an empty sky: the ground under the
+    camera was two 120 m triangles, each with a corner behind it, so both went (measured
+    2026-09-06). Sutherland-Hodgman against the single plane z = near, which leaves a triangle or a
+    quad -- and the quad is two triangles."""
+    pts = [pa, pb, pc]
+    inside = [p[2] > near_m for p in pts]
+    if all(inside):
+        return ((pa, pb, pc),)
+    if not any(inside):
+        return ()
+    out = []
+    for at in range(3):
+        here, there = pts[at], pts[(at + 1) % 3]
+        if inside[at]:
+            out.append(here)
+        if inside[at] != inside[(at + 1) % 3]:
+            u = (near_m - here[2]) / (there[2] - here[2])
+            out.append(here + u * (there - here))
+    if len(out) == 3:
+        return (tuple(out),)
+    if len(out) == 4:
+        return ((out[0], out[1], out[2]), (out[0], out[2], out[3]))
+    return ()
+
+
+def _raster(img, zbuf, pa, pb, pc, rgb, f, w, h, ortho):
+    """One camera-space triangle onto the buffer, z-tested per pixel."""
+    if ortho:
+        sa = (w * 0.5 + f * pa[0], h * 0.5 - f * pa[1])
+        sb = (w * 0.5 + f * pb[0], h * 0.5 - f * pb[1])
+        sc = (w * 0.5 + f * pc[0], h * 0.5 - f * pc[1])
+    else:
+        sa = (w * 0.5 + f * pa[0] / pa[2], h * 0.5 - f * pa[1] / pa[2])
+        sb = (w * 0.5 + f * pb[0] / pb[2], h * 0.5 - f * pb[1] / pb[2])
+        sc = (w * 0.5 + f * pc[0] / pc[2], h * 0.5 - f * pc[1] / pc[2])
+    x0 = max(0, int(math.floor(min(sa[0], sb[0], sc[0]))))
+    x1 = min(w - 1, int(math.ceil(max(sa[0], sb[0], sc[0]))))
+    y0 = max(0, int(math.floor(min(sa[1], sb[1], sc[1]))))
+    y1 = min(h - 1, int(math.ceil(max(sa[1], sb[1], sc[1]))))
+    if x1 < x0 or y1 < y0:
+        return
+    ax, ay = sa
+    bx, by = sb
+    cx, cy = sc
+    area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay)
+    if abs(area) < 1e-9:
+        return
+    xs = np.arange(x0, x1 + 1) + 0.5
+    ys = np.arange(y0, y1 + 1) + 0.5
+    gx, gy = np.meshgrid(xs, ys)
+    w0 = ((bx - ax) * (gy - ay) - (gx - ax) * (by - ay)) / area
+    w1 = ((gx - ax) * (cy - ay) - (cx - ax) * (gy - ay)) / area
+    inside = (w0 >= 0) & (w1 >= 0) & (w0 + w1 <= 1)
+    if not inside.any():
+        return
+    u = w1
+    v = w0
+    t = 1.0 - u - v
+    depth = t * pa[2] + u * pb[2] + v * pc[2]
+    sub = zbuf[y0:y1 + 1, x0:x1 + 1]
+    take = inside & (depth < sub)
+    if not take.any():
+        return
+    sub[take] = depth[take]
+    patch = img[y0:y1 + 1, x0:x1 + 1]
+    patch[take] = rgb
 
 
 def save(img, path):

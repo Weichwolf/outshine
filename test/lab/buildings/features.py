@@ -469,7 +469,8 @@ def _tor(d):
 
 @register("gauben", lod=3)
 def _gauben(d):
-    if not ((d.b.style.epoch in ("gruenderzeit", "jugendstil", "farm", "baroque", "interwar") and d.b.roof in ("gabled", "hipped", "mansard", "half-hipped", "gambrel") and d.faces_slope and d.rise > 2.2 and d.wall["bays"] >= 2)):
+    if not ((d.b.style.epoch in ("gruenderzeit", "jugendstil", "farm", "baroque", "interwar",
+                                "siedlungshaus", "einfamilienhaus") and d.b.roof in ("gabled", "hipped", "mansard", "half-hipped", "gambrel") and d.faces_slope and d.rise > 2.2 and d.wall["bays"] >= 2)):
         return
     hg = min(1.55, d.rise * 0.42)
     zg = d.b.eaves + d.rise * 0.18
@@ -484,9 +485,60 @@ def _gauben(d):
                                 facecolor="0.55", edgecolor=d.ink, lw=0.5))
 
 
+@register("vordach", lod=3, note="the canopy over a house door: the type's own front")
+def _vordach(d):
+    if not (d.b.style.epoch in ("siedlungshaus", "bungalow", "einfamilienhaus", "late20", "hall")
+            and d.street and d.wall["bays"] >= 2):
+        return
+    x = d.wall["length"] * 0.5
+    z = d.b.pad + min(2.35, d.b.style.level_m * 0.85)
+    d.axe.add_patch(MplPoly(np.array([(x - 1.35, z), (x + 1.35, z), (x + 1.20, z + 0.16),
+                                      (x - 1.20, z + 0.16)]), closed=True,
+                            facecolor="0.86", edgecolor=d.ink, lw=0.9))
+    for at in (x - 1.15, x + 1.15):
+        # A RECTANGLE'S THIRD ARGUMENT IS ITS HEIGHT, not the level its top stands at. Passing
+        # the absolute z drew a 102 m post and blew the elevation's own limits, so both panels
+        # of every bungalow sheet came out as two hairlines (measured 2026-09-06, by looking).
+        d.axe.add_patch(Rectangle((at - 0.05, d.b.pad), 0.10, z - d.b.pad, facecolor="0.80",
+                                  edgecolor=d.ink, lw=0.6))
+
+
+@register("carport", lod=3, note="a bungalow parks under a flat slab on two posts, not in a box")
+def _carport(d):
+    if not (d.b.style.epoch in ("bungalow", "einfamilienhaus") and not d.street
+            and d.wall["length"] > 8.0):
+        return
+    z = d.b.pad + 2.30
+    x0 = d.wall["length"] - 6.20
+    d.axe.add_patch(MplPoly(np.array([(x0, z), (x0 + 5.80, z), (x0 + 5.80, z + 0.22),
+                                      (x0, z + 0.22)]), closed=True,
+                            facecolor="0.88", edgecolor=d.ink, lw=1.0))
+    for at in (x0 + 0.25, x0 + 5.45):
+        d.axe.add_patch(Rectangle((at - 0.07, d.b.pad), 0.14, z - d.b.pad, facecolor="0.80",
+                                  edgecolor=d.ink, lw=0.7))
+
+
+@register("klappladen", lod=3, note="the shutter beside every window of a Siedlungshaus")
+def _klappladen(d):
+    if not (d.b.style.epoch == "siedlungshaus" and d.rise > 0.5):
+        return
+    w, h = d.b.style.win_w, d.b.style.win_h
+    for level in range(d.f.levels()):
+        z = d.b.pad + level * d.b.style.level_m + d.b.style.sill_m
+        if z + h > d.b.eaves:
+            break
+        for bay in range(d.wall["bays"]):
+            x = (bay + 0.5) * d.wall["bay_m"]
+            for side in (-1, +1):
+                d.axe.add_patch(Rectangle((x + side * (w / 2 + 0.02) - (0.26 if side > 0 else 0),
+                                           z), 0.26, h, facecolor="0.72", edgecolor=d.ink,
+                                          lw=0.5))
+
+
 @register("schornstein", lod=3)
 def _schornstein(d):
-    if not (d.b.roof != "flat" and d.heated and d.faces_slope and d.b.style.epoch in ( "gruenderzeit", "jugendstil", "farm", "interwar", "postwar", "baroque")):
+    if not (d.b.roof != "flat" and d.heated and d.faces_slope and d.b.style.epoch in ( "gruenderzeit", "jugendstil", "farm", "interwar", "postwar", "baroque",
+        "siedlungshaus", "einfamilienhaus", "bungalow")):
         return
     for frac in ((0.30, 0.78) if d.wall["length"] > 14.0 else (0.72,)):
         x = d.wall["length"] * frac

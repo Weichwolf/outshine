@@ -26,7 +26,9 @@ from shapely.ops import polygonize, unary_union
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "roads"))
+sys.path.insert(0, str(HERE.parent))
 import data as roaddata  # noqa: E402
+import publish  # noqa: E402
 # the building bed sits beside this file and shares the name `synthetic` with the road bed, so
 # it is loaded by PATH rather than by name -- importing by name got the road bed (measured)
 import importlib.util as _util  # noqa: E402
@@ -291,18 +293,30 @@ def run(name, number):
     # cases `F1-rect`), so a landmark's own hyphen would print "Familia" for the Sagrada Familia
     case = (name.replace("-", "_"), f"{lat:.4f},{lon:.4f}", shown)
     bed.OUT = CACHE
-    bed.draw(case, b, f, number)
+    publish.take("landmarks", name, bed.draw(case, b, f, number), red)
     print(f"{number:02d} {name:20s} {here.name[:14]:14s} {b.style.wall[:6]:6s} "
           f"{b.style.kind[:12]:12s} {b.style.epoch:13s} {b.roof:10s} "
           f"{'RED ' + ','.join(red) if red else 'ok':22s} "
           f"nodes {len(poly.exterior.coords):4d} parts {len(b.parts):2d} "
-          f"area {poly.area:8.0f} m2  levels {f.levels():3d}  H {b.ridge - b.pad:6.1f} m  "
+          f"area {poly.area:8.0f} m2  levels {f.levels():3d}  H {body_height(b):6.1f} m  "
           f"tris {len(b.tris):6d}   {note}")
     return red
 
 
+def body_height(b):
+    """THE HEIGHT OF WHAT WAS BUILT, not of the outline that was tagged.
+
+    OSM's Simple 3D Buildings puts the heights on `building:part` and leaves the outline with
+    whatever the surveyor wrote there. The row used to print the OUTLINE's ridge, so the Chrysler
+    Building read "1 Geschosse, H 15.0 m" beside a drawing 281.42 m tall and the Koelner Dom read
+    the same beside 157.24 (measured 2026-09-06)."""
+    return max([b.ridge - b.pad] + [part.ridge - b.pad for part in getattr(b, "parts", ())])
+
+
 def main(argv):
     picked = [n for n in LANDMARKS if not argv or any(a.lower() in n.lower() for a in argv)]
+    if not argv:
+        publish.sweep("landmarks")
     reds = 0
     for number, name in enumerate(sorted(picked), start=1):
         try:

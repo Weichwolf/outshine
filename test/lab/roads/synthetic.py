@@ -22,6 +22,9 @@ from scipy.sparse.linalg import spsolve
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import substring, unary_union
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import publish  # noqa: E402
+
 OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "synthetic"
 
 POSTING_M = 25.0          # the engine's DEM at zoom 12, 49 N (measured: 24.9 m)
@@ -94,12 +97,20 @@ LIFT_RATE_M = 0.25
 LIFT_RATE_OF = {"steps": 0.60, "path": 0.25, "track": 0.20, "funicular": 0.60,
                 "footway": 0.50, "pedestrian": 0.35, "cycleway": 0.25}
 
+RAIL_KINDS = ("rail", "light_rail", "tram", "subway", "monorail", "funicular", "narrow_gauge")
+# THIS TABLE IS A CEILING AND NOT A DESIGN VALUE, and reading `rail` as the design value cost a
+# day. EBO Section 7 gives 12.5 per mille as the Regelneigung of a NEW Hauptbahn; it is not the
+# most a railway is built to. The Albula line under the Landwasser viaduct climbs 35 per mille and
+# the Semmering 25, both since the 1900s, and Steilstrecken to 40 per mille are operated under
+# their own rules. Bounding the solve at 12.5 per mille therefore refused real railways: Hong Kong
+# Central's 528 m rail bore came out INFEASIBLE (measured 2026-09-06, and the elastic pose named
+# the way). 40 per mille is the ceiling; what a line is DESIGNED to is the scenario's business.
 GRADE_OF = {"motorway": 0.04, "motorway_link": 0.06, "trunk": 0.045, "trunk_link": 0.06,
             "primary": 0.06, "primary_link": 0.07, "secondary": 0.08, "secondary_link": 0.08,
             "tertiary": 0.09, "tertiary_link": 0.09, "unclassified": 0.12, "residential": 0.12,
             "living_street": 0.12, "service": 0.15, "track": 0.20, "bridleway": 0.20,
             "pedestrian": 0.10, "footway": 0.15, "cycleway": 0.10, "path": 0.25, "steps": 0.60,
-            "rail": 0.0125, "light_rail": 0.04, "tram": 0.06, "subway": 0.04, "monorail": 0.06,
+            "rail": 0.040, "narrow_gauge": 0.070, "light_rail": 0.04, "tram": 0.06, "subway": 0.04, "monorail": 0.06,
             "funicular": 0.60}
 JOIN_M = 10.0             # [SET] netconvert's --junctions.join default: nodes nearer than this are one junction
 WARP_M = 20.0             # [SET] RAS-K: a side road's section is warped into the through road's surface over its last ~20 m
@@ -1492,21 +1503,55 @@ class Map:
             for k in range(1, len(refs)):
                 a, b_ = self.index[refs[k - 1]], self.index[refs[k]]
                 ds = s[k] - s[k - 1]
-                if ds <= 1e-3 or not (near[a] or near[b_] or self.net.spans(w)):
+                built = self.net.spans(w) or self.net.bores(w)
+                if ds <= 1e-3 or not (near[a] or near[b_] or built):
                     continue
-                if self.net.spans(w):
-                    # a deck spans what is under it: its grade is its own, bounded by the class
-                    # -- or by the chord between its abutments' terrain where the hill is steeper,
-                    # because a MAPPED bridge stands at its real grade (13 m of fill and a 410 m
-                    # ramp were the bed's answer to an 8 percent deck on a 15 percent hill)
-                    s_all = self.stations[w["id"]]
-                    chord = abs(self.dem[self.index[refs[-1]]] - self.dem[self.index[refs[0]]]) / max(s_all[-1], 1e-3)
-                    # AND A DECK'S GRADE IS ITS OWN ROAD'S. 4 % is the figure for a motorway
-                    # bridge, where the expensive part stays near level; a double-decked city
-                    # street like Wacker Drive is a viaduct at the street's own grade, and
-                    # holding it to 4 % left it infeasible by 0.560 m (measured 2026-09-06)
-                    reach = max(DECK_GRADE, GRADE_OF.get(w["tags"]["highway"], DECK_GRADE),
-                                chord) * ds
+                if built:
+                    # A DECK AND A BORE ARE AUTHORED, AND THE CLASS ALONE SETS THEIR GRADE.
+                    # Nothing outside this tree says where a deck or a tunnel invert stands, so
+                    # the design control is the only evidence there is. Two loopholes had made it
+                    # decorative, both measured 2026-09-06 and both green at the time:
+                    #   `max(DECK_GRADE, class)` -- 4 % LOOSENS a railway's 1.25 %, so the
+                    #     Landwasser viaduct came out at 14.3 % and the Elbtunnel's bore at 8.6 %
+                    #   the DEM CHORD between the way's two end nodes -- across the Golden Gate
+                    #     that is a headland, 1.2 km of sea and another headland, and the deck was
+                    #     held to the 11.74 % that produced. It was put there because an 8 % deck
+                    #     on a 15 % hill cost 13 m of fill and a 410 m ramp, which is what a 15 %
+                    #     hill costs; a workaround around a correct answer means the rule was
+                    #     missing, not wrong
+                    # And the bound reached only `spans`, so a tunnel fell through to the LIFT
+                    # rule, which bounds how fast a road leaves the DEM and not how steep it is.
+                    klass = GRADE_OF.get(w["tags"]["highway"], DECK_GRADE)
+                    reach = klass * ds
+                    # A SECANT IS NOT A GRADE. This bounds the CHORD of one segment, and what a
+                    # driver climbs -- and what the sheet draws -- is the Hermite's own TANGENT,
+                    # which `_slopes` takes from `np.gradient`. On unequal node spacing that
+                    # estimator overshoots BOTH neighbouring secants, so a deck whose every chord
+                    # sat inside 1.25 % still reached 7.4 % at a node (measured 2026-09-06 on
+                    # Wacker Drive, and 34.7 % on Millau's footway deck). The tangent is a LINEAR
+                    # function of z, so it is bounded here rather than checked afterwards.
+                    if 1 <= k < len(refs) - 1:
+                        hd, hs = s[k] - s[k - 1], s[k + 1] - s[k]
+                        if hd > 1e-9 and hs > 1e-9:
+                            c0, c1, c2 = (-hs / (hd * (hd + hs)), (hs - hd) / (hd * hs),
+                                          hd / (hs * (hd + hs)))
+                            tangent = (c0 * z[self.index[refs[k - 1]]] + c1 * z[b_]
+                                       + c2 * z[self.index[refs[k + 1]]])
+                            lid = klass
+                            gw = wslack(w, g_deck)
+                            out += [tangent <= lid + gw, -tangent <= lid + gw]
+                            # AND THE VERTICAL CURVE IS ROUNDED. A grade inside the class still
+                            # leaves a KINK: measured 2026-09-06, the lake bridge's deck bent to
+                            # R = 6580 m where 100 km/h asks 12772, and the interchange's to
+                            # 4930 where it asks 6180. A crest is bounded by the sight line and a
+                            # sag by the headlight, so the two signs carry DIFFERENT bounds and
+                            # the second difference -- linear in z -- carries them one-sided.
+                            speed = DESIGN_SPEED.get(w["tags"]["highway"], 50.0)
+                            span = hd * hs * (hd + hs)
+                            bend = 2.0 * (hd * z[self.index[refs[k + 1]]] - (hd + hs) * z[b_]
+                                          + hs * z[self.index[refs[k - 1]]]) / span
+                            out += [bend >= -1.0 / crest_radius_m(speed) - gw,
+                                    bend <= 1.0 / sag_radius_m(speed) + gw]
                     gw = wslack(w, g_deck)
                     out += [z[b_] - z[a] <= reach + gw, z[a] - z[b_] <= reach + gw]
                 else:
@@ -1673,6 +1718,7 @@ class Map:
         RAS-K's and AASHTO's: the through road keeps its section, the side road warps to it."""
         self.clusters = self._clusters()
         self.cluster_of = {nid: head for head, members in self.clusters.items() for nid in members}
+        self._join_tangents()
         for head, members in self.clusters.items():
             legs = []
             inner = set(members)
@@ -1696,7 +1742,66 @@ class Map:
                                    "major": w["id"], "legs": legs, "members": members}
             for (lw, lk, lsgn) in legs:
                 ld = self._direction(lw, lk, lsgn)
-                self.slope[lw["id"]][lk] = (gx * ld[0] + gy * ld[1]) * lsgn
+                told = (gx * ld[0] + gy * ld[1]) * lsgn
+                if self.net.spans(lw) or self.net.bores(lw):
+                    # THE PLANE MAY NOT HAND AN AUTHORED LEG A GRADE ITS CLASS FORBIDS. RAS-K's
+                    # rule is that the through road keeps its section and the side road warps to
+                    # it -- a TRANSITION, not a licence, and the side road's own design controls
+                    # still hold. This runs after the solve, so a deck whose every constraint the
+                    # QP satisfied was handed the major street's grade here: measured 2026-09-06,
+                    # Wacker Drive's elevated RAIL took 7.4 % from the street beside it against
+                    # EBO's 1.25 %, at four junction nodes, and nothing downstream could see it.
+                    # An on-ground leg keeps whatever the terrain gives it -- Lombard Street's
+                    # 27 % is a real road -- so the clamp is exactly I14's own set.
+                    lid = GRADE_OF.get(lw["tags"]["highway"], DECK_GRADE)
+                    told = max(-lid, min(lid, told))
+                self.slope[lw["id"]][lk] = told
+
+    def _join_tangents(self):
+        """WHERE TWO WAYS RUN ON, THEY SHARE ONE TANGENT.
+
+        `_slopes` takes each way's tangents from `np.gradient` over that way's OWN nodes, so at a
+        way's end the estimate is a ONE-SIDED secant. Two ways meeting end to end therefore each
+        read the bend on their own side and disagree: measured 2026-09-06, the drawn Trasse's
+        grade stepped 38.9 percentage points at such a node on the spiral over a 40 percent
+        slope, 29.7 at the interchange, and 17 of 81 cases carried a corner -- with I1, I2 and
+        I13 all reading exactly zero, because none of them looks ACROSS a way.
+
+        The joint's tangent is the central difference over the two nodes either side of it, which
+        is what `np.gradient` would have computed had the two ways been one. A junction is not
+        this case: there the plane decides, and a node in a cluster is left alone."""
+        for nid in self.net.nodes:
+            if nid in self.cluster_of:
+                continue
+            legs = self.legs_at(nid)
+            if len(legs) != 2 or legs[0][0]["id"] == legs[1][0]["id"]:
+                continue
+            (wa, ka, sa), (wb, kb, sb) = legs
+            da, db = self._direction(wa, ka, sa), self._direction(wb, kb, sb)
+            if -(da[0] * db[0] + da[1] * db[1]) < 0.985:
+                continue                      # a real corner in PLAN is a corner, not a defect
+            s_a, s_b = self.stations[wa["id"]], self.stations[wb["id"]]
+            h1 = abs(float(s_a[ka + sa] - s_a[ka]))
+            h2 = abs(float(s_b[kb + sb] - s_b[kb]))
+            if h1 <= 1e-9 or h2 <= 1e-9:
+                continue
+            z_prev = self.z[self.index[wa["refs"][ka + sa]]]
+            z_here = self.z[self.index[nid]]
+            z_next = self.z[self.index[wb["refs"][kb + sb]]]
+            grade = (-h2 / (h1 * (h1 + h2)) * z_prev + (h2 - h1) / (h1 * h2) * z_here
+                     + h1 / (h2 * (h1 + h2)) * z_next)
+            # AND THE SHARED TANGENT STILL OBEYS THE STRICTER CLASS. Harmonising alone handed a
+            # DECK the central difference across its abutment, which at the interchange over a
+            # 15 percent cross slope was 22.9 percent against the class's 8 (measured 2026-09-06,
+            # I14 went to 2.86 the moment I16 was repaired). A way the bed AUTHORS contributes
+            # its class's bound; a draped one contributes none -- and because both ends take the
+            # same clamped value, C1 across the joint survives it.
+            lid = min([GRADE_OF.get(w["tags"]["highway"], DECK_GRADE)
+                       for w in (wa, wb) if self.net.spans(w) or self.net.bores(w)]
+                      or [float("inf")])
+            grade = max(-lid, min(lid, grade))
+            self.slope[wa["id"]][ka] = -grade * sa
+            self.slope[wb["id"]][kb] = grade * sb
 
     def _direction(self, way, k, sgn):
         """The unit direction at node k of a way, pointing the way `sgn` asks.
@@ -2506,6 +2611,14 @@ def _year_of(tags):
     return int(digits) if len(digits) == 4 else None
 
 
+def is_rail(way):
+    """A railway, whichever of the two words the source used. The bed's own networks tag the kind
+    on `highway` and an OSM extract carries `railway`, and a rule that reads one of them holds for
+    half the ladder."""
+    return (way["tags"].get("railway") is not None
+            or way["tags"].get("highway") in RAIL_KINDS)
+
+
 def bridge_type(total_m, rail=False, free_m=None, tags=None, rise_m=None):
     """WHAT a bridge IS -- CASES.md's table, and the numbers are the standard span ranges
     (Leonhardt, *Bruecken*; the Eurocode's ranges; FHWA's inventory by type). A rail bridge is
@@ -2763,6 +2876,235 @@ def check_c0(map_):
             z, _ = map_.profile(w, map_.stations[w["id"]][k])
             worst = max(worst, abs(z - map_.z[map_.index[r]]))
     return worst
+
+
+def route_profile(map_, route, step_m=1.0):
+    """THE LINE THE LAENGSSCHNITT DRAWS, sampled once. One source, so the check and the picture
+    cannot disagree about what the Gradiente is: `plot` draws these arrays and `check_route_c0`
+    measures them. Per section rather than concatenated, because a bridge's section is drawn in
+    its own line style and the join between two sections is exactly what is being checked."""
+    out = []
+    for (w, forward, at0) in route:
+        length = map_.stations[w["id"]][-1]
+        line = map_.centreline(w)
+        local = np.linspace(0.0, length, max(60, int(length / step_m) + 1))
+        x = at0 + (local if forward else length - local)
+        z = np.array([map_.profile(w, float(v))[0] for v in local])
+        dem = np.array([map_.terrain.dem(*line.interpolate(float(v)).coords[0]) for v in local])
+        truth = np.array([map_.terrain.truth(*line.interpolate(float(v)).coords[0])
+                          for v in local])
+        order = np.argsort(x)
+        out.append((w, forward, at0, x[order], z[order], dem[order], truth[order]))
+    return out
+
+
+def check_route_c0(map_, seed=None):
+    """I13: THE FAHRBAHN IS ONE CONTINUOUS LINE, WITH NO GAP AND NO JUMP.
+
+    I1 asks that ways agree at a shared NODE, which they do by construction -- one height per
+    node. It says nothing about the CHAIN a longitudinal section is drawn along, and that chain
+    is assembled separately, with its own directions and its own accumulated stations. At
+    Lombard Street the drawn Gradiente fell from 86 m to 31 m, leapt back to 86, and did it
+    again, while I1 read exactly zero (measured 2026-09-06). The check reads the SAME arrays the
+    sheet draws, so a picture with a break in it cannot be green.
+
+    Two failures, one number, both in metres: the height STEP at a join, and a station that runs
+    BACKWARD -- at the Goeltzschtalbruecke the second piece restarted at station 356 over ground
+    already drawn, which is a broken line for a different reason. A route that overlaps itself
+    returns infinity rather than a small step."""
+    drawn = route_profile(map_, build_route(map_, seed))
+    worst, prev = 0.0, None
+    for (_, _, _, x, z, _, _) in drawn:
+        if prev is not None:
+            if x[0] < prev[0] - 1e-6:
+                return float("inf")
+            worst = max(worst, abs(float(z[0]) - prev[1]))
+        prev = (float(x[-1]), float(z[-1]))
+    return worst
+
+
+# WHAT A DRIVER CAN SEE, AND THEREFORE HOW SHARPLY A ROAD MAY BEND VERTICALLY.
+# RAL 2012 tabulates these; the table is a CONSEQUENCE and the derivation is what belongs here.
+REACTION_S = 2.0          # [SET] RAL 2012's Reaktionszeit for the stopping sight distance
+BRAKE_MS2 = 3.7           # [SET] RAL 2012's Bremsverzoegerung on a wet carriageway
+EYE_M = 1.00              # [SET] RAL 2012: the driver's eye above the carriageway
+TARGET_M = 0.00           # [SET] the stopping case's object IS the carriageway
+LAMP_M = 0.60             # [SET] the headlight above the carriageway
+LAMP_SPREAD_DEG = 1.0     # [SET] the beam's upward spread
+
+
+def stopping_sight_m(speed_kmh):
+    """How far a driver needs to see to stop: the reaction run plus the braking distance."""
+    v = speed_kmh / 3.6
+    return v * REACTION_S + v * v / (2.0 * BRAKE_MS2)
+
+
+def crest_radius_m(speed_kmh):
+    """A KUPPE is bounded by the SIGHT LINE: the parabola must not cut the chord between an eye
+    at 1.00 m and a target on the carriageway, over the stopping sight distance. Hk = Sh^2 /
+    (2 (sqrt(h1) + sqrt(h2))^2), which for a target on the road is Sh^2 / 2."""
+    sight = stopping_sight_m(speed_kmh)
+    return sight * sight / (2.0 * (math.sqrt(EYE_M) + math.sqrt(TARGET_M)) ** 2)
+
+
+def sag_radius_m(speed_kmh):
+    """A WANNE is bounded by the HEADLIGHT: at night the beam, 0.60 m up and spreading 1 degree,
+    must reach the stopping sight distance. Hw = Sh^2 / (2 (hL + Sh tan alpha))."""
+    sight = stopping_sight_m(speed_kmh)
+    return sight * sight / (2.0 * (LAMP_M + sight * math.tan(math.radians(LAMP_SPREAD_DEG))))
+
+
+def route_curve(map_, route):
+    """THE SHARPEST VERTICAL CURVE ON THE DRAWN TRASSE, and what the class asks for there.
+
+    Returns (radius_m, station_m, "Kuppe"|"Wanne", required_m, ratio). A profile that is C0 and
+    C1 can still be a KINK: measured 2026-09-06 on R6-fork over a 15 percent cross slope, the
+    Gradiente turns from 0.0 to +5.6 percent over 40 m, which is a sag of 714 m where 80 km/h
+    asks for 2945 -- four times too sharp, and every check on the sheet was green."""
+    drawn = route_profile(map_, route, step_m=1.0)
+    xs = np.concatenate([d[3] for d in drawn])
+    zs = np.concatenate([d[4] for d in drawn])
+    order = np.argsort(xs, kind="stable")
+    xs, zs = xs[order], zs[order]
+    keep = np.concatenate(([True], np.diff(xs) > 1e-6))
+    xs, zs = xs[keep], zs[keep]
+    if len(xs) < 5:
+        return float("inf"), 0.0, "Kuppe", 0.0, 0.0
+    grade = np.gradient(zs, xs)
+    bend = np.gradient(grade, xs)
+    radius = 1.0 / np.maximum(np.abs(bend), 1e-12)
+    speed = max(DESIGN_SPEED.get(w["tags"]["highway"], 50.0) for (w, _, _) in route)
+    need = np.where(bend < 0.0, crest_radius_m(speed), sag_radius_m(speed))
+    ratio = need / np.maximum(radius, 1e-9)
+    k = int(np.argmax(ratio))
+    return (float(radius[k]), float(xs[k]), "Kuppe" if bend[k] < 0 else "Wanne",
+            float(need[k]), float(ratio[k]))
+
+
+def check_route_curve(map_, seed=None):
+    """I15: THE GRADIENTE IS ROUNDED, and by at least what the design speed asks.
+
+    C0 says the line has no gap, C1 says it has no corner, and neither says it is DRIVABLE. A
+    vertical curve tighter than the sight line allows is a road a driver arrives at faster than
+    they can see over. The number is the ratio required / achieved; 1.0 is exactly at the bound."""
+    return route_curve(map_, build_route(map_, seed))[4]
+
+
+def check_c1_across(map_):
+    """I16: THE PROFILE IS C1 ACROSS A SHARED NODE, not only along one way.
+
+    `check_c1` proves that a way's own profile carries the tangent the solve stored, and says
+    nothing about the NEXT way. At a node where exactly two ways meet end to end and no junction
+    is declared, each takes a ONE-SIDED secant from its own nodes, and where the ground bends the
+    two disagree: measured 2026-09-06 on the spiral ramp over a 40 percent slope, the drawn
+    Trasse's grade stepped 38.9 percentage points at such a node -- a corner in the carriageway,
+    with I1, I2 and I13 all reading zero.
+
+    Returns the worst tangent difference in grade units, over nodes where two collinear ways meet
+    and the junction machinery has not already given them one plane."""
+    worst = 0.0
+    for nid in map_.net.nodes:
+        legs = map_.legs_at(nid)
+        if len(legs) != 2 or nid in map_.cluster_of:
+            continue
+        (wa, ka, sa), (wb, kb, sb) = legs
+        if wa["id"] == wb["id"]:
+            continue
+        da, db = map_._direction(wa, ka, sa), map_._direction(wb, kb, sb)
+        # only where the two really run ON: a genuine corner in PLAN is a corner, not a defect
+        if -(da[0] * db[0] + da[1] * db[1]) < 0.985:
+            continue
+        ga = float(map_.slope[wa["id"]][ka]) * sa
+        gb = float(map_.slope[wb["id"]][kb]) * sb
+        worst = max(worst, abs(ga + gb))
+    return worst
+
+
+def node_bend(map_, w, k):
+    """The profile's second derivative at node k of way w, from the three heights around it.
+    The same quantity the solve bounds, so the check measures what the constraint holds."""
+    refs, s = w["refs"], map_.stations[w["id"]]
+    h1, h2 = s[k] - s[k - 1], s[k + 1] - s[k]
+    if h1 <= 1e-9 or h2 <= 1e-9:
+        return 0.0
+    za, zb, zc = (map_.z[map_.index[refs[k + d]]] for d in (-1, 0, 1))
+    return 2.0 * (h1 * zc - (h1 + h2) * zb + h2 * za) / (h1 * h2 * (h1 + h2))
+
+
+def authored(map_, w):
+    """A way whose profile nothing outside this tree states: a deck or a bore."""
+    return map_.net.spans(w) or map_.net.bores(w)
+
+
+def check_bend(map_):
+    """I15: WHERE THE BED AUTHORS THE PROFILE, THE VERTICAL CURVE IS AT LEAST THE CLASS'S.
+
+    C0 says the Trasse has no gap, C1 that it has no corner, and neither says it is DRIVABLE. A
+    crest tighter than the sight line is a road a driver arrives at faster than they can see
+    over; a sag tighter than the headlight is one they drive into unlit. Measured 2026-09-06
+    before this existed: 39 of 81 cases were sharper than their class allows, and the worst was
+    a spiral ramp at R = 3 m against 6180 -- not a road, a fold.
+
+    Returns the worst ratio of required to achieved radius; 1.0 is exactly at the bound."""
+    worst = 0.0
+    for w in map_.net.ways:
+        if not authored(map_, w):
+            continue
+        speed = DESIGN_SPEED.get(w["tags"]["highway"], 50.0)
+        for k in range(1, len(w["refs"]) - 1):
+            bend = node_bend(map_, w, k)
+            need = crest_radius_m(speed) if bend < 0.0 else sag_radius_m(speed)
+            worst = max(worst, abs(bend) * need)
+    return worst
+
+
+def check_invented_grade(map_):
+    """I14: WHERE THE BED AUTHORS THE PROFILE, THE CLASS'S GRADE IS HELD.
+
+    A road ON THE GROUND has the grade the ground has. Lombard Street climbs 27 percent, this bed
+    has a case for it, and a bound there would refuse a real road -- so the DEM is evidence and the
+    profile follows it. A DECK, a RAMP, an APPROACH and a CAUSEWAY are the bed's OWN invention:
+    nothing outside this tree says where they stand, and there the class's maximum grade is a
+    design control that the solve must hold. Those are two different quantities and the sheet was
+    printing one limit over both.
+
+    Measured 2026-09-06 before this existed: invented 0.00 to 0.16 percent against 6 to 8 allowed,
+    draped 23.0 percent on the hairpin and 40.0 on the curve. The bound was doing its work and
+    nothing said so; the negative control is the deck and ramp bounds relaxed, which must go red.
+
+    Returns the worst ratio to the limit over the invented nodes -- 1.0 is exactly at it."""
+    # A CHECK MEASURES WHAT THE SOLVE BINDS, AND THE UNIT IS A (WAY, NODE) AND NOT A NODE.
+    # Two wider sets were tried and both reported about roads the bed never authored:
+    #   `approaches()` is a SOLVER device -- every node within 500 m of a structure, which in an
+    #     interchange is the whole extract -- and it read 18.8 at Kaiserberg
+    #   `deck` and `bore` are per-NODE masks, so a node shared between a viaduct and the street
+    #     under it marks BOTH, and the street's own tangent was then called authored: 10.7 at
+    #     Hong Kong Central, carried by a `rail` way that is neither bridge nor tunnel
+    # A way is authored where the WAY is the structure. Measured 2026-09-06, all three.
+    worst = 0.0
+    for w in map_.net.ways:
+        if not (map_.net.spans(w) or map_.net.bores(w)):
+            continue
+        allow = GRADE_OF.get(w["tags"]["highway"], 0.12)
+        for k in range(len(w["refs"])):
+            worst = max(worst, abs(float(map_.slope[w["id"]][k])) / max(allow, 1e-6))
+    return worst
+
+
+def grade_reached(map_, route):
+    """The steepest the drawn Trasse actually gets, and where. The Schriftfeld printed the class's
+    ALLOWED grade beside a profile that reached three times it, and a reader had no way to see
+    that from the sheet (measured 2026-09-06 on R2-hairpin: 8 percent printed, 23.4 reached)."""
+    worst, at, way = 0.0, 0.0, None
+    for (w, forward, at0) in route:
+        length = map_.stations[w["id"]][-1]
+        for station in np.linspace(0.0, length, max(2, int(length) + 1)):
+            g = abs(map_.profile(w, float(station))[1])
+            if g > worst:
+                worst = g
+                at = at0 + (station if forward else length - station)
+                way = w
+    return worst, at, way
 
 
 def check_c1(map_):
@@ -3090,6 +3432,10 @@ def run(case, number=0):
     verdict = {
         "I1 C0 m": check_c0(m),
         "I2 C1 grade": check_c1(m),
+        "I13 route step m": check_route_c0(m),
+        "I14 invented grade / allowed": check_invented_grade(m),
+        "I15 bend / allowed": check_bend(m),
+        "I16 C1 across a joint": check_c1_across(m),
         "I3 |z-dem| / band": check_dem_band(m),
         "I6 junction step m": st.check_junction_steps() if m.junctions else None,
         "I12 clearance residual m": check_clearance_fixpoint(m),
@@ -3107,6 +3453,14 @@ def run(case, number=0):
         red.append("I1")
     if verdict["I2 C1 grade"] > 1e-6:
         red.append("I2")
+    if verdict["I13 route step m"] > 1e-6:
+        red.append("I13")
+    if verdict["I14 invented grade / allowed"] > 1.0 + 1e-3:
+        red.append("I14")
+    if verdict["I15 bend / allowed"] > 1.0 + 1e-3:
+        red.append("I15")
+    if verdict["I16 C1 across a joint"] > 1e-6:
+        red.append("I16")
     if verdict["I3 |z-dem| / band"] > 1.0 + 1e-6:
         red.append("I3")
     if verdict["I12 clearance residual m"] > CLEARANCE_TOL_M:
@@ -3145,11 +3499,12 @@ def run(case, number=0):
     if (not told["finite"] or told["grade_max"] > 1.0 or told["deck_below_dem_m"] > 1.0
             or told["deck_above_dem_m"] > 400.0):
         red.append("P")
-    plot(case, m, st, number)
+    publish.take("roads", f"{case[0]}_{case[1]}",
+                 plot(case, m, st, number, seed=axis_of(m)), red)
     return verdict, red
 
 
-def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
+def draw_structure_section(axq, m, st, way, station, offs, gnd, ink, shown=None):
     """A BRIDGE's or a TUNNEL's cross section: a deck is a slab with a depth from its span and a
     parapet each side, standing over a void; a bore is a section cut out of the rock. Neither has
     an earthwork, and drawing one gave a deck a 30 m embankment into the river (seen in the
@@ -3204,7 +3559,8 @@ def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
                      arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.8))
         axq.text(half * 0.7, (axis_z - depth + floor) / 2, f"LR {axis_z - depth - floor:.2f} m",
                  fontsize=6.5, color=ink, rotation=90, va="center")
-        axq.set_title(f"UEBERBAU Sta {station:.0f}   {what} ({material})  d {depth:.2f} m  "
+        axq.set_title(f"UEBERBAU Sta {station if shown is None else shown:.0f}   "
+                      f"{what} ({material})  d {depth:.2f} m  "
                       f"{fields} x {field_m:.0f} m", fontsize=8, loc="left")
     else:
         crown = axis_z + 5.0
@@ -3216,11 +3572,42 @@ def draw_structure_section(axq, m, st, way, station, offs, gnd, ink):
         cover = float(np.interp(0.0, offs, gnd)) - crown
         axq.annotate(f"Ueberdeckung {cover:.2f} m", (0, crown), fontsize=6.5, color=ink,
                      ha="center", xytext=(0, 6), textcoords="offset points")
-        axq.set_title(f"TUNNEL Sta {station:.0f}   lichte Hoehe 5.00 m", fontsize=8, loc="left")
+        axq.set_title(f"TUNNEL Sta {station if shown is None else shown:.0f}   "
+                      f"lichte Hoehe 5.00 m", fontsize=8, loc="left")
     axq.set_aspect("equal")
     axq.grid(alpha=0.22, lw=0.5)
     axq.tick_params(labelsize=6.5)
     axq.set_xlabel("m von der Achse", fontsize=7)
+
+
+def axis_of(m, want=""):
+    """WHICH WAY THE SHEET IS ABOUT. Taking the longest way makes a sheet about a BRIDGE draw the
+    road that passes UNDER it: measured 2026-09-06, `R10-interchange` and `R11-stacked` -- a
+    grade separation and a three-level stack -- produced two sheets nobody could tell apart,
+    because in both the 1000 m road below beat the 960 m chain carrying the deck, and both were
+    green. A structure wins over a length, and a NAME the case gave wins over both."""
+    ways = list(m.net.ways)
+    if not ways:
+        return None
+
+    def length(w):
+        return m.stations[w["id"]][-1]
+
+    want = (want or "").lower()
+    if want:
+        named = [w for w in ways
+                 if want in str(w["tags"].get("name", "")).lower()
+                 or want in str(w["tags"].get("ref", "")).lower()
+                 or want in str(w["tags"].get("bridge:name", "")).lower()]
+        if named:
+            # a landmark's NAME sits on its approaches too: three ways are called Ponte Vecchio
+            # and only one carries `bridge`. The structure wins over the length (measured)
+            spans = [w for w in named if m.net.spans(w) or m.net.bores(w)]
+            return max(spans or named, key=length)
+    spans = [w for w in ways if m.net.spans(w) or m.net.bores(w)]
+    if spans:
+        return max(spans, key=length)
+    return max(ways, key=length)
 
 
 def build_route(m, seed=None):
@@ -3260,7 +3647,12 @@ def build_route(m, seed=None):
             if at_end:
                 chain.append(nxt)
             else:
-                chain.insert(0, (nxt[0], not nxt[1]))
+                # THE DIRECTION WAS ALREADY DECIDED above -- negating it here turned every way
+                # PREPENDED to the chain back to front, so the route's own profile jumped: at
+                # Lombard Street the drawn Gradiente fell to 31 m, leapt back to 86, and did it
+                # again, because three sections all began at the seed's own node (measured
+                # 2026-09-06). A longitudinal section that is not continuous is not a section.
+                chain.insert(0, nxt)
     out = []
     at = 0.0
     for (w, forward) in chain:
@@ -3293,6 +3685,8 @@ def plot(case, m, st, number=0, seed=None):
     work = Earthworks(st)
     mesh = Mesh(st)
     route = build_route(m, seed)
+    steep, steep_at, _ = grade_reached(m, route)
+    bend_r, bend_at, bend_kind, _, _ = route_curve(m, route)
     main = seed if seed is not None and any(w["id"] == seed["id"] for (w, _, _) in route) \
         else max((w for (w, _, _) in route), key=lambda w: m.stations[w["id"]][-1])
 
@@ -3416,7 +3810,11 @@ def plot(case, m, st, number=0, seed=None):
             ("Gelaende", f"{case[1]}"),
             ("Achse", f"{main['tags']['highway']}, B = {main['tags']['width']:.1f} m"),
             ("Entwurfsgeschwindigkeit", f"{v:.0f} km/h"),
-            ("Laengsneigung zulaessig", f"{GRADE_OF.get(main['tags']['highway'], 0.12) * 100:.0f} %"),
+            ("Laengsneigung zulaessig", f"{GRADE_OF.get(main['tags']['highway'], 0.12) * 100:.0f} %"
+             + (" (Bauwerk)" if steep > GRADE_OF.get(main["tags"]["highway"], 0.12) else "")),
+            ("Laengsneigung erreicht", f"{steep * 100:.1f} % bei Sta {steep_at:.0f}"),
+            ("Ausrundung mindestens", f"Kuppe {crest_radius_m(v):.0f} m, Wanne {sag_radius_m(v):.0f} m"),
+            ("Ausrundung erreicht", f"{bend_kind} R = {bend_r:.0f} m bei Sta {bend_at:.0f}"),
             ("Querneigung", f"Dach {SUPER_MIN * 100:.1f} %, max {SUPER_MAX * 100:.0f} %"),
             ("Boeschung", f"Damm 1:{BATTER_FILL}, Einschnitt 1:{BATTER_CUT}"),
             ("Wege / Knoten / Kreuzungen", f"{len(m.net.ways)} / {len(m.net.nodes)} / {len(m.junctions)}"),
@@ -3437,16 +3835,8 @@ def plot(case, m, st, number=0, seed=None):
     # ---------------------------------------------------------------- LAENGSSCHNITT
     ax = fig.add_subplot(gs[1, :])
     total = sum(m.stations[w["id"]][-1] for (w, _, _) in route)
-    for (w, forward, at0) in route:
+    for (w, forward, at0, xs_route, grad, dem, truth) in route_profile(m, route):
         sw = m.stations[w["id"]]
-        lw = m.centreline(w)
-        local = np.linspace(0, sw[-1], max(60, int(sw[-1])))
-        xs_route = at0 + (local if forward else sw[-1] - local)
-        grad = np.array([m.profile(w, float(v))[0] for v in local])
-        dem = np.array([m.terrain.dem(*lw.interpolate(float(v)).coords[0]) for v in local])
-        truth = np.array([m.terrain.truth(*lw.interpolate(float(v)).coords[0]) for v in local])
-        order = np.argsort(xs_route)
-        xs_route, grad, dem, truth = xs_route[order], grad[order], dem[order], truth[order]
         ax.plot(xs_route, truth, color="0.6", lw=0.9)
         ax.plot(xs_route, dem, color="0.35", lw=0.9, ls=":")
         if not (m.net.spans(w) or m.net.bores(w)):
@@ -3511,8 +3901,19 @@ def plot(case, m, st, number=0, seed=None):
     line = m.centreline(main)
     at_junction = [s[k] for k, r in enumerate(main["refs"]) if r in m.cluster_of]
     if at_junction:
+        # THREE PANELS ARE THREE QUESTIONS. A roundabout's junction sits at station 0 of every
+        # leg, so `mid - 100` clamped to zero and `mid` were the SAME section drawn twice and one
+        # panel of the sheet said nothing (measured 2026-09-06 on R7-roundabout). The reach
+        # shrinks until the three stand apart, and a way too short for three keeps its quarters.
         mid = at_junction[len(at_junction) // 2]
-        picked = [(main, max(0.0, mid - 100.0)), (main, mid), (main, min(s[-1], mid + 100.0))]
+        picked = None
+        for reach in (100.0, 50.0, 25.0, 10.0):
+            trio = [max(0.0, mid - reach), mid, min(s[-1], mid + reach)]
+            if len(set(round(v, 1) for v in trio)) == 3:
+                picked = [(main, v) for v in trio]
+                break
+        if picked is None:
+            picked = [(main, s[-1] * f) for f in (0.25, 0.5, 0.75)]
     else:
         structure = next(((w) for (w, _, _) in route if m.net.spans(w) or m.net.bores(w)), None)
         ground_way = max((w for (w, _, _) in route if not (m.net.spans(w) or m.net.bores(w))),
@@ -3521,14 +3922,27 @@ def plot(case, m, st, number=0, seed=None):
             ss = m.stations[structure["id"]]
             sg = m.stations[ground_way["id"]]
             # one section on the approach, one on the structure, one at its far end -- three
-            # DIFFERENT places; taking the longest way twice drew the same section twice
-            picked = [(ground_way, sg[-1] * 0.5), (structure, ss[-1] * 0.5),
-                      (structure, ss[-1] * 0.9)]
+            # DIFFERENT places; taking the longest way twice drew the same section twice.
+            # A ROUTE MAY BE ONE SECTION AND THAT SECTION MAY BE THE DECK: then `ground_way`
+            # falls back to the deck and panels one and two are the same place again. The
+            # Golden Gate's sheet read "UEBERBAU Sta 1382" twice (measured 2026-09-06).
+            if ground_way is structure:
+                picked = [(structure, ss[-1] * f) for f in (0.15, 0.5, 0.85)]
+            else:
+                picked = [(ground_way, sg[-1] * 0.5), (structure, ss[-1] * 0.5),
+                          (structure, ss[-1] * 0.9)]
         else:
             picked = [(main, s[-1] * 0.25), (main, s[-1] * 0.5), (main, s[-1] * 0.75)]
     for at, (main, station) in enumerate(picked):
         axq = fig.add_subplot(gs[2, at])
         station = float(station)
+        # THE SHEET HAS ONE STATIONING AND IT IS THE ROUTE'S. The Lageplan and the Laengsschnitt
+        # were already brought to it; these titles still quoted the WAY's own, so one sheet read
+        # "Sta 180", "Sta 140" and "Sta 252" over a route that runs 0..1000 (measured 2026-09-06).
+        on_route = next(((f, a0) for (rw, f, a0) in route if rw is main), None)
+        shown = (on_route[1] + (station if on_route[0]
+                                else m.stations[main["id"]][-1] - station)) \
+            if on_route is not None else station
         half = main["tags"]["width"] / 2.0
         line = m.centreline(main)
         p = line.interpolate(station)
@@ -3541,7 +3955,7 @@ def plot(case, m, st, number=0, seed=None):
         offs = np.linspace(-reach, reach, 260)
         gnd = np.array([m.terrain.filled(p.x + nx * o, p.y + ny * o) for o in offs])
         if m.net.spans(main) or m.net.bores(main):
-            draw_structure_section(axq, m, st, main, station, offs, gnd, ink)
+            draw_structure_section(axq, m, st, main, station, offs, gnd, ink, shown=shown)
             continue
         surf = np.array([st.own_surface(main, station, float(o)) if abs(o) <= half else np.nan for o in offs])
         # the built section: carriageway, kerb, batters
@@ -3589,7 +4003,7 @@ def plot(case, m, st, number=0, seed=None):
                      arrowprops=dict(arrowstyle="<|-|>", color=ink, lw=0.7))
         axq.text(0, axis_z + 1.7, f"{main['tags']['width']:.2f} m", ha="center", fontsize=6.5, color=ink)
         left, right = m.superelevation(main, station)
-        axq.set_title(f"QUERSCHNITT Sta {station:.0f}   q {left * 100:+.1f} / {right * 100:+.1f} %   "
+        axq.set_title(f"QUERSCHNITT Sta {shown:.0f}   q {left * 100:+.1f} / {right * 100:+.1f} %   "
                       f"Achse {axis_z:.2f}", fontsize=8, loc="left")
         axq.set_aspect("equal")
         axq.set_xlim(-reach, reach)
@@ -3610,6 +4024,8 @@ def plot(case, m, st, number=0, seed=None):
 
 def main(argv):
     picked = [c for c in CASES if not argv or any(a in c[0] or a in c[1] for a in argv)]
+    if not argv:
+        publish.sweep("roads")
     reds = 0
     for number, case in enumerate(picked, start=1):
         verdict, red = run(case, number)
