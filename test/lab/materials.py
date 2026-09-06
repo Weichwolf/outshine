@@ -19,6 +19,7 @@ BSDF and every modern engine implement.
 MEASURED ALBEDOS, which is where the numbers come from:
 
     fresh white render  0.70..0.80   aged render        0.50..0.60   cream stucco   0.40..0.55
+    dry sand            0.30..0.40   tilled soil        0.10..0.15   track ballast  0.13..0.18
     red brick           0.15..0.25   limestone          0.35..0.50   concrete       0.25..0.35
     clay roof tile      0.15..0.25   slate              0.08..0.12   copper (green) 0.18..0.22
     asphalt             0.07..0.12   concrete paving    0.25..0.35   grass          0.18..0.25
@@ -161,12 +162,16 @@ add("timber",   base_color=(0.18, 0.12, 0.07), roughness=0.75, grain_m=0.015, re
 add("joinery",  base_color=(0.62, 0.61, 0.58), roughness=0.45, grain_m=0.0, relief_m=0.0, mottle=0.02)
 add("glass",    base_color=(0.040, 0.052, 0.062, 1.0), roughness=0.05, ior=1.5,
     transmission=0.0)
-add("grass",    base_color=(0.14, 0.17, 0.09), roughness=0.98, grain_m=0.04, relief_m=0.006, mottle=0.22)
+add("grass",    base_color=(0.14, 0.17, 0.09), roughness=0.98, grain_m=0.04, relief_m=0.006, mottle=0.09)
 add("gravel",   base_color=(0.19, 0.18, 0.16), roughness=0.95, grain_m=0.025, relief_m=0.005, mottle=0.16)
 add("water",    base_color=(0.020, 0.035, 0.045), roughness=0.06, ior=1.333)
 add("leaf",     base_color=(0.10, 0.16, 0.06), roughness=0.85, alpha_mode="MASK",
     double_sided=True, grain_m=0.0, relief_m=0.0, mottle=0.1)
 add("bark",     base_color=(0.085, 0.070, 0.055), roughness=0.94, grain_m=0.03, relief_m=0.006, mottle=0.22)
+add("sand",     base_color=(0.34, 0.30, 0.22), roughness=0.97, grain_m=0.004, relief_m=0.0008, mottle=0.12)
+add("soil",     base_color=(0.115, 0.085, 0.060), roughness=0.98, grain_m=0.030, relief_m=0.010, mottle=0.20)
+add("ballast",  base_color=(0.150, 0.140, 0.130), roughness=0.96, grain_m=0.045, relief_m=0.012, mottle=0.24)
+add("crop",     base_color=(0.155, 0.180, 0.095), roughness=0.97, grain_m=0.060, relief_m=0.008, mottle=0.24)
 add("masonry",  base_color=(0.28, 0.26, 0.22), roughness=0.92, grain_m=0.2, relief_m=0.012, mottle=0.2, unit_m=(0.4, 0.22), joint_m=0.02, bond='stretcher')
 
 

@@ -42,6 +42,7 @@ import materials as stock  # noqa: E402
 import street  # noqa: E402
 import kerbline  # noqa: E402
 import junction  # noqa: E402
+import surfaces  # noqa: E402
 import wear  # noqa: E402
 import ground as lab_ground  # noqa: E402
 
@@ -151,14 +152,25 @@ def overpass(place, reach_m):
     dlat = reach_m / 111132.0
     dlon = reach_m / (111320.0 * math.cos(math.radians(lat)))
     bbox = f"{lat - dlat:.6f},{lon - dlon:.6f},{lat + dlat:.6f},{lon + dlon:.6f}"
+    # AND THE GROUND ITSELF. A twin whose every gap between the buildings is a green field has
+    # thrown away half the extract: OSM states what the ground IS -- a square is paved, a car
+    # park is asphalt, a park is grass, a river is water -- and `surfaces.py` reads it.
     query = ("[out:json][timeout:300];("
              f'way["building"]({bbox});way["building:part"]({bbox});'
              f'way["highway"]({bbox});way["railway"]({bbox});'
              f'way["barrier"]({bbox});node["natural"="tree"]({bbox});'
              f'node["barrier"]({bbox});node["highway"="street_lamp"]({bbox});'
              f'node["amenity"]({bbox});'
+             f'way["landuse"]({bbox});way["natural"]({bbox});way["leisure"]({bbox});'
+             f'way["waterway"]({bbox});way["amenity"]({bbox});way["place"]({bbox});'
+             f'way["man_made"]({bbox});'
              ");(._;>;);out body;")
-    name = f"place-{place['name']}-{int(reach_m)}.json"
+    # THE CACHE KEY CARRIES THE QUERY. Named by the place alone, an extract fetched before a
+    # tag was added to the query is served for one that asks for it, and the new tags are simply
+    # absent -- which looks exactly like a place that has none of them.
+    import hashlib
+    stamp = hashlib.sha1(query.encode()).hexdigest()[:8]
+    name = f"place-{place['name']}-{int(reach_m)}-{stamp}.json"
     import json
     import urllib.parse
     held = roaddata.fetch(roaddata.OVERPASS, roaddata.CACHE / name,
@@ -417,14 +429,22 @@ def parts_of(place, frame, doc, red, lod=3):
     def drop(vv):
         return [(v[0], v[1], v[2] - frame.datum) for v in vv]
 
-    if street_face is None:
+    # WHAT THE GROUND IS, from OSM, with the street already spoken for
+    patches = surfaces.regions(doc, frame, GROUND_REACH_M, street_face)
+    over = surfaces.check_no_overlap(patches, street_face)
+    if over > 1.0:
+        red.append(f"I22 surfaces overlap {over:.1f} m2")
+    if street_face is None and not patches:
         put("ground", *ground_fan(frame), stock.STOCK["grass"])
     else:
-        gv, gt = lab_ground.surface(lambda x, y: frame.z(x, y), street_face,
-                                    kerbline.edge_height(surface, sites),
-                                    reach_m=GROUND_REACH_M, rings=GROUND_RINGS,
-                                    spokes=GROUND_SPOKES)
-        put("ground", drop(gv), gt, stock.STOCK["grass"])
+        sheet = lab_ground.surface(lambda x, y: frame.z(x, y), street_face,
+                                   kerbline.edge_height(surface, sites) if street_face is not None
+                                   else None,
+                                   reach_m=GROUND_REACH_M, rings=GROUND_RINGS,
+                                   spokes=GROUND_SPOKES, patches=patches)
+        for role, (gv, gt) in sheet.items():
+            put(f"g.{role}", drop(gv), gt,
+                stock.STOCK["grass" if role == "ground" else role])
 
     if mesh is not None:
         road = drop(mesh.vertices)
@@ -468,8 +488,12 @@ def parts_of(place, frame, doc, red, lod=3):
     bodies, dropped = buildings_of(place, frame, doc, red)
     for at, b in enumerate(bodies):
         mats = b.materials()
-        for role, (vv, tt) in b.body(lod).items():
+        made = b.body(lod)
+        for role, (vv, tt) in made.items():
             put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30))
+            got = getattr(b, "field", {}).get(role)
+            if got and any(any(c > 1e-6 for c in row) for row in got):
+                fields[f"{role}.{at}"] = np.asarray(got, dtype=float)
     return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped,
                               fields=fields)
 

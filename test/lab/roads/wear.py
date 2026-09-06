@@ -47,57 +47,67 @@ def carriageway(mesh, m):
     """The field on the DRAWN road: (N, 3) in [0, 1] -- polish, silt, splash.
 
     Every vertex is assigned to the way whose carriageway it lies on, and the field follows from
-    that way's own lane list. A vertex on a junction surface belongs to no lane and stays clean,
-    which is what a junction is: everybody drives everywhere on it."""
-    from shapely.geometry import Point
+    that way's own lane list. VECTORISED over the whole mesh, because a place twin's road carries
+    a hundred thousand vertices and a shapely call per vertex is a minute per twin: shapely 2.0
+    projects, interpolates and measures whole arrays at once, and the loop is over WAYS."""
+    import shapely
     from shapely.ops import unary_union
     from shapely.strtree import STRtree
     verts = np.asarray(mesh.vertices, dtype=float)
     out = np.zeros((len(verts), 3))
     ways = [w for w in m.net.ways if lanework.of(w)]
-    if not ways:
+    if not ways or not len(verts):
         return out
     lines = [m.centreline(w) for w in ways]
+    pts = shapely.points(verts[:, 0], verts[:, 1])
     tree = STRtree(lines)
+    near = np.asarray(tree.query_nearest(pts))
+    if near.ndim > 1:                       # a tie returns pairs; the first is enough
+        keep = np.zeros(len(verts), dtype=np.int64)
+        keep[near[0]] = near[1]
+        near = keep
     # A JUNCTION HAS NO LANES AND THEREFORE NO TRACKS. Everybody drives everywhere on it and the
-    # water runs to its corners, so the field FADES there. Left to its legs, the major's silt
-    # band (half 5.0 m) met the minor's (half 3.0 m) at the same point and the field stepped the
-    # whole way between two vertices 1.9 m apart -- which is what I21 is for.
-    # and it is the junction's REGION, not its polygon: inside the warp band the leg is meshed on
-    # a GRID whose spacing is wider than the polish band, so a field that still varied there
-    # stepped 1.00 between two grid vertices 0.9 m apart (I21, before the fade reached the warp).
+    # water runs to its corners, so the field FADES over the junction's REGION -- the warp band
+    # included, because inside the warp the leg is meshed on a GRID wider than the polish band.
+    # Left to its legs, the major's silt band met the minor's at one point and the field stepped
+    # the whole way between two vertices 1.9 m apart, which is what I21 caught.
     regions = []
     for nid in getattr(m, "junctions", {}):
         try:
             regions.append(mesh.region_of(nid))
         except Exception:
             pass
-    junctions = unary_union(regions) if regions else None
-    for i, (x, y, _) in enumerate(verts):
-        p = Point(x, y)
-        k = int(tree.nearest(p))
-        w, line = ways[k], lines[k]
-        half = w["tags"]["width"] / 2.0
-        if line.distance(p) > half + 0.01:
+    fade = np.ones(len(verts))
+    if regions:
+        whole = unary_union(regions)
+        fade = np.clip(np.asarray(shapely.distance(pts, whole)) / FADE_M, 0.0, 1.0)
+    for k, (w, line) in enumerate(zip(ways, lines)):
+        sel = np.flatnonzero(near == k)
+        if not len(sel):
             continue
-        s = float(line.project(p))
-        q = line.interpolate(s)
-        ahead = line.interpolate(min(s + 0.1, line.length))
-        back = line.interpolate(max(s - 0.1, 0.0))
-        dx, dy = ahead.x - back.x, ahead.y - back.y
-        n = math.hypot(dx, dy) or 1.0
-        off = (x - q.x) * (-dy / n) + (y - q.y) * (dx / n)
-        best = 1e9
-        for lane in lanework.of(w):
-            if lane.use != "drive":
+        half = w["tags"]["width"] / 2.0
+        here = pts[sel]
+        if np.asarray(shapely.distance(here, line)).max() > half + 0.01:
+            inside = np.asarray(shapely.distance(here, line)) <= half + 0.01
+            sel, here = sel[inside], here[inside]
+            if not len(sel):
                 continue
-            for side in (-1.0, +1.0):
-                best = min(best, abs(off - (lane.centre + side * TRACK_HALF_M)))
-        fade = 1.0
-        if junctions is not None and not junctions.is_empty:
-            fade = min(1.0, junctions.distance(p) / FADE_M)
-        out[i, 0] = (math.exp(-(best / POLISH_M) ** 2) if best < 1e8 else 0.0) * fade
-        out[i, 1] = max(0.0, 1.0 - (half - abs(off)) / SILT_M) * fade
+        at = np.asarray(shapely.line_locate_point(line, here))
+        on = shapely.line_interpolate_point(line, at)
+        ahead = shapely.line_interpolate_point(line, np.minimum(at + 0.1, line.length))
+        back = shapely.line_interpolate_point(line, np.maximum(at - 0.1, 0.0))
+        qx, qy = shapely.get_x(on), shapely.get_y(on)
+        dx = shapely.get_x(ahead) - shapely.get_x(back)
+        dy = shapely.get_y(ahead) - shapely.get_y(back)
+        n = np.hypot(dx, dy)
+        n[n < 1e-9] = 1.0
+        off = (verts[sel, 0] - qx) * (-dy / n) + (verts[sel, 1] - qy) * (dx / n)
+        tracks = [lane.centre + side * TRACK_HALF_M
+                  for lane in lanework.of(w) if lane.use == "drive" for side in (-1.0, +1.0)]
+        if tracks:
+            gap = np.abs(off[:, None] - np.asarray(tracks)[None, :]).min(axis=1)
+            out[sel, 0] = np.exp(-(gap / POLISH_M) ** 2) * fade[sel]
+        out[sel, 1] = np.clip(1.0 - (half - np.abs(off)) / SILT_M, 0.0, 1.0) * fade[sel]
     return out
 
 

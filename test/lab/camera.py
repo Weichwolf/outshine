@@ -51,6 +51,21 @@ class Camera:
         return right, (up / n if n > 1e-9 else np.array([0.0, 0.0, 1.0])), fwd
 
 
+    def project(self, point):
+        """A world point (in the camera's own translated frame, eye at the origin plus `agl_m`)
+        to a PIXEL, or None behind the eye. What a measurement needs when it has to read one
+        surface out of a picture rather than the picture as a whole."""
+        right, up, fwd = self.basis()
+        rel = np.asarray(point, dtype=float) - np.array([0.0, 0.0, self.agl_m])
+        ahead = float(np.dot(rel, fwd))
+        if ahead <= 1e-6:
+            return None
+        half = math.tan(math.radians(self.fov_deg) / 2.0)
+        x = float(np.dot(rel, right)) / (ahead * half)
+        y = float(np.dot(rel, up)) / (ahead * half * self.height / self.width)
+        return (0.5 * (1.0 + x) * self.width, 0.5 * (1.0 - y) * self.height)
+
+
 def sun_direction(lat_deg, lon_deg, when_utc):
     """WHERE THE SUN STANDS, from the place and the hour. Astronomy, not weather: NOAA's own
     low-precision solar position, good to about a tenth of a degree, which is far inside what a

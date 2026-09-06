@@ -508,11 +508,23 @@ class Building:
         V = np.asarray(self.vertices, dtype=float)
         T = np.asarray(self.tris, dtype=np.int64)
         got = {}
+        # THE WEATHERING FIELD RIDES ALONG. The SPLASH channel is a pure function of the height
+        # over the ground under that very point -- rain bounces half a metre and no higher -- so
+        # it needs no thread through the elements at all; a piece that also carries a STREAK
+        # (the water a sill sheds) hands its own values over.
+        self.field = {}
 
-        def put(role, verts, tris):
+        def put(role, verts, tris, extra=None):
             v, s = got.setdefault(role, ([], []))
+            f = self.field.setdefault(role, [])
             base = len(v)
-            v.extend([tuple(map(float, q)) for q in verts])
+            for at, q in enumerate(verts):
+                q = tuple(map(float, q))
+                v.append(q)
+                splash = max(0.0, min(1.0, 1.0 - (q[2] - self.wall_foot(q[0], q[1]))
+                                      / elements.facade.SPLASH_M))
+                streak = float(extra[at][1]) if extra is not None else 0.0
+                f.append((0.0, streak, splash))
             s.extend([(a + base, b + base, c + base) for (a, b, c) in tris])
 
         if len(T):
@@ -527,9 +539,9 @@ class Building:
                        (z <= self.pad + 1e-6).all(axis=1)
                 put("wall", V, T[keep].tolist())
                 for (place, ctx) in self._faces(street_dir):
-                    for (role, vv, tt) in elements.holed_wall(place, elements.openings_of(ctx),
-                                                              elements.facade.FRAME_M + 0.10):
-                        put(role, vv, tt)
+                    for (role, vv, tt, ff) in elements.holed_wall(
+                            place, elements.openings_of(ctx), elements.facade.FRAME_M + 0.10):
+                        put(role, vv, tt, ff)
                 # A PARTY WALL KEEPS THE MASS'S OWN SOLID FACE: it is shared, unseen and unglazed
                 for at, wall in enumerate(Facade(self)._walls()):
                     if at not in self.party_walls() or not wall["outer"]:

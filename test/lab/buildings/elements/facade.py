@@ -77,10 +77,48 @@ def openings_of(ctx):
     return out
 
 
+SPLASH_M = 0.50           # [SET] how high rain bounces off the ground and wets a wall
+
+
+def _wear_points(place, holes):
+    """WHERE THE WALL NEEDS A VERTEX FOR ITS WEATHERING TO SIT.
+
+    A FACADE'S MESH CANNOT CARRY A STREAK, and the measurement said so: sampled at four points
+    per sill on a wall whose triangles are metres wide, the run-off stain interpolated across
+    whole storeys and the facade rendered as green bands (rendered the raw field to base colour
+    and looked at, 2026-09-06). A run-off streak is 0.2 m wide on a 15 m wall -- the wrong scale
+    for geometry, and the scale a decal or a shader function is for. What IS carried here is the
+    SPLASH band, which is 0.5 m deep and a pure function of the height over the ground; the
+    streak stays open on R6 with its carrier named."""
+    out = []
+
+    def clear(s, z):
+        return all(not (a - 0.05 <= s <= b + 0.05 and c - 0.05 <= z <= d + 0.05)
+                   for (a, c, b, d) in holes)
+
+    for level in (0.12, 0.28, 0.46, SPLASH_M + 0.10):
+        if not 0.02 < level < place.height - 0.02:
+            continue
+        n = max(2, int(place.length / 0.6))
+        for i in range(n):
+            s = place.length * (i + 0.5) / n
+            if clear(s, level):
+                out.append((s, level))
+    return out
+
+
+def wear_at(place, holes, s, z):
+    """The wall's weathering at a point on it: (polish, streak, splash). Splash only -- rain
+    bounces half a metre off the ground and no higher, and that is the one channel a facade's
+    own mesh is coarse enough to carry."""
+    return (0.0, 0.0, max(0.0, min(1.0, 1.0 - z / SPLASH_M)))
+
+
 def holed_wall(place, holes, depth):
     """The wall face with its holes, plus the reveal, the frame and the glass in each.
 
-    Returns [(role, vertices, triangles)]. `depth` is how far the glass sits back."""
+    Returns [(role, vertices, triangles, field)] -- `field` is the per-vertex weathering where the
+    piece carries one and None where it does not. `depth` is how far the glass sits back."""
     import triangle as tri
     pts = [(0.0, 0.0), (place.length, 0.0), (place.length, place.height), (0.0, place.height)]
     segs = [(0, 1), (1, 2), (2, 3), (3, 0)]
@@ -91,6 +129,7 @@ def holed_wall(place, holes, depth):
         pts += [(s0, z0), (s1, z0), (s1, z1), (s0, z1)]
         segs += [(base, base + 1), (base + 1, base + 2), (base + 2, base + 3), (base + 3, base)]
         inside.append(((s0 + s1) / 2, (z0 + z1) / 2))
+    pts += _wear_points(place, holes)
     holes = [h[:4] for h in holes]
     spec = {"vertices": np.array(pts, dtype=float), "segments": np.array(segs, dtype=np.int32)}
     if inside:
@@ -105,7 +144,8 @@ def holed_wall(place, holes, depth):
         n = np.cross(q - p, r - p)
         face_t.append((int(a), int(b), int(c)) if float(np.dot(n, place.out)) > 0.0
                       else (int(a), int(c), int(b)))
-    out = [("wall", face_v, face_t)]
+    field = [wear_at(place, holes, float(s), float(z)) for (s, z) in got["vertices"]]
+    out = [("wall", face_v, face_t, field)]
     for (s0, z0, s1, z1) in holes:
         # the REVEAL: four faces running from the wall plane back to the glass
         v = [place.at(s, z, d) for (s, z, d) in
@@ -119,26 +159,26 @@ def holed_wall(place, holes, depth):
             n = np.cross(np.asarray(v[b]) - v[a], np.asarray(v[c]) - v[a])
             # a reveal faces INTO the opening, so its normal points at the hole's own axis
             wound.append((a, b, c) if float(np.dot(n, mid - np.asarray(v[a]))) > 0.0 else (a, c, b))
-        out.append(("wall", v, wound))
+        out.append(("wall", v, wound, None))
         f = FRAME_M
-        out.append(("glass", *_quad(place, s0 + f, z0 + f, s1 - f, z1 - f, -depth)))
+        out.append(("glass", *_quad(place, s0 + f, z0 + f, s1 - f, z1 - f, -depth), None))
         for (a0, b0, a1, b1) in ((s0, z0, s0 + f, z1), (s1 - f, z0, s1, z1),
                                  (s0 + f, z1 - f, s1 - f, z1), (s0 + f, z0, s1 - f, z0 + f)):
-            out.append(("wood", *_quad(place, a0, b0, a1, b1, -depth + 0.01)))
+            out.append(("wood", *_quad(place, a0, b0, a1, b1, -depth + 0.01), None))
         # THE SASH ITSELF: a MEETING STILE down the middle, a TRANSOM across, and the glazing
         # bars in each light. A window read as one dark pane is the difference between a hole and
         # a window, and it is the cheapest detail on the whole facade -- four quads.
         if (s1 - s0) > 0.75 and (z1 - z0) > 0.9:
             mid = 0.5 * (s0 + s1)
             out.append(("wood", *_quad(place, mid - f * 0.55, z0 + f, mid + f * 0.55, z1 - f,
-                                       -depth + 0.012)))
+                                       -depth + 0.012), None))
             kaempfer = z0 + (z1 - z0) * 0.62
             out.append(("wood", *_quad(place, s0 + f, kaempfer - f * 0.5, s1 - f,
-                                       kaempfer + f * 0.5, -depth + 0.012)))
+                                       kaempfer + f * 0.5, -depth + 0.012), None))
             for u in (0.5,):
                 zb = z0 + f + (kaempfer - z0 - f) * u
                 out.append(("wood", *_quad(place, s0 + f, zb - f * 0.35, s1 - f, zb + f * 0.35,
-                                           -depth + 0.010)))
+                                           -depth + 0.010), None))
     return out
 
 

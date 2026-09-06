@@ -30,9 +30,17 @@ def _parts(poly):
                                                       if p.geom_type == "Polygon"]
 
 
-def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings=72, spokes=96):
-    """The ground as one welded sheet: a CDT inside `near_m` with `holes` cut out, the polar fan
-    outside it. `z_edge` gives the height on a hole's own ring, `z_at` everywhere else."""
+def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings=72, spokes=96,
+            patches=()):
+    """The ground as ONE welded sheet with several materials: a CDT inside `near_m` with `holes`
+    cut out and every patch's outline as a CONSTRAINT, the polar fan outside it.
+
+    `patches` is [(role, polygon)] from `surfaces.py` -- a square, a car park, a park, water --
+    and the sheet conforms to their outlines rather than being cut by them, so the terrain and
+    the square are one surface with no crack between them and no vertex out of place. Returns
+    {role: (vertices, triangles)} with `ground` for whatever no patch claimed.
+
+    `z_edge` gives the height on a hole's own ring, `z_at` everywhere else."""
     import triangle as tri
     z_edge = z_edge or z_at
     q = (reach_m / 8.0) ** (1.0 / rings)
@@ -64,6 +72,18 @@ def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings
             segs += [(base + i, base + (i + 1) % n) for i in range(n)]
         q0 = f.representative_point()
         hole_pts.append((q0.x, q0.y))
+    # every patch's outline is a CONSTRAINT, so the sheet has an edge exactly where the material
+    # changes -- a patch cut out afterwards leaves a crack as wide as the triangle it cut
+    for (_, poly) in patches:
+        for f in _parts(poly):
+            for r in [f.exterior] + list(f.interiors):
+                coords = list(r.coords)[:-1]
+                if len(coords) < 3:
+                    continue
+                base = len(pts)
+                pts += [(float(x), float(y)) for (x, y) in coords]
+                nn = len(coords)
+                segs += [(base + i, base + (i + 1) % nn) for i in range(nn)]
     edge_count = len(pts)
     outer = ring(radii[seam])
     base = len(pts)
@@ -95,6 +115,7 @@ def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings
         pa, pb, pc = (np.asarray(verts[i]) for i in (int(a), int(b), int(c)))
         up = float(np.cross(pb - pa, pc - pa)[2])
         tris.append((int(a), int(b), int(c)) if up > 0.0 else (int(a), int(c), int(b)))
+    near_count = len(tris)
 
     # the seam ring is shared: the outer fan starts on the vertices the CDT already placed
     index = {(round(x, 6), round(y, 6)): i for i, (x, y, _) in enumerate(verts)}
@@ -112,15 +133,48 @@ def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings
             c, d = rows[j + 1][k], rows[j + 1][k2]
             tris.append((a, d, c))
             tris.append((a, b, d))
-    return verts, tris
+    return _by_role(verts, tris, patches, near_count)
 
 
-def check_ground_off_street(verts, tris, street):
+def _by_role(verts, tris, patches, near_count):
+    """Each triangle to the patch its CENTROID falls in, and to `ground` where none does. The
+    centroid is the test because the outlines are constraints: no triangle straddles one."""
+    import shapely
+    if not patches:
+        return {"ground": (verts, tris)}
+    mid = np.array([[(verts[a][0] + verts[b][0] + verts[c][0]) / 3.0,
+                     (verts[a][1] + verts[b][1] + verts[c][1]) / 3.0]
+                    for (a, b, c) in tris[:near_count]])
+    role = ["ground"] * len(tris)
+    if len(mid):
+        probe = shapely.points(mid[:, 0], mid[:, 1])
+        for (name, poly) in patches:
+            hit = np.asarray(shapely.contains_xy(poly, mid[:, 0], mid[:, 1]))
+            for i in np.flatnonzero(hit):
+                role[int(i)] = name
+    out = {}
+    for i, (a, b, c) in enumerate(tris):
+        want = role[i]
+        keep, index = out.setdefault(want, ([], [], {}))[:2], out[want][2]
+        tri = []
+        for v in (a, b, c):
+            at = index.get(v)
+            if at is None:
+                at = len(keep[0])
+                index[v] = at
+                keep[0].append(verts[v])
+            tri.append(at)
+        keep[1].append(tuple(tri))
+    return {k: (v[0], v[1]) for k, v in out.items()}
+
+
+def check_ground_off_street(parts, street):
     """I19: THE TERRAIN IS NOT DRAWN OVER THE STREET. The area of ground inside the street's own
     outline, in square metres -- and it is the DRAWN triangles that are measured, because the
     defect was a drawing defect with every geometric check green."""
     if street is None or street.is_empty:
         return 0.0
     from shapely.ops import unary_union
-    sheet = unary_union([Polygon([verts[i][:2] for i in t]) for t in tris]).buffer(0)
+    faces = [Polygon([verts[i][:2] for i in t]) for (verts, tris) in parts.values() for t in tris]
+    sheet = unary_union(faces).buffer(0)
     return float(sheet.intersection(street).area)

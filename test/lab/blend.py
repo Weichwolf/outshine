@@ -419,7 +419,13 @@ for role, path in files.items():
     # one and rain bounced into the blue -- and the material only has to READ them.
     if worn.get(role):
         nt = mat.node_tree
-        col = nt.nodes.new("ShaderNodeVertexColor")
+        col = nt.nodes.new("ShaderNodeAttribute")
+        # THE ATTRIBUTE HAS TO BE NAMED. Left to the default the node reads BLACK, and a field
+        # that is right in the file and right in the mesh shows as nothing at all -- which is
+        # exactly what a facade with 444 field vertices looked like (2026-09-06). PLY's colours
+        # land as one POINT attribute and `ShaderNodeAttribute` is what reads a named one.
+        names = [a.name for a in getattr(ob.data, "color_attributes", [])]
+        col.attribute_name = names[0] if names else "Col"
         chan = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(col.outputs["Color"], chan.inputs["Color"])
         base = bsdf.inputs["Base Color"]
