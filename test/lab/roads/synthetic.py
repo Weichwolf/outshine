@@ -914,6 +914,47 @@ class Map:
             self._cross[key] = a.intersects(b)
         return self._cross[key]
 
+    def open_ends(self):
+        """Nodes the extract cut off, so their profile owes the DEM nothing."""
+        got = getattr(self, "_open_ends", None)
+        if got is None:
+            got = self._open_ends = np.zeros(len(self.index), dtype=bool)
+        return got
+
+    def mark_open_ends(self, half_m, reach_m=40.0):
+        """Every node within `reach_m` of the extract's square edge, and everything within
+        RAMP_REACH_M of it along the network -- a cut ramp climbs THROUGH the boundary."""
+        edge = np.zeros(len(self.index), dtype=bool)
+        seeds = []
+        for r, (x, y) in self.net.nodes.items():
+            if max(abs(x), abs(y)) >= half_m - reach_m:
+                edge[self.index[r]] = True
+                seeds.append(r)
+        adjacency = {}
+        for w in self.net.ways:
+            for r in w["refs"]:
+                adjacency.setdefault(r, []).append(w)
+        frontier = [(r, RAMP_REACH_M) for r in sorted(seeds)]
+        seen = {r: RAMP_REACH_M for r in seeds}
+        while frontier:
+            node, budget = frontier.pop()
+            for w in adjacency.get(node, ()):
+                refs, s = w["refs"], self.stations[w["id"]]
+                if node not in refs:
+                    continue
+                k0 = refs.index(node)
+                for k in range(len(refs)):
+                    left = budget - abs(s[k] - s[k0])
+                    if left <= 0.0:
+                        continue
+                    r = refs[k]
+                    edge[self.index[r]] = True
+                    if seen.get(r, -1.0) < left - 1e-6:
+                        seen[r] = left
+                        frontier.append((r, left))
+        self._open_ends = edge
+        return edge
+
     def band(self):
         """How far from the DEM a road on the ground may stand, per node: the survey's own error
         plus what a BILINEAR interpolant cannot represent, which is |z''| h^2 / 8. ONE source --
@@ -1064,8 +1105,20 @@ class Map:
                     if seen.get(r, -1.0) < left - 1e-6:
                         seen[r] = left
                         frontier.append((r, left))
+        # how far each approach node is from its abutment ALONG the network: a ramp is elevated
+        # near the deck and back at grade further out, and that distance is what decides whether
+        # something crossing over it may treat it as ground
+        far = np.full(len(self.index), np.inf)
+        for r, left in seen.items():
+            far[self.index[r]] = RAMP_REACH_M - left
+        self._approach_dist = far
         self._approach_cache = near
         return near
+
+    def approach_dist(self):
+        """Distance along the network from each node to the nearest bridge abutment."""
+        self.approaches()
+        return self._approach_dist
 
     def ramp_m(self):
         """How far from an abutment the road stands more than the DEM's error off the terrain."""
@@ -1089,6 +1142,8 @@ class Map:
         curve, so the nodes bound it; a crossing between two deck nodes is caught by the node
         on either side (the checks sample the profile along the deck)."""
         floors, pairs = {}, []
+        ramps = self.approaches()
+        ramp_far = self.approach_dist()
         # a road that crosses WATER without spanning or fording it is a CAUSEWAY: it stands on
         # fill a freeboard above the surface. Measured before this rule: a coast road and a
         # bridge's approaches over a lake sat under the water, which is a road nobody can drive.
@@ -1182,6 +1237,20 @@ class Map:
                         # pass over. The profile between two nodes is LINEAR in z, so the exact
                         # station goes into the constraint as a two-node interpolation and the
                         # problem stays convex.
+                        # A DECK DOES NOT CLEAR ANOTHER DECK'S RAMP. An approach is a STRUCTURE
+                        # and OSM does not say where it stands; treating it as ground makes a
+                        # cycle at every compact interchange -- deck A over B's ramp, deck B over
+                        # A's ramp, while each deck sits within DECK_GRADE of its own ramp, which
+                        # is a contradiction with no solution (measured 2026-09-06: Kaiserberg and
+                        # the Elbtunnel were infeasible on the DECK's own grade by 4.59 m and
+                        # 5.04 m, and no relaxation of the band or the boundary touched it).
+                        # ...but only where that ramp is still CLIMBING. Beyond its rise the
+                        # road is back at grade and a bridge over it is an ordinary overpass,
+                        # which is what `R11-rampcycle` is: the crossing there stands 160 m from
+                        # the abutment. Inside the rise the two constraints contradict.
+                        kb_i = self.index[other["refs"][kb]]
+                        if ramps[kb_i] and ramp_far[kb_i] < APPROACH_M:
+                            continue
                         kb2 = min(kb + 1, len(other["refs"]) - 1)
                         span_b = st_below[kb2] - st_below[kb]
                         uu = 0.0 if span_b <= 1e-9 else min(max((s_below - st_below[kb]) / span_b, 0.0), 1.0)
@@ -1226,11 +1295,31 @@ class Map:
         # under the terrain at the Transfagarasan (measured 2026-09-06, after the pairs). The
         # band was taken out once because its active set oscillated in the ITERATIVE scheme;
         # inside one convex solve a box has nothing to oscillate against.
-        onground = ~(self.deck | self.bore | self.approaches() | self.causeway)
+        # A WAY CUT BY THE EXTRACT'S EDGE HAS AN OPEN END. Its ramp runs on for a kilometre
+        # in the world and for ten metres in the box, and holding it to the DEM there asks a
+        # motorway interchange to bring five levels back to grade inside 500 m -- which no
+        # interchange on the planet does. Measured 2026-09-06: it is why Kaiserberg's DECK
+        # grade had to give 4.59 m and the Elbtunnel's 5.04 m. The caller marks them; a
+        # synthetic bed has none, so nothing there moves.
+        onground = ~(self.deck | self.bore | self.approaches() | self.causeway
+                     | self.open_ends())
         held = np.flatnonzero(onground)
         if len(held):
-            band = self.band()[held]
-            cons += [z[held] <= self.dem[held] + band, z[held] >= self.dem[held] - band]
+            band = self.band()[held].copy()
+            # A CROSSING IS EVIDENCE AGAINST THE DEM. Where a deck passes over a road, OSM asserts
+            # a grade separation that the DEM shows nothing of -- a motorway in a cutting is 20 m
+            # wide and the postings are 25 m apart, so the cutting is smoothed away exactly as a
+            # hairpin's two legs are. The way BELOW may therefore go DOWN by what the separation
+            # needs, and no further; upward it is still held. Measured 2026-09-06: without this
+            # the DECK's own grade had to give 4.59 m at Kaiserberg and 5.04 m at the Elbtunnel,
+            # because the only way left to make room was to bend a bridge.
+            lower = {}
+            for (_, j, j2, uu, gap) in getattr(self, "clearance_pairs", ()):
+                lower[j] = max(lower.get(j, 0.0), gap)
+                lower[j2] = max(lower.get(j2, 0.0), gap)
+            deeper = np.array([lower.get(int(k), 0.0) for k in held])
+            cons += [z[held] <= self.dem[held] + band,
+                     z[held] >= self.dem[held] - band - deeper]
         cons += self._shape_constraints(z, cp)
 
         problem = cp.Problem(cp.Minimize(objective), cons)
@@ -1247,7 +1336,7 @@ class Map:
         self.z = np.asarray(z.value)
         self.infeasible = None
 
-    def _shape_constraints(self, z, cp, slack=None):
+    def _shape_constraints(self, z, cp, slack=None, taper=None, deckg=None, rampg=None):
         """The RAMP and GRADE bounds: a designed structure keeps its class's grade and an
         embankment tapers. Built once and used by BOTH the solve and the elastic pose, so that
         an infeasible set can be told which FAMILY carries the violation -- with `slack` given,
@@ -1256,6 +1345,11 @@ class Map:
         satisfiable with zero slack, so the conflict is here)."""
         out = []
         give = 0.0 if slack is None else slack
+        # each KIND of bound may carry its own slack, so an infeasible set says WHICH: the
+        # embankment's taper, the deck's own grade, or the ramp's grade over the terrain
+        g_taper = give if taper is None else taper
+        g_deck = give if deckg is None else deckg
+        g_ramp = give if rampg is None else rampg
         # the ramps: a designed structure keeps its class's grade, hard, on every segment of an
         # approach and of the deck itself -- the lift a clearance asks for spreads back along
         # the approach as an embankment, never as a 30 percent step (measured before this)
@@ -1277,7 +1371,7 @@ class Map:
                 lift_a = z[a_] - self.dem[a_]
                 lift_b = z[b_] - self.dem[b_]
                 sign = self.ramp_signs.get(w["id"], 1.0)
-                out += [sign * lift_b <= sign * lift_a + give, sign * lift_b >= -give]
+                out += [sign * lift_b <= sign * lift_a + g_taper, sign * lift_b >= -g_taper]
         for w in self.net.ways:
             g = GRADE_OF.get(w["tags"]["highway"], 0.12)
             refs, s = w["refs"], self.stations[w["id"]]
@@ -1294,35 +1388,47 @@ class Map:
                     s_all = self.stations[w["id"]]
                     chord = abs(self.dem[self.index[refs[-1]]] - self.dem[self.index[refs[0]]]) / max(s_all[-1], 1e-3)
                     reach = max(DECK_GRADE, chord) * ds
-                    out += [z[b_] - z[a] <= reach + give, z[a] - z[b_] <= reach + give]
+                    out += [z[b_] - z[a] <= reach + g_deck, z[a] - z[b_] <= reach + g_deck]
                 else:
                     # a ramp climbs off the hillside at the class's grade RELATIVE to it, so that
                     # on a hillside as steep as the class the lift still comes back down (measured
                     # before this: nine metres of fill that never returned, 200 m from the bridge)
-                    out += [(z[b_] - self.dem[b_]) - (z[a] - self.dem[a]) <= g * ds + give,
-                        (z[a] - self.dem[a]) - (z[b_] - self.dem[b_]) <= g * ds + give]
+                    out += [(z[b_] - self.dem[b_]) - (z[a] - self.dem[a]) <= g * ds + g_ramp,
+                        (z[a] - self.dem[a]) - (z[b_] - self.dem[b_]) <= g * ds + g_ramp]
         return out
 
     def _elastic(self, A, b, cp, z, cons):
         """Where the constraint set breaks, and by how much."""
         import numpy as _np
         pairs = list(getattr(self, "clearance_pairs", ()))
-        onground = ~(self.deck | self.bore | self.approaches() | self.causeway)
+        onground = ~(self.deck | self.bore | self.approaches() | self.causeway | self.open_ends())
         held = _np.flatnonzero(onground)
         n = len(self.index)
         y = cp.Variable(n)
         sp_ = cp.Variable(max(len(pairs), 1), nonneg=True)
         sb = cp.Variable(max(len(held), 1), nonneg=True)
         sg = cp.Variable(nonneg=True)
+        s_taper = cp.Variable(nonneg=True)
+        s_deck = cp.Variable(nonneg=True)
+        s_ramp = cp.Variable(nonneg=True)
         soft = [y[k] >= floor - 1e3 for k, floor in self.constraints.items()]
         for i, (k, j, j2, uu, gap) in enumerate(pairs):
             soft.append(y[k] - ((1.0 - uu) * y[j] + uu * y[j2]) >= gap - sp_[i])
         if len(held):
             band = self.band()[held]
+            lower = {}
+            for (_, j, j2, uu, gap) in pairs:
+                lower[j] = max(lower.get(j, 0.0), gap)
+                lower[j2] = max(lower.get(j2, 0.0), gap)
+            deeper = np.array([lower.get(int(k), 0.0) for k in held])
             soft += [y[held] <= self.dem[held] + band + sb,
-                     y[held] >= self.dem[held] - band - sb]
-        soft += self._shape_constraints(y, cp, slack=sg)
-        want = cp.Minimize(1e4 * (cp.sum(sp_) + cp.sum(sb) + 100.0 * sg)
+                     y[held] >= self.dem[held] - band - deeper - sb]
+        soft += self._shape_constraints(y, cp, taper=s_taper, deckg=s_deck, rampg=s_ramp)
+        # EVERY FAMILY WEIGHED THE SAME, or the diagnosis is about the weights. The shape slack
+        # carried a factor of 100 here and the pose therefore broke a clearance PAIR every single
+        # time, which is what "clearance short by ..." meant at sixteen real places -- a fact
+        # about this objective and not about the road (measured 2026-09-06).
+        want = cp.Minimize(1e4 * (cp.sum(sp_) + cp.sum(sb) + s_taper + s_deck + s_ramp)
                            + 0.5 * cp.quad_form(y, cp.psd_wrap(A.tocsc())) - b @ y)
         cp.Problem(want, soft).solve(solver=cp.OSQP, eps_abs=1e-6, eps_rel=1e-6,
                                      max_iter=200000)
@@ -1341,10 +1447,15 @@ class Map:
             worst_band = float(sb.value[i])
             if worst_band > worst_pair and worst_band > 1e-6:
                 where = f"band exceeded by {worst_band:.2f} m at node {back[held[i]]}"
-        shape = float(sg.value) if sg.value is not None else 0.0
-        if shape > max(worst_pair, worst_band, 1e-6):
-            return (f"the RAMP and GRADE family carries it: every bound in it has to give "
-                    f"{shape:.3f} m before the set is consistent")
+        named = {"the embankment's TAPER": s_taper, "the DECK's own grade": s_deck,
+                 "the RAMP's grade over the terrain": s_ramp}
+        got = {k: (float(v.value) if v.value is not None else 0.0) for k, v in named.items()}
+        who = max(got, key=got.get)
+        if got[who] > max(worst_pair, worst_band, 1e-6) * 0.999:
+            return (f"{who} carries it: every bound of that kind has to give {got[who]:.3f} m "
+                    f"(taper {got[chr(116)+chr(104)+chr(101)+' embankment' + chr(39) + 's TAPER']:.2f}, "
+                    f"deck {got[chr(116)+chr(104)+chr(101)+' DECK' + chr(39) + 's own grade']:.2f}, "
+                    f"ramp {got[chr(116)+chr(104)+chr(101)+' RAMP' + chr(39) + 's grade over the terrain']:.2f} m)")
         return where or "no single constraint carries the violation"
 
     def _slopes(self):
@@ -2553,7 +2664,8 @@ def check_dem_band(map_):
                 continue
             for r in w["refs"]:
                 near_causeway[map_.index[r]] = True
-    held = ~(map_.deck | map_.bore | map_.approaches() | map_.causeway | near_causeway)
+    held = ~(map_.deck | map_.bore | map_.approaches() | map_.causeway | near_causeway
+             | map_.open_ends())
     # measured against the SAME band the solve was given, as a ratio: 1.0 is exactly at it
     over = np.abs(map_.z - map_.dem) / np.maximum(map_.band(), 1e-9)
     return float(np.max(over[held])) if held.any() else 0.0

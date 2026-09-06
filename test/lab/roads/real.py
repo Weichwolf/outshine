@@ -240,7 +240,11 @@ def run(name, number, only=None):
     net, kept, dropped = net_of(nodes, ways, lat, lon)
     ground = RealTerrain(lat, lon)
     terrain = bed.Terrain(ground, extent=reach + 200.0, posting=bed.POSTING_M)
-    m = bed.Map(terrain, net).solve()
+    m = bed.Map(terrain, net)
+    # THE EXTRACT IS A BOX AND ITS EDGE CUTS RAMPS. A way that leaves it climbs on outside, so
+    # its profile there owes the DEM nothing -- see `mark_open_ends`.
+    m.mark_open_ends(reach)
+    m = m.solve()
     st = bed.Structure(m)
     red = []
     verdict = {
