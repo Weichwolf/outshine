@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: world, render
 Tags: look, measured
 Depends: 2123
@@ -32,6 +32,30 @@ The refinement criterion takes the cell's own geometry: refine while the project
 out of that rather than being special cases, and a flat cell stops refining early on its own.
 
 ## The goal
+
+### Implementation experiment, 2026-09-07
+
+The current path draws 32 x 32 cells per DEM tile, then adds four fixed virtual rings.
+The first repair uses the detail already held by each source field: a nested, uniformly
+sampled reference surface and a quadtree of 32-cell patches. Each patch compares its
+triangles against ALL reference vertices underneath it, not just its centre; parent error
+also includes every child error. Project with the actual camera focal length and distance
+to the patch bounds, and split above 1 px. Near rings remain the minimum sampling needed
+by the existing ground stamps. Source-data LOD and moving-world scheduling are separate
+from this tessellation error against the resident DEM.
+
+Reference choice: Cesium's projected geometric error, with a shared instanced grid as in
+Landscape/CDLOD. RAGE's authored density cannot choose the detail of fetched data here.
+The existing height pages, source fields and lattice renderer are reused. Proof: a plane
+(including a steep plane) has zero error; an off-centre peak missed by the coarse grid has
+nonzero error; finer triangles reach zero at the reference resolution; a narrower field
+increases the projected error. Infinite tolerance is the negative control.
+
+Visual expectation: Koerbersee's crests and gullies gain geometry where the source field
+already holds it. The shader's normals are unchanged in this experiment, so a surviving
+soft bank does not count as a tessellation repair. Preserve the nine input PNGs under
+`build/terrain-before/`, open the changed renders, and check p99 against 16.7 ms.
+The unchanged Koerbersee baseline reproduced digest 12552f22, p99 2.56 ms, 0/120 over.
 
 ### What is actually being asked for, and the correction the title needs
 
