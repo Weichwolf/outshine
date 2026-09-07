@@ -138,6 +138,37 @@ answer here at all -- its terrain is authored and an artist puts the density whe
 so this is a place where only one of the two references faces the question, and CLAUDE.md says the
 item has to say so. It says so.
 
+### What the first look actually found, 2026-09-07 -- and it is NOT the triangle count
+
+Husum and Malcesine read worst of the nine, and at 4x both show ONE signature: a near-vertical drop
+is shaded as a soft ramp. Husum's quay is a stack of broad terraces with gradients down their
+faces; Malcesine's shoreline is a row of triangular teeth, each shaded dark at its point and light
+at its base, all ending on a clean straight waterline. **Soft gradients over a step mean the
+NORMAL, not the density.** More triangles would give more teeth, smaller.
+
+`src/render/shaders/groundLatticeCore.msl:57-61` says why:
+
+```
+  dhE = (h[i+1,j] - h[i-1,j]) / (2 * stepE)
+  dhN = (h[i,j-1] - h[i,j+1]) / (2 * stepN)
+  p.normal = normalize(float3(-dhE, -dhN, 1.0))
+```
+
+A central difference is a LOW-PASS FILTER with a two-cell footprint. Over a break line it averages
+ACROSS the break, so a fifteen-metre quay wall is smeared over two cells and every vertex near it
+tilts toward the drop; on adjacent columns the difference flips sign, which is the comb.
+
+**So this item has a cheap first step that is falsifiable in one render**: at a break, take a
+ONE-SIDED difference -- the side with the smaller |dh| -- instead of averaging over it. If the wall
+then stands, the smoothing was the defect and the error bound above is a second, separate gain. If
+it still reads as a ramp, the resolution is the defect and the ladder is the whole answer.
+
+**And a bound both references share, worth stating before the work**: a heightfield holds ONE z per
+(x, y) and cannot carry a vertical or overhanging face at any density. Unreal answers cliffs with
+MESHES rather than with the Landscape; Cesium's quantized-mesh has the same soft edge. For outshine
+that means a break line -- `man_made=quay`, `natural=cliff`, `barrier=retaining_wall` -- is
+GENERATED GEOMETRY along what OSM already holds, and no amount of refinement substitutes for it.
+
 ### What I will accept as GOOD, by looking
 
 The numbers above can all be right while the picture is still wrong, so the acceptance is visual
