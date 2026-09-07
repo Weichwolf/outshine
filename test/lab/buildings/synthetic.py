@@ -959,13 +959,19 @@ class Building:
             # carries a segment that runs OUTSIDE it: five open edges and twelve edges with
             # three faces on `F3-U` (measured 2026-09-07). The line is split into the runs that
             # are actually inside, and each run is its own chain.
-            # A RIDGE MUST NOT TOUCH THE BOUNDARY UNTIL THE WALL SHARES IT. Cutting the run
-            # to the polygon puts its endpoint ON the ring, `unary_union` nodes the ring there,
-            # and the ROOF gains a vertex the WALL does not have -- because the wall is built on
-            # `_dense_ring` and the roof's PSLG on the raw ring. Measured 2026-09-07: 3 open
-            # bodies became 713, and the same experiment had already been made and reverted once.
-            # The run therefore stops inside, and the last 3 gabled bodies stay open until the
-            # two boundaries are ONE polyline -- which is board:2156's business, not a patch here.
+            # THE RIDGE STOPS INSIDE, AND THE LAST 3 GABLED BODIES STAY OPEN. Four states of
+            # this one seam were measured at OldTown on 2026-09-07, over 1 393 bodies:
+            #
+            #   the ridge sampled and stopped inside               3 open
+            #   cut to the boundary                              713 open
+            #   its landing point put in the ring, ridge inside    22 open, 1 over-shared
+            #   both together                                     21 open
+            #
+            # So the apex being two points 2 cm apart -- (245.70, -83.59, 12.88) on the wall
+            # against (245.72, -83.59, 12.89) on the roof -- is NOT what the other 1 390 bodies
+            # are held together by, and a ridge that reaches the wall costs more than it buys
+            # whichever way it is done. Three of these attempts have now been made; the fourth
+            # starts from these numbers and not from the theory that produced them. board:2156.
             run = []
             for s_ in np.arange(-half_u, half_u + cell, cell / 2.0):
                 p_ = (c.x + u[0] * s_, c.y + u[1] * s_)
