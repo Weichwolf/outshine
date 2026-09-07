@@ -9,6 +9,7 @@
 #include <numbers>
 #include <cmath>
 #include <vector>
+#include <span>
 
 #include "TreeRandom.h"
 
@@ -43,7 +44,9 @@ constexpr float kDeg = static_cast<float>(kDeg2Rad);
 
 class Sink {
 public:
-  explicit Sink(TreeMesh &m) : Mesh_(m) {}
+  explicit Sink(TreeMesh &m, float maxDeviation) : Mesh_(m), MaxDeviation_(maxDeviation) {}
+
+  [[nodiscard]] float MaxDeviation() const { return MaxDeviation_; }
 
   uint32_t Vert(Vec3f p, Vec3f n, float u, float v) {
     const auto idx = static_cast<uint32_t>(Mesh_.LeafVerts.size() / TreeMesh::kLeafFloats);
@@ -59,6 +62,7 @@ public:
 
 private:
   TreeMesh &Mesh_;
+  float MaxDeviation_;
 };
 
 float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
@@ -91,6 +95,33 @@ struct Blade {
   float AngleRad = 0.0f;
   float LengthScale = 1.0f;
 };
+
+float StripError(std::span<const Vec3f> positions, size_t first, size_t last) {
+  float error = 0.0f;
+  for (size_t row = first; row <= last; ++row) {
+    const float t = static_cast<float>(row - first) / static_cast<float>(last - first);
+    for (size_t side = 0; side < 3; ++side) {
+      const Vec3f chord = positions[first * 3 + side] * (1.0f - t) + positions[last * 3 + side] * t;
+      error = std::max(error, Length(positions[row * 3 + side] - chord));
+    }
+    for (size_t side = 0; side < 2; ++side) {
+      const Vec3f fine = positions[row * 3 + side] * (1.0f - t) + positions[row * 3 + side + 1] * t;
+      const Vec3f coarse =
+          positions[first * 3 + side] * (1.0f - t) + positions[last * 3 + side + 1] * t;
+      error = std::max(error, Length(fine - coarse));
+    }
+    if (row == last) { continue; }
+    const float crossing = static_cast<float>(row - first) / static_cast<float>(last - first - 1);
+    for (size_t side = 0; side < 2; ++side) {
+      const Vec3f fine = positions[row * 3 + side] * (1.0f - crossing) +
+                         positions[(row + 1) * 3 + side + 1] * crossing;
+      const Vec3f coarse = positions[first * 3 + side] * (1.0f - crossing) +
+                           positions[last * 3 + side + 1] * crossing;
+      error = std::max(error, Length(fine - coarse));
+    }
+  }
+  return error;
+}
 
 void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, Blade held) {
   const float ang = held.AngleRad;
@@ -134,28 +165,35 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, Blade held) 
       }
     }
   }
-  std::vector<uint32_t> idx(static_cast<size_t>(nv));
-  for (int i = 0; i < nv; ++i) {
-    const int triangle = i / 3;
-    idx[static_cast<size_t>(i)] = sink.Vert(pos[static_cast<size_t>(i)],
-                                            DirectionOrUp(nrm[static_cast<size_t>(i)]),
-                                            uu[static_cast<size_t>(i)],
-                                            static_cast<float>(triangle) / static_cast<float>(n));
+  std::vector<size_t> rows{0};
+  for (size_t first = 0; first < static_cast<size_t>(n);) {
+    size_t last = first + 1;
+    if (sink.MaxDeviation() > 0.0f) {
+      while (last < static_cast<size_t>(n) &&
+             StripError(pos, first, last + 1) <= sink.MaxDeviation()) {
+        ++last;
+      }
+    }
+    rows.push_back(last);
+    first = last;
   }
-  for (int i = 0; i < n; ++i) {
-    const int a = i * 3;
-    const int d = (i + 1) * 3;
-    sink.Tri(idx[static_cast<size_t>(a)],
-             idx[static_cast<size_t>(a) + 1],
-             idx[static_cast<size_t>(d) + 1]);
-    sink.Tri(
-        idx[static_cast<size_t>(a)], idx[static_cast<size_t>(d) + 1], idx[static_cast<size_t>(d)]);
-    sink.Tri(idx[static_cast<size_t>(a) + 1],
-             idx[static_cast<size_t>(a) + 2],
-             idx[static_cast<size_t>(d) + 2]);
-    sink.Tri(idx[static_cast<size_t>(a) + 1],
-             idx[static_cast<size_t>(d) + 2],
-             idx[static_cast<size_t>(d) + 1]);
+  std::vector<uint32_t> idx;
+  idx.reserve(rows.size() * 3);
+  for (const size_t row : rows) {
+    for (size_t sideIndex = 0; sideIndex < 3; ++sideIndex) {
+      const size_t at = row * 3 + sideIndex;
+      idx.push_back(sink.Vert(pos[at],
+                              DirectionOrUp(nrm[at]),
+                              uu[at],
+                              static_cast<float>(row) / static_cast<float>(n)));
+    }
+  }
+  for (size_t row = 0; row + 1 < rows.size(); ++row) {
+    const size_t a = row * 3, d = a + 3;
+    sink.Tri(idx[a], idx[a + 1], idx[d + 1]);
+    sink.Tri(idx[a], idx[d + 1], idx[d]);
+    sink.Tri(idx[a + 1], idx[a + 2], idx[d + 2]);
+    sink.Tri(idx[a + 1], idx[d + 2], idx[d + 1]);
   }
 }
 
@@ -305,10 +343,10 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
 
 } // namespace
 
-void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
+void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out, float maxDeviation) {
   out.LeafVerts.clear();
   out.LeafIdx.clear();
-  Sink sink(out);
+  Sink sink(out, maxDeviation);
   switch (leaf.Kind) {
     case TreeSpecies::LeafKind::Palmate: BuildPalmate(sink, leaf); break;
     case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;

@@ -9,7 +9,7 @@ namespace outshine::Generators {
 
 class TreeLeaf {
 public:
-  static void Build(const TreeSpecies::Leaf &leaf, TreeMesh &out);
+  static void Build(const TreeSpecies::Leaf &leaf, TreeMesh &out, float maxDeviation = 0.0f);
 };
 
 } // namespace outshine::Generators

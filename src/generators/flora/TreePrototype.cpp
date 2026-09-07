@@ -98,25 +98,18 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   proto.Look_ = LookOf(sp);
   proto.Leaf_ = sp.LeafParams();
   proto.Ranks_.resize(static_cast<size_t>(ModelLadder::kLevels));
-  double crownProjM2 = 0.0;
 
   grower.Grow(sp, plant);
   TreeLeaf::Build(sp.LeafParams(), mesh);
+  foliage.Build(plant, mesh, sp, 1);
   for (int rank = 0; rank < ModelLadder::kLevels; ++rank) {
     Rank &out = proto.Ranks_[static_cast<size_t>(rank)];
     mesher.Draw(plant, ModelLadder::Error(rank), mesh);
-    foliage.Build(plant, mesh, sp, 1);
-    const uint32_t stride = 1u << (2u * static_cast<unsigned>(rank));
-    for (size_t i = 0; i < foliage.Count(); i += stride) {
-      const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
-      out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
-    }
-    const auto nCards = static_cast<uint32_t>(out.Cards.size() / TreeFoliage::kFloats);
-    if (rank == 0) { crownProjM2 = foliage.CrownProjM2(); }
-    out.CardCount = nCards;
-    out.CardLeafM =
-        foliage.CardLeafM({.LeavesPerCard = 1, .Cards = nCards},
-                          {.Lai = static_cast<double>(sp.Lai()), .CrownProjM2 = crownProjM2});
+    out.Cards = foliage.Instances();
+    out.CardCount = static_cast<uint32_t>(foliage.Count());
+    out.CardLeafM = foliage.CardLeafM(
+        {.LeavesPerCard = 1, .Cards = foliage.Count()},
+        {.Lai = static_cast<double>(sp.Lai()), .CrownProjM2 = foliage.CrownProjM2()});
     out.BarkVerts = mesh.BarkVerts;
     out.BarkVertCount = static_cast<uint32_t>(mesh.BarkVertexCount());
     out.BarkIdx = mesh.BarkIdx;

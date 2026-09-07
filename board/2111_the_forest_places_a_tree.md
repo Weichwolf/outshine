@@ -101,14 +101,13 @@ Die Expansion der Blattfächer in Geometry ist ein funktionsfähiger nativer Mes
 Ersatz für geteilte Prototyp-/Blattdaten und budgetierte Instanzen. Diese großen Prototypen
 nicht ungeprüft pro Baum in den Piece-Pool kopieren. Regionsframe/Tile-Streaming weiter offen.
 
-## Zwischenstand Prototyp-LOD
+## Aktueller Prototyp-LOD
 
-2123 reduziert die native Birke auf Rank 3 von 353574 auf 82824 Dreiecke, durch begründete
-Auswahl der Ast-Dicken. Blattaufbau unverändert; visuell bleiben große spärliche Büschel.
-Details/Negativkontrolle in 2123. Renderer-Handoff, gemeinsame Prototyp-Instanzen und
-ringweite Platzierung bleiben offen; der einzelne Baumrender schließt diesen Auftrag nicht.
-
-2123 verteilt die native Blattgeometrie jetzt auf einzelne Wachstumsanker statt auf
-koinzidente 16er-Fächer. Birke Rank 3: 82376 Dreiecke, visuell zusammenhängendere Krone.
-Physische Blattgröße und gefilterte Fern-Coverage bleiben falsch/unvollständig; kein
-Wald-Handoff erledigt. Renderbeleg und rotes Mutationsoracle stehen in 2123.
+2123 erhält jetzt alle Blattansätze und das deklarierte Maß statt 80-cm-Ersatzblättern.
+Native Birke Rank 3: 2184 Rinden- plus 366200 Blattdreiecke. Die Blattkontur reduziert
+112 auf 8 Dreiecke je Blatt unter geometrischem Fehlerbudget. Das ist gegenüber der
+feinen Referenz billiger, gegenüber dem alten 716-Riesenblatt-Proxy teurer. Kleine Blätter
+sind sichtbar, Kronendeckung/Licht bleiben unzureichend. Messung, Bilder und echte
+Negativkontrollen in 2123. Keine Wald-Framezeit daraus ableiten.
+Renderer-Handoff, gemeinsame Prototyp-Instanzen und ringweite Platzierung bleiben offen;
+auch den aktuellen Prototyp nicht pro Weltinstanz in den Piece-Pool kopieren.

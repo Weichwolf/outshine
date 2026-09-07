@@ -9,6 +9,7 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 #include "TreePrototype.h"
+#include "TreeFoliage.h"
 #include "TreeLeaf.h"
 #include "TreeGrower.h"
 #include "TreeSkeleton.h"
@@ -58,6 +59,9 @@ int main() {
   CHECK(!tree->GeometryAt(tree->Ranks().size()), "an absent LOD is refused");
   if (!SDL_Init(SDL_INIT_VIDEO)) { Unprepared(SDL_GetError()); return Report(); }
   for (const size_t rank : {size_t{3}, size_t{0}}) {
+    CHECK_NEAR(tree->Ranks()[rank].CardLeafM * species.LeafParams().Length,
+               species.LeafParams().CardH, 1e-4, "m",
+               "distance changes representation without inflating individual leaves");
     const auto started = std::chrono::steady_clock::now();
     const auto geometry = tree->GeometryAt(rank);
     const auto built = std::chrono::steady_clock::now();
@@ -79,17 +83,33 @@ int main() {
                   geometry->positionsOf(part).size()/3, geometry->trianglesOf(part).size()/3);
     }
     if (rank == 3) {
-      TreeMesh blade;
-      TreeLeaf::Build(species.LeafParams(), blade);
       const auto foliage = geometry->positionsOf(1);
-      std::set<std::array<float, 3>> attachments;
+      const size_t bladeFloats = foliage.size() / tree->Ranks()[rank].CardCount;
+      std::multiset<std::array<float, 3>> attachments, expectedAttachments;
+      const auto &cards = tree->Ranks()[rank].Cards;
+      for (size_t at = 0; at < cards.size(); at += TreeFoliage::kFloats) {
+        expectedAttachments.insert({cards[at] * species.HeightM(),
+                                    cards[at + 1] * species.HeightM(),
+                                    cards[at + 2] * species.HeightM()});
+      }
       size_t leafCount = 0;
-      for (size_t at = 3; at + 2 < foliage.size(); at += blade.LeafVertexCount() * 3) {
+      for (size_t at = 3; at + 2 < foliage.size(); at += bladeFloats) {
         attachments.insert({foliage[at], foliage[at + 1], foliage[at + 2]});
         ++leafCount;
       }
-      CHECK(attachments.size() == leafCount,
-            "coarse birch leaves occupy distinct attachments instead of coincident fans");
+      TreeMesh leafShape;
+      TreeLeaf::Build(species.LeafParams(), leafShape);
+      TreeFoliage placed;
+      placed.Build(first, leafShape, species);
+      std::set<std::array<float, 3>> growthAttachments;
+      for (const auto &point : first.LeafPoints) {
+        growthAttachments.insert({point.Pos[0], point.Pos[1], point.Pos[2]});
+      }
+      std::printf("attachments growth %zu unique %zu leaves %zu per point %.6f native origins %zu\n",
+                  first.LeafPoints.size(), growthAttachments.size(), leafCount,
+                  placed.PerPoint(), attachments.size());
+      CHECK(attachments == expectedAttachments,
+            "native leaf origins preserve input positions and multiplicity instead of forming fans");
     }
     float highest = 0;
     const auto bark = geometry->positionsOf(0);

@@ -1,6 +1,7 @@
 #include "TreePrototype.h"
 #include "TreeLeaf.h"
 #include "TreeFrame.h"
+#include "ModelLadder.h"
 #include <array>
 #include <cmath>
 #include <limits>
@@ -45,7 +46,11 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
   for (int c = 0; c < 3; ++c) { barkMaterial.BaseColour[c] = Look_.BarkRgb[c]; }
 
   TreeMesh blade;
-  TreeLeaf::Build(Leaf_, blade);
+  const float deviation =
+      rank > 0 && source.CardLeafM > 0.0f
+          ? ModelLadder::Error(static_cast<int>(rank)) * height / (2.0f * source.CardLeafM)
+          : 0.0f;
+  TreeLeaf::Build(Leaf_, blade, deviation);
   Surface leaves;
   const size_t perCard = blade.LeafVertexCount();
   if (perCard > 0 && source.CardCount > std::numeric_limits<uint32_t>::max() / perCard) {
