@@ -147,3 +147,16 @@ Schritts von einem bereits bestehenden Mip/Occlusion-Fehler und bestimmt, ob
 die unabhängig geprüfte Instanzübergabe weiter zur Waldanbindung gelangen kann.
 Den roten Wiederholungstest dabei erhalten; die neue Piece-Fixture benötigt
 die neue API und gehört deshalb nicht zur alten Baseline.
+
+## Renderer-Baseline getrennt geprüft, 2026-09-08
+
+`build/shared-piece-original-renderer-control.log`: die vier geänderten Renderer-
+Dateien aus HEAD wiederhergestellt, neue Piece-Fixture mit ihrer dort fehlenden
+API gesichert außerhalb der Testliste; Schachprüfung unverändert. Exit 2,
+16/17 PASS, Schach dreimal dieselben 420 Farbkanäle/max. 0.00268555 bei gleicher
+Tiefe. Die Instanzänderung ist damit keine notwendige Ursache dieses Fehlers.
+Danach alle Arbeitsdateien und die neue Fixture wiederhergestellt.
+
+Im anschließenden Ein-Instanz-Negativlauf besteht Schach dagegen wieder. Dieser
+Prozess-zu-Prozess-Unterschied ist ausdrücklich kein Reparaturnachweis; der
+Baseline-Befund bleibt rot und die Untersuchungsaufgabe offen.
