@@ -57,10 +57,7 @@ constexpr double kSightM = 240000.0;
 /// blue, because Rayleigh is what makes it blue. It is the hardest, clearest day physics allows,
 /// and 288 km is the wall behind it that no weather gets past.
 constexpr double kClearDayHaze = 0.0;
-constexpr double kEyeAglM = 60.0;
 constexpr double kPlanAboveM = 4000.0;
-constexpr double kPitchDeg = -6.0;
-constexpr double kFovDeg = 55.0;
 constexpr int kTimedFrames = 120;
 
 /// A FRAME TIME IS WHAT THE ENGINE COSTS WITH THE WORLD IT ALREADY HOLDS.
@@ -77,7 +74,7 @@ constexpr int kTimedFrames = 120;
 /// frames time drawing the world that is in. When the rebuild is off the frame path, a moving
 /// camera can come back and mean something.
 
-constexpr std::array<Place, 9> kPlaces{{
+constexpr std::array<Place, 18> kPlaces{{
     {.Name = "OldTown",
      .LatitudeDeg = 49.3777,
      .LongitudeDeg = 10.179,
@@ -141,6 +138,97 @@ constexpr std::array<Place, 9> kPlaces{{
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T11:34:00Z"},
+
+    {.Name = "DarmstadtWest",
+     .LatitudeDeg = 49.875871,
+     .LongitudeDeg = 8.662596,
+     .BearingDeg = 252.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 205.0,
+     .PitchDeg = 2.6,
+     .FovDeg = 38.04,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
+    {.Name = "Wien",
+     .LatitudeDeg = 48.233362,
+     .LongitudeDeg = 16.411041,
+     .BearingDeg = 210.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 250.0,
+     .PitchDeg = 6.8,
+     .FovDeg = 38.04,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
+    {.Name = "Rosenheim",
+     .LatitudeDeg = 47.860299,
+     .LongitudeDeg = 12.131823,
+     .BearingDeg = 185.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 492.0,
+     .PitchDeg = -1.6,
+     .FovDeg = 30.68,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
+    {.Name = "Husum",
+     .LatitudeDeg = 54.474171,
+     .LongitudeDeg = 9.045982,
+     .BearingDeg = 35.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 20.0,
+     .PitchDeg = -7.0,
+     .FovDeg = 38.04,
+     .WhenUtc = "2026-09-07T10:30:00Z"},
+    {.Name = "Olympiaturm",
+     .LatitudeDeg = 48.174353,
+     .LongitudeDeg = 11.552966,
+     .BearingDeg = 310.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 700.0,
+     .PitchDeg = -6.3,
+     .FovDeg = 13.06,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
+    {.Name = "Graz",
+     .LatitudeDeg = 47.079697,
+     .LongitudeDeg = 15.412366,
+     .BearingDeg = 120.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 390.0,
+     .PitchDeg = 2.2,
+     .FovDeg = 26.23,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
+    {.Name = "Koerbersee",
+     .LatitudeDeg = 47.256121,
+     .LongitudeDeg = 10.115857,
+     .BearingDeg = 240.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 1772.0,
+     .PitchDeg = -0.5,
+     .FovDeg = 33.97,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
+    {.Name = "Malcesine",
+     .LatitudeDeg = 45.744855,
+     .LongitudeDeg = 10.800445,
+     .BearingDeg = 290.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 140.0,
+     .PitchDeg = -2.0,
+     .FovDeg = 38.04,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
+    {.Name = "Feldkirch",
+     .LatitudeDeg = 47.232575,
+     .LongitudeDeg = 9.598371,
+     .BearingDeg = 1.0,
+     .From = Place::Seen::Survey,
+     .SpanM = 0.0,
+     .HeightAslM = 614.0,
+     .PitchDeg = -11.5,
+     .FovDeg = 80.72,
+     .WhenUtc = "2026-09-07T10:40:00Z"},
 }};
 
 } // namespace
@@ -223,11 +311,13 @@ Scenario::Document ScenarioFor(const Place &place) {
   watches.Sees.Stands.Geodetic.LatitudeDeg = place.LatitudeDeg;
   watches.Sees.Stands.Geodetic.LongitudeDeg = place.LongitudeDeg;
   const bool overhead = place.From == Place::Seen::Plan;
-  watches.Sees.Stands.Geodetic.HeightM = overhead ? kPlanAboveM : kEyeAglM;
-  watches.Sees.Stands.SamplesHeight = !overhead;
+  const bool surveyed = place.From == Place::Seen::Survey;
+  watches.Sees.Stands.Geodetic.HeightM =
+      overhead ? kPlanAboveM : (surveyed ? place.HeightAslM : kEyeAglM);
+  watches.Sees.Stands.SamplesHeight = !overhead && !surveyed;
   watches.Sees.Stands.BearingDeg = place.BearingDeg;
-  watches.Sees.Stands.PitchDeg = overhead ? kOverheadPitchDeg : kPitchDeg;
-  watches.Sees.FovDeg = kFovDeg;
+  watches.Sees.Stands.PitchDeg = overhead ? kOverheadPitchDeg : place.PitchDeg;
+  watches.Sees.FovDeg = place.FovDeg;
   if (overhead) {
     watches.Sees.Orthographic = true;
     watches.Sees.YMagM = 0.5 * place.SpanM;

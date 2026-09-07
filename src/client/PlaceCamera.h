@@ -20,13 +20,20 @@ inline constexpr int kWidePx = 1280;
 inline constexpr int kHighPx = 720;
 inline constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 
+/// What an EYE place takes when it states nothing of its own.
+inline constexpr double kEyeAglM = 60.0;
+inline constexpr double kPitchDeg = -6.0;
+inline constexpr double kFovDeg = 55.0;
+
 struct Place {
   /// How a place is looked at. An EYE stands on the ground at head height and looks along a
   /// bearing, which is what a person would see and what the frame budget is measured against. A
   /// PLAN looks straight down through an orthographic camera over a stated span of ground: no
   /// perspective, no horizon, every metre the same size, which is the view that shows whether the
   /// generators put things where the map says. One is the product; the other is the drawing.
-  enum class Seen : uint8_t { Eye, Plan };
+  /// A SURVEY is a real camera: a published position, a height above sea level, a bearing, a
+  /// field of view and a pitch, so a photograph taken from it can be laid beside the frame.
+  enum class Seen : uint8_t { Eye, Plan, Survey };
 
   const char *Name = "";
   double LatitudeDeg = 0.0;
@@ -37,6 +44,12 @@ struct Place {
 
   /// PLAN only: the ground the frame covers top to bottom, in metres.
   double SpanM = 0.0;
+
+  /// SURVEY only: where the camera stands and what it sees, as its operator published it.
+  /// The height is above SEA LEVEL and the ground is not sampled under it.
+  double HeightAslM = 0.0;
+  double PitchDeg = kPitchDeg;
+  double FovDeg = kFovDeg;
 
   /// The instant the place is standing at, ISO 8601 UTC. The engine stands the sun from this
   /// and the place's coordinates, so a hand-set elevation would be a second answer to a question
