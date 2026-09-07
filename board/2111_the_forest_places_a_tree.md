@@ -100,3 +100,10 @@ Coverage. Rank 3 hat 272934 + 80640 = 353574 Dreiecke pro Birke; für Wald nicht
 Die Expansion der Blattfächer in Geometry ist ein funktionsfähiger nativer Mesher, aber kein
 Ersatz für geteilte Prototyp-/Blattdaten und budgetierte Instanzen. Diese großen Prototypen
 nicht ungeprüft pro Baum in den Piece-Pool kopieren. Regionsframe/Tile-Streaming weiter offen.
+
+## Zwischenstand Prototyp-LOD
+
+2123 reduziert die native Birke auf Rank 3 von 353574 auf 82824 Dreiecke, durch begründete
+Auswahl der Ast-Dicken. Blattaufbau unverändert; visuell bleiben große spärliche Büschel.
+Details/Negativkontrolle in 2123. Renderer-Handoff, gemeinsame Prototyp-Instanzen und
+ringweite Platzierung bleiben offen; der einzelne Baumrender schließt diesen Auftrag nicht.

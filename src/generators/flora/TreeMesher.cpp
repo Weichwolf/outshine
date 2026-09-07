@@ -233,7 +233,17 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
   out.ClearBark();
 
   for (size_t i = 0; i < plant.Shoots.size(); ++i) {
-    Drawn_[i] = plant.Shoots[i].Count >= 2 && plant.Shoots[i].Reach > PixelGrow_ ? 1 : 0;
+    const TreeSkeleton::Shoot &shoot = plant.Shoots[i];
+    if (shoot.Count < 2 || shoot.Reach <= PixelGrow_) { continue; }
+    float radius = 0.0f;
+    for (int at = shoot.First; at < shoot.First + shoot.Count; ++at) {
+      radius = std::max(radius, plant.Nodes[static_cast<size_t>(at)].Radius);
+    }
+    Drawn_[i] = shoot.Parent < 0 || 2.0f * radius >= PixelGrow_ ? 1 : 0;
+  }
+  for (size_t i = plant.Shoots.size(); i-- > 0;) {
+    const int parent = plant.Shoots[i].Parent;
+    if (Drawn_[i] != 0u && parent >= 0) { Drawn_[static_cast<size_t>(parent)] = 1; }
   }
 
   std::array<int, kMaxSides> ring{};

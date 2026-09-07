@@ -39,3 +39,28 @@ stride = 16 << (2*rank) und vergrößert Blattfächer über LAI-Erhaltung. Im PN
 wenige große Büschel. Erforderlich: konservativer Silhouetten-/Coveragefehler, räumliche
 Aggregation statt bloßem Index-Stride, gefilterte Ferndarstellung ohne riesige Einzelblätter.
 Messartefakt build/tree-native/birch.png; Aufbaukosten/Overdraw plus Waldinstanzkosten separat.
+
+## Ast-Dicken-LOD implementiert und gegengeprüft
+
+TreeMesher berücksichtigt zusätzlich zur Reach den maximalen Ast-Durchmesser relativ
+zum deklarierten Pixelmaß. Nicht auflösbare Astgeometrie entfällt; Eltern sichtbarer Äste
+werden rückwärts markiert und bleiben als Träger bestehen. Bei Pixelmaß 0 bleibt die
+unbegrenzte Geometrie. Das ist Geometrieauswahl, noch kein gefilterter Ersatz für die
+kollektive subpixelbreite Ast-Coverage und kein vollständiger Projektionsfehlerbeweis.
+
+Birke Rank 3: Rinde 272934 → 2184 Dreiecke, Reduktion
+(272934 - 2184) / 272934 = 99,2 %. Blätter unverändert 80640 Dreiecke. Gesamt damit
+2184 + 80640 = 82824 statt 353574. PNG vorher `build/tree-native/birch-before-lod.png`,
+nachher `build/tree-native/birch.png`, beide visuell geprüft: wesentlich weniger feines
+Astgeflimmer, weiterhin spärliche große Blattbüschel und fehlende natürliche Kronendeckung.
+Keine Wald-Framerate aus diesen Geometriezahlen ableiten.
+
+`TreeLodPreservesVisibleBranchThickness`: langer dünner Ast entfällt bei grobem Pixelmaß,
+kehrt bei feinem zurück; ein dicker Ast gleicher Länge bleibt. Dickenbegrenzung als echte
+Mutation entfernt: genau dieses Oracle rot (build/tree-lod-negative.log, 11 PASS/1 FAIL).
+Korrekte Fassung wiederhergestellt: `make suite SUITE=outshine/conventions`, 12/12 PASS,
+Exit 0 (build/tree-lod-restored.log). Abschließender nativer Baumrender erneut geöffnet.
+
+Offen: räumliche Kronenaggregation/Blatt-Coverage, feinere Stufen/Nahansicht, kontinuierliche
+kameraabhängige Wahl, Hysterese und Gesamtbudget mit Waldinstanzen. Nächster Schritt bleibt
+Blattdarstellung; keine Erhöhung der Instanzgrenze und kein Place-spezifischer Ersatzbaum.
