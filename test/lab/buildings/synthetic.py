@@ -42,6 +42,10 @@ ROOF_PITCH = math.radians(35.0)   # [SET] the median pitch of a European gabled 
 EAVES_M = 0.4             # [SET] the eaves' overhang past the wall
 WELD_M = 1e-3
 FOOT_M = 0.5              # [SET] the wall is buried this far, which is what a foundation is
+# SHAPELY BEVELS A MITRE IT CANNOT REACH, and its default limit is 5: at an acute corner the
+# inward offset is then CHAMFERED instead of coming to a point, and the roof surface follows
+# the chamfer rather than the hip. A straight skeleton has no such limit.
+MITRE_LIMIT = 200.0
 MESH_ROOF_TOL_M = 0.02    # [SET] how far a roof's drawn surface may stand off its own profile
 RING_RISE_M = 0.25        # [SET] how much a roof may rise between two sampled level sets
 FREEBOARD_M = 0.3         # [SET] a deck over water stands this far above it
@@ -221,7 +225,7 @@ def _roof_inradius(poly, tol=1e-4):
     lo, hi = 0.0, max(poly.bounds[2] - poly.bounds[0], poly.bounds[3] - poly.bounds[1])
     for _ in range(40):
         mid = 0.5 * (lo + hi)
-        if poly.buffer(-mid, join_style=2).is_empty:
+        if poly.buffer(-mid, join_style=2, mitre_limit=MITRE_LIMIT).is_empty:
             hi = mid
         else:
             lo = mid
@@ -777,12 +781,14 @@ class Building:
         # band that rose 0.695 m. Sampling every ring at the SAME normalised arc fractions makes
         # that band a clean strip. A ring that has split into several parts takes its share.
         chains = []
+        corners = []          # the RAW corner list of each offset, for the spokes
 
         def ring_points(d, keep_chain=False):
-            inner = self.poly.buffer(-d, join_style=2)
+            inner = self.poly.buffer(-d, join_style=2, mitre_limit=MITRE_LIMIT)
             if inner.is_empty:
                 return None
             out = []
+            held = []
             for part in (inner.geoms if inner.geom_type == "MultiPolygon" else [inner]):
                 for ring in [part.exterior] + list(part.interiors):
                     # THE SAME DENSIFIER AS THE EAVES RING, and this is the point. Sampling an
@@ -791,12 +797,16 @@ class Building:
                     # a ring's own vertices and subdivides each EDGE at `cell`; a mitred offset
                     # keeps the corner count and the edge directions, so the two rings' points
                     # then stand above one another and the band is a strip.
-                    got = self._dense_ring(list(ring.coords)[:-1])
+                    raw = list(ring.coords)[:-1]
+                    got = self._dense_ring(raw)
                     for q in got:
                         self._ring_d[(round(q[0], 6), round(q[1], 6))] = d
                     out += got
                     if keep_chain and len(got) > 2:
                         chains.append(("loop", got))
+                        held.append(raw)
+            if keep_chain and held:
+                corners.append(held)
             return out
 
         # THE RING LADDER STEPS IN HEIGHT, NOT IN DISTANCE. A dome, a barrel or an onion stands
@@ -816,7 +826,7 @@ class Building:
             came out at a flat 0.25 m of distance apart and the band above the eaves rose 0.81 m
             across 0.25 m, which is the COMB. A point on the ring has geometric distance dd, so
             the shape is asked the question the ladder is actually about."""
-            inner = self.poly.buffer(-dd, join_style=2)
+            inner = self.poly.buffer(-dd, join_style=2, mitre_limit=MITRE_LIMIT)
             if inner.is_empty:
                 return None
             part = inner if inner.geom_type == "Polygon" else max(inner.geoms, key=lambda g: g.area)
@@ -864,6 +874,22 @@ class Building:
                     j = min(len(walk) - 1, i + max(1, int(floor_d / max(far / 128.0, 1e-9))))
                 breaks.append(walk[j][0])
                 i = j
+        # AND THE SPOKES. A hipped roof's bends are the whole straight SKELETON: the top ridge is
+        # its innermost offset, but every HIP runs from a footprint corner up to that ridge, and
+        # a triangulation with no constraint there cuts across them. Measured 2026-09-07 over
+        # Rothenburg, 8.28 % of hipped roof-surface area sat over 0.10 m off its own field with
+        # the ridge alone constrained. A mitred offset keeps its corner COUNT until a corner is
+        # consumed, so corner k of one ring and corner k of the next are the same hip, and the
+        # spoke is the chain between them -- board:2156's ring-and-spoke stitch, as spokes.
+        def spokes():
+            for a, b in zip(corners, corners[1:]):
+                for ra, rb in zip(a, b):
+                    if len(ra) != len(rb) or len(ra) < 3:
+                        continue
+                    for qa, qb in zip(ra, rb):
+                        if math.dist(qa, qb) > 1e-6:
+                            chains.append(("open", [qa, qb]))
+
         # A CREASE IS A CONSTRAINT AND NOT A HINT. `skeleton` means every inward offset is a
         # bend, so each goes in as a closed chain of SEGMENTS and no triangle can straddle one.
         # `axis` means the only bend is the ridge, and the offsets then CROSS it -- a PSLG cannot
@@ -876,7 +902,7 @@ class Building:
             for at in breaks:
                 if at <= last + 1e-9:
                     continue
-                got = ring_points(at, keep_chain=(bend == "skeleton"))
+                got = ring_points(at, keep_chain=(bend in ("skeleton", "ridge")))
                 if got is None:
                     break
                 pts += got
@@ -902,9 +928,11 @@ class Building:
             else:
                 lo = mid
         if bend != "axis":
-            top = ring_points(lo, keep_chain=(bend == "skeleton"))
+            top = ring_points(lo, keep_chain=(bend in ("skeleton", "ridge")))
             if top:
                 pts += top
+        if bend in ("skeleton", "ridge"):
+            spokes()
         if bend == "axis" or self.roof == "skillion":
             # THE RIDGE ITSELF, as a chain. Laid in as loose points it was a row of vertices the
             # triangulation was free to ignore, and the faces straddled it: 338 plane normals on
