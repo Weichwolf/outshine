@@ -44,9 +44,12 @@ constexpr float kDeg = static_cast<float>(kDeg2Rad);
 
 class Sink {
 public:
-  explicit Sink(TreeMesh &m, float maxDeviation) : Mesh_(m), MaxDeviation_(maxDeviation) {}
+  explicit Sink(TreeMesh &m, float maxDeviation, float maxRelativeAreaError)
+      : Mesh_(m), MaxDeviation_(maxDeviation), MaxRelativeAreaError_(maxRelativeAreaError) {}
 
   [[nodiscard]] float MaxDeviation() const { return MaxDeviation_; }
+
+  [[nodiscard]] float MaxRelativeAreaError() const { return MaxRelativeAreaError_; }
 
   uint32_t Vert(Vec3f p, Vec3f n, float u, float v) {
     const auto idx = static_cast<uint32_t>(Mesh_.LeafVerts.size() / TreeMesh::kLeafFloats);
@@ -62,7 +65,7 @@ public:
 
 private:
   TreeMesh &Mesh_;
-  float MaxDeviation_;
+  float MaxDeviation_, MaxRelativeAreaError_;
 };
 
 float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
@@ -95,6 +98,17 @@ struct Blade {
   float AngleRad = 0.0f;
   float LengthScale = 1.0f;
 };
+
+double StripArea(std::span<const Vec3f> positions, size_t first, size_t last) {
+  double area = 0.0;
+  for (size_t side = 0; side < 2; ++side) {
+    const Vec3f a = positions[first * 3 + side], b = positions[first * 3 + side + 1];
+    const Vec3f c = positions[last * 3 + side + 1], d = positions[last * 3 + side];
+    area += 0.5 * (static_cast<double>(Length(Cross(b - a, c - a))) +
+                   static_cast<double>(Length(Cross(c - a, d - a))));
+  }
+  return area;
+}
 
 float StripError(std::span<const Vec3f> positions, size_t first, size_t last) {
   float error = 0.0f;
@@ -165,13 +179,21 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, Blade held) 
       }
     }
   }
+  std::vector<double> areas(static_cast<size_t>(n) + 1, 0.0);
+  for (size_t row = 0; row < static_cast<size_t>(n); ++row) {
+    areas[row + 1] = areas[row] + StripArea(pos, row, row + 1);
+  }
+  const double areaBudget = areas.back() * sink.MaxRelativeAreaError() / static_cast<double>(n);
   std::vector<size_t> rows{0};
   for (size_t first = 0; first < static_cast<size_t>(n);) {
     size_t last = first + 1;
     if (sink.MaxDeviation() > 0.0f) {
-      while (last < static_cast<size_t>(n) &&
-             StripError(pos, first, last + 1) <= sink.MaxDeviation()) {
-        ++last;
+      for (size_t candidate = first + 2; candidate <= static_cast<size_t>(n); ++candidate) {
+        if (StripError(pos, first, candidate) <= sink.MaxDeviation() &&
+            std::abs(StripArea(pos, first, candidate) - (areas[candidate] - areas[first])) <=
+                areaBudget * static_cast<double>(candidate - first)) {
+          last = candidate;
+        }
       }
     }
     rows.push_back(last);
@@ -343,10 +365,13 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
 
 } // namespace
 
-void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out, float maxDeviation) {
+void TreeLeaf::Build(const TreeSpecies::Leaf &leaf,
+                     TreeMesh &out,
+                     float maxDeviation,
+                     float maxRelativeAreaError) {
   out.LeafVerts.clear();
   out.LeafIdx.clear();
-  Sink sink(out, maxDeviation);
+  Sink sink(out, maxDeviation, maxRelativeAreaError);
   switch (leaf.Kind) {
     case TreeSpecies::LeafKind::Palmate: BuildPalmate(sink, leaf); break;
     case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;

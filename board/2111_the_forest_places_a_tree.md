@@ -104,8 +104,9 @@ nicht ungeprüft pro Baum in den Piece-Pool kopieren. Regionsframe/Tile-Streamin
 ## Aktueller Prototyp-LOD
 
 2123 erhält jetzt alle Blattansätze und das deklarierte Maß statt 80-cm-Ersatzblättern.
-Native Birke Rank 3: 2184 Rinden- plus 366200 Blattdreiecke. Die Blattkontur reduziert
-112 auf 8 Dreiecke je Blatt unter geometrischem Fehlerbudget. Das ist gegenüber der
+Native Birke Rank 3: 2184 Rinden- plus 915500 Blattdreiecke. Die Blattkontur reduziert
+112 auf 20 Dreiecke je Blatt unter geometrischem Fehlerbudget und zusätzlicher 2-%-
+Flächenschranke (gemessener Verlust 0,18 %). Das ist gegenüber der
 feinen Referenz billiger, gegenüber dem alten 716-Riesenblatt-Proxy teurer. Kleine Blätter
 sind sichtbar, Kronendeckung/Licht bleiben unzureichend. Messung, Bilder und echte
 Negativkontrollen in 2123. Keine Wald-Framezeit daraus ableiten.

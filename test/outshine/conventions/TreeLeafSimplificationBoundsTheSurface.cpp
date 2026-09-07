@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <optional>
 #include "Check.h"
@@ -7,6 +8,19 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
+
+double Area(const TreeMesh &mesh) {
+  double area = 0;
+  for (size_t at = 0; at < mesh.LeafIdx.size(); at += 3) {
+    std::array<Vec3, 3> triangle;
+    for (size_t corner = 0; corner < 3; ++corner) {
+      const size_t index = mesh.LeafIdx[at + corner] * TreeMesh::kLeafFloats;
+      triangle[corner] = {{mesh.LeafVerts[index], mesh.LeafVerts[index + 1], mesh.LeafVerts[index + 2]}};
+    }
+    area += Length(Cross(triangle[1] - triangle[0], triangle[2] - triangle[0])) * 0.5;
+  }
+  return area;
+}
 
 std::optional<Vec3> Sample(const TreeMesh &mesh, double u, double v) {
   for (size_t at = 0; at < mesh.LeafIdx.size(); at += 3) {
@@ -44,7 +58,11 @@ int main() {
     TreeLeaf::Build(leaf, reference);
     for (const float tolerance : {0.01f, 0.04f, 0.1f}) {
       TreeMesh simplified;
-      TreeLeaf::Build(leaf, simplified, tolerance);
+      constexpr float areaTolerance = 0.02f;
+      TreeLeaf::Build(leaf, simplified, tolerance, areaTolerance);
+      const double areaError = std::abs(Area(simplified) / Area(reference) - 1.0);
+      CHECK(areaError <= areaTolerance + 1e-6,
+            "blade simplification preserves the declared one-sided area budget");
       reduced = reduced || simplified.LeafIdx.size() < reference.LeafIdx.size();
       double largest = 0;
       bool covered = true;

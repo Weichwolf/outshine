@@ -70,19 +70,20 @@ dem alten falschen Proxy mehr Geometrie. Keine Wald-/Frame-/Heapobergrenze wurde
 
 ### Messung und visuelle Beurteilung
 
-| Native Birke | alter Rank 3 | aktueller Rank 3 | Rank 0 |
+| Native Birke | vor Flächenschranke (d2dafe3d) | aktueller Rank 3 | Rank 0 |
 |---|---:|---:|---:|
-| Blattlänge m | 0,799573 | 0,100000 | 0,100000 |
-| Blattanzahl | 716 | 45775 | 45775 |
-| Blattvertices | 62292 | 411975 | 3982425 |
-| Blattdreiecke | 80192 | 366200 | 5126800 |
+| Blattlänge m | 0,100000 | 0,100000 | 0,100000 |
+| Blattanzahl | 45775 | 45775 | 45775 |
+| Blattvertices | 411975 | 823950 | 3982425 |
+| Blattdreiecke | 366200 | 915500 | 5126800 |
 | Rindenvertices / -dreiecke | 1094 / 2184 | 1094 / 2184 | 54945 / 109882 |
-| CPU-Aufbau GeometryAt ms, finaler Einzelaufruf | — | 11,227 | 95,521 |
+| einseitige Blattfläche m² | 265,987351 | 283,682236 | 284,193300 |
+| CPU-Aufbau GeometryAt ms, finaler Einzelaufruf | — | 22,968 | 86,434 |
 
-Blattdreiecke pro Blatt: fein 5126800/45775 = 112, vereinfacht 366200/45775 = 8.
-Reduktion gegenüber fein: 1 - 8/112 = 92,86 %. Gegenüber dem alten Proxy steigen sie
-um den Faktor 366200/80192 = 4,57. Gesamt Rank 3: 366200 + 2184 = 368384 Dreiecke.
-Native Vertex-/Index-Nutzlast Rank 3: (411975 + 1094) × 32 + 368384 × 12 = 17638816 Bytes;
+Blattdreiecke pro Blatt: fein 5126800/45775 = 112, aktuell 915500/45775 = 20.
+Reduktion gegenüber fein: 1 - 20/112 = 82,14 %. Gegenüber d2dafe3d steigen sie
+um den Faktor 915500/366200 = 2,5. Gesamt Rank 3: 915500 + 2184 = 917684 Dreiecke.
+Native Vertex-/Index-Nutzlast Rank 3: (823950 + 1094) × 32 + 917684 × 12 = 37413616 Bytes;
 Rank 0 weiterhin 192036024 Bytes. Das sind weder Spitzenheap noch GPU-Residency.
 CPU-Aufbau ist keine Framezeit, Einzelaufrufe belegen keine Perzentile.
 
@@ -94,10 +95,10 @@ unzureichende plausible Kronenlichtverteilung. Standbilder belegen kein zeitlich
 Keine photorealistische Abnahme und keine geänderten Place-Bilder: dieser Prototyppfad
 ist noch nicht in den Places-Wald integriert.
 
-Vorher/nachher Rank 3: 47884 / (640 × 720) = 10,39 % geänderte Pixel,
+Bildwechsel beim Blattmaß in d2dafe3d, vor der Flächenschranke: 47884 / (640 × 720) = 10,39 % geänderte Pixel,
 BBox x=196..447, y=75..591 (Krone; Stammfuß unverändert). SHA256:
 - `build/tree-native/birch-before-leaf-lod.png`: `1cb70507c5b28af5af16bac0baae7ff24dd46bb90bf9563e27c5d77b79d9e4d2`
-- `build/tree-native/birch.png`: `abcada76040e225519ecaa4987a710bb140553e5b25a6854f950d95ce8d84b24`
+- `build/tree-native/birch-before-area-bound.png`: `abcada76040e225519ecaa4987a710bb140553e5b25a6854f950d95ce8d84b24`
 - `build/tree-native/birch-fine.png`: `1f46e4e6d442a711abc47a844a68d43ec76e54c0246d64dea235cd44a0de8ee0`
 - `build/tree-native/birch-fine-close.png`: `d1e2d6df0330bd686a8aa2eb421dda58cc3a9d43ec1d01b38b118f4f7a23bb70`
 
@@ -136,3 +137,64 @@ Beleuchtung. Den dunkleren Rank 3 nicht allein wegen kleinerer Geometriezahlen a
 Gemeinsame GPU-Prototypdaten/Instanzen bleiben Voraussetzung der Waldanbindung (2111);
 expandierte Geometrie nicht pro Weltinstanz kopieren. Materialdetail/Kronenlicht bei
 2171/2167, Artenmaße bei 2176. WI bleibt active.
+
+## Blattfläche getrennt von Pixelbild: Vertrag und Abnahme
+
+Die tatsächlich exportierte Blattfläche und ihre Summenprojektionen auf X/Y/Z werden
+in der nativen Fixture gemessen. TreeGeometry erzeugt beide Netze bereits; native
+Positionen/Indizes lesen, keine zweite Baumimplementierung. Summe der einseitigen
+Dreiecksflächen ist die geometrische LAI-Größe, Summe absoluter Projektionen ist ein
+Richtungsmaß ohne gegenseitige Verdeckung. Beides ist nicht die sichtbare Kronen-Coverage.
+Die vorher erklärte Hypothese war Flächenverlust trotz erfülltem Abstandsbounds;
+nahezu gleiche Werte hätten dagegen gesprochen. Normals, Licht und Rasterung bleiben
+separat zu prüfen. Unreal-/RAGE-Coveragevertrag bleibt das Ziel; die Messung
+des vorhandenen Netzes entscheidet den nächsten Eingriff. Kein neues Gate aus einer Rate.
+
+Messung (`build/tree-leaf-area-diagnosis.log`, 13/13 PASS): Rank 0 284,193300 m²,
+Rank 3 265,987351 m²; Verlust (284,193300 - 265,987351)/284,193300 = 6,41 %.
+Summenprojektionen XYZ: fein 138,985317/148,051814/139,165144 m², grob
+130,099144/138,536894/130,261759 m². Das ist ein Beitrag zur Coverage-Differenz,
+kein Nachweis ihrer alleinigen Ursache.
+
+Zusätzlicher Qualitätsvertrag: höchstens 2 % relative einseitige Flächenabweichung je
+Blade. 2 % ist ein hier gesetztes Fehlerbudget, kein behaupteter Industriestandard.
+Für ein zusammengefasstes Intervall mit k von n Ausgangssegmenten darf der absolute
+Flächenfehler höchstens 0,02 × Gesamtfläche × k/n betragen. Die disjunkten Intervalle
+partitionieren n; Dreiecksungleichung begrenzt damit auch die Gesamtabweichung auf 2 %.
+Abstandsbudget bleibt bestehen, keine nachträgliche Skalierung. Direkte Dreieckssumme
+im Test prüft die Fläche unabhängig von der Intervallauswahl. Negativkontrolle entfernt
+nur diese zweite Schranke; sie muss die Flächenprüfung verletzen. Bild und Kosten bleiben
+separate Abnahmen. Der Vertrag garantiert keine projizierte Union/Verdeckung oder Beleuchtung.
+
+Der erste Flächenlauf (`build/tree-leaf-area-proof.log`) behielt sämtliche Birkensegmente.
+Die vorherige Auswahl brach beim ersten unzulässigen Kandidaten ab. Die Fehler sind bei
+geänderter Endstation jedoch nicht monoton, insbesondere bei Serration. Alle folgenden
+Endstationen prüfen und den weitesten zulässigen Kandidaten behalten; Budgets unverändert.
+
+Finale Messung: (284,193300 - 283,682236)/284,193300 = 0,18 % Flächenverlust statt 6,41 %.
+Summenprojektionen XYZ aktuell 138,733171/147,789364/138,913648 m²; nahe an der feinen
+Referenz, aber keine garantierte Projektionsunion/Verdeckung. Aktueller Detailpreis siehe
+Tabelle oben. Noch keine akzeptierte Wald-Performance.
+
+`TreeLeafSimplificationBoundsTheSurface` prüft nun auch die unabhängig summierte
+Dreiecksfläche. `TreeGeometryUsesNativeMaterials` prüft den 2-%-Vertrag bis zur exportierten
+nativen Gesamtgeometrie. Nur Flächenschranke als Mutation entfernt, Abstand unverändert:
+245,277608 statt 284,193300 m², beide Flächenoracles rot, alle Abstandstests grün.
+`build/tree-leaf-area-negative.log`: 11 PASS/2 FAIL, Exit 2; Details `...-negative-native.log`
+und `...-negative-surface.log`. Wiederhergestellt: `make suite SUITE=outshine/conventions`,
+13/13 PASS, Exit 0; 41 Checks im nativen Baumfall, 19 im Blattfall.
+Beleg `build/tree-leaf-area-restored.log`. Keine Oracles gelockert.
+
+Finale drei PNGs selbst geöffnet. Rank 3 zeigt etwas dichtere feine Blattstruktur, bleibt
+feinkörnig; Kronenlicht, Material und kollektive Ast-Coverage unzureichend. Rank 0 und
+Nahansicht unverändert (Hashes oben). Keine bewegten Frames oder Place-Verbesserung behauptet.
+Bildwechsel durch Flächenschranke: 21518/(640×720) = 4,67 %, BBox x=198..447, y=75..590,
+innerhalb der Krone. `build/tree-native/birch.png` SHA256 jetzt
+`3ca11fd66472a43d1488f56e938a9269c70baa35e838202352b1011592e13906`.
+Der Vorzustand bleibt `build/tree-native/birch-before-area-bound.png` (Hash oben).
+
+Nächster Schwerpunkt ist eine gefilterte Ferndarstellung mit gemeinsam gehaltenen
+Prototypdaten und echter Waldanbindung. Die nahe geometrische Referenz ist jetzt in
+Blattmaß, Abstand und Fläche kontrollierbar; weitere lokale Konturarbeit allein schließt
+den fehlenden Wald nicht. Physisch plausible Kronenbeleuchtung und zeitliche Stabilität
+bleiben Voraussetzung der visuellen Abnahme.

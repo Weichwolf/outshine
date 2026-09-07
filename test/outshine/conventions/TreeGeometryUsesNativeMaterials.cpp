@@ -58,6 +58,7 @@ int main() {
   if (!tree) { return Report(); }
   CHECK(!tree->GeometryAt(tree->Ranks().size()), "an absent LOD is refused");
   if (!SDL_Init(SDL_INIT_VIDEO)) { Unprepared(SDL_GetError()); return Report(); }
+  double coarseLeafArea = 0;
   for (const size_t rank : {size_t{3}, size_t{0}}) {
     CHECK_NEAR(tree->Ranks()[rank].CardLeafM * species.LeafParams().Length,
                species.LeafParams().CardH, 1e-4, "m",
@@ -82,6 +83,27 @@ int main() {
       std::printf("tree part %s vertices %zu triangles %zu\n", geometry->nameOf(part).data(),
                   geometry->positionsOf(part).size()/3, geometry->trianglesOf(part).size()/3);
     }
+    double leafArea = 0;
+    Vec3 projectedArea{};
+    const auto leafPositions = geometry->positionsOf(1);
+    const auto leafTriangles = geometry->trianglesOf(1);
+    for (size_t at = 0; at < leafTriangles.size(); at += 3) {
+      std::array<Vec3, 3> corners;
+      for (size_t corner = 0; corner < 3; ++corner) {
+        const size_t vertex = static_cast<size_t>(leafTriangles[at + corner]) * 3;
+        corners[corner] = {{leafPositions[vertex], leafPositions[vertex + 1], leafPositions[vertex + 2]}};
+      }
+      const Vec3 area = Cross(corners[1] - corners[0], corners[2] - corners[0]) * 0.5;
+      leafArea += Length(area);
+      for (size_t axis = 0; axis < 3; ++axis) { projectedArea[axis] += std::abs(area[axis]); }
+    }
+    if (rank == 3) { coarseLeafArea = leafArea; }
+    else {
+      CHECK(std::abs(coarseLeafArea / leafArea - 1.0) <= 0.02 + 1e-6,
+            "native coarse foliage retains the one-sided area of the fine reference within two percent");
+    }
+    std::printf("tree rank %zu one-sided leaf area %.6f m2 projected sums XYZ %.6f %.6f %.6f m2 (no occlusion or image coverage)\n",
+                rank, leafArea, projectedArea[0], projectedArea[1], projectedArea[2]);
     if (rank == 3) {
       const auto foliage = geometry->positionsOf(1);
       const size_t bladeFloats = foliage.size() / tree->Ranks()[rank].CardCount;
