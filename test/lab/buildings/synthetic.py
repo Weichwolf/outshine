@@ -1064,6 +1064,48 @@ class Building:
             self.tri(*ids)
 
     # -- the checks
+    def comb(self, step=0.05):
+        """B-COMB: HOW FAR A ROOF FACE STANDS OFF THE SURFACE IT IS MESHING, in degrees.
+
+        Every closure check a roof already passes is about the mesh's TOPOLOGY -- no open edge,
+        no edge with three faces, every directed edge paired, a positive volume, nothing unwelded
+        -- and a row of spikes along a barrel's eaves breaks none of them. board:2156 measured the
+        cause (a Delaunay over a 60:1 anisotropic ring set makes slivers that skip rings) and
+        wrote what would be true; what was missing was the number that goes RED while it is not.
+
+        The field is its own oracle: `_roof_z` is an analytic height over the footprint, so its
+        normal at a face's centroid is known to a finite difference, and a face that is meshing
+        that surface faithfully points the same way. A face that spans a CREASE legitimately does
+        not, so the claim is made on the distribution (p95) and not on the worst one.
+
+        Returns (p50, p95, max) in degrees over the roof's faces, weighted by nothing -- a spike
+        is a spike whatever its area."""
+        self.built()
+        V = np.asarray(self.vertices, dtype=float)
+        T = np.asarray(self.tris, dtype=np.int64)
+        if not len(T):
+            return (0.0, 0.0, 0.0)
+        z = V[T][:, :, 2]
+        roof = (z >= self.eaves - 1e-9).all(axis=1) & (z > self.eaves + 1e-9).any(axis=1)
+        got = []
+        for (ia, ib, ic) in T[roof]:
+            a, b, c = V[ia], V[ib], V[ic]
+            n = np.cross(b - a, c - a)
+            run = float(np.linalg.norm(n))
+            if run <= 1e-12:
+                continue
+            n = n / run
+            x, y = float((a[0] + b[0] + c[0]) / 3.0), float((a[1] + b[1] + c[1]) / 3.0)
+            dx = (self._roof_z(x + step, y) - self._roof_z(x - step, y)) / (2.0 * step)
+            dy = (self._roof_z(x, y + step) - self._roof_z(x, y - step)) / (2.0 * step)
+            m = np.array([-dx, -dy, 1.0])
+            m = m / float(np.linalg.norm(m))
+            got.append(math.degrees(math.acos(min(1.0, abs(float(n @ m))))))
+        if not got:
+            return (0.0, 0.0, 0.0)
+        got = np.asarray(got)
+        return (float(np.percentile(got, 50)), float(np.percentile(got, 95)), float(got.max()))
+
     def open_edges(self):
         self.built()
         return sum(1 for n in self.faces_of.values() if n == 1)

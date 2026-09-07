@@ -35,6 +35,24 @@ import roofs  # noqa: E402
 OUT = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "gallery"
 
 
+# THE COMB, AS A CEILING THAT MAY ONLY FALL. board:2156 measured the cause and wrote what would
+# be true; nothing went red while it was not. `Building.comb` is the number: the angle between a
+# roof face's normal and the ANALYTIC field's normal at its centroid, over the roof's faces.
+#
+# It is p95 and not the worst face, because a face that spans a CREASE legitimately disagrees --
+# and the table says so itself: `hipped` and `pyramidal` read 0.0 at p95 with 23.9 at the worst,
+# which is their ridge. Every shape built from PLANES reads exactly 0.0; every curved one carries
+# the comb, and those are the rows a viewer rejects in a second.
+#
+# Measured 2026-09-07 on F1-rect, cell 0.5. A row may only ever be lowered.
+COMB_MOST_DEG = {
+    "barrel": 23.0, "butterfly": 0.0, "dome": 23.5, "flat": 0.0, "gabled": 0.0,
+    "gambrel": 6.7, "half-hipped": 12.2, "hipped": 0.0, "mansard": 30.4, "onion": 28.8,
+    "pyramidal": 0.0, "sawtooth": 0.0, "skillion": 0.0, "spire": 0.0,
+}
+COMB_WANTED_DEG = 5.0     # [SET] where the ring-and-spoke surface has to bring every row
+
+
 def one(name, number):
     """One shape on the standard footprint, checked and drawn."""
     poly = bed.FOOTPRINTS["F1-rect"]()
@@ -58,6 +76,9 @@ def one(name, number):
         red.append(f"open{b.open_edges()}/bad{b.bad_edges()}")
     if wrong or degenerate:
         red.append(f"wound{wrong}e/{degenerate}deg")
+    p50, p95, worst = b.comb()
+    if p95 > COMB_MOST_DEG.get(name, COMB_WANTED_DEG) + 0.05:
+        red.append(f"comb p95 {p95:.1f} deg over {COMB_MOST_DEG.get(name, COMB_WANTED_DEG):.1f}")
     if vol <= 0.0:
         red.append("volume")
     if near < bed.WELD_M:
@@ -69,7 +90,8 @@ def one(name, number):
     publish.take("roofs", f"view_{name}", shot, red)
     print(f"{number:02d} {name:12s} {'RED ' + ','.join(red) if red else 'ok':22s} "
           f"tris {len(b.tris):6d}  verts {len(b.vertices):6d}  volume {vol:9.1f} m3  "
-          f"nearest pair {near:.4f} m  ridge +{b.ridge - b.pad:5.2f}  -> {shot.name}")
+          f"nearest pair {near:.4f} m  comb p95 {p95:5.1f} max {worst:5.1f}  "
+          f"ridge +{b.ridge - b.pad:5.2f}  -> {shot.name}")
     return red
 
 
