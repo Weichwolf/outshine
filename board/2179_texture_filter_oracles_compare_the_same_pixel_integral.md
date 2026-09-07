@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: test, harness, render
 Tags: khronos, measured
 
@@ -49,3 +49,16 @@ Manifest nutzen, keine neue Engine-eigene Soll-PNG als unabhängiges Oracle ausg
 - [ ] Schachbrett wiederholt lineare beleuchtete Frames; verbleibende Fehler ursächlich benannt.
 
 Keine Änderung an Vendor-Manifesten, Oracles oder Akzeptanzschranken im bisherigen Mip-Schritt.
+
+## Wiederholungsfehler erneut reproduziert, 2026-09-08
+
+Beim gemeinsamen Piece-Instanzpfad schlägt MipmappedChessRepeatsLinearPixels wieder fehl.
+`build/shared-piece-index-proof.log` und unveränderte Produktquellen in
+`build/shared-piece-repeat-probe.log`: drei Wiederholungen unterscheiden sich jeweils
+in 420 Kanälen vom ersten Frame, maximal 0.00268555 linear, erster Kanalindex 1635972.
+Die erwartete Gleichheit bleibt unverändert. First-/Repeat-PNG werden getrennt gespeichert.
+
+Nächste kausale Probe: nur Occlusion im Cull-Uniform temporär deaktivieren. Der erste Frame
+hat keine vorherige Tiefenpyramide, spätere Frames schon. Falls die Differenz verschwindet,
+ist die Übergangshypothese gestützt; das wäre keine Erlaubnis, Occlusion dauerhaft zu entfernen.
+Andernfalls die Hypothese verwerfen und Upload-/Matrixreihenfolge weiter isolieren.
