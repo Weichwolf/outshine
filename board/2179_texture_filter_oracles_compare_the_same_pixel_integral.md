@@ -62,3 +62,27 @@ Nächste kausale Probe: nur Occlusion im Cull-Uniform temporär deaktivieren. De
 hat keine vorherige Tiefenpyramide, spätere Frames schon. Falls die Differenz verschwindet,
 ist die Übergangshypothese gestützt; das wäre keine Erlaubnis, Occlusion dauerhaft zu entfernen.
 Andernfalls die Hypothese verwerfen und Upload-/Matrixreihenfolge weiter isolieren.
+
+## Kontrollbefunde, 2026-09-08
+
+Die Occlusion-Probe `build/shared-piece-no-occlusion-control.log` endet mit Exit 0,
+18/18 PASS; alle drei Wiederholungen haben null abweichende lineare Kanäle.
+Occlusion ist danach wieder aktiviert; Abschalten ist keine Reparatur.
+`build/shared-piece-depth-probe-fixed.log` endet rot (17/18 PASS): sämtliche
+1280×720 Tiefenwerte bleiben gleich, die drei Farbvergleiche behalten jeweils
+420 Abweichungen und maximal 0.00268555. Gleiche Tiefe allein beweist keine
+identische Zuordnung koplanarer Oberflächen.
+
+Eine isolierte Probe ersetzt im Unlit-Fragmentshader den impliziten Texture-Tap
+durch textureGrad mit dFdxFine/dFdyFine. `build/shared-piece-fine-derivative-probe.log`
+endet mit Exit 2, 17/18 PASS, exakt denselben Farb- und Tiefendifferenzen.
+Diese Änderung ist zurückgenommen: explizite feine Ableitungen lösen den Fehler nicht.
+Als Nächstes feste Mip-Stufen als temporäre Kontrolle und Oberflächenzuordnung
+vergleichen, um Filter- von Draw-/Interpolationsänderungen zu trennen; keine
+dauerhafte Mip-Abschaltung oder Lockerung der Gleichheitsprüfung.
+
+Die Instanz-PNGs (instanced/clustered) wurden geöffnet: jeweils drei erwartete,
+getrennte Dreiecke; die Prüfung überlebt die Freigabe der ersten Gruppe bei
+weiter sichtbarer Nachbargeometrie. Das ist eine Übergabeprüfung, kein Nachweis
+für fertigen Wald oder fotorealistische Places. Die Schach-PNG wurde ebenfalls
+geöffnet; die kleinen Kanalabweichungen sind damit noch nicht ursächlich erklärt.
