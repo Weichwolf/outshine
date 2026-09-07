@@ -127,6 +127,7 @@ struct PieceMesh {
   std::span<const DagCluster> Clusters;
   std::span<const float> Colours;
   Mat4 Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  std::span<const Mat4> Instances;
   uint32_t Surface = 0;
   bool Textured = false;
 };

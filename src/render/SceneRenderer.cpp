@@ -1142,7 +1142,8 @@ void SceneRenderer::RenderFrame() {
 
   {
     std::string why;
-    if (!Subjects_.HandTables(why) || (DrawsGlass_ && !Glass_.HandTables(why))) {
+    if (!Subjects_.HandTables(why) || !Subjects_.HandPlacements(false, why) ||
+        (DrawsGlass_ && !Glass_.HandTables(why))) {
       Log::Error(LogTag::Render, "pool_tables_not_handed", {{"msg", why}});
     }
     if (!Subjects_.HandDrawArguments(true, why)) {

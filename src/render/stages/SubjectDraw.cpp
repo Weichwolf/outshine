@@ -831,8 +831,13 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   Piece &held = Pieces_[id];
   held.V = v;
   held.I = i;
+  held.IndexCount = indices;
   held.Surface = piece.Surface;
-  held.Row = piece.Row;
+  if (piece.Instances.empty()) {
+    held.Rows.assign(1, piece.Row);
+  } else {
+    held.Rows.assign(piece.Instances.begin(), piece.Instances.end());
+  }
   held.Clusters.assign(piece.Clusters.begin(), piece.Clusters.end());
   VertexRunsCarried carried;
   carried.Normal = true;
@@ -852,9 +857,10 @@ void SubjectDraw::ReleasePiece(PieceId which) {
   Piece &held = Pieces_[which];
   Bound().GiveVertices(held.V);
   Bound().GiveIndices(held.I);
-  PieceTriangles_ -= held.I.Count / 3u;
+  PieceTriangles_ -= held.IndexCount / 3u;
   held.Live = false;
   held.Clusters.clear();
+  held.Rows.clear();
   Spare_.push_back(which);
   --PiecesLive_;
   TablesStale_ = true;
@@ -932,10 +938,16 @@ bool SubjectDraw::Retable(std::string &error) {
   std::vector<uint32_t> &order = TableOrder_;
   order.clear();
   size_t clusters = 0;
+  auto nextRow =
+      static_cast<uint32_t>(std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_)));
+  for (Piece &piece : Pieces_) {
+    piece.FirstRow = nextRow;
+    nextRow += static_cast<uint32_t>(piece.Rows.size());
+  }
   for (uint32_t at = 0; at < Pieces_.size(); ++at) {
     if (Pieces_[at].Live && slotOf(Pieces_[at]) != kNoSlot && slotOf(Pieces_[at]) < Slots.size()) {
       order.push_back(at);
-      clusters += Pieces_[at].Clusters.size();
+      clusters += Pieces_[at].Clusters.size() * Pieces_[at].Rows.size();
     }
   }
   jobs.reserve(jobs.size() + clusters * DrawList::kJobWords);
@@ -949,37 +961,40 @@ bool SubjectDraw::Retable(std::string &error) {
   });
   for (const uint32_t at : order) {
     const Piece &one = Pieces_[at];
-    const auto row = static_cast<uint32_t>(Batches.size());
-    DrawBatch batch{};
-    batch.FirstIndex = one.I.First;
-    batch.IndexCount = one.I.Count;
-    batch.MaterialSlot = slotOf(one);
-    batch.Layout = one.Layout;
-    batch.Kind = SurfaceKind::Opaque;
-    batch.Draws = 1;
-    batch.ModelSlot = SubjectRows_ + at;
-    batch.Instances = 1;
-    batch.FirstJob = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords);
-    for (const DagCluster &cluster : one.Clusters) {
-      const auto sphere = static_cast<uint32_t>(spheres.size() / kSphereFloats);
-      spheres.insert(spheres.end(),
-                     {cluster.SelfCenter[0],
-                      cluster.SelfCenter[1],
-                      cluster.SelfCenter[2],
-                      cluster.SelfRadius,
-                      cluster.ParentCenter[0],
-                      cluster.ParentCenter[1],
-                      cluster.ParentCenter[2],
-                      cluster.ParentRadius,
-                      cluster.SelfErr,
-                      cluster.ParentErr,
-                      0.0f,
-                      0.0f});
-      jobs.insert(jobs.end(), {sphere, row, one.I.First + cluster.First, cluster.Count});
+    const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
+    for (size_t instance = 0; instance < runs; ++instance) {
+      const auto row = static_cast<uint32_t>(Batches.size());
+      DrawBatch batch{};
+      batch.FirstIndex = one.I.First;
+      batch.IndexCount = one.IndexCount;
+      batch.MaterialSlot = slotOf(one);
+      batch.Layout = one.Layout;
+      batch.Kind = SurfaceKind::Opaque;
+      batch.Draws = 1;
+      batch.ModelSlot = one.FirstRow + static_cast<uint32_t>(instance);
+      batch.Instances = one.Clusters.empty() ? static_cast<uint32_t>(one.Rows.size()) : 1u;
+      batch.FirstJob = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords);
+      for (const DagCluster &cluster : one.Clusters) {
+        const auto sphere = static_cast<uint32_t>(spheres.size() / kSphereFloats);
+        spheres.insert(spheres.end(),
+                       {cluster.SelfCenter[0],
+                        cluster.SelfCenter[1],
+                        cluster.SelfCenter[2],
+                        cluster.SelfRadius,
+                        cluster.ParentCenter[0],
+                        cluster.ParentCenter[1],
+                        cluster.ParentCenter[2],
+                        cluster.ParentRadius,
+                        cluster.SelfErr,
+                        cluster.ParentErr,
+                        0.0f,
+                        0.0f});
+        jobs.insert(jobs.end(), {sphere, row, one.I.First + cluster.First, cluster.Count});
+      }
+      batch.JobCount = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords) - batch.FirstJob;
+      Batches.push_back(batch);
+      BatchLayout.push_back(one.Layout);
     }
-    batch.JobCount = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords) - batch.FirstJob;
-    Batches.push_back(batch);
-    BatchLayout.push_back(one.Layout);
   }
 
   if (jobs.empty() || spheres.empty()) { return true; }
@@ -1058,18 +1073,21 @@ bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
 
 bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
-  const size_t all = needed + Pieces_.size();
+  size_t all = needed;
+  for (const Piece &piece : Pieces_) { all += piece.Rows.size(); }
   if (!RowsStale_ && Rows_.size() == all * 32u) { return true; }
   RowsStale_ = false;
   if (all == 0) { return true; }
   Rows_.assign(all * 32u, 0.0f);
-  static constexpr Mat4 kUnmoved = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-  for (size_t piece = 0; piece < Pieces_.size(); ++piece) {
-    const Mat4 &row = Pieces_[piece].Live ? Pieces_[piece].Row : kUnmoved;
-    for (size_t at = 0; at < 16u; ++at) {
-      const auto held = static_cast<float>(row[at]);
-      Rows_[(needed + piece) * 32u + at] = held;
-      Rows_[(needed + piece) * 32u + 16u + at] = held;
+  size_t offset = needed;
+  for (const Piece &piece : Pieces_) {
+    for (const Mat4 &row : piece.Rows) {
+      for (size_t at = 0; at < 16u; ++at) {
+        const auto held = static_cast<float>(row[at]);
+        Rows_[offset * 32u + at] = held;
+        Rows_[offset * 32u + 16u + at] = held;
+      }
+      ++offset;
     }
   }
   for (size_t row = 0; row < needed; ++row) {

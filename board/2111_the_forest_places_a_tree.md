@@ -140,3 +140,51 @@ residenter Geometrieumfang prüfen; Release/Wiederbelegung darf keine alten Inst
 Echte Mutation: Anzahl Instanzen auf eins reduzieren → fehlende Pixel rot. Clusterpfad
 separat prüfen, insbesondere erste Instanz außerhalb des Sichtfelds. Dieser Schritt allein
 ist noch keine Kronengeometrie oder ringweite Waldplatzierung.
+
+Abnahme der Übergabe: PieceInstancesShareTheirGeometry besteht im unclusterierten
+und geclusterten Pfad einschließlich Freigabe, Slotwiederverwendung und Erhalt
+der folgenden Einzelplatzierung. Die geöffneten positiven PNGs zeigen drei
+getrennte Dreiecke. `build/shared-piece-single-placement-negative.log` begrenzt
+temporär die übernommenen Zeilen auf die erste (außerhalb des Frustums): genau
+die beiden Sichtbarkeitsprüfungen werden rot, 34 Checks/2 Fehler. Mutation
+zurückgenommen. Der dabei getrennt geprüfte Schachfehler existiert bereits im
+Renderer vor der Instanzänderung; Nachweis und Restbefund in 2179.
+
+Der Weltanschluss benötigt weiterhin den Regionsframe: Scattered hält bisher
+tilelokale Em/Nm als Float, Standing bewahrt keinen Tile-Frame. Nicht als globale
+Koordinaten interpretieren; vor dem Renderhandoff Weltpositionen in Double
+rekonstruieren und erst an der Kameragrenze verengen. Clusterjobs und kompaktierte
+Indices wachsen trotz geteilter Quellgeometrie je Instanz; deren Budget bleibt
+zu messen. Piece-Batches sind noch pauschal Opaque, daher ist Masked-Kronenmaterial
+mit der Materialarbeit in 2171 zu verbinden.
+
+2180 ist im selben Pfad repariert: Piece.IndexCount hält die tatsächlich
+geschriebenen Indices, die Allocation-Range bleibt für die Freigabe erhalten.
+Damit zeichnet ein Drei-Index-Mesh nicht die 4096er-Reserve und zieht beim
+Freigeben nicht 1365 statt eines Dreiecks vom Zähler ab. Die ursprüngliche
+Mutation lieferte den dokumentierten uint32-Unterlauf; der reparierte Pfad
+behält Nachbargeometrie und kehrt nach beiden Freigaben auf null zurück.
+
+`make shots` / `build/shared-piece-places.log`, Exit 0: alle neun PNGs geöffnet.
+Digest / p99 ms / Peak-Heap MB für je 120 residente Frames:
+
+| Place | Digest | p99 ms | Heap MB |
+|---|---|---:|---:|
+| DarmstadtWest | e72d1925 | 2.87 | 355 |
+| Wien | 8ff2d96d | 5.73 | 473 |
+| Rosenheim | 7da2e093 | 4.11 | 385 |
+| Husum | d60b18a7 | 3.04 | 232 |
+| Olympiaturm | 07985050 | 3.88 | 622 |
+| Graz | f93ff5b9 | 5.03 | 568 |
+| Koerbersee | c99cdbe7 | 7.19 | 507 |
+| Malcesine | 46e4db5c | 4.87 | 387 |
+| Feldkirch | 5fa234c1 | 5.02 | 427 |
+
+Jeweils 0/120 über 16.67 ms; kein Nachweis für Bewegung oder fertige Weltlast.
+Acht Digests entsprechen der vorigen Gesamtprüfung. Feldkirch entspricht der
+bereits zuvor ohne Sourceänderung beobachteten Variante: gegenüber 63dcc99c
+3126 andere Pixel, Box [0,1277)×[205,720). Ursache bleibt in 2154 offen.
+Koerbersee/Malcesine/Feldkirch zusätzlich mit geöffneten Webcam-Referenzen
+verglichen: Wälder fehlen, Fels bleibt glatt/gefaltet, Wasser flach und dunkel,
+Gebäude ohne ausreichende Material-/Formvielfalt. Keine visuelle Verbesserung
+behauptet; die nächste Arbeit muss diese Voraussetzung tatsächlich erreichen.

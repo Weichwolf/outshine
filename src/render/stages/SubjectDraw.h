@@ -348,9 +348,11 @@ private:
   struct Piece {
     SubjectResidency::Range V;
     SubjectResidency::Range I;
+    uint32_t IndexCount = 0;
     uint32_t Surface = 0;
     VertexLayout Layout = VertexLayout::PositionNormal;
-    Mat4 Row;
+    std::vector<Mat4> Rows;
+    uint32_t FirstRow = 0;
     std::vector<DagCluster> Clusters;
     bool Live = false;
   };
