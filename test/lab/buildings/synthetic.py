@@ -959,11 +959,18 @@ class Building:
             # carries a segment that runs OUTSIDE it: five open edges and twelve edges with
             # three faces on `F3-U` (measured 2026-09-07). The line is split into the runs that
             # are actually inside, and each run is its own chain.
+            # A RIDGE MUST NOT TOUCH THE BOUNDARY UNTIL THE WALL SHARES IT. Cutting the run
+            # to the polygon puts its endpoint ON the ring, `unary_union` nodes the ring there,
+            # and the ROOF gains a vertex the WALL does not have -- because the wall is built on
+            # `_dense_ring` and the roof's PSLG on the raw ring. Measured 2026-09-07: 3 open
+            # bodies became 713, and the same experiment had already been made and reverted once.
+            # The run therefore stops inside, and the last 3 gabled bodies stay open until the
+            # two boundaries are ONE polyline -- which is board:2156's business, not a patch here.
             run = []
-            for s in np.arange(-half_u, half_u + cell, cell / 2.0):
-                p = (c.x + u[0] * s, c.y + u[1] * s)
-                if self.poly.contains(Point(*p)):
-                    run.append(p)
+            for s_ in np.arange(-half_u, half_u + cell, cell / 2.0):
+                p_ = (c.x + u[0] * s_, c.y + u[1] * s_)
+                if self.poly.contains(Point(*p_)):
+                    run.append(p_)
                 elif len(run) > 1:
                     chains.append(("open", run))
                     pts += run
@@ -973,6 +980,7 @@ class Building:
             if len(run) > 1:
                 chains.append(("open", run))
                 pts += run
+
         for x in np.arange(minx + cell / 2, maxx, cell):
             for y in np.arange(miny + cell / 2, maxy, cell):
                 if self.poly.contains(Point(x, y)):
@@ -985,7 +993,20 @@ class Building:
         verts, segs, seen = [], [], {}
 
         def put(p):
-            key = (round(p[0], 6), round(p[1], 6))
+            # THE PLAN IS QUANTISED AT THE WELD, and this is one rule and not two. The
+            # triangulation was deduplicated at a MICRON while the mesh welds at a MILLIMETRE,
+            # so Triangle was free to return two points a millimetre apart, `vertex` welded them
+            # into one, and the two triangles that shared them became the SAME triangle -- once
+            # each way round, because a face that thin has no reliable orientation in plan.
+            # Measured 2026-09-07 at OldTown: 90 of 1 330 drawn bodies, each with exactly one
+            # edge carrying four faces, and in the picture you could see into the houses.
+            # A point the mesh cannot tell apart is a point the triangulation must not be given.
+            # AND IT KEEPS THE POINT, NOT THE CELL. Snapping the coordinate to the grid moved
+            # the roof's boundary ring off the footprint the WALLS are built on, and the roof
+            # lifted off the house: 112 open edges on one body, every one of them a wall's top
+            # (measured 2026-09-07, immediately after). The key decides what is the SAME point;
+            # the first point to claim a cell keeps its own coordinates.
+            key = (round(p[0] / WELD_M), round(p[1] / WELD_M))
             if key not in seen:
                 seen[key] = len(verts)
                 verts.append([float(p[0]), float(p[1])])
