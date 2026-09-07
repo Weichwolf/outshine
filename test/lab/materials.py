@@ -95,6 +95,21 @@ class Material:
         self.bond = str(bond)
         self.splash_m = float(splash_m)
 
+    def key(self):
+        """WHAT MAKES TWO SURFACES ONE. A material is a VALUE, and two parts that carry the same
+        value are one draw: keyed by object identity instead, a town twin came out with 4 945
+        parts for thirty distinct surfaces, because every body builds its own record."""
+        return (self.base_color, self.metallic, self.roughness, self.ior, self.emissive,
+                self.emissive_strength, self.alpha_mode, self.alpha_cutoff, self.double_sided,
+                self.transmission, self.grain_m, self.relief_m, self.mottle, self.unit_m,
+                self.joint_m, self.bond, self.splash_m)
+
+    def __hash__(self):
+        return hash(self.key())
+
+    def __eq__(self, other):
+        return isinstance(other, Material) and other.key() == self.key()
+
     def tinted(self, rgb):
         """The same material in another colour -- an epoch's field over the same render."""
         return Material(self.name, tuple(rgb) + (self.base_color[3],), self.metallic,

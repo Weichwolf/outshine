@@ -72,24 +72,39 @@ HEIGHT_SCALE_M = 20.0
 
 
 def write_ply(path, verts, tris, field=None):
-    """Binary would be faster; this is a lab and a text PLY is one thing less to get wrong.
+    """A BINARY PLY, WRITTEN STRAIGHT FROM THE ARRAYS.
 
-    `field` is the generator's per-vertex WEATHERING -- (N, 3) in [0, 1], polish / silt / splash --
-    and it rides on the vertex colour, which is the one channel every mesh format already has."""
-    with open(path, "w") as out:
-        out.write("ply\nformat ascii 1.0\n")
-        out.write(f"element vertex {len(verts)}\nproperty float x\nproperty float y\nproperty float z\n")
-        if field is not None:
-            out.write("property uchar red\nproperty uchar green\nproperty uchar blue\n")
-        out.write(f"element face {len(tris)}\nproperty list uchar int vertex_index\nend_header\n")
-        for k, v in enumerate(verts):
-            row = f"{v[0]:.4f} {v[1]:.4f} {v[2]:.4f}"
-            if field is not None:
-                r, g, b = (int(max(0.0, min(1.0, float(c))) * 255.0 + 0.5) for c in field[k])
-                row += f" {r} {g} {b}"
-            out.write(row + "\n")
-        for t in tris:
-            out.write(f"3 {t[0]} {t[1]} {t[2]}\n")
+    An ASCII PLY of six million triangles is a hundred million `str.format` calls and a file a
+    reader has to parse back into floats; the binary one is a header and two `tofile` calls.
+    Measured 2026-09-07 on a town twin: the same reason the mesh itself is arrays and not tuples,
+    and the same reason the C++ never had this problem -- the cost is the layout.
+
+    `field` is the generator's per-vertex WEATHERING -- (N, 3) in [0, 1] -- and it rides on the
+    vertex colour, which is the one channel every mesh format already has."""
+    V = np.ascontiguousarray(np.asarray(verts, dtype=np.float32).reshape(-1, 3))
+    T = np.ascontiguousarray(np.asarray(tris, dtype=np.int32).reshape(-1, 3))
+    rows = [("x", "<f4"), ("y", "<f4"), ("z", "<f4")]
+    if field is not None:
+        rows += [("red", "u1"), ("green", "u1"), ("blue", "u1")]
+    head = ["ply", "format binary_little_endian 1.0", f"element vertex {len(V)}"]
+    head += [f"property float {n}" for n in ("x", "y", "z")]
+    if field is not None:
+        head += [f"property uchar {n}" for n in ("red", "green", "blue")]
+    head += [f"element face {len(T)}", "property list uchar int vertex_index", "end_header"]
+    body = np.zeros(len(V), dtype=np.dtype(rows))
+    body["x"], body["y"], body["z"] = V[:, 0], V[:, 1], V[:, 2]
+    if field is not None:
+        F = np.clip(np.asarray(field, dtype=np.float32).reshape(-1, 3), 0.0, 1.0)
+        for name, k in (("red", 0), ("green", 1), ("blue", 2)):
+            body[name] = (F[:, k] * 255.0 + 0.5).astype(np.uint8)
+    faces = np.zeros(len(T), dtype=np.dtype([("n", "u1"), ("a", "<i4"), ("b", "<i4"),
+                                             ("c", "<i4")]))
+    faces["n"] = 3
+    faces["a"], faces["b"], faces["c"] = T[:, 0], T[:, 1], T[:, 2]
+    with open(path, "wb") as out:
+        out.write(("\n".join(head) + "\n").encode())
+        body.tofile(out)
+        faces.tofile(out)
 
 
 def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
@@ -148,25 +163,32 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
     # traced. Grouping by the LOOK is what an engine's draw call batching is, and it is only
     # possible because nothing per-PART reaches the material any more: the height over the
     # ground rides on the vertex colour instead.
+    # AND THE BATCH IS BUILT IN ARRAYS. Concatenating a list of tuples per part costs twelve
+    # times the memory of the arrays it ends up as and every one of those tuples is an object
+    # the allocator has to make; one `concatenate` per group at the end costs one copy.
     fields = fields or {}
     group = {}
     for role, (verts, tris) in parts.items():
-        if not tris or role not in table:
+        if role not in table:
+            continue
+        v = np.asarray(verts, dtype=np.float32).reshape(-1, 3)
+        t = np.asarray(tris, dtype=np.int32).reshape(-1, 3)
+        if not len(t):
             continue
         look = table[role]
-        key = tuple(sorted((k, tuple(v) if isinstance(v, (list, tuple)) else v)
-                           for k, v in look.items()))
+        key = tuple(sorted((k, tuple(v_) if isinstance(v_, (list, tuple)) else v_)
+                           for k, v_ in look.items()))
         got = group.setdefault(key, {"name": role.split(".")[0], "v": [], "t": [], "f": [],
-                                     "look": look, "worn": False})
-        base = len(got["v"])
-        got["v"].extend(verts)
-        got["t"].extend((a + base, b + base, c + base) for (a, b, c) in tris)
+                                     "look": look, "worn": False, "at": 0})
+        got["v"].append(v)
+        got["t"].append(t + got["at"])
+        got["at"] += len(v)
         held = fields.get(role)
         if held is not None:
             got["worn"] = True
-            got["f"].extend(tuple(row) for row in held)
+            got["f"].append(np.asarray(held, dtype=np.float32).reshape(-1, 3))
         else:
-            got["f"].extend((0.0, 0.0, 0.0) for _ in verts)
+            got["f"].append(np.zeros((len(v), 3), dtype=np.float32))
     table = {}
     worn = {}
     files = {}
@@ -175,7 +197,8 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
         table[role] = got["look"]
         worn[role] = got["worn"]
         files[role] = str(work / f"{role}.ply")
-        write_ply(files[role], got["v"], got["t"], got["f"] if got["worn"] else None)
+        write_ply(files[role], np.concatenate(got["v"]), np.concatenate(got["t"]),
+                  np.concatenate(got["f"]) if got["worn"] else None)
     sun = np.asarray(sun, dtype=float)
     sun = sun / max(float(np.linalg.norm(sun)), 1e-9)
     elev = math.degrees(math.asin(max(-1.0, min(1.0, float(sun[2])))))

@@ -40,6 +40,7 @@ import data as roaddata  # noqa: E402
 import publish  # noqa: E402
 import blend  # noqa: E402
 import camera as lab_camera  # noqa: E402
+import geometry  # noqa: E402
 import materials as stock  # noqa: E402
 import street  # noqa: E402
 import kerbline  # noqa: E402
@@ -359,19 +360,70 @@ def roads_of(place, frame, red):
 # ------------------------------------------------------------------ the picture
 
 class Parts:
-    """GEOMETRY BY ROLE, not by body. A wall and the roof over it are two materials and that one
-    split is most of what a town reads as: measured by looking, 2026-09-06, the outshine client's
-    own OldTown carries terracotta over cream and the lab twin carried one brick colour for
-    everything, which is why the twin looked a generation behind its own C++."""
+    """THE DOOR'S `Geometry`, WEARING THE NAME THE TWIN ALREADY CALLS IT BY.
+
+    A part is a surface's worth of mesh -- `Geometry::addPart(named, material)` -- and its arrays
+    are flat `float32` positions, flat `uint32` triangles and RGBA colours, because that is what
+    `include/scene/Geometry.h` takes and a generator's conversion to C++ should be a copy rather
+    than a translation.
+
+    It was a dict of lists of Python tuples. Measured 2026-09-07: a million vertices costs 144 MB
+    that way against 12 MB as `float32`, a million triangles 156 MB against 12 MB -- twelve times
+    -- so a town twin of 6.9 million triangles stood at 2.1 GB where the arithmetic says 163 MB,
+    and the system killed the renderer for want of memory. The C++ never had the problem because
+    the door had already said what a mesh IS."""
 
     def __init__(self):
-        self.of = {}
+        self.geom = geometry.Geometry()
+        self.at = {}
+        self.held = {}
 
-    def add(self, role, verts, tris):
-        v, t = self.of.setdefault(role, ([], []))
-        base = len(v)
-        v.extend([tuple(map(float, p)) for p in verts])
-        t.extend([(a + base, b + base, c + base) for (a, b, c) in tris])
+    def add(self, role, verts, tris, material=None, colours=None):
+        """A PART IS A SURFACE'S WORTH OF MESH, and the role only names it. Keyed by the role
+        alone a town twin was 6 941 parts -- one per building per surface -- which is 6 941 draw
+        calls for thirty materials. Two pieces that share a surface share a part, which is what
+        `Geometry::addPart(named, material)` means and what a draw call is."""
+        v = np.asarray(verts, dtype=np.float32).reshape(-1, 3)
+        t = np.asarray(tris, dtype=np.uint32).reshape(-1, 3)
+        if not len(t):
+            return
+        mark = material.key() if hasattr(material, "key") else (
+            tuple(material) if isinstance(material, (list, tuple)) else material)
+        key = (role.split(".")[0], mark)
+        held = self.held.setdefault(key, {"v": [], "t": [], "c": [], "at": 0, "m": material,
+                                          "name": role.split(".")[0]})
+        held["v"].append(v)
+        held["t"].append(t + held["at"])
+        held["at"] += len(v)
+        held["c"].append(np.zeros((len(v), 4), dtype=np.float32) if colours is None
+                         else np.asarray(colours, dtype=np.float32).reshape(-1, 4))
+        if material is not None:
+            held["m"] = material
+
+    def close(self):
+        """Every surface's pieces become ONE part -- which is what a draw call is."""
+        for key, held in self.held.items():
+            if key in self.at:
+                continue
+            part = self.geom.addPart(held["name"], held["m"])
+            self.at[key] = part
+            self.geom.setPositions(part, np.concatenate(held["v"]))
+            self.geom.setTriangles(part, np.concatenate(held["t"]))
+            if any(c.any() for c in held["c"]):
+                self.geom.setColours(part, np.concatenate(held["c"]))
+        self.held = {}
+        return self.geom
+
+    @property
+    def of(self):
+        """The twin's own view: {role: (positions as (N, 3), triangles as (M, 3))}."""
+        self.close()
+        out = {}
+        for part in range(self.geom.parts()):
+            out[f"{self.geom.nameOf(part)}_{part}"] = (
+                self.geom.positionsOf(part).reshape(-1, 3),
+                self.geom.trianglesOf(part).reshape(-1, 3).astype(np.int64))
+        return out
 
     def counts(self):
         return {k: len(t) for k, (v, t) in self.of.items()}
@@ -415,7 +467,9 @@ def cached_parts(place, frame, doc, red, lod=3):
         try:
             parts, looks, counts = pickle.loads(key.read_bytes())
             got = Parts()
-            got.of = parts
+            for role, (v, t) in parts.items():
+                got.add(role, v, t)
+            got.close()
             return got, looks, counts
         except Exception:
             key.unlink(missing_ok=True)
@@ -436,7 +490,7 @@ def parts_of(place, frame, doc, red, lod=3):
     parts, looks, fields = Parts(), {}, {}
 
     def put(role, verts, tris, rgb):
-        parts.add(role, verts, tris)
+        parts.add(role, verts, tris, material=rgb)
         looks[role] = rgb
 
     # WHERE THE TIME WENT, said on every run. A twin is a thing you have to be able to LOOK at
@@ -444,8 +498,14 @@ def parts_of(place, frame, doc, red, lod=3):
     clock = [time.time()]
 
     def took(what):
+        # AND WHAT IT COST TO HOLD. A stage that overshoots its arithmetic says so in a number
+        # rather than in a kill signal: the geometry of a town twin is 43 MB by `geometry.budget`
+        # and the process stood at 760 MB, which is the generators' own working set and not the
+        # mesh. Peak RSS is monotonic, so each line is the high-water mark up to that stage.
+        import resource
         now = time.time()
-        print(f"    {what:16s} {now - clock[0]:7.2f}s", flush=True)
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
+        print(f"    {what:16s} {now - clock[0]:7.2f}s   peak {peak:6.0f} MB", flush=True)
         clock[0] = now
 
     stuffs = {"timber": stock.STOCK["timber"], "iron": stock.STOCK["iron"],
@@ -636,8 +696,7 @@ def one(place):
         # be argued with (2026-09-07).
         clay = stock.Material("clay", (0.42, 0.41, 0.40), roughness=0.92)
         looks = {k: clay for k in looks}
-    verts = [p for (v, _) in parts.of.values() for p in v]
-    if verts and not np.isfinite(np.asarray(verts, dtype=float)).all():
+    if any(not np.isfinite(v).all() for (v, _) in parts.of.values()):
         red.append("P finite")
     OUT.mkdir(parents=True, exist_ok=True)
     shot = OUT / f"{place['name']}.png"
@@ -649,14 +708,17 @@ def one(place):
     if len(got) >= 6:
         dx, dy = got[4], got[5]
         for role, (vv, tt) in list(parts.of.items()):
-            parts.of[role] = ([(x - dx, y - dy, z) for (x, y, z) in vv], tt)
+            moved = vv.copy()
+            moved[:, 0] -= dx
+            moved[:, 1] -= dy
+            parts.of[role] = (moved, tt)
         # AND `agl_m` MEANS ABOVE THE GROUND UNDER THE EYE, not above the origin's. A town on a
         # hill puts those metres apart, and 1.7 m over the wrong one is either underground or a
         # first-floor window.
         # `Frame.z` ALREADY ANSWERS RELATIVE TO THE DATUM -- z(0, 0) is 0.00 by construction --
         # so subtracting the datum again put the eye 439 m underground (measured 2026-09-07).
         camera.agl_m += frame.z(dx, dy)
-    blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
+    blend.render({k: (v, t) for k, (v, t) in parts.of.items() if len(t)}, camera,
                  lab_camera.sun_direction(place["lat"], place["lon"], place["when"]),
                  str(shot), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE,
                  fields=counts.get("fields"))
@@ -687,6 +749,9 @@ def main(argv):
         try:
             reds += bool(one(place))
         except Exception as why:
+            if os.environ.get("OUTSHINE_TRACE"):
+                import traceback
+                traceback.print_exc()
             print(f"{place['name']:14s} REFUSED {type(why).__name__}: {why}")
             reds += 1
     print(f"\n{len(picked)} place(s), {reds} red; pictures under {OUT}")
