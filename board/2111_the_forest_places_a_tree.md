@@ -112,3 +112,12 @@ sind sichtbar, Kronendeckung/Licht bleiben unzureichend. Messung, Bilder und ech
 Negativkontrollen in 2123. Keine Wald-Framezeit daraus ableiten.
 Renderer-Handoff, gemeinsame Prototyp-Instanzen und ringweite Platzierung bleiben offen;
 auch den aktuellen Prototyp nicht pro Weltinstanz in den Piece-Pool kopieren.
+
+## Filtervoraussetzung für Kronenbilder
+
+2171 übergibt native Bilder und baut nun flächenintegrierte Mips einschließlich ungerader
+Ränder. GPU-Minifikation und residente Unlit-Schachbrettwiederholung sind nachgewiesen.
+Alpha-Coverage/Bewegung/Normalvarianz bleiben offen; Corpus-Integralvergleich in 2179.
+Koerbersee nach Mip-Schritt weiter c99cdbe7, keine lesbaren Kronen. Nächster bildwirksamer
+Waldschritt bleibt eine budgetierte gemeinsame Kronenrepräsentation samt tatsächlichem
+Instanz-Renderpfad; die hohe nahe Einzelbaumgeometrie nicht pro Weltbaum duplizieren.

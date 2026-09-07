@@ -2,7 +2,7 @@ Type: feature
 State: active
 Area: world, render
 Tags: webcam, measured
-Depends: 2173, 2166
+Depends: 2173, 2166, 2179
 
 # Procedural surfaces carry Khronos materials at every distance
 
@@ -167,3 +167,58 @@ Normalrichtung; echte Negativkontrolle mit altem Filter. GPU-Minifikationsfixtur
 bekanntem Schachbrettintegral, Wiederholungsprüfung und geöffneten PNGs. ABeautifulGame
 separat erneut ausführen. Mips erst dauerhaft freigeben, wenn deren Verhalten geprüft ist;
 Alpha-Coverage, Normalvarianz/Rauheit und Kronen-Overdraw bleiben zusätzliche Abnahmen.
+
+## Flächenintegrierte Mips implementiert und geprüft
+
+HalveInPlace gewichtet jeden Eingangstexel mit der Überlappung seines Rechtecks und der
+Ausgangsfläche. Das erhält auch letzte Zeilen/Spalten bei ungeraden Maßen. Alle vier
+Wertkanäle werden gemittelt; die aus zwei Werten abgeleitete Index-Heuristik ist entfernt.
+Normalrichtungen durchlaufen weiterhin den vorhandenen Normalisierungspfad. Der Upload
+baut jetzt die vom Sampler verlangte Kette; Mip=None bleibt eine Stufe.
+
+Prüfungen über Make, ohne Oracle-Lockerung:
+
+- Ausgangszustand mit neuen Fällen: 14 PASS/2 FAIL, Exit 2 (`build/mip-baseline.log`).
+  Vier ungerade Randintegrale und der minifizierte GPU-Farbmittelwert schlagen fehl.
+- Korrigiert zunächst 16/16 PASS, Exit 0 (`build/mip-integral-proof.log`).
+- Echte Negativkontrolle: Mips aktiviert lassen, alten TexelChain einschließlich
+  IndexChannelsOf wieder einsetzen. 15 PASS/2 FAIL, Exit 2 (`build/mip-filter-negative.log`).
+  CPU-Randintegrale und GPU-Farbmittel erneut rot. Damit reicht Einschalten allein nicht.
+- Wiederhergestellt, zusätzliche Schachbrettprüfung: 17/17 PASS, Exit 0
+  (`build/mip-integral-restored.log`). Chess: erster Frame plus drei Wiederholungen,
+  je 1280×720×4 = 3686400 finite lineare Kanäle, vollständig gleich. Unlit mit erhaltenen
+  Farbmaps; kein Wiederholungsnachweis für sämtliche beleuchteten MR-/Normalmap-Pfade.
+
+Native Checker-Fixture: 512 Texel auf 160 Bildpixeln, also 3.2 Texel/Pixel. Red wechselt
+zwischen 0/1, Green bleibt 1. In allen 140×140 inneren Prüfpixeln ist Red/Green = 0.5
+innerhalb 1e-5. Ausgangs-PNG zeigt Moiré, alter Filter mit Mips falsches reines Cyan,
+korrigiert eine gleichmäßige hellcyanfarbene Fläche. PNGs selbst geöffnet.
+Beide Kontrollen → korrekt: je 160×160 = 25600 geänderte Pixel, BBox [80,240)×[80,240).
+
+| Bild in build/native-materials/ | SHA256 |
+|---|---|
+| minified-before.png | d36886e6e0543b36aacd13dabdcd8e57d3faf44083acefbba8a6fac025adc1a6 |
+| minified-old-filter.png | ae4a5a32ffd98157721b81b090af7fb702bb13525eebd3bd8f22aa478483e769 |
+| minified.png | fede687cf128cdd1af42628a399fbbfdc4418c7c21d20ae2ff75878d1cf5df88 |
+| chess-repeat.png | 5f580c360fc344acf3d55830fa515df5010be8278292c1c45d04ca1ae9d0258f |
+
+Preis dieser einzelnen 512²-RGBA32F-Textur, aus dem Uploadformat abgeleitet:
+16×(512²+256²+…+1²) = 5592400 Bytes statt 4194304, zusätzlich 1398096 Bytes.
+Kein gemessener Gesamt-Heap-/GPU-Etat; größere/gestreamte Waldatlanten noch nicht budgetiert.
+
+Corpus-Schachbrett bleibt rot: vor Mips 735, danach 6843 Pixel außerhalb der bestehenden
+8-Code-Toleranz; alle Bilder geöffnet. Zwischen den beiden Rendern ändern sich 32946 Pixel
+innerhalb [442,847)×[306,477): gemittelte Oberflächenstruktur statt feinem Punktmuster.
+Der Punkt-Oracle und der nicht ausführbare integrierte Vergleich sind jetzt 2179s Auftrag.
+ABeautifulGame nachher zweimal derselbe PNG-Digest 76fd0957. Kein universeller
+Determinismus-/Konformitätsanspruch und keine Behauptung, diese rote Abnahme sei erledigt.
+
+`make shots PLACE='Koerbersee Malcesine'`: Exit 0 (`build/mip-places.log`), beide PNGs
+geöffnet und identisch zum vorherigen Stand. Koerbersee c99cdbe7, p50/p95/p99
+6.99/7.23/7.82 ms; Malcesine 46e4db5c, 4.55/4.69/4.88 ms; jeweils 0/120 über 16.67 ms.
+Weiter kahle Flächen, unstrukturierte Felsen, dunkles Wasser. Standframes, keine Bewegung.
+
+Nächste Waldvoraussetzungen: Alpha-Coverage in Mips und bei bewegter Minifikation,
+Normalvarianz/Rauheit über mehrere Stufen, Filterqualität/Anisotropie, Speicher-/Uploadetat,
+dann geteilte Kronenprototypen und Instanzen in 2111. Ein Boxfilter ist kein fertiger
+Kronenrenderer. Gesamt-WI bleibt aktiv.

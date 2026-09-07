@@ -61,8 +61,6 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
   return filter == SubjectFilter::Nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
 }
 
-constexpr bool kChainIsReadable = false;
-
 std::atomic<size_t> gUploads{0};
 std::atomic<size_t> gUploadsEver{0};
 std::atomic<size_t> gCrossingsFlushed{0};
@@ -340,20 +338,19 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   uint32_t levels = 1;
   for (uint32_t extent = width > height ? width : height; extent > 1u; extent /= 2u) { ++levels; }
 
-  if (texture.Mip == SubjectMip::None || !kChainIsReadable) { levels = 1; }
+  if (texture.Mip == SubjectMip::None) { levels = 1; }
   wantedTexture.num_levels = levels;
   wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
   bound.Image = OwnedTexture(Device_, SDL_CreateGPUTexture(Device_, &wantedTexture));
 
-  const uint32_t indexChannels = kind == TexelKind::Direction ? 0u : IndexChannelsOf(linear);
   std::vector<float> level = linear;
   uint32_t levelWidth = width;
   uint32_t levelHeight = height;
   for (uint32_t which = 0; which < levels; ++which) {
     if (which > 0) {
       std::vector<float> smaller;
-      const Texels made = HalveInPlace(
-          level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, smaller, kind, indexChannels);
+      const Texels made =
+          HalveInPlace(level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, smaller, kind);
       level.swap(smaller);
       levelWidth = made.WidthPx;
       levelHeight = made.HeightPx;
