@@ -170,7 +170,12 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
     group = {}
     for role, (verts, tris) in parts.items():
         if role not in table:
-            continue
+            # A FAILURE IS LOUD. This `continue` dropped EVERY part of every place for a day:
+            # `Parts.of` names a part `<role>_<index>` while the looks were collected under the
+            # caller's role, so nothing matched, no mesh file was written, and Blender rendered
+            # an empty sky in 3.3 seconds with every geometric check green (2026-09-07).
+            raise KeyError(f"no look for part {role!r}; the picture would silently lose it. "
+                           f"Known: {sorted(table)[:8]}...")
         v = np.asarray(verts, dtype=np.float32).reshape(-1, 3)
         t = np.asarray(tris, dtype=np.int32).reshape(-1, 3)
         if not len(t):

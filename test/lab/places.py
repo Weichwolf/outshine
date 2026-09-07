@@ -483,8 +483,10 @@ class Parts:
         self.geom = geometry.Geometry()
         self.at = {}
         self.held = {}
+        self.look = {}
+        self.field = {}
 
-    def add(self, role, verts, tris, material=None, colours=None):
+    def add(self, role, verts, tris, material=None, colours=None, field=None):
         """A PART IS A SURFACE'S WORTH OF MESH, and the role only names it. Keyed by the role
         alone a town twin was 6 941 parts -- one per building per surface -- which is 6 941 draw
         calls for thirty materials. Two pieces that share a surface share a part, which is what
@@ -496,13 +498,21 @@ class Parts:
         mark = material.key() if hasattr(material, "key") else (
             tuple(material) if isinstance(material, (list, tuple)) else material)
         key = (role.split(".")[0], mark)
-        held = self.held.setdefault(key, {"v": [], "t": [], "c": [], "at": 0, "m": material,
+        held = self.held.setdefault(key, {"v": [], "t": [], "c": [], "f": [], "at": 0,
+                                          "m": material, "worn": False,
                                           "name": role.split(".")[0]})
         held["v"].append(v)
         held["t"].append(t + held["at"])
         held["at"] += len(v)
         held["c"].append(np.zeros((len(v), 4), dtype=np.float32) if colours is None
                          else np.asarray(colours, dtype=np.float32).reshape(-1, 4))
+        # THE WEATHERING FIELD RIDES WITH THE VERTICES IT BELONGS TO. Kept in a dict beside the
+        # parts it was keyed by the CALLER's role while the parts are keyed by the part, and the
+        # renderer looked it up under a name that no longer existed.
+        held["f"].append(np.zeros((len(v), 3), dtype=np.float32) if field is None
+                         else np.asarray(field, dtype=np.float32).reshape(-1, 3))
+        if field is not None:
+            held["worn"] = True
         if material is not None:
             held["m"] = material
 
@@ -513,6 +523,9 @@ class Parts:
                 continue
             part = self.geom.addPart(held["name"], held["m"])
             self.at[key] = part
+            self.look[part] = held["m"]
+            if held["worn"]:
+                self.field[part] = np.concatenate(held["f"])
             self.geom.setPositions(part, np.concatenate(held["v"]))
             self.geom.setTriangles(part, np.concatenate(held["t"]))
             if any(c.any() for c in held["c"]):
@@ -520,13 +533,35 @@ class Parts:
         self.held = {}
         return self.geom
 
+    def _named(self, part):
+        return f"{self.geom.nameOf(part)}_{part}"
+
+    @property
+    def looks(self):
+        """THE MATERIAL PER PART, UNDER THE PART'S OWN NAME. `of` names a part
+        `<role>_<index>` and the look was collected under the CALLER's role, so the renderer
+        looked up `roof` where the part was called `roof_44`, found nothing, and SKIPPED it --
+        silently, for every part, in every place. Measured 2026-09-07: 760 031 triangles handed
+        over, no mesh file written, Blender rendering an empty sky in 3.3 s, and every geometric
+        check green because the geometry was perfect and never drawn.
+
+        One source for the name, and it is the part."""
+        self.close()
+        return {self._named(p): m for p, m in self.look.items() if m is not None}
+
+    @property
+    def fields(self):
+        """The per-vertex weathering field per part, under the same name as `of`."""
+        self.close()
+        return {self._named(p): f for p, f in self.field.items()}
+
     @property
     def of(self):
         """The twin's own view: {role: (positions as (N, 3), triangles as (M, 3))}."""
         self.close()
         out = {}
         for part in range(self.geom.parts()):
-            out[f"{self.geom.nameOf(part)}_{part}"] = (
+            out[self._named(part)] = (
                 self.geom.positionsOf(part).reshape(-1, 3),
                 self.geom.trianglesOf(part).reshape(-1, 3).astype(np.int64))
         return out
@@ -576,12 +611,8 @@ def cached_parts(place, frame, doc, red, lod=3, camera=None):
     key = CACHE / f"{place['name']}-{lod}{eye}-{_fingerprint()}.pickle"
     if key.exists():
         try:
-            parts, looks, counts = pickle.loads(key.read_bytes())
-            got = Parts()
-            for role, (v, t) in parts.items():
-                got.add(role, v, t)
-            got.close()
-            return got, looks, counts
+            held, looks, counts = pickle.loads(key.read_bytes())
+            return Baked(held), looks, counts
         except Exception:
             key.unlink(missing_ok=True)
     parts, looks, counts = parts_of(place, frame, doc, red, lod, camera)
@@ -591,6 +622,16 @@ def cached_parts(place, frame, doc, red, lod=3, camera=None):
     return parts, looks, counts
 
 
+class Baked:
+    """A BAKE READ BACK, and it does NOT go through `Parts` again. Rebuilding one by calling
+    `add` for every entry of `of` re-keys the parts -- the material is gone by then, so every
+    part sharing a name collapses into one and the looks no longer line up with it. A cache that
+    changes what it returns is not a cache."""
+
+    def __init__(self, held):
+        self.of = dict(held)
+
+
 def parts_of(place, frame, doc, red, lod=3, camera=None):
     """THE PLACE AS GEOMETRY BY ROLE, which is what a look can be judged from.
 
@@ -598,11 +639,10 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     that instrument's job is to show a crack. This one keeps every body's own palette and its
     roof's own covering, and hands the street its kerb, its gutter, its footway, its markings and
     its lamps -- which is where a large share of what a player sees at eye level actually is."""
-    parts, looks, fields = Parts(), {}, {}
+    parts = Parts()
 
-    def put(role, verts, tris, rgb):
-        parts.add(role, verts, tris, material=rgb)
-        looks[role] = rgb
+    def put(role, verts, tris, rgb, field=None):
+        parts.add(role, verts, tris, material=rgb, field=field)
 
     # WHERE THE TIME WENT, said on every run. A twin is a thing you have to be able to LOOK at
     # often, and a stage that costs minutes has to name itself rather than be sampled for.
@@ -682,10 +722,10 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
             pa, pb, pc = (np.asarray(road[i], dtype=float) for i in (ia, ib, ic))
             faces.append((ia, ib, ic) if float(np.cross(pb - pa, pc - pa)[2]) > 0.0
                          else (ia, ic, ib))
-        put("road", road, faces, stock.STOCK["asphalt"])
         # THE WEATHERING FIELD, and every channel of it is a consequence: a tyre polished the
-        # wheel paths, water left its silt in the last half metre before the kerb.
-        fields["road"] = wear.carriageway(mesh, mesh.map)
+        # wheel paths, water left its silt in the last half metre before the kerb. It rides WITH
+        # the vertices, so it cannot be looked up under a name the part does not have.
+        put("road", road, faces, stock.STOCK["asphalt"], field=wear.carriageway(mesh, mesh.map))
         took("wear")
         colour = {"kerb": stock.STOCK["kerbstone"], "gutter": stock.STOCK["asphalt"],
                   "walk": stock.STOCK["paving"], "paint": stock.STOCK["paint"],
@@ -772,10 +812,10 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
         # it is what stopped seven thousand parts from ever being batched into one mesh.
         foot = float(min(v[2] for (vv, _) in made.values() for v in vv)) if made else 0.0
         for role, (vv, tt) in made.items():
-            put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30))
-            fields[f"{role}.{at}"] = np.array(
-                [(0.0, 0.0, min(1.0, max(0.0, (v[2] - foot) / blend.HEIGHT_SCALE_M)))
-                 for v in vv], dtype=float)
+            up = np.asarray(vv, dtype=np.float32).reshape(-1, 3)[:, 2]
+            field = np.zeros((len(up), 3), dtype=np.float32)
+            field[:, 2] = np.clip((up - foot) / blend.HEIGHT_SCALE_M, 0.0, 1.0)
+            put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30), field=field)
     took("buildings")
     # WHAT THE TWIN IS MADE OF, by role. A generator that was never reached because of a missing
     # import produced 5 085 776 triangles the day it was -- 74 percent of the scene -- and the
@@ -787,7 +827,8 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     whole = sum(tally.values()) or 1
     print("    " + "  ".join(f"{k} {n // 1000}k" for k, n in tally.most_common(8))
           + f"   TOTAL {whole // 1000}k tris", flush=True)
-    return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped, fields=fields)
+    return parts, parts.looks, dict(ways=ways, buildings=len(bodies), dropped=dropped,
+                                    fields=parts.fields)
 
 
 def ink_share(img):
