@@ -121,3 +121,22 @@ Alpha-Coverage/Bewegung/Normalvarianz bleiben offen; Corpus-Integralvergleich in
 Koerbersee nach Mip-Schritt weiter c99cdbe7, keine lesbaren Kronen. Nächster bildwirksamer
 Waldschritt bleibt eine budgetierte gemeinsame Kronenrepräsentation samt tatsächlichem
 Instanz-Renderpfad; die hohe nahe Einzelbaumgeometrie nicht pro Weltbaum duplizieren.
+
+## Gemeinsame Mesh-Platzierungen als nächste Renderer-Voraussetzung
+
+SubjectDraw beherrscht Instanced Draws und liest gl_InstanceIndex aus der Matrix-Tabelle.
+PieceMesh hält jedoch nur eine Row und PlacePiece kopiert für jeden Aufruf die Vertices/
+Indices erneut. Unreal/RAGE teilen Prototypgeometrie und halten Platzierungen separat;
+dieses bestehende Muster erweitern, keinen zweiten Wald-Renderer bauen.
+
+PieceMesh erhält optionale Platzierungszeilen. Ohne Zeilen bleibt die vorhandene einzelne
+Row gültig. Ein unclusterter Prototyp wird mit einer Instanced-Draw-Zeile gezeichnet;
+bei Clustern müssen Jobs/Batches je Instanz deren eigene Matrix auswählen. Geometrie wird
+in beiden Fällen einmal resident gehalten. Release muss alle Zeilen freigeben und die
+nachfolgenden Matrixindizes korrekt nachführen.
+
+GPU-Probe: ein Dreieckprototyp an mehreren getrennten Positionen, Pixelbelegung und
+residenter Geometrieumfang prüfen; Release/Wiederbelegung darf keine alten Instanzen zeigen.
+Echte Mutation: Anzahl Instanzen auf eins reduzieren → fehlende Pixel rot. Clusterpfad
+separat prüfen, insbesondere erste Instanz außerhalb des Sichtfelds. Dieser Schritt allein
+ist noch keine Kronengeometrie oder ringweite Waldplatzierung.
