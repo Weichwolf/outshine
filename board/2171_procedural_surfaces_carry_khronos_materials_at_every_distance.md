@@ -8,6 +8,13 @@ Depends: 2173, 2166, 2179
 
 ## IST
 
+Aktueller Teilnachweis (2111): native Masked-/DoubleSided-Farbmaps greifen auch
+bei gemeinsam instanzierten Piece-Meshes, direkt und mit Cluster-Culling.
+66 Checks grün; erzwungene Opaque-Pipeline verletzt acht Masken-Tiefenchecks.
+PNG und Logpfade in 2111. Das frühere pauschale Batch.Kind ist kein Nachweis
+eines Masked-Fehlers, weil Encode SurfaceSlot.Kind verwendet. Mip-Alpha-Coverage,
+Normalmaps und Blatttransmission bleiben damit noch offen.
+
 Alle neun Render zeigen weitgehend einfarbige Dächer/Wände/Boden. Die jüngste
 Slope-Regel in `groundClass.glsl`/`groundLit.glsl` mischt steile Flächen Richtung Rock;
 sie erzeugt noch keine Felsstruktur. Malcesines graue Falten und Husums weiße Böschungen

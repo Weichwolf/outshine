@@ -232,3 +232,18 @@ Khronos-Alpha-/DoubleSided-Deklarationen sollen greifen; Unreal/RAGE nutzen
 dasselbe Grundprinzip für Kronenkarten. Tiefenpixel in der transparenten Hälfte
 müssen frei bleiben. Eine temporär erzwungene Opaque-Pipeline muss diese
 Prüfung rot machen. Noch keine Abnahme von gefilterter Kronen-Coverage oder Wind.
+
+Nachgewiesen: `build/masked-piece-proof.log`, PieceInstancesShareTheirGeometry
+66/66 Checks bestanden. Zwei geteilte Karten mit nativer 2×1-Alpha-Textur,
+MASKED und DoubleSided, direkt/geclustert und Vorder-/Rückseite. Alle vier PNGs
+geöffnet: nur die deckende Hälfte sichtbar. Positive Bilder gesichert unter
+build/instance-native/masked-positive/. Suite 17/18 PASS, allein bekannter Schachfehler.
+
+`build/masked-piece-opaque-negative.log`: nur die Pipelinewahl für Masked temporär
+auf Opaque gesetzt. Genau acht Masken-Tiefenchecks werden rot (66 Checks/8 Fehler);
+Suite Exit 2, 17/18 PASS. Negative PNG geöffnet: beide Karten sind volle Rechtecke.
+Mutation zurückgenommen; Produktcode bleibt unverändert. Das pauschale Batch.Kind
+war hier kein Funktionsblocker. Die Fixture verwendet Nearest/MipNone und beweist
+ausdrücklich weder minifizierte Kronen-Coverage noch Blatttransmission, Wind oder
+korrekte Karten-Normalmaps. Die gemeinsame Kronenrepräsentation kann den vorhandenen
+Masked-/DoubleSided-Pfad nutzen.

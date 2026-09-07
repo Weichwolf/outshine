@@ -17,6 +17,18 @@ int main() {
   CHECK(base.setPositions(part, std::array<float,18>{-100.4f,-0.4f,0,-99.6f,-0.4f,0,-100,0.4f,0,99.6f,-0.4f,0,100.4f,-0.4f,0,100,0.4f,0}), "base positions");
   CHECK(base.setNormals(part, std::array<float,18>{0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1}), "base normals");
   CHECK(base.setTriangles(part, std::array<uint32_t,6>{0,1,2,3,4,5}), "base indices");
+  Material masked;
+  masked.BaseColour = {{1,1,1,1}};
+  masked.Alpha = AlphaMode::Masked;
+  masked.DoubleSided = true;
+  masked.BaseColourMap.Image = base.addImage(2, 1, std::array<uint8_t,8>{255,255,255,0,255,255,255,255});
+  masked.BaseColourMap.Sampler.Minify = masked.BaseColourMap.Sampler.Magnify = Filter::Nearest;
+  masked.BaseColourMap.Sampler.Mip = MipFilter::None;
+  const int maskPart = base.addPart("masked-offscreen", base.addSurface("masked", masked));
+  CHECK(base.setPositions(maskPart, std::array<float,9>{99.6f,-0.4f,0,100.4f,-0.4f,0,100,0.4f,0}), "masked base positions");
+  CHECK(base.setNormals(maskPart, std::array<float,9>{0,0,1,0,0,1,0,0,1}), "masked base normals");
+  CHECK(base.setTexture(maskPart, std::array<float,6>{0,0,1,0,0,1}), "masked base UVs");
+  CHECK(base.setTriangles(maskPart, std::array<uint32_t,3>{0,1,2}), "masked base indices");
   Gltf::Subject built;
   CHECK(built.Assemble(base), "base subject assembles");
   Render::SceneRenderer renderer;
@@ -48,7 +60,7 @@ int main() {
   rows[0][12] = 100;
   rows[1][12] = -1;
   rows[2][12] = 1;
-  const std::array<uint32_t,1> surfaces{0};
+  const std::array<uint32_t,2> surfaces{0,1};
   renderer.WearPieces(surfaces);
   std::filesystem::create_directories("build/instance-native");
   for (const bool clustered : {false,true}) {
@@ -93,6 +105,47 @@ int main() {
     CHECK(renderer.PiecesStanding() == 0 && renderer.PieceTriangles() == 0,
           "both allocations are released without counter underflow");
 
+  }
+  const std::array<StoredVertex,4> card{{
+      StoredVertex::Of({{-0.4f,-0.4f,0}},{{0,1}},{{0,0,1}}),
+      StoredVertex::Of({{0.4f,-0.4f,0}},{{1,1}},{{0,0,1}}),
+      StoredVertex::Of({{0.4f,0.4f,0}},{{1,0}},{{0,0,1}}),
+      StoredVertex::Of({{-0.4f,0.4f,0}},{{0,0}},{{0,0,1}})}};
+  const std::array<uint32_t,6> cardIndices{0,1,2,0,2,3};
+  const std::array<DagCluster,1> cardClusters{{{.SelfRadius=0.6f,.ParentRadius=0.6f,
+                                             .ParentErr=kDagRootErr,.Count=6}}};
+  for (const bool clustered : {false,true}) {
+    for (const bool back : {false,true}) {
+      std::array<Mat4,2> placements{rows[1], rows[2]};
+      if (back) {
+        for (auto &placement : placements) { placement[0] = placement[10] = -1; }
+      }
+      Render::PieceMesh piece;
+      piece.Verts = card;
+      piece.Indices = cardIndices;
+      piece.Instances = placements;
+      piece.Surface = 1;
+      piece.Textured = true;
+      if (clustered) { piece.Clusters = cardClusters; }
+      const auto id = renderer.PlacePiece(piece, error);
+      CHECK(id != Render::kNoPiece && scene->Draw(error), "masked instanced cards draw");
+      renderer.WaitForGpu();
+      std::vector<float> depth;
+      CHECK(renderer.ReadDepth(depth) == Render::ReadState::Ready && depth.size() == 320u*320u,
+            "masked card depth is complete");
+      if (depth.size() == 320u*320u) {
+        for (const size_t centre : {80u,240u}) {
+          const size_t opaque = back ? centre-20u : centre+20u;
+          const size_t clear = back ? centre+20u : centre-20u;
+          CHECK(depth[160u*320u+opaque] > 0, "the opaque half survives on either side of each instance");
+          CHECK(depth[160u*320u+clear] == 0, "the masked half writes no depth on either side of each instance");
+        }
+      }
+      const std::string path = std::string("build/instance-native/masked-") +
+          (clustered ? "clustered-" : "direct-") + (back ? "back.png" : "front.png");
+      CHECK(scene->Screenshot(path, error), "masked card PNG is written");
+      renderer.ReleasePiece(id);
+    }
   }
   return Report();
 }
