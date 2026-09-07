@@ -286,7 +286,7 @@ LayerLink() {
 
 LayerGroups() {
   case "$1" in
-    outshine/conventions) LayerGroups outshine/places ;;
+    outshine/conventions) LayerGroups outshine/places; printf ' %s' "src/engine/CrownAtlas.cpp" ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;

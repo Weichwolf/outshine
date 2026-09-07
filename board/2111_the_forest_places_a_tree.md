@@ -266,3 +266,37 @@ von der Bake-Beleuchtung, lesbare Krone in geöffneten Bildern; Speicher, Bakeze
 und Framezeit getrennt. Mip-Coverage, Winkelwechsel, Tiefenparallaxe und echte
 Places-Frameraten bleiben bis zu ihren Messungen offen. Ein einzelnes Billboard
 ist kein Nachweis für korrektes LOD unter Kamerabewegung.
+
+Erster Datenschritt umgesetzt: CrownAtlas erfasst den feinen nativen TreePrototype
+über Engine/Renderer. Je Ansicht ein eigener Renderzustand, ohne Tiefenhistorie
+einer vorherigen Kamera. Orthografische gemeinsame Bounds mit einem Pixel Rand;
+Near/Far und Kameradistanz folgen demselben Bounds-Maß. Materialien bleiben die
+Originaldeklarationen. Gespeichert werden Normalen, Reverse-Z-Tiefe und Material-ID,
+keine beleuchteten Farben. Die Konventionssuite deklariert die neue Quelldatei in
+ihrer separaten Linkliste; liboutshine enthält sie bereits über den normalen Build.
+
+Die erste Kamera ohne Licht wählte den bestehenden Flat-Pfad: alle 8577 bedeckten
+Samples über vier Ansichten hatten Normalen null, bei korrekter Tiefe und ID.
+`build/crown-atlas-data-probe.log`: vier gezielte Datenchecks rot, Exit 2.
+Die Bake-Szene nutzt jetzt die Lichtdeklaration der vorhandenen Tree-Vorschau,
+um den Normalenpfad zu wählen. Deren RGB-Ergebnis wird nicht gelesen. Das ist
+eine Korrektur der Bake-Konfiguration, keine globale Änderung des Renderers.
+
+`build/crown-atlas-normal-proof.log`: Exit 0, 19/19 PASS; neue Fixture 26 Checks.
+Vier Birkenansichten zu 128×128: Rinde/Blatt-Samples 321/1869, 379/1719,
+379/1810, 336/1764. Null Tiefe/ID-Widersprüche; quadrierte Normalenlängen
+0.998478..0.999991 aus dem vorhandenen Half-Anhang, innerhalb der unveränderten
+3e-3-Prüfung. Frühere Compiler-/Linkfehler sind nicht als Verhaltensnachweis gezählt.
+
+Rohpayload: 4×128²×20 = 1.310.720 Bytes; keine Peak-Heap-Messung. Gemessene
+12.300,644 ms umfassen Erfassung, Checks und PNG-Export, ohne vorheriges Grow;
+der ursprünglich kürzere Logtitel wurde entsprechend präzisiert. Keine Framezeit.
+[SET] Default 256 Pixel/8 Ansichten, maximal 4096 Pixel/64 Ansichten und insgesamt
+2²⁴ Texel (bei aktueller Struktur 320 MiB Rohpayload); Grenzen sind Capture-Budgets,
+keine Qualitätsabnahme. Feine CPU-/GPU-Quelldaten kosten zusätzlich Speicher.
+
+Alle vier build/crown-atlas/birch-{0,1,2,3}.png geöffnet: gedrehte Generatorformen,
+transparenter Hintergrund, dünne punktförmige Krone. PNG-Grundfarben werden direkt
+aus Material-ID/BaseColour abgeleitet. Noch keine gefilterte Flächendeckung,
+beleuchtbare Karten, Winkelwechselprüfung oder Wald in Places. Genau diese
+Anbindung und der Vergleich mit der feinen Darstellung sind die nächste Arbeit.
