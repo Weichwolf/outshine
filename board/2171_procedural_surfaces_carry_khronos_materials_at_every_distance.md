@@ -145,3 +145,25 @@ Sampler-Metadaten allein beweisen keine Filterung. Vor einem Kronenatlas die vor
 Mip-Kette samt Alpha-Coverage und bewegten Distanzbildern nachweisen bzw. reparieren;
 keine ungefilterten Blattkarten als fertigen Wald deklarieren. Die sechs Sockets erzeugen
 noch keine prozeduralen Weltmaterialien. Gesamt-WI bleibt aktiv/offen.
+
+## Nächster Schritt: Mip-Filter statt ungefilterter Ferndarstellung
+
+Historie erneut gelesen: f115b639 dokumentiert mit aktivierter Kette 2460 unterschiedliche
+lineare Kanäle zwischen zwei ABeautifulGame-Renders. Die Ursache blieb ungeklärt; nicht
+blind den Schalter umlegen. Unreal/RAGE halten vorbereitete Mips und streamen sie; die
+vorhandene CPU-Kette beim Upload ist der Einstieg, keine Berechnung im Frame.
+
+TexelChain hat zwei konkret prüfbare Defekte: IndexChannelsOf interpretiert jeden Kanal
+mit höchstens zwei Werten als Index und rundet den Mittelwert auf einen Eingangswert;
+FourUnder lässt bei ungeraden Abmessungen die letzte Spalte/Zeile weg. Ein halb weißes,
+halb schwarzes lineares Signal muss im flächenintegrierten Texel 0.5 ergeben; ein heller
+Rand einer 3×1-Textur muss 1/3 beitragen. Die Index-Hypothese aus f01f8d1a ist damit
+für Farb-/Materialmengen falsch. Auch Khronos beschreibt gemischte Metall-/Dielektrikum-
+Texel durch Mipmapping ausdrücklich: glTF 2.0 Appendix B.1.
+Quelle: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#appendix-b-brdf-implementation
+
+Vor Änderung: analytische Prüfungen für Mittelwert, Randgewicht, konstante Felder und
+Normalrichtung; echte Negativkontrolle mit altem Filter. GPU-Minifikationsfixture mit
+bekanntem Schachbrettintegral, Wiederholungsprüfung und geöffneten PNGs. ABeautifulGame
+separat erneut ausführen. Mips erst dauerhaft freigeben, wenn deren Verhalten geprüft ist;
+Alpha-Coverage, Normalvarianz/Rauheit und Kronen-Overdraw bleiben zusätzliche Abnahmen.
