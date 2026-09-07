@@ -1,8 +1,11 @@
 # outshine
 
-A game engine at RAGE/Unreal level, in C++23. The development platform **is** the target: Apple
-A18 Pro — 2P+4E cores, 5 GPU cores, 8 GB — holding **720p60**, measured as p50/p95/p99
-over a moving camera and never as a mean.
+**A high-performance OPEN-WORLD game engine at RAGE/Unreal level, in C++23, whose world is the real
+EARTH: a digital elevation model under OpenStreetMap's vectors, streamed around a moving camera.**
+The development platform **is** the target: Apple A18 Pro — 2P+4E cores, 5 GPU cores, 8 GB —
+holding **720p60**, measured as p50/p95/p99 over a moving camera and never as a mean. **Every
+camera looks real** -- a metre from a wall, ten kilometres from a city, at any hour of any day
+anywhere on Earth; the webcams of foto-webcam.eu are how that is measured against a photograph.
 
 An engine is an **interactive physics simulation with a focus on graphics**, and each word is a
 bound: physically as accurate as NECESSARY, graphically as good as the FRAME BUDGET allows,
@@ -65,6 +68,15 @@ weather and whatever a scenario declares next are servers this engine may count 
 here pays for their absence, and an offline world is a cache and never a second architecture.
 **How far the tree is from any of this is `board/`'s to say, never this page's.**
 
+**THE WORLD IS A DEM UNDER A VECTOR SET, AND EVERYTHING ELSE FOLLOWS FROM THAT.** The height of any
+point on the planet comes from a DIGITAL ELEVATION MODEL, and the outlines, ways, waterways,
+landuse and names come from OPENSTREETMAP; the generators expand those two into everything a viewer
+actually sees. Neither is held -- both are FETCHED, so an open world here is a STREAMING problem
+before it is anything else: the planet arrives around a moving camera in LOD rings, what leaves is
+released, there is no loading screen and no bounded map, and a fetch stands on the IO pool and
+never on the frame path. The DEM is the ground every generator stands on -- a road follows its
+grade, a building sits IN it rather than on it, and a horizon is where the terrain puts it.
+
 **WHO AUTHORS: NOBODY, AND THAT IS THE DIFFERENCE.** RAGE and Unreal are engines UNDER an
 authoring tool -- a studio places every prop, and the map is content. outshine has no tool for a
 person and is not going to get one: the world is DATA (the Earth, fetched), the assets are glTF
@@ -108,8 +120,104 @@ that falls where the sun says it should, an engine note that comes from the mach
 rather than from a file somebody recorded. And underneath it, code a stranger can read and say
 "yes, that is how it should be done".
 
+**AND THE QUESTION IS ALWAYS HOW IT LOOKS.** Every rendering gets looked at, by me, and the
+judgement is AESTHETIC before it is anything else: is the light right, does the place have weight,
+would a stranger stop at it. Not whether a number moved, not whether a rule was kept -- **how it
+looks is what counts**, and everything below serves that one judgement. It is the reason to build
+this at all: a picture worth arguing with is the only thing this engine is finally for.
+
 Every rule below exists to protect that. None of them is bureaucracy — each one is a day already
 paid for, written down so it is not paid twice. When a rule stops serving the engine, it goes.
+
+## The picture it owes
+
+**EVERY CAMERA LOOKS REAL, AND A CAMERA IS ONLY A PARAMETER.** Position, bearing, focal length,
+hour -- no value of any of them is a special case and none of them selects a mode. A metre in front
+of a wall there is a WALL: brick and joint, or render with its grain, a window reveal with real
+depth, dirt where the water ran down it. Thirty metres back there is the street. Ten kilometres out
+there is the city, and forty kilometres out the ridge behind it. **The engine owes the same answer
+at every one of those**, and "convincing from far away" is not the goal but one distance of it.
+
+**THE WEBCAMS ARE HOW IT IS MEASURED, NOT WHAT IT IS.** foto-webcam.eu is the instrument, because
+it is the one place that hands over a REAL PHOTOGRAPH from a KNOWN POINT: several hundred cameras
+with published position, height and bearing, each writing 6000 x 4000 every ten minutes and keeping
+years of them. So the goal above gets a procedure it can be held to:
+
+> Stand the engine's camera where that camera stands. Set the clock to the frame's timestamp. Let
+> the providers answer the place, the hour and the weather of that hour. Render at 720p60 -- and
+> lay the two pictures side by side.
+
+**The claim is never the same PIXELS, it is the same PLACE.** A stranger holding both accepts that
+these are two pictures of one city, on one kind of day, at one hour -- and accepts it again with
+the camera moved anywhere else in that city, down to a metre off a wall. Every camera in the
+corpus, every hour of the day, every month of the year, in whatever the sky was doing: clear,
+overcast, rain, snow, fog, an inversion with the valley filled and the summits out, and night.
+
+**THE ENGINE RECOGNISES NOTHING, AND THAT IS THE POINT.** One Vienna frame holds a twin-towered
+brick church, a box-girder bridge on river piers, a lighthouse on an island tip, a ferris wheel, a
+concrete telecom tower with stacked platforms, and ten kilometres of tiled Gründerzeit roofs.
+outshine knows none of them by name. What it is handed is what OSM says -- `building=church`,
+`bridge=yes`, `man_made=lighthouse`, `attraction=big_wheel`, `tower:type=communication`,
+`building=apartments` over a footprint and nothing more -- and a GENERIC generator per type turns
+each into something plausible for that region, that epoch and that setting. The church generator
+standing in Vienna is the one standing in Salzburg and in Lisbon, with no case for either. A
+recognisable copy of a named landmark would be authoring, and outshine has no author: **a twin is
+right when it is TRUE TO TYPE, and true to type is a distribution the place, the epoch and the
+climate decide.**
+
+**WHAT IS GENERATED AND WHAT IS IMPORTED.** The WORLD is generated; the things standing in it are
+imported. Ground, water, sky and everything built or grown -- terrain, river surface, atmosphere and
+cloud, buildings and their roofs, roads, bridges, walls, kerbs and the street's furniture, and all
+flora -- is a generator's output from a DEM, OSM, the hour and the weather. Vehicles, vessels,
+aircraft, people and any prop a scenario names arrive as glTF. A generator always owns the PLACING;
+whether the mesh under one of its placements is grown or imported is that generator's own choice,
+and for anything with an engine in it the answer is import.
+
+**AT 720p A PIXEL IS A MILLIRADIAN, AND THAT CONVERTS DISTANCE INTO DETAIL.** Derived: a 74-degree
+frame across 1280 px is 1.29 rad / 1280 = **1.01 mrad per pixel**, so one pixel covers d x 1e-3
+metres at distance d -- a millimetre at a metre, forty metres at forty kilometres. The table is
+what a camera's position DEMANDS, rung by rung, and every rung is on screen for somebody:
+
+| distance | one pixel is | what fills the frame | what is owed there |
+|---|---|---|---|
+| 1 m | 1 mm | one wall | the material itself: a brick is 200-odd pixels and its mortar joint ten, render has grain, a reveal has depth, water has run down it |
+| 10 m | 1 cm | a facade and its door | openings with real reveals, sills, downpipes, the ground floor's fittings, wear at hand height |
+| 30 m | 3 cm | the street | shopfronts, steps, a kerb with a face, gutter, markings, lamps, trees |
+| 200 m | 20 cm | a row of houses | relief no shallower than half a brick, because that is what still casts a SHADOW |
+| 1 km | 1 m | a district | the bay rhythm, the piano nobile, roof detail |
+| 3 km | 3 m | a quarter | mass, roof form, a row's shared eaves |
+| 10 km | 10 m | the city | roof colour, roofline statistics, the grain of a district |
+| 40 km | 40 m | the horizon | the DEM's silhouette and the haze in front of it |
+
+**No rung is optional and none of them is a different engine.** The camera decides which rungs are
+on screen, the LOD decides what each one costs, and the budget goes to what the camera is actually
+looking at: a Vienna frame spends nearly all of it between one and ten kilometres, and one step
+forward to a wall spends the same budget on that wall. The AAA distance ladder above and this table
+are one rule read from its two ends -- the ladder says what a viewer reads, the milliradian says
+what it costs to give it to them.
+
+**THE MATRIX IS THE WORK.** One camera at one hour is a single picture; the corpus is a camera
+times a time of day times a season times a weather, and each axis reaches a different subsystem.
+The hour moves the sun, the shadows, the exposure and the lit windows. The season moves the
+phenology, the snow line, the sun's arc and the water's colour. The weather moves the cloud deck,
+the visual range, the wetness of every surface and the fog in the valley. **None of those is a
+setting.** Each is a provider's answer, and a look is a declaration evaluated against it.
+
+**WHAT IS MEASURED AND WHAT IS LOOKED AT.** The geometry is TRUTH-grade against the photograph: a
+terrain silhouette from a known point is decided by the DEM alone, so a ridge that lands on the
+photograph's ridge proves the camera model, the projection, the curvature term and the refraction
+term in one line -- four subsystems, one oracle, and a corpus that is free and years deep. The
+numbers under it are derived and checkable: the horizon drops d^2 / 2R, which is 7.8 m at 10 km,
+31.4 m at 20 km and 125.6 m at 40 km, and refraction lifts it back by about an eighth (k = 0.13
+gives 6.8 m, 27.3 m, 109.2 m). Sun azimuth and elevation are read off the shadows in the
+photograph. The sky's luminance gradient and the falloff of contrast with distance compare as
+curves. **Everything else -- the roofscape, the flora, the water, whether the place READS -- is
+looked at, by me, in the PNG**, which is the rule this page already carries.
+
+**AND IT HOLDS SIXTY.** The frame above spans hundreds of square kilometres and arrives on under a
+million pixels, all of it streamed around the camera while it moves -- and the next frame may be a
+metre off a wall in the same city. That is the ceiling every answer in this document is measured
+against, and the reason every rung of the ladder is an LOD rather than a wish.
 
 ## What done means
 
@@ -198,38 +306,42 @@ a bake where a frame has to stream), and never a ceiling.
 
 ## Before I write
 
-Three questions, answered IN WRITING before a type, a function or a file exists. They land in the
-commit, which is why they cannot be skipped quietly — an empty answer is visible.
+Four questions, answered IN WRITING before a type, a function or a file exists. They land in the
+commit, which is what makes every answer visible.
 
-1. **What does Unreal do here, and what does RAGE do?** If I cannot name it, I do not understand
-   the problem yet
-2. **Does this already exist here, unreachable?** `grep` first. A complete capability no
-   declaration reaches is the commonest defect in this tree, and writing a second one is the worst
-   outcome available: now there are two, and neither is right
-3. **If it draws, LOOK AT IT before believing any number.** A count needs a hypothesis to mean
-   anything and an image needs none: five cases once passed `more than one colour` on a sky
-   gradient over an empty world. `make shots` keeps every picture under its own DIGEST, so a frame
-   that moved says so — and the expectation is written down before the looking
+1. **What does Unreal do here, and what does RAGE do?** Naming both is what shows the problem is
+   understood
+2. **Does this already exist here, unreachable?** `grep` first. A capability is finished on the day
+   a declaration reaches it, so the richest work available is usually reaching the one that already
+   stands
+3. **WHAT PROVES IT, AND WHAT SHOWS IT?** Two oracles, and each answers what only it can. **What
+   mathematics can decide is DECIDED mathematically** — a `static_assert` over a layout, a size, a
+   trait, an enum's exhaustiveness; a closed form checked against the derivation it came from; an
+   invariant a case states whose negative control goes red. That is most of an engine, and it is
+   held to a proof rather than to a plot of numbers. **What the RENDERER produces is a PICTURE, and
+   a picture is read with EYES.** `make shots` writes every frame as a PNG under its own DIGEST; I
+   OPEN that PNG and LOOK at it, myself, every time, and the numbers about it are read afterwards.
+   The expectation is written down before the looking, so the image answers a question rather than
+   confirming one — a count needs a hypothesis to mean anything and an image needs none. `more than
+   one colour` is true of a sky gradient over an empty world, and the picture is what says whether
+   a world stands under it. The judgement is **how it LOOKS**, and it is made at the pixel and along
+   the SEAMS -- a roof against its wall, a ribbon against its junction -- because a seam is where
+   two generators had to agree and where a picture stops convincing. A surprise there earns a
+   coordinate and a measurement, never a name like `artefact` that ends the looking
 4. **What measurement will show I was wrong?** Name the case, the audit flag or the number, and
-   what it reads if the change is bad. A change with no such number is a guess wearing a commit
-   message
+   what it reads if the change is bad. That number is what turns a change into a claim
 
-**A MOVED DIGEST IS ACCEPTED WITH THREE THINGS OR NOT AT ALL**: `test/scripts/pixels.py`'s count
-against the kept reference, WHERE the pixels are and why they moved (a silhouette, a cluster, a
-seat), and the picture looked at. Measured 2026-09-04: a 618-pixel move at CentralPark that read
-as "small" was a tower culled by a wrong occlusion window; the coordinates named it, the count
-did not. The references under `build/shots/reference/` are the regression test of this tree, and
-a change that cannot show all three goes back.
-
-**A PIXEL COUNT IS NOT A LOOK.** Measured 2026-09-04: a rewrite of one function's signature moved
-59% of OldTown's pixels, and 59% reads as "a lot changed" -- large, arguable, possibly acceptable.
-The IMAGE said the entire city was gone, grass to the horizon, in one second. The number and the
-picture answered different questions, and only one of them was the question.
+**A MOVED DIGEST IS CARRIED BY THREE THINGS**: the count against the kept reference, WHERE the
+pixels moved and why, and the picture looked at. The coordinates NAME a cause where the count
+cannot -- 618 pixels at CentralPark read as "small" and were a tower behind a wrong occlusion
+window; 59% of OldTown read as "a lot changed" and the IMAGE said the city was gone, grass to the
+horizon, in one second. The PNG is opened first and the number read beside it, and
+`build/shots/reference/` is this tree's regression test.
 
 **The third question outranks anything already written down.** A cause recorded in an item or a
-commit is a HYPOTHESIS until it is measured again — including one written on this page. They fail
-that test often enough that the habit is worth more than any of them: state the measurement before
-the work, so being wrong is visible on the day rather than a month later.
+commit is a HYPOTHESIS until it is measured again — including one written on this page. The habit
+is worth more than any conclusion it tests: state the measurement before the work, and the answer
+arrives on the day rather than a month later.
 
 ## The craft
 
@@ -253,14 +365,16 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   else's convention: glTF is ONE format this tree ships an importer for, and apart from that
   importer nothing in the engine, the door or a generator knows or allows for it -- an
   importer converts INTO the tree's convention the way a generator produces in it
+- **AN ORIENTATION IS CHECKED AGAINST AN OUTSIDE.** A triangle wound consistently with its own
+  normal agrees with ITSELF, which is the grade the table below gives a SNAPSHOT -- so the reference
+  is external and stated: a carriageway against +up, a body against the ray from its centroid, an
+  import against the convention above
 - **`alignas` BELONGS AT THE DEVICE BOUNDARY, and equality is `operator==`, never `memcmp`.** A
   record a driver reads keeps the alignment that driver's rows demand and a `static_assert` on its
   size, because the layout is the boundary's word and not ours -- the same rule as SDL3's. But that
   alignment PADS, and `memcmp` compares the bytes nobody wrote: padding, and `-0.0` against `0.0`.
-  A defaulted `operator==` compares the members and cannot see either. Measured here: twelve
-  indeterminate bytes decided whether a sky table was recomputed, and the stage next door had
-  already patched the same defect by hand with a `Pad` member -- a workaround is evidence that the
-  rule was missing
+  A defaulted `operator==` compares the members and cannot see either -- measured here, twelve
+  indeterminate bytes decided whether a sky table was recomputed
 - **Private is the DEFAULT** and a wider door justifies itself; a public data member is an
   invariant nobody can hold. Composition usually; inheritance where a stable interface carries
   shared machinery
@@ -276,9 +390,9 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   which loads, how far apart, how many times
 - **ON THE FRAME PATH AN ENTITY COSTS O(1) AND THE FRAME COSTS O(N); a preload may pay O(N log N)
   and never O(N²).** But the CLASS is the weaker half of that rule and the constant is the number
-  of cache lines touched -- measured here on one problem: a hash map is O(N) and took 565 ms, a
-  comparison sort is O(N log N) and took 425 ms, a counting sort is O(N) and took 92 ms. The class
-  predicted the wrong order; the memory accesses predicted the right one. Where a bound genuinely
+  of cache lines touched -- on one problem here a hash map (O(N)) took 565 ms, a comparison sort
+  (O(N log N)) 425 ms and a counting sort (O(N)) 92 ms: the class predicted the wrong order and the
+  memory accesses the right one. Where a bound genuinely
   exceeds O(N) the answer is a STRUCTURE, not a faster loop: many lights times many objects is
   clustered, not iterated
 - **`make` DELETES the comments.** `include/` and `src/client/` keep Doxygen because both are
@@ -287,24 +401,20 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   carrying `Covers("`
 - **ONE SOURCE PER RULE, AND EVERYTHING ELSE DERIVES FROM IT VISIBLY.** This is SQL's normal form
   carried into code: a functional dependency lives in one place, or the copies drift. But the test
-  is **do these change together**, never do these look alike -- and both mistakes were made here in
-  one day. `[12 + axis]` stood eight times across five files and a regex would have unified all of
-  them; it was FOUR meanings, six reading a translation column and two transforming a point, and
-  they never change together. The sun's direction stood twice, once negated, so it did not look
-  alike at all and no duplicate finder would have seen it -- and those two cannot change apart
-  without lighting a scene from one side and shadowing it from the other. Duplication is cheaper
-  than the wrong abstraction: two things forced into one source grow a flag, then a second flag,
-  then a `bool isTheOtherCase`. **For NUMBERS the rule is stricter and has no exception**: a value
-  that follows from others is derived and never restated. `kSPerHour = kSPerMin * kMinPerHour`, not
-  `3600` -- the second is not duplication, it is an unstated derivation, which is worse because
-  nothing checks it. `VisualRangeM(haze)` is the same idea as a function: the rule is the source
-  and the number falls out of it
+  is **do these change together**, never do these look alike. `[12 + axis]` stood eight times and
+  was FOUR meanings that never change together, so eight sites was right; the sun's direction stood
+  twice, once negated, looking nothing alike, and those two cannot change apart without lighting a
+  scene from one side and shadowing it from the other. Duplication is cheaper than the wrong
+  abstraction, which grows a flag, then a second flag, then a `bool isTheOtherCase`. **For NUMBERS
+  the rule is stricter and has no exception**: `kSPerHour = kSPerMin * kMinPerHour` carries its
+  derivation where `3600` leaves it unstated, and `VisualRangeM(haze)` is the same idea as a
+  function -- the rule is the source and the number falls out of it
 - **A NAME IS THE ONE THE READER EXPECTS, and the reader is the engineer arriving from Unreal,
   Filament or a textbook -- never this tree's own metaphor.** A verb is `Set`, `Get`, `Place`,
-  `Remove`, `Build`, `Update`, `Attach`; a class is the noun of what it holds. `Hands`, `Wears`,
-  `Framed`, `Forgets`, `Restand`, `Grounds` cost a reader a grep per call site, and measured here
-  in one day: a session spent more reads on names than on design. A name that has to be looked
-  up is a name that is wrong, and the sweep that repairs the old ones is board:2139
+  `Remove`, `Build`, `Update`, `Attach`; a class is the noun of what it holds. A name read at its
+  own call site is a grep saved at every other one, so the name the reader already owns is the one
+  to write -- and the sweep that brings `Hands`, `Wears`, `Framed`, `Forgets`, `Restand` and `Grounds` over to those
+  names is board:2139
 - **A name is a promise.** A word that means something else in Unreal or RAGE spends a reader's
   knowledge against them. The engine's vocabulary is LAW — body, joint, degree of freedom, drive,
   constraint, force, contact, integration — and a car, a seat or a door is a SUBJECT a scenario
@@ -312,9 +422,9 @@ These are C++ truths rather than decisions about outshine, and they do not move.
 - **SDL3 IS THE PLATFORM, AND WHAT EXISTS IS NOT WRITTEN AGAIN.** SDL3 is a hard dependency
   rather than a choice: the window, the GPU, input, audio, threads, files, time, the clipboard
   -- where SDL3 or one of its satellites supplies the structure or the function, it is the one
-  used, and a second mechanism beside it is not insulation but a duplicate that has to be kept
-  true to a driver nobody here wrote. A thin RAII handle over an SDL type is ownership and
-  stays; a scheme that re-decides what SDL decides is a finding. The rule reaches past SDL with
+  used, and what SDL already decides stays decided there, true to a driver nobody here wrote. A
+  thin RAII handle over an SDL type is ownership and belongs; everything above it hands the
+  decision back to SDL and keeps one mechanism. The rule reaches past SDL with
   one bound: a capability that is PLUMBING (a format, a codec, a compressor, a font rasteriser,
   a shader compiler) is taken from a library whose source can be READ, and is never written
   here; what the engine IS (the frame, the lattice, the meshers, the atmosphere, the scheduler)
@@ -325,9 +435,8 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   frame time, memory, triangles, whether the preload finished — and everything else is built the
   day it is needed and removed the same day. A count that states a CORRECTNESS claim is not
   telemetry at all: `houses buried in the ground` belongs in a case with an oracle that goes RED,
-  never in a line somebody might read. Measured: fifteen counters in the building mesher, threaded
-  through ten functions, printed by a block that never executed — and the round that made them
-  tidier instead of asking whether they could go ADDED four findings
+  never in a line somebody might read. Asking whether a counter can GO is what removes it; tidying
+  it is what keeps it
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population;
   calibration measures, never decides
 - **A diagnostic is a declared LABEL**, never a free literal: `namespace Says` at the top of the
@@ -405,10 +514,10 @@ Principles and not a map, because a map goes stale the day a directory moves.
 
 **Only a VENDOR CORPUS proves anything** — where a standards body, or a computation carried further
 than ours, states the answer. Everything we wrote ourselves is a REGRESSION NET of unknown grade: it
-holds the tree to what the tree already did, which is agreement with ourselves. **That bites
-hardest during a refactor** — green means the previous behaviour was preserved, and if that
-behaviour was wrong, green is the wrong answer preserved exactly. A red there is INFORMATION and is
-never made green by editing the case.
+holds the tree to what the tree already did, which is agreement with ourselves. **A refactor is
+where that distinction earns its keep** — green says the previous behaviour was preserved exactly,
+whatever that behaviour was, so a red there is INFORMATION and is worth more than the green beside
+it. The case keeps its wording and the code answers it.
 
 **Two exceptions, both narrow.** A check that pins a SPELLING rather than a property is
 mis-specified and the CHECK changes. And a declared CEILING is a baseline: it may only FALL, and
@@ -424,18 +533,18 @@ lowering it after a repair is the discipline. Everything else red stays red.
 **A BENCHMARK IS A TOOL, NOT A GATE.** A PROOF states an invariant and its negative control goes
 RED. A RATE has no negative control — it is faster or slower, never wrong — so it can never earn a
 tick. It BOUNDS a decision, "the number the change has to beat", and is quoted in the item that
-spends it. Every instrument states what it does NOT cover where it prints, because the mistake it
-guards against was made here: a subject's rate quoted about a world.
+spends it. Every instrument states what it does NOT cover where it prints, so a subject's rate is
+read as a subject's and a world's as a world's.
 
 **THE CLIENT IS THE INSTRUMENT AND THE CASES SCORE IT.** `make shots` stands real places on Earth
 and writes each picture under its own DIGEST beside what it cost; the cases run that same command
-and apply their oracles to its rows. A number from here always has a picture beside it, and the
-digest says when one moved unintended. The instrument reaches the door and nothing else, so it is
-held to what a stranger gets.
+and apply their oracles to its rows. A number from here always has a picture beside it, the picture
+is OPENED and looked at rather than summarised, and the digest says when one moved. The instrument
+reaches the door and nothing else, so it is held to what a stranger gets.
 
 Every case is a scenario with an invariant oracle whose truth does not depend on our design. **A
-tick is earned only when its proof stands AND its negative control goes red** — a control that
-passes proves nothing, the trap that costs most here.
+tick is earned when its proof stands AND its negative control goes red** — the red control is what
+gives the tick its meaning, and it is the half worth the most here.
 
 **`make` IS THE ONLY DOOR** and nothing is started by reaching past it:
 
@@ -447,9 +556,9 @@ passes proves nothing, the trap that costs most here.
 | `make test` · `make suite` | the fast gate · one suite by name |
 | `make db` · `make doc` | the compile database · the generated documentation |
 
-**Every baseline may only SHRINK.** A strict analysis over a grown tree is red on day one and
-switched off in the first week; a recorded count that a commit may lower and never raise holds new
-code to zero and lets old code be repaired at the pace it is touched. `make help` is the list.
+**Every baseline may only SHRINK.** A recorded count that a commit may lower and never raise holds
+new code to zero and lets old code be repaired at the pace it is touched — which is what keeps a
+strict analysis switched ON over a grown tree. `make help` is the list.
 
 ## How I work
 
@@ -462,65 +571,43 @@ SAFETY, never the metronome — repairs in different files batch freely, two cha
 do not.
 
 **A FUNCTION A LATER GOAL WILL OPEN IS OPENED ONCE.** The order above is a priority, not a wall:
-cutting a function now, on an earlier goal's terms, when a later goal is about to reopen it is the
-same defect as refactoring toward a short target — applied to my own plan instead of to the tree.
+a function a later goal will reopen is cut on that goal's terms, once — the same rule as
+refactoring onto the finished vision, applied to my own plan instead of to the tree.
 
 **THE GATES RUN ALONE, AND THE NUMBER COMES FROM THE RUN.** `make`, `make test`, `make shots` and
-`make lint` share one nest and one tree. Editing while one runs makes it compile a half-written
-file and report BUILD on cases that are fine; starting a second makes
-`TheNestRefusesASecondRunner` correctly go red about ME. No edit and no second build until it has
-printed its trailer. And a gate cut short by a timeout leaves its report STALE: a count read out of
-`build/lint/tidy.unique` after an interrupted run is the PREVIOUS run's, which is how a commit here
-once claimed a number that had already risen.
+`make lint` share one nest and one tree, so a gate owns both while it runs: the edit and a second
+build wait for its trailer, and a report is the run's word only once that trailer has printed.
 
 **THE COMPILER IS THE CHEAPEST ORACLE IN THE TREE, and a suite is the most expensive.**
 `c++ -std=c++23 -fsyntax-only -Iinclude <file>` answers "did I catch every call site" in a second;
-a suite answers it in three minutes and one site at a time. Measured: four broken calls in one
-file, found by four separate suite runs, nine minutes, where one syntax check would have listed
-all four. Let the compiler judge SHAPE and keep the suite for BEHAVIOUR.
+a suite answers it in three minutes and one site at a time. Let the compiler judge SHAPE and keep
+the suite for BEHAVIOUR.
 
 **A SWEEP OVER A WORD IS A SWEEP OVER FOUR MEANINGS.** `[12 + axis]` appeared eight times in five
-files; six read a translation column and two transformed a point. `grep -c` says eight copies and
-is wrong. Read every site before writing the regex, and prefer a rename the compiler can refuse:
-change the declaration first, then let the errors name the callers.
+files; six read a translation column and two transformed a point. `grep -c` counts the sites and
+the reading names the meanings, so every site is read before the regex is written -- and a rename
+the compiler can refuse beats both: change the declaration first, then let the errors name the
+callers.
 
 **Every item carries the benchmark and the choice** — what Unreal does, what RAGE does, which is
 taken and why. An item that cannot say it is not understood yet, and writing that line is most of
 the thinking. **Titles say what WILL BE TRUE**: one in the present tense is a complaint, one in the
 future is a target somebody can aim at.
 
-**THREE CONVENTIONS ARE WRITTEN DOWN BECAUSE BREAKING THEM IS SILENT AND IRREVERSIBLE.** Everything
-else about the board is legible from the board itself and is not this page's business.
+**THREE CONVENTIONS ARE WRITTEN DOWN BECAUSE THEY HOLD FOR GOOD.** Everything else about the board
+is legible from the board itself and is not this page's business.
 
 - **An item's number is issued ONCE and never again**, and the next one comes from the HISTORY,
-  which remembers every id ever filed — not from the directory, which remembers only what is still
-  open. Taking it from the directory reuses the number of something closed, and two things then
-  share an identity for good
+  which remembers every id ever filed — the directory remembers only what is still open, so the
+  history is what keeps an id unique for good
 - **Closing an item is DELETING the file.** What it said is in the commit and `git log` is the
-  logbook, so the directory holds only what is OPEN and can be read at a glance. A `State: closed`
-  left behind makes the directory stop meaning what it claims
+  logbook, so the directory holds exactly what is OPEN and is read at a glance — which is what
+  makes it worth reading
 - **`active` is said in the item's own commit BEFORE the work** -- the board's only owner mark.
   Several may stand on one chain, each naming what it waits on
 
-Grep the history before filing: a removal was a decision, and filing it again overrules that
-decision by accident.
+Grep the history before filing: a removal was a decision, and the history is where that decision
+still stands.
 
-**A defect found while working something else becomes an item in the same round**, even if it
-closes in that round: the alternative is a defect only one person ever knew about.
-
-## What goes wrong
-
-Measured failure modes, each of which cost a day here.
-
-| trap | what it looks like | the guard |
-|---|---|---|
-| **a gate blind to a path** | vendor cases green while engine cases are red, because the harness bypasses the engine's own submission | know which path each case exercises; name what the gate does not cover |
-| **a blind rename** | one regex over a word four unrelated types share | rename per type, and let the compiler be the oracle |
-| **an inverted premise** | "this tree has no joints" — it had one, misnamed | measure the thing before filing the item about it |
-| **a measure that cannot see** | a count that missed every source without a header — or one that counted ITSELF, because the walk looked in the file it was measuring | ask what the measure cannot see before trusting the number it produced |
-| **a truncated count** | a `head -24` inside the pipeline that produced a declared ceiling | a declared number is quoted rather than re-derived, so it has to be right before it is written |
-| **a green negative control** | the control passes, so the proof proves nothing | restate the claim or delete it; never keep a false proof |
-| **a watcher that waits on itself** | `until ! pgrep -f "test/run.sh"` never returns, because pgrep matches its OWN command line -- 33 minutes spent waiting for a process to end that was the wait | ask what a check must NOT see, which is the same question as asking what it cannot see |
-| **a finding that is not the defect** | the checker says "declared twice" and BOTH definitions are dead; or the two are different quantities sharing one word | read both sites before repairing either. Three of three went this way in one session, and repairing the reported thing would have fixed none of them |
-| **a rename that moves the collision** | `Surface` renamed to `Meshed`, which another header already owned: the count fell by five instead of six and the claim caught it | a rename is only a rename if the NEW name is checked as carefully as the old one was |
-| **a case green on a stale binary** | the program proving the generators link alone was written against an API that no longer existed, at four call sites, and passed -- until a header change forced the rebuild | a gate whose freshness check cannot see headers is guarding yesterday's API |
+**A finding met while working something else becomes an item in the same round**, even if it closes
+in that round: an item is how it becomes something more than one person knows.
