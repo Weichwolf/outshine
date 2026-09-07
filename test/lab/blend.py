@@ -194,7 +194,13 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
         out=repr(str(out_png)), engine=repr(engine)))
     done = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(script)],
                           capture_output=True, text=True, timeout=3600)
-    if not pathlib.Path(out_png).exists():
+    # FRESHNESS AND NOT EXISTENCE. A render that fails leaves the PREVIOUS picture on disk, and
+    # a check that only asks whether the file is there hands it back: three material changes in a
+    # row were judged on one stale image before the file was deleted by hand and the renderer
+    # turned out to have been failing all along (2026-09-07). The picture has to be NEWER than
+    # the script that asked for it.
+    got = pathlib.Path(out_png)
+    if not got.exists() or got.stat().st_mtime < script.stat().st_mtime:
         raise RuntimeError(f"blender wrote no picture:\n{done.stdout[-2000:]}\n{done.stderr[-1000:]}")
     return out_png
 
@@ -256,88 +262,73 @@ def _bond(nt, vec, cell, joint, stagger):
     return fac, rand.outputs["Value"]
 
 
-def _triplanar(nt, coord, make, sharp=6.0):
-    """ONE PATTERN, PROJECTED FROM WORLD METRES ON ALL THREE AXES and blended by the normal.
+def _surface_uv(nt, coord):
+    """THE SURFACE'S OWN FRAME, built from the geometry NORMAL, and this is what a laid material
+    needs rather than a box projection.
 
-    A laid surface has to course HORIZONTALLY whatever wall it is on, and a generator that owed
-    a UV for that would owe one from every element it has. Box mapping is what a fragment stage
-    does instead, so it is what the lab does: three copies of the pattern on (x,z), (y,z), (x,y),
-    weighted by |n| raised to `sharp`. `make(vector_socket)` builds one copy and returns
-    (colour, fac)."""
-    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
-    nt.links.new(coord.outputs["Object"], sep.inputs["Vector"])
-    planes = []
-    for (a, b) in (("X", "Z"), ("Y", "Z"), ("X", "Y")):
-        comb = nt.nodes.new("ShaderNodeCombineXYZ")
-        nt.links.new(sep.outputs[a], comb.inputs["X"])
-        nt.links.new(sep.outputs[b], comb.inputs["Y"])
-        planes.append(make(comb.outputs["Vector"]))
+    Triplanar puts three copies of the pattern on the three axis planes and blends them by the
+    normal -- which is right on a wall and WRONG on a roof: at 45 degrees two of the weights are
+    exactly equal, the two patterns interfere, and the surface reads as crumpled paper however
+    sharp the blend (rendered Rothenburg's roofs and looked at, 2026-09-07; the geometry was
+    measured correct to a median of 0.000 m first, which is what left the material as the only
+    place it could be).
+
+    A tangent frame is one evaluation instead of three, and it is the frame a TILER uses: the
+    tangent runs along the eaves (horizontal, across the fall line) and the bitangent up the
+    slope, so courses lie along the eaves on any pitch and horizontally on any wall. Where the
+    normal is vertical the frame degenerates and the plane IS the ground plane, which is what a
+    pavement wants anyway."""
     geo = nt.nodes.new("ShaderNodeNewGeometry")
-    nsep = nt.nodes.new("ShaderNodeSeparateXYZ")
-    nt.links.new(geo.outputs["Normal"], nsep.inputs["Vector"])
-    weights = []
-    for axis in ("X", "Y", "Z"):
-        power = nt.nodes.new("ShaderNodeMath")
-        power.operation = "POWER"
-        absv = nt.nodes.new("ShaderNodeMath")
-        absv.operation = "ABSOLUTE"
-        nt.links.new(nsep.outputs[axis], absv.inputs[0])
-        nt.links.new(absv.outputs[0], power.inputs[0])
-        power.inputs[1].default_value = sharp
-        weights.append(power.outputs[0])
+    n = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(geo.outputs["Normal"], n.inputs["Vector"])
+    pos = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(coord.outputs["Object"], pos.inputs["Vector"])
 
-    def blend(sockets, kind):
-        """weights are per AXIS and the planes are (x,z)=facing Y, (y,z)=facing X, (x,y)=facing Z"""
-        order = [(weights[1], sockets[0]), (weights[0], sockets[1]), (weights[2], sockets[2])]
-        total = None
-        for (w, _) in order:
-            if total is None:
-                total = w
+    def math(op, a=None, b=None):
+        m = nt.nodes.new("ShaderNodeMath")
+        m.operation = op
+        for k, v in ((0, a), (1, b)):
+            if v is None:
                 continue
-            add = nt.nodes.new("ShaderNodeMath")
-            add.operation = "ADD"
-            nt.links.new(total, add.inputs[0])
-            nt.links.new(w, add.inputs[1])
-            total = add.outputs[0]
-        acc = None
-        for (w, sock) in order:
-            share = nt.nodes.new("ShaderNodeMath")
-            share.operation = "DIVIDE"
-            nt.links.new(w, share.inputs[0])
-            nt.links.new(total, share.inputs[1])
-            if kind == "RGBA":
-                scaled = nt.nodes.new("ShaderNodeMix")
-                scaled.data_type = "RGBA"
-                scaled.blend_type = "MIX"
-                scaled.inputs[6].default_value = (0.0, 0.0, 0.0, 1.0)
-                nt.links.new(share.outputs[0], scaled.inputs["Factor"])
-                nt.links.new(sock, scaled.inputs[7])
-                out, port = scaled, 2
+            if hasattr(v, "is_linked"):
+                nt.links.new(v, m.inputs[k])
             else:
-                scaled = nt.nodes.new("ShaderNodeMath")
-                scaled.operation = "MULTIPLY"
-                nt.links.new(share.outputs[0], scaled.inputs[0])
-                nt.links.new(sock, scaled.inputs[1])
-                out, port = scaled, 0
-            if acc is None:
-                acc = out.outputs[port]
-                continue
-            plus = nt.nodes.new("ShaderNodeMix" if kind == "RGBA" else "ShaderNodeMath")
-            if kind == "RGBA":
-                plus.data_type = "RGBA"
-                plus.blend_type = "ADD"
-                plus.inputs["Factor"].default_value = 1.0
-                nt.links.new(acc, plus.inputs[6])
-                nt.links.new(out.outputs[port], plus.inputs[7])
-                acc = plus.outputs[2]
-            else:
-                plus.operation = "ADD"
-                nt.links.new(acc, plus.inputs[0])
-                nt.links.new(out.outputs[port], plus.inputs[1])
-                acc = plus.outputs[0]
-        return acc
+                m.inputs[k].default_value = v
+        return m.outputs[0]
 
-    return (blend([p[0] for p in planes], "RGBA"), blend([p[1] for p in planes], "FLOAT"))
+    # t = normalize(cross(N, z)) = normalize((Ny, -Nx, 0)); b = cross(N, t)
+    tan = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(n.outputs["Y"], tan.inputs["X"])
+    nt.links.new(math("MULTIPLY", n.outputs["X"], -1.0), tan.inputs["Y"])
+    flat = nt.nodes.new("ShaderNodeMath")
+    flat.operation = "LESS_THAN"
+    nt.links.new(math("ABSOLUTE", n.outputs["Z"]), flat.inputs[0])
+    flat.inputs[1].default_value = 0.999
+    # where the normal is vertical the tangent collapses, so fall back to +x
+    pick = nt.nodes.new("ShaderNodeMix")
+    pick.data_type = "VECTOR"
+    nt.links.new(flat.outputs[0], pick.inputs[0])
+    pick.inputs[4].default_value = (1.0, 0.0, 0.0)
+    nt.links.new(tan.outputs["Vector"], pick.inputs[5])
+    t = nt.nodes.new("ShaderNodeVectorMath")
+    t.operation = "NORMALIZE"
+    nt.links.new(pick.outputs[1], t.inputs[0])
+    bit = nt.nodes.new("ShaderNodeVectorMath")
+    bit.operation = "CROSS_PRODUCT"
+    nt.links.new(geo.outputs["Normal"], bit.inputs[0])
+    nt.links.new(t.outputs["Vector"], bit.inputs[1])
+    du = nt.nodes.new("ShaderNodeVectorMath")
+    du.operation = "DOT_PRODUCT"
+    nt.links.new(coord.outputs["Object"], du.inputs[0])
+    nt.links.new(t.outputs["Vector"], du.inputs[1])
+    dv = nt.nodes.new("ShaderNodeVectorMath")
+    dv.operation = "DOT_PRODUCT"
+    nt.links.new(coord.outputs["Object"], dv.inputs[0])
+    nt.links.new(bit.outputs["Vector"], dv.inputs[1])
+    out = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(du.outputs["Value"], out.inputs["X"])
+    nt.links.new(dv.outputs["Value"], out.inputs["Y"])
+    return out.outputs["Vector"]
 
 
 files = {files}
@@ -346,11 +337,7 @@ worn = {worn}
 for o in list(bpy.data.objects):
     bpy.data.objects.remove(o, do_unlink=True)
 
-# ONE MATERIAL PER LOOK, not per PART. A town twin hands over seven thousand parts -- a role per
-# building per surface -- and each was given its own Blender material with the bond's hundred
-# nodes in it, so the renderer sat compiling seven hundred thousand shader nodes before it traced
-# a ray (measured 2026-09-07: fifteen minutes on a scene of 1.9 million triangles). Parts that
-# LOOK the same share one material, which is what an engine's material INSTANCE is for.
+# ONE MATERIAL PER LOOK, not per PART.
 _made = {{}}
 
 
@@ -429,7 +416,7 @@ for role, path in files.items():
             laid.inputs[7].default_value = joint_rgb
             return laid.outputs[2], fac
 
-        colour, fac = _triplanar(nt, coord, one)
+        colour, fac = one(_surface_uv(nt, coord))
         nt.links.new(colour, bsdf.inputs["Base Color"])
         if look.get("relief_m", 0.0) > 0.0:
             # the joint is RAKED: the mortar sits back, so height is 1 minus the mortar factor

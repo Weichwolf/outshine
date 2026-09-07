@@ -628,6 +628,13 @@ def one(place):
         # frame's own datum is what turns that into a height over this ground
         camera.agl_m = CAM["kPlanAboveM"] - frame.datum
     parts, looks, counts = cached_parts(place, frame, doc, red, lod=3)
+    if os.environ.get("OUTSHINE_CLAY"):
+        # A CLAY RENDER: every material the same matte grey, which is what a modeller looks at
+        # when the question is the FORM. Twice in one session a defect was blamed on the
+        # material and twice the material was innocent; a picture with no material in it cannot
+        # be argued with (2026-09-07).
+        clay = stock.Material("clay", (0.42, 0.41, 0.40), roughness=0.92)
+        looks = {k: clay for k in looks}
     verts = [p for (v, _) in parts.of.values() for p in v]
     if verts and not np.isfinite(np.asarray(verts, dtype=float)).all():
         red.append("P finite")
