@@ -247,3 +247,22 @@ war hier kein Funktionsblocker. Die Fixture verwendet Nearest/MipNone und beweis
 ausdrücklich weder minifizierte Kronen-Coverage noch Blatttransmission, Wind oder
 korrekte Karten-Normalmaps. Die gemeinsame Kronenrepräsentation kann den vorhandenen
 Masked-/DoubleSided-Pfad nutzen.
+
+## Gebackene Kronenansichten aus dem Generator
+
+Nächste Implementierung: engineinterner CrownAtlas nutzt den bestehenden Renderer,
+keinen zweiten Rasterizer. Der feine TreePrototype liefert Form und native Materialien;
+mehrere orthografische Ansichten liefern Tiefe, Normalen und Material-ID. Grundfarbe
+und MR-Werte stammen aus den zugehörigen Materialdeklarationen, nicht aus beleuchteten
+PNG-Farben. Beleuchtung darf nicht in den Atlas eingebrannt werden. Unreal/RAGE nutzen
+Impostor-/Billboard-LOD für fernes Laub; die Nahdarstellung bleibt echte Baumgeometrie.
+
+Zuerst die Datengewinnung und deren Referenzbilder implementieren, danach die
+Karten-/Normalmap-Anbindung und Auswahl am Instanzpfad. Auflösung und Ansichten
+explizit deklarieren, Alpha aus tatsächlich bedeckten Samples, leere Pixel transparent.
+Prototypen seriell vorbereiten und ihre feine Geometrie anschließend freigeben.
+Abnahme: gleiche Referenzform aus dem bestehenden Generator, Materialien unabhängig
+von der Bake-Beleuchtung, lesbare Krone in geöffneten Bildern; Speicher, Bakezeit
+und Framezeit getrennt. Mip-Coverage, Winkelwechsel, Tiefenparallaxe und echte
+Places-Frameraten bleiben bis zu ihren Messungen offen. Ein einzelnes Billboard
+ist kein Nachweis für korrektes LOD unter Kamerabewegung.
