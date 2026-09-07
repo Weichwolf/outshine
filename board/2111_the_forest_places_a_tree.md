@@ -300,3 +300,20 @@ transparenter Hintergrund, dünne punktförmige Krone. PNG-Grundfarben werden di
 aus Material-ID/BaseColour abgeleitet. Noch keine gefilterte Flächendeckung,
 beleuchtbare Karten, Winkelwechselprüfung oder Wald in Places. Genau diese
 Anbindung und der Vergleich mit der feinen Darstellung sind die nächste Arbeit.
+
+## Native Karten aus den Kronendaten
+
+Nächster Schritt: GeometryAt(view) liefert eine ausgerichtete Karte mit nativen
+Farb-, Normal- und MR-Maps. Grundfarbe wird sRGB kodiert; MR und Normalen bleiben
+linear. Texel-Normalen in die Kartenbasis transformieren: U nach rechts, V nach
+unten, daher Tangentenhandedness -1. Metalness/Roughness-Faktoren stehen auf eins,
+die Texturkanäle liefern die Materialwerte. Alpha bleibt echte Bake-Bedeckung.
+Farb-/Normal-/MR-Randwerte deterministisch aus dem nächsten bedeckten Texel
+fortsetzen, ohne Alpha zu vergrößern; Mips bleiben eingeschaltet.
+
+Beweis: Alphabedeckung am Bake-Kamerastand, Normalen-Rücktransformation gegen die
+erfassten Normalen, MR-Kanäle gegen die Ursprungsmaterialien. Karte unter anderer
+Beleuchtung rendern und PNGs ansehen. Ebene Karten reproduzieren die gespeicherte
+Tiefe noch nicht: Parallaxe, Winkelwechsel, minifizierte Coverage und Wald-Framerate
+bleiben offen. Unreal/RAGE-Impostorprinzip übernommen, nicht dessen fertige Qualität
+behauptet; die reichere nahe Geometrie bleibt erhalten.
