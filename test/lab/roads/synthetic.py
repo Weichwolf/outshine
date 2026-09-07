@@ -28,6 +28,8 @@ import kerbline  # noqa: E402
 import lanes as lanework  # noqa: E402
 import wear  # noqa: E402
 import publish  # noqa: E402
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+import bake as _bake  # noqa: E402
 
 OUT = pathlib.Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "synthetic"
 
@@ -906,6 +908,24 @@ class Map:
         self.slope = {}
         self.junctions = {}
 
+    def _bake_key(self, smooth_m):
+        """WHAT THE ALIGNMENT DEPENDS ON, and nothing else. The nodes in the order `z` is
+        indexed by, their ground, the ways that tie them together and what each way IS -- a
+        bridge, a bore, a class with a design grade -- plus the smoothing length and the DIGEST
+        OF THE SOURCE that solves it, so an edit to the solver cannot be served a stale answer.
+
+        A key that is not derivable is not a key: `None` here means bake nothing and solve, which
+        is what a synthetic bed with a hand-built net wants."""
+        try:
+            ways = [(w["id"], tuple(w["refs"]), self.net.spans(w), self.net.bores(w),
+                     w.get("kind"), w.get("grade_max"), w.get("layer"),
+                     tuple(sorted((k, str(v)) for k, v in (w.get("tags") or {}).items())))
+                    for w in self.net.ways]
+        except Exception:
+            return None
+        return _bake.key("alignment/1", _bake.digest_of(__file__), smooth_m,
+                         tuple(self.net.nodes), self.xy, self.dem, sorted(ways))
+
     def _snap(self):
         """Nodes within SNAP_M of an earlier node are the earlier node (declared order), and a
         way's consecutive duplicates collapse to one -- the weave's word, so P1, P2 and P3 hold."""
@@ -1170,7 +1190,21 @@ class Map:
         # road with no bridge at all therefore got the plain smooth solve and no band whatever:
         # the Furka stood 6.09 m off a DEM whose band there is 4.11 m, and the check read 1.48x
         # against a constraint that had never been posed (measured 2026-09-06). It always runs.
-        if True:
+        # RAGE BAKES, THE FRAME DRAWS. The four constrained rounds below are the whole cost of a
+        # road -- 145 s of OldTown's 367 s, and they ran again for every picture because the
+        # extract was shaped by the camera. They are baked instead, addressed by the GROUND: the
+        # network, the DEM under it, and the digest of the source that solves it. See `bake.py`.
+        baked = self._bake_key(smooth_m)
+        got = _bake.read("alignment", baked) if baked else None
+        if got is not None:
+            self.z = got["z"]
+            self.ramp_signs = {int(k): float(v) for k, v in zip(got["ramp_way"], got["ramp_sign"])}
+            self.clearance_rounds = int(got["rounds"][0])
+            self.clearance_residual_m = float(got["residual"][0])
+            self.clearance_diverged = False
+            self.infeasible = None
+            self.constraints = self._clearances(deck)
+        elif True:
             self.ramp_signs = {}
             self._solve_with_clearances(A, b)     # once, to read the ramps' signs
             self.ramp_signs = self._ramp_signs()
@@ -1196,6 +1230,13 @@ class Map:
             self.constraints = self._clearances(deck)
             self._solve_with_clearances(A, b)
             self.clearance_residual_m = float(np.max(np.abs(self.z - after)))
+            if baked:
+                ways = sorted(self.ramp_signs)
+                _bake.write("alignment", baked, z=self.z,
+                            ramp_way=np.array(ways, dtype=np.int64),
+                            ramp_sign=np.array([self.ramp_signs[w] for w in ways]),
+                            rounds=np.array([self.clearance_rounds]),
+                            residual=np.array([self.clearance_residual_m]))
         self._slopes()
         self._superelevations()
         self._junctions()
@@ -2388,11 +2429,16 @@ class Mesh:
     and two vertices a hair apart can then weld to a third and not to each other; the key here
     is the position rounded to the weld tolerance."""
 
-    def __init__(self, structure, step_m=2.0):
+    def __init__(self, structure, step_m=2.0, seen=None):
         self.st = structure
         self.map = structure.map
         self.net = structure.net
         self.step = step_m
+        # WHAT IS NOT SEEN IS NOT MESHED. `seen` is (way ids, junction node ids) or None for all
+        # of them. The ALIGNMENT above is unaffected -- it is solved over the whole extract and
+        # baked, because a height that changed with the camera would move the road under a
+        # walking eye. Only the SURFACE is cut, and only to what a frustum and a facade leave.
+        self.seen = seen
         self.vertices = []
         self.byKey = {}
         self.tris = []
@@ -2570,6 +2616,8 @@ class Mesh:
 
     def _legs(self):
         for w in self.net.ways:
+            if self.seen is not None and w["id"] not in self.seen[0]:
+                continue
             for lo, hi in self.drawn_spans(w):
                 self._ribbon(w, lo, hi)
 
@@ -2654,6 +2702,8 @@ class Mesh:
         from scipy.spatial import Delaunay
         cell = 2.0 * MESH_TOL_M / CROSSFALL
         for nid in self.st.polygons:
+            if self.seen is not None and nid not in self.seen[1]:
+                continue
             region = self.region_of(nid)
             if region.is_empty or region.area <= 0:
                 continue

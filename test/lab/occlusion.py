@@ -106,13 +106,37 @@ class Horizon:
     """ONE ANGLE PER SCREEN COLUMN: how high this column is already covered. A world-space Hi-Z
     with one row, which is all a 2.5D city needs."""
 
-    __slots__ = ("width", "fov", "bearing", "eye", "eye_z", "up")
+    __slots__ = ("width", "fov", "bearing", "eye", "eye_z", "up", "far")
 
     def __init__(self, eye_xy, eye_z, bearing_deg, fov_deg=55.0, width=1280):
         self.width, self.fov = int(width), math.radians(fov_deg)
         self.bearing = math.radians(bearing_deg)
         self.eye, self.eye_z = eye_xy, float(eye_z)
         self.up = np.full(self.width, -1e30)
+        # AND HOW FAR AWAY THE THING IS THAT COVERS THE COLUMN. The body walk needs no distance
+        # because it goes front to back: whatever is tested has not yet been hidden by anything
+        # behind it. A point asked about AFTERWARDS has lost that order, and without a depth the
+        # horizon would hide the road in FRONT of a facade as readily as the road behind it. The
+        # occluder's FAR corner is the honest number: a point beyond that is certainly behind it.
+        self.far = np.full(self.width, np.inf)
+
+    def sees(self, x, y, z):
+        """Is this ground point in the frustum and not behind a facade? Vectorised over arrays.
+
+        CONSERVATIVE BY CONSTRUCTION, like every other rule in this file: the column is the one
+        the point falls in, the occluder's depth is its FAR corner, and anything the test cannot
+        settle is drawn. A culler may only err towards drawing."""
+        x, y, z = np.atleast_1d(x), np.atleast_1d(y), np.atleast_1d(z)
+        ex, ey = self.eye
+        a = np.arctan2(x - ex, y - ey) - self.bearing
+        a = (a + math.pi) % (2 * math.pi) - math.pi
+        col = np.floor((a / self.fov + 0.5) * self.width).astype(np.int64)
+        inside = (col >= 0) & (col < self.width)
+        col = np.clip(col, 0, self.width - 1)
+        d = np.hypot(x - ex, y - ey)
+        angle = (z - self.eye_z) / np.maximum(d, 1e-6)
+        hidden = (angle <= self.up[col]) & (d > self.far[col])
+        return inside & ~hidden
 
     def columns(self, node):
         """The column range a box spans, or None when it falls outside the frustum."""
@@ -189,5 +213,7 @@ def visible(tree, horizon, bodies_top=None):
             if lrise <= 0.0:
                 continue
             band = lrise / max(lfar, 1e-6)
+            lift = band > horizon.up[got[0]:got[1]]
             np.maximum(horizon.up[got[0]:got[1]], band, out=horizon.up[got[0]:got[1]])
+            np.copyto(horizon.far[got[0]:got[1]], lfar, where=lift)
     return seen, tested, leaves

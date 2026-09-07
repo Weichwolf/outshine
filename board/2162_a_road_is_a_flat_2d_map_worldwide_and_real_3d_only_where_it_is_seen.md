@@ -1,6 +1,6 @@
 # A road is a FLAT 2D MAP worldwide and REAL 3D only where it is seen
 
-**State:** open · **Waits on:** nothing · **Found:** 2026-09-07, waiting minutes for one picture
+**State:** open · **Lab rank:** 2 · **Waits on:** board:2164 · **Found:** 2026-09-07, waiting minutes for one picture
 
 ## What is wrong
 

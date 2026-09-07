@@ -1,6 +1,6 @@
 # A carriageway carries LANES, and a 10 m primary is never two of them
 
-**State:** open · **Waits on:** nothing · **Found:** 2026-09-06, by looking at the T-junction plan
+**State:** open · **Lab rank:** 9 · **Waits on:** board:2162 · **Found:** 2026-09-06, by looking at the T-junction plan
 
 ## What is wrong
 

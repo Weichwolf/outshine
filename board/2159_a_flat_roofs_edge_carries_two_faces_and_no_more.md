@@ -1,6 +1,6 @@
 # A flat roof's edge carries TWO faces and no more
 
-**State:** open · **Waits on:** nothing · **Found:** 2026-09-07, measured over Rothenburg's 5 709 bodies
+**State:** open · **Lab rank:** 8 · **Waits on:** board:2146 · **Found:** 2026-09-07, measured over Rothenburg's 5 709 bodies
 
 ## What is wrong
 

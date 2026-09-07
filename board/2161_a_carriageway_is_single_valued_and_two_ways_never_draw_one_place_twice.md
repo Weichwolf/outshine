@@ -1,6 +1,6 @@
 # A carriageway is SINGLE-VALUED, and two ways never draw one place twice
 
-**State:** open · **Waits on:** nothing · **Found:** 2026-09-07, standing in a street in Rothenburg
+**State:** open · **Lab rank:** 4 · **Waits on:** board:2162 · **Found:** 2026-09-07, standing in a street in Rothenburg
 
 ## What is wrong
 

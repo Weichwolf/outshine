@@ -2,9 +2,10 @@ Type: feature
 State: open
 Area: world, generators, engine
 Tags: architecture, owner
-Depends: 2101, 2121
+Depends: 2162
+Lab rank: 3
 
-# The road, rail and path network is ONE navigable graph a simulation can route on
+# The road, rail, WATERWAY and path network is ONE PROVEN graph a simulation can route on
 
 **Benchmark** -- RAGE: `paths.ipl` -- vehicle nodes and links with lane counts, direction, speed
 and junction flags, a separate pedestrian graph, both queried by the AI every frame and both
@@ -92,3 +93,33 @@ that profile; its deviation from the profile is a measured number a case reads, 
 never sees it. CARLA's Traffic Manager plans on the OpenDRIVE map while its vehicles roll on
 the mesh at 0.5 m vertex distance; Jolt takes an analytic height function as a contact
 surface (board:2127), so this tree can do better than CARLA by one step.
+
+
+## The water is in it, and so is the proof (2026-09-07)
+
+**FOUR MODES, ONE GRAPH.** OSM states all four and a simulation needs all four: `highway=*` for
+the road and the footway, `railway=*` for the rail, `waterway=*` for the navigable water. They
+share nodes where they meet -- a level crossing, a bridge, a lock, a ford, a quay -- and a graph
+that holds only the road cannot answer where a boat goes or where a train crosses a street.
+
+**THE GRAPH IS 2D AND FLAT, AND THAT IS THE POINT.** Out of sight there is no vehicle anybody can
+watch, so a height nobody sees and nothing touches is a number with no consumer (board:2162). The
+graph carries position, class, lanes, direction, speed and connectivity; the third dimension
+belongs to the geometry, which exists only where the eye is.
+
+**A NETWORK IS PROVEN OR IT IS A DRAWING.** These are the claims, and each has a control that
+must go red:
+
+| | claim | negative control |
+|---|---|---|
+| **N1** | the graph is PLANAR where it is planar: two edges cross only at a shared node, or at a node whose `layer`/`bridge`/`tunnel` says they do not meet | inject a crossing without a node -> red |
+| **N2** | every edge is SIMPLE -- no self-intersection, no zero-length segment, no repeated node | collapse two nodes -> red |
+| **N3** | CONNECTED as the data allows: every component is reachable, and a component that is not is REPORTED with its size and its cause, never silently kept | drop one join -> the count rises -> red |
+| **N4** | a junction is WELL-FORMED: every leg has a distinct bearing, the legs are ordered by bearing, and the turn set is complete and free of duplicates | duplicate a leg -> red |
+| **N5** | every edge crossing a tile border arrives in the neighbour, and a border node has exactly ONE owner (Valhalla's rule) | let two tiles write a border node -> red |
+| **N6** | routing is CONSISTENT: a route's length equals the sum of its edges, and reversing it costs the same on a two-way edge | perturb one edge's length -> red |
+
+**And the readable references decide the SHAPE, not us.** Valhalla (MIT) for the tiled addressing
+and the hierarchy levels; OSRM (BSD-2) for the border-node overlay; SUMO's `netconvert` (EPL-2.0)
+for the type table that turns `highway=*` into lanes, speed and permissions, and for
+`NBNodeShapeComputer`'s junction polygon. Nothing about the graph's shape is invented here.

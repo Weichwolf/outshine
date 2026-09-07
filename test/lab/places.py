@@ -156,9 +156,15 @@ def camera_for(place):
         got = [float(v) for v in eye.split(",")]
         agl, bearing, pitch = got[0], got[1], got[2]
         fov = got[3] if len(got) > 3 else CAM["kFovDeg"]
-        return lab_camera.Camera(place["lat"], place["lon"], agl_m=agl, bearing_deg=bearing,
-                                 pitch_deg=pitch, fov_deg=fov,
-                                 width=int(CAM["kWidePx"]), height=int(CAM["kHighPx"]))
+        cam = lab_camera.Camera(place["lat"], place["lon"], agl_m=agl, bearing_deg=bearing,
+                                pitch_deg=pitch, fov_deg=fov,
+                                width=int(CAM["kWidePx"]), height=int(CAM["kHighPx"]))
+        # WHERE THE EYE STANDS, ON THE CAMERA. The offset was parsed at the very end and applied
+        # by translating the finished geometry, so everything BUILT -- the cull above all -- ran
+        # from the origin while the picture was taken from somewhere else. A culler asked about
+        # the wrong eye answers the wrong question and is worse than none.
+        cam.at_xy = (got[4], got[5]) if len(got) >= 6 else (0.0, 0.0)
+        return cam
     if place["plan"]:
         return lab_camera.Camera(place["lat"], place["lon"], bearing_deg=place["bearing"],
                                  pitch_deg=CAM["kOverheadPitchDeg"], fov_deg=CAM["kFovDeg"],
@@ -168,6 +174,13 @@ def camera_for(place):
                              bearing_deg=place["bearing"], pitch_deg=CAM["kPitchDeg"],
                              fov_deg=CAM["kFovDeg"], width=int(CAM["kWidePx"]),
                              height=int(CAM["kHighPx"]))
+
+
+def eye_of(camera, frame):
+    """Where the eye stands in the frame's own metres, and how high. ONE answer, so the culler,
+    the road and the render cannot disagree about it."""
+    x, y = getattr(camera, "at_xy", (0.0, 0.0))
+    return (x, y), frame.z(x, y) + camera.agl_m
 
 
 # ------------------------------------------------------------------ the extract
@@ -330,7 +343,59 @@ def buildings_of(place, frame, doc, red):
     return bodies, dropped
 
 
-def roads_of(place, frame, red):
+# THE SURFACE'S HALO, AND IT IS DERIVED RATHER THAN MEASURED. A kerb, a marking and the wear are
+# LOCAL operators: what the road looks like at a point is decided by the ways within
+# `max half width + corner radius + footway` -- 3.75 + 8.0 + 2.5 by RASt 06 -- so a way whose
+# nearest visible point is further than that cannot change anything the eye is looking at. 25 m
+# is that 14.25 m rounded up, and it is a different quantity from the ALIGNMENT's halo, which is
+# set by how far a profile's stiffness reaches and shares no number with it.
+SURFACE_HALO_M = 25.0
+SAMPLE_M = 10.0                  # how finely a centre line is asked "can any of you be seen"
+
+
+def seen_of(mesh_map, structure, horizon):
+    """WHICH WAYS AND WHICH JUNCTIONS THE EYE CAN REACH. The alignment is already solved over the
+    whole extract and baked, so this cuts the SURFACE only.
+
+    CONSERVATIVE AT EVERY STEP, because a culler may only err towards drawing: a way is sampled
+    every `SAMPLE_M` and asked at its HIGHEST solved node -- the height that is hardest to hide --
+    and everything within `SURFACE_HALO_M` of a station that IS seen is kept as well, so no local
+    operator loses an input it needed."""
+    from scipy.spatial import cKDTree
+    ways, nodes, lit = set(), set(), []
+    for w in structure.net.ways:
+        refs = w["refs"]
+        if len(refs) < 2:
+            continue
+        pts = np.array([structure.net.nodes[r] for r in refs], dtype=float)
+        step = np.hypot(*(pts[1:] - pts[:-1]).T)
+        run = np.concatenate(([0.0], np.cumsum(step)))
+        if run[-1] <= 0.0:
+            continue
+        want = np.arange(0.0, run[-1] + SAMPLE_M, SAMPLE_M)
+        sx = np.interp(want, run, pts[:, 0])
+        sy = np.interp(want, run, pts[:, 1])
+        top = float(max(mesh_map.z[mesh_map.index[r]] for r in refs))
+        got = horizon.sees(sx, sy, np.full(len(sx), top))
+        if got.any():
+            ways.add(w["id"])
+            lit.append(np.column_stack((sx[got], sy[got])))
+    if not lit:
+        return ways, nodes
+    seen_at = cKDTree(np.vstack(lit))
+    for nid in structure.polygons:
+        if seen_at.query(structure.net.nodes[nid])[0] <= SURFACE_HALO_M:
+            nodes.add(nid)
+    for w in structure.net.ways:
+        if w["id"] in ways or len(w["refs"]) < 2:
+            continue
+        pts = np.array([structure.net.nodes[r] for r in w["refs"]], dtype=float)
+        if seen_at.query(pts)[0].min() <= SURFACE_HALO_M:
+            ways.add(w["id"])
+    return ways, nodes
+
+
+def roads_of(place, frame, red, horizon=None):
     """The carriageway surface, from the road bed's own solve. The bed already owns the invariants
     -- C0 at a node, C1 through it, the DEM band, the continuous Trasse -- so the twin RUNS them
     rather than restating them, and a red one keeps the picture out of `build/shots/lab`."""
@@ -356,7 +421,9 @@ def roads_of(place, frame, red):
     # wide, the camera stands at the origin, and past a hundred metres they cost seven times the
     # vertices for nothing (measured: 1 660 149 triangles and 165 s at OldTown's 240 m reach).
     roadbed.Mesh.FINE_REACH_M = FINE_ROAD_M
-    return roadbed.Mesh(roadbed.Structure(m)), kept
+    st = roadbed.Structure(m)
+    seen = None if horizon is None else seen_of(m, st, horizon)
+    return roadbed.Mesh(st, seen=seen), kept
 
 
 # ------------------------------------------------------------------ the picture
@@ -518,7 +585,21 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     stuffs = {"timber": stock.STOCK["timber"], "iron": stock.STOCK["iron"],
               "steel": stock.STOCK["steel"], "glass": stock.STOCK["glass"],
               "paint": stock.STOCK["paint"], "limestone": stock.STOCK["limestone"]}
-    mesh, ways = roads_of(place, frame, red)
+    # THE OCCLUDERS FIRST, BECAUSE THE ROAD IS CULLED BY THEM TOO. The bodies are READ from the
+    # extract -- footprint, tags, epoch, ground -- and nothing is meshed by reading them, which is
+    # what lets the quadtree stand in front of every generator rather than only in front of the
+    # buildings. `visible` walks front to back and leaves the horizon COMPLETE, and a completed
+    # horizon answers about any point on the ground: see `Horizon.sees`.
+    bodies, dropped = buildings_of(place, frame, doc, red)
+    boxes = np.array([b.poly.bounds for b in bodies]) if bodies else np.zeros((0, 4))
+    tops = np.array([b.ridge for b in bodies]) if bodies else np.zeros(0)
+    tree = occlusion.Quadtree(boxes, tops)
+    at_xy, at_z = eye_of(camera, frame)
+    horizon = occlusion.Horizon(at_xy, at_z, camera.bearing_deg, camera.fov_deg)
+    keep, node_tests, leaf_tests = occlusion.visible(tree, horizon)
+    took(f"cull {len(keep)}/{len(bodies)} {node_tests}+{leaf_tests}")
+
+    mesh, ways = roads_of(place, frame, red, horizon)
     took("roads")
     street_face = None
     if mesh is not None:
@@ -629,20 +710,6 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     for (role, vv, tt) in furniture.from_osm(doc, frame, lambda x, y: frame.z(x, y), BUILT_REACH_M):
         put(f"f.{role}", vv, tt, stuff.get(role) or stock.STOCK["concrete"])
 
-    bodies, dropped = buildings_of(place, frame, doc, red)
-    # NOTHING THAT IS NOT SEEN IS COMPUTED. The bodies are READ from the extract -- footprint,
-    # tags, epoch, ground -- and none of them is meshed until the culler has said which. Measured
-    # 2026-09-07 on Rothenburg: from a street 14 of 1 054 bodies are seen, and the answer costs
-    # 84 tests and 0.9 ms where a ray march costs 535 040 samples and 25 ms. The rung each one
-    # earns comes from the size of a PIXEL where it stands, which is the same arithmetic the
-    # rest of the ladder is built on.
-    boxes = np.array([b.poly.bounds for b in bodies]) if bodies else np.zeros((0, 4))
-    tops = np.array([b.ridge for b in bodies]) if bodies else np.zeros(0)
-    tree = occlusion.Quadtree(boxes, tops)
-    horizon = occlusion.Horizon((0.0, 0.0), frame.z(0.0, 0.0) + camera.agl_m,
-                                camera.bearing_deg, camera.fov_deg)
-    keep, node_tests, leaf_tests = occlusion.visible(tree, horizon)
-    took(f"cull {len(keep)}/{len(bodies)} {node_tests}+{leaf_tests}")
     for at, b in enumerate(bodies):
         if at not in keep:
             continue

@@ -2,6 +2,7 @@ Type: feature
 State: open
 Area: render, scenario, generators
 Tags: look, camera, declaration
+Lab rank: 11
 
 # The default world is graded, and a look is DECLARED
 

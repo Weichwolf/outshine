@@ -1,6 +1,6 @@
 # A roof is stitched RING TO RING, and a curved eaves has no comb
 
-**State:** open · **Waits on:** nothing · **Found:** 2026-09-06, by looking at the roof gallery
+**State:** open · **Lab rank:** 8 · **Waits on:** board:2146 · **Found:** 2026-09-06, by looking at the roof gallery
 
 ## What is wrong
 

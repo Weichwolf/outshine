@@ -1,6 +1,6 @@
 # A street lies FLAT on a hill, and its footway does not fold
 
-**State:** open · **Waits on:** nothing · **Found:** 2026-09-07, the first street-level look at a real place
+**State:** open · **Lab rank:** 5 · **Waits on:** board:2161 · **Found:** 2026-09-07, the first street-level look at a real place
 
 ## What is wrong
 
