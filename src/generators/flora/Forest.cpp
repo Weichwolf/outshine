@@ -146,7 +146,8 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   }
 
   if (Held_ == 0) { return Outcome::NoSpecies; }
-  const Stem &stem = Stems_[static_cast<size_t>(region.Seed(index * kStreamsPerCell + 3) % Held_)];
+  const auto variant = static_cast<uint32_t>(region.Seed(index * kStreamsPerCell + 3) % Held_);
+  const Stem &stem = Stems_[variant];
   const float size = SizeFactor(region.Seed(index * kStreamsPerCell + 2), stem.HeightSigma);
   out->Em = eastM;
   out->Nm = northM;
@@ -156,6 +157,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   out->MassKg = stem.MassKg * size * size * size;
   out->YawRad = Unit16(place >> kYawShift) * 2.0f * std::numbers::pi_v<float>;
   out->Contact = stem.Contact;
+  out->Variant = variant;
   return Outcome::Placed;
 }
 

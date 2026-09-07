@@ -1,6 +1,7 @@
 #include <span>
 #include "ForestDraw.h"
 #include <cstdint>
+#include <cassert>
 
 namespace outshine::Generators {
 
@@ -9,16 +10,18 @@ void ForestDraw::Draw(const Ground &ground,
                       BodyRange mine,
                       DrawSink &sink) const noexcept {
   (void)ground;
-  if (!(HeightM_ > 0.0)) { return; }
   for (uint32_t at = 0; at < mine.Count; ++at) {
     const Solid &body = placed[at];
+    assert(body.Variant < Prototypes_.size());
+    const Prototype &prototype = Prototypes_[body.Variant];
+    assert(prototype.HeightM > 0.0);
     Scattered instance;
     instance.Em = static_cast<float>(body.Em);
     instance.Nm = static_cast<float>(body.Nm);
     instance.AslM = static_cast<float>(body.BaseAslM);
     instance.YawRad = body.YawRad;
-    instance.Scale = static_cast<float>(static_cast<double>(body.HeightM) / HeightM_);
-    if (!sink.Add(mine.Nth(at), Cluster_, instance)) { return; }
+    instance.Scale = static_cast<float>(static_cast<double>(body.HeightM) / prototype.HeightM);
+    if (!sink.Add(mine.Nth(at), prototype.Cluster, instance)) { return; }
   }
 }
 

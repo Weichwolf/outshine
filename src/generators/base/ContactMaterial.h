@@ -19,11 +19,11 @@ struct Solid {
   float MassKg = 0.0f;
   float YawRad = 0.0f;
   ContactMaterial Contact = ContactMaterial{0};
+  uint32_t Variant = 0;
 };
 
 static_assert(sizeof(Solid) == 3 * sizeof(double) + 4 * sizeof(float) + 2 * sizeof(uint32_t),
-              "three doubles, four floats and a contact material, and the four bytes after it are "
-              "the tail padding an eight-byte alignment costs");
+              "three doubles, four floats, contact material and generator variant");
 static_assert(sizeof(Solid) == kBodyBytes, "sizeof(Solid)");
 static_assert(std::is_trivially_copyable_v<Solid>, "collect is a memcpy");
 

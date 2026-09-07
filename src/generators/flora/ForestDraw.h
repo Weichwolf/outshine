@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_FLORA_FORESTDRAW_H
 
 #include <span>
+#include <vector>
 #include "ClusterId.h"
 #include "DrawSource.h"
 
@@ -9,7 +10,13 @@ namespace outshine::Generators {
 
 class ForestDraw : public DrawSource {
 public:
-  ForestDraw(ClusterId cluster, double heightM) : Cluster_(cluster), HeightM_(heightM) {}
+  struct Prototype {
+    ClusterId Cluster;
+    double HeightM;
+  };
+
+  explicit ForestDraw(std::span<const Prototype> prototypes)
+      : Prototypes_(prototypes.begin(), prototypes.end()) {}
 
   void Draw(const Ground &ground,
             std::span<const Solid> placed,
@@ -17,8 +24,7 @@ public:
             DrawSink &sink) const noexcept override;
 
 private:
-  ClusterId Cluster_;
-  double HeightM_;
+  std::vector<Prototype> Prototypes_;
 };
 
 } // namespace outshine::Generators

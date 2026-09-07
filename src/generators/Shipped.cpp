@@ -54,8 +54,11 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   std::vector<TreeSpecies> species;
   if (!ReadSpecies(std::string(speciesDir).c_str(), species, error)) { return false; }
   std::vector<Forest::Stem> stems;
+  std::vector<ForestDraw::Prototype> prototypes;
   stems.reserve(species.size());
   for (const TreeSpecies &one : species) {
+    prototypes.push_back({.Cluster = ClusterId{static_cast<uint32_t>(stems.size())},
+                          .HeightM = static_cast<double>(one.HeightM())});
     stems.push_back({.HeightM = static_cast<double>(one.HeightM())});
   }
   if (stems.empty() || perM2.empty()) {
@@ -66,7 +69,7 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   auto made = std::make_unique<Forest>(std::span<const Forest::Stem>(stems.data(), stems.size()),
                                        std::span<const float>(perM2.data(), perM2.size()),
                                        declared.Limit());
-  auto drawn = std::make_unique<ForestDraw>(ClusterId{0}, stems.front().HeightM);
+  auto drawn = std::make_unique<ForestDraw>(prototypes);
   if (!Placing_.Add(kRankFlora, *made) || !Drawing_.Add(kRankFlora, *drawn)) {
     error = "the shipped catalogue names one rank twice";
     return false;
@@ -75,7 +78,8 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   Draws_.push_back(std::move(drawn));
 
   auto built = std::make_unique<Buildings>(ContactMaterial{0});
-  auto drawnBuilt = std::make_unique<BuildingDraw>(ClusterId{1}, 1.0);
+  auto drawnBuilt =
+      std::make_unique<BuildingDraw>(ClusterId{static_cast<uint32_t>(prototypes.size())}, 1.0);
   if (!Placing_.Add(kRankBuilding, *built) || !Drawing_.Add(kRankBuilding, *drawnBuilt)) {
     error = "the shipped catalogue names one rank twice";
     return false;

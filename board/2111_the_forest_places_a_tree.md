@@ -65,3 +65,23 @@ blind erhöhen. 2123/2124 bleiben Voraussetzungen der vollständigen Abnahme.
 
 Wahl: prozedurale Foliage/Instancing wie öffentliche Unreal-Konzepte; RAGE ist visueller
 Dichte-/Distanzbenchmark. Die aktuelle leere Welt wird nicht durch manuell gesetzte Bäume repariert.
+
+## Erhalt der Artidentität, dev/codex
+
+`Solid::Variant` erhält den vom Forest gewählten Artenindex. Das Feld nutzt die bisherigen
+vier Paddingbytes: sizeof(Solid) bleibt 48 Bytes. ForestDraw hält Prototyp-ID/Höhe pro Art
+und skaliert relativ zu dieser Höhe. Shipping vergibt getrennte IDs für Arten und Gebäude;
+das sind weiterhin Katalogreferenzen, noch keine registrierten GPU-Geometrien.
+
+`ForestInstancesKeepTheirSpecies` prüft zwei Arten mit unterschiedlichen Prototyphöhen,
+einen BodyRange mit Offset sowie Positions-/Höhenbeibehaltung. Echter Mutationslauf mit
+`Prototypes_[0]` statt `Prototypes_[body.Variant]`: Art-ID und Maßstab rot, drei Checkfehler.
+Wiederhergestellt: `make suite SUITE=outshine/conventions`, 10/10 PASS, Exit 0
+(`build/forest-species-restored.log`; Mutation `build/forest-species-negative.log`).
+Die neue Fixture benötigte vorab einen korrigierten Rasteraufbau; kein Produktoracle gelockert.
+
+`make shots PLACE='--measures Koerbersee'`, Exit 0, `build/forest-species-place.log`:
+54fe2b37, p99 7,82 ms, 0/120 Standframes über Budget; 4085 Flora und 4096 Instanzen.
+PNG geöffnet: weiterhin keine lesbaren Baumkronen, keine beanspruchte Bildverbesserung.
+Nächster Schritt bleibt Prototypgeometrie + MR-Materialien + echte instanzierte Übergabe,
+danach räumlich vollständige begrenzte Tile-Platzierung. WI bleibt active/offen.
