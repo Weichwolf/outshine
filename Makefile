@@ -12,7 +12,7 @@
 #   make db         compile_commands.json, derived from the SAME tier graph the build uses
 #   make lint       clang-format, clang-tidy and this tree's own repository rules
 #   make doc        the door's documentation -> build/doc
-#   make shots      every place through the camera -> build/shots  (PLACE=Shibuya for one)
+#   make shots      every place through the camera -> build/shots  (PLACE=Wien for one)
 #   make test       the fast gate
 #   make suite      one named suite                                (SUITE=outshine/places)
 #   make clean      remove build artefacts
@@ -49,7 +49,7 @@ lint: db         ## format, static analysis, and this tree's own repository rule
 doc:             ## the door's documentation -> build/doc
 	@cd $(SELF_DIR) && doxygen doc/Doxyfile
 
-shots: all       ## every place through the camera -> build/shots   (PLACE=Shibuya for one)
+shots: all       ## every place through the camera -> build/shots   (PLACE=Wien for one)
 	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
 
 test: all        ## the fast gate

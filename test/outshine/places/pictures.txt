@@ -180,3 +180,41 @@ Jura           f863068b  p50   2.81  p95   3.20  p99   3.66 ms  0 of 120
 ZurichPlan     b73f5cc8  p50   6.41  p95   7.14  p99   7.79 ms  0 of 120
 Kaiserberg     01849439  p50   3.45  p95   3.92  p99   4.18 ms  0 of 120
 Koehlbrand     563826b8  p50   3.50  p95   3.75  p99   3.96 ms  0 of 120
+
+# 2026-09-07 -- THE PLACES ARE NINE REAL CAMERAS NOW, and everything above this line is the old
+# corpus: nine views chosen by hand, at a bearing somebody picked, on a made-up midsummer noon.
+# They proved the tree against ITSELF, which is agreement and never correctness.
+#
+# What stands here instead is foto-webcam.eu: nine cameras that publish their position, their
+# height, the direction they face and their sector, and that write a 6000 x 4000 photograph every
+# ten minutes. Each place answers ONE of those photographs -- the one under
+# build/shots/webcam/<place>_2026-09-07_<hhmm>.jpg -- so a frame can be laid beside a picture of
+# the same place at the same minute and a stranger asked whether they are the same place.
+#
+# Three things had to be right before any of them framed, and each is in the commit: FovDeg is the
+# VERTICAL field of view (the published sector is horizontal); the published `elevation` is the
+# SITE's height and not always the camera's, so the height is set per place by looking; and a
+# camera can stand inside its own building, as Vienna's did until it moved 20 m along its bearing
+# to the facade it actually hangs on. The pitch no camera publishes at all -- it is set by laying
+# the frame beside the photograph, three rounds, looking each time.
+#
+# Where the skylines land, render against photograph, in rows of a 720-high frame:
+#   Darmstadt 408/415   Wien 468/470   Rosenheim 268/300   Husum 208/215   Olympiaturm 58/40
+#   Graz 413/410   Koerbersee 558/555 (the lake)   Malcesine 348/355 (the shore)   Feldkirch 258/250
+#
+# A Place is now a surveyed camera and nothing else: Seen, SpanM and the overhead branch went with
+# the old corpus, because with every place a survey the enum held one value. The orthographic
+# camera itself is untouched behind the door, where seventeen sites reach it -- what went is the
+# shot place's own plan view, and with it ZurichPlan's drawing.
+#
+# These nine digests are the same on both sides of that simplification, which is what says it was
+# one.
+DarmstadtWest  13043da0  p50   2.32  p95   2.52  p99   3.27 ms  0 of 120
+Wien           a6b35526  p50   3.96  p95   4.48  p99   4.75 ms  0 of 120
+Rosenheim      8c8f1426  p50   1.96  p95   2.09  p99   2.43 ms  0 of 120
+Husum          dcacfc84  p50   2.58  p95   2.73  p99   3.25 ms  0 of 120
+Olympiaturm    6f424dc8  p50   2.77  p95   3.06  p99   3.39 ms  0 of 120
+Graz           043d2c92  p50   3.20  p95   3.47  p99   3.69 ms  0 of 120
+Koerbersee     12552f22  p50   1.80  p95   2.32  p99   2.77 ms  0 of 120
+Malcesine      789f4f86  p50   2.15  p95   2.49  p99   2.53 ms  0 of 120
+Feldkirch      5d91a5fe  p50   3.25  p95   3.74  p99   5.68 ms  0 of 120

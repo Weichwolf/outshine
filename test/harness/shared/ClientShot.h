@@ -99,7 +99,7 @@ inline int ScorePlace(const char *place) {
   }
   // A PICTURE EQUAL TO A REFERENCE WAS LOOKED AT, which is the stronger proof: the bar below is a
   // heuristic against an empty frame, and a frame that is byte for byte one an eye accepted under
-  // build/shots/reference/ cannot be empty -- Kaiserberg's broad fields read 0.67 along their rows
+  // build/shots/reference/ cannot be empty -- Koerbersee's meadow and lake read 0.67 along their rows
   // with a town and a bridge in view.
   if (std::filesystem::exists(std::string("build/shots/reference/") + place + "-" + row.Digest +
                               ".png")) {

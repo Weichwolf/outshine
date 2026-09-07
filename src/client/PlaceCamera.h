@@ -20,41 +20,29 @@ inline constexpr int kWidePx = 1280;
 inline constexpr int kHighPx = 720;
 inline constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 
-/// What an EYE place takes when it states nothing of its own.
-inline constexpr double kEyeAglM = 60.0;
-inline constexpr double kPitchDeg = -6.0;
-inline constexpr double kFovDeg = 55.0;
-
 struct Place {
-  /// How a place is looked at. An EYE stands on the ground at head height and looks along a
-  /// bearing, which is what a person would see and what the frame budget is measured against. A
-  /// PLAN looks straight down through an orthographic camera over a stated span of ground: no
-  /// perspective, no horizon, every metre the same size, which is the view that shows whether the
-  /// generators put things where the map says. One is the product; the other is the drawing.
-  /// A SURVEY is a real camera: a published position, a height above sea level, a bearing, a
-  /// field of view and a pitch, so a photograph taken from it can be laid beside the frame.
-  enum class Seen : uint8_t { Eye, Plan, Survey };
-
+  /// A PLACE IS A REAL CAMERA, and the corpus is foto-webcam.eu: a published position, a height
+  /// above sea level, a bearing and a field of view, standing where a camera stands and looking
+  /// where it looks. Its photograph at `WhenUtc` is the thing this frame is laid beside, which is
+  /// what makes "does this look real" a question with an answer.
   const char *Name = "";
+
   double LatitudeDeg = 0.0;
   double LongitudeDeg = 0.0;
-  double BearingDeg = 0.0;
-
-  Seen From = Seen::Eye;
-
-  /// PLAN only: the ground the frame covers top to bottom, in metres.
-  double SpanM = 0.0;
-
-  /// SURVEY only: where the camera stands and what it sees, as its operator published it.
-  /// The height is above SEA LEVEL and the ground is not sampled under it.
+  /// Above SEA LEVEL, in metres. The ground is not sampled under it -- a camera stands where it
+  /// was surveyed, not where the terrain happens to reach.
   double HeightAslM = 0.0;
-  double PitchDeg = kPitchDeg;
-  double FovDeg = kFovDeg;
 
-  /// The instant the place is standing at, ISO 8601 UTC. The engine stands the sun from this
-  /// and the place's coordinates, so a hand-set elevation would be a second answer to a question
-  /// the clock already answers. Stated rather than live, because a live clock moves the picture's
-  /// digest and the tree's determinism is not optional.
+  double BearingDeg = 0.0;
+  /// The one figure a camera does not publish, so it is set by laying the frame beside the
+  /// photograph and looking at where the skyline lands.
+  double PitchDeg = 0.0;
+  /// VERTICAL, in degrees, as the door and glTF declare it. The corpus publishes a HORIZONTAL
+  /// sector, so a place carries the sector converted for this frame's aspect.
+  double FovDeg = 0.0;
+
+  /// The instant the place is standing at, ISO 8601 UTC: the timestamp of the photograph it is
+  /// answering. The engine stands the sun from this and the place's coordinates.
   const char *WhenUtc = "";
 };
 
