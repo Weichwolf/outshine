@@ -124,3 +124,26 @@ Alle Diagnoseänderungen zurückgenommen. Die ID-Gleichheit grenzt wechselnde
 Oberflächenzuordnung ein; die konkrete Shader-/Samplerursache bleibt offen.
 Nächste kausale Untersuchung: Auswertung/Präzision der Ableitungen und deren
 Compilerübersetzung. Keine permanente Diagnoseausgabe als vermeintliche Reparatur.
+
+## Tatsächliche MSL-Übersetzung, 2026-09-08
+
+Temporärer SDL_ShaderCross_TranspileMSLFromSPIRV-Dump im bestehenden Shader-Lader,
+durch Make ausgeführt. `build/shared-piece-msl-inspection.log`: Exit 2, 17/18 PASS,
+Schach erneut dreimal 420 Farbkanäle, max. 0.00268555. Die Textur-Varianten unter
+build/shaders/flat-*.frag.spv.msl enthalten float2-UVs und texture2d<float>, keine
+ausdrückliche Half-Absenkung dieses Pfads. Das ist die Übersetzung vor dem
+Metal-Compiler, keine Aussage über dessen Maschinenprogramm.
+
+`build/shared-piece-precise-gradient-probe.log`: precise an Koordinate, mappedUv,
+dx/dy plus textureGrad, ohne zusätzlichen Ausgabeanhang. Wieder Exit 2, 17/18 PASS,
+dieselben 420 Abweichungen. MSL enthält mix/dot, dfdx/dfdy und gradient2d; die
+Fine-Namen werden nicht als getrennte MSL-Intrinsics ausgegeben. Die Probe
+löst nichts und beide temporären Quelländerungen sind zurückgenommen.
+GLSL-Referenz: https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.html
+
+Vor weiterer Shaderarbeit den Fehler mit dem unveränderten Renderer aus HEAD
+ohne den neuen Piece-Instanzpfad gegenprüfen. Das trennt eine Regression dieses
+Schritts von einem bereits bestehenden Mip/Occlusion-Fehler und bestimmt, ob
+die unabhängig geprüfte Instanzübergabe weiter zur Waldanbindung gelangen kann.
+Den roten Wiederholungstest dabei erhalten; die neue Piece-Fixture benötigt
+die neue API und gehört deshalb nicht zur alten Baseline.
