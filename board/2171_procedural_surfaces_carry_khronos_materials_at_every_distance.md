@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: world, render
 Tags: webcam, measured
 Depends: 2173, 2166
@@ -93,3 +93,18 @@ TreeSpecies liest bark_roughness/leaf_roughness mit [0,1]-Validierung. Defaults 
 plausible Startwerte, keine gemessenen artspezifischen Materialdaten. Normal-/Rindenrelief,
 Blatttransmission und saisonale Änderungen bleiben offen. Die neue Fixture prüft getrennte
 Bindungen, explizite Rauheiten und ungültige Eingaben; 11/11 Konventionsfälle grün.
+
+## Einstieg native Bilder, Voraussetzung für 2111/2123
+
+Live::CarriesBuilt/der native Anhang in StandsSubjects übernehmen Materialwerte, aber keine
+Geometry.addImage-Daten in SubjectTexture. Vorhandene Renderer-Sockets für BaseColour,
+Normal, MetalRough, Emissive und Specular stehen bereit. Diese Übergabe gemeinsam binden,
+mit Image-Indexprüfung, UV-Transform, UV-Set und Sampler; Geometry hält die Bildbytes bis
+zum Upload wie bereits die Mesh-Spans. Kein zweiter Textur-Renderer. Occlusion besitzt
+noch keinen Socket und bleibt separat offen.
+
+Unreal-/RAGE-Prototyp-/Atlasprinzip bleibt das Ziel für Wald; native Geometry/SurfaceMap
+ist die vorhandene Tür. GPU-Fixture: prozedurales 2×2-Farbbild auf einer nativen Fläche,
+quadrantenweise Farboracle im linearen Render und PNG. Fehlende Bindung muss rot werden.
+Sampler/UV-Metadaten und weitere vorhandene Sockets gezielt prüfen; kein vollständiger
+MR-Konformitätsnachweis allein aus dieser Farb-Fixture.
