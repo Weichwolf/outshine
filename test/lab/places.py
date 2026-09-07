@@ -92,6 +92,9 @@ GROUND_REACH_M = 12000.0         # terrain: far enough that the world does not E
 GROUND_RINGS = 72                # a POLAR grid: rings times spokes, so no T-junction and no seam
 GROUND_SPOKES = 96
 GROUND_NEAR_M = 8.0
+GROUND_TILT_MOST_DEG = 80.0      # [SET] steeper than any 25 m-posting DEM can carry; see `P ground`
+GROUND_NEEDLE = 1e-3             # [SET] plan area over longest edge squared; under it the normal is noise
+GROUND_NEEDLES_MOST = 32         # a CEILING that may only fall: the CDT is run without `q` on purpose
 BUILT_MOST = 40000               # [SET] a guard against a runaway extract, not a quality knob
 
 WALL_COLOUR = {"brick": (0.62, 0.46, 0.40), "stone": (0.72, 0.70, 0.65),
@@ -557,7 +560,15 @@ class Parts:
 
     @property
     def of(self):
-        """The twin's own view: {role: (positions as (N, 3), triangles as (M, 3))}."""
+        """The twin's own view: {role: (positions as (N, 3), triangles as (M, 3))}.
+
+        IT IS A VIEW AND IT IS READ-ONLY. Built fresh on every read, `parts.of[role] = ...`
+        writes into a dict that is thrown away on the next line -- and `place()` moved the whole
+        scene under the camera exactly that way. The move was silently lost whenever the parts
+        came from a BUILD and silently applied whenever they came from the CACHE, so the same
+        command rendered the alley or the place's origin depending on whether a pickle existed.
+        Two street-level pictures were judged before the difference between them was noticed
+        (2026-09-07). Use `move` to translate; there is no other way in."""
         self.close()
         out = {}
         for part in range(self.geom.parts()):
@@ -565,6 +576,15 @@ class Parts:
                 self.geom.positionsOf(part).reshape(-1, 3),
                 self.geom.trianglesOf(part).reshape(-1, 3).astype(np.int64))
         return out
+
+    def move(self, dx, dy, dz=0.0):
+        """Translate every part in place -- the one way the scene is moved under the camera."""
+        self.close()
+        for part in range(self.geom.parts()):
+            v = self.geom.positionsOf(part).reshape(-1, 3)
+            v[:, 0] -= dx
+            v[:, 1] -= dy
+            v[:, 2] -= dz
 
     def counts(self):
         return {k: len(t) for k, (v, t) in self.of.items()}
@@ -631,6 +651,14 @@ class Baked:
     def __init__(self, held):
         self.of = dict(held)
 
+    def move(self, dx, dy, dz=0.0):
+        for role, (v, t) in self.of.items():
+            moved = v.copy()
+            moved[:, 0] -= dx
+            moved[:, 1] -= dy
+            moved[:, 2] -= dz
+            self.of[role] = (moved, t)
+
 
 def parts_of(place, frame, doc, red, lod=3, camera=None):
     """THE PLACE AS GEOMETRY BY ROLE, which is what a look can be judged from.
@@ -674,6 +702,11 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     at_xy, at_z = eye_of(camera, frame)
     horizon = occlusion.Horizon(at_xy, at_z, camera.bearing_deg, camera.fov_deg)
     keep, node_tests, leaf_tests = occlusion.visible(tree, horizon)
+    # THE CULLER HAS AN OFF SWITCH BECAUSE ITS PROOF NEEDS ONE. board:2162's P1 says the culled
+    # picture equals the uncut one pixel for pixel, and a claim like that is a COMPARISON or it
+    # is nothing. `OUTSHINE_NOCULL=1` builds everything and renders it, which is the other half.
+    if os.environ.get("OUTSHINE_NOCULL"):
+        keep, horizon = set(range(len(bodies))), None
     took(f"cull {len(keep)}/{len(bodies)} {node_tests}+{leaf_tests}")
 
     mesh, ways = roads_of(place, frame, red, horizon, camera)
@@ -705,7 +738,14 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     if street_face is None and not patches:
         put("ground", *ground_fan(frame), stock.STOCK["grass"])
     else:
-        sheet = lab_ground.surface(lambda x, y: frame.z(x, y), street_face,
+        # ONE FRAME FOR BOTH HEIGHTS. `z_edge` is the DRAWN street's own surface and carries the
+        # DEM's metres above the sea; `frame.z` is relative to the datum under the camera. Handed
+        # in as they stood, the sheet mixed the two and `drop` then took the datum off both: the
+        # street came out right and the fan came out 432.2 m under it. Measured 2026-09-07 at
+        # OldTown -- a ground vertex at (-7148, 8151) read -572.6 m where `frame.z` says -140.4,
+        # and the difference IS the datum. In the picture it was a vertical green cliff with the
+        # street floating on its edge, and every case was GREEN.
+        sheet = lab_ground.surface(lambda x, y: frame.z(x, y) + frame.datum, street_face,
                                    kerbline.edge_height(surface, sites) if street_face is not None
                                    else None,
                                    reach_m=GROUND_REACH_M, rings=GROUND_RINGS,
@@ -891,6 +931,44 @@ def one(place):
         if zmin < low or zmax > high:
             red.append(f"P earth({role} {zmin:.0f}..{zmax:.0f} m)")
             break
+    # AND THE GROUND IS NOT A WALL. A terrain face standing within a degree of vertical is not a
+    # slope: the steepest ground on Earth is a cliff and a DEM whose postings are 25 m apart
+    # cannot resolve one, so 90 degrees means two heights in one place rather than a mountain.
+    # Measured 2026-09-07: the ground's tilt read p99 89.7 and max 90.0 while `ink`, `black`,
+    # `P earth` and every geometric check stayed green and the picture was published.
+    # [SET] 80 degrees: a 25 m posting would need a 142 m step between neighbours to reach it,
+    # which is steeper than anything a DEM of this class carries.
+    for role, (v, t) in parts.of.items():
+        if not role.startswith("g_") or not len(t):
+            continue
+        a, b, c = v[t[:, 0]], v[t[:, 1]], v[t[:, 2]]
+        n = np.cross(b - a, c - a)
+        run = np.linalg.norm(n, axis=1)
+        live = run > 1e-12
+        if not live.any():
+            continue
+        # A NEEDLE IS NOT A CLIFF, and telling them apart is the whole point. A face whose three
+        # points are nearly collinear IN PLAN has a normal made of noise: measured 2026-09-07,
+        # eight faces of 17 531 read 85 to 90 degrees while carrying 0.06 to 3.10 m of fall over
+        # spans of 0.7 to 43 m -- slopes of two degrees. Judged by the normal alone the oracle
+        # would report a wall that is not there and stay silent about the one that is. The tilt
+        # is therefore read only where the face has AREA in plan, and the needles are counted.
+        flat = 0.5 * np.abs(n[live, 2])
+        edge = np.maximum(np.maximum(np.linalg.norm((b - a)[live, :2], axis=1),
+                                     np.linalg.norm((c - b)[live, :2], axis=1)),
+                          np.linalg.norm((a - c)[live, :2], axis=1))
+        solid = flat > GROUND_NEEDLE * edge ** 2
+        needles = int((~solid).sum())
+        if solid.any():
+            tilt = np.degrees(np.arccos(np.clip(np.abs(n[live, 2][solid]) / run[live][solid],
+                                                0.0, 1.0)))
+            if float(tilt.max()) > GROUND_TILT_MOST_DEG:
+                red.append(f"P ground({role} tilt {tilt.max():.0f} deg, "
+                           f"{int((tilt > GROUND_TILT_MOST_DEG).sum())} faces)")
+                break
+        if needles > GROUND_NEEDLES_MOST:
+            red.append(f"P needle({role} {needles} of {int(live.sum())})")
+            break
     OUT.mkdir(parents=True, exist_ok=True)
     shot = OUT / f"{place['name']}.png"
     # AND THE EYE MAY STAND SOMEWHERE ELSE. A place's origin is a coordinate a surveyor chose,
@@ -900,11 +978,7 @@ def one(place):
     got = [float(v) for v in eye.split(",")] if eye else []
     if len(got) >= 6:
         dx, dy = got[4], got[5]
-        for role, (vv, tt) in list(parts.of.items()):
-            moved = vv.copy()
-            moved[:, 0] -= dx
-            moved[:, 1] -= dy
-            parts.of[role] = (moved, tt)
+        parts.move(dx, dy)
         # AND `agl_m` MEANS ABOVE THE GROUND UNDER THE EYE, not above the origin's. A town on a
         # hill puts those metres apart, and 1.7 m over the wrong one is either underground or a
         # first-floor window.

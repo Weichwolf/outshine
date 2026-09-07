@@ -665,6 +665,14 @@ sc.render.filepath = {out}
 sc.render.image_settings.file_format = "PNG"
 if {engine} == "CYCLES":
     sc.cycles.samples = {samples}
+    # THE SAME DECLARATION RENDERS THE SAME BYTES, TWICE. Cycles seeds its sampler from the frame
+    # number by default and every pixel then differs a little between two runs of one scene: the
+    # comparison that proves a culler loses nothing read 2.1 % of pixels moved with a worst
+    # channel of 5, and a proof whose noise floor has to be argued about is not a proof. These
+    # renders are also the reference the C++ will be measured against, and a reference that
+    # wanders is worth nothing.
+    sc.cycles.seed = 0
+    sc.cycles.use_animated_seed = False
     sc.cycles.use_denoising = True
     sc.cycles.max_bounces = 4
 sc.view_settings.view_transform = "AgX"
