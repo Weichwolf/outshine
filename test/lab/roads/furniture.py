@@ -215,7 +215,25 @@ BARRIERS = {"wall": wall_along, "fence": fence_along, "hedge": hedge_along,
             "hedge_bank": hedge_along}
 
 
-def from_osm(doc, frame, z_at):
+# A TREE IS THE MOST EXPENSIVE THING ON A STREET, and the numbers say by how much: measured
+# 2026-09-07 on this generator, one tree is 192 triangles at rung 0, 2 184 at rung 1, 18 114 at
+# rung 2 and 57 318 at rung 3. OldTown's surveyed trees at rung 2 were 5 085 776 triangles --
+# 74 % of the whole twin -- and Blender was killed by the system for want of memory. So a tree
+# takes the rung its DISTANCE earns, which is the same rule the road and the footway now follow.
+TREE_LOD_M = (25.0, 110.0, 420.0)   # [SET] rung 2 within the first, rung 1 the second, rung 0 the third
+
+
+def tree_lod(x, y, reach=None):
+    d = math.hypot(x, y)
+    near, mid, far = TREE_LOD_M
+    if reach is not None and d > reach:
+        return None
+    if d > far:
+        return None
+    return 2 if d <= near else (1 if d <= mid else 0)
+
+
+def from_osm(doc, frame, z_at, reach_m=None):
     """EVERYTHING THE SURVEYOR ALREADY PUT THERE. Nodes for the points, ways for the lines."""
     nodes = {e["id"]: e for e in doc["elements"] if e["type"] == "node"}
     out = []
@@ -228,7 +246,9 @@ def from_osm(doc, frame, z_at):
             continue
         z = z_at(x, y)
         if tags.get("natural") == "tree":
-            out += list(tree(x, y, z, seed=e["id"] & 0xFFFF))
+            rung = tree_lod(x, y, reach_m)
+            if rung is not None:
+                out += list(tree(x, y, z, seed=e["id"] & 0xFFFF, lod=rung))
         elif tags.get("barrier") == "bollard":
             out += list(bollard(x, y, z))
     for e in doc["elements"]:

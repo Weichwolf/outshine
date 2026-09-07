@@ -189,10 +189,18 @@ def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings
         spec["holes"] = np.array(hole_pts, dtype=float)
     got = tri.triangulate(spec, "p")
     near_v = got["vertices"]
-    on_edge = set(range(edge_count))
+    # WHICH VERTICES TAKE THE STREET'S HEIGHT: the ones ON THE STREET'S OWN RING, and no others.
+    # Taken as "everything before the fan points" it caught every PATCH boundary too, and a patch
+    # boundary five hundred metres from any road was handed the height of the nearest carriageway
+    # -- which drew the terrain as a plateau with a cliff around it (looked at, 2026-09-07).
+    on_edge = np.zeros(len(near_v), dtype=bool)
+    if holes is not None and not holes.is_empty and len(near_v):
+        on_edge = np.asarray(shapely.dwithin(
+            shapely.points(np.asarray(near_v)[:, 0], np.asarray(near_v)[:, 1]),
+            holes.boundary, 0.002))
     for i, (x, y) in enumerate(near_v):
         x, y = float(x), float(y)
-        verts.append((x, y, (z_edge if i in on_edge else z_at)(x, y)))
+        verts.append((x, y, (z_edge if on_edge[i] else z_at)(x, y)))
     for (a, b, c) in got.get("triangles", []):
         pa, pb, pc = (np.asarray(verts[i]) for i in (int(a), int(b), int(c)))
         up = float(np.cross(pb - pa, pc - pa)[2])

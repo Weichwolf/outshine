@@ -65,6 +65,12 @@ LOOKS = {
 }
 
 
+# THE BLUE CHANNEL IS A HEIGHT OVER THE GROUND, DIVIDED BY THIS. A vertex colour is a byte,
+# so the range has to be declared: 20 m covers a five-storey block and gives 8 cm of
+# resolution, which is a sixth of the splash band it is read for.
+HEIGHT_SCALE_M = 20.0
+
+
 def write_ply(path, verts, tris, field=None):
     """Binary would be faster; this is a lab and a text PLY is one thing less to get wrong.
 
@@ -121,28 +127,55 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
                                    "KHR_materials_transmission", {}).get(
                                        "transmissionFactor", 0.0)),
                                **dict({"grain_m": 0.0, "relief_m": 0.0, "mottle": 0.0,
-                                       "unit_m": [0.0, 0.0], "joint_m": 0.0, "bond": ""},
+                                       "unit_m": [0.0, 0.0], "joint_m": 0.0, "bond": "",
+                                       "splash_m": 0.0},
                                       **m.get("extras", {})))
         elif isinstance(got, tuple) and len(got) == 3 and isinstance(got[0], (tuple, list)):
             table[role] = dict(rgb=tuple(got[0]), alpha=1.0, metal=float(got[2]),
                                rough=float(got[1]), ior=1.5, emissive=(0.0, 0.0, 0.0),
                                strength=1.0, mode="OPAQUE", cutoff=0.5, two=False,
                                transmission=0.0, grain_m=0.0, relief_m=0.0, mottle=0.0,
-                               unit_m=[0.0, 0.0], joint_m=0.0, bond="")
+                               unit_m=[0.0, 0.0], joint_m=0.0, bond="", splash_m=0.0)
         else:
             table[role] = dict(rgb=tuple(got), alpha=1.0, metal=0.0, rough=0.85, ior=1.5,
                                emissive=(0.0, 0.0, 0.0), strength=1.0, mode="OPAQUE",
                                cutoff=0.5, two=False, transmission=0.0,
                                grain_m=0.0, relief_m=0.0, mottle=0.0,
-                               unit_m=[0.0, 0.0], joint_m=0.0, bond="")
-    worn = {r: True for r in (fields or {})}
-    stood = dict(grounds or {})
-    files = {}
+                               unit_m=[0.0, 0.0], joint_m=0.0, bond="", splash_m=0.0)
+    # PARTS THAT LOOK THE SAME BECOME ONE MESH. A town twin hands over seven thousand of them --
+    # a role per building per surface -- and Blender imports a PLY with one operator call each,
+    # each of which updates the scene: measured 2026-09-07, fifteen minutes before a ray was
+    # traced. Grouping by the LOOK is what an engine's draw call batching is, and it is only
+    # possible because nothing per-PART reaches the material any more: the height over the
+    # ground rides on the vertex colour instead.
+    fields = fields or {}
+    group = {}
     for role, (verts, tris) in parts.items():
         if not tris or role not in table:
             continue
+        look = table[role]
+        key = tuple(sorted((k, tuple(v) if isinstance(v, (list, tuple)) else v)
+                           for k, v in look.items()))
+        got = group.setdefault(key, {"name": role.split(".")[0], "v": [], "t": [], "f": [],
+                                     "look": look, "worn": False})
+        base = len(got["v"])
+        got["v"].extend(verts)
+        got["t"].extend((a + base, b + base, c + base) for (a, b, c) in tris)
+        held = fields.get(role)
+        if held is not None:
+            got["worn"] = True
+            got["f"].extend(tuple(row) for row in held)
+        else:
+            got["f"].extend((0.0, 0.0, 0.0) for _ in verts)
+    table = {}
+    worn = {}
+    files = {}
+    for at, got in enumerate(group.values()):
+        role = f"{got['name']}_{at}"
+        table[role] = got["look"]
+        worn[role] = got["worn"]
         files[role] = str(work / f"{role}.ply")
-        write_ply(files[role], verts, tris, (fields or {}).get(role))
+        write_ply(files[role], got["v"], got["t"], got["f"] if got["worn"] else None)
     sun = np.asarray(sun, dtype=float)
     sun = sun / max(float(np.linalg.norm(sun)), 1e-9)
     elev = math.degrees(math.asin(max(-1.0, min(1.0, float(sun[2])))))
@@ -151,13 +184,13 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
     script.write_text(_SCRIPT.format(
         files=repr(files), looks=repr({k: table[k] for k in files}),
         worn=repr({k: bool(worn.get(k)) for k in files}),
-        stood=repr({k: float(stood[k]) for k in files if k in stood}),
         width=camera.width, height=camera.height, fov=camera.fov_deg,
         bearing=camera.bearing_deg, pitch=camera.pitch_deg, agl=camera.agl_m,
         ortho=bool(camera.orthographic), ymag=camera.y_mag_m,
         elev=elev, azim=azim, samples=int(samples), haze=float(haze),
         sky_gain=float(sky_gain), sun_gain=float(sun_gain), exposure=float(exposure),
         balance_k=float(balance_k),
+        height_scale=HEIGHT_SCALE_M,
         out=repr(str(out_png)), engine=repr(engine)))
     done = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(script)],
                           capture_output=True, text=True, timeout=3600)
@@ -168,6 +201,7 @@ def render(parts, camera, sun, out_png, samples=64, haze=0.35, engine="CYCLES",
 
 _SCRIPT = r'''
 import bpy, math, mathutils
+HEIGHT_SCALE_M = {height_scale}
 
 def _bond(nt, vec, cell, joint, stagger):
     """A COURSED BOND IN METRES, and not Blender's Brick node.
@@ -309,9 +343,28 @@ def _triplanar(nt, coord, make, sharp=6.0):
 files = {files}
 looks = {looks}
 worn = {worn}
-stood = {stood}
 for o in list(bpy.data.objects):
     bpy.data.objects.remove(o, do_unlink=True)
+
+# ONE MATERIAL PER LOOK, not per PART. A town twin hands over seven thousand parts -- a role per
+# building per surface -- and each was given its own Blender material with the bond's hundred
+# nodes in it, so the renderer sat compiling seven hundred thousand shader nodes before it traced
+# a ray (measured 2026-09-07: fifteen minutes on a scene of 1.9 million triangles). Parts that
+# LOOK the same share one material, which is what an engine's material INSTANCE is for.
+_made = {{}}
+
+
+def _material(role, ob):
+    look = looks[role]
+    key = (tuple(sorted((k, tuple(v) if isinstance(v, (list, tuple)) else v)
+                        for k, v in look.items())), bool(worn.get(role)))
+    got = _made.get(key)
+    if got is not None:
+        return got, False
+    mat = bpy.data.materials.new(role)
+    _made[key] = mat
+    return mat, True
+
 
 for role, path in files.items():
     try:
@@ -321,7 +374,11 @@ for role, path in files.items():
     ob = bpy.context.selected_objects[0]
     ob.name = role
     look = looks[role]
-    mat = bpy.data.materials.new(role)
+    mat, fresh = _material(role, ob)
+    if not fresh:
+        ob.data.materials.append(mat)
+        ob.data.shade_flat()
+        continue
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
     rgb = look["rgb"]
@@ -417,20 +474,24 @@ for role, path in files.items():
             nt.links.new(coord.outputs["Object"], wide.inputs["Vector"])
             nt.links.new(wide.outputs["Fac"], mix.inputs["Factor"])
             nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
-    # THE SPLASH BAND, where the generator said how high this body's ground is. Rain bounces
-    # 0.5 m off a paved surface and no higher, so what a wall needs is its own height over the
-    # ground -- one number -- and not a vertex field a wall quad cannot carry (I23 counted 198
-    # to 392 saturated edges on every building case before this moved into the shader).
-    if role in stood:
+    # THE SPLASH BAND. Rain bounces 0.5 m off a paved surface and no higher, and what a wall
+    # needs to know is its own HEIGHT OVER THE GROUND. That number is carried per VERTEX in the
+    # blue channel -- linear in z, so interpolation across a fifteen-metre wall quad is EXACT --
+    # and the material does the clamping, which is the non-linear half a vertex cannot hold.
+    # It was a per-material constant first, and that is what stopped seven thousand parts from
+    # ever being batched into one mesh.
+    if look.get("splash_m", 0.0) > 0.0 and worn.get(role):
         nt = mat.node_tree
-        geo = nt.nodes.new("ShaderNodeNewGeometry")
-        axis = nt.nodes.new("ShaderNodeSeparateXYZ")
-        nt.links.new(geo.outputs["Position"], axis.inputs["Vector"])
+        col = nt.nodes.new("ShaderNodeAttribute")
+        names = [a.name for a in getattr(ob.data, "color_attributes", [])]
+        col.attribute_name = names[0] if names else "Col"
+        chan = nt.nodes.new("ShaderNodeSeparateColor")
+        nt.links.new(col.outputs["Color"], chan.inputs["Color"])
         band = nt.nodes.new("ShaderNodeMapRange")
         band.clamp = True
-        nt.links.new(axis.outputs["Z"], band.inputs["Value"])
-        band.inputs["From Min"].default_value = stood[role]
-        band.inputs["From Max"].default_value = stood[role] + 0.50
+        nt.links.new(chan.outputs["Blue"], band.inputs["Value"])
+        band.inputs["From Min"].default_value = 0.0
+        band.inputs["From Max"].default_value = look["splash_m"] / HEIGHT_SCALE_M
         band.inputs["To Min"].default_value = 1.0
         band.inputs["To Max"].default_value = 0.0
         wet = nt.nodes.new("ShaderNodeMix")
@@ -448,7 +509,7 @@ for role, path in files.items():
     # THE WEATHERING FIELD, if the generator handed one over: polish, silt, splash on the vertex
     # colour. Nothing here is a pattern -- a tyre polished the red channel, water left the green
     # one and rain bounced into the blue -- and the material only has to READ them.
-    if worn.get(role):
+    if worn.get(role) and look.get("splash_m", 0.0) <= 0.0:
         nt = mat.node_tree
         col = nt.nodes.new("ShaderNodeAttribute")
         # THE ATTRIBUTE HAS TO BE NAMED. Left to the default the node reads BLACK, and a field

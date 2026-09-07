@@ -64,19 +64,36 @@ def triangulate(poly, z_of, opts="p", seeds=()):
     so a bare CDT gives it triangles long enough to fold the fall into visible creases along
     every corner (rendered in plan and looked at). A quality mesh with a size bound has none."""
     import triangle as tri
-    pts, segs, holes = [], [], []
+    # ONE INDEX, AS IN `ground.py`, AND FOR THE SAME REASON: a point snapped to a millimetre
+    # appears once and a segment is an unordered pair of indices. Built ring by ring without it,
+    # the footway of a real extract handed Shewchuk the same point twice wherever two buffers
+    # touched, and `triangle` answered with SIGNAL 11 (measured 2026-09-07 on OldTown).
+    index, pts, bars, holes = {}, [], set(), []
+
+    def point(x, y):
+        key = (round(float(x), 3), round(float(y), 3))
+        at = index.get(key)
+        if at is None:
+            at = len(pts)
+            index[key] = at
+            pts.append(key)
+        return at
+
     for part in _rings(poly):
         for ring, is_hole in [(part.exterior, False)] + [(r, True) for r in part.interiors]:
             coords = list(ring.coords)[:-1]
             if len(coords) < 3:
                 continue
-            base = len(pts)
-            pts += [(float(x), float(y)) for (x, y) in coords]
-            n = len(coords)
-            segs += [(base + i, base + (i + 1) % n) for i in range(n)]
+            got = [point(x, y) for (x, y) in coords]
+            n = len(got)
+            for i in range(n):
+                u, v = got[i], got[(i + 1) % n]
+                if u != v:
+                    bars.add((min(u, v), max(u, v)))
             if is_hole:
                 q = Polygon(ring).representative_point()
                 holes.append((q.x, q.y))
+    segs = sorted(bars)
     if len(pts) < 3:
         return [], []
     # A GRADED MESH, and the seeds are where the grading is needed: a uniform quality mesh fine
@@ -144,6 +161,8 @@ class Surface:
     nearest jumps by the difference of the two crowns, which read as a crease and a bright wedge
     along every corner."""
 
+    REACH_M = 60.0            # [SET] beyond this the road is not what the ground does
+
     def __init__(self, mesh, z_at, blend=8):
         from scipy.spatial import cKDTree
         self.z_at, self.blend = z_at, blend
@@ -187,6 +206,11 @@ class Surface:
             return self.z_at(x, y)
         k = min(max(self.blend, 12), self.near.n)
         d, idx = self.near.query([x, y], k=k)
+        # AND THE ROAD IS NOT WHAT THE GROUND DOES A KILOMETRE AWAY. Without this the nearest
+        # carriageway answered for every point on Earth, and a ground patch far from any road
+        # was lifted onto it.
+        if float(np.atleast_1d(d)[0]) > self.REACH_M:
+            return self.z_at(x, y)
         d, idx = np.atleast_1d(d), np.atleast_1d(idx)
         for i in idx:
             if self._inside(int(i), x, y):
@@ -357,7 +381,12 @@ def street_edge(m, st, surface, sites=(), fine_reach_m=None):
             out.append((role, *triangulate(near, z_of, opts,
                                            [q for q in seeds if disc.covers(Point(*q))])))
         if not far.is_empty:
-            out.append((role, *triangulate(far, z_of, "p")))
+            # AND SIMPLIFIED OUT THERE. The outline is what the triangulation costs -- a city's
+            # footway is a multipolygon of thousands of rings -- and 30 mm is under a pixel at
+            # the distance this half of the ring is seen from.
+            far = far.simplify(0.03)
+            if not far.is_empty:
+                out.append((role, *triangulate(far, z_of, "p")))
 
     out = []
     apron = face.difference(drivable)

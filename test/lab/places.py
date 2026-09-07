@@ -38,6 +38,7 @@ import importlib.util as _util  # noqa: E402
 
 import data as roaddata  # noqa: E402
 import publish  # noqa: E402
+import blend  # noqa: E402
 import camera as lab_camera  # noqa: E402
 import materials as stock  # noqa: E402
 import street  # noqa: E402
@@ -46,6 +47,7 @@ import junction  # noqa: E402
 import amenities  # noqa: E402
 import surfaces  # noqa: E402
 import wear  # noqa: E402
+import furniture  # noqa: E402
 import ground as lab_ground  # noqa: E402
 
 _spec = _util.spec_from_file_location("outshine_road_bed", HERE / "roads" / "synthetic.py")
@@ -140,7 +142,20 @@ PLACES, CAM = client_places()
 
 
 def camera_for(place):
-    """The lab camera that stands exactly where the client's does."""
+    """The lab camera that stands exactly where the client's does.
+
+    `OUTSHINE_EYE=agl,bearing,pitch[,fov]` moves it, which is the one instrument a twin needs and
+    did not have: the client's own camera stands above the roofs, so a whole street pass -- the
+    kerb, the markings, the crossings, the footway's paving -- was built and never once LOOKED at
+    in a real place. The default is the client's and nothing published moves it."""
+    eye = os.environ.get("OUTSHINE_EYE")
+    if eye:
+        got = [float(v) for v in eye.split(",")]
+        agl, bearing, pitch = got[0], got[1], got[2]
+        fov = got[3] if len(got) > 3 else CAM["kFovDeg"]
+        return lab_camera.Camera(place["lat"], place["lon"], agl_m=agl, bearing_deg=bearing,
+                                 pitch_deg=pitch, fov_deg=fov,
+                                 width=int(CAM["kWidePx"]), height=int(CAM["kHighPx"]))
     if place["plan"]:
         return lab_camera.Camera(place["lat"], place["lon"], bearing_deg=place["bearing"],
                                  pitch_deg=CAM["kOverheadPitchDeg"], fov_deg=CAM["kFovDeg"],
@@ -418,7 +433,7 @@ def parts_of(place, frame, doc, red, lod=3):
     that instrument's job is to show a crack. This one keeps every body's own palette and its
     roof's own covering, and hands the street its kerb, its gutter, its footway, its markings and
     its lamps -- which is where a large share of what a player sees at eye level actually is."""
-    parts, looks, fields, grounds = Parts(), {}, {}, {}
+    parts, looks, fields = Parts(), {}, {}
 
     def put(role, verts, tris, rgb):
         parts.add(role, verts, tris)
@@ -543,24 +558,36 @@ def parts_of(place, frame, doc, red, lod=3):
              "masonry": stock.STOCK["masonry"], "limestone": stock.STOCK["limestone"],
              "timber": stock.STOCK["timber"], "iron": stock.STOCK["iron"]}
     took("markings")
-    for (role, vv, tt) in furniture.from_osm(doc, frame, lambda x, y: frame.z(x, y)):
+    for (role, vv, tt) in furniture.from_osm(doc, frame, lambda x, y: frame.z(x, y), BUILT_REACH_M):
         put(f"f.{role}", vv, tt, stuff.get(role) or stock.STOCK["concrete"])
 
     bodies, dropped = buildings_of(place, frame, doc, red)
     for at, b in enumerate(bodies):
         mats = b.materials()
         made = b.body(lod)
-        # THE SPLASH BAND IS A SHADER FUNCTION of the height over THIS body's own ground, which
-        # is one number the body already knows -- and the only carrier a 0.5 m band has on
-        # geometry whose wall runs from the pavement to the eaves in one quad (I23).
+        # THE HEIGHT OVER THIS BODY'S OWN GROUND, per vertex, in the blue channel. It is LINEAR
+        # in z, so it interpolates exactly across a wall quad that runs from the pavement to the
+        # eaves in one step -- and the material does the clamping into a 0.5 m band, which is the
+        # non-linear half no vertex can hold (I23). Carried as a per-material constant instead,
+        # it is what stopped seven thousand parts from ever being batched into one mesh.
         foot = float(min(v[2] for (vv, _) in made.values() for v in vv)) if made else 0.0
         for role, (vv, tt) in made.items():
             put(f"{role}.{at}", vv, tt, mats.get(role) or (0.35, 0.33, 0.30))
-            if role in ("wall", "plinth", "stone", "wood"):
-                grounds[f"{role}.{at}"] = foot - frame.datum
+            fields[f"{role}.{at}"] = np.array(
+                [(0.0, 0.0, min(1.0, max(0.0, (v[2] - foot) / blend.HEIGHT_SCALE_M)))
+                 for v in vv], dtype=float)
     took("buildings")
-    return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped,
-                              fields=fields, grounds=grounds)
+    # WHAT THE TWIN IS MADE OF, by role. A generator that was never reached because of a missing
+    # import produced 5 085 776 triangles the day it was -- 74 percent of the scene -- and the
+    # system killed the renderer for want of memory before any of it could be looked at.
+    import collections
+    tally = collections.Counter()
+    for role, (vv, tt) in parts.of.items():
+        tally[role.split(".")[0]] += len(tt)
+    whole = sum(tally.values()) or 1
+    print("    " + "  ".join(f"{k} {n // 1000}k" for k, n in tally.most_common(8))
+          + f"   TOTAL {whole // 1000}k tris", flush=True)
+    return parts, looks, dict(ways=ways, buildings=len(bodies), dropped=dropped, fields=fields)
 
 
 def ink_share(img):
@@ -609,7 +636,7 @@ def one(place):
     blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
                  lab_camera.sun_direction(place["lat"], place["lon"], place["when"]),
                  str(shot), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE,
-                 fields=counts.get("fields"), grounds=counts.get("grounds"))
+                 fields=counts.get("fields"))
     from PIL import Image
     img = np.asarray(Image.open(shot).convert("RGB"))
     share, dark = ink_share(img), dark_share(img)

@@ -88,7 +88,12 @@ CASES = {
 def fetch(name, lat, lon, reach):
     """Every way with a `highway` or a `railway` in the box, with its nodes."""
     CACHE.mkdir(parents=True, exist_ok=True)
-    held = CACHE / f"{name}.json"
+    # THE KEY CARRIES THE REACH. Named by the place alone, an extract fetched at 700 m is served
+    # to a caller asking for 60 -- so the reach knob did nothing at all and a twin cut to a street
+    # corner still spent 265 s solving the whole quarter (measured 2026-09-07). It is the same
+    # defect as an extract cache that does not carry its query: a key must carry everything the
+    # answer depends on, or it is not a key.
+    held = CACHE / f"{name}-{int(reach)}.json"
     if held.exists():
         return json.loads(held.read_text())
     dlat = reach / 111132.0

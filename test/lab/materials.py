@@ -47,6 +47,10 @@ and they go in glTF's `extras`, which is exactly what `extras` is for:
     joint_m     the joint between two of them, with `relief_m` as how deep it is raked, and
     bond        how the next course is offset: `stretcher` is half a unit (Laeuferverband and
                 every running bond there is), `stack` is none, `` is not laid at all
+    splash_m    how high rain bounces off the ground and darkens what STANDS in it. A wall has
+                0.50 m of it and a carriageway has none, because a carriageway IS the ground.
+                The height over the ground rides on the vertex colour, where it is linear and
+                therefore exact under interpolation, and the material does the clamping
 
 The pattern is projected TRIPLANAR from world metres, so a course runs horizontally on any wall
 and a paving joint lies in the ground plane, with no UV anywhere in the generator. That is the
@@ -65,13 +69,13 @@ class Material:
     __slots__ = ("name", "base_color", "metallic", "roughness", "ior", "emissive",
                  "emissive_strength", "alpha_mode", "alpha_cutoff", "double_sided",
                  "transmission", "grain_m", "relief_m", "mottle", "unit_m", "joint_m",
-                 "bond")
+                 "bond", "splash_m")
 
     def __init__(self, name, base_color, metallic=0.0, roughness=0.85, ior=1.45,
                  emissive=(0.0, 0.0, 0.0), emissive_strength=1.0, alpha_mode="OPAQUE",
                  alpha_cutoff=0.5, double_sided=False, transmission=0.0,
                  grain_m=0.0, relief_m=0.0, mottle=0.0, unit_m=(0.0, 0.0),
-                 joint_m=0.0, bond=""):
+                 joint_m=0.0, bond="", splash_m=0.0):
         self.name = name
         self.base_color = tuple(base_color) if len(base_color) == 4 else tuple(base_color) + (1.0,)
         self.metallic = float(metallic)
@@ -89,6 +93,7 @@ class Material:
         self.unit_m = (float(unit_m[0]), float(unit_m[1]))
         self.joint_m = float(joint_m)
         self.bond = str(bond)
+        self.splash_m = float(splash_m)
 
     def tinted(self, rgb):
         """The same material in another colour -- an epoch's field over the same render."""
@@ -96,7 +101,7 @@ class Material:
                         self.roughness, self.ior, self.emissive, self.emissive_strength,
                         self.alpha_mode, self.alpha_cutoff, self.double_sided, self.transmission,
                         self.grain_m, self.relief_m, self.mottle, self.unit_m,
-                        self.joint_m, self.bond)
+                        self.joint_m, self.bond, self.splash_m)
 
     def to_gltf(self):
         out = {
@@ -111,10 +116,11 @@ class Material:
         }
         if self.alpha_mode == "MASK":
             out["alphaCutoff"] = self.alpha_cutoff
-        if self.grain_m > 0.0 or self.bond:
+        if self.grain_m > 0.0 or self.bond or self.splash_m > 0.0:
             out["extras"] = {"grain_m": self.grain_m, "relief_m": self.relief_m,
                              "mottle": self.mottle, "unit_m": list(self.unit_m),
-                             "joint_m": self.joint_m, "bond": self.bond}
+                             "joint_m": self.joint_m, "bond": self.bond,
+                             "splash_m": self.splash_m}
         if any(v > 0.0 for v in self.emissive):
             out["emissiveFactor"] = list(self.emissive)
         ext = {}
@@ -142,24 +148,24 @@ def add(name, **kw):
     return STOCK[name]
 
 
-add("render",   base_color=(0.55, 0.53, 0.48), roughness=0.92, grain_m=0.003, relief_m=0.0004, mottle=0.1)
-add("stucco",   base_color=(0.46, 0.43, 0.36), roughness=0.88, grain_m=0.006, relief_m=0.0008, mottle=0.14)
-add("brick",    base_color=(0.20, 0.11, 0.09), roughness=0.90, grain_m=0.084, relief_m=0.008, mottle=0.22, unit_m=(0.24, 0.0715), joint_m=0.0125, bond='stretcher')
-add("limestone", base_color=(0.42, 0.40, 0.35), roughness=0.78, grain_m=0.25, relief_m=0.004, mottle=0.12, unit_m=(0.6, 0.3), joint_m=0.008, bond='stretcher')
-add("sandstone", base_color=(0.40, 0.34, 0.25), roughness=0.82, grain_m=0.25, relief_m=0.005, mottle=0.16, unit_m=(0.6, 0.3), joint_m=0.008, bond='stretcher')
-add("concrete", base_color=(0.30, 0.30, 0.29), roughness=0.90, grain_m=0.008, relief_m=0.0005, mottle=0.06)
+add("render",   base_color=(0.55, 0.53, 0.48), roughness=0.92, grain_m=0.003, relief_m=0.0004, mottle=0.1, splash_m=0.5)
+add("stucco",   base_color=(0.46, 0.43, 0.36), roughness=0.88, grain_m=0.006, relief_m=0.0008, mottle=0.14, splash_m=0.5)
+add("brick",    base_color=(0.20, 0.11, 0.09), roughness=0.90, grain_m=0.084, relief_m=0.008, mottle=0.22, unit_m=(0.24, 0.0715), joint_m=0.0125, bond='stretcher', splash_m=0.5)
+add("limestone", base_color=(0.42, 0.40, 0.35), roughness=0.78, grain_m=0.25, relief_m=0.004, mottle=0.12, unit_m=(0.6, 0.3), joint_m=0.008, bond='stretcher', splash_m=0.5)
+add("sandstone", base_color=(0.40, 0.34, 0.25), roughness=0.82, grain_m=0.25, relief_m=0.005, mottle=0.16, unit_m=(0.6, 0.3), joint_m=0.008, bond='stretcher', splash_m=0.5)
+add("concrete", base_color=(0.30, 0.30, 0.29), roughness=0.90, grain_m=0.008, relief_m=0.0005, mottle=0.06, splash_m=0.5)
 add("asphalt",  base_color=(0.075, 0.075, 0.080), roughness=0.96, grain_m=0.011, relief_m=0.0015, mottle=0.05)
 add("paving",   base_color=(0.30, 0.30, 0.28), roughness=0.92, grain_m=0.2, relief_m=0.005, mottle=0.1, unit_m=(0.3, 0.3), joint_m=0.004, bond='stretcher')
 add("kerbstone", base_color=(0.34, 0.34, 0.32), roughness=0.85, grain_m=0.1, relief_m=0.004, mottle=0.08, unit_m=(1.0, 0.3), joint_m=0.005, bond='stack')
 add("paint",    base_color=(0.62, 0.62, 0.60), roughness=0.70, grain_m=0.011, relief_m=0.0004, mottle=0.02)
-add("clay_tile", base_color=(0.21, 0.10, 0.07), roughness=0.85, grain_m=0.22, relief_m=0.014, mottle=0.18, unit_m=(0.33, 0.3), joint_m=0.006, bond='stretcher')
-add("slate",    base_color=(0.093, 0.097, 0.105), roughness=0.55, grain_m=0.18, relief_m=0.004, mottle=0.14, unit_m=(0.3, 0.1), joint_m=0.003, bond='stretcher')
-add("copper",   base_color=(0.122, 0.197, 0.168), roughness=0.45, metallic=0.0, grain_m=0.5, relief_m=0.006, mottle=0.2, unit_m=(3.0, 0.53), joint_m=0.004, bond='stack')
-add("zinc",     base_color=(0.24, 0.25, 0.25), roughness=0.30, metallic=1.0, grain_m=0.5, relief_m=0.005, mottle=0.08, unit_m=(3.0, 0.43), joint_m=0.004, bond='stack')
-add("steel",    base_color=(0.55, 0.56, 0.57), roughness=0.35, metallic=1.0)
-add("iron",     base_color=(0.12, 0.12, 0.13), roughness=0.55, metallic=1.0, grain_m=0.002, relief_m=0.0001, mottle=0.04)
-add("timber",   base_color=(0.18, 0.12, 0.07), roughness=0.75, grain_m=0.015, relief_m=0.003, mottle=0.2, unit_m=(3.0, 0.15), joint_m=0.003, bond='stack')
-add("joinery",  base_color=(0.62, 0.61, 0.58), roughness=0.45, grain_m=0.0, relief_m=0.0, mottle=0.02)
+add("clay_tile", base_color=(0.21, 0.10, 0.07), roughness=0.85, grain_m=0.22, relief_m=0.014, mottle=0.18, unit_m=(0.33, 0.3), joint_m=0.006, bond='stretcher', splash_m=0.5)
+add("slate",    base_color=(0.093, 0.097, 0.105), roughness=0.55, grain_m=0.18, relief_m=0.004, mottle=0.14, unit_m=(0.3, 0.1), joint_m=0.003, bond='stretcher', splash_m=0.5)
+add("copper",   base_color=(0.122, 0.197, 0.168), roughness=0.45, metallic=0.0, grain_m=0.5, relief_m=0.006, mottle=0.2, unit_m=(3.0, 0.53), joint_m=0.004, bond='stack', splash_m=0.5)
+add("zinc",     base_color=(0.24, 0.25, 0.25), roughness=0.30, metallic=1.0, grain_m=0.5, relief_m=0.005, mottle=0.08, unit_m=(3.0, 0.43), joint_m=0.004, bond='stack', splash_m=0.5)
+add("steel",    base_color=(0.55, 0.56, 0.57), roughness=0.35, metallic=1.0, splash_m=0.5)
+add("iron",     base_color=(0.12, 0.12, 0.13), roughness=0.55, metallic=1.0, grain_m=0.002, relief_m=0.0001, mottle=0.04, splash_m=0.5)
+add("timber",   base_color=(0.18, 0.12, 0.07), roughness=0.75, grain_m=0.015, relief_m=0.003, mottle=0.2, unit_m=(3.0, 0.15), joint_m=0.003, bond='stack', splash_m=0.5)
+add("joinery",  base_color=(0.62, 0.61, 0.58), roughness=0.45, grain_m=0.0, relief_m=0.0, mottle=0.02, splash_m=0.5)
 add("glass",    base_color=(0.040, 0.052, 0.062, 1.0), roughness=0.05, ior=1.5,
     transmission=0.0)
 add("grass",    base_color=(0.14, 0.17, 0.09), roughness=0.98, grain_m=0.04, relief_m=0.006, mottle=0.09)
@@ -172,7 +178,7 @@ add("sand",     base_color=(0.34, 0.30, 0.22), roughness=0.97, grain_m=0.004, re
 add("soil",     base_color=(0.115, 0.085, 0.060), roughness=0.98, grain_m=0.030, relief_m=0.010, mottle=0.20)
 add("ballast",  base_color=(0.150, 0.140, 0.130), roughness=0.96, grain_m=0.045, relief_m=0.012, mottle=0.24)
 add("crop",     base_color=(0.155, 0.180, 0.095), roughness=0.97, grain_m=0.060, relief_m=0.008, mottle=0.24)
-add("masonry",  base_color=(0.28, 0.26, 0.22), roughness=0.92, grain_m=0.2, relief_m=0.012, mottle=0.2, unit_m=(0.4, 0.22), joint_m=0.02, bond='stretcher')
+add("masonry",  base_color=(0.28, 0.26, 0.22), roughness=0.92, grain_m=0.2, relief_m=0.012, mottle=0.2, unit_m=(0.4, 0.22), joint_m=0.02, bond='stretcher', splash_m=0.5)
 
 
 def gltf_materials(names):
