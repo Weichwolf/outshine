@@ -369,7 +369,20 @@ class Building:
         self.byKey = {}
         self.tris = []
         self.faces_of = {}
-        self._build()
+        # A BODY KNOWS ITS HEIGHT WITHOUT BUILDING ITS MESH, and that is what lets a visibility
+        # march decide which bodies are worth building at all. Measured 2026-09-07 on Rothenburg:
+        # 8 of 1 054 bodies ever raise the horizon from a street and 86 from 26 m up, while the
+        # twin built all of them -- 137 s and 686 MB of peak. Everything above this line is the
+        # footprint, the tags, the epoch and the ground; the mesh is below it and is built on
+        # first ask.
+        self._made = False
+
+    def built(self):
+        """The mesh, on first ask. Idempotent, so nothing has to know whether it ran."""
+        if not self._made:
+            self._made = True
+            self._build()
+        return self
 
     def roof_pitch(self):
         """THE PITCH IS THE ONE THE RISE AND THE SPAN IMPLY, never a table's 35 degrees.
@@ -535,6 +548,7 @@ class Building:
         openings, because a hole is not something you add: the first attempt put a reveal, a sill
         and a lintel around every window and the windows stayed invisible, since the glass sat
         inside solid geometry (rendered and looked at, 2026-09-06)."""
+        self.built()
         import elements
         V = np.asarray(self.vertices, dtype=float)
         T = np.asarray(self.tris, dtype=np.int64)
@@ -1024,12 +1038,15 @@ class Building:
 
     # -- the checks
     def open_edges(self):
+        self.built()
         return sum(1 for n in self.faces_of.values() if n == 1)
 
     def bad_edges(self):
+        self.built()
         return sum(1 for n in self.faces_of.values() if n > 2)
 
     def watertight(self):
+        self.built()
         return self.open_edges() == 0 and self.bad_edges() == 0
 
     def winding(self):
@@ -1043,6 +1060,7 @@ class Building:
 
         Returns (edges wrong, degenerate faces, worst normal length error). Consistency plus a
         positive volume is what makes the orientation OUTWARD rather than merely agreed."""
+        self.built()
         seen = {}
         for (ia, ib, ic) in self.tris:
             for e in ((ia, ib), (ib, ic), (ic, ia)):
@@ -1063,6 +1081,7 @@ class Building:
         return wrong, degenerate, worst
 
     def volume(self):
+        self.built()
         v = 0.0
         for (ia, ib, ic) in self.tris:
             a, b, c = self.vertices[ia], self.vertices[ib], self.vertices[ic]
@@ -1073,6 +1092,7 @@ class Building:
     def skirt_gap_m(self):
         """B1: the wall must reach the ground everywhere along the footprint -- the worst height
         of ground ABOVE the wall's foot (a gap under the building) is what this reports."""
+        self.built()
         worst = 0.0
         for ring in self._rings():
             for a, b in zip(ring, ring[1:] + ring[:1]):
@@ -1091,6 +1111,7 @@ class Building:
         """The roof's own arithmetic: a hipped roof's apex is tan(pitch) x the inradius, a gabled
         one's ridge is tan(pitch) x the half width across the long axis. Measured against the
         mesh's own highest vertex."""
+        self.built()
         top = max(v[2] for v in self.vertices) - self.eaves
         if self.roof == "flat":
             want = 0.0
