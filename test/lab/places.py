@@ -42,6 +42,7 @@ import blend  # noqa: E402
 import camera as lab_camera  # noqa: E402
 import geometry  # noqa: E402
 import occlusion  # noqa: E402
+import detail  # noqa: E402
 import visible  # noqa: E402
 import materials as stock  # noqa: E402
 import street  # noqa: E402
@@ -234,9 +235,19 @@ class Frame:
     def xy(self, lat, lon):
         return ((lon - self.lon0) * self.per_lon, (lat - self.lat0) * self.per_lat)
 
+    # WHAT A HEIGHT ON EARTH CAN BE. The Dead Sea shore is -430 m and Everest is 8 849 m; a
+    # sample outside this is not a low place, it is a broken tile. Measured 2026-09-07: three
+    # 270-byte black PNGs west of Rothenburg decoded to terrarium's no-data, -32 768 m, and the
+    # ground funnelled 33 200 m down. The picture rendered 0.7 % ink and every count in the run
+    # was healthy -- 2 285 000 triangles built, none of them visible.
+    LOWEST_M, HIGHEST_M = -500.0, 9000.0
+
     def z(self, x, y):
-        return float(self.dem.at(self.lat0 + y / self.per_lat,
-                                 self.lon0 + x / self.per_lon)) - self.datum
+        got = float(self.dem.at(self.lat0 + y / self.per_lat, self.lon0 + x / self.per_lon))
+        if not (self.LOWEST_M <= got <= self.HIGHEST_M):
+            raise RuntimeError(f"the ground at ({x:.0f}, {y:.0f}) reads {got:.1f} m, which is not "
+                               f"a place on Earth -- a no-data tile is not a height")
+        return got - self.datum
 
 
 # ------------------------------------------------------------------ the three bodies
@@ -353,7 +364,24 @@ SURFACE_HALO_M = 25.0
 SAMPLE_M = 10.0                  # how finely a centre line is asked "can any of you be seen"
 
 
-def seen_of(mesh_map, structure, horizon):
+def kerb_reach_m(camera):
+    """HOW FAR A KERB IS STILL A KERB, by the door's own rule and not by a taste.
+
+    `Generate.h: Unseen(errorM, focalPx, awayM)` says a feature that MOVES geometry by `errorM` is
+    invisible once `errorM * focalPx <= kErrorPx * awayM`. A kerb's upstand is RASt 06's 0.12 m and
+    the focal length at 55 degrees over 1280 px is 1229 px, so a kerb is under one pixel beyond
+
+        0.12 * 1229 / 1.0 = 147 m                                              [derived]
+
+    Beyond that the carriageway is still drawn -- asphalt is metres wide -- but its EDGE furniture
+    is not, because none of it can be told from a painted line at that range. The same arithmetic
+    is what board:2163 asks the whole ladder to be built on. Measured 2026-09-07: the kerb ring
+    over everything the eye could reach at OldTown cost 83.2 s of a 3-minute picture."""
+    focal = detail.focal_px(camera.fov_deg, camera.width)
+    return kerbline.KERB_UP_M * focal / detail.ERROR_PX
+
+
+def seen_of(mesh_map, structure, horizon, reach_m=None):
     """WHICH WAYS AND WHICH JUNCTIONS THE EYE CAN REACH. The alignment is already solved over the
     whole extract and baked, so this cuts the SURFACE only.
 
@@ -362,6 +390,7 @@ def seen_of(mesh_map, structure, horizon):
     and everything within `SURFACE_HALO_M` of a station that IS seen is kept as well, so no local
     operator loses an input it needed."""
     from scipy.spatial import cKDTree
+    ex, ey = horizon.eye
     ways, nodes, lit = set(), set(), []
     for w in structure.net.ways:
         refs = w["refs"]
@@ -377,6 +406,8 @@ def seen_of(mesh_map, structure, horizon):
         sy = np.interp(want, run, pts[:, 1])
         top = float(max(mesh_map.z[mesh_map.index[r]] for r in refs))
         got = horizon.sees(sx, sy, np.full(len(sx), top))
+        if reach_m is not None:
+            got &= np.hypot(sx - ex, sy - ey) <= reach_m
         if got.any():
             ways.add(w["id"])
             lit.append(np.column_stack((sx[got], sy[got])))
@@ -395,7 +426,7 @@ def seen_of(mesh_map, structure, horizon):
     return ways, nodes
 
 
-def roads_of(place, frame, red, horizon=None):
+def roads_of(place, frame, red, horizon=None, camera=None):
     """The carriageway surface, from the road bed's own solve. The bed already owns the invariants
     -- C0 at a node, C1 through it, the DEM band, the continuous Trasse -- so the twin RUNS them
     rather than restating them, and a red one keeps the picture out of `build/shots/lab`."""
@@ -422,8 +453,14 @@ def roads_of(place, frame, red, horizon=None):
     # vertices for nothing (measured: 1 660 149 triangles and 165 s at OldTown's 240 m reach).
     roadbed.Mesh.FINE_REACH_M = FINE_ROAD_M
     st = roadbed.Structure(m)
-    seen = None if horizon is None else seen_of(m, st, horizon)
-    return roadbed.Mesh(st, seen=seen), kept
+    # ONE VISIBILITY SET, READ BY EVERY SURFACE OPERATOR. It hangs on the Structure because the
+    # kerb, the channel and the footway all reach for it and threading it through six signatures
+    # would let two of them disagree about what is seen.
+    st.seen = None if horizon is None else seen_of(m, st, horizon)
+    # AND THE EDGE FURNITURE IS A FINER SET THAN THE CARRIAGEWAY. A road stays a road to the
+    # horizon; its kerb, its channel and its footway stop where they fall under a pixel.
+    st.fine = None if horizon is None else seen_of(m, st, horizon, kerb_reach_m(camera))
+    return roadbed.Mesh(st, seen=st.seen), kept
 
 
 # ------------------------------------------------------------------ the picture
@@ -599,7 +636,7 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     keep, node_tests, leaf_tests = occlusion.visible(tree, horizon)
     took(f"cull {len(keep)}/{len(bodies)} {node_tests}+{leaf_tests}")
 
-    mesh, ways = roads_of(place, frame, red, horizon)
+    mesh, ways = roads_of(place, frame, red, horizon, camera)
     took("roads")
     street_face = None
     if mesh is not None:
@@ -658,7 +695,11 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
             put(role, drop(vv), tt, colour.get(role) or stock.STOCK["concrete"])
         took("kerb ring")
         walk = kerbline.walk_area(mesh.map, mesh.st)
+        # AND THE MARKINGS ARE DRAWN ON THE ROAD THAT WAS DRAWN. A line painted on a carriageway
+        # that was never meshed is paint in the air over the terrain.
         for w in mesh.net.ways:
+            if mesh.seen is not None and w["id"] not in mesh.seen[0]:
+                continue
             for (role, vv, tt) in (street.markings(mesh.map, w, surface, mesh.st)
                                    + street.lamps(mesh.map, w, surface, walk)):
                 put(role, drop(vv), tt, colour.get(role) or stock.STOCK["concrete"])
@@ -796,6 +837,19 @@ def one(place):
         looks = {k: clay for k in looks}
     if any(not np.isfinite(v).all() for (v, _) in parts.of.values()):
         red.append("P finite")
+    # AND EVERY VERTEX STANDS ON EARTH. `P finite` passes on -33 200 m: it is a perfectly finite
+    # number. The claim that catches a no-data tile is a PHYSICAL one, and it is stated over what
+    # was BUILT rather than over what was sampled, so a height that reaches the geometry by any
+    # route at all is caught.
+    low = Frame.LOWEST_M - frame.datum - 200.0
+    high = Frame.HIGHEST_M - frame.datum + 200.0
+    for role, (v, t) in parts.of.items():
+        if not len(t) or not len(v):
+            continue
+        zmin, zmax = float(np.min(v[:, 2])), float(np.max(v[:, 2]))
+        if zmin < low or zmax > high:
+            red.append(f"P earth({role} {zmin:.0f}..{zmax:.0f} m)")
+            break
     OUT.mkdir(parents=True, exist_ok=True)
     shot = OUT / f"{place['name']}.png"
     # AND THE EYE MAY STAND SOMEWHERE ELSE. A place's origin is a coordinate a surveyor chose,

@@ -262,6 +262,17 @@ def _radius(m, nid):
     return R_SMALL_M
 
 
+def seen_of(st):
+    """WHAT THE EYE CAN REACH, or None for the whole network. `Structure.seen` is set once by the
+    caller that owns the camera and read by every SURFACE operator here -- the kerb, the channel,
+    the footway. It is not an optimisation bolted on: a kerb ring is a morphological closing per
+    junction, and run over a whole quarter it took 14 minutes at OldTown and never finished a
+    picture (measured 2026-09-07). These operators have a HARD support radius -- a kerb at a point
+    is decided by ways within 3.75 + 8.0 + 2.5 m by RASt 06 -- so restricting them to the visible
+    set plus that halo changes nothing anybody can see, and the halo is the caller's to apply."""
+    return getattr(st, "fine", None) or getattr(st, "seen", None)
+
+
 def drivable_area(m, st):
     """Every carriageway ribbon and every junction surface, as ONE area."""
     # THE MEMO HANGS ON THE STRUCTURE ITSELF. Keyed on `id(st)` in a module dict it would
@@ -270,15 +281,19 @@ def drivable_area(m, st):
     got = getattr(st, "_drivable", None)
     if got is not None:
         return got
+    seen = seen_of(st)
     parts = []
     for w in m.net.ways:
         if w["tags"].get("highway") not in DRIVABLE:
+            continue
+        if seen is not None and w["id"] not in seen[0]:
             continue
         line = m.centreline(w)
         if line.length < 1e-6:
             continue
         parts.append(line.buffer(w["tags"]["width"] / 2.0, cap_style=2, quad_segs=ARC))
-    parts += [p for p in st.polygons.values() if not p.is_empty]
+    parts += [p for nid, p in st.polygons.items()
+              if not p.is_empty and (seen is None or nid in seen[1])]
     out = unary_union(parts) if parts else Polygon()
     st._drivable = out
     return out
@@ -295,8 +310,9 @@ def kerb_face_area(m, st, drivable=None):
     if drivable.is_empty:
         return drivable
     channel = drivable.buffer(GUTTER_M, join_style=1, quad_segs=ARC)
+    seen = seen_of(st)
     out = [channel]
-    for nid in m.junctions:
+    for nid in (m.junctions if seen is None else (n for n in m.junctions if n in seen[1])):
         r = _radius(m, nid)
         x0, y0 = m.net.nodes[nid]
         window = Point(x0, y0).buffer(r * 3.0 + GUTTER_M + 20.0, quad_segs=ARC)

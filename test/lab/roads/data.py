@@ -8,11 +8,15 @@ import json
 import math
 import os
 import pathlib
+import sys
 import urllib.parse
 import urllib.request
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+import store  # noqa: E402
 
 CACHE = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab"
 ZOOM = int(os.environ.get("OUTSHINE_LAB_ZOOM", "12"))  # the engine samples FinestZoomOf(Elevation) - 1
@@ -65,26 +69,74 @@ class Dem:
         self.zoom = zoom
         self.tiles = {}
 
+    # TERRARIUM'S OWN NO-DATA VALUE. `(0,0,0)` decodes to `0*256 + 0 + 0/256 - 32768`, so a tile
+    # the server answers with a black placeholder reads as 32 768 metres below the sea. Measured
+    # 2026-09-07: three tiles west of Rothenburg came back as 270-byte black PNGs, were cached as
+    # if they were heights, and put the terrain 33 200 m under the town -- the picture was a
+    # funnel and the frame rendered 0.7 % ink. `Generate.h` states the rule this broke: "An empty
+    # answer is not zero: a tile that has not arrived and a sea-level plain are different answers."
+    NO_DATA_M = -32768.0
+
+    def _sane(self, grid):
+        """A tile that is ENTIRELY no-data is not a tile. One no-data posting in a real tile is a
+        void the neighbours fill; a whole tile of them is the server saying it has nothing."""
+        return grid is not None and not bool(np.all(grid <= self.NO_DATA_M + 1e-6))
+
+    def _magnified(self, got, tx, ty):
+        """ANCESTOR FILL, as `terrarium.s3` declares it and `ContentStore` performs it: the tile's
+        window inside the nearest held ancestor, magnified. Nearest neighbour, because a DEM
+        posting is a SAMPLE and inventing a smoother one between two of them is a height nobody
+        measured."""
+        az, ax, ay, raw = got
+        step = 2 ** (self.zoom - az)
+        parent = store.heights(raw)
+        if not self._sane(parent):
+            return None
+        wide = TILE_PX // step
+        if wide < 1:
+            return None
+        x0 = (tx - ax * step) * wide
+        y0 = (ty - ay * step) * wide
+        window = parent[y0:y0 + wide, x0:x0 + wide]
+        if window.shape != (wide, wide):
+            return None
+        return np.kron(window, np.ones((step, step)))
+
     def tile(self, tx, ty):
         """THE ENGINE'S OWN BYTES FIRST. `src/world/data/ContentStore.cpp` already keeps every
         tile the client ever fetched, under a key the lab can derive itself -- so the lab reads
         THAT rather than downloading a second copy, and a height the lab and the client disagree
-        about cannot be blamed on two different downloads. Only what the store has never seen is
-        fetched, and it is written where the lab's own cache has always been."""
+        about cannot be blamed on two different downloads.
+
+        THE ORDER IS: the store at this zoom, then a fetch, then the store's nearest ANCESTOR
+        magnified. The last is not a nicety -- it is what stands between a black placeholder and
+        a hole 33 km deep in the ground."""
         key = (tx, ty)
-        if key not in self.tiles:
-            import sys as _s, pathlib as _p
-            _s.path.insert(0, str(_p.Path(__file__).resolve().parents[1]))
-            import store
-            got = store.ancestor("elevation", self.zoom, tx, ty)
-            if got is not None and got[0] == self.zoom:
-                self.tiles[key] = store.heights(got[3])
-                return self.tiles[key]
-            held = CACHE / "terrarium" / str(self.zoom) / str(tx) / f"{ty}.png"
+        if key in self.tiles:
+            return self.tiles[key]
+        got = store.ancestor("elevation", self.zoom, tx, ty)
+        if got is not None and got[0] == self.zoom:
+            grid = store.heights(got[3])
+            if self._sane(grid):
+                self.tiles[key] = grid
+                return grid
+        held = CACHE / "terrarium" / str(self.zoom) / str(tx) / f"{ty}.png"
+        grid = None
+        try:
             fetch(TERRARIUM.format(z=self.zoom, x=tx, y=ty), held)
             rgb = np.asarray(Image.open(held).convert("RGB")).astype(np.float64)
-            self.tiles[key] = rgb[:, :, 0] * 256.0 + rgb[:, :, 1] + rgb[:, :, 2] / 256.0 - 32768.0
-        return self.tiles[key]
+            grid = rgb[:, :, 0] * 256.0 + rgb[:, :, 1] + rgb[:, :, 2] / 256.0 - 32768.0
+        except Exception:
+            grid = None
+        if not self._sane(grid):
+            # AND IT IS NOT KEPT. A placeholder written into the cache is served for ever after,
+            # which is how three bad tiles survived a whole day of runs.
+            held.unlink(missing_ok=True)
+            grid = self._magnified(got, tx, ty) if got is not None else None
+        if grid is None:
+            raise RuntimeError(f"no elevation at {self.zoom}/{tx}/{ty}, and no ancestor to fill it")
+        self.tiles[key] = grid
+        return grid
 
     def posting_m(self, lat):
         return 40075016.686 * math.cos(math.radians(lat)) / (2 ** self.zoom) / TILE_PX
