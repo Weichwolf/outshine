@@ -163,9 +163,26 @@ class Surface:
 
     REACH_M = 60.0            # [SET] beyond this the road is not what the ground does
 
-    def __init__(self, mesh, z_at, blend=8):
+    def __init__(self, mesh, z_at, blend=8, edge=None):
         from scipy.spatial import cKDTree
         self.z_at, self.blend = z_at, blend
+        # OFF THE CARRIAGEWAY THE HEIGHT COMES FROM THE CARRIAGEWAY'S OWN EDGE, and this is the
+        # whole of board:2160. Blending the eight nearest TRIANGLES was put there to stop a corner
+        # fillet jumping between two legs' crowns, and on a hill those eight belong to ways metres
+        # apart: measured 2026-09-07 on Rothenburg, the footway's 99th-percentile slope was
+        # 229.8 % and its worst face 6 304 % against RASt 06's 6 %. A kerb sits on the EDGE of a
+        # road, so it reads the edge -- one curve, smooth along its own length, and no way that
+        # happens to pass nearby can reach it.
+        self.rail = None
+        if edge is not None and not edge.is_empty:
+            seeds = []
+            for part in (edge.geoms if hasattr(edge, "geoms") else [edge]):
+                n = max(2, int(part.length / 1.0))
+                seeds += [(q.x, q.y) for q in (part.interpolate(part.length * i / n)
+                                               for i in range(n + 1))]
+            if seeds:
+                self.rail = cKDTree(np.asarray(seeds))
+                self.rail_at = np.asarray(seeds)
         tri = np.asarray([[mesh.vertices[i] for i in t] for t in mesh.tris], dtype=float) \
             if mesh.tris else np.zeros((0, 3, 3))
         self.a, self.b, self.c = tri[:, 0, :], tri[:, 1, :], tri[:, 2, :]
@@ -201,6 +218,15 @@ class Surface:
         self.cache[key] = z
         return z
 
+    def _on_road(self, x, y):
+        """The height ON the carriageway at a point that lies on it -- the containing triangle,
+        or the nearest one where floating point puts the point a hair outside."""
+        d, idx = self.near.query([x, y], k=min(12, self.near.n))
+        for i in np.atleast_1d(idx):
+            if self._inside(int(i), x, y):
+                return self._lift(int(i), x, y)
+        return self._lift(int(np.atleast_1d(idx)[0]), x, y)
+
     def _solve(self, x, y):
         if self.near is None:
             return self.z_at(x, y)
@@ -211,6 +237,14 @@ class Surface:
         # was lifted onto it.
         if float(np.atleast_1d(d)[0]) > self.REACH_M:
             return self.z_at(x, y)
+        if self.rail is not None:
+            # THE NEAREST POINTS ON THE CARRIAGEWAY'S EDGE, blended among THEMSELVES. They lie on
+            # one curve, so the blend is smooth along it and cannot mix two roads' crowns.
+            dd, ii = self.rail.query([x, y], k=min(4, self.rail.n))
+            dd, ii = np.atleast_1d(dd), np.atleast_1d(ii)
+            w = 1.0 / np.maximum(dd, 1e-6) ** 2
+            here = np.array([self._on_road(*self.rail_at[int(j)]) for j in ii])
+            return float((w * here).sum() / w.sum())
         d, idx = np.atleast_1d(d), np.atleast_1d(idx)
         for i in idx:
             if self._inside(int(i), x, y):

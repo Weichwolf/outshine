@@ -462,7 +462,8 @@ def parts_of(place, frame, doc, red, lod=3):
         def z_at(x, y):
             return frame.z(x, y)
 
-        surface = kerbline.Surface(mesh, z_at)
+        surface = kerbline.Surface(mesh, z_at,
+                                   edge=kerbline.drivable_area(mesh.map, mesh.st).boundary)
         sites = junction.crossing_sites(mesh.map, mesh.st)
         street_face = kerbline.street_footprint(mesh.map, mesh.st)
         took("street area")
