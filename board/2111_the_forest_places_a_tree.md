@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: generators
 Tags: webcam, measured
 Depends: 2123
