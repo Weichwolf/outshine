@@ -8,8 +8,8 @@ namespace outshine::Generators {
 enum class ClusterId : uint32_t {};
 
 struct Scattered {
-  float Em = 0.0f, Nm = 0.0f;
-  float AslM = 0.0f;
+  double Em = 0.0, Nm = 0.0;
+  double AslM = 0.0;
   float YawRad = 0.0f;
   float Scale = 1.0f;
 };

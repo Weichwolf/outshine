@@ -58,15 +58,17 @@ constexpr double kEastStepDeg = 0.0138;
 
 class Instancing final : public Generators::DrawSink {
 public:
-  explicit Instancing(std::vector<Surrounds::Standing> &into) : Into_(&into) {}
+  Instancing(std::vector<Surrounds::Standing> &into, const Generators::Tile &region)
+      : Into_(&into), Region_(&region) {}
 
   [[nodiscard]] bool Add(Generators::BodyId body,
                          Generators::ClusterId cluster,
                          const Generators::Scattered &instance) noexcept override {
     if (Full()) { return false; }
     try {
-      Into_->push_back(
-          {.Body = body.Index(), .Cluster = static_cast<uint32_t>(cluster), .Where = instance});
+      Into_->push_back({.Body = body.Index(),
+                        .Cluster = static_cast<uint32_t>(cluster),
+                        .Where = WorldPlacement::From(*Region_, instance)});
     } catch (...) { return false; }
     return true;
   }
@@ -76,6 +78,7 @@ public:
 private:
   static constexpr size_t kMostInstances = 1u << 20u;
   std::vector<Surrounds::Standing> *Into_;
+  const Generators::Tile *Region_;
 };
 
 } // namespace
@@ -202,7 +205,7 @@ bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail
   Published.Places(
       "generators: makers that were asked", static_cast<double>(placing.Count()), "makers");
   if (World.Placed == 0) { return false; }
-  Instancing sink(World.Instances);
+  Instancing sink(World.Instances, region);
   World.Shipping.Drawing().Draw(*over,
                                 placing,
                                 std::span<const Generators::Yield>(yields.data(), yields.size()),

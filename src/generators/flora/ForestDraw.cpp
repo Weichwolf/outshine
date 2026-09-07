@@ -16,9 +16,9 @@ void ForestDraw::Draw(const Ground &ground,
     const Prototype &prototype = Prototypes_[body.Variant];
     assert(prototype.HeightM > 0.0);
     Scattered instance;
-    instance.Em = static_cast<float>(body.Em);
-    instance.Nm = static_cast<float>(body.Nm);
-    instance.AslM = static_cast<float>(body.BaseAslM);
+    instance.Em = body.Em;
+    instance.Nm = body.Nm;
+    instance.AslM = body.BaseAslM;
     instance.YawRad = body.YawRad;
     instance.Scale = static_cast<float>(static_cast<double>(body.HeightM) / prototype.HeightM);
     if (!sink.Add(mine.Nth(at), prototype.Cluster, instance)) { return; }

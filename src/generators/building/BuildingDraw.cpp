@@ -14,9 +14,9 @@ void BuildingDraw::Draw(const Ground &ground,
     const Solid &body = placed[at];
     if (!(body.HeightM > 0.0f)) { continue; }
     Scattered instance;
-    instance.Em = static_cast<float>(body.Em);
-    instance.Nm = static_cast<float>(body.Nm);
-    instance.AslM = static_cast<float>(body.BaseAslM);
+    instance.Em = body.Em;
+    instance.Nm = body.Nm;
+    instance.AslM = body.BaseAslM;
     instance.YawRad = body.YawRad;
     instance.Scale = static_cast<float>(static_cast<double>(body.HeightM) / HeightM_);
     if (!sink.Add(mine.Nth(at), Cluster_, instance)) { return; }

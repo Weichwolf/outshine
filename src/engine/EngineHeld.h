@@ -20,6 +20,7 @@
 #include "HeightSheets.h"
 #include "Wayfinding.h"
 #include "TilePieces.h"
+#include "WorldPlacement.h"
 #include "StructureBakes.h"
 #include "Tasks.h"
 
@@ -271,7 +272,7 @@ struct Surrounds {
   struct Standing {
     uint32_t Body = 0;
     uint32_t Cluster = 0;
-    Generators::Scattered Where;
+    WorldPlacement Where;
   };
 
   std::vector<Standing> Instances;

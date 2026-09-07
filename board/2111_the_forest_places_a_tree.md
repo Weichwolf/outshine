@@ -204,3 +204,21 @@ zwei Regionen mit unterschiedlichen lokalen Koordinaten ergeben dieselbe
 geografische Position. Die bisherige Float-Verengung muss die Positionsprüfung
 rot machen. Diese Übergabe rendert selbst noch keinen Wald; sie beseitigt die
 fehlende Ortsreferenz für dessen anschließenden gemeinsamen Mesh-Handoff.
+
+Umgesetzt: Scattered hält drei Double-Positionswerte; ForestDraw und BuildingDraw
+verengen sie nicht mehr. Der Engine-Sink erhält die erzeugende Region und speichert
+WorldPlacement mit Longitude/Latitude, ASL-Höhe, Yaw und Scale. Tile.Geo ist die
+bestehende Ortsumrechnung; ASL wird dabei nicht als Ellipsoid-Höhe umetikettiert.
+
+`build/world-placement-precision-negative.log`: alter Renderer-Handoff verliert
+die drei Source-Positionen in der verschärften Double-Prüfung, drei gezielte
+Fehler; Suite Exit 2 (zusätzlich bekannter Schachfehler).
+`build/world-placement-geographic-proof.log`: Exit 0, 18/18 PASS. Die erweiterte
+Positionsfixture hat 26 bestandene Checks: beide Generatorpfade bewahren ihre
+Double-Werte, verschiedene Tile-Frames treffen dieselben geografischen
+Koordinaten innerhalb 1e-12 Grad; ASL/Yaw/Scale bleiben exakt. Die kleine Differenz
+2^-30 m prüft Datenverlust, ausdrücklich keine DEM-Messgenauigkeit.
+Die erneut erzeugten Instanz-PNGs geöffnet: weiterhin drei getrennte Dreiecke.
+World.Instances hat weiterhin keinen Renderconsumer, daher noch keine bildwirksame
+Places-Änderung. Nächster Schritt bleibt gemeinsame Kronengeometrie samt Render-
+und Materialbindung; die geografischen Platzierungen dafür sind jetzt erhalten.
