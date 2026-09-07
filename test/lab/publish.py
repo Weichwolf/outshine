@@ -43,13 +43,28 @@ def sweep(area):
             old.unlink()
 
 
+# ONLY A RENDER IS EVIDENCE. A bed also draws a SHEET -- a matplotlib plan with its dimensions,
+# its constraints and its numbers -- and that is a working drawing, not a picture: it answers
+# "does the solver agree with itself", never "does this look like a place". Both landed here and
+# a reader opening the directory met a diagram where they came for a building.
+DRAWN = ("sheet",)
+
+# AND `places` IS ALWAYS LEFT STANDING. Everywhere else a red case removes its own picture, so
+# the directory cannot show a passing sheet for failing code. A place is the one thing that has
+# to be LOOKED at while it is still wrong -- five defects today were invisible to every count
+# and visible in the frame at once -- so its picture stays and the run's own line says RED.
+KEPT = ("places",)
+
+
 def take(area, key, path, red):
     """Publish one picture, or remove what stands in its place. Returns the published path, or
-    None when the case was red."""
+    None when nothing was published."""
+    if str(key).startswith(DRAWN):
+        return None
     here = SHOTS / area
     here.mkdir(parents=True, exist_ok=True)
     out = here / f"{_safe(key)}.png"
-    if red or path is None:
+    if path is None or (red and area not in KEPT):
         out.unlink(missing_ok=True)
         return None
     shutil.copyfile(path, out)

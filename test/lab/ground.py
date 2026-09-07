@@ -32,7 +32,7 @@ def _parts(poly):
 
 
 def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings=72, spokes=96,
-            patches=()):
+            patches=(), far=()):
     """The ground as ONE welded sheet with several materials: a CDT inside `near_m` with `holes`
     cut out and every patch's outline as a CONSTRAINT, the polar fan outside it.
 
@@ -40,6 +40,12 @@ def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings
     and the sheet conforms to their outlines rather than being cut by them, so the terrain and
     the square are one surface with no crack between them and no vertex out of place. Returns
     {role: (vertices, triangles)} with `ground` for whatever no patch claimed.
+
+    `far` is landcover that only COLOURS: its outlines never enter the triangulation. A patch
+    boundary five kilometres out is under a pixel, and putting 387 of them in as constraints made
+    the sheet take longer than the whole rest of a place put together (measured 2026-09-07, and
+    the run had to be killed). The fan's triangles are classified by their CENTROID either way,
+    which is all a far field needs.
 
     `z_edge` gives the height on a hole's own ring, `z_at` everywhere else."""
     import triangle as tri
@@ -225,25 +231,36 @@ def surface(z_at, holes=None, z_edge=None, near_m=NEAR_M, reach_m=12000.0, rings
             c, d = rows[j + 1][k], rows[j + 1][k2]
             tris.append((a, d, c))
             tris.append((a, b, d))
-    return _by_role(verts, tris, patches, near_count)
+    return _by_role(verts, tris, tuple(patches) + tuple(far), near_count)
 
 
 def _by_role(verts, tris, patches, near_count):
-    """Each triangle to the patch its CENTROID falls in, and to `ground` where none does. The
-    centroid is the test because the outlines are constraints: no triangle straddles one."""
+    """Each triangle to the patch its CENTROID falls in, and to `ground` where none does.
+
+    THE CENTROID IS THE TEST for two different reasons at two different ranges. In the near field
+    the outlines are CONSTRAINTS, so no triangle straddles one and the centroid is exact. In the
+    far field they are not, and it does not matter: a landcover boundary five kilometres out is
+    under a pixel, so which side a triangle lands on is a choice nobody can see.
+
+    AND IT IS ONE TREE QUERY, NOT A SCAN PER PATCH. Asked patch by patch it was 387 full passes
+    over 28 949 centroids and the stage went from 14.5 s to 36.4 s (measured 2026-09-07) -- while
+    colouring only the NEAR triangles, so the far field cost that and drew nothing. `CLAUDE.md`:
+    many against many is INDEXED, never iterated."""
     import shapely
     if not patches:
         return {"ground": (verts, tris)}
-    mid = np.array([[(verts[a][0] + verts[b][0] + verts[c][0]) / 3.0,
-                     (verts[a][1] + verts[b][1] + verts[c][1]) / 3.0]
-                    for (a, b, c) in tris[:near_count]])
+    v = np.asarray(verts, dtype=float)
+    t = np.asarray(tris, dtype=np.int64)
+    mid = (v[t[:, 0], :2] + v[t[:, 1], :2] + v[t[:, 2], :2]) / 3.0
     role = ["ground"] * len(tris)
-    if len(mid):
-        probe = shapely.points(mid[:, 0], mid[:, 1])
-        for (name, poly) in patches:
-            hit = np.asarray(shapely.contains_xy(poly, mid[:, 0], mid[:, 1]))
-            for i in np.flatnonzero(hit):
-                role[int(i)] = name
+    probe = shapely.points(mid[:, 0], mid[:, 1])
+    tree = shapely.STRtree([q for (_, q) in patches])
+    where, which = tree.query(probe, predicate="within")
+    # A LATER PATCH WINS, which is the order the caller declared them in -- the near field's
+    # priority first and the far field's after it. Assigning in tree order would make the answer
+    # depend on how the index happened to pack, and that is a different picture twice.
+    for at in np.argsort(which, kind="stable"):
+        role[int(where[at])] = patches[int(which[at])][0]
     out = {}
     for i, (a, b, c) in enumerate(tris):
         want = role[i]

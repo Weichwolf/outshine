@@ -805,13 +805,9 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     # green plain where Franconia is forest, farmland, meadow and vineyard -- looked at,
     # 2026-09-07. A radius cannot fetch that (a hundred and fifty tiles across) and does not need
     # to: `versatiles.osm` is already on this disk, gridded, at the zoom the distance asks for.
-    near = unary_union([g for (_, g) in patches] + ([street_face] if street_face is not None else []))
     have, want = vector.held(frame, FAR_LAND_M, FAR_LAND_ZOOM)
-    for role, got in vector.land(frame, FAR_LAND_M, FAR_LAND_ZOOM):
-        cut = got if near.is_empty else got.difference(near)
-        if not cut.is_empty and cut.area > 0:
-            patches.append((role, cut))
-    took(f"surfaces {have}/{want} far tiles")
+    far = vector.land(frame, FAR_LAND_M, FAR_LAND_ZOOM)
+    took(f"surfaces {have}/{want} far tiles, {len(far)} far areas")
     over = surfaces.check_no_overlap(patches, street_face)
     if over > 1.0:
         red.append(f"I22 surfaces overlap {over:.1f} m2")
@@ -829,7 +825,7 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
                                    kerbline.edge_height(surface, sites) if street_face is not None
                                    else None,
                                    reach_m=GROUND_REACH_M, rings=GROUND_RINGS,
-                                   spokes=GROUND_SPOKES, patches=patches)
+                                   spokes=GROUND_SPOKES, patches=patches, far=far)
         for role, (gv, gt) in sheet.items():
             put(f"g.{role}", drop(gv), gt,
                 stock.STOCK["grass" if role == "ground" else role])
