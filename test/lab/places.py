@@ -144,7 +144,7 @@ PLACES, CAM = client_places()
 def camera_for(place):
     """The lab camera that stands exactly where the client's does.
 
-    `OUTSHINE_EYE=agl,bearing,pitch[,fov]` moves it, which is the one instrument a twin needs and
+    `OUTSHINE_EYE=agl,bearing,pitch[,fov[,dx,dy]]` moves it, which is the one instrument a twin needs and
     did not have: the client's own camera stands above the roofs, so a whole street pass -- the
     kerb, the markings, the crossings, the footway's paving -- was built and never once LOOKED at
     in a real place. The default is the client's and nothing published moves it."""
@@ -640,6 +640,21 @@ def one(place):
         red.append("P finite")
     OUT.mkdir(parents=True, exist_ok=True)
     shot = OUT / f"{place['name']}.png"
+    # AND THE EYE MAY STAND SOMEWHERE ELSE. A place's origin is a coordinate a surveyor chose,
+    # and in a dense old town it is usually INSIDE a block: a camera at 1.7 m there renders 100 %
+    # black, which is what a street-level look at OldTown gave until the eye could be moved.
+    eye = os.environ.get("OUTSHINE_EYE", "")
+    got = [float(v) for v in eye.split(",")] if eye else []
+    if len(got) >= 6:
+        dx, dy = got[4], got[5]
+        for role, (vv, tt) in list(parts.of.items()):
+            parts.of[role] = ([(x - dx, y - dy, z) for (x, y, z) in vv], tt)
+        # AND `agl_m` MEANS ABOVE THE GROUND UNDER THE EYE, not above the origin's. A town on a
+        # hill puts those metres apart, and 1.7 m over the wrong one is either underground or a
+        # first-floor window.
+        # `Frame.z` ALREADY ANSWERS RELATIVE TO THE DATUM -- z(0, 0) is 0.00 by construction --
+        # so subtracting the datum again put the eye 439 m underground (measured 2026-09-07).
+        camera.agl_m += frame.z(dx, dy)
     blend.render({k: (v, t) for k, (v, t) in parts.of.items() if t}, camera,
                  lab_camera.sun_direction(place["lat"], place["lon"], place["when"]),
                  str(shot), samples=LOOK_SAMPLES, looks=looks, engine=LOOK_ENGINE,

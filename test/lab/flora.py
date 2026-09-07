@@ -129,7 +129,18 @@ def grow(species, seed=None, lod=None):
     height = float(g["height_m"])
     half = float(g["spread_m"]) * 0.5
     bole = float(g.get("bole_frac", 0.35))
+    # A LOWER RUNG DROPS THE BRANCHING, NEVER THE FOLIAGE. `leaf_at` is a TWIG's radius, and a
+    # capped recursion never grows a twig that thin -- so at rung 1 a tree came out as a bare
+    # skeleton with no leaves at all, standing in a street in broad summer (looked at in
+    # Rothenburg, 2026-09-07). The threshold rises with the cap so the tips that DO exist carry
+    # the crown, and `mesh` scales the cards to keep the leaf AREA the species declares.
     leaf_at = float(g["twig_radius"]) * float(g["foliage_factor"])
+    cap = int(g["max_order"]) - order_most
+    if cap > 0:
+        # LEONARDO'S RULE BACKWARDS. A child's radius is the parent's times `order_radius`, so a
+        # tip that is `cap` orders short is that factor TOO THICK -- and dividing the threshold
+        # by it is exactly the radius the tips that do exist have.
+        leaf_at /= max(float(g.get("order_radius", 0.6)), 1e-3) ** cap
     bare_steps = int(round(bole * float(g["trunk_steps"])))
     nodes, cards = [], []
 
@@ -176,7 +187,10 @@ def grow(species, seed=None, lod=None):
                 if t.order > 0 and out > 1.6:
                     break
             leader_ok = (t.order != 0) or (s >= int(bole * t.steps))
-            if leader_ok and t.radius < leaf_at and (t.order >= 1 or int(g["foliage_on_leader"])):
+            # AT RUNG 0 THERE IS NO BRANCH TO HANG A LEAF ON, so the leader carries the crown:
+            # a tree with a trunk and no foliage is a dead tree, and a distant one is still a tree.
+            if leader_ok and t.radius < leaf_at and (t.order >= 1 or order_most == 0
+                                                     or int(g["foliage_on_leader"])):
                 cards.append((tuple(t.pos), t.radius))
             if t.bare > 0:
                 t.bare -= 1
