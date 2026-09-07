@@ -105,3 +105,55 @@ Wiederhergestellte Fassung: `make suite SUITE=outshine/conventions`, 12/12 PASS,
 Die Probe gilt für die native Birke; dieser Prototyppfad wird von Places noch nicht
 gerendert. Keine veränderten Place-Bilder behauptet. Räumliche Aggregation mit begrenztem
 Projektionsfehler, physische Nahblätter und gemeinsame Waldinstanzen bleiben nächste Arbeit.
+
+## Vergleich vor der nächsten LOD-Entscheidung
+
+Die Distanzleiter braucht eine tatsächlich gerenderte feine Referenz. GeometryAt(0)
+existiert bereits, wurde aber nach Reparatur des Wachstums noch nicht visuell beurteilt.
+Die native Fixture rendert deshalb Rank 3 und Rank 0 mit identischer Kamera und Licht.
+Erwartung: physische Blattgröße auf Rank 0, höhere räumliche Kronenfrequenz; verbleibende
+Kronenlücken dort sind kein Beleg für einen Fehler ausschließlich in Rank 3. Blattmaß
+und Geometrieaufbaukosten ausweisen. Unreal-/RAGE-LOD bleibt das Ziel, die Messung des
+eigenen feinen Generators entscheidet über dessen brauchbare Referenz. Das ist ein
+Bild-/Kostenvergleich, kein neues Konformitätsoracle und keine Wald-Framerate.
+
+## Feine Referenz und Nahansicht gemessen
+
+Die Fixture rendert jetzt beide Ranks nacheinander (gleiche Gesamtansicht), zusätzlich
+Rank 0 als 3 × 3,375 m großen orthographischen Kronenausschnitt. Keine Produktänderung
+oder Place-Bildverbesserung in diesem Schritt. Die bereits vorhandenen Material-/Maßstabs-
+Checks gelten auch für Rank 0; das Attachment-Oracle von Rank 3 bleibt unverändert.
+
+| Native Birke | Rank 3 | Rank 0 |
+|---|---:|---:|
+| deklarierte Blattlänge m | 0,799573 | 0,100000 |
+| Rindenvertices / -dreiecke | 1094 / 2184 | 54945 / 109882 |
+| Blattvertices / -dreiecke | 62292 / 80192 | 3982425 / 5126800 |
+| CPU-Aufbau GeometryAt ms, einzelner finaler Lauf | 0,974 | 94,936 |
+
+Rank 0 erhält das deklarierte Blattmaß; 10 cm sind hier der vorhandene Species-Default,
+keine neu validierte botanische Referenz. 3982425 / 87 = 45775 Blätter, je 112 Dreiecke.
+Reine native Position-/Normal-/UV-/Indexdaten Rank 0:
+(54945 + 3982425) × 32 + (109882 + 5126800) × 12 = 192036024 Bytes.
+Dies ist Nutzlastarithmetik, weder Spitzenheap noch GPU-Residency. Aufbauzeit ist ebenfalls
+keine Framezeit, und Einzelmessungen belegen keine Perzentile.
+
+Alle drei PNGs selbst geöffnet. Gesamtansicht fein: wesentlich kleinere Einzelblätter,
+zusammenhängende, aber stark feinkörnige Krone; Standbild belegt kein zeitliches Flimmern.
+Nahansicht: Blattansätze/Verzweigungen vorhanden, flache gleichförmige Blattflächen und
+glatte helle Rinde, fehlende plausible Kronenlichtverteilung. Die feinste vorhandene Stufe
+ist damit eine Generatorreferenz, keine akzeptierte photorealistische Wahrheit.
+
+Rank-3-/Rank-0-Bilddifferenz: 50416 / (640 × 720) = 10,94 %,
+BBox x=196..447, y=75..641, Krone und feinere Rindenkontur. Hashes SHA256:
+- `build/tree-native/birch.png`: `1cb70507c5b28af5af16bac0baae7ff24dd46bb90bf9563e27c5d77b79d9e4d2`
+- `build/tree-native/birch-fine.png`: `1f46e4e6d442a711abc47a844a68d43ec76e54c0246d64dea235cd44a0de8ee0`
+- `build/tree-native/birch-fine-close.png`: `d1e2d6df0330bd686a8aa2eb421dda58cc3a9d43ec1d01b38b118f4f7a23bb70`
+
+`make suite SUITE=outshine/conventions`: 12/12 PASS, Exit 0, 38 Checks im nativen Baumfall;
+`build/tree-fine-reference-final.log`. Kein neues Negativoracle für die Rate beansprucht.
+Nächste Umsetzung: Blattmorphologie nach begrenztem projiziertem Fehler vereinfachen und
+Blatt-/Kronen-Coverage räumlich filtern, statt Blattflächen blind aufzublasen. Gemeinsame
+GPU-Prototypdaten bleiben Voraussetzung der Waldanbindung; Millionen expandierter
+Dreiecke pro Instanz sind ausdrücklich kein Implementierungsweg. Materialdetail und
+indirektes Kronenlicht bleiben bei 2171/2167, Artenmaße bei 2176.
