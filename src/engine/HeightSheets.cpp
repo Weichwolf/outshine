@@ -8,6 +8,8 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <map>
+#include <tuple>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -50,30 +52,27 @@ namespace {
 
 Render::PageId
 HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error) {
-  for (Held &one : Held_) {
-    if (one.Tile == tile) {
-      if (one.Nodes != std::vector<float>(nodes.begin(), nodes.end())) {
-        Live_->ReleaseHeightPage(one.Page);
-        one.Page = Live_->PlaceHeightPage(nodes, error);
-        one.Nodes.assign(nodes.begin(), nodes.end());
-      }
-      one.Wanted = one.Page != Render::kNoPage;
-      return one.Page;
+  const auto key = std::tuple{tile.Zoom, tile.X, tile.Y};
+  const auto found = PageIndex_.find(key);
+  if (found != PageIndex_.end()) {
+    Held &one = Held_[found->second];
+    if (one.Page == Render::kNoPage || !std::ranges::equal(one.Nodes, nodes)) {
+      Live_->ReleaseHeightPage(one.Page);
+      one.Page = Live_->PlaceHeightPage(nodes, error);
+      one.Nodes.assign(nodes.begin(), nodes.end());
     }
+    return one.Page;
   }
   const Render::PageId page = Live_->PlaceHeightPage(nodes, error);
   if (page == Render::kNoPage) { return page; }
-  Held_.push_back({.Tile = tile,
-                   .Page = page,
-                   .Wanted = true,
-                   .Nodes = std::vector<float>(nodes.begin(), nodes.end())});
+  PageIndex_.emplace(key, Held_.size());
+  Held_.push_back(
+      {.Tile = tile, .Page = page, .Nodes = std::vector<float>(nodes.begin(), nodes.end())});
   return page;
 }
 
-Render::GroundTile HeightSheets::TileOf(Data::TileId tile,
-                                        Render::PageId page,
-                                        std::span<const float> nodes,
-                                        std::array<float, 4> stitched) const {
+Render::GroundTile
+HeightSheets::TileOf(Data::TileId tile, Render::PageId page, std::span<const float> nodes) const {
   const Ground::GeoBounds bounds = Ground::TileBounds(tile);
   const double midLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
   const double midLat = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg);
@@ -113,7 +112,6 @@ Render::GroundTile HeightSheets::TileOf(Data::TileId tile,
   const auto steps = static_cast<float>(Render::GroundLattice::kSide - 1);
   made.StepE = 0.5f * ((ne[0] - nw[0]) + (se[0] - sw[0])) / steps;
   made.StepN = 0.5f * ((nw[1] - sw[1]) + (ne[1] - se[1])) / steps;
-  made.Stitched = stitched;
   const auto [low, high] = std::ranges::minmax_element(nodes);
   const float skirt = Render::GroundLattice::kSkirtSteps * std::max(made.StepE, made.StepN);
   const float sag = 0.5f * std::max({Dot2(nw), Dot2(ne), Dot2(sw), Dot2(se)}) * made.SagInv;
@@ -129,9 +127,16 @@ namespace {
          static_cast<double>(postings - 1u);
 }
 
+[[nodiscard]] int SourceZoomOf(const Sheet &sheet, int finestZoom) {
+  if (sheet.SourceZoom >= 0) { return sheet.SourceZoom; }
+  return sheet.Virtual ? finestZoom : sheet.Tile.Zoom;
+}
+
 [[nodiscard]] double NodeFraction(const Sheet &sheet, int k) {
   constexpr int side = Render::GroundLattice::kSide;
-  if (sheet.Virtual) { return static_cast<double>(k) / static_cast<double>(side - 1); }
+  if (sheet.Virtual || sheet.SourceZoom >= 0) {
+    return static_cast<double>(k) / static_cast<double>(side - 1);
+  }
   if (k < 0) { return -FractionOf(1, sheet.Postings, side); }
   if (k >= side) { return 2.0 - FractionOf(side - 2, sheet.Postings, side); }
   return FractionOf(k, sheet.Postings, side);
@@ -206,10 +211,12 @@ HeightSheets::AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFr
 
 bool HeightSheets::HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom) {
   constexpr int side = Render::GroundLattice::kSide;
-  const bool whole = sheet.Virtual && sheet.Nodes.size() != Render::GroundLattice::kNodes;
+  const bool whole = (sheet.Virtual || sheet.SourceZoom >= 0) &&
+                     sheet.Nodes.size() != Render::GroundLattice::kNodes;
   if (!whole && sheet.Nodes.size() != Render::GroundLattice::kNodes) { return false; }
   std::vector<float> page(Render::GroundLattice::kPageNodes, 0.0f);
-  const auto drop = sheet.Virtual ? static_cast<uint32_t>(sheet.Tile.Zoom - finestZoom) : 0u;
+  const int sourceZoom = SourceZoomOf(sheet, finestZoom);
+  const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
   const int zoom = sheet.Tile.Zoom - static_cast<int>(drop);
   const double span = 1.0 / static_cast<double>(1u << drop);
   const double atX = static_cast<double>(sheet.Tile.X >> drop) +
@@ -282,57 +289,88 @@ constexpr std::array<SeamEdge, 4> kSeamEdges = {{
      .AlongJ = false},
 }};
 
-void MeasuresSeamAlong(const Sheet &fine,
-                       const Sheet &coarse,
-                       const SeamEdge &edge,
-                       HeightSheets::SeamKind &kind) {
+using SheetKey = std::tuple<int, uint32_t, uint32_t>;
+
+[[nodiscard]] SheetKey KeyOf(Data::TileId tile) {
+  return {tile.Zoom, tile.X, tile.Y};
+}
+
+void StitchAlong(Sheet &fine,
+                 const Sheet &coarse,
+                 const SeamEdge &edge,
+                 HeightSheets::SeamKind *kind) {
   constexpr int side = Render::GroundLattice::kSide;
-  constexpr int half = (side - 1) / 2;
-  const long along = edge.AlongJ ? static_cast<long>(fine.Tile.Y) : static_cast<long>(fine.Tile.X);
-  const int coarseFrom = static_cast<int>(along % 2) * half;
-  const auto fineAt = [&](int k) {
-    const size_t node = edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine);
-    return static_cast<double>(fine.Nodes[node]);
-  };
-  const auto coarseAt = [&](int c) {
-    const size_t node = edge.AlongJ ? PageNode(edge.FixedCoarse, c) : PageNode(c, edge.FixedCoarse);
-    return static_cast<double>(coarse.Nodes[node]);
+  const int drop = fine.Tile.Zoom - coarse.Tile.Zoom;
+  const uint32_t scale = 1u << static_cast<uint32_t>(drop);
+  const uint32_t along = edge.AlongJ ? fine.Tile.Y : fine.Tile.X;
+  const double offset = static_cast<double>(along % scale) * static_cast<double>(side - 1);
+  const auto coarseAt = [&](int k) {
+    return static_cast<double>(
+        coarse.Nodes[edge.AlongJ ? PageNode(edge.FixedCoarse, k) : PageNode(k, edge.FixedCoarse)]);
   };
   for (int k = 0; k < side; ++k) {
-    if (k % 2 == 0) {
-      kind.EvenM = std::max(kind.EvenM, std::fabs(fineAt(k) - coarseAt(coarseFrom + k / 2)));
-      continue;
+    const double c = (offset + static_cast<double>(k)) / static_cast<double>(scale);
+    const int c0 = std::min(static_cast<int>(c), side - 2);
+    const double chord = std::lerp(coarseAt(c0), coarseAt(c0 + 1), c - c0);
+    float &height =
+        fine.Nodes[edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine)];
+    if (kind != nullptr && k % static_cast<int>(scale) != 0) {
+      kind->OddBeforeM = std::max(kind->OddBeforeM, std::fabs(height - chord));
     }
-    const double chord = 0.5 * (coarseAt(coarseFrom + k / 2) + coarseAt(coarseFrom + k / 2 + 1));
-    const double snapped = 0.5 * (fineAt(k - 1) + fineAt(k + 1));
-    kind.OddBeforeM = std::max(kind.OddBeforeM, std::fabs(fineAt(k) - chord));
-    kind.OddAfterM = std::max(kind.OddAfterM, std::fabs(snapped - chord));
+    height = static_cast<float>(chord);
+    if (kind != nullptr) {
+      double &after = k % static_cast<int>(scale) == 0 ? kind->EvenM : kind->OddAfterM;
+      after = std::max(after, std::fabs(height - chord));
+    }
   }
 }
 
 } // namespace
 
-void HeightSheets::MeasuresSeams(const Sheet &fine,
-                                 const Patchwork &laid,
-                                 std::array<float, 4> &stitched) {
-  if (fine.Nodes.size() != Render::GroundLattice::kPageNodes) { return; }
-  for (size_t at = 0; at < kSeamEdges.size(); ++at) {
-    const SeamEdge &edge = kSeamEdges[at];
-    const long nx = static_cast<long>(fine.Tile.X) + edge.StepX;
-    const long ny = static_cast<long>(fine.Tile.Y) + edge.StepY;
-    if (nx < 0 || ny < 0) { continue; }
-    const Data::TileId coarse{.Zoom = fine.Tile.Zoom - 1,
-                              .X = static_cast<uint32_t>(nx / 2),
-                              .Y = static_cast<uint32_t>(ny / 2)};
-    const auto found = std::ranges::find_if(
-        laid.Sheets, [&coarse](const Sheet &one) { return one.Tile == coarse; });
-    if (found == laid.Sheets.end() || found->Nodes.size() != Render::GroundLattice::kPageNodes) {
-      continue;
+namespace {
+
+[[nodiscard]] const Sheet *CoarseNeighbor(const Sheet &fine,
+                                          const SeamEdge &edge,
+                                          const Patchwork &laid,
+                                          const std::map<SheetKey, size_t> &index) {
+  long nx = static_cast<long>(fine.Tile.X) + edge.StepX;
+  const long ny = static_cast<long>(fine.Tile.Y) + edge.StepY;
+  if (!Ground::WrapTile(fine.Tile.Zoom, &nx, &ny)) { return nullptr; }
+  const int coarsest = std::get<0>(index.begin()->first);
+  for (int zoom = fine.Tile.Zoom; zoom >= coarsest; --zoom) {
+    const auto drop = static_cast<uint32_t>(fine.Tile.Zoom - zoom);
+    const SheetKey wanted{
+        zoom, static_cast<uint32_t>(nx) >> drop, static_cast<uint32_t>(ny) >> drop};
+    const auto found = index.find(wanted);
+    if (found != index.end()) {
+      return wanted < KeyOf(fine.Tile) ? &laid.Sheets[found->second] : nullptr;
     }
-    stitched[at] = 1.0f;
-    SeamKind &kind = fine.Virtual && found->Virtual ? Seams_.Virtual : Seams_.Real;
-    ++kind.Edges;
-    MeasuresSeamAlong(fine, *found, edge, kind);
+  }
+  return nullptr;
+}
+
+} // namespace
+
+void HeightSheets::StitchEdges(Patchwork &laid) {
+  Seams_ = {};
+  std::map<SheetKey, size_t> index;
+  for (size_t i = 0; i < laid.Sheets.size(); ++i) {
+    if (laid.Sheets[i].Nodes.size() == Render::GroundLattice::kPageNodes) {
+      index.emplace(KeyOf(laid.Sheets[i].Tile), i);
+    }
+  }
+  for (const auto &[key, sheetIndex] : index) {
+    Sheet &fine = laid.Sheets[sheetIndex];
+    for (const SeamEdge &edge : kSeamEdges) {
+      const Sheet *coarse = CoarseNeighbor(fine, edge, laid, index);
+      if (coarse == nullptr) { continue; }
+      SeamKind *kind = nullptr;
+      if (coarse->Tile.Zoom < fine.Tile.Zoom) {
+        kind = fine.Virtual && coarse->Virtual ? &Seams_.Virtual : &Seams_.Real;
+        ++kind->Edges;
+      }
+      StitchAlong(fine, *coarse, edge, kind);
+    }
   }
 }
 
@@ -340,7 +378,8 @@ void HeightSheets::AsksFields(const Ground::GroundStream &ground,
                               const Patchwork &laid,
                               int finestZoom) {
   for (const Sheet &sheet : laid.Sheets) {
-    const auto drop = sheet.Virtual ? static_cast<uint32_t>(sheet.Tile.Zoom - finestZoom) : 0u;
+    const int sourceZoom = SourceZoomOf(sheet, finestZoom);
+    const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
     const int zoom = sheet.Tile.Zoom - static_cast<int>(drop);
     const long x = static_cast<long>(sheet.Tile.X >> drop);
     const long y = static_cast<long>(sheet.Tile.Y >> drop);
@@ -541,44 +580,22 @@ bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
   return true;
 }
 
-std::array<float, 4> HeightSheets::StitchOf(const Sheet &sheet,
-                                            const Patchwork &laid,
-                                            std::span<const Data::TileId> present,
-                                            int coarsest) {
-  std::array<float, 4> stitched = {{}};
-  if (sheet.Tile.Zoom <= coarsest) { return stitched; }
-  MeasuresSeams(sheet, laid, stitched);
-  const auto absent = [&present, &sheet](long dx, long dy) {
-    const long x = static_cast<long>(sheet.Tile.X) + dx;
-    const long y = static_cast<long>(sheet.Tile.Y) + dy;
-    if (x < 0 || y < 0) { return true; }
-    const Data::TileId asked{
-        .Zoom = sheet.Tile.Zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
-    return std::ranges::find(present, asked) == present.end();
-  };
-  for (size_t at = 0; at < kSeamEdges.size(); ++at) {
-    if (stitched[at] > 0.5f && !absent(kSeamEdges[at].StepX, kSeamEdges[at].StepY)) {
-      stitched[at] = 0.0f;
-    }
-  }
-  return stitched;
-}
-
-bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
+bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
   if (Live_ == nullptr || !Framed_) { return true; }
-  for (Held &one : Held_) { one.Wanted = false; }
+  std::map<SheetKey, size_t> wanted;
+  for (size_t i = 0; i < laid.Sheets.size(); ++i) { wanted.emplace(KeyOf(laid.Sheets[i].Tile), i); }
+  std::erase_if(Held_, [&](const Held &one) {
+    if (wanted.contains(KeyOf(one.Tile))) { return false; }
+    Live_->ReleaseHeightPage(one.Page);
+    return true;
+  });
+  PageIndex_.clear();
+  for (size_t i = 0; i < Held_.size(); ++i) { PageIndex_.emplace(KeyOf(Held_[i].Tile), i); }
   Flat_ = 0;
-  Seams_ = {};
+  StitchEdges(laid);
   Instances_.clear();
   Virtual_.clear();
   const size_t nodes = Render::GroundLattice::kPageNodes;
-  std::vector<Data::TileId> present;
-  present.reserve(laid.Sheets.size());
-  int coarsest = std::numeric_limits<int>::max();
-  for (const Sheet &sheet : laid.Sheets) {
-    present.push_back(sheet.Tile);
-    coarsest = std::min(coarsest, sheet.Tile.Zoom);
-  }
   for (const Sheet &sheet : laid.Sheets) {
     Render::PageId page = Render::kNoPage;
     if (sheet.Side == Render::GroundLattice::kSide && sheet.Nodes.size() == nodes) {
@@ -588,15 +605,9 @@ bool HeightSheets::Hands(const Patchwork &laid, std::string &error) {
       continue;
     }
     if (page == Render::kNoPage) { return false; }
-    const std::array<float, 4> stitched = StitchOf(sheet, laid, present, coarsest);
-    (sheet.Virtual ? Virtual_ : Instances_)
-        .push_back(TileOf(sheet.Tile, page, sheet.Nodes, stitched));
+    (sheet.Virtual ? Virtual_ : Instances_).push_back(TileOf(sheet.Tile, page, sheet.Nodes));
   }
   if (!HandsGrid(laid, error)) { return false; }
-  for (const Held &one : Held_) {
-    if (!one.Wanted) { Live_->ReleaseHeightPage(one.Page); }
-  }
-  std::erase_if(Held_, [](const Held &one) { return !one.Wanted; });
   return Live_->SetGroundLattice(Instances_, Virtual_, error);
 }
 
@@ -632,6 +643,7 @@ void HeightSheets::Clear() {
     (void)Live_->SetGroundLattice({}, {}, ignored);
   }
   Held_.clear();
+  PageIndex_.clear();
   Instances_.clear();
   Virtual_.clear();
   Fields_.clear();
@@ -650,7 +662,6 @@ uint64_t HeightSheets::Digest() const {
       foldFloat(one.Instance.SagInv);
       foldFloat(one.Instance.StepE);
       foldFloat(one.Instance.StepN);
-      for (const float value : one.Instance.Stitched) { foldFloat(value); }
       foldFloat(one.LowM);
       foldFloat(one.HighM);
     }

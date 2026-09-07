@@ -1,4 +1,6 @@
 #include "GroundLattice.h"
+#include "SurfaceOutputs.h"
+#include "ShaderFile.h"
 
 #include <algorithm>
 #include <array>
@@ -19,7 +21,6 @@ namespace {
 
 namespace Says {
 constexpr std::string_view kNoDevice = "the ground lattice has no device to stand on";
-constexpr std::string_view kShaderRefused = "the ground lattice's shader was refused at {}: {}";
 constexpr std::string_view kPipelineRefused = "the ground lattice's pipeline was refused: {}";
 constexpr std::string_view kBufferRefused = "the ground lattice found no room for its {}: {}";
 constexpr std::string_view kPageWrongSize =
@@ -50,7 +51,7 @@ using SidePlanes = std::array<std::array<float, 4>, 4>;
 
 struct LatticeInput {
   std::array<SDL_GPUVertexBufferDescription, 2> Buffers{};
-  std::array<SDL_GPUVertexAttribute, 9> Attributes{};
+  std::array<SDL_GPUVertexAttribute, 8> Attributes{};
 };
 
 LatticeInput InputOf() {
@@ -66,7 +67,7 @@ LatticeInput InputOf() {
   in.Attributes[0].buffer_slot = 0;
   in.Attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
   in.Attributes[0].offset = 0;
-  for (uint32_t at = 1; at < 9; ++at) {
+  for (uint32_t at = 1; at < 8; ++at) {
     in.Attributes[at].location = at;
     in.Attributes[at].buffer_slot = 1;
     in.Attributes[at].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
@@ -185,9 +186,9 @@ bool GroundLattice::BuildPages(std::string &error) {
   wanted.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
   wanted.format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
   wanted.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = static_cast<uint32_t>(kPageSide);
-  wanted.height = static_cast<uint32_t>(kPageSide);
-  wanted.layer_count_or_depth = kPages;
+  wanted.width = static_cast<uint32_t>(kPageSide) * kPageColumns;
+  wanted.height = static_cast<uint32_t>(kPageSide) * kPageColumns;
+  wanted.layer_count_or_depth = kPageLayers;
   wanted.num_levels = 1;
   wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
   if (!SDL_GPUTextureSupportsFormat(Device_,
@@ -214,7 +215,7 @@ bool GroundLattice::BuildPages(std::string &error) {
 }
 
 bool GroundLattice::Configure(SDL_GPUDevice *device,
-                              std::string_view source,
+                              const SurfaceOutputs &outputs,
                               std::span<const SDL_GPUColorTargetDescription> targets,
                               std::string &error) {
   if (device == nullptr) {
@@ -235,15 +236,19 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
       return false;
     }
   }
-  const OwnedShader vertex(
-      Device_,
-      ShaderFrom(Device_, source, "vsGroundLattice", SDL_GPU_SHADERSTAGE_VERTEX, LitShape));
-  const OwnedShader fragment(
-      Device_, ShaderFrom(Device_, source, "fsGroundLit", SDL_GPU_SHADERSTAGE_FRAGMENT, LitShape));
-  if (!vertex || !fragment) {
-    error = std::format(Says::kShaderRefused, "vsGroundLattice/fsGroundLit", SDL_GetError());
-    return false;
-  }
+  const OwnedShader vertex(Device_,
+                           ShaderFrom(Device_,
+                                      outputs.VertexPath("groundLattice"),
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      LitShape,
+                                      error));
+  const OwnedShader fragment(Device_,
+                             ShaderFrom(Device_,
+                                        outputs.FragmentPath("groundLit"),
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        LitShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
   const LatticeInput in = InputOf();
   SDL_GPUGraphicsPipelineCreateInfo wanted{};
   wanted.vertex_shader = vertex.Get();
@@ -272,23 +277,22 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
   return true;
 }
 
-bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device,
-                                   std::string_view depthSource,
-                                   std::string &error) {
+bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
   if (device == nullptr) {
     error = std::string(Says::kNoDevice);
     return false;
   }
-  const OwnedShader vertex(
+  const OwnedShader vertex(device,
+                           ShaderFrom(device,
+                                      "build/shaders/groundLatticeDepth.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      DepthShape,
+                                      error));
+  const OwnedShader fragment(
       device,
       ShaderFrom(
-          device, depthSource, "vsGroundLatticeDepth", SDL_GPU_SHADERSTAGE_VERTEX, DepthShape));
-  const OwnedShader fragment(
-      device, ShaderFrom(device, depthSource, "fsDepth", SDL_GPU_SHADERSTAGE_FRAGMENT, DepthShape));
-  if (!vertex || !fragment) {
-    error = std::format(Says::kShaderRefused, "vsGroundLatticeDepth/fsDepth", SDL_GetError());
-    return false;
-  }
+          device, "build/shaders/depth.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, DepthShape, error));
+  if (!vertex || !fragment) { return false; }
   const LatticeInput in = InputOf();
   SDL_GPUGraphicsPipelineCreateInfo wanted{};
   wanted.vertex_shader = vertex.Get();
@@ -365,7 +369,9 @@ PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error
   source.transfer_buffer = staging.Get();
   SDL_GPUTextureRegion into{};
   into.texture = Pages_.Get();
-  into.layer = page;
+  into.layer = page / kPagesPerLayer;
+  into.x = (page % kPageColumns) * static_cast<uint32_t>(kPageSide);
+  into.y = ((page % kPagesPerLayer) / kPageColumns) * static_cast<uint32_t>(kPageSide);
   into.w = static_cast<uint32_t>(kPageSide);
   into.h = static_cast<uint32_t>(kPageSide);
   into.d = 1;

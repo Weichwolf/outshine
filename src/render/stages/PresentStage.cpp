@@ -23,16 +23,19 @@ bool PresentStage::Configure(const Gpu &gpu,
 bool PresentStage::For(const Gpu &gpu, SDL_GPUTextureFormat surfaceFormat, std::string &error) {
   if (Pipe && Built == surfaceFormat) { return true; }
 
-  const std::string source = ShaderSource(error);
-  if (source.empty()) { return false; }
-  const OwnedShader vertex(
-      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(
-      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
-  if (!vertex || !fragment) {
-    error = std::string("the present did not compile: ") + SDL_GetError();
-    return false;
-  }
+  const OwnedShader vertex(gpu.Device,
+                           ShaderFrom(gpu.Device,
+                                      "build/shaders/fullscreen.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      ShaderShape,
+                                      error));
+  const OwnedShader fragment(gpu.Device,
+                             ShaderFrom(gpu.Device,
+                                        "build/shaders/present.frag.spv",
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        ShaderShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
 
   SDL_GPUColorTargetDescription target{};
   target.format = surfaceFormat;
@@ -62,15 +65,6 @@ void PresentStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   const SDL_GPUTextureSamplerBinding bound{.texture = Frame, .sampler = Exact};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &bound, 1);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
-}
-
-std::string PresentStage::ShaderSource() {
-  std::string ignored;
-  return ShaderSource(ignored);
-}
-
-std::string PresentStage::ShaderSource(std::string &error) {
-  return ShaderText().Begins().Reads("src/render/shaders/present.msl").Take(error);
 }
 
 } // namespace outshine::Render

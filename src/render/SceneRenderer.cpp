@@ -1,3 +1,4 @@
+#include <SDL3_shadercross/SDL_shadercross.h>
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "math/Vec2.h"
@@ -58,14 +59,6 @@ Mat4f MvpCamRel(const CameraBasis &stands, const Lens &through) {
   const Vec3 &right = stands.Right;
   const Vec3 &up = stands.Up;
   const Vec3 &forward = stands.Forward;
-  const double widePx = through.WidePx;
-  const double highPx = through.HighPx;
-  const float asp = static_cast<float>(widePx) / static_cast<float>(highPx);
-  const float zn = through.NearM;
-  assert(through.OrthoM > 0.0f || through.FovDeg > 0.0f);
-  const float f = through.OrthoM > 0.0f
-                      ? 0.0f
-                      : 1.0f / std::tan(through.FovDeg * static_cast<float>(kDeg2Rad) / 2.0f);
   const Mat4f v = {{static_cast<float>(right[0]),
                     static_cast<float>(up[0]),
                     -static_cast<float>(forward[0]),
@@ -82,23 +75,7 @@ Mat4f MvpCamRel(const CameraBasis &stands, const Lens &through) {
                     0,
                     0,
                     1}};
-
-  Mat4f p = {{f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0}};
-
-  const float ndcX = widePx > 0 ? 2.0f * through.Jitter[0] / static_cast<float>(widePx) : 0.0f;
-  const float ndcY = highPx > 0 ? 2.0f * through.Jitter[1] / static_cast<float>(highPx) : 0.0f;
-  p[8] = -ndcX;
-  p[9] = -ndcY;
-  if (through.OrthoM > 0.0f) {
-    const float hw = 0.5f * through.OrthoM * asp;
-    const float hh = 0.5f * through.OrthoM;
-    const float zf = 60000.0f;
-    const float rz = 1.0f / (zf - zn);
-    Mat4f q = {{1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1}};
-    q[12] = ndcX;
-    q[13] = ndcY;
-    for (int i = 0; i < 16; i++) { p[i] = q[i]; }
-  }
+  const Mat4f p = through.Projection();
   Mat4f m = {};
   for (int c = 0; c < 4; c++) {
     for (int r = 0; r < 4; r++) {
@@ -164,8 +141,10 @@ Lens SceneRenderer::Through() const {
   return {.WidePx = PictureW(),
           .HighPx = PictureH(),
           .FovDeg = FovDeg_,
+          .OrthoWidthM = OrthoWidthM_,
           .OrthoM = OrthoM_,
           .NearM = NearM_,
+          .FarM = FarM_,
           .Jitter = Jitter_};
 }
 
@@ -245,7 +224,8 @@ bool SceneRenderer::Stands() {
         "the process, so the client calls SDL_Init(SDL_INIT_VIDEO) before it declares a scenario";
     return false;
   }
-  SDL_GPUDevice *device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
+  SDL_GPUDevice *device =
+      SDL_CreateGPUDevice(SDL_ShaderCross_GetSPIRVShaderFormats(), kGpuValidation, nullptr);
   if (device == nullptr) {
     Log::Error(LogTag::Render, "no_device", {{"msg", SDL_GetError()}});
     WhyNot_ = std::string("no gpu device: ") + SDL_GetError();
@@ -466,7 +446,8 @@ void SceneRenderer::Create(Resource resource) {
     case Resource::CascadeUniform:
     case Resource::IrradianceBuffer: {
       SDL_GPUBufferCreateInfo wanted{};
-      wanted.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
+      wanted.usage =
+          SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
       wanted.size = kIrradianceFloats * static_cast<uint32_t>(sizeof(float));
       IrradianceBuffer_ =
           OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
@@ -730,6 +711,12 @@ void SceneRenderer::Picture(bool picture, const PassRecording &into) {
 
 FrameContext SceneRenderer::Framing() const {
   FrameContext ctx{};
+  if (OrthoM_ > 0) {
+    for (int axis = 0; axis < 3; ++axis) {
+      ctx.ViewPosition[axis] = static_cast<float>(-Camera_.Forward[axis]);
+    }
+    ctx.ViewPosition[3] = 0;
+  }
   for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Camera_.EyeM[axis]; }
 
   ctx.Mvp = MvpCamRel(Camera_, Through());
@@ -1003,7 +990,9 @@ EyeBasis SceneRenderer::Eye() const {
 void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
   Aerial_.SetBasis(Eye());
-  Aerial_.SetNear(NearMetres());
+  const Mat4f projection = Through().Projection();
+  Aerial_.SetDepthReconstruction(
+      {{projection[14], projection[15], projection[10], -projection[11]}});
   Aerial_.Encode(ctx, into);
 }
 
@@ -1364,7 +1353,7 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
 }
 
 ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> out) {
-  if (!Ready_ || !IrradianceBuffer_) { return ReadState::Failed; }
+  if (!Ready_ || !IrradianceBuffer_ || !SkyIrradianceStage_.Settled()) { return ReadState::Failed; }
   Readback read;
   if (read.FromBuffer(Device_.Get(),
                       IrradianceBuffer_.Get(),

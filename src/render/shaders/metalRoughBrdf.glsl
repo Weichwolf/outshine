@@ -1,0 +1,74 @@
+
+struct Brdf { vec3 diffuse; vec3 specular; };
+
+float max3(vec3 v) { return max(max(v.x, v.y), v.z); }
+
+float brdfAnisotropicDistribution(float nh, float th, float bh, float at, float ab) {
+  float a2 = at * ab;
+  vec3 f = vec3(ab * th, at * bh, a2 * nh);
+  float d = dot(f, f);
+  if (!(d > 0.0)) { return 0.0; }
+  float w2 = a2 / d;
+  return a2 * w2 * w2 / kPi;
+}
+
+float brdfAnisotropicVisibility(float nl, float nv, float tv, float bv, float tl,
+                                              float bl, float at, float ab) {
+  float alongV = nl * length(vec3(at * tv, ab * bv, nv));
+  float alongL = nv * length(vec3(at * tl, ab * bl, nl));
+  float s = alongV + alongL;
+  if (!(s > 0.0)) { return 0.0; }
+  return clamp(0.5 / s, 0.0, 1.0);
+}
+
+float brdfDistribution(float nh, float a2) {
+  float denominator = nh * nh * (a2 - 1.0) + 1.0;
+  return a2 / (kPi * denominator * denominator);
+}
+
+float brdfVisibility(float nl, float nv, float a2) {
+  return 0.5 / (nl * sqrt(nv * nv * (1.0 - a2) + a2) + nv * sqrt(nl * nl * (1.0 - a2) + a2));
+}
+
+float toksvigA2(float a2, float l) {
+  float d = l * a2 + 2.0 * (1.0 - a2) * (1.0 - l);
+  float n = 2.0 * l * (1.0 - a2);
+  float denominator = n + 2.0 * d;
+  return denominator > 0.0 ? 2.0 * d / denominator : 1.0;
+}
+
+float roughenedBy(float roughness, float meanResultantLength) {
+  if (!(meanResultantLength < 1.0)) { return roughness; }
+  float alpha = roughness * roughness;
+  return sqrt(sqrt(toksvigA2(alpha * alpha, meanResultantLength)));
+}
+
+vec3 brdfFresnel(vec3 f0, float f90, float vh) {
+  float grazing = 1.0 - vh;
+  float squared = grazing * grazing;
+  return f0 + (vec3(f90) - f0) * (squared * squared * grazing);
+}
+
+float brdfLobe(float a2, float nl, float nv, float nh) {
+  if (!(a2 > 0.0)) { return 0.0; }
+  return brdfDistribution(nh, a2) * brdfVisibility(nl, nv, a2);
+}
+
+Brdf brdfCombine(vec3 diffuseColour, vec3 fresnel, float lobe) {
+  Brdf terms;
+  terms.diffuse = (vec3(1.0) - fresnel) * diffuseColour * (1.0 / kPi);
+  terms.specular = fresnel * lobe;
+  return terms;
+}
+
+Brdf brdfRgbMix(vec3 diffuseColour, vec3 fresnel, float lobe) {
+  Brdf terms;
+  terms.diffuse = (1.0 - max3(fresnel)) * diffuseColour * (1.0 / kPi);
+  terms.specular = fresnel * lobe;
+  return terms;
+}
+
+Brdf metalRoughBrdf(vec3 diffuseColour, vec3 f0, float f90, float a2,
+                                  float nl, float nv, float nh, float vh) {
+  return brdfCombine(diffuseColour, brdfFresnel(f0, f90, vh), brdfLobe(a2, nl, nv, nh));
+}

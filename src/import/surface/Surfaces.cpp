@@ -62,7 +62,7 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
   bound.Width = static_cast<uint32_t>(raster.Width);
   bound.Height = static_cast<uint32_t>(raster.Height);
 
-  bound.Uv = declared.Transform;
+  bound.Uv = UvTransformOf(declared.Uv);
   if (texture.Sampler >= 0) {
     const Sampler &sampler = file.Samplers()[static_cast<size_t>(texture.Sampler)];
     bound.WrapU = WrapOf(sampler.WrapS);
@@ -169,7 +169,7 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
     base.Width = static_cast<uint32_t>(table.Decoded[slot].Colour.Width);
     base.Height = static_cast<uint32_t>(table.Decoded[slot].Colour.Height);
 
-    base.Uv = declared.Transform;
+    base.Uv = UvTransformOf(declared.Uv);
     if (texture.Sampler >= 0) {
       const Sampler &sampler = file.Samplers()[static_cast<size_t>(texture.Sampler)];
       base.WrapU = WrapOf(sampler.WrapS);

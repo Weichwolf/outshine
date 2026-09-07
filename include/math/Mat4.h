@@ -11,10 +11,8 @@ namespace outshine {
 
 /// A 4x4 transform, stored COLUMN-MAJOR.
 ///
-/// The order is not a preference: GLSL and SPIR-V's std140 layout state it for a bound uniform,
-/// and the tree already held these as sixteen loose doubles in that order. Writing it in the
-/// member's name is what stops the next reader from transposing a matrix that was already right
-/// -- the commonest way a scene ends up mirrored.
+/// Column vectors: transformed = matrix * vector; composition applies the right matrix first.
+/// Matches glTF storage and the default GLSL matrix layout.
 template <typename Number> struct Matrix4 {
   /// The sixteen components, four columns of four, column 0 first.
   std::array<Number, 16> Column = {Number{1},
@@ -76,11 +74,11 @@ template <typename Number> struct Matrix4 {
 
   /// The sixteen components as a fixed-extent view.
   /// @return A span over all sixteen, in storage order.
-  [[nodiscard]] constexpr std::span<const Number, 16> Row() const { return Column; }
+  [[nodiscard]] constexpr std::span<const Number, 16> Elements() const { return Column; }
 
   /// The sixteen components as a writable fixed-extent view.
   /// @return A writable span over all sixteen, in storage order.
-  [[nodiscard]] constexpr std::span<Number, 16> Row() { return Column; }
+  [[nodiscard]] constexpr std::span<Number, 16> Elements() { return Column; }
 
   /// The components as contiguous storage, for the one boundary that takes a pointer: the device.
   /// @return A pointer to the first of the sixteen.
@@ -107,7 +105,7 @@ template <typename Number> struct Matrix4 {
     Column[14] = at[2];
   }
 
-  /// @p point through this transform, translation INCLUDED.
+  /// Affine point transform (w = 1); no perspective division. Translation is included.
   ///
   /// A point and a direction are not the same argument: a direction must not pick up the
   /// translation, or a normal moves when the object does. @ref TransformDirection is the other

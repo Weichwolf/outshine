@@ -43,6 +43,7 @@ struct Sheet {
   int Side = 0;
   uint32_t Postings = 0;
   bool Virtual = false;
+  int SourceZoom = -1;
 };
 
 struct Patchwork {

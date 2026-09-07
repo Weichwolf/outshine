@@ -4,6 +4,7 @@
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "Live.h"
+#include "AzimuthElevation.h"
 
 #include "Shaped.h"
 #include "Surfaces.h"
@@ -170,9 +171,14 @@ double Photopic(const Vec3f &triple) {
 
 } // namespace
 
+Render::Medium Live::DeclaredAir() const {
+  return Render::Hazed(Render::kEarthAir, Declared_.Haze);
+}
+
 Live::AirReach Live::SunThroughTheAir(double cosSun) const {
-  if (std::fabs(cosSun - AirStoodAt_) > kLeastRunM) {
-    const Render::Medium medium = Render::kEarthAir;
+  const Render::Medium medium = DeclaredAir();
+  const float cosine = static_cast<float>(cosSun);
+  if (cosine != AirStoodAt_ || !(medium == AirStood_)) {
     const float stoodAt = medium.BottomRadiusKm + Render::kMediumGroundLiftKm;
     const auto toSun = [&](Render::MediumLook look) {
       return Render::MediumTransmittance(medium, look, Render::kTransmittanceSteps);
@@ -189,11 +195,11 @@ Live::AirReach Live::SunThroughTheAir(double cosSun) const {
       }
       return out;
     };
-    const Render::MediumLook stands = {.RadiusKm = stoodAt,
-                                       .CosZenith = static_cast<float>(cosSun)};
+    const Render::MediumLook stands = {.RadiusKm = stoodAt, .CosZenith = cosine};
     SkylightStood_ = Render::MediumSkyIrradiance(medium, stands, toSun, secondOrder);
     SunReachStood_ = toSun(stands);
-    AirStoodAt_ = cosSun;
+    AirStoodAt_ = cosine;
+    AirStood_ = medium;
   }
   return {.SunReach = SunReachStood_, .Skylight = SkylightStood_};
 }
@@ -466,23 +472,17 @@ PunctualLight Live::KeyLight() const {
 }
 
 Vec3f Live::TowardTheKey() const {
-  const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
-  const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
-  return {{static_cast<float>(std::cos(elevation) * std::sin(bearing)),
-           static_cast<float>(std::sin(elevation)),
-           static_cast<float>(std::cos(elevation) * std::cos(bearing))}};
+  const Vec3 direction = EastUpSouthDirection(Declared_.KeyBearingDeg * kDeg2Rad,
+                                              Declared_.KeyElevationDeg * kDeg2Rad);
+  Vec3f into;
+  for (int axis = 0; axis < 3; ++axis) { into[axis] = static_cast<float>(direction[axis]); }
+  return into;
 }
 
 void Live::StandsKeyLight() {
-  if (Declared_.DrawsSky) {
-    Renderer_->SetMedium(Render::Hazed(Render::kEarthAir, Declared_.Haze));
-  }
+  if (Declared_.DrawsSky) { Renderer_->SetMedium(DeclaredAir()); }
 
-  const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
-  const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
-  const Vec3f toSun = {{static_cast<float>(std::cos(elevation) * std::sin(bearing)),
-                        static_cast<float>(std::sin(elevation)),
-                        static_cast<float>(std::cos(elevation) * std::cos(bearing))}};
+  const Vec3f toSun = TowardTheKey();
   const Vec3f up = {{0.0f, 1.0f, 0.0f}};
 
   Renderer_->SetSky(
@@ -713,6 +713,7 @@ void Live::StandsEnvironment() {
   Render::SubjectEnvironment environment;
   for (int channel = 0; channel < 3; ++channel) {
     environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
+    environment.GroundLinear[channel] = environment.RadianceLinear[channel];
   }
   if (Declared_.DrawsSky && DeclaresKeyLight()) { LightsFromTheSky(environment); }
   for (int channel = 0; channel < 3; ++channel) {
@@ -722,19 +723,23 @@ void Live::StandsEnvironment() {
   Stood_.Around(environment);
 }
 
+void Live::ReadIrradiance(std::span<const float, Render::kIrradianceFloats> irradiance) {
+  const auto &environment = Stood_.IndirectLight();
+  const double scale = environment.SkyLux / std::numbers::pi;
+  for (size_t channel = 0; channel < 3; ++channel) {
+    const double sky = irradiance[channel] * scale;
+    const double sun = irradiance[3 + channel] * std::max(environment.CosSunZenith, 0.0) * scale;
+    AmbientStood_[channel] = environment.RadianceLinear[channel] + sky;
+    GroundStood_[channel] =
+        environment.GroundLinear[channel] + environment.GroundAlbedo[channel] * (sky + sun);
+  }
+}
+
 void Live::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
-  const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
-  const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
-  const AirReach reach = SunThroughTheAir(cosSun);
-  const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
+  environment.SkyLux = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
+  environment.CosSunZenith = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
   for (int channel = 0; channel < 3; ++channel) {
-    environment.RadianceLinear[channel] +=
-        static_cast<double>(reach.Skylight[channel] / std::numbers::pi_v<float>) * aboveTheAir;
-    const float onTheGround =
-        static_cast<float>(aboveTheAir) *
-        static_cast<float>(straightDown * reach.SunReach[channel] + reach.Skylight[channel]);
-    environment.GroundLinear[channel] +=
-        GroundAlbedo_[channel] * static_cast<double>(onTheGround / std::numbers::pi_v<float>);
+    environment.GroundAlbedo[channel] = GroundAlbedo_[channel];
   }
 }
 
@@ -746,9 +751,12 @@ void Live::EmitsPerPart() {
     const bool emits = row.Emission[0] > 0.0f || row.Emission[1] > 0.0f || row.Emission[2] > 0.0f;
     std::array<float, 3> radiance{};
     for (int channel = 0; channel < 3; ++channel) {
-      radiance[static_cast<size_t>(channel)] =
-          emits ? row.Emission[channel]
-                : row.BaseColour[channel] * static_cast<float>(Declared_.IndirectLight[channel]);
+      float value = row.BaseColour[channel];
+      if (!row.Unlit) {
+        value = emits ? row.Emission[channel]
+                      : value * static_cast<float>(Declared_.IndirectLight[channel]);
+      }
+      radiance[static_cast<size_t>(channel)] = value;
     }
     (void)Stood_.Emits(part, radiance);
   }

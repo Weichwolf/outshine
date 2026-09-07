@@ -26,16 +26,19 @@ bool OverlayDraw::Configure(const Gpu &gpu,
   Encodes = targetFormat == SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB ||
             targetFormat == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
 
-  const std::string source = ShaderSource(error);
-  if (source.empty()) { return false; }
-  const OwnedShader vertex(
-      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(
-      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
-  if (!vertex || !fragment) {
-    error = std::string("the overlay did not compile: ") + SDL_GetError();
-    return false;
-  }
+  const OwnedShader vertex(gpu.Device,
+                           ShaderFrom(gpu.Device,
+                                      "build/shaders/overlay.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      ShaderShape,
+                                      error));
+  const OwnedShader fragment(gpu.Device,
+                             ShaderFrom(gpu.Device,
+                                        "build/shaders/overlay.frag.spv",
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        ShaderShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
 
   SDL_GPUVertexBufferDescription buffer{};
   buffer.slot = 0;
@@ -204,15 +207,6 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   const SDL_GPUTextureSamplerBinding sampled{.texture = Atlas.Get(), .sampler = Smooth};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &sampled, 1);
   SDL_DrawGPUPrimitives(into.Pass, 6, Count, 0, 0);
-}
-
-std::string OverlayDraw::ShaderSource() {
-  std::string ignored;
-  return ShaderSource(ignored);
-}
-
-std::string OverlayDraw::ShaderSource(std::string &error) {
-  return ShaderText().Begins().Reads("src/render/shaders/overlay.msl").Take(error);
 }
 
 } // namespace outshine::Render

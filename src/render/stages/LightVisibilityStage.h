@@ -37,9 +37,6 @@ public:
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
-  [[nodiscard]] static std::string DepthOnlySource();
-  [[nodiscard]] static std::string DepthOnlySource(std::string &error);
-
   void Build(const Vec3 &preView);
 
   [[nodiscard]] const Mat4 &LightFromWorld() const { return LightFromWorld_; }

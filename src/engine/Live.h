@@ -189,6 +189,8 @@ public:
 
   [[nodiscard]] double MeteredLux() const;
 
+  void ReadIrradiance(std::span<const float, Render::kIrradianceFloats> irradiance);
+
   [[nodiscard]] std::span<const double, 3> AmbientStood() const { return AmbientStood_; }
 
   [[nodiscard]] std::span<const double, 3> GroundStood() const { return GroundStood_; }
@@ -451,8 +453,10 @@ private:
   };
 
   [[nodiscard]] AirReach SunThroughTheAir(double cosSun) const;
+  [[nodiscard]] Render::Medium DeclaredAir() const;
 
-  mutable double AirStoodAt_ = -2.0;
+  mutable float AirStoodAt_ = -2.0f;
+  mutable Render::Medium AirStood_{};
   mutable Vec3f SunReachStood_;
   mutable Vec3f SkylightStood_;
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;

@@ -28,7 +28,7 @@ public:
   HeightSampler(const HeightSampler &) = delete;
   HeightSampler &operator=(const HeightSampler &) = delete;
 
-  /// The ground's height above the ellipsoid at a place, in metres, or nothing.
+  /// The source DEM's height above mean sea level (ASL), in metres, or nothing.
   ///
   /// @param at the place; the height it carries is ignored, since that is what is being asked for
   /// @return the height where the ground is KNOWN. An empty answer is not zero: a tile that has not

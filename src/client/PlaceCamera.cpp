@@ -365,7 +365,8 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   {
     std::vector<std::uint8_t> pixels;
     if (engine.renderer().readPixels(pixels).has_value()) {
-      shot.VariationAlongRows = VariationAlongRows(pixels, kWidePx, kHighPx);
+      const Extent frame = engine.swapChain().extent();
+      shot.VariationAlongRows = VariationAlongRows(pixels, frame.WidthPx, frame.HeightPx);
     }
   }
 

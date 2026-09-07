@@ -16,20 +16,6 @@ constexpr uint32_t kTemporalImages = TonemapStage::TemporalShaderShape.FragmentS
 
 } // namespace
 
-std::string TonemapStage::ShaderSource(const DisplayOptions &options) {
-  std::string ignored;
-  return ShaderSource(options, ignored);
-}
-
-std::string TonemapStage::ShaderSource(const DisplayOptions &options, std::string &error) {
-  ShaderText source;
-  return source.Begins()
-      .Adds(DisplayMsl(options))
-      .Reads(options.Temporal ? "src/render/shaders/temporalResolve.msl"
-                              : "src/render/shaders/tonemap.msl")
-      .Take(error);
-}
-
 bool TonemapStage::Configure(const Gpu &gpu,
                              const Feeds &from,
                              const DisplayOptions &options,
@@ -39,17 +25,22 @@ bool TonemapStage::Configure(const Gpu &gpu,
   Exact = from.Exact;
 
   Temporal = options.Temporal;
-  const std::string source = ShaderSource(options, error);
-  if (source.empty()) { return false; }
+  Display_ = options;
   const DrawShape &shape = options.Temporal ? TemporalShaderShape : ShaderShape;
   const OwnedShader vertex(gpu.Device,
-                           ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, shape));
-  const OwnedShader fragment(
-      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, shape));
-  if (!vertex || !fragment) {
-    error = std::string("the display transfer did not compile: ") + SDL_GetError();
-    return false;
-  }
+                           ShaderFrom(gpu.Device,
+                                      "build/shaders/fullscreen.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      shape,
+                                      error));
+  const OwnedShader fragment(gpu.Device,
+                             ShaderFrom(gpu.Device,
+                                        options.Temporal ? "build/shaders/temporalResolve.frag.spv"
+                                                         : "build/shaders/tonemap.frag.spv",
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        shape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
 
   std::array<SDL_GPUColorTargetDescription, 2> target = {{}};
   target[0].format = options.Temporal ? from.Linear : gpu.SurfaceFormat;
@@ -101,6 +92,17 @@ void TonemapStage::Encode([[maybe_unused]] const FrameContext &ctx, const PassRe
         {{.texture = Scene, .sampler = Exact}, {.texture = Depth, .sampler = Exact}}};
     SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kTonemapImages);
   }
+
+  const struct {
+    float Exposure;
+    uint32_t Filmic;
+    std::array<float, 2> Pad;
+  } display{.Exposure = Display_.Exposure,
+            .Filmic = Display_.Curve == Transfer::Filmic ? 1u : 0u,
+            .Pad = {}};
+
+  static_assert(sizeof(display) == 16);
+  SDL_PushGPUFragmentUniformData(into.Commands, Temporal ? 1u : 0u, &display, sizeof display);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 

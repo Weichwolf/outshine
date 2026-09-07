@@ -19,15 +19,27 @@
 
 namespace outshine::Render {
 
+struct SurfaceOutputs;
+
 class GroundLattice {
 public:
-  static constexpr int kSide = 33;
+#define GROUND_INT(name, value) static constexpr int name = value;
+#define GROUND_UINT(name, value) static constexpr uint32_t name = value;
+#define GROUND_FLOAT(name, value) static constexpr float name = value;
+#include "GroundConstants.inc"
+#undef GROUND_INT
+#undef GROUND_UINT
+#undef GROUND_FLOAT
+  static constexpr int kSide = kGroundSide;
   static constexpr int kPageSide = kSide + 2;
   static constexpr uint32_t kPageNodes =
       static_cast<uint32_t>(kPageSide) * static_cast<uint32_t>(kPageSide);
-  static constexpr float kSkirtSteps = 16.0f;
+  static constexpr float kSkirtSteps = kGroundSkirtSteps;
   static constexpr uint32_t kNodes = static_cast<uint32_t>(kSide) * static_cast<uint32_t>(kSide);
-  static constexpr uint32_t kPages = 512;
+  static constexpr uint32_t kPageColumns = kGroundPageColumns;
+  static constexpr uint32_t kPagesPerLayer = kPageColumns * kPageColumns;
+  static constexpr uint32_t kPageLayers = 512;
+  static constexpr uint32_t kPages = kPageLayers * kPagesPerLayer;
   static constexpr uint32_t kGridFloats = 3;
   static constexpr uint32_t kVertices = kNodes + 4u * static_cast<uint32_t>(kSide);
   static constexpr uint32_t kQuads =
@@ -36,17 +48,16 @@ public:
   static constexpr uint32_t kIndices = (kQuads + kSkirtQuads) * 6u;
   static constexpr DrawShape LitShape{.VertexSamplers = 1,
                                       .VertexUniformBuffers = 1,
-                                      .FragmentSamplers = kSubjectImages,
+                                      .FragmentSamplers = 1,
                                       .FragmentUniformBuffers = kSubjectFragmentUniforms,
                                       .FragmentStorageBuffers = 3};
   static constexpr DrawShape DepthShape{.VertexSamplers = 1, .VertexUniformBuffers = 1};
 
   [[nodiscard]] bool Configure(SDL_GPUDevice *device,
-                               std::string_view source,
+                               const SurfaceOutputs &outputs,
                                std::span<const SDL_GPUColorTargetDescription> targets,
                                std::string &error);
-  [[nodiscard]] bool
-  ConfigureDepth(SDL_GPUDevice *device, std::string_view depthSource, std::string &error);
+  [[nodiscard]] bool ConfigureDepth(SDL_GPUDevice *device, std::string &error);
 
   [[nodiscard]] bool SetGrid(std::span<const float> fractions, std::string &error);
 
@@ -69,7 +80,7 @@ public:
   [[nodiscard]] uint32_t Triangles() const { return Drawn() * (kIndices / 3u); }
 
   [[nodiscard]] uint32_t HeldBytes() const {
-    return PagesMade_ * kPageNodes * static_cast<uint32_t>(sizeof(float)) +
+    return (Pages_ ? kPages : 0u) * kPageNodes * static_cast<uint32_t>(sizeof(float)) +
            InstanceRoom_ * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float)) +
            kVertices * kGridFloats * static_cast<uint32_t>(sizeof(float)) +
            kIndices * static_cast<uint32_t>(sizeof(uint32_t));

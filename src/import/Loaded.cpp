@@ -78,24 +78,38 @@ struct Loaded::Held {
     }
     for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
       const int index = slot < table.Material.size() ? table.Material[slot] : -1;
-      if (index < 0 || index >= Handed.surfaces()) { continue; }
+      if (index < 0 || index >= Handed.surfaces() ||
+          static_cast<size_t>(index) >= File.Materials().size()) {
+        continue;
+      }
       Material row = Handed.surfaceAt(MaterialInstance(index));
       const Render::SubjectMaterial &held = table.Slots[slot];
+      const Gltf::MaterialRef &declared = File.Materials()[static_cast<size_t>(index)];
 
       struct MapRow {
         const Render::SubjectTexture &From;
         SurfaceMap &Into;
+        const Gltf::TextureRef &Declared;
       };
 
       const std::array<MapRow, 6> maps = {
-          {{.From = held.Colour, .Into = row.BaseColourMap},
-           {.From = held.Normal, .Into = row.NormalMap},
-           {.From = held.MetalRough, .Into = row.MetalRoughMap},
-           {.From = held.Emissive, .Into = row.EmissiveMap},
-           {.From = held.SpecularStrength, .Into = row.SpecularStrengthMap},
-           {.From = held.SpecularTint, .Into = row.SpecularTintMap}}};
+          {{.From = held.Colour, .Into = row.BaseColourMap, .Declared = declared.BaseColour},
+           {.From = held.Normal, .Into = row.NormalMap, .Declared = declared.Normal},
+           {.From = held.MetalRough,
+            .Into = row.MetalRoughMap,
+            .Declared = declared.MetallicRoughness},
+           {.From = held.Emissive, .Into = row.EmissiveMap, .Declared = declared.Emissive},
+           {.From = held.SpecularStrength,
+            .Into = row.SpecularStrengthMap,
+            .Declared = declared.SpecularStrength},
+           {.From = held.SpecularTint,
+            .Into = row.SpecularTintMap,
+            .Declared = declared.SpecularTint}}};
 
-      for (const auto &map : maps) { Names(map.From, map.Into); }
+      for (const auto &map : maps) {
+        Names(map.From, map.Into);
+        map.Into.Uv = map.Declared.Uv;
+      }
       if (!Handed.setSurface(MaterialInstance(index), row)) {
         Why = "a surface the file declares could not be named on the geometry handed back";
         return false;
@@ -108,13 +122,13 @@ struct Loaded::Held {
     if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return; }
     into.Image = Keeps(from);
     into.Set = from.Set;
-    into.HeightSampler.Magnify =
+    into.Sampler.Magnify =
         from.Magnify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
-    into.HeightSampler.Minify =
+    into.Sampler.Minify =
         from.Minify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
-    into.HeightSampler.Mip = MipOf(from.Mip);
-    into.HeightSampler.WrapU = WrapOf(from.WrapU);
-    into.HeightSampler.WrapV = WrapOf(from.WrapV);
+    into.Sampler.Mip = MipOf(from.Mip);
+    into.Sampler.WrapU = WrapOf(from.WrapU);
+    into.Sampler.WrapV = WrapOf(from.WrapV);
   }
 
   [[nodiscard]] int Keeps(const Render::SubjectTexture &from) {

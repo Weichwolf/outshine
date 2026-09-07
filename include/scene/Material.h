@@ -20,6 +20,8 @@ constexpr float kIridescenceThicknessMaxUnsaidNm = 400.0f;
 
 enum class AlphaMode { Opaque, Masked, Blended };
 
+/// Metallic-roughness parameters; linear RGB factors and straight alpha as in glTF.
+/// Native defaults describe a grey dielectric; glTF imports apply the format's own defaults.
 struct Material {
   Vec4f BaseColour = {{0.5f, 0.5f, 0.5f, 1.0f}};
   float Metalness = 0.0f;

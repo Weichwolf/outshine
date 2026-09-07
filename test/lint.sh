@@ -34,7 +34,9 @@ done
 
 mkdir -p "$REPORT"
 # what git holds or would hold: the lab's .venv under test/ carries 24 834 headers nobody wrote
-ours=$(git ls-files --cached --others --exclude-standard src include test | grep -E '\.(cpp|h)$' | grep -v '/shaders/' | sort)
+ours=$(git ls-files --cached --others --exclude-standard src include test | grep -E '\.(cpp|h)$' | grep -v '/shaders/' | while IFS= read -r source; do
+  [ ! -f "$source" ] || printf '%s\n' "$source"
+done | sort)
 
 printf '== format ==\n'
 if "$LLVM/clang-format" --dry-run --Werror $ours 2>"$REPORT/format.log"; then

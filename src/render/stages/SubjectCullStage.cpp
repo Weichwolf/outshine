@@ -38,10 +38,6 @@ struct CullView {
 
 static_assert(sizeof(CullView) % 16u == 0u, "the cull uniform keeps its float4x4 aligned");
 
-std::string Kernel(std::string &error) {
-  return ShaderText().Begins().Reads("src/render/shaders/subjectCull.msl").Take(error);
-}
-
 std::atomic<float> gErrorPerMetre{0.0f};
 std::atomic<uint32_t> gJobsSwept{0};
 
@@ -75,24 +71,9 @@ bool SubjectCullStage::Pipeline(const Gpu &gpu,
                                 OwnedComputePipeline &into,
                                 std::string &error) {
   if (into) { return true; }
-  const std::string source = KernelSource(error);
-  if (source.empty()) { return false; }
-  SDL_GPUComputePipelineCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
-  wanted.code_size = source.size();
-  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
-  wanted.entrypoint = entry;
-  wanted.num_readonly_storage_buffers = shape.ReadOnlyBuffers;
-  wanted.num_readwrite_storage_buffers = shape.ReadWriteBuffers;
-  wanted.num_uniform_buffers = shape.UniformBuffers;
-  wanted.threadcount_x = shape.GroupX;
-  wanted.threadcount_y = 1u;
-  wanted.threadcount_z = 1u;
-  SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
-  if (made == nullptr) {
-    error = std::string("the subject cull's ") + entry + " was refused: " + SDL_GetError();
-    return false;
-  }
+  SDL_GPUComputePipeline *const made =
+      ComputeFrom(gpu.Device, std::string("build/shaders/") + entry + ".comp.spv", shape, error);
+  if (made == nullptr) { return false; }
   into = OwnedComputePipeline(gpu.Device, made);
   return true;
 }
@@ -180,7 +161,6 @@ void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Scan_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 2);
   SDL_DispatchGPUCompute(into.Dispatch, batches, 1u, 1u);
@@ -203,15 +183,6 @@ void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecordin
   SDL_BindGPUComputePipeline(into.Dispatch, Compact_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 4);
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);
-}
-
-std::string SubjectCullStage::KernelSource() {
-  std::string ignored;
-  return Kernel(ignored);
-}
-
-std::string SubjectCullStage::KernelSource(std::string &error) {
-  return Kernel(error);
 }
 
 } // namespace outshine::Render

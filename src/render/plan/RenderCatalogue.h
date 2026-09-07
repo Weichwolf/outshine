@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include <SDL3/SDL_gpu.h>
+#include "IrradianceLayout.h"
 
 namespace outshine::Render {
 
@@ -250,8 +251,9 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Kind = ResourceKind::Derived,
      .Fallback = FallbackKind::None,
      .AliasOf = kNoEdge,
-     .Format = TexelFormat::Handle,
-     .Name = "irradiance"},
+     .Format = TexelFormat::Table,
+     .Name = "irradiance",
+     .Stride = kIrradianceFloats * static_cast<uint32_t>(sizeof(float))},
 
     {.Id = Resource::Meter,
      .Kind = ResourceKind::Derived,
@@ -461,7 +463,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
      .Name = "irradiance",
-     .Reads = {Resource::SkyViewLut,
+     .Reads = {Resource::MultiScatterLut,
                Resource::TransmittanceLut,
                Resource::LutSampler,
                Resource::AtmosphereUniform,
@@ -570,7 +572,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
      .From = Provenance::Content,
      .Kind = PassKind::Raster,
      .Name = "subjectsTransmissive",
-     .Reads = {Resource::SceneHdr, Resource::LinearSampler, kNoEdge},
+     .Reads = {Resource::SceneHdr, Resource::LinearSampler, Resource::IrradianceBuffer, kNoEdge},
      .Writes = {kNoEdge},
      .Contributes =
          {Resource::SceneTransmissive, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge},

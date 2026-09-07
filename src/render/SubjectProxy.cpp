@@ -1,3 +1,5 @@
+#include <numbers>
+#include <limits>
 #include "Digest.h"
 #include "math/Units.h"
 #include "math/Mat4.h"
@@ -168,33 +170,25 @@ namespace {
   return true;
 }
 
-constexpr double kMagnificationAgreement = 1e-12;
-
 [[nodiscard]] bool
 SetProjection(SceneRenderer &renderer, const Viewpoint &eye, std::string &error) {
-  if (eye.Kind == CameraKind::Orthographic) {
-    if (!(eye.YMagM > 0) || !(eye.XMagM > 0)) {
-      error = "the placement is orthographic and declares no magnification";
-      return false;
-    }
-    const double wanted = eye.YMagM * renderer.SceneAspect();
-    if (std::fabs(eye.XMagM - wanted) > kMagnificationAgreement * wanted) {
-      error = "the placement declares xmag " + std::to_string(eye.XMagM) + " where ymag " +
-              std::to_string(eye.YMagM) + " at the frame's aspect " +
-              std::to_string(renderer.SceneAspect()) + " gives " + std::to_string(wanted) +
-              ", and the engine's parallel projection carries only the vertical extent";
-      return false;
-    }
-    renderer.SetOrthoM(2.0 * eye.YMagM);
-    return true;
-  }
-  if (!(eye.YfovRad > 0)) {
-    error = "the placement declares no field of view";
+  const bool ortho = eye.Kind == CameraKind::Orthographic;
+  const bool finiteFar = eye.ZFarM > eye.ZNearM && std::isfinite(eye.ZFarM);
+  if (!std::isfinite(eye.ZNearM) ||
+      (ortho ? !(eye.XMagM > 0 && eye.YMagM > 0 && std::isfinite(eye.XMagM) &&
+                 std::isfinite(eye.YMagM) && finiteFar)
+             : !(eye.ZNearM > 0 && eye.YfovRad > 0 && eye.YfovRad < std::numbers::pi &&
+                 (finiteFar || eye.ZFarM == 0 ||
+                  eye.ZFarM == std::numeric_limits<double>::infinity())))) {
+    error = "the placement declares an invalid camera lens or depth range";
     return false;
   }
-  renderer.SetFovDeg(eye.YfovRad * kRad2Deg);
-
-  renderer.SetNearM(eye.ZNearM);
+  if (ortho) {
+    renderer.SetOrthoM(2.0 * eye.XMagM, 2.0 * eye.YMagM);
+  } else {
+    renderer.SetFovDeg(eye.YfovRad * kRad2Deg);
+  }
+  renderer.SetDepthRange(eye.ZNearM, eye.ZFarM);
   return true;
 }
 

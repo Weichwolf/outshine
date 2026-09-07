@@ -1,0 +1,22 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "medium.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D transmittance;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(rgba16f, set = 1, binding = 0) uniform writeonly image2D into;
+layout(std140, set = 2, binding = 0) uniform Pushed { Medium declared; float cosSunZenith; float eyeRadiusKm; vec2 pad; } pushed;
+
+void main() {
+  uvec2 at = gl_GlobalInvocationID.xy;
+  uvec2 extent = uvec2(imageSize(into));
+  if (at.x >= extent.x || at.y >= extent.y) { return; }
+  vec2 uv = (vec2(at) + 0.5) / vec2(extent);
+  SkyViewLook look = skyViewParams(pushed.declared, pushed.eyeRadiusKm, MediumUv(uv.x, uv.y),
+                                   MediumLutSize(float(extent.x), float(extent.y)));
+  vec3 luminance = mediumSkyRay(pushed.declared, pushed.eyeRadiusKm, look, pushed.cosSunZenith,
+                                  transmittance, multiScatter, kSkyViewSteps,
+                                  kMediumLuminanceSegment, kMediumGroundLiftKm);
+  imageStore(into, ivec2(at), vec4(luminance, 1.0));
+}

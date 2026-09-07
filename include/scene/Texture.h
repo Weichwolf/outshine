@@ -24,8 +24,8 @@ struct Sampler {
 
 struct SurfaceMap {
   int Image = -1;
-  UvSet Set = UvSet::First;
-  Sampler HeightSampler;
+  UvSet Set = UvSet::Uv0;
+  outshine::Sampler Sampler;
   UvTransformProperties Uv;
 
   [[nodiscard]] bool bound() const { return Image >= 0; }

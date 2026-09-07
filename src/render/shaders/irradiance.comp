@@ -1,0 +1,36 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "medium.glsl"
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D transmittance;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(std430, set = 1, binding = 0) buffer Irradiance { float into[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { Medium declared; float cosSunZenith; float groundRadiusKm; vec2 pad; } pushed;
+
+void main() {
+  vec3 summed = vec3(0.0);
+  for (uint which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
+    float ring = (float(which / kMultiScatterGrid) + 0.5) / float(kMultiScatterGrid);
+    float around = (float(which % kMultiScatterGrid) + 0.5) / float(kMultiScatterGrid);
+    float azimuth = 2.0 * OUTSHINE_PI * ring;
+    summed += mediumSkyRay(pushed.declared,
+                           pushed.groundRadiusKm,
+                           SkyViewLook(sqrt(around), cos(azimuth)),
+                           pushed.cosSunZenith,
+                           transmittance,
+                           multiScatter,
+                           kSkyViewSteps,
+                           kMediumLuminanceSegment,
+                           kMediumGroundLiftKm);
+  }
+  vec3 skylight = summed * (OUTSHINE_PI / float(kMultiScatterGrid * kMultiScatterGrid));
+  vec3 sunReach = mediumTransmittance(pushed.declared,
+                                        MediumLook(pushed.groundRadiusKm, pushed.cosSunZenith),
+                                        kTransmittanceSteps,
+                                        kMediumSampleSegment);
+  for (uint channel = 0; channel < 3; ++channel) {
+    into[channel] = skylight[channel];
+    into[3u + channel] = sunReach[channel];
+  }
+}

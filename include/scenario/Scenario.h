@@ -52,7 +52,9 @@ constexpr double kWheelStepUnsaidPx = 48.0;
 
 struct Light {
   double Lux = 0.0;
+  /// Angle toward the source above the horizon, in degrees.
   double ElevationDeg = 0.0;
+  /// Azimuth toward the source, clockwise from north (-Z in the East-Up-South frame).
   double BearingDeg = 0.0;
 };
 
@@ -416,11 +418,14 @@ struct Event {
   std::vector<std::string> Carries;
 };
 
+/// Right-handed camera: local +X right, +Y up, -Z viewing direction, metres.
+/// Projection matrices use glTF/OpenGL NDC depth [-1, 1]; GPU depth conversion is internal.
 struct Camera {
   static constexpr double kNearestM = 0.05;
 
   bool Placed = false;
   Standing Stands;
+  /// Vertical field of view, in degrees (Filament convention; glTF imports convert radians).
   double FovDeg = 0.0;
 
   double NearM = 0.0;
@@ -435,7 +440,7 @@ struct Camera {
     double FovDeg = 0.0;
     /// The nearest depth the camera keeps, in metres.
     double NearM = 0.0;
-    /// The furthest, in metres.
+    /// The far plane in metres; zero or positive infinity requests infinite perspective.
     double FarM = 0.0;
   };
 
@@ -455,7 +460,7 @@ struct Camera {
     double FarM = 0.0;
   };
 
-  /// Stands the camera on a perspective projection. Filament's verb; glTF's numbers.
+  /// Sets a vertical perspective projection; angles are degrees, distances are metres.
   void setProjection(Perspective sees) {
     Orthographic = false;
     FovDeg = sees.FovDeg;
@@ -472,10 +477,15 @@ struct Camera {
     FarM = sees.FarM;
   }
 
+  /// Camera-to-world transform; an unresolved globe anchor has no local matrix.
+  [[nodiscard]] bool modelMatrix(Mat4 &out) const;
+  /// World-to-camera inverse, including quaternion rotation and roll, or explicit look-at.
   [[nodiscard]] bool viewMatrix(Mat4 &out) const;
+  /// Lens-only projection; independent of placement and look-at target. Aspect is width/height.
   [[nodiscard]] bool projectionMatrix(double aspect, Mat4 &out) const;
   [[nodiscard]] bool clipMatrix(double aspect, Mat4 &out) const;
 
+  /// An explicit target overrides Stands.Facing. UpM is the world-space look-at up vector.
   bool LooksAt = false;
   Vec3 LookAtM;
   Vec3 UpM = {{0.0, 1.0, 0.0}};

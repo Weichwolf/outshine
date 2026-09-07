@@ -13,7 +13,7 @@ struct UvPoint {
   double V = 0.0;
 };
 
-enum class UvSet : uint8_t { First, Second };
+enum class UvSet : uint8_t { Uv0, Uv1 };
 
 constexpr int kUvSets = 2;
 
@@ -27,6 +27,7 @@ struct UvTransform {
 
 struct UvTransformProperties {
   Vec2 OffsetUv;
+  /// Counterclockwise in glTF UV space (+V down), about (0, 0), before translation.
   double RotationRad = 0.0;
   Vec2 ScaleUv = {{1.0, 1.0}};
 

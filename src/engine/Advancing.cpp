@@ -1,4 +1,5 @@
 #include "Earth.h"
+#include "AzimuthElevation.h"
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
@@ -70,25 +71,28 @@ bool Engine::State::Watches() {
   Published.Places("the standing eye, east", station[0], "m");
   Published.Places("the standing eye, up", station[1], "m");
   Published.Places("the standing eye, south", station[2], "m");
-  Vec3 ahead;
-  if (seen.Sees.Stands.GlobeAnchor) {
+  Scenario::Camera resolved = seen.Sees;
+  resolved.Stands.GlobeAnchor = false;
+  resolved.Stands.AtM = station;
+  if (seen.Sees.Stands.GlobeAnchor && !seen.Sees.LooksAt) {
     const double bearing = seen.Sees.Stands.BearingDeg * kDeg2Rad;
     const double pitch = seen.Sees.Stands.PitchDeg * kDeg2Rad;
-    ahead[0] = std::cos(pitch) * std::sin(bearing);
-    ahead[1] = std::sin(pitch);
-    ahead[2] = -std::cos(pitch) * std::cos(bearing);
-  } else {
-    const Quat &q = seen.Sees.Stands.Facing;
-    ahead[0] = 2.0 * (q.X * q.Z + q.W * q.Y);
-    ahead[1] = 2.0 * (q.Y * q.Z - q.W * q.X);
-    ahead[2] = -(1.0 - 2.0 * (q.X * q.X + q.Y * q.Y));
+    const Vec3 ahead = EastUpSouthDirection(bearing, pitch);
+    resolved.LooksAt = true;
+    resolved.LookAtM = station + ahead;
   }
-  const Vec3 onto = seen.Sees.LooksAt ? seen.Sees.LookAtM : station + ahead;
+  Mat4 model;
+  if (!resolved.modelMatrix(model)) {
+    Error = "the declared camera has no valid local transform";
+    return false;
+  }
   Render::Viewpoint standing;
-  const std::optional<Render::Viewpoint> held =
-      Render::Viewpoint::LookAt({.EyeM = station, .AimM = onto}, seen.Sees.UpM);
-  if (!held) { return true; }
-  standing = *held;
+  standing.EyeM = station;
+  for (int axis = 0; axis < 3; ++axis) {
+    standing.Right[axis] = model[axis];
+    standing.Up[axis] = model[4 + axis];
+    standing.Forward[axis] = -model[8 + axis];
+  }
   standing.YfovRad =
       (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : Scenario::kFovUnsaidDeg) * kDeg2Rad;
   standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
@@ -369,6 +373,20 @@ void Engine::State::Inspected() {
   {
     std::array<float, Render::kIrradianceFloats> held = {{}};
     if (Picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
+      Picture.Standing->ReadIrradiance(held);
+      {
+        static const std::array<const char *const, 3> kSky = {"the ambient the sky casts, red",
+                                                              "the ambient the sky casts, green",
+                                                              "the ambient the sky casts, blue"};
+        static const std::array<const char *const, 3> kGround = {
+            "the ambient the ground bounces, red",
+            "the ambient the ground bounces, green",
+            "the ambient the ground bounces, blue"};
+        for (size_t at = 0; at < 3; ++at) {
+          Published.Places(kSky[at], Picture.Standing->AmbientStood()[at], "");
+          Published.Places(kGround[at], Picture.Standing->GroundStood()[at], "");
+        }
+      }
       static const std::array<const char *const, Render::kIrradianceFloats> kNamed = {
           "the device's sky irradiance, red",
           "the device's sky irradiance, green",

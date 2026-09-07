@@ -119,15 +119,15 @@ namespace {
 }
 
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
-  return a.SurfaceWidthPx == b.SurfaceWidthPx && a.SurfaceHeightPx == b.SurfaceHeightPx &&
-         a.Built == b.Built && a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
-         a.Fill == b.Fill && a.OrbitDegPerFrame == b.OrbitDegPerFrame &&
-         a.PictureLeftFrac == b.PictureLeftFrac && a.PictureTopFrac == b.PictureTopFrac &&
-         a.PictureWidthFrac == b.PictureWidthFrac && a.PictureHeightFrac == b.PictureHeightFrac &&
-         a.IndirectLight[0] == b.IndirectLight[0] && a.IndirectLight[1] == b.IndirectLight[1] &&
-         a.IndirectLight[2] == b.IndirectLight[2] && a.KeyLux == b.KeyLux &&
-         a.KeyFromClock == b.KeyFromClock && a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky &&
-         a.Stages == b.Stages && a.ShadowRadiusM == b.ShadowRadiusM &&
+  return a.Haze == b.Haze && a.SurfaceWidthPx == b.SurfaceWidthPx &&
+         a.SurfaceHeightPx == b.SurfaceHeightPx && a.Built == b.Built &&
+         a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps && a.Fill == b.Fill &&
+         a.OrbitDegPerFrame == b.OrbitDegPerFrame && a.PictureLeftFrac == b.PictureLeftFrac &&
+         a.PictureTopFrac == b.PictureTopFrac && a.PictureWidthFrac == b.PictureWidthFrac &&
+         a.PictureHeightFrac == b.PictureHeightFrac && a.IndirectLight[0] == b.IndirectLight[0] &&
+         a.IndirectLight[1] == b.IndirectLight[1] && a.IndirectLight[2] == b.IndirectLight[2] &&
+         a.KeyLux == b.KeyLux && a.KeyFromClock == b.KeyFromClock && a.Exposure == b.Exposure &&
+         a.DrawsSky == b.DrawsSky && a.Stages == b.Stages && a.ShadowRadiusM == b.ShadowRadiusM &&
          a.KeyElevationDeg == b.KeyElevationDeg && a.KeyBearingDeg == b.KeyBearingDeg;
 }
 

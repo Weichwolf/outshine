@@ -15,11 +15,9 @@ namespace outshine::Render {
 
 class TonemapStage {
 public:
-  [[nodiscard]] static std::string ShaderSource(const DisplayOptions &options);
-  [[nodiscard]] static std::string ShaderSource(const DisplayOptions &options, std::string &error);
-  static constexpr DrawShape ShaderShape{.FragmentSamplers = 2};
+  static constexpr DrawShape ShaderShape{.FragmentSamplers = 2, .FragmentUniformBuffers = 1};
   static constexpr DrawShape TemporalShaderShape{.FragmentSamplers = 4,
-                                                 .FragmentUniformBuffers = 1};
+                                                 .FragmentUniformBuffers = 2};
 
   struct Feeds {
     SDL_GPUTexture *Scene = nullptr;
@@ -54,6 +52,7 @@ public:
 
 private:
   OwnedPipeline Pipe;
+  DisplayOptions Display_;
   SDL_GPUTexture *Scene = nullptr;
   SDL_GPUTexture *Depth = nullptr;
   SDL_GPUTexture *History = nullptr;

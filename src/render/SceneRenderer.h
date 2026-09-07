@@ -1,3 +1,4 @@
+#include "Lens.h"
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
@@ -46,15 +47,6 @@ namespace outshine::Render {
 struct KeptDraws {
   uint32_t Indices = 0;
   uint32_t Batches = 0;
-};
-
-struct Lens {
-  double WidePx = 0;
-  double HighPx = 0;
-  float FovDeg = 0.0f;
-  float OrthoM = 0.0f;
-  float NearM = 0.0f;
-  Vec2f Jitter = {{0.0f, 0.0f}};
 };
 
 struct PyramidDepths {
@@ -323,7 +315,10 @@ public:
 
   void SetCameraBasis(const CameraBasis &stands);
 
-  void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? static_cast<float>(deg) : FovDeg_; }
+  void SetFovDeg(double deg) {
+    FovDeg_ = static_cast<float>(deg);
+    OrthoM_ = OrthoWidthM_ = 0.0f;
+  }
 
   [[nodiscard]] bool SetGroundClasses(const uint32_t *words,
                                       size_t wordCount,
@@ -331,9 +326,15 @@ public:
                                       size_t paletteFloats,
                                       std::string &error);
 
-  void SetOrthoM(double m) { OrthoM_ = static_cast<float>(m); }
+  void SetOrthoM(double width, double height) {
+    OrthoWidthM_ = static_cast<float>(width);
+    OrthoM_ = static_cast<float>(height);
+  }
 
-  void SetNearM(double m) { NearM_ = m > 0.0 ? static_cast<float>(m) : NearM_; }
+  void SetDepthRange(double nearM, double farM) {
+    NearM_ = static_cast<float>(nearM);
+    FarM_ = static_cast<float>(farM);
+  }
 
   [[nodiscard]] float NearMetres() const { return NearM_; }
 
@@ -493,8 +494,10 @@ private:
   [[nodiscard]] Lens Through() const;
   CameraBasis Camera_;
   float FovDeg_ = 0.0f;
+  float OrthoWidthM_ = 0.0f;
   float OrthoM_ = 0.0f;
   float NearM_ = kNearM;
+  float FarM_ = 0.0f;
 
   bool Submitted_ = false;
 

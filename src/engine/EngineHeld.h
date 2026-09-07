@@ -283,6 +283,7 @@ struct Surrounds {
   uint64_t LaidFrom = 0;
   size_t LaidResident = 0;
   uint64_t LaidClasses = 0;
+  std::array<double, 3> LaidProjection{};
 
   TilePieces Pieces;
   HeightSheets Sheets;

@@ -20,6 +20,7 @@ AUDITLINK=0
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 2
+export PKG_CONFIG_PATH="$ROOT/build/deps/install/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 
 TREES=test
 # the sources under test/ that git holds or would hold -- the lab's .venv under test/lab carries
@@ -213,6 +214,7 @@ done
 
 LayerIncludes() {
   case "$1" in
+    outshine/conventions) printf '%s ' "-Isrc/base"; LayerIncludes outshine/places ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
     # carried its own hand-written list beside the build line, which is the second spelling of the
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
@@ -241,7 +243,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
-    outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    outshine/places | outshine/conventions | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
@@ -273,16 +275,18 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
+    outshine/conventions) LayerLink outshine/places ;;
     outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
-    outshine/places | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    outshine/places | outshine/conventions | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerGroups() {
   case "$1" in
+    outshine/conventions) LayerGroups outshine/places ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
@@ -292,8 +296,8 @@ LayerGroups() {
     outshine/fuzz) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/world/weather src/world/sky src/base/io src/import" ;;
     outshine/physics) printf '%s' "src/base src/base/math src/base/geo src/base/spatial src/actor/body src/base/curve" ;;
     outshine/audio) printf '%s' "src/audio src/base/math" ;;
-    outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -318,6 +322,7 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
+    scripts) printf '%s' "build tools compiled by the Makefile; their emitted shaders are compiled by glslang" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
@@ -409,6 +414,7 @@ GroupIncludes() {
     done
   done
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
+  case "$includeTier" in render) includeSet="$includeSet $(pkg-config --cflags sdl3-shadercross)" ;; esac
   case "$1" in
     src/content/shade | src/engine) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
   esac
@@ -417,7 +423,7 @@ GroupIncludes() {
 
 GroupToolchain() {
   case "$1" in
-    src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/Overlay.cpp | src/engine/Asset.cpp | src/engine/Laying.cpp | src/engine/Asking.cpp | src/engine/Telling.cpp | src/engine/Framing.cpp | src/engine/Declaring.cpp | src/engine/Keeping.cpp | src/engine/Advancing.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/StructureBakes.cpp | src/engine/Live.cpp) LayerToolchain render ;;
+    src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/Overlay.cpp | src/engine/Asset.cpp | src/engine/Laying.cpp | src/engine/Asking.cpp | src/engine/Telling.cpp | src/engine/Framing.cpp | src/engine/Declaring.cpp | src/engine/Keeping.cpp | src/engine/Advancing.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/StructureBakes.cpp | src/engine/Live.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }

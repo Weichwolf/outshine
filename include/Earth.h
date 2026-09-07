@@ -14,8 +14,7 @@ constexpr double kContrastThresholdLn = 3.912;
 
 /// The mean radius of the WGS84 ellipsoid, in metres.
 ///
-/// It is the radius a sphere would need to have the ellipsoid's volume, which is what a scenario
-/// means when it declares a world radius without declaring an ellipsoid.
+/// Arithmetic mean (2a + b) / 3, rounded to 0.1 m; not the equal-volume radius.
 constexpr double kEarthMeanRadiusM = 6371008.8;
 
 /// Standard gravity at the surface, in metres per second squared, as ISO 80000-3 fixes it.
@@ -111,17 +110,14 @@ static_assert(VisualRangeM(-kAverageDayRangeM) == kClearAirRangeM,
 
 /// A place on the ellipsoid.
 ///
-/// Cesium spells it this way -- `LongitudeLatitudeHeight`, longitude first -- and this tree had it
-/// twice under two names before board:2093 put it here: `Ground::Geo` in the tiling and
-/// `Scenario::LongitudeLatitudeHeight` in the declaration schema. A geodetic pair passed as two
-/// bare doubles is a pair somebody eventually passes the other way round, which is what makes this
-/// a TYPE rather than a convention.
+/// Longitude first, angles in degrees. Cesium Cartographic stores radians; convert at that
+/// boundary.
 struct LongitudeLatitudeHeight {
   /// East of Greenwich, in degrees.
   double LongitudeDeg = 0.0;
   /// North of the equator, in degrees.
   double LatitudeDeg = 0.0;
-  /// Above the ellipsoid, in metres. Zero where a caller means the surface.
+  /// Above the WGS84 ellipsoid, in metres; zero is the ellipsoid, not terrain or sea level.
   double HeightM = 0.0;
 
   /// Two places are the same place when all three measures are.

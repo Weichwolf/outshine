@@ -130,7 +130,9 @@ void Usage() {
   std::printf("\n");
 }
 
-[[nodiscard]] bool Stands(outshine::Engine &engine) {
+[[nodiscard]] bool Stands(outshine::Engine &engine,
+                          outshine::Extent frame = {.WidthPx = outshine::Shots::kWidePx,
+                                                    .HeightPx = outshine::Shots::kHighPx}) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::printf("outshine-client: SDL did not start\n");
     return false;
@@ -140,8 +142,7 @@ void Usage() {
                                   .Shipped = "src/assets",
                                   .Cache = "/tmp/outshine-drive-cache",
                                   .Offline = false});
-  if (!engine.drawsInto(outshine::Extent{.WidthPx = outshine::Shots::kWidePx,
-                                         .HeightPx = outshine::Shots::kHighPx})) {
+  if (frame.WidthPx > 0 && frame.HeightPx > 0 && !engine.drawsInto(frame)) {
     std::printf("outshine-client: the device stood no canvas -- %s\n", engine.error().c_str());
     return false;
   }
@@ -217,9 +218,17 @@ int RunScenario(int argc, char *const *argv, bool everyMeasure) {
   }
   const std::string named = argc > 1 ? argv[1] : "scenario";
   outshine::Engine engine;
-  if (!Stands(engine)) { return 2; }
+  if (!Stands(engine, {})) { return 2; }
   if (!engine.readScenario(argv[0])) {
     std::printf("outshine-client: %s -- %s\n", argv[0], engine.error().c_str());
+    return 1;
+  }
+  outshine::Extent frame = engine.declaration().Render.Frame;
+  if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
+    frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};
+  }
+  if (!engine.drawsInto(frame)) {
+    std::printf("outshine-client: %s\n", engine.error().c_str());
     return 1;
   }
   if (!engine.assemble()) {

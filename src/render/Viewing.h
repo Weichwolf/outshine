@@ -78,6 +78,7 @@ inline std::optional<Viewpoint> Viewpoint::LookAt(Looking from, const Vec3 &upM)
 }
 
 inline void CameraOf(const Viewpoint &from, outshine::Scenario::Camera &out) {
+  out = {};
   out.Placed = true;
   out.LooksAt = true;
   for (int axis = 0; axis < 3; ++axis) {

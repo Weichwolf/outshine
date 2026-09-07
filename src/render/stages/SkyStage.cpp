@@ -24,16 +24,19 @@ bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
   }
   if (Pipe) { return true; }
 
-  const std::string source = ShaderSource(error);
-  if (source.empty()) { return false; }
-  const OwnedShader vertex(
-      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(
-      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
-  if (!vertex || !fragment) {
-    error = std::string("the sky did not compile: ") + SDL_GetError();
-    return false;
-  }
+  const OwnedShader vertex(gpu.Device,
+                           ShaderFrom(gpu.Device,
+                                      "build/shaders/fullscreenNdc.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      ShaderShape,
+                                      error));
+  const OwnedShader fragment(gpu.Device,
+                             ShaderFrom(gpu.Device,
+                                        "build/shaders/sky.frag.spv",
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        ShaderShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
 
   std::array<SDL_GPUColorTargetDescription, 2> targets = {{}};
   targets[0].format = gpu.HdrFormat;
@@ -102,22 +105,6 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_BindGPUFragmentSamplers(into.Pass, 0, bound.data(), 2);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
-}
-
-std::string SkyStage::ShaderSource() {
-  std::string ignored;
-  return ShaderSource(ignored);
-}
-
-std::string SkyStage::ShaderSource(std::string &error) {
-  ShaderText source;
-  return source.Begins()
-      .Adds(VelocityStaticDefine())
-      .Adds("#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n")
-      .Reads("src/render/shaders/mediumLayout.msl")
-      .Reads("src/render/stages/MediumCore.h")
-      .Reads("src/render/shaders/sky.msl")
-      .Take(error);
 }
 
 } // namespace outshine::Render

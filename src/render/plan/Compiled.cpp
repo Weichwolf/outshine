@@ -256,6 +256,23 @@ bool Compiled::CompileInto(const PlanSpec &spec,
 
         for (size_t held = 0; held < open.Count && sameTargets; ++held) {
           const StageRow &earlier = Row(plan->Order_[open.First + held]);
+          if (row.Kind == PassKind::Compute) {
+            for (const Resource write : row.Writes) {
+              if (write == kNoEdge) { break; }
+              for (const Resource read : earlier.Reads) {
+                if (read == kNoEdge) { break; }
+                if (read == write) { sameTargets = false; }
+              }
+              for (const Resource previous : earlier.Writes) {
+                if (previous == kNoEdge) { break; }
+                if (Row(write).Format == TexelFormat::Handle ||
+                    Row(previous).Format == TexelFormat::Handle) {
+                  continue;
+                }
+                if (IsBuffer(Row(write)) == IsBuffer(Row(previous))) { sameTargets = false; }
+              }
+            }
+          }
           for (size_t w = 0; w < kMaxEdges && earlier.Writes[w] != kNoEdge; ++w) {
             for (size_t r = 0; r < kMaxEdges && row.Reads[r] != kNoEdge; ++r) {
               if (row.Reads[r] == earlier.Writes[w]) { sameTargets = false; }

@@ -6,11 +6,8 @@
 #include <array>
 #include <bit>
 #include <cmath>
-#include <cstdio>
-#include <string>
 
 #include "Lobe.h"
-#include "ShaderFile.h"
 
 #include "math/Units.h"
 
@@ -75,58 +72,6 @@ inline constexpr int kEnergySamples = 2048;
 
 inline constexpr int kEnergyRoughnessSteps = 32;
 inline constexpr int kEnergyViewSteps = 16;
-
-inline ShaderText &MicrofacetEnergy(ShaderText &into) {
-  std::string albedo;
-  albedo.reserve(size_t{kEnergyRoughnessSteps} * kEnergyViewSteps * 12);
-  for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
-    const double roughness = static_cast<double>(r) / (kEnergyRoughnessSteps - 1);
-    for (int v = 0; v < kEnergyViewSteps; ++v) {
-      const double nv = static_cast<double>(v) / (kEnergyViewSteps - 1);
-      std::array<char, 32> cell{};
-      std::snprintf(cell.data(),
-                    cell.size(),
-                    "%s%.6ff",
-                    albedo.empty() ? "" : ", ",
-                    GgxDirectionalAlbedo({.Cosine = nv, .Roughness = roughness}));
-      albedo += cell.data();
-    }
-  }
-  std::string average;
-  for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
-    std::array<char, 32> cell{};
-    std::snprintf(cell.data(),
-                  cell.size(),
-                  "%s%.6ff",
-                  average.empty() ? "" : ", ",
-                  GgxEnergyAverage(static_cast<double>(r) / (kEnergyRoughnessSteps - 1)));
-    average += cell.data();
-  }
-  std::array<char, 256> head{};
-  std::snprintf(head.data(),
-                head.size(),
-                "constant int kEnergyRoughnessSteps = %d;\nconstant int kEnergyViewSteps = %d;\n",
-                kEnergyRoughnessSteps,
-                kEnergyViewSteps);
-  return into.Adds(head.data())
-      .Adds("constant float kGgxAlbedo[] = { ")
-      .Adds(albedo)
-      .Adds(" };\n")
-      .Adds("constant float kGgxAlbedoAverage[] = { ")
-      .Adds(average)
-      .Adds(" };\n")
-      .Reads("src/render/shaders/microfacetEnergy.msl");
-}
-
-[[nodiscard]] inline std::string MicrofacetEnergyMsl(std::string &error) {
-  ShaderText source;
-  return MicrofacetEnergy(source).Take(error);
-}
-
-[[nodiscard]] inline std::string MicrofacetEnergyMsl() {
-  std::string ignored;
-  return MicrofacetEnergyMsl(ignored);
-}
 
 } // namespace outshine::Render
 

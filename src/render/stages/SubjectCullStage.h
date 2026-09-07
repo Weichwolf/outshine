@@ -16,9 +16,6 @@ class SubjectDraw;
 
 class SubjectCullStage {
 public:
-  [[nodiscard]] static std::string KernelSource();
-  [[nodiscard]] static std::string KernelSource(std::string &error);
-
   void PyramidFrom(SDL_GPUBuffer *pyramid, const PyramidShape &shape) {
     PyramidBuffer_ = pyramid;
     Pyramid_ = shape;
@@ -27,7 +24,7 @@ public:
   static constexpr ComputeShape CullShape{
       .ReadOnlyBuffers = 5, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64};
   static constexpr ComputeShape ScanShape{
-      .ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 256};
+      .ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .GroupX = 256};
   static constexpr ComputeShape CompactShape{
       .ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128};
 

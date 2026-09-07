@@ -14,7 +14,6 @@ namespace outshine::Render {
 
 class DepthPyramidStage {
 public:
-  [[nodiscard]] static std::string KernelSource(std::string &error);
   static constexpr ComputeShape KernelShape{
       .Samplers = 1, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8};
 

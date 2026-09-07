@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "FragmentArms.h"
+#include "SurfaceOutputs.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "scene/SurfaceState.h"
@@ -25,16 +26,8 @@ namespace outshine::Render {
 
 class SubjectDraw {
 public:
-  struct SourceOptions {
-    bool WritesVelocity = false;
-    long NormalIndex = -1;
-    long IdentityIndex = -1;
-  };
+  using SourceOptions = SurfaceOutputs;
 
-  [[nodiscard]] static std::string ShaderSource(const SourceOptions &options);
-  [[nodiscard]] static std::string ShaderSource(const SourceOptions &options, std::string &error);
-  [[nodiscard]] static std::string DepthOnlySource();
-  [[nodiscard]] static std::string DepthOnlySource(std::string &error);
   [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
@@ -173,7 +166,7 @@ public:
 
 private:
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
-  void BindSlot(const PassRecording &into, size_t slot) const;
+  void BindSlot(const PassRecording &into, size_t slot, VertexLayout layout) const;
   void EncodeGround(const PassRecording &into) const;
 
   [[nodiscard]] bool Room(SubjectResidency::Stream held, SubjectResidency::Need need) {
@@ -260,7 +253,9 @@ private:
 
   static constexpr int kLightVec4s = 4;
 
-  static constexpr int kLightFloats = 16 + 4 * kLightVec4s * static_cast<int>(kMaxSubjectLights);
+  static constexpr int kLightHeaderFloats = 24;
+  static constexpr int kLightFloats =
+      kLightHeaderFloats + 4 * kLightVec4s * static_cast<int>(kMaxSubjectLights);
 
   struct SurfaceSlot {
     SubjectResidency::BoundImage Colour;

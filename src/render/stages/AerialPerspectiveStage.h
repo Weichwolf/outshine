@@ -18,8 +18,6 @@ namespace outshine::Render {
 
 class AerialPerspectiveStage {
 public:
-  [[nodiscard]] static std::string ShaderSource();
-  [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 4, .FragmentUniformBuffers = 1};
 
   struct Tables {
@@ -40,7 +38,7 @@ public:
 
   void SetBasis(const EyeBasis &eye);
 
-  void SetNear(float nearM) { Pushed_.NearM = nearM; }
+  void SetDepthReconstruction(Vec4f coefficients) { Pushed_.DepthReconstruction = coefficients; }
 
   [[nodiscard]] bool Stands() const { return Declared_; }
 
@@ -56,10 +54,7 @@ private:
     Vec2f TanHalf;
     float Illuminance;
     float EyeRadiusKm;
-    float NearM;
-    float Pad0;
-    float Pad1;
-    float Pad2;
+    Vec4f DepthReconstruction;
     Medium Air;
   };
 

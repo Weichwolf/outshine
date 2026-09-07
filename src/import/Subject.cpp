@@ -1066,7 +1066,9 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
   for (const PlacedLight &lit : Lights_) {
     Mat4 placed;
     placed.SetTranslation({{lit.Light.Position[0], lit.Light.Position[1], lit.Light.Position[2]}});
-    (void)out.addLamp(lit.NodeName, lit.Light, placed);
+    PunctualLight local = lit.Light;
+    local.Position = {};
+    (void)out.addLamp(lit.NodeName, local, placed);
   }
   const auto floats = [](const std::vector<double> &from, size_t first, size_t many) {
     std::vector<float> made(many);
@@ -1139,9 +1141,15 @@ void Subject::AssembleLights(const outshine::Geometry &what) {
     placed.NodeName = std::string(what.lampNameOf(lamp));
     placed.LightName = placed.NodeName;
     placed.Light = what.lampAt(lamp);
-    const Vec3 stood = what.lampPlacementOf(lamp).Translation();
+    const Mat4 &placement = what.lampPlacementOf(lamp);
+    const Vec3f &position = placed.Light.Position;
+    const Vec3f &direction = placed.Light.Direction;
+    const Vec3 stood = placement.TransformPoint({{position[0], position[1], position[2]}});
+    Vec3 beam = placement.TransformDirection({{direction[0], direction[1], direction[2]}});
+    (void)Normalise(beam);
     for (int axis = 0; axis < 3; ++axis) {
       placed.Light.Position[axis] = static_cast<float>(stood[axis]);
+      placed.Light.Direction[axis] = static_cast<float>(beam[axis]);
     }
     Lights_.push_back(std::move(placed));
   }
@@ -1239,6 +1247,37 @@ bool Subject::AssemblePartInto(const outshine::Geometry &what,
                     std::to_string(vertices));
     }
     Indices_.push_back(static_cast<uint32_t>(part.FirstVertex) + local);
+  }
+  const Mat4 &placement = what.placementOf(slot);
+  if (placement == Mat4{}) { return true; }
+  const Vec3 x = {{placement[0], placement[1], placement[2]}};
+  const Vec3 y = {{placement[4], placement[5], placement[6]}};
+  const Vec3 z = {{placement[8], placement[9], placement[10]}};
+  const Vec3 nx = Cross(y, z), ny = Cross(z, x), nz = Cross(x, y);
+  const double sign = Dot(x, nx) < 0 ? -1.0 : 1.0;
+  for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + vertices; ++vertex) {
+    const size_t at = vertex * 3;
+    const Vec3 local = {{Positions_[at], Positions_[at + 1], Positions_[at + 2]}};
+    const Vec3 placed = placement.TransformPoint(local);
+    for (size_t axis = 0; axis < 3; ++axis) { Positions_[at + axis] = placed[axis]; }
+    if (!pNormals.empty()) {
+      Vec3 normal = (nx * Normals_[at] + ny * Normals_[at + 1] + nz * Normals_[at + 2]) * sign;
+      (void)Normalise(normal);
+      for (size_t axis = 0; axis < 3; ++axis) { Normals_[at + axis] = normal[axis]; }
+    }
+    if (!pTangents.empty()) {
+      const size_t along = vertex * 4;
+      Vec3 tangent = placement.TransformDirection(
+          {{Tangents_[along], Tangents_[along + 1], Tangents_[along + 2]}});
+      (void)Normalise(tangent);
+      for (size_t axis = 0; axis < 3; ++axis) { Tangents_[along + axis] = tangent[axis]; }
+      Tangents_[along + 3] *= sign;
+    }
+  }
+  if (sign < 0) {
+    for (size_t at = part.FirstIndex; at < Indices_.size(); at += 3) {
+      std::swap(Indices_[at + 1], Indices_[at + 2]);
+    }
   }
   return true;
 }

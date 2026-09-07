@@ -4,6 +4,7 @@
 #include <string>
 
 #include "KernelShape.h"
+#include "IrradianceLayout.h"
 
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -11,12 +12,8 @@
 
 namespace outshine::Render {
 
-inline constexpr uint32_t kIrradianceFloats = 6u;
-
 class IrradianceStage {
 public:
-  [[nodiscard]] static std::string KernelSource();
-  [[nodiscard]] static std::string KernelSource(std::string &error);
   static constexpr ComputeShape KernelShape{
       .Samplers = 2, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 1};
 

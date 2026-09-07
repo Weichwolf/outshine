@@ -4,10 +4,11 @@
 #include <array>
 #include "math/Mat4.h"
 #include "math/Vec3.h"
+#include "math/Vec4.h"
 
 namespace outshine::Render {
 
-constexpr size_t kFrameContextBytes = 192;
+constexpr size_t kFrameContextBytes = 208;
 
 struct FrameContext {
   alignas(16) Vec3 PreViewTranslation;
@@ -15,6 +16,7 @@ struct FrameContext {
 
   alignas(16) Vec3 PrevPreViewTranslation;
   alignas(16) Mat4f PrevMvp{};
+  alignas(16) Vec4f ViewPosition = {{0, 0, 0, 1}};
 };
 
 static_assert(alignof(FrameContext) == 16 && sizeof(FrameContext) == kFrameContextBytes,

@@ -21,16 +21,19 @@ bool AerialPerspectiveStage::Configure(const Gpu &gpu,
   Exact = from.Exact;
   Lut = from.Lut;
 
-  const std::string source = ShaderSource(error);
-  if (source.empty()) { return false; }
-  const OwnedShader vertex(
-      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(
-      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
-  if (!vertex || !fragment) {
-    error = std::string("the aerial perspective did not compile: ") + SDL_GetError();
-    return false;
-  }
+  const OwnedShader vertex(gpu.Device,
+                           ShaderFrom(gpu.Device,
+                                      "build/shaders/fullscreenNdc.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      ShaderShape,
+                                      error));
+  const OwnedShader fragment(gpu.Device,
+                             ShaderFrom(gpu.Device,
+                                        "build/shaders/aerialPerspective.frag.spv",
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        ShaderShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
 
   SDL_GPUColorTargetDescription target{};
   target.format = targetFormat;
@@ -91,22 +94,6 @@ void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording
   SDL_BindGPUFragmentSamplers(into.Pass, 0, bound.data(), 4);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
-}
-
-std::string AerialPerspectiveStage::ShaderSource() {
-  std::string ignored;
-  return ShaderSource(ignored);
-}
-
-std::string AerialPerspectiveStage::ShaderSource(std::string &error) {
-  ShaderText source;
-  return source.Begins()
-      .Adds("#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n")
-      .Reads("src/render/shaders/mediumLayout.msl")
-      .Reads("src/render/stages/MediumCore.h")
-      .Reads("src/render/shaders/medium.msl")
-      .Reads("src/render/shaders/aerialPerspective.msl")
-      .Take(error);
 }
 
 } // namespace outshine::Render

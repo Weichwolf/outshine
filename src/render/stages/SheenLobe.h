@@ -4,11 +4,8 @@
 #include <numbers>
 #include <array>
 #include <cmath>
-#include <cstdio>
-#include <string>
 
 #include "Lobe.h"
-#include "ShaderFile.h"
 
 namespace outshine::Render {
 
@@ -89,41 +86,6 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   const double dPhi = 2.0 * kSheenPi / kSheenAlbedoQuadrature;
   const double dMu = 1.0 / kSheenAlbedoQuadrature;
   return total * dPhi * dMu;
-}
-
-inline ShaderText &SheenLobe(ShaderText &into) {
-  std::string table;
-  table.reserve(size_t{kSheenAlbedoSteps} * kSheenAlbedoSteps * 12);
-  for (int r = 0; r < kSheenAlbedoSteps; ++r) {
-    const double roughness = (r + 0.5) / kSheenAlbedoSteps;
-    for (int v = 0; v < kSheenAlbedoSteps; ++v) {
-      const double nv = (v + 0.5) / kSheenAlbedoSteps;
-      std::array<char, 32> cell{};
-      std::snprintf(cell.data(),
-                    cell.size(),
-                    "%s%.6ff",
-                    table.empty() ? "" : ", ",
-                    SheenDirectionalAlbedo({.Cosine = nv, .Roughness = roughness}));
-      table += cell.data();
-    }
-  }
-  std::array<char, kPreludeBytes> head{};
-  std::snprintf(head.data(), head.size(), "constant int kSheenSteps = %d;\n", kSheenAlbedoSteps);
-  return into.Adds(head.data())
-      .Adds("constant float kSheenAlbedo[] = { ")
-      .Adds(table)
-      .Adds(" };\n")
-      .Reads("src/render/shaders/sheenLobe.msl");
-}
-
-[[nodiscard]] inline std::string SheenLobeMsl(std::string &error) {
-  ShaderText source;
-  return SheenLobe(source).Take(error);
-}
-
-[[nodiscard]] inline std::string SheenLobeMsl() {
-  std::string ignored;
-  return SheenLobeMsl(ignored);
 }
 
 } // namespace outshine::Render

@@ -25,8 +25,6 @@ inline constexpr size_t kMaxOverlayQuads = 16384;
 
 class OverlayDraw {
 public:
-  [[nodiscard]] static std::string ShaderSource();
-  [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1, .FragmentSamplers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu,

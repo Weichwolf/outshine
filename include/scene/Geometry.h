@@ -98,6 +98,8 @@ public:
   [[nodiscard]] int parts() const;
   [[nodiscard]] std::string_view nameOf(int part) const;
   [[nodiscard]] MaterialInstance materialOf(int part) const;
+  /// The part's local-to-model affine transform, in column-major order.
+  [[nodiscard]] const Mat4 &placementOf(int part) const;
 
   int addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba);
   [[nodiscard]] int images() const;
@@ -120,7 +122,7 @@ public:
   /// A surface carries two texture sets, which Filament names `UV0`
   /// and `UV1`. As an `int` beside the part index it was two numbers of one type in a row -- and
   /// `textureOf(0, 1)` reads exactly like `textureOf(1, 0)` while meaning something else entirely.
-  enum class UvSet : uint8_t { Uv0, Uv1 };
+  using UvSet = outshine::UvSet;
 
   /// A part's texture coordinates for @p set, or an empty span when it carries none.
   /// @param part Which part of the geometry.
@@ -139,7 +141,6 @@ private:
   void place(int part, const Mat4 &model);
   void relight(int lamp, const PunctualLight &light);
   void resurface(int part, MaterialInstance surface);
-  [[nodiscard]] const Mat4 &placementOf(int part) const;
 
   struct Held;
   std::unique_ptr<Held> Held_;

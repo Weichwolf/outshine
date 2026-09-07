@@ -5,15 +5,14 @@
 #define OUTSHINE_RAYLEIGH_DENOMINATOR 16.0f
 #define OUTSHINE_MIE_EXPONENT 1.5f
 
-static inline float mediumTopReach(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith) {
+MEDIUM_INLINE float mediumTopReach(MEDIUM_ARG medium, float radiusKm, float cosZenith) {
   const float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0f) +
                       medium.TopRadiusKm * medium.TopRadiusKm;
   if (under < 0.0f) { return 0.0f; }
   return max(0.0f, -radiusKm * cosZenith + sqrt(under));
 }
 
-static inline float
-mediumGroundReach(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith) {
+MEDIUM_INLINE float mediumGroundReach(MEDIUM_ARG medium, float radiusKm, float cosZenith) {
   const float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0f) +
                       medium.BottomRadiusKm * medium.BottomRadiusKm;
   if (under < 0.0f) { return -1.0f; }
@@ -21,8 +20,8 @@ mediumGroundReach(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith) 
   return entry >= 0.0f ? entry : -1.0f;
 }
 
-static inline float
-mediumHeightAlong(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith, float alongKm) {
+MEDIUM_INLINE float
+mediumHeightAlong(MEDIUM_ARG medium, float radiusKm, float cosZenith, float alongKm) {
   const float above = radiusKm - medium.BottomRadiusKm;
   const float raised = above * (radiusKm + medium.BottomRadiusKm) + alongKm * alongKm +
                        2.0f * radiusKm * alongKm * cosZenith;
@@ -31,7 +30,7 @@ mediumHeightAlong(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith, 
   return raised / (sampleKm + medium.BottomRadiusKm);
 }
 
-static inline MediumLook mediumTransmittanceParams(MEDIUM_CONST Medium &medium, MediumUv uv) {
+MEDIUM_INLINE MediumLook mediumTransmittanceParams(MEDIUM_ARG medium, MediumUv uv) {
   const float span = sqrt(
       max(0.0f,
           medium.TopRadiusKm * medium.TopRadiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
@@ -49,27 +48,29 @@ static inline MediumLook mediumTransmittanceParams(MEDIUM_CONST Medium &medium, 
   return look;
 }
 
-static inline float rayleighPhase(float cosTheta) {
+MEDIUM_INLINE float rayleighPhase(float cosTheta) {
   return OUTSHINE_RAYLEIGH_NUMERATOR / (OUTSHINE_RAYLEIGH_DENOMINATOR * OUTSHINE_PI) *
          (1.0f + cosTheta * cosTheta);
 }
 
-static inline float miePhase(float g, float cosTheta) {
+MEDIUM_INLINE float miePhase(float g, float cosTheta) {
   const float k = 3.0f / (8.0f * OUTSHINE_PI) * (1.0f - g * g) / (2.0f + g * g);
   return k * (1.0f + cosTheta * cosTheta) /
          pow(1.0f + g * g - 2.0f * g * cosTheta, OUTSHINE_MIE_EXPONENT);
 }
 
-static inline float subUvsToUnit(float u, float resolution) {
+MEDIUM_INLINE float subUvsToUnit(float u, float resolution) {
   return (u - 0.5f / resolution) * (resolution / (resolution - 1.0f));
 }
 
-static inline float unitToSubUvs(float u, float resolution) {
+MEDIUM_INLINE float unitToSubUvs(float u, float resolution) {
   return (u + 0.5f / resolution) * (resolution / (resolution + 1.0f));
 }
 
-static inline SkyViewLook
-skyViewParams(MEDIUM_CONST Medium &medium, float radiusKm, MediumUv sub, MediumLutSize size) {
+MEDIUM_INLINE SkyViewLook skyViewParams(MEDIUM_ARG medium,
+                                        float radiusKm,
+                                        MediumUv sub,
+                                        MediumLutSize size) {
   const float u = subUvsToUnit(sub.U, size.WidthPx);
   const float v = subUvsToUnit(sub.V, size.HeightPx);
   const float toHorizon =

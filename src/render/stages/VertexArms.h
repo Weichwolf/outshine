@@ -158,31 +158,5 @@ static_assert(EveryArmIsAtItsOwnIndex(),
   return at < kVertexArmCount ? named[at].c_str() : "vs";
 }
 
-[[nodiscard]] inline std::string VertexArmsMsl() {
-  std::string said = "\n";
-  for (const VertexArm &one : kVertexArms) {
-    std::string runs;
-    if (one.Uv && !one.Tangent) { runs += "SUBJECT_UV_ATTRIBUTE "; }
-    if (one.Uv1) { runs += "SUBJECT_UV1_ATTRIBUTE "; }
-    if (one.Colour) { runs += "SUBJECT_COLOUR_ATTRIBUTE"; }
-    if (runs.empty()) { runs = "SUBJECT_NO_COLOUR_ATTRIBUTE"; }
-    if (one.Tangent) {
-      said += "SUBJECT_MAPPED_ARM(";
-    } else if (one.Normal) {
-      said += "SUBJECT_LIT_ARM(";
-    } else {
-      said += "SUBJECT_EMITTED_ARM(";
-    }
-    said += ArmNamed(one);
-    said += ", ";
-    said += runs;
-    said += ", ";
-    if (!one.Tangent) { said += one.Uv ? "v.uv, " : "float2(0.0), "; }
-    said += one.Uv1 ? "v.uv1, " : "float2(0.0), ";
-    said += one.Colour ? "v.colour)\n" : "SUBJECT_NO_VERTEX_COLOUR)\n";
-  }
-  return said;
-}
-
 } // namespace outshine::Render
 #endif

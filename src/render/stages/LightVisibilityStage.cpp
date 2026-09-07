@@ -1,3 +1,4 @@
+#include "GroundLattice.h"
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "LightVisibilityStage.h"
@@ -138,15 +139,6 @@ void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &
   Held_ = true;
 }
 
-std::string LightVisibilityStage::DepthOnlySource() {
-  std::string ignored;
-  return DepthOnlySource(ignored);
-}
-
-std::string LightVisibilityStage::DepthOnlySource(std::string &error) {
-  return ShaderText().Begins().Reads("src/render/shaders/subjectDepthOnly.msl").Take(error);
-}
-
 bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {
   if (DepthOnly_) { return true; }
   SDL_GPUDevice *const device = gpu.Device;
@@ -154,20 +146,19 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
     error = "the subject unit has no device, so no depth-only pipeline can be built";
     return false;
   }
-  const std::string source = DepthOnlySource(error);
-  if (source.empty()) { return false; }
-  const OwnedShader vertex(
-      device,
-      ShaderFrom(
-          device, source, "vsDepth", SDL_GPU_SHADERSTAGE_VERTEX, SubjectDraw::DepthOnlyShape));
-  const OwnedShader fragment(
-      device,
-      ShaderFrom(
-          device, source, "fsDepth", SDL_GPU_SHADERSTAGE_FRAGMENT, SubjectDraw::DepthOnlyShape));
-  if (!vertex || !fragment) {
-    error = std::string("the depth-only shaders were refused: ") + SDL_GetError();
-    return false;
-  }
+  const OwnedShader vertex(device,
+                           ShaderFrom(device,
+                                      "build/shaders/subjectDepth.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      SubjectDraw::DepthOnlyShape,
+                                      error));
+  const OwnedShader fragment(device,
+                             ShaderFrom(device,
+                                        "build/shaders/depth.frag.spv",
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        SubjectDraw::DepthOnlyShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
 
   SDL_GPUVertexBufferDescription buffer{};
   buffer.slot = 0;
@@ -203,13 +194,7 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
     return false;
   }
   DepthOnly_ = OwnedPipeline(device, made);
-  const std::string lattice = ShaderText()
-                                  .Begins()
-                                  .Reads("src/render/shaders/subjectDepthOnly.msl")
-                                  .Reads("src/render/shaders/groundLatticeCore.msl")
-                                  .Reads("src/render/shaders/groundLatticeDepth.msl")
-                                  .Take(error);
-  return !lattice.empty() && Subjects_->Ground().ConfigureDepth(device, lattice, error);
+  return Subjects_->Ground().ConfigureDepth(device, error);
 }
 
 void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,

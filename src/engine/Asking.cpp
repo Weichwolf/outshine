@@ -203,10 +203,7 @@ bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail
 bool Engine::State::Composes() {
   const Heap::Tagged composing("world-compose");
   World.GroundTiles = 0;
-  if (!Picture.Standing) {
-    Error = "nothing stands to compose a world around";
-    return false;
-  }
+  if (!Stood()) { return false; }
   const Scenario::Document &declared = Session.Declared;
   if (Session.Views && !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
     return false;

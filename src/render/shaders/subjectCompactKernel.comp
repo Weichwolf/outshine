@@ -1,0 +1,25 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cullView.glsl"
+
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_jobs { uvec4 jobs[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_source { uint source[]; };
+layout(std430, set = 0, binding = 2) readonly buffer Buffer_slot { uint slot[]; };
+layout(std430, set = 0, binding = 3) readonly buffer Buffer_args { uint args[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_drawIndex { uint drawIndex[]; };
+const uint kCullLanes = gl_WorkGroupSize.x;
+const uint kCullRejected = 0xffffffffu;
+
+void main() {
+  uint group = gl_WorkGroupID.x;
+  uint lane = gl_LocalInvocationID.x;
+  if (group >= view.jobs) { return; }
+  const uint at = slot[group];
+  if (at == kCullRejected) { return; }
+  const uvec4 job = jobs[group];
+  const uint base = args[5u * job.y + 2u];
+  for (uint one = lane; one < job.w; one += kCullLanes) {
+    drawIndex[base + at + one] = source[job.z + one];
+  }
+}

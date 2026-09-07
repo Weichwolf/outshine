@@ -123,9 +123,9 @@ int main(void) {
 
   CHECK(virtualOddAfter <= kSeamToleranceM,
         "**THE STITCH CLOSES THE CRACK**: on every edge whose same-level neighbour is absent, the "
-        "odd node takes the mean of its even neighbours in the vertex shader, and that mean IS "
-        "the coarser chord at that point, so the two levels meet with no gap and no skirt shows. "
-        "Measured here on the CPU with the shader's own formula over the pages the shader reads");
+        "edge node takes the coarser chord before the height page reaches the vertex shader, "
+        "including boundaries wider than 2:1. The page and the CPU surface carry the same "
+        "stitched height; the measured residual is against that coarser chord");
 
   Covers("board:2115 -- the lattice is gap-free where two of its levels meet");
   return Report();

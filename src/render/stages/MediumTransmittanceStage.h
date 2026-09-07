@@ -13,8 +13,6 @@ namespace outshine::Render {
 
 class MediumTransmittanceStage {
 public:
-  [[nodiscard]] static std::string KernelSource();
-  [[nodiscard]] static std::string KernelSource(std::string &error);
   static constexpr ComputeShape KernelShape{
       .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8};
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error);

@@ -10,8 +10,6 @@
 #include <cstdint>
 #include <string>
 
-#include "ShaderFile.h"
-
 namespace outshine::Render {
 
 constexpr size_t kMediumBytes = size_t{5} * 4 * sizeof(float);
@@ -127,12 +125,12 @@ using std::exp;
 using std::fabs;
 using std::pow;
 using std::sqrt;
-#define MEDIUM_CONST const
-#define MEDIUM_THREAD
+#define MEDIUM_ARG const Medium &
+#define MEDIUM_INLINE static inline
 #define OUTSHINE_PI std::numbers::pi_v<float>
 #include "MediumCore.h"
-#undef MEDIUM_CONST
-#undef MEDIUM_THREAD
+#undef MEDIUM_ARG
+#undef MEDIUM_INLINE
 #undef OUTSHINE_PI
 } // namespace medium_core
 
@@ -142,30 +140,13 @@ using medium_core::mediumTopReach;
 using medium_core::miePhase;
 using medium_core::rayleighPhase;
 
-inline constexpr uint32_t kTransmittanceLutWidth = 256;
-inline constexpr uint32_t kTransmittanceLutHeight = 64;
-
-inline constexpr int kTransmittanceSteps = 40;
-
-inline constexpr float kMediumSampleSegment = 0.5f;
-
-inline constexpr uint32_t kMultiScatterLutSize = 32;
-
-inline constexpr int kMultiScatterSteps = 20;
-
-inline constexpr int kMultiScatterGrid = 8;
-
-inline constexpr float kMediumLuminanceSegment = 0.3f;
-
-inline constexpr float kMediumGroundLiftKm = 0.01f;
-
-inline constexpr float kSunHalfAngleRad = 4.6542e-3f;
-
-inline constexpr uint32_t kSkyViewLutWidth = 192;
-
-inline constexpr uint32_t kSkyViewLutHeight = 108;
-
-inline constexpr int kSkyViewSteps = 30;
+#define MEDIUM_UINT(name, value) inline constexpr uint32_t name = value;
+#define MEDIUM_INT(name, value) inline constexpr int name = value;
+#define MEDIUM_FLOAT(name, value) inline constexpr float name = value;
+#include "MediumConstants.inc"
+#undef MEDIUM_UINT
+#undef MEDIUM_INT
+#undef MEDIUM_FLOAT
 
 [[nodiscard]] inline Vec3f MediumExtinctionPerKm(const Medium &medium, float heightKm) {
   const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
@@ -403,8 +384,6 @@ template <typename ToSun, typename Psi>
   }
   return out;
 }
-
-ShaderText &ParticipatingMedium(ShaderText &into);
 
 } // namespace outshine::Render
 #endif

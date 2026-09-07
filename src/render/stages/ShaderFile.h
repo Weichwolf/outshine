@@ -3,26 +3,21 @@
 
 #include <string>
 #include <string_view>
+#include <SDL3/SDL_gpu.h>
 
 namespace outshine::Render {
 
-class ShaderText {
-public:
-  ShaderText &Begins();
-  ShaderText &Reads(std::string_view treePath);
-  ShaderText &Adds(std::string_view text);
-
-  [[nodiscard]] explicit operator bool() const { return Why_.empty(); }
-
-  [[nodiscard]] const std::string &Why() const { return Why_; }
-
-  [[nodiscard]] std::string Take();
-  [[nodiscard]] std::string Take(std::string &error);
-
-private:
-  std::string Held_;
-  std::string Why_;
-};
+struct ComputeShape;
+struct DrawShape;
+[[nodiscard]] SDL_GPUShader *ShaderFrom(SDL_GPUDevice *device,
+                                        std::string_view path,
+                                        SDL_GPUShaderStage stage,
+                                        const DrawShape &shape,
+                                        std::string &error);
+[[nodiscard]] SDL_GPUComputePipeline *ComputeFrom(SDL_GPUDevice *device,
+                                                  std::string_view path,
+                                                  const ComputeShape &shape,
+                                                  std::string &error);
 
 } // namespace outshine::Render
 

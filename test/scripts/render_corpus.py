@@ -9,6 +9,7 @@ import argparse, json, math, os, pathlib, subprocess, sys, tempfile
 
 from PIL import Image
 import numpy as np
+from reference_from_oracle import floats, encoded
 
 TREE = pathlib.Path(__file__).resolve().parents[2]
 CLIENT = TREE / "build" / "outshine-client"
@@ -87,16 +88,15 @@ def wears(material, worn, names):
             # three blown quads in a lit room against an oracle of five graded quads on black.
             return []
         return ['      <wears part="%d" keepsMaps="yes">'
-                '<row unlit="yes" r="1" g="1" b="1" '
-                'emissionR="1" emissionG="1" emissionB="1"/></wears>' % part
+                '<row unlit="yes" r="1" g="1" b="1"/></wears>' % part
                 for part in range(len(worn))]
     for part, material_at in enumerate(worn):
         colour = by_material.get(material_at)
         if colour is None:
             continue
         said.append(f'      <wears part="{part}">')
-        said.append(f'        <row unlit="yes" emissionR="{colour[0]}" '
-                    f'emissionG="{colour[1]}" emissionB="{colour[2]}" r="0" g="0" b="0"/>')
+        said.append(f'        <row unlit="yes" r="{colour[0]}" '
+                    f'g="{colour[1]}" b="{colour[2]}"/>')
         said.append('      </wears>')
     return said
 
@@ -140,7 +140,7 @@ def node_local(node):
     return made
 
 
-def gltf_camera(entry):
+def gltf_camera(entry, index=0):
     """The camera the FILE carries, which four manifests name as their source.
 
     They named it and nothing read it: the translator knew `manifest` and `derived` and fell through
@@ -154,7 +154,10 @@ def gltf_camera(entry):
         return {}
     file = json.loads(entry.read_text())
     cameras, nodes = file.get("cameras", []), file.get("nodes", [])
-    holder = next((at for at, one in enumerate(nodes) if "camera" in one), None)
+    holders = [at for at, one in enumerate(nodes) if one.get("camera") == index]
+    if len(holders) != 1 or not 0 <= index < len(cameras):
+        raise ValueError(f"camera {index} needs exactly one node and a declared lens")
+    holder = holders[0]
     if holder is None or not cameras:
         return {}
     above = {}
@@ -172,9 +175,15 @@ def gltf_camera(entry):
     forward = world[:3, :3] @ np.array([0.0, 0.0, -1.0])
     up = world[:3, :3] @ np.array([0.0, 1.0, 0.0])
     told = {"positionM": list(stands), "lookAtM": list(stands + forward), "upM": list(up)}
-    lens = cameras[nodes[holder]["camera"]].get("perspective", {})
-    if lens.get("yfov"):
-        told["yfovRad"] = lens["yfov"]
+    lens = cameras[index]
+    if lens["type"] == "orthographic":
+        ortho = lens["orthographic"]
+        told.update(orthographic=True, xmagM=ortho["xmag"], ymagM=ortho["ymag"],
+                    clipStartM=ortho["znear"], clipEndM=ortho["zfar"])
+    else:
+        perspective = lens["perspective"]
+        told.update(yfovRad=perspective["yfov"], clipStartM=perspective["znear"],
+                    clipEndM=perspective.get("zfar", 0.0))
     return told
 
 
@@ -189,7 +198,7 @@ def scenario_for(manifest, entry):
                          f"(board:2071)")
     camera = {**camera, **derived_camera(entry)}
     if source == "gltf":
-        camera = {**camera, **gltf_camera(entry)}
+        camera = {**camera, **gltf_camera(entry, camera.get("index", 0))}
     render = manifest.get("renders", {}).get("default", {})
     at = camera.get("positionM", [0.0, 0.0, 3.0])
     look = camera.get("lookAtM", [0.0, 0.0, 0.0])
@@ -210,12 +219,22 @@ def scenario_for(manifest, entry):
         d = light.get("directionM", [0.0, -1.0, 0.0])
         span = math.sqrt(sum(v * v for v in d)) or 1.0
         elevation = math.degrees(math.asin(max(-1.0, min(1.0, -d[1] / span))))
-        bearing = math.degrees(math.atan2(-d[0], -d[2]))
+        bearing = math.degrees(math.atan2(-d[0], d[2]))
         lines.append(f'    <key lux="{light.get("irradianceWPerM2", 0.0)}" '
                      f'elevationDeg="{elevation:.9f}" bearingDeg="{bearing:.9f}"/>')
     if scene.get("material", {}).get("kind") in ("diffuse", "metal-rough"):
-        lines.append(f'    <environment r="{kFactoryWorldRadiance}" g="{kFactoryWorldRadiance}" '
-                     f'b="{kFactoryWorldRadiance}"/>')
+        world = scene.get("world")
+        radiance = [kFactoryWorldRadiance] * 3
+        if world is not None:
+            if world.get("kind") == "none":
+                radiance = [0.0] * 3
+            elif world.get("kind") == "uniform":
+                radiance = [channel * world.get("strength", 1.0)
+                            for channel in world["colourLinear"]]
+            else:
+                raise ValueError(f'unsupported oracle world: {world.get("kind")}')
+        lines.append(f'    <environment r="{radiance[0]}" g="{radiance[1]}" '
+                     f'b="{radiance[2]}"/>')
     lines.append('  </lighting>')
     plays = "play" if animated else "ignore"
     lines += ['  <assets>', f'    <asset uri="{entry}" kind="gltf" animation="{plays}">']
@@ -224,9 +243,17 @@ def scenario_for(manifest, entry):
              (json.loads(entry.read_text()).get("materials", [])
               if entry.suffix == ".gltf" else [])]
     lines += wears(scene.get("material", {}), worn, names)
+    lens_attributes = ""
+    if camera.get("orthographic") or camera.get("projection") == "orthographic":
+        ymag = camera.get("ymagM", camera.get("yMagM"))
+        if ymag is None:
+            raise ValueError("an orthographic camera must declare its vertical half extent")
+        aspect = render.get("resolutionX", 1280) / render.get("resolutionY", 720)
+        xmag = camera.get("xmagM", camera.get("xMagM", ymag * aspect))
+        lens_attributes = f' orthographic="yes" xMagM="{xmag}" yMagM="{ymag}"'
     lines += ['    </asset>', '  </assets>', '  <views>',
               f'    <view id="oracle" fovDeg="{math.degrees(camera.get("yfovRad", 0.5)):.9f}" '
-              f'nearM="{camera.get("clipStartM", 0.0):.9f}" farM="{camera.get("clipEndM", 0.0):.9f}">',
+              f'nearM="{camera.get("clipStartM", 0.0):.9f}" farM="{camera.get("clipEndM", 0.0):.9f}"{lens_attributes}>',
               f'      <at x="{at[0]:.12f}" y="{at[1]:.12f}" z="{at[2]:.12f}"/>',
               f'      <lookAt x="{look[0]:.12f}" y="{look[1]:.12f}" z="{look[2]:.12f}"/>',
               f'      <up x="{up[0]:.12f}" y="{up[1]:.12f}" z="{up[2]:.12f}"/>',
@@ -269,7 +296,7 @@ def excluded():
 
 
 def cases(only):
-    for manifest in sorted((TREE / "test" / "khronos").glob("*/*/manifest.json")):
+    for manifest in sorted((TREE / "test" / "khronos").rglob("manifest.json")):
         declared = json.loads(manifest.read_text())
         if not declared.get("renders"):
             continue
@@ -308,9 +335,13 @@ def main():
     ask.add_argument("case", nargs="*")
     told = ask.parse_args()
 
+    selected = list(cases(set(told.case)))
+    unknown = set(told.case) - {name for name, _, _ in selected}
+    if unknown:
+        ask.error("unknown render cases: " + ", ".join(sorted(unknown)))
     known = excluded()
     held, red, unscored, skipped = 0, [], 0, 0
-    for name, where, declared in cases(set(told.case)):
+    for name, where, declared in selected:
         if name in known:
             skipped += 1
             print(f"ASIDE {name:34s} {known[name]}")
@@ -322,8 +353,17 @@ def main():
             declared["subjects"][0]["entry"]
         if not entry.exists():
             entry = entry.with_suffix(".gltf")
+        if not reference.exists():
+            reference = entry.parent / reference.name
+        if not reference.exists() and (entry.parent / "oracle.raw").exists():
+            linear = floats(entry.parent / "oracle.raw")
+            if linear is None:
+                raise ValueError(f"invalid oracle float file for {name}")
+            Image.fromarray(encoded(linear)).save(reference)
         if not (reference.exists() and entry.exists()):
             unscored += 1
+            missing = [str(path) for path in (reference, entry) if not path.exists()]
+            print(f"UNSCORED {name}: missing " + ", ".join(missing))
             continue
         with tempfile.TemporaryDirectory() as scratch:
             wrote = pathlib.Path(scratch) / "case.scn"
@@ -334,7 +374,8 @@ def main():
         for line in ran.stdout.splitlines():
             if line.startswith("ROW"):
                 digest = line.split("\t")[2]
-        if not digest:
+        if ran.returncode or digest in ("", "-"):
+            print(f"FAILED {name}: client exit {ran.returncode}\n{ran.stdout}{ran.stderr}")
             red.append((name, 0.0, 0, "the client drew nothing"))
             continue
         drew = TREE / "build" / "shots" / "khronos" / f"{name}-{digest}.png"
@@ -355,7 +396,7 @@ def main():
           f"counted, because a frame that is mostly background scores its background")
     print(f"the worst pixel is REPORTED and never gated, because one pixel at 255 is a hole rather "
           f"than a tolerance")
-    return 1 if red else 0
+    return 1 if red or (told.case and unscored) else 0
 
 
 if __name__ == "__main__":

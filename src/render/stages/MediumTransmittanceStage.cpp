@@ -9,24 +9,6 @@
 #include "ShaderFile.h"
 
 namespace outshine::Render {
-namespace {
-
-std::string Kernel(std::string &error) {
-  std::array<char, 256> declared{};
-  std::snprintf(declared.data(),
-                declared.size(),
-                "constant uint kTransmittanceSteps = %uu;\n"
-                "constant float kMediumSampleSegment = %.9g;\n",
-                static_cast<unsigned>(kTransmittanceSteps),
-                static_cast<double>(kMediumSampleSegment));
-  ShaderText source;
-  source.Begins().Adds(declared.data());
-  return ParticipatingMedium(source)
-      .Reads("src/render/shaders/mediumTransmittance.msl")
-      .Take(error);
-}
-
-} // namespace
 
 bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error) {
   if (Lut != lut) { Settled_ = false; }
@@ -38,25 +20,9 @@ bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, st
   }
   if (Pipe) { return true; }
 
-  const std::string source = KernelSource(error);
-  if (source.empty()) { return false; }
-  SDL_GPUComputePipelineCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
-  wanted.code_size = source.size();
-  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
-  wanted.entrypoint = "mediumTransmittanceKernel";
-  wanted.num_samplers = KernelShape.Samplers;
-  wanted.num_readonly_storage_textures = KernelShape.ReadOnlyTextures;
-  wanted.num_readwrite_storage_textures = KernelShape.ReadWriteTextures;
-  wanted.num_uniform_buffers = KernelShape.UniformBuffers;
-  wanted.threadcount_x = KernelShape.GroupX;
-  wanted.threadcount_y = KernelShape.GroupY;
-  wanted.threadcount_z = 1u;
-  SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
-  if (made == nullptr) {
-    error = std::string("the medium's transmittance kernel was refused: ") + SDL_GetError();
-    return false;
-  }
+  SDL_GPUComputePipeline *const made =
+      ComputeFrom(gpu.Device, "build/shaders/mediumTransmittance.comp.spv", KernelShape, error);
+  if (made == nullptr) { return false; }
   Pipe = OwnedComputePipeline(gpu.Device, made);
   Settled_ = false;
   return true;
@@ -78,15 +44,6 @@ void MediumTransmittanceStage::Encode(const PassRecording &into) {
                          (kTransmittanceLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
                          1u);
   Settled_ = true;
-}
-
-std::string MediumTransmittanceStage::KernelSource() {
-  std::string ignored;
-  return Kernel(ignored);
-}
-
-std::string MediumTransmittanceStage::KernelSource(std::string &error) {
-  return Kernel(error);
 }
 
 } // namespace outshine::Render

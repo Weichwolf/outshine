@@ -18,8 +18,6 @@ namespace outshine::Render {
 
 class SkyStage {
 public:
-  [[nodiscard]] static std::string ShaderSource();
-  [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 2, .FragmentUniformBuffers = 1};
 
   struct Tables {

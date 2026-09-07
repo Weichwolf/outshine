@@ -425,7 +425,7 @@ bool ReadTextureTransform(const Json::Ref &info, TextureRef &into, std::string &
     }
     into.TexCoord = set.Int(0);
   }
-  into.Transform = outshine::UvTransformOf(properties);
+  into.Uv = properties;
   return true;
 }
 

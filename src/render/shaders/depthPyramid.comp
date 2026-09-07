@@ -1,0 +1,30 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D sceneDepth;
+layout(std430, set = 1, binding = 0) buffer Pyramid { float pyramid[]; };
+layout(std140, set = 2, binding = 0) uniform Reducing {
+  uint SrcWide;
+  uint SrcHigh;
+  uint DstWide;
+  uint DstHigh;
+  uint DstAt;
+  uint Block;
+  uint Pad0;
+  uint Pad1;
+} over;
+
+void main() {
+  uvec2 id = gl_GlobalInvocationID.xy;
+  if (id.x >= over.DstWide || id.y >= over.DstHigh) { return; }
+  uvec2 from = id * over.Block;
+  uvec2 last = uvec2(over.SrcWide - 1u, over.SrcHigh - 1u);
+  float farthest = 1.0;
+  for (uint down = 0u; down < over.Block; ++down) {
+    for (uint across = 0u; across < over.Block; ++across) {
+      uvec2 at = min(from + uvec2(across, down), last);
+      farthest = min(farthest, texelFetch(sceneDepth, ivec2(at), 0).r);
+    }
+  }
+  pyramid[over.DstAt + id.y * over.DstWide + id.x] = farthest;
+}

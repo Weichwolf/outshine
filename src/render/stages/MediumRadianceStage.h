@@ -14,8 +14,6 @@ namespace outshine::Render {
 
 class MediumRadianceStage {
 public:
-  [[nodiscard]] static std::string KernelSource();
-  [[nodiscard]] static std::string KernelSource(std::string &error);
   static constexpr ComputeShape KernelShape{
       .Samplers = 2, .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8};
   [[nodiscard]] bool Configure(const Gpu &gpu,

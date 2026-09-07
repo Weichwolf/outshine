@@ -18,10 +18,6 @@ struct Reducing {
 
 } // namespace
 
-std::string DepthPyramidStage::KernelSource(std::string &error) {
-  return ShaderText().Begins().Reads("src/render/shaders/depthPyramid.msl").Take(error);
-}
-
 bool DepthPyramidStage::Configure(const Gpu &gpu,
                                   SDL_GPUTexture *depth,
                                   SDL_GPUSampler *held,
@@ -41,24 +37,9 @@ bool DepthPyramidStage::Configure(const Gpu &gpu,
   }
   if (Pipe) { return true; }
 
-  const std::string source = KernelSource(error);
-  if (source.empty()) { return false; }
-  SDL_GPUComputePipelineCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
-  wanted.code_size = source.size();
-  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
-  wanted.entrypoint = "depthPyramidKernel";
-  wanted.num_samplers = KernelShape.Samplers;
-  wanted.num_readwrite_storage_buffers = KernelShape.ReadWriteBuffers;
-  wanted.num_uniform_buffers = KernelShape.UniformBuffers;
-  wanted.threadcount_x = KernelShape.GroupX;
-  wanted.threadcount_y = KernelShape.GroupY;
-  wanted.threadcount_z = 1u;
-  SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
-  if (made == nullptr) {
-    error = std::string("the depth pyramid kernel was refused: ") + SDL_GetError();
-    return false;
-  }
+  SDL_GPUComputePipeline *const made =
+      ComputeFrom(gpu.Device, "build/shaders/depthPyramid.comp.spv", KernelShape, error);
+  if (made == nullptr) { return false; }
   Pipe = OwnedComputePipeline(gpu.Device, made);
   return true;
 }

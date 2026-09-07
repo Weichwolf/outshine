@@ -1,0 +1,102 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cullView.glsl"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_spheres { vec4 spheres[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_jobs { uvec4 jobs[]; };
+layout(std430, set = 0, binding = 2) readonly buffer Buffer_rows { mat4 rows[]; };
+layout(std430, set = 0, binding = 3) readonly buffer Buffer_args { uint args[]; };
+layout(std430, set = 0, binding = 4) readonly buffer Buffer_pyramid { float pyramid[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
+const uint kClusterFloat4s = 3u;
+float projectedError(float error, vec3 centre, float radius) {
+  float away = max(length(centre) - radius, 1.0e-3);
+  return error * view.errorPerMetre / away;
+}
+
+void main() {
+  uint id = gl_GlobalInvocationID.x;
+  if (id >= view.jobs) { return; }
+  const uvec4 job = jobs[id];
+  const mat4 model = rows[2u * args[5u * job.y + 4u]];
+  const vec4 sphere = spheres[job.x * kClusterFloat4s];
+  const vec4 parent = spheres[job.x * kClusterFloat4s + 1u];
+  const vec4 errs = spheres[job.x * kClusterFloat4s + 2u];
+  const vec3 centre = (model * vec4(sphere.xyz, 1.0)).xyz + view.shift.xyz;
+  const float widest = max(max(length(model[0].xyz), length(model[1].xyz)), length(model[2].xyz));
+  const float radius = sphere.w * widest;
+
+  for (uint at = 0u; at < 6u; ++at) {
+    const vec4 plane = view.planes[at];
+    if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
+    if (dot(plane.xyz, centre) + plane.w < -radius) {
+      kept[id] = 0u;
+      return;
+    }
+  }
+
+  if (view.errorPerMetre > 0.0) {
+    const vec3 parentCentre = (model * vec4(parent.xyz, 1.0)).xyz + view.shift.xyz;
+    const float mine = projectedError(errs.x * widest, centre, radius);
+    const float theirs = projectedError(errs.y * widest, parentCentre, parent.w * widest);
+    if (!(mine <= 1.0 && theirs > 1.0)) {
+      kept[id] = 0u;
+      return;
+    }
+  }
+  if (view.occludes != 0u) {
+    vec2 least = vec2(1.0e30, 1.0e30);
+    vec2 most = vec2(-1.0e30, -1.0e30);
+    float nearest = -1.0e30;
+    bool astride = false;
+    for (uint corner = 0u; corner < 8u; ++corner) {
+      const vec3 at = centre + radius * vec3((corner & 1u) != 0u ? 1.0 : -1.0,
+                                                 (corner & 2u) != 0u ? 1.0 : -1.0,
+                                                 (corner & 4u) != 0u ? 1.0 : -1.0);
+      const vec4 said = view.clip * vec4(at, 1.0);
+      if (said.w <= 1.0e-6) {
+        astride = true;
+        break;
+      }
+      const vec3 ndc = said.xyz / said.w;
+      least = min(least, ndc.xy);
+      most = max(most, ndc.xy);
+      nearest = max(nearest, ndc.z);
+    }
+    if (!astride) {
+      const vec2 lo = clamp(vec2(least.x * 0.5 + 0.5, 0.5 - most.y * 0.5), 0.0, 1.0);
+      const vec2 hi = clamp(vec2(most.x * 0.5 + 0.5, 0.5 - least.y * 0.5), 0.0, 1.0);
+      float across = max((hi.x - lo.x) * float(view.pyramidWide[0]),
+                         (hi.y - lo.y) * float(view.pyramidHigh[0]));
+      uint level = 0u;
+      while (level + 1u < 4u && across > 2.0) {
+        across *= 0.5;
+        level += 1u;
+      }
+      const uint wide = view.pyramidWide[level];
+      const uint high = view.pyramidHigh[level];
+      const uint first = view.pyramidAt[level];
+      const uvec2 from = uvec2(min(uint(lo.x * float(wide)), wide - 1u),
+                               min(uint(lo.y * float(high)), high - 1u));
+      const uvec2 to = uvec2(min(uint(hi.x * float(wide)), wide - 1u),
+                             min(uint(hi.y * float(high)), high - 1u));
+
+      if (to.x - from.x >= 4u || to.y - from.y >= 4u) {
+        kept[id] = job.w;
+        return;
+      }
+      float farthest = 1.0;
+      for (uint down = from.y; down <= to.y && down < from.y + 4u; ++down) {
+        for (uint sideways = from.x; sideways <= to.x && sideways < from.x + 4u; ++sideways) {
+          farthest = min(farthest, pyramid[first + down * wide + sideways]);
+        }
+      }
+      if (nearest < farthest) {
+        kept[id] = 0u;
+        return;
+      }
+    }
+  }
+  kept[id] = job.w;
+}

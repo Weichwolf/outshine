@@ -77,18 +77,22 @@ constexpr size_t kBounceProbeStride = 16;
 std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
                                               const Render::Medium &fallback) {
   const size_t rows = wearing.TemplateCount();
-  std::vector<float> palette(kPaletteStride * (rows + 2u), 0.0f);
+  std::vector<float> palette(kPaletteStride * (rows + 2u) + rows + 1u, 0.0f);
   palette[0] = std::bit_cast<float>(static_cast<uint32_t>(rows));
+  palette[1] = std::bit_cast<float>(static_cast<uint32_t>(wearing.RockTemplate()));
+  palette[2] = wearing.Limit().SlopeBandDeg();
   const auto rowAt = [](size_t row) { return kPaletteStride * (row + 1u); };
   for (size_t row = 0; row < rows; ++row) {
     for (size_t channel = 0; channel < 3; ++channel) {
       palette[rowAt(row) + channel] = wearing.Rows()[row].Ground[channel];
     }
     palette[rowAt(row) + 3u] = wearing.Rows()[row].Mix[2];
+    palette[kPaletteStride * (rows + 2u) + row] = wearing.Rows()[row].Edge[3];
   }
   for (size_t channel = 0; channel < 3; ++channel) {
     palette[rowAt(rows) + channel] = fallback.GroundAlbedo[channel];
   }
+  palette[kPaletteStride * (rows + 2u) + rows] = 90.0f;
   return palette;
 }
 
@@ -102,7 +106,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
     out.Palette = PaletteOver(wearing, fallback);
   }
   if (out.Structure && !out.Palette.empty()) {
-    const size_t rows = out.Palette.size() / kPaletteStride - 2u;
+    const size_t rows = std::bit_cast<uint32_t>(out.Palette[0]);
     Vec3 wornSum = {{0.0, 0.0, 0.0}};
     double worn = 0.0;
     for (size_t at = 0; at + 2 < groundPositionsM.size(); at += 3u * kBounceProbeStride) {
@@ -310,6 +314,10 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   const bool grew =
       alsoWhenTilesLanded && (resident != World.LaidResident || World.RimsMissing > 0);
   const bool renamed = classes != World.LaidClasses;
+  const Render::Viewpoint &view = Picture.Standing->Watching();
+  const std::array<double, 3> projection{
+      {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
+  const bool projectionChanged = projection != World.LaidProjection;
   Published.Places("building triangles the world meshed",
                    static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                    "triangles");
@@ -347,7 +355,9 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   Published.Places("tiles laid bare on the ellipsoid",
                    static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
                    "tiles");
-  if (World.EverLaid && !elsewhere && !grew && !renamed) { return Laid::Unchanged; }
+  if (World.EverLaid && !elsewhere && !grew && !renamed && !projectionChanged) {
+    return Laid::Unchanged;
+  }
 
   {
     const uint64_t geometry = World.Pieces.Digest();
@@ -365,6 +375,7 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   World.LaidFrom = from;
   World.LaidResident = resident;
   World.LaidClasses = classes;
+  World.LaidProjection = projection;
   World.EverLaid = true;
   ++World.Relaid;
   return Laid::Wanted;
@@ -462,6 +473,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
              .Levels = kLatticeVirtualLevels,
              .Eye = {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}})),
         "tiles");
+    const Render::Viewpoint &eye = Picture.Standing->Watching();
+    HeightSheets::Detail detail{.EyeM = eye.EyeM};
+    if (eye.Kind == Render::CameraKind::Orthographic) {
+      detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
+    } else {
+      detail.FocalPx =
+          static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
+    }
+    if (!World.Sheets.RefineByError(*laid, World.Stack.Ground(), detail, Error)) { return false; }
     const auto haloAt = std::chrono::steady_clock::now();
     Published.Places(
         "ground: sheets the lattice haloed",
@@ -898,19 +918,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("stand: their emitted radiance", Picture.Standing->LampsMs(), "ms");
   Published.Places("stand: the lamps and the key", Picture.Standing->LitMs(), "ms");
   Published.Places("stand: the medium's own tables", Picture.Standing->MediumMs(), "ms");
-  {
-    static const std::array<const char *const, 3> kSky = {"the ambient the sky casts, red",
-                                                          "the ambient the sky casts, green",
-                                                          "the ambient the sky casts, blue"};
-    static const std::array<const char *const, 3> kGround = {
-        "the ambient the ground bounces, red",
-        "the ambient the ground bounces, green",
-        "the ambient the ground bounces, blue"};
-    for (size_t at = 0; at < 3; ++at) {
-      Published.Places(kSky[at], Picture.Standing->AmbientStood()[at], "");
-      Published.Places(kGround[at], Picture.Standing->GroundStood()[at], "");
-    }
-  }
+
   Published.Places("stand: times the sky was integrated",
                    static_cast<double>(Picture.Standing->SkyIntegrations()),
                    "integrations");

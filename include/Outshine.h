@@ -160,6 +160,8 @@ public:
   [[nodiscard]] Loading loading() const;
   [[nodiscard]] double loadProgress() const;
 
+  /// Source DEM height above mean sea level, in metres; not ellipsoidal height.
+  /// The input height is ignored. A datum conversion is required before geodetic placement.
   [[nodiscard]] Holds<double> sampleHeight(const LongitudeLatitudeHeight &at) const;
   [[nodiscard]] Result mix(std::span<float> stereo, int rate);
 

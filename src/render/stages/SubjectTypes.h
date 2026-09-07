@@ -26,6 +26,7 @@ struct SubjectEnvironment {
   Vec3 GroundLinear = {{0, 0, 0}};
   Vec3 UpUnit = {{0, 1, 0}};
 
+  Vec3 GroundAlbedo;
   double SkyLux = 0.0;
   double CosSunZenith = 0.0;
 };
@@ -54,7 +55,7 @@ struct SubjectTexture {
 
   outshine::UvTransform Uv;
 
-  outshine::UvSet Set = outshine::UvSet::First;
+  outshine::UvSet Set = outshine::UvSet::Uv0;
 };
 
 enum class SurfaceDomain : std::uint8_t { Subject, Ground };
@@ -80,10 +81,9 @@ struct SubjectMaterial {
   [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
 
   [[nodiscard]] bool ReadsSecondUv() const {
-    return Colour.Set == outshine::UvSet::Second || Normal.Set == outshine::UvSet::Second ||
-           MetalRough.Set == outshine::UvSet::Second || Emissive.Set == outshine::UvSet::Second ||
-           SpecularStrength.Set == outshine::UvSet::Second ||
-           SpecularTint.Set == outshine::UvSet::Second;
+    return Colour.Set == outshine::UvSet::Uv1 || Normal.Set == outshine::UvSet::Uv1 ||
+           MetalRough.Set == outshine::UvSet::Uv1 || Emissive.Set == outshine::UvSet::Uv1 ||
+           SpecularStrength.Set == outshine::UvSet::Uv1 || SpecularTint.Set == outshine::UvSet::Uv1;
   }
 
   [[nodiscard]] bool ReadsAnyImage() const {
@@ -141,12 +141,11 @@ struct GroundInstance {
   float SagInv = 0.0f;
   float StepE = 0.0f;
   float StepN = 0.0f;
-  std::array<float, 4> Stitched = {{}};
 };
 
-inline constexpr uint32_t kGroundInstanceFloats = 32;
+inline constexpr uint32_t kGroundInstanceFloats = 28;
 static_assert(sizeof(GroundInstance) == kGroundInstanceFloats * sizeof(float),
-              "an instance is the thirty-two floats the lattice's vertex shader reads");
+              "an instance is the twenty-eight floats the lattice's vertex shader reads");
 
 struct GroundTile {
   GroundInstance Instance;

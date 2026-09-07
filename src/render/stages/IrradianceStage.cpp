@@ -23,27 +23,6 @@ struct Pushed {
 
 static_assert(sizeof(Pushed) == sizeof(Medium) + 16, "the push keeps the medium's alignment");
 
-std::string Kernel(std::string &error) {
-  std::array<char, 512> declared{};
-  std::snprintf(declared.data(),
-                declared.size(),
-                "constant uint kSkyViewSteps = %uu;\n"
-                "constant uint kTransmittanceSteps = %uu;\n"
-                "constant uint kMultiScatterGrid = %uu;\n"
-                "constant float kMediumSampleSegment = %.9g;\n"
-                "constant float kMediumLuminanceSegment = %.9g;\n"
-                "constant float kMediumGroundLiftKm = %.9g;\n",
-                static_cast<unsigned>(kSkyViewSteps),
-                static_cast<unsigned>(kTransmittanceSteps),
-                static_cast<unsigned>(kMultiScatterGrid),
-                static_cast<double>(kMediumSampleSegment),
-                static_cast<double>(kMediumLuminanceSegment),
-                static_cast<double>(kMediumGroundLiftKm));
-  ShaderText source;
-  source.Begins().Adds(declared.data());
-  return ParticipatingMedium(source).Reads("src/render/shaders/irradiance.msl").Take(error);
-}
-
 } // namespace
 
 bool IrradianceStage::Configure(const Gpu &gpu,
@@ -66,24 +45,9 @@ bool IrradianceStage::Configure(const Gpu &gpu,
   }
   if (Pipe) { return true; }
 
-  const std::string source = KernelSource(error);
-  if (source.empty()) { return false; }
-  SDL_GPUComputePipelineCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
-  wanted.code_size = source.size();
-  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
-  wanted.entrypoint = "irradianceKernel";
-  wanted.num_samplers = KernelShape.Samplers;
-  wanted.num_readwrite_storage_buffers = KernelShape.ReadWriteBuffers;
-  wanted.num_uniform_buffers = KernelShape.UniformBuffers;
-  wanted.threadcount_x = KernelShape.GroupX;
-  wanted.threadcount_y = 1u;
-  wanted.threadcount_z = 1u;
-  SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
-  if (made == nullptr) {
-    error = std::string("the irradiance kernel was refused: ") + SDL_GetError();
-    return false;
-  }
+  SDL_GPUComputePipeline *const made =
+      ComputeFrom(gpu.Device, "build/shaders/irradiance.comp.spv", KernelShape, error);
+  if (made == nullptr) { return false; }
   Pipe = OwnedComputePipeline(gpu.Device, made);
   Settled_ = false;
   return true;
@@ -109,15 +73,6 @@ void IrradianceStage::Encode(const PassRecording &into) {
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound.data(), 2);
   SDL_DispatchGPUCompute(into.Dispatch, 1u, 1u, 1u);
   Settled_ = true;
-}
-
-std::string IrradianceStage::KernelSource() {
-  std::string ignored;
-  return Kernel(ignored);
-}
-
-std::string IrradianceStage::KernelSource(std::string &error) {
-  return Kernel(error);
 }
 
 } // namespace outshine::Render

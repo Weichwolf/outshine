@@ -3,6 +3,8 @@
 
 #include <cstddef>
 #include <memory>
+#include <map>
+#include <tuple>
 #include <span>
 #include <string>
 #include <vector>
@@ -42,7 +44,7 @@ public:
 
   [[nodiscard]] Soup SoupOf(const Patchwork &laid, int zoomAtLeast = 0) const;
 
-  [[nodiscard]] bool Hands(const Patchwork &laid, std::string &error);
+  [[nodiscard]] bool Hands(Patchwork &laid, std::string &error);
 
   struct Pressed {
     size_t Nodes = 0;
@@ -64,6 +66,18 @@ public:
   };
 
   [[nodiscard]] static size_t Refine(Patchwork &laid, Nearer how);
+
+  struct Detail {
+    Vec3 EyeM;
+    double FocalPx = 0.0;
+    double OrthographicPxPerM = 0.0;
+    double ErrorPx = 1.0;
+  };
+
+  [[nodiscard]] bool RefineByError(Patchwork &laid,
+                                   const Ground::GroundStream &ground,
+                                   Detail detail,
+                                   std::string &error);
   [[nodiscard]] size_t Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom);
 
   [[nodiscard]] std::optional<double>
@@ -101,24 +115,18 @@ private:
   struct Held {
     Data::TileId Tile;
     Render::PageId Page = Render::kNoPage;
-    bool Wanted = false;
     std::vector<float> Nodes;
   };
 
   [[nodiscard]] bool HandsGrid(const Patchwork &laid, std::string &error);
-  void MeasuresSeams(const Sheet &fine, const Patchwork &laid, std::array<float, 4> &stitched);
-  [[nodiscard]] std::array<float, 4> StitchOf(const Sheet &sheet,
-                                              const Patchwork &laid,
-                                              std::span<const Data::TileId> present,
-                                              int coarsest);
+  void StitchEdges(Patchwork &laid);
   [[nodiscard]] Render::PageId
   PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error);
-  [[nodiscard]] Render::GroundTile TileOf(Data::TileId tile,
-                                          Render::PageId page,
-                                          std::span<const float> nodes,
-                                          std::array<float, 4> stitched) const;
+  [[nodiscard]] Render::GroundTile
+  TileOf(Data::TileId tile, Render::PageId page, std::span<const float> nodes) const;
 
   std::vector<Held> Held_;
+  std::map<std::tuple<int, uint32_t, uint32_t>, size_t> PageIndex_;
   std::vector<Render::GroundTile> Instances_;
   std::vector<Render::GroundTile> Virtual_;
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,

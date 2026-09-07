@@ -134,7 +134,7 @@ bool UvSetOf(const TextureRef &reference,
              UvSet &out,
              std::string &why) {
   if (reference.TexCoord == 0) {
-    out = UvSet::First;
+    out = UvSet::Uv0;
     return true;
   }
   if (reference.TexCoord != 1) {
@@ -150,7 +150,7 @@ bool UvSetOf(const TextureRef &reference,
           "did not ask for it";
     return false;
   }
-  out = UvSet::Second;
+  out = UvSet::Uv1;
   return true;
 }
 

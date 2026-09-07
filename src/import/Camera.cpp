@@ -1,6 +1,3 @@
-#include <numbers>
-#include <optional>
-
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "scenario/Scenario.h"
@@ -9,58 +6,61 @@
 
 namespace outshine {
 
-namespace {
-
-[[nodiscard]] bool StandingOf(const Scenario::Camera &from, Render::Viewpoint &out) {
-  const std::optional<Render::Viewpoint> seen =
-      Render::Viewpoint::LookAt({.EyeM = from.Stands.AtM, .AimM = from.LookAtM}, from.UpM);
-  if (!seen) { return false; }
-  out = *seen;
-  out.ZNearM = from.NearM;
-  out.ZFarM = from.FarM;
-  if (from.Orthographic) {
-    out.Kind = Render::CameraKind::Orthographic;
-    out.XMagM = from.XMagM;
-    out.YMagM = from.YMagM;
-  } else {
-    out.Kind = Render::CameraKind::Perspective;
-    out.YfovRad = from.FovDeg * kDeg2Rad;
+bool Scenario::Camera::modelMatrix(Mat4 &out) const {
+  if (Stands.GlobeAnchor) { return false; }
+  for (const double axis : Stands.AtM) {
+    if (!std::isfinite(axis)) { return false; }
+  }
+  if (!LooksAt) {
+    const Quat &q = Stands.Facing;
+    const double norm2 = q.X * q.X + q.Y * q.Y + q.Z * q.Z + q.W * q.W;
+    if (!(norm2 > 0.0) || !std::isfinite(norm2)) { return false; }
+    out = Gltf::Transform::FromTrs(Stands.AtM, Stands.Facing, {{1, 1, 1}}).M;
+    return true;
+  }
+  for (int axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(LookAtM[axis]) || !std::isfinite(UpM[axis])) { return false; }
+  }
+  const auto basis = Render::Viewpoint::LookAt({.EyeM = Stands.AtM, .AimM = LookAtM}, UpM);
+  if (!basis) { return false; }
+  out = Mat4{};
+  for (int axis = 0; axis < 3; ++axis) {
+    out[axis] = basis->Right[axis];
+    out[4 + axis] = basis->Up[axis];
+    out[8 + axis] = -basis->Forward[axis];
+    out[12 + axis] = basis->EyeM[axis];
   }
   return true;
 }
 
-} // namespace
-
 bool Scenario::Camera::viewMatrix(Mat4 &out) const {
-  Render::Viewpoint standing;
-  Gltf::Transform made;
-  if (!StandingOf(*this, standing) || !Gltf::ViewOf(standing, made)) { return false; }
-  for (int at = 0; at < 16; ++at) { out[at] = made.M[at]; }
+  Mat4 model;
+  if (!modelMatrix(model)) { return false; }
+  Gltf::Transform inverse;
+  if (!Gltf::Transform::FromColumnMajor(model).Inverse(inverse)) { return false; }
+  out = inverse.M;
   return true;
 }
 
 bool Scenario::Camera::projectionMatrix(double aspect, Mat4 &out) const {
-  Render::Viewpoint standing;
-  if (!StandingOf(*this, standing)) { return false; }
   Gltf::Camera lens;
-  lens.Kind = standing.Kind == Render::CameraKind::Orthographic ? Gltf::CameraKind::Orthographic
-                                                                : Gltf::CameraKind::Perspective;
-  lens.YfovRad = standing.YfovRad;
-  lens.XMagM = standing.XMagM;
-  lens.YMagM = standing.YMagM;
-  lens.ZNearM = standing.ZNearM;
-  lens.ZFarM = standing.ZFarM;
+  lens.Kind = Orthographic ? Gltf::CameraKind::Orthographic : Gltf::CameraKind::Perspective;
+  lens.YfovRad = FovDeg * kDeg2Rad;
+  lens.XMagM = XMagM;
+  lens.YMagM = YMagM;
+  lens.ZNearM = NearM;
+  lens.ZFarM = FarM;
   Gltf::Transform made;
   if (!lens.Projection(aspect, made)) { return false; }
-  for (int at = 0; at < 16; ++at) { out[at] = made.M[at]; }
+  out = made.M;
   return true;
 }
 
 bool Scenario::Camera::clipMatrix(double aspect, Mat4 &out) const {
-  Render::Viewpoint standing;
-  Gltf::Transform made;
-  if (!StandingOf(*this, standing) || !Gltf::ClipOf(standing, aspect, made)) { return false; }
-  for (int at = 0; at < 16; ++at) { out[at] = made.M[at]; }
+  Mat4 view;
+  Mat4 projection;
+  if (!viewMatrix(view) || !projectionMatrix(aspect, projection)) { return false; }
+  out = projection * view;
   return true;
 }
 

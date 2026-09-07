@@ -2,10 +2,6 @@
 #define OUTSHINE_RENDER_STAGES_IRIDESCENCELOBE_H
 
 #include <array>
-#include <cstdio>
-#include <string>
-
-#include "ShaderFile.h"
 
 namespace outshine::Render {
 
@@ -25,59 +21,6 @@ inline constexpr std::array<std::array<double, 3>, 3> kXyzToRec709 = {{
     {-0.9692660, 1.8760108, 0.0415560},
     {0.0556434, -0.2040259, 1.0572252},
 }};
-
-inline ShaderText &IridescenceLobe(ShaderText &into) {
-  std::array<char, 1024> constants{};
-  std::snprintf(constants.data(),
-                constants.size(),
-                "constant float kIriOutsideIor = %.17g;\n"
-                "constant float kIriF0Ceiling = %.17g;\n"
-                "constant float3 kIriVal = float3(%.6g, %.6g, %.6g);\n"
-                "constant float3 kIriPos = float3(%.6g, %.6g, %.6g);\n"
-                "constant float3 kIriVar = float3(%.6g, %.6g, %.6g);\n"
-                "constant float kIriValX2 = %.6g;\n"
-                "constant float kIriPosX2 = %.6g;\n"
-                "constant float kIriVarX2 = %.6g;\n"
-                "constant float kIriNorm = %.6g;\n"
-                "constant float3x3 kIriXyzToRgb = float3x3(float3(%.8g, %.8g, %.8g),"
-                " float3(%.8g, %.8g, %.8g), float3(%.8g, %.8g, %.8g));\n",
-                kOutsideIor,
-                kFresnelInverseCeiling,
-                kSensitivityVal[0],
-                kSensitivityVal[1],
-                kSensitivityVal[2],
-                kSensitivityPos[0],
-                kSensitivityPos[1],
-                kSensitivityPos[2],
-                kSensitivityVar[0],
-                kSensitivityVar[1],
-                kSensitivityVar[2],
-                kSensitivityValX2,
-                kSensitivityPosX2,
-                kSensitivityVarX2,
-                kSensitivityNorm,
-
-                kXyzToRec709[0][0],
-                kXyzToRec709[1][0],
-                kXyzToRec709[2][0],
-                kXyzToRec709[0][1],
-                kXyzToRec709[1][1],
-                kXyzToRec709[2][1],
-                kXyzToRec709[0][2],
-                kXyzToRec709[1][2],
-                kXyzToRec709[2][2]);
-  return into.Adds(constants.data()).Reads("src/render/shaders/iridescenceLobe.msl");
-}
-
-[[nodiscard]] inline std::string IridescenceLobeMsl(std::string &error) {
-  ShaderText source;
-  return IridescenceLobe(source).Take(error);
-}
-
-[[nodiscard]] inline std::string IridescenceLobeMsl() {
-  std::string ignored;
-  return IridescenceLobeMsl(ignored);
-}
 
 } // namespace outshine::Render
 

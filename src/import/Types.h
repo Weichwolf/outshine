@@ -235,7 +235,7 @@ struct Texture {
 struct TextureRef {
   int Texture = -1;
   int TexCoord = 0;
-  outshine::UvTransform Transform;
+  outshine::UvTransformProperties Uv;
 
   [[nodiscard]] bool Declared() const { return Texture >= 0; }
 };

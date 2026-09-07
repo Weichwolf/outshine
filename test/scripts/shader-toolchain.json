@@ -1,0 +1,10 @@
+{
+  "glslang": {
+    "repository": "https://github.com/KhronosGroup/glslang.git",
+    "revision": "a57276bf558f5cf94d3a9854ebdf5a2236849a5a"
+  },
+  "SDL_shadercross": {
+    "repository": "https://github.com/libsdl-org/SDL_shadercross.git",
+    "revision": "1ff05bec573988a98ef9e0260b4da44f512b8367"
+  }
+}

@@ -15,7 +15,7 @@ namespace outshine {
 /// record that wants its rows on a 128-bit boundary for whole-row NEON loads says `alignas(16)`
 /// on the MEMBER, so the padding is that record's decision rather than a tax on every vector.
 template <typename Number> struct Vector3 {
-  /// The three components, in the order the engine's frame names them: east, up, south.
+  /// The x, y, z components in the coordinate frame of the value.
   std::array<Number, 3> Axis = {Number{0}, Number{0}, Number{0}};
 
   /// Reads one component.

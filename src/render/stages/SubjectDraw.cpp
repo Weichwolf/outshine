@@ -1,3 +1,5 @@
+#include "SurfaceBindings.h"
+#include "GroundLattice.h"
 #include "SubjectDraw.h"
 #include "math/Vec3.h"
 
@@ -23,11 +25,6 @@
 #include <utility>
 #include <vector>
 
-#include "MetalRoughBrdf.h"
-#include "IridescenceLobe.h"
-#include "MicrofacetEnergy.h"
-#include "SheenLobe.h"
-#include "NormalFromMap.h"
 #include "SceneTargets.h"
 #include "VertexArms.h"
 #include "scene/SurfaceState.h"
@@ -131,13 +128,6 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   return shape;
 }
 
-SDL_GPUShader *MakeShader(SDL_GPUDevice *device,
-                          std::string_view source,
-                          const char *entry,
-                          SDL_GPUShaderStage stage) {
-  return ShaderFrom(device, source, entry, stage, SubjectDraw::ShaderShape);
-}
-
 } // namespace
 
 const char *
@@ -147,43 +137,6 @@ SubjectDraw::FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout 
 
 const char *SubjectDraw::VertexEntry(VertexLayout layout) {
   return VertexArmName(layout);
-}
-
-std::string SubjectDraw::ShaderSource(const SourceOptions &options) {
-  std::string ignored;
-  return ShaderSource(options, ignored);
-}
-
-std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string &error) {
-  ShaderText source;
-  source.Begins().Adds(VelocityStaticDefine());
-  VelocityStatic(source)
-      .Adds("\n#define SUBJECT_WRITES_VELOCITY ")
-      .Adds(options.WritesVelocity ? "1" : "0")
-      .Adds("\n#define SUBJECT_WRITES_SHADING_NORMAL ")
-      .Adds(options.NormalIndex >= 0 ? "1" : "0")
-      .Adds("\n#define SUBJECT_NORMAL_COLOUR_INDEX ")
-      .Adds(std::to_string(options.NormalIndex < 0 ? 0 : options.NormalIndex))
-      .Adds("\n#define SUBJECT_WRITES_SURFACE_IDENTITY ")
-      .Adds(options.IdentityIndex >= 0 ? "1" : "0")
-      .Adds("\n#define SUBJECT_IDENTITY_COLOUR_INDEX ")
-      .Adds(std::to_string(options.IdentityIndex < 0 ? 0 : options.IdentityIndex))
-      .Adds("\n")
-      .Reads("src/render/shaders/subjectBindings.msl")
-      .Reads("src/render/shaders/subject.msl");
-  MetalRoughBrdf(source);
-  SheenLobe(source);
-  IridescenceLobe(source);
-  MicrofacetEnergy(source);
-  source.Reads("src/render/shaders/subjectLit.msl")
-      .Reads("src/render/shaders/subjectLitTextured.msl");
-  NormalFromMap(source);
-  return source.Reads("src/render/shaders/subjectMapped.msl")
-      .Reads("src/render/shaders/subjectGround.msl")
-      .Reads("src/render/shaders/groundLatticeCore.msl")
-      .Reads("src/render/shaders/groundLattice.msl")
-      .Adds(VertexArmsMsl())
-      .Take(error);
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
@@ -205,8 +158,6 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   options.WritesVelocity = writesVelocity;
   options.NormalIndex = normalIndex;
   options.IdentityIndex = identityIndex;
-  const std::string source = ShaderSource(options, error);
-  if (source.empty()) { return false; }
 
   Built = 0;
 
@@ -239,7 +190,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
     if (kind == SurfaceKind::Opaque && !glass &&
         !Ground_.Configure(
             Device,
-            source,
+            options,
             std::span<const SDL_GPUColorTargetDescription>(targets.data(), Colours.size()),
             error)) {
       return false;
@@ -251,15 +202,28 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
         if (!DomainPresents(domain, ShadingArmOf(layout), CarriesUv(layout), kind)) { continue; }
         const VertexShape shape = ShapeOf(layout, WritesVelocity);
         const char *const entry = FragmentEntry(domain, kind, layout);
+        const bool flat = !CarriesNormal(layout);
+        const bool transmits =
+            kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
+        const int uvSets = CarriesUv1(layout) ? 2 : CarriesUv(layout) ? 1 : 0;
+        const int tinted = CarriesColour(layout) ? 1 : 0;
+        const int mapped = CarriesTangent(layout) ? 1 : 0;
+        const int fragmentKind = transmits ? 3 : static_cast<int>(kind);
+        const SurfaceBindings bindings(layout, kind, domain, identityIndex);
+        const std::string vertexPath =
+            options.VertexPath(flat ? std::format("flat-{}{}", uvSets, tinted)
+                                    : std::format("lit-{}{}{}", uvSets, tinted, mapped));
+        const std::string fragmentPath = options.FragmentPath(
+            domain == SurfaceDomain::Ground ? "groundLit"
+            : flat ? std::format("flat-{}{}", fragmentKind, CarriesUv(layout) && !transmits ? 1 : 0)
+                   : std::format("lit-{}{}{}", fragmentKind, CarriesUv(layout) ? 1 : 0, mapped));
         const OwnedShader vertex(
-            Device, MakeShader(Device, source, VertexEntry(layout), SDL_GPU_SHADERSTAGE_VERTEX));
-        const OwnedShader fragment(Device,
-                                   MakeShader(Device, source, entry, SDL_GPU_SHADERSTAGE_FRAGMENT));
-        if (!vertex || !fragment) {
-          error = std::string("the subject's shader did not compile at ") + VertexEntry(layout) +
-                  "/" + entry + ": " + SDL_GetError();
-          return false;
-        }
+            Device,
+            ShaderFrom(Device, vertexPath, SDL_GPU_SHADERSTAGE_VERTEX, bindings.Shape, error));
+        const OwnedShader fragment(
+            Device,
+            ShaderFrom(Device, fragmentPath, SDL_GPU_SHADERSTAGE_FRAGMENT, bindings.Shape, error));
+        if (!vertex || !fragment) { return false; }
         SDL_GPUGraphicsPipelineCreateInfo wanted{};
         wanted.vertex_shader = vertex.Get();
         wanted.fragment_shader = fragment.Get();
@@ -384,7 +348,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   }
 
   for (const SubjectTexture *image : images) {
-    slot.Row[at++] = image->Set == UvSet::Second ? 1.0f : 0.0f;
+    slot.Row[at++] = image->Set == UvSet::Uv1 ? 1.0f : 0.0f;
   }
   Slots.push_back(std::move(slot));
 }
@@ -1186,10 +1150,14 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
     packed[4 + channel] = static_cast<float>(IndirectLight.RadianceLinear[channel]);
     packed[8 + channel] = static_cast<float>(IndirectLight.GroundLinear[channel]);
     packed[12 + channel] = static_cast<float>(IndirectLight.UpUnit[channel]);
+    packed[16 + channel] = static_cast<float>(IndirectLight.GroundAlbedo[channel]);
   }
+  packed[7] = static_cast<float>(IndirectLight.SkyLux);
+  packed[19] = static_cast<float>(IndirectLight.CosSunZenith);
+  for (size_t axis = 0; axis < 4; ++axis) { packed[20 + axis] = ctx.ViewPosition[axis]; }
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
-    float *entry = packed.data() + 16 + at * 4u * static_cast<size_t>(kLightVec4s);
+    float *entry = packed.data() + kLightHeaderFloats + at * 4u * static_cast<size_t>(kLightVec4s);
     for (int channel = 0; channel < 3; ++channel) {
       entry[channel] = light.Colour[channel] * light.Intensity;
     }
@@ -1220,7 +1188,7 @@ static_assert(sizeof(SDL_GPUIndexedIndirectDrawCommand) == 5u * sizeof(uint32_t)
               "the indirect argument table is written as five uints a batch");
 inline constexpr size_t kIndirectStride = sizeof(SDL_GPUIndexedIndirectDrawCommand);
 
-void SubjectDraw::BindSlot(const PassRecording &into, size_t slot) const {
+void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout layout) const {
   const SurfaceSlot &surface = Slots[slot];
   const std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> images = {
       {{.texture = surface.Colour.Image.Get(), .sampler = surface.Colour.Sample.Get()},
@@ -1236,11 +1204,18 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot) const {
 
        {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
         .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}}};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kSubjectImages);
-  if (SkyIrradiance_ != nullptr && GroundClasses_ != nullptr && GroundPalette_ != nullptr) {
-    std::array<SDL_GPUBuffer *const, kSubjectFragmentStorage> storage = {
-        SkyIrradiance_, GroundClasses_, GroundPalette_};
-    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), kSubjectFragmentStorage);
+  const SurfaceBindings bindings(layout, surface.Kind, surface.Domain, 0);
+  std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> selected{};
+  for (uint32_t at = 0; at < bindings.Count; ++at) { selected[at] = images[bindings.Images[at]]; }
+  if (bindings.Count > 0) {
+    SDL_BindGPUFragmentSamplers(into.Pass, 0, selected.data(), bindings.Count);
+  }
+  if (surface.Domain == SurfaceDomain::Ground) {
+    std::array<SDL_GPUBuffer *const, 3> storage = {GroundClasses_, GroundPalette_, SkyIrradiance_};
+    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), 3);
+  } else if (CarriesNormal(layout)) {
+    SDL_GPUBuffer *sky = SkyIrradiance_;
+    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, &sky, 1);
   }
   SDL_PushGPUFragmentUniformData(into.Commands,
                                  0,
@@ -1252,7 +1227,18 @@ void SubjectDraw::EncodeGround(const PassRecording &into) const {
   if (Behind != nullptr || Ground_.Drawn() == 0) { return; }
   for (size_t slot = 0; slot < Slots.size(); ++slot) {
     if (Slots[slot].Domain != SurfaceDomain::Ground) { continue; }
-    BindSlot(into, slot);
+    const SurfaceSlot &surface = Slots[slot];
+    const SDL_GPUTextureSamplerBinding shadow{
+        .texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
+        .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()};
+    SDL_BindGPUFragmentSamplers(into.Pass, 0, &shadow, 1);
+    std::array<SDL_GPUBuffer *const, 3> storage = {GroundClasses_, GroundPalette_, SkyIrradiance_};
+    SDL_BindGPUFragmentStorageBuffers(
+        into.Pass, 0, storage.data(), static_cast<uint32_t>(storage.size()));
+    SDL_PushGPUFragmentUniformData(into.Commands,
+                                   0,
+                                   surface.Row.data(),
+                                   static_cast<uint32_t>(surface.Row.size() * sizeof(float)));
     Ground_.Encode(into);
     return;
   }
@@ -1348,9 +1334,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       }
       SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
       bound = wantedPipeline;
+      slotBound = false;
     }
     if (!slotBound || boundSlot != batch.MaterialSlot) {
-      BindSlot(into, batch.MaterialSlot);
+      BindSlot(into, batch.MaterialSlot, wanted);
       boundSlot = batch.MaterialSlot;
       slotBound = true;
     }
