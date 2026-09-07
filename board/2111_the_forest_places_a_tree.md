@@ -188,3 +188,19 @@ Koerbersee/Malcesine/Feldkirch zusätzlich mit geöffneten Webcam-Referenzen
 verglichen: Wälder fehlen, Fels bleibt glatt/gefaltet, Wasser flach und dunkel,
 Gebäude ohne ausreichende Material-/Formvielfalt. Keine visuelle Verbesserung
 behauptet; die nächste Arbeit muss diese Voraussetzung tatsächlich erreichen.
+
+## Geografischer Instanz-Handoff als nächster Schritt
+
+ForestDraw/BuildingDraw casten Solid.Em/Nm/BaseAslM derzeit auf Float; Instancing
+legt anschließend lokale Werte ohne deren Region ab. Unreal hält Welttransforms,
+RAGE trennt Streamingregion und Instanztransform; hier die bestehende Tile.Geo-
+Umrechnung am Engine-Handoff nutzen. Generatoren behalten ihre lokalen Double-
+Positionen, die Engine hält Longitude/Latitude und ausdrücklich ASL-Höhe in Double
+plus Yaw/Scale. Kein zusätzlicher ECEF-/Ellipsoid-Datumwechsel in diesem Schritt
+und keine volle Tile-Kopie je Instanz. WorldPlacement bleibt engineintern.
+
+Nachweis vor Anbindung: sub-Float-Abstände bleiben beim Draw-Sink exakt erhalten;
+zwei Regionen mit unterschiedlichen lokalen Koordinaten ergeben dieselbe
+geografische Position. Die bisherige Float-Verengung muss die Positionsprüfung
+rot machen. Diese Übergabe rendert selbst noch keinen Wald; sie beseitigt die
+fehlende Ortsreferenz für dessen anschließenden gemeinsamen Mesh-Handoff.
