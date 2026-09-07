@@ -130,3 +130,15 @@ and the cache thinned, the fetching run reads c803c350.
 Two consecutive `make shots PLACE='Husum Malcesine'` runs without source edits disagree. build/orthographic-lighting-places.log: Husum366d2503, Malcesine58b0b22b. build/orthographic-lighting-repeat.log: Husumc98da96a, Malcesine56b80c58. Both Make logs report0rewritten files and no client relink. The latter pair also matches the prior native-placement/azimuth baseline; do not attribute this difference to the orthographic shader correction on the basis of one run.
 
 Husum465 changed pixels,183>1code,worst25; Malcesine1373changed,500>1,worst23. Largest differences lie on terrain/class edges: Husum(800,437) oldRGB(41,68,74) vs(66,86,71); Malcesine(245,342) old(58,78,77) vs(35,63,79). Full PNGs and enlarged crops opened. The current reproduction has NOT yet attributed the difference to vector availability, class contents or resident DEM selection. Earlier vector-wait evidence above remains evidence for its historical case, not proof of this new occurrence's cause. All four timing rows0/120over16.67ms.
+
+## Wiederholung beim nativen Materialpfad
+
+`build/native-images-places.log` und unmittelbar folgendes
+`make shots PLACE='Koerbersee Feldkirch'` (`build/native-images-places-repeat.log`) beide
+Exit 0; keine Quelländerung dazwischen, Strip meldet 0 Änderungen. Koerbersee beide c99cdbe7,
+Feldkirch 63dcc99c → 5fa234c1: 3126 geänderte Pixel, BBox [0,1277)×[205,720), max. 25/255.
+Beide Feldkirch-PNGs selbst geöffnet; Änderungen verteilt im Terrain, die große Nahwand
+und die Bebauung bleiben sichtbar gleich. Diese Reproduktion isoliert keine konkrete
+Daten-/Schedulingursache und beweist auch nicht die Ursache von Koerbersees früherem Wechsel.
+Feldkirch Wiederholung p50/p95/p99 4.71/5.65/6.36 ms, 0/120 über 16,67 ms;
+Koerbersee 7.04/7.23/7.58 ms, 0/120. Keine Motion-Abnahme.

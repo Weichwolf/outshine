@@ -4,6 +4,7 @@
 #include "math/Box.h"
 #include "math/Vec3.h"
 #include "Viewing.h"
+#include "Image.h"
 #include <array>
 #include <scene/Geometry.h>
 #include <span>
@@ -119,6 +120,8 @@ public:
   [[nodiscard]] bool HasColour() const { return !Colours_.empty(); }
 
   [[nodiscard]] const std::vector<PlacedLight> &Lights() const { return Lights_; }
+
+  [[nodiscard]] std::vector<ImageView> Images() const;
 
   [[nodiscard]] const std::vector<Material> &Surfaces() const { return Surfaces_; }
 
@@ -307,6 +310,7 @@ private:
   Undrawn Undrawn_;
   std::vector<PlacedLight> Lights_;
   std::vector<Material> Surfaces_;
+  std::vector<Core::Raster> Images_;
   std::vector<uint8_t> TangentWanted_;
   Vec3 Min_;
   Vec3 Max_;

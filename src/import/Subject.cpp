@@ -490,6 +490,7 @@ bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out) {
 
 bool Subject::Refuse(std::string why) {
   Error_ = std::move(why);
+  Images_.clear();
   Positions_.clear();
   Uv_.clear();
   Uv1_.clear();
@@ -964,6 +965,7 @@ bool Subject::Flatten(const Document &document,
                       const double *weights,
                       const VariantSelection &variant) {
   Error_.clear();
+  Images_.clear();
   Positions_.clear();
   Uv_.clear();
   Uv1_.clear();
@@ -1049,6 +1051,15 @@ void Subject::Bound() {
   }
 }
 
+std::vector<ImageView> Subject::Images() const {
+  std::vector<ImageView> images;
+  images.reserve(Images_.size());
+  for (const Core::Raster &image : Images_) {
+    images.push_back({.WidthPx = image.Width, .HeightPx = image.Height, .Rgba = image.Rgba});
+  }
+  return images;
+}
+
 outshine::Geometry Subject::Handed() const {
   return Handed(nullptr);
 }
@@ -1059,6 +1070,9 @@ outshine::Geometry Subject::Handed(const Document &naming) const {
 
 outshine::Geometry Subject::Handed(const Document *naming) const {
   outshine::Geometry out;
+  for (const Core::Raster &image : Images_) {
+    (void)out.addImage(image.Width, image.Height, image.Rgba);
+  }
   for (size_t at = 0; at < Surfaces_.size(); ++at) {
     const bool named = naming != nullptr && at < naming->Materials().size();
     (void)out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at]);
@@ -1284,6 +1298,7 @@ bool Subject::AssemblePartInto(const outshine::Geometry &what,
 
 bool Subject::Assemble(const outshine::Geometry &what) {
   Error_.clear();
+  Images_.clear();
   Positions_.clear();
   Uv_.clear();
   Uv1_.clear();
@@ -1296,6 +1311,13 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   Surfaces_.clear();
   TangentWanted_.clear();
 
+  Images_.reserve(static_cast<size_t>(what.images()));
+  for (int at = 0; at < what.images(); ++at) {
+    const ImageView image = what.imageAt(at);
+    Images_.push_back({.Width = image.WidthPx,
+                       .Height = image.HeightPx,
+                       .Rgba = {image.Rgba.begin(), image.Rgba.end()}});
+  }
   size_t wholeFloats = 0;
   for (int counting = 0; counting < what.parts(); ++counting) {
     wholeFloats += what.positionsOf(counting).size();
@@ -1373,9 +1395,24 @@ bool Subject::Append(const Subject &other) {
   for (const uint32_t index : other.Indices_) {
     Indices_.push_back(static_cast<uint32_t>(vertexBase) + index);
   }
-  int beyond = 0;
+  int beyond = static_cast<int>(Surfaces_.size());
   for (const Part &part : Parts_) {
     if (part.Material >= beyond) { beyond = part.Material + 1; }
+  }
+  const int imageBase = static_cast<int>(Images_.size());
+  Images_.insert(Images_.end(), other.Images_.begin(), other.Images_.end());
+  Surfaces_.resize(static_cast<size_t>(beyond));
+  for (Material surface : other.Surfaces_) {
+    for (SurfaceMap *map : {&surface.BaseColourMap,
+                            &surface.NormalMap,
+                            &surface.MetalRoughMap,
+                            &surface.EmissiveMap,
+                            &surface.OcclusionMap,
+                            &surface.SpecularStrengthMap,
+                            &surface.SpecularTintMap}) {
+      if (map->bound()) { map->Image += imageBase; }
+    }
+    Surfaces_.push_back(surface);
   }
   Parts_.reserve(Parts_.size() + other.Parts_.size());
   for (Part part : other.Parts_) {

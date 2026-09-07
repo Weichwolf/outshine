@@ -376,6 +376,10 @@ bool Live::StandsSubjects(std::string &error) {
           wears >= 0 && wears < also.surfaces() ? base + static_cast<uint32_t>(wears) : base;
       Table_.PartSlot[before + static_cast<size_t>(part)] = at;
     }
+    if (!Render::ResolveNativeTextures(
+            also, std::span<Render::SubjectMaterial>(Table_.Slots).subspan(base), error)) {
+      return false;
+    }
     Joined_ = before;
     Carrying_ = before;
   }
@@ -415,6 +419,11 @@ bool Live::CarriesBuilt(std::string &error) {
           .count();
   const auto resolvedFrom = std::chrono::steady_clock::now();
   Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
+  const bool textured =
+      Held_.HoldsBuilt()
+          ? Render::ResolveNativeTextures(Held_.Built(), Table_.Slots, error)
+          : Render::ResolveNativeTextures(Held_.Assembled().Images(), Table_.Slots, error);
+  if (!textured) { return false; }
   if (GroundSurface_ >= 0) {
     for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
       if (Table_.Material[slot] == GroundSurface_) {

@@ -7,6 +7,7 @@
 
 #include "Image.h"
 #include "scene/Material.h"
+#include "scene/Geometry.h"
 #include "stages/SubjectTypes.h"
 #include "Shape.h"
 
@@ -28,6 +29,14 @@ struct SurfaceTable {
   std::vector<uint32_t> PartSlot;
   std::vector<SurfaceRasters> Decoded;
 };
+
+[[nodiscard]] bool ResolveNativeTextures(std::span<const ImageView> images,
+                                         std::span<SubjectMaterial> surfaces,
+                                         std::string &error);
+
+[[nodiscard]] bool ResolveNativeTextures(const Geometry &geometry,
+                                         std::span<SubjectMaterial> surfaces,
+                                         std::string &error);
 
 enum class ColourFrom { Declared, BaseColour, Emissive, Row };
 

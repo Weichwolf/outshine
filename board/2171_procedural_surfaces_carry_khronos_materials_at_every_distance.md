@@ -108,3 +108,40 @@ ist die vorhandene Tür. GPU-Fixture: prozedurales 2×2-Farbbild auf einer nativ
 quadrantenweise Farboracle im linearen Render und PNG. Fehlende Bindung muss rot werden.
 Sampler/UV-Metadaten und weitere vorhandene Sockets gezielt prüfen; kein vollständiger
 MR-Konformitätsnachweis allein aus dieser Farb-Fixture.
+
+## Nativer Bildtransport nachgewiesen, 2026-09-07
+
+Engine::setGeometry assembliert zunächst einen Subject; dort gingen die Bildbytes verloren.
+Subject besitzt nun die nativen Raster, erhält sie beim Roundtrip und verschiebt beim Append
+Material- und Bildindizes gemeinsam. Live bindet die sechs vorhandenen Textur-Sockets aus
+Geometry bzw. Subject über einen gemeinsamen Resolver. Ungültige Bildreferenzen werden
+abgewiesen; UV-Set, Transform und Sampler gelangen an den vorhandenen Upload.
+
+`NativeImagesReachTheRenderer`: 39 Checks, darunter sechs Socket-/Metadatenprüfungen,
+Roundtrip/Append und ein öffentlicher GPU-Farbtest nach `geometry.clear()`.
+Nur die native Bildbindung im öffentlichen Renderpfad entfernt: sieben Farbchecks rot,
+13 PASS/1 FAIL (`build/native-images-negative.log`, Exit 2). Wiederhergestellt 14/14 PASS
+(`build/native-images-restored.log`, Exit 0); abschließende Suite nach Umstellung der
+Fehlermeldung auf ein Says-Label ebenfalls 14/14 PASS, Exit 0
+(`build/native-images-final.log`). Keine Oracles geändert.
+
+Farb-PNG selbst geöffnet: Rot/Grün oben, Blau/Gelb unten, korrekt orientiert.
+Mutation weiß → korrekt: 160×160 = 25600 geänderte Pixel, BBox [80,240)×[80,240).
+`build/native-materials/colour.png` SHA256
+`ee2b9d2f9cfd72b381ae83cdf318830d4d8338db21422a4d75f25b1eb6792989`;
+`colour-before.png` (Mutation) SHA256
+`c5efd11f6bd7cfc1a8946a624174df0fb18517da8e848c69a8d4a6d228c97914`.
+
+Grenzen: Der GPU-Test beweist BaseColour mit Nearest/Opaque, keine vollständige MR-Konformität.
+AO-Socket, normalScale/occlusionStrength, Kanal-/Farbraumoracles für die weiteren Maps,
+Alpha Mask/Blend, Tangenten und fehlende UV-Sets bleiben offen. Live::JoinsBuilt wählt beim
+Mischen von Datei und nativen Geometrien weiterhin Slots über die Deklarationsliste; dessen
+Material-/Bildzuordnung ist separat zu reparieren und durch gemischte GPU-Fixtures zu prüfen.
+Das native Append-Oracle ersetzt diesen öffentlichen Mischpfad-Nachweis nicht.
+
+Zusätzlicher Befund für die nächste Kronenstufe: SubjectResidency.cpp setzt
+`kChainIsReadable = false`, daher lädt Upload trotz Mip-Sampler nur eine Bildstufe.
+Sampler-Metadaten allein beweisen keine Filterung. Vor einem Kronenatlas die vorhandene
+Mip-Kette samt Alpha-Coverage und bewegten Distanzbildern nachweisen bzw. reparieren;
+keine ungefilterten Blattkarten als fertigen Wald deklarieren. Die sechs Sockets erzeugen
+noch keine prozeduralen Weltmaterialien. Gesamt-WI bleibt aktiv/offen.

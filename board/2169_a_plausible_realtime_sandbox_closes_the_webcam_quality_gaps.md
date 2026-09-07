@@ -139,3 +139,38 @@ flowchart LR
 | Koerbersee | `80c10e343d693a07f30d63f246b7975bf701d571927dc9e72615c30d792dfac7` | `53e84b69bc0ebd6bec75f4b56e4c24bb9d5a036777e464172432f3c7c1453fcb` |
 | Malcesine | `13ae10442cf1a3efbcc3004a703977f0d0bc11fde299bda4822d37dd1876996f` | `46e4db5c9f81f687f65801cf60ec79cfe0104b727d1efbd799465acbca62074a` |
 | Feldkirch | `e08517756ea9ec1cb3a68d018add44eae8085177115f30647a848a8202f839be` | `297a9d23c5f6cf76fb8532407dab98bc6b8ffde43dda4bc38849ee9a35e598f1` |
+
+## Erneuter Gesamtcheckpoint nach nativem Bildtransport
+
+`make shots > build/native-images-places.log 2>&1`: Exit 0, alle neun PNGs und Webcam-
+Referenzen visuell geöffnet. Tabellenbefunde oben bestehen fort: fehlende Kronen und
+Oberflächengliederung, Husums helle Uferbänder, Malcesines gefaltete Seitenwand, Feldkirchs
+Nahwand/Ufergraben. Keine sichtbare Weltverbesserung aus dem neuen Transportpfad behauptet.
+
+| Place | Digest | p50 ms | p95 ms | p99 ms |
+|---|---|---:|---:|---:|
+| DarmstadtWest | e72d1925 | 2.61 | 2.80 | 2.92 |
+| Wien | 8ff2d96d | 5.19 | 6.23 | 6.88 |
+| Rosenheim | 7da2e093 | 3.58 | 3.98 | 4.30 |
+| Husum | d60b18a7 | 2.73 | 3.00 | 3.13 |
+| Olympiaturm | 07985050 | 3.33 | 6.03 | 7.42 |
+| Graz | f93ff5b9 | 4.16 | 4.69 | 4.88 |
+| Koerbersee | c99cdbe7 | 6.60 | 7.04 | 7.19 |
+| Malcesine | 46e4db5c | 4.17 | 4.58 | 4.67 |
+| Feldkirch | 63dcc99c | 4.41 | 5.77 | 6.52 |
+
+Je 0/120 über 16,67 ms, zusammen 0/(9×120) = 0/1080 residente Standframes.
+Kein Bewegungs-/vollständiger Sandbox-Nachweis; keine kausale Performanceverbesserung.
+Sieben Bildidentitäten unverändert. Koerbersee gegenüber 54fe2b37: 3488 geänderte Pixel,
+BBox [0,1280)×[145,720), maximale Kanalabweichung 29/255. Feldkirch gegenüber 297a9d23:
+1500 Pixel, BBox [0,1272)×[273,708), maximal 25/255. Vorher/Nachher geöffnet; verteilte
+Terrain-/Klassenkantenunterschiede, kein neuer Wald oder bessere Felsstruktur.
+Ursache dieser beiden Abweichungen nicht isoliert; 2154 bleibt zuständig.
+
+Ohne Quelländerung wiederholt (`build/native-images-places-repeat.log`, Exit 0):
+Koerbersee erneut c99cdbe7, Feldkirch dagegen 5fa234c1. Damit ist wenigstens Feldkirchs
+Laufabhängigkeit erneut belegt. Details in 2154. Aktuelle vollständige SHA256:
+
+- Koerbersee: `c99cdbe73e709c6edc471b89c1f994ffdf0afefdbf617fdb1570c305f7eb3c09`
+- Feldkirch Gesamtlauf: `63dcc99c2c6d31ed45a750ed009124a6cc4de169f8ae13ef959e2ed04a99cb01`
+- Feldkirch Wiederholung: `5fa234c1c0c4a7b7a302f8fcb7eabfbab35f0026fef21e452bfc9506453fc4d0`
