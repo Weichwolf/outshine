@@ -2,8 +2,7 @@ Type: bug
 State: open
 Area: generators
 Tags: measured
-Depends: 2163
-Lab rank: 12
+Depends: nothing
 
 # The forest places a tree
 

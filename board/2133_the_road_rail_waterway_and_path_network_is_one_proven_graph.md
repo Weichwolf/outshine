@@ -2,8 +2,7 @@ Type: feature
 State: open
 Area: world, generators, engine
 Tags: architecture, owner
-Depends: 2162
-Lab rank: 3
+Depends: nothing
 
 # The road, rail, WATERWAY and path network is ONE PROVEN graph a simulation can route on
 

@@ -3,7 +3,6 @@ State: open
 Area: generators, world
 Tags: measured, owner
 Depends: 2157
-Lab rank: 12
 
 # A building reads the street it FRONTS, and its storeys and door say so
 

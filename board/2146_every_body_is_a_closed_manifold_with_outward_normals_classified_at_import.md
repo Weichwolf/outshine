@@ -3,7 +3,6 @@ State: open
 Area: import, engine, scenario
 Tags: architecture, owner, determinism
 Depends: nothing
-Lab rank: 7
 
 # Every BODY is a closed manifold with outward normals, classified at import; a SURFACE is allowed and may claim no body verb
 

@@ -2,7 +2,6 @@ Type: bug
 State: open
 Area: engine, world
 Tags: measured, owner
-Lab rank: 10
 
 # Venice's lagoon has a water surface over its carved bed
 

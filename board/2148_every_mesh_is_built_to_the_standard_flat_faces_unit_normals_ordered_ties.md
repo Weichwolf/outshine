@@ -2,7 +2,6 @@ Type: bug
 State: open
 Area: generators, base
 Tags: owner, determinism, audit
-Lab rank: 7
 
 # Every mesh is built to the standard: flat faces with their own vertices, unit normals, counter-clockwise front, and no tie a float sort may break
 
