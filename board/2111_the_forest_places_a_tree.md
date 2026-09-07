@@ -222,3 +222,13 @@ Die erneut erzeugten Instanz-PNGs geöffnet: weiterhin drei getrennte Dreiecke.
 World.Instances hat weiterhin keinen Renderconsumer, daher noch keine bildwirksame
 Places-Änderung. Nächster Schritt bleibt gemeinsame Kronengeometrie samt Render-
 und Materialbindung; die geografischen Platzierungen dafür sind jetzt erhalten.
+
+Korrektur des früheren Masked-Verdachts: SubjectDraw::Encode wählt Pipeline und
+Culling über SurfaceSlot.Kind/CullsBack. Das pauschale DrawBatch.Kind bestimmt
+diesen Draw nicht; daraus folgt kein belegter Masked-Fehler. Vor Änderungen
+native ausgeschnittene Karten mit zwei Instanzen und gemeinsamer Geometrie
+prüfen, jeweils mit/ohne Cluster und von beiden Seiten. Die vorhandenen
+Khronos-Alpha-/DoubleSided-Deklarationen sollen greifen; Unreal/RAGE nutzen
+dasselbe Grundprinzip für Kronenkarten. Tiefenpixel in der transparenten Hälfte
+müssen frei bleiben. Eine temporär erzwungene Opaque-Pipeline muss diese
+Prüfung rot machen. Noch keine Abnahme von gefilterter Kronen-Coverage oder Wind.
