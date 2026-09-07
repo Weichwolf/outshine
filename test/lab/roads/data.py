@@ -66,10 +66,23 @@ class Dem:
         self.tiles = {}
 
     def tile(self, tx, ty):
+        """THE ENGINE'S OWN BYTES FIRST. `src/world/data/ContentStore.cpp` already keeps every
+        tile the client ever fetched, under a key the lab can derive itself -- so the lab reads
+        THAT rather than downloading a second copy, and a height the lab and the client disagree
+        about cannot be blamed on two different downloads. Only what the store has never seen is
+        fetched, and it is written where the lab's own cache has always been."""
         key = (tx, ty)
         if key not in self.tiles:
-            png = fetch(TERRARIUM.format(z=self.zoom, x=tx, y=ty), CACHE / "terrarium" / str(self.zoom) / str(tx) / f"{ty}.png")
-            rgb = np.asarray(Image.open(CACHE / "terrarium" / str(self.zoom) / str(tx) / f"{ty}.png").convert("RGB")).astype(np.float64)
+            import sys as _s, pathlib as _p
+            _s.path.insert(0, str(_p.Path(__file__).resolve().parents[1]))
+            import store
+            got = store.ancestor("elevation", self.zoom, tx, ty)
+            if got is not None and got[0] == self.zoom:
+                self.tiles[key] = store.heights(got[3])
+                return self.tiles[key]
+            held = CACHE / "terrarium" / str(self.zoom) / str(tx) / f"{ty}.png"
+            fetch(TERRARIUM.format(z=self.zoom, x=tx, y=ty), held)
+            rgb = np.asarray(Image.open(held).convert("RGB")).astype(np.float64)
             self.tiles[key] = rgb[:, :, 0] * 256.0 + rgb[:, :, 1] + rgb[:, :, 2] / 256.0 - 32768.0
         return self.tiles[key]
 

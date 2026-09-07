@@ -41,6 +41,8 @@ import publish  # noqa: E402
 import blend  # noqa: E402
 import camera as lab_camera  # noqa: E402
 import geometry  # noqa: E402
+import occlusion  # noqa: E402
+import visible  # noqa: E402
 import materials as stock  # noqa: E402
 import street  # noqa: E402
 import kerbline  # noqa: E402
@@ -277,7 +279,14 @@ def _rings(doc):
 
 
 def buildings_of(place, frame, doc, red):
-    """Every closed `building` way in the extract, massed by the building bed at LOD 0.
+    """Every closed `building` way in the extract, READ -- footprint, tags, epoch, ground -- and
+    not one of them meshed.
+
+    THE CHECK USED TO LIVE HERE AND IT BUILT EVERY BODY. `watertight`, `winding` and `volume`
+    each ask for the mesh, so a reader that checks is a builder: 69 s and 686 MB to answer a
+    question about 1 054 bodies of which the frame shows fourteen, and the culler downstream had
+    nothing left to save. A claim about every body in an extract belongs in a SWEEP with its own
+    oracle -- `buildings/sweep.py` -- and the twin checks what it actually builds.
 
     NO FACADE. The twin asks whether a place's MASSING reads as that place; an opening is a metre
     of geometry a 1280 px frame at 300 m cannot resolve, and paying for it here would spend the
@@ -317,13 +326,6 @@ def buildings_of(place, frame, doc, red):
         if tree is not None:
             near = tree.query(poly.buffer(bldbed.Building.PARTY_GAP_M))
             b.neighbours = [shapes[int(i)] for i in near if shapes[int(i)] is not poly]
-        if not b.watertight():
-            red.append(f"B-closed({tags.get('name', poly.centroid.wkt)})")
-        wrong, degenerate, _ = b.winding()
-        if wrong or degenerate:
-            red.append(f"B-wound({wrong}e,{degenerate}deg)")
-        if b.volume() <= 0.0:
-            red.append("B-volume")
         bodies.append(b)
     return bodies, dropped
 
@@ -455,14 +457,19 @@ def _fingerprint():
     return h.hexdigest()[:16]
 
 
-def cached_parts(place, frame, doc, red, lod=3):
+def cached_parts(place, frame, doc, red, lod=3, camera=None):
     """THE PLACE'S GEOMETRY, BUILT ONCE. The road bed's solve is 75 percent of the time -- 260 s
     of 346 on a 400 m extract of OldTown, profiled 2026-09-06 -- and it is DETERMINISTIC, so
     rebuilding it to try another exposure or another palette is time spent proving something
     already proved. The key is the place, the reaches and the mtime of every source in the lab,
     so a repair invalidates it and nothing else does."""
     import pickle
-    key = CACHE / f"{place['name']}-{lod}-{_fingerprint()}.pickle"
+    # THE KEY CARRIES THE CAMERA, because what is BUILT now depends on what is SEEN. A cache
+    # named without it would serve a street's fourteen bodies to an aerial view.
+    eye = "" if camera is None else \
+        f"-{camera.agl_m:.1f},{camera.bearing_deg:.1f},{camera.pitch_deg:.1f},{camera.fov_deg:.1f}" \
+        + os.environ.get("OUTSHINE_EYE", "")
+    key = CACHE / f"{place['name']}-{lod}{eye}-{_fingerprint()}.pickle"
     if key.exists():
         try:
             parts, looks, counts = pickle.loads(key.read_bytes())
@@ -473,14 +480,14 @@ def cached_parts(place, frame, doc, red, lod=3):
             return got, looks, counts
         except Exception:
             key.unlink(missing_ok=True)
-    parts, looks, counts = parts_of(place, frame, doc, red, lod)
+    parts, looks, counts = parts_of(place, frame, doc, red, lod, camera)
     if not red:
         key.parent.mkdir(parents=True, exist_ok=True)
         key.write_bytes(pickle.dumps((parts.of, looks, counts)))
     return parts, looks, counts
 
 
-def parts_of(place, frame, doc, red, lod=3):
+def parts_of(place, frame, doc, red, lod=3, camera=None):
     """THE PLACE AS GEOMETRY BY ROLE, which is what a look can be judged from.
 
     `scene_of` below builds the same world for the FLAT rasteriser, one colour per role, because
@@ -623,9 +630,33 @@ def parts_of(place, frame, doc, red, lod=3):
         put(f"f.{role}", vv, tt, stuff.get(role) or stock.STOCK["concrete"])
 
     bodies, dropped = buildings_of(place, frame, doc, red)
+    # NOTHING THAT IS NOT SEEN IS COMPUTED. The bodies are READ from the extract -- footprint,
+    # tags, epoch, ground -- and none of them is meshed until the culler has said which. Measured
+    # 2026-09-07 on Rothenburg: from a street 14 of 1 054 bodies are seen, and the answer costs
+    # 84 tests and 0.9 ms where a ray march costs 535 040 samples and 25 ms. The rung each one
+    # earns comes from the size of a PIXEL where it stands, which is the same arithmetic the
+    # rest of the ladder is built on.
+    boxes = np.array([b.poly.bounds for b in bodies]) if bodies else np.zeros((0, 4))
+    tops = np.array([b.ridge for b in bodies]) if bodies else np.zeros(0)
+    tree = occlusion.Quadtree(boxes, tops)
+    horizon = occlusion.Horizon((0.0, 0.0), frame.z(0.0, 0.0) + camera.agl_m,
+                                camera.bearing_deg, camera.fov_deg)
+    keep, node_tests, leaf_tests = occlusion.visible(tree, horizon)
+    took(f"cull {len(keep)}/{len(bodies)} {node_tests}+{leaf_tests}")
     for at, b in enumerate(bodies):
+        if at not in keep:
+            continue
+        # WHAT IS BUILT IS CHECKED. The sweep owns the claim about every body in the extract;
+        # this owns the claim about every body in the PICTURE.
+        if not b.watertight():
+            red.append(f"B-closed({b.tags.get('name', b.poly.centroid.wkt)})")
+        wrong, degenerate, _ = b.winding()
+        if wrong or degenerate:
+            red.append(f"B-wound({wrong}e,{degenerate}deg)")
+        rung = min(lod, visible.rung_for(math.hypot(b.poly.centroid.x, b.poly.centroid.y),
+                                         camera.fov_deg))
         mats = b.materials()
-        made = b.body(lod)
+        made = b.body(rung)
         # THE HEIGHT OVER THIS BODY'S OWN GROUND, per vertex, in the blue channel. It is LINEAR
         # in z, so it interpolates exactly across a wall quad that runs from the pavement to the
         # eaves in one step -- and the material does the clamping into a 0.5 m band, which is the
@@ -688,7 +719,7 @@ def one(place):
         # the plan camera is stated ABOVE SEA LEVEL (`SamplesHeight` is false for it), so the
         # frame's own datum is what turns that into a height over this ground
         camera.agl_m = CAM["kPlanAboveM"] - frame.datum
-    parts, looks, counts = cached_parts(place, frame, doc, red, lod=3)
+    parts, looks, counts = cached_parts(place, frame, doc, red, lod=3, camera=camera)
     if os.environ.get("OUTSHINE_CLAY"):
         # A CLAY RENDER: every material the same matte grey, which is what a modeller looks at
         # when the question is the FORM. Twice in one session a defect was blamed on the
