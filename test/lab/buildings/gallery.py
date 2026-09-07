@@ -1,4 +1,21 @@
-"""EVERY ROOF SHAPE, LOOKED AT. One footprint, fourteen roofs, one sheet and one render each.
+"""WHAT THE HEURISTIC EMITS, LOOKED AT. A real footprint, real tags, and the roof the GENERATOR
+chooses -- never one forced on it.
+
+This bed used to walk the registry and put all fourteen shapes on one 12 x 8 rectangle, forcing
+past the style where it refused:
+
+    if b.roof != name:  b.roof = name   # the point here is the SHAPE
+
+and the pictures said so. An onion came out a rounded BOX, because an onion sits on a little
+tower and never on a terraced house. A sawtooth came out with ONE tooth, because its bay is
+twelve metres and so was the building. A spire ran out of the frame. None of those is what the
+generator would ever build; all three were what the bed asked for.
+
+A ROOF FOLLOWS THE PLAN, so the cases are PLANS. Each is a footprint and the tags OSM actually
+carries with it, and what appears is whatever `classify` and `Style.roof_for` decide -- which is
+the thing that has to be judged, since it is the thing a place is built from. A registered shape
+that no case ever reaches is reported as such: either it is dead, or the heuristic will not put
+it anywhere, and both are findings rather than a picture to be forced.
 
 The bed's thirty-five cases exercise seven of the fourteen registered shapes; the other seven had
 never been drawn at all, which means nobody had ever checked them. This walks the REGISTRY -- so a
@@ -31,6 +48,7 @@ _spec.loader.exec_module(bed)
 import publish  # noqa: E402
 import camera as lab_camera  # noqa: E402
 import roofs  # noqa: E402
+import shape  # noqa: E402
 
 OUT = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "gallery"
 
@@ -62,19 +80,53 @@ COMB_MOST_DEG = {
 COMB_WANTED_DEG = 5.0     # [SET] where the ring-and-spoke surface has to bring every row
 
 
-def one(name, number):
-    """One shape on the standard footprint, checked and drawn."""
-    poly = bed.FOOTPRINTS["F1-rect"]()
+# WHAT OSM ACTUALLY CARRIES, plan by plan. A tag set here is one a surveyor really writes, and
+# the footprint is the shape that use really has. Nothing chooses a roof: `classify` and
+# `Style.roof_for` do, and that choice is what the picture is of.
+CASES = (
+    ("village house",   "F13-detached", {"building": "house", "building:levels": 2}),
+    ("terrace",         "F10-terrace",  {"building": "terrace", "building:levels": 3}),
+    ("bungalow",        "F12-bungalow", {"building": "bungalow", "building:levels": 1}),
+    ("semi",            "F14-semi",     {"building": "semidetached_house", "building:levels": 2}),
+    ("barn",            "F11-farm",     {"building": "barn"}),
+    ("factory hall",    "F9-shed",      {"building": "industrial", "building:levels": 1}),
+    ("gothic church",   "F8-church",    {"building": "church", "start_date": "1480"}),
+    ("baroque tower",   "F7-tower",     {"building": "church", "start_date": "1720",
+                                         "height": "38"}),
+    ("rotunda",         "F5-round",     {"building": "chapel"}),
+    ("town hall tower", "F7-tower",     {"building": "townhall", "height": "60"}),
+    ("courtyard block", "F4-courtyard", {"building": "apartments", "building:levels": 4}),
+    ("L block",         "F2-L",         {"building": "apartments", "building:levels": 3}),
+    ("U school",        "F3-U",         {"building": "school", "building:levels": 3}),
+    ("thin infill",     "F6-thin",      {"building": "yes", "building:levels": 2}),
+    ("office",          "F1-rect",      {"building": "office", "building:levels": 9,
+                                         "height": "31"}),
+    ("garage",          "F1-rect",      {"building": "garage"}),
+)
+
+
+def named(label, b):
+    """THE FILE NAME CARRIES THE RULE THAT MADE IT. `view_village_house.png` says which case ran
+    and nothing about WHY the roof came out as it did -- and the whole point of this bed is that
+    the roof follows the plan. The name is therefore the decision and its evidence:
+
+        village-house__House-hipped__a95_asp1.04_fill0.91_h8.7_st2.png
+
+    which is `shape.use_of` and `shape.roof_of` with every number they were given, so a reader
+    can walk `BuildingShape.cpp`'s own branches without opening anything. A picture whose name
+    does not say why it looks like that is a picture somebody has to re-derive."""
+    area, half_u, half_v, fill, aspect = shape.measured(b.poly)
+    return (f"{label.replace(' ', '-')}__{getattr(b, 'use', '?')}-{b.roof}"
+            f"__a{area:.0f}_asp{aspect:.2f}_fill{fill:.2f}"
+            f"_h{b.ridge - b.pad:.1f}_st{int(b.levels or 1)}")
+
+
+def one(case, number):
+    """One PLAN with its own tags, built the way a place would build it."""
+    label, plan, tags = case
+    poly = bed.FOOTPRINTS[plan]()
     ground = bed.GROUNDS["G1-flat"]()
-    tags = {"building": "yes", "building:levels": 3, "roof:shape": name}
-    b = bed.Building(poly, tags, ground, cell=0.5)
-    if b.roof != name:
-        # the style refused the shape for this use; force it, because the point here is the
-        # SHAPE and not the style's opinion of it
-        b.roof = name
-        b.__init__(poly, dict(tags, **{"roof:shape": name}), ground, cell=0.5)
-        b.roof = name
-        b._build()
+    b = bed.Building(poly, dict(tags), ground, cell=0.5)
     f = bed.Facade(b)
     closed = b.watertight()
     wrong, degenerate, _ = b.winding()
@@ -85,19 +137,20 @@ def one(name, number):
         red.append(f"open{b.open_edges()}/bad{b.bad_edges()}")
     if wrong or degenerate:
         red.append(f"wound{wrong}e/{degenerate}deg")
+
     p50, p95, worst = b.comb()
-    if p95 > COMB_MOST_DEG.get(name, COMB_WANTED_DEG) + 0.05:
-        red.append(f"comb p95 {p95:.1f} deg over {COMB_MOST_DEG.get(name, COMB_WANTED_DEG):.1f}")
+    if p95 > COMB_WANTED_DEG + 0.05:
+        red.append(f"comb p95 {p95:.1f} deg over {COMB_WANTED_DEG:.1f}")
     if vol <= 0.0:
         red.append("volume")
     if near < bed.WELD_M:
         red.append(f"snap{near:.5f}")
     OUT.mkdir(parents=True, exist_ok=True)
     bed.OUT = OUT
-    publish.take("roofs", f"sheet_{name}", bed.draw((f"R-{name}", "G1-flat", tags), b, f, number), red)
-    shot = _render(b, name, number)
-    publish.take("roofs", f"view_{name}", shot, red)
-    print(f"{number:02d} {name:12s} {'RED ' + ','.join(red) if red else 'ok':22s} "
+    publish.take("roofs", f"sheet_{label}", bed.draw((f"R-{label}", plan, tags), b, f, number), red)
+    shot = _render(b, label, number)
+    publish.take("roofs", named(label, b), shot, red)
+    print(f"{number:02d} {label:16s} {'RED ' + ','.join(red) if red else 'ok':22s} "
           f"tris {len(b.tris):6d}  verts {len(b.vertices):6d}  volume {vol:9.1f} m3  "
           f"nearest pair {near:.4f} m  comb p95 {p95:5.1f} max {worst:5.1f}  "
           f"ridge +{b.ridge - b.pad:5.2f}  -> {shot.name}")
@@ -154,17 +207,30 @@ def _render(b, name, number):
 
 
 def main(argv):
-    names = [n for n in sorted(roofs.SHAPES) if not argv or any(a in n for a in argv)]
+    picked = [c for c in CASES if not argv or any(a.lower() in c[0].lower() or a.lower() in c[1].lower()
+                                                  for a in argv)]
     if not argv:
         publish.sweep("roofs")
     reds = 0
-    for number, name in enumerate(names, start=1):
+    chose = {}
+    for number, case in enumerate(picked, start=1):
         try:
-            reds += bool(one(name, number))
+            got = one(case, number)
         except Exception as why:
-            print(f"{number:02d} {name:12s} REFUSED {type(why).__name__}: {why}")
+            print(f"{number:02d} {case[0]:16s} REFUSED {type(why).__name__}: {why}")
             reds += 1
-    print(f"\n{len(names)} roof shape(s), {reds} red; sheets and renders under {OUT}")
+            continue
+        reds += 1 if got else 0
+        poly = bed.FOOTPRINTS[case[1]]()
+        chose[case[0]] = bed.Building(poly, dict(case[2]), bed.GROUNDS["G1-flat"](), cell=2.0).roof
+    print("\n  the heuristic chose: "
+          + ", ".join(f"{k} -> {v}" for k, v in chose.items()))
+    # A SHAPE NOTHING REACHES IS A FINDING, NOT A PICTURE TO BE FORCED. Either no plan the
+    # generator meets will ever ask for it, or the rule that would has not been written.
+    unseen = sorted(set(roofs.SHAPES) - set(chose.values()))
+    if unseen and not argv:
+        print(f"  registered but never chosen: {', '.join(unseen)}")
+    print(f"\n{len(picked)} plan(s), {reds} red; renders under {publish.SHOTS / 'roofs'}")
     return 1 if reds else 0
 
 

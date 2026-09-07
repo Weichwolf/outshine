@@ -34,6 +34,7 @@ _sys.path.insert(0, str(_pl.Path(__file__).resolve().parent.parent))
 import features
 import publish
 import roofs
+import shape
 import region as region_of
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union
@@ -41,6 +42,7 @@ from shapely.ops import unary_union
 OUT = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "buildings"
 
 LEVEL_M = 3.0             # [SET] OSM wiki's building:levels convention, and GHS-BUILT's storey
+PITCH_MARGIN_DEG = 12.0   # [SET] a hip, a valley and a dormer cheek steepen a face honestly
 ROOF_PITCH = math.radians(35.0)   # [SET] the median pitch of a European gabled roof
 EAVES_M = 0.4             # [SET] the eaves' overhang past the wall
 WELD_M = 1e-3
@@ -359,7 +361,17 @@ class Building:
         self.where = where
         self.style = Style(tags, poly, self.levels, told_height or self.levels * LEVEL_M,
                            where=where)
-        self.roof = self.style.roof_for(tags.get("roof:shape"))
+        # THE ROOF FOLLOWS THE PLAN, and the rule is `src/generators/building/BuildingShape.cpp`
+        # copied into `shape.py` constant for constant. The epoch chose it before: `classify`
+        # inferred a period and the style's list was taken from the FRONT, so nine of sixteen real
+        # plans came out `flat` -- a terrace, a bungalow, a school, a town hall tower -- because
+        # everything without a `start_date` falls into `late20` and that list begins with `flat`.
+        # A tag still wins where OSM states one; the geometry decides the other 98.6 %.
+        told = tags.get("roof:shape")
+        mass_h = told_height or (self.levels or 1) * LEVEL_M
+        _use, _roof, _pitch = shape.of(poly, mass_h, self.levels or 1)
+        self.use, self.roof_pitch_deg = _use, _pitch
+        self.roof = told if (told and told in roofs.SHAPES) else _roof
         # a ROOF OF REVOLUTION needs a COMPACT plan. An onion, a dome, a spire and a pyramid are
         # turned about one axis, so a long nave under one of them is a 34 m onion -- which is
         # what OSM's `roof:shape=onion` on a whole church way asked for, and what B02 drew. The
@@ -1112,6 +1124,36 @@ class Building:
             self.tri(*ids)
 
     # -- the checks
+    def steepest(self):
+        """B-PITCH: THE STEEPEST ROOF FACE, in degrees, and how many stand over the covering's own.
+
+        A roof has the pitch its COVERING needs -- `CLAUDE.md` says it in those words -- so a face
+        at eighty degrees is not a roof whatever the mesh's topology says. Three oracles written
+        today measured a DISTRIBUTION while the defect was LOCAL, and each time the picture stayed
+        wrong with the number green: a gabled roof over a plan with a projection carries a CLIFF
+        between the main roof and the wing, because `half_v - across` clamps to zero out there.
+        Watertight, wound, welded, comb p95 0.0 -- and a black wall across the roof.
+
+        Returns (steepest degrees, faces over the shape's own pitch by more than a margin)."""
+        self.built()
+        V = np.asarray(self.vertices, dtype=float)
+        T = np.asarray(self.tris, dtype=np.int64)
+        if not len(T):
+            return (0.0, 0)
+        z = V[T][:, :, 2]
+        roof = (z >= self.eaves - 1e-9).all(axis=1) & (z > self.eaves + 1e-9).any(axis=1)
+        if not roof.any():
+            return (0.0, 0)
+        a, b, c = V[T[roof, 0]], V[T[roof, 1]], V[T[roof, 2]]
+        n = np.cross(b - a, c - a)
+        run = np.linalg.norm(n, axis=1)
+        live = run > 1e-12
+        if not live.any():
+            return (0.0, 0)
+        tilt = np.degrees(np.arccos(np.clip(np.abs(n[live, 2]) / run[live], 0.0, 1.0)))
+        allow = math.degrees(self.roof_pitch()) + PITCH_MARGIN_DEG
+        return float(tilt.max()), int((tilt > allow).sum())
+
     def comb(self, step=0.05):
         """B-COMB: HOW FAR A ROOF FACE STANDS OFF THE SURFACE IT IS MESHING, in degrees.
 
