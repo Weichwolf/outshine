@@ -100,3 +100,27 @@ Damit ist der Wiederholungsfehler mipabhängig. Die bisherigen Messungen erklär
 noch nicht, ob veränderte Ableitungen oder die nachgelagerte Abtastung entscheidend
 sind. Nächste Probe: UV-Ableitungen selbst als Float-Ausgabe vergleichen, bevor
 Interpolation, Texturzugriff oder Occlusion geändert werden.
+
+## Ableitungs- und Identitätsausgaben, 2026-09-08
+
+Temporär die vier Komponenten dFdxFine(mappedUv)/dFdyFine(mappedUv) zusätzlich
+zum unveränderten Farbtap ausgeben; kein Austausch der Farbabtastung:
+
+- `build/shared-piece-gradient-output-probe.log`, RGBA16F-Normalanhang:
+  3.686.400 Ableitungskomponenten wiederholen gleich; Farben dreimal 423
+  Abweichungen, max. 0.00268555. Exit 2, 17/18 PASS. Die Half-Quantisierung
+  begrenzt die Aussage über die ursprünglichen Float-Ableitungen.
+- `build/shared-piece-gradient32-output-probe.log`, RGBA32F-Identitätsanhang:
+  Ableitungen, Tiefe und Farben wiederholen exakt. Exit 0, 18/18 PASS.
+  Diese Instrumentierung verändert den beobachteten Fehler und beweist daher
+  keine unveränderten Ableitungen des ursprünglichen Shaders.
+- `build/shared-piece-identity-attachment-control.log`: ursprünglicher Shader,
+  derselbe zusätzliche Identitätsanhang. Oberflächen-IDs und Tiefe wiederholen
+  exakt, Farben erneut dreimal 420 Abweichungen, max. 0.00268555.
+  Exit 2, 17/18 PASS. Der Anhang allein löst nichts. Im Log heißt der allgemeine
+  Vergleichspuffer noch `gradient`; hier enthält er die regulären Identitätswerte.
+
+Alle Diagnoseänderungen zurückgenommen. Die ID-Gleichheit grenzt wechselnde
+Oberflächenzuordnung ein; die konkrete Shader-/Samplerursache bleibt offen.
+Nächste kausale Untersuchung: Auswertung/Präzision der Ableitungen und deren
+Compilerübersetzung. Keine permanente Diagnoseausgabe als vermeintliche Reparatur.
