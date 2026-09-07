@@ -69,3 +69,44 @@ The bar is **p95 under 5 degrees on every smooth shape and the area ratio under 
 `gabled` and `skillion` staying at exactly 0.0 (they are planar and a correct mesher represents
 them exactly). The negative control is the stitch replaced by the Delaunay, which must go red.
 And the picture is looked at, because the number 1.142 did not say "a row of spikes".
+
+
+## Measured again 2026-09-07, and the cause in this file was wrong TWICE more
+
+The item blamed ANISOTROPY: rings 0.008 to 0.16 m apart across against `cell` along. That was
+true when it was written and the floor repaired it. It is not the cause now:
+
+| | |
+|---|---|
+| the dome's ring ladder today | d = 0.50, 1.00, 1.59, 2.34, 3.22, 4.00 |
+| its bands | 0.50, 0.50, 0.59, 0.75, 0.88 m against a 0.50 m along-ring spacing |
+| aspect ratio | 1:1 to 1:1.75. **Isotropic** |
+
+**And the comb is not at the eaves either.** The faces over 10 degrees sit at ONE height: the
+dome's at 0.277 of the rise (p50 and p90 both), the mansard's at 0.586, the barrel's at 0.277.
+For a dome over an inradius of 4 m that is `d = 0.156` -- a third of the way into the FIRST band.
+
+**Shewchuk's own answer does not reach it.** `pq30Y` -- a quality mesh with no Steiner point on
+the boundary -- takes the barrel from 23.0 to 6.3 at p95 and doubles the triangles, and leaves the
+dome at 23.5, the mansard at 30.4 and the onion at 28.8, unchanged to the decimal. Unchanged
+means the SAME faces, and the one set `Y` protects is the boundary's.
+
+**So it is a RESOLUTION defect and the two rules that set the resolution contradict each other.**
+The ladder is placed by the chord's HEIGHT error (0.02 m) and that is met long before the
+springing is resolved: a dome's slope turns from vertical to 45 degrees inside the first band, and
+a flat face there carries the average -- 23 degrees off, exactly what is measured. Breaking the
+ladder on the slope's TURN instead changes nothing, because `floor_d` -- the along-ring spacing
+floor that repaired the anisotropy -- pins the band width first. A vertical springing needs thin
+bands; isotropy forbids them.
+
+## What will be true, restated
+
+**A REVOLUTION ROOF IS MESHED ON ITS OWN PARAMETER.** `roofs.py` already declares which shapes
+those are -- `register("dome", revolution=True)`, and the same for `onion`, `spire`, `pyramidal` --
+and the mesher ignores the flag and treats every roof as a height field over distance offsets.
+Rings equally spaced in the surface's own ANGLE give equal steps in the NORMAL, which is what a
+UV sphere is and what every renderer has drawn a dome with for thirty years. Over a distance
+transform it cannot be reached at any spacing, because the parameter is the wrong one.
+
+The barrel is the same statement about a cylinder, and the mansard about a profile with a knuckle:
+the ladder must step along the PROFILE's arc, not along its footprint distance.
