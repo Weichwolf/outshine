@@ -32,7 +32,7 @@ import features
 import publish
 import roofs
 import region as region_of
-from shapely.geometry import Point, Polygon
+from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union
 
 OUT = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "buildings"
@@ -42,6 +42,7 @@ ROOF_PITCH = math.radians(35.0)   # [SET] the median pitch of a European gabled 
 EAVES_M = 0.4             # [SET] the eaves' overhang past the wall
 WELD_M = 1e-3
 FOOT_M = 0.5              # [SET] the wall is buried this far, which is what a foundation is
+MESH_ROOF_TOL_M = 0.02    # [SET] how far a roof's drawn surface may stand off its own profile
 RING_RISE_M = 0.25        # [SET] how much a roof may rise between two sampled level sets
 FREEBOARD_M = 0.3         # [SET] a deck over water stands this far above it
 
@@ -129,7 +130,7 @@ class RoofField:
     The polygon is also PREPARED once: `covers` on a raw polygon rebuilds the index per call."""
 
     __slots__ = ("poly", "shape", "eaves", "ridge", "u", "v", "cx", "cy", "inradius",
-                 "half_u", "half_v", "rings", "ready", "known")
+                 "half_u", "half_v", "rings", "ready", "known", "pitch_rad")
 
     def __init__(self, poly, shape, eaves_h, ridge_h, axis=None):
         import shapely.prepared
@@ -144,6 +145,12 @@ class RoofField:
         self.half_v = axis_half(poly, self.v) if self.known else 1.0
         self.rings = [poly.exterior] + list(poly.interiors)
         self.ready = shapely.prepared.prep(poly)
+        # THE PITCH THE RISE AND THE SPAN IMPLY, and never a table's: a shape handed a pitch its
+        # rise cannot reach truncates, and a gable becomes a flat top with a lip.
+        rise = max(0.0, ridge_h - eaves_h)
+        span = self.half_v if shape in ("gabled", "half-hipped", "gambrel", "barrel",
+                                        "butterfly", "sawtooth", "skillion") else self.inradius
+        self.pitch_rad = math.atan2(rise, max(span, 1e-6)) if rise > 1e-6 else 0.0
 
     def at(self, x, y, d=None):
         if not self.known:
@@ -155,7 +162,7 @@ class RoofField:
             d = min(ring.distance(here) for ring in self.rings)
         ctx = roofs.Ctx(poly=self.poly, x=x, y=y, d=d, eaves=self.eaves, ridge=self.ridge,
                         axis=(self.u, self.v), inradius=self.inradius, half_v=self.half_v,
-                        half_u=self.half_u, pitch=ROOF_PITCH,
+                        half_u=self.half_u, pitch=self.pitch_rad,
                         across=abs((x - self.cx) * self.v[0] + (y - self.cy) * self.v[1]),
                         along=abs((x - self.cx) * self.u[0] + (y - self.cy) * self.u[1]))
         return roofs.height_at(self.shape, ctx)
@@ -359,6 +366,26 @@ class Building:
         self.tris = []
         self.faces_of = {}
         self._build()
+
+    def roof_pitch(self):
+        """THE PITCH IS THE ONE THE RISE AND THE SPAN IMPLY, never a table's 35 degrees.
+
+        A surveyor who writes `roof:height` has stated the RISE. A shape handed the table's pitch
+        anyway reaches the ridge height before it reaches the ridge LINE and then truncates, which
+        turns a gable into a flat top with a lip: measured 2026-09-07 on Rothenburg, 654 of one
+        gabled roof's 1319 faces were level and the shape reported 282 distinct plane normals
+        where a gable has two. The rule reads both ways -- where OSM states a height the pitch
+        follows it and the COVERING follows the pitch; where OSM states nothing, `_roof_height`
+        puts the rise at the covering's own pitch and this returns it unchanged."""
+        rise = self.ridge - self.eaves
+        if rise <= 1e-6:
+            return 0.0
+        if self.roof in ("gabled", "half-hipped", "gambrel", "barrel", "butterfly", "sawtooth",
+                         "skillion"):
+            span = axis_half(self.poly, self.axis[1])
+        else:
+            span = roof_inradius(self.poly)
+        return math.atan2(rise, max(span, 1e-6))
 
     def _roof_height(self):
         if self.roof in ("flat",):
@@ -709,7 +736,8 @@ class Building:
                         axis=(u, v), inradius=roof_inradius(self.poly),
                         half_v=axis_half(self.poly, v), half_u=axis_half(self.poly, u),
                         across=abs((x - c.x) * v[0] + (y - c.y) * v[1]),
-                        along=abs((x - c.x) * u[0] + (y - c.y) * u[1]), pitch=ROOF_PITCH)
+                        along=abs((x - c.x) * u[0] + (y - c.y) * u[1]),
+                        pitch=self.roof_pitch())
         return roofs.height_at(self.roof, ctx)
 
     def _roof_mesh(self):
@@ -748,7 +776,9 @@ class Building:
         # 80 points and the ring 0.125 m inside it had 78, at unrelated arc positions, across a
         # band that rose 0.695 m. Sampling every ring at the SAME normalised arc fractions makes
         # that band a clean strip. A ring that has split into several parts takes its share.
-        def ring_points(d):
+        chains = []
+
+        def ring_points(d, keep_chain=False):
             inner = self.poly.buffer(-d, join_style=2)
             if inner.is_empty:
                 return None
@@ -765,6 +795,8 @@ class Building:
                     for q in got:
                         self._ring_d[(round(q[0], 6), round(q[1], 6))] = d
                     out += got
+                    if keep_chain and len(got) > 2:
+                        chains.append(("loop", got))
             return out
 
         # THE RING LADDER STEPS IN HEIGHT, NOT IN DISTANCE. A dome, a barrel or an onion stands
@@ -792,39 +824,64 @@ class Building:
             return roof_height_at(self.poly, q[0], q[1], self.roof, self.eaves, self.ridge,
                                   self.axis)
 
-        # THE FIRST BAND IS A BAND. The ladder used to place ring one at a fixed distance and
-        # only THEN start stepping in height, so a dome -- vertical at its springing -- rose
-        # 0.695 m across the 0.125 m between the eaves and ring one, three times RING_RISE_M
-        # (measured 2026-09-06). The step is chosen from the eaves upward like every other.
-        # A RING LADDER MUST BE ISOTROPIC, and that bound beats the height step.
-        # The points ALONG a ring stand `cell` apart. Put two rings 8 mm apart and the point set
-        # is 60:1 anisotropic: a Delaunay triangulation cannot make a strip out of that, so it
-        # makes slivers that SKIP rings -- measured 2026-09-06 on the dome, the worst faces span
-        # d = 0.000, 0.008 and 0.164 while rings at 0.039 and 0.102 sit unused between them, and
-        # that is the COMB along the eaves. So the radial step is floored at the along-ring
-        # spacing. A dome IS near-vertical at its springing and one honest band there beats six
-        # bands the mesher cannot connect; resolving that band properly needs a STRUCTURED
-        # ring-and-spoke stitch rather than a Delaunay, which is board:2156.
+        # A RING STANDS WHERE THE SLOPE CHANGES, AND NOWHERE ELSE.
+        #
+        # The ladder used to step in HEIGHT, which puts a ring every RING_RISE_M whether the
+        # surface bends there or not -- and a hipped, gabled, pyramidal or skillion roof does not
+        # bend at all between its eaves and its ridge. Measured 2026-09-07 on OldTown's own
+        # footprints: a GABLED roof came out with 338 distinct plane normals and a hipped one with
+        # 327. A gabled roof has two. Every one of those normals is `buffer(-d)`'s epsilon tilting
+        # a band that should have been one plane, and at 26 m it reads as crumpled paper.
+        #
+        # So the ring distances are the BREAKPOINTS of the height profile z(d), found by fitting
+        # it with straight pieces to the mesh tolerance: a linear roof gets two rings, a mansard
+        # three, a dome as many as its curvature earns. No shape has to declare anything -- the
+        # profile is asked, which is the same rule as `crown` reading a point ON the ring.
         floor_d = cell
-        d = 0.0
-        last = 0.0
-        guard = 0
-        while guard < 4000:
-            guard += 1
-            here = self.eaves if d <= 0.0 else crown(d)
-            trial = step
-            for _ in range(14):
-                ahead = crown(d + trial)
-                if (ahead is None or here is None or abs(ahead - here) <= RING_RISE_M
-                        or trial <= floor_d):
-                    break
-                trial *= 0.5
-            d = d + max(trial, floor_d)
-            got = ring_points(d)
+        probe = np.linspace(0.0, 1.0, 129)
+        far = _roof_inradius(self.poly)
+        walk = []
+        for u in probe:
+            got = crown(far * float(u)) if u > 0.0 else self.eaves
             if got is None:
                 break
-            pts += got
-            last = d
+            walk.append((far * float(u), got))
+        breaks = []
+        if len(walk) > 2:
+            i = 0
+            while i < len(walk) - 1:
+                j = len(walk) - 1
+                while j > i + 1:
+                    d0, z0 = walk[i]
+                    d1, z1 = walk[j]
+                    span = max(d1 - d0, 1e-9)
+                    worst = max(abs(z - (z0 + (z1 - z0) * (d - d0) / span))
+                                for (d, z) in walk[i:j + 1])
+                    if worst <= MESH_ROOF_TOL_M:
+                        break
+                    j -= 1
+                if walk[j][0] - walk[i][0] < floor_d and j < len(walk) - 1:
+                    j = min(len(walk) - 1, i + max(1, int(floor_d / max(far / 128.0, 1e-9))))
+                breaks.append(walk[j][0])
+                i = j
+        # A CREASE IS A CONSTRAINT AND NOT A HINT. `skeleton` means every inward offset is a
+        # bend, so each goes in as a closed chain of SEGMENTS and no triangle can straddle one.
+        # `axis` means the only bend is the ridge, and the offsets then CROSS it -- a PSLG cannot
+        # hold two segments that cross -- so for those shapes the offsets do not go in at all and
+        # the ridge line does.
+        bend = roofs.crease(self.roof)
+        d = 0.0
+        last = 0.0
+        if bend != "axis":
+            for at in breaks:
+                if at <= last + 1e-9:
+                    continue
+                got = ring_points(at, keep_chain=(bend == "skeleton"))
+                if got is None:
+                    break
+                pts += got
+                last = at
+                d = at
         # the RIDGE is the last non-empty offset, and a fixed step steps over it: bisect for it,
         # or the apex reads short by half a step times the pitch (measured: 0.28 m on a 12 x 8
         # house). The limit of these offsets IS the straight skeleton's ridge set.
@@ -844,17 +901,36 @@ class Building:
                 hi = mid
             else:
                 lo = mid
-        top = ring_points(lo)
-        if top:
-            pts += top
-        if self.roof in ("gabled", "skillion"):
+        if bend != "axis":
+            top = ring_points(lo, keep_chain=(bend == "skeleton"))
+            if top:
+                pts += top
+        if bend == "axis" or self.roof == "skillion":
+            # THE RIDGE ITSELF, as a chain. Laid in as loose points it was a row of vertices the
+            # triangulation was free to ignore, and the faces straddled it: 338 plane normals on
+            # a shape that has two (measured 2026-09-07 on OldTown).
             u, v = self.axis
             c = self.poly.centroid
             half_u = axis_half(self.poly, u)
+            # A RIDGE LINE IS NOT ONE LINE ON A CONCAVE PLAN. The axis through a U-shaped
+            # footprint's centroid leaves the polygon in the middle, and a single chain then
+            # carries a segment that runs OUTSIDE it: five open edges and twelve edges with
+            # three faces on `F3-U` (measured 2026-09-07). The line is split into the runs that
+            # are actually inside, and each run is its own chain.
+            run = []
             for s in np.arange(-half_u, half_u + cell, cell / 2.0):
                 p = (c.x + u[0] * s, c.y + u[1] * s)
                 if self.poly.contains(Point(*p)):
-                    pts.append(p)
+                    run.append(p)
+                elif len(run) > 1:
+                    chains.append(("open", run))
+                    pts += run
+                    run = []
+                else:
+                    run = []
+            if len(run) > 1:
+                chains.append(("open", run))
+                pts += run
         for x in np.arange(minx + cell / 2, maxx, cell):
             for y in np.arange(miny + cell / 2, maxy, cell):
                 if self.poly.contains(Point(x, y)):
@@ -873,10 +949,25 @@ class Building:
                 verts.append([float(p[0]), float(p[1])])
             return seen[key]
 
-        for ring in rings:
-            ids = [put(p) for p in ring]
-            segs += [[ids[i], ids[(i + 1) % len(ids)]] for i in range(len(ids))
-                     if ids[i] != ids[(i + 1) % len(ids)]]
+        # ONE NODED LINEWORK. Two inward offsets can touch, and a ridge line runs from the
+        # boundary to the boundary: laid in raw, Shewchuk answers "invalid geometry on input"
+        # for a PSLG whose segments cross or overlap. `unary_union` splits every line at every
+        # intersection, which is what a PSLG has to be -- the same repair `ground.py` needed.
+        lines = [LineString(list(r) + [r[0]]) for r in rings if len(r) > 2]
+        lines += [LineString(list(c) + ([c[0]] if kind == "loop" else []))
+                  for (kind, c) in chains if len(c) > 1]
+        held = set()
+        if lines:
+            noded = unary_union(lines)
+            for part in (noded.geoms if hasattr(noded, "geoms") else [noded]):
+                if part.geom_type != "LineString":
+                    continue
+                ids = [put(q) for q in part.coords]
+                for i in range(len(ids) - 1):
+                    a_, b_ = ids[i], ids[i + 1]
+                    if a_ != b_:
+                        held.add((min(a_, b_), max(a_, b_)))
+        segs = [list(e) for e in sorted(held)]
         for p in pts:
             put(p)
         if len(verts) < 3 or not segs:
@@ -2162,6 +2253,30 @@ def run(case, number=0):
         red.append("B-roof")
     if ground.water is not None and b.pad < ground.water:
         red.append("B3-water")
+    # I24: A PITCHED ROOF IS NOT A FLAT TOP. The share of the roof's own area that is LEVEL.
+    #
+    # The first oracle for this counted distinct plane NORMALS over the whole roof role and read
+    # 338 on a gabled roof; the number was wrong, because that role carries the chimneys, the
+    # dormers and the eaves band too, and the surface itself was already two planes. What a
+    # truncated gable actually IS is a flat top, so the measure is the AREA that is level.
+    # Measured 2026-09-07 over Rothenburg's 3 139 pitched roofs: 9.8 % of the area level and one
+    # body 94.8 % level, because a shape handed the table's 35 degrees reaches its stated ridge
+    # HEIGHT before it reaches the ridge LINE and truncates. With the pitch taken from the rise
+    # and the span: 7.5 % and 15.2 %.
+    if b.roof in ("gabled", "hipped", "pyramidal", "half-hipped", "spire", "skillion"):
+        made = b.body(3)
+        rv, rt = made.get("roof", ([], []))
+        if len(rt) > 8:
+            V = np.asarray(rv, dtype=float)
+            T = np.asarray(rt)
+            nm = np.cross(V[T[:, 1]] - V[T[:, 0]], V[T[:, 2]] - V[T[:, 0]])
+            a = 0.5 * np.linalg.norm(nm, axis=1)
+            keep = a > 1e-9
+            if keep.any():
+                up = np.abs(nm[keep, 2]) / (2 * a[keep])
+                share = float(a[keep][up > 0.9999].sum() / a[keep].sum())
+                if share > 0.25:
+                    red.append(f"I24 flat top({share * 100:.0f}%)")
     publish.take("buildings", f"{case[0]}_{case[1]}_{b.style.kind}_{b.style.epoch}",
                  draw(case, b, f, number), red)
     return b, red, f, ladder

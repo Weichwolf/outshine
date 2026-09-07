@@ -16,15 +16,28 @@ import math
 SHAPES = {}
 
 
-def register(name, *, revolution=False, needs_axis=False, c_kind=None, note=""):
+def register(name, *, revolution=False, needs_axis=False, c_kind=None, crease="", note=""):
     """Put a shape in the registry. `revolution` says it is turned about one axis and therefore
     needs a COMPACT plan; `c_kind` names the C++ `RoofKind` it corresponds to, or None where the
-    C++ side has no such shape yet."""
+    C++ side has no such shape yet.
+
+    `crease` NAMES WHERE THE SURFACE BENDS IN PLAN, and it is what a mesher has to be told
+    because it cannot see it: a roof is drawn by triangulating points that lie on it, and a
+    triangle that SPANS a bend lies on neither side of it. Measured 2026-09-07 on OldTown's own
+    footprints, a gabled roof came out with 338 distinct plane normals and a hipped one with 327
+    -- a gabled roof has two -- and every one of the others was a triangle straddling the ridge.
+
+        `axis`      the bend is the ridge line, along the long axis through the centroid
+        `skeleton`  the bends are the level sets of the distance to the boundary, so every
+                    inward offset the mesher builds is one of them
+        ``          the surface is smooth or flat and has no bend at all
+    """
     def take(fn):
         fn.shape_name = name
         fn.revolution = revolution
         fn.needs_axis = needs_axis
         fn.c_kind = c_kind
+        fn.crease = crease
         fn.note = note
         SHAPES[name] = fn
         return fn
@@ -37,6 +50,11 @@ def known(name):
 
 def revolution(name):
     return bool(SHAPES[name].revolution) if name in SHAPES else False
+
+
+def crease(name):
+    """Where the shape bends IN PLAN -- `axis`, `skeleton` or nothing."""
+    return getattr(SHAPES.get(name), "crease", "") or ""
 
 
 def height_at(name, ctx):
@@ -72,19 +90,19 @@ def _flat(c):
     return 0.0
 
 
-@register("pyramidal", revolution=True, c_kind=None,
+@register("pyramidal", crease="skeleton", revolution=True, c_kind=None,
           note="the apex over the centroid: the distance function normalised by its own maximum")
 def _pyramidal(c):
     return c.rise * c.d / max(c.inradius, 1e-6)
 
 
-@register("hipped", c_kind="Hip",
+@register("hipped", crease="skeleton", c_kind="Hip",
           note="one pitch off every edge; its ridge set IS the straight skeleton")
 def _hipped(c):
     return min(c.d * math.tan(c.pitch), c.rise)
 
 
-@register("gabled", needs_axis=True, c_kind="Gable",
+@register("gabled", crease="axis", needs_axis=True, c_kind="Gable",
           note="the distance to the two LONG sides only, so the ridge runs along the long axis")
 def _gabled(c):
     return max(0.0, min((c.half_v - c.across) * math.tan(c.pitch), c.rise))
@@ -96,7 +114,7 @@ def _skillion(c):
     return c.rise * (signed + c.half_v) / max(2 * c.half_v, 1e-6)
 
 
-@register("mansard", c_kind="Mansard",
+@register("mansard", crease="skeleton", c_kind="Mansard",
           note="two pitches in series off the EDGE: steep to 0.6 of the rise, then shallow")
 def _mansard(c):
     steep_t = math.tan(math.radians(70.0))
@@ -107,7 +125,7 @@ def _mansard(c):
     return min(knee + max(0.0, c.d - knee / steep_t) * shallow_t, c.rise)
 
 
-@register("half-hipped", needs_axis=True, c_kind=None,
+@register("half-hipped", crease="axis", needs_axis=True, c_kind=None,
           note="Krueppelwalm: a gable whose top is cut back by a small hip")
 def _half_hipped(c):
     rise = (c.half_v - c.across) * math.tan(c.pitch)
@@ -115,7 +133,7 @@ def _half_hipped(c):
     return max(0.0, min(rise, clip, c.rise))
 
 
-@register("gambrel", needs_axis=True, c_kind=None,
+@register("gambrel", crease="axis", needs_axis=True, c_kind=None,
           note="two pitches across the WIDTH rather than off the edge, the barn's own")
 def _gambrel(c):
     knee = c.half_v * 0.55
