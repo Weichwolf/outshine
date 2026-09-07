@@ -22,7 +22,8 @@ import sys
 
 import numpy as np
 
-from base3 import cross3
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from base3 import cross3  # noqa: E402
 import shapely
 import shapely.geometry.polygon
 import triangle
