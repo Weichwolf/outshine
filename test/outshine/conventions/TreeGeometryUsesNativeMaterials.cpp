@@ -2,10 +2,13 @@
 #include <iterator>
 #include <filesystem>
 #include <cstdio>
+#include <set>
+#include <array>
 #include <SDL3/SDL.h>
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 #include "TreePrototype.h"
+#include "TreeLeaf.h"
 #include "TreeGrower.h"
 #include "TreeSkeleton.h"
 #include "Check.h"
@@ -67,6 +70,17 @@ int main() {
     std::printf("tree part %s vertices %zu triangles %zu\n", geometry->nameOf(part).data(),
                 geometry->positionsOf(part).size()/3, geometry->trianglesOf(part).size()/3);
   }
+  TreeMesh blade;
+  TreeLeaf::Build(species.LeafParams(), blade);
+  const auto foliage = geometry->positionsOf(1);
+  std::set<std::array<float, 3>> attachments;
+  size_t leafCount = 0;
+  for (size_t at = 3; at + 2 < foliage.size(); at += blade.LeafVertexCount() * 3) {
+    attachments.insert({foliage[at], foliage[at + 1], foliage[at + 2]});
+    ++leafCount;
+  }
+  CHECK(attachments.size() == leafCount,
+        "coarse birch leaves occupy distinct attachments instead of coincident fans");
   float highest = 0;
   const auto bark = geometry->positionsOf(0);
   for (size_t at = 1; at < bark.size(); at += 3) { highest = std::max(highest, bark[at]); }

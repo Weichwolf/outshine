@@ -1,11 +1,9 @@
 #include "TreePrototype.h"
 #include "TreeLeaf.h"
 #include "TreeFrame.h"
-#include "ModelLadder.h"
 #include <array>
 #include <cmath>
 #include <limits>
-#include <numbers>
 
 namespace outshine::Generators {
 namespace {
@@ -49,7 +47,7 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
   TreeMesh blade;
   TreeLeaf::Build(Leaf_, blade);
   Surface leaves;
-  const size_t perCard = blade.LeafVertexCount() * kElementsPerSheet;
+  const size_t perCard = blade.LeafVertexCount();
   if (perCard > 0 && source.CardCount > std::numeric_limits<uint32_t>::max() / perCard) {
     return std::nullopt;
   }
@@ -58,21 +56,19 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
     const Vec3f origin = Vec3f{{card[0], card[1], card[2]}} * height;
     const Vec3f along = DirectionOrUp({{card[4], card[5], card[6]}});
     const Frame frame = FrameFrom({.Along = along, .Reference = {{0, 1, 0}}});
-    for (int fan = 0; fan < kElementsPerSheet; ++fan) {
-      const float roll = card[3] + static_cast<float>(fan) *
-                                       (2.0f * std::numbers::pi_v<float> / kElementsPerSheet);
-      const Vec3f x = frame.Normal * std::cos(roll) + frame.Binormal * std::sin(roll);
-      const Vec3f z = Cross(x, along);
-      const auto first = static_cast<uint32_t>(leaves.Positions.size() / 3);
-      for (size_t v = 0; v < blade.LeafVerts.size(); v += TreeMesh::kLeafFloats) {
-        const float *p = blade.LeafVerts.data() + v;
-        const Vec3f local = x * p[0] + along * p[1] + z * p[2];
-        const Vec3f normal = DirectionOrUp(x * p[3] + along * p[4] + z * p[5]);
-        leaves.Vertex(origin + local * source.CardLeafM, normal, p[6], p[7]);
-      }
-      for (const uint32_t index : blade.LeafIdx) { leaves.Indices.push_back(first + index); }
+    const float roll = card[3];
+    const Vec3f x = frame.Normal * std::cos(roll) + frame.Binormal * std::sin(roll);
+    const Vec3f z = Cross(x, along);
+    const auto first = static_cast<uint32_t>(leaves.Positions.size() / 3);
+    for (size_t v = 0; v < blade.LeafVerts.size(); v += TreeMesh::kLeafFloats) {
+      const float *p = blade.LeafVerts.data() + v;
+      const Vec3f local = x * p[0] + along * p[1] + z * p[2];
+      const Vec3f normal = DirectionOrUp(x * p[3] + along * p[4] + z * p[5]);
+      leaves.Vertex(origin + local * source.CardLeafM, normal, p[6], p[7]);
     }
+    for (const uint32_t index : blade.LeafIdx) { leaves.Indices.push_back(first + index); }
   }
+
   Material leafMaterial;
   leafMaterial.Roughness = Look_.LeafRoughness;
   leafMaterial.DoubleSided = true;

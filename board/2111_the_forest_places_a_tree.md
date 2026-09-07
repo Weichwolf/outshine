@@ -107,3 +107,8 @@ nicht ungeprüft pro Baum in den Piece-Pool kopieren. Regionsframe/Tile-Streamin
 Auswahl der Ast-Dicken. Blattaufbau unverändert; visuell bleiben große spärliche Büschel.
 Details/Negativkontrolle in 2123. Renderer-Handoff, gemeinsame Prototyp-Instanzen und
 ringweite Platzierung bleiben offen; der einzelne Baumrender schließt diesen Auftrag nicht.
+
+2123 verteilt die native Blattgeometrie jetzt auf einzelne Wachstumsanker statt auf
+koinzidente 16er-Fächer. Birke Rank 3: 82376 Dreiecke, visuell zusammenhängendere Krone.
+Physische Blattgröße und gefilterte Fern-Coverage bleiben falsch/unvollständig; kein
+Wald-Handoff erledigt. Renderbeleg und rotes Mutationsoracle stehen in 2123.

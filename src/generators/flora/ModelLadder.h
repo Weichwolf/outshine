@@ -3,8 +3,6 @@
 
 namespace outshine {
 
-constexpr int kElementsPerSheet = 16;
-
 namespace ModelLadder {
 
 constexpr int kLevels = 4;

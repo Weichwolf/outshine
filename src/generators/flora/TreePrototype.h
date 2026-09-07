@@ -67,8 +67,6 @@ public:
 
   [[nodiscard]] double HeightM() const { return HeightM_; }
 
-  static constexpr float kCardFanDeg = 110.0f;
-
 private:
   std::vector<Rank> Ranks_;
   TreeLook Look_;

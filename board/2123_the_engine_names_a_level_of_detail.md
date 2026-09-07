@@ -64,3 +64,44 @@ Exit 0 (build/tree-lod-restored.log). Abschließender nativer Baumrender erneut 
 Offen: räumliche Kronenaggregation/Blatt-Coverage, feinere Stufen/Nahansicht, kontinuierliche
 kameraabhängige Wahl, Hysterese und Gesamtbudget mit Waldinstanzen. Nächster Schritt bleibt
 Blattdarstellung; keine Erhöhung der Instanzgrenze und kein Place-spezifischer Ersatzbaum.
+
+## Nächster begrenzter Schritt: Blattanker erhalten
+
+Unreal-/RAGE-Distanzleiter bleibt der Zielvertrag; dieser Schritt repariert den nativen
+Adapter, ohne eine konkrete interne Foliage-Technik dieser Engines zu behaupten. Die
+Wachstumspositionen existieren bereits in TreeFoliage. Der Adapter setzt dagegen 16
+Blätter auf einen einzigen behaltenen Anker. Gleiche Größenordnung an Blattdreiecken auf
+16-mal mehr vorhandene Anker verteilen; je Anker ein Blatt. Erwartung vor Render:
+keine isolierten radialen Fächer mehr, gleichmäßigere Kronenbelegung. Regression: Die
+Birke auf Rank 3 besitzt unterschiedliche Blattansätze; ein Rückfall auf gemeinsame
+Fächerursprünge muss rot werden. Bild und Dreieckzahl beurteilen getrennt.
+Dies ersetzt noch keine räumliche Aggregation, physische Nahblattgröße oder Coverage-LOD.
+
+## Blattanker-Schritt geprüft
+
+Native Birke Rank 3: 45 Anker mit je 16 Blättern wurden durch 716 einzelne Anker ersetzt.
+Blattdreiecke 45 × 16 × 112 = 80640 → 716 × 112 = 80192; Rinde unverändert 2184.
+Gesamt 82376 statt 82824 Dreiecke. Keine daraus abgeleitete Frame-/Speicheraussage.
+Die Karten-Metadaten werden größer; GPU-Blattgeometrie bleibt praktisch gleich groß.
+
+PNG vor/nach selbst geöffnet: zusammenhängendere, räumlich verteilte Krone, keine isolierten
+radialen Fächer. Noch deutlich zu große Einzelblätter, harte unzureichende Kronenbeleuchtung,
+fehlende gefilterte Ast-/Blatt-Coverage. Rank 3 überspringt weiterhin 63 von 64 Blättern und
+vergrößert die verbleibenden zur LAI-Erhaltung ungefähr um sqrt(64) = 8. Dieser Schritt ist
+keine Abnahme physischer Blattgrößen oder photorealistischer Waldqualität.
+
+Bildänderung 37193 / (640 × 720) = 8,07 %; Bounding Box der Differenz
+[x=196..447, y=95..591], also Krone, nicht Stammfuß oder Hintergrund.
+Vorher `build/tree-native/birch-before-foliage.png`, SHA256
+`27e7439e0bb3742707ff691db8a2e17cb948130e29251b6c2ee0a22ef1d61f97`;
+nachher `build/tree-native/birch.png`, SHA256
+`1cb70507c5b28af5af16bac0baae7ff24dd46bb90bf9563e27c5d77b79d9e4d2`.
+
+Echte Mutation im Adapter legt je 16 Blätter wieder auf einen Ursprung: exakt der neue
+Attachment-Check fällt, übrige 11 Tests grün, Make Exit 2
+(`build/tree-foliage-negative.log`, Detail `build/tree-foliage-negative-case.log`).
+Wiederhergestellte Fassung: `make suite SUITE=outshine/conventions`, 12/12 PASS, Exit 0
+(`build/tree-foliage-restored.log`), finales PNG erneut geöffnet und Hash identisch.
+Die Probe gilt für die native Birke; dieser Prototyppfad wird von Places noch nicht
+gerendert. Keine veränderten Place-Bilder behauptet. Räumliche Aggregation mit begrenztem
+Projektionsfehler, physische Nahblätter und gemeinsame Waldinstanzen bleiben nächste Arbeit.

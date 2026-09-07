@@ -106,8 +106,7 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
     Rank &out = proto.Ranks_[static_cast<size_t>(rank)];
     mesher.Draw(plant, ModelLadder::Error(rank), mesh);
     foliage.Build(plant, mesh, sp, 1);
-    const uint32_t stride = static_cast<uint32_t>(kElementsPerSheet)
-                            << (2u * static_cast<unsigned>(rank));
+    const uint32_t stride = 1u << (2u * static_cast<unsigned>(rank));
     for (size_t i = 0; i < foliage.Count(); i += stride) {
       const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
       out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
@@ -116,7 +115,7 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
     if (rank == 0) { crownProjM2 = foliage.CrownProjM2(); }
     out.CardCount = nCards;
     out.CardLeafM =
-        foliage.CardLeafM({.LeavesPerCard = kElementsPerSheet, .Cards = nCards},
+        foliage.CardLeafM({.LeavesPerCard = 1, .Cards = nCards},
                           {.Lai = static_cast<double>(sp.Lai()), .CrownProjM2 = crownProjM2});
     out.BarkVerts = mesh.BarkVerts;
     out.BarkVertCount = static_cast<uint32_t>(mesh.BarkVertexCount());
