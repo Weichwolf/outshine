@@ -1,4 +1,10 @@
-"""THE ROOF SHAPES, as a registry.
+"""EVERY SHAPE TAKES ARRAYS. A height field asked one point at a time built a shapely `Point`,
+a `covers` and a `distance` per evaluation: 85 073 calls over forty bodies, 1.77 s of 5.09 s, and
+127 ms to mesh one house. The registry's functions are one-liners, so the whole difference is
+`np.minimum` where `min` stood and `np.where` where an `if` did -- and a scalar still works,
+because numpy's are defined on scalars too. `CLAUDE.md`: batch over per-item.
+
+THE ROOF SHAPES, as a registry.
 
 A roof is a HEIGHT FIELD over the footprint and nothing else: `z(x, y)` above the eaves. Every
 shape in this file is one function of the polygon's own distance function, its principal axis, or
@@ -12,6 +18,8 @@ bed adds and the C++ side has yet to take. That direction matters: the C++ build
 GOOD BASE and this file corrects and extends it, never replaces it.
 """
 import math
+
+import numpy as np
 
 SHAPES = {}
 
@@ -91,7 +99,7 @@ class Ctx:
 
 @register("flat", c_kind="Flat", note="no rise at all; the parapet is a facade element")
 def _flat(c):
-    return 0.0
+    return 0.0 * c.d
 
 
 @register("pyramidal", crease="ridge", revolution=True, c_kind=None,
@@ -103,13 +111,13 @@ def _pyramidal(c):
 @register("hipped", crease="ridge", c_kind="Hip",
           note="one pitch off every edge; its ridge set IS the straight skeleton")
 def _hipped(c):
-    return min(c.d * math.tan(c.pitch), c.rise)
+    return np.minimum(c.d * math.tan(c.pitch), c.rise)
 
 
 @register("gabled", crease="axis", needs_axis=True, c_kind="Gable",
           note="the distance to the two LONG sides only, so the ridge runs along the long axis")
 def _gabled(c):
-    return max(0.0, min((c.half_v - c.across) * math.tan(c.pitch), c.rise))
+    return np.maximum(0.0, np.minimum((c.half_v - c.across) * math.tan(c.pitch), c.rise))
 
 
 @register("skillion", needs_axis=True, c_kind="Shed", note="one plane, falling across the axis")
@@ -124,17 +132,17 @@ def _mansard(c):
     steep_t = math.tan(math.radians(70.0))
     shallow_t = math.tan(math.radians(20.0))
     knee = c.rise * 0.6
-    if c.d * steep_t < knee:
-        return max(0.0, min(c.d * steep_t, c.rise))
-    return min(knee + max(0.0, c.d - knee / steep_t) * shallow_t, c.rise)
+    low = np.maximum(0.0, np.minimum(c.d * steep_t, c.rise))
+    high = np.minimum(knee + np.maximum(0.0, c.d - knee / steep_t) * shallow_t, c.rise)
+    return np.where(c.d * steep_t < knee, low, high)
 
 
 @register("half-hipped", crease="axis", needs_axis=True, c_kind=None,
           note="Krueppelwalm: a gable whose top is cut back by a small hip")
 def _half_hipped(c):
     rise = (c.half_v - c.across) * math.tan(c.pitch)
-    clip = max(0.0, c.half_u - c.along) * math.tan(c.pitch) + c.rise * 0.55
-    return max(0.0, min(rise, clip, c.rise))
+    clip = np.maximum(0.0, c.half_u - c.along) * math.tan(c.pitch) + c.rise * 0.55
+    return np.maximum(0.0, np.minimum(np.minimum(rise, clip), c.rise))
 
 
 @register("gambrel", crease="axis", needs_axis=True, c_kind=None,
@@ -142,9 +150,9 @@ def _half_hipped(c):
 def _gambrel(c):
     knee = c.half_v * 0.55
     steep, shallow = math.tan(math.radians(65.0)), math.tan(math.radians(28.0))
-    if c.across > knee:
-        return max(0.0, (c.half_v - c.across) * steep)
-    return (c.half_v - knee) * steep + (knee - c.across) * shallow
+    return np.where(c.across > knee,
+                    np.maximum(0.0, (c.half_v - c.across) * steep),
+                    (c.half_v - knee) * steep + (knee - c.across) * shallow)
 
 
 @register("sawtooth", needs_axis=True, c_kind="Sawtooth",
@@ -157,7 +165,7 @@ def _sawtooth(c):
 
 @register("barrel", needs_axis=True, c_kind=None, note="a half cylinder along the axis")
 def _barrel(c):
-    return c.rise * math.sqrt(max(0.0, 1.0 - (c.across / max(c.half_v, 1e-6)) ** 2))
+    return c.rise * np.sqrt(np.maximum(0.0, 1.0 - (c.across / max(c.half_v, 1e-6)) ** 2))
 
 
 @register("spire", revolution=True, c_kind=None, note="Turmhelm: a steep pyramid, the church's")
@@ -171,8 +179,8 @@ def _onion(c):
     # a height field cannot hold the bulb's overhang -- the drum's radius is its widest -- so the
     # flare is spent on the RATE: steep at the rim, flat through the shoulder, steep at the top.
     # Drawn as a cone it read as a rocket (measured on the baroque church sheet)
-    u = min(1.0, c.d / max(c.inradius, 1e-6))
-    return c.rise * (0.60 * math.sin(math.pi / 2 * u ** 0.42) + 0.40 * u ** 7)
+    u = np.minimum(1.0, c.d / max(c.inradius, 1e-6))
+    return c.rise * (0.60 * np.sin(math.pi / 2 * u ** 0.42) + 0.40 * u ** 7)
 
 
 @register("butterfly", needs_axis=True, c_kind=None, note="two planes falling INWARD to a valley")
@@ -183,7 +191,7 @@ def _butterfly(c):
 @register("dome", revolution=True, c_kind="Dome", note="a hemisphere over the inradius")
 def _dome(c):
     r = c.inradius
-    return c.rise * math.sqrt(max(0.0, 1.0 - ((r - c.d) / max(r, 1e-6)) ** 2))
+    return c.rise * np.sqrt(np.maximum(0.0, 1.0 - ((r - c.d) / max(r, 1e-6)) ** 2))
 
 
 def catalogue():

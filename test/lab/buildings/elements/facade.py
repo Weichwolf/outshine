@@ -19,6 +19,10 @@ too -- the distant LOD is a textured quad and the near one is cut.
 """
 import numpy as np
 
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[1]))
+from base3 import cross3  # noqa: E402
+
 from .base import _outward
 
 FRAME_M = 0.06             # [SET] the sash's own face, what stands between the glass and the jamb
@@ -118,7 +122,7 @@ def holed_wall(place, holes, depth):
     face_t = []
     for (a, b, c) in got["triangles"]:
         p, q, r = (np.asarray(face_v[i]) for i in (a, b, c))
-        n = np.cross(q - p, r - p)
+        n = cross3(q - p, r - p)
         face_t.append((int(a), int(b), int(c)) if float(np.dot(n, place.out)) > 0.0
                       else (int(a), int(c), int(b)))
     out = [("wall", face_v, face_t, None)]
@@ -132,7 +136,7 @@ def holed_wall(place, holes, depth):
         mid = np.mean(v, axis=0)
         wound = []
         for (a, b, c) in t:
-            n = np.cross(np.asarray(v[b]) - v[a], np.asarray(v[c]) - v[a])
+            n = cross3(np.asarray(v[b]) - v[a], np.asarray(v[c]) - v[a])
             # a reveal faces INTO the opening, so its normal points at the hole's own axis
             wound.append((a, b, c) if float(np.dot(n, mid - np.asarray(v[a]))) > 0.0 else (a, c, b))
         out.append(("wall", v, wound, None))
@@ -161,6 +165,6 @@ def holed_wall(place, holes, depth):
 def _quad(place, s0, z0, s1, z1, d):
     v = [place.at(s0, z0, d), place.at(s1, z0, d), place.at(s1, z1, d), place.at(s0, z1, d)]
     p, q, r = (np.asarray(x) for x in v[:3])
-    n = np.cross(q - p, r - p)
+    n = cross3(q - p, r - p)
     t = [(0, 1, 2), (0, 2, 3)] if float(np.dot(n, place.out)) > 0.0 else [(0, 2, 1), (0, 3, 2)]
     return v, t

@@ -20,6 +20,10 @@ import math
 
 import numpy as np
 
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[1]))
+from base3 import cross3  # noqa: E402
+
 BUILT = {}
 ORDER = []
 
@@ -66,7 +70,7 @@ def _outward(verts, tris):
     mid = pts.mean(axis=0)
     out = []
     for (a, b, c) in tris:
-        n = np.cross(pts[b] - pts[a], pts[c] - pts[a])
+        n = cross3(pts[b] - pts[a], pts[c] - pts[a])
         out.append((a, b, c) if float(np.dot(n, pts[a] - mid)) > 0.0 else (a, c, b))
     return out
 

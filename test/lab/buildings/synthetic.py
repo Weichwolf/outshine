@@ -21,6 +21,8 @@ import pathlib
 import sys
 
 import numpy as np
+
+from base3 import cross3
 import shapely
 import shapely.geometry.polygon
 import triangle
@@ -155,6 +157,34 @@ class RoofField:
         span = self.half_v if shape in ("gabled", "half-hipped", "gambrel", "barrel",
                                         "butterfly", "sawtooth", "skillion") else self.inradius
         self.pitch_rad = math.atan2(rise, max(span, 1e-6)) if rise > 1e-6 else 0.0
+
+    def at_many(self, xs, ys):
+        """THE FIELD OVER AN ARRAY OF POINTS, in three shapely calls instead of three per point.
+
+        Measured 2026-09-07: meshing forty Rothenburg bodies made 88 773 `Point` objects, 77 968
+        `covers` calls and 71 078 `distance` calls -- 127 ms a house, and the field alone was a
+        third of it. shapely 2.0 takes arrays for all three, and the shape registry's one-liners
+        take them too, so the whole evaluation is one `points`, one `covers` and one `distance`.
+
+        A point outside the footprint reads 0.0, which is what `at` promises and why a round
+        building grew horns when it did not (B29)."""
+        xs = np.asarray(xs, dtype=float).reshape(-1)
+        ys = np.asarray(ys, dtype=float).reshape(-1)
+        if not self.known or not len(xs):
+            return np.zeros(len(xs))
+        import shapely
+        pts = shapely.points(np.column_stack((xs, ys)))
+        inside = shapely.covers(self.poly, pts)
+        d = shapely.distance(pts, self.poly.boundary)
+        ctx = roofs.Ctx(poly=self.poly, x=xs, y=ys, d=d, eaves=self.eaves, ridge=self.ridge,
+                        axis=(self.u, self.v), inradius=self.inradius, half_v=self.half_v,
+                        half_u=self.half_u, pitch=self.pitch_rad,
+                        across=np.abs((xs - self.cx) * self.v[0] + (ys - self.cy) * self.v[1]),
+                        along=np.abs((xs - self.cx) * self.u[0] + (ys - self.cy) * self.u[1]))
+        got = np.asarray(roofs.height_at(self.shape, ctx), dtype=float)
+        if got.ndim == 0:
+            got = np.full(len(xs), float(got))
+        return np.where(inside, got, 0.0)
 
     def at(self, x, y, d=None):
         if not self.known:
@@ -583,7 +613,7 @@ class Building:
                     lo0, lo1 = self.wall_foot(*a), self.wall_foot(*b)
                     hi0, hi1 = self.wall_top(*a), self.wall_top(*b)
                     v = [(a[0], a[1], lo0), (b[0], b[1], lo1), (b[0], b[1], hi1), (a[0], a[1], hi0)]
-                    n = np.cross(np.subtract(v[1], v[0]), np.subtract(v[3], v[0]))
+                    n = cross3(np.subtract(v[1], v[0]), np.subtract(v[3], v[0]))
                     facing = n[0] * wall["outward"][0] + n[1] * wall["outward"][1]
                     put("wall", v, [(0, 1, 2), (0, 2, 3)] if facing > 0
                         else [(0, 2, 1), (0, 3, 2)])
@@ -1056,12 +1086,22 @@ class Building:
         # made another way, opened 713 bodies this morning.
         out = triangle.triangulate(job, "pq30YY")
         pts = out["vertices"]
+        # THE FIELD IS ASKED ONCE, FOR EVERY VERTEX, AND THE MESH IS WELDED ONCE PER VERTEX.
+        # Asked inside the triangle loop it was three evaluations and three `vertex` calls per
+        # face -- 85 073 field evaluations and 656 222 `round`s over forty bodies, 127 ms a
+        # house. A vertex has one height and one weld key whatever it is a corner of.
+        field = roof_field(self.poly, self.roof, self.eaves, self.ridge, self.axis)
+        zs = self.eaves + field.at_many(pts[:, 0], pts[:, 1])
+        held = getattr(self, "_ring_d", None)
+        if held:
+            for k in range(len(pts)):
+                if (round(float(pts[k][0]), 6), round(float(pts[k][1]), 6)) in held:
+                    zs[k] = self.eaves + self._roof_z(float(pts[k][0]), float(pts[k][1]))
+        at = [self.vertex(float(pts[k][0]), float(pts[k][1]), float(zs[k]))
+              for k in range(len(pts))]
         for simplex in out["triangles"]:
             a, b, c = pts[simplex]
-            ids = []
-            for px, py in (a, b, c):
-                z = self.eaves + self._roof_z(float(px), float(py))
-                ids.append(self.vertex(px, py, z))
+            ids = [at[int(simplex[0])], at[int(simplex[1])], at[int(simplex[2])]]
             # counter-clockwise seen from above is outward for a roof
             ax, ay = a
             bx, by = b
@@ -1097,7 +1137,7 @@ class Building:
         got = []
         for (ia, ib, ic) in T[roof]:
             a, b, c = V[ia], V[ib], V[ic]
-            n = np.cross(b - a, c - a)
+            n = cross3(b - a, c - a)
             run = float(np.linalg.norm(n))
             if run <= 1e-12:
                 continue
@@ -1148,7 +1188,7 @@ class Building:
         degenerate, worst = 0, 0.0
         for (ia, ib, ic) in self.tris:
             p, q, r = (np.array(self.vertices[i], dtype=float) for i in (ia, ib, ic))
-            nvec = np.cross(q - p, r - p)
+            nvec = cross3(q - p, r - p)
             ln = float(np.linalg.norm(nvec))
             if ln <= 1e-12:
                 degenerate += 1

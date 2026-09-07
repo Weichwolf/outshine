@@ -29,6 +29,7 @@ import sys
 import time
 
 import numpy as np
+from shapely.ops import unary_union
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -43,6 +44,7 @@ import camera as lab_camera  # noqa: E402
 import geometry  # noqa: E402
 import occlusion  # noqa: E402
 import detail  # noqa: E402
+import vector  # noqa: E402
 import visible  # noqa: E402
 import materials as stock  # noqa: E402
 import street  # noqa: E402
@@ -91,6 +93,8 @@ FINE_ROAD_M = 120.0              # and how far the carriageway carries its weath
 GROUND_RINGS = 72                # a POLAR grid: rings times spokes, so no T-junction and no seam
 GROUND_SPOKES = 96
 GROUND_NEAR_M = 8.0
+FAR_LAND_M = 24000.0             # how far the store's own vector tiles are asked for landcover
+FAR_LAND_ZOOM = 11               # what `versatiles.osm` holds above 14; see `store.reach`
 GROUND_TILT_MOST_DEG = 80.0      # [SET] steeper than any 25 m-posting DEM can carry; see `P ground`
 GROUND_NEEDLE = 1e-3             # [SET] plan area over longest edge squared; under it the normal is noise
 # A CEILING THAT MAY ONLY FALL -- AND IT IS A RATE, because the thing it bounds is a PROPERTY of
@@ -701,6 +705,30 @@ class Baked:
             self.of[role] = (moved, t)
 
 
+PARALLEL_CORES = int(os.environ.get("OUTSHINE_CORES", "0")) or os.cpu_count() or 1
+PARALLEL_LEAST = 24              # below this the pool costs more to start than the work is worth
+_MESH_JOB = None                 # (bodies, lod, fov) -- inherited by fork, never pickled
+
+
+def _mesh_one(at):
+    """ONE BODY, MESHED AND CHECKED, in whichever process picks it up. Returns everything the
+    parent needs and nothing it does not: the arrays, the materials, and the findings.
+
+    WHAT IS BUILT IS CHECKED, and the check runs HERE. The sweep owns the claim about every body
+    in the extract; this owns the claim about every body in the PICTURE, and a body meshed in a
+    child is checked in that child or it is not checked at all."""
+    bodies, lod, fov = _MESH_JOB
+    b = bodies[at]
+    found = []
+    if not b.watertight():
+        found.append(f"B-closed({b.tags.get('name', b.poly.centroid.wkt)})")
+    wrong, degenerate, _ = b.winding()
+    if wrong or degenerate:
+        found.append(f"B-wound({wrong}e,{degenerate}deg)")
+    rung = min(lod, visible.rung_for(math.hypot(b.poly.centroid.x, b.poly.centroid.y), fov))
+    return at, b.body(rung), b.materials(), found
+
+
 def parts_of(place, frame, doc, red, lod=3, camera=None):
     """THE PLACE AS GEOMETRY BY ROLE, which is what a look can be judged from.
 
@@ -771,8 +799,19 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
         return [(v[0], v[1], v[2] - frame.datum) for v in vv]
 
     # WHAT THE GROUND IS, from OSM, with the street already spoken for
-    patches = surfaces.regions(doc, frame, GROUND_REACH_M, street_face)
-    took("surfaces")
+    patches = list(surfaces.regions(doc, frame, GROUND_REACH_M, street_face))
+    # AND THE FAR FIELD, FROM THE ENGINE'S OWN TILES. The extract is an Overpass query on a
+    # RADIUS and the ground now reaches 240 km, so beyond the extract the world was a uniform
+    # green plain where Franconia is forest, farmland, meadow and vineyard -- looked at,
+    # 2026-09-07. A radius cannot fetch that (a hundred and fifty tiles across) and does not need
+    # to: `versatiles.osm` is already on this disk, gridded, at the zoom the distance asks for.
+    near = unary_union([g for (_, g) in patches] + ([street_face] if street_face is not None else []))
+    have, want = vector.held(frame, FAR_LAND_M, FAR_LAND_ZOOM)
+    for role, got in vector.land(frame, FAR_LAND_M, FAR_LAND_ZOOM):
+        cut = got if near.is_empty else got.difference(near)
+        if not cut.is_empty and cut.area > 0:
+            patches.append((role, cut))
+    took(f"surfaces {have}/{want} far tiles")
     over = surfaces.check_no_overlap(patches, street_face)
     if over > 1.0:
         red.append(f"I22 surfaces overlap {over:.1f} m2")
@@ -872,25 +911,34 @@ def parts_of(place, frame, doc, red, lod=3, camera=None):
     for (role, vv, tt) in furniture.from_osm(doc, frame, lambda x, y: frame.z(x, y), BUILT_REACH_M):
         put(f"f.{role}", vv, tt, stuff.get(role) or stock.STOCK["concrete"])
 
-    for at, b in enumerate(bodies):
-        if at not in keep:
-            continue
-        # WHAT IS BUILT IS CHECKED. The sweep owns the claim about every body in the extract;
-        # this owns the claim about every body in the PICTURE.
-        if not b.watertight():
-            red.append(f"B-closed({b.tags.get('name', b.poly.centroid.wkt)})")
-        wrong, degenerate, _ = b.winding()
-        if wrong or degenerate:
-            red.append(f"B-wound({wrong}e,{degenerate}deg)")
-        rung = min(lod, visible.rung_for(math.hypot(b.poly.centroid.x, b.poly.centroid.y),
-                                         camera.fov_deg))
-        mats = b.materials()
-        made = b.body(rung)
-        # THE HEIGHT OVER THIS BODY'S OWN GROUND, per vertex, in the blue channel. It is LINEAR
-        # in z, so it interpolates exactly across a wall quad that runs from the pavement to the
-        # eaves in one step -- and the material does the clamping into a 0.5 m band, which is the
-        # non-linear half no vertex can hold (I23). Carried as a per-material constant instead,
-        # it is what stopped seven thousand parts from ever being batched into one mesh.
+    # SIX CORES, AND THE BODIES ARE INDEPENDENT. Two performance cores and four efficiency ones
+    # on this machine, and the GIL means a thread pool would use exactly one of them for work
+    # that is arithmetic and shapely. A PROCESS pool uses all six, and meshing 1 330 bodies is
+    # what a pool is for: nothing a body builds is read by another one.
+    #
+    # TWO RULES IT MAY NOT BREAK. `CLAUDE.md`: anything assembled from work that ran on more than
+    # one worker is combined in a DECLARED order and never in completion order -- `Pool.imap` with
+    # a chunked map keeps the input's order, so the parts go in exactly as they would have. And
+    # `fork` rather than `spawn`: the children inherit the bodies, the frame and its DEM cache
+    # copy-on-write, so only the finished ARRAYS cross a pipe. Pickling the inputs would cost
+    # more than the pool buys.
+    want = [at for at in range(len(bodies)) if at in keep]
+    global _MESH_JOB
+    _MESH_JOB = (bodies, lod, camera.fov_deg)
+    done = None
+    if len(want) >= PARALLEL_LEAST and not os.environ.get("OUTSHINE_NOPOOL"):
+        try:
+            import multiprocessing as mp
+            with mp.get_context("fork").Pool(PARALLEL_CORES) as pool:
+                done = pool.map(_mesh_one, want, chunksize=max(1, len(want) // (PARALLEL_CORES * 8)))
+        except Exception as why:                       # a pool that will not start is not a defect
+            print(f"    pool refused ({type(why).__name__}: {why}); one core", flush=True)
+            done = None
+    if done is None:
+        done = [_mesh_one(at) for at in want]
+    for at, made, mats, findings in done:
+        for note in findings:
+            red.append(note)
         foot = float(min(v[2] for (vv, _) in made.values() for v in vv)) if made else 0.0
         for role, (vv, tt) in made.items():
             up = np.asarray(vv, dtype=np.float32).reshape(-1, 3)[:, 2]
