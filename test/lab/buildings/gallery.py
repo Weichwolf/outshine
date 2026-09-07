@@ -45,8 +45,17 @@ OUT = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-lab" / "gallery
 # the comb, and those are the rows a viewer rejects in a second.
 #
 # Measured 2026-09-07 on F1-rect, cell 0.5. A row may only ever be lowered.
+#
+# AND p95 IS NOT WHAT THE EYE READS. The barrel's row fell from 23.0 to 6.3 with Shewchuk's
+# quality bound and the picture kept its teeth, looked at the same hour. What an eye reads along
+# an eaves is the ALTERNATION of neighbours, not the average error, and a few per cent of the
+# faces run the whole length of a roof. A neighbour-dihedral oracle was written and thrown away
+# in the same round: it separates a gable's ridge from a comb cleanly (70.0 -> 0.0) and a hip's
+# grat not at all (47.8), because the faces beside a hip are themselves a little off the field.
+# Telling a crease from a comb needs the mesher to SAY which edges are creases, and that is part
+# of the ring-and-spoke surface board:2156 is waiting for, not a heuristic to be guessed at here.
 COMB_MOST_DEG = {
-    "barrel": 23.0, "butterfly": 0.0, "dome": 23.5, "flat": 0.0, "gabled": 0.0,
+    "barrel": 6.3, "butterfly": 0.0, "dome": 23.5, "flat": 0.0, "gabled": 0.0,
     "gambrel": 6.7, "half-hipped": 12.2, "hipped": 0.0, "mansard": 30.4, "onion": 28.8,
     "pyramidal": 0.0, "sawtooth": 0.0, "skillion": 0.0, "spire": 0.0,
 }

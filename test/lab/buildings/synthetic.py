@@ -1045,9 +1045,16 @@ class Building:
         holes = [list(Polygon(r).representative_point().coords)[0] for r in self.poly.interiors]
         if holes:
             job["holes"] = np.array(holes)
-        # 'p' is the planar straight-line graph; no 'q' and no 'a', so Triangle inserts NO point
-        # of its own and the vertex set is exactly the one the roof's height field was sampled on
-        out = triangle.triangulate(job, "p")
+        # 'p' IS THE PSLG, 'q30' IS SHEWCHUK'S QUALITY BOUND AND 'Y' PROTECTS THE BOUNDARY.
+        # The vertex set used to be exactly the sampled one, on the argument that Triangle must
+        # insert nothing of its own -- but every output vertex has its height read from the FIELD
+        # a line below, so a Steiner point is as true as a sampled one. What it buys, measured
+        # 2026-09-07 over the registry on F1-rect: the barrel's faces stand 23.0 degrees off the
+        # surface at p95 and 6.3 with the bound, and p50 falls on every curved shape.
+        # 'Y' IS NOT OPTIONAL. Without it Triangle splits BOUNDARY segments, and a vertex the
+        # roof has on an edge the wall spans as one quad is a T-junction: the same mistake,
+        # made another way, opened 713 bodies this morning.
+        out = triangle.triangulate(job, "pq30YY")
         pts = out["vertices"]
         for simplex in out["triangles"]:
             a, b, c = pts[simplex]
