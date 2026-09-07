@@ -19,6 +19,8 @@ struct TreeLook {
   float LeafLobeDepth = 0.0f;
   float LeafSerration = 0.0f;
   float NeedleWidth = 0.0f;
+  float BarkRoughness = 0.9f;
+  float LeafRoughness = 0.6f;
 };
 
 } // namespace outshine

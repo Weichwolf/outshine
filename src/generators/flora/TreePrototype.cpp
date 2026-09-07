@@ -47,6 +47,8 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   look.BarkDark = sh.BarkDark;
   look.BarkFreq = sh.BarkFreq;
   look.BarkRidge = sh.BarkRidge;
+  look.BarkRoughness = sh.BarkRoughness;
+  look.LeafRoughness = sh.LeafRoughness;
   look.LeafWidth = lf.Width;
   look.LeafWidest = lf.Widest;
   look.LeafTip = lf.Tip;
@@ -94,6 +96,7 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   TreePrototype proto;
   proto.HeightM_ = static_cast<double>(sp.HeightM());
   proto.Look_ = LookOf(sp);
+  proto.Leaf_ = sp.LeafParams();
   proto.Ranks_.resize(static_cast<size_t>(ModelLadder::kLevels));
   double crownProjM2 = 0.0;
 

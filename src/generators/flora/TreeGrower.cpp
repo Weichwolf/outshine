@@ -285,7 +285,9 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
       static_cast<int>(std::lround(Form_.BoleFrac * static_cast<float>(g.TrunkSteps)));
   SeedLeaders(g, bareSteps);
 
-  for (auto t : Queue_) {
+  for (size_t next = 0; next < Queue_.size(); ++next) {
+    if (static_cast<int>(Plant_->Nodes.size()) >= kMostTreeNodes) { break; }
+    auto t = Queue_[next];
     Plant_->Shoots[static_cast<size_t>(t.Shoot)].First = static_cast<int>(Plant_->Nodes.size());
     float leafRoll = t.Roll;
 

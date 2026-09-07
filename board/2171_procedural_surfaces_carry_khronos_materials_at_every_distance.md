@@ -84,3 +84,12 @@ LeafRgb/LeafShape usw. und setzt die Zeilenbreite per static_assert mit kMateria
 gleich. Gleiche Breite bedeutet keine gleiche Semantik wie das Khronos-Materiallayout.
 Bei Integration in den Renderpfad getrennte prozedurale Tree-Parameter und echte MR-
 Materialien für Rinde/Blätter erzeugen. Keine vorhandene Float-Zeile direkt als MR hochladen.
+
+## Erster nativer Baum-Materialpfad
+
+TreeGeometry erzeugt getrennte Material-Objekte für Rinde/Blätter: Metalness 0, lineare
+Artenfarben, Blätter DoubleSided, echte Blattsilhouette statt ungefiltertem Deckungsrechteck.
+TreeSpecies liest bark_roughness/leaf_roughness mit [0,1]-Validierung. Defaults 0.9/0.6 sind
+plausible Startwerte, keine gemessenen artspezifischen Materialdaten. Normal-/Rindenrelief,
+Blatttransmission und saisonale Änderungen bleiben offen. Die neue Fixture prüft getrennte
+Bindungen, explizite Rauheiten und ungültige Eingaben; 11/11 Konventionsfälle grün.

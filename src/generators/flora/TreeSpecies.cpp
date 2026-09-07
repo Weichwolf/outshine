@@ -132,6 +132,13 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   l.CardBudget = NumI(r, "leaf_card_budget", l.CardBudget);
 
   Shading &s = Shading_;
+  s.BarkRoughness = NumF(r, "bark_roughness", s.BarkRoughness);
+  s.LeafRoughness = NumF(r, "leaf_roughness", s.LeafRoughness);
+  if (!(s.BarkRoughness >= 0.0f && s.BarkRoughness <= 1.0f && s.LeafRoughness >= 0.0f &&
+        s.LeafRoughness <= 1.0f)) {
+    Error_ = "bark_roughness and leaf_roughness must be in [0, 1]";
+    return false;
+  }
   s.BarkColor[0] = NumF(r, "bark_r", s.BarkColor[0]);
   s.BarkColor[1] = NumF(r, "bark_g", s.BarkColor[1]);
   s.BarkColor[2] = NumF(r, "bark_b", s.BarkColor[2]);

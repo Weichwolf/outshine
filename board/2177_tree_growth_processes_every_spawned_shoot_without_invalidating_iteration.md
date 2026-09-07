@@ -19,3 +19,16 @@ restore the range-for as negative control. Inspect native geometry PNGs. Existin
 materials/native adapter in 2171/2111 expose this defect and remain separate responsibilities.
 
 Benchmark: bounded growing work queue, no undocumented Unreal/RAGE internal algorithm.
+
+## Implementiert und geprüft
+
+GrowOnce verarbeitet die wachsende Queue per Index, kopiert den Tip vor dem Anhängen und
+beendet die Verarbeitung an der bestehenden Knotengrenze. Native Birke vorher: 372
+Rindendreiecke, keine Blattfläche, Oracle rot (`build/tree-native-suite.log`). Danach:
+272934 Rinden- und 80640 Blattdreiecke auf Rank 3, Blattfläche vorhanden.
+`TreeGeometryUsesNativeMaterials` prüft verzweigte Birke, identischen Repeat der Knoten-
+positionen/Radien und einen absichtlich unverzweigten, unbelaubten Kontrollfall.
+`make suite SUITE=outshine/conventions`: 11/11 PASS, Exit 0,
+`build/tree-native-final-suite.log`. PNG `build/tree-native/birch.png` visuell geöffnet:
+Krone vorhanden, jedoch dünnes Astgewirr und große vereinzelte Blattbüschel. Das ist keine
+akzeptierte Vegetationsqualität. Kapazitäts-Stressoracle bleibt offen, deshalb WI nicht geschlossen.

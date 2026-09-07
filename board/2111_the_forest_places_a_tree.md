@@ -85,3 +85,18 @@ Die neue Fixture benötigte vorab einen korrigierten Rasteraufbau; kein Produkto
 PNG geöffnet: weiterhin keine lesbaren Baumkronen, keine beanspruchte Bildverbesserung.
 Nächster Schritt bleibt Prototypgeometrie + MR-Materialien + echte instanzierte Übergabe,
 danach räumlich vollständige begrenzte Tile-Platzierung. WI bleibt active/offen.
+
+## Native Prototypgeometrie / neues Wachstumsfinding
+
+TreePrototype::GeometryAt(rank) übergibt vorhandene Stammgeometrie und die erzeugte
+Blattmorphologie als native Geometry in Metern, mit getrennten MR-Materialien. Der bisherige
+20-Float-Tree-Parameterblock wird dafür ausdrücklich nicht als Materialzeile verwendet.
+Dies ist die mesherseitige Übergabe, noch keine ringweite instanzierte Renderer-Anbindung.
+Der erste echte Prototyprender fand den Wachstumsfehler 2177; dessen Reparatur lässt eine
+Krone entstehen. Aktueller nativer Render: build/tree-native/birch.png, visuell geprüft.
+
+Nächste notwendige Arbeit: Screen-error-LOD für Äste und räumlich gleichmäßige Blatt-/Kronen-
+Coverage. Rank 3 hat 272934 + 80640 = 353574 Dreiecke pro Birke; für Wald nicht tragbar.
+Die Expansion der Blattfächer in Geometry ist ein funktionsfähiger nativer Mesher, aber kein
+Ersatz für geteilte Prototyp-/Blattdaten und budgetierte Instanzen. Diese großen Prototypen
+nicht ungeprüft pro Baum in den Piece-Pool kopieren. Regionsframe/Tile-Streaming weiter offen.

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "scene/Material.h"
+#include "scene/Geometry.h"
 #include "TreeLook.h"
 #include "TreeSpecies.h"
 
@@ -30,6 +31,8 @@ public:
   static std::optional<TreePrototype> Grow(const TreeSpecies &species);
 
   static TreeLook LookOf(const TreeSpecies &species);
+
+  [[nodiscard]] std::optional<Geometry> GeometryAt(size_t rank) const;
 
   enum Row : int {
     BarkRgb = 0,
@@ -71,6 +74,7 @@ private:
   TreeLook Look_;
   Crown Crown_;
   double HeightM_ = 0.0;
+  TreeSpecies::Leaf Leaf_ = TreeSpecies::kLeafUnsaid;
 };
 
 } // namespace outshine::Generators

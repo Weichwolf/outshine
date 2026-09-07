@@ -29,3 +29,13 @@ Fernvegetation erhält Kronenvolumen und Coverage, nahe Blattgeometrie ein Overd
 
 Wahl: Cesium-artiger Fehlervertrag, Unreal-HLOD als Clusterkonzept; RAGE visuelle Distanzleiter.
 Kein Hardware-Nanite-Versprechen, da SDL_GPU die verwendbaren Mechanismen vorgibt.
+
+## Konkreter Baum-LOD-Befund
+
+Nativer Birkenrender nach 2177: selbst Rank 3 hält 272934 Rinden- und 80640 Blattdreiecke.
+TreeMesher::Draw entscheidet Astpräsenz nach Shoot.Reach, also Reichweite statt projizierter
+Dicke/Abweichung; viele subpixelbreite Äste bleiben. TreePrototype reduziert Blattanker durch
+stride = 16 << (2*rank) und vergrößert Blattfächer über LAI-Erhaltung. Im PNG bleiben dadurch
+wenige große Büschel. Erforderlich: konservativer Silhouetten-/Coveragefehler, räumliche
+Aggregation statt bloßem Index-Stride, gefilterte Ferndarstellung ohne riesige Einzelblätter.
+Messartefakt build/tree-native/birch.png; Aufbaukosten/Overdraw plus Waldinstanzkosten separat.

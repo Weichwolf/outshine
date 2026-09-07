@@ -127,6 +127,8 @@ public:
     int BarkStyle;
     Vec3f LeafTint;
     float WindAmp, WindFreq;
+    float BarkRoughness;
+    float LeafRoughness;
   };
 
   static constexpr Shading kShadingUnsaid = {
@@ -138,6 +140,8 @@ public:
       .LeafTint = {{1.0f, 1.0f, 1.0f}},
       .WindAmp = 0.012f,
       .WindFreq = 1.6f,
+      .BarkRoughness = 0.9f,
+      .LeafRoughness = 0.6f,
   };
 
   [[nodiscard]] bool Parse(const char *text, size_t len);
