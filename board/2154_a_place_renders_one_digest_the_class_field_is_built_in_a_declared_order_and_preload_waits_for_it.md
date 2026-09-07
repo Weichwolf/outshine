@@ -5,6 +5,21 @@ Tags: determinism, owner, audit
 
 # A place renders ONE digest: the class field is built in a declared order and preload waits for it
 
+## Verbindlicher Audit-Nachtrag, 2026-09-07
+
+Der neue all-nine-Lauf ergibt Koerbersee 53e84b69, Malcesine 46e4db5c, Feldkirch 297a9d23.
+Der vorangegangene Slope-Lauf hatte c99cdbe7/eda034e3/5fa234c1. Das ist beobachtete
+Digestabweichung, noch kein Beweis für Scheduling als einzige Ursache: Providerantworten,
+Cacheinhalte und zeitabhängige Seeds waren nicht vollständig als Inputmanifest eingefroren.
+2169 konserviert diesen Lauf; 2170/2172 liefern deklarierte Kamera-/Wettereingänge.
+Providerbytes/Generation-Versionen/Seeds hashen, identisches Replay wiederholen; dann
+Arrival-order, Coplanar-Ties und unsortierte Klassifikation isolieren. Vergleich gegen andere
+lebende Providerdaten ist kein Determinismusoracle. Offener Befund, nicht grün melden.
+
+Die folgenden älteren Messungen bleiben historische Evidenz; widersprechende Planannahmen
+sind durch diesen Nachtrag ersetzt.
+
+
 **Benchmark** -- Unreal's automation compares screenshots bit for bit and calls a wandering one
 a streaming bug; RAGE's replay plays a drive back frame for frame. CLAUDE.md's fourth invariant:
 anything assembled from work on more than one thread is combined in a DECLARED order. Measured

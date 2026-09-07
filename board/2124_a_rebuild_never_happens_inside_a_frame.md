@@ -5,6 +5,20 @@ Tags: measured, performance, owner
 
 # A rebuild never happens inside a frame, and the ring recentres by what changed
 
+## Verbindlicher Audit-Nachtrag, 2026-09-07
+
+Der neue Stilllauf steht in 2169; er überprüft den bewegten Rebuild nicht. Diese offene
+Arbeit blockiert die Echtzeitabnahme. Graph/Alignment/Render-/Kontaktprodukte (2101/2133/2175)
+getrennt versionieren und halten. Worker-Jobs nur für geänderte Tiles plus Randabhängigkeiten;
+persistente Cluster-/Instanzbereiche, begrenzte Uploads und atomarer Snapshot-Wechsel.
+Eine fahrende Kamera darf Graph/Physik nicht mit jeder visuellen LOD neu bauen.
+Abnahme zusätzlich an Tunnelportal, Brückenrampe und gestapeltem Knoten; Sim/Render/Physics
+müssen dieselbe Strukturversion sehen. 2092 misst den vollständigen Übergang.
+
+Die folgenden älteren Messungen bleiben historische Evidenz; widersprechende Planannahmen
+sind durch diesen Nachtrag ersetzt.
+
+
 **Benchmark** -- Unreal streams asynchronously (`FIoDispatcher`, level streaming builds
 off-thread and registers the result) and never blocks a frame on it; RAGE's streaming threads sit
 beside `sysTaskManager` for the same reason. **Both agree**, and CLAUDE.md's fourth invariant

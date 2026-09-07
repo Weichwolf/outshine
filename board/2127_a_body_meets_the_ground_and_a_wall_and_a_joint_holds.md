@@ -6,6 +6,20 @@ Supersedes: 2118
 
 # A body meets the ground and a wall, and a joint holds
 
+## Verbindlicher Audit-Nachtrag, 2026-09-07
+
+Transport-Aufteilung: logische Route in 2133, räumliches Alignment und Bauwerke in 2175,
+Physikkontakt hier. Eine 2D-Karte ersetzt weder begehbare Flächen noch Deck-/Tunnel-/Wandkontakt.
+Kollisions-LOD unabhängig vom Render-LOD, stabile Surface-/Structure-ID und Atomizität beim
+Streaming. Analytischer Lane-Follower ist kein Ersatz für Rigid-body-Kollision; der behauptete
+Jolt-Adapter ist separat nachzuweisen. Gleis, Brückenober-/unterseite, Tunnelportal/-decke,
+Treppe und Fußgängerverbindung testen. Ein Auto darf keinen XY-Snap auf die untere Straße
+machen. Zentimetergenauigkeit gegen das erklärte Alignment, nicht gegen unbekannte Realität.
+
+Die folgenden älteren Messungen bleiben historische Evidenz; widersprechende Planannahmen
+sind durch diesen Nachtrag ersetzt.
+
+
 **Benchmark** -- RAGE: `phInst` carries a `phBound` -- a SEPARATE, coarse collision body: the
 terrain is a heightfield bound, a building is a handful of extruded convex prisms -- and
 `phSimulator` resolves contacts and constraints each step. Unreal: `FBodyInstance` over Chaos,

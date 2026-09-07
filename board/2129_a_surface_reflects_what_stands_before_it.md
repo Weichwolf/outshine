@@ -1,55 +1,33 @@
 Type: feature
 State: open
-Area: render
-Tags: architecture, look, owner
+Area: world, render
+Tags: webcam, measured
+Depends: 2145, 2167
 
-# A surface reflects what stands before it
+# Water and rough surfaces reflect the generated world
 
-**Benchmark** -- Unreal: reflection captures (sphere and box probes) blended per pixel, screen-
-space reflections over them, planar reflections for water and mirrors, Lumen's reflection ray
-where the hardware allows. RAGE: cube-map reflection probes per interior and a global sky probe,
-screen-space reflections on wet roads, planar reflection for the sea. **Both agree** on the
-ladder: a probe answers what the screen cannot see, the screen answers what the probe has too
-coarsely, and a plane answers a plane. Where they differ is only how many rungs the budget buys.
+## IST / Umsetzung
 
-**Cited beside the two**: Filament's `IndirectLight` is a prefiltered cube map read by the
-specular lobe per roughness (`cmgen`), and its screen-space reflections read the depth and
-colour of the previous frame -- both readable, both on phones. The probe rung here is Filament's
-`IndirectLight` with the sky replaced by a capture.
+Husum, Wien, Koerbersee und Malcesine zeigen fast strukturlose dunkle Wasserflächen;
+die Fotos spiegeln Himmel/Ufer/Berge. Die zu spiegelnde Welt ist die generierte Sandbox.
 
-**And the target has ray-tracing hardware.** A18 Pro traces rays in hardware (Metal 3 ray
-tracing); Unreal's Lumen uses hardware RT for reflections where it exists. The ladder here gains a
-rung: the NEAR field reflects by a ray at quarter resolution against the pool's geometry (one
-acceleration structure over the pieces, rebuilt per tile), SSR stays the fallback, the probe
-answers the far field. Measured at 720p before SSR is written, because a rung that costs more
-than it saves is not built.
+1. WaterBody-Geometrie aus 2145 erhält dielektrisches Fresnel, Absorption/Transmission,
+   Tiefe und wind-/Fetch-abhängige mehrskalige Normalen. Ufer-/Fließschaum nur wo begründet.
+2. Prefiltered Sky/local probes als vollständiger Fallback; günstiges SSR mit Depth-Pyramid,
+   Thickness-/Validity-Test und zeitlicher Reprojektion ergänzen. Off-screen-Lücken dürfen
+   nicht schwarz werden; Wasserbewegung in der Reprojektion berücksichtigen.
+3. Für dominante ebene Wasserfläche begrenzten Planar-View mit Oblique-Clipping,
+   gespiegelter Kamera/Winding, reduziertem LOD und Updatebudget erproben. Eine Fläche
+   darf nicht die gesamte Welt pro Frame nochmals in voller Qualität zeichnen.
+4. Roughnessabhängiger Übergang; transparente/gläserne und nasse Materialien nutzen
+   denselben IBL-Vertrag. Keine Rekursion und keine doppelte Reflexionsenergie.
 
-## Where it stands, measured 2026-09-04
+- [ ] Spiegelobjekt außerhalb des Hauptbildes bleibt über Fallback/Planar plausibel;
+      falsche Planenlage/Clip-Ebene scheitert an geometrischem Spiegeloracle.
+- [ ] Husum vertikale Kaimauer/Fronten; Malcesine Berge/Halbinsel; Koerbersee dunklerer
+      kleiner See; Windreihe und Kamerafahrt auf Ghosting/Flicker prüfen. Keine exakten Wellen.
+- [ ] Jede Stufe einzeln zeitlich und visuell vergleichen; 2092 misst den Gesamtrender.
 
-```
-  grep -rni 'reflection|probe|planar' src/render     0 hits that are a pass
-```
-
-The renderer has a sky irradiance stage and a specular lobe that reads the SKY, and nothing that
-reflects the WORLD: a wet street shows sky and no lamp, a lake shows sky and no mountain, glass
-shows sky and no city. CLAUDE.md names *reflections and mirroring* fifth of the five things the
-budget is laid out for.
-
-## What will be true
-
-- [ ] A PROBE: a cube map captured at a declared place, filtered per roughness, read by the
-      specular lobe in place of the sky where a probe stands
-- [ ] SCREEN-SPACE reflection over the probe, from the depth pyramid the cull already builds
-      (`DepthPyramidStage`), so what the screen sees reflects at full detail
-- [ ] A PLANE for water: the water generator's surface reflects the scene mirrored about its
-      plane, because a lake is the one case where the other two rungs are visibly wrong
-- [ ] Each rung has a picture in `make shots` where it is the difference -- a lake at Jura, a wet
-      street at Kaiserberg -- looked at before its number is believed
-- [ ] The frame holds 16.7 ms at p99 with all three on at the 720p target
-- [ ] Negative control: switch the plane off and the lake's picture moves in the water and
-      nowhere else
-
-## What will show I was wrong
-
-If the screen-space rung costs more than the probe saves at 720p, the ladder has two rungs on
-this target and the item records the measurement that decided it.
+Wahl: [Filament IBL](https://google.github.io/filament/dup/iblprefilter.html) plus gemessene
+SSR/Planar-Stufen wie in öffentlich dokumentierten Echtzeitrenderern. RAGE nur Bildbenchmark.
+Die frühere Metal-RT-Forderung entfällt: Hardwarefähigkeit ist kein SDL_GPU-API-Vertrag.

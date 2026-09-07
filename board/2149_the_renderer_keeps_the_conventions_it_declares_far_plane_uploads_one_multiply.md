@@ -5,6 +5,20 @@ Tags: owner, audit
 
 # The renderer keeps the conventions it declares: the far plane a view asks for, one transfer buffer per stream, one matrix multiply
 
+## Aktueller Stand des Webcam-Audits, 2026-09-07
+
+Dieser Abschnitt ersetzt widersprechende Statusangaben der folgenden Chronik.
+12ceb790 enthält die reparierte endliche/unendliche/orthografische Projektion und explizite
+Column-major-Matrixkonvention; die Runtime-Shader sind GLSL (2152). Alte MSL-Pfade und
+Row-Namensbefunde sind historische Hinweise. Verbleibende Transferbuffer-/Jitter-/Output-
+Verträge getrennt am aktuellen Pfad nachweisen; 2171 besitzt Instance-/Materialkonformität.
+Der frühere Vergleich 1,8 % gegen 16 % zwischen unterschiedlichen Flächen ist kein gültiger
+universeller Sollwert: Normalen, Sichtbarkeit, direkte Einstrahlung, BRDF und Tone-Mapping
+unterscheiden sich. 2167 prüft kontrollierte lineare Lichtbeiträge statt diese Quote zu erzwingen.
+Aktueller Bild-/Arbeitsindex: 2169. Keine alten Shaderdigests als Bedingung für einen
+physikalischen Fix; unveränderte Eingaben plus unabhängiges Konventionsoracle entscheiden.
+
+
 **Benchmark** -- Filament and Unreal: a view's far plane is the view's; a per-frame upload
 goes through a persistent, cycled transfer buffer (SDL3's `cycle = true` on a retained
 buffer, exactly what this tree does at GroundLattice.cpp:505); a matrix multiply exists

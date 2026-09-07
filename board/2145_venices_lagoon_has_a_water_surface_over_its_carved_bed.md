@@ -1,50 +1,40 @@
 Type: bug
 State: open
-Area: engine, world
-Tags: measured, owner
+Area: world, render
+Tags: webcam, measured
+Depends: 2121, 2173
 
-# Venice's lagoon has a water surface over its carved bed
+# Water bodies have coherent levels, valid surfaces and constructed banks
 
-**Benchmark** -- Unreal's `WaterBodyOcean`/`WaterBodyLake` carve the landscape AND stand a
-water mesh at the declared level; RAGE's water is a plane per body over a carved bed. **Both
-agree** a water body is two things, a bed and a lid, and neither draws one without the other.
+## IST
 
-## Where it stands, seen 2026-09-05
+Die frühere pauschale Diagnose „kein Deckel“ ist nicht mehr haltbar. `Laying.cpp` erzeugt
+Wasserflächen; im vorigen Diagnosebestand Husum 220 Flächen/2998 Dreiecke, Malcesine
+58/1874. Der genutzte Fan-Pfad ist gegen konkave Polygone/Löcher zu prüfen; ein vorhandener
+Earclip-Helfer beweist nicht dessen Verwendung. Aktuelle Bilder zeigen dunkle Wasserflächen,
+gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
 
-`build/shots/reference/Venice-96bbca8d.png`: the lagoon at the lower left shows the CARVED
-BED (the basin yield of board:2115 pressed it, batter walls and all) and no lid; the sea in
-the distance has its plane. So the body reached the press as a `Stamp::Basin` yield
-(`Laying.cpp`, `WaterBodies().Surfaces()`) and did not reach the lid pass (`Laying.cpp`, the
-water surfaces after the press) -- one of the two walks refuses it: the lid's
-`last > points.size()` guard, a ring too large for its buffer, or a multipolygon whose outer
-ring the lid pass never sees while the basin pass does.
+## Implementierung
 
-## The solution
+- Ein WaterBody-Modell für Geometrie, Niveau/Datum, Outer-/Inner-Ringe, Bed und Bank.
+  Polygon-Clipping/Triangulation für konkave Multipolygone und Inseln; Tilegrenzen teilen IDs.
+- Niveau für See zusammenhängend; Fluss längs stetig mit plausibler Falllinie, Meer mit
+  deklariertem Referenzniveau. Zeitabhängige Pegel nur aus vorhandenen Daten oder ausdrücklich
+  simuliert, niemals als exakter beobachteter Wasserstand behaupten.
+- OSM-Quai/Stützmauer als Wand mit Oberkante, Fundament und Material; natürliche Böschung
+  separat. Basin-Press-Apron nicht pauschal zum sichtbaren Ufer machen. Höhenänderungen begrenzen
+  und mit Quelle protokollieren; gültigen Berg nicht an den See-Level ziehen.
+- Derselbe ausgeschnittene Wasserkörper beliefert Bed, Surface und 2129; Unterschiede nach
+  Ablehnungsgrund zählen. Wasser unter Brücken erhalten; Straße nicht auf Wasserniveau pressen.
 
-Publish per body which of the two passes took it and why not (`water: bodies carved`,
-`water: bodies lidded`, `water: bodies refused a lid, by reason`); the difference is the
-defect and names its own repair. A body carved and not lidded is then a case with a red
-oracle, not a picture somebody notices.
+## Abnahme
 
-## What will be true
+- [ ] Konkaver See mit Insel, Fluss über Tilegrenze, Hafen mit Brücke: keine Landüberdeckung,
+      fehlende Surface oder Höhensprünge. Absichtlich falscher Ring erzeugt lokalen roten Befund.
+- [ ] Husum ohne Treppen/Bänder im Wasser; Malcesine ohne künstlichen Uferkamm;
+      Koerbersee hat eine durchgehende Oberfläche. Venice-Regression zusätzlich erhalten.
+- [ ] Water-ID/Bed/Surface-Counter und Querschnitte erklären jeden Unterschied. Reflexion
+      separat in 2129 abnehmen; geometrische Korrektheit nicht aus dunkler Farbe ableiten.
 
-- [ ] Venice's reference shows water over the lagoon's bed; the digest moves with its count,
-      its window and the picture in the item
-- [ ] `water: bodies carved` equals `water: bodies lidded` at every reference place
-- [ ] Negative control: the lid pass switched off makes the two counts differ by every body
-
-## The webcam corpus shows the same defect on two more waters, 2026-09-07
-
-Measured against the photographs, looked at in the frames:
-
-- **Husum**: the harbour basin is a STAIRCASE. The surface follows the DEM's quantised bed in
-  shelves with hard risers instead of standing flat at one level, and the quay beside it is a
-  stepped ramp rather than a wall with a face. In the photograph the basin is one plane with the
-  town reflected in it
-- **Malcesine**: where Lake Garda meets the far shore the waterline is a vertical SAW-TOOTH comb,
-  a row of dark stripes the full height of the bank. The lake's surface and the terrain are cutting
-  each other rather than one lidding the other
-
-Both are the same rule this item states -- a body of water is a SURFACE at one level over a bed --
-and both are visible from a camera position a photograph can be laid against, which Venice's
-overhead view could not show. Whatever fixes the lagoon is checked at these two.
+Wahl: getrennte Wasseroberfläche und Geländeform wie öffentliche Unreal-Water-Konzepte;
+RAGE ist visuelle Referenz. Ein Deckel allein behebt keine falsche Uferkonstruktion.

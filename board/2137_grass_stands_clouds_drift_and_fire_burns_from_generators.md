@@ -2,9 +2,23 @@ Type: feature
 State: open
 Area: generators, render, engine
 Tags: architecture, look, owner
-Depends: 2126, 2128
+Depends: 2126, 2123
 
 # Grass stands, clouds drift and fire burns -- from generators, lit by the engine
+
+## Verbindlicher Audit-Nachtrag, 2026-09-07
+
+Wolken besitzen ausschließlich 2140/2172; dieses WI besitzt bodennahe Streuvegetation,
+Gras/Steine/Unterwuchs sowie Feuer-/Partikelgeneratoren. 2111 repariert zuerst den sichtbaren
+Baumpfad. Seeds in Weltkoordinaten, Surface-/Nutzungsmasken und Gebäudefreiräume; Mikrodetail
+unter einem Pixel in gefilterte Materialwirkung überführen. Wind/Feuchte/Saison aus 2172,
+Shadows/Blattlicht aus 2128/2171 integrieren. Koerbersee und Olympiaturm auf plausible
+Bodenbedeckung, Overdraw und Bewegung prüfen. Feuer bleibt Sandbox-Funktion ohne Forderung,
+dass es in der Webcam vorhanden sein muss. Keine doppelte Cloud-Implementierung.
+
+Die folgenden älteren Messungen bleiben historische Evidenz; widersprechende Planannahmen
+sind durch diesen Nachtrag ersetzt.
+
 
 **Benchmark** -- Unreal: grass is the Landscape grass system (instanced, density from the
 class layer, streamed in cells), clouds are Volumetric Clouds (a noise volume ray-marched in

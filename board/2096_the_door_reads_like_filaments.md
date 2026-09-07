@@ -5,6 +5,17 @@ Tags: measured, door
 
 # A reader who knows Filament finds every door name where Filament puts it
 
+## Aktueller Stand des Webcam-Audits, 2026-09-07
+
+Dieser Abschnitt ersetzt widersprechende Statusangaben der folgenden Chronik.
+12ceb790 repariert Kamera-/Lichtkonventionen, Orthographic-View-Richtung, quadratischen
+Spot-Falloff und die GPU-Sky-Irradiance-Anbindung. Terrain-Median/MAD ist inzwischen
+nachweislich schädlich für gültiges Relief und entfernt (2166); es ist nicht mehr bloß
+unbewiesen. Aktuelle offene Grenze: native Material-/Map-/Alpha-Vollständigkeit und
+Instance-Transformationen (2171), Höhen-Datum/Kamerakalibrierung (2170), weitere API-
+Konventionsprüfung. 2169 ist der aktuelle Umsetzungseinstieg; keine pauschale Konformitätszusage.
+
+
 **Benchmark** -- Unreal answers this with a prefix system and one class per file (`UWorld`,
 `AActor`); RAGE with a two-letter subsystem prefix on every type (`grcTexture`, `fwEntity`).
 The two agree on the property and differ on the mechanism, and this tree takes the third that
