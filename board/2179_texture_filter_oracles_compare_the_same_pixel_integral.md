@@ -86,3 +86,17 @@ getrennte Dreiecke; die Prüfung überlebt die Freigabe der ersten Gruppe bei
 weiter sichtbarer Nachbargeometrie. Das ist eine Übergabeprüfung, kein Nachweis
 für fertigen Wald oder fotorealistische Places. Die Schach-PNG wurde ebenfalls
 geöffnet; die kleinen Kanalabweichungen sind damit noch nicht ursächlich erklärt.
+
+## Feste Mip-Stufe als Negativkontrolle, 2026-09-08
+
+`build/shared-piece-fixed-lod-probe.log`: ausschließlich den Unlit-Farbtap auf
+textureLod(..., 0) gestellt, Occlusion aktiv gelassen. Schachbrett: dreimal null
+abweichende Farbkanäle und Tiefenwerte. Die Suite endet dennoch korrekt rot
+(Exit 2, 17/18 PASS): NativeMipImagesReachTheRenderer verliert das geforderte
+Pixelintegral. Beide PNGs wurden geöffnet; der minifizierte Checker zeigt wieder
+Streifen. Die feste Stufe ist zurückgenommen, keine Produktlösung.
+
+Damit ist der Wiederholungsfehler mipabhängig. Die bisherigen Messungen erklären
+noch nicht, ob veränderte Ableitungen oder die nachgelagerte Abtastung entscheidend
+sind. Nächste Probe: UV-Ableitungen selbst als Float-Ausgabe vergleichen, bevor
+Interpolation, Texturzugriff oder Occlusion geändert werden.
