@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Area: world, render
 Tags: webcam, measured
 Depends: nothing
