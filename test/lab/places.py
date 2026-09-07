@@ -88,13 +88,17 @@ _REACH = float(os.environ.get("OUTSHINE_REACH", "0") or 0)
 BUILT_REACH_M = _REACH * 3.6 if _REACH else 2500.0   # buildings: as far as the lens resolves one
 ROAD_REACH_M = _REACH or 700.0   # roads: one convex solve over the extract, and it grows with it
 FINE_ROAD_M = 120.0              # and how far the carriageway carries its weathering rows
-GROUND_REACH_M = 12000.0         # terrain: far enough that the world does not END inside the frame
 GROUND_RINGS = 72                # a POLAR grid: rings times spokes, so no T-junction and no seam
 GROUND_SPOKES = 96
 GROUND_NEAR_M = 8.0
 GROUND_TILT_MOST_DEG = 80.0      # [SET] steeper than any 25 m-posting DEM can carry; see `P ground`
 GROUND_NEEDLE = 1e-3             # [SET] plan area over longest edge squared; under it the normal is noise
-GROUND_NEEDLES_MOST = 32         # a CEILING that may only fall: the CDT is run without `q` on purpose
+# A CEILING THAT MAY ONLY FALL -- AND IT IS A RATE, because the thing it bounds is a PROPERTY of
+# the triangulation and not of one mesh's size. Declared as an absolute 32 it went red the moment
+# the ground reached 240 km instead of 12 and grew from 17 531 faces to 28 949, while the needles
+# per face FELL from 0.183 % to 0.128 %. A check that pins a number where the property is a rate
+# is mis-specified, and CLAUDE.md says the CHECK changes.
+GROUND_NEEDLE_RATE = 0.00183     # measured 2026-09-07: 32 of 17 531. It reads 0.128 % today
 BUILT_MOST = 40000               # [SET] a guard against a runaway extract, not a quality knob
 
 WALL_COLOUR = {"brick": (0.62, 0.46, 0.40), "stone": (0.72, 0.70, 0.65),
@@ -146,6 +150,14 @@ def client_places():
 
 
 PLACES, CAM = client_places()
+
+# THE GROUND REACHES AS FAR AS THE CLIENT SAYS IT SEES, and the number is the client's own:
+# `kSightM`, 240 km (`Laying.cpp:400`). At 12 km the world ENDED inside the frame -- a dark band
+# across the horizon that reads as a sea, looked at 2026-09-07 over Rothenburg. The fan's radii
+# are geometric, so reaching twenty times further costs nothing at all: the same 72 rings and 96
+# spokes, with `q` growing from 1.107 to 1.153. What it does cost is DEM tiles, and that is what
+# `Frame.rung` answers.
+GROUND_REACH_M = CAM["kSightM"]
 
 
 def camera_for(place):
@@ -228,12 +240,40 @@ class Frame:
     `agl_m` mean what the client means by it -- the client samples the height and stands 60 m over
     it, and a twin measuring from the geoid would put the eye underground in Bern."""
 
+    # THE GROUND IS A CASCADE, WHICH IS WHY IT CAN REACH THE HORIZON AT ALL. `LayPatchwork` lays
+    # 4 tiles at the finest zoom and doubles the span with every level one zoom coarser, so the
+    # engine holds `kSightM` -- 240 km, `Laying.cpp:400` -- for a cost per level rather than per
+    # square metre. The lab's polar fan already grades that way by construction; what it did NOT
+    # do was READ the DEM that way, and sampling 240 km at zoom 14 is a hundred and fifty tiles
+    # across. One rung coarser per doubling of the distance, which is the rule `Generate.h`
+    # states for everything standing on the ground as well.
+    FINEST_ZOOM = DEM_ZOOM
+    COARSEST_ZOOM = 8          # what the engine's store actually holds at the top; see store.py
+
     def __init__(self, place):
-        self.dem = roaddata.Dem(zoom=DEM_ZOOM)
         self.lat0, self.lon0 = place["lat"], place["lon"]
+        self.dems = {}
+        self.dem = self._dem(self.FINEST_ZOOM)
         self.per_lat = 111132.0
         self.per_lon = 111320.0 * math.cos(math.radians(self.lat0))
         self.datum = float(self.dem.at(self.lat0, self.lon0))
+
+    def _dem(self, zoom):
+        got = self.dems.get(zoom)
+        if got is None:
+            got = self.dems[zoom] = roaddata.Dem(zoom=int(zoom))
+        return got
+
+    def rung(self, away_m):
+        """The zoom to read the ground at, `away_m` from the eye. The finest posting is 6.2 m at
+        zoom 14 and this latitude; a rung coarser doubles it, and the fan's own ring spacing
+        grows the same way, so the two stay matched all the way out."""
+        if away_m <= self.NEAR_FINE_M:
+            return self.FINEST_ZOOM
+        steps = int(math.log2(away_m / self.NEAR_FINE_M))
+        return max(self.COARSEST_ZOOM, self.FINEST_ZOOM - steps)
+
+    NEAR_FINE_M = 400.0        # [SET] out to here the finest rung, which is the built reach
 
     def xy(self, lat, lon):
         return ((lon - self.lon0) * self.per_lon, (lat - self.lat0) * self.per_lat)
@@ -246,7 +286,8 @@ class Frame:
     LOWEST_M, HIGHEST_M = -500.0, 9000.0
 
     def z(self, x, y):
-        got = float(self.dem.at(self.lat0 + y / self.per_lat, self.lon0 + x / self.per_lon))
+        lat, lon = self.lat0 + y / self.per_lat, self.lon0 + x / self.per_lon
+        got = float(self._dem(self.rung(math.hypot(x, y))).at(lat, lon))
         if not (self.LOWEST_M <= got <= self.HIGHEST_M):
             raise RuntimeError(f"the ground at ({x:.0f}, {y:.0f}) reads {got:.1f} m, which is not "
                                f"a place on Earth -- a no-data tile is not a height")
@@ -966,8 +1007,9 @@ def one(place):
                 red.append(f"P ground({role} tilt {tilt.max():.0f} deg, "
                            f"{int((tilt > GROUND_TILT_MOST_DEG).sum())} faces)")
                 break
-        if needles > GROUND_NEEDLES_MOST:
-            red.append(f"P needle({role} {needles} of {int(live.sum())})")
+        rate = needles / max(int(live.sum()), 1)
+        if rate > GROUND_NEEDLE_RATE:
+            red.append(f"P needle({role} {needles} of {int(live.sum())}, {rate * 100:.3f} %)")
             break
     OUT.mkdir(parents=True, exist_ok=True)
     shot = OUT / f"{place['name']}.png"
