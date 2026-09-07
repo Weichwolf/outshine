@@ -1,6 +1,6 @@
 # The generator SELECTS by specificity, BUILDS from templates, and RECONCILES under invariants
 
-**State:** open · **Waits on:** nothing · **Raised:** 2026-09-06, by the question "why not a template engine?"
+**State:** open · **Lab rank:** 9 · **Waits on:** board:2156 · **Raised:** 2026-09-06, by the question "why not a template engine?"
 
 ## The proposal, and what is right about it
 
