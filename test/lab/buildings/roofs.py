@@ -29,7 +29,11 @@ def register(name, *, revolution=False, needs_axis=False, c_kind=None, crease=""
 
         `axis`      the bend is the ridge line, along the long axis through the centroid
         `skeleton`  the bends are the level sets of the distance to the boundary, so every
-                    inward offset the mesher builds is one of them
+                    inward offset the mesher builds is one of them. MEASURED AND NOT USED: over
+                    Rothenburg's 5 709 bodies it closed none and opened 80, because two nested
+                    offsets of a real footprint touch and a constraint through the touch point
+                    is a constraint the triangulation cannot honour. The `axis` crease closed
+                    184 in the same measurement, which is why it stands
         ``          the surface is smooth or flat and has no bend at all
     """
     def take(fn):
@@ -90,13 +94,13 @@ def _flat(c):
     return 0.0
 
 
-@register("pyramidal", crease="skeleton", revolution=True, c_kind=None,
+@register("pyramidal", revolution=True, c_kind=None,
           note="the apex over the centroid: the distance function normalised by its own maximum")
 def _pyramidal(c):
     return c.rise * c.d / max(c.inradius, 1e-6)
 
 
-@register("hipped", crease="skeleton", c_kind="Hip",
+@register("hipped", c_kind="Hip",
           note="one pitch off every edge; its ridge set IS the straight skeleton")
 def _hipped(c):
     return min(c.d * math.tan(c.pitch), c.rise)
@@ -114,7 +118,7 @@ def _skillion(c):
     return c.rise * (signed + c.half_v) / max(2 * c.half_v, 1e-6)
 
 
-@register("mansard", crease="skeleton", c_kind="Mansard",
+@register("mansard", c_kind="Mansard",
           note="two pitches in series off the EDGE: steep to 0.6 of the rise, then shallow")
 def _mansard(c):
     steep_t = math.tan(math.radians(70.0))

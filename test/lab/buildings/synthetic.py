@@ -869,7 +869,7 @@ class Building:
         # `axis` means the only bend is the ridge, and the offsets then CROSS it -- a PSLG cannot
         # hold two segments that cross -- so for those shapes the offsets do not go in at all and
         # the ridge line does.
-        bend = roofs.crease(self.roof)
+        bend = "" if __import__('os').environ.get("OUTSHINE_NOCREASE") else roofs.crease(self.roof)
         d = 0.0
         last = 0.0
         if bend != "axis":
