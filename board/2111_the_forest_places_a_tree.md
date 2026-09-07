@@ -12,6 +12,38 @@ Die neun Render zeigen praktisch keine lesbare Baumvegetation, besonders auffäl
 Koerbersee, Wien, Olympiaturm und Feldkirch. Frühere Logs meldeten `flora placed 0`;
 die damals vermutete Cover-/Region-Frame-Differenz ist keine neu bewiesene Ursache.
 
+## Diagnose auf dev/codex, 2026-09-07
+
+`make shots PLACE='--measures Koerbersee'`, `build/forest-diagnosis.log`, Exit 0.
+Asking veröffentlicht jetzt sämtliche vorhandenen Yield-Notes und Full-Claims.
+Koerbersee-53208246.png geöffnet: weiterhin keine lesbaren Baumkronen; p99 7,26 ms,
+0/120 Standframes über 16,67 ms. Digestabweichung trotz rein diagnostischer Änderung
+unterstreicht 2154; sie ist kein visueller Fortschritt.
+
+| gemessen | Wert |
+|---|---:|
+| Gebäude platziert | 11 |
+| Flora platziert | 4085 |
+| Region gesamt | 11 + 4085 = 4096 |
+| Flora Full-Claims | 1 |
+| erzeugte Draw-Instanzen, alle Generatoren | 4096 |
+| Flora noTemplate / zeroDensity / densityDraw | 516 / 29461 / 127462 |
+| Flora noSpecies / aboveTreeline | 0 / 0 |
+
+Damit ist die frühere pauschale Null-Platzierungsdiagnose für diesen aktuellen Ort widerlegt.
+Quellpfad geprüft: `Asking.cpp` schreibt `World.Instances`; eine Suche über `src/` findet
+keinen Übergabe-/Renderer-Leser dieses Vektors. `World.Instanced` zählt lediglich dessen Größe.
+`Shipping::Stands` liest Arten, erzeugt aber nur Stem-Höhen und `ForestDraw(ClusterId{0},
+stems.front().HeightM)`; kein TreePrototype-Mesh wird dort gebaut/registriert. Ein blindes
+Weiterreichen dieser Cluster-ID wäre falsch. Species-Identität muss bis zur Instanz erhalten
+bleiben. `Grows` bearbeitet nur den Tile am Auge und kehrt nach World.Placed > 0 zurück:
+Ringweite Vegetation und Wiedereintritt fehlen unabhängig von der ersten Sichtbarkeitsreparatur.
+
+Nächster Umsetzungsschritt: vorhandene TreePrototype-Ausgabe in echte registrierte
+Geometrie/Materialien überführen, stabiler Prototypbezug pro platzierter Art, Instanzen im
+korrekten Regionsframe an den Renderer. Danach begrenzte Tile-Jobs/LOD statt Regionskapazität
+blind erhöhen. 2123/2124 bleiben Voraussetzungen der vollständigen Abnahme.
+
 ## Implementierung
 
 1. `src/generators/flora/Forest.cpp`, Asking/Yield und ForestDraw: Kandidaten, Ablehnungsgründe,

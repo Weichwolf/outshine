@@ -76,3 +76,11 @@ physikalische Modelle sind explizit, nicht als falsche Metalness versteckt.
 - [ ] Materialatlas und Nah-/Fernbilder aller Tabellenzeilen, einschließlich Brückenunterseite
       und Tunnelinnenwand. Alle Generatoren nutzen denselben Khronos-Vertrag, keine privaten
       RGB+Glanz-Abkürzungen. Einheitliches Defaultmaterial als Mutation verletzt das Oracle.
+
+## Konkreter vorhandener Baum-Materialvertrag, 2026-09-07
+
+`TreePrototype.h::Row` verwendet 20 Floats für BarkRgb/BarkDark/BarkFreq/BarkRidge,
+LeafRgb/LeafShape usw. und setzt die Zeilenbreite per static_assert mit kMaterialRowFloats
+gleich. Gleiche Breite bedeutet keine gleiche Semantik wie das Khronos-Materiallayout.
+Bei Integration in den Renderpfad getrennte prozedurale Tree-Parameter und echte MR-
+Materialien für Rinde/Blätter erzeugen. Keine vorhandene Float-Zeile direkt als MR hochladen.

@@ -185,6 +185,18 @@ bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail
     Published.Places(std::format("generators: and {} wanted ground off the region", called),
                      static_cast<double>(one.Claims(Generators::Claim::Outcome::Outside)),
                      "claims");
+    Published.Places(std::format("generators: and {} exhausted the region", called),
+                     static_cast<double>(one.Claims(Generators::Claim::Outcome::Full)),
+                     "claims");
+    for (const Generators::Yield::Note &note : one.Notes()) {
+      Published.Places(std::format("generators: {} {} count", called, note.Name),
+                       static_cast<double>(note.Times),
+                       "events");
+      if (note.Raised) {
+        Published.Places(
+            std::format("generators: {} {} peak", called, note.Name), note.Peak, "value");
+      }
+    }
   }
   Published.Places("generators: bodies they placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(
