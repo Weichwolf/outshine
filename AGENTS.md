@@ -36,9 +36,17 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
   SpeedTree. Konkrete Technik belegen; aus einem Spielbild keine Architektur erfinden.
   Filament und Cesium liefern Referenzen für Rendering und Georeferenzierung,
   CARLA/SUMO für Verkehrsnetze. Messungen hier entscheiden die Eignung.
-- Greenfield heißt: kein Bestandsschutz für falsche Architektur. Vorhandene
-  Fähigkeiten prüfen und nutzen, Konventionsverstöße an der Ursache korrigieren.
-  Keine Sonderpfade, Attrappen oder endlosen Hilfsbausteine ohne nutzbaren Gesamtpfad.
+- Greenfield heißt: kein Bestandsschutz für falsche Architektur. Du darfst Public API,
+  Klassen, interne Systeme und Datenflüsse grundlegend umbauen, wenn der Engine-SOLL
+  es verlangt. Ungewöhnliche Eigenlösungen als möglichen Designfehler untersuchen;
+  belegte Verstöße an der Ursache durch gängige, geprüfte Verfahren ersetzen.
+  Vorhandene Fähigkeiten prüfen und nutzen. Keine Sonderpfade, Attrappen oder endlosen
+  Hilfsbausteine ohne nutzbaren Gesamtpfad.
+- Namen gehören zur Architektur: Klassen, Funktionen, Parameter und öffentliche Begriffe
+  sind sprechend, präzise und für Engine-Entwickler unmittelbar verständlich. Übliche
+  Begriffe und Namenskonventionen moderner Game-Engines verwenden; projektspezifische
+  Metaphern und irreführende Namen ersetzen. Unklare Zuständigkeiten dabei fachlich
+  korrigieren. Aufrufer, Dokumentation, Tests und Datenverträge vollständig migrieren.
 
 ## Architektur
 
@@ -110,8 +118,18 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
 - Build, Tests, Lint und Render über Make. Gates nacheinander; während eines Gates
   weder Quellen noch Board ändern. Ergebnis erst nach bestätigtem Prozessende melden.
   Nach jedem Änderungsschritt `make lint` einschließlich clang-tidy ausführen.
-- C++23, Warnings als Errors, lokale Invarianten und klare Namen. Minimale API,
-  Encapsulation, Composition, Zustandsautomaten. Compilezeit-Prüfung wo möglich.
+- Modernes C++23 für eine echtzeitfähige Game-Engine: Warnings als Errors, lokale
+  Invarianten, minimale API, Encapsulation, Composition und Zustandsautomaten.
+  [[nodiscard]] für relevante Ergebnisse und Fehlerverträge; constexpr für sinnvoll
+  zur Compilezeit auswertbare Logik; static_assert für statisch prüfbare Invarianten.
+  RAII und explizite Ownership; Werte und eindeutige Besitzer bevorzugen, geteilte
+  Ownership nur bei tatsächlichem Bedarf. std::string_view und std::span<const T>/
+  std::span<T> für geliehene Texte und zusammenhängende Daten mit klarem Lebensdauer-,
+  Mutabilitäts- und Invalidierungsvertrag; gespeicherte Daten brauchen einen Besitzer.
+  Hot Paths cachefreundlich, gebündelt und mit vorbereiteten Kapazitäten gestalten.
+  Keine versteckten Allokationen, Kopien, blockierenden Aufrufe oder unbeschränkten
+  Arbeitsmengen im Echtzeitpfad. Sprachmittel nach Vertrag und gemessenen Kosten wählen;
+  keine mechanische Modernisierung ohne Nutzen.
   Zahlen mit Einheit und Herkunft: abgeleitet, gemessen oder ausdrücklich gesetzt.
 - Code erklärt sich durch Struktur und Namen. `src/` enthält keine Kommentare, auch
   kein Doxygen im Client. In `include/` ausschließlich Doxygen für die öffentliche API;
