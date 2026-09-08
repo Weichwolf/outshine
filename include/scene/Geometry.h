@@ -71,6 +71,9 @@ public:
   Geometry &operator=(const Geometry &) = delete;
 
   int addPart(std::string_view named, MaterialInstance material);
+  /// Remove all active parts, materials, images and lights; retain reusable part capacity.
+  /// Invalidates all borrowed views and part/material/image indices. Requires exclusive
+  /// access to this non-moved-from object; no concurrent readers or writers are allowed.
   void clear();
 
   [[nodiscard]] TransformManager transforms();
@@ -80,7 +83,12 @@ public:
   [[nodiscard]] MaterialInstance addSurface(std::string_view named, const Material &surface);
   int addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed);
 
-  bool setPositions(int part, std::span<const float> metres);
+  /// Copy finite XYZ positions in local metres; the source is borrowed only during the call.
+  /// Return false without mutation for an invalid part, incomplete XYZ tuple or nonfinite
+  /// value. Cross-attribute lengths and index bounds are checked by wellFormed().
+  /// Successful replacement invalidates positionsOf(part); may allocate, O(metres.size()).
+  /// Requires exclusive access to this non-moved-from object.
+  [[nodiscard]] bool setPositions(int part, std::span<const float> metres);
   bool setNormals(int part, std::span<const float> unit);
   bool setTexture(int part, std::span<const float> uv, int set = 0);
   bool setTangents(int part, std::span<const float> xyzw);
@@ -90,7 +98,8 @@ public:
   /// How many of a part's triangles are wound against their own vertex normals: a triangle
   /// whose counter-clockwise face normal opposes the sum of its three vertex normals. A mesh
   /// built to the standard reads 0; a flipped face or a normal pointing into a body reads here
-  /// before it reads as a black pixel. Zero-area triangles are not counted.
+  /// before it reads as a black pixel. Zero-area triangles and triangles lacking
+  /// any referenced position or normal are not counted; incomplete input is safe.
   /// @param part the part to count, as addPart returned it
   /// @return the count, or 0 for a part that does not exist
   [[nodiscard]] int windingAgainstNormals(int part) const;
@@ -132,6 +141,11 @@ public:
   [[nodiscard]] std::span<const float> tangentsOf(int part) const;
   [[nodiscard]] std::span<const float> coloursOf(int part) const;
   [[nodiscard]] std::span<const uint32_t> trianglesOf(int part) const;
+  /// Validate active parts, ignoring retained capacity from earlier builds.
+  /// Require at least one part, nonempty positions and triangles, matching optional
+  /// attribute counts and in-range indices. Does not validate materials or transforms.
+  /// No allocation or mutation; O(active parts + indices). No concurrent mutation.
+  /// The object must not have been moved from.
   [[nodiscard]] bool wellFormed() const;
 
 private:

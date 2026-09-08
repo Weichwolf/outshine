@@ -42,6 +42,14 @@ aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
 - Importfehler transaktional als expected, geliehene Spans mit Lebensdauervertrag;
   keine Importarbeit oder unbeschränkten Allokationen im Framepfad.
 
+## Vorbedingungen im nativen Besitzer
+
+`Geometry::wellFormed` muss aktive Parts statt zurückbehaltener Kapazität prüfen.
+`clear` entfernt auch Bilder; Attributsetter verweigern nichtendliche Werte ohne
+Mutation. Winding-Diagnostik muss bei unvollständigen Attributen sicher bleiben.
+Regression: größerer Aufbau → clear → kleinerer Aufbau, wiederholtes clear,
+NaN/Inf je Attributkanal und Dreiecke mit fehlenden Normalen in jeder Ecke.
+
 ## Migrationsfolge
 
 1. Native Asset-/Instanzverträge aus vorhandenen Consumern ableiten; Geometry und

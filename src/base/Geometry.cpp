@@ -80,6 +80,7 @@ void Geometry::clear() {
   }
   Held_->Live = 0;
   Held_->Surfaces.clear();
+  Held_->Images.clear();
   Held_->Lamps.clear();
 }
 
@@ -99,6 +100,9 @@ constexpr double kUnitWithin = 1.0e-3;
 constexpr double kNoAreaM4 = 1.0e-12;
 
 [[nodiscard]] bool Into(std::vector<float> &slot, std::span<const float> from) {
+  for (const float value : from) {
+    if (!std::isfinite(value)) { return false; }
+  }
   slot.assign(from.begin(), from.end());
   return true;
 }
@@ -135,7 +139,8 @@ int Geometry::windingAgainstNormals(int part) const {
     const std::array<size_t, 3> corner = {
         piece->Indices[at], piece->Indices[at + 1], piece->Indices[at + 2]};
     if (corner[2] * 3 + 2 >= p.size() || corner[2] * 3 + 2 >= n.size() ||
-        corner[0] * 3 + 2 >= p.size() || corner[1] * 3 + 2 >= p.size()) {
+        corner[0] * 3 + 2 >= p.size() || corner[1] * 3 + 2 >= p.size() ||
+        corner[0] * 3 + 2 >= n.size() || corner[1] * 3 + 2 >= n.size()) {
       continue;
     }
     std::array<double, 3> u{};
@@ -411,8 +416,9 @@ std::span<const uint32_t> Geometry::trianglesOf(int part) const {
 }
 
 bool Geometry::wellFormed() const {
-  if (Held_->Parts.empty()) { return false; }
-  for (const Geometry::Held::Piece &piece : Held_->Parts) {
+  if (Held_->Live == 0) { return false; }
+  for (size_t part = 0; part < Held_->Live; ++part) {
+    const Geometry::Held::Piece &piece = Held_->Parts[part];
     if (piece.PositionsM.empty() || piece.Indices.empty()) { return false; }
     const size_t vertices = piece.PositionsM.size() / 3;
     if (!piece.Normals.empty() && piece.Normals.size() / 3 != vertices) { return false; }
