@@ -446,3 +446,40 @@ Katalogzuordnung prüfen, Platzierungen über Shipping.Placing/Drawing erzeugen 
 jede Flora-ID samt relativer Höhe gegen ihre Quelle prüfen. Zugriff bleibt nach
 wiederholtem Stands identisch. Negativkontrolle löst alle IDs auf die erste Art auf;
 Identitätsprüfung muss rot werden. Keine neue Places-Bildwirkung vor Cache-Verbrauch.
+
+
+## Shipped-Katalog behält Baumvorlagen, 2026-09-08
+
+Shipping hält jetzt die eingelesenen TreeSpecies über seine Lebensdauer. TreeFor
+löst dieselbe Cluster-ID auf, die ForestDraw vergibt; Gebäude-ID, unbekannte ID
+und unvorbereiteter Katalog liefern nullptr. Erneutes Stands behält die Adressen.
+Kein Baumwachstum oder Atlas-Bake im Framepfad hinzugefügt.
+
+Fixturepräzisierung: jede Quelldatei wird einmal als gezielter Solid mit Variant
+und 1,5-facher Quellhöhe über Yield.Place in einen echten RegionPool-Sink gesetzt.
+Shipping.Drawing führt diese Platzierungen über die registrierten Generatorränge.
+Das isoliert die Katalogzuordnung; zufällige Occupy-Verteilung und ökologische
+Artenwahl sind ausdrücklich keine Abnahme dieses Tests.
+
+`make suite SUITE=outshine/conventions`, `build/species-catalogue-restored.log`:
+Exit 2, 18/19 PASS, ausschließlich bekannter Schach-Wiederholungsfall 2179 rot.
+ForestInstancesKeepTheirSpecies: 159/159 Checks. Alle 31 Arten behalten Name,
+Prototyphöhe, Cluster-Rückverweis und relative Skalierung im realen DrawSet-Pfad.
+Negativkontrolle TreeFor zeigt für jede gültige ID auf Species_[0]:
+`build/species-catalogue-negative.log`, Exit 2, 18/19 PASS; genau 60 Fehler
+(30 falsche Arten × Katalog- und Instanzidentität), 159 Checks insgesamt.
+Quelle wiederhergestellt, positiver Abschlusslauf danach.
+
+Vorher zwei Compile-Befunde: Shipped.h zog den kompletten Corridors-Header samt
+Fit.h herein; Header verwendet nun Vorwärtsdeklaration, Implementation inkludiert
+Corridors. Der Test qualifiziert Generators::Ground, da die Shipped-Header zusätzlich
+den gleichnamigen Welt-Namespace sichtbar machen. Logs species-catalogue-proof.log
+und species-catalogue-header-proof.log enthalten die roten Compile-Befunde.
+
+Noch kein Render-Cache-Verbrauch dieser Zuordnung, deshalb keine Places-Bildänderung
+und keine neue visuelle Weltabnahme. Nächster Implementierungsschritt: nur tatsächlich
+benötigte Cluster vorbereiten, CrownAtlas pro Vorlage teilen, Material-/Bildregistrierung
+an Live anbinden und geografische Instanzen mit kameraabhängiger Ansicht zeichnen.
+Der vorhandene CrownAtlas::Bake ist eine synchrone Referenzproduktion mit eigenen
+Engines; unverändert im Updates-Frame aufgerufen wäre er ein mehrsekündiger Stall.
+Vor Live-Anbindung braucht die Produktion einen begrenzten Vorbereitungs-/Cachepfad.

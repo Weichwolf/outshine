@@ -9,14 +9,16 @@
 #include <generate/Generate.h>
 
 #include "DrawSet.h"
+#include "TreeSpecies.h"
 #include "GroundMesher.h"
-#include "road/Corridors.h"
 #include "road/RoadMesher.h"
 #include "StructureMesher.h"
 #include "GeneratorSet.h"
 #include "VegetationTemplates.h"
 
 namespace outshine::Generators {
+
+class Corridors;
 
 class Shipping {
 public:
@@ -30,6 +32,8 @@ public:
                             std::string &error);
 
   [[nodiscard]] bool Ready() const { return !Made_.empty(); }
+
+  [[nodiscard]] const TreeSpecies *TreeFor(ClusterId cluster) const;
 
   [[nodiscard]] const GeneratorSet &Placing() const { return Placing_; }
 
@@ -46,6 +50,7 @@ public:
   [[nodiscard]] const GroundMesher &Covering() const { return *Coverer_; }
 
 private:
+  std::vector<TreeSpecies> Species_;
   std::unique_ptr<Generator> Offered_;
   std::unique_ptr<GroundMesher> Coverer_;
   std::unique_ptr<StructureMesher> Shaper_;

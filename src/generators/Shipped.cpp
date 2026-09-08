@@ -1,5 +1,6 @@
 #include <span>
 #include "Shipped.h"
+#include "road/Corridors.h"
 
 #include "BuildingMesh.h"
 #include "Forest.h"
@@ -28,6 +29,11 @@ Shipping::Shipping()
       Corridors_(std::make_unique<Generators::Corridors>(*Paver_)) {}
 
 Shipping::~Shipping() = default;
+
+const TreeSpecies *Shipping::TreeFor(ClusterId cluster) const {
+  const auto at = static_cast<size_t>(cluster);
+  return at < Species_.size() ? &Species_[at] : nullptr;
+}
 
 namespace {
 
@@ -86,6 +92,7 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   }
   Made_.push_back(std::move(built));
   Draws_.push_back(std::move(drawnBuilt));
+  Species_ = std::move(species);
   return true;
 }
 

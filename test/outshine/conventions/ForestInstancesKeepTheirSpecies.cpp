@@ -6,6 +6,9 @@
 #include "GroundSample.h"
 #include "BuildingDraw.h"
 #include "WorldPlacement.h"
+#include "Shipped.h"
+#include "Species.h"
+#include "RegionPool.h"
 
 namespace {
 class Captured final : public outshine::Generators::DrawSink {
@@ -33,7 +36,7 @@ int main() {
   const Tile region = Tile::Of(14, {.LongitudeDeg = 10, .LatitudeDeg = 47});
   std::array<GroundPatch::Posting, 4> samples;
   for (auto &sample : samples) { sample.Height = GroundSample::At(500); }
-  Ground::Snapshot snapshot;
+  Generators::Ground::Snapshot snapshot;
   snapshot.Patch = GroundPatch::Complete(region, 2, samples);
   snapshot.Classes = std::make_shared<ClassStructure>(
       TangentFrame::At({.LongitudeDeg = 10, .LatitudeDeg = 47}),
@@ -42,9 +45,63 @@ int main() {
   snapshot.Features = FeatureField::Of({}, {}, {});
   const std::array<GroundTable::Row, 1> rows{};
   snapshot.Table = GroundTable::Of(rows);
-  const auto ground = Ground::Of(region, snapshot);
+  const auto ground = Generators::Ground::Of(region, snapshot);
   CHECK(ground.has_value(), "the draw fixture has a valid ground snapshot");
   if (!ground) { return Report(); }
+  outshine::Ground::GroundMaterials materials;
+  outshine::Ground::VegetationTemplates vegetation;
+  std::string error;
+  CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped ground materials load");
+  CHECK(vegetation.Load("src/assets/world/vegetation.json",materials), "shipped vegetation loads");
+  std::vector<TreeSpecies> sources;
+  CHECK(ReadSpecies("src/assets/world/species",sources,error) && !sources.empty(), "source species catalogue loads");
+  Shipping shipping;
+  CHECK(shipping.TreeFor(ClusterId{0}) == nullptr, "an unprepared catalogue resolves no tree");
+  CHECK(shipping.Stands(vegetation,"src/assets/world/species",error), "world catalogue stands");
+  CHECK(shipping.TreeFor(ClusterId{static_cast<uint32_t>(sources.size())}) == nullptr &&
+        shipping.TreeFor(ClusterId{~0u}) == nullptr, "building and unknown clusters do not resolve as trees");
+  for (size_t index=0; index<sources.size(); ++index) {
+    const auto *held=shipping.TreeFor(ClusterId{static_cast<uint32_t>(index)});
+    CHECK(held && held->Name()==sources[index].Name() && held->HeightM()==sources[index].HeightM(),
+          "each cluster retains its source species and prototype height");
+  }
+  const auto *first=shipping.TreeFor(ClusterId{0});
+  CHECK(shipping.Stands(vegetation,"src/assets/world/species",error) && shipping.TreeFor(ClusterId{0})==first,
+        "repeated preparation preserves the immutable prototype address");
+  RegionPool pool({.Reached=region,.Anywhere=region},{});
+  auto lease=pool.TryAcquire(*ground);
+  CHECK(lease.has_value(), "catalogue fixture leases a real placement sink");
+  if (lease) {
+    const auto &makers=shipping.Placing();
+    std::vector<std::vector<Yield::Note>> notes(makers.Count());
+    std::vector<Yield> yields;
+    for (size_t maker=0; maker<makers.Count(); ++maker) {
+      const auto names=makers.At(maker).NoteNames();
+      notes[maker].resize(names.size());
+      yields.emplace_back(lease->Sink(),names,notes[maker]);
+      if (makers.At(maker).Called() != "flora") { continue; }
+      for (size_t index=0; index<sources.size(); ++index) {
+        Solid body;
+        body.Em=10+index*8;
+        body.Nm=10;
+        body.BaseAslM=500;
+        body.HeightM=sources[index].HeightM()*1.5f;
+        body.RadiusM=0.1f;
+        body.Variant=static_cast<uint32_t>(index);
+        CHECK(yields.back().Place(body).Why()==Claim::Outcome::Placed, "each species occupies a distinct fixture position");
+      }
+    }
+    Captured shipped;
+    shipping.Drawing().Draw(*ground,makers,yields,lease->Sink().Placed(),shipped);
+    CHECK(shipped.Instances.size()==sources.size(), "the shipped draw registry reaches every placed species");
+    for (const auto &instance : shipped.Instances) {
+      const auto *held=shipping.TreeFor(instance.Cluster);
+      const auto &body=lease->Sink().Placed()[instance.Body];
+      CHECK(held && body.Variant<sources.size() && held->Name()==sources[body.Variant].Name(),
+            "world instance cluster resolves back to its placed source species");
+      CHECK_NEAR(instance.Where.Scale,1.5,1e-6,"ratio", "catalogue drawing scales relative to its own retained source");
+    }
+  }
   const std::array<ForestDraw::Prototype, 2> prototypes = {{
       {.Cluster = ClusterId{17}, .HeightM = 10},
       {.Cluster = ClusterId{29}, .HeightM = 30}}};
