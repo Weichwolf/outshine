@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2123, 2137, 2138, 2154, 2170, 2171, 2172, 2173, 2176, 2195
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/tum-olympiapark_2026-09-07_1240.jpg` (6000 × 4000 px, aus dem Bildheader).
 SHA-256: `91c871946ee07dff52f38cc0cc7ac0929e2e229652fc8913e5a49dcb830b9d48`.
-Place: `Olympiaturm` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Olympiaturm-*.png`.
+Place: `Olympiaturm` in `src/assets/places/Olympiaturm.scenario`; IST: `build/shots/places/Olympiaturm-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

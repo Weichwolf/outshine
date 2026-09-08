@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2138, 2140, 2154, 2167, 2170, 2171, 2172, 2173, 2176, 2195
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/darmstadt-west_2026-09-07_1240.jpg` (5184 × 2916 px, aus dem Bildheader).
 SHA-256: `972d9773fd8f4a511e66d30205acd479f0371c686c25cfc3d1fb3b2e8b47409c`.
-Place: `DarmstadtWest` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/DarmstadtWest-*.png`.
+Place: `DarmstadtWest` in `src/assets/places/DarmstadtWest.scenario`; IST: `build/shots/places/DarmstadtWest-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

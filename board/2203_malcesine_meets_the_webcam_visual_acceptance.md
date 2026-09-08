@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2129, 2138, 2144, 2145, 2154, 2166, 2167, 2170, 2171, 2172,
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/malcesine_2026-09-07_1240.jpg` (6000 × 4000 px, aus dem Bildheader).
 SHA-256: `13ae10442cf1a3efbcc3004a703977f0d0bc11fde299bda4822d37dd1876996f`.
-Place: `Malcesine` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Malcesine-*.png`.
+Place: `Malcesine` in `src/assets/places/Malcesine.scenario`; IST: `build/shots/places/Malcesine-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

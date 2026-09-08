@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2129, 2137, 2138, 2144, 2145, 2154, 2166, 2167, 2170, 2171,
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/koerbersee_2026-09-07_1240.jpg` (6000 × 4000 px, aus dem Bildheader).
 SHA-256: `80c10e343d693a07f30d63f246b7975bf701d571927dc9e72615c30d792dfac7`.
-Place: `Koerbersee` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Koerbersee-*.png`.
+Place: `Koerbersee` in `src/assets/places/Koerbersee.scenario`; IST: `build/shots/places/Koerbersee-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

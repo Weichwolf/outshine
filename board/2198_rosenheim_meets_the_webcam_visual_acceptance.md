@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2138, 2154, 2166, 2170, 2171, 2172, 2173, 2176, 2195
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/rosenheim_2026-09-07_1240.jpg` (5184 × 3174 px, aus dem Bildheader).
 SHA-256: `8f90c46f0cc39ae4720527addc686bf3f4de87983d8ce0f08c4465eb26d41929`.
-Place: `Rosenheim` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Rosenheim-*.png`.
+Place: `Rosenheim` in `src/assets/places/Rosenheim.scenario`; IST: `build/shots/places/Rosenheim-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

@@ -1,0 +1,12 @@
+<scenario>
+  <world lat="48.233362" lon="16.411041" patienceS="3" sightM="240000" haze="0"/>
+  <render widthPx="1280" heightPx="720" fill="0.6"/>
+  <lighting/>
+  <clock start="2026-09-07T10:40:00Z" live="no"/>
+  <views>
+    <view id="station" person="first" fovDeg="38.04">
+      <at lat="48.233362" lon="16.411041" heightM="250.0"
+          samplesHeight="no" bearingDeg="210.0" pitchDeg="6.8"/>
+    </view>
+  </views>
+</scenario>

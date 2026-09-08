@@ -2,6 +2,8 @@
 #define OUTSHINE_CLIENT_PLACECAMERA_H
 
 #include <cstdint>
+#include <expected>
+#include <filesystem>
 #include <span>
 #include <string>
 #include <string_view>
@@ -21,21 +23,8 @@ inline constexpr int kHighPx = 720;
 inline constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 
 struct Place {
-
-  const char *Name = "";
-
-  double LatitudeDeg = 0.0;
-  double LongitudeDeg = 0.0;
-
-  double HeightAslM = 0.0;
-
-  double BearingDeg = 0.0;
-
-  double PitchDeg = 0.0;
-
-  double FovDeg = 0.0;
-
-  const char *WhenUtc = "";
+  std::string Name;
+  Scenario::Document Declaration;
 };
 
 struct Shot {
@@ -68,15 +57,14 @@ struct Shot {
   std::vector<::outshine::Measure> Measures;
 };
 
-[[nodiscard]] ::outshine::Scenario::Document ScenarioFor(const Place &place);
-
 [[nodiscard]] Shot Draw(class ::outshine::Engine &engine,
                         std::string_view name,
                         bool tells,
                         std::string_view under = "places");
 
-[[nodiscard]] std::span<const Place> Places();
-[[nodiscard]] const Place *PlaceNamed(std::string_view name);
+[[nodiscard]] std::expected<std::vector<Place>, std::string>
+LoadPlaces(const std::filesystem::path &directory);
+[[nodiscard]] const Place *PlaceNamed(std::span<const Place> places, std::string_view name);
 [[nodiscard]] double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high);
 
 [[nodiscard]] double ControlVariation();

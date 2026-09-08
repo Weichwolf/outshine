@@ -12,7 +12,7 @@ Depends: 2092, 2121, 2129, 2138, 2145, 2154, 2167, 2170, 2171, 2172, 2174, 2175,
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/husum-hafenklappbruecke_2026-09-07_1230.jpg` (6000 × 4000 px, aus dem Bildheader).
 SHA-256: `0e04683064a44cea3c88908fbb2bc406b53e4fbe4624be33dd410e8d1b83eabf`.
-Place: `Husum` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Husum-*.png`.
+Place: `Husum` in `src/assets/places/Husum.scenario`; IST: `build/shots/places/Husum-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

@@ -134,4 +134,6 @@ spotless: clean  ## and the compiler's own nest in the system temp directory
 help:            ## this list
 	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
 
-.PHONY: test-strip-comments
+.PHONY: test-strip-comments test-client-data
+test-client-data: all ## verify external place scenarios through the client
+	@cd $(SELF_DIR) && python3 test/scripts/test_place_catalog.py

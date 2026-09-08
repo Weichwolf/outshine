@@ -34,106 +34,125 @@
 namespace outshine::Shots {
 
 namespace Says {
+constexpr const char *kCatalogTooLarge = ": place directory exceeds 4096 entries";
+constexpr const char *kNotFile = ": scenario is not a regular file";
+constexpr const char *kScenarioSize = ": scenario must contain 1 byte to 1 MiB";
+constexpr const char *kEmptyCatalog = ": no .scenario files";
+constexpr const char *kPlaceDeclaration =
+    ": a place requires world, positive frame, fixed clock and one view";
+constexpr const char *kInvalidCamera = ": invalid geodetic camera or projection";
+constexpr const char *kInvalidName =
+    ": place file stem must use ASCII letters, digits, underscore or hyphen";
 constexpr const char *kTimedAdvanceFailed = " failed to advance a measured frame: ";
 constexpr const char *kTimedRenderFailed = " failed to render a measured frame: ";
 constexpr const char *kMissingTimingSamples = " has no complete frame timing sample";
 }
 
 constexpr std::uint8_t kByteMost = 255;
-constexpr double kFillShare = 0.6;
 constexpr double kProgressEveryS = 0.25;
 
 namespace {
 
 constexpr double kPatienceS = 15.0;
-constexpr double kSightM = 240000.0;
-
-constexpr double kClearDayHaze = 0.0;
 constexpr int kTimedFrames = 120;
 
-constexpr std::array<Place, 9> kPlaces{{
-    {.Name = "DarmstadtWest",
-     .LatitudeDeg = 49.875871,
-     .LongitudeDeg = 8.662596,
-     .HeightAslM = 205.0,
-     .BearingDeg = 252.0,
-     .PitchDeg = 2.6,
-     .FovDeg = 38.04,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-    {.Name = "Wien",
-     .LatitudeDeg = 48.233362,
-     .LongitudeDeg = 16.411041,
-     .HeightAslM = 250.0,
-     .BearingDeg = 210.0,
-     .PitchDeg = 6.8,
-     .FovDeg = 38.04,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-    {.Name = "Rosenheim",
-     .LatitudeDeg = 47.860299,
-     .LongitudeDeg = 12.131823,
-     .HeightAslM = 492.0,
-     .BearingDeg = 185.0,
-     .PitchDeg = -1.6,
-     .FovDeg = 30.68,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-    {.Name = "Husum",
-     .LatitudeDeg = 54.474171,
-     .LongitudeDeg = 9.045982,
-     .HeightAslM = 20.0,
-     .BearingDeg = 35.0,
-     .PitchDeg = -7.0,
-     .FovDeg = 38.04,
-     .WhenUtc = "2026-09-07T10:30:00Z"},
-    {.Name = "Olympiaturm",
-     .LatitudeDeg = 48.174353,
-     .LongitudeDeg = 11.552966,
-     .HeightAslM = 700.0,
-     .BearingDeg = 310.0,
-     .PitchDeg = -6.3,
-     .FovDeg = 13.06,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-    {.Name = "Graz",
-     .LatitudeDeg = 47.079697,
-     .LongitudeDeg = 15.412366,
-     .HeightAslM = 390.0,
-     .BearingDeg = 120.0,
-     .PitchDeg = 2.2,
-     .FovDeg = 26.23,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-    {.Name = "Koerbersee",
-     .LatitudeDeg = 47.256121,
-     .LongitudeDeg = 10.115857,
-     .HeightAslM = 1772.0,
-     .BearingDeg = 240.0,
-     .PitchDeg = -0.5,
-     .FovDeg = 33.97,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-    {.Name = "Malcesine",
-     .LatitudeDeg = 45.744855,
-     .LongitudeDeg = 10.800445,
-     .HeightAslM = 140.0,
-     .BearingDeg = 290.0,
-     .PitchDeg = -2.0,
-     .FovDeg = 38.04,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-    {.Name = "Feldkirch",
-     .LatitudeDeg = 47.232575,
-     .LongitudeDeg = 9.598371,
-     .HeightAslM = 614.0,
-     .BearingDeg = 1.0,
-     .PitchDeg = -11.5,
-     .FovDeg = 80.72,
-     .WhenUtc = "2026-09-07T10:40:00Z"},
-}};
+}
+
+namespace {
+[[nodiscard]] std::expected<std::vector<std::filesystem::path>, std::string>
+PlaceFiles(const std::filesystem::path &directory) {
+  std::error_code failed;
+  std::filesystem::directory_iterator entry(directory, failed);
+  if (failed) { return std::unexpected(directory.string() + ": " + failed.message()); }
+  std::vector<std::filesystem::path> paths;
+  constexpr std::size_t kMostEntries = 4096;
+  constexpr std::uintmax_t kMostScenarioBytes = 1024ULL * 1024ULL;
+  std::size_t visited = 0;
+  const std::filesystem::directory_iterator end;
+  while (entry != end) {
+    if (++visited > kMostEntries) {
+      return std::unexpected(directory.string() + Says::kCatalogTooLarge);
+    }
+    if (entry->path().extension() == ".scenario") {
+      const bool regular = entry->is_regular_file(failed);
+      if (failed) { return std::unexpected(entry->path().string() + ": " + failed.message()); }
+      if (!regular) { return std::unexpected(entry->path().string() + Says::kNotFile); }
+      const auto bytes = entry->file_size(failed);
+      if (failed) { return std::unexpected(entry->path().string() + ": " + failed.message()); }
+      if (bytes == 0 || bytes > kMostScenarioBytes) {
+        return std::unexpected(entry->path().string() + Says::kScenarioSize);
+      }
+      paths.push_back(entry->path());
+    }
+    entry.increment(failed);
+    if (failed) { return std::unexpected(directory.string() + ": " + failed.message()); }
+  }
+  if (paths.empty()) { return std::unexpected(directory.string() + Says::kEmptyCatalog); }
+  std::ranges::sort(paths);
+  return paths;
+}
+
+[[nodiscard]] std::expected<Place, std::string> ReadPlace(const std::filesystem::path &path) {
+  Engine reader;
+  if (const auto read = reader.readScenario(path.string()); !read) {
+    return std::unexpected(path.string() + ": " + read.error());
+  }
+  const auto &declared = reader.declaration();
+  if (!declared.Ground.Declared || !declared.Render.Declared ||
+      declared.Render.Frame.WidthPx <= 0 || declared.Render.Frame.HeightPx <= 0 ||
+      !declared.Time.Declared || declared.Time.Live || declared.Time.Start.empty() ||
+      declared.Views.size() != 1) {
+    return std::unexpected(path.string() + Says::kPlaceDeclaration);
+  }
+  const auto &camera = declared.Views.front().Sees;
+  const auto &standing = camera.Stands;
+  const auto validPosition = [](const auto &position) {
+    return std::isfinite(position.LatitudeDeg) &&
+           std::abs(position.LatitudeDeg) <= kDegPerHalfTurn / 2 &&
+           std::isfinite(position.LongitudeDeg) &&
+           std::abs(position.LongitudeDeg) <= kDegPerHalfTurn;
+  };
+  auto projection = camera;
+  if (!projection.Orthographic) {
+    if (projection.NearM == 0) { projection.NearM = Scenario::Camera::kNearestM; }
+    if (projection.FovDeg == 0) { projection.FovDeg = Scenario::kFovUnsaidDeg; }
+  }
+  Mat4 matrix;
+  const double aspect =
+      static_cast<double>(declared.Render.Frame.WidthPx) / declared.Render.Frame.HeightPx;
+  if (!standing.GlobeAnchor || standing.SamplesHeight || !validPosition(standing.Geodetic) ||
+      !validPosition(declared.Ground.Origin) || !std::isfinite(standing.Geodetic.HeightM) ||
+      !std::isfinite(standing.BearingDeg) || !std::isfinite(standing.PitchDeg) ||
+      std::abs(standing.PitchDeg) > kDegPerHalfTurn / 2 ||
+      !projection.projectionMatrix(aspect, matrix)) {
+    return std::unexpected(path.string() + Says::kInvalidCamera);
+  }
+  const std::string name = path.stem().string();
+  if (name.empty() ||
+      name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") !=
+          std::string::npos) {
+    return std::unexpected(path.string() + Says::kInvalidName);
+  }
+  return Place{.Name = name, .Declaration = declared};
+}
 
 }
 
-std::span<const Place> Places() {
-  return kPlaces;
+std::expected<std::vector<Place>, std::string> LoadPlaces(const std::filesystem::path &directory) {
+  const auto paths = PlaceFiles(directory);
+  if (!paths) { return std::unexpected(paths.error()); }
+  std::vector<Place> places;
+  places.reserve(paths->size());
+  for (const auto &path : *paths) {
+    auto place = ReadPlace(path);
+    if (!place) { return std::unexpected(place.error()); }
+    places.push_back(std::move(*place));
+  }
+  return places;
 }
 
-const Place *PlaceNamed(std::string_view name) {
-  for (const Place &one : kPlaces) {
+const Place *PlaceNamed(std::span<const Place> places, std::string_view name) {
+  for (const Place &one : places) {
     if (name == one.Name) { return &one; }
   }
   return nullptr;
@@ -182,38 +201,6 @@ double ControlVariation() {
 LogSink *Telling = nullptr;
 bool Audits = false;
 
-Scenario::Document ScenarioFor(const Place &place) {
-  Scenario::Document stands;
-  stands.Ground.Declared = true;
-  stands.Ground.Origin.LatitudeDeg = place.LatitudeDeg;
-  stands.Ground.Origin.LongitudeDeg = place.LongitudeDeg;
-  stands.Ground.PatienceS = 3.0;
-  stands.Ground.SightM = kSightM;
-  stands.Ground.Sky.Haze = kClearDayHaze;
-  stands.Render.Declared = true;
-  stands.Render.Frame = Extent{.WidthPx = kWidePx, .HeightPx = kHighPx};
-  stands.Render.Fill = kFillShare;
-  stands.Render.Audits = Audits;
-  stands.Lit.Declared = true;
-  stands.Time.Declared = true;
-  stands.Time.Live = false;
-  stands.Time.Start = place.WhenUtc;
-
-  Scenario::View watches;
-  watches.Id = "station";
-  watches.Person = "first";
-  watches.Sees.Stands.GlobeAnchor = true;
-  watches.Sees.Stands.Geodetic.LatitudeDeg = place.LatitudeDeg;
-  watches.Sees.Stands.Geodetic.LongitudeDeg = place.LongitudeDeg;
-  watches.Sees.Stands.Geodetic.HeightM = place.HeightAslM;
-  watches.Sees.Stands.SamplesHeight = false;
-  watches.Sees.Stands.BearingDeg = place.BearingDeg;
-  watches.Sees.Stands.PitchDeg = place.PitchDeg;
-  watches.Sees.FovDeg = place.FovDeg;
-  stands.Views.push_back(watches);
-  return stands;
-}
-
 Shot Take(const Place &place, bool tells) {
   Shot shot;
   if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -226,12 +213,13 @@ Shot Take(const Place &place, bool tells) {
                         .Shipped = "src/assets",
                         .Cache = "/tmp/outshine-drive-cache",
                         .Offline = false});
-  if (!engine.drawsInto(Extent{.WidthPx = kWidePx, .HeightPx = kHighPx})) {
+  if (!engine.drawsInto(place.Declaration.Render.Frame)) {
     shot.Why = "the device stood no canvas";
     return shot;
   }
 
-  const Scenario::Document stands = ScenarioFor(place);
+  Scenario::Document stands = place.Declaration;
+  stands.Render.Audits = Audits;
 
   const auto began = std::chrono::steady_clock::now();
   if (!engine.declare(stands) || !engine.assemble()) {

@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <utility>
 
 #include <SDL3/SDL.h>
 
@@ -13,6 +14,7 @@
 #include <scenario/Scenario.h>
 
 #include "PlaceCamera.h"
+#include <cmath>
 
 namespace {
 
@@ -112,7 +114,8 @@ void Usage() {
       "outshine-client -- the engine through its own door, from a command line.\n\n"
       "  shots [--rows] [--measures] [--audit] [--all | <place>]\n"
       "                                   stand each place, draw it, keep the picture\n"
-      "  places                           name the places it knows\n"
+      "  places                           list the external scenario cameras\n"
+      "  --places <directory> <command>   override src/assets/places\n"
       "  roundtrip                        write each place, read it back, write it again\n"
       "  run [--rows] [--into <folder>] <scenario> [name]\n"
       "                                   read a declared scenario, stand it, draw it\n"
@@ -120,9 +123,7 @@ void Usage() {
       "  height <lat> <lon>               ask the Earth how high it is there\n"
       "  help                             this\n\n"
       "Every verb is a call on `outshine::Engine`. A verb this does not have is a verb the door\n"
-      "does not offer, or one nobody has needed yet.\n\nPlaces:");
-  for (const Place &one : outshine::Shots::Places()) { std::printf(" %s", one.Name); }
-  std::printf("\n");
+      "does not offer, or one nobody has needed yet.\n");
 }
 
 [[nodiscard]] bool Stands(outshine::Engine &engine,
@@ -144,7 +145,7 @@ void Usage() {
   return true;
 }
 
-int TakeShots(int argc, char *const *argv) {
+int TakeShots(std::span<const Place> places, int argc, char *const *argv) {
   std::vector<const Place *> taking;
   bool rows = false;
   bool everyMeasure = false;
@@ -156,10 +157,10 @@ int TakeShots(int argc, char *const *argv) {
     ++argv;
   }
   if (argc < 1 || std::strcmp(argv[0], "--all") == 0) {
-    for (const Place &one : outshine::Shots::Places()) { taking.push_back(&one); }
+    for (const Place &one : places) { taking.push_back(&one); }
   } else {
     for (int at = 0; at < argc; ++at) {
-      const Place *const named = outshine::Shots::PlaceNamed(argv[at]);
+      const Place *const named = outshine::Shots::PlaceNamed(places, argv[at]);
       if (named == nullptr) {
         std::printf("outshine-client: no place is called '%s'\n", argv[at]);
         Usage();
@@ -174,7 +175,7 @@ int TakeShots(int argc, char *const *argv) {
     outshine::Shots::Telling = &gTelling;
     const Shot shot = outshine::Shots::Take(*one, !rows);
     if (rows) {
-      Row(shot, one->Name);
+      Row(shot, one->Name.c_str());
     } else {
       Tell(shot, one->Name);
     }
@@ -279,27 +280,47 @@ int AskHeight(int argc, char *const *argv) {
 
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string verb = argc > 1 ? argv[1] : "help";
-  const int rest = argc - 2;
-  char **const from = argv + 2;
-  if (verb == "shots") { return TakeShots(rest, from); }
+  std::string directory = "src/assets/places";
+  int argument = 1;
+  if (argc > argument && std::string_view(argv[argument]) == "--places") {
+    if (argc <= argument + 2) {
+      std::fprintf(stderr, "outshine-client: --places requires a directory and command\n");
+      return 2;
+    }
+    directory = argv[argument + 1];
+    argument += 2;
+  }
+  const std::string verb = argc > argument ? argv[argument] : "help";
+  const int rest = argc > argument ? argc - argument - 1 : 0;
+  char **const from = argv + (argc > argument ? argument + 1 : argc);
+  std::vector<Place> places;
+  if (verb == "shots" || verb == "places" || verb == "roundtrip") {
+    auto loaded = outshine::Shots::LoadPlaces(directory);
+    if (!loaded) {
+      std::fprintf(stderr, "outshine-client: %s\n", loaded.error().c_str());
+      return 1;
+    }
+    places = std::move(*loaded);
+  }
+  if (verb == "shots") { return TakeShots(places, rest, from); }
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }
   if (verb == "height") { return AskHeight(rest, from); }
   if (verb == "roundtrip") {
     int apart = 0;
     const std::string held = "build/outshine-roundtrip.scn";
-    for (const Place &one : outshine::Shots::Places()) {
+    for (const Place &one : places) {
       outshine::Engine engine;
-      if (!engine.declare(outshine::Shots::ScenarioFor(one))) {
-        std::printf("APART   %-14s did not declare: %s\n", one.Name, engine.error().c_str());
+      if (!engine.declare(one.Declaration)) {
+        std::printf(
+            "APART   %-14s did not declare: %s\n", one.Name.c_str(), engine.error().c_str());
         ++apart;
         continue;
       }
       const std::string first = engine.writeScenario();
       std::FILE *const file = std::fopen(held.c_str(), "wb");
       if (file == nullptr) {
-        std::printf("APART   %-14s cannot write %s\n", one.Name, held.c_str());
+        std::printf("APART   %-14s cannot write %s\n", one.Name.c_str(), held.c_str());
         ++apart;
         continue;
       }
@@ -308,16 +329,16 @@ int main(int argc, char **argv) {
       outshine::Engine again;
       if (!again.readScenario(held)) {
         std::printf("APART   %-14s the written scenario did not read back: %s\n",
-                    one.Name,
+                    one.Name.c_str(),
                     again.error().c_str());
         ++apart;
         continue;
       }
       const std::string second = again.writeScenario();
       if (first == second) {
-        std::printf("HELD    %-14s %zu byte(s)\n", one.Name, first.size());
+        std::printf("HELD    %-14s %zu byte(s)\n", one.Name.c_str(), first.size());
       } else {
-        std::printf("APART   %-14s written twice and the two differ\n", one.Name);
+        std::printf("APART   %-14s written twice and the two differ\n", one.Name.c_str());
         ++apart;
       }
     }
@@ -331,12 +352,21 @@ int main(int argc, char **argv) {
     return apart == 0 ? 0 : 1;
   }
   if (verb == "places") {
-    for (const Place &one : outshine::Shots::Places()) {
-      std::printf("%-14s %10.5f %11.5f  bearing %6.2f\n",
-                  one.Name,
-                  one.LatitudeDeg,
-                  one.LongitudeDeg,
-                  one.BearingDeg);
+    for (const Place &one : places) {
+      const auto &view = one.Declaration.Views.front().Sees;
+      const auto &at = view.Stands;
+      const auto &frame = one.Declaration.Render.Frame;
+      std::printf("%s\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%d\t%d\t%s\n",
+                  one.Name.c_str(),
+                  at.Geodetic.LatitudeDeg,
+                  at.Geodetic.LongitudeDeg,
+                  at.Geodetic.HeightM,
+                  at.BearingDeg,
+                  at.PitchDeg,
+                  view.FovDeg,
+                  frame.WidthPx,
+                  frame.HeightPx,
+                  one.Declaration.Time.Start.c_str());
     }
     return 0;
   }

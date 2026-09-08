@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2133, 2138, 2154, 2166, 2170, 2171, 2172, 2173, 2175, 2176,
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/helmut-list-halle_2026-09-07_1240.jpg` (6000 × 4000 px, aus dem Bildheader).
 SHA-256: `dd86eabd5c81ddc8a89c792c551334ff486e5a25b80ad4d8a4069193f5cae23e`.
-Place: `Graz` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Graz-*.png`.
+Place: `Graz` in `src/assets/places/Graz.scenario`; IST: `build/shots/places/Graz-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

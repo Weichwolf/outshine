@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2129, 2133, 2138, 2145, 2154, 2170, 2171, 2172, 2175, 2176,
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/wien_2026-09-07_1240.jpg` (6000 × 4000 px, aus dem Bildheader).
 SHA-256: `c67cdb7a923314c81ecb0dd18aacecff3203998d974077644f863e419bc59d8a`.
-Place: `Wien` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Wien-*.png`.
+Place: `Wien` in `src/assets/places/Wien.scenario`; IST: `build/shots/places/Wien-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind

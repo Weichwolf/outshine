@@ -12,7 +12,7 @@ Depends: 2092, 2111, 2121, 2138, 2144, 2145, 2154, 2166, 2170, 2171, 2172, 2175,
 Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
 Quelle: `build/shots/webcam/feldkirch_2026-09-07_1240.jpg` (6000 × 4000 px, aus dem Bildheader).
 SHA-256: `e08517756ea9ec1cb3a68d018add44eae8085177115f30647a848a8202f839be`.
-Place: `Feldkirch` in `src/client/PlaceCamera.cpp`; IST: `build/shots/places/Feldkirch-*.png`.
+Place: `Feldkirch` in `src/assets/places/Feldkirch.scenario`; IST: `build/shots/places/Feldkirch-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
 Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind
