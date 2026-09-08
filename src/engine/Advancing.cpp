@@ -19,11 +19,41 @@
 #include <cstdint>
 
 #include "EngineHeld.h"
+#include "Lens.h"
+#include "Viewing.h"
+#include "Live.h"
 #include "TileGeodesy.h"
 
 namespace outshine {
 
 constexpr double kBelowAnyGroundM = -1.0e3;
+
+namespace Says {
+constexpr auto kInvalidViewProjection =
+    "the selected view declares an invalid or unrepresentable projection";
+constexpr auto kInvalidCarriedView = "the carried view has no valid camera basis";
+}
+
+namespace {
+[[nodiscard]] std::expected<void, Render::LensError>
+ApplyCamera(Core::Live &live,
+            const Render::SceneRenderer &renderer,
+            const Scenario::Camera &camera,
+            Render::Viewpoint view) noexcept {
+  view.Kind =
+      camera.Orthographic ? Render::CameraKind::Orthographic : Render::CameraKind::Perspective;
+  view.YfovRad = (camera.FovDeg == 0 ? Scenario::kFovUnsaidDeg : camera.FovDeg) * kDeg2Rad;
+  view.ZNearM =
+      !camera.Orthographic && camera.NearM == 0 ? Scenario::Camera::kNearestM : camera.NearM;
+  view.ZFarM = camera.FarM;
+  view.XMagM = camera.XMagM;
+  view.YMagM = camera.YMagM;
+  const auto lens = Render::Lens::From(view, renderer.PictureW(), renderer.PictureH());
+  if (!lens) { return std::unexpected(lens.error()); }
+  live.Eye(view);
+  return {};
+}
+}
 
 bool Engine::State::Watches() {
   if (!Session.Views || !Picture.Standing) { return true; }
@@ -93,16 +123,10 @@ bool Engine::State::Watches() {
     standing.Up[axis] = model[4 + axis];
     standing.Forward[axis] = -model[8 + axis];
   }
-  standing.YfovRad =
-      (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : Scenario::kFovUnsaidDeg) * kDeg2Rad;
-  standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
-  standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;
-  if (seen.Sees.Orthographic) {
-    standing.Kind = Render::CameraKind::Orthographic;
-    standing.YMagM = seen.Sees.YMagM;
-    standing.XMagM = seen.Sees.XMagM > 0.0 ? seen.Sees.XMagM : seen.Sees.YMagM;
+  if (!ApplyCamera(*Picture.Standing, Picture.Device, seen.Sees, standing)) {
+    Error = Says::kInvalidViewProjection;
+    return false;
   }
-  Picture.Standing->Eye(standing);
   return true;
 }
 
@@ -183,10 +207,14 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   Published.Places("the carried eye, south", eye[2], "m");
   const std::optional<Render::Viewpoint> stood =
       Render::Viewpoint::LookAt({.EyeM = eye, .AimM = seen.DistanceM > 0.0 ? at : ahead}, 0.0);
-  if (!stood) { return true; }
-  Render::Viewpoint from = *stood;
-  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : Scenario::kFovUnsaidDeg) * kDeg2Rad;
-  if (Picture.Standing) { Picture.Standing->Eye(from); }
+  if (!stood) {
+    Error = Says::kInvalidCarriedView;
+    return false;
+  }
+  if (!ApplyCamera(*Picture.Standing, Picture.Device, seen.Sees, *stood)) {
+    Error = Says::kInvalidViewProjection;
+    return false;
+  }
   return true;
 }
 

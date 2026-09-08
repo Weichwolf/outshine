@@ -30,13 +30,13 @@ declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückwe
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
 und nicht bewegliche Engine-Owner sind die geprüfte Voraussetzung.
 
-## Aktiver Schritt: gemeinsame Szenario-Kameraprojektion
+## Geprüft: gemeinsame Szenario-Kameraprojektion
 
 Khronos definiert Half-Extents und Near/Far-Bedingungen:
 https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#cameras
-Watches ersetzt NaN/negative Werte durch Defaults, Carries übernimmt nur FOV und
-verliert Near/Far/Orthographic. Die geprüfte Lens-Grenze aus dem vorigen Schritt
-steht bereit; keine zweite numerische Validierung erfinden.
+Watches ersetzte NaN/negative Werte durch Defaults, Carries übernahm nur FOV und
+verlor Near/Far/Orthographic. Beide benutzen jetzt die vorhandene Lens-Grenze;
+keine zweite numerische Validierung.
 
 Beide Pfade benutzen dieselbe Szenario-zu-Viewpoint-Abbildung mit nodiscard expected.
 Nur perspektivischer FOV=0 und Near=0 sind erklärte Defaults (55 Grad, 0,05 m).
@@ -46,10 +46,15 @@ und Setter dokumentieren die Trennung von Deklaration und Runtime-Validierung.
 Kandidat vor Eye-Veröffentlichung durch Lens::From prüfen; fehlende mitgeführte
 Kamerabasis liefert einen Fehler, keinen vorgetäuschten Erfolg.
 
-Prüfung: identische explizite Projektionen in stehender und mitgeführter Kamera;
-Defaults, Near=0 orthographisch, ungültige Eingaben und Recovery. Negative Kontrolle
-stellt den alten FOV-only-Pfad bzw. das stille Defaulten wieder her. Bildwirksame
-Korrektur der mitgeführten Orthographie an einer unabhängigen Geometrie prüfen.
+ScenarioViewsPreserveProjection: 346 Checks, analytisches Dreieck und Reverse-Z-Tiefe,
+stehend/mitgeführt, Defaults, Near=0 orthographisch, 15 ungültige Deklarationen je Pfad
+mit wiederholter Ablehnung, Bildbestand und Recovery; vor und nach Negativkontrolle grün.
+Konventionssuite zuletzt 27/28: nur bekannter Mipmap-Fehler aus 2179 rot
+(420 Kanäle, max. 0,00268555, Tiefe identisch), kein gelockerter Test.
+Negativkontrolle mit alter Watches-/Carries-Abbildung: Kamera-Test mit 73 fehlgeschlagenen
+Checks (einschließlich Folgefehler), zusätzlich zum Mipmap-Fehler. Mutation zurückgenommen.
+Beide PNGs selbst geöffnet: identische orthographische Lage/Ausdehnung. API-Vertragstest,
+keine Place-/Fotorealismusabnahme. Bestehende Places deklarieren stehende Perspektiven.
 
 ## Weitere konkrete Lücken
 
@@ -57,6 +62,17 @@ DrawsInto ändert Dimensionen/Target, baut aber die planabhängigen Frame-Attach
 und Present-Pipeline nicht als zusammenhängenden Kandidaten neu auf. Größen- und
 Formatwechsel müssen dieses Ressourcenpaket atomar ersetzen, nicht nur das Target.
 Noch kein Nachweis korrekter Pixel nach einem solchen Wechsel.
+
+setGeometry liefert derzeit Weltgeometrie; Carries lehnt sie ohne importierten
+Subject-Anteil ab. Explizite native Geometrie-zu-Entity-Zuordnung im API-SOLL aus
+2096 prüfen. Die Kamera-Fixture nutzt deklarierte glTF-Körpergeometrie.
+
+Carries aktualisiert die Kamera nur bei Körperindex 0; View.Follows wird nur gelesen,
+geschrieben und auf nichtleeren Namen geprüft, nicht gegen den Zielkörper aufgelöst.
+Ziel beim Assemble eindeutig auflösen; unbekannte/mehrdeutige Namen ablehnen, aktive
+View an den richtigen Körper binden. Zwei getrennte bewegte Körper und Viewwechsel
+müssen das Ziel unabhängig von Deklarationsreihenfolge zeigen. Quellbefund, noch kein
+Mehrkörper-Laufzeitnachweis; der Projektions-Test verwendet ausdrücklich einen Körper.
 
 ## Abnahme
 

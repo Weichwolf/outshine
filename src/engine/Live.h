@@ -262,7 +262,7 @@ public:
   [[nodiscard]] bool Advance(std::string &error);
   [[nodiscard]] bool Draw(std::string &error);
 
-  void Eye(const Render::Viewpoint &from);
+  void Eye(const Render::Viewpoint &from) noexcept;
 
   [[nodiscard]] const Render::Viewpoint &Aimed() const { return Looking_.Eye; }
 

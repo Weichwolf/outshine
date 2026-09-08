@@ -695,7 +695,7 @@ bool Live::Measure(double seconds, std::string &error) {
   return true;
 }
 
-void Live::Eye(const Render::Viewpoint &from) {
+void Live::Eye(const Render::Viewpoint &from) noexcept {
   Eye_ = from;
   HaveEye_ = true;
   Aim_ = AimState::Dirty;

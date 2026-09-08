@@ -421,18 +421,31 @@ struct Event {
 /// Right-handed camera: local +X right, +Y up, -Z viewing direction, metres.
 /// Projection matrices use glTF/OpenGL NDC depth [-1, 1]; GPU depth conversion is internal.
 struct Camera {
+  /// Default perspective near distance in metres when an Engine view declares zero.
   static constexpr double kNearestM = 0.05;
 
+  /// Selects explicit local placement. A geodetic Stands also selects world placement;
+  /// otherwise the scenario view follows its declared body.
   bool Placed = false;
+  /// Camera pose in the scenario world frame, or an unresolved geodetic placement.
   Standing Stands;
-  /// Vertical field of view, in degrees (Filament convention; glTF imports convert radians).
+  /// Vertical perspective FOV in degrees, strictly between 0 and 180.
+  /// Engine views resolve zero to kFovUnsaidDeg; explicit matrix queries require a valid FOV.
   double FovDeg = 0.0;
 
+  /// Near plane in metres. Perspective requires positive depth; Engine views resolve zero
+  /// to kNearestM. Orthographic near zero is valid; negative and nonfinite values are errors.
   double NearM = 0.0;
+  /// Far plane in metres, greater than near. Zero or positive infinity selects infinite
+  /// perspective; orthographic projection requires a finite far plane.
   double FarM = 0.0;
 
+  /// Selects orthographic half extents instead of perspective FOV.
   bool Orthographic = false;
-  double XMagM = 0.0, YMagM = 0.0;
+  /// Positive finite orthographic horizontal half extent in metres; no inferred default.
+  double XMagM = 0.0;
+  /// Positive finite orthographic vertical half extent in metres; independent of viewport aspect.
+  double YMagM = 0.0;
 
   /// A perspective camera as glTF declares one: a vertical field of view and a depth range.
   struct Perspective {
@@ -460,16 +473,20 @@ struct Camera {
     double FarM = 0.0;
   };
 
-  /// Sets a vertical perspective projection; angles are degrees, distances are metres.
-  void setProjection(Perspective sees) {
+  /// Store a perspective declaration. Does not validate or retain references.
+  /// Engine preparation applies the documented zero defaults and rejects invalid or
+  /// GPU-unrepresentable values; matrix queries require an explicit valid lens.
+  void setProjection(Perspective sees) noexcept {
     Orthographic = false;
     FovDeg = sees.FovDeg;
     NearM = sees.NearM;
     FarM = sees.FarM;
   }
 
-  /// Stands it on an orthographic one. The overloads are told apart by TYPE, not by counting.
-  void setProjection(Ortho sees) {
+  /// Store orthographic half extents and depth planes, in metres. Does not validate
+  /// or retain references. Both extents must be positive and finite, near >= 0, far > near
+  /// and finite; Engine preparation additionally checks GPU representability.
+  void setProjection(Ortho sees) noexcept {
     Orthographic = true;
     XMagM = sees.XMagM;
     YMagM = sees.YMagM;
