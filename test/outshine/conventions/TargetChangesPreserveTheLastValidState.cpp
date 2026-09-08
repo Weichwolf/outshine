@@ -111,8 +111,8 @@ int main() {
       CHECK(!unconfigured.drawsInto(Extent{0, 32}), "invalid first configuration is rejected");
       auto target = unconfigured.swapChain();
       const auto begun = unconfigured.renderer().beginFrame(target);
-      CHECK(!begun && begun.error().find("no canvas") != std::string::npos,
-            "a rejected first target leaves the Engine unconfigured");
+      CHECK(!begun && target.extent().WidthPx == 0 && target.extent().HeightPx == 0,
+            "a rejected first target leaves the Engine unconfigured with no drawable extent");
     }
     {
       Engine owner;
@@ -145,7 +145,8 @@ int main() {
                 "the public error retains the SDL failure at its origin");
         }
       }
-      const bool ready = owner.declare(TargetScenario(original)) && owner.assemble() && owner.advance();
+      const bool ready =
+          owner.declare(TargetScenario(original)) && owner.assemble() && owner.advance();
       CHECK(ready, "the retained window configures a real presentation plan and camera");
       if (!ready) { std::printf("presentation setup: %s\n", owner.error().c_str()); }
       auto target = owner.swapChain();
@@ -171,8 +172,8 @@ int main() {
     {
       Engine offscreen;
       CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(), "offscreen target is configured");
-      const bool ready =
-          offscreen.declare(TargetScenario({32, 32})) && offscreen.assemble() && offscreen.advance();
+      const bool ready = offscreen.declare(TargetScenario({32, 32})) && offscreen.assemble() &&
+                         offscreen.advance();
       CHECK(ready, "the plan allocates an offscreen surface and camera");
       if (!ready) { std::printf("offscreen setup: %s\n", offscreen.error().c_str()); }
       if (ready) {

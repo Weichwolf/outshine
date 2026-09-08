@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_LIVE_H
 
 #include <algorithm>
+#include <expected>
 #include <span>
 #include <optional>
 #include <array>
@@ -295,7 +296,7 @@ public:
 
   void FrameItself() {
     HaveEye_ = false;
-    Aimed_ = false;
+    Aim_ = AimState::Dirty;
   }
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const {
@@ -392,6 +393,7 @@ private:
   [[nodiscard]] bool JoinsSubjects(std::string &error);
   [[nodiscard]] bool StandsSubjects(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
+  [[nodiscard]] std::expected<void, std::string> BindSubject();
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool Pose(double seconds, std::string &error);
   [[nodiscard]] bool Measure(double seconds, std::string &error);
@@ -428,7 +430,8 @@ private:
   std::shared_ptr<const Render::Compiled> Plan_;
   Render::Viewpoint Eye_;
   bool HaveEye_ = false;
-  bool Aimed_ = true;
+  enum class AimState { Unbound, Bound, Dirty };
+  AimState Aim_ = AimState::Unbound;
   std::vector<Mat4> SentBody_;
   Mat4 SentBuilt_{};
 

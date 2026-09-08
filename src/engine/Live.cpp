@@ -1,3 +1,4 @@
+#include <expected>
 #include <span>
 #include <array>
 #include <chrono>
@@ -182,7 +183,7 @@ Render::Medium Live::DeclaredAir() const {
 
 Live::AirReach Live::SunThroughTheAir(double cosSun) const {
   const Render::Medium medium = DeclaredAir();
-  const float cosine = static_cast<float>(cosSun);
+  const auto cosine = static_cast<float>(cosSun);
   if (cosine != AirStoodAt_ || !(medium == AirStood_)) {
     const float stoodAt = medium.BottomRadiusKm + Render::kMediumGroundLiftKm;
     const auto toSun = [&](Render::MediumLook look) {
@@ -476,7 +477,7 @@ std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::stri
     return std::nullopt;
   }
   const auto first = static_cast<uint32_t>(RegisteredSlots_.size());
-  RegisteredSurfaces_.push_back({std::move(source), std::move(slots)});
+  RegisteredSurfaces_.push_back({.Source = std::move(source), .Slots = std::move(slots)});
   AppendPieceSurfaces(RegisteredSurfaces_.back().Slots);
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return std::nullopt; }
   WearsPieces();
@@ -630,8 +631,20 @@ bool Live::Build(std::string &error) {
   WearsPieces();
   if (DeclaresKeyLight()) { StandsKeyLight(); }
 
-  Renderer_->SetCameraBasis(Render::CameraBasis{});
+  if (auto bound = BindSubject(); !bound) {
+    error = std::move(bound.error());
+    return false;
+  }
+  const auto composedFrom = std::chrono::steady_clock::now();
+  const bool composed = Compose(error);
+  ComposeMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - composedFrom)
+          .count();
+  return composed;
+}
 
+std::expected<void, std::string> Live::BindSubject() {
+  std::string error;
   if (Shaped_.TriangleCount() > 0) {
     Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,
                                  .Y = Declared_.PictureTopFrac,
@@ -648,27 +661,26 @@ bool Live::Build(std::string &error) {
     const auto wholeFrom = std::chrono::steady_clock::now();
 
     Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
-    if (!Stand(error)) { return false; }
+    if (!Stand(error)) { return std::unexpected(std::move(error)); }
     StandMs_ = sinceInside();
-    if (!Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error)) { return false; }
+    if (!Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error)) {
+      return std::unexpected(std::move(error));
+    }
     SurfaceMs_ = sinceInside();
-    if (!Submit(error)) { return false; }
+    if (!Submit(error)) { return std::unexpected(std::move(error)); }
+    if (Aim_ == AimState::Unbound) { Aim_ = AimState::Bound; }
     SubmitMs_ = sinceInside();
     InsideMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wholeFrom)
             .count();
   } else {
+    if (Aim_ == AimState::Bound) { Aim_ = AimState::Unbound; }
     if (!RegisteredSurfaces_.empty() && !Renderer_->SetSubjectMaterials(Table_.Slots, error)) {
-      return false;
+      return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});
   }
-  const auto composedFrom = std::chrono::steady_clock::now();
-  const bool composed = Compose(error);
-  ComposeMs_ =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - composedFrom)
-          .count();
-  return composed;
+  return {};
 }
 
 bool Live::Pose(double seconds, std::string &error) {
@@ -686,7 +698,7 @@ bool Live::Measure(double seconds, std::string &error) {
 void Live::Eye(const Render::Viewpoint &from) {
   Eye_ = from;
   HaveEye_ = true;
-  Aimed_ = false;
+  Aim_ = AimState::Dirty;
 }
 
 void Live::CoverShapedParts() {
@@ -1146,7 +1158,7 @@ bool Live::Restand(outshine::Geometry &&built,
                    size_t carried,
                    const Material &wearing,
                    std::string &error) {
-  Aimed_ = false;
+  Aim_ = AimState::Dirty;
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
   Declared_.Built = nullptr;
@@ -1166,7 +1178,7 @@ bool Live::Restand(const Gltf::Subject &built,
                    size_t carried,
                    const Material &wearing,
                    std::string &error) {
-  Aimed_ = false;
+  Aim_ = AimState::Dirty;
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
   Declared_.Built = &built;
@@ -1217,13 +1229,13 @@ bool Live::Advance(std::string &error) {
 
   const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Shaped_.TriangleCount() > 0;
   if (orbits) { Around_ += Declared_.OrbitDegPerFrame; }
-  if (orbits || !Aimed_) {
+  if (orbits || Aim_ != AimState::Bound) {
     const size_t beforeAim = Heap::TakenUnder("live-aim");
     {
       const Heap::Tagged aiming("live-aim");
       if (!Look(error)) { return false; }
     }
-    Aimed_ = true;
+    Aim_ = AimState::Bound;
     TookAiming_ = took("live-aim", beforeAim);
   }
   return true;
@@ -1234,9 +1246,9 @@ bool Live::Draw(std::string &error) {
     error = "no device stands, so there is nothing to draw with";
     return false;
   }
-  if (!Aimed_) {
+  if (Aim_ != AimState::Bound) {
     if (!Look(error)) { return false; }
-    Aimed_ = true;
+    Aim_ = AimState::Bound;
   }
   const size_t beforeDraw = Heap::TakenUnder("render-frame");
   {

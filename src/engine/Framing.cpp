@@ -35,6 +35,11 @@
 
 namespace outshine {
 
+namespace Says {
+constexpr auto kInvalidFrameExtent =
+    "frame extent must be zero in both dimensions or positive in both";
+}
+
 Result Engine::mix(std::span<float> stereo, int rate) {
   if (!S_->Session.Mixing) {
     if (!S_->Session.Sounding.Stands(
@@ -51,6 +56,11 @@ Result Engine::mix(std::span<float> stereo, int rate) {
 }
 
 bool Engine::render(Extent frame) {
+  const bool defaultTarget = frame.WidthPx == 0 && frame.HeightPx == 0;
+  if (!defaultTarget && (frame.WidthPx <= 0 || frame.HeightPx <= 0)) {
+    S_->Error = Says::kInvalidFrameExtent;
+    return false;
+  }
   if (!S_->Stood()) { return false; }
   if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
       (frame.WidthPx != S_->Picture.Frame.WidthPx ||
@@ -189,7 +199,7 @@ void Engine::logsTo(LogSink *sink) {
 }
 
 Extent Engine::canvas() const {
-  return S_->Picture.Frame;
+  return S_->Picture.Targeted ? S_->Picture.Frame : Extent{};
 }
 
 bool Engine::camera(Scenario::Camera &out) const {

@@ -93,8 +93,19 @@ public:
 
   [[nodiscard]] Result flushAndWait();
 
+  /// Request a frame from this Engine's current scene. A zero extent uses the configured
+  /// target; a positive extent must match it. Calls are serialized with other Engine work.
+  /// A camera must be bound or derivable from object bounds. advance() applies a declared
+  /// scenario view; an empty scene without a prepared view returns an error.
+  /// @param frame Optional check of the target size in physical pixels; zero selects the target.
+  /// @return An error if scene/camera preparation fails; submission does not imply GPU completion.
   [[nodiscard]] Result render(Extent frame);
   [[nodiscard]] Result saveScreenshot(std::string_view path);
+  /// Draw a frame and copy the target into contiguous RGBA8 rows, top row first.
+  /// Requires a configured target, a camera and a presentable render output. Calls may wait
+  /// for GPU completion; use outside latency-critical callbacks. No reference to rgba is kept.
+  /// @param rgba Caller-owned output in the target's transfer encoding, valid only on success.
+  /// @return Success after readback, or a scene/camera/render/readback error.
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
 

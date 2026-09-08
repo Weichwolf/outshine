@@ -149,7 +149,7 @@ public:
   [[nodiscard]] double RadiusM() const;
   void CentreM(Vec3 &out) const;
 
-  [[nodiscard]] [[nodiscard]] bool Frame(Viewpoint &out, double fill = Render::kFramingFill) const;
+  [[nodiscard]] bool Frame(Viewpoint &out, double fill = Render::kFramingFill) const;
 
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 

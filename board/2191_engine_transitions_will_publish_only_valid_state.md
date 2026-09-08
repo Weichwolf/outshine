@@ -32,12 +32,14 @@ und nicht bewegliche Engine-Owner sind die geprüfte Voraussetzung.
 
 ## Aktiver Schritt: Kamera-Bereitschaft
 
-Live::Aimed_ startet true; Build bindet eine Standardbasis, aber ohne Geometrie
-keine Projektion. Draw überspringt dadurch Look und erreicht Lens::Projection mit
-FovDeg=0. Zustände Unbound/Bound/Dirty trennen fehlende Bindung von ausdrücklich
+Der bisherige Aimed-Boolean und eine Standardbasis ließen leere Szenen ohne
+Projektion bis zur Lens::Projection-Assertion gelangen. Zustände Unbound/Bound/Dirty trennen fehlende Bindung von ausdrücklich
 angefordertem Neu-Framing. Erfolgreicher Submit bindet Unbound, erhält aber Dirty;
 Build ohne Geometrie invalidiert Bound. Erst erfolgreiches Look beendet Dirty.
 Kein pauschales Neu-Framing einer bereits korrekt gebundenen glTF-Kamera.
+Build orchestriert Datenvorbereitung, Subject-Bindung und Overlay-Komposition;
+Kamera-Bindung und ihre Messungen gehören in die vollständige Subject-Bindephase.
+BindSubject liefert nodiscard expected mit besitzendem Fehlertext.
 SwapChain::extent muss vor erfolgreicher Target-Konfiguration null liefern, wie
 öffentlich dokumentiert; interne Default-Dimensionen sind keine gültige Oberfläche.
 
@@ -56,10 +58,10 @@ und Present-Pipeline nicht als zusammenhängenden Kandidaten neu auf. Größen- 
 Formatwechsel müssen dieses Ressourcenpaket atomar ersetzen, nicht nur das Target.
 Noch kein Nachweis korrekter Pixel nach einem solchen Wechsel.
 
-Beobachtet: declare einer Surface-Szene ohne vorbereitete Kamera, danach
-beginFrame/endFrame, erreicht die Lens::Projection-Assertion. Fehlende Vorbereitung
-oder ungültige Projektion vor GPU-Arbeit als Fehlerwert abweisen; erlaubte Reihenfolge
-öffentlich dokumentieren. Der Target-Test benutzt eine vollständig vorbereitete Kamera.
+Advancing ersetzt auch NaN/negative Projektionswerte durch Defaults; der mitgeführte
+Kamerapfad übernimmt Near/Far/Orthographic nicht vollständig. Gemeinsame Abbildung
+für beide Pfade herstellen: nur erklärte Auslassungswerte defaulten, ungültige Werte
+ablehnen. Double-zu-Float-Grenzen des Renderers dabei prüfen.
 
 ## Abnahme
 
@@ -67,6 +69,11 @@ oder ungültige Projektion vor GPU-Arbeit als Fehlerwert abweisen; erlaubte Reih
       Speicher. Fenster-Claims und Offscreen-Textur bleiben bei Ablehnung erhalten.
 - [x] Target-Fehlergrenzen und gültige Fenster-/Offscreen-Pfade: 44 Consumer-Checks.
 - [x] Vorzeitiges Targeted-Publizieren erzeugt genau einen Fehler im 44-Check-Oracle.
+
+- [x] Fehlende Kamera, Recovery, Extent und importierte Kamera: 36 Checks;
+      angefordertes Neu-Framing bleibt beim Rebind erhalten.
+- [x] Alte Bereitschaft samt Standardbasis wieder eingesetzt: Kamera-Consumer
+      bricht an der ursprünglichen Lens-Assertion ab; 25 andere Tests bestehen.
 
 - [ ] Öffentliche Übergangstabelle nennt erlaubte Reihenfolge und Fehlergarantien.
 - [ ] Fehler an jeder Build-/Validate-/Publish-Grenze injizieren; gültiges altes
