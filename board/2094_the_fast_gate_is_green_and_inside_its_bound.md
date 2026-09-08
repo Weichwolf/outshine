@@ -37,7 +37,7 @@ fehlendes Tool sowie eigene/ignorierte/gelöschte Dateien und Pfade mit Leerzeic
 
 ## Verbleibende Arbeit
 
-Aktuelle Lint-Gruppen rot: Tidy (215), öffentliche Dokumentation (673), Writer-Coverage.
+Aktuelle Lint-Gruppen rot: Tidy (212), öffentliche Dokumentation (673), Writer-Coverage.
 make test als Ganzes ist nicht neu abgenommen. Shader-Coverage nach 2152 auf GLSL-
 Artefakte umstellen: der alte MSL-Scanner meldet noch grünes 0/0 ohne Abdeckung.
 Gate-Dauer und Abdeckung je Teil ausweisen; keine langsamen Pflichtprüfungen entfernen.

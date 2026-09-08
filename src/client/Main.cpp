@@ -1,5 +1,5 @@
 #include <cstdio>
-#include <cstdlib>
+#include <cstddef>
 #include <cstring>
 #include <span>
 #include <string>
@@ -14,6 +14,7 @@
 #include <scenario/Scenario.h>
 
 #include "PlaceCamera.h"
+#include "format/Number.h"
 #include <cmath>
 
 namespace {
@@ -120,7 +121,7 @@ void Usage() {
       "  run [--rows] [--into <folder>] <scenario> [name]\n"
       "                                   read a declared scenario, stand it, draw it\n"
       "  measures <scenario>              and print every measure it published\n"
-      "  height <lat> <lon>               ask the Earth how high it is there\n"
+      "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
       "  help                             this\n\n"
       "Every verb is a call on `outshine::Engine`. A verb this does not have is a verb the door\n"
       "does not offer, or one nobody has needed yet.\n");
@@ -245,15 +246,31 @@ int RunScenario(int argc, char *const *argv, bool everyMeasure) {
   return shot.Why.empty() ? 0 : 1;
 }
 
-int AskHeight(int argc, char *const *argv) {
-  if (argc < 2) {
-    std::printf("outshine-client: height wants a latitude and a longitude\n");
+namespace Says {
+constexpr auto kHeightArguments =
+    "outshine-client: height requires exactly a latitude and longitude\n";
+constexpr auto kHeightCoordinates =
+    "outshine-client: height requires finite latitude in [-90,90] and longitude in [-180,180]\n";
+}
+
+[[nodiscard]] int QueryTerrainHeight(std::span<char *const> arguments) {
+  if (arguments.size() != 2) {
+    std::fputs(Says::kHeightArguments, stderr);
     return 2;
   }
+  constexpr double kLatitudeLimitDeg = 90.0;
+  constexpr double kLongitudeLimitDeg = 180.0;
+  const auto latitude = outshine::ParseFiniteNumber(arguments[0]);
+  const auto longitude = outshine::ParseFiniteNumber(arguments[1]);
+  if (!latitude || !longitude || *latitude < -kLatitudeLimitDeg || *latitude > kLatitudeLimitDeg ||
+      *longitude < -kLongitudeLimitDeg || *longitude > kLongitudeLimitDeg) {
+    std::fputs(Says::kHeightCoordinates, stderr);
+    return 2;
+  }
+  const double lat = *latitude;
+  const double lon = *longitude;
   outshine::Engine engine;
   if (!Stands(engine)) { return 2; }
-  const double lat = std::atof(argv[0]);
-  const double lon = std::atof(argv[1]);
   outshine::Scenario::Document stands;
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = lat;
@@ -292,7 +309,7 @@ int main(int argc, char **argv) {
   }
   const std::string verb = argc > argument ? argv[argument] : "help";
   const int rest = argc > argument ? argc - argument - 1 : 0;
-  char **const from = argv + (argc > argument ? argument + 1 : argc);
+  char *const *const from = argv + (argc > argument ? argument + 1 : argc);
   std::vector<Place> places;
   if (verb == "shots" || verb == "places" || verb == "roundtrip") {
     auto loaded = outshine::Shots::LoadPlaces(directory);
@@ -305,7 +322,7 @@ int main(int argc, char **argv) {
   if (verb == "shots") { return TakeShots(places, rest, from); }
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }
-  if (verb == "height") { return AskHeight(rest, from); }
+  if (verb == "height") { return QueryTerrainHeight({from, static_cast<std::size_t>(rest)}); }
   if (verb == "roundtrip") {
     int apart = 0;
     const std::string held = "build/outshine-roundtrip.scn";

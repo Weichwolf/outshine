@@ -118,7 +118,7 @@ corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/khronos/.
 corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
 	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
 
-test: all        ## the fast gate
+test: test-client-arguments all ## the fast gate
 	@$(RUN)
 
 suite: all       ## one named suite   (SUITE=outshine/places)
@@ -149,3 +149,7 @@ format: strip ## apply repository formatting to the same owned files lint checks
 .PHONY: test-format
 test-format: ## verify formatting coverage, real diagnostics and failure handling
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_format_sources.py
+
+.PHONY: test-client-arguments
+test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
+	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
