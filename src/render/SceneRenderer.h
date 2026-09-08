@@ -22,6 +22,7 @@
 
 #include "FrameContext.h"
 #include "Gpu.h"
+#include "GpuSubmission.h"
 #include "GpuOwned.h"
 #include "Readback.h"
 #include "Viewing.h"
@@ -95,7 +96,7 @@ public:
     RegionAspect_ = into.Aspect;
   }
 
-  void RenderFrame();
+  [[nodiscard]] std::expected<void, std::string> RenderFrame();
 
   [[nodiscard]] bool Drew() const { return Submitted_; }
 
@@ -104,7 +105,8 @@ public:
     StopShowing();
   }
 
-  SceneRenderer() = default;
+  explicit SceneRenderer(GpuSubmission submission = {}) : Submission_(submission) {}
+
   SceneRenderer(const SceneRenderer &) = delete;
   SceneRenderer &operator=(const SceneRenderer &) = delete;
 
@@ -358,6 +360,8 @@ public:
   }
 
 private:
+  [[nodiscard]] std::expected<void, std::string> PrepareFrame();
+  GpuSubmission Submission_;
   std::array<Effort, kStageCount> Spent_ = {{}};
 
   void Create(Resource resource);
@@ -410,7 +414,7 @@ private:
   void EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into);
   void EncodeSubjectScan(const FrameContext &ctx, const PassRecording &into);
   void EncodeSubjectCompact(const FrameContext &ctx, const PassRecording &into);
-  void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
+  void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass, StageSubmission &submission);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};
@@ -420,6 +424,7 @@ private:
   [[nodiscard]] DisplayOptions Display() const;
 
   [[nodiscard]] SDL_GPUTexture *LinearSource() const;
+  [[nodiscard]] SDL_GPUTexture *DisplaySource() const;
 
   OwnedDevice Device_;
 

@@ -4,6 +4,7 @@
 #include <string>
 
 #include "ComputeShaders.h"
+#include "StageSubmission.h"
 #include "IrradianceLayout.h"
 
 #include "Gpu.h"
@@ -28,7 +29,7 @@ public:
 
   void Encode(const PassRecording &into);
 
-  [[nodiscard]] bool Settled() const { return Settled_; }
+  [[nodiscard]] bool Settled() const noexcept { return Cache_.Submitted(); }
 
 private:
   struct Standing {
@@ -44,7 +45,7 @@ private:
   SDL_GPUSampler *Lut = nullptr;
   SDL_GPUBuffer *Into = nullptr;
   Standing Standing_{};
-  bool Settled_ = false;
+  StageCache Cache_;
 };
 
 }

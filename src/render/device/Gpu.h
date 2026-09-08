@@ -18,10 +18,13 @@ struct Gpu {
   AttachmentSet SceneColours;
 };
 
+class StageSubmission;
+
 struct PassRecording {
   SDL_GPUCommandBuffer *Commands = nullptr;
   SDL_GPURenderPass *Pass = nullptr;
   SDL_GPUComputePass *Dispatch = nullptr;
+  StageSubmission &Submission;
 };
 
 }

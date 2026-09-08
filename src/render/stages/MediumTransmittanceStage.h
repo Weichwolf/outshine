@@ -4,6 +4,7 @@
 #include <string>
 
 #include "ComputeShaders.h"
+#include "StageSubmission.h"
 
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -21,13 +22,13 @@ public:
 
   void Encode(const PassRecording &into);
 
-  [[nodiscard]] bool Settled() const { return Settled_; }
+  [[nodiscard]] bool Settled() const noexcept { return Cache_.Submitted(); }
 
 private:
   OwnedComputePipeline Pipe;
   SDL_GPUTexture *Lut = nullptr;
   Medium Declared_;
-  bool Settled_ = false;
+  StageCache Cache_;
 };
 
 }

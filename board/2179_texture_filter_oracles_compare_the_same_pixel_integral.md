@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Parent: 2171
+Depends:
 Area: test, harness, render
 Tags: khronos, measured
 
@@ -53,7 +55,7 @@ Keine Änderung an Vendor-Manifesten, Oracles oder Akzeptanzschranken im bisheri
 
 ## Eingrenzung des Wiederholungsfehlers
 
-MipmappedChessRepeatsLinearPixels bleibt sporadisch rot: 420 lineare Kanäle,
+MipmappedChessRepeatsLinearPixels bleibt sporadisch rot: zuletzt 423 lineare Kanäle,
 maximal 0,00268555, bei identischer Tiefe. Der alte Renderer zeigt denselben Fehler;
 der neue Piece-Instanzpfad ist keine notwendige Ursache. Keine Wiederholung bis grün.
 

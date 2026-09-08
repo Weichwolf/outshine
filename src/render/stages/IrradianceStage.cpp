@@ -33,7 +33,7 @@ bool IrradianceStage::Configure(const Gpu &gpu,
                                 SDL_GPUBuffer *into,
                                 std::string &error) {
   if (Into != into || Transmittance != transmittance || MultiScatter != multiScatter) {
-    Settled_ = false;
+    Cache_.Invalidate();
   }
   Transmittance = transmittance;
   MultiScatter = multiScatter;
@@ -52,19 +52,19 @@ bool IrradianceStage::Configure(const Gpu &gpu,
     return false;
   }
   Pipe = std::move(*made);
-  Settled_ = false;
+  Cache_.Invalidate();
   return true;
 }
 
 void IrradianceStage::Declare(const Medium &medium, float cosSunZenith) {
   const Standing wanted = {.Declared = medium, .CosSunZenith = cosSunZenith};
-  if (Settled_ && Standing_ == wanted) { return; }
+  if (Cache_.Submitted() && Standing_ == wanted) { return; }
   Standing_ = wanted;
-  Settled_ = false;
+  Cache_.Invalidate();
 }
 
 void IrradianceStage::Encode(const PassRecording &into) {
-  if (!Pipe || Settled_ || into.Dispatch == nullptr) { return; }
+  if (!Pipe || !Cache_.NeedsRecording() || into.Dispatch == nullptr) { return; }
   Pushed pushed{};
   pushed.Declared = Standing_.Declared;
   pushed.CosSunZenith = Standing_.CosSunZenith;
@@ -75,7 +75,7 @@ void IrradianceStage::Encode(const PassRecording &into) {
       {{.texture = Transmittance, .sampler = Lut}, {.texture = MultiScatter, .sampler = Lut}}};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound.data(), 2);
   SDL_DispatchGPUCompute(into.Dispatch, 1u, 1u, 1u);
-  Settled_ = true;
+  into.Submission.Record(Stage::Irradiance, Cache_);
 }
 
 }

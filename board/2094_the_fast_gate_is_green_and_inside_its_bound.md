@@ -33,7 +33,7 @@ werden gezählt, nicht Quelltextzeilen in Diagnosen. Der alte Bericht „740 Dat
 war falsch: 20 von 546 Dateien hatten Formatdiagnosen. Keine Stilregeln gelockert.
 Vier Tests mit echtem clang-format prüfen Diagnostics/Fix/Idempotenz, leere Abdeckung,
 fehlendes Tool sowie eigene/ignorierte/gelöschte Dateien und Pfade mit Leerzeichen.
-546 Dateien geprüft, keine Formatabweichung.
+Aktuell 553 Dateien geprüft, keine Formatabweichung.
 
 ## Verbleibende Arbeit
 

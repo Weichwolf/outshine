@@ -1253,7 +1253,11 @@ bool Live::Draw(std::string &error) {
   const size_t beforeDraw = Heap::TakenUnder("render-frame");
   {
     const Heap::Tagged drawing("render-frame");
-    Renderer_->RenderFrame();
+    auto rendered = Renderer_->RenderFrame();
+    if (!rendered) {
+      error = std::move(rendered.error());
+      return false;
+    }
   }
   TookDrawing_ = Heap::TakenUnder("render-frame") - beforeDraw;
   return true;

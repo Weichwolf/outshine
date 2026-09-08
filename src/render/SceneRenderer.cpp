@@ -33,6 +33,8 @@
 namespace outshine::Render {
 
 namespace Says {
+constexpr auto kRendererNotReady = "GPU renderer is not initialized";
+constexpr auto kCameraNotConfigured = "render camera is not configured";
 constexpr auto kInvalidTargetExtent = "render target dimensions must be positive";
 constexpr auto kTargetTextureFailed = "could not create the offscreen target: ";
 constexpr auto kWindowClaimFailed = "could not claim the target window: ";
@@ -620,6 +622,12 @@ SDL_GPUTextureFormat SceneRenderer::SurfaceFormat() const {
   return Plan_ ? FormatOf(Plan_->Format(Resource::Surface)) : SDL_GPU_TEXTUREFORMAT_INVALID;
 }
 
+SDL_GPUTexture *SceneRenderer::DisplaySource() const {
+  const auto input =
+      Plan_->Holds(Stage::TemporalResolve) ? Resource::SceneAerial : Resource::SceneLinear;
+  return Target(Plan_->Bound(input));
+}
+
 SDL_GPUTexture *SceneRenderer::LinearSource() const {
   return Target(Plan_->Bound(Resource::SceneLinear));
 }
@@ -666,7 +674,7 @@ bool SceneRenderer::ConfigurePresent(std::string &error) {
 
 bool SceneRenderer::ConfigureTonemap(std::string &error) {
   return Tonemap_.Configure(Handles_,
-                            {.Scene = Target(Plan_->Bound(Resource::SceneLinear)),
+                            {.Scene = DisplaySource(),
                              .Depth = DepthTex_.Get(),
                              .Exact = Samp_.Get(),
                              .Linear = FormatOf(Plan_->Format(Resource::SceneLinear))},
@@ -802,7 +810,7 @@ void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx,
 }
 
 void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
-  Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneLinear)));
+  Tonemap_.Bind(DisplaySource());
   const Vec2f delta = {{Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]}};
   Tonemap_.BindTemporal({.History = LinearTex_[1 - LinearAt_].Get(), .Velocity = VelTex_.Get()},
                         Extent{.WidthPx = Width_, .HeightPx = Height_},
@@ -1040,7 +1048,9 @@ Vec2f HaltonJitter(int at) {
 }
 }
 
-void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
+void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands,
+                               size_t pass,
+                               StageSubmission &submission) {
   const Compiled::Pass &declared = Plan_->Passes()[pass];
   if (declared.Kind == PassKind::Compute) {
     std::array<SDL_GPUStorageTextureReadWriteBinding, kMaxColourAttachments> written = {{}};
@@ -1060,11 +1070,11 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       binding.buffer = held;
       binding.cycle = false;
     }
-    const PassRecording into{
-        .Commands = commands,
-        .Pass = nullptr,
-        .Dispatch = SDL_BeginGPUComputePass(
-            commands, written.data(), writtenCount, tables.data(), tableCount)};
+    const PassRecording into{.Commands = commands,
+                             .Pass = nullptr,
+                             .Dispatch = SDL_BeginGPUComputePass(
+                                 commands, written.data(), writtenCount, tables.data(), tableCount),
+                             .Submission = submission};
     for (size_t at = 0; at < declared.Count; ++at) {
       EncodeStage(Plan_->Order()[declared.First + at], into);
     }
@@ -1105,7 +1115,8 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       .Commands = commands,
       .Pass = SDL_BeginGPURenderPass(
           commands, colours.data(), colourCount, declared.Depth != kNoEdge ? &depth : nullptr),
-      .Dispatch = nullptr};
+      .Dispatch = nullptr,
+      .Submission = submission};
   for (size_t at = 0; at < declared.Count; ++at) {
     EncodeStage(Plan_->Order()[declared.First + at], into);
   }
@@ -1123,14 +1134,54 @@ void SceneRenderer::BeginTemporalRun() {
   HistoryHeld_ = false;
 }
 
-void SceneRenderer::RenderFrame() {
-  if (!Ready_) { return; }
-  if (!CameraFull_) {
-    WhyNot_ = "no camera basis reached this renderer, so a frame has no eye to be seen from -- "
-              "SetCameraBasis takes the eye, forward, right and up the picture is composed about";
-    return;
+std::expected<void, std::string> SceneRenderer::PrepareFrame() {
+  if (!Ready_) { return std::unexpected(WhyNot_.empty() ? Says::kRendererNotReady : WhyNot_); }
+  if (!CameraFull_) { return std::unexpected(Says::kCameraNotConfigured); }
+
+  Subjects_.CastsNoShadow();
+  for (bool &touched : Touched_) { touched = false; }
+  SettleShadow();
+  {
+    std::string why;
+    if (!Subjects_.HandTables(why) || !Subjects_.HandPlacements(false, why) ||
+        (DrawsGlass_ && !Glass_.HandTables(why))) {
+      return std::unexpected(std::move(why));
+    }
+    if (!Subjects_.HandDrawArguments(true, why)) { return std::unexpected(std::move(why)); }
+  }
+  return {};
+}
+
+std::expected<void, std::string> SceneRenderer::RenderFrame() {
+  auto prepared = PrepareFrame();
+  if (!prepared) { return prepared; }
+  SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());
+  if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
+
+  SDL_GPUTexture *swapchain = nullptr;
+  if (Showing_ != nullptr) {
+    Uint32 gotW = 0;
+    Uint32 gotH = 0;
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &swapchain, &gotW, &gotH)) {
+      std::string error = SDL_GetError();
+      SDL_CancelGPUCommandBuffer(commands);
+      return std::unexpected(std::move(error));
+    }
+    if (swapchain == nullptr) {
+      if (!SDL_CancelGPUCommandBuffer(commands)) { return std::unexpected(SDL_GetError()); }
+      return {};
+    }
+    Shown_.WidthPx = static_cast<int>(gotW);
+    Shown_.HeightPx = static_cast<int>(gotH);
+    HostSurface_ = swapchain;
   }
 
+  const auto previousJitter = Jitter_;
+  const auto previousPrevJitter = PrevJitter_;
+  const auto previousJitterAt = JitterAt_;
+  const auto previousHistoryStarted = HistoryStarted_;
+  const auto previousHistoryHeld = HistoryHeld_;
+  const auto previousLinearAt = LinearAt_;
   if (Plan_->Holds(Stage::TemporalResolve)) {
     PrevJitter_ = Jitter_;
     JitterAt_ = (JitterAt_ + 1) % kJitterPeriod;
@@ -1140,54 +1191,29 @@ void SceneRenderer::RenderFrame() {
     HistoryStarted_ = true;
     LinearAt_ = 1 - LinearAt_;
   }
-  Subjects_.CastsNoShadow();
-  for (bool &touched : Touched_) { touched = false; }
-  SettleShadow();
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
+  StageSubmission stageSubmission;
 
-  SDL_GPUTexture *swapchain = nullptr;
-  if (Showing_ != nullptr) {
-    Uint32 gotW = 0;
-    Uint32 gotH = 0;
-    if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &swapchain, &gotW, &gotH) &&
-        swapchain != nullptr) {
-      Shown_.WidthPx = static_cast<int>(gotW);
-      Shown_.HeightPx = static_cast<int>(gotH);
-      HostSurface_ = swapchain;
-    } else {
-      Log::Error(LogTag::Render, "no_swapchain", {{"msg", SDL_GetError()}});
-    }
-  }
-
-  {
-    std::string why;
-    if (!Subjects_.HandTables(why) || !Subjects_.HandPlacements(false, why) ||
-        (DrawsGlass_ && !Glass_.HandTables(why))) {
-      Log::Error(LogTag::Render, "pool_tables_not_handed", {{"msg", why}});
-    }
-    if (!Subjects_.HandDrawArguments(true, why)) {
-      Log::Error(LogTag::Render, "cull_arguments_not_reset", {{"msg", why}});
-    }
-  }
   Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands);
   Subjects_.FlushCrossings(commands);
   if (DrawsGlass_) { Glass_.FlushCrossings(commands); }
 
-  for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) { EncodePass(commands, pass); }
+  for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) {
+    EncodePass(commands, pass, stageSubmission);
+  }
 
   if (Landed_[LandedAt_] != nullptr) {
     SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
     SDL_ReleaseGPUFence(Device_.Get(), Landed_[LandedAt_]);
     Landed_[LandedAt_] = nullptr;
   }
-  SDL_GPUTransferBuffer *taking = nullptr;
+  OwnedTransfer taking;
   if (Wanted_ && HostSurface_ != nullptr) {
     SDL_GPUTransferBufferCreateInfo wanted{};
     wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
     wanted.size =
         static_cast<Uint32>(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
-    taking = SDL_CreateGPUTransferBuffer(Device_.Get(), &wanted);
-    if (taking != nullptr) {
+    taking = OwnedTransfer(Device_.Get(), SDL_CreateGPUTransferBuffer(Device_.Get(), &wanted));
+    if (taking) {
       SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
       SDL_GPUTextureRegion region{};
       region.texture = HostSurface_;
@@ -1195,7 +1221,7 @@ void SceneRenderer::RenderFrame() {
       region.h = static_cast<Uint32>(Height_);
       region.d = 1;
       SDL_GPUTextureTransferInfo into{};
-      into.transfer_buffer = taking;
+      into.transfer_buffer = taking.Get();
       into.pixels_per_row = static_cast<Uint32>(Width_);
       into.rows_per_layer = static_cast<Uint32>(Height_);
       SDL_DownloadFromGPUTexture(copy, &region, &into);
@@ -1203,18 +1229,28 @@ void SceneRenderer::RenderFrame() {
     }
   }
 
-  Landed_[LandedAt_] = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-  if (taking != nullptr) {
+  Landed_[LandedAt_] = Submission_.Submit(Submission_.Context, commands);
+  if (swapchain != nullptr) { HostSurface_ = Offscreen_.Get(); }
+  if (Landed_[LandedAt_] == nullptr) {
+    std::string error = SDL_GetError();
+    Jitter_ = previousJitter;
+    PrevJitter_ = previousPrevJitter;
+    JitterAt_ = previousJitterAt;
+    HistoryStarted_ = previousHistoryStarted;
+    HistoryHeld_ = previousHistoryHeld;
+    LinearAt_ = previousLinearAt;
+    return std::unexpected(std::move(error));
+  }
+  stageSubmission.Commit();
+  if (taking) {
     SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
-    if (const void *pixels = SDL_MapGPUTransferBuffer(Device_.Get(), taking, false)) {
+    if (const void *pixels = SDL_MapGPUTransferBuffer(Device_.Get(), taking.Get(), false)) {
       const auto *bytes = static_cast<const uint8_t *>(pixels);
       Taken_.assign(bytes, bytes + static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
-      SDL_UnmapGPUTransferBuffer(Device_.Get(), taking);
+      SDL_UnmapGPUTransferBuffer(Device_.Get(), taking.Get());
     }
-    SDL_ReleaseGPUTransferBuffer(Device_.Get(), taking);
     Wanted_ = false;
   }
-  if (swapchain != nullptr) { HostSurface_ = Offscreen_.Get(); }
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Camera_.EyeM[axis]; }
   Subjects_.CarryFrame();
@@ -1222,6 +1258,7 @@ void SceneRenderer::RenderFrame() {
 
   PrevMvp_ = MvpCamRel(Camera_, Through());
   Submitted_ = true;
+  return {};
 }
 
 void SceneRenderer::WaitForGpu() {

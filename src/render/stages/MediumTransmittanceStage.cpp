@@ -12,7 +12,7 @@
 namespace outshine::Render {
 
 bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error) {
-  if (Lut != lut) { Settled_ = false; }
+  if (Lut != lut) { Cache_.Invalidate(); }
   Lut = lut;
   if (Lut == nullptr) {
     error = "the plan holds no transmittance table for this stage to write, so nothing downstream "
@@ -27,18 +27,18 @@ bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, st
     return false;
   }
   Pipe = std::move(*made);
-  Settled_ = false;
+  Cache_.Invalidate();
   return true;
 }
 
 void MediumTransmittanceStage::Declare(const Medium &medium) {
-  if (Settled_ && Declared_ == medium) { return; }
+  if (Cache_.Submitted() && Declared_ == medium) { return; }
   Declared_ = medium;
-  Settled_ = false;
+  Cache_.Invalidate();
 }
 
 void MediumTransmittanceStage::Encode(const PassRecording &into) {
-  if (!Pipe || Settled_ || into.Dispatch == nullptr) { return; }
+  if (!Pipe || !Cache_.NeedsRecording() || into.Dispatch == nullptr) { return; }
   SDL_PushGPUComputeUniformData(
       into.Commands, 0, &Declared_, static_cast<uint32_t>(sizeof Declared_));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
@@ -46,7 +46,7 @@ void MediumTransmittanceStage::Encode(const PassRecording &into) {
                          (kTransmittanceLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
                          (kTransmittanceLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
                          1u);
-  Settled_ = true;
+  into.Submission.Record(Stage::MediumTransmittance, Cache_);
 }
 
 }

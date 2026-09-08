@@ -214,7 +214,7 @@ done
 
 LayerIncludes() {
   case "$1" in
-    outshine/conventions) printf '%s ' "-Isrc/base"; LayerIncludes outshine/places ;;
+    outshine/conventions|outshine/device) printf '%s ' "-Isrc/base"; LayerIncludes outshine/places ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
     # carried its own hand-written list beside the build line, which is the second spelling of the
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
@@ -243,7 +243,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
-    outshine/conventions) LayerToolchain outshine/places; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
+    outshine/conventions|outshine/device) LayerToolchain outshine/places; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
     outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -270,13 +270,14 @@ LayerSanitiser() {
 
 LayerValidation() {
   case "$1" in
+    outshine/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerLink() {
   case "$1" in
-    outshine/conventions) LayerLink outshine/places ;;
+    outshine/conventions|outshine/device) LayerLink outshine/places ;;
     outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
     outshine/places | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
@@ -287,7 +288,7 @@ LayerLink() {
 
 LayerGroups() {
   case "$1" in
-    outshine/conventions) LayerGroups outshine/places ;;
+    outshine/conventions|outshine/device) LayerGroups outshine/places ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;

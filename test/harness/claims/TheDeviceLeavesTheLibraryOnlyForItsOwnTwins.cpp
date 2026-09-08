@@ -27,7 +27,7 @@ constexpr const char *kDeviceWork[] = {
 };
 
 [[nodiscard]] bool ProvesTheDevice(const std::string &path) {
-  return path.find("test/outshine/shader/") != std::string::npos ||
+  return path.find("test/outshine/device/") != std::string::npos ||
          path.find("test/harness/") != std::string::npos;
 }
 
@@ -75,8 +75,9 @@ int main(void) {
         "src/render/ claims a window for the device, acquires a swapchain texture or a command "
         "buffer, or makes a GPU texture -- because a client that does those things is written "
         "against SDL_GPU whether it wants to be or not, and the renderer it holds is then not "
-        "swappable. The exception is the MSL-versus-C++ twins, which exist to prove the device "
-        "and are not clients of it (board:1826)");
+        "swappable. The exception is the declared device-contract suite, whose fault injections "
+        "prove SDL ownership "
+        "and submission and which is not a client of it (board:2190)");
 
   Covers("IV.21 the device does not leave the render layer: a client hands in a window or an "
          "extent and gets back pixels, never a handle it must do GPU work with (board:1826)");

@@ -53,7 +53,7 @@ https://raw.githubusercontent.com/KhronosGroup/OpenGL-Refpages/main/gl4/normaliz
 Die gemeinsame Sky-LUT-Koordinate muss den Pol explizit behandeln: dort ist der
 Azimut beliebig, da das Medium rotationssymmetrisch um die Vertikale ist. Endlichen
 kanonischen Azimut verwenden; keinen NaN-Wert nachträglich im fertigen Bild verdecken.
-Der Device-Abbruchtest aus 2190 verwendet derzeit Zenitsonne: Irradiance stimmt nach
-Retry, drei temporale Pixelvergleiche scheitern. Zusammenhang durch finite Pixelwerte
-und identische erfolgreiche Framefolgen prüfen; Zenit/Nadir und Annäherung abdecken.
+Der Device-Test aus 2190 verwendet Zenitsonne. Seine NaNs verschwanden durch die
+Korrektur des Temporal-Eingangs, ohne GLSL-Änderung: keine belegte Folge des Sonnenpols.
+Den unabhängig vorhandenen Nullvektor-Verstoß mit Zenit/Nadir und Annäherung prüfen.
 Diese Reparatur ersetzt keine Abnahme von gerichtetem IBL, Sichtbarkeit oder Bounce.

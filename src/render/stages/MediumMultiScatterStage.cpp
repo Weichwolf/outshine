@@ -16,7 +16,7 @@ bool MediumMultiScatterStage::Configure(const Gpu &gpu,
                                         SDL_GPUSampler *lut,
                                         SDL_GPUTexture *into,
                                         std::string &error) {
-  if (Into != into || Transmittance != transmittance) { Settled_ = false; }
+  if (Into != into || Transmittance != transmittance) { Cache_.Invalidate(); }
   Transmittance = transmittance;
   Lut = lut;
   Into = into;
@@ -33,18 +33,18 @@ bool MediumMultiScatterStage::Configure(const Gpu &gpu,
     return false;
   }
   Pipe = std::move(*made);
-  Settled_ = false;
+  Cache_.Invalidate();
   return true;
 }
 
 void MediumMultiScatterStage::Declare(const Medium &medium) {
-  if (Settled_ && Declared_ == medium) { return; }
+  if (Cache_.Submitted() && Declared_ == medium) { return; }
   Declared_ = medium;
-  Settled_ = false;
+  Cache_.Invalidate();
 }
 
 void MediumMultiScatterStage::Encode(const PassRecording &into) {
-  if (!Pipe || Settled_ || into.Dispatch == nullptr) { return; }
+  if (!Pipe || !Cache_.NeedsRecording() || into.Dispatch == nullptr) { return; }
   SDL_PushGPUComputeUniformData(
       into.Commands, 0, &Declared_, static_cast<uint32_t>(sizeof Declared_));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
@@ -54,7 +54,7 @@ void MediumMultiScatterStage::Encode(const PassRecording &into) {
                          (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,
                          (kMultiScatterLutSize + KernelShape.GroupY - 1u) / KernelShape.GroupY,
                          1u);
-  Settled_ = true;
+  into.Submission.Record(Stage::MediumMultiScatter, Cache_);
 }
 
 }

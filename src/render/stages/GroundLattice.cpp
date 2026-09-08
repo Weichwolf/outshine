@@ -49,20 +49,20 @@ using SidePlanes = std::array<std::array<float, 4>, 4>;
   return planes;
 }
 
-struct LatticeInput {
+struct LatticeVertexInput {
   std::array<SDL_GPUVertexBufferDescription, 2> Buffers{};
   std::array<SDL_GPUVertexAttribute, 8> Attributes{};
 };
 
-LatticeInput InputOf() {
-  LatticeInput in;
+[[nodiscard]] constexpr LatticeVertexInput MakeLatticeVertexInput() {
+  LatticeVertexInput in;
   in.Buffers[0].slot = 0;
   in.Buffers[0].pitch = GroundLattice::kGridFloats * static_cast<uint32_t>(sizeof(float));
   in.Buffers[0].input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
   in.Buffers[1].slot = 1;
   in.Buffers[1].pitch = kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float));
   in.Buffers[1].input_rate = SDL_GPU_VERTEXINPUTRATE_INSTANCE;
-  in.Buffers[1].instance_step_rate = 1;
+  in.Buffers[1].instance_step_rate = 0;
   in.Attributes[0].location = 0;
   in.Attributes[0].buffer_slot = 0;
   in.Attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
@@ -75,6 +75,9 @@ LatticeInput InputOf() {
   }
   return in;
 }
+
+static_assert(MakeLatticeVertexInput().Buffers[0].instance_step_rate == 0 &&
+              MakeLatticeVertexInput().Buffers[1].instance_step_rate == 0);
 
 bool UploadBuffer(SDL_GPUDevice *device,
                   SDL_GPUBuffer *into,
@@ -249,7 +252,7 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
                                         LitShape,
                                         error));
   if (!vertex || !fragment) { return false; }
-  const LatticeInput in = InputOf();
+  const LatticeVertexInput in = MakeLatticeVertexInput();
   SDL_GPUGraphicsPipelineCreateInfo wanted{};
   wanted.vertex_shader = vertex.Get();
   wanted.fragment_shader = fragment.Get();
@@ -293,7 +296,7 @@ bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
       ShaderFrom(
           device, "build/shaders/depth.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, DepthShape, error));
   if (!vertex || !fragment) { return false; }
-  const LatticeInput in = InputOf();
+  const LatticeVertexInput in = MakeLatticeVertexInput();
   SDL_GPUGraphicsPipelineCreateInfo wanted{};
   wanted.vertex_shader = vertex.Get();
   wanted.fragment_shader = fragment.Get();
