@@ -35,6 +35,21 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   Build und Compile-Datenbank müssen dieselbe Konfiguration führen. Tools und
   Drittanbieter explizit prüfen, keine pauschale Flag-Vererbung.
 
+## Aktiver Schritt: vollständige CLI-Zahlenkonvertierung
+
+Main::AskHeight nutzt atof und initialisiert SDL vor Prüfung der Koordinaten.
+Gemeinsamer kleiner Parser in base/format: string_view, nodiscard expected<double,
+NumberError>, noexcept; from_chars statt Locale/Exceptions/temporärer Strings.
+Akzeptiert endliche dezimale Zahlen samt Vorzeichen und Exponent; keine Rand-Leerzeichen,
+Restzeichen, NaN/Inf oder Über-/Unterläufe. Keine Ersatznull bei ungültiger Eingabe.
+height verlangt exakt zwei Argumente, Latitude in [-90,90], Longitude in [-180,180];
+Ablehnung vor Engine-/SDL-/Provider-Aufbau. Gültige Abfrage bleibt unverändert.
+Unabhängige Zahlen-Oracles einschließlich begrenzter Views ohne Nullterminierung;
+Client-Subprozesse unterscheiden Parse-Ablehnung von injiziertem SDL-Startfehler.
+Negativkontrolle mit altem atof-/Initialisierungspfad muss die Ablehnungschecks verletzen.
+Weitere Consumer (Mixer/XML/render-CLI) anschließend mit ihren eigenen Fachverträgen
+migrieren; dieser Schritt behauptet weder vollständige Runtime- noch Audio-Abnahme.
+
 ## Abnahme
 
 - [ ] Runtime und Generatoren nachweislich ohne Exceptions gebaut und getestet.
