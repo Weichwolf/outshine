@@ -15,7 +15,7 @@ using namespace outshine::Render;
 using namespace outshine::Test;
 
 struct Faults {
-  enum class Point { None, Acquire, Submit };
+  enum class Point { None, Map, Acquire, Submit };
   Point Next = Point::None;
   size_t Acquired = 0;
   size_t Submitted = 0;
@@ -47,9 +47,40 @@ struct Faults {
                 return nullptr;
               }
               return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+            },
+            .MapUpload = [](void *context,
+                            SDL_GPUDevice *device,
+                            SDL_GPUTransferBuffer *transfer) -> void * {
+              auto &faults = *static_cast<Faults *>(context);
+              if (faults.Next == Point::Map) {
+                faults.Next = Point::None;
+                SDL_SetError("injected initialization map failure");
+                return nullptr;
+              }
+              return SDL_MapGPUTransferBuffer(device, transfer, false);
             }};
   }
 };
+
+void InitializationUploads() {
+  const auto compiled = Compiled::Compile(
+      {.Outputs = {Resource::Surface, Resource::IrradianceBuffer}, .Content = {Stage::Sky}});
+  CHECK(compiled.has_value(),
+        "the initialization oracle requires irradiance and its ground bindings");
+  if (!compiled) { return; }
+  SceneRenderer unopened;
+  std::string error;
+  CHECK(!unopened.SetGroundClasses({}, {}, error) && !error.empty(),
+        "ground upload before renderer initialization reports failure");
+  for (auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
+    Faults faults;
+    faults.Next = point;
+    SceneRenderer renderer(faults.Functions());
+    renderer.Init({32, 32}, *compiled);
+    CHECK(!renderer.DeviceUsable() && renderer.WhyNot().find("injected") != std::string::npos,
+          "failed fallback upload prevents renderer readiness and preserves the SDL diagnosis");
+  }
+}
 
 struct Snapshot {
   std::vector<float> Linear;
@@ -288,6 +319,7 @@ int main() {
         "SDL assertions fail immediately instead of opening a dialog");
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
   if (SDL_WasInit(SDL_INIT_VIDEO) != 0) {
+    InitializationUploads();
     Exercise();
     ShadowSubmission();
   }

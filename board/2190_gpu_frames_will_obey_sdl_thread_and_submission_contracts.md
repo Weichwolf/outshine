@@ -71,8 +71,17 @@ und bytegleich zur gesicherten Referenz. Keine neue fotorealistische Place-Abnah
       Bindings prüfen; Shader-Katalog 2152 ersetzt keinen Ressourcen-Lebenszyklus.
 - [ ] Fence-Wait-/Readback-Fehler prüfen und von bereits eingereichter Arbeit trennen;
       Screenshot darf die schreibgeschützte Swapchain nicht als Quelle lesen.
-- [ ] Upload-Helfer prüft Map/Acquire/Submit noch nicht. SetGroundClasses vermischt
-      Mindestkapazität mit Quelllänge: bounded Quellspan und Größenüberlauf prüfen.
+- [x] GroundStorage übernimmt Klassen/Palette gemeinsam als unveränderliche GPU-Version.
+      Quellspans und uint32-Bytegrenzen werden getrennt von Mindestkapazität geprüft;
+      leere/kurze Inputs initialisieren den Rest mit Null. Ein Upload-Submit veröffentlicht
+      beide neuen Buffer; Fehler lassen alte Handles/Inhalte unverändert. Kein GPU-Wait
+      im Uploadpfad; nachfolgende Commands sehen die eingereichte Version gemäß SDL.
+      Map/Acquire/Submit-Fehler gelangen bis Live, auch initiale Fallback-Uploads sind Pflicht.
+      Device-Test prüft GPU-Readback, gesperrte Seiten hinter Ein-Element-Quellen,
+      wiederholte Fehler, größere Ersatzdaten und Retry; normal und GPU-validiert.
+      Frische Ressourcen sichern Fehleratomarität beim Weltumbau. Upload-Ringe und
+      budgetierte inkrementelle Streaming-Updates bleiben in 2149/2124.
+- [ ] Weitere Upload-Helfer (u.a. GroundLattice) prüfen Acquire/Submit noch nicht.
       SubjectDraw::HandTables löscht TablesStale_ vor Retable-Erfolg; Retry erhalten.
       2149 besitzt persistente Upload-Ringe, dieses WI Fehler und Veröffentlichungszustand.
 - [ ] Pass- und Ressourcen-Vorbedingungen nach SDL prüfen; Programmierfehler von echten

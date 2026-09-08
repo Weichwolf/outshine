@@ -889,11 +889,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   phaseAt = std::chrono::steady_clock::now();
   Picture.Standing->GroundIs(ringSurface.index());
   if (classStructure && !classPalette.empty() &&
-      !Picture.Standing->GroundClasses(classStructure->Words(),
-                                       classStructure->Bytes() / sizeof(uint32_t),
-                                       classPalette.data(),
-                                       classPalette.size(),
-                                       Error)) {
+      !Picture.Standing->GroundClasses(
+          {classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},
+          classPalette,
+          Error)) {
     return false;
   }
   Picture.Standing->Digests(declared.Render.Audits);

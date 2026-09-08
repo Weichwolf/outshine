@@ -38,10 +38,21 @@
 namespace outshine::Core {
 
 namespace Says {
+constexpr auto GroundRendererMissing = "ground storage requires a live renderer";
 constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
+}
+
+bool Live::GroundClasses(std::span<const uint32_t> classes,
+                         std::span<const float> palette,
+                         std::string &error) {
+  if (Renderer_ == nullptr) {
+    error = Says::GroundRendererMissing;
+    return false;
+  }
+  return Renderer_->SetGroundClasses(classes, palette, error);
 }
 
 constexpr double kExposureCalibration = 1.2;

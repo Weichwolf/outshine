@@ -14,6 +14,10 @@ struct GpuSubmission {
                                                                SDL_GPUCommandBuffer *commands) {
     return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
   };
+  void *(*MapUpload)(void *, SDL_GPUDevice *, SDL_GPUTransferBuffer *) =
+      [](void *, SDL_GPUDevice *device, SDL_GPUTransferBuffer *transfer) {
+        return SDL_MapGPUTransferBuffer(device, transfer, false);
+      };
 };
 
 }

@@ -23,6 +23,7 @@
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuSubmission.h"
+#include "GroundStorage.h"
 #include "GpuOwned.h"
 #include "Readback.h"
 #include "Viewing.h"
@@ -338,10 +339,8 @@ public:
 
   void SetCamera(const CameraBasis &basis, const Lens &lens) noexcept;
 
-  [[nodiscard]] bool SetGroundClasses(const uint32_t *words,
-                                      size_t wordCount,
-                                      const float *palette,
-                                      size_t paletteFloats,
+  [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> classes,
+                                      std::span<const float> palette,
                                       std::string &error);
 
   [[nodiscard]] float NearMetres() const { return NearM_; }
@@ -465,10 +464,7 @@ private:
   MediumRadianceStage Radiance_;
   IrradianceStage SkyIrradianceStage_;
   DepthPyramidStage PyramidStage_;
-  OwnedBuffer GroundClasses_;
-  OwnedBuffer GroundPalette_;
-  uint32_t GroundClassBytes_ = 0;
-  uint32_t GroundPaletteBytes_ = 0;
+  GroundStorage GroundStorage_;
   OwnedBuffer IrradianceBuffer_;
   OwnedBuffer Pyramid_;
   Readback PyramidRead_;

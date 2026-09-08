@@ -161,14 +161,9 @@ public:
     return Renderer_ == nullptr ? 0u : Renderer_->PieceBytesHeld();
   }
 
-  [[nodiscard]] bool GroundClasses(const uint32_t *words,
-                                   size_t wordCount,
-                                   const float *palette,
-                                   size_t paletteFloats,
-                                   std::string &error) {
-    return Renderer_ == nullptr ||
-           Renderer_->SetGroundClasses(words, wordCount, palette, paletteFloats, error);
-  }
+  [[nodiscard]] bool GroundClasses(std::span<const uint32_t> classes,
+                                   std::span<const float> palette,
+                                   std::string &error);
 
   void Digests(bool yes) { Scratch_.Digests = yes; }
 
