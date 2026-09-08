@@ -72,6 +72,10 @@ ablehnen. Double-zu-Float-Grenzen des Renderers dabei prüfen.
 - [x] Alte Bereitschaft samt Standardbasis wieder eingesetzt: Kamera-Consumer
       bricht an der ursprünglichen Lens-Assertion ab; 25 andere Tests bestehen.
 
+- [x] Geprüfte Float-Lens und Zustandserhalt nach Near-Plane-Ablehnung: 52 Checks.
+- [x] Verengungsprüfung entfernt und Kamera zu früh publiziert: acht numerische
+      Checks und ein Zustandserhalt-Check schlagen fehl. Mutationen zurückgenommen.
+
 - [ ] Öffentliche Übergangstabelle nennt erlaubte Reihenfolge und Fehlergarantien.
 - [ ] Fehler an jeder Build-/Validate-/Publish-Grenze injizieren; gültiges altes
       Szenario bleibt nutzbar oder ausdrücklich Failed, nie halb veröffentlicht.

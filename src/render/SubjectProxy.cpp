@@ -1,5 +1,3 @@
-#include <numbers>
-#include <limits>
 #include "Digest.h"
 #include "math/Units.h"
 #include "math/Mat4.h"
@@ -24,8 +22,14 @@
 #include <vector>
 
 #include "SceneRenderer.h"
+#include "Lens.h"
 
 namespace outshine::Render {
+
+namespace Says {
+constexpr auto kInvalidLens =
+    "the camera projection is invalid or cannot be represented by the GPU lens";
+}
 
 constexpr uint64_t kDigestMask = 0xffffffffffffull;
 
@@ -165,28 +169,6 @@ namespace {
       }
     }
   }
-  return true;
-}
-
-[[nodiscard]] bool
-SetProjection(SceneRenderer &renderer, const Viewpoint &eye, std::string &error) {
-  const bool ortho = eye.Kind == CameraKind::Orthographic;
-  const bool finiteFar = eye.ZFarM > eye.ZNearM && std::isfinite(eye.ZFarM);
-  if (!std::isfinite(eye.ZNearM) ||
-      (ortho ? !(eye.XMagM > 0 && eye.YMagM > 0 && std::isfinite(eye.XMagM) &&
-                 std::isfinite(eye.YMagM) && finiteFar)
-             : !(eye.ZNearM > 0 && eye.YfovRad > 0 && eye.YfovRad < std::numbers::pi &&
-                 (finiteFar || eye.ZFarM == 0 ||
-                  eye.ZFarM == std::numeric_limits<double>::infinity())))) {
-    error = "the placement declares an invalid camera lens or depth range";
-    return false;
-  }
-  if (ortho) {
-    renderer.SetOrthoM(2.0 * eye.XMagM, 2.0 * eye.YMagM);
-  } else {
-    renderer.SetFovDeg(eye.YfovRad * kRad2Deg);
-  }
-  renderer.SetDepthRange(eye.ZNearM, eye.ZFarM);
   return true;
 }
 
@@ -389,15 +371,19 @@ bool Aim(SceneRenderer &renderer,
          const Vec3 &anchorEcefM,
          std::string &error) {
   const Viewpoint &eye = view.Eye;
-  if (!SetProjection(renderer, eye, error)) { return false; }
+  const auto lens = Lens::From(eye, renderer.PictureW(), renderer.PictureH());
+  if (!lens) {
+    error = Says::kInvalidLens;
+    return false;
+  }
   if (!view.StandsInside &&
       !ClearsNearPlane(subject, eye, view.FramedParts, view.StandsInside, error)) {
     return false;
   }
   Vec3 position;
   position = eye.EyeM + anchorEcefM;
-  renderer.SetCameraBasis(
-      {.EyeM = position, .Forward = eye.Forward, .Right = eye.Right, .Up = eye.Up});
+  renderer.SetCamera({.EyeM = position, .Forward = eye.Forward, .Right = eye.Right, .Up = eye.Up},
+                     *lens);
   return true;
 }
 

@@ -141,8 +141,13 @@ float HalfToFloat(uint16_t bits) {
 
 } // namespace
 
-void SceneRenderer::SetCameraBasis(const CameraBasis &stands) {
-  Camera_ = stands;
+void SceneRenderer::SetCamera(const CameraBasis &basis, const Lens &lens) noexcept {
+  Camera_ = basis;
+  FovDeg_ = lens.FovDeg;
+  OrthoWidthM_ = lens.OrthoWidthM;
+  OrthoM_ = lens.OrthoM;
+  NearM_ = lens.NearM;
+  FarM_ = lens.FarM;
   CameraFull_ = true;
 }
 

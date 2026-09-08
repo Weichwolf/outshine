@@ -334,28 +334,13 @@ public:
 
   [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }
 
-  void SetCameraBasis(const CameraBasis &stands);
-
-  void SetFovDeg(double deg) {
-    FovDeg_ = static_cast<float>(deg);
-    OrthoM_ = OrthoWidthM_ = 0.0f;
-  }
+  void SetCamera(const CameraBasis &basis, const Lens &lens) noexcept;
 
   [[nodiscard]] bool SetGroundClasses(const uint32_t *words,
                                       size_t wordCount,
                                       const float *palette,
                                       size_t paletteFloats,
                                       std::string &error);
-
-  void SetOrthoM(double width, double height) {
-    OrthoWidthM_ = static_cast<float>(width);
-    OrthoM_ = static_cast<float>(height);
-  }
-
-  void SetDepthRange(double nearM, double farM) {
-    NearM_ = static_cast<float>(nearM);
-    FarM_ = static_cast<float>(farM);
-  }
 
   [[nodiscard]] float NearMetres() const { return NearM_; }
 
