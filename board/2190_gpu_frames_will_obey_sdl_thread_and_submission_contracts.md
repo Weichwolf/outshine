@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: render, host
 Tags: architecture, gpu, lifecycle
 Parent: 2188
@@ -64,3 +64,17 @@ vorbereitete Updates, ein Folgelauf muss sie erneut aufzeichnen. Ein Shader-Kata
 (2152) ersetzt weder diesen Lebenszyklus noch deklarierte Read-/Write-/History-Zugriffe.
 - [ ] Submit-Fehler nach LUT-Aufzeichnung: Folgelauf berechnet fehlende LUT erneut;
       keine fälschlich aktuelle Stage, keine weitergeschaltete History.
+
+## Umsetzung: transaktionaler Frame-Abschluss
+
+Vorhandene Stage-/Pass-Planung und GPU-RAII behalten. Cachezustand ausdrücklich als
+Dirty/Recorded/Submitted führen; nur tatsächlich aufgezeichnete Stages beim erfolgreichen
+Submit veröffentlichen. Fehlgeschlagene Aufnahme verwirft Recorded. Temporalparameter
+für die Aufnahme vorbereiten, bei Abbruch zurücksetzen; Vorframe-Geometrie und Matrizen
+nur nach erfolgreichem Submit fortschreiben. Render-Ergebnis bis Live::Draw weitergeben.
+Vorbereitung vor Swapchain-Acquire abschließen; übersprungene Präsentation ist kein
+Renderfehler. Screenshot-Readback darf keine schreibgeschützte Swapchain lesen.
+Referenz: https://wiki.libsdl.org/SDL3/SDL_SubmitGPUCommandBufferAndAcquireFence
+Submit verbraucht den Commandbuffer auch im Fehlerpfad. Fence- und Readback-Fehler
+getrennt von bereits eingereichter GPU-Arbeit behandeln. Erfolgsbilder bleiben gleich;
+Acquire-/Submit-Abbruch muss im echten Renderer reproduzierbar geprüft werden.

@@ -43,6 +43,9 @@ SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen g
 8/8 Compute-Verträge aus dem tatsächlichen C++-Katalog stimmen mit Reflection überein.
 Der blinde MSL-Scanner ist ersetzt; vollständige Graphics-Selektor-/Shape-Abdeckung,
 Stage-Interfaces und Backend-Abnahme bleiben in 2152 offen.
+Doxygen ignoriert derzeit den Prozessfehler (`|| true`); ein fehlendes Tool macht
+den Gate-Teil nicht rot. Exitstatus und tatsächliche Input-Abdeckung prüfen, mit
+Negativkontrollen für fehlendes Tool, Abbruch und leeres Ergebnis.
 Gate-Dauer und Abdeckung je Teil ausweisen; keine langsamen Pflichtprüfungen entfernen.
 Der Client-Link meldet doppelte rpath-/SDL3-Einträge als Warnungen trotz Exit 0.
 Transitive Linkflags mit korrekter Reihenfolge konsolidieren; Linkerwarnungen
