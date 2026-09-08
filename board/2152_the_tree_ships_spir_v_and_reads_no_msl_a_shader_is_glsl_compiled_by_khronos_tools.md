@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Parent: 2169
 Area: render, build
 Tags: webcam, measured
@@ -39,3 +39,19 @@ Buildmanifest, Varianten, SPIR-V-Reflection und tatsächlich verwendete Stages v
 leere oder fehlende Eingabemengen ausdrücklich ablehnen. WI 2207 besitzt Paketauflösung.
 - [ ] Absichtlich entfernte Graphics-/Compute-Variante und falsches Binding werden rot;
       vollständiger GLSL-Build grün. Kein MSL-Textscanner als Shader-Abnahmenachweis.
+
+## Aktiver Schritt: Paket- und Binding-Prüfung
+
+Benchmark: SDL-GPU-SPIR-V-Bindingkonventionen und echte SPIRV-Cross-Reflection:
+https://wiki.libsdl.org/SDL3/SDL_CreateGPUShader
+https://wiki.libsdl.org/SDL3/SDL_CreateGPUComputePipeline
+Make veröffentlicht dieselbe Artefaktliste, die sein shaders-Target baut. Lint prüft
+jedes deklarierte Artefakt: vorhanden, reflektierbar, main in der richtigen Stage,
+lückenlose Descriptor-Sets in SDL-Reihenfolge, zulässige Ressourcentypen und feste
+Compute-Workgroups. Leere Listen, zusätzliche/unvollständige Artefakte und Toolfehler
+werden rot. Pro Artefakt Ergebnis und Laufzeit im System-Temp protokollieren.
+Reale glslang-/SPIRV-Cross-Fixtures prüfen fehlende Graphics-/Compute-Dateien,
+falsche Sets/Bindings/Stages und Prozessfehler. Keine Änderung gültiger Renderbilder.
+Dies ersetzt den blinden MSL-Scanner, schließt aber weder den Abgleich mit allen
+Renderer-Selektoren und ihren Shape-Verträgen noch Backend-/Synchronisationsabnahme.
+Diese verbleibenden Nachweise bleiben ausdrücklich Teil dieses WI.
