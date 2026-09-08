@@ -17,12 +17,21 @@ namespace {
 void AppendAttribute(std::span<const float> source,
                      const ShapePart &part,
                      size_t components,
+                     std::span<const uint32_t> corners,
                      std::vector<float> &destination) {
   if (source.empty() && destination.empty()) { return; }
   destination.resize((part.FirstVertex + part.VertexCount) * components);
-  if (!source.empty()) {
+  if (source.empty()) { return; }
+  if (corners.empty()) {
     std::ranges::copy(
         source, destination.begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * components));
+    return;
+  }
+  for (size_t corner = 0; corner < corners.size(); ++corner) {
+    for (size_t component = 0; component < components; ++component) {
+      destination[(part.FirstVertex + corner) * components + component] =
+          source[static_cast<size_t>(corners[corner]) * components + component];
+    }
   }
 }
 
@@ -33,6 +42,26 @@ void AppendAttribute(std::span<const float> source,
   if (!present) { return {}; }
   return std::span<const float>(source).subspan(part.FirstVertex * components,
                                                 part.VertexCount * components);
+}
+
+void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
+  into.Normals.resize(into.PositionsM.size());
+  const auto position = [&](size_t vertex) {
+    const size_t at = vertex * 3;
+    return Vec3{{into.PositionsM[at], into.PositionsM[at + 1], into.PositionsM[at + 2]}};
+  };
+  for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + part.VertexCount;
+       vertex += 3) {
+    const Vec3 origin = position(vertex);
+    Vec3 normal = Cross(position(vertex + 1) - origin, position(vertex + 2) - origin);
+    (void)Normalise(normal);
+    for (size_t corner = 0; corner < 3; ++corner) {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        into.Normals[(vertex + corner) * 3 + axis] = static_cast<float>(normal[axis]);
+      }
+    }
+  }
+  part.HasNormal = true;
 }
 
 [[nodiscard]] bool TransformPart(const Mat4 &placement, const ShapePart &part, ShapeStore &into) {
@@ -75,6 +104,51 @@ void AppendAttribute(std::span<const float> source,
   return sign < 0;
 }
 
+[[nodiscard]] ShapePart AppendGeometryPart(const Geometry &from, int part, ShapeStore &into) {
+  ShapePart packed;
+  packed.Name = from.nameOf(part);
+  packed.Material = from.materialOf(part).index();
+  packed.FirstVertex = into.PositionsM.size() / 3;
+  const auto indices = from.trianglesOf(part);
+  const bool flatNormals = from.normalsOf(part).empty() && !indices.empty();
+  packed.VertexCount = flatNormals ? indices.size() : from.positionsOf(part).size() / 3;
+  assert(packed.FirstVertex <= std::numeric_limits<uint32_t>::max());
+  assert(packed.VertexCount <= std::numeric_limits<uint32_t>::max() - packed.FirstVertex);
+  packed.FirstIndex = into.Indices.size();
+  packed.IndexCount = from.trianglesOf(part).size();
+  packed.HasNormal = !from.normalsOf(part).empty();
+  packed.HasTangent = !from.tangentsOf(part).empty();
+  packed.HasUv = !from.textureOf(part, Geometry::UvSet::Uv0).empty();
+  packed.HasUv1 = !from.textureOf(part, Geometry::UvSet::Uv1).empty();
+  packed.HasColour = !from.coloursOf(part).empty();
+  const auto append =
+      [&](std::span<const float> source, size_t components, std::vector<float> &destination) {
+        AppendAttribute(source,
+                        packed,
+                        components,
+                        flatNormals ? indices : std::span<const uint32_t>{},
+                        destination);
+      };
+  append(from.positionsOf(part), 3, into.PositionsM);
+  append(from.normalsOf(part), 3, into.Normals);
+  append(from.tangentsOf(part), 4, into.Tangents);
+  append(from.textureOf(part, Geometry::UvSet::Uv0), 2, into.Uv);
+  append(from.textureOf(part, Geometry::UvSet::Uv1), 2, into.Uv1);
+  append(from.coloursOf(part), 4, into.Colours);
+  if (flatNormals) { GenerateFlatNormals(packed, into); }
+  const bool mirrored = TransformPart(from.placementOf(part), packed, into);
+  for (size_t corner = 0; corner < indices.size(); ++corner) {
+    const auto vertex = flatNormals ? static_cast<uint32_t>(corner) : indices[corner];
+    into.Indices.push_back(static_cast<uint32_t>(packed.FirstVertex) + vertex);
+  }
+  if (mirrored) {
+    for (size_t at = packed.FirstIndex; at + 2 < into.Indices.size(); at += 3) {
+      std::swap(into.Indices[at + 1], into.Indices[at + 2]);
+    }
+  }
+  return packed;
+}
+
 }
 
 void AppendGeometry(const Geometry &from, ShapeStore &into) {
@@ -98,41 +172,8 @@ void AppendGeometry(const Geometry &from, ShapeStore &into) {
   }
   into.Parts.reserve(into.Parts.size() + static_cast<size_t>(from.parts()));
   for (int part = 0; part < from.parts(); ++part) {
-    ShapePart packed;
-    packed.Name = from.nameOf(part);
-    const int material = from.materialOf(part).index();
-    packed.Material = material < 0 ? -1 : firstSurface + material;
-    packed.FirstVertex = into.PositionsM.size() / 3;
-    packed.VertexCount = from.positionsOf(part).size() / 3;
-    assert(packed.FirstVertex <= std::numeric_limits<uint32_t>::max());
-    assert(packed.VertexCount <= std::numeric_limits<uint32_t>::max() - packed.FirstVertex);
-    packed.FirstIndex = into.Indices.size();
-    packed.IndexCount = from.trianglesOf(part).size();
-    packed.HasNormal = !from.normalsOf(part).empty();
-    packed.HasTangent = !from.tangentsOf(part).empty();
-    packed.HasUv = !from.textureOf(part, Geometry::UvSet::Uv0).empty();
-    packed.HasUv1 = !from.textureOf(part, Geometry::UvSet::Uv1).empty();
-    packed.HasColour = !from.coloursOf(part).empty();
-    const auto append =
-        [&](std::span<const float> source, size_t components, std::vector<float> &destination) {
-          AppendAttribute(source, packed, components, destination);
-        };
-    append(from.positionsOf(part), 3, into.PositionsM);
-    append(from.normalsOf(part), 3, into.Normals);
-    append(from.tangentsOf(part), 4, into.Tangents);
-    append(from.textureOf(part, Geometry::UvSet::Uv0), 2, into.Uv);
-    append(from.textureOf(part, Geometry::UvSet::Uv1), 2, into.Uv1);
-    append(from.coloursOf(part), 4, into.Colours);
-    const bool mirrored = TransformPart(from.placementOf(part), packed, into);
-    const auto indices = from.trianglesOf(part);
-    for (const uint32_t index : indices) {
-      into.Indices.push_back(static_cast<uint32_t>(packed.FirstVertex) + index);
-    }
-    if (mirrored) {
-      for (size_t at = packed.FirstIndex; at + 2 < into.Indices.size(); at += 3) {
-        std::swap(into.Indices[at + 1], into.Indices[at + 2]);
-      }
-    }
+    ShapePart packed = AppendGeometryPart(from, part, into);
+    if (packed.Material >= 0) { packed.Material += firstSurface; }
     into.Parts.push_back(std::move(packed));
   }
 }

@@ -6,7 +6,6 @@
 #include <vector>
 #include <SDL3/SDL.h>
 #include "Live.h"
-#include "Subject.h"
 #include "Check.h"
 
 int main() {
@@ -59,12 +58,10 @@ int main() {
         "masked base normals");
   CHECK(base.setTexture(maskPart, std::array<float, 6>{0, 0, 1, 0, 0, 1}), "masked base UVs");
   CHECK(base.setTriangles(maskPart, std::array<uint32_t, 3>{0, 1, 2}), "masked base indices");
-  Gltf::Subject built;
-  CHECK(built.Assemble(base), "base subject assembles");
   Render::SceneRenderer renderer;
   Core::Declaration declaration;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 320;
-  declaration.Built = &built;
+  declaration.InitialGeometry = &base;
   declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
   declaration.KeyLux = 20000;
   declaration.Exposure = 1.0;

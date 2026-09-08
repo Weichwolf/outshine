@@ -167,5 +167,31 @@ int main() {
              "packed positions remain valid after clearing their source geometry");
   CHECK(combined.Parts[0].Name == "inclined plane" && combined.Lamps.size() == 6,
         "packed names and lights belong to the render storage");
+  Geometry faceted;
+  const int facePart = faceted.addPart("shared hard edge", MaterialInstance{});
+  CHECK(faceted.setPositions(facePart, std::array<float, 12>{0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1}) &&
+            faceted.setTexture(facePart, std::array<float, 8>{0, 0, 1, 0, 0, 1, 1, 1}) &&
+            faceted.setTriangles(facePart, std::array<uint32_t, 6>{0, 1, 2, 0, 3, 1}),
+        "two noncoplanar triangles share vertices without authored normals");
+  Render::ShapeStore flatStorage;
+  const auto flat = Render::PrepareShape(faceted, flatStorage);
+  CHECK(flat.Parts.size() == 1 && flat.Parts[0].HasNormal && flat.Parts[0].VertexCount == 6,
+        "flat shading splits shared corners in the derived mesh");
+  if (flat.Parts.size() == 1 && flat.Parts[0].Normals.size() == 18) {
+    const auto normals = flat.Parts[0].Normals;
+    for (size_t corner = 0; corner < 6; ++corner) {
+      CHECK_NEAR(normals[corner * 3], 0, 0, "unit", "both faces have zero X normal");
+      CHECK_NEAR(normals[corner * 3 + 1], corner < 3 ? 0 : 1, 0, "unit", "second face points +Y");
+      CHECK_NEAR(normals[corner * 3 + 2], corner < 3 ? 1 : 0, 0, "unit", "first face points +Z");
+    }
+    CHECK(flat.Parts[0].Uv.size() == 12 && flat.Parts[0].Uv[8] == 1 && flat.Parts[0].Uv[9] == 1,
+          "corner expansion preserves the fourth source vertex's UV");
+    CHECK(flat.Indices.size() == 6 && flat.Indices[0] != flat.Indices[3],
+          "adjacent faces cannot interpolate their different flat normals");
+  } else {
+    CHECK(false, "every expanded corner has a normal");
+  }
+  CHECK(faceted.positionsOf(facePart).size() == 12 && faceted.normalsOf(facePart).empty(),
+        "derived flat normals do not mutate native source geometry");
   return Report();
 }

@@ -34,11 +34,6 @@ public:
   Reads(const Sited &asset, Scenario::AssetAnimation animation, Playing at, std::string &error);
   [[nodiscard]] bool Poses(double seconds, std::string &error);
 
-  void Carries(const Gltf::Subject &built) {
-    Assembled_ = built;
-    Changed_ += 1;
-  }
-
   void Carries(outshine::Geometry &&built) {
     Built_ = std::move(built);
     HoldsBuilt_ = true;

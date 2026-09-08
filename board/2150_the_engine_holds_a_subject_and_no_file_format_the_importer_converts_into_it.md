@@ -8,10 +8,11 @@ Depends:
 # Importers and generators deliver one engine-owned geometry model
 
 ## Befund und Entscheidung
-
 Quellprüfung 2026-09-08: setGeometry kopiert nun native Geometry direkt;
 Clone erhält aktive Daten und Ownership. Asset hält weiterhin Document, Subject,
-Pose und VariantSelection; Live::Declaration::Built verlangt noch Gltf::Subject.
+Pose und VariantSelection. InitialGeometry wird beim Öffnen nativ kopiert;
+Live speichert danach keinen geliehenen Geometriezeiger. Gemischte Parts ohne
+Material erhalten einen eigenen Default-Slot; Pixel-Orakel prüft dessen Farbe.
 `Subject` mischt dekodierte Meshdaten, Importzugriff, Skinning und Rückkonvertierung
 über `Handed`. Ein Namespace-Wechsel würde diesen Designfehler nicht beheben.
 `Live` setzt außerdem den Schatten-Casterbereich anhand importiert/gebaut (2128).
@@ -59,7 +60,6 @@ Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge;
 Bilder noch Indexvergabe. Dokumentation verbleibender Lücken akzeptiert sie nicht.
 
 ## Direkter Renderer-Zulauf
-
 Vor der Migration ignorierte `import/surface/Shaped.cpp::FillFrom(Geometry)` Part-Platzierungen und
 setzte Lichtposition nur auf Matrixtranslation; lokale Lichtposition/-richtung gingen
 verloren. Der Subject-Pfad transformierte dagegen korrekt. NativePlacementPreserves-
@@ -73,7 +73,7 @@ und übernehmen statische Part-Platzierung in Modellkoordinaten. CPU-Geometry bl
 lokal, Welt-/Instanzplatzierung bleibt Runtime-Aufgabe. Gemischte Views erst nach
 allen Appends binden. 100 Checks für Bounds, Licht, Normalen, Spiegelung, Rebase und
 Quell-Clear bestehen, auch mit ASan/UBSan der beteiligten Packing-Komponenten.
-Conventions: 29/30 grün; intermittierendes Mipmap-Problem bleibt in 2179.
+Fehlende Normalen werden nativ als getrennte Flächennormalen aufbereitet; 2179 bleibt offen.
 Malcesine-PNG geprüft: Geländewände/Materialdefizite bleiben; keine visuelle Abnahme.
 Gemeldeter Peak-Heap 593 MB gegenüber 589 MB zuvor; kein isolierter Kostennachweis.
 

@@ -38,6 +38,7 @@
 namespace outshine::Core {
 
 namespace Says {
+constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
@@ -125,6 +126,10 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
 
 Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
+  if (Declared_.InitialGeometry != nullptr) {
+    Held_.Carries(Declared_.InitialGeometry->clone());
+    Declared_.InitialGeometry = nullptr;
+  }
   Over_.Faces(font);
 }
 
@@ -142,6 +147,10 @@ bool Live::Open(Render::SceneRenderer &renderer,
                 const Ui::Font *font,
                 std::unique_ptr<Live> &out,
                 std::string &error) {
+  if (declaration.InitialGeometry != nullptr && !declaration.InitialGeometry->wellFormed()) {
+    error = Says::InvalidInitialGeometry;
+    return false;
+  }
   out.reset();
   std::unique_ptr<Live> live(new Live(renderer, std::move(declaration), font));
   if (!live->Build(error)) { return false; }
@@ -310,37 +319,6 @@ bool Live::JoinsSubjects(std::string &error) {
   return true;
 }
 
-bool Live::JoinsBuilt(std::string &error) {
-  const auto base = static_cast<uint32_t>(Table_.Slots.size());
-  for (const Material &declaredSurface : Declared_.Surfacing) {
-    Render::SurfaceTable joining;
-    Render::ShapeStore joiningParts;
-    Render::ResolveDeclaredSurface(
-        Gltf::Shaped(*Declared_.Built, joiningParts), declaredSurface, joining);
-    if (joining.Slots.empty()) {
-      error = "a declared surface for the built geometry resolved to no slot, so the parts "
-              "joining this picture would name a surface that is not there";
-      return false;
-    }
-    Table_.Slots.push_back(joining.Slots.front());
-  }
-  const size_t before = Held_.Assembled().Parts().size();
-  if (!Held_.Appends(*Declared_.Built)) {
-    error = Held_.Assembled().Error();
-    return false;
-  }
-  Table_.PartSlot.resize(Held_.Assembled().Parts().size(), base);
-  for (size_t part = before; part < Held_.Assembled().Parts().size(); ++part) {
-    const int wanted = Held_.Assembled().Parts()[part].Material;
-    const uint32_t at = wanted > 0 && static_cast<size_t>(wanted) < Declared_.Surfacing.size()
-                            ? static_cast<uint32_t>(wanted)
-                            : 0u;
-    Table_.PartSlot[part] = base + at;
-  }
-  Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
-  return true;
-}
-
 bool Live::StandsSubjects(std::string &error) {
   if (!Held_.Stands()) {
     if (!Held_.Reads({.Path = Declared_.Stands, .Variant = Declared_.Variant},
@@ -363,33 +341,51 @@ bool Live::StandsSubjects(std::string &error) {
     return false;
   }
   if (!Declared_.Overriding.empty() && !WearsOverrides(error)) { return false; }
-  if (Declared_.Built != nullptr && !JoinsBuilt(error)) { return false; }
 
-  if (Declared_.Built == nullptr && Held_.HoldsBuilt()) {
-    const auto base = static_cast<uint32_t>(Table_.Slots.size());
-    const outshine::Geometry &also = Held_.Built();
-    for (int surface = 0; surface < also.surfaces(); ++surface) {
-      Render::SubjectMaterial made;
-      made.Row = also.surfaceAt(MaterialInstance(surface));
-      Table_.Slots.push_back(made);
-      Table_.Material.push_back(-1);
-      Table_.Decoded.emplace_back();
-    }
-    const size_t before = Table_.PartSlot.size();
-    Table_.PartSlot.resize(before + static_cast<size_t>(also.parts()), base);
-    for (int part = 0; part < also.parts(); ++part) {
-      const int wears = also.materialOf(part).index();
-      const uint32_t at =
-          wears >= 0 && wears < also.surfaces() ? base + static_cast<uint32_t>(wears) : base;
-      Table_.PartSlot[before + static_cast<size_t>(part)] = at;
-    }
-    if (!Render::ResolveNativeTextures(
-            also, std::span<Render::SubjectMaterial>(Table_.Slots).subspan(base), error)) {
-      return false;
-    }
-    Joined_ = before;
-    Carrying_ = before;
+  return !Held_.HoldsBuilt() || AppendNativeSurfaceTable(error);
+}
+
+bool Live::AppendNativeSurfaceTable(std::string &error) {
+  const auto base = static_cast<uint32_t>(Table_.Slots.size());
+  const outshine::Geometry &also = Held_.Built();
+  for (int surface = 0; surface < also.surfaces(); ++surface) {
+    Render::SubjectMaterial made;
+    made.Row = also.surfaceAt(MaterialInstance(surface));
+    Table_.Slots.push_back(made);
+    Table_.Material.push_back(-1);
+    Table_.Decoded.emplace_back();
   }
+  const size_t before = Table_.PartSlot.size();
+  Table_.PartSlot.resize(before + static_cast<size_t>(also.parts()), base);
+  std::optional<uint32_t> defaultSlot;
+  for (int part = 0; part < also.parts(); ++part) {
+    const int material = also.materialOf(part).index();
+    uint32_t slot = base;
+    if (material >= 0 && material < also.surfaces()) {
+      slot += static_cast<uint32_t>(material);
+    } else {
+      if (!defaultSlot) {
+        if (Declared_.Surfacing.empty()) {
+          error = Says::NoGeometrySurface;
+          return false;
+        }
+        defaultSlot = static_cast<uint32_t>(Table_.Slots.size());
+        Render::SubjectMaterial surface;
+        surface.Row = Declared_.Surfacing.front();
+        Table_.Slots.push_back(surface);
+        Table_.Material.push_back(-1);
+        Table_.Decoded.emplace_back();
+      }
+      slot = *defaultSlot;
+    }
+    Table_.PartSlot[before + static_cast<size_t>(part)] = slot;
+  }
+  if (!Render::ResolveNativeTextures(
+          also, std::span<Render::SubjectMaterial>(Table_.Slots).subspan(base), error)) {
+    return false;
+  }
+  Joined_ = before;
+  Carrying_ = before;
   return true;
 }
 
@@ -416,7 +412,6 @@ bool Live::CarriesBuilt(std::string &error) {
     return false;
   }
   const auto tookFrom = std::chrono::steady_clock::now();
-  if (Declared_.Built != nullptr) { Held_.Carries(*Declared_.Built); }
   CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
                  .count();
   const auto reshapedFrom = std::chrono::steady_clock::now();
@@ -613,18 +608,13 @@ bool Live::StandsPlan(std::string &error) {
 }
 
 bool Live::Build(std::string &error) {
-  if (Declared_.Built == nullptr && !Held_.HoldsBuilt() && Declared_.Stands.empty()) {
-    ClearsSubject();
-  }
-  if ((Declared_.Built != nullptr || Held_.HoldsBuilt()) && Declared_.Stands.empty() &&
-      !CarriesBuilt(error)) {
-    return false;
-  }
+  if (!Held_.HoldsBuilt() && Declared_.Stands.empty()) { ClearsSubject(); }
+  if (Held_.HoldsBuilt() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
   if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
 
   RestorePieceSurfaces();
-  if (!Held_.HoldsBuilt()) { Reshape(); }
-  if (Declared_.Built == nullptr) { Joined_ = Shaped_.Parts.size(); }
+  Reshape();
+  Joined_ = Shaped_.Parts.size();
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   StandsShadowRadius();
 
@@ -1145,7 +1135,6 @@ bool Live::Restands(std::string stands,
   Declared_.Variant = std::move(variant);
   Declared_.Animation = animation;
   Declared_.Clip = clip;
-  Declared_.Built = nullptr;
   Stoodup_ = false;
   Held_.Clears();
   return Build(error);
@@ -1166,7 +1155,6 @@ bool Live::SetGeometry(outshine::Geometry &&built,
   Aim_ = AimState::Dirty;
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
-  Declared_.Built = nullptr;
   Held_.Carries(std::move(built));
   Stoodup_ = false;
   Carrying_ = carried;

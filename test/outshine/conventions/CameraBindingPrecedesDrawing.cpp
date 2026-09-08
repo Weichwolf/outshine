@@ -82,6 +82,46 @@ void ImportedCameraSurvivesBinding() {
     }
     if (!error.empty()) { std::printf("imported camera: %s\n", error.c_str()); }
   }
+  {
+    Geometry native;
+    const int part = native.addPart("native default material", MaterialInstance{});
+    CHECK(native.setPositions(
+              part, std::array<float, 9>{0.8f, -0.5f, 0, 2.2f, -0.5f, 0, 1.5f, 0.5f, 0}) &&
+              native.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
+          "native fixture has an intentionally unbound material");
+    Core::Declaration declaration;
+    declaration.Stands = path.string();
+    declaration.InitialGeometry = &native;
+    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
+    declaration.Outputs = {"sceneLinear"};
+    declaration.Surfacing.front().BaseColour = {{0, 1, 0, 1}};
+    declaration.Surfacing.front().Unlit = true;
+    Render::SceneRenderer renderer;
+    std::unique_ptr<Core::Live> scene;
+    std::string error;
+    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error),
+          "imported and native geometry share one scene with a default native material");
+    if (scene) {
+      CHECK(scene->PartsStanding() == 2, "both imported and native parts are retained");
+      native.clear();
+      Render::Viewpoint eye;
+      eye.EyeM = {{0, 0, 5}};
+      eye.YfovRad = 1;
+      eye.ZNearM = 0.1;
+      eye.ZFarM = 100;
+      scene->Eye(eye);
+      CHECK(scene->Draw(error), "mixed scene survives clearing its native source");
+      renderer.WaitForGpu();
+      std::vector<float> pixels;
+      CHECK(renderer.ReadSceneLinear(pixels) == Render::ReadState::Ready,
+            "mixed material fixture has readable linear pixels");
+      const size_t pixel = (16u * 32u + 24u) * 4u;
+      CHECK(pixels.size() > pixel + 2u && pixels[pixel] < 0.1f && pixels[pixel + 1u] > 0.9f &&
+                pixels[pixel + 2u] < 0.1f,
+            "unbound native part uses the declared green material, not an imported slot");
+    }
+    if (!error.empty()) { std::printf("mixed native material: %s\n", error.c_str()); }
+  }
   CHECK(std::filesystem::remove(path, io) && !io, "the temporary camera fixture is removed");
 }
 } // namespace

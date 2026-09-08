@@ -224,6 +224,7 @@ public:
   [[nodiscard]] std::string writeScenario() const;
   /// Copy native geometry into engine-owned storage; the source may then be changed or destroyed.
   /// Positions are local metres with the geometry's part placements; materials use native indices.
+  /// Missing normals produce flat shading in the derived render mesh; source data stays intact.
   /// Call on the engine/video thread, outside concurrent engine work. Requires well-formed data.
   /// Allocates CPU copies and may prepare GPU resources; use during scene setup, not per frame.
   /// Invalid input is rejected before replacement. GPU setup errors are returned; renderer

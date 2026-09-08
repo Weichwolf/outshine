@@ -29,7 +29,6 @@
 #include "SceneRenderer.h"
 #include "Style.h"
 #include "scene/Material.h"
-#include "Subject.h"
 #include "Surfacing.h"
 
 namespace outshine::Core {
@@ -53,7 +52,7 @@ struct Declaration {
   std::string Transfer;
   std::string Precision;
 
-  const Gltf::Subject *Built = nullptr;
+  const Geometry *InitialGeometry = nullptr;
   std::vector<Material> Surfacing{Material{}};
 
   std::vector<Scenario::SurfaceOverride> Overriding;
@@ -389,9 +388,9 @@ private:
   void StandsShadowRadius();
   void ClearsSubject();
   [[nodiscard]] bool CarriesBuilt(std::string &error);
-  [[nodiscard]] bool JoinsBuilt(std::string &error);
   [[nodiscard]] bool JoinsSubjects(std::string &error);
   [[nodiscard]] bool StandsSubjects(std::string &error);
+  [[nodiscard]] bool AppendNativeSurfaceTable(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] std::expected<void, std::string> BindSubject();
   [[nodiscard]] double Framing() const;

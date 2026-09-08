@@ -201,14 +201,12 @@ void ShadowSubmission() {
                                                              0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2,
                                                              0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5}),
         "closed caster faces are declared");
-  Gltf::Subject built;
-  CHECK(built.Assemble(geometry), "the real caster asset assembles");
   Faults faults;
   SceneRenderer actual(faults.Functions()), control;
   const std::array renderers{&control, &actual};
   std::array<std::unique_ptr<Core::Live>, 2> scenes;
   Core::Declaration declaration;
-  declaration.Built = &built;
+  declaration.InitialGeometry = &geometry;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
   declaration.Outputs = {"surface", "sceneLinear", "shadowAtlas"};
   declaration.DrawsSky = true;
@@ -235,6 +233,7 @@ void ShadowSubmission() {
               untouched == std::vector<float>{42},
           "an unsubmitted atlas is unavailable and leaves the caller's data intact");
   }
+  geometry.clear();
   const auto reject = [&] {
     faults.Next = Faults::Point::Submit;
     CHECK(!scenes[1]->Draw(error) && error == "injected frame submit failure",

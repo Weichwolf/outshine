@@ -121,7 +121,7 @@ namespace {
 
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
   return a.Haze == b.Haze && a.SurfaceWidthPx == b.SurfaceWidthPx &&
-         a.SurfaceHeightPx == b.SurfaceHeightPx && a.Built == b.Built &&
+         a.SurfaceHeightPx == b.SurfaceHeightPx && a.InitialGeometry == b.InitialGeometry &&
          a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps && a.Fill == b.Fill &&
          a.OrbitDegPerFrame == b.OrbitDegPerFrame && a.PictureLeftFrac == b.PictureLeftFrac &&
          a.PictureTopFrac == b.PictureTopFrac && a.PictureWidthFrac == b.PictureWidthFrac &&
