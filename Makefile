@@ -132,7 +132,7 @@ corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASE
 test: test-client-arguments all ## the fast gate
 	@$(RUN)
 
-suite: all       ## one named suite   (SUITE=outshine/places)
+suite: all       ## named suite or C++ case (SUITE=outshine/conventions/CameraBindingPrecedesDrawing)
 	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/places))
 	@$(RUN) $(SUITE)
 

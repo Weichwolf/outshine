@@ -144,6 +144,10 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
   über den direkten render-Pfad, Szenarien über run. Beide benutzen die öffentliche
   Engine-API. Direkte API-Tests prüfen Zustands-/Fehlerverträge, keine zweite
   Implementierung eines Renderclients. Ausbau und Migration in WI 2195.
+- Fachliche Änderungsschritte vollständig bündeln; vor Prüfungen `make format`.
+  Schnelle Rückmeldung über einzelne C++-Cases: `make suite SUITE=Pfad/Testname`
+  (auch mit `.cpp` oder mehreren Namen). Integrationssuiten nach betroffenen Verträgen
+  wählen; erfolgreiche Prüfungen nur bei neuen Änderungen oder offenen Befunden wiederholen.
 - Build, Tests, Lint und Render über Make. Gates nacheinander; während eines Gates
   weder Quellen noch Board ändern. Ergebnis erst nach bestätigtem Prozessende melden.
   Nach jedem Änderungsschritt `make lint` einschließlich clang-tidy ausführen.
