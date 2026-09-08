@@ -540,3 +540,28 @@ Cache-Invalidierung bei Generatoränderungen gehört dazu. Ein dynamischer Cache
 braucht weiterhin begrenzte Produktion und reichere Nahgeometrie; diese Messung
 rechtfertigt weder dauerhaft fehlende Vegetation noch eine feste Offline-Welt.
 Keine produktive Weltänderung in diesem Experiment, WI bleibt aktiv.
+
+
+## Kronenartefakt: Formatentscheidung vor Implementierung
+
+Vorhandener glTF-Emit verweigert Bilder und Transmission und schreibt nicht alle
+Materialerweiterungen. Kein geeigneter unveränderter Kronen-Cache. Eigenes internes
+Little-Endian-Format mit Magic/Version, Quellidentität (FNV64 über vom Aufrufer
+übergebene Provenienz), Shape/Bounds/Viewrichtungen, Kernmaterialdaten und allen
+Normal-/Depth-/Surface-Texeln. Abschließende FNV64-Prüfsumme über gesamten Inhalt.
+FNV ist Integritäts-/Invalidierungsdiagnose, keine kryptographische Authentisierung.
+
+Kernmaterialserialisierung umfasst RGBA, Metalness, Roughness, Emission, Alpha,
+CoverageCut, DoubleSided, Unlit. Gleichheit mit daraus rekonstruiertem Material
+verweigert jede unbehandelte Erweiterung/Map statt stiller Verluste; defaulted
+Material-Gleichheit betrachtet automatisch auch zukünftige Felder. Gesamtlänge und
+bestehendes Texelbudget vor Allokation prüfen; nichtfinite oder ungültige Samples
+abweisen. Materialerweiterungen können mit einer neuen Version ergänzt werden.
+
+Beweis: echter gebackener Birkenatlas → Bytes → Atlas; Materialien, Richtungen,
+Bounds und jeder Texel exakt gleich. Vorhandene Kartenrender aus zurückgelesenem
+Atlas prüfen. Verkürzung, Bytekorruption, falsche Version und geänderte Provenienz
+müssen abgewiesen werden. Das Artefakt schreibt noch keine Cache-Datei im Frame;
+Quelle plus Generator-/Shaderidentität muss der spätere Cache-Aufrufer liefern.
+Unreal/RAGE-Prinzip abgeleiteter Assetdaten übernommen, kein Anspruch auf deren
+privates Dateiformat. Disk-Cache, atomische Veröffentlichung und Live-Verbrauch folgen.
