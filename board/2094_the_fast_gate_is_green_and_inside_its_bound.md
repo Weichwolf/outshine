@@ -1,48 +1,47 @@
 Type: bug
 State: active
+Parent: 2188
 Area: test, gate
 Tags: measured, gate
 Depends: 2093, 2131, 2152
 
 # The gates distinguish a clean result from a missing check
 
-## Beleg und aktueller Stand
-
-Quellaudit 2026-09-08: test/lint.sh ignoriert den Exitstatus von run-clang-tidy mit
-`|| true` und zählt danach warning-Zeilen. Bei null Befunden bricht es ausdrücklich
-ab („the analysis found NOTHING ... it did not run“). Ein sauberer Lauf kann so nie
-grün werden; ein teilweise fehlgeschlagener Lauf mit verbleibenden Warnungen wird
-nicht zuverlässig als unvollständig erkannt. Die fest genannte Unit-Anzahl ist kein
-Ausführungsnachweis. EveryItem-/Build-Claims sind aktuell 66/66 grün; ältere rote
-Claim-Tabellen hier sind überholt. make test als Ganzes wurde nicht neu abgenommen.
-Aktuelle Lint-Gruppen rot: Format, Tidy, öffentliche Dokumentation, Writer-Coverage.
-
-## Entscheidung
+## Vertrag und nachgewiesener Stand
 
 Benchmark: nachgewiesene Prüfabdeckung und explizite Tool-Ergebnisse statt Zählerheuristik.
-Compile-Datenbank gegen erwartete analysierte Units abgleichen; Status, Toolfehler und
-Diagnosen getrennt erfassen. Ein erfolgreich vollständig analysierter Stand mit null
-Diagnosen ist grün. Abgebrochene/fehlende Analyse ist rot, unabhängig von Warnungszahl.
-Keine künstliche Warnung als Lebenszeichen und kein Unterdrücken echter Befunde.
-Shader-Coverage nach 2152 auf GLSL-Artefakte umstellen. Scanner-Tests vor Quellmutation,
-Client-Katalogtests und bestehende Fachorakel im Make-Gate erhalten.
+Der Tidy-Runner gleicht alle src/*.cpp mit der Compile-Datenbank ab, einschließlich
+Main.cpp. Er protokolliert Status und Diagnose je Unit und trennt vollständig sauber,
+vollständig mit Befunden sowie unvollständig/fehlgeschlagen. Null Befunde sind bei
+vollständigem Erfolg zulässig. Pfade werden vor dem Deduplizieren kanonisiert.
+
+Nachgewiesen am 2026-09-08: 175/175 erfolgreiche Toolaufrufe, 215 eindeutige Befunde;
+66/66 Repository-Regeln grün. Die vorherige Warnungszahl 182 war unvollständig:
+Main.cpp fehlte, Statusfehler wurden ignoriert, Headerpfade nicht normalisiert.
+Sieben dabei sichtbar gewordene Compilerdiagnosen an sechs Units sind behoben:
+optionale Aggregate-Member an den Erzeugungsstellen vollständig initialisieren.
+Leere Container/Spans/Callbacks behalten ihre bisherigen Werte.
+
+Sechs Tests mit tatsächlichem clang-tidy und injizierten Prozessfehlern prüfen den
+Ausführungsvertrag. Fixtures übernehmen die echte Compile-Konfiguration aus der
+Datenbank. Scanner-Tests laufen weiter vor Quellmutation. Logs und Ausführungsmanifest
+liegen im System-Tempverzeichnis; keine Warnungsunterdrückung als Reparatur.
+
+## Verbleibende Arbeit
+
+Aktuelle Lint-Gruppen rot: Format, Tidy, öffentliche Dokumentation, Writer-Coverage.
+make test als Ganzes ist nicht neu abgenommen. Shader-Coverage nach 2152 auf GLSL-
+Artefakte umstellen: der alte MSL-Scanner meldet noch grünes 0/0 ohne Abdeckung.
+Gate-Dauer und Abdeckung je Teil ausweisen; keine langsamen Pflichtprüfungen entfernen.
 
 ## Abnahme
 
-- [ ] Vollständiger warnungsfreier Fixture-Lauf grün; echte Tidy-Diagnose rot.
-- [ ] Fehlendes Tool, leere/falsche Compile-Datenbank, Parsefehler und abgebrochene
-      Unit rot; auch dann, wenn eine andere Unit reguläre Warnungen liefert.
-- [ ] Jeder Gate-Teil berichtet Abdeckung, Ergebnis und Dauer; kein grüner Leercheck.
+- [x] Vollständiger warnungsfreier Fixture-Lauf grün; echte Tidy-Diagnose rot.
+- [x] Fehlendes Tool, leere/falsche Datenbank, doppelte Konfiguration, Parsefehler,
+      Prozessabbruch und Timeout rot; auch neben regulären Warnungen einer anderen Unit.
+- [x] Jede Source-Unit einschließlich Client-Einstieg erreicht die Compile-Datenbank;
+      vollständiger erfolgreicher Lauf durch individuelles Statusmanifest belegt.
+- [ ] Jeder Gate-Teil berichtet tatsächliche Abdeckung, Ergebnis und Dauer;
+      Shader-Leerprüfung durch vollständigen Artefaktnachweis ersetzen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
-- [ ] Negativkontrollen schlagen wegen des jeweiligen Vertrages fehl, nicht wegen
-      eines fehlenden Harness oder einer unverwandten Kompilierpanne.
-
-## Aktiver Schritt: vollständige clang-tidy-Ausführung
-
-Compile-Datenbank enthält aktuell alle src/*.cpp außer src/client/Main.cpp. BuildTools
-muss auch den tatsächlich gebauten Einstieg mit seiner echten Compile-Konfiguration
-registrieren. Runner gleicht Dateimenge, Compile-Einträge und abgeschlossene Toolaufrufe
-ab, bewahrt Status/Diagnosen je Unit und akzeptiert null Befunde nur bei vollständigem
-Erfolg. Tests mit realem clang-tidy prüfen saubere Quelle, Diagnose, Parsefehler und
-fehlende Unit; injizierter Toolabbruch darf nie als sauberer Nullbefund gelten.

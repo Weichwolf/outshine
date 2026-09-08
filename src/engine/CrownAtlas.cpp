@@ -357,7 +357,7 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
   for (unsigned at = 0; at < shape.Views; ++at) {
     const double angle = 2.0 * std::numbers::pi * at / shape.Views;
     const Vec3 direction{{std::sin(angle), 0, std::cos(angle)}};
-    atlas.Views_.push_back({.TowardEye = direction});
+    atlas.Views_.push_back({.TowardEye = direction, .Texels = {}});
     Scenario::View view;
     view.Id = std::to_string(at);
     view.Person = "first";

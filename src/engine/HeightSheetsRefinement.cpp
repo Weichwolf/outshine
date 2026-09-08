@@ -120,6 +120,7 @@ void SelectPatches(std::span<const ErrorPatch> tree,
     return;
   }
   selected.push_back({.Tile = patch.Tile,
+                      .Nodes = {},
                       .Side = Render::GroundLattice::kSide,
                       .Postings = static_cast<uint32_t>(kGrid + 1),
                       .Virtual = patch.Tile.Zoom > sourceZoom,

@@ -551,7 +551,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("ground: triangles the drape can reach",
                    static_cast<double>(World.GroundIndex.size()) / 3.0,
                    "triangles");
-  Drape drapedOver{.Surface = surface};
+  Drape drapedOver{.Surface = surface, .Field = {}};
   World.Sheets.ForgetsFields();
   drapedOver.Field = [this, &over](Drape::EastNorth at) {
     return World.Sheets.FieldUpM(World.Stack.Ground(), over.Zoom, at);

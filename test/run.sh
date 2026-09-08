@@ -712,10 +712,17 @@ BuildLibrary() {
   for tool in $(find src -name 'Main.cpp' | sort); do
     toolLayer=$(dirname "$tool")
     toolNamed=build/outshine-$(basename "$toolLayer")
+    toolStd=$(GroupToolchain "$toolLayer")
+    toolIncludes=$(GroupIncludes "$toolLayer")
+    if [ -n "${COMPILEDB:-}" ]; then
+      printf '{"directory":"%s","file":"%s","command":"%s %s %s %s %s %s -c"},\n' \
+        "$PWD" "$PWD/$tool" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
+        "$toolIncludes" >> "$BUILD/compile_commands.part"
+    fi
     if [ -f "$toolNamed" ] && [ "$toolNamed" -nt build/liboutshine.a ] && [ "$toolNamed" -nt "$tool" ]; then
       continue
     fi
-    $CXX $(GroupToolchain "$toolLayer") $OPT $WARN $(GroupIncludes "$toolLayer") \
+    $CXX $toolStd $OPT $WARN $toolIncludes \
       "$tool" build/liboutshine.a $(LayerLink outshine/places) -o "$toolNamed" ||
       Die "$tool does not build into $toolNamed"
     printf -- '-> %s\n' "$toolNamed"

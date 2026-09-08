@@ -1039,7 +1039,7 @@ void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &
 }
 
 void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into) {
-  Junction made{.Node = node};
+  Junction made{.Node = node, .Legs = {}, .Gates = {}};
   const size_t n = legs.size();
   for (const Leg &leg : legs) {
     const Edge &edge = into.Edges[leg.Edge];

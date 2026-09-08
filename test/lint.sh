@@ -25,7 +25,7 @@ printf 'lint: reports in %s\n' "$REPORT"
 # first finding reports one thing and hides five.
 red=0
 
-for tool in clang-format clang-tidy run-clang-tidy; do
+for tool in clang-format clang-tidy; do
   [ -x "$LLVM/$tool" ] || {
     printf 'lint: %s/%s is missing. `brew install llvm` puts it there.\n' "$LLVM" "$tool" >&2
     exit 2
@@ -49,33 +49,16 @@ else
 fi
 
 printf '\n== analysis ==\n'
-"$LLVM/run-clang-tidy" -p . -quiet -j "$(sysctl -n hw.ncpu)" \
-  '/src/.*\.cpp$' > "$REPORT/tidy.log" 2>&1 || true
-# THE COUNT IS ABOUT CODE THIS TREE OWNS. clang-tidy reports a diagnostic at the location it is
-# ABOUT, and for a replaceable global operator that location is the standard library's own header:
-# `readability-inconsistent-declaration-parameter-name` compares src/base/io/Heap.cpp's twelve
-# replacements against libc++'s declarations, which name their parameters `__sz` and `__p`. This
-# tree may not match those -- `bugprone-reserved-identifier` refuses them, and it is right, a
-# double underscore is reserved to the implementation -- and it may not change libc++. Measured:
-# our names give 16 findings, libc++'s give 20. So a diagnostic located outside src/, include/ and
-# test/ is not counted, because there is no commit that could lower it. No check is switched off
-# and every finding about a line this tree wrote still counts.
-grep 'warning:' "$REPORT/tidy.log" | grep -vE '^/(Library|usr|opt|System|Applications)/' |
-  sed 's/ \[/\t[/' | sort -u > "$REPORT/tidy.unique"
+analysis_status=0
+python3 test/scripts/tidy_analysis.py --root "$PWD" --report "$REPORT" \
+  --tool "$LLVM/clang-tidy" --jobs "$(sysctl -n hw.ncpu)" || analysis_status=$?
 found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
-# A LINT THAT FINDS NOTHING HAS BROKEN, NOT PASSED. clang-tidy writes its diagnostics to STDERR and
-# this redirected them to /dev/null for one round, which reported zero and was believed -- a gate
-# blind to its own path, which is the first trap on CLAUDE.md's list.
-if [ "$found" -eq 0 ]; then
-  printf 'lint: the analysis found NOTHING over 172 units, which means it did not run.\n' >&2
-  printf 'lint: %s\n' "$REPORT/tidy.log" >&2
-  exit 2
-fi
+# Execution status is independent of finding count: zero is valid only after every unit ran.
 grep -o '\[[a-z-]*\]$' "$REPORT/tidy.unique" | sort | uniq -c | sort -rn > "$REPORT/tidy.checks"
 head -12 "$REPORT/tidy.checks"
 
 printf '\nlint: %s finding(s), the target is 0\n' "$found"
-if [ "$found" -gt 0 ]; then
+if [ "$analysis_status" -ne 0 ]; then
   printf 'lint: %s to go. They are in %s\n' "$found" "$REPORT/tidy.unique" >&2
   red=$((red + 1))
 fi

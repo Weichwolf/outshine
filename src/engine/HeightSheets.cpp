@@ -422,8 +422,11 @@ size_t HeightSheets::Refine(Patchwork &laid, Nearer how) {
         if (anyFiner && Covers(finer, x, y)) { continue; }
         const Data::TileId tile{
             .Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
-        made.push_back(
-            {.Tile = tile, .Side = Render::GroundLattice::kSide, .Postings = 0, .Virtual = true});
+        made.push_back({.Tile = tile,
+                        .Nodes = {},
+                        .Side = Render::GroundLattice::kSide,
+                        .Postings = 0,
+                        .Virtual = true});
       }
     }
     finer = block;
@@ -520,7 +523,11 @@ HeightSheets::Press(std::span<const Yields> yields, Patchwork &laid, double most
   }
   std::vector<double> was(up);
   const outshine::Pressed pressed = PressPoints(yields, at, up, mostEarthworkM);
-  Pressed told{.Nodes = pressed.Moved, .Structures = pressed.Structures, .Held = pressed.Held};
+  Pressed told{.Nodes = pressed.Moved,
+               .Structures = pressed.Structures,
+               .Held = pressed.Held,
+               .Pads = {},
+               .Corridors = {}};
   if (pressed.Moved == 0) { return told; }
   const Vec3 &origin = Frame_.OriginEcef();
   const Vec3 &east = Frame_.EastEcef();

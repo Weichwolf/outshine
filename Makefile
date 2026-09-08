@@ -102,7 +102,7 @@ strip: test-strip-comments ## remove src comments, keep only include Doxygen; le
 db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db
 
-lint: db         ## format, static analysis, and this tree's own repository rules
+lint: test-tidy-analysis db ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && sh test/lint.sh
 
 doc:             ## the door's documentation -> build/doc
@@ -137,3 +137,7 @@ help:            ## this list
 .PHONY: test-strip-comments test-client-data
 test-client-data: all ## verify external place scenarios through the client
 	@cd $(SELF_DIR) && python3 test/scripts/test_place_catalog.py
+
+.PHONY: test-tidy-analysis
+test-tidy-analysis: db ## prove clean analysis and incomplete-run detection with real clang-tidy
+	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_tidy_analysis.py

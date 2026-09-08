@@ -45,11 +45,14 @@ void TilePieces::Hands(uint32_t tile, const Generators::BakedTile &baked, const 
                                         uint32_t surface) {
     if (run.size() < 3) { return Render::kNoPiece; }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
-    return Live_->PlacePiece({.Verts = corners,
+    return Live_->PlacePiece({.Tangents = {},
+                              .Verts = corners,
                               .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
                               .Clusters = cooked ? std::span<const DagCluster>(cut.Clusters)
                                                  : std::span<const DagCluster>(),
+                              .Colours = {},
                               .Row = row,
+                              .Instances = {},
                               .Surface = surface},
                              why);
   };
