@@ -9,7 +9,6 @@ Depends:
 
 ## Befund und Entscheidung
 
-Engine.cpp setzt Picture.Targeted vor erfolgreichem Device.DrawsInto.
 Declaring.cpp handleEvent gibt für irrelevante Events unexpected(S_->Error) zurück:
 nicht behandelt und Fehler sind vermischt, Error kann leer oder veraltet sein.
 EngineHeld.h verteilt Phasen über Taken, Targeted, FrameOpen, Carrying, Mixing usw.
@@ -31,24 +30,24 @@ declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückwe
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
 und nicht bewegliche Engine-Owner sind die geprüfte Voraussetzung.
 
-## Aktiver Schritt: Target-Konfiguration
+## Aktiver Schritt: Kamera-Bereitschaft
 
-SceneRenderer::DrawsInto gibt bislang das alte Fenster/Offscreen-Target vor Claim,
-Swapchain-Konfiguration und Texturerzeugung frei. Kandidaten zuerst vorbereiten;
-Fehler kopieren, Kandidaten freigeben, alte Ressourcen/Dimensionen erhalten.
-Offscreen-Textur über vorhandenes OwnedTexture übernehmen. Window-Claim bei späterem
-Fehler zurückgeben. SDL_GetWindowSizeInPixels prüfen; Targeted/Frame erst nach Erfolg
-publizieren. Wechsel während offenem Frame verweigern. Gültige Fenster bleiben geliehen.
-https://wiki.libsdl.org/SDL3/SDL_ClaimWindowForGPUDevice
-https://wiki.libsdl.org/SDL3/SDL_SetGPUSwapchainParameters
-https://wiki.libsdl.org/SDL3/SDL_CreateGPUTexture
+Live::Aimed_ startet true; Build bindet eine Standardbasis, aber ohne Geometrie
+keine Projektion. Draw überspringt dadurch Look und erreicht Lens::Projection mit
+FovDeg=0. Zustände Unbound/Bound/Dirty trennen fehlende Bindung von ausdrücklich
+angefordertem Neu-Framing. Erfolgreicher Submit bindet Unbound, erhält aber Dirty;
+Build ohne Geometrie invalidiert Bound. Erst erfolgreiches Look beendet Dirty.
+Kein pauschales Neu-Framing einer bereits korrekt gebundenen glTF-Kamera.
+SwapChain::extent muss vor erfolgreicher Target-Konfiguration null liefern, wie
+öffentlich dokumentiert; interne Default-Dimensionen sind keine gültige Oberfläche.
 
-Tests: Erstkonfiguration verweigert, ungültige Extents, Fenster bereits von anderer
-Engine beansprucht, Wechsel bei offenem Frame, alter Owner weiter nutzbar und Claim
-nach Freigabe wieder möglich. Fehler an der SDL-Grenze gezielt injizieren; Kontrolle
-mit vorzeitiger Veröffentlichung muss scheitern. Keine erwartete Änderung gültiger
-Pixel; Fenster-/Offscreen-Wechsel und verbleibende Resize-/Pipeline-Verträge getrennt
-prüfen. Dieser Schritt schließt die übrigen Engine-Mutatoren nicht ab.
+Fehlende Kamera ohne ableitbare Objekt-Bounds muss im bestehenden Look-/Aim-Pfad
+als Fehler zurückkommen. Wiederholter Versuch bleibt sicher; nach vollständiger
+Konfiguration muss Rendern gelingen. Bestehende numerische Projektionsprüfung nutzen.
+Tests: leere Szene vor erster advance(), Wiederholung, Readback und Fenster-Ende;
+Recovery mit expliziter Kamera und normale Kamera-/Pixel-Regressionssuite.
+Negativkontrolle: voreilige Aimed-Bereitschaft wiederherstellen; der Consumer-Test
+muss den bisherigen Assertion-Abbruch erkennen. Assertions bleiben bestehen.
 
 ## Weitere konkrete Lücken
 
