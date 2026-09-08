@@ -15,6 +15,10 @@
 
 namespace outshine {
 
+namespace Says {
+constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
+}
+
 constexpr double kBitsPerByte = 8.0;
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
@@ -73,8 +77,6 @@ bool Engine::State::Routes() {
 }
 
 Engine::~Engine() = default;
-Engine::Engine(Engine &&) noexcept = default;
-Engine &Engine::operator=(Engine &&) noexcept = default;
 
 Result Engine::drawsInto(SDL_Window *presents) {
   if (presents == nullptr) {
@@ -174,6 +176,7 @@ bool SwapChain::presents() const {
 }
 
 Result Renderer::beginFrame(SwapChain &into) {
+  if (into.Of_ != Of_) { return std::unexpected(std::string(Says::kForeignSwapChain)); }
   if (into.extent().WidthPx <= 0 || into.extent().HeightPx <= 0) {
     return std::unexpected(std::string("a frame is begun against a canvas and this one is "
                                        "0x0 -- drawsInto declares it before a frame opens"));

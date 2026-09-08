@@ -60,23 +60,34 @@ class Engine;
 
 enum class Buffer { Colour, Linear, Depth, ShadingNormal, SurfaceIdentity, Velocity };
 
+/// Borrowed access to an Engine's current presentation target, not an independently owned window.
+/// Copies refer to the same Engine and observe subsequent target changes. The Engine and its
+/// borrowed SDL window must outlive all uses. Calls follow Engine's thread restrictions.
 class SwapChain {
 public:
+  /// Current drawable dimensions in physical pixels; zero before target configuration.
   [[nodiscard]] Extent extent() const;
+  /// Whether the current target presents to an SDL window rather than an offscreen buffer.
   [[nodiscard]] bool presents() const;
 
   void logsTo(LogSink *sink);
 
 private:
   friend class Engine;
+  friend class Renderer;
 
   explicit SwapChain(Engine &of) : Of_(&of) {}
 
   Engine *Of_ = nullptr;
 };
 
+/// Borrowed renderer facade. Copies share frame state; they do not create separate renderers.
+/// The originating Engine must outlive every use. Target changes preserve facade identity;
+/// scenario changes affect subsequent calls. Concurrent calls are not supported.
 class Renderer {
 public:
+  /// Begin a frame on this renderer's Engine. A foreign target is rejected without changing
+  /// either Engine. The target must have positive dimensions; rendering setup may fail.
   [[nodiscard]] Result beginFrame(SwapChain &into);
   [[nodiscard]] Result endFrame();
 
@@ -97,23 +108,45 @@ private:
   Engine *Of_ = nullptr;
 };
 
+/// Stable owner of simulation, rendering and streaming state; neither copyable nor movable.
+/// Calls on an Engine and its borrowed facades must be serialized, including mix(). Window
+/// operations run on the thread that created the SDL window. Parallel snapshot access is not
+/// provided by this interface. Stop callbacks and workers using the API before destruction.
+/// Initialize SDL_INIT_VIDEO before configuring a render target and retain it until destruction.
 class Engine {
 public:
+  /// Construct an unconfigured Engine; configure a target and declare content before rendering.
   Engine();
+  /// Release owned resources. All borrowed facades and references become invalid.
   ~Engine();
-  Engine(Engine &&) noexcept;
-  Engine &operator=(Engine &&) noexcept;
+  Engine(Engine &&) = delete;
+  Engine &operator=(Engine &&) = delete;
   Engine(const Engine &) = delete;
   Engine &operator=(const Engine &) = delete;
 
+  /// Borrow a non-null SDL window as the target. Call on its creation thread with SDL video
+  /// initialized. The window must outlive its use as this Engine's target; ownership stays
+  /// external.
+  /// @param presents Borrowed window whose creation thread is executing this call.
+  /// @return Success or an error describing invalid input or device configuration failure.
   [[nodiscard]] Result drawsInto(SDL_Window *presents);
+  /// Borrow a host for subsequent action callbacks. nullptr detaches it. The host must remain
+  /// alive until replaced or this Engine is destroyed; replacement must not overlap a callback.
   void offers(Host *host);
+  /// Borrow a generator until Engine destruction. Registration retains its address and never
+  /// takes ownership. Duplicate kind names retain the first registration.
   void offers(const Generators::Generator &maker);
   [[nodiscard]] Result setView(std::string_view view);
   [[nodiscard]] Result handleEvent(const SDL_Event &event);
+  /// Configure an offscreen target in physical pixels. Requires SDL_INIT_VIDEO and positive
+  /// dimensions. Borrowed renderer and target facades retain their Engine identity.
+  /// @param offscreen Required width and height in physical pixels.
+  /// @return Success or an error describing invalid input or device configuration failure.
   [[nodiscard]] Result drawsInto(Extent offscreen);
   void setRoots(Roots roots);
+  /// Borrow a facade bound to this Engine; no GPU resources are allocated by this call.
   [[nodiscard]] Renderer renderer();
+  /// Borrow access to this Engine's current target; the result cannot target another Engine.
   [[nodiscard]] SwapChain swapChain();
   [[nodiscard]] Result inspect();
   [[nodiscard]] bool settled() const;
@@ -179,7 +212,10 @@ public:
   [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);
 
   [[nodiscard]] const Scenario::Document &declaration() const;
+  /// Borrow the stable Scene container. Entity/component storage may be rebuilt by assemble()
+  /// and scenario transitions; do not retain references into that storage across mutations.
   [[nodiscard]] Scene &scene();
+  /// Read-only borrowed Scene, with the same lifetime and mutation restrictions as scene().
   [[nodiscard]] const Scene &scene() const;
   [[nodiscard]] const std::vector<std::string> &unacted() const;
   [[nodiscard]] const std::vector<Measure> &measures() const;

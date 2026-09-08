@@ -30,12 +30,17 @@ Lebensdauer, Threadbindung und Invalidierung aller geliehenen Public-Werte dokum
 
 ## Abnahme
 
-- [ ] Compile-Prüfung des gewählten Move-Vertrags; keine still dangling Fassaden.
-- [ ] Zwei Engines: fremde SwapChain wird mit konkretem Fehler zurückgewiesen,
+- [x] Compile-Prüfung des gewählten Move-Vertrags; keine still dangling Fassaden.
+- [x] Zwei Engines: fremde SwapChain wird mit konkretem Fehler zurückgewiesen,
       beide bleiben danach mit ihren eigenen Targets nutzbar.
-- [ ] Renderer/SwapChain/Host/Generator/scene-Lebensdauer im öffentlichen Vertrag.
+- [x] Renderer/SwapChain/Host/Generator/scene-Lebensdauer im öffentlichen Vertrag.
 - [ ] Client baut ohne interne Includes; gültige Fenster-/Offscreen-Pfade unverändert.
-- [ ] Negativkontrolle entfernt Owner-Prüfung und lässt Zwei-Engine-Oracle scheitern.
+- [x] Negativkontrolle entfernt Owner-Prüfung und lässt Zwei-Engine-Oracle scheitern.
 
 Quellprüfung: kein Engine-Move-Consumer in src/ oder test/outshine gefunden.
 Erster Consumer-Test nutzt ausschließlich Outshine.h und zwei Offscreen-Engines.
+
+Public-Header isoliert und Offscreen-Lebenszyklus geprüft: 17 Checks grün.
+Nullprüfung statt Owner-Vergleich erzeugt genau zwei Vertragsfehler. Wiederhergestellt.
+Fensterpfad noch separat nachweisen; SDL_INIT_VIDEO und geliehene Fensterlebensdauer
+sind dokumentiert. Keine vollständige Fenster-/Thread-Abnahme durch Offscreen-Tests.
