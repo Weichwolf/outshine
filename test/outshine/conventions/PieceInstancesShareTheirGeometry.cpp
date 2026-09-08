@@ -1,5 +1,6 @@
 #include <array>
 #include <cstdio>
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <vector>
@@ -24,6 +25,7 @@ int main() {
   masked.BaseColourMap.Image = base.addImage(2, 1, std::array<uint8_t,8>{255,255,255,0,255,255,255,255});
   masked.BaseColourMap.Sampler.Minify = masked.BaseColourMap.Sampler.Magnify = Filter::Nearest;
   masked.BaseColourMap.Sampler.Mip = MipFilter::None;
+  masked.NormalMap.Image = base.addImage(1,1,std::array<uint8_t,4>{191,159,231,255});
   const int maskPart = base.addPart("masked-offscreen", base.addSurface("masked", masked));
   CHECK(base.setPositions(maskPart, std::array<float,9>{99.6f,-0.4f,0,100.4f,-0.4f,0,100,0.4f,0}), "masked base positions");
   CHECK(base.setNormals(maskPart, std::array<float,9>{0,0,1,0,0,1,0,0,1}), "masked base normals");
@@ -35,7 +37,7 @@ int main() {
   Core::Declaration declaration;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 320;
   declaration.Built = &built;
-  declaration.Outputs = {"sceneLinear", "sceneDepth"};
+  declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
   declaration.KeyLux = 20000;
   declaration.KeyElevationDeg = 45;
   declaration.KeyBearingDeg = 180;
@@ -111,6 +113,7 @@ int main() {
       StoredVertex::Of({{0.4f,-0.4f,0}},{{1,1}},{{0,0,1}}),
       StoredVertex::Of({{0.4f,0.4f,0}},{{1,0}},{{0,0,1}}),
       StoredVertex::Of({{-0.4f,0.4f,0}},{{0,0}},{{0,0,1}})}};
+  const std::array<float,16> tangents{1,0,0,-1,1,0,0,-1,1,0,0,-1,1,0,0,-1};
   const std::array<uint32_t,6> cardIndices{0,1,2,0,2,3};
   const std::array<DagCluster,1> cardClusters{{{.SelfRadius=0.6f,.ParentRadius=0.6f,
                                              .ParentErr=kDagRootErr,.Count=6}}};
@@ -122,11 +125,18 @@ int main() {
       }
       Render::PieceMesh piece;
       piece.Verts = card;
+      piece.Tangents = tangents;
       piece.Indices = cardIndices;
       piece.Instances = placements;
       piece.Surface = 1;
       piece.Textured = true;
       if (clustered) { piece.Clusters = cardClusters; }
+      auto invalid = piece;
+      invalid.Tangents = std::span<const float>(tangents).first(12);
+      CHECK(renderer.PlacePiece(invalid,error) == Render::kNoPiece, "incomplete tangent streams are refused");
+      invalid = piece;
+      invalid.Textured = false;
+      CHECK(renderer.PlacePiece(invalid,error) == Render::kNoPiece, "tangents without UVs are refused");
       const auto id = renderer.PlacePiece(piece, error);
       CHECK(id != Render::kNoPiece && scene->Draw(error), "masked instanced cards draw");
       renderer.WaitForGpu();
@@ -139,6 +149,22 @@ int main() {
           const size_t clear = back ? centre+20u : centre-20u;
           CHECK(depth[160u*320u+opaque] > 0, "the opaque half survives on either side of each instance");
           CHECK(depth[160u*320u+clear] == 0, "the masked half writes no depth on either side of each instance");
+        }
+      }
+      std::vector<float> normals;
+      CHECK(renderer.ReadShadingNormal(normals) == Render::ReadState::Ready && normals.size()==320u*320u*4u,
+            "instanced shading normals are readable");
+      Vec3 expected{{191.0/127.5-1, -(159.0/127.5-1), 231.0/127.5-1}};
+      if (back) { expected[1] = -expected[1]; }
+      CHECK(Normalise(expected), "the external normal-map direction is nonzero");
+      if (normals.size()==320u*320u*4u) {
+        for (const size_t centre : {80u,240u}) {
+          const size_t opaque = back ? centre-20u : centre+20u;
+          const size_t pixel=(160u*320u+opaque)*4u;
+          const Vec3 actual{{normals[pixel],normals[pixel+1],normals[pixel+2]}};
+          const auto delta=actual-expected;
+          CHECK(std::sqrt(Dot(delta,delta)) < std::sqrt(3.0)/1024,
+                "rotated double-sided instances preserve the normal-map world direction");
         }
       }
       const std::string path = std::string("build/instance-native/masked-") +

@@ -749,6 +749,11 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
             " colours over " + std::to_string(piece.Verts.size()) + " vertices";
     return kNoPiece;
   }
+  if (!piece.Tangents.empty() &&
+      (piece.Tangents.size() != piece.Verts.size() * kQuadFloats || !piece.Textured)) {
+    error = "piece tangents require UVs and one float4 per vertex";
+    return kNoPiece;
+  }
   if (Device == nullptr) {
     error = "the subject stage carries no device, so a piece has nowhere to become resident";
     return kNoPiece;
@@ -763,7 +768,12 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
     res.GiveVertices(v);
     res.GiveIndices(i);
   };
-  if (!RoomForStreams(error)) {
+  if (!RoomForStreams(error) ||
+      (!piece.Tangents.empty() &&
+       !res.Grow(SubjectResidency::Stream::Tangent,
+                 {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                  .Bytes = (v.First + verts) * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
+                 error))) {
     giveBack();
     return kNoPiece;
   }
@@ -774,7 +784,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   };
   const auto vertexUse = SDL_GPU_BUFFERUSAGE_VERTEX;
   const uint32_t positionBytes = verts * kPositionFloats * static_cast<uint32_t>(sizeof(float));
-  std::array<SubjectResidency::Crossing, 6> crossings = {{
+  std::array<SubjectResidency::Crossing, 7> crossings = {{
       {.Which = SubjectResidency::Stream::Vertex,
        .Usage = vertexUse,
        .Bytes = positionBytes,
@@ -805,6 +815,11 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
        .Offset = floatsAt(kPairFloats),
        .Writes = WritePieceUv,
        .Carrying = &carrying},
+      {.Which = SubjectResidency::Stream::Tangent,
+       .Usage = vertexUse,
+       .From = piece.Tangents.data(),
+       .Bytes = static_cast<uint32_t>(piece.Tangents.size() * sizeof(float)),
+       .Offset = floatsAt(kQuadFloats)},
       {.Which = SubjectResidency::Stream::Colour,
        .Usage = vertexUse,
        .From = piece.Colours.data(),
@@ -842,6 +857,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   VertexRunsCarried carried;
   carried.Normal = true;
   carried.Uv = piece.Textured;
+  carried.Tangent = !piece.Tangents.empty();
   carried.Colour = !piece.Colours.empty();
   (void)LayoutOf(carried, held.Layout);
   held.Live = true;

@@ -379,3 +379,52 @@ Texel, UV-Basis, Rotation und doppelseitiger Normalenkonvention berechnen; alle
 sichtbaren Stichproben müssen innerhalb der Half-Readback-Rundung liegen.
 PNGs öffnen. Negativkontrolle entfernt ausschließlich das Tangenten-Layoutbit;
 die Normalenprüfung muss rot werden. Ungültige Streamlängen vor Upload ablehnen.
+
+
+## Tangenten geteilter Instanzen nachgewiesen, 2026-09-08
+
+PieceMesh trägt optional float4-Tangenten; PlacePiece prüft Länge und UV-Voraussetzung,
+lädt den Stream einmal pro Prototyp und wählt das vorhandene gemappte Vertexlayout.
+Der Tangentenbuffer wächst nur bei tatsächlichem Tangenteninput bis zum benötigten
+Vertexbereich; keine zusätzliche Vollreservierung für ungemapptes Terrain.
+Die bestehenden Shader drehen Tangente und Normale über die jeweilige Instanzmatrix.
+
+`make suite SUITE=outshine/conventions`, `build/piece-tangent-restored.log`:
+Exit 2, 18/19 PASS, ausschließlich bekannter Schachfall 2179 rot. Instanzfall
+90/90 Checks bestanden: zwei Instanzen, direkt/geclustert, Vorder-/Rückseite,
+Alpha-Ausschnitt und dekodierte schräge Normalmap. Erwartung aus RGB(191,159,231),
+Dekodierung RGB/127,5-1, Bitangente -Y und Rotation diag(-1,1,-1), anschließend
+Rückseitenumkehr. Half-Readback-Grenze sqrt(3)/1024 aus konservativ einem ULP je
+Komponente bei Einheitsnormalen. Ungültige Tangentenlänge und fehlende UVs abgelehnt.
+
+Negativkontrolle nur `carried.Tangent=false`: `build/piece-tangent-negative.log`,
+Exit 2, 18/19 PASS; Instanzfall 90 Checks, acht Normalenfehler, Alpha unverändert.
+Original wiederhergestellt und Abschlusslauf danach ausgeführt. Vier positive
+`build/instance-native/masked-{direct,clustered}-{front,back}.png` geöffnet;
+beide Pfade zeigen identische ausgeschnittene Rechtecke mit korrekt unterschiedlicher
+Vorder-/Rückseitenbeleuchtung. Negativbild ebenfalls geöffnet.
+
+`make shots`, `build/piece-tangent-places.log`, Exit 0. Alle neun PNGs geöffnet,
+Digests gegenüber dem letzten vollständigen Audit identisch, auch Feldkirch bei
+5fa234c1. Koerbersee-/Malcesine-Webcam erneut geöffnet: weiter kahle Hänge,
+aufgeblähte bzw. vorhangartige Felsflächen, keine Waldmasse, flaches dunkles Wasser.
+Keine visuelle Verbesserung der Places durch diesen noch ungenutzten Tangenteninput.
+
+| Place | Digest | p99 ms | Peak Heap MB |
+|---|---|---:|---:|
+| DarmstadtWest | e72d1925 | 2,90 | 356 |
+| Wien | 8ff2d96d | 5,79 | 483 |
+| Rosenheim | 7da2e093 | 7,42 | 386 |
+| Husum | d60b18a7 | 3,16 | 232 |
+| Olympiaturm | 07985050 | 4,21 | 607 |
+| Graz | f93ff5b9 | 4,94 | 568 |
+| Koerbersee | c99cdbe7 | 7,11 | 487 |
+| Malcesine | 46e4db5c | 4,86 | 399 |
+| Feldkirch | 5fa234c1 | 5,80 | 393 |
+
+Je 120 Standframes, null über 16,67 ms. Kein bewegter Wald-/Streamingnachweis;
+Schwankungen gegenüber früheren Einzelmessungen sind kein isolierter Kostenbeweis.
+Nächster Schritt bleibt die tatsächliche Kronen-/Materialregistrierung für
+World.Instances mit geographischer Platzierung, Blickrichtungswahl und Cache.
+Tangenten für reine Rotationen und uniforme Baumskalierung abgedeckt; beliebige
+nichtuniforme oder spiegelnde Transformationskonformität wird hier nicht behauptet.

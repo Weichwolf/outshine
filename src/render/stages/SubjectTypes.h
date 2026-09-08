@@ -122,6 +122,7 @@ struct SubjectPose {
 };
 
 struct PieceMesh {
+  std::span<const float> Tangents;
   std::span<const StoredVertex> Verts;
   std::span<const uint32_t> Indices;
   std::span<const DagCluster> Clusters;
