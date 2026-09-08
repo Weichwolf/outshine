@@ -70,6 +70,8 @@ public:
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
   void ReleasePiece(PieceId which);
+  [[nodiscard]] bool
+  SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
   void WearPieces(std::span<const uint32_t> slotOfSurface,
                   std::span<const uint32_t> registered = {});
   [[nodiscard]] bool HandTables(std::string &error);
@@ -361,6 +363,7 @@ private:
     std::optional<std::array<float, 3>> Emitted;
     std::vector<Mat4> Rows;
     uint32_t FirstRow = 0;
+    uint32_t MaxInstances = 0;
     std::vector<DagCluster> Clusters;
     bool Live = false;
   };

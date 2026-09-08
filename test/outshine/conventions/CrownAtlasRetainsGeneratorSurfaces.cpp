@@ -9,6 +9,9 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 #include "CrownAtlas.h"
+#include "CrownPieces.h"
+#include "Live.h"
+#include "math/Units.h"
 #include "Tasks.h"
 #include "Digest.h"
 #include "CrownCache.h"
@@ -339,6 +342,87 @@ int main() {
     CHECK(!frames[0].empty() && frames[0]!=frames[1], "changing the light relights captured crown surfaces");
 
   }
+  const auto baseCard = atlas->GeometryAt(0);
+  Gltf::Subject baseSubject;
+  CHECK(baseCard && baseSubject.Assemble(*baseCard), "crown piece fixture starts from the native card reference");
+  Render::SceneRenderer renderer;
+  Core::Declaration declaration;
+  declaration.Built = &baseSubject;
+  declaration.SurfaceWidthPx = 384;
+  declaration.SurfaceHeightPx = 128;
+  declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
+  declaration.KeyLux = 20000;
+  declaration.KeyBearingDeg = 135;
+  declaration.KeyElevationDeg = 40;
+  std::unique_ptr<Core::Live> live;
+  CHECK(Core::Live::Open(renderer,declaration,nullptr,live,error), "crown piece Live opens with the reference lighting");
+  if (!live) { return Report(); }
+  Render::SubjectMesh empty;
+  empty.Anchor = {{kWgs84A,0,0}};
+  CHECK(renderer.SetSubjectMesh(empty,error), "reference mesh leaves while the Live coordinate anchor remains");
+  CHECK(!CrownPieces::Create(*live,*atlas,0,error), "crown capacity must be positive");
+  auto crowns = CrownPieces::Create(*live,*atlas,2,error);
+  CHECK(crowns && renderer.PieceTriangles()==2*atlas->Views().size(), "one two-triangle prototype stands per captured view");
+  if (!crowns) { return Report(); }
+  const std::array<Mat4,3> excessive{};
+  CHECK(!crowns->Update(excessive,{},error), "crown grouping refuses more instances than its capacity");
+  error.clear();
+  const double extent = atlas->HalfExtentM();
+  for (size_t view=0; view<atlas->Views().size(); ++view) {
+    const Vec3 toward = atlas->Views()[view].TowardEye;
+    const Vec3 right{{toward[2],0,-toward[0]}};
+    auto camera = Render::Viewpoint::LookAt({.EyeM=atlas->CentreM()+toward*(9*extent), .AimM=atlas->CentreM()},0.0);
+    CHECK(camera.has_value(), "shared crown camera has a valid basis");
+    if (!camera) { continue; }
+    camera->Kind = Render::CameraKind::Orthographic;
+    camera->XMagM = 3*extent;
+    camera->YMagM = extent;
+    camera->ZNearM = extent;
+    camera->ZFarM = 15*extent;
+    live->Eye(*camera);
+    std::array<Mat4,2> models{};
+    models[0][0] = models[0][10] = -1;
+    for (size_t instance=0; instance<models.size(); ++instance) {
+      const Vec3 shift = atlas->CentreM()+right*((instance==0 ? -2 : 2)*extent)-models[instance].TransformPoint(atlas->CentreM());
+      for (size_t axis=0; axis<3; ++axis) { models[instance][12+axis]=shift[axis]; }
+    }
+    CHECK(crowns->Update(models,camera->EyeM,error) && live->Draw(error), "crown view selection draws rotated and translated instances");
+    renderer.WaitForGpu();
+    std::vector<float> depth, normals;
+    CHECK(renderer.ReadDepth(depth)==Render::ReadState::Ready && renderer.ReadShadingNormal(normals)==Render::ReadState::Ready &&
+          depth.size()==384u*128u && normals.size()==384u*128u*4u, "shared crown attachments are complete");
+    if (depth.size()!=384u*128u || normals.size()!=384u*128u*4u) { continue; }
+    size_t mismatches=0, middle=0;
+    double normalError=0;
+    for (size_t y=0; y<128; ++y) {
+      for (size_t x=0; x<128; ++x) {
+        middle += depth[y*384+x+128]>0;
+        for (size_t instance=0; instance<models.size(); ++instance) {
+          const size_t source=(view+(instance==0 ? atlas->Views().size()/2 : 0))%atlas->Views().size();
+          const auto &texel=atlas->Views()[source].Texels[y*128+x];
+          const size_t pixel=y*384+x+instance*256;
+          mismatches += (depth[pixel]>0)!=(texel.Surface>0);
+          if (depth[pixel]<=0 || texel.Surface==0) { continue; }
+          Vec3 expected=models[instance].TransformDirection({{texel.Normal[0],texel.Normal[1],texel.Normal[2]}});
+          Vec3 actual{{normals[pixel*4],normals[pixel*4+1],normals[pixel*4+2]}};
+          if (!Normalise(expected) || !Normalise(actual)) { normalError=2; continue; }
+          const auto delta=actual-expected;
+          normalError=std::max(normalError,std::sqrt(Dot(delta,delta)));
+        }
+      }
+    }
+    std::printf("crown pieces view %zu coverage mismatch=%zu normal error=%g middle=%zu\n",view,mismatches,normalError,middle);
+    CHECK(mismatches==0 && middle==0, "selected crown views retain source coverage with no unplaced prototype in the gap");
+    CHECK(normalError<=4*std::sqrt(3.0)/255, "shared tangent frames preserve rotated captured crown normals");
+    CHECK(renderer.PieceTriangles()==2*atlas->Views().size(), "view switching retains the same prototype triangle count");
+    CHECK(live->Screenshot("build/crown-atlas/pieces-"+std::to_string(view)+".png",error), "shared crown PNG is written");
+    CHECK(crowns->Update({},camera->EyeM,error) && live->Draw(error), "empty instance groups deactivate every view");
+    renderer.WaitForGpu();
+    CHECK(renderer.ReadDepth(depth)==Render::ReadState::Ready && std::ranges::all_of(depth,[](float value){return value==0;}),
+          "empty crown groups draw no remaining instances");
+  }
+  crowns.reset();
+  CHECK(renderer.PiecesStanding()==0, "destroying the crown owner releases every view prototype");
   std::printf("atlas capture, checks and PNG export %.3f ms; payload %zu bytes; no world frame-rate claim\n",
               std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count(),
               atlas->Views().size()*128u*128u*sizeof(CrownAtlas::Texel));

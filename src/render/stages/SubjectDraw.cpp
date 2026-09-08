@@ -32,6 +32,11 @@
 
 namespace outshine::Render {
 
+namespace Says {
+constexpr auto PieceInstanceLimit = "piece instance count exceeds its declared capacity";
+constexpr auto MissingPiece = "instance update names no resident piece";
+} // namespace Says
+
 constexpr size_t kPrevAnchorSlot = 52;
 
 constexpr size_t kAnchorSlot = 48;
@@ -758,6 +763,10 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
 
 PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   if (Borrows()) { return kNoPiece; }
+  if (piece.MaxInstances > 0 && std::max(size_t{1}, piece.Instances.size()) > piece.MaxInstances) {
+    error = Says::PieceInstanceLimit;
+    return kNoPiece;
+  }
   if (piece.Verts.empty() || piece.Indices.size() < 3 || piece.Indices.size() % 3 != 0) {
     error = "a piece of " + std::to_string(piece.Verts.size()) + " vertices and " +
             std::to_string(piece.Indices.size()) +
@@ -869,6 +878,8 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   held.IndexCount = indices;
   held.Surface = piece.Surface;
   held.Emitted.reset();
+  held.MaxInstances = piece.MaxInstances;
+  held.Rows.reserve(piece.MaxInstances);
   if (piece.Instances.empty()) {
     held.Rows.assign(1, piece.Row);
   } else {
@@ -887,6 +898,22 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   TablesStale_ = true;
   RowsStale_ = true;
   return id;
+}
+
+bool SubjectDraw::SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error) {
+  if (which >= Pieces_.size() || !Pieces_[which].Live) {
+    error = Says::MissingPiece;
+    return false;
+  }
+  Piece &piece = Pieces_[which];
+  if (piece.MaxInstances > 0 && rows.size() > piece.MaxInstances) {
+    error = Says::PieceInstanceLimit;
+    return false;
+  }
+  if (std::ranges::equal(piece.Rows, rows)) { return true; }
+  piece.Rows.assign(rows.begin(), rows.end());
+  RowsStale_ = TablesStale_ = true;
+  return true;
 }
 
 void SubjectDraw::ReleasePiece(PieceId which) {
@@ -986,7 +1013,8 @@ bool SubjectDraw::Retable(std::string &error) {
     nextRow += static_cast<uint32_t>(piece.Rows.size());
   }
   for (uint32_t at = 0; at < Pieces_.size(); ++at) {
-    if (Pieces_[at].Live && slotOf(Pieces_[at]) != kNoSlot && slotOf(Pieces_[at]) < Slots.size()) {
+    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() && slotOf(Pieces_[at]) != kNoSlot &&
+        slotOf(Pieces_[at]) < Slots.size()) {
       order.push_back(at);
       clusters += Pieces_[at].Clusters.size() * Pieces_[at].Rows.size();
     }

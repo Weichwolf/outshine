@@ -145,6 +145,7 @@ struct PieceMesh {
   std::span<const float> Colours;
   Mat4 Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   std::span<const Mat4> Instances;
+  uint32_t MaxInstances = 0;
   PieceSurface Surface;
   bool Textured = false;
 };

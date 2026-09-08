@@ -118,6 +118,11 @@ public:
     return Renderer_ == nullptr ? Render::kNoPiece : Renderer_->PlacePiece(piece, error);
   }
 
+  [[nodiscard]] bool
+  SetPieceInstances(Render::PieceId which, std::span<const Mat4> rows, std::string &error) {
+    return Renderer_ != nullptr && Renderer_->SetPieceInstances(which, rows, error);
+  }
+
   void ReleasePiece(Render::PieceId which) {
     if (Renderer_ != nullptr) { Renderer_->ReleasePiece(which); }
   }

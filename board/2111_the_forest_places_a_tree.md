@@ -918,3 +918,62 @@ als deklarierte Kapazität verweigern; Entleeren und Wiederbefüllen darf keine
 Prototypen vervielfachen. Negativkontrolle: immer erste Ansicht wählen; Gegenblick
 muss Coverage-/Normalenprüfung verletzen. Dies schließt den GPU-Handoff des echten
 Atlas, noch nicht Cache-Miss-Vorbereitung oder ringweite World.Instances-Anbindung.
+
+### Crown-Pieces: GPU-Handoff und Blickwechsel geprüft
+
+CrownPieces übernimmt den tatsächlich geladenen Atlas über RegisterPieceSurfaces;
+pro Ansicht ein residentes Piece. Vier Ansichten × zwei Dreiecke = acht residente
+Dreiecke, unabhängig von den zwei gezeichneten Instanzen. Update gruppiert nach
+transformiertem Kronenzentrum/Blickrichtung und übergibt nur Instanzmatrizen.
+Leere Gruppen zeichnen nichts; Zerstörung gibt alle vier Pieces frei. Materialien
+bleiben im bestehenden Live-Katalog. Kapazität wird vor Mutation geprüft.
+
+Der neue GPU-Test entfernte anfangs die native Referenz mit einem leeren SubjectMesh
+und setzte damit dessen Anker auf null, während Live::Stand/Aim den Anker
+(kWgs84A,0,0) behielt. GPU-Readbacks bestätigten korrekte Geometrie, Indizes und
+Matrizen; die View-Uniform zeigte die falsche Verschiebung um den Erdradius.
+Wiederholter Frame und deaktiviertes Backface-Culling änderten den Fehler nicht.
+Korrigiert wurde ausschließlich die neue Fixture-Übergabe: Referenzgeometrie leer,
+Live-Anker erhalten. Coverage-/Normalenorakel unverändert. Sämtliche temporären
+Readbacks, Diagnoseausgaben, Zusatzframes und DoubleSided-Overrides entfernt.
+
+`make suite SUITE=outshine/conventions`, build/crown-pieces-restored.log:
+Exit 2, 18/19 PASS, ausschließlich bestehender Schachfall 2179 rot.
+CrownAtlasRetainsGeneratorSurfaces: 174 Checks, null Fehler. Vier Blickrichtungen
+mit jeweils einer um 180 Grad gedrehten und einer ungedrehten Instanz: Coverage
+exakt, mittleres Bilddrittel leer; maximaler Normalenfehler 0.011985 / 0.012501
+gegen bestehende Grenze 4*sqrt(3)/255 (RGBA8-Quantisierung). Fall gesichert als
+build/crown-pieces-restored-case.log. PieceInstancesShareTheirGeometry: 144 Checks,
+null Fehler; direkte/geclusterte Pieces verweigern Überkapazität und unbekannte /
+freigegebene IDs. Entleeren und Wiederbefüllen reproduziert das vollständige
+Tiefenbild exakt, einschließlich unveränderter nachfolgender Piece-Platzierung.
+Fall gesichert als build/crown-pieces-instances-restored-case.log.
+
+Negativkontrolle: Auswahl absichtlich auf Ansicht null festgehalten.
+build/crown-pieces-view-negative.log, Exit 2, 17/19 PASS; vier gezielte
+Coverage-Fehler im Kronenfall, zusätzlich bekannter Schachfall rot. Abweichende
+Pixel je Blickrichtung: 2189 / 4198 / 2189 / 4198. Fall gesichert als
+build/crown-pieces-view-negative-case.log. Korrekte Quelle vor Abschlusslauf
+wiederhergestellt. Keine Orakeländerung zur Herstellung eines grünen Ergebnisses.
+
+Alle vier build/crown-atlas/pieces-{0,1,2,3}.png nach Abschluss geöffnet.
+Zwei getrennte Kronen, richtige Blick-/Rotationsabhängigkeit, freier Zwischenraum.
+Direkter Karten- und feiner Generator-PNG ebenfalls verglichen: dünne, punktförmige
+Birkenkrone bereits im Generator. Das ist keine botanische oder fotorealistische
+Abnahme; Kronendichte, artspezifische Morphologie und Mip-Coverage bleiben offen.
+
+`make shots PLACE=Koerbersee`, build/crown-pieces-koerbersee.log: Exit 0,
+Digest c99cdbe7 unverändert. 120 residente Standframes: p50 6.89, p95 7.16,
+p99 7.27 ms, 0 über 16.67 ms; Peak Heap 496 MB. PNG und Webcam geöffnet:
+weiterhin keine Bäume, abgerundete Felsen ohne Schichtung, flächige Klassen,
+einfache Gebäudekästen und dunkles flaches Wasser. Keine neue Weltvegetation und
+kein bewegter Wald-/Streaming-Nachweis aus diesem Lauf ableitbar.
+
+Nächster wirksamer Schritt bleibt die reale World.Instances-Anbindung: vorhandenen
+TangentFrame/RenderFrame für geografische Modellmatrizen verwenden, lokale
+Erdkrümmung/Up-Richtung, Yaw und Scale erhalten; Arten gruppieren, geladene Kronen
+residieren lassen und Blickwechsel aus der Weltkamera übergeben. Cache-Miss-
+Vorbereitung und begrenzte Residency dürfen keinen ungebremsten Bake im laufenden
+Frame auslösen. Der aktuelle Handoff prüft statische starre/gleichförmig skalierte
+Prototypen; Wind, bewegte Körper und deren vorherige Instanztransformation sind
+hierdurch nicht abgenommen. 2111 bleibt active.

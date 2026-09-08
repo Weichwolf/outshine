@@ -73,9 +73,14 @@ int main() {
     piece.Verts = vertices;
     piece.Indices = indices;
     piece.Instances = rows;
+    piece.MaxInstances = rows.size();
     if (clustered) { piece.Clusters = clusters; }
     const auto id = renderer.PlacePiece(piece, error);
     CHECK(id != Render::kNoPiece, "three placements accept one prototype");
+    const std::array<Mat4,4> tooMany{};
+    CHECK(!renderer.SetPieceInstances(id,tooMany,error), "instance updates refuse capacity overflow without replacing rows");
+    CHECK(!renderer.SetPieceInstances(Render::kNoPiece,rows,error), "instance updates refuse an unknown piece");
+    error.clear();
     CHECK(renderer.PiecesStanding() == 1 && renderer.PieceTriangles() == 1,
           "resident triangle count does not multiply with placements");
     Render::PieceMesh neighbour;
@@ -95,7 +100,19 @@ int main() {
       CHECK(depth[160u*320u+160u] == 0, "the gap contains no unplaced prototype");
     }
     CHECK(scene->Screenshot(clustered ? "build/instance-native/clustered.png" : "build/instance-native/instanced.png", error), "instanced PNG is written");
+    const auto placedDepth = depth;
+    CHECK(renderer.SetPieceInstances(id,{},error) && scene->Draw(error), "empty instance update deactivates the prototype");
+    renderer.WaitForGpu();
+    CHECK(renderer.ReadDepth(depth)==Render::ReadState::Ready && depth.size()==320u*320u &&
+          depth[160u*320u+80u]==0 && depth[160u*320u+240u]==0 && depth[80u*320u+160u]>0,
+          "empty rows remove both instances while the following piece keeps its placement");
+    CHECK(renderer.SetPieceInstances(id,rows,error) && scene->Draw(error), "resident prototype accepts its instances again");
+    renderer.WaitForGpu();
+    CHECK(renderer.ReadDepth(depth)==Render::ReadState::Ready && depth==placedDepth,
+          "restored instance rows reproduce the complete depth frame");
     renderer.ReleasePiece(id);
+    CHECK(!renderer.SetPieceInstances(id,rows,error), "instance updates refuse a released piece");
+    error.clear();
     CHECK(renderer.PiecesStanding() == 1 && renderer.PieceTriangles() == 1, "release retains only the other prototype");
     CHECK(scene->Draw(error), "released frame draws");
     renderer.WaitForGpu();

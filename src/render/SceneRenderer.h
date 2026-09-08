@@ -157,6 +157,11 @@ public:
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const { return Subjects_.Ground().Triangles(); }
 
+  [[nodiscard]] bool
+  SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error) {
+    return Subjects_.SetPieceInstances(which, rows, error);
+  }
+
   void WearPieces(std::span<const uint32_t> slotOfSurface,
                   std::span<const uint32_t> registered = {}) {
     Subjects_.WearPieces(slotOfSurface, registered);
