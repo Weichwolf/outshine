@@ -603,3 +603,23 @@ Die Testprovenienz besteht aus realem Speziestext und expliziter Test-Revisionsk
 Automatischer Fingerprint der tatsächlichen Generator-/Shaderquellen, Dateicache,
 atomisches Schreiben, asynchrones Lesen und begrenzte Veröffentlichung an Live bleiben
 als nächste Schritte offen. FNV64 ist keine Authentisierung untrusted Fremdartefakte.
+
+
+## Automatische Producer-Provenienz vor Dateicache
+
+Vor Implementierung: Make erzeugt nach Strip und Shaderbau einen stabilen Header
+unter build/. SHA-256 umfasst sortierte Pfade und Inhalte aller Code-/Headerdateien
+unter src/ und include/, Tier-Reaches, Makefile, Buildskript, Fingerprintskript,
+Shader-Toolchain-Pin sowie tatsächlich erzeugtes SPIR-V. C++-Version, Plattform und
+SDL/Shadercross-Paketversionen ergänzen die Identität. Header nur bei geändertem
+Inhalt ersetzen. CrownAtlas bindet den Header ein: Identität gehört zum kompilierten
+Producer und wird nicht aus einer möglicherweise inzwischen erneuerten Laufzeitdatei
+bezogen. Species-JSON und Pixels/Views ergänzen sie für die einzelne Krone.
+
+Das ist bewusst eine konservative Abhängigkeit (auch manche irrelevante Codeänderung
+invalidiert), keine fragile handgepflegte Auswahl von Baumgenerator-Dateien. Prinzip
+abgeleiteter Daten wie Unreal/RAGE; keine Behauptung über deren privaten Fingerprint.
+Beweis: Make zweimal ohne Änderung erhält Kennung; tatsächliche Codec-Quelländerung
+ändert sie; Wiederherstellung erhält Originalkennung. Bestehender Artefakttest nutzt
+die automatisch erzeugte Provenienz und prüft geänderte Species/Shape. Dateicache,
+atomische Veröffentlichung und asynchroner Verbraucher bleiben danach offen.
