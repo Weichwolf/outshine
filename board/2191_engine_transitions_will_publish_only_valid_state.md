@@ -50,12 +50,24 @@ mit vorzeitiger Veröffentlichung muss scheitern. Keine erwartete Änderung gül
 Pixel; Fenster-/Offscreen-Wechsel und verbleibende Resize-/Pipeline-Verträge getrennt
 prüfen. Dieser Schritt schließt die übrigen Engine-Mutatoren nicht ab.
 
+## Weitere konkrete Lücken
+
+DrawsInto ändert Dimensionen/Target, baut aber die planabhängigen Frame-Attachments
+und Present-Pipeline nicht als zusammenhängenden Kandidaten neu auf. Größen- und
+Formatwechsel müssen dieses Ressourcenpaket atomar ersetzen, nicht nur das Target.
+Noch kein Nachweis korrekter Pixel nach einem solchen Wechsel.
+
+Beobachtet: declare einer Surface-Szene ohne vorbereitete Kamera, danach
+beginFrame/endFrame, erreicht die Lens::Projection-Assertion. Fehlende Vorbereitung
+oder ungültige Projektion vor GPU-Arbeit als Fehlerwert abweisen; erlaubte Reihenfolge
+öffentlich dokumentieren. Der Target-Test benutzt eine vollständig vorbereitete Kamera.
+
 ## Abnahme
 
 - [x] Target-Kandidaten vor Veröffentlichung vorbereiten; SDL-Fehlertexte besitzen
       Speicher. Fenster-Claims und Offscreen-Textur bleiben bei Ablehnung erhalten.
 - [x] Target-Fehlergrenzen und gültige Fenster-/Offscreen-Pfade: 44 Consumer-Checks.
-- [ ] Vorzeitiges Targeted-Publizieren als Produktions-Negativkontrolle nachweisen.
+- [x] Vorzeitiges Targeted-Publizieren erzeugt genau einen Fehler im 44-Check-Oracle.
 
 - [ ] Öffentliche Übergangstabelle nennt erlaubte Reihenfolge und Fehlergarantien.
 - [ ] Fehler an jeder Build-/Validate-/Publish-Grenze injizieren; gültiges altes
