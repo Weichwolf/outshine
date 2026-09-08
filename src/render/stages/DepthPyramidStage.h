@@ -6,7 +6,7 @@
 #include "DepthPyramid.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
-#include "KernelShape.h"
+#include "ComputeShaders.h"
 
 #include <Extent.h>
 
@@ -14,8 +14,8 @@ namespace outshine::Render {
 
 class DepthPyramidStage {
 public:
-  static constexpr ComputeShape KernelShape{
-      .Samplers = 1, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8};
+  static constexpr ComputeShaderId Shader = ComputeShaderId::DepthPyramid;
+  static constexpr ComputeShape KernelShape = FindComputeShader(Shader)->Shape;
 
   [[nodiscard]] bool Configure(const Gpu &gpu,
                                SDL_GPUTexture *depth,

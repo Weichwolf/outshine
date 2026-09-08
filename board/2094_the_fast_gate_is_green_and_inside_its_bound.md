@@ -39,8 +39,9 @@ fehlendes Tool sowie eigene/ignorierte/gelöschte Dateien und Pfade mit Leerzeic
 
 Aktuelle Lint-Gruppen rot: Tidy (212), öffentliche Dokumentation (673), Writer-Coverage.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
-SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, acht Testgruppen grün.
-Der blinde MSL-Scanner ist ersetzt; vollständige Renderer-Selektor-/Shape-Abdeckung,
+SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
+8/8 Compute-Verträge aus dem tatsächlichen C++-Katalog stimmen mit Reflection überein.
+Der blinde MSL-Scanner ist ersetzt; vollständige Graphics-Selektor-/Shape-Abdeckung,
 Stage-Interfaces und Backend-Abnahme bleiben in 2152 offen.
 Gate-Dauer und Abdeckung je Teil ausweisen; keine langsamen Pflichtprüfungen entfernen.
 Der Client-Link meldet doppelte rpath-/SDL3-Einträge als Warnungen trotz Exit 0.

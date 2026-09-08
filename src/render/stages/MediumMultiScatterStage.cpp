@@ -7,6 +7,7 @@
 #include <string>
 
 #include "ShaderFile.h"
+#include <utility>
 
 namespace outshine::Render {
 
@@ -26,10 +27,12 @@ bool MediumMultiScatterStage::Configure(const Gpu &gpu,
   }
   if (Pipe) { return true; }
 
-  SDL_GPUComputePipeline *const made =
-      ComputeFrom(gpu.Device, "build/shaders/mediumMultiScatter.comp.spv", KernelShape, error);
-  if (made == nullptr) { return false; }
-  Pipe = OwnedComputePipeline(gpu.Device, made);
+  auto made = CreateComputePipeline(gpu.Device, Shader);
+  if (!made) {
+    error = std::move(made.error());
+    return false;
+  }
+  Pipe = std::move(*made);
   Settled_ = false;
   return true;
 }

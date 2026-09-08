@@ -7,6 +7,7 @@
 #include <string>
 
 #include "ShaderFile.h"
+#include <utility>
 
 namespace outshine::Render {
 
@@ -20,10 +21,12 @@ bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, st
   }
   if (Pipe) { return true; }
 
-  SDL_GPUComputePipeline *const made =
-      ComputeFrom(gpu.Device, "build/shaders/mediumTransmittance.comp.spv", KernelShape, error);
-  if (made == nullptr) { return false; }
-  Pipe = OwnedComputePipeline(gpu.Device, made);
+  auto made = CreateComputePipeline(gpu.Device, Shader);
+  if (!made) {
+    error = std::move(made.error());
+    return false;
+  }
+  Pipe = std::move(*made);
   Settled_ = false;
   return true;
 }

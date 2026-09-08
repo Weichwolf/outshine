@@ -8,7 +8,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "DepthPyramid.h"
-#include "KernelShape.h"
+#include "ComputeShaders.h"
 
 namespace outshine::Render {
 
@@ -21,12 +21,12 @@ public:
     Pyramid_ = shape;
   }
 
-  static constexpr ComputeShape CullShape{
-      .ReadOnlyBuffers = 5, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64};
-  static constexpr ComputeShape ScanShape{
-      .ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .GroupX = 256};
-  static constexpr ComputeShape CompactShape{
-      .ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128};
+  static constexpr ComputeShaderId CullShader = ComputeShaderId::SubjectCull;
+  static constexpr ComputeShape CullShape = FindComputeShader(CullShader)->Shape;
+  static constexpr ComputeShaderId ScanShader = ComputeShaderId::SubjectScan;
+  static constexpr ComputeShape ScanShape = FindComputeShader(ScanShader)->Shape;
+  static constexpr ComputeShaderId CompactShader = ComputeShaderId::SubjectCompact;
+  static constexpr ComputeShape CompactShape = FindComputeShader(CompactShader)->Shape;
 
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
 
@@ -46,11 +46,10 @@ private:
   SDL_GPUBuffer *PyramidBuffer_ = nullptr;
   PyramidShape Pyramid_;
   bool Stood_ = false;
-  [[nodiscard]] static bool Pipeline(const Gpu &gpu,
-                                     const char *entry,
-                                     const ComputeShape &shape,
-                                     OwnedComputePipeline &into,
-                                     std::string &error);
+  [[nodiscard]] static bool EnsurePipeline(const Gpu &gpu,
+                                           ComputeShaderId shader,
+                                           OwnedComputePipeline &into,
+                                           std::string &error);
   [[nodiscard]] uint32_t Standing(const FrameContext &ctx, void *view);
 
   SubjectDraw *Subjects_ = nullptr;

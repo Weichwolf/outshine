@@ -13,6 +13,7 @@
 #include <cstdio>
 
 #include "ShaderFile.h"
+#include <utility>
 #include "SubjectDraw.h"
 
 namespace outshine::Render {
@@ -65,24 +66,25 @@ void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out) {
 
 }
 
-bool SubjectCullStage::Pipeline(const Gpu &gpu,
-                                const char *entry,
-                                const ComputeShape &shape,
-                                OwnedComputePipeline &into,
-                                std::string &error) {
+bool SubjectCullStage::EnsurePipeline(const Gpu &gpu,
+                                      ComputeShaderId shader,
+                                      OwnedComputePipeline &into,
+                                      std::string &error) {
   if (into) { return true; }
-  SDL_GPUComputePipeline *const made =
-      ComputeFrom(gpu.Device, std::string("build/shaders/") + entry + ".comp.spv", shape, error);
-  if (made == nullptr) { return false; }
-  into = OwnedComputePipeline(gpu.Device, made);
+  auto made = CreateComputePipeline(gpu.Device, shader);
+  if (!made) {
+    error = std::move(made.error());
+    return false;
+  }
+  into = std::move(*made);
   return true;
 }
 
 bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
-  return Pipeline(gpu, "subjectCullKernel", CullShape, Cull_, error) &&
-         Pipeline(gpu, "subjectScanKernel", ScanShape, Scan_, error) &&
-         Pipeline(gpu, "subjectCompactKernel", CompactShape, Compact_, error);
+  return EnsurePipeline(gpu, CullShader, Cull_, error) &&
+         EnsurePipeline(gpu, ScanShader, Scan_, error) &&
+         EnsurePipeline(gpu, CompactShader, Compact_, error);
 }
 
 uint32_t SubjectCullStage::JobsSweptTaken() {

@@ -46,6 +46,19 @@ int main() {
       SDL_ReleaseGPUShader(device, shader);
     }
   }
+  for (const auto &descriptor : ComputeShaders()) {
+    auto pipeline = CreateComputePipeline(device, descriptor.Id);
+    CHECK(pipeline.has_value() && static_cast<bool>(*pipeline),
+          "every builtin compute ID creates its declared real pipeline with an owned handle");
+  }
+  for (const auto id : {ComputeShaderId::Count, static_cast<ComputeShaderId>(~uint32_t{0})}) {
+    const auto rejected = CreateComputePipeline(nullptr, id);
+    CHECK(!rejected && rejected.error().find("unknown built-in") != std::string::npos,
+          "invalid builtin IDs are rejected before touching the device or reading an artifact");
+  }
+  const auto noDevice = CreateComputePipeline(nullptr, ComputeShaderId::DepthPyramid);
+  CHECK(!noDevice && noDevice.error().find("GPU device") != std::string::npos,
+        "missing device is rejected without publishing an empty owned resource");
   ComputeShape compute{};
   compute.Samplers = 1;
   compute.ReadWriteBuffers = 1;
@@ -53,7 +66,7 @@ int main() {
   compute.GroupX = 8;
   compute.GroupY = 8;
   constexpr auto path = "build/shaders/depthPyramid.comp.spv";
-  auto *pipeline = ComputeFrom(device, path, compute, error);
+  auto *pipeline = CompileComputePipeline(device, path, compute, error);
   CHECK(pipeline != nullptr, "known compute declaration matches the real SPIR-V");
   SDL_ReleaseGPUComputePipeline(device, pipeline);
   for (auto field : {&ComputeShape::Samplers,
@@ -68,7 +81,7 @@ int main() {
     auto wrong = compute;
     ++(wrong.*field);
     error.clear();
-    pipeline = ComputeFrom(device, path, wrong, error);
+    pipeline = CompileComputePipeline(device, path, wrong, error);
     CHECK(pipeline == nullptr && error.find("declared compute bindings") != std::string::npos,
           "each incorrect compute binding count or workgroup dimension is refused");
     SDL_ReleaseGPUComputePipeline(device, pipeline);
@@ -76,7 +89,8 @@ int main() {
   SDL_DestroyGPUDevice(device);
   SDL_ShaderCross_Quit();
   SDL_Quit();
-  Covers("real ShaderFrom/ComputeFrom consumers accept known shaders and reject each altered "
-         "binding count/workgroup dimension; not exhaustive shader or rendered binding coverage");
+  Covers(
+      "real graphics and compute compiler consumers accept known shaders and reject each altered "
+      "binding count/workgroup dimension; not exhaustive shader or rendered binding coverage");
   return Report();
 }

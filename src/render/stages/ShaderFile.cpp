@@ -59,10 +59,26 @@ std::expected<std::vector<Uint32>, std::string> ReadSpirv(std::string_view path)
 
 }
 
-SDL_GPUComputePipeline *ComputeFrom(SDL_GPUDevice *device,
-                                    std::string_view path,
-                                    const ComputeShape &shape,
-                                    std::string &error) {
+namespace Says {
+constexpr auto kUnknownComputeShader = "unknown built-in compute shader ID";
+constexpr auto kMissingComputeDevice = "compute pipeline creation requires a GPU device";
+}
+
+std::expected<OwnedComputePipeline, std::string> CreateComputePipeline(SDL_GPUDevice *device,
+                                                                       ComputeShaderId shader) {
+  const auto *const descriptor = FindComputeShader(shader);
+  if (descriptor == nullptr) { return std::unexpected(Says::kUnknownComputeShader); }
+  if (device == nullptr) { return std::unexpected(Says::kMissingComputeDevice); }
+  std::string error;
+  auto *const pipeline = CompileComputePipeline(device, descriptor->Path, descriptor->Shape, error);
+  if (pipeline == nullptr) { return std::unexpected(std::move(error)); }
+  return OwnedComputePipeline(device, pipeline);
+}
+
+SDL_GPUComputePipeline *CompileComputePipeline(SDL_GPUDevice *device,
+                                               std::string_view path,
+                                               const ComputeShape &shape,
+                                               std::string &error) {
   const auto code = ReadSpirv(path);
   if (!code) {
     error = code.error();

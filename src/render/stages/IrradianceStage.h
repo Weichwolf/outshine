@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "KernelShape.h"
+#include "ComputeShaders.h"
 #include "IrradianceLayout.h"
 
 #include "Gpu.h"
@@ -14,8 +14,8 @@ namespace outshine::Render {
 
 class IrradianceStage {
 public:
-  static constexpr ComputeShape KernelShape{
-      .Samplers = 2, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 1};
+  static constexpr ComputeShaderId Shader = ComputeShaderId::Irradiance;
+  static constexpr ComputeShape KernelShape = FindComputeShader(Shader)->Shape;
 
   [[nodiscard]] bool Configure(const Gpu &gpu,
                                SDL_GPUTexture *transmittance,

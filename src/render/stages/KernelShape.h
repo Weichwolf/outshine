@@ -1,10 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_KERNELSHAPE_H
 #define OUTSHINE_RENDER_STAGES_KERNELSHAPE_H
 
-#include <SDL3/SDL_gpu.h>
-
 #include <cstdint>
-#include <string_view>
 
 namespace outshine::Render {
 

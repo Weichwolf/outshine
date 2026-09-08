@@ -51,6 +51,12 @@ class ShaderArtifacts(unittest.TestCase):
         self.manifest = self.root / 'build/shader-artifacts.txt'
         self.names = [f'build/shaders/fixture.{stage}.spv' for stage in ('vert', 'frag', 'comp')]
         self.manifest.write_text('\n'.join(self.names) + '\n')
+        self.contracts = self.root / 'build/compute-shaders.json'
+        self.contract = {'artifact': self.names[2], 'shape': {
+            'samplers': 1, 'readonly_textures': 1, 'readwrite_textures': 1,
+            'readonly_buffers': 1, 'readwrite_buffers': 1, 'uniform_buffers': 1,
+            'group_x': 1, 'group_y': 2, 'group_z': 1}}
+        self.contracts.write_text(json.dumps([self.contract]))
         for stage, source in (('vert', VERTEX), ('frag', FRAGMENT), ('comp', COMPUTE)):
             self.compile(stage, source)
 
@@ -73,6 +79,7 @@ class ShaderArtifacts(unittest.TestCase):
         report = self.check(True)
         self.assertEqual(report['valid'], 3)
         self.assertEqual(report['reflected'], 3)
+        self.assertEqual(report['compute_contracts']['valid'], 1)
         self.assertEqual(len(report['tool_sha256']), 64)
         self.assertEqual(sorted(len(row['resources']) for row in report['artifacts']), [4, 4, 6])
         self.assertTrue(all(len(row['sha256']) == 64 for row in report['artifacts']))
@@ -147,6 +154,31 @@ class ShaderArtifacts(unittest.TestCase):
         self.compile('vert', VERTEX)
         self.compile('comp', COMPUTE.replace('local_size_x = 1', 'local_size_x_id = 0'))
         self.assertEqual(self.check(False)['valid'], 2)
+
+    def test_every_compute_contract_field_is_checked_against_real_reflection(self):
+        for field in self.contract['shape']:
+            with self.subTest(field=field):
+                changed = json.loads(json.dumps(self.contract))
+                changed['shape'][field] += 1
+                self.contracts.write_text(json.dumps([changed]))
+                report = self.check(False)
+                self.assertEqual(report['valid'], 3)
+                self.assertEqual(report['compute_contracts']['checked'], 1)
+                self.assertEqual(report['compute_contracts']['valid'], 0)
+                self.assertTrue(any('shape.' + field in error for error in report['errors']))
+
+    def test_compute_catalog_coverage_and_schema_cannot_be_skipped(self):
+        bad_shape = json.loads(json.dumps(self.contract))
+        del bad_shape['shape']['group_z']
+        unbuilt = dict(self.contract, artifact='build/shaders/unbuilt.comp.spv')
+        for content in ('', '[]', '{}', json.dumps([self.contract, self.contract]),
+                        json.dumps([unbuilt]), json.dumps([bad_shape])):
+            with self.subTest(content=content):
+                self.contracts.write_text(content)
+                report = self.check(False)
+                self.assertTrue(report['compute_contracts']['errors'])
+        self.contracts.unlink()
+        self.assertTrue(self.check(False)['compute_contracts']['errors'])
 
     def test_missing_failing_malformed_and_timed_out_tool(self):
         self.assertTrue(self.check(False, '--tool', str(self.root / 'absent-tool'))['errors'])

@@ -48,10 +48,17 @@ LIT_LAYOUTS := 000 010 100 110 200 210 101 111 201 211
 LIT_VERTICES := $(foreach layout,$(LIT_LAYOUTS),$(foreach v,0 1,build/shaders/lit-$(layout)-$(v).vert.spv))
 LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(GROUND_OUTPUTS),build/shaders/lit-$(kind)$(layout)-$(output).frag.spv)))
 SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS))
-shaders: $(SHADER_ARTIFACTS)
+shaders: $(SHADER_ARTIFACTS) build/compute-shaders.json
 	@mkdir -p build
 	@printf '%s\n' $(SHADER_ARTIFACTS) > build/shader-artifacts.txt.tmp
 	@mv build/shader-artifacts.txt.tmp build/shader-artifacts.txt
+
+build/compute-shader-contracts: test/scripts/compute-shader-contracts.cpp src/render/stages/ComputeShaders.h src/render/stages/KernelShape.h
+	@mkdir -p $(@D)
+	@$(CXX) -std=c++23 -O2 -Wall -Wextra -Werror -Isrc/render/stages $< -o $@
+
+build/compute-shaders.json: build/compute-shader-contracts
+	@$< > $@.tmp && mv $@.tmp $@
 
 build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
 	@mkdir -p $(@D)

@@ -51,3 +51,16 @@ in memcpy und prüft Acquire/Submit nicht. Diese Pfade in denselben Frame-/Uploa
 aufnehmen: fehlgeschlagene Vorbereitung nicht als erfolgreiche neue Geometrie publizieren.
 - [ ] Upload-/Map-/Tabellen-/Fence-Fehler injizieren; keine NULL-Nutzung, keine
       weitergeschaltete History und kein angeblich erfolgreicher Frame mit alten Daten.
+
+## Stage-Zustand und Submission
+
+MediumTransmittanceStage::Encode, MediumMultiScatterStage::Encode und weitere LUT-
+Stages setzen Settled_ bereits nach Command-Aufzeichnung. Scheitert anschließend die
+Submission, kann die Stage ihre nie erzeugte Tabelle als aktuell behandeln. Der Nutzer
+bestätigt: Stage-Modell behalten, Ressourcen- und Ausführungsverträge korrigieren.
+Aufgezeichnete Arbeit von erfolgreich eingereichter Arbeit trennen; Aktualitätsversionen
+und History erst beim passenden Frame-Abschluss veröffentlichen. Abbruch verwirft
+vorbereitete Updates, ein Folgelauf muss sie erneut aufzeichnen. Ein Shader-Katalog
+(2152) ersetzt weder diesen Lebenszyklus noch deklarierte Read-/Write-/History-Zugriffe.
+- [ ] Submit-Fehler nach LUT-Aufzeichnung: Folgelauf berechnet fehlende LUT erneut;
+      keine fälschlich aktuelle Stage, keine weitergeschaltete History.

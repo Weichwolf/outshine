@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "KernelShape.h"
+#include "ComputeShaders.h"
 
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -13,8 +13,8 @@ namespace outshine::Render {
 
 class MediumTransmittanceStage {
 public:
-  static constexpr ComputeShape KernelShape{
-      .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8};
+  static constexpr ComputeShaderId Shader = ComputeShaderId::MediumTransmittance;
+  static constexpr ComputeShape KernelShape = FindComputeShader(Shader)->Shape;
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error);
 
   void Declare(const Medium &medium);
