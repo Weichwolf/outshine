@@ -70,7 +70,7 @@ public:
     int HeightPx = 0;
   };
 
-  [[nodiscard]] std::expected<void, std::string_view>
+  [[nodiscard]] std::expected<void, std::string>
   DrawsInto(int widthPx, int heightPx, SDL_Window *presents);
   [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> Presented() const;
   void StopShowing();
@@ -99,7 +99,10 @@ public:
 
   [[nodiscard]] bool Drew() const { return Submitted_; }
 
-  ~SceneRenderer() { WaitForGpu(); }
+  ~SceneRenderer() {
+    WaitForGpu();
+    StopShowing();
+  }
 
   SceneRenderer() = default;
   SceneRenderer(const SceneRenderer &) = delete;
@@ -437,14 +440,16 @@ private:
 
   SDL_GPUTexture *HostSurface_ = nullptr;
   bool Stands();
-  std::expected<void, std::string_view> StandsOffscreen();
+  [[nodiscard]] std::expected<void, std::string> StandsOffscreen();
+  [[nodiscard]] std::expected<OwnedTexture, std::string> MakeOffscreen(Extent frame);
+  [[nodiscard]] std::expected<SDL_GPUPresentMode, std::string> ClaimWindow(SDL_Window *window);
 
   SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;
   SDL_Window *Showing_ = nullptr;
   Shown Shown_;
   bool Wanted_ = false;
   std::vector<uint8_t> Taken_;
-  SDL_GPUTexture *Offscreen_ = nullptr;
+  OwnedTexture Offscreen_;
   std::shared_ptr<const Compiled> Plan_;
   Gpu Handles_;
   OwnedTexture HdrTex_, VelTex_, DepthTex_, FrameTex_;

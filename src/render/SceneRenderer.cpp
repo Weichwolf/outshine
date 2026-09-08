@@ -32,6 +32,15 @@
 
 namespace outshine::Render {
 
+namespace Says {
+constexpr auto kInvalidTargetExtent = "render target dimensions must be positive";
+constexpr auto kTargetTextureFailed = "could not create the offscreen target: ";
+constexpr auto kWindowClaimFailed = "could not claim the target window: ";
+constexpr auto kUnsupportedTransfer = "the window does not support linear SDR presentation";
+constexpr auto kNoPresentMode = "the window supports none of the requested present modes";
+constexpr auto kPresentModeFailed = "could not configure the swapchain: ";
+} // namespace Says
+
 constexpr uint32_t kHalfSignBit = 0x8000u;
 constexpr unsigned kHalfSignShift = 16u;
 constexpr unsigned kHalfMantissaBits = 10u;
@@ -235,25 +244,30 @@ bool SceneRenderer::Stands() {
   return true;
 }
 
-std::expected<void, std::string_view> SceneRenderer::StandsOffscreen() {
-  if (Showing_ != nullptr || Offscreen_ != nullptr || Plan_ == nullptr || Width_ <= 0) {
-    return {};
-  }
-  if (!Plan_->Holds(Resource::Surface)) { return {}; }
+std::expected<OwnedTexture, std::string> SceneRenderer::MakeOffscreen(Extent frame) {
+  if (Plan_ == nullptr || !Plan_->Holds(Resource::Surface)) { return OwnedTexture{}; }
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
-  wanted.format = SurfaceFormat();
+  wanted.format = FormatOf(Plan_->Format(Resource::Surface));
   wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = static_cast<Uint32>(Width_);
-  wanted.height = static_cast<Uint32>(Height_);
+  wanted.width = static_cast<Uint32>(frame.WidthPx);
+  wanted.height = static_cast<Uint32>(frame.HeightPx);
   wanted.layer_count_or_depth = 1;
   wanted.num_levels = 1;
-  Offscreen_ = SDL_CreateGPUTexture(Device_.Get(), &wanted);
-  if (Offscreen_ == nullptr) {
-    WhyNot_ = std::string("the device refused a canvas of that extent: ") + SDL_GetError();
-    return std::unexpected("the canvas did not stand, and WhyNot carries what the device said");
+  OwnedTexture texture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
+  if (!texture) {
+    WhyNot_ = std::string(Says::kTargetTextureFailed) + SDL_GetError();
+    return std::unexpected(WhyNot_);
   }
-  HostSurface_ = Offscreen_;
+  return texture;
+}
+
+std::expected<void, std::string> SceneRenderer::StandsOffscreen() {
+  if (Showing_ != nullptr || Offscreen_ || Width_ <= 0 || Height_ <= 0) { return {}; }
+  auto texture = MakeOffscreen({.WidthPx = Width_, .HeightPx = Height_});
+  if (!texture) { return std::unexpected(texture.error()); }
+  Offscreen_ = std::move(*texture);
+  HostSurface_ = Offscreen_.Get();
   return {};
 }
 
@@ -1195,7 +1209,7 @@ void SceneRenderer::RenderFrame() {
     SDL_ReleaseGPUTransferBuffer(Device_.Get(), taking);
     Wanted_ = false;
   }
-  if (swapchain != nullptr) { HostSurface_ = Offscreen_; }
+  if (swapchain != nullptr) { HostSurface_ = Offscreen_.Get(); }
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Camera_.EyeM[axis]; }
   Subjects_.CarryFrame();
@@ -1221,7 +1235,7 @@ void SceneRenderer::WantsPixels() {
 }
 
 ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
-  if (!Ready_) { return ReadState::Failed; }
+  if (!Ready_ || !Submitted_) { return ReadState::Failed; }
   const auto asRgba = [](std::vector<uint8_t> &held, SDL_GPUTextureFormat holds) {
     if (holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM &&
         holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB) {
@@ -1417,68 +1431,69 @@ ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
 }
 
 void SceneRenderer::StopShowing() {
-  if (Offscreen_ != nullptr) {
-    if (Device_.Get() != nullptr) { SDL_ReleaseGPUTexture(Device_.Get(), Offscreen_); }
-    Offscreen_ = nullptr;
-    HostSurface_ = nullptr;
-  }
+  Offscreen_.Reset();
+  HostSurface_ = nullptr;
+  Shown_ = {};
+  Taken_.clear();
+  Submitted_ = false;
   if (Showing_ == nullptr) { return; }
-  if (Device_.Get() != nullptr) { SDL_ReleaseWindowFromGPUDevice(Device_.Get(), Showing_); }
+  SDL_ReleaseWindowFromGPUDevice(Device_.Get(), Showing_);
   Showing_ = nullptr;
 }
 
-std::expected<void, std::string_view>
+std::expected<SDL_GPUPresentMode, std::string> SceneRenderer::ClaimWindow(SDL_Window *window) {
+  if (!SDL_ClaimWindowForGPUDevice(Device_.Get(), window)) {
+    WhyNot_ = std::string(Says::kWindowClaimFailed) + SDL_GetError();
+    return std::unexpected(WhyNot_);
+  }
+  constexpr auto composition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR_LINEAR;
+  if (!SDL_WindowSupportsGPUSwapchainComposition(Device_.Get(), window, composition)) {
+    WhyNot_ = Says::kUnsupportedTransfer;
+    SDL_ReleaseWindowFromGPUDevice(Device_.Get(), window);
+    return std::unexpected(WhyNot_);
+  }
+  constexpr std::array modes = {
+      SDL_GPU_PRESENTMODE_MAILBOX, SDL_GPU_PRESENTMODE_IMMEDIATE, SDL_GPU_PRESENTMODE_VSYNC};
+  WhyNot_ = Says::kNoPresentMode;
+  for (const SDL_GPUPresentMode mode : modes) {
+    if (!SDL_WindowSupportsGPUPresentMode(Device_.Get(), window, mode)) { continue; }
+    if (SDL_SetGPUSwapchainParameters(Device_.Get(), window, composition, mode)) { return mode; }
+    WhyNot_ = std::string(Says::kPresentModeFailed) + SDL_GetError();
+  }
+  SDL_ReleaseWindowFromGPUDevice(Device_.Get(), window);
+  return std::unexpected(WhyNot_);
+}
+
+std::expected<void, std::string>
 SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
-  if (widthPx <= 0 || heightPx <= 0) {
-    return std::unexpected("a canvas has an extent, and this one declares none");
-  }
-  if (!Stands()) { return std::unexpected("the renderer has no device to stand a canvas on"); }
+  if (widthPx <= 0 || heightPx <= 0) { return std::unexpected(Says::kInvalidTargetExtent); }
+  if (!Stands()) { return std::unexpected(WhyNot_); }
 
-  if (Showing_ != presents) {
-    StopShowing();
-    if (presents != nullptr && !SDL_ClaimWindowForGPUDevice(Device_.Get(), presents)) {
-      WhyNot_ = std::string("the window was refused by the device: ") + SDL_GetError();
-      return std::unexpected(
-          "the window was refused by the device, and WhyNot carries what it said");
-    }
-    if (presents != nullptr) {
-      const SDL_GPUSwapchainComposition wanted = SDL_GPU_SWAPCHAINCOMPOSITION_SDR_LINEAR;
-      if (!SDL_WindowSupportsGPUSwapchainComposition(Device_.Get(), presents, wanted)) {
-        WhyNot_ = std::string("this window cannot present the transfer the plan declares: ") +
-                  SDL_GetError();
-        return std::unexpected(
-            "the window cannot present the transfer the plan declares, and WhyNot carries what "
-            "the device said");
-      }
-      const std::array<SDL_GPUPresentMode, 3> unqueued = {
-          {SDL_GPU_PRESENTMODE_MAILBOX, SDL_GPU_PRESENTMODE_IMMEDIATE, SDL_GPU_PRESENTMODE_VSYNC}};
-      bool took = false;
-      for (const SDL_GPUPresentMode mode : unqueued) {
-        if (!SDL_WindowSupportsGPUPresentMode(Device_.Get(), presents, mode)) { continue; }
-        took = SDL_SetGPUSwapchainParameters(Device_.Get(), presents, wanted, mode);
-        if (took) {
-          Presenting_ = mode;
-          break;
-        }
-      }
-      if (!took) {
-        WhyNot_ =
-            std::string("this window took no present mode the device offers: ") + SDL_GetError();
-        return std::unexpected(
-            "the window took no present mode, and WhyNot carries what the device said");
-      }
-    }
-    Showing_ = presents;
+  OwnedTexture texture;
+  auto mode = Presenting_;
+  if (presents != nullptr && Showing_ != presents) {
+    const auto claimed = ClaimWindow(presents);
+    if (!claimed) { return std::unexpected(claimed.error()); }
+    mode = *claimed;
+  } else if (presents == nullptr) {
+    auto made = MakeOffscreen({.WidthPx = widthPx, .HeightPx = heightPx});
+    if (!made) { return std::unexpected(made.error()); }
+    texture = std::move(*made);
   }
 
-  if (Offscreen_ != nullptr) {
-    SDL_ReleaseGPUTexture(Device_.Get(), Offscreen_);
-    Offscreen_ = nullptr;
+  if (Showing_ != nullptr && Showing_ != presents) {
+    SDL_ReleaseWindowFromGPUDevice(Device_.Get(), Showing_);
   }
-  HostSurface_ = nullptr;
+  Showing_ = presents;
+  Presenting_ = mode;
+  Offscreen_ = std::move(texture);
+  HostSurface_ = Offscreen_.Get();
   Width_ = widthPx;
   Height_ = heightPx;
-  if (const auto laid = StandsOffscreen(); !laid) { return std::unexpected(laid.error()); }
+  Shown_ = {};
+  Taken_.clear();
+  Submitted_ = false;
+  WhyNot_.clear();
   return {};
 }
 

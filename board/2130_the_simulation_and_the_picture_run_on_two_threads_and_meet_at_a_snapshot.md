@@ -3,7 +3,7 @@ State: open
 Area: engine, render, audio
 Tags: architecture, performance, determinism
 Parent: 2188
-Depends: 2124, 2189, 2190, 2191
+Depends: 2124, 2190, 2191
 
 # Simulation and rendering will exchange owned snapshots within SDL thread rules
 

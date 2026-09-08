@@ -3,7 +3,7 @@ State: open
 Area: include, engine, render, world
 Tags: architecture, audit
 Parent: 2169
-Depends: 2194, 2096, 2093, 2094, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2189, 2190, 2191
+Depends: 2194, 2096, 2093, 2094, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2190, 2191
 
 # Engine contracts will match the streaming sandbox architecture
 
@@ -17,8 +17,6 @@ Materialpfade weiterverwenden, sofern ihre Verträge halten.
 
 | Befund im aktuellen Code | Verantwortliches WI |
 |---|---|
-| Outshine.h: rohe Engine-Zeiger in Renderer/SwapChain, bewegliche Engine | 2189 |
-| Engine.cpp: fremde SwapChain nur auf Größe geprüft | 2189 |
 | Engine.cpp: Targeted vor erfolgreichem DrawsInto gesetzt | 2191 |
 | Declaring.cpp: nicht behandeltes Event als Fehler mit gemeinsamem Error | 2191 |
 | SceneRenderer.cpp: CommandBuffer ungeprüft; NULL-Swapchain als Fehler | 2190 |
@@ -56,7 +54,7 @@ Webcams bleiben Plausibilitätsmaßstab, kein Soll für einen echten Weltzustand
 
 ## Reihenfolge und Abnahme
 
-P0 zuerst 2189/2190/2191, dann 2124 und 2130/2132 entlang ihrer Abhängigkeiten.
+P0 zuerst 2190/2191, dann 2124 und 2130/2132 entlang ihrer Abhängigkeiten.
 2096/2139 nur zusammen mit tatsächlichen Vertragsverbesserungen; kein großer Rename
 als Ersatz für Bildqualität. 2150/2151 schrittweise pro vollständigem Consumer.
 P1–P5 aus 2169 unverändert; Architektur muss deren Umsetzung erleichtern.

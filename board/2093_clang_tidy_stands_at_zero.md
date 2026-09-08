@@ -16,7 +16,7 @@ Nullziel. Ungeprüfte Kandidaten löschen wäre kein zulässiger Reparaturweg.
 
 ## Entscheidung
 
-API-Ownership/Fehlerzustände nach 2189/2190/2191 zuerst. Dokumentation beschreibt
+API-Ownership/Fehlerzustände nach 2190/2191 zuerst. Dokumentation beschreibt
 Einheiten, Koordinaten, Lebensdauer, Threadbindung, Fehlergarantien und Invalidierung.
 Interne Tidy-Befunde nach Ursache gruppieren: fehlende direkte Includes, explizite
 Konversionen/Einheiten, unklare Zuständigkeiten und überkomplexe Zustandsverarbeitung.

@@ -28,7 +28,8 @@ Fehler als strukturierter Code mit Kontext; SDL-Text am Fehlerort übernehmen.
 Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
-2185 besitzt Feature-Ressourcen, 2189 Handle-Identität, 2151 Persistenzschema.
+2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
+und nicht bewegliche Engine-Owner sind die geprüfte Voraussetzung.
 
 ## Aktiver Schritt: Target-Konfiguration
 
@@ -50,6 +51,11 @@ Pixel; Fenster-/Offscreen-Wechsel und verbleibende Resize-/Pipeline-Verträge ge
 prüfen. Dieser Schritt schließt die übrigen Engine-Mutatoren nicht ab.
 
 ## Abnahme
+
+- [x] Target-Kandidaten vor Veröffentlichung vorbereiten; SDL-Fehlertexte besitzen
+      Speicher. Fenster-Claims und Offscreen-Textur bleiben bei Ablehnung erhalten.
+- [x] Target-Fehlergrenzen und gültige Fenster-/Offscreen-Pfade: 44 Consumer-Checks.
+- [ ] Vorzeitiges Targeted-Publizieren als Produktions-Negativkontrolle nachweisen.
 
 - [ ] Öffentliche Übergangstabelle nennt erlaubte Reihenfolge und Fehlergarantien.
 - [ ] Fehler an jeder Build-/Validate-/Publish-Grenze injizieren; gültiges altes

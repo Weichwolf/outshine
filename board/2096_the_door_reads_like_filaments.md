@@ -3,7 +3,7 @@ State: open
 Area: include
 Tags: measured, door
 Parent: 2188
-Depends: 2189, 2191
+Depends: 2191
 
 # A reader who knows Filament finds every door name where Filament puts it
 
@@ -76,5 +76,5 @@ keeps the canvas as the argument because the canvas is the client's.
 Ein externer Minimalclient muss nur öffentliche Header benötigen und vollständige
 Lebensdauer-/Fehlerverträge vorfinden. Zeilenzahl ist kein Korrektheitsoracle.
 Die historische render(Extent)-Entscheidung erhält keinen Bestandsschutz: Owner-Identität
-und View-/Target-Auswahl nach 2189/2191 prüfen. Filament-Begriffe dienen Verständlichkeit,
+und View-/Target-Auswahl nach 2191 prüfen. Filament-Begriffe dienen Verständlichkeit,
 eine namensgleiche Fassade allein erfüllt keinen Vertrag.

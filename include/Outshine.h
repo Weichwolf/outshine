@@ -118,6 +118,7 @@ public:
   /// Construct an unconfigured Engine; configure a target and declare content before rendering.
   Engine();
   /// Release owned resources. All borrowed facades and references become invalid.
+  /// If a window is still targeted, destroy this Engine on that window's creation thread.
   ~Engine();
   Engine(Engine &&) = delete;
   Engine &operator=(Engine &&) = delete;
@@ -126,7 +127,8 @@ public:
 
   /// Borrow a non-null SDL window as the target. Call on its creation thread with SDL video
   /// initialized. The window must outlive its use as this Engine's target; ownership stays
-  /// external.
+  /// external. Requires no open frame. On failure, the previous target and extent
+  /// remain configured. A successful switch invalidates the previous pixel readback.
   /// @param presents Borrowed window whose creation thread is executing this call.
   /// @return Success or an error describing invalid input or device configuration failure.
   [[nodiscard]] Result drawsInto(SDL_Window *presents);
@@ -139,7 +141,9 @@ public:
   [[nodiscard]] Result setView(std::string_view view);
   [[nodiscard]] Result handleEvent(const SDL_Event &event);
   /// Configure an offscreen target in physical pixels. Requires SDL_INIT_VIDEO and positive
-  /// dimensions. Borrowed renderer and target facades retain their Engine identity.
+  /// dimensions and no open frame. Borrowed facades retain their Engine identity.
+  /// On failure, the previous target and extent remain configured. On success, the
+  /// previous pixel readback is invalidated; subsequent pixel requests render this target.
   /// @param offscreen Required width and height in physical pixels.
   /// @return Success or an error describing invalid input or device configuration failure.
   [[nodiscard]] Result drawsInto(Extent offscreen);

@@ -51,7 +51,7 @@ Vorarbeiten. 2169 ist das übergeordnete Abnahme-WI; Kinder hängen nicht zurüc
 
 | Stufe | Arbeiten | Ergebnis |
 |---|---|---|
-| P0, belastbare Engine | 2188 API-/Lifecycle-Audit: zuerst 2189/2190/2191, dann 2124 → 2130; 2170 Kamera/Datum; 2154 reproduzierbare Eingänge; 2124 Framepfad; 2132 Streaming; 2123 LOD | bewegte Kamera, begrenzte Residency und zurechenbare Bildfehler |
+| P0, belastbare Engine | 2188 API-/Lifecycle-Audit: zuerst 2190/2191, dann 2124 → 2130; 2170 Kamera/Datum; 2154 reproduzierbare Eingänge; 2124 Framepfad; 2132 Streaming; 2123 LOD | bewegte Kamera, begrenzte Residency und zurechenbare Bildfehler |
 | P1, Bildgrundlage | 2166 Terrain einschließlich Seitenflächen → 2144 Nähte; 2171 MR; 2167 indirektes Licht; 2128 Schatten; 2152 GLSL | Gelände und einfache Oberflächen überzeugen bei konsistenter Beleuchtung |
 | P2, gebaute Welt | 2173 Semantik; 2133 logisches Netz → 2175 Alignment/Bauwerke; 2121/2168 Kontakt/Körper; 2138 Gebäude; 2145 Ufer/Wassergeometrie | plausible Formen und räumliche Anschlüsse, befahrbare Brücken und Tunnel |
 | P3, Darstellung vervollständigen | 2172 Wetter → 2140 Wolken; 2129 Reflexionen; 2137 Bodendetail; 2155 Kameraantwort | stimmige Atmosphäre, Wasser und Nahoberflächen |

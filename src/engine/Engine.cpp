@@ -17,7 +17,10 @@ namespace outshine {
 
 namespace Says {
 constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
-}
+constexpr auto kTargetInsideFrame = "end the open frame before changing its target";
+constexpr auto kNullWindow = "the target window is null";
+constexpr auto kWindowExtentFailed = "could not read the target window extent: ";
+} // namespace Says
 
 constexpr double kBitsPerByte = 8.0;
 
@@ -79,26 +82,36 @@ bool Engine::State::Routes() {
 Engine::~Engine() = default;
 
 Result Engine::drawsInto(SDL_Window *presents) {
+  if (S_->Picture.FrameOpen) {
+    S_->Error = Says::kTargetInsideFrame;
+    return std::unexpected(S_->Error);
+  }
   if (presents == nullptr) {
-    S_->Error = "a window is what DrawsInto presents on, and this one is none -- an engine that "
-                "draws nowhere is declared with an Extent instead";
+    S_->Error = Says::kNullWindow;
     return std::unexpected(S_->Error);
   }
   int widthPx = 0;
   int heightPx = 0;
-  SDL_GetWindowSizeInPixels(presents, &widthPx, &heightPx);
-  S_->Picture.Targeted = true;
+  if (!SDL_GetWindowSizeInPixels(presents, &widthPx, &heightPx)) {
+    S_->Error = std::string(Says::kWindowExtentFailed) + SDL_GetError();
+    return std::unexpected(S_->Error);
+  }
   const auto standing = S_->Picture.Device.DrawsInto(widthPx, heightPx, presents);
   if (!standing) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
   }
   S_->Picture.Frame = Extent{.WidthPx = widthPx, .HeightPx = heightPx};
+  S_->Picture.Targeted = true;
+  S_->Error.clear();
   return {};
 }
 
 Result Engine::drawsInto(Extent offscreen) {
-  S_->Picture.Targeted = true;
+  if (S_->Picture.FrameOpen) {
+    S_->Error = Says::kTargetInsideFrame;
+    return std::unexpected(S_->Error);
+  }
   const auto standing =
       S_->Picture.Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
   if (!standing) {
@@ -106,6 +119,8 @@ Result Engine::drawsInto(Extent offscreen) {
     return std::unexpected(S_->Error);
   }
   S_->Picture.Frame = offscreen;
+  S_->Picture.Targeted = true;
+  S_->Error.clear();
   return {};
 }
 
