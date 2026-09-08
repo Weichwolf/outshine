@@ -70,6 +70,24 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
 - Datenorientierte, zusammenhängende Speicherlayouts; Batchverarbeitung und begrenzte
   Arbeitsmengen. Seeds und Zusammenführungsreihenfolge explizit deterministisch.
   Szenarien und Spielzustand müssen speicherbar und wiederholbar sein.
+- Ressourcen haben eindeutige Besitzer, Lebenszyklen und Thread-Zuständigkeiten.
+  Langlebige Referenzen auf austauschbare Ressourcen über validierbare Handles führen;
+  GPU-Ressourcen erst nach Abschluss ihrer letzten Nutzung freigeben. Kein versteckter
+  globaler Zustand und keine Eingriffe in den Host durch die Engine-Bibliothek.
+- Asynchrone Arbeit hat begrenzte Queues, Abbruch und Rückstaukontrolle. Veraltete
+  Streaming-Ergebnisse dürfen neuere Zustände nicht überschreiben. Thread-Affinität,
+  Synchronisation und Shutdown sind ausdrückliche Verträge, keine Timing-Annahmen.
+- Simulation mit festem Zeitschritt und begrenztem Aufholen; Darstellung interpoliert
+  zwischen gültigen Zuständen. Sichtbarkeit, LOD, Instancing und Upload-Budgets begrenzen
+  Renderarbeit. CPU, GPU, Speicher und IO gemeinsam budgetieren; Überlast reduziert
+  kontrolliert Detail oder verschiebt Arbeit, statt den Frame unbeschränkt zu verlängern.
+- Assets und Szenarien sind versionierte Daten mit validierten Einheiten, Koordinaten,
+  Material- und Kameraverträgen. Aufwendige Konvertierung und Shaderkompilierung gehören
+  in den Asset-/Buildpfad. Keine Ortskataloge oder Inhaltsentscheidungen im Engine-Code.
+- Öffentliche Verträge dokumentieren Ownership, Lebensdauer, Thread-Sicherheit,
+  Fehler und Kosten. Features lassen sich im Szenario gezielt schalten und isoliert
+  messen. Architektur folgt nachgewiesenen Anforderungen; weder Abstraktionsgerüste
+  auf Vorrat noch Abkürzungen zulasten von Korrektheit und Echtzeitfähigkeit.
 - Abhängigkeitstiers über `reaches` einhalten. Generatoren bleiben eigenständige
   Bibliothek. Etablierte Bibliotheken für Formate und Plattformarbeit verwenden.
 - Engine-Runtime ohne Exceptions kompilieren. Behandelbare Fehler als
