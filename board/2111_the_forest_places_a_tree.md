@@ -658,3 +658,22 @@ nicht über einen vollständigen transitiven Hash jedes System-Binaries.
 Nächster Schritt: Artefaktdateien atomisch veröffentlichen, begrenzt asynchron
 lesen und ihren Inhalt über diese automatisch erzeugte Provenienz prüfen.
 Noch kein produktiver Dateicache/World.Instances-Verbrauch; WI bleibt aktiv.
+
+
+## Begrenzter asynchroner Kronen-Dateicache
+
+Vor Implementierung: vorhandenen ContentStore nach Korrektur 2181 verwenden.
+CrownCache besitzt Store und begrenzte Pending-Liste, leiht Tasks (muss länger leben).
+Provenienz → SHA256-Dateiname; Decode prüft zusätzlich die eingebettete Provenienz.
+Request koalesziert identische offene Schlüssel und verweigert bei voller Liste;
+Take prüft Tasks::Done und übergibt fertige Ergebnisse ohne IO auf dem Aufrufer.
+Default [SET]: zwei offene Reads, je höchstens 16 MiB Dateipayload; keine unbegrenzte
+Jobliste. Konstruktion/Publikation sind Vorbereitungsarbeit, nicht Updates-Arbeit.
+Destruktor wartet auf eigene Jobs vor Store-Freigabe, niemals regulär pro Frame.
+
+Beweis nutzt echten gebackenen Atlas: publizieren, über Worker lesen und existierende
+Kartenprüfungen aus dem geladenen Ergebnis ausführen. Pending-Grenze, Duplikat,
+fehlende/geänderte Provenienz und übergroße Datei prüfen. Worker mit Test-Latch
+anhalten: Request und Take müssen zurückkehren, ohne den Latch abzuwarten.
+Unreal/RAGE shared derived-data cache als Prinzip; dieser Schritt baut noch keinen
+GPU-Produzenten in den aktiven Weltframe und ersetzt nicht den geplanten Live-Verbrauch.
