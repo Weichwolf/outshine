@@ -719,3 +719,24 @@ Nächster Schritt ist der produktive Verbraucher: Materialien/Bilder geladener K
 bei Live registrieren und World.Instances auf geteilte Kronengeometrie abbilden.
 Cache-Miss-Produktion/Vorbereitung und Blickrichtungswahl bleiben dabei erforderlich;
 der Dateicache allein zeichnet noch keinen Wald. WI 2111 bleibt aktiv.
+
+
+## Nächster Handoff: Materialien an residente Draws anhängen
+
+Vor Implementierung: SetMaterials ersetzt derzeit Slots, Batches und Indexzahl;
+das ist ein vollständiger Aufbau und kein Ankunftspfad für Kronen. BindSurface
+kann bereits genau eine Oberfläche hochladen. Diesen vorhandenen Pfad über
+AppendSubjectMaterials zugänglich machen: vollständige Pass-Kompatibilität vor
+Mutation prüfen (auch beim Glaspass), danach nur neue Slots binden. Bestehende
+Slot-IDs, Batches, Geometrie und Bilder erhalten. SetMaterials bleibt Ersetzung.
+Keine neue öffentliche Engine-API und kein verstecktes Hilfsmesh.
+
+Unreal/RAGE sind hier Benchmark für residente, geteilte Foliage-Ressourcen;
+übernommen wird das Prinzip inkrementeller Asset-Ankunft, keine behauptete private
+API. Prüffall PieceInstancesShareTheirGeometry: erst vorhandene Geometrie zeichnen,
+dann Texturmaterial anhängen; alter Draw bleibt pixelgleich, neuer instanzierter
+Draw nutzt den neuen Slot. Ein Batch mit kompatibler erster und unzulässiger
+transmissiver zweiter Oberfläche muss ohne Teilmutation scheitern. Negativkontrolle:
+Append auf den ersetzenden Set-Pfad umlenken; bestehende Draws/Slot-IDs müssen rot
+werden. PNG vor/nach Ankunft öffnen. Diese private Renderer-Funktion ist Voraussetzung
+für Live-Registrierung; allein erzeugt sie noch keine Places-Vegetation.
