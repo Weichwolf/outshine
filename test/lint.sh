@@ -69,18 +69,9 @@ grep -E '^(FAIL|BUILD|UNPREP|PASS)' "$REPORT/claims.log" | grep -v '^PASS' | sed
 grep 'tests:' "$REPORT/claims.log" | sed 's/^/lint: /' || true
 
 printf '\n== documentation ==\n'
-if [ -x "$(command -v doxygen)" ]; then
-  mkdir -p build/doc
-  { cat doc/Doxyfile; printf '\nWARN_LOGFILE = "%s/doxygen.log"\n' "$REPORT"; } |
-    doxygen - >/dev/null 2>&1 || true
-  undocumented=$(wc -l < "$REPORT/doxygen.log" 2>/dev/null | tr -d ' ')
-  printf 'lint: %s undocumented public entit(ies), the target is 0\n' "$undocumented"
-  if [ "$undocumented" -gt 0 ]; then
-    printf 'lint: %s to go. They are named in %s/doxygen.log\n' "$undocumented" "$REPORT" >&2
-    red=$((red + 1))
-  fi
-else
-  printf 'lint: doxygen is not installed, so the door is not checked. `brew install doxygen`\n' >&2
+if ! python3 test/scripts/documentation_analysis.py --report "$REPORT"; then
+  printf 'lint: public documentation is not clean or coverage is incomplete; see %s/doxygen.json and doxygen.log\n' "$REPORT" >&2
+  red=$((red + 1))
 fi
 
 # WHAT NOTHING CALLS, and clang cannot answer it. clang-tidy works one translation unit at a time,

@@ -37,15 +37,24 @@ Aktuell 553 Dateien geprüft, keine Formatabweichung.
 
 ## Verbleibende Arbeit
 
-Aktuelle Lint-Gruppen rot: Tidy (212), öffentliche Dokumentation (673), Writer-Coverage.
+Offene Lint-Gruppen: Tidy, öffentliche Dokumentation und Writer-Coverage.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
 8/8 Compute-Verträge aus dem tatsächlichen C++-Katalog stimmen mit Reflection überein.
 Der blinde MSL-Scanner ist ersetzt; vollständige Graphics-Selektor-/Shape-Abdeckung,
 Stage-Interfaces und Backend-Abnahme bleiben in 2152 offen.
-Doxygen ignoriert derzeit den Prozessfehler (`|| true`); ein fehlendes Tool macht
-den Gate-Teil nicht rot. Exitstatus und tatsächliche Input-Abdeckung prüfen, mit
-Negativkontrollen für fehlendes Tool, Abbruch und leeres Ergebnis.
+Doxygen wird mit geprüftem Prozessstatus und frischem temporärem XML-Output ausgeführt.
+Die XML-Dateiliste muss sämtliche öffentlichen Header aus include/ enthalten; leere,
+fehlende oder unvollständige Ausgabe ist rot, auch nach einem früheren grünen Lauf.
+Client-Interna sind gemäß Kommentar-/API-Vertrag kein Dokumentationsinput.
+Diagnosen, Headerabdeckung, Prozessstatus und Dauer stehen getrennt im JSON-Manifest;
+Diagnosezahlen behaupten keine Entitätsabdeckung oder fachliche Vertragsvollständigkeit.
+Enumwerte werden zusätzlich auf fehlende Dokumentation geprüft. make doc schlägt bei
+Warnungen fehl; lint sammelt sie vollständig und entscheidet anschließend selbst.
+Referenz: https://www.doxygen.nl/manual/config.html (XML, WARN_AS_ERROR, Warnungsarten).
+Sieben Tests mit echtem Doxygen prüfen saubere und fehlende Dokumentation, Enumwerte,
+Header mit Leerzeichen, leere Inputs, fehlendes Tool, Exitfehler trotz gültiger Ausgabe,
+Timeout, Signal, fehlende Ausgabe nach vorherigem Erfolg und ausgelassene Header.
 Gate-Dauer und Abdeckung je Teil ausweisen; keine langsamen Pflichtprüfungen entfernen.
 Der Client-Link meldet doppelte rpath-/SDL3-Einträge als Warnungen trotz Exit 0.
 Transitive Linkflags mit korrekter Reihenfolge konsolidieren; Linkerwarnungen

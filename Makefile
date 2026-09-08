@@ -113,7 +113,7 @@ strip: test-strip-comments ## remove src comments, keep only include Doxygen; le
 db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db
 
-lint: test-format test-tidy-analysis db ## format, static analysis, and this tree's own repository rules
+lint: test-format test-tidy-analysis test-documentation db ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
 doc:             ## the door's documentation -> build/doc
@@ -169,3 +169,7 @@ test-client-arguments: db all ## reject invalid client coordinates before platfo
 test-shader-artifacts: shaders ## verify the shader package, reflection and negative controls
 	@cd $(SELF_DIR) && GLSLANG=$(GLSLANG) python3 test/scripts/test_shader_artifacts.py
 	@cd $(SELF_DIR) && python3 test/scripts/shader_artifacts.py
+
+.PHONY: test-documentation
+test-documentation: ## verify public documentation coverage and Doxygen failure detection
+	@cd $(SELF_DIR) && python3 test/scripts/test_documentation_analysis.py
