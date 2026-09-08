@@ -360,3 +360,22 @@ geteilten Pfad, mit derselben Normalenprüfung für mehrere rotierte Instanzen.
 Weiter offen: Blickrichtungswahl, Tiefenreprojektion/Parallaxe, Alpha-Coverage bei
 Minifizierung, Cache und asynchrone Vorbereitung, World.Instances-Verbrauch,
 Streaming mehrerer Regionen und vollständige bewegte Places-Abnahme. WI bleibt aktiv.
+
+
+## Nächster Schritt: Tangenten geteilter Instanzen
+
+Vor Implementierung: vorhandenen SubjectResidency::Tangent-Stream auch in
+PieceMesh/PlacePiece nutzen; kein zweiter Material- oder Shaderpfad. Optionaler
+float4-Stream muss genau einen Tangentenvektor je Vertex tragen und UVs voraussetzen.
+Einmaliger Upload pro Prototyp, vorhandene Instanzmatrix dreht N und T im litVertex.
+Das folgt dem gemeinsamen Mesh-/Instanzprinzip von Unreal und RAGE; deren interne
+Streamdetails werden nicht behauptet. Gesucht: PieceMesh trägt bislang nur Colours
+zusätzlich zu StoredVertex, der normale Subject-Pfad hat Tangenten bereits.
+
+Beweis erweitert PieceInstancesShareTheirGeometry: ausgeschnittene Karten mit
+konstanter schräger Normalmap, zwei Instanzen, direkte und geclusterte Zeichnung,
+Vorder- und um 180 Grad gedrehte Rückseite. Erwartete Weltnormale aus dekodiertem
+Texel, UV-Basis, Rotation und doppelseitiger Normalenkonvention berechnen; alle
+sichtbaren Stichproben müssen innerhalb der Half-Readback-Rundung liegen.
+PNGs öffnen. Negativkontrolle entfernt ausschließlich das Tangenten-Layoutbit;
+die Normalenprüfung muss rot werden. Ungültige Streamlängen vor Upload ablehnen.
