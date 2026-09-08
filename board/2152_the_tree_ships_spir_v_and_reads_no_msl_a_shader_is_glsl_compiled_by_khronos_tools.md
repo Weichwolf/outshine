@@ -29,29 +29,34 @@ die passende Backendform. GLSL als Quelle ist nicht automatisch Khronos-Material
 Wahl: Khronos-Tools und SDL_shadercross als portable Grenze; Filament als Materialreferenz.
 Keine experimentellen Metal-RT-/Imageblock-Abzweige im verbleibenden Boardauftrag.
 
-## Belegter blinder Shader-Check
-
-Quellaudit 2026-09-08: test/scripts/entries_vs_shaders.py sucht nur *.msl und fs*/vs*-
-Stringnamen. Nach GLSL-Migration findet es weder Definitionen noch Aufrufe und liefert
-bei 0/0 trotzdem Erfolg. VertexArms-static_asserts beweisen nicht alle Compute-/Graphics-
-Artefakte oder Bindings. ShaderFile prüft einzelne geladene Artefakte, nicht Paketvollständigkeit.
-Buildmanifest, Varianten, SPIR-V-Reflection und tatsächlich verwendete Stages vergleichen;
-leere oder fehlende Eingabemengen ausdrücklich ablehnen. WI 2207 besitzt Paketauflösung.
-- [ ] Absichtlich entfernte Graphics-/Compute-Variante und falsches Binding werden rot;
-      vollständiger GLSL-Build grün. Kein MSL-Textscanner als Shader-Abnahmenachweis.
-
-## Aktiver Schritt: Paket- und Binding-Prüfung
+## Paket- und Binding-Prüfung
 
 Benchmark: SDL-GPU-SPIR-V-Bindingkonventionen und echte SPIRV-Cross-Reflection:
 https://wiki.libsdl.org/SDL3/SDL_CreateGPUShader
 https://wiki.libsdl.org/SDL3/SDL_CreateGPUComputePipeline
-Make veröffentlicht dieselbe Artefaktliste, die sein shaders-Target baut. Lint prüft
-jedes deklarierte Artefakt: vorhanden, reflektierbar, main in der richtigen Stage,
-lückenlose Descriptor-Sets in SDL-Reihenfolge, zulässige Ressourcentypen und feste
-Compute-Workgroups. Leere Listen, zusätzliche/unvollständige Artefakte und Toolfehler
-werden rot. Pro Artefakt Ergebnis und Laufzeit im System-Temp protokollieren.
-Reale glslang-/SPIRV-Cross-Fixtures prüfen fehlende Graphics-/Compute-Dateien,
-falsche Sets/Bindings/Stages und Prozessfehler. Keine Änderung gültiger Renderbilder.
-Dies ersetzt den blinden MSL-Scanner, schließt aber weder den Abgleich mit allen
-Renderer-Selektoren und ihren Shape-Verträgen noch Backend-/Synchronisationsabnahme.
-Diese verbleibenden Nachweise bleiben ausdrücklich Teil dieses WI.
+Make veröffentlicht dieselbe Artefaktliste, die sein shaders-Target baut. Der alte
+MSL-Scanner mit grünem 0/0 ist ersetzt. Lint und make test-shader-artifacts prüfen
+jedes Artefakt: vorhanden, reflektierbar, main in der richtigen Stage, lückenlose
+Descriptor-Sets in SDL-Reihenfolge, zulässiges Ressourcenprofil und feste Workgroups.
+Leere/partielle Listen, zusätzliche/unvollständige Artefakte und Toolfehler sind rot.
+Pro Artefakt Hash, Ergebnis, Reflection und Laufzeit sowie Tool-Fingerprint im System-Temp.
+
+Nachweis: 455/455 Artefakte (39 Vertex, 408 Fragment, acht Compute); Paketprüfung
+im ersten Lauf 0,73 s. Acht Testgruppen mit realem glslang/SPIRV-Cross: alle Resource-
+Klassen, entfernte Graphics-/Compute-Dateien, falsche Sets/Bindings/Stages, leere und
+partielle Inventare, Descriptor-Arrays/Push-Constants/Spezialisierung außerhalb des
+unterstützten Profils sowie fehlendes/fehlerhaftes/ausbleibendes Reflection-Tool.
+Keine Shader- oder Renderänderung und keine behauptete neue Bild-/Backend-Abnahme.
+
+## Verbleibende Selektor- und Laufzeitabnahme
+
+Paketvollständigkeit bezieht sich bisher auf Make, nicht auf alle Renderer-Selektoren.
+ShaderFile prüft Shape-Zähler einzelner geladener Artefakte; das deckt weder alle
+Varianten noch konkrete Descriptor-Identitäten und Host-Layouts ab. Gemeinsame typisierte
+Shader-Deskriptoren/Selektoren für Runtime und Inventarexport verwenden; deren vollständige
+Variantenmenge gegen Buildartefakte, Reflection und CPU-Verträge prüfen. Neue Consumer
+müssen automatisch teilnehmen; keine zweite handgepflegte Liste oder C++-Textheuristik.
+- [ ] Fehlende Renderer-Variante, falscher Shape und falsch gebundene Ressource werden rot.
+- [ ] Host-/Shader-Layouts und Stage-Interfaces samt Negativkontrollen stimmen überein.
+- [ ] Synchronisation und tatsächlich unterstützte Backends wie oben abgenommen.
+WI 2207 besitzt Paketauflösung und checkout-unabhängigen Start.

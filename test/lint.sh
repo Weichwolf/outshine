@@ -122,14 +122,14 @@ if ! python3 test/scripts/grammar_vs_writer.py; then
   red=$((red + 1))
 fi
 
-# THE SHADER VARIANTS AGAINST THE NAMES THAT ASK FOR THEM. The subject's variant set is written
-# twice -- as `fragment SFrag` entries in the .msl files and as string literals the renderer hands
-# the driver -- and the two agree by hand. A name asked for and not defined is a pipeline that fails
-# at RUN time with a driver's message rather than a compiler's; a name defined and never asked for
-# is a variant nothing can reach. board:2060 removes the second list; this holds them together until
-# it does.
-if ! python3 test/scripts/entries_vs_shaders.py; then
-  printf 'lint: the renderer names a shader entry no .msl defines, or defines one nobody asks\n' >&2
+# Audit every artifact Make declares, including descriptor-set ordering from SDL's specification.
+# Selector/Shape coverage and backend execution are additional contracts in WI 2152.
+if ! python3 test/scripts/test_shader_artifacts.py > "$REPORT/shader-check-tests.log" 2>&1; then
+  cat "$REPORT/shader-check-tests.log" >&2
+  red=$((red + 1))
+fi
+if ! python3 test/scripts/shader_artifacts.py --report "$REPORT/shaders"; then
+  printf 'lint: shader artifact coverage or SDL binding verification failed\n' >&2
   red=$((red + 1))
 fi
 

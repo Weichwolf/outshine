@@ -38,8 +38,10 @@ fehlendes Tool sowie eigene/ignorierte/gelöschte Dateien und Pfade mit Leerzeic
 ## Verbleibende Arbeit
 
 Aktuelle Lint-Gruppen rot: Tidy (212), öffentliche Dokumentation (673), Writer-Coverage.
-make test als Ganzes ist nicht neu abgenommen. Shader-Coverage nach 2152 auf GLSL-
-Artefakte umstellen: der alte MSL-Scanner meldet noch grünes 0/0 ohne Abdeckung.
+make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
+SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, acht Testgruppen grün.
+Der blinde MSL-Scanner ist ersetzt; vollständige Renderer-Selektor-/Shape-Abdeckung,
+Stage-Interfaces und Backend-Abnahme bleiben in 2152 offen.
 Gate-Dauer und Abdeckung je Teil ausweisen; keine langsamen Pflichtprüfungen entfernen.
 Der Client-Link meldet doppelte rpath-/SDL3-Einträge als Warnungen trotz Exit 0.
 Transitive Linkflags mit korrekter Reihenfolge konsolidieren; Linkerwarnungen
@@ -53,6 +55,6 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [x] Jede Source-Unit einschließlich Client-Einstieg erreicht die Compile-Datenbank;
       vollständiger erfolgreicher Lauf durch individuelles Statusmanifest belegt.
 - [ ] Jeder Gate-Teil berichtet tatsächliche Abdeckung, Ergebnis und Dauer;
-      Shader-Leerprüfung durch vollständigen Artefaktnachweis ersetzen.
+      Artefaktnachweis durch vollständige Renderer-Vertragsprüfung ergänzen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.

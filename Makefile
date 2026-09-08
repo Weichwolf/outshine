@@ -47,7 +47,11 @@ FLAT_FRAGMENTS := $(foreach kind,00 01 10 11 20 21 30,$(foreach output,$(GROUND_
 LIT_LAYOUTS := 000 010 100 110 200 210 101 111 201 211
 LIT_VERTICES := $(foreach layout,$(LIT_LAYOUTS),$(foreach v,0 1,build/shaders/lit-$(layout)-$(v).vert.spv))
 LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(GROUND_OUTPUTS),build/shaders/lit-$(kind)$(layout)-$(output).frag.spv)))
-shaders: $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS)
+SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS))
+shaders: $(SHADER_ARTIFACTS)
+	@mkdir -p build
+	@printf '%s\n' $(SHADER_ARTIFACTS) > build/shader-artifacts.txt.tmp
+	@mv build/shader-artifacts.txt.tmp build/shader-artifacts.txt
 
 build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
 	@mkdir -p $(@D)
@@ -103,7 +107,7 @@ db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-f
 	@$(RUN) --compile-db
 
 lint: test-format test-tidy-analysis db ## format, static analysis, and this tree's own repository rules
-	@cd $(SELF_DIR) && sh test/lint.sh
+	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
 doc:             ## the door's documentation -> build/doc
 	@cd $(SELF_DIR) && doxygen doc/Doxyfile
@@ -153,3 +157,8 @@ test-format: ## verify formatting coverage, real diagnostics and failure handlin
 .PHONY: test-client-arguments
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
+
+.PHONY: test-shader-artifacts
+test-shader-artifacts: shaders ## verify the shader package, reflection and negative controls
+	@cd $(SELF_DIR) && GLSLANG=$(GLSLANG) python3 test/scripts/test_shader_artifacts.py
+	@cd $(SELF_DIR) && python3 test/scripts/shader_artifacts.py
