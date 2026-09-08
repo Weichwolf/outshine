@@ -75,7 +75,9 @@ Webcams bleiben Plausibilitätsmaßstab, kein Soll für einen echten Weltzustand
 
 P0 zuerst 2190/2191, dann 2124 und 2130/2132 entlang ihrer Abhängigkeiten.
 2096/2139 nur zusammen mit tatsächlichen Vertragsverbesserungen; kein großer Rename
-als Ersatz für Bildqualität. 2150/2151 schrittweise pro vollständigem Consumer.
+als Ersatz für Bildqualität. 2150 nach dem begonnenen Submission-Fix priorisieren: ein natives Geometriemodell
+für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschließend
+schrittweise pro vollständigem Consumer.
 P1–P5 aus 2169 unverändert; Architektur muss deren Umsetzung erleichtern.
 
 - [ ] Minimaler externer Client nutzt nur installierbare öffentliche Header/Library.

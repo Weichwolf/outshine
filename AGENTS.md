@@ -52,6 +52,10 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
 
 - Provider liefern Daten; Generatoren erzeugen Geometrie und Materialien;
   Simulation hält den Weltzustand; Rendering erzeugt das Bild.
+- Ein engine-eigenes Geometriemodell für alle Importer und Generatoren. glTF ist nur
+  ein Importformat, kein internes Weltmodell. Mesh-/Material-Assets von Instanzen und
+  Weltzustand trennen; GPU-, LOD- und Kollisionsprodukte daraus ableiten. Formattypen
+  und herkunftsabhängiges Verhalten bleiben außerhalb der Runtime.
 - Logische Karte, Navigation und NPC-Netze bleiben von Rendergeometrie unabhängig.
   Gemeinsame räumliche Referenzen sichern Geländeanschluss, Kontakte, Brücken,
   Tunnel und mehrstöckige Situationen.

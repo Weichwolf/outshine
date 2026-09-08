@@ -1,56 +1,81 @@
 Type: debt
-State: open
+State: active
 Area: engine, import, scene, render
-Tags: architecture, owner, audit
+Tags: architecture, ownership, audit
+Parent: 2188
+Depends:
 
-# The engine holds a SUBJECT and no file format; the importer converts into it
+# Importers and generators deliver one engine-owned geometry model
 
-**Benchmark** -- Unreal: a `UStaticMesh`/`USkeletalMesh` knows nothing of FBX or glTF; the
-importer (`FbxImporter`, `GLTFImporter`) builds engine assets and is gone. RAGE: `.ydr`/`.yft`
-are the engine's own resources, converted offline. Filament: `gltfio` is a separate library
-that produces `FilamentAsset` -- the renderer never sees a glTF node. **All agree**: a format
-lives in its importer, and the thing the engine holds is the engine's. Decided with the owner
-2026-09-05: apart from the importer NOTHING in outshine knows or allows for glTF; it is one
-format this tree ships an importer for.
+## Befund und Entscheidung
 
-## Where it stands, measured 2026-09-05
+Quellprüfung 2026-09-08: `Declaring.cpp` konvertiert öffentliche `Geometry` über
+`Gltf::Subject::Assemble`. `Asset` hält Document, Subject, Pose und VariantSelection
+im Import-Namespace. `Live::Declaration::Built` und `Restand` verlangen Gltf::Subject.
+`Subject` mischt dekodierte Meshdaten, Importzugriff, Skinning und Rückkonvertierung
+über `Handed`. Ein Namespace-Wechsel würde diesen Designfehler nicht beheben.
+`Live` setzt außerdem den Schatten-Casterbereich anhand importiert/gebaut (2128).
 
-```
-  src/engine/Live.cpp     17 uses of Gltf::  (Gltf::Shaped, Gltf::Subject, Gltf::Viewpoint,
-                             Gltf::FramingFor, Gltf::DeclaredPlacement, ResolveSurfaceTable)
-  src/engine/Asset.h/.cpp 15  the asset IS a Gltf::Document + Gltf::Subject + Gltf::Pose +
-                             Gltf::VariantSelection + Gltf::Transform
-  src/engine/Live.h        3  Restand(const Gltf::Subject &)
-  src/engine/Declaring.cpp 2  Kind != "gltf"; Gltf::Subject handed
-  src/engine/EngineHeld.h  2  Gltf::Subject Handed; Blocks(const Gltf::Subject &)
-  src/engine/Telling.cpp   1
-  src/render/SubjectProxy.cpp 4  gltfDirection, gltfPosition
-  include/scenario/Scenario.h 3  "a perspective camera as glTF declares one"
-  include/generate/Generate.h 1  writeGlb (an exporter in the generators' door)
-  removed today            kGltfFrontFace, comments in Mat4.h, Geometry.h, RenderFrame.h
-```
+Ein kanonisches engine-eigenes Geometriemodell. Importer und Generatoren liefern
+identische native Produkte. glTF ist ein beliebiges unterstütztes Importformat;
+Document, Accessors, Dateinodes und Extension-Dispatch enden am Importadapter.
+Bestehende Geometry-, Material-, Transform- und GPU-Packing-Fähigkeiten nutzen,
+aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
 
-## The solution
+## Datenverträge
 
-- a `Subject` in the content tier that is the ENGINE's model: parts (positions, normals, uv,
-  tangents, colours, indices, material), materials, skins and joints, clips and poses, cameras,
-  variants, the local transforms -- Filament's `FilamentAsset` is the shape; the importer
-  (`src/import`) fills one from a glTF file and nothing else reaches the engine
-- `Asset`, `Live`, `Declaring`, `Telling` and the proxy take `Subject`; `Gltf::` appears in
-  `src/import` only, and a `reaches` rule keeps the import tier out of the engine's include
-  path
-- a scenario names a FILE, not a format: `Asset.Kind = "gltf"` becomes the importer's decision
-  by the file's magic; `writeGlb` stays an exporter beside the importer, out of the door
-- the camera's numbers in `Scenario.h` are the door's (Filament's) -- the wording that credits
-  glTF goes
+- Mesh-Assets besitzen lokale Vertex-/Indexdaten, Submeshes, Bounds und Material-
+  referenzen. Attribute, Topologie, Indexbreite und Validierung explizit definieren.
+- Material-/Textur-Assets sind engine-eigen; Metallic-Roughness, Farbräume und
+  Samplersemantik erhalten. Keine glTF-Indizes als langlebige Runtime-Identitäten.
+- Instanzen referenzieren gemeinsame Assets über validierbare Handles; lokale
+  Transformationen, Hierarchie und Weltposition sind unabhängig vom Dateibaum.
+  Weltpositionen Double, lokale Mesh-/GPU-Daten Float mit dokumentierten Grenzen.
+- Native Skeletons, Clips, Morphziele, Kameras und Varianten getrennt besitzen;
+  Animation darf kein Importdokument zur Frameauswertung benötigen.
+- Weltzellen halten Instanzen und Residency, nicht mehrfach kopierte Meshes.
+  Generationen schützen Handles und verworfene Streaming-Ergebnisse.
+- GPU-Packing, LOD, Kollision und Navigation sind abgeleitete Produkte mit eigener
+  Residency. Sie sind keine konkurrierenden Quellen des Weltzustands.
+- Schatten, Materialbehandlung, Instancing und Sichtbarkeit folgen Komponenten und
+  expliziten Eigenschaften; niemals der Herkunft importiert/generiert.
+- Importfehler transaktional als expected, geliehene Spans mit Lebensdauervertrag;
+  keine Importarbeit oder unbeschränkten Allokationen im Framepfad.
 
-## What will be true
+## Migrationsfolge
 
-- [ ] Engine/Render/Generator-Kern hängen von nativen Asset-Typen ab; Import-Typen
-      und Formatverzweigungen bleiben in Import/Export-Adaptern. Öffentliche Format-
-      konventionsdokumentation, Corpus-Tests und Exportwerkzeuge sind legitim.
-      Eine globale Wortsuche über Tests ist kein Architekturoracle.
-- [ ] the nine references bit-identical after the move (a move, not a change)
-- [ ] the Khronos corpus imports as before: the vendor cases green when `make test` returns
-- [ ] Negative control: an `#include` of an import header from `src/engine` fails at the
-      include with a file and a line (the tier's `reaches`)
+1. Native Asset-/Instanzverträge aus vorhandenen Consumern ableiten; Geometry und
+   Subject-Felder vollständig zuordnen, Besitz und Invalidierung dokumentieren.
+2. Einen vollständigen statischen Pfad migrieren: Generator und glTF-Importer →
+   derselbe native Mesh-/Materialbesitzer → Instanz → Renderer. Alten Umweg entfernen.
+3. Animation, Varianten, Kameras und Asset-Lebensdauer vollständig migrieren;
+   Importdokument nach Konvertierung freigeben. Keine verlorenen Fähigkeiten.
+4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
+   Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
+
+Nach dem begonnenen Submission-Fix 2190 hat diese Grenze Vorrang vor weiteren
+herkunftsspezifischen Reparaturen. 2128 behebt zusätzlich Instanz-/Terrain-Schatten;
+2195 nutzt den Importadapter für den direkten Clientpfad. Keine zyklischen Blocker.
+
+## Referenzmaßstab
+
+Engine-Assets, getrennte Instanzen und Importadapter sind das Architekturziel.
+Unreal/Filament/Cesium anhand veröffentlichter Asset-, Rendering- und Streaming-
+Verträge prüfen; konkrete Übernahme vor Implementierung belegen. RAGE liefert
+visuelle und funktionale Ziele, keine behauptete Kenntnis proprietärer Interna.
+Keinen kompletten ECS oder neuen Assetcontainer ohne konkreten Consumer erfinden.
+
+## Abnahme
+
+- [ ] Importer und Generator erzeugen nachweislich denselben nativen Meshvertrag.
+- [ ] Äquivalente importierte/generierte Fixtures haben gleiche Materialien,
+      Instanzen, Schatten und Bounds; mehrere Instanzen teilen den Meshbesitzer.
+- [ ] Freigabe des Importdokuments beeinflusst Rendering und Animation nicht.
+- [ ] Handles nach Unload/Reload, Teilfehler und veraltete Streaming-Ergebnisse geprüft.
+- [ ] Engine/Render/Generator bauen ohne Importheader; absichtlicher Import-Include
+      scheitert am Tiervertrag. Format-Corpustests bleiben ausdrücklich erlaubt.
+- [ ] Khronos-Corpus erhält Skinning, Morphs, Varianten, Texturen und Kameras.
+- [ ] Betroffene Places vorher/nachher rendern und PNGs öffnen; strukturelle Migration
+      bildgleich, fachliche Fehlerkorrekturen mit unabhängigem Oracle abnehmen.
+- [ ] make lint samt clang-tidy und passende Make-Tests ohne neue Befunde;
+      API-Verträge für Einheiten, Ownership, Threads, Fehler und Kosten dokumentiert.
