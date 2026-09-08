@@ -428,3 +428,21 @@ Nächster Schritt bleibt die tatsächliche Kronen-/Materialregistrierung für
 World.Instances mit geographischer Platzierung, Blickrichtungswahl und Cache.
 Tangenten für reine Rotationen und uniforme Baumskalierung abgedeckt; beliebige
 nichtuniforme oder spiegelnde Transformationskonformität wird hier nicht behauptet.
+
+
+## Katalogidentität vor Welt-Cache
+
+Vor Implementierung: Shipping::Stands liest TreeSpecies in einen lokalen Vektor,
+vergibt Cluster-IDs nach dessen sortierter Reihenfolge und verwirft danach die
+Generatorparameter. Der Render-Cache kann die gezeichnete Cluster-ID deshalb noch
+nicht in dieselbe Baumvorlage auflösen. Vorlagen im vorhandenen Shipping-Katalog
+halten und ausschließlich per ClusterId als const TreeSpecies* zugänglich machen;
+Gebäude-ID und unbekannte IDs liefern nullptr. Keine zweite Verzeichniseinlesung
+im Renderpfad und keine erneute ID-Vergabe. Gemeinsamer unveränderlicher Assetkatalog
+wie bei Unreal-/RAGE-Prototypinstanzierung; keine Behauptung über deren private API.
+
+Beweis: shipped vegetation/species laden, alle sortierten Quelldateien gegen die
+Katalogzuordnung prüfen, Platzierungen über Shipping.Placing/Drawing erzeugen und
+jede Flora-ID samt relativer Höhe gegen ihre Quelle prüfen. Zugriff bleibt nach
+wiederholtem Stands identisch. Negativkontrolle löst alle IDs auf die erste Art auf;
+Identitätsprüfung muss rot werden. Keine neue Places-Bildwirkung vor Cache-Verbrauch.
