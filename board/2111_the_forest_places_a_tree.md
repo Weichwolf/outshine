@@ -977,3 +977,23 @@ Vorbereitung und begrenzte Residency dürfen keinen ungebremsten Bake im laufend
 Frame auslösen. Der aktuelle Handoff prüft statische starre/gleichförmig skalierte
 Prototypen; Wind, bewegte Körper und deren vorherige Instanztransformation sind
 hierdurch nicht abgenommen. 2111 bleibt active.
+
+## Geografische Modellmatrizen für Crown-Pieces
+
+Vor Implementierung: WorldPlacement::ModelIn(TangentFrame) übergibt Platzierungen
+in den bestehenden World-Renderframe. Vorhandene TangentFrame::Place/Turn und
+RenderFrame::Of übernehmen ECEF/ENU und East-Up-South; keine zweite Geodäsie.
+Lokale Basis am Standort des Körpers, nicht am Auge: X=East, Y=Up, Z=-North.
+Positive Yaw dreht um lokale +Y, also +X nach -Z. Gleichförmiger Scale multipliziert
+nur die drei Basisvektoren. Translation bleibt double und verwendet denselben
+AslM->GeoToEcef-Höhenvertrag wie das Terrain; dies löst keinen Geoid-Datumfehler.
+
+Unreal/RAGE-Benchmark: gemeinsame Weltmatrizen für residente Prototypinstanzen,
+lokale Ursprünge und gemeinsame Geländeausrichtung statt pro Baum gebackener
+Weltgeometrie. Der planetare Teil folgt der bereits vorhandenen geodätischen Basis.
+Beweis im bestehenden ForestInstancesKeepTheirSpecies-Fall: geschlossene Lösungen
+am Äquator (Ursprung, Vierteldrehung um die Erde), positive Yaw, Maßstab,
+Submillimeter-Translation und derselbe Standort aus benachbarten Tile-Frames.
+Negativkontrolle: lokale Up-Basis absichtlich durch die Weltanker-Basis ersetzen;
+der Viertelkreis-Standort muss seine Aufrichtungsprüfung verlieren. Kein visueller
+Fortschritt behauptet, bevor dieser Transform im World-Crown-Consumer erreicht wird.
