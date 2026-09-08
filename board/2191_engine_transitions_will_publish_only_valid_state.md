@@ -30,23 +30,26 @@ declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückwe
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
 und nicht bewegliche Engine-Owner sind die geprüfte Voraussetzung.
 
-## Aktiver Schritt: geprüfte GPU-Projektion
+## Aktiver Schritt: gemeinsame Szenario-Kameraprojektion
 
-Khronos definiert die Kamera-Halbausdehnungen und Near/Far-Bedingungen:
+Khronos definiert Half-Extents und Near/Far-Bedingungen:
 https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#cameras
-SetProjection prüft bisher Double, konvertiert aber ungeprüft auf Float. Endliche
-Werte können überlaufen, positive Werte zu null werden und Near/Far zusammenfallen.
-Aim verändert die Projektion außerdem vor der noch fehlbaren Near-Plane-Prüfung.
+Watches ersetzt NaN/negative Werte durch Defaults, Carries übernimmt nur FOV und
+verliert Near/Far/Orthographic. Die geprüfte Lens-Grenze aus dem vorigen Schritt
+steht bereit; keine zweite numerische Validierung erfinden.
 
-Lens erzeugt einen geprüften Kandidaten als nodiscard expected<Lens, LensError>,
-allokationsfrei und noexcept. Vor Konvertierung Wertebereich prüfen; danach gültige
-Float-Intervalle und endliche, nicht degenerierte Projektionskoeffizienten prüfen.
-Ungültige Kameraart und negative orthographische Near-Ebene ablehnen. Erst nach
-vollständiger Aim-Prüfung Projektion und Basis gemeinsam veröffentlichen.
-Bestehende reverse-Z-Mathematik und gültige Bilder bleiben unverändert.
-Prüfung: unabhängige Near/Far-Abbildung, Float-Überlauf/Unterlauf, zusammenfallende
-Ebenen, ungültige Kameraarten; Consumer erhält alte Kamera nach Ablehnung.
-Negativkontrolle lässt ungeprüfte Verengung wieder zu und muss Grenzfälle verfehlen.
+Beide Pfade benutzen dieselbe Szenario-zu-Viewpoint-Abbildung mit nodiscard expected.
+Nur perspektivischer FOV=0 und Near=0 sind erklärte Defaults (55 Grad, 0,05 m).
+Far=0/+Inf bezeichnet unendliche Perspektive. Orthographie verlangt positive
+X/Y-Halbausdehnung und endliche Far>Near; Near=0 ist gültig. Öffentliche Felder
+und Setter dokumentieren die Trennung von Deklaration und Runtime-Validierung.
+Kandidat vor Eye-Veröffentlichung durch Lens::From prüfen; fehlende mitgeführte
+Kamerabasis liefert einen Fehler, keinen vorgetäuschten Erfolg.
+
+Prüfung: identische explizite Projektionen in stehender und mitgeführter Kamera;
+Defaults, Near=0 orthographisch, ungültige Eingaben und Recovery. Negative Kontrolle
+stellt den alten FOV-only-Pfad bzw. das stille Defaulten wieder her. Bildwirksame
+Korrektur der mitgeführten Orthographie an einer unabhängigen Geometrie prüfen.
 
 ## Weitere konkrete Lücken
 
@@ -54,11 +57,6 @@ DrawsInto ändert Dimensionen/Target, baut aber die planabhängigen Frame-Attach
 und Present-Pipeline nicht als zusammenhängenden Kandidaten neu auf. Größen- und
 Formatwechsel müssen dieses Ressourcenpaket atomar ersetzen, nicht nur das Target.
 Noch kein Nachweis korrekter Pixel nach einem solchen Wechsel.
-
-Advancing ersetzt auch NaN/negative Projektionswerte durch Defaults; der mitgeführte
-Kamerapfad übernimmt Near/Far/Orthographic nicht vollständig. Gemeinsame Abbildung
-für beide Pfade herstellen: nur erklärte Auslassungswerte defaulten, ungültige Werte
-ablehnen. Double-zu-Float-Grenzen des Renderers dabei prüfen.
 
 ## Abnahme
 
