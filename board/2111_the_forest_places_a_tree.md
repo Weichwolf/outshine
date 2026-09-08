@@ -483,3 +483,21 @@ an Live anbinden und geografische Instanzen mit kameraabhängiger Ansicht zeichn
 Der vorhandene CrownAtlas::Bake ist eine synchrone Referenzproduktion mit eigenen
 Engines; unverändert im Updates-Frame aufgerufen wäre er ein mehrsekündiger Stall.
 Vor Live-Anbindung braucht die Produktion einen begrenzten Vorbereitungs-/Cachepfad.
+
+
+## Vor Live-Cache: parallelen GPU-Bake messen
+
+Vor Experiment: Tasks bietet bereits Post/Done/Wait mit Besitz bis zum Abschluss.
+CrownAtlas::Bake erzeugt jedoch pro Ansicht eine Engine und liest synchron zurück.
+Direktes Verschieben auf Tasks beseitigt den CPU-Wait des Aufrufers, beweist aber
+kein GPU-Budget. Zuerst parallel zum Bake einen separaten nativen Renderer zeichnen,
+Linearpixel-Stabilität prüfen und p50/p95/p99 samt schlechtestem Frame messen.
+Das ist eine Rate, kein 60-fps-Gate; Quelle der Krone und Bildorakel bleiben gleich.
+Der triviale Kontrollrenderer ist ausdrücklich keine vollständige bewegte Welt.
+
+SDL_CreateGPUDevice-Dokumentation (https://wiki.libsdl.org/SDL3/SDL_CreateGPUDevice)
+und lokaler Header benennen keine explizite Thread-Garantie für die komplette
+Engine-Produktion. Offscreen-Experiment auf dieser Zielplattform ersetzt keine
+plattformübergreifende Thread-Abnahme. Daher noch keine produktive Worker-Anbindung.
+Unreal/RAGE-Assetvorbereitung bleibt Architekturziel; ob dieser vorhandene komplette
+Referenzrenderer als Hintergrundproduzent taugt, entscheidet die Messung.
