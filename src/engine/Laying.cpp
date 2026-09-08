@@ -192,27 +192,30 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing) {
   {
     std::vector<double> fill = prints.SeatSpreadM();
     std::vector<double> across = prints.FootprintAcrossM();
+    const auto publishQuantile =
+        [this](const char *name, std::span<const double> sample, double share) {
+          if (const auto value = QuantileOf(sample, share)) { Published.Places(name, *value, "m"); }
+        };
     if (!fill.empty()) {
       std::ranges::sort(fill);
-      std::ranges::sort(across);
       size_t wouldStamp = 0;
       for (const double filled : fill) {
         if (filled > kStampWorthM) { ++wouldStamp; }
       }
+      publishQuantile("buildings: a stamp would fill, p50", fill, kMiddleQuantile);
+      publishQuantile("buildings: a stamp would fill, p95", fill, kBroadQuantile);
+      Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
+      Published.Places(
+          "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
+    }
+    if (!across.empty()) {
+      std::ranges::sort(across);
       size_t underOneCell = 0;
       for (const double wide : across) {
         if (wide < kGroundCellM) { ++underOneCell; }
       }
-      Published.Places(
-          "buildings: a stamp would fill, p50", QuantileOf(fill, kMiddleQuantile), "m");
-      Published.Places("buildings: a stamp would fill, p95", QuantileOf(fill, kBroadQuantile), "m");
-      Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
-      Published.Places(
-          "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
-      Published.Places(
-          "buildings: footprint across, p50", QuantileOf(across, kMiddleQuantile), "m");
-      Published.Places(
-          "buildings: footprint across, p05", QuantileOf(across, kNarrowQuantile), "m");
+      publishQuantile("buildings: footprint across, p50", across, kMiddleQuantile);
+      publishQuantile("buildings: footprint across, p05", across, kNarrowQuantile);
       Published.Places("buildings: and the narrowest of them", across.front(), "m");
       Published.Places("buildings: footprints narrower than a ground cell",
                        static_cast<double>(underOneCell),

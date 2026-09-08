@@ -5,6 +5,7 @@
 #include "io/HeapProbe.h"
 
 #include <algorithm>
+#include <expected>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -31,6 +32,12 @@
 #include "Sha256.h"
 
 namespace outshine::Shots {
+
+namespace Says {
+constexpr const char *kTimedAdvanceFailed = " failed to advance a measured frame: ";
+constexpr const char *kTimedRenderFailed = " failed to render a measured frame: ";
+constexpr const char *kMissingTimingSamples = " has no complete frame timing sample";
+} // namespace Says
 
 constexpr std::uint8_t kByteMost = 255;
 constexpr double kFillShare = 0.6;
@@ -378,9 +385,15 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   renderedMs.reserve(static_cast<std::size_t>(kTimedFrames));
   for (int at = 0; at < kTimedFrames; ++at) {
     const auto before = std::chrono::steady_clock::now();
-    if (!engine.advance()) { break; }
+    if (const auto result = engine.advance(); !result) {
+      shot.Why = std::string(name) + Says::kTimedAdvanceFailed + result.error();
+      return shot;
+    }
     const auto advanced = std::chrono::steady_clock::now();
-    if (!engine.renderer().render(Extent{})) { break; }
+    if (const auto result = engine.renderer().render(Extent{}); !result) {
+      shot.Why = std::string(name) + Says::kTimedRenderFailed + result.error();
+      return shot;
+    }
     const auto rendered = std::chrono::steady_clock::now();
     (void)HeapProbe::Sample();
     advancedMs.push_back(std::chrono::duration<double, std::milli>(advanced - before).count());
@@ -393,18 +406,27 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   shot.PeakHeapMB = static_cast<double>(HeapProbe::PeakLiveBytes()) / (1024.0 * 1024.0);
   shot.PeakCostMs = HeapProbe::SampleCostMs();
   std::ranges::sort(heldMs);
-  shot.P50Ms = QuantileOf(heldMs, kMiddleQuantile);
-  shot.P95Ms = QuantileOf(heldMs, kBroadQuantile);
-  shot.P99Ms = QuantileOf(heldMs, kWidestQuantile);
-
-  const auto widest = [](std::vector<double> &of) {
-    if (of.empty()) { return std::pair<double, double>{0.0, 0.0}; }
-    const double worst = *std::ranges::max_element(of);
+  const auto p50 = QuantileOf(heldMs, kMiddleQuantile);
+  const auto p95 = QuantileOf(heldMs, kBroadQuantile);
+  const auto p99 = QuantileOf(heldMs, kWidestQuantile);
+  const auto widest =
+      [](std::vector<double> &of) -> std::expected<std::pair<double, double>, QuantileError> {
     std::ranges::sort(of);
-    return std::pair<double, double>{QuantileOf(of, kWidestQuantile), worst};
+    const auto rank = QuantileOf(of, kWidestQuantile);
+    if (!rank) { return std::unexpected(rank.error()); }
+    return std::pair{*rank, of.back()};
   };
-  std::tie(shot.AdvanceP99Ms, shot.AdvanceWorstMs) = widest(advancedMs);
-  std::tie(shot.RenderP99Ms, shot.RenderWorstMs) = widest(renderedMs);
+  const auto advanced = widest(advancedMs);
+  const auto rendered = widest(renderedMs);
+  if (!p50 || !p95 || !p99 || !advanced || !rendered) {
+    shot.Why = std::string(name) + Says::kMissingTimingSamples;
+    return shot;
+  }
+  shot.P50Ms = *p50;
+  shot.P95Ms = *p95;
+  shot.P99Ms = *p99;
+  std::tie(shot.AdvanceP99Ms, shot.AdvanceWorstMs) = *advanced;
+  std::tie(shot.RenderP99Ms, shot.RenderWorstMs) = *rendered;
 
   shot.Measures = engine.measures();
 

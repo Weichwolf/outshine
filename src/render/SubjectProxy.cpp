@@ -14,11 +14,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 
 #include "Heap.h"
 
-#include <numbers>
 #include <cmath>
 #include <span>
 #include <ratio>
