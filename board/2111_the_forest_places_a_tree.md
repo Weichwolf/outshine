@@ -1137,3 +1137,24 @@ liegen: erwartete Kronenpixel fehlen. Danach Koerbersee vorbereiten, normal rend
 PNG selbst gegen vorherigen Stand/Webcam prüfen, Zahlen separat ausweisen. Die
 aktuelle Flora mischt noch sämtliche Katalogarten; deren Ökologie ist weiterhin
 2176. Ein sichtbarer Wald schließt weder diesen Fehler noch 2111 als Ganzes.
+
+### Erster echter Vorbereitungsversuch: Speichergrenze verletzt
+
+World-Crown-Consumer-Fall 208 Checks grün; tatsächliche Instanzübergabe negativ
+kontrolliert (genau Coverage-Orakel rot). Vorbereitung über make prepare-place
+PLACE=Koerbersee startete 31 benötigte Arten. Nach über vier Minuten noch kein
+Artefakt veröffentlicht. Prozessprobe build/world-crowns-prepare-sample.txt:
+Worker in CrownAtlas::Bake -> Engine::setGeometry -> Subject::AssembledPartHolds
+-> RunIsStatable, also Validierung des expandierten Feinmeshes, kein GPU-Deadlock.
+Physical footprint 8.2G, Peak 15.5G laut sample; RSS allein unterschätzte den
+Druck. Ziel 8 GB bereits in der Vorbereitung verletzt. Kein akzeptierter Bake.
+
+Lauf build/world-crowns-koerbersee-prepare.log gezielt beendet. SIGTERM wurde nicht
+wirksam beendet; danach ausschließlich den verifizierten Client-PID 1073 mit
+SIGKILL beendet, Make meldete Error 137 / MAKE_EXIT=2. Keine Quell-/Boardänderung
+vor diesem terminalen Trailer. Ursache: GeometryAt(0) expandiert jede Lamina
+jeder Blattinstanz in eigene Positionen/Normalen/UVs/Indizes und kopiert diese
+zusätzlich in Geometry/Subject. Die vorhandenen Rank.Cards und ein gemeinsames
+Leaf-Mesh können stattdessen den bereits geprüften GPU-Instanzpfad verwenden.
+2184 übernimmt diese notwendige Reparatur vor erneutem Place-Versuch. Keine
+Arten entfernt, keine Blattzahl reduziert, keine LOD-/Pixelorakel gelockert.
