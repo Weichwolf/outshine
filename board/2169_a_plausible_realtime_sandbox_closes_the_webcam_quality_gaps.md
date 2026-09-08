@@ -2,7 +2,7 @@ Type: feature
 State: open
 Area: world, render, generators, navigation
 Tags: webcam, measured
-Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176
+Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176, 2196, 2197, 2198, 2199, 2200, 2201, 2202, 2203, 2204
 
 # A plausible realtime sandbox closes the webcam quality gaps
 
@@ -58,14 +58,6 @@ Vorarbeiten. 2169 ist das übergeordnete Abnahme-WI; Kinder hängen nicht zurüc
 | P4, Vegetation | 2111 isolierter Waldnachweis → Weltintegration; 2176 Arten/Ökologie | dichte, passende Bestände mit vollständiger Distanzleiter und Streaming |
 | P5, Population | 2174 Sandbox-Population | belebte Welt auf tragfähiger Darstellung und Navigation |
 
-Prioritätsentscheidung vom 2026-09-08: Die bisherige Vorziehung des Baumpfads war falsch.
-Große Nah-Billboards und unpassende Kronen in den aktuellen Koerbersee-/Rosenheim-Bildern
-sind ein abgelehnter Zwischenstand. Weitere Arten und Atlas-Hilfsfunktionen schließen die
-grundlegenden Gelände-, Material-, Beleuchtungs- und Streaminglücken nicht. Deshalb zuerst
-P0/P1; nächster fachlicher Prüfpunkt ist 2166 an Malcesines Seitenflächen, nach Klärung
-der zugehörigen räumlichen Konventionen. Laufende uncommittete Vegetationsänderungen bleiben
-als nicht abgenommener Arbeitsstand erhalten und sind vor Übernahme gesondert zu prüfen.
-
 Vor Wiederaufnahme der Weltvegetation verlangt 2111 eine deklarierte großflächige ebene
 Waldszene: gemeinsame Prototypen, Instancing, hierarchisches Culling, Nah-/Mittel-/Fern-LOD,
 räumliches Laden und Freigeben. Fläche, Dichte, Sichtweite und Kamerafahrt vor dem Lauf
@@ -77,6 +69,29 @@ Erst der isolierte Nachweis erlaubt Integration und standortgerechten Artenausba
 Stufen sind eine Reihenfolge der Integration, keine pauschale Sperre für notwendige
 Abhängigkeitsreparaturen. Priorisierung und Änderungen daran verantwortet der implementierende
 Engine-/C++-/GLSL-Spezialist anhand der Befunde.
+
+## Verbindliche Abnahmen je Kamera
+
+RDR2/GTA5 (PS4) bestimmen die visuelle Baseline; die folgenden offenen Kinder konkretisieren
+sie anhand der selbst geöffneten Webcams. Kein vorhergesagter exakter RAGE-Render.
+
+| Place | Abnahme-WI | Schwerpunkt |
+|---|---|---|
+| DarmstadtWest | [2196](2196_darmstadtwest_meets_the_webcam_visual_acceptance.md) | Dachlandschaft und diffuse Stadttiefe |
+| Wien | [2197](2197_wien_meets_the_webcam_visual_acceptance.md) | Flussinseln, tragende Brücke und Stadtpanorama |
+| Rosenheim | [2198](2198_rosenheim_meets_the_webcam_visual_acceptance.md) | Stadt vor einer gestaffelten Alpenkulisse |
+| Husum | [2199](2199_husum_meets_the_webcam_visual_acceptance.md) | Gebaute Hafenkante und lebendiges Wasser |
+| Olympiaturm | [2200](2200_olympiaturm_meets_the_webcam_visual_acceptance.md) | Sportcampus, Wohnstaffelung und dichtes Stadtgrün |
+| Graz | [2201](2201_graz_meets_the_webcam_visual_acceptance.md) | Bahnraum, Industrie und bewaldeter Stadthügel |
+| Koerbersee | [2202](2202_koerbersee_meets_the_webcam_visual_acceptance.md) | Alpine Geländeformen, Bergsee und standortgerechte Vegetation |
+| Malcesine | [2203](2203_malcesine_meets_the_webcam_visual_acceptance.md) | Gegliederte Steilfelsen über mediterranem Seeufer |
+| Feldkirch | [2204](2204_feldkirch_meets_the_webcam_visual_acceptance.md) | Altstadt im bewaldeten Tal mit eingebundenem Flussraum |
+
+Alle Kinder müssen bestehen. Fotoartefakte, Logos, exakte Population und Wolkenpositionen
+sind kein Ziel. PNG-Abnahme erfolgt über den Client, mit kalibrierter Kamera und deklarierter
+Zeit/Wetterlage; kein Foto-Pixeloracle. Zusätzlich Bewegung, Unter-/Nahansichten und Transfer
+auf andere Seeds/Orte prüfen. Materialqualität bedeutet Khronos MR einschließlich BRDF,
+Farbräumen, Rauheit, Normalen und plausiblen Texturmaßstäben; kein bloßes Grundfarbenfeld.
 
 ## Globale Abnahme
 
