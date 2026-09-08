@@ -83,10 +83,15 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
   IDs aus der gesamten Historie vergeben, nie wiederverwenden. Vor Implementierung
   WI in eigenem Commit aktivieren; Abhängigkeiten und Abnahmen aktuell halten.
   Erledigte WIs löschen, ihre Historie bleibt in Git.
+- WIs sind Arbeitsaufträge, keine Tagebücher: höchstens 120 Zeilen und 12 KiB.
+  Ziel, relevanten Befund, Lösung und Abnahme knapp halten. `Parent` bezeichnet
+  Zugehörigkeit, `Depends` echte Blocker. Bei Abschluss Verweise bereinigen.
+  Größere Themen fachlich aufteilen; Verlauf gehört in Git.
 - Kleine, aber vollständige und zurechenbare Schritte abschließen und committen.
   Keine Claude-/KI-Attribution. Fremde Änderungen erhalten.
 - Build, Tests, Lint und Render über Make. Gates nacheinander; während eines Gates
   weder Quellen noch Board ändern. Ergebnis erst nach bestätigtem Prozessende melden.
+  Nach jedem Änderungsschritt `make lint` einschließlich clang-tidy ausführen.
 - C++23, Warnings als Errors, lokale Invarianten und klare Namen. Minimale API,
   Encapsulation, Composition, Zustandsautomaten. Compilezeit-Prüfung wo möglich.
   Zahlen mit Einheit und Herkunft: abgeleitet, gemessen oder ausdrücklich gesetzt.
