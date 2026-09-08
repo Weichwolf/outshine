@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <span>
+#include <optional>
 #include <array>
 #include "math/Box.h"
 #include "math/Mat4.h"
@@ -107,6 +108,9 @@ public:
                               int clip,
                               std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
+
+  [[nodiscard]] std::optional<uint32_t> RegisterPieceSurfaces(Geometry &&source,
+                                                              std::string &error);
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
@@ -427,6 +431,16 @@ private:
   void CoverShapedParts();
   [[nodiscard]] bool PartVolumes(std::string &error);
   Render::SurfaceTable Table_;
+
+  struct PieceSurfaces {
+    Geometry Source;
+    std::vector<Render::SubjectMaterial> Slots;
+  };
+
+  std::vector<PieceSurfaces> RegisteredSurfaces_;
+  std::vector<uint32_t> RegisteredSlots_;
+  void AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots);
+  void RestorePieceSurfaces();
   Posed Held_;
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;

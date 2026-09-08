@@ -157,7 +157,10 @@ public:
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const { return Subjects_.Ground().Triangles(); }
 
-  void WearPieces(std::span<const uint32_t> slotOfSurface) { Subjects_.WearPieces(slotOfSurface); }
+  void WearPieces(std::span<const uint32_t> slotOfSurface,
+                  std::span<const uint32_t> registered = {}) {
+    Subjects_.WearPieces(slotOfSurface, registered);
+  }
 
   [[nodiscard]] uint32_t PiecesStanding() const { return Subjects_.PiecesStanding(); }
 

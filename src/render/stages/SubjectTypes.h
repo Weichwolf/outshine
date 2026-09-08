@@ -121,6 +121,22 @@ struct SubjectPose {
   Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 };
 
+struct PieceSurface {
+  enum class Source { Geometry, Registered };
+  uint32_t Index = 0;
+  Source From = Source::Geometry;
+
+  PieceSurface() = default;
+
+  PieceSurface(uint32_t index) : Index(index) {}
+
+  static PieceSurface Registered(uint32_t index) {
+    PieceSurface result(index);
+    result.From = Source::Registered;
+    return result;
+  }
+};
+
 struct PieceMesh {
   std::span<const float> Tangents;
   std::span<const StoredVertex> Verts;
@@ -129,7 +145,7 @@ struct PieceMesh {
   std::span<const float> Colours;
   Mat4 Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   std::span<const Mat4> Instances;
-  uint32_t Surface = 0;
+  PieceSurface Surface;
   bool Textured = false;
 };
 

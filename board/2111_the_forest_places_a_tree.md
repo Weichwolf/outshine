@@ -827,3 +827,66 @@ Handlezähler erhalten. Negativkontrolle: registrierte Handles durch native
 Materialindizes auflösen; gezielte Farb-/Persistenzprüfungen müssen rot werden.
 PNG vor/nach Restand öffnen. Anschließend muss der Kronenverbrauch diese Registry
 erreichen; die Registry allein schließt 2111 nicht.
+
+## Live besitzt registrierte Prototypmaterialien und bindet sie erneut
+
+Implementiert: PieceSurface unterscheidet Geometry- und Registered-Referenzen;
+SubjectDraw löst sie über zwei kompakte Slot-Vektoren auf. Native uint32-Aufrufer
+bleiben native Materialindizes. RegisterPieceSurfaces übernimmt Geometry/Bilder,
+löst native Texturen auf, hängt GPU-Slots an und liefert den ersten stabilen
+Registrierungsindex. Keine zusätzlichen Mesh-Parts zur Materialregistrierung.
+Die im Test lokale Quellen-Geometry ist beim späteren Zeichnen bereits zerstört.
+
+Live hält Quellen und aufgelöste Oberflächen. Build/Restand fügt sie nach den neu
+aufgelösten nativen Materialien ein und erneuert die Handle→Slot-Zuordnung.
+Die Zuordnung erfolgt nach Planaufbau; die nächste neue Oberfläche erzwingt keinen
+Grundgeometrie-Neuaufbau. Vollständiger Restand behält seinen vorhandenen Neuaufbau.
+Bei leerer Grundgeometrie ist die zusätzliche Materialbindung auf vorhandene
+Registrierungen beschränkt; Szenen ohne solche Registrierungen behalten ihren Pfad.
+
+`make`, build/live-piece-surfaces-build.log: Exit 0.
+`make suite SUITE=outshine/conventions`, build/live-piece-surfaces-restored.log:
+Exit 2, 18/19 PASS; ausschließlich bekannter intermittenter Schachfall 2179 rot.
+PieceInstancesShareTheirGeometry: 130 Checks, keine Fehler. Zusätzliche Prüfungen:
+leere Quelle, fehlendes natives Bild und fehlender Transmissionspass verweigert,
+ohne Registrierungsindex zu verbrauchen. Zwei Instanzen mit übernommenem Bild;
+weitere Registrierung verändert kein Pixel. Zwei weitere native Materialien und
+echter Restand: dieselben Piece-IDs, alle Pixel identisch. Zweiter registrierter
+Handle zeichnet anschließend seine eigene blaue Textur. Fall separat gesichert
+in build/live-piece-surfaces-restored-case.log.
+
+Negativkontrolle nur in RestorePieceSurfaces: registrierte Handles nach Neuaufbau
+auf gleichnamige native Slot-Indizes abgebildet. build/live-piece-surfaces-rebind-
+negative.log, Exit 2, 18/19 PASS; 130 Checks, genau zwei Fehler: bestehende Pixel
+ändern sich nach Restand, zweiter Handle verliert Blau. Sämtliche anderen Fälle
+einschließlich Schach in diesem Lauf grün. Quelle wiederhergestellt; obiger
+Abschlusslauf danach. Gesicherter Fall live-piece-surfaces-rebind-negative-case.log.
+Registrierungs-PNGs vor/nach Restand und mit zweitem Prototyp nach Abschluss erneut
+geöffnet: zwei identische grüne Instanzen bleiben, blauer Prototyp kommt hinzu.
+
+`make shots`, build/live-piece-surfaces-places.log: Exit 0. Alle neun PNGs geöffnet;
+Digests unverändert gegenüber dem bisherigen Audit. Keine behauptete neue Vegetation.
+
+| Place | Digest | p99 ms | Peak Heap MB |
+|---|---|---:|---:|
+| DarmstadtWest | e72d1925 | 2.82 | 356 |
+| Wien | 8ff2d96d | 5.93 | 474 |
+| Rosenheim | 7da2e093 | 7.82 | 385 |
+| Husum | d60b18a7 | 3.15 | 232 |
+| Olympiaturm | 07985050 | 4.08 | 553 |
+| Graz | f93ff5b9 | 4.76 | 608 |
+| Koerbersee | c99cdbe7 | 7.56 | 483 |
+| Malcesine | 46e4db5c | 5.10 | 392 |
+| Feldkirch | 5fa234c1 | 5.35 | 410 |
+
+Jeweils 120 residente Standframes, jeweils 0 über 16.67 ms. Kein bewegter
+Wald-/Streaming-/Gesamtzielnachweis. Visuell weiterhin kahle Hügel/fehlende Bäume,
+vereinfachte Gebäude, dunkles flaches Wasser; Malcesines regelmäßige Felsvorhänge,
+Husums weiße Kaibänder und Feldkirchs übertiefer Flusseinschnitt unverändert.
+
+Nächster Schritt: geladene Kronen tatsächlich mit RegisterPieceSurfaces verbinden
+und World.Instances auf gemeinsame Crown-Pieces abbilden, einschließlich korrektem
+geografischen Frame und Blickrichtungswahl. Die Registry hält einen Katalog über
+die Live-Lebensdauer; sie ist noch keine budgetierte Prototyp-Eviction. Nicht pro
+Tile erneut registrieren. Vorbereitung fehlender Artefakte und begrenzte Katalog- /
+Tile-Residency bleiben erforderlich. 2111 bleibt active.

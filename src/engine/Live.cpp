@@ -36,6 +36,11 @@
 
 namespace outshine::Core {
 
+namespace Says {
+constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
+constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
+} // namespace Says
+
 constexpr double kExposureCalibration = 1.2;
 constexpr double kMeteredMiddleGrey = 2.5;
 
@@ -434,8 +439,48 @@ bool Live::CarriesBuilt(std::string &error) {
   ResolveMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
           .count();
-  WearsPieces();
   return true;
+}
+
+void Live::AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots) {
+  for (const auto &slot : slots) {
+    RegisteredSlots_.push_back(static_cast<uint32_t>(Table_.Slots.size()));
+    Table_.Slots.push_back(slot);
+    Table_.Material.push_back(-1);
+    Table_.Decoded.emplace_back();
+  }
+}
+
+void Live::RestorePieceSurfaces() {
+  RegisteredSlots_.clear();
+  for (const auto &source : RegisteredSurfaces_) { AppendPieceSurfaces(source.Slots); }
+}
+
+std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::string &error) {
+  if (Renderer_ == nullptr || source.surfaces() == 0) {
+    error = Says::NoPieceSurfaces;
+    return std::nullopt;
+  }
+  const auto count = static_cast<size_t>(source.surfaces());
+  if (count >= Render::kNoSlot || RegisteredSlots_.size() >= Render::kNoSlot - count ||
+      Table_.Slots.size() >= Render::kNoSlot - count) {
+    error = Says::PieceSurfaceLimit;
+    return std::nullopt;
+  }
+  std::vector<Render::SubjectMaterial> slots(count);
+  for (size_t at = 0; at < count; ++at) {
+    slots[at].Row = source.surfaceAt(MaterialInstance(static_cast<int>(at)));
+  }
+  if (!Render::ResolveNativeTextures(source, slots, error) ||
+      !Renderer_->AppendSubjectMaterials(slots, error)) {
+    return std::nullopt;
+  }
+  const auto first = static_cast<uint32_t>(RegisteredSlots_.size());
+  RegisteredSurfaces_.push_back({std::move(source), std::move(slots)});
+  AppendPieceSurfaces(RegisteredSurfaces_.back().Slots);
+  if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return std::nullopt; }
+  WearsPieces();
+  return first;
 }
 
 void Live::WearsPieces() {
@@ -447,7 +492,7 @@ void Live::WearsPieces() {
       slotOf[static_cast<size_t>(surface)] = static_cast<uint32_t>(slot);
     }
   }
-  Renderer_->WearPieces(slotOf);
+  Renderer_->WearPieces(slotOf, RegisteredSlots_);
 }
 
 void Live::StandsShadowRadius() {
@@ -575,12 +620,14 @@ bool Live::Build(std::string &error) {
   }
   if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
 
+  RestorePieceSurfaces();
   if (!Held_.HoldsBuilt()) { Reshape(); }
   if (Declared_.Built == nullptr) { Joined_ = Shaped_.Parts.size(); }
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   StandsShadowRadius();
 
   if (!StandsPlan(error)) { return false; }
+  WearsPieces();
   if (DeclaresKeyLight()) { StandsKeyLight(); }
 
   Renderer_->SetCameraBasis(Render::CameraBasis{});
@@ -611,6 +658,9 @@ bool Live::Build(std::string &error) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wholeFrom)
             .count();
   } else {
+    if (!RegisteredSurfaces_.empty() && !Renderer_->SetSubjectMaterials(Table_.Slots, error)) {
+      return false;
+    }
     Renderer_->SetPictureRegion({});
   }
   const auto composedFrom = std::chrono::steady_clock::now();

@@ -226,5 +226,89 @@ int main() {
   CHECK(scene->Screenshot("build/instance-native/material-after.png", error), "after-arrival PNG is written");
   renderer.ReleasePiece(newPiece);
   renderer.ReleasePiece(oldPiece);
+  CHECK(scene->Restand(built,0,error), "Live rebuilds after the direct renderer registration fixture");
+  scene->Eye(eye);
+  Geometry empty;
+  CHECK(!scene->RegisterPieceSurfaces(std::move(empty),error), "registration refuses an empty material source");
+  Geometry missing;
+  Material absent;
+  absent.BaseColourMap.Image = 0;
+  (void)missing.addSurface("missing image",absent);
+  CHECK(!scene->RegisterPieceSurfaces(std::move(missing),error), "registration refuses a missing native image");
+  Geometry glass;
+  Material transmitted;
+  transmitted.Transmission = 1;
+  (void)glass.addSurface("undeclared glass pass",transmitted);
+  CHECK(!scene->RegisterPieceSurfaces(std::move(glass),error), "registration refuses an unsupported pass");
+  error.clear();
+  const auto registerColour = [&](const std::array<uint8_t,4> &colour) {
+    Geometry source;
+    Material material;
+    material.BaseColour = {{1,1,1,1}};
+    material.Unlit = true;
+    material.BaseColourMap.Image = source.addImage(1,1,colour);
+    (void)source.addSurface("registered prototype",material);
+    return scene->RegisterPieceSurfaces(std::move(source),error);
+  };
+  const auto registeredGreen = registerColour(green);
+  CHECK(registeredGreen && *registeredGreen==0, "refused registrations consume no stable material handles");
+  if (!registeredGreen) { return Report(); }
+  Render::PieceMesh owned;
+  owned.Verts = vertices;
+  owned.Indices = indices;
+  owned.Instances = std::span(rows).subspan(1);
+  owned.Surface = Render::PieceSurface::Registered(*registeredGreen);
+  owned.Textured = true;
+  const auto ownedPiece = scene->PlacePiece(owned,error);
+  CHECK(ownedPiece != Render::kNoPiece && scene->Draw(error), "registered texture reaches two instances after source destruction");
+  renderer.WaitForGpu();
+  std::vector<float> registeredBefore, registeredAfter;
+  CHECK(renderer.ReadSceneLinear(registeredBefore)==Render::ReadState::Ready && registeredBefore.size()==320u*320u*4u,
+        "registered instances have a complete linear image");
+  if (registeredBefore.size()==320u*320u*4u) {
+    for (const size_t x : {80u,240u}) {
+      for (size_t channel=0; channel<3; ++channel) {
+        const double encoded=green[channel]/255.0;
+        const double linear=encoded<=0.04045 ? encoded/12.92 : std::pow((encoded+0.055)/1.055,2.4);
+        CHECK_NEAR(registeredBefore[(160u*320u+x)*4u+channel],linear,1.0/4096,"linear",
+                   "Live-owned prototype images preserve decoded RGB in each instance");
+      }
+    }
+  }
+  const auto registeredBlue = registerColour({32,64,180,255});
+  CHECK(registeredBlue && *registeredBlue==*registeredGreen+1, "another prototype receives a distinct stable handle");
+  CHECK(scene->Draw(error), "new registration preserves the existing instances");
+  renderer.WaitForGpu();
+  CHECK(renderer.ReadSceneLinear(registeredAfter)==Render::ReadState::Ready && registeredAfter==registeredBefore,
+        "another image owner does not alter resident pixels");
+  CHECK(scene->Screenshot("build/instance-native/registered-before.png",error), "registered before-rebuild PNG is written");
+  (void)base.addSurface("extra native material one",Material{});
+  (void)base.addSurface("extra native material two",Material{});
+  Gltf::Subject rebuilt;
+  CHECK(rebuilt.Assemble(base) && scene->Restand(rebuilt,0,error), "native material growth rebuilds around resident registered pieces");
+  scene->Eye(eye);
+  CHECK(scene->Draw(error), "registered instances draw after native material indices shift");
+  renderer.WaitForGpu();
+  CHECK(renderer.ReadSceneLinear(registeredAfter)==Render::ReadState::Ready && registeredAfter==registeredBefore,
+        "rebuilding the native surface table preserves every registered pixel without replacing pieces");
+  CHECK(scene->Screenshot("build/instance-native/registered-after.png",error), "registered after-rebuild PNG is written");
+  if (registeredBlue) {
+    owned.Instances = {};
+    owned.Row[13] = 1;
+    owned.Surface = Render::PieceSurface::Registered(*registeredBlue);
+    const auto bluePiece = scene->PlacePiece(owned,error);
+    CHECK(bluePiece!=Render::kNoPiece && scene->Draw(error), "a retained second handle remains usable after rebuild");
+    renderer.WaitForGpu();
+    CHECK(renderer.ReadSceneLinear(registeredAfter)==Render::ReadState::Ready && registeredAfter.size()==320u*320u*4u,
+          "second retained prototype has readable pixels");
+    if (registeredAfter.size()==320u*320u*4u) {
+      const size_t pixel=(80u*320u+160u)*4u;
+      CHECK(registeredAfter[pixel+2]>0.4f && registeredAfter[pixel]<0.1f && registeredAfter[pixel+1]<0.1f,
+            "the second handle still samples its blue image");
+    }
+    CHECK(scene->Screenshot("build/instance-native/registered-both.png",error), "both retained prototype PNG is written");
+    scene->ReleasePiece(bluePiece);
+  }
+  scene->ReleasePiece(ownedPiece);
   return Report();
 }

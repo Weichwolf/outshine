@@ -70,7 +70,8 @@ public:
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
   void ReleasePiece(PieceId which);
-  void WearPieces(std::span<const uint32_t> slotOfSurface);
+  void WearPieces(std::span<const uint32_t> slotOfSurface,
+                  std::span<const uint32_t> registered = {});
   [[nodiscard]] bool HandTables(std::string &error);
 
   [[nodiscard]] uint32_t PiecesStanding() const { return PiecesLive_; }
@@ -355,7 +356,7 @@ private:
     SubjectResidency::Range V;
     SubjectResidency::Range I;
     uint32_t IndexCount = 0;
-    uint32_t Surface = 0;
+    PieceSurface Surface;
     VertexLayout Layout = VertexLayout::PositionNormal;
     std::optional<std::array<float, 3>> Emitted;
     std::vector<Mat4> Rows;
@@ -372,7 +373,7 @@ private:
   uint32_t SubjectRows_ = 0;
   std::vector<Piece> Pieces_;
   std::vector<uint32_t> Spare_;
-  std::vector<uint32_t> SlotOf_;
+  std::vector<uint32_t> SlotOf_, RegisteredSlotOf_;
   uint32_t PiecesLive_ = 0;
   uint32_t PieceTriangles_ = 0;
   bool TablesStale_ = false;

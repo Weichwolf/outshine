@@ -904,12 +904,14 @@ void SubjectDraw::ReleasePiece(PieceId which) {
   RowsStale_ = true;
 }
 
-void SubjectDraw::WearPieces(std::span<const uint32_t> slotOfSurface) {
-  if (SlotOf_.size() == slotOfSurface.size() &&
-      std::equal(SlotOf_.begin(), SlotOf_.end(), slotOfSurface.begin())) {
+void SubjectDraw::WearPieces(std::span<const uint32_t> slotOfSurface,
+                             std::span<const uint32_t> registered) {
+  if (std::ranges::equal(SlotOf_, slotOfSurface) &&
+      std::ranges::equal(RegisteredSlotOf_, registered)) {
     return;
   }
   SlotOf_.assign(slotOfSurface.begin(), slotOfSurface.end());
+  RegisteredSlotOf_.assign(registered.begin(), registered.end());
   TablesStale_ = true;
 }
 
@@ -970,7 +972,9 @@ bool SubjectDraw::Retable(std::string &error) {
   }
 
   const auto slotOf = [this](const Piece &one) {
-    return one.Surface < SlotOf_.size() ? SlotOf_[one.Surface] : kNoSlot;
+    const auto &slots =
+        one.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
+    return one.Surface.Index < slots.size() ? slots[one.Surface.Index] : kNoSlot;
   };
   std::vector<uint32_t> &order = TableOrder_;
   order.clear();
