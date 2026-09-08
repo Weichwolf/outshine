@@ -25,7 +25,7 @@ TREE = pathlib.Path(__file__).resolve().parents[2]
 def demangled(names):
     if not names:
         return {}
-    said = subprocess.run(["c++filt"], input="\n".join(names), capture_output=True, text=True)
+    said = subprocess.run(["c++filt"], input="\n".join(names), capture_output=True, text=True, check=True)
     return dict(zip(names, said.stdout.splitlines()))
 
 
@@ -37,7 +37,9 @@ def main():
     with tempfile.TemporaryDirectory() as scratch:
         edges = subprocess.run(
             ["sh", str(TREE / "test/harness/shared/graph/callgraph.sh"), str(archive), scratch],
-            capture_output=True, text=True, cwd=TREE)
+            capture_output=True, text=True, cwd=TREE, check=True)
+    if not edges.stdout.strip():
+        raise RuntimeError("callgraph returned no evidence")
     defines, called = set(), set()
     for line in edges.stdout.splitlines():
         caller, _, callee = line.partition("\t")
@@ -99,10 +101,8 @@ def main():
           f"{len(suspect)} that nothing in the archive calls and the door does not name")
     print("  NOT COVERED: a name mentioned three times in src/ is taken as called, so an overload "
           "of a dead function keeps it off this list. The walk reports less, never more.")
-    for one in sorted(suspect)[:40]:
+    for one in sorted(suspect):
         print(f"  {one}")
-    if len(suspect) > 40:
-        print(f"  ... and {len(suspect) - 40} more")
     return 0
 
 

@@ -32,6 +32,7 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
+  int verdict = 0;
   const std::vector<std::string> twice =
       Lines(Ask("awk '"
                 "/case .* in$/ { ++deep; next } "
@@ -48,11 +49,13 @@ int main(void) {
                 "seen[key] } "
                 "    else { seen[key] = FNR } "
                 "  } "
-                "}' test/run.sh"));
+                "}' test/run.sh",
+                &verdict));
 
   std::printf("  case labels declared twice in test/run.sh: %zu\n", twice.size());
   for (const std::string &one : twice) { std::printf("    %s\n", one.c_str()); }
 
+  CHECK(verdict == 0, "the suite declaration parser ran successfully");
   CHECK(twice.empty(),
         "**A SUITE IS DECLARED ONCE**: a shell `case` takes the first match, so a second branch "
         "for a label already listed can never run. The file then states two answers and only "

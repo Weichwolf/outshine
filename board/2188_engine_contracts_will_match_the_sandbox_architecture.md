@@ -3,7 +3,7 @@ State: open
 Area: include, engine, render, world
 Tags: architecture, audit
 Parent: 2169
-Depends: 2096, 2093, 2094, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2153, 2185, 2189, 2190, 2191
+Depends: 2096, 2093, 2094, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2189, 2190, 2191
 
 # Engine contracts will match the streaming sandbox architecture
 
@@ -27,7 +27,7 @@ Materialpfade weiterverwenden, sofern ihre Verträge halten.
 | ScenarioRead/Write: getrennte Schema-Walks, yes/no-Lücke | 2151, 2131, 2187 |
 | Grounds/Laying: globaler Aufbau und nachträgliche Terrainänderung | 2124, 2166, 2144 |
 | WorldCrowns: statische Residency und unvollständige Distanzleiter | 2111, 2123, 2132 |
-| Rote Format-/Tidy-/Repository-Gates | 2093, 2094, 2153 |
+| Rote Format-/Tidy-/Repository-Gates | 2093, 2094 |
 
 Ziel: Plattformadapter → Engine-Fassade → Simulation/Streaming/Rendering.
 Provider liefern versionierte Daten; Generatoren liefern native Produkte;

@@ -243,7 +243,8 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
-    outshine/places | outshine/conventions | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    outshine/conventions) LayerToolchain outshine/places; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
+    outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
@@ -277,7 +278,7 @@ LayerLink() {
   case "$1" in
     outshine/conventions) LayerLink outshine/places ;;
     outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
-    outshine/places | outshine/conventions | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
+    outshine/places | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     *) printf '%s' "" ;;
@@ -286,7 +287,7 @@ LayerLink() {
 
 LayerGroups() {
   case "$1" in
-    outshine/conventions) LayerGroups outshine/places; printf ' %s' "src/engine/CrownAtlas.cpp" "src/engine/CrownCache.cpp" "src/engine/CrownPieces.cpp" ;;
+    outshine/conventions) LayerGroups outshine/places ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
@@ -296,8 +297,8 @@ LayerGroups() {
     outshine/fuzz) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/world/weather src/world/sky src/base/io src/import" ;;
     outshine/physics) printf '%s' "src/base src/base/math src/base/geo src/base/spatial src/actor/body src/base/curve" ;;
     outshine/audio) printf '%s' "src/audio src/base/math" ;;
-    outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/engine/CrownAtlas.cpp src/engine/CrownCache.cpp src/engine/CrownPieces.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/engine/CrownAtlas.cpp src/engine/CrownCache.cpp src/engine/CrownPieces.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }

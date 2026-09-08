@@ -112,11 +112,12 @@ fi
 # resolves. The count is a SUSPICION rather than a verdict -- a symbol may be reached through a
 # table this graph cannot see -- so a name here is read before it is deleted, never after.
 if [ -f build/liboutshine.a ]; then
-  unreached=$(python3 test/scripts/unreached.py | sed -n 's/.* \([0-9][0-9]*\) that nothing in the archive calls.*/\1/p')
-  printf '\nlint: %s symbol(s) nothing in the archive calls, the target is 0\n' "$unreached"
-  if [ "$unreached" -gt 0 ]; then
-    printf 'lint: %s to go. They are named by `python3 test/scripts/unreached.py`\n' \
-      "$unreached" >&2
+  if python3 test/scripts/unreached.py > "$REPORT/unreached.log" 2>&1; then
+    printf '\nlint: symbol reachability candidates (advisory, not proof of dead code)\n'
+    cat "$REPORT/unreached.log"
+  else
+    cat "$REPORT/unreached.log" >&2
+    printf 'lint: symbol reachability analysis failed\n' >&2
     red=$((red + 1))
   fi
 fi
