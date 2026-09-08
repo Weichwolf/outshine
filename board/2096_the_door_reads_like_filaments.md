@@ -2,6 +2,8 @@ Type: chore
 State: open
 Area: include
 Tags: measured, door
+Parent: 2188
+Depends: 2189, 2191
 
 # A reader who knows Filament finds every door name where Filament puts it
 
@@ -71,5 +73,8 @@ keeps the canvas as the argument because the canvas is the client's.
 
 ## What will show I was wrong
 
-A client in the tree -- `src/client/` -- that gets LONGER after the cut. The door is measured by
-the client's line count and a split that costs the client includes is the wrong split.
+Ein externer Minimalclient muss nur öffentliche Header benötigen und vollständige
+Lebensdauer-/Fehlerverträge vorfinden. Zeilenzahl ist kein Korrektheitsoracle.
+Die historische render(Extent)-Entscheidung erhält keinen Bestandsschutz: Owner-Identität
+und View-/Target-Auswahl nach 2189/2191 prüfen. Filament-Begriffe dienen Verständlichkeit,
+eine namensgleiche Fassade allein erfüllt keinen Vertrag.

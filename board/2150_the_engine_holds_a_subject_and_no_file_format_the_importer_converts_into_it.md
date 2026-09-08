@@ -46,8 +46,10 @@ format this tree ships an importer for.
 
 ## What will be true
 
-- [ ] `grep -rn -i "gltf\|glb" src include test --include='*.h' --include='*.cpp' | grep -v
-      '^src/import'` reads 0, and a claim holds it there
+- [ ] Engine/Render/Generator-Kern hängen von nativen Asset-Typen ab; Import-Typen
+      und Formatverzweigungen bleiben in Import/Export-Adaptern. Öffentliche Format-
+      konventionsdokumentation, Corpus-Tests und Exportwerkzeuge sind legitim.
+      Eine globale Wortsuche über Tests ist kein Architekturoracle.
 - [ ] the nine references bit-identical after the move (a move, not a change)
 - [ ] the Khronos corpus imports as before: the vendor cases green when `make test` returns
 - [ ] Negative control: an `#include` of an import header from `src/engine` fails at the
