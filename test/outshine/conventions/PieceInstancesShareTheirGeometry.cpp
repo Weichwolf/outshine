@@ -39,6 +39,7 @@ int main() {
   declaration.Built = &built;
   declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
   declaration.KeyLux = 20000;
+  declaration.Exposure = 1.0;
   declaration.KeyElevationDeg = 45;
   declaration.KeyBearingDeg = 180;
   std::unique_ptr<Core::Live> scene;
@@ -173,5 +174,57 @@ int main() {
       renderer.ReleasePiece(id);
     }
   }
+  Render::PieceMesh resident;
+  resident.Verts = vertices;
+  resident.Indices = indices;
+  resident.Row = rows[1];
+  const auto oldPiece = renderer.PlacePiece(resident, error);
+  CHECK(oldPiece != Render::kNoPiece && scene->Draw(error), "resident prototype stands before material arrival");
+  renderer.WaitForGpu();
+  std::vector<float> before, after;
+  CHECK(renderer.ReadSceneLinear(before) == Render::ReadState::Ready && before.size()==320u*320u*4u,
+        "resident colour is captured before arrival");
+  CHECK(scene->Screenshot("build/instance-native/material-before.png", error), "before-arrival PNG is written");
+  std::array<Render::SubjectMaterial,2> rejected;
+  rejected[1].Row.Transmission = 1;
+  CHECK(!renderer.AppendSubjectMaterials(rejected, error), "unsupported second material refuses the complete append");
+  error.clear();
+  const std::array<uint8_t,4> green{32,180,64,255};
+  Render::SubjectMaterial arriving;
+  arriving.Row.Unlit = true;
+  arriving.Row.BaseColour = {{0.5f,1.0f,0.5f,1.0f}};
+  arriving.Colour.Rgba = green.data();
+  arriving.Colour.Width = arriving.Colour.Height = 1;
+  CHECK(renderer.AppendSubjectMaterials(std::span(&arriving,1), error), "a texture material appends to the resident table");
+  CHECK(scene->Draw(error), "resident draws survive material arrival");
+  renderer.WaitForGpu();
+  CHECK(renderer.ReadSceneLinear(after) == Render::ReadState::Ready && after==before,
+        "appending a surface preserves every resident pixel");
+  const std::array<uint32_t,3> extendedSurfaces{0,1,2};
+  renderer.WearPieces(extendedSurfaces);
+  resident.Row = rows[2];
+  resident.Surface = 2;
+  resident.Textured = true;
+  const auto newPiece = renderer.PlacePiece(resident,error);
+  CHECK(newPiece != Render::kNoPiece && scene->Draw(error), "a new prototype draws with the appended surface");
+  renderer.WaitForGpu();
+  CHECK(renderer.ReadSceneLinear(after) == Render::ReadState::Ready && after.size()==before.size(),
+        "both resident and arriving prototype colours are readable");
+  if (after.size()==320u*320u*4u && before.size()==after.size()) {
+    const size_t oldPixel=(160u*320u+80u)*4u, newPixel=(160u*320u+240u)*4u;
+    CHECK(std::equal(before.begin()+oldPixel,before.begin()+oldPixel+4,after.begin()+oldPixel),
+          "old material slot remains unchanged after new geometry arrives");
+    CHECK(after[newPixel+1] > 0.4f && after[newPixel] < 0.1f && after[newPixel+2] < 0.1f,
+          "the first appended slot samples its green texture without a partial rejected batch");
+    for (size_t channel=0; channel<3; ++channel) {
+      const double encoded=green[channel]/255.0;
+      const double linear=encoded<=0.04045 ? encoded/12.92 : std::pow((encoded+0.055)/1.055,2.4);
+      CHECK_NEAR(after[newPixel+channel],linear*arriving.Row.BaseColour[channel],1.0/4096,"linear",
+                 "unlit instance retains the decoded texture value within half-float rounding");
+    }
+  }
+  CHECK(scene->Screenshot("build/instance-native/material-after.png", error), "after-arrival PNG is written");
+  renderer.ReleasePiece(newPiece);
+  renderer.ReleasePiece(oldPiece);
   return Report();
 }

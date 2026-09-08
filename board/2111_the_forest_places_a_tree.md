@@ -740,3 +740,60 @@ transmissiver zweiter Oberfläche muss ohne Teilmutation scheitern. Negativkontr
 Append auf den ersetzenden Set-Pfad umlenken; bestehende Draws/Slot-IDs müssen rot
 werden. PNG vor/nach Ankunft öffnen. Diese private Renderer-Funktion ist Voraussetzung
 für Live-Registrierung; allein erzeugt sie noch keine Places-Vegetation.
+
+## Residente Material-Ankunft und Unlit-Pieces implementiert
+
+AppendSubjectMaterials prüft den kompletten Batch für beteiligte Renderpässe vorab
+und bindet nur neue SurfaceSlots über das vorhandene BindSurface. Bestehende
+Texturen/Slots/Geometrie bleiben erhalten; Draw-Tabellen werden bei Material-Ankunft
+neu gebunden. SetMaterials bleibt der vollständige Ersetzungspfad. Noch keine
+öffentliche Engine-API, kein Live-Materialregister, kein produktiver Kronenverbrauch.
+Die API garantiert Pass-Kompatibilität vor Mutation, keine neue GPU-OOM-Transaktion.
+
+Dabei gefunden und repariert: 2182, Material::Unlit wurde bei Pieces ignoriert.
+Retable wählt jetzt für Unlit das Layout ohne Normal/Tangent, erhält UV/Farbe und
+schreibt den BaseColour-Faktor in den vorhandenen Emitted-Stream. Dieser wird nur
+bis zum benötigten Piece vergrößert; der pro Piece gemerkte Faktor verhindert
+erneuten Upload bei unveränderten Tabellenaufbauten. Prototypdaten bleiben geteilt.
+Die erste reine Layoutkorrektur ergab Schwarz, weil Pieces den Emitted-Stream nicht
+befüllten. Nach Upload ergaben sich korrekt halbe Texturwerte: Die Fixture hatte
+fälschlich Weiß als nativen Materialdefault angenommen. Nun deklariert sie
+BaseColour=(0.5,1,0.5) und prüft sRGB-Dekodierung mal Faktor; kein Oracle abgesenkt.
+
+`make suite SUITE=outshine/conventions`, build/material-append-restored.log:
+Exit 0, 19/19 PASS; PieceInstancesShareTheirGeometry 105 Checks. Alter Draw bleibt
+pixelgleich nach Material-Ankunft; neuer Draw nutzt den angehängten Texturslot.
+Ein Batch mit zulässiger erster und unzulässiger transmissiver zweiter Oberfläche
+wird vollständig verweigert. Unlit-RGB stimmt innerhalb 1/4096 linear mit dem
+berechneten Texturwert mal Faktor überein. Bestehende Mask-/Normal-/Instanzprüfungen
+bleiben grün. Gesicherter Fall: build/material-append-restored-case.log.
+
+Kontrollen, jeweils eigenes beendetes Make-Gate:
+- material-append-replace-negative.log: Append auf Set umgeleitet; SIGSEGV durch
+  ungültige alte Draw-Slots, zusätzlich bekannter Schachfall 2179 rot. Das ist ein
+  breiter Zerstörungskontrolllauf, kein gezielter Pixeloracle-Nachweis.
+- material-append-slot-negative.log: bei vollständiger Slot-Tabelle ersten/letzten
+  Slot vertauscht. 105 Checks, sechs gezielte Fehler: bestehende Pixel und neuer
+  Materialwert falsch. Exit 2, 17/19 PASS, zusätzlich 2179. Fall separat gesichert.
+- material-append-unlit-negative.log: nur Unlit-Zweig ausgesetzt. 105 Checks, vier
+  Fehler am neuen Materialwert; Exit 2, 18/19 PASS, alle anderen Fälle grün.
+- Quellen wiederhergestellt; obiger Abschlusslauf danach. Keine Mutation verblieben.
+
+PNG vor/nach Material-Ankunft und vier Mask-/Rückseiten-PNGs geöffnet: alter Draw
+bleibt, grüner Draw kommt hinzu; Maskhälften stimmen. Fixture setzt Exposure=1,
+damit die Unlit-Fläche im technischen Bild sichtbar ist. Automatische Belichtung
+für KeyLux=20000 machte sie zuvor im PNG fast schwarz; Linear-Readback war korrekt.
+Das ist eine Diagnoseaufnahme, keine fotorealistische Beleuchtungsabnahme.
+
+`make shots PLACE='--measures Koerbersee'`, build/material-append-koerbersee.log,
+Exit 0: weiterhin c99cdbe7. PNG und Webcam geöffnet: keine Bildänderung, weiterhin
+fehlende Bäume, weiche Felsformen/Klassenflecken und flaches dunkles Wasser.
+120 residente Standframes: p50 6.96, p95 7.18, p99 7.28 ms; 0/120 über 16.67 ms;
+Peak Heap laut Instrument 495 MB. Kein bewegter Wald-/Streaming-/720p60-Nachweis.
+2182 ist geschlossen; 2179 bleibt trotz grünem Abschlusslauf wegen Intermittenz offen.
+
+Nächster produktiver Übergang: Live muss geladene Kronenmaterialien mit stabilen
+Piece-Zuordnungen und geklärter Lebensdauer registrieren; World.Instances müssen
+geografisch korrekt geteilte Kronen-Draws erreichen. Cache-Miss-Vorbereitung,
+Blickrichtungswahl und begrenzte Tile-Residency bleiben Teil der Umsetzung, nicht
+Abnahme durch diesen privaten Renderer-Test ersetzen. WI 2111 bleibt active.

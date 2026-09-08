@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_STAGES_SUBJECTDRAW_H
 
 #include <span>
+#include <optional>
 #include <array>
 #include <cstdint>
 #include <string>
@@ -159,6 +160,10 @@ public:
   }
 
   [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials, std::string &error);
+  [[nodiscard]] bool ValidateMaterials(std::span<const SubjectMaterial> materials,
+                                       std::string &error) const;
+  [[nodiscard]] bool AppendMaterials(std::span<const SubjectMaterial> materials,
+                                     std::string &error);
 
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
 
@@ -269,6 +274,7 @@ private:
     std::array<float, kSurfaceFloats> Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
+    std::optional<std::array<float, 3>> Unlit;
 
     SurfaceDomain Domain = SurfaceDomain::Subject;
     bool ReadsSecondUv = false;
@@ -351,6 +357,7 @@ private:
     uint32_t IndexCount = 0;
     uint32_t Surface = 0;
     VertexLayout Layout = VertexLayout::PositionNormal;
+    std::optional<std::array<float, 3>> Emitted;
     std::vector<Mat4> Rows;
     uint32_t FirstRow = 0;
     std::vector<DagCluster> Clusters;

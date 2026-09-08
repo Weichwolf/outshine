@@ -275,6 +275,10 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
   slot.Domain = material.Domain;
+  if (material.Row.Unlit) {
+    slot.Unlit = {
+        {material.Row.BaseColour[0], material.Row.BaseColour[1], material.Row.BaseColour[2]}};
+  }
   slot.ReadsSecondUv = material.ReadsSecondUv();
   slot.Colour = Bound().Upload(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value);
   slot.Normal =
@@ -397,11 +401,8 @@ uint32_t SubjectDraw::Textured() const {
   return wearing;
 }
 
-bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
-  Slots.clear();
-  Batches.clear();
-  BatchLayout.clear();
-  Bound().Shape().Indices = 0;
+bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
+                                    std::string &error) const {
   if (Device == nullptr) {
     error = "the subject unit has no device, so no surface can be bound";
     return false;
@@ -421,12 +422,26 @@ bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::
               "refracted by a volume is the scene behind it, so a subject carrying one needs the "
               "transmissive pass declared, and drawing it opaque instead would be a picture nobody "
               "asked for";
-      Slots.clear();
       return false;
     }
-    BindSurface(materials[slot]);
   }
   return true;
+}
+
+bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
+  if (!ValidateMaterials(materials, error)) { return false; }
+  for (const auto &material : materials) { BindSurface(material); }
+  if (!materials.empty()) { TablesStale_ = true; }
+  return true;
+}
+
+bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
+  if (!ValidateMaterials(materials, error)) { return false; }
+  Slots.clear();
+  Batches.clear();
+  BatchLayout.clear();
+  Bound().Shape().Indices = 0;
+  return AppendMaterials(materials, error);
 }
 
 namespace {
@@ -479,6 +494,11 @@ void WritePieceNormals(const void *carrying, float *into, uint32_t floats) {
     into[at++] = facing[1];
     into[at++] = facing[2];
   }
+}
+
+void WritePieceEmission(const void *carrying, float *into, uint32_t floats) {
+  const auto &colour = *static_cast<const std::array<float, 3> *>(carrying);
+  for (uint32_t at = 0; at < floats; ++at) { into[at] = colour[at % colour.size()]; }
 }
 
 void WritePieceUv(const void *carrying, float *into, uint32_t floats) {
@@ -848,6 +868,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   held.I = i;
   held.IndexCount = indices;
   held.Surface = piece.Surface;
+  held.Emitted.reset();
   if (piece.Instances.empty()) {
     held.Rows.assign(1, piece.Row);
   } else {
@@ -976,7 +997,34 @@ bool SubjectDraw::Retable(std::string &error) {
     return a < b;
   });
   for (const uint32_t at : order) {
-    const Piece &one = Pieces_[at];
+    Piece &one = Pieces_[at];
+    VertexLayout layout = one.Layout;
+    const auto &unlit = Slots[slotOf(one)].Unlit;
+    if (unlit) {
+      if (one.Emitted != unlit) {
+        using S = SubjectResidency::Stream;
+        const uint32_t stride = kPositionFloats * static_cast<uint32_t>(sizeof(float));
+        if (!Bound().Grow(S::Emitted,
+                          {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                           .Bytes = (one.V.First + one.V.Count) * stride},
+                          error)) {
+          return false;
+        }
+        SubjectResidency::Crossing crossing{.Which = S::Emitted,
+                                            .Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                                            .Bytes = one.V.Count * stride,
+                                            .Offset = one.V.First * stride,
+                                            .Writes = WritePieceEmission,
+                                            .Carrying = &*unlit};
+        if (!Bound().Cross(std::span(&crossing, 1), false, error)) { return false; }
+        one.Emitted = unlit;
+      }
+      VertexRunsCarried carried;
+      carried.Uv = CarriesUv(layout);
+      carried.Uv1 = CarriesUv1(layout);
+      carried.Colour = CarriesColour(layout);
+      (void)LayoutOf(carried, layout);
+    }
     const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
     for (size_t instance = 0; instance < runs; ++instance) {
       const auto row = static_cast<uint32_t>(Batches.size());
@@ -984,7 +1032,7 @@ bool SubjectDraw::Retable(std::string &error) {
       batch.FirstIndex = one.I.First;
       batch.IndexCount = one.IndexCount;
       batch.MaterialSlot = slotOf(one);
-      batch.Layout = one.Layout;
+      batch.Layout = layout;
       batch.Kind = SurfaceKind::Opaque;
       batch.Draws = 1;
       batch.ModelSlot = one.FirstRow + static_cast<uint32_t>(instance);
@@ -1009,7 +1057,7 @@ bool SubjectDraw::Retable(std::string &error) {
       }
       batch.JobCount = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords) - batch.FirstJob;
       Batches.push_back(batch);
-      BatchLayout.push_back(one.Layout);
+      BatchLayout.push_back(layout);
     }
   }
 

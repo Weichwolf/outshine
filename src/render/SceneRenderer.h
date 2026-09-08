@@ -227,6 +227,16 @@ public:
            (!DrawsGlass_ || Glass_.SetMaterials(materials, error));
   }
 
+  [[nodiscard]] bool AppendSubjectMaterials(std::span<const SubjectMaterial> materials,
+                                            std::string &error) {
+    if (!Subjects_.ValidateMaterials(materials, error) ||
+        (DrawsGlass_ && !Glass_.ValidateMaterials(materials, error))) {
+      return false;
+    }
+    return Subjects_.AppendMaterials(materials, error) &&
+           (!DrawsGlass_ || Glass_.AppendMaterials(materials, error));
+  }
+
   [[nodiscard]] bool SetSubjectLights(std::span<const SubjectLight> lights, std::string &error) {
     return Subjects_.SetLights(lights, error) && (!DrawsGlass_ || Glass_.SetLights(lights, error));
   }
