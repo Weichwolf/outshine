@@ -9,6 +9,8 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 #include "CrownAtlas.h"
+#include "Tasks.h"
+#include <algorithm>
 #include "Image.h"
 #include "Check.h"
 
@@ -27,7 +29,69 @@ int main() {
   std::string error;
   CHECK(!CrownAtlas::Bake(*tree, {.Pixels=2,.Views=4}, error), "an atlas with no interior pixels is refused");
   const auto started = std::chrono::steady_clock::now();
-  const auto atlas = CrownAtlas::Bake(*tree, {.Pixels=128,.Views=4}, error);
+  Geometry control;
+  Material white;
+  white.BaseColour={{1,1,1,1}};
+  white.Unlit=true;
+  const int controlPart=control.addPart("control",control.addSurface("white",white));
+  CHECK(control.setPositions(controlPart,std::array<float,9>{-1,-1,0,1,-1,0,0,1,0}) &&
+        control.setTriangles(controlPart,std::array<uint32_t,3>{0,1,2}), "foreground control geometry stands");
+  Engine foreground;
+  Scenario::Document foregroundScene;
+  foregroundScene.Render.Declared=true;
+  foregroundScene.Render.Frame={1280,720};
+  foregroundScene.Render.Outputs={"sceneLinear"};
+  Scenario::View foregroundCamera;
+  foregroundCamera.Id="control";
+  foregroundCamera.Person="first";
+  foregroundCamera.Sees.Placed=true;
+  foregroundCamera.Sees.Stands.AtM={{0,0,3}};
+  foregroundScene.Views.push_back(foregroundCamera);
+  CHECK(foreground.drawsInto({1280,720}) && foreground.declare(foregroundScene) &&
+        foreground.setGeometry(control) && foreground.assemble() && foreground.advance(),
+        "independent foreground renderer stands before the bake");
+  std::vector<float> foregroundReference, frame;
+  CHECK(foreground.renderer().render({}) && foreground.renderer().readPixels(Buffer::Linear,foregroundReference),
+        "foreground reference pixels are readable");
+  if (foregroundReference.empty()) { return Report(); }
+  std::array<std::vector<double>,3> times;
+  bool stable=true, readable=true;
+  const auto drawForeground=[&](size_t phase) {
+    const auto began=std::chrono::steady_clock::now();
+    const bool drawn=foreground.renderer().render({}) && foreground.renderer().readPixels(Buffer::Linear,frame);
+    times[phase].push_back(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-began).count());
+    readable &= drawn;
+    stable &= frame==foregroundReference;
+  };
+  for (size_t count=0;count<120;++count) { drawForeground(0); }
+  std::optional<CrownAtlas> atlas;
+  Tasks worker(1);
+  const auto captureStarted=std::chrono::steady_clock::now();
+  const auto job=worker.Post([&] { atlas=CrownAtlas::Bake(*tree,{.Pixels=128,.Views=4},error); });
+  bool finished=false;
+  while (!(finished=worker.Done(job)) &&
+         std::chrono::steady_clock::now()-captureStarted < std::chrono::seconds(30)) {
+    drawForeground(1);
+  }
+  if (!finished) { worker.Wait(job); }
+  const double captureMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-captureStarted).count();
+  for (size_t count=0;count<120;++count) { drawForeground(2); }
+  CHECK(readable && stable, "a parallel crown bake leaves foreground linear pixels unchanged");
+  std::printf("worker crown capture %.3f ms; observation limited=%d; no world or portable-threading claim\n",
+      captureMs,!finished);
+  for (size_t phase=0;phase<times.size();++phase) {
+    auto &samples=times[phase];
+    std::sort(samples.begin(),samples.end());
+    if (samples.empty()) { continue; }
+    const auto quantile=[&](double q) { return samples[static_cast<size_t>(std::ceil(q*samples.size()))-1]; };
+    std::printf("foreground %s render+linear-readback n=%zu p50=%.3f p95=%.3f p99=%.3f worst=%.3f ms over16.67=%zu; trivial scene\n",
+        phase==0 ? "before" : phase==1 ? "during-bake" : "after",samples.size(),quantile(.5),quantile(.95),quantile(.99),samples.back(),
+        static_cast<size_t>(std::count_if(samples.begin(),samples.end(),[](double ms) { return ms>1000.0/60; })));
+  }
+  std::filesystem::create_directories("build/crown-atlas");
+  CHECK(foreground.renderer().saveScreenshot("build/crown-atlas/concurrent-foreground.png").has_value(),
+        "concurrent foreground PNG is written");
+
   CHECK(atlas.has_value(), "the native renderer captures crown surface data");
   if (!atlas) { std::printf("%s\n", error.c_str()); return Report(); }
   CHECK(atlas->Views().size() == 4 && atlas->Surfaces().size() == 2,

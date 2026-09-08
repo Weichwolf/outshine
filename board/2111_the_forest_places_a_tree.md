@@ -501,3 +501,42 @@ Engine-Produktion. Offscreen-Experiment auf dieser Zielplattform ersetzt keine
 plattformübergreifende Thread-Abnahme. Daher noch keine produktive Worker-Anbindung.
 Unreal/RAGE-Assetvorbereitung bleibt Architekturziel; ob dieser vorhandene komplette
 Referenzrenderer als Hintergrundproduzent taugt, entscheidet die Messung.
+
+
+## Paralleler Referenz-Bake: funktionsfähig, nicht als Live-Budget belegt
+
+`make suite SUITE=outshine/conventions`, `build/crown-concurrent-recovery.log`,
+Exit 2, 18/19 PASS; nur bekannter Schachfall 2179 rot. Kronenfall 97/97 Checks:
+Bake auf Tasks(1), Vordergrundrenderer auf Aufruferthread, danach unveränderte
+Kronen-Bedeckungs-/Normalen-/Materialorakel. Vordergrund-Linearpixel über sämtliche
+Messungen exakt gleich. PNG concurrent-foreground.png und Kronenkarten geöffnet:
+weißes Kontrolldreieck stabil, bekannte dünne Birkenkrone unverändert.
+
+| 720p Kontrollszene, Render + synchroner Linear-Readback | n | p50 ms | p95 ms | p99 ms | worst ms | über 16,67 ms |
+|---|---:|---:|---:|---:|---:|---:|
+| vor Bake | 120 | 3,833 | 3,982 | 5,664 | 6,403 | 0 |
+| während Bake | 1474 | 8,797 | 9,317 | 10,961 | 22,512 | 4 |
+| nach Bake | 120 | 3,940 | 4,249 | 4,393 | 4,426 | 0 |
+
+Kronencapture im Worker 14.098,837 ms, vollständige Beobachtung innerhalb des
+30-s-Limits. Mediananstieg währenddessen 8,797-3,833 = 4,964 ms; danach nur noch
+3,940-3,833 = 0,107 ms. Diese Rückkehr widerspricht einer bloß bleibenden Drift.
+CPU-/GPU-/Readback-Konkurrenz sind damit NICHT getrennt. Ein Kontrolldreieck mit
+Readback ist weder eine bewegte Welt noch ein reiner GPU-Timer. Rate, kein Gate.
+
+Erster unabhängiger Lauf `build/crown-concurrent-run.log`: gleiche 97 Checks,
+Worker 13.861,582 ms; allein p99 6,569 ms, währenddessen 10,371 ms, schlechteste
+21,439 ms, 2/1306 über 16,67 ms. Auch dort gleiche Linearpixel. Vorgelagerter
+Compile-Fehler wegen Test-Namensüberschattung in crown-concurrent-proof.log behoben.
+Die Schlusszeit 25.692,410 ms umfasst den gesamten Versuch einschließlich
+Kontrollrenderer, Vergleichsbildern und PNG-Export; sie ist keine reine Bake-Zeit.
+
+Entscheidung: keine ungebremste Instanziierung des vollständigen Referenz-Bakes im
+Updates-Pfad und keine 60-fps-Abnahme aufgrund eines Worker-Threads. Nächster Schritt
+ist ein wiederverwendbares, versioniertes Kronenartefakt mit Quell-/Generatoridentität
+und geprüfter vollständiger Material-/Normalen-/Tiefen-Rücklesung; Vorbereitung kann
+außerhalb des aktiven Framebudgets erfolgen, Streaming liest das Ergebnis.
+Cache-Invalidierung bei Generatoränderungen gehört dazu. Ein dynamischer Cache-Miss
+braucht weiterhin begrenzte Produktion und reichere Nahgeometrie; diese Messung
+rechtfertigt weder dauerhaft fehlende Vegetation noch eine feste Offline-Welt.
+Keine produktive Weltänderung in diesem Experiment, WI bleibt aktiv.
