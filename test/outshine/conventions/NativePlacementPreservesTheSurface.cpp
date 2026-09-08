@@ -2,6 +2,7 @@
 #include <cmath>
 #include <scene/Geometry.h>
 #include "Subject.h"
+#include "Shape.h"
 #include "Check.h"
 
 int main() {
@@ -26,6 +27,23 @@ int main() {
     placement.SetTranslation({{5, 7, 11}});
     CHECK(geometry.transforms().setTransform(part, placement),
           "native placement accepts affine scale and translation");
+    Render::ShapeStore nativeStorage;
+    const Render::Shape native = Render::PrepareShape(geometry, nativeStorage);
+    const Box nativeBounds = native.BoundsOf(0);
+    CHECK_NEAR(nativeBounds.Min[0],
+               mirror > 0 ? 5.0 : 3.0,
+               1e-6,
+               "m",
+               "native bounds include reflected local-to-model X placement");
+    CHECK_NEAR(nativeBounds.Max[0],
+               mirror > 0 ? 7.0 : 5.0,
+               1e-6,
+               "m",
+               "native bounds include local-to-model X scale");
+    CHECK_NEAR(nativeBounds.Min[1], 7.0, 1e-6, "m", "native bounds include Y translation");
+    CHECK_NEAR(nativeBounds.Max[1], 10.0, 1e-6, "m", "native bounds include Y scale");
+    CHECK_NEAR(nativeBounds.Min[2], 7.0, 1e-6, "m", "native bounds include Z scale");
+    CHECK_NEAR(nativeBounds.Max[2], 11.0, 1e-6, "m", "native bounds include Z translation");
     Gltf::Subject subject;
     CHECK(subject.Assemble(geometry), "native geometry reaches the internal model");
     if (subject.VertexCount() != 3) { return Report(); }
@@ -35,6 +53,33 @@ int main() {
           subject.PositionsM()[at], expected[at], 1e-12, "m", "placement applies to positions");
     }
     const double root = std::sqrt(5.0);
+    CHECK_NEAR(native.Parts[0].Normals[0],
+               2 * mirror / root,
+               1e-7,
+               "unit",
+               "native packed normal follows inverse transpose");
+    CHECK_NEAR(native.Parts[0].Normals[2],
+               1 / root,
+               1e-7,
+               "unit",
+               "native packed normal remains perpendicular after unequal scale");
+    CHECK_NEAR(native.Parts[0].Tangents[0],
+               mirror / root,
+               1e-7,
+               "unit",
+               "native packed tangent follows the scaled surface");
+    CHECK_NEAR(native.Parts[0].Tangents[2],
+               -2 / root,
+               1e-7,
+               "unit",
+               "native packed tangent remains normalized");
+    CHECK_NEAR(native.Parts[0].Tangents[3],
+               mirror,
+               0,
+               "sign",
+               "native reflection reverses tangent handedness");
+    CHECK(native.Indices[1] == (mirror > 0 ? 1u : 2u),
+          "native reflection preserves CCW front faces");
     CHECK_NEAR(
         subject.Normals()[0], 2 * mirror / root, 1e-7, "unit", "normal follows inverse transpose");
     CHECK_NEAR(subject.Normals()[2],
@@ -65,6 +110,21 @@ int main() {
     light.RangeM = 19;
     CHECK(geometry.addLamp("placed lamp", light, lampPlacement) >= 0, "native light placement");
   }
+  Render::ShapeStore nativeStorage;
+  const Render::Shape native = Render::PrepareShape(geometry, nativeStorage);
+  CHECK(native.Lamps.size() == 3, "native render input preserves every light type");
+  for (const auto &light : native.Lamps) {
+    if (light.Kind != LightKind::Directional) {
+      CHECK(light.Position == Vec3f({{17, 13, 9}}),
+            "native light position includes its local offset exactly once");
+    }
+    if (light.Kind != LightKind::Point) {
+      CHECK(light.Direction == Vec3f({{-1, 0, 0}}),
+            "native light direction includes orientation and normalization");
+    }
+    CHECK(light.Intensity == 37 && light.RangeM == 19,
+          "native placement preserves photometric units and range");
+  }
   Gltf::Subject lit;
   CHECK(lit.Assemble(geometry), "native lights reach the internal model");
   Gltf::Subject roundtrip;
@@ -84,5 +144,28 @@ int main() {
             "scale changes neither photometric intensity nor range");
     }
   }
+  Render::AppendGeometry(geometry, nativeStorage);
+  const Render::Shape combined = Render::FinalizeShape(nativeStorage);
+  CHECK(combined.Parts.size() == 2 && combined.Lamps.size() == 6,
+        "append retains existing render input and appends each native part and light");
+  for (size_t packedPart = 0; packedPart < combined.Parts.size(); ++packedPart) {
+    CHECK_NEAR(combined.Parts[packedPart].PositionsM[0],
+               5.0,
+               1e-6,
+               "m",
+               "all attribute views are rebound after append reallocates storage");
+    CHECK(combined.Parts[packedPart].Material == static_cast<int>(packedPart),
+          "append rebases material indices");
+    CHECK(combined.Indices[packedPart * 3 + 1] == packedPart * 3 + 2,
+          "append rebases mirrored local triangle indices");
+  }
+  geometry.clear();
+  CHECK_NEAR(combined.BoundsOf(0).Min[0],
+             3.0,
+             1e-6,
+             "m",
+             "packed positions remain valid after clearing their source geometry");
+  CHECK(combined.Parts[0].Name == "inclined plane" && combined.Lamps.size() == 6,
+        "packed names and lights belong to the render storage");
   return Report();
 }

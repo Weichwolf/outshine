@@ -58,6 +58,25 @@ Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge;
 Überlauf und erschöpfte Bildindizes vor Kopie ablehnen. Fehler verändern weder
 Bilder noch Indexvergabe. Dokumentation verbleibender Lücken akzeptiert sie nicht.
 
+## Direkter Renderer-Zulauf
+
+Vor der Migration ignorierte `import/surface/Shaped.cpp::FillFrom(Geometry)` Part-Platzierungen und
+setzte Lichtposition nur auf Matrixtranslation; lokale Lichtposition/-richtung gingen
+verloren. Der Subject-Pfad transformierte dagegen korrekt. NativePlacementPreserves-
+TheSurface prüfte bisher nur Subject::Assemble; direkte Shape-Bounds und Lichtwerte
+müssen dieselben unabhängigen Sollwerte erfüllen. GPU-Aufbereitung gehört in Render,
+mit einem nativen Eingangsvertrag und dokumentiertem Besitzer für sämtliche Views.
+Meshdaten und Instanztransformation getrennt erhalten; keine zweite Formatwelt bauen.
+Reproduktion: 16 Fehler bei 79 Checks im erweiterten Transformationstest.
+Render::PrepareShape/AppendGeometry erzeugen nun eigene gepackte Attribute/Namen
+und übernehmen statische Part-Platzierung in Modellkoordinaten. CPU-Geometry bleibt
+lokal, Welt-/Instanzplatzierung bleibt Runtime-Aufgabe. Gemischte Views erst nach
+allen Appends binden. 100 Checks für Bounds, Licht, Normalen, Spiegelung, Rebase und
+Quell-Clear bestehen, auch mit ASan/UBSan der beteiligten Packing-Komponenten.
+Conventions: 29/30 grün; intermittierendes Mipmap-Problem bleibt in 2179.
+Malcesine-PNG geprüft: Geländewände/Materialdefizite bleiben; keine visuelle Abnahme.
+Gemeldeter Peak-Heap 593 MB gegenüber 589 MB zuvor; kein isolierter Kostennachweis.
+
 ## Migrationsfolge
 
 1. Native Asset-/Instanzverträge aus vorhandenen Consumern ableiten; Geometry und

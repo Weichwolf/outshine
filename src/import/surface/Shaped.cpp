@@ -56,98 +56,20 @@ void FillFrom(const Subject &from, Render::ShapeStore &into) {
   for (const Material &surface : from.Surfaces()) { into.Surfaces.push_back(surface); }
 }
 
-void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
-  const int parts = from.parts();
-  const auto firstSurface = static_cast<uint32_t>(into.Surfaces.size());
-  size_t wholeIndices = 0;
-  for (int part = 0; part < parts; ++part) { wholeIndices += from.trianglesOf(part).size(); }
-  into.Indices.reserve(wholeIndices);
-  for (int surface = 0; surface < from.surfaces(); ++surface) {
-    into.Surfaces.push_back(from.surfaceAt(MaterialInstance(surface)));
-  }
-  for (int lamp = 0; lamp < from.lamps(); ++lamp) {
-    PunctualLight standing = from.lampAt(lamp);
-    const Mat4 &at = from.lampPlacementOf(lamp);
-    const Vec3 stood = at.Translation();
-    for (int axis = 0; axis < 3; ++axis) {
-      standing.Position[axis] = static_cast<float>(stood[axis]);
-    }
-    into.Lamps.push_back(standing);
-  }
-
-  into.Parts.reserve(into.Parts.size() + static_cast<size_t>(parts));
-  size_t firstVertex =
-      into.Parts.empty() ? 0u : into.Parts.back().FirstVertex + into.Parts.back().VertexCount;
-  size_t firstIndex = into.Indices.size();
-  for (int part = 0; part < parts; ++part) {
-    Render::ShapePart made;
-    made.Name = from.nameOf(part);
-    const int wears = from.materialOf(part).index();
-    made.Material = wears < 0 ? -1 : static_cast<int>(firstSurface) + wears;
-    made.PositionsM = from.positionsOf(part);
-    made.Normals = from.normalsOf(part);
-    made.Tangents = from.tangentsOf(part);
-    made.Uv = from.textureOf(part, Geometry::UvSet::Uv0);
-    made.Uv1 = from.textureOf(part, Geometry::UvSet::Uv1);
-    made.Colours = from.coloursOf(part);
-    made.HasUv = !made.Uv.empty();
-    made.HasUv1 = !made.Uv1.empty();
-    made.HasNormal = !made.Normals.empty();
-    made.HasColour = !made.Colours.empty();
-    made.HasTangent = !made.Tangents.empty();
-    made.VertexCount = made.PositionsM.size() / 3;
-    made.FirstVertex = firstVertex;
-    const std::span<const uint32_t> order = from.trianglesOf(part);
-    made.FirstIndex = firstIndex;
-    made.IndexCount = order.size();
-    for (const uint32_t index : order) {
-      into.Indices.push_back(static_cast<uint32_t>(firstVertex) + index);
-    }
-    firstVertex += made.VertexCount;
-    firstIndex += order.size();
-    into.Parts.push_back(made);
-  }
-}
-
-Render::Shape Viewed(Render::ShapeStore &into) {
-  Render::CookShape(into, into.Surfaces);
-  Render::Shape out;
-  out.Parts = into.Parts;
-  out.Surfaces = into.Surfaces;
-  out.Lamps = into.Lamps;
-  out.Indices = into.Indices;
-  out.Clusters = into.Clusters;
-  out.ClusterSpheres = into.ClusterSpheres;
-  for (const Render::ShapePart &one : into.Parts) {
-    out.CarriesUv = out.CarriesUv || one.HasUv;
-    out.CarriesUv1 = out.CarriesUv1 || one.HasUv1;
-    out.CarriesNormal = out.CarriesNormal || one.HasNormal;
-    out.CarriesTangent = out.CarriesTangent || one.HasTangent;
-    out.CarriesColour = out.CarriesColour || one.HasColour;
-  }
-  return out;
-}
-
 }
 
 Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
   into.Clear();
   FillFrom(from, into);
-  return Viewed(into);
-}
-
-Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
-  into.Clear();
-  FillFrom(from, into);
-  return Viewed(into);
+  return Render::FinalizeShape(into);
 }
 
 Render::Shape
 Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &into) {
   into.Clear();
   FillFrom(from, into);
-  FillFrom(also, into);
-  return Viewed(into);
+  Render::AppendGeometry(also, into);
+  return Render::FinalizeShape(into);
 }
 
 }

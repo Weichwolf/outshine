@@ -162,7 +162,7 @@ void Live::Reshape() {
     return;
   }
   Shaped_ = alsoStands ? Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_)
-                       : Gltf::Shaped(Held_.Built(), ShapeParts_);
+                       : Render::PrepareShape(Held_.Built(), ShapeParts_);
 }
 
 namespace {

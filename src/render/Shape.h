@@ -12,12 +12,16 @@
 
 #include <scene/Material.h>
 #include <scene/PunctualLight.h>
-#include <string_view>
+#include <string>
+
+namespace outshine {
+class Geometry;
+}
 
 namespace outshine::Render {
 
 struct ShapePart {
-  std::string_view Name;
+  std::string Name;
   int Material = -1;
   bool HasUv = false;
   bool HasUv1 = false;
@@ -97,6 +101,10 @@ struct ShapeStore {
     ClusterSpheres.clear();
   }
 };
+
+void AppendGeometry(const Geometry &from, ShapeStore &into);
+[[nodiscard]] Shape FinalizeShape(ShapeStore &into);
+[[nodiscard]] Shape PrepareShape(const Geometry &from, ShapeStore &into);
 
 inline constexpr uint32_t kClusterTriangles = 128;
 void CookShape(ShapeStore &into, std::span<const Material> surfaces);

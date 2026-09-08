@@ -8,8 +8,6 @@ namespace outshine::Gltf {
 
 [[nodiscard]] Render::Shape Shaped(const Subject &from, Render::ShapeStore &into);
 
-[[nodiscard]] Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into);
-
 [[nodiscard]] Render::Shape
 Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &into);
 
