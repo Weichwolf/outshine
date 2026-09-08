@@ -60,3 +60,17 @@ müssen automatisch teilnehmen; keine zweite handgepflegte Liste oder C++-Texthe
 - [ ] Host-/Shader-Layouts und Stage-Interfaces samt Negativkontrollen stimmen überein.
 - [ ] Synchronisation und tatsächlich unterstützte Backends wie oben abgenommen.
 WI 2207 besitzt Paketauflösung und checkout-unabhängigen Start.
+
+## Aktiver Schritt: Compute-Katalog
+
+Alle acht eingebauten Compute-Programme in einem constexpr-Katalog: typisierte ID,
+Artefaktpfad und ComputeShape. Stages verwenden dieselbe ID für Pipeline-Aufbau und
+Workgroup-Daten; Cull/Scan/Compact verlieren ihre getrennten String-/Shape-Argumente.
+Der bestehende SPIR-V-Compiler bleibt als untere Ressourcengrenze mit seinen echten
+Fehlerpfadtests erhalten. Der Builtin-Einstieg akzeptiert nur katalogisierte IDs.
+Ein kompilierter Export liest den Katalog direkt als span; Make/Lint gleichen alle
+Compute-Artefakte und neun Shape-Felder gegen Reflection ab. Keine Python-Kopie der
+Runtime-Zähler. Negativkontrollen entfernen einen Eintrag und ändern jedes Feld;
+alle acht echten Pipelines und ungültige IDs am SDL-Einstieg prüfen. Graphics-/Host-
+Layout-/Slot-Identitätsabnahme bleibt offen. Shaderbytes und Renderbilder unverändert
+halten; Konventionssuite und gesicherte Kamera-PNGs prüfen.
