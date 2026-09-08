@@ -55,6 +55,11 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
   Szenarien und Spielzustand müssen speicherbar und wiederholbar sein.
 - Abhängigkeitstiers über `reaches` einhalten. Generatoren bleiben eigenständige
   Bibliothek. Etablierte Bibliotheken für Formate und Plattformarbeit verwenden.
+- Engine-Runtime ohne Exceptions kompilieren. Behandelbare Fehler als
+  `[[nodiscard]] std::expected`; Compilezeit-Invarianten mit `static_assert`.
+  `noexcept` bezeichnet geprüfte Nichtwerfen-Verträge. Abhängigkeiten und Callbacks
+  dürfen keine Exceptions in die Runtime tragen. Budgetüberschreitungen behandeln;
+  fatalen Speichermangel getrennt definieren. Migration und Nachweise in WI 2194.
 
 ## Prüfung
 

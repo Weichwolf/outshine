@@ -24,6 +24,9 @@ Komplexität durch vollständige fachliche Typen und Phasen senken, keine belieb
 Funktionshälften. Keine Warnungsunterdrückung, keine Grenzwertlockerung, kein blindes
 Fixit. Bei jeder Änderung Consumer und Fehlerpfade prüfen.
 
+Verbindlich mit umsetzen: exceptionsfreie Runtime, expected/nodiscard und passende
+static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfaden.
+
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
 
