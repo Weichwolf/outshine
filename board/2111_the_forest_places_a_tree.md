@@ -797,3 +797,33 @@ Piece-Zuordnungen und geklärter Lebensdauer registrieren; World.Instances müss
 geografisch korrekt geteilte Kronen-Draws erreichen. Cache-Miss-Vorbereitung,
 Blickrichtungswahl und begrenzte Tile-Residency bleiben Teil der Umsetzung, nicht
 Abnahme durch diesen privaten Renderer-Test ersetzen. WI 2111 bleibt active.
+
+## Live-Handoff mit stabilen Piece-Materialreferenzen
+
+Vor Implementierung: Native Geometriematerialindizes und registrierte Prototyp-
+materialien sind verschiedene Namensräume. PieceSurface unterscheidet sie explizit;
+der Renderer löst beide über kompakte Slot-Vektoren auf. Keine Hochbit-Magie und
+keine große sparse Tabelle. Vorhandene native Surface-Aufrufer behalten ihre Bedeutung.
+Live::RegisterPieceSurfaces übernimmt eine native Geometry samt Bildern, löst deren
+Texturbindungen auf und nutzt AppendSubjectMaterials. Registrierung liefert den
+ersten fortlaufenden Handle, kein flüchtiges GPU-Slot-Index. Live hält Quellen und
+aufgelöste Oberflächen bis zu seinem Ende; Registrierung erfolgt pro Prototyp,
+nicht pro Tile/Instanz. Die kommende Kronenresidenz begrenzt den Prototypkatalog.
+
+Bei Build/Restand werden registrierte Materialien nach den neu aufgelösten nativen
+Materialien wieder in die Tabelle eingefügt und ihre stabilen Handles neu auf
+Renderer-Slots abgebildet. Ein normaler Register-Aufruf darf weder Grundgeometrie
+neu bauen noch alte Texturen neu hochladen. Vollständiger Restand behält dagegen
+seinen bestehenden vollständigen Aufbau; dessen Beseitigung gehört zu 2124.
+Unreal/RAGE dienen als Benchmark für stabile Assetreferenzen trotz Streaming;
+hier vorhandene Geometry-Eigentümerschaft und Materialauflösung wiederverwenden.
+
+Beweis im GPU-Piece-Fall: Geometry mit Textur ohne Parts registrieren, Quelle aus
+dem Aufrufer entfernen, zwei Welt-Pieces über den Handle zeichnen; zusätzliche
+Registrierungen dürfen nichts überschreiben. Native Geometrie mit geändertem
+Materialbestand neu aufbauen, ohne Piece-Neuanlage; Textur/Handles müssen weiter
+stimmen. Fehlendes Bild/fehlende Oberflächen/ungeeigneter Pass verweigern und den
+Handlezähler erhalten. Negativkontrolle: registrierte Handles durch native
+Materialindizes auflösen; gezielte Farb-/Persistenzprüfungen müssen rot werden.
+PNG vor/nach Restand öffnen. Anschließend muss der Kronenverbrauch diese Registry
+erreichen; die Registry allein schließt 2111 nicht.
