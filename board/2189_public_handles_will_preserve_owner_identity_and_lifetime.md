@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: include, engine
 Tags: architecture, lifecycle
 Parent: 2188
@@ -36,3 +36,6 @@ Lebensdauer, Threadbindung und Invalidierung aller geliehenen Public-Werte dokum
 - [ ] Renderer/SwapChain/Host/Generator/scene-Lebensdauer im öffentlichen Vertrag.
 - [ ] Client baut ohne interne Includes; gültige Fenster-/Offscreen-Pfade unverändert.
 - [ ] Negativkontrolle entfernt Owner-Prüfung und lässt Zwei-Engine-Oracle scheitern.
+
+Quellprüfung: kein Engine-Move-Consumer in src/ oder test/outshine gefunden.
+Erster Consumer-Test nutzt ausschließlich Outshine.h und zwei Offscreen-Engines.
