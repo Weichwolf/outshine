@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
@@ -13,6 +13,15 @@ Skirts und unabhängige LOD-/Stamp-Auswertung können sichtbare Seitenstreifen p
 Die dunklen Stellen allein beweisen kein Loch: Schatten, Deckung, Winding und fehlende
 Flächen durch Depth-/Face-ID-/Normalbilder auseinanderhalten. Einstieg:
 `src/world/ground/tiles/TerrainGrid.*`, GroundLattice und `src/engine/Laying.cpp`.
+
+Aktueller Malcesine-Lauf ohne Vegetation: StitchEdges verändert virtuelle Randpunkte
+um bis zu 183,594 m, reale um 15,496 m; nach vorheriger Fehlerselektion. Stamping
+senkt höchstens 28,161 m ab und hebt höchstens 29,656 m an. Der Skirt-Verdacht ist
+in 2166 widerlegt. Ob die maximale Randänderung die sichtbare Felswand trifft,
+ist offen. Temporäre Diagnose protokolliert neue Randfehler-Maxima mit Tile, Quellzoom,
+Geokoordinate sowie Höhe vor/nach Stitching; Logs ins System-Tempverzeichnis.
+Erwartung: räumliche Zuordnung trennt sichtbare Wand von entfernten Nahtfehlern.
+Diagnose verändert keine Höhen und wird nach Auswertung wieder entfernt.
 
 Gemeinsame finale Rand-Samples und Edge-IDs je Tile/LOD, Nachbar-LOD beschränken,
 Stitch-Indizes oder gemeinsam morphten Rand verwenden. Stamp-/Relief-Änderungen invalidieren
