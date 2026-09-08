@@ -1101,3 +1101,39 @@ liefert den vorhandenen Terrain-Frame; Standortmatrizen einmal pro Platzierung
 vorbereiten, Blickgruppen pro Kamera aktualisieren. Begrenzte Residenz und
 Vorbereitung fehlender Artefakte sind Teil dieser Anbindung, kein ungebremster
 GPU-Bake auf einem laufenden Weltframe. 2111 bleibt active.
+
+## Produktiver World-Crown-Consumer mit separater Vorbereitung
+
+Vor Implementierung: WorldCrowns übernimmt vorhandene Weltinstanzen, sortiert
+nur bei Übergabe nach Spezies und bildet ModelIn-Matrizen im bestehenden Terrain-
+Frame. Pro tatsächlicher Spezies ein Zustand Wanted/Reading/Missing/Resident/Failed,
+pro residenter Art genau ein CrownPieces-Owner. Maximal 64 Prototypen und die
+vorhandene Platzierungsgrenze begrenzen den Katalog; kein Baum erhält eigene
+Materialregistrierungen. Live überlebt die Kronen; Declare/Park räumen zuerst
+Kronen, dann Live auf. Normale Kameraframes aktualisieren nur Blickgruppen.
+
+CrownCache übernimmt begrenzte IO-Aufträge auf separaten IO-Threads. Ein fehlendes
+Artefakt wird ausschließlich während explizitem preload vorbereitet: ein einzelner
+Bake-Auftrag auf einem separaten Worker, nie im normalen Updates-Pfad. Nach Publish
+wird es über denselben Cache-Ladepfad übernommen. Fehler bleiben sichtbar. Der
+Consumer installiert höchstens einen geladenen Atlas pro Schritt. Dies ist noch
+kein Nachweis, dass ein einzelner Upload in 16.67 ms passt; zunächst Stand-Vorladung.
+Preload/settled zählen Kronen mit, damit kahle Bilder nicht als geladen gelten.
+
+Die Place-Prüfung behält ihren 15-s-Preload. Ein eigener Make-Einstieg bereitet
+fehlende generierte Assets mit explizitem längerem Zeitlimit vor; er liefert keine
+Framebudget-Abnahme. Danach laufen unveränderte normale shots. Unreal/RAGE-
+Benchmark: vorbereitete abgeleitete Assets, asynchrones Laden, begrenzte residente
+Prototypen und gemeinsame Instanzen. Kein ungebremster Hintergrund-GPU-Bake in
+einem laufenden Weltframe. Globale Cache-Miss-Streams außerhalb der Vorladung und
+ringweite Platzierungs-Residenz bleiben danach offen, statt stillschweigend Bakes
+im Echtzeitpfad zu aktivieren.
+
+Beweis/Abnahme: echter geladener Birkenatlas über Consumer und geografische
+Platzierungen, leere/nichtbaumartige Gruppen, fehlendes Artefakt ohne erlaubte
+Vorbereitung startet keinen Bake; Vorbereitung und erneutes Laden erreichen den
+residenten Zustand. Negativkontrolle lässt fertige Atlasdaten ohne Instanzübergabe
+liegen: erwartete Kronenpixel fehlen. Danach Koerbersee vorbereiten, normal rendern,
+PNG selbst gegen vorherigen Stand/Webcam prüfen, Zahlen separat ausweisen. Die
+aktuelle Flora mischt noch sämtliche Katalogarten; deren Ökologie ist weiterhin
+2176. Ein sichtbarer Wald schließt weder diesen Fehler noch 2111 als Ganzes.
