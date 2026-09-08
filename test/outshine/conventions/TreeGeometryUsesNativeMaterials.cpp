@@ -34,7 +34,7 @@ int main() {
     bool same = true;
     for (size_t at = 0; at < first.Nodes.size(); ++at) {
       same = same && first.Nodes[at].Pos == again.Nodes[at].Pos &&
-                    first.Nodes[at].Radius == again.Nodes[at].Radius;
+             first.Nodes[at].Radius == again.Nodes[at].Radius;
     }
     CHECK(same, "identical seeds reproduce positions and radii exactly");
   }
@@ -52,51 +52,70 @@ int main() {
   CHECK_NEAR(look.BarkRoughness, 0.23, 1e-7, "ratio", "bark roughness is not a renderer constant");
   CHECK_NEAR(look.LeafRoughness, 0.78, 1e-7, "ratio", "leaf roughness is independent of bark");
   const std::string invalid = R"({"name":"invalid","leaf_roughness":1.2})";
-  CHECK(!materialSpecies.Parse(invalid.data(), invalid.size()), "invalid roughness is refused at the data boundary");
-  CHECK(materialSpecies.Definition()==varied && materialSpecies.Name()=="material" &&
-        materialSpecies.ShadingParams().LeafRoughness==look.LeafRoughness &&
-        materialSpecies.ShadingParams().BarkRoughness==look.BarkRoughness && !materialSpecies.Error().empty(),
+  CHECK(!materialSpecies.Parse(invalid.data(), invalid.size()),
+        "invalid roughness is refused at the data boundary");
+  CHECK(materialSpecies.Definition() == varied && materialSpecies.Name() == "material" &&
+            materialSpecies.ShadingParams().LeafRoughness == look.LeafRoughness &&
+            materialSpecies.ShadingParams().BarkRoughness == look.BarkRoughness &&
+            !materialSpecies.Error().empty(),
         "rejected profile preserves accepted definition and material parameters");
-  std::string replacement=R"({"name":"replacement"})";
-  CHECK(materialSpecies.Parse(replacement.data(),replacement.size()), "replacement profile parses");
-  CHECK(materialSpecies.ShadingParams().BarkRoughness==TreeSpecies::kShadingUnsaid.BarkRoughness &&
-        materialSpecies.ShadingParams().LeafRoughness==TreeSpecies::kShadingUnsaid.LeafRoughness,
+  std::string replacement = R"({"name":"replacement"})";
+  CHECK(materialSpecies.Parse(replacement.data(), replacement.size()),
+        "replacement profile parses");
+  CHECK(materialSpecies.ShadingParams().BarkRoughness ==
+                TreeSpecies::kShadingUnsaid.BarkRoughness &&
+            materialSpecies.ShadingParams().LeafRoughness ==
+                TreeSpecies::kShadingUnsaid.LeafRoughness,
         "a replacement profile uses defaults rather than the preceding profile's roughness");
-  CHECK(materialSpecies.Definition()==replacement && materialSpecies.Error().empty(),
+  CHECK(materialSpecies.Definition() == replacement && materialSpecies.Error().empty(),
         "successful profile replacement publishes its own definition and clears the old error");
-  replacement.assign(replacement.size(),'x');
-  CHECK(materialSpecies.Definition()==R"({"name":"replacement"})",
+  replacement.assign(replacement.size(), 'x');
+  CHECK(materialSpecies.Definition() == R"({"name":"replacement"})",
         "profile owns its source after the caller changes the input buffer");
-  CHECK(species.Definition()==text, "generator profile retains the exact parsed source for cache provenance");
+  CHECK(species.Definition() == text,
+        "generator profile retains the exact parsed source for cache provenance");
   const auto tree = TreePrototype::Grow(species);
   CHECK(tree.has_value(), "the existing growth model creates a prototype");
   if (!tree) { return Report(); }
   CHECK(!tree->GeometryAt(tree->Ranks().size()), "an absent LOD is refused");
-  if (!SDL_Init(SDL_INIT_VIDEO)) { Unprepared(SDL_GetError()); return Report(); }
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    Unprepared(SDL_GetError());
+    return Report();
+  }
   double coarseLeafArea = 0;
   for (const size_t rank : {size_t{3}, size_t{0}}) {
     CHECK_NEAR(tree->Ranks()[rank].CardLeafM * species.LeafParams().Length,
-               species.LeafParams().CardH, 1e-4, "m",
+               species.LeafParams().CardH,
+               1e-4,
+               "m",
                "distance changes representation without inflating individual leaves");
     const auto started = std::chrono::steady_clock::now();
     const auto geometry = tree->GeometryAt(rank);
     const auto built = std::chrono::steady_clock::now();
-    std::printf("tree rank %zu leaf length %.6f m native geometry build %.3f ms (CPU only, no frame rate)\n",
-                rank, species.LeafParams().Length * tree->Ranks()[rank].CardLeafM,
+    std::printf("tree rank %zu leaf length %.6f m native geometry build %.3f ms (CPU only, no "
+                "frame rate)\n",
+                rank,
+                species.LeafParams().Length * tree->Ranks()[rank].CardLeafM,
                 std::chrono::duration<double, std::milli>(built - started).count());
     CHECK(geometry.has_value(), "the prototype produces native geometry");
     if (!geometry) { return Report(); }
-    CHECK(geometry->parts() == 2 && geometry->surfaces() == 2, "bark and leaves have separate surfaces");
+    CHECK(geometry->parts() == 2 && geometry->surfaces() == 2,
+          "bark and leaves have separate surfaces");
     for (int part = 0; part < geometry->parts(); ++part) {
       const Material &material = geometry->surfaceAt(geometry->materialOf(part));
       CHECK(material.Metalness == 0, "wood and foliage are dielectric");
-      const double expected = part == 0 ? species.ShadingParams().BarkRoughness
-                                         : species.ShadingParams().LeafRoughness;
-      CHECK_NEAR(material.Roughness, expected, 1e-7, "ratio", "roughness retains its species declaration");
-      CHECK(material.DoubleSided == (part == 1), "leaf surfaces shade both sides, bark remains a solid surface");
-      CHECK(!geometry->positionsOf(part).empty() && !geometry->trianglesOf(part).empty(), "both surfaces have geometry");
-      std::printf("tree part %s vertices %zu triangles %zu\n", geometry->nameOf(part).data(),
-                  geometry->positionsOf(part).size()/3, geometry->trianglesOf(part).size()/3);
+      const double expected =
+          part == 0 ? species.ShadingParams().BarkRoughness : species.ShadingParams().LeafRoughness;
+      CHECK_NEAR(
+          material.Roughness, expected, 1e-7, "ratio", "roughness retains its species declaration");
+      CHECK(material.DoubleSided == (part == 1),
+            "leaf surfaces shade both sides, bark remains a solid surface");
+      CHECK(!geometry->positionsOf(part).empty() && !geometry->trianglesOf(part).empty(),
+            "both surfaces have geometry");
+      std::printf("tree part %s vertices %zu triangles %zu\n",
+                  geometry->nameOf(part).data(),
+                  geometry->positionsOf(part).size() / 3,
+                  geometry->trianglesOf(part).size() / 3);
     }
     double leafArea = 0;
     Vec3 projectedArea{};
@@ -106,19 +125,27 @@ int main() {
       std::array<Vec3, 3> corners;
       for (size_t corner = 0; corner < 3; ++corner) {
         const size_t vertex = static_cast<size_t>(leafTriangles[at + corner]) * 3;
-        corners[corner] = {{leafPositions[vertex], leafPositions[vertex + 1], leafPositions[vertex + 2]}};
+        corners[corner] = {
+            {leafPositions[vertex], leafPositions[vertex + 1], leafPositions[vertex + 2]}};
       }
       const Vec3 area = Cross(corners[1] - corners[0], corners[2] - corners[0]) * 0.5;
       leafArea += Length(area);
       for (size_t axis = 0; axis < 3; ++axis) { projectedArea[axis] += std::abs(area[axis]); }
     }
-    if (rank == 3) { coarseLeafArea = leafArea; }
-    else {
+    if (rank == 3) {
+      coarseLeafArea = leafArea;
+    } else {
       CHECK(std::abs(coarseLeafArea / leafArea - 1.0) <= 0.02 + 1e-6,
-            "native coarse foliage retains the one-sided area of the fine reference within two percent");
+            "native coarse foliage retains the one-sided area of the fine reference within two "
+            "percent");
     }
-    std::printf("tree rank %zu one-sided leaf area %.6f m2 projected sums XYZ %.6f %.6f %.6f m2 (no occlusion or image coverage)\n",
-                rank, leafArea, projectedArea[0], projectedArea[1], projectedArea[2]);
+    std::printf("tree rank %zu one-sided leaf area %.6f m2 projected sums XYZ %.6f %.6f %.6f m2 "
+                "(no occlusion or image coverage)\n",
+                rank,
+                leafArea,
+                projectedArea[0],
+                projectedArea[1],
+                projectedArea[2]);
     if (rank == 3) {
       const auto foliage = geometry->positionsOf(1);
       const size_t bladeFloats = foliage.size() / tree->Ranks()[rank].CardCount;
@@ -142,11 +169,16 @@ int main() {
       for (const auto &point : first.LeafPoints) {
         growthAttachments.insert({point.Pos[0], point.Pos[1], point.Pos[2]});
       }
-      std::printf("attachments growth %zu unique %zu leaves %zu per point %.6f native origins %zu\n",
-                  first.LeafPoints.size(), growthAttachments.size(), leafCount,
-                  placed.PerPoint(), attachments.size());
-      CHECK(attachments == expectedAttachments,
-            "native leaf origins preserve input positions and multiplicity instead of forming fans");
+      std::printf(
+          "attachments growth %zu unique %zu leaves %zu per point %.6f native origins %zu\n",
+          first.LeafPoints.size(),
+          growthAttachments.size(),
+          leafCount,
+          placed.PerPoint(),
+          attachments.size());
+      CHECK(
+          attachments == expectedAttachments,
+          "native leaf origins preserve input positions and multiplicity instead of forming fans");
     }
     float highest = 0;
     const auto bark = geometry->positionsOf(0);
@@ -170,19 +202,21 @@ int main() {
       view.Sees.Stands.AtM = {{0, 11, 35}};
       view.Sees.LooksAt = true;
       view.Sees.LookAtM = {{0, 11, 0}};
-      view.Sees.setProjection(Scenario::Camera::Ortho{.XMagM=close ? 1.5 : 13,
-                                                    .YMagM=close ? 1.6875 : 14,
-                                                    .NearM=0.1,.FarM=100});
+      view.Sees.setProjection(Scenario::Camera::Ortho{
+          .XMagM = close ? 1.5 : 13, .YMagM = close ? 1.6875 : 14, .NearM = 0.1, .FarM = 100});
       scenario.Views.push_back(view);
-      if (!engine.drawsInto({640,720}) || !engine.declare(scenario) || !engine.setGeometry(*geometry) ||
-          !engine.assemble() || !engine.advance() || !engine.renderer().render({})) {
+      if (!engine.drawsInto({640, 720}) || !engine.declare(scenario) ||
+          !engine.setGeometry(*geometry) || !engine.assemble() || !engine.advance() ||
+          !engine.renderer().render({})) {
         Unprepared(engine.error().c_str());
         return Report();
       }
       std::filesystem::create_directories("build/tree-native");
-      const char *path = close ? "build/tree-native/birch-fine-close.png" :
-                         rank == 0 ? "build/tree-native/birch-fine.png" : "build/tree-native/birch.png";
-      CHECK(engine.renderer().saveScreenshot(path).has_value(), "the native renderer writes the tree image");
+      const char *path = close       ? "build/tree-native/birch-fine-close.png"
+                         : rank == 0 ? "build/tree-native/birch-fine.png"
+                                     : "build/tree-native/birch.png";
+      CHECK(engine.renderer().saveScreenshot(path).has_value(),
+            "the native renderer writes the tree image");
     }
   }
   return Report();

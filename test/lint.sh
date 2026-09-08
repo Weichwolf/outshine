@@ -34,17 +34,11 @@ done
 [ -f compile_commands.json ] || { printf 'lint: no compile_commands.json -- run `make db`\n' >&2; exit 2; }
 
 mkdir -p "$REPORT"
-# what git holds or would hold: the lab's .venv under test/ carries 24 834 headers nobody wrote
-ours=$(git ls-files --cached --others --exclude-standard src include test | grep -E '\.(cpp|h)$' | grep -v '/shaders/' | while IFS= read -r source; do
-  [ ! -f "$source" ] || printf '%s\n' "$source"
-done | sort)
-
 printf '== format ==\n'
-if "$LLVM/clang-format" --dry-run --Werror $ours 2>"$REPORT/format.log"; then
+if python3 test/scripts/format_sources.py --tool "$LLVM/clang-format" --check 2>"$REPORT/format.log"; then
   printf 'lint: every file is formatted\n'
 else
-  printf 'lint: %s file(s) are not formatted -- `clang-format -i` on them, or see %s\n' \
-    "$(cut -d: -f1 "$REPORT/format.log" | sort -u | wc -l | tr -d ' ')" "$REPORT/format.log" >&2
+  printf 'lint: formatting failed -- run `make format`, or see %s\n' "$REPORT/format.log" >&2
   red=$((red + 1))
 fi
 

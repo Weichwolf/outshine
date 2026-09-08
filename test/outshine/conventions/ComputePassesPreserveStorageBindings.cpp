@@ -4,8 +4,8 @@
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  const auto compiled = Compiled::Compile({.Outputs = {Resource::SceneHdr},
-                                           .Content = {Stage::Subjects, Stage::Sky}});
+  const auto compiled = Compiled::Compile(
+      {.Outputs = {Resource::SceneHdr}, .Content = {Stage::Subjects, Stage::Sky}});
   CHECK(compiled.has_value(), "the sky and subject plan compiles");
   if (!compiled) { return Report(); }
   bool irradiance = false;
@@ -14,8 +14,8 @@ int main() {
     for (size_t at = 0; at < pass.Count; ++at) {
       const Stage stage = (*compiled)->Order()[pass.First + at];
       if (stage != Stage::Irradiance && stage != Stage::SubjectCull) { continue; }
-      const Resource expected = stage == Stage::Irradiance ? Resource::IrradianceBuffer
-                                                          : Resource::ClusterKept;
+      const Resource expected =
+          stage == Stage::Irradiance ? Resource::IrradianceBuffer : Resource::ClusterKept;
       bool first = true;
       for (const Resource buffer : pass.Buffers) {
         if (first) {

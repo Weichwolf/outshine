@@ -15,7 +15,8 @@ int main() {
   const UvPoint u = transformed.Apply({.U = 1, .V = 0});
   const UvPoint v = transformed.Apply({.U = 0, .V = 1});
   CHECK(near(u.U, 0) && near(u.V, 0.5),
-        "KHR_texture_transform: top-left UV origin, translation * counterclockwise rotation * scale sends "
+        "KHR_texture_transform: top-left UV origin, translation * counterclockwise rotation * "
+        "scale sends "
         "(1,0) to (0,0.5)");
   CHECK(near(v.U, 0.5) && near(v.V, 1),
         "KHR_texture_transform: the second basis vector goes right in +V-down coordinates");
@@ -74,33 +75,30 @@ int main() {
   const auto depthAt = [](const Mat4f &p, float distance) {
     return (-p[10] * distance + p[14]) / (-p[11] * distance + p[15]);
   };
-  Render::Lens gpu{.WidePx = 1280, .HighPx = 720, .OrthoWidthM = 4, .OrthoM = 6,
-                   .NearM = 1, .FarM = 11};
+  Render::Lens gpu{
+      .WidePx = 1280, .HighPx = 720, .OrthoWidthM = 4, .OrthoM = 6, .NearM = 1, .FarM = 11};
   Mat4f device = gpu.Projection();
-  CHECK(std::abs(device[0] - 0.5f) < 1e-6f &&
-            std::abs(device[5] - 1.0f / 3) < 1e-6f,
+  CHECK(std::abs(device[0] - 0.5f) < 1e-6f && std::abs(device[5] - 1.0f / 3) < 1e-6f,
         "GPU orthographic magnifications remain independent of the 16:9 canvas");
-  CHECK(std::abs(depthAt(device, 1) - 1) < 1e-6f &&
-            std::abs(depthAt(device, 11)) < 1e-6f,
+  CHECK(std::abs(depthAt(device, 1) - 1) < 1e-6f && std::abs(depthAt(device, 11)) < 1e-6f,
         "GPU orthographic depth maps the declared near/far to reverse-Z 1/0");
   gpu.OrthoM = gpu.OrthoWidthM = 0;
   gpu.FovDeg = 90;
   device = gpu.Projection();
-  CHECK(std::abs(depthAt(device, 1) - 1) < 1e-6f &&
-            std::abs(depthAt(device, 11)) < 1e-6f,
+  CHECK(std::abs(depthAt(device, 1) - 1) < 1e-6f && std::abs(depthAt(device, 11)) < 1e-6f,
         "GPU finite perspective honours both declared clipping planes");
   for (float distance : {1.0f, 3.0f, 11.0f}) {
     const float depth = depthAt(device, distance);
-    const float reconstructed = (device[14] - depth * device[15]) /
-                                (device[10] - depth * device[11]);
+    const float reconstructed =
+        (device[14] - depth * device[15]) / (device[10] - depth * device[11]);
     CHECK(std::abs(reconstructed - distance) < 1e-5f,
           "aerial perspective reconstructs physical distance from the finite projection");
   }
   gpu.FarM = 0;
   device = gpu.Projection();
-  CHECK(std::abs(depthAt(device, 10) - 0.1f) < 1e-6f,
-        "infinite reverse-Z retains near / distance");
+  CHECK(std::abs(depthAt(device, 10) - 0.1f) < 1e-6f, "infinite reverse-Z retains near / distance");
   Covers("public camera projection and quaternion orientation, and KHR_texture_transform's "
-         "top-left UV convention and numeric example; GPU projection extents, finite/infinite reverse depth; no geodetic-pose coverage");
+         "top-left UV convention and numeric example; GPU projection extents, finite/infinite "
+         "reverse depth; no geodetic-pose coverage");
   return Report();
 }

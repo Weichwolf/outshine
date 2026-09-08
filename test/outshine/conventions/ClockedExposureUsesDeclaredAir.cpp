@@ -9,7 +9,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  if (!SDL_Init(SDL_INIT_VIDEO)) { Unprepared(SDL_GetError()); return Report(); }
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    Unprepared(SDL_GetError());
+    return Report();
+  }
   std::array<double, 3> measured{};
   for (size_t at = 0; at < measured.size(); ++at) {
     Render::SceneRenderer renderer;
@@ -27,8 +30,13 @@ int main() {
     }
     measured[at] = scene->MeteredLux();
     std::printf("haze %.0f metered %.9f lux\n", declaration.Haze, measured[at]);
-    CHECK(measured[at] > 0 && std::isfinite(measured[at]), "daylight meters a finite positive illuminance");
-    CHECK_NEAR(scene->MeteredLux(), measured[at], 0.0, "lux", "unchanged air and sun reuse the same result");
+    CHECK(measured[at] > 0 && std::isfinite(measured[at]),
+          "daylight meters a finite positive illuminance");
+    CHECK_NEAR(scene->MeteredLux(),
+               measured[at],
+               0.0,
+               "lux",
+               "unchanged air and sun reuse the same result");
   }
   CHECK(std::abs(measured[0] - measured[2]) > 1.0,
         "changing the declared aerosol density changes the clocked daylight exposure");

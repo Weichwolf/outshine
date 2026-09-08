@@ -33,7 +33,11 @@ int main() {
                          (!body.empty() && body.back() != '\n' ? 1u : 0u);
     if (!Fits(lines, body.size())) {
       std::printf("  %s: %zu/%zu lines, %zu/%zu bytes\n",
-                  entry.path().c_str(), lines, kMaxLines, body.size(), kMaxBytes);
+                  entry.path().c_str(),
+                  lines,
+                  kMaxLines,
+                  body.size(),
+                  kMaxBytes);
     }
     CHECK(Fits(lines, body.size()), "a work item is bounded by 120 lines and 12 KiB");
   }

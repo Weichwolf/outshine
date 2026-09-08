@@ -10,7 +10,10 @@ int main() {
   for (size_t at = 0; at < cardinal.size(); ++at) {
     const Vec3 direction = EastUpSouthDirection(at * std::numbers::pi / 2, 0);
     for (size_t axis = 0; axis < 3; ++axis) {
-      CHECK_NEAR(direction[axis], cardinal[at][axis], 1e-12, "unit",
+      CHECK_NEAR(direction[axis],
+                 cardinal[at][axis],
+                 1e-12,
+                 "unit",
                  "north/east/south/west bearings map to -Z/+X/+Z/-X in the render frame");
     }
   }

@@ -8,8 +8,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Loaded asset;
-  const bool loaded = asset.reads(PreparedRoot() +
-                                 "/test-khronos-glTF-TextureTransformTest/scene.gltf");
+  const bool loaded =
+      asset.reads(PreparedRoot() + "/test-khronos-glTF-TextureTransformTest/scene.gltf");
   CHECK(loaded, "the pinned Khronos TextureTransformTest loads through the public door");
   if (!loaded) { return Report(); }
   const std::array<UvTransformProperties, 6> expected = {{
@@ -24,7 +24,8 @@ int main() {
   CHECK(geometry.surfaces() >= static_cast<int>(expected.size()),
         "the six transformed Khronos materials are exposed");
   for (size_t at = 0; at < expected.size() && at < static_cast<size_t>(geometry.surfaces()); ++at) {
-    const SurfaceMap &map = geometry.surfaceAt(MaterialInstance(static_cast<int>(at))).BaseColourMap;
+    const SurfaceMap &map =
+        geometry.surfaceAt(MaterialInstance(static_cast<int>(at))).BaseColourMap;
     CHECK(map.bound(), "the material exposes its image");
     CHECK(map.Uv == expected[at],
           "KHR_texture_transform offset, rotation and scale survive the public material handoff");

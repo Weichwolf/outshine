@@ -27,12 +27,23 @@ Ausführungsvertrag. Fixtures übernehmen die echte Compile-Konfiguration aus de
 Datenbank. Scanner-Tests laufen weiter vor Quellmutation. Logs und Ausführungsmanifest
 liegen im System-Tempverzeichnis; keine Warnungsunterdrückung als Reparatur.
 
+Formatierung: make format und Lint benutzen dieselbe Git-basierte Dateiauswahl, mit
+sicherer Übergabe von Pfaden. Leere Abdeckung und Toolfehler sind rot; Dateiverdikte
+werden gezählt, nicht Quelltextzeilen in Diagnosen. Der alte Bericht „740 Dateien“
+war falsch: 20 von 546 Dateien hatten Formatdiagnosen. Keine Stilregeln gelockert.
+Vier Tests mit echtem clang-format prüfen Diagnostics/Fix/Idempotenz, leere Abdeckung,
+fehlendes Tool sowie eigene/ignorierte/gelöschte Dateien und Pfade mit Leerzeichen.
+546 Dateien geprüft, keine Formatabweichung.
+
 ## Verbleibende Arbeit
 
-Aktuelle Lint-Gruppen rot: Format, Tidy, öffentliche Dokumentation, Writer-Coverage.
+Aktuelle Lint-Gruppen rot: Tidy (215), öffentliche Dokumentation (673), Writer-Coverage.
 make test als Ganzes ist nicht neu abgenommen. Shader-Coverage nach 2152 auf GLSL-
 Artefakte umstellen: der alte MSL-Scanner meldet noch grünes 0/0 ohne Abdeckung.
 Gate-Dauer und Abdeckung je Teil ausweisen; keine langsamen Pflichtprüfungen entfernen.
+Der Client-Link meldet doppelte rpath-/SDL3-Einträge als Warnungen trotz Exit 0.
+Transitive Linkflags mit korrekter Reihenfolge konsolidieren; Linkerwarnungen
+plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 
 ## Abnahme
 

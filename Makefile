@@ -102,7 +102,7 @@ strip: test-strip-comments ## remove src comments, keep only include Doxygen; le
 db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db
 
-lint: test-tidy-analysis db ## format, static analysis, and this tree's own repository rules
+lint: test-format test-tidy-analysis db ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && sh test/lint.sh
 
 doc:             ## the door's documentation -> build/doc
@@ -141,3 +141,11 @@ test-client-data: all ## verify external place scenarios through the client
 .PHONY: test-tidy-analysis
 test-tidy-analysis: db ## prove clean analysis and incomplete-run detection with real clang-tidy
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_tidy_analysis.py
+
+.PHONY: format
+format: strip ## apply repository formatting to the same owned files lint checks
+	@cd $(SELF_DIR) && python3 test/scripts/format_sources.py --tool $(LLVM_BIN)/clang-format
+
+.PHONY: test-format
+test-format: ## verify formatting coverage, real diagnostics and failure handling
+	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_format_sources.py

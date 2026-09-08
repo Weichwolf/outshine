@@ -15,7 +15,8 @@ double Area(const TreeMesh &mesh) {
     std::array<Vec3, 3> triangle;
     for (size_t corner = 0; corner < 3; ++corner) {
       const size_t index = mesh.LeafIdx[at + corner] * TreeMesh::kLeafFloats;
-      triangle[corner] = {{mesh.LeafVerts[index], mesh.LeafVerts[index + 1], mesh.LeafVerts[index + 2]}};
+      triangle[corner] = {
+          {mesh.LeafVerts[index], mesh.LeafVerts[index + 1], mesh.LeafVerts[index + 2]}};
     }
     area += Length(Cross(triangle[1] - triangle[0], triangle[2] - triangle[0])) * 0.5;
   }
@@ -27,8 +28,7 @@ std::optional<Vec3> Sample(const TreeMesh &mesh, double u, double v) {
     const float *a = &mesh.LeafVerts[mesh.LeafIdx[at] * TreeMesh::kLeafFloats];
     const float *b = &mesh.LeafVerts[mesh.LeafIdx[at + 1] * TreeMesh::kLeafFloats];
     const float *c = &mesh.LeafVerts[mesh.LeafIdx[at + 2] * TreeMesh::kLeafFloats];
-    const double determinant = (b[7] - c[7]) * (a[6] - c[6]) +
-                               (c[6] - b[6]) * (a[7] - c[7]);
+    const double determinant = (b[7] - c[7]) * (a[6] - c[6]) + (c[6] - b[6]) * (a[7] - c[7]);
     if (std::abs(determinant) < 1e-12) { continue; }
     const double wa = ((b[7] - c[7]) * (u - c[6]) + (c[6] - b[6]) * (v - c[7])) / determinant;
     const double wb = ((c[7] - a[7]) * (u - c[6]) + (a[6] - c[6]) * (v - c[7])) / determinant;
@@ -78,8 +78,11 @@ int main() {
       CHECK(largest <= tolerance + 1e-6,
             "independent barycentric samples obey the declared surface deviation");
       std::printf("leaf irregular %d tolerance %.3f triangles %zu -> %zu largest deviation %.6f\n",
-                  irregular, tolerance, reference.LeafIdx.size() / 3,
-                  simplified.LeafIdx.size() / 3, largest);
+                  irregular,
+                  tolerance,
+                  reference.LeafIdx.size() / 3,
+                  simplified.LeafIdx.size() / 3,
+                  largest);
     }
   }
   CHECK(reduced, "the bounded selection removes redundant blade stations");
