@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: engine, include, scenario
 Tags: architecture, state, errors
 Parent: 2188
@@ -29,6 +29,25 @@ Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2189 Handle-Identität, 2151 Persistenzschema.
+
+## Aktiver Schritt: Target-Konfiguration
+
+SceneRenderer::DrawsInto gibt bislang das alte Fenster/Offscreen-Target vor Claim,
+Swapchain-Konfiguration und Texturerzeugung frei. Kandidaten zuerst vorbereiten;
+Fehler kopieren, Kandidaten freigeben, alte Ressourcen/Dimensionen erhalten.
+Offscreen-Textur über vorhandenes OwnedTexture übernehmen. Window-Claim bei späterem
+Fehler zurückgeben. SDL_GetWindowSizeInPixels prüfen; Targeted/Frame erst nach Erfolg
+publizieren. Wechsel während offenem Frame verweigern. Gültige Fenster bleiben geliehen.
+https://wiki.libsdl.org/SDL3/SDL_ClaimWindowForGPUDevice
+https://wiki.libsdl.org/SDL3/SDL_SetGPUSwapchainParameters
+https://wiki.libsdl.org/SDL3/SDL_CreateGPUTexture
+
+Tests: Erstkonfiguration verweigert, ungültige Extents, Fenster bereits von anderer
+Engine beansprucht, Wechsel bei offenem Frame, alter Owner weiter nutzbar und Claim
+nach Freigabe wieder möglich. Fehler an der SDL-Grenze gezielt injizieren; Kontrolle
+mit vorzeitiger Veröffentlichung muss scheitern. Keine erwartete Änderung gültiger
+Pixel; Fenster-/Offscreen-Wechsel und verbleibende Resize-/Pipeline-Verträge getrennt
+prüfen. Dieser Schritt schließt die übrigen Engine-Mutatoren nicht ab.
 
 ## Abnahme
 
