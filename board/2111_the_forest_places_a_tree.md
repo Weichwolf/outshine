@@ -677,3 +677,45 @@ fehlende/geänderte Provenienz und übergroße Datei prüfen. Worker mit Test-La
 anhalten: Request und Take müssen zurückkehren, ohne den Latch abzuwarten.
 Unreal/RAGE shared derived-data cache als Prinzip; dieser Schritt baut noch keinen
 GPU-Produzenten in den aktiven Weltframe und ersetzt nicht den geplanten Live-Verbrauch.
+
+
+## Asynchroner Dateicache implementiert; 2181 geschlossen
+
+CrownCache nutzt ContentStore statt eines zweiten Dateischreibers. Publish kodiert
+und veröffentlicht vollständig, Read stellt begrenzte Tasks-Aufträge ein, Take
+übergibt abgeschlossene Ergebnisse. Identische offene Provenienzen werden koalesziert.
+Default: zwei offene Aufträge, je 16 MiB Dateiobergrenze. Dateiname SHA256(Provenienz),
+zusätzliche Codec-Provenienzprüfung nach IO. Fehler/Miss liefern ein Ergebnis ohne
+Atlas samt Fehlertext. Tasks muss den Cache überleben; Destruktor drainiert eigene
+Handles vor Store-Freigabe. Konstruktion, Publish und Destruktion gehören nicht in
+reguläre Updates. Keine Behauptung eines generell lockfreien Aufrufpfads: Tasks
+verwendet bereits kurze Mutex-Operationen für Post/Done.
+
+ContentStore::Read akzeptiert jetzt ein explizites optionales Byte-Limit und prüft
+Dateigröße vor Payload-Allokation. CrownCache setzt dieses Limit immer.
+Keep liefert Erfolg/Fehlschlag und öffnet temporäre Namen exklusiv, mit maximal
+64 Kollisionsversuchen. Bestehende temporäre Dateien werden nicht abgeschnitten.
+SourceSet behandelt Cache-Schreibfehler weiterhin über vorhandene Zähler als nonfatal.
+Atomische Sichtbarkeit durch rename; keine neue Crash-Durability-/fsync-Garantie.
+
+`make suite SUITE=outshine/conventions`, build/crown-cache-restored.log:
+Exit 0, 19/19 PASS; Kronenfall 131 Checks. Echter Atlas wird publiziert, über Worker
+zurückgelesen und für sämtliche vorhandenen Kartenrender-/Normalenorakel verwendet.
+Worker per Latch blockiert: Read/Take kehren vor dessen Freigabe zurück, Duplikat
+belegt keinen zweiten Auftrag, dritter offener Auftrag wird abgelehnt. Stale Bytes
+unter falschem Provenienzschlüssel abgewiesen. Exact-byte-Readlimit, Temp-Kollision,
+zweite Store-Instanz, fehlgeschlagene rename-Veröffentlichung auf ein Verzeichnis
+und Destruktion mit offenem Auftrag geprüft. Karten-PNGs geöffnet: unveränderte
+dünne Birkenkrone mit gleicher Beleuchtung; noch keine Weltintegration.
+
+Negativkontrolle nur fopen-Modus wbx → wb in ContentStore:
+build/crown-cache-exclusive-negative.log, Exit 2, 17/19 PASS (zusätzlich bekannter
+Schachfall). Kronenfall 131 Checks, genau ein Fehler: reservierte fremde temporäre
+Datei wird zerstört. Quelle wiederhergestellt, obiger Abschlusslauf danach.
+Der grüne Schachfall im Abschlusslauf schließt seine Intermittenz 2179 nicht.
+
+2181 ist damit für explizite Lesegrenzen und isolierte Veröffentlichung erledigt.
+Nächster Schritt ist der produktive Verbraucher: Materialien/Bilder geladener Kronen
+bei Live registrieren und World.Instances auf geteilte Kronengeometrie abbilden.
+Cache-Miss-Produktion/Vorbereitung und Blickrichtungswahl bleiben dabei erforderlich;
+der Dateicache allein zeichnet noch keinen Wald. WI 2111 bleibt aktiv.

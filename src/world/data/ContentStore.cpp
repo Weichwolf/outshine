@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <atomic>
 #include <cstdio>
+#include <cerrno>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -79,7 +80,8 @@ ContentStore::ContentStore(const Config &config)
   }
 }
 
-std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key) const {
+std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key,
+                                                       size_t mostBytes) const {
   if (Using_ != Use::On) { return std::nullopt; }
   const std::string path = Directory_ + "/" + std::string(key);
   std::FILE *f = std::fopen(path.c_str(), "rb");
@@ -91,7 +93,7 @@ std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key) con
   const long size = std::ftell(f);
   std::fseek(f, 0, SEEK_SET);
   std::vector<uint8_t> kept;
-  bool whole = size > 0;
+  bool whole = size > 0 && (mostBytes == 0 || static_cast<size_t>(size) <= mostBytes);
   if (whole) {
     kept.resize(static_cast<size_t>(size));
     whole = std::fread(kept.data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
@@ -105,30 +107,36 @@ std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key) con
   return kept;
 }
 
-void ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
-  if (Using_ != Use::On || bytes == 0) { return; }
+bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
+  if (Using_ != Use::On || bytes == 0) { return false; }
 
-  const std::string temp = Directory_ + "/." + std::string(key) + "." +
-                           std::to_string(TempSerial_.fetch_add(1, std::memory_order_relaxed));
-  std::FILE *f = std::fopen(temp.c_str(), "wb");
+  std::string temp;
+  std::FILE *f = nullptr;
+  for (size_t attempt = 0; attempt < 64; ++attempt) {
+    temp = Directory_ + "/." + std::string(key) + "." +
+           std::to_string(TempSerial_.fetch_add(1, std::memory_order_relaxed));
+    f = std::fopen(temp.c_str(), "wbx");
+    if (f != nullptr || errno != EEXIST) { break; }
+  }
   if (f == nullptr) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
-    return;
+    return false;
   }
   const bool written = std::fwrite(data, 1, bytes, f) == bytes;
   const bool closed = std::fclose(f) == 0;
   if (!written || !closed) {
     std::remove(temp.c_str());
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
-    return;
+    return false;
   }
   const std::string path = Directory_ + "/" + std::string(key);
   if (std::rename(temp.c_str(), path.c_str()) != 0) {
     std::remove(temp.c_str());
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
-    return;
+    return false;
   }
   Writes_.fetch_add(1, std::memory_order_relaxed);
+  return true;
 }
 
 ContentStore::Ledger ContentStore::Counters() const {

@@ -32,8 +32,9 @@ public:
   ContentStore(const ContentStore &) = delete;
   ContentStore &operator=(const ContentStore &) = delete;
 
-  [[nodiscard]] std::optional<std::vector<uint8_t>> Read(std::string_view key) const;
-  void Keep(std::string_view key, const uint8_t *data, size_t bytes);
+  [[nodiscard]] std::optional<std::vector<uint8_t>> Read(std::string_view key,
+                                                         size_t mostBytes = 0) const;
+  [[nodiscard]] bool Keep(std::string_view key, const uint8_t *data, size_t bytes);
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
 

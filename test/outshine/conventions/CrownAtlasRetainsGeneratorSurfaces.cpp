@@ -11,6 +11,10 @@
 #include "CrownAtlas.h"
 #include "Tasks.h"
 #include "Digest.h"
+#include "CrownCache.h"
+#include "Sha256.h"
+#include <latch>
+#include <thread>
 #include <algorithm>
 #include "Image.h"
 #include "Check.h"
@@ -151,6 +155,54 @@ int main() {
   artifact.write(reinterpret_cast<const char *>(encoded->data()),static_cast<std::streamsize>(encoded->size()));
   CHECK(artifact.good(), "the verified crown artifact is written");
   std::printf("crown artifact %zu bytes; source/raw-data equality checked; compiled producer, species and capture shape identified\n",encoded->size());
+  const std::string cacheDirectory="build/crown-atlas/cache";
+  std::filesystem::remove_all(cacheDirectory);
+  const Data::ContentStore::Config cacheStore{.Directory=cacheDirectory};
+  Data::ContentStore rawStore(cacheStore);
+  CrownCache cache(worker,{.Store=cacheStore});
+  const std::string key=Sha256Hex(provenance);
+  const auto occupied=cacheDirectory+"/."+key+".0";
+  { std::ofstream held(occupied); held << "occupied"; }
+  CHECK(cache.Publish(*atlas,provenance,error), "the crown publishes despite an occupied temporary name");
+  std::ifstream held(occupied);
+  const std::string retained{std::istreambuf_iterator<char>(held),{}};
+  CHECK(retained=="occupied", "exclusive publication never truncates another writer's temporary file");
+  CHECK(rawStore.Keep(key,encoded->data(),encoded->size()), "a second store can publish the same key independently");
+  CHECK(!rawStore.Read(key,encoded->size()-1), "the byte budget rejects a large file before returning its payload");
+  CHECK(rawStore.Read(key,encoded->size())==encoded, "the complete payload is readable at its exact byte budget");
+  std::filesystem::create_directory(cacheDirectory+"/blocked");
+  CHECK(!rawStore.Keep("blocked",encoded->data(),encoded->size()) &&
+        std::filesystem::is_directory(cacheDirectory+"/blocked"), "failed publication preserves the existing destination");
+  CHECK(rawStore.Keep(Sha256Hex(provenance+"changed"),encoded->data(),encoded->size()),
+        "the stale-cache control contains real bytes under a different provenance key");
+  std::latch entered(1), release(1);
+  const auto blocker=worker.Post([&] { entered.count_down(); release.wait(); });
+  entered.wait();
+  CHECK(cache.Read(provenance)==CrownCache::Request::Queued, "a cache read posts while its worker is blocked");
+  CHECK(cache.Read(provenance)==CrownCache::Request::Existing, "duplicate pending keys share one request");
+  CHECK(cache.Read(provenance+"changed")==CrownCache::Request::Queued, "the second pending slot is available");
+  CHECK(cache.Read(provenance+"third")==CrownCache::Request::Full, "the pending budget rejects excess requests");
+  CHECK(!cache.Take(), "polling returns without waiting for blocked IO");
+  release.count_down();
+  worker.Wait(blocker);
+  std::vector<CrownCache::Loaded> loaded;
+  const auto loadStarted=std::chrono::steady_clock::now();
+  while (loaded.size()<2 && std::chrono::steady_clock::now()-loadStarted<std::chrono::seconds(5)) {
+    if (auto ready=cache.Take()) { loaded.push_back(std::move(*ready)); }
+    else { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+  }
+  CHECK(loaded.size()==2, "bounded asynchronous reads complete");
+  if (loaded.size()==2) {
+    CHECK(loaded[0].Atlas && loaded[0].Atlas->Encode(provenance,error)==encoded,
+          "the worker returns the exact published crown artifact");
+    CHECK(!loaded[1].Atlas && !loaded[1].Error.empty(), "a stale on-disk artifact is rejected after IO");
+    if (loaded[0].Atlas) { restored=std::move(loaded[0].Atlas); }
+  }
+  {
+    CrownCache draining(worker,{.Store=cacheStore});
+    CHECK(draining.Read(provenance)==CrownCache::Request::Queued,
+          "a pending read can be safely drained during cache destruction");
+  }
   atlas=std::move(restored);
   CHECK(atlas->Views().size() == 4 && atlas->Surfaces().size() == 2,
         "four independent views retain bark and leaf materials");

@@ -107,7 +107,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     switch (settled->What) {
       case Meaning::Bytes: {
         if (decl.Keeps == Cacheability::Forever) {
-          Store_.Keep(ContentKey(decl, query.At_), bytes.data(), bytes.size());
+          (void)Store_.Keep(ContentKey(decl, query.At_), bytes.data(), bytes.size());
         }
         const std::scoped_lock lock(LedgerMutex_);
         Ledger_.Delivered++;
