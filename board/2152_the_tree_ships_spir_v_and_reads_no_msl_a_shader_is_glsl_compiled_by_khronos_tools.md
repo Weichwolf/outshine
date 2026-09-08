@@ -28,3 +28,14 @@ die passende Backendform. GLSL als Quelle ist nicht automatisch Khronos-Material
 
 Wahl: Khronos-Tools und SDL_shadercross als portable Grenze; Filament als Materialreferenz.
 Keine experimentellen Metal-RT-/Imageblock-Abzweige im verbleibenden Boardauftrag.
+
+## Belegter blinder Shader-Check
+
+Quellaudit 2026-09-08: test/scripts/entries_vs_shaders.py sucht nur *.msl und fs*/vs*-
+Stringnamen. Nach GLSL-Migration findet es weder Definitionen noch Aufrufe und liefert
+bei 0/0 trotzdem Erfolg. VertexArms-static_asserts beweisen nicht alle Compute-/Graphics-
+Artefakte oder Bindings. ShaderFile prüft einzelne geladene Artefakte, nicht Paketvollständigkeit.
+Buildmanifest, Varianten, SPIR-V-Reflection und tatsächlich verwendete Stages vergleichen;
+leere oder fehlende Eingabemengen ausdrücklich ablehnen. WI 2207 besitzt Paketauflösung.
+- [ ] Absichtlich entfernte Graphics-/Compute-Variante und falsches Binding werden rot;
+      vollständiger GLSL-Build grün. Kein MSL-Textscanner als Shader-Abnahmenachweis.

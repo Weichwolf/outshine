@@ -2,68 +2,38 @@ Type: bug
 State: open
 Area: test, gate
 Tags: measured, gate
+Depends: 2093, 2131, 2152
 
-# `make test` is green, and it runs inside the bound it declares
+# The gates distinguish a clean result from a missing check
 
-**Benchmark** -- Unreal's automation gates on a green run and treats a slow test as a defect the
-same way it treats a failing one; RAGE's build farm does the same. **Both agree**: a gate that is
-red at HEAD is a report nobody reads, and the day something real breaks it looks like today.
+## Beleg und aktueller Stand
 
-## Where it stands, measured 2026-09-04, the claims arm of `make lint`
+Quellaudit 2026-09-08: test/lint.sh ignoriert den Exitstatus von run-clang-tidy mit
+`|| true` und zählt danach warning-Zeilen. Bei null Befunden bricht es ausdrücklich
+ab („the analysis found NOTHING ... it did not run“). Ein sauberer Lauf kann so nie
+grün werden; ein teilweise fehlgeschlagener Lauf mit verbleibenden Warnungen wird
+nicht zuverlässig als unvollständig erkannt. Die fest genannte Unit-Anzahl ist kein
+Ausführungsnachweis. EveryItem-/Build-Claims sind aktuell 66/66 grün; ältere rote
+Claim-Tabellen hier sind überholt. make test als Ganzes wurde nicht neu abgenommen.
+Aktuelle Lint-Gruppen rot: Format, Tidy, öffentliche Dokumentation, Writer-Coverage.
 
-Ten claims are red (twenty arms, plain and `~sanitised`). Each has a cause now and none has a
-repair. The right-hand column is the work:
+## Entscheidung
 
-| claim | cause | the repair |
-|---|---|---|
-| `AnItemReachesClosedThroughActive` | board:2125 was deleted saying `State: open` (fa9534b5), against a ceiling of 0 | the ceiling becomes 1 with the commit named on the line; the habit is the fix |
-| `EveryItemNamesTheBenchmark` | items 2117-2124 carried a heading instead of the `**Benchmark**` paragraph | every item on the board carries the paragraph -- done in the board rewrite that filed this line |
-| `TheBuildDeclarationAuditsItself` | `src/client/Main.cpp` and `PlaceCamera.cpp` are linked by no suite | the client's suite lists them, or `outshine/places` does |
-| `TheNestRefusesASecondRunner` | a NESTED invocation on the inherited nest is refused instead of passed through | `run.sh`'s lock recognises its own parent's claim |
-| `TheEngineNamesNoSubject` | 153 subject nouns in `src/engine` + `include/`; `Kerb` rose 5 -> 6, `Carriageway` fell 4 -> 0 unrecorded | board:2101 takes the count to 0; the fallen number is recorded where it fell |
-| `NoFramePathCallReachesABlock` | the physics seed reaches `malloc`; the picture reaches `Readback::FromBuffer/Land/Release` | board:2104 (the heap), board:2130 (the readbacks are instruments and leave the picture's reach) |
-| `APreparedFileNeverLandsInTheTree` | 148 files under the case trees are neither manifest, reference nor `.gitignore` (`test/khronos/glTF/*/reference.f000N.png`) | the claim says what a multi-frame reference is, or the files go |
-| `TheCorpusIsRebuiltByOneCommand` | 1426 manifests standing, 1424 planned | the preparer plans the two it skips, or they leave |
-| `AGreenTrailerNamesWhatItDidNotJudge` | `test/opendrive`, `test/clearsky`, `test/scripts` hold no fetched subject and the runner is silent | the runner names them in its trailer |
-| `EveryRenderNamesItsIndices` | 0 render rows in the prepared corpus, so the claim counts over nothing | the corpus renders, or the claim refuses UNPREPARED rather than FAIL |
+Benchmark: nachgewiesene Prüfabdeckung und explizite Tool-Ergebnisse statt Zählerheuristik.
+Compile-Datenbank gegen erwartete analysierte Units abgleichen; Status, Toolfehler und
+Diagnosen getrennt erfassen. Ein erfolgreich vollständig analysierter Stand mit null
+Diagnosen ist grün. Abgebrochene/fehlende Analyse ist rot, unabhängig von Warnungszahl.
+Keine künstliche Warnung als Lebenszeichen und kein Unterdrücken echter Befunde.
+Shader-Coverage nach 2152 auf GLSL-Artefakte umstellen. Scanner-Tests vor Quellmutation,
+Client-Katalogtests und bestehende Fachorakel im Make-Gate erhalten.
 
-Beside the claims: `README.md` names `STATE.md`, `apps/`, `test/gate.sh` and `--audit-layers`,
-none of which exists as described, and `mesh.xml` / `r.xml` are tracked at the root with no
-reader. Both are the same rule -- the tree describes itself truthfully -- and both are one commit.
+## Abnahme
 
-## Measured 2026-09-04 evening, after board:2122's pool
-
-```
-  2556 tests: 2538 PASS  18 FAIL  0 BUILD  0 UNPREPARED   in 718 620 ms
-  RUN 346 066 ms over the declared 230 000 ms; builds 372 554 ms beside it
-```
-
-The 18 are the nine claims below, twice; `EveryItemNamesTheBenchmark` went green with the
-board's rewrite; Shibuya is PREPARED for the first time. The overrun is 116 s and it is the
-sanitised twin of every claim.
-
-## The clock
-
-`kFastGateBoundMs = 230000` in `test/run.sh` and every harness layer builds twice (plain and
-sanitised). The choice is stated: the bound rises with its reason, or the sanitised set shrinks
-to the layers whose findings are worth the seconds. Not resolved by turning the sanitiser off.
-
-## What will be true
-
-- [ ] `make test` prints no RED case and no overrun line
-- [ ] One deliberately broken oracle turns it red again
-- [ ] `README.md` names only what exists; no artefact is tracked outside `build/`
-
-## Ruled out
-
-CentralPark's `Variation < 1.0` refusal: the owner has ruled the guard correct. A hundredth under
-the bar during a heavy refactor is a deviation to live with, not a bar to lower.
-
-## 2026-09-04: a place equal to its reference is prepared by that fact
-
-Kaiserberg and Koehlbrand had rows in `pictures.txt`, references under `build/shots/reference/`
-and no case, so the places suite rewrote `build/shots/places` without them after every
-`make test`. With cases they read UNPREPARED: the variation-along-rows bar (1.0) took their
-broad fields for an empty frame (0.67, 0.6 with a town and a bridge in view). The bar stays for
-a place without a reference; a picture byte for byte equal to a reference an eye accepted is
-prepared by that fact, which is the stronger oracle.
+- [ ] Vollständiger warnungsfreier Fixture-Lauf grün; echte Tidy-Diagnose rot.
+- [ ] Fehlendes Tool, leere/falsche Compile-Datenbank, Parsefehler und abgebrochene
+      Unit rot; auch dann, wenn eine andere Unit reguläre Warnungen liefert.
+- [ ] Jeder Gate-Teil berichtet Abdeckung, Ergebnis und Dauer; kein grüner Leercheck.
+- [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
+      begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
+- [ ] Negativkontrollen schlagen wegen des jeweiligen Vertrages fehl, nicht wegen
+      eines fehlenden Harness oder einer unverwandten Kompilierpanne.

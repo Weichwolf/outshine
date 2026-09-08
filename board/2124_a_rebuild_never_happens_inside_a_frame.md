@@ -44,3 +44,15 @@ begrenzte Übergabe, bisherige vollständige Welt bleibt bis zum Austausch sicht
 
 Nächster Schritt: tatsächliche Aufruf-/Kostenkette beim Rezentrieren erfassen und
 verbliebene weltweite Arbeit durch persistente, versionierte Produkte ersetzen.
+
+## Job-Vertrag an der Übergabe
+
+Tasks::Post (src/base/io/Tasks.cpp) wächst Queue_ ohne Kapazitätsablehnung; Done_ hält
+Ergebnisse bis zum konsumierenden Poll/Wait. Wait wartet nur auf Done_.contains und
+besitzt keinen Fehler für unbekannte oder bereits konsumierte Handles. Work ruft Jobs
+ohne definierten Fehler-/Abbruchabschluss auf. Gegenbeispiel zum pauschalen Leak-Vorwurf:
+WorldCrowns konsumiert seinen einzelnen Job; ein Leak dieses Consumers ist nicht belegt.
+Job-Slots/Queue begrenzen, ungültige Handles explizit ablehnen, Generation/Abbruch und
+Fehlerabschluss modellieren. Worker-Warten außerhalb des Framepfads ist legitim.
+- [ ] Sättigung, alter Handle, konsumierter Handle und Shutdown mit laufendem Job
+      enden definiert; Frameübernahme bleibt nichtblockierend und budgetiert.

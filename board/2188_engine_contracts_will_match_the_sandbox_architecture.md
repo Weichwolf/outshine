@@ -3,7 +3,7 @@ State: open
 Area: include, engine, render, world
 Tags: architecture, audit
 Parent: 2169
-Depends: 2194, 2096, 2093, 2094, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2190, 2191
+Depends: 2093, 2094, 2096, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2190, 2191, 2194, 2207, 2208, 2209, 2210, 2211
 
 # Engine contracts will match the streaming sandbox architecture
 
@@ -17,7 +17,7 @@ Materialpfade weiterverwenden, sofern ihre Verträge halten.
 
 | Befund im aktuellen Code | Verantwortliches WI |
 |---|---|
-| Engine.cpp: Targeted vor erfolgreichem DrawsInto gesetzt | 2191 |
+| Target-/Kamerapublikation teilweise repariert; weitere Zustandsübergänge offen | 2191 |
 | Declaring.cpp: nicht behandeltes Event als Fehler mit gemeinsamem Error | 2191 |
 | SceneRenderer.cpp: CommandBuffer ungeprüft; NULL-Swapchain als Fehler | 2190 |
 | EngineHeld.h: gemeinsame Sim-/Render-/Audio-Daten, Booleans für Phasen | 2130, 2191 |
@@ -34,6 +34,25 @@ Navigation, Kollisionsprodukte und sichtbare LOD teilen räumliche Referenzen,
 bleiben aber unabhängig resident und versioniert (2133, 2175, 2127).
 Öffentliche SDL-Fenster-/Event-Adapter sind legitim. Generatoren und Szenariomodell
 benötigen keine SDL-Typen. Öffentliche API darf keine Importimplementierung verlangen.
+
+## Vertiefter Quellaudit 2026-09-08
+
+| Belegter Verstoß | Auftrag |
+|---|---|
+| Shaderpfade relativ zum Checkout, Client-Wurzeln fest | 2207 |
+| Globaler Logger, verschachtelte Scopes verlieren äußeren Kontext | 2208 |
+| Bibliothek ersetzt Host-new/delete; nothrow-Zähler asymmetrisch | 2209 |
+| Save überschreibt vor Erfolg; Szenario-/Restore-Reader unbegrenzt | 2210 |
+| Providerdeklaration ignoriert; Offline vor Cachezugriff abgelehnt | 2211 |
+| XML akzeptiert Zahlenpräfixe und ersetzt ungültige Tokens durch Defaults | 2151, 2194 |
+| Upload-/Submit-Fehler weiterverarbeitet; History vor Erfolg fortgeschrieben | 2190 |
+| Jobqueue unbeschränkt; Wait ohne ungültigen/verbrauchtem Handle-Zustand | 2124 |
+| Null Tidy-Befunde pauschal Fehler; MSL-Scanner prüft keine GLSL-Artefakte | 2094, 2152 |
+
+Prüfabdeckung 2094/2152 zuerst belastbar machen. Fachlich zuerst Fehler-/Speicher-/Zustandsverträge 2190/2191/2194 samt 2209/2210 und striktem Parsing. Resolver/Provider
+2207/2211 sowie Logger 2208 vor Abnahme des installierbaren, mehrinstanzfähigen Clients.
+Streaming 2124/2130/2132 parallel zur fachlichen Integrationsfolge P0–P5 aus 2169.
+Dies ist ein Quellaudit, keine behauptete Race-, Crash-, Bild- oder Performance-Abnahme.
 
 ## Referenzen und Grenzen
 

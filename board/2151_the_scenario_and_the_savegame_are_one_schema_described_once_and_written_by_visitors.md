@@ -61,3 +61,18 @@ written by hand ONCE and read by every writer.
       stopped, at one place, and the nine references unmoved
 - [ ] Negative control: a member added to a struct and not to its `Visit` fails to compile or
       fails the round-trip case, never passes silently
+
+## Zusätzlicher Grenzbefund und Abnahme
+
+Xml::Ref::Num/Int (src/base/format/Xml.cpp) prüfen nur, ob irgendein Präfix gelesen
+wurde: `12garbage` wird als 12 akzeptiert; vollständig unlesbare Werte fallen auf
+whenAbsent zurück. Flag ersetzt unbekannte Schreibweisen ebenfalls durch Defaults.
+Vorhandene ungültige Werte sind keine fehlenden Attribute. Numerische Tokens vollständig,
+bereichs- und endlichkeitssicher parsen; Fehler mit Attribut/Position bis readScenario
+transportieren. Ausdrückliche Defaults nur bei Abwesenheit. Gemeinsam mit 2194 umsetzen.
+- [ ] Restzeichen, Überlauf, NaN/Inf und ungültiges Boolean ergeben Fehler; valide
+      Randwerte erhalten. Unabhängige Eingabeorakel, nicht nur Writer-Roundtrip.
+
+Die historische Aussage „kein Savegame“ ist überholt: Keeping.cpp besitzt save/restore.
+Dessen begrenzter Zustand ersetzt noch kein vollständiges Snapshot-/Replay-Schema;
+atomare Dateien und begrenztes Lesen liegen in WI 2210.

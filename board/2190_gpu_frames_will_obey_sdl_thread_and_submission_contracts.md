@@ -40,3 +40,14 @@ Retirement-Queues nur für tatsächlich außerhalb SDL liegende CPU-/Produktlebe
 - [ ] Shutdown mit ausstehenden Uploads/Readbacks ist leak- und racefrei.
 - [ ] Negativkontrollen falscher Thread und NULL-Encode verletzen die jeweiligen Orakel.
 - [ ] PNG/History nach Wiederherstellung visuell prüfen; Budget nach 2092 getrennt messen.
+
+## Weitere belegte Fehlerpfade
+
+SceneRenderer::Draw protokolliert Fehler aus HandTables/HandPlacements/HandDrawArguments,
+encodiert aber weiter. Der Rückgabewert von SubmitGPUCommandBufferAndAcquireFence wird
+ungeprüft als Fence benutzt; Jitter/History/LinearAt wurden bereits vor Acquire umgestellt.
+Auch der Upload-Helfer in SceneRenderer.cpp dereferenziert MapGPUTransferBuffer direkt
+in memcpy und prüft Acquire/Submit nicht. Diese Pfade in denselben Frame-/Uploadvertrag
+aufnehmen: fehlgeschlagene Vorbereitung nicht als erfolgreiche neue Geometrie publizieren.
+- [ ] Upload-/Map-/Tabellen-/Fence-Fehler injizieren; keine NULL-Nutzung, keine
+      weitergeschaltete History und kein angeblich erfolgreicher Frame mit alten Daten.

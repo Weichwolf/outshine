@@ -1,4 +1,5 @@
 Type: debt
+Depends: 2208
 State: open
 Area: base, engine, world, client
 Tags: architecture, owner
