@@ -317,3 +317,46 @@ Beleuchtung rendern und PNGs ansehen. Ebene Karten reproduzieren die gespeichert
 Tiefe noch nicht: Parallaxe, Winkelwechsel, minifizierte Coverage und Wald-Framerate
 bleiben offen. Unreal/RAGE-Impostorprinzip übernommen, nicht dessen fertige Qualität
 behauptet; die reichere nahe Geometrie bleibt erhalten.
+
+
+## Native Kronenkarten geprüft, 2026-09-08
+
+`CrownAtlas::GeometryAt(view)` erzeugt zwei Dreiecke mit eigenen nativen RGBA8-
+Farb-, Normal- und MR-Bildern. Alpha bleibt unverändert; Randattribute werden durch
+Mehrquellen-Breitensuche (Manhattan-Nachbarschaft) fortgesetzt. Keine Beleuchtung
+im Farbbild, keine deaktivierten Mips. Die Karte bleibt eine Ebene in Baumkoordinaten.
+
+`make suite SUITE=outshine/conventions`, `build/crown-card-restored-proof.log`:
+Exit 2, 18/19 PASS; ausschließlich der bekannte Schach-Wiederholungsfall (2179)
+rot. Kronenfall 92/92 Checks bestanden. Vier Ansichten × zwei Lichtrichtungen:
+Bedeckung exakt gleich der feinen Aufnahme, maximale Normalenabweichung 0,00653804.
+Grenze aus der Kodierung: je dekodierter Normalkomponente höchstens 1/255,
+Vektorfehler höchstens sqrt(3)/255; Normalisierung und GPU-Rundung konservativ
+mit Faktor vier, somit 4*sqrt(3)/255. MR-Abweichung höchstens ein 8-Bit-Code.
+
+Negativkontrolle ausschließlich Tangentenhandedness -1 → +1:
+`build/crown-card-handedness-negative.log`, Exit 2, 18/19 PASS; Kronenfall
+84 Checks, genau acht Normalenfehler. Abweichung bis 1,99764, Bedeckung weiterhin
+exakt. Quelle wiederhergestellt und obiger Abschlusslauf danach ausgeführt.
+Der Schachfall bestand zufällig im Negativlauf; das behebt seine Intermittenz nicht.
+
+Alle acht `build/crown-atlas/card-{0..3}-light-{0..1}.png` geöffnet, außerdem
+`fine-0-light-{0,1}.png` unter identischer Kamera und Beleuchtung. Visuell nahezu
+gleiche dünne, punktförmige Birkenkrone; ihre geringe optische Dichte ist bereits
+in der feinen Quelle vorhanden. Relative lineare RGB-L1-Abweichung der Karte:
+sum(abs(Karte-Fein))/sum(abs(Fein)) = 0,00333157 bzw. 0,00720716 für die beiden
+Lichter. Das ist eine Diagnose dieses Blickpunkts, kein Fotorealismus-Orakel.
+Die Karte reagiert auf Lichtwechsel und bewahrt helle Rinde sowie Blattnormalen.
+
+Rohatlas unverändert 4*128*128*sizeof(Texel) = 1.310.720 Bytes; Kartenbilder
+zusätzlich 4*128*128*3*4 = 786.432 Bytes ohne Mips, GPU-Kopien und Geometrie.
+Capture, Prüfungen und PNG-Export einschließlich zweier Feinreferenzen zusammen
+22.005,161 ms. Keine isolierte Bake-Zeit, Peak-Heap- oder Welt-Framerate-Abnahme.
+
+Places sind von diesem privaten Exporter noch unberührt. Nächste Anbindung:
+PieceMesh besitzt noch keinen Tangentenstream; PlacePiece setzt nur Normal/UV/
+Colour. Vor Weltinstanzierung müssen Tangenten samt Handedness durch diesen
+geteilten Pfad, mit derselben Normalenprüfung für mehrere rotierte Instanzen.
+Weiter offen: Blickrichtungswahl, Tiefenreprojektion/Parallaxe, Alpha-Coverage bei
+Minifizierung, Cache und asynchrone Vorbereitung, World.Instances-Verbrauch,
+Streaming mehrerer Regionen und vollständige bewegte Places-Abnahme. WI bleibt aktiv.

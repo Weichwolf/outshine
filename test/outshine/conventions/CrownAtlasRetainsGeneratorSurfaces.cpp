@@ -6,6 +6,8 @@
 #include <iterator>
 #include <cstdio>
 #include <SDL3/SDL.h>
+#include <Outshine.h>
+#include <scenario/Scenario.h>
 #include "CrownAtlas.h"
 #include "Image.h"
 #include "Check.h"
@@ -33,6 +35,9 @@ int main() {
   CHECK(atlas->Surfaces()[0].Roughness == species.ShadingParams().BarkRoughness &&
         atlas->Surfaces()[1].Roughness == species.ShadingParams().LeafRoughness,
         "atlas materials retain declared roughness without baking illumination");
+  CHECK(!atlas->GeometryAt(atlas->Views().size()), "an absent crown view is refused");
+  const auto fine = tree->GeometryAt(0);
+  CHECK(fine.has_value(), "fine geometry remains available for visual comparison");
   std::filesystem::create_directories("build/crown-atlas");
   for (size_t view = 0; view < atlas->Views().size(); ++view) {
     const auto &texels = atlas->Views()[view].Texels;
@@ -71,6 +76,94 @@ int main() {
     output.write(reinterpret_cast<const char *>(png.data()), static_cast<std::streamsize>(png.size()));
     CHECK(output.good(), "crown reference PNG is written");
     std::printf("view %zu bark=%zu leaf=%zu sampled pixels\n",view,covered[1],covered[2]);
+    const auto card = atlas->GeometryAt(view);
+    CHECK(card.has_value(), "captured crown exports native geometry");
+    if (!card) { continue; }
+    const auto material = card->surfaceAt(MaterialInstance(0));
+    const auto colourMap = card->imageAt(material.BaseColourMap.Image);
+    const auto mrMap = card->imageAt(material.MetalRoughMap.Image);
+    bool coverageMatches = colourMap.stands(), materialsMatch = mrMap.stands();
+    if (coverageMatches && materialsMatch) {
+      for (size_t pixel = 0; pixel < texels.size(); ++pixel) {
+        coverageMatches &= (colourMap.Rgba[pixel*4+3] == (texels[pixel].Surface ? 255 : 0));
+        if (!texels[pixel].Surface) { continue; }
+        const auto &original = atlas->Surfaces()[texels[pixel].Surface-1];
+        materialsMatch &= std::abs(mrMap.Rgba[pixel*4+1]/255.0f-original.Roughness) <= 1.0f/255;
+        materialsMatch &= std::abs(mrMap.Rgba[pixel*4+2]/255.0f-original.Metalness) <= 1.0f/255;
+      }
+    }
+    CHECK(coverageMatches, "native colour alpha preserves every captured hole");
+    CHECK(materialsMatch, "native MR channels retain source material values within one code");
+    CHECK(material.NormalMap.bound() && material.BaseColourMap.Sampler.Mip == MipFilter::Linear,
+          "the card carries normal detail and retains mip filtering");
+    std::array<std::vector<float>,2> frames;
+    for (size_t light = 0; light < frames.size(); ++light) {
+      Scenario::Document scene;
+      scene.Render.Declared = true;
+      scene.Render.Frame = {128,128};
+      scene.Render.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
+      scene.Lit.Declared = true;
+      scene.Lit.Key.Lux = 20000;
+      scene.Lit.Key.BearingDeg = light == 0 ? 135 : 315;
+      scene.Lit.Key.ElevationDeg = 40;
+      Scenario::View camera;
+      camera.Id = "card";
+      camera.Person = "first";
+      camera.Sees.Placed = true;
+      const double extent = atlas->HalfExtentM();
+      camera.Sees.Stands.AtM = atlas->CentreM() + atlas->Views()[view].TowardEye*(3*extent);
+      camera.Sees.LooksAt = true;
+      camera.Sees.LookAtM = atlas->CentreM();
+      camera.Sees.setProjection(Scenario::Camera::Ortho{
+          .XMagM=extent,.YMagM=extent,.NearM=extent,.FarM=5*extent});
+      scene.Views.push_back(camera);
+      Engine engine;
+      std::vector<float> depth, normals;
+      const bool rendered = engine.drawsInto({128,128}) && engine.declare(scene) &&
+          engine.setGeometry(*card) && engine.assemble() && engine.advance() &&
+          engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear,frames[light]) &&
+          engine.renderer().readPixels(Buffer::Depth,depth) &&
+          engine.renderer().readPixels(Buffer::ShadingNormal,normals);
+      CHECK(rendered, "native crown card renders with live lighting");
+      CHECK(depth.size()==texels.size() && normals.size()==texels.size()*4 && frames[light].size()==texels.size()*4, "card attachments cover the complete frame");
+      if (!rendered || depth.size()!=texels.size() || normals.size()!=texels.size()*4) { continue; }
+      size_t mismatches = 0;
+      double normalError = 0;
+      for (size_t pixel=0; pixel<texels.size(); ++pixel) {
+        mismatches += ((depth[pixel]>0) != (texels[pixel].Surface>0));
+        if (!texels[pixel].Surface || depth[pixel]<=0) { continue; }
+        Vec3 actual{{normals[pixel*4],normals[pixel*4+1],normals[pixel*4+2]}};
+        Vec3 expected{{texels[pixel].Normal[0],texels[pixel].Normal[1],texels[pixel].Normal[2]}};
+        if (!Normalise(actual) || !Normalise(expected)) { normalError=2; continue; }
+        const auto delta = actual-expected;
+        normalError = std::max(normalError,std::sqrt(Dot(delta,delta)));
+      }
+      std::printf("card %zu light %zu coverage mismatch=%zu normal error=%g\n",view,light,mismatches,normalError);
+      CHECK(mismatches == 0, "card raster coverage equals source capture at its camera");
+      CHECK(normalError <= 4*std::sqrt(3.0)/255, "rendered normals retain source directions within RGBA8 quantisation bound");
+      CHECK(engine.renderer().saveScreenshot("build/crown-atlas/card-"+std::to_string(view)+"-light-"+std::to_string(light)+".png").has_value(), "lit crown card PNG is written");
+      if (view == 0 && fine) {
+        Engine reference;
+        std::vector<float> original;
+        const bool drawn = reference.drawsInto({128,128}) && reference.declare(scene) &&
+            reference.setGeometry(*fine) && reference.assemble() && reference.advance() &&
+            reference.renderer().render({}) && reference.renderer().readPixels(Buffer::Linear,original);
+        CHECK(drawn, "fine tree renders under the identical camera and light");
+        if (drawn && original.size() == frames[light].size()) {
+          double difference=0, energy=0;
+          for (size_t at=0; at<original.size(); ++at) {
+            if (at%4==3) { continue; }
+            difference += std::abs(original[at]-frames[light][at]);
+            energy += std::abs(original[at]);
+          }
+          std::printf("card/fine light %zu relative linear RGB L1=%g; diagnostic, no quality acceptance\n",light,energy>0 ? difference/energy : 0);
+        }
+        CHECK(reference.renderer().saveScreenshot("build/crown-atlas/fine-0-light-"+std::to_string(light)+".png").has_value(), "fine comparison PNG is written");
+      }
+
+    }
+    CHECK(!frames[0].empty() && frames[0]!=frames[1], "changing the light relights captured crown surfaces");
+
   }
   std::printf("atlas capture, checks and PNG export %.3f ms; payload %zu bytes; no world frame-rate claim\n",
               std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count(),

@@ -29,6 +29,8 @@ public:
   static std::optional<CrownAtlas>
   Bake(const Generators::TreePrototype &tree, Shape shape, std::string &error);
 
+  [[nodiscard]] std::optional<Geometry> GeometryAt(size_t view) const;
+
   [[nodiscard]] const std::vector<View> &Views() const { return Views_; }
 
   [[nodiscard]] const std::vector<Material> &Surfaces() const { return Surfaces_; }
