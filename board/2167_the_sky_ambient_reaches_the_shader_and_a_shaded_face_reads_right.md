@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
@@ -43,3 +43,17 @@ auf neutral aliasiert (`stage_without_a_body ambientOcclusion`).
 Wahl: [Filaments IBL-Modell](https://google.github.io/filament/main/filament.html) als
 lesbare Referenz; Unreal-GI ist Vergleich für Sichtbarkeit/Bounce, kein Lumen-Versprechen
 auf SDL_GPU. RAGEs Look begründet keine unbelegte konstante Ambient-Zahl.
+
+## Numerischer Vorläufer: Sonnenpole
+
+sky.frag und aerialPerspective.frag normalisieren die Sonnenprojektion auf die
+Horizontebene ohne Nullprüfung. Für sunDir parallel worldUp ist diese Projektion
+(0,0); eine Richtung mit Länge eins existiert dafür nicht. Khronos normalize-Vertrag:
+https://raw.githubusercontent.com/KhronosGroup/OpenGL-Refpages/main/gl4/normalize.xml
+Die gemeinsame Sky-LUT-Koordinate muss den Pol explizit behandeln: dort ist der
+Azimut beliebig, da das Medium rotationssymmetrisch um die Vertikale ist. Endlichen
+kanonischen Azimut verwenden; keinen NaN-Wert nachträglich im fertigen Bild verdecken.
+Der Device-Abbruchtest aus 2190 verwendet derzeit Zenitsonne: Irradiance stimmt nach
+Retry, drei temporale Pixelvergleiche scheitern. Zusammenhang durch finite Pixelwerte
+und identische erfolgreiche Framefolgen prüfen; Zenit/Nadir und Annäherung abdecken.
+Diese Reparatur ersetzt keine Abnahme von gerichtetem IBL, Sichtbarkeit oder Bounce.
