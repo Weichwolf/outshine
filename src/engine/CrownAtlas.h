@@ -4,6 +4,8 @@
 #include "TreePrototype.h"
 #include <optional>
 #include <string>
+#include <string_view>
+#include <span>
 #include <vector>
 
 namespace outshine {
@@ -28,6 +30,11 @@ public:
 
   static std::optional<CrownAtlas>
   Bake(const Generators::TreePrototype &tree, Shape shape, std::string &error);
+
+  [[nodiscard]] std::optional<std::vector<uint8_t>> Encode(std::string_view provenance,
+                                                           std::string &error) const;
+  [[nodiscard]] static std::optional<CrownAtlas>
+  Decode(std::span<const uint8_t> bytes, std::string_view provenance, std::string &error);
 
   [[nodiscard]] std::optional<Geometry> GeometryAt(size_t view) const;
 

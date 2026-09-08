@@ -565,3 +565,41 @@ müssen abgewiesen werden. Das Artefakt schreibt noch keine Cache-Datei im Frame
 Quelle plus Generator-/Shaderidentität muss der spätere Cache-Aufrufer liefern.
 Unreal/RAGE-Prinzip abgeleiteter Assetdaten übernommen, kein Anspruch auf deren
 privates Dateiformat. Disk-Cache, atomische Veröffentlichung und Live-Verbrauch folgen.
+
+
+## Kronenartefakt Version 1 implementiert und zurückgerendert
+
+CrownAtlas::Encode/Decode kodieren explizite Little-Endian-Skalare, keine Struct-
+Rohspeicherblöcke. Header 64 Bytes, Kernmaterial 52 Bytes, Ansichtsrichtung 24 Bytes,
+Texel 20 Bytes, abschließende Prüfsumme 8 Bytes. Birke: 64 + 2*52 +
+4*(24 + 128*128*20) + 8 = 1.310.992 Bytes, geschrieben nach
+`build/crown-atlas/birch.crown`. Kein Verlust gegenüber 1.310.720 Bytes Rohtexeln;
+272 Bytes sind Metadaten und Materialien.
+
+Defaulted Material-Gleichheit vergleicht sämtliche Felder; Encode verweigert eine
+Oberfläche, deren Eigenschaften nicht durch das rekonstruierte Kernmaterial
+repräsentiert werden. Texturen/Materialerweiterungen werden dadurch nicht still
+entfernt. Das ist eine Einschränkung des Cacheformats, keine Änderung der Render-
+Materialfähigkeiten. Aktuelle untexturierte Baum-Quellmaterialien passen vollständig.
+
+`make suite SUITE=outshine/conventions`, `build/crown-artifact-restored.log`:
+Exit 2, 18/19 PASS; ausschließlich bekannter Schachfall 2179 rot. Kronenfall
+114/114 Checks: Bounds, Richtungen, sämtliche Materialien und jeder Normal-/Depth-/
+Surface-Texel exakt nach Decode; erneutes Encode byteidentisch. Geänderte Provenienz,
+fehlende Provenienz, vier Kürzungen und Bitkorruption abgelehnt. Ungültige Version,
+überhöhte Dimensionen und NaN-Material werden auch mit neu berechneter Prüfsumme
+verweigert. Dekodierte Daten ersetzen im Test den Originalatlas vor den bestehenden
+Karten-/Beleuchtungs-/Normalenprüfungen; diese Orakel bleiben unverändert.
+
+Negativkontrolle ausschließlich Prüfsummenvergleich ausgesetzt:
+`build/crown-artifact-checksum-negative.log`, Exit 2, 17/19 PASS (zusätzlich Schach).
+114 Checks, genau ein Fehler: Nutzinhalt-Bitkorruption wird fälschlich akzeptiert.
+Quelle wiederhergestellt, obiger Abschlusslauf danach durchgeführt.
+
+Karten-PNGs nach Rücklesung geöffnet und mit feiner Quelle verglichen: unveränderte
+Silhouette und Beleuchtung, weiterhin dünne Krone. Keine neue Welt-/Places-Bildwirkung;
+Cacheformat und Referenzfixture besitzen noch keinen produktiven Live-Verbrauch.
+Die Testprovenienz besteht aus realem Speziestext und expliziter Test-Revisionskennung.
+Automatischer Fingerprint der tatsächlichen Generator-/Shaderquellen, Dateicache,
+atomisches Schreiben, asynchrones Lesen und begrenzte Veröffentlichung an Live bleiben
+als nächste Schritte offen. FNV64 ist keine Authentisierung untrusted Fremdartefakte.

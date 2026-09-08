@@ -66,6 +66,8 @@ struct Material {
   SurfaceMap OcclusionMap;
   SurfaceMap SpecularStrengthMap;
   SurfaceMap SpecularTintMap;
+
+  [[nodiscard]] bool operator==(const Material &) const = default;
 };
 
 inline void DielectricF0(const Material &material, Vec3f &out) {

@@ -10,6 +10,7 @@
 #include <scenario/Scenario.h>
 #include "CrownAtlas.h"
 #include "Tasks.h"
+#include "Digest.h"
 #include <algorithm>
 #include "Image.h"
 #include "Check.h"
@@ -94,6 +95,59 @@ int main() {
 
   CHECK(atlas.has_value(), "the native renderer captures crown surface data");
   if (!atlas) { std::printf("%s\n", error.c_str()); return Report(); }
+  const std::string provenance="crown-format-1/test-generator-revision/"+text;
+  const auto encoded=atlas->Encode(provenance,error);
+  CHECK(encoded.has_value(), "real crown data encodes without material loss");
+  if (!encoded) { std::printf("%s\n",error.c_str()); return Report(); }
+  auto restored=CrownAtlas::Decode(*encoded,provenance,error);
+  CHECK(restored.has_value(), "versioned crown data reads back");
+  if (!restored) { return Report(); }
+  bool identical=restored->Pixels()==atlas->Pixels() && restored->CentreM()==atlas->CentreM() &&
+      restored->HalfExtentM()==atlas->HalfExtentM() && restored->Surfaces()==atlas->Surfaces() &&
+      restored->Views().size()==atlas->Views().size();
+  if (identical) {
+    for (size_t view=0;view<atlas->Views().size();++view) {
+      const auto &before=atlas->Views()[view];
+      const auto &after=restored->Views()[view];
+      identical &= before.TowardEye==after.TowardEye && before.Texels.size()==after.Texels.size();
+      if (before.Texels.size()!=after.Texels.size()) { continue; }
+      for (size_t at=0;at<before.Texels.size();++at) {
+        identical &= before.Texels[at].Normal==after.Texels[at].Normal &&
+            before.Texels[at].Depth==after.Texels[at].Depth && before.Texels[at].Surface==after.Texels[at].Surface;
+      }
+    }
+  }
+  CHECK(identical, "every material, normal, depth, identity and camera bound survives storage exactly");
+  CHECK(restored->Encode(provenance,error)==encoded, "the artifact has a canonical byte-for-byte round trip");
+  CHECK(!CrownAtlas::Decode(*encoded,provenance+"changed",error), "changed generator or species provenance invalidates the cache");
+  CHECK(!atlas->Encode("",error), "unidentified cache data is refused");
+  for (const size_t length : {size_t(0),size_t(8),size_t(71),encoded->size()-1}) {
+    CHECK(!CrownAtlas::Decode(std::span<const uint8_t>(*encoded).first(length),provenance,error),
+          "truncated artifact data is refused");
+  }
+  auto corrupt=*encoded;
+  corrupt[100]^=1;
+  CHECK(!CrownAtlas::Decode(corrupt,provenance,error), "payload corruption is detected");
+  const auto resign=[](std::vector<uint8_t> &bytes) {
+    uint64_t hash=kDigestBasis;
+    for (size_t at=0;at<bytes.size()-8;++at) { hash=DigestFolded(hash,bytes[at]); }
+    for (size_t at=0;at<8;++at) { bytes[bytes.size()-8+at]=static_cast<uint8_t>(hash>>(at*8)); }
+  };
+  for (const size_t field : {size_t(8),size_t(20),size_t(24),size_t(28)}) {
+    corrupt=*encoded;
+    for (size_t at=0;at<4;++at) { corrupt[field+at]=255; }
+    resign(corrupt);
+    CHECK(!CrownAtlas::Decode(corrupt,provenance,error), "unsupported version and oversized dimensions fail even with a valid checksum");
+  }
+  corrupt=*encoded;
+  corrupt[64]=0; corrupt[65]=0; corrupt[66]=192; corrupt[67]=127;
+  resign(corrupt);
+  CHECK(!CrownAtlas::Decode(corrupt,provenance,error), "nonfinite material data is refused even with a valid checksum");
+  std::ofstream artifact("build/crown-atlas/birch.crown",std::ios::binary);
+  artifact.write(reinterpret_cast<const char *>(encoded->data()),static_cast<std::streamsize>(encoded->size()));
+  CHECK(artifact.good(), "the verified crown artifact is written");
+  std::printf("crown artifact %zu bytes; source/raw-data equality checked; production provenance wiring still open\n",encoded->size());
+  atlas=std::move(restored);
   CHECK(atlas->Views().size() == 4 && atlas->Surfaces().size() == 2,
         "four independent views retain bark and leaf materials");
   CHECK(atlas->Surfaces()[0].Roughness == species.ShadingParams().BarkRoughness &&
