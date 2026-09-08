@@ -61,8 +61,12 @@ und bytegleich zur gesicherten Referenz. Keine neue fotorealistische Place-Abnah
 - [x] Reale Offscreen-Acquire-/Submit-Abbrüche liefern Fehler und publizieren weder
       ungeschriebene LUTs noch weitergeschaltete History; der nächste Frame erholt sich.
 - [x] Fusionierter Temporal-Pass liest seinen deklarierten Eingang statt seines Renderziels.
-- [ ] LightVisibilityStage veröffentlicht Held_ noch im Encode: Schattenatlas und
-      vorbereitete CastAt/CastFrom-Metadaten in denselben Submission-Vertrag aufnehmen.
+- [x] Schattenatlas nutzt denselben Submission-Vertrag: vorbereitete Schlüssel gelten
+      erst nach erfolgreicher Einreichung; abgelehnte Frames bleiben wiederholbar.
+      Readback verweigert unveröffentlichte Atlanten ohne Änderung des Zielvektors.
+      Device-Suite: je 136 Checks ohne Fehler, normal und GPU-validiert; kalter Retry,
+      Castermaskenwechsel, leeres Clear und geänderte Lichtrichtung geprüft.
+      Herkunftsabhängige Casterauswahl, Instanzen und Terrain bleiben in 2128/2150 offen.
 - [ ] Read-/Write-/Vorframe-Zugriffe im Plan ausdrücklich beschreiben und gegen konkrete
       Bindings prüfen; Shader-Katalog 2152 ersetzt keinen Ressourcen-Lebenszyklus.
 - [ ] Fence-Wait-/Readback-Fehler prüfen und von bereits eingereichter Arbeit trennen;

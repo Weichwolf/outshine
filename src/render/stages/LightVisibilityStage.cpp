@@ -19,11 +19,15 @@ namespace outshine::Render {
 constexpr size_t kUniformFloats = 20;
 
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
+  Cache_.Invalidate();
   Subjects_ = &subjects;
   return ConfigureDepthOnly(gpu, error);
 }
 
 void LightVisibilityStage::Declare(Overhead sky, double radiusM) {
+  const Vec3 toSun = {{sky.ToSun[0], sky.ToSun[1], sky.ToSun[2]}};
+  const Vec3 up = {{sky.Up[0], sky.Up[1], sky.Up[2]}};
+  if (ToSun_ != toSun || Up_ != up || RadiusM_ != radiusM) { Cache_.Invalidate(); }
   for (int axis = 0; axis < 3; ++axis) {
     ToSun_[axis] = static_cast<double>(sky.ToSun[axis]);
     Up_[axis] = static_cast<double>(sky.Up[axis]);
@@ -127,16 +131,19 @@ void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   if (!Declared_ || Subjects_ == nullptr) { return; }
   Build(ctx.PreViewTranslation);
   const uint64_t stands = Subjects_->Generation();
-  if (Held_ && stands == CastAt_ && Static_ == CastFrom_) { return; }
+  if (Cache_.Submitted() && stands == PreparedGeneration_ && Static_ == PreparedTransform_) {
+    return;
+  }
+  Cache_.Invalidate();
   Casting_ = true;
-  CastAt_ = stands;
-  for (int at = 0; at < 16; ++at) { CastFrom_[at] = Static_[at]; }
+  PreparedGeneration_ = stands;
+  for (int at = 0; at < 16; ++at) { PreparedTransform_[at] = Static_[at]; }
 }
 
 void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (!Casting_) { return; }
+  if (!Casting_ || !Cache_.NeedsRecording() || !DepthOnly_ || into.Pass == nullptr) { return; }
   Cast(LightFromWorld_, ctx.PreViewTranslation, kShadowAtlasPx, into);
-  Held_ = true;
+  into.Submission.Record(Stage::LightVisibility, Cache_);
 }
 
 bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {

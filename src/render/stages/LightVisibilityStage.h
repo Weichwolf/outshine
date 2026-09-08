@@ -9,6 +9,7 @@
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
+#include "StageSubmission.h"
 
 namespace outshine::Render {
 
@@ -33,7 +34,9 @@ public:
 
   [[nodiscard]] bool Casting() const { return Casting_; }
 
-  [[nodiscard]] bool Cached() const { return Held_ && !Casting_; }
+  [[nodiscard]] bool Cached() const noexcept { return Cache_.Submitted() && !Casting_; }
+
+  [[nodiscard]] bool HasSubmittedData() const noexcept { return Cache_.Submitted(); }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
@@ -47,7 +50,11 @@ public:
 
   [[nodiscard]] bool Standing() const { return Declared_; }
 
-  void CastsBelow(uint32_t slot) { CastsBelow_ = slot; }
+  void CastsBelow(uint32_t slot) noexcept {
+    if (CastsBelow_ == slot) { return; }
+    CastsBelow_ = slot;
+    Cache_.Invalidate();
+  }
 
 private:
   uint32_t CastsBelow_ = kNoBatch;
@@ -65,9 +72,9 @@ private:
   Mat4 LightFromWorld_ = {{}};
 
   Mat4 Static_ = {{}};
-  Mat4 CastFrom_ = {{}};
-  uint64_t CastAt_ = 0;
-  bool Held_ = false;
+  Mat4 PreparedTransform_ = {{}};
+  uint64_t PreparedGeneration_ = 0;
+  StageCache Cache_;
   bool Casting_ = true;
   bool Declared_ = false;
 };

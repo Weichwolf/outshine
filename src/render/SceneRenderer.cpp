@@ -1349,7 +1349,7 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
 }
 
 ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
-  if (!Ready_ || !ShadowAtlas_) { return ReadState::Failed; }
+  if (!Ready_ || !ShadowAtlas_ || !Shadow_.HasSubmittedData()) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.Get(),
                        ShadowAtlas_.Get(),

@@ -13,6 +13,14 @@ Aktuelle GLSL-Pfade ersetzen die früher hier genannten MSL-Dateien. Der bestehe
 hat eine begrenzte Lichtliste und einen Sonnen-Shadow-Atlas; `GroundLattice::Cast` ist
 noch an den tatsächlichen Schattenpfad anzuschließen. Bergschatten fehlen als eigener
 Beitrag, wenn Terrain nicht gerendert wird. Erst Draw-/Caster-Counter nachweisen.
+Live setzt die Caster-Grenze auf Joined_: Built-Geometrie wird dadurch implizit
+anders als importierte Geometrie behandelt. Shadow-Casting ausdrücklich je Objekt/
+Geometrie deklarieren, Quelle nicht als Policy verwenden; Kamera-/Caster-Auswahl und
+Radius gemeinsam budgetieren. LightVisibilityStage::Cast zeichnet außerdem hart eine
+Instanz je DrawBatch, statt batch.Instances zu übernehmen. Instanzbereiche einschließlich
+partieller Caster-Masken korrekt behandeln und mit mehreren unabhängigen Castern prüfen.
+Der Device-Lebenszyklustest deklariert seine Caster-Menge ausdrücklich; er nimmt diese
+Welt-/Instanz-Policy und den fehlenden Terrain-Aufruf nicht ab.
 
 1. Terrain und Subjects in denselben Lichtkoordinaten, Bias in Welt-/Texeleinheiten und
    korrekte Reverse-Z-/Cull-Konventionen; stabile Sonnenkaskaden nach Sichtvolumen wählen.

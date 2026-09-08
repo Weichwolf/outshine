@@ -189,13 +189,112 @@ void Exercise() {
     CHECK(live->Draw(error), "Live::Draw recovers on the next successful GPU frame");
   }
 }
+
+void ShadowSubmission() {
+  Geometry geometry;
+  const int part = geometry.addPart("caster", geometry.addSurface("white", Material{}));
+  CHECK(
+      geometry.setPositions(part, std::array<float, 24>{-1, -1, -1, 1, -1, -1, 1, 1, -1, -1, 1, -1,
+                                                        -1, -1, 1,  1, -1, 1,  1, 1, 1,  -1, 1, 1}),
+      "closed caster positions are declared");
+  CHECK(geometry.setTriangles(part, std::array<uint32_t, 36>{0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7,
+                                                             0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2,
+                                                             0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5}),
+        "closed caster faces are declared");
+  Gltf::Subject built;
+  CHECK(built.Assemble(geometry), "the real caster asset assembles");
+  Faults faults;
+  SceneRenderer actual(faults.Functions()), control;
+  const std::array renderers{&control, &actual};
+  std::array<std::unique_ptr<Core::Live>, 2> scenes;
+  Core::Declaration declaration;
+  declaration.Built = &built;
+  declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
+  declaration.Outputs = {"surface", "sceneLinear", "shadowAtlas"};
+  declaration.DrawsSky = true;
+  declaration.ShadowRadiusM = 8;
+  declaration.KeyLux = 10000;
+  declaration.KeyElevationDeg = 45;
+  Viewpoint eye;
+  eye.EyeM = {{0, 0, 5}};
+  eye.YfovRad = 1;
+  eye.ZNearM = 0.1;
+  eye.ZFarM = 100;
+  std::string error;
+  for (size_t i = 0; i < renderers.size(); ++i) {
+    CHECK(Core::Live::Open(*renderers[i], declaration, nullptr, scenes[i], error),
+          "the shadow scene initializes on the real device");
+    if (!scenes[i]) {
+      std::printf("shadow setup: %s\n", error.c_str());
+      return;
+    }
+    scenes[i]->Eye(eye);
+    renderers[i]->CastsBelow(kNoBatch);
+    std::vector<float> untouched{42};
+    CHECK(renderers[i]->ReadShadowAtlas(untouched) == ReadState::Failed &&
+              untouched == std::vector<float>{42},
+          "an unsubmitted atlas is unavailable and leaves the caller's data intact");
+  }
+  const auto reject = [&] {
+    faults.Next = Faults::Point::Submit;
+    CHECK(!scenes[1]->Draw(error) && error == "injected frame submit failure",
+          "a real shadow recording can fail submission");
+    std::vector<float> untouched{42};
+    CHECK(actual.ReadShadowAtlas(untouched) == ReadState::Failed &&
+              untouched == std::vector<float>{42},
+          "cancelled shadow updates cannot be read as current data");
+  };
+  const auto capture = [](SceneRenderer &renderer) {
+    std::vector<float> depth;
+    CHECK(renderer.ReadShadowAtlas(depth) == ReadState::Ready, "the submitted atlas is readable");
+    CHECK(depth.size() == static_cast<size_t>(kShadowAtlasPx) * kShadowAtlasPx,
+          "the complete shadow atlas is compared");
+    CHECK(std::ranges::all_of(depth, [](float z) { return std::isfinite(z) && z >= 0 && z <= 1; }),
+          "all shadow depths are finite reverse-Z values");
+    return depth;
+  };
+  const auto drawPair = [&] {
+    CHECK(scenes[0]->Draw(error) && scenes[1]->Draw(error),
+          "both shadow frames submit successfully");
+    auto expected = capture(control);
+    CHECK(expected == capture(actual),
+          "recovered shadow depths exactly match the uninterrupted renderer");
+    return expected;
+  };
+  reject();
+  reject();
+  const auto first = drawPair();
+  CHECK(std::ranges::any_of(first, [](float z) { return z > 0; }),
+        "the caster covers real shadow texels");
+  CHECK(first == drawPair(), "an unchanged shadow frame retains its submitted depth");
+  for (auto *renderer : renderers) { renderer->CastsBelow(0); }
+  reject();
+  const auto empty = drawPair();
+  CHECK(!empty.empty() && std::ranges::all_of(empty, [](float z) { return z == 0; }),
+        "changing the caster mask invalidates and clears the old shadow");
+  for (auto *renderer : renderers) {
+    renderer->CastsBelow(kNoBatch);
+    renderer->SetShadowFrame({{0.6f, 0.5f, 0.7f}}, {{0, 1, 0}}, 8);
+  }
+  reject();
+  const auto changed = drawPair();
+  CHECK(changed != first && std::ranges::any_of(changed, [](float z) { return z > 0; }),
+        "changed light orientation produces a new nonempty shadow after retry");
+}
+
 }
 
 int main() {
+  CHECK(SDL_SetHint(SDL_HINT_ASSERT, "abort"),
+        "SDL assertions fail immediately instead of opening a dialog");
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
-  if (SDL_WasInit(SDL_INIT_VIDEO) != 0) { Exercise(); }
+  if (SDL_WasInit(SDL_INIT_VIDEO) != 0) {
+    Exercise();
+    ShadowSubmission();
+  }
   SDL_Quit();
   Covers("real offscreen acquire/submit faults, LUT publication and retry, temporal pixel parity, "
-         "Live error propagation; swapchain, pass allocation and readback failure remain separate");
+         "Live error propagation, shadow atlas retry and caster-mask invalidation; swapchain, "
+         "pass allocation and readback failure remain separate");
   return Report();
 }
