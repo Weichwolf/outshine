@@ -1,5 +1,6 @@
 #include <array>
 #include <memory>
+#include <numbers>
 #include <vector>
 #include "Check.h"
 #include "ForestDraw.h"
@@ -150,6 +151,42 @@ int main() {
     ++at;
   }
   CHECK_NEAR(world[0].Position.LongitudeDeg, world[1].Position.LongitudeDeg, 1e-12, "deg", "different region frames agree at the same world position");
+  const auto frame = TangentFrame::At(target);
+  const Mat4 firstModel=world[0].ModelIn(frame), secondModel=world[1].ModelIn(frame);
+  for (size_t component=0; component<16; ++component) {
+    CHECK_NEAR(firstModel[component],secondModel[component],2e-8,"matrix component",
+               "adjacent tile frames place the same body in the same render frame");
+  }
+  const auto equator = TangentFrame::At({});
+  WorldPlacement rooted{.AslM=7,.Scale=2};
+  const auto base=rooted.ModelIn(equator);
+  const Mat4 expectedBase{{2,0,0,0, 0,2,0,0, 0,0,2,0, 0,7,0,1}};
+  for (size_t component=0; component<16; ++component) {
+    CHECK_NEAR(base[component],expectedBase[component],1e-9,"matrix component",
+               "equatorial prototype keeps East-Up-South with scale independent of root height");
+  }
+  rooted.Position.LongitudeDeg=90;
+  const auto quarter=rooted.ModelIn(equator);
+  const Mat4 expectedQuarter{{0,-2,0,0, 2,0,0,0, 0,0,2,0, kWgs84A+7,-kWgs84A,0,1}};
+  for (size_t component=0; component<16; ++component) {
+    CHECK_NEAR(quarter[component],expectedQuarter[component],2e-9,"matrix component",
+               "a quarter-earth displacement rotates the local up and east with the globe");
+  }
+  rooted.Position={};
+  rooted.YawRad=std::numbers::pi_v<float>/2;
+  const auto yawed=rooted.ModelIn(equator);
+  const auto turnedX=yawed.TransformDirection({{1,0,0}});
+  const auto turnedZ=yawed.TransformDirection({{0,0,1}});
+  for (size_t axis=0; axis<3; ++axis) {
+    CHECK_NEAR(turnedX[axis],(axis==2 ? -2.0 : 0.0),2e-7,"m/m",
+               "positive local Y yaw rotates east towards north");
+    CHECK_NEAR(turnedZ[axis],(axis==0 ? 2.0 : 0.0),2e-7,"m/m",
+               "positive local Y yaw rotates south towards east");
+  }
+  rooted.AslM+=0.0001;
+  const auto raised=rooted.ModelIn(equator);
+  CHECK_NEAR(raised[13]-yawed[13],0.0001,2e-9,"m",
+             "submillimetre root translation survives the ECEF subtraction in double");
   Captured changed;
   draw.Draw(*ground, bodies, {.First = 11, .Count = 2}, changed);
   CHECK(changed.Instances[1].Cluster != prototypes[1].Cluster,

@@ -997,3 +997,42 @@ Submillimeter-Translation und derselbe Standort aus benachbarten Tile-Frames.
 Negativkontrolle: lokale Up-Basis absichtlich durch die Weltanker-Basis ersetzen;
 der Viertelkreis-Standort muss seine Aufrichtungsprüfung verlieren. Kein visueller
 Fortschritt behauptet, bevor dieser Transform im World-Crown-Consumer erreicht wird.
+
+### Geografische Modellmatrix: geprüfter Stand
+
+WorldPlacement::ModelIn übernimmt geografische Translation in double und die
+lokale East-Up-South-Basis mit positiver Y-Drehung und gleichförmigem Maßstab.
+Keine neue Geodäsie und keine pro Instanz gebackene Geometrie.
+
+`make suite SUITE=outshine/conventions`, build/world-placement-model-restored.log:
+Exit 2, 18/19 PASS; ausschließlich bestehender Texturfilterfall 2179 rot.
+ForestInstancesKeepTheirSpecies: 214 Checks, null Fehler (bisher 159 plus
+55 Transformprüfungen). Geprüft: 16 Komponenten für benachbarte Tile-Frames,
+16 für skalierte Äquatorbasis mit separat erhaltener Wurzelhöhe, 16 für
+Viertelkreis-Standort mit lokaler Aufrichtung, sechs Richtungskomponenten für
+positive Yaw und eine Höhendifferenz von 0.0001 m. Letztere bleibt nach ECEF-
+Subtraktion innerhalb 2e-9 m erhalten. Fall gesichert unter
+build/world-placement-model-restored-case.log.
+
+Negativkontrolle: ausschließlich lokale Up-Achse durch frame.UpEcef ersetzt.
+build/world-placement-model-up-negative.log, Exit 2, 18/19 PASS, genau der
+Wald-Fall rot. 214 Checks, genau zwei Fehler der Viertelkreis-Up-Komponenten.
+Alle anderen Fälle einschließlich Schach in diesem Lauf grün. Fall gesichert
+unter build/world-placement-model-up-negative-case.log. Quelle vor obigem
+Abschlusslauf wiederhergestellt; keine Änderungen am Orakel.
+
+Die vier vom Abschlusslauf erzeugten Kronen-PNGs erneut geöffnet: unverändert
+zwei dünne Birken, leerer Zwischenraum. Diese Fixture verwendet weiterhin ihre
+lokalen Testmatrizen. ModelIn ist noch nicht im produktiven World-Crown-Consumer;
+der Schritt behauptet weder neue Place-Pixel noch Wald-Framezeiten. Der letzte
+geöffnete Koerbersee-/Webcam-Vergleich bleibt maßgeblich.
+
+Für die unmittelbar folgende Cache-/Welt-Anbindung: Shipping hält aktuell nur
+geparste TreeSpecies; CrownAtlas::ProvenanceFor erwartet den Profilquelltext.
+Die Zuordnung Cluster -> geparste Spezies -> gültiger Artefaktschlüssel muss aus
+der vorhandenen Katalogladeoperation kommen, nicht aus einer zweiten unabhängig
+sortierten Verzeichnisabfrage. Parse verwendet teilweise bestehende Parameter
+als Defaults; ein künftiger Quelltextschlüssel darf deshalb keinen anderen
+geparsten Zustand repräsentieren. Beides gehört zur noch offenen Katalogübergabe
+in 2111. Modellmatrizen bei Platzierungsänderung vorbereiten, nicht pro Kamera-
+Frame erneut Geodäsie für jeden Baum rechnen. 2111 bleibt active.
