@@ -1045,3 +1045,59 @@ sie bereits pro Cluster. CrownAtlas::ProvenanceFor erhält im realen Atlasfall d
 Definition statt separat gehaltenen Testtext. Katalogtest prüft Definition und
 Spezies zusammen. Dies macht die Katalog-/Artefaktzuordnung erreichbar; asynchroner
 Welt-Consumer und vorbereitete Cache-Misses bleiben danach erforderlich.
+
+### Katalogdefinition und Parse-Zustand: 2183 abgeschlossen
+
+TreeSpecies::Parse liest in einen frisch initialisierten Kandidaten und übernimmt
+Parameter samt eigener Definition erst nach vollständiger Validierung. Ablehnung
+erhält die letzte Definition und Parameter; nur Error ändert sich. Der Katalog
+trägt Definition bereits über TreeFor pro Cluster. Der echte CrownAtlas-Cachefall
+verwendet species.Definition() als Profilanteil von ProvenanceFor. Die Summe der
+31 gelieferten JSON-Dateigrößen beträgt 80020 Bytes; diese Textkopie liegt pro
+Spezies vor, nicht pro Weltinstanz (String-/Allocator-Overhead zusätzlich).
+
+`make suite SUITE=outshine/conventions`, build/species-definition-restored.log:
+Exit 0, 19/19 PASS. TreeGeometryUsesNativeMaterials 47 Checks, null Fehler:
+verworfene Profile erhalten Zustand/Definition, erfolgreiche Wechsel verwenden
+Defaults, vorheriger Error wird gelöscht, Text gehört nach Mutation des Caller-
+Buffers weiter der Spezies. ForestInstancesKeepTheirSpecies 245 Checks, null
+Fehler, einschließlich Definition pro Cluster. CrownAtlas-Fall 174 Checks grün.
+Fallkopien: build/species-definition-restored-case.log und
+build/species-definition-catalogue-restored-case.log.
+
+Negativkontrolle initialisiert den Kandidaten aus *this statt aus Defaults.
+build/species-definition-default-negative.log: Exit 2, 18/19 PASS; genau ein
+Fehler im Baumfall: Ersatzprofil behält vorherige Roughness. Alle übrigen Fälle,
+auch Schach, grün. Fallkopie species-definition-default-negative-case.log.
+Quelle vor Abschlusslauf wiederhergestellt. 2183 durch Löschen geschlossen.
+
+`make shots`, build/species-definition-places.log: Exit 0. Alle neun erzeugten
+PNGs selbst geöffnet; sämtliche Digests unverändert. Feiner/grober Baum und
+Baum-Nahansicht aus dem Abschlusslauf ebenfalls geöffnet: weiterhin dünne Krone,
+Blatt-/Astgeometrie erhalten, keine neue botanische Abnahme.
+
+| Place | Digest | p99 ms | Peak Heap MB |
+|---|---|---:|---:|
+| DarmstadtWest | e72d1925 | 3.38 | 357 |
+| Wien | 8ff2d96d | 5.78 | 484 |
+| Rosenheim | 7da2e093 | 4.14 | 389 |
+| Husum | d60b18a7 | 3.16 | 232 |
+| Olympiaturm | 07985050 | 4.18 | 612 |
+| Graz | f93ff5b9 | 4.99 | 626 |
+| Koerbersee | c99cdbe7 | 7.17 | 634 |
+| Malcesine | 46e4db5c | 4.75 | 413 |
+| Feldkirch | 5fa234c1 | 6.42 | 405 |
+
+Je 120 residente Standframes, je 0 über 16.67 ms. Keine Kausalbehauptung für
+Heap-Schwankungen zwischen Streaming-Läufen aus der kleinen Definitionstextkopie.
+Kein bewegter Wald-/Streaming-/720p60-Gesamtzielnachweis. Bilder weiterhin ohne
+lesbare Vegetation; gleichförmige Gebäudeflächen, abgerundete Berge und grobe
+Klassenflächen. Husums weiße Kaibänder, Malcesines regelmäßige Felsvorhänge und
+Feldkirchs übertiefer Flusseinschnitt unverändert. Der Webcam-Abstand bleibt offen.
+
+Nächster Schritt: die nun zusammenhängende Kette Shipping::TreeFor -> Definition
+-> CrownCache -> CrownPieces tatsächlich aus World.Instances erreichen. ModelIn
+liefert den vorhandenen Terrain-Frame; Standortmatrizen einmal pro Platzierung
+vorbereiten, Blickgruppen pro Kamera aktualisieren. Begrenzte Residenz und
+Vorbereitung fehlender Artefakte sind Teil dieser Anbindung, kein ungebremster
+GPU-Bake auf einem laufenden Weltframe. 2111 bleibt active.

@@ -4,6 +4,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "Json.h"
 
@@ -36,6 +37,17 @@ int NumI(const Json::Ref &r, const char *key, int def) {
 } // namespace
 
 bool TreeSpecies::Parse(const char *text, size_t len) {
+  TreeSpecies parsed;
+  if (!parsed.Read(text, len)) {
+    Error_ = std::move(parsed.Error_);
+    return false;
+  }
+  parsed.Definition_.assign(text, len);
+  *this = std::move(parsed);
+  return true;
+}
+
+bool TreeSpecies::Read(const char *text, size_t len) {
   Json doc;
   if (!doc.Parse(text, len)) {
     Error_ = "parse failed";

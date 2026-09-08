@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 #include "math/Vec3.h"
 #include "GrowthForm.h"
@@ -146,6 +147,8 @@ public:
 
   [[nodiscard]] bool Parse(const char *text, size_t len);
 
+  [[nodiscard]] std::string_view Definition() const { return Definition_; }
+
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
   [[nodiscard]] const std::string &Name() const { return Name_; }
@@ -171,7 +174,8 @@ public:
   [[nodiscard]] float Lai() const { return Lai_; }
 
 private:
-  std::string Error_, Name_, Botanical_;
+  [[nodiscard]] bool Read(const char *text, size_t len);
+  std::string Error_, Name_, Botanical_, Definition_;
   GrowthForm Form_;
   Growth Growth_ = kGrowthUnsaid;
   Leaf Leaf_ = kLeafUnsaid;

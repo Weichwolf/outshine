@@ -102,7 +102,7 @@ int main() {
 
   CHECK(atlas.has_value(), "the native renderer captures crown surface data");
   if (!atlas) { std::printf("%s\n", error.c_str()); return Report(); }
-  const std::string provenance=CrownAtlas::ProvenanceFor(text,{.Pixels=128,.Views=4});
+  const std::string provenance=CrownAtlas::ProvenanceFor(species.Definition(),{.Pixels=128,.Views=4});
   CHECK(provenance!=CrownAtlas::ProvenanceFor(text+"changed",{.Pixels=128,.Views=4}) &&
         provenance!=CrownAtlas::ProvenanceFor(text,{.Pixels=256,.Views=4}) &&
         provenance!=CrownAtlas::ProvenanceFor(text,{.Pixels=128,.Views=8}),

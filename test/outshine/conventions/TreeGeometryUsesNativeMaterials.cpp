@@ -53,6 +53,21 @@ int main() {
   CHECK_NEAR(look.LeafRoughness, 0.78, 1e-7, "ratio", "leaf roughness is independent of bark");
   const std::string invalid = R"({"name":"invalid","leaf_roughness":1.2})";
   CHECK(!materialSpecies.Parse(invalid.data(), invalid.size()), "invalid roughness is refused at the data boundary");
+  CHECK(materialSpecies.Definition()==varied && materialSpecies.Name()=="material" &&
+        materialSpecies.ShadingParams().LeafRoughness==look.LeafRoughness &&
+        materialSpecies.ShadingParams().BarkRoughness==look.BarkRoughness && !materialSpecies.Error().empty(),
+        "rejected profile preserves accepted definition and material parameters");
+  std::string replacement=R"({"name":"replacement"})";
+  CHECK(materialSpecies.Parse(replacement.data(),replacement.size()), "replacement profile parses");
+  CHECK(materialSpecies.ShadingParams().BarkRoughness==TreeSpecies::kShadingUnsaid.BarkRoughness &&
+        materialSpecies.ShadingParams().LeafRoughness==TreeSpecies::kShadingUnsaid.LeafRoughness,
+        "a replacement profile uses defaults rather than the preceding profile's roughness");
+  CHECK(materialSpecies.Definition()==replacement && materialSpecies.Error().empty(),
+        "successful profile replacement publishes its own definition and clears the old error");
+  replacement.assign(replacement.size(),'x');
+  CHECK(materialSpecies.Definition()==R"({"name":"replacement"})",
+        "profile owns its source after the caller changes the input buffer");
+  CHECK(species.Definition()==text, "generator profile retains the exact parsed source for cache provenance");
   const auto tree = TreePrototype::Grow(species);
   CHECK(tree.has_value(), "the existing growth model creates a prototype");
   if (!tree) { return Report(); }

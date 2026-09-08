@@ -63,6 +63,8 @@ int main() {
         shipping.TreeFor(ClusterId{~0u}) == nullptr, "building and unknown clusters do not resolve as trees");
   for (size_t index=0; index<sources.size(); ++index) {
     const auto *held=shipping.TreeFor(ClusterId{static_cast<uint32_t>(index)});
+    CHECK(held && !held->Definition().empty() && held->Definition()==sources[index].Definition(),
+          "cluster catalogue carries the same profile definition as its parsed species");
     CHECK(held && held->Name()==sources[index].Name() && held->HeightM()==sources[index].HeightM(),
           "each cluster retains its source species and prototype height");
   }
