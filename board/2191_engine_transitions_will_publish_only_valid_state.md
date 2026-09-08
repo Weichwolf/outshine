@@ -30,26 +30,23 @@ declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückwe
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
 und nicht bewegliche Engine-Owner sind die geprüfte Voraussetzung.
 
-## Aktiver Schritt: Kamera-Bereitschaft
+## Aktiver Schritt: geprüfte GPU-Projektion
 
-Der bisherige Aimed-Boolean und eine Standardbasis ließen leere Szenen ohne
-Projektion bis zur Lens::Projection-Assertion gelangen. Zustände Unbound/Bound/Dirty trennen fehlende Bindung von ausdrücklich
-angefordertem Neu-Framing. Erfolgreicher Submit bindet Unbound, erhält aber Dirty;
-Build ohne Geometrie invalidiert Bound. Erst erfolgreiches Look beendet Dirty.
-Kein pauschales Neu-Framing einer bereits korrekt gebundenen glTF-Kamera.
-Build orchestriert Datenvorbereitung, Subject-Bindung und Overlay-Komposition;
-Kamera-Bindung und ihre Messungen gehören in die vollständige Subject-Bindephase.
-BindSubject liefert nodiscard expected mit besitzendem Fehlertext.
-SwapChain::extent muss vor erfolgreicher Target-Konfiguration null liefern, wie
-öffentlich dokumentiert; interne Default-Dimensionen sind keine gültige Oberfläche.
+Khronos definiert die Kamera-Halbausdehnungen und Near/Far-Bedingungen:
+https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#cameras
+SetProjection prüft bisher Double, konvertiert aber ungeprüft auf Float. Endliche
+Werte können überlaufen, positive Werte zu null werden und Near/Far zusammenfallen.
+Aim verändert die Projektion außerdem vor der noch fehlbaren Near-Plane-Prüfung.
 
-Fehlende Kamera ohne ableitbare Objekt-Bounds muss im bestehenden Look-/Aim-Pfad
-als Fehler zurückkommen. Wiederholter Versuch bleibt sicher; nach vollständiger
-Konfiguration muss Rendern gelingen. Bestehende numerische Projektionsprüfung nutzen.
-Tests: leere Szene vor erster advance(), Wiederholung, Readback und Fenster-Ende;
-Recovery mit expliziter Kamera und normale Kamera-/Pixel-Regressionssuite.
-Negativkontrolle: voreilige Aimed-Bereitschaft wiederherstellen; der Consumer-Test
-muss den bisherigen Assertion-Abbruch erkennen. Assertions bleiben bestehen.
+Lens erzeugt einen geprüften Kandidaten als nodiscard expected<Lens, LensError>,
+allokationsfrei und noexcept. Vor Konvertierung Wertebereich prüfen; danach gültige
+Float-Intervalle und endliche, nicht degenerierte Projektionskoeffizienten prüfen.
+Ungültige Kameraart und negative orthographische Near-Ebene ablehnen. Erst nach
+vollständiger Aim-Prüfung Projektion und Basis gemeinsam veröffentlichen.
+Bestehende reverse-Z-Mathematik und gültige Bilder bleiben unverändert.
+Prüfung: unabhängige Near/Far-Abbildung, Float-Überlauf/Unterlauf, zusammenfallende
+Ebenen, ungültige Kameraarten; Consumer erhält alte Kamera nach Ablehnung.
+Negativkontrolle lässt ungeprüfte Verengung wieder zu und muss Grenzfälle verfehlen.
 
 ## Weitere konkrete Lücken
 
