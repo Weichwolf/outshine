@@ -13,6 +13,9 @@ Engine::advance und Renderer laufen derzeit seriell am aufrufenden Thread.
 EngineHeld.h enthält gemeinsam erreichbaren Zustand; Audio liest Sources mit atomarem
 Told-Index. Ein atomarer Index allein beweist keine sichere Wiederverwendung des Puffers.
 Vor Parallelisierung jeden Producer/Consumer inklusive Audio und Shutdown inventarisieren.
+Auch Log::Sink_/Level_ und LogSink-Callbacks prüfen: Registrierung ist derzeit nicht
+synchronisiert; TextLogSink schreibt eine Zeile in mehreren Calls. Dokumentierte
+Quieszenz allein ist noch kein vollständiger Laufzeit-/Shutdown-Nachweis.
 
 **Benchmark**: Filament trennt Frontend und Driver durch einen CommandStream.
 https://github.com/google/filament/blob/main/filament/src/details/Engine.cpp

@@ -1,4 +1,5 @@
 #include "math/Units.h"
+#include <cmath>
 #include "math/Mat4.h"
 #include "scenario/Scenario.h"
 #include "Subject.h"

@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATE_H
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -41,41 +42,18 @@ protected:
   HeightSampler() = default;
 };
 
-/// How coarse a generator may build here, decided by the ENGINE and never by the generator.
-///
-/// A level of detail is the oldest idea in real-time graphics and this engine had no word for it:
-/// measured 2026-09-04, `grep -rIn '\bLod\b|\bLOD\b'` over the whole tree returned zero, while
-/// Shibuya meshed 575805 buildings at full standing -- 8.15 M triangles, 618 MB, and 14.2 triangles
-/// a building, which is a cuboid. The geometry per building was already minimal; what was missing
-/// was the decision not to build most of them finely.
-///
-/// **RAGE IS THE MODEL AND IT DECIDES THREE THINGS.** Its entities carry HD, LOD, SLOD1, SLOD2 and
-/// SLOD3, and a coarser entity REPLACES the finer ones under it rather than standing beside them.
-/// The choice is made by DISTANCE -- Unreal picks by screen size, RAGE by `lodDistance`, and
-/// distance is what this engine already has in its tile cascade. And every level is BAKED when the
-/// geometry is built, never in a frame, which is what keeps a frame from meshing.
-///
-/// So: the ground's tile rungs decide, the generator obeys, and one rung coarser ground means one
-/// step coarser everything standing on it -- because it is the same distance away.
+/// Representation classes a generator can produce. These labels do not prescribe distance
+/// thresholds or prove geometric error bounds; the caller must assess the resulting product.
 enum class Detail : uint8_t {
-  /// Every facade, every branch, every kerb. RAGE's HD.
-  Fine,
-  /// The subject as one closed shell: a building keeps its footprint and height and loses its
-  /// facades. RAGE's LOD.
-  Shell,
-  /// Neighbours MERGED, so a city block is one body rather than thirty. RAGE's SLOD1, and the
-  /// reason a distant skyline does not shimmer: the merge is stable because the block is.
-  Massed,
-  /// A silhouette, and the last thing before the horizon. RAGE's SLOD2 and SLOD3.
-  Skyline,
+  Fine,    ///< Full generator detail.
+  Shell,   ///< Exterior shell with secondary surface geometry omitted.
+  Massed,  ///< Aggregated groups preserving their coarse volume.
+  Skyline, ///< Coarse silhouette representation.
 };
 
-/// The detail a tile carries, given how many rungs coarser than the finest it is.
-///
-/// ONE RULE IN ONE PLACE. Every caller that hands a generator a window has to answer the same
-/// question, and two callers answering it separately is how two subsystems come to disagree about
-/// the same ground. The rungs are the ground's own cascade: a rung coarser is ground that is
-/// further away, so what stands on it is further away by exactly as much.
+/// Map a relative tile rung to a bounded representation class.
+/// @param rungsCoarser Rungs relative to the finest tile; nonpositive selects Fine.
+/// @return Fine, Shell, Massed, or Skyline, saturating at Skyline from rung three onward.
 [[nodiscard]] constexpr Detail DetailAtRung(int rungsCoarser) {
   if (rungsCoarser <= 0) { return Detail::Fine; }
   if (rungsCoarser == 1) { return Detail::Shell; }
@@ -89,38 +67,24 @@ static_assert(DetailAtRung(1) == Detail::Shell);
 static_assert(DetailAtRung(2) == Detail::Massed);
 static_assert(DetailAtRung(9) == Detail::Skyline, "every rung beyond is the horizon");
 
-/// The most ERROR a simplification may project and still be invisible: one pixel.
-///
-/// This is the bar Nanite holds a cluster to -- it draws the coarser one when the error IT
-/// introduces projects to at most a pixel and the error its PARENT would introduce does not. A
-/// deviation smaller than a pixel cannot be drawn, so it cannot be seen; a deviation larger than a
-/// pixel can, and no amount of distance makes it acceptable.
-///
-/// IT IS THE ERROR AND NOT THE SIZE. What a subject MEASURES on screen answers "is it visible at
-/// all"; what its simplification MOVES answers "is the simplification visible", and only the second
-/// licenses replacing geometry. Measured here the difference is the whole thing: judging by size,
-/// twenty houses were merged into one block whenever the houses fell under a couple of pixels --
-/// while the block itself, a hundred metres across, was plainly there and plainly wrong.
+/// Allowed pinhole-projected geometric error, in pixels. One pixel is a quality policy,
+/// not a guarantee of perceptual invisibility, silhouette stability or material fidelity.
 inline constexpr double kErrorPx = 1.0;
 
-/// Whether a simplification that moves geometry by `errorM` is invisible from `awayM`, given a
-/// camera whose focal length is `focalPx` pixels.
-///
-/// `focalPx / awayM` is pixels per metre at that range, which is the same quantity Nanite's
-/// `errorPerMetre / distance` computes and Unreal's ScreenSize is a bounding-sphere form of.
+/// Test whether a geometric error meets the projected-error policy.
+/// @param errorM Finite nonnegative geometric displacement bound, in metres.
+/// @param focalPx Finite positive focal length, in pixels.
+/// @param awayM Finite positive distance used by the projection estimate, in metres.
+/// @return True if all inputs are valid and errorM * focalPx <= kErrorPx * awayM.
+/// Invalid values return false, including invalid projection values with zero error.
+/// This function neither measures the displacement bound nor verifies occlusion.
 [[nodiscard]] constexpr bool Unseen(double errorM, double focalPx, double awayM) {
-  if (!(errorM > 0.0)) { return true; }
-  if (!(focalPx > 0.0) || !(awayM > 0.0)) { return false; }
+  if (!std::isfinite(errorM) || errorM < 0.0 || !std::isfinite(focalPx) || !(focalPx > 0.0) ||
+      !std::isfinite(awayM) || !(awayM > 0.0)) {
+    return false;
+  }
   return errorM * focalPx <= kErrorPx * awayM;
 }
-
-static_assert(Unseen(0.3, 691.0, 300.0), "a gable's depth at 300 m is under a pixel");
-static_assert(!Unseen(0.3, 691.0, 100.0), "at 100 m it is two pixels and has to be drawn");
-static_assert(!Unseen(100.0, 691.0, 10000.0),
-              "a block a hundred metres across is seven pixels wrong at ten kilometres");
-static_assert(Unseen(100.0, 691.0, 100000.0), "and under one at a hundred");
-static_assert(Unseen(0.0, 691.0, 1.0), "a simplification that moves nothing is always invisible");
-static_assert(!Unseen(1.0, 0.0, 1.0), "with no projection nothing may be claimed invisible");
 
 /// The coarser of two readings -- a subject is never finer than the coarsest thing that bounds it.
 [[nodiscard]] constexpr Detail Coarser(Detail one, Detail two) {

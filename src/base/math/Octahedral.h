@@ -1,11 +1,16 @@
 #ifndef OUTSHINE_BASE_MATH_OCTAHEDRAL_H
 #define OUTSHINE_BASE_MATH_OCTAHEDRAL_H
 
+#include <algorithm>
 #include <array>
+#include <limits>
 #include <cmath>
 #include <cstdint>
 
 namespace outshine {
+
+constexpr uint32_t kPackedPairMax = std::numeric_limits<uint16_t>::max();
+constexpr unsigned kPackedPairBits = std::numeric_limits<uint16_t>::digits;
 
 [[nodiscard]] inline std::array<float, 2> OctFolded(const std::array<float, 3> &unit) {
   const float sum = std::fabs(unit[0]) + std::fabs(unit[1]) + std::fabs(unit[2]);
@@ -35,18 +40,18 @@ namespace outshine {
 
 [[nodiscard]] inline uint32_t PackedPair(const std::array<float, 2> &pair) {
   const auto quantise = [](float held) {
-    const float bounded = held < -1.0f ? -1.0f : (held > 1.0f ? 1.0f : held);
-    return static_cast<uint32_t>(
-        static_cast<uint16_t>(std::lround((bounded * 0.5f + 0.5f) * 65535.0f)));
+    const float bounded = std::clamp(held, -1.0f, 1.0f);
+    return static_cast<uint32_t>(static_cast<uint16_t>(
+        std::lround((bounded * 0.5f + 0.5f) * static_cast<float>(kPackedPairMax))));
   };
-  return (quantise(pair[0]) << 16U) | quantise(pair[1]);
+  return (quantise(pair[0]) << kPackedPairBits) | quantise(pair[1]);
 }
 
 [[nodiscard]] inline std::array<float, 2> UnpackedPair(uint32_t word) {
   const auto held = [](uint32_t part) {
-    return (static_cast<float>(part) / 65535.0f) * 2.0f - 1.0f;
+    return (static_cast<float>(part) / static_cast<float>(kPackedPairMax)) * 2.0f - 1.0f;
   };
-  return {{held(word >> 16U), held(word & 0xffffU)}};
+  return {{held(word >> kPackedPairBits), held(word & kPackedPairMax)}};
 }
 
 } // namespace outshine

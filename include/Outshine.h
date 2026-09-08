@@ -238,6 +238,9 @@ public:
   [[nodiscard]] Result restore(std::string_view path);
   [[nodiscard]] std::vector<std::string> parked() const;
 
+  /// Replace the process-wide borrowed diagnostic sink, or detach it with nullptr.
+  /// @param sink Sink that outlives registration and outstanding callbacks. Change registration
+  /// only while all log producers are quiescent; callbacks may run on multiple emitting threads.
   static void logsTo(LogSink *sink);
 
   [[nodiscard]] bool standing() const;

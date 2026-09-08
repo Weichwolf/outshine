@@ -1,31 +1,32 @@
 #ifndef OUTSHINE_LOGGING_H
 #define OUTSHINE_LOGGING_H
 
+#include <concepts>
 #include <cstdint>
 #include <span>
-#include <concepts>
 #include <string>
 
 namespace outshine {
 
-enum class LogLevel { Debug, Info, Warn, Error };
+/// Severity ordered from diagnostic detail to operational failure.
+enum class LogLevel {
+  Debug, ///< Detailed diagnostics, normally disabled in routine operation.
+  Info,  ///< Normal lifecycle events.
+  Warn,  ///< Recoverable anomalies or degraded operation.
+  Error  ///< An operation failed.
+};
 
-/// WHICH SUBSYSTEM IS SPEAKING, and it is a closed set rather than a string.
-///
-/// A `const char *` here is a bin: every caller may spell its own, so `ground` and `Ground` and
-/// `terrain` become three subsystems that are one and no query over the log finds them all. The
-/// tree has four, measured, and four is a type. The EVENT stays text because it is open -- a new
-/// diagnostic names a new event -- but the speaker is not.
-///
-/// **A log is for events a HUMAN reads backwards after something went wrong.** Frequency decides
-/// the channel: once per run or per load is a log line; once per frame is a number the ledger
-/// carries; once per entity per frame is neither, and outshine will hold hundreds of thousands of
-/// those. A thousand NPCs losing their target is ONE number, never a thousand lines.
-enum class LogTag : uint8_t { Ground, Render, Veg, World };
+/// Subsystem identifiers. Event names remain application-defined text.
+enum class LogTag : uint8_t {
+  Ground, ///< Terrain data and geometry.
+  Render, ///< Graphics resources and rendering.
+  Veg,    ///< Vegetation generation and residency.
+  World   ///< World orchestration and other simulation events.
+};
 
-/// The tag as it is written in a line.
-/// @param tag Which subsystem.
-/// @return Its spelling, stable enough to grep for.
+/// Obtain the stable textual subsystem identifier.
+/// @param tag Subsystem to describe.
+/// @return Static storage; an empty string for an invalid enum value.
 [[nodiscard]] constexpr const char *nameOf(LogTag tag) {
   switch (tag) {
     case LogTag::Ground: return "ground";
@@ -36,42 +37,63 @@ enum class LogTag : uint8_t { Ground, Render, Veg, World };
   return "";
 }
 
+/// A diagnostic field with a borrowed key and owned, already formatted value.
+/// Copying the field copies the value but does not extend the key's lifetime.
 struct LogField {
-  const char *Key;
-  std::string Value;
+  const char *Key;   ///< Non-null, null-terminated key; must outlive every use of this field.
+  std::string Value; ///< Owned text; escaping for an output format is the sink's responsibility.
+
+  /// Format a floating-point diagnostic using C %g, default precision and the current C locale.
+  /// @param key Borrowed field name, not null.
+  /// @param v Numeric value; infinities and NaN are represented as diagnostic text.
   LogField(const char *key, double v);
+
+  /// Format a signed integer in decimal.
+  /// @param key Borrowed field name, not null.
+  /// @param v Integer to represent.
   LogField(const char *key, int v);
 
+  /// Format a wide signed integer in decimal.
+  /// @param key Borrowed field name, not null.
+  /// @param v Integer to represent without floating-point conversion.
   LogField(const char *key, long long v);
 
-  /// Constrained to `bool` ITSELF, and that constraint is the whole reason this type needs no
-  /// `const char *` overload beside its `std::string` one: an unconstrained `bool` parameter wins
-  /// `{"name", "car"}` outright, because pointer-to-bool is a standard conversion and
-  /// pointer-to-string is a user-defined one. Narrow the greedy overload and the right one wins.
+  /// Store a boolean as "1" or "0". Only bool matches, so strings never convert to boolean.
+  /// @tparam B Exactly bool.
+  /// @param key Borrowed field name, not null.
+  /// @param v Boolean value.
   template <typename B>
     requires std::same_as<B, bool>
   LogField(const char *key, B v) : Key(key), Value(v ? "1" : "0") {}
 
+  /// Take ownership of a textual value.
+  /// @param key Borrowed field name, not null.
+  /// @param v Text copied or moved into this field.
   LogField(const char *key, std::string v);
 };
 
+/// Synchronous diagnostic callback interface. The registered sink is borrowed by the engine.
+/// Producers may call Write concurrently; implementations must protect their mutable state.
+/// Registration/replacement requires quiescent producers, and the sink must outlive registration
+/// and outstanding calls. A queued sink must copy all borrowed data before Write returns.
 class LogSink {
 public:
+  /// Destroy only after unregistering and completing outstanding callbacks.
   virtual ~LogSink() = default;
 
-  /// Who is speaking and about what. Three `const char *` in a row, and a line written with the
-  /// tag and the event reversed reads as a different subsystem saying nothing recognisable.
+  /// Borrowed event identity, valid for the duration of Write.
   struct Saying {
-    const char *Unit = nullptr;
-    LogTag Tag = LogTag::World;
-    const char *Event = nullptr;
+    const char *Unit = nullptr; ///< Optional null-terminated emitter label; null means unspecified.
+    LogTag Tag = LogTag::World; ///< Subsystem emitting this event.
+    const char *Event = nullptr; ///< Required non-null event name when passed to Write.
   };
 
-  /// One line.
-  /// @param simTimeS The simulation clock when it was said.
-  /// @param level How loud.
-  /// @param who Which unit, which tag, which event.
-  /// @param fields The named values that go with it.
+  /// Consume one event on the emitting thread. Exceptions are not caught at this boundary;
+  /// implementations should report sink failures through an independent channel.
+  /// @param simTimeS Emitting thread's simulation time, in seconds; not wall-clock time.
+  /// @param level Event severity.
+  /// @param who Borrowed identity; copy the strings before retaining it beyond this call.
+  /// @param fields Borrowed fields; retaining them requires copying values and key strings.
   virtual void
   Write(double simTimeS, LogLevel level, Saying who, std::span<const LogField> fields) = 0;
 };

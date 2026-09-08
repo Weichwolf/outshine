@@ -9,8 +9,8 @@ Depends:
 ## Auftrag und Stand
 
 Aktuelles Ziel 2026-09-08: null clang-tidy-Befunde, vollständig dokumentierte API und
-belegte Architektur-SOLL-Verträge nach 2188. Letzter vollständiger Lauf: 259 Tidy-
-Befunde, 697 undokumentierte Public-Entitäten. Repository-Claims 66/66 grün.
+belegte Architektur-SOLL-Verträge nach 2188. Letzter vollständiger Lauf: 192 Tidy-
+Befunde, 676 undokumentierte Public-Entitäten. Repository-Claims 66/66 grün.
 Symbol-Erreichbarkeit ist seit 9b82331b ein vollständiger Verdachtsbericht, kein
 Nullziel. Ungeprüfte Kandidaten löschen wäre kein zulässiger Reparaturweg.
 

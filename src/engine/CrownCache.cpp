@@ -1,4 +1,9 @@
 #include "CrownCache.h"
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
 #include "Sha256.h"
 #include <algorithm>
 

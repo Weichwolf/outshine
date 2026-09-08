@@ -1,4 +1,11 @@
 #include "CrownPieces.h"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
 #include "Live.h"
 #include <array>
 #include <limits>

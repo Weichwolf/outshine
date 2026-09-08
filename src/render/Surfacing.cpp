@@ -1,4 +1,7 @@
 #include "Surfacing.h"
+#include <span>
+#include <string>
+#include <vector>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
