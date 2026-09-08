@@ -1,5 +1,6 @@
 Type: bug
 State: open
+Parent: 2169
 Area: engine, client, render
 Tags: webcam, measured
 Depends: 2124, 2123, 2154

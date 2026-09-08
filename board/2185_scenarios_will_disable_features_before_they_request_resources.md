@@ -2,7 +2,8 @@ Type: feature
 State: active
 Area: scenario, engine, generators
 Tags: isolation, lifecycle
-Depends: 2131
+Parent: 2169
+Depends: 2187
 
 # Scenarios will disable features before they request resources
 

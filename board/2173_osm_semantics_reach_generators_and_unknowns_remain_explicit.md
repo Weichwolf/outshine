@@ -1,8 +1,9 @@
 Type: feature
 State: open
+Parent: 2169
 Area: world, generators
 Tags: webcam, measured
-Depends: nothing
+Depends:
 
 # OSM semantics reach generators and unknowns remain explicit
 

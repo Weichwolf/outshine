@@ -1,8 +1,9 @@
 Type: feature
 State: open
+Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: nothing
+Depends:
 
 # Directional sky light and visibility make shaded surfaces plausible
 

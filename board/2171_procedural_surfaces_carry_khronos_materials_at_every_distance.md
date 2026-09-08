@@ -1,5 +1,6 @@
 Type: feature
 State: active
+Parent: 2169
 Area: world, render
 Tags: webcam, measured
 Depends: 2173, 2166, 2179
@@ -84,148 +85,11 @@ physikalische Modelle sind explizit, nicht als falsche Metalness versteckt.
       und Tunnelinnenwand. Alle Generatoren nutzen denselben Khronos-Vertrag, keine privaten
       RGB+Glanz-Abkürzungen. Einheitliches Defaultmaterial als Mutation verletzt das Oracle.
 
-## Konkreter vorhandener Baum-Materialvertrag, 2026-09-07
 
-`TreePrototype.h::Row` verwendet 20 Floats für BarkRgb/BarkDark/BarkFreq/BarkRidge,
-LeafRgb/LeafShape usw. und setzt die Zeilenbreite per static_assert mit kMaterialRowFloats
-gleich. Gleiche Breite bedeutet keine gleiche Semantik wie das Khronos-Materiallayout.
-Bei Integration in den Renderpfad getrennte prozedurale Tree-Parameter und echte MR-
-Materialien für Rinde/Blätter erzeugen. Keine vorhandene Float-Zeile direkt als MR hochladen.
+## Verbleibender Filtervertrag
 
-## Erster nativer Baum-Materialpfad
-
-TreeGeometry erzeugt getrennte Material-Objekte für Rinde/Blätter: Metalness 0, lineare
-Artenfarben, Blätter DoubleSided, echte Blattsilhouette statt ungefiltertem Deckungsrechteck.
-TreeSpecies liest bark_roughness/leaf_roughness mit [0,1]-Validierung. Defaults 0.9/0.6 sind
-plausible Startwerte, keine gemessenen artspezifischen Materialdaten. Normal-/Rindenrelief,
-Blatttransmission und saisonale Änderungen bleiben offen. Die neue Fixture prüft getrennte
-Bindungen, explizite Rauheiten und ungültige Eingaben; 11/11 Konventionsfälle grün.
-
-## Einstieg native Bilder, Voraussetzung für 2111/2123
-
-Live::CarriesBuilt/der native Anhang in StandsSubjects übernehmen Materialwerte, aber keine
-Geometry.addImage-Daten in SubjectTexture. Vorhandene Renderer-Sockets für BaseColour,
-Normal, MetalRough, Emissive und Specular stehen bereit. Diese Übergabe gemeinsam binden,
-mit Image-Indexprüfung, UV-Transform, UV-Set und Sampler; Geometry hält die Bildbytes bis
-zum Upload wie bereits die Mesh-Spans. Kein zweiter Textur-Renderer. Occlusion besitzt
-noch keinen Socket und bleibt separat offen.
-
-Unreal-/RAGE-Prototyp-/Atlasprinzip bleibt das Ziel für Wald; native Geometry/SurfaceMap
-ist die vorhandene Tür. GPU-Fixture: prozedurales 2×2-Farbbild auf einer nativen Fläche,
-quadrantenweise Farboracle im linearen Render und PNG. Fehlende Bindung muss rot werden.
-Sampler/UV-Metadaten und weitere vorhandene Sockets gezielt prüfen; kein vollständiger
-MR-Konformitätsnachweis allein aus dieser Farb-Fixture.
-
-## Nativer Bildtransport nachgewiesen, 2026-09-07
-
-Engine::setGeometry assembliert zunächst einen Subject; dort gingen die Bildbytes verloren.
-Subject besitzt nun die nativen Raster, erhält sie beim Roundtrip und verschiebt beim Append
-Material- und Bildindizes gemeinsam. Live bindet die sechs vorhandenen Textur-Sockets aus
-Geometry bzw. Subject über einen gemeinsamen Resolver. Ungültige Bildreferenzen werden
-abgewiesen; UV-Set, Transform und Sampler gelangen an den vorhandenen Upload.
-
-`NativeImagesReachTheRenderer`: 39 Checks, darunter sechs Socket-/Metadatenprüfungen,
-Roundtrip/Append und ein öffentlicher GPU-Farbtest nach `geometry.clear()`.
-Nur die native Bildbindung im öffentlichen Renderpfad entfernt: sieben Farbchecks rot,
-13 PASS/1 FAIL (`build/native-images-negative.log`, Exit 2). Wiederhergestellt 14/14 PASS
-(`build/native-images-restored.log`, Exit 0); abschließende Suite nach Umstellung der
-Fehlermeldung auf ein Says-Label ebenfalls 14/14 PASS, Exit 0
-(`build/native-images-final.log`). Keine Oracles geändert.
-
-Farb-PNG selbst geöffnet: Rot/Grün oben, Blau/Gelb unten, korrekt orientiert.
-Mutation weiß → korrekt: 160×160 = 25600 geänderte Pixel, BBox [80,240)×[80,240).
-`build/native-materials/colour.png` SHA256
-`ee2b9d2f9cfd72b381ae83cdf318830d4d8338db21422a4d75f25b1eb6792989`;
-`colour-before.png` (Mutation) SHA256
-`c5efd11f6bd7cfc1a8946a624174df0fb18517da8e848c69a8d4a6d228c97914`.
-
-Grenzen: Der GPU-Test beweist BaseColour mit Nearest/Opaque, keine vollständige MR-Konformität.
-AO-Socket, normalScale/occlusionStrength, Kanal-/Farbraumoracles für die weiteren Maps,
-Alpha Mask/Blend, Tangenten und fehlende UV-Sets bleiben offen. Live::JoinsBuilt wählt beim
-Mischen von Datei und nativen Geometrien weiterhin Slots über die Deklarationsliste; dessen
-Material-/Bildzuordnung ist separat zu reparieren und durch gemischte GPU-Fixtures zu prüfen.
-Das native Append-Oracle ersetzt diesen öffentlichen Mischpfad-Nachweis nicht.
-
-Zusätzlicher Befund für die nächste Kronenstufe: SubjectResidency.cpp setzt
-`kChainIsReadable = false`, daher lädt Upload trotz Mip-Sampler nur eine Bildstufe.
-Sampler-Metadaten allein beweisen keine Filterung. Vor einem Kronenatlas die vorhandene
-Mip-Kette samt Alpha-Coverage und bewegten Distanzbildern nachweisen bzw. reparieren;
-keine ungefilterten Blattkarten als fertigen Wald deklarieren. Die sechs Sockets erzeugen
-noch keine prozeduralen Weltmaterialien. Gesamt-WI bleibt aktiv/offen.
-
-## Nächster Schritt: Mip-Filter statt ungefilterter Ferndarstellung
-
-Historie erneut gelesen: f115b639 dokumentiert mit aktivierter Kette 2460 unterschiedliche
-lineare Kanäle zwischen zwei ABeautifulGame-Renders. Die Ursache blieb ungeklärt; nicht
-blind den Schalter umlegen. Unreal/RAGE halten vorbereitete Mips und streamen sie; die
-vorhandene CPU-Kette beim Upload ist der Einstieg, keine Berechnung im Frame.
-
-TexelChain hat zwei konkret prüfbare Defekte: IndexChannelsOf interpretiert jeden Kanal
-mit höchstens zwei Werten als Index und rundet den Mittelwert auf einen Eingangswert;
-FourUnder lässt bei ungeraden Abmessungen die letzte Spalte/Zeile weg. Ein halb weißes,
-halb schwarzes lineares Signal muss im flächenintegrierten Texel 0.5 ergeben; ein heller
-Rand einer 3×1-Textur muss 1/3 beitragen. Die Index-Hypothese aus f01f8d1a ist damit
-für Farb-/Materialmengen falsch. Auch Khronos beschreibt gemischte Metall-/Dielektrikum-
-Texel durch Mipmapping ausdrücklich: glTF 2.0 Appendix B.1.
-Quelle: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#appendix-b-brdf-implementation
-
-Vor Änderung: analytische Prüfungen für Mittelwert, Randgewicht, konstante Felder und
-Normalrichtung; echte Negativkontrolle mit altem Filter. GPU-Minifikationsfixture mit
-bekanntem Schachbrettintegral, Wiederholungsprüfung und geöffneten PNGs. ABeautifulGame
-separat erneut ausführen. Mips erst dauerhaft freigeben, wenn deren Verhalten geprüft ist;
-Alpha-Coverage, Normalvarianz/Rauheit und Kronen-Overdraw bleiben zusätzliche Abnahmen.
-
-## Flächenintegrierte Mips implementiert und geprüft
-
-HalveInPlace gewichtet jeden Eingangstexel mit der Überlappung seines Rechtecks und der
-Ausgangsfläche. Das erhält auch letzte Zeilen/Spalten bei ungeraden Maßen. Alle vier
-Wertkanäle werden gemittelt; die aus zwei Werten abgeleitete Index-Heuristik ist entfernt.
-Normalrichtungen durchlaufen weiterhin den vorhandenen Normalisierungspfad. Der Upload
-baut jetzt die vom Sampler verlangte Kette; Mip=None bleibt eine Stufe.
-
-Prüfungen über Make, ohne Oracle-Lockerung:
-
-- Ausgangszustand mit neuen Fällen: 14 PASS/2 FAIL, Exit 2 (`build/mip-baseline.log`).
-  Vier ungerade Randintegrale und der minifizierte GPU-Farbmittelwert schlagen fehl.
-- Korrigiert zunächst 16/16 PASS, Exit 0 (`build/mip-integral-proof.log`).
-- Echte Negativkontrolle: Mips aktiviert lassen, alten TexelChain einschließlich
-  IndexChannelsOf wieder einsetzen. 15 PASS/2 FAIL, Exit 2 (`build/mip-filter-negative.log`).
-  CPU-Randintegrale und GPU-Farbmittel erneut rot. Damit reicht Einschalten allein nicht.
-- Wiederhergestellt, zusätzliche Schachbrettprüfung: 17/17 PASS, Exit 0
-  (`build/mip-integral-restored.log`). Chess: erster Frame plus drei Wiederholungen,
-  je 1280×720×4 = 3686400 finite lineare Kanäle, vollständig gleich. Unlit mit erhaltenen
-  Farbmaps; kein Wiederholungsnachweis für sämtliche beleuchteten MR-/Normalmap-Pfade.
-
-Native Checker-Fixture: 512 Texel auf 160 Bildpixeln, also 3.2 Texel/Pixel. Red wechselt
-zwischen 0/1, Green bleibt 1. In allen 140×140 inneren Prüfpixeln ist Red/Green = 0.5
-innerhalb 1e-5. Ausgangs-PNG zeigt Moiré, alter Filter mit Mips falsches reines Cyan,
-korrigiert eine gleichmäßige hellcyanfarbene Fläche. PNGs selbst geöffnet.
-Beide Kontrollen → korrekt: je 160×160 = 25600 geänderte Pixel, BBox [80,240)×[80,240).
-
-| Bild in build/native-materials/ | SHA256 |
-|---|---|
-| minified-before.png | d36886e6e0543b36aacd13dabdcd8e57d3faf44083acefbba8a6fac025adc1a6 |
-| minified-old-filter.png | ae4a5a32ffd98157721b81b090af7fb702bb13525eebd3bd8f22aa478483e769 |
-| minified.png | fede687cf128cdd1af42628a399fbbfdc4418c7c21d20ae2ff75878d1cf5df88 |
-| chess-repeat.png | 5f580c360fc344acf3d55830fa515df5010be8278292c1c45d04ca1ae9d0258f |
-
-Preis dieser einzelnen 512²-RGBA32F-Textur, aus dem Uploadformat abgeleitet:
-16×(512²+256²+…+1²) = 5592400 Bytes statt 4194304, zusätzlich 1398096 Bytes.
-Kein gemessener Gesamt-Heap-/GPU-Etat; größere/gestreamte Waldatlanten noch nicht budgetiert.
-
-Corpus-Schachbrett bleibt rot: vor Mips 735, danach 6843 Pixel außerhalb der bestehenden
-8-Code-Toleranz; alle Bilder geöffnet. Zwischen den beiden Rendern ändern sich 32946 Pixel
-innerhalb [442,847)×[306,477): gemittelte Oberflächenstruktur statt feinem Punktmuster.
-Der Punkt-Oracle und der nicht ausführbare integrierte Vergleich sind jetzt 2179s Auftrag.
-ABeautifulGame nachher zweimal derselbe PNG-Digest 76fd0957. Kein universeller
-Determinismus-/Konformitätsanspruch und keine Behauptung, diese rote Abnahme sei erledigt.
-
-`make shots PLACE='Koerbersee Malcesine'`: Exit 0 (`build/mip-places.log`), beide PNGs
-geöffnet und identisch zum vorherigen Stand. Koerbersee c99cdbe7, p50/p95/p99
-6.99/7.23/7.82 ms; Malcesine 46e4db5c, 4.55/4.69/4.88 ms; jeweils 0/120 über 16.67 ms.
-Weiter kahle Flächen, unstrukturierte Felsen, dunkles Wasser. Standframes, keine Bewegung.
-
-Nächste Waldvoraussetzungen: Alpha-Coverage in Mips und bei bewegter Minifikation,
-Normalvarianz/Rauheit über mehrere Stufen, Filterqualität/Anisotropie, Speicher-/Uploadetat,
-dann geteilte Kronenprototypen und Instanzen in 2111. Ein Boxfilter ist kein fertiger
-Kronenrenderer. Gesamt-WI bleibt aktiv.
+Native Farb-/Normal-/MR-Bilder und flächenintegrierte Mips sind implementiert.
+Der rote externe Filter-/Wiederholungsnachweis bleibt in 2179. Noch offen:
+Alpha-Coverage bei Mips/Bewegung, Normalvarianz und Rauheit, Anisotropie,
+Speicher-/Uploadbudget. Boxfilter und ein Materialatlas allein nehmen keine Welt ab.
+Historische Messungen und Negativkontrollen stehen in der Git-Historie.

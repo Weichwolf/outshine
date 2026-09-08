@@ -2,7 +2,7 @@ Type: bug
 State: active
 Area: generators
 Tags: measured, flora
-Depends: nothing
+Depends:
 
 # Tree growth processes every spawned shoot without invalidating iteration
 

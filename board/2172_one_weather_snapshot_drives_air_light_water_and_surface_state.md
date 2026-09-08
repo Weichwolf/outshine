@@ -1,8 +1,9 @@
 Type: feature
 State: open
+Parent: 2169
 Area: world, scenario, render
 Tags: webcam, measured
-Depends: nothing
+Depends:
 
 # One weather snapshot drives air, light, water and surface state
 

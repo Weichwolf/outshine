@@ -2,7 +2,7 @@ Type: debt
 State: active
 Area: world, render
 Tags: webcam, measured
-Depends: nothing
+Depends:
 
 # Ground contacts are solved locally without collapsing separate structures
 

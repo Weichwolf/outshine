@@ -50,113 +50,23 @@ Manifest nutzen, keine neue Engine-eigene Soll-PNG als unabhängiges Oracle ausg
 
 Keine Änderung an Vendor-Manifesten, Oracles oder Akzeptanzschranken im bisherigen Mip-Schritt.
 
-## Wiederholungsfehler erneut reproduziert, 2026-09-08
 
-Beim gemeinsamen Piece-Instanzpfad schlägt MipmappedChessRepeatsLinearPixels wieder fehl.
-`build/shared-piece-index-proof.log` und unveränderte Produktquellen in
-`build/shared-piece-repeat-probe.log`: drei Wiederholungen unterscheiden sich jeweils
-in 420 Kanälen vom ersten Frame, maximal 0.00268555 linear, erster Kanalindex 1635972.
-Die erwartete Gleichheit bleibt unverändert. First-/Repeat-PNG werden getrennt gespeichert.
+## Eingrenzung des Wiederholungsfehlers
 
-Nächste kausale Probe: nur Occlusion im Cull-Uniform temporär deaktivieren. Der erste Frame
-hat keine vorherige Tiefenpyramide, spätere Frames schon. Falls die Differenz verschwindet,
-ist die Übergangshypothese gestützt; das wäre keine Erlaubnis, Occlusion dauerhaft zu entfernen.
-Andernfalls die Hypothese verwerfen und Upload-/Matrixreihenfolge weiter isolieren.
+MipmappedChessRepeatsLinearPixels bleibt sporadisch rot: 420 lineare Kanäle,
+maximal 0,00268555, bei identischer Tiefe. Der alte Renderer zeigt denselben Fehler;
+der neue Piece-Instanzpfad ist keine notwendige Ursache. Keine Wiederholung bis grün.
 
-## Kontrollbefunde, 2026-09-08
+| temporäre Probe | Ergebnis / Grenze |
+|---|---|
+| Occlusion aus | Wiederholung gleich; Abschalten ist keine Reparatur |
+| feste Mip-Stufe 0 | gleich, aber Integraloracle rot; kein zulässiger Fix |
+| textureGrad mit feinen Ableitungen / precise | Fehler bleibt |
+| zusätzlicher Surface-ID-Anhang | IDs gleich, Farbfehler bleibt |
+| Float32-Ableitungsausgabe | Fehler verschwindet; Instrumentierung beeinflusst ihn |
+| Float16-Ableitungsausgabe | Ableitungen gleich quantisiert, Farbfehler bleibt |
+| SDL-Shadercross-MSL-Ausgabe | float2-UV und float-Textur, keine erklärte Half-Absenkung |
 
-Die Occlusion-Probe `build/shared-piece-no-occlusion-control.log` endet mit Exit 0,
-18/18 PASS; alle drei Wiederholungen haben null abweichende lineare Kanäle.
-Occlusion ist danach wieder aktiviert; Abschalten ist keine Reparatur.
-`build/shared-piece-depth-probe-fixed.log` endet rot (17/18 PASS): sämtliche
-1280×720 Tiefenwerte bleiben gleich, die drei Farbvergleiche behalten jeweils
-420 Abweichungen und maximal 0.00268555. Gleiche Tiefe allein beweist keine
-identische Zuordnung koplanarer Oberflächen.
-
-Eine isolierte Probe ersetzt im Unlit-Fragmentshader den impliziten Texture-Tap
-durch textureGrad mit dFdxFine/dFdyFine. `build/shared-piece-fine-derivative-probe.log`
-endet mit Exit 2, 17/18 PASS, exakt denselben Farb- und Tiefendifferenzen.
-Diese Änderung ist zurückgenommen: explizite feine Ableitungen lösen den Fehler nicht.
-Als Nächstes feste Mip-Stufen als temporäre Kontrolle und Oberflächenzuordnung
-vergleichen, um Filter- von Draw-/Interpolationsänderungen zu trennen; keine
-dauerhafte Mip-Abschaltung oder Lockerung der Gleichheitsprüfung.
-
-Die Instanz-PNGs (instanced/clustered) wurden geöffnet: jeweils drei erwartete,
-getrennte Dreiecke; die Prüfung überlebt die Freigabe der ersten Gruppe bei
-weiter sichtbarer Nachbargeometrie. Das ist eine Übergabeprüfung, kein Nachweis
-für fertigen Wald oder fotorealistische Places. Die Schach-PNG wurde ebenfalls
-geöffnet; die kleinen Kanalabweichungen sind damit noch nicht ursächlich erklärt.
-
-## Feste Mip-Stufe als Negativkontrolle, 2026-09-08
-
-`build/shared-piece-fixed-lod-probe.log`: ausschließlich den Unlit-Farbtap auf
-textureLod(..., 0) gestellt, Occlusion aktiv gelassen. Schachbrett: dreimal null
-abweichende Farbkanäle und Tiefenwerte. Die Suite endet dennoch korrekt rot
-(Exit 2, 17/18 PASS): NativeMipImagesReachTheRenderer verliert das geforderte
-Pixelintegral. Beide PNGs wurden geöffnet; der minifizierte Checker zeigt wieder
-Streifen. Die feste Stufe ist zurückgenommen, keine Produktlösung.
-
-Damit ist der Wiederholungsfehler mipabhängig. Die bisherigen Messungen erklären
-noch nicht, ob veränderte Ableitungen oder die nachgelagerte Abtastung entscheidend
-sind. Nächste Probe: UV-Ableitungen selbst als Float-Ausgabe vergleichen, bevor
-Interpolation, Texturzugriff oder Occlusion geändert werden.
-
-## Ableitungs- und Identitätsausgaben, 2026-09-08
-
-Temporär die vier Komponenten dFdxFine(mappedUv)/dFdyFine(mappedUv) zusätzlich
-zum unveränderten Farbtap ausgeben; kein Austausch der Farbabtastung:
-
-- `build/shared-piece-gradient-output-probe.log`, RGBA16F-Normalanhang:
-  3.686.400 Ableitungskomponenten wiederholen gleich; Farben dreimal 423
-  Abweichungen, max. 0.00268555. Exit 2, 17/18 PASS. Die Half-Quantisierung
-  begrenzt die Aussage über die ursprünglichen Float-Ableitungen.
-- `build/shared-piece-gradient32-output-probe.log`, RGBA32F-Identitätsanhang:
-  Ableitungen, Tiefe und Farben wiederholen exakt. Exit 0, 18/18 PASS.
-  Diese Instrumentierung verändert den beobachteten Fehler und beweist daher
-  keine unveränderten Ableitungen des ursprünglichen Shaders.
-- `build/shared-piece-identity-attachment-control.log`: ursprünglicher Shader,
-  derselbe zusätzliche Identitätsanhang. Oberflächen-IDs und Tiefe wiederholen
-  exakt, Farben erneut dreimal 420 Abweichungen, max. 0.00268555.
-  Exit 2, 17/18 PASS. Der Anhang allein löst nichts. Im Log heißt der allgemeine
-  Vergleichspuffer noch `gradient`; hier enthält er die regulären Identitätswerte.
-
-Alle Diagnoseänderungen zurückgenommen. Die ID-Gleichheit grenzt wechselnde
-Oberflächenzuordnung ein; die konkrete Shader-/Samplerursache bleibt offen.
-Nächste kausale Untersuchung: Auswertung/Präzision der Ableitungen und deren
-Compilerübersetzung. Keine permanente Diagnoseausgabe als vermeintliche Reparatur.
-
-## Tatsächliche MSL-Übersetzung, 2026-09-08
-
-Temporärer SDL_ShaderCross_TranspileMSLFromSPIRV-Dump im bestehenden Shader-Lader,
-durch Make ausgeführt. `build/shared-piece-msl-inspection.log`: Exit 2, 17/18 PASS,
-Schach erneut dreimal 420 Farbkanäle, max. 0.00268555. Die Textur-Varianten unter
-build/shaders/flat-*.frag.spv.msl enthalten float2-UVs und texture2d<float>, keine
-ausdrückliche Half-Absenkung dieses Pfads. Das ist die Übersetzung vor dem
-Metal-Compiler, keine Aussage über dessen Maschinenprogramm.
-
-`build/shared-piece-precise-gradient-probe.log`: precise an Koordinate, mappedUv,
-dx/dy plus textureGrad, ohne zusätzlichen Ausgabeanhang. Wieder Exit 2, 17/18 PASS,
-dieselben 420 Abweichungen. MSL enthält mix/dot, dfdx/dfdy und gradient2d; die
-Fine-Namen werden nicht als getrennte MSL-Intrinsics ausgegeben. Die Probe
-löst nichts und beide temporären Quelländerungen sind zurückgenommen.
-GLSL-Referenz: https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.html
-
-Vor weiterer Shaderarbeit den Fehler mit dem unveränderten Renderer aus HEAD
-ohne den neuen Piece-Instanzpfad gegenprüfen. Das trennt eine Regression dieses
-Schritts von einem bereits bestehenden Mip/Occlusion-Fehler und bestimmt, ob
-die unabhängig geprüfte Instanzübergabe weiter zur Waldanbindung gelangen kann.
-Den roten Wiederholungstest dabei erhalten; die neue Piece-Fixture benötigt
-die neue API und gehört deshalb nicht zur alten Baseline.
-
-## Renderer-Baseline getrennt geprüft, 2026-09-08
-
-`build/shared-piece-original-renderer-control.log`: die vier geänderten Renderer-
-Dateien aus HEAD wiederhergestellt, neue Piece-Fixture mit ihrer dort fehlenden
-API gesichert außerhalb der Testliste; Schachprüfung unverändert. Exit 2,
-16/17 PASS, Schach dreimal dieselben 420 Farbkanäle/max. 0.00268555 bei gleicher
-Tiefe. Die Instanzänderung ist damit keine notwendige Ursache dieses Fehlers.
-Danach alle Arbeitsdateien und die neue Fixture wiederhergestellt.
-
-Im anschließenden Ein-Instanz-Negativlauf besteht Schach dagegen wieder. Dieser
-Prozess-zu-Prozess-Unterschied ist ausdrücklich kein Reparaturnachweis; der
-Baseline-Befund bleibt rot und die Untersuchungsaufgabe offen.
+Nächste Prüfung: Ableitungsauswertung und Sampler-/Compilerverhalten im originalen
+Renderpfad kausal trennen. Keine permanente Diagnoseausgabe als Reparatur.
+Alle Proben zurückgenommen. Exakte Läufe stehen in der Git-Historie.

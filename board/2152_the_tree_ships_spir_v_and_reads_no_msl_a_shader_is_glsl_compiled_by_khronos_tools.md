@@ -1,8 +1,9 @@
 Type: debt
 State: open
+Parent: 2169
 Area: render, build
 Tags: webcam, measured
-Depends: nothing
+Depends:
 
 # GLSL is the shader source and each SDL backend proves its pipeline
 

@@ -16,7 +16,8 @@ LLVM=${LLVM_BIN:-/opt/homebrew/opt/llvm/bin}
 # run-clang-tidy spawns clang-tidy by NAME, so naming the directory is not enough.
 PATH="$LLVM:$PATH"
 export PATH
-REPORT=build/lint
+REPORT=$(mktemp -d "${TMPDIR:-/tmp}/outshine-lint.XXXXXX")
+printf 'lint: reports in %s\n' "$REPORT"
 # EVERY GUARD REPORTS, AND THE VERDICT COMES AT THE END. An `exit 1` at the first red made every
 # check below it unreachable for as long as the tree was over its baseline -- the repository rules,
 # the door's documentation, the unreached count, the grammar against its own reader and writer, the
@@ -84,7 +85,9 @@ printf '\n== the repository rules ==\n'
 # item naming its benchmark, every edge pointing at an item -- and about ten check the HARNESS. No
 # off-the-shelf tool knows what `board/NNNN_*.md` is, so they stay; what stops is their standing in
 # a TEST runner, where a red about a citation reads like a red about the engine.
-sh test/run.sh harness/claims > "$REPORT/claims.log" 2>&1 || true
+if ! sh test/run.sh harness/claims > "$REPORT/claims.log" 2>&1; then
+  red=$((red + 1))
+fi
 grep -E '^(FAIL|BUILD|UNPREP|PASS)' "$REPORT/claims.log" | grep -v '^PASS' | sed 's|/var/folders.*||' || true
 grep 'tests:' "$REPORT/claims.log" | sed 's/^/lint: /' || true
 

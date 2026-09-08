@@ -1,8 +1,9 @@
 Type: feature
 State: open
+Parent: 2169
 Area: client, scene, world
 Tags: webcam, measured
-Depends: nothing
+Depends:
 
 # A reference camera has calibrated intrinsics and a declared height datum
 

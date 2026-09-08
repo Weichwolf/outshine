@@ -1,7 +1,8 @@
 Type: defect
 State: active
 Area: generators, render
-Depends: 2111
+Parent: 2111
+Depends:
 
 # Crown capture will keep leaf geometry instanced within the target memory
 

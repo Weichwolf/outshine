@@ -97,6 +97,7 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
   Zahlen mit Einheit und Herkunft: abgeleitet, gemessen oder ausdrücklich gesetzt.
 - Code erklärt sich durch Struktur und Namen. Kommentare nur für nicht offensichtliche
   Gründe; öffentliche API dokumentieren. Diagnosen unter `namespace Says` bündeln.
-  Artefakte nach `build/` oder ins temporäre Verzeichnis.
+  Logs ins System-Tempverzeichnis (`${TMPDIR:-/tmp}`), nicht nach `build/` oder ins
+  Board. PNG-Referenzen bleiben unter `build/shots/reference/`.
 - Deutsch, du, kurz und direkt. Keine Beschönigung. Ergebnis und Beleg nennen;
   offene Qualitätslücken ausdrücklich offen lassen.

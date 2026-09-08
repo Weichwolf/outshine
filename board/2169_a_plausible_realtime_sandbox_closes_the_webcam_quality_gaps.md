@@ -25,39 +25,6 @@ Zusätzliche Quelldaten wie Fototexturen, Photogrammetrie oder reale Gebäudemod
 | Navigation/NPC/Map | logisches 2D-Netz mit Ebenen/Verbindungen, unabhängig vom Render-Mesh |
 | Kontakt/Darstellung | aus demselben räumlichen Alignment, mit getrennten LOD-/Fehlerverträgen |
 
-## Renderlauf und Bilder
-
-`make shots > build/webcam-board-audit.log 2>&1` hat alle neun SHOT-Zeilen und PNGs ausgegeben;
-kein Renderprozess ist mehr aktiv. Der ursprüngliche Terminal-Exitcode war nach Sessionwechsel
-nicht mehr abrufbar; deshalb kein behaupteter vollständiger Test-Gate-Erfolg.
-Alle neun PNGs und die neun Webcam-JPGs wurden visuell geöffnet. Keine Webcam-PNGs im Baum
-gefunden. Fotos: `build/shots/webcam/*_2026-09-07_1240.jpg`, Husum `1230` (lokal UTC+2).
-
-[Vergleichsansicht](../build/webcam-audit/index.html) ·
-[Manifest](../build/webcam-audit/manifest.json) · [Renderlog](../build/webcam-board-audit.log).
-Die Vergleichsansicht hält unveränderte Bildkopien mit Originalseitenverhältnis bereit.
-Sie ist bewusst noch kein geometrisch registrierter Differenztest. Build-Artefakte sind lokal;
-diese getrackte Tabelle plus vollständige Hashes konservieren die Identität des Audits.
-
-1280×720; 120 residente **Standframes** pro Place. Fehlende Vegetation/Effekte und deaktivierte
-Bewegung bedeuten, dass diese Zahlen keine vollständige Echtzeit-Sandbox abnehmen.
-
-| Place | Digest | p50 ms | p95 ms | p99 ms | über 16,67 ms |
-|---|---|---:|---:|---:|---:|
-| DarmstadtWest | `e72d1925` | 2.65 | 2.86 | 2.95 | 0/120 |
-| Wien | `8ff2d96d` | 5.39 | 5.89 | 6.52 | 0/120 |
-| Rosenheim | `7da2e093` | 3.62 | 4.09 | 4.37 | 0/120 |
-| Husum | `d60b18a7` | 2.74 | 2.95 | 3.00 | 0/120 |
-| Olympiaturm | `07985050` | 3.38 | 3.81 | 4.07 | 0/120 |
-| Graz | `f93ff5b9` | 4.19 | 4.71 | 5.24 | 0/120 |
-| Koerbersee | `53e84b69` | 6.58 | 7.13 | 8.82 | 0/120 |
-| Malcesine | `46e4db5c` | 4.19 | 4.56 | 4.64 | 0/120 |
-| Feldkirch | `297a9d23` | 4.45 | 4.96 | 5.88 | 0/120 |
-
-9 × 120 = 1080 gemessene Standframes, insgesamt 0 Überschreitungen. Perzentile einzelner
-Orte werden nicht zu einem erfundenen Gesamt-p99 gemittelt. Live-Providerbytes sind nicht
-vollständig eingefroren; 2154 bleibt offen. Vorherige Digests unterscheiden sich bei drei Orten.
-
 ## SOLL/IST – visuelle Befunde
 
 | Place | SOLL als Plausibilitätsreferenz | IST im neuen PNG | zuständige WIs |
@@ -111,24 +78,6 @@ Stufen sind eine Reihenfolge der Integration, keine pauschale Sperre für notwen
 Abhängigkeitsreparaturen. Priorisierung und Änderungen daran verantwortet der implementierende
 Engine-/C++-/GLSL-Spezialist anhand der Befunde.
 
-```mermaid
-flowchart LR
-  Data[2173 OSM-Semantik] --> Map[2133 logische 2D-Karte mit Ebenen]
-  Map --> NPC[Navigation / NPC / Kartenanzeige]
-  Map --> Align[2175 räumliches Alignment]
-  Align --> Draw[Rendergeometrie mit LOD]
-  Align --> Contact[2127 Physikkontakt]
-  Ground[2121 Kontaktbedingungen] --> Align
-  Ground --> Terrain[2166 finale Terrainverfeinerung]
-  Terrain --> Seams[2144 Randanschlüsse]
-  Draw --> Materials[2171 Material für jede Oberfläche]
-  Trees[2111 bestehender Baumpfad] --> Species[2176 Speziesausbau]
-  Materials --> Species
-  Weather[2172 Wetter-Snapshot] --> Clouds[2140 Wolken]
-  Light[2167 Sky-Licht] --> Clouds
-  Light --> Water[2129 Reflexionen]
-```
-
 ## Globale Abnahme
 
 - [ ] Alle neun Paare erneut visuell öffnen, jeweils Gesamtbild und ursachenspezifischen
@@ -146,51 +95,6 @@ flowchart LR
 - [ ] Logisches Netz unverändert bei Render-LOD/Unsichtbarkeit; räumlicher Kontakt und
       Darstellung versioniert konsistent. Bekannte rote Orakel/Lint bleiben offen.
 
-## Vollständige Bildidentitäten
 
-| Place | Webcam SHA-256 | Render SHA-256 |
-|---|---|---|
-| DarmstadtWest | `972d9773fd8f4a511e66d30205acd479f0371c686c25cfc3d1fb3b2e8b47409c` | `e72d1925561342456282aa2b07253c35785f139a8f4877299247bdc50e997e57` |
-| Wien | `c67cdb7a923314c81ecb0dd18aacecff3203998d974077644f863e419bc59d8a` | `8ff2d96dc0dfda7c8894460f0c6edb3662558cc0dfeae3f7b5449a4eeb53b3c8` |
-| Rosenheim | `8f90c46f0cc39ae4720527addc686bf3f4de87983d8ce0f08c4465eb26d41929` | `7da2e09361625d3a95668e990c0b41a6b066f0bfbd4fb4b2df9126225312ba68` |
-| Husum | `0e04683064a44cea3c88908fbb2bc406b53e4fbe4624be33dd410e8d1b83eabf` | `d60b18a7827df93d2739dc2dd0d5c53107f29914fe6efcc0555e2934faec823e` |
-| Olympiaturm | `91c871946ee07dff52f38cc0cc7ac0929e2e229652fc8913e5a49dcb830b9d48` | `079850501dbd6d57bb09b063fe3bd9668eb7b892f968a86996cd273c9bfd38b3` |
-| Graz | `dd86eabd5c81ddc8a89c792c551334ff486e5a25b80ad4d8a4069193f5cae23e` | `f93ff5b9a687cab792e8f33d1793782578bf4ff058b0576d54d45dd33513af9c` |
-| Koerbersee | `80c10e343d693a07f30d63f246b7975bf701d571927dc9e72615c30d792dfac7` | `53e84b69bc0ebd6bec75f4b56e4c24bb9d5a036777e464172432f3c7c1453fcb` |
-| Malcesine | `13ae10442cf1a3efbcc3004a703977f0d0bc11fde299bda4822d37dd1876996f` | `46e4db5c9f81f687f65801cf60ec79cfe0104b727d1efbd799465acbca62074a` |
-| Feldkirch | `e08517756ea9ec1cb3a68d018add44eae8085177115f30647a848a8202f839be` | `297a9d23c5f6cf76fb8532407dab98bc6b8ffde43dda4bc38849ee9a35e598f1` |
-
-## Erneuter Gesamtcheckpoint nach nativem Bildtransport
-
-`make shots > build/native-images-places.log 2>&1`: Exit 0, alle neun PNGs und Webcam-
-Referenzen visuell geöffnet. Tabellenbefunde oben bestehen fort: fehlende Kronen und
-Oberflächengliederung, Husums helle Uferbänder, Malcesines gefaltete Seitenwand, Feldkirchs
-Nahwand/Ufergraben. Keine sichtbare Weltverbesserung aus dem neuen Transportpfad behauptet.
-
-| Place | Digest | p50 ms | p95 ms | p99 ms |
-|---|---|---:|---:|---:|
-| DarmstadtWest | e72d1925 | 2.61 | 2.80 | 2.92 |
-| Wien | 8ff2d96d | 5.19 | 6.23 | 6.88 |
-| Rosenheim | 7da2e093 | 3.58 | 3.98 | 4.30 |
-| Husum | d60b18a7 | 2.73 | 3.00 | 3.13 |
-| Olympiaturm | 07985050 | 3.33 | 6.03 | 7.42 |
-| Graz | f93ff5b9 | 4.16 | 4.69 | 4.88 |
-| Koerbersee | c99cdbe7 | 6.60 | 7.04 | 7.19 |
-| Malcesine | 46e4db5c | 4.17 | 4.58 | 4.67 |
-| Feldkirch | 63dcc99c | 4.41 | 5.77 | 6.52 |
-
-Je 0/120 über 16,67 ms, zusammen 0/(9×120) = 0/1080 residente Standframes.
-Kein Bewegungs-/vollständiger Sandbox-Nachweis; keine kausale Performanceverbesserung.
-Sieben Bildidentitäten unverändert. Koerbersee gegenüber 54fe2b37: 3488 geänderte Pixel,
-BBox [0,1280)×[145,720), maximale Kanalabweichung 29/255. Feldkirch gegenüber 297a9d23:
-1500 Pixel, BBox [0,1272)×[273,708), maximal 25/255. Vorher/Nachher geöffnet; verteilte
-Terrain-/Klassenkantenunterschiede, kein neuer Wald oder bessere Felsstruktur.
-Ursache dieser beiden Abweichungen nicht isoliert; 2154 bleibt zuständig.
-
-Ohne Quelländerung wiederholt (`build/native-images-places-repeat.log`, Exit 0):
-Koerbersee erneut c99cdbe7, Feldkirch dagegen 5fa234c1. Damit ist wenigstens Feldkirchs
-Laufabhängigkeit erneut belegt. Details in 2154. Aktuelle vollständige SHA256:
-
-- Koerbersee: `c99cdbe73e709c6edc471b89c1f994ffdf0afefdbf617fdb1570c305f7eb3c09`
-- Feldkirch Gesamtlauf: `63dcc99c2c6d31ed45a750ed009124a6cc4de169f8ae13ef959e2ed04a99cb01`
-- Feldkirch Wiederholung: `5fa234c1c0c4a7b7a302f8fcb7eabfbab35f0026fef21e452bfc9506453fc4d0`
+Historische Renderreihen und vollständige Bildidentitäten stehen in Git. Aktuelle
+PNG-Referenzen: `build/shots/reference/terrain-20260908/`. Logs im System-Tempverzeichnis.
