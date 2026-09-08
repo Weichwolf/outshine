@@ -54,8 +54,9 @@ Die öffentliche Geometry-/Manager-Dokumentation beschreibt jetzt auch verbleibe
 Grenzen: unvalidierte Material-/Transformwerte, lokale wiederverwendbare Integer-
 Indizes, unbenutzbare Move-Quellen und allokierende Setter. Vor nativer Runtime-
 Abnahme: validierte Asset-Publikation, echte Handle-Generationen und 2194-Fehlervertrag.
-Image-Import verlangt geprüfte Größenrechnung und eindeutige Quelllänge; addImage
-behält derzeit auch überzählige Bytes. Dokumentation dieser Lücken akzeptiert sie nicht.
+Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge;
+Überlauf und erschöpfte Bildindizes vor Kopie ablehnen. Fehler verändern weder
+Bilder noch Indexvergabe. Dokumentation verbleibender Lücken akzeptiert sie nicht.
 
 ## Migrationsfolge
 

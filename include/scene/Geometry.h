@@ -231,10 +231,10 @@ public:
   /// Copy tightly packed RGBA8 image bytes without colour conversion; O(rgba.size()), allocates.
   /// @param widthPx Positive width in pixels.
   /// @param heightPx Positive height in pixels.
-  /// @param rgba At least widthPx * heightPx * 4 bytes, in row order. Trailing bytes are
-  /// currently retained too. Texture usage determines sRGB versus linear interpretation.
-  /// @return New zero-based image index, or -1 without mutation for invalid dimensions
-  /// or insufficient input. The dimension product must be representable by size_t.
+  /// @param rgba Exactly widthPx * heightPx * 4 bytes, in row order, without padding.
+  /// Texture usage determines sRGB versus linear interpretation.
+  /// @return New zero-based image index, or -1 without mutation for invalid dimensions,
+  /// size overflow, exhausted index range or a mismatched input byte count.
   int addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba);
   /// @return Number of owned images.
   [[nodiscard]] int images() const;

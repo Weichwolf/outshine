@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <memory>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -292,9 +293,15 @@ int Geometry::addLamp(std::string_view named, const PunctualLight &light, const 
 
 int Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
   if (widthPx <= 0 || heightPx <= 0 ||
-      rgba.size() < static_cast<size_t>(widthPx) * static_cast<size_t>(heightPx) * 4u) {
+      std::cmp_greater_equal(Held_->Images.size(), std::numeric_limits<int>::max())) {
     return -1;
   }
+  constexpr size_t bytesPerPixel = 4;
+  const auto width = static_cast<size_t>(widthPx);
+  const auto height = static_cast<size_t>(heightPx);
+  if (width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) { return -1; }
+  const size_t bytes = width * height * bytesPerPixel;
+  if (rgba.size() != bytes) { return -1; }
   Held::Picture made;
   made.WidthPx = widthPx;
   made.HeightPx = heightPx;
