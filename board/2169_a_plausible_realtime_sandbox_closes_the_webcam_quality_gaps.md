@@ -84,12 +84,32 @@ Vorarbeiten. 2169 ist das übergeordnete Abnahme-WI; Kinder hängen nicht zurüc
 
 | Stufe | Arbeiten | Ergebnis |
 |---|---|---|
-| P0, parallel | 2170 Kamera/Datum; 2173 Datensemantik; 2154 reproduzierbare Eingänge; 2124 Streaming | belastbarer Vergleich und stabile Produktgrenzen |
-| P1, Struktur | 2133 logisches Netz → 2175 Alignment/Bauwerke; 2121 Kontakt; 2166 finale Terrainflächen → 2144 Nähte; 2145 Wasser; 2168 Körper | räumlich plausible Welt, Unterführungen/Tunnel bleiben offen |
-| P1, Darstellung | 2123 LOD; 2111 vorhandenen Baumpfad reparieren; 2138 Bauformen/Fassaden | visuelle Masse und funktionale Oberflächen |
-| P2, Material/Ökologie | 2171 MR für jede Geometrie; 2176 vorhandenen Species-Katalog ausbauen; 2137 Bodendetail | lesbare Baustoffe, Felsen, Vegetation auf jeder Distanz |
-| P2, Licht/Wetter | 2167 indirektes Licht; 2128 Schatten; 2172 Wetter → 2140 Wolken; 2129 Reflexionen | ein konsistenter physikalischer Beleuchtungszustand |
-| P3, Sandbox/Kamera | 2174 eigene Population; 2155 Kameraantwort; 2092/2143 Bewegung/Dauerlauf | plausible belebte Welt unter dem Frame-/Speicherbudget |
+| P0, belastbare Engine | 2170 Kamera/Datum; 2154 reproduzierbare Eingänge; 2124 Framepfad; 2132 Streaming; 2123 LOD | bewegte Kamera, begrenzte Residency und zurechenbare Bildfehler |
+| P1, Bildgrundlage | 2166 Terrain einschließlich Seitenflächen → 2144 Nähte; 2171 MR; 2167 indirektes Licht; 2128 Schatten; 2152 GLSL | Gelände und einfache Oberflächen überzeugen bei konsistenter Beleuchtung |
+| P2, gebaute Welt | 2173 Semantik; 2133 logisches Netz → 2175 Alignment/Bauwerke; 2121/2168 Kontakt/Körper; 2138 Gebäude; 2145 Ufer/Wassergeometrie | plausible Formen und räumliche Anschlüsse, befahrbare Brücken und Tunnel |
+| P3, Darstellung vervollständigen | 2172 Wetter → 2140 Wolken; 2129 Reflexionen; 2137 Bodendetail; 2155 Kameraantwort | stimmige Atmosphäre, Wasser und Nahoberflächen |
+| P4, Vegetation | 2111 isolierter Waldnachweis → Weltintegration; 2176 Arten/Ökologie | dichte, passende Bestände mit vollständiger Distanzleiter und Streaming |
+| P5, Population | 2174 Sandbox-Population | belebte Welt auf tragfähiger Darstellung und Navigation |
+
+Prioritätsentscheidung vom 2026-09-08: Die bisherige Vorziehung des Baumpfads war falsch.
+Große Nah-Billboards und unpassende Kronen in den aktuellen Koerbersee-/Rosenheim-Bildern
+sind ein abgelehnter Zwischenstand. Weitere Arten und Atlas-Hilfsfunktionen schließen die
+grundlegenden Gelände-, Material-, Beleuchtungs- und Streaminglücken nicht. Deshalb zuerst
+P0/P1; nächster fachlicher Prüfpunkt ist 2166 an Malcesines Seitenflächen, nach Klärung
+der zugehörigen räumlichen Konventionen. Laufende uncommittete Vegetationsänderungen bleiben
+als nicht abgenommener Arbeitsstand erhalten und sind vor Übernahme gesondert zu prüfen.
+
+Vor Wiederaufnahme der Weltvegetation verlangt 2111 eine deklarierte großflächige ebene
+Waldszene: gemeinsame Prototypen, Instancing, hierarchisches Culling, Nah-/Mittel-/Fern-LOD,
+räumliches Laden und Freigeben. Fläche, Dichte, Sichtweite und Kamerafahrt vor dem Lauf
+festlegen; PNGs, CPU/GPU-Framezeiten, Overdraw und Speicher einschließlich Spitzen prüfen.
+Die unklare Flächenangabe „24ß km“ wird nicht als erfundene numerische Anforderung übernommen.
+Erst der isolierte Nachweis erlaubt Integration und standortgerechten Artenausbau.
+
+2092/2143 Bewegung und Dauerlauf begleiten jede Stufe, statt erst am Ende Leistung zu prüfen.
+Stufen sind eine Reihenfolge der Integration, keine pauschale Sperre für notwendige
+Abhängigkeitsreparaturen. Priorisierung und Änderungen daran verantwortet der implementierende
+Engine-/C++-/GLSL-Spezialist anhand der Befunde.
 
 ```mermaid
 flowchart LR

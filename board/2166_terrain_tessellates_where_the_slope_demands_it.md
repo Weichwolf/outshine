@@ -21,6 +21,14 @@ Die konkrete Entstehung jeder Wand ist noch durch Höhen-/Stamp-/Sheet-Diagnosti
 
 ## Implementierung
 
+Diagnose 2026-09-08: Malcesine-46e4db5c erneut geöffnet und unter
+`build/shots/reference/terrain-20260908/` gesichert. `GroundConstants.inc` senkt
+Skirts um 16 Gitterabstände ab; `HeightSheets::TileOf` erweitert die Bounds entsprechend.
+Hypothese: sichtbare Skirts verursachen den Ufer-Vorhang. Gegenprobe: ausschließlich
+die Skirt-Absenkung temporär auf null setzen, Malcesine rendern und PNG öffnen,
+danach Quellwert wiederherstellen. Verschwindet der Vorhang nicht, ist die pauschale
+Skirt-Ursache widerlegt. Das Abschalten ist Diagnose, keine zulässige Nahtreparatur.
+
 1. Pro sichtbarem Patch Roh-DEM, finales gestempeltes Höhenfeld, Quellzoom, Sampleabstand,
    Höhenänderung, Patch-/Skirt-ID und geometrische Normale separat ausgeben. Faltenursache
    belegen, nicht eine Materialänderung als Geometriefix melden.
