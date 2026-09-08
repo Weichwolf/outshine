@@ -1036,3 +1036,12 @@ als Defaults; ein künftiger Quelltextschlüssel darf deshalb keinen anderen
 geparsten Zustand repräsentieren. Beides gehört zur noch offenen Katalogübergabe
 in 2111. Modellmatrizen bei Platzierungsänderung vorbereiten, nicht pro Kamera-
 Frame erneut Geodäsie für jeden Baum rechnen. 2111 bleibt active.
+
+### Definition und Generatorzustand gemeinsam an den Cache übergeben
+
+Vor Implementierung: 2183 schließt die beim Cache-Handoff erkannte Parse-Lücke.
+TreeSpecies hält nach erfolgreichem Parse seine eigene Definition; Shipping trägt
+sie bereits pro Cluster. CrownAtlas::ProvenanceFor erhält im realen Atlasfall diese
+Definition statt separat gehaltenen Testtext. Katalogtest prüft Definition und
+Spezies zusammen. Dies macht die Katalog-/Artefaktzuordnung erreichbar; asynchroner
+Welt-Consumer und vorbereitete Cache-Misses bleiben danach erforderlich.
