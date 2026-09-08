@@ -62,8 +62,15 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
 - Weltpositionen in Double; GPU-Daten kamera-relativ in Float. Ein gemeinsamer
   Frame-Ursprung für Geometrie, Licht und Schatten. Rechtshändig, Y oben, Frontflächen
   CCW, Einheitsnormalen; Geodäsie ENU. Formate an der Grenze konvertieren.
-- Öffentliche API minimal, mit üblichen Filament-/Cesium-Begriffen und dokumentierten
-  glTF-kompatiblen Konventionen. Keine projektspezifischen Metaphern.
+- Öffentliche API minimal und formatunabhängig. Outshine definiert eigene explizite
+  Daten-, Raum-, Material- und Lebensdauerverträge; glTF-spezifische Konventionen
+  bleiben ausschließlich im Loader/Importadapter. Gemeinsame Branchenkonventionen
+  sind keine Formatkopplung. Namen beschreiben die tatsächliche Zuständigkeit.
+- Keine Bindung an eine bestimmte Vorbild-Engine oder deren Begriffe. Filament,
+  Cesium und andere veröffentlichte Verfahren dort nutzen, wo sie fachlich helfen.
+  Die Synthese richtet sich nach Outshines Anforderungen; Korrektheit, Verständlichkeit,
+  Echtzeitkosten und Messungen entscheiden. Externe Schnittstellenspezifikationen
+  gelten an der jeweiligen Integrationsgrenze, nicht als internes Weltmodell.
 - SDL3/SDL_GPU ist die Plattform. Shaderquelle GLSL, SPIR-V und weitere benötigte
   Backendformate sind Buildprodukte. Keine handgeschriebenen Vendor-Shaderpfade.
   Materialien sämtlicher Geometrie folgen Khronos Metallic-Roughness; GLSL benötigt
