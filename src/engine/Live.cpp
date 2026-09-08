@@ -38,6 +38,7 @@
 namespace outshine::Core {
 
 namespace Says {
+constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
 }
@@ -1150,14 +1151,18 @@ bool Live::Restands(std::string stands,
   return Build(error);
 }
 
-bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &error) {
-  return Restand(built, carried, Declared_.Surfacing.front(), error);
+bool Live::SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error) {
+  if (Declared_.Surfacing.empty()) {
+    error = Says::NoGeometrySurface;
+    return false;
+  }
+  return SetGeometry(std::move(built), carried, Declared_.Surfacing.front(), error);
 }
 
-bool Live::Restand(outshine::Geometry &&built,
-                   size_t carried,
-                   const Material &wearing,
-                   std::string &error) {
+bool Live::SetGeometry(outshine::Geometry &&built,
+                       size_t carried,
+                       const Material &wearing,
+                       std::string &error) {
   Aim_ = AimState::Dirty;
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
@@ -1172,33 +1177,6 @@ bool Live::Restand(outshine::Geometry &&built,
   Carrying_ = 0;
   Declared_.Surfacing = wore;
   return stood;
-}
-
-bool Live::Restand(const Gltf::Subject &built,
-                   size_t carried,
-                   const Material &wearing,
-                   std::string &error) {
-  Aim_ = AimState::Dirty;
-  const std::vector<Material> wore = std::move(Declared_.Surfacing);
-  Declared_.Surfacing.assign(1u, wearing);
-  Declared_.Built = &built;
-  Stoodup_ = false;
-  Carrying_ = carried;
-  auto phaseAt = std::chrono::steady_clock::now();
-  const auto since = [&phaseAt] {
-    const double ms =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
-            .count();
-    phaseAt = std::chrono::steady_clock::now();
-    return ms;
-  };
-  const bool stood = Build(error);
-  BuildMs_ = since();
-  Carrying_ = 0;
-  Declared_.Surfacing = wore;
-  if (!stood) { return false; }
-  Joined_ = carried;
-  return true;
 }
 
 size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0,

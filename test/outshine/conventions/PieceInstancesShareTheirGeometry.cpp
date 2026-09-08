@@ -300,7 +300,7 @@ int main() {
         "after-arrival PNG is written");
   renderer.ReleasePiece(newPiece);
   renderer.ReleasePiece(oldPiece);
-  CHECK(scene->Restand(built, 0, error),
+  CHECK(scene->SetGeometry(base.clone(), 0, error),
         "Live rebuilds after the direct renderer registration fixture");
   scene->Eye(eye);
   Geometry empty;
@@ -372,8 +372,7 @@ int main() {
         "registered before-rebuild PNG is written");
   (void)base.addSurface("extra native material one", Material{});
   (void)base.addSurface("extra native material two", Material{});
-  Gltf::Subject rebuilt;
-  CHECK(rebuilt.Assemble(base) && scene->Restand(rebuilt, 0, error),
+  CHECK(scene->SetGeometry(base.clone(), 0, error),
         "native material growth rebuilds around resident registered pieces");
   scene->Eye(eye);
   CHECK(scene->Draw(error), "registered instances draw after native material indices shift");

@@ -67,6 +67,17 @@ Geometry::~Geometry() = default;
 Geometry::Geometry(Geometry &&) noexcept = default;
 Geometry &Geometry::operator=(Geometry &&) noexcept = default;
 
+Geometry Geometry::clone() const {
+  Geometry copy;
+  copy.Held_->Parts.assign(Held_->Parts.begin(),
+                           Held_->Parts.begin() + static_cast<std::ptrdiff_t>(Held_->Live));
+  copy.Held_->Live = Held_->Live;
+  copy.Held_->Surfaces = Held_->Surfaces;
+  copy.Held_->Images = Held_->Images;
+  copy.Held_->Lamps = Held_->Lamps;
+  return copy;
+}
+
 void Geometry::clear() {
   for (size_t at = 0; at < Held_->Live && at < Held_->Parts.size(); ++at) {
     Geometry::Held::Piece &piece = Held_->Parts[at];

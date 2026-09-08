@@ -136,6 +136,13 @@ public:
   /// Implicit replacement by copying an owning geometry is prohibited.
   Geometry &operator=(const Geometry &) = delete;
 
+  /// Copy active parts, materials, images and lights into an independent native owner.
+  /// Owner-local indices and local-to-model placements are preserved; spare part capacity is not.
+  /// Requires a non-moved-from source without concurrent mutation. Source views remain valid.
+  /// Cost and allocations scale with active owned data. Allocation failure may throw.
+  /// @return Independent geometry; later mutation or destruction of either owner is isolated.
+  [[nodiscard]] Geometry clone() const;
+
   /// Append an empty part with identity placement; fill attributes before publication.
   /// @param named Name copied into this owner.
   /// @param material Owner-local reference, or unbound for the default material.

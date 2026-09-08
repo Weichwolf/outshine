@@ -34,25 +34,30 @@
 
 namespace outshine {
 
+namespace Says {
+constexpr auto NoRenderTarget = "a render target is required before creating the scene";
+}
+
 constexpr float kNearestOccluderM = 0.01f;
 
 bool Engine::State::Stood() {
-  if (Picture.Standing) { return true; }
-  if (!Picture.Targeted) {
-    Error = "no canvas stands, so there is nowhere to draw -- the client hands one in through "
-            "DrawsInto";
-    return false;
+  if (!Picture.Standing) {
+    if (!Picture.Targeted) {
+      Error = Says::NoRenderTarget;
+      return false;
+    }
+    Core::Declaration wanted = Picture.Shown;
+    wanted.SurfaceWidthPx = Picture.Frame.WidthPx;
+    wanted.SurfaceHeightPx = Picture.Frame.HeightPx;
+    if (!Core::Live::Open(
+            Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing, Error)) {
+      return false;
+    }
   }
-  Core::Declaration wanted = Picture.Shown;
-  wanted.SurfaceWidthPx = Picture.Frame.WidthPx;
-  wanted.SurfaceHeightPx = Picture.Frame.HeightPx;
-  if (!Core::Live::Open(
-          Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing, Error)) {
-    return false;
-  }
-  if (!Picture.Carrying) { return true; }
-  Picture.Carrying = false;
-  return Picture.Standing->Restand(Picture.Handed, 0, Error);
+  if (!Picture.PendingGeometry) { return true; }
+  if (!Picture.Standing->SetGeometry(Picture.PendingGeometry->clone(), 0, Error)) { return false; }
+  Picture.PendingGeometry.reset();
+  return true;
 }
 
 void Engine::State::Tells() {

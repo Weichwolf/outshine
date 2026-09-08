@@ -906,7 +906,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
     Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
   }
-  if (!Picture.Standing->Restand(std::move(ground), drivenParts, wearing, Error)) { return false; }
+  if (!Picture.Standing->SetGeometry(std::move(ground), drivenParts, wearing, Error)) {
+    return false;
+  }
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");

@@ -219,12 +219,12 @@ public:
 
   [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
 
-  [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);
+  [[nodiscard]] bool SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error);
   void Reshape();
-  [[nodiscard]] bool
-  Restand(outshine::Geometry &&built, size_t carried, const Material &wearing, std::string &error);
-  [[nodiscard]] bool
-  Restand(const Gltf::Subject &built, size_t carried, const Material &wearing, std::string &error);
+  [[nodiscard]] bool SetGeometry(outshine::Geometry &&built,
+                                 size_t carried,
+                                 const Material &wearing,
+                                 std::string &error);
 
   void ScaledBy(double metresPerUnit) { Declared_.MetresPerUnit = metresPerUnit; }
 

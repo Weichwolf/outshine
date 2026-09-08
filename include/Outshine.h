@@ -222,6 +222,14 @@ public:
   /// counter-control a client can run: the two texts are the same one, or a section is missing a
   /// spelling.
   [[nodiscard]] std::string writeScenario() const;
+  /// Copy native geometry into engine-owned storage; the source may then be changed or destroyed.
+  /// Positions are local metres with the geometry's part placements; materials use native indices.
+  /// Call on the engine/video thread, outside concurrent engine work. Requires well-formed data.
+  /// Allocates CPU copies and may prepare GPU resources; use during scene setup, not per frame.
+  /// Invalid input is rejected before replacement. GPU setup errors are returned; renderer
+  /// recovery after a setup failure is not yet transactional. Allocation failure may throw.
+  /// @param geometry Non-moved-from source, held immutable for the duration of this call.
+  /// @return Success, or a diagnostic describing validation or setup failure.
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
   [[nodiscard]] Result declare(const Scenario::Document &scenario);
   [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);

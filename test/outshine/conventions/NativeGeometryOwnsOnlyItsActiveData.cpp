@@ -85,7 +85,17 @@ int main() {
   CHECK(geometry.setNormals(part, std::array<float, 9>{0, 0, -1, 0, 0, -1, 0, 0, -1}),
         "complete opposing normals");
   CHECK(geometry.windingAgainstNormals(part) == 1, "complete input detects reversed winding");
+  Geometry copied = geometry.clone();
+  CHECK(copied.wellFormed() && copied.parts() == geometry.parts(),
+        "clone contains only the active native parts");
+  CHECK(copied.positionsOf(part).data() != geometry.positionsOf(part).data(),
+        "clone owns separate vertex storage");
+  CHECK(copied.imageAt(0).Rgba.data() != geometry.imageAt(0).Rgba.data(),
+        "clone owns separate image storage");
   geometry.clear();
+  CHECK(copied.wellFormed() && copied.images() == imageCount + 1 &&
+            copied.imageAt(imageCount).Rgba[0] == pixel[0],
+        "source clear preserves the independent clone and its image indices");
   geometry.clear();
   CHECK(geometry.parts() == 0 && geometry.images() == 0 && !geometry.wellFormed(),
         "repeated clear leaves an empty owner");

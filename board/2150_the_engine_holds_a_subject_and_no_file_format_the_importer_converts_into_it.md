@@ -9,9 +9,9 @@ Depends:
 
 ## Befund und Entscheidung
 
-Quellprüfung 2026-09-08: `Declaring.cpp` konvertiert öffentliche `Geometry` über
-`Gltf::Subject::Assemble`. `Asset` hält Document, Subject, Pose und VariantSelection
-im Import-Namespace. `Live::Declaration::Built` und `Restand` verlangen Gltf::Subject.
+Quellprüfung 2026-09-08: setGeometry kopiert nun native Geometry direkt;
+Clone erhält aktive Daten und Ownership. Asset hält weiterhin Document, Subject,
+Pose und VariantSelection; Live::Declaration::Built verlangt noch Gltf::Subject.
 `Subject` mischt dekodierte Meshdaten, Importzugriff, Skinning und Rückkonvertierung
 über `Handed`. Ein Namespace-Wechsel würde diesen Designfehler nicht beheben.
 `Live` setzt außerdem den Schatten-Casterbereich anhand importiert/gebaut (2128).
@@ -78,8 +78,8 @@ Malcesine-PNG geprüft: Geländewände/Materialdefizite bleiben; keine visuelle 
 Gemeldeter Peak-Heap 593 MB gegenüber 589 MB zuvor; kein isolierter Kostennachweis.
 
 AudioOcclusion.cpp leitet die Audio-BVH aus nativen Parts mit Platzierung ab;
-keine Physikkollision. Render- und Audiozustand erst nach erfolgreicher
-Vorbereitung gemeinsam veröffentlichen; Fehler dürfen keinen Mischzustand erzeugen.
+keine Physikkollision. Audio-BVH wird nach erfolgreichem Render-Aufbau publiziert.
+Vollständiger GPU-Rollback und atomarer Welt-/Render-Austausch bleiben offen.
 
 ## Migrationsfolge
 
