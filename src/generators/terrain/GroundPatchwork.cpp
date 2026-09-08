@@ -160,4 +160,4 @@ std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,
   return LayPatchwork(tiles, over);
 }
 
-} // namespace outshine
+}

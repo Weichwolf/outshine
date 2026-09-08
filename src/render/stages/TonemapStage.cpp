@@ -14,7 +14,7 @@ namespace {
 constexpr uint32_t kTonemapImages = TonemapStage::ShaderShape.FragmentSamplers;
 constexpr uint32_t kTemporalImages = TonemapStage::TemporalShaderShape.FragmentSamplers;
 
-} // namespace
+}
 
 bool TonemapStage::Configure(const Gpu &gpu,
                              const Feeds &from,
@@ -106,4 +106,4 @@ void TonemapStage::Encode([[maybe_unused]] const FrameContext &ctx, const PassRe
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-} // namespace outshine::Render
+}

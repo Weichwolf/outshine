@@ -445,7 +445,7 @@ bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
   return false;
 }
 
-} // namespace
+}
 
 namespace {
 struct AttributeShape {
@@ -453,7 +453,7 @@ struct AttributeShape {
   ComponentType Component;
   bool Normalized;
 };
-} // namespace
+}
 
 namespace {
 
@@ -555,7 +555,7 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
   };
   return std::ranges::any_of(kShapes, stands);
 }
-} // namespace
+}
 
 namespace {
 
@@ -564,7 +564,7 @@ Transform LocalOf(const Node &step) {
                         : Transform::FromTrs(step.Translation, step.Rotation, step.Scale);
 }
 
-} // namespace
+}
 
 bool Document::Honours(std::string_view extension) {
   return std::ranges::any_of(kHonouredExtensions, [&extension](const char *const known) {
@@ -663,7 +663,7 @@ namespace {
   out = static_cast<size_t>(raw);
   return true;
 }
-} // namespace
+}
 
 bool Document::ReadBufferPayload(const Document::CarriedBuffer &carried,
                                  std::vector<uint8_t> &bytes) {
@@ -2260,4 +2260,4 @@ bool Document::ViewTransform(int cameraNode, Transform &out) const {
   if (!WorldTransform(cameraNode, world)) { return false; }
   return world.Inverse(out);
 }
-} // namespace outshine::Gltf
+}

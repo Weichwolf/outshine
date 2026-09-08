@@ -16,8 +16,6 @@
 
 namespace {
 
-/// What the engine says while it works, through the door's own `logsTo`. Without a sink attached
-/// every `Log::Warn` in the tree writes to nowhere, and a stall reads as a slow fetch.
 class Telling final : public outshine::LogSink {
 public:
   void Write(double simTimeS,
@@ -88,9 +86,6 @@ void Tell(const Shot &shot, std::string_view name) {
               shot.Kept ? shot.Wrote.c_str() : "NO PICTURE");
 }
 
-/// One line a program can read: every field of a `Shot`, tab separated, in a fixed order. The
-/// human-readable pair above is for an eye; this is for the case that scores it, and having both
-/// means a test and a person drive the SAME command.
 void Row(const Shot &shot, std::string_view name) {
   std::printf(
       "ROW\t%s\t%s\t%d\t%.4f\t%.4f\t%.4f\t%zu\t%zu\t%zu\t%.0f\t%.0f\t%.4f\t%d\t%.0f\t%.4f\t%s\n",
@@ -280,7 +275,7 @@ int AskHeight(int argc, char *const *argv) {
   return 0;
 }
 
-} // namespace
+}
 
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);

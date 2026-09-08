@@ -73,6 +73,6 @@ inline constexpr int kEnergySamples = 2048;
 inline constexpr int kEnergyRoughnessSteps = 32;
 inline constexpr int kEnergyViewSteps = 16;
 
-} // namespace outshine::Render
+}
 
 #endif

@@ -264,7 +264,7 @@ Value ReadValue(std::string_view text) {
   return value;
 }
 
-} // namespace
+}
 
 Property PropertyNamed(std::string_view name) {
   const std::string lowered = Lower(name);
@@ -279,7 +279,7 @@ struct Vocabulary {
   Property What;
   const std::array<const char *, 14> Words;
 };
-} // namespace
+}
 
 const std::array<Vocabulary, 12> kVocabularies = {{
     {.What = Property::Display,
@@ -357,7 +357,7 @@ namespace {
   }
   return true;
 }
-} // namespace
+}
 
 namespace {
 
@@ -709,7 +709,7 @@ bool ReadCompound(std::string_view text, Compound &out) {
          out.NthChild != 0;
 }
 
-} // namespace
+}
 
 std::vector<Declaration> Stylesheet::Inline(std::string_view text) {
   std::vector<Declaration> out;
@@ -871,7 +871,7 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
   });
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -1066,7 +1066,7 @@ const std::array<Boundary, 136> kBoundaries = {{
      .Why = "this engine runs a declared handler and never a document's own program"},
 }};
 
-} // namespace
+}
 
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
@@ -1096,10 +1096,10 @@ bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int nod
   }
   return false;
 }
-} // namespace
+}
 
 bool Selects(const Rule &rule, const Markup &markup, int node) {
   return !rule.Chain.empty() && ChainSelects(rule, markup, rule.Chain.size() - 1, node);
 }
 
-} // namespace outshine::Ui
+}

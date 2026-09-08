@@ -22,6 +22,6 @@ inline constexpr std::array<std::array<double, 3>, 3> kXyzToRec709 = {{
     {0.0556434, -0.2040259, 1.0572252},
 }};
 
-} // namespace outshine::Render
+}
 
 #endif

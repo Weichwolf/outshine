@@ -34,7 +34,7 @@ float SrgbToLinear(float v) {
                         : std::pow((v + kSrgbOffset) / kSrgbScale, kSrgbGamma);
 }
 
-} // namespace
+}
 
 TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   TreeLook look;
@@ -123,4 +123,4 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   return proto;
 }
 
-} // namespace outshine::Generators
+}

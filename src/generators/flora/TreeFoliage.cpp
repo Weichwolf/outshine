@@ -23,7 +23,7 @@ constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 
 constexpr float kGolden = 2.0f * std::numbers::pi_v<float> * (2.0f - std::numbers::phi_v<float>);
 
-} // namespace
+}
 
 void TreeFoliage::Build(const TreeSkeleton &plant,
                         const TreeMesh &shape,
@@ -104,4 +104,4 @@ float TreeFoliage::CardLeafM(Sheets over, Canopy under) const {
   return static_cast<float>(std::sqrt(lai * crownProjM2 / per));
 }
 
-} // namespace outshine::Generators
+}

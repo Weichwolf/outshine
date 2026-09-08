@@ -29,5 +29,5 @@ static_assert(Of({.EastM = 0.0, .NorthM = 1.0, .UpM = 0.0}) ==
 constexpr double kProbeM = 3.5;
 static_assert(NorthOfZ(ZOfNorth(kProbeM)) == kProbeM, "the conversion is its own inverse");
 
-} // namespace outshine::RenderFrame
+}
 #endif

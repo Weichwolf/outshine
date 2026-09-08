@@ -59,4 +59,4 @@ bool ViewBook::Take(std::string_view id) {
   return false;
 }
 
-} // namespace outshine
+}

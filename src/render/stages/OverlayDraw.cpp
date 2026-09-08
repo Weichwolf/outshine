@@ -209,4 +209,4 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 6, Count, 0, 0);
 }
 
-} // namespace outshine::Render
+}

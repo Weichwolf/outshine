@@ -41,5 +41,5 @@ struct WorldPlacement {
   }
 };
 
-} // namespace outshine
+}
 #endif

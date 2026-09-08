@@ -14,5 +14,5 @@ protected:
   [[nodiscard]] bool CountsAbsent(int status) const noexcept override;
 };
 
-} // namespace outshine::Data
+}
 #endif

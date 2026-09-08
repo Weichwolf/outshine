@@ -187,7 +187,7 @@ void Refine(std::vector<En> &tris, std::vector<En> &out, int passes) {
   }
 }
 
-} // namespace
+}
 
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
@@ -277,7 +277,7 @@ void ClipHalf(const BuildingShape &shape,
     }
   }
 }
-} // namespace
+}
 
 void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
   at.clear();
@@ -405,4 +405,4 @@ void RoofSurface::Widened(std::span<const En> ring,
   }
 }
 
-} // namespace outshine::Generators
+}

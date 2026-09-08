@@ -377,7 +377,7 @@ private:
   size_t ViewCount_ = 0, AccessorCount_ = 0;
 };
 
-} // namespace
+}
 
 bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error) {
   error.clear();
@@ -389,4 +389,4 @@ bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error) {
   return Writer(what, error).Run(glb);
 }
 
-} // namespace outshine::Gltf
+}

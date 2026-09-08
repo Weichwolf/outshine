@@ -34,7 +34,7 @@ int NumI(const Json::Ref &r, const char *key, int def) {
   return TreeSpecies::LeafKind::Broad;
 }
 
-} // namespace
+}
 
 bool TreeSpecies::Parse(const char *text, size_t len) {
   TreeSpecies parsed;
@@ -181,4 +181,4 @@ bool TreeSpecies::Read(const char *text, size_t len) {
   }
   return true;
 }
-} // namespace outshine::Generators
+}

@@ -210,6 +210,6 @@ static_assert(
             2 * SubjectResidency::kVertexPage,
     "a piece takes whole pages, so a freed piece leaves a hole another piece fits");
 
-} // namespace outshine::Render
+}
 
 #endif

@@ -48,7 +48,7 @@ namespace {
   return v[0] * v[0] + v[1] * v[1];
 }
 
-} // namespace
+}
 
 Render::PageId
 HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error) {
@@ -157,7 +157,7 @@ void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missin
   }
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -185,7 +185,7 @@ struct Block {
          y < finer.Y0 / 2 + kHalfBlock;
 }
 
-} // namespace
+}
 
 const Ground::TerrainField *HeightSheets::FieldAt(const Ground::GroundStream &ground,
                                                   Data::TileId tile) {
@@ -325,7 +325,7 @@ void StitchAlong(Sheet &fine,
   }
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -349,7 +349,7 @@ namespace {
   return nullptr;
 }
 
-} // namespace
+}
 
 void HeightSheets::StitchEdges(Patchwork &laid) {
   Seams_ = {};
@@ -676,4 +676,4 @@ uint64_t HeightSheets::Digest() const {
   return digest;
 }
 
-} // namespace outshine
+}

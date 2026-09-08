@@ -13,5 +13,5 @@ struct Grazing {
   double NoV = 0.0;
 };
 
-} // namespace outshine::Render
+}
 #endif

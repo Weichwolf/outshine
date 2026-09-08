@@ -147,4 +147,4 @@ void Lie(Rigid &body, const Facing &faces) {
   body.OrientationQ = q;
 }
 
-} // namespace outshine::Physics
+}

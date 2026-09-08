@@ -30,5 +30,5 @@ public:
   [[nodiscard]] virtual Reply Wants(Data::TileId of, int grid) = 0;
 };
 
-} // namespace outshine
+}
 #endif

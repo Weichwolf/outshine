@@ -46,4 +46,4 @@ void MediumTransmittanceStage::Encode(const PassRecording &into) {
   Settled_ = true;
 }
 
-} // namespace outshine::Render
+}

@@ -39,7 +39,7 @@ double TileLonDeg(int x, int zoom) {
          kDegPerHalfTurn;
 }
 
-} // namespace
+}
 
 Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
   Seed_ = Mix((static_cast<uint64_t>(zoom) << kZoomShift) ^
@@ -85,4 +85,4 @@ void Tile::AnchorEcef(double aslM, Vec3 &out) const {
   GeoToEcef({.LongitudeDeg = AnchorLon_, .LatitudeDeg = AnchorLat_, .HeightM = aslM}, out);
 }
 
-} // namespace outshine::Generators
+}

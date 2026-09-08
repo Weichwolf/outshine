@@ -191,5 +191,5 @@ private:
 
 [[nodiscard]] std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup);
 
-} // namespace outshine::Ui
+}
 #endif

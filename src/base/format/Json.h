@@ -103,5 +103,5 @@ private:
   bool Ok_ = false;
 };
 
-} // namespace outshine
+}
 #endif

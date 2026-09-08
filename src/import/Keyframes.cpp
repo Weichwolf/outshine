@@ -68,4 +68,4 @@ void Keyframes::At(double abscissa, std::span<double> out) const {
   }
 }
 
-} // namespace outshine
+}

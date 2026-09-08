@@ -30,4 +30,4 @@ bool VariantSelection::Against(const Document &document, int &index, std::string
   return false;
 }
 
-} // namespace outshine::Gltf
+}

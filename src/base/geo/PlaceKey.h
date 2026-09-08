@@ -15,5 +15,5 @@ namespace outshine {
   return (static_cast<uint64_t>(y + kBias) << 32U) | static_cast<uint64_t>(x + kBias);
 }
 
-} // namespace outshine
+}
 #endif

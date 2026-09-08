@@ -37,7 +37,7 @@ namespace Says {
 constexpr const char *kTimedAdvanceFailed = " failed to advance a measured frame: ";
 constexpr const char *kTimedRenderFailed = " failed to render a measured frame: ";
 constexpr const char *kMissingTimingSamples = " has no complete frame timing sample";
-} // namespace Says
+}
 
 constexpr std::uint8_t kByteMost = 255;
 constexpr double kFillShare = 0.6;
@@ -48,42 +48,9 @@ namespace {
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
 
-/// THE PLACES STAND IN THE CLEAREST AIR THE MODEL CAN STATE, which is the gases alone.
-///
-/// Koschmieder: visual range = 3.912 / extinction. kEarthAir carries Rayleigh 0.0136 /km at 550 nm
-/// -- the air itself, which no weather removes -- and Mie 0.0444 /km, which is dust, smoke and
-/// humidity. The average day it describes reaches 3.912 / 0.058 = 67 km, and Venice's ring meshes
-/// the Alps at 213.9 km: they arrived transmitting exp(-0.058 * 213.9), which is nothing.
-///
-///     haze 1.0   0.0580 /km    67 km    the Alps are white
-///     haze 0.1   0.0180 /km   217 km    the Alps are there, at 2.1 per cent contrast
-///     haze 0.0   0.0136 /km   288 km    5.4 per cent, and this is the CEILING
-///
-/// Zero is not "scattering off" -- every gas the model states is still there and the sky is still
-/// blue, because Rayleigh is what makes it blue. It is the hardest, clearest day physics allows,
-/// and 288 km is the wall behind it that no weather gets past.
 constexpr double kClearDayHaze = 0.0;
 constexpr int kTimedFrames = 120;
 
-/// A FRAME TIME IS WHAT THE ENGINE COSTS WITH THE WORLD IT ALREADY HOLDS.
-///
-/// This instrument used to walk the camera along a bearing across 24 declared views, on the
-/// argument that a still camera is the case a renderer is best at. It is, and the argument was
-/// right about that -- but what the walk actually timed was the world being rebuilt. A ring that
-/// recentres by one tile is rebuilt WHOLE rather than by what entered and left it, so a step put
-/// a second of meshing inside a frame and Kaiserberg read 1185 ms at p99 against a 16.7 ms budget.
-/// A number that is 98% loading is not a frame time, and holding a real defect (board:2124) inside
-/// a number that cannot name it hides both.
-///
-/// So the two are measured where they happen: the preload times taking the world in, and these
-/// frames time drawing the world that is in. When the rebuild is off the frame path, a moving
-/// camera can come back and mean something.
-
-/// THE PLACES ARE NINE REAL CAMERAS, and each one's photograph at `WhenUtc` stands beside the
-/// frame it answers, under build/shots/webcam/. Position, bearing and the horizontal sector are
-/// what foto-webcam.eu publishes; the height is set per place because the published elevation is
-/// the SITE's and not always the camera's, and the pitch because no camera states one. Both were
-/// set by laying the frame beside the photograph and looking.
 constexpr std::array<Place, 9> kPlaces{{
     {.Name = "DarmstadtWest",
      .LatitudeDeg = 49.875871,
@@ -159,7 +126,7 @@ constexpr std::array<Place, 9> kPlaces{{
      .WhenUtc = "2026-09-07T10:40:00Z"},
 }};
 
-} // namespace
+}
 
 std::span<const Place> Places() {
   return kPlaces;
@@ -433,4 +400,4 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   return shot;
 }
 
-} // namespace outshine::Shots
+}

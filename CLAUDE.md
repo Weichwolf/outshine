@@ -395,10 +395,9 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   memory accesses the right one. Where a bound genuinely
   exceeds O(N) the answer is a STRUCTURE, not a faster loop: many lights times many objects is
   clustered, not iterated
-- **`make` DELETES the comments.** `include/` and `src/client/` keep Doxygen because both are
-  DOORS; the rest of `src/` keeps nothing, and seeing that on every build is what forces code that
-  speaks for itself. `git log -p` holds every line removed. Prose stands in a PROOF — any source
-  carrying `Covers("`
+- **`make lint` DELETES forbidden comments.** `src/` keeps no comments, including the
+  client. Only Doxygen survives in `include/`. All comments are allowed in `test/`.
+  Scanner regression tests run before mutation; literals and token boundaries must survive.
 - **ONE SOURCE PER RULE, AND EVERYTHING ELSE DERIVES FROM IT VISIBLY.** This is SQL's normal form
   carried into code: a functional dependency lives in one place, or the copies drift. But the test
   is **do these change together**, never do these look alike. `[12 + axis]` stood eight times and

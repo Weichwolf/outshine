@@ -245,4 +245,4 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   }
 }
 
-} // namespace outshine::Render
+}

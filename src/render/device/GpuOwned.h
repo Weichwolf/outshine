@@ -89,5 +89,5 @@ using OwnedShader = Owned<SDL_GPUShader, SDL_ReleaseGPUShader>;
 using OwnedPipeline = Owned<SDL_GPUGraphicsPipeline, SDL_ReleaseGPUGraphicsPipeline>;
 using OwnedComputePipeline = Owned<SDL_GPUComputePipeline, SDL_ReleaseGPUComputePipeline>;
 
-} // namespace outshine::Render
+}
 #endif

@@ -67,4 +67,4 @@ void PresentStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-} // namespace outshine::Render
+}

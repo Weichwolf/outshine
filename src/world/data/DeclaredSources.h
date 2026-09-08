@@ -17,5 +17,5 @@ namespace outshine::Data {
 
 [[nodiscard]] std::span<const Scenario::Provider> ShippedProviders();
 
-} // namespace outshine::Data
+}
 #endif

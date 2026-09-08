@@ -19,4 +19,4 @@ void GeneratorSet::Occupy(const Ground &ground, std::span<Yield> yields) const n
   for (size_t i = 0; i < Entries_.size(); i++) { Entries_[i].G->Occupy(ground, yields[i]); }
 }
 
-} // namespace outshine::Generators
+}

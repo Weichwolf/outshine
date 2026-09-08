@@ -56,7 +56,7 @@ struct Geometry::Held {
   }
 };
 
-} // namespace outshine
+}
 
 namespace outshine {
 
@@ -103,7 +103,7 @@ constexpr double kNoAreaM4 = 1.0e-12;
   return true;
 }
 
-} // namespace
+}
 
 bool Geometry::setPositions(int part, std::span<const float> metres) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
@@ -427,4 +427,4 @@ bool Geometry::wellFormed() const {
   return true;
 }
 
-} // namespace outshine
+}

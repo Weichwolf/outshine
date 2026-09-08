@@ -27,5 +27,5 @@ static_assert(sizeof(Solid) == 3 * sizeof(double) + 4 * sizeof(float) + 2 * size
 static_assert(sizeof(Solid) == kBodyBytes, "sizeof(Solid)");
 static_assert(std::is_trivially_copyable_v<Solid>, "collect is a memcpy");
 
-} // namespace outshine::Generators
+}
 #endif

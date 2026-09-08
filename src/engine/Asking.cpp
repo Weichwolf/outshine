@@ -81,7 +81,7 @@ private:
   const Generators::Tile *Region_;
 };
 
-} // namespace
+}
 
 LongitudeLatitude Engine::State::WhereTheEyeStands() const {
   const double anchorLat = Session.Declared.Ground.Origin.LatitudeDeg;
@@ -382,4 +382,4 @@ bool Engine::State::Asks() {
   return true;
 }
 
-} // namespace outshine
+}

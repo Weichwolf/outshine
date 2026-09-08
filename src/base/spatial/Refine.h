@@ -51,5 +51,5 @@ inline void Divide(std::span<const uint32_t, 3> face,
   }
 }
 
-} // namespace outshine
+}
 #endif

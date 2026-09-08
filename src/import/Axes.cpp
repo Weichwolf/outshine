@@ -22,4 +22,4 @@ void PlacedInEcef(const Mat4 &gltf, Mat4 &out) {
   }
 }
 
-} // namespace outshine::Gltf
+}

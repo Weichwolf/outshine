@@ -140,6 +140,6 @@ template <typename Number> [[nodiscard]] bool Normalise(Vector3<Number> &v) {
   return true;
 }
 
-} // namespace outshine
+}
 
 #endif

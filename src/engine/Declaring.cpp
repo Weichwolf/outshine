@@ -136,7 +136,7 @@ namespace {
          a.Animation == b.Animation && a.Clip == b.Clip;
 }
 
-} // namespace
+}
 
 void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }
@@ -486,4 +486,4 @@ const Scenario::Document &Engine::declaration() const {
   return S_->Session.Declared;
 }
 
-} // namespace outshine
+}

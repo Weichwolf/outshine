@@ -515,5 +515,5 @@ private:
   Mat4f PrevMvp_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 };
 
-} // namespace outshine::Render
+}
 #endif

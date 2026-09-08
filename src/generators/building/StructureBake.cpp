@@ -419,7 +419,7 @@ std::vector<WayLine> LinesOf(const RawTile &raw) {
   return ways;
 }
 
-} // namespace
+}
 
 void BakeStructures(const RawTile &raw,
                     const outshine::Ground::HeightField &heights,
@@ -548,4 +548,4 @@ void BakeStructures(const RawTile &raw,
   out.Digest = DigestOver(out.Built);
 }
 
-} // namespace outshine::Generators
+}

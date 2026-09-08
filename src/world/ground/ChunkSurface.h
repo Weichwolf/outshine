@@ -104,5 +104,5 @@ inline float ChunkCellHeight(const ChunkCell &cell, float su, float sv) {
   return height;
 }
 
-} // namespace outshine::Ground
+}
 #endif

@@ -75,5 +75,5 @@ private:
   TreeSpecies::Leaf Leaf_ = TreeSpecies::kLeafUnsaid;
 };
 
-} // namespace outshine::Generators
+}
 #endif

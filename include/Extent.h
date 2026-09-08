@@ -19,6 +19,6 @@ struct Extent {
   [[nodiscard]] constexpr bool operator==(const Extent &) const = default;
 };
 
-} // namespace outshine
+}
 
 #endif

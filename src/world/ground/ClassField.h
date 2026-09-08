@@ -185,5 +185,5 @@ private:
   std::array<long, 2> Submits_ = {{0, 0}};
 };
 
-} // namespace outshine::Ground
+}
 #endif

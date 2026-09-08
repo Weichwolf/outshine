@@ -125,5 +125,5 @@ inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standi
   }
   return count;
 }
-} // namespace outshine
+}
 #endif

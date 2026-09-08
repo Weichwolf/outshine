@@ -25,6 +25,6 @@ Stand(const ReferenceLine &over, EastNorth at, double halfWidthM, Nearby about);
 
 [[nodiscard]] Astride StandAt(const ReferenceLine &over, Astraddle at);
 
-} // namespace outshine
+}
 
 #endif

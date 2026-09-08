@@ -20,5 +20,5 @@ struct EyeBasis {
   float TanHalfHeight = 0.0f;
 };
 
-} // namespace outshine::Render
+}
 #endif

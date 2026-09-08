@@ -41,6 +41,6 @@ SpellingOf(const Spellings<Held, N> &table, Held held, std::string_view unsaid) 
   return unsaid;
 }
 
-} // namespace outshine
+}
 
 #endif

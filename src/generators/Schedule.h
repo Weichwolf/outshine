@@ -37,5 +37,5 @@ private:
   std::vector<Offset> Offsets_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

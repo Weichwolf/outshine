@@ -29,7 +29,7 @@ double U(uint32_t h) {
   return static_cast<double>(h & kMantissaMask) / kMantissaSteps;
 }
 
-} // namespace
+}
 
 bool AlpineLimit::Load(const Json::Ref &root) {
   Ready_ = false;
@@ -77,4 +77,4 @@ double AlpineLimit::Noise(EastNorth at) const {
   return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
 }
 
-} // namespace outshine
+}

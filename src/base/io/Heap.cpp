@@ -109,7 +109,7 @@ void *TakeAligned(const char *item, size_t bytes, size_t alignment) {
   return Counted(block);
 }
 
-} // namespace
+}
 
 void *Heap::Take(const char *item, size_t bytes) {
   void *block = std::malloc((bytes != 0u) ? bytes : 1);
@@ -150,7 +150,7 @@ void Heap::Exhausted(const char *item) {
   End(item, "unstated");
 }
 
-} // namespace outshine
+}
 
 void *operator new(size_t bytes) {
   return outshine::Heap::Take("object", bytes);

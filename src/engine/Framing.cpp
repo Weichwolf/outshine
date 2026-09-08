@@ -248,4 +248,4 @@ bool Engine::saveScreenshot(std::string_view path) {
   return S_->Picture.Standing->Screenshot(std::string(path), S_->Error);
 }
 
-} // namespace outshine
+}

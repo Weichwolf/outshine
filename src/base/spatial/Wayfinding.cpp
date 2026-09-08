@@ -48,7 +48,7 @@ double MetresPerDegreeLon(double latDeg, Sphere on) {
   return apart - kDegPerTurn * std::floor(apart / kDegPerTurn + 0.5);
 }
 
-} // namespace
+}
 
 double ApartM(LongitudeLatitude from, LongitudeLatitude to, Sphere on) {
   const double fromLat = from.LatitudeDeg * kDegToRad;
@@ -610,7 +610,7 @@ struct Ends {
   return Vec2{{ax + along * rx, ay + along * ry}};
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -620,7 +620,7 @@ double AboutTheMeridian(double lonDeg) {
   return lonDeg;
 }
 
-} // namespace
+}
 
 uint32_t Network::SquareIn(const Gridded &grid, Spanned box, LongitudeLatitude at) {
   const double fx = std::floor((at.LongitudeDeg - box.WestLon) / grid.CellDeg);
@@ -1242,4 +1242,4 @@ std::optional<Network::Station> Network::Profile(Along at) const {
   return Station{.HeightM = height, .Grade = slope};
 }
 
-} // namespace outshine::Path
+}

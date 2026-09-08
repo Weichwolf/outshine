@@ -27,5 +27,5 @@ private:
   std::vector<Prototype> Prototypes_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

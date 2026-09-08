@@ -45,7 +45,7 @@ constexpr size_t kCorners = 4;
   return static_cast<double>(held & kMantissaMask) / static_cast<double>(kMantissaMask);
 }
 
-} // namespace
+}
 
 bool Structures::make(const Request &asked, Geometry &into) const {
   const double sideM = asked.ExtentM > 0.0 && asked.ExtentM < 200.0 ? asked.ExtentM : 12.0;
@@ -114,4 +114,4 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   return true;
 }
 
-} // namespace outshine::Generators
+}

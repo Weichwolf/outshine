@@ -107,5 +107,5 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces);
 
 [[nodiscard]] std::size_t CookedClusters();
 
-} // namespace outshine::Render
+}
 #endif

@@ -60,4 +60,4 @@ std::optional<CrownCache::Loaded> CrownCache::Take() {
   Pending_.pop_front();
   return result;
 }
-} // namespace outshine
+}

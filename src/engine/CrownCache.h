@@ -41,5 +41,5 @@ private:
   size_t MostPending_, MostBytes_;
   std::deque<Pending> Pending_;
 };
-} // namespace outshine
+}
 #endif

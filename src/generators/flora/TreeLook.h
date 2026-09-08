@@ -23,5 +23,5 @@ struct TreeLook {
   float LeafRoughness = 0.6f;
 };
 
-} // namespace outshine
+}
 #endif

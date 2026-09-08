@@ -28,5 +28,5 @@ public:
   LogSinkScope &operator=(const LogSinkScope &) = delete;
 };
 
-} // namespace outshine
+}
 #endif

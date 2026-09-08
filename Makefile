@@ -4,8 +4,8 @@
 #
 # WHAT EACH TARGET IS FOR
 #
-#   make strip      delete every comment src/ may not keep. `include/` and `src/client/` keep
-#                   their Doxygen; the rest of src/ keeps NOTHING, and seeing that on
+#   make strip      delete every comment src/ may not keep. `include/` keeps
+#                   Doxygen; src/ keeps NOTHING, test/ keeps all comments, and seeing that on
 #                   every build is what forces code that speaks for itself
 #   make            the library -> build/liboutshine.a, the generators -> build/libgenerators.a,
 #                   and the tools beside them
@@ -93,7 +93,10 @@ crown-provenance: strip shaders ## fingerprint the built crown producer inputs
 all: crown-provenance ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
 
-strip:           ## delete every comment src/ may not keep, and reflow what that left behind
+test-strip-comments: ## verify comment policy and lexical preservation
+	@cd $(SELF_DIR) && python3 test/scripts/test_strip_comments.py
+
+strip: test-strip-comments ## remove src comments, keep only include Doxygen; leave test comments intact
 	@cd $(SELF_DIR) && CLANG_FORMAT=$(LLVM_BIN)/clang-format python3 test/strip-comments.py
 
 db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-format
@@ -130,3 +133,5 @@ spotless: clean  ## and the compiler's own nest in the system temp directory
 
 help:            ## this list
 	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
+
+.PHONY: test-strip-comments

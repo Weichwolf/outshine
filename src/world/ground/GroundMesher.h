@@ -95,5 +95,5 @@ public:
 protected:
   GroundMesher() = default;
 };
-} // namespace outshine
+}
 #endif

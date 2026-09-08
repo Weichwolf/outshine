@@ -201,6 +201,6 @@ struct LookDirection {
   [[nodiscard]] constexpr bool operator==(const LookDirection &) const = default;
 };
 
-} // namespace outshine
+}
 
 #endif

@@ -15,7 +15,7 @@
 namespace outshine::Data {
 class SourceSet;
 class Transport;
-} // namespace outshine::Data
+}
 
 namespace outshine::Ground {
 
@@ -119,6 +119,6 @@ struct Pooling {
 
 [[nodiscard]] TilePool::Config GroundPoolConfig(LongitudeLatitude at, Pooling how = {});
 
-} // namespace outshine::Ground
+}
 
 #endif

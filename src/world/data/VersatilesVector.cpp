@@ -37,7 +37,7 @@ namespace {
   return d;
 }
 
-} // namespace
+}
 
 VersatilesVector::VersatilesVector() : WebTileSource(Declared()) {}
 
@@ -47,4 +47,4 @@ std::string VersatilesVector::Url(const Address &at) const {
   return std::format(Says::kTile, tile->Zoom, tile->X, tile->Y);
 }
 
-} // namespace outshine::Data
+}

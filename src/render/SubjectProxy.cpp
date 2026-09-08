@@ -363,7 +363,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
   return true;
 }
 
-} // namespace
+}
 
 bool Aim(SceneRenderer &renderer,
          const Shape &subject,
@@ -420,7 +420,7 @@ std::atomic<unsigned long long> gGeometryDigest{0};
 std::atomic<double> gHandMs{0.0};
 std::atomic<double> gDigestMs{0.0};
 
-} // namespace
+}
 
 double PackedMs() {
   return gPackMs.load(std::memory_order_relaxed);
@@ -626,4 +626,4 @@ bool Move(SceneRenderer &renderer,
   return renderer.SetSubjectPose(pose, error);
 }
 
-} // namespace outshine::Render
+}

@@ -28,6 +28,6 @@ struct Approach {
 
 [[nodiscard]] double PressedForM(const Prismatic &joint, double loadN);
 
-} // namespace outshine::Physics
+}
 
 #endif

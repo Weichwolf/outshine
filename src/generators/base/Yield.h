@@ -56,5 +56,5 @@ private:
   std::array<uint32_t, Claim::kOutcomes> Claims_ = {{0, 0, 0, 0}};
 };
 
-} // namespace outshine::Generators
+}
 #endif

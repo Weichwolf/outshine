@@ -17,5 +17,5 @@ inline constexpr double kTurn = 2.0 * std::numbers::pi;
   return angleRad;
 }
 
-} // namespace outshine
+}
 #endif

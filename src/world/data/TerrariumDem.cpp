@@ -39,7 +39,7 @@ namespace {
   return d;
 }
 
-} // namespace
+}
 
 TerrariumDem::TerrariumDem() : WebTileSource(Declared()) {}
 
@@ -53,4 +53,4 @@ bool TerrariumDem::CountsAbsent(int status) const noexcept {
   return status == kHttpForbidden || status == kHttpNotFound;
 }
 
-} // namespace outshine::Data
+}

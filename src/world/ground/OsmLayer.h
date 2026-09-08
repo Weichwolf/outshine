@@ -27,5 +27,5 @@ inline std::vector<std::string> OsmLayerNames(std::initializer_list<OsmLayer> la
   return names;
 }
 
-} // namespace outshine::Ground
+}
 #endif

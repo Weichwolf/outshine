@@ -49,5 +49,5 @@ private:
   std::vector<std::thread> Threads_;
 };
 
-} // namespace outshine
+}
 #endif

@@ -34,5 +34,5 @@ struct Limits {
                              Limits within,
                              int strideFloats = 3);
 
-} // namespace outshine
+}
 #endif

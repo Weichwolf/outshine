@@ -62,7 +62,7 @@ bool FillOffEarth(TerrainField &field) {
   return true;
 }
 
-} // namespace
+}
 
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   if ((png == nullptr) || len == 0) { return NotHere(); }
@@ -117,4 +117,4 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   return Holding(std::move(field));
 }
 
-} // namespace outshine::Ground
+}

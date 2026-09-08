@@ -21,5 +21,5 @@ public:
                 RoadRaised &into) const override;
 };
 
-} // namespace outshine::Generators
+}
 #endif

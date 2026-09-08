@@ -16,7 +16,7 @@ double Clamped(double v, double lo, double hi) {
   return std::clamp(v, lo, hi);
 }
 
-} // namespace
+}
 
 std::shared_ptr<const GroundPatch>
 GroundPatch::Complete(const Tile &region, int side, std::span<const Posting> postings) {
@@ -81,4 +81,4 @@ size_t GroundPatch::HeapBytes() const {
   return AslM_.capacity() * sizeof(double);
 }
 
-} // namespace outshine::Generators
+}

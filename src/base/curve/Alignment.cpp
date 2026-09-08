@@ -400,7 +400,7 @@ std::expected<Widened, Refusal> WidestBendFrom(Turning over, Bounding within) {
   }
 }
 
-} // namespace
+}
 
 double JunctionKerbM(Junction of) {
   const double swing = std::fabs(of.DeflectionRad);
@@ -583,4 +583,4 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
   return said;
 }
 
-} // namespace outshine
+}

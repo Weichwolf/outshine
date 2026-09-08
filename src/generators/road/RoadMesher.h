@@ -95,5 +95,5 @@ protected:
   RoadMesher() = default;
 };
 
-} // namespace outshine
+}
 #endif

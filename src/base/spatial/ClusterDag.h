@@ -146,5 +146,5 @@ DagSelect(const DagCluster &c, const Vec3 &eye, float fPx, float tau, const Vec3
          DagSse(c.ParentCenter, c.ParentRadius, c.ParentErr, eye, fPx, up) > tau;
 }
 
-} // namespace outshine
+}
 #endif

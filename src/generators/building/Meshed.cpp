@@ -50,4 +50,4 @@ bool Meshed::Take(const std::string &named,
          Held_.setNormals(part, normalM) && Held_.setTriangles(part, run);
 }
 
-} // namespace outshine::Generators
+}

@@ -84,4 +84,4 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
   return static_cast<uint32_t>(Ways_.size());
 }
 
-} // namespace outshine::Ground
+}

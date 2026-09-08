@@ -40,7 +40,7 @@ namespace outshine::Core {
 namespace Says {
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
-} // namespace Says
+}
 
 constexpr double kExposureCalibration = 1.2;
 constexpr double kMeteredMiddleGrey = 2.5;
@@ -120,7 +120,7 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
   return true;
 }
 
-} // namespace
+}
 
 Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
@@ -175,7 +175,7 @@ double Photopic(const Vec3f &triple) {
          kLuminanceBlue * static_cast<double>(triple[2]);
 }
 
-} // namespace
+}
 
 Render::Medium Live::DeclaredAir() const {
   return Render::Hazed(Render::kEarthAir, Declared_.Haze);
@@ -1259,4 +1259,4 @@ bool Live::Draw(std::string &error) {
   return true;
 }
 
-} // namespace outshine::Core
+}

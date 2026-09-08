@@ -38,7 +38,7 @@ inline constexpr std::string_view kTopologyStagingFoundNoRoom =
     "the topology's staging buffer found no room on the device: {}";
 inline constexpr std::string_view kTopologyStagingDidNotMap =
     "the topology's staging buffer did not map: {}";
-} // namespace Says
+}
 
 namespace {
 
@@ -68,7 +68,7 @@ std::atomic<size_t> gUploadBytes{0};
 std::atomic<size_t> gBuffersMade{0};
 std::atomic<size_t> gStagingMade{0};
 
-} // namespace
+}
 
 size_t SubjectResidency::UploadsTaken() {
   return gUploads.exchange(0u);
@@ -406,4 +406,4 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   return bound;
 }
 
-} // namespace outshine::Render
+}

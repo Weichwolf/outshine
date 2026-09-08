@@ -88,5 +88,5 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   return total * dPhi * dMu;
 }
 
-} // namespace outshine::Render
+}
 #endif

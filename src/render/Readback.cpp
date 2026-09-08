@@ -133,4 +133,4 @@ void Readback::Release() {
   Row = 0;
 }
 
-} // namespace outshine::Render
+}

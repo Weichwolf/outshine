@@ -10,6 +10,6 @@ inline Vec3 EastUpSouthDirection(double azimuthRad, double elevationRad) {
            std::sin(elevationRad),
            -std::cos(elevationRad) * std::cos(azimuthRad)}};
 }
-} // namespace outshine
+}
 
 #endif

@@ -50,5 +50,5 @@ inline float FaceUvX(Facade kind, int ident) {
   return -static_cast<float>(static_cast<int>(kind) + kFacadeStride * ident);
 }
 
-} // namespace outshine
+}
 #endif

@@ -58,7 +58,7 @@ void Raise(std::atomic<size_t> &target, size_t value) {
   while (value > seen && !target.compare_exchange_weak(seen, value, std::memory_order_relaxed)) {}
 }
 
-} // namespace
+}
 
 void StackProbe::Enter(Purpose purpose) {
   std::byte *base = nullptr;
@@ -123,4 +123,4 @@ const char *StackProbe::Name(Purpose purpose) {
   return "";
 }
 
-} // namespace outshine
+}

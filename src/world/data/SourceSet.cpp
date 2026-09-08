@@ -16,7 +16,7 @@ constexpr double kMsPerS = 1000.0;
 namespace {
 constexpr double kRetryBaseMs = 250.0;
 constexpr double kRetryCapMs = 4000.0;
-} // namespace
+}
 
 SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
   if (!source) { return Registration::Unnamed; }
@@ -161,4 +161,4 @@ SourceSet::Ledger SourceSet::Counters() const {
   return Ledger_;
 }
 
-} // namespace outshine::Data
+}

@@ -20,6 +20,6 @@ struct Quat {
   double W = 1.0;
 };
 
-} // namespace outshine
+}
 
 #endif

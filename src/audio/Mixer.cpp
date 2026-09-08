@@ -175,7 +175,7 @@ void Voiced(const Scenario::Sound &sound,
   into = made.back();
 }
 
-} // namespace
+}
 
 namespace {
 struct Reverberation {
@@ -189,7 +189,7 @@ struct Reverberation {
   double WetShare = 0.0;
   bool Standing = false;
 };
-} // namespace
+}
 
 struct Mixer::Held {
   BusGraph Routing;
@@ -378,4 +378,4 @@ bool Mixer::Fills(std::span<float> stereo,
   return true;
 }
 
-} // namespace outshine::Audio
+}

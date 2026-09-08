@@ -66,5 +66,5 @@ private:
   size_t Deferred_ = 0;
 };
 
-} // namespace outshine
+}
 #endif

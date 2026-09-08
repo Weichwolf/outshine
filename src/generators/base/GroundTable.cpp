@@ -9,4 +9,4 @@ std::shared_ptr<const GroundTable> GroundTable::Of(std::span<const Row> rows) {
   return std::shared_ptr<const GroundTable>(new GroundTable(rows));
 }
 
-} // namespace outshine::Generators
+}

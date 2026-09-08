@@ -16,7 +16,7 @@ bool SameState(const DrawBatch &batch, const DrawItem &item) {
          batch.Instances == item.Instances;
 }
 
-} // namespace
+}
 
 bool DrawList::Add(const DrawItem &item, std::string &error) {
   if (item.IndexCount == 0) {
@@ -129,4 +129,4 @@ void DrawList::JobsAddress(std::span<const DagCluster> clusters) {
   }
 }
 
-} // namespace outshine::Render
+}

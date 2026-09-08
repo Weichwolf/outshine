@@ -15,7 +15,7 @@ namespace Says {
 constexpr auto CrownCapacity = "crown pieces require views and a positive instance capacity";
 constexpr auto CrownView = "crown view has no native card geometry";
 constexpr auto CrownLimit = "crown instance count exceeds its declared capacity";
-} // namespace Says
+}
 
 std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
                                                  const CrownAtlas &atlas,
@@ -90,4 +90,4 @@ bool CrownPieces::Update(std::span<const Mat4> models, const Vec3 &eye, std::str
   }
   return true;
 }
-} // namespace outshine
+}

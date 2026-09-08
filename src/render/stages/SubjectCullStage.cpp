@@ -63,7 +63,7 @@ void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out) {
   }
 }
 
-} // namespace
+}
 
 bool SubjectCullStage::Pipeline(const Gpu &gpu,
                                 const char *entry,
@@ -185,4 +185,4 @@ void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecordin
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);
 }
 
-} // namespace outshine::Render
+}

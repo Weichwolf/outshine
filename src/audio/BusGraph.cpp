@@ -21,7 +21,7 @@ constexpr size_t kMostSounds = 1024;
   return std::pow(kDecadeBase, gainDb / kDecibelsPerDecade);
 }
 
-} // namespace
+}
 
 int BusGraph::BusNamed(std::string_view id) const {
   for (size_t at = 0; at < Buses_.size(); ++at) {
@@ -162,4 +162,4 @@ double BusGraph::GainOf(std::string_view id) const {
   return 0.0;
 }
 
-} // namespace outshine::Audio
+}

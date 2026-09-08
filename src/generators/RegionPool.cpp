@@ -72,4 +72,4 @@ RegionPool::Lease::~Lease() {
   if (Pool_ != nullptr) { Pool_->Release(Slot_); }
 }
 
-} // namespace outshine::Generators
+}

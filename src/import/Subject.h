@@ -316,5 +316,5 @@ private:
   Vec3 Max_;
 };
 
-} // namespace outshine::Gltf
+}
 #endif

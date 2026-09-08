@@ -119,7 +119,7 @@ struct ByPersistedWhat {
   [[nodiscard]] static std::string Identity(const Scenario::Persisted &row) { return row.What; }
 };
 
-} // namespace
+}
 
 bool LayerActive(const Scenario::Layer &layer, std::string_view active) {
   if (layer.Set.empty()) { return true; }
@@ -238,4 +238,4 @@ bool ApplyLayer(Scenario::Document &into,
   return true;
 }
 
-} // namespace outshine
+}

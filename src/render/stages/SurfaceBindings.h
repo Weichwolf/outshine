@@ -45,5 +45,5 @@ struct SurfaceBindings {
   }
 };
 
-} // namespace outshine::Render
+}
 #endif

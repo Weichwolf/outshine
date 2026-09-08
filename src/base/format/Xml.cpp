@@ -30,7 +30,7 @@ std::string Where(size_t at) {
   return " at byte " + std::to_string(at);
 }
 
-} // namespace
+}
 
 bool Xml::Refuse(const std::string &why, size_t at) {
   Error_ = why + Where(at);
@@ -428,4 +428,4 @@ Xml::Unread Xml::FirstUnread() const {
   return Unread{};
 }
 
-} // namespace outshine
+}

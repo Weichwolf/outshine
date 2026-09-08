@@ -90,6 +90,6 @@ template <typename Number>
   return {{v[0] * by, v[1] * by}};
 }
 
-} // namespace outshine
+}
 
 #endif

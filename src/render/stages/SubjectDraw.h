@@ -389,5 +389,5 @@ private:
   bool WritesVelocity = false;
 };
 
-} // namespace outshine::Render
+}
 #endif

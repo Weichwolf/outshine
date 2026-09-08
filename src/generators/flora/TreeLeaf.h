@@ -15,5 +15,5 @@ public:
                     float maxRelativeAreaError = 0.02f);
 };
 
-} // namespace outshine::Generators
+}
 #endif

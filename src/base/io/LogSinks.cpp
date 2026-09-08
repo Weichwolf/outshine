@@ -15,7 +15,7 @@ const char *LevelStr(LogLevel l) {
   }
   return "?";
 }
-} // namespace
+}
 
 void TextLogSink::Write(double simTimeS,
                         LogLevel level,
@@ -38,4 +38,4 @@ void TextLogSink::Write(double simTimeS,
   fflush(File_);
 }
 
-} // namespace outshine
+}

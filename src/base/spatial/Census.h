@@ -175,5 +175,5 @@ inline void CountIdentical(std::span<const Counted> made, const Starts &laid, Ce
   return out;
 }
 
-} // namespace outshine
+}
 #endif

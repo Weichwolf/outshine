@@ -32,5 +32,5 @@ private:
   std::vector<Entry> Entries_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

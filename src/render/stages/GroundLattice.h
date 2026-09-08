@@ -122,5 +122,5 @@ private:
   uint32_t VisibleRoom_ = 0;
 };
 
-} // namespace outshine::Render
+}
 #endif

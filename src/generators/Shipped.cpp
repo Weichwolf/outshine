@@ -40,7 +40,7 @@ namespace {
 constexpr Rank kRankBuilding{100};
 constexpr Rank kRankFlora{200};
 
-} // namespace
+}
 
 bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
                       std::string_view speciesDir,
@@ -96,4 +96,4 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   return true;
 }
 
-} // namespace outshine::Generators
+}

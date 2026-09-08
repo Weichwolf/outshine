@@ -23,4 +23,4 @@ void BuildingDraw::Draw(const Ground &ground,
   }
 }
 
-} // namespace outshine::Generators
+}

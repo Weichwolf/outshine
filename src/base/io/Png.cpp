@@ -41,7 +41,7 @@ Png Refuse(std::string why) {
   return out;
 }
 
-} // namespace
+}
 
 Png ReadPng(const uint8_t *bytes, size_t length) {
   if (bytes == nullptr || length < sizeof(kSignature) + 12) {
@@ -159,4 +159,4 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   return out;
 }
 
-} // namespace outshine::Io
+}

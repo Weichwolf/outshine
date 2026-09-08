@@ -76,6 +76,6 @@ static_assert(sizeof(Vec4f) == 4 * sizeof(float) && alignof(Vec4f) == alignof(fl
 static_assert(sizeof(Vec4) == 4 * sizeof(double) && alignof(Vec4) == alignof(double),
               "and four doubles where the scene keeps one");
 
-} // namespace outshine
+}
 
 #endif

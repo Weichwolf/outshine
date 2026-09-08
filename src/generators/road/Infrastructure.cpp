@@ -47,4 +47,4 @@ void Infrastructure::Occupy(const Ground &ground, Yield &yield) const noexcept {
   }
 }
 
-} // namespace outshine::Generators
+}

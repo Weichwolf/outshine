@@ -25,5 +25,5 @@ private:
   Outcome Why_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

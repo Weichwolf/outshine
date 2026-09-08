@@ -239,5 +239,5 @@ inline double Wrap180(double deg) {
   return {{mag * ce * ca, mag * ce * sa, -mag * se}};
 }
 
-} // namespace outshine
+}
 #endif

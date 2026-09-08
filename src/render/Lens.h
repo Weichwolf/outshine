@@ -26,6 +26,6 @@ struct Lens {
   [[nodiscard]] Mat4f Projection() const noexcept;
 };
 
-} // namespace outshine::Render
+}
 
 #endif

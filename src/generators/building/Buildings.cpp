@@ -72,4 +72,4 @@ const FeatureField::Feature *Buildings::Over(const Ground &ground, EastNorth at)
   return highest;
 }
 
-} // namespace outshine::Generators
+}

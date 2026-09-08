@@ -70,6 +70,6 @@ struct Junction {
 [[nodiscard]] std::expected<Laid, Refusal>
 LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, ReferenceLine &into);
 
-} // namespace outshine
+}
 
 #endif

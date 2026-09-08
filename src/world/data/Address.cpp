@@ -17,7 +17,7 @@ char *Wrote(char *at, char *end, long long value) {
   return put.ec == std::errc() ? put.ptr : at;
 }
 
-} // namespace
+}
 
 std::string Address::Text() const {
   std::array<char, kTextBytes> text{};
@@ -37,4 +37,4 @@ std::string Address::Text() const {
   return {text.data(), static_cast<size_t>(at - text.data())};
 }
 
-} // namespace outshine::Data
+}

@@ -379,5 +379,5 @@ FragmentArmNamed(SurfaceDomain domain, ShadingArm shading, bool textured, Surfac
   return kFragmentArmRows[FragmentArmAt(domain, shading, textured, kind)].Entry;
 }
 
-} // namespace outshine::Render
+}
 #endif

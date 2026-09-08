@@ -163,5 +163,5 @@ private:
   long Missing_ = 0, Bad_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

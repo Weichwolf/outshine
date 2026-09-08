@@ -52,4 +52,4 @@ void BuildingField::Accept(uint32_t tile, const OsmField &field, const Baked &ba
   ++Accepted_;
 }
 
-} // namespace outshine::Ground
+}

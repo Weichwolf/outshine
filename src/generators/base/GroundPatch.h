@@ -53,5 +53,5 @@ private:
   std::vector<double> AslM_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

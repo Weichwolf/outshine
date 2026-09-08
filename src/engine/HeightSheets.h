@@ -146,5 +146,5 @@ private:
   bool Framed_ = false;
 };
 
-} // namespace outshine
+}
 #endif

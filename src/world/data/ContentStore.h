@@ -58,5 +58,5 @@ private:
   std::atomic<uint64_t> TempSerial_{0};
 };
 
-} // namespace outshine::Data
+}
 #endif

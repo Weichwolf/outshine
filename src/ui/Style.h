@@ -142,5 +142,5 @@ private:
 
 [[nodiscard]] const char *WhyOutside(std::string_view name);
 
-} // namespace outshine::Ui
+}
 #endif

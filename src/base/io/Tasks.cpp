@@ -14,7 +14,7 @@ namespace {
 constexpr int kThreadsTheFrameKeeps = 2;
 constexpr int kMostComputeThreads = 8;
 
-} // namespace
+}
 
 int Tasks::ComputeThreads() {
   const auto hardware = static_cast<int>(std::thread::hardware_concurrency());
@@ -83,4 +83,4 @@ void Tasks::Work() {
   }
 }
 
-} // namespace outshine
+}

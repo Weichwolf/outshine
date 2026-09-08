@@ -54,5 +54,5 @@ constexpr unsigned kPackedPairBits = std::numeric_limits<uint16_t>::digits;
   return {{held(word >> kPackedPairBits), held(word & kPackedPairMax)}};
 }
 
-} // namespace outshine
+}
 #endif

@@ -44,4 +44,4 @@ void Log::Emit(LogLevel level, LogTag tag, const char *event, std::span<const Lo
              fields);
 }
 
-} // namespace outshine
+}

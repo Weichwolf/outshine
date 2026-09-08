@@ -75,5 +75,5 @@ private:
   long Unwidthed_ = 0, Tunnels_ = 0, Unruled_ = 0, Looked_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

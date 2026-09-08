@@ -27,7 +27,7 @@ constexpr std::string_view kPageWrongSize =
     "a height page is {} nodes a side and this one brought {} floats";
 constexpr std::string_view kPagesFull = "every one of the {} height pages is placed";
 constexpr std::string_view kStagingDidNotMap = "the height page's staging did not map: {}";
-} // namespace Says
+}
 
 using SidePlanes = std::array<std::array<float, 4>, 4>;
 
@@ -106,7 +106,7 @@ bool UploadBuffer(SDL_GPUDevice *device,
   return true;
 }
 
-} // namespace
+}
 
 bool GroundLattice::BuildGrid(std::span<const float> fractions,
                               OwnedBuffer &into,
@@ -553,4 +553,4 @@ void GroundLattice::Cast(const PassRecording &into) const {
   Draw(into, Depth_.Get(), Instances_, RealCount_, VirtualCount_);
 }
 
-} // namespace outshine::Render
+}

@@ -111,5 +111,5 @@ protected:
   StructureMesher() = default;
 };
 
-} // namespace outshine
+}
 #endif

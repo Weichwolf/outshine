@@ -18,5 +18,5 @@ public:
   void Cancel([[maybe_unused]] Data::Ticket ticket) override {}
 };
 
-} // namespace outshine
+}
 #endif

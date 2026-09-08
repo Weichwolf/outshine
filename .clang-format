@@ -57,3 +57,5 @@ PackConstructorInitializers: NextLine
 
 SortIncludes: false
 IncludeBlocks: Preserve
+
+FixNamespaceComments: false

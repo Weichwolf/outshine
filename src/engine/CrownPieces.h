@@ -34,5 +34,5 @@ private:
   uint32_t MaxInstances_;
   std::vector<View> Views_;
 };
-} // namespace outshine
+}
 #endif

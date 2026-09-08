@@ -24,5 +24,5 @@ protected:
   DrawSource() = default;
 };
 
-} // namespace outshine::Generators
+}
 #endif

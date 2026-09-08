@@ -61,5 +61,5 @@ void BakeStructures(const RawTile &raw,
                     MeshScratch &scratch,
                     BakedTile &out);
 
-} // namespace outshine::Generators
+}
 #endif

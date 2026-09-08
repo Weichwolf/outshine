@@ -16,7 +16,7 @@ struct Reducing {
   uint32_t DstAt = 0, Block = 0, Pad0 = 0, Pad1 = 0;
 };
 
-} // namespace
+}
 
 bool DepthPyramidStage::Configure(const Gpu &gpu,
                                   SDL_GPUTexture *depth,
@@ -65,4 +65,4 @@ void DepthPyramidStage::Encode(const PassRecording &into) {
   }
 }
 
-} // namespace outshine::Render
+}

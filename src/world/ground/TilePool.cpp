@@ -76,7 +76,7 @@ uint64_t RequestKey(const std::string &key) {
   return (kVectorKind << kKindShift) | (h & kVectorMask);
 }
 
-} // namespace
+}
 
 TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport)
     : Sources_(sources),
@@ -361,7 +361,7 @@ private:
   TilePool &Pool_;
 };
 
-} // namespace
+}
 
 namespace {
 
@@ -378,7 +378,7 @@ enum class Miss { None, Hole, Wait, Refused };
   return Miss::Refused;
 }
 
-} // namespace
+}
 
 void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   const TerrainGrid::State stood = tiles.NodesOf({.Zoom = job.Z, .X = job.X, .Y = job.Y},
@@ -768,4 +768,4 @@ bool TilePool::Known(uint64_t key) {
   const std::scoped_lock lock(QueueMutex_);
   return Done_.contains(key) || Posted_.contains(key);
 }
-} // namespace outshine::Ground
+}

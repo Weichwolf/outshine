@@ -126,7 +126,7 @@ BasisKey KeyOf(double x, double y, double z, double w) {
   return key;
 }
 
-} // namespace
+}
 
 bool Subject::MorphDeltasFor(const Document &document,
                              const Primitive &primitive,
@@ -573,7 +573,7 @@ bool InstanceTransforms(const Document &document,
   }
   return true;
 }
-} // namespace
+}
 
 bool Subject::ReadTriangleRun(const Document &document,
                               const Primitive &primitive,
@@ -1550,4 +1550,4 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
   return total;
 }
 
-} // namespace outshine::Gltf
+}

@@ -83,4 +83,4 @@ void TilePieces::Clear() {
   Why_.clear();
 }
 
-} // namespace outshine
+}

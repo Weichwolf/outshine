@@ -25,7 +25,7 @@ struct Pushed {
 
 static_assert(sizeof(Pushed) == sizeof(Medium) + 16, "the push keeps the medium's alignment");
 
-} // namespace
+}
 
 bool MediumRadianceStage::Configure(const Gpu &gpu,
                                     SDL_GPUTexture *transmittance,
@@ -82,4 +82,4 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
   Settled_ = true;
 }
 
-} // namespace outshine::Render
+}

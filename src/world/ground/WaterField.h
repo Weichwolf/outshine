@@ -85,5 +85,5 @@ private:
   long NoGround_ = 0, Outliers_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

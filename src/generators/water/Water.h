@@ -22,5 +22,5 @@ public:
   [[nodiscard]] std::string_view Called() const noexcept override { return "water"; }
 };
 
-} // namespace outshine::Generators
+}
 #endif

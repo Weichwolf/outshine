@@ -64,5 +64,5 @@ private:
   std::unordered_map<std::string, Stood, ByName, std::equal_to<>> Held_;
 };
 
-} // namespace outshine
+}
 #endif

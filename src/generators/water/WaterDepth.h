@@ -35,5 +35,5 @@ private:
   double M_;
 };
 
-} // namespace outshine
+}
 #endif

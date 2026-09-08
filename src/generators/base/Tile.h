@@ -50,5 +50,5 @@ private:
   double AnchorLat_, AnchorLon_, SpanEm_, SpanNm_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

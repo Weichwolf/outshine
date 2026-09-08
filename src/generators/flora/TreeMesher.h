@@ -78,5 +78,5 @@ private:
   std::vector<Vec3f> Normals_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

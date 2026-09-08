@@ -77,7 +77,7 @@ double SegmentGapM2(EastNorth at, EastNorth from, EastNorth to) {
   return ge * ge + gn * gn;
 }
 
-} // namespace
+}
 
 bool FeatureField::Contains(const Feature &f, EastNorth at) const noexcept {
   const double eastM = at.EastM;
@@ -118,4 +118,4 @@ size_t FeatureField::HeapBytes() const {
          Vertices_.capacity() * sizeof(Vertex);
 }
 
-} // namespace outshine::Generators
+}

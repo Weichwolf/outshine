@@ -26,5 +26,5 @@ private:
   bool Has_ = false;
 };
 
-} // namespace outshine::Generators
+}
 #endif

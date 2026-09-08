@@ -37,6 +37,6 @@ struct Fitted {
                          ReferenceLine &into,
                          std::span<const double> withinAtM = {});
 
-} // namespace outshine
+}
 
 #endif

@@ -44,7 +44,7 @@ float SizeFactor(uint64_t bits, float sigma) {
   return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> kSecondDrawShift) - 1.0f) * kRootSix;
 }
 
-} // namespace
+}
 
 Forest::Forest(std::span<const Stem> stems, std::span<const float> perM2ByRow, AlpineLimit limit)
     : PerM2_(perM2ByRow.begin(), perM2ByRow.end()), Limit_(std::move(limit)) {
@@ -86,7 +86,7 @@ static_assert(SpacedFor(Detail::Shell) == 2.0);
 static_assert(SpacedFor(Detail::Massed) == 4.0);
 static_assert(SpacedFor(Detail::Skyline) == 8.0, "the horizon stands them eight steps apart");
 
-} // namespace
+}
 
 Forest::Lattice Forest::Of(const Tile &region, Detail coarseness) {
   Lattice l;
@@ -187,4 +187,4 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
   }
 }
 
-} // namespace outshine::Generators
+}

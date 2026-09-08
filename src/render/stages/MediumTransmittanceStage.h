@@ -30,5 +30,5 @@ private:
   bool Settled_ = false;
 };
 
-} // namespace outshine::Render
+}
 #endif

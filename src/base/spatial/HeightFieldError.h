@@ -73,5 +73,5 @@ static_assert([] {
          ProjectedErrorPx(errorM, focalPx, 2.0 * distanceM) == errorM / 2.0;
 }());
 
-} // namespace outshine::HeightField
+}
 #endif

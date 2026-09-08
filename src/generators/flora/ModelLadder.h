@@ -13,6 +13,6 @@ constexpr float Error(int k) {
   return 1.0f / (kCellPx * static_cast<float>(1u << static_cast<unsigned>(kLevels - k)));
 }
 
-} // namespace ModelLadder
-} // namespace outshine
+}
+}
 #endif

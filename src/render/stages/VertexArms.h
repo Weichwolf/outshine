@@ -158,5 +158,5 @@ static_assert(EveryArmIsAtItsOwnIndex(),
   return at < kVertexArmCount ? named[at].c_str() : "vs";
 }
 
-} // namespace outshine::Render
+}
 #endif

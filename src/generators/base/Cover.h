@@ -40,5 +40,5 @@ private:
   bool HasEdge_ = false;
 };
 
-} // namespace outshine::Generators
+}
 #endif

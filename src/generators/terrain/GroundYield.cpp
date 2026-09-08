@@ -276,7 +276,7 @@ Pressing PressesAt(std::span<const Yields> these,
   return {};
 }
 
-} // namespace
+}
 
 Pressed PressPoints(std::span<const Yields> these,
                     std::span<const EastNorth> at,
@@ -359,4 +359,4 @@ Floors FloorsOf(std::span<const Yields> these,
   return told;
 }
 
-} // namespace outshine
+}

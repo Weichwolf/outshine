@@ -93,7 +93,7 @@ WedgeOf(const std::vector<Corner> &around, double centreE, double centreZ, doubl
       around[bestB]};
 }
 
-} // namespace
+}
 
 void RoadMesh::Junction(std::span<const RoadGate> gates,
                         RoadPlane plane,
@@ -308,7 +308,7 @@ bool LayPiece(std::span<const double> eastNorthM,
   return true;
 }
 
-} // namespace
+}
 
 RoadTallied
 RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const {
@@ -404,4 +404,4 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
   }
   return tally;
 }
-} // namespace outshine::Generators
+}

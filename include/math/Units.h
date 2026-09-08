@@ -122,5 +122,5 @@ constexpr double kLeastTurnRad = 1.0e-9;
 constexpr double kParallelCross = 1.0e-12;
 /// @}
 
-} // namespace outshine
+}
 #endif

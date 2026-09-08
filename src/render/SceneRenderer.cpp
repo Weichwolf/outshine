@@ -39,7 +39,7 @@ constexpr auto kWindowClaimFailed = "could not claim the target window: ";
 constexpr auto kUnsupportedTransfer = "the window does not support linear SDR presentation";
 constexpr auto kNoPresentMode = "the window supports none of the requested present modes";
 constexpr auto kPresentModeFailed = "could not configure the swapchain: ";
-} // namespace Says
+}
 
 constexpr uint32_t kHalfSignBit = 0x8000u;
 constexpr unsigned kHalfSignShift = 16u;
@@ -60,7 +60,7 @@ constexpr bool kGpuValidation = true;
 #else
 constexpr bool kGpuValidation = false;
 #endif
-} // namespace
+}
 
 namespace {
 
@@ -139,7 +139,7 @@ float HalfToFloat(uint16_t bits) {
   return value;
 }
 
-} // namespace
+}
 
 void SceneRenderer::SetCamera(const CameraBasis &basis, const Lens &lens) noexcept {
   Camera_ = basis;
@@ -890,7 +890,7 @@ constexpr uint32_t kLeastGroundBytes = 16;
   return true;
 }
 
-} // namespace
+}
 
 bool SceneRenderer::SetGroundClasses(const uint32_t *words,
                                      size_t wordCount,
@@ -1038,7 +1038,7 @@ template <int Base> float RadicalInverse(int index) {
 Vec2f HaltonJitter(int at) {
   return {{RadicalInverse<2>(at) - 0.5f, RadicalInverse<3>(at) - 0.5f}};
 }
-} // namespace
+}
 
 void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   const Compiled::Pass &declared = Plan_->Passes()[pass];
@@ -1513,4 +1513,4 @@ SceneRenderer::Presented() const {
   return std::optional<Shown>(Shown_);
 }
 
-} // namespace outshine::Render
+}

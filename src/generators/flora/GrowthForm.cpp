@@ -33,7 +33,7 @@ constexpr float kFloor = 0.05f;
   return (a != nullptr) && (b != nullptr) && std::strcmp(a, b) == 0;
 }
 
-} // namespace
+}
 
 float GrowthForm::Reach(CrownEnvelope envelope, float t) {
   if (envelope == CrownEnvelope::Free) { return 1.0f; }
@@ -73,4 +73,4 @@ std::optional<CrownEnvelope> GrowthForm::EnvelopeOf(const char *name) {
   return std::nullopt;
 }
 
-} // namespace outshine::Generators
+}

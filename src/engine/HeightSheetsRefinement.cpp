@@ -126,7 +126,7 @@ void SelectPatches(std::span<const ErrorPatch> tree,
                       .SourceZoom = sourceZoom});
 }
 
-} // namespace
+}
 
 bool HeightSheets::RefineByError(Patchwork &laid,
                                  const Ground::GroundStream &ground,
@@ -167,4 +167,4 @@ bool HeightSheets::RefineByError(Patchwork &laid,
   return true;
 }
 
-} // namespace outshine
+}

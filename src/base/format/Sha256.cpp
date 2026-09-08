@@ -85,7 +85,7 @@ void Compress(std::span<uint32_t, 8> state, std::span<const uint8_t, 64> block) 
   state[7] += h;
 }
 
-} // namespace
+}
 
 std::string Sha256Hex(const void *data, size_t bytes) {
   std::array<uint32_t, 8> state = kInitialState;
@@ -126,4 +126,4 @@ std::string Sha256Hex(std::string_view text) {
   return Sha256Hex(text.data(), text.size());
 }
 
-} // namespace outshine
+}

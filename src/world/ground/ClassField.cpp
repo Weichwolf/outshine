@@ -37,7 +37,7 @@ double Clock() {
          kMsPerMicrosecond;
 }
 
-} // namespace
+}
 
 void ClassField::Open(double lat, double lon) {
   Frame_ = TangentFrame::At({.LongitudeDeg = lon, .LatitudeDeg = lat});
@@ -258,4 +258,4 @@ bool ClassField::Complete() const {
          !Coarse_.Stale && !Submitted_;
 }
 
-} // namespace outshine::Ground
+}

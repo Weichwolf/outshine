@@ -97,5 +97,5 @@ constexpr uint32_t kGrinCodePoint = 0x1F600u;
 static_assert(PairedSurrogates(kGrinHigh, kGrinLow) == kGrinCodePoint,
               "a surrogate pair folds to the code point the standard states");
 
-} // namespace outshine
+}
 #endif

@@ -20,7 +20,7 @@ constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
 constexpr auto kTargetInsideFrame = "end the open frame before changing its target";
 constexpr auto kNullWindow = "the target window is null";
 constexpr auto kWindowExtentFailed = "could not read the target window extent: ";
-} // namespace Says
+}
 
 constexpr double kBitsPerByte = 8.0;
 
@@ -336,4 +336,4 @@ const std::string &Engine::error() const {
   return S_->Error;
 }
 
-} // namespace outshine
+}

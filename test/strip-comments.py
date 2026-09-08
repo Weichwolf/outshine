@@ -1,170 +1,154 @@
 #!/usr/bin/env python3
-"""Delete every comment in src/ and include/ that is not a Doxygen block.
-
-THE RULE IS THE TREE'S OWN AND IT IS OLDER THAN THIS FILE: `src/` and `include/` carry no
-commentary. Names and structure carry the meaning; a number's origin lives in its item and its
-commit. Enforced by a claim it stayed broken for a year at 1606 lines, because a rule that only
-NAGS is a rule somebody is always about to get to.
-
-DELETING DOES NOT DESTROY, IT RELOCATES. Every line removed here is in the commit that added it, and
-`git log -p` finds any of them -- which is precisely where the rule says a reason belongs.
-
-A SCANNER AND NOT A REGEX. This tree assembles MSL shaders as C++ string literals, so a `//` inside
-a string is SHADER SOURCE and a regex eats it. Everything below is a small state machine over the
-five things a C++ file can be in the middle of: code, a string, a character, a raw string, or a
-comment. Raw strings matter: `R"msl( ... )msl"` may hold anything at all.
-
-WHAT SURVIVES, AND ONLY THERE: `///`, `//!`, `/** */` and `/*! */` in `include/` and
-`src/client/`. Those two are DOORS -- the engine's public interface and its official command line --
-and a door is documented where a generator can render it. Everywhere else in `src/`
-nothing survives at all, which is the point: seeing the deletion on every build is what forces code
-that speaks for itself.
-"""
-import re
-import sys
+"""Enforce source comment policy without changing literals or token boundaries."""
 import os
+from pathlib import Path
+import re
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
+ROOT = Path(__file__).resolve().parent.parent
 KEEP_LINE = ("///", "//!")
 KEEP_BLOCK = ("/**", "/*!")
+RAW = re.compile(r'(?:u8|u|U|L)?R"([^\s()\\]{0,16})\(')
+IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z_0-9]*')
+NUMBER = re.compile(r'(?:[0-9]|\.[0-9])(?:[A-Za-z_0-9.\']|[eEpP][+-])*')
+SPLICE = re.compile(r'\\\r?\n')
 
-DOORS = ("include/", "src/client/")
+
+def policy(path):
+    try:
+        parts = Path(path).resolve().relative_to(ROOT).parts
+    except ValueError:
+        return None
+    if parts and parts[0] in ("src", "include"):
+        return parts[0] == "include"
+    return None
+
 
 def keeps_doxygen(path):
-    return any(path.startswith(door) or ("/" + door) in path for door in DOORS)
+    return policy(path) is True
 
-def strip(text, doxygen=True):
+
+def strip(text, doxygen=False):
     out = []
     at = 0
     end = len(text)
+
+    def next_logical(position):
+        while match := SPLICE.match(text, position):
+            position = match.end()
+        return position
+
     while at < end:
-        ch = text[at]
-        two = text[at:at + 2]
-        if ch == '"' or ch == "'":
-            quote = ch
-            out.append(ch)
-            at += 1
-            while at < end:
-                if text[at] == "\\" and at + 1 < end:
-                    out.append(text[at:at + 2])
-                    at += 2
-                    continue
-                out.append(text[at])
-                if text[at] == quote:
-                    at += 1
+        raw = RAW.match(text, at)
+        if raw:
+            close = ')' + raw[1] + '"'
+            stop = text.find(close, raw.end())
+            if stop < 0:
+                raise ValueError("unterminated raw string")
+            stop += len(close)
+            out.append(text[at:stop])
+            at = stop
+            continue
+        if text[at] in ('"', "'"):
+            quote = text[at]
+            stop = at + 1
+            while stop < end:
+                if text[stop] == "\\":
+                    stop += 2
+                elif text[stop] == quote:
+                    stop += 1
                     break
-                at += 1
-            continue
-        if ch == "R" and text[at:at + 2] == 'R"':
-            shut = text.find("(", at + 2)
-            if shut > 0:
-                tag = text[at + 2:shut]
-                close = ')' + tag + '"'
-                stop = text.find(close, shut)
-                stop = end if stop < 0 else stop + len(close)
-                out.append(text[at:stop])
-                at = stop
-                continue
-        if two == "//":
-            if doxygen and text[at:at + 3] in KEEP_LINE:
-                stop = text.find("\n", at)
-                stop = end if stop < 0 else stop
-                out.append(text[at:stop])
-                at = stop
-                continue
-            stop = text.find("\n", at)
-            stop = end if stop < 0 else stop
-            # A comment that is the whole line takes the line with it; one that trails code leaves
-            # the code and the newline behind.
-            head = "".join(out)
-            line_start = head.rfind("\n") + 1
-            if head[line_start:].strip() == "":
-                del out[len(head) - (len(head) - line_start):]
-                out = [head[:line_start]]
-            at = stop + 1 if stop < end and head[line_start:].strip() == "" else stop
-            continue
-        if two == "/*":
-            if doxygen and text[at:at + 3] in KEEP_BLOCK:
-                stop = text.find("*/", at + 2)
-                stop = end if stop < 0 else stop + 2
-                out.append(text[at:stop])
-                at = stop
-                continue
-            stop = text.find("*/", at + 2)
-            stop = end if stop < 0 else stop + 2
-            head = "".join(out)
-            line_start = head.rfind("\n") + 1
-            whole = head[line_start:].strip() == "" and (stop >= end or text[stop:stop + 1] == "\n")
-            if whole:
-                out = [head[:line_start]]
-                at = stop + 1
+                else:
+                    stop += 1
             else:
-                at = stop
+                raise ValueError("unterminated quoted literal")
+            out.append(text[at:stop])
+            at = stop
             continue
-        out.append(ch)
-        at += 1
-    body = "".join(out)
-    # AN ANONYMOUS NAMESPACE THAT HELD ONLY A COMMENT LEAVES ITS SHELL BEHIND. Fifteen of them
-    # stood in eleven files -- `Laying.cpp` had two in a row -- because the strip removes what is
-    # inside and keeps the braces. They compile and mean nothing, which is the definition of noise
-    # in a tree whose whole argument for stripping is that the code should speak for itself.
-    body = re.sub(r"\nnamespace \{\s*\}\n", "\n", body)
-    kept = []
-    blank = 0
-    for line in body.split("\n"):
-        trimmed = line.rstrip()
-        blank = blank + 1 if trimmed == "" else 0
-        if blank > 1:
+        second = next_logical(at + 1)
+        if text[at] == '/' and second < end and text[second] in ('/', '*'):
+            line = text[second] == '/'
+            third = next_logical(second + 1)
+            keep = doxygen and third < end and (
+                text[third] in ('/', '!') if line else text[third] in ('*', '!'))
+            stop = second + 1
+            if line:
+                while stop < end:
+                    logical = next_logical(stop)
+                    if logical != stop:
+                        stop = logical
+                    elif text[stop] == '\n':
+                        break
+                    else:
+                        stop += 1
+            else:
+                while stop < end:
+                    after = next_logical(stop + 1)
+                    if text[stop] == '*' and after < end and text[after] == '/':
+                        stop = after + 1
+                        break
+                    stop += 1
+                else:
+                    raise ValueError("unterminated block comment")
+            comment = text[at:stop]
+            if keep:
+                out.append(comment)
+            else:
+                # Translation-phase splices are not logical line breaks.
+                logical = SPLICE.sub('', comment)
+                out.append(' ' + '\n' * logical.count('\n'))
+            at = stop
             continue
-        kept.append(trimmed)
-    while kept and kept[-1] == "":
-        kept.pop()
-    return "\n".join(kept) + "\n"
+        token = NUMBER.match(text, at) or IDENTIFIER.match(text, at)
+        if token:
+            out.append(token[0])
+            at = token.end()
+        else:
+            out.append(text[at])
+            at += 1
+    return ''.join(out)
+
 
 FORMATTER = os.environ.get("CLANG_FORMAT", "clang-format")
 
-def reflowed(path, text):
-    """clang-format's answer for this text, or the text itself if the tool is not there.
 
-    IT RUNS THROUGH A PIPE AND NEVER WITH `-i`, and that is the whole point of this function:
-    `clang-format -i` REWRITES every file it is given, so a formatting pass over a tree that is
-    already formatted still moves 418 timestamps and turns the next build into a full rebuild.
-    Measured 2026-09-04: the pass itself 1.3 s, the rebuild it caused 46.5 s."""
-    try:
-        done = subprocess.run([FORMATTER, "--assume-filename=" + path],
-                              input=text, capture_output=True, text=True, check=False)
-    except OSError:
-        return text
-    return done.stdout if done.returncode == 0 and done.stdout else text
+def reflowed(path, text):
+    done = subprocess.run([FORMATTER, "--assume-filename=" + str(path)],
+                          input=text, capture_output=True, text=True, check=True)
+    return done.stdout
+
 
 def settle(path):
-    """Strip and reflow one file, and WRITE ONLY IF THAT CHANGED SOMETHING."""
-    with open(path, "r", encoding="utf-8") as reading:
+    keep = policy(path)
+    if keep is None:
+        return 0, 0
+    with open(path, encoding="utf-8", newline="") as reading:
         was = reading.read()
-    now = reflowed(path, strip(was, keeps_doxygen(path)))
+    now = reflowed(path, strip(was, keep))
+    if strip(now, keep) != now:
+        raise ValueError(f"{path}: formatter introduced forbidden comments")
     if now == was:
         return 0, 0
-    with open(path, "w", encoding="utf-8") as writing:
+    with open(path, "w", encoding="utf-8", newline="") as writing:
         writing.write(now)
-    return 1, was.count("\n") - now.count("\n")
+    return 1, was.count('\n') - now.count('\n')
+
 
 def main(roots):
     paths = []
     for root in roots:
         for here, _, names in os.walk(root):
-            if "/shaders" in here:
-                continue
-            paths += [os.path.join(here, name) for name in sorted(names)
-                      if name.endswith((".h", ".cpp", ".hpp"))]
+            paths.extend(Path(here, name) for name in sorted(names)
+                         if name.endswith((".h", ".cpp", ".hpp")) and
+                         policy(Path(here, name)) is not None)
     with ThreadPoolExecutor() as pool:
-        done = list(pool.map(settle, paths))
-    touched = sum(one for one, _ in done)
-    lines = sum(two for _, two in done)
-    print("strip: %d of %d file(s) rewritten, %d line(s) gone -- they are in the commits that "
-          "added them.\n       include/ and src/client/ keep their Doxygen; the rest of src/ "
-          "keeps nothing." % (touched, len(paths), lines))
+        done = list(pool.map(settle, sorted(set(paths))))
+    print(f"strip: {sum(one for one, _ in done)} of {len(done)} file(s) rewritten; "
+          "src/ keeps no comments, include/ keeps Doxygen, test/ is untouched")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:] or ["src", "include"]))

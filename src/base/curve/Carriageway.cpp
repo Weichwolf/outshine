@@ -36,7 +36,7 @@ Astride Surface(const Placed &on, Astraddle at) {
   return out;
 }
 
-} // namespace
+}
 
 Astride Stand(const ReferenceLine &over, EastNorth at, double halfWidthM, Nearby about) {
   const std::optional<double> found = over.Nearest(at, about);
@@ -55,4 +55,4 @@ Astride StandAt(const ReferenceLine &over, Astraddle at) {
   return Surface(on, at);
 }
 
-} // namespace outshine
+}

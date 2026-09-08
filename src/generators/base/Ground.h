@@ -62,5 +62,5 @@ private:
   Detail Coarseness_ = Detail::Fine;
 };
 
-} // namespace outshine::Generators
+}
 #endif

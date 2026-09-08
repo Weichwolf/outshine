@@ -91,4 +91,4 @@ const std::string *TableBook::Text(CellAt where) const {
   return cell == nullptr ? nullptr : &cell->Spelling;
 }
 
-} // namespace outshine
+}

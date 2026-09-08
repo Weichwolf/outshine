@@ -26,5 +26,5 @@ struct GlbParts {
 
 [[nodiscard]] bool GlbFits(GlbParts of);
 
-} // namespace outshine::Gltf
+}
 #endif

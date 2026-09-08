@@ -13,5 +13,5 @@ namespace outshine::Render {
          (nl * std::sqrt(nv * nv * (1.0 - a2) + a2) + nv * std::sqrt(nl * nl * (1.0 - a2) + a2));
 }
 
-} // namespace outshine::Render
+}
 #endif

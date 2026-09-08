@@ -22,5 +22,5 @@ void ResolveSurfaceTable(const Document &file,
                                       Render::SurfaceTable &table,
                                       std::string &error);
 
-} // namespace outshine::Gltf
+}
 #endif

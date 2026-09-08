@@ -1470,7 +1470,7 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
   return (*Out)[static_cast<size_t>(self)].Height + box.Margin.Top + box.Margin.Bottom;
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -1656,4 +1656,4 @@ int Layout::Hit(double x, double y) const {
   }
   return -1;
 }
-} // namespace outshine::Ui
+}

@@ -30,7 +30,7 @@ Vec3f RingDir(const TreeSkeleton::Node &node, float angle) {
   return node.Up * std::cos(angle) + b * std::sin(angle);
 }
 
-} // namespace
+}
 
 int TreeMesher::AddVert(Vec3f p) {
   Verts_.push_back(p);
@@ -349,4 +349,4 @@ void TreeMesher::Export(TreeMesh &out) {
   }
 }
 
-} // namespace outshine::Generators
+}

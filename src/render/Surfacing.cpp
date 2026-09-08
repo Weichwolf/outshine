@@ -31,7 +31,7 @@ SubjectMip MipOf(MipFilter mip) {
   }
   return SubjectMip::Linear;
 }
-} // namespace
+}
 
 bool ResolveNativeTextures(const Geometry &geometry,
                            std::span<SubjectMaterial> surfaces,
@@ -130,4 +130,4 @@ void ResolveDeclaredSurface(const Shape &geometry,
   }
 }
 
-} // namespace outshine::Render
+}

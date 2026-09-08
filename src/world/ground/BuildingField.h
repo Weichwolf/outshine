@@ -121,5 +121,5 @@ private:
   std::vector<double> Across_;
 };
 
-} // namespace outshine::Ground
+}
 #endif

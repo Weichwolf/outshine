@@ -117,6 +117,6 @@ private:
   std::string Error_;
 };
 
-} // namespace outshine
+}
 
 #endif

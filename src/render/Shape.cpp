@@ -17,7 +17,7 @@ std::atomic<double> gCookMs{0.0};
 std::atomic<size_t> gRootless{0};
 std::atomic<size_t> gClusters{0};
 
-} // namespace
+}
 
 double CookedMs() {
   return gCookMs.load(std::memory_order_relaxed);
@@ -125,4 +125,4 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       std::memory_order_relaxed);
 }
-} // namespace outshine::Render
+}

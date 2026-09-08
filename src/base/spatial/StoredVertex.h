@@ -63,5 +63,5 @@ static_assert(offsetof(PlainVtx, norm) == 3 * sizeof(float));
 
 constexpr uint64_t kPlainVertexStrideB = sizeof(PlainVtx);
 
-} // namespace outshine
+}
 #endif

@@ -25,7 +25,7 @@
 namespace outshine::Data {
 class SourceSet;
 class Transport;
-} // namespace outshine::Data
+}
 
 namespace outshine::Ground {
 
@@ -211,5 +211,5 @@ private:
   std::unordered_map<uint64_t, std::vector<Job>> Awaiting_;
 };
 
-} // namespace outshine::Ground
+}
 #endif

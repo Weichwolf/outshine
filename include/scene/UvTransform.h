@@ -47,5 +47,5 @@ struct UvTransformProperties {
   return composed;
 }
 
-} // namespace outshine
+}
 #endif

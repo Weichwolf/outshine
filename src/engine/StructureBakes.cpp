@@ -118,7 +118,7 @@ BlocksUnder(const Ground::GroundStream &ground,
   return blocks;
 }
 
-} // namespace
+}
 
 std::unique_ptr<MeshScratch> StructureBakes::LentScratch() {
   if (IdleScratch_.empty()) { return Mesher_->Scratch(); }
@@ -220,4 +220,4 @@ void StructureBakes::Clear() {
   IdleScratch_.clear();
 }
 
-} // namespace outshine
+}

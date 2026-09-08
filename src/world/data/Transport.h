@@ -77,5 +77,5 @@ public:
   }
 };
 
-} // namespace outshine::Data
+}
 #endif

@@ -44,6 +44,6 @@ struct Traits {
   }
 };
 
-} // namespace outshine
+}
 
 #endif

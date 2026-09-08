@@ -24,7 +24,7 @@ float ApexOf(RingCap end) {
   }
 }
 
-} // namespace
+}
 
 constexpr float kLeafRollTurn = 1.1f;
 
@@ -61,7 +61,7 @@ Vec3f RadialAt(Vec3f dir, Vec3f up, float roll) {
   return frame.Normal * std::cos(roll) + frame.Binormal * std::sin(roll);
 }
 
-} // namespace
+}
 
 Vec3f TreeGrower::Inward(Vec3f p) const {
   if (Form_.Envelope == CrownEnvelope::Cut) {
@@ -523,4 +523,4 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   }
 }
 
-} // namespace outshine::Generators
+}

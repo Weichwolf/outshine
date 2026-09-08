@@ -53,7 +53,7 @@ void StandingAs(std::string &into,
   into += "/>\n";
 }
 
-} // namespace
+}
 
 std::string WriteScenario(const Scenario::Document &declared) {
   std::string said = "<scenario>\n";
@@ -153,4 +153,4 @@ std::string WriteScenario(const Scenario::Document &declared) {
   return said + "</scenario>\n";
 }
 
-} // namespace outshine
+}

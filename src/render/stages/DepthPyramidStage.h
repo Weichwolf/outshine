@@ -37,5 +37,5 @@ private:
   uint32_t Wide_ = 0, High_ = 0;
 };
 
-} // namespace outshine::Render
+}
 #endif

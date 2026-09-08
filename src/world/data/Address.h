@@ -52,5 +52,5 @@ private:
   TileId Held_;
 };
 
-} // namespace outshine::Data
+}
 #endif

@@ -58,5 +58,5 @@ private:
   bool Encodes = false;
 };
 
-} // namespace outshine::Render
+}
 #endif

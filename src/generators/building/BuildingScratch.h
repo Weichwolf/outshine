@@ -70,5 +70,5 @@ struct BuildingScratch final : MeshScratch {
   }
 };
 
-} // namespace outshine::Generators
+}
 #endif

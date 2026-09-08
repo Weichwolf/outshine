@@ -34,4 +34,4 @@ size_t Registry::count() const {
   return Kept_->Held.size();
 }
 
-} // namespace outshine::Generators
+}

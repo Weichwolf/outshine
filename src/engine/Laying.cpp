@@ -72,7 +72,7 @@ constexpr int kLatticeVirtualLevels = 4;
 
 constexpr size_t kBounceProbeStride = 16;
 
-} // namespace
+}
 
 std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
                                               const Render::Medium &fallback) {
@@ -1026,4 +1026,4 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       "tiles that overlap a finer level", static_cast<double>(laid->Overlapped), "tiles");
   return true;
 }
-} // namespace outshine
+}

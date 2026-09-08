@@ -124,6 +124,6 @@ private:
   bool Opened_ = false;
 };
 
-} // namespace outshine::Ground
+}
 
 #endif

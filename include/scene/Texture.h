@@ -44,6 +44,6 @@ struct ImageView {
   }
 };
 
-} // namespace outshine
+}
 
 #endif

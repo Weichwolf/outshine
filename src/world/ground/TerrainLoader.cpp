@@ -59,7 +59,7 @@ int DerivedThreads(int workers) {
   return n;
 }
 
-} // namespace
+}
 
 namespace outshine::Ground {
 
@@ -415,4 +415,4 @@ TilePool::Config GroundPoolConfig(LongitudeLatitude at, Pooling how) {
   return config;
 }
 
-} // namespace outshine::Ground
+}

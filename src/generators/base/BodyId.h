@@ -27,5 +27,5 @@ struct BodyRange {
   [[nodiscard]] BodyId Nth(uint32_t at) const { return BodyId(First + at); }
 };
 
-} // namespace outshine::Generators
+}
 #endif

@@ -22,5 +22,5 @@ struct FrameContext {
 static_assert(alignof(FrameContext) == 16 && sizeof(FrameContext) == kFrameContextBytes,
               "the frame's one translation and the matrix rows start on 128-bit boundaries");
 
-} // namespace outshine::Render
+}
 #endif

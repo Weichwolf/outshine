@@ -59,5 +59,5 @@ private:
   float HeightPx_ = 0.0f;
 };
 
-} // namespace outshine::Render
+}
 #endif

@@ -16,5 +16,5 @@ public:
   Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept override;
 };
 
-} // namespace outshine::Generators
+}
 #endif

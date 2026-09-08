@@ -39,7 +39,7 @@ void Slerp(const double *from, const double *to, double weight, std::span<double
   Normalise(out);
 }
 
-} // namespace
+}
 
 bool Track::Build(AnimationPath path,
                   Interpolation how,
@@ -78,4 +78,4 @@ void Track::At(double seconds, std::span<double> out) const {
   if (Spherical_) { Normalise(out); }
 }
 
-} // namespace outshine::Gltf
+}

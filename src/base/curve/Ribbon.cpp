@@ -46,7 +46,7 @@ void WallsAt(const Placed &on,
   }
 }
 
-} // namespace
+}
 
 Ribbon
 Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM, double stepM) {
@@ -217,4 +217,4 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
   return out;
 }
 
-} // namespace outshine
+}

@@ -65,5 +65,5 @@ private:
   std::string Why_;
 };
 
-} // namespace outshine
+}
 #endif

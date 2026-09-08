@@ -28,4 +28,4 @@ Claim Yield::Place(const Solid &body) noexcept {
   return claim;
 }
 
-} // namespace outshine::Generators
+}

@@ -132,7 +132,7 @@ using std::sqrt;
 #undef MEDIUM_ARG
 #undef MEDIUM_INLINE
 #undef OUTSHINE_PI
-} // namespace medium_core
+}
 
 using medium_core::mediumGroundReach;
 using medium_core::mediumHeightAlong;
@@ -385,5 +385,5 @@ template <typename ToSun, typename Psi>
   return out;
 }
 
-} // namespace outshine::Render
+}
 #endif

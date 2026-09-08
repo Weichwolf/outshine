@@ -27,7 +27,7 @@ bool ValidProjection(const Viewpoint &eye) noexcept {
   }
   return false;
 }
-} // namespace
+}
 
 std::expected<Lens, LensError>
 Lens::From(const Viewpoint &eye, double widthPx, double heightPx) noexcept {
@@ -96,4 +96,4 @@ Mat4f Lens::Projection() const noexcept {
   return p;
 }
 
-} // namespace outshine::Render
+}

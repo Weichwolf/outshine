@@ -75,6 +75,6 @@ HalveInPlace(std::span<const float> from, Texels was, std::vector<float> &into, 
   return {.WidthPx = toWidth, .HeightPx = toHeight};
 }
 
-} // namespace outshine::Render
+}
 
 #endif

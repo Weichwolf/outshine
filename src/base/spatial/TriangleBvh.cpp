@@ -143,7 +143,7 @@ void Thread(Building &work, uint32_t here, uint32_t escape) {
   Thread(work, work.Right[here], escape);
 }
 
-} // namespace
+}
 
 TriangleBvh TriangleBvh::Over(std::span<const float> positionsM,
                               std::span<const uint32_t> indices) {
@@ -374,4 +374,4 @@ bool TriangleBvh::Occludes(const Ray &along, float nearM, float distanceM) const
   return false;
 }
 
-} // namespace outshine
+}

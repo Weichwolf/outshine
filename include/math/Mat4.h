@@ -190,6 +190,6 @@ static_assert(Mat4ShiftedBy(kMat4Shift).TransformDirection(kMat4Point) == kMat4P
               "and a DIRECTION does not -- a normal that moved with its object is the defect this "
               "pair of names exists to make impossible to write by accident");
 
-} // namespace outshine
+}
 
 #endif

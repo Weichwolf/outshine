@@ -490,5 +490,5 @@ private:
   double Around_ = 0.0;
 };
 
-} // namespace outshine::Core
+}
 #endif

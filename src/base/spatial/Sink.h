@@ -28,6 +28,6 @@ inline std::string Line(const char *shape, const char *one) {
   return Line(shape, std::string(one));
 }
 
-} // namespace outshine
+}
 
 #endif

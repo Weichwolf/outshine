@@ -34,5 +34,5 @@ struct PyramidShape {
   return out;
 }
 
-} // namespace outshine::Render
+}
 #endif

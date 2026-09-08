@@ -82,7 +82,7 @@ double SegDist(Vec2 from, Edge of) {
   return std::sqrt(qx * qx + qy * qy);
 }
 
-} // namespace
+}
 
 ClassStructure::ClassStructure(const TangentFrame &frame,
                                std::shared_ptr<const Grid> fine,
@@ -208,4 +208,4 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
   return best;
 }
 
-} // namespace outshine
+}

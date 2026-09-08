@@ -22,7 +22,7 @@ constexpr auto Geometry = "crown atlas requires native tree geometry";
 constexpr auto Bounds = "crown atlas requires finite nonempty bounds";
 constexpr auto Readback = "crown atlas readback has incomplete attachments";
 constexpr auto Surface = "crown atlas material identity is outside its source table";
-} // namespace Says
+}
 
 uint8_t Byte(float value) {
   return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
@@ -31,7 +31,7 @@ uint8_t Byte(float value) {
 float Srgb(float linear) {
   return linear <= 0.0031308f ? 12.92f * linear : 1.055f * std::pow(linear, 1.0f / 2.4f) - 0.055f;
 }
-} // namespace
+}
 
 namespace {
 constexpr uint64_t kCrownMagic = 0x004e574f5243534full;
@@ -122,7 +122,7 @@ bool Cacheable(const CrownAtlas &atlas) {
   }
   return true;
 }
-} // namespace
+}
 
 std::string CrownAtlas::ProvenanceFor(std::string_view species, Shape shape) {
   return std::string(kCrownBuildIdentity) + "/" + std::to_string(shape.Pixels) + "/" +
@@ -409,4 +409,4 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
   return atlas;
 }
 
-} // namespace outshine
+}

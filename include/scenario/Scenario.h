@@ -716,6 +716,6 @@ struct Document {
   [[nodiscard]] const Asset *subject() const;
 };
 
-} // namespace outshine::Scenario
+}
 
 #endif

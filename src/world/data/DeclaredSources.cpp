@@ -26,7 +26,7 @@ constexpr std::array<const char *, 3> kKinds = {{"terrain", "vector", "stars"}};
   return all;
 }
 
-} // namespace
+}
 
 bool RegisterDeclared(SourceSet &set,
                       std::span<const Scenario::Provider> providers,
@@ -68,4 +68,4 @@ std::span<const Scenario::Provider> ShippedProviders() {
   return shipped;
 }
 
-} // namespace outshine::Data
+}

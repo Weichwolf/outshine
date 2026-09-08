@@ -66,5 +66,5 @@ private:
   std::vector<Render::OverlayQuad> Quads_;
 };
 
-} // namespace outshine::Core
+}
 #endif

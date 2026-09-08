@@ -98,6 +98,6 @@ public:
   Write(double simTimeS, LogLevel level, Saying who, std::span<const LogField> fields) = 0;
 };
 
-} // namespace outshine
+}
 
 #endif

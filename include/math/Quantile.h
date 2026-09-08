@@ -53,6 +53,6 @@ QuantileOf(std::span<const double> sorted, double share) noexcept {
   return sorted[rank > 0 ? rank - 1 : 0];
 }
 
-} // namespace outshine
+}
 
 #endif

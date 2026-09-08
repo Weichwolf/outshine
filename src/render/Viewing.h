@@ -95,5 +95,5 @@ inline void CameraOf(const Viewpoint &from, outshine::Scenario::Camera &out) {
   }
 }
 
-} // namespace outshine::Render
+}
 #endif

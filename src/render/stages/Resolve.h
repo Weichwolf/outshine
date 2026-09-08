@@ -12,5 +12,5 @@ struct DisplayOptions {
   bool Temporal = false;
 };
 
-} // namespace outshine::Render
+}
 #endif

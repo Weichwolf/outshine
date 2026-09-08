@@ -37,7 +37,7 @@ Wrap WrapOf(Render::SubjectWrap held) {
   return Wrap::Repeat;
 }
 
-} // namespace
+}
 
 struct Loaded::Held {
   Gltf::Document File;
@@ -252,4 +252,4 @@ const Scenario::Camera &Loaded::camera() const {
   return Held_->Eye;
 }
 
-} // namespace outshine
+}

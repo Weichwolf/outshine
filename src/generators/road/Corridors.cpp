@@ -72,7 +72,7 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   return a.Edge != b.Edge ? a.Edge < b.Edge : a.End < b.End;
 };
 
-} // namespace
+}
 
 double Corridors::LeastSeen(double held, double seen) {
   if (!(seen > 0.0)) { return held; }
@@ -981,7 +981,7 @@ Bound RayOf(const Bound &along) {
   return ray;
 }
 
-} // namespace
+}
 
 std::unordered_map<uint64_t, std::vector<Corridors::Leg>> Corridors::LegsOf(const Paving &on,
                                                                             const Paved &into) {
@@ -1572,4 +1572,4 @@ void Corridors::Lay(const Site &site,
       "ms");
   *notes = std::move(into.Notes);
 }
-} // namespace outshine::Generators
+}

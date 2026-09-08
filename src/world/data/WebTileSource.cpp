@@ -65,4 +65,4 @@ Meaning WebTileSource::Classify(Replied said) const noexcept {
   return Meaning::Refused;
 }
 
-} // namespace outshine::Data
+}

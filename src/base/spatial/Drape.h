@@ -46,5 +46,5 @@ struct Drape {
   }
 };
 
-} // namespace outshine
+}
 #endif

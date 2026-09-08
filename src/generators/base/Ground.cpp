@@ -36,4 +36,4 @@ Cover Ground::CoverAt(EastNorth at) const noexcept {
   return Cover::Of({.Row = row, .RunnerUpRow = runnerUp}, static_cast<float>(edgeM));
 }
 
-} // namespace outshine::Generators
+}

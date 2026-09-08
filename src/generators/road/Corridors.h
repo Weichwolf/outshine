@@ -312,5 +312,5 @@ private:
   const RoadMesher &Sweeper_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

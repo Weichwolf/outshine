@@ -36,7 +36,7 @@ namespace outshine::Render {
 namespace Says {
 constexpr auto PieceInstanceLimit = "piece instance count exceeds its declared capacity";
 constexpr auto MissingPiece = "instance update names no resident piece";
-} // namespace Says
+}
 
 constexpr size_t kPrevAnchorSlot = 52;
 
@@ -71,7 +71,7 @@ const char *KindName(SurfaceKind kind) {
   return "an undeclared surface";
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -134,7 +134,7 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   return shape;
 }
 
-} // namespace
+}
 
 const char *
 SubjectDraw::FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout) {
@@ -518,7 +518,7 @@ void WritePieceUv(const void *carrying, float *into, uint32_t floats) {
   }
 }
 
-} // namespace
+}
 
 bool SubjectDraw::RoomForStreams(std::string &error) {
   SubjectResidency &res = Bound();
@@ -1478,4 +1478,4 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   }
   EncodeGround(into);
 }
-} // namespace outshine::Render
+}

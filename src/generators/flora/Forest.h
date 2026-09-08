@@ -89,5 +89,5 @@ private:
   AlpineLimit Limit_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

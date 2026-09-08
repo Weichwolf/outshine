@@ -88,7 +88,7 @@ int32_t ZigZag(uint64_t v) {
   return static_cast<int32_t>((v >> 1u) ^ (~(v & 1u) + 1));
 }
 
-} // namespace
+}
 
 bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
   if (present != nullptr) { *present = false; }
@@ -322,4 +322,4 @@ std::string_view OsmVector::Str(const Feature &f, const char *key) const {
   return {};
 }
 
-} // namespace outshine::Ground
+}

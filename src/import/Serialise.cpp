@@ -34,4 +34,4 @@ bool writeGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &erro
   return Gltf::Emit(emission, glb, error);
 }
 
-} // namespace outshine::Generators
+}

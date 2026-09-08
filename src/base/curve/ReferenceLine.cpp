@@ -42,7 +42,7 @@ double HeadingAlong(const Segment &along, double byM) {
   return along.EntryCurvature * byM + 0.5 * rate * byM * byM;
 }
 
-} // namespace
+}
 
 bool ReferenceLine::Refuse(std::string why) {
   Error_ = std::move(why);
@@ -351,4 +351,4 @@ bool ReferenceLine::At(double alongM, Placed &out) const {
   return true;
 }
 
-} // namespace outshine
+}

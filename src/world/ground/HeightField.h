@@ -79,5 +79,5 @@ private:
   int Zoom_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

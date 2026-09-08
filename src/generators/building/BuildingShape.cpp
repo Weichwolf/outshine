@@ -702,7 +702,7 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
   }
 }
 
-} // namespace
+}
 
 Boxed BuildingShape::ToBox(const En &p) const {
   const double e = p.EastM - Centre.EastM;
@@ -782,7 +782,7 @@ void StackDeep(bool heightMeasured, BuildingScratch &scratch) {
   scratch.Parts.Swap(scratch.Stacked);
 }
 
-} // namespace
+}
 
 std::span<BuildingShape> MassOf(std::span<const double> ringLatLon,
                                 Order order,
@@ -819,4 +819,4 @@ std::span<BuildingShape> MassOf(std::span<const double> ringLatLon,
   for (BuildingShape &s : scratch.Parts.Standing()) { FaceTheStreet(&s, street); }
   return scratch.Parts.Standing();
 }
-} // namespace outshine::Generators
+}

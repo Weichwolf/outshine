@@ -19,6 +19,6 @@ struct DrawShape;
                                                   const ComputeShape &shape,
                                                   std::string &error);
 
-} // namespace outshine::Render
+}
 
 #endif

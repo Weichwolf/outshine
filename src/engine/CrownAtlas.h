@@ -58,5 +58,5 @@ private:
   int Pixels_ = 0;
 };
 
-} // namespace outshine
+}
 #endif

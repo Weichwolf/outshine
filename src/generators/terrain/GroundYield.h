@@ -55,5 +55,5 @@ struct Pressed {
                               std::span<const EastNorth> at,
                               Heights heights);
 
-} // namespace outshine
+}
 #endif

@@ -42,7 +42,7 @@ namespace {
   return true;
 }
 
-} // namespace
+}
 
 bool Assemble(const Scenario::Document &declared,
               Scene &into,
@@ -230,4 +230,4 @@ bool Assemble(const Scenario::Document &declared,
   return true;
 }
 
-} // namespace outshine
+}

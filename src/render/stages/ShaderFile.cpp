@@ -57,7 +57,7 @@ std::expected<std::vector<Uint32>, std::string> ReadSpirv(std::string_view path)
   return words;
 }
 
-} // namespace
+}
 
 SDL_GPUComputePipeline *ComputeFrom(SDL_GPUDevice *device,
                                     std::string_view path,
@@ -140,4 +140,4 @@ SDL_GPUShader *ShaderFrom(SDL_GPUDevice *device,
   return made;
 }
 
-} // namespace outshine::Render
+}

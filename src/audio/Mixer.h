@@ -62,5 +62,5 @@ private:
   int Rate_ = kSampleRateUnsaidHz;
 };
 
-} // namespace outshine::Audio
+}
 #endif

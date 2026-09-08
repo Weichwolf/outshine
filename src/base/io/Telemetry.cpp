@@ -49,4 +49,4 @@ void TelemetryBus::Tick(double simTimeS) {
   Sink_->Row(Row_.Fields());
 }
 
-} // namespace outshine
+}

@@ -101,5 +101,5 @@ private:
   TerrainField Field_;
 };
 
-} // namespace outshine::Ground
+}
 #endif

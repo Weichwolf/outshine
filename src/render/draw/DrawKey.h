@@ -67,5 +67,5 @@ private:
   uint64_t Bits_ = 0;
 };
 
-} // namespace outshine::Render
+}
 #endif

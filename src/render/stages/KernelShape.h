@@ -30,6 +30,6 @@ struct DrawShape {
   uint32_t FragmentStorageBuffers = 0;
 };
 
-} // namespace outshine::Render
+}
 
 #endif

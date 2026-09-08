@@ -254,5 +254,5 @@ private:
   uint32_t IndexCount_ = 0;
 };
 
-} // namespace outshine::Render
+}
 #endif

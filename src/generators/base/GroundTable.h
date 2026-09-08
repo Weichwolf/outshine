@@ -36,5 +36,5 @@ private:
   std::vector<Row> Rows_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

@@ -25,5 +25,5 @@ struct SurfaceOutputs {
   }
 };
 
-} // namespace outshine::Render
+}
 #endif

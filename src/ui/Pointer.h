@@ -22,5 +22,5 @@ struct Touched {
 
 [[nodiscard]] Touched Under(const Layout &layout, const Markup &markup, double x, double y);
 
-} // namespace outshine::Ui
+}
 #endif

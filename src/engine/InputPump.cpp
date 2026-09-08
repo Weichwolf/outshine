@@ -73,7 +73,7 @@ struct Resolved {
 
 constexpr float kAxisScale = 1.0f / 32767.0f;
 
-} // namespace
+}
 
 bool InputPump::Open(const InputMap &declared) {
   if (!Table().Whole) { return false; }
@@ -149,4 +149,4 @@ size_t InputPump::Translate(const SDL_Event &event, std::span<Fired, 2> out) con
   }
 }
 
-} // namespace outshine::Core
+}

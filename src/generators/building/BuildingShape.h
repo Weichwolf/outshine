@@ -77,5 +77,5 @@ struct Order {
                                               const Frontage &street,
                                               BuildingScratch &scratch);
 
-} // namespace outshine::Generators
+}
 #endif

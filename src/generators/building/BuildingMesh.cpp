@@ -44,7 +44,7 @@ constexpr double kSameHeightM = 1.0e-3;
 constexpr double kLeastEdgeM = 0.05;
 constexpr double kLeastRiseM = 0.03;
 
-} // namespace
+}
 
 namespace {
 
@@ -968,7 +968,7 @@ void Pavement(const BuildingShape &s,
   }
 }
 
-} // namespace
+}
 
 std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
   return std::make_unique<BuildingScratch>();
@@ -1005,4 +1005,4 @@ bool BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &in
   }
   return true;
 }
-} // namespace outshine::Generators
+}

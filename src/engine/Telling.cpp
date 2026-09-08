@@ -192,4 +192,4 @@ bool Engine::State::Blocked(const Vec3 &sourceM) const {
       {.OriginM = fromM, .Toward = along}, kNearestOccluderM, static_cast<float>(awayM));
 }
 
-} // namespace outshine
+}

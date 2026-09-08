@@ -220,6 +220,6 @@ private:
   std::unique_ptr<Kept> Kept_;
 };
 
-} // namespace outshine::Generators
+}
 
 #endif

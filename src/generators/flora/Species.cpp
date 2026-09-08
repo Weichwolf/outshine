@@ -24,7 +24,7 @@ namespace {
   return !into.empty();
 }
 
-} // namespace
+}
 
 bool ReadSpecies(const char *path, TreeSpecies *out) {
   std::string text;
@@ -77,4 +77,4 @@ bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out, std::string &e
   return true;
 }
 
-} // namespace outshine::Generators
+}

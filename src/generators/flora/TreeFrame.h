@@ -50,5 +50,5 @@ inline Vec3f RmfDouble(Vec3f p0, Vec3f p1, Vec3f t0, Vec3f t1, Vec3f x0) {
   return DirectionOrUp(rL - v2 * (2.0f / c2 * Dot(v2, rL)));
 }
 
-} // namespace outshine::Generators
+}
 #endif

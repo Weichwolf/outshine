@@ -71,5 +71,5 @@ private:
   uint64_t Version_;
 };
 
-} // namespace outshine
+}
 #endif

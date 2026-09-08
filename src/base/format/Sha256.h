@@ -10,5 +10,5 @@ namespace outshine {
 [[nodiscard]] std::string Sha256Hex(const void *data, size_t bytes);
 [[nodiscard]] std::string Sha256Hex(std::string_view text);
 
-} // namespace outshine
+}
 #endif

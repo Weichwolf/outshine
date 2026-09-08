@@ -25,5 +25,5 @@ static_assert(kDigestBasis == kFnv64Basis, "the digest is FNV-1a's, basis and al
   return (digest ^ byte) * kDigestPrime;
 }
 
-} // namespace outshine
+}
 #endif

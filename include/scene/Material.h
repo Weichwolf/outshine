@@ -105,5 +105,5 @@ private:
 
 constexpr int kMaterialRowFloats = 20;
 
-} // namespace outshine
+}
 #endif

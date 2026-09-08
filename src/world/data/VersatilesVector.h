@@ -13,5 +13,5 @@ protected:
   [[nodiscard]] std::string Url(const Address &at) const override;
 };
 
-} // namespace outshine::Data
+}
 #endif

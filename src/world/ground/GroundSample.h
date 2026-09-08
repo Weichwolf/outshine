@@ -62,5 +62,5 @@ private:
   int CoarseBy_ = 0;
 };
 
-} // namespace outshine
+}
 #endif

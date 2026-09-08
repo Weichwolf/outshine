@@ -65,4 +65,4 @@ bool Scenario::Camera::clipMatrix(double aspect, Mat4 &out) const {
   return true;
 }
 
-} // namespace outshine
+}

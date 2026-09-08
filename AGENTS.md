@@ -26,6 +26,11 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
   Materialien, Maßstab, Komposition und Gesamtplausibilität selbst anhand der Bilder.
 - Setze Prioritäten nach Abhängigkeiten, Bildwirkung, Kosten und Risiko. Reihenfolge
   und Abnahmeszenarien gehören ins Board. Revidiere Entscheidungen anhand der Befunde.
+- RDR2 und GTA5 in ihrer PS4-Fassung sind die visuelle Baseline: überzeugende
+  Landschaften und Städte, natürliche Beleuchtung und Atmosphäre, konsistente
+  Materialien, dichte Vegetation sowie stimmige Nah-/Fernübergänge. Übersetze diesen
+  Anspruch in plausible datengetriebene Welten und prüfe Bildqualität und Echtzeit
+  auf der vorhandenen Hardware. Vergleichbare Leistung ist durch Messungen zu belegen.
 - Gängige AAA-Verfahren sind der Maßstab: Unreal, RAGE sowie veröffentlichte
   Verfahren hinter Arma, Far Cry, DayZ, Kingdom Come, Red Dead Redemption und
   SpeedTree. Konkrete Technik belegen; aus einem Spielbild keine Architektur erfinden.
@@ -108,8 +113,10 @@ Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Histor
 - C++23, Warnings als Errors, lokale Invarianten und klare Namen. Minimale API,
   Encapsulation, Composition, Zustandsautomaten. Compilezeit-Prüfung wo möglich.
   Zahlen mit Einheit und Herkunft: abgeleitet, gemessen oder ausdrücklich gesetzt.
-- Code erklärt sich durch Struktur und Namen. Kommentare nur für nicht offensichtliche
-  Gründe; öffentliche API dokumentieren. Diagnosen unter `namespace Says` bündeln.
+- Code erklärt sich durch Struktur und Namen. `src/` enthält keine Kommentare, auch
+  kein Doxygen im Client. In `include/` ausschließlich Doxygen für die öffentliche API;
+  in `test/` sind alle Kommentare erlaubt. `make lint` entfernt unzulässige Kommentare
+  automatisch mit lexikalisch geprüftem Scanner. Diagnosen unter `namespace Says` bündeln.
   Logs ins System-Tempverzeichnis (`${TMPDIR:-/tmp}`), nicht nach `build/` oder ins
   Board. PNG-Referenzen bleiben unter `build/shots/reference/`.
 - Deutsch, du, kurz und direkt. Keine Beschönigung. Ergebnis und Beleg nennen;

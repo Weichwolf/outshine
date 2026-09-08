@@ -129,5 +129,5 @@ static_assert(BoxOverTwoPoints().HalfArea() == kBoxBothSpan[0] * kBoxBothSpan[1]
                                                    kBoxBothSpan[2] * kBoxBothSpan[0],
               "half the surface area is the sum of the three distinct faces");
 
-} // namespace outshine
+}
 #endif

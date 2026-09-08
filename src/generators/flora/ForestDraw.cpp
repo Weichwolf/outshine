@@ -25,4 +25,4 @@ void ForestDraw::Draw(const Ground &ground,
   }
 }
 
-} // namespace outshine::Generators
+}

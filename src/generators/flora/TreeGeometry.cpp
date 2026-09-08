@@ -26,7 +26,7 @@ struct Surface {
            geometry.setTriangles(part, Indices);
   }
 };
-} // namespace
+}
 
 std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
   if (rank >= Ranks_.size()) { return std::nullopt; }
@@ -85,4 +85,4 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
   }
   return geometry;
 }
-} // namespace outshine::Generators
+}

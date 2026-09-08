@@ -260,7 +260,7 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
   return true;
 }
 
-} // namespace
+}
 
 struct Program::Node {
   enum class Shape : uint8_t {
@@ -709,7 +709,7 @@ bool ReadStatement(Reading &in, size_t &out) {
   return held;
 }
 
-} // namespace
+}
 
 bool Program::Read(std::string_view text, std::string &error) {
   Nodes_.clear();
@@ -869,7 +869,7 @@ const std::array<Boundary, 85> kBoundaries = {{
     {.Name = "the script reaches the node bound", .Why = "the same, in size"},
 }};
 
-} // namespace
+}
 
 namespace {
 
@@ -901,7 +901,7 @@ namespace {
   }
   return at == held.size();
 }
-} // namespace
+}
 
 namespace {
 
@@ -915,7 +915,7 @@ bool Same(const Value &left, const Value &right) {
   return left.Number == right.Number;
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -960,7 +960,7 @@ double HexTextToNumber(std::string_view held) {
   }
   return scanned.ec == std::errc() ? sign * value : std::nan("");
 }
-} // namespace
+}
 
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
@@ -1053,7 +1053,7 @@ double ArithmeticOf(std::string_view mark, double a, double b) {
   return a >= b ? 1.0 : 0.0;
 }
 
-} // namespace
+}
 
 bool Program::EvaluateBinary(const Node &node, Host &host, Value &out, std::string &error) {
   Value left;
@@ -1184,4 +1184,4 @@ bool Program::Run(Host &host, std::string &error) {
   Steps_ = 0;
   return Perform(Root_, host, error);
 }
-} // namespace outshine::Script
+}
