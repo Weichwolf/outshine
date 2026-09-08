@@ -306,7 +306,7 @@ struct Surrounds {
   size_t Placed = 0;
   size_t Instanced = 0;
   int Reached = 0;
-  TriangleBvh Blocking;
+  TriangleBvh AudioOcclusion;
   std::vector<float> GroundPositionsM;
   std::vector<uint32_t> GroundIndex;
 };
@@ -440,8 +440,7 @@ struct Engine::State {
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();
-  void Blocks(const Gltf::Subject &standing);
-  [[nodiscard]] bool Blocked(const Vec3 &sourceM) const;
+  [[nodiscard]] bool IsAudioOccluded(const Vec3 &sourceM) const;
   [[nodiscard]] bool Routes();
 };
 

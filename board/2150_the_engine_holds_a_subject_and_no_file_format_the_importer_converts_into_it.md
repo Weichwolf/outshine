@@ -77,6 +77,10 @@ Conventions: 29/30 grün; intermittierendes Mipmap-Problem bleibt in 2179.
 Malcesine-PNG geprüft: Geländewände/Materialdefizite bleiben; keine visuelle Abnahme.
 Gemeldeter Peak-Heap 593 MB gegenüber 589 MB zuvor; kein isolierter Kostennachweis.
 
+AudioOcclusion.cpp leitet die Audio-BVH aus nativen Parts mit Platzierung ab;
+keine Physikkollision. Render- und Audiozustand erst nach erfolgreicher
+Vorbereitung gemeinsam veröffentlichen; Fehler dürfen keinen Mischzustand erzeugen.
+
 ## Migrationsfolge
 
 1. Native Asset-/Instanzverträge aus vorhandenen Consumern ableiten; Geometry und

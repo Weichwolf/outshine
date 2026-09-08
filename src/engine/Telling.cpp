@@ -55,21 +55,6 @@ bool Engine::State::Stood() {
   return Picture.Standing->Restand(Picture.Handed, 0, Error);
 }
 
-void Engine::State::Blocks(const Gltf::Subject &standing) {
-  const std::vector<double> &positionsM = standing.PositionsM();
-  std::vector<float> corners(positionsM.size());
-  for (size_t at = 0; at < positionsM.size(); ++at) {
-    corners[at] = static_cast<float>(positionsM[at]);
-  }
-  std::vector<uint32_t> faces(standing.Indices().begin(), standing.Indices().end());
-  const auto groundFirst = static_cast<uint32_t>(corners.size() / 3u);
-  corners.insert(corners.end(), World.GroundPositionsM.begin(), World.GroundPositionsM.end());
-  faces.reserve(faces.size() + World.GroundIndex.size());
-  for (const uint32_t vertex : World.GroundIndex) { faces.push_back(groundFirst + vertex); }
-  World.Blocking = TriangleBvh::Over(std::span<const float>(corners.data(), corners.size()),
-                                     std::span<const uint32_t>(faces.data(), faces.size()));
-}
-
 void Engine::State::Tells() {
   const Heap::Tagged telling("frame-tells");
   Published.Places("heap: bytes LIVE right now", static_cast<double>(Heap::LiveBytes()), "bytes");
@@ -154,7 +139,7 @@ void Engine::State::Tells() {
         where.AtM[axis] = stood->PositionM[axis];
         where.VelocityMs[axis] = stood->VelocityMs[axis];
       }
-      where.Blocked = Blocked(where.AtM) ? 1.0 : 0.0;
+      where.Blocked = IsAudioOccluded(where.AtM) ? 1.0 : 0.0;
     }
     sources.push_back(where);
   }
@@ -172,8 +157,8 @@ void Engine::State::Tells() {
   Session.Told.store(next, std::memory_order_release);
 }
 
-bool Engine::State::Blocked(const Vec3 &sourceM) const {
-  if (World.Blocking.Empty() || !Picture.Standing) { return false; }
+bool Engine::State::IsAudioOccluded(const Vec3 &sourceM) const {
+  if (World.AudioOcclusion.Empty() || !Picture.Standing) { return false; }
   const Render::Viewpoint &eye = Picture.Standing->Aimed();
   Vec3f fromM;
   Vec3f along;
@@ -188,7 +173,7 @@ bool Engine::State::Blocked(const Vec3 &sourceM) const {
     fromM[axis] = static_cast<float>(eye.EyeM[axis]);
     along[axis] = static_cast<float>((sourceM[axis] - eye.EyeM[axis]) / awayM);
   }
-  return World.Blocking.Occludes(
+  return World.AudioOcclusion.Occludes(
       {.OriginM = fromM, .Toward = along}, kNearestOccluderM, static_cast<float>(awayM));
 }
 

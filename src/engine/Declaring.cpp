@@ -1,4 +1,5 @@
 #include "ScenarioWrite.h"
+#include "AudioOcclusion.h"
 #include "EngineHeld.h"
 #include "Ephemeris.h"
 #include "CivilTime.h"
@@ -449,15 +450,22 @@ Result Engine::setGeometry(const Geometry &geometry) {
     S_->Error = handed.Error();
     return std::unexpected(S_->Error);
   }
-  S_->Blocks(handed);
+  auto occlusion =
+      Core::BuildAudioOcclusion(geometry, S_->World.GroundPositionsM, S_->World.GroundIndex);
+  if (!occlusion) {
+    S_->Error = occlusion.error();
+    return std::unexpected(S_->Error);
+  }
   if (!S_->Picture.Standing) {
+    S_->World.AudioOcclusion = std::move(*occlusion);
     S_->Picture.Handed = std::move(handed);
     S_->Picture.Carrying = true;
     S_->Error.clear();
     return {};
   }
-  return S_->Picture.Standing->Restand(handed, 0, S_->Error) ? Result{}
-                                                             : std::unexpected(S_->Error);
+  if (!S_->Picture.Standing->Restand(handed, 0, S_->Error)) { return std::unexpected(S_->Error); }
+  S_->World.AudioOcclusion = std::move(*occlusion);
+  return {};
 }
 
 std::string Engine::writeScenario() const {

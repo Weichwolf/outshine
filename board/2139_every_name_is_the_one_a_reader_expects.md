@@ -1,64 +1,51 @@
 Type: debt
 State: open
-Area: engine, world, render, generators, base
+Area: include, engine, world, render, generators, base
 Tags: architecture, owner
+Parent: 2188
+Depends:
 
-# Every name is the one a reader EXPECTS, and none is this tree's own metaphor
+# Names and module boundaries expose the engine architecture
 
-**Benchmark** -- Unreal: `AddComponent`, `SetActorLocation`, `GetWorld`, `BeginPlay`. RAGE:
-`rage::grcDevice::SetRenderTarget`, `fwEntity::GetTransform`, `CPhysical::SetVelocity` -- the
-same plain verbs under a prefix. Filament: `Engine::create`, `Scene::addEntity`,
-`RenderableManager::Builder::build`; Cesium: `Cesium3DTileset::updateView`. Every one of them is
-guessed right the first time. **Both agree, and the door's two bodies with them**: a method is a
-plain verb and a class the noun of what it holds; the vocabulary is the engineer's, never the
-author's.
+## Ziel
 
-## Where it stands, measured 2026-09-04
+include/ enthält ausschließlich die minimale dokumentierte öffentliche API.
+src/ kapselt deren Implementierung in fachlich zusammenhängenden Modulen.
+Klassen, Methoden, Dateien und Verzeichnisse benennen ihre tatsächliche Aufgabe;
+keine autorenspezifischen Metaphern oder Sammeldateien für unabhängige Systeme.
 
-```
-  engine   Hands, HandsPiecesOver, HandsThePavingOver, Wears, WearsPieces, Framed, Forgets,
-           Restand, Grounds, Paves, Lays, Models, Grows, Bakes, Lands, Posts, Opens, Digests,
-           Carries, Stands, Watches, Focuses, TellsWhatCrossed, TellsTheRelief ...
-  world    Footprints().Next/Take/Accept, Ingested, Settle, Overflowing, Drained, Restand
-  render   HandTables, HandPlacements, HandStreams, Retable, Cross, Crossing, Borrows,
-           Bound, Room, Grow, WearPieces, CastsBelow, ShadowedBy
-  generators  Cover, Yield, Lay, Wants, Mesh, Shaped, Shapes, Finish, WholeOf, RowCut
-```
+## Befund und Entscheidung
 
-Measured cost: the session that closed board:2122 and opened board:2115 spent more tool
-reads looking up what a name did than on the design itself -- `Hands` alone was read at five
-sites before its meaning (place into the renderer) was certain. The owner's ruling, 2026-09-04:
-**the names must match what the reader (and the model that writes here) expects.**
+EngineHeld/Live bündeln mehrere Besitzer und Phasen. Telling.cpp enthält Metriken,
+Audio-Publikation, Renderer-Aufbau und Audio-Verdeckung. Blocks ist ausschließlich
+Audio-Verdeckung, nicht Physikkollision. Restand bezeichnet mehrere verschiedene
+Austauschoperationen; eine pauschale Übersetzung in Recenter wäre falsch.
 
-## The solution
+Pro Consumer Zuständigkeit und Ownership prüfen, dann vollständig migrieren:
+- Audio-BVH-Aufbau und Abfrage in AudioOcclusion.cpp, mit expliziten Methodennamen.
+- Importkonvertierung, native Assets und Animationsinstanzen nach 2150 trennen.
+- Öffentliche Typen und Header nach 2096 fachlich auffindbar schneiden.
+- Simulation, Streaming, Rendering und Audio über dokumentierte Übergaben koppeln.
+- Include-Pfade, Namespaces und Build-Tiers müssen dieselben Grenzen ausdrücken.
 
-One sweep per tier, the compiler as the oracle (rename the declaration, let the errors name
-the callers), the digests unmoved because a rename moves no byte:
+Keine pauschale Eins-zu-eins-Rename-Tabelle. Gemischte Verantwortungen aufteilen;
+kein kompletter ECS oder zusätzliche Modulhierarchie ohne konkreten Consumer.
+Aufrufer, Builddeklaration, Installation, Tests und Doxygen gemeinsam migrieren.
+Keine Kompatibilitätsalias-Schicht für falsche interne Begriffe aufbauen.
 
-| today | expected |
-|---|---|
-| `Hands(x)` / `HandsPiecesOver` / `HandTables` | `Place(x)` / `AttachPieces` / `UploadTables` |
-| `Wears(surfaces)` / `WearPieces` | `SetSurfaces` / `SetPieceSurfaces` |
-| `Framed(frame)` / `Into(live)` | `SetFrame` / `AttachTo` |
-| `Forgets(tile)` | `Remove(tile)` |
-| `Restand` / `Grounds` / `Paves` / `Lays` | `Recenter` / `BuildGround` / `BuildRoads` / `BuildTerrain` |
-| `Posts` / `Lands` / `Bakes` | `Post` / `Collect` / `UpdateBakes` |
-| `Ingested` / `Drained` / `Overflowing` | `Complete` / `Idle` / `OverBudget` |
-| `Cross` / `Crossing` | `Upload` / `Upload` (the record) |
-| `Borrows` / `Bound()` / `Room` / `Grow` | `IsBorrowed` / `Residency()` / `Reserve` / `Grow` |
-| `Cover().Yield/Lay` | `Terrain().Press/Build` |
+## Referenzmaßstab
 
-A name from the references' vocabulary wins over a plain one where both fit (`Residency`,
-`Placement`, `Batch`, `Cluster`, `Page`).
+Benchmark: Filament Engine/Scene/RenderableManager und veröffentlichte Cesium-
+Asset-/Streaming-Verträge als Beispiele klarer Zuständigkeiten. 2188 hält Quellen.
+Keine Behauptungen über proprietäre RAGE-Klassen oder eine universelle Verb-Liste.
 
-## What will be true
+## Abnahme
 
-- [ ] Public API im Client-Review verständlich; Namen bezeichnen tatsächliche Operationen.
-- [ ] The nine references unmoved after every sweep (a rename moves no byte)
-- [ ] Compile-Prüfung: Client benötigt nach Umbenennung keine internen Header.
-
-## Konventionsprüfung
-
-Fachbegriffe wie TerrainField, Bridge und Tunnel sind ausdrücklich zulässig.
-Kein Wortverbot und keine erlaubte Verb-Liste als Architekturoracle. Entscheidend
-sind verständliche Zuständigkeit und nachweisbare Abhängigkeiten nach 2188/2150.
+- [ ] Öffentliche Typen sind über fachlich benannte öffentliche Header auffindbar.
+- [ ] Externer Minimalclient benötigt keine src/-Header oder Checkout-Includepfade.
+- [ ] Module haben gerichtete Abhängigkeiten und eindeutige Ressourcenbesitzer.
+- [ ] Geänderte Namen bezeichnen nach Aufruferprüfung genau die ausgeführte Aufgabe.
+- [ ] Alte Namen/Includes vollständig entfernt; Build, Doxygen und Tests migriert.
+- [ ] Rein strukturelle Änderungen erhalten Verhalten und Referenzbilder;
+      fachliche Korrekturen erhalten unabhängige Orakel statt falscher Altbilder.
+- [ ] make lint samt clang-tidy und passende Make-Tests ohne neue Befunde.
