@@ -32,7 +32,7 @@ RUN      := cd $(SELF_DIR) && sh test/run.sh
 # quietly skipped.
 LLVM_BIN := /opt/homebrew/opt/llvm/bin
 
-.PHONY: all strip shader-tools shaders db lint doc shots corpus-render corpus-prepare test suite clean spotless help
+.PHONY: crown-provenance all strip shader-tools shaders db lint doc shots corpus-render corpus-prepare test suite clean spotless help
 
 GLSLANG ?= $(SELF_DIR)/build/deps/install/bin/glslangValidator
 GLSL_SHADERS := $(wildcard src/render/shaders/*.comp src/render/shaders/*.vert src/render/shaders/*.frag)
@@ -87,13 +87,16 @@ build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) 
 	@mkdir -p $(@D)
 	@$(GLSLANG) -V --target-env vulkan1.0 $< -o $@
 
-all: strip shaders ## the library, the generator archive, and the tools beside them
+crown-provenance: strip shaders ## fingerprint the built crown producer inputs
+	@cd $(SELF_DIR) && python3 test/scripts/crown-provenance.py
+
+all: crown-provenance ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
 
 strip:           ## delete every comment src/ may not keep, and reflow what that left behind
 	@cd $(SELF_DIR) && CLANG_FORMAT=$(LLVM_BIN)/clang-format python3 test/strip-comments.py
 
-db:              ## compile_commands.json for clangd, clang-tidy and clang-format
+db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db
 
 lint: db         ## format, static analysis, and this tree's own repository rules

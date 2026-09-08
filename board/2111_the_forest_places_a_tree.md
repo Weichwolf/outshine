@@ -623,3 +623,38 @@ Beweis: Make zweimal ohne Änderung erhält Kennung; tatsächliche Codec-Quellä
 ändert sie; Wiederherstellung erhält Originalkennung. Bestehender Artefakttest nutzt
 die automatisch erzeugte Provenienz und prüft geänderte Species/Shape. Dateicache,
 atomische Veröffentlichung und asynchroner Verbraucher bleiben danach offen.
+
+
+## Producer-Fingerprint wird mitgebaut, 2026-09-08
+
+`make crown-provenance` erzeugt build/CrownBuild.h nach Strip und Shaderbau;
+`make` und `make db` hängen davon ab. SHA-256 über längenpräfixierte Pfade/Inhalte,
+sortiert und eindeutig; SPIR-V und Werkzeug-/Paketversionen wie oben beschrieben.
+Header wird bei gleichem Inhalt nicht neu geschrieben, sonst atomisch ersetzt.
+CrownAtlas::ProvenanceFor bindet den kompilierten Fingerprint an Species-JSON und
+Pixels/Views. Der Codec-Test verwendet keine handgesetzte Generatorrevision mehr.
+
+Kontrollen (je Make-Gate beendet): crown-provenance-first.log/repeat.log zeigen
+dieselbe Kennung 6ad990cb…; Codec-Konstante Version 1 → 2 im echten Quellfile ergibt
+fc23c099… (crown-provenance-mutation.log). Quelle wiederhergestellt, Kennung wieder
+6ad990cb… (crown-provenance-restored.log), Header per cmp identisch zur Sicherung.
+Damit werden auch uncommittete Quelländerungen erfasst. Board-/Commitänderungen
+allein sind kein Fingerprint-Eingang.
+
+`make suite SUITE=outshine/conventions`, build/crown-provenance-suite.log:
+Exit 0, 19/19 PASS; Kronenfall 115 Checks. Shape- und Species-Änderungen ergeben
+unterschiedliche Provenienz; vorhandene Cache-Verweigerungen, Rundlauf und
+Normal-/Bedeckungsprüfungen bleiben grün. Zwei Karten-PNGs unter gegensätzlicher
+Beleuchtung erneut geöffnet, unveränderte dünne Krone. Der sporadische Schachfehler
+2179 bleibt offen trotz dieses grünen Einzelruns.
+
+Anschließend db-Abhängigkeit auf den generierten Header ergänzt;
+`make db`, build/crown-provenance-db.log, Exit 0: Bibliotheken/Client gebaut,
+compile_commands.json für 171 Einheiten erzeugt. Makefile ist selbst Eingang;
+diese Ergänzung erzeugt erwartbar die endgültige Kennung f3e7aa56… und baut den
+Producer damit neu. Externe Bibliotheken sind über Paketversionen identifiziert,
+nicht über einen vollständigen transitiven Hash jedes System-Binaries.
+
+Nächster Schritt: Artefaktdateien atomisch veröffentlichen, begrenzt asynchron
+lesen und ihren Inhalt über diese automatisch erzeugte Provenienz prüfen.
+Noch kein produktiver Dateicache/World.Instances-Verbrauch; WI bleibt aktiv.

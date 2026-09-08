@@ -1,4 +1,5 @@
 #include "CrownAtlas.h"
+#include "../../build/CrownBuild.h"
 #include "Digest.h"
 #include <bit>
 #include <type_traits>
@@ -122,6 +123,11 @@ bool Cacheable(const CrownAtlas &atlas) {
   return true;
 }
 } // namespace
+
+std::string CrownAtlas::ProvenanceFor(std::string_view species, Shape shape) {
+  return std::string(kCrownBuildIdentity) + "/" + std::to_string(shape.Pixels) + "/" +
+         std::to_string(shape.Views) + "/" + std::string(species);
+}
 
 std::optional<std::vector<uint8_t>> CrownAtlas::Encode(std::string_view provenance,
                                                        std::string &error) const {

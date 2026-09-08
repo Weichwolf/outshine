@@ -31,6 +31,8 @@ public:
   static std::optional<CrownAtlas>
   Bake(const Generators::TreePrototype &tree, Shape shape, std::string &error);
 
+  [[nodiscard]] static std::string ProvenanceFor(std::string_view species, Shape shape);
+
   [[nodiscard]] std::optional<std::vector<uint8_t>> Encode(std::string_view provenance,
                                                            std::string &error) const;
   [[nodiscard]] static std::optional<CrownAtlas>

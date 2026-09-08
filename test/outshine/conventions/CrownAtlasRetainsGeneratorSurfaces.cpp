@@ -95,7 +95,11 @@ int main() {
 
   CHECK(atlas.has_value(), "the native renderer captures crown surface data");
   if (!atlas) { std::printf("%s\n", error.c_str()); return Report(); }
-  const std::string provenance="crown-format-1/test-generator-revision/"+text;
+  const std::string provenance=CrownAtlas::ProvenanceFor(text,{.Pixels=128,.Views=4});
+  CHECK(provenance!=CrownAtlas::ProvenanceFor(text+"changed",{.Pixels=128,.Views=4}) &&
+        provenance!=CrownAtlas::ProvenanceFor(text,{.Pixels=256,.Views=4}) &&
+        provenance!=CrownAtlas::ProvenanceFor(text,{.Pixels=128,.Views=8}),
+        "species and capture shape participate in the compiled producer identity");
   const auto encoded=atlas->Encode(provenance,error);
   CHECK(encoded.has_value(), "real crown data encodes without material loss");
   if (!encoded) { std::printf("%s\n",error.c_str()); return Report(); }
@@ -146,7 +150,7 @@ int main() {
   std::ofstream artifact("build/crown-atlas/birch.crown",std::ios::binary);
   artifact.write(reinterpret_cast<const char *>(encoded->data()),static_cast<std::streamsize>(encoded->size()));
   CHECK(artifact.good(), "the verified crown artifact is written");
-  std::printf("crown artifact %zu bytes; source/raw-data equality checked; production provenance wiring still open\n",encoded->size());
+  std::printf("crown artifact %zu bytes; source/raw-data equality checked; compiled producer, species and capture shape identified\n",encoded->size());
   atlas=std::move(restored);
   CHECK(atlas->Views().size() == 4 && atlas->Surfaces().size() == 2,
         "four independent views retain bark and leaf materials");
