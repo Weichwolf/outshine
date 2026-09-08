@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: test, gate
 Tags: measured, gate
 Depends: 2093, 2131, 2152
@@ -37,3 +37,12 @@ Client-Katalogtests und bestehende Fachorakel im Make-Gate erhalten.
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 - [ ] Negativkontrollen schlagen wegen des jeweiligen Vertrages fehl, nicht wegen
       eines fehlenden Harness oder einer unverwandten Kompilierpanne.
+
+## Aktiver Schritt: vollständige clang-tidy-Ausführung
+
+Compile-Datenbank enthält aktuell alle src/*.cpp außer src/client/Main.cpp. BuildTools
+muss auch den tatsächlich gebauten Einstieg mit seiner echten Compile-Konfiguration
+registrieren. Runner gleicht Dateimenge, Compile-Einträge und abgeschlossene Toolaufrufe
+ab, bewahrt Status/Diagnosen je Unit und akzeptiert null Befunde nur bei vollständigem
+Erfolg. Tests mit realem clang-tidy prüfen saubere Quelle, Diagnose, Parsefehler und
+fehlende Unit; injizierter Toolabbruch darf nie als sauberer Nullbefund gelten.
