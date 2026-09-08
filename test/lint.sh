@@ -94,11 +94,12 @@ grep 'tests:' "$REPORT/claims.log" | sed 's/^/lint: /' || true
 printf '\n== documentation ==\n'
 if [ -x "$(command -v doxygen)" ]; then
   mkdir -p build/doc
-  doxygen doc/Doxyfile >/dev/null 2>&1 || true
-  undocumented=$(wc -l < build/doc/warnings.txt 2>/dev/null | tr -d ' ')
+  { cat doc/Doxyfile; printf '\nWARN_LOGFILE = "%s/doxygen.log"\n' "$REPORT"; } |
+    doxygen - >/dev/null 2>&1 || true
+  undocumented=$(wc -l < "$REPORT/doxygen.log" 2>/dev/null | tr -d ' ')
   printf 'lint: %s undocumented public entit(ies), the target is 0\n' "$undocumented"
   if [ "$undocumented" -gt 0 ]; then
-    printf 'lint: %s to go. They are named in build/doc/warnings.txt\n' "$undocumented" >&2
+    printf 'lint: %s to go. They are named in %s/doxygen.log\n' "$undocumented" "$REPORT" >&2
     red=$((red + 1))
   fi
 else

@@ -22,13 +22,14 @@ Die konkrete Entstehung jeder Wand ist noch durch Höhen-/Stamp-/Sheet-Diagnosti
 
 ## Implementierung
 
-Diagnose 2026-09-08: Malcesine-46e4db5c erneut geöffnet und unter
-`build/shots/reference/terrain-20260908/` gesichert. `GroundConstants.inc` senkt
-Skirts um 16 Gitterabstände ab; `HeightSheets::TileOf` erweitert die Bounds entsprechend.
-Hypothese: sichtbare Skirts verursachen den Ufer-Vorhang. Gegenprobe: ausschließlich
-die Skirt-Absenkung temporär auf null setzen, Malcesine rendern und PNG öffnen,
-danach Quellwert wiederherstellen. Verschwindet der Vorhang nicht, ist die pauschale
-Skirt-Ursache widerlegt. Das Abschalten ist Diagnose, keine zulässige Nahtreparatur.
+Skirt-Hypothese widerlegt: Malcesine ohne Vegetation, ausschließlich Skirt-Absenkung
+16 → 0 Gitterabstände. PNG e67943aa geöffnet: Faltenvorhang und Zähne bleiben.
+99 / (1280 × 720) Pixel ändern sich, BBox [21,1262)×[176,715), maximal 92/255.
+Beide Bilder gesichert unter `build/shots/reference/terrain-20260908/`.
+Render-Exit 0; 120 Standframes, p50/p95/p99 4,27/4,49/5,30 ms, keine Überschreitung.
+Quellwert wiederhergestellt. Logs: System-Temp, `outshine-skirt-probe-{lint,shot}.log`.
+Nächste Ursache: Rohhöhen → resampelte Referenz → finale Stamps entlang derselben
+Felswand vergleichen. Tatsächliche Felswände erhalten; künstliche Falten lokalisieren.
 
 1. Pro sichtbarem Patch Roh-DEM, finales gestempeltes Höhenfeld, Quellzoom, Sampleabstand,
    Höhenänderung, Patch-/Skirt-ID und geometrische Normale separat ausgeben. Faltenursache
