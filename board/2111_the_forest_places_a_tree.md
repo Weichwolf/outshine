@@ -890,3 +890,31 @@ geografischen Frame und Blickrichtungswahl. Die Registry hält einen Katalog üb
 die Live-Lebensdauer; sie ist noch keine budgetierte Prototyp-Eviction. Nicht pro
 Tile erneut registrieren. Vorbereitung fehlender Artefakte und begrenzte Katalog- /
 Tile-Residency bleiben erforderlich. 2111 bleibt active.
+
+## Geladener Atlas als gemeinsam residente Crown-Pieces
+
+Vor Implementierung: CrownPieces registriert jede vorhandene Atlasansicht genau
+als ein zweidreieckiges natives Piece mit dessen echten Colour/Normal/MR-Bildern
+über Live. Update gruppiert Modellmatrizen nach der zum Auge gerichteten Ansicht;
+Richtung im Modell mit dem transformierten Kronenzentrum und Basisvektoren bestimmen.
+Instanzmatrizen stammen später aus WorldPlacement im World-Renderframe; dieser
+Schritt erfindet keine Platzierungen. Vorhandene Mat4-Transformationen wiederverwenden.
+
+SubjectDraw erhält SetPieceInstances: Matrixzeilen ändern, Geometriebereiche erhalten,
+leere Gruppen deaktivieren. Optionales MaxInstances beim PlacePiece begrenzt und
+reserviert Matrixspeicher. CrownPieces reserviert seine Gruppen bis zum deklarierten
+Maximum. Update darf weder Karten neu erzeugen noch Materialien neu registrieren.
+Vorhandene Retable-/Placement-Uploads benutzen; deren gesamte Frameallokation ist
+weiter 2124 und wird dadurch nicht pauschal für erledigt erklärt. Live muss den
+CrownPieces-Owner überleben. Unreal/RAGE-Benchmark: ein residentes Kronenmodell pro
+Ansicht, geteilte Instanzen, Blickwechsel als Instanzdelta statt Asset-Neuaufbau.
+
+Beweis am tatsächlich gebackenen und aus dem Dateicache geladenen Birkenatlas:
+mehrere Instanzen mit denselben acht residenten Dreiecken (vier Ansichten mal zwei),
+Blickrichtungswechsel und leere Gruppen. Im 384x128-Orthobild je 128 Pixel breite
+Krone links/rechts, mittleres Drittel frei. Coverage und Normalen an den gewählten
+Atlasansichten gegen vorhandene Rohtexel prüfen. PNG selbst öffnen. Mehr Instanzen
+als deklarierte Kapazität verweigern; Entleeren und Wiederbefüllen darf keine
+Prototypen vervielfachen. Negativkontrolle: immer erste Ansicht wählen; Gegenblick
+muss Coverage-/Normalenprüfung verletzen. Dies schließt den GPU-Handoff des echten
+Atlas, noch nicht Cache-Miss-Vorbereitung oder ringweite World.Instances-Anbindung.
