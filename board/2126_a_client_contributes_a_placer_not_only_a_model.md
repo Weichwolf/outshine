@@ -85,3 +85,9 @@ Nächste Eingangsgrenze: alle Ringkoordinaten vor MassOf auf gültige geodätisc
 Breite/Länge prüfen. SeedOfPlace konvertiert Mikrograd in int32; finite allein
 schützt diesen Pfad nicht. Ungültige Koordinate an jeder Ringposition muss ohne
 Allokation und Outputmutation InvalidPlan liefern. Höhen-/Ableitungsgrenzen separat.
+
+Höhenkonvertierung: MassOf muss ungültige Höhen typisiert melden, statt sie mit
+nicht unterstütztem Grundriss zu vermischen. Vor Scratch-/Polygonaufbau endliche
+Höhe gegen min(Geschosspräferenzen, TallFloor) * (INT_MAX - 1) prüfen; Reserve schützt
+Rundung. Das ist eine Repräsentationsgrenze, kein hinreichendes Echtzeitbudget.
+NaN/Inf/extreme endliche Höhen ohne Allokation ablehnen; Fehler bis Mesh durchreichen.
