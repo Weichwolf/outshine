@@ -49,6 +49,25 @@ Mixer::Stands baut Routing, Quellen, Hall und Laufzustand als Kandidat auf; Abta
 und Besitzwechsel erst nach Erfolg. Kontrollmixer prüft identische Folgeblöcke nach
 abgelehnter Änderung von Rate/Routing und Zustandserhalt bei später Quellenablehnung.
 
+Audio-Qualität, Stereo-/Kopfhörer-Ausgabe und Backend-Evaluation: WI 2212.
+
+## SDL3_mixer als Wiedergabebasis
+
+Lokal SDL3_mixer 3.2.4 vorhanden; noch keine integrierte Outshine-Abhängigkeit.
+WI 2212 priorisiert Synthese und Zweikanalqualität. SDL3_mixer für ergänzende
+Standarddekodierung, Tracks und Ausgabe evaluieren; keine Vorfestlegung des DSP-Backends. MIX_CreateMixer
+mit Float-Stereo und MIX_Generate passt zum vorhandenen Engine::mix-Speichervertrag.
+Rückgabe >= 0 bedeutet Erfolg, auch wenn nur angehängte Stille geliefert wurde.
+https://wiki.libsdl.org/SDL3_mixer/MIX_Generate
+Outshine behält Weltposition/Listener, Quellenbudget, Verdeckung und Akustiksteuerung.
+SDL-3D ist listenerrelativ, mischt Quellen mono und liefert kein Doppler oder frei
+wählbare Distanzmodelle: https://wiki.libsdl.org/SDL3_mixer/MIX_SetTrack3DPosition
+Migration durch unabhängige PCM-/WAV-Fixtures, Blockkontinuität, Gain, Stop/Loop,
+Gerätelosigkeit und Fehler-/Lifetime-Tests beweisen. Synthese und vorhandene
+Szenariofähigkeiten erhalten; eigener DSP nur für nachgewiesene Backendlücken.
+Vor Runtime-Umbau Buildabhängigkeit/Version und Init-/Shutdown-Ownership festlegen.
+Keine behauptete Echtzeitgarantie aus SDL-Thread-Safety; Allokation/IO separat messen.
+
 ## Vorbereitete Audio-Parameter
 
 Numeric-Parameter vor Publikation mit ParseFiniteNumber validieren und in nativen

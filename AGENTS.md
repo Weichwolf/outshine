@@ -54,6 +54,17 @@ das Urteil über das ganze Projekt.
   SpeedTree. Konkrete Technik belegen; aus einem Spielbild keine Architektur erfinden.
   Filament und Cesium liefern Referenzen für Rendering und Georeferenzierung,
   CARLA/SUMO für Verkehrsnetze. Messungen hier entscheiden die Eignung.
+- Audio trägt denselben Glaubwürdigkeitsanspruch wie das Bild. Hochwertige
+  Stereoanlagen und Kopfhörer sind die Zielwiedergabe; Kanalzahl ist kein Qualitätsziel.
+  Klang überwiegend prozedural aus Weltzustand, Bewegung, Wetter und Materialien
+  erzeugen. Klangfarbe, Transienten, Dynamik und räumliche Tiefe erhalten; keine
+  pauschale Verbreiterung oder Lautheitsmaximierung. Eine native akustische Szene
+  trennt Synthese, Schallausbreitung und Ausgabe: Lautsprecher-Stereo und binaurale
+  Kopfhörer brauchen passende Wiedergabeverfahren. HRTF und Lautsprecherübersprechen
+  berücksichtigen; Rückwärtsortung nicht pauschal versprechen. Echtzeitkosten,
+  Latenz und Streamingkontinuität messen. Reproduzierbare, pegelgleiche Hörszenarien
+  liefern die Abnahme mit dem Regisseur; Signaltests allein beweisen keine Klangqualität.
+  Konkrete Umsetzung und Prioritäten stehen in WI 2212.
 - Greenfield heißt: kein Bestandsschutz für falsche Architektur. Du darfst Public API,
   Klassen, interne Systeme und Datenflüsse grundlegend umbauen, wenn der Engine-SOLL
   es verlangt. Ungewöhnliche Eigenlösungen als möglichen Designfehler untersuchen;
