@@ -72,6 +72,66 @@ struct Resolved {
   return held;
 }
 
+[[nodiscard]] size_t TranslateKeyboard(const SDL_Event &event, const auto &fire) {
+  if (event.key.repeat) { return 0; }
+  for (const KeyRow &row : Table().Keys) {
+    if (row.Key == event.key.key) {
+      return fire(
+          row.Event, InputMap::Kind::Button, event.type == SDL_EVENT_KEY_DOWN ? 1.0f : 0.0f, 0);
+    }
+  }
+  return 0;
+}
+
+[[nodiscard]] size_t TranslateMouseButton(const SDL_Event &event, const auto &fire) {
+  const float value = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? 1.0f : 0.0f;
+  if (event.button.button == SDL_BUTTON_LEFT) {
+    return fire(Table().MouseLeft, InputMap::Kind::Button, value, 0);
+  }
+  if (event.button.button == SDL_BUTTON_RIGHT) {
+    return fire(Table().MouseRight, InputMap::Kind::Button, value, 0);
+  }
+  return 0;
+}
+
+[[nodiscard]] size_t TranslateMouseMotion(const SDL_Event &event, const auto &fire) {
+  size_t held = 0;
+  if (event.motion.xrel != 0.0f) {
+    held = fire(Table().MouseX, InputMap::Kind::Axis, event.motion.xrel, held);
+  }
+  if (event.motion.yrel != 0.0f) {
+    held = fire(Table().MouseY, InputMap::Kind::Axis, event.motion.yrel, held);
+  }
+  return held;
+}
+
+[[nodiscard]] size_t TranslateGamepadButton(const SDL_Event &event, const auto &fire) {
+  for (const PadRow &row : Table().Buttons) {
+    if (row.Button == event.gbutton.button) {
+      return fire(row.Event,
+                  InputMap::Kind::Button,
+                  event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? 1.0f : 0.0f,
+                  0);
+    }
+  }
+  return 0;
+}
+
+[[nodiscard]] size_t TranslateGamepadAxis(const SDL_Event &event, const auto &fire) {
+  for (const AxisRow &row : Table().Axes) {
+    if (row.Axis == event.gaxis.axis) {
+      return fire(row.Event,
+                  InputMap::Kind::Axis,
+                  static_cast<float>(event.gaxis.value) /
+                      (event.gaxis.value < 0
+                           ? -static_cast<float>(std::numeric_limits<Sint16>::min())
+                           : static_cast<float>(std::numeric_limits<Sint16>::max())),
+                  0);
+    }
+  }
+  return 0;
+}
+
 }
 
 bool InputPump::CatalogueReady() {
@@ -88,63 +148,13 @@ InputPump::Translate(const SDL_Event &event, const InputMap &bindings, std::span
   };
   switch (event.type) {
     case SDL_EVENT_KEY_DOWN:
-    case SDL_EVENT_KEY_UP: {
-      if (event.key.repeat) { return 0; }
-      for (const KeyRow &row : Table().Keys) {
-        if (row.Key == event.key.key) {
-          return fire(
-              row.Event, InputMap::Kind::Button, event.type == SDL_EVENT_KEY_DOWN ? 1.0f : 0.0f, 0);
-        }
-      }
-      return 0;
-    }
+    case SDL_EVENT_KEY_UP: return TranslateKeyboard(event, fire);
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_BUTTON_UP: {
-      const float value = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? 1.0f : 0.0f;
-      if (event.button.button == SDL_BUTTON_LEFT) {
-        return fire(Table().MouseLeft, InputMap::Kind::Button, value, 0);
-      }
-      if (event.button.button == SDL_BUTTON_RIGHT) {
-        return fire(Table().MouseRight, InputMap::Kind::Button, value, 0);
-      }
-      return 0;
-    }
-    case SDL_EVENT_MOUSE_MOTION: {
-      size_t held = 0;
-      if (event.motion.xrel != 0.0f) {
-        held = fire(Table().MouseX, InputMap::Kind::Axis, event.motion.xrel, held);
-      }
-      if (event.motion.yrel != 0.0f) {
-        held = fire(Table().MouseY, InputMap::Kind::Axis, event.motion.yrel, held);
-      }
-      return held;
-    }
+    case SDL_EVENT_MOUSE_BUTTON_UP: return TranslateMouseButton(event, fire);
+    case SDL_EVENT_MOUSE_MOTION: return TranslateMouseMotion(event, fire);
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-    case SDL_EVENT_GAMEPAD_BUTTON_UP: {
-      for (const PadRow &row : Table().Buttons) {
-        if (row.Button == event.gbutton.button) {
-          return fire(row.Event,
-                      InputMap::Kind::Button,
-                      event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? 1.0f : 0.0f,
-                      0);
-        }
-      }
-      return 0;
-    }
-    case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
-      for (const AxisRow &row : Table().Axes) {
-        if (row.Axis == event.gaxis.axis) {
-          return fire(row.Event,
-                      InputMap::Kind::Axis,
-                      static_cast<float>(event.gaxis.value) /
-                          (event.gaxis.value < 0
-                               ? -static_cast<float>(std::numeric_limits<Sint16>::min())
-                               : static_cast<float>(std::numeric_limits<Sint16>::max())),
-                      0);
-        }
-      }
-      return 0;
-    }
+    case SDL_EVENT_GAMEPAD_BUTTON_UP: return TranslateGamepadButton(event, fire);
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION: return TranslateGamepadAxis(event, fire);
     default: return 0;
   }
 }
