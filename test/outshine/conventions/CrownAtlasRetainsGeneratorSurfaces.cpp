@@ -339,7 +339,7 @@ int main() {
     const auto material = card->surfaceAt(MaterialInstance(0));
     const auto colourMap = card->imageAt(material.BaseColourMap.Image);
     const auto mrMap = card->imageAt(material.MetalRoughMap.Image);
-    bool coverageMatches = colourMap.stands(), materialsMatch = mrMap.stands();
+    bool coverageMatches = colourMap.valid(), materialsMatch = mrMap.valid();
     if (coverageMatches && materialsMatch) {
       for (size_t pixel = 0; pixel < texels.size(); ++pixel) {
         coverageMatches &= (colourMap.Rgba[pixel * 4 + 3] == (texels[pixel].Surface ? 255 : 0));

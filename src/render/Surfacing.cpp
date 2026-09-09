@@ -51,7 +51,7 @@ bool ResolveNativeTextures(std::span<const ImageView> images,
     const ImageView image = static_cast<size_t>(map.Image) < images.size()
                                 ? images[static_cast<size_t>(map.Image)]
                                 : ImageView{};
-    if (!image.stands()) {
+    if (!image.valid()) {
       error = std::format(Says::MissingNativeImage, map.Image);
       return false;
     }
