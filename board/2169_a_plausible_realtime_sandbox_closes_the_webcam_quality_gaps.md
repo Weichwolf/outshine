@@ -2,7 +2,7 @@ Type: feature
 State: open
 Area: world, render, generators, navigation
 Tags: webcam, measured
-Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176, 2196, 2197, 2198, 2199, 2200, 2201, 2202, 2203, 2204
+Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176, 2196, 2197, 2198, 2199, 2200, 2201, 2202, 2203, 2204, 2213
 
 # A plausible realtime sandbox closes the webcam quality gaps
 
@@ -24,6 +24,10 @@ Zusätzliche Quelldaten wie Fototexturen, Photogrammetrie oder reale Gebäudemod
 | Kamera | korrekt deklarierte Konventionen; Referenzpose kalibrieren, Restunsicherheit nennen |
 | Navigation/NPC/Map | logisches 2D-Netz mit Ebenen/Verbindungen, unabhängig vom Render-Mesh |
 | Kontakt/Darstellung | aus demselben räumlichen Alignment, mit getrennten LOD-/Fehlerverträgen |
+
+Volumetrisches Licht ist eine Kernkompetenz. Lichtführung, Schatten, Atmosphäre und
+Farbgestaltung weltweit über Tages- und Jahreszeiten gemeinsam abnehmen; Details in 2172.
+Die Implementierungsreihenfolge bleibt bestehen; sichtbare Lichtstrahlen allein genügen nicht.
 
 ## SOLL/IST – visuelle Befunde
 

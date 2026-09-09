@@ -14,6 +14,23 @@ auch neben bedeckten Webcam-Bildern. `src/world/weather/WeatherProvider.h` hat W
 CloudLayers und Visibility; `CalmWeather.h` liefert klare, windstille Defaults.
 Eine verfügbare Deklaration belegt noch keinen Verbraucher im Bild.
 
+## Weltweiter Licht- und Atmosphärenvertrag
+
+Volumetrisches Licht, Schatten, Luftperspektive und Farbgestaltung sind eine gemeinsame
+Kernkompetenz. Ort, Datum, Uhrzeit, Höhe und Wetter treiben denselben konsistenten
+Zustand für direkte/indirekte Beleuchtung, Medium und Belichtung. Sonnen- und lokale
+Lichtquellen einschließlich Abschattung integrieren; klare Luft braucht subtile Tiefe,
+Nebel/Gegenlicht stärkere Streuung. Keine fest eingestellten Place-/Sonnenuntergangs-Looks.
+
+Abnahmematrix: beide Hemisphären, Äquator, mittlere Breiten, Polarregionen und Hochgebirge;
+Jahreszeiten, Morgen/Mittag/Abend/Nacht, Polartag und Polarnacht; klar/bedeckt/Nebel.
+Astronomisch unmögliche Kombinationen ausschließen. Repräsentative Fälle prüfen den
+allgemeinen Vertrag, ohne Vollabdeckung sämtlicher Orte/Zeitpunkte zu behaupten.
+Bei Kamera-, Zeit- und Wetterübergängen auf Flimmern, Nachziehen, Kontrast-/Farbsprünge
+prüfen; lesbare Schatten und stabile Tiefenstaffelung erhalten. 2092 misst Frame-/Speicherkosten.
+Zuständigkeiten: 2167 indirektes Licht, 2128 Schatten/Lichter, 2140 Wolken, 2155 Farbantwort;
+2213 verbindet Sonne, Mond und Sternenhimmel mit demselben Weltzustand.
+
 ## Implementierung
 
 1. Zeitgestempelter räumlicher Wetter-Snapshot aus Provider/Scenario, mit Quelle, Einheiten,
