@@ -146,6 +146,50 @@ void CloseEnds(const ReferenceLine &along, size_t stations, Ribbon &out) {
   }
 }
 
+void BoundaryNormals(size_t stations, Ribbon &out) {
+  const size_t bodyVertices = stations * kVerticesPerStation;
+  const size_t surfaceVertices = stations * kRibbonAcross * 2;
+  const auto boundaryIndex = [=](size_t vertex) {
+    return vertex < bodyVertices
+               ? vertex / kVerticesPerStation * 4 + vertex % kVerticesPerStation - kRibbonAcross * 2
+               : vertex - surfaceVertices;
+  };
+  std::vector<Vec3> summed(out.PositionM.size() / 3 - surfaceVertices);
+  const auto point = [&](size_t vertex) {
+    const size_t at = vertex * 3;
+    return Vec3{{out.PositionM[at], out.PositionM[at + 1], out.PositionM[at + 2]}};
+  };
+  for (size_t at = 0; at + 2 < out.Index.size(); at += 3) {
+    const size_t first = out.Index[at];
+    if (first < bodyVertices && first % kVerticesPerStation < kRibbonAcross * 2) { continue; }
+    const Vec3 a = point(first);
+    const Vec3 b = point(out.Index[at + 1]);
+    const Vec3 c = point(out.Index[at + 2]);
+    Vec3 ab;
+    Vec3 ac;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      ab[axis] = b[axis] - a[axis];
+      ac[axis] = c[axis] - a[axis];
+    }
+    const Vec3 normal = Cross(ab, ac);
+    for (size_t corner = 0; corner < 3; ++corner) {
+      Vec3 &sum = summed[boundaryIndex(out.Index[at + corner])];
+      for (size_t axis = 0; axis < 3; ++axis) { sum[axis] += normal[axis]; }
+    }
+  }
+  for (size_t at = 0; at < summed.size(); ++at) {
+    const Vec3 &normal = summed[at];
+    const double length = std::hypot(normal[0], normal[1], normal[2]);
+    if (!(length > 0.0)) { continue; }
+    const size_t vertex = at < stations * 4
+                              ? at / 4 * kVerticesPerStation + kRibbonAcross * 2 + at % 4
+                              : at + surfaceVertices;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      out.NormalM[vertex * 3 + axis] = static_cast<float>(normal[axis] / length);
+    }
+  }
+}
+
 }
 
 Ribbon
@@ -225,6 +269,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
 
   ConnectStations(stations, out);
   CloseEnds(along, stations, out);
+  BoundaryNormals(stations, out);
 
   out.Stations = stations;
   out.Vertices = out.PositionM.size() / 3;

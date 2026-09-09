@@ -67,5 +67,8 @@ widersprüchliche Anschlüsse, unveränderte Ergebnisse bei anderer Tile-Reihenf
 begrenzte Konfliktlösung/Neuplanung und Kosten messen. Noch keine beschlossene Runtime.
 Referenz: [Merrell, Model Synthesis](https://paulmerrell.org/wp-content/uploads/2021/06/thesis.pdf),
 Nachbarschafts-, Maß- und globale Verbindungsbedingungen; keine Echtzeitgarantie ableiten.
-Weiterer Geometrienachweis: Ribbon-Seitenwände/Endkappen verwenden horizontale Normalen;
-bei Steigung/Bank geschlossene Schale gegen ihre tatsächlichen Flächen prüfen.
+Ribbon-Randnormalen aus flächengewichteten Dreiecken ableiten, Deck-/Randvertices
+für harte Kanten getrennt lassen. Gerade mit Steigung/Bank gegen alle Dreiecke und
+Innenpunkt prüfen; Null-Schulter darf keine NaNs liefern. O(Vertex+Index), temporärer
+Double-Puffer nur für Randvertices. Degenerierte Schulterbänder, Offset-Faltungen,
+Wasserdichtheit und gemessene Produktionsbudgets bleiben eigene offene Nachweise.
