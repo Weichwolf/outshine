@@ -30,6 +30,12 @@ static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfa
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
 
+## Generierter C++-Code
+
+CrownBuild.h wird vom Provenienzgenerator erzeugt und bleibt Teil der Analyse.
+Include-Guard und constexpr string_view statt pragma once und C-Array; der Consumer
+übernimmt den Digest weiterhin als eigenen String. Hash-Algorithmus und Dateiauswahl bleiben gleich; der Generator selbst wird mitgehasht.
+
 ## Materialindex-Konversion
 
 PieceSurface unterscheidet Geometrie- und registrierte Materialtabellen. Nackte

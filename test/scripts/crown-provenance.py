@@ -36,7 +36,13 @@ def main():
         fold(package, subprocess.check_output(["pkg-config", "--modversion", package], env=env))
     value = digest.hexdigest()
     target = Path("build/CrownBuild.h")
-    content = ('#pragma once\ninline constexpr char kCrownBuildIdentity[] = "' + value + '";\n').encode()
+    content = (
+        "#ifndef OUTSHINE_GENERATED_CROWN_BUILD_H\n"
+        "#define OUTSHINE_GENERATED_CROWN_BUILD_H\n\n"
+        "#include <string_view>\n\n"
+        f'inline constexpr std::string_view kCrownBuildIdentity = "{value}";\n\n'
+        "#endif\n"
+    ).encode()
     if target.exists() and target.read_bytes() == content:
         print("crown producer " + value + " (unchanged)")
         return
