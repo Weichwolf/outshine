@@ -99,3 +99,9 @@ Aufruf. Session hält nur die owned Map, weder Pump-Zeiger noch Pumping-Flag.
 Katalogvalidierung bleibt explizit vor Deklarationspublikation. Eine leere Map
 liefert keine Aktionen; keine zweite Quelle für Aktivierungszustand. Bestehende
 Geräte-/UI-/Fehlererhaltstests und wechselnde Maps prüfen; keine Pixeländerung.
+
+Geräteübersetzung in getrennte Tastatur-, Mausbutton-, Mausbewegungs-, Gamepadbutton-
+und Achsenfunktionen aufteilen. Dispatch-Switch wählt nur die Funktion; gemeinsame
+Bindungsauflösung bleibt einmalig und ohne Allokation. Bestehende Verhaltenstests
+und Achsen-Negativkontrolle sichern Semantik; clang-tidy muss den Komplexitätsbefund
+verlieren, ohne einen neuen Befund in den extrahierten Funktionen zu erzeugen.
