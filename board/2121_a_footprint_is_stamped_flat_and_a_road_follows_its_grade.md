@@ -45,3 +45,9 @@ Endliche Section-/Intervallwerte und Stationsbudget vor Cast/Allokation prüfen;
 Validierung, Längsverbindungen und Endkappen fachlich getrennt halten. Gleiche
 Vertex-/Indexreihenfolge für gültige Eingaben. Unabhängige Gerade mit Restintervall,
 NaN/Inf, Quotientenüberlauf und ungültige Breiten prüfen; Negativkontrolle muss scheitern.
+
+Carriageway-Normalen aus Ableitungen derselben parametrischen Fläche bestimmen:
+S(s,t) = (C_E+t*L_E, H-t*tan(bank), C_N+t*L_N). Die Längsableitung enthält
+(1-curvature*t) und -t*sec²(bank)*bankRate. Analytische Geraden/Kreisbögen mit
+Steigung und Bankwechsel unabhängig differenzieren; Deck als natives GLB ausgeben
+und über outshine-client vor/nach Korrektur visuell prüfen. Kein Driving-Gesamtnachweis.
