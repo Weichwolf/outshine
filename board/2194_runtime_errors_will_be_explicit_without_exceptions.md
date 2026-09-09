@@ -45,7 +45,9 @@ nicht endliche Gains. Kandidatenaufbau mit separaten Bus-/Routing-/Soundphasen,
 Publikation erst nach vollständigem Erfolg. Ungültige IDs, Ziele, Zyklen, Budgets
 und Zahlen müssen den vorherigen Graphen samt Stimmenzähler erhalten. Unabhängiger
 Audio-Test prüft Ablehnung, Weiterverwendung und erfolgreichen Ersatz.
-Mixer::Stands besitzt zusätzliche Teilzustände; deren Transaktion bleibt gesondert offen.
+Mixer::Stands baut Routing, Quellen, Hall und Laufzustand als Kandidat auf; Abtastrate
+und Besitzwechsel erst nach Erfolg. Kontrollmixer prüft identische Folgeblöcke nach
+abgelehnter Änderung von Rate/Routing und Zustandserhalt bei später Quellenablehnung.
 
 ## Vollständige CLI-Zahlenkonvertierung
 

@@ -2,6 +2,7 @@
 #define OUTSHINE_AUDIO_MIXER_H
 
 #include <memory>
+#include <expected>
 #include <span>
 #include <string>
 #include <vector>
@@ -40,10 +41,8 @@ public:
   Mixer(const Mixer &) = delete;
   Mixer &operator=(const Mixer &) = delete;
 
-  [[nodiscard]] bool Stands(std::span<const Scenario::Bus> buses,
-                            std::span<const Scenario::Sound> declared,
-                            int rate,
-                            std::string &error);
+  [[nodiscard]] std::expected<void, std::string>
+  Stands(std::span<const Scenario::Bus> buses, std::span<const Scenario::Sound> declared, int rate);
 
   [[nodiscard]] bool Fills(std::span<float> stereo,
                            std::span<const Heard> sources,

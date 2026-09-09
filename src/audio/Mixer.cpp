@@ -1,6 +1,7 @@
 #include "Mixer.h"
 
 #include <utility>
+#include <expected>
 #include "math/Vec3.h"
 
 #include <array>
@@ -32,6 +33,10 @@ constexpr double kNoiseHalfSteps = 8388608.0;
 constexpr double kRt60Decades = -3.0;
 
 namespace {
+
+namespace Says {
+constexpr auto InvalidRate = "audio sample rate must be positive";
+}
 
 [[nodiscard]] double
 Named(std::span<const Scenario::Setting> parameters, std::string_view name, double standing) {
@@ -194,6 +199,9 @@ struct Reverberation {
 }
 
 struct Mixer::Held {
+  void ConfigureRoom(std::span<const Scenario::Bus> buses, int rate);
+  [[nodiscard]] bool BuildSources(std::span<const Scenario::Sound> declared, std::string &error);
+
   BusGraph Routing;
   std::vector<Scenario::Sound> Declared;
   std::vector<std::vector<Running>> State;
@@ -204,66 +212,37 @@ struct Mixer::Held {
   size_t Voices = 0;
 };
 
-Mixer::Mixer() : Held_(std::make_unique<Held>()) {}
-
-Mixer::~Mixer() = default;
-Mixer::Mixer(Mixer &&) noexcept = default;
-Mixer &Mixer::operator=(Mixer &&) noexcept = default;
-
-size_t Mixer::Voices() const {
-  return Held_->Voices;
-}
-
-const BusGraph &Mixer::Routing() const {
-  return Held_->Routing;
-}
-
-bool Mixer::Stands(std::span<const Scenario::Bus> buses,
-                   std::span<const Scenario::Sound> declared,
-                   int rate,
-                   std::string &error) {
-  if (rate <= 0) {
-    error = "a mixer runs at a rate and " + std::to_string(rate) + " is not one";
-    return false;
-  }
-  Rate_ = rate;
-  auto routing = Held_->Routing.Build(buses, declared);
-  if (!routing) {
-    error = std::move(routing.error());
-    return false;
-  }
-  Held_->Declared.assign(declared.begin(), declared.end());
-  Held_->State.clear();
-  Held_->Dulled.clear();
-  Held_->Room = Reverberation{};
+void Mixer::Held::ConfigureRoom(std::span<const Scenario::Bus> buses, int rate) {
   for (const Scenario::Bus &one : buses) {
     if (!one.Reverberates.Declared || !(one.Reverberates.SecondsRt60 > 0.0)) { continue; }
-    Held_->Room = Reverberation{};
-    Held_->Room.Standing = true;
-    Held_->Room.Damping = one.Reverberates.Damping;
-    Held_->Room.WetShare = one.Reverberates.WetShare;
+    Room = Reverberation{};
+    Room.Standing = true;
+    Room.Damping = one.Reverberates.Damping;
+    Room.WetShare = one.Reverberates.WetShare;
     constexpr std::array<int, 4> kCombs = {{1116, 1188, 1277, 1356}};
     constexpr std::array<int, 2> kPasses = {{556, 441}};
     for (const int held : kCombs) {
       const auto taps =
           static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
-      Held_->Room.Combs.emplace_back(taps == 0 ? 1u : taps, 0.0);
-      Held_->Room.CombAt.push_back(0);
-      Held_->Room.CombKept.push_back(0.0);
+      Room.Combs.emplace_back(taps == 0 ? 1u : taps, 0.0);
+      Room.CombAt.push_back(0);
+      Room.CombKept.push_back(0.0);
       const double delayS =
-          static_cast<double>(Held_->Room.Combs.back().size()) / static_cast<double>(rate);
-      Held_->Room.CombBack.push_back(
+          static_cast<double>(Room.Combs.back().size()) / static_cast<double>(rate);
+      Room.CombBack.push_back(
           std::pow(kDecadeBase, kRt60Decades * delayS / one.Reverberates.SecondsRt60));
     }
     for (const int held : kPasses) {
       const auto taps =
           static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
-      Held_->Room.Passes.emplace_back(taps == 0 ? 1u : taps, 0.0);
-      Held_->Room.PassAt.push_back(0);
+      Room.Passes.emplace_back(taps == 0 ? 1u : taps, 0.0);
+      Room.PassAt.push_back(0);
     }
     break;
   }
-  Held_->Voices = 0;
+}
+
+bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared, std::string &error) {
   for (const Scenario::Sound &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
       error = "the sound '" + one.Id +
@@ -281,11 +260,41 @@ bool Mixer::Stands(std::span<const Scenario::Bus> buses,
         return false;
       }
     }
-    Held_->State.emplace_back(one.Graph.size());
-    Held_->Dulled.push_back(0.0);
-    Held_->Voices += one.Graph.empty() ? 0 : 1;
+    State.emplace_back(one.Graph.size());
+    Dulled.push_back(0.0);
+    Voices += one.Graph.empty() ? 0 : 1;
   }
   return true;
+}
+
+Mixer::Mixer() : Held_(std::make_unique<Held>()) {}
+
+Mixer::~Mixer() = default;
+Mixer::Mixer(Mixer &&) noexcept = default;
+Mixer &Mixer::operator=(Mixer &&) noexcept = default;
+
+size_t Mixer::Voices() const {
+  return Held_->Voices;
+}
+
+const BusGraph &Mixer::Routing() const {
+  return Held_->Routing;
+}
+
+std::expected<void, std::string> Mixer::Stands(std::span<const Scenario::Bus> buses,
+                                               std::span<const Scenario::Sound> declared,
+                                               int rate) {
+  if (rate <= 0) { return std::unexpected(Says::InvalidRate); }
+  auto candidate = std::make_unique<Held>();
+  auto routing = candidate->Routing.Build(buses, declared);
+  if (!routing) { return routing; }
+  candidate->Declared.assign(declared.begin(), declared.end());
+  std::string error;
+  if (!candidate->BuildSources(declared, error)) { return std::unexpected(std::move(error)); }
+  candidate->ConfigureRoom(buses, rate);
+  Held_ = std::move(candidate);
+  Rate_ = rate;
+  return {};
 }
 
 bool Mixer::Fills(std::span<float> stereo,

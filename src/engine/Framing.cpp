@@ -42,9 +42,11 @@ constexpr auto kInvalidFrameExtent =
 
 Result Engine::mix(std::span<float> stereo, int rate) {
   if (!S_->Session.Mixing) {
-    if (!S_->Session.Sounding.Stands(
-            S_->Session.Declared.Buses, S_->Session.Declared.Sounds, rate, S_->Error)) {
-      return std::unexpected(S_->Error);
+    auto setup =
+        S_->Session.Sounding.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, rate);
+    if (!setup) {
+      S_->Error = setup.error();
+      return setup;
     }
     S_->Session.Mixing = true;
   }
