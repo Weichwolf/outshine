@@ -172,7 +172,7 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
   return posted;
 }
 
-std::expected<size_t, ClusterError>
+std::expected<size_t, Generators::StructureBakeError>
 StructureBakes::Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most) {
   if (Pool_ == nullptr || stack.Vectors() == nullptr) { return 0; }
   size_t landed = 0;

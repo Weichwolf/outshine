@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <expected>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -47,6 +48,10 @@ constexpr double kLeastRiseM = 0.03;
 }
 
 namespace {
+
+template <typename T> void TrimAppend(std::vector<T> &output, size_t previousSize) noexcept {
+  while (output.size() > previousSize) { output.pop_back(); }
+}
 
 constexpr double kSinkM = 0.30;
 
@@ -974,9 +979,18 @@ std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
   return std::make_unique<BuildingScratch>();
 }
 
-bool BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept {
-  if (plan.RingLatLon.size() < 6) { return false; }
-  auto &scratch = static_cast<BuildingScratch &>(lent);
+std::expected<void, StructureMeshError>
+BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept {
+  if (plan.RingLatLon.size() < 6 || plan.RingLatLon.size() % 2 != 0) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
+  auto *buildingScratch = dynamic_cast<BuildingScratch *>(&lent);
+  if (buildingScratch == nullptr) {
+    return std::unexpected(StructureMeshError::IncompatibleScratch);
+  }
+  auto &scratch = *buildingScratch;
+  const std::array sizes{
+      into.WallCorners.size(), into.RoofCorners.size(), into.WallRun.size(), into.RoofRun.size()};
   try {
     const std::span<BuildingShape> parts = MassOf(plan.RingLatLon,
                                                   {.HeightM = plan.HeightM,
@@ -984,7 +998,7 @@ bool BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &in
                                                    .PitchedShare = plan.PitchedShare},
                                                   plan.Street,
                                                   scratch);
-    if (parts.empty()) { return false; }
+    if (parts.empty()) { return std::unexpected(StructureMeshError::InvalidPlan); }
 
     Site site(plan, scratch, into);
     const Site2Ground ground(
@@ -1000,9 +1014,12 @@ bool BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &in
       Pavement(part, plan.Street, ground, part.SeatM, site);
     }
   } catch (...) {
-    into.Clear();
-    return false;
+    TrimAppend(into.WallCorners, sizes[0]);
+    TrimAppend(into.RoofCorners, sizes[1]);
+    TrimAppend(into.WallRun, sizes[2]);
+    TrimAppend(into.RoofRun, sizes[3]);
+    return std::unexpected(StructureMeshError::BuildFailed);
   }
-  return true;
+  return {};
 }
 }

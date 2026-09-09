@@ -25,7 +25,7 @@ public:
   }
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack);
-  [[nodiscard]] std::expected<size_t, ClusterError>
+  [[nodiscard]] std::expected<size_t, Generators::StructureBakeError>
   Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most);
   void Clear();
 
@@ -40,7 +40,7 @@ public:
 private:
   struct Output {
     Generators::BakedTile Tile;
-    std::expected<void, ClusterError> Status;
+    std::expected<void, Generators::StructureBakeError> Status;
   };
 
   struct Job {

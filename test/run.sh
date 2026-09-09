@@ -215,7 +215,7 @@ done
 LayerIncludes() {
   case "$1" in
     outshine/diagnostics) LayerIncludes outshine/conventions ;;
-    outshine/conventions|outshine/device) printf '%s ' "-Isrc/base -Isrc/actor/body"; LayerIncludes outshine/places ;;
+    outshine/conventions|outshine/device) printf '%s ' "-Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes outshine/places ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
     # carried its own hand-written list beside the build line, which is the second spelling of the
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the

@@ -2,6 +2,8 @@
 #define OUTSHINE_WORLD_GROUND_STRUCTUREMESHER_H
 
 #include <cstddef>
+#include <expected>
+#include <string_view>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -96,6 +98,17 @@ protected:
   MeshScratch() = default;
 };
 
+enum class StructureMeshError { InvalidPlan, IncompatibleScratch, BuildFailed };
+
+[[nodiscard]] constexpr std::string_view Describe(StructureMeshError error) noexcept {
+  switch (error) {
+    case StructureMeshError::InvalidPlan: return "invalid structure plan";
+    case StructureMeshError::IncompatibleScratch: return "incompatible structure mesh scratch";
+    case StructureMeshError::BuildFailed: return "structure mesh construction failed";
+  }
+  return "unknown structure mesh error";
+}
+
 class StructureMesher {
 public:
   virtual ~StructureMesher() = default;
@@ -104,7 +117,7 @@ public:
 
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
 
-  [[nodiscard]] virtual bool
+  [[nodiscard]] virtual std::expected<void, StructureMeshError>
   Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept = 0;
 
 protected:

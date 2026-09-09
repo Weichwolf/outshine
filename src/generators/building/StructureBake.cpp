@@ -333,13 +333,13 @@ void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cel
   ++block.Count;
 }
 
-void RaiseLump(const Lumped &of,
-               const RawTile &raw,
-               const StructureMesher &mesher,
-               MeshScratch &scratch,
-               std::vector<double> &corners,
-               Raised &into) {
-  if (of.Count == 0) { return; }
+std::expected<void, StructureMeshError> RaiseLump(const Lumped &of,
+                                                  const RawTile &raw,
+                                                  const StructureMesher &mesher,
+                                                  MeshScratch &scratch,
+                                                  std::vector<double> &corners,
+                                                  Raised &into) {
+  if (of.Count == 0) { return {}; }
   const auto over = static_cast<double>(of.Count);
   const double midLat = 0.5 * (of.LowLat + of.HighLat);
   const double midLon = 0.5 * (of.LowLon + of.HighLon);
@@ -371,7 +371,7 @@ void RaiseLump(const Lumped &of,
   plan.FocalPx = raw.FocalPx;
   plan.Coarseness = of.Level;
   plan.PitchedShare = of.RoofAreaM2 > 0.0 ? of.PitchedAreaM2 / of.RoofAreaM2 : kPitchedShareUnknown;
-  (void)mesher.Mesh(plan, scratch, into);
+  return mesher.Mesh(plan, scratch, into);
 }
 
 [[nodiscard]] uint64_t DigestOver(const Raised &built) {
@@ -409,6 +409,21 @@ std::expected<void, ClusterError> FinalizeBake(const RawTile &raw, BakedTile &ou
   return {};
 }
 
+std::expected<void, StructureBakeError> FinishStructures(const std::map<uint64_t, Lumped> &lumps,
+                                                         const RawTile &raw,
+                                                         const StructureMesher &mesher,
+                                                         MeshScratch &scratch,
+                                                         std::vector<double> &corners,
+                                                         BakedTile &out) {
+  for (const auto &[where, block] : lumps) {
+    (void)where;
+    const auto built = RaiseLump(block, raw, mesher, scratch, corners, out.Built);
+    if (!built) { return std::unexpected(built.error()); }
+  }
+  out.Blocks = static_cast<int>(lumps.size());
+  return FinalizeBake(raw, out);
+}
+
 std::vector<WayLine> LinesOf(const RawTile &raw) {
   const std::span<const double> pts = raw.LatLon;
   std::vector<WayLine> ways;
@@ -435,11 +450,11 @@ std::vector<WayLine> LinesOf(const RawTile &raw) {
 
 }
 
-std::expected<void, ClusterError> BakeStructures(const RawTile &raw,
-                                                 const outshine::Ground::HeightField &heights,
-                                                 const StructureMesher &mesher,
-                                                 MeshScratch &scratch,
-                                                 BakedTile &out) {
+std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
+                                                       const outshine::Ground::HeightField &heights,
+                                                       const StructureMesher &mesher,
+                                                       MeshScratch &scratch,
+                                                       BakedTile &out) {
   out.Walls = {};
   out.Roofs = {};
   out.Built.Clear();
@@ -551,15 +566,11 @@ std::expected<void, ClusterError> BakeStructures(const RawTile &raw,
     plan.AnchorEcef = raw.AnchorEcef;
     plan.FocalPx = raw.FocalPx;
     plan.Coarseness = fp.Coarseness;
-    (void)mesher.Mesh(plan, scratch, out.Built);
+    const auto built = mesher.Mesh(plan, scratch, out.Built);
+    if (!built) { return std::unexpected(built.error()); }
   }
 
-  for (const auto &[where, block] : lumps) {
-    (void)where;
-    RaiseLump(block, raw, mesher, scratch, corners, out.Built);
-  }
-  out.Blocks = static_cast<int>(lumps.size());
-  return FinalizeBake(raw, out);
+  return FinishStructures(lumps, raw, mesher, scratch, corners, out);
 }
 
 }

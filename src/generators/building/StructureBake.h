@@ -2,6 +2,8 @@
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
 #include <expected>
+#include <variant>
+#include <string_view>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -14,6 +16,18 @@
 #include "spatial/ClusterCook.h"
 
 namespace outshine::Generators {
+
+using StructureBakeError = std::variant<StructureMeshError, ClusterError>;
+
+[[nodiscard]] inline std::string_view Describe(const StructureBakeError &error) noexcept {
+  if (const auto *mesh = std::get_if<StructureMeshError>(&error)) {
+    return outshine::Describe(*mesh);
+  }
+  if (const auto *cluster = std::get_if<ClusterError>(&error)) {
+    return outshine::Describe(*cluster);
+  }
+  return "unknown structure bake error";
+}
 
 struct RawTile {
   struct Structure {
@@ -56,7 +70,7 @@ struct BakedTile {
   int NoGround = 0;
 };
 
-[[nodiscard]] std::expected<void, ClusterError>
+[[nodiscard]] std::expected<void, StructureBakeError>
 BakeStructures(const RawTile &raw,
                const outshine::Ground::HeightField &heights,
                const StructureMesher &mesher,

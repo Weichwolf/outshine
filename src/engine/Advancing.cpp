@@ -242,7 +242,7 @@ bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const auto landed = World.Bakes.Lands(World.Stack, World.Pieces, landsMost);
   if (!landed) {
-    Error = Describe(landed.error());
+    Error = Generators::Describe(landed.error());
     return false;
   }
   (void)World.Bakes.Posts(World.Stack);

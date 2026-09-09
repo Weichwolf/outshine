@@ -12,7 +12,7 @@ class BuildingMesh : public StructureMesher {
 public:
   [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;
 
-  [[nodiscard]] bool
+  [[nodiscard]] std::expected<void, StructureMeshError>
   Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept override;
 };
 
