@@ -11,9 +11,10 @@ Depends:
 Nutzerauftrag: direkter glTF/GLB-Pfad parallel zum Szenario-Pfad; Datei, Auflösung
 und PNG-Ausgabe genügen. Sinnvolle Auto-Kamera wenn keine glTF-Kamera vorhanden,
 alle Kameravorgaben übersteuerbar. Diesen Client künftig für Render-Abnahmen nutzen.
-Main.cpp bietet run <scenario>, aber keinen direkten Asset-Renderbefehl.
+Direkter render-Befehl im Ausbau: öffentlicher Loader → nativer Snapshot → Engine.
+Explizite Zeit bleibt beim temporalen Render-Settling eingefroren; run bleibt separat.
 Loaded und Engine beherrschen Import, Kameras, Materialien und PNG bereits.
-FramingFor berücksichtigt bisher nur vertikalen FOV; schmale Bilder können clippen.
+Auto-Framing berücksichtigt beide Viewport-Achsen und prüft endliche Bounds.
 
 Harness konsolidieren: Vorbereitung, öffentliche Ausführung und unabhängige Auswertung
 trennen. Render-Abnahmen ohne interne Engine-Typen; API-Tests nur für API-Verträge.
@@ -24,7 +25,7 @@ mehrere feste Kameras pro Fall, besonders Gesamt-/Detailansichten komplexer Szen
 Auflösung, Zeit, Seed, Licht, Farbraum und Vergleichsvertrag ausdrücklich deklarieren;
 PNG-Daten liegen im geprüften Hash-Cache. Vorbereitete Eingaben ebenfalls gegen ihre
 Quelle/Transformation und Provenienz prüfen; Referenz-Hash allein validiert keinen Input. Normale Läufe erzeugen weder Referenzen
-noch Pins. Exakte Zeitauswahl fehlt dem Client: die Million-FPS-Näherung entfernen;
+noch Pins. Der Client sampelt exakte Zeiten; die Million-FPS-Näherung im Harness entfernen;
 Sequenzen bis dahin ausdrücklich ungewertet melden, niemals nur Frame 0 akzeptieren.
 Gemeinsame Fixture-/Provenienzauflösung statt separater Pfadkonventionen; vorbereitete
 Assets müssen einzeln reproduzierbar sein. Bestehende Prüfumfänge beim Umbau erhalten.
@@ -60,12 +61,18 @@ Referenz: https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/
 - Bestehenden Szenario-Pfad und Corpus-Semantik erhalten. Render-Tests nutzen denselben
   Client mit passenden glTF-/Szenario-Optionen; interne Fehler-Injektion bleibt API-Test.
 
+Client-Nachweis: unabhängige glTF/GLB-Fixtures, perspektivisch/orthographisch,
+Varianten, Zeit, ungültige Argumente und Ausgabe. Auto-Framing ohne Seitenverhältnis
+schneidet die Hochformat-Fixture ab und wird erkannt. ABeautifulGame über render als
+Übersicht und Nahaufnahme visuell geprüft. Corpus-Migration mit unveränderten Licht-/
+Transfer-/Materialverträgen bleibt offen; Vorschau ist keine photorealistische Abnahme.
+
 ## Abnahme
 
-- [ ] Make baut den Client samt neuem Pfad; Hilfe und Beispiele dokumentiert.
-- [ ] glTF und GLB, externe Ressourcen, Kamera vorhanden/fehlend, Auto-Override,
+- [x] Make baut den Client samt neuem Pfad; Hilfe und Beispiele dokumentiert.
+- [x] glTF und GLB, externe Ressourcen, Kamera vorhanden/fehlend, Auto-Override,
       Hoch-/Querformat, Pose/FOV-Override, ungültige CLI-/Asset-/Ausgabeparameter geprüft.
-- [ ] PNG-Dimensionen, sichtbare Bounds und Kamerakonventionen unabhängig geprüft;
+- [x] PNG-Dimensionen, sichtbare Bounds und Kamerakonventionen unabhängig geprüft;
       PNGs selbst visuell angesehen, Negative Kontrolle des Framings wird rot.
 - [ ] Materialien/Licht/Animation und bestehende Szenario-Rendervergleiche bleiben korrekt.
 - [ ] Render-Harness auf gemeinsamen Client ausgerichtet; kein neuer privater Renderpfad.

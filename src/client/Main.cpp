@@ -14,6 +14,7 @@
 #include <scenario/Scenario.h>
 
 #include "PlaceCamera.h"
+#include "RenderAsset.h"
 #include "format/Number.h"
 #include <cmath>
 
@@ -113,6 +114,10 @@ void Row(const Shot &shot, std::string_view name) {
 void Usage() {
   std::printf(
       "outshine-client -- the engine through its own door, from a command line.\n\n"
+      "  render <asset.gltf|asset.glb> <width>x<height> <output.png> [options]\n"
+      "    --camera auto|index --time seconds --animation index --variant name\n"
+      "    --position x,y,z --look-at x,y,z --fov degrees\n"
+      "    --lighting auto|authored|studio --exposure multiplier\n"
       "  shots [--rows] [--measures] [--audit] [--all | <place>]\n"
       "                                   stand each place, draw it, keep the picture\n"
       "  places                           list the external scenario cameras\n"
@@ -320,6 +325,7 @@ int main(int argc, char **argv) {
     places = std::move(*loaded);
   }
   if (verb == "shots") { return TakeShots(places, rest, from); }
+  if (verb == "render") { return outshine::Client::RenderAsset({from, static_cast<size_t>(rest)}); }
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }
   if (verb == "height") { return QueryTerrainHeight({from, static_cast<std::size_t>(rest)}); }

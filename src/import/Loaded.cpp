@@ -3,6 +3,8 @@
 #include <array>
 #include <cmath>
 #include <expected>
+#include "Extent.h"
+#include "Viewing.h"
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -311,6 +313,20 @@ int Loaded::cameras() const {
 
 bool Loaded::camera(int index, Scenario::Camera &out) const {
   return Held_->Camera(index, out);
+}
+
+std::expected<Scenario::Camera, Loaded::FrameError> Loaded::frames(Extent viewport) const noexcept {
+  if (viewport.WidthPx <= 0 || viewport.HeightPx <= 0) {
+    return std::unexpected(FrameError::InvalidViewport);
+  }
+  Render::Viewpoint fitted;
+  const double aspect = static_cast<double>(viewport.WidthPx) / viewport.HeightPx;
+  if (!Held_ || !Held_->Assembled.Frame(fitted, Render::kFramingFill, aspect)) {
+    return std::unexpected(FrameError::InvalidBounds);
+  }
+  Scenario::Camera camera;
+  Render::CameraOf(fitted, camera);
+  return camera;
 }
 
 bool Loaded::frames(double fill, Scenario::Camera &out) const {

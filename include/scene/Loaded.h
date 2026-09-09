@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <expected>
+#include "Extent.h"
 #include <span>
 #include <string>
 #include <string_view>
@@ -60,6 +61,18 @@ public:
   /// @return False for an invalid index, ambiguous/missing placement or collapsed basis.
   /// Walks the ancestor chain and may allocate; serialize with mutation of this adapter.
   [[nodiscard]] bool camera(int index, Scenario::Camera &out) const;
+
+  /// Failure to derive a camera for the requested viewport.
+  enum class FrameError {
+    InvalidViewport, ///< Width or height is not positive.
+    InvalidBounds    ///< The loaded scene has no finite, nonzero frameable bounds.
+  };
+  /// Derive an owned perspective camera for the transformed scene bounds, in metres.
+  /// Uses both viewport axes, a five-percent framing margin and bounds-derived depth planes.
+  /// Does not mutate the asset or retain viewport data. Serialize with load/poses/wears.
+  /// @param viewport Positive dimensions in physical pixels; only their ratio affects framing.
+  /// @return Camera looking at the bounds centre, or a typed viewport/bounds error.
+  [[nodiscard]] std::expected<Scenario::Camera, FrameError> frames(Extent viewport) const noexcept;
 
   [[nodiscard]] bool frames(double fill, Scenario::Camera &out) const;
   [[nodiscard]] bool frames(Scenario::Camera &out) const;

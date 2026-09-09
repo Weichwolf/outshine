@@ -34,8 +34,11 @@ using Render::Viewpoint;
 
 [[nodiscard]] bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out);
 
-[[nodiscard]] bool
-FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill = Render::kFramingFill);
+[[nodiscard]] bool FramingFor(const Vec3 &minM,
+                              const Vec3 &maxM,
+                              Viewpoint &out,
+                              double fill = Render::kFramingFill,
+                              double aspect = 1.0);
 
 [[nodiscard]] bool DeclaredPlacement(const Document &document,
                                      int cameraIndex,
@@ -152,7 +155,8 @@ public:
   [[nodiscard]] double RadiusM() const;
   void CentreM(Vec3 &out) const;
 
-  [[nodiscard]] bool Frame(Viewpoint &out, double fill = Render::kFramingFill) const;
+  [[nodiscard]] bool
+  Frame(Viewpoint &out, double fill = Render::kFramingFill, double aspect = 1.0) const;
 
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 

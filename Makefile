@@ -132,7 +132,7 @@ corpus-reference: ## explicitly pin generated reference images (CASES=...; REFER
 corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
 	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
 
-test: test-client-arguments all ## the fast gate
+test: test-client-arguments test-client-render all ## the fast gate
 	@$(RUN)
 
 suite: all       ## named suite or C++ case (SUITE=outshine/conventions/CameraBindingPrecedesDrawing)
@@ -181,3 +181,18 @@ test-documentation: ## verify public documentation coverage and Doxygen failure 
 test-reference-cache: ## validate immutable reference pins and missing/corrupt cache failures
 	@cd $(SELF_DIR) && python3 test/scripts/test_reference_store.py
 	@cd $(SELF_DIR) && python3 test/scripts/reference_store.py
+
+.PHONY: test-client-render
+test-client-render: all ## exercise direct glTF/GLB capture, cameras, exact time and invalid input
+	@cd $(SELF_DIR) && python3 test/scripts/test_client_render.py
+
+.PHONY: render
+render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER_ARGS=...)
+	@$(if $(ASSET),,$(error name an ASSET))
+	@$(if $(OUTPUT),,$(error name an OUTPUT))
+	@cd $(SELF_DIR) && build/outshine-client render "$(ASSET)" "$(or $(RESOLUTION),1280x720)" "$(OUTPUT)" $(RENDER_ARGS)
+
+.PHONY: corpus-fetch
+corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/khronos/.../manifest.json)
+	@$(if $(MANIFEST),,$(error name a MANIFEST))
+	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py fetch --manifest "$(MANIFEST)"

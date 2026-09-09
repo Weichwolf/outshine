@@ -1448,14 +1448,20 @@ void Subject::CentreM(Vec3 &out) const {
   out = (Min_ + Max_) * 0.5;
 }
 
-bool Subject::Frame(Viewpoint &out, double fill) const {
-  return FramingFor(Min_, Max_, out, fill);
+bool Subject::Frame(Viewpoint &out, double fill, double aspect) const {
+  return FramingFor(Min_, Max_, out, fill, aspect);
 }
 
-bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill) {
+bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill, double aspect) {
+  if (!std::isfinite(aspect) || aspect <= 0 || !std::isfinite(fill) || fill < 0) { return false; }
+  for (int axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(minM[axis]) || !std::isfinite(maxM[axis]) || minM[axis] > maxM[axis]) {
+      return false;
+    }
+  }
   const Vec3 span = {{maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]}};
   const double radius = 0.5 * Length(span);
-  if (!(radius > 0)) { return false; }
+  if (!(radius > 0) || !std::isfinite(radius)) { return false; }
   Vec3 centre;
   for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (minM[axis] + maxM[axis]); }
 
@@ -1468,7 +1474,9 @@ bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill)
 
   const double yfov =
       2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);
-  const double distance = radius / std::sin(0.5 * yfov) / (fill > 0 ? fill : Render::kFramingFill);
+  const double halfAngle = std::min(0.5 * yfov, std::atan(std::tan(0.5 * yfov) * aspect));
+  const double distance = radius / std::sin(halfAngle) / (fill > 0 ? fill : Render::kFramingFill);
+  if (!std::isfinite(distance + radius)) { return false; }
   Vec3 eye;
   for (int axis = 0; axis < 3; ++axis) { eye[axis] = centre[axis] + toEye[axis] * distance; }
 
