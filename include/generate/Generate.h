@@ -203,8 +203,6 @@ static_assert(EveryShippedKindIsSpelled(),
               "a shipped kind is spelled once and is never empty -- a catalogue that carries a "
               "blank or a repeat resolves a declaration by whichever entry it reaches first");
 
-[[nodiscard]] bool writeGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &error);
-
 /// Catalogue owning registration names and borrowing generator objects.
 /// Generators must outlive their registrations and retain stable addresses. Registration
 /// does not transfer ownership or invoke generation. No thread affinity; serialize mutations
