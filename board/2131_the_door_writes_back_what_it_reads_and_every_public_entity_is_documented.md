@@ -106,7 +106,11 @@ Schritte still. Ablehnung erhält vorherige Deklaration. API-Test mit gültiger
 Baseline und ungültigen Kandidaten, Negativkontrolle. Globale Frame-Arbeitsbudgets
 und geprüfte Ganzzahlkonvertierung im Szenario-Parser bleiben offen.
 
-Parser-Nachhollimit: double→int erst nach Endlichkeit, Ganzzahligkeit und Bereich
-[1,INT_MAX]. ReadSectionsOnto erhält Fehlerkanal; Basis- und Layer-Lesen reichen
+Parser-Nachhollimit: exakte dezimale Ganzzahligkeit und Bereich [1,INT_MAX]
+vor Konvertierung prüfen; double kann winzige Bruchteile auf ganze Werte runden. ReadSectionsOnto erhält Fehlerkanal; Basis- und Layer-Lesen reichen
 den fachlichen Fehler durch. Tests mit Bruchzahlen, Null, negativen Werten und
 Überlauf; fehlendes Attribut erhält bestehenden Wert. Keine stille Abschneidung.
+
+Präzisionskontrolle: 1.0000000000000000001 und 2147483647.00000001 ablehnen;
+8.0 und exakt ganzzahlige Exponentschreibweise erhalten. Dezimalziffern/Exponent
+exakt auswerten, keine Float-Rundung als Ganzzahligkeitsbeweis.
