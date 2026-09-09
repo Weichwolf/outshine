@@ -87,3 +87,14 @@ Wahl: analytische Road-/Lane-Referenz wie
 [ASAM OpenDRIVE](https://www.asam.net/standards/detail/opendrive/), generische räumliche
 Konstruktionen und SDL-kompatible Meshes. Unreal/RAGE als visueller Maßstab; keine
 proprietäre Bauwerksrekonstruktion und keine zusätzlichen realen Quelldaten erforderlich.
+
+CARLA als geprüfte Referenz: [OSM→OpenDRIVE](https://carla.readthedocs.io/en/latest/tuto_G_openstreetmap/),
+[Digital Twin Tool](https://carla.readthedocs.io/en/0.9.15/adv_digital_twin/) und
+[Standalone-Erzeugung](https://carla.readthedocs.io/en/latest/adv_opendrive/).
+Editor-Generierung/Speicherung ist vorbereitend; generate_opendrive_world blockiert
+laut Dokumentation bis zum Aufbau. Meshabschnitte und explizite Lane-/Junction-Daten
+als Referenz prüfen. Für Outshine: bounded Worker-Jobs, Cache, Tile-Randverträge und
+atomare Publikation statt blockierendem Weltaufbau. Dokumentierte Junction-Glättung
+und Querneigungsgrenzen nicht als Oracle übernehmen. OpenDRIVE bleibt Adapterformat.
+Logisches 2D-Netz mit Ebenen-/Verbindungsidentität unabhängig von sichtbarem Mesh;
+Alignment ergänzt 3D-Pose, Render-/Kollisionsprodukte dürfen keine Topologie erfinden.

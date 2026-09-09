@@ -22,13 +22,15 @@ Astride Surface(const Placed &on, Astraddle at) {
   const double bank = std::tan(on.BankRad);
   out.HeightM = on.HeightM - out.AcrossM * bank;
 
-  const Vec3 ahead = {{std::cos(on.HeadingRad), on.Slope, std::sin(on.HeadingRad)}};
+  const double offsetScale = 1.0 - acrossM * on.CurvaturePerM;
+  const double offsetSlope = on.Slope - acrossM * (1.0 + bank * bank) * on.BankRatePerM;
+  const Vec3 ahead = {
+      {offsetScale * std::cos(on.HeadingRad), offsetSlope, offsetScale * std::sin(on.HeadingRad)}};
   const Vec3 across = {{left[0], -bank, left[1]}};
   const Vec3 normal = {{ahead[1] * across[2] - ahead[2] * across[1],
                         ahead[2] * across[0] - ahead[0] * across[2],
                         ahead[0] * across[1] - ahead[1] * across[0]}};
-  const double length =
-      std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+  const double length = std::hypot(normal[0], normal[1], normal[2]);
   if (length > 0.0) {
     const double sign = normal[1] < 0.0 ? -1.0 : 1.0;
     for (int axis = 0; axis < 3; ++axis) { out.NormalM[axis] = sign * normal[axis] / length; }

@@ -51,3 +51,21 @@ S(s,t) = (C_E+t*L_E, H-t*tan(bank), C_N+t*L_N). Die Längsableitung enthält
 (1-curvature*t) und -t*sec²(bank)*bankRate. Analytische Geraden/Kreisbögen mit
 Steigung und Bankwechsel unabhängig differenzieren; Deck als natives GLB ausgeben
 und über outshine-client vor/nach Korrektur visuell prüfen. Kein Driving-Gesamtnachweis.
+
+Bauwerke führen die lokale Terrain-Anpassung: erklärte Fundament-/Bodenplattenhöhe,
+Auflager, Zufahrtsgradienten und Freiräume bestimmen Abtrag, Aufschüttung, Planierung,
+Böschungen und Stützwände. Terrain nicht bloß mitteln und das Gebäude darauf verschieben.
+Konflikte baulicher Bedingungen explizit lösen oder diagnostizieren; keine stillen
+Überlagerungsregeln. Decks nur an Auflagern/Rampen anbinden, Tunnel volumetrisch öffnen.
+Render- und Kollisionsprodukte aus denselben versionierten Terrain-/Bauwerksbedingungen.
+
+Prüfhypothese Zellen/Bauweisen: endlicher Katalog parametrisierter Gelände-/Bauweisen
+(Planierung, Einschnitt, Aufschüttung, Stützwand, Auflager, Portal), kontinuierliche
+Maße und explizite Randverträge. Zellen organisieren Jobs/Residency; Bauwerke und
+Alignments dürfen mehrere Zellen binden. Kleine Hang/Straße/Gebäude-Fixture zuerst:
+widersprüchliche Anschlüsse, unveränderte Ergebnisse bei anderer Tile-Reihenfolge,
+begrenzte Konfliktlösung/Neuplanung und Kosten messen. Noch keine beschlossene Runtime.
+Referenz: [Merrell, Model Synthesis](https://paulmerrell.org/wp-content/uploads/2021/06/thesis.pdf),
+Nachbarschafts-, Maß- und globale Verbindungsbedingungen; keine Echtzeitgarantie ableiten.
+Weiterer Geometrienachweis: Ribbon-Seitenwände/Endkappen verwenden horizontale Normalen;
+bei Steigung/Bank geschlossene Schale gegen ihre tatsächlichen Flächen prüfen.
