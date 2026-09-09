@@ -207,6 +207,15 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     out.Error = count.error();
     return out;
   }
+  const auto curvature = along.MaxAbsCurvaturePerM(fromM, toM);
+  if (!curvature) {
+    out.Error = "ribbon requires a finite reference-line interval";
+    return out;
+  }
+  if (*curvature > 0.0 && section.HalfWidthM + section.ShoulderM >= 1.0 / *curvature) {
+    out.Error = "ribbon width reaches the local curvature radius and folds its horizontal offset";
+    return out;
+  }
   const size_t stations = *count;
 
   const std::array<double, kRibbonAcross> acrossAt = {{-(section.HalfWidthM + section.ShoulderM),

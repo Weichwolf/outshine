@@ -84,3 +84,13 @@ Teilintervalle clippen, keine Stationsstichprobe als Beweis. Sweep vor Allokatio
 ablehnen, wenn Gesamt-Halbbreite inklusive Schulter den minimalen Radius erreicht.
 Tests: beide Drehrichtungen, Grenzradius, schmale gültige Straße und verborgene
 Krümmungsspitze zwischen Meshstationen. Globale Selbstüberschneidung bleibt offen.
+
+ReferenceLine-Grundvertrag nachziehen: Lay prüft Ausgangskoordinaten, Winkel und
+Segmentdaten nicht vollständig auf Endlichkeit; Fasten prüft Stationen, aber keine
+Knot.Value/RatePerM. Fehler löschen bisher bestehenden Zustand. Endliche Ergebnisse,
+transaktionale Erhaltung und numerisch darstellbare Segment-/Profilintervalle prüfen.
+
+kTangentTolerance wird derzeit für Krümmung (1/m) und Profilstationen (m) benutzt,
+ist aber aus einem Winkel abgeleitet. Dimensionsrichtige Grenzwerte und den
+gewünschten Kontinuitätsvertrag separat festlegen; keine unbegründete C2-Pflicht
+als allgemeine Format-/Geometriebedingung übernehmen.

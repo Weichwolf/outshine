@@ -146,6 +146,30 @@ Curving ReferenceLine::Read(std::span<const Knot> through, double alongM) {
   return out;
 }
 
+std::optional<double> ReferenceLine::MaxAbsCurvaturePerM(double fromM, double toM) const noexcept {
+  if (Laid_.empty() || !std::isfinite(Length_) || !std::isfinite(fromM) || !std::isfinite(toM) ||
+      fromM < 0.0 || toM < fromM || toM > Length_) {
+    return std::nullopt;
+  }
+  auto first = std::ranges::upper_bound(Laid_, fromM, {}, &Held::AlongM);
+  if (first != Laid_.begin()) { --first; }
+  double maximum = 0.0;
+  for (auto at = first; at != Laid_.end() && at->AlongM <= toM; ++at) {
+    const auto &segment = at->Declared;
+    const double endM = at->AlongM + segment.LengthM;
+    if (!std::isfinite(endM) || !(endM > at->AlongM) || !std::isfinite(segment.EntryCurvature) ||
+        !std::isfinite(segment.ExitCurvature)) {
+      return std::nullopt;
+    }
+    const double from = (std::max(fromM, at->AlongM) - at->AlongM) / segment.LengthM;
+    const double to = (std::min(toM, endM) - at->AlongM) / segment.LengthM;
+    const double entry = std::lerp(segment.EntryCurvature, segment.ExitCurvature, from);
+    const double exit = std::lerp(segment.EntryCurvature, segment.ExitCurvature, to);
+    maximum = std::max({maximum, std::abs(entry), std::abs(exit)});
+  }
+  return maximum;
+}
+
 std::vector<double> ReferenceLine::Seams() const {
   std::vector<double> at;
   at.reserve(Laid_.size() + Rise_.size() + Bank_.size());

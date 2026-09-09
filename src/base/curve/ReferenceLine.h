@@ -81,6 +81,8 @@ public:
   [[nodiscard]] bool At(double alongM, Placed &out) const;
   [[nodiscard]] std::optional<double> Nearest(EastNorth at, Nearby about) const;
 
+  [[nodiscard]] std::optional<double> MaxAbsCurvaturePerM(double fromM, double toM) const noexcept;
+
   [[nodiscard]] double LengthM() const { return Length_; }
 
   [[nodiscard]] size_t SegmentCount() const { return Laid_.size(); }

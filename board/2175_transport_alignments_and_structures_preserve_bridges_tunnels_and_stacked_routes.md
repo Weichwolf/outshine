@@ -17,10 +17,10 @@ diese neun Außenkameras nicht geprüft. `StreetField.cpp` filtert Tunnel vor de
 Logik. Eine vollständig sichtbare Schienen-/Tunnel-Pipeline ist damit nicht nachgewiesen.
 
 Kontextprüfung: RoadMesh::TrySweep baut ReferenceLine/Rise/Bank und ruft Ribbon::Sweep;
-die Kurvenklassen sind damit Produktionscode. Carriageway::Surface verwendet für
-Normalen nur Heading/Slope/Bank, ignoriert aber den Offsetfaktor (1 - curvature*t)
-und den Höhenterm -t*sec²(bank)*bankRate. Tangenten gegen Ableitungen der tatsächlich
-erzeugten Oberfläche prüfen; Kontakt und Rendernormalen müssen denselben Vertrag erfüllen.
+die Kurvenklassen sind damit Produktionscode. Carriageway::Surface berücksichtigt
+Offsetkrümmung und Bankrate; Differentialtests prüfen die Decknormale. Ribbon prüft
+Randnormalen/Null-Schulter und verweigert horizontale Offset-Faltung. Globale
+Selbstüberschneidung und Kontakt-/Renderübereinstimmung bleiben offen.
 RoadMesh skaliert Stützstationen auf die gefittete Linienlänge, übernimmt Höhenraten
 aber aus ursprünglichen Distanzen: Kettenregel und Anschlussgradienten prüfen.
 Angebotene Kurven-/Fahrnetzklassen benötigen eigene Korrektheits-, Budget- und
