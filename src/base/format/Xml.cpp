@@ -223,6 +223,7 @@ bool Xml::Parse(const char *text, size_t length) {
   size_t depth = 0;
   size_t at = 0;
   bool closed = false;
+  std::string decodedAttribute;
 
   while (at < length) {
     if (Text_[at] != '<') {
@@ -361,11 +362,12 @@ bool Xml::Parse(const char *text, size_t length) {
       one.NameOff = static_cast<uint32_t>(attribute);
       one.NameLen = static_cast<uint32_t>(attributeStop - attribute);
       one.ValueOff = static_cast<uint32_t>(value);
-      const auto decoded = DecodeXmlAttribute(std::string_view(Text_).substr(value, at - value));
-      if (!decoded) { return Refuse("invalid XML attribute value or character reference", value); }
-      std::copy(
-          decoded->begin(), decoded->end(), Text_.begin() + static_cast<std::ptrdiff_t>(value));
-      one.ValueLen = static_cast<uint32_t>(decoded->size());
+      if (!DecodeXmlAttribute(std::string_view(Text_).substr(value, at - value),
+                              decodedAttribute)) {
+        return Refuse("invalid XML attribute value or character reference", value);
+      }
+      std::ranges::copy(decodedAttribute, Text_.begin() + static_cast<std::ptrdiff_t>(value));
+      one.ValueLen = static_cast<uint32_t>(decodedAttribute.size());
       Attributes_.push_back(one);
       ++Nodes_[made].Attributes;
       ++at;

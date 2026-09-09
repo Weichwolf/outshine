@@ -47,16 +47,16 @@ namespace outshine {
   return code;
 }
 
-[[nodiscard]] inline std::optional<std::string> DecodeXmlAttribute(std::string_view text) {
-  std::string decoded;
+[[nodiscard]] inline bool DecodeXmlAttribute(std::string_view text, std::string &decoded) {
+  decoded.clear();
   decoded.reserve(text.size());
   for (size_t at = 0; at < text.size(); ++at) {
     const char character = text[at];
     if (character == '&') {
       const size_t end = text.find(';', at + 1);
-      if (end == std::string_view::npos) { return std::nullopt; }
+      if (end == std::string_view::npos) { return false; }
       const auto code = XmlReference(text.substr(at + 1, end - at - 1));
-      if (!code) { return std::nullopt; }
+      if (!code) { return false; }
       AppendUtf8(decoded, *code);
       at = end;
     } else if (character == '\r') {
@@ -66,12 +66,12 @@ namespace outshine {
       decoded += ' ';
     } else {
       if (character == '<' || !XmlCharacter(static_cast<unsigned char>(character))) {
-        return std::nullopt;
+        return false;
       }
       decoded += character;
     }
   }
-  return decoded;
+  return true;
 }
 
 }
