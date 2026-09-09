@@ -41,7 +41,8 @@ Formatadapter dürfen daraus native Syntheseprodukte erzeugen, nicht die Runtime
 Mixer erzeugt Synthese, einfachen Tiefpass, Delay, Panning, Doppler und Hall.
 Setup ist transaktional; numerische Parameter und Delay-Ringe werden vorbereitet.
 Datei-/Streamingquellen fehlen im Wiedergabepfad. Der als Biquad benannte Prozessor
-ist ein Einpol-Tiefpass. Graphkanten werden teils ignoriert, Block-Scratch allokiert.
+ist ein Einpol-Tiefpass. Graphkanten sind beim Setup validiert und kompiliert;
+Block-Scratch wird weiterhin beim Mischen allokiert.
 Diese Defizite nicht durch konservierte Alt-Ausgaben als richtig deklarieren.
 
 SDL3 für Geräte/Streams; SDL3_mixer für ergänzende Wiedergabe/Dekodierung evaluieren.

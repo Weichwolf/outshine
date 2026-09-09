@@ -372,16 +372,26 @@ struct Emitter {
 
 enum class Makes : uint8_t { Oscillator, Noise, Biquad, Delay, Gain, Shaper, Convolver, Mix };
 
+/** Owned declarative DSP node; setup validates IDs, inputs and processor parameters. */
 struct Voice {
+  /** Nonempty identifier, unique within the containing Sound::Graph. */
   std::string Id;
+  /** Processor kind; generators produce signals, other processors consume summed inputs. */
   Makes Does = Makes::Oscillator;
+  /** Input node IDs in summation order; forward references allowed, cycles rejected.
+   * Repeated IDs contribute repeatedly. Feedback belongs inside delay processors.
+   */
   std::vector<std::string> From;
+  /** Owned processor settings; validated and copied into runtime state at setup. */
   std::vector<Setting> Parameters;
 };
 
 struct Sound {
   std::string Id;
   std::string Uri;
+  /** Owned acyclic signal graph; its last declared node is the mono source output.
+   * Declaration order otherwise does not constrain execution. Empty selects no synth.
+   */
   std::vector<Voice> Graph;
   bool Streamed = false;
   std::string On;

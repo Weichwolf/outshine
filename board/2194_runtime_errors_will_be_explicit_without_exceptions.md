@@ -19,11 +19,13 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
 
 ## Befund und Umsetzung
 
-- Mixer::Named nutzt stod/catch: nichtwerfendes Parsing mit definiertem Vertrag für
-  Syntax, Restzeichen, Wertebereich und nicht endliche Eingaben; Consumer prüfen.
-  Parameter und Graphkanten beim Setup kompilieren; Voiced erzeugt derzeit pro Block
-  Hashmap und Sample-Vektoren und reserviert Delay-Speicher beim Mischen. Scratch-/
-  Delay-Budgets vorab bereitstellen, unbekannte/zyklische Kanten ausdrücklich ablehnen.
+- Audio-Parameter sind nichtwerfend vorbereitet. Graphen beim Setup in ganzzahlige
+  Kanten und eine deterministische topologische Reihenfolge kompilieren; eindeutige
+  IDs, vorhandene Ziele und Zyklen prüfen. Letzter deklarierter Knoten bleibt Ausgang,
+  nicht letzter ausgeführter Knoten. Vorwärtsreferenzen sind gültig. Setup begrenzt
+  alle Quellen zusammen auf 1024 Knoten/4096 Kanten (gesetzte Enginebudgets).
+  Analytische Signale, Permutationen und Ablehnungen mit Zustandserhalt prüfen.
+  Block-Scratch und weitere Echtzeitbudgets bleiben offen.
 - Asking::Instancing::Add fängt vector-Allokation: begrenzte Kapazität vorbereiten,
   Budgetablehnung ohne partielle Veröffentlichung. Nicht nur catch entfernen.
 - BuildingMesh::Mesh fängt alles und leert Raised: Scratch-/Output-Budgets und
@@ -75,7 +77,7 @@ Voice-Werten speichern; kein stod/catch oder Stringparsing im Audioblock. Negati
 Delayzeiten und nicht endliche Werte ablehnen. Delay-Ringe beim Setup reservieren,
 gemeinsam auf 8 Mi Samples Double begrenzen (64 MiB); Budget ist eine Enginegrenze,
 kein Hardwaremesswert. Fehler müssen den laufenden Mixer erhalten. Block-Scratch,
-Graph-Topologie und übrige Echtzeitbudgets bleiben anschließend offen.
+und übrige Echtzeitbudgets bleiben anschließend offen.
 
 ## Vollständige CLI-Zahlenkonvertierung
 

@@ -1,4 +1,5 @@
 #include "Mixer.h"
+#include "SignalGraph.h"
 
 #include <utility>
 #include <expected>
@@ -14,7 +15,6 @@
 #include <span>
 #include <string_view>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "math/Units.h"
@@ -137,72 +137,77 @@ struct Voicing {
   int Rate = 0;
 };
 
+void ProcessSignal(Scenario::Makes kind,
+                   Running &kept,
+                   Voicing how,
+                   std::span<const double> in,
+                   std::span<double> out) {
+  const size_t frames = out.size();
+  const double pitch = how.Pitch;
+  const int rate = how.Rate;
+  switch (kind) {
+    case Scenario::Makes::Oscillator: {
+      const double hz = kept.FrequencyHz * pitch;
+      for (size_t frame = 0; frame < frames; ++frame) {
+        out[frame] = Shaped(kept.Shape, kept.Phase);
+        kept.Phase += hz / static_cast<double>(rate);
+        if (kept.Phase >= 1.0) { kept.Phase -= std::floor(kept.Phase); }
+      }
+      break;
+    }
+    case Scenario::Makes::Noise:
+      for (size_t frame = 0; frame < frames; ++frame) {
+        kept.Seed = kept.Seed * kLcgWord + kLcgOffset;
+        out[frame] = static_cast<double>(kept.Seed >> kNoiseDrop) / kNoiseHalfSteps - 1.0;
+      }
+      break;
+    case Scenario::Makes::Gain: {
+      const double by = kept.Gain;
+      for (size_t frame = 0; frame < frames; ++frame) { out[frame] = in[frame] * by; }
+      break;
+    }
+    case Scenario::Makes::Biquad: {
+      const double hz = kept.FrequencyHz;
+      const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / static_cast<double>(rate));
+      for (size_t frame = 0; frame < frames; ++frame) {
+        kept.One += alpha * (in[frame] - kept.One);
+        out[frame] = kept.One;
+      }
+      break;
+    }
+    case Scenario::Makes::Delay: {
+      const double back = kept.Feedback;
+      for (size_t frame = 0; frame < frames; ++frame) {
+        out[frame] = kept.Ring[kept.At];
+        kept.Ring[kept.At] = in[frame] + out[frame] * back;
+        kept.At = (kept.At + 1) % kept.Ring.size();
+      }
+      break;
+    }
+    case Scenario::Makes::Mix: std::ranges::copy(in, out.begin()); break;
+    default: break;
+  }
+}
+
 void Voiced(const Scenario::Sound &sound,
+            const SignalGraph &graph,
             std::vector<Running> &state,
             Voicing how,
             std::vector<double> &into) {
-  const double pitch = how.Pitch;
-  const int rate = how.Rate;
   const size_t frames = into.size();
   for (double &one : into) { one = 0.0; }
   if (sound.Graph.empty()) { return; }
   std::vector<std::vector<double>> made(sound.Graph.size(), std::vector<double>(frames, 0.0));
-  std::unordered_map<std::string, size_t> named;
-  for (size_t at = 0; at < sound.Graph.size(); ++at) { named[sound.Graph[at].Id] = at; }
-
-  for (size_t at = 0; at < sound.Graph.size(); ++at) {
+  for (const size_t at : graph.Order) {
     const Scenario::Voice &makes = sound.Graph[at];
     Running &kept = state[at];
     std::vector<double> &out = made[at];
     std::vector<double> in(frames, 0.0);
-    for (const std::string &from : makes.From) {
-      const auto found = named.find(from);
-      if (found == named.end() || found->second >= at) { continue; }
-      for (size_t frame = 0; frame < frames; ++frame) { in[frame] += made[found->second][frame]; }
+    for (const size_t from : graph.Inputs[at]) {
+      for (size_t frame = 0; frame < frames; ++frame) { in[frame] += made[from][frame]; }
     }
 
-    switch (makes.Does) {
-      case Scenario::Makes::Oscillator: {
-        const double hz = kept.FrequencyHz * pitch;
-        for (size_t frame = 0; frame < frames; ++frame) {
-          out[frame] = Shaped(kept.Shape, kept.Phase);
-          kept.Phase += hz / static_cast<double>(rate);
-          if (kept.Phase >= 1.0) { kept.Phase -= std::floor(kept.Phase); }
-        }
-        break;
-      }
-      case Scenario::Makes::Noise:
-        for (size_t frame = 0; frame < frames; ++frame) {
-          kept.Seed = kept.Seed * kLcgWord + kLcgOffset;
-          out[frame] = static_cast<double>(kept.Seed >> kNoiseDrop) / kNoiseHalfSteps - 1.0;
-        }
-        break;
-      case Scenario::Makes::Gain: {
-        const double by = kept.Gain;
-        for (size_t frame = 0; frame < frames; ++frame) { out[frame] = in[frame] * by; }
-        break;
-      }
-      case Scenario::Makes::Biquad: {
-        const double hz = kept.FrequencyHz;
-        const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / static_cast<double>(rate));
-        for (size_t frame = 0; frame < frames; ++frame) {
-          kept.One += alpha * (in[frame] - kept.One);
-          out[frame] = kept.One;
-        }
-        break;
-      }
-      case Scenario::Makes::Delay: {
-        const double back = kept.Feedback;
-        for (size_t frame = 0; frame < frames; ++frame) {
-          out[frame] = kept.Ring[kept.At];
-          kept.Ring[kept.At] = in[frame] + out[frame] * back;
-          kept.At = (kept.At + 1) % kept.Ring.size();
-        }
-        break;
-      }
-      case Scenario::Makes::Mix: out = in; break;
-      default: break;
-    }
+    ProcessSignal(makes.Does, kept, how, in, out);
   }
   into = made.back();
 }
@@ -231,6 +236,7 @@ struct Mixer::Held {
   BusGraph Routing;
   std::vector<Scenario::Sound> Declared;
   std::vector<std::vector<Running>> State;
+  std::vector<SignalGraph> Graphs;
   std::vector<double> Scratch;
   std::vector<double> Dulled;
   std::vector<double> Wet;
@@ -272,6 +278,7 @@ bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
                                int rate,
                                std::string &error) {
   size_t remainingSamples = kDelaySampleBudget;
+  SignalGraphBudget remainingGraph;
   for (const Scenario::Sound &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
       error = "the sound '" + one.Id +
@@ -289,6 +296,12 @@ bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
         return false;
       }
     }
+    auto graph = SignalGraph::Compile(one.Graph, remainingGraph);
+    if (!graph) {
+      error = std::move(graph.error());
+      return false;
+    }
+    Graphs.push_back(std::move(*graph));
     auto &states = State.emplace_back();
     states.reserve(one.Graph.size());
     for (const auto &voice : one.Graph) {
@@ -387,7 +400,11 @@ bool Mixer::Fills(std::span<float> stereo,
     }
     if (!(gain > 0.0)) { continue; }
 
-    Voiced(sound, Held_->State[at], {.Pitch = pitch, .Rate = Rate_}, Held_->Scratch);
+    Voiced(sound,
+           Held_->Graphs[at],
+           Held_->State[at],
+           {.Pitch = pitch, .Rate = Rate_},
+           Held_->Scratch);
     if (dullHz > 0.0) {
       const double alpha = 1.0 - std::exp(-2.0 * kPi * dullHz / static_cast<double>(Rate_));
       double &kept = Held_->Dulled[at];
