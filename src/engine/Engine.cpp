@@ -1,4 +1,6 @@
 #include "EngineHeld.h"
+#include "geo/Mercator.h"
+#include "math/Units.h"
 #include <array>
 #include <memory>
 #include <expected>
@@ -17,6 +19,9 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kInvalidHeightCoordinate =
+    "height query requires finite longitude in [-180,180] and latitude in [-90,90] degrees";
+constexpr auto kHeightOutsideCoverage = "height query is outside Mercator terrain coverage";
 constexpr auto kInvalidPreloadBudget = "preload requires finite nonnegative seconds";
 constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
 constexpr auto kTargetInsideFrame = "end the open frame before changing its target";
@@ -220,6 +225,14 @@ Result Renderer::flushAndWait() {
 }
 
 Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
+  constexpr double poleDeg = kDegPerHalfTurn / 2.0;
+  if (!std::isfinite(at.LongitudeDeg) || !std::isfinite(at.LatitudeDeg) ||
+      std::abs(at.LongitudeDeg) > kDegPerHalfTurn || std::abs(at.LatitudeDeg) > poleDeg) {
+    return std::unexpected(Says::kInvalidHeightCoordinate);
+  }
+  if (std::abs(at.LatitudeDeg) > kMercatorLatMaxDeg) {
+    return std::unexpected(Says::kHeightOutsideCoverage);
+  }
   const std::string there = std::to_string(at.LatitudeDeg) + ", " + std::to_string(at.LongitudeDeg);
   if (!S_->World.Stack.Opened()) {
     S_->Error = "a height was asked for at " + there +

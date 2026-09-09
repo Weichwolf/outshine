@@ -246,7 +246,12 @@ public:
   [[nodiscard]] double loadProgress() const;
 
   /// Source DEM height above mean sea level, in metres; not ellipsoidal height.
-  /// The input height is ignored. A datum conversion is required before geodetic placement.
+  /// The input height is ignored, including nonfinite values. A datum conversion is
+  /// required before geodetic placement. Longitude must be finite in [-180,180] degrees,
+  /// latitude finite in [-90,90]; locations outside Mercator terrain coverage are rejected.
+  /// Serialize with Engine operations. May prepare terrain tiles and allocate; not a
+  /// realtime residency-only query. Missing world/data returns an owned error.
+  /// Invalid coordinates fail before terrain access; failed queries may retain cache work.
   [[nodiscard]] Holds<double> sampleHeight(const LongitudeLatitudeHeight &at) const;
   /// Prepare the current declared audio scene at a positive sample rate in Hz.
   /// Call after declaring/assembling content and before starting audio output. This call
