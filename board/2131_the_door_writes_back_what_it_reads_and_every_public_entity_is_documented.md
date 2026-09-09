@@ -91,3 +91,8 @@ XML-Dekodierung verwendet einen wiederverwendeten Scratch-String pro Parse statt
 einer Allokation pro langem Attribut. Kapazität höchstens bisher größte Eingabe;
 Scratch lebt nur während Parse. Wiederverwendung muss alte Inhalte löschen und
 Referenz-/Normalisierungsfehler unverändert erkennen.
+
+PhysicsSettings/Clock-Verträge dokumentieren: owned Konfiguration, keine laufende
+Clock. Motion.Dial nur gespeichert; Time.Rate ungenutzt; Sonnenzeit wird derzeit
+bei declare berechnet. Laufende astronomische Zeit nach WI 2213 anbinden, nicht
+durch Dokumentation als umgesetzt ausgeben.
