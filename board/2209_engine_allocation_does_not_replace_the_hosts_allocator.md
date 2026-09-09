@@ -37,7 +37,9 @@ lösen und Engine-/Host-Bilanzierung trennen. Der erste Schritt schließt dieses
 ## Abnahme
 
 - [x] Host-Test mit eigenen new/delete-Operatoren linkt mit Engine-Objekten und behält sie.
-- [ ] Separaten externen Client gegen installierbares Archiv prüfen.
+- [x] Externer Client mit kopierten öffentlichen Headern und liboutshine.a läuft außerhalb
+      des Checkouts; Engine-Lebensdauer erhält Host-Allocator und new_handler.
+      Zusätzliche globale Operatoren scheitern als Linker-Negativkontrolle.
 - [ ] Scalar/Array, throwing/nothrow, aligned/sized delete: symmetrische gezählte Bytes.
 - [x] Gezielter Test des skalaren nothrow-Pfads zeigt vor Fix den Zählerfehler.
 - [ ] Engine-Budget umfasst Engine-Speicher; fremde Host-Allokationen separat ausweisen.
