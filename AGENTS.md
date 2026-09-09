@@ -16,6 +16,24 @@ Diese Datei ist die kompakte Arbeitsanweisung für Codex. Bei abweichenden Vorga
 in `CLAUDE.md` gilt diese Datei; aktuelle Nutzeranweisungen gehen vor.
 Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Historie.
 
+## Was die Arbeit trägt
+
+Der Reiz an Outshine ist, aus wenigen realen Daten eine glaubwürdige, begehbare Welt
+entstehen zu lassen: vom Gelände am Horizont bis zum Material direkt vor der Kamera.
+Deterministische Generierung und künstlerische Gestaltung gehören dabei zusammen.
+Die Welt soll zum Erkunden und Spielen einladen.
+
+Darauf lässt sich aufbauen: SDL_GPU/GLSL als portable Basis, das gemeinsame native
+Geometriemodell, vorhandene Streaming- und Generatorsysteme sowie reproduzierbare
+Szenarien und unabhängige Referenztests. Ihre Qualität jeweils prüfen; funktionierende
+Substanz erkennen, erhalten und miteinander verbinden.
+
+Architekturarbeit dient dieser Welt. Umbauten durch konkrete Fehler oder benötigte
+Fähigkeiten begründen und in vollständigen, überprüfbaren Schritten abschließen.
+Fortschritt zeigt sich in besserem Bild, verlässlichem Verhalten und gemessener
+Echtzeitfähigkeit. Auch festhalten, was bereits trägt; der nächste Defekt ist nicht
+das Urteil über das ganze Projekt.
+
 ## Verantwortung und Maßstab
 
 - Du trägst die technische und künstlerische Verantwortung: Architektur, C++/GLSL,
