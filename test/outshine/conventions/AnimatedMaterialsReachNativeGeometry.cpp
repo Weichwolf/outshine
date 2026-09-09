@@ -5,7 +5,7 @@
 #include <fstream>
 #include <string>
 #include <Outshine.h>
-#include <scene/Loaded.h>
+#include <import/GltfImporter.h>
 #include "Check.h"
 
 int main() {
@@ -64,12 +64,13 @@ int main() {
     return file.good();
   };
   CHECK(write(json), "self-contained pointer fixture written");
-  Loaded asset;
+  GltfImporter asset;
   CHECK(asset.load((root / "scene.gltf").string()).has_value(), "fixture imports");
   const std::array<int, 1> clips{0};
-  CHECK(asset.plays(clips).has_value(), "material-only clip selects");
+  CHECK(asset.selectAnimations(clips).has_value(), "material-only clip selects");
   for (const double time : {0.0, 1.0, 0.5, 0.25}) {
-    CHECK(asset.poses(time).has_value(), "sample material-only animation at absolute time");
+    CHECK(asset.sampleAnimation(time).has_value(),
+          "sample material-only animation at absolute time");
     const Material &colour = asset.geometry().surfaceAt(MaterialInstance(0));
     const Material &pbr = asset.geometry().surfaceAt(MaterialInstance(1));
     CHECK(std::abs(colour.BaseColour[0] - (1 - time)) < 1e-6 &&
@@ -84,7 +85,8 @@ int main() {
               std::abs(pbr.Emission[2] - 2 * time) < 1e-6,
           "emission preserves strength even when authored emissive RGB is zero");
   }
-  CHECK(asset.plays({}) && asset.geometry().surfaceAt(MaterialInstance(0)).BaseColour[1] == 1,
+  CHECK(asset.selectAnimations({}) &&
+            asset.geometry().surfaceAt(MaterialInstance(0)).BaseColour[1] == 1,
         "disabling clips restores authored values");
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
@@ -101,13 +103,13 @@ int main() {
   view.Sees.Placed = true;
   view.Sees.Stands.AtM = {{0, 0, 3}};
   scene.Views.push_back(view);
-  CHECK(asset.plays(clips).has_value(), "reselect material clip for rendering");
+  CHECK(asset.selectAnimations(clips).has_value(), "reselect material clip for rendering");
   if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene)) {
     Unprepared(engine.error().c_str());
     return Report();
   }
   for (const double time : {0.0, 1.0}) {
-    CHECK(asset.poses(time).has_value(), "freeze an endpoint for native rendering");
+    CHECK(asset.sampleAnimation(time).has_value(), "freeze an endpoint for native rendering");
     if (!engine.setGeometry(asset.geometry()) || !engine.assemble() || !engine.advance() ||
         !engine.renderer().render({})) {
       Unprepared(engine.error().c_str());
@@ -124,8 +126,8 @@ int main() {
     std::string bad = json;
     bad.replace(bad.find(change.first), change.first.size(), change.second);
     CHECK(write(bad), "malformed channel fixture written");
-    Loaded invalid;
-    CHECK(!invalid.load((root / "scene.gltf").string()) || !invalid.plays(clips),
+    GltfImporter invalid;
+    CHECK(!invalid.load((root / "scene.gltf").string()) || !invalid.selectAnimations(clips),
           "invalid target or mismatched component width is refused");
   }
   return Report();

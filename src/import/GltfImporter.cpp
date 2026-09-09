@@ -1,4 +1,4 @@
-#include "scene/Loaded.h"
+#include "import/GltfImporter.h"
 
 #include <array>
 #include <cmath>
@@ -87,7 +87,7 @@ Wrap WrapOf(Render::SubjectWrap held) {
 
 }
 
-struct Loaded::Held {
+struct GltfImporter::Held {
   Gltf::Document File;
   Gltf::Subject Assembled;
   Gltf::Pose Motion;
@@ -233,13 +233,13 @@ struct Loaded::Held {
   }
 };
 
-Loaded::Loaded() : Held_(std::make_unique<Held>()) {}
+GltfImporter::GltfImporter() : Held_(std::make_unique<Held>()) {}
 
-Loaded::~Loaded() = default;
-Loaded::Loaded(Loaded &&) noexcept = default;
-Loaded &Loaded::operator=(Loaded &&) noexcept = default;
+GltfImporter::~GltfImporter() = default;
+GltfImporter::GltfImporter(GltfImporter &&) noexcept = default;
+GltfImporter &GltfImporter::operator=(GltfImporter &&) noexcept = default;
 
-std::expected<void, std::string> Loaded::load(std::string_view path) {
+std::expected<void, std::string> GltfImporter::load(std::string_view path) {
   auto candidate = std::make_unique<Held>();
   const auto refuse = [&](std::string why) -> std::expected<void, std::string> {
     if (!Held_) { Held_ = std::make_unique<Held>(); }
@@ -252,7 +252,7 @@ std::expected<void, std::string> Loaded::load(std::string_view path) {
   return {};
 }
 
-std::expected<void, std::string> Loaded::wears(std::string_view variant) {
+std::expected<void, std::string> GltfImporter::selectMaterialVariant(std::string_view variant) {
   Held &held = *Held_;
   const Gltf::VariantSelection wanted{std::string(variant)};
   int index = -1;
@@ -263,7 +263,7 @@ std::expected<void, std::string> Loaded::wears(std::string_view variant) {
   return {};
 }
 
-std::expected<void, std::string> Loaded::plays(std::span<const int> animations) {
+std::expected<void, std::string> GltfImporter::selectAnimations(std::span<const int> animations) {
   Held &held = *Held_;
   Gltf::Pose candidate;
   if (!animations.empty() && !Gltf::Pose::Build(held.File, animations, candidate, held.Why)) {
@@ -276,23 +276,23 @@ std::expected<void, std::string> Loaded::plays(std::span<const int> animations) 
   return {};
 }
 
-const std::string &Loaded::error() const {
+const std::string &GltfImporter::error() const {
   return Held_->Why;
 }
 
-const Geometry &Loaded::geometry() const {
+const Geometry &GltfImporter::geometry() const {
   return Held_->Handed;
 }
 
-int Loaded::animations() const {
+int GltfImporter::animationCount() const {
   return static_cast<int>(Held_->File.Animations().size());
 }
 
-double Loaded::durationS() const {
+double GltfImporter::durationS() const {
   return Held_->Moves ? Held_->Motion.EndS() : 0.0;
 }
 
-std::expected<void, std::string> Loaded::poses(double seconds) {
+std::expected<void, std::string> GltfImporter::sampleAnimation(double seconds) {
   if (!std::isfinite(seconds) || seconds < 0.0) {
     Held_->Why = Says::InvalidAnimationTime;
     return std::unexpected(Held_->Why);
@@ -302,19 +302,20 @@ std::expected<void, std::string> Loaded::poses(double seconds) {
   return {};
 }
 
-bool Loaded::carriesCamera() const {
+bool GltfImporter::hasDefaultCamera() const {
   return Held_->HasEye;
 }
 
-int Loaded::cameras() const {
+int GltfImporter::cameraCount() const {
   return static_cast<int>(Held_->File.Cameras().size());
 }
 
-bool Loaded::camera(int index, Scenario::Camera &out) const {
+bool GltfImporter::camera(int index, Scenario::Camera &out) const {
   return Held_->Camera(index, out);
 }
 
-std::expected<Scenario::Camera, Loaded::FrameError> Loaded::frames(Extent viewport) const noexcept {
+std::expected<Scenario::Camera, GltfImporter::FrameError>
+GltfImporter::frameCamera(Extent viewport) const noexcept {
   if (viewport.WidthPx <= 0 || viewport.HeightPx <= 0) {
     return std::unexpected(FrameError::InvalidViewport);
   }
@@ -328,7 +329,7 @@ std::expected<Scenario::Camera, Loaded::FrameError> Loaded::frames(Extent viewpo
   return camera;
 }
 
-const Scenario::Camera &Loaded::camera() const {
+const Scenario::Camera &GltfImporter::camera() const {
   return Held_->Eye;
 }
 

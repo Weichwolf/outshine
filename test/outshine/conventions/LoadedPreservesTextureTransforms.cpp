@@ -1,13 +1,13 @@
 #include <array>
 #include <numbers>
-#include <scene/Loaded.h>
+#include <import/GltfImporter.h>
 #include "Check.h"
 #include "PreparedRoot.h"
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Loaded asset;
+  GltfImporter asset;
   const auto loaded =
       asset.load(PreparedRoot() + "/test-khronos-glTF-TextureTransformTest/scene.gltf");
   CHECK(loaded.has_value(),

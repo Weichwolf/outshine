@@ -16,7 +16,7 @@
 #include <string_view>
 #include <utility>
 #include <Outshine.h>
-#include <scene/Loaded.h>
+#include <import/GltfImporter.h>
 #include "format/Number.h"
 
 namespace outshine::Client {
@@ -186,16 +186,16 @@ struct AssetRenderOptions {
 }
 
 [[nodiscard]] Holds<Scenario::Camera> ResolveCamera(const AssetRenderOptions &options,
-                                                    const Loaded &asset) {
+                                                    const GltfImporter &asset) {
   Scenario::Camera camera;
   if (options.Camera == CameraMode::Indexed) {
     if (!asset.camera(options.CameraIndex, camera)) {
       return std::unexpected(Says::CameraUnavailable);
     }
-  } else if (options.Camera == CameraMode::Default && asset.carriesCamera()) {
+  } else if (options.Camera == CameraMode::Default && asset.hasDefaultCamera()) {
     camera = asset.camera();
   } else {
-    const auto framed = asset.frames(options.Frame);
+    const auto framed = asset.frameCamera(options.Frame);
     if (!framed) { return std::unexpected(Says::CannotFrame); }
     camera = *framed;
   }
@@ -216,19 +216,19 @@ struct AssetRenderOptions {
 }
 
 [[nodiscard]] Result CaptureAsset(const AssetRenderOptions &options) {
-  Loaded asset;
+  GltfImporter asset;
   auto loaded = asset.load(options.Asset);
   if (!loaded) { return loaded; }
   if (!options.Variant.empty()) {
-    auto selected = asset.wears(options.Variant);
+    auto selected = asset.selectMaterialVariant(options.Variant);
     if (!selected) { return selected; }
   }
-  if (options.Animation || asset.animations() > 0) {
+  if (options.Animation || asset.animationCount() > 0) {
     const std::array<int, 1> clips{options.Animation.value_or(0)};
-    auto selected = asset.plays(clips);
+    auto selected = asset.selectAnimations(clips);
     if (!selected) { return selected; }
   }
-  auto sampled = asset.poses(options.TimeS);
+  auto sampled = asset.sampleAnimation(options.TimeS);
   if (!sampled) { return sampled; }
   auto camera = ResolveCamera(options, asset);
   if (!camera) { return std::unexpected(std::move(camera.error())); }

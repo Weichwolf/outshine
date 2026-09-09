@@ -6,7 +6,7 @@
 #include <fstream>
 #include <string>
 #include <utility>
-#include <scene/Loaded.h>
+#include <import/GltfImporter.h>
 #include <Outshine.h>
 #include "Check.h"
 
@@ -55,13 +55,15 @@ int main() {
   unusedCamera.insert(
       1, R"("cameras":[{"type":"perspective","perspective":{"yfov":1,"znear":0.1}}],)");
   CHECK(write("unused-camera.gltf", unusedCamera), "valid unused camera fixture written");
-  Loaded asset;
+  GltfImporter asset;
   CHECK(asset.load((directory / "variant.gltf").string()).has_value(), "load variant asset");
-  CHECK(asset.wears("alternate").has_value(), "select a valid variant before replacement");
-  const auto rejectedVariant = asset.wears("absent");
+  CHECK(asset.selectMaterialVariant("alternate").has_value(),
+        "select a valid variant before replacement");
+  const auto rejectedVariant = asset.selectMaterialVariant("absent");
   CHECK(!rejectedVariant && !rejectedVariant.error().empty(),
         "variant failure owns its diagnostic");
-  CHECK(asset.wears("alternate") && asset.error().empty(), "successful variant clears old error");
+  CHECK(asset.selectMaterialVariant("alternate") && asset.error().empty(),
+        "successful variant clears old error");
   CHECK(!rejectedVariant && !rejectedVariant.error().empty(),
         "returned error survives later successful mutation");
   const int parts = asset.geometry().parts();
@@ -70,7 +72,7 @@ int main() {
     const auto failed = asset.load((directory / name).string());
     CHECK(!failed && !failed.error().empty() && failed.error() == asset.error(),
           "failed import returns its own diagnostic");
-    CHECK(asset.geometry().parts() == parts && asset.wears("alternate"),
+    CHECK(asset.geometry().parts() == parts && asset.selectMaterialVariant("alternate"),
           "failure preserves prior geometry, document and variant selection");
   }
   CHECK(asset.load((directory / "plain.gltf").string()).has_value(),
@@ -79,9 +81,9 @@ int main() {
         "replacement publishes native geometry and clears the old diagnostic");
   CHECK(asset.load((directory / "unused-camera.gltf").string()).has_value(),
         "uninstantiated camera definitions do not invalidate an asset");
-  CHECK(asset.cameras() == 1 && !asset.carriesCamera(),
+  CHECK(asset.cameraCount() == 1 && !asset.hasDefaultCamera(),
         "a camera definition without placement does not pretend to supply a view");
-  Loaded moved = std::move(asset);
+  GltfImporter moved = std::move(asset);
   CHECK(moved.geometry().parts() == 1, "move transfers the complete imported asset");
   CHECK(asset.load((directory / "plain.gltf").string()).has_value(),
         "load reinitializes a moved-from adapter");
@@ -114,12 +116,12 @@ int main() {
   CHECK(asset.load((directory / "animated.gltf").string()).has_value(),
         "load camera and mesh under a shared animated parent");
   const std::array<int, 1> clips{0};
-  CHECK(asset.plays(clips).has_value(), "select the parent translation clip");
+  CHECK(asset.selectAnimations(clips).has_value(), "select the parent translation clip");
   for (const double seconds : {0.5, 1.0, 0.25, 2.0, 0.0}) {
-    CHECK(asset.poses(seconds).has_value(),
+    CHECK(asset.sampleAnimation(seconds).has_value(),
           "sample absolute time, including backward and beyond final key");
     Scenario::Camera camera;
-    CHECK(asset.carriesCamera() && asset.camera(0, camera),
+    CHECK(asset.hasDefaultCamera() && asset.camera(0, camera),
           "both camera accessors resolve current pose");
     const double x = 4 * std::min(seconds, 1.0);
     CHECK(std::abs(camera.Stands.AtM[0] - x) < 1e-9 && std::abs(camera.Stands.AtM[1] - 1) < 1e-9 &&
@@ -128,27 +130,28 @@ int main() {
     CHECK(std::abs(asset.camera().Stands.AtM[0] - x) < 1e-9,
           "cached default camera uses the same time as explicit selection");
   }
-  CHECK(asset.poses(0.5).has_value(), "establish a nonzero pose for rejection checks");
+  CHECK(asset.sampleAnimation(0.5).has_value(), "establish a nonzero pose for rejection checks");
   for (const double seconds :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
-    CHECK(!asset.poses(seconds) && std::abs(asset.camera().Stands.AtM[0] - 2) < 1e-9,
+    CHECK(!asset.sampleAnimation(seconds) && std::abs(asset.camera().Stands.AtM[0] - 2) < 1e-9,
           "invalid time cannot mutate the accepted camera pose");
   }
   for (const int invalid : {-1, 1}) {
     const std::array<int, 1> rejected{invalid};
-    CHECK(!asset.plays(rejected), "invalid clip selection fails");
+    CHECK(!asset.selectAnimations(rejected), "invalid clip selection fails");
     CHECK(std::abs(asset.durationS() - 1.0) < 1e-9,
           "rejected selection preserves the active animation duration");
-    CHECK(asset.poses(0.75) && std::abs(asset.camera().Stands.AtM[0] - 3) < 1e-9,
+    CHECK(asset.sampleAnimation(0.75) && std::abs(asset.camera().Stands.AtM[0] - 3) < 1e-9,
           "previous animation remains sampleable after rejected selection");
   }
-  const auto rejectedTime = asset.poses(-1);
+  const auto rejectedTime = asset.sampleAnimation(-1);
   CHECK(!rejectedTime && !rejectedTime.error().empty(), "time failure owns its diagnostic");
-  CHECK(asset.poses(0.5) && asset.error().empty(), "successful sampling clears old error");
+  CHECK(asset.sampleAnimation(0.5) && asset.error().empty(),
+        "successful sampling clears old error");
   CHECK(!rejectedTime && !rejectedTime.error().empty(), "time diagnostic survives later sampling");
-  CHECK(asset.plays({}) && std::abs(asset.camera().Stands.AtM[0]) < 1e-9,
+  CHECK(asset.selectAnimations({}) && std::abs(asset.camera().Stands.AtM[0]) < 1e-9,
         "disabling clips restores authored camera transforms rather than stale sampled locals");
-  CHECK(asset.plays(clips) && asset.poses(0.5),
+  CHECK(asset.selectAnimations(clips) && asset.sampleAnimation(0.5),
         "prepare the camera and geometry snapshot for rendering");
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());

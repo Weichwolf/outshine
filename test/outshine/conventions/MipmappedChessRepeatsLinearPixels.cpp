@@ -6,7 +6,7 @@
 #include <vector>
 #include <SDL3/SDL.h>
 #include <Outshine.h>
-#include <scene/Loaded.h>
+#include <import/GltfImporter.h>
 #include <scenario/Scenario.h>
 #include "Check.h"
 #include "PreparedRoot.h"
@@ -15,7 +15,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   const std::string path = PreparedRoot() + "/test-khronos-glTF-ABeautifulGame/scene.gltf";
-  Loaded loaded;
+  GltfImporter loaded;
   const auto ready = loaded.load(path);
   CHECK(ready.has_value(), "pinned Khronos chess geometry loads");
   if (!ready) { return Report(); }
