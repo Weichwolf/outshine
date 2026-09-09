@@ -16,9 +16,9 @@ int main() {
       {.OffsetUv = {{0.5, 0}}},
       {.OffsetUv = {{0, 0.5}}},
       {.OffsetUv = {{0.5, 0.5}}},
-      {.RotationRad = std::numbers::pi / 8},
+      {.RotationRad = -std::numbers::pi / 8},
       {.ScaleUv = {{1.5, 1.5}}},
-      {.OffsetUv = {{-0.2, -0.1}}, .RotationRad = 0.3, .ScaleUv = {{1.5, 1.5}}},
+      {.OffsetUv = {{-0.2, -0.1}}, .RotationRad = -0.3, .ScaleUv = {{1.5, 1.5}}},
   }};
   const Geometry &geometry = asset.geometry();
   CHECK(geometry.surfaces() >= static_cast<int>(expected.size()),
@@ -28,7 +28,8 @@ int main() {
         geometry.surfaceAt(MaterialInstance(static_cast<int>(at))).BaseColourMap;
     CHECK(map.bound(), "the material exposes its image");
     CHECK(map.Uv == expected[at],
-          "KHR_texture_transform offset, rotation and scale survive the public material handoff");
+          "glTF rotation is converted to the native algebraic UV convention; offset and scale "
+          "survive");
   }
   return Report();
 }

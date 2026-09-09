@@ -14,12 +14,12 @@ int main() {
       {.OffsetUv = {{0, 1}}, .RotationRad = std::numbers::pi / 2, .ScaleUv = {{0.5, 0.5}}});
   const UvPoint u = transformed.Apply({.U = 1, .V = 0});
   const UvPoint v = transformed.Apply({.U = 0, .V = 1});
-  CHECK(near(u.U, 0) && near(u.V, 0.5),
-        "KHR_texture_transform: top-left UV origin, translation * counterclockwise rotation * "
-        "scale sends "
-        "(1,0) to (0,0.5)");
-  CHECK(near(v.U, 0.5) && near(v.V, 1),
-        "KHR_texture_transform: the second basis vector goes right in +V-down coordinates");
+  // Native rotation is algebraic: +U rotates toward +V.
+  // The glTF adapter converts its opposite image-space convention at import.
+  CHECK(near(u.U, 0) && near(u.V, 1.5),
+        "Native algebraic rotation sends the first basis vector toward positive V");
+  CHECK(near(v.U, -0.5) && near(v.V, 1),
+        "Native algebraic rotation sends the second basis vector toward negative U");
 
   Scenario::Camera camera;
   camera.setProjection(Scenario::Camera::Perspective{.FovDeg = 90, .NearM = 1, .FarM = 10});
@@ -97,8 +97,8 @@ int main() {
   gpu.FarM = 0;
   device = gpu.Projection();
   CHECK(std::abs(depthAt(device, 10) - 0.1f) < 1e-6f, "infinite reverse-Z retains near / distance");
-  Covers("public camera projection and quaternion orientation, and KHR_texture_transform's "
-         "top-left UV convention and numeric example; GPU projection extents, finite/infinite "
+  Covers("public camera projection and quaternion orientation, native algebraic UV rotation "
+         "with a top-left image origin; GPU projection extents, finite/infinite "
          "reverse depth; no geodetic-pose coverage");
   return Report();
 }

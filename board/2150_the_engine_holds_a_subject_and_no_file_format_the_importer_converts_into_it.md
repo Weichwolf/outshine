@@ -17,6 +17,13 @@ Material erhalten einen eigenen Default-Slot; Pixel-Orakel prüft dessen Farbe.
 über `Handed`. Ein Namespace-Wechsel würde diesen Designfehler nicht beheben.
 `Live` setzt außerdem den Schatten-Casterbereich anhand importiert/gebaut (2128).
 
+UV-Grenze: native Rotation algebraisch definieren (+U nach +V), glTFs visuell
+gegenläufige Rotation beim Import konvertieren. Das GLSL-Beispiel der Extension
+hat einen bekannten [Vorzeichenfehler](https://github.com/KhronosGroup/glTF/issues/1563).
+Vendor-Marker und Cycles bestätigen die bisherige glTF-Darstellung; diese erhalten.
+Native Vierteldrehung durch unabhängige GPU-Quadranten prüfen, Import getrennt durch
+Vendor-Parameter und grüne Pfeilmarker. Keine Formatkonvention in der öffentlichen API.
+
 Ein kanonisches engine-eigenes Geometriemodell. Importer und Generatoren liefern
 identische native Produkte. glTF ist ein beliebiges unterstütztes Importformat;
 Document, Accessors, Dateinodes und Extension-Dispatch enden am Importadapter.
@@ -60,22 +67,13 @@ Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge;
 Bilder noch Indexvergabe. Dokumentation verbleibender Lücken akzeptiert sie nicht.
 
 ## Direkter Renderer-Zulauf
-Vor der Migration ignorierte `import/surface/Shaped.cpp::FillFrom(Geometry)` Part-Platzierungen und
-setzte Lichtposition nur auf Matrixtranslation; lokale Lichtposition/-richtung gingen
-verloren. Der Subject-Pfad transformierte dagegen korrekt. NativePlacementPreserves-
-TheSurface prüfte bisher nur Subject::Assemble; direkte Shape-Bounds und Lichtwerte
-müssen dieselben unabhängigen Sollwerte erfüllen. GPU-Aufbereitung gehört in Render,
-mit einem nativen Eingangsvertrag und dokumentiertem Besitzer für sämtliche Views.
-Meshdaten und Instanztransformation getrennt erhalten; keine zweite Formatwelt bauen.
-Reproduktion: 16 Fehler bei 79 Checks im erweiterten Transformationstest.
-Render::PrepareShape/AppendGeometry erzeugen nun eigene gepackte Attribute/Namen
-und übernehmen statische Part-Platzierung in Modellkoordinaten. CPU-Geometry bleibt
+Render::PrepareShape/AppendGeometry besitzen gepackte Attribute und Namen und
+übernehmen statische Part-Platzierung in Modellkoordinaten. CPU-Geometry bleibt
 lokal, Welt-/Instanzplatzierung bleibt Runtime-Aufgabe. Gemischte Views erst nach
-allen Appends binden. 100 Checks für Bounds, Licht, Normalen, Spiegelung, Rebase und
-Quell-Clear bestehen, auch mit ASan/UBSan der beteiligten Packing-Komponenten.
-Fehlende Normalen werden nativ als getrennte Flächennormalen aufbereitet; 2179 bleibt offen.
-Malcesine-PNG geprüft: Geländewände/Materialdefizite bleiben; keine visuelle Abnahme.
-Gemeldeter Peak-Heap 593 MB gegenüber 589 MB zuvor; kein isolierter Kostennachweis.
+allen Appends binden. NativePlacementPreservesTheSurface prüft Bounds, Licht,
+Normalen, Spiegelung, Rebase und Quell-Clear unabhängig vom Importpfad.
+Fehlende Normalen werden als getrennte Flächennormalen aufbereitet; 2179 bleibt offen.
+Malcesine bleibt wegen Geländewänden und Materialdefiziten visuell nicht abgenommen.
 
 AudioOcclusion.cpp leitet die Audio-BVH aus nativen Parts mit Platzierung ab;
 keine Physikkollision. Audio-BVH wird nach erfolgreichem Render-Aufbau publiziert.

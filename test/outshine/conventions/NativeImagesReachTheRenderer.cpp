@@ -1,4 +1,5 @@
 #include <array>
+#include <numbers>
 #include <algorithm>
 #include <filesystem>
 #include <vector>
@@ -107,6 +108,7 @@ int main() {
     Unprepared(engine.error().c_str());
     return Report();
   }
+  Geometry rotated = geometry.clone();
   geometry.clear();
   if (!engine.assemble() || !engine.advance() || !engine.renderer().render({}) ||
       !engine.renderer().readPixels(Buffer::Linear, frame)) {
@@ -128,5 +130,24 @@ int main() {
   std::filesystem::create_directories("build/native-materials");
   CHECK(engine.renderer().saveScreenshot("build/native-materials/colour.png").has_value(),
         "native map PNG is written");
+  material.BaseColourMap.Uv = {.OffsetUv = {{1, 0}}, .RotationRad = std::numbers::pi / 2};
+  CHECK(rotated.setSurface(rotated.materialOf(0), material), "declare a quarter-turn UV mapping");
+  if (!engine.setGeometry(rotated) || !engine.advance() || !engine.renderer().render({}) ||
+      !engine.renderer().readPixels(Buffer::Linear, frame)) {
+    Unprepared(engine.error().c_str());
+    return Report();
+  }
+  // Mapping (u,v) -> (1-v,u): top-left samples green; then yellow, red, blue.
+  constexpr std::array<size_t, 4> rotatedCorners{1, 3, 0, 2};
+  for (size_t at = 0; at < sample.size(); ++at) {
+    const size_t offset = static_cast<size_t>(sample[at][1] * 320 + sample[at][0]) * 4;
+    for (size_t channel = 0; channel < 3; ++channel) {
+      CHECK(expected[rotatedCorners[at]][channel] ? frame[offset + channel] > 0.1f
+                                                  : frame[offset + channel] < 0.001f,
+            "positive UV rotation samples the independently derived four image quadrants");
+    }
+  }
+  CHECK(engine.renderer().saveScreenshot("build/native-materials/rotated.png").has_value(),
+        "rotated native map PNG is written");
   return Report();
 }

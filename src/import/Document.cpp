@@ -415,7 +415,7 @@ bool ReadTextureTransform(const Json::Ref &info, TextureRef &into, std::string &
       why = "declares a KHR_texture_transform rotation that is not a number";
       return false;
     }
-    properties.RotationRad = rotation.Num();
+    properties.RotationRad = -rotation.Num();
   }
   const Json::Ref set = declared["texCoord"];
   if (set.Valid()) {
