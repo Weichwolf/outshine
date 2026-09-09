@@ -11,7 +11,7 @@ Depends: 2210
 
 Declaring.cpp handleEvent gibt für irrelevante Events unexpected(S_->Error) zurück:
 nicht behandelt und Fehler sind vermischt, Error kann leer oder veraltet sein.
-EngineHeld.h verteilt Phasen über Taken, Targeted, FrameOpen, Carrying, Mixing usw.
+EngineHeld.h verteilt Phasen über Taken, Targeted, FrameOpen, Carrying usw.; Audio-Vorbereitung ist bereits optional.
 Unabhängige Eigenschaften bleiben erlaubt; Phasen mit verbotenen Kombinationen
 benötigen dagegen explizite Zustandsautomaten. Keine pauschale Boolean-Ersetzung.
 
@@ -73,6 +73,20 @@ Ziel beim Assemble eindeutig auflösen; unbekannte/mehrdeutige Namen ablehnen, a
 View an den richtigen Körper binden. Zwei getrennte bewegte Körper und Viewwechsel
 müssen das Ziel unabhängig von Deklarationsreihenfolge zeigen. Quellbefund, noch kein
 Mehrkörper-Laufzeitnachweis; der Projektions-Test verwendet ausdrücklich einen Körper.
+
+## Gemeinsame Körperbindung für Kamera und Audio
+
+Routes baut aus platzierten Body-Deklarationen einen vector<Rigid> ohne Entity-ID.
+Assemble erzeugt dagegen Entities für alle Bodies; Filterung zerstört Indexgleichheit.
+PublishAudioSnapshot nimmt front(), Carries Körperindex 0: derselbe Identitätsverlust.
+Native Simulationskörper müssen ihre Entity-Handles behalten. Namen einmal gegen
+Assembly auflösen, unbekannte/mehrdeutige Ziele ablehnen; Hot Paths verwenden Handles.
+Transform/Velocity als engine-eigenen Zustand führen, nicht aus Renderteilen ableiten.
+Auch Instances benötigen diesen gemeinsamen räumlichen Vertrag; keine zweite Audio-Welt.
+Deklaration, Assembly und Bindungen als zusammengehörige Generation publizieren;
+fehlgeschlagener Neuaufbau erhält den alten gültigen Satz. Prepare darf keine Körper
+vorheriger Deklarationen binden. Reorder, unplatzierte Templates, mehrere bewegte
+Körper, Zielwechsel und fehlgeschlagene Reassembly über öffentliche API prüfen.
 
 ## Abnahme
 

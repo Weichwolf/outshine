@@ -9,7 +9,9 @@ Depends: 2124, 2190, 2191
 
 ## Befund und Entscheidung
 
-Engine::advance und Renderer laufen derzeit seriell am aufrufenden Thread.
+Engine::advance führt Updates, Audio-Snapshot und Draws seriell am aufrufenden Thread aus.
+Simulation ohne Renderziel muss über öffentliche API prüfbar werden; Ausgabe darf
+die Simulations-/Audio-Ereigniszeit nicht bestimmen.
 EngineHeld.h enthält gemeinsam erreichbaren Zustand; Audio liest Sources mit atomarem
 Told-Index. Ein atomarer Index allein beweist keine sichere Wiederverwendung des Puffers.
 Vor Parallelisierung jeden Producer/Consumer inklusive Audio und Shutdown inventarisieren.

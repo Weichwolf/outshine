@@ -2,7 +2,7 @@ Type: feature
 State: active
 Area: audio, engine, client, test
 Parent: 2169
-Depends:
+Depends: 2191
 
 # Stereo and headphone audio meet the world quality target
 
@@ -50,7 +50,9 @@ Initialen Quellsnapshot ohne Simulationstick publizieren; Engine-Aufrufe seriali
 Öffentlicher API-Test: Rate, erste Samples, Fehler/Zustandserhalt und Redeclare.
 Hallwerte und Ringbudget sind validiert.
 Quellbindung On wählt noch den ersten freistehenden Körper statt der benannten
-Entität; echte Entity-Auflösung und bewegte Mehrquellen-Tests fehlen.
+Entität. Ortsgebundene Abnahme benötigt die gemeinsame Entity-/Transform-Bindung
+aus 2191; Synthese-/Backend-Arbeit kann unabhängig davon weitergehen. Kein Ersatz
+durch parallele Deklarationsindizes: unplatzierte Bodies verändern deren Zuordnung.
 Der Mixer verwendet noch nur den ersten aktiven Bus-Hall: Bus-spezifische Effekte
 und unabhängige RT60-/Spektralprüfung fehlen; Worst-Case-Messung bleibt offen.
 Diese Defizite nicht durch konservierte Alt-Ausgaben als richtig deklarieren.
