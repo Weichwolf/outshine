@@ -91,3 +91,9 @@ nicht unterstütztem Grundriss zu vermischen. Vor Scratch-/Polygonaufbau endlich
 Höhe gegen min(Geschosspräferenzen, TallFloor) * (INT_MAX - 1) prüfen; Reserve schützt
 Rundung. Das ist eine Repräsentationsgrenze, kein hinreichendes Echtzeitbudget.
 NaN/Inf/extreme endliche Höhen ohne Allokation ablehnen; Fehler bis Mesh durchreichen.
+
+Vertex-Konvertierung: gerundete Millimeter vor llround auf [-2^63, 2^63) prüfen.
+Site hält einen typisierten Fehlerstatus; nach Fehler keine weiteren Dreiecke.
+Mesh verwirft den eigenen Anhang auch bei diesem Fehler. Extreme endliche Sockelhöhen
+müssen InvalidPlan liefern, vorherige Geometrie erhalten und denselben Scratch wieder
+verwendbar lassen. Float-/Normalen-Repräsentation und Arbeitsbudgets bleiben separat.
