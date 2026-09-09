@@ -32,6 +32,20 @@ void *operator new[](size_t bytes, [[maybe_unused]] const std::nothrow_t &neverT
   return outshine::Heap::TryTake(bytes);
 }
 
+void *operator new(size_t bytes,
+                   std::align_val_t alignment,
+                   [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
+  outshine::Heap::EnableProcessInstrumentation();
+  return outshine::Heap::TryTakeAligned(bytes, static_cast<size_t>(alignment));
+}
+
+void *operator new[](size_t bytes,
+                     std::align_val_t alignment,
+                     [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
+  outshine::Heap::EnableProcessInstrumentation();
+  return outshine::Heap::TryTakeAligned(bytes, static_cast<size_t>(alignment));
+}
+
 void operator delete(void *block) noexcept {
   outshine::Heap::Return(block);
 }
@@ -73,5 +87,17 @@ void operator delete(void *block, [[maybe_unused]] const std::nothrow_t &neverTh
 }
 
 void operator delete[](void *block, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
+  outshine::Heap::Return(block);
+}
+
+void operator delete(void *block,
+                     [[maybe_unused]] std::align_val_t alignment,
+                     [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
+  outshine::Heap::Return(block);
+}
+
+void operator delete[](void *block,
+                       [[maybe_unused]] std::align_val_t alignment,
+                       [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
   outshine::Heap::Return(block);
 }

@@ -100,16 +100,6 @@ inline void Returned(void *block) noexcept {
   End(item, count.data());
 }
 
-void *TakeAligned(const char *item, size_t bytes, size_t alignment) {
-  void *block = nullptr;
-  if (posix_memalign(&block,
-                     alignment < sizeof(void *) ? sizeof(void *) : alignment,
-                     (bytes != 0u) ? bytes : 1) != 0) {
-    EndWithCount(item, bytes);
-  }
-  return Counted(block);
-}
-
 }
 
 void *Heap::Take(const char *item, size_t bytes) {
@@ -130,8 +120,20 @@ void *Heap::TryTake(size_t bytes) noexcept {
   return Counted(std::malloc(bytes != 0 ? bytes : 1));
 }
 
+void *Heap::TryTakeAligned(size_t bytes, size_t alignment) noexcept {
+  void *block = nullptr;
+  if (posix_memalign(&block,
+                     alignment < sizeof(void *) ? sizeof(void *) : alignment,
+                     bytes != 0 ? bytes : 1) != 0) {
+    return nullptr;
+  }
+  return Counted(block);
+}
+
 void *Heap::TakeAligned(const char *item, size_t bytes, size_t alignment) {
-  return outshine::TakeAligned(item, bytes, alignment);
+  void *block = TryTakeAligned(bytes, alignment);
+  if (block == nullptr) { EndWithCount(item, bytes); }
+  return block;
 }
 
 void Heap::Return(void *block) noexcept {

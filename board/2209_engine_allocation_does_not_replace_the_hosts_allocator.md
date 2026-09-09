@@ -14,7 +14,11 @@ beider Bibliotheksarchive. Client und eigene Diagnose-Testgruppe linken sie ausd
 Ein Host mit eigenen Operatoren scheitert am Altstand am Linker und funktioniert nach
 Trennung. Instrumentierung wird in der Compile-Datenbank weiter analysiert.
 Skalares nothrow-new zählt symmetrisch; direkte Aufrufe mit 0/1/257 Bytes und Nullfreigabe
-sind geprüft. Aligned-/OOM-Verträge und die vollständige Overload-Matrix bleiben offen.
+sind geprüft. Ausgerichtetes nothrow-new brach bei SIZE_MAX mit SIGABRT ab;
+eigene Scalar-/Array-Overloads nutzen jetzt einen nichtfatalen posix_memalign-Pfad.
+Nullfehler und passende Cleanup-Overloads erhalten Zähler. 64/256/4096-Byte-Alignment,
+Zero-size und unmögliche Größe prüfen; vollständige Overload-/OOM-Matrix bleibt offen.
+Vertrag: [C++ new.delete.single](https://eel.is/c++draft/new.delete.single).
 Telling/Advancing geben instrumentierte Prozess-C++-Bytes als solche aus; ohne Modul
 fehlen diese Messwerte statt unbelegter Nullen. HeapProbe bleibt eine Prozess-Heap-Probe.
 Engine-eigene Ressourcen/Arenen samt vollständiger Bilanzierung sind noch umzusetzen.
