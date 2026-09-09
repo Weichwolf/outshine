@@ -77,3 +77,10 @@ Null-Schulter: nur das mittlere Querschnittsband triangulieren, vorhandene Bänd
 in Deck/Unterseite und Endkappen identisch auswählen. Fester Vertexlayout-Vertrag
 bleibt erhalten. Geometrisch verschweißte Kanten brauchen genau zwei gegenläufige
 Flächen; geneigtes Prisma zusätzlich gegen analytisches Volumen prüfen.
+
+Horizontale Offset-Regularität: maxAbsCurvature über das gesamte abgefragte Intervall
+analytisch aus Segment-Endwerten bestimmen (Gerade/Bogen konstant, Klothoide linear).
+Teilintervalle clippen, keine Stationsstichprobe als Beweis. Sweep vor Allokation
+ablehnen, wenn Gesamt-Halbbreite inklusive Schulter den minimalen Radius erreicht.
+Tests: beide Drehrichtungen, Grenzradius, schmale gültige Straße und verborgene
+Krümmungsspitze zwischen Meshstationen. Globale Selbstüberschneidung bleibt offen.
