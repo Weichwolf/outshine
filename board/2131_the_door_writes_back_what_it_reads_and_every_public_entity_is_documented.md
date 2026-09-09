@@ -105,3 +105,8 @@ unterschiedlichen Takten in Integrate und Akkumulator; negative Limits blockiert
 Schritte still. Ablehnung erhält vorherige Deklaration. API-Test mit gültiger
 Baseline und ungültigen Kandidaten, Negativkontrolle. Globale Frame-Arbeitsbudgets
 und geprüfte Ganzzahlkonvertierung im Szenario-Parser bleiben offen.
+
+Parser-Nachhollimit: double→int erst nach Endlichkeit, Ganzzahligkeit und Bereich
+[1,INT_MAX]. ReadSectionsOnto erhält Fehlerkanal; Basis- und Layer-Lesen reichen
+den fachlichen Fehler durch. Tests mit Bruchzahlen, Null, negativen Werten und
+Überlauf; fehlendes Attribut erhält bestehenden Wert. Keine stille Abschneidung.
