@@ -243,6 +243,9 @@ public:
   /// Serialize with Engine mutations; this is not concurrent snapshot publication.
   /// @return Owned values; elapsed time and rate are zero outside preload notifications.
   [[nodiscard]] Loading loading() const;
+  /// Fraction of current ground requests received, clamped to [0,1]; no requests yields 1.
+  /// Excludes vector processing, mesh construction and GPU readiness. Does not advance work.
+  /// Serialize with Engine mutations; this scalar is not a concurrent streaming snapshot.
   [[nodiscard]] double loadProgress() const;
 
   /// Source DEM height above mean sea level, in metres; not ellipsoidal height.
@@ -298,6 +301,10 @@ public:
   [[nodiscard]] Result declare(const Scenario::Document &scenario);
   [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);
 
+  /// Borrow the stored declaration, initially default-initialized; no copy or allocation.
+  /// Valid until Engine destruction, but content may change during declaration/loading/restore.
+  /// Nested references may be invalidated by those operations, including partial failures.
+  /// Serialize access with Engine mutations; copy if a stable snapshot is required.
   [[nodiscard]] const Scenario::Document &declaration() const;
   /// Borrow the current simulation EntityRegistry until successful assemble() or Engine
   /// destruction. Successful assembly invalidates this reference and all prior entity/component
@@ -307,11 +314,29 @@ public:
   /// Read-only borrowed EntityRegistry, with the same lifetime and mutation restrictions as
   /// entities().
   [[nodiscard]] const EntityRegistry &entities() const;
+  /// Borrow diagnostic names of declaration sections carried without implementation.
+  /// Additional generation diagnostics may be appended. This is not a capability registry.
+  /// The vector belongs to the Engine until destruction; mutations may replace its contents
+  /// and invalidate element references. Serialize access with all Engine mutations.
   [[nodiscard]] const std::vector<std::string> &unacted() const;
+  /// Borrow declared and published diagnostics; each Measure supplies its own unit.
+  /// Values may come from different updates and persist when not refreshed; not a frame snapshot.
+  /// The vector lives until Engine destruction. Publication/declaration may change values or
+  /// invalidate element references. Serialize access with Engine mutations; copying allocates.
   [[nodiscard]] const std::vector<Measure> &measures() const;
 
+  /// Allocate two CPU timing rings with up to steps entries each, discarding saved samples.
+  /// Zero disables retention; aggregate counters remain. Call during setup and serialize with
+  /// Engine operations. Allocation failure may throw; replacing both rings is not transactional.
   void keepSamples(size_t steps);
+  /// Replace out with retained advance() CPU wall times in milliseconds, oldest first.
+  /// Only calls reaching the timing recorder contribute; early failures produce no sample.
+  /// Includes synchronous streaming/draw preparation, not just physics; elapsed-time advance
+  /// contributes one sample per executed step. Copy may allocate; serialize with Engine calls.
   void stepTimesMs(std::vector<double> &out) const;
+  /// Replace out with retained successful render-call CPU wall times in milliseconds,
+  /// oldest first. Measures Draw execution, not GPU completion or presentation latency.
+  /// Readbacks do not contribute. Copy may allocate; serialize with Engine operations.
   void frameTimesMs(std::vector<double> &out) const;
 
   /// Build entity, component, table, trigger and physics state for the current declaration.
@@ -326,6 +351,8 @@ public:
 
   [[nodiscard]] Result advance();
   [[nodiscard]] Result advance(double elapsedS);
+  /// Return the declared fixed simulation step in seconds without advancing the clock.
+  /// This is configuration, not measured frame duration. Serialize with declaration changes.
   [[nodiscard]] double stepSeconds() const;
   [[nodiscard]] Result run();
 
@@ -341,7 +368,12 @@ public:
   /// only while all log producers are quiescent; callbacks may run on multiple emitting threads.
   static void logsTo(LogSink *sink);
 
+  /// Report whether an internal render scene exists; does not imply streaming readiness,
+  /// successful simulation assembly or an open frame. Serialize with Engine mutations.
   [[nodiscard]] bool standing() const;
+  /// Borrow the legacy diagnostic string until Engine destruction; later calls may change it
+  /// and invalidate character pointers. Serialize with Engine operations. Some expected-returning
+  /// calls do not update or clear it: use their returned error as the authoritative result.
   [[nodiscard]] const std::string &error() const;
 
 private:
