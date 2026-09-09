@@ -181,8 +181,12 @@ enum class Shipped : uint8_t { Structures, kCount };
 inline constexpr std::array<std::string_view, static_cast<size_t>(Shipped::kCount)> kShipped = {
     "structures"};
 
-[[nodiscard]] constexpr std::string_view nameOf(Shipped which) {
-  return kShipped[static_cast<size_t>(which)];
+/// Resolve a built-in generator identifier without allocation.
+/// @param which Catalogue value; kCount and unsupported enum values are invalid.
+/// @return Static name with process lifetime, or an empty view for an invalid value.
+[[nodiscard]] constexpr std::string_view nameOf(Shipped which) noexcept {
+  const auto index = static_cast<size_t>(which);
+  return index < kShipped.size() ? kShipped[index] : std::string_view{};
 }
 
 [[nodiscard]] constexpr bool EveryShippedKindIsSpelled() {
@@ -201,18 +205,44 @@ static_assert(EveryShippedKindIsSpelled(),
 
 [[nodiscard]] bool writeGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &error);
 
+/// Catalogue owning registration names and borrowing generator objects.
+/// Generators must outlive their registrations and retain stable addresses. Registration
+/// does not transfer ownership or invoke generation. No thread affinity; serialize mutations
+/// with all access. Concurrent lookups on an unchanged registry are allowed.
+/// After move, the source supports only destruction or move assignment.
 class Registry {
 public:
+  /// Register a borrowed generator under a snapshot of its current kind().
+  /// @param maker Object retained by address; kind() is called once and its name copied.
+  /// The returned name must remain readable for this call; later changes do not rename the entry.
+  /// @return False for an empty or already registered name, preserving all registrations.
+  /// Success may allocate; allocation failure follows the allocator contract. Setup operation,
+  /// linear in the number of registrations and compared name lengths.
   [[nodiscard]] bool offers(const Generator &maker);
 
+  /// Find an exact, case-sensitive registration name without calling generator methods.
+  /// @param kind Borrowed lookup key; not retained.
+  /// @return Borrowed generator or nullptr; its external owner controls lifetime.
+  /// No allocation; linear in registrations and compared name lengths.
   [[nodiscard]] const Generator *named(std::string_view kind) const;
+  /// Count registrations in constant time without allocation.
+  /// @return Number of registered names, independent of later generator kind() changes.
   [[nodiscard]] size_t count() const;
 
+  /// Create an empty catalogue; allocates private storage.
   Registry();
+  /// Release owned names and storage; borrowed generators are not destroyed.
   ~Registry();
-  Registry(Registry &&) noexcept;
-  Registry &operator=(Registry &&) noexcept;
+  /// Transfer registrations without allocation or moving the borrowed generators.
+  /// @param other Source left usable only for destruction or move assignment.
+  Registry(Registry &&other) noexcept;
+  /// Release previous names and transfer registrations; neither set of generators is destroyed.
+  /// @param other Source left usable only for destruction or move assignment.
+  /// @return This registry; cost includes releasing previous registration storage.
+  Registry &operator=(Registry &&other) noexcept;
+  /// Implicit duplication of registrations is prohibited.
   Registry(const Registry &) = delete;
+  /// Implicit replacement by copied registrations is prohibited.
   Registry &operator=(const Registry &) = delete;
 
 private:
