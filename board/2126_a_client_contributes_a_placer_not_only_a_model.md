@@ -80,3 +80,8 @@ und UV-/Normalennähte direkt geprüft, entfernte UV-Identität lässt Gegenprob
 Wien-Nachher: build/shots/places/Wien-d89be31c.png, beide PNGs geöffnet; Fernsilhouette
 unauffällig, 28 zusätzliche Dreiecke. Kein Nachweis der Nahbildqualität.
 Offen: Zahlenbereich vor llround, Index-/Scratch-Budgets und Generator-Nahaufnahmen.
+
+Nächste Eingangsgrenze: alle Ringkoordinaten vor MassOf auf gültige geodätische
+Breite/Länge prüfen. SeedOfPlace konvertiert Mikrograd in int32; finite allein
+schützt diesen Pfad nicht. Ungültige Koordinate an jeder Ringposition muss ohne
+Allokation und Outputmutation InvalidPlan liefern. Höhen-/Ableitungsgrenzen separat.
