@@ -1,5 +1,5 @@
 Type: defect
-State: open
+State: active
 Parent: 2194
 Area: base, include, build
 Tags: architecture, audit, memory
@@ -24,6 +24,13 @@ Engine-Speicher über eigene Ressourcen/Arenen bzw. injizierten Allocator bilanz
 prozessweite Instrumentierung nur als bewusst gelinktes Diagnose-/Client-Modul.
 Runtime-OOM-Vertrag aus 2194 erhalten, Host-new_handler/Allocator nicht heimlich ersetzen.
 Bytezähler und Allokations-/Freigabezuordnung prüfen, Alignment und Zero-size definieren.
+
+## Umsetzungsschritte
+
+Zuerst den belegten skalaren nothrow-Zählfehler mit direkten Allocator-Aufrufen
+reproduzieren und die symmetrische Freigabe prüfen; null und Zero-size einschließen.
+Danach globale Overloads als ausdrücklich gelinktes Diagnosemodul aus der Bibliothek
+lösen und Engine-/Host-Bilanzierung trennen. Der erste Schritt schließt dieses WI nicht.
 
 ## Abnahme
 
