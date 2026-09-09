@@ -96,3 +96,13 @@ PhysicsSettings/Clock-Verträge dokumentieren: owned Konfiguration, keine laufen
 Clock. Motion.Dial nur gespeichert; Time.Rate ungenutzt; Sonnenzeit wird derzeit
 bei declare berechnet. Laufende astronomische Zeit nach WI 2213 anbinden, nicht
 durch Dokumentation als umgesetzt ausgeben.
+
+Eingabe: SDL-Gamepadsticks liefern -32768..32767, Trigger 0..32767
+(https://wiki.libsdl.org/SDL3/SDL_GetGamepadAxis). Negative Stickwerte durch
+32768, nicht 32767 normalisieren; Null und beide Endpunkte exakt erhalten.
+Alle diskreten Stickwerte auf Bereich und strikte Monotonie prüfen, Trigger
+separat. Keine Deadzone in der Transportübersetzung. Mutation alter Skalierung
+muss scheitern. Kein Bildunterschied ohne entsprechende Eingabe erwartet.
+Öffentliches handleEvent filtert derzeit nur Tasten zur InputPump: Maus-/Gamepad-
+Bindings bleiben unerreichbar. Dispatch samt UI-Priorität und aktivem Host durch
+öffentliche Integrationstests korrigieren; Pump-Tests allein schließen dies nicht.
