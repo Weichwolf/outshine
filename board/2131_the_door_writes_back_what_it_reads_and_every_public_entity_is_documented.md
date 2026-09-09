@@ -64,3 +64,8 @@ Float-Readback lehnt Colour und unbekannte Bufferwerte vor Stood/Draw ab; keine
 GPU-Arbeit für ungültige Ausgabeanforderung. Öffentlichen Komponenten-/Raumvertrag
 gegen Shader und Readback dokumentieren; Diagnose-Identität ist kein Entity-Handle.
 Test ohne Renderziel verlangt spezifische Ablehnung und unveränderten Output.
+
+handleEvent: Holds<bool> trennt behandelt/unbehandelt von Verarbeitungsfehlern.
+Keine Szene, irrelevantes Event, kein Treffer oder keine ausgelöste Aktion liefern
+false statt leerer/alter Fehler. Fehlender Host bei gebundener Aktion liefert Diagnose;
+Scroll meldet tatsächliche Änderung. Callback-/Thread-/Borrow-Vertrag dokumentieren.
