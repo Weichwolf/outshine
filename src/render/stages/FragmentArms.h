@@ -4,7 +4,7 @@
 #include <array>
 #include <cstddef>
 
-#include <scene/SurfaceState.h>
+#include <SurfaceState.h>
 
 #include "DrawList.h"
 #include "SubjectTypes.h"

@@ -6,7 +6,7 @@
 #include "math/Box.h"
 #include "math/Vec3.h"
 #include "ClusterCook.h"
-#include "scene/SurfaceState.h"
+#include "SurfaceState.h"
 #include <cstdint>
 #include <span>
 #include <vector>

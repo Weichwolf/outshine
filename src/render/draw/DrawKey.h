@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "scene/SurfaceState.h"
+#include "SurfaceState.h"
 
 namespace outshine::Render {
 

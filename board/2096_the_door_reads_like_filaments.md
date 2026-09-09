@@ -29,6 +29,9 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
 - Registry-Abfragen dürfen ungültige Handles nicht als Body oder belegten Sitz
   ausgeben. roleOf liefert optional; seatOf prüft beide Handle-Lebensdauern.
   Entfernung, Slot-Wiederverwendung und fremde Registry mit API-Tests abdecken.
+- Geometry-Managerfassaden und direkte Zugriffsmethoden auf eine klare Zugriffsebene
+  konsolidieren; geliehene Wrapper ohne eigenen Systemvertrag vermeiden. Mesh-/Material-
+  Ressourcen und Instanzen gemäß 2150 trennen, ohne eine zweite Geometrie einzuführen.
 - Scenario.h bündelt Deklarationen vieler Systeme. Nach fachlichen Abhängigkeiten
   aufteilen, soweit dies isolierte Consumer und nachvollziehbare Verträge ermöglicht;
   keine Headerzahl als Ziel. Jeder öffentliche Header muss selbstständig verwendbar sein.

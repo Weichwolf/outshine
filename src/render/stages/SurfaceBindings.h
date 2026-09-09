@@ -5,7 +5,7 @@
 #include "DrawList.h"
 #include "KernelShape.h"
 #include "SubjectTypes.h"
-#include "scene/SurfaceState.h"
+#include "SurfaceState.h"
 
 namespace outshine::Render {
 

@@ -28,7 +28,7 @@
 
 #include "SceneTargets.h"
 #include "VertexArms.h"
-#include "scene/SurfaceState.h"
+#include "SurfaceState.h"
 #include "ShaderFile.h"
 
 namespace outshine::Render {
