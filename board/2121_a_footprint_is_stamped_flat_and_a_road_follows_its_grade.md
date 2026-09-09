@@ -72,3 +72,8 @@ für harte Kanten getrennt lassen. Gerade mit Steigung/Bank gegen alle Dreiecke 
 Innenpunkt prüfen; Null-Schulter darf keine NaNs liefern. O(Vertex+Index), temporärer
 Double-Puffer nur für Randvertices. Degenerierte Schulterbänder, Offset-Faltungen,
 Wasserdichtheit und gemessene Produktionsbudgets bleiben eigene offene Nachweise.
+
+Null-Schulter: nur das mittlere Querschnittsband triangulieren, vorhandene Bänder
+in Deck/Unterseite und Endkappen identisch auswählen. Fester Vertexlayout-Vertrag
+bleibt erhalten. Geometrisch verschweißte Kanten brauchen genau zwei gegenläufige
+Flächen; geneigtes Prisma zusätzlich gegen analytisches Volumen prüfen.
