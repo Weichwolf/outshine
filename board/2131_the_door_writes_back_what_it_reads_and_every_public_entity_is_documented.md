@@ -1,6 +1,6 @@
 Type: bug
 Depends: 2211
-State: open
+State: active
 Area: include, scenario
 Tags: measured, gate, door
 Supersedes: 2107
@@ -45,3 +45,12 @@ without acting on, which is CLAUDE.md's loud failure made quiet: `layers`, `prov
 If a child cannot be written back because the engine holds it in a form the grammar cannot
 spell -- a derived value -- then it should never have been a declaration, and the row goes rather
 than the writer growing a special case.
+
+## Loading-Vertrag
+
+Snapshot owns nur Werte; Engine-Zugriff serialisiert, Callback leiht Snapshot nur
+für Aufruf. share addiert aktuell size_t vor Cast und läuft über; Summen in double
+bilden, leere Nachfrage bleibt 1, kein Residency-Versprechen. SIZE_MAX-Kontrollfälle.
+Einheiten gegen TilePool geprüft: FetchedMB tatsächlich MiB, Megabits tatsächlich
+MiBit/s aus kumuliertem Poolzähler / preload-Zeit. Dokumentieren, Umbenennung und
+intervallrichtige Ratenmessung bleiben offen; kein Netzwerk-Durchsatzversprechen.
