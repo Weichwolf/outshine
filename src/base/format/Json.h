@@ -23,7 +23,10 @@ public:
 
     Ref(const Json *doc, int32_t node) : Doc(doc), Node(node) {}
 
-    [[nodiscard]] bool Valid() const { return Doc != nullptr && Node >= 0; }
+    [[nodiscard]] bool Valid() const {
+      return Doc != nullptr && Doc->Ok_ && Node >= 0 &&
+             static_cast<size_t>(Node) < Doc->Nodes_.size();
+    }
 
     [[nodiscard]] Kind GetKind() const {
       return Valid() ? Doc->Nodes_[static_cast<size_t>(Node)].K : Kind::Invalid;
@@ -83,6 +86,11 @@ private:
 
   int32_t ParseValue();
   int32_t ParseValueInside();
+  int32_t ParseContainer(int32_t id, bool object);
+  int32_t ParseMember();
+  int32_t ParseNumber(int32_t id);
+  bool ParseLiteral(std::string_view word);
+  bool ParseEscape();
   static constexpr size_t kMostDepth = 256;
   size_t Depth_ = 0;
 

@@ -2,6 +2,7 @@
 #include "Json.h"
 
 #include <charconv>
+#include <limits>
 
 #include "DecimalEdge.h"
 #include <cstdint>
@@ -19,11 +20,16 @@ constexpr size_t kPairEscapeLength = 6;
 constexpr int kHexBase = 16;
 
 bool Json::Parse(const char *text, size_t len) {
-  Text_.assign(text, len);
+  Ok_ = false;
   Nodes_.clear();
   Kids_.clear();
   P_ = 0;
   Depth_ = 0;
+  if (text == nullptr || len > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+    Text_.clear();
+    return false;
+  }
+  Text_.assign(text, len);
   Ok_ = ParseValue() == 0;
   if (Ok_) {
     Skip();
@@ -52,9 +58,11 @@ std::optional<Json::Quoted> Json::ParseString() {
     const char c = Text_[P_];
     if (c == '\\') {
       escaped = true;
-      P_ += 2;
+      ++P_;
+      if (!ParseEscape()) { return std::nullopt; }
       continue;
     }
+    if (static_cast<unsigned char>(c) < 0x20u) { return std::nullopt; }
     if (c == '"') {
       const Quoted said{.Off = static_cast<uint32_t>(start),
                         .Len = static_cast<uint32_t>(P_ - start),
@@ -65,6 +73,19 @@ std::optional<Json::Quoted> Json::ParseString() {
     P_++;
   }
   return std::nullopt;
+}
+
+bool Json::ParseEscape() {
+  if (P_ >= Text_.size()) { return false; }
+  const char escaped = Text_[P_++];
+  if (escaped != 'u') { return std::string_view("\"\\/bfnrt").contains(escaped); }
+  if (Text_.size() - P_ < kEscapeDigits) { return false; }
+  unsigned code = 0;
+  const char *begin = Text_.data() + P_;
+  const auto parsed = std::from_chars(begin, begin + kEscapeDigits, code, kHexBase);
+  if (parsed.ec != std::errc{} || parsed.ptr != begin + kEscapeDigits) { return false; }
+  P_ += kEscapeDigits;
+  return true;
 }
 
 int32_t Json::ParseValue() {
@@ -82,148 +103,128 @@ int32_t Json::ParseValue() {
   return id;
 }
 
+namespace {
+size_t SkipDigits(std::string_view text, size_t at) {
+  while (at < text.size() && text[at] >= '0' && text[at] <= '9') { ++at; }
+  return at;
+}
+
+std::optional<size_t> NumberEnd(std::string_view text, size_t at) {
+  if (at < text.size() && text[at] == '-') { ++at; }
+  const size_t whole = at;
+  at = at < text.size() && text[at] == '0' ? at + 1 : SkipDigits(text, at);
+  if (at == whole) { return std::nullopt; }
+  if (at < text.size() && text[at] == '.') {
+    const size_t fraction = ++at;
+    at = SkipDigits(text, at);
+    if (at == fraction) { return std::nullopt; }
+  }
+  if (at < text.size() && (text[at] == 'e' || text[at] == 'E')) {
+    ++at;
+    if (at < text.size() && (text[at] == '+' || text[at] == '-')) { ++at; }
+    const size_t exponent = at;
+    at = SkipDigits(text, at);
+    if (at == exponent) { return std::nullopt; }
+  }
+  return at;
+}
+}
+
+int32_t Json::ParseNumber(int32_t id) {
+  const auto end = NumberEnd(Text_, P_);
+  if (!end) { return -1; }
+  const size_t at = *end;
+  double v = 0.0;
+  const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + at, v);
+  if (scanned.ec == std::errc::result_out_of_range) {
+    const std::string_view span(Text_.c_str() + P_, at - P_);
+    const double magnitude = DecimalEdge(span) == Edge::Zero ? 0.0 : 1.7976931348623157e308;
+    v = Text_[P_] == '-' ? -magnitude : magnitude;
+  } else if (scanned.ec != std::errc() || scanned.ptr != Text_.c_str() + at) {
+    return -1;
+  }
+  P_ = at;
+  Nodes_[static_cast<size_t>(id)].K = Kind::Number;
+  Nodes_[static_cast<size_t>(id)].Num = v;
+  return id;
+}
+
+bool Json::ParseLiteral(std::string_view word) {
+  if (!std::string_view(Text_).substr(P_).starts_with(word)) { return false; }
+  P_ += word.size();
+  return true;
+}
+
+int32_t Json::ParseMember() {
+  const auto key = ParseString();
+  if (!key) { return -1; }
+  Skip();
+  if (P_ >= Text_.size() || Text_[P_] != ':') { return -1; }
+  ++P_;
+  const int32_t kid = ParseValue();
+  if (kid < 0) { return -1; }
+  Node &node = Nodes_[static_cast<size_t>(kid)];
+  node.Key = key->Off;
+  node.KeyLen = key->Len;
+  node.KeyEscaped = key->Escaped;
+  return kid;
+}
+
+int32_t Json::ParseContainer(int32_t id, bool object) {
+  const char close = object ? '}' : ']';
+  ++P_;
+  std::vector<int32_t> kids;
+  Skip();
+  if (P_ < Text_.size() && Text_[P_] != close) {
+    for (;;) {
+      const int32_t kid = object ? ParseMember() : ParseValue();
+      if (kid < 0) { return -1; }
+      kids.push_back(kid);
+      Skip();
+      if (P_ >= Text_.size() || Text_[P_] != ',') { break; }
+      ++P_;
+      Skip();
+    }
+  }
+  if (P_ >= Text_.size() || Text_[P_] != close) { return -1; }
+  ++P_;
+  Node &node = Nodes_[static_cast<size_t>(id)];
+  node.K = object ? Kind::Object : Kind::Array;
+  node.First = static_cast<uint32_t>(Kids_.size());
+  node.Count = static_cast<uint32_t>(kids.size());
+  Kids_.insert(Kids_.end(), kids.begin(), kids.end());
+  return id;
+}
+
 int32_t Json::ParseValueInside() {
   const auto id = static_cast<int32_t>(Nodes_.size());
   Nodes_.emplace_back();
   const char c = Text_[P_];
-
-  if (c == '{' || c == '[') {
-    const bool obj = c == '{';
-    const char close = obj ? '}' : ']';
-    P_++;
-    std::vector<int32_t> kids;
-    bool afterComma = false;
-    for (;;) {
-      Skip();
-      if (P_ >= Text_.size()) { return -1; }
-      if (Text_[P_] == close) {
-        if (afterComma) { return -1; }
-        P_++;
-        break;
-      }
-      uint32_t koff = 0;
-      uint32_t klen = 0;
-      bool kesc = false;
-      if (obj) {
-        const std::optional<Quoted> key = ParseString();
-        if (!key) { return -1; }
-        koff = key->Off;
-        klen = key->Len;
-        kesc = key->Escaped;
-        Skip();
-        if (P_ >= Text_.size() || Text_[P_] != ':') { return -1; }
-        P_++;
-      }
-      const int32_t kid = ParseValue();
-      if (kid < 0) { return -1; }
-      if (obj) {
-        Nodes_[static_cast<size_t>(kid)].Key = koff;
-        Nodes_[static_cast<size_t>(kid)].KeyLen = klen;
-        Nodes_[static_cast<size_t>(kid)].KeyEscaped = kesc;
-      }
-      kids.push_back(kid);
-      Skip();
-      if (P_ >= Text_.size()) { return -1; }
-      if (Text_[P_] == ',') {
-        P_++;
-        afterComma = true;
-        continue;
-      }
-      if (Text_[P_] != close) { return -1; }
-      afterComma = false;
-    }
-    Node &n = Nodes_[static_cast<size_t>(id)];
-    n.K = obj ? Kind::Object : Kind::Array;
-    n.First = static_cast<uint32_t>(Kids_.size());
-    n.Count = static_cast<uint32_t>(kids.size());
-    Kids_.insert(Kids_.end(), kids.begin(), kids.end());
-    return id;
-  }
-
+  if (c == '{' || c == '[') { return ParseContainer(id, c == '{'); }
   if (c == '"') {
-    uint32_t off = 0;
-    uint32_t len = 0;
-    bool esc = false;
-    const std::optional<Quoted> said = ParseString();
+    const auto said = ParseString();
     if (!said) { return -1; }
-    off = said->Off;
-    len = said->Len;
-    esc = said->Escaped;
-    Node &n = Nodes_[static_cast<size_t>(id)];
-    n.K = Kind::String;
-    n.Str = off;
-    n.StrLen = len;
-    n.Escaped = esc;
+    Node &node = Nodes_[static_cast<size_t>(id)];
+    node.K = Kind::String;
+    node.Str = said->Off;
+    node.StrLen = said->Len;
+    node.Escaped = said->Escaped;
     return id;
   }
-
-  const auto literal = [&](const char *word, size_t bytes) {
-    if (Text_.size() - P_ < bytes || std::memcmp(Text_.c_str() + P_, word, bytes) != 0) {
-      return false;
-    }
-    const size_t after = P_ + bytes;
-    if (after < Text_.size()) {
-      const char next = Text_[after];
-      if ((next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z') ||
-          (next >= '0' && next <= '9') || next == '_') {
-        return false;
-      }
-    }
-    P_ += bytes;
-    return true;
-  };
-  if (literal("true", 4)) {
+  if (ParseLiteral("true")) {
     Nodes_[static_cast<size_t>(id)].K = Kind::Bool;
     Nodes_[static_cast<size_t>(id)].Num = 1.0;
     return id;
   }
-  if (literal("false", 5)) {
+  if (ParseLiteral("false")) {
     Nodes_[static_cast<size_t>(id)].K = Kind::Bool;
-    Nodes_[static_cast<size_t>(id)].Num = 0.0;
     return id;
   }
-  if (literal("null", 4)) {
+  if (ParseLiteral("null")) {
     Nodes_[static_cast<size_t>(id)].K = Kind::Null;
     return id;
   }
-
-  {
-    size_t at = P_;
-    if (at < Text_.size() && Text_[at] == '-') { ++at; }
-    const size_t whole = at;
-    if (at < Text_.size() && Text_[at] == '0') {
-      ++at;
-    } else {
-      while (at < Text_.size() && Text_[at] >= '0' && Text_[at] <= '9') { ++at; }
-    }
-    if (at == whole) { return -1; }
-    if (at < Text_.size() && Text_[at] == '.') {
-      ++at;
-      const size_t fraction = at;
-      while (at < Text_.size() && Text_[at] >= '0' && Text_[at] <= '9') { ++at; }
-      if (at == fraction) { return -1; }
-    }
-    if (at < Text_.size() && (Text_[at] == 'e' || Text_[at] == 'E')) {
-      ++at;
-      if (at < Text_.size() && (Text_[at] == '+' || Text_[at] == '-')) { ++at; }
-      const size_t exponent = at;
-      while (at < Text_.size() && Text_[at] >= '0' && Text_[at] <= '9') { ++at; }
-      if (at == exponent) { return -1; }
-    }
-    double v = 0.0;
-    const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + at, v);
-    if (scanned.ec == std::errc::result_out_of_range) {
-      const std::string_view span(Text_.c_str() + P_, at - P_);
-      const double magnitude = DecimalEdge(span) == Edge::Zero ? 0.0 : 1.7976931348623157e308;
-      v = Text_[P_] == '-' ? -magnitude : magnitude;
-    } else if (scanned.ec != std::errc() || scanned.ptr != Text_.c_str() + at) {
-      return -1;
-    }
-    P_ = at;
-    Nodes_[static_cast<size_t>(id)].K = Kind::Number;
-    Nodes_[static_cast<size_t>(id)].Num = v;
-    return id;
-  }
+  return ParseNumber(id);
 }
 
 std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
