@@ -37,8 +37,11 @@ using Render::Viewpoint;
 [[nodiscard]] bool
 FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill = Render::kFramingFill);
 
-[[nodiscard]] bool
-DeclaredPlacement(const Document &document, int cameraIndex, Viewpoint &out, std::string &error);
+[[nodiscard]] bool DeclaredPlacement(const Document &document,
+                                     int cameraIndex,
+                                     Viewpoint &out,
+                                     std::string &error,
+                                     std::span<const Transform> locals = {});
 
 enum class TangentSource { None, Supplied, Generated };
 

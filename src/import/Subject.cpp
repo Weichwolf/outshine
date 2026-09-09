@@ -1485,7 +1485,8 @@ bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill)
 bool DeclaredPlacement(const Document &document,
                        int cameraIndex,
                        Viewpoint &out,
-                       std::string &error) {
+                       std::string &error,
+                       std::span<const Transform> locals) {
   if (cameraIndex < 0 || static_cast<size_t>(cameraIndex) >= document.Cameras().size()) {
     error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is asked for and the " +
             "document declares " + std::to_string(document.Cameras().size());
@@ -1506,7 +1507,10 @@ bool DeclaredPlacement(const Document &document,
 
   const Camera &lens = document.Cameras()[static_cast<size_t>(cameraIndex)];
   Transform world;
-  if (!document.WorldTransform(static_cast<int>(holder), world)) {
+  const bool transformed = locals.empty()
+                               ? document.WorldTransform(static_cast<int>(holder), world)
+                               : document.WorldTransform(static_cast<int>(holder), locals, world);
+  if (!transformed) {
     error = document.Path() + ": node " + std::to_string(holder) + " carries camera " +
             std::to_string(cameraIndex) + " and its world transform does not resolve";
     return false;

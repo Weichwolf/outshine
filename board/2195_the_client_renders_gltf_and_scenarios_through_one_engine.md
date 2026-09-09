@@ -33,7 +33,10 @@ Loader-Voraussetzung: load publiziert erst nach vollständiger Konvertierung und
 bei Fehlern das vorherige Asset. Neuer Import setzt Variante/Clips zurück; unabhängige
 Fixtures prüfen Wiederverwendung und Fehlversuche. Loaded::poses kann native Geometrie
 zu expliziter Zeit liefern; Render-Settling darf diesen Snapshot nicht weiterbewegen.
-Animierte Kameras gesondert prüfen: camera(index) liest bisher die ursprüngliche Pose.
+Kameraauswertung muss dieselben gesampelten lokalen Transformationen wie Geometrie
+verwenden, einschließlich Elternketten, Rückwärtssampling und Clip-Deaktivierung.
+Ungültige Zeitwerte vor Mutation ablehnen. Unabhängige analytische Kamera-Fixture
+prüft Positionen; KHR_animation_pointer-Materialkanäle im Loader bleiben separat offen.
 
 ## Umsetzung
 

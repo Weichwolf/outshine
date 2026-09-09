@@ -1,10 +1,13 @@
 #include <array>
+#include <cmath>
+#include <limits>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <utility>
 #include <scene/Loaded.h>
+#include <Outshine.h>
 #include "Check.h"
 
 int main() {
@@ -76,6 +79,83 @@ int main() {
   CHECK(moved.geometry().parts() == 1, "move transfers the complete imported asset");
   CHECK(asset.load((directory / "plain.gltf").string()).has_value(),
         "load reinitializes a moved-from adapter");
+  const std::array<float, 8> animation{0, 1, 0, 0, 0, 4, 0, 0};
+  {
+    std::ofstream buffer(directory / "vertices.bin", std::ios::binary | std::ios::app);
+    buffer.write(reinterpret_cast<const char *>(animation.data()), sizeof(animation));
+    CHECK(buffer.good(), "independent linear animation keys written");
+  }
+  std::string animated = R"({"asset":{"version":"2.0"},
+    "buffers":[{"uri":"vertices.bin","byteLength":68}],
+    "bufferViews":[{"buffer":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":8},
+      {"buffer":0,"byteOffset":44,"byteLength":24}],
+    "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3",
+      "min":[0,0,0],"max":[1,1,0]},
+      {"bufferView":1,"componentType":5126,"count":2,"type":"SCALAR","min":[0],"max":[1]},
+      {"bufferView":2,"componentType":5126,"count":2,"type":"VEC3"}],
+    "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
+    "cameras":[{"type":"perspective","perspective":{"yfov":1,"znear":0.1}}],
+    "nodes":[{"children":[1,2],"rotation":[0,0,0.7071067811865476,0.7071067811865476]},
+      {"camera":0,"translation":[1,0,2]},{"mesh":0}],
+    "animations":[{"samplers":[{"input":1,"output":2,"interpolation":"LINEAR"}],
+      "channels":[{"sampler":0,"target":{"node":0,"path":"translation"}}]}],
+    "scenes":[{"nodes":[0]}],"scene":0})";
+  animated.insert(1, R"("extensionsUsed":["KHR_materials_unlit"],
+    "materials":[{"pbrMetallicRoughness":{"baseColorFactor":[0.2,0.8,0.3,1]},
+      "extensions":{"KHR_materials_unlit":{}}}],)");
+  animated.insert(animated.find("\"attributes\""), "\"material\":0,");
+  CHECK(write("animated.gltf", animated), "parent-animated camera fixture written");
+  CHECK(asset.load((directory / "animated.gltf").string()).has_value(),
+        "load camera and mesh under a shared animated parent");
+  const std::array<int, 1> clips{0};
+  CHECK(asset.plays(clips), "select the parent translation clip");
+  for (const double seconds : {0.5, 1.0, 0.25, 2.0, 0.0}) {
+    CHECK(asset.poses(seconds), "sample absolute time, including backward and beyond final key");
+    Scenario::Camera camera;
+    CHECK(asset.carriesCamera() && asset.camera(0, camera),
+          "both camera accessors resolve current pose");
+    const double x = 4 * std::min(seconds, 1.0);
+    CHECK(std::abs(camera.Stands.AtM[0] - x) < 1e-9 && std::abs(camera.Stands.AtM[1] - 1) < 1e-9 &&
+              std::abs(camera.Stands.AtM[2] - 2) < 1e-9,
+          "parent translation and quarter-turn rotate the child offset analytically");
+    CHECK(std::abs(asset.camera().Stands.AtM[0] - x) < 1e-9,
+          "cached default camera uses the same time as explicit selection");
+  }
+  CHECK(asset.poses(0.5), "establish a nonzero pose for rejection checks");
+  for (const double seconds :
+       {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+    CHECK(!asset.poses(seconds) && std::abs(asset.camera().Stands.AtM[0] - 2) < 1e-9,
+          "invalid time cannot mutate the accepted camera pose");
+  }
+  CHECK(asset.plays({}) && std::abs(asset.camera().Stands.AtM[0]) < 1e-9,
+        "disabling clips restores authored camera transforms rather than stale sampled locals");
+  CHECK(asset.plays(clips) && asset.poses(0.5),
+        "prepare the camera and geometry snapshot for rendering");
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    Unprepared(SDL_GetError());
+    return Report();
+  }
+  Engine engine;
+  Scenario::Document scene;
+  scene.Render.Declared = true;
+  scene.Render.Frame = {320, 320};
+  scene.Render.Outputs = {"sceneLinear"};
+  Scenario::View view;
+  view.Id = "sampled-camera";
+  view.Person = "first";
+  view.Sees = asset.camera();
+  scene.Views.push_back(view);
+  if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene) ||
+      !engine.setGeometry(asset.geometry()) || !engine.assemble() || !engine.advance() ||
+      !engine.renderer().render({})) {
+    Unprepared(engine.error().c_str());
+    return Report();
+  }
+  CHECK(engine.renderer()
+            .saveScreenshot(
+                (std::filesystem::temp_directory_path() / "outshine-animated-camera.png").string())
+            .has_value(),
+        "render the sampled native camera and geometry through the public API");
   Covers("public loader replacement, rollback, selection reset and moved-from reuse using "
          "independent inputs");
   return Report();

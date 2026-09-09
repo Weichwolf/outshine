@@ -40,11 +40,24 @@ public:
   [[nodiscard]] bool plays(std::span<const int> animations);
   [[nodiscard]] int animations() const;
   [[nodiscard]] double durationS() const;
+  /// Evaluate selected animation clips at an absolute time in seconds, without advancing a clock.
+  /// Samples geometry and camera node transforms together. Times beyond keys clamp to endpoints.
+  /// @param seconds Finite, nonnegative time. Invalid time leaves the asset unchanged.
+  /// @return Success, or false with error(); conversion errors may invalidate borrowed data.
+  /// Rebuilds CPU geometry and materials, with allocation; serialize with all adapter access.
   [[nodiscard]] bool poses(double seconds);
 
+  /// Whether camera zero has an unambiguous, noncollapsed placement in the current pose.
   [[nodiscard]] bool carriesCamera() const;
+  /// Borrow camera zero at the current pose; requires carriesCamera(). No allocation.
   [[nodiscard]] const Scenario::Camera &camera() const;
+  /// Number of camera definitions, including definitions without a node placement.
   [[nodiscard]] int cameras() const;
+  /// Resolve a camera using the current sampled node transforms and its authored projection.
+  /// @param index Zero-based camera definition index.
+  /// @param out Caller-owned result; unchanged on failure. No references are retained.
+  /// @return False for an invalid index, ambiguous/missing placement or collapsed basis.
+  /// Walks the ancestor chain and may allocate; serialize with mutation of this adapter.
   [[nodiscard]] bool camera(int index, Scenario::Camera &out) const;
 
   [[nodiscard]] bool frames(double fill, Scenario::Camera &out) const;

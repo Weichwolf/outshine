@@ -1,6 +1,7 @@
 #include "scene/Loaded.h"
 
 #include <array>
+#include <cmath>
 #include <expected>
 #include <cstdint>
 #include <cstring>
@@ -67,7 +68,19 @@ struct Loaded::Held {
       return false;
     }
     Handed = Assembled.Handed(File);
-    return Wears();
+    if (!Wears()) { return false; }
+    HasEye = Camera(0, Eye);
+    return true;
+  }
+
+  [[nodiscard]] bool Camera(int index, Scenario::Camera &out) const {
+    Render::Viewpoint placed;
+    std::string why;
+    const std::span<const Gltf::Transform> locals =
+        Moves ? Locals : std::span<const Gltf::Transform>{};
+    if (!Gltf::DeclaredPlacement(File, index, placed, why, locals)) { return false; }
+    Render::CameraOf(placed, out);
+    return true;
   }
 
   [[nodiscard]] bool Wears() {
@@ -163,14 +176,6 @@ std::expected<void, std::string> Loaded::load(std::string_view path) {
     return std::unexpected(std::move(why));
   };
   if (!candidate->File.ReadFile(path)) { return refuse(candidate->File.Error()); }
-  if (!candidate->File.Cameras().empty()) {
-    Render::Viewpoint placed;
-    std::string why;
-    if (Gltf::DeclaredPlacement(candidate->File, 0, placed, why)) {
-      Render::CameraOf(placed, candidate->Eye);
-      candidate->HasEye = true;
-    }
-  }
   if (!candidate->Assemble(0.0)) { return refuse(std::move(candidate->Why)); }
   Held_ = std::move(candidate);
   return {};
@@ -219,6 +224,10 @@ double Loaded::durationS() const {
 }
 
 bool Loaded::poses(double seconds) {
+  if (!std::isfinite(seconds) || seconds < 0.0) {
+    Held_->Why = "animation time must be finite and nonnegative";
+    return false;
+  }
   return Held_->Assemble(seconds);
 }
 
@@ -231,11 +240,7 @@ int Loaded::cameras() const {
 }
 
 bool Loaded::camera(int index, Scenario::Camera &out) const {
-  Render::Viewpoint placed;
-  std::string why;
-  if (!Gltf::DeclaredPlacement(Held_->File, index, placed, why)) { return false; }
-  Render::CameraOf(placed, out);
-  return true;
+  return Held_->Camera(index, out);
 }
 
 bool Loaded::frames(double fill, Scenario::Camera &out) const {
