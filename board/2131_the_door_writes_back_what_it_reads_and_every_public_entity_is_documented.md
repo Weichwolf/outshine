@@ -73,3 +73,8 @@ Prüfung einen vollständigen Kandidaten. Fehler erhalten das Zielobjekt; Erfolg
 löscht alte Diagnosen. Nothrow-Move-Assignment als Publikationsinvariante prüfen.
 Tests für frühe XML-/Grammatikfehler, späte Asset-/Tabellen-/Unread-Fehler und
 anschließenden Erfolg; bestehende Listen dürfen weder gelöscht noch ergänzt werden.
+
+Writer-Physik: deklarierten dial/stepS/mostStepsInArrears schreiben; bisher
+verschwindet der ganze Abschnitt. Zahlen roundtrip-fähig statt %.12g ausgeben,
+XML-Attributtexte escapen. Test liest Ausgabe erneut und prüft exakte Schrittzeit,
+Nachhollimit und Sonderzeichen; Negativkontrolle gegen ausgelassenen Abschnitt.
