@@ -58,3 +58,12 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   Implementierungsverlauf und einzelne Messergebnisse bleiben in Git/Temp-Logs.
 - Bildwirksame Änderungen über den Client rendern und PNGs selbst prüfen;
   CPU-Messzeiten nicht als GPU-Ausführungs- oder Präsentationslatenz ausweisen.
+
+## Nächster Struktur-Schritt
+
+ReadScenario bündelt sämtliche Inhaltsdomänen (Cognitive Complexity 103).
+Abschnittsleser für Quellen, Assets, UI/Input, Entitäten, Räume, Audio, Tabellen,
+Events, Kameras und Bodies extrahieren; zentrale Funktion koordiniert Reihenfolge,
+Grammatik und Unread-Prüfung. Daten-/Fehlerverhalten erhalten, keine neue API.
+Vorhandene Parser-, Projektions- und Assembly-Tests sowie vollständiger Lint;
+kein Bildunterschied erwartet, da ausschließlich Zuständigkeiten getrennt werden.
