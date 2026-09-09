@@ -39,6 +39,10 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
   Trigger laufen mit Entity-Handles ohne Renderer. Instanzen ohne physikalischen
   Körper benötigen weiterhin dieselbe native Pose-/Geschwindigkeitsquelle.
 
+Callback-Grenze: Script-Werte explizit typisieren; Nothing/Ref nicht als Zahl null
+weiterreichen. Argumente auf kMaxArgs begrenzen, ohne Heapkopie pro Aufruf; Host
+bleibt geliehen. Adapter isoliert prüfen, Fehler ohne Client-Aufruf ablehnen.
+
 ## Entscheidung und Zuständigkeit
 
 2150 implementiert native Mesh-/Material-Assets, Instanzzuordnung und einen gemeinsamen
@@ -96,7 +100,6 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
 - Engine.h enthält die Fassade; Outshine.h bleibt optionaler Sammelheader.
 
 Implementierung, Consumer, Installationspfade und Dokumentation gemeinsam migrieren.
-Header entlang fachlicher Verantwortung teilen; keine leeren Module auf Vorrat.
 Importer und Generatoren dürfen weder Szenariotypen als native Assettypen benötigen
 noch den Laufzeitbesitz bestimmen. Szenariodaten konfigurieren die native World.
 
