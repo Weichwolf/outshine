@@ -80,3 +80,10 @@ beide Punktreihenfolgen, Ein-/Zweirichtungs-Hauptstraße, ein-/ausgehender Spur.
 und genaue Kantenzahlen bestehen. Alte Indexfilterung und alte Splice-Funktion
 scheitern jeweils ohne Buildfehler. Komponentenstatistik auf gerichtete Semantik
 prüfen; OSM-IDs/Modi/Restrictions/Streaming und zulässige Startanbindung bleiben offen.
+
+Komponenten: InPieces verwendet gerichtete BFS und globales Seen; konvergierende
+Einbahnzweige werden dadurch je Knotenreihenfolge in falsche Teilnetze zerlegt.
+Als WeakComponents/ComponentStatistics benennen: physischer Zusammenhang ohne
+Fahrtrichtung, getrennt von Reaches. Union-Find mit Pfadkompression und Union nach
+Größe benötigt O(V) Scratch, keine zweite Adjazenzliste. Tests für konvergierende
+Einbahnzweige, Richtungsumkehr, getrennte Komponente, Einzelknoten und leeren Graph.
