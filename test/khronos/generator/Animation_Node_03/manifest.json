@@ -218,5 +218,28 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it -- a DRIFT DETECTOR rather than a present-error check, honest because the camera is derived from the framing rule and not chosen."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "cfb0bc5aa5dc738e26be86ee16a8e47309e1dab584bf736a27f5c45f333af54f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "8077bf235fead288380eb4d01a120579c9129b74f25c367d3f21bf07abf7d09a",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "95c4424dab5372dd64cc701ccfe42186740b72e465d8d579ea9df60c9468a3d5",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

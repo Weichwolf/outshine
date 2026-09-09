@@ -404,5 +404,42 @@
       "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's.",
       "derivation": "The framing rule's own camera projected over the subject's bounds at FRAME 0 of its own grid, summed over every triangle (`board:1437`). It records the population the boundary bound is applied under, so it moves whenever the camera or the pose it is taken at moves -- and both did."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "d2ad97bd7054758d365470d8792ff774ff50d2bfe729786ae6195572db34cd01",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "491174319c1c8469d646ff57ab62082dd896d4f2492bca9346927194d31b2699",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "ba70ddb59e4af80e7343dbeab570ef40325184ef047a9d7bdc0ab5e8bb098548",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 3.0,
+      "sha256": "80ae04d979fc1a50fecce580f90ca6f7526b85f234008b371658b06186b2cbb4",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 4,
+      "seconds": 4.0,
+      "sha256": "da29b3ff72c6c48a5f2092c68b7b348b320d4b2e9ee83b0154be5330d1380dfa",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

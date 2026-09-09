@@ -358,5 +358,14 @@
       "origin": "SET",
       "note": "NO VALUE COULD BE HARVESTED: this case refuses before it projects anything, so the runner never recomputed a fraction to seed this from. The zero is a placeholder and is SAID TO BE ONE rather than left to read as a measurement -- once the refusal above it is repaired the value is harvested like every other (board:1377)."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "06d9248877d20d2e9e8d1abd9e9a0031c3eb596d6cc8925b2813b038caa72d73",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

@@ -183,5 +183,14 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "00faf111305702461d1722a80bda44005c3d8288d0ab99b7e5951a23a84f6461",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

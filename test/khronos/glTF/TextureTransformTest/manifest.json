@@ -15,7 +15,7 @@
     "oracleRole": "reference",
     "says": "The top row tests different combinations of the offset parameter with UV coordinates of `(0.0, 0.0)` to `(0.5, 0.5)` and offsets of `(0.5, 0.0)`, `(0.0, 0.5)`, and `(0.5, 0.5)` respectively from left to right, using the UV texture. A yellow image indicates that offset was not applied. ... The bottom left quad tests the rotation parameter with UV coordinates of `(0.0, 0.0)` to `(1.0, 1.0)` and a rotation angle of `0.392699` radians or `22.5` degrees, using the arrow texture. The green marker indicates the correct rotation. The yellow marker indicates the rotation was not applied. The red marker indicates the rotation was applied in the opposite direction. ... The bottom right quad tests offset, rotation, and scale at the same time. If everything is supported correctly, the arrow should point to the green marker.",
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureTransformTest/README.md",
-    "note": "SELF-DESCRIBING, AND THE ASSET ANSWERS THE TWO QUESTIONS A NUMBER CANNOT SEPARATE. The three markers are separate quads drawn at three fixed places, so the criterion is WHERE THE ARROW POINTS -- green for the composition this engine composes, yellow for no transform at all, red for the rotation taken the other way. A sign flip is invisible at rotation 0 and at pi, which is exactly why Khronos declares 22.5 degrees here; and the three markers are the same three pixels under every reading, so no histogram over the frame separates them. What the numbers below still decide is that the six transformed quads carry the same image as the oracle's, which is the whole mechanism, and the picture decides which marker the arrow reaches."
+    "note": "Compare the transformed arrow direction with the vendor-defined green marker. Yellow denotes no transform and red denotes the reversed rotation. Histogram agreement cannot establish direction; inspect spatial agreement against the independently imported Cycles image. The engine implementation is not the oracle."
   },
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
@@ -230,7 +230,7 @@
         "gamma": 1.0
       },
       "exrCodec": "ZIP",
-      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+      "note": "The 0.01-pixel box filter limits subpixel sampling spread but does not prove exact pixel-centre evaluation or agreement at discontinuities."
     },
     "seed-shift": {
       "engine": "CYCLES",
@@ -264,10 +264,10 @@
         "gamma": 1.0
       },
       "exrCodec": "ZIP",
-      "note": "The same recipe at another seed, and the whole of the emission arm's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+      "note": "Measure sensitivity to the sample seed, including visibility and texture filtering at subpixel positions. Emission removes lighting-path variance but does not by itself guarantee bit-identical pixel samples."
     }
   },
-  "notes": "WHAT THIS CASE DECIDES AND WHAT IT DOES NOT. It decides that `KHR_texture_transform` is read, composed in the extension's own translation x rotation x scale order and applied to the COORDINATE rather than to the sampled colour -- six quads, three of them offset only, one rotated, one scaled and one carrying all three. It does NOT decide that the transform is carried per texture REFERENCE, because every material here has exactly one textured socket; nor does it exercise the extension's `texCoord` override, which no material here supplies. Both are held by `test/unit/gltf/EveryTextureReferenceCarriesItsOwnTransform.cpp`. THE CRITERION IS MET AND THE PICTURE BOUND IS NOT, and the two are different questions. By eye, all three arrows reach their GREEN marker and no red or yellow marker is reached, which is Khronos's own sentence; the geometry is exact (`disagreement_p99_px` 0.001163908 against 0.005). What is outside is `picture_max_delta_code` at 9.5930063 codes against 6.4354338. ATTRIBUTED, and the attribution was measured rather than argued: this subject samples between 2.4 and 12 texels per screen pixel -- 1 m quads carrying 256- and 128-texel images at 108.3 px/m, and markers at node scale 0.1 and 0.15 carrying 128-texel images over 10.8 and 16.2 px -- so every disagreeing pixel is a MINIFIED tap, and the three worst are two texel values apart at 4.75 codes repeated at three unrelated places, which is one texel and not one place. That is the mechanism `PictureBound.h` derives and declines to widen: two independent roundings to one 2^8 lattice can straddle a boundary, which is a WHOLE division and not half of one, and a whole division at full range is 255*12.92/256 = 12.8695 codes. 9.5930063 is inside it, and `texture-coordinate-test` sits at 10.295625 by the same arithmetic. AND THE MIP CHAIN IS NOT THE REPAIR, which is a refutation and not an assumption: enabling `kChainIsReadable` on this case takes the same metric from 9.5930063 to 186.11792 codes, the same direction board:1130 measured on `normal-tangent`.",
+  "notes": "Exercises offset, rotation, scale and their composition on the pinned vendor geometry. Acceptance follows the extension's image-space rotation and vendor markers (the GLSL listing has the known sign error KhronosGroup/glTF#1563), not historical engine output. This asset does not establish independent transforms on multiple material sockets or texCoord overrides. Recompute image and geometry comparisons for each run; record results outside the manifest. Filtering discrepancies require separate diagnosis and do not justify disabling mipmaps or widening thresholds.",
   "expected": {
     "subjectFrameFraction": {
       "value": 0.0427393858,
@@ -275,5 +275,14 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "bb68ea52a34d40c4af46fb3a45d2dead036f2a7b1b1c4b17a1ab552c81df0496",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

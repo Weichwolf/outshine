@@ -226,5 +226,14 @@
     "seed-shift": {
       "raw": "04d708c118b0c5bc3ad2cd69bf6d25384d64b76a76d39b713754ce8785419d07"
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "c92c4fc5ed0cf009f7b02e2fa33e6a7d8a192f9660e82a492203915f19696128",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

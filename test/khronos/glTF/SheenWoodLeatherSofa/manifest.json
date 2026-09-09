@@ -617,5 +617,14 @@
         }
       }
     }
+  ],
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "8ffee8b91d06710ad06cb130ab8de0095e41feca2b75448a101616be02af2bbe",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
   ]
 }

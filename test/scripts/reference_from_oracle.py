@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
-"""Write every case's reference picture from the oracle's own floats.
-
-The oracle is rendered ONCE, into `oracle.raw` beside the case in the prepared corpus. That file is
-float32 RGBA in the scene's linear space; the reference this tree commits is the same picture under
-Blender's stated colour management -- displayDevice sRGB, view transform Standard, gamma 1, exposure
-0 -- which is one sRGB transfer and nothing else. Verified: the encode reproduces the reference this
-tree already held for ABeautifulGame byte for byte, 921 600 of 921 600 pixels.
-
-The floats stay OUT of the tree. They are 9.3 GB across the corpus and they exist to LICENSE a
-reference, not to be one.
-"""
+"""Explicitly pin reference images in JSON and keep their bytes outside the repository."""
+import argparse
+import json
 import os
 import pathlib
 import struct
@@ -17,6 +9,7 @@ import sys
 
 import numpy as np
 from PIL import Image
+from reference_store import pin
 
 TREE = pathlib.Path(__file__).resolve().parents[2]
 kMagic = b"OSRAWF32"
@@ -46,33 +39,50 @@ def prepared_root():
 
 
 def main():
-    wrote, unlicensed, refused = 0, 0, 0
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("case", nargs="*")
+    parser.add_argument("--migrate-existing", action="store_true")
+    args = parser.parse_args()
+    written, missing = 0, 0
+    known = set()
     for manifest in sorted((TREE / "test" / "khronos").glob("*/*/manifest.json")):
+        known.add(manifest.parent.name)
+        if args.case and manifest.parent.name not in args.case:
+            continue
+        declared = json.loads(manifest.read_text())
+        if not declared.get("renders"):
+            continue
         where = manifest.parent
-        if b'"renders"' not in manifest.read_bytes():
-            continue
         prepared = prepared_root() / str(where.relative_to(TREE)).replace("/", "-")
-        still = prepared / "oracle.raw"
-        # A CASE THAT MOVES CARRIES A SEQUENCE, one file a frame, and every frame is a reference.
-        # A film would be a codec and a lossy one, which is the wrong thing to compare pixels with;
-        # the frames ARE the film and a viewer can be made from them whenever one is wanted.
-        run = sorted(prepared.glob("oracle.f[0-9][0-9][0-9][0-9].raw"))
-        made = [(still, where / "reference.png")] if still.exists() else [
-            (one, where / f"reference.{one.stem.split('.')[1]}.png") for one in run]
-        if not made:
-            unlicensed += 1
+        fps = declared.get("scene", {}).get("animation", {}).get("fps", {}).get("value", 1)
+        images = sorted(where.glob("reference*.png")) if args.migrate_existing else []
+        if not args.migrate_existing:
+            sources = [prepared / "oracle.raw"] if (prepared / "oracle.raw").is_file() else sorted(prepared.glob("oracle.f[0-9][0-9][0-9][0-9].raw"))
+            for source in sources:
+                linear = floats(source)
+                if linear is None:
+                    raise ValueError(f"invalid oracle float image: {source}")
+                image = prepared / source.name.replace("oracle", "reference").replace(".raw", ".png")
+                Image.fromarray(encoded(linear)).save(image)
+                images.append(image)
+        if not images:
+            missing += 1
             continue
-        for source, into in made:
-            linear = floats(source)
-            if linear is None:
-                print(f"REFUSED {where.name}: {source.name} is not this tree's float format")
-                refused += 1
-                continue
-            Image.fromarray(encoded(linear)).save(into)
-            wrote += 1
-    print(f"{wrote} reference(s) written, {unlicensed} case(s) with no oracle rendered yet, "
-          f"{refused} refused")
-    return 1 if refused else 0
+        records = []
+        for image in images:
+            frame = int(image.stem.split(".f")[1]) if ".f" in image.stem else 0
+            records.append(pin(image, frame, frame / fps))
+        declared["referenceImages"] = sorted(records, key=lambda record: record["frame"])
+        manifest.write_text(json.dumps(declared, indent=2) + "\n")
+        if args.migrate_existing:
+            for image in images:
+                image.unlink()
+        written += len(records)
+    unknown = set(args.case) - known
+    if unknown:
+        parser.error("unknown cases: " + ", ".join(sorted(unknown)))
+    print(f"{written} image hashes pinned; {missing} cases without available reference images")
+    return 0 if written else 1
 
 
 if __name__ == "__main__":

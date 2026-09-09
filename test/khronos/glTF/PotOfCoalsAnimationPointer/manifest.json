@@ -614,5 +614,42 @@
         }
       }
     }
+  ],
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "b04a9e11713a1438fecba645bcc7216866f8f06a2df82ad3a2d00189161be00b",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "b04a9e11713a1438fecba645bcc7216866f8f06a2df82ad3a2d00189161be00b",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "b04a9e11713a1438fecba645bcc7216866f8f06a2df82ad3a2d00189161be00b",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 3.0,
+      "sha256": "b04a9e11713a1438fecba645bcc7216866f8f06a2df82ad3a2d00189161be00b",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 4,
+      "seconds": 4.0,
+      "sha256": "b04a9e11713a1438fecba645bcc7216866f8f06a2df82ad3a2d00189161be00b",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
   ]
 }

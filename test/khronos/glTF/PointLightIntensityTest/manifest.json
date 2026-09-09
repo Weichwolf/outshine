@@ -488,5 +488,14 @@
         }
       }
     }
+  ],
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "d13fd52c4ae56d03a516fd3e219355c57fa72f878010b3010543829773f2d9a1",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
   ]
 }

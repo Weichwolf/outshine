@@ -247,5 +247,35 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the case could project at all: the placeholder zero this replaced was declared [SET] and said so, because a refusal before projection leaves nothing to seed from (board:1377). What changed is that `KHR_animation_pointer` stopped being a refusal (board:1392)."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "f83434629d801a382d177994f2fe4d90f974a78a71f6d93ea9a94109e26127a1",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "1ef20b13870dcf6c9816ecf8eaf3ef2ae139794641a0575ad07c9b504fd44462",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "5ed1d8f2dbdff5b81e778ea56ad5eb266fff8cc77920f2e5bd55a7e72815471f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 3.0,
+      "sha256": "f83434629d801a382d177994f2fe4d90f974a78a71f6d93ea9a94109e26127a1",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

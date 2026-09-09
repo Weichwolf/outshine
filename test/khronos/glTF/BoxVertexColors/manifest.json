@@ -249,5 +249,14 @@
       "derivation": "the sum over the subject's 12 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
       "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so. Every triangle is counted by the magnitude of its signed area, so the closed cube counts its far side too and this is an AREA, not a coverage."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "bbb18d976bcd0017b7e27cf5238e64ac748784be112b5ad910b8c526803f3f53",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

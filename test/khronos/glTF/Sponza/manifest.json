@@ -1175,5 +1175,14 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the case could project at all: the placeholder zero this replaced was declared [SET] and said so, because a refusal before projection leaves nothing to seed from (board:1377). The camera did not move to obtain it -- what changed is that the material arm stopped being refused."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "1c8061c381d4ed7a1a7150b490208ca800e9141575efb29fad1ebe6b51de8969",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

@@ -388,5 +388,14 @@
       "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared orthographic camera, recomputed by the runner from the fetched vertices",
       "note": "What the boundary bound is applied UNDER. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "1eddec72294a38d385a5712c33ba65e5198a490e50e325a6eba4cee6afe19b07",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

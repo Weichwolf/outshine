@@ -231,5 +231,224 @@
       "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area at FRAME 0, over 320*180 at the declared camera, recomputed by the runner from the posed vertices. It is stated at frame 0 and enforced there: the projected area of an animated subject is a function of the frame by construction -- it runs from 0.114923245 at frame 14 to 0.121284349 at frame 17 over this grid -- so one declared number over the whole grid would be a demand that the subject not move. The camera it checks is the same at every frame.",
       "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "18cb8776fa9992fc6eea4067b4779adc1ffc8e82930401914e5d2cce77e258fb",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 1,
+      "seconds": 0.125,
+      "sha256": "f6d69886bea52028bcb2a3a30306dd028472b6ee5c8bf84736ce9513dbb33a4a",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 2,
+      "seconds": 0.25,
+      "sha256": "bae7e18508d5cd0fa6be251a1dc34c5f5c94509ce4be9bab6d6409059e3daee9",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 3,
+      "seconds": 0.375,
+      "sha256": "969cf294241558a1cc2a18680c4885ca1a521afa161422703e737287b048e972",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 4,
+      "seconds": 0.5,
+      "sha256": "74f15b6f294a6c6ac65020153c2ea2fa01034b337625de419bab5718a917062d",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 5,
+      "seconds": 0.625,
+      "sha256": "f49611627c4658e7027275a40fd839a07d858e5eb91543c9e0937baecf4d8360",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 6,
+      "seconds": 0.75,
+      "sha256": "5903d4e1081e83d72ed40d5e010111b42e1d2d106a5bc13bd44dba150dc5ef3a",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 7,
+      "seconds": 0.875,
+      "sha256": "9575d10b8422c5254ceddc4e9be982e92d4fe49932eba85d489b24f3ba63ac9e",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 8,
+      "seconds": 1.0,
+      "sha256": "88aa0bafdaa22c726a64ffe669050e55976fa9b6e03aa5ee9a4aa183693f31d4",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 9,
+      "seconds": 1.125,
+      "sha256": "0265b461fe802f8b6255f92735464b0dee6405730ebb445325c827f0fea6978a",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 10,
+      "seconds": 1.25,
+      "sha256": "ecf61452af20f7abb2c89438fd705e199ebcd4b4909c1af1423c5e5930d04bfd",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 11,
+      "seconds": 1.375,
+      "sha256": "c29ccbb6b5e07b317a109b0d7ac7e47ac226a2ef8eff8ee05869db61e6e68fd5",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 12,
+      "seconds": 1.5,
+      "sha256": "1b6b13f5d767e6477635c45bf45a0787d37f3fee7ed0d882c0375d1454854b49",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 13,
+      "seconds": 1.625,
+      "sha256": "d2ebc0d8ebf699ade2fd6473b29ecede5be2d59be614e5040b71666633c865c5",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 14,
+      "seconds": 1.75,
+      "sha256": "6f77e778c948bc286a9ed575162d0363ec0f7ed4c6b67a61012fbfd93fcd58dd",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 15,
+      "seconds": 1.875,
+      "sha256": "b2c21c01cbc0b828f3b880c4aaa312134b80ede35b065b38ec2ec730bf28877f",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 16,
+      "seconds": 2.0,
+      "sha256": "1eb4d66a553d0734fa9f732bd8659b7f6d3e88bf7b4a32248e20cb5f381c2434",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 17,
+      "seconds": 2.125,
+      "sha256": "2c9ad0e162bfce0d45e6612d0c2bb1af2a01b3671178b7646752d2b82116d769",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 18,
+      "seconds": 2.25,
+      "sha256": "466b36c680415ad156a0072c91f33061ddd979441cb6d461131f0cfd96bea215",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 19,
+      "seconds": 2.375,
+      "sha256": "d5097a28e46214cea08f2156f9663b9ad685b818eb6721bd731511fe8bce1f76",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 20,
+      "seconds": 2.5,
+      "sha256": "ecf61452af20f7abb2c89438fd705e199ebcd4b4909c1af1423c5e5930d04bfd",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 21,
+      "seconds": 2.625,
+      "sha256": "99c3b4c3b52ee77203f2374d6dae544f357abc6d03de540d89d89735fc34f7ed",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 22,
+      "seconds": 2.75,
+      "sha256": "46ff379af2ddc3e2bf0e232c6aadc0403e6407eb934c0cb392b17a9304fd6d30",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 23,
+      "seconds": 2.875,
+      "sha256": "3a4a51f8737a528ebbe1484727d399bb15bd8c9656bfe934764de3f1bae96280",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 24,
+      "seconds": 3.0,
+      "sha256": "b1b527bbe1f6d1bc80ecb74a8cd4ccb719af788c9356c79249fd95ff2612784b",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 25,
+      "seconds": 3.125,
+      "sha256": "34ab007ea6a5c14ec687e93734e813dbf68359fffd9168a04bbf19de4c21f025",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 26,
+      "seconds": 3.25,
+      "sha256": "16ce4b290a7d9a873201eab58b690da6d64bbd6929472bedd10271a6e245c558",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 27,
+      "seconds": 3.375,
+      "sha256": "95d4e3959120273dc277b3bcf330e6a9d58bad131eb65e504e791b429dcc1a04",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 28,
+      "seconds": 3.5,
+      "sha256": "1bbcf6c25091600d10281d49995b93d54a4b9fc775fed237d4d91e8b615c4dcc",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 29,
+      "seconds": 3.625,
+      "sha256": "913601298169d4bd8edd04915dddec0ea1aaddb713e2e83f8f1ad49d0b590007",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 30,
+      "seconds": 3.75,
+      "sha256": "18cb8776fa9992fc6eea4067b4779adc1ffc8e82930401914e5d2cce77e258fb",
+      "widthPx": 320,
+      "heightPx": 180
+    }
+  ]
 }

@@ -116,6 +116,11 @@
               "map": {
                 "map": "sha256"
               }
+            },
+            "referenceImages": {
+              "array": {
+                "object": "reference-image"
+              }
             }
           },
           "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (board:0083): the scene, the recipe and the acceptance in one declaration."
@@ -1002,7 +1007,6 @@
         },
         "device": {
           "enum": [
-            "CPU",
             "METAL"
           ]
         },
@@ -1145,6 +1149,15 @@
       "note": "THE RATE IS WHOLE BECAUSE THE ORACLE'S IMPORTER READS IT WHOLE (board:1458, board:1470). A fractional rate is a perfectly sensible declaration and Blender's glTF importer cannot take one: it converts a sampler's seconds with `scene.render.fps` and never divides by `fps_base`, so a rational pair places every key at the wrong instant. A grid that needs an instant a whole rate cannot reach asks for MORE FRAMES, which is this corpus's own currency. WHICH animations, and a place to say WHY. A file may carry several that drive the same node paths -- glTF forbids a repeated target only WITHIN one animation and leaves two animations on one property undefined -- so a case that declares more than one is asking the poser for a result the format does not define. The choice is the case's and the reason for it belongs beside the choice.",
       "optional": {
         "note": "string"
+      }
+    },
+    "reference-image": {
+      "required": {
+        "frame": "index",
+        "seconds": "number",
+        "sha256": "text",
+        "widthPx": "index",
+        "heightPx": "index"
       }
     }
   }

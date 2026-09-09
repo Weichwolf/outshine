@@ -670,5 +670,14 @@
       "derivation": "the sum over the subject's 5240 triangles of the magnitude of the projected signed area, over 1280*720 at the declared parallel camera, recomputed by the runner from the fetched vertices",
       "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so the two skins of each closed dome are both counted."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "41b38801142b3028fcbf622c6b46150c6e12b460d96f85c48225d09f82362fa7",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

@@ -214,5 +214,14 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the subject was drawn at its true extent: `EXT_mesh_gpu_instancing` places this mesh 125 times and the engine drew it once, so the placeholder this replaced was declared [SET] and said so (board:1377, board:1416)."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "bfc1bc6d91f8bc70c7104355926d41206a5433019d055674f834aa7cec378c6a",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

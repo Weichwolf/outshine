@@ -9,7 +9,7 @@ import argparse, json, math, os, pathlib, subprocess, sys, tempfile
 
 from PIL import Image
 import numpy as np
-from reference_from_oracle import floats, encoded
+from reference_store import resolve
 
 TREE = pathlib.Path(__file__).resolve().parents[2]
 CLIENT = TREE / "build" / "outshine-client"
@@ -346,29 +346,28 @@ def main():
             skipped += 1
             print(f"ASIDE {name:34s} {known[name]}")
             continue
-        reference = where / "reference.png"
-        if not reference.exists():
-            reference = where / "reference.f0000.png"
-        entry = prepared_root() / str(where.relative_to(TREE)).replace("/", "-") / \
-            declared["subjects"][0]["entry"]
+        entry = prepared_root() / str(where.relative_to(TREE)).replace("/", "-") / declared["subjects"][0]["entry"]
         if not entry.exists():
             entry = entry.with_suffix(".gltf")
-        if not reference.exists():
-            reference = entry.parent / reference.name
-        if not reference.exists() and (entry.parent / "oracle.raw").exists():
-            linear = floats(entry.parent / "oracle.raw")
-            if linear is None:
-                raise ValueError(f"invalid oracle float file for {name}")
-            Image.fromarray(encoded(linear)).save(reference)
-        if not (reference.exists() and entry.exists()):
+        references = declared.get("referenceImages", [])
+        try:
+            if not references:
+                raise ValueError("no reference image pins")
+            resolved = [resolve(record) for record in references]
+            if not entry.is_file():
+                raise ValueError(f"missing prepared input {entry}")
+            if len(references) != 1 or references[0]["seconds"] != 0:
+                raise ValueError("exact animation sampling requires the client time-selection path; sequence is not scored as a still")
+            reference = resolved[0]
+        except ValueError as error:
             unscored += 1
-            missing = [str(path) for path in (reference, entry) if not path.exists()]
-            print(f"UNSCORED {name}: missing " + ", ".join(missing))
+            print(f"UNSCORED {name}: {error}")
             continue
-        with tempfile.TemporaryDirectory() as scratch:
+        with tempfile.TemporaryDirectory(prefix="outshine-corpus-") as scratch:
+            run_name = name + "-" + pathlib.Path(scratch).name
             wrote = pathlib.Path(scratch) / "case.scn"
             wrote.write_text(scenario_for(declared, entry))
-            ran = subprocess.run([str(CLIENT), "run", "--rows", str(wrote), name],
+            ran = subprocess.run([str(CLIENT), "run", "--rows", str(wrote), run_name],
                                  capture_output=True, text=True, timeout=600)
         digest = ""
         for line in ran.stdout.splitlines():
@@ -378,7 +377,11 @@ def main():
             print(f"FAILED {name}: client exit {ran.returncode}\n{ran.stdout}{ran.stderr}")
             red.append((name, 0.0, 0, "the client drew nothing"))
             continue
-        drew = TREE / "build" / "shots" / "khronos" / f"{name}-{digest}.png"
+        drew = TREE / "build" / "shots" / "khronos" / f"{run_name}-{digest}.png"
+        if not drew.is_file():
+            print(f"FAILED {name}: client produced no fresh image at {drew}")
+            red.append((name, 0.0, 0, "missing fresh output"))
+            continue
         agreeing, most, apart = scored(drew, reference)
         if agreeing is None:
             red.append((name, 0.0, 0, "the frames are not the same shape"))
@@ -396,7 +399,7 @@ def main():
           f"counted, because a frame that is mostly background scores its background")
     print(f"the worst pixel is REPORTED and never gated, because one pixel at 255 is a hole rather "
           f"than a tolerance")
-    return 1 if red or (told.case and unscored) else 0
+    return 1 if red or unscored else 0
 
 
 if __name__ == "__main__":

@@ -683,5 +683,42 @@
         }
       }
     }
+  ],
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "c6f30fb91009ea9803ad234b353ee27043ea914c22b4d7ec49c4a7a4a905a56f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "c6f30fb91009ea9803ad234b353ee27043ea914c22b4d7ec49c4a7a4a905a56f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "c6f30fb91009ea9803ad234b353ee27043ea914c22b4d7ec49c4a7a4a905a56f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 3.0,
+      "sha256": "c6f30fb91009ea9803ad234b353ee27043ea914c22b4d7ec49c4a7a4a905a56f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 4,
+      "seconds": 4.0,
+      "sha256": "c6f30fb91009ea9803ad234b353ee27043ea914c22b4d7ec49c4a7a4a905a56f",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
   ]
 }

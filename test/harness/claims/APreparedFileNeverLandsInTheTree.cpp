@@ -8,10 +8,14 @@
 
 namespace {
 
-const char *const kCaseTrees[] = {"test/khronos/glTF", "test/test262/js", "test/wpt/css"};
+const char *const kCaseTrees[] = {
+    "test/khronos/glTF", "test/khronos/generator", "test/test262/js", "test/wpt/css"};
 
 bool Declared(const std::filesystem::path &file) {
   const std::string name = file.filename().string();
+  if (file.generic_string().starts_with("test/khronos/")) {
+    return name == "manifest.json" || name == ".gitignore";
+  }
   if (name == "manifest.json" || name == "reference.png" || name == ".gitignore") { return true; }
   // a reference per FRAME of an animated case, reference.f0000.png .. as prep/manifest.py names it
   return name.size() == 19 && name.starts_with("reference.f") && name.ends_with(".png") &&
@@ -54,13 +58,9 @@ int main() {
         "the case trees hold cases at all, so the emptiness below is a measurement "
         "over a population rather than a statement about an empty one");
 
-  CHECK(
-      strays.empty(),
-      "no prepared file stands in the tree -- a case directory holds its manifest and the ORACLE'S "
-      "OWN PICTURE and nothing else, and every fetched buffer, image, .blend, .exr and .raw is "
-      "under the system temp root where CLAUDE.md puts it. A reference is not a product: it is "
-      "what the case is scored AGAINST, it is written once from floats that stay outside, and a "
-      "corpus whose oracle lives on one machine's disk proves nothing to the next reader");
+  CHECK(strays.empty(),
+        "Khronos cases contain JSON setup and reference hashes, never reference pixels; "
+        "prepared inputs and content-addressed reference images stay outside the repository");
 
   Covers("I.61 a repository is what is declared and what is built from it: the case trees carry "
          "declarations and never products");

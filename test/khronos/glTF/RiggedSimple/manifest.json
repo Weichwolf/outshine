@@ -227,5 +227,133 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "d014d997f11e990978298a70fefd42913fc7d94e8985eb09616352cb2df15ca2",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 1,
+      "seconds": 0.125,
+      "sha256": "dd86e7f4a5c18a053c37a7084530102d6675dee428ac280658104029cd5286b3",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 2,
+      "seconds": 0.25,
+      "sha256": "3e114e35750c8422d31f3dba89f602585caeeb1170c0382a821b2474f589f5fa",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 3,
+      "seconds": 0.375,
+      "sha256": "a9afd7c9d01d2c1d64b7bac790c40f000796db657a5dab41c7e2637cee063d19",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 4,
+      "seconds": 0.5,
+      "sha256": "f385826251159daee4c303df678eb3d55c0b1bd36660e147a015f69955ec938c",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 5,
+      "seconds": 0.625,
+      "sha256": "41c1c1c59d5418283901d2c8251b83f7c4f72e9594c77c88cc2a10bd9e3c8d55",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 6,
+      "seconds": 0.75,
+      "sha256": "b81918e82fdb5f1b8333d164077aff74fde7d442e67ba98cb0960f36bf4836b7",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 7,
+      "seconds": 0.875,
+      "sha256": "2e5314dae387de2c31bd7935750e2b7324fdd0de57f9a76e3a107aec242bcee2",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 8,
+      "seconds": 1.0,
+      "sha256": "d8b863278c488ffbf75da237d84cda1128342a9bc7580b42ab3ad825f8d0750f",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 9,
+      "seconds": 1.125,
+      "sha256": "5babb896fda9fb59574668f0dde215beac9d09e4b3b5ea12a8ad5a03fdd8d7cf",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 10,
+      "seconds": 1.25,
+      "sha256": "e3923b89ffa2565363b657342502cd5bb45b106d4de923a17522d892e86c4a29",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 11,
+      "seconds": 1.375,
+      "sha256": "30341e02519d65573a92a14be9f45de3cf64205db2abe4632cffa440787c2e88",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 12,
+      "seconds": 1.5,
+      "sha256": "b94a0d9e7b8ca0b15db1f9b8eb499a010a8d40c4e93fa2263c9cc25a35132442",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 13,
+      "seconds": 1.625,
+      "sha256": "67c8f48a8d29fa2b5607fede65bff242f7e135c7e02574d00ddf45a62f5f05ab",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 14,
+      "seconds": 1.75,
+      "sha256": "ab2b7a243ef92015e94e55bbabab0917074f54c0f12c9ae042805fb3b2dad92c",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 15,
+      "seconds": 1.875,
+      "sha256": "00c369a4f18792b975cd3960c20ce287c91601854c9e768e512809d8c34072ca",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 16,
+      "seconds": 2.0,
+      "sha256": "088860cbcd4cb44aed607273a2b0bb54c3436ff693aa8f635292c627e4715252",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 17,
+      "seconds": 2.125,
+      "sha256": "d014d997f11e990978298a70fefd42913fc7d94e8985eb09616352cb2df15ca2",
+      "widthPx": 320,
+      "heightPx": 180
+    }
+  ]
 }

@@ -35,6 +35,16 @@ Vier Tests mit echtem clang-format prüfen Diagnostics/Fix/Idempotenz, leere Abd
 fehlendes Tool sowie eigene/ignorierte/gelöschte Dateien und Pfade mit Leerzeichen.
 Aktuell 553 Dateien geprüft, keine Formatabweichung.
 
+## Referenzprüfung
+
+Referenz-Pins bleiben bis zur bewussten Neubewertung stabil. Die frühere Forderung,
+jede gespeicherte Referenz müsse vom aktuellen Preparer-Code stammen, erzwingt
+unnötige Neuerzeugung und widerspricht dem Cache-Vertrag. Ersetzen durch Prüfung
+aller deklarierten SHA-256-Pins, Bilddimensionen und vollständigen Frame-Zeitpunkte.
+Erzeugungsprovenienz historisch erhalten; Ableitungscaches dürfen weiterhin über
+Producer-Versionen invalidiert werden, erwartete Testergebnisse niemals automatisch.
+Fehlende Pins/Inputs im Renderlauf sind ungewertet/rot, keine leeren Erfolgsfälle.
+
 ## Verbleibende Arbeit
 
 Offene Lint-Gruppen: Tidy, öffentliche Dokumentation und Writer-Coverage.

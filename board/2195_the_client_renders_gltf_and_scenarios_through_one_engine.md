@@ -15,6 +15,20 @@ Main.cpp bietet run <scenario>, aber keinen direkten Asset-Renderbefehl.
 Loaded und Engine beherrschen Import, Kameras, Materialien und PNG bereits.
 FramingFor berücksichtigt bisher nur vertikalen FOV; schmale Bilder können clippen.
 
+Harness konsolidieren: Vorbereitung, öffentliche Ausführung und unabhängige Auswertung
+trennen. Render-Abnahmen ohne interne Engine-Typen; API-Tests nur für API-Verträge.
+Jeder Fall prüft eigene Voraussetzungen und verwendet frische Ausgabepfade. Keine
+Laufreihenfolge, fremden Restdateien oder ungeprüften historischen Referenzen voraussetzen.
+Khronos-JSON hält glTF-Input, Setup und Referenz-Hashes pro explizitem Zeitpunkt;
+mehrere feste Kameras pro Fall, besonders Gesamt-/Detailansichten komplexer Szenen.
+Auflösung, Zeit, Seed, Licht, Farbraum und Vergleichsvertrag ausdrücklich deklarieren;
+PNG-Daten liegen im geprüften Hash-Cache. Vorbereitete Eingaben ebenfalls gegen ihre
+Quelle/Transformation und Provenienz prüfen; Referenz-Hash allein validiert keinen Input. Normale Läufe erzeugen weder Referenzen
+noch Pins. Exakte Zeitauswahl fehlt dem Client: die Million-FPS-Näherung entfernen;
+Sequenzen bis dahin ausdrücklich ungewertet melden, niemals nur Frame 0 akzeptieren.
+Gemeinsame Fixture-/Provenienzauflösung statt separater Pfadkonventionen; vorbereitete
+Assets müssen einzeln reproduzierbar sein. Bestehende Prüfumfänge beim Umbau erhalten.
+
 ## Umsetzung
 
 - render <asset.gltf|asset.glb> <width>x<height> <output.png> neben run <scenario>.

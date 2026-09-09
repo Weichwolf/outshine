@@ -516,5 +516,42 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the case could project at all: the placeholder zero this replaced was declared [SET] and said so, because a refusal before projection leaves nothing to seed from (board:1377). What changed is that this file stopped being refused -- `KHR_materials_transmission` and `KHR_materials_volume` are read again (board:1386) and an animation channel this engine cannot drive is a counted shortfall rather than a refusal (board:1392)."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "737a61d61f606422b3e32cfe5abfe24df734721b78639fdb16884afe47eed5d2",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "50ca00433bcd978c844e8ca03b52aefde615d6c629d009dacfb6202c980fd140",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "50ca00433bcd978c844e8ca03b52aefde615d6c629d009dacfb6202c980fd140",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 3.0,
+      "sha256": "9177333f6fae53f3c4d33c93eadbf4796ac8e2f9359cd069c76834cc733f0ef7",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 4,
+      "seconds": 4.0,
+      "sha256": "7d5450a8a8f928e11b4878a581e5e7c21288dd46d0c0172ad60f94da100289bb",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

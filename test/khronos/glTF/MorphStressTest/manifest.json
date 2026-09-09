@@ -282,5 +282,42 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch; seeded from that recomputation, so it pins the framing and detects drift."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "faa3cd320cb0047c041d10c5f02e90521a4e62197062e1a1d4bd705b6ffd215f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "420c90d676ee377d59393f244f9d0273e4fea5dd99885f2a84e3cccadf40c756",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "f99f5226b0d0166c111d27a1c01d8f3962f9e140e34413e727aaa5eeaffe4b5f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 3.0,
+      "sha256": "5210e030ae2e37c2eb5c4d98e8a63ccb0616625e6709360a0a69c0313807bd0f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 4,
+      "seconds": 4.0,
+      "sha256": "e2dec0cc4d9e9670446168ebe5d16e3c3f31c86a445dd37e582884fa332f2f9c",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

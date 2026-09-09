@@ -246,5 +246,42 @@
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check.",
       "derivation": "The framing rule's own camera projected over the subject's bounds at frame 0 of its own grid, summed over every triangle (`board:1437`)."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "35ab545f0c8409cb1755f6f6f248e6505afb017b5bc2943641517fb6f0d04a08",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 0.5,
+      "sha256": "c83a34f16f434ef323debe3fd0cb1919a6e55284f73ced371119d3fcddefde87",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 1.0,
+      "sha256": "df61ca4bed945a33ed9970f6cf24a0cbf9428f55fe45d653e1510b81a80e9a0d",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 1.5,
+      "sha256": "e521e490998ca75f179b43f36d5bf6c00134aa2ff379a017d3212df97924e489",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 4,
+      "seconds": 2.0,
+      "sha256": "71525c14cc84caed1e3e3fe2e5c8c95c4d660321f72c243d7b04b7ff8f93ed4c",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

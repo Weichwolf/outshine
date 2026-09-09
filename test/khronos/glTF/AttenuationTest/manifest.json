@@ -342,5 +342,14 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it: a camera that later framed the subject smaller would tighten the boundary bound without saying so. IT IS SEEDED FROM THE RUNNER'S OWN RECOMPUTATION, which makes the check tautological on the round it was seeded and a DRIFT DETECTOR from then on -- honest only because the camera is independently proven to be the framing rule's rather than a quotation of it."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "d9c80d50611e2e42755c8b548a5d04affdb375d22e1dd79f093e4e46105e3d70",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

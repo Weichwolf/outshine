@@ -249,5 +249,28 @@
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check.",
       "derivation": "The framing rule's own camera projected over the subject's bounds at FRAME 0 of its own grid, summed over every triangle (`board:1437`)."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "5424d969814cc104980d31a37a4ecd5ac376b1e0eeab8a2afed3197fc805300f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "5424d969814cc104980d31a37a4ecd5ac376b1e0eeab8a2afed3197fc805300f",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "5424d969814cc104980d31a37a4ecd5ac376b1e0eeab8a2afed3197fc805300f",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

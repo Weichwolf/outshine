@@ -113,7 +113,7 @@ strip: test-strip-comments ## remove src comments, keep only include Doxygen; le
 db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db
 
-lint: test-format test-tidy-analysis test-documentation db ## format, static analysis, and this tree's own repository rules
+lint: test-format test-tidy-analysis test-documentation test-reference-cache db ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
 doc:             ## the door's documentation -> build/doc
@@ -125,6 +125,9 @@ shots: all       ## every place through the camera -> build/shots   (PLACE=Wien 
 corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/khronos/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
+
+corpus-reference: ## explicitly pin generated reference images (CASES=...; REFERENCE_ARGS=--migrate-existing)
+	@cd $(SELF_DIR) && python3 test/scripts/reference_from_oracle.py $(REFERENCE_ARGS) $(CASES)
 
 corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
 	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
@@ -173,3 +176,8 @@ test-shader-artifacts: shaders ## verify the shader package, reflection and nega
 .PHONY: test-documentation
 test-documentation: ## verify public documentation coverage and Doxygen failure detection
 	@cd $(SELF_DIR) && python3 test/scripts/test_documentation_analysis.py
+
+.PHONY: test-reference-cache corpus-reference
+test-reference-cache: ## validate immutable reference pins and missing/corrupt cache failures
+	@cd $(SELF_DIR) && python3 test/scripts/test_reference_store.py
+	@cd $(SELF_DIR) && python3 test/scripts/reference_store.py

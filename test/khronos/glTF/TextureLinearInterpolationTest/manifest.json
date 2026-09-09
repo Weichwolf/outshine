@@ -280,5 +280,14 @@
         }
       }
     }
+  ],
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "213a4efa036ed69b08165b158daf27dbeb0df6b08d02c760dc13c477b77b2498",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
   ]
 }

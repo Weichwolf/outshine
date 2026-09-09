@@ -266,5 +266,14 @@
       "derivation": "the sum over the subject's 12 triangles of the magnitude of the projected signed area, over 1280*720 at the file's own camera, recomputed by the runner from the fetched vertices",
       "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "e88673941419f27e967bdcdf263c6f24536a04096075bf260bac1a9943cacf1e",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

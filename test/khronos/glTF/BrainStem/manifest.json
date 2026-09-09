@@ -524,5 +524,42 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
-  }
+  },
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "fe0d0a9c14aa83857d0021ec75484d635d615b8a224d8a0897e284a1c0e8a9c3",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 1,
+      "seconds": 1.0,
+      "sha256": "b63d76523d5ea92793f36e6015d47e7613ebd14976c0ef6bae7642c5af7cf418",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 2,
+      "seconds": 2.0,
+      "sha256": "2d05e08e7fcd81530b91e410de6794c1fed6dcceea1ac5a9c2a3733a0dc8b1ed",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 3,
+      "seconds": 3.0,
+      "sha256": "c8d8516473752a422fbe56f4147f8239cc9654a65d1adaa8ecc8688e3ff1f856",
+      "widthPx": 1280,
+      "heightPx": 720
+    },
+    {
+      "frame": 4,
+      "seconds": 4.0,
+      "sha256": "e9d9e6d9dd41ed6664784a3c3314c87730a94314b5fc52682a4a9c79f4a5fb1d",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
+  ]
 }

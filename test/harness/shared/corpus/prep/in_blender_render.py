@@ -1680,8 +1680,8 @@ def apply_material(imported, declared, gltfPaths, transmissionBounces):
     return {"source": "manifest", "kind": "emission", "assigned": assigned}
 
 def enable_devices(recipe):
-    if recipe["device"] == "CPU":
-        return {"device": "CPU", "backend": "NONE", "names": []}
+    if recipe["device"] != "METAL":
+        fail("the render oracle requires the declared METAL GPU backend; CPU fallback is forbidden")
     preferences = bpy.context.preferences.addons["cycles"].preferences
     preferences.compute_device_type = "METAL"
     level = os.environ.get("OUTSHINE_CYCLES_KERNELS", "OFF")
@@ -1690,9 +1690,11 @@ def enable_devices(recipe):
     preferences.get_devices()
     names = []
     for device in preferences.devices:
-        device.use = device.type != "CPU"
+        device.use = device.type == "METAL"
         if device.use:
             names.append(device.name)
+    if not names:
+        fail("Cycles exposes no METAL GPU device; refusing a CPU fallback")
     return {"device": "GPU", "backend": preferences.compute_device_type, "names": names}
 
 def apply_recipe(scene, recipe):

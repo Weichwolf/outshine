@@ -226,5 +226,133 @@
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   },
-  "notes": "THE ORACLE DRIVES SHAPE KEYS HERE (board:1203), which is a THIRD arm beside the object and bone arms: the curves live on the mesh's shape-key datablock as key_blocks[NAME].value, and the object carries no animation data at all. Unlike the bone arm this one EVALUATES THE FILE rather than re-interpolating the importer's keys, because a morph weight is a scalar with no space conversion -- so all three of glTF's interpolations are reachable and none is refused. The join between the file's targets and Blender's shape keys is POSITIONAL, Basis at 0 and target i at i+1, because this file declares no extras.targetNames and Blender still names its keys thin and angle. Every channel publishes which arm carried it under bakedChannels."
+  "notes": "THE ORACLE DRIVES SHAPE KEYS HERE (board:1203), which is a THIRD arm beside the object and bone arms: the curves live on the mesh's shape-key datablock as key_blocks[NAME].value, and the object carries no animation data at all. Unlike the bone arm this one EVALUATES THE FILE rather than re-interpolating the importer's keys, because a morph weight is a scalar with no space conversion -- so all three of glTF's interpolations are reachable and none is refused. The join between the file's targets and Blender's shape keys is POSITIONAL, Basis at 0 and target i at i+1, because this file declares no extras.targetNames and Blender still names its keys thin and angle. Every channel publishes which arm carried it under bakedChannels.",
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "7a79ae794ec1755896f2aa43e41c9d4a5d96e4290b0cd24cff64cd835bff3837",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 1,
+      "seconds": 0.25,
+      "sha256": "f818281b8a65adce2a6ea3e942641cf534b9a92aafb1cefb07217c289cddd1ab",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 2,
+      "seconds": 0.5,
+      "sha256": "0e02d418ee783c16e6d64f3b2c686e1c2f73f142d7e2c8f685ed8508c5b58bbe",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 3,
+      "seconds": 0.75,
+      "sha256": "5b7b91198b449e160f2967252ff93bdc9bd61cedb9821509f201904e57a7a430",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 4,
+      "seconds": 1.0,
+      "sha256": "db7825328ce00de26721cbe3a59794ade8412a3999dcf702cad51d4f22890936",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 5,
+      "seconds": 1.25,
+      "sha256": "9b39cf355f959998e411159f01fd9cc62f955365d9125f197bcb9cb5038d7d17",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 6,
+      "seconds": 1.5,
+      "sha256": "9621b85c6c13abe7d2b813a935774afedcfd8d8d275d413536c0ab90606a3b3f",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 7,
+      "seconds": 1.75,
+      "sha256": "0ec499de326a610a8508bb01c7caf999afd624acc7a45967b9c6601443df25f1",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 8,
+      "seconds": 2.0,
+      "sha256": "96dcd928ae91747927f1d3ce38a6c3f21a416635a82955915769c3e6cb4d79d4",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 9,
+      "seconds": 2.25,
+      "sha256": "b8cd59866610837877fce36790dd7a8ea5fd5c5c6cd68629d5598a3c35811c36",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 10,
+      "seconds": 2.5,
+      "sha256": "ee135317d1600cac4234fb6d9e81fc382f0d1fd59f31d0b8a810901431b3e940",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 11,
+      "seconds": 2.75,
+      "sha256": "4cde668ba4ee50e6a6891b8f9dc6c66c9870672945693339213170245e00d2ae",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 12,
+      "seconds": 3.0,
+      "sha256": "d2f2cd208c298510dccdbaefaa31ab23a178e5b1456db5d74bbb8e6e9964450e",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 13,
+      "seconds": 3.25,
+      "sha256": "068d9f18c149493e821869383e218cfad60ee7d21c524c3015dc5a8b95fe3b8d",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 14,
+      "seconds": 3.5,
+      "sha256": "dcedb4bec19817379515f03b41c394e35417d2f185dfdca3e73823d4dc1046a0",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 15,
+      "seconds": 3.75,
+      "sha256": "c78672030ad024beacc54032ea4bd049d57b7d53578aaa9bff23e67fae8e6c28",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 16,
+      "seconds": 4.0,
+      "sha256": "717d0dfcea2e26d94b7ff17510094edab5b496593411b4e1dc42b8fd7bbf68cf",
+      "widthPx": 320,
+      "heightPx": 180
+    },
+    {
+      "frame": 17,
+      "seconds": 4.25,
+      "sha256": "7a79ae794ec1755896f2aa43e41c9d4a5d96e4290b0cd24cff64cd835bff3837",
+      "widthPx": 320,
+      "heightPx": 180
+    }
+  ]
 }

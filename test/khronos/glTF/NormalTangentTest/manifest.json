@@ -995,5 +995,14 @@
         }
       }
     }
+  ],
+  "referenceImages": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "sha256": "95f7310ea3ceed6164d9ef788a9a6a5be9ca7caab73ca1955f5b660cbf06cf44",
+      "widthPx": 1280,
+      "heightPx": 720
+    }
   ]
 }

@@ -127,6 +127,21 @@ das Urteil über das ganze Projekt.
 
 ## Prüfung
 
+- Outshine implementiert allgemeine Engine-Verträge, keine Khronos-Falloptimierungen.
+  Keine Testnamen, Asset-Hashes oder referenzbildabhängigen Sonderparameter im Engine-Code.
+  Vendor-Fälle durch unabhängige Eingaben, Varianten, Extremwerte und Negativkontrollen
+  ergänzen; dieselben Verträge gelten für Importer und Generatoren.
+
+- Blender Cycles ist ein unabhängiges Bildorakel und läuft ausschließlich auf der GPU.
+  Backend und tatsächlich aktivierte Geräte protokollieren; ohne nutzbare GPU abbrechen,
+  niemals still auf CPU wechseln. Blender im Hintergrund über seine Python-API steuern.
+  Khronos-Fälle deklarieren Eingabe, Setup und erwartete Ergebnisse als JSON;
+  Referenzbilder ausschließlich per SHA-256 pinnen, bei Animation pro Aufnahmezeitpunkt.
+  Bilddaten außerhalb des Repositories im Cache halten. Normale Tests starten keinen
+  Referenzrenderer und verändern keine Pins; fehlende oder korrupte Daten sind Fehler.
+  Spezifikationen bleiben für Formatverträge maßgeblich. Manifeste fachlich prüfen:
+  keine historischen Erfolgsbehauptungen, Zirkelschlüsse oder unbelegten Sampling-Garantien.
+
 - Vor strukturellen Änderungen im WI festhalten: Problem, belegte Referenztechnik,
   vorhandene Fähigkeiten, Entscheidung, erwartetes Bild und widerlegbare Prüfung.
 - Nach bildwirksamen Änderungen betroffene Places rendern und PNGs selbst öffnen:
