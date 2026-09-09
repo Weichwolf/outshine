@@ -1,6 +1,6 @@
 Type: chore
 State: active
-Area: include, engine, scene
+Area: include, engine, world, import
 Tags: architecture, ownership, api
 Parent: 2188
 Depends: 2191, 2150
@@ -51,6 +51,25 @@ Langlebige Identitäten erkennen fremde Owner und Generationen. Fehler liefern o
 expected-Ergebnisse mit klarer Erhaltungsgarantie; kein globaler Fehler als einziges Ergebnis.
 View-/Target-Auswahl und Facaden-Ownership nach Nutzung gestalten, nicht als Vorbildkopie.
 Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträge.
+
+## Öffentliche Modulgrenzen
+
+- `core/`: Fehler, Logging und Basistypen; `math/`: gemeinsame Mathematik.
+- `world/`: World als Laufzeitbesitzer; EntityRegistry ersetzt die bisherige
+  Entity-/Komponentenverwaltung Scene. Keine zweite parallele Weltverwaltung.
+- `assets/`: native Geometrie, Materialien, Texturen und Animationsdaten.
+- `import/`: GltfImporter ersetzt Loaded; Formatobjekte bleiben im Adapter.
+- `generation/`: Generatoren liefern dieselben nativen Assets und Weltinhalte.
+- `render/`: formatunabhängige Kamera, Renderer und Ausgabeziele.
+- `simulation/` und `audio/`: tatsächlich öffentliche Systemverträge.
+- `scenario/`: ScenarioDefinition beschreibt den initialen Aufbau und die
+  Konfiguration; Reader/Writer gehören hierher, allgemeine Kameratypen nicht.
+- Engine.h enthält die Fassade; Outshine.h bleibt optionaler Sammelheader.
+
+Implementierung, Consumer, Installationspfade und Dokumentation gemeinsam migrieren.
+Header entlang fachlicher Verantwortung teilen; keine leeren Module auf Vorrat.
+Importer und Generatoren dürfen weder Szenariotypen als native Assettypen benötigen
+noch den Laufzeitbesitz bestimmen. Szenariodaten konfigurieren die native World.
 
 ## Abnahme
 
