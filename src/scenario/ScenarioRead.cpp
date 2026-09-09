@@ -1,4 +1,5 @@
 #include <format>
+#include <type_traits>
 #include <ranges>
 #include <charconv>
 #include <system_error>
@@ -853,8 +854,9 @@ void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
 
 }
 
-bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &error) {
-  into = Scenario::Document();
+bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &error) {
+  static_assert(std::is_nothrow_move_assignable_v<Scenario::Document>);
+  Scenario::Document into;
   const Xml::Ref root = document.Root();
   if (root.Name() != "scenario") {
     error = "a scenario's root element is <scenario> and this one is <" + root.Name() + ">";
@@ -901,6 +903,8 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     return false;
   }
 
+  output = std::move(into);
+  error.clear();
   return true;
 }
 
