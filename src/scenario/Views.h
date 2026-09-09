@@ -23,6 +23,8 @@ public:
 
   [[nodiscard]] std::string_view ActiveId() const noexcept { return Held_[Active_].Id; }
 
+  [[nodiscard]] size_t ActiveIndex() const noexcept { return Active_; }
+
   [[nodiscard]] size_t Count() const noexcept { return Held_.size(); }
 
   [[nodiscard]] const Scenario::View &AtIndex(size_t at) const noexcept { return Held_[at]; }

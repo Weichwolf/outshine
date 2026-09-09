@@ -220,7 +220,9 @@ bool Engine::State::Composes() {
   World.GroundTiles = 0;
   if (!Stood()) { return false; }
   const Scenario::Document &declared = Session.Declared;
-  if (Session.Views && !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
+  if (Session.Views &&
+      (Session.Views->Active().Sees.Placed || Session.Views->Active().Sees.Stands.GlobeAnchor) &&
+      !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
     return false;
   }
   if (!declared.Ground.Declared) { return true; }

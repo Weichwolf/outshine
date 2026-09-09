@@ -567,6 +567,9 @@ struct View {
   [[nodiscard]] const std::string &scene() const { return In; }
 
   std::string In;
+  /** Owned name of the unique placed body followed by this view.
+   * Assembly resolves it; a removed target must be rebound by assembling again.
+   */
   std::string Follows;
   std::string Person;
   Vec3 OffsetM;

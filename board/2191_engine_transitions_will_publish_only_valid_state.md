@@ -65,17 +65,17 @@ setGeometry liefert derzeit Weltgeometrie; Carries lehnt sie ohne importierten
 Subject-Anteil ab. Explizite native Geometrie-zu-Entity-Zuordnung im API-SOLL aus
 2096 prüfen. Die Kamera-Fixture nutzt deklarierte glTF-Körpergeometrie.
 
-Carries aktualisiert die Kamera nur bei Körperindex 0; View.Follows wird nur gelesen,
-geschrieben und auf nichtleeren Namen geprüft, nicht gegen den Zielkörper aufgelöst.
-Ziel beim Assemble eindeutig auflösen; unbekannte/mehrdeutige Namen ablehnen, aktive
-View an den richtigen Körper binden. Zwei getrennte bewegte Körper und Viewwechsel
-müssen das Ziel unabhängig von Deklarationsreihenfolge zeigen. Quellbefund, noch kein
-Mehrkörper-Laufzeitnachweis; der Projektions-Test verwendet ausdrücklich einen Körper.
+FollowCamera liest die Pose der beim Assemble aufgelösten Entity unabhängig vom
+Geometrie-Upload. Viewwechsel, Reorder, fehlende/unplatzierte/mehrdeutige Ziele und
+veraltete Assembly über öffentliche API geprüft. Gemeinsamer Resolver mit Audio;
+Körperindex-0-Negativkontrolle verletzt das Kamera-Oracle. Beide Ziel-PNGs geöffnet:
+jeweils zentriertes Dreieck bei korrekt unterschiedlicher Kameraposition.
+Native Geometrie-zu-Entity-Zuordnung und Instanzen-Posen bleiben nach 2096 offen.
 
 ## Gemeinsame Körperbindung für Kamera und Audio
 
 Simulationskörper behalten jetzt ihre Entity-ID auch nach Filterung unplatzierter Bodies.
-Audio löst Körpernamen bei Prepare auf; Carries verwendet noch Index 0 statt des benannten Ziels.
+Audio und Kamera lösen Körpernamen vor der Verwendung in native Körperzuordnungen auf.
 Trigger gehören jetzt zur Assembly und prüfen alle lebenden Körper im Simulationsschritt.
 Native Simulationskörper müssen ihre Entity-Handles behalten. Namen einmal gegen
 Assembly auflösen, unbekannte/mehrdeutige Ziele ablehnen; Hot Paths verwenden Handles.

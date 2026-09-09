@@ -418,7 +418,7 @@ struct Engine::State {
 
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
   [[nodiscard]] bool Asks();
-  [[nodiscard]] bool Carries(const Physics::Rigid &body, const Vec3 &shiftM);
+  [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool Composes();
   bool Grows(double atLat, double atLon);

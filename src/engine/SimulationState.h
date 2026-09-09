@@ -5,6 +5,7 @@
 #include <expected>
 #include <span>
 #include <string>
+#include <string_view>
 #include <cstdint>
 #include <vector>
 #include <scene/Scene.h>
@@ -34,6 +35,8 @@ struct SimulationState {
 
   [[nodiscard]] std::expected<std::vector<std::optional<size_t>>, std::string>
   BindAudio(std::span<const Scenario::Sound> sounds) const;
+  [[nodiscard]] std::expected<std::vector<std::optional<size_t>>, std::string>
+  BindBodies(std::span<const std::string_view> names) const;
   void PrepareBodies();
   void Integrate(double stepSeconds, const Vec3 &gravityMs2);
 
@@ -45,6 +48,7 @@ struct SimulationState {
   std::optional<TableBook> Tables;
   std::optional<TriggerField> Triggers;
   std::vector<SimulatedBody> DynamicBodies;
+  std::vector<std::optional<size_t>> ViewBodies;
 };
 
 }

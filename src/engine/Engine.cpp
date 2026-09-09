@@ -72,6 +72,15 @@ Result Engine::assemble() {
   }
   candidate->DeclarationRevision = S_->Session.DeclarationRevision;
   candidate->PrepareBodies();
+  std::vector<std::string_view> followed;
+  followed.reserve(declared.Views.size());
+  for (const auto &view : declared.Views) { followed.push_back(view.Follows); }
+  auto viewBodies = candidate->BindBodies(followed);
+  if (!viewBodies) {
+    S_->Error = viewBodies.error();
+    return std::unexpected(S_->Error);
+  }
+  candidate->ViewBodies = std::move(*viewBodies);
   if (named == 0 && S_->Picture.Targeted && !S_->Composes()) { return std::unexpected(S_->Error); }
   S_->Simulation = std::move(candidate);
   S_->Session.Sounding.reset();

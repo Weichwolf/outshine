@@ -21,6 +21,7 @@
 #include "EngineHeld.h"
 #include "Lens.h"
 #include "Viewing.h"
+#include "Views.h"
 #include "Live.h"
 #include "TileGeodesy.h"
 
@@ -29,12 +30,41 @@ namespace outshine {
 constexpr double kBelowAnyGroundM = -1.0e3;
 
 namespace Says {
+constexpr auto kCameraAssemblyRequired = "assemble the current declaration before following a body";
+constexpr auto kCameraBodyRequired = "the followed body is missing or no longer alive";
 constexpr auto kInvalidViewProjection =
     "the selected view declares an invalid or unrepresentable projection";
 constexpr auto kInvalidCarriedView = "the carried view has no valid camera basis";
 }
 
 namespace {
+[[nodiscard]] Mat4 BodyTransform(const Physics::Rigid &body, const Vec3 &shiftM) {
+  Mat4 worldFromBody = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  {
+    const Quat &q = body.OrientationQ;
+    const double w = q.W;
+    const double x = q.X;
+    const double y = q.Y;
+    const double z = q.Z;
+    worldFromBody[0] = 1.0 - 2.0 * (y * y + z * z);
+    worldFromBody[1] = 2.0 * (x * y + z * w);
+    worldFromBody[2] = 2.0 * (x * z - y * w);
+    worldFromBody[4] = 2.0 * (x * y - z * w);
+    worldFromBody[5] = 1.0 - 2.0 * (x * x + z * z);
+    worldFromBody[6] = 2.0 * (y * z + x * w);
+    worldFromBody[8] = 2.0 * (x * z + y * w);
+    worldFromBody[9] = 2.0 * (y * z - x * w);
+    worldFromBody[10] = 1.0 - 2.0 * (x * x + y * y);
+  }
+  for (int axis = 0; axis < 3; ++axis) {
+    worldFromBody[12 + axis] = body.PositionM[axis] + worldFromBody[0 + axis] * shiftM[0] +
+                               worldFromBody[4 + axis] * shiftM[1] +
+                               worldFromBody[8 + axis] * shiftM[2];
+  }
+
+  return worldFromBody;
+}
+
 [[nodiscard]] std::expected<void, Render::LensError>
 ApplyCamera(Core::Live &live,
             const Render::SceneRenderer &renderer,
@@ -58,7 +88,7 @@ ApplyCamera(Core::Live &live,
 bool Engine::State::Watches() {
   if (!Session.Views || !Picture.Standing) { return true; }
   const Scenario::View &seen = Session.Views->Active();
-  if (!seen.Sees.Placed && !seen.Sees.Stands.GlobeAnchor) { return true; }
+  if (!seen.Sees.Placed && !seen.Sees.Stands.GlobeAnchor) { return FollowCamera(*Session.Views); }
   Vec3 station = seen.Sees.Stands.AtM + seen.OffsetM;
   if (seen.Sees.Stands.GlobeAnchor) {
     double heightM = seen.Sees.Stands.Geodetic.HeightM;
@@ -130,33 +160,8 @@ bool Engine::State::Watches() {
   return true;
 }
 
-bool Engine::State::Carries(const Physics::Rigid &body, const Vec3 &shiftM) {
-  return Carries(0, body, shiftM);
-}
-
 bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM) {
-  Mat4 bodyFromWorld = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-  {
-    const Quat &q = body.OrientationQ;
-    const double w = q.W;
-    const double x = q.X;
-    const double y = q.Y;
-    const double z = q.Z;
-    bodyFromWorld[0] = 1.0 - 2.0 * (y * y + z * z);
-    bodyFromWorld[1] = 2.0 * (x * y + z * w);
-    bodyFromWorld[2] = 2.0 * (x * z - y * w);
-    bodyFromWorld[4] = 2.0 * (x * y - z * w);
-    bodyFromWorld[5] = 1.0 - 2.0 * (x * x + z * z);
-    bodyFromWorld[6] = 2.0 * (y * z + x * w);
-    bodyFromWorld[8] = 2.0 * (x * z + y * w);
-    bodyFromWorld[9] = 2.0 * (y * z - x * w);
-    bodyFromWorld[10] = 1.0 - 2.0 * (x * x + y * y);
-  }
-  for (int axis = 0; axis < 3; ++axis) {
-    bodyFromWorld[12 + axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * shiftM[0] +
-                               bodyFromWorld[4 + axis] * shiftM[1] +
-                               bodyFromWorld[8 + axis] * shiftM[2];
-  }
+  const Mat4 bodyFromWorld = BodyTransform(body, shiftM);
 
   if (!Picture.Standing) { return true; }
   const Mat4 stillM = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
@@ -171,11 +176,24 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   Published.Places("the mesh it carries, east", bodyFromWorld[12], "m");
   Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
   Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
-  if (!Session.Views) { return true; }
+  return true;
+}
 
-  const Scenario::View &seen = Session.Views->Active();
-  if (seen.Sees.Placed) { return Watches(); }
-
+bool Engine::State::FollowCamera(const ViewBook &views) {
+  const size_t active = views.ActiveIndex();
+  if (Simulation->DeclarationRevision != Session.DeclarationRevision ||
+      active >= Simulation->ViewBodies.size()) {
+    Error = Says::kCameraAssemblyRequired;
+    return false;
+  }
+  const auto binding = Simulation->ViewBodies[active];
+  if (!binding || !Simulation->Scene.alive(Simulation->DynamicBodies[*binding].Owner)) {
+    Error = Says::kCameraBodyRequired;
+    return false;
+  }
+  const Physics::Rigid &body = Simulation->DynamicBodies[*binding].Motion;
+  const Mat4 bodyFromWorld = BodyTransform(body, {});
+  const Scenario::View &seen = views.Active();
   const Vec3 &seatM = seen.OffsetM;
   Vec3 at;
   for (int axis = 0; axis < 3; ++axis) {

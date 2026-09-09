@@ -1,5 +1,6 @@
 #include "SimulationState.h"
 #include <cassert>
+#include <algorithm>
 #include <cstddef>
 #include <expected>
 #include <optional>
@@ -17,11 +18,22 @@ namespace outshine {
 
 namespace Says {
 constexpr auto AmbiguousBody = "ambiguous body name: ";
-constexpr auto PlacedBodyRequired = "audio source requires a placed body: ";
+constexpr auto PlacedBodyRequired = "binding requires a placed body: ";
 }
 
 std::expected<std::vector<std::optional<size_t>>, std::string>
 SimulationState::BindAudio(std::span<const Scenario::Sound> sounds) const {
+  std::vector<std::string_view> names;
+  names.reserve(sounds.size());
+  for (const auto &sound : sounds) { names.push_back(sound.On); }
+  return BindBodies(names);
+}
+
+std::expected<std::vector<std::optional<size_t>>, std::string>
+SimulationState::BindBodies(std::span<const std::string_view> names) const {
+  if (std::ranges::all_of(names, [](std::string_view name) { return name.empty(); })) {
+    return std::vector<std::optional<size_t>>(names.size());
+  }
   std::unordered_map<std::string_view, Entity> named;
   named.reserve(Stood.Bodies.size());
   for (const Entity entity : Stood.Bodies) {
@@ -37,15 +49,15 @@ SimulationState::BindAudio(std::span<const Scenario::Sound> sounds) const {
     if (Scene.alive(owner)) { physical[owner.Index] = index; }
   }
   std::vector<std::optional<size_t>> bindings;
-  bindings.reserve(sounds.size());
-  for (const auto &sound : sounds) {
-    if (sound.On.empty()) {
+  bindings.reserve(names.size());
+  for (const auto name : names) {
+    if (name.empty()) {
       bindings.emplace_back();
       continue;
     }
-    const auto target = named.find(sound.On);
+    const auto target = named.find(name);
     if (target == named.end() || !physical[target->second.Index]) {
-      return std::unexpected(Says::PlacedBodyRequired + sound.On);
+      return std::unexpected(Says::PlacedBodyRequired + std::string(name));
     }
     bindings.push_back(physical[target->second.Index]);
   }
