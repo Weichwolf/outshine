@@ -1,4 +1,5 @@
 #include <limits>
+#include <cmath>
 #include "ScenarioWrite.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
@@ -150,10 +151,17 @@ void Engine::ships() {
 }
 
 namespace Says {
+constexpr auto InvalidSimulationTiming =
+    "simulation requires a finite positive step and positive catch-up count with finite duration";
 constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {
+  if (!std::isfinite(scenario.Motion.StepS) || scenario.Motion.StepS <= 0.0 ||
+      scenario.Motion.MostStepsInArrears <= 0 ||
+      !std::isfinite(scenario.Motion.StepS * scenario.Motion.MostStepsInArrears)) {
+    return std::unexpected(Says::InvalidSimulationTiming);
+  }
   if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
     S_->Error = Says::RevisionExhausted;
     return std::unexpected(S_->Error);
