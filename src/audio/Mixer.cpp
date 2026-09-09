@@ -37,6 +37,8 @@ namespace {
 namespace Says {
 constexpr auto InvalidParameter = "invalid audio parameter";
 constexpr auto DelayBudget = "audio delay exceeds the sample budget";
+constexpr auto InvalidRoom = "invalid audio reverberation parameters";
+constexpr auto RoomBudget = "audio reverberation exceeds the sample budget";
 constexpr auto InvalidRate = "audio sample rate must be positive";
 }
 
@@ -62,7 +64,7 @@ struct Running {
 
 constexpr double kDefaultFilterFrequencyHz = 1000.0;
 constexpr double kDefaultDelaySeconds = 0.05;
-constexpr size_t kDelaySampleBudget = size_t{8} * 1024 * 1024;
+constexpr size_t kEffectRingSampleBudget = size_t{8} * 1024 * 1024;
 
 [[nodiscard]] std::expected<Running, std::string>
 PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
@@ -270,6 +272,13 @@ void Voiced(const Scenario::Sound &sound,
 }
 
 namespace {
+[[nodiscard]] bool ValidReverberation(const Scenario::Room &room) noexcept {
+  return !room.Declared ||
+         (std::isfinite(room.SecondsRt60) && room.SecondsRt60 >= 0 && std::isfinite(room.Damping) &&
+          room.Damping >= 0 && room.Damping <= 1 && std::isfinite(room.WetShare) &&
+          room.WetShare >= 0 && room.WetShare <= 1);
+}
+
 struct Reverberation {
   void Mix(std::span<const double> input, std::span<float> stereo);
   std::vector<std::vector<double>> Combs;
@@ -315,7 +324,8 @@ struct Mixer::Held {
                 std::span<const Heard> sources,
                 const Listening &ear,
                 MixingContext context);
-  void ConfigureRoom(std::span<const Scenario::Bus> buses, int rate);
+  [[nodiscard]] std::expected<void, std::string> ConfigureRoom(std::span<const Scenario::Bus> buses,
+                                                               int rate);
   [[nodiscard]] bool
   BuildSources(std::span<const Scenario::Sound> declared, int rate, std::string &error);
 
@@ -331,7 +341,12 @@ struct Mixer::Held {
   size_t Voices = 0;
 };
 
-void Mixer::Held::ConfigureRoom(std::span<const Scenario::Bus> buses, int rate) {
+std::expected<void, std::string> Mixer::Held::ConfigureRoom(std::span<const Scenario::Bus> buses,
+                                                            int rate) {
+  for (const auto &bus : buses) {
+    if (!ValidReverberation(bus.Reverberates)) { return std::unexpected(Says::InvalidRoom); }
+  }
+  size_t remainingSamples = kEffectRingSampleBudget;
   for (const Scenario::Bus &one : buses) {
     if (!one.Reverberates.Declared || !(one.Reverberates.SecondsRt60 > 0.0)) { continue; }
     Room = Reverberation{};
@@ -343,7 +358,10 @@ void Mixer::Held::ConfigureRoom(std::span<const Scenario::Bus> buses, int rate) 
     for (const int held : kCombs) {
       const auto taps =
           static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
-      Room.Combs.emplace_back(taps == 0 ? 1u : taps, 0.0);
+      const size_t count = std::max(taps, size_t{1});
+      if (count > remainingSamples) { return std::unexpected(Says::RoomBudget); }
+      remainingSamples -= count;
+      Room.Combs.emplace_back(count, 0.0);
       Room.CombAt.push_back(0);
       Room.CombKept.push_back(0.0);
       const double delayS =
@@ -354,17 +372,21 @@ void Mixer::Held::ConfigureRoom(std::span<const Scenario::Bus> buses, int rate) 
     for (const int held : kPasses) {
       const auto taps =
           static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
-      Room.Passes.emplace_back(taps == 0 ? 1u : taps, 0.0);
+      const size_t count = std::max(taps, size_t{1});
+      if (count > remainingSamples) { return std::unexpected(Says::RoomBudget); }
+      remainingSamples -= count;
+      Room.Passes.emplace_back(count, 0.0);
       Room.PassAt.push_back(0);
     }
     break;
   }
+  return {};
 }
 
 bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
                                int rate,
                                std::string &error) {
-  size_t remainingSamples = kDelaySampleBudget;
+  size_t remainingSamples = kEffectRingSampleBudget;
   SignalGraphBudget remainingGraph;
   size_t largestGraph = 0;
   for (const Scenario::Sound &one : declared) {
@@ -432,7 +454,8 @@ std::expected<void, std::string> Mixer::Stands(std::span<const Scenario::Bus> bu
   candidate->Declared.assign(declared.begin(), declared.end());
   std::string error;
   if (!candidate->BuildSources(declared, rate, error)) { return std::unexpected(std::move(error)); }
-  candidate->ConfigureRoom(buses, rate);
+  const auto room = candidate->ConfigureRoom(buses, rate);
+  if (!room) { return room; }
   Held_ = std::move(candidate);
   Rate_ = rate;
   return {};

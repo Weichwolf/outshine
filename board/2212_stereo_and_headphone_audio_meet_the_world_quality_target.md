@@ -44,7 +44,9 @@ Datei-/Streamingquellen fehlen im Wiedergabepfad. Der als Biquad benannte Prozes
 ist ein Einpol-Tiefpass. Graphkanten sind beim Setup validiert und kompiliert;
 Signal-Scratch wird beim Setup reserviert, variable Ausgabeblöcke intern geteilt.
 Engine::mix initialisiert noch beim ersten Aufruf; Setup vor Audioausgabe verlegen
-und Abtastratenwechsel ausdrücklich behandeln. Hall-Setup und Worst-Case-Messung offen.
+und Abtastratenwechsel ausdrücklich behandeln. Hallwerte und Ringbudget sind validiert.
+Der Mixer verwendet noch nur den ersten aktiven Bus-Hall: Bus-spezifische Effekte
+und unabhängige RT60-/Spektralprüfung fehlen; Worst-Case-Messung bleibt offen.
 Diese Defizite nicht durch konservierte Alt-Ausgaben als richtig deklarieren.
 
 SDL3 für Geräte/Streams; SDL3_mixer für ergänzende Wiedergabe/Dekodierung evaluieren.

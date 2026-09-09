@@ -81,7 +81,10 @@ Voice-Werten speichern; kein stod/catch oder Stringparsing im Audioblock. Negati
 Delayzeiten und nicht endliche Werte ablehnen. Delay-Ringe beim Setup reservieren,
 gemeinsam auf 8 Mi Samples Double begrenzen (64 MiB); Budget ist eine Enginegrenze,
 kein Hardwaremesswert. Fehler müssen den laufenden Mixer erhalten. Hall-Setup,
-Quellvirtualisierung und vollständige Echtzeitmessungen bleiben offen.
+Quellvirtualisierung und vollständige Echtzeitmessungen bleiben offen. Hallparameter
+vor Publikation validieren: endliche RT60 >= 0, Damping/WetShare in [0,1].
+Hallringe zusammen auf 8 Mi Double-Samples (64 MiB) begrenzen; Abtastraten dürfen
+dieses Setupbudget nicht umgehen. Abgelehntes Hall-Setup erhält Rate und Laufzustand.
 
 ## Vollständige CLI-Zahlenkonvertierung
 

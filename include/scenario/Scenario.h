@@ -402,10 +402,15 @@ struct Sound {
   double SendShare = 0.0;
 };
 
+/** Owned reverberation settings; setup validates declared settings before publication. */
 struct Room {
+  /** Enable interpretation of these settings; false ignores the remaining fields. */
   bool Declared = false;
+  /** Finite nonnegative decay time in seconds to fall by 60 dB; zero disables the effect. */
   double SecondsRt60 = 0.0;
+  /** Finite damping coefficient in [0,1]; larger values suppress high frequencies more. */
   double Damping = 0.5;
+  /** Finite wet output gain in [0,1], added to the dry signal; zero mutes the effect. */
   double WetShare = 0.0;
 };
 
