@@ -72,6 +72,8 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
   Exportvertrag im Generatorheader. src/import hält die gemeinsamen Formatadapter.
   Bestehender Writer verliert native Texturbindungen und zusätzliche Materialfaktoren;
   nicht darstellbare Inhalte vor Ausgabe ablehnen, danach Exportabdeckung ausbauen.
+  GLB-Größen vor Padding auf 32-Bit-Containergrenze prüfen; size_t-Überlauf
+  darf keine übergroße Nutzlast akzeptieren. Grenzwerte ohne Allokation testen.
   GLB-Header/Chunklängen nach Khronos 2.0 §4.4 prüfen; unterstützte Faktoren und
   Namen direkt im JSON prüfen, Fehler und unveränderte Eingaben separat abnehmen.
   Referenz: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#glb-file-format-specification
