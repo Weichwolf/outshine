@@ -218,11 +218,7 @@ struct Surrounds {
   Generators::Registry Offering;
   Generators::Shipping Shipping;
 
-  struct Standing {
-    uint32_t Body = 0;
-    uint32_t Cluster = 0;
-    WorldPlacement Where;
-  };
+  using Standing = WorldInstance;
 
   std::vector<Standing> Instances;
   size_t Pending = 0;

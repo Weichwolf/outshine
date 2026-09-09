@@ -41,5 +41,11 @@ struct WorldPlacement {
   }
 };
 
+struct WorldInstance {
+  uint32_t Body = 0;
+  uint32_t Cluster = 0;
+  WorldPlacement Where;
+};
+
 }
 #endif

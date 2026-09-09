@@ -33,8 +33,13 @@
 
 #include "EngineHeld.h"
 #include "GroundMesher.h"
+#include "WorldInstanceSink.h"
 
 namespace outshine {
+
+namespace Says {
+constexpr auto InstanceBudget = "generated instance count exceeds the prepared output budget";
+}
 
 namespace {
 
@@ -55,31 +60,6 @@ constexpr size_t kBaseSnapshotRows = 40;
 constexpr int kZoomMost = 24;
 
 constexpr double kEastStepDeg = 0.0138;
-
-class Instancing final : public Generators::DrawSink {
-public:
-  Instancing(std::vector<Surrounds::Standing> &into, const Generators::Tile &region)
-      : Into_(&into), Region_(&region) {}
-
-  [[nodiscard]] bool Add(Generators::BodyId body,
-                         Generators::ClusterId cluster,
-                         const Generators::Scattered &instance) noexcept override {
-    if (Full()) { return false; }
-    try {
-      Into_->push_back({.Body = body.Index(),
-                        .Cluster = static_cast<uint32_t>(cluster),
-                        .Where = WorldPlacement::From(*Region_, instance)});
-    } catch (...) { return false; }
-    return true;
-  }
-
-  [[nodiscard]] bool Full() const noexcept override { return Into_->size() >= kMostInstances; }
-
-private:
-  static constexpr size_t kMostInstances = 1u << 20u;
-  std::vector<Surrounds::Standing> *Into_;
-  const Generators::Tile *Region_;
-};
 
 }
 
@@ -174,10 +154,15 @@ bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail
                         std::span<Generators::Yield::Note>(notes[at].data(), notes[at].size()));
   }
   placing.Occupy(*over, std::span<Generators::Yield>(yields.data(), yields.size()));
+  size_t placed = 0;
   for (size_t at = 0; at < yields.size(); ++at) {
     const Generators::Yield &one = yields[at];
     const std::string_view called = placing.At(at).Called();
-    World.Placed += one.Placed().Count;
+    if (one.Placed().Count > kMaxGeneratedInstances - placed) {
+      Error = Says::InstanceBudget;
+      return false;
+    }
+    placed += one.Placed().Count;
     Published.Places(std::format("generators: {} placed", called),
                      static_cast<double>(one.Placed().Count),
                      "bodies");
@@ -201,16 +186,24 @@ bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail
       }
     }
   }
-  Published.Places("generators: bodies they placed", static_cast<double>(World.Placed), "bodies");
+  Published.Places("generators: bodies they placed", static_cast<double>(placed), "bodies");
   Published.Places(
       "generators: makers that were asked", static_cast<double>(placing.Count()), "makers");
-  if (World.Placed == 0) { return false; }
-  Instancing sink(World.Instances, region);
+  if (placed == 0) { return false; }
+  std::vector<WorldInstance> instances(placed);
+  WorldInstanceSink sink(instances, region);
   World.Shipping.Drawing().Draw(*over,
                                 placing,
                                 std::span<const Generators::Yield>(yields.data(), yields.size()),
                                 lease->Sink().Placed(),
                                 sink);
+  if (sink.Error()) {
+    Error = Says::InstanceBudget;
+    return false;
+  }
+  instances.resize(sink.Written());
+  World.Instances = std::move(instances);
+  World.Placed = placed;
   World.Instanced = World.Instances.size();
   return true;
 }
