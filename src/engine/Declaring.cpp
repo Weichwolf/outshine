@@ -21,8 +21,12 @@
 
 namespace outshine {
 
-Result Engine::handleEvent(const SDL_Event &event) {
-  if (!S_->Picture.Standing) { return std::unexpected(S_->Error); }
+namespace Says {
+constexpr auto kInputHostMissing = "a bound input action requires an offered host";
+}
+
+Holds<bool> Engine::handleEvent(const SDL_Event &event) {
+  if (!S_->Picture.Standing) { return false; }
   if (event.type == SDL_EVENT_MOUSE_WHEEL) {
     float xPx = 0.0f;
     float yPx = 0.0f;
@@ -31,14 +35,13 @@ Result Engine::handleEvent(const SDL_Event &event) {
                                          static_cast<double>(yPx),
                                          -static_cast<double>(event.wheel.y) *
                                              S_->Session.Declared.WheelStepPx,
-                                         S_->Error)
-               ? Result{}
-               : std::unexpected(S_->Error);
+                                         S_->Error);
   }
   if (S_->Session.Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
     std::array<Core::InputPump::Fired, 2> fired{};
     const size_t many = S_->Session.Pump.Translate(event, fired);
-    if (S_->Offered == nullptr) { return std::unexpected(S_->Error); }
+    if (many == 0) { return false; }
+    if (S_->Offered == nullptr) { return std::unexpected(Says::kInputHostMissing); }
     bool acted = false;
     for (size_t at = 0; at < many; ++at) {
       const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
@@ -47,14 +50,14 @@ Result Engine::handleEvent(const SDL_Event &event) {
           .Is = Argument::Kind::Number, .Number = static_cast<double>(fired[at].Value), .Text = {}};
       acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
     }
-    return acted ? Result{} : std::unexpected(S_->Error);
+    return acted;
   }
-  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return std::unexpected(S_->Error); }
+  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
 
   size_t surface = 0;
   const Ui::Touched found = S_->Picture.Standing->Under(
       static_cast<double>(event.button.x), static_cast<double>(event.button.y), surface);
-  if (!found.Held() || found.Action.empty()) { return std::unexpected(S_->Error); }
+  if (!found.Held() || found.Action.empty()) { return false; }
   const std::string &action = found.Action;
   if (S_->Offered == nullptr) {
     S_->Error = "a surface declares the call '" + action +
@@ -68,7 +71,7 @@ Result Engine::handleEvent(const SDL_Event &event) {
   if (!programme.Read(text, S_->Error)) { return std::unexpected(S_->Error); }
   ActionHostAdapter answering(S_->Offered);
   if (!programme.Run(answering, S_->Error)) { return std::unexpected(S_->Error); }
-  return answering.Fired() ? Result{} : std::unexpected(S_->Error);
+  return answering.Fired();
 }
 
 Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {

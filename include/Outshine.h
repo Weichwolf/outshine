@@ -193,8 +193,19 @@ public:
   /// Borrow a generator until Engine destruction. Registration retains its address and never
   /// takes ownership. Duplicate kind names retain the first registration.
   void offers(const Generators::Generator &maker);
+  /// Select an exact declared view identifier; camera application occurs during advance().
+  /// @param view Borrowed identifier, not retained. No case folding or fallback lookup.
+  /// @return Error for missing/unknown views, preserving the active selection; otherwise success.
+  /// Serialize with Engine calls. Following/terrain errors may occur later during advance().
   [[nodiscard]] Result setView(std::string_view view);
-  [[nodiscard]] Result handleEvent(const SDL_Event &event);
+  /// Dispatch a borrowed SDL event to declared input bindings or UI surfaces.
+  /// Call on the Engine/video thread. Host callbacks run synchronously and must not
+  /// reenter or destroy the Engine; input data is not retained beyond this call.
+  /// @param event Event supplied by the caller; this function does not poll the SDL queue.
+  /// @return True when an action fired or scrolling changed, false when unhandled,
+  /// or an owned processing error. No active scene is an unhandled event.
+  /// Processing can allocate and mutate UI/input state; failures do not roll it back.
+  [[nodiscard]] Holds<bool> handleEvent(const SDL_Event &event);
   /// Configure an offscreen target in physical pixels. Requires SDL_INIT_VIDEO and positive
   /// dimensions and no open frame. Borrowed facades retain their Engine identity.
   /// On failure, the previous target and extent remain configured. On success, the

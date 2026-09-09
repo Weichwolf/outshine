@@ -302,10 +302,11 @@ public:
     return Over_.Under(xPx, yPx, surface);
   }
 
-  [[nodiscard]] bool Wheeled(double xPx, double yPx, double byPx, std::string &error) {
+  [[nodiscard]] Holds<bool> Wheeled(double xPx, double yPx, double byPx, std::string &error) {
     bool again = false;
     Over_.Wheeled(xPx, yPx, byPx, again);
-    return !again || Compose(error);
+    if (again && !Compose(error)) { return std::unexpected(error); }
+    return again;
   }
 
   [[nodiscard]] const std::vector<std::vector<Ui::Layout::Scrolled>> &Scrolled() const {
