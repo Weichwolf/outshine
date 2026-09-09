@@ -86,3 +86,9 @@ Außerhalb der Mercator-Abdeckung Fehler statt Höhe einer geklemmten Ersatzposi
 Kosten ehrlich dokumentieren: At kann Tiles vorbereiten, ist keine reine
 Residency-Abfrage. API-Test trennt Eingabefehler von fehlender Welt, einschließlich
 Grenzen und ignorierter NaN-Höhe; Negativkontrolle gegen bisherigen Code.
+
+Diagnose-/Borrow-Verträge gegen Ledger, Session und Cost prüfen und dokumentieren:
+declaration/unacted/measures verleihen veränderliche Engine-Daten, keine Snapshots;
+standing ist nur Szenenobjekt-Präsenz. error ist Legacy-Diagnose, nicht zuverlässig
+das Ergebnis des letzten expected-Aufrufs. Sampling beschreibt gespeicherte
+CPU-Dauern, Reihenfolge, Überschreiben, Allokation und Threadbindung; kein GPU-Timer.
