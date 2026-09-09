@@ -97,3 +97,9 @@ Site hält einen typisierten Fehlerstatus; nach Fehler keine weiteren Dreiecke.
 Mesh verwirft den eigenen Anhang auch bei diesem Fehler. Extreme endliche Sockelhöhen
 müssen InvalidPlan liefern, vorherige Geometrie erhalten und denselben Scratch wieder
 verwendbar lassen. Float-/Normalen-Repräsentation und Arbeitsbudgets bleiben separat.
+
+CutPiece: zyklische Seitenklassifikation vom Polygonaufbau trennen. Genau zwei
+Vorzeichenwechsel erlauben einen zusammenhängenden Schnitt; Nullwerte überspringen,
+mehrere Ein-/Austritte ablehnen. Reine span-Funktion mit zyklisch rotierten Tests für
+Tangente, Schnitt durch Ecke und mehrere Intervalle prüfen. Das beweist nur die
+Schnittklassifikation; Flächenerhaltung und vollständige Clippingrobustheit bleiben offen.
