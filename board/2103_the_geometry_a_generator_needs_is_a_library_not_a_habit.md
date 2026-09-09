@@ -1,8 +1,9 @@
 Type: debt
-State: open
+State: active
 Area: base, generators
 Tags: architecture, owner
 Supersedes: 2116
+Parent: 2188
 
 # The geometry a generator needs is a LIBRARY, and each primitive stands once
 
@@ -62,3 +63,13 @@ four ring areas second. The header is named for what it holds: `Refine.h` become
 
 A shared primitive that moves a picture on landing. Then the two copies disagreed, and which one
 was right is looked at before either is kept.
+
+## BVH validation and refit
+
+TriangleBvh currently substitutes invalid indices with the origin, including refit.
+Keep its compact SAH hierarchy; separate primitive validation, partitioning and traversal.
+Reject malformed/nonfinite input before mutation; failed refit preserves triangles and bounds
+without per-frame allocation. Valid geometry must retain the same hits and heights.
+Reference: [PBRT BVH construction and SAH](https://pbr-book.org/4ed/Primitives_and_Intersection_Acceleration/Bounding_Volume_Hierarchies).
+Prove against analytic planes/rays, multi-leaf traversal, invalid indices and failed-refit
+rollback; negative controls must detect fabricated vertices and premature mutation.
