@@ -86,3 +86,8 @@ normalisieren, referenzierte Tabs/Zeilenumbrüche erhalten. Bestehende Offsets d
 Verkürzung innerhalb des Attributbereichs erhalten, keine rekursive Expansion.
 Writer schreibt Tab/CR/LF als Zeichenreferenzen. Unabhängige XML-Fälle neben dem
 Physik-Rundlauf; das ist kein Nachweis vollständiger XML-Konformität des Parsers.
+
+XML-Dekodierung verwendet einen wiederverwendeten Scratch-String pro Parse statt
+einer Allokation pro langem Attribut. Kapazität höchstens bisher größte Eingabe;
+Scratch lebt nur während Parse. Wiederverwendung muss alte Inhalte löschen und
+Referenz-/Normalisierungsfehler unverändert erkennen.
