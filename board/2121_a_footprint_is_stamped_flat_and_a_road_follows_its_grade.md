@@ -111,3 +111,8 @@ LayAligned vor Berechnung verlangen. Ungerade Listen dürfen keinen letzten Wert
 verschlucken; nichtendliche Koordinaten sind Refusal. Ablehnung erhält ReferenceLine.
 Gerade als Kontrollfall, alle Koordinatenpositionen mit NaN/Inf und ungerade Länge
 prüfen. Segment-/Bend-Konsistenz und Repräsentationsgrenzen bleiben separat offen.
+
+LayAligned: Spiral/Bogen/Spiral-Erzeugung von Anschlussprüfung trennen. Gleiche
+Segmentreihenfolge, Krümmungen und Längen erhalten; links/rechts abbiegende Trasse
+mit Endpose und geraden Anschlüssen prüfen. Fehlende Übergangsspirale muss ablehnen
+und vorhandene Linie erhalten. Kein Nachweis allgemeiner Fahrdynamik oder Knoten.
