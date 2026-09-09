@@ -66,6 +66,10 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
 - `assets/`: native Geometrie, Materialien, Texturen und Animationsdaten.
 - `import/`: GltfImporter ersetzt Loaded; Formatobjekte bleiben im Adapter.
 - `generation/`: Generatoren liefern dieselben nativen Assets und Weltinhalte.
+  Registry besitzt eindeutige, nichtleere Registrierungsnamen; Generatoren bleiben
+  explizit geliehen. Ungültige Shipped-Werte dürfen keinen Arrayzugriff auslösen.
+  writeGlb aus Generate.h in einen ausdrücklichen Formatadapter verlagern;
+  Exportfähigkeit erhalten und mit unabhängiger GLB-Abnahme prüfen.
 - `render/`: native Kamera mit lokaler Pose, Projektion und Belichtung; Renderer
   und Ausgabeziele. Szenario-Views besitzen den Modus FollowEntity/Local/Geodetic
   und geodätische Eingaben. Importheader benötigen keine Szenariodefinitionen.
