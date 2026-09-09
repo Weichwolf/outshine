@@ -76,6 +76,25 @@ int main() {
               output.RoofCorners.size() == complete.RoofCorners.size(),
           "scratch recovers after failure and reproduces complete mesh topology");
   }
+  for (size_t coordinate = 0; coordinate < ring.size(); ++coordinate) {
+    for (double sign : {-1.0, 1.0}) {
+      auto invalidRing = ring;
+      invalidRing[coordinate] = sign * (coordinate % 2 == 0 ? 91.0 : 181.0);
+      plan.RingLatLon = invalidRing;
+      scratch = mesher.Scratch();
+      Raised output = previous;
+      const size_t allocations = calls.load();
+      failAfter = 0;
+      const auto invalid = mesher.Mesh(plan, *scratch, output);
+      failAfter = -1;
+      CHECK(!invalid && invalid.error() == StructureMeshError::InvalidPlan,
+            "every out-of-domain geodetic coordinate is rejected before generation");
+      CHECK(calls.load() == allocations, "invalid coordinates require no allocation");
+      CHECK(output.WallRun == previous.WallRun && output.WallCorners.size() == 3 &&
+                output.RoofRun.empty() && output.RoofCorners.empty(),
+            "coordinate rejection preserves previous geometry");
+    }
+  }
   const std::array<double, 6> collapsed{47, 9, 47, 9, 47, 9};
   plan.RingLatLon = collapsed;
   const auto unsupported = mesher.Mesh(plan, *scratch, previous);

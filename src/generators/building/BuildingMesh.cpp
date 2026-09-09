@@ -49,6 +49,18 @@ constexpr double kLeastRiseM = 0.03;
 
 namespace {
 
+bool ValidFootprintCoordinates(std::span<const double> ring) {
+  constexpr double maxLatitudeDeg = 90.0;
+  constexpr double maxLongitudeDeg = 180.0;
+  if (ring.size() < 6 || ring.size() % 2 != 0) { return false; }
+  for (size_t at = 0; at < ring.size(); at += 2) {
+    if (!(std::abs(ring[at]) <= maxLatitudeDeg) || !(std::abs(ring[at + 1]) <= maxLongitudeDeg)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool FinitePlan(const StructurePlan &plan) {
   const std::array values{plan.BaseAslM,
                           plan.SeatAslM,
@@ -993,7 +1005,7 @@ std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
 
 std::expected<void, StructureMeshError>
 BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept {
-  if (plan.RingLatLon.size() < 6 || plan.RingLatLon.size() % 2 != 0 || !FinitePlan(plan)) {
+  if (!ValidFootprintCoordinates(plan.RingLatLon) || !FinitePlan(plan)) {
     return std::unexpected(StructureMeshError::InvalidPlan);
   }
   auto *buildingScratch = dynamic_cast<BuildingScratch *>(&lent);
