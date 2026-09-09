@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 namespace outshine::Core {
 
@@ -71,8 +72,6 @@ struct Resolved {
   return held;
 }
 
-constexpr float kAxisScale = 1.0f / 32767.0f;
-
 }
 
 bool InputPump::Open(const InputMap &declared) {
@@ -139,7 +138,10 @@ size_t InputPump::Translate(const SDL_Event &event, std::span<Fired, 2> out) con
         if (row.Axis == event.gaxis.axis) {
           return fire(row.Event,
                       InputMap::Kind::Axis,
-                      static_cast<float>(event.gaxis.value) * kAxisScale,
+                      static_cast<float>(event.gaxis.value) /
+                          (event.gaxis.value < 0
+                               ? -static_cast<float>(std::numeric_limits<Sint16>::min())
+                               : static_cast<float>(std::numeric_limits<Sint16>::max())),
                       0);
         }
       }
