@@ -37,8 +37,9 @@ ParseString akzeptiert unbekannte Escapes und rohe Steuerzeichen; fehlgeschlagen
 Dokumente geben Teilknoten frei. Grammatikphasen trennen, Escapes vor Decode prüfen,
 Referenzen nur für erfolgreich geparste Dokumente freigeben. Null-/übergroße Eingaben
 vor Kopie begrenzen. RFC-8259-Beispiele, ungültige Escapes/Separatoren/Zahlen und
-Parsefehler nach gültigem Präfix unabhängig prüfen. Unicode-Surrogatersatz und
-bestehende numerische Bereichspolitik separat behandeln, nicht still umdefinieren.
+Parsefehler nach gültigem Präfix unabhängig prüfen. Über-/Unterlauf von double
+ablehnen statt auf Höchstwert/null zu sättigen; darstellbare Subnormale, signed zero
+und Grenzwerte erhalten. Unicode-Surrogatersatz separat behandeln.
 Referenz: https://www.rfc-editor.org/rfc/rfc8259.html
 
 ## PNG-Höhendaten
