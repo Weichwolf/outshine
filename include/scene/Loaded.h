@@ -17,13 +17,24 @@ namespace outshine {
 /// Loading and pose evaluation may allocate and perform substantial CPU work; keep them
 /// outside the frame hot path. Serialize all access, including reads of borrowed data.
 /// Borrowed geometry/camera data expires on successful mutation, move or destruction.
+/// No platform-thread affinity; callers must serialize access. Except load(), frames(Extent),
+/// assignment and destruction, members require an object that has not been moved from.
 class Loaded {
 public:
+  /// Create an empty adapter with owned storage; may allocate. No filesystem or GPU access.
   Loaded();
+  /// Release imported data and invalidate all borrowed views; no GPU resources are owned.
   ~Loaded();
-  Loaded(Loaded &&) noexcept;
-  Loaded &operator=(Loaded &&) noexcept;
+  /// Transfer ownership without allocation; borrowed views must be reacquired from the destination.
+  /// @param other Source left empty; reusable through load() or assignment.
+  Loaded(Loaded &&other) noexcept;
+  /// Release previous data and transfer ownership without allocation; invalidates borrowed views.
+  /// @param other Source left empty; self-move is valid but leaves an unspecified state.
+  /// @return This adapter.
+  Loaded &operator=(Loaded &&other) noexcept;
+  /// Copying an owning import adapter is forbidden.
   Loaded(const Loaded &) = delete;
+  /// Copy assignment is forbidden; explicitly load another adapter instead.
   Loaded &operator=(const Loaded &) = delete;
 
   /// Load and convert a complete asset before replacing the current one.
@@ -33,9 +44,20 @@ public:
   /// and animation selections. Performs blocking IO and allocation; no path is borrowed.
   /// A moved-from adapter may be reused by loading a new asset.
   [[nodiscard]] std::expected<void, std::string> load(std::string_view path);
+  /// Select a named material variant and rebuild the currently selected clips at time zero.
+  /// @param variant Exact, case-sensitive imported name; copied, never retained as a view.
+  /// @return False with error() for an unknown name or conversion failure. Unknown names leave
+  /// the selection and snapshot unchanged; conversion failure may leave partially rebuilt data.
+  /// May allocate and decode textures. Success does not clear an earlier diagnostic.
   [[nodiscard]] bool wears(std::string_view variant);
+  /// Read the last recorded diagnostic without allocation; not an independent success indicator.
+  /// @return Borrowed diagnostic, possibly stale after successful wears()/poses(); copy if needed
+  /// beyond the next mutation, move or destruction. Successful load()/plays() clears it.
   [[nodiscard]] const std::string &error() const;
 
+  /// Read the latest native snapshot without copying or allocating; empty before first load.
+  /// @return Borrowed geometry in native metres, right-handed Y-up coordinates.
+  /// Mutation can replace its backing buffers; retain an owned copy for independent lifetime.
   [[nodiscard]] const Geometry &geometry() const;
 
   /// Select clips by zero-based import index and evaluate their combined pose at time zero.
@@ -46,7 +68,11 @@ public:
   /// Rebuilds CPU geometry and materials and may allocate; serialize with all adapter access.
   /// Requires an adapter that has not been moved from. Success clears error().
   [[nodiscard]] std::expected<void, std::string> plays(std::span<const int> animations);
+  /// @return Number of imported clip definitions, independent of the active selection.
+  /// Constant-time, no allocation; zero for an empty adapter.
   [[nodiscard]] int animations() const;
+  /// @return Last key time in seconds across active clips, or zero when animation is disabled.
+  /// Absolute timeline end, not end minus first key time. Constant-time, no allocation.
   [[nodiscard]] double durationS() const;
   /// Evaluate selected animation clips at an absolute time in seconds, without advancing a clock.
   /// Samples geometry, camera nodes and supported material factors together: base colour,
@@ -56,11 +82,14 @@ public:
   /// Rebuilds CPU geometry and materials, with allocation; serialize with all adapter access.
   [[nodiscard]] bool poses(double seconds);
 
-  /// Whether camera zero has an unambiguous, noncollapsed placement in the current pose.
+  /// @return Whether camera zero has an unambiguous, noncollapsed placement in the current pose.
+  /// Constant-time, no allocation; false for an empty adapter.
   [[nodiscard]] bool carriesCamera() const;
   /// Borrow camera zero at the current pose; requires carriesCamera(). No allocation.
+  /// @return Native camera view, invalidated by mutation, move or destruction.
   [[nodiscard]] const Scenario::Camera &camera() const;
-  /// Number of camera definitions, including definitions without a node placement.
+  /// @return Number of camera definitions, including definitions without a node placement.
+  /// Constant-time, no allocation; zero for an empty adapter.
   [[nodiscard]] int cameras() const;
   /// Resolve a camera using the current sampled node transforms and its authored projection.
   /// @param index Zero-based camera definition index.
@@ -76,13 +105,10 @@ public:
   };
   /// Derive an owned perspective camera for the transformed scene bounds, in metres.
   /// Uses both viewport axes, a five-percent framing margin and bounds-derived depth planes.
-  /// Does not mutate the asset or retain viewport data. Serialize with load/poses/wears.
+  /// Does not allocate, mutate the asset or retain viewport data. Serialize with mutation.
   /// @param viewport Positive dimensions in physical pixels; only their ratio affects framing.
   /// @return Camera looking at the bounds centre, or a typed viewport/bounds error.
   [[nodiscard]] std::expected<Scenario::Camera, FrameError> frames(Extent viewport) const noexcept;
-
-  [[nodiscard]] bool frames(double fill, Scenario::Camera &out) const;
-  [[nodiscard]] bool frames(Scenario::Camera &out) const;
 
 private:
   struct Held;

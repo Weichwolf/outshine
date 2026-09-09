@@ -324,17 +324,6 @@ std::expected<Scenario::Camera, Loaded::FrameError> Loaded::frames(Extent viewpo
   return camera;
 }
 
-bool Loaded::frames(double fill, Scenario::Camera &out) const {
-  Render::Viewpoint fitted;
-  if (!Held_->Assembled.Frame(fitted, fill)) { return false; }
-  Render::CameraOf(fitted, out);
-  return true;
-}
-
-bool Loaded::frames(Scenario::Camera &out) const {
-  return frames(Render::kFramingFill, out);
-}
-
 const Scenario::Camera &Loaded::camera() const {
   return Held_->Eye;
 }

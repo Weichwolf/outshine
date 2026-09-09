@@ -15,6 +15,8 @@ Direkter render-Befehl im Ausbau: öffentlicher Loader → nativer Snapshot → 
 Explizite Zeit bleibt beim temporalen Render-Settling eingefroren; run bleibt separat.
 Loaded und Engine beherrschen Import, Kameras, Materialien und PNG bereits.
 Auto-Framing berücksichtigt beide Viewport-Achsen und prüft endliche Bounds.
+Die unbenutzten quadratischen Legacy-Überladungen entfallen; nur der Viewport-Vertrag
+bleibt öffentlich. Loader-Verträge einschließlich Move/Fehler/Lebensdauer dokumentieren.
 
 Harness konsolidieren: Vorbereitung, öffentliche Ausführung und unabhängige Auswertung
 trennen. Render-Abnahmen ohne interne Engine-Typen; API-Tests nur für API-Verträge.
