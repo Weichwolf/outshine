@@ -74,6 +74,8 @@ BuildAudioOcclusion(const Geometry &geometry,
   }
   const auto appended = Append(groundPositionsM, groundIndices, Mat4{}, corners, faces);
   if (!appended) { return std::unexpected(appended.error()); }
-  return TriangleBvh::Over(corners, faces);
+  auto hierarchy = TriangleBvh::Over(corners, faces);
+  if (!faces.empty() && hierarchy.Empty()) { return std::unexpected(Says::kInvalidPosition); }
+  return hierarchy;
 }
 }

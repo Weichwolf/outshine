@@ -27,6 +27,123 @@ constexpr uint32_t kMaxLeafTriangles = (1u << kMaxLeafBits) - 1u;
 
 using Box = Boxf;
 
+struct RayInterval {
+  float NearM;
+  float FarM;
+};
+
+struct PrimitiveBounds {
+  Box Triangles;
+  Box Centroids;
+};
+
+[[nodiscard]] Vec3f VertexAt(std::span<const float> positions, uint32_t index) noexcept {
+  const size_t first = static_cast<size_t>(index) * 3;
+  return {{positions[first], positions[first + 1], positions[first + 2]}};
+}
+
+[[nodiscard]] BvhTriangle TriangleAt(std::span<const float> positions,
+                                     std::span<const uint32_t> indices,
+                                     size_t first) noexcept {
+  const Vec3f origin = VertexAt(positions, indices[first]);
+  return {.V0 = origin,
+          .E1 = VertexAt(positions, indices[first + 1]) - origin,
+          .E2 = VertexAt(positions, indices[first + 2]) - origin};
+}
+
+[[nodiscard]] bool ValidGeometry(std::span<const float> positions,
+                                 std::span<const uint32_t> indices) noexcept {
+  if (positions.size() % 3 != 0 || indices.size() % 3 != 0) { return false; }
+  if (!std::ranges::all_of(positions, [](float value) { return std::isfinite(value); })) {
+    return false;
+  }
+  const size_t vertices = positions.size() / 3;
+  if (!std::ranges::all_of(indices, [vertices](uint32_t index) { return index < vertices; })) {
+    return false;
+  }
+  for (size_t first = 0; first < indices.size(); first += 3) {
+    const BvhTriangle triangle = TriangleAt(positions, indices, first);
+    for (size_t axis = 0; axis < 3; ++axis) {
+      if (!std::isfinite(triangle.E1[axis]) || !std::isfinite(triangle.E2[axis]) ||
+          !std::isfinite(triangle.V0[axis] + triangle.E1[axis]) ||
+          !std::isfinite(triangle.V0[axis] + triangle.E2[axis])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+void UpdateNodeBounds(std::span<BvhNode> nodes,
+                      std::span<const BvhTriangle> triangles,
+                      size_t index) {
+  BvhNode &node = nodes[index];
+  Box bounds;
+  if (node.IsLeaf()) {
+    for (uint32_t which = 0; which < node.TriangleCount(); ++which) {
+      const BvhTriangle &triangle = triangles[node.FirstTriangle() + which];
+      bounds.Cover(triangle.V0);
+      bounds.Cover(triangle.V0 + triangle.E1);
+      bounds.Cover(triangle.V0 + triangle.E2);
+    }
+  } else {
+    const size_t left = index + 1;
+    const uint32_t right = nodes[left].Escape;
+    bounds.Cover(nodes[left].MinM);
+    bounds.Cover(nodes[left].MaxM);
+    if (right != kBvhNoEscape && right < nodes.size()) {
+      bounds.Cover(nodes[right].MinM);
+      bounds.Cover(nodes[right].MaxM);
+    }
+  }
+  node.MinM = bounds.Min;
+  node.MaxM = bounds.Max;
+}
+
+[[nodiscard]] bool
+IntersectsTriangle(const BvhTriangle &tri, const Ray &ray, RayInterval interval) noexcept {
+  const Vec3f &originM = ray.OriginM;
+  const Vec3f &direction = ray.Toward;
+  const Vec3f pvec = {{direction[1] * tri.E2[2] - direction[2] * tri.E2[1],
+                       direction[2] * tri.E2[0] - direction[0] * tri.E2[2],
+                       direction[0] * tri.E2[1] - direction[1] * tri.E2[0]}};
+  const float determinant = tri.E1[0] * pvec[0] + tri.E1[1] * pvec[1] + tri.E1[2] * pvec[2];
+  if (std::fabs(determinant) < kParallelRay) { return false; }
+  const float reciprocal = 1.0f / determinant;
+  const Vec3f tvec = {{originM[0] - tri.V0[0], originM[1] - tri.V0[1], originM[2] - tri.V0[2]}};
+  const float u = (tvec[0] * pvec[0] + tvec[1] * pvec[1] + tvec[2] * pvec[2]) * reciprocal;
+  if (u < 0.0f || u > 1.0f) { return false; }
+  const Vec3f qvec = {{tvec[1] * tri.E1[2] - tvec[2] * tri.E1[1],
+                       tvec[2] * tri.E1[0] - tvec[0] * tri.E1[2],
+                       tvec[0] * tri.E1[1] - tvec[1] * tri.E1[0]}};
+  const float v =
+      (direction[0] * qvec[0] + direction[1] * qvec[1] + direction[2] * qvec[2]) * reciprocal;
+  if (v < 0.0f || u + v > 1.0f) { return false; }
+  const float hit = (tri.E2[0] * qvec[0] + tri.E2[1] * qvec[1] + tri.E2[2] * qvec[2]) * reciprocal;
+  return hit > interval.NearM && hit < interval.FarM;
+}
+
+[[nodiscard]] bool
+IntersectsBounds(const BvhNode &node, const Ray &ray, RayInterval interval) noexcept {
+  double enter = interval.NearM;
+  double leave = interval.FarM;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    if (ray.Toward[axis] == 0.0f) {
+      if (ray.OriginM[axis] < node.MinM[axis] || ray.OriginM[axis] > node.MaxM[axis]) {
+        return false;
+      }
+      continue;
+    }
+    const double inverse = 1.0 / ray.Toward[axis];
+    const double first = (static_cast<double>(node.MinM[axis]) - ray.OriginM[axis]) * inverse;
+    const double second = (static_cast<double>(node.MaxM[axis]) - ray.OriginM[axis]) * inverse;
+    enter = std::max(enter, std::min(first, second));
+    leave = std::min(leave, std::max(first, second));
+    if (enter > leave) { return false; }
+  }
+  return true;
+}
+
 struct Building {
   std::vector<Box> Bounds;
   std::vector<Vec3f> Centroids;
@@ -37,84 +154,93 @@ struct Building {
   uint32_t Depth = 0;
 };
 
+[[nodiscard]] uint32_t PartitionBySurfaceArea(Building &work,
+                                              uint32_t first,
+                                              uint32_t count,
+                                              const PrimitiveBounds &bounds) {
+  const Box &box = bounds.Triangles;
+  const Box &centroidBox = bounds.Centroids;
+  uint32_t split = 0;
+  int axis = 0;
+  float widest = centroidBox.Max[0] - centroidBox.Min[0];
+  for (int candidate = 1; candidate < 3; ++candidate) {
+    const float width = centroidBox.Max[candidate] - centroidBox.Min[candidate];
+    if (width > widest) {
+      widest = width;
+      axis = candidate;
+    }
+  }
+  if (widest > 0.0f && std::isfinite(widest)) {
+    const double scale = static_cast<double>(kBins) / widest;
+    std::array<Box, kBins> binBox{};
+    std::array<uint32_t, kBins> binCount = {{}};
+    const auto BinOf = [&](uint32_t tri) {
+      const double offset = static_cast<double>(work.Centroids[tri][static_cast<size_t>(axis)]) -
+                            centroidBox.Min[axis];
+      const int at = static_cast<int>(offset * scale);
+      return std::min(std::max(at, 0), kBins - 1);
+    };
+    for (uint32_t at = 0; at < count; ++at) {
+      const uint32_t tri = work.Order[first + at];
+      const int bin = BinOf(tri);
+      binBox[bin].Cover(work.Bounds[tri]);
+      ++binCount[bin];
+    }
+
+    std::array<float, kBins - 1> leftCost = {};
+    std::array<float, kBins - 1> rightCost = {};
+    Box sweep;
+    uint32_t running = 0;
+    for (int bin = 0; bin < kBins - 1; ++bin) {
+      sweep.Cover(binBox[bin]);
+      running += binCount[bin];
+      leftCost[bin] = sweep.HalfArea() * static_cast<float>(running);
+    }
+    sweep = Box();
+    running = 0;
+    for (int bin = kBins - 1; bin > 0; --bin) {
+      sweep.Cover(binBox[bin]);
+      running += binCount[bin];
+      rightCost[bin - 1] = sweep.HalfArea() * static_cast<float>(running);
+    }
+    int bestPlane = -1;
+    float bestCost = std::numeric_limits<float>::infinity();
+    for (int bin = 0; bin < kBins - 1; ++bin) {
+      const float cost = leftCost[bin] + rightCost[bin];
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestPlane = bin;
+      }
+    }
+
+    const float leafCost = box.HalfArea() * static_cast<float>(count);
+    if (bestPlane >= 0 && bestCost + box.HalfArea() < leafCost) {
+      const auto middle = std::partition(work.Order.begin() + first,
+                                         work.Order.begin() + first + count,
+                                         [&](uint32_t tri) { return BinOf(tri) <= bestPlane; });
+      split = static_cast<uint32_t>(middle - (work.Order.begin() + first));
+    }
+  }
+  return split;
+}
+
 uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
   const auto here = static_cast<uint32_t>(work.Nodes.size());
   work.Nodes.emplace_back();
   work.Right.push_back(0);
   work.Depth = std::max(work.Depth, depth + 1u);
 
-  Box box;
-  Box centroidBox;
+  PrimitiveBounds bounds;
   for (uint32_t at = 0; at < count; ++at) {
     const uint32_t tri = work.Order[first + at];
-    box.Cover(work.Bounds[tri]);
-    centroidBox.Cover(work.Centroids[tri]);
+    bounds.Triangles.Cover(work.Bounds[tri]);
+    bounds.Centroids.Cover(work.Centroids[tri]);
   }
 
   const auto MakeLeaf = [&] { work.Nodes[here].Leaf = (count << kBvhLeafFirstBits) | first; };
 
-  uint32_t split = 0;
-  if (count > kBvhLeafTriangles) {
-    int axis = 0;
-    float widest = centroidBox.Max[0] - centroidBox.Min[0];
-    for (int candidate = 1; candidate < 3; ++candidate) {
-      const float width = centroidBox.Max[candidate] - centroidBox.Min[candidate];
-      if (width > widest) {
-        widest = width;
-        axis = candidate;
-      }
-    }
-    if (widest > 0.0f) {
-      const float scale = static_cast<float>(kBins) / widest;
-      std::array<Box, kBins> binBox{};
-      std::array<uint32_t, kBins> binCount = {{}};
-      const auto BinOf = [&](uint32_t tri) {
-        const float offset = work.Centroids[tri][static_cast<size_t>(axis)] - centroidBox.Min[axis];
-        const int at = static_cast<int>(offset * scale);
-        return std::min(std::max(at, 0), kBins - 1);
-      };
-      for (uint32_t at = 0; at < count; ++at) {
-        const uint32_t tri = work.Order[first + at];
-        const int bin = BinOf(tri);
-        binBox[bin].Cover(work.Bounds[tri]);
-        ++binCount[bin];
-      }
-
-      std::array<float, kBins - 1> leftCost = {};
-      std::array<float, kBins - 1> rightCost = {};
-      Box sweep;
-      uint32_t running = 0;
-      for (int bin = 0; bin < kBins - 1; ++bin) {
-        sweep.Cover(binBox[bin]);
-        running += binCount[bin];
-        leftCost[bin] = sweep.HalfArea() * static_cast<float>(running);
-      }
-      sweep = Box();
-      running = 0;
-      for (int bin = kBins - 1; bin > 0; --bin) {
-        sweep.Cover(binBox[bin]);
-        running += binCount[bin];
-        rightCost[bin - 1] = sweep.HalfArea() * static_cast<float>(running);
-      }
-      int bestPlane = -1;
-      float bestCost = std::numeric_limits<float>::infinity();
-      for (int bin = 0; bin < kBins - 1; ++bin) {
-        const float cost = leftCost[bin] + rightCost[bin];
-        if (cost < bestCost) {
-          bestCost = cost;
-          bestPlane = bin;
-        }
-      }
-
-      const float leafCost = box.HalfArea() * static_cast<float>(count);
-      if (bestPlane >= 0 && bestCost + box.HalfArea() < leafCost) {
-        const auto middle = std::partition(work.Order.begin() + first,
-                                           work.Order.begin() + first + count,
-                                           [&](uint32_t tri) { return BinOf(tri) <= bestPlane; });
-        split = static_cast<uint32_t>(middle - (work.Order.begin() + first));
-      }
-    }
-  }
+  uint32_t split =
+      count > kBvhLeafTriangles ? PartitionBySurfaceArea(work, first, count, bounds) : 0;
 
   if (split == 0 || split == count) {
     if (count <= kMaxLeafTriangles) {
@@ -131,8 +257,8 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
     work.Right[here] = right;
   }
 
-  work.Nodes[here].MinM = box.Min;
-  work.Nodes[here].MaxM = box.Max;
+  work.Nodes[here].MinM = bounds.Triangles.Min;
+  work.Nodes[here].MaxM = bounds.Triangles.Max;
   return here;
 }
 
@@ -150,28 +276,18 @@ TriangleBvh TriangleBvh::Over(std::span<const float> positionsM,
   TriangleBvh built;
   const size_t triangles = indices.size() / 3u;
   if (triangles == 0 || indices.size() % 3u != 0 || triangles > kBvhLeafFirstMask) { return built; }
-  const size_t vertices = positionsM.size() / 3u;
-
+  if (!ValidGeometry(positionsM, indices)) { return built; }
   Building work;
   work.Bounds.resize(triangles);
   work.Centroids.resize(triangles);
   work.Order.resize(triangles);
   built.Tris_.resize(triangles);
-
   for (size_t tri = 0; tri < triangles; ++tri) {
     work.Order[tri] = static_cast<uint32_t>(tri);
-    for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      const uint32_t vertex = indices[tri * 3u + static_cast<size_t>(corner_at)];
-      Vec3f corner;
-      for (int axis = 0; axis < 3; ++axis) {
-        corner[static_cast<size_t>(axis)] =
-            vertex < vertices
-                ? positionsM[static_cast<size_t>(vertex) * 3u + static_cast<size_t>(axis)]
-                : 0.0f;
-      }
-      work.Bounds[tri].Cover(corner);
+    for (size_t corner = 0; corner < 3; ++corner) {
+      work.Bounds[tri].Cover(VertexAt(positionsM, indices[tri * 3 + corner]));
     }
-    work.Centroids[tri] = (work.Bounds[tri].Min + work.Bounds[tri].Max) * 0.5f;
+    work.Centroids[tri] = work.Bounds[tri].Min * 0.5f + work.Bounds[tri].Max * 0.5f;
   }
 
   work.Nodes.reserve(triangles * 2u);
@@ -180,24 +296,7 @@ TriangleBvh TriangleBvh::Over(std::span<const float> positionsM,
   Thread(work, 0, kBvhNoEscape);
 
   for (size_t at = 0; at < triangles; ++at) {
-    const uint32_t tri = work.Order[at];
-    std::array<std::array<float, 3>, 3> corner;
-    for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      const uint32_t vertex =
-          indices[static_cast<size_t>(tri) * 3u + static_cast<size_t>(corner_at)];
-      for (int axis = 0; axis < 3; ++axis) {
-        corner[corner_at][axis] =
-            vertex < vertices
-                ? positionsM[static_cast<size_t>(vertex) * 3u + static_cast<size_t>(axis)]
-                : 0.0f;
-      }
-    }
-    BvhTriangle &out = built.Tris_[at];
-    for (int axis = 0; axis < 3; ++axis) {
-      out.V0[axis] = corner[0][axis];
-      out.E1[axis] = corner[1][axis] - corner[0][axis];
-      out.E2[axis] = corner[2][axis] - corner[0][axis];
-    }
+    built.Tris_[at] = TriangleAt(positionsM, indices, static_cast<size_t>(work.Order[at]) * 3);
   }
 
   built.Corners_.resize(triangles * 3u);
@@ -215,64 +314,12 @@ TriangleBvh TriangleBvh::Over(std::span<const float> positionsM,
 
 bool TriangleBvh::Refit(std::span<const float> positionsM) {
   if (Nodes_.empty() || Corners_.size() != Tris_.size() * 3u) { return false; }
-  const size_t vertices = positionsM.size() / 3u;
-
+  if (!ValidGeometry(positionsM, Corners_)) { return false; }
   for (size_t at = 0; at < Tris_.size(); ++at) {
-    std::array<std::array<float, 3>, 3> corner;
-    for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      const uint32_t vertex = Corners_[at * 3u + static_cast<size_t>(corner_at)];
-      for (int axis = 0; axis < 3; ++axis) {
-        corner[corner_at][axis] =
-            vertex < vertices
-                ? positionsM[static_cast<size_t>(vertex) * 3u + static_cast<size_t>(axis)]
-                : 0.0f;
-      }
-    }
-    BvhTriangle &out = Tris_[at];
-    for (int axis = 0; axis < 3; ++axis) {
-      out.V0[axis] = corner[0][axis];
-      out.E1[axis] = corner[1][axis] - corner[0][axis];
-      out.E2[axis] = corner[2][axis] - corner[0][axis];
-    }
+    Tris_[at] = TriangleAt(positionsM, Corners_, at * 3);
   }
+  for (size_t at = Nodes_.size(); at > 0; --at) { UpdateNodeBounds(Nodes_, Tris_, at - 1); }
 
-  for (size_t at = Nodes_.size(); at > 0; --at) {
-    BvhNode &node = Nodes_[at - 1];
-    Vec3f least;
-    Vec3f most;
-    bool began = false;
-    const auto widen = [&least, &most, &began](const Vec3f &point) {
-      for (int axis = 0; axis < 3; ++axis) {
-        least[axis] = began ? std::min(point[axis], least[axis]) : point[axis];
-        most[axis] = began ? std::max(point[axis], most[axis]) : point[axis];
-      }
-      began = true;
-    };
-    if (node.IsLeaf()) {
-      const uint32_t first = node.FirstTriangle();
-      const uint32_t count = node.TriangleCount();
-      for (uint32_t which = 0; which < count; ++which) {
-        const BvhTriangle &tri = Tris_[static_cast<size_t>(first) + which];
-        widen(tri.V0);
-        widen(tri.V0 + tri.E1);
-        widen(tri.V0 + tri.E2);
-      }
-    } else {
-      const size_t left = at;
-      const uint32_t right = Nodes_[left].Escape;
-      widen(Nodes_[left].MinM);
-      widen(Nodes_[left].MaxM);
-      if (right != kBvhNoEscape && static_cast<size_t>(right) < Nodes_.size()) {
-        widen(Nodes_[right].MinM);
-        widen(Nodes_[right].MaxM);
-      }
-    }
-    if (!began) { continue; }
-    for (int axis = 0; axis < 3; ++axis) {
-      node.MinM[axis] = least[axis];
-      node.MaxM[axis] = most[axis];
-    }
-  }
   return true;
 }
 
@@ -320,54 +367,29 @@ std::optional<float> TriangleBvh::Under(float eastM, float southM) const {
 }
 
 bool TriangleBvh::Occludes(const Ray &along, float nearM, float distanceM) const {
-  if (Nodes_.empty()) { return false; }
-  const Vec3f &originM = along.OriginM;
-  const Vec3f &direction = along.Toward;
-  Vec3f inverse;
-  for (int axis = 0; axis < 3; ++axis) { inverse[axis] = 1.0f / direction[axis]; }
-
+  if (Nodes_.empty() || !std::isfinite(nearM) || nearM < 0 || !(distanceM > nearM)) {
+    return false;
+  }
+  bool directed = false;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(along.OriginM[axis]) || !std::isfinite(along.Toward[axis])) { return false; }
+    directed = directed || along.Toward[axis] != 0.0f;
+  }
+  if (!directed) { return false; }
+  const RayInterval interval{.NearM = nearM, .FarM = distanceM};
   uint32_t at = 0;
   while (at != kBvhNoEscape) {
     const BvhNode &node = Nodes_[at];
-    float enter = nearM;
-    float leave = distanceM;
-    for (int axis = 0; axis < 3; ++axis) {
-      const float first = (node.MinM[axis] - originM[axis]) * inverse[axis];
-      const float second = (node.MaxM[axis] - originM[axis]) * inverse[axis];
-      enter = std::max(enter, std::min(first, second));
-      leave = std::min(leave, std::max(first, second));
-    }
-    if (enter > leave) {
+    if (!IntersectsBounds(node, along, interval)) {
       at = node.Escape;
       continue;
     }
     if (!node.IsLeaf()) {
-      at = at + 1u;
+      ++at;
       continue;
     }
-    const uint32_t first = node.FirstTriangle();
-    const uint32_t count = node.TriangleCount();
-    for (uint32_t which = 0; which < count; ++which) {
-      const BvhTriangle &tri = Tris_[first + which];
-
-      const Vec3f pvec = {{direction[1] * tri.E2[2] - direction[2] * tri.E2[1],
-                           direction[2] * tri.E2[0] - direction[0] * tri.E2[2],
-                           direction[0] * tri.E2[1] - direction[1] * tri.E2[0]}};
-      const float determinant = tri.E1[0] * pvec[0] + tri.E1[1] * pvec[1] + tri.E1[2] * pvec[2];
-      if (std::fabs(determinant) < kParallelRay) { continue; }
-      const float reciprocal = 1.0f / determinant;
-      const Vec3f tvec = {{originM[0] - tri.V0[0], originM[1] - tri.V0[1], originM[2] - tri.V0[2]}};
-      const float u = (tvec[0] * pvec[0] + tvec[1] * pvec[1] + tvec[2] * pvec[2]) * reciprocal;
-      if (u < 0.0f || u > 1.0f) { continue; }
-      const Vec3f qvec = {{tvec[1] * tri.E1[2] - tvec[2] * tri.E1[1],
-                           tvec[2] * tri.E1[0] - tvec[0] * tri.E1[2],
-                           tvec[0] * tri.E1[1] - tvec[1] * tri.E1[0]}};
-      const float v =
-          (direction[0] * qvec[0] + direction[1] * qvec[1] + direction[2] * qvec[2]) * reciprocal;
-      if (v < 0.0f || u + v > 1.0f) { continue; }
-      const float hit =
-          (tri.E2[0] * qvec[0] + tri.E2[1] * qvec[1] + tri.E2[2] * qvec[2]) * reciprocal;
-      if (hit > nearM && hit < distanceM) { return true; }
+    for (uint32_t which = 0; which < node.TriangleCount(); ++which) {
+      if (IntersectsTriangle(Tris_[node.FirstTriangle() + which], along, interval)) { return true; }
     }
     at = node.Escape;
   }
