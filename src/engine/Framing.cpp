@@ -36,25 +36,42 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kAudioDeclarationRequired = "declare content before preparing audio";
+constexpr auto kAudioPreparationRequired = "prepare audio before mixing";
 constexpr auto kInvalidFrameExtent =
     "frame extent must be zero in both dimensions or positive in both";
 }
 
-Result Engine::mix(std::span<float> stereo, int rate) {
-  if (!S_->Session.Mixing) {
-    auto setup =
-        S_->Session.Sounding.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, rate);
-    if (!setup) {
-      S_->Error = setup.error();
-      return setup;
-    }
-    S_->Session.Mixing = true;
+Result Engine::prepareAudio(int sampleRateHz) {
+  if (!S_->Session.Taken) {
+    S_->Error = Says::kAudioDeclarationRequired;
+    return std::unexpected(S_->Error);
+  }
+  Audio::Mixer candidate;
+  auto setup =
+      candidate.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, sampleRateHz);
+  if (!setup) {
+    S_->Error = setup.error();
+    return setup;
+  }
+  S_->PublishAudioSnapshot();
+  S_->Session.Sounding.emplace(std::move(candidate));
+  S_->Error.clear();
+  return {};
+}
+
+Result Engine::mix(std::span<float> stereo) {
+  if (!S_->Session.Sounding) {
+    S_->Error = Says::kAudioPreparationRequired;
+    return std::unexpected(S_->Error);
   }
   const unsigned told = S_->Session.Told.load(std::memory_order_acquire);
-  return S_->Session.Sounding.Fills(
-             stereo, S_->Session.Sources[told], S_->Session.Ear[told], S_->Error)
-             ? Result{}
-             : std::unexpected(S_->Error);
+  if (!S_->Session.Sounding->Fills(
+          stereo, S_->Session.Sources[told], S_->Session.Ear[told], S_->Error)) {
+    return std::unexpected(S_->Error);
+  }
+  S_->Error.clear();
+  return {};
 }
 
 bool Engine::render(Extent frame) {

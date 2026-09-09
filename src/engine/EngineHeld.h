@@ -248,8 +248,7 @@ struct Kept {
   std::optional<TriggerField> Volumes;
   size_t Fired = 0;
   std::optional<TableBook> Tabled;
-  Audio::Mixer Sounding;
-  bool Mixing = false;
+  std::optional<Audio::Mixer> Sounding;
   std::array<std::vector<Audio::Heard>, 2> Sources;
   std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};
@@ -439,6 +438,7 @@ struct Engine::State {
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();
+  void PublishAudioSnapshot();
   [[nodiscard]] bool IsAudioOccluded(const Vec3 &sourceM) const;
   [[nodiscard]] bool Routes();
 };

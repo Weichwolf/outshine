@@ -211,7 +211,25 @@ public:
   /// Source DEM height above mean sea level, in metres; not ellipsoidal height.
   /// The input height is ignored. A datum conversion is required before geodetic placement.
   [[nodiscard]] Holds<double> sampleHeight(const LongitudeLatitudeHeight &at) const;
-  [[nodiscard]] Result mix(std::span<float> stereo, int rate);
+  /// Prepare the current declared audio scene at a positive sample rate in Hz.
+  /// Call after declaring/assembling content and before starting audio output. This call
+  /// allocates and validates DSP state; it needs no SDL audio device or render target.
+  /// Success resets oscillator/filter/delay state and publishes an initial source snapshot.
+  /// Failure preserves the previous prepared mixer. Replacing the declaration invalidates it.
+  /// Serialize this call with all Engine operations, including mix(); no callback may overlap.
+  /// @param sampleRateHz Output frames per second, normally negotiated with the audio device.
+  /// @return Success or an owned error for missing declaration, invalid data or exceeded budgets.
+  [[nodiscard]] Result prepareAudio(int sampleRateHz);
+
+  /// Fill borrowed interleaved left/right float PCM at the prepared sample rate.
+  /// Requires successful prepareAudio() for the current declaration. Does not retain the span.
+  /// Success overwrites all samples with unclipped linear PCM and advances DSP state; an empty
+  /// span advances nothing. Valid prepared calls use bounded scratch without heap allocation.
+  /// Unprepared calls and odd sample counts fail before changing samples or DSP state; error
+  /// construction may allocate. Serialize with all Engine calls; no concurrent callback API.
+  /// @param stereo Writable buffer containing an even number of samples (two per frame).
+  /// @return Success or an owned preparation/buffer error; never performs implicit setup.
+  [[nodiscard]] Result mix(std::span<float> stereo);
 
   [[nodiscard]] Result readScenario(std::string_view path);
 

@@ -30,6 +30,9 @@ Immutable Snapshots/Deltas mit Generation, Frameursprung, Simulationszeit und Be
 Begrenzte Queue mit expliziter Backpressure; kein Überschreiben noch gelesener Puffer.
 Rendern des letzten vollständigen Snapshots; Ressourcenänderungen atomar mit ihm.
 Audio-Callback ohne Allokation/Blockierung, konsistenter Snapshot und sicherer Rückgabe.
+Physikereignisse mit Simulationszeit auf die Audio-Samplezeit abbilden; Geräte-/
+Pufferlatenz und Präsentationszeit messen. Kein pauschaler Ein-Frame-Vorlauf für Ton;
+Scheduler-Jitter und Blockgrößenwechsel dürfen Ereigniszeitpunkte nicht verschieben.
 Fixed-Step-Simulation mit begrenztem Nachholen; Renderinterpolation und Zeitverzug
 explizit messen. Keine Hardware-Kernreservierung ohne Messung und Plattformgarantie.
 

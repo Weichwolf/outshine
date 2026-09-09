@@ -310,6 +310,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     }
     S_->Picture.Shown = std::move(declared);
     S_->Session.Declared = scenario;
+    S_->Session.Sounding.reset();
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
     return {};
@@ -325,6 +326,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Picture.Shown = declared;
   if (!S_->Picture.Targeted) {
     S_->Session.Declared = scenario;
+    S_->Session.Sounding.reset();
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
@@ -345,6 +347,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::unexpected(S_->Error);
   }
   S_->Session.Declared = scenario;
+  S_->Session.Sounding.reset();
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();

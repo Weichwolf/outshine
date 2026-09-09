@@ -43,8 +43,14 @@ Setup ist transaktional; numerische Parameter und Delay-Ringe werden vorbereitet
 Datei-/Streamingquellen fehlen im Wiedergabepfad. Der als Biquad benannte Prozessor
 ist ein Einpol-Tiefpass. Graphkanten sind beim Setup validiert und kompiliert;
 Signal-Scratch wird beim Setup reserviert, variable Ausgabeblöcke intern geteilt.
-Engine::mix initialisiert noch beim ersten Aufruf; Setup vor Audioausgabe verlegen
-und Abtastratenwechsel ausdrücklich behandeln. Hallwerte und Ringbudget sind validiert.
+Engine::prepareAudio(sampleRateHz) bereitet außerhalb der Ausgabe vor; mix(stereo)
+verwendet ausschließlich diesen Zustand. Erfolgreiche Vorbereitung setzt DSP zurück,
+fehlgeschlagene erhält ihn. Neue deklarierte Inhalte invalidieren die Vorbereitung.
+Initialen Quellsnapshot ohne Simulationstick publizieren; Engine-Aufrufe serialisieren.
+Öffentlicher API-Test: Rate, erste Samples, Fehler/Zustandserhalt und Redeclare.
+Hallwerte und Ringbudget sind validiert.
+Quellbindung On wählt noch den ersten freistehenden Körper statt der benannten
+Entität; echte Entity-Auflösung und bewegte Mehrquellen-Tests fehlen.
 Der Mixer verwendet noch nur den ersten aktiven Bus-Hall: Bus-spezifische Effekte
 und unabhängige RT60-/Spektralprüfung fehlen; Worst-Case-Messung bleibt offen.
 Diese Defizite nicht durch konservierte Alt-Ausgaben als richtig deklarieren.

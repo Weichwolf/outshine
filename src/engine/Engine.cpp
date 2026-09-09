@@ -57,7 +57,6 @@ Result Engine::assemble() {
     }
     S_->Session.Tabled.emplace(*std::move(book));
   }
-  if (!declared.Buses.empty() || !declared.Sounds.empty()) { S_->Session.Mixing = false; }
 
   return S_->Routes() ? Result{} : std::unexpected(S_->Error);
 }

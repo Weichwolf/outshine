@@ -124,6 +124,10 @@ void Engine::State::Tells() {
     }
   }
 
+  PublishAudioSnapshot();
+}
+
+void Engine::State::PublishAudioSnapshot() {
   const unsigned next = (Session.Told.load(std::memory_order_relaxed) + 1u) & 1u;
   std::vector<Audio::Heard> &sources = Session.Sources[next];
   sources.clear();
