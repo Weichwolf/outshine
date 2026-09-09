@@ -237,6 +237,7 @@ struct Seen {
 
 struct Kept {
   Scenario::Document Declared;
+  uint64_t DeclarationRevision = 0;
   bool Taken = false;
   std::vector<std::string> Carried;
   std::vector<Scenario::Document> Asleep;
@@ -249,6 +250,7 @@ struct Kept {
   std::optional<TriggerField> Volumes;
   size_t Fired = 0;
   std::optional<Audio::Mixer> Sounding;
+  std::vector<std::optional<size_t>> AudioBodies;
   std::array<std::vector<Audio::Heard>, 2> Sources;
   std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};

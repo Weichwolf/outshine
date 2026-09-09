@@ -132,7 +132,8 @@ void Engine::State::PublishAudioSnapshot() {
   std::vector<Audio::Heard> &sources = Session.Sources[next];
   sources.clear();
   sources.reserve(Session.Declared.Sounds.size());
-  for (const Scenario::Sound &declared : Session.Declared.Sounds) {
+  for (size_t source = 0; source < Session.Declared.Sounds.size(); ++source) {
+    const Scenario::Sound &declared = Session.Declared.Sounds[source];
     Audio::Heard where;
     where.Id = declared.Id;
     if (declared.On.empty()) {
@@ -141,7 +142,12 @@ void Engine::State::PublishAudioSnapshot() {
       continue;
     }
     const Physics::Rigid *stood = nullptr;
-    if (!Simulation->DynamicBodies.empty()) { stood = &Simulation->DynamicBodies.front().Motion; }
+    const auto binding =
+        source < Session.AudioBodies.size() ? Session.AudioBodies[source] : std::nullopt;
+    if (binding && Simulation->DeclarationRevision == Session.DeclarationRevision) {
+      const auto &body = Simulation->DynamicBodies[*binding];
+      if (Simulation->Scene.alive(body.Owner)) { stood = &body.Motion; }
+    }
     if (stood != nullptr) {
       where.Standing = true;
       for (int axis = 0; axis < 3; ++axis) {

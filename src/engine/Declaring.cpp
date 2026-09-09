@@ -1,3 +1,4 @@
+#include <limits>
 #include "ScenarioWrite.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
@@ -144,7 +145,15 @@ void Engine::ships() {
   (void)S_->World.Offering.offers(S_->World.Shipping.Offered());
 }
 
+namespace Says {
+constexpr auto RevisionExhausted = "declaration revision exhausted";
+}
+
 Result Engine::declare(const Scenario::Document &scenario) {
+  if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
+    S_->Error = Says::RevisionExhausted;
+    return std::unexpected(S_->Error);
+  }
   ships();
   const auto offers = [this](const std::string &kind) {
     return S_->World.Offering.named(kind) != nullptr;
@@ -310,6 +319,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
     }
     S_->Picture.Shown = std::move(declared);
     S_->Session.Declared = scenario;
+    ++S_->Session.DeclarationRevision;
+    S_->Session.AudioBodies.clear();
     S_->Session.Sounding.reset();
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
@@ -326,6 +337,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Picture.Shown = declared;
   if (!S_->Picture.Targeted) {
     S_->Session.Declared = scenario;
+    ++S_->Session.DeclarationRevision;
+    S_->Session.AudioBodies.clear();
     S_->Session.Sounding.reset();
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
@@ -347,6 +360,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::unexpected(S_->Error);
   }
   S_->Session.Declared = scenario;
+  ++S_->Session.DeclarationRevision;
+  S_->Session.AudioBodies.clear();
   S_->Session.Sounding.reset();
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);

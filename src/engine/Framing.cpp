@@ -36,6 +36,8 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kAudioAssemblyRequired =
+    "assemble the current declaration before binding audio sources";
 constexpr auto kAudioDeclarationRequired = "declare content before preparing audio";
 constexpr auto kAudioPreparationRequired = "prepare audio before mixing";
 constexpr auto kInvalidFrameExtent =
@@ -47,6 +49,12 @@ Result Engine::prepareAudio(int sampleRateHz) {
     S_->Error = Says::kAudioDeclarationRequired;
     return std::unexpected(S_->Error);
   }
+  const bool bound = std::ranges::any_of(
+      S_->Session.Declared.Sounds, [](const Scenario::Sound &sound) { return !sound.On.empty(); });
+  if (bound && S_->Simulation->DeclarationRevision != S_->Session.DeclarationRevision) {
+    S_->Error = Says::kAudioAssemblyRequired;
+    return std::unexpected(S_->Error);
+  }
   Audio::Mixer candidate;
   auto setup =
       candidate.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, sampleRateHz);
@@ -54,6 +62,16 @@ Result Engine::prepareAudio(int sampleRateHz) {
     S_->Error = setup.error();
     return setup;
   }
+  std::vector<std::optional<size_t>> bindings(S_->Session.Declared.Sounds.size());
+  if (bound) {
+    auto resolved = S_->Simulation->BindAudio(S_->Session.Declared.Sounds);
+    if (!resolved) {
+      S_->Error = resolved.error();
+      return std::unexpected(S_->Error);
+    }
+    bindings = std::move(*resolved);
+  }
+  S_->Session.AudioBodies = std::move(bindings);
   S_->PublishAudioSnapshot();
   S_->Session.Sounding.emplace(std::move(candidate));
   S_->Error.clear();

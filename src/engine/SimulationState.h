@@ -2,6 +2,10 @@
 #define OUTSHINE_ENGINE_SIMULATIONSTATE_H
 
 #include <optional>
+#include <expected>
+#include <span>
+#include <string>
+#include <cstdint>
 #include <vector>
 #include <scene/Scene.h>
 #include <scenario/Scenario.h>
@@ -27,9 +31,12 @@ struct SimulationState {
   SimulationState &operator=(SimulationState &&) = delete;
   ~SimulationState() = default;
 
+  [[nodiscard]] std::expected<std::vector<std::optional<size_t>>, std::string>
+  BindAudio(std::span<const Scenario::Sound> sounds) const;
   void PrepareBodies();
   void Integrate(double stepSeconds, const Vec3 &gravityMs2);
 
+  uint64_t DeclarationRevision = 0;
   Scene Scene;
   Column<Scenario::Body> Bodies;
   Column<Traits> Kinds;

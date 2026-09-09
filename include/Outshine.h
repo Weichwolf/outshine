@@ -214,6 +214,8 @@ public:
   /// Prepare the current declared audio scene at a positive sample rate in Hz.
   /// Call after declaring/assembling content and before starting audio output. This call
   /// allocates and validates DSP state; it needs no SDL audio device or render target.
+  /// Sources bound by Sound::On require successful assembly of the current declaration.
+  /// Missing, unplaced or ambiguously named bodies are rejected before changing audio state.
   /// Success resets oscillator/filter/delay state and publishes an initial source snapshot.
   /// Failure preserves the previous prepared mixer. Replacing the declaration or successfully
   /// assembling simulation invalidates it.

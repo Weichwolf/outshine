@@ -75,7 +75,7 @@ Mehrkörper-Laufzeitnachweis; der Projektions-Test verwendet ausdrücklich einen
 ## Gemeinsame Körperbindung für Kamera und Audio
 
 Simulationskörper behalten jetzt ihre Entity-ID auch nach Filterung unplatzierter Bodies.
-PublishAudioSnapshot nimmt weiterhin front(), Carries Körperindex 0 statt des benannten Ziels.
+Audio löst Körpernamen bei Prepare auf; Carries verwendet noch Index 0 statt des benannten Ziels.
 Carries prüft auch Trigger nur für Index 0; Trigger müssen dieselbe Entity-Bindung nutzen.
 Native Simulationskörper müssen ihre Entity-Handles behalten. Namen einmal gegen
 Assembly auflösen, unbekannte/mehrdeutige Ziele ablehnen; Hot Paths verwenden Handles.
@@ -93,6 +93,8 @@ alten Zustand auch ohne Renderziel. Scene-Borrows invalidieren nur bei Erfolg.
 Reserve + Bodies + Kinds + Instances + Player-Mind vor Allokation auf 65536 Slots
 begrenzen (gesetztes Enginebudget); Summenüberlauf ablehnen. Rollback und
 Komponenten-Lebensdauer über öffentliche API und Negativkontrolle prüfen.
+Audio bindet nur an die aktuelle Deklarationsrevision; fehlende/unplatzierte/mehrdeutige
+Ziele ablehnen. Reorder und Zielwechsel über Stereo-Oracle, front()-Negativkontrolle rot.
 
 ## Abnahme
 

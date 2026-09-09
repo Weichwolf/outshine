@@ -62,10 +62,12 @@ Result Engine::assemble() {
     }
     candidate->Tables.emplace(*std::move(book));
   }
+  candidate->DeclarationRevision = S_->Session.DeclarationRevision;
   candidate->PrepareBodies();
   if (named == 0 && S_->Picture.Targeted && !S_->Composes()) { return std::unexpected(S_->Error); }
   S_->Simulation = std::move(candidate);
   S_->Session.Sounding.reset();
+  S_->Session.AudioBodies.clear();
   S_->Error.clear();
   return {};
 }

@@ -394,6 +394,9 @@ struct Sound {
    */
   std::vector<Voice> Graph;
   bool Streamed = false;
+  /** Owned body name; audio setup requires a unique placed body in the current assembly.
+   * Empty leaves the source unbound; positional unbound sources are silent.
+   */
   std::string On;
   std::string Bus;
   Emitter Heard;
