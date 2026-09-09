@@ -17,6 +17,13 @@ constexpr double kCubicRateFactor = 3.0;
 constexpr double kSquareRateFactor = 2.0;
 
 namespace Says {
+constexpr auto CurvatureJump =
+    "adjacent segments require continuous curvature; use a spiral transition";
+constexpr auto InvalidPose = "reference-line starting pose must be finite";
+constexpr auto InvalidSegment =
+    "segment requires a known curve type, finite curvatures and positive finite length";
+constexpr auto InvalidEndpoint =
+    "segment endpoint and increasing accumulated station must be representable";
 constexpr auto NonfiniteProfile = "profile stations, values and rates must be finite";
 }
 
@@ -38,6 +45,13 @@ bool Finite(const Placed &pose) {
                           pose.BankRad,
                           pose.BankRatePerM};
   return std::ranges::all_of(values, [](double value) { return std::isfinite(value); });
+}
+
+bool Valid(const Segment &segment) {
+  const std::array shapes{Curve::Straight, Curve::Arc, Curve::Spiral};
+  return std::ranges::find(shapes, segment.Shape) != shapes.end() &&
+         std::isfinite(segment.LengthM) && segment.LengthM > 0.0 &&
+         std::isfinite(segment.EntryCurvature) && std::isfinite(segment.ExitCurvature);
 }
 
 constexpr size_t kNodes = 8;
@@ -277,43 +291,42 @@ bool ReferenceLine::Build(const Placed &from, std::span<const Segment> along, st
     return Refuse(error);
   }
 
+  if (!Finite(from)) {
+    error = Says::InvalidPose;
+    return Refuse(error);
+  }
   Placed at = from;
   Laid_.reserve(along.size());
-  for (size_t which = 0; which < along.size(); ++which) {
-    Segment declared = along[which];
-    if (!(declared.LengthM > 0.0)) {
-      error = "segment " + std::to_string(which) + " is " + std::to_string(declared.LengthM) +
-              " m long, and a segment of no length places nothing";
-      return Refuse(error);
-    }
-    if (declared.Shape == Curve::Straight) {
-      declared.EntryCurvature = declared.ExitCurvature = 0.0;
-    }
-    if (declared.Shape == Curve::Arc) { declared.ExitCurvature = declared.EntryCurvature; }
-
-    if (which > 0) {
-      const double leaving = Laid_.back().Declared.ExitCurvature;
-      if (std::fabs(leaving - declared.EntryCurvature) > kTangentTolerance) {
-        error =
-            "segment " + std::to_string(which) + " enters at curvature " +
-            std::to_string(declared.EntryCurvature) + " where segment " +
-            std::to_string(which - 1) + " leaves at " + std::to_string(leaving) +
-            ", and a leap in curvature is a step in the lateral force -- a spiral is what carries "
-            "a transition without one";
-        return Refuse(error);
-      }
-    }
-
-    Held held;
-    held.Declared = declared;
-    held.Entry = at;
-    held.AlongM = Length_;
-    Laid_.push_back(held);
-
-    at = Walk(at, declared, declared.LengthM);
-    Length_ += declared.LengthM;
+  for (const Segment &declared : along) {
+    if (!Append(at, declared, error)) { return false; }
   }
   End_ = at;
+  return true;
+}
+
+bool ReferenceLine::Append(Placed &at, Segment declared, std::string &error) {
+  if (!Valid(declared)) {
+    error = Says::InvalidSegment;
+    return Refuse(error);
+  }
+  if (declared.Shape == Curve::Straight) { declared.EntryCurvature = declared.ExitCurvature = 0.0; }
+  if (declared.Shape == Curve::Arc) { declared.ExitCurvature = declared.EntryCurvature; }
+  if (!Laid_.empty()) {
+    const double leaving = Laid_.back().Declared.ExitCurvature;
+    if (std::fabs(leaving - declared.EntryCurvature) > kTangentTolerance) {
+      error = Says::CurvatureJump;
+      return Refuse(error);
+    }
+  }
+  const double endM = Length_ + declared.LengthM;
+  const Placed end = Walk(at, declared, declared.LengthM);
+  if (!std::isfinite(endM) || !(endM > Length_) || !Finite(end)) {
+    error = Says::InvalidEndpoint;
+    return Refuse(error);
+  }
+  Laid_.push_back({.Declared = declared, .Entry = at, .AlongM = Length_});
+  at = end;
+  Length_ = endM;
   return true;
 }
 

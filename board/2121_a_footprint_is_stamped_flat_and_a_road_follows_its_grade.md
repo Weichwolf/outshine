@@ -90,8 +90,10 @@ Updates löschen alte Diagnosen. Profile weisen nichtendliche Stationen/Werte/Ra
 At veröffentlicht nur vollständig endliche Ergebnisse und erhält bei Fehlern die Ausgabe;
 endliche Profile können bei nicht darstellbarer Interpolation/Extrapolation scheitern.
 Zustands- und NaN/Inf-/Überlauftests scheitern am Altstand und bestehen nach Korrektur.
-Offen: endliche Ausgangspose/Segmentdaten, darstellbare Stationssummen und robuste
-Profilintervallarithmetik; Fehlergrenze der festen Spiralquadratur nachweisen/korrigieren.
+Lay prüft endliche Ausgangspose, bekannte Kurventypen, endliche Segmentdaten, positive
+Längen, darstellbare Endpunkte und strikt wachsende Stationssummen vor Veröffentlichung.
+Negativkontrolle deckt NaN/Inf, unbekannten Typ, Überlauf und verschluckte Länge ab.
+Offen: robuste Profilintervallarithmetik und Fehlergrenze der festen Spiralquadratur.
 
 kTangentTolerance wird derzeit für Krümmung (1/m) und Profilstationen (m) benutzt,
 ist aber aus einem Winkel abgeleitet. Dimensionsrichtige Grenzwerte und den
