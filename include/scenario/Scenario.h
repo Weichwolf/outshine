@@ -673,6 +673,8 @@ struct Document {
   PhysicsSettings Motion;
   Clock Time;
   std::vector<Binding> Input;
+  /// Vertical UI pixels per wheel unit; finite and nonnegative, validated by declare.
+  /// Zero disables wheel movement. Applied to SDL's already direction-adjusted event value.
   double WheelStepPx = kWheelStepUnsaidPx;
   std::vector<Persisted> State;
 

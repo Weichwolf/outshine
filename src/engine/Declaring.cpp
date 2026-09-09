@@ -24,32 +24,49 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kInvalidWheelStep = "wheelStepPx requires a finite nonnegative value";
+constexpr auto kInvalidWheelEvent = "wheel position and pixel displacement must be finite";
 constexpr auto kInputHostMissing = "a bound input action requires an offered host";
+}
+
+namespace {
+
+[[nodiscard]] Holds<bool>
+DispatchInput(Host *host, const InputMap &bindings, std::span<const Core::InputPump::Fired> fired) {
+  if (host == nullptr) { return std::unexpected(Says::kInputHostMissing); }
+  bool acted = false;
+  for (const auto &action : fired) {
+    const std::string *const named = bindings.ActionNamed(action.Action);
+    if (named == nullptr) { continue; }
+    const Argument value{
+        .Is = Argument::Kind::Number, .Number = static_cast<double>(action.Value), .Text = {}};
+    acted = host->calls(*named, std::span<const Argument>(&value, 1)) || acted;
+  }
+  return acted;
+}
+
 }
 
 Holds<bool> Engine::handleEvent(const SDL_Event &event) {
   if (S_->Picture.Standing && event.type == SDL_EVENT_MOUSE_WHEEL) {
+    const double displacementPx =
+        -static_cast<double>(event.wheel.y) * S_->Session.Declared.WheelStepPx;
+    if (!std::isfinite(event.wheel.mouse_x) || !std::isfinite(event.wheel.mouse_y) ||
+        !std::isfinite(event.wheel.y) || !std::isfinite(displacementPx)) {
+      return std::unexpected(Says::kInvalidWheelEvent);
+    }
     return S_->Picture.Standing->Wheeled(static_cast<double>(event.wheel.mouse_x),
                                          static_cast<double>(event.wheel.mouse_y),
-                                         -static_cast<double>(event.wheel.y) *
-                                             S_->Session.Declared.WheelStepPx,
+                                         displacementPx,
                                          S_->Error);
   }
   if (S_->Session.Pumping) {
     std::array<Core::InputPump::Fired, 2> fired{};
     const size_t many = S_->Session.Pump.Translate(event, fired);
     if (many != 0) {
-      if (S_->Offered == nullptr) { return std::unexpected(Says::kInputHostMissing); }
-      bool acted = false;
-      for (size_t at = 0; at < many; ++at) {
-        const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
-        if (named == nullptr) { continue; }
-        const Argument value{.Is = Argument::Kind::Number,
-                             .Number = static_cast<double>(fired[at].Value),
-                             .Text = {}};
-        acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
-      }
-      return acted;
+      return DispatchInput(S_->Offered,
+                           S_->Session.Bound,
+                           std::span<const Core::InputPump::Fired>(fired.data(), many));
     }
   }
   if (!S_->Picture.Standing || event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
@@ -156,6 +173,9 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {
+  if (!std::isfinite(scenario.WheelStepPx) || scenario.WheelStepPx < 0.0) {
+    return std::unexpected(Says::kInvalidWheelStep);
+  }
   if (!std::isfinite(scenario.Motion.StepS) || scenario.Motion.StepS <= 0.0 ||
       scenario.Motion.MostStepsInArrears <= 0 ||
       !std::isfinite(scenario.Motion.StepS * scenario.Motion.MostStepsInArrears)) {

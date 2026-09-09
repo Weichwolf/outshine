@@ -1,5 +1,6 @@
 #include <Outshine.h>
 #include "Check.h"
+#include <limits>
 
 int main() {
   using namespace outshine;
@@ -28,6 +29,24 @@ int main() {
         CHECK(result && *result == expected,
               "scroll result matches movement at the event position");
       };
+      for (const double step : {-1.0,
+                                std::numeric_limits<double>::quiet_NaN(),
+                                std::numeric_limits<double>::infinity(),
+                                -std::numeric_limits<double>::infinity()}) {
+        auto invalid = scene;
+        invalid.WheelStepPx = step;
+        CHECK(!engine.declare(invalid), "invalid wheel step rejected before replacing scene");
+      }
+      for (float *field : {&event.wheel.mouse_x, &event.wheel.mouse_y, &event.wheel.y}) {
+        const float saved = *field;
+        for (const float invalid : {std::numeric_limits<float>::quiet_NaN(),
+                                    std::numeric_limits<float>::infinity(),
+                                    -std::numeric_limits<float>::infinity()}) {
+          *field = invalid;
+          CHECK(!engine.handleEvent(event), "nonfinite wheel input is a processing error");
+        }
+        *field = saved;
+      }
       scroll(0, false);
       scroll(1, false);
       scroll(-1, true);
@@ -43,6 +62,18 @@ int main() {
       scroll(-1, false);
       scroll(16, true);
       scroll(1, false);
+      auto excessive = scene;
+      excessive.WheelStepPx = std::numeric_limits<double>::max();
+      CHECK(engine.declare(excessive).has_value(), "finite large wheel step remains representable");
+      event.wheel.y = -2;
+      CHECK(!engine.handleEvent(event), "overflow in pixel displacement rejected");
+      CHECK(engine.declare(scene).has_value(), "normal configuration restored");
+      scroll(1, false);
+      scroll(-1, true);
+      auto disabled = scene;
+      disabled.WheelStepPx = 0;
+      CHECK(engine.declare(disabled).has_value(), "zero step explicitly disables scrolling");
+      scroll(-1, false);
     }
   }
   SDL_Quit();
