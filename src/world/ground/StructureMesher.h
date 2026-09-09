@@ -98,13 +98,20 @@ protected:
   MeshScratch() = default;
 };
 
-enum class StructureMeshError { InvalidPlan, IncompatibleScratch, BuildFailed };
+enum class StructureMeshError {
+  InvalidPlan,
+  IncompatibleScratch,
+  BuildFailed,
+  UnsupportedFootprint
+};
 
 [[nodiscard]] constexpr std::string_view Describe(StructureMeshError error) noexcept {
   switch (error) {
     case StructureMeshError::InvalidPlan: return "invalid structure plan";
     case StructureMeshError::IncompatibleScratch: return "incompatible structure mesh scratch";
     case StructureMeshError::BuildFailed: return "structure mesh construction failed";
+    case StructureMeshError::UnsupportedFootprint:
+      return "footprint cannot form a supported building mass";
   }
   return "unknown structure mesh error";
 }

@@ -409,6 +409,16 @@ std::expected<void, ClusterError> FinalizeBake(const RawTile &raw, BakedTile &ou
   return {};
 }
 
+std::expected<void, StructureMeshError> AccountMesh(std::expected<void, StructureMeshError> result,
+                                                    BakedTile &out) {
+  if (result) { return {}; }
+  if (result.error() == StructureMeshError::UnsupportedFootprint) {
+    ++out.UnsupportedMeshes;
+    return {};
+  }
+  return std::unexpected(result.error());
+}
+
 std::expected<void, StructureBakeError> FinishStructures(const std::map<uint64_t, Lumped> &lumps,
                                                          const RawTile &raw,
                                                          const StructureMesher &mesher,
@@ -417,7 +427,7 @@ std::expected<void, StructureBakeError> FinishStructures(const std::map<uint64_t
                                                          BakedTile &out) {
   for (const auto &[where, block] : lumps) {
     (void)where;
-    const auto built = RaiseLump(block, raw, mesher, scratch, corners, out.Built);
+    const auto built = AccountMesh(RaiseLump(block, raw, mesher, scratch, corners, out.Built), out);
     if (!built) { return std::unexpected(built.error()); }
   }
   out.Blocks = static_cast<int>(lumps.size());
@@ -467,6 +477,7 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
   out.Lumped = 0;
   out.Blocks = 0;
   out.NoGround = 0;
+  out.UnsupportedMeshes = 0;
 
   const std::span<const double> pts = raw.LatLon;
   const std::vector<WayLine> ways = LinesOf(raw);
@@ -566,7 +577,7 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
     plan.AnchorEcef = raw.AnchorEcef;
     plan.FocalPx = raw.FocalPx;
     plan.Coarseness = fp.Coarseness;
-    const auto built = mesher.Mesh(plan, scratch, out.Built);
+    const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
     if (!built) { return std::unexpected(built.error()); }
   }
 

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <new>
+#include <limits>
 #include "../../../src/generators/building/BuildingMesh.h"
 #include "Check.h"
 
@@ -75,6 +76,17 @@ int main() {
               output.RoofCorners.size() == complete.RoofCorners.size(),
           "scratch recovers after failure and reproduces complete mesh topology");
   }
+  const std::array<double, 6> collapsed{47, 9, 47, 9, 47, 9};
+  plan.RingLatLon = collapsed;
+  const auto unsupported = mesher.Mesh(plan, *scratch, previous);
+  CHECK(!unsupported && unsupported.error() == StructureMeshError::UnsupportedFootprint,
+        "collapsed finite footprint differs from invalid input");
+  plan.RingLatLon = ring;
+  plan.HeightM = std::numeric_limits<double>::quiet_NaN();
+  const auto nonfinite = mesher.Mesh(plan, *scratch, previous);
+  CHECK(!nonfinite && nonfinite.error() == StructureMeshError::InvalidPlan,
+        "nonfinite data is not mislabeled as an unsupported shape");
+  plan.HeightM = 6;
   ForeignScratch foreign;
   const auto incompatible = mesher.Mesh(plan, foreign, previous);
   CHECK(!incompatible && incompatible.error() == StructureMeshError::IncompatibleScratch,

@@ -63,3 +63,13 @@ mit separatem Hasher erweitern; bestehender uint64-Pfad bleibt unverändert. Kü
 konstanter Hash muss Wachstum, Find, Duplikate und Clear mit verschiedenen Keys
 bestehen. Danach BuildingScratch auf vollständige Positions-/Vertexschlüssel migrieren
 und tatsächliche Gebäude-/Places-PNGs vergleichen; ein Hashwert ist keine Identität.
+
+Wien-Render deckte Regression auf: MassOf-Ablehnung kleiner/kollabierter Footprints
+war als InvalidPlan fatal propagiert. UnsupportedFootprint separat zählen und den
+Tile-Aufbau fortsetzen; nichtendliche Eingaben, fremder Scratch und Aufbaufehler
+bleiben Fehler. UnsupportedMeshes im Bake-Ergebnis und Gebäude-Log ausweisen.
+Vollständige Unterstützung kleiner/clippingbedingter Footprints bleibt offen.
+Wien rendert nach Korrektur mit deaktivierter Vegetation wieder; Vorherstand für die
+Schlüsselkorrektur: build/shots/reference/building-keys/Wien-before.png, visuell geöffnet.
+Mit Vegetation scheitert der Shot aktuell am 15-s-Residency-Limit für Crown-Prototypen,
+nicht mehr an einem Gebäudefehler. Keine visuelle Gesamt- oder Vegetationsabnahme.

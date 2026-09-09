@@ -57,5 +57,12 @@ int main() {
             "diagnostic is available without allocation");
     }
   }
+  raw.Structures.push_back(raw.Structures.front());
+  RefusingMesher unsupported(StructureMeshError::UnsupportedFootprint);
+  auto scratch = unsupported.Scratch();
+  Generators::BakedTile output;
+  const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
+  CHECK(result && unsupported.Calls == 2 && output.UnsupportedMeshes == 2,
+        "unsupported forms are counted and processing continues to the next building");
   return Report();
 }

@@ -68,6 +68,7 @@ struct BakedTile {
   int Lumped = 0;
   int Blocks = 0;
   int NoGround = 0;
+  size_t UnsupportedMeshes = 0;
 };
 
 [[nodiscard]] std::expected<void, StructureBakeError>

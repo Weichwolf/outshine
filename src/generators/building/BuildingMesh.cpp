@@ -49,6 +49,27 @@ constexpr double kLeastRiseM = 0.03;
 
 namespace {
 
+bool FinitePlan(const StructurePlan &plan) {
+  const std::array values{plan.BaseAslM,
+                          plan.SeatAslM,
+                          plan.FootAslM,
+                          plan.HeightM,
+                          plan.AnchorEcef[0],
+                          plan.AnchorEcef[1],
+                          plan.AnchorEcef[2],
+                          plan.FocalPx,
+                          plan.PitchedShare,
+                          plan.Street.KerbEm,
+                          plan.Street.KerbNm,
+                          plan.Street.AlongE,
+                          plan.Street.AlongN,
+                          plan.Street.ToStreetE,
+                          plan.Street.ToStreetN};
+  const auto finite = [](double value) { return std::isfinite(value); };
+  return std::ranges::all_of(values, finite) && std::ranges::all_of(plan.RingLatLon, finite) &&
+         std::ranges::all_of(plan.CornerAslM, finite);
+}
+
 template <typename T> void TrimAppend(std::vector<T> &output, size_t previousSize) noexcept {
   while (output.size() > previousSize) { output.pop_back(); }
 }
@@ -981,7 +1002,7 @@ std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
 
 std::expected<void, StructureMeshError>
 BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept {
-  if (plan.RingLatLon.size() < 6 || plan.RingLatLon.size() % 2 != 0) {
+  if (plan.RingLatLon.size() < 6 || plan.RingLatLon.size() % 2 != 0 || !FinitePlan(plan)) {
     return std::unexpected(StructureMeshError::InvalidPlan);
   }
   auto *buildingScratch = dynamic_cast<BuildingScratch *>(&lent);
@@ -998,7 +1019,7 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
                                                    .PitchedShare = plan.PitchedShare},
                                                   plan.Street,
                                                   scratch);
-    if (parts.empty()) { return std::unexpected(StructureMeshError::InvalidPlan); }
+    if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
 
     Site site(plan, scratch, into);
     const Site2Ground ground(

@@ -200,6 +200,7 @@ StructureBakes::Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t mos
                {"vertsMB", static_cast<double>(baked.Built.UsedBytes()) / kBytesPerMB},
                {"lumped", baked.Lumped},
                {"blocks", baked.Blocks},
+               {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
                {"awayKm", job.Raw->AwayM / kMPerKm},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
     IdleRaw_.push_back(std::move(job.Raw));
