@@ -91,3 +91,10 @@ nach vollständiger Validierung ein. Fehler erhalten alle vorhandenen Event-/Act
 Zuordnungen; Erfolg löscht die vorherige Diagnose. Test: unbekanntes Event nach
 gültigem Präfix, doppelte Events, Erholung und leere Map. Engine-declare muss danach
 zusätzlich seine vorzeitige Publikation beseitigen; Map-Atomarität allein genügt nicht.
+
+Declare-Input: lokale Map und validierte Pump vorbereiten. Die Pump referenziert
+bereits den stabilen Session-Map-Speicher; erst bei Erfolg Map per Nothrow-Move
+ersetzen und Pump aktivieren. Alle drei Erfolgszweige berücksichtigen, insbesondere
+Generatorfehler nach später Zustandsänderung. Frühe Input-, spätere View- und
+Generatorfehler öffentlich nachweisen. Andere Declare-Teilmutationen bleiben WI 2191;
+dieser Schritt behauptet keine vollständige Szenario-Transaktion.
