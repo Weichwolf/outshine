@@ -169,7 +169,7 @@ void *operator new[](size_t bytes, std::align_val_t alignment) {
 }
 
 void *operator new(size_t bytes, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
-  return std::malloc((bytes != 0u) ? bytes : 1);
+  return outshine::Counted(std::malloc((bytes != 0u) ? bytes : 1));
 }
 
 void *operator new[](size_t bytes, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {

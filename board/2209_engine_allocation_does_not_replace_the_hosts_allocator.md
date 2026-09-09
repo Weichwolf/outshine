@@ -13,9 +13,12 @@ src/base/io/Heap.cpp definiert globale operator new/new[]/delete-Overloads in de
 Engine-Bibliothek. Damit betrifft die Instrumentierung auch fremden Host-/Bibliothekscode.
 Ein eigener globaler Allocator ist für eine bewusst konfigurierte Anwendung legitim;
 als implizite Nebenwirkung einer einbettbaren Engine ist er kein passender Vertrag.
-Konkreter Zählfehler: skalares nothrow-new ruft malloc ohne Counted auf, delete jedoch
-Returned mit gLiveBytes.fetch_sub. Freigabe subtrahiert somit zuvor nicht gezählte Bytes.
-Die Array-nothrow-Variante zählt dagegen. Fehlerhafte Heap-Telemetrie kann Budgets verfälschen.
+Skalares nothrow-new zählt jetzt wie die Array-Variante über Counted; zuvor zog delete
+nicht gezählte Bytes ab. Direkte Aufrufe mit 0/1/257 Bytes und Nullfreigabe prüfen die
+Symmetrie; der Test scheitert am Altstand. Die globale Host-Übernahme bleibt offen.
+Telling veröffentlicht derzeit prozessweite C++-Allokationen; nach der Trennung keine
+uninstrumentierten Nullwerte als Engineverbrauch ausgeben. HeapProbe misst ebenfalls
+prozessweiten Heap, keine engine-eigene Ownership.
 
 ## Entscheidung
 
@@ -36,6 +39,6 @@ lösen und Engine-/Host-Bilanzierung trennen. Der erste Schritt schließt dieses
 
 - [ ] Externer Host mit eigenem new/delete lässt sich linken und behält seinen Allocator.
 - [ ] Scalar/Array, throwing/nothrow, aligned/sized delete: symmetrische gezählte Bytes.
-- [ ] Gezielter Test des skalaren nothrow-Pfads zeigt vor Fix den Zählerfehler.
+- [x] Gezielter Test des skalaren nothrow-Pfads zeigt vor Fix den Zählerfehler.
 - [ ] Engine-Budget umfasst Engine-Speicher; fremde Host-Allokationen separat ausweisen.
 - [ ] OOM-/Budgetfehler nach 2194, Lint und Instrumentierungskosten nach 2108 prüfen.
