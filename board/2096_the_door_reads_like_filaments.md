@@ -68,8 +68,13 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
 - `generation/`: Generatoren liefern dieselben nativen Assets und Weltinhalte.
   Registry besitzt eindeutige, nichtleere Registrierungsnamen; Generatoren bleiben
   explizit geliehen. Ungültige Shipped-Werte dürfen keinen Arrayzugriff auslösen.
-  writeGlb aus Generate.h in einen ausdrücklichen Formatadapter verlagern;
-  Exportfähigkeit erhalten und mit unabhängiger GLB-Abnahme prüfen.
+- `export/`: exportGlb übernimmt writeGlb mit owned expected-Ergebnis; kein
+  Exportvertrag im Generatorheader. src/import hält die gemeinsamen Formatadapter.
+  Bestehender Writer verliert native Texturbindungen und zusätzliche Materialfaktoren;
+  nicht darstellbare Inhalte vor Ausgabe ablehnen, danach Exportabdeckung ausbauen.
+  GLB-Header/Chunklängen nach Khronos 2.0 §4.4 prüfen; unterstützte Faktoren und
+  Namen direkt im JSON prüfen, Fehler und unveränderte Eingaben separat abnehmen.
+  Referenz: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#glb-file-format-specification
 - `render/`: native Kamera mit lokaler Pose, Projektion und Belichtung; Renderer
   und Ausgabeziele. Szenario-Views besitzen den Modus FollowEntity/Local/Geodetic
   und geodätische Eingaben. Importheader benötigen keine Szenariodefinitionen.
