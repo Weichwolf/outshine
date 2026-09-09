@@ -71,7 +71,17 @@ struct Roots {
 
 class Engine;
 
-enum class Buffer { Colour, Linear, Depth, ShadingNormal, SurfaceIdentity, Velocity };
+/// Readback attachment selector. Availability depends on the compiled render plan.
+/// Diagnostic attachments describe rasterized surfaces, not persistent world objects.
+enum class Buffer {
+  Colour,        ///< Display-encoded RGBA8; use the byte readPixels overload.
+  Linear,        ///< Four floats per pixel: scene-linear RGBA before display encoding.
+  Depth,         ///< One float per pixel: raw device depth, not distance in metres.
+  ShadingNormal, ///< Four floats: renderer-space normal XYZ and facing sign; unlit XYZ may be zero.
+  SurfaceIdentity, ///< Four floats: renderer surface identifier in X, remaining channels
+                   ///< diagnostic.
+  Velocity         ///< Two floats: current minus previous normalized-device XY position.
+};
 
 /// Borrowed access to an Engine's current presentation target, not an independently owned window.
 /// Copies refer to the same Engine and observe subsequent target changes. The Engine and its
@@ -119,6 +129,12 @@ public:
   /// @param frame Optional check of the target size in physical pixels; zero selects the target.
   /// @return An error if scene/camera preparation fails; submission does not imply GPU completion.
   [[nodiscard]] Result render(Extent frame);
+  /// Draw and synchronously read back the current target, then write an RGBA PNG.
+  /// Runs on the Engine/video thread; may allocate, wait for the GPU and perform IO.
+  /// Parent directories are created as needed; an existing file is overwritten.
+  /// @param path Borrowed filesystem path, copied for writing; relative to the process directory.
+  /// @return Render, readback, encoding or filesystem error, or success. File writes are not
+  /// atomic.
   [[nodiscard]] Result saveScreenshot(std::string_view path);
   /// Draw a frame and copy the target into contiguous RGBA8 rows, top row first.
   /// Requires a configured target, a camera and a presentable render output. Calls may wait
@@ -126,8 +142,17 @@ public:
   /// @param rgba Caller-owned output in the target's transfer encoding, valid only on success.
   /// @return Success after readback, or a scene/camera/render/readback error.
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
+  /// Draw and synchronously read a float attachment into packed, top-row-first pixels.
+  /// Runs on the Engine/video thread and may allocate or wait for the GPU. No output
+  /// reference is retained. Components per pixel follow Buffer; no depth linearization.
+  /// @param which Float attachment; Colour and unknown values fail before rendering.
+  /// @param out Caller-owned vector, replaced on success; consume contents only on success.
+  /// @return Success or input, render, unavailable-attachment or GPU-readback error.
   [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
 
+  /// Query the compiled plan's suggested temporal warm-up frame count without rendering.
+  /// @return One before plan compilation; otherwise one plus its temporal-resolve allowance.
+  /// This heuristic does not establish streaming readiness or numerical convergence.
   [[nodiscard]] int settleFrames() const;
 
 private:

@@ -36,6 +36,8 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kColourReadbackIsBytes = "Colour requires the RGBA8 readback overload";
+constexpr auto kUnknownReadbackBuffer = "unknown readback buffer";
 constexpr auto kAudioAssemblyRequired =
     "assemble the current declaration before binding audio sources";
 constexpr auto kAudioDeclarationRequired = "declare content before preparing audio";
@@ -221,6 +223,15 @@ bool Engine::readPixels(std::vector<uint8_t> &rgba) {
 }
 
 bool Engine::readPixels(Buffer which, std::vector<float> &out) {
+  switch (which) {
+    case Buffer::Linear:
+    case Buffer::Depth:
+    case Buffer::ShadingNormal:
+    case Buffer::SurfaceIdentity:
+    case Buffer::Velocity: break;
+    case Buffer::Colour: S_->Error = Says::kColourReadbackIsBytes; return false;
+    default: S_->Error = Says::kUnknownReadbackBuffer; return false;
+  }
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
