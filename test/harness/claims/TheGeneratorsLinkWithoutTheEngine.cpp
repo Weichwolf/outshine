@@ -55,8 +55,9 @@ int main(void) {
   }
 
   std::string newer;
-  (void)Run("find src include -newer build/liboutshine.a -name '*.cpp' -o -newer "
-            "build/liboutshine.a -name '*.h' 2>/dev/null | head -3",
+  (void)Run("find src include -type f ! -path 'src/diagnostics/*' ! -name Main.cpp "
+            "\\( -name '*.cpp' -o -name '*.h' \\) -newer build/liboutshine.a "
+            "2>/dev/null | head -3",
             newer);
   if (!newer.empty()) {
     std::printf("%s", newer.c_str());

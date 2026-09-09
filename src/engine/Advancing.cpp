@@ -385,9 +385,11 @@ void Engine::State::Drew() {
   Published.Places("frames the subject drew shadowed",
                    static_cast<double>(Picture.Device.ShadowedFrames()),
                    "frames");
-  Published.Places("bytes the frame's drawing left behind",
-                   static_cast<double>(Core::Live::TookDrawing()),
-                   "bytes");
+  if (Heap::ProcessInstrumentationEnabled()) {
+    Published.Places("process C++ bytes allocated during drawing",
+                     static_cast<double>(Core::Live::TookDrawing()),
+                     "bytes");
+  }
   Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
   Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
 }

@@ -26,6 +26,8 @@ int main() {
           "array allocation is counted");
     CHECK(arrayAfter == arrayBefore, "array release restores live-byte count");
   }
+  CHECK(Heap::ProcessInstrumentationEnabled(),
+        "explicit diagnostic module marks measurements available");
   const size_t beforeNull = Heap::LiveBytes();
   ::operator delete(nullptr);
   ::operator delete[](nullptr);

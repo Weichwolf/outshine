@@ -21,6 +21,7 @@ constexpr size_t kCountDigits = 24;
 namespace {
 
 std::atomic<size_t> gLiveBytes{0};
+std::atomic<bool> gProcessInstrumentation{false};
 
 constexpr size_t kTagSlots = 32;
 constexpr const char *kUntagged = "untagged";
@@ -117,6 +118,26 @@ void *Heap::Take(const char *item, size_t bytes) {
   return Counted(block);
 }
 
+void Heap::EnableProcessInstrumentation() noexcept {
+  gProcessInstrumentation.store(true, std::memory_order_relaxed);
+}
+
+bool Heap::ProcessInstrumentationEnabled() noexcept {
+  return gProcessInstrumentation.load(std::memory_order_relaxed);
+}
+
+void *Heap::TryTake(size_t bytes) noexcept {
+  return Counted(std::malloc(bytes != 0 ? bytes : 1));
+}
+
+void *Heap::TakeAligned(const char *item, size_t bytes, size_t alignment) {
+  return outshine::TakeAligned(item, bytes, alignment);
+}
+
+void Heap::Return(void *block) noexcept {
+  Returned(block);
+}
+
 size_t Heap::LiveBytes() {
   return gLiveBytes.load(std::memory_order_relaxed);
 }
@@ -150,72 +171,4 @@ void Heap::Exhausted(const char *item) {
   End(item, "unstated");
 }
 
-}
-
-void *operator new(size_t bytes) {
-  return outshine::Heap::Take("object", bytes);
-}
-
-void *operator new[](size_t bytes) {
-  return outshine::Heap::Take("object array", bytes);
-}
-
-void *operator new(size_t bytes, std::align_val_t alignment) {
-  return outshine::TakeAligned("object", bytes, static_cast<size_t>(alignment));
-}
-
-void *operator new[](size_t bytes, std::align_val_t alignment) {
-  return outshine::TakeAligned("object array", bytes, static_cast<size_t>(alignment));
-}
-
-void *operator new(size_t bytes, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
-  return outshine::Counted(std::malloc((bytes != 0u) ? bytes : 1));
-}
-
-void *operator new[](size_t bytes, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
-  return outshine::Counted(std::malloc((bytes != 0u) ? bytes : 1));
-}
-
-void operator delete(void *block) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete[](void *block) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete(void *block, [[maybe_unused]] size_t bytes) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete[](void *block, [[maybe_unused]] size_t bytes) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete(void *block, [[maybe_unused]] std::align_val_t alignment) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete[](void *block, [[maybe_unused]] std::align_val_t alignment) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete(void *block,
-                     [[maybe_unused]] size_t bytes,
-                     [[maybe_unused]] std::align_val_t alignment) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete[](void *block,
-                       [[maybe_unused]] size_t bytes,
-                       [[maybe_unused]] std::align_val_t alignment) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete(void *block, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
-  outshine::Returned(block);
-}
-
-void operator delete[](void *block, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
-  outshine::Returned(block);
 }

@@ -214,6 +214,7 @@ done
 
 LayerIncludes() {
   case "$1" in
+    outshine/diagnostics) LayerIncludes outshine/conventions ;;
     outshine/conventions|outshine/device) printf '%s ' "-Isrc/base -Isrc/actor/body"; LayerIncludes outshine/places ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
     # carried its own hand-written list beside the build line, which is the second spelling of the
@@ -243,6 +244,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
+    outshine/diagnostics) LayerToolchain outshine/conventions ;;
     outshine/conventions|outshine/device) LayerToolchain outshine/places; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
     outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
@@ -280,6 +282,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
+    outshine/diagnostics) LayerLink outshine/conventions ;;
     outshine/conventions|outshine/device) LayerLink outshine/places ;;
     outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
     outshine/places | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
@@ -291,6 +294,7 @@ LayerLink() {
 
 LayerGroups() {
   case "$1" in
+    outshine/diagnostics) LayerGroups outshine/conventions; printf ' %s' "src/diagnostics" ;;
     outshine/conventions|outshine/device) LayerGroups outshine/places ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
@@ -672,6 +676,7 @@ BuildLibrary() {
   OBJECTS=""
   libraryGroups=" "
   for libraryUnit in $(find src -name '*.cpp' | sort); do
+    case "$libraryUnit" in src/diagnostics/*) continue ;; esac
     libraryGroup=${libraryUnit%/*}
     case "$libraryGroups" in *" $libraryGroup "*) continue ;; esac
     libraryGroups="$libraryGroups$libraryGroup "
@@ -713,6 +718,11 @@ BuildLibrary() {
   # THE TOOLS THAT SHIP WITH THE LIBRARY, beside it in build/. A `src/<tier>/Main.cpp` is a tool:
   # the tier is part of the archive and its entry point is linked against it, so the tool cannot
   # drift from the library it measures.
+  archiveObjects=$OBJECTS
+  OBJECTS=""
+  BuildGroup src/diagnostics || Die "process diagnostics did not build"
+  diagnosticObjects=$OBJECTS
+  OBJECTS=$archiveObjects
   for tool in $(find src -name 'Main.cpp' | sort); do
     toolLayer=$(dirname "$tool")
     toolNamed=build/outshine-$(basename "$toolLayer")
@@ -723,11 +733,15 @@ BuildLibrary() {
         "$PWD" "$PWD/$tool" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
         "$toolIncludes" >> "$BUILD/compile_commands.part"
     fi
-    if [ -f "$toolNamed" ] && [ "$toolNamed" -nt build/liboutshine.a ] && [ "$toolNamed" -nt "$tool" ]; then
+    diagnosticsStale=no
+    for diagnostic in $diagnosticObjects; do
+      [ "$toolNamed" -nt "$diagnostic" ] || diagnosticsStale=yes
+    done
+    if [ "$diagnosticsStale" = no ] && [ -f "$toolNamed" ] && [ "$toolNamed" -nt build/liboutshine.a ] && [ "$toolNamed" -nt "$tool" ]; then
       continue
     fi
     $CXX $toolStd $OPT $WARN $toolIncludes \
-      "$tool" build/liboutshine.a $(LayerLink outshine/places) -o "$toolNamed" ||
+      "$tool" $diagnosticObjects build/liboutshine.a $(LayerLink outshine/places) -o "$toolNamed" ||
       Die "$tool does not build into $toolNamed"
     printf -- '-> %s\n' "$toolNamed"
   done

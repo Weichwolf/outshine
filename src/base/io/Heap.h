@@ -7,7 +7,12 @@ namespace outshine {
 
 class Heap {
 public:
-  static void *Take(const char *item, size_t bytes);
+  [[nodiscard]] static void *Take(const char *item, size_t bytes);
+  [[nodiscard]] static void *TryTake(size_t bytes) noexcept;
+  [[nodiscard]] static void *TakeAligned(const char *item, size_t bytes, size_t alignment);
+  static void Return(void *block) noexcept;
+  static void EnableProcessInstrumentation() noexcept;
+  [[nodiscard]] static bool ProcessInstrumentationEnabled() noexcept;
 
   static size_t LiveBytes();
 

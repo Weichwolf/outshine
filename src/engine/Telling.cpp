@@ -62,12 +62,16 @@ bool Engine::State::Stood() {
 
 void Engine::State::Tells() {
   const Heap::Tagged telling("frame-tells");
-  Published.Places("heap: bytes LIVE right now", static_cast<double>(Heap::LiveBytes()), "bytes");
-  for (size_t at = 0; at < Heap::TagCount(); ++at) {
-    const char *const tag = Heap::TagAt(at);
-    if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }
+  if (Heap::ProcessInstrumentationEnabled()) {
     Published.Places(
-        std::string("heap taken under ") + tag, static_cast<double>(Heap::TakenAt(at)), "bytes");
+        "process C++ heap live bytes", static_cast<double>(Heap::LiveBytes()), "bytes");
+    for (size_t at = 0; at < Heap::TagCount(); ++at) {
+      const char *const tag = Heap::TagAt(at);
+      if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }
+      Published.Places(std::string("process C++ bytes allocated under ") + tag,
+                       static_cast<double>(Heap::TakenAt(at)),
+                       "bytes");
+    }
   }
   if (Cost.Advance.Taken() > 0) {
     Published.Places("the step's own time, last", Cost.Advance.LastMs(), "ms");
