@@ -1,5 +1,6 @@
 #include <span>
 #include <world/EntityRegistry.h>
+#include "RelationRules.h"
 
 #include <cstddef>
 #include <atomic>
@@ -126,6 +127,9 @@ struct EntityRegistry::Kept {
 namespace {
 
 namespace Says {
+constexpr auto InvalidRole = "entity role is outside the supported range";
+constexpr auto InvalidRelation = "entity relation is outside the supported range";
+constexpr auto InvalidCapacity = "registry capacity exceeds the addressable relation index range";
 constexpr auto IdentityExhausted = "registry identity space is exhausted";
 }
 
@@ -166,6 +170,9 @@ const char *Named(Relation how) {
 
 bool EntityRegistry::Kept::open(size_t capacity) {
   if (capacity == 0) { return Refuse("a store of no entities holds nothing"); }
+  constexpr size_t maximumCapacity = std::numeric_limits<uint32_t>::max() / kPairsPerEntity;
+  static_assert(maximumCapacity <= std::numeric_limits<size_t>::max() / kOwnedRelations);
+  if (capacity > maximumCapacity) { return Refuse(Says::InvalidCapacity); }
   const uint64_t owner = NextRegistryOwner();
   if (owner == 0) { return Refuse(Says::IdentityExhausted); }
   Slots_.assign(capacity, Slot{});
@@ -188,6 +195,10 @@ bool EntityRegistry::Kept::open(size_t capacity) {
 }
 
 Entity EntityRegistry::Kept::addEntity(Role role) {
+  if (!IsValid(role)) {
+    (void)Refuse(Says::InvalidRole);
+    return kNoEntity;
+  }
   if (Free_.empty()) {
     (void)Refuse("the store is full, and a pool refuses rather than grows");
     return kNoEntity;
@@ -358,6 +369,7 @@ void EntityRegistry::Kept::ErasePair(uint32_t slot, size_t pair) {
 }
 
 bool EntityRegistry::Kept::Permit(Entity from, Relation how, Entity to, bool retarget) {
+  if (!IsValid(how)) { return Refuse(Says::InvalidRelation); }
   const RelationRule &rule = RuleOf(how);
   const Slot *source = Held(from);
   const Slot *target = Held(to);
@@ -393,6 +405,7 @@ bool EntityRegistry::Kept::Permit(Entity from, Relation how, Entity to, bool ret
 }
 
 bool EntityRegistry::Kept::relink(Entity from, Relation how, Entity to) {
+  if (!IsValid(how)) { return Refuse(Says::InvalidRelation); }
   if (!RuleOf(how).Exclusive) {
     return Refuse({Named(how),
                    " holds many targets, and relink is the exclusive "
@@ -461,6 +474,7 @@ size_t EntityRegistry::Kept::targets(Entity of, Relation how, std::span<Entity> 
 }
 
 size_t EntityRegistry::Kept::sources(Entity to, Relation how, std::span<Entity> into) const {
+  if (!IsValid(how)) { return 0; }
   const Slot *slot = Held(to);
   if (slot == nullptr) { return 0; }
   size_t found = 0;
@@ -477,6 +491,7 @@ size_t EntityRegistry::Kept::sources(Entity to, Relation how, std::span<Entity> 
 }
 
 size_t EntityRegistry::Kept::entitiesWithRole(Role role, std::span<Entity> into) const {
+  if (!IsValid(role)) { return 0; }
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
@@ -491,6 +506,7 @@ size_t EntityRegistry::Kept::entitiesWithRole(Role role, std::span<Entity> into)
 size_t EntityRegistry::Kept::linkedPairs(Relation how,
                                          std::span<Entity> from,
                                          std::span<Entity> to) const {
+  if (!IsValid(how)) { return 0; }
   size_t found = 0;
   for (uint32_t ref = RelHead_[static_cast<size_t>(how)]; ref != kNoRef; ref = At(ref).RelNext) {
     ++Touched_;
@@ -507,6 +523,7 @@ size_t EntityRegistry::Kept::linkedPairs(Relation how,
 
 size_t
 EntityRegistry::Kept::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const {
+  if (!IsValid(role)) { return 0; }
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
