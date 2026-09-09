@@ -86,6 +86,10 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
 - `simulation/` und `audio/`: tatsächlich öffentliche Systemverträge.
 - `scenario/`: ScenarioDefinition beschreibt den initialen Aufbau und die
   Konfiguration; Reader/Writer gehören hierher, allgemeine Kameratypen nicht.
+- SurfaceState/SurfaceKind/Winding sind interne Renderableitungen von Material;
+  aus include/scene nach src/render verschieben, alle Consumer gemeinsam migrieren.
+  Native Lichtparameter dokumentieren Lux/Candela, lineare Farbe, lokale Richtung,
+  Reichweite und Spot-Halbwinkel; keine unbewiesene Validierung behaupten.
 - Engine.h enthält die Fassade; Outshine.h bleibt optionaler Sammelheader.
 
 Implementierung, Consumer, Installationspfade und Dokumentation gemeinsam migrieren.
