@@ -185,12 +185,19 @@ static_assert(EveryOwnedRelationIsExclusive(),
 inline constexpr size_t kOwnedRelations = scene_register_checked::OwnedRelationCount();
 static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
 
+/// Transient identity in one registry epoch; never a persistent save-file identifier.
+/// Registry-issued values distinguish foreign owners, slot reuse and successful reopen.
+/// Copies do not own or extend entity lifetime; validate through the originating registry.
 struct Entity {
+  /// Slot index within the owner; not independently sufficient to identify an entity.
   uint32_t Index = 0;
+  /// Slot generation, advanced on removal; exhausted generations retire their slot.
   uint32_t Generation = 0;
+  /// Process-unique registry epoch; zero is never issued by an opened registry.
+  uint64_t Owner = 0;
 
   [[nodiscard]] constexpr bool operator==(Entity other) const {
-    return Index == other.Index && Generation == other.Generation;
+    return Index == other.Index && Generation == other.Generation && Owner == other.Owner;
   }
 };
 
@@ -224,15 +231,25 @@ struct Instanced {
   Entity PrefabChild = kNoEntity;
 };
 
+/// Stable owner of entity slots and relations; neither copyable nor movable.
+/// Serialize access. Entity handles do not retain this owner or its storage.
 class Scene {
 public:
   Scene();
   ~Scene();
-  Scene(Scene &&) noexcept;
-  Scene &operator=(Scene &&) noexcept;
+  /// Moving would invalidate borrowed registry addresses and is forbidden.
+  Scene(Scene &&) = delete;
+  /// Replacing ownership through move assignment is forbidden.
+  Scene &operator=(Scene &&) = delete;
   Scene(const Scene &) = delete;
   Scene &operator=(const Scene &) = delete;
 
+  /// Reinitialize storage with a fresh identity epoch; successful reopening invalidates all
+  /// handles. Existing component columns must be repopulated; previous values never bind to new
+  /// entities. Allocates on the calling thread; serialize with all access to this registry.
+  /// @param capacity Positive number of entity slots to allocate.
+  /// @return False for zero capacity or exhausted identity space, preserving the previous epoch.
+  /// Allocation failure remains fatal/separate from these validation errors.
   [[nodiscard]] bool open(size_t capacity);
 
   [[nodiscard]] Entity addEntity(Role role);

@@ -2,6 +2,8 @@
 #include <scene/Scene.h>
 
 #include <cstddef>
+#include <atomic>
+#include <limits>
 #include <cstdint>
 #include <array>
 #include <initializer_list>
@@ -101,6 +103,7 @@ struct Scene::Kept {
   void UnlinkIn(uint32_t ref);
   void ErasePair(uint32_t slot, size_t pair);
 
+  uint64_t Owner_ = 0;
   std::vector<Slot> Slots_;
   std::vector<uint32_t> Free_;
   std::array<uint32_t, kRoles> RoleHead_ = NoRefs<kRoles>();
@@ -121,6 +124,21 @@ struct Scene::Kept {
 };
 
 namespace {
+
+namespace Says {
+constexpr auto IdentityExhausted = "registry identity space is exhausted";
+}
+
+[[nodiscard]] uint64_t NextRegistryOwner() noexcept {
+  static std::atomic<uint64_t> next{1};
+  uint64_t candidate = next.load(std::memory_order_relaxed);
+  while (candidate != std::numeric_limits<uint64_t>::max()) {
+    if (next.compare_exchange_weak(candidate, candidate + 1, std::memory_order_relaxed)) {
+      return candidate;
+    }
+  }
+  return 0;
+}
 
 const char *Named(Role role) {
   switch (role) {
@@ -148,6 +166,8 @@ const char *Named(Relation how) {
 
 bool Scene::Kept::open(size_t capacity) {
   if (capacity == 0) { return Refuse("a store of no entities holds nothing"); }
+  const uint64_t owner = NextRegistryOwner();
+  if (owner == 0) { return Refuse(Says::IdentityExhausted); }
   Slots_.assign(capacity, Slot{});
   Free_.clear();
   Free_.reserve(capacity);
@@ -163,6 +183,7 @@ bool Scene::Kept::open(size_t capacity) {
   Said_ = {};
   ErrorText_.clear();
   Touched_ = 0;
+  Owner_ = owner;
   return true;
 }
 
@@ -182,7 +203,7 @@ Entity Scene::Kept::addEntity(Role role) {
   slot.RoleNext = RoleHead_[static_cast<size_t>(role)];
   if (slot.RoleNext != kNoRef) { Slots_[slot.RoleNext].RolePrev = index; }
   RoleHead_[static_cast<size_t>(role)] = index;
-  return Entity{.Index = index, .Generation = generation};
+  return Entity{.Index = index, .Generation = generation, .Owner = Owner_};
 }
 
 void Scene::Kept::remove(Entity of) {
@@ -202,7 +223,8 @@ void Scene::Kept::remove(Entity of) {
       for (uint32_t in = held->InHead[how]; in != kNoRef; in = At(in).InNext) {
         ++Touched_;
         const uint32_t source = in / kPairsPerEntity;
-        Felling_.push_back(Entity{.Index = source, .Generation = Slots_[source].Generation});
+        Felling_.push_back(
+            Entity{.Index = source, .Generation = Slots_[source].Generation, .Owner = Owner_});
         deferred = true;
       }
     }
@@ -240,8 +262,10 @@ void Scene::Kept::Fell(Entity of) {
   }
 
   slot->Held = false;
-  slot->Generation += 1;
-  Free_.push_back(index);
+  if (slot->Generation != std::numeric_limits<uint32_t>::max()) {
+    slot->Generation += 1;
+    Free_.push_back(index);
+  }
 }
 
 bool Scene::Kept::alive(Entity of) const {
@@ -444,7 +468,8 @@ size_t Scene::Kept::sources(Entity to, Relation how, std::span<Entity> into) con
     ++Touched_;
     const uint32_t source = in / kPairsPerEntity;
     if (found < into.size()) {
-      into[found] = Entity{.Index = source, .Generation = Slots_[source].Generation};
+      into[found] =
+          Entity{.Index = source, .Generation = Slots_[source].Generation, .Owner = Owner_};
     }
     ++found;
   }
@@ -456,7 +481,7 @@ size_t Scene::Kept::entitiesWithRole(Role role, std::span<Entity> into) const {
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
     if (found < into.size()) {
-      into[found] = Entity{.Index = at, .Generation = Slots_[at].Generation};
+      into[found] = Entity{.Index = at, .Generation = Slots_[at].Generation, .Owner = Owner_};
     }
     ++found;
   }
@@ -469,7 +494,8 @@ size_t Scene::Kept::linkedPairs(Relation how, std::span<Entity> from, std::span<
     ++Touched_;
     const uint32_t source = ref / kPairsPerEntity;
     if (found < from.size()) {
-      from[found] = Entity{.Index = source, .Generation = Slots_[source].Generation};
+      from[found] =
+          Entity{.Index = source, .Generation = Slots_[source].Generation, .Owner = Owner_};
     }
     if (found < to.size()) { to[found] = At(ref).To; }
     ++found;
@@ -481,7 +507,7 @@ size_t Scene::Kept::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity>
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
-    const Entity one{.Index = at, .Generation = Slots_[at].Generation};
+    const Entity one{.Index = at, .Generation = Slots_[at].Generation, .Owner = Owner_};
     if (!hasTag(one, tag)) { continue; }
     if (found < into.size()) { into[found] = one; }
     ++found;
@@ -511,7 +537,8 @@ Entity Scene::Kept::instantiate(Entity prefab) {
       ++Touched_;
       const uint32_t source = in / kPairsPerEntity;
       const uint32_t next = At(in).InNext;
-      const Entity childId{.Index = source, .Generation = Slots_[source].Generation};
+      const Entity childId{
+          .Index = source, .Generation = Slots_[source].Generation, .Owner = Owner_};
       if (childId == instance || childId == at.Under) {
         in = next;
         continue;
@@ -538,7 +565,7 @@ Entity Scene::Kept::copyOf(Instanced which) const {
        in = At(in).InNext) {
     ++Touched_;
     const uint32_t source = in / kPairsPerEntity;
-    const Entity childId{.Index = source, .Generation = Slots_[source].Generation};
+    const Entity childId{.Index = source, .Generation = Slots_[source].Generation, .Owner = Owner_};
     if (targetOf(childId, Relation::IsA) == which.PrefabChild) { return childId; }
   }
   return kNoEntity;
@@ -572,7 +599,9 @@ size_t Scene::Kept::entitiesOffering(Tag activity, std::span<Entity> into) const
     ++Touched_;
     const Slot &slot = Slots_[at];
     if (!slot.Offers.within(activity)) { continue; }
-    if (found < into.size()) { into[found] = Entity{.Index = at, .Generation = slot.Generation}; }
+    if (found < into.size()) {
+      into[found] = Entity{.Index = at, .Generation = slot.Generation, .Owner = Owner_};
+    }
     ++found;
   }
   return found;
@@ -636,7 +665,7 @@ Seat Scene::Kept::seatOf(Seating who) const {
 }
 
 const Scene::Kept::Slot *Scene::Kept::Held(Entity of) const {
-  if (of.Index >= Slots_.size()) { return nullptr; }
+  if (of.Owner != Owner_ || of.Index >= Slots_.size()) { return nullptr; }
   const Slot &slot = Slots_[of.Index];
   if (!slot.Held || slot.Generation != of.Generation) { return nullptr; }
   return &slot;
@@ -771,7 +800,5 @@ void Scene::resetTouched() {
 Scene::Scene() : Kept_(std::make_unique<Kept>()) {}
 
 Scene::~Scene() = default;
-Scene::Scene(Scene &&) noexcept = default;
-Scene &Scene::operator=(Scene &&) noexcept = default;
 
 }

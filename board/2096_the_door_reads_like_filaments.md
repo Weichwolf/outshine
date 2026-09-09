@@ -22,9 +22,10 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
   Live::Carry verlangt Joined_ > 0 und lehnt rein generierte Geometrie ab.
   Draws überträgt alle Simulationskörper als Instanzen desselben SubjectProxy;
   Body::Asset bestimmt dort nicht die tatsächlich instanzierte Geometrie.
-- Scene ist öffentlich mutierbar und austauschbar. Column leiht ihre Adresse;
-  Index/Generation allein unterscheiden neu geöffnete Scenes nicht zuverlässig.
-  Fremde oder neu entstandene Entities dürfen keine alten Komponenten übernehmen.
+- Die Registry besitzt eine stabile Adresse und ist nicht verschiebbar. Handles
+  tragen Registry-Epoche, Index und Generation; Columns speichern vollständige
+  Identitäten. Fremde Handles und Reopen dürfen keine Komponenten übernehmen.
+  Engine-Zugriff bleibt öffentlich mutierbar; Systembindung nach Reopen klar begrenzen.
 - Scenario.h bündelt Deklarationen vieler Systeme. Nach fachlichen Abhängigkeiten
   aufteilen, soweit dies isolierte Consumer und nachvollziehbare Verträge ermöglicht;
   keine Headerzahl als Ziel. Jeder öffentliche Header muss selbstständig verwendbar sein.

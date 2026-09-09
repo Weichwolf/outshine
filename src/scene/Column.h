@@ -16,34 +16,33 @@ public:
     if (of.capacity() == 0) { return false; }
     Bound_ = &of;
     Values_.assign(of.capacity(), Value{});
-    Generations_.assign(of.capacity(), 0);
-    Held_.assign(of.capacity(), 0);
+    Entities_.assign(of.capacity(), kNoEntity);
     return true;
   }
 
   [[nodiscard]] bool Put(Entity of, const Value &value) {
     if (Bound_ == nullptr || !Bound_->alive(of) || of.Index >= Values_.size()) { return false; }
     Values_[of.Index] = value;
-    Generations_[of.Index] = of.Generation;
-    Held_[of.Index] = 1;
+    Entities_[of.Index] = of;
     return true;
   }
 
   [[nodiscard]] const Value *Get(Entity of) const {
     if (Bound_ == nullptr || !Bound_->alive(of) || of.Index >= Values_.size()) { return nullptr; }
-    if (Held_[of.Index] == 0 || Generations_[of.Index] != of.Generation) { return nullptr; }
+    if (Entities_[of.Index] != of) { return nullptr; }
     return &Values_[of.Index];
   }
 
   void Drop(Entity of) {
-    if (of.Index < Held_.size() && Generations_[of.Index] == of.Generation) { Held_[of.Index] = 0; }
+    if (of.Index < Entities_.size() && Entities_[of.Index] == of) {
+      Entities_[of.Index] = kNoEntity;
+    }
   }
 
   template <class Fn> void Each(Fn &&fn) const {
     if (Bound_ == nullptr) { return; }
     for (uint32_t at = 0; at < static_cast<uint32_t>(Values_.size()); ++at) {
-      if (Held_[at] == 0) { continue; }
-      const Entity of{.Index = at, .Generation = Generations_[at]};
+      const Entity of = Entities_[at];
       if (!Bound_->alive(of)) { continue; }
       fn(of, Values_[at]);
     }
@@ -52,8 +51,7 @@ public:
 private:
   const Scene *Bound_ = nullptr;
   std::vector<Value> Values_;
-  std::vector<uint32_t> Generations_;
-  std::vector<uint8_t> Held_;
+  std::vector<Entity> Entities_;
 };
 
 }
