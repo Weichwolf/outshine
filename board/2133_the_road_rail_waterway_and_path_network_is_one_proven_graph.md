@@ -75,3 +75,11 @@ bewiesen. Gegenbeispiel mit unterschiedlich langen Wegen zu mehreren Zielkandida
 gegen unabhängige Dijkstra-Lösung konstruieren; zulässige Heuristik zur Zielmenge.
 Start-Reichweite von 250 m kann ebenfalls Barrieren/Fahrtrichtungen überspringen;
 explizite zulässige Anbindung statt freier räumlicher Seeds erforderlich.
+
+TransportNetworkPreservesOneWay reproduziert die illegale Rückwärtsroute bereits
+mit zwei Knoten (0°/0° und 0°/0,01°), Snap 1 m und ohne Renderer. Beide Richtungen
+sind nur bei Oneway=false erlaubt. Der Test scheitert am Verhalten, nicht am Build.
+IndexEdgesByCell überspringt außerdem Kanten mit To<From pauschal; dadurch würden
+umgekehrt gespeicherte Einbahnsegmente nach der ersten Reparatur aus dem Index fehlen.
+Loose-End-Erkennung nutzt nur Ausgangsgrad 1 und muss physische Nachbarschaft von
+Fahrtrichtung trennen. Komponentenstatistik ebenfalls auf gerichtete Semantik prüfen.
