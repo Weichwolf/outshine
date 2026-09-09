@@ -67,3 +67,9 @@ Events, Kameras und Bodies extrahieren; zentrale Funktion koordiniert Reihenfolg
 Grammatik und Unread-Prüfung. Daten-/Fehlerverhalten erhalten, keine neue API.
 Vorhandene Parser-, Projektions- und Assembly-Tests sowie vollständiger Lint;
 kein Bildunterschied erwartet, da ausschließlich Zuständigkeiten getrennt werden.
+
+ReadScenario publiziert erst nach Grammatik, allen Abschnittslesern und Unread-
+Prüfung einen vollständigen Kandidaten. Fehler erhalten das Zielobjekt; Erfolg
+löscht alte Diagnosen. Nothrow-Move-Assignment als Publikationsinvariante prüfen.
+Tests für frühe XML-/Grammatikfehler, späte Asset-/Tabellen-/Unread-Fehler und
+anschließenden Erfolg; bestehende Listen dürfen weder gelöscht noch ergänzt werden.
