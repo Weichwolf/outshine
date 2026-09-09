@@ -3,7 +3,7 @@
 #include <cmath>
 #include "math/Mat4.h"
 #include "scenario/Scenario.h"
-#include "Subject.h"
+#include "math/TransformMatrix.h"
 #include "Viewing.h"
 
 namespace outshine {
@@ -17,7 +17,7 @@ bool Scenario::Camera::modelMatrix(Mat4 &out) const {
     const Quat &q = Stands.Facing;
     const double norm2 = q.X * q.X + q.Y * q.Y + q.Z * q.Z + q.W * q.W;
     if (!(norm2 > 0.0) || !std::isfinite(norm2)) { return false; }
-    out = Gltf::Transform::FromTrs(Stands.AtM, Stands.Facing, {{1, 1, 1}}).M;
+    out = TransformMatrix(Stands.AtM, Stands.Facing, {{1, 1, 1}});
     return true;
   }
   for (int axis = 0; axis < 3; ++axis) {
@@ -38,10 +38,7 @@ bool Scenario::Camera::modelMatrix(Mat4 &out) const {
 bool Scenario::Camera::viewMatrix(Mat4 &out) const {
   Mat4 model;
   if (!modelMatrix(model)) { return false; }
-  Gltf::Transform inverse;
-  if (!Gltf::Transform::FromColumnMajor(model).Inverse(inverse)) { return false; }
-  out = inverse.M;
-  return true;
+  return InverseMatrix(model, out);
 }
 
 bool Scenario::Camera::projectionMatrix(double aspect, Mat4 &out) const {
