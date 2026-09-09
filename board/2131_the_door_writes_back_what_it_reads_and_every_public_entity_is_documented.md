@@ -59,3 +59,8 @@ Preload verlangt endliche nichtnegative Sekunden vor jeder Arbeit/Callback; NaN/
 und negative Budgets dürfen keine unbeschränkte Schleife oder stillen Erfolg liefern.
 Öffentlichen Callback-/Snapshot-/Teilfortschrittsvertrag dokumentieren; Roots besitzt
 Strings, setRoots ist Setup und migriert keine bereits geöffneten Ressourcen.
+
+Float-Readback lehnt Colour und unbekannte Bufferwerte vor Stood/Draw ab; keine
+GPU-Arbeit für ungültige Ausgabeanforderung. Öffentlichen Komponenten-/Raumvertrag
+gegen Shader und Readback dokumentieren; Diagnose-Identität ist kein Entity-Handle.
+Test ohne Renderziel verlangt spezifische Ablehnung und unveränderten Output.
