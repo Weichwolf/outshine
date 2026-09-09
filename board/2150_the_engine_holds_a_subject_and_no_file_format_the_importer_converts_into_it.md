@@ -15,7 +15,9 @@ Live speichert danach keinen geliehenen Geometriezeiger. Gemischte Parts ohne
 Material erhalten einen eigenen Default-Slot; Pixel-Orakel prüft dessen Farbe.
 `Subject` mischt dekodierte Meshdaten, Importzugriff, Skinning und Rückkonvertierung
 über `Handed`. Ein Namespace-Wechsel würde diesen Designfehler nicht beheben.
-`Live` setzt außerdem den Schatten-Casterbereich anhand importiert/gebaut (2128).
+`Live` koppelt Carry an Joined_ > 0 und Schatten-Caster an Herkunft (2128).
+Draws instanziert dasselbe Subject unabhängig von Body::Asset. Native Asset-/Entity-
+Bindung muss auch Physik ohne Mesh und Renderinstanzen ohne Physik erlauben.
 
 UV-Grenze: native Rotation algebraisch definieren (+U nach +V), glTFs visuell
 gegenläufige Rotation beim Import konvertieren. Das GLSL-Beispiel der Extension
@@ -73,7 +75,6 @@ lokal, Welt-/Instanzplatzierung bleibt Runtime-Aufgabe. Gemischte Views erst nac
 allen Appends binden. NativePlacementPreservesTheSurface prüft Bounds, Licht,
 Normalen, Spiegelung, Rebase und Quell-Clear unabhängig vom Importpfad.
 Fehlende Normalen werden als getrennte Flächennormalen aufbereitet; 2179 bleibt offen.
-Malcesine bleibt wegen Geländewänden und Materialdefiziten visuell nicht abgenommen.
 
 AudioOcclusion.cpp leitet die Audio-BVH aus nativen Parts mit Platzierung ab;
 keine Physikkollision. Audio-BVH wird nach erfolgreichem Render-Aufbau publiziert.
@@ -92,8 +93,7 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 
-Nach dem begonnenen Submission-Fix 2190 hat diese Grenze Vorrang vor weiteren
-herkunftsspezifischen Reparaturen. 2128 behebt zusätzlich Instanz-/Terrain-Schatten;
+Diese Grenze hat nach Submission-Fix 2190 Vorrang; 2128 behebt Instanz-/Terrain-Schatten;
 2195 nutzt den Importadapter für den direkten Clientpfad. Keine zyklischen Blocker.
 
 ## Referenzmaßstab
