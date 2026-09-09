@@ -98,3 +98,10 @@ auch nicht darstellbare Summe ablehnen. Ungültiger Aufruf darf keine Schritte
 ausführen oder Zeitreste verändern. Null bleibt erlaubtes Nachholen bestehender
 Zeitreste. API-/Negativtest mit NaN, ±Inf, negativer Zeit und anschließender Null.
 Validierung von StepS/MostStepsInArrears und Überlastpolitik bleiben separat offen.
+
+Zeitschrittdeklaration vor ships/Mutation validieren: StepS endlich >0,
+MostStepsInArrears >0, Produkt endlich. Vorher akzeptierte Null/NaN führte zu
+unterschiedlichen Takten in Integrate und Akkumulator; negative Limits blockierten
+Schritte still. Ablehnung erhält vorherige Deklaration. API-Test mit gültiger
+Baseline und ungültigen Kandidaten, Negativkontrolle. Globale Frame-Arbeitsbudgets
+und geprüfte Ganzzahlkonvertierung im Szenario-Parser bleiben offen.
