@@ -9,6 +9,7 @@
 #include <array>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,7 +22,7 @@ struct EntityRegistry::Kept {
   Entity addEntity(Role role);
   void remove(Entity of);
   bool alive(Entity of) const;
-  Role roleOf(Entity of) const;
+  std::optional<Role> roleOf(Entity of) const;
   bool giveTag(Entity to, Tag tag);
   bool hasTag(Entity of, Tag tag) const;
   bool link(Entity from, Relation how, Entity to);
@@ -283,9 +284,9 @@ bool EntityRegistry::Kept::alive(Entity of) const {
   return Held(of) != nullptr;
 }
 
-Role EntityRegistry::Kept::roleOf(Entity of) const {
+std::optional<Role> EntityRegistry::Kept::roleOf(Entity of) const {
   const Slot *slot = Held(of);
-  return slot == nullptr ? Role::Body : slot->Is;
+  return slot == nullptr ? std::nullopt : std::optional{slot->Is};
 }
 
 bool EntityRegistry::Kept::giveTag(Entity to, Tag tag) {
@@ -677,7 +678,7 @@ bool EntityRegistry::Kept::releaseSeat(Seating who) {
 
 Seat EntityRegistry::Kept::seatOf(Seating who) const {
   const Slot *slot = Held(who.At);
-  if (slot == nullptr) { return Seat::Free; }
+  if (slot == nullptr || Held(who.By) == nullptr) { return Seat::Free; }
   for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
     if (slot->Seats[seat].By == who.By) { return slot->Seats[seat].State; }
   }
@@ -725,7 +726,7 @@ bool EntityRegistry::alive(Entity of) const {
   return Kept_->alive(of);
 }
 
-Role EntityRegistry::roleOf(Entity of) const {
+std::optional<Role> EntityRegistry::roleOf(Entity of) const {
   return Kept_->roleOf(of);
 }
 

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 namespace outshine {
@@ -114,9 +115,19 @@ public:
   /// @return Registry-owned handle, or kNoEntity for invalid role/full pool; rejection
   /// preserves existing entities and available slots and records error().
   [[nodiscard]] Entity addEntity(Role role);
+  /// Remove an entity and its ChildOf descendants, invalidating their handles and relations.
+  /// Foreign/stale handles are ignored. Work follows affected entities and incident edges;
+  /// uses prepared traversal storage. Does not remove separately owned component storage.
+  /// @param of Root to remove from this registry epoch.
   void remove(Entity of);
+  /// Test ownership, slot occupancy and generation in constant time without allocation.
+  /// @param of Handle to validate; kNoEntity, stale and foreign handles return false.
+  /// @return Whether the handle currently belongs to a live entity in this registry.
   [[nodiscard]] bool alive(Entity of) const;
-  [[nodiscard]] Role roleOf(Entity of) const;
+  /// Query a live entity's role in constant time without allocation or error-state change.
+  /// @param of Handle to validate against this registry epoch.
+  /// @return Role, or nullopt for kNoEntity, stale, removed or foreign handles.
+  [[nodiscard]] std::optional<Role> roleOf(Entity of) const;
 
   [[nodiscard]] bool giveTag(Entity to, Tag tag);
   [[nodiscard]] bool hasTag(Entity of, Tag tag) const;
@@ -169,6 +180,10 @@ public:
   [[nodiscard]] bool claimSeat(Seating who);
   [[nodiscard]] bool takeSeat(Seating who);
   [[nodiscard]] bool releaseSeat(Seating who);
+  /// Query this claimant's reservation without allocation or error-state change.
+  /// @param who Both handles must be live in this registry; neither is retained by this query.
+  /// @return Claimed/Occupied for the reservation; Free when absent or either handle is invalid.
+  /// Scans only the offering entity's fixed seat storage; serialize with registry mutations.
   [[nodiscard]] Seat seatOf(Seating who) const;
 
   [[nodiscard]] size_t capacity() const;
