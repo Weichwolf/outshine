@@ -634,8 +634,18 @@ struct Clock {
   double Rate = 1.0; ///< Declared world-time scale, retained but not yet applied by runtime.
 };
 
+/// Owned input-event to host-action mapping, copied by Engine::declare.
+/// Buttons deliver one numeric argument (1 pressed, 0 released); key repeats are ignored.
+/// Stick axes deliver [-1, 1], triggers [0, 1], mouse axes relative pixel deltas.
+/// No deadzone, smoothing, device selection or aggregation across bindings is applied.
 struct Binding {
+  /// Exact case-sensitive event: KeyW/KeyA/KeyS/KeyD, Space, Escape,
+  /// ArrowUp/ArrowDown/ArrowLeft/ArrowRight, PageUp/PageDown, MouseLeft/MouseRight,
+  /// GamepadSouth/GamepadEast, MouseX/MouseY, AxisLeftX/AxisLeftY,
+  /// AxisRightX/AxisRightY, TriggerLeft/TriggerRight. Unknown names reject declare.
   std::string Event;
+  /// Nonempty host action name, copied and passed literally to Host::calls, not parsed
+  /// as a script. Multiple events may share an action; each event calls it separately.
   std::string Action;
 };
 
@@ -672,6 +682,9 @@ struct Document {
 
   PhysicsSettings Motion;
   Clock Time;
+  /// Owned bindings. Duplicate events or empty actions reject declare; failure retains
+  /// prior bindings, success replaces them, and an empty list clears them. Dispatch via
+  /// handleEvent requires an offered Host for bound actions, but no render target.
   std::vector<Binding> Input;
   /// Vertical UI pixels per wheel unit; finite and nonnegative, validated by declare.
   /// Zero disables wheel movement. Applied to SDL's already direction-adjusted event value.

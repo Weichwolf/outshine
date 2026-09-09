@@ -8,6 +8,10 @@
 
 namespace outshine {
 
+namespace Says {
+constexpr auto kEmptyInputAction = "an input binding requires a nonempty action name";
+}
+
 namespace {
 
 struct KnownEvent {
@@ -71,6 +75,10 @@ bool InputMap::Build(std::span<const Scenario::Binding> declared, std::string &e
   candidate.ActionAt_.assign(kEventCount, kUnbound);
   candidate.Actions_.clear();
   for (const Scenario::Binding &binding : declared) {
+    if (binding.Action.empty()) {
+      error = Says::kEmptyInputAction;
+      return false;
+    }
     const ptrdiff_t at = EventIndexOf(binding.Event);
     if (at < 0) {
       error = "the binding names the event '" + binding.Event +

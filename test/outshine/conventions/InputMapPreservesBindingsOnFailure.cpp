@@ -21,6 +21,13 @@ int main() {
               map.ActionOf("KeyA") == nullptr,
           "old bindings survive and candidate prefix never becomes visible");
   }
+  const std::array emptyAction{Scenario::Binding{.Event = "KeyA", .Action = ""}};
+  CHECK(!map.Build(emptyAction, error) && map.BoundTo("forward") == 1,
+        "empty action rejected without replacing previous bindings");
+  const std::array shared{Scenario::Binding{.Event = "KeyA", .Action = "turn"},
+                          Scenario::Binding{.Event = "KeyD", .Action = "turn"}};
+  CHECK(map.Build(shared, error) && map.BoundTo("turn") == 2 && map.BoundTo("Turn") == 0,
+        "distinct events share a literal case-sensitive action name");
   const std::array replacement{Scenario::Binding{.Event = "KeyA", .Action = "left"}};
   CHECK(map.Build(replacement, error) && error.empty(), "valid retry clears failure diagnostic");
   CHECK(map.ActionOf("KeyW") == nullptr && map.BoundTo("left") == 1,
