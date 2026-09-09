@@ -105,3 +105,9 @@ SDL hat FLIPPED bereits in x/y angewandt; UI erhält diese Systempräferenz, kei
 zweite Umkehrung. Test mit versetztem Scrollcontainer und eingespeisten Events,
 beiden Vorzeichen, FLIPPED, Null, außerhalb und beiden Scrollgrenzen. HiDPI-
 Umrechnung von Fensterkoordinaten in UI-Pixel für alle Mauspfade separat prüfen.
+
+Wheel-Validierung: WheelStepPx endlich und nichtnegativ; Null deaktiviert Scrollen.
+Declare lehnt ungültige Konfiguration vor Mutation ab. Bei aktiver UI müssen
+mouse_x/mouse_y/y und der berechnete Pixelweg endlich sein; sonst expected-Fehler
+vor Scrollmutation. Test NaN/±Inf je konsumiertem Feld, Multiplikationsüberlauf,
+Nullkonfiguration und gültige Folgeereignisse als Zustandsnachweis.
