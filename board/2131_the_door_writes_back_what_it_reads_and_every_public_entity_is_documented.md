@@ -106,3 +106,10 @@ muss scheitern. Kein Bildunterschied ohne entsprechende Eingabe erwartet.
 Öffentliches handleEvent filtert derzeit nur Tasten zur InputPump: Maus-/Gamepad-
 Bindings bleiben unerreichbar. Dispatch samt UI-Priorität und aktivem Host durch
 öffentliche Integrationstests korrigieren; Pump-Tests allein schließen dies nicht.
+
+Dispatch-Entscheidung: deklarierte Bindungen funktionieren auch ohne Renderziel;
+die Simulation darf nicht von Live/GPU abhängen. Explizite Bindungen haben Vorrang,
+ungebundene Mausereignisse fallen zur UI durch; keine doppelte Aktion bei Host-false.
+UI/Wheel benötigen weiterhin eine Renderinstanz. Öffentliche Tests für alle Geräte,
+Down/Up, beide Bewegungsachsen, fehlenden/ablehnenden Host und leere Neudeklaration;
+keine SDL-Initialisierung für die reine Aktionsweiterleitung erforderlich.
