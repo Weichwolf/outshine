@@ -1,6 +1,7 @@
 #include "math/Units.h"
 #include "math/Vec2.h"
 #include "BuildingShape.h"
+#include "BuildingCut.h"
 
 #include <array>
 #include <algorithm>
@@ -244,19 +245,7 @@ struct Cut {
     s[i] = SideOf(at, normal, in.P[i]);
     sg[i] = SideSign(s[i]);
   }
-  int last = 0;
-  for (size_t i = 0; i < n; i++) {
-    if (sg[i] != 0) { last = sg[i]; }
-  }
-  if (last == 0) { return false; }
-  int crossings = 0;
-  int cur = last;
-  for (size_t i = 0; i < n; i++) {
-    if (sg[i] == 0) { continue; }
-    if (sg[i] != cur) { crossings++; }
-    cur = sg[i];
-  }
-  if (crossings != 2) { return false; }
+  if (!HasSingleCut(sg)) { return false; }
 
   const auto build = [&](Piece *out, int side) {
     out->P.clear();
