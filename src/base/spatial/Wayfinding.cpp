@@ -1017,7 +1017,7 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     return out;
   }
   const size_t start = started->Node;
-  size_t finish = finished->Node;
+  const size_t finish = finished->Node;
   const double startAwayM = started->AwayM;
   const double finishAwayM = finished->AwayM;
 
@@ -1031,7 +1031,8 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
 
   std::vector<size_t> nearFinish;
   const double arriveM = Nodes_[finish].HalfWidthM > 0.0 ? 2.0 * Nodes_[finish].HalfWidthM : SnapM_;
-  Within(to, finishAwayM + arriveM, nearFinish);
+  const double goalRadiusM = finishAwayM + arriveM;
+  Within(to, goalRadiusM, nearFinish);
   if (nearFinish.empty()) { nearFinish.push_back(finish); }
   std::vector<bool> arriving(Nodes_.size(), false);
   for (const size_t which : nearFinish) { arriving[which] = true; }
@@ -1051,10 +1052,11 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     return state < edges ? Edges_[state].To : nearStart[state - edges];
   };
   const auto goalM = [&](size_t node) {
-    return ApartM(
-        {.LongitudeDeg = Nodes_[node].LongitudeDeg, .LatitudeDeg = Nodes_[node].LatitudeDeg},
-        {.LongitudeDeg = Nodes_[finish].LongitudeDeg, .LatitudeDeg = Nodes_[finish].LatitudeDeg},
-        Sphere{.RadiusM = RadiusM_});
+    const double distanceM =
+        ApartM({.LongitudeDeg = Nodes_[node].LongitudeDeg, .LatitudeDeg = Nodes_[node].LatitudeDeg},
+               to,
+               Sphere{.RadiusM = RadiusM_});
+    return std::max(0.0, distanceM - goalRadiusM);
   };
 
   using Step = std::pair<double, size_t>;
@@ -1086,7 +1088,6 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     }
     if (arriving[node]) {
       arrived = state;
-      finish = node;
       break;
     }
 

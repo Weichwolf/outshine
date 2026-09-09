@@ -68,10 +68,9 @@ Kantenindex dedupliziert physische Segmente unabhängig von Knotenreihenfolge; l
 Enden werden über physische Nachbarschaft erkannt, nicht über Ausgangsgrad. Nähe darf gemäß Zielmodell
 keine OSM-Verbindung erfinden; die Ablösung des Legacy-Snaps bleibt offen.
 
-Plan akzeptiert mehrere Zielknoten, verwendet als Heuristik aber Distanz zum einzelnen
-nächsten Zielknoten. An anderen akzeptierten Zielen kann h>0 sein: Optimalität nicht
-bewiesen. Gegenbeispiel mit unterschiedlich langen Wegen zu mehreren Zielkandidaten
-gegen unabhängige Dijkstra-Lösung konstruieren; zulässige Heuristik zur Zielmenge.
+Plan verwendet eine konsistente untere Entfernungsschranke zum gesamten Zielbereich.
+Analytische Direktkanten widerlegen die frühere Einzelzielheuristik; breitere Graphen
+mit Umwegen/Turn-Regeln zusätzlich gegen unabhängige Dijkstra-Lösung prüfen.
 Start-Reichweite von 250 m kann ebenfalls Barrieren/Fahrtrichtungen überspringen;
 explizite zulässige Anbindung statt freier räumlicher Seeds erforderlich.
 
