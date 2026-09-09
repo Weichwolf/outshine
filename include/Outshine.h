@@ -32,20 +32,29 @@ template <typename Value> using Holds = std::expected<Value, std::string>;
 /// A verb with nothing to give back but its refusal.
 using Result = Holds<void>;
 
+/// Value snapshot of terrain/vector requests and tile-pool accounting. Copies own
+/// their values and may be read independently; they do not track later engine changes.
+/// Counts describe different streaming stages, not completed GPU residency.
 struct Loading {
-  size_t GroundWanted = 0, GroundArrived = 0;
-  size_t VectorWanted = 0, VectorArrived = 0;
-  size_t Outstanding = 0;
-  double FetchedMB = 0.0;
-  double Megabits = 0.0;
-  double MeanFetchMs = 0.0;
-  double ElapsedS = 0.0;
+  size_t GroundWanted = 0;  ///< Terrain requests in the current engine request set.
+  size_t GroundArrived = 0; ///< Requested terrain entries no longer pending.
+  size_t VectorWanted = 0;  ///< Retained OSM tiles plus currently pending OSM tiles.
+  size_t VectorArrived = 0; ///< OSM tiles retained by the vector field.
+  size_t Outstanding = 0;   ///< Outstanding tile-pool work; not the sum of missing entries.
+  double FetchedMB = 0.0;   ///< Cumulative tile-pool payload in MiB (2^20 bytes), despite the name.
+  double Megabits = 0.0;    ///< Preload callback estimate: FetchedMB * 8 / ElapsedS, in Mibit/s.
+  double MeanFetchMs = 0.0; ///< Accumulated fetch time divided by pool post count, in milliseconds.
+  double ElapsedS = 0.0;    ///< Seconds since this preload call began; zero in loading() snapshots.
 
-  [[nodiscard]] double share() const {
-    const size_t wants = GroundWanted + VectorWanted;
-    return wants == 0
+  /// Ratio of arrived to wanted terrain/vector entries, without allocation.
+  /// Returns one when nothing is wanted. Does not clamp inconsistent caller-created
+  /// snapshots or establish readiness of generated geometry, uploads or rendering.
+  /// Integer sums cannot overflow; large counters are approximated in double precision.
+  [[nodiscard]] constexpr double share() const noexcept {
+    const double wants = static_cast<double>(GroundWanted) + static_cast<double>(VectorWanted);
+    return wants == 0.0
                ? 1.0
-               : static_cast<double>(GroundArrived + VectorArrived) / static_cast<double>(wants);
+               : (static_cast<double>(GroundArrived) + static_cast<double>(VectorArrived)) / wants;
   }
 };
 
