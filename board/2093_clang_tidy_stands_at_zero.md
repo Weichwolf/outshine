@@ -30,6 +30,16 @@ static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfa
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
 
+## PNG-Höhendaten
+
+ReadPng mischt Container, Header, Inflation und Zeilenfilter (Komplexität 42).
+CRC, Kompressions-/Filtermethode und Abschluss werden bisher nicht geprüft.
+Containerprüfung und Filterrekonstruktion fachlich trennen; beschädigte Chunks,
+fehlendes IEND und ungültige Methoden ablehnen, bevor Höhendaten publiziert werden.
+RGB/RGBA-Bits unverändert erhalten, keine Farbkonvertierung. Größen vor Addition
+prüfen. Unabhängiger Paeth-Pixeltest und gezielt korrumpierte Container prüfen
+Erfolg und Ablehnung. Referenz: https://www.w3.org/TR/png-3/
+
 ## Generierter C++-Code
 
 CrownBuild.h wird vom Provenienzgenerator erzeugt und bleibt Teil der Analyse.
