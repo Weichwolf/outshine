@@ -1,4 +1,5 @@
 #include <limits>
+#include <type_traits>
 #include <cmath>
 #include "ScenarioWrite.h"
 #include "AudioOcclusion.h"
@@ -287,15 +288,20 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::unexpected(S_->Error);
   }
 
-  S_->Session.Pumping = false;
-  if (!scenario.Input.empty()) {
-    if (!S_->Session.Bound.Build(scenario.Input, S_->Error)) { return std::unexpected(S_->Error); }
-    if (!S_->Session.Pump.Open(S_->Session.Bound)) {
-      S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
-      return std::unexpected(S_->Error);
-    }
-    S_->Session.Pumping = true;
+  InputMap bindings;
+  if (!bindings.Build(scenario.Input, S_->Error)) { return std::unexpected(S_->Error); }
+  Core::InputPump pump;
+  if (!pump.Open(S_->Session.Bound)) {
+    S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
+    return std::unexpected(S_->Error);
   }
+  const auto publishInput = [&] noexcept {
+    static_assert(std::is_nothrow_move_assignable_v<InputMap>);
+    static_assert(std::is_nothrow_copy_assignable_v<Core::InputPump>);
+    S_->Session.Bound = std::move(bindings);
+    S_->Session.Pump = pump;
+    S_->Session.Pumping = !scenario.Input.empty();
+  };
 
   S_->Session.Views.reset();
   if (!scenario.Views.empty()) {
@@ -327,6 +333,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Sounding.reset();
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
+    publishInput();
     return {};
   }
 
@@ -346,7 +353,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    return generated(scenario) ? Result{} : std::unexpected(S_->Error);
+    if (!generated(scenario)) { return std::unexpected(S_->Error); }
+    publishInput();
+    return {};
   }
   if (!Core::Live::Open(S_->Picture.Device,
                         std::move(declared),
@@ -369,7 +378,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
-  return generated(scenario) ? Result{} : std::unexpected(S_->Error);
+  if (!generated(scenario)) { return std::unexpected(S_->Error); }
+  publishInput();
+  return {};
 }
 
 bool Engine::generated(const Scenario::Document &scenario) {
