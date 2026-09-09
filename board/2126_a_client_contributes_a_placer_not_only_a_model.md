@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Area: include, generators, engine
 Tags: architecture, ownership, generation
 Parent: 2188
@@ -44,3 +44,15 @@ RDR2/GTA5 sind visuelle Referenzen, kein Beleg proprietärer API- oder Dateivert
 - [ ] Seed, unveränderte Provider und wechselnde Worker-Reihenfolge liefern dieselbe Belegung.
 - [ ] Abmeldung entfernt Beiträge ohne hängende geliehene Zugriffe; Negativkontrolle wirksam.
 - [ ] Kosten-/Speichergrenzen und Abbruch für Streaming geprüft; make lint und API-Tests.
+
+## Gebäudemesher: Fehlergrenze
+
+Mesh hängt an Raised an; catch leert bisher auch vorherige Gebäude. Größen aller
+vier Ausgabepuffer vor dem Versuch sichern und bei Ablehnung nur den neuen Anhang
+verwerfen. expected unterscheidet ungültigen Plan, inkompatiblen Scratch und
+Aufbaufehler; Scratch-Typ am Job-Eingang prüfen statt unchecked static_cast.
+Allokationsfehler früh/mittig/spät gezielt injizieren und vorherige Geometrie erhalten.
+Catch erst nach begrenztem Scratch-/Output-Aufbau aus 2194 entfernen, nicht ersatzlos.
+StructureBake ignoriert Ergebnisse derzeit; anschließend Fehler bis Job-Publikation führen.
+Weitere Befunde: Site::Index nutzt Hash als Identität und multipliziert signed int64;
+Kollisionen/Überlauf dürfen keine verschiedenen Vertexpositionen zusammenlegen.
