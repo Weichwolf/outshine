@@ -43,9 +43,38 @@ private:
   size_t Count_ = 0;
 };
 
+inline constexpr std::array<uint64_t, 3> kBuildingHashMultipliers{
+    73856093ULL, 19349663ULL, 83492791ULL};
+
+struct BuildingPositionKey {
+  int64_t EastMm, NorthMm, HeightMm;
+  constexpr bool operator==(const BuildingPositionKey &) const = default;
+};
+
+struct BuildingPositionHash {
+  constexpr uint64_t operator()(const BuildingPositionKey &key) const noexcept {
+    return static_cast<uint64_t>(key.EastMm) * kBuildingHashMultipliers[0] ^
+           static_cast<uint64_t>(key.NorthMm) * kBuildingHashMultipliers[1] ^
+           static_cast<uint64_t>(key.HeightMm) * kBuildingHashMultipliers[2];
+  }
+};
+
+struct BuildingCornerKey {
+  uint32_t Position, Normal, Texture;
+  constexpr bool operator==(const BuildingCornerKey &) const = default;
+};
+
+struct BuildingCornerHash {
+  constexpr uint64_t operator()(const BuildingCornerKey &key) const noexcept {
+    return static_cast<uint64_t>(key.Position) * kBuildingHashMultipliers[0] ^
+           static_cast<uint64_t>(key.Normal) * kBuildingHashMultipliers[1] ^
+           static_cast<uint64_t>(key.Texture) * kBuildingHashMultipliers[2];
+  }
+};
+
 struct BuildingScratch final : MeshScratch {
-  FlatMap<uint32_t> Welded;
-  std::array<FlatMap<uint32_t>, 2> Corners;
+  FlatMap<uint32_t, BuildingPositionKey, BuildingPositionHash> Welded;
+  std::array<FlatMap<uint32_t, BuildingCornerKey, BuildingCornerHash>, 2> Corners;
 
   std::vector<En> Outline;
   Piece Whole, Rest, Plot, Beyond, Lo, Hi, Main, Wing, Cap;

@@ -73,3 +73,10 @@ Wien rendert nach Korrektur mit deaktivierter Vegetation wieder; Vorherstand fü
 Schlüsselkorrektur: build/shots/reference/building-keys/Wien-before.png, visuell geöffnet.
 Mit Vegetation scheitert der Shot aktuell am 15-s-Residency-Limit für Crown-Prototypen,
 nicht mehr an einem Gebäudefehler. Keine visuelle Gesamt- oder Vegetationsabnahme.
+
+BuildingScratch vergleicht vollständige Millimeterpositionen und Rendervertex-Keys
+(Position, gepackte Normale, gepackte UV). Hasharithmetik unsigned; Spiegelkollision
+und UV-/Normalennähte direkt geprüft, entfernte UV-Identität lässt Gegenprobe scheitern.
+Wien-Nachher: build/shots/places/Wien-d89be31c.png, beide PNGs geöffnet; Fernsilhouette
+unauffällig, 28 zusätzliche Dreiecke. Kein Nachweis der Nahbildqualität.
+Offen: Zahlenbereich vor llround, Index-/Scratch-Budgets und Generator-Nahaufnahmen.

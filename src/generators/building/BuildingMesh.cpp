@@ -167,9 +167,7 @@ public:
     const auto ce = static_cast<int64_t>(std::llround(v.P.EastM * 1000.0));
     const auto cn = static_cast<int64_t>(std::llround(v.P.NorthM * 1000.0));
     const auto cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
-    const uint64_t key = static_cast<uint64_t>(ce * 73856093LL) ^
-                         static_cast<uint64_t>(cn * 19349663LL) ^
-                         static_cast<uint64_t>(cz * 83492791LL);
+    const BuildingPositionKey key{.EastMm = ce, .NorthMm = cn, .HeightMm = cz};
     if (const uint32_t *found = Scratch_.Welded.Find(key)) { return *found; }
     const auto made = static_cast<uint32_t>(Scratch_.Welded.Size());
     (void)Scratch_.Welded.Emplace(key, made);
@@ -209,20 +207,6 @@ public:
 private:
   [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const Vec3 &nrm) {
     std::vector<StoredVertex> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
-    const uint64_t facing =
-        (static_cast<uint64_t>(
-             static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[0] * 4096.0))))
-         << 42u) ^
-        (static_cast<uint64_t>(
-             static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[1] * 4096.0))))
-         << 21u) ^
-        static_cast<uint64_t>(
-            static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[2] * 4096.0))));
-    const uint64_t key = (static_cast<uint64_t>(at) * kDigestPrime) ^ facing;
-    FlatMap<uint32_t> &corners = Scratch_.Corners[static_cast<size_t>(side)];
-    if (const uint32_t *found = corners.Find(key)) { return *found; }
-    const auto made = static_cast<uint32_t>(soup.size());
-    (void)corners.Emplace(key, made);
     Vec3f placeM{};
     Vec3f turned{};
     for (int c = 0; c < 3; c++) {
@@ -231,7 +215,14 @@ private:
       turned[static_cast<size_t>(c)] =
           static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]);
     }
-    soup.push_back(StoredVertex::Of(placeM, Vec2f{{v.U, v.V}}, turned));
+    const StoredVertex vertex = StoredVertex::Of(placeM, Vec2f{{v.U, v.V}}, turned);
+    const BuildingCornerKey key{
+        .Position = at, .Normal = vertex.normWord, .Texture = vertex.uvWord};
+    auto &corners = Scratch_.Corners[static_cast<size_t>(side)];
+    if (const uint32_t *found = corners.Find(key)) { return *found; }
+    const auto made = static_cast<uint32_t>(soup.size());
+    (void)corners.Emplace(key, made);
+    soup.push_back(vertex);
     return made;
   }
 
