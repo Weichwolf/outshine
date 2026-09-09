@@ -1,7 +1,8 @@
 Type: feature
-State: open
+State: active
 Area: world, navigation
 Tags: webcam, measured
+Parent: 2188
 Depends: 2173
 
 # A logical transport map preserves connectivity independently of rendered geometry
@@ -51,3 +52,26 @@ Wahl: [SUMO OSM-Import](https://sumo.dlr.de/docs/Networks/Import/OpenStreetMap.h
 lesbare Semantikreferenz, [ASAM OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
 für getrennte Road-/Lane-Links und Alignment. Unreal/RAGE dienen als Sandbox-Benchmark;
 kein Ableiten des logischen Netzes aus einem sichtbarkeitsabhängigen Mesh.
+
+## Aktueller Router: vor Integration korrigieren
+
+2173 blockiert vollständige Providerintegration, nicht lokale Graphkorrekturen.
+EdgesFromWays speichert für jede Way beide Richtungen, obwohl Lay Oneway übernimmt.
+Referenz: https://wiki.openstreetmap.org/wiki/Key:oneway — Richtung folgt der
+Punktreihenfolge; reverse/-1 muss im Importadapter ausdrücklich normalisiert werden.
+Eine einzelne gerichtete Gerade muss nur vorwärts routbar sein; Gegenprobe ist
+identische Geometrie ohne Oneway. Mehrere Kanten, Umkehr der Punktfolge und gemischte
+Knoten prüfen. Keine Rendergeometrie erforderlich.
+
+Die Reparatur darf nicht bei einem if um die Rückkante enden: SpliceInto verlangt
+beide Richtungen, löscht dabei die erste vor Prüfung der zweiten und erzeugt danach
+beide Richtungen neu. Kantenindex, Loose-End-Erkennung und Aufteilung müssen gerichtete
+Adjazenz erhalten und vor Mutation vollständig prüfen. Nähe darf gemäß Zielmodell
+keine OSM-Verbindung erfinden; die Ablösung des Legacy-Snaps bleibt offen.
+
+Plan akzeptiert mehrere Zielknoten, verwendet als Heuristik aber Distanz zum einzelnen
+nächsten Zielknoten. An anderen akzeptierten Zielen kann h>0 sein: Optimalität nicht
+bewiesen. Gegenbeispiel mit unterschiedlich langen Wegen zu mehreren Zielkandidaten
+gegen unabhängige Dijkstra-Lösung konstruieren; zulässige Heuristik zur Zielmenge.
+Start-Reichweite von 250 m kann ebenfalls Barrieren/Fahrtrichtungen überspringen;
+explizite zulässige Anbindung statt freier räumlicher Seeds erforderlich.

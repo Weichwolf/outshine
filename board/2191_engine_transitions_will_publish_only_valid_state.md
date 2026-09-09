@@ -9,8 +9,8 @@ Depends: 2210
 
 ## Befund und Entscheidung
 
-Declaring.cpp handleEvent gibt für irrelevante Events unexpected(S_->Error) zurück:
-nicht behandelt und Fehler sind vermischt, Error kann leer oder veraltet sein.
+handleEvent trennt inzwischen behandelt, ignoriert und Fehler; öffentliche Input-/
+UI-Tests prüfen dies. Der Legacy-error-Text bleibt separat und kann veraltet sein.
 EngineHeld.h verteilt Phasen über Taken, Targeted, FrameOpen, Carrying usw.; Audio-Vorbereitung ist bereits optional.
 Unabhängige Eigenschaften bleiben erlaubt; Phasen mit verbotenen Kombinationen
 benötigen dagegen explizite Zustandsautomaten. Keine pauschale Boolean-Ersetzung.
@@ -115,6 +115,6 @@ front()- und Rendererabhängigkeits-Negativkontrollen rot. Trigger tragen volle 
 - [ ] Öffentliche Übergangstabelle nennt erlaubte Reihenfolge und Fehlergarantien.
 - [ ] Fehler an jeder Build-/Validate-/Publish-Grenze injizieren; gültiges altes
       Szenario bleibt nutzbar oder ausdrücklich Failed, nie halb veröffentlicht.
-- [ ] Irrelevantes Event ist Ignored; echter Fehler trägt passenden Code/Kontext.
+- [x] Irrelevante Events sind unhandled; Input-/UI-Fehler tragen eine eigene Diagnose.
 - [ ] Wiederholtes Declare, Targetwechsel und Featurewechsel ohne Ressourcenwachstum.
 - [ ] Negativkontrolle publiziert vor Validierung; Zustandserhalt-Oracle wird rot.
