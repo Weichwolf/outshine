@@ -93,3 +93,9 @@ keine Aggregation mehrerer Bindungen. Leere Aktionsnamen an der Deklarationsgren
 ablehnen; mehrere Events dürfen denselben Namen verwenden. Tests für Ablehnung
 mit erhaltenem Vorgänger, gemeinsame Aktion und Fallunterscheidung. Bestehende
 Input-/UI-/Scrolltests behalten; kein Renderunterschied ohne Eingaben erwartet.
+
+InputPump zustandslos machen: Translate erhält die Map als geliehene Referenz pro
+Aufruf. Session hält nur die owned Map, weder Pump-Zeiger noch Pumping-Flag.
+Katalogvalidierung bleibt explizit vor Deklarationspublikation. Eine leere Map
+liefert keine Aktionen; keine zweite Quelle für Aktivierungszustand. Bestehende
+Geräte-/UI-/Fehlererhaltstests und wechselnde Maps prüfen; keine Pixeländerung.
