@@ -70,8 +70,6 @@ public:
   /// Whether the current target presents to an SDL window rather than an offscreen buffer.
   [[nodiscard]] bool presents() const;
 
-  void logsTo(LogSink *sink);
-
 private:
   friend class Engine;
   friend class Renderer;
@@ -89,8 +87,16 @@ public:
   /// Begin a frame on this renderer's Engine. A foreign target is rejected without changing
   /// either Engine. The target must have positive dimensions; rendering setup may fail.
   [[nodiscard]] Result beginFrame(SwapChain &into);
+  /// Close a frame opened by beginFrame() on the same Engine, including facade copies.
+  /// Window targets draw/present the current scene; offscreen targets only close the scope.
+  /// An unopened frame returns an owned error. The scope is closed even if presentation fails.
+  /// Runs on the Engine's video thread and may wait for GPU/presentation resources.
   [[nodiscard]] Result endFrame();
 
+  /// Block the Engine's video thread until submitted GPU work has completed.
+  /// No scene is a successful no-op. Does not open, close, draw or present a frame.
+  /// Serialize with other Engine calls; use outside latency-critical callbacks.
+  /// @return Success or an owned device-state/GPU-wait error, including the SDL diagnosis.
   [[nodiscard]] Result flushAndWait();
 
   /// Request a frame from this Engine's current scene. A zero extent uses the configured

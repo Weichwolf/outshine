@@ -18,6 +18,9 @@ struct GpuSubmission {
       [](void *, SDL_GPUDevice *device, SDL_GPUTransferBuffer *transfer) {
         return SDL_MapGPUTransferBuffer(device, transfer, false);
       };
+  bool (*WaitIdle)(void *, SDL_GPUDevice *) = [](void *, SDL_GPUDevice *device) {
+    return SDL_WaitForGPUIdle(device);
+  };
 };
 
 }

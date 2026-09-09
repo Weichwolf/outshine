@@ -15,7 +15,7 @@ using namespace outshine::Render;
 using namespace outshine::Test;
 
 struct Faults {
-  enum class Point { None, Map, Acquire, Submit };
+  enum class Point { None, Map, Acquire, Submit, Wait };
   Point Next = Point::None;
   size_t Acquired = 0;
   size_t Submitted = 0;
@@ -58,7 +58,16 @@ struct Faults {
                 return nullptr;
               }
               return SDL_MapGPUTransferBuffer(device, transfer, false);
-            }};
+            },
+            .WaitIdle =
+                [](void *context, SDL_GPUDevice *device) {
+                  auto &faults = *static_cast<Faults *>(context);
+                  if (faults.Next == Point::Wait) {
+                    faults.Next = Point::None;
+                    return SDL_SetError("injected GPU wait failure");
+                  }
+                  return SDL_WaitForGPUIdle(device);
+                }};
   }
 };
 
@@ -72,6 +81,22 @@ void InitializationUploads() {
   std::string error;
   CHECK(!unopened.SetGroundClasses({}, {}, error) && !error.empty(),
         "ground upload before renderer initialization reports failure");
+  CHECK(!unopened.Settle(error) && !error.empty(), "uninitialized GPU wait is rejected");
+  {
+    Faults faults;
+    SceneRenderer renderer(faults.Functions());
+    renderer.Init({32, 32}, *compiled);
+    CHECK(renderer.DeviceUsable(), "renderer initialized for the wait contract");
+    if (renderer.DeviceUsable()) {
+      faults.Next = Faults::Point::Wait;
+      CHECK(!renderer.Settle(error) && error.find("injected GPU wait failure") != std::string::npos,
+            "GPU wait failure is returned with an owned SDL diagnosis");
+      SDL_ClearError();
+      CHECK(error.find("injected GPU wait failure") != std::string::npos,
+            "clearing SDL error does not invalidate the caller's diagnosis");
+      CHECK(renderer.Settle(error) && error.empty(), "successful retry clears the old diagnosis");
+    }
+  }
   for (auto point : {Faults::Point::Map, Faults::Point::Acquire, Faults::Point::Submit}) {
     Faults faults;
     faults.Next = point;

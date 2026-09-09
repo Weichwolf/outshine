@@ -33,6 +33,7 @@
 namespace outshine::Render {
 
 namespace Says {
+constexpr auto kGpuWaitFailed = "GPU idle wait failed: ";
 constexpr auto kRendererNotReady = "GPU renderer is not initialized";
 constexpr auto kCameraNotConfigured = "render camera is not configured";
 constexpr auto kInvalidTargetExtent = "render target dimensions must be positive";
@@ -920,6 +921,19 @@ void SceneRenderer::EncodeSubjectCompact(const FrameContext &ctx, const PassReco
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   Shadow_.Encode(ctx, into);
   Subjects_.ShadowedBy(ShadowAtlas_.Get(), LutSamp_.Get(), Shadow_.LightFromWorld());
+}
+
+bool SceneRenderer::Settle(std::string &error) {
+  if (Device_.Get() == nullptr) {
+    error = Says::kRendererNotReady;
+    return false;
+  }
+  if (!Submission_.WaitIdle(Submission_.Context, Device_.Get())) {
+    error = std::string(Says::kGpuWaitFailed) + SDL_GetError();
+    return false;
+  }
+  error.clear();
+  return true;
 }
 
 void SceneRenderer::SettleShadow() {

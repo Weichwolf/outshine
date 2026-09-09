@@ -123,7 +123,7 @@ public:
 
   [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
 
-  void Settle() { SDL_WaitForGPUIdle(Device_.Get()); }
+  [[nodiscard]] bool Settle(std::string &error);
 
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 

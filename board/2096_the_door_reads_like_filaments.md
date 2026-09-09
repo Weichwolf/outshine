@@ -15,9 +15,9 @@ Keine pauschale Umbenennung von Geometry zu Model oder Loaded zu Asset.
 Namespaces dürfen passende gleichnamige Begriffe enthalten; entscheidend sind
 Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Verantwortung.
 
-- Outshine.h deklariert SwapChain::logsTo ohne Definition oder Aufrufer. Der
-  Logger gehört nicht zur Swapchain; diesen unbenutzbaren Einstieg entfernen.
-  Process-globaler Logger und sichere Registrierung bleiben in 2208.
+- Die undefinierte SwapChain::logsTo-Deklaration ist entfernt; der Logger gehört
+  nicht zur Swapchain. Process-globaler Logger und sichere Registrierung bleiben
+  in 2208. Frameabschluss und GPU-Warten dokumentieren Zustand und Fehler.
 - Engine::setGeometry besitzt eine native Kopie, aber ohne Entity-/Instanzzuordnung.
   Live::Carry verlangt Joined_ > 0 und lehnt rein generierte Geometrie ab.
   Draws überträgt alle Simulationskörper als Instanzen desselben SubjectProxy;

@@ -1002,8 +1002,7 @@ bool Live::Settle(std::string &error) {
     error = "there is no device to wait for";
     return false;
   }
-  Renderer_->Settle();
-  return true;
+  return Renderer_->Settle(error);
 }
 
 bool Live::Screenshot(const std::string &path, std::string &error) {

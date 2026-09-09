@@ -25,6 +25,7 @@ int main() {
     Engine first;
     Engine second;
     auto render = first.renderer();
+    CHECK(render.flushAndWait().has_value(), "waiting without a scene is a successful no-op");
     auto copied = render;
     auto other = second.renderer();
     auto target = first.swapChain();
@@ -37,6 +38,7 @@ int main() {
     scenario.Render.Outputs = {"sceneLinear"};
     CHECK(first.declare(scenario).has_value(), "first scenario");
     CHECK(second.declare(scenario).has_value(), "second scenario");
+    CHECK(render.flushAndWait().has_value(), "initialized owner can wait for GPU work");
     const auto refused = copied.beginFrame(foreign);
     CHECK(!refused && refused.error().find("another engine") != std::string::npos,
           "a copied renderer refuses a foreign target by owner identity, not dimensions");
