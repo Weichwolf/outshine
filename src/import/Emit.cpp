@@ -19,10 +19,11 @@ constexpr uint32_t kNoIndex = 0xffffffffu;
 bool GlbFits(GlbParts of) {
   const size_t jsonBytes = of.JsonBytes;
   const size_t binaryBytes = of.BinaryBytes;
+  constexpr size_t kCeiling = kNoIndex;
+  constexpr size_t heads = 12 + 8 + 8;
+  if (jsonBytes > kCeiling - heads || binaryBytes > kCeiling - heads) { return false; }
   const size_t jsonPadded = (jsonBytes + 3) & ~size_t{3};
   const size_t binaryPadded = (binaryBytes + 3) & ~size_t{3};
-  constexpr size_t kCeiling = kNoIndex;
-  const size_t heads = 12 + 8 + 8;
   if (jsonPadded > kCeiling - heads || binaryPadded > kCeiling - heads) { return false; }
   return jsonPadded <= kCeiling - heads - binaryPadded;
 }
