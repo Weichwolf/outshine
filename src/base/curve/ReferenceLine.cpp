@@ -16,7 +16,29 @@ namespace outshine {
 constexpr double kCubicRateFactor = 3.0;
 constexpr double kSquareRateFactor = 2.0;
 
+namespace Says {
+constexpr auto NonfiniteProfile = "profile stations, values and rates must be finite";
+}
+
 namespace {
+
+bool Finite(const Knot &knot) {
+  return std::isfinite(knot.AlongM) && std::isfinite(knot.Value) && std::isfinite(knot.RatePerM);
+}
+
+bool Finite(const Placed &pose) {
+  const std::array values{pose.EastM,
+                          pose.NorthM,
+                          pose.HeightM,
+                          pose.HeadingRad,
+                          pose.CurvaturePerM,
+                          pose.CurvatureRatePerM,
+                          pose.Slope,
+                          pose.SlopeRatePerM,
+                          pose.BankRad,
+                          pose.BankRatePerM};
+  return std::ranges::all_of(values, [](double value) { return std::isfinite(value); });
+}
 
 constexpr size_t kNodes = 8;
 constexpr std::array<double, kNodes> kAbscissa = {{-0.9602898564975363,
@@ -68,6 +90,11 @@ bool ReferenceLine::Fasten(std::span<const Knot> through,
   if (through.size() > kMaxCorridorKnots) {
     error = std::string("a ") + what + " profile of " + std::to_string(through.size()) +
             " knots reaches the bound of " + std::to_string(kMaxCorridorKnots);
+    Error_ = error;
+    return false;
+  }
+  if (!std::ranges::all_of(through, [](const Knot &knot) { return Finite(knot); })) {
+    error = Says::NonfiniteProfile;
     Error_ = error;
     return false;
   }
@@ -362,7 +389,7 @@ std::optional<double> ReferenceLine::Nearest(EastNorth at, Nearby about) const {
 
 bool ReferenceLine::At(double alongM, Placed &out) const {
   if (Laid_.empty()) { return false; }
-  if (!(alongM >= 0.0) || alongM > Length_) { return false; }
+  if (!std::isfinite(alongM) || !(alongM >= 0.0) || alongM > Length_) { return false; }
 
   size_t low = 0;
   size_t high = Laid_.size() - 1;
@@ -375,15 +402,17 @@ bool ReferenceLine::At(double alongM, Placed &out) const {
     }
   }
   const Held &held = Laid_[low];
-  out = Walk(held.Entry, held.Declared, alongM - held.AlongM);
+  Placed candidate = Walk(held.Entry, held.Declared, alongM - held.AlongM);
 
   const Curving rise = Read(Rise_, alongM);
-  out.HeightM = rise.Value;
-  out.Slope = rise.Rate;
-  out.SlopeRatePerM = rise.Bend;
+  candidate.HeightM = rise.Value;
+  candidate.Slope = rise.Rate;
+  candidate.SlopeRatePerM = rise.Bend;
   const Curving bank = Read(Bank_, alongM);
-  out.BankRad = bank.Value;
-  out.BankRatePerM = bank.Rate;
+  candidate.BankRad = bank.Value;
+  candidate.BankRatePerM = bank.Rate;
+  if (!Finite(candidate)) { return false; }
+  out = candidate;
   return true;
 }
 

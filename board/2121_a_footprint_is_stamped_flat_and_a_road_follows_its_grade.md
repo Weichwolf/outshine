@@ -85,12 +85,13 @@ ablehnen, wenn Gesamt-Halbbreite inklusive Schulter den minimalen Radius erreich
 Tests: beide Drehrichtungen, Grenzradius, schmale gültige Straße und verborgene
 Krümmungsspitze zwischen Meshstationen. Globale Selbstüberschneidung bleibt offen.
 
-ReferenceLine-Grundvertrag nachziehen: Lay prüft Ausgangskoordinaten, Winkel und
-Segmentdaten nicht vollständig auf Endlichkeit; Fasten prüft Stationen, aber keine
-Knot.Value/RatePerM. Lay baut Ersatz getrennt auf; abgelehnte Lay/Rise/Bank erhalten
-Geometrie und Profile, erfolgreiche Updates löschen alte Diagnosen. Unabhängiger
-Zustandstest scheitert am Altstand und besteht mit der Korrektur. Endliche Ergebnisse
-und numerisch darstellbare Segment-/Profilintervalle bleiben zu prüfen.
+ReferenceLine: abgelehnte Lay/Rise/Bank erhalten Geometrie und Profile; erfolgreiche
+Updates löschen alte Diagnosen. Profile weisen nichtendliche Stationen/Werte/Raten ab.
+At veröffentlicht nur vollständig endliche Ergebnisse und erhält bei Fehlern die Ausgabe;
+endliche Profile können bei nicht darstellbarer Interpolation/Extrapolation scheitern.
+Zustands- und NaN/Inf-/Überlauftests scheitern am Altstand und bestehen nach Korrektur.
+Offen: endliche Ausgangspose/Segmentdaten, darstellbare Stationssummen und robuste
+Profilintervallarithmetik; Fehlergrenze der festen Spiralquadratur nachweisen/korrigieren.
 
 kTangentTolerance wird derzeit für Krümmung (1/m) und Profilstationen (m) benutzt,
 ist aber aus einem Winkel abgeleitet. Dimensionsrichtige Grenzwerte und den
