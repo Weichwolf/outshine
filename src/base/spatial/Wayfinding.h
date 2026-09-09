@@ -162,14 +162,14 @@ public:
   [[nodiscard]] Route Plan(LongitudeLatitude from, LongitudeLatitude to, double tightestM) const;
   [[nodiscard]] size_t Reaches(std::span<const size_t> from) const;
 
-  struct Pieces {
+  struct ComponentStatistics {
     size_t Count = 0;
     size_t Largest = 0;
     size_t UnderFour = 0;
     size_t InUnderFour = 0;
   };
 
-  [[nodiscard]] Pieces InPieces() const;
+  [[nodiscard]] ComponentStatistics WeakComponents() const;
 
   struct Found {
     size_t Node = 0;

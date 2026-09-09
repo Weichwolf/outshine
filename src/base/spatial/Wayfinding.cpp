@@ -12,6 +12,7 @@
 #include <expected>
 #include <functional>
 #include <numbers>
+#include <numeric>
 #include <optional>
 #include <cmath>
 #include <limits>
@@ -963,32 +964,37 @@ size_t Network::Reaches(std::span<const size_t> from) const {
   return joined;
 }
 
-Network::Pieces Network::InPieces() const {
-  Pieces out;
-  std::vector<uint8_t> seen(Nodes_.size(), 0u);
-  std::vector<size_t> walk;
-  walk.reserve(Nodes_.size());
-  for (size_t from = 0; from < Nodes_.size(); ++from) {
-    if (seen[from] != 0u) { continue; }
-    walk.clear();
-    walk.push_back(from);
-    seen[from] = 1u;
-    size_t held = 1;
-    for (size_t at = 0; at < walk.size(); ++at) {
-      const Node &here = Nodes_[walk[at]];
-      for (size_t which = 0; which < here.EdgeCount; ++which) {
-        const size_t to = Edges_[here.FirstEdge + which].To;
-        if (seen[to] != 0u) { continue; }
-        seen[to] = 1u;
-        ++held;
-        walk.push_back(to);
-      }
+Network::ComponentStatistics Network::WeakComponents() const {
+  ComponentStatistics out;
+  std::vector<size_t> parent(Nodes_.size());
+  std::ranges::iota(parent, size_t{0});
+  std::vector<size_t> sizes(Nodes_.size(), 1);
+  const auto root = [&parent](size_t node) {
+    while (parent[node] != node) {
+      parent[node] = parent[parent[node]];
+      node = parent[node];
     }
+    return node;
+  };
+  for (size_t from = 0; from < Nodes_.size(); ++from) {
+    const Node &node = Nodes_[from];
+    for (const Edge &edge : std::span<const Edge>(Edges_).subspan(node.FirstEdge, node.EdgeCount)) {
+      size_t a = root(from);
+      size_t b = root(edge.To);
+      if (a == b) { continue; }
+      if (sizes[a] < sizes[b]) { std::swap(a, b); }
+      parent[b] = a;
+      sizes[a] += sizes[b];
+      sizes[b] = 0;
+    }
+  }
+  for (const size_t size : sizes) {
+    if (size == 0) { continue; }
     ++out.Count;
-    out.Largest = std::max(held, out.Largest);
-    if (held < 4) {
+    out.Largest = std::max(size, out.Largest);
+    if (size < 4) {
       ++out.UnderFour;
-      out.InUnderFour += held;
+      out.InUnderFour += size;
     }
   }
   return out;

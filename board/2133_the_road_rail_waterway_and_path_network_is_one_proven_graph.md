@@ -78,8 +78,8 @@ explizite zulässige Anbindung statt freier räumlicher Seeds erforderlich.
 TransportNetworkPreservesOneWay prüft die gerichtete Gerade und eine Abzweigmatrix:
 beide Punktreihenfolgen, Ein-/Zweirichtungs-Hauptstraße, ein-/ausgehender Spur. Routen
 und genaue Kantenzahlen bestehen. Alte Indexfilterung und alte Splice-Funktion
-scheitern jeweils ohne Buildfehler. Komponentenstatistik auf gerichtete Semantik
-prüfen; OSM-IDs/Modi/Restrictions/Streaming und zulässige Startanbindung bleiben offen.
+scheitern jeweils ohne Buildfehler. WeakComponents trennt physischen Zusammenhang
+von gerichtetem Reaches; OSM-IDs/Modi/Restrictions/Streaming und Startanbindung bleiben offen.
 
 Komponenten: InPieces verwendet gerichtete BFS und globales Seen; konvergierende
 Einbahnzweige werden dadurch je Knotenreihenfolge in falsche Teilnetze zerlegt.
