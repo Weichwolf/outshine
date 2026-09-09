@@ -23,6 +23,7 @@
 #include <vector>
 #include <utility>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace outshine::Path {
 
@@ -33,6 +34,38 @@ namespace {
 constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
 constexpr double kTenPercent = 0.10;
 constexpr double kThirtyPercent = 0.30;
+
+[[nodiscard]] uint64_t PhysicalEdgeKey(size_t from, size_t to) {
+  static_assert(kMaxNetworkPoints <= std::numeric_limits<uint32_t>::max());
+  return (static_cast<uint64_t>(std::min(from, to))
+          << static_cast<unsigned>(std::numeric_limits<uint32_t>::digits)) |
+         static_cast<uint64_t>(std::max(from, to));
+}
+
+class PhysicalAdjacency {
+public:
+  explicit PhysicalAdjacency(size_t nodes) : Degree_(nodes) {}
+
+  void Connect(size_t from, size_t to) {
+    if (Edges_.insert(PhysicalEdgeKey(from, to)).second) {
+      ++Degree_[from];
+      ++Degree_[to];
+    }
+  }
+
+  void Disconnect(size_t from, size_t to) {
+    if (Edges_.erase(PhysicalEdgeKey(from, to)) != 0) {
+      --Degree_[from];
+      --Degree_[to];
+    }
+  }
+
+  [[nodiscard]] size_t Degree(size_t node) const { return Degree_[node]; }
+
+private:
+  std::vector<size_t> Degree_;
+  std::unordered_set<uint64_t> Edges_;
+};
 
 double MetresPerDegreeLat(double sphereRadiusM) {
   return sphereRadiusM * kDegToRad;
@@ -345,7 +378,7 @@ void Network::EdgesFromWays(std::span<const size_t> nodeOf, OutgoingEdges &outgo
           {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
           Sphere{.RadiusM = RadiusM_});
       outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
-      outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
+      if (!way.Oneway) { outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM}); }
     }
   }
 }
@@ -387,10 +420,14 @@ bool Network::IndexEdgesByCell(const OutgoingEdges &outgoing,
                                double tieReachM,
                                EdgesByCell &byEdgeCell,
                                std::string &error) {
+  std::unordered_set<uint64_t> indexed;
   for (size_t from = 0; from < Nodes_.size(); ++from) {
     for (const Edge &edge : outgoing[from]) {
-      if (edge.To < from) { continue; }
-      if (!IndexOneEdge({.From = from, .To = edge.To}, tieReachM, byEdgeCell, error)) {
+      if (!indexed.insert(PhysicalEdgeKey(from, edge.To)).second) { continue; }
+      if (!IndexOneEdge({.From = std::min(from, edge.To), .To = std::max(from, edge.To)},
+                        tieReachM,
+                        byEdgeCell,
+                        error)) {
         return false;
       }
     }
@@ -498,16 +535,17 @@ bool Network::SpliceInto(size_t loose,
                          double tieReachM,
                          OutgoingEdges &outgoing,
                          EdgesByCell &byEdgeCell) {
-  const auto unlink = [&outgoing](size_t from, size_t to) {
-    std::vector<Edge> &held = outgoing[from];
-    for (size_t at = 0; at < held.size(); ++at) {
-      if (held[at].To != to) { continue; }
-      held.erase(held.begin() + static_cast<ptrdiff_t>(at));
-      return true;
-    }
-    return false;
+  const auto count = [&outgoing](size_t from, size_t to) {
+    return std::ranges::count(outgoing[from], to, &Edge::To);
   };
-  if (!unlink(best.From, best.To) || !unlink(best.To, best.From)) { return false; }
+  const auto forward = count(best.From, best.To);
+  const auto reverse = count(best.To, best.From);
+  if (forward == 0 && reverse == 0) { return false; }
+  const auto unlink = [&outgoing](size_t from, size_t to) {
+    std::erase_if(outgoing[from], [to](const Edge &edge) { return edge.To == to; });
+  };
+  unlink(best.From, best.To);
+  unlink(best.To, best.From);
   MarkEdgeOverCells({.From = best.From, .To = best.To}, false, tieReachM, byEdgeCell);
 
   const auto link = [this, &outgoing](size_t from, size_t to) {
@@ -516,10 +554,15 @@ bool Network::SpliceInto(size_t loose,
                {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
                Sphere{.RadiusM = RadiusM_});
     outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
-    outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
   };
-  link(best.From, loose);
-  link(loose, best.To);
+  for (std::ptrdiff_t at = 0; at < forward; ++at) {
+    link(best.From, loose);
+    link(loose, best.To);
+  }
+  for (std::ptrdiff_t at = 0; at < reverse; ++at) {
+    link(best.To, loose);
+    link(loose, best.From);
+  }
   MarkEdgeOverCells({.From = best.From, .To = loose}, true, tieReachM, byEdgeCell);
   MarkEdgeOverCells({.From = loose, .To = best.To}, true, tieReachM, byEdgeCell);
   return true;
@@ -530,12 +573,21 @@ bool Network::TieLooseEnds(OutgoingEdges &outgoing, std::string &error) {
   EdgesByCell byEdgeCell;
   if (!IndexEdgesByCell(outgoing, tieReachM, byEdgeCell, error)) { return false; }
 
+  PhysicalAdjacency adjacency(Nodes_.size());
+  for (size_t from = 0; from < outgoing.size(); ++from) {
+    for (const Edge &edge : outgoing[from]) { adjacency.Connect(from, edge.To); }
+  }
   Tied_ = 0;
   for (size_t loose = 0; loose < Nodes_.size(); ++loose) {
-    if (outgoing[loose].size() != 1) { continue; }
+    if (adjacency.Degree(loose) != 1) { continue; }
     const NearestEdge best = NearestEdgeTo(loose, byEdgeCell, tieReachM);
     if (best.From == Nodes_.size()) { continue; }
-    if (SpliceInto(loose, best, tieReachM, outgoing, byEdgeCell)) { ++Tied_; }
+    if (SpliceInto(loose, best, tieReachM, outgoing, byEdgeCell)) {
+      adjacency.Disconnect(best.From, best.To);
+      adjacency.Connect(best.From, loose);
+      adjacency.Connect(loose, best.To);
+      ++Tied_;
+    }
   }
   return true;
 }

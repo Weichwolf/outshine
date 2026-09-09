@@ -56,17 +56,16 @@ kein Ableiten des logischen Netzes aus einem sichtbarkeitsabhängigen Mesh.
 ## Aktueller Router: vor Integration korrigieren
 
 2173 blockiert vollständige Providerintegration, nicht lokale Graphkorrekturen.
-EdgesFromWays speichert für jede Way beide Richtungen, obwohl Lay Oneway übernimmt.
+EdgesFromWays berücksichtigt Oneway; Kantenindex und Aufteilung erhalten Richtung.
 Referenz: https://wiki.openstreetmap.org/wiki/Key:oneway — Richtung folgt der
 Punktreihenfolge; reverse/-1 muss im Importadapter ausdrücklich normalisiert werden.
 Eine einzelne gerichtete Gerade muss nur vorwärts routbar sein; Gegenprobe ist
 identische Geometrie ohne Oneway. Mehrere Kanten, Umkehr der Punktfolge und gemischte
 Knoten prüfen. Keine Rendergeometrie erforderlich.
 
-Die Reparatur darf nicht bei einem if um die Rückkante enden: SpliceInto verlangt
-beide Richtungen, löscht dabei die erste vor Prüfung der zweiten und erzeugt danach
-beide Richtungen neu. Kantenindex, Loose-End-Erkennung und Aufteilung müssen gerichtete
-Adjazenz erhalten und vor Mutation vollständig prüfen. Nähe darf gemäß Zielmodell
+SpliceInto prüft vorhandene Richtungen vor Mutation und teilt nur diese auf. Der
+Kantenindex dedupliziert physische Segmente unabhängig von Knotenreihenfolge; lose
+Enden werden über physische Nachbarschaft erkannt, nicht über Ausgangsgrad. Nähe darf gemäß Zielmodell
 keine OSM-Verbindung erfinden; die Ablösung des Legacy-Snaps bleibt offen.
 
 Plan akzeptiert mehrere Zielknoten, verwendet als Heuristik aber Distanz zum einzelnen
@@ -76,10 +75,8 @@ gegen unabhängige Dijkstra-Lösung konstruieren; zulässige Heuristik zur Zielm
 Start-Reichweite von 250 m kann ebenfalls Barrieren/Fahrtrichtungen überspringen;
 explizite zulässige Anbindung statt freier räumlicher Seeds erforderlich.
 
-TransportNetworkPreservesOneWay reproduziert die illegale Rückwärtsroute bereits
-mit zwei Knoten (0°/0° und 0°/0,01°), Snap 1 m und ohne Renderer. Beide Richtungen
-sind nur bei Oneway=false erlaubt. Der Test scheitert am Verhalten, nicht am Build.
-IndexEdgesByCell überspringt außerdem Kanten mit To<From pauschal; dadurch würden
-umgekehrt gespeicherte Einbahnsegmente nach der ersten Reparatur aus dem Index fehlen.
-Loose-End-Erkennung nutzt nur Ausgangsgrad 1 und muss physische Nachbarschaft von
-Fahrtrichtung trennen. Komponentenstatistik ebenfalls auf gerichtete Semantik prüfen.
+TransportNetworkPreservesOneWay prüft die gerichtete Gerade und eine Abzweigmatrix:
+beide Punktreihenfolgen, Ein-/Zweirichtungs-Hauptstraße, ein-/ausgehender Spur. Routen
+und genaue Kantenzahlen bestehen. Alte Indexfilterung und alte Splice-Funktion
+scheitern jeweils ohne Buildfehler. Komponentenstatistik auf gerichtete Semantik
+prüfen; OSM-IDs/Modi/Restrictions/Streaming und zulässige Startanbindung bleiben offen.
