@@ -2,6 +2,7 @@ Type: debt
 State: active
 Area: world, render
 Tags: webcam, measured
+Parent: 2169
 Depends:
 
 # Ground contacts are solved locally without collapsing separate structures
@@ -36,3 +37,11 @@ Alignment und Brücken/Tunnel; 2133 die logische Konnektivität. Keine gegenseit
 
 Wahl: lokale konstruktive Randbedingungen statt wiederholter globaler Relaxation.
 Unreal/RAGE sind Bildbenchmarks; outshine muss den sonst authorierten Geländekontakt generieren.
+
+## Begrenzte Ribbon-Erzeugung
+
+Sweep konvertiert bisher Stationsquotienten vor der Größenprüfung nach size_t.
+Endliche Section-/Intervallwerte und Stationsbudget vor Cast/Allokation prüfen;
+Validierung, Längsverbindungen und Endkappen fachlich getrennt halten. Gleiche
+Vertex-/Indexreihenfolge für gültige Eingaben. Unabhängige Gerade mit Restintervall,
+NaN/Inf, Quotientenüberlauf und ungültige Breiten prüfen; Negativkontrolle muss scheitern.
