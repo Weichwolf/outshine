@@ -65,7 +65,8 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   und Renderer können weiterhin teilweise verändert werden. Szenario-Publikation
   nach WI 2191 gemeinsam transaktional machen; Eingaben dürfen nicht isoliert bleiben.
 - Wheel nutzt die Ereignisposition; Richtung und Scrollgrenzen sind geprüft.
-  HiDPI-Umrechnung und nichtendliche Event-/WheelStep-Werte noch validieren.
+  Nichtendliche konsumierte Werte und Pixelweg-Überlauf werden abgelehnt;
+  HiDPI-Umrechnung sowie horizontales Scrollen bleiben offen.
 - XML-Attribute dekodieren Referenzen und normalisieren Whitespace; Literal-UTF-8
   sowie Elementtext sind noch nicht vollständig geprüft. Keine XML-Konformität behaupten.
 - Motion.Dial bleibt gespeichert, Time.Rate ungenutzt; laufende astronomische Zeit
@@ -111,3 +112,7 @@ Declare lehnt ungültige Konfiguration vor Mutation ab. Bei aktiver UI müssen
 mouse_x/mouse_y/y und der berechnete Pixelweg endlich sein; sonst expected-Fehler
 vor Scrollmutation. Test NaN/±Inf je konsumiertem Feld, Multiplikationsüberlauf,
 Nullkonfiguration und gültige Folgeereignisse als Zustandsnachweis.
+
+Host-Aktionsdispatch aus handleEvent extrahieren: feste Fired-Spanne, Map und Host
+als Eingaben; Routing/Validierung getrennt von Callback-Ausführung. Bestehende
+Input-/UI-Tests sichern Reihenfolge, Host-Fehler und Priorität.
