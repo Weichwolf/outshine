@@ -169,6 +169,11 @@ das Urteil über das ganze Projekt.
   Grüne Tests oder schnelle leere Bilder sind keine visuelle Abnahme.
 - Framezeiten als p50/p95/p99 und Budgetüberschreitungen angeben; Speicher einschließlich
   Spitzen und Streaming-Verlauf messen. Warmstand, Kaltstart und Bewegung unterscheiden.
+- Nachweise nach aufsteigender Komplexität aufbauen: Punkt/Transformation, Gerade,
+  Kurve/Profil, Fläche/Querschnitt, Fahrspur/Knoten, Brücke/Tunnel und vollständige
+  Großszene. Jede angebotene Klasse braucht überprüfbare Verträge und Kostenbudgets.
+  Kleine Fälle analytisch prüfen; komplexe zusätzlich mit Bewegung, Kontakt,
+  Streaming und visueller Abnahme. Eine Großszene ersetzt keine lokalen Nachweise.
 - Externe Spezifikationen und unabhängige Orakel vor Selbstvergleich. Regressionstests
   beweisen Bestandserhalt, nicht automatisch Richtigkeit. Negativkontrollen müssen
   fehlschlagen. Tests nur bei nachweislich falscher Spezifikation ändern; keine

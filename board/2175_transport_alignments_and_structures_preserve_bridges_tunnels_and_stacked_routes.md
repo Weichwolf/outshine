@@ -16,6 +16,16 @@ diese neun Außenkameras nicht geprüft. `StreetField.cpp` filtert Tunnel vor de
 `src/generators/road/Corridors.*`, `RoadMesh.*`, `Infrastructure.*` enthalten Brücken-/Rampen-
 Logik. Eine vollständig sichtbare Schienen-/Tunnel-Pipeline ist damit nicht nachgewiesen.
 
+Kontextprüfung: RoadMesh::TrySweep baut ReferenceLine/Rise/Bank und ruft Ribbon::Sweep;
+die Kurvenklassen sind damit Produktionscode. Carriageway::Surface verwendet für
+Normalen nur Heading/Slope/Bank, ignoriert aber den Offsetfaktor (1 - curvature*t)
+und den Höhenterm -t*sec²(bank)*bankRate. Tangenten gegen Ableitungen der tatsächlich
+erzeugten Oberfläche prüfen; Kontakt und Rendernormalen müssen denselben Vertrag erfüllen.
+RoadMesh skaliert Stützstationen auf die gefittete Linienlänge, übernimmt Höhenraten
+aber aus ursprünglichen Distanzen: Kettenregel und Anschlussgradienten prüfen.
+Angebotene Kurven-/Fahrnetzklassen benötigen eigene Korrektheits-, Budget- und
+Grenzfallnachweise; deren Existenz oder Lint-Erfolg ist keine Driving-Abnahme.
+
 ## Architektur und Implementierung
 
 Logische Karte (2133) → räumliches Alignment → getrennte Render- und Kollisionsprodukte.
@@ -45,6 +55,16 @@ NPCs auf dem Netz fragen (s,t) ab; Physik hat unabhängig verfeinerte Kontaktgeo
 6. Render-LOD aus Alignment mit Fehlergrenze ableiten; Kollisionsfehler separat begrenzen.
    Analytischer Lane-Follower ersetzt keine Rigid-body-Kollision mit Brüstung/Decke/Unterseite.
    Tilegrenzen teilen Profilrandbedingungen; Bake asynchron, Mesh-Swap atomar (2124).
+
+## Aufsteigende Referenzsuite
+
+Punkt/Transformation → Gerade/Projektion → Bogen/Klothoide → Höhenprofil/Querneigung
+→ Querschnitt/Normale/Kontakt → Fahrspur/Kreuzung → gestapelte Brücke/Tunnel →
+vollständiges Großbauwerk mit Zufahrten, etwa Golden Gate Bridge als Datenfixture.
+Jede Stufe nutzt die angebotenen Klassen und Produktionspfade, keine zweite Engine.
+Analytische Sollwerte und Grenzfälle zuerst; danach kombinierte Fahrten, Querschnitte,
+PNG-Abnahme und CPU/GPU-/Speicherbudgets. Zufällige/adversariale Varianten ergänzen
+feste Beispiele. Benchmarkinhalte bleiben externe Daten, niemals Engine-Sonderfälle.
 
 ## Abnahme
 
