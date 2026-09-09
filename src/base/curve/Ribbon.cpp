@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <expected>
+#include <span>
 #include <string_view>
 #include "math/RenderFrame.h"
 #include "math/Vec2.h"
@@ -76,12 +77,12 @@ StationCount(const Section &section, double fromM, double toM, double stepM) {
   return stations;
 }
 
-void ConnectStations(size_t stations, Ribbon &out) {
+void ConnectStations(size_t stations, std::span<const uint32_t> bands, Ribbon &out) {
   const auto perStation = static_cast<uint32_t>(kVerticesPerStation);
   for (size_t station = 0; station + 1 < stations; ++station) {
     const uint32_t here = static_cast<uint32_t>(station) * perStation;
     const uint32_t next = here + perStation;
-    for (uint32_t which = 0; which + 1 < static_cast<uint32_t>(kRibbonAcross); ++which) {
+    for (const uint32_t which : bands) {
       out.Index.insert(out.Index.end(),
                        {here + which,
                         next + which,
@@ -115,7 +116,10 @@ void ConnectStations(size_t stations, Ribbon &out) {
   }
 }
 
-void CloseEnds(const ReferenceLine &along, size_t stations, Ribbon &out) {
+void CloseEnds(const ReferenceLine &along,
+               size_t stations,
+               std::span<const uint32_t> bands,
+               Ribbon &out) {
   for (const bool atEnd : {false, true}) {
     const double atM = atEnd ? out.ToM : out.FromM;
     Placed on;
@@ -132,7 +136,7 @@ void CloseEnds(const ReferenceLine &along, size_t stations, Ribbon &out) {
       out.AcrossM.push_back(out.AcrossM[static_cast<size_t>(ring) + which]);
     }
     const auto under = static_cast<uint32_t>(kRibbonAcross);
-    for (uint32_t which = 0; which + 1 < static_cast<uint32_t>(kRibbonAcross); ++which) {
+    for (const uint32_t which : bands) {
       const uint32_t topA = base + which;
       const uint32_t topB = base + which + 1;
       const uint32_t botA = base + under + which;
@@ -267,8 +271,11 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     WallsAt(on, left, stood, acrossAt, section.ThicknessM, out);
   }
 
-  ConnectStations(stations, out);
-  CloseEnds(along, stations, out);
+  constexpr std::array<uint32_t, 3> allBands = {0, 1, 2};
+  const std::span<const uint32_t> bands = allBands;
+  const auto activeBands = section.ShoulderM == 0.0 ? bands.subspan(1, 1) : bands;
+  ConnectStations(stations, activeBands, out);
+  CloseEnds(along, stations, activeBands, out);
   BoundaryNormals(stations, out);
 
   out.Stations = stations;
