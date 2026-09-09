@@ -112,7 +112,10 @@ verschlucken; nichtendliche Koordinaten sind Refusal. Ablehnung erhält Referenc
 Gerade als Kontrollfall, alle Koordinatenpositionen mit NaN/Inf und ungerade Länge
 prüfen. Segment-/Bend-Konsistenz und Repräsentationsgrenzen bleiben separat offen.
 
-LayAligned: Spiral/Bogen/Spiral-Erzeugung von Anschlussprüfung trennen. Gleiche
-Segmentreihenfolge, Krümmungen und Längen erhalten; links/rechts abbiegende Trasse
-mit Endpose und geraden Anschlüssen prüfen. Fehlende Übergangsspirale muss ablehnen
-und vorhandene Linie erhalten. Kein Nachweis allgemeiner Fahrdynamik oder Knoten.
+LayAligned: Anschlussprüfung und Segmentaufbau trennen. 100/100-m-Rechtswinkel
+verfehlt am Altstand beide Endkoordinaten um 0.1000508181 m; 1-mm-Prüfung bleibt.
+TangentFor nutzt Näherung statt integrierter Spirale. Gemeinsame Segmentauswertung
+für ReferenceLine und Tangentenberechnung nutzen: p=y-R*(1-cos(theta)),
+k=x-R*sin(theta), T=(R+p)*tan(turn/2)+k. ShrinkTo muss Endpunkte mit berechnetem T
+setzen. Links/rechts, fehlende Übergänge und Endpose prüfen; danach Places-PNG.
+Allgemeine Quadraturfehlergrenze, Fahrdynamik und Knoten bleiben offen.
