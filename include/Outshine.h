@@ -58,11 +58,15 @@ struct Loading {
   }
 };
 
+/// Owned filesystem configuration for subsequent asset/provider setup. Relative
+/// paths resolve against the process working directory; no validation occurs here.
+/// This value does not own files, open providers or already loaded resources.
 struct Roots {
-  std::string Assets;
-  std::string Shipped;
-  std::string Cache;
-  bool Offline = false;
+  std::string Assets;  ///< Base directory for scenario asset URIs resolved by the engine.
+  std::string Shipped; ///< Base directory for shipped fonts, sky and generator data.
+  std::string Cache;   ///< Tile/provider cache directory; backend policies govern persistence.
+  bool Offline =
+      false; ///< Reject creation of the engine's fetching service; not a process-wide network ban.
 };
 
 class Engine;
@@ -173,6 +177,10 @@ public:
   /// @param offscreen Required width and height in physical pixels.
   /// @return Success or an error describing invalid input or device configuration failure.
   [[nodiscard]] Result drawsInto(Extent offscreen);
+  /// Store owned paths for subsequent setup; performs no filesystem validation or IO.
+  /// Call before declaring/loading content and serialize with every other Engine call.
+  /// Existing assets, providers and fetch services are not reopened or migrated.
+  /// @param roots Configuration moved into the Engine; no references to the argument remain.
   void setRoots(Roots roots);
   /// Borrow a facade bound to this Engine; no GPU resources are allocated by this call.
   [[nodiscard]] Renderer renderer();
@@ -218,8 +226,23 @@ public:
   [[nodiscard]] Result bench(int frames, Benched &into);
   [[nodiscard]] Result bench(int frames, Benched &into, const std::function<bool(int)> &before);
 
+  /// Advance streaming until the current scene is resident or the time budget expires.
+  /// Runs synchronously on the Engine/video thread; may allocate, perform IO and wait.
+  /// Work units may overrun the budget; this is not a hard execution-time bound.
+  /// @param patienceS Finite nonnegative seconds; zero permits a readiness attempt without waiting.
+  /// @return Success when ready (including a scene without ground), or an owned error.
+  /// Invalid budgets fail before work. Other failures may retain partial streaming progress.
   [[nodiscard]] Result preload(double patienceS);
+  /// Preload with synchronous progress notifications under the same budget/error contract.
+  /// @param patienceS Finite nonnegative time budget in seconds.
+  /// @param tell Optional callback, borrowed for this call. Its Loading reference is valid
+  /// only during that invocation. Do not reenter the Engine, destroy it, or throw.
+  /// Notifications are not guaranteed for every error or at fixed time intervals.
+  /// @return Readiness or an owned input, streaming, build, capacity or timeout error.
   [[nodiscard]] Result preload(double patienceS, const std::function<void(const Loading &)> &tell);
+  /// Copy current request and tile-pool counters without advancing streaming.
+  /// Serialize with Engine mutations; this is not concurrent snapshot publication.
+  /// @return Owned values; elapsed time and rate are zero outside preload notifications.
   [[nodiscard]] Loading loading() const;
   [[nodiscard]] double loadProgress() const;
 

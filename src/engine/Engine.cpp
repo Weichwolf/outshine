@@ -12,10 +12,12 @@
 #include <cstdint>
 #include <functional>
 #include <chrono>
+#include <cmath>
 
 namespace outshine {
 
 namespace Says {
+constexpr auto kInvalidPreloadBudget = "preload requires finite nonnegative seconds";
 constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
 constexpr auto kTargetInsideFrame = "end the open frame before changing its target";
 constexpr auto kNullWindow = "the target window is null";
@@ -271,6 +273,9 @@ Result Engine::preload(double patienceS) {
 }
 
 Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
+  if (!std::isfinite(patienceS) || patienceS < 0.0) {
+    return std::unexpected(Says::kInvalidPreloadBudget);
+  }
   const auto began = std::chrono::steady_clock::now();
   const auto say = [&] {
     if (!tell) { return; }
@@ -279,7 +284,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     said.Megabits = said.ElapsedS > 0.0 ? said.FetchedMB * kBitsPerByte / said.ElapsedS : 0.0;
     tell(said);
   };
-  const double bound = patienceS > 0.0 ? patienceS : 0.0;
+  const double bound = patienceS;
   if (!S_->Session.Declared.Ground.Declared) {
     say();
     return Result{};
