@@ -316,6 +316,9 @@ struct Kind {
   std::string Asset;
   std::vector<Mind> Minds;
   std::vector<std::string> Capabilities;
+  /** Numeric traits parsed as complete finite decimal values during assembly.
+   * Instance values override inherited defaults; invalid or out-of-range values reject assembly.
+   */
   std::vector<Setting> Attributes;
 };
 
@@ -324,6 +327,9 @@ struct Instance {
   std::string Id;
   std::string In;
   Standing Stands;
+  /** Numeric traits parsed as complete finite decimal values during assembly.
+   * Instance values override inherited defaults; invalid or out-of-range values reject assembly.
+   */
   std::vector<Setting> Attributes;
   std::vector<std::string> Holds;
 };
