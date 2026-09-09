@@ -258,9 +258,12 @@ LayerToolchain() {
 # the coverage: it renders nine places through Metal and already costs 88 s, so a second build under
 # ASan would put the fast gate out of reach of being run before every commit. Its oracle is the
 # picture digest, which catches a wandering frame the sanitiser could not see anyway.
+# Repository claims inspect text or launch external tools. Instrumenting their C++ wrapper
+# does not instrument those subprocesses; run these meta-checks once. Shared harness code
+# retains its own sanitised tests below.
 LayerSanitiser() {
   case "$1" in
-    harness/claims | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
+    harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/khronos/validator | harness/geographiclib/geodesic)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
