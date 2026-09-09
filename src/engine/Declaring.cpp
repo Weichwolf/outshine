@@ -27,8 +27,7 @@ constexpr auto kInputHostMissing = "a bound input action requires an offered hos
 }
 
 Holds<bool> Engine::handleEvent(const SDL_Event &event) {
-  if (!S_->Picture.Standing) { return false; }
-  if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+  if (S_->Picture.Standing && event.type == SDL_EVENT_MOUSE_WHEEL) {
     float xPx = 0.0f;
     float yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
@@ -38,22 +37,24 @@ Holds<bool> Engine::handleEvent(const SDL_Event &event) {
                                              S_->Session.Declared.WheelStepPx,
                                          S_->Error);
   }
-  if (S_->Session.Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
+  if (S_->Session.Pumping) {
     std::array<Core::InputPump::Fired, 2> fired{};
     const size_t many = S_->Session.Pump.Translate(event, fired);
-    if (many == 0) { return false; }
-    if (S_->Offered == nullptr) { return std::unexpected(Says::kInputHostMissing); }
-    bool acted = false;
-    for (size_t at = 0; at < many; ++at) {
-      const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
-      if (named == nullptr) { continue; }
-      const Argument value{
-          .Is = Argument::Kind::Number, .Number = static_cast<double>(fired[at].Value), .Text = {}};
-      acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
+    if (many != 0) {
+      if (S_->Offered == nullptr) { return std::unexpected(Says::kInputHostMissing); }
+      bool acted = false;
+      for (size_t at = 0; at < many; ++at) {
+        const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
+        if (named == nullptr) { continue; }
+        const Argument value{.Is = Argument::Kind::Number,
+                             .Number = static_cast<double>(fired[at].Value),
+                             .Text = {}};
+        acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
+      }
+      return acted;
     }
-    return acted;
   }
-  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
+  if (!S_->Picture.Standing || event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
 
   size_t surface = 0;
   const Ui::Touched found = S_->Picture.Standing->Under(

@@ -211,7 +211,11 @@ public:
   /// reenter or destroy the Engine; input data is not retained beyond this call.
   /// @param event Event supplied by the caller; this function does not poll the SDL queue.
   /// @return True when an action fired or scrolling changed, false when unhandled,
-  /// or an owned processing error. No active scene is an unhandled event.
+  /// or an owned processing error. No declared bindings or active UI means unhandled.
+  /// Bindings work without a render target and take precedence over UI hit testing;
+  /// a refused bound action does not fall through to the UI. Unbound mouse events do.
+  /// Buttons deliver 1/0, sticks [-1, 1], triggers [0, 1], mouse motion pixel deltas.
+  /// Motion dispatches X before Y; key repeats are ignored. No deadzone is applied.
   /// Processing can allocate and mutate UI/input state; failures do not roll it back.
   [[nodiscard]] Holds<bool> handleEvent(const SDL_Event &event);
   /// Configure an offscreen target in physical pixels. Requires SDL_INIT_VIDEO and positive
