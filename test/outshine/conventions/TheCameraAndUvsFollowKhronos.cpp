@@ -32,8 +32,10 @@ int main() {
   CHECK(camera.projectionMatrix(2, projection) && near(projection[10], -1) &&
             near(projection[14], -2),
         "positive infinity produces the infinite perspective limit, never NaN");
+  const Mat4 preservedProjection = projection;
   camera.FarM = std::numeric_limits<double>::quiet_NaN();
   CHECK(!camera.projectionMatrix(2, projection), "NaN is not an infinite far plane");
+  CHECK(projection == preservedProjection, "rejected projection preserves caller output");
   camera.FarM = 10;
   Mat4 view;
   CHECK(camera.viewMatrix(view), "the default camera looks down -Z with +Y up");

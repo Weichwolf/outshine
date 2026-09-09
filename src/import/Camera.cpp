@@ -1,4 +1,5 @@
 #include "math/Units.h"
+#include "math/Projection.h"
 #include <cmath>
 #include "math/Mat4.h"
 #include "scenario/Scenario.h"
@@ -44,16 +45,20 @@ bool Scenario::Camera::viewMatrix(Mat4 &out) const {
 }
 
 bool Scenario::Camera::projectionMatrix(double aspect, Mat4 &out) const {
-  Gltf::Camera lens;
-  lens.Kind = Orthographic ? Gltf::CameraKind::Orthographic : Gltf::CameraKind::Perspective;
-  lens.YfovRad = FovDeg * kDeg2Rad;
-  lens.XMagM = XMagM;
-  lens.YMagM = YMagM;
-  lens.ZNearM = NearM;
-  lens.ZFarM = FarM;
-  Gltf::Transform made;
-  if (!lens.Projection(aspect, made)) { return false; }
-  out = made.M;
+  Mat4 candidate;
+  const bool valid =
+      Orthographic
+          ? ProjectionMatrix(
+                OrthographicProjection{
+                    .HalfWidthM = XMagM, .HalfHeightM = YMagM, .NearM = NearM, .FarM = FarM},
+                candidate)
+          : ProjectionMatrix(PerspectiveProjection{.VerticalFovRad = FovDeg * kDeg2Rad,
+                                                   .NearM = NearM,
+                                                   .FarM = FarM},
+                             aspect,
+                             candidate);
+  if (!valid) { return false; }
+  out = candidate;
   return true;
 }
 
