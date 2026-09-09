@@ -67,8 +67,9 @@ ptrdiff_t InputMap::EventIndexOf(std::string_view event) {
 }
 
 bool InputMap::Build(std::span<const Scenario::Binding> declared, std::string &error) {
-  ActionAt_.assign(kEventCount, kUnbound);
-  Actions_.clear();
+  InputMap candidate;
+  candidate.ActionAt_.assign(kEventCount, kUnbound);
+  candidate.Actions_.clear();
   for (const Scenario::Binding &binding : declared) {
     const ptrdiff_t at = EventIndexOf(binding.Event);
     if (at < 0) {
@@ -76,22 +77,25 @@ bool InputMap::Build(std::span<const Scenario::Binding> declared, std::string &e
               "', and the catalogue offers: " + Catalogue();
       return false;
     }
-    if (ActionAt_[static_cast<size_t>(at)] != kUnbound) {
+    if (candidate.ActionAt_[static_cast<size_t>(at)] != kUnbound) {
       error = "the event '" + binding.Event + "' is bound twice -- to '" +
-              Actions_[ActionAt_[static_cast<size_t>(at)]] + "' and to '" + binding.Action +
-              "' -- and one press has one meaning";
+              candidate.Actions_[candidate.ActionAt_[static_cast<size_t>(at)]] + "' and to '" +
+              binding.Action + "' -- and one press has one meaning";
       return false;
     }
     uint16_t action = kUnbound;
-    for (size_t held = 0; held < Actions_.size(); ++held) {
-      if (Actions_[held] == binding.Action) { action = static_cast<uint16_t>(held); }
+    for (size_t held = 0; held < candidate.Actions_.size(); ++held) {
+      if (candidate.Actions_[held] == binding.Action) { action = static_cast<uint16_t>(held); }
     }
     if (action == kUnbound) {
-      action = static_cast<uint16_t>(Actions_.size());
-      Actions_.push_back(binding.Action);
+      action = static_cast<uint16_t>(candidate.Actions_.size());
+      candidate.Actions_.push_back(binding.Action);
     }
-    ActionAt_[static_cast<size_t>(at)] = action;
+    candidate.ActionAt_[static_cast<size_t>(at)] = action;
   }
+  ActionAt_.swap(candidate.ActionAt_);
+  Actions_.swap(candidate.Actions_);
+  error.clear();
   return true;
 }
 

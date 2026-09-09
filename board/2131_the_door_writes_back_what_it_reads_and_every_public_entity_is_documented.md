@@ -61,8 +61,8 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
 
 ## Verbleibende konkrete Lücken
 
-- InputMap::Build verändert die bestehende Map vor vollständiger Validierung;
-  declare setzt Pumping vor möglichen Fehlern zurück. Input-Publikation gemeinsam
+- InputMap::Build erhält bei Validierungsfehlern die bestehende Map;
+  declare setzt Pumping noch vor möglichen Fehlern zurück. Input-Publikation gemeinsam
   mit Szenariozustand transaktional machen; gültige Vorgängerbindungen erhalten.
 - Wheel liest den aktuellen globalen Mauszustand statt der Ereignisposition.
   SDL-Ereigniszeit, Position und Richtungsflag berücksichtigen; Scrollgrenzen testen.
