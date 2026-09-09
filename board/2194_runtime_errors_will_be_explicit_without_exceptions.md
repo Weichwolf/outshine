@@ -30,8 +30,12 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   Knotenspeicher (2 MiB), dazu drei 256-Sample-Double-Puffer (6 KiB). Gesetztes Budget,
   kein Hardwaremesswert. Erster Block und variable Größen: keine C++-Heap-Allokation;
   zusammenhängende und aufgeteilte Ausgabe müssen inklusive Delay/Hall übereinstimmen.
-- Asking::Instancing::Add fängt vector-Allokation: begrenzte Kapazität vorbereiten,
-  Budgetablehnung ohne partielle Veröffentlichung. Nicht nur catch entfernen.
+- Instanzübernahme: eigener WorldInstanceSink schreibt in vorbereiteten span; Add
+  allokiert nicht. Shipped-DrawSources liefern höchstens eine Instanz pro platziertem
+  Körper; daran Setupgröße ableiten, insgesamt höchstens 2^20 Instanzen. Mehrbedarf
+  explizit ablehnen. Kandidaten und Placed/Instanced-Zähler erst nach Draw-Erfolg
+  veröffentlichen. Kapazität, Datenzuordnung und allokationsfreier Callback prüfen;
+  absichtlich eingefügte Allokation muss den Test brechen. System-OOM bleibt separat.
 - BuildingMesh::Mesh fängt alles und leert Raised: Scratch-/Output-Budgets und
   transaktionalen Fehlerpfad erhalten, Caller auf typisierte Fehler umstellen.
 - Alle Laufzeitaufrufe prüfen: filesystem, format, Containerzugriffe, expected::value,
