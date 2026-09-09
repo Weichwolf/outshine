@@ -8,9 +8,10 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Loaded asset;
-  const bool loaded =
-      asset.reads(PreparedRoot() + "/test-khronos-glTF-TextureTransformTest/scene.gltf");
-  CHECK(loaded, "the pinned Khronos TextureTransformTest loads through the public door");
+  const auto loaded =
+      asset.load(PreparedRoot() + "/test-khronos-glTF-TextureTransformTest/scene.gltf");
+  CHECK(loaded.has_value(),
+        "the pinned Khronos TextureTransformTest loads through the public door");
   if (!loaded) { return Report(); }
   const std::array<UvTransformProperties, 6> expected = {{
       {.OffsetUv = {{0.5, 0}}},

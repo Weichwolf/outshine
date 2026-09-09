@@ -29,6 +29,12 @@ Sequenzen bis dahin ausdrücklich ungewertet melden, niemals nur Frame 0 akzepti
 Gemeinsame Fixture-/Provenienzauflösung statt separater Pfadkonventionen; vorbereitete
 Assets müssen einzeln reproduzierbar sein. Bestehende Prüfumfänge beim Umbau erhalten.
 
+Loader-Voraussetzung: load publiziert erst nach vollständiger Konvertierung und erhält
+bei Fehlern das vorherige Asset. Neuer Import setzt Variante/Clips zurück; unabhängige
+Fixtures prüfen Wiederverwendung und Fehlversuche. Loaded::poses kann native Geometrie
+zu expliziter Zeit liefern; Render-Settling darf diesen Snapshot nicht weiterbewegen.
+Animierte Kameras gesondert prüfen: camera(index) liest bisher die ursprüngliche Pose.
+
 ## Umsetzung
 
 - render <asset.gltf|asset.glb> <width>x<height> <output.png> neben run <scenario>.

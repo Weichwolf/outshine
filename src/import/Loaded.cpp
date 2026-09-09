@@ -1,6 +1,7 @@
 #include "scene/Loaded.h"
 
 #include <array>
+#include <expected>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -154,25 +155,25 @@ Loaded::~Loaded() = default;
 Loaded::Loaded(Loaded &&) noexcept = default;
 Loaded &Loaded::operator=(Loaded &&) noexcept = default;
 
-bool Loaded::reads(std::string_view path) {
-  Held &held = *Held_;
-  if (!held.File.ReadFile(path)) {
-    held.Why = held.File.Error();
-    return false;
-  }
-  held.Plays.clear();
-  held.Moves = false;
-
-  held.HasEye = false;
-  if (!held.File.Cameras().empty()) {
+std::expected<void, std::string> Loaded::load(std::string_view path) {
+  auto candidate = std::make_unique<Held>();
+  const auto refuse = [&](std::string why) -> std::expected<void, std::string> {
+    if (!Held_) { Held_ = std::make_unique<Held>(); }
+    Held_->Why = why;
+    return std::unexpected(std::move(why));
+  };
+  if (!candidate->File.ReadFile(path)) { return refuse(candidate->File.Error()); }
+  if (!candidate->File.Cameras().empty()) {
     Render::Viewpoint placed;
-    std::string ignored;
-    if (Gltf::DeclaredPlacement(held.File, 0, placed, ignored)) {
-      Render::CameraOf(placed, held.Eye);
-      held.HasEye = true;
+    std::string why;
+    if (Gltf::DeclaredPlacement(candidate->File, 0, placed, why)) {
+      Render::CameraOf(placed, candidate->Eye);
+      candidate->HasEye = true;
     }
   }
-  return held.Assemble(0.0);
+  if (!candidate->Assemble(0.0)) { return refuse(std::move(candidate->Why)); }
+  Held_ = std::move(candidate);
+  return {};
 }
 
 bool Loaded::wears(std::string_view variant) {

@@ -16,8 +16,8 @@ int main() {
   using namespace outshine::Test;
   const std::string path = PreparedRoot() + "/test-khronos-glTF-ABeautifulGame/scene.gltf";
   Loaded loaded;
-  const bool ready = loaded.reads(path);
-  CHECK(ready, "pinned Khronos chess geometry loads");
+  const auto ready = loaded.load(path);
+  CHECK(ready.has_value(), "pinned Khronos chess geometry loads");
   if (!ready) { return Report(); }
   Scenario::Document scenario;
   scenario.Render.Declared = true;
