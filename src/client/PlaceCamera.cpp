@@ -105,7 +105,7 @@ PlaceFiles(const std::filesystem::path &directory) {
     return std::unexpected(path.string() + Says::kPlaceDeclaration);
   }
   const auto &camera = declared.Views.front().Sees;
-  const auto &standing = camera.Stands;
+  const auto &standing = declared.Views.front().Geographic;
   const auto validPosition = [](const auto &position) {
     return std::isfinite(position.LatitudeDeg) &&
            std::abs(position.LatitudeDeg) <= kDegPerHalfTurn / 2 &&
@@ -114,13 +114,14 @@ PlaceFiles(const std::filesystem::path &directory) {
   };
   auto projection = camera;
   if (!projection.Orthographic) {
-    if (projection.NearM == 0) { projection.NearM = Scenario::Camera::kNearestM; }
+    if (projection.NearM == 0) { projection.NearM = Camera::kNearestM; }
     if (projection.FovDeg == 0) { projection.FovDeg = Scenario::kFovUnsaidDeg; }
   }
   Mat4 matrix;
   const double aspect =
       static_cast<double>(declared.Render.Frame.WidthPx) / declared.Render.Frame.HeightPx;
-  if (!standing.GlobeAnchor || standing.SamplesHeight || !validPosition(standing.Geodetic) ||
+  if (declared.Views.front().Placement != Scenario::CameraPlacement::Geodetic ||
+      standing.SamplesHeight || !validPosition(standing.Geodetic) ||
       !validPosition(declared.Ground.Origin) || !std::isfinite(standing.Geodetic.HeightM) ||
       !std::isfinite(standing.BearingDeg) || !std::isfinite(standing.PitchDeg) ||
       std::abs(standing.PitchDeg) > kDegPerHalfTurn / 2 ||

@@ -221,8 +221,8 @@ bool Engine::State::Composes() {
   if (!Stood()) { return false; }
   const Scenario::Document &declared = Session.Declared;
   if (Session.Views &&
-      (Session.Views->Active().Sees.Placed || Session.Views->Active().Sees.Stands.GlobeAnchor) &&
-      !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
+      (Session.Views->Active().Placement != Scenario::CameraPlacement::FollowEntity) &&
+      !Session.Views->Active().Geographic.SamplesHeight && !Watches()) {
     return false;
   }
   if (!declared.Ground.Declared) { return true; }

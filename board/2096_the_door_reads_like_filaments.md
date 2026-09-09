@@ -60,7 +60,9 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
 - `assets/`: native Geometrie, Materialien, Texturen und Animationsdaten.
 - `import/`: GltfImporter ersetzt Loaded; Formatobjekte bleiben im Adapter.
 - `generation/`: Generatoren liefern dieselben nativen Assets und Weltinhalte.
-- `render/`: formatunabhängige Kamera, Renderer und Ausgabeziele.
+- `render/`: native Kamera mit lokaler Pose, Projektion und Belichtung; Renderer
+  und Ausgabeziele. Szenario-Views besitzen den Modus FollowEntity/Local/Geodetic
+  und geodätische Eingaben. Importheader benötigen keine Szenariodefinitionen.
 - `simulation/` und `audio/`: tatsächlich öffentliche Systemverträge.
 - `scenario/`: ScenarioDefinition beschreibt den initialen Aufbau und die
   Konfiguration; Reader/Writer gehören hierher, allgemeine Kameratypen nicht.

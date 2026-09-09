@@ -1,7 +1,7 @@
 #include <cmath>
 #include <numbers>
 #include <limits>
-#include <scenario/Scenario.h>
+#include <render/Camera.h>
 #include <scene/UvTransform.h>
 #include "Check.h"
 #include "Lens.h"
@@ -21,8 +21,8 @@ int main() {
   CHECK(near(v.U, -0.5) && near(v.V, 1),
         "Native algebraic rotation sends the second basis vector toward negative U");
 
-  Scenario::Camera camera;
-  camera.setProjection(Scenario::Camera::Perspective{.FovDeg = 90, .NearM = 1, .FarM = 10});
+  Camera camera;
+  camera.setProjection(Camera::Perspective{.FovDeg = 90, .NearM = 1, .FarM = 10});
   Mat4 projection;
   CHECK(camera.projectionMatrix(2, projection),
         "a lens at the origin does not need a look-at target to produce its projection");
@@ -40,23 +40,23 @@ int main() {
   Mat4 view;
   CHECK(camera.viewMatrix(view), "the default camera looks down -Z with +Y up");
   CHECK(view == Mat4{}, "an origin camera with identity rotation has identity view");
-  camera.Stands.Facing.Y = std::sqrt(0.5);
-  camera.Stands.Facing.W = std::sqrt(0.5);
-  camera.Stands.AtM = {{3, 4, 5}};
+  camera.Orientation.Y = std::sqrt(0.5);
+  camera.Orientation.W = std::sqrt(0.5);
+  camera.PositionM = {{3, 4, 5}};
   CHECK(camera.viewMatrix(view),
         "a camera quaternion defines its orientation without a look-at declaration");
   const Vec3 ahead = view.TransformPoint({{2, 4, 5}});
   CHECK(near(ahead[0], 0) && near(ahead[1], 0) && near(ahead[2], -1),
         "glTF +90 degrees around Y rotates camera -Z to world -X");
-  camera.Stands.Facing = {.Z = std::sqrt(0.5), .W = std::sqrt(0.5)};
-  camera.Stands.AtM = {};
+  camera.Orientation = {.Z = std::sqrt(0.5), .W = std::sqrt(0.5)};
+  camera.PositionM = {};
   CHECK(camera.viewMatrix(view), "camera roll is retained");
   const Vec3 up = view.TransformPoint({{-1, 0, 0}});
   CHECK(near(up[0], 0) && near(up[1], 1), "+90 degrees around Z rotates local +Y to world -X");
-  camera.Stands.Facing = {.W = 0};
+  camera.Orientation = {.W = 0};
   Mat4 model;
   CHECK(!camera.modelMatrix(model), "a zero quaternion is not a camera orientation");
-  camera.Stands.Facing = {};
+  camera.Orientation = {};
   camera.LooksAt = true;
   camera.LookAtM = {{0, 0, -1}};
   camera.UpM = {{0, 1, 0}};
@@ -69,7 +69,7 @@ int main() {
   CHECK(!camera.viewMatrix(view), "a look-at target at the eye refuses an undefined direction");
   CHECK(camera.projectionMatrix(2, projection),
         "invalid view orientation cannot invalidate the independent lens");
-  camera.setProjection(Scenario::Camera::Ortho{.XMagM = 2, .YMagM = 3, .NearM = 1, .FarM = 11});
+  camera.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 3, .NearM = 1, .FarM = 11});
   CHECK(camera.projectionMatrix(0, projection),
         "orthographic half extents are independent of viewport aspect and pose");
   CHECK(near(projection[0], 0.5) && near(projection[5], 1.0 / 3),

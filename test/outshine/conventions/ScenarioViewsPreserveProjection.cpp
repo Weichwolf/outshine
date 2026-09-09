@@ -16,7 +16,7 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
-using Camera = Scenario::Camera;
+
 static_assert(noexcept(std::declval<Camera &>().setProjection(Camera::Perspective{})));
 static_assert(noexcept(std::declval<Camera &>().setProjection(Camera::Ortho{})));
 
@@ -40,7 +40,8 @@ Scenario::Document Declaration(bool carried, const std::string &path) {
     Scenario::View view;
     view.Id = std::move(id);
     view.Sees = camera;
-    view.Sees.Placed = !carried;
+    view.Placement =
+        carried ? Scenario::CameraPlacement::FollowEntity : Scenario::CameraPlacement::Local;
     if (carried) {
       view.Follows = "camera-body";
       view.Person = "first";

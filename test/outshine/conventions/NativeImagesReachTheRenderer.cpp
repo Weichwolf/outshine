@@ -98,10 +98,9 @@ int main() {
   Scenario::View view;
   view.Id = "native-map";
   view.Person = "first";
-  view.Sees.Placed = true;
-  view.Sees.Stands.AtM = {{0, 0, 2}};
-  view.Sees.setProjection(
-      Scenario::Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
+  view.Placement = Scenario::CameraPlacement::Local;
+  view.Sees.PositionM = {{0, 0, 2}};
+  view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scenario.Views.push_back(view);
   std::vector<float> frame;
   if (!engine.drawsInto({320, 320}) || !engine.declare(scenario) || !engine.setGeometry(geometry)) {

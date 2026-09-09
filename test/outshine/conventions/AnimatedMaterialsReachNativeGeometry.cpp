@@ -100,8 +100,8 @@ int main() {
   Scenario::View view;
   view.Id = "material";
   view.Person = "first";
-  view.Sees.Placed = true;
-  view.Sees.Stands.AtM = {{0, 0, 3}};
+  view.Placement = Scenario::CameraPlacement::Local;
+  view.Sees.PositionM = {{0, 0, 3}};
   scene.Views.push_back(view);
   CHECK(asset.selectAnimations(clips).has_value(), "reselect material clip for rendering");
   if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene)) {

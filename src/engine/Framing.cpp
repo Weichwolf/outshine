@@ -239,7 +239,7 @@ Extent Engine::canvas() const {
   return S_->Picture.Targeted ? S_->Picture.Frame : Extent{};
 }
 
-bool Engine::camera(Scenario::Camera &out) const {
+bool Engine::camera(Camera &out) const {
   if (!S_->Picture.Standing) { return false; }
   Render::CameraOf(S_->Picture.Standing->Aimed(), out);
   return true;

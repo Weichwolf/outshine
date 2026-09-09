@@ -13,6 +13,7 @@
 #include "math/Vec3.h"
 
 #include "Extent.h"
+#include "render/Camera.h"
 
 namespace outshine::Scenario {
 
@@ -442,126 +443,32 @@ struct Event {
   std::vector<std::string> Carries;
 };
 
-/// Right-handed camera: local +X right, +Y up, -Z viewing direction, metres.
-/// Projection matrices use glTF/OpenGL NDC depth [-1, 1]; GPU depth conversion is internal.
-struct Camera {
-  /// Default perspective near distance in metres when an Engine view declares zero.
-  static constexpr double kNearestM = 0.05;
+/// Source of the camera pose configured by a scenario view.
+enum class CameraPlacement {
+  FollowEntity, ///< Resolve the named followed entity during simulation.
+  Local,        ///< Use the camera's local world pose directly.
+  Geodetic      ///< Resolve geographic position and optional terrain height before rendering.
+};
 
-  /// Selects explicit local placement. A geodetic Stands also selects world placement;
-  /// otherwise the scenario view follows its declared body.
-  bool Placed = false;
-  /// Camera pose in the scenario world frame, or an unresolved geodetic placement.
-  Standing Stands;
-  /// Vertical perspective FOV in degrees, strictly between 0 and 180.
-  /// Engine views resolve zero to kFovUnsaidDeg; explicit matrix queries require a valid FOV.
-  double FovDeg = 0.0;
-
-  /// Near plane in metres. Perspective requires positive depth; Engine views resolve zero
-  /// to kNearestM. Orthographic near zero is valid; negative and nonfinite values are errors.
-  double NearM = 0.0;
-  /// Far plane in metres, greater than near. Zero or positive infinity selects infinite
-  /// perspective; orthographic projection requires a finite far plane.
-  double FarM = 0.0;
-
-  /// Selects orthographic half extents instead of perspective FOV.
-  bool Orthographic = false;
-  /// Positive finite orthographic horizontal half extent in metres; no inferred default.
-  double XMagM = 0.0;
-  /// Positive finite orthographic vertical half extent in metres; independent of viewport aspect.
-  double YMagM = 0.0;
-
-  /// A perspective camera as glTF declares one: a vertical field of view and a depth range.
-  struct Perspective {
-    /// The vertical field of view, in degrees.
-    double FovDeg = 0.0;
-    /// The nearest depth the camera keeps, in metres.
-    double NearM = 0.0;
-    /// The far plane in metres; zero or positive infinity requests infinite perspective.
-    double FarM = 0.0;
-  };
-
-  /// An orthographic camera as glTF declares one: HALF-EXTENTS, never frustum edges.
-  ///
-  /// The edges are not taken because this camera cannot hold an off-centre frustum, and a setter
-  /// that accepted four edges and kept `0.5 * (right - left)` would be answering a different
-  /// question than it was asked.
-  struct Ortho {
-    /// Half the width the camera sees, in metres.
-    double XMagM = 0.0;
-    /// Half the height, in metres.
-    double YMagM = 0.0;
-    /// The nearest depth the camera keeps, in metres.
-    double NearM = 0.0;
-    /// The furthest, in metres.
-    double FarM = 0.0;
-  };
-
-  /// Store a perspective declaration. Does not validate or retain references.
-  /// Engine preparation applies the documented zero defaults and rejects invalid or
-  /// GPU-unrepresentable values; matrix queries require an explicit valid lens.
-  void setProjection(Perspective sees) noexcept {
-    Orthographic = false;
-    FovDeg = sees.FovDeg;
-    NearM = sees.NearM;
-    FarM = sees.FarM;
-  }
-
-  /// Store orthographic half extents and depth planes, in metres. Does not validate
-  /// or retain references. Both extents must be positive and finite, near >= 0, far > near
-  /// and finite; Engine preparation additionally checks GPU representability.
-  void setProjection(Ortho sees) noexcept {
-    Orthographic = true;
-    XMagM = sees.XMagM;
-    YMagM = sees.YMagM;
-    NearM = sees.NearM;
-    FarM = sees.FarM;
-  }
-
-  /// Camera-to-world transform; an unresolved globe anchor has no local matrix.
-  [[nodiscard]] bool modelMatrix(Mat4 &out) const;
-  /// World-to-camera inverse, including quaternion rotation and roll, or explicit look-at.
-  [[nodiscard]] bool viewMatrix(Mat4 &out) const;
-  /// Lens-only projection; independent of placement and look-at target. Aspect is width/height.
-  [[nodiscard]] bool projectionMatrix(double aspect, Mat4 &out) const;
-  [[nodiscard]] bool clipMatrix(double aspect, Mat4 &out) const;
-
-  /// An explicit target overrides Stands.Facing. UpM is the world-space look-at up vector.
-  bool LooksAt = false;
-  Vec3 LookAtM;
-  Vec3 UpM = {{0.0, 1.0, 0.0}};
-
-  double ApertureFStops = 0.0;
-  double ShutterS = 0.0;
-  double SensitivityIso = 0.0;
-
-  [[nodiscard]] bool exposed() const {
-    return ApertureFStops > 0.0 && ShutterS > 0.0 && SensitivityIso > 0.0;
-  }
-
-  /// The photographic triangle, as Filament's Camera::setExposure takes it.
-  struct Exposure {
-    /// The aperture, in f-stops.
-    double ApertureFStops = 0.0;
-    /// The shutter, in seconds.
-    double ShutterS = 0.0;
-    /// The sensitivity, in ISO.
-    double SensitivityIso = 0.0;
-  };
-
-  /// Stands the camera on an exposure.
-  void setExposure(Exposure by) {
-    ApertureFStops = by.ApertureFStops;
-    ShutterS = by.ShutterS;
-    SensitivityIso = by.SensitivityIso;
-  }
-
-  [[nodiscard]] double exposureScale() const;
+/// Geographic camera placement, resolved by scenario/world setup; never an import type.
+struct GeographicCameraPlacement {
+  /// Longitude/latitude in degrees and ellipsoidal height in metres, or height above ground.
+  LongitudeLatitudeHeight Geodetic;
+  /// Interpret height as metres above the sampled terrain instead of absolute height.
+  bool SamplesHeight = false;
+  /// Viewing azimuth clockwise from north, degrees.
+  double BearingDeg = 0.0;
+  /// Viewing elevation above the horizon, degrees.
+  double PitchDeg = 0.0;
 };
 
 struct View {
   std::string Id;
   Camera Sees;
+  /// Selects how the scenario resolves the camera pose.
+  CameraPlacement Placement = CameraPlacement::FollowEntity;
+  /// Geographic inputs used only when Placement is Geodetic.
+  GeographicCameraPlacement Geographic;
   Patch Viewport;
 
   void setCamera(const Camera &sees) { Sees = sees; }

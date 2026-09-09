@@ -377,7 +377,7 @@ int main(int argc, char **argv) {
   if (verb == "places") {
     for (const Place &one : places) {
       const auto &view = one.Declaration.Views.front().Sees;
-      const auto &at = view.Stands;
+      const auto &at = one.Declaration.Views.front().Geographic;
       const auto &frame = one.Declaration.Render.Frame;
       std::printf("%s\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%.12g\t%d\t%d\t%s\n",
                   one.Name.c_str(),

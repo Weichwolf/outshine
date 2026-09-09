@@ -68,13 +68,12 @@ namespace {
 [[nodiscard]] std::expected<void, Render::LensError>
 ApplyCamera(Core::Live &live,
             const Render::SceneRenderer &renderer,
-            const Scenario::Camera &camera,
+            const Camera &camera,
             Render::Viewpoint view) noexcept {
   view.Kind =
       camera.Orthographic ? Render::CameraKind::Orthographic : Render::CameraKind::Perspective;
   view.YfovRad = (camera.FovDeg == 0 ? Scenario::kFovUnsaidDeg : camera.FovDeg) * kDeg2Rad;
-  view.ZNearM =
-      !camera.Orthographic && camera.NearM == 0 ? Scenario::Camera::kNearestM : camera.NearM;
+  view.ZNearM = !camera.Orthographic && camera.NearM == 0 ? Camera::kNearestM : camera.NearM;
   view.ZFarM = camera.FarM;
   view.XMagM = camera.XMagM;
   view.YMagM = camera.YMagM;
@@ -88,23 +87,25 @@ ApplyCamera(Core::Live &live,
 bool Engine::State::Watches() {
   if (!Session.Views || !Picture.Standing) { return true; }
   const Scenario::View &seen = Session.Views->Active();
-  if (!seen.Sees.Placed && !seen.Sees.Stands.GlobeAnchor) { return FollowCamera(*Session.Views); }
-  Vec3 station = seen.Sees.Stands.AtM + seen.OffsetM;
-  if (seen.Sees.Stands.GlobeAnchor) {
-    double heightM = seen.Sees.Stands.Geodetic.HeightM;
-    if (seen.Sees.Stands.SamplesHeight) {
+  if (seen.Placement == Scenario::CameraPlacement::FollowEntity) {
+    return FollowCamera(*Session.Views);
+  }
+  Vec3 station = seen.Sees.PositionM + seen.OffsetM;
+  if (seen.Placement == Scenario::CameraPlacement::Geodetic) {
+    double heightM = seen.Geographic.Geodetic.HeightM;
+    if (seen.Geographic.SamplesHeight) {
       if (!World.Stack.Opened()) {
         Error = "a view samples the ground's height and no ground stands -- a scenario declares a "
                 "world before anything can be placed on it";
         return false;
       }
       const GroundSample under =
-          World.Stack.Ground().At({.LongitudeDeg = seen.Sees.Stands.Geodetic.LongitudeDeg,
-                                   .LatitudeDeg = seen.Sees.Stands.Geodetic.LatitudeDeg});
+          World.Stack.Ground().At({.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
+                                   .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg});
       const std::optional<double> aslM = under.AslM();
       if (!aslM) {
-        Error = "a view samples the ground at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) +
-                ", " + Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
+        Error = "a view samples the ground at " + Said(seen.Geographic.Geodetic.LatitudeDeg) +
+                ", " + Said(seen.Geographic.Geodetic.LongitudeDeg) +
                 " and the terrain there is not resident -- the height it stands at is not a "
                 "number this engine may invent";
         return false;
@@ -115,12 +116,12 @@ bool Engine::State::Watches() {
         Ground::Geo{.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                     .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
     const std::optional<Ground::Enu> where =
-        frame.FromGeo(Ground::Geo{.LongitudeDeg = seen.Sees.Stands.Geodetic.LongitudeDeg,
-                                  .LatitudeDeg = seen.Sees.Stands.Geodetic.LatitudeDeg,
+        frame.FromGeo(Ground::Geo{.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
+                                  .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg,
                                   .HeightM = heightM});
     if (!where) {
-      Error = "a view stands at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " +
-              Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
+      Error = "a view stands at " + Said(seen.Geographic.Geodetic.LatitudeDeg) + ", " +
+              Said(seen.Geographic.Geodetic.LongitudeDeg) +
               " and the world's own origin is too polar for a local frame to carry it";
       return false;
     }
@@ -131,12 +132,11 @@ bool Engine::State::Watches() {
   Published.Places("the standing eye, east", station[0], "m");
   Published.Places("the standing eye, up", station[1], "m");
   Published.Places("the standing eye, south", station[2], "m");
-  Scenario::Camera resolved = seen.Sees;
-  resolved.Stands.GlobeAnchor = false;
-  resolved.Stands.AtM = station;
-  if (seen.Sees.Stands.GlobeAnchor && !seen.Sees.LooksAt) {
-    const double bearing = seen.Sees.Stands.BearingDeg * kDeg2Rad;
-    const double pitch = seen.Sees.Stands.PitchDeg * kDeg2Rad;
+  Camera resolved = seen.Sees;
+  resolved.PositionM = station;
+  if (seen.Placement == Scenario::CameraPlacement::Geodetic && !seen.Sees.LooksAt) {
+    const double bearing = seen.Geographic.BearingDeg * kDeg2Rad;
+    const double pitch = seen.Geographic.PitchDeg * kDeg2Rad;
     const Vec3 ahead = EastUpSouthDirection(bearing, pitch);
     resolved.LooksAt = true;
     resolved.LookAtM = station + ahead;

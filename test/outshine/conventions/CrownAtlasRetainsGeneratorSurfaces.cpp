@@ -57,8 +57,8 @@ int main() {
   Scenario::View foregroundCamera;
   foregroundCamera.Id = "control";
   foregroundCamera.Person = "first";
-  foregroundCamera.Sees.Placed = true;
-  foregroundCamera.Sees.Stands.AtM = {{0, 0, 3}};
+  foregroundCamera.Placement = Scenario::CameraPlacement::Local;
+  foregroundCamera.Sees.PositionM = {{0, 0, 3}};
   foregroundScene.Views.push_back(foregroundCamera);
   CHECK(foreground.drawsInto({1280, 720}) && foreground.declare(foregroundScene) &&
             foreground.setGeometry(control) && foreground.assemble() && foreground.advance(),
@@ -368,13 +368,13 @@ int main() {
       Scenario::View camera;
       camera.Id = "card";
       camera.Person = "first";
-      camera.Sees.Placed = true;
+      camera.Placement = Scenario::CameraPlacement::Local;
       const double extent = atlas->HalfExtentM();
-      camera.Sees.Stands.AtM = atlas->CentreM() + atlas->Views()[view].TowardEye * (3 * extent);
+      camera.Sees.PositionM = atlas->CentreM() + atlas->Views()[view].TowardEye * (3 * extent);
       camera.Sees.LooksAt = true;
       camera.Sees.LookAtM = atlas->CentreM();
-      camera.Sees.setProjection(Scenario::Camera::Ortho{
-          .XMagM = extent, .YMagM = extent, .NearM = extent, .FarM = 5 * extent});
+      camera.Sees.setProjection(
+          Camera::Ortho{.XMagM = extent, .YMagM = extent, .NearM = extent, .FarM = 5 * extent});
       scene.Views.push_back(camera);
       Engine engine;
       std::vector<float> depth, normals;

@@ -120,20 +120,20 @@ int main() {
   for (const double seconds : {0.5, 1.0, 0.25, 2.0, 0.0}) {
     CHECK(asset.sampleAnimation(seconds).has_value(),
           "sample absolute time, including backward and beyond final key");
-    Scenario::Camera camera;
+    Camera camera;
     CHECK(asset.hasDefaultCamera() && asset.camera(0, camera),
           "both camera accessors resolve current pose");
     const double x = 4 * std::min(seconds, 1.0);
-    CHECK(std::abs(camera.Stands.AtM[0] - x) < 1e-9 && std::abs(camera.Stands.AtM[1] - 1) < 1e-9 &&
-              std::abs(camera.Stands.AtM[2] - 2) < 1e-9,
+    CHECK(std::abs(camera.PositionM[0] - x) < 1e-9 && std::abs(camera.PositionM[1] - 1) < 1e-9 &&
+              std::abs(camera.PositionM[2] - 2) < 1e-9,
           "parent translation and quarter-turn rotate the child offset analytically");
-    CHECK(std::abs(asset.camera().Stands.AtM[0] - x) < 1e-9,
+    CHECK(std::abs(asset.camera().PositionM[0] - x) < 1e-9,
           "cached default camera uses the same time as explicit selection");
   }
   CHECK(asset.sampleAnimation(0.5).has_value(), "establish a nonzero pose for rejection checks");
   for (const double seconds :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
-    CHECK(!asset.sampleAnimation(seconds) && std::abs(asset.camera().Stands.AtM[0] - 2) < 1e-9,
+    CHECK(!asset.sampleAnimation(seconds) && std::abs(asset.camera().PositionM[0] - 2) < 1e-9,
           "invalid time cannot mutate the accepted camera pose");
   }
   for (const int invalid : {-1, 1}) {
@@ -141,7 +141,7 @@ int main() {
     CHECK(!asset.selectAnimations(rejected), "invalid clip selection fails");
     CHECK(std::abs(asset.durationS() - 1.0) < 1e-9,
           "rejected selection preserves the active animation duration");
-    CHECK(asset.sampleAnimation(0.75) && std::abs(asset.camera().Stands.AtM[0] - 3) < 1e-9,
+    CHECK(asset.sampleAnimation(0.75) && std::abs(asset.camera().PositionM[0] - 3) < 1e-9,
           "previous animation remains sampleable after rejected selection");
   }
   const auto rejectedTime = asset.sampleAnimation(-1);
@@ -149,7 +149,7 @@ int main() {
   CHECK(asset.sampleAnimation(0.5) && asset.error().empty(),
         "successful sampling clears old error");
   CHECK(!rejectedTime && !rejectedTime.error().empty(), "time diagnostic survives later sampling");
-  CHECK(asset.selectAnimations({}) && std::abs(asset.camera().Stands.AtM[0]) < 1e-9,
+  CHECK(asset.selectAnimations({}) && std::abs(asset.camera().PositionM[0]) < 1e-9,
         "disabling clips restores authored camera transforms rather than stale sampled locals");
   CHECK(asset.selectAnimations(clips) && asset.sampleAnimation(0.5),
         "prepare the camera and geometry snapshot for rendering");
@@ -166,6 +166,7 @@ int main() {
   view.Id = "sampled-camera";
   view.Person = "first";
   view.Sees = asset.camera();
+  view.Placement = Scenario::CameraPlacement::Local;
   scene.Views.push_back(view);
   if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene) ||
       !engine.setGeometry(asset.geometry()) || !engine.assemble() || !engine.advance() ||

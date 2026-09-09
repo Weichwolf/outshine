@@ -108,13 +108,13 @@ int main(void) {
     outshine::Scenario::View watches;
     watches.Id = "station";
     watches.Person = "first";
-    watches.Sees.Stands.GlobeAnchor = true;
-    watches.Sees.Stands.Geodetic.LatitudeDeg = kLatDeg;
-    watches.Sees.Stands.Geodetic.LongitudeDeg = kLonDeg;
-    watches.Sees.Stands.Geodetic.HeightM = kEyeAglM;
-    watches.Sees.Stands.SamplesHeight = true;
-    watches.Sees.Stands.BearingDeg = kBearingDeg;
-    watches.Sees.Stands.PitchDeg = kPitchDeg;
+    watches.Placement = Scenario::CameraPlacement::Geodetic;
+    watches.Geographic.Geodetic.LatitudeDeg = kLatDeg;
+    watches.Geographic.Geodetic.LongitudeDeg = kLonDeg;
+    watches.Geographic.Geodetic.HeightM = kEyeAglM;
+    watches.Geographic.SamplesHeight = true;
+    watches.Geographic.BearingDeg = kBearingDeg;
+    watches.Geographic.PitchDeg = kPitchDeg;
     watches.Sees.FovDeg = kFovDeg;
     stands.Views.push_back(watches);
     if (!(engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&

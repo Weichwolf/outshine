@@ -39,14 +39,14 @@ int main() {
   Scenario::View view;
   view.Id = "chess";
   view.Person = "first";
-  view.Sees.Placed = true;
-  view.Sees.Stands.AtM = {{2.781138576118416, 1.3202289998916963, 1.9473741958039332}};
+  view.Placement = Scenario::CameraPlacement::Local;
+  view.Sees.PositionM = {{2.781138576118416, 1.3202289998916963, 1.9473741958039332}};
   view.Sees.LooksAt = true;
   view.Sees.LookAtM = {{0, 0.08449789705936794, 0}};
   view.Sees.setProjection(
-      Scenario::Camera::Perspective{.FovDeg = 0.47108996144172666 * 180 / std::numbers::pi,
-                                    .NearM = 3.107125103623776,
-                                    .FarM = 4.118946968135317});
+      Camera::Perspective{.FovDeg = 0.47108996144172666 * 180 / std::numbers::pi,
+                          .NearM = 3.107125103623776,
+                          .FarM = 4.118946968135317});
   scenario.Views.push_back(view);
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());

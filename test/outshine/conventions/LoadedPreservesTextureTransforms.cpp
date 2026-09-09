@@ -1,6 +1,9 @@
 #include <array>
 #include <numbers>
 #include <import/GltfImporter.h>
+#ifdef OUTSHINE_SCENARIO_H
+#error The import API must not depend on scenario definitions
+#endif
 #include "Check.h"
 #include "PreparedRoot.h"
 

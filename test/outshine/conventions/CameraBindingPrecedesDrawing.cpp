@@ -22,10 +22,10 @@ outshine::Scenario::Document Declaration(bool withView) {
     outshine::Scenario::View view;
     view.Id = "camera-contract";
     view.Person = "first";
-    view.Sees.Placed = true;
-    view.Sees.Stands.AtM = {{0, 0, 2}};
+    view.Placement = Scenario::CameraPlacement::Local;
+    view.Sees.PositionM = {{0, 0, 2}};
     view.Sees.setProjection(
-        outshine::Scenario::Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
+        outshine::Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
     scene.Views.push_back(view);
   }
   return scene;

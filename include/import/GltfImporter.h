@@ -9,7 +9,7 @@
 #include <string_view>
 
 #include "scene/Geometry.h"
-#include "scenario/Scenario.h"
+#include "render/Camera.h"
 
 namespace outshine {
 
@@ -89,7 +89,7 @@ public:
   [[nodiscard]] bool hasDefaultCamera() const;
   /// Borrow camera zero at the current pose; requires hasDefaultCamera(). No allocation.
   /// @return Native camera view, invalidated by mutation, move or destruction.
-  [[nodiscard]] const Scenario::Camera &camera() const;
+  [[nodiscard]] const Camera &camera() const;
   /// @return Number of camera definitions, including definitions without a node placement.
   /// Constant-time, no allocation; zero for an empty adapter.
   [[nodiscard]] int cameraCount() const;
@@ -98,7 +98,7 @@ public:
   /// @param out Caller-owned result; unchanged on failure. No references are retained.
   /// @return False for an invalid index, ambiguous/missing placement or collapsed basis.
   /// Walks the ancestor chain and may allocate; serialize with mutation of this adapter.
-  [[nodiscard]] bool camera(int index, Scenario::Camera &out) const;
+  [[nodiscard]] bool camera(int index, Camera &out) const;
 
   /// Failure to derive a camera for the requested viewport.
   enum class FrameError {
@@ -110,8 +110,7 @@ public:
   /// Does not allocate, mutate the asset or retain viewport data. Serialize with mutation.
   /// @param viewport Positive dimensions in physical pixels; only their ratio affects framing.
   /// @return Camera looking at the bounds centre, or a typed viewport/bounds error.
-  [[nodiscard]] std::expected<Scenario::Camera, FrameError>
-  frameCamera(Extent viewport) const noexcept;
+  [[nodiscard]] std::expected<Camera, FrameError> frameCamera(Extent viewport) const noexcept;
 
 private:
   struct Held;

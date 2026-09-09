@@ -143,8 +143,16 @@ std::string WriteScenario(const Scenario::Document &declared) {
       Said(said, "follows", one.Follows);
       Number(said, "fovDeg", one.Sees.FovDeg);
       said += ">\n";
-      if (one.Sees.Placed || one.Sees.Stands.GlobeAnchor) {
-        StandingAs(said, "at", one.Sees.Stands);
+      if (one.Placement != Scenario::CameraPlacement::FollowEntity) {
+        Scenario::Standing placement;
+        placement.AtM = one.Sees.PositionM;
+        placement.Facing = one.Sees.Orientation;
+        placement.GlobeAnchor = one.Placement == Scenario::CameraPlacement::Geodetic;
+        placement.Geodetic = one.Geographic.Geodetic;
+        placement.SamplesHeight = one.Geographic.SamplesHeight;
+        placement.BearingDeg = one.Geographic.BearingDeg;
+        placement.PitchDeg = one.Geographic.PitchDeg;
+        StandingAs(said, "at", placement);
       }
       said += "    </view>\n";
     }

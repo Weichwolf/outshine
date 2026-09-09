@@ -20,15 +20,6 @@ namespace outshine {
 
 constexpr double kPitchLimitUnsaidDeg = 89.0;
 
-constexpr double kExposureCalibration = 1.2;
-
-double Scenario::Camera::exposureScale() const {
-  if (!exposed()) { return 0.0; }
-  const double ev100 =
-      std::log2(ApertureFStops * ApertureFStops / ShutterS) - std::log2(SensitivityIso / 100.0);
-  return 1.0 / (kExposureCalibration * std::pow(2.0, ev100));
-}
-
 const Scenario::Asset *Scenario::Document::subject() const {
   for (const Scenario::Asset &asset : Assets) {
     if (asset.Kind == "gltf") { return &asset; }
@@ -698,8 +689,16 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.Id = one.Attr("id");
     made.Follows = one.Attr("follows");
     if (Declares(one, "at")) {
-      made.Sees.Placed = true;
-      ReadStanding(one.Child("at"), made.Sees.Stands);
+      Scenario::Standing placement;
+      ReadStanding(one.Child("at"), placement);
+      made.Placement = placement.GlobeAnchor ? Scenario::CameraPlacement::Geodetic
+                                             : Scenario::CameraPlacement::Local;
+      made.Sees.PositionM = placement.AtM;
+      made.Sees.Orientation = placement.Facing;
+      made.Geographic = {.Geodetic = placement.Geodetic,
+                         .SamplesHeight = placement.SamplesHeight,
+                         .BearingDeg = placement.BearingDeg,
+                         .PitchDeg = placement.PitchDeg};
     }
     made.Person = one.Attr("person");
     made.DistanceM = one.Num("distanceM", 0.0);

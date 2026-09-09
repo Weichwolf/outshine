@@ -8,7 +8,7 @@
 #include "math/Vec3.h"
 #include <array>
 #include <cmath>
-#include "scenario/Scenario.h"
+#include "render/Camera.h"
 #include <numbers>
 #include <cstdint>
 
@@ -77,20 +77,19 @@ inline std::optional<Viewpoint> Viewpoint::LookAt(Looking from, const Vec3 &upM)
   return out;
 }
 
-inline void CameraOf(const Viewpoint &from, outshine::Scenario::Camera &out) {
+inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
   out = {};
-  out.Placed = true;
   out.LooksAt = true;
   for (int axis = 0; axis < 3; ++axis) {
-    out.Stands.AtM[axis] = from.EyeM[axis];
+    out.PositionM[axis] = from.EyeM[axis];
     out.LookAtM[axis] = from.EyeM[axis] + from.Forward[axis];
     out.UpM[axis] = from.Up[axis];
   }
   if (from.Kind == CameraKind::Orthographic) {
-    out.setProjection(outshine::Scenario::Camera::Ortho{
+    out.setProjection(outshine::Camera::Ortho{
         .XMagM = from.XMagM, .YMagM = from.YMagM, .NearM = from.ZNearM, .FarM = from.ZFarM});
   } else {
-    out.setProjection(outshine::Scenario::Camera::Perspective{
+    out.setProjection(outshine::Camera::Perspective{
         .FovDeg = from.YfovRad * kRad2Deg, .NearM = from.ZNearM, .FarM = from.ZFarM});
   }
 }

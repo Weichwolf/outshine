@@ -37,10 +37,9 @@ int main() {
     Scenario::View view;
     view.Id = "parallel";
     view.Person = "first";
-    view.Sees.Placed = true;
-    view.Sees.Stands.AtM = {{0, 0, at == 0 ? 2.0 : 8.0}};
-    view.Sees.setProjection(
-        Scenario::Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
+    view.Placement = Scenario::CameraPlacement::Local;
+    view.Sees.PositionM = {{0, 0, at == 0 ? 2.0 : 8.0}};
+    view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
     declaration.Views.push_back(view);
     if (!engine.drawsInto({64, 64}) || !engine.declare(declaration) ||
         !engine.setGeometry(geometry) || !engine.assemble() || !engine.advance() ||

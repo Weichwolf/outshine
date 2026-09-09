@@ -93,7 +93,7 @@ struct GltfImporter::Held {
   Gltf::Pose Motion;
   Gltf::VariantSelection Variant;
   Geometry Handed;
-  Scenario::Camera Eye;
+  Camera Eye;
   std::vector<Gltf::Transform> Locals;
   std::vector<double> Weights;
   std::vector<Gltf::Pose::FactorAt> Factors;
@@ -144,7 +144,7 @@ struct GltfImporter::Held {
     return true;
   }
 
-  [[nodiscard]] bool Camera(int index, Scenario::Camera &out) const {
+  [[nodiscard]] bool Camera(int index, Camera &out) const {
     Render::Viewpoint placed;
     std::string why;
     const std::span<const Gltf::Transform> locals =
@@ -310,11 +310,11 @@ int GltfImporter::cameraCount() const {
   return static_cast<int>(Held_->File.Cameras().size());
 }
 
-bool GltfImporter::camera(int index, Scenario::Camera &out) const {
+bool GltfImporter::camera(int index, Camera &out) const {
   return Held_->Camera(index, out);
 }
 
-std::expected<Scenario::Camera, GltfImporter::FrameError>
+std::expected<Camera, GltfImporter::FrameError>
 GltfImporter::frameCamera(Extent viewport) const noexcept {
   if (viewport.WidthPx <= 0 || viewport.HeightPx <= 0) {
     return std::unexpected(FrameError::InvalidViewport);
@@ -324,12 +324,12 @@ GltfImporter::frameCamera(Extent viewport) const noexcept {
   if (!Held_ || !Held_->Assembled.Frame(fitted, Render::kFramingFill, aspect)) {
     return std::unexpected(FrameError::InvalidBounds);
   }
-  Scenario::Camera camera;
+  Camera camera;
   Render::CameraOf(fitted, camera);
   return camera;
 }
 
-const Scenario::Camera &GltfImporter::camera() const {
+const Camera &GltfImporter::camera() const {
   return Held_->Eye;
 }
 

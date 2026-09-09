@@ -316,7 +316,7 @@ private:
   [[nodiscard]] bool flushAndWait();
   [[nodiscard]] Extent canvas() const;
 
-  [[nodiscard]] bool camera(Scenario::Camera &out) const;
+  [[nodiscard]] bool camera(Camera &out) const;
   [[nodiscard]] bool presenting() const;
 
   friend class SwapChain;

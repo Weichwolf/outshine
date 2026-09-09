@@ -198,11 +198,11 @@ int main() {
       Scenario::View view;
       view.Id = "tree";
       view.Person = "first";
-      view.Sees.Placed = true;
-      view.Sees.Stands.AtM = {{0, 11, 35}};
+      view.Placement = Scenario::CameraPlacement::Local;
+      view.Sees.PositionM = {{0, 11, 35}};
       view.Sees.LooksAt = true;
       view.Sees.LookAtM = {{0, 11, 0}};
-      view.Sees.setProjection(Scenario::Camera::Ortho{
+      view.Sees.setProjection(Camera::Ortho{
           .XMagM = close ? 1.5 : 13, .YMagM = close ? 1.6875 : 14, .NearM = 0.1, .FarM = 100});
       scenario.Views.push_back(view);
       if (!engine.drawsInto({640, 720}) || !engine.declare(scenario) ||

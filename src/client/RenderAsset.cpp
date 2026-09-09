@@ -185,9 +185,9 @@ struct AssetRenderOptions {
   return options;
 }
 
-[[nodiscard]] Holds<Scenario::Camera> ResolveCamera(const AssetRenderOptions &options,
-                                                    const GltfImporter &asset) {
-  Scenario::Camera camera;
+[[nodiscard]] Holds<Camera> ResolveCamera(const AssetRenderOptions &options,
+                                          const GltfImporter &asset) {
+  Camera camera;
   if (options.Camera == CameraMode::Indexed) {
     if (!asset.camera(options.CameraIndex, camera)) {
       return std::unexpected(Says::CameraUnavailable);
@@ -200,12 +200,10 @@ struct AssetRenderOptions {
     camera = *framed;
   }
   if (options.Position && options.Target) {
-    camera.Placed = true;
-    camera.Stands.AtM = *options.Position;
-    camera.Stands.GlobeAnchor = false;
+    camera.PositionM = *options.Position;
     camera.LooksAt = true;
     camera.LookAtM = *options.Target;
-    camera.NearM = Scenario::Camera::kNearestM;
+    camera.NearM = Camera::kNearestM;
     if (!camera.Orthographic) { camera.FarM = 0; }
   }
   if (options.FovDeg) {
@@ -250,6 +248,7 @@ struct AssetRenderOptions {
   view.Id = "asset";
   view.Person = "first";
   view.Sees = *camera;
+  view.Placement = Scenario::CameraPlacement::Local;
   scene.Views.push_back(view);
   if (options.Lighting == LightingMode::Studio ||
       (options.Lighting == LightingMode::Automatic && asset.geometry().lamps() == 0)) {
