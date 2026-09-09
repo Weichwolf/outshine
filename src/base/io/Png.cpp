@@ -3,6 +3,8 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <span>
+#include <string_view>
 
 #include <string>
 #include <utility>
@@ -19,6 +21,9 @@ namespace {
 
 constexpr std::array<uint8_t, 8> kSignature = {{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}};
 constexpr size_t kMaxSide = 16384;
+constexpr size_t kMaxPaletteBytes = size_t{256} * 3;
+constexpr unsigned kAncillaryBit = 0x20u;
+constexpr uint32_t kMaxChunkBytes = 0x7fffffffu;
 
 uint32_t Big(const uint8_t *at) {
   return (static_cast<uint32_t>(at[0]) << (3u * kByteShift)) |
@@ -41,88 +46,95 @@ Png Refuse(std::string why) {
   return out;
 }
 
+struct ImageShape {
+  uint32_t Wide = 0;
+  uint32_t High = 0;
+  uint32_t Channels = 0;
+};
+
+struct EncodedPng {
+  ImageShape Shape;
+  std::vector<uint8_t> Compressed;
+  bool HasPalette = false;
+};
+
+enum class ChunkPhase { Header, BeforeData, Data, AfterData };
+
+namespace Says {
+constexpr auto Chunk = "PNG chunk length, CRC or ordering is invalid";
+constexpr auto Header =
+    "PNG requires a bounded noninterlaced 8-bit RGB/RGBA IHDR with standard methods";
+constexpr auto End = "PNG requires image data followed by a terminal empty IEND";
 }
 
-Png ReadPng(const uint8_t *bytes, size_t length) {
-  if (bytes == nullptr || length < sizeof(kSignature) + 12) {
-    return Refuse("a PNG is at least a signature and one chunk, and this is " +
-                  std::to_string(length) + " bytes");
+std::string ReadHeader(std::span<const uint8_t> bytes, ImageShape &shape) {
+  if (bytes.size() != 13) { return Says::Header; }
+  const uint32_t wide = Big(bytes.data());
+  const uint32_t high = Big(bytes.data() + 4);
+  if (wide == 0 || high == 0 || wide > kMaxSide || high > kMaxSide || bytes[8] != 8 ||
+      (bytes[9] != 2 && bytes[9] != 6) || bytes[10] != 0 || bytes[11] != 0 || bytes[12] != 0) {
+    return Says::Header;
   }
-  if (std::memcmp(bytes, kSignature.data(), sizeof(kSignature)) != 0) {
-    return Refuse("these bytes do not begin with the PNG signature, so they are not a PNG");
+  shape = {.Wide = wide, .High = high, .Channels = bytes[9] == 2 ? 3u : 4u};
+  return {};
+}
+
+std::string ReadChunk(std::string_view name,
+                      std::span<const uint8_t> data,
+                      EncodedPng &image,
+                      ChunkPhase &phase) {
+  if (phase == ChunkPhase::Header) {
+    if (name != "IHDR") { return Says::Chunk; }
+    auto error = ReadHeader(data, image.Shape);
+    if (!error.empty()) { return error; }
+    phase = ChunkPhase::BeforeData;
+    return {};
   }
+  if (name == "IHDR") { return Says::Chunk; }
+  if (name == "IDAT") {
+    if (phase == ChunkPhase::AfterData) { return Says::Chunk; }
+    image.Compressed.insert(image.Compressed.end(), data.begin(), data.end());
+    phase = ChunkPhase::Data;
+    return {};
+  }
+  if (name == "PLTE") {
+    if (phase != ChunkPhase::BeforeData || image.HasPalette || data.empty() ||
+        data.size() > kMaxPaletteBytes || data.size() % 3 != 0) {
+      return Says::Chunk;
+    }
+    image.HasPalette = true;
+    return {};
+  }
+  if ((static_cast<unsigned char>(name[0]) & kAncillaryBit) == 0) { return Says::Chunk; }
+  if (phase == ChunkPhase::Data) { phase = ChunkPhase::AfterData; }
+  return {};
+}
 
-  uint32_t wide = 0;
-  uint32_t high = 0;
-  uint8_t depth = 0;
-  uint8_t colour = 0;
-  uint8_t interlace = 0;
-  bool haveHead = false;
-  std::vector<uint8_t> squeezed;
-
-  size_t at = sizeof(kSignature);
-  while (at + 8 <= length) {
-    const uint32_t size = Big(bytes + at);
-    const uint8_t *name = bytes + at + 4;
+std::string ReadChunks(std::span<const uint8_t> bytes, EncodedPng &image) {
+  ChunkPhase phase = ChunkPhase::Header;
+  size_t at = kSignature.size();
+  while (bytes.size() - at >= 12) {
+    const uint32_t size = Big(bytes.data() + at);
+    if (size > kMaxChunkBytes || size > bytes.size() - at - 12) { return Says::Chunk; }
     const size_t from = at + 8;
-    if (from + static_cast<size_t>(size) + 4 > length) {
-      return Refuse("a chunk at byte " + std::to_string(at) + " claims " + std::to_string(size) +
-                    " bytes and the file has " + std::to_string(length - from) + " left");
+    const uint8_t *name = bytes.data() + at + 4;
+    const auto checksum = crc32(0, name, static_cast<uInt>(size + 4));
+    if (checksum != Big(bytes.data() + from + size)) { return Says::Chunk; }
+    const std::string_view type(reinterpret_cast<const char *>(name), 4);
+    at = from + size + 4;
+    if (type == "IEND") {
+      return size == 0 && !image.Compressed.empty() && at == bytes.size() ? std::string{}
+                                                                          : Says::End;
     }
+    auto error = ReadChunk(type, bytes.subspan(from, size), image, phase);
+    if (!error.empty()) { return error; }
+  }
+  return Says::End;
+}
 
-    if (std::memcmp(name, "IHDR", 4) == 0) {
-      if (size != 13) {
-        return Refuse("an IHDR is 13 bytes and this one is " + std::to_string(size));
-      }
-      wide = Big(bytes + from);
-      high = Big(bytes + from + 4);
-      depth = bytes[from + 8];
-      colour = bytes[from + 9];
-      interlace = bytes[from + 12];
-      haveHead = true;
-    } else if (std::memcmp(name, "IDAT", 4) == 0) {
-      squeezed.insert(squeezed.end(), bytes + from, bytes + from + size);
-    } else if (std::memcmp(name, "IEND", 4) == 0) {
-      break;
-    }
-    at = from + static_cast<size_t>(size) + 4;
-  }
-
-  if (!haveHead) { return Refuse("this PNG carries no IHDR, so it never said how big it is"); }
-  if (wide == 0 || high == 0 || wide > kMaxSide || high > kMaxSide) {
-    return Refuse("a PNG of " + std::to_string(wide) + " by " + std::to_string(high) +
-                  " reaches the bound of " + std::to_string(kMaxSide));
-  }
-  if (depth != 8) {
-    return Refuse("this reader takes 8 bits a channel and this PNG carries " +
-                  std::to_string(static_cast<int>(depth)) +
-                  " -- an elevation tile is 8-bit RGB and anything else is a source we did not "
-                  "declare");
-  }
-  if (colour != 2 && colour != 6) {
-    return Refuse("this reader takes truecolour, with or without alpha, and this PNG is colour "
-                  "type " +
-                  std::to_string(static_cast<int>(colour)));
-  }
-  if (interlace != 0) {
-    return Refuse("this reader takes no interlaced PNG, and this one is interlaced");
-  }
-  if (squeezed.empty()) { return Refuse("this PNG carries no IDAT, so it has no pixels"); }
-
-  const uint32_t channels = colour == 2 ? 3u : 4u;
+Png Reconstruct(const std::vector<uint8_t> &raw, ImageShape shape) {
+  const auto [wide, high, channels] = shape;
   const size_t stride = static_cast<size_t>(wide) * channels;
-  const size_t wanted = (stride + 1) * static_cast<size_t>(high);
-
-  std::vector<uint8_t> raw(wanted);
-  auto got = static_cast<uLongf>(wanted);
-  const int how =
-      uncompress(raw.data(), &got, squeezed.data(), static_cast<uLong>(squeezed.size()));
-  if (how != Z_OK || static_cast<size_t>(got) != wanted) {
-    return Refuse("the IDAT inflated to " + std::to_string(static_cast<size_t>(got)) +
-                  " bytes where " + std::to_string(wanted) + " were needed, and zlib said " +
-                  std::to_string(how));
-  }
-
   Png out;
   out.Wide = wide;
   out.High = high;
@@ -157,6 +169,33 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
 
   out.Read = true;
   return out;
+}
+
+}
+
+Png ReadPng(const uint8_t *bytes, size_t length) {
+  if (bytes == nullptr || length < sizeof(kSignature) + 12) {
+    return Refuse("a PNG is at least a signature and one chunk, and this is " +
+                  std::to_string(length) + " bytes");
+  }
+  if (std::memcmp(bytes, kSignature.data(), sizeof(kSignature)) != 0) {
+    return Refuse("these bytes do not begin with the PNG signature, so they are not a PNG");
+  }
+  EncodedPng image;
+  auto error = ReadChunks({bytes, length}, image);
+  if (!error.empty()) { return Refuse(std::move(error)); }
+  const size_t stride = static_cast<size_t>(image.Shape.Wide) * image.Shape.Channels;
+  const size_t wanted = (stride + 1) * image.Shape.High;
+  std::vector<uint8_t> raw(wanted);
+  auto got = static_cast<uLongf>(wanted);
+  const int how = uncompress(
+      raw.data(), &got, image.Compressed.data(), static_cast<uLong>(image.Compressed.size()));
+  if (how != Z_OK || static_cast<size_t>(got) != wanted) {
+    return Refuse("the IDAT inflated to " + std::to_string(static_cast<size_t>(got)) +
+                  " bytes where " + std::to_string(wanted) + " were needed, and zlib said " +
+                  std::to_string(how));
+  }
+  return Reconstruct(raw, image.Shape);
 }
 
 }
