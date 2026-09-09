@@ -18,7 +18,7 @@
 #include "scenario/Event.h"
 #include "scenario/Scenario.h"
 #include "scene/Geometry.h"
-#include "scene/Scene.h"
+#include "world/EntityRegistry.h"
 
 namespace outshine {
 
@@ -263,12 +263,14 @@ public:
   [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);
 
   [[nodiscard]] const Scenario::Document &declaration() const;
-  /// Borrow the current simulation Scene until successful assemble() or Engine destruction.
-  /// Successful assembly invalidates this reference and all prior entity/component references.
-  /// Failed assembly preserves the Scene and its contents; reacquire after successful assembly.
-  [[nodiscard]] Scene &scene();
-  /// Read-only borrowed Scene, with the same lifetime and mutation restrictions as scene().
-  [[nodiscard]] const Scene &scene() const;
+  /// Borrow the current simulation EntityRegistry until successful assemble() or Engine
+  /// destruction. Successful assembly invalidates this reference and all prior entity/component
+  /// references. Failed assembly preserves the EntityRegistry and its contents; reacquire after
+  /// successful assembly.
+  [[nodiscard]] EntityRegistry &entities();
+  /// Read-only borrowed EntityRegistry, with the same lifetime and mutation restrictions as
+  /// entities().
+  [[nodiscard]] const EntityRegistry &entities() const;
   [[nodiscard]] const std::vector<std::string> &unacted() const;
   [[nodiscard]] const std::vector<Measure> &measures() const;
 
@@ -280,8 +282,9 @@ public:
   /// Total capacity (reserve, bodies, kinds, instances and player mind) is limited to 65536
   /// entity slots. Allocates on the calling thread; serialize with all Engine operations. No render
   /// target is required. With a target and no entities, world composition may also run.
-  /// Success replaces simulation state and invalidates borrowed Scene references and prepared
-  /// audio. Failure preserves previous simulation state; this does not roll back declare().
+  /// Success replaces simulation state and invalidates borrowed EntityRegistry references and
+  /// prepared audio. Failure preserves previous simulation state; this does not roll back
+  /// declare().
   /// @return Success or an owned validation/build error. Fatal allocation failure is separate.
   [[nodiscard]] Result assemble();
 

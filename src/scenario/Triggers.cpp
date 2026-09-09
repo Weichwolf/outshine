@@ -1,5 +1,5 @@
 #include "Triggers.h"
-#include <scene/Scene.h>
+#include <world/Entity.h>
 #include "math/Vec3.h"
 
 #include <cmath>

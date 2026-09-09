@@ -8,7 +8,7 @@
 #include <string_view>
 #include <cstdint>
 #include <vector>
-#include <scene/Scene.h>
+#include <world/EntityRegistry.h>
 #include <scenario/Scenario.h>
 #include "Assembled.h"
 #include "Column.h"
@@ -41,7 +41,7 @@ struct SimulationState {
   void Integrate(double stepSeconds, const Vec3 &gravityMs2);
 
   uint64_t DeclarationRevision = 0;
-  Scene Scene;
+  EntityRegistry Entities;
   Column<Scenario::Body> Bodies;
   Column<Traits> Kinds;
   Assembled Stood;

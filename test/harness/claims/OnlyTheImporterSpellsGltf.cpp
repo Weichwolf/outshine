@@ -47,7 +47,6 @@ constexpr Tier kTiers[] = {
     {"src/render", 0},
     {"src/generators", 0},
     {"src/base", 0},
-    {"src/scene", 0},
     {"src/scenario", 0},
     {"src/world", 0},
     {"src/ui", 0},

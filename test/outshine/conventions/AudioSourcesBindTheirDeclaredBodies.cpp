@@ -50,7 +50,7 @@ int main() {
   CHECK(!engine.prepareAudio(48000), "old assembly cannot bind new declaration");
   CHECK(engine.assemble().has_value(), "reordered bodies assembled");
   render(true);
-  CHECK(engine.scene().open(1), "client replaces the public scene storage");
+  CHECK(engine.entities().open(1), "client replaces the public scene storage");
   CHECK(!engine.prepareAudio(48000),
         "removed body storage rejects binding without invalid indexing");
   CHECK(engine.assemble().has_value(), "assembly restores the native entity storage");

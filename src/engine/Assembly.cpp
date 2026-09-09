@@ -65,7 +65,7 @@ namespace {
 namespace {
 
 [[nodiscard]] bool BuildPrefab(const Scenario::Kind &kind,
-                               Scene &into,
+                               EntityRegistry &into,
                                Column<Traits> &traits,
                                Assembled &out,
                                std::string &error) {
@@ -124,7 +124,7 @@ namespace {
 
 [[nodiscard]] bool ResolveInheritedTraits(const Scenario::Instance &instance,
                                           Entity prefab,
-                                          const Scene &into,
+                                          const EntityRegistry &into,
                                           const Column<Traits> &traits,
                                           Traits &resolved,
                                           std::string &error) {
@@ -158,7 +158,7 @@ namespace {
 }
 
 [[nodiscard]] bool BuildInstance(const Scenario::Instance &instance,
-                                 Scene &into,
+                                 EntityRegistry &into,
                                  Column<Traits> &traits,
                                  Assembled &out,
                                  std::string &error) {
@@ -195,7 +195,7 @@ namespace {
 }
 
 [[nodiscard]] bool LinkInstance(const Scenario::Instance &instance,
-                                Scene &into,
+                                EntityRegistry &into,
                                 const Assembled &out,
                                 std::string &error) {
   const Entity holder = out.InstanceNamed(instance.Id);
@@ -228,7 +228,7 @@ namespace {
 
 [[nodiscard]] bool BuildBody(const Scenario::Body &declaredBody,
                              const Scenario::Player &player,
-                             Scene &into,
+                             EntityRegistry &into,
                              Column<Scenario::Body> &bodies,
                              Assembled &out,
                              std::string &error) {
@@ -257,7 +257,7 @@ namespace {
 }
 
 bool Assemble(const Scenario::Document &declared,
-              Scene &into,
+              EntityRegistry &into,
               Column<Scenario::Body> &bodies,
               Column<Traits> &traits,
               Assembled &out,

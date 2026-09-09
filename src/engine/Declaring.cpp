@@ -486,12 +486,12 @@ Result Engine::readScenario(std::string_view path) {
   return {};
 }
 
-Scene &Engine::scene() {
-  return S_->Simulation->Scene;
+EntityRegistry &Engine::entities() {
+  return S_->Simulation->Entities;
 }
 
-const Scene &Engine::scene() const {
-  return S_->Simulation->Scene;
+const EntityRegistry &Engine::entities() const {
+  return S_->Simulation->Entities;
 }
 
 const Scenario::Document &Engine::declaration() const {

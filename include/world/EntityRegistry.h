@@ -1,7 +1,8 @@
-#ifndef OUTSHINE_SCENE_H
-#define OUTSHINE_SCENE_H
+#ifndef OUTSHINE_WORLD_ENTITYREGISTRY_H
+#define OUTSHINE_WORLD_ENTITYREGISTRY_H
 
 #include <algorithm>
+#include "world/Entity.h"
 #include <span>
 #include <array>
 #include <cstddef>
@@ -142,7 +143,7 @@ inline constexpr std::array<RelationRule, kRelations> kRules = {{
   return kRules[static_cast<size_t>(relation)];
 }
 
-namespace scene_register_checked {
+namespace entity_registry_checked {
 constexpr bool EachRuleStandsAtItsOwnRelation() {
   for (size_t at = 0; at < kRelations; ++at) {
     if (static_cast<size_t>(kRules[at].Named) != at) { return false; }
@@ -182,26 +183,9 @@ static_assert(EveryOwnedRelationIsExclusive(),
               "per owned relation -- widen the reserve before you relax this");
 }
 
-inline constexpr size_t kOwnedRelations = scene_register_checked::OwnedRelationCount();
+inline constexpr size_t kOwnedRelations = entity_registry_checked::OwnedRelationCount();
 static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
 
-/// Transient identity in one registry epoch; never a persistent save-file identifier.
-/// Registry-issued values distinguish foreign owners, slot reuse and successful reopen.
-/// Copies do not own or extend entity lifetime; validate through the originating registry.
-struct Entity {
-  /// Slot index within the owner; not independently sufficient to identify an entity.
-  uint32_t Index = 0;
-  /// Slot generation, advanced on removal; exhausted generations retire their slot.
-  uint32_t Generation = 0;
-  /// Process-unique registry epoch; zero is never issued by an opened registry.
-  uint64_t Owner = 0;
-
-  [[nodiscard]] constexpr bool operator==(Entity other) const {
-    return Index == other.Index && Generation == other.Generation && Owner == other.Owner;
-  }
-};
-
-inline constexpr Entity kNoEntity{.Index = 0xFFFFFFFFu, .Generation = 0};
 inline constexpr size_t kPairsPerEntity = 8;
 inline constexpr size_t kTagsPerEntity = 8;
 inline constexpr size_t kSeatsPerOffer = 4;
@@ -225,7 +209,7 @@ struct Seating {
 /// Both ends are an @ref Entity, so they are one argument for the same reason @ref Seating is:
 /// `copyOf({.Instance = house, .PrefabChild = door})` cannot be written backwards by accident.
 struct Instanced {
-  /// The entity @ref Scene::instantiate returned.
+  /// The entity @ref EntityRegistry::instantiate returned.
   Entity Instance = kNoEntity;
   /// The entity inside the prefab whose copy is wanted.
   Entity PrefabChild = kNoEntity;
@@ -233,16 +217,16 @@ struct Instanced {
 
 /// Stable owner of entity slots and relations; neither copyable nor movable.
 /// Serialize access. Entity handles do not retain this owner or its storage.
-class Scene {
+class EntityRegistry {
 public:
-  Scene();
-  ~Scene();
+  EntityRegistry();
+  ~EntityRegistry();
   /// Moving would invalidate borrowed registry addresses and is forbidden.
-  Scene(Scene &&) = delete;
+  EntityRegistry(EntityRegistry &&) = delete;
   /// Replacing ownership through move assignment is forbidden.
-  Scene &operator=(Scene &&) = delete;
-  Scene(const Scene &) = delete;
-  Scene &operator=(const Scene &) = delete;
+  EntityRegistry &operator=(EntityRegistry &&) = delete;
+  EntityRegistry(const EntityRegistry &) = delete;
+  EntityRegistry &operator=(const EntityRegistry &) = delete;
 
   /// Reinitialize storage with a fresh identity epoch; successful reopening invalidates all
   /// handles. Existing component columns must be repopulated; previous values never bind to new

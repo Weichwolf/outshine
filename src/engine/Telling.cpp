@@ -146,7 +146,7 @@ void Engine::State::PublishAudioSnapshot() {
         source < Session.AudioBodies.size() ? Session.AudioBodies[source] : std::nullopt;
     if (binding && Simulation->DeclarationRevision == Session.DeclarationRevision) {
       const auto &body = Simulation->DynamicBodies[*binding];
-      if (Simulation->Scene.alive(body.Owner)) { stood = &body.Motion; }
+      if (Simulation->Entities.alive(body.Owner)) { stood = &body.Motion; }
     }
     if (stood != nullptr) {
       where.Standing = true;

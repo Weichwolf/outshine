@@ -40,13 +40,13 @@ Result Engine::assemble() {
   const size_t named = *capacity;
   auto candidate = std::make_unique<SimulationState>();
   if (named != 0) {
-    if (!candidate->Scene.open(named) || !candidate->Bodies.Open(candidate->Scene) ||
-        !candidate->Kinds.Open(candidate->Scene)) {
+    if (!candidate->Entities.open(named) || !candidate->Bodies.Open(candidate->Entities) ||
+        !candidate->Kinds.Open(candidate->Entities)) {
       S_->Error = "could not allocate simulation entity storage";
       return std::unexpected(S_->Error);
     }
     if (!outshine::Assemble(declared,
-                            candidate->Scene,
+                            candidate->Entities,
                             candidate->Bodies,
                             candidate->Kinds,
                             candidate->Stood,

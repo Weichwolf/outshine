@@ -2,7 +2,7 @@
 #define OUTSHINE_SCENARIO_TRIGGERS_H
 
 #include "math/Vec3.h"
-#include <scene/Scene.h>
+#include <world/Entity.h>
 #include <cstdint>
 #include <expected>
 #include <string>

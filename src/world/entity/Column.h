@@ -1,18 +1,18 @@
-#ifndef OUTSHINE_SCENE_COLUMN_H
-#define OUTSHINE_SCENE_COLUMN_H
+#ifndef OUTSHINE_WORLD_ENTITY_COLUMN_H
+#define OUTSHINE_WORLD_ENTITY_COLUMN_H
 
 #include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <vector>
 
-#include <scene/Scene.h>
+#include <world/EntityRegistry.h>
 
 namespace outshine {
 
 template <class Value> class Column {
 public:
-  [[nodiscard]] bool Open(const Scene &of) {
+  [[nodiscard]] bool Open(const EntityRegistry &of) {
     if (of.capacity() == 0) { return false; }
     Bound_ = &of;
     Values_.assign(of.capacity(), Value{});
@@ -49,7 +49,7 @@ public:
   }
 
 private:
-  const Scene *Bound_ = nullptr;
+  const EntityRegistry *Bound_ = nullptr;
   std::vector<Value> Values_;
   std::vector<Entity> Entities_;
 };

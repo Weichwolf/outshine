@@ -56,8 +56,10 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
 ## Öffentliche Modulgrenzen
 
 - `core/`: Fehler, Logging und Basistypen; `math/`: gemeinsame Mathematik.
-- `world/`: World als Laufzeitbesitzer; EntityRegistry ersetzt die bisherige
-  Entity-/Komponentenverwaltung Scene. Keine zweite parallele Weltverwaltung.
+- `world/`: Entity.h enthält Handles; EntityRegistry.h die stabile Entity-Verwaltung,
+  erreichbar über Engine::entities(). Implementierung unter src/world/entity/.
+  World als übergreifenden Laufzeitbesitzer aus bestehendem Besitz zusammenführen;
+  keine zweite parallele Weltverwaltung.
 - `assets/`: native Geometrie, Materialien, Texturen und Animationsdaten.
 - `import/`: GltfImporter ersetzt Loaded; Formatobjekte bleiben im Adapter.
 - `generation/`: Generatoren liefern dieselben nativen Assets und Weltinhalte.

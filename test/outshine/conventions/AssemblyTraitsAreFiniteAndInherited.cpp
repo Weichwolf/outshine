@@ -42,7 +42,7 @@ int main() {
     std::filesystem::remove(path);
   };
   checkTraits();
-  const Scene *previous = &engine.scene();
+  const EntityRegistry *previous = &engine.entities();
   for (const char *invalid : {"nan",
                               "-nan",
                               "NAN",
@@ -64,8 +64,8 @@ int main() {
       CHECK(engine.declare(candidate).has_value(), "numeric validation belongs to assembly");
       const auto assembled = engine.assemble();
       CHECK(!assembled && !assembled.error().empty(), "invalid numeric trait is rejected");
-      CHECK(&engine.scene() == previous, "rejected numeric trait preserves the published owner");
-      if (&engine.scene() != previous) { return Report(); }
+      CHECK(&engine.entities() == previous, "rejected numeric trait preserves the published owner");
+      if (&engine.entities() != previous) { return Report(); }
       checkTraits();
     }
   }

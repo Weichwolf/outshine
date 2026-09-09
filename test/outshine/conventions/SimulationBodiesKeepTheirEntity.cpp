@@ -9,11 +9,11 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   SimulationState simulation;
-  CHECK(simulation.Scene.open(3) && simulation.Bodies.Open(simulation.Scene),
+  CHECK(simulation.Entities.open(3) && simulation.Bodies.Open(simulation.Entities),
         "component storage opened");
-  const Entity unrelated = simulation.Scene.addEntity(Role::Tool);
-  const Entity unplaced = simulation.Scene.addEntity(Role::Body);
-  const Entity placed = simulation.Scene.addEntity(Role::Body);
+  const Entity unrelated = simulation.Entities.addEntity(Role::Tool);
+  const Entity unplaced = simulation.Entities.addEntity(Role::Body);
+  const Entity placed = simulation.Entities.addEntity(Role::Body);
   Scenario::Body definition;
   definition.Name = "template";
   CHECK(simulation.Bodies.Put(unplaced, definition), "unplaced body registered");

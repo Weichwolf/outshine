@@ -1,16 +1,16 @@
-#include <scene/Scene.h>
+#include <world/EntityRegistry.h>
 #include "Column.h"
 #include "Check.h"
 #include <type_traits>
 
-static_assert(!std::is_move_constructible_v<outshine::Scene>);
-static_assert(!std::is_move_assignable_v<outshine::Scene>);
+static_assert(!std::is_move_constructible_v<outshine::EntityRegistry>);
+static_assert(!std::is_move_assignable_v<outshine::EntityRegistry>);
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Scene first;
-  Scene second;
+  EntityRegistry first;
+  EntityRegistry second;
   CHECK(first.open(2) && second.open(2), "independent registries open");
   const Entity original = first.addEntity(Role::Body);
   const Entity foreign = second.addEntity(Role::Body);

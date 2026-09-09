@@ -1,5 +1,5 @@
 #include <span>
-#include <scene/Scene.h>
+#include <world/EntityRegistry.h>
 
 #include <cstddef>
 #include <atomic>
@@ -15,7 +15,7 @@
 
 namespace outshine {
 
-struct Scene::Kept {
+struct EntityRegistry::Kept {
   bool open(size_t capacity);
   Entity addEntity(Role role);
   void remove(Entity of);
@@ -164,7 +164,7 @@ const char *Named(Relation how) {
 
 }
 
-bool Scene::Kept::open(size_t capacity) {
+bool EntityRegistry::Kept::open(size_t capacity) {
   if (capacity == 0) { return Refuse("a store of no entities holds nothing"); }
   const uint64_t owner = NextRegistryOwner();
   if (owner == 0) { return Refuse(Says::IdentityExhausted); }
@@ -187,7 +187,7 @@ bool Scene::Kept::open(size_t capacity) {
   return true;
 }
 
-Entity Scene::Kept::addEntity(Role role) {
+Entity EntityRegistry::Kept::addEntity(Role role) {
   if (Free_.empty()) {
     (void)Refuse("the store is full, and a pool refuses rather than grows");
     return kNoEntity;
@@ -206,7 +206,7 @@ Entity Scene::Kept::addEntity(Role role) {
   return Entity{.Index = index, .Generation = generation, .Owner = Owner_};
 }
 
-void Scene::Kept::remove(Entity of) {
+void EntityRegistry::Kept::remove(Entity of) {
   if (Held(of) == nullptr) { return; }
   Felling_.clear();
   Felling_.push_back(of);
@@ -234,7 +234,7 @@ void Scene::Kept::remove(Entity of) {
   }
 }
 
-void Scene::Kept::Fell(Entity of) {
+void EntityRegistry::Kept::Fell(Entity of) {
   Slot *slot = const_cast<Slot *>(Held(of));
   if (slot == nullptr) { return; }
   const uint32_t index = of.Index;
@@ -268,16 +268,16 @@ void Scene::Kept::Fell(Entity of) {
   }
 }
 
-bool Scene::Kept::alive(Entity of) const {
+bool EntityRegistry::Kept::alive(Entity of) const {
   return Held(of) != nullptr;
 }
 
-Role Scene::Kept::roleOf(Entity of) const {
+Role EntityRegistry::Kept::roleOf(Entity of) const {
   const Slot *slot = Held(of);
   return slot == nullptr ? Role::Body : slot->Is;
 }
 
-bool Scene::Kept::giveTag(Entity to, Tag tag) {
+bool EntityRegistry::Kept::giveTag(Entity to, Tag tag) {
   Slot *slot = const_cast<Slot *>(Held(to));
   if (slot == nullptr) { return Refuse("a tag cannot be given to what does not stand"); }
   if (tag.value() == 0) { return Refuse("the empty tag is not in the catalogue"); }
@@ -293,7 +293,7 @@ bool Scene::Kept::giveTag(Entity to, Tag tag) {
   return true;
 }
 
-bool Scene::Kept::hasTag(Entity of, Tag tag) const {
+bool EntityRegistry::Kept::hasTag(Entity of, Tag tag) const {
   const Slot *slot = Held(of);
   size_t walked = 0;
   while (slot != nullptr && walked < Slots_.size()) {
@@ -311,7 +311,7 @@ bool Scene::Kept::hasTag(Entity of, Tag tag) const {
   return false;
 }
 
-void Scene::Kept::LinkIn(uint32_t ref) {
+void EntityRegistry::Kept::LinkIn(uint32_t ref) {
   Pair &pair = At(ref);
   Slot &target = Slots_[pair.To.Index];
   const auto how = static_cast<size_t>(pair.How);
@@ -325,7 +325,7 @@ void Scene::Kept::LinkIn(uint32_t ref) {
   RelHead_[how] = ref;
 }
 
-void Scene::Kept::UnlinkIn(uint32_t ref) {
+void EntityRegistry::Kept::UnlinkIn(uint32_t ref) {
   Pair &pair = At(ref);
   const auto how = static_cast<size_t>(pair.How);
   if (pair.InPrev != kNoRef) { At(pair.InPrev).InNext = pair.InNext; }
@@ -339,7 +339,7 @@ void Scene::Kept::UnlinkIn(uint32_t ref) {
   pair.InNext = pair.InPrev = pair.RelNext = pair.RelPrev = kNoRef;
 }
 
-void Scene::Kept::ErasePair(uint32_t slot, size_t pair) {
+void EntityRegistry::Kept::ErasePair(uint32_t slot, size_t pair) {
   Slot &holder = Slots_[slot];
   const uint32_t ref = slot * static_cast<uint32_t>(kPairsPerEntity) + static_cast<uint32_t>(pair);
   UnlinkIn(ref);
@@ -357,7 +357,7 @@ void Scene::Kept::ErasePair(uint32_t slot, size_t pair) {
   holder.PairCount = last;
 }
 
-bool Scene::Kept::Permit(Entity from, Relation how, Entity to, bool retarget) {
+bool EntityRegistry::Kept::Permit(Entity from, Relation how, Entity to, bool retarget) {
   const RelationRule &rule = RuleOf(how);
   const Slot *source = Held(from);
   const Slot *target = Held(to);
@@ -392,7 +392,7 @@ bool Scene::Kept::Permit(Entity from, Relation how, Entity to, bool retarget) {
   return true;
 }
 
-bool Scene::Kept::relink(Entity from, Relation how, Entity to) {
+bool EntityRegistry::Kept::relink(Entity from, Relation how, Entity to) {
   if (!RuleOf(how).Exclusive) {
     return Refuse({Named(how),
                    " holds many targets, and relink is the exclusive "
@@ -419,7 +419,7 @@ bool Scene::Kept::relink(Entity from, Relation how, Entity to) {
   return true;
 }
 
-bool Scene::Kept::link(Entity from, Relation how, Entity to) {
+bool EntityRegistry::Kept::link(Entity from, Relation how, Entity to) {
   if (!Permit(from, how, to, false)) { return false; }
   Slot *writable = const_cast<Slot *>(Held(from));
   if (writable->PairCount == kPairsPerEntity) {
@@ -437,7 +437,7 @@ bool Scene::Kept::link(Entity from, Relation how, Entity to) {
   return true;
 }
 
-Entity Scene::Kept::targetOf(Entity of, Relation how) const {
+Entity EntityRegistry::Kept::targetOf(Entity of, Relation how) const {
   const Slot *slot = Held(of);
   if (slot == nullptr) { return kNoEntity; }
   for (size_t at = 0; at < slot->PairCount; ++at) {
@@ -447,7 +447,7 @@ Entity Scene::Kept::targetOf(Entity of, Relation how) const {
   return kNoEntity;
 }
 
-size_t Scene::Kept::targets(Entity of, Relation how, std::span<Entity> into) const {
+size_t EntityRegistry::Kept::targets(Entity of, Relation how, std::span<Entity> into) const {
   const Slot *slot = Held(of);
   if (slot == nullptr) { return 0; }
   size_t found = 0;
@@ -460,7 +460,7 @@ size_t Scene::Kept::targets(Entity of, Relation how, std::span<Entity> into) con
   return found;
 }
 
-size_t Scene::Kept::sources(Entity to, Relation how, std::span<Entity> into) const {
+size_t EntityRegistry::Kept::sources(Entity to, Relation how, std::span<Entity> into) const {
   const Slot *slot = Held(to);
   if (slot == nullptr) { return 0; }
   size_t found = 0;
@@ -476,7 +476,7 @@ size_t Scene::Kept::sources(Entity to, Relation how, std::span<Entity> into) con
   return found;
 }
 
-size_t Scene::Kept::entitiesWithRole(Role role, std::span<Entity> into) const {
+size_t EntityRegistry::Kept::entitiesWithRole(Role role, std::span<Entity> into) const {
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
@@ -488,7 +488,9 @@ size_t Scene::Kept::entitiesWithRole(Role role, std::span<Entity> into) const {
   return found;
 }
 
-size_t Scene::Kept::linkedPairs(Relation how, std::span<Entity> from, std::span<Entity> to) const {
+size_t EntityRegistry::Kept::linkedPairs(Relation how,
+                                         std::span<Entity> from,
+                                         std::span<Entity> to) const {
   size_t found = 0;
   for (uint32_t ref = RelHead_[static_cast<size_t>(how)]; ref != kNoRef; ref = At(ref).RelNext) {
     ++Touched_;
@@ -503,7 +505,8 @@ size_t Scene::Kept::linkedPairs(Relation how, std::span<Entity> from, std::span<
   return found;
 }
 
-size_t Scene::Kept::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const {
+size_t
+EntityRegistry::Kept::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const {
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
@@ -515,7 +518,7 @@ size_t Scene::Kept::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity>
   return found;
 }
 
-Entity Scene::Kept::instantiate(Entity prefab) {
+Entity EntityRegistry::Kept::instantiate(Entity prefab) {
   const Slot *base = Held(prefab);
   if (base == nullptr) {
     (void)Refuse("only what stands can be instantiated");
@@ -558,7 +561,7 @@ Entity Scene::Kept::instantiate(Entity prefab) {
   return instance;
 }
 
-Entity Scene::Kept::copyOf(Instanced which) const {
+Entity EntityRegistry::Kept::copyOf(Instanced which) const {
   const Slot *slot = Held(which.Instance);
   if (slot == nullptr) { return kNoEntity; }
   for (uint32_t in = slot->InHead[static_cast<size_t>(Relation::ChildOf)]; in != kNoRef;
@@ -571,7 +574,7 @@ Entity Scene::Kept::copyOf(Instanced which) const {
   return kNoEntity;
 }
 
-bool Scene::Kept::offerSeats(Entity at, Tag activity, size_t seats) {
+bool EntityRegistry::Kept::offerSeats(Entity at, Tag activity, size_t seats) {
   Slot *slot = const_cast<Slot *>(Held(at));
   if (slot == nullptr) { return Refuse("an offer needs its object standing"); }
   if (activity.value() == 0) {
@@ -593,7 +596,7 @@ bool Scene::Kept::offerSeats(Entity at, Tag activity, size_t seats) {
   return true;
 }
 
-size_t Scene::Kept::entitiesOffering(Tag activity, std::span<Entity> into) const {
+size_t EntityRegistry::Kept::entitiesOffering(Tag activity, std::span<Entity> into) const {
   size_t found = 0;
   for (uint32_t at = OfferHead_; at != kNoRef; at = Slots_[at].OfferNext) {
     ++Touched_;
@@ -607,7 +610,7 @@ size_t Scene::Kept::entitiesOffering(Tag activity, std::span<Entity> into) const
   return found;
 }
 
-bool Scene::Kept::claimSeat(Seating who) {
+bool EntityRegistry::Kept::claimSeat(Seating who) {
   Slot *slot = const_cast<Slot *>(Held(who.At));
   if (Held(who.By) == nullptr || slot == nullptr) {
     return Refuse("a claim needs both of its ends standing");
@@ -625,7 +628,7 @@ bool Scene::Kept::claimSeat(Seating who) {
   return Refuse("every seat of this offer is claimed or occupied -- come back or go elsewhere");
 }
 
-bool Scene::Kept::takeSeat(Seating who) {
+bool EntityRegistry::Kept::takeSeat(Seating who) {
   Slot *slot = const_cast<Slot *>(Held(who.At));
   if (Held(who.By) == nullptr || slot == nullptr) {
     return Refuse("use needs both the claimant and the object standing");
@@ -640,7 +643,7 @@ bool Scene::Kept::takeSeat(Seating who) {
   return Refuse("use stands only on a claim, and this claimant holds none here");
 }
 
-bool Scene::Kept::releaseSeat(Seating who) {
+bool EntityRegistry::Kept::releaseSeat(Seating who) {
   Slot *slot = const_cast<Slot *>(Held(who.At));
   if (Held(who.By) == nullptr || slot == nullptr) {
     return Refuse("a release needs both the claimant and the object standing");
@@ -655,7 +658,7 @@ bool Scene::Kept::releaseSeat(Seating who) {
   return Refuse("nothing of this claimant's stands here to release");
 }
 
-Seat Scene::Kept::seatOf(Seating who) const {
+Seat EntityRegistry::Kept::seatOf(Seating who) const {
   const Slot *slot = Held(who.At);
   if (slot == nullptr) { return Seat::Free; }
   for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
@@ -664,141 +667,142 @@ Seat Scene::Kept::seatOf(Seating who) const {
   return Seat::Free;
 }
 
-const Scene::Kept::Slot *Scene::Kept::Held(Entity of) const {
+const EntityRegistry::Kept::Slot *EntityRegistry::Kept::Held(Entity of) const {
   if (of.Owner != Owner_ || of.Index >= Slots_.size()) { return nullptr; }
   const Slot &slot = Slots_[of.Index];
   if (!slot.Held || slot.Generation != of.Generation) { return nullptr; }
   return &slot;
 }
 
-bool Scene::Kept::Refuse(std::string why) {
+bool EntityRegistry::Kept::Refuse(std::string why) {
   ErrorText_ = std::move(why);
   Said_ = ErrorText_;
   return false;
 }
 
-bool Scene::Kept::Refuse(const char *why) noexcept {
+bool EntityRegistry::Kept::Refuse(const char *why) noexcept {
   Said_ = why;
   return false;
 }
 
-bool Scene::Kept::Refuse(std::initializer_list<std::string_view> parts) {
+bool EntityRegistry::Kept::Refuse(std::initializer_list<std::string_view> parts) {
   ErrorText_.clear();
   for (const std::string_view part : parts) { ErrorText_ += part; }
   Said_ = ErrorText_;
   return false;
 }
 
-bool Scene::open(size_t capacity) {
+bool EntityRegistry::open(size_t capacity) {
   return Kept_->open(capacity);
 }
 
-Entity Scene::addEntity(Role role) {
+Entity EntityRegistry::addEntity(Role role) {
   return Kept_->addEntity(role);
 }
 
-void Scene::remove(Entity of) {
+void EntityRegistry::remove(Entity of) {
   Kept_->remove(of);
 }
 
-bool Scene::alive(Entity of) const {
+bool EntityRegistry::alive(Entity of) const {
   return Kept_->alive(of);
 }
 
-Role Scene::roleOf(Entity of) const {
+Role EntityRegistry::roleOf(Entity of) const {
   return Kept_->roleOf(of);
 }
 
-bool Scene::giveTag(Entity to, Tag tag) {
+bool EntityRegistry::giveTag(Entity to, Tag tag) {
   return Kept_->giveTag(to, tag);
 }
 
-bool Scene::hasTag(Entity of, Tag tag) const {
+bool EntityRegistry::hasTag(Entity of, Tag tag) const {
   return Kept_->hasTag(of, tag);
 }
 
-bool Scene::link(Entity from, Relation how, Entity to) {
+bool EntityRegistry::link(Entity from, Relation how, Entity to) {
   return Kept_->link(from, how, to);
 }
 
-bool Scene::relink(Entity from, Relation how, Entity to) {
+bool EntityRegistry::relink(Entity from, Relation how, Entity to) {
   return Kept_->relink(from, how, to);
 }
 
-Entity Scene::targetOf(Entity of, Relation how) const {
+Entity EntityRegistry::targetOf(Entity of, Relation how) const {
   return Kept_->targetOf(of, how);
 }
 
-size_t Scene::targets(Entity of, Relation how, std::span<Entity> into) const {
+size_t EntityRegistry::targets(Entity of, Relation how, std::span<Entity> into) const {
   return Kept_->targets(of, how, into);
 }
 
-size_t Scene::sources(Entity to, Relation how, std::span<Entity> into) const {
+size_t EntityRegistry::sources(Entity to, Relation how, std::span<Entity> into) const {
   return Kept_->sources(to, how, into);
 }
 
-size_t Scene::entitiesWithRole(Role role, std::span<Entity> into) const {
+size_t EntityRegistry::entitiesWithRole(Role role, std::span<Entity> into) const {
   return Kept_->entitiesWithRole(role, into);
 }
 
-size_t Scene::linkedPairs(Relation how, std::span<Entity> from, std::span<Entity> to) const {
+size_t
+EntityRegistry::linkedPairs(Relation how, std::span<Entity> from, std::span<Entity> to) const {
   return Kept_->linkedPairs(how, from, to);
 }
 
-size_t Scene::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const {
+size_t EntityRegistry::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const {
   return Kept_->entitiesWithTagAndRole(tag, role, into);
 }
 
-Entity Scene::instantiate(Entity prefab) {
+Entity EntityRegistry::instantiate(Entity prefab) {
   return Kept_->instantiate(prefab);
 }
 
-Entity Scene::copyOf(Instanced which) const {
+Entity EntityRegistry::copyOf(Instanced which) const {
   return Kept_->copyOf(which);
 }
 
-bool Scene::offerSeats(Entity at, Tag activity, size_t seats) {
+bool EntityRegistry::offerSeats(Entity at, Tag activity, size_t seats) {
   return Kept_->offerSeats(at, activity, seats);
 }
 
-size_t Scene::entitiesOffering(Tag activity, std::span<Entity> into) const {
+size_t EntityRegistry::entitiesOffering(Tag activity, std::span<Entity> into) const {
   return Kept_->entitiesOffering(activity, into);
 }
 
-bool Scene::claimSeat(Seating who) {
+bool EntityRegistry::claimSeat(Seating who) {
   return Kept_->claimSeat(who);
 }
 
-bool Scene::takeSeat(Seating who) {
+bool EntityRegistry::takeSeat(Seating who) {
   return Kept_->takeSeat(who);
 }
 
-bool Scene::releaseSeat(Seating who) {
+bool EntityRegistry::releaseSeat(Seating who) {
   return Kept_->releaseSeat(who);
 }
 
-Seat Scene::seatOf(Seating who) const {
+Seat EntityRegistry::seatOf(Seating who) const {
   return Kept_->seatOf(who);
 }
 
-size_t Scene::capacity() const {
+size_t EntityRegistry::capacity() const {
   return Kept_->capacity();
 }
 
-std::string_view Scene::error() const {
+std::string_view EntityRegistry::error() const {
   return Kept_->error();
 }
 
-size_t Scene::touched() const {
+size_t EntityRegistry::touched() const {
   return Kept_->touched();
 }
 
-void Scene::resetTouched() {
+void EntityRegistry::resetTouched() {
   Kept_->resetTouched();
 }
 
-Scene::Scene() : Kept_(std::make_unique<Kept>()) {}
+EntityRegistry::EntityRegistry() : Kept_(std::make_unique<Kept>()) {}
 
-Scene::~Scene() = default;
+EntityRegistry::~EntityRegistry() = default;
 
 }

@@ -14,8 +14,8 @@ namespace {
 // are byte-identical to the runner's own.
 //
 // WHERE THE SEED GOES IS READ FROM THE DECLARATION, NEVER QUOTED. Every one of these controls
-// used to name a literal path list -- "src/sim src/scene src/engine/Assembly.cpp" -- copied out
-// of `LayerGroups` on the day it was written. The day somebody reordered that list the sed
+// used to name a literal path list -- "src/sim src/world/entity src/engine/Assembly.cpp" -- copied
+// out of `LayerGroups` on the day it was written. The day somebody reordered that list the sed
 // matched nothing, the copy came back byte-identical to the original, and the control stopped
 // controlling. It did not go red: an unseeded copy passes its own audit, so the claim went
 // GREEN with four detectors nobody had checked.

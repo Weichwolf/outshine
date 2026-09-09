@@ -1,8 +1,7 @@
-#ifndef OUTSHINE_SCENE_TRAITS_H
-#define OUTSHINE_SCENE_TRAITS_H
+#ifndef OUTSHINE_WORLD_ENTITY_TRAITS_H
+#define OUTSHINE_WORLD_ENTITY_TRAITS_H
 
 #include <array>
-#include <scene/Scene.h>
 
 #include <cstddef>
 #include <cstdint>

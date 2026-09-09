@@ -33,13 +33,13 @@ int main() {
   const auto built = engine.assemble();
   CHECK(built.has_value(), built ? "simulation built" : built.error().c_str());
   if (!built) { return Report(); }
-  Scene *const original = &engine.scene();
+  EntityRegistry *const original = &engine.entities();
   const Entity marker = original->addEntity(Role::Tool);
   CHECK(original->alive(marker), "spare entity capacity remains usable after publication");
   const auto path = std::filesystem::temp_directory_path() /
                     ("outshine-assembly-owner-" + std::to_string(getpid()) + ".save");
   const auto saved = engine.save(path.string());
-  CHECK(saved.has_value(), "published component columns still refer to the live Scene");
+  CHECK(saved.has_value(), "published component columns still refer to the live EntityRegistry");
   if (saved) {
     std::ifstream file(path);
     const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
@@ -51,8 +51,9 @@ int main() {
   invalid.Instances[0].Of = "missing";
   CHECK(engine.declare(invalid).has_value(), "new declaration awaits assembly validation");
   CHECK(!engine.assemble(), "missing prefab rejects the candidate assembly");
-  CHECK(&engine.scene() == original, "failed assembly preserves the borrowed Scene object");
-  if (&engine.scene() != original) { return Report(); }
+  CHECK(&engine.entities() == original,
+        "failed assembly preserves the borrowed EntityRegistry object");
+  if (&engine.entities() != original) { return Report(); }
   CHECK(original->alive(marker),
         "failed assembly preserves existing entities and spare allocations");
   for (const size_t reserve : {size_t{65536}, std::numeric_limits<size_t>::max()}) {
@@ -60,7 +61,7 @@ int main() {
     excessive.Room = reserve;
     CHECK(engine.declare(excessive).has_value(), "capacity request declared before allocation");
     CHECK(!engine.assemble(), "capacity budget and arithmetic overflow rejected");
-    CHECK(&engine.scene() == original && original->alive(marker),
+    CHECK(&engine.entities() == original && original->alive(marker),
           "budget rejection preserves live scene");
   }
   CHECK(engine.declare(scene) && engine.assemble(), "valid reassembly recovers after rejection");
@@ -68,6 +69,6 @@ int main() {
         "replacement component columns retain valid ownership");
   std::filesystem::remove(path);
   CHECK(engine.declare({}) && engine.assemble(), "empty simulation assembles without a renderer");
-  CHECK(engine.scene().capacity() == 0, "empty assembly removes previous entity storage");
+  CHECK(engine.entities().capacity() == 0, "empty assembly removes previous entity storage");
   return Report();
 }

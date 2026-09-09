@@ -187,7 +187,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
     return false;
   }
   const auto binding = Simulation->ViewBodies[active];
-  if (!binding || !Simulation->Scene.alive(Simulation->DynamicBodies[*binding].Owner)) {
+  if (!binding || !Simulation->Entities.alive(Simulation->DynamicBodies[*binding].Owner)) {
     Error = Says::kCameraBodyRequired;
     return false;
   }
@@ -262,7 +262,7 @@ void Engine::State::UpdateTriggers() {
     return;
   }
   for (const auto &body : Simulation->DynamicBodies) {
-    if (!Simulation->Scene.alive(body.Owner)) { continue; }
+    if (!Simulation->Entities.alive(body.Owner)) { continue; }
     Simulation->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS);
   }
   for (const TriggerField::Fired &fired : Simulation->Triggers->Drain()) {

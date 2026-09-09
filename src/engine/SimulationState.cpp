@@ -9,7 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string_view>
-#include <scene/Scene.h>
+#include <world/EntityRegistry.h>
 #include <scenario/Scenario.h>
 #include "Rigid.h"
 #include "math/Vec3.h"
@@ -43,10 +43,10 @@ SimulationState::BindBodies(std::span<const std::string_view> names) const {
       return std::unexpected(Says::AmbiguousBody + body->Name);
     }
   }
-  std::vector<std::optional<size_t>> physical(Scene.capacity());
+  std::vector<std::optional<size_t>> physical(Entities.capacity());
   for (size_t index = 0; index < DynamicBodies.size(); ++index) {
     const Entity owner = DynamicBodies[index].Owner;
-    if (Scene.alive(owner)) { physical[owner.Index] = index; }
+    if (Entities.alive(owner)) { physical[owner.Index] = index; }
   }
   std::vector<std::optional<size_t>> bindings;
   bindings.reserve(names.size());

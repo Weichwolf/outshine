@@ -1,12 +1,12 @@
-#ifndef OUTSHINE_SCENE_ASSEMBLED_H
-#define OUTSHINE_SCENE_ASSEMBLED_H
+#ifndef OUTSHINE_WORLD_ENTITY_ASSEMBLED_H
+#define OUTSHINE_WORLD_ENTITY_ASSEMBLED_H
 
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include <scene/Scene.h>
+#include <world/Entity.h>
 
 namespace outshine {
 

@@ -10,7 +10,7 @@
 #include <scenario/Scenario.h>
 
 #include "Column.h"
-#include <scene/Scene.h>
+#include <world/EntityRegistry.h>
 
 namespace outshine {
 
@@ -18,7 +18,7 @@ namespace outshine {
 RequiredEntityCapacity(const Scenario::Document &declared);
 
 [[nodiscard]] bool Assemble(const Scenario::Document &declared,
-                            Scene &into,
+                            EntityRegistry &into,
                             Column<Scenario::Body> &bodies,
                             Column<Traits> &traits,
                             Assembled &out,
