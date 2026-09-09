@@ -50,6 +50,7 @@ struct Loading {
   /// Returns one when nothing is wanted. Does not clamp inconsistent caller-created
   /// snapshots or establish readiness of generated geometry, uploads or rendering.
   /// Integer sums cannot overflow; large counters are approximated in double precision.
+  /// @return Received-entry ratio, or one for an empty request set.
   [[nodiscard]] constexpr double share() const noexcept {
     const double wants = static_cast<double>(GroundWanted) + static_cast<double>(VectorWanted);
     return wants == 0.0
@@ -89,8 +90,10 @@ enum class Buffer {
 class SwapChain {
 public:
   /// Current drawable dimensions in physical pixels; zero before target configuration.
+  /// @return Current target extent in physical pixels.
   [[nodiscard]] Extent extent() const;
   /// Whether the current target presents to an SDL window rather than an offscreen buffer.
+  /// @return True for a window target, false otherwise.
   [[nodiscard]] bool presents() const;
 
 private:
@@ -109,11 +112,14 @@ class Renderer {
 public:
   /// Begin a frame on this renderer's Engine. A foreign target is rejected without changing
   /// either Engine. The target must have positive dimensions; rendering setup may fail.
+  /// @param into Borrowed target facade belonging to this renderer's Engine.
+  /// @return Success or an owned target/state/setup error.
   [[nodiscard]] Result beginFrame(SwapChain &into);
   /// Close a frame opened by beginFrame() on the same Engine, including facade copies.
   /// Window targets draw/present the current scene; offscreen targets only close the scope.
   /// An unopened frame returns an owned error. The scope is closed even if presentation fails.
   /// Runs on the Engine's video thread and may wait for GPU/presentation resources.
+  /// @return Success or an owned frame-state/presentation error.
   [[nodiscard]] Result endFrame();
 
   /// Block the Engine's video thread until submitted GPU work has completed.
@@ -189,9 +195,11 @@ public:
   [[nodiscard]] Result drawsInto(SDL_Window *presents);
   /// Borrow a host for subsequent action callbacks. nullptr detaches it. The host must remain
   /// alive until replaced or this Engine is destroyed; replacement must not overlap a callback.
+  /// @param host Borrowed callback receiver, or nullptr to detach.
   void offers(Host *host);
   /// Borrow a generator until Engine destruction. Registration retains its address and never
   /// takes ownership. Duplicate kind names retain the first registration.
+  /// @param maker Borrowed generator whose lifetime covers its registration.
   void offers(const Generators::Generator &maker);
   /// Select an exact declared view identifier; camera application occurs during advance().
   /// @param view Borrowed identifier, not retained. No case folding or fallback lookup.
@@ -219,8 +227,10 @@ public:
   /// @param roots Configuration moved into the Engine; no references to the argument remain.
   void setRoots(Roots roots);
   /// Borrow a facade bound to this Engine; no GPU resources are allocated by this call.
+  /// @return Renderer facade borrowing this Engine.
   [[nodiscard]] Renderer renderer();
   /// Borrow access to this Engine's current target; the result cannot target another Engine.
+  /// @return Target facade borrowing this Engine.
   [[nodiscard]] SwapChain swapChain();
   [[nodiscard]] Result inspect();
   [[nodiscard]] bool settled() const;
@@ -246,6 +256,7 @@ public:
   /// Fraction of current ground requests received, clamped to [0,1]; no requests yields 1.
   /// Excludes vector processing, mesh construction and GPU readiness. Does not advance work.
   /// Serialize with Engine mutations; this scalar is not a concurrent streaming snapshot.
+  /// @return Received ground-request fraction in [0,1].
   [[nodiscard]] double loadProgress() const;
 
   /// Source DEM height above mean sea level, in metres; not ellipsoidal height.
@@ -255,6 +266,8 @@ public:
   /// Serialize with Engine operations. May prepare terrain tiles and allocate; not a
   /// realtime residency-only query. Missing world/data returns an owned error.
   /// Invalid coordinates fail before terrain access; failed queries may retain cache work.
+  /// @param at Borrowed geographic position; only longitude and latitude are sampled.
+  /// @return Source height in metres above mean sea level, or an owned query error.
   [[nodiscard]] Holds<double> sampleHeight(const LongitudeLatitudeHeight &at) const;
   /// Prepare the current declared audio scene at a positive sample rate in Hz.
   /// Call after declaring/assembling content and before starting audio output. This call
@@ -287,6 +300,7 @@ public:
   /// asymmetry is how a grammar and its reader drift. With this, `read -> write -> read` is a
   /// counter-control a client can run: the two texts are the same one, or a section is missing a
   /// spelling.
+  /// @return Owned serialized declaration; writer coverage remains incomplete.
   [[nodiscard]] std::string writeScenario() const;
   /// Copy native geometry into engine-owned storage; the source may then be changed or destroyed.
   /// Positions are local metres with the geometry's part placements; materials use native indices.
@@ -305,38 +319,46 @@ public:
   /// Valid until Engine destruction, but content may change during declaration/loading/restore.
   /// Nested references may be invalidated by those operations, including partial failures.
   /// Serialize access with Engine mutations; copy if a stable snapshot is required.
+  /// @return Borrowed current declaration, not an immutable snapshot.
   [[nodiscard]] const Scenario::Document &declaration() const;
   /// Borrow the current simulation EntityRegistry until successful assemble() or Engine
   /// destruction. Successful assembly invalidates this reference and all prior entity/component
   /// references. Failed assembly preserves the EntityRegistry and its contents; reacquire after
   /// successful assembly.
+  /// @return Mutable registry borrowed from the current simulation.
   [[nodiscard]] EntityRegistry &entities();
   /// Read-only borrowed EntityRegistry, with the same lifetime and mutation restrictions as
   /// entities().
+  /// @return Read-only registry borrowed from the current simulation.
   [[nodiscard]] const EntityRegistry &entities() const;
   /// Borrow diagnostic names of declaration sections carried without implementation.
   /// Additional generation diagnostics may be appended. This is not a capability registry.
   /// The vector belongs to the Engine until destruction; mutations may replace its contents
   /// and invalidate element references. Serialize access with all Engine mutations.
+  /// @return Borrowed diagnostic names; copy to retain across mutations.
   [[nodiscard]] const std::vector<std::string> &unacted() const;
   /// Borrow declared and published diagnostics; each Measure supplies its own unit.
   /// Values may come from different updates and persist when not refreshed; not a frame snapshot.
   /// The vector lives until Engine destruction. Publication/declaration may change values or
   /// invalidate element references. Serialize access with Engine mutations; copying allocates.
+  /// @return Borrowed measurements with per-entry units and update histories.
   [[nodiscard]] const std::vector<Measure> &measures() const;
 
   /// Allocate two CPU timing rings with up to steps entries each, discarding saved samples.
   /// Zero disables retention; aggregate counters remain. Call during setup and serialize with
   /// Engine operations. Allocation failure may throw; replacing both rings is not transactional.
+  /// @param steps Maximum retained samples per timing ring; zero disables retention.
   void keepSamples(size_t steps);
   /// Replace out with retained advance() CPU wall times in milliseconds, oldest first.
   /// Only calls reaching the timing recorder contribute; early failures produce no sample.
   /// Includes synchronous streaming/draw preparation, not just physics; elapsed-time advance
   /// contributes one sample per executed step. Copy may allocate; serialize with Engine calls.
+  /// @param out Caller-owned vector overwritten with retained CPU step durations.
   void stepTimesMs(std::vector<double> &out) const;
   /// Replace out with retained successful render-call CPU wall times in milliseconds,
   /// oldest first. Measures Draw execution, not GPU completion or presentation latency.
   /// Readbacks do not contribute. Copy may allocate; serialize with Engine operations.
+  /// @param out Caller-owned vector overwritten with retained CPU render durations.
   void frameTimesMs(std::vector<double> &out) const;
 
   /// Build entity, component, table, trigger and physics state for the current declaration.
@@ -353,6 +375,7 @@ public:
   [[nodiscard]] Result advance(double elapsedS);
   /// Return the declared fixed simulation step in seconds without advancing the clock.
   /// This is configuration, not measured frame duration. Serialize with declaration changes.
+  /// @return Configured simulation step duration in seconds.
   [[nodiscard]] double stepSeconds() const;
   [[nodiscard]] Result run();
 
@@ -370,10 +393,12 @@ public:
 
   /// Report whether an internal render scene exists; does not imply streaming readiness,
   /// successful simulation assembly or an open frame. Serialize with Engine mutations.
+  /// @return True when an internal render scene exists.
   [[nodiscard]] bool standing() const;
   /// Borrow the legacy diagnostic string until Engine destruction; later calls may change it
   /// and invalidate character pointers. Serialize with Engine operations. Some expected-returning
   /// calls do not update or clear it: use their returned error as the authoritative result.
+  /// @return Borrowed legacy diagnostic, possibly empty or stale.
   [[nodiscard]] const std::string &error() const;
 
 private:
