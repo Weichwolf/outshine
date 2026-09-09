@@ -100,8 +100,8 @@ ist aber aus einem Winkel abgeleitet. Dimensionsrichtige Grenzwerte und den
 gewünschten Kontinuitätsvertrag separat festlegen; keine unbegründete C2-Pflicht
 als allgemeine Format-/Geometriebedingung übernehmen.
 
-Nearest: endliche Eingaben und Suchgrenzen prüfen; Distanz mit hypot statt Quadrat
-berechnen. Grobsuche und begrenzte lokale Verfeinerung trennen; gültige Randminima
-erhalten, Auswertungsfehler explizit melden. Analytische Gerade, große Koordinaten,
-Randpunkte und NaN/Inf als Gegenproben. Die feste Grobabtastung beweist kein globales
+Nearest prüft endliche Eingaben/Suchgrenzen und berechnet Distanz mit hypot.
+Grobsuche und lokale Verfeinerung erhalten ausgewertete Randminima; Auswertungsfehler
+liefern keinen Erfolg. Höchstens 25+2+24=51 At-Aufrufe, keine dynamischen Suchpuffer.
+Gerade, große Koordinaten, Randpunkte und NaN/Inf geprüft; Altstand-Negativkontrolle rot. Die feste Grobabtastung beweist kein globales
 Minimum auf beliebigen Spiralen/Schleifen; segmentweise globale Projektion bleibt offen.

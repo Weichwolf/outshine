@@ -330,74 +330,85 @@ bool ReferenceLine::Append(Placed &at, Segment declared, std::string &error) {
   return true;
 }
 
+namespace {
+
+struct ProjectionWindow {
+  double FromM;
+  double ToM;
+};
+
+struct ProjectionSample {
+  double StationM;
+  double DistanceM;
+};
+
+std::optional<ProjectionWindow> SearchWindow(EastNorth at, Nearby about, double lengthM) {
+  const double fromM = about.AboutM - about.WithinM;
+  const double toM = about.AboutM + about.WithinM;
+  const std::array values{at.EastM, at.NorthM, about.AboutM, about.WithinM, fromM, toM};
+  if (!std::ranges::all_of(values, [](double value) { return std::isfinite(value); }) ||
+      !(about.WithinM > 0.0)) {
+    return std::nullopt;
+  }
+  const ProjectionWindow window{.FromM = std::max(fromM, 0.0), .ToM = std::min(toM, lengthM)};
+  if (!(window.ToM > window.FromM)) { return std::nullopt; }
+  return window;
+}
+
+std::optional<ProjectionSample>
+DistanceAt(const ReferenceLine &line, EastNorth at, double stationM) {
+  Placed pose;
+  if (!line.At(stationM, pose)) { return std::nullopt; }
+  const double distanceM = std::hypot(at.EastM - pose.EastM, at.NorthM - pose.NorthM);
+  if (!std::isfinite(distanceM)) { return std::nullopt; }
+  return ProjectionSample{.StationM = stationM, .DistanceM = distanceM};
+}
+
+std::optional<ProjectionSample> RefineProjection(const ReferenceLine &line,
+                                                 EastNorth at,
+                                                 ProjectionWindow window,
+                                                 ProjectionSample best) {
+  constexpr double shrink = 0.6180339887498949;
+  auto left = DistanceAt(line, at, std::lerp(window.ToM, window.FromM, shrink));
+  auto right = DistanceAt(line, at, std::lerp(window.FromM, window.ToM, shrink));
+  for (int narrow = 0; narrow <= kResectionRefinements; ++narrow) {
+    if (!left || !right) { return std::nullopt; }
+    if (left->DistanceM < best.DistanceM) { best = *left; }
+    if (right->DistanceM < best.DistanceM) { best = *right; }
+    if (narrow == kResectionRefinements) { break; }
+    if (left->DistanceM < right->DistanceM) {
+      window.ToM = right->StationM;
+      right = left;
+      left = DistanceAt(line, at, std::lerp(window.ToM, window.FromM, shrink));
+    } else {
+      window.FromM = left->StationM;
+      left = right;
+      right = DistanceAt(line, at, std::lerp(window.FromM, window.ToM, shrink));
+    }
+  }
+  return best;
+}
+
+}
+
 std::optional<double> ReferenceLine::Nearest(EastNorth at, Nearby about) const {
-  if (Laid_.empty() || !(about.WithinM > 0.0)) { return std::nullopt; }
-
-  double lowM = about.AboutM - about.WithinM;
-  double highM = about.AboutM + about.WithinM;
-  lowM = std::max(lowM, 0.0);
-  highM = std::min(highM, Length_);
-  if (!(highM > lowM)) { return std::nullopt; }
-
-  const auto away = [at](const Placed &there) {
-    const double east = at.EastM - there.EastM;
-    const double north = at.NorthM - there.NorthM;
-    return east * east + north * north;
-  };
-
-  double bestM = lowM;
-  double bestAway = 0.0;
-  bool have = false;
-  const double strideM = (highM - lowM) / static_cast<double>(kResectionCoarseSteps);
+  if (Laid_.empty()) { return std::nullopt; }
+  const auto window = SearchWindow(at, about, Length_);
+  if (!window) { return std::nullopt; }
+  std::optional<ProjectionSample> best;
   for (int step = 0; step <= kResectionCoarseSteps; ++step) {
-    const double atM = lowM + static_cast<double>(step) * strideM;
-    Placed there;
-    if (!At(atM, there)) { continue; }
-    const double is = away(there);
-    if (!have || is < bestAway) {
-      have = true;
-      bestAway = is;
-      bestM = atM;
-    }
+    const double fraction = static_cast<double>(step) / kResectionCoarseSteps;
+    const auto sample = DistanceAt(*this, at, std::lerp(window->FromM, window->ToM, fraction));
+    if (!sample) { return std::nullopt; }
+    if (!best || sample->DistanceM < best->DistanceM) { best = sample; }
   }
-  if (!have) { return std::nullopt; }
-
-  double lowBracket = bestM - strideM;
-  double highBracket = bestM + strideM;
-  lowBracket = std::max(lowBracket, lowM);
-  highBracket = std::min(highBracket, highM);
-
-  const double shrink = 0.6180339887498949;
-  double leftM = highBracket - shrink * (highBracket - lowBracket);
-  double rightM = lowBracket + shrink * (highBracket - lowBracket);
-  const auto awayAt = [this, &away](double atM, double &into) {
-    Placed there;
-    if (!At(atM, there)) { return false; }
-    into = away(there);
-    return true;
-  };
-  double leftAway = 0.0;
-  double rightAway = 0.0;
-  if (awayAt(leftM, leftAway) && awayAt(rightM, rightAway)) {
-    for (int narrow = 0; narrow < kResectionRefinements; ++narrow) {
-      if (leftAway < rightAway) {
-        highBracket = rightM;
-        rightM = leftM;
-        rightAway = leftAway;
-        leftM = highBracket - shrink * (highBracket - lowBracket);
-        if (!awayAt(leftM, leftAway)) { break; }
-      } else {
-        lowBracket = leftM;
-        leftM = rightM;
-        leftAway = rightAway;
-        rightM = lowBracket + shrink * (highBracket - lowBracket);
-        if (!awayAt(rightM, rightAway)) { break; }
-      }
-    }
-    bestM = 0.5 * (lowBracket + highBracket);
-  }
-
-  return bestM;
+  if (!best) { return std::nullopt; }
+  const double strideM = (window->ToM - window->FromM) / kResectionCoarseSteps;
+  const ProjectionWindow bracket{.FromM = std::max(best->StationM - strideM, window->FromM),
+                                 .ToM = std::min(best->StationM + strideM, window->ToM)};
+  const auto refined = RefineProjection(*this, at, bracket, *best);
+  if (!refined) { return std::nullopt; }
+  return refined->StationM;
 }
 
 bool ReferenceLine::At(double alongM, Placed &out) const {
