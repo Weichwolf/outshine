@@ -69,3 +69,13 @@ handleEvent: Holds<bool> trennt behandelt/unbehandelt von Verarbeitungsfehlern.
 Keine Szene, irrelevantes Event, kein Treffer oder keine ausgelöste Aktion liefern
 false statt leerer/alter Fehler. Fehlender Host bei gebundener Aktion liefert Diagnose;
 Scroll meldet tatsächliche Änderung. Callback-/Thread-/Borrow-Vertrag dokumentieren.
+
+## Nicht implementierte Benchmark-API
+
+Engine::bench ist zweimal deklariert, ohne Definition oder Archivsymbol; Benched
+hat außerhalb des Headers keine Nutzer. Der Client misst bereits advance/render
+über die öffentliche API (PlaceCamera.cpp). Benchmark-Orchestrierung bleibt beim
+Client; tote bench-Deklarationen und ihren ausschließlich dazu gehörigen Ergebnistyp
+entfernen, statt einen zweiten Frame-Loop in die Runtime einzubauen. Bestehende
+Messpfade und Sampling-API erhalten. Prüfung: alle Referenzen durchsuchen, Client
+bauen, vollständiger Lint. Kein Nachweis für GPU-Ausführungszeit durch CPU-Timer.
