@@ -30,6 +30,17 @@ static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfa
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
 
+## JSON-Eingabegrenze
+
+ParseValueInside bündelt Container, Literale und Zahlen (Komplexität 98).
+ParseString akzeptiert unbekannte Escapes und rohe Steuerzeichen; fehlgeschlagene
+Dokumente geben Teilknoten frei. Grammatikphasen trennen, Escapes vor Decode prüfen,
+Referenzen nur für erfolgreich geparste Dokumente freigeben. Null-/übergroße Eingaben
+vor Kopie begrenzen. RFC-8259-Beispiele, ungültige Escapes/Separatoren/Zahlen und
+Parsefehler nach gültigem Präfix unabhängig prüfen. Unicode-Surrogatersatz und
+bestehende numerische Bereichspolitik separat behandeln, nicht still umdefinieren.
+Referenz: https://www.rfc-editor.org/rfc/rfc8259.html
+
 ## PNG-Höhendaten
 
 ReadPng mischt Container, Header, Inflation und Zeilenfilter (Komplexität 42).
