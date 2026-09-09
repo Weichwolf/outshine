@@ -87,32 +87,9 @@ Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vert
 
 ## Nächster Umsetzungsschritt
 
-InputMap::Build erstellt einen lokalen Kandidaten und tauscht ihn ausschließlich
-nach vollständiger Validierung ein. Fehler erhalten alle vorhandenen Event-/Action-
-Zuordnungen; Erfolg löscht die vorherige Diagnose. Test: unbekanntes Event nach
-gültigem Präfix, doppelte Events, Erholung und leere Map. Engine-declare muss danach
-zusätzlich seine vorzeitige Publikation beseitigen; Map-Atomarität allein genügt nicht.
-
-Declare-Input: lokale Map und validierte Pump vorbereiten. Die Pump referenziert
-bereits den stabilen Session-Map-Speicher; erst bei Erfolg Map per Nothrow-Move
-ersetzen und Pump aktivieren. Alle drei Erfolgszweige berücksichtigen, insbesondere
-Generatorfehler nach später Zustandsänderung. Frühe Input-, spätere View- und
-Generatorfehler öffentlich nachweisen. Andere Declare-Teilmutationen bleiben WI 2191;
-dieser Schritt behauptet keine vollständige Szenario-Transaktion.
-
-Wheel-Schritt: mouse_x/mouse_y aus SDL_MouseWheelEvent verwenden statt aktuellem
-SDL_GetMouseState. Referenz https://wiki.libsdl.org/SDL3/SDL_MouseWheelEvent.
-SDL hat FLIPPED bereits in x/y angewandt; UI erhält diese Systempräferenz, keine
-zweite Umkehrung. Test mit versetztem Scrollcontainer und eingespeisten Events,
-beiden Vorzeichen, FLIPPED, Null, außerhalb und beiden Scrollgrenzen. HiDPI-
-Umrechnung von Fensterkoordinaten in UI-Pixel für alle Mauspfade separat prüfen.
-
-Wheel-Validierung: WheelStepPx endlich und nichtnegativ; Null deaktiviert Scrollen.
-Declare lehnt ungültige Konfiguration vor Mutation ab. Bei aktiver UI müssen
-mouse_x/mouse_y/y und der berechnete Pixelweg endlich sein; sonst expected-Fehler
-vor Scrollmutation. Test NaN/±Inf je konsumiertem Feld, Multiplikationsüberlauf,
-Nullkonfiguration und gültige Folgeereignisse als Zustandsnachweis.
-
-Host-Aktionsdispatch aus handleEvent extrahieren: feste Fired-Spanne, Map und Host
-als Eingaben; Routing/Validierung getrennt von Callback-Ausführung. Bestehende
-Input-/UI-Tests sichern Reihenfolge, Host-Fehler und Priorität.
+Öffentliche Binding-Deklaration dokumentieren: owned Strings, exakte Eventnamen,
+Host-Aufruf ohne Scriptinterpretation, ein numerisches Argument, Gerätenormalisierung,
+keine Aggregation mehrerer Bindungen. Leere Aktionsnamen an der Deklarationsgrenze
+ablehnen; mehrere Events dürfen denselben Namen verwenden. Tests für Ablehnung
+mit erhaltenem Vorgänger, gemeinsame Aktion und Fallunterscheidung. Bestehende
+Input-/UI-/Scrolltests behalten; kein Renderunterschied ohne Eingaben erwartet.
