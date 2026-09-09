@@ -348,7 +348,8 @@ struct Proportions {
          s.Fill < kRoundUnderFill && s.HalfUm < kRoundUnderAspect * s.HalfVm;
 }
 
-[[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double aspect, double pitchedShare) {
+[[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double pitchedShare) {
+  const double aspect = s.HalfUm / s.HalfVm;
   if (ReadsAsRound(s)) { return RoofKind::Dome; }
 
   const bool pitchable =
@@ -548,7 +549,7 @@ void Finish(Piece &piece, const PartOrder &order, BuildingShape &s) {
                        kPeriodHalvesLeast * s.HalfUm /
                            std::max(kPeriodHalvesLeast, std::round(s.HalfUm / kPeriodPerHalfM)));
   s.Storeys = std::max(1, static_cast<int>(std::lround(top / FloorPreferenceM(s.Use))));
-  s.Roof = RoofOf(s, aspect, order.PitchedShare);
+  s.Roof = RoofOf(s, order.PitchedShare);
   SplitHeight(&s, {.TopM = top, .PitchDeg = PitchDegOf(s.Use, s.Seed, order.HeightMeasured)});
 
   const double bay = BayPreferenceM(s.Use);
