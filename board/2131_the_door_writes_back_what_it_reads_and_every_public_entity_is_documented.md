@@ -31,8 +31,8 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   Messintervall ableiten, statt kumulierte Poolbytes durch einzelne Preload-Zeit teilen.
 - Root-/Providerwechsel als validierten Lebenszyklus behandeln; aktuelle Setup-
   Vorbedingung migriert vorhandene Ressourcen nicht und wird nicht erzwungen.
-- Event-Vertrag mit aktiver Szene, Host-Bindung und Scrolländerung testen. Der
-  vorhandene Leerszenen-Test beweist diese Verarbeitungszweige nicht.
+- Event-Vertrag: Scrolländerung, Ereigniskoordinaten und Richtung prüfen.
+  Bindungsdispatch ohne Renderer sowie UI-Fallback/Priorität sind dynamisch geprüft.
 - Terrainabfragen: Residency von möglicher Tile-Vorbereitung trennen; interne
   Koordinatengrenzen prüfen. Öffentliche Höhenabfrage validiert bereits Winkel/Abdeckung.
 - Zeitsteuerung: Überlastpolitik und Frame-Arbeitsbudget bestimmen, Restzeit und
@@ -59,57 +59,27 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
 - Bildwirksame Änderungen über den Client rendern und PNGs selbst prüfen;
   CPU-Messzeiten nicht als GPU-Ausführungs- oder Präsentationslatenz ausweisen.
 
-## Nächster Struktur-Schritt
+## Verbleibende konkrete Lücken
 
-ReadScenario bündelt sämtliche Inhaltsdomänen (Cognitive Complexity 103).
-Abschnittsleser für Quellen, Assets, UI/Input, Entitäten, Räume, Audio, Tabellen,
-Events, Kameras und Bodies extrahieren; zentrale Funktion koordiniert Reihenfolge,
-Grammatik und Unread-Prüfung. Daten-/Fehlerverhalten erhalten, keine neue API.
-Vorhandene Parser-, Projektions- und Assembly-Tests sowie vollständiger Lint;
-kein Bildunterschied erwartet, da ausschließlich Zuständigkeiten getrennt werden.
+- InputMap::Build verändert die bestehende Map vor vollständiger Validierung;
+  declare setzt Pumping vor möglichen Fehlern zurück. Input-Publikation gemeinsam
+  mit Szenariozustand transaktional machen; gültige Vorgängerbindungen erhalten.
+- Wheel liest den aktuellen globalen Mauszustand statt der Ereignisposition.
+  SDL-Ereigniszeit, Position und Richtungsflag berücksichtigen; Scrollgrenzen testen.
+- XML-Attribute dekodieren Referenzen und normalisieren Whitespace; Literal-UTF-8
+  sowie Elementtext sind noch nicht vollständig geprüft. Keine XML-Konformität behaupten.
+- Motion.Dial bleibt gespeichert, Time.Rate ungenutzt; laufende astronomische Zeit
+  nach WI 2213 anbinden. Die aktuelle Sonnenzeit wird bei declare berechnet.
 
-ReadScenario publiziert erst nach Grammatik, allen Abschnittslesern und Unread-
-Prüfung einen vollständigen Kandidaten. Fehler erhalten das Zielobjekt; Erfolg
-löscht alte Diagnosen. Nothrow-Move-Assignment als Publikationsinvariante prüfen.
-Tests für frühe XML-/Grammatikfehler, späte Asset-/Tabellen-/Unread-Fehler und
-anschließenden Erfolg; bestehende Listen dürfen weder gelöscht noch ergänzt werden.
+## Bestandsschutz durch Verhaltenstests
 
-Writer-Physik: deklarierten dial/stepS/mostStepsInArrears schreiben; bisher
-verschwindet der ganze Abschnitt. Zahlen roundtrip-fähig statt %.12g ausgeben,
-XML-Attributtexte escapen. Test liest Ausgabe erneut und prüft exakte Schrittzeit,
-Nachhollimit und Sonderzeichen; Negativkontrolle gegen ausgelassenen Abschnitt.
-
-XML-Attributwerte: Referenz https://www.w3.org/TR/xml/#AVNormalize und #NT-CharRef.
-Beim Parsen einmal dekodieren: amp/lt/gt/quot/apos, dezimale/hexadezimale
-Zeichenreferenzen; ungültige XML-Codepoints/Referenzen ablehnen. Literal-Whitespace
-normalisieren, referenzierte Tabs/Zeilenumbrüche erhalten. Bestehende Offsets durch
-Verkürzung innerhalb des Attributbereichs erhalten, keine rekursive Expansion.
-Writer schreibt Tab/CR/LF als Zeichenreferenzen. Unabhängige XML-Fälle neben dem
-Physik-Rundlauf; das ist kein Nachweis vollständiger XML-Konformität des Parsers.
-
-XML-Dekodierung verwendet einen wiederverwendeten Scratch-String pro Parse statt
-einer Allokation pro langem Attribut. Kapazität höchstens bisher größte Eingabe;
-Scratch lebt nur während Parse. Wiederverwendung muss alte Inhalte löschen und
-Referenz-/Normalisierungsfehler unverändert erkennen.
-
-PhysicsSettings/Clock-Verträge dokumentieren: owned Konfiguration, keine laufende
-Clock. Motion.Dial nur gespeichert; Time.Rate ungenutzt; Sonnenzeit wird derzeit
-bei declare berechnet. Laufende astronomische Zeit nach WI 2213 anbinden, nicht
-durch Dokumentation als umgesetzt ausgeben.
-
-Eingabe: SDL-Gamepadsticks liefern -32768..32767, Trigger 0..32767
-(https://wiki.libsdl.org/SDL3/SDL_GetGamepadAxis). Negative Stickwerte durch
-32768, nicht 32767 normalisieren; Null und beide Endpunkte exakt erhalten.
-Alle diskreten Stickwerte auf Bereich und strikte Monotonie prüfen, Trigger
-separat. Keine Deadzone in der Transportübersetzung. Mutation alter Skalierung
-muss scheitern. Kein Bildunterschied ohne entsprechende Eingabe erwartet.
-Öffentliches handleEvent filtert derzeit nur Tasten zur InputPump: Maus-/Gamepad-
-Bindings bleiben unerreichbar. Dispatch samt UI-Priorität und aktivem Host durch
-öffentliche Integrationstests korrigieren; Pump-Tests allein schließen dies nicht.
-
-Dispatch-Entscheidung: deklarierte Bindungen funktionieren auch ohne Renderziel;
-die Simulation darf nicht von Live/GPU abhängen. Explizite Bindungen haben Vorrang,
-ungebundene Mausereignisse fallen zur UI durch; keine doppelte Aktion bei Host-false.
-UI/Wheel benötigen weiterhin eine Renderinstanz. Öffentliche Tests für alle Geräte,
-Down/Up, beide Bewegungsachsen, fehlenden/ablehnenden Host und leere Neudeklaration;
-keine SDL-Initialisierung für die reine Aktionsweiterleitung erforderlich.
+ReadScenario publiziert erst nach vollständiger Prüfung; Fehler erhalten den Vorgänger.
+Physik-Rundlauf erhält Schrittzeit, Nachhollimit und XML-Sonderzeichen. Referenz:
+https://www.w3.org/TR/xml/#AVNormalize und #NT-CharRef.
+SDL-Achsen werden an beiden Endpunkten korrekt normalisiert; vollständiger Wertebereich
+geprüft. Referenz: https://wiki.libsdl.org/SDL3/SDL_GetGamepadAxis.
+InputBindingsDoNotRequireRendering prüft die öffentliche Weiterleitung aller Geräte;
+InputBindingsPrecedeUiActions prüft tatsächliche UI-Hits, Bindungspriorität, Host-
+Ablehnung, Entfernen der Bindung, fehlenden Host und Hits außerhalb der Oberfläche.
+Negativkontrollen gegen Renderer-Sperre bzw. vorzeitigen Abbruch bei ungebundenem
+Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vertrag.
