@@ -175,6 +175,17 @@ public:
     return out;
   }
 
+  [[nodiscard]] std::expected<void, StructureMeshError> Status() const noexcept { return Status_; }
+
+  [[nodiscard]] static bool Representable(const Vtx &v) noexcept {
+    constexpr double exclusiveLimit = 0x1p63;
+    const std::array coordinates{v.P.EastM, v.P.NorthM, v.Z};
+    return std::ranges::all_of(coordinates, [](double coordinate) {
+      const double millimetres = coordinate * kWeldPerM;
+      return millimetres >= -exclusiveLimit && millimetres < exclusiveLimit;
+    });
+  }
+
   [[nodiscard]] uint32_t Index(const Vtx &v) {
     const auto ce = static_cast<int64_t>(std::llround(v.P.EastM * 1000.0));
     const auto cn = static_cast<int64_t>(std::llround(v.P.NorthM * 1000.0));
@@ -187,9 +198,14 @@ public:
   }
 
   void Tri(const Vtx &given0, const Vtx &given1, const Vtx &given2) {
+    if (!Status_) { return; }
     const Vtx a = Snapped(given0);
     const Vtx b = Snapped(given1);
     const Vtx c = Snapped(given2);
+    if (!Representable(a) || !Representable(b) || !Representable(c)) {
+      Status_ = std::unexpected(StructureMeshError::InvalidPlan);
+      return;
+    }
     const uint32_t ia = Index(a);
     const uint32_t ib = Index(b);
     const uint32_t ic = Index(c);
@@ -238,6 +254,7 @@ private:
     return made;
   }
 
+  std::expected<void, StructureMeshError> Status_;
   Raised &Out_;
   BuildingScratch &Scratch_;
   Vec3 Origin_, East_, North_, Up_;
@@ -1015,6 +1032,12 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   auto &scratch = *buildingScratch;
   const std::array sizes{
       into.WallCorners.size(), into.RoofCorners.size(), into.WallRun.size(), into.RoofRun.size()};
+  const auto rollback = [&] noexcept {
+    TrimAppend(into.WallCorners, sizes[0]);
+    TrimAppend(into.RoofCorners, sizes[1]);
+    TrimAppend(into.WallRun, sizes[2]);
+    TrimAppend(into.RoofRun, sizes[3]);
+  };
   try {
     const auto mass = MassOf(plan.RingLatLon,
                              {.HeightM = plan.HeightM,
@@ -1038,12 +1061,13 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
     for (const BuildingShape &part : parts) {
       RaisePart(part, site);
       Pavement(part, plan.Street, ground, part.SeatM, site);
+      if (const auto status = site.Status(); !status) {
+        rollback();
+        return status;
+      }
     }
   } catch (...) {
-    TrimAppend(into.WallCorners, sizes[0]);
-    TrimAppend(into.RoofCorners, sizes[1]);
-    TrimAppend(into.WallRun, sizes[2]);
-    TrimAppend(into.RoofRun, sizes[3]);
+    rollback();
     return std::unexpected(StructureMeshError::BuildFailed);
   }
   return {};

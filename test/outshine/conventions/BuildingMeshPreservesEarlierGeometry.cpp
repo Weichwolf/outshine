@@ -108,6 +108,22 @@ int main() {
     CHECK(calls.load() == allocations, "unrepresentable heights require no allocation");
   }
   plan.HeightM = 6;
+  for (double seat : {-1.0e20, 1.0e20}) {
+    plan.SeatAslM = seat;
+    plan.FootAslM = seat;
+    Raised output = previous;
+    const auto unrepresentable = mesher.Mesh(plan, *scratch, output);
+    CHECK(!unrepresentable && unrepresentable.error() == StructureMeshError::InvalidPlan,
+          "unrepresentable vertex coordinates fail the building transaction");
+    CHECK(output.WallRun == previous.WallRun && output.WallCorners.size() == 3 &&
+              output.RoofRun.empty() && output.RoofCorners.empty(),
+          "coordinate conversion failure retains previous geometry");
+    plan.SeatAslM = 0;
+    plan.FootAslM = 0;
+    const auto recovered = mesher.Mesh(plan, *scratch, output);
+    CHECK(recovered && output.WallRun == complete.WallRun && output.RoofRun == complete.RoofRun,
+          "scratch recovers from coordinate conversion failure");
+  }
   const std::array<double, 6> collapsed{47, 9, 47, 9, 47, 9};
   plan.RingLatLon = collapsed;
   const auto unsupported = mesher.Mesh(plan, *scratch, previous);
