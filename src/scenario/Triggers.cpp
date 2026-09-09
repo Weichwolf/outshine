@@ -1,4 +1,5 @@
 #include "Triggers.h"
+#include <scene/Scene.h>
 #include "math/Vec3.h"
 
 #include <cmath>
@@ -129,7 +130,7 @@ bool TriggerField::Inside(const Door &door, const Vec3 &atM) {
   return true;
 }
 
-void TriggerField::Probe(uint32_t body, const Vec3 &atM, double nowS) {
+void TriggerField::Probe(Entity body, const Vec3 &atM, double nowS) {
   const auto fire = [&](uint16_t event) {
     if (Heard_[event] == 0) { ++Unheard_[event]; }
     if (Ring_.size() >= kMostFired) {

@@ -28,9 +28,9 @@ Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
-und nicht bewegliche Engine-Owner sind die geprüfte Voraussetzung.
+und nicht bewegliche Engine-Owner sind Voraussetzung.
 
-## Geprüft: gemeinsame Szenario-Kameraprojektion
+## Gemeinsame Szenario-Kameraprojektion
 
 Khronos definiert Half-Extents und Near/Far-Bedingungen:
 https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#cameras
@@ -76,7 +76,7 @@ Mehrkörper-Laufzeitnachweis; der Projektions-Test verwendet ausdrücklich einen
 
 Simulationskörper behalten jetzt ihre Entity-ID auch nach Filterung unplatzierter Bodies.
 Audio löst Körpernamen bei Prepare auf; Carries verwendet noch Index 0 statt des benannten Ziels.
-Carries prüft auch Trigger nur für Index 0; Trigger müssen dieselbe Entity-Bindung nutzen.
+Trigger gehören jetzt zur Assembly und prüfen alle lebenden Körper im Simulationsschritt.
 Native Simulationskörper müssen ihre Entity-Handles behalten. Namen einmal gegen
 Assembly auflösen, unbekannte/mehrdeutige Ziele ablehnen; Hot Paths verwenden Handles.
 Transform/Velocity als engine-eigenen Zustand führen, nicht aus Renderteilen ableiten.
@@ -94,7 +94,8 @@ Reserve + Bodies + Kinds + Instances + Player-Mind vor Allokation auf 65536 Slot
 begrenzen (gesetztes Enginebudget); Summenüberlauf ablehnen. Rollback und
 Komponenten-Lebensdauer über öffentliche API und Negativkontrolle prüfen.
 Audio bindet nur an die aktuelle Deklarationsrevision; fehlende/unplatzierte/mehrdeutige
-Ziele ablehnen. Reorder und Zielwechsel über Stereo-Oracle, front()-Negativkontrolle rot.
+Ziele ablehnen. Stereo-Reorder/-Zielwechsel und Headless-Mehrkörper-Trigger geprüft;
+front()- und Rendererabhängigkeits-Negativkontrollen rot. Trigger tragen volle Entity-Handles.
 
 ## Abnahme
 
@@ -102,7 +103,6 @@ Ziele ablehnen. Reorder und Zielwechsel über Stereo-Oracle, front()-Negativkont
       Speicher. Fenster-Claims und Offscreen-Textur bleiben bei Ablehnung erhalten.
 - [x] Target-Fehlergrenzen und gültige Fenster-/Offscreen-Pfade: 44 Consumer-Checks.
 - [x] Vorzeitiges Targeted-Publizieren erzeugt genau einen Fehler im 44-Check-Oracle.
-
 - [x] Fehlende Kamera, Recovery, Extent und importierte Kamera: 36 Checks;
       angefordertes Neu-Framing bleibt beim Rebind erhalten.
 - [x] Alte Bereitschaft samt Standardbasis wieder eingesetzt: Kamera-Consumer

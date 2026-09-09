@@ -15,6 +15,7 @@
 #include "math/Vec3.h"
 #include "Tables.h"
 #include "Traits.h"
+#include "Triggers.h"
 
 namespace outshine {
 
@@ -42,6 +43,7 @@ struct SimulationState {
   Column<Traits> Kinds;
   Assembled Stood;
   std::optional<TableBook> Tables;
+  std::optional<TriggerField> Triggers;
   std::vector<SimulatedBody> DynamicBodies;
 };
 

@@ -284,16 +284,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Pumping = true;
   }
 
-  S_->Session.Volumes.reset();
-  if (!scenario.Volumes.empty()) {
-    auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);
-    if (!stood) {
-      S_->Error = stood.error();
-      return std::unexpected(S_->Error);
-    }
-    S_->Session.Volumes.emplace(std::move(*stood));
-  }
-
   S_->Session.Views.reset();
   if (!scenario.Views.empty()) {
     const std::string_view starting = scenario.Played.View.empty()

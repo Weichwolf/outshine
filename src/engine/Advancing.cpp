@@ -171,16 +171,6 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   Published.Places("the mesh it carries, east", bodyFromWorld[12], "m");
   Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
   Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
-  if (Session.Volumes) {
-    Session.Volumes->Probe(0, body.PositionM, Ticking.ElapsedS);
-    for (const TriggerField::Fired &fired : Session.Volumes->Drain()) {
-      ++Session.Fired;
-      Published.Places(
-          "events a declared volume has fired", static_cast<double>(Session.Fired), "events");
-      Session.Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
-                                " for body " + std::to_string(fired.Body));
-    }
-  }
   if (!Session.Views) { return true; }
 
   const Scenario::View &seen = Session.Views->Active();
@@ -249,6 +239,24 @@ bool Engine::State::Bakes(size_t landsMost) {
   return true;
 }
 
+void Engine::State::UpdateTriggers() {
+  if (!Simulation->Triggers || Simulation->DeclarationRevision != Session.DeclarationRevision) {
+    return;
+  }
+  for (const auto &body : Simulation->DynamicBodies) {
+    if (!Simulation->Scene.alive(body.Owner)) { continue; }
+    Simulation->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS);
+  }
+  for (const TriggerField::Fired &fired : Simulation->Triggers->Drain()) {
+    ++Session.Fired;
+    Session.Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
+                              " for entity " + std::to_string(fired.Body.Index) + ":" +
+                              std::to_string(fired.Body.Generation));
+  }
+  Published.Places(
+      "events a declared volume has fired", static_cast<double>(Session.Fired), "events");
+}
+
 bool Engine::State::Updates() {
   if (Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = WhereTheEyeStands();
@@ -281,6 +289,8 @@ bool Engine::State::Updates() {
                                 ? Session.Declared.Ground.GravityMs2
                                 : kStandardGravityMs2;
   Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
+  Ticking.ElapsedS += simulationStepS;
+  UpdateTriggers();
   if (!Watches()) { return false; }
   return Grounds(false);
 }
@@ -314,7 +324,6 @@ Result Engine::advance() {
   const auto began = std::chrono::steady_clock::now();
   S_->Published.Opens();
   if (!S_->Updates()) { return std::unexpected(S_->Error); }
-  S_->Ticking.ElapsedS += S_->Session.Declared.Motion.StepS;
   S_->Tells();
   const bool drew = S_->Draws();
   S_->Cost.Advance.Took(

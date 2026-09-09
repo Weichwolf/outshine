@@ -62,6 +62,14 @@ Result Engine::assemble() {
     }
     candidate->Tables.emplace(*std::move(book));
   }
+  if (!declared.Volumes.empty()) {
+    auto triggers = TriggerField::Stand(declared.Volumes, declared.Events);
+    if (!triggers) {
+      S_->Error = triggers.error();
+      return std::unexpected(S_->Error);
+    }
+    candidate->Triggers.emplace(std::move(*triggers));
+  }
   candidate->DeclarationRevision = S_->Session.DeclarationRevision;
   candidate->PrepareBodies();
   if (named == 0 && S_->Picture.Targeted && !S_->Composes()) { return std::unexpected(S_->Error); }

@@ -270,7 +270,7 @@ public:
   void stepTimesMs(std::vector<double> &out) const;
   void frameTimesMs(std::vector<double> &out) const;
 
-  /// Build entity, component, table and physics state for the current declaration.
+  /// Build entity, component, table, trigger and physics state for the current declaration.
   /// Total capacity (reserve, bodies, kinds, instances and player mind) is limited to 65536
   /// entity slots. Allocates on the calling thread; serialize with all Engine operations. No render
   /// target is required. With a target and no entities, world composition may also run.

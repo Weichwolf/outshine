@@ -247,7 +247,6 @@ struct Kept {
   InputMap Bound;
   Core::InputPump Pump;
   bool Pumping = false;
-  std::optional<TriggerField> Volumes;
   size_t Fired = 0;
   std::optional<Audio::Mixer> Sounding;
   std::vector<std::optional<size_t>> AudioBodies;
@@ -428,6 +427,7 @@ struct Engine::State {
   [[nodiscard]] bool Stood();
   void HandsPiecesOver();
   [[nodiscard]] bool Bakes(size_t landsMost);
+  void UpdateTriggers();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();

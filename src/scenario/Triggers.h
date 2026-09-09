@@ -2,6 +2,7 @@
 #define OUTSHINE_SCENARIO_TRIGGERS_H
 
 #include "math/Vec3.h"
+#include <scene/Scene.h>
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -19,7 +20,7 @@ public:
 
   struct Fired {
     uint16_t Event = 0;
-    uint32_t Body = 0;
+    Entity Body = kNoEntity;
   };
 
   [[nodiscard]] static std::expected<TriggerField, std::string>
@@ -28,7 +29,7 @@ public:
   [[nodiscard]] bool
   Listen(std::string_view event, std::span<const std::string_view> reads, std::string &error);
 
-  void Probe(uint32_t body, const Vec3 &atM, double nowS);
+  void Probe(Entity body, const Vec3 &atM, double nowS);
 
   [[nodiscard]] std::span<const Fired> Drain();
 
@@ -54,7 +55,7 @@ private:
   };
 
   struct Standing {
-    uint32_t Body = 0;
+    Entity Body = kNoEntity;
     uint32_t Door = 0;
     double SinceS = 0.0;
     bool Dwelt = false;
