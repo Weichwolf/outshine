@@ -26,6 +26,9 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
   tragen Registry-Epoche, Index und Generation; Columns speichern vollständige
   Identitäten. Fremde Handles und Reopen dürfen keine Komponenten übernehmen.
   Engine-Zugriff bleibt öffentlich mutierbar; Systembindung nach Reopen klar begrenzen.
+- Registry-Abfragen dürfen ungültige Handles nicht als Body oder belegten Sitz
+  ausgeben. roleOf liefert optional; seatOf prüft beide Handle-Lebensdauern.
+  Entfernung, Slot-Wiederverwendung und fremde Registry mit API-Tests abdecken.
 - Scenario.h bündelt Deklarationen vieler Systeme. Nach fachlichen Abhängigkeiten
   aufteilen, soweit dies isolierte Consumer und nachvollziehbare Verträge ermöglicht;
   keine Headerzahl als Ziel. Jeder öffentliche Header muss selbstständig verwendbar sein.
