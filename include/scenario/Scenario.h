@@ -608,18 +608,30 @@ struct Player {
   double RunMs = kRunUnsaidMs;
 };
 
+/// Owned fixed-step configuration copied by Engine::declare; not a running clock.
+/// Mutate only outside concurrent access. Declaration rejects nonfinite/nonpositive
+/// StepS, nonpositive catch-up limits and an unrepresentable product of the two.
 struct PhysicsSettings {
-  bool Declared = false;
-  std::string Dial;
-  double StepS = kStepUnsaidS;
+  bool Declared = false; ///< Presence in serialization; Engine validates timing regardless.
+  std::string Dial;      ///< Owned clock label retained by the schema; no runtime routing yet.
+  double StepS = kStepUnsaidS; ///< Fixed simulation interval in seconds, finite and positive.
+  /// Maximum fixed steps per elapsed-time advance call; positive, not a wall-time budget.
+  /// The current runtime may discard excessive backlog after reaching this limit.
   int MostStepsInArrears = 8;
 };
 
+/// Owned world-time declaration, distinct from simulation step accumulation.
+/// Current runtime samples the astronomical sun during declaration; this structure
+/// does not itself advance time or synchronize access. Copying Start may allocate.
 struct Clock {
-  bool Declared = false;
+  bool Declared = false; ///< Whether a clock section was explicitly supplied.
+  /// Permit system UTC fallback when Start is absent or invalid during sky setup.
+  /// Does not currently promise continuous resampling of the system clock.
   bool Live = false;
+  /// Owned ISO 8601 UTC starting instant. During automatic sun setup an invalid value
+  /// fails when Declared and not Live; otherwise system UTC is used as fallback.
   std::string Start;
-  double Rate = 1.0;
+  double Rate = 1.0; ///< Declared world-time scale, retained but not yet applied by runtime.
 };
 
 struct Binding {
