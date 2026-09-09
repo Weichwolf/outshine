@@ -28,6 +28,12 @@
 
 namespace outshine::Path {
 
+namespace Says {
+constexpr auto kInvalidRouteCoordinates =
+    "route coordinates must be finite with longitude in [-180,180] and latitude in [-90,90]";
+constexpr auto kInvalidTurnRadius = "minimum turn radius must be finite and nonnegative";
+}
+
 constexpr uint64_t kWordMost = 0xFFFFFFFFull;
 
 namespace {
@@ -35,6 +41,12 @@ namespace {
 constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
 constexpr double kTenPercent = 0.10;
 constexpr double kThirtyPercent = 0.30;
+
+[[nodiscard]] bool ValidRouteCoordinates(LongitudeLatitude at) {
+  return std::isfinite(at.LongitudeDeg) && std::isfinite(at.LatitudeDeg) &&
+         std::abs(at.LongitudeDeg) <= kDegPerHalfTurn &&
+         std::abs(at.LatitudeDeg) <= kDegPerHalfTurn / 2.0;
+}
 
 [[nodiscard]] uint64_t PhysicalEdgeKey(size_t from, size_t to) {
   static_assert(kMaxNetworkPoints <= std::numeric_limits<uint32_t>::max());
@@ -1002,6 +1014,14 @@ Network::ComponentStatistics Network::WeakComponents() const {
 
 Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightestM) const {
   Route out;
+  if (!ValidRouteCoordinates(from) || !ValidRouteCoordinates(to)) {
+    out.Error = Says::kInvalidRouteCoordinates;
+    return out;
+  }
+  if (!std::isfinite(tightestM) || tightestM < 0.0) {
+    out.Error = Says::kInvalidTurnRadius;
+    return out;
+  }
   out.StraightM = ApartM({.LongitudeDeg = from.LongitudeDeg, .LatitudeDeg = from.LatitudeDeg},
                          {.LongitudeDeg = to.LongitudeDeg, .LatitudeDeg = to.LatitudeDeg},
                          Sphere{.RadiusM = RadiusM_});
