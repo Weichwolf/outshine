@@ -252,13 +252,15 @@ std::expected<void, std::string> Loaded::load(std::string_view path) {
   return {};
 }
 
-bool Loaded::wears(std::string_view variant) {
+std::expected<void, std::string> Loaded::wears(std::string_view variant) {
   Held &held = *Held_;
   const Gltf::VariantSelection wanted{std::string(variant)};
   int index = -1;
-  if (!wanted.Against(held.File, index, held.Why)) { return false; }
+  if (!wanted.Against(held.File, index, held.Why)) { return std::unexpected(held.Why); }
   held.Variant = wanted;
-  return held.Assemble(0.0);
+  if (!held.Assemble(0.0)) { return std::unexpected(held.Why); }
+  held.Why.clear();
+  return {};
 }
 
 std::expected<void, std::string> Loaded::plays(std::span<const int> animations) {
@@ -290,12 +292,14 @@ double Loaded::durationS() const {
   return Held_->Moves ? Held_->Motion.EndS() : 0.0;
 }
 
-bool Loaded::poses(double seconds) {
+std::expected<void, std::string> Loaded::poses(double seconds) {
   if (!std::isfinite(seconds) || seconds < 0.0) {
     Held_->Why = Says::InvalidAnimationTime;
-    return false;
+    return std::unexpected(Held_->Why);
   }
-  return Held_->Assemble(seconds);
+  if (!Held_->Assemble(seconds)) { return std::unexpected(Held_->Why); }
+  Held_->Why.clear();
+  return {};
 }
 
 bool Loaded::carriesCamera() const {

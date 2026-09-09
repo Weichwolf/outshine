@@ -57,7 +57,13 @@ int main() {
   CHECK(write("unused-camera.gltf", unusedCamera), "valid unused camera fixture written");
   Loaded asset;
   CHECK(asset.load((directory / "variant.gltf").string()).has_value(), "load variant asset");
-  CHECK(asset.wears("alternate"), "select a valid variant before replacement");
+  CHECK(asset.wears("alternate").has_value(), "select a valid variant before replacement");
+  const auto rejectedVariant = asset.wears("absent");
+  CHECK(!rejectedVariant && !rejectedVariant.error().empty(),
+        "variant failure owns its diagnostic");
+  CHECK(asset.wears("alternate") && asset.error().empty(), "successful variant clears old error");
+  CHECK(!rejectedVariant && !rejectedVariant.error().empty(),
+        "returned error survives later successful mutation");
   const int parts = asset.geometry().parts();
   CHECK(parts == 1, "fixture contains one mesh part");
   for (const char *name : {"missing.gltf", "bad.gltf"}) {
@@ -110,7 +116,8 @@ int main() {
   const std::array<int, 1> clips{0};
   CHECK(asset.plays(clips).has_value(), "select the parent translation clip");
   for (const double seconds : {0.5, 1.0, 0.25, 2.0, 0.0}) {
-    CHECK(asset.poses(seconds), "sample absolute time, including backward and beyond final key");
+    CHECK(asset.poses(seconds).has_value(),
+          "sample absolute time, including backward and beyond final key");
     Scenario::Camera camera;
     CHECK(asset.carriesCamera() && asset.camera(0, camera),
           "both camera accessors resolve current pose");
@@ -121,7 +128,7 @@ int main() {
     CHECK(std::abs(asset.camera().Stands.AtM[0] - x) < 1e-9,
           "cached default camera uses the same time as explicit selection");
   }
-  CHECK(asset.poses(0.5), "establish a nonzero pose for rejection checks");
+  CHECK(asset.poses(0.5).has_value(), "establish a nonzero pose for rejection checks");
   for (const double seconds :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
     CHECK(!asset.poses(seconds) && std::abs(asset.camera().Stands.AtM[0] - 2) < 1e-9,
@@ -135,6 +142,10 @@ int main() {
     CHECK(asset.poses(0.75) && std::abs(asset.camera().Stands.AtM[0] - 3) < 1e-9,
           "previous animation remains sampleable after rejected selection");
   }
+  const auto rejectedTime = asset.poses(-1);
+  CHECK(!rejectedTime && !rejectedTime.error().empty(), "time failure owns its diagnostic");
+  CHECK(asset.poses(0.5) && asset.error().empty(), "successful sampling clears old error");
+  CHECK(!rejectedTime && !rejectedTime.error().empty(), "time diagnostic survives later sampling");
   CHECK(asset.plays({}) && std::abs(asset.camera().Stands.AtM[0]) < 1e-9,
         "disabling clips restores authored camera transforms rather than stale sampled locals");
   CHECK(asset.plays(clips) && asset.poses(0.5),

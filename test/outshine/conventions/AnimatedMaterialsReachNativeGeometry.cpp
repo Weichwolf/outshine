@@ -69,7 +69,7 @@ int main() {
   const std::array<int, 1> clips{0};
   CHECK(asset.plays(clips).has_value(), "material-only clip selects");
   for (const double time : {0.0, 1.0, 0.5, 0.25}) {
-    CHECK(asset.poses(time), "sample material-only animation at absolute time");
+    CHECK(asset.poses(time).has_value(), "sample material-only animation at absolute time");
     const Material &colour = asset.geometry().surfaceAt(MaterialInstance(0));
     const Material &pbr = asset.geometry().surfaceAt(MaterialInstance(1));
     CHECK(std::abs(colour.BaseColour[0] - (1 - time)) < 1e-6 &&
@@ -107,7 +107,7 @@ int main() {
     return Report();
   }
   for (const double time : {0.0, 1.0}) {
-    CHECK(asset.poses(time), "freeze an endpoint for native rendering");
+    CHECK(asset.poses(time).has_value(), "freeze an endpoint for native rendering");
     if (!engine.setGeometry(asset.geometry()) || !engine.assemble() || !engine.advance() ||
         !engine.renderer().render({})) {
       Unprepared(engine.error().c_str());

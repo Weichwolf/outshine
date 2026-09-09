@@ -219,15 +219,17 @@ struct AssetRenderOptions {
   Loaded asset;
   auto loaded = asset.load(options.Asset);
   if (!loaded) { return loaded; }
-  if (!options.Variant.empty() && !asset.wears(options.Variant)) {
-    return std::unexpected(asset.error());
+  if (!options.Variant.empty()) {
+    auto selected = asset.wears(options.Variant);
+    if (!selected) { return selected; }
   }
   if (options.Animation || asset.animations() > 0) {
     const std::array<int, 1> clips{options.Animation.value_or(0)};
     auto selected = asset.plays(clips);
     if (!selected) { return selected; }
   }
-  if (!asset.poses(options.TimeS)) { return std::unexpected(asset.error()); }
+  auto sampled = asset.poses(options.TimeS);
+  if (!sampled) { return sampled; }
   auto camera = ResolveCamera(options, asset);
   if (!camera) { return std::unexpected(std::move(camera.error())); }
   if (!SDL_Init(SDL_INIT_VIDEO)) { return std::unexpected(std::string(SDL_GetError())); }

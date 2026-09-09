@@ -46,6 +46,8 @@ gegen unabhängige Fixtures. Weitere Animation-Pointer-Ziele bleiben offen.
 Clipauswahl zunächst separat validieren: Pose::Build leert seinen Output vor der
 Indexprüfung. Ein abgelehnter Clip darf die aktive Animation nicht zerstören;
 Regression sampelt nach ungültiger Auswahl die bisherige Kamera weiter.
+Variantenwahl und Sampling liefern wie load/plays eigene expected-Diagnosen;
+erfolgreiche Mutationen löschen alte Fehler. Fehlertexte bleiben im Ergebnis gültig.
 Referenz: https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_animation_pointer
 
 ## Umsetzung
