@@ -1,4 +1,7 @@
 #include <format>
+#include <charconv>
+#include <system_error>
+#include <limits>
 #include <array>
 #include <cmath>
 #include "ScenarioRead.h"
@@ -17,6 +20,10 @@
 #include "Xml.h"
 
 namespace outshine {
+
+namespace Says {
+constexpr auto kInvalidCatchUpCount = "mostStepsInArrears requires an integer in [1,INT_MAX]";
+}
 
 constexpr double kPitchLimitUnsaidDeg = 89.0;
 
@@ -333,7 +340,8 @@ void ReadLighting(const Xml::Ref &from, Scenario::Document &into) {
 
 }
 
-[[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into) {
+[[nodiscard]] bool
+ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
   ReadRender(root.Child("render"), into);
   ReadLighting(root.Child("lighting"), into);
@@ -343,8 +351,19 @@ void ReadLighting(const Xml::Ref &from, Scenario::Document &into) {
     into.Motion.Declared = true;
     into.Motion.Dial = physics.Said("dial").value_or(into.Motion.Dial.c_str());
     into.Motion.StepS = physics.Num("stepS", into.Motion.StepS);
-    into.Motion.MostStepsInArrears = static_cast<int>(
-        physics.Num("mostStepsInArrears", static_cast<double>(into.Motion.MostStepsInArrears)));
+    if (physics.Has("mostStepsInArrears")) {
+      const std::string text = physics.Attr("mostStepsInArrears");
+      double count = 0.0;
+      const auto parsed = std::from_chars(text.data(), text.data() + text.size(), count);
+      if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
+          !std::isfinite(count) || count < 1.0 ||
+          count > static_cast<double>(std::numeric_limits<int>::max()) ||
+          std::trunc(count) != count) {
+        error = Says::kInvalidCatchUpCount;
+        return false;
+      }
+      into.Motion.MostStepsInArrears = static_cast<int>(count);
+    }
   }
 
   const Xml::Ref clock = root.Child("clock");
@@ -401,7 +420,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
         Scenario::Layer{.Id = one.Attr("id"), .Path = one.Attr("path"), .Set = one.Attr("set")});
   }
 
-  if (!ReadSectionsOnto(root, into)) { return false; }
+  if (!ReadSectionsOnto(root, into, error)) { return false; }
 
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {
