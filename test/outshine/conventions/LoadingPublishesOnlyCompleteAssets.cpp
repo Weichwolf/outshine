@@ -108,7 +108,7 @@ int main() {
   CHECK(asset.load((directory / "animated.gltf").string()).has_value(),
         "load camera and mesh under a shared animated parent");
   const std::array<int, 1> clips{0};
-  CHECK(asset.plays(clips), "select the parent translation clip");
+  CHECK(asset.plays(clips).has_value(), "select the parent translation clip");
   for (const double seconds : {0.5, 1.0, 0.25, 2.0, 0.0}) {
     CHECK(asset.poses(seconds), "sample absolute time, including backward and beyond final key");
     Scenario::Camera camera;
@@ -126,6 +126,14 @@ int main() {
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
     CHECK(!asset.poses(seconds) && std::abs(asset.camera().Stands.AtM[0] - 2) < 1e-9,
           "invalid time cannot mutate the accepted camera pose");
+  }
+  for (const int invalid : {-1, 1}) {
+    const std::array<int, 1> rejected{invalid};
+    CHECK(!asset.plays(rejected), "invalid clip selection fails");
+    CHECK(std::abs(asset.durationS() - 1.0) < 1e-9,
+          "rejected selection preserves the active animation duration");
+    CHECK(asset.poses(0.75) && std::abs(asset.camera().Stands.AtM[0] - 3) < 1e-9,
+          "previous animation remains sampleable after rejected selection");
   }
   CHECK(asset.plays({}) && std::abs(asset.camera().Stands.AtM[0]) < 1e-9,
         "disabling clips restores authored camera transforms rather than stale sampled locals");

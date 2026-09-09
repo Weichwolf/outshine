@@ -41,6 +41,9 @@ prüft Positionen. Die vier erkannten Materialkanäle bis zur nativen Geometrie 
 Basisfarbe, Metallic, Roughness, Emission einschließlich separater EmissiveStrength.
 Kanalbreite, Zielmaterial und endliche Ergebniswerte prüfen; Reset/Rückwärtssampling
 gegen unabhängige Fixtures. Weitere Animation-Pointer-Ziele bleiben offen.
+Clipauswahl zunächst separat validieren: Pose::Build leert seinen Output vor der
+Indexprüfung. Ein abgelehnter Clip darf die aktive Animation nicht zerstören;
+Regression sampelt nach ungültiger Auswahl die bisherige Kamera weiter.
 Referenz: https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_animation_pointer
 
 ## Umsetzung

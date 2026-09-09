@@ -97,7 +97,6 @@ struct Loaded::Held {
   std::vector<Gltf::Transform> Locals;
   std::vector<double> Weights;
   std::vector<Gltf::Pose::FactorAt> Factors;
-  std::vector<int> Plays;
   std::string Why;
   bool HasEye = false;
   bool Moves = false;
@@ -262,21 +261,17 @@ bool Loaded::wears(std::string_view variant) {
   return held.Assemble(0.0);
 }
 
-bool Loaded::plays(std::span<const int> animations) {
+std::expected<void, std::string> Loaded::plays(std::span<const int> animations) {
   Held &held = *Held_;
-  held.Plays.assign(animations.begin(), animations.end());
-  if (held.Plays.empty()) {
-    held.Moves = false;
-    return held.Assemble(0.0);
+  Gltf::Pose candidate;
+  if (!animations.empty() && !Gltf::Pose::Build(held.File, animations, candidate, held.Why)) {
+    return std::unexpected(held.Why);
   }
-  if (!Gltf::Pose::Build(held.File,
-                         std::span<const int>(held.Plays.data(), held.Plays.size()),
-                         held.Motion,
-                         held.Why)) {
-    return false;
-  }
+  held.Motion = std::move(candidate);
   held.Moves = held.Motion.Valid();
-  return held.Assemble(0.0);
+  if (!held.Assemble(0.0)) { return std::unexpected(held.Why); }
+  held.Why.clear();
+  return {};
 }
 
 const std::string &Loaded::error() const {

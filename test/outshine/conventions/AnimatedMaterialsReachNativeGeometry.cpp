@@ -67,7 +67,7 @@ int main() {
   Loaded asset;
   CHECK(asset.load((root / "scene.gltf").string()).has_value(), "fixture imports");
   const std::array<int, 1> clips{0};
-  CHECK(asset.plays(clips), "material-only clip selects");
+  CHECK(asset.plays(clips).has_value(), "material-only clip selects");
   for (const double time : {0.0, 1.0, 0.5, 0.25}) {
     CHECK(asset.poses(time), "sample material-only animation at absolute time");
     const Material &colour = asset.geometry().surfaceAt(MaterialInstance(0));
@@ -101,7 +101,7 @@ int main() {
   view.Sees.Placed = true;
   view.Sees.Stands.AtM = {{0, 0, 3}};
   scene.Views.push_back(view);
-  CHECK(asset.plays(clips), "reselect material clip for rendering");
+  CHECK(asset.plays(clips).has_value(), "reselect material clip for rendering");
   if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene)) {
     Unprepared(engine.error().c_str());
     return Report();

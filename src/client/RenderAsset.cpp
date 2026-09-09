@@ -224,7 +224,8 @@ struct AssetRenderOptions {
   }
   if (options.Animation || asset.animations() > 0) {
     const std::array<int, 1> clips{options.Animation.value_or(0)};
-    if (!asset.plays(clips)) { return std::unexpected(asset.error()); }
+    auto selected = asset.plays(clips);
+    if (!selected) { return selected; }
   }
   if (!asset.poses(options.TimeS)) { return std::unexpected(asset.error()); }
   auto camera = ResolveCamera(options, asset);

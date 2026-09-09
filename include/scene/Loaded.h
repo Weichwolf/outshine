@@ -38,7 +38,14 @@ public:
 
   [[nodiscard]] const Geometry &geometry() const;
 
-  [[nodiscard]] bool plays(std::span<const int> animations);
+  /// Select clips by zero-based import index and evaluate their combined pose at time zero.
+  /// An empty span disables animation and restores the authored pose. No indices are retained.
+  /// @param animations Borrowed clip indices; conflicting channels are rejected by the importer.
+  /// @return Success or an owned diagnostic. Invalid selections preserve the active clips and
+  /// snapshot; subsequent conversion failures may invalidate borrowed geometry and camera data.
+  /// Rebuilds CPU geometry and materials and may allocate; serialize with all adapter access.
+  /// Requires an adapter that has not been moved from. Success clears error().
+  [[nodiscard]] std::expected<void, std::string> plays(std::span<const int> animations);
   [[nodiscard]] int animations() const;
   [[nodiscard]] double durationS() const;
   /// Evaluate selected animation clips at an absolute time in seconds, without advancing a clock.
