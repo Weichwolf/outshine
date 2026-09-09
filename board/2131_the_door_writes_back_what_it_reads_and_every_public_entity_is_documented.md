@@ -83,3 +83,11 @@ InputBindingsPrecedeUiActions prüft tatsächliche UI-Hits, Bindungspriorität, 
 Ablehnung, Entfernen der Bindung, fehlenden Host und Hits außerhalb der Oberfläche.
 Negativkontrollen gegen Renderer-Sperre bzw. vorzeitigen Abbruch bei ungebundenem
 Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vertrag.
+
+## Nächster Umsetzungsschritt
+
+InputMap::Build erstellt einen lokalen Kandidaten und tauscht ihn ausschließlich
+nach vollständiger Validierung ein. Fehler erhalten alle vorhandenen Event-/Action-
+Zuordnungen; Erfolg löscht die vorherige Diagnose. Test: unbekanntes Event nach
+gültigem Präfix, doppelte Events, Erholung und leere Map. Engine-declare muss danach
+zusätzlich seine vorzeitige Publikation beseitigen; Map-Atomarität allein genügt nicht.
