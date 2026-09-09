@@ -18,6 +18,11 @@ namespace outshine {
 
 namespace {
 
+[[nodiscard]] bool CompleteFiniteCoordinates(std::span<const double> points) noexcept {
+  return points.size() % 2 == 0 &&
+         std::ranges::all_of(points, [](double coordinate) { return std::isfinite(coordinate); });
+}
+
 constexpr double kGoldenCut = std::numbers::phi - 1.0;
 
 constexpr double kIdentitySlack = 1.0e-12;
@@ -416,6 +421,9 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
                                       double withinM,
                                       double tightestM,
                                       std::span<const double> withinAtM) {
+  if (!CompleteFiniteCoordinates(eastNorthM)) {
+    return std::unexpected(Refusal{.Said = "alignment requires complete finite east/north pairs"});
+  }
   const size_t points = eastNorthM.size() / 2;
   if (points < 3) {
     return std::unexpected(
@@ -462,6 +470,9 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
 
 std::expected<Laid, Refusal>
 LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, ReferenceLine &into) {
+  if (!CompleteFiniteCoordinates(eastNorthM)) {
+    return std::unexpected(Refusal{.Said = "alignment requires complete finite east/north pairs"});
+  }
   const size_t points = eastNorthM.size() / 2;
   if (points < 2) {
     return std::unexpected(
