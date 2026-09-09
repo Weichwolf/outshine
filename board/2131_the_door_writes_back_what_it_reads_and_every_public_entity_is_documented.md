@@ -78,3 +78,11 @@ Writer-Physik: deklarierten dial/stepS/mostStepsInArrears schreiben; bisher
 verschwindet der ganze Abschnitt. Zahlen roundtrip-fähig statt %.12g ausgeben,
 XML-Attributtexte escapen. Test liest Ausgabe erneut und prüft exakte Schrittzeit,
 Nachhollimit und Sonderzeichen; Negativkontrolle gegen ausgelassenen Abschnitt.
+
+XML-Attributwerte: Referenz https://www.w3.org/TR/xml/#AVNormalize und #NT-CharRef.
+Beim Parsen einmal dekodieren: amp/lt/gt/quot/apos, dezimale/hexadezimale
+Zeichenreferenzen; ungültige XML-Codepoints/Referenzen ablehnen. Literal-Whitespace
+normalisieren, referenzierte Tabs/Zeilenumbrüche erhalten. Bestehende Offsets durch
+Verkürzung innerhalb des Attributbereichs erhalten, keine rekursive Expansion.
+Writer schreibt Tab/CR/LF als Zeichenreferenzen. Unabhängige XML-Fälle neben dem
+Physik-Rundlauf; das ist kein Nachweis vollständiger XML-Konformität des Parsers.
