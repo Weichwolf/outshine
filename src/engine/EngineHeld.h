@@ -39,7 +39,6 @@
 #include "Tables.h"
 #include "ScenarioLayer.h"
 #include "Live.h"
-#include "Script.h"
 #include "Typeface.h"
 #include "InputPump.h"
 #include "Triggers.h"
@@ -135,48 +134,6 @@ private:
   std::fclose(file);
   return text;
 }
-
-class Forwarding final : public Script::Host {
-public:
-  explicit Forwarding(outshine::Host *client) : Client_(client) {}
-
-  [[nodiscard]] Script::Value Global(std::string_view name) override {
-    for (size_t at = 0; at < Named_.size(); ++at) {
-      if (Named_[at] == name) { return Script::Value::OfRef(static_cast<int>(at) + 1); }
-    }
-    Named_.emplace_back(name);
-    return Script::Value::OfRef(static_cast<int>(Named_.size()));
-  }
-
-  [[nodiscard]] bool Call(const Script::Value &callee,
-                          std::span<const Script::Value> args,
-                          Script::Value &out) override {
-    out = Script::Value();
-    if (Client_ == nullptr || callee.What != Script::Kind::Ref) { return false; }
-    const size_t which = static_cast<size_t>(callee.Ref) - 1;
-    if (callee.Ref <= 0 || which >= Named_.size()) { return false; }
-
-    std::vector<Argument> handed(args.size());
-    for (size_t at = 0; at < args.size(); ++at) {
-      if (args[at].What == Script::Kind::Text) {
-        handed[at].Is = Argument::Kind::Text;
-        handed[at].Text = args[at].Text;
-      } else {
-        handed[at].Is = Argument::Kind::Number;
-        handed[at].Number = args[at].Number;
-      }
-    }
-    Fired_ = true;
-    return Client_->calls(Named_[which], handed);
-  }
-
-  [[nodiscard]] bool Fired() const { return Fired_; }
-
-private:
-  outshine::Host *Client_ = nullptr;
-  std::vector<std::string> Named_;
-  bool Fired_ = false;
-};
 
 inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   std::vector<std::string> quiet;

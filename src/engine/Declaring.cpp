@@ -2,6 +2,7 @@
 #include "ScenarioWrite.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
+#include "ActionHostAdapter.h"
 #include "Ephemeris.h"
 #include "CivilTime.h"
 
@@ -65,7 +66,7 @@ Result Engine::handleEvent(const SDL_Event &event) {
   Script::Program programme;
   const std::string text = S_->Picture.Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
   if (!programme.Read(text, S_->Error)) { return std::unexpected(S_->Error); }
-  Forwarding answering(S_->Offered);
+  ActionHostAdapter answering(S_->Offered);
   if (!programme.Run(answering, S_->Error)) { return std::unexpected(S_->Error); }
   return answering.Fired() ? Result{} : std::unexpected(S_->Error);
 }
