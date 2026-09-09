@@ -41,7 +41,8 @@ public:
   [[nodiscard]] int animations() const;
   [[nodiscard]] double durationS() const;
   /// Evaluate selected animation clips at an absolute time in seconds, without advancing a clock.
-  /// Samples geometry and camera node transforms together. Times beyond keys clamp to endpoints.
+  /// Samples geometry, camera nodes and supported material factors together: base colour,
+  /// metalness, roughness and emissive RGB. Times beyond keys clamp to endpoints.
   /// @param seconds Finite, nonnegative time. Invalid time leaves the asset unchanged.
   /// @return Success, or false with error(); conversion errors may invalidate borrowed data.
   /// Rebuilds CPU geometry and materials, with allocation; serialize with all adapter access.

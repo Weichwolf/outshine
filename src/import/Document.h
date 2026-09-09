@@ -68,7 +68,7 @@ public:
 
   [[nodiscard]] size_t MorphWeightsTotal() const { return MorphAt_.empty() ? 0 : MorphAt_.back(); }
 
-  [[nodiscard]] const std::vector<MaterialRef> &Materials() const { return Materials_; }
+  [[nodiscard]] const std::vector<Material> &Materials() const { return Materials_; }
 
   [[nodiscard]] const std::vector<Texture> &Textures() const { return Textures_; }
 
@@ -122,9 +122,9 @@ private:
   Factor(const Json::Ref &at, const char *named, size_t material, Ranged within, float &into);
 
   [[nodiscard]] bool
-  ReadMaterialColours(const Json::Ref &declaration, size_t index, Material &into);
+  ReadMaterialColours(const Json::Ref &declaration, size_t index, outshine::Material &into);
   [[nodiscard]] bool
-  ReadMaterialTextures(const Json::Ref &declaration, size_t index, MaterialRef &material);
+  ReadMaterialTextures(const Json::Ref &declaration, size_t index, Material &material);
 
   struct MeshAt {
     size_t Mesh = 0;
@@ -229,7 +229,7 @@ private:
   std::vector<Skin> Skins_;
 
   std::vector<size_t> MorphAt_;
-  std::vector<MaterialRef> Materials_;
+  std::vector<Material> Materials_;
   std::vector<Texture> Textures_;
   std::vector<Image> Images_;
   std::vector<Sampler> Samplers_;

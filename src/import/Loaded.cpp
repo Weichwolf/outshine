@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -20,6 +21,49 @@
 
 namespace outshine {
 namespace {
+
+namespace Says {
+constexpr auto InvalidAnimationTime = "animation time must be finite and nonnegative";
+constexpr auto MissingSampledMaterial = "sampled material is absent from native geometry";
+constexpr auto InvalidMaterialFactor =
+    "sampled material factor is outside its finite unit interval";
+constexpr auto EmissionOverflow = "sampled emission exceeds native finite storage";
+constexpr auto MaterialPublicationFailed = "sampled material could not be published";
+}
+
+[[nodiscard]] std::expected<Material, std::string>
+ApplyMaterialFactor(Material material, const Gltf::Pose::FactorAt &factor, double strength) {
+  const size_t components = Gltf::FactorComponents(factor.Factor);
+  for (size_t channel = 0; channel < components; ++channel) {
+    if (!std::isfinite(factor.Values[channel]) || factor.Values[channel] < 0.0 ||
+        factor.Values[channel] > 1.0) {
+      return std::unexpected(std::string(Says::InvalidMaterialFactor));
+    }
+  }
+  switch (factor.Factor) {
+    case Gltf::MaterialFactor::BaseColour:
+      for (size_t channel = 0; channel < 4; ++channel) {
+        material.BaseColour[channel] = static_cast<float>(factor.Values[channel]);
+      }
+      break;
+    case Gltf::MaterialFactor::Metalness:
+      material.Metalness = static_cast<float>(factor.Values[0]);
+      break;
+    case Gltf::MaterialFactor::Roughness:
+      material.Roughness = static_cast<float>(factor.Values[0]);
+      break;
+    case Gltf::MaterialFactor::Emissive:
+      for (size_t channel = 0; channel < 3; ++channel) {
+        const double value = factor.Values[channel] * strength;
+        if (!std::isfinite(value) || value > std::numeric_limits<float>::max()) {
+          return std::unexpected(std::string(Says::EmissionOverflow));
+        }
+        material.Emission[channel] = static_cast<float>(value);
+      }
+      break;
+  }
+  return material;
+}
 
 MipFilter MipOf(Render::SubjectMip mip) {
   switch (mip) {
@@ -50,6 +94,7 @@ struct Loaded::Held {
   Scenario::Camera Eye;
   std::vector<Gltf::Transform> Locals;
   std::vector<double> Weights;
+  std::vector<Gltf::Pose::FactorAt> Factors;
   std::vector<int> Plays;
   std::string Why;
   bool HasEye = false;
@@ -68,8 +113,33 @@ struct Loaded::Held {
       return false;
     }
     Handed = Assembled.Handed(File);
-    if (!Wears()) { return false; }
+    if (!Wears() || !SampleMaterials(seconds)) { return false; }
     HasEye = Camera(0, Eye);
+    return true;
+  }
+
+  [[nodiscard]] bool SampleMaterials(double seconds) {
+    if (!Moves) { return true; }
+    Motion.FactorsAt(seconds, Factors);
+    for (const auto &factor : Factors) {
+      if (factor.Material < 0 || factor.Material >= Handed.surfaces()) {
+        Why = Says::MissingSampledMaterial;
+        return false;
+      }
+      const MaterialInstance index(factor.Material);
+      auto sampled = ApplyMaterialFactor(
+          Handed.surfaceAt(index),
+          factor,
+          File.Materials()[static_cast<size_t>(factor.Material)].EmissiveStrength);
+      if (!sampled) {
+        Why = std::move(sampled.error());
+        return false;
+      }
+      if (!Handed.setSurface(index, *sampled)) {
+        Why = Says::MaterialPublicationFailed;
+        return false;
+      }
+    }
     return true;
   }
 
@@ -98,7 +168,7 @@ struct Loaded::Held {
       }
       Material row = Handed.surfaceAt(MaterialInstance(index));
       const Render::SubjectMaterial &held = table.Slots[slot];
-      const Gltf::MaterialRef &declared = File.Materials()[static_cast<size_t>(index)];
+      const Gltf::Material &declared = File.Materials()[static_cast<size_t>(index)];
 
       struct MapRow {
         const Render::SubjectTexture &From;
@@ -225,7 +295,7 @@ double Loaded::durationS() const {
 
 bool Loaded::poses(double seconds) {
   if (!std::isfinite(seconds) || seconds < 0.0) {
-    Held_->Why = "animation time must be finite and nonnegative";
+    Held_->Why = Says::InvalidAnimationTime;
     return false;
   }
   return Held_->Assemble(seconds);

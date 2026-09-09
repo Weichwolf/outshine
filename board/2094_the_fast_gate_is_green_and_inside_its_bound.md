@@ -45,6 +45,25 @@ Erzeugungsprovenienz historisch erhalten; Ableitungscaches dürfen weiterhin üb
 Producer-Versionen invalidiert werden, erwartete Testergebnisse niemals automatisch.
 Fehlende Pins/Inputs im Renderlauf sind ungewertet/rot, keine leeren Erfolgsfälle.
 
+## Typnamen und Namespaces
+
+EveryTypeNameIsDeclaredOnce entfernte Namespace-Kontext per grep und verlangte eine
+historische Anzahl gleicher Kurznamen. Das verwechselt legale, fachlich unterschiedliche
+Typen mit Duplikaten und widerspricht der Importgrenze: Gltf::Material beschreibt das
+Format, outshine::Material die Engine. Auch lokale Konstantennamen sind keine globalen
+Identitäten. Den unbegründeten Namenszähler entfernen; keine Ersatz-Zählerheuristik.
+Compiler prüfen Sprachregeln, Tierprüfungen Abhängigkeiten. Semantische Doppelmodelle
+und gemeinsam zu nutzende Mathematik fachlich über WI 2150 prüfen.
+
+## Iterationskosten
+
+Gemessen: TheBuildDeclarationAuditsItself kostet 40,6 s normal und 40,5 s als
+sanitisierter Wrapper. Beide starten dieselben externen Shell-/nm-Prüfungen, die
+keine Instrumentierung erben. Claims nur einmal laufen lassen; alle Build-Audit-
+Negativkontrollen erhalten. Shared-Harness-Sanitizerprüfungen bleiben bestehen.
+Weitere Claims nach Fehlernutzen prüfen und falsche/überflüssige entfernen;
+keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
+
 ## Verbleibende Arbeit
 
 Offene Lint-Gruppen: Tidy, öffentliche Dokumentation und Writer-Coverage.

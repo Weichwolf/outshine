@@ -978,8 +978,8 @@ bool Subject::Flatten(const Document &document,
   Undrawn_ = Undrawn();
   outshine::Geometry &made = Scratch_.Made;
   made.clear();
-  for (const MaterialRef &declared : document.Materials()) {
-    Material row = declared.Surface;
+  for (const Material &declared : document.Materials()) {
+    outshine::Material row = declared.Surface;
     row.NeedsTangents = declared.Normal.Texture >= 0;
     (void)made.addSurface("", row);
   }
@@ -1402,7 +1402,7 @@ bool Subject::Append(const Subject &other) {
   const int imageBase = static_cast<int>(Images_.size());
   Images_.insert(Images_.end(), other.Images_.begin(), other.Images_.end());
   Surfaces_.resize(static_cast<size_t>(beyond));
-  for (Material surface : other.Surfaces_) {
+  for (outshine::Material surface : other.Surfaces_) {
     for (SurfaceMap *map : {&surface.BaseColourMap,
                             &surface.NormalMap,
                             &surface.MetalRoughMap,

@@ -32,7 +32,7 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
 }
 
 [[nodiscard]] bool ReadSocketImage(const Document &file,
-                                   const MaterialRef &material,
+                                   const Material &material,
                                    const TextureRef &declared,
                                    const char *socket,
                                    CarriedUvSets carried,
@@ -132,7 +132,7 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
     const int index = table.Material[slot];
     if (index < 0 || static_cast<size_t>(index) >= file.Materials().size()) { continue; }
-    const MaterialRef &material = file.Materials()[static_cast<size_t>(index)];
+    const Material &material = file.Materials()[static_cast<size_t>(index)];
     const TextureRef &declared =
         channel == Render::ColourFrom::Emissive ? material.Emissive : material.BaseColour;
     if (table.Slots[slot].State().Kind() != SurfaceKind::Opaque &&
@@ -187,7 +187,7 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
     for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
       const int index = table.Material[slot];
       if (index < 0 || static_cast<size_t>(index) >= file.Materials().size()) { continue; }
-      const MaterialRef &material = file.Materials()[static_cast<size_t>(index)];
+      const Material &material = file.Materials()[static_cast<size_t>(index)];
       table.Slots[slot].NormalScale = static_cast<float>(material.NormalScale);
 
       struct MapRow {

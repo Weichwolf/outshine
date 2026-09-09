@@ -19,17 +19,17 @@ bool writeGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &erro
         stood.Error().empty() ? "the geometry would not assemble into a subject" : stood.Error();
     return false;
   }
-  std::vector<Gltf::MaterialRef> wearing;
+  std::vector<Gltf::Material> wearing;
   wearing.reserve(stood.Surfaces().size());
   for (size_t at = 0; at < stood.Surfaces().size(); ++at) {
-    Gltf::MaterialRef one;
+    Gltf::Material one;
     one.Name = "surface" + std::to_string(at);
     one.Surface = stood.Surfaces()[at];
     wearing.push_back(std::move(one));
   }
   Gltf::Emission emission;
   emission.Geometry = &stood;
-  emission.Materials = std::span<const Gltf::MaterialRef>(wearing.data(), wearing.size());
+  emission.Materials = std::span<const Gltf::Material>(wearing.data(), wearing.size());
   emission.Generator = "outshine generators";
   return Gltf::Emit(emission, glb, error);
 }

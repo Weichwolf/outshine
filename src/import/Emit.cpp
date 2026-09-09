@@ -162,7 +162,7 @@ private:
     return true;
   }
 
-  [[nodiscard]] bool Statable(const MaterialRef &material, size_t index) {
+  [[nodiscard]] bool Statable(const Material &material, size_t index) {
     struct ImageRow {
       const TextureRef &Slot;
       const char *Name;
@@ -202,8 +202,8 @@ private:
     std::string json = ",\"materials\":[";
     bool unlit = false;
     for (size_t index = 0; index < What_.Materials.size(); ++index) {
-      const MaterialRef &material = What_.Materials[index];
-      const Material &surface = material.Surface;
+      const Material &material = What_.Materials[index];
+      const outshine::Material &surface = material.Surface;
       if (index > 0) { json += ','; }
       json += '{';
       if (!material.Name.empty()) { json += "\"name\":" + Quoted(material.Name) + ","; }

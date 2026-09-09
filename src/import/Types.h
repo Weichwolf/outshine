@@ -240,7 +240,7 @@ struct TextureRef {
   [[nodiscard]] bool Declared() const { return Texture >= 0; }
 };
 
-struct MaterialRef {
+struct Material {
   std::string Name;
   outshine::Material Surface;
   TextureRef BaseColour;
@@ -251,6 +251,7 @@ struct MaterialRef {
 
   TextureRef SpecularStrength;
   TextureRef SpecularTint;
+  double EmissiveStrength = 1.0;
   double NormalScale = 1.0;
   double OcclusionStrength = 1.0;
 };

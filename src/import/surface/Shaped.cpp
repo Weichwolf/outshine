@@ -54,7 +54,7 @@ void FillFrom(const Subject &from, Render::ShapeStore &into) {
     made.Colours = Reach(into.Colours, one.FirstVertex * 4, one.VertexCount * 4);
     into.Parts.push_back(made);
   }
-  for (const Material &surface : from.Surfaces()) { into.Surfaces.push_back(surface); }
+  for (const outshine::Material &surface : from.Surfaces()) { into.Surfaces.push_back(surface); }
 }
 
 }

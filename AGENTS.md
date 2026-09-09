@@ -74,6 +74,10 @@ das Urteil über das ganze Projekt.
   ein Importformat, kein internes Weltmodell. Mesh-/Material-Assets von Instanzen und
   Weltzustand trennen; GPU-, LOD- und Kollisionsprodukte daraus ableiten. Formattypen
   und herkunftsabhängiges Verhalten bleiben außerhalb der Runtime.
+- Importobjekte nach den Begriffen ihres Formats benennen: im glTF-Adapter etwa Node,
+  Mesh, Primitive, Material, Animation und Skin im Import-Namespace. Die Runtime nutzt
+  eigene native Namen und Verträge. Vektor-/Matrixmathematik gemeinsam verwenden;
+  Formatkonvertierung an der Grenze, keine parallelen Mathematikimplementierungen.
 - Logische Karte, Navigation und NPC-Netze bleiben von Rendergeometrie unabhängig.
   Gemeinsame räumliche Referenzen sichern Geländeanschluss, Kontakte, Brücken,
   Tunnel und mehrstöckige Situationen.
@@ -177,6 +181,10 @@ das Urteil über das ganze Projekt.
   über den direkten render-Pfad, Szenarien über run. Beide benutzen die öffentliche
   Engine-API. Direkte API-Tests prüfen Zustands-/Fehlerverträge, keine zweite
   Implementierung eines Renderclients. Ausbau und Migration in WI 2195.
+- Claims brauchen einen konkreten, nachgewiesenen Fehlernutzen. Unbegründete Zähler,
+  falsche Architekturannahmen und nutzlose Doppelprüfungen entfernen. Laufzeit messen;
+  kurze, aussagekräftige Iterationen bevorzugen. Ein sanitisierter Wrapper instrumentiert
+  keine externen Shell-/Toolprozesse; solche Meta-Prüfungen nicht doppelt ausführen.
 - Fachliche Änderungsschritte vollständig bündeln; vor Prüfungen `make format`.
   Schnelle Rückmeldung über einzelne C++-Cases: `make suite SUITE=Pfad/Testname`
   (auch mit `.cpp` oder mehreren Namen). Integrationssuiten nach betroffenen Verträgen

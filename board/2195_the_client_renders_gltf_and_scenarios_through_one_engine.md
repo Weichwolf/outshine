@@ -36,7 +36,11 @@ zu expliziter Zeit liefern; Render-Settling darf diesen Snapshot nicht weiterbew
 Kameraauswertung muss dieselben gesampelten lokalen Transformationen wie Geometrie
 verwenden, einschließlich Elternketten, Rückwärtssampling und Clip-Deaktivierung.
 Ungültige Zeitwerte vor Mutation ablehnen. Unabhängige analytische Kamera-Fixture
-prüft Positionen; KHR_animation_pointer-Materialkanäle im Loader bleiben separat offen.
+prüft Positionen. Die vier erkannten Materialkanäle bis zur nativen Geometrie führen:
+Basisfarbe, Metallic, Roughness, Emission einschließlich separater EmissiveStrength.
+Kanalbreite, Zielmaterial und endliche Ergebniswerte prüfen; Reset/Rückwärtssampling
+gegen unabhängige Fixtures. Weitere Animation-Pointer-Ziele bleiben offen.
+Referenz: https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_animation_pointer
 
 ## Umsetzung
 

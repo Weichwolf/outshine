@@ -14,6 +14,12 @@ namespace outshine::Gltf {
 
 namespace {
 
+namespace Says {
+constexpr auto InvalidMaterialTarget = "animation targets a material outside the asset";
+constexpr auto InvalidMaterialComponents =
+    "animation output components do not match the material property";
+}
+
 const char *PathName(AnimationPath path) {
   switch (path) {
     case AnimationPath::Translation: return "translation";
@@ -87,6 +93,11 @@ bool Pose::Build(const Document &document,
     for (const AnimationChannel &channel : what.Channels) {
       const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
 
+      if (drivesMaterial && (channel.Material < 0 || static_cast<size_t>(channel.Material) >=
+                                                         document.Materials().size())) {
+        error = Says::InvalidMaterialTarget;
+        return false;
+      }
       if (!drivesMaterial && channel.Node < 0) { continue; }
       if (!drivesMaterial && static_cast<size_t>(channel.Node) >= document.Nodes().size()) {
         error = document.Path() + ": animation channel targets node " +
@@ -134,6 +145,11 @@ bool Pose::Build(const Document &document,
                 std::to_string(channel.Node) + " states " + std::to_string(held->Times.size()) +
                 " keyframes and " + std::to_string(held->Values.size()) +
                 " values, which do not describe a curve";
+        return false;
+      }
+
+      if (drivesMaterial && held->Curve.Components() != FactorComponents(channel.Factor)) {
+        error = Says::InvalidMaterialComponents;
         return false;
       }
 

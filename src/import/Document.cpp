@@ -1788,7 +1788,9 @@ bool Document::Factor(
   return true;
 }
 
-bool Document::ReadMaterialColours(const Json::Ref &declaration, size_t index, Material &into) {
+bool Document::ReadMaterialColours(const Json::Ref &declaration,
+                                   size_t index,
+                                   outshine::Material &into) {
   const Json::Ref baseColour = declaration["pbrMetallicRoughness"]["baseColorFactor"];
   for (size_t k = 0; k < 4 && k < baseColour.Size(); ++k) {
     into.BaseColour[k] = static_cast<float>(baseColour[k].Num(1.0));
@@ -1837,7 +1839,7 @@ bool Document::ReadMaterialColours(const Json::Ref &declaration, size_t index, M
 
 bool Document::ReadMaterialTextures(const Json::Ref &declaration,
                                     size_t index,
-                                    MaterialRef &material) {
+                                    Material &material) {
   const Json::Ref pbr = declaration["pbrMetallicRoughness"];
   const Json::Ref specular = declaration["extensions"][kSpecular];
 
@@ -1880,7 +1882,7 @@ bool Document::ReadMaterialTextures(const Json::Ref &declaration,
 }
 
 bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
-  MaterialRef material;
+  Material material;
   material.Name = declaration["name"].Str("");
   material.Surface.DoubleSided = declaration["doubleSided"].Bool(false);
 
@@ -1984,6 +1986,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       return Refuse("material " + Number(index) + " declares an emissiveStrength of " +
                     std::to_string(scale) + ", and the extension's minimum is 0");
     }
+    material.EmissiveStrength = scale;
     for (float &channel : material.Surface.Emission) {
       channel = static_cast<float>(channel * scale);
     }

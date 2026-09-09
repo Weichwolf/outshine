@@ -126,7 +126,7 @@ public:
 
   [[nodiscard]] std::vector<ImageView> Images() const;
 
-  [[nodiscard]] const std::vector<Material> &Surfaces() const { return Surfaces_; }
+  [[nodiscard]] const std::vector<outshine::Material> &Surfaces() const { return Surfaces_; }
 
   [[nodiscard]] const std::vector<Part> &Parts() const { return Parts_; }
 
@@ -312,7 +312,7 @@ private:
   std::vector<Part> Parts_;
   Undrawn Undrawn_;
   std::vector<PlacedLight> Lights_;
-  std::vector<Material> Surfaces_;
+  std::vector<outshine::Material> Surfaces_;
   std::vector<Core::Raster> Images_;
   std::vector<uint8_t> TangentWanted_;
   Vec3 Min_;

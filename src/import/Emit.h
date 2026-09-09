@@ -13,7 +13,7 @@ namespace outshine::Gltf {
 
 struct Emission {
   const Subject *Geometry = nullptr;
-  std::span<const MaterialRef> Materials;
+  std::span<const Material> Materials;
   std::string Generator;
 };
 

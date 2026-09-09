@@ -81,6 +81,8 @@ Vollständiger GPU-Rollback und atomarer Welt-/Render-Austausch bleiben offen.
 
 ## Migrationsfolge
 
+Importer-Namen folgen Khronos (Node/Mesh/Primitive/Material/Animation/Skin), Runtime-Namen
+bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im Adapter.
 1. Native Asset-/Instanzverträge aus vorhandenen Consumern ableiten; Geometry und
    Subject-Felder vollständig zuordnen, Besitz und Invalidierung dokumentieren.
 2. Einen vollständigen statischen Pfad migrieren: Generator und glTF-Importer →
