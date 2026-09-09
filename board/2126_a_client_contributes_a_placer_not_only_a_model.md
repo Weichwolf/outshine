@@ -103,3 +103,8 @@ Vorzeichenwechsel erlauben einen zusammenhängenden Schnitt; Nullwerte überspri
 mehrere Ein-/Austritte ablehnen. Reine span-Funktion mit zyklisch rotierten Tests für
 Tangente, Schnitt durch Ecke und mehrere Intervalle prüfen. Das beweist nur die
 Schnittklassifikation; Flächenerhaltung und vollständige Clippingrobustheit bleiben offen.
+
+Dachauswahl: Seitenverhältnis aus BuildingShape ableiten statt als zweiten,
+vertauschbaren double-Parameter übergeben. Nur PitchedShare ist externe Vorgabe;
+Geometrie und abgeleitete Proportion dürfen sich nicht widersprechen. Bestehenden
+Gebäudeaufbau inklusive Fehler-/Retry-Verträgen unverändert nachweisen.
