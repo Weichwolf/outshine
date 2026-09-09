@@ -54,3 +54,8 @@ bilden, leere Nachfrage bleibt 1, kein Residency-Versprechen. SIZE_MAX-Kontrollf
 Einheiten gegen TilePool geprüft: FetchedMB tatsächlich MiB, Megabits tatsächlich
 MiBit/s aus kumuliertem Poolzähler / preload-Zeit. Dokumentieren, Umbenennung und
 intervallrichtige Ratenmessung bleiben offen; kein Netzwerk-Durchsatzversprechen.
+
+Preload verlangt endliche nichtnegative Sekunden vor jeder Arbeit/Callback; NaN/Inf
+und negative Budgets dürfen keine unbeschränkte Schleife oder stillen Erfolg liefern.
+Öffentlichen Callback-/Snapshot-/Teilfortschrittsvertrag dokumentieren; Roots besitzt
+Strings, setRoots ist Setup und migriert keine bereits geöffneten Ressourcen.
