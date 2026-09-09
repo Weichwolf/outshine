@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTURES_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTURES_H
 
-#include <generate/Generate.h>
+#include <generation/Generate.h>
 
 namespace outshine::Generators {
 

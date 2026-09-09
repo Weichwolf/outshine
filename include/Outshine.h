@@ -14,7 +14,7 @@
 
 #include "Earth.h"
 #include "Logging.h"
-#include "generate/Generate.h"
+#include "generation/Generate.h"
 #include "scenario/Event.h"
 #include "scenario/Scenario.h"
 #include "scene/Geometry.h"

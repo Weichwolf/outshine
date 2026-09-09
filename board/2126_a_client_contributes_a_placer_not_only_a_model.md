@@ -1,41 +1,46 @@
 Type: debt
 State: open
-Area: include, generators
-Tags: architecture, door
+Area: include, generators, engine
+Tags: architecture, ownership, generation
+Parent: 2188
+Depends: 2150, 2194
 
-# A client contributes a PLACER, not only a model
+# Clients contribute native generated assets and placement rules
 
-**Benchmark** -- Unreal: a procedural foliage SPAWNER is the authored unit -- it decides where
-instances go -- and the mesh it spawns is a separate asset; a plugin can ship either. RAGE: prop
-placement is data (`ipl`) beside the drawable (`ydr`), two things, and a game module supplies
-both. **Both agree**: what a thing looks like and where it goes are two contributions, and a
-door that accepts only the first accepts half a generator.
+## Befund
 
-## Where it stands, measured 2026-09-04
+`include/generation/Generate.h` bietet Generator::make(Request, Geometry &),
+optionale Terrain-Stamps und eine Registry geliehener Producer. Die internen
+Making/Yield/Claim/Ground/Rank-Verträge sind kein öffentlicher Placement-Zugang.
+Ein Client kann Geometrie liefern, aber keine räumliche Belegungsregel registrieren.
 
-`include/generate/Generate.h` offers `Generator{kind(), make(Request, Geometry &), stamps(...)}`
-and `Registry{offers, named, count}`. That is a MODEL asked for by name. The placement vocabulary
--- `Making`, `Yield`, `Claim`, `Ground`, `Rank`, `OccupancySink` -- stands in
-`src/generators/base/` and appears nowhere in the door. So a client can say what its tree looks
-like and cannot say where its trees go.
+make liefert nur bool und mutiert fremden Output ohne Rollbackvertrag. Structures
+ignoriert Ground/Coarseness, setzt CornerAslM auf null und AnchorEcef auf Nullvektor;
+das ist keine gültige weltweit platzierte Terrain-Anbindung. Engine::generated
+überspringt unbekannte Registrierungen still und setzt mehrere Outputs zusammen.
+Die dokumentierten Ist-Grenzen sind keine Abnahme dieses Verhaltens.
 
-Found while closing board:2110, which cut the generators by subject and enforced the cut with a
-`reaches` per area; the directory question is closed and this is the door question it left.
+## Entscheidung
 
-## What will be true
+Native Generatorprodukte als owned expected liefern. Meshdaten, Instanzen und
+Terrainänderungen ausdrücklich trennen; 2150 stellt gemeinsame Asset-/Instanztypen.
+Terrain-/Detailbedarf prüfen, fehlende Providerdaten diagnostizieren und mehrere
+Produkte atomar publizieren. Keine Ersatzwelt auf Nullhöhe bei fehlendem Terrain.
+Generierungsfehler unterscheiden von einem gültigen leeren Ergebnis.
 
-- [ ] The door names the placer: an interface a client implements that is asked for a region and
-      answers with claims, the way `Forest::Occupy` does inside the tree
-- [ ] The rank a placer runs at is declared beside it, because a placer that runs after another
-      sees ground already taken and the order decides the picture
-- [ ] `Making`, `Yield`, `Claim` and `Ground` are either published as the vocabulary of that
-      interface or hidden behind a narrower one -- the item states which and why, before the
-      header is written
-- [ ] A case registers a placer through the door alone and a tile it was asked for carries its
-      claims
-- [ ] Negative control: unregister it and the claims are gone
+Platzierungsregeln erhalten Region, Seed und geliehene Provider; sie liefern begrenzte
+Belegungsansprüche mit Priorität und stabiler Identität. Bestehende Forest::Occupy-
+Fähigkeiten nutzen; interne OccupancySink-Speicherung nicht öffentlich machen.
+Deterministische Konfliktauflösung unabhängig von Worker-Abschlussreihenfolge.
+RDR2/GTA5 sind visuelle Referenzen, kein Beleg proprietärer API- oder Dateiverträge.
 
-## What will show I was wrong
+## Abnahme
 
-If the vocabulary cannot be published without publishing `OccupancySink`'s storage, the placer is
-not ready to be a door type and this item says so instead of widening the door.
+- [ ] Öffentlicher Client registriert Assetproducer und Placement-Regel unabhängig.
+- [ ] Zwei Producer liefern verschiedene native Assets und Instanzen in einer Region.
+- [ ] Geneigtes Terrain, fehlende Höhen, Pole und ungültige Requests explizit geprüft.
+- [ ] Unbekannte Registrierung und Fehler nach Teilaufbau publizieren keinen Teilzustand.
+- [ ] Leere gültige Region ist erfolgreich; vorhandener Output bleibt bei Fehler erhalten.
+- [ ] Seed, unveränderte Provider und wechselnde Worker-Reihenfolge liefern dieselbe Belegung.
+- [ ] Abmeldung entfernt Beiträge ohne hängende geliehene Zugriffe; Negativkontrolle wirksam.
+- [ ] Kosten-/Speichergrenzen und Abbruch für Streaming geprüft; make lint und API-Tests.

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GENERATE_H
-#define OUTSHINE_GENERATE_H
+#ifndef OUTSHINE_GENERATION_GENERATE_H
+#define OUTSHINE_GENERATION_GENERATE_H
 
 #include <array>
 #include <cmath>
@@ -17,16 +17,18 @@
 
 namespace outshine::Generators {
 
-/// What a generator may ask about the ground it is standing something on, supplied by whoever owns
-/// that ground rather than reached for.
-///
-/// A generator that read the engine's terrain directly would link the engine, and the generators
-/// are a tier that links with none of it -- that separation is what lets a corpus score a
-/// derivation without booting a renderer. So the caller passes an answerer and the generator asks.
+/// Borrowed terrain-query interface, independent of the renderer and terrain storage.
+/// The caller owns the implementation and keeps it alive throughout generation. Calls
+/// are synchronous; latency, caching and concurrency depend on the implementation.
+/// Missing terrain is distinct from a known zero-metre elevation. Implementations
+/// return finite elevations when present and must not retain borrowed call arguments.
 class HeightSampler {
 public:
+  /// Destroy the sampler through its interface; does not own the terrain provider.
   virtual ~HeightSampler() = default;
+  /// Terrain-provider identity is not implicitly copied.
   HeightSampler(const HeightSampler &) = delete;
+  /// Terrain-provider identity is not implicitly replaced.
   HeightSampler &operator=(const HeightSampler &) = delete;
 
   /// The source DEM's height above mean sea level (ASL), in metres, or nothing.
@@ -39,6 +41,7 @@ public:
   sampleHeightAslM(const LongitudeLatitudeHeight &at) const = 0;
 
 protected:
+  /// Construct the interface subobject without allocation.
   HeightSampler() = default;
 };
 
@@ -54,7 +57,7 @@ enum class Detail : uint8_t {
 /// Map a relative tile rung to a bounded representation class.
 /// @param rungsCoarser Rungs relative to the finest tile; nonpositive selects Fine.
 /// @return Fine, Shell, Massed, or Skyline, saturating at Skyline from rung three onward.
-[[nodiscard]] constexpr Detail DetailAtRung(int rungsCoarser) {
+[[nodiscard]] constexpr Detail DetailAtRung(int rungsCoarser) noexcept {
   if (rungsCoarser <= 0) { return Detail::Fine; }
   if (rungsCoarser == 1) { return Detail::Shell; }
   if (rungsCoarser == 2) { return Detail::Massed; }
@@ -78,7 +81,7 @@ inline constexpr double kErrorPx = 1.0;
 /// @return True if all inputs are valid and errorM * focalPx <= kErrorPx * awayM.
 /// Invalid values return false, including invalid projection values with zero error.
 /// This function neither measures the displacement bound nor verifies occlusion.
-[[nodiscard]] constexpr bool Unseen(double errorM, double focalPx, double awayM) {
+[[nodiscard]] constexpr bool Unseen(double errorM, double focalPx, double awayM) noexcept {
   if (!std::isfinite(errorM) || errorM < 0.0 || !std::isfinite(focalPx) || !(focalPx > 0.0) ||
       !std::isfinite(awayM) || !(awayM > 0.0)) {
     return false;
@@ -86,37 +89,29 @@ inline constexpr double kErrorPx = 1.0;
   return errorM * focalPx <= kErrorPx * awayM;
 }
 
-/// The coarser of two readings -- a subject is never finer than the coarsest thing that bounds it.
-[[nodiscard]] constexpr Detail Coarser(Detail one, Detail two) {
+/// Select the coarser representation in constant time, without allocation.
+/// @param one Valid representation class.
+/// @param two Valid representation class.
+/// @return The class with the greater coarseness; does not validate enum values.
+[[nodiscard]] constexpr Detail Coarser(Detail one, Detail two) noexcept {
   return static_cast<uint8_t>(one) > static_cast<uint8_t>(two) ? one : two;
 }
 
 static_assert(Coarser(Detail::Fine, Detail::Massed) == Detail::Massed);
 static_assert(Coarser(Detail::Skyline, Detail::Shell) == Detail::Skyline);
 
-/// Where a generator is asked to make something, and what it may ask about that place.
+/// Value-only generation request with a borrowed terrain provider.
+/// Copies do not extend Ground's lifetime. The generator borrows the request for the
+/// duration of make/stamps; the caller keeps its values and terrain inputs stable.
+/// Coordinates use WGS84 geodetic degrees. Concrete generators define supported
+/// windows, missing-data handling and detail levels; this aggregate validates nothing.
 struct Request {
-  /// The centre, in DEGREES. A generator that reads a public map has to know where on Earth it is,
-  /// and a local metre offset with no origin cannot say. The fields carried metres in their names
-  /// and degrees in their values until board:2083 measured it.
-  double LatitudeDeg = 0.0;
-
-  /// The centre's longitude, in degrees.
-  double LongitudeDeg = 0.0;
-
-  /// How far the window reaches, in metres.
-  double ExtentM = 0.0;
-
-  /// The seed every random choice descends from, so one declaration makes one world twice.
-  uint64_t Seed = 0;
-
-  /// The ground beneath, or nothing when the caller has none to offer. A generator that needs a
-  /// height and is given no answerer refuses rather than assuming a plain at zero.
-  const HeightSampler *Ground = nullptr;
-
-  /// How coarse to build. A generator that ignores this builds a city at full detail to the
-  /// horizon, which is measurable rather than theoretical: see `Detail`.
-  Detail Coarseness = Detail::Fine;
+  double LatitudeDeg = 0.0;  ///< Window centre latitude, finite and within [-90, 90] degrees.
+  double LongitudeDeg = 0.0; ///< Window centre longitude, finite and within [-180, 180] degrees.
+  double ExtentM = 0.0;      ///< Window extent in metres; interpretation is generator-specific.
+  uint64_t Seed = 0;         ///< Root seed for reproducible choices with unchanged input data.
+  const HeightSampler *Ground = nullptr; ///< Borrowed terrain provider, or nullptr if unavailable.
+  Detail Coarseness = Detail::Fine; ///< Requested representation; support is generator-specific.
 };
 
 /// A generator's request that the ground become FLAT under what it made, and OPTIONAL by design: a
@@ -144,25 +139,38 @@ struct Stamp {
   double FalloffM = 0.0;
 };
 
+/// Polymorphic CPU-content producer registered by borrowed address.
+/// Registration does not transfer ownership. Implementations borrow each request and
+/// own their internal dependencies; generated Geometry owns its copied output data.
+/// Generation may allocate and perform provider work; it is a preparation operation,
+/// not a bounded frame callback. Serialize calls unless an implementation explicitly
+/// permits concurrency; const does not guarantee thread safety of its dependencies.
+/// Allocation failure currently follows the allocator contract, not the boolean result.
 class Generator {
 public:
+  /// Destroy the implementation through this interface; unregister before destruction.
   virtual ~Generator() = default;
+  /// Registered producer identity is not implicitly copied.
   Generator(const Generator &) = delete;
+  /// Registered producer identity is not implicitly replaced.
   Generator &operator=(const Generator &) = delete;
 
+  /// @return Borrowed nonempty registration name, readable until registration copies it.
+  /// Exact case-sensitive identifier; no ownership is transferred to the caller.
   [[nodiscard]] virtual std::string_view kind() const = 0;
+  /// Generate native CPU geometry using implementation-specific request semantics.
+  /// @param asked Borrowed request; do not retain it or its Ground pointer beyond the call.
+  /// @param into Caller-owned output under exclusive access. Implementations define whether
+  /// they append or replace; the built-in structures generator appends parts and materials.
+  /// @return True when generation succeeds; false when refused. The current interface
+  /// carries no diagnostic and does not guarantee rollback of partially written output.
   [[nodiscard]] virtual bool make(const Request &asked, Geometry &into) const = 0;
 
-  /// What the ground must BECOME for this to stand, or nothing at all. The default answers nothing,
-  /// so a generator that needs no plateau says so by saying nothing and never has to know this verb
-  /// exists.
-  ///
-  /// @param ask  the same window `make` was asked for, so a stamp and the geometry it carries
-  ///             cannot disagree about where they are
-  /// @param into the stamps are APPENDED, because one generator may plateau several sites in one
-  ///             window and the caller collects across generators
-  /// @return whether anything was appended. False and an empty `into` mean the same thing; the
-  ///         return exists so a caller need not compare sizes to find out.
+  /// Append requested terrain modifications; the default implementation appends nothing.
+  /// @param asked Same request used for geometry generation; borrowed only during the call.
+  /// @param into Caller-owned accumulation under exclusive access; preserve existing stamps.
+  /// @return True if this call appended any stamps; false leaves the accumulation unchanged.
+  /// Existing entries do not affect the result. Cost and allocation depend on the producer.
   [[nodiscard]] virtual bool stamps(const Request &asked, std::vector<Stamp> &into) const {
     (void)asked;
     (void)into;
@@ -170,12 +178,16 @@ public:
   }
 
 protected:
+  /// Construct the interface subobject without allocation.
   Generator() = default;
 };
 
 /// The generators this engine ships with, and the catalogue is CLOSED: a client registers its own
 /// beside them rather than adding a value here.
-enum class Shipped : uint8_t { Structures, kCount };
+enum class Shipped : uint8_t {
+  Structures, ///< Built-in building producer.
+  kCount      ///< Catalogue size sentinel; not a generator.
+};
 
 /// The name each shipped kind answers to in a declaration, in the order the enum names them.
 inline constexpr std::array<std::string_view, static_cast<size_t>(Shipped::kCount)> kShipped = {
@@ -189,7 +201,9 @@ inline constexpr std::array<std::string_view, static_cast<size_t>(Shipped::kCoun
   return index < kShipped.size() ? kShipped[index] : std::string_view{};
 }
 
-[[nodiscard]] constexpr bool EveryShippedKindIsSpelled() {
+/// Verify that built-in registration names are nonempty and unique.
+/// @return True for a valid catalogue; quadratic in catalogue size, no allocation.
+[[nodiscard]] constexpr bool EveryShippedKindIsSpelled() noexcept {
   for (size_t at = 0; at < static_cast<size_t>(Shipped::kCount); ++at) {
     if (kShipped[at].empty()) { return false; }
     for (size_t over = at + 1; over < static_cast<size_t>(Shipped::kCount); ++over) {

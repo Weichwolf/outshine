@@ -11,7 +11,7 @@ Depends:
 
 Terrain hat bereits Fehlerselektion; Gebäude wählen Details teilweise beim Ingest. Das
 ist noch keine gemeinsame kontinuierliche Qualitätsleiter für Straßen, Wasser, Bäume und
-Gebäude. Einstieg `include/generate/Generate.h`, Unseen/Detail-Auswahl, GroundLattice,
+Gebäude. Einstieg `include/generation/Generate.h`, Unseen/Detail-Auswahl, GroundLattice,
 Generator-Bakes und Render-Cluster. 2166 besitzt den finalen Terrainfehler.
 
 Pro Renderprodukt geometrischen/visuellen Fehler und Bounds tragen. Auswahl nach projiziertem

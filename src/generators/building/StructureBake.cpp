@@ -16,7 +16,7 @@
 
 #include "math/Units.h"
 #include "Geodesy.h"
-#include <generate/Generate.h>
+#include <generation/Generate.h>
 
 namespace outshine::Generators {
 

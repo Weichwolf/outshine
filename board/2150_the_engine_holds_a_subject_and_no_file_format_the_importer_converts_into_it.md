@@ -60,7 +60,7 @@ Mutation. Winding-Diagnostik muss bei unvollständigen Attributen sicher bleiben
 Regression: größerer Aufbau → clear → kleinerer Aufbau, wiederholtes clear,
 NaN/Inf je Attributkanal und Dreiecke mit fehlenden Normalen in jeder Ecke.
 
-Die öffentliche Geometry-/Manager-Dokumentation beschreibt jetzt auch verbleibende
+Die öffentliche Geometry-Dokumentation beschreibt jetzt auch verbleibende
 Grenzen: unvalidierte Material-/Transformwerte, lokale wiederverwendbare Integer-
 Indizes, unbenutzbare Move-Quellen und allokierende Setter. Vor nativer Runtime-
 Abnahme: validierte Asset-Publikation, echte Handle-Generationen und 2194-Fehlervertrag.

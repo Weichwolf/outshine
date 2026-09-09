@@ -1,6 +1,6 @@
 #include "Corridors.h"
 
-#include <generate/Generate.h>
+#include <generation/Generate.h>
 
 #include <algorithm>
 #include <array>

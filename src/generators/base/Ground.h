@@ -10,7 +10,7 @@
 #include "FeatureField.h"
 #include "GroundPatch.h"
 #include "GroundTable.h"
-#include <generate/Generate.h>
+#include <generation/Generate.h>
 
 #include "Tile.h"
 

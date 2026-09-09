@@ -71,7 +71,7 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
   owner-lokale Referenzen; keine Formatkonvention als impliziter Runtime-Vertrag.
   Fresnel-/Index-Wertoperationen constexpr/noexcept nach geprüften Vorbedingungen.
 - `import/`: GltfImporter ersetzt Loaded; Formatobjekte bleiben im Adapter.
-- `generation/`: Generatoren liefern dieselben nativen Assets und Weltinhalte.
+- `generation/Generate.h`: native Generatorverträge; geliehene Provider und Setupkosten.
   Registry besitzt eindeutige, nichtleere Registrierungsnamen; Generatoren bleiben
   explizit geliehen. Ungültige Shipped-Werte dürfen keinen Arrayzugriff auslösen.
 - `export/`: exportGlb übernimmt writeGlb mit owned expected-Ergebnis; kein

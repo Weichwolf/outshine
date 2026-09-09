@@ -9,7 +9,7 @@
 
 #include "math/Vec3.h"
 
-#include <generate/Generate.h>
+#include <generation/Generate.h>
 
 #include "StoredVertex.h"
 #include "TileMeshes.h"
