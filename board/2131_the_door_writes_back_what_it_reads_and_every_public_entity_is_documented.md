@@ -92,3 +92,9 @@ declaration/unacted/measures verleihen veränderliche Engine-Daten, keine Snapsh
 standing ist nur Szenenobjekt-Präsenz. error ist Legacy-Diagnose, nicht zuverlässig
 das Ergebnis des letzten expected-Aufrufs. Sampling beschreibt gespeicherte
 CPU-Dauern, Reihenfolge, Überschreiben, Allokation und Threadbindung; kein GPU-Timer.
+
+advance(elapsedS): endliche nichtnegative Sekunden vor Akkumulatoränderung prüfen;
+auch nicht darstellbare Summe ablehnen. Ungültiger Aufruf darf keine Schritte
+ausführen oder Zeitreste verändern. Null bleibt erlaubtes Nachholen bestehender
+Zeitreste. API-/Negativtest mit NaN, ±Inf, negativer Zeit und anschließender Null.
+Validierung von StepS/MostStepsInArrears und Überlastpolitik bleiben separat offen.
