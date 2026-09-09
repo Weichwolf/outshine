@@ -1,6 +1,7 @@
 #include "Earth.h"
 #include "math/Units.h"
 #include "Alignment.h"
+#include "SegmentEvaluation.h"
 #include "Angle.h"
 
 #include <algorithm>
@@ -23,6 +24,28 @@ namespace {
          std::ranges::all_of(points, [](double coordinate) { return std::isfinite(coordinate); });
 }
 
+void AppendBendSegments(const Bend &bend, std::vector<Segment> &along) {
+  const double curvature = (bend.TurnRad >= 0.0 ? 1.0 : -1.0) / bend.RadiusM;
+  if (bend.SpiralM > kLeastRunM) {
+    along.push_back(Segment{.Shape = Curve::Spiral,
+                            .LengthM = bend.SpiralM,
+                            .EntryCurvature = 0.0,
+                            .ExitCurvature = curvature});
+  }
+  if (bend.ArcM > kLeastRunM) {
+    along.push_back(Segment{.Shape = Curve::Arc,
+                            .LengthM = bend.ArcM,
+                            .EntryCurvature = curvature,
+                            .ExitCurvature = curvature});
+  }
+  if (bend.SpiralM > kLeastRunM) {
+    along.push_back(Segment{.Shape = Curve::Spiral,
+                            .LengthM = bend.SpiralM,
+                            .EntryCurvature = curvature,
+                            .ExitCurvature = 0.0});
+  }
+}
+
 constexpr double kGoldenCut = std::numbers::phi - 1.0;
 
 constexpr double kIdentitySlack = 1.0e-12;
@@ -37,7 +60,6 @@ constexpr int kCrowdingPasses = 8;
 constexpr double kRadiusExactM = 1.0e-3;
 constexpr int kSpiralSteps = 96;
 constexpr double kShiftDenominator = 96.0;
-constexpr double kSpiralShiftDenominator = 24.0;
 
 struct Turned {
   double TurnRad = 0.0;
@@ -85,10 +107,24 @@ struct Spiralling {
   return radiusM * kMostClothoidShare * kMostClothoidShare;
 }
 
-[[nodiscard]] double TangentFor(double radiusM, double swing, double spiralM) {
-  return (radiusM + spiralM * spiralM / (kSpiralShiftDenominator * radiusM)) *
-             std::tan(0.5 * swing) +
-         0.5 * spiralM;
+struct BendGeometry {
+  double RadiusM;
+  double TurnRad;
+  double SpiralM;
+};
+
+[[nodiscard]] double TangentFor(BendGeometry geometry) {
+  const double radiusM = geometry.RadiusM;
+  const double swing = geometry.TurnRad;
+  const double spiralM = geometry.SpiralM;
+  const Segment spiral{.Shape = Curve::Spiral,
+                       .LengthM = spiralM,
+                       .EntryCurvature = 0.0,
+                       .ExitCurvature = 1.0 / radiusM};
+  const Placed end = AdvanceAlong({}, spiral, spiralM);
+  const double shiftM = end.NorthM - radiusM * (1.0 - std::cos(end.HeadingRad));
+  const double offsetM = end.EastM - radiusM * std::sin(end.HeadingRad);
+  return (radiusM + shiftM) * std::tan(0.5 * swing) + offsetM;
 }
 
 [[nodiscard]] double SpiralInto(Spiralling by, bool againstAStraight) {
@@ -201,7 +237,9 @@ struct Arc {
   const double roomM = intoM < outOfM ? intoM : outOfM;
   const bool againstAStraight =
       at > 1 || last + 2 < points.size() / 2 || std::fabs(intoM - outOfM) > kLeastRunM;
-  const double byRoom = roomM / TangentFor(1.0, swing, SpiralAtLeast(1.0, againstAStraight));
+  const double byRoom = roomM / TangentFor({.RadiusM = 1.0,
+                                            .TurnRad = swing,
+                                            .SpiralM = SpiralAtLeast(1.0, againstAStraight)});
   if (!(byRoom > tightestM)) {
     return std::unexpected(
         Refusal{.Said = "vertices " + std::to_string(at) + ".." + std::to_string(last) + " leave " +
@@ -284,7 +322,7 @@ struct Arc {
   bend.SpiralM =
       SpiralInto({.RadiusM = bend.RadiusM, .SwingRad = swing, .RoomM = roomM}, againstAStraight);
   bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
-  bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
+  bend.TangentM = TangentFor({.RadiusM = bend.RadiusM, .TurnRad = swing, .SpiralM = bend.SpiralM});
   bend.IntoHeadingRad = legs[at - 1].HeadingRad;
   bend.OutOfHeadingRad = legs[last].HeadingRad;
   bend.IntoEastM = bend.PiEastM - bend.TangentM * std::cos(bend.IntoHeadingRad);
@@ -296,14 +334,15 @@ struct Arc {
 
 void ShrinkTo(Bend &bend, double toM) {
   const double swing = std::fabs(bend.TurnRad);
-  bend.RadiusM = toM / TangentFor(1.0, swing, SpiralAtLeast(1.0, true));
+  bend.RadiusM =
+      toM / TangentFor({.RadiusM = 1.0, .TurnRad = swing, .SpiralM = SpiralAtLeast(1.0, true)});
   bend.SpiralM = SpiralInto({.RadiusM = bend.RadiusM, .SwingRad = swing, .RoomM = toM}, true);
   bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
-  bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
-  bend.IntoEastM = bend.PiEastM - toM * std::cos(bend.IntoHeadingRad);
-  bend.IntoNorthM = bend.PiNorthM - toM * std::sin(bend.IntoHeadingRad);
-  bend.OutOfEastM = bend.PiEastM + toM * std::cos(bend.OutOfHeadingRad);
-  bend.OutOfNorthM = bend.PiNorthM + toM * std::sin(bend.OutOfHeadingRad);
+  bend.TangentM = TangentFor({.RadiusM = bend.RadiusM, .TurnRad = swing, .SpiralM = bend.SpiralM});
+  bend.IntoEastM = bend.PiEastM - bend.TangentM * std::cos(bend.IntoHeadingRad);
+  bend.IntoNorthM = bend.PiNorthM - bend.TangentM * std::sin(bend.IntoHeadingRad);
+  bend.OutOfEastM = bend.PiEastM + bend.TangentM * std::cos(bend.OutOfHeadingRad);
+  bend.OutOfNorthM = bend.PiNorthM + bend.TangentM * std::sin(bend.OutOfHeadingRad);
 }
 
 void SettleOverlaps(Aligned &out) {
@@ -535,25 +574,7 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
                               .EntryCurvature = 0.0,
                               .ExitCurvature = 0.0});
     }
-    const double curvature = (bend.TurnRad >= 0.0 ? 1.0 : -1.0) / bend.RadiusM;
-    if (bend.SpiralM > kLeastRunM) {
-      along.push_back(Segment{.Shape = Curve::Spiral,
-                              .LengthM = bend.SpiralM,
-                              .EntryCurvature = 0.0,
-                              .ExitCurvature = curvature});
-    }
-    if (bend.ArcM > kLeastRunM) {
-      along.push_back(Segment{.Shape = Curve::Arc,
-                              .LengthM = bend.ArcM,
-                              .EntryCurvature = curvature,
-                              .ExitCurvature = curvature});
-    }
-    if (bend.SpiralM > kLeastRunM) {
-      along.push_back(Segment{.Shape = Curve::Spiral,
-                              .LengthM = bend.SpiralM,
-                              .EntryCurvature = curvature,
-                              .ExitCurvature = 0.0});
-    }
+    AppendBendSegments(bend, along);
     if (!(bend.SpiralM > kLeastRunM)) { untransitioned = &bend; }
     atEast = bend.OutOfEastM;
     atNorth = bend.OutOfNorthM;

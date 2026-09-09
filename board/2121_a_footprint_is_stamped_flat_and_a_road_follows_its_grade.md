@@ -118,4 +118,3 @@ TangentFor nutzt Näherung statt integrierter Spirale. Gemeinsame Segmentauswert
 für ReferenceLine und Tangentenberechnung nutzen: p=y-R*(1-cos(theta)),
 k=x-R*sin(theta), T=(R+p)*tan(turn/2)+k. ShrinkTo muss Endpunkte mit berechnetem T
 setzen. Links/rechts, fehlende Übergänge und Endpose prüfen; danach Places-PNG.
-Allgemeine Quadraturfehlergrenze, Fahrdynamik und Knoten bleiben offen.

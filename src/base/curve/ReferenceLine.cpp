@@ -1,4 +1,5 @@
 #include "ReferenceLine.h"
+#include "SegmentEvaluation.h"
 
 #include <array>
 #include <algorithm>
@@ -224,7 +225,7 @@ std::vector<double> ReferenceLine::Seams() const {
   return at;
 }
 
-Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM) {
+Placed AdvanceAlong(const Placed &from, const Segment &along, double byM) noexcept {
   Placed out;
   const double rate =
       along.LengthM > 0.0 ? (along.ExitCurvature - along.EntryCurvature) / along.LengthM : 0.0;
@@ -319,7 +320,7 @@ bool ReferenceLine::Append(Placed &at, Segment declared, std::string &error) {
     }
   }
   const double endM = Length_ + declared.LengthM;
-  const Placed end = Walk(at, declared, declared.LengthM);
+  const Placed end = AdvanceAlong(at, declared, declared.LengthM);
   if (!std::isfinite(endM) || !(endM > Length_) || !Finite(end)) {
     error = Says::InvalidEndpoint;
     return Refuse(error);
@@ -426,7 +427,7 @@ bool ReferenceLine::At(double alongM, Placed &out) const {
     }
   }
   const Held &held = Laid_[low];
-  Placed candidate = Walk(held.Entry, held.Declared, alongM - held.AlongM);
+  Placed candidate = AdvanceAlong(held.Entry, held.Declared, alongM - held.AlongM);
 
   const Curving rise = Read(Rise_, alongM);
   candidate.HeightM = rise.Value;

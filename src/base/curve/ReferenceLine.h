@@ -102,7 +102,6 @@ private:
     double AlongM = 0.0;
   };
 
-  [[nodiscard]] static Placed Walk(const Placed &from, const Segment &along, double byM);
   [[nodiscard]] bool Refuse(std::string why);
   [[nodiscard]] bool Append(Placed &at, Segment declared, std::string &error);
   [[nodiscard]] bool Build(const Placed &from, std::span<const Segment> along, std::string &error);
