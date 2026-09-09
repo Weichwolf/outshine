@@ -33,7 +33,10 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
    durch die öffentliche Tür. Nichtuniforme Skalierung über inverse-transpose behandeln.
 2. Prozedurale Oberflächenschichten in Weltmetern: Triplanar für Terrain/Seitenwände,
    objektgebundene Fassaden-/Dachkoordinaten. Albedo, Normal, Roughness, AO und begrenztes
-   Relief gemeinsam erzeugen. Makroform bleibt DEM/OSM, Mesorelief darf plausibel erfunden sein.
+   Relief gemeinsam erzeugen. Feinstruktur direkt prozedural in GLSL auswerten:
+   Poren, Asphaltkörnung, Holzfasern und Rindenfurchen verwenden dieselben stabilen
+   Materialkoordinaten und Seeds für Farbe, Roughness und Bump-/Normalableitungen.
+   Makroform bleibt DEM/OSM, Mesorelief darf plausibel erfunden sein.
 3. Bodenklassen mit finaler Neigung/Krümmung, Höhe, Exposition, Feuchte und Nutzung mischen.
    Konstruierte Wände erhalten ihren eigenen Baustoff. Fels mit Schichtung, Brüchen,
    Schuttfuß und Vegetationsinseln; keine exakte Geologie ohne zusätzliche Quelldaten behaupten.
@@ -41,7 +44,8 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
    brauchen Geometrie. Subpixelstruktur gefiltert in Normal/Roughness überführen, keine
    periodischen Streifen, kein World-Origin-Schwimmen. Wetterfeuchte aus 2172 später einspeisen.
 5. Wiederverwendbare Parameter/Seeds/Materialtabellen statt Texturdownload oder Webcam-Bake;
-   gebackene prozedurale Tiles/Mips amortisieren Shaderkosten.
+   Shaderarbeit durch gefilterte Oktaven und Footprint-/LOD-Auswahl begrenzen;
+   prozedurale Tiles/Mips bei gemessenem Kostenvorteil als Cache derselben Funktionen nutzen.
 
 ## Abnahme
 
