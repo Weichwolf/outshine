@@ -96,3 +96,10 @@ Die Schranke ist konsistent und kostet O(1) je Bewertung, auch bei vielen Zielen
 A*-Referenz: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/astar_search.html.
 Test in beiden gespiegelten Lagen; ursprüngliche Heuristik muss scheitern. Dies
 beweist nicht die Zulässigkeit der bestehenden räumlichen Start-/Zielanbindung.
+
+Routing-Eingabegrenze: Plan validiert vor ApartM/Nearest/Within beide Koordinaten
+(endlich, Lon [-180,180], Lat [-90,90]) und Mindestradius (endlich, >=0).
+Fehler liefert leere Route mit Diagnose; gültige Folgeabfrage bleibt nutzbar.
+NaN/±Inf, Bereichsverletzungen und negative Radien testen. Tieferliegende Lay-,
+Sphere-/Snap-, Nearest-/Within-Verträge separat härten; ApartM hat noch iterative
+Längengradnormalisierung, die für nichtendliche Eingaben nicht terminiert.
