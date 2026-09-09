@@ -98,3 +98,10 @@ ersetzen und Pump aktivieren. Alle drei Erfolgszweige berücksichtigen, insbeson
 Generatorfehler nach später Zustandsänderung. Frühe Input-, spätere View- und
 Generatorfehler öffentlich nachweisen. Andere Declare-Teilmutationen bleiben WI 2191;
 dieser Schritt behauptet keine vollständige Szenario-Transaktion.
+
+Wheel-Schritt: mouse_x/mouse_y aus SDL_MouseWheelEvent verwenden statt aktuellem
+SDL_GetMouseState. Referenz https://wiki.libsdl.org/SDL3/SDL_MouseWheelEvent.
+SDL hat FLIPPED bereits in x/y angewandt; UI erhält diese Systempräferenz, keine
+zweite Umkehrung. Test mit versetztem Scrollcontainer und eingespeisten Events,
+beiden Vorzeichen, FLIPPED, Null, außerhalb und beiden Scrollgrenzen. HiDPI-
+Umrechnung von Fensterkoordinaten in UI-Pixel für alle Mauspfade separat prüfen.
