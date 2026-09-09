@@ -60,14 +60,12 @@ Holds<bool> Engine::handleEvent(const SDL_Event &event) {
                                          displacementPx,
                                          S_->Error);
   }
-  if (S_->Session.Pumping) {
-    std::array<Core::InputPump::Fired, 2> fired{};
-    const size_t many = S_->Session.Pump.Translate(event, fired);
-    if (many != 0) {
-      return DispatchInput(S_->Offered,
-                           S_->Session.Bound,
-                           std::span<const Core::InputPump::Fired>(fired.data(), many));
-    }
+  std::array<Core::InputPump::Fired, 2> fired{};
+  const size_t many = Core::InputPump::Translate(event, S_->Session.Bound, fired);
+  if (many != 0) {
+    return DispatchInput(S_->Offered,
+                         S_->Session.Bound,
+                         std::span<const Core::InputPump::Fired>(fired.data(), many));
   }
   if (!S_->Picture.Standing || event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
 
@@ -307,17 +305,13 @@ Result Engine::declare(const Scenario::Document &scenario) {
 
   InputMap bindings;
   if (!bindings.Build(scenario.Input, S_->Error)) { return std::unexpected(S_->Error); }
-  Core::InputPump pump;
-  if (!pump.Open(S_->Session.Bound)) {
+  if (!Core::InputPump::CatalogueReady()) {
     S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
     return std::unexpected(S_->Error);
   }
   const auto publishInput = [&] noexcept {
     static_assert(std::is_nothrow_move_assignable_v<InputMap>);
-    static_assert(std::is_nothrow_copy_assignable_v<Core::InputPump>);
     S_->Session.Bound = std::move(bindings);
-    S_->Session.Pump = pump;
-    S_->Session.Pumping = !scenario.Input.empty();
   };
 
   S_->Session.Views.reset();

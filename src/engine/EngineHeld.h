@@ -202,8 +202,6 @@ struct Kept {
   Roots Under;
   std::optional<ViewBook> Views;
   InputMap Bound;
-  Core::InputPump Pump;
-  bool Pumping = false;
   size_t Fired = 0;
   std::optional<Audio::Mixer> Sounding;
   std::vector<std::optional<size_t>> AudioBodies;

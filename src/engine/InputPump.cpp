@@ -74,16 +74,14 @@ struct Resolved {
 
 }
 
-bool InputPump::Open(const InputMap &declared) {
-  if (!Table().Whole) { return false; }
-  Map_ = &declared;
-  return true;
+bool InputPump::CatalogueReady() {
+  return Table().Whole;
 }
 
-size_t InputPump::Translate(const SDL_Event &event, std::span<Fired, 2> out) const {
-  if (Map_ == nullptr) { return 0; }
+size_t
+InputPump::Translate(const SDL_Event &event, const InputMap &bindings, std::span<Fired, 2> out) {
   const auto fire = [&](ptrdiff_t at, InputMap::Kind what, float value, size_t held) {
-    const uint16_t action = Map_->ActionAt(static_cast<size_t>(at));
+    const uint16_t action = bindings.ActionAt(static_cast<size_t>(at));
     if (action == InputMap::kUnbound) { return held; }
     out[held] = {.Action = action, .What = what, .Value = value};
     return held + 1;

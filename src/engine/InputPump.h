@@ -13,7 +13,7 @@ namespace outshine::Core {
 
 class InputPump {
 public:
-  [[nodiscard]] bool Open(const InputMap &declared);
+  [[nodiscard]] static bool CatalogueReady();
 
   struct Fired {
     uint16_t Action = InputMap::kUnbound;
@@ -21,10 +21,8 @@ public:
     float Value = 0.0f;
   };
 
-  [[nodiscard]] size_t Translate(const SDL_Event &event, std::span<Fired, 2> out) const;
-
-private:
-  const InputMap *Map_ = nullptr;
+  [[nodiscard]] static size_t
+  Translate(const SDL_Event &event, const InputMap &bindings, std::span<Fired, 2> out);
 };
 
 }

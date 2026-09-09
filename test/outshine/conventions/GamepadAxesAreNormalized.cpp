@@ -12,8 +12,7 @@ int main() {
   InputMap map;
   std::string error;
   CHECK(map.Build(bindings, error), "input bindings are valid");
-  Core::InputPump pump;
-  CHECK(pump.Open(map), "input pump opens");
+  CHECK(Core::InputPump::CatalogueReady(), "input catalogue is complete");
   std::array<Core::InputPump::Fired, 2> output{};
   SDL_Event event{};
   event.type = SDL_EVENT_GAMEPAD_AXIS_MOTION;
@@ -24,7 +23,7 @@ int main() {
     bool valid = true;
     for (int value = lowest; value <= std::numeric_limits<Sint16>::max(); ++value) {
       event.gaxis.value = static_cast<Sint16>(value);
-      const auto count = pump.Translate(event, output);
+      const auto count = Core::InputPump::Translate(event, map, output);
       const float normalized = output[0].Value;
       valid = valid && count == 1 && output[0].What == InputMap::Kind::Axis &&
               normalized >= (lowest < 0 ? -1.0f : 0.0f) && normalized <= 1.0f &&
@@ -36,5 +35,10 @@ int main() {
     }
     CHECK(valid, "every axis value preserves range, endpoints, zero and strict monotonicity");
   }
+  const InputMap empty;
+  CHECK(Core::InputPump::Translate(event, empty, output) == 0,
+        "empty map has no active actions without an activation flag");
+  CHECK(Core::InputPump::Translate(event, map, output) == 1,
+        "each translation uses its supplied map without retaining the previous one");
   return Report();
 }
