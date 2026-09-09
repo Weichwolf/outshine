@@ -435,7 +435,7 @@ struct Engine::State {
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
   [[nodiscard]] bool Stood();
   void HandsPiecesOver();
-  void Bakes(size_t landsMost);
+  [[nodiscard]] bool Bakes(size_t landsMost);
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();

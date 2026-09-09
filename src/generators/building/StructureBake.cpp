@@ -1,3 +1,5 @@
+#include <utility>
+#include <expected>
 #include "StructureBake.h"
 #include <bit>
 #include "Digest.h"
@@ -386,13 +388,25 @@ void RaiseLump(const Lumped &of,
   return mixed;
 }
 
-[[nodiscard]] Cooked CookedOver(const RawTile &raw,
-                                std::span<const StoredVertex> corners,
-                                std::span<const uint32_t> run) {
-  if (run.size() < 3 || raw.ClusterTriangles == 0) { return {}; }
+[[nodiscard]] std::expected<ClusteredMesh, ClusterError> CookedOver(
+    const RawTile &raw, std::span<const StoredVertex> corners, std::span<const uint32_t> run) {
+  if (raw.ClusterTriangles == 0) { return ClusteredMesh{}; }
   const std::span<const float> positions(reinterpret_cast<const float *>(corners.data()),
                                          corners.size() * kStoredVertexFloats);
-  return CookClusters(positions, run, raw.ClusterTriangles, static_cast<int>(kStoredVertexFloats));
+  return CookClusters(
+      {.PositionsM = positions, .Indices = run, .StrideFloats = kStoredVertexFloats},
+      raw.ClusterTriangles);
+}
+
+std::expected<void, ClusterError> FinalizeBake(const RawTile &raw, BakedTile &out) {
+  auto walls = CookedOver(raw, out.Built.WallCorners, out.Built.WallRun);
+  if (!walls) { return std::unexpected(walls.error()); }
+  auto roofs = CookedOver(raw, out.Built.RoofCorners, out.Built.RoofRun);
+  if (!roofs) { return std::unexpected(roofs.error()); }
+  out.Walls = std::move(*walls);
+  out.Roofs = std::move(*roofs);
+  out.Digest = DigestOver(out.Built);
+  return {};
 }
 
 std::vector<WayLine> LinesOf(const RawTile &raw) {
@@ -421,11 +435,13 @@ std::vector<WayLine> LinesOf(const RawTile &raw) {
 
 }
 
-void BakeStructures(const RawTile &raw,
-                    const outshine::Ground::HeightField &heights,
-                    const StructureMesher &mesher,
-                    MeshScratch &scratch,
-                    BakedTile &out) {
+std::expected<void, ClusterError> BakeStructures(const RawTile &raw,
+                                                 const outshine::Ground::HeightField &heights,
+                                                 const StructureMesher &mesher,
+                                                 MeshScratch &scratch,
+                                                 BakedTile &out) {
+  out.Walls = {};
+  out.Roofs = {};
   out.Built.Clear();
   out.Prints.clear();
   out.SeatSpreadM.clear();
@@ -543,9 +559,7 @@ void BakeStructures(const RawTile &raw,
     RaiseLump(block, raw, mesher, scratch, corners, out.Built);
   }
   out.Blocks = static_cast<int>(lumps.size());
-  out.Walls = CookedOver(raw, out.Built.WallCorners, out.Built.WallRun);
-  out.Roofs = CookedOver(raw, out.Built.RoofCorners, out.Built.RoofRun);
-  out.Digest = DigestOver(out.Built);
+  return FinalizeBake(raw, out);
 }
 
 }

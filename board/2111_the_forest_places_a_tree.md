@@ -25,6 +25,12 @@ räumlicher Wiedereintritt, Freigabe, vollständige Distanzleiter und Ökologie.
 Kronenkarten sind aktuell auch im Nahbereich aktiv; acht horizontale Ansichten
 reichen für steile Blickwinkel nicht. Alpha-Coverage über Mips und Übergänge offen.
 
+Zusätzlich ist die Preload-Abnahme inkonsistent: Malcesine meldet nach separater
+Vorbereitung bereit, der anschließende unveränderte Shot wartet jedoch auf 28 Kronen-
+prototypen und läuft ins Limit; Gelände/OSM sind vollständig resident. Leere oder
+veraltete Instanzgruppen dürfen keine Bereitschaft vortäuschen. Vorbereitung und
+Renderlauf müssen denselben vollständigen, versionierten Prototypbedarf prüfen.
+
 ## Umsetzung
 
 1. Isoliertes Waldszenario mit deklarierter Fläche, Dichte, Sichtweite, Seed und

@@ -1,3 +1,4 @@
+#include <expected>
 #include "Shape.h"
 #include "math/Mat4.h"
 #include "scene/Geometry.h"
@@ -42,6 +43,18 @@ void AppendAttribute(std::span<const float> source,
   if (!present) { return {}; }
   return std::span<const float>(source).subspan(part.FirstVertex * components,
                                                 part.VertexCount * components);
+}
+
+[[nodiscard]] bool AttributesFit(const ShapePart &part, const ShapeStore &store) {
+  const auto fits = [&part](size_t size, size_t components, bool present) {
+    if (!present) { return true; }
+    const size_t vertices = size / components;
+    return size % components == 0 && part.FirstVertex <= vertices &&
+           part.VertexCount <= vertices - part.FirstVertex;
+  };
+  return fits(store.PositionsM.size(), 3, true) && fits(store.Normals.size(), 3, part.HasNormal) &&
+         fits(store.Tangents.size(), 4, part.HasTangent) && fits(store.Uv.size(), 2, part.HasUv) &&
+         fits(store.Uv1.size(), 2, part.HasUv1) && fits(store.Colours.size(), 4, part.HasColour);
 }
 
 void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
@@ -178,8 +191,9 @@ void AppendGeometry(const Geometry &from, ShapeStore &into) {
   }
 }
 
-Shape FinalizeShape(ShapeStore &into) {
+std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
   for (ShapePart &part : into.Parts) {
+    if (!AttributesFit(part, into)) { return std::unexpected(ClusterError::InvalidLayout); }
     part.PositionsM = Attribute(into.PositionsM, part, 3, true);
     part.Normals = Attribute(into.Normals, part, 3, part.HasNormal);
     part.Tangents = Attribute(into.Tangents, part, 4, part.HasTangent);
@@ -187,7 +201,8 @@ Shape FinalizeShape(ShapeStore &into) {
     part.Uv1 = Attribute(into.Uv1, part, 2, part.HasUv1);
     part.Colours = Attribute(into.Colours, part, 4, part.HasColour);
   }
-  CookShape(into, into.Surfaces);
+  const auto cooked = CookShape(into, into.Surfaces);
+  if (!cooked) { return std::unexpected(cooked.error()); }
   Shape view;
   view.Parts = into.Parts;
   view.Surfaces = into.Surfaces;
@@ -205,7 +220,7 @@ Shape FinalizeShape(ShapeStore &into) {
   return view;
 }
 
-Shape PrepareShape(const Geometry &from, ShapeStore &into) {
+std::expected<Shape, ClusterError> PrepareShape(const Geometry &from, ShapeStore &into) {
   into.Clear();
   AppendGeometry(from, into);
   return FinalizeShape(into);

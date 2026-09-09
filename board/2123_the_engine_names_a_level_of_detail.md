@@ -2,6 +2,7 @@ Type: debt
 State: active
 Area: world, render
 Tags: webcam, measured
+Parent: 2188
 Depends:
 
 # Every visual representation obeys a measured screen error
@@ -27,8 +28,29 @@ Fernvegetation erhält Kronenvolumen und Coverage, nahe Blattgeometrie ein Overd
 - [ ] 2092/2104 messen Gesamtzeit und Speicher; Graph-/Kontaktgrößen unabhängig ausweisen.
       Bestehende Speicherobergrenzen bleiben erhalten, keine unbegründete Anhebung.
 
-Wahl: Cesium-artiger Fehlervertrag, Unreal-HLOD als Clusterkonzept; RAGE visuelle Distanzleiter.
-Kein Hardware-Nanite-Versprechen, da SDL_GPU die verwendbaren Mechanismen vorgibt.
+## Architekturentscheidung
+
+Nanite-inspirierte virtualisierte Geometrie mit Hardware-Rasterisierung über SDL_GPU.
+Cluster-Hierarchie mit konservativ fortgepflanztem geometrischem Fehler, gemeinsamen
+Grenzen und rissfreien Schnitten; GPU-Culling und LOD-Auswahl, seitenweises Streaming,
+residente Grobrepräsentation und feste Speicher-/Arbeitsbudgets. Visibility Buffer und
+nachgelagerte Materialauswertung als Ziel; Transparenz und Deformation über geeignete
+Renderpfade desselben nativen Geometriemodells.
+
+Kein Software-Rasterizer. Daher keine ungeprüfte Übernahme von Nanites Mikrodreieck-
+Schwellen: projizierten Fehler und Rasterkosten gemeinsam messen, feines Oberflächendetail
+über Materialien. SDL_GPU-Indirektdraws haben eine hostseitige Anzahl; GPU-Ausgabelisten
+begrenzen, unbenutzte Einträge neutralisieren und Überlauf ohne Geometrieverlust behandeln.
+Fehlende Streamingseiten dürfen weder Löcher noch unbeschränktes Warten verursachen.
+
+Vorhandenes Cluster-Cooking erzeugt flache Cluster, noch keine vereinfachende Hierarchie.
+Den ungenutzten CookDag-Prototyp nicht als fertigen Hierarchiepfad zählen. Verarbeitung
+für importierte und generierte Assets außerhalb des Framepfads aufbauen und cachen.
+
+Referenz: [Epic, Nanite Deep Dive](https://advances.realtimerendering.com/s2021/Karis_Nanite_SIGGRAPH_Advances_2021_final.pdf).
+[SDL-GPU-Indirektdraws](https://wiki.libsdl.org/SDL3/SDL_DrawGPUIndexedPrimitivesIndirect).
+Abnahme: Kamera-Nahfälle, Grenzrisse, schnelle Bewegung, fehlende Seiten und Queue-Überlauf;
+Bildfehler gegen feine Referenz sowie CPU/GPU-p95/p99, Rasterlast und Speicher messen.
 
 
 ## Vorhandene Verträge und offene Grenze

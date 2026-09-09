@@ -1,7 +1,9 @@
+#include <algorithm>
+#include <limits>
+#include <expected>
 #include "Shape.h"
 #include "math/Vec3.h"
 
-#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <span>
@@ -10,26 +12,6 @@
 #include <ratio>
 
 namespace outshine::Render {
-
-namespace {
-
-std::atomic<double> gCookMs{0.0};
-std::atomic<size_t> gRootless{0};
-std::atomic<size_t> gClusters{0};
-
-}
-
-double CookedMs() {
-  return gCookMs.load(std::memory_order_relaxed);
-}
-
-size_t CookedRootless() {
-  return gRootless.load(std::memory_order_relaxed);
-}
-
-size_t CookedClusters() {
-  return gClusters.load(std::memory_order_relaxed);
-}
 
 Box Shape::BoundsOf(size_t parts) const {
   const auto fold = [this](size_t upTo) {
@@ -52,13 +34,35 @@ Box Shape::BoundsOf(size_t parts) const {
   return some.Empty() ? whole : some;
 }
 
-void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
+namespace {
+std::expected<void, ClusterError> LocalIndices(const ShapePart &part,
+                                               std::span<const uint32_t> indices,
+                                               std::vector<uint32_t> &local) {
+  if (part.FirstIndex > indices.size() || part.IndexCount > indices.size() - part.FirstIndex ||
+      part.PositionsM.size() % 3 != 0 || part.VertexCount != part.PositionsM.size() / 3 ||
+      part.FirstVertex > std::numeric_limits<uint32_t>::max()) {
+    return std::unexpected(ClusterError::InvalidLayout);
+  }
+  local.assign(indices.begin() + static_cast<long>(part.FirstIndex),
+               indices.begin() + static_cast<long>(part.FirstIndex + part.IndexCount));
+  for (uint32_t &at : local) {
+    if (at < part.FirstVertex || at - part.FirstVertex >= part.VertexCount) {
+      return std::unexpected(ClusterError::InvalidIndex);
+    }
+    at -= static_cast<uint32_t>(part.FirstVertex);
+  }
+  return {};
+}
+}
+
+std::expected<void, ClusterError> CookShape(ShapeStore &into, std::span<const Material> surfaces) {
   const auto began = std::chrono::steady_clock::now();
-  gCookMs.store(0.0, std::memory_order_relaxed);
-  gRootless.store(0u, std::memory_order_relaxed);
+  into.Clustering = {};
   into.Clusters.clear();
   into.ClusterSpheres.clear();
-  if (into.Indices.empty()) { return; }
+  if (into.Indices.size() > std::numeric_limits<uint32_t>::max()) {
+    return std::unexpected(ClusterError::CapacityExceeded);
+  }
 
   size_t rootless = 0;
   const auto keep = [&into, &rootless](const DagCluster &cut) {
@@ -82,34 +86,19 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
   for (ShapePart &part : into.Parts) {
     part.FirstCluster = static_cast<uint32_t>(into.Clusters.size());
     part.ClusterCount = 0;
-    if (part.IndexCount < 3 || part.PositionsM.size() < 3) { continue; }
+    const auto rebased = LocalIndices(part, into.Indices, local);
+    if (!rebased) { return std::unexpected(rebased.error()); }
+    if (part.IndexCount == 0) { continue; }
     const bool cuts =
         part.Material < 0 || static_cast<size_t>(part.Material) >= surfaces.size() ||
         StateOf(surfaces[static_cast<size_t>(part.Material)]).Kind() == SurfaceKind::Opaque ||
         StateOf(surfaces[static_cast<size_t>(part.Material)]).Kind() == SurfaceKind::Masked;
+    const auto cooked = CookClusters(
+        {.PositionsM = part.PositionsM, .Indices = local},
+        cuts ? kClusterTriangles : static_cast<uint32_t>(std::max(size_t{1}, local.size() / 3)));
+    if (!cooked) { return std::unexpected(cooked.error()); }
     if (!cuts) { continue; }
-
-    if (part.IndexCount <= static_cast<size_t>(kClusterTriangles) * 3u) {
-      DagCluster whole{};
-      whole.First = static_cast<uint32_t>(part.FirstIndex);
-      whole.Count = static_cast<uint32_t>(part.IndexCount);
-      whole.ParentErr = kDagRootErr;
-      const Bounding around =
-          BoundingSphere({.Floats = part.PositionsM.data(),
-                          .Count = static_cast<uint32_t>(part.PositionsM.size() / 3),
-                          .Stride = 3});
-      whole.SelfCenter = around.CentreM;
-      whole.SelfRadius = around.RadiusM;
-      keep(whole);
-      part.ClusterCount = 1;
-      continue;
-    }
-
-    local.assign(into.Indices.begin() + static_cast<long>(part.FirstIndex),
-                 into.Indices.begin() + static_cast<long>(part.FirstIndex + part.IndexCount));
-    for (uint32_t &at : local) { at -= static_cast<uint32_t>(part.FirstVertex); }
-    const Cooked cut = CookClusters(part.PositionsM, local, kClusterTriangles);
-    if (cut.Index.size() != local.size() || cut.Clusters.empty()) { continue; }
+    const ClusteredMesh &cut = *cooked;
     for (size_t at = 0; at < cut.Index.size(); ++at) {
       into.Indices[part.FirstIndex + at] = cut.Index[at] + static_cast<uint32_t>(part.FirstVertex);
     }
@@ -119,10 +108,11 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
     }
     part.ClusterCount = static_cast<uint32_t>(cut.Clusters.size());
   }
-  gRootless.store(rootless, std::memory_order_relaxed);
-  gClusters.store(into.Clusters.size(), std::memory_order_relaxed);
-  gCookMs.store(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
-      std::memory_order_relaxed);
+  into.Clustering = {
+      .BuildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                     .count(),
+      .RootClusters = rootless,
+      .Clusters = into.Clusters.size()};
+  return {};
 }
 }

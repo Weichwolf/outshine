@@ -173,17 +173,25 @@ double Live::Framing() const {
   return Declared_.Fill > 0.0 ? Declared_.Fill : Render::kFramingFill;
 }
 
-void Live::Reshape() {
-  if (EverShaped_ && ShapedAt_ == Held_.Changed()) { return; }
+bool Live::Reshape(std::string &error) {
+  if (EverShaped_ && ShapedAt_ == Held_.Changed()) { return true; }
+  EverShaped_ = false;
+  Shaped_ = {};
+  const bool alsoStands = Held_.Stands() && !Held_.Assembled().Parts().empty();
+  const auto prepare = [this, alsoStands] {
+    if (!Held_.HoldsBuilt()) { return Gltf::Shaped(Held_.Assembled(), ShapeParts_); }
+    if (alsoStands) { return Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_); }
+    return Render::PrepareShape(Held_.Built(), ShapeParts_);
+  };
+  const auto shaped = prepare();
+  if (!shaped) {
+    error = Describe(shaped.error());
+    return false;
+  }
+  Shaped_ = *shaped;
   ShapedAt_ = Held_.Changed();
   EverShaped_ = true;
-  const bool alsoStands = Held_.Stands() && !Held_.Assembled().Parts().empty();
-  if (!Held_.HoldsBuilt()) {
-    Shaped_ = Gltf::Shaped(Held_.Assembled(), ShapeParts_);
-    return;
-  }
-  Shaped_ = alsoStands ? Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_)
-                       : Render::PrepareShape(Held_.Built(), ShapeParts_);
+  return true;
 }
 
 namespace {
@@ -426,7 +434,7 @@ bool Live::CarriesBuilt(std::string &error) {
   CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
                  .count();
   const auto reshapedFrom = std::chrono::steady_clock::now();
-  Reshape();
+  if (!Reshape(error)) { return false; }
   ReshapeMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - reshapedFrom)
           .count();
@@ -624,7 +632,7 @@ bool Live::Build(std::string &error) {
   if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
 
   RestorePieceSurfaces();
-  Reshape();
+  if (!Reshape(error)) { return false; }
   Joined_ = Shaped_.Parts.size();
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   StandsShadowRadius();
@@ -687,13 +695,13 @@ std::expected<void, std::string> Live::BindSubject() {
 
 bool Live::Pose(double seconds, std::string &error) {
   if (!Held_.Poses(seconds, error)) { return false; }
-  Reshape();
+  if (!Reshape(error)) { return false; }
   return true;
 }
 
 bool Live::Measure(double seconds, std::string &error) {
   if (!Held_.Measures(seconds, error)) { return false; }
-  Reshape();
+  if (!Reshape(error)) { return false; }
   return true;
 }
 
@@ -751,8 +759,12 @@ bool Live::Look(std::string &error) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
     Render::ShapeStore aiming;
-    return Render::Aim(
-        *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
+    const auto shape = Gltf::Shaped(Held_.Assembled(), aiming);
+    if (!shape) {
+      error = Describe(shape.error());
+      return false;
+    }
+    return Render::Aim(*Renderer_, *shape, Looking_, Stood_.Anchor(), error);
   }
   Extents placed;
   if (!PlacedBounds(placed, error)) { return false; }
@@ -778,8 +790,12 @@ bool Live::Look(std::string &error) {
   framed.Up = spun(framed.Up);
   Looking_ = {.Eye = framed, .StandsInside = false, .FramedParts = Joined_};
   Render::ShapeStore aiming;
-  return Render::Aim(
-      *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
+  const auto shape = Gltf::Shaped(Held_.Assembled(), aiming);
+  if (!shape) {
+    error = Describe(shape.error());
+    return false;
+  }
+  return Render::Aim(*Renderer_, *shape, Looking_, Stood_.Anchor(), error);
 }
 
 void Live::StandsEnvironment() {
@@ -846,7 +862,7 @@ bool Live::Stand(std::string &error) {
   };
   Stood_ = Render::SubjectProxy{};
   const Vec3 anchorEcefM = {{kWgs84A, 0.0, 0.0}};
-  Reshape();
+  if (!Reshape(error)) { return false; }
   ReshapeAgainMs_ = sinceStand();
   Stood_.Stands(Shaped_, anchorEcefM);
   ProxyStandsMs_ = sinceStand();

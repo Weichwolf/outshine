@@ -1,3 +1,4 @@
+#include <expected>
 #include "StructureBakes.h"
 
 #include <algorithm>
@@ -159,10 +160,10 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
     const Ground::HeightField *const under = job.Heights.get();
     const StructureMesher *const mesher = Mesher_;
     MeshScratch *const scratch = job.Scratch.get();
-    Generators::BakedTile *const out = job.Out.get();
+    Output *const out = job.Out.get();
     job.Handle = Pool_->Post([raw, under, mesher, scratch, out] {
       const Heap::Tagged baking("structure-bake");
-      Generators::BakeStructures(*raw, *under, *mesher, *scratch, *out);
+      out->Status = Generators::BakeStructures(*raw, *under, *mesher, *scratch, out->Tile);
     });
     Queue_.push_back(std::move(job));
     ++Posted_;
@@ -171,12 +172,14 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
   return posted;
 }
 
-size_t StructureBakes::Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most) {
+std::expected<size_t, ClusterError>
+StructureBakes::Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most) {
   if (Pool_ == nullptr || stack.Vectors() == nullptr) { return 0; }
   size_t landed = 0;
   while (!Queue_.empty() && landed < most && Pool_->Done(Queue_.front().Handle)) {
     Job &job = Queue_.front();
-    const Generators::BakedTile &baked = *job.Out;
+    if (!job.Out->Status) { return std::unexpected(job.Out->Status.error()); }
+    const Generators::BakedTile &baked = job.Out->Tile;
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
     stack.Footprints().Accept(job.Tile,
                               *stack.Vectors(),
@@ -200,7 +203,7 @@ size_t StructureBakes::Lands(Ground::GroundStack &stack, TilePieces &pieces, siz
                {"awayKm", job.Raw->AwayM / kMPerKm},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
     IdleRaw_.push_back(std::move(job.Raw));
-    job.Out->Built = Raised{};
+    job.Out->Tile.Built = Raised{};
     IdleOut_.push_back(std::move(job.Out));
     IdleScratch_.push_back(std::move(job.Scratch));
     Queue_.pop_front();

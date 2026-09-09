@@ -41,7 +41,7 @@ void TilePieces::Hands(uint32_t tile, const Generators::BakedTile &baked, const 
   std::string why;
   const auto place = [this, &row, &why](std::span<const StoredVertex> corners,
                                         std::span<const uint32_t> run,
-                                        const Cooked &cut,
+                                        const ClusteredMesh &cut,
                                         uint32_t surface) {
     if (run.size() < 3) { return Render::kNoPiece; }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();

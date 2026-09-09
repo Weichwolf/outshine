@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SHAPE_H
 #define OUTSHINE_RENDER_SHAPE_H
 
+#include <expected>
 #include <cstddef>
 #include "math/Box.h"
 #include "math/Vec3.h"
@@ -71,7 +72,14 @@ struct Shape {
   [[nodiscard]] Box BoundsOf(size_t parts) const;
 };
 
+struct ClusterBuildMetrics {
+  double BuildMs = 0;
+  size_t RootClusters = 0;
+  size_t Clusters = 0;
+};
+
 struct ShapeStore {
+  ClusterBuildMetrics Clustering;
   std::vector<ShapePart> Parts;
   std::vector<float> PositionsM;
   std::vector<float> Normals;
@@ -87,6 +95,7 @@ struct ShapeStore {
   std::vector<float> ClusterSpheres;
 
   void Clear() {
+    Clustering = {};
     Parts.clear();
     PositionsM.clear();
     Normals.clear();
@@ -103,17 +112,13 @@ struct ShapeStore {
 };
 
 void AppendGeometry(const Geometry &from, ShapeStore &into);
-[[nodiscard]] Shape FinalizeShape(ShapeStore &into);
-[[nodiscard]] Shape PrepareShape(const Geometry &from, ShapeStore &into);
+[[nodiscard]] std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into);
+[[nodiscard]] std::expected<Shape, ClusterError> PrepareShape(const Geometry &from,
+                                                              ShapeStore &into);
 
 inline constexpr uint32_t kClusterTriangles = 128;
-void CookShape(ShapeStore &into, std::span<const Material> surfaces);
-
-[[nodiscard]] double CookedMs();
-
-[[nodiscard]] std::size_t CookedRootless();
-
-[[nodiscard]] std::size_t CookedClusters();
+[[nodiscard]] std::expected<void, ClusterError> CookShape(ShapeStore &into,
+                                                          std::span<const Material> surfaces);
 
 }
 #endif

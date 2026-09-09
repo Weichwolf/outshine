@@ -30,6 +30,20 @@ static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfa
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
 
+## Cluster-Cooking
+
+CookClusters hat zwei produktive Aufrufer: Render-Shape und Gebäude-Bake. Ungültige
+Indizes werden bisher nur bei Bounds übersprungen, aber an GPU-Verbraucher weitergegeben;
+Float-Überläufe können Morton-Codes und Bounds ungültig machen. Eingangsview, Layout,
+Indexbereich und Ergebnisgrenzen explizit validieren; Fehler bis Shape-/Bake-Verbraucher
+weitergeben. Dreiecke vollständig erhalten, Morton-Gleichstände deterministisch ordnen,
+konservative endliche Bounds unabhängig prüfen. CookDag und seine exklusiven Ergebnis-
+felder haben weder Aufrufer noch Tests und sind keine installierte öffentliche API.
+Den ungenutzten Weld-Prototyp entfernen; er ist kein implementiertes HLOD-System.
+Cluster-Metriken gehören zur jeweiligen Shape, nicht in globale Atomics; Kamera-
+Hilfsshapes und andere Engine-Instanzen dürfen die Werte nicht überschreiben.
+Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung sowie Places.
+
 ## Abnahme
 
 - [ ] make lint meldet null Tidy-Befunde; Analysefehler dürfen nicht als null gelten.

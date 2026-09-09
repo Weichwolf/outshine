@@ -1,3 +1,4 @@
+#include <expected>
 #include "Shaped.h"
 #include <span>
 #include <vector>
@@ -58,13 +59,13 @@ void FillFrom(const Subject &from, Render::ShapeStore &into) {
 
 }
 
-Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
+std::expected<Render::Shape, ClusterError> Shaped(const Subject &from, Render::ShapeStore &into) {
   into.Clear();
   FillFrom(from, into);
   return Render::FinalizeShape(into);
 }
 
-Render::Shape
+std::expected<Render::Shape, ClusterError>
 Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &into) {
   into.Clear();
   FillFrom(from, into);

@@ -28,7 +28,10 @@ int main() {
     CHECK(geometry.transforms().setTransform(part, placement),
           "native placement accepts affine scale and translation");
     Render::ShapeStore nativeStorage;
-    const Render::Shape native = Render::PrepareShape(geometry, nativeStorage);
+    const auto nativeResult = Render::PrepareShape(geometry, nativeStorage);
+    CHECK(nativeResult.has_value(), "valid native geometry produces a render shape");
+    if (!nativeResult) { return Report(); }
+    const Render::Shape &native = *nativeResult;
     const Box nativeBounds = native.BoundsOf(0);
     CHECK_NEAR(nativeBounds.Min[0],
                mirror > 0 ? 5.0 : 3.0,
@@ -111,7 +114,10 @@ int main() {
     CHECK(geometry.addLamp("placed lamp", light, lampPlacement) >= 0, "native light placement");
   }
   Render::ShapeStore nativeStorage;
-  const Render::Shape native = Render::PrepareShape(geometry, nativeStorage);
+  const auto nativeResult = Render::PrepareShape(geometry, nativeStorage);
+  CHECK(nativeResult.has_value(), "valid native geometry produces a render shape");
+  if (!nativeResult) { return Report(); }
+  const Render::Shape &native = *nativeResult;
   CHECK(native.Lamps.size() == 3, "native render input preserves every light type");
   for (const auto &light : native.Lamps) {
     if (light.Kind != LightKind::Directional) {
@@ -145,7 +151,10 @@ int main() {
     }
   }
   Render::AppendGeometry(geometry, nativeStorage);
-  const Render::Shape combined = Render::FinalizeShape(nativeStorage);
+  const auto combinedResult = Render::FinalizeShape(nativeStorage);
+  CHECK(combinedResult.has_value(), "valid native geometry produces a render shape");
+  if (!combinedResult) { return Report(); }
+  const Render::Shape &combined = *combinedResult;
   CHECK(combined.Parts.size() == 2 && combined.Lamps.size() == 6,
         "append retains existing render input and appends each native part and light");
   for (size_t packedPart = 0; packedPart < combined.Parts.size(); ++packedPart) {
@@ -174,7 +183,10 @@ int main() {
             faceted.setTriangles(facePart, std::array<uint32_t, 6>{0, 1, 2, 0, 3, 1}),
         "two noncoplanar triangles share vertices without authored normals");
   Render::ShapeStore flatStorage;
-  const auto flat = Render::PrepareShape(faceted, flatStorage);
+  const auto flatResult = Render::PrepareShape(faceted, flatStorage);
+  CHECK(flatResult.has_value(), "valid native geometry produces a render shape");
+  if (!flatResult) { return Report(); }
+  const Render::Shape &flat = *flatResult;
   CHECK(flat.Parts.size() == 1 && flat.Parts[0].HasNormal && flat.Parts[0].VertexCount == 6,
         "flat shading splits shared corners in the derived mesh");
   if (flat.Parts.size() == 1 && flat.Parts[0].Normals.size() == 18) {

@@ -214,7 +214,12 @@ public:
   [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
 
   [[nodiscard]] bool SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error);
-  void Reshape();
+  [[nodiscard]] bool Reshape(std::string &error);
+
+  [[nodiscard]] const Render::ClusterBuildMetrics &Clustering() const noexcept {
+    return ShapeParts_.Clustering;
+  }
+
   [[nodiscard]] bool SetGeometry(outshine::Geometry &&built,
                                  size_t carried,
                                  const Material &wearing,

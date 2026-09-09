@@ -929,12 +929,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("stand: sweeping the bounds to frame it", Picture.Standing->FramingMs(), "ms");
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
-  Published.Places("rebuild: cutting it into clusters", Render::CookedMs(), "ms");
-  Published.Places("cook: clusters with no parent above them",
-                   static_cast<double>(Render::CookedRootless()),
-                   "clusters");
   Published.Places(
-      "cook: clusters in all", static_cast<double>(Render::CookedClusters()), "clusters");
+      "rebuild: cutting it into clusters", Picture.Standing->Clustering().BuildMs, "ms");
+  Published.Places("cook: clusters with no parent above them",
+                   static_cast<double>(Picture.Standing->Clustering().RootClusters),
+                   "clusters");
+  Published.Places("cook: clusters in all",
+                   static_cast<double>(Picture.Standing->Clustering().Clusters),
+                   "clusters");
   Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
   Published.Places(
       "restand: the geometry handed over, digested", Render::HandedGeometryDigest(), "");

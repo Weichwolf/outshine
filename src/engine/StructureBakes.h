@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STRUCTUREBAKES_H
 #define OUTSHINE_ENGINE_STRUCTUREBAKES_H
 
+#include <expected>
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -24,7 +25,8 @@ public:
   }
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack);
-  [[nodiscard]] size_t Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most);
+  [[nodiscard]] std::expected<size_t, ClusterError>
+  Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most);
   void Clear();
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
@@ -36,11 +38,16 @@ public:
   [[nodiscard]] size_t Deferred() const { return Deferred_; }
 
 private:
+  struct Output {
+    Generators::BakedTile Tile;
+    std::expected<void, ClusterError> Status;
+  };
+
   struct Job {
     uint32_t Tile = 0;
     std::unique_ptr<Generators::RawTile> Raw;
     std::shared_ptr<const Ground::HeightField> Heights;
-    std::unique_ptr<Generators::BakedTile> Out;
+    std::unique_ptr<Output> Out;
     std::unique_ptr<MeshScratch> Scratch;
     Tasks::Handle Handle = Tasks::kNoTask;
   };
@@ -59,7 +66,7 @@ private:
   const StructureMesher *Mesher_ = nullptr;
   std::deque<Job> Queue_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
-  std::vector<std::unique_ptr<Generators::BakedTile>> IdleOut_;
+  std::vector<std::unique_ptr<Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
   size_t Posted_ = 0;
   size_t Landed_ = 0;

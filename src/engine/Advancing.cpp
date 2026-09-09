@@ -230,9 +230,13 @@ void Engine::State::HandsPiecesOver() {
   World.PiecesFramed = true;
 }
 
-void Engine::State::Bakes(size_t landsMost) {
-  if (!World.Stack.Opened()) { return; }
-  (void)World.Bakes.Lands(World.Stack, World.Pieces, landsMost);
+bool Engine::State::Bakes(size_t landsMost) {
+  if (!World.Stack.Opened()) { return true; }
+  const auto landed = World.Bakes.Lands(World.Stack, World.Pieces, landsMost);
+  if (!landed) {
+    Error = Describe(landed.error());
+    return false;
+  }
   (void)World.Bakes.Posts(World.Stack);
   Published.Places(
       "buildings: tiles posted to the bake", static_cast<double>(World.Bakes.Posted()), "tiles");
@@ -242,6 +246,7 @@ void Engine::State::Bakes(size_t landsMost) {
       "buildings: tiles in the bake right now", static_cast<double>(World.Bakes.Queued()), "tiles");
   Published.Places(
       "buildings: tiles deferred for ground", static_cast<double>(World.Bakes.Deferred()), "asks");
+  return true;
 }
 
 bool Engine::State::Updates() {
@@ -254,7 +259,7 @@ bool Engine::State::Updates() {
         const Heap::Tagged restanding("world-restand");
         HandsPiecesOver();
         World.Stack.Restand(stands);
-        Bakes(kBakesLandedPerFrame);
+        if (!Bakes(kBakesLandedPerFrame)) { return false; }
         {
           const Heap::Tagged growing("world-grow");
           (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);

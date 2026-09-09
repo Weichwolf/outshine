@@ -21,6 +21,9 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
 
 - Mixer::Named nutzt stod/catch: nichtwerfendes Parsing mit definiertem Vertrag für
   Syntax, Restzeichen, Wertebereich und nicht endliche Eingaben; Consumer prüfen.
+  Parameter und Graphkanten beim Setup kompilieren; Voiced erzeugt derzeit pro Block
+  Hashmap und Sample-Vektoren und reserviert Delay-Speicher beim Mischen. Scratch-/
+  Delay-Budgets vorab bereitstellen, unbekannte/zyklische Kanten ausdrücklich ablehnen.
 - Asking::Instancing::Add fängt vector-Allokation: begrenzte Kapazität vorbereiten,
   Budgetablehnung ohne partielle Veröffentlichung. Nicht nur catch entfernen.
 - BuildingMesh::Mesh fängt alles und leert Raised: Scratch-/Output-Budgets und

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
+#include <expected>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -42,7 +43,7 @@ struct RawTile {
 
 struct BakedTile {
   Raised Built;
-  Cooked Walls, Roofs;
+  ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
   std::vector<double> SeatSpreadM;
@@ -55,11 +56,12 @@ struct BakedTile {
   int NoGround = 0;
 };
 
-void BakeStructures(const RawTile &raw,
-                    const outshine::Ground::HeightField &heights,
-                    const StructureMesher &mesher,
-                    MeshScratch &scratch,
-                    BakedTile &out);
+[[nodiscard]] std::expected<void, ClusterError>
+BakeStructures(const RawTile &raw,
+               const outshine::Ground::HeightField &heights,
+               const StructureMesher &mesher,
+               MeshScratch &scratch,
+               BakedTile &out);
 
 }
 #endif
