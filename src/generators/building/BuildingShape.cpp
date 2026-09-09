@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <cstddef>
 #include <optional>
+#include <limits>
+#include <expected>
 #include <span>
 #include <vector>
 #include <utility>
@@ -784,10 +786,22 @@ void StackDeep(bool heightMeasured, BuildingScratch &scratch) {
 
 }
 
-std::span<BuildingShape> MassOf(std::span<const double> ringLatLon,
-                                Order order,
-                                const Frontage &street,
-                                BuildingScratch &scratch) {
+std::expected<std::span<BuildingShape>, StructureMeshError>
+MassOf(std::span<const double> ringLatLon,
+       Order order,
+       const Frontage &street,
+       BuildingScratch &scratch) {
+  constexpr double leastFloorM = std::min({kFloorOutbuildingM,
+                                           kFloorHouseM,
+                                           kFloorBlockM,
+                                           kFloorHallM,
+                                           kFloorTowerM,
+                                           kFloorSpireM,
+                                           kTallFloorM});
+  constexpr double maxHeightM = leastFloorM * (std::numeric_limits<int>::max() - 1);
+  if (!std::isfinite(order.HeightM) || order.HeightM > maxHeightM) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
   scratch.Parts.Reset();
   scratch.Stacked.Reset();
   std::vector<En> &outline = scratch.Outline;

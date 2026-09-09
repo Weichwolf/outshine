@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGSHAPE_H
 
 #include <span>
+#include <expected>
 #include "Earth.h"
 #include <cstdint>
 #include <vector>
@@ -72,10 +73,11 @@ struct Order {
   double PitchedShare = -1.0;
 };
 
-[[nodiscard]] std::span<BuildingShape> MassOf(std::span<const double> ringLatLon,
-                                              Order order,
-                                              const Frontage &street,
-                                              BuildingScratch &scratch);
+[[nodiscard]] std::expected<std::span<BuildingShape>, StructureMeshError>
+MassOf(std::span<const double> ringLatLon,
+       Order order,
+       const Frontage &street,
+       BuildingScratch &scratch);
 
 }
 #endif

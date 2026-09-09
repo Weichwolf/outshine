@@ -95,6 +95,19 @@ int main() {
             "coordinate rejection preserves previous geometry");
     }
   }
+  plan.RingLatLon = ring;
+  for (double height : {1.0e20, std::numeric_limits<double>::max()}) {
+    plan.HeightM = height;
+    scratch = mesher.Scratch();
+    const size_t allocations = calls.load();
+    failAfter = 0;
+    const auto oversized = mesher.Mesh(plan, *scratch, previous);
+    failAfter = -1;
+    CHECK(!oversized && oversized.error() == StructureMeshError::InvalidPlan,
+          "unrepresentable storey counts are rejected before shape generation");
+    CHECK(calls.load() == allocations, "unrepresentable heights require no allocation");
+  }
+  plan.HeightM = 6;
   const std::array<double, 6> collapsed{47, 9, 47, 9, 47, 9};
   plan.RingLatLon = collapsed;
   const auto unsupported = mesher.Mesh(plan, *scratch, previous);

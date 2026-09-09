@@ -1016,12 +1016,14 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   const std::array sizes{
       into.WallCorners.size(), into.RoofCorners.size(), into.WallRun.size(), into.RoofRun.size()};
   try {
-    const std::span<BuildingShape> parts = MassOf(plan.RingLatLon,
-                                                  {.HeightM = plan.HeightM,
-                                                   .HeightMeasured = plan.HeightMeasured,
-                                                   .PitchedShare = plan.PitchedShare},
-                                                  plan.Street,
-                                                  scratch);
+    const auto mass = MassOf(plan.RingLatLon,
+                             {.HeightM = plan.HeightM,
+                              .HeightMeasured = plan.HeightMeasured,
+                              .PitchedShare = plan.PitchedShare},
+                             plan.Street,
+                             scratch);
+    if (!mass) { return std::unexpected(mass.error()); }
+    const std::span<BuildingShape> parts = *mass;
     if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
 
     Site site(plan, scratch, into);
