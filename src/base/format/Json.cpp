@@ -4,7 +4,6 @@
 #include <charconv>
 #include <limits>
 
-#include "DecimalEdge.h"
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -136,13 +135,7 @@ int32_t Json::ParseNumber(int32_t id) {
   const size_t at = *end;
   double v = 0.0;
   const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + at, v);
-  if (scanned.ec == std::errc::result_out_of_range) {
-    const std::string_view span(Text_.c_str() + P_, at - P_);
-    const double magnitude = DecimalEdge(span) == Edge::Zero ? 0.0 : 1.7976931348623157e308;
-    v = Text_[P_] == '-' ? -magnitude : magnitude;
-  } else if (scanned.ec != std::errc() || scanned.ptr != Text_.c_str() + at) {
-    return -1;
-  }
+  if (scanned.ec != std::errc() || scanned.ptr != Text_.c_str() + at) { return -1; }
   P_ = at;
   Nodes_[static_cast<size_t>(id)].K = Kind::Number;
   Nodes_[static_cast<size_t>(id)].Num = v;
