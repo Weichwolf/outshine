@@ -30,6 +30,8 @@ namespace outshine {
 constexpr double kBelowAnyGroundM = -1.0e3;
 
 namespace Says {
+constexpr auto kInvalidElapsedTime = "advance requires finite nonnegative elapsed seconds";
+constexpr auto kElapsedTimeOverflow = "elapsed time exceeds the simulation accumulator range";
 constexpr auto kCameraAssemblyRequired = "assemble the current declaration before following a body";
 constexpr auto kCameraBodyRequired = "the followed body is missing or no longer alive";
 constexpr auto kInvalidViewProjection =
@@ -507,7 +509,12 @@ double Engine::stepSeconds() const {
 }
 
 Result Engine::advance(double elapsedS) {
-  if (elapsedS > 0.0) { S_->Ticking.OwedS += elapsedS; }
+  if (!std::isfinite(elapsedS) || elapsedS < 0.0) {
+    return std::unexpected(Says::kInvalidElapsedTime);
+  }
+  const double accumulatedS = S_->Ticking.OwedS + elapsedS;
+  if (!std::isfinite(accumulatedS)) { return std::unexpected(Says::kElapsedTimeOverflow); }
+  S_->Ticking.OwedS = accumulatedS;
   bool stood = true;
   for (int step = 0; step < S_->Session.Declared.Motion.MostStepsInArrears &&
                      S_->Ticking.OwedS >= S_->Session.Declared.Motion.StepS;

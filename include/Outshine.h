@@ -372,6 +372,12 @@ public:
   [[nodiscard]] Result assemble();
 
   [[nodiscard]] Result advance();
+  /// Add elapsed seconds and execute due fixed steps up to the declared catch-up limit.
+  /// Call on the Engine/video thread; steps may allocate and perform streaming/render setup.
+  /// Invalid input or accumulator overflow fails before mutation. A failed step may retain
+  /// partial state and consumes its queued time. Excess backlog may be discarded.
+  /// @param elapsedS Finite nonnegative seconds; zero may still process existing backlog.
+  /// @return Success or an owned time-validation/step error. No due steps is successful.
   [[nodiscard]] Result advance(double elapsedS);
   /// Return the declared fixed simulation step in seconds without advancing the clock.
   /// This is configuration, not measured frame duration. Serialize with declaration changes.
