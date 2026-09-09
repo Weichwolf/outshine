@@ -422,29 +422,9 @@ bool ReadScenario(const char *text, size_t length, Scenario::Document &into, std
   return ReadScenario(document, into, error);
 }
 
-bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &error) {
-  into = Scenario::Document();
-  const Xml::Ref root = document.Root();
-  if (root.Name() != "scenario") {
-    error = "a scenario's root element is <scenario> and this one is <" + root.Name() + ">";
-    return false;
-  }
+namespace {
 
-  if (!Grammatical(root, "scenario", error)) { return false; }
-
-  into.Named.Name = root.Attr("name");
-  into.Named.Version = root.Attr("version");
-  into.Named.Active = root.Attr("active");
-  into.Named.Epoch = root.Num("epoch", 0.0);
-  into.Named.Decay = root.Num("decay", 0.0);
-
-  for (const Xml::Ref one : root.Children("layer")) {
-    into.Layers.push_back(
-        Scenario::Layer{.Id = one.Attr("id"), .Path = one.Attr("path"), .Set = one.Attr("set")});
-  }
-
-  if (!ReadSectionsOnto(root, into, error)) { return false; }
-
+void ReadSources(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {
     Scenario::Provider made;
@@ -474,7 +454,9 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.On = one.Flag("on", true);
     into.Compositors.push_back(made);
   }
+}
 
+[[nodiscard]] bool ReadAssets(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   const Xml::Ref assets = root.Child("assets");
   for (const Xml::Ref one : assets.Children("asset")) {
     Scenario::Asset made;
@@ -532,7 +514,10 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     }
     into.Assets.push_back(made);
   }
+  return true;
+}
 
+void ReadPlacementAndUi(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref placements = root.Child("placements");
   for (const Xml::Ref one : placements.Children("place")) {
     Scenario::Placement made;
@@ -561,7 +546,9 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     into.Input.push_back(
         Scenario::Binding{.Event = one.Attr("event"), .Action = one.Attr("action")});
   }
+}
 
+void ReadEntityDeclarations(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref kinds = root.Child("kinds");
   for (const Xml::Ref one : kinds.Children("kind")) {
     Scenario::Kind made;
@@ -608,7 +595,9 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     for (const Xml::Ref holds : one.Children("holds")) { made.Holds.push_back(holds.Attr("what")); }
     into.Instances.push_back(made);
   }
+}
 
+void ReadRegionsAndVolumes(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref regions = root.Child("regions");
   for (const Xml::Ref one : regions.Children("region")) {
     Scenario::Region made;
@@ -644,7 +633,9 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.DwellS = one.Num("dwellS", 0.0);
     into.Volumes.push_back(made);
   }
+}
 
+void ReadAudio(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref audio = root.Child("audio");
   for (const Xml::Ref one : audio.Children("bus")) {
     Scenario::Bus made;
@@ -693,7 +684,9 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     }
     into.Sounds.push_back(made);
   }
+}
 
+[[nodiscard]] bool ReadTables(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   const Xml::Ref tables = root.Child("tables");
   for (const Xml::Ref one : tables.Children("table")) {
     Scenario::Table made;
@@ -714,7 +707,10 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     }
     into.Tables.push_back(made);
   }
+  return true;
+}
 
+void ReadEvents(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref events = root.Child("events");
   for (const Xml::Ref one : events.Children("event")) {
     Scenario::Event made;
@@ -724,7 +720,9 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     }
     into.Events.push_back(made);
   }
+}
 
+void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref views = root.Child("views");
   for (const Xml::Ref one : views.Children("view")) {
     Scenario::View made;
@@ -766,7 +764,9 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.TimeScale = one.Num("timeScale", 1.0);
     into.Views.push_back(made);
   }
+}
 
+[[nodiscard]] bool ReadBodies(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   for (const Xml::Ref one : root.Children("body")) {
     Scenario::Body made;
     made.Name = one.Attr("name");
@@ -848,6 +848,44 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     }
     into.Bodies.push_back(made);
   }
+  return true;
+}
+
+}
+
+bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &error) {
+  into = Scenario::Document();
+  const Xml::Ref root = document.Root();
+  if (root.Name() != "scenario") {
+    error = "a scenario's root element is <scenario> and this one is <" + root.Name() + ">";
+    return false;
+  }
+
+  if (!Grammatical(root, "scenario", error)) { return false; }
+
+  into.Named.Name = root.Attr("name");
+  into.Named.Version = root.Attr("version");
+  into.Named.Active = root.Attr("active");
+  into.Named.Epoch = root.Num("epoch", 0.0);
+  into.Named.Decay = root.Num("decay", 0.0);
+
+  for (const Xml::Ref one : root.Children("layer")) {
+    into.Layers.push_back(
+        Scenario::Layer{.Id = one.Attr("id"), .Path = one.Attr("path"), .Set = one.Attr("set")});
+  }
+
+  if (!ReadSectionsOnto(root, into, error)) { return false; }
+
+  ReadSources(root, into);
+  if (!ReadAssets(root, into, error)) { return false; }
+  ReadPlacementAndUi(root, into);
+  ReadEntityDeclarations(root, into);
+  ReadRegionsAndVolumes(root, into);
+  ReadAudio(root, into);
+  if (!ReadTables(root, into, error)) { return false; }
+  ReadEvents(root, into);
+  ReadViews(root, into);
+  if (!ReadBodies(root, into, error)) { return false; }
 
   const Xml::Ref state = root.Child("state");
   for (const Xml::Ref persist : state.Children("persist")) {
