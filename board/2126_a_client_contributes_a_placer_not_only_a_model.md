@@ -57,3 +57,9 @@ StructureBake reicht Mesher-/Clusterfehler typisiert bis StructureBakes::Lands w
 fehlgeschlagene Jobs publizieren keine Kachel. Gegenprobe mit verschlucktem Fehler rot.
 Weitere Befunde: Site::Index nutzt Hash als Identität und multipliziert signed int64;
 Kollisionen/Überlauf dürfen keine verschiedenen Vertexpositionen zusammenlegen.
+
+Schlüsselkorrektur in zwei geprüften Schritten: FlatMap um vollständige Key-Typen
+mit separatem Hasher erweitern; bestehender uint64-Pfad bleibt unverändert. Künstlich
+konstanter Hash muss Wachstum, Find, Duplikate und Clear mit verschiedenen Keys
+bestehen. Danach BuildingScratch auf vollständige Positions-/Vertexschlüssel migrieren
+und tatsächliche Gebäude-/Places-PNGs vergleichen; ein Hashwert ist keine Identität.
