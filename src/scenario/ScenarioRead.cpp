@@ -1,4 +1,5 @@
 #include <format>
+#include <ranges>
 #include <charconv>
 #include <system_error>
 #include <limits>
@@ -52,6 +53,29 @@ constexpr Spellings<Scenario::Makes, 8> kMakes = {{{"oscillator", Scenario::Make
 static_assert(EverySpellingStandsOnce(kFalls) && EverySpellingStandsOnce(kMakes),
               "a spelling table that carries a blank or a repeat resolves a declaration by "
               "whichever row it reaches first");
+
+[[nodiscard]] bool IntegralDecimal(std::string_view text) {
+  if (text.size() > static_cast<size_t>(std::numeric_limits<int>::max())) { return false; }
+  int exponent = 0;
+  const size_t exponentAt = text.find_first_of("eE");
+  if (exponentAt != std::string_view::npos) {
+    auto power = text.substr(exponentAt + 1);
+    if (power.starts_with('+')) { power.remove_prefix(1); }
+    const auto parsed = std::from_chars(power.data(), power.data() + power.size(), exponent);
+    if (parsed.ec != std::errc{} || parsed.ptr != power.data() + power.size()) { return false; }
+    text = text.substr(0, exponentAt);
+  }
+  const size_t point = text.find('.');
+  const auto fractional =
+      point == std::string_view::npos ? 0 : static_cast<int>(text.size() - point - 1);
+  int trailingZeros = 0;
+  for (const char digit : text | std::views::reverse) {
+    if (digit == '.') { continue; }
+    if (digit != '0') { break; }
+    ++trailingZeros;
+  }
+  return exponent >= fractional - trailingZeros;
+}
 
 [[nodiscard]] bool Declares(const Xml::Ref &parent, const char *child) {
   const Xml::Ref::Siblings named = parent.Children(child);
@@ -357,8 +381,7 @@ ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &er
       const auto parsed = std::from_chars(text.data(), text.data() + text.size(), count);
       if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
           !std::isfinite(count) || count < 1.0 ||
-          count > static_cast<double>(std::numeric_limits<int>::max()) ||
-          std::trunc(count) != count) {
+          count > static_cast<double>(std::numeric_limits<int>::max()) || !IntegralDecimal(text)) {
         error = Says::kInvalidCatchUpCount;
         return false;
       }
