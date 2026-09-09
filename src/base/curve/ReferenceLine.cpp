@@ -58,7 +58,6 @@ bool ReferenceLine::Fasten(std::span<const Knot> through,
                            const char *unit,
                            std::vector<Knot> &into,
                            std::string &error) {
-  into.clear();
   if (Laid_.empty()) {
     error = std::string("a ") + what +
             " profile is fastened to a line that is laid, and this one "
@@ -90,6 +89,8 @@ bool ReferenceLine::Fasten(std::span<const Knot> through,
     }
   }
   into.assign(through.begin(), through.end());
+  Error_.clear();
+  error.clear();
   return true;
 }
 
@@ -221,6 +222,17 @@ Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM)
 }
 
 bool ReferenceLine::Lay(const Placed &from, std::span<const Segment> along, std::string &error) {
+  ReferenceLine candidate;
+  if (!candidate.Build(from, along, error)) {
+    Error_ = error;
+    return false;
+  }
+  *this = std::move(candidate);
+  error.clear();
+  return true;
+}
+
+bool ReferenceLine::Build(const Placed &from, std::span<const Segment> along, std::string &error) {
   Error_.clear();
   Laid_.clear();
   Rise_.clear();

@@ -104,6 +104,7 @@ private:
 
   [[nodiscard]] static Placed Walk(const Placed &from, const Segment &along, double byM);
   [[nodiscard]] bool Refuse(std::string why);
+  [[nodiscard]] bool Build(const Placed &from, std::span<const Segment> along, std::string &error);
   [[nodiscard]] bool Fasten(std::span<const Knot> through,
                             const char *what,
                             const char *unit,

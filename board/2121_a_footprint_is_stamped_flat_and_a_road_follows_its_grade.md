@@ -87,8 +87,10 @@ Krümmungsspitze zwischen Meshstationen. Globale Selbstüberschneidung bleibt of
 
 ReferenceLine-Grundvertrag nachziehen: Lay prüft Ausgangskoordinaten, Winkel und
 Segmentdaten nicht vollständig auf Endlichkeit; Fasten prüft Stationen, aber keine
-Knot.Value/RatePerM. Fehler löschen bisher bestehenden Zustand. Endliche Ergebnisse,
-transaktionale Erhaltung und numerisch darstellbare Segment-/Profilintervalle prüfen.
+Knot.Value/RatePerM. Lay baut Ersatz getrennt auf; abgelehnte Lay/Rise/Bank erhalten
+Geometrie und Profile, erfolgreiche Updates löschen alte Diagnosen. Unabhängiger
+Zustandstest scheitert am Altstand und besteht mit der Korrektur. Endliche Ergebnisse
+und numerisch darstellbare Segment-/Profilintervalle bleiben zu prüfen.
 
 kTangentTolerance wird derzeit für Krümmung (1/m) und Profilstationen (m) benutzt,
 ist aber aus einem Winkel abgeleitet. Dimensionsrichtige Grenzwerte und den
