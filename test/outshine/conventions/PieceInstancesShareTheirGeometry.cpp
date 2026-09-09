@@ -1,4 +1,5 @@
 #include <array>
+#include <type_traits>
 #include <cstdio>
 #include <cmath>
 #include <filesystem>
@@ -7,6 +8,13 @@
 #include <SDL3/SDL.h>
 #include "Live.h"
 #include "Check.h"
+
+static_assert(!std::is_convertible_v<uint32_t, outshine::Render::PieceSurface>);
+static_assert(outshine::Render::PieceSurface(7).From ==
+              outshine::Render::PieceSurface::Source::Geometry);
+static_assert(outshine::Render::PieceSurface::Registered(7).From ==
+              outshine::Render::PieceSurface::Source::Registered);
+static_assert(outshine::Render::PieceSurface::Registered(7).Index == 7);
 
 int main() {
   using namespace outshine;
@@ -181,7 +189,7 @@ int main() {
       piece.Tangents = tangents;
       piece.Indices = cardIndices;
       piece.Instances = placements;
-      piece.Surface = 1;
+      piece.Surface = Render::PieceSurface(1);
       piece.Textured = true;
       if (clustered) { piece.Clusters = cardClusters; }
       auto invalid = piece;
@@ -266,7 +274,7 @@ int main() {
   const std::array<uint32_t, 3> extendedSurfaces{0, 1, 2};
   renderer.WearPieces(extendedSurfaces);
   resident.Row = rows[2];
-  resident.Surface = 2;
+  resident.Surface = Render::PieceSurface(2);
   resident.Textured = true;
   const auto newPiece = renderer.PlacePiece(resident, error);
   CHECK(newPiece != Render::kNoPiece && scene->Draw(error),

@@ -53,7 +53,7 @@ void TilePieces::Hands(uint32_t tile, const Generators::BakedTile &baked, const 
                               .Colours = {},
                               .Row = row,
                               .Instances = {},
-                              .Surface = surface},
+                              .Surface = Render::PieceSurface(surface)},
                              why);
   };
   const Raised &built = baked.Built;

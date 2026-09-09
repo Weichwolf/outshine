@@ -30,6 +30,13 @@ static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfa
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
 
+## Materialindex-Konversion
+
+PieceSurface unterscheidet Geometrie- und registrierte Materialtabellen. Nackte
+Ganzzahlen dürfen die Geometriedomäne nicht implizit auswählen. Explizite Konstruktion,
+constexpr-Fabrik für registrierte Referenzen; statische Negativprüfung und bestehender
+Instanz-/Materialtest prüfen Index, Domäne und unveränderte Darstellung.
+
 ## Cluster-Cooking
 
 CookClusters hat zwei produktive Aufrufer: Render-Shape und Gebäude-Bake. Ungültige

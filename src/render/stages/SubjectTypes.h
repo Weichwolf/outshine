@@ -128,9 +128,9 @@ struct PieceSurface {
 
   PieceSurface() = default;
 
-  PieceSurface(uint32_t index) : Index(index) {}
+  explicit constexpr PieceSurface(uint32_t index) noexcept : Index(index) {}
 
-  static PieceSurface Registered(uint32_t index) {
+  [[nodiscard]] static constexpr PieceSurface Registered(uint32_t index) noexcept {
     PieceSurface result(index);
     result.From = Source::Registered;
     return result;
