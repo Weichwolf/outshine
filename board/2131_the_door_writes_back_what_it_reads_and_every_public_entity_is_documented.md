@@ -79,3 +79,10 @@ Client; tote bench-Deklarationen und ihren ausschließlich dazu gehörigen Ergeb
 entfernen, statt einen zweiten Frame-Loop in die Runtime einzubauen. Bestehende
 Messpfade und Sampling-API erhalten. Prüfung: alle Referenzen durchsuchen, Client
 bauen, vollständiger Lint. Kein Nachweis für GPU-Ausführungszeit durch CPU-Timer.
+
+Höhenabfrage: sampleHeight validiert Winkel vor Welt-/Tilezugriff. NaN/Inf und
+Werte außerhalb [-180,180] Longitude / [-90,90] Latitude ablehnen; Höhe ignoriert.
+Außerhalb der Mercator-Abdeckung Fehler statt Höhe einer geklemmten Ersatzposition.
+Kosten ehrlich dokumentieren: At kann Tiles vorbereiten, ist keine reine
+Residency-Abfrage. API-Test trennt Eingabefehler von fehlender Welt, einschließlich
+Grenzen und ignorierter NaN-Höhe; Negativkontrolle gegen bisherigen Code.
