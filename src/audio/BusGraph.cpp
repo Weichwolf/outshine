@@ -1,6 +1,8 @@
 #include "BusGraph.h"
 
 #include <cmath>
+#include <expected>
+#include <utility>
 #include <cstddef>
 #include <string_view>
 #include <span>
@@ -13,6 +15,11 @@ constexpr double kDecadeBase = 10.0;
 constexpr double kDecibelsPerDecade = 20.0;
 
 namespace {
+
+namespace Says {
+constexpr auto InvalidGain = "audio gain or routed gain exceeds finite amplitude storage";
+constexpr auto PoolLimit = "audio graph exceeds its bus or sound capacity";
+}
 
 constexpr size_t kMostBuses = 64;
 constexpr size_t kMostSounds = 1024;
@@ -30,24 +37,22 @@ int BusGraph::BusNamed(std::string_view id) const {
   return -1;
 }
 
-bool BusGraph::Build(std::span<const Scenario::Bus> buses,
-                     std::span<const Scenario::Sound> sounds,
-                     std::string &error) {
-  Buses_.clear();
-  Sounds_.clear();
-  Master_ = -1;
-  Voices_ = 0;
+std::expected<void, std::string> BusGraph::Build(std::span<const Scenario::Bus> buses,
+                                                 std::span<const Scenario::Sound> sounds) {
+  if (buses.size() > kMostBuses || sounds.size() > kMostSounds) {
+    return std::unexpected(Says::PoolLimit);
+  }
+  BusGraph candidate;
+  std::string error;
+  if (!candidate.DefineBuses(buses, error) || !candidate.RouteBuses(buses, error) ||
+      !candidate.DefineSounds(sounds, error)) {
+    return std::unexpected(std::move(error));
+  }
+  *this = std::move(candidate);
+  return {};
+}
 
-  if (buses.size() > kMostBuses) {
-    error = "the scenario declares " + std::to_string(buses.size()) + " buses over the pool's " +
-            std::to_string(kMostBuses);
-    return false;
-  }
-  if (sounds.size() > kMostSounds) {
-    error = "the scenario declares " + std::to_string(sounds.size()) + " sounds over the pool's " +
-            std::to_string(kMostSounds);
-    return false;
-  }
+bool BusGraph::DefineBuses(std::span<const Scenario::Bus> buses, std::string &error) {
   for (const Scenario::Bus &bus : buses) {
     if (bus.Id.empty()) {
       error = "a bus without an id routes nothing, because nothing can name it";
@@ -59,8 +64,16 @@ bool BusGraph::Build(std::span<const Scenario::Bus> buses,
               "coin toss";
       return false;
     }
+    if (!std::isfinite(bus.GainDb) || !std::isfinite(Linear(bus.GainDb))) {
+      error = Says::InvalidGain;
+      return false;
+    }
     Buses_.push_back(Row{.Id = bus.Id, .Into = -1, .Gain = Linear(bus.GainDb)});
   }
+  return true;
+}
+
+bool BusGraph::RouteBuses(std::span<const Scenario::Bus> buses, std::string &error) {
   for (size_t at = 0; at < buses.size(); ++at) {
     if (buses[at].Into.empty()) {
       if (Master_ >= 0) {
@@ -90,8 +103,14 @@ bool BusGraph::Build(std::span<const Scenario::Bus> buses,
   }
   for (size_t at = 0; at < Buses_.size(); ++at) {
     size_t steps = 0;
+    double gain = 1;
     for (int walk = static_cast<int>(at); walk >= 0;
          walk = Buses_[static_cast<size_t>(walk)].Into) {
+      gain *= Buses_[static_cast<size_t>(walk)].Gain;
+      if (!std::isfinite(gain)) {
+        error = Says::InvalidGain;
+        return false;
+      }
       if (++steps > Buses_.size()) {
         error = "the bus '" + Buses_[at].Id +
                 "' never reaches the master -- its route is a cycle, and a cycle on the "
@@ -101,6 +120,10 @@ bool BusGraph::Build(std::span<const Scenario::Bus> buses,
     }
   }
 
+  return true;
+}
+
+bool BusGraph::DefineSounds(std::span<const Scenario::Sound> sounds, std::string &error) {
   for (const Scenario::Sound &sound : sounds) {
     if (sound.Id.empty()) {
       error = "a sound without an id cannot be played, and a sound nobody can play is "
@@ -118,16 +141,24 @@ bool BusGraph::Build(std::span<const Scenario::Bus> buses,
       error = "the sound '" + sound.Id + "' routes into '" + sound.Bus + "', which no bus declares";
       return false;
     }
-    if (sound.Heard.Positional && !(sound.Heard.RefM > 0.0)) {
+    if (sound.Heard.Positional && (!std::isfinite(sound.Heard.RefM) || !(sound.Heard.RefM > 0.0))) {
       error = "the sound '" + sound.Id +
               "' is positional and its refM is not above zero -- a positional source without a "
               "distance is a stereo source wearing a costume";
+      return false;
+    }
+    if (!std::isfinite(sound.GainDb) || !std::isfinite(Linear(sound.GainDb))) {
+      error = Says::InvalidGain;
       return false;
     }
     Sounds_.push_back(Source{.Id = sound.Id,
                              .Into = into,
                              .Gain = Linear(sound.GainDb),
                              .Positional = sound.Heard.Positional});
+    if (!std::isfinite(GainOf(sound.Id))) {
+      error = Says::InvalidGain;
+      return false;
+    }
   }
   return true;
 }

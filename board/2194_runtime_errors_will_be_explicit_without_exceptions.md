@@ -38,6 +38,15 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   Build und Compile-Datenbank müssen dieselbe Konfiguration führen. Tools und
   Drittanbieter explizit prüfen, keine pauschale Flag-Vererbung.
 
+## Audio-Routing
+
+BusGraph::Build leert den bisherigen Graphen vor der Validierung und akzeptiert
+nicht endliche Gains. Kandidatenaufbau mit separaten Bus-/Routing-/Soundphasen,
+Publikation erst nach vollständigem Erfolg. Ungültige IDs, Ziele, Zyklen, Budgets
+und Zahlen müssen den vorherigen Graphen samt Stimmenzähler erhalten. Unabhängiger
+Audio-Test prüft Ablehnung, Weiterverwendung und erfolgreichen Ersatz.
+Mixer::Stands besitzt zusätzliche Teilzustände; deren Transaktion bleibt gesondert offen.
+
 ## Vollständige CLI-Zahlenkonvertierung
 
 QueryTerrainHeight validiert die Koordinaten jetzt vor Engine-/SDL-Initialisierung.

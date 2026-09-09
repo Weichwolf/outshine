@@ -2,6 +2,7 @@
 #define OUTSHINE_AUDIO_BUSGRAPH_H
 
 #include <cstdint>
+#include <expected>
 #include <span>
 #include <string>
 #include <string_view>
@@ -13,9 +14,8 @@ namespace outshine::Audio {
 
 class BusGraph {
 public:
-  [[nodiscard]] bool Build(std::span<const Scenario::Bus> buses,
-                           std::span<const Scenario::Sound> sounds,
-                           std::string &error);
+  [[nodiscard]] std::expected<void, std::string> Build(std::span<const Scenario::Bus> buses,
+                                                       std::span<const Scenario::Sound> sounds);
 
   [[nodiscard]] size_t BusCount() const { return Buses_.size(); }
 
@@ -30,6 +30,10 @@ public:
   [[nodiscard]] double GainOf(std::string_view id) const;
 
 private:
+  [[nodiscard]] bool DefineBuses(std::span<const Scenario::Bus> buses, std::string &error);
+  [[nodiscard]] bool RouteBuses(std::span<const Scenario::Bus> buses, std::string &error);
+  [[nodiscard]] bool DefineSounds(std::span<const Scenario::Sound> sounds, std::string &error);
+
   struct Row {
     std::string Id;
     int Into = -1;

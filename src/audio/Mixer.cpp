@@ -1,4 +1,6 @@
 #include "Mixer.h"
+
+#include <utility>
 #include "math/Vec3.h"
 
 #include <array>
@@ -225,7 +227,11 @@ bool Mixer::Stands(std::span<const Scenario::Bus> buses,
     return false;
   }
   Rate_ = rate;
-  if (!Held_->Routing.Build(buses, declared, error)) { return false; }
+  auto routing = Held_->Routing.Build(buses, declared);
+  if (!routing) {
+    error = std::move(routing.error());
+    return false;
+  }
   Held_->Declared.assign(declared.begin(), declared.end());
   Held_->State.clear();
   Held_->Dulled.clear();
