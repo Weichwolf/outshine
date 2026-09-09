@@ -105,3 +105,9 @@ Grobsuche und lokale Verfeinerung erhalten ausgewertete Randminima; Auswertungsf
 liefern keinen Erfolg. Höchstens 25+2+24=51 At-Aufrufe, keine dynamischen Suchpuffer.
 Gerade, große Koordinaten, Randpunkte und NaN/Inf geprüft; Altstand-Negativkontrolle rot. Die feste Grobabtastung beweist kein globales
 Minimum auf beliebigen Spiralen/Schleifen; segmentweise globale Projektion bleibt offen.
+
+Alignment-Eingangsgrenze: vollständige endliche East/North-Paare in Align und
+LayAligned vor Berechnung verlangen. Ungerade Listen dürfen keinen letzten Wert
+verschlucken; nichtendliche Koordinaten sind Refusal. Ablehnung erhält ReferenceLine.
+Gerade als Kontrollfall, alle Koordinatenpositionen mit NaN/Inf und ungerade Länge
+prüfen. Segment-/Bend-Konsistenz und Repräsentationsgrenzen bleiben separat offen.
