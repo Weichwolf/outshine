@@ -99,6 +99,28 @@ int main() {
   gpu.FarM = 0;
   device = gpu.Projection();
   CHECK(std::abs(depthAt(device, 10) - 0.1f) < 1e-6f, "infinite reverse-Z retains near / distance");
+  Camera bounded;
+  bounded.setProjection(Camera::Perspective{.FovDeg = 90, .NearM = 1, .FarM = 1e308});
+  Mat4 finite;
+  CHECK(bounded.projectionMatrix(1, finite) && near(finite[14], -2),
+        "representable perspective coefficients survive a very distant finite far plane");
+  bounded.setProjection(Camera::Ortho{.XMagM = 1, .YMagM = 1, .NearM = -1, .FarM = 10});
+  const Mat4 retained = finite;
+  CHECK(!bounded.projectionMatrix(1, finite) && finite == retained,
+        "negative orthographic near distance rejects without publishing");
+  bounded.NearM = 0;
+  bounded.XMagM = std::numeric_limits<double>::denorm_min();
+  CHECK(!bounded.projectionMatrix(1, finite) && finite == retained,
+        "overflowing orthographic scale cannot publish infinite coefficients");
+  bounded.setExposure({.ApertureFStops = 2, .ShutterS = 0.01, .SensitivityIso = 100});
+  CHECK(bounded.exposed() && near(bounded.exposureScale(), 1.0 / 480),
+        "photographic multiplier follows shutter times ISO over 120 times aperture squared");
+  bounded.setExposure({.ApertureFStops = 1e200, .ShutterS = 1e200, .SensitivityIso = 1e200});
+  CHECK(bounded.exposed() && near(bounded.exposureScale(), 1.0 / 120),
+        "balanced large exposure parameters avoid intermediate overflow");
+  bounded.SensitivityIso = std::numeric_limits<double>::infinity();
+  CHECK(!bounded.exposed() && bounded.exposureScale() == 0,
+        "infinite photographic inputs are invalid");
   Covers("public camera projection and quaternion orientation, native algebraic UV rotation "
          "with a top-left image origin; GPU projection extents, finite/infinite "
          "reverse depth; no geodetic-pose coverage");

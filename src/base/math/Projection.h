@@ -33,8 +33,9 @@ ProjectionMatrix(const PerspectiveProjection &lens, double viewportAspect, Mat4 
   out[11] = -1;
   if (lens.FarM > 0 && std::isfinite(lens.FarM)) {
     if (!(lens.FarM > lens.NearM)) { return false; }
-    out[10] = (lens.FarM + lens.NearM) / (lens.NearM - lens.FarM);
-    out[14] = (2 * lens.FarM * lens.NearM) / (lens.NearM - lens.FarM);
+    const double depth = lens.FarM - lens.NearM;
+    out[10] = -1 - 2 * (lens.NearM / depth);
+    out[14] = -2 * (lens.NearM * (lens.FarM / depth));
   } else {
     out[10] = -1;
     out[14] = -2 * lens.NearM;

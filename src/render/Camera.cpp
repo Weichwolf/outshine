@@ -1,6 +1,7 @@
 #include "math/Units.h"
 #include "math/Projection.h"
 #include <cmath>
+#include <algorithm>
 #include "math/Mat4.h"
 #include "render/Camera.h"
 #include "math/TransformMatrix.h"
@@ -8,16 +9,27 @@
 
 namespace outshine {
 
-constexpr double kExposureCalibration = 1.2;
+namespace {
+constexpr double kExposureCalibration = 120.0;
 
-double Camera::exposureScale() const {
-  if (!exposed()) { return 0.0; }
-  const double ev100 =
-      std::log2(ApertureFStops * ApertureFStops / ShutterS) - std::log2(SensitivityIso / 100.0);
-  return 1.0 / (kExposureCalibration * std::pow(2.0, ev100));
+[[nodiscard]] bool PublishMatrix(const Mat4 &candidate, Mat4 &out) noexcept {
+  if (!std::ranges::all_of(candidate, [](double value) { return std::isfinite(value); })) {
+    return false;
+  }
+  out = candidate;
+  return true;
+}
 }
 
-bool Camera::modelMatrix(Mat4 &out) const {
+double Camera::exposureScale() const noexcept {
+  if (!exposed()) { return 0.0; }
+  const double logScale = std::log2(ShutterS) + std::log2(SensitivityIso) -
+                          2 * std::log2(ApertureFStops) - std::log2(kExposureCalibration);
+  const double scale = std::exp2(logScale);
+  return std::isfinite(scale) && scale > 0.0 ? scale : 0.0;
+}
+
+bool Camera::modelMatrix(Mat4 &out) const noexcept {
   for (const double axis : PositionM) {
     if (!std::isfinite(axis)) { return false; }
   }
@@ -43,13 +55,15 @@ bool Camera::modelMatrix(Mat4 &out) const {
   return true;
 }
 
-bool Camera::viewMatrix(Mat4 &out) const {
+bool Camera::viewMatrix(Mat4 &out) const noexcept {
   Mat4 model;
   if (!modelMatrix(model)) { return false; }
-  return InverseMatrix(model, out);
+  Mat4 candidate;
+  return InverseMatrix(model, candidate) && PublishMatrix(candidate, out);
 }
 
-bool Camera::projectionMatrix(double aspect, Mat4 &out) const {
+bool Camera::projectionMatrix(double aspect, Mat4 &out) const noexcept {
+  if (Orthographic && NearM < 0.0) { return false; }
   Mat4 candidate;
   const bool valid =
       Orthographic
@@ -62,17 +76,14 @@ bool Camera::projectionMatrix(double aspect, Mat4 &out) const {
                                                    .FarM = FarM},
                              aspect,
                              candidate);
-  if (!valid) { return false; }
-  out = candidate;
-  return true;
+  return valid && PublishMatrix(candidate, out);
 }
 
-bool Camera::clipMatrix(double aspect, Mat4 &out) const {
+bool Camera::clipMatrix(double aspect, Mat4 &out) const noexcept {
   Mat4 view;
   Mat4 projection;
   if (!viewMatrix(view) || !projectionMatrix(aspect, projection)) { return false; }
-  out = projection * view;
-  return true;
+  return PublishMatrix(projection * view, out);
 }
 
 }
