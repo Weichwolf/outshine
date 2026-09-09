@@ -25,7 +25,7 @@ int main() {
     placement[5] = 3;
     placement[10] = 4;
     placement.SetTranslation({{5, 7, 11}});
-    CHECK(geometry.transforms().setTransform(part, placement),
+    CHECK(geometry.setPlacement(part, placement),
           "native placement accepts affine scale and translation");
     Render::ShapeStore nativeStorage;
     const auto nativeResult = Render::PrepareShape(geometry, nativeStorage);

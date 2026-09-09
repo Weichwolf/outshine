@@ -864,83 +864,18 @@ fi
 # cannot say whether one is green today, and an assertion nobody checked is the one thing a
 # generated page must not carry.
 StateDoor() {
-  printf '\n## Door -- `include/`\n'
-  # THE DISTANCE TO FILAMENT AND CESIUM IS A NUMBER THIS PAGE PRINTS (board:2016). CLAUDE.md says
-  # the door speaks their vocabulary; a rename that is remembered rather than measured stalls
-  # halfway. Each row is a name a client already owns and whether include/ carries it yet.
-  printf '\nThe door speaks **Filament** for the renderer and **Cesium** for the Earth\n'
-  printf '(CLAUDE.md). What a reader already owns, and whether this door says it yet:\n\n'
-  printf '| the name a client knows | from | here |\n|---|---|---|\n'
-  # A NAME COUNTS WHEN IT IS DECLARED, NEVER WHEN IT IS MENTIONED. This read the door with its
-  # COMMENTS in it, so writing "there is no Skybox here and that is the better answer" made the
-  # table say the door speaks Skybox. Measured the moment it happened: 16 of 20 became 20 of 20
-  # with no type added. The prose is stripped before the count, which is the only way a generated
-  # page cannot lie about the tree.
-  doorText=$(sed 's|//.*||' include/*.h)
-  spoken=0
-  total=0
-  for pair in \
-    'Engine:Filament' 'Scene:Filament' 'View:Filament' 'Camera:Filament' 'Renderer:Filament' \
-    'Material:Filament' 'MaterialInstance:Filament' 'TransformManager:Filament' \
-    'IndirectLight:Filament' 'LightManager:Filament' 'SwapChain:Filament' \
-    'Viewport:Filament' 'RenderableManager:Filament' \
-    'Georeference:Cesium' 'GlobeAnchor:Cesium' 'LongitudeDeg:Cesium' 'LatitudeDeg:Cesium' \
-    'HeightM:Cesium' 'SamplesHeight:Cesium'; do
-    doorName=${pair%%:*}
-    doorFrom=${pair##*:}
-    total=$((total + 1))
-    if printf '%s' "$doorText" | grep -q "\\b$doorName\\b"; then
-      printf '| `%s` | %s | yes |\n' "$doorName" "$doorFrom"
-      spoken=$((spoken + 1))
-    else
-      printf '| `%s` | %s | **not yet** |\n' "$doorName" "$doorFrom"
-    fi
-  done
-  printf '| `Skybox` | Filament | **no, and on purpose** |\n'
-  printf '\n**%d of %d spoken, and one refused.** A name here is not a rename to make: it is a\n' \
-    "$spoken" "$total"
-  printf 'promise a client already understands. `Skybox` is the refusal: Filament shows an image or\n'
-  printf 'a colour where nothing else stands, and this sky is COMPUTED -- the sun, the moon and the\n'
-  printf 'stars stand where the georeference and the clock put them. A picture handed in would\n'
-  printf 'disagree with its own shadows the moment the clock moved, so a client declares the\n'
-  printf 'WEATHER and never the sky. The ones marked *not yet*, if any, are what board:2016 owes.\n'
-
-  # A VERB IS THE HALF A CLIENT ACTUALLY CALLS, so the door's distance is measured on verbs too.
-  printf '\nAnd the verbs, because a client calls those rather than the types:\n\n'
-  printf '| the verb a client knows | from | here |\n|---|---|---|\n'
-  verbSpoken=0
-  verbTotal=0
-  for pair in \
-    'beginFrame:Filament' 'render:Filament' 'endFrame:Filament' 'readPixels:Filament' \
-    'addEntity:Filament' 'setScene:Filament' 'setCamera:Filament' 'setViewport:Filament' \
-    'lookAt:Filament' 'setProjection:Filament' 'setExposure:Filament' 'flushAndWait:Filament' \
-    'sampleHeight:Cesium' 'LongitudeLatitudeHeight:Cesium'; do
-    verbName=${pair%%:*}
-    verbFrom=${pair##*:}
-    verbTotal=$((verbTotal + 1))
-    if printf '%s' "$doorText" | grep -qi "$verbName"; then
-      printf '| `%s` | %s | yes |\n' "$verbName" "$verbFrom"
-      verbSpoken=$((verbSpoken + 1))
-    else
-      printf '| `%s` | %s | **not yet** |\n' "$verbName" "$verbFrom"
-    fi
-  done
-  printf '\n**%d of %d spoken.**\n' "$verbSpoken" "$verbTotal"
-
-  # THE THIRD SORT, AND WITHOUT IT THIS PAGE WOULD READ 40%% FOR EVER AND MEAN NOTHING. Filament
-  # is a RENDERER: it has no scenario, no simulation, no audio, no store. Those verbs are this
-  # tree's own and are not a debt -- naming them keeps the number above honest.
-  printf '\nOURS BY RIGHT, because Filament is a renderer and does not face the question:\n\n'
-  printf '`Declare` · `Read` · `Assemble` · `Advance` · `Run` · `Mixes` · `Park` · `Resume` ·\n'
-  printf '`Numbers` · `Inspects` — a scenario, a simulation, a mixer and a measure. A client that\n'
-  printf 'knows Filament still has to learn these, and that is the door being HONEST about what\n'
-  printf 'outshine is rather than pretending to be a renderer it is not.\n'
-  for header in include/*.h; do
-    printf '\n### `%s`\n\n' "${header#include/}"
-    sed -n 's|^struct \([A-Za-z]*\) {|value: \1|p; s|^class \([A-Za-z]*\) {|type: \1|p' \
-      "$header" | sed 's|^|    |'
-    sed -n 's|^  \[\[nodiscard\]\] \(.*\);$|\1|p; s|^  \(void [A-Z].*\);$|\1|p' "$header" |
-      sed 's|  *| |g' | sed 's|^|    |'
+  printf '\n## Public API -- `include/`\n\n'
+  printf 'Native contracts are defined by Outshine; external names are not an architecture score.\n'
+  printf 'This inventory includes every public header, including nested modules.\n'
+  printf 'Declarations and contracts live in those headers; documentation diagnostics are reported by `make lint`.\n\n'
+  printf '| module | public header |\n|---|---|\n'
+  find include -type f -name '*.h' | LC_ALL=C sort | while IFS= read -r header; do
+    relative=${header#include/}
+    case "$relative" in
+      */*) module=${relative%/*} ;;
+      *) module=root ;;
+    esac
+    printf '| `%s` | [`%s`](%s) |\n' "$module" "$relative" "$header"
   done
   modules=$BUILD/log/module-of-header
   mkdir -p "$BUILD/log"
@@ -1309,7 +1244,7 @@ StateProgress() {
 if [ "$STATE" = 1 ]; then
   printf '# outshine\n\n'
   printf 'What the tree **is**, generated by `make` and written by no hand. TARGET lives in\n'
-  printf '`CLAUDE.md`; where the two disagree, this page is the tree.\n'
+  printf '`AGENTS.md`; this report inventories the tree and does not certify its architecture.\n'
   StateProgress
   StateDoor
   StateShape

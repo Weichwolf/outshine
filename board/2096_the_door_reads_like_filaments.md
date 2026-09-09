@@ -11,7 +11,7 @@ Depends: 2191, 2150
 
 Die API wird nach Outshines Verträgen gestaltet. Filament-/Cesium-Namensgleichheit,
 ein Header pro Typ und global eindeutige Kurzbezeichner sind keine Abnahmekriterien.
-Keine pauschale Umbenennung von Geometry zu Model oder Loaded zu Asset.
+Der API-Bericht inventarisiert alle öffentlichen Header statt Vorbildnamen zu zählen.
 Namespaces dürfen passende gleichnamige Begriffe enthalten; entscheidend sind
 Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Verantwortung.
 
@@ -29,9 +29,9 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
 - Registry-Abfragen dürfen ungültige Handles nicht als Body oder belegten Sitz
   ausgeben. roleOf liefert optional; seatOf prüft beide Handle-Lebensdauern.
   Entfernung, Slot-Wiederverwendung und fremde Registry mit API-Tests abdecken.
-- Geometry-Managerfassaden und direkte Zugriffsmethoden auf eine klare Zugriffsebene
-  konsolidieren; geliehene Wrapper ohne eigenen Systemvertrag vermeiden. Mesh-/Material-
-  Ressourcen und Instanzen gemäß 2150 trennen, ohne eine zweite Geometrie einzuführen.
+- Geometry besitzt direkte setPlacement/setMaterial/setLight-Methoden statt geliehener
+  Managerfassaden. Ungültige Indizes dürfen keine Daten ändern; clear löscht aktive Zugriffe.
+  Mesh-/Material-Ressourcen und Instanzen gemäß 2150 trennen, ohne zweite Geometrie.
 - Scenario.h bündelt Deklarationen vieler Systeme. Nach fachlichen Abhängigkeiten
   aufteilen, soweit dies isolierte Consumer und nachvollziehbare Verträge ermöglicht;
   keine Headerzahl als Ziel. Jeder öffentliche Header muss selbstständig verwendbar sein.

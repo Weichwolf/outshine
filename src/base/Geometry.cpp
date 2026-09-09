@@ -201,91 +201,25 @@ bool Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
   return true;
 }
 
-bool TransformManager::setTransform(int part, const Mat4 &model) {
-  if (part < 0 || part >= Of_->parts()) { return false; }
-  Of_->place(part, model);
+bool Geometry::setLight(int lamp, const PunctualLight &light) noexcept {
+  if (lamp < 0 || std::cmp_greater_equal(lamp, Held_->Lamps.size())) { return false; }
+  Held_->Lamps[static_cast<size_t>(lamp)].Light = light;
   return true;
 }
 
-const Mat4 &TransformManager::getTransform(int part) const {
-  return Of_->placementOf(part);
-}
-
-TransformManager Geometry::transforms() {
-  return TransformManager(*this);
-}
-
-LightManager Geometry::lights() {
-  return LightManager(*this);
-}
-
-RenderableManager Geometry::renderables() {
-  return RenderableManager(*this);
-}
-
-int LightManager::count() const {
-  return Of_->lamps();
-}
-
-const PunctualLight &LightManager::getLight(int lamp) const {
-  return Of_->lampAt(lamp);
-}
-
-std::string_view LightManager::nameOf(int lamp) const {
-  return Of_->lampNameOf(lamp);
-}
-
-const Mat4 &LightManager::getTransform(int lamp) const {
-  return Of_->lampPlacementOf(lamp);
-}
-
-bool LightManager::setLight(int lamp, const PunctualLight &light) {
-  if (lamp < 0 || lamp >= Of_->lamps()) { return false; }
-  Of_->relight(lamp, light);
-  return true;
-}
-
-int RenderableManager::count() const {
-  return Of_->parts();
-}
-
-std::string_view RenderableManager::nameOf(int part) const {
-  return Of_->nameOf(part);
-}
-
-MaterialInstance RenderableManager::getMaterial(int part) const {
-  return Of_->materialOf(part);
-}
-
-size_t RenderableManager::vertexCount(int part) const {
-  return Of_->positionsOf(part).size() / 3;
-}
-
-size_t RenderableManager::triangleCount(int part) const {
-  return Of_->trianglesOf(part).size() / 3;
-}
-
-bool RenderableManager::setMaterial(int part, MaterialInstance surface) {
-  if (part < 0 || part >= Of_->parts() || !surface.bound() || surface.index() >= Of_->surfaces()) {
+bool Geometry::setMaterial(int part, MaterialInstance surface) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || !surface.bound() ||
+      std::cmp_greater_equal(surface.index(), Held_->Surfaces.size())) {
     return false;
   }
-  Of_->resurface(part, surface);
+  Held_->Parts[static_cast<size_t>(part)].Material = surface.index();
   return true;
 }
 
-void Geometry::relight(int lamp, const PunctualLight &light) {
-  if (lamp < 0 || std::cmp_greater_equal(lamp, Held_->Lamps.size())) { return; }
-  Held_->Lamps[static_cast<size_t>(lamp)].Light = light;
-}
-
-void Geometry::resurface(int part, MaterialInstance surface) {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) { return; }
-  Held_->Parts[static_cast<size_t>(part)].Material = surface.index();
-}
-
-void Geometry::place(int part, const Mat4 &model) {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) { return; }
+bool Geometry::setPlacement(int part, const Mat4 &model) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) { return false; }
   Held_->Parts[static_cast<size_t>(part)].PlacedM = model;
+  return true;
 }
 
 MaterialInstance Geometry::addSurface(std::string_view named, const Material &surface) {

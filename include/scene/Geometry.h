@@ -13,98 +13,12 @@
 
 namespace outshine {
 
-class Geometry;
-
-/// Borrowed access to one Geometry's part transforms; does not own the geometry.
-/// The owner must outlive this manager and must not be moved. Read operations require
-/// no concurrent mutation; writes require exclusive access. Operations are O(1),
-/// allocate nothing, and use Geometry's borrowed-reference invalidation contract.
-class TransformManager {
-public:
-  /// Copy a local-to-model matrix without baking it into vertex attributes.
-  /// @param part Active part index in the owner.
-  /// @param model Column-major affine matrix; translations are metres. The caller
-  /// must supply a finite, usable transform; this setter does not validate it.
-  /// @return False for an absent part, without mutation; true after replacement.
-  [[nodiscard]] bool setTransform(int part, const Mat4 &model);
-  /// @param part Active part index in the owner.
-  /// @return Borrowed local-to-model matrix, or a static identity for an absent part.
-  [[nodiscard]] const Mat4 &getTransform(int part) const;
-
-private:
-  friend class Geometry;
-
-  explicit TransformManager(Geometry &of) : Of_(&of) {}
-
-  Geometry *Of_ = nullptr;
-};
-
-/// Borrowed light access with the ownership, threading and O(1) costs of TransformManager.
-/// Light indices belong to this Geometry; light data and placement are stored separately.
-class LightManager {
-public:
-  /// @return Number of active entries in the owner, without allocation.
-  [[nodiscard]] int count() const;
-  /// @param lamp Owner-local light index.
-  /// @return Borrowed light data, or a static default PunctualLight when absent.
-  [[nodiscard]] const PunctualLight &getLight(int lamp) const;
-  /// @param lamp Owner-local light index.
-  /// @param light Data copied as supplied; units and validity follow PunctualLight.
-  /// @return False without mutation when absent; true after replacing data. Placement
-  /// is unchanged. Photometric ranges and finite values are not validated here.
-  [[nodiscard]] bool setLight(int lamp, const PunctualLight &light);
-  /// @param lamp Owner-local light index.
-  /// @return Borrowed name, or an empty view when absent.
-  [[nodiscard]] std::string_view nameOf(int lamp) const;
-  /// @param lamp Owner-local light index.
-  /// @return Borrowed local-to-model matrix in metres, or static identity when absent.
-  [[nodiscard]] const Mat4 &getTransform(int lamp) const;
-
-private:
-  friend class Geometry;
-
-  explicit LightManager(Geometry &of) : Of_(&of) {}
-
-  Geometry *Of_ = nullptr;
-};
-
-/// Borrowed part access with the ownership, threading and O(1) costs of TransformManager.
-/// This manager edits CPU content; it neither owns GPU resources nor publishes updates.
-class RenderableManager {
-public:
-  /// @return Number of active entries in the owner, without allocation.
-  [[nodiscard]] int count() const;
-  /// @param part Active owner-local part index.
-  /// @return Borrowed name, or an empty view when absent.
-  [[nodiscard]] std::string_view nameOf(int part) const;
-  /// @param part Active owner-local part index.
-  /// @return Owner-local material reference, unbound when the part is absent.
-  [[nodiscard]] MaterialInstance getMaterial(int part) const;
-  /// @param part Active owner-local part index.
-  /// @param surface Bound material reference from the same Geometry.
-  /// @return False without mutation for an absent part or material; true after assignment.
-  [[nodiscard]] bool setMaterial(int part, MaterialInstance surface);
-  /// @param part Active owner-local part index.
-  /// @return Stored XYZ tuple count, or zero when absent; not a validity check.
-  [[nodiscard]] size_t vertexCount(int part) const;
-  /// @param part Active owner-local part index.
-  /// @return Stored index-triplet count, or zero when absent; not a validity check.
-  [[nodiscard]] size_t triangleCount(int part) const;
-
-private:
-  friend class Geometry;
-
-  explicit RenderableManager(Geometry &of) : Of_(&of) {}
-
-  Geometry *Of_ = nullptr;
-};
-
 /// Move-only owner of CPU mesh attributes, materials, images, lights and part placements.
 /// Vertex positions are local metres in a right-handed, Y-up frame; triangles use CCW
 /// front faces. Part placements map local coordinates into model space. No import-format
 /// objects or GPU resources are required to build this content.
 ///
-/// Managers and returned spans, references and string_views are borrowed. Treat them
+/// Returned spans, references and string_views are borrowed. Treat them
 /// as invalid after mutation of their owner, clear(), move or destruction; reacquire
 /// them before use. Input strings and spans are copied during the call and must not
 /// alias storage modified by that call. Indices are owner-local and are not persistent
@@ -121,7 +35,7 @@ class Geometry {
 public:
   /// Create an empty owner; allocates its private storage.
   Geometry();
-  /// Release owned CPU data and invalidate every borrowed manager and view.
+  /// Release owned CPU data and invalidate every borrowed view.
   ~Geometry();
   /// Transfer the complete owner in O(1), without allocation.
   /// @param other Source, left usable only for destruction or move assignment.
@@ -154,12 +68,25 @@ public:
   /// access to this non-moved-from object; no concurrent readers or writers are allowed.
   void clear();
 
-  /// @return A non-owning manager bound to this object; no allocation.
-  [[nodiscard]] TransformManager transforms();
-  /// @return A non-owning manager bound to this object; no allocation.
-  [[nodiscard]] LightManager lights();
-  /// @return A non-owning manager bound to this object; no allocation.
-  [[nodiscard]] RenderableManager renderables();
+  /// Replace a part's local-to-model placement without modifying its vertex attributes.
+  /// @param part Active owner-local part index.
+  /// @param model Finite usable affine matrix with translations in metres; not validated here.
+  /// @return False without mutation for an absent part; true after replacement.
+  /// O(1), no allocation; requires exclusive access.
+  [[nodiscard]] bool setPlacement(int part, const Mat4 &model) noexcept;
+  /// Replace local light data while preserving its name and placement.
+  /// @param lamp Active owner-local light index.
+  /// @param light Values copied as supplied; validity and units follow PunctualLight.
+  /// @return False without mutation for an absent light; true after replacement.
+  /// O(1), no allocation; requires exclusive access. Numeric values are not validated.
+  [[nodiscard]] bool setLight(int lamp, const PunctualLight &light) noexcept;
+  /// Replace a part's material reference without modifying either material.
+  /// @param part Active owner-local part index.
+  /// @param surface Bound material reference belonging to this owner; foreign owners
+  /// cannot be detected because MaterialInstance stores only an index.
+  /// @return False without mutation for an absent part or material; true after replacement.
+  /// O(1), no allocation; requires exclusive access.
+  [[nodiscard]] bool setMaterial(int part, MaterialInstance surface) noexcept;
 
   /// Append a copied material; numeric and texture-reference validity is the caller's duty.
   /// @param named Name copied into this owner.
@@ -308,13 +235,6 @@ public:
   [[nodiscard]] bool wellFormed() const;
 
 private:
-  friend class TransformManager;
-  friend class LightManager;
-  friend class RenderableManager;
-  void place(int part, const Mat4 &model);
-  void relight(int lamp, const PunctualLight &light);
-  void resurface(int part, MaterialInstance surface);
-
   struct Held;
   std::unique_ptr<Held> Held_;
 };
