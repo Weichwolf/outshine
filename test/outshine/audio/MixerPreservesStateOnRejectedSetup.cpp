@@ -40,5 +40,31 @@ int main() {
   CHECK(!mixer.Stands(buses, invalidSounds, 96000), "missing source rejected");
   CHECK(mixer.Voices() == 1 && mixer.Routing().GainOf("tone") == 1,
         "late validation failure preserves published sources and voices");
+  for (const char *value : {"440garbage", "nan", "inf", "", "1e9999"}) {
+    auto invalidParameter = sounds;
+    invalidParameter[0].Graph[0].Parameters.push_back({"frequency", value});
+    CHECK(!mixer.Stands(buses, invalidParameter, 48000), "malformed numeric parameter rejected");
+  }
+  auto invalidDelay = sounds;
+  invalidDelay[0].Graph[0].Does = Scenario::Makes::Delay;
+  for (const char *value : {"-1", "1e30"}) {
+    invalidDelay[0].Graph[0].Parameters = {{"delayS", value}};
+    CHECK(!mixer.Stands(buses, invalidDelay, 48000), "invalid or over-budget delay rejected");
+  }
+  auto delayed = sounds;
+  Scenario::Voice delay;
+  delay.Id = "delay";
+  delay.Does = Scenario::Makes::Delay;
+  delay.From = {"oscillator"};
+  delay.Parameters = {{"delayS", "0"}, {"feedback", "0"}};
+  delayed[0].Graph.push_back(delay);
+  CHECK(mixer.Stands(buses, delayed, 48000) && control.Stands(buses, sounds, 48000),
+        "valid delay parameters prepare before rendering");
+  CHECK(mixer.Fills(actual, sources, {}, error) && control.Fills(expected, sources, {}, error),
+        "prepared delay renders");
+  CHECK(actual[0] == 0 && actual[1] == 0, "delay ring starts silent");
+  for (size_t sample = 2; sample < actual.size(); ++sample) {
+    CHECK(actual[sample] == expected[sample - 2], "zero-second delay retains one stereo frame");
+  }
   return Report();
 }

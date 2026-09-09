@@ -49,6 +49,15 @@ Mixer::Stands baut Routing, Quellen, Hall und Laufzustand als Kandidat auf; Abta
 und Besitzwechsel erst nach Erfolg. Kontrollmixer prüft identische Folgeblöcke nach
 abgelehnter Änderung von Rate/Routing und Zustandserhalt bei später Quellenablehnung.
 
+## Vorbereitete Audio-Parameter
+
+Numeric-Parameter vor Publikation mit ParseFiniteNumber validieren und in nativen
+Voice-Werten speichern; kein stod/catch oder Stringparsing im Audioblock. Negative
+Delayzeiten und nicht endliche Werte ablehnen. Delay-Ringe beim Setup reservieren,
+gemeinsam auf 8 Mi Samples Double begrenzen (64 MiB); Budget ist eine Enginegrenze,
+kein Hardwaremesswert. Fehler müssen den laufenden Mixer erhalten. Block-Scratch,
+Graph-Topologie und übrige Echtzeitbudgets bleiben anschließend offen.
+
 ## Vollständige CLI-Zahlenkonvertierung
 
 QueryTerrainHeight validiert die Koordinaten jetzt vor Engine-/SDL-Initialisierung.

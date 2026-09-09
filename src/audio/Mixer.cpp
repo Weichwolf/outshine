@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <memory>
 #include <numbers>
-#include <optional>
 #include <span>
 #include <string_view>
 #include <string>
@@ -19,6 +18,7 @@
 #include <vector>
 
 #include "math/Units.h"
+#include "format/Number.h"
 
 namespace outshine::Audio {
 
@@ -35,26 +35,9 @@ constexpr double kRt60Decades = -3.0;
 namespace {
 
 namespace Says {
+constexpr auto InvalidParameter = "invalid audio parameter";
+constexpr auto DelayBudget = "audio delay exceeds the sample budget";
 constexpr auto InvalidRate = "audio sample rate must be positive";
-}
-
-[[nodiscard]] double
-Named(std::span<const Scenario::Setting> parameters, std::string_view name, double standing) {
-  for (const Scenario::Setting &one : parameters) {
-    if (one.Name != name) { continue; }
-    try {
-      return std::stod(one.Value);
-    } catch (...) { return standing; }
-  }
-  return standing;
-}
-
-[[nodiscard]] std::optional<std::string> Spelt(std::span<const Scenario::Setting> parameters,
-                                               std::string_view name) {
-  for (const Scenario::Setting &one : parameters) {
-    if (one.Name == name) { return one.Value; }
-  }
-  return std::nullopt;
 }
 
 [[nodiscard]] double Shaped(std::string_view shape, double phase) {
@@ -66,12 +49,61 @@ Named(std::span<const Scenario::Setting> parameters, std::string_view name, doub
 }
 
 struct Running {
+  double FrequencyHz = 440.0;
+  double Gain = 1.0;
+  double Feedback = 0.0;
+  std::string Shape = "sine";
   double Phase = 0.0;
   double One = 0.0, Two = 0.0;
   std::vector<double> Ring;
   size_t At = 0;
   uint32_t Seed = 0x9E3779B9u;
 };
+
+constexpr double kDefaultFilterFrequencyHz = 1000.0;
+constexpr double kDefaultDelaySeconds = 0.05;
+constexpr size_t kDelaySampleBudget = size_t{8} * 1024 * 1024;
+
+[[nodiscard]] std::expected<Running, std::string>
+PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
+  Running result;
+  if (voice.Does == Scenario::Makes::Biquad) { result.FrequencyHz = kDefaultFilterFrequencyHz; }
+  double delaySeconds = kDefaultDelaySeconds;
+  for (const auto &parameter : voice.Parameters) {
+    if (parameter.Name == "shape") {
+      result.Shape = parameter.Value;
+      continue;
+    }
+    const auto parsed = ParseFiniteNumber(parameter.Value);
+    if (!parsed) { return std::unexpected(Says::InvalidParameter); }
+    if (parameter.Name == "frequency") {
+      result.FrequencyHz = *parsed;
+    } else if (parameter.Name == "gain") {
+      result.Gain = *parsed;
+    } else if (parameter.Name == "feedback") {
+      result.Feedback = *parsed;
+    } else if (parameter.Name == "delayS") {
+      delaySeconds = *parsed;
+    } else {
+      return std::unexpected(Says::InvalidParameter);
+    }
+  }
+  if (result.FrequencyHz < 0 || delaySeconds < 0 || std::abs(result.Feedback) >= 1 ||
+      (result.Shape != "sine" && result.Shape != "square" && result.Shape != "saw" &&
+       result.Shape != "triangle")) {
+    return std::unexpected(Says::InvalidParameter);
+  }
+  if (voice.Does == Scenario::Makes::Delay) {
+    const double samples = delaySeconds * rate;
+    if (!std::isfinite(samples) || samples >= static_cast<double>(remainingSamples)) {
+      return std::unexpected(Says::DelayBudget);
+    }
+    const size_t count = static_cast<size_t>(samples) + 1;
+    result.Ring.assign(count, 0.0);
+    remainingSamples -= count;
+  }
+  return result;
+}
 
 [[nodiscard]] double Falloff(const Scenario::Emitter &heard, double awayM) {
   const double refM = heard.RefM > 0.0 ? heard.RefM : 1.0;
@@ -131,10 +163,9 @@ void Voiced(const Scenario::Sound &sound,
 
     switch (makes.Does) {
       case Scenario::Makes::Oscillator: {
-        const double hz = Named(makes.Parameters, "frequency", 440.0) * pitch;
-        const std::string shape = Spelt(makes.Parameters, "shape").value_or("sine");
+        const double hz = kept.FrequencyHz * pitch;
         for (size_t frame = 0; frame < frames; ++frame) {
-          out[frame] = Shaped(shape, kept.Phase);
+          out[frame] = Shaped(kept.Shape, kept.Phase);
           kept.Phase += hz / static_cast<double>(rate);
           if (kept.Phase >= 1.0) { kept.Phase -= std::floor(kept.Phase); }
         }
@@ -147,12 +178,12 @@ void Voiced(const Scenario::Sound &sound,
         }
         break;
       case Scenario::Makes::Gain: {
-        const double by = Named(makes.Parameters, "gain", 1.0);
+        const double by = kept.Gain;
         for (size_t frame = 0; frame < frames; ++frame) { out[frame] = in[frame] * by; }
         break;
       }
       case Scenario::Makes::Biquad: {
-        const double hz = Named(makes.Parameters, "frequency", 1000.0);
+        const double hz = kept.FrequencyHz;
         const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / static_cast<double>(rate));
         for (size_t frame = 0; frame < frames; ++frame) {
           kept.One += alpha * (in[frame] - kept.One);
@@ -161,13 +192,7 @@ void Voiced(const Scenario::Sound &sound,
         break;
       }
       case Scenario::Makes::Delay: {
-        const double seconds = Named(makes.Parameters, "delayS", 0.05);
-        const auto held = static_cast<size_t>(seconds * static_cast<double>(rate));
-        if (kept.Ring.size() != held + 1) {
-          kept.Ring.assign(held + 1, 0.0);
-          kept.At = 0;
-        }
-        const double back = Named(makes.Parameters, "feedback", 0.0);
+        const double back = kept.Feedback;
         for (size_t frame = 0; frame < frames; ++frame) {
           out[frame] = kept.Ring[kept.At];
           kept.Ring[kept.At] = in[frame] + out[frame] * back;
@@ -200,7 +225,8 @@ struct Reverberation {
 
 struct Mixer::Held {
   void ConfigureRoom(std::span<const Scenario::Bus> buses, int rate);
-  [[nodiscard]] bool BuildSources(std::span<const Scenario::Sound> declared, std::string &error);
+  [[nodiscard]] bool
+  BuildSources(std::span<const Scenario::Sound> declared, int rate, std::string &error);
 
   BusGraph Routing;
   std::vector<Scenario::Sound> Declared;
@@ -242,7 +268,10 @@ void Mixer::Held::ConfigureRoom(std::span<const Scenario::Bus> buses, int rate) 
   }
 }
 
-bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared, std::string &error) {
+bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
+                               int rate,
+                               std::string &error) {
+  size_t remainingSamples = kDelaySampleBudget;
   for (const Scenario::Sound &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
       error = "the sound '" + one.Id +
@@ -260,7 +289,16 @@ bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared, std::s
         return false;
       }
     }
-    State.emplace_back(one.Graph.size());
+    auto &states = State.emplace_back();
+    states.reserve(one.Graph.size());
+    for (const auto &voice : one.Graph) {
+      auto prepared = PrepareVoice(voice, rate, remainingSamples);
+      if (!prepared) {
+        error = std::move(prepared.error());
+        return false;
+      }
+      states.push_back(std::move(*prepared));
+    }
     Dulled.push_back(0.0);
     Voices += one.Graph.empty() ? 0 : 1;
   }
@@ -290,7 +328,7 @@ std::expected<void, std::string> Mixer::Stands(std::span<const Scenario::Bus> bu
   if (!routing) { return routing; }
   candidate->Declared.assign(declared.begin(), declared.end());
   std::string error;
-  if (!candidate->BuildSources(declared, error)) { return std::unexpected(std::move(error)); }
+  if (!candidate->BuildSources(declared, rate, error)) { return std::unexpected(std::move(error)); }
   candidate->ConfigureRoom(buses, rate);
   Held_ = std::move(candidate);
   Rate_ = rate;
