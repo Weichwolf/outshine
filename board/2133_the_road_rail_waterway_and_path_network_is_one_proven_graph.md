@@ -87,3 +87,13 @@ Als WeakComponents/ComponentStatistics benennen: physischer Zusammenhang ohne
 Fahrtrichtung, getrennt von Reaches. Union-Find mit Pfadkompression und Union nach
 Größe benötigt O(V) Scratch, keine zweite Adjazenzliste. Tests für konvergierende
 Einbahnzweige, Richtungsumkehr, getrennte Komponente, Einzelknoten und leeren Graph.
+
+Mehrziel-A*: Gegenbeispiel mit zwei direkten Zielkanten und Fortsetzungen verhindert
+Legacy-Splicing. Kugelgeometrie unabhängig per acos(cos(lat)*cos(lon)) geprüft;
+der alte Router wählt ca. 1112 m statt ca. 1015 m (R=6371008,8 m).
+Heuristik h(n)=max(0,d(n,Zielzentrum)-Zielradius). Alle akzeptierten Ziele liegen
+im selben Radius wie Within; Dreiecksungleichung liefert h(n)<=d(n,jedes Ziel).
+Die Schranke ist konsistent und kostet O(1) je Bewertung, auch bei vielen Zielen.
+A*-Referenz: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/astar_search.html.
+Test in beiden gespiegelten Lagen; ursprüngliche Heuristik muss scheitern. Dies
+beweist nicht die Zulässigkeit der bestehenden räumlichen Start-/Zielanbindung.
