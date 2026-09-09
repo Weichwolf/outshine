@@ -42,7 +42,9 @@ Mixer erzeugt Synthese, einfachen Tiefpass, Delay, Panning, Doppler und Hall.
 Setup ist transaktional; numerische Parameter und Delay-Ringe werden vorbereitet.
 Datei-/Streamingquellen fehlen im Wiedergabepfad. Der als Biquad benannte Prozessor
 ist ein Einpol-Tiefpass. Graphkanten sind beim Setup validiert und kompiliert;
-Block-Scratch wird weiterhin beim Mischen allokiert.
+Signal-Scratch wird beim Setup reserviert, variable Ausgabeblöcke intern geteilt.
+Engine::mix initialisiert noch beim ersten Aufruf; Setup vor Audioausgabe verlegen
+und Abtastratenwechsel ausdrücklich behandeln. Hall-Setup und Worst-Case-Messung offen.
 Diese Defizite nicht durch konservierte Alt-Ausgaben als richtig deklarieren.
 
 SDL3 für Geräte/Streams; SDL3_mixer für ergänzende Wiedergabe/Dekodierung evaluieren.

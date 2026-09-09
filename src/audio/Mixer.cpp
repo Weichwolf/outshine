@@ -132,6 +132,48 @@ PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
   return std::clamp(shift, kDopplerLeast, kDopplerMost);
 }
 
+struct MixingContext {
+  int SampleRateHz;
+  double SpeedOfSoundMs;
+};
+
+struct SpatialMix {
+  double Gain = 1.0;
+  double Pitch = 1.0;
+  double CutoffHz = 0.0;
+  double Left = 0.5;
+  double Right = 0.5;
+};
+
+[[nodiscard]] SpatialMix Spatialize(const Scenario::Emitter &emitter,
+                                    const Heard &source,
+                                    const Listening &ear,
+                                    MixingContext context,
+                                    double gain) {
+  SpatialMix result{.Gain = gain};
+  if (!emitter.Positional) { return result; }
+  Vec3 awayXyz;
+  double awayM = 0.0;
+  for (int axis = 0; axis < 3; ++axis) {
+    awayXyz[axis] = source.AtM[axis] - ear.AtM[axis];
+    awayM += awayXyz[axis] * awayXyz[axis];
+  }
+  awayM = std::sqrt(awayM);
+  result.Gain *= Falloff(emitter, awayM);
+  result.Pitch = Doppler(source, ear, awayXyz, awayM, context.SpeedOfSoundMs);
+  const double along = awayM > 0.0 ? (awayXyz[0] * ear.RightXyz[0] + awayXyz[1] * ear.RightXyz[1] +
+                                      awayXyz[2] * ear.RightXyz[2]) /
+                                         awayM
+                                   : 0.0;
+  result.Right = 0.5 * (1.0 + along);
+  result.Left = 1.0 - result.Right;
+
+  const double blocked = std::clamp(source.Blocked, 0.0, 1.0);
+  result.Gain *= 1.0 + blocked * (emitter.BlockedGain - 1.0);
+  if (emitter.BlockedHz > 0.0 && blocked > 0.0) { result.CutoffHz = emitter.BlockedHz; }
+  return result;
+}
+
 struct Voicing {
   double Pitch = 1.0;
   int Rate = 0;
@@ -189,33 +231,47 @@ void ProcessSignal(Scenario::Makes kind,
   }
 }
 
+constexpr size_t kAudioBlockFrames = 256;
+
+struct SignalWorkspace {
+  std::vector<double> Samples;
+  std::array<double, kAudioBlockFrames> Input{};
+};
+
 void Voiced(const Scenario::Sound &sound,
             const SignalGraph &graph,
             std::vector<Running> &state,
             Voicing how,
-            std::vector<double> &into) {
+            std::span<double> into,
+            SignalWorkspace &workspace) {
   const size_t frames = into.size();
   for (double &one : into) { one = 0.0; }
   if (sound.Graph.empty()) { return; }
-  std::vector<std::vector<double>> made(sound.Graph.size(), std::vector<double>(frames, 0.0));
+  const std::span made(workspace.Samples);
+  const auto in = std::span(workspace.Input).first(frames);
   for (const size_t at : graph.Order) {
     const Scenario::Voice &makes = sound.Graph[at];
     Running &kept = state[at];
-    std::vector<double> &out = made[at];
-    std::vector<double> in(frames, 0.0);
+    const auto out = made.subspan(at * kAudioBlockFrames, frames);
+    std::ranges::fill(out, 0.0);
+    std::ranges::fill(in, 0.0);
     for (const size_t from : graph.Inputs[at]) {
-      for (size_t frame = 0; frame < frames; ++frame) { in[frame] += made[from][frame]; }
+      for (size_t frame = 0; frame < frames; ++frame) {
+        in[frame] += made[from * kAudioBlockFrames + frame];
+      }
     }
 
     ProcessSignal(makes.Does, kept, how, in, out);
   }
-  into = made.back();
+  std::ranges::copy(made.subspan((sound.Graph.size() - 1) * kAudioBlockFrames, frames),
+                    into.begin());
 }
 
 }
 
 namespace {
 struct Reverberation {
+  void Mix(std::span<const double> input, std::span<float> stereo);
   std::vector<std::vector<double>> Combs;
   std::vector<size_t> CombAt;
   std::vector<double> CombBack;
@@ -228,7 +284,37 @@ struct Reverberation {
 };
 }
 
+void Reverberation::Mix(std::span<const double> input, std::span<float> stereo) {
+  if (!Standing) { return; }
+  const size_t frames = input.size();
+  for (size_t frame = 0; frame < frames; ++frame) {
+    double wet = 0.0;
+    for (size_t comb = 0; comb < Combs.size(); ++comb) {
+      std::vector<double> &ring = Combs[comb];
+      const double heard = ring[CombAt[comb]];
+      CombKept[comb] += (1.0 - Damping) * (heard - CombKept[comb]);
+      ring[CombAt[comb]] = input[frame] + CombKept[comb] * CombBack[comb];
+      CombAt[comb] = (CombAt[comb] + 1) % ring.size();
+      wet += heard;
+    }
+    wet /= static_cast<double>(Combs.empty() ? 1u : Combs.size());
+    for (size_t pass = 0; pass < Passes.size(); ++pass) {
+      std::vector<double> &ring = Passes[pass];
+      const double heard = ring[PassAt[pass]];
+      ring[PassAt[pass]] = wet + heard * 0.5;
+      wet = heard - wet;
+      PassAt[pass] = (PassAt[pass] + 1) % ring.size();
+    }
+    stereo[frame * 2 + 0] += static_cast<float>(wet * WetShare);
+    stereo[frame * 2 + 1] += static_cast<float>(wet * WetShare);
+  }
+}
+
 struct Mixer::Held {
+  void MixBlock(std::span<float> stereo,
+                std::span<const Heard> sources,
+                const Listening &ear,
+                MixingContext context);
   void ConfigureRoom(std::span<const Scenario::Bus> buses, int rate);
   [[nodiscard]] bool
   BuildSources(std::span<const Scenario::Sound> declared, int rate, std::string &error);
@@ -237,9 +323,10 @@ struct Mixer::Held {
   std::vector<Scenario::Sound> Declared;
   std::vector<std::vector<Running>> State;
   std::vector<SignalGraph> Graphs;
-  std::vector<double> Scratch;
+  SignalWorkspace Workspace;
+  std::array<double, kAudioBlockFrames> Scratch{};
   std::vector<double> Dulled;
-  std::vector<double> Wet;
+  std::array<double, kAudioBlockFrames> Wet{};
   Reverberation Room;
   size_t Voices = 0;
 };
@@ -279,6 +366,7 @@ bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
                                std::string &error) {
   size_t remainingSamples = kDelaySampleBudget;
   SignalGraphBudget remainingGraph;
+  size_t largestGraph = 0;
   for (const Scenario::Sound &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
       error = "the sound '" + one.Id +
@@ -301,6 +389,7 @@ bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
       error = std::move(graph.error());
       return false;
     }
+    largestGraph = std::max(largestGraph, one.Graph.size());
     Graphs.push_back(std::move(*graph));
     auto &states = State.emplace_back();
     states.reserve(one.Graph.size());
@@ -315,6 +404,7 @@ bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
     Dulled.push_back(0.0);
     Voices += one.Graph.empty() ? 0 : 1;
   }
+  Workspace.Samples.resize(largestGraph * kAudioBlockFrames);
   return true;
 }
 
@@ -357,13 +447,30 @@ bool Mixer::Fills(std::span<float> stereo,
             std::to_string(stereo.size());
     return false;
   }
+  while (!stereo.empty()) {
+    const size_t count = std::min(stereo.size(), kAudioBlockFrames * 2);
+    Held_->MixBlock(stereo.first(count),
+                    sources,
+                    ear,
+                    {.SampleRateHz = Rate_, .SpeedOfSoundMs = SpeedOfSoundMs_});
+    stereo = stereo.subspan(count);
+  }
+
+  return true;
+}
+
+void Mixer::Held::MixBlock(std::span<float> stereo,
+                           std::span<const Heard> sources,
+                           const Listening &ear,
+                           MixingContext context) {
   for (float &one : stereo) { one = 0.0f; }
   const size_t frames = stereo.size() / 2;
-  Held_->Scratch.assign(frames, 0.0);
-  Held_->Wet.assign(frames, 0.0);
+  const auto scratch = std::span(Scratch).first(frames);
+  const auto wet = std::span(Wet).first(frames);
+  std::ranges::fill(wet, 0.0);
 
-  for (size_t at = 0; at < Held_->Declared.size(); ++at) {
-    const Scenario::Sound &sound = Held_->Declared[at];
+  for (size_t at = 0; at < Declared.size(); ++at) {
+    const Scenario::Sound &sound = Declared[at];
     if (sound.Graph.empty()) { continue; }
     const Heard *standing = nullptr;
     for (const Heard &one : sources) {
@@ -371,81 +478,33 @@ bool Mixer::Fills(std::span<float> stereo,
     }
     if (standing == nullptr) { continue; }
 
-    double gain = Held_->Routing.GainOf(sound.Id);
-    double pitch = 1.0;
-    double dullHz = 0.0;
-    double leftShare = 0.5;
-    double rightShare = 0.5;
-    if (standing != nullptr && sound.Heard.Positional) {
-      Vec3 awayXyz;
-      double awayM = 0.0;
-      for (int axis = 0; axis < 3; ++axis) {
-        awayXyz[axis] = standing->AtM[axis] - ear.AtM[axis];
-        awayM += awayXyz[axis] * awayXyz[axis];
-      }
-      awayM = std::sqrt(awayM);
-      gain *= Falloff(sound.Heard, awayM);
-      pitch = Doppler(*standing, ear, awayXyz, awayM, SpeedOfSoundMs_);
-      const double along = awayM > 0.0
-                               ? (awayXyz[0] * ear.RightXyz[0] + awayXyz[1] * ear.RightXyz[1] +
-                                  awayXyz[2] * ear.RightXyz[2]) /
-                                     awayM
-                               : 0.0;
-      rightShare = 0.5 * (1.0 + along);
-      leftShare = 1.0 - rightShare;
-
-      const double blocked = std::clamp(standing->Blocked, 0.0, 1.0);
-      gain *= 1.0 + blocked * (sound.Heard.BlockedGain - 1.0);
-      if (sound.Heard.BlockedHz > 0.0 && blocked > 0.0) { dullHz = sound.Heard.BlockedHz; }
-    }
-    if (!(gain > 0.0)) { continue; }
+    const auto spatial = Spatialize(sound.Heard, *standing, ear, context, Routing.GainOf(sound.Id));
+    if (!(spatial.Gain > 0.0)) { continue; }
 
     Voiced(sound,
-           Held_->Graphs[at],
-           Held_->State[at],
-           {.Pitch = pitch, .Rate = Rate_},
-           Held_->Scratch);
-    if (dullHz > 0.0) {
-      const double alpha = 1.0 - std::exp(-2.0 * kPi * dullHz / static_cast<double>(Rate_));
-      double &kept = Held_->Dulled[at];
-      for (double &one : Held_->Scratch) {
+           Graphs[at],
+           State[at],
+           {.Pitch = spatial.Pitch, .Rate = context.SampleRateHz},
+           scratch,
+           Workspace);
+    if (spatial.CutoffHz > 0.0) {
+      const double alpha =
+          1.0 - std::exp(-2.0 * kPi * spatial.CutoffHz / static_cast<double>(context.SampleRateHz));
+      double &kept = Dulled[at];
+      for (double &one : scratch) {
         kept += alpha * (one - kept);
         one = kept;
       }
     }
     for (size_t frame = 0; frame < frames; ++frame) {
-      const double one = Held_->Scratch[frame] * gain;
-      stereo[frame * 2 + 0] += static_cast<float>(one * leftShare);
-      stereo[frame * 2 + 1] += static_cast<float>(one * rightShare);
-      Held_->Wet[frame] += one * sound.SendShare;
+      const double one = scratch[frame] * spatial.Gain;
+      stereo[frame * 2 + 0] += static_cast<float>(one * spatial.Left);
+      stereo[frame * 2 + 1] += static_cast<float>(one * spatial.Right);
+      wet[frame] += one * sound.SendShare;
     }
   }
 
-  if (Held_->Room.Standing) {
-    Reverberation &room = Held_->Room;
-    for (size_t frame = 0; frame < frames; ++frame) {
-      double wet = 0.0;
-      for (size_t comb = 0; comb < room.Combs.size(); ++comb) {
-        std::vector<double> &ring = room.Combs[comb];
-        const double heard = ring[room.CombAt[comb]];
-        room.CombKept[comb] += (1.0 - room.Damping) * (heard - room.CombKept[comb]);
-        ring[room.CombAt[comb]] = Held_->Wet[frame] + room.CombKept[comb] * room.CombBack[comb];
-        room.CombAt[comb] = (room.CombAt[comb] + 1) % ring.size();
-        wet += heard;
-      }
-      wet /= static_cast<double>(room.Combs.empty() ? 1u : room.Combs.size());
-      for (size_t pass = 0; pass < room.Passes.size(); ++pass) {
-        std::vector<double> &ring = room.Passes[pass];
-        const double heard = ring[room.PassAt[pass]];
-        ring[room.PassAt[pass]] = wet + heard * 0.5;
-        wet = heard - wet;
-        room.PassAt[pass] = (room.PassAt[pass] + 1) % ring.size();
-      }
-      stereo[frame * 2 + 0] += static_cast<float>(wet * room.WetShare);
-      stereo[frame * 2 + 1] += static_cast<float>(wet * room.WetShare);
-    }
-  }
-  return true;
+  Room.Mix(wet, stereo);
 }
 
 }

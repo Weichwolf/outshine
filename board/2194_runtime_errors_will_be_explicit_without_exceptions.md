@@ -25,7 +25,11 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   nicht letzter ausgeführter Knoten. Vorwärtsreferenzen sind gültig. Setup begrenzt
   alle Quellen zusammen auf 1024 Knoten/4096 Kanten (gesetzte Enginebudgets).
   Analytische Signale, Permutationen und Ablehnungen mit Zustandserhalt prüfen.
-  Block-Scratch und weitere Echtzeitbudgets bleiben offen.
+  Scratch beim Setup für den größten Quellgraphen vorbereiten; Verarbeitung in
+  256-Frame-Teilstücken ohne zusätzliche Ausgabelatenz. Maximal 1024 × 256 × 8 Byte
+  Knotenspeicher (2 MiB), dazu drei 256-Sample-Double-Puffer (6 KiB). Gesetztes Budget,
+  kein Hardwaremesswert. Erster Block und variable Größen: keine C++-Heap-Allokation;
+  zusammenhängende und aufgeteilte Ausgabe müssen inklusive Delay/Hall übereinstimmen.
 - Asking::Instancing::Add fängt vector-Allokation: begrenzte Kapazität vorbereiten,
   Budgetablehnung ohne partielle Veröffentlichung. Nicht nur catch entfernen.
 - BuildingMesh::Mesh fängt alles und leert Raised: Scratch-/Output-Budgets und
@@ -76,8 +80,8 @@ Numeric-Parameter vor Publikation mit ParseFiniteNumber validieren und in native
 Voice-Werten speichern; kein stod/catch oder Stringparsing im Audioblock. Negative
 Delayzeiten und nicht endliche Werte ablehnen. Delay-Ringe beim Setup reservieren,
 gemeinsam auf 8 Mi Samples Double begrenzen (64 MiB); Budget ist eine Enginegrenze,
-kein Hardwaremesswert. Fehler müssen den laufenden Mixer erhalten. Block-Scratch,
-und übrige Echtzeitbudgets bleiben anschließend offen.
+kein Hardwaremesswert. Fehler müssen den laufenden Mixer erhalten. Hall-Setup,
+Quellvirtualisierung und vollständige Echtzeitmessungen bleiben offen.
 
 ## Vollständige CLI-Zahlenkonvertierung
 
@@ -90,16 +94,9 @@ Akzeptiert endliche dezimale Zahlen samt Vorzeichen und Exponent; keine Rand-Lee
 Restzeichen, NaN/Inf oder Über-/Unterläufe. Keine Ersatznull bei ungültiger Eingabe.
 height erhält einen geliehenen span der Argumente und verlangt exakt zwei, Latitude in [-90,90], Longitude in [-180,180];
 Ablehnung vor Engine-/SDL-/Provider-Aufbau. Gültige Abfrage bleibt unverändert.
-44 Zahlen-Checks einschließlich begrenzter Views ohne Nullterminierung. Vier Client-
-Checks samt Compiler-Oracle; Subprozesse unterscheiden Parse-Ablehnung von injiziertem
-SDL-Startfehler. Aktueller Gesamtlauf: 212 Tidy-Befunde; keine gelockerten Prüfungen.
-Negativkontrolle entfernt die Endzeigerprüfung: acht Zahlentests und acht CLI-Fälle
-werden rot. Vollständigkeitsprüfung wiederhergestellt. Compiler-Oracle: Ergebnis
-auswerten kompiliert, ignorieren scheitert an unused-result unter den echten Clientflags.
-Abschlusslauf: vier Client-Prüfungen und 29/29 Konventionstests grün. Der bekannte
-intermittierende Mipmap-Fehler bleibt trotz dieses grünen Laufs offen (2179).
-Weitere Consumer (Mixer/XML/render-CLI) anschließend mit ihren eigenen Fachverträgen
-migrieren; dieser Schritt behauptet weder vollständige Runtime- noch Audio-Abnahme.
+Unabhängige Parser-/CLI-Fälle und Negativkontrolle ohne Endzeigerprüfung sichern den
+Vertrag; ignorierte Ergebnisse scheitern unter den Clientflags. Weitere Consumer
+mit ihren eigenen Fachverträgen migrieren. Keine vollständige Runtime-Abnahme.
 
 ## Abnahme
 
