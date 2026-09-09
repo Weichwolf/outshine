@@ -64,8 +64,8 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
 - InputMap und declare erhalten Bindungen bei Fehlern; Views, deklarierter Zustand
   und Renderer können weiterhin teilweise verändert werden. Szenario-Publikation
   nach WI 2191 gemeinsam transaktional machen; Eingaben dürfen nicht isoliert bleiben.
-- Wheel liest den aktuellen globalen Mauszustand statt der Ereignisposition.
-  SDL-Ereigniszeit, Position und Richtungsflag berücksichtigen; Scrollgrenzen testen.
+- Wheel nutzt die Ereignisposition; Richtung und Scrollgrenzen sind geprüft.
+  HiDPI-Umrechnung und nichtendliche Event-/WheelStep-Werte noch validieren.
 - XML-Attribute dekodieren Referenzen und normalisieren Whitespace; Literal-UTF-8
   sowie Elementtext sind noch nicht vollständig geprüft. Keine XML-Konformität behaupten.
 - Motion.Dial bleibt gespeichert, Time.Rate ungenutzt; laufende astronomische Zeit

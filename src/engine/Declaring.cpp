@@ -29,11 +29,8 @@ constexpr auto kInputHostMissing = "a bound input action requires an offered hos
 
 Holds<bool> Engine::handleEvent(const SDL_Event &event) {
   if (S_->Picture.Standing && event.type == SDL_EVENT_MOUSE_WHEEL) {
-    float xPx = 0.0f;
-    float yPx = 0.0f;
-    SDL_GetMouseState(&xPx, &yPx);
-    return S_->Picture.Standing->Wheeled(static_cast<double>(xPx),
-                                         static_cast<double>(yPx),
+    return S_->Picture.Standing->Wheeled(static_cast<double>(event.wheel.mouse_x),
+                                         static_cast<double>(event.wheel.mouse_y),
                                          -static_cast<double>(event.wheel.y) *
                                              S_->Session.Declared.WheelStepPx,
                                          S_->Error);
