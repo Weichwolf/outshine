@@ -275,17 +275,22 @@ bool Engine::State::Updates() {
     }
   }
 
-  Falls();
+  const double simulationStepS =
+      Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
+  const double gravityMs2 = Session.Declared.Ground.GravityMs2 > 0.0
+                                ? Session.Declared.Ground.GravityMs2
+                                : kStandardGravityMs2;
+  Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
   if (!Watches()) { return false; }
   return Grounds(false);
 }
 
 bool Engine::State::Draws() {
-  if (!Ticking.Freestanding.empty() && Picture.Standing && Picture.Standing->Stands()) {
+  if (!Simulation->DynamicBodies.empty() && Picture.Standing && Picture.Standing->Stands()) {
     const Vec3 unshifted;
-    if (!Picture.Standing->Carries(Ticking.Freestanding.size(), Error)) { return false; }
-    for (size_t which = 0; which < Ticking.Freestanding.size(); ++which) {
-      if (!Carries(which, Ticking.Freestanding[which], unshifted)) { return false; }
+    if (!Picture.Standing->Carries(Simulation->DynamicBodies.size(), Error)) { return false; }
+    for (size_t which = 0; which < Simulation->DynamicBodies.size(); ++which) {
+      if (!Carries(which, Simulation->DynamicBodies[which].Motion, unshifted)) { return false; }
     }
   }
   if (Picture.Standing && !Picture.Standing->Advance(Error)) { return false; }
@@ -315,20 +320,6 @@ Result Engine::advance() {
   S_->Cost.Advance.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   return drew ? Result{} : std::unexpected(S_->Error);
-}
-
-void Engine::State::Falls() {
-  if (Ticking.Freestanding.empty()) { return; }
-  const double stepS =
-      Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
-  const double gravityMs2 = Session.Declared.Ground.GravityMs2 > 0.0
-                                ? Session.Declared.Ground.GravityMs2
-                                : kStandardGravityMs2;
-  for (Physics::Rigid &held : Ticking.Freestanding) {
-    Physics::Wrench pulled;
-    pulled.ForceN[1] = -held.MassKg * gravityMs2;
-    Physics::Step(held, pulled, stepS);
-  }
 }
 
 void Engine::State::Drew() {

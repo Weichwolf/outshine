@@ -1,6 +1,9 @@
 #include "Assembly.h"
 
 #include <array>
+#include <expected>
+#include <cstddef>
+#include <limits>
 #include <cstdint>
 #include <cstdlib>
 #include <vector>
@@ -8,14 +11,29 @@
 
 namespace outshine {
 
-size_t AssembledCapacity(const Scenario::Document &declared) {
-  size_t instanced = 0;
-  for (const Scenario::Instance &one : declared.Instances) {
-    (void)one;
-    ++instanced;
+namespace {
+namespace Says {
+constexpr auto EntityBudget = "simulation entity capacity exceeds 65536 slots";
+}
+
+constexpr size_t kMaximumSimulationEntities = 65536;
+static_assert(kMaximumSimulationEntities < std::numeric_limits<uint32_t>::max());
+}
+
+std::expected<size_t, std::string> RequiredEntityCapacity(const Scenario::Document &declared) {
+  const std::array counts{declared.Room,
+                          declared.Bodies.size(),
+                          size_t{declared.Played.Is.empty() ? 0u : 1u},
+                          declared.Kinds.size(),
+                          declared.Instances.size()};
+  size_t capacity = 0;
+  for (const size_t count : counts) {
+    if (count > kMaximumSimulationEntities - capacity) {
+      return std::unexpected(Says::EntityBudget);
+    }
+    capacity += count;
   }
-  return declared.Room + declared.Bodies.size() + (declared.Played.Is.empty() ? 0u : 1u) +
-         declared.Kinds.size() + instanced;
+  return capacity;
 }
 
 namespace {

@@ -141,7 +141,7 @@ void Engine::State::PublishAudioSnapshot() {
       continue;
     }
     const Physics::Rigid *stood = nullptr;
-    if (!Ticking.Freestanding.empty()) { stood = &Ticking.Freestanding.front(); }
+    if (!Simulation->DynamicBodies.empty()) { stood = &Simulation->DynamicBodies.front().Motion; }
     if (stood != nullptr) {
       where.Standing = true;
       for (int axis = 0; axis < 3; ++axis) {

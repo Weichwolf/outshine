@@ -28,26 +28,31 @@ Engine::Engine() : S_(std::make_unique<State>()) {}
 
 Result Engine::assemble() {
   if (!S_->Session.Taken) {
-    S_->Error = "a declaration was read and never DECLARED, so this engine holds a scenario it "
-                "was not asked to stand -- Read fills the declaration, Declare hands it over, "
-                "and Assemble builds what Declare stood";
+    S_->Error = "declare content before assembling simulation";
     return std::unexpected(S_->Error);
   }
   const Scenario::Document &declared = S_->Session.Declared;
-  const size_t named = AssembledCapacity(declared);
-  if (named == 0) {
-    if (!S_->Routes()) { return std::unexpected(S_->Error); }
-    return S_->Composes() ? Result{} : std::unexpected(S_->Error);
-  }
-  if (!S_->Cast.Scene.open(named) || !S_->Cast.Bodies.Open(S_->Cast.Scene) ||
-      !S_->Cast.Kinds.Open(S_->Cast.Scene)) {
-    S_->Error = "the scene did not open for the " + std::to_string(named) +
-                " entities the declaration names";
+  const auto capacity = RequiredEntityCapacity(declared);
+  if (!capacity) {
+    S_->Error = capacity.error();
     return std::unexpected(S_->Error);
   }
-  if (!outshine::Assemble(
-          declared, S_->Cast.Scene, S_->Cast.Bodies, S_->Cast.Kinds, S_->Cast.Stood, S_->Error)) {
-    return std::unexpected(S_->Error);
+  const size_t named = *capacity;
+  auto candidate = std::make_unique<SimulationState>();
+  if (named != 0) {
+    if (!candidate->Scene.open(named) || !candidate->Bodies.Open(candidate->Scene) ||
+        !candidate->Kinds.Open(candidate->Scene)) {
+      S_->Error = "could not allocate simulation entity storage";
+      return std::unexpected(S_->Error);
+    }
+    if (!outshine::Assemble(declared,
+                            candidate->Scene,
+                            candidate->Bodies,
+                            candidate->Kinds,
+                            candidate->Stood,
+                            S_->Error)) {
+      return std::unexpected(S_->Error);
+    }
   }
   if (!declared.Tables.empty()) {
     auto book = TableBook::Stand(declared.Tables);
@@ -55,27 +60,14 @@ Result Engine::assemble() {
       S_->Error = std::move(book).error();
       return std::unexpected(S_->Error);
     }
-    S_->Session.Tabled.emplace(*std::move(book));
+    candidate->Tables.emplace(*std::move(book));
   }
-
-  return S_->Routes() ? Result{} : std::unexpected(S_->Error);
-}
-
-bool Engine::State::Routes() {
-  const Scenario::Document &declared = Session.Declared;
-  Ticking.Freestanding.clear();
-  for (const Scenario::Body &stands : declared.Bodies) {
-    if (!stands.Placed) { continue; }
-    Physics::Rigid held;
-    held.MassKg = stands.MassKg;
-    for (int axis = 0; axis < 3; ++axis) {
-      held.PositionM[axis] = stands.Stands.AtM[axis];
-      held.InertiaKgM2[axis] = stands.InertiaKgM2[axis];
-    }
-    held.OrientationQ = stands.Stands.Facing;
-    Ticking.Freestanding.push_back(held);
-  }
-  return true;
+  candidate->PrepareBodies();
+  if (named == 0 && S_->Picture.Targeted && !S_->Composes()) { return std::unexpected(S_->Error); }
+  S_->Simulation = std::move(candidate);
+  S_->Session.Sounding.reset();
+  S_->Error.clear();
+  return {};
 }
 
 Engine::~Engine() = default;

@@ -215,7 +215,8 @@ public:
   /// Call after declaring/assembling content and before starting audio output. This call
   /// allocates and validates DSP state; it needs no SDL audio device or render target.
   /// Success resets oscillator/filter/delay state and publishes an initial source snapshot.
-  /// Failure preserves the previous prepared mixer. Replacing the declaration invalidates it.
+  /// Failure preserves the previous prepared mixer. Replacing the declaration or successfully
+  /// assembling simulation invalidates it.
   /// Serialize this call with all Engine operations, including mix(); no callback may overlap.
   /// @param sampleRateHz Output frames per second, normally negotiated with the audio device.
   /// @return Success or an owned error for missing declaration, invalid data or exceeded budgets.
@@ -254,8 +255,9 @@ public:
   [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);
 
   [[nodiscard]] const Scenario::Document &declaration() const;
-  /// Borrow the stable Scene container. Entity/component storage may be rebuilt by assemble()
-  /// and scenario transitions; do not retain references into that storage across mutations.
+  /// Borrow the current simulation Scene until successful assemble() or Engine destruction.
+  /// Successful assembly invalidates this reference and all prior entity/component references.
+  /// Failed assembly preserves the Scene and its contents; reacquire after successful assembly.
   [[nodiscard]] Scene &scene();
   /// Read-only borrowed Scene, with the same lifetime and mutation restrictions as scene().
   [[nodiscard]] const Scene &scene() const;
@@ -266,6 +268,13 @@ public:
   void stepTimesMs(std::vector<double> &out) const;
   void frameTimesMs(std::vector<double> &out) const;
 
+  /// Build entity, component, table and physics state for the current declaration.
+  /// Total capacity (reserve, bodies, kinds, instances and player mind) is limited to 65536
+  /// entity slots. Allocates on the calling thread; serialize with all Engine operations. No render
+  /// target is required. With a target and no entities, world composition may also run.
+  /// Success replaces simulation state and invalidates borrowed Scene references and prepared
+  /// audio. Failure preserves previous simulation state; this does not roll back declare().
+  /// @return Success or an owned validation/build error. Fatal allocation failure is separate.
   [[nodiscard]] Result assemble();
 
   [[nodiscard]] Result advance();

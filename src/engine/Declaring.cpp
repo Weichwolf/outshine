@@ -482,11 +482,11 @@ Result Engine::readScenario(std::string_view path) {
 }
 
 Scene &Engine::scene() {
-  return S_->Cast.Scene;
+  return S_->Simulation->Scene;
 }
 
 const Scene &Engine::scene() const {
-  return S_->Cast.Scene;
+  return S_->Simulation->Scene;
 }
 
 const Scenario::Document &Engine::declaration() const {

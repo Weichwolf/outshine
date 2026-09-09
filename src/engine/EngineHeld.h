@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "Assembly.h"
+#include "SimulationState.h"
 #include "TriangleBvh.h"
 #include "Ledger.h"
 #include "Mixer.h"
@@ -247,18 +248,10 @@ struct Kept {
   bool Pumping = false;
   std::optional<TriggerField> Volumes;
   size_t Fired = 0;
-  std::optional<TableBook> Tabled;
   std::optional<Audio::Mixer> Sounding;
   std::array<std::vector<Audio::Heard>, 2> Sources;
   std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};
-};
-
-struct Players {
-  Scene Scene;
-  Column<Scenario::Body> Bodies;
-  Column<Traits> Kinds;
-  Assembled Stood;
 };
 
 struct Surrounds {
@@ -367,7 +360,6 @@ struct Spent {
 };
 
 struct Ticks {
-  std::vector<Physics::Rigid> Freestanding;
   double OwedS = 0.0;
 
   double ElapsedS = 0.0;
@@ -376,7 +368,7 @@ struct Ticks {
 struct Engine::State {
   Seen Picture;
   Kept Session;
-  Players Cast;
+  std::unique_ptr<SimulationState> Simulation = std::make_unique<SimulationState>();
   Surrounds World;
   Spent Cost;
   Ticks Ticking;
@@ -427,7 +419,6 @@ struct Engine::State {
   [[nodiscard]] bool Asks();
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
-  void Falls();
   [[nodiscard]] bool Composes();
   bool Grows(double atLat, double atLon);
   [[nodiscard]] bool GrowsOver(const Generators::Tile &region, Generators::Detail coarseness);
@@ -440,7 +431,6 @@ struct Engine::State {
   void Tells();
   void PublishAudioSnapshot();
   [[nodiscard]] bool IsAudioOccluded(const Vec3 &sourceM) const;
-  [[nodiscard]] bool Routes();
 };
 
 }

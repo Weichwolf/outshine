@@ -30,9 +30,10 @@ Result Engine::save(std::string_view path) const {
                   "put back";
       return std::unexpected(S_->Error);
     }
-    const Entity holder = S_->Cast.Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
-    const uint32_t key = S_->Cast.Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
-    const Traits *held = holder == kNoEntity ? nullptr : S_->Cast.Kinds.Get(holder);
+    const Entity holder =
+        S_->Simulation->Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
+    const uint32_t key = S_->Simulation->Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
+    const Traits *held = holder == kNoEntity ? nullptr : S_->Simulation->Kinds.Get(holder);
     const double *value = held == nullptr || key == 0 ? nullptr : held->Named(key);
     if (value == nullptr) {
       S_->Error = "the persist row '" + row.What +
@@ -71,7 +72,7 @@ Result Engine::save(std::string_view path) const {
 }
 
 Result Engine::restore(std::string_view path) {
-  if (S_->Cast.Stood.Instances.empty() && S_->Session.Declared.Instances.empty()) {
+  if (S_->Simulation->Stood.Instances.empty() && S_->Session.Declared.Instances.empty()) {
     S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
                 "and then applying the state -- one arrival route";
     return std::unexpected(S_->Error);
@@ -112,8 +113,9 @@ Result Engine::restore(std::string_view path) {
       return std::unexpected(S_->Error);
     }
     Landing landing;
-    landing.Holder = S_->Cast.Stood.InstanceNamed(std::string_view(line).substr(0, dot));
-    landing.Key = S_->Cast.Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
+    landing.Holder = S_->Simulation->Stood.InstanceNamed(std::string_view(line).substr(0, dot));
+    landing.Key =
+        S_->Simulation->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
     const auto scanned =
         std::from_chars(line.data() + gap + 1, line.data() + line.size(), landing.Value);
     if (scanned.ec != std::errc() || scanned.ptr != line.data() + line.size() ||
@@ -136,7 +138,7 @@ Result Engine::restore(std::string_view path) {
       if (held.first == landing.Holder) { row = &held.second; }
     }
     if (row == nullptr) {
-      const Traits *standing = S_->Cast.Kinds.Get(landing.Holder);
+      const Traits *standing = S_->Simulation->Kinds.Get(landing.Holder);
       rows.emplace_back(landing.Holder, standing == nullptr ? Traits{} : *standing);
       row = &rows.back().second;
     }
@@ -152,7 +154,7 @@ Result Engine::restore(std::string_view path) {
     }
   }
   for (const auto &held : rows) {
-    if (!S_->Cast.Kinds.Put(held.first, held.second)) {
+    if (!S_->Simulation->Kinds.Put(held.first, held.second)) {
       S_->Error = "a validated holder died between the dry run and the commit";
       return std::unexpected(S_->Error);
     }

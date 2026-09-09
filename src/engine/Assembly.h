@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_ASSEMBLY_H
 #define OUTSHINE_ENGINE_ASSEMBLY_H
 
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -13,7 +14,8 @@
 
 namespace outshine {
 
-[[nodiscard]] size_t AssembledCapacity(const Scenario::Document &declared);
+[[nodiscard]] std::expected<size_t, std::string>
+RequiredEntityCapacity(const Scenario::Document &declared);
 
 [[nodiscard]] bool Assemble(const Scenario::Document &declared,
                             Scene &into,

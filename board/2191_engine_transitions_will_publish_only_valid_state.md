@@ -49,8 +49,6 @@ Kamerabasis liefert einen Fehler, keinen vorgetäuschten Erfolg.
 ScenarioViewsPreserveProjection: 346 Checks, analytisches Dreieck und Reverse-Z-Tiefe,
 stehend/mitgeführt, Defaults, Near=0 orthographisch, 15 ungültige Deklarationen je Pfad
 mit wiederholter Ablehnung, Bildbestand und Recovery; vor und nach Negativkontrolle grün.
-Konventionssuite zuletzt 27/28: nur bekannter Mipmap-Fehler aus 2179 rot
-(420 Kanäle, max. 0,00268555, Tiefe identisch), kein gelockerter Test.
 Negativkontrolle mit alter Watches-/Carries-Abbildung: Kamera-Test mit 73 fehlgeschlagenen
 Checks (einschließlich Folgefehler), zusätzlich zum Mipmap-Fehler. Mutation zurückgenommen.
 Beide PNGs selbst geöffnet: identische orthographische Lage/Ausdehnung. API-Vertragstest,
@@ -76,9 +74,9 @@ Mehrkörper-Laufzeitnachweis; der Projektions-Test verwendet ausdrücklich einen
 
 ## Gemeinsame Körperbindung für Kamera und Audio
 
-Routes baut aus platzierten Body-Deklarationen einen vector<Rigid> ohne Entity-ID.
-Assemble erzeugt dagegen Entities für alle Bodies; Filterung zerstört Indexgleichheit.
-PublishAudioSnapshot nimmt front(), Carries Körperindex 0: derselbe Identitätsverlust.
+Simulationskörper behalten jetzt ihre Entity-ID auch nach Filterung unplatzierter Bodies.
+PublishAudioSnapshot nimmt weiterhin front(), Carries Körperindex 0 statt des benannten Ziels.
+Carries prüft auch Trigger nur für Index 0; Trigger müssen dieselbe Entity-Bindung nutzen.
 Native Simulationskörper müssen ihre Entity-Handles behalten. Namen einmal gegen
 Assembly auflösen, unbekannte/mehrdeutige Ziele ablehnen; Hot Paths verwenden Handles.
 Transform/Velocity als engine-eigenen Zustand führen, nicht aus Renderteilen ableiten.
@@ -87,6 +85,14 @@ Deklaration, Assembly und Bindungen als zusammengehörige Generation publizieren
 fehlgeschlagener Neuaufbau erhält den alten gültigen Satz. Prepare darf keine Körper
 vorheriger Deklarationen binden. Reorder, unplatzierte Templates, mehrere bewegte
 Körper, Zielwechsel und fehlgeschlagene Reassembly über öffentliche API prüfen.
+
+Scene, Columns, Tabellen und Physikkörper in einem nicht verschiebbaren Heap-Besitzer
+zusammenhalten; Column leiht die Scene-Adresse. Assemble-Kandidat erst nach allen
+Prüfungen publizieren. Physikkörper behalten Entity-Owner; leere Assembly ersetzt
+alten Zustand auch ohne Renderziel. Scene-Borrows invalidieren nur bei Erfolg.
+Reserve + Bodies + Kinds + Instances + Player-Mind vor Allokation auf 65536 Slots
+begrenzen (gesetztes Enginebudget); Summenüberlauf ablehnen. Rollback und
+Komponenten-Lebensdauer über öffentliche API und Negativkontrolle prüfen.
 
 ## Abnahme
 

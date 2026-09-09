@@ -36,10 +36,9 @@ struct Seed {
 };
 
 constexpr Seed kStepSeeds[] = {
-    {"Engine5State5FallsEv",
-     "the physics step: gravity onto every free body, one `Physics::Step` per body per tick. It "
-     "replaced `Sim::DriveTick` when the autopilot left in board:2117 -- the SEAT of the step "
-     "moved, the bound on it did not"},
+    {"SimulationState9Integrate",
+     "the owned simulation step: gravity and rigid-body integration retain entity identity "
+     "without allocation or blocking calls"},
 };
 
 // THE PICTURE IS THE FRAME PATH TOO, AND IT WAS NEVER WALKED (board:2007). For as long as this
