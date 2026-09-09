@@ -1,7 +1,7 @@
 #include "ScenarioWrite.h"
 
-#include <array>
-#include <cstdio>
+#include <format>
+#include <cstddef>
 #include <string>
 
 namespace outshine {
@@ -9,9 +9,7 @@ namespace outshine {
 namespace {
 
 void Number(std::string &into, const char *named, double how) {
-  std::array<char, 64> said{};
-  std::snprintf(said.data(), said.size(), " %s=\"%.12g\"", named, how);
-  into += said.data();
+  into += std::format(" {}=\"{}\"", named, how);
 }
 
 void Said(std::string &into, const char *named, const std::string &how) {
@@ -19,7 +17,19 @@ void Said(std::string &into, const char *named, const std::string &how) {
   into += ' ';
   into += named;
   into += "=\"";
-  into += how;
+  for (const char character : how) {
+    switch (character) {
+      case '\t': into += "&#9;"; break;
+      case '\n': into += "&#10;"; break;
+      case '\r': into += "&#13;"; break;
+      case '&': into += "&amp;"; break;
+      case '<': into += "&lt;"; break;
+      case '>': into += "&gt;"; break;
+      case '\"': into += "&quot;"; break;
+      case '\'': into += "&apos;"; break;
+      default: into += character; break;
+    }
+  }
   into += '\"';
 }
 
@@ -108,6 +118,13 @@ std::string WriteScenario(const Scenario::Document &declared) {
     Number(said, "fps", declared.Render.Fps);
     Number(said, "fill", declared.Render.Fill);
     Yes(said, "audits", declared.Render.Audits);
+    said += "/>\n";
+  }
+  if (declared.Motion.Declared) {
+    said += "  <physics";
+    Said(said, "dial", declared.Motion.Dial);
+    Number(said, "stepS", declared.Motion.StepS);
+    Number(said, "mostStepsInArrears", declared.Motion.MostStepsInArrears);
     said += "/>\n";
   }
   if (declared.Time.Declared) {

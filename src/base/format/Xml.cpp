@@ -1,8 +1,10 @@
 #include "Xml.h"
+#include "XmlAttribute.h"
 
 #include <array>
 #include <algorithm>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -359,7 +361,11 @@ bool Xml::Parse(const char *text, size_t length) {
       one.NameOff = static_cast<uint32_t>(attribute);
       one.NameLen = static_cast<uint32_t>(attributeStop - attribute);
       one.ValueOff = static_cast<uint32_t>(value);
-      one.ValueLen = static_cast<uint32_t>(at - value);
+      const auto decoded = DecodeXmlAttribute(std::string_view(Text_).substr(value, at - value));
+      if (!decoded) { return Refuse("invalid XML attribute value or character reference", value); }
+      std::copy(
+          decoded->begin(), decoded->end(), Text_.begin() + static_cast<std::ptrdiff_t>(value));
+      one.ValueLen = static_cast<uint32_t>(decoded->size());
       Attributes_.push_back(one);
       ++Nodes_[made].Attributes;
       ++at;
