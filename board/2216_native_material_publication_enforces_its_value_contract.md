@@ -109,3 +109,11 @@ erhalten. Unbekannte nichtleere Litter-Referenz ablehnen statt als -1 verschwind
 Vorwärts-/Selbstreferenzen bestehen; Fehler erhalten den bisherigen Katalog.
 Altstand verletzt die Negativkontrolle; Referenz-/Reihenfolge-/Retry-Fälle und
 ausgelieferter Katalog geprüft.
+
+## Nässemodell-Grenzen
+kWet und Klassenfeuchte als endliche Anteile [0,1] vor Float-Verengung prüfen.
+Fehlende Werte behalten Defaults, vorhandene falsche Typen werden abgelehnt.
+Optionale Modellobjekte und edges-Paar prüfen; Grenzen [0,1], auch nach Float-Cast
+streng aufsteigend. Smoothstep außerhalb des Intervalls vor der Division sättigen.
+Abnahme: kollabierende/reverse Grenzen, falsche Typen, extreme Zahlen, Erhaltung
+und analytische Endpunkte/Mitte; bestehender Katalog bleibt gültig.
