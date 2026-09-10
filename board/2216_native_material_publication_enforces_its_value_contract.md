@@ -90,3 +90,10 @@ Importer ersetzt Handed erst nach erfolgreicher Konvertierung. Später Materialf
 Quellerhaltung/Retry sowie Bild-/Platzierungs-/Animationsregressionen grün. Mutation
 ohne Materialprüfung scheitert ohne Buildfehler. Lint 180/282, 32 Repository-Tests
 grün; drei rote Gruppen. Gesamter Import-/Animations-Rollback bleibt separat offen.
+
+Materialanimation publiziert Handed bisher vor Wears/SampleMaterials; ein später
+ungültiger Faktor kann bereits geänderte frühere Materialien sichtbar lassen. Beide
+Phasen auf dem vorhandenen Konvertierungskandidaten ausführen, erst bei Erfolg nach
+Handed verschieben; keine zusätzliche Geometriekopie. Test mit zwei Materialien und
+später ungültiger Animationsprobe erhält vorherige Faktoren und Geometrieansichten.
+Kamera-/Clipzustand und vollständiger Import-Rollback bleiben gesondert zu prüfen.
