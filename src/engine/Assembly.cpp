@@ -2,6 +2,8 @@
 #include "BodyValidation.h"
 
 #include <array>
+#include <algorithm>
+#include <string_view>
 #include <expected>
 #include <cstddef>
 #include <limits>
@@ -13,6 +15,8 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto EmptyName = " requires a nonempty name";
+constexpr auto DuplicateName = " is declared more than once";
 constexpr auto CapabilityBudget = "capability catalogue exceeds its supported identifier range";
 constexpr auto EntityBudget = "simulation entity capacity exceeds 65536 slots";
 }
@@ -74,15 +78,30 @@ GiveCapability(EntityRegistry &registry, Entity owner, Assembled &scene, const s
 
 namespace {
 
+template <typename Row>
+[[nodiscard]] std::expected<void, std::string> ValidateNames(const std::vector<Row> &rows,
+                                                             const std::string Row::*name,
+                                                             std::string_view category) {
+  std::vector<std::string_view> names;
+  names.reserve(rows.size());
+  for (const auto &row : rows) {
+    if ((row.*name).empty()) { return std::unexpected(std::string(category) + Says::EmptyName); }
+    names.push_back(row.*name);
+  }
+  std::ranges::sort(names);
+  const auto repeated = std::ranges::adjacent_find(names);
+  if (repeated != names.end()) {
+    return std::unexpected(std::string(category) + " name '" + std::string(*repeated) + "'" +
+                           Says::DuplicateName);
+  }
+  return {};
+}
+
 [[nodiscard]] bool BuildPrefab(const Scenario::Kind &kind,
                                EntityRegistry &into,
                                Column<Traits> &traits,
                                Assembled &out,
                                std::string &error) {
-  if (!(out.PrefabNamed(kind.Name) == kNoEntity)) {
-    error = "the kind '" + kind.Name + "' is declared twice, and a default has one spelling";
-    return false;
-  }
   const Entity prefab = into.addEntity(Role::Body);
   if (!into.alive(prefab)) {
     error = into.error();
@@ -274,6 +293,15 @@ bool Assemble(const Scenario::Document &declared,
               Assembled &out,
               std::string &error) {
   if (const auto valid = ValidateBodyDynamics(declared.Bodies); !valid) {
+    error = valid.error();
+    return false;
+  }
+  if (const auto valid = ValidateNames(declared.Kinds, &Scenario::Kind::Name, "kind"); !valid) {
+    error = valid.error();
+    return false;
+  }
+  if (const auto valid = ValidateNames(declared.Instances, &Scenario::Instance::Id, "instance");
+      !valid) {
     error = valid.error();
     return false;
   }

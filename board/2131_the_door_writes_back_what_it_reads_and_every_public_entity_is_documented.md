@@ -104,8 +104,8 @@ Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht z
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
 dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
 Body-Deklaration dokumentiert; ungenutzte Such-/Geometriehelfer entfernt.
-Kind-/Instanznamen vor Aufbau sortiert auf leer/doppelt prüfen; getrennte Namensräume.
-API-Verträge anhand Assembly dokumentieren, Fehlererhalt und gültige Bindungen testen.
+Kind-/Instanznamen vor Aufbau auf leer/doppelt geprüft; getrennte Namensräume.
+API-Verträge dokumentiert; Altcode rot, drei Assembly-Regressionen mit Fehlererhalt grün.
 Body-Dynamik: gemeinsame Eingabeprüfung vor declare/Assembly und nach strengem XML-
 Parsing: Masse/diagonale Trägheit endlich >=0, Position endlich, Quaternion unit
 (Normtoleranz 1e-6). Altcode verletzt zwei Negativkontrollen, fünf Regressionen grün.

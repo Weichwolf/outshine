@@ -418,27 +418,42 @@ struct Mind {
   long long Seed = 0;
 };
 
+/// Owned prefab declaration, built in document order during assembly.
+/// Strings and containers own their storage; copies may allocate. Mutate only with
+/// exclusive access. Failed Engine::assemble preserves the previous live simulation.
+/// Asset placement and mind scheduling are not implemented by prefab assembly.
 struct Kind {
-  std::string Name;
+  std::string Name; ///< Nonempty name, unique among kinds; checked during assembly.
+  /// Optional parent kind name; it must occur earlier in the document. Instances
+  /// resolve at most eight kinds including their immediate kind and the root.
   std::string Inherits;
-  std::string Asset;
-  std::vector<Mind> Minds;
+  std::string Asset; ///< Owned asset reference retained as metadata; assembly does not load it.
+  std::vector<Mind> Minds; ///< Owned behavior declarations; no runtime scheduling yet.
+  /// Owned nonempty capability names, interned into the assembly's tag catalogue.
+  /// These tags declare abilities; they do not install behavior implementations.
   std::vector<std::string> Capabilities;
-  /** Numeric traits parsed as complete finite decimal values during assembly.
-   * Instance values override inherited defaults; invalid or out-of-range values reject assembly.
-   */
+  /// Numeric defaults parsed as complete finite decimals during assembly; repeated
+  /// names replace earlier values. Instances override inherited defaults. The resolved
+  /// union must fit the runtime trait budget or assembly fails.
   std::vector<Setting> Attributes;
 };
 
+/// Owned instance declaration referencing a kind; assembly creates an entity and traits.
+/// Copying owns all strings and vectors and may allocate; mutate with exclusive access.
+/// Failed Engine::assemble preserves its previous live simulation. All instances are
+/// created before containment links are resolved, allowing forward references.
 struct Instance {
-  std::string Of;
-  std::string Id;
+  std::string Of; ///< Required name of a declared kind; checked during assembly.
+  std::string Id; ///< Nonempty unique instance name; independent of the kind namespace.
+  /// Optional containing instance ID, resolved as HeldBy. Unknown IDs reject assembly;
+  /// this denotes entity containment, not a streamed geographic region.
   std::string In;
-  Standing Stands;
-  /** Numeric traits parsed as complete finite decimal values during assembly.
-   * Instance values override inherited defaults; invalid or out-of-range values reject assembly.
-   */
+  Standing Stands; ///< Stored placement metadata; instance assembly does not apply transforms.
+  /// Complete finite decimal traits overriding inherited defaults by name. Repeated
+  /// names replace earlier values; union overflow or invalid numbers reject assembly.
   std::vector<Setting> Attributes;
+  /// Owned IDs of contained instances, linked as HeldBy this instance. Unknown IDs
+  /// or rejected registry links fail assembly; no spatial attachment is performed.
   std::vector<std::string> Holds;
 };
 
