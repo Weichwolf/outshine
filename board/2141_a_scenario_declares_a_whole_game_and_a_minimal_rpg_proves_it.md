@@ -74,3 +74,9 @@ Alle Aufrufer behandeln Ablehnung; Client öffnet bei Writer-Fehler keine Ausgab
 Public-API-Test: überzählige Types/ungültige Zahlen/doppelte Schlüssel ablehnen, aktive
 Deklaration unverändert, gültige Wiederholung möglich. Writer-Gesamtabdeckung und
 Validierung übriger Sektionen bleiben offen; checked Ergebnis behauptet keine Vollständigkeit.
+
+## Persistenz-Auswahl exportieren
+Writer verwirft Document::State. Persisted::What mit Reihenfolge und Escaping
+erhalten; Auswahl ist kein Snapshot der Werte. Save löst instance.trait am ersten
+Punkt auf und lehnt fehlende Zuordnungen ab. Öffentlichen Besitz-/Prüfzeitpunkt
+dokumentieren. Negativkontrolle: Auswahl verschwindet beim bisherigen Export.
