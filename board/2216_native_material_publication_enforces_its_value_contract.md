@@ -55,3 +55,9 @@ Texturbindungen und zugewiesene Materialindizes; Engine::setGeometry lehnt vorhe
 animierte Importmaterialien, Baumgenerator und Asset-Roundtrip als Regressionen grün.
 Abschluss-Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün, drei rote Gruppen.
 Setter-expected-/Rollback-Verträge und vollständige Corpus-/Bildabnahme bleiben offen.
+
+setSurface wird validierender Ersatz: expected<void, MaterialUpdateError>, noexcept,
+getrennte Fehler für fehlenden Slot und ungültige Werte/Bindungen. Alle Prüfungen vor
+Kopie, vorheriges Material bei Fehler erhalten. Importer aktualisieren nach Bildaufbau.
+Publikations-/Export-Negativfixtures erzeugen ungültige Aufbauzustände weiter über
+addSurface; ihre Oracles bleiben bestehen. Neuer Erhaltungstest muss am Altsetter scheitern.
