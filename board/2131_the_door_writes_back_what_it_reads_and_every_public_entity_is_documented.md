@@ -71,7 +71,7 @@ geprüft. Referenz: https://wiki.libsdl.org/SDL3/SDL_GetGamepadAxis.
 Input-Regressionen prüfen Rendererunabhängigkeit, UI-Hits, Bindungspriorität und Host-
 Ablehnung; Negativkontrollen gegen Renderersperre/frühen Abbruch scheitern am Verhalten.
 Mind/Region/Door geprüft: Metadaten; Layer ersetzt per Region-ID bzw. Door-Endpaar.
-Standing/Placement/Surface anhand Body-Vorbereitung, Reader und UI-Pfad dokumentieren.
+Standing/Placement/Surface anhand Body-Vorbereitung, Reader und UI-Pfad dokumentiert.
 Fehlende Umsetzung/Validierung und vollständige Serialisierung bleiben offene Arbeit.
 ## Öffentliche Welt-/Generatorverträge korrigieren
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als

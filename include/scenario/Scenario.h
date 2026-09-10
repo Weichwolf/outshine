@@ -377,28 +377,54 @@ struct Asset {
   std::vector<SurfaceOverride> Surfaces;
 };
 
+/// Value-only placement intent, with no allocation or live scene binding.
+/// Independent copies share no state; mutate only with exclusive access. A descriptor
+/// does not validate itself. Body import/declaration validates AtM and Facing; other
+/// consumers do not uniformly enforce geometric or numeric constraints yet.
+/// Body preparation applies position/orientation only; instance and Placement assembly
+/// do not currently apply this descriptor. Geographic camera import uses the geodetic fields.
 struct Standing {
-  Vec3 AtM;
+  Vec3 AtM; ///< Local-world position in metres, right-handed and Y-up; used by placed bodies.
+  /// Local-to-world orientation quaternion. Body validation requires finite components
+  /// and unit norm within 1e-6; it never silently normalizes this value.
   Quat Facing;
-  Vec3 ScaleXyz = {{1.0, 1.0, 1.0}};
+  Vec3 ScaleXyz = {
+      {1.0, 1.0, 1.0}}; ///< Dimensionless scale metadata; unapplied by body preparation.
 
-  bool GlobeAnchor = false;
+  bool GlobeAnchor = false; ///< Geographic placement intent; body preparation currently ignores it.
+  /// Longitude/latitude in degrees and height in metres; no terrain query on construction.
   outshine::LongitudeLatitudeHeight Geodetic;
+  /// Geographic intent: height relative to sampled terrain. Unapplied by body preparation.
   bool SamplesHeight = false;
-  double BearingDeg = 0.0;
-  double PitchDeg = 0.0;
+  double BearingDeg =
+      0.0;               ///< Geographic azimuth clockwise from north, degrees; not a body rotation.
+  double PitchDeg = 0.0; ///< Geographic elevation above the horizon, degrees; not a body rotation.
 };
 
+/// Owned asset-placement metadata; currently does not instantiate or transform geometry.
+/// Copying owns the asset string and may allocate; mutate only with exclusive access.
+/// Layer merge appends placements without resolving references or deduplicating them.
 struct Placement {
-  std::string Asset;
-  Standing Stands;
+  std::string Asset; ///< Owned unresolved asset reference; no loading follows from this field.
+  Standing Stands;   ///< Stored placement intent; no runtime placement is currently applied.
 };
 
+/// Owned screen-space UI declaration copied into the engine's overlay configuration.
+/// Strings contain source text, not paths. Copies may allocate; mutate only with exclusive
+/// access. Source validity is checked when composing or executing, not by this descriptor.
+/// Declaration/replacement may fail while composing; full rollback is not guaranteed yet.
 struct Surface {
-  std::string Document;
+  std::string Document; ///< Inline UI markup; parsed when the overlay is composed.
+  /// Inline CSS applied after the user-agent sheet and before styles embedded in Document.
   std::string Style;
+  /// Inline script prepended to a clicked action and parsed/run against the offered host.
+  /// Merely declaring the surface does not execute this script.
   std::string Programme;
+  /// Fractions of the output dimensions from the upper-left corner. Nonpositive width
+  /// or height skips composition; finite values and clipping bounds are not fully validated.
   Patch Where;
+  /// Ascending stable stacking order; equal values preserve declaration order.
+  /// Later surfaces are drawn above earlier ones and participate in hit testing.
   int Z = 0;
 };
 
