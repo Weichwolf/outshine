@@ -28,6 +28,11 @@ bool GroundStack::Open(const Roots &under,
     say.Refuse(std::string(position.error()));
     return false;
   }
+  const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
+  if (!config) {
+    say.Refuse(std::string(config.error()));
+    return false;
+  }
   Close();
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = under.Cache;
@@ -47,8 +52,7 @@ bool GroundStack::Open(const Roots &under,
   outshine::Ground::GroundSurface surface;
   surface.Grid = outshine::Ground::kStreamGrid;
   surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
-  Pool_ = std::make_unique<outshine::Ground::TilePool>(
-      outshine::Ground::GroundPoolConfig(focus, {.PatienceS = patienceS}), sources, wire);
+  Pool_ = std::make_unique<outshine::Ground::TilePool>(*config, sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   SurfaceZoom_ = surface.Z;
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg);

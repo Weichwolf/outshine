@@ -3,6 +3,8 @@
 #include <stdint.h>
 
 #include <memory>
+#include <expected>
+#include <string_view>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -117,7 +119,8 @@ struct Pooling {
   double PatienceS = 0.0;
 };
 
-[[nodiscard]] TilePool::Config GroundPoolConfig(LongitudeLatitude at, Pooling how = {});
+[[nodiscard]] std::expected<TilePool::Config, std::string_view>
+GroundPoolConfig(LongitudeLatitude at, Pooling how = {});
 
 }
 

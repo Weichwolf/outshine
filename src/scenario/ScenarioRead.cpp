@@ -10,6 +10,7 @@
 #include "AssetValidation.h"
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
+#include "WorldValidation.h"
 #include "Number.h"
 #include "ReadScenarioOsm.h"
 
@@ -288,16 +289,39 @@ bool ReadWeather(const Xml::Ref &from, Scenario::Weather &weather, std::string &
   return true;
 }
 
+bool ReadWorldNumbers(const Xml::Ref &from, Scenario::WorldSettings &world, std::string &error) {
+  struct Field {
+    const char *Name;
+    double *Value;
+  };
+
+  const std::array fields{Field{.Name = "lat", .Value = &world.Origin.LatitudeDeg},
+                          Field{.Name = "lon", .Value = &world.Origin.LongitudeDeg},
+                          Field{.Name = "radiusM", .Value = &world.Origin.RadiusM},
+                          Field{.Name = "gravityMs2", .Value = &world.GravityMs2},
+                          Field{.Name = "airDensityKgM3", .Value = &world.AirDensityKgM3},
+                          Field{.Name = "patienceS", .Value = &world.PatienceS},
+                          Field{.Name = "sightM", .Value = &world.SightM}};
+  for (const auto &field : fields) {
+    const auto token = from.Said(field.Name);
+    if (!token) { continue; }
+    const auto value = ParseFiniteNumber(*token);
+    if (!value) {
+      error = std::string(field.Name) + ": " + std::string(Says::InvalidWorld);
+      return false;
+    }
+    *field.Value = *value;
+  }
+  if (const auto valid = ValidateWorld(world); !valid) {
+    error = valid.error();
+    return false;
+  }
+  return true;
+}
+
 void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   if (!from.Valid()) { return; }
   into.Ground.Declared = true;
-  into.Ground.Origin.LatitudeDeg = from.Num("lat", into.Ground.Origin.LatitudeDeg);
-  into.Ground.Origin.LongitudeDeg = from.Num("lon", into.Ground.Origin.LongitudeDeg);
-  into.Ground.Origin.RadiusM = from.Num("radiusM", into.Ground.Origin.RadiusM);
-  into.Ground.GravityMs2 = from.Num("gravityMs2", into.Ground.GravityMs2);
-  into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", into.Ground.AirDensityKgM3);
-  into.Ground.PatienceS = from.Num("patienceS", into.Ground.PatienceS);
-  into.Ground.SightM = from.Num("sightM", into.Ground.SightM);
   const Xml::Ref relief = from.Child("relief");
   if (relief.Valid()) {
     into.Ground.Shape.Kind = relief.Said("kind").value_or(into.Ground.Shape.Kind.c_str());
@@ -359,6 +383,7 @@ void ReadLighting(const Xml::Ref &from, Scenario::Document &into) {
 [[nodiscard]] bool
 ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
+  if (!ReadWorldNumbers(root.Child("world"), into.Ground, error)) { return false; }
   if (!ReadWeather(root.Child("world"), into.Ground.Sky, error)) { return false; }
   const auto osm = ReadScenarioOsm(root.Child("world").Child("osm"), into.Ground.Osm);
   if (!osm) {

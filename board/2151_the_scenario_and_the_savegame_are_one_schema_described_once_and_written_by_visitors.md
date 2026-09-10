@@ -15,18 +15,15 @@ fachliche Validierung nativer Daten gemeinsam für beide Importer und direkte Au
 Vor Veröffentlichung vollständig vorbereiten und validieren; Fehler erhalten die
 aktive Welt. Integration/Client-Abnahme in WI 2195, Zustandsübergänge in WI 2191.
 
-Szenariobeschreibung und Laufzeit-Snapshot sind getrennte fachliche Verträge. Gemeinsame
-Serialisierungsbausteine sind möglich, ein einziges Schema ist keine Voraussetzung.
+Szenariobeschreibung und Laufzeit-Snapshot sind getrennte Verträge mit teilbarer Serialisierung.
 Save/Restore besitzt bereits einen begrenzten Trait-Pfad (WI 2210); vollständige
 Snapshots brauchen explizite Abdeckung aller wiederherzustellenden Systeme. Event-
 Replay erst nach nachgewiesener Deterministik einschließlich externer Eingaben.
-Keine unbelegte plattformübergreifende oder bildweise Bitidentität versprechen.
 
 ## Nachgewiesene Lücken
 Asset-Writer erhält jetzt die vom Reader unterstützten Metadaten, Animation/Clip und
 Surface-Selektoren/Materialparameter. Weitere native Materialfelder sind kein XML-Vertrag.
 Identität, Render- und Lichtfelder werden jetzt vollständig gemäß Reader erhalten;
-zahlreiche weitere Sektionen fehlen noch.
 Der Grammar/Writer-Guard erkennt Elementnamen, keine verlorenen Attribute. Zweimaliges
 Write/Read kann auf einem bereits reduzierten Dokument stabil sein und ist kein Beweis.
 Xml::Ref::Num/Int akzeptieren Zahlenpräfixe; ungültige Werte fallen auf Defaults zurück.
@@ -61,8 +58,6 @@ Einstiege, XML-Zeichenreferenztests und transaktionaler Szenario-Parser.
       valide Randwerte erhalten. Kein Test lockert fachliche Grenzen.
 - [ ] Lint/clang-tidy und passende Regressionen; PNG-Prüfung bei Bildänderung.
 
-Historische Fremdengine-/Determinismusbehauptungen sind keine Abnahmegrundlage.
-Der konkrete lokale Reader/Writer-Datenverlust begründet diesen Auftrag unabhängig davon.
 
 Asset-Abnahme: vier Animationsmodi mit unabhängigen Feldwerten vor/nach Write/Read
 grün; Altwriter scheitert ohne Buildfehler. Parser-Erhaltung und Zeichenreferenzen grün.
@@ -107,10 +102,9 @@ behaupten. Diese ungenutzten Konfigurationen fachlich implementieren oder mit
 expliziter Importdiagnose aus der minimalen API entfernen; nicht still verwerfen.
 
 ## Layer-Vertrag
-ReadScenario validiert Abschnitte bereits vor MergeLayer; eine zweite Dokumentkopie
-ist dafür unbegründet. Auswahl, Override-Reihenfolge, verschachtelte Layer-Ablehnung
-und Erhaltung bei Parserfehlern gezielt prüfen. Öffentliche Layer-Daten dokumentieren
-Importzeitpunkt, Besitz und Auswahl dokumentiert; Test grün, entfernte Nested-Prüfung rot.
+ReadScenario validiert vor MergeLayer; keine zweite Dokumentkopie nötig. Auswahl,
+Override-Reihenfolge, Nested-Ablehnung und Fehlererhaltung geprüft; öffentliche Layer
+dokumentiert. Test grün, entfernte Nested-Prüfung rot.
 Offen: native Windows-Pfadauflösung statt Slash-Erkennung; übrige Merge-Semantik auditieren.
 
 ## Grundlegende Weltparameter
@@ -121,4 +115,5 @@ Standardgravitation: bekannte Semantiklücke, nicht als Schwerelosigkeit dokumen
 Gemeinsame finite Werteprüfung für Import/API/Export; Latitude [-90,90], Longitude
 endlich, übrige Größen nichtnegativ. Patience über geprüfte Millisekunden-Pollzahl
 begrenzen und auch GroundPoolConfig vor int-Cast prüfen; keine Doppelkonstante.
-Negativkontrollen, Zustandserhaltung, exakte Roundtrips und gültige Defaults prüfen.
+Altcode verletzt API-/Roundtrip-Kontrollen; elf Tests einschließlich Fehlererhaltung,
+Defaults, Layern und exakten Pollbudget-Grenzen bestehen.

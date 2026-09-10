@@ -3,6 +3,7 @@
 #include "Tables.h"
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
+#include "WorldValidation.h"
 #include <utility>
 
 #include <expected>
@@ -159,6 +160,9 @@ void WriteWorld(std::string &said, const Scenario::WorldSettings &world) {
   if (!world.Declared) { return; }
   said += "  <world";
   Number(said, "lat", world.Origin.LatitudeDeg);
+  Number(said, "radiusM", world.Origin.RadiusM);
+  Number(said, "gravityMs2", world.GravityMs2);
+  Number(said, "airDensityKgM3", world.AirDensityKgM3);
   Number(said, "lon", world.Origin.LongitudeDeg);
   Number(said, "patienceS", world.PatienceS);
   Number(said, "sightM", world.SightM);
@@ -375,6 +379,9 @@ void WriteGenerators(std::string &said, std::span<const Scenario::Generating> ge
 }
 
 std::expected<std::string, std::string> WriteScenario(const Scenario::Document &declared) {
+  if (const auto valid = ValidateWorld(declared.Ground); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   if (const auto valid = ValidateWeather(declared.Ground.Sky); !valid) {
     return std::unexpected(std::string(valid.error()));
   }

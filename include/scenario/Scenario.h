@@ -87,9 +87,18 @@ struct Layer {
   std::string Set;
 };
 
+/// Owned geographic anchor used by world streaming, solar evaluation and generator requests.
+/// No height datum is stored here. Engine world coordinates use the local tangent frame;
+/// geographic conversion remains separate from the requested generator extent.
 struct Georeference {
+  /// Finite geodetic latitude in degrees north, within [-90,90]. Polar streaming support
+  /// remains provider-dependent; accepting the coordinate does not guarantee available tiles.
   double LatitudeDeg = 0.0;
+  /// Finite longitude in degrees east; retained without wrapping by scenario import/export.
   double LongitudeDeg = 0.0;
+  /// Nonnegative extent passed to generation Request::ExtentM, in metres.
+  /// Interpretation is generator-specific. Despite its historical name and Earth-sized
+  /// default, this value does not set the planet radius used by geodesy or the renderer.
   double RadiusM = kEarthMeanRadiusM;
 };
 
@@ -198,8 +207,15 @@ struct Structure {
   std::vector<double> LatLon;
 };
 
+/// Owned static world declaration; Shape/Osm may own allocated data. Copying may allocate.
+/// Serialize mutation with readers; references into its vectors follow vector invalidation.
+/// Import, Engine::declare and export check basic numeric/world-weather values even when
+/// inactive. Rejection preserves the previous document/declaration; complete world assembly
+/// and generator-specific validation are separate operations.
 struct WorldSettings {
+  /// Whether the world section participates in assembly, layer merging and XML export.
   bool Declared = false;
+  /// Geographic anchor and extent supplied to world generation.
   Georeference Origin;
 
   /// The ground as a function, when a scenario states one instead of fetching tiles.
@@ -208,10 +224,22 @@ struct WorldSettings {
   /// The map a scenario states itself. Empty means the map is fetched, which is every scenario that
   /// is not a test.
   std::vector<Structure> Osm;
+  /// Finite nonnegative gravitational acceleration magnitude in metres per second squared.
+  /// Simulation applies it along local -Y. Zero currently selects standard gravity rather
+  /// than weightlessness; removing this legacy fallback is a separate simulation change.
   double GravityMs2 = kStandardGravityMs2;
+  /// Finite nonnegative air density in kilograms per cubic metre. Currently only positive
+  /// versus zero selects whether the world draws a sky; magnitude does not scale the medium
+  /// or body drag. Zero disables that world-sky selection.
   double AirDensityKgM3 = kIsaSeaLevelDensityKgM3;
+  /// Weather declaration; field validation and currently connected consumers are documented there.
   Weather Sky;
+  /// Finite nonnegative tile polling budget in seconds, bounded by INT_MAX / 1000.
+  /// Converted to whole millisecond poll attempts by truncation; zero attempts use the pool's
+  /// default. This is not a hard wall-clock deadline or a per-frame streaming budget.
   double PatienceS = kPatienceUnsaidS;
+  /// Finite nonnegative requested world streaming horizon in metres. Zero currently selects
+  /// the default 240 km horizon. This is separate from camera clip planes and generator extent.
   double SightM = kSightUnsaidM;
 };
 

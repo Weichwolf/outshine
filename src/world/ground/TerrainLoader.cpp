@@ -1,8 +1,11 @@
 #include "math/Units.h"
 #include "TerrainLoader.h"
+#include "GroundPollBudget.h"
 #include "math/Vec3.h"
 
 #include <array>
+#include <expected>
+#include <string_view>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -31,8 +34,6 @@ using namespace outshine::Ground;
 using outshine::Ground::TilePool;
 
 namespace {
-
-constexpr double kPollsPerSecond = 1000.0;
 
 constexpr int kMaxTileThreads = 6;
 
@@ -402,16 +403,17 @@ void GroundBlock::AslMRow(LongitudeLatitude from,
   }
 }
 
-TilePool::Config GroundPoolConfig(LongitudeLatitude at, Pooling how) {
+std::expected<TilePool::Config, std::string_view> GroundPoolConfig(LongitudeLatitude at,
+                                                                   Pooling how) {
+  const auto attempts = GroundPollAttempts(how.PatienceS);
+  if (!attempts) { return std::unexpected(attempts.error()); }
   TilePool::Config config;
   config.OriginLatDeg = at.LatitudeDeg;
   config.OriginLonDeg = at.LongitudeDeg;
   config.Threads = DerivedThreads(how.Workers);
   config.ByteBudget = kByteBudget;
   config.DecodedBytes = kPoolDecodedBytes;
-  if (how.PatienceS > 0.0) {
-    config.PollAttempts = static_cast<int>(how.PatienceS * kPollsPerSecond);
-  }
+  config.PollAttempts = *attempts;
   return config;
 }
 
