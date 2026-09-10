@@ -107,14 +107,13 @@ run() enthält weder Pacing noch Ereignisverarbeitung oder expliziten Abbruch, s
 eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbare Pfad;
 den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
 mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
-Facaden-Dokumentation am Code geprüft: 13 bisher undokumentierte Einstiege beschreiben
-Ownership, Threadbindung, Kosten und Teilfehler. Kein Doxygen-Befund mehr in Outshine.h;
-das ersetzt keine Architekturabnahme. Zeitschritt-/Parser-Regressionen grün. Abschluss-
-Lint: 182 tidy, 315 Dokumentationsdiagnosen, 32 Repository-Tests grün, drei rote Gruppen.
 
-## Registry-Verträge
-Instanzkopie, direkte Kindersuche und Sitzübergänge am Code dokumentiert; Komponenten
-werden nicht mitkopiert, Reservierung prüft keine fachliche Eignung. Zwei Registry-Tests
-grün. Earth-Sampling/Sichtweite als Modellannahmen dokumentiert. Sichtweitentest baut
-nach Namespace-Korrektur, bleibt mangels Terrain-Cache UNPREPARED. Lint: 181 tidy,
-282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen bleiben.
+## Transaktionale View-Konfiguration
+`declare` leert Session.Views vor ViewBook::Stand; Ablehnung verliert den alten
+Katalog. Späte Generatorfehler publizieren bereits den Kandidaten. ViewBook vor
+Setup vorbereiten, gemeinsam mit InputMap erst an den drei Erfolgsausgängen
+übernehmen (bestehender RAII/Prepare-Commit-Vertrag, keine weitere Vektorkopie).
+Public-API-Nachweis: frühe Ablehnung erhält Deklaration/Katalog, späte Ablehnung
+erhält den Katalog, Retry ersetzt ihn, erfolgreiche leere Views löschen ihn.
+Alte Implementierung muss scheitern. Gültige Bilder unverändert; kein vollständiger
+Welt-/GPU-Rollback. View-Wertevalidierung und ungenutzte TimeScale bleiben offen.
