@@ -81,3 +81,13 @@ exponentiellen lokalen Backoff ohne überlaufende Zwischenwerte berechnen.
 Fake-Clock prüft NaN/Inf/negative Werte, Konversions-/Deadline-Überlauf und verlorene
 Zeitauflösung. Reguläre Deadlines und lange Serververzögerungen bleiben erhalten.
 Altstand scheitert an der Negativkontrolle; vier Datenpfad-Regressionen bestehen.
+
+## ContentStore-Grenze
+Nur kanonische Content-Schlüssel (64 kleine Hexzeichen) als Dateinamen akzeptieren;
+Bereinigung nur für eigene reguläre Dateien, keine Symlinks oder fremden/temp Dateien.
+Read/Keep höchstens CapBytes, zusätzliche Read-Grenze darf nur verschärfen.
+Seek/Read/Close prüfen, Handles per RAII halten; ungültige Eingaben als Miss/Fehler zählen.
+Keep nutzt WriteFileAtomically statt eigener Tempdatei-Implementierung; Ablehnung erhält
+vorige Bytes. Gesamtbudget während laufender Writes und Parserbudgets bleiben offen.
+Abnahme: temporäre Verzeichnisse, ungültige Schlüssel, fremde Dateien, Symlinks,
+Bytegrenzen und gescheiterte Veröffentlichung; Altstand verletzt die Negativkontrolle.
