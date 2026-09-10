@@ -95,6 +95,7 @@ struct GltfImporter::Held {
   Geometry Handed;
   Camera Eye;
   std::vector<Gltf::Transform> Locals;
+  std::vector<Gltf::Transform> PublishedLocals;
   std::vector<double> Weights;
   std::vector<Gltf::Pose::FactorAt> Factors;
   std::string Why;
@@ -120,6 +121,11 @@ struct GltfImporter::Held {
     }
     if (!Wears(*converted) || !SampleMaterials(seconds, *converted)) { return false; }
     Handed = std::move(*converted);
+    if (Moves) {
+      PublishedLocals.swap(Locals);
+    } else {
+      PublishedLocals.clear();
+    }
     HasEye = Camera(0, Eye);
     return true;
   }
@@ -152,8 +158,7 @@ struct GltfImporter::Held {
   [[nodiscard]] bool Camera(int index, Camera &out) const {
     Render::Viewpoint placed;
     std::string why;
-    const std::span<const Gltf::Transform> locals =
-        Moves ? Locals : std::span<const Gltf::Transform>{};
+    const std::span<const Gltf::Transform> locals = PublishedLocals;
     if (!Gltf::DeclaredPlacement(File, index, placed, why, locals)) { return false; }
     Render::CameraOf(placed, out);
     return true;
@@ -274,9 +279,15 @@ std::expected<void, std::string> GltfImporter::selectAnimations(std::span<const 
   if (!animations.empty() && !Gltf::Pose::Build(held.File, animations, candidate, held.Why)) {
     return std::unexpected(held.Why);
   }
+  auto previous = std::move(held.Motion);
+  const bool previouslyMoved = held.Moves;
   held.Motion = std::move(candidate);
   held.Moves = held.Motion.Valid();
-  if (!held.Assemble(0.0)) { return std::unexpected(held.Why); }
+  if (!held.Assemble(0.0)) {
+    held.Motion = std::move(previous);
+    held.Moves = previouslyMoved;
+    return std::unexpected(held.Why);
+  }
   held.Why.clear();
   return {};
 }

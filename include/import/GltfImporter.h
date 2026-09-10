@@ -64,8 +64,8 @@ public:
   /// Select clips by zero-based import index and evaluate their combined pose at time zero.
   /// An empty span disables animation and restores the authored pose. No indices are retained.
   /// @param animations Borrowed clip indices; conflicting channels are rejected by the importer.
-  /// @return Success or an owned diagnostic. Invalid selections preserve the active clips and
-  /// snapshot; subsequent conversion failures may invalidate borrowed geometry and camera data.
+  /// @return Success or an owned diagnostic. Failure preserves active clips, duration, native
+  /// geometry and published cameras, including borrowed geometry storage.
   /// Rebuilds CPU geometry and materials and may allocate; serialize with all adapter access.
   /// Requires an adapter that has not been moved from. Success clears error().
   [[nodiscard]] std::expected<void, std::string> selectAnimations(std::span<const int> animations);
@@ -80,7 +80,7 @@ public:
   /// metalness, roughness and emissive RGB. Times beyond keys clamp to endpoints.
   /// @param seconds Finite, nonnegative time. Invalid time leaves the asset unchanged.
   /// @return Success or an owned diagnostic; failure preserves the native geometry snapshot
-  /// and its borrowed views. Other internal pose/camera state is not covered by this guarantee.
+  /// and its borrowed views, active clips and published camera poses.
   /// Success clears error(); rejected time changes only the diagnostic.
   /// Rebuilds CPU geometry and materials, with allocation; serialize with all adapter access.
   [[nodiscard]] std::expected<void, std::string> sampleAnimation(double seconds);
