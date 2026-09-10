@@ -29,7 +29,8 @@ WriteScenario verliert außerdem Szenarionamen und zahlreiche weitere Sektionen.
 Der Grammar/Writer-Guard erkennt Elementnamen, keine verlorenen Attribute. Zweimaliges
 Write/Read kann auf einem bereits reduzierten Dokument stabil sein und ist kein Beweis.
 Xml::Ref::Num/Int akzeptieren Zahlenpräfixe; ungültige Werte fallen auf Defaults zurück.
-ReadAssets verengt Clip von double auf int ohne expliziten Wertebereichsvertrag.
+ReadAssets prüft Clip jetzt vor double/int-Konvertierung auf vollständigen Integerwert
+in [0, INT_MAX]; andere numerische Attribute bleiben zu auditieren.
 Vorhanden: typisierte Scenario::Document-Daten, Reader, Writer, öffentliche Engine-
 Einstiege, XML-Zeichenreferenztests und transaktionaler Szenario-Parser.
 
@@ -72,3 +73,7 @@ Wert in [0, INT_MAX] prüfen, erst danach verengen. Fehlendes Attribut bedeutet 
 leeres/ungültiges Attribut ist Fehler. IntegralDecimal wie beim Catch-up-Limit nutzen,
 um gerundete Bruchteile nicht als Integer anzunehmen. Negative/Überlauf/Restzeichen/
 NaN/Inf/Bruchteile und gültige Dezimal-/Exponentformen prüfen; Fehler erhält Dokument.
+
+Clip-Abnahme: 28 Checks sowie Asset-Roundtrip und Parser-Erhaltung grün; Altcode
+scheitert ohne Buildfehler. Lint 181 tidy/282 Doxygen, 32 Repository-Tests grün, drei
+rote Gruppen. Vorhandener Clip und direkte API-Validierung bleiben eigene Verträge.

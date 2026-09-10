@@ -25,6 +25,7 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kInvalidAssetClip = "asset clip requires an integer in [0,INT_MAX]";
 constexpr auto kInvalidCatchUpCount = "mostStepsInArrears requires an integer in [1,INT_MAX]";
 }
 
@@ -436,6 +437,21 @@ void ReadSources(const Xml::Ref &root, Scenario::Document &into) {
   }
 }
 
+[[nodiscard]] bool ReadAssetClip(const Xml::Ref &asset, int &clip, std::string &error) {
+  if (!asset.Has("clip")) { return true; }
+  const std::string text = asset.Attr("clip");
+  double value = 0.0;
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
+  if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
+      !std::isfinite(value) || value < 0.0 ||
+      value > static_cast<double>(std::numeric_limits<int>::max()) || !IntegralDecimal(text)) {
+    error = Says::kInvalidAssetClip;
+    return false;
+  }
+  clip = static_cast<int>(value);
+  return true;
+}
+
 [[nodiscard]] bool ReadAssets(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   const Xml::Ref assets = root.Child("assets");
   for (const Xml::Ref one : assets.Children("asset")) {
@@ -444,7 +460,7 @@ void ReadSources(const Xml::Ref &root, Scenario::Document &into) {
     made.Digest = one.Attr("digest");
     made.Kind = one.Attr("kind");
     made.Variant = one.Attr("variant");
-    made.Clip = static_cast<int>(one.Num("clip", 0.0));
+    if (!ReadAssetClip(one, made.Clip, error)) { return false; }
     const std::string animation = one.Said("animation").value_or("play");
     if (animation == "play") {
       made.Animation = Scenario::AssetAnimation::Play;
