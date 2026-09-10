@@ -37,9 +37,7 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
 - Diagnose-API: Legacy-error nicht als Ergebnis letzter expected-Aufrufe verwenden.
   Messwerte können veraltet sein; Snapshot-/Frischevertrag bei Nutzung berücksichtigen.
   Timing-Ring-Allokation ist noch nicht budgetiert oder gemeinsam transaktional.
-
 ## Abnahme
-
 - Vollständiger make lint mit null clang-tidy- und Dokumentationsdiagnosen;
   alle öffentlichen Header erfasst. Grüne Zähler ersetzen keine Vertragsprüfung.
 - Unabhängige öffentliche API-Tests für Fehler, Wiederverwendung und Lebensdauer;
@@ -116,5 +114,7 @@ Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht z
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
 dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
 Fünf Importer-/Deklarationsregressionen grün; Assetauswahl unverändert.
-Player: Starts/Augenhöhe/Geh-/Laufgeschwindigkeit ohne Runtime-Anbindung; Writer verliert
-Player derzeit vollständig. Umsetzung und Rundlauf bleiben erforderlich.
+Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
+schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
+an Reader/Writer/declare-Grenzen prüfen; Fehlererhaltung und Rundlauf als Negativkontrolle.
+Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
