@@ -24,82 +24,48 @@ werden ungeprüft nach int/uint32/uint16 verengt. Geometrie-Deltas können int32
   etablierte Protobuf/MVT-Reader gegen No-Exceptions und Ressourcenbudgets bewerten;
   keine zweite unbewiesene Universal-Protobuf-Implementierung aufbauen.
 
-## Value-Binärvertrag
-Bestehenden Reader unmittelbar absichern: begrenztes Fixed32/64-Lesen in Little Endian,
-Varint auf 64 Bit begrenzen; Value-Decoder extrahieren. int64 korrekt als Zweierkomplement,
-sint64 mit 64-Bit-ZigZag. Genau ein Value-Typ nach Schema, gleiche singuläre Felder: letztes gewinnt. Fehler an Parse
-weitergeben; kein Value aus abgeschnittenen Bytes. Numerische Speicherung bleibt vorerst
-Double und ist oberhalb ihrer exakten Integer-Präzision noch verlustbehaftet.
-Analytische Bytes für alle sieben Typen, sämtliche Float-/Double-Abschneidepositionen,
-negative und breite Integer, Varint-Überlauf, mehrere/fehlende Value-Typen testen.
-Alte Implementierung muss scheitern; zulässige Kacheln/Wien unverändert, PNG öffnen.
-Dies beweist weder sichere Geometriekommandos noch transaktionale Gesamtkachelannahme.
+## Implementierte Verträge
+- Begrenzte Little-Endian-Fixed32/64- und Varint-Lesezugriffe; vollständiges int64/sint64
+  Wire-Decoding. Ein Value-Typ; wiederholte singuläre Felder: letztes gewinnt.
+- Feature-Felder vollständig prüfen; uint32-Wörter in packed/unpacked/segmentierter
+  Form, Scratch-Kapazitäten pro Ebene wiederverwenden.
+- Geometriekommandos nach MVT 2.1: Counts, Folgen, Nullsegmente, int32-Cursorgrenzen.
+  ClosePath erhält Cursor; Punkt/Multipart und Ring-Winding analytisch geprüft.
+- Parser ersetzt seinen Zustand erst nach erfolgreichem Kandidatendecode; Fehler
+  erhalten Daten und Views. Äußere Feldrahmen bis Ende lesen, gewählte Ebene eindeutig.
 
 ## Referenzen
-- https://protobuf.dev/programming-guides/encoding/
-- https://github.com/mapbox/vector-tile-spec/blob/master/2.1/vector_tile.proto
+Lokale Klone: ../vector-tile-spec (21ff2cb), 2.1/README.md und vector_tile.proto;
+../protobuf-docs (4b88f52), content/programming-guides/encoding.md.
+MVT-Spezifikation ist Formatvertrag; native Speichergrenzen zusätzlich ausdrücklich prüfen.
+
+## Nächster Schritt: Ebenen und Wörterbücher
+Ebenenheader vor Nutzdaten auslesen: Name, Version und Extent vorhanden; Version 2
+unterstützen, andere Versionen für die gewählte Ebene ablehnen. Extent positiv und
+im nativen int-Raum, vor jeder Verengung prüfen. Headerprüfung aus Decode extrahieren.
+Tag-Paare vollständig, Schlüssel-/Wertindizes gültig; Feature-Tagmenge und kumulative
+Tagablage vor uint32-Verengung prüfen. Keine still verlorenen Metadaten.
+Unabhängige Wirefixtures für fehlende/überlaufende Header, unbekannte Version,
+ungerade Tags und Indexgrenzen; spätere Wörterbücher und gepufferte Koordinaten gültig.
+Das Geometriefixture ohne Extent ist nach §4.1 falsch spezifiziert und erhält diesen
+Pflichtwert; seine bisherigen Geometrieassertionen bleiben erhalten. Negativkontrolle,
+normal/sanitisiert, Lint und Wien-Pixelvergleich mit visueller Prüfung erforderlich.
 
 ## Offene Abnahme
-- [ ] Alle Bytezugriffe, Varints, Feldnummern, Längen, Index- und Mengengrenzen geprüft.
-- [ ] Versions-/Extent-/Tag-/Geometrieverträge einschließlich Löchern und Multipart.
-- [ ] Fehlerhafte Kachel ersetzt keinen gültigen Zustand; fehlend und beschädigt unterscheidbar.
-- [ ] Native Datentypen erhalten Integerwerte; Budgets, Abbruch und inkrementelles Decode.
-- [ ] Unabhängige Formatfixtures, Negativkontrollen und direkt instrumentierter Decoder.
+- [ ] Alle Bytezugriffe, Feldnummern, Längen, Index- und Mengengrenzen geprüft.
+- [ ] Versions-/Extent-/Tagverträge; vollständige Ringtopologie, Löcher und Multipart.
+- [ ] Fehlerhafte Kachel ersetzt keinen gültigen nativen Zustand; fehlend/beschädigt
+  ausdrücklich unterscheidbar. OsmField::Accept publiziert und settled noch zu früh.
+- [ ] Native Datentypen erhalten Integerwerte oberhalb 2^53, nicht nur Double.
+- [ ] Byte-/Decodebudgets, Abbruch und inkrementelles Decode. Kandidat erhöht Spitzenbedarf.
+- [ ] Etablierten Protobuf/MVT-Reader für vollständigen Ersatz bewerten (No-Exceptions,
+  Ressourcenbudgets); keine zweite unbewiesene Universal-Protobuf-Implementierung.
+- [ ] Durchgängige unabhängige Formatfixtures und direkt instrumentierter Decoder.
 
-## Nachweis dieses Schritts
-FieldHeader ersetzt vertauschbare Feldnummer-/Wire-Ausgaben. Value-Decodierung separat.
-Alte Fassung scheitert an 22/41 analytischen Checks. MVT-Suite kompiliert OsmVector.cpp
-selbst mit ASan/UBSan; exakt große Abschneidepuffer lösen im alten Decoder einen
-ASan heap-buffer-overflow (Read 4) aus, ohne Buildfehler. Korrigiert normal/sanitisiert
-grün. OSM-Positionsregression grün; Wien c307cab8 bytegleich, PNG geöffnet.
-Abschluss: 184 tidy statt 185, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
-drei Gruppen bleiben rot. Pixelvergleich Wien: 0 geänderte Pixel, RGB-Maximum/Mittel 0.
-
-## Feature-Wirevertrag
-Feature-Tags und Geometriewörter werden vollständig in ein lokales Formatprodukt
-geparst (Scratch-Kapazitäten pro Ebene wiederverwendet); fehlerhafte Varints, uint32-Überläufe und abgeschnittene Felder lehnen die
-Ebene ab, statt partielle Features als Erfolg zu melden. Gemeinsamer uint32-Reader,
-packed und unpacked sowie mehrere Segmente desselben repeated Felds unterstützen.
-Featuretyp nur im definierten Enum 0..3. Readerfehler auf Ebene/Feature weiterreichen.
-Die eigentliche Geometrieinterpretation bleibt getrennt und vorerst unverändert;
-Tagreferenzen, Extent/Version, Geometrieregeln und Gesamtkachel-Rollback bleiben offen.
-Tests mit expliziten Bytes: spätes defektes Feature, fehlende Payload, uint32-Überlauf,
-Enumgrenzen, äquivalente packed/unpacked/segmentierte Streams. Alte Fassung muss
-scheitern, neue normal und direkt mit ASan/UBSan grün; Wien-Pixelvergleich und Lint.
-Vier MVT-Prüfungen normal/sanitisiert grün; alte Fassung in beiden Varianten rot,
-keine Buildfehler. Wien visuell geöffnet, 0 Pixelabweichung zur gesicherten Referenz.
-Lokale Referenzen: ../vector-tile-spec (21ff2cb), ../protobuf-docs (4b88f52),
-content/programming-guides/encoding.md und 2.1/vector_tile.proto.
-Abschluss-Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
-Parse-Komplexität 146→111, weiterhin über 25. Drei Prüfgruppen bleiben rot.
-
-## Geometriekommandos
-MVT 2.1 §4.3 (lokaler vector-tile-spec 21ff2cb) verlangt feste Folgen für
-Punkt, Linie und Polygon, positive Counts, keine Nullsegmente und ClosePath Count 1.
-Geometriedecoder abtrennen: Span lesen, Counts vor Zugriff prüfen, Deltas mit breitem
-Zwischenergebnis gegen den nativen int32-Raum prüfen. ClosePath erhält den Cursor.
-UNKNOWN überspringen; bekannte Geometrie nur bei vollständiger Kommandofolge annehmen.
-Bestehende Punktablage erhalten; Ring-Winding weiterhin aus Tile-Koordinaten bestimmen.
-Analytische Punkt-/Multipart-/Polygonfixtures sowie falsche Folgen, Nullsegmente,
-abgeschnittene Parameter und Überläufe normal/sanitisiert prüfen; alte Fassung muss
-scheitern. Wien unverändert erwarten, rendern und PNG prüfen. Vollständige Topologie,
-Ressourcenbudgets und transaktionale Gesamtkachel bleiben ausdrücklich offen.
-Geometrieabnahme: sechs MVT-Läufe normal/sanitisiert grün. Alte Fassung scheitert
-normal und mit Sanitizer-Abbruch, ohne Buildfehler. Neuer Reader prüft Kommandofolgen,
-Nullsegmente und int32-Koordinatengrenzen; ClosePath-Cursor und Loch-Winding geprüft.
-Parse-Komplexität 111→71. Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-
-Tests grün, drei rote Gruppen. Wien visuell geöffnet und 0/921600 Pixel verändert.
-
-## Parser-Publikation
-Parse dekodiert in einen eigenen Kandidaten und ersetzt den bisherigen Parserzustand
-nur bei Erfolg. Fehler und fehlende Ebene erhalten alle alten Daten und Views.
-Auch nach der gewählten Ebene äußere Feldrahmen bis zum Ende prüfen; doppelte Namen
-der gewählten Ebene ablehnen. Vorhandene Reader bleiben geliehen, Ergebnis besitzt Daten.
-Tests: gültige Ebene laden, dann frühe/späte Defekte und fehlende Ebene; Inhalt und
-Storage-Adressen müssen erhalten bleiben, erfolgreicher Ersatz muss wirksam werden.
-Dies betrifft OsmVector; OsmField::Accept publiziert weiterhin zu früh und muss danach
-auf einen vollständigen nativen Kachelkandidaten umgestellt werden. Kandidat benötigt
-vorübergehend zusätzlichen Speicher; explizite Bytebudgets bleiben offen.
-Parser-Publikation geprüft: acht MVT-Läufe normal/sanitisiert grün; alte Fassung
-in beiden Varianten rot ohne Buildfehler. Lint unverändert 184/330, 32 Repository-
-Tests grün, drei rote Gruppen. Wien-PNG geöffnet, 0/921600 Pixelabweichung.
+## Aktueller Nachweis
+Acht MVT-Läufe normal/sanitisiert grün. Alte Fassungen scheitern ohne Buildfehler;
+Fixed32-Abschneidepuffer verursachen unter ASan einen heap-buffer-overflow, geometrische
+Überläufe einen Sanitizer-Abbruch. Parser-Rollback scheitert alt normal/sanitisiert.
+Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
+Geometrietrennung reduziert Parse-Komplexität 111→71; weitere Zerlegung erforderlich.
+Wien visuell geöffnet und 0/921600 Pixelabweichung. Frühere Einzelbelege in Git.
