@@ -264,16 +264,7 @@ void OsmField::Declare(std::span<const Declared> these, LongitudeLatitude at) {
                  (1.0 - std::log(std::tan(bent) + 1.0 / std::cos(bent)) / turn) / 2.0 * side))});
 }
 
-void OsmField::Declare(std::span<const Declared> these, TileAt over) {
-  Features_.clear();
-  Rings_.clear();
-  Points_.clear();
-  Tiles_.clear();
-  Tags_.clear();
-  Settled_.clear();
-  CentreX_ = over.X;
-  CentreY_ = over.Y;
-
+void OsmField::AppendDeclaredFeature(const Declared &one) {
   const auto number = [this](double how) {
     Values_.push_back(Value{.Num = how, .Str = 0, .IsNum = true});
     return static_cast<uint32_t>(Values_.size() - 1u);
@@ -284,57 +275,74 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
     return static_cast<uint32_t>(Values_.size() - 1u);
   };
 
-  for (const Declared &one : these) {
-    if (one.LatLon.size() < 4) { continue; }
-    Feature made;
-    made.FirstRing = static_cast<uint32_t>(Rings_.size());
-    made.RingCount = 1;
-    made.FirstTag = static_cast<uint32_t>(Tags_.size());
-    made.Tile = 0;
-    made.Layer = static_cast<uint16_t>(Layer(one.Layer.c_str()) < 0 ? 0 : Layer(one.Layer.c_str()));
-    made.Type = one.Area ? 3u : 2u;
-    made.MinLat = made.MaxLat = one.LatLon[0];
-    made.MinLon = made.MaxLon = one.LatLon[1];
+  if (one.LatLon.size() < 4) { return; }
+  Feature made;
+  made.FirstRing = static_cast<uint32_t>(Rings_.size());
+  made.RingCount = 1;
+  made.FirstTag = static_cast<uint32_t>(Tags_.size());
+  made.Tile = 0;
+  const int layer = Layer(one.Layer.c_str());
+  made.Layer = static_cast<uint16_t>(layer < 0 ? 0 : layer);
+  made.Type = one.Area ? 3u : 2u;
+  made.MinLat = made.MaxLat = one.LatLon[0];
+  made.MinLon = made.MaxLon = one.LatLon[1];
 
-    Ring ring;
-    ring.First = static_cast<uint32_t>(Points_.size() / 2u);
-    ring.Count = static_cast<uint32_t>(one.LatLon.size() / 2u);
-    ring.Exterior = one.Area;
-    for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
-      made.MinLat = std::min(made.MinLat, one.LatLon[at]);
-      made.MaxLat = std::max(made.MaxLat, one.LatLon[at]);
-      made.MinLon = std::min(made.MinLon, one.LatLon[at + 1]);
-      made.MaxLon = std::max(made.MaxLon, one.LatLon[at + 1]);
-      Points_.push_back(one.LatLon[at]);
-      Points_.push_back(one.LatLon[at + 1]);
-    }
-    Rings_.push_back(ring);
-
-    Tags_.push_back(Intern(Keys_, KeyIndex_, one.Key));
-    Tags_.push_back(words(one.Value));
-    if (one.WidthM > 0.0) {
-      Tags_.push_back(Intern(Keys_, KeyIndex_, "width"));
-      Tags_.push_back(number(one.WidthM));
-    }
-    if (one.HeightM > 0.0) {
-      Tags_.push_back(Intern(Keys_, KeyIndex_, "height"));
-      Tags_.push_back(number(one.HeightM));
-    }
-    if (one.Bridge) {
-      Tags_.push_back(Intern(Keys_, KeyIndex_, "bridge"));
-      Tags_.push_back(number(1.0));
-    }
-    if (one.Tunnel) {
-      Tags_.push_back(Intern(Keys_, KeyIndex_, "tunnel"));
-      Tags_.push_back(number(1.0));
-    }
-    if (one.Level != 0) {
-      Tags_.push_back(Intern(Keys_, KeyIndex_, "layer"));
-      Tags_.push_back(number(static_cast<double>(one.Level)));
-    }
-    made.TagCount = static_cast<uint32_t>(Tags_.size()) - made.FirstTag;
-    Features_.push_back(made);
+  Ring ring;
+  ring.First = static_cast<uint32_t>(Points_.size() / 2u);
+  ring.Count = static_cast<uint32_t>(one.LatLon.size() / 2u);
+  ring.Exterior = one.Area;
+  for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
+    made.MinLat = std::min(made.MinLat, one.LatLon[at]);
+    made.MaxLat = std::max(made.MaxLat, one.LatLon[at]);
+    made.MinLon = std::min(made.MinLon, one.LatLon[at + 1]);
+    made.MaxLon = std::max(made.MaxLon, one.LatLon[at + 1]);
+    Points_.push_back(one.LatLon[at]);
+    Points_.push_back(one.LatLon[at + 1]);
   }
+  Rings_.push_back(ring);
+
+  Tags_.push_back(Intern(Keys_, KeyIndex_, one.Key));
+  Tags_.push_back(words(one.Value));
+  if (one.WidthM > 0.0) {
+    Tags_.push_back(Intern(Keys_, KeyIndex_, "width"));
+    Tags_.push_back(number(one.WidthM));
+  }
+  if (one.HeightM > 0.0) {
+    Tags_.push_back(Intern(Keys_, KeyIndex_, "height"));
+    Tags_.push_back(number(one.HeightM));
+  }
+  if (one.Bridge) {
+    Tags_.push_back(Intern(Keys_, KeyIndex_, "bridge"));
+    Tags_.push_back(number(1.0));
+  }
+  if (one.Tunnel) {
+    Tags_.push_back(Intern(Keys_, KeyIndex_, "tunnel"));
+    Tags_.push_back(number(1.0));
+  }
+  if (one.Level != 0) {
+    Tags_.push_back(Intern(Keys_, KeyIndex_, "layer"));
+    Tags_.push_back(number(static_cast<double>(one.Level)));
+  }
+  made.TagCount = static_cast<uint32_t>(Tags_.size()) - made.FirstTag;
+  Features_.push_back(made);
+}
+
+void OsmField::Declare(std::span<const Declared> these, TileAt over) {
+  Features_.clear();
+  Rings_.clear();
+  Points_.clear();
+  Tiles_.clear();
+  Tags_.clear();
+  Values_.clear();
+  Keys_.clear();
+  Strings_.clear();
+  KeyIndex_.clear();
+  StringIndex_.clear();
+  Settled_.clear();
+  CentreX_ = over.X;
+  CentreY_ = over.Y;
+
+  for (const Declared &one : these) { AppendDeclaredFeature(one); }
 
   {
     uint64_t said = kGoldenWord;

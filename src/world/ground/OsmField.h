@@ -142,6 +142,7 @@ private:
 
   [[nodiscard]] Fetched AddTile(TilePool &tiles, TileAt at);
   void Settle(int x, int y);
+  void AppendDeclaredFeature(const Declared &one);
 
   std::vector<std::string> Layers_;
   std::vector<Feature> Features_;

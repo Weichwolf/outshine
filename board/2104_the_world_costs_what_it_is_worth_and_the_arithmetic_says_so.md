@@ -37,7 +37,7 @@ What holds it:
 | a second copy the renderer reads | `Surrounds::WallPlaces/WallFacing/RoofPlaces/RoofFacing` | goes with the arena in board:2122 |
 | nothing is ever released | `OsmField::Tiles_/Features_/Rings_/Points_`, `Footprints_`, `Built_` have no removal path; `Settled_` is a `vector<uint64_t>` searched linearly per ring tile per stand | a tile that leaves the ring is erased, and `Settled_` is a set keyed by `TileId` |
 | coordinates stored as doubles two at a time | `OsmField::Points()` is `span<const double>`, read as `pts[i*2+1]` at twelve sites | `span<const LongitudeLatitude>`, per tile |
-| the heap's own measure doubles the allocation | `Heap::Take` -> `malloc_size` on every allocation and again in `Returned` (`base/io/Heap.cpp:63-83`) | the size rides in a header before the block, RAGE's way; `Returned` subtracts and asks nothing |
+| the heap's own measure doubles the allocation | `Heap::Take` -> `malloc_size` on every allocation and again in `Returned` (`base/io/Heap.cpp:63-83`) | the size rides in an allocation header; `Returned` subtracts and asks nothing |
 | the ceiling cannot see a quarter of the spend | `GroundStack::HeapBytes()` sums five fields and not the frame copies | one accounting, the tagged heap, is the ceiling's source |
 | the churn | one rebuild allocates a thousand times what it produces (`ground-yield` 3.5 GB) | board:2115 removes the passes; what remains writes into buffers sized once |
 
@@ -54,7 +54,7 @@ its wall triangles -- is board:2127's.
    same; a ring recentring by one tile erases one and bakes one
 3. then the heap: size header, no `malloc_size`; the ceiling reads the tagged heap; and the
    CHURN goes to a BUMP allocator per job -- Unreal's `FMemStack` with a mark reset after each
-   tile, RAGE's frame heaps -- because 2.25 GB in the tile worker and 881 MB in the yield are
+   tile -- because 2.25 GB in the tile worker and 881 MB in the yield are
    allocation PATTERNS (a `std::map` of lumps per tile, `reserve` per pass), and a linear
    allocator reset per tile takes them to the size of one tile's working set
 4. the point type at the store: `Points()` per tile as `span<const LongitudeLatitude>`, which
@@ -80,14 +80,15 @@ its wall triangles -- is board:2127's.
 - `Drape::At` as the bottleneck: 4.4 ns per face, a quarter of a second, and it is a BVH now
 - hoisting the junction map out of the levelling loop: one per cent
 
-## Aktiver Schritt: deklarierter OSM-Inhalt
+## Deklarierter OSM-Inhalt
 
-OsmField::Declare ersetzt Features/Ringe/Punkte/Tags, lässt Values/Strings/Keys und
-beide Intern-Indizes jedoch wachsen. Beim vollständigen Ersatz alle zugehörigen
-Pools logisch leeren; Kapazität für Wiederverwendung behalten. Kein globales Interning.
+OsmField::Declare ließ Values/Strings/Keys und beide Intern-Indizes wachsen. Beim
+vollständigen Ersatz werden nun alle zugehörigen Pools logisch geleert; Kapazität
+bleibt für Wiederverwendung erhalten. Kein globales Interning.
 AppendDeclaredFeature kapselt Ring/Bounds/Tag-Aufbau; Declare verantwortet Austausch
 und Generation. Vorhandene Tags für Breite/Höhe/Brücke/Tunnel/Ebene erhalten.
-Test wiederholt gleiche und wechselnde gleich große Inhalte: HeapBytes stabil nach
-Warmaufbau, keine alten Keys, aktuelle Tags/Ringe/Bounds korrekt; alter Code muss rot.
-Wien vorher/nachher vergleichen. Tile-Eviction, Generation-Fingerprint, Projektion
+128 gleiche und 128 wechselnde gleich große Inhalte: HeapBytes nach Warmaufbau
+stabil, keine alten Keys, Tags/Ringe/Bounds korrekt. Beide Tests grün, alter Code rot.
+Lint 185/330 statt 186/330, 32 Repository-Prüfungen grün; drei Gruppen bleiben rot.
+Wien c307cab8 bytegleich, PNG geöffnet. Tile-Eviction, Generation-Fingerprint, Projektion
 und transaktionaler Allokationsfehler bleiben offen; dies ist kein kompletter Streamingfix.
