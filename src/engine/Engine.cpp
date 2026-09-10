@@ -69,7 +69,7 @@ Result Engine::assemble() {
     }
     candidate->Tables.emplace(*std::move(book));
   }
-  if (!declared.Volumes.empty()) {
+  if (!declared.Volumes.empty() || !declared.Events.empty()) {
     auto triggers = TriggerField::Stand(declared.Volumes, declared.Events);
     if (!triggers) {
       S_->Error = triggers.error();

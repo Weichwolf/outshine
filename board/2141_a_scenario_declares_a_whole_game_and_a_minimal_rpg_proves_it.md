@@ -67,12 +67,12 @@ und erhaltene Simulation nach Assembly-Ablehnung. Beide neuen Tests scheitern im
 Öffentliche Table-Verträge sind dokumentiert; keine Quest-/Script-Fähigkeit behaupten.
 
 ## Eindeutige Trigger-Ereignisse
-Stand verengt Ereigniszahl und Treffer auf uint16_t; 65536 Ereignisse kollidieren
-mit dem Sentinel, größere Kataloge können ein anderes Ereignis adressieren.
-Genau 2^16 Ereignisse unterstützen (Indices 0..65535), größere Kataloge vor Aufbau
-ablehnen. Nichtleere eindeutige Namen mit kurzlebigem string_view-Index auflösen;
-kein verengter Sentinel. Ereigniskatalog und Volume-Vorbereitung getrennte Phasen.
-Assembly muss deklarierte Events auch ohne Volumes prüfen und übernehmen.
-Grenztests: erster/letzter Index, 65537 Einträge, doppelte/leere Namen, unbekannter
-Verweis; abgelehnte Assembly erhält die alte Simulation. Öffentlichen Event-Vertrag
-beschreiben, inklusive der Grenze zwischen Feldnamen und noch nicht erzeugter Payload.
+Der verengte uint16_t-Sentinel ist entfernt. Genau 2^16 Ereignisse sind unterstützt
+(Indices 0..65535), größere Kataloge werden vor Aufbau abgelehnt. Nichtleere eindeutige
+Namen werden mit kurzlebigem string_view-Index aufgelöst. Ereigniskatalog und
+Volume-Vorbereitung sind getrennte Phasen; Occupants speichern keinen redundanten
+Volume-Index. Assembly prüft und übernimmt Events auch ohne Volumes.
+Fünf Tests bestehen: erster/letzter Index samt Listener/Zählern, 65537 Einträge,
+doppelte/leere Namen, unbekannter Verweis und Simulationserhalt. Beide neuen Fälle
+scheitern im Altstand. Event-Vertrag dokumentiert: Feldnamen sind keine Payloadwerte.
+Offen bleiben geometrische Trigger-Validierung und die vereinfachte Probe-Zustandsmaschine.

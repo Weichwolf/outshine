@@ -491,8 +491,16 @@ struct Table {
   std::vector<std::vector<std::string>> Rows;
 };
 
+/// Owned event declaration, copied by declare() and prepared with the simulation by assemble().
+/// Catalogs may contain at most 65536 events (16-bit indices 0..65535). Empty catalogs are
+/// valid. Assembly validates names even without trigger volumes; rejection retains the old
+/// simulation. Source mutations do not update the prepared catalog. Serialize writes with
+/// reads of this descriptor; copying names/field lists and preparing a catalog may allocate.
 struct Event {
-  std::string Name;
+  std::string Name; ///< Nonempty, case-sensitive identifier, unique within the event catalog.
+  /// Owned field names checked when an internal listener registers its requested fields.
+  /// This declares permitted names only: trigger emission currently carries event index and
+  /// entity handle, not values for these fields. No scripted payload execution is implied.
   std::vector<std::string> Carries;
 };
 

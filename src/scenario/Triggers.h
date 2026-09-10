@@ -45,7 +45,7 @@ public:
 private:
   TriggerField() = default;
 
-  struct Door {
+  struct PreparedVolume {
     uint16_t Event = 0;
     When Opens = When::Enter;
     uint8_t Sphere = 0;
@@ -54,18 +54,20 @@ private:
     double DwellS = 0.0;
   };
 
-  struct Standing {
+  [[nodiscard]] static std::expected<PreparedVolume, std::string>
+  PrepareVolume(const Scenario::Volume &volume, uint16_t event);
+
+  struct Occupant {
     Entity Body = kNoEntity;
-    uint32_t Door = 0;
     double SinceS = 0.0;
     bool Dwelt = false;
   };
 
-  std::vector<std::vector<Standing>> InsideDoor_;
+  std::vector<std::vector<Occupant>> Occupants_;
 
-  [[nodiscard]] static bool Inside(const Door &door, const Vec3 &atM);
+  [[nodiscard]] static bool Inside(const PreparedVolume &door, const Vec3 &atM);
 
-  std::vector<Door> Doors_;
+  std::vector<PreparedVolume> Volumes_;
   std::vector<std::string> Events_;
   std::vector<std::vector<std::string>> Carries_;
   std::vector<uint8_t> Heard_;
