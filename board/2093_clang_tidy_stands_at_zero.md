@@ -5,15 +5,12 @@ Parent: 2188
 Depends:
 # Static analysis will report zero findings with preserved engine contracts
 ## Auftrag und Stand
-
 Aktuelles Ziel 2026-09-08: null clang-tidy-Befunde, vollständig dokumentierte API und
 belegte Architektur-SOLL-Verträge nach 2188. Tidy- und Dokumentationslücken bleiben
 offen; aktuelle Zahlen und Nachweise liefern die vollständigen Make-Läufe.
 Symbol-Erreichbarkeit ist seit 9b82331b ein vollständiger Verdachtsbericht, kein
 Nullziel. Ungeprüfte Kandidaten löschen wäre kein zulässiger Reparaturweg.
-
 ## Entscheidung
-
 API-Ownership/Fehlerzustände nach 2190/2191 zuerst. Dokumentation beschreibt
 Einheiten, Koordinaten, Lebensdauer, Threadbindung, Fehlergarantien und Invalidierung.
 Interne Tidy-Befunde nach Ursache gruppieren: fehlende direkte Includes, explizite
@@ -21,13 +18,10 @@ Konversionen/Einheiten, unklare Zuständigkeiten und überkomplexe Zustandsverar
 Komplexität durch vollständige fachliche Typen und Phasen senken, keine beliebigen
 Funktionshälften. Keine Warnungsunterdrückung, keine Grenzwertlockerung, kein blindes
 Fixit. Bei jeder Änderung Consumer und Fehlerpfade prüfen.
-
 Verbindlich mit umsetzen: exceptionsfreie Runtime, expected/nodiscard und passende
 static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfaden.
-
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
-
 ## JSON-Eingabegrenze
 
 ParseValueInside bündelt Container, Literale und Zahlen (Komplexität 98).
@@ -118,3 +112,9 @@ und Kandidatenpublikation; Blätter, Substrat, Templates, Regeln, Layer, Höhenl
 Parsing-Phasen. Altcode verletzt Erhaltung/Reload; fünf Regressionen grün. Regelzahlen vor Cast prüfen.
 Rank 0..255 (ClassBuilder packt acht Bits), Lanes >=0, Priority int; Maße im Float-Bereich.
 Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahlen offen.
+
+## Renderplan-Compiler
+Enums und endliche nichtnegative Exposure vor Arrayzugriff prüfen. CompileInto ersetzen
+durch Kandidatenphasen: Abhängigkeiten, Ausgabe, Passfusion, Ziele, Speicherung, Digest.
+Merge-/Attachment-Regeln erhalten; ungültige Specs ablehnen, strukturelle Plan-Snapshots
+vor/nach vergleichen und Speicherbindungs-/Fusionsverträge unabhängig prüfen.
