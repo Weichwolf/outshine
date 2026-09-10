@@ -9,12 +9,20 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
+#include <limits>
 #include <string>
 #include <vector>
 
 namespace outshine {
 
+namespace Says {
+constexpr auto kXmlInputTooLarge = "XML input exceeds the 16 MiB text budget";
+}
+
 namespace {
+
+constexpr size_t kXmlMaxTextBytes = size_t{16} * 1024u * 1024u;
+static_assert(kXmlMaxTextBytes <= std::numeric_limits<uint32_t>::max());
 
 bool Space(char c) {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
@@ -215,6 +223,8 @@ bool Xml::Parse(const char *text, size_t length) {
   Asked_.clear();
   Root_ = 0;
   if (text == nullptr) { return Refuse("there is no document to read", 0); }
+
+  if (length > kXmlMaxTextBytes) { return Refuse(Says::kXmlInputTooLarge, 0); }
 
   Text_.assign(text, length);
   Nodes_.emplace_back();

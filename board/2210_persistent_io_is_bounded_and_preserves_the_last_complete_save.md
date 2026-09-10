@@ -102,3 +102,6 @@ zum gesetzten Szenario-Dateibudget. Das begrenzt die Eingabekopie, nicht gesamte
 oder Laufzeit. Exakt 16 MiB akzeptieren, ein Byte darüber ablehnen; ReadScenario muss
 bei Übergröße vorheriges Dokument erhalten. Altcode-Negativkontrolle, gültiger Retry,
 Parser-Regression und Lint. uint32-Darstellbarkeit der Grenze statisch absichern.
+Budget-Abnahme: sieben Checks grün; Altcode verletzt die Grenze ohne Buildfehler.
+Drei Parser-/Szenario-Regressionen grün; letzter Budgettest nach size_t-Korrektur grün.
+Lint: 181 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
