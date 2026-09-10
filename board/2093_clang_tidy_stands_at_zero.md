@@ -105,3 +105,11 @@ unverändert. Analytische Achsen-/Reverse-Z-/PreView-Kontrolle und orthografisch
 Rendervertrag grün; Vorzeichenmutant verletzt Frame-Orakel. Tidy-Befund beseitigt.
 Numerische Eingabevalidierung und degenerierte Sonnen-/Up-Basen separat prüfen;
 der Strukturumbau beweist noch keine vollständige Schatten-SOLL-Erfüllung.
+
+## Build-Cache bei entfernten Headern
+UpToDate akzeptiert fehlende Voraussetzungen: shell `-nt` ist dann wahr. Beim
+Verschieben von Keyframes bleibt Pose mit altem Klassenlayout im Objektcache.
+Existenz jeder Quelle und Compiler-Abhängigkeit vor dem Zeitvergleich verlangen.
+Regression führt die echte Runner-Funktion mit gültigem, neuerem und entferntem
+Header sowie entfernter Quelle aus; danach Import-/Posefälle ohne Cache-Löschung
+neu bauen. Keine Bildänderung beabsichtigt; vollständiges lint bleibt Pflicht.

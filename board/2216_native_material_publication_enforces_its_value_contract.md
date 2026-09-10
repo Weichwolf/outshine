@@ -4,9 +4,7 @@ Parent: 2150
 Area: scene, base, import, render
 Tags: validation, materials, ownership
 Depends:
-
 # Native material publication enforces its value contract
-
 ## Erreichter Vertrag
 MaterialValidation.h prüft Faktoren gemäß include/scene/Material.h, AlphaMode,
 Sampler-/UV-Enums, finite UV-Transformationen und owner-lokale Bildbindungen.
