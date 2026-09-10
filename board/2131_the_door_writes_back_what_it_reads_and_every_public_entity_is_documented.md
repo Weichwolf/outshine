@@ -53,7 +53,6 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
 - Bildwirksame Änderungen über den Client rendern und PNGs selbst prüfen;
   CPU-Messzeiten nicht als GPU-Ausführungs- oder Präsentationslatenz ausweisen.
 ## Verbleibende konkrete Lücken
-
 - InputMap und declare erhalten Bindungen bei Fehlern; Views, deklarierter Zustand
   und Renderer können weiterhin teilweise verändert werden. Szenario-Publikation
   nach WI 2191 gemeinsam transaktional machen; Eingaben dürfen nicht isoliert bleiben.
@@ -64,9 +63,7 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   sowie Elementtext sind noch nicht vollständig geprüft. Keine XML-Konformität behaupten.
 - Motion.Dial bleibt gespeichert, Time.Rate ungenutzt; laufende astronomische Zeit
   nach WI 2213 anbinden. Die aktuelle Sonnenzeit wird bei declare berechnet.
-
 ## Bestandsschutz durch Verhaltenstests
-
 ReadScenario publiziert erst nach vollständiger Prüfung; Fehler erhalten den Vorgänger.
 Physik-Rundlauf erhält Schrittzeit, Nachhollimit und XML-Sonderzeichen. Referenz:
 https://www.w3.org/TR/xml/#AVNormalize und #NT-CharRef.
@@ -112,7 +109,10 @@ Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung b
 Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht zur
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
 dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
-Fünf Importer-/Deklarationsregressionen grün; Assetauswahl unverändert.
+Body als Deklaration: vier nachweislich ungenutzte Such-/Geometriehelfer entfernen;
+acrossM bezog fälschlich den Ursprung in Kontaktbreiten ein. Datenverträge anhand
+Assembly/PrepareBodies dokumentieren. Fehlende Kontakt-/Antriebs-/Aeroanbindung und
+Legacy-Asset-Fitting bleiben offen; keine Physikvollständigkeit behaupten.
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
