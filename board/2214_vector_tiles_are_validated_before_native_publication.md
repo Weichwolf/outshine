@@ -70,3 +70,13 @@ Fixed32-Abschneidepuffer verursachen unter ASan einen heap-buffer-overflow, geom
 Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
 Headertrennung reduziert Decode-Komplexität auf 58 (Grenze 25); weitere Zerlegung erforderlich.
 Wien visuell geöffnet und 0/921600 Pixelabweichung. Frühere Einzelbelege in Git.
+
+## Ergebnisvertrag
+Parse nimmt Span/StringView und liefert expected<void, ParseError>; kein bool plus
+verwechselbarer Present-Ausgabe. MissingLayer nur nach gültigem äußeren Framing,
+InvalidTile bei beschädigten Bytes, UnsupportedVersion bei vorhandener unbekannter
+Version. Fehlender Versionswert bleibt InvalidTile. Kandidatenpublikation unverändert.
+OsmField verwendet diese Fehler direkt und übergibt die originale Spangröße ohne
+size_t→int→size_t-Verengung. Native Kacheltransaktion bleibt der anschließende Schritt.
+Tests unterscheiden leere/fehlende Ebenen, frühe/späte Schäden und unbekannte Version;
+Mutant InvalidTile→MissingLayer muss scheitern. Bestehende Ablehnungsassertionen bleiben.
