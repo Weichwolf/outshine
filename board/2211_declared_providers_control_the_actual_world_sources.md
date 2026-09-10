@@ -50,3 +50,10 @@ Provider::Rank wird direkt als vollständiger dezimaler int-Token geparst; optio
 Plus bleibt erlaubt. Überlauf, Suffix, Leerraum und Brüche werden abgelehnt, fehlend
 bleibt 0. Negativkontrolle bestätigt; vier Regressionen prüfen Dokumenterhaltung,
 Int-Extrema, gültigen Retry, Layer und Export.
+
+## Gemeinsamer Compositor-Wertevertrag
+BudgetPx endlich und nichtnegativ; Kategorie nicht leer. Einen allokationsfreien
+Validator in Reader, Engine::declare und Writer verwenden. XML-Zahlentoken vollständig
+parsen. Ungültige Deklaration erhält vorherigen Zustand; Export liefert Fehler statt
+kaputtem XML. Gültige Null/Bruchwerte bleiben erhalten, unabhängig von On.
+Runtime-Implementierung bleibt offen; Wertevalidierung behauptet keine Ausführung.
