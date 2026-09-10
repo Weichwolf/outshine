@@ -19,7 +19,7 @@ int main() {
     Mat4 placement;
     placement[0] = n == 0 ? 2.0 : -2.0;
     placement.SetTranslation({{static_cast<double>(n * 4), 0, 5}});
-    CHECK(geometry.setPlacement(part, placement), "placed and reflected walls");
+    CHECK(geometry.setPlacement(part, placement).has_value(), "placed and reflected walls");
   }
   const std::array<float, 9> ground{7, -1, 3, 9, -1, 3, 8, 1, 3};
   auto built = Core::BuildAudioOcclusion(geometry, ground, indices);

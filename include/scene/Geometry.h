@@ -21,6 +21,12 @@ enum class MaterialError {
   InvalidMaterial   ///< Factors, texture parameters or owner-local image bindings are invalid.
 };
 
+/// Failure when replacing a mesh part's local-to-model transform; no state changes.
+enum class PlacementError {
+  MissingPart,     ///< The owner-local part index is absent.
+  InvalidTransform ///< Components are nonfinite or the last row is not (0, 0, 0, 1).
+};
+
 /// Move-only owner of CPU mesh attributes, materials, images, lights and part placements.
 /// Vertex positions are local metres in a right-handed, Y-up frame; triangles use CCW
 /// front faces. Part placements map local coordinates into model space. No import-format
@@ -78,10 +84,14 @@ public:
 
   /// Replace a part's local-to-model placement without modifying its vertex attributes.
   /// @param part Active owner-local part index.
-  /// @param model Finite usable affine matrix with translations in metres; not validated here.
-  /// @return False without mutation for an absent part; true after replacement.
+  /// @param model Finite affine matrix with translations in metres and last row exactly (0, 0, 0,
+  /// 1).
+  /// @return Success, MissingPart or InvalidTransform. Errors preserve placement and attributes.
+  /// Scale (including zero), reflection and shear are accepted; no inverse is required.
+  /// Vertex data and borrowed attribute views remain unchanged on both success and failure.
   /// O(1), no allocation; requires exclusive access.
-  [[nodiscard]] bool setPlacement(int part, const Mat4 &model) noexcept;
+  [[nodiscard]] std::expected<void, PlacementError> setPlacement(int part,
+                                                                 const Mat4 &model) noexcept;
   /// Replace local light data while preserving its name and placement.
   /// @param lamp Active owner-local light index.
   /// @param light Values copied as supplied; validity and units follow PunctualLight.
@@ -245,7 +255,8 @@ public:
   /// Require at least one part, nonempty positions and triangles, matching optional
   /// attribute counts and in-range indices. Validate material factors, texture bindings and
   /// assigned material indices; unbound material indices select the default material.
-  /// Does not validate transforms or renderer feature support.
+  /// Part placements are validated on assignment. Light transforms and renderer feature
+  /// support are not checked here.
   /// No allocation or mutation; O(materials + active parts + indices). No concurrent mutation.
   /// The object must not have been moved from.
   /// @return True if every active part meets these structural conditions.

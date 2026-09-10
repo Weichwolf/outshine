@@ -13,7 +13,7 @@ int main() {
   const int lamp = geometry.addLamp("lamp", {}, placement);
   PunctualLight light;
   light.Intensity = 23;
-  CHECK(geometry.setPlacement(part, placement), "direct placement mutation succeeds");
+  CHECK(geometry.setPlacement(part, placement).has_value(), "direct placement mutation succeeds");
   CHECK(geometry.setMaterial(part, second), "direct material mutation succeeds");
   CHECK(geometry.setLight(lamp, light), "direct light mutation succeeds");
   for (int absent : {-1, 1}) {

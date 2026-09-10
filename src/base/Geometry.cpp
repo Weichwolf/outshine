@@ -231,10 +231,17 @@ bool Geometry::setMaterial(int part, MaterialInstance surface) noexcept {
   return true;
 }
 
-bool Geometry::setPlacement(int part, const Mat4 &model) noexcept {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) { return false; }
+std::expected<void, PlacementError> Geometry::setPlacement(int part, const Mat4 &model) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(PlacementError::MissingPart);
+  }
+  if (model.At(3, 0) != 0.0 || model.At(3, 1) != 0.0 || model.At(3, 2) != 0.0 ||
+      model.At(3, 3) != 1.0 ||
+      !std::ranges::all_of(model, [](double value) { return std::isfinite(value); })) {
+    return std::unexpected(PlacementError::InvalidTransform);
+  }
   Held_->Parts[static_cast<size_t>(part)].PlacedM = model;
-  return true;
+  return {};
 }
 
 std::expected<MaterialInstance, MaterialError> Geometry::addSurface(std::string_view named,

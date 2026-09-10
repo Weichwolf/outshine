@@ -53,19 +53,16 @@ aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
   keine Importarbeit oder unbeschränkten Allokationen im Framepfad.
 
 ## Vorbedingungen im nativen Besitzer
-
 `Geometry::wellFormed` muss aktive Parts statt zurückbehaltener Kapazität prüfen.
 `clear` entfernt auch Bilder; Attributsetter verweigern nichtendliche Werte ohne
 Mutation. Winding-Diagnostik muss bei unvollständigen Attributen sicher bleiben.
 Regression: größerer Aufbau → clear → kleinerer Aufbau, wiederholtes clear,
 NaN/Inf je Attributkanal und Dreiecke mit fehlenden Normalen in jeder Ecke.
 
-Nächster Schritt: setPlacement prüft finite Komponenten und die affine letzte Zeile
-(0,0,0,1) vor Mutation; expected unterscheidet fehlenden Part und ungültige Matrix.
-Mat4::TransformPoint ist das algebraische Referenzmodell ohne Perspektivdivision.
-Nullskalierung, Spiegelung und Scherung bleiben zulässig; kein Determinanten-Grenzwert.
-Unabhängiger Test: NaN/Inf in jeder Komponente, Projektionszeile, gültiger Retry und
-Erhalt von Placement/Attributansichten; gültige Render-/Audio-Platzierung unverändert.
+setPlacement prüft finite affine Matrizen (letzte Zeile exakt 0,0,0,1) vor Mutation.
+expected trennt fehlenden Part/ungültige Matrix; Nullskalierung, Spiegelung und Scherung erlaubt.
+Mat4::TransformPoint definiert die Algebra ohne Perspektivdivision. Altcode scheitert am
+NaN/Inf-/Projektions-Test; Erhaltung, Retry, native Render-/Audio-Platzierung: vier Tests grün.
 Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge;
 Überlauf und erschöpfte Bildindizes vor Kopie ablehnen. Fehler verändern weder
 Bilder noch Indexvergabe. Dokumentation verbleibender Lücken akzeptiert sie nicht.
