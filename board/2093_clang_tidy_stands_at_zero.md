@@ -95,4 +95,5 @@ SurfaceBindings: verschachtelten Uniformbuffer-Selektor als explizite Verzweigun
 lesen; sämtliche Zählwerte unverändert. TexelChain: Cast-Zieltypen mit auto ableiten.
 Client-Shotbericht: ms/s-Umrechnung mit benannter Einheitenkonstante. Keine Änderung
 an Shaderauswahl, Filterarithmetik oder Berichtswerten. Bestehende Material-/Mip-Orakel
-und Client-Argumentprüfungen ausführen; keine zusätzlichen spiegelnden Tests.
+und vier Client-Argumentprüfungen bestehen; keine zusätzlichen spiegelnden Tests.
+Fünf Tidy-Befunde beseitigt, 32 Repository-Prüfungen grün.

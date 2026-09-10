@@ -40,8 +40,11 @@ struct SurfaceBindings {
       Images[Count++] = 7;
     }
     Shape.FragmentSamplers = Count;
-    Shape.FragmentUniformBuffers =
-        flat ? (Count > 0 || kind != SurfaceKind::Opaque || identityIndex >= 0 ? 1u : 0u) : 2u;
+    Shape.FragmentUniformBuffers = 2;
+    if (flat) {
+      Shape.FragmentUniformBuffers =
+          Count > 0 || kind != SurfaceKind::Opaque || identityIndex >= 0 ? 1u : 0u;
+    }
   }
 };
 

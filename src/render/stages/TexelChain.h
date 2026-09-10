@@ -48,12 +48,11 @@ HalveInPlace(std::span<const float> from, Texels was, std::vector<float> &into, 
       const double bottom = static_cast<double>(y + 1u) * fromHeight / toHeight;
       const double area = (right - left) * (bottom - top);
       std::array<double, 4> sum{};
-      for (uint32_t sy = static_cast<uint32_t>(top); sy < static_cast<uint32_t>(std::ceil(bottom));
+      for (auto sy = static_cast<uint32_t>(top); sy < static_cast<uint32_t>(std::ceil(bottom));
            ++sy) {
         const double height =
             std::min(bottom, static_cast<double>(sy + 1u)) - std::max(top, static_cast<double>(sy));
-        for (uint32_t sx = static_cast<uint32_t>(left);
-             sx < static_cast<uint32_t>(std::ceil(right));
+        for (auto sx = static_cast<uint32_t>(left); sx < static_cast<uint32_t>(std::ceil(right));
              ++sx) {
           const double width = std::min(right, static_cast<double>(sx + 1u)) -
                                std::max(left, static_cast<double>(sx));

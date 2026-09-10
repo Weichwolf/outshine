@@ -58,6 +58,8 @@ Telling gTelling;
 using outshine::Shots::Place;
 using outshine::Shots::Shot;
 
+constexpr double kMillisecondsPerSecond = 1000.0;
+
 void Tell(const Shot &shot, std::string_view name) {
   if (!shot.Why.empty()) {
     std::println("SHOT    {:<26} -- {}", name, shot.Why);
@@ -84,8 +86,8 @@ void Tell(const Shot &shot, std::string_view name) {
       shot.Triangles,
       shot.BareTiles,
       shot.VariationAlongRows,
-      shot.StandingMs / 1000.0,
-      shot.LoadingMs / 1000.0,
+      shot.StandingMs / kMillisecondsPerSecond,
+      shot.LoadingMs / kMillisecondsPerSecond,
       shot.StreamedS,
       shot.PeakHeapMB,
       shot.Kept ? std::string_view{shot.Wrote} : "NO PICTURE");
