@@ -47,12 +47,15 @@ Kein spielabhängiger Sondercode. Gespielter Zustand lässt sich speichern und f
    Aktuell Mittelpunktabtastung pro Tick, keine Körper-/Sweep-Intersection; interne
    Overflow/Unseated-Zähler reichen als öffentlicher Fehlervertrag nicht aus.
 
-## Nächster Schritt: deklarierte Tabellen schreiben
-Eigene WriteTables-Phase erhält Tabellen-/Spalten-/Zeilenreihenfolge und Zellschreibweise.
+## Deklarierte Tabellen schreiben
+Implementierte WriteTables-Phase erhält Tabellen-/Spalten-/Zeilenreihenfolge und Zellschreibweise.
 XML stellt pro Spalte einen Typ dar; fehlende native Typen werden als Text materialisiert.
 Escaping einschließlich Tabs/Zeilenwechseln; leere Textzellen und Nullzeilen erhalten.
 Unabhängiger Read/Write-Test prüft konkrete Werte und typisierte TableBook-Abfragen;
-Altstand muss wegen fehlender Tabellen scheitern. Keine Runtime-Savegame-Fähigkeit behaupten.
+Altstand scheitert wegen fehlender Tabellen, vier Regressionen bestehen. Kein Runtime-Savegame.
+Offen: Writer braucht einen checked Fehlervertrag und gemeinsame Eingabevalidierung.
+Überzählige Types sind nicht in XML darstellbar und dürfen nicht still normalisiert werden;
+aktuell ist nur der Export gültiger Tabellenschemas nachgewiesen.
 
 ## Abnahme
 - Ein Ort, drei NPCs, eine Quest vollständig deklarativ und über die Public API spielbar.

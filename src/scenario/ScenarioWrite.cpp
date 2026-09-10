@@ -229,6 +229,34 @@ void WriteLighting(std::string &said, const Scenario::Lighting &lighting) {
   said += "/>\n  </lighting>\n";
 }
 
+void WriteTables(std::string &said, std::span<const Scenario::Table> tables) {
+  if (tables.empty()) { return; }
+  said += "  <tables>\n";
+  for (const auto &table : tables) {
+    said += "    <table";
+    Said(said, "id", table.Id, true);
+    said += ">\n";
+    for (size_t column = 0; column < table.Columns.size(); ++column) {
+      said += "      <column";
+      Said(said, "name", table.Columns[column], true);
+      const bool numeric = column < table.Types.size() && table.Types[column];
+      Said(said, "type", numeric ? "number" : "text");
+      said += "/>\n";
+    }
+    for (const auto &row : table.Rows) {
+      said += "      <row>\n";
+      for (const auto &cell : row) {
+        said += "        <cell";
+        Said(said, "value", cell, true);
+        said += "/>\n";
+      }
+      said += "      </row>\n";
+    }
+    said += "    </table>\n";
+  }
+  said += "  </tables>\n";
+}
+
 void WriteEvents(std::string &said, std::span<const Scenario::Event> events) {
   if (events.empty()) { return; }
   said += "  <events>\n";
@@ -333,6 +361,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
     }
     said += "  </views>\n";
   }
+  WriteTables(said, declared.Tables);
   WriteEvents(said, declared.Events);
   WriteVolumes(said, declared.Volumes);
   WriteGenerators(said, declared.Generators);
