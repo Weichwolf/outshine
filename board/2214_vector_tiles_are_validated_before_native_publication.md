@@ -72,3 +72,15 @@ Lokale Referenzen: ../vector-tile-spec (21ff2cb), ../protobuf-docs (4b88f52),
 content/programming-guides/encoding.md und 2.1/vector_tile.proto.
 Abschluss-Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
 Parse-Komplexität 146→111, weiterhin über 25. Drei Prüfgruppen bleiben rot.
+
+## Geometriekommandos
+MVT 2.1 §4.3 (lokaler vector-tile-spec 21ff2cb) verlangt feste Folgen für
+Punkt, Linie und Polygon, positive Counts, keine Nullsegmente und ClosePath Count 1.
+Geometriedecoder abtrennen: Span lesen, Counts vor Zugriff prüfen, Deltas mit breitem
+Zwischenergebnis gegen den nativen int32-Raum prüfen. ClosePath erhält den Cursor.
+UNKNOWN überspringen; bekannte Geometrie nur bei vollständiger Kommandofolge annehmen.
+Bestehende Punktablage erhalten; Ring-Winding weiterhin aus Tile-Koordinaten bestimmen.
+Analytische Punkt-/Multipart-/Polygonfixtures sowie falsche Folgen, Nullsegmente,
+abgeschnittene Parameter und Überläufe normal/sanitisiert prüfen; alte Fassung muss
+scheitern. Wien unverändert erwarten, rendern und PNG prüfen. Vollständige Topologie,
+Ressourcenbudgets und transaktionale Gesamtkachel bleiben ausdrücklich offen.
