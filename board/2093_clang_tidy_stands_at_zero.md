@@ -84,10 +84,10 @@ mehr als grüne Zähler: sämtliche API-SOLL-Abnahmen aus 2188 tatsächlich nach
 
 ## glTF-Texturtabelle transaktional aufbauen
 ResolveFileSurface ersetzt Raster vor Fehlerprüfung und hinterlässt ungültige Bindungen.
-Kandidat mit frischen Bindungen; gemeinsame Socket-Dekodierung, Materialmaps und
-Carrier-Prüfung trennen. Erst vollständig publizieren; Slots/Materialindizes abgleichen.
-Negativkontrolle: späte Ablehnung erhält Rasteradresse/Pixels; gültiger Ersatz entfernt
-alte Maps und erhält Filter/UVs. Native Geometrie-/Materialmigration bleibt separat offen.
+Kandidat mit frischen Bindungen, gemeinsamer Socket-Dekodierung und getrennten
+Materialmap-/Carrier-Prüfungen; Slots/Materialindizes vor Zugriff abgeglichen.
+Altcode verletzt zwei Negativkontrollen: Rasteradresse/Pixels bei Fehler erhalten;
+gültiger Ersatz entfernt alte Maps und erhält Filter/Wrap. Native Geometrie-/Materialmigration bleibt separat offen.
 
 ## Lichtprojektion in fachliche Phasen trennen
 LightVisibilityStage::Build: Mittelpunkt der schattenwerfenden Platzierungen als

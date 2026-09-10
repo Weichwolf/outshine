@@ -3,13 +3,18 @@
 #include "Image.h"
 #include "Variant.h"
 #include <array>
+#include <algorithm>
+#include <type_traits>
+#include <utility>
 #include <string>
 #include <cstddef>
 #include <vector>
 #include <cstdint>
 
 namespace outshine::Gltf {
-namespace {
+namespace Says {
+constexpr auto InconsistentSlots = "surface table has inconsistent slot references";
+}
 
 namespace {
 
@@ -78,8 +83,6 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
 
 }
 
-}
-
 void ResolveSurfaceTable([[maybe_unused]] const Document &file,
                          const Subject &geometry,
                          bool carriesTransmission,
@@ -117,118 +120,65 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
   }
 }
 
-[[nodiscard]] bool ResolveFileSurface(const Document &file,
-                                      const Subject &geometry,
-                                      Render::ColourFrom channel,
-                                      Render::ColourCarrier carrier,
-                                      Render::SurfaceTable &table,
-                                      std::string &error) {
-  table.Decoded.assign(table.Slots.size(), Render::SurfaceRasters{});
-  const char *socket =
-      channel == Render::ColourFrom::Emissive ? "emissiveTexture" : "baseColorTexture";
+namespace {
 
-  const CarriedUvSets carried = geometry.HasUv1() ? CarriedUvSets::Both : CarriedUvSets::FirstOnly;
-  size_t textured = 0;
+[[nodiscard]] bool ReadMaterialMaps(const Document &file,
+                                    CarriedUvSets carried,
+                                    Render::SurfaceTable &table,
+                                    std::string &error) {
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
     const int index = table.Material[slot];
     if (index < 0 || static_cast<size_t>(index) >= file.Materials().size()) { continue; }
     const Material &material = file.Materials()[static_cast<size_t>(index)];
-    const TextureRef &declared =
-        channel == Render::ColourFrom::Emissive ? material.Emissive : material.BaseColour;
-    if (table.Slots[slot].State().Kind() != SurfaceKind::Opaque &&
-        material.BaseColour.Texture != declared.Texture) {
-      error = std::string("material '") + material.Name +
-              "' is not OPAQUE, takes its colour from " + socket + " " +
-              std::to_string(declared.Texture) + " and its coverage from " + "baseColorTexture " +
-              std::to_string(material.BaseColour.Texture) +
-              ", and this subject binds one image per surface -- the second binding is the missing "
-              "capability, not a texture to substitute";
-      return false;
-    }
-    if (!declared.Declared()) { continue; }
-    Render::SubjectTexture &base = table.Slots[slot].Colour;
-    std::string why;
-    if (!UvSetOf(declared, carried, socket, base.Set, why)) {
-      error = std::string("material '") + material.Name + "' " + why;
-      return false;
-    }
-    const Texture &texture = file.Textures()[static_cast<size_t>(declared.Texture)];
-    std::vector<uint8_t> encoded;
-    if (!file.ImageBytes(texture.Source, encoded)) {
-      error = "material '" + material.Name + "' names image " + std::to_string(texture.Source) +
-              ", whose bytes could not be read";
-      return false;
-    }
-    if (!DecodeImage(encoded.data(), encoded.size(), table.Decoded[slot].Colour) ||
-        !table.Decoded[slot].Colour.Holds()) {
-      error = std::string("the ") + socket + " image of material '" + material.Name + "' is " +
-              std::to_string(encoded.size()) + " bytes that this decoder does not read";
-      return false;
-    }
-    base.Rgba = table.Decoded[slot].Colour.Rgba.data();
-    base.Width = static_cast<uint32_t>(table.Decoded[slot].Colour.Width);
-    base.Height = static_cast<uint32_t>(table.Decoded[slot].Colour.Height);
+    table.Slots[slot].NormalScale = static_cast<float>(material.NormalScale);
 
-    base.Uv = UvTransformOf(declared.Uv);
-    if (texture.Sampler >= 0) {
-      const Sampler &sampler = file.Samplers()[static_cast<size_t>(texture.Sampler)];
-      base.WrapU = WrapOf(sampler.WrapS);
-      base.WrapV = WrapOf(sampler.WrapT);
-      base.Magnify = sampler.Mag == Filter::Nearest ? Render::SubjectFilter::Nearest
-                                                    : Render::SubjectFilter::Linear;
-      base.Minify = sampler.Min == Filter::Nearest ? Render::SubjectFilter::Nearest
-                                                   : Render::SubjectFilter::Linear;
-      base.Mip = MipOf(sampler.Mip);
-    }
-    ++textured;
-  }
+    struct MapRow {
+      const TextureRef &Declared;
+      const char *Socket;
+      Core::Raster &Into;
+      Render::SubjectTexture &Bound;
+    };
 
-  if (channel == Render::ColourFrom::Row) {
-    for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
-      const int index = table.Material[slot];
-      if (index < 0 || static_cast<size_t>(index) >= file.Materials().size()) { continue; }
-      const Material &material = file.Materials()[static_cast<size_t>(index)];
-      table.Slots[slot].NormalScale = static_cast<float>(material.NormalScale);
+    const std::array<MapRow, 5> maps = {{
+        {.Declared = material.Normal,
+         .Socket = "normalTexture",
+         .Into = table.Decoded[slot].Normal,
+         .Bound = table.Slots[slot].Normal},
+        {.Declared = material.MetallicRoughness,
+         .Socket = "metallicRoughnessTexture",
+         .Into = table.Decoded[slot].MetalRough,
+         .Bound = table.Slots[slot].MetalRough},
+        {.Declared = material.Emissive,
+         .Socket = "emissiveTexture",
+         .Into = table.Decoded[slot].Emissive,
+         .Bound = table.Slots[slot].Emissive},
+        {.Declared = material.SpecularStrength,
+         .Socket = "specularTexture",
+         .Into = table.Decoded[slot].SpecularStrength,
+         .Bound = table.Slots[slot].SpecularStrength},
+        {.Declared = material.SpecularTint,
+         .Socket = "specularColorTexture",
+         .Into = table.Decoded[slot].SpecularTint,
+         .Bound = table.Slots[slot].SpecularTint},
+    }};
 
-      struct MapRow {
-        const TextureRef &Declared;
-        const char *Socket;
-        Core::Raster &Into;
-        Render::SubjectTexture &Bound;
-      };
-
-      const std::array<MapRow, 5> maps = {{
-          {.Declared = material.Normal,
-           .Socket = "normalTexture",
-           .Into = table.Decoded[slot].Normal,
-           .Bound = table.Slots[slot].Normal},
-          {.Declared = material.MetallicRoughness,
-           .Socket = "metallicRoughnessTexture",
-           .Into = table.Decoded[slot].MetalRough,
-           .Bound = table.Slots[slot].MetalRough},
-          {.Declared = material.Emissive,
-           .Socket = "emissiveTexture",
-           .Into = table.Decoded[slot].Emissive,
-           .Bound = table.Slots[slot].Emissive},
-          {.Declared = material.SpecularStrength,
-           .Socket = "specularTexture",
-           .Into = table.Decoded[slot].SpecularStrength,
-           .Bound = table.Slots[slot].SpecularStrength},
-          {.Declared = material.SpecularTint,
-           .Socket = "specularColorTexture",
-           .Into = table.Decoded[slot].SpecularTint,
-           .Bound = table.Slots[slot].SpecularTint},
-      }};
-
-      for (const auto &map : maps) {
-        if (!ReadSocketImage(
-                file, material, map.Declared, map.Socket, carried, map.Into, map.Bound, error)) {
-          return false;
-        }
+    for (const auto &map : maps) {
+      if (!ReadSocketImage(
+              file, material, map.Declared, map.Socket, carried, map.Into, map.Bound, error)) {
+        return false;
       }
     }
   }
+  return true;
+}
 
+[[nodiscard]] bool ValidateCarrier(const Subject &geometry,
+                                   Render::ColourFrom channel,
+                                   Render::ColourCarrier carrier,
+                                   size_t textured,
+                                   std::string &error) {
+  const char *socket =
+      channel == Render::ColourFrom::Emissive ? "emissiveTexture" : "baseColorTexture";
   if (channel != Render::ColourFrom::Row && carrier == Render::ColourCarrier::Texture &&
       textured == 0) {
     error = std::string("the declaration hands the surface to the file's ") + socket +
@@ -254,6 +204,86 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
             "them with";
     return false;
   }
+  return true;
+}
+
+[[nodiscard]] bool ResolveTextures(const Document &file,
+                                   const Subject &geometry,
+                                   Render::ColourFrom channel,
+                                   Render::ColourCarrier carrier,
+                                   Render::SurfaceTable &table,
+                                   std::string &error) {
+  table.Decoded.assign(table.Slots.size(), Render::SurfaceRasters{});
+  const char *socket =
+      channel == Render::ColourFrom::Emissive ? "emissiveTexture" : "baseColorTexture";
+
+  const CarriedUvSets carried = geometry.HasUv1() ? CarriedUvSets::Both : CarriedUvSets::FirstOnly;
+  size_t textured = 0;
+  for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
+    const int index = table.Material[slot];
+    if (index < 0 || static_cast<size_t>(index) >= file.Materials().size()) { continue; }
+    const Material &material = file.Materials()[static_cast<size_t>(index)];
+    const TextureRef &declared =
+        channel == Render::ColourFrom::Emissive ? material.Emissive : material.BaseColour;
+    if (table.Slots[slot].State().Kind() != SurfaceKind::Opaque &&
+        material.BaseColour.Texture != declared.Texture) {
+      error = std::string("material '") + material.Name +
+              "' is not OPAQUE, takes its colour from " + socket + " " +
+              std::to_string(declared.Texture) + " and its coverage from " + "baseColorTexture " +
+              std::to_string(material.BaseColour.Texture) +
+              ", and this subject binds one image per surface -- the second binding is the missing "
+              "capability, not a texture to substitute";
+      return false;
+    }
+    if (!declared.Declared()) { continue; }
+    if (!ReadSocketImage(file,
+                         material,
+                         declared,
+                         socket,
+                         carried,
+                         table.Decoded[slot].Colour,
+                         table.Slots[slot].Colour,
+                         error)) {
+      return false;
+    }
+    ++textured;
+  }
+
+  if (channel == Render::ColourFrom::Row && !ReadMaterialMaps(file, carried, table, error)) {
+    return false;
+  }
+
+  return ValidateCarrier(geometry, channel, carrier, textured, error);
+}
+
+}
+
+[[nodiscard]] bool ResolveFileSurface(const Document &file,
+                                      const Subject &geometry,
+                                      Render::ColourFrom channel,
+                                      Render::ColourCarrier carrier,
+                                      Render::SurfaceTable &table,
+                                      std::string &error) {
+  static_assert(std::is_nothrow_move_assignable_v<Render::SurfaceTable>);
+  if (table.Material.size() != table.Slots.size() ||
+      std::ranges::any_of(table.PartSlot,
+                          [&](uint32_t slot) { return slot >= table.Slots.size(); })) {
+    error = Says::InconsistentSlots;
+    return false;
+  }
+  Render::SurfaceTable candidate;
+  candidate.Material = table.Material;
+  candidate.PartSlot = table.PartSlot;
+  candidate.Slots.reserve(table.Slots.size());
+  for (const auto &slot : table.Slots) {
+    Render::SubjectMaterial fresh;
+    fresh.Row = slot.Row;
+    fresh.Domain = slot.Domain;
+    candidate.Slots.push_back(fresh);
+  }
+  if (!ResolveTextures(file, geometry, channel, carrier, candidate, error)) { return false; }
+  table = std::move(candidate);
+  error.clear();
   return true;
 }
 
