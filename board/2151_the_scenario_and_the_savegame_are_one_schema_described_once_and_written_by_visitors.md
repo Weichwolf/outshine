@@ -86,13 +86,11 @@ Nachweis ausgeführter Writer-Fähigkeiten oder semantischer Erhaltung. Bisherig
 übersieht Folgetags/verkettete/Raw-Literale und zählt Kommentare als Writer-Fähigkeit.
 Bestehenden getesteten Kommentarscanner wiederverwenden; Literale tokenweise auswerten.
 Unvollständige Literale/Analyse und leere Grammatik sind Fehler, keine grüne Leermenge.
-Unbekannte Namen weiter rot als fehlender statischer Nachweis; keine Alias-Ausnahmen
-oder pauschalen Exemptions. Unbelegtes „count GREW“ entfernen: keine Baseline existiert.
+Unbekannte Namen bleiben fehlender statischer Nachweis; keine pauschalen Exemptions.
 Unabhängige Prüferfälle für mehrere/verkettete/Raw-Tags, Kommentare, Char-Literale,
 fehlende Sektionen und kaputte Eingaben: elf Tests grün. Altprüfer verletzt sechs der
 neun ursprünglichen Prüferfälle; vollständiger Lint bleibt bei drei roten Gruppen.
 
-## Bereits geprüfte Schritte
 Asset-Roundtrip, strikter Clip-Token und gemeinsamer Playback-Validator sind implementiert;
 negative Kontrollen und API-Erhaltung/Retry grün. Welt-/Relief-/OSM-Writer separat;
 OSM-Koordinaten, Physik, Generatorparameter und Assets durch Roundtrip-Fixtures geprüft.
@@ -114,10 +112,9 @@ den Verfolgungsabstand. Keine implementierte Szenenwahl, Viewports oder Zeitdila
 behaupten. Diese ungenutzten Konfigurationen fachlich implementieren oder mit
 expliziter Importdiagnose aus der minimalen API entfernen; nicht still verwerfen.
 
-## Atomare Layer-Anwendung
-ApplyLayer verändert Listen vor ReadSectionsOnto; ein später Validierungsfehler
-kann Zieldokument und Trace teilweise ersetzen. Auf einer eigenen Dokument-/Trace-Kopie
-arbeiten und beide erst nach vollständiger Validierung veröffentlichen. Cold-Path-Kosten
-explizit; keine Rollback-Logik im Frame. Layer-API dokumentiert Besitz, Auswahl und Import.
-Abnahme: später Abschnittsfehler nach Listenänderung erhält Dokument und Trace;
-gültiger Retry publiziert beides. Altstand muss diese Negativkontrolle verletzen.
+## Layer-Vertrag
+ReadScenario validiert Abschnitte bereits vor MergeLayer; eine zweite Dokumentkopie
+ist dafür unbegründet. Auswahl, Override-Reihenfolge, verschachtelte Layer-Ablehnung
+und Erhaltung bei Parserfehlern gezielt prüfen. Öffentliche Layer-Daten dokumentieren
+Importzeitpunkt, Besitz und Auswahl dokumentiert; Test grün, entfernte Nested-Prüfung rot.
+Offen: native Windows-Pfadauflösung statt Slash-Erkennung; übrige Merge-Semantik auditieren.

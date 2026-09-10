@@ -71,9 +71,19 @@ struct Identity {
   std::string Active;  ///< Space-separated layer-set names; layers without a set are always active.
 };
 
+/// Owned reference to a scenario overlay, resolved by Engine::readScenario in list order.
+/// Copying may allocate; mutation requires exclusive access. Merely constructing a Layer
+/// or passing a Document to declare does not load files. Selected files share the root
+/// import byte budget; nested layer declarations are rejected. Inactive files are not read.
 struct Layer {
+  /// Diagnostic label; empty uses Path. This is not a unique runtime entity identifier.
   std::string Id;
+  /// Scenario file path; relative paths resolve beside the root scenario file.
+  /// The current resolver recognizes slash-rooted absolute paths; native Windows path
+  /// handling is not yet implemented. Selected unreadable files fail the import.
   std::string Path;
+  /// Exact, case-sensitive token matched against Identity::Active, split on ASCII spaces.
+  /// Empty always selects this layer; tabs are not separators. Selection does not use Id.
   std::string Set;
 };
 
