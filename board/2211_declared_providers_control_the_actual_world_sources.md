@@ -44,3 +44,9 @@ Diese Erhaltung ersetzt weder Provider-Registry noch Compositor-Implementierung.
 Abnahme: Reader/Writer-Fixture mit mehreren Einträgen, Escaping, Rangextrema, bool
 und endlichen Pixelbudgets; Altwriter scheitert am Inhaltsvergleich. Fünf Regressionen grün.
 Offen: gemeinsame numerische Validierung, insbesondere Rank-Import und nichtendliche Budgets.
+
+## Rang-Import
+Provider::Rank wird derzeit über long long und ungeprüften int-Cast gelesen.
+Direkt als vollständigen dezimalen int-Token parsen, optionales Plus erlauben;
+Überlauf, Suffix, Leerraum und Brüche ablehnen. Fehlend bleibt 0. Reader veröffentlicht
+bei Fehlern weder Dokument noch Teillisten. Int-Extrema und gültiger Retry prüfen.
