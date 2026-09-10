@@ -46,13 +46,9 @@ und Setter dokumentieren die Trennung von Deklaration und Runtime-Validierung.
 Kandidat vor Eye-Veröffentlichung durch Lens::From prüfen; fehlende mitgeführte
 Kamerabasis liefert einen Fehler, keinen vorgetäuschten Erfolg.
 
-ScenarioViewsPreserveProjection: 346 Checks, analytisches Dreieck und Reverse-Z-Tiefe,
-stehend/mitgeführt, Defaults, Near=0 orthographisch, 15 ungültige Deklarationen je Pfad
-mit wiederholter Ablehnung, Bildbestand und Recovery; vor und nach Negativkontrolle grün.
-Negativkontrolle mit alter Watches-/Carries-Abbildung: Kamera-Test mit 73 fehlgeschlagenen
-Checks (einschließlich Folgefehler), zusätzlich zum Mipmap-Fehler. Mutation zurückgenommen.
-Beide PNGs selbst geöffnet: identische orthographische Lage/Ausdehnung. API-Vertragstest,
-keine Place-/Fotorealismusabnahme. Bestehende Places deklarieren stehende Perspektiven.
+ScenarioViewsPreserveProjection prüft analytische Projektion, Fehlererhalt und Recovery;
+Gegenprobe mit alter Abbildung scheitert. Einzelresultate und PNG-Nachweise in Git.
+
 
 ## Weitere konkrete Lücken
 
@@ -99,18 +95,8 @@ front()- und Rendererabhängigkeits-Negativkontrollen rot. Trigger tragen volle 
 
 ## Abnahme
 
-- [x] Target-Kandidaten vor Veröffentlichung vorbereiten; SDL-Fehlertexte besitzen
-      Speicher. Fenster-Claims und Offscreen-Textur bleiben bei Ablehnung erhalten.
-- [x] Target-Fehlergrenzen und gültige Fenster-/Offscreen-Pfade: 44 Consumer-Checks.
-- [x] Vorzeitiges Targeted-Publizieren erzeugt genau einen Fehler im 44-Check-Oracle.
-- [x] Fehlende Kamera, Recovery, Extent und importierte Kamera: 36 Checks;
-      angefordertes Neu-Framing bleibt beim Rebind erhalten.
-- [x] Alte Bereitschaft samt Standardbasis wieder eingesetzt: Kamera-Consumer
-      bricht an der ursprünglichen Lens-Assertion ab; 25 andere Tests bestehen.
-
-- [x] Geprüfte Float-Lens und Zustandserhalt nach Near-Plane-Ablehnung: 52 Checks.
-- [x] Verengungsprüfung entfernt und Kamera zu früh publiziert: acht numerische
-      Checks und ein Zustandserhalt-Check schlagen fehl. Mutationen zurückgenommen.
+- [x] Target, Projektion und Input: Fehlererhalt, Recovery und negative Kontrollen geprüft.
+      Detailnachweise der abgeschlossenen Schritte stehen in Git.
 
 - [ ] Öffentliche Übergangstabelle nennt erlaubte Reihenfolge und Fehlergarantien.
 - [ ] Fehler an jeder Build-/Validate-/Publish-Grenze injizieren; gültiges altes
@@ -118,3 +104,16 @@ front()- und Rendererabhängigkeits-Negativkontrollen rot. Trigger tragen volle 
 - [x] Irrelevante Events sind unhandled; Input-/UI-Fehler tragen eine eigene Diagnose.
 - [ ] Wiederholtes Declare, Targetwechsel und Featurewechsel ohne Ressourcenwachstum.
 - [ ] Negativkontrolle publiziert vor Validierung; Zustandserhalt-Oracle wird rot.
+
+## Generatoren bei erneuter Deklaration
+
+SamePicture vergleicht Renderparameter, nicht Generatoren oder deren Providerdaten.
+Der schnelle declare-Pfad ruft generated überhaupt nicht auf. Dadurch können neue
+Parameter oder ein nun ablehnender Producer ignoriert werden. Kein gültiger Cache:
+Generator::make darf von geliehenen Providern abhängen, eine Revision fehlt.
+Vorhandenen vollständigen Aufbau verwenden, sobald alte oder neue Deklaration
+Generatoren/generated-Assets enthält; Render-Reuse nur ohne solche Inhalte.
+Das gilt auch für unveränderte Parameter und Entfernen des letzten Producers.
+Public-API-Test mit echtem Offscreen-Ziel: wiederholen, Parameter ändern, beide
+Deklarationsformen und Ablehnung prüfen. Alte Bedingung als negative Kontrolle.
+Vollständiger Rollback und deklarierte Providerrevisionen bleiben getrennt offen.
