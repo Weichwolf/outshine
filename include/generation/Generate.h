@@ -197,7 +197,8 @@ enum class Shipped : uint8_t {
   /// Built-in square building producer. Optional widthM is its footprint side in metres
   /// (default 12), independent of Request::ExtentM. Accepts one finite positive decimal
   /// value, optionally with exponent, without surrounding whitespace. Unknown/duplicate
-  /// settings and invalid values are refused before output mutation. Terrain anchoring
+  /// settings and invalid values are refused before output mutation. Output uses local
+  /// metres at the request centre at zero ASL: X east, Y up, Z south. Terrain anchoring
   /// and per-feature placement remain implementation limitations of this producer.
   Structures,
   kCount ///< Catalogue size sentinel; not a generator.

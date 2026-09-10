@@ -19,6 +19,7 @@
 
 #include "BuildingMesh.h"
 #include "Meshed.h"
+#include "Geodesy.h"
 
 namespace outshine::Generators {
 
@@ -91,7 +92,10 @@ bool Structures::make(const Request &asked, Geometry &into) const {
                                                   lat + halfLatDeg,
                                                   lon - halfLonDeg}};
   const std::array<double, kCorners> corners = {{0.0, 0.0, 0.0, 0.0}};
-  const Vec3 anchor;
+  const LongitudeLatitudeHeight origin{.LongitudeDeg = lon, .LatitudeDeg = lat};
+  Vec3 anchor;
+  GeoToEcef(origin, anchor);
+  const EnuAxes frame = EnuAxesEcef(origin);
 
   StructurePlan plan;
   plan.RingLatLon = std::span<const double>(ring.data(), kCorners * 2);
@@ -115,7 +119,7 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   if (soup.empty()) { return false; }
 
   Meshed made;
-  if (!made.Take("structure", MaterialInstance(0), soup)) { return false; }
+  if (!made.Take("structure", MaterialInstance(0), soup, frame)) { return false; }
   const Geometry stood = made.Handed();
   if (stood.parts() == 0) { return false; }
 

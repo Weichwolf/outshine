@@ -11,19 +11,21 @@ int main() {
   const std::array vertices{StoredVertex::Of(Vec3f{{0, 0, 0}}, Vec2f{{1, 2}}, Vec3f{{1, 0, 0}}),
                             StoredVertex::Of(Vec3f{{2, 0, 0}}, Vec2f{{0, 3}}, Vec3f{{0, 1, 0}}),
                             StoredVertex::Of(Vec3f{{0, 2, 0}}, Vec2f{{2, 1}}, Vec3f{{0, 0, 1}})};
+  const EnuAxes frame{.East = {{0, 1, 0}}, .North = {{0, 0, 1}}, .Up = {{1, 0, 0}}};
   Generators::Meshed adapter;
-  CHECK(adapter.Take("triangle", MaterialInstance(0), vertices), "typed packed vertices accepted");
-  CHECK(!adapter.Take("incomplete", MaterialInstance(0), std::span(vertices).first(2)) &&
+  CHECK(adapter.Take("triangle", MaterialInstance(0), vertices, frame),
+        "typed packed vertices accepted");
+  CHECK(!adapter.Take("incomplete", MaterialInstance(0), std::span(vertices).first(2), frame) &&
             adapter.Parts() == 1,
         "incomplete input preserves existing parts");
   const auto geometry = adapter.Handed();
   CHECK(geometry.parts() == 1, "one native part");
-  const std::array<float, 9> positions{0, 0, 0, 2, 0, 0, 0, 2, 0};
-  const std::array<float, 9> normals{1, 0, 0, 0, 1, 0, 0, 0, 1};
+  const std::array<float, 9> positions{0, 0, 0, 0, 2, 0, 2, 0, 0};
+  const std::array<float, 9> normals{0, 1, 0, 1, 0, 0, 0, 0, -1};
   const std::array<float, 6> texture{1, 2, 0, 3, 2, 1};
   const std::array<uint32_t, 3> indices{0, 1, 2};
   CHECK(std::ranges::equal(geometry.positionsOf(0), positions),
-        "positions retain their numeric values");
+        "ECEF relative positions become East/Up/South");
   // Quantization of [-1,1] into 65536 values has half-step 1/65535.
   // UVs scale it by four; these axis normals have at most two half-steps of error.
   constexpr float halfStep = 1.0f / std::numeric_limits<uint16_t>::max();

@@ -15,7 +15,7 @@ Making/Yield/Claim/Ground/Rank-Verträge sind kein öffentlicher Placement-Zugan
 Ein Client kann Geometrie liefern, aber keine räumliche Belegungsregel registrieren.
 
 make liefert nur bool und mutiert fremden Output ohne Rollbackvertrag. Structures
-ignoriert Ground/Coarseness, setzt CornerAslM auf null und AnchorEcef auf Nullvektor;
+ignoriert Ground/Coarseness und setzt CornerAslM auf null;
 das ist keine gültige weltweit platzierte Terrain-Anbindung. Engine::declare prüft
 unbekannte Registrierungen bereits vorab; generated weist sie ebenfalls zurück.
 Die dokumentierten Ist-Grenzen sind keine Abnahme dieses Verhaltens.
@@ -96,21 +96,24 @@ Nachweise: Breiten 12/24/240 m, Regionsunabhängigkeit und Fehlererhalt bestehen
 Wandseiten statt Dachhüllbox messen (0,42 m Überstand bzw. 0,16 m Gesims). Typisierter
 Decoder prüft Position/Index exakt, UV/Normalen nach 16-Bit-Quantisierungsgrenze.
 Beide Gegenproben scheitern; lint 186/330, 32 Claims grün. Isolierter GLB-Clientrender
-build/shots/reference/building-width/structure.png zeigt weiterhin falsche Ausrichtung
-und Flächendiagonalen: Null-Anker/ECEF und Normalen-/Präzisionspfad vor Abnahme korrigieren.
+build/shots/reference/building-width/structure.png belegte falsche Ausrichtung
+und Flächendiagonalen; Korrektur und neue Abnahme unten.
 
-## Nächster Schritt: nativer Gebäuderaum
+## Nativer Gebäuderaum
 
 GLB: X = 6378136,5 … 6378153 m als Float; ULP = 2^(22−23) = 0,5 m.
 Sechs von 82 Dreiecken degenerieren; 18 verbleibende Ecknormalen haben dot < 0,9
 zur Flächennormale. Bilddiagonalen nicht allein der Achsenausrichtung zuschreiben.
 Vorhanden: GeoToEcef/EnuAxesEcef, RenderFrame::Of, Double-Anker, Packed-Decoder.
-Vor Float-Packen AnchorEcef auf den geodätischen Request-Ursprung setzen.
-Decoder erhält explizite ECEF→lokal-Basis: Positionen und dekodierte Normalen nach
-East/Up/South drehen, ohne erneutes Packen oder Abhängigkeit von content/shade.
+AnchorEcef liegt jetzt vor Float-Packen am geodätischen Request-Ursprung.
+Decoder dreht Positionen und dekodierte Normalen mit expliziter ECEF→lokal-Basis
+nach East/Up/South, ohne erneutes Packen oder Abhängigkeit von content/shade.
 Lokales Asset und Terrain-Platzierung unterscheiden; fehlendes Ground bleibt ein
 ungelöster Placement-Vertrag, kein implizites Nullterrain.
-Prüfung: mehrere Breiten/Seeds/geografische Ursprünge; lokale Meterbounds, Y-up,
-CCW/Normalenkonsistenz, erhaltene Submeterdetails. Null-Anker und fehlende
-Normalendrehung als Gegenproben. GLB vor/nach öffnen; OSM-Place Wien prüfen.
+Prüfung: drei Breiten, vier Ursprünge × drei Seeds; lokale Bounds/Y-up, kein
+Dreieckskollaps, Normalen innerhalb 1° zur CCW-Flächennormale. Alle drei Tests grün;
+Null-Anker und fehlende Normalendrehung scheitern separat ohne Buildfehler.
+PNG building-frame/after.png geöffnet: aufrecht, Dach/Kamin/Gesims wieder intakt,
+große Flächendiagonalen verschwunden. Fassade/Material bleiben detailarm.
+Wien unverändert c307cab8, PNG geöffnet; kein Beleg für den direkten Producerpfad.
 Terrain-Sitz, Pole/Datumsgrenze und atomare Publikation bleiben eigene Abnahmen.

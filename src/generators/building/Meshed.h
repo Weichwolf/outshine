@@ -5,6 +5,7 @@
 #include <string_view>
 #include <span>
 #include "StoredVertex.h"
+#include "Geodesy.h"
 
 #include <scene/Geometry.h>
 
@@ -12,8 +13,10 @@ namespace outshine::Generators {
 
 class Meshed {
 public:
-  [[nodiscard]] bool
-  Take(std::string_view named, MaterialInstance material, std::span<const StoredVertex> soup);
+  [[nodiscard]] bool Take(std::string_view named,
+                          MaterialInstance material,
+                          std::span<const StoredVertex> soup,
+                          const EnuAxes &frame);
 
   [[nodiscard]] size_t Parts() const { return static_cast<size_t>(Held_.parts()); }
 

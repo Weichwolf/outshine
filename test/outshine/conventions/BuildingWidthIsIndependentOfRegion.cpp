@@ -1,5 +1,8 @@
 #include "Structures.h"
 #include "Check.h"
+#include "export/GltfExporter.h"
+#include <cstdlib>
+#include <fstream>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -13,7 +16,7 @@ bool HasNominalEastSides(const outshine::Geometry &geometry, double width) {
   bool east = false;
   for (int part = 0; part < geometry.parts(); ++part) {
     const auto positions = geometry.positionsOf(part);
-    for (size_t at = 1; at < positions.size(); at += 3) {
+    for (size_t at = 0; at < positions.size(); at += 3) {
       west = west || std::abs(positions[at] + width / 2.0) < 0.01;
       east = east || std::abs(positions[at] - width / 2.0) < 0.01;
     }
@@ -33,8 +36,8 @@ int main() {
     Generators::Request request;
     request.Parameters = parameters;
     CHECK(producer.make(request, reference), "explicit width produces geometry");
-    // At longitude/latitude zero ECEF Y is east; the declared metre-to-degree
-    // approximation differs from WGS84 by less than a centimetre at these widths.
+    // Native X is east. The metre-to-degree approximation differs from
+    // WGS84 by less than a centimetre at these widths on the equator.
     CHECK(HasNominalEastSides(reference, width),
           "nominal wall sides match declared metres, excluding roof overhang");
     for (const double extent : {1.0, 100.0, 10000.0}) {
@@ -51,6 +54,16 @@ int main() {
   Geometry held;
   CHECK(producer.make({}, held), "default width still works");
   CHECK(HasNominalEastSides(held, 12.0), "default width is twelve metres");
+  if (const char *path = std::getenv("OUTSHINE_TEST_GLB")) {
+    const auto glb = exportGlb(held);
+    CHECK(glb.has_value(), "public exporter accepts native building");
+    if (glb) {
+      std::ofstream file(path, std::ios::binary);
+      file.write(reinterpret_cast<const char *>(glb->data()),
+                 static_cast<std::streamsize>(glb->size()));
+      CHECK(file.good(), "building render fixture written completely");
+    }
+  }
   const int parts = held.parts();
   const int surfaces = held.surfaces();
   for (const std::string_view invalid :
