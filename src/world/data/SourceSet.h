@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <vector>
 
 #include "ContentStore.h"
@@ -65,6 +66,11 @@ public:
   [[nodiscard]] Ledger Counters() const;
 
 private:
+  [[nodiscard]] std::optional<Delivery> ProcessResponse(Query &query,
+                                                        Fetched::Settled response,
+                                                        double retryAfterS,
+                                                        Transport &transport);
+
   ContentStore &Store_;
   std::vector<std::unique_ptr<Source>> Sources_;
 

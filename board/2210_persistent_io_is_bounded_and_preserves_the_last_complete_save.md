@@ -107,10 +107,11 @@ Drei Parser-/Szenario-Regressionen grün; letzter Budgettest nach size_t-Korrekt
 Lint: 181 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
 
 ## Quellantworten begrenzt behandeln
-Vor Implementierung: SourceSet trennt Antwortauswertung von Quellenauswahl/Transport.
+SourceSet trennt Antwortauswertung von Quellenauswahl/Transport.
 Unbekanntes Meaning muss als Refused enden; bisher wiederholt die Collect-Schleife
 unbegrenzt dieselbe abgeschlossene Quelle. Fake-Source liefert genau einmal ungültig,
-danach Refused: Altstand braucht zwei Collect-Aufrufe, Soll genau einen.
-Tests decken Bytes, Absent-Fallback, Refused, Working, Retry-Budget/Backoff und Cancel ab.
+danach Refused: Altstand braucht zwei Collect-Aufrufe, Korrektur genau einen.
+Tests für Bytes, Absent-Fallback, Refused, Working, Retry-Budget/Backoff und Cancel bestehen;
+OSM-Zustandserhalt bleibt grün.
 Bestehende Cache-/Ledger-Semantik erhalten. Query-Endzustände, einmaliger Payloadverbrauch
 und nichtendliche Retry-Zeiten bleiben eigene offene Lifecycle-/Validierungsarbeit.

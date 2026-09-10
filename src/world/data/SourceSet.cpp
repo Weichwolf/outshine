@@ -102,51 +102,56 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
       return Delivery::WireAfter(kRetryCapMs);
     }
 
-    const SourceDecl &decl = query.Current_->Declaration();
-    std::vector<uint8_t> &bytes = settled->Bytes;
-    switch (settled->What) {
-      case Meaning::Bytes: {
-        if (decl.Keeps == Cacheability::Forever) {
-          (void)Store_.Keep(ContentKey(decl, query.At_), bytes.data(), bytes.size());
-        }
-        const std::scoped_lock lock(LedgerMutex_);
-        Ledger_.Delivered++;
-        Ledger_.DeliveredBytes += static_cast<long long>(bytes.size());
-        return Delivery::From(decl.Id, query.At_, std::move(bytes));
-      }
-      case Meaning::Absent:
-
-        query.Current_ = nullptr;
-        {
-          const std::scoped_lock lock(LedgerMutex_);
-          Ledger_.HandedOver++;
-        }
-        continue;
-      case Meaning::Retry:
-        if (query.Attempts_ < decl.RetryBudget) {
-          query.Attempts_++;
-          {
-            const std::scoped_lock lock(LedgerMutex_);
-            Ledger_.Retried++;
-          }
-          query.Ticket_ = Ticket::None;
-          query.RetryAtMs_ =
-              transport.NowMs() +
-              std::fmax(answer.RetryAfterS() * kMsPerS,
-                        std::fmin(std::ldexp(kRetryBaseMs, query.Attempts_ - 1), kRetryCapMs));
-          return Delivery::Waiting();
-        }
-        [[fallthrough]];
-      case Meaning::Refused:
-
-        query.Current_ = nullptr;
-        {
-          const std::scoped_lock lock(LedgerMutex_);
-          Ledger_.Refused++;
-        }
-        return Delivery::WireAfter(std::fmax(answer.RetryAfterS() * kMsPerS, kRetryCapMs));
+    if (auto delivery =
+            ProcessResponse(query, std::move(*settled), answer.RetryAfterS(), transport)) {
+      return std::move(*delivery);
     }
   }
+}
+
+std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
+                                                   Fetched::Settled response,
+                                                   double retryAfterS,
+                                                   Transport &transport) {
+  const SourceDecl &decl = query.Current_->Declaration();
+  switch (response.What) {
+    case Meaning::Bytes: {
+      if (decl.Keeps == Cacheability::Forever) {
+        (void)Store_.Keep(
+            ContentKey(decl, query.At_), response.Bytes.data(), response.Bytes.size());
+      }
+      const std::scoped_lock lock(LedgerMutex_);
+      ++Ledger_.Delivered;
+      Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
+      return Delivery::From(decl.Id, query.At_, std::move(response.Bytes));
+    }
+    case Meaning::Absent: {
+      query.Current_ = nullptr;
+      const std::scoped_lock lock(LedgerMutex_);
+      ++Ledger_.HandedOver;
+      return std::nullopt;
+    }
+    case Meaning::Retry:
+      if (query.Attempts_ < decl.RetryBudget) {
+        ++query.Attempts_;
+        {
+          const std::scoped_lock lock(LedgerMutex_);
+          ++Ledger_.Retried;
+        }
+        query.RetryAtMs_ =
+            transport.NowMs() +
+            std::fmax(retryAfterS * kMsPerS,
+                      std::fmin(std::ldexp(kRetryBaseMs, query.Attempts_ - 1), kRetryCapMs));
+        return Delivery::Waiting();
+      }
+      break;
+    case Meaning::Refused: break;
+    default: retryAfterS = 0.0; break;
+  }
+  query.Current_ = nullptr;
+  const std::scoped_lock lock(LedgerMutex_);
+  ++Ledger_.Refused;
+  return Delivery::WireAfter(std::fmax(retryAfterS * kMsPerS, kRetryCapMs));
 }
 
 void SourceSet::Abandon(Query &query, Transport &transport) {
