@@ -88,22 +88,14 @@ Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vert
 
 ## Öffentliche Welt-/Generatorverträge korrigieren
 
-Binding-Dokumentation, leere Aktionsnamen, zustandsloser InputPump und getrennte
-Geräteübersetzung sind umgesetzt; vorhandene Geräte-/UI-/Fehlererhaltstests behalten.
-
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
 Request::ExtentM weitergegeben; der Regionsvertrag ist uneindeutig. Structures nutzt
 inzwischen einen eigenen widthM-Parameter. ReadWorld liest radiusM, WriteScenario verliert es. Generating::Parameters werden inzwischen serialisiert und als geliehene native
 Parameter weitergereicht. Radius-/Extent-Kopplung bleibt ein ungültiger SOLL-Vertrag;
 nicht durch Dokumentation oder identische Umbenennung legitimieren.
 
-Mit 2126 umsetzen: Georeferenz enthält Position/Referenzrahmen, keine Objektgröße.
-Generierungsregion hat einen einheitlichen räumlichen Vertrag; Gebäudeabmessungen sind
-Generatorparameter bzw. stammen aus Feature-Grundrissen. Vorhandene owned Scenario-
-Parameter über formatunabhängige, für make geliehene Daten weiterreichen; Generation
-darf nicht vom Szenarioparser abhängen. Unbekannte/ungültige Parameter ausdrücklich
-ablehnen. Kein Ignorieren und keine stillen größenabhängigen Ersatzwerte.
-
+Mit 2126: Georeferenz = Position/Referenzrahmen; Generierungsregion mit einheitlichem
+Raumvertrag. Objektmaße bleiben native Generatorparameter/Feature-Grundrisse.
 Schema, Reader, Writer, Public API und Engine-Aufrufer gemeinsam migrieren. Altes
 world.radiusM nicht still neu interpretieren: als ungültigen Legacy-Vertrag ablehnen
 oder explizit migrieren. Keine Ortsdaten im Code. API-Dokumentation erklärt die neuen
@@ -117,4 +109,11 @@ Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind
 16 Fälle mit/ohne Relief, Weg/Fläche, nahe/negative/Pol-/Datumsgrenzen-Koordinaten:
 Originalwerte bleiben exakt; beide Tests grün. Alter Writer scheitert am Relief,
 isolierte alte Zahlenausgabe an Präzision/Punktkollaps; keine Buildfehler.
-Reader-Validierung, uint64-Reliefseed und fehlende Attribute bleiben offen.
+OSM-Reader: strtod ohne Endzeiger akzeptiert Zahlreste und ersetzt Text durch null;
+unvollständige Wege werden still verworfen. In eigenen ReadScenarioOsm-Baustein
+extrahieren: expected-Fehler, vollständige locale-unabhängige Zahlen, endliche
+WGS84-Winkel, mindestens zwei Weg-/drei Flächenpunkte. Kein stiller Teilimport.
+65536 Punkte je Feature als explizites Vorbereitungsbudget vor Wachstum begrenzen.
+Ungültiges spätes Feature muss den bisherigen Document-Owner erhalten; gültige
+Grenzen/Exponent/Whitespace und Budgetrand prüfen. Gegenprobe alter Reader rot.
+uint64-Reliefseed, Attributvalidierung und Gesamtbudget bleiben offen.
