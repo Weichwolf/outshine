@@ -204,10 +204,19 @@ struct WorldSettings {
   double SightM = kSightUnsaidM;
 };
 
+/// Owned source-selection declaration; copying strings may allocate.
+/// Mutation requires exclusive access. Import/export preserve these values, but world
+/// preparation currently selects shipped providers instead of this list. These fields
+/// therefore do not yet control data provenance, ordering or failure policy.
 struct Provider {
+  /// Exact source category; layer merging replaces the first matching Kind.
+  /// Shipped registration recognizes terrain, vector and stars; no arbitrary URL resolver.
   std::string Kind;
+  /// Opaque requested data revision; not currently applied to cache identity or fetching.
   std::string Pin;
+  /// Requested selection rank; currently ignored by source registration.
   int Rank = 0;
+  /// Opaque missing-data policy text; currently ignored, with no policy validation here.
   std::string WhenAbsent;
 };
 
@@ -230,9 +239,15 @@ struct Generating {
   std::vector<Setting> Parameters;
 };
 
+/// Owned compositor request, preserved by import/export but not executed by the runtime.
+/// Copying Kind may allocate; mutation requires exclusive access. No registration,
+/// budget validation or resource reservation is performed by this descriptor.
 struct Compositor {
+  /// Exact requested compositor category; layer merging replaces the first matching Kind.
   std::string Kind;
+  /// Requested pixel budget metadata; no interpretation or enforcement is implemented yet.
   double BudgetPx = 0.0;
+  /// Requested enable state; false is retained but has no runtime effect yet.
   bool On = true;
 };
 

@@ -36,10 +36,11 @@ Source-Version/Pin muss Cache-Identität und Replay tatsächlich bestimmen.
 - [ ] Datenherkunft im Rendermanifest; gleicher Snapshot reproduzierbar, Make-Lint grün.
 
 ## Deklarationserhaltung
-Writer verliert Providers und Compositors vollständig. Beide Listen mit Reihenfolge
-und allen Feldern exportieren; XML-Escaping und int-Ranggrenzen unabhängig prüfen.
+Writer erhält Providers und Compositors mit Reihenfolge und allen Feldern.
+XML-Escaping, int-Ranggrenzen, Pixelbudgets und bool sind unabhängig geprüft.
 Compositor-On als kanonisches true/false schreiben, unabhängig vom offenen yes/no-Fix.
 Öffentliche Typen dokumentieren Besitz und derzeit fehlende Runtime-Wirkung.
 Diese Erhaltung ersetzt weder Provider-Registry noch Compositor-Implementierung.
 Abnahme: Reader/Writer-Fixture mit mehreren Einträgen, Escaping, Rangextrema, bool
-und endlichen Pixelbudgets; Altwriter muss am Inhaltsvergleich scheitern.
+und endlichen Pixelbudgets; Altwriter scheitert am Inhaltsvergleich. Fünf Regressionen grün.
+Offen: gemeinsame numerische Validierung, insbesondere Rank-Import und nichtendliche Budgets.

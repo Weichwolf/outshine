@@ -299,6 +299,33 @@ void WriteVolumes(std::string &said, std::span<const Scenario::Volume> volumes) 
   said += "  </volumes>\n";
 }
 
+void WriteProviders(std::string &said, std::span<const Scenario::Provider> providers) {
+  if (providers.empty()) { return; }
+  said += "  <providers>\n";
+  for (const auto &provider : providers) {
+    said += "    <provider";
+    Said(said, "kind", provider.Kind, true);
+    Said(said, "pin", provider.Pin);
+    said += std::format(" rank=\"{}\"", provider.Rank);
+    Said(said, "whenAbsent", provider.WhenAbsent);
+    said += "/>\n";
+  }
+  said += "  </providers>\n";
+}
+
+void WriteCompositors(std::string &said, std::span<const Scenario::Compositor> compositors) {
+  if (compositors.empty()) { return; }
+  said += "  <compositors>\n";
+  for (const auto &compositor : compositors) {
+    said += "    <compositor";
+    Said(said, "kind", compositor.Kind, true);
+    Number(said, "budgetPx", compositor.BudgetPx);
+    said += compositor.On ? " on=\"true\"" : " on=\"false\"";
+    said += "/>\n";
+  }
+  said += "  </compositors>\n";
+}
+
 void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
   if (generators.empty()) { return; }
   said += "  <generators>\n";
@@ -370,7 +397,9 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteTables(said, declared.Tables);
   WriteEvents(said, declared.Events);
   WriteVolumes(said, declared.Volumes);
+  WriteProviders(said, declared.Providers);
   WriteGenerators(said, declared.Generators);
+  WriteCompositors(said, declared.Compositors);
   return said + "</scenario>\n";
 }
 
