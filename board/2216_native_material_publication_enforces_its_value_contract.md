@@ -112,3 +112,7 @@ Pose-/Clip-Abnahme: 15 Checks grün, Altcode scheitert an vier Kamera-/Clipgaran
 ohne Buildfehler. Veröffentlichten Posepuffer bei Erfolg swappen, alte Clipauswahl
 bei Aufbaufehler zurücknehmen; keine zusätzliche Posekopie. Animation-/Bildregressionen
 grün. Lint 180/282, 32 Repository-Tests grün; drei rote Gruppen, Varianten-Rollback offen.
+
+Varianten-Folgefix: bisherige Auswahl per Move halten und bei Aufbaufehler
+wiederherstellen. Fixture mit gültiger Basis und Variante mit fehlender Textur;
+Fehler erhält Snapshot/Ansichten, folgende Probe muss wieder die Basis verwenden.
