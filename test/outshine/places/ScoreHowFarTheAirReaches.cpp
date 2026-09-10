@@ -127,7 +127,7 @@ int main(void) {
     outshine::Scenario::View watches;
     watches.Id = "station";
     watches.Person = "first";
-    watches.Placement = Scenario::CameraPlacement::Geodetic;
+    watches.Placement = outshine::Scenario::CameraPlacement::Geodetic;
     watches.Geographic.Geodetic.LatitudeDeg = kLatDeg;
     watches.Geographic.Geodetic.LongitudeDeg = kLonDeg;
     watches.Geographic.Geodetic.HeightM = kEyeAglM;

@@ -18,7 +18,13 @@ constexpr uint32_t kEveryTagBit = 0xFFFFFFFFu;
 /// Mask and maximum nonzero child ordinal: 24 bits within one family.
 constexpr uint32_t kOrdinalMask = 0x00FFFFFFu;
 
-enum class Role : uint8_t { Body, Mind, Tool, Assignment };
+/// Entity category used to validate relations; does not attach a component automatically.
+enum class Role : uint8_t {
+  Body,      ///< Physical or spatial participant.
+  Mind,      ///< Controller eligible as a DrivenBy target.
+  Tool,      ///< Resource eligible as a Uses target.
+  Assignment ///< Task eligible as an Assigned target.
+};
 
 /// Two-level numeric tag: an 8-bit family and a 24-bit child ordinal.
 /// Contains no owner or name mapping. Producers and queries must use the same catalogue;
@@ -91,9 +97,22 @@ static_assert(TagCatalogue::under(tags::Does, 1)->within(tags::Does) &&
 static_assert(!TagCatalogue::under(tags::Does, 1)->within(tags::Offers),
               "and a family holds only its own");
 
-enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, HeldBy };
+/// Directed relation from source to target. Exclusive relations allow one target per source.
+enum class Relation : uint8_t {
+  IsA,      ///< Exclusive, acyclic inheritance between entities of the same role.
+  ChildOf,  ///< Exclusive, acyclic ownership; removing the target removes descendants.
+  DrivenBy, ///< Exclusive link to a Mind; source must carry a Does-family tag.
+  Uses,     ///< Nonexclusive link to a Tool.
+  Assigned, ///< Exclusive link to an Assignment; requires a Uses relation on the source.
+  HeldBy    ///< Exclusive, acyclic link to a Body; does not imply ChildOf ownership.
+};
 
-enum class Seat : uint8_t { Free, Claimed, Occupied };
+/// Reservation state for one claimant at one offering entity; no automatic timeout.
+enum class Seat : uint8_t {
+  Free,    ///< No claim or occupancy by the queried claimant.
+  Claimed, ///< Reserved, awaiting takeSeat().
+  Occupied ///< Claimed seat transitioned into use.
+};
 
 /// WHO sits WHERE -- the claimant and the entity whose seats were offered.
 ///
@@ -112,7 +131,7 @@ struct Seating {
 /// Both ends are an @ref Entity, so they are one argument for the same reason @ref Seating is:
 /// `copyOf({.Instance = house, .PrefabChild = door})` cannot be written backwards by accident.
 struct Instanced {
-  /// The entity @ref EntityRegistry::instantiate returned.
+  /// The entity @ref outshine::EntityRegistry::instantiate returned.
   Entity Instance = kNoEntity;
   /// The entity inside the prefab whose copy is wanted.
   Entity PrefabChild = kNoEntity;
@@ -122,7 +141,9 @@ struct Instanced {
 /// Serialize access. Entity handles do not retain this owner or its storage.
 class EntityRegistry {
 public:
+  /// Allocate the registry implementation; call open() to prepare entity storage.
   EntityRegistry();
+  /// Release owned storage; all handles and borrowed diagnostic text become invalid.
   ~EntityRegistry();
   /// Moving would invalidate borrowed registry addresses and is forbidden.
   EntityRegistry(EntityRegistry &&) = delete;
@@ -185,7 +206,18 @@ public:
   /// @param to Live replacement target satisfying the relation rules.
   /// @return Success; false preserves the original target and records error().
   [[nodiscard]] bool relink(Entity from, Relation how, Entity to);
+  /// Query the first matching outgoing edge; no inherited lookup or allocation.
+  /// @param of Source handle; stale/foreign handles yield no target.
+  /// @param how Relation to query; invalid values yield no target.
+  /// @return Target or kNoEntity. For nonexclusive relations, selection order is unspecified.
+  /// Updates traversal diagnostics but leaves error() unchanged; serialize registry access.
   [[nodiscard]] Entity targetOf(Entity of, Relation how) const;
+  /// Enumerate matching outgoing edges without allocation or inherited lookup.
+  /// @param of Source handle; stale/foreign handles yield no targets.
+  /// @param how Relation to query; invalid values yield no targets.
+  /// @param into Borrowed output receiving a prefix; unused elements remain unchanged.
+  /// @return Total matching count, possibly exceeding span capacity; order is unspecified.
+  /// Work scans the source's bounded relation storage and updates traversal diagnostics.
   [[nodiscard]] size_t targets(Entity of, Relation how, std::span<Entity> into) const;
 
   /// Enumerate incoming sources without allocating; ordering is unspecified.
@@ -213,13 +245,50 @@ public:
   /// @return Total matches, possibly greater than span capacity; no error-state change.
   [[nodiscard]] size_t entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const;
 
+  /// Create same-role copies of a live root and its ChildOf descendants using prepared storage.
+  /// Each copy inherits its source through IsA; copied children link to their copied parent.
+  /// Does not copy separately stored components, offers, seat state or arbitrary relations.
+  /// Work follows the source subtree and relation validation; serialize registry access.
+  /// Failure removes partially created copies and preserves existing entities, but consumes
+  /// their temporary slot generations and may change allocation order and diagnostics.
+  /// @param prefab Live source root in this registry.
+  /// @return New root or kNoEntity with error() describing invalid input/capacity/relation failure.
   [[nodiscard]] Entity instantiate(Entity prefab);
+  /// Find a direct ChildOf child whose IsA target is the specified prefab child.
+  /// Does not search recursively; use the corresponding parent copy for a deeper child.
+  /// @param which Borrowed handles in this registry; no ownership transfer.
+  /// @return Matching child or kNoEntity; no allocation or error-state change.
+  /// Work follows direct incoming ChildOf edges and updates traversal diagnostics.
   [[nodiscard]] Entity copyOf(Instanced which) const;
 
+  /// Register one activity offer using prepared, bounded seat storage; no allocation.
+  /// @param at Live offering entity; an existing offer cannot be replaced by this operation.
+  /// @param activity Nonempty activity tag from the shared catalogue.
+  /// @param seats Seat count in [1, 4], the current prepared per-offer capacity.
+  /// @return Success or false with error(); validation failures preserve the previous offer.
   [[nodiscard]] bool offerSeats(Entity at, Tag activity, size_t seats);
+  /// Enumerate registered offers matching Tag::within(), regardless of remaining free seats.
+  /// @param activity Family or child to match; invalid tags match nothing.
+  /// @param into Borrowed prefix output; unused elements remain unchanged.
+  /// @return Total matching count, possibly exceeding capacity; order is unspecified.
+  /// Scans offers without allocation; updates traversal diagnostics, not error().
   [[nodiscard]] size_t entitiesOffering(Tag activity, std::span<Entity> into) const;
+  /// Reserve a free seat; the same claimant may hold at most one seat at this offer.
+  /// Reclaims slots held by dead entities while searching. No role/capability or distance
+  /// check is performed; higher-level scheduling must decide eligibility.
+  /// @param who Live claimant and offering entity in this registry.
+  /// @return Success or false with error() for invalid handles, missing offer, duplicate claim
+  ///         or exhaustion. Uses bounded prepared storage without allocation.
   [[nodiscard]] bool claimSeat(Seating who);
+  /// Change this claimant's existing reservation from Claimed to Occupied.
+  /// @param who Live claimant and offering entity in this registry.
+  /// @return Success or false with error(); invalid handles or a missing claim preserve seats.
+  /// No allocation; calling again on an occupied seat is an error, not an idempotent success.
   [[nodiscard]] bool takeSeat(Seating who);
+  /// Release this claimant's Claimed or Occupied seat.
+  /// @param who Live claimant and offering entity in this registry.
+  /// @return Success or false with error() for invalid handles or no held seat.
+  /// No allocation. Dead claimants are reclaimed by later claimSeat() calls instead.
   [[nodiscard]] bool releaseSeat(Seating who);
   /// Query this claimant's reservation without allocation or error-state change.
   /// @param who Both handles must be live in this registry; neither is retained by this query.
@@ -227,10 +296,19 @@ public:
   /// Scans only the offering entity's fixed seat storage; serialize with registry mutations.
   [[nodiscard]] Seat seatOf(Seating who) const;
 
+  /// @return Prepared slot capacity, including used and free slots; zero before open().
+  /// Constant-time, nonallocating query; serialize with registry access.
   [[nodiscard]] size_t capacity() const;
+  /// Borrow the most recently recorded diagnostic; successful operations need not clear it.
+  /// @return Text valid until a later diagnostic change or registry destruction. Copy to retain.
+  /// No allocation; serialize access, including use of the returned view, with mutations.
   [[nodiscard]] std::string_view error() const;
 
+  /// @return Accumulated traversal-step counter, not elapsed time or total operation count.
+  /// Const queries can increase it. Constant-time, nonallocating; serialize registry access.
   [[nodiscard]] size_t touched() const;
+  /// Reset traversal diagnostics to zero without changing entities, relations or error().
+  /// Constant work, no allocation; serialize registry access.
   void resetTouched();
 
 private:

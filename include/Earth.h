@@ -5,11 +5,8 @@
 
 namespace outshine {
 
-/// `-ln(0.02)`: the contrast at which the eye stops separating a dark object from the horizon.
-///
-/// Two per cent is the threshold Koschmieder's law is stated with and the one the WMO uses to
-/// define meteorological visibility, so it is a convention of the field rather than a choice made
-/// here.
+/// Rounded -ln(0.02), the chosen 2% contrast threshold for the uniform-extinction model.
+/// This is a model convention, not a universal human-visibility cutoff.
 constexpr double kContrastThresholdLn = 3.912;
 
 /// The mean radius of the WGS84 ellipsoid, in metres.
@@ -26,83 +23,49 @@ constexpr double kStandardGravityMs2 = 9.80665;
 /// Air density at sea level in the International Standard Atmosphere, in kilograms per cubic metre.
 constexpr double kIsaSeaLevelDensityKgM3 = 1.2250;
 
-/// A web-mercator tile is drawn across this many pixels, by the Slippy Map convention every tile
-/// server on Earth serves.
+/// Nominal 256-pixel tile width used by the sampling heuristic; providers may differ.
+/// Vector-tile extent and geometric detail are separate quantities.
 constexpr double kTilePx = 256.0;
 
-/// The smallest feature a tile at this span can carry, in metres.
-///
-/// WHY A GARDEN FENCE IS NOT VISIBLE FROM ORBIT AND THE PENTAGON IS, stated as arithmetic. A tile
-/// is drawn across @ref kTilePx pixels, so anything narrower than one of those pixels cannot be
-/// seen at ANY distance where this level is the one being drawn. The levels therefore form a
-/// ladder, and over Zurich it reads:
-///
-///     z14   1668 m wide   carries from  6.5 m   houses
-///     z12   6672 m wide   carries from   26 m   blocks and churches
-///     z10  26689 m wide   carries from  104 m   the Great Wall
-///
-/// MEASURED AGAINST THE DATA IT DESCRIBES: the fifth percentile of building footprint widths over
-/// Zurich is 6.47 m against the 6.51 m this returns for z14 -- two per cent apart, with nothing
-/// fitted. OSM tiles at a zoom carry the geometry that zoom resolves, and this recovers the same
-/// number from the projection alone.
-///
-/// IT SAYS WHAT A LEVEL CARRIES, NEVER WHAT MAY BE DISCARDED. On the finest level loaded nothing
-/// is dropped, because no child is left to hold it and a camera may stand a centimetre from a
-/// wall. Dropping happens on a COARSER level only, and only because the same feature still stands
-/// on the finer one -- which is Cesium's rule for 3D Tiles.
+/// Nominal sample spacing for a tile represented by 256 samples across its span.
+/// @param tileSpanM Tile width in metres; finite values are expected.
+/// @return tileSpanM / 256 for positive input, otherwise zero; NaN also produces zero.
+/// This heuristic does not prove which OSM features exist or can safely be discarded.
+/// No allocation, ownership transfer or coordinate conversion; safe for concurrent calls.
 [[nodiscard]] constexpr double CarriesFromM(double tileSpanM) {
   return tileSpanM > 0.0 ? tileSpanM / kTilePx : 0.0;
 }
 
-/// How strongly clean air scatters green light, per kilometre at sea level.
-///
-/// Rayleigh scattering off the gas molecules themselves, at 550 nm, from Bruneton's fit to the US
-/// Standard Atmosphere. It is why the sky is blue and why a far ridge is pale blue rather than
-/// pale grey, and NO WEATHER REMOVES IT -- it is the air, not something in the air.
+/// Reference sea-level molecular extinction coefficient near green wavelengths, in km^-1.
+/// Fixed input to the simplified visibility model, not a complete spectral atmosphere.
 constexpr double kRayleighExtinctionPerKm = 0.0136;
 
-/// How strongly the AEROSOLS of an average day scatter, per kilometre at sea level.
-///
-/// Mie scattering off dust, smoke, salt and humidity. Unlike the gases this is weather: a hard
-/// foehn morning carries a fraction of it and a summer afternoon over a city carries several
-/// times as much. The figure is the average-day value the same fit states, and it is what
-/// @ref Scenario::Weather::Haze scales.
+/// Reference aerosol extinction coefficient in km^-1, scaled by the model's haze factor.
+/// Haze 1 selects this reference; it does not imply a measured average at a given place/time.
 constexpr double kMieExtinctionPerKm = 0.0444;
 
-/// How far one can see through air carrying no aerosols at all, in metres.
-///
-/// The gases alone, and the ceiling no weather passes: on the clearest day physics allows, a dark
-/// ridge stops being distinguishable at this range and not one metre further.
+/// Model contrast range in metres with zero aerosol contribution and uniform extinction.
+/// Excludes terrain occlusion, Earth curvature and observer/object conditions.
 constexpr double kClearAirRangeM = kContrastThresholdLn / kRayleighExtinctionPerKm * kMPerKm;
 
-/// How far one can see on the average day @ref kMieExtinctionPerKm describes, in metres.
-///
-/// This is why the Alps are invisible from Venice on most days: the ring reaches them at 214 km
-/// and this reads a third of that.
+/// Model contrast range in metres at the reference aerosol level, haze 1.
 constexpr double kAverageDayRangeM =
     kContrastThresholdLn / (kRayleighExtinctionPerKm + kMieExtinctionPerKm) * kMPerKm;
 
-/// How far one can see through air carrying @p haze times the average day's aerosols, in metres.
-///
-/// KOSCHMIEDER'S LAW, which is the meteorological standard for exactly this question: a black
-/// object against the horizon sky stops being distinguishable once its contrast falls to about two
-/// per cent, and that happens at `3.912 / extinction`. The 3.912 is `-ln(0.02)` and not a fitted
-/// number.
-///
-/// This is what a scenario is choosing when it declares haze, so it belongs where the declaration
-/// can be read rather than inside the renderer:
-///
-///     haze 1.0    67 km   an average day
-///     haze 0.1   217 km   a hard clear one
-///     haze 0.0   288 km   the gases alone, and the ceiling no weather passes
+/// Approximate contrast range from 3.912 / uniform extinction, converted from km to metres.
+/// @param haze Dimensionless aerosol multiplier. Positive values scale the reference aerosol
+///             coefficient; nonpositive values and NaN select zero aerosol contribution.
+/// @return Model range in metres; positive infinity yields zero. This is not a geometric
+///         horizon, actual weather observation or universal physical visibility limit.
+/// No allocation or mutation; safe for concurrent calls. Molecular extinction remains fixed.
 [[nodiscard]] constexpr double VisualRangeM(double haze) {
   const double perKm = kRayleighExtinctionPerKm + kMieExtinctionPerKm * (haze > 0.0 ? haze : 0.0);
   return kContrastThresholdLn / perKm * kMPerKm;
 }
 
-static_assert(VisualRangeM(0.0) == kClearAirRangeM,
-              "no aerosol is the gases alone, and that is the ceiling");
-static_assert(VisualRangeM(1.0) == kAverageDayRangeM, "and one is the average day it is scaled to");
+static_assert(VisualRangeM(0.0) == kClearAirRangeM, "zero aerosol matches the model baseline");
+static_assert(VisualRangeM(1.0) == kAverageDayRangeM,
+              "unit haze matches the reference aerosol level");
 static_assert(kClearAirRangeM > kAverageDayRangeM, "more aerosol is less sight");
 static_assert(VisualRangeM(-kAverageDayRangeM) == kClearAirRangeM,
               "haze below zero is clear air rather than a negative extinction, which would read "
@@ -121,6 +84,7 @@ struct LongitudeLatitudeHeight {
   double HeightM = 0.0;
 
   /// Two places are the same place when all three measures are.
+  /// @return Exact component equality, without tolerance, angular wrapping or validation.
   [[nodiscard]] constexpr bool operator==(const LongitudeLatitudeHeight &) const = default;
 };
 
@@ -137,6 +101,7 @@ struct LongitudeLatitude {
   double LatitudeDeg = 0.0;
 
   /// Two places are the same place when both measures are.
+  /// @return Exact component equality, without tolerance, angular wrapping or validation.
   [[nodiscard]] constexpr bool operator==(const LongitudeLatitude &) const = default;
 };
 
@@ -153,6 +118,7 @@ struct EastNorthUp {
   double UpM = 0.0;
 
   /// Two offsets are the same offset when all three measures are.
+  /// @return Exact component equality, without tolerance, angular wrapping or validation.
   [[nodiscard]] constexpr bool operator==(const EastNorthUp &) const = default;
 };
 
@@ -167,14 +133,14 @@ struct EastNorth {
   double NorthM = 0.0;
 
   /// Two points are the same point when both measures are.
+  /// @return Exact component equality, without tolerance, angular wrapping or validation.
   [[nodiscard]] constexpr bool operator==(const EastNorth &) const = default;
 };
 
-/// How a body stands in its local horizontal frame, in degrees.
-///
-/// Unreal calls this an FRotator and RAGE carries the same three angles; the order they are
-/// APPLIED is yaw, then pitch, then roll, and the field order here says nothing about that -- the
-/// function that consumes them does.
+/// Euler attitude in degrees for the local body/geodetic conversion routines.
+/// Yaw selects heading clockwise from north; pitch raises the nose; roll lowers the right side.
+/// Angles are stored without wrapping or validation. Composition convention belongs to the
+/// consuming transformation; these values are not a quaternion or an engine-independent matrix.
 struct Attitude {
   /// Rotation about the forward axis, positive right wing down.
   double RollDeg = 0.0;
@@ -184,6 +150,7 @@ struct Attitude {
   double YawDeg = 0.0;
 
   /// Two attitudes are the same attitude when all three angles are.
+  /// @return Exact component equality, without tolerance, angular wrapping or validation.
   [[nodiscard]] constexpr bool operator==(const Attitude &) const = default;
 };
 
@@ -198,6 +165,7 @@ struct LookDirection {
   double ElevationDeg = 0.0;
 
   /// Two directions are the same direction when both angles are.
+  /// @return Exact component equality, without tolerance, angular wrapping or validation.
   [[nodiscard]] constexpr bool operator==(const LookDirection &) const = default;
 };
 

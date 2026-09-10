@@ -111,3 +111,10 @@ Facaden-Dokumentation am Code geprüft: 13 bisher undokumentierte Einstiege besc
 Ownership, Threadbindung, Kosten und Teilfehler. Kein Doxygen-Befund mehr in Outshine.h;
 das ersetzt keine Architekturabnahme. Zeitschritt-/Parser-Regressionen grün. Abschluss-
 Lint: 182 tidy, 315 Dokumentationsdiagnosen, 32 Repository-Tests grün, drei rote Gruppen.
+
+## Registry-Verträge
+Instanzkopie, direkte Kindersuche und Sitzübergänge am Code dokumentiert; Komponenten
+werden nicht mitkopiert, Reservierung prüft keine fachliche Eignung. Zwei Registry-Tests
+grün. Earth-Sampling/Sichtweite als Modellannahmen dokumentiert. Sichtweitentest baut
+nach Namespace-Korrektur, bleibt mangels Terrain-Cache UNPREPARED. Lint: 181 tidy,
+282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen bleiben.
