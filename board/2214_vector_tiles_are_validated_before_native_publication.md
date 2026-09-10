@@ -77,3 +77,12 @@ Kapazitätsabnahme: analytische Grenzfälle normal/sanitisiert grün; Mutation e
 je einen überzähligen Eintrag und scheitert in beiden Varianten ohne Buildfehler.
 Native Annahme-/Positionsregression grün, Wien visuell geprüft und pixelgleich.
 Abschluss-Lint unverändert 183/330, 32 Repository-Tests grün, drei rote Gruppen.
+
+## Decoder-Zuständigkeiten
+Decode sucht/validiert den Ebenenheader und das äußere Framing. ReadLayerTables baut
+besitzende Wörterbücher und liefert geliehene Feature-Byte-Spans; DecodeFeatures prüft
+und übernimmt diese danach mit wiederverwendetem Scratch. So bleiben Feldreihenfolge,
+Input-Lebensdauer und native Publikation ausdrücklich getrennt. Keine neue Speicher-
+oder Fehlersemantik. Bestehende unabhängige MVT-Fixtures und Negativmutation prüfen,
+dass ein Fehler der Feature-Phase nicht als Erfolg zurückkehrt; Lint muss die verbleibende
+Decode-Komplexitätswarnung ohne Unterdrückung beseitigen.
