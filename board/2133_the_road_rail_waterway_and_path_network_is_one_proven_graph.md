@@ -82,31 +82,14 @@ Graphabfragen, Trefferidentitäten/Rasterränder, TieReach aus Straßenbreiten, 
 Abbruch für Routing und vollständiger atomarer Graphaufbau. ApartM hat iterative
 Längengradnormalisierung; ungültige direkte Eingaben können nicht terminieren.
 
-## Kurvenentscheidung und weitere Trennung von A*
+## Router-Verantwortlichkeiten
 
-Plan (Komplexität noch 45 statt 75) mischt Anbindung, Suche, lokale Kurvenprüfung und Rekonstruktion.
-Vorhanden: gerichtete Kanten, eingehender Kantenzustand und metrische Kantenlängen.
-Die acos-Auswertung verliert kleine Winkel; kLeastTurnRad setzt zusätzlich nichtnullige
-Krümmung still auf null. Gegenbeispiel: nahezu gerade Kette, aber sehr großer geforderter
-Radius; geometrisch benötigter Tangentenabschnitt passt nicht in die Kantenhälfte.
-
-LocalTurnAllowsRadius trennt die lokale Kreisbogennäherung von der Suche.
-Winkel per atan2(abs(Kreuzprodukt),Skalarprodukt) bestimmen, keine Winkel-Abschneidung.
-Aus dem rechtwinkligen Tangentendreieck folgt t=R*tan(theta/2). Bestehende Reservierung
-halber Nachbarkanten explizit als konservative lokale Näherung: R<=min(L1,L2)/2/tan(theta/2).
-Gerade erlaubt beliebigen endlichen Radius; echte Umkehr keinen positiven Radius.
-Dies beweist keine fahrbare Weltgeometrie: sphärische Tangenten, Spurbreite, Clearance,
-verbundene Kurven und Klothoiden bleiben Alignment-Aufgabe in 2175. Referenz für getrennte
-Linien/Bögen/Spiralen: https://www.asam.net/fileadmin/Standards/OpenDRIVE/ASAM_OpenDRIVE_BS_V1-7-0.html.
-
-Abnahme: gerichtete Dreipunktketten, gespiegelte 90-Grad- und sehr kleine Winkel,
-Radius unter/über analytischer Grenze, radius=0; ursprünglicher Winkelpfad muss scheitern.
-Bestehende Routingtests und make lint; gültige Places dürfen nicht unbeabsichtigt abweichen.
-Weitere Trennung von Anbindung, Suchzustand und Rekonstruktion anschließend fortsetzen.
-
-Ergebnis: vier Routingtests grün; zusätzlich exakte Gerade mit DBL_MAX-Radius geprüft.
-acos-Gegenprobe scheitert ohne Buildfehler. Lint 187/333, 32 Claims grün; Wien bytegleich,
-PNG visuell geprüft. Rekonstruktion, Suchzustand und Anbindung bleiben zu trennen.
+LocalTurnAllowsRadius trennt die lokale Kreisbogennäherung von A*. atan2 erhält kleine
+Winkel; t=R*tan(theta/2) begrenzt den Radius bei reservierten halben Nachbarkanten.
+Gespiegelte kleine/rechte Winkel und exakte Gerade geprüft; acos-Gegenprobe scheitert.
+Kein Fahrbarkeitsnachweis: sphärische Tangenten, Spurbreite, Clearance, verbundene Kurven
+und Klothoiden bleiben 2175. Referenz für Linien/Bögen/Spiralen:
+https://www.asam.net/fileadmin/Standards/OpenDRIVE/ASAM_OpenDRIVE_BS_V1-7-0.html.
 
 ReconstructRoute mit benanntem RouteTrace: Kette bis kMaxRouteLegs zählen, dann einen
 Leg-Puffer anlegen. Rückwärts direkt in endgültige Reihenfolge schreiben; temporäre
@@ -117,3 +100,11 @@ prüft Reihenfolge/Stationen/Länge/Attribute; entfernte Reihenfolge muss scheit
 Vier Routingtests grün, vertauschte Reihenfolge scheitert; lint 187/333, 32 Claims grün.
 Offen: Budget-/Längenextreme als Laufzeittest; A*-Kosten verwenden noch 1e30 statt
 explizitem Unerreichbar-Zustand. Kein produktiver Router-Aufruf im Client-Renderpfad.
+
+RouteSearch kapselt temporäre Kosten/Vorgänger/Queue und geliehene Endpunktmengen.
+Plan bleibt Validierung/Anbindung/Diagnose/Rekonstruktion. Seed, Expand und Offer
+trennen Initialisierung, zulässige Turns und Kostenupdates. Unendlich statt 1e30;
+überlaufende g/f-Kosten nicht einreihen, andere endliche Pfade weiter suchen; ohne
+Ergebnis numerischen Fehler von fehlender Verbindung unterscheiden. Analytische
+skalierte Kugel mit endlichen Wegen >1e30 widerlegt den alten Sentinel. Routingtests,
+Gegenprobe, make lint; keinerlei neue öffentliche API oder dauerhafter Suchzustand.
