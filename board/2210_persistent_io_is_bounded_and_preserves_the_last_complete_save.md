@@ -67,3 +67,13 @@ je acht Veröffentlichungen werden parallel gelesen: nur vollständige Produkte.
 Pfad als string_view, Daten als span<const byte>; keine vertauschbaren Stringparameter.
 Abschluss-Lint 182/315, 32 Repository-Tests grün; drei rote Gruppen. Crash-Durability
 und Erhalt alter Dateimetadaten sind ausdrücklich nicht Teil dieses Vertrags.
+
+## Restore-Phasen und Batch-Veröffentlichung
+Restore parst bereits vor Mutation, publiziert aber über einzeln fehlbare Put-Aufrufe.
+Column erhält einen Replace-Batch für trivial kopierzuweisbare Werte: alle vorhandenen
+Owner/Generationen/Komponenten vorab prüfen, danach allokationsfrei ersetzen. Serialisierte
+Nutzung bleibt Pflicht, keine atomare Sichtbarkeit für parallele Leser behaupten.
+Saved-Trait-Zeilen separat parsen; stabile Holder-Sortierung ersetzt quadratische Suche
+nach bereits gruppierten Zeilen. Wiederholte Werte behalten Dateireihenfolge (letzter gilt).
+Ungültiger später Batch-Eintrag muss frühere Werte erhalten; öffentlicher Restore mit
+spätem ungültigem Trait ebenfalls. Negativkontrolle vorgezogener Publikation; Lint.
