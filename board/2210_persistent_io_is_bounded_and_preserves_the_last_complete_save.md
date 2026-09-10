@@ -29,7 +29,7 @@ Keine schleichende Lockerung, kein pauschales Abort bei behandelbarem IO-Fehler.
 
 - [x] Reale Write-/Close-/Rename-Fehler: vorherige Daten erhalten; öffentlicher Save mitgeprüft.
 - [ ] Übergröße/Lesefehler/lange Layerkette: begrenzter Speicher und präziser Fehler.
-- [ ] Restore veröffentlicht nur vollständigen validierten Zustand; kein Teil-Restore.
+- [x] Restore prüft alle Zeilen/Komponenten vor Batch-Ersatz; Fehler erhalten alle Traits.
 - [x] Gleichzeitige Writer verwenden exklusive temporäre Dateien und publizieren vollständig.
 - [x] Bisheriges direktes wb verletzt das öffentliche Erhaltungsoracle ohne Buildfehler.
 - [ ] Make-Lint insgesamt grün; drei projektweite rote Gruppen bleiben.
@@ -77,3 +77,9 @@ Saved-Trait-Zeilen separat parsen; stabile Holder-Sortierung ersetzt quadratisch
 nach bereits gruppierten Zeilen. Wiederholte Werte behalten Dateireihenfolge (letzter gilt).
 Ungültiger später Batch-Eintrag muss frühere Werte erhalten; öffentlicher Restore mit
 spätem ungültigem Trait ebenfalls. Negativkontrolle vorgezogener Publikation; Lint.
+
+Restore-Abnahme: 18 Prüfungen grün, dazu Assembly- und Save-Regression. Mutation
+publiziert vor abgeschlossener Batch-Prüfung und scheitert an zwei Erhaltungsgarantien
+ohne Buildfehler. Parser nutzt geliehene Zeilen; stabile Holder-Gruppierung erhält
+Last-write-wins. Namensauflösung bleibt separat zu profilieren. Abschluss-Lint 181/315,
+32 Repository-Tests grün, drei rote Gruppen; restore-Komplexitätsbefund beseitigt.

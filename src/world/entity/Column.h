@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
+#include <span>
+#include <type_traits>
 
 #include <world/EntityRegistry.h>
 
@@ -24,6 +26,24 @@ public:
     if (Bound_ == nullptr || !Bound_->alive(of) || of.Index >= Values_.size()) { return false; }
     Values_[of.Index] = value;
     Entities_[of.Index] = of;
+    return true;
+  }
+
+  struct Replacement {
+    Entity Owner = kNoEntity;
+    Value Data{};
+  };
+
+  [[nodiscard]] bool Replace(std::span<const Replacement> replacements) noexcept
+    requires std::is_trivially_copy_assignable_v<Value>
+  {
+    static_assert(std::is_nothrow_copy_assignable_v<Value>);
+    for (const auto &replacement : replacements) {
+      if (Get(replacement.Owner) == nullptr) { return false; }
+    }
+    for (const auto &replacement : replacements) {
+      Values_[replacement.Owner.Index] = replacement.Data;
+    }
     return true;
   }
 

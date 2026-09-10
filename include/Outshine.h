@@ -473,7 +473,8 @@ public:
   /// Apply saved numeric traits to an already assembled matching scenario name/version.
   /// Reads synchronously into owned storage, limited to 1 MiB of input bytes. Parses
   /// finite values and validates staged trait rows before applying them. Parse/validation
-  /// errors preserve traits; a failure during final publication does not promise rollback.
+  /// errors preserve traits. All target components are checked before the first replacement;
+  /// publication performs no allocation and any reported failure preserves prior trait values.
   /// Does not load assets, assemble a scenario or restore a complete world snapshot.
   /// Serialize with all Engine work; borrowed simulation views may observe replaced traits.
   /// @param path Borrowed input path without embedded NUL; not retained after this call.

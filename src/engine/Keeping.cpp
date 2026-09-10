@@ -1,4 +1,7 @@
 #include "EngineHeld.h"
+#include "Assembled.h"
+#include "Column.h"
+#include "Traits.h"
 #include "ReadTextFile.h"
 #include "WriteFileAtomically.h"
 #include <algorithm>
@@ -13,7 +16,6 @@
 #include <string>
 #include <system_error>
 #include <cmath>
-#include <utility>
 
 namespace outshine {
 
@@ -65,6 +67,67 @@ Result Engine::save(std::string_view path) const {
   return {};
 }
 
+namespace Says {
+constexpr std::string_view InvalidSavedTrait = "invalid saved instance.trait value: ";
+constexpr std::string_view UnknownSavedTrait =
+    "saved trait is not held by the assembled instance: ";
+constexpr std::string_view MissingSavedHolder = "saved holder has no current trait component";
+constexpr std::string_view SavedTraitCapacity = "saved trait cannot replace its declared value";
+constexpr std::string_view RestoreTargetsChanged =
+    "restore targets are no longer valid; nothing applied";
+}
+
+namespace {
+struct SavedTrait {
+  Entity Holder = kNoEntity;
+  uint32_t Key = 0;
+  double Value = 0.0;
+};
+
+std::expected<SavedTrait, std::string> ParseSavedTrait(std::string_view line,
+                                                       const Assembled &scene) {
+  const auto invalid = [&line] {
+    return std::unexpected(std::string(Says::InvalidSavedTrait) + std::string(line));
+  };
+  const size_t gap = line.rfind(' ');
+  const size_t dot = line.find('.');
+  if (gap == std::string_view::npos || dot == std::string_view::npos || dot > gap) {
+    return invalid();
+  }
+  SavedTrait trait;
+  trait.Holder = scene.InstanceNamed(line.substr(0, dot));
+  trait.Key = scene.TraitKey(line.substr(dot + 1, gap - dot - 1));
+  const auto scanned =
+      std::from_chars(line.data() + gap + 1, line.data() + line.size(), trait.Value);
+  if (scanned.ec != std::errc() || scanned.ptr != line.data() + line.size() ||
+      !std::isfinite(trait.Value)) {
+    return invalid();
+  }
+  if (trait.Holder == kNoEntity || trait.Key == 0) {
+    return std::unexpected(std::string(Says::UnknownSavedTrait) + std::string(line.substr(0, gap)));
+  }
+  return trait;
+}
+
+std::expected<std::vector<Column<Traits>::Replacement>, std::string>
+StageSavedTraits(std::span<SavedTrait> traits, const Column<Traits> &column) {
+  std::ranges::stable_sort(traits, {}, [](const SavedTrait &trait) { return trait.Holder.Index; });
+  std::vector<Column<Traits>::Replacement> rows;
+  for (const auto &trait : traits) {
+    if (rows.empty() || rows.back().Owner != trait.Holder) {
+      const Traits *standing = column.Get(trait.Holder);
+      if (standing == nullptr) { return std::unexpected(std::string(Says::MissingSavedHolder)); }
+      rows.push_back({.Owner = trait.Holder, .Data = *standing});
+    }
+    auto &row = rows.back().Data;
+    if (row.Named(trait.Key) == nullptr || !row.Put({.Key = trait.Key, .Value = trait.Value})) {
+      return std::unexpected(std::string(Says::SavedTraitCapacity));
+    }
+  }
+  return rows;
+}
+}
+
 Result Engine::restore(std::string_view path) {
   if (S_->Simulation->Stood.Instances.empty() && S_->Session.Declared.Instances.empty()) {
     S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
@@ -87,71 +150,28 @@ Result Engine::restore(std::string_view path) {
     return std::unexpected(S_->Error);
   }
 
-  struct Landing {
-    Entity Holder = kNoEntity;
-    uint32_t Key = 0;
-    double Value = 0.0;
-  };
-
-  std::vector<Landing> staged;
+  std::vector<SavedTrait> staged;
   while (at != std::string::npos && at + 1 < text.size()) {
     const size_t end = text.find('\n', at + 1);
-    const std::string line =
-        text.substr(at + 1, (end == std::string::npos ? text.size() : end) - at - 1);
+    const std::string_view line = std::string_view(text).substr(
+        at + 1, (end == std::string::npos ? text.size() : end) - at - 1);
     at = end;
     if (line.empty()) { continue; }
-    const size_t gap = line.rfind(' ');
-    const size_t dot = line.find('.');
-    if (gap == std::string::npos || dot == std::string::npos || dot > gap) {
-      S_->Error = "the save line '" + line + "' does not read as instance.trait value";
+    const auto trait = ParseSavedTrait(line, S_->Simulation->Stood);
+    if (!trait) {
+      S_->Error = trait.error();
       return std::unexpected(S_->Error);
     }
-    Landing landing;
-    landing.Holder = S_->Simulation->Stood.InstanceNamed(std::string_view(line).substr(0, dot));
-    landing.Key =
-        S_->Simulation->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
-    const auto scanned =
-        std::from_chars(line.data() + gap + 1, line.data() + line.size(), landing.Value);
-    if (scanned.ec != std::errc() || scanned.ptr != line.data() + line.size() ||
-        !std::isfinite(landing.Value)) {
-      S_->Error = "the save line '" + line + "' does not read as instance.trait value";
-      return std::unexpected(S_->Error);
-    }
-    if (landing.Holder == kNoEntity || landing.Key == 0) {
-      S_->Error = "the save names '" + line.substr(0, gap) +
-                  "', which the assembled scene does not hold -- the declaration moved on and "
-                  "the save did not";
-      return std::unexpected(S_->Error);
-    }
-    staged.push_back(landing);
+    staged.push_back(*trait);
   }
-  std::vector<std::pair<Entity, Traits>> rows;
-  for (const Landing &landing : staged) {
-    Traits *row = nullptr;
-    for (auto &held : rows) {
-      if (held.first == landing.Holder) { row = &held.second; }
-    }
-    if (row == nullptr) {
-      const Traits *standing = S_->Simulation->Kinds.Get(landing.Holder);
-      rows.emplace_back(landing.Holder, standing == nullptr ? Traits{} : *standing);
-      row = &rows.back().second;
-    }
-    if (row->Named(landing.Key) == nullptr) {
-      S_->Error = "the save carries a value for a trait this holder never declared -- the "
-                  "declaration moved on and the save did not, and NOTHING was applied";
-      return std::unexpected(S_->Error);
-    }
-    if (!row->Put({.Key = landing.Key, .Value = landing.Value})) {
-      S_->Error = "the saved value found no seat -- the holder already carries its full " +
-                  std::to_string(Traits::kMost) + " traits, and NOTHING was applied";
-      return std::unexpected(S_->Error);
-    }
+  const auto rows = StageSavedTraits(staged, S_->Simulation->Kinds);
+  if (!rows) {
+    S_->Error = rows.error();
+    return std::unexpected(S_->Error);
   }
-  for (const auto &held : rows) {
-    if (!S_->Simulation->Kinds.Put(held.first, held.second)) {
-      S_->Error = "a validated holder died between the dry run and the commit";
-      return std::unexpected(S_->Error);
-    }
+  if (!S_->Simulation->Kinds.Replace(*rows)) {
+    S_->Error = Says::RestoreTargetsChanged;
+    return std::unexpected(S_->Error);
   }
   S_->Error.clear();
   return {};
