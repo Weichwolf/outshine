@@ -51,7 +51,7 @@ Initialen Quellsnapshot ohne Simulationstick publizieren; Engine-Aufrufe seriali
 Hallwerte und Ringbudget sind validiert.
 Quellbindung On löst eindeutige platzierte Bodies über die gemeinsame Simulation auf;
 unplatzierte/fehlende/mehrdeutige Bindungen werden abgelehnt. Öffentliche Regressionen
-behalten. Emitter-Kegel, Loops und allgemeine Emitter-/Send-Zahlengrenzen fehlen noch.
+behalten. Emitter-Kegel und Loops fehlen noch.
 Dokumentation muss diese Grenzen und Datei-/Streamingquellen ohne Ausgabe benennen.
 Der Mixer verwendet noch nur den ersten aktiven Bus-Hall: Bus-spezifische Effekte
 und unabhängige RT60-/Spektralprüfung fehlen; Worst-Case-Messung bleibt offen.
@@ -93,3 +93,11 @@ https://valvesoftware.github.io/steam-audio/doc/capi/guide.html
 - [ ] Bestehende Synthese-/Szenariofähigkeiten erhalten oder fachlich korrekt migriert;
       falsche Filterbezeichnung und unklare Delay-Zeitkonvention beseitigt.
 - [ ] Lint, clang-tidy, unabhängige Tests und wirksame Negativkontrollen abgeschlossen.
+
+## Aktiver Schritt: sichere räumliche Mischparameter
+Vor Mixer-Publikation gültige Distanzmodell-Enums, endliche nichtnegative MostM,
+Rolloff, BlockedHz und SendShare sowie BlockedGain in [0,1] prüfen. RefM bleibt
+für positionale Quellen positiv/endlich. Unbenutzte Kegelsemantik nicht erfinden.
+Fehler müssen DSP-Phase/Samplerate erhalten: blockweise Vergleich mit Kontrollmixer;
+Altcode-Negativkontrolle, gültige Null-/Randwerte und alle Distanzmodelle prüfen.
+Abgeleitete Überläufe und Quell-/Listener-Snapshotvalidierung bleiben separat offen.
