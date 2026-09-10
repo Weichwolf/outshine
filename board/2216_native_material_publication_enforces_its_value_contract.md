@@ -67,3 +67,19 @@ keine Allokation/Mutation vor erfolgreicher Prüfung. Erhaltung/Retry, Publikati
 animierte Importmaterialien und native Bilder/UVs grün. Altsetter verletzt Erhaltungsoracle
 ohne Buildfehler. Export-/Publikations-Negativfälle bleiben über Aufbaupfad erhalten.
 Abschluss-Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün; drei rote Gruppen.
+
+## Migration des Anlegevertrags
+Aufruferinventar: Subject::Flatten/Handed ignorieren addSurface; Handed ignoriert zudem
+addImage und Vertex-/Indexsetter. Engine::State::Models ist void und Laying nutzt
+Materialindizes unmittelbar. Structures/Corridors sowie TreeGeometry/CrownAtlas legen
+Materialien für Generatorprodukte an. 15 C++-Testdateien verwenden addSurface.
+Anlegen als expected<MaterialInstance, MaterialError>: intrinsische Werte/Enums/UVs
+und Indexkapazität vor Kopie prüfen; Bildreferenzen erst am vollständigen Produkt.
+MaterialUpdateError zu gemeinsamem Fehlervertrag erweitern, keine zweite Fehlerhierarchie.
+Subject::Handed braucht einen durchgehenden fehlbaren Konvertierungspfad für Bilder,
+Materialien und Meshdaten; Generator-/Geländehelfer müssen Fehler bis zum Aufrufer
+weiterreichen. Keine value_or-Defaultoberfläche, unchecked Dereferenzierung oder
+erfolgsmeldende leere Geometrie als Ersatz. Aufrufer in einem vollständigen Schritt
+migrieren; ungültige Material-Fixtures dann an der frühesten garantierten Grenze prüfen.
+Fehler beim späteren Element mit bereits aufgebauten Vorgängern testen: kein teilweise
+konvertiertes Produkt als Erfolg und keine Veröffentlichung in die aktive Welt.
