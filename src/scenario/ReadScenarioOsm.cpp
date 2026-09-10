@@ -1,0 +1,89 @@
+#include "ReadScenarioOsm.h"
+#include <charconv>
+#include <cmath>
+#include <cstddef>
+#include <expected>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
+#include <scenario/Scenario.h>
+#include "Xml.h"
+
+namespace outshine {
+namespace Says {
+constexpr auto kInvalidOsmCoordinate =
+    "OSM points require finite latitude,longitude pairs within WGS84 angular bounds";
+constexpr auto kIncompleteOsmFeature = "OSM ways require two points and areas require three points";
+constexpr auto kOsmPointBudget = "OSM feature exceeds the 65536 point preparation budget";
+}
+
+namespace {
+constexpr size_t kMaxOsmPoints = 65536;
+constexpr std::string_view kWhitespace = " \t\r\n";
+
+[[nodiscard]] std::expected<double, std::string_view> Coordinate(std::string_view text,
+                                                                 double limit) {
+  double value = 0;
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
+  if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
+      !std::isfinite(value) || std::abs(value) > limit) {
+    return std::unexpected(Says::kInvalidOsmCoordinate);
+  }
+  return value;
+}
+
+[[nodiscard]] std::expected<std::vector<double>, std::string_view>
+Coordinates(std::string_view text, bool area) {
+  std::vector<double> coordinates;
+  while (true) {
+    const size_t start = text.find_first_not_of(kWhitespace);
+    if (start == std::string_view::npos) { break; }
+    text.remove_prefix(start);
+    const size_t end = text.find_first_of(kWhitespace);
+    const std::string_view pair = text.substr(0, end);
+    const size_t comma = pair.find(',');
+    if (comma == std::string_view::npos || comma == 0 || comma + 1 == pair.size()) {
+      return std::unexpected(Says::kInvalidOsmCoordinate);
+    }
+    if (coordinates.size() == kMaxOsmPoints * 2) { return std::unexpected(Says::kOsmPointBudget); }
+    const auto latitude = Coordinate(pair.substr(0, comma), 90.0);
+    const auto longitude = Coordinate(pair.substr(comma + 1), 180.0);
+    if (!latitude) { return std::unexpected(latitude.error()); }
+    if (!longitude) { return std::unexpected(longitude.error()); }
+    coordinates.push_back(*latitude);
+    coordinates.push_back(*longitude);
+    if (end == std::string_view::npos) { break; }
+    text.remove_prefix(end);
+  }
+  if (coordinates.size() < (area ? 6u : 4u)) {
+    return std::unexpected(Says::kIncompleteOsmFeature);
+  }
+  return coordinates;
+}
+}
+
+std::expected<void, std::string_view> ReadScenarioOsm(const Xml::Ref &osm,
+                                                      std::vector<Scenario::Structure> &into) {
+  for (const bool area : {false, true}) {
+    const auto nodes = area ? osm.Children("area") : osm.Children("way");
+    for (const Xml::Ref node : nodes) {
+      Scenario::Structure made;
+      made.Kind = node.Said("kind").value_or("");
+      made.WidthM = node.Num("widthM", 0.0);
+      made.HeightM = node.Num("heightM", 0.0);
+      made.Area = area;
+      made.Bridge = node.Said("bridge").value_or("no") == "yes";
+      made.Tunnel = node.Said("tunnel").value_or("no") == "yes";
+      made.Level = static_cast<int>(node.Num("level", 0.0));
+      const std::string text = node.Said("points").value_or("");
+      auto points = Coordinates(text, area);
+      if (!points) { return std::unexpected(points.error()); }
+      made.LatLon = std::move(*points);
+      into.push_back(std::move(made));
+    }
+  }
+  return {};
+}
+}

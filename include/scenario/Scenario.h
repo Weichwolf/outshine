@@ -157,7 +157,12 @@ struct Structure {
   /// Which level it runs on where two things cross: negative under, positive over, zero at grade.
   int Level = 0;
 
-  /// The shape, as latitude and longitude in degrees, in pairs.
+  /// Ordered WGS84 latitude/longitude degree pairs; latitudes in [-90,90], longitudes
+  /// in [-180,180], all finite. XML accepts complete decimal/exponent pairs separated
+  /// by XML whitespace, with no whitespace inside a pair; leading plus is unsupported.
+  /// At least two points for ways, three for areas; maximum 65536 points per feature.
+  /// This aggregate does not validate geometry; parsing rejects malformed coordinates
+  /// without publishing a partial document. Ring simplicity and total budgets are separate.
   std::vector<double> LatLon;
 };
 

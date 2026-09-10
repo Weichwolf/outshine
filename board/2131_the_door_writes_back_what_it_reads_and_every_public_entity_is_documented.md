@@ -109,11 +109,10 @@ Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind
 16 Fälle mit/ohne Relief, Weg/Fläche, nahe/negative/Pol-/Datumsgrenzen-Koordinaten:
 Originalwerte bleiben exakt; beide Tests grün. Alter Writer scheitert am Relief,
 isolierte alte Zahlenausgabe an Präzision/Punktkollaps; keine Buildfehler.
-OSM-Reader: strtod ohne Endzeiger akzeptiert Zahlreste und ersetzt Text durch null;
-unvollständige Wege werden still verworfen. In eigenen ReadScenarioOsm-Baustein
-extrahieren: expected-Fehler, vollständige locale-unabhängige Zahlen, endliche
-WGS84-Winkel, mindestens zwei Weg-/drei Flächenpunkte. Kein stiller Teilimport.
-65536 Punkte je Feature als explizites Vorbereitungsbudget vor Wachstum begrenzen.
-Ungültiges spätes Feature muss den bisherigen Document-Owner erhalten; gültige
-Grenzen/Exponent/Whitespace und Budgetrand prüfen. Gegenprobe alter Reader rot.
+ReadScenarioOsm ersetzt permissives strtod: expected-Fehler, vollständige locale-
+unabhängige Zahlen, endliche WGS84-Winkel, zwei Weg-/drei Flächenpunkte und höchstens
+65536 Punkte je Feature vor Wachstum. Kein stiller Teilimport; Document-Kandidat
+erhält Vorgänger bei spätem Fehler. Grenzen/Exponent/Whitespace/Budgetrand geprüft;
+alter Reader rot, drei Tests grün. Wien c307cab8 bytegleich, PNG geöffnet.
+Test-Linklisten und Grammatik-Scanner erfassen den ausgelagerten Reader.
 uint64-Reliefseed, Attributvalidierung und Gesamtbudget bleiben offen.

@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include "ScenarioRead.h"
+#include "ReadScenarioOsm.h"
 
 #include <scenario/Scenario.h>
 
@@ -290,33 +291,6 @@ void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
     into.Ground.Shape.Seed =
         static_cast<uint64_t>(relief.Num("seed", static_cast<double>(into.Ground.Shape.Seed)));
   }
-  const Xml::Ref osm = from.Child("osm");
-  if (osm.Valid()) {
-    const auto take = [&into](const Xml::Ref &node, bool area) {
-      Scenario::Structure made;
-      made.Kind = node.Said("kind").value_or("");
-      made.WidthM = node.Num("widthM", 0.0);
-      made.HeightM = node.Num("heightM", 0.0);
-      made.Area = area;
-      made.Bridge = std::string(node.Said("bridge").value_or("no")) == "yes";
-      made.Tunnel = std::string(node.Said("tunnel").value_or("no")) == "yes";
-      made.Level = static_cast<int>(node.Num("level", 0.0));
-      const std::string said = node.Said("points").value_or("");
-      size_t at = 0;
-      while (at < said.size()) {
-        const size_t comma = said.find(',', at);
-        if (comma == std::string::npos) { break; }
-        size_t space = said.find(' ', comma);
-        if (space == std::string::npos) { space = said.size(); }
-        made.LatLon.push_back(std::strtod(said.c_str() + at, nullptr));
-        made.LatLon.push_back(std::strtod(said.c_str() + comma + 1, nullptr));
-        at = space + 1;
-      }
-      if (made.LatLon.size() >= 4) { into.Ground.Osm.push_back(std::move(made)); }
-    };
-    for (const Xml::Ref one : osm.Children("way")) { take(one, false); }
-    for (const Xml::Ref one : osm.Children("area")) { take(one, true); }
-  }
 }
 
 void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
@@ -368,6 +342,11 @@ void ReadLighting(const Xml::Ref &from, Scenario::Document &into) {
 [[nodiscard]] bool
 ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
+  const auto osm = ReadScenarioOsm(root.Child("world").Child("osm"), into.Ground.Osm);
+  if (!osm) {
+    error = osm.error();
+    return false;
+  }
   ReadRender(root.Child("render"), into);
   ReadLighting(root.Child("lighting"), into);
 

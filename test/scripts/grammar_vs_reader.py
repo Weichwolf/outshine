@@ -21,7 +21,7 @@ import scenario_grammar as grammar
 
 
 def main():
-    source = grammar.READER.read_text()
+    source = grammar.READER.read_text() + grammar.READER.with_name("ReadScenarioOsm.cpp").read_text()
     allowed = grammar.declared()
     read = set()
     for name in re.findall(r'(?:\.Child|\.Children)\("(\w+)"\)', source):
