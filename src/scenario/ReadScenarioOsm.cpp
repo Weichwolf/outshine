@@ -7,6 +7,7 @@
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <type_traits>
 #include <vector>
 #include <scenario/Scenario.h>
 #include "Xml.h"
@@ -16,12 +17,31 @@ namespace Says {
 constexpr auto kInvalidOsmCoordinate =
     "OSM points require finite latitude,longitude pairs within WGS84 angular bounds";
 constexpr auto kIncompleteOsmFeature = "OSM ways require two points and areas require three points";
+constexpr auto kInvalidOsmDimension = "OSM widthM and heightM require finite nonnegative metres";
+constexpr auto kInvalidOsmLevel =
+    "OSM level requires a decimal integer within the signed int range";
 constexpr auto kOsmPointBudget = "OSM feature exceeds the 65536 point preparation budget";
 }
 
 namespace {
 constexpr size_t kMaxOsmPoints = 65536;
 constexpr std::string_view kWhitespace = " \t\r\n";
+
+template <typename Number>
+[[nodiscard]] std::expected<Number, std::string_view>
+FeatureNumber(const Xml::Ref &node, const char *attribute, std::string_view diagnostic) {
+  const auto text = node.Said(attribute);
+  if (!text) { return Number{}; }
+  Number value{};
+  const auto parsed = std::from_chars(text->data(), text->data() + text->size(), value);
+  if (parsed.ec != std::errc{} || parsed.ptr != text->data() + text->size()) {
+    return std::unexpected(diagnostic);
+  }
+  if constexpr (std::is_floating_point_v<Number>) {
+    if (!std::isfinite(value) || value < 0) { return std::unexpected(diagnostic); }
+  }
+  return value;
+}
 
 [[nodiscard]] std::expected<double, std::string_view> Coordinate(std::string_view text,
                                                                  double limit) {
@@ -71,12 +91,18 @@ std::expected<void, std::string_view> ReadScenarioOsm(const Xml::Ref &osm,
     for (const Xml::Ref node : nodes) {
       Scenario::Structure made;
       made.Kind = node.Said("kind").value_or("");
-      made.WidthM = node.Num("widthM", 0.0);
-      made.HeightM = node.Num("heightM", 0.0);
+      const auto width = FeatureNumber<double>(node, "widthM", Says::kInvalidOsmDimension);
+      const auto height = FeatureNumber<double>(node, "heightM", Says::kInvalidOsmDimension);
+      const auto level = FeatureNumber<int>(node, "level", Says::kInvalidOsmLevel);
+      if (!width) { return std::unexpected(width.error()); }
+      if (!height) { return std::unexpected(height.error()); }
+      if (!level) { return std::unexpected(level.error()); }
+      made.WidthM = *width;
+      made.HeightM = *height;
       made.Area = area;
       made.Bridge = node.Said("bridge").value_or("no") == "yes";
       made.Tunnel = node.Said("tunnel").value_or("no") == "yes";
-      made.Level = static_cast<int>(node.Num("level", 0.0));
+      made.Level = *level;
       const std::string text = node.Said("points").value_or("");
       auto points = Coordinates(text, area);
       if (!points) { return std::unexpected(points.error()); }

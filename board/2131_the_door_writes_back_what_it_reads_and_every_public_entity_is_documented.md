@@ -112,9 +112,9 @@ unabhängige Zahlen, endliche WGS84-Winkel, zwei Weg-/drei Flächenpunkte und h�
 erhält Vorgänger bei spätem Fehler. Grenzen/Exponent/Whitespace/Budgetrand geprüft;
 alter Reader rot, drei Tests grün. Wien c307cab8 bytegleich, PNG geöffnet.
 Test-Linklisten und Grammatik-Scanner erfassen den ausgelagerten Reader.
-Nächster Schritt: widthM/heightM vollständig endlich/nichtnegativ lesen; fehlend = 0,
-explizit ungültig = Fehler. level als vollständigen dezimalen int ohne Float-Zwischenwert
-lesen; Bruchteile/Überlauf/NaN verweigern. Gemeinsame from_chars-/expected-Grenze,
-Feature erst nach allen Prüfungen anhängen. Abnahme: int-Grenzen, Null/Defaults,
-Zahlenreste, negative Maße und später Fehler mit Document-Erhalt; alter Reader rot.
-uint64-Reliefseed, Flags und Gesamtbudget bleiben offen.
+widthM/heightM werden vollständig endlich/nichtnegativ gelesen: fehlend = 0,
+explizit ungültig = Fehler. level direkt als dezimaler int ohne Float-Zwischenwert;
+Bruchteile/Überlauf/NaN verweigert. Gemeinsame from_chars-/expected-Grenze vor Append.
+Int-Grenzen, Null/Defaults, Zahlenreste, negative Maße und später Document-Erhalt
+geprüft: alter Reader rot, drei Tests grün; Wien c307cab8 bytegleich, PNG geöffnet.
+uint64-Reliefseed, Flags, Gesamtbudget und native API-Validierung bleiben offen.

@@ -139,10 +139,12 @@ struct Structure {
   std::string Kind;
 
   /// The carriageway's width in metres where the map states one, and zero where it does not --
-  /// which is the case a derivation has to survive.
+  /// which is the case a derivation has to survive. XML requires finite nonnegative
+  /// decimal/exponent metres; missing selects zero, invalid explicit values fail parsing.
   double WidthM = 0.0;
 
-  /// How tall, in metres, for anything that rises.
+  /// Height in finite nonnegative metres; zero means unspecified. XML accepts complete
+  /// decimal/exponent values, defaults to zero when absent and rejects invalid values.
   double HeightM = 0.0;
 
   /// Whether it encloses ground rather than running over it.
@@ -154,7 +156,9 @@ struct Structure {
   /// Whether the map calls it a tunnel, in which case nothing is drawn on the surface.
   bool Tunnel = false;
 
-  /// Which level it runs on where two things cross: negative under, positive over, zero at grade.
+  /// Relative level at crossings: negative below, positive above, zero at grade.
+  /// XML requires a complete decimal integer in the int range; missing selects zero.
+  /// This is a topological ordering hint, not an elevation in metres.
   int Level = 0;
 
   /// Ordered WGS84 latitude/longitude degree pairs; latitudes in [-90,90], longitudes
