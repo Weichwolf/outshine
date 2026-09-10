@@ -63,3 +63,13 @@ betroffenen Test erneut bestanden. Normale OSM-Integration nicht als ASan-Nachwe
 Abschluss-Lint: 183 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
 drei rote Gruppen. Decode-Komplexität 59 (Grenze 25); Accept-Komplexitätswarnung behoben.
 Wien-PNG geöffnet, 0/921600 Pixelabweichung. Einzelbelege und frühere Schritte in Git.
+
+## Kumulative Indexkapazität
+Vor Annahme den bestehenden Poolbestand mit allen geplanten Ebenenzuwächsen prüfen.
+Features/Tiles höchstens INT_MAX wegen Rückgaben/TileIndex, übrige Indexräume UINT32_MAX;
+Punktpaare zusätzlich durch SIZE_MAX/2 begrenzt. Addition als Restkapazitätsprüfung,
+kein Überlauf vor Vergleich. Werte/Keys/Strings konservativ höchstens ein Eintrag pro
+Tag-Paar; unbekannte Interning-Treffer nicht vorwegnehmen. Keine Mutation bei Ablehnung.
+Kapazitätsarithmetik separat mit analytischen Grenzfällen ohne Milliardenallokationen
+prüfen; Negativmutation muss scheitern. Native Annahme-/Positionsregression und Lint.
+Das ist ein Indexvertrag, kein RAM-/Container-max_size-/Decodezeitbudget.
