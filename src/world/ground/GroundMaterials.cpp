@@ -4,6 +4,8 @@
 #include "ReadTextFile.h"
 #include <algorithm>
 #include <cstddef>
+#include <cmath>
+#include <limits>
 #include <expected>
 #include <span>
 #include <string>
@@ -35,6 +37,11 @@ struct ParsedMaterial {
   std::string Litter;
 };
 
+bool IsPositiveFloat(double value) {
+  return std::isfinite(value) && value >= std::numeric_limits<float>::denorm_min() &&
+         value <= std::numeric_limits<float>::max();
+}
+
 int FindMaterial(std::span<const GroundMaterials::Material> materials, std::string_view name) {
   for (size_t i = 0; i < materials.size(); ++i) {
     if (materials[i].Name == name) { return static_cast<int>(i); }
@@ -53,8 +60,9 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
   if (m.Name.empty()) { return std::unexpected("material class must have a nonempty name"); }
   m.Roughness = static_cast<float>(c["roughness"].Num(kRoughnessUnsaid));
   const Json::Ref peak = c["peakFriction"];
-  if (peak.GetKind() != Json::Kind::Number || !(peak.Num(0.0) > 0.0)) {
-    return std::unexpected("class " + m.Name + ": peakFriction must be a positive number");
+  if (peak.GetKind() != Json::Kind::Number || !IsPositiveFloat(peak.Num(0.0))) {
+    return std::unexpected("class " + m.Name +
+                           ": peakFriction must be a positive representable float");
   }
   m.PeakFriction = static_cast<float>(peak.Num(0.0));
   m.Moisture = static_cast<float>(c["moisture"].Num(0.0));
@@ -128,6 +136,10 @@ std::expected<void, std::string> ResolveMaterials(std::span<GroundMaterials::Mat
   const float against = materials[static_cast<size_t>(stands)].PeakFriction;
   for (size_t i = 0; i < materials.size(); ++i) {
     auto &material = materials[i];
+    const double ratio = static_cast<double>(material.PeakFriction) / against;
+    if (!IsPositiveFloat(ratio)) {
+      return std::unexpected("class " + material.Name + ": relative friction exceeds float range");
+    }
     material.FrictionFactor = material.PeakFriction / against;
     if (litterNames[i].empty()) { continue; }
     material.LitterClass = find(litterNames[i]);

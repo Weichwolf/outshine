@@ -99,8 +99,8 @@ verletzt die Negativkontrolle; Loader-/Reader-Regressionen samt ausgeliefertem K
 Reibungswerte vor Float-Verengung auf positive darstellbare Werte prüfen;
 relative Reibung vor Division auf Float-Bereich prüfen. Extremwerte dürfen weder
 Null noch unendliche Faktoren publizieren; Fehler erhalten den bisherigen Katalog.
-Abnahme: Unter-/Überlauf von Eingängen und Quotienten, gültiger Retry, ausgelieferter
-Katalog. Andere numerische Material-/Modellgrenzen bleiben separat offen.
+Nachweis: Altcode verletzt Unter-/Überlaufkontrollen von Eingängen und Quotienten;
+mit Prüfung sind Erhaltung, gültiger Retry und ausgelieferter Katalog grün. Andere numerische Material-/Modellgrenzen bleiben separat offen.
 
 ## Eindeutige Katalogreferenzen
 Nichtleere eindeutige Klassennamen erzwingen. Temporären sortierten Namensindex

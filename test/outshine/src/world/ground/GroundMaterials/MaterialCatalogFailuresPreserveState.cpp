@@ -40,6 +40,27 @@ int main() {
               materials.At(0).PeakFriction == 0.5f && materials.At(0).FrictionFactor == 1,
           "failed replacement preserves complete previous catalog");
   }
+  for (const auto *friction : {"1e300", "1e-300", "0", "-1"}) {
+    auto invalid = row;
+    invalid.replace(invalid.find("0.5"), 3, friction);
+    write("{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + invalid + "]}");
+    CHECK(!materials.Load(path.c_str()), "nonrepresentable positive friction rejected");
+    CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f &&
+              materials.At(0).FrictionFactor == 1,
+          "friction input failure preserves catalog");
+  }
+  for (const auto *reference : {"reference", "extreme"}) {
+    auto small = row;
+    small.replace(small.find("0.5"), 3, "1e-30");
+    const std::string large =
+        R"({"name":"extreme","peakFriction":1e30,"surface":"coherent","slope":{"plausibleDeg":[0,90]}})";
+    write("{\"frictionModel\":{\"reference\":\"" + std::string(reference) + "\"},\"classes\":[" +
+          small + "," + large + "]}");
+    CHECK(!materials.Load(path.c_str()), "unrepresentable friction quotient rejected");
+    CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f &&
+              materials.At(0).FrictionFactor == 1,
+          "friction quotient failure preserves catalog");
+  }
   const std::string forward = row.substr(0, row.size() - 1) + ",\"litter\":{\"class\":\"later\"}}";
   const std::string later =
       R"({"name":"later","peakFriction":1,"surface":"coherent","slope":{"plausibleDeg":[0,90]},"litter":{"class":"later"}})";
