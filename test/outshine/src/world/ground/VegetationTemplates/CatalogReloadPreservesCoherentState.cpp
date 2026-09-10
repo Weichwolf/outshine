@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <string>
 
 int main() {
@@ -47,6 +48,31 @@ int main() {
     CHECK(templates.Find("streets", "road") == rule && templates.FrictionOf(0) == 2,
           "failed replacement retains rule and friction");
   }
+  const auto rejectsRule = [&](const std::string &field, const char *value) {
+    auto broken = catalog;
+    const std::string original = "\"rank\":1,\"widthM\":2";
+    const std::string replacement = field == "rank" ? "\"rank\":" + std::string(value)
+                                                    : "\"rank\":1,\"" + field + "\":" + value;
+    broken.replace(broken.find(original), original.size(), replacement);
+    std::ofstream(catalogPath) << broken;
+    CHECK(!templates.Load(catalogPath.c_str(), materials), "invalid rule value refused");
+    CHECK(templates.Rows() == rows && templates.Find("streets", "road") == rule,
+          "numeric failure preserves the complete published snapshot");
+  };
+  for (const auto *field : {"rank", "lanes", "priority"}) {
+    for (const auto *value : {"0.5", "1e100", "\"bad\"", "null"}) { rejectsRule(field, value); }
+  }
+  rejectsRule("rank", "-1");
+  rejectsRule("rank", "256");
+  rejectsRule("lanes", "-1");
+  for (const auto *field : {"widthM", "maxGradient", "minRadiusM", "clearanceM", "speedMps"}) {
+    for (const auto *value : {"-1", "1e100", "1e-100", "\"bad\"", "null"}) {
+      rejectsRule(field, value);
+    }
+  }
+  for (const auto *field : {"oneway", "sealed"}) {
+    for (const auto *value : {"2", "0.5", "\"bad\"", "null"}) { rejectsRule(field, value); }
+  }
   CHECK(!templates.Load((std::filesystem::path(created) / "missing").c_str(), materials),
         "missing file refused");
   CHECK(templates.Rows() == rows && templates.TemplateCount() == 2,
@@ -66,6 +92,21 @@ int main() {
         "reload replaces friction rows instead of appending to old values");
   CHECK(templates.Error().empty() && templates.WaterBands().size() == 1,
         "success clears error and replaces auxiliary data");
+  for (const int priority : {std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {
+    auto boundary = catalog;
+    const std::string original = "\"rank\":1,\"widthM\":2";
+    const auto replacement = "\"rank\":" + std::string("255") +
+                             ",\"widthM\":2,\"priority\":" + std::to_string(priority) +
+                             ",\"lanes\":0,\"oneway\":true,\"sealed\":false";
+    boundary.replace(boundary.find(original), original.size(), replacement);
+    std::ofstream(catalogPath) << boundary;
+    CHECK(templates.Load(catalogPath.c_str(), materials),
+          "valid integer boundaries and JSON booleans accepted");
+    const auto *stored = templates.Find("streets", "road");
+    CHECK(stored && stored->Rank == 255 && stored->Priority == priority && stored->Lanes == 0 &&
+              stored->Oneway && !stored->Sealed,
+          "integer boundaries and booleans retain their exact values");
+  }
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             templates.Load("src/assets/world/vegetation.json", materials),
         "shipped catalogs remain accepted");

@@ -117,4 +117,4 @@ Load leert Bestand vor Fehlern und lässt Friction_ beim Reload stehen. IO bis 1
 und Kandidatenpublikation; Blätter, Substrat, Templates, Regeln, Layer, Höhenlimit als
 Parsing-Phasen. Altcode verletzt Erhaltung/Reload; fünf Regressionen grün. Regelzahlen vor Cast prüfen.
 Rank 0..255 (ClassBuilder packt acht Bits), Lanes >=0, Priority int; Maße im Float-Bereich.
-Flags bool oder 0/1; Fehler erhalten Snapshot. Übrige Template-Zahlen bleiben offen.
+Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahlen offen.

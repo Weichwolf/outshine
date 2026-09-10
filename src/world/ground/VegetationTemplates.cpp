@@ -1,4 +1,8 @@
 #include <format>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 #include "VegetationTemplates.h"
 
 #include "Json.h"
@@ -20,6 +24,113 @@ constexpr double kCoverUnsaid = 0.35;
 constexpr double kLitterUnsaid = 0.01;
 
 constexpr double kEdgeReachUnsaidM = 0.05;
+
+namespace {
+namespace Says {
+constexpr auto RuleInteger = " requires an integer within its declared range";
+constexpr auto RuleMagnitude = " requires a finite nonnegative representable float";
+constexpr auto RuleFlag = " requires a boolean or numeric 0/1";
+}
+
+struct IntegerOptions {
+  int Fallback;
+  int Minimum;
+  int Maximum = std::numeric_limits<int>::max();
+};
+
+std::expected<int, std::string>
+ReadRuleInteger(const Json::Ref &source, const char *name, IntegerOptions options) {
+  const double value = source.Valid() ? source.Num() : options.Fallback;
+  if ((source.Valid() && source.GetKind() != Json::Kind::Number) || !std::isfinite(value) ||
+      value < options.Minimum || value > options.Maximum || std::trunc(value) != value) {
+    return std::unexpected(std::string(name) + Says::RuleInteger);
+  }
+  return static_cast<int>(value);
+}
+
+std::expected<float, std::string> ReadRuleMagnitude(const Json::Ref &source, const char *name) {
+  const double value = source.Valid() ? source.Num() : 0;
+  if ((source.Valid() && source.GetKind() != Json::Kind::Number) || !std::isfinite(value) ||
+      value < 0 || value > std::numeric_limits<float>::max() ||
+      (value > 0 && value < std::numeric_limits<float>::denorm_min())) {
+    return std::unexpected(std::string(name) + Says::RuleMagnitude);
+  }
+  return static_cast<float>(value);
+}
+
+std::expected<bool, std::string> ReadRuleFlag(const Json::Ref &source, const char *name) {
+  if (!source.Valid()) { return false; }
+  if (source.GetKind() == Json::Kind::Bool) { return source.Bool(); }
+  if (source.GetKind() == Json::Kind::Number) {
+    const double value = source.Num();
+    if (value == 0 || value == 1) { return value == 1; }
+  }
+  return std::unexpected(std::string(name) + Says::RuleFlag);
+}
+
+std::expected<VegetationTemplates::Rule, std::string> ReadRuleNumbers(const Json::Ref &source) {
+  using Rule = VegetationTemplates::Rule;
+
+  struct IntegerField {
+    const char *Name;
+    int Rule::*Member;
+    int Fallback;
+    int Minimum;
+    int Maximum = std::numeric_limits<int>::max();
+  };
+
+  const std::array integers{
+      IntegerField{.Name = "rank",
+                   .Member = &Rule::Rank,
+                   .Fallback = -1,
+                   .Minimum = 0,
+                   .Maximum = std::numeric_limits<uint8_t>::max()},
+      IntegerField{.Name = "lanes", .Member = &Rule::Lanes, .Fallback = 0, .Minimum = 0},
+      IntegerField{.Name = "priority",
+                   .Member = &Rule::Priority,
+                   .Fallback = 0,
+                   .Minimum = std::numeric_limits<int>::min()}};
+  Rule rule;
+  for (const auto &field : integers) {
+    const auto value = ReadRuleInteger(
+        source[field.Name],
+        field.Name,
+        {.Fallback = field.Fallback, .Minimum = field.Minimum, .Maximum = field.Maximum});
+    if (!value) { return std::unexpected(value.error()); }
+    rule.*field.Member = *value;
+  }
+
+  struct MagnitudeField {
+    const char *Name;
+    float Rule::*Member;
+  };
+
+  const std::array magnitudes{MagnitudeField{.Name = "widthM", .Member = &Rule::WidthM},
+                              MagnitudeField{.Name = "maxGradient", .Member = &Rule::MaxGradient},
+                              MagnitudeField{.Name = "minRadiusM", .Member = &Rule::MinRadiusM},
+                              MagnitudeField{.Name = "clearanceM", .Member = &Rule::ClearanceM},
+                              MagnitudeField{.Name = "speedMps", .Member = &Rule::SpeedMps}};
+  for (const auto &field : magnitudes) {
+    const auto value = ReadRuleMagnitude(source[field.Name], field.Name);
+    if (!value) { return std::unexpected(value.error()); }
+    rule.*field.Member = *value;
+  }
+
+  struct FlagField {
+    const char *Name;
+    bool Rule::*Member;
+  };
+
+  const std::array flags{FlagField{.Name = "oneway", .Member = &Rule::Oneway},
+                         FlagField{.Name = "sealed", .Member = &Rule::Sealed}};
+  for (const auto &field : flags) {
+    const auto value = ReadRuleFlag(source[field.Name], field.Name);
+    if (!value) { return std::unexpected(value.error()); }
+    rule.*field.Member = *value;
+  }
+  return rule;
+}
+}
 
 bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   constexpr size_t kCatalogByteLimit = size_t{1024} * 1024u;
@@ -214,24 +325,14 @@ bool VegetationTemplates::ReadRules(const Json::Ref &templates) {
         Error_ = "osm row without layer or kind on template " + Names_[i];
         return false;
       }
-      Rule rule{};
-      rule.Tpl = static_cast<int>(i);
-      rule.Rank = static_cast<int>(r["rank"].Num(-1.0));
-      rule.WidthM = static_cast<float>(r["widthM"].Num(0.0));
-      rule.MaxGradient = static_cast<float>(r["maxGradient"].Num(0.0));
-      rule.MinRadiusM = static_cast<float>(r["minRadiusM"].Num(0.0));
-      rule.ClearanceM = static_cast<float>(r["clearanceM"].Num(0.0));
-      rule.Lanes = static_cast<int>(r["lanes"].Num(0.0));
-      rule.Oneway = r["oneway"].Num(0.0) > 0.5;
-      rule.SpeedMps = static_cast<float>(r["speedMps"].Num(0.0));
-      rule.Priority = static_cast<int>(r["priority"].Num(0.0));
-      rule.Sealed = r["sealed"].Num(0.0) > 0.5;
-      if (rule.Rank < 0) {
-        Error_ = std::format("osm row without rank: {}/{}", layer, kind);
+      auto rule = ReadRuleNumbers(r);
+      if (!rule) {
+        Error_ = std::format("{}/{}: {}", layer, kind, rule.error());
         return false;
       }
+      rule->Tpl = static_cast<int>(i);
       const std::string key = std::format("{}/{}", layer, kind);
-      if (!Rules_.emplace(key, rule).second) {
+      if (!Rules_.emplace(key, *rule).second) {
         Error_ = "duplicate osm row: " + key;
         return false;
       }
