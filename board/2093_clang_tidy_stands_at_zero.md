@@ -112,8 +112,9 @@ Parsing-Phasen. Altcode verletzt Erhaltung/Reload; fünf Regressionen grün. Reg
 Rank 0..255 (ClassBuilder packt acht Bits), Lanes >=0, Priority int; Maße im Float-Bereich.
 Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahlen offen.
 
-## Renderplan-Compiler
-Enums/Exposure vor Arrayzugriff validiert; Ressourcen-Queue auf Kataloggröße begrenzt.
-Kandidatenphasen für Abhängigkeiten, Ausgabe, Passfusion, Ziele, Speicherung und Digest.
-2 Tests PASS; 4 strukturelle Vorher/Nachher-Pläne identisch. Alte Implementierung scheitert
-an 5 Exposure-/Enum-Negativprüfungen; ungültige Stage-/Resource-IDs werden jetzt abgelehnt.
+## Dach-Triangulierung
+EarClip: Ear-Prüfung trennen, nichtendliche Koordinaten/Orientierungswerte ablehnen.
+Den überlaufenden int(n*n)+8-Guard durch nachweislichen Fortschritt ersetzen: jeder
+Durchlauf entfernt einen Index oder bricht ab. Indexbereich vor Konvertierung prüfen.
+Analytische konvexe/konkave Flächen, Reihenfolge und Fehler-Rollback vergleichen;
+Selbstschnittvalidierung und globales Triangulierungs-Arbeitsbudget bleiben offen.
