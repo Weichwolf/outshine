@@ -969,6 +969,15 @@ bool Subject::FlattenPrimitive(const Document &document,
   return true;
 }
 
+bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry &made) {
+  for (const Material &declared : document.Materials()) {
+    outshine::Material row = declared.Surface;
+    row.NeedsTangents = declared.Normal.Texture >= 0;
+    if (!made.addSurface("", row)) { return Refuse(Says::NativeMaterialFailed); }
+  }
+  return true;
+}
+
 bool Subject::Flatten(const Document &document,
                       const Transform *pose,
                       const double *weights,
@@ -987,11 +996,7 @@ bool Subject::Flatten(const Document &document,
   Undrawn_ = Undrawn();
   outshine::Geometry &made = Scratch_.Made;
   made.clear();
-  for (const Material &declared : document.Materials()) {
-    outshine::Material row = declared.Surface;
-    row.NeedsTangents = declared.Normal.Texture >= 0;
-    (void)made.addSurface("", row);
-  }
+  if (!CopyDeclaredMaterials(document, made)) { return false; }
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || static_cast<size_t>(sceneIndex) >= document.Scenes().size()) {
     return Refuse(document.Path() + ": no default scene to draw");
@@ -1089,7 +1094,9 @@ std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &o
       return std::unexpected(Says::NativeMaterialFailed);
     }
     const bool named = naming != nullptr && at < naming->Materials().size();
-    (void)out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at]);
+    if (!out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at])) {
+      return std::unexpected(Says::NativeMaterialFailed);
+    }
   }
   for (const PlacedLight &lit : Lights_) {
     Mat4 placed;

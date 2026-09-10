@@ -249,6 +249,7 @@ private:
   mutable Scratch Scratch_;
   [[nodiscard]] bool Refuse(std::string why);
 
+  [[nodiscard]] bool CopyDeclaredMaterials(const Document &document, outshine::Geometry &made);
   [[nodiscard]] bool Flatten(const Document &document,
                              const Transform *pose,
                              const double *weights,

@@ -283,7 +283,9 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
     if (maps[at]->Image < 0) { return std::nullopt; }
     maps[at]->Sampler.WrapU = maps[at]->Sampler.WrapV = Wrap::ClampToEdge;
   }
-  const int part = geometry.addPart("crown", geometry.addSurface("crown", material));
+  const auto surface = geometry.addSurface("crown", material);
+  if (!surface) { return std::nullopt; }
+  const int part = geometry.addPart("crown", *surface);
   const std::array<Vec3, 4> corners{CentreM_ - right * HalfExtentM_ - Vec3{{0, HalfExtentM_, 0}},
                                     CentreM_ + right * HalfExtentM_ - Vec3{{0, HalfExtentM_, 0}},
                                     CentreM_ + right * HalfExtentM_ + Vec3{{0, HalfExtentM_, 0}},

@@ -128,9 +128,10 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   walls.BaseColour[1] = kWallGreen;
   walls.BaseColour[2] = kWallBlue;
   walls.Roughness = kWallRoughness;
-  const MaterialInstance named = into.addSurface("walls", walls);
+  const auto named = into.addSurface("walls", walls);
+  if (!named) { return false; }
   for (int part = 0; part < stood.parts(); ++part) {
-    const int here = into.addPart("structure", named);
+    const int here = into.addPart("structure", *named);
     if (!into.setPositions(here, stood.positionsOf(part)) ||
         !into.setTriangles(here, stood.trianglesOf(part))) {
       return false;

@@ -16,7 +16,7 @@ Geometry::wellFormed prüft vollständige Material-/Meshprodukte einschließlich
 zugewiesener Materialindizes. Engine::setGeometry prüft vor der Übernahme.
 SubjectDraw::ValidateMaterials bleibt getrennte Geräte-/Renderpass-Fähigkeitsprüfung.
 
-setSurface liefert expected<void, MaterialUpdateError>: fehlender Slot und ungültige
+setSurface liefert expected<void, MaterialError>: fehlender Slot und ungültige
 Werte/Bindungen unterschieden, alle Prüfungen vor nichtallokierender Kopie. Fehler
 bewahren vorherige Werte/Namen/Indizes. Kein vorwärtsreferenzierender Ersatz.
 
@@ -28,26 +28,23 @@ Kameraposen haben getrennte Arbeits-/Publikationspuffer; bei Erfolg Swap. Fehlge
 Clip- und Variantenwahl stellt die vorige Auswahl wieder her. Geometrieansichten,
 veröffentlichte Kameras und Clipdauer bleiben bei den geprüften Fehlern erhalten.
 
-## Verbleibende Lücke
-Geometry::addSurface kopiert noch ungeprüft und verengt die Slotzahl auf int.
-Subject::Flatten/CopyNativeAssets ignorieren seinen Rückgabewert. Engine::State::Models
-ist void; Laying nutzt Materialindizes unmittelbar. Structures/Corridors sowie
-TreeGeometry/CrownAtlas legen Generator-Materialien an. 15 C++-Testdateien verwenden
-addSurface. Material-/Indexfehler dürfen nicht zur Defaultoberfläche werden.
+addSurface liefert expected<MaterialInstance, MaterialError>. Intrinsische Werte,
+Enums und UVs sowie int-/Container-Kapazität werden vor Kopie/Allokation geprüft.
+Anlegefehler erhalten Bestand, Namen und Slotvergabe. Vorwärtsreferenzen auf Bilder
+bleiben beim Aufbau erlaubt; vollständige Publikation verlangt aufgelöste Bindungen.
+Import-/Generator-/Geländeaufrufer reichen Anlegefehler weiter. Models und Corridors::Lay
+melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer übergeben.
 
-## Nächste vollständige Migration
-- addSurface als expected<MaterialInstance, MaterialError>; MaterialUpdateError zum
-  gemeinsamen Fehlervertrag erweitern. Intrinsische Werte/Enums/UVs und Indexkapazität
-  vor Allokation/Kopie prüfen; Fehler verbraucht keinen Slot/Namen.
-- Bildreferenzen bei vollständiger Asset-Publikation prüfen: Subject::Flatten legt
-  Materialien vor Bildern an, Handed kopiert Bilder vor Materialien. Legitime
-  Vorwärtsreferenzen beim Aufbau erhalten; keine zweite Materialrepräsentation.
-- Import-/Generator-/Geländeaufrufer vollständig auf Fehlerweitergabe migrieren.
-  Keine unchecked Dereferenzierung, value_or-Defaultmaterialien oder erfolgsmeldende
-  leere Geometrie. Später Fehler darf kein teilweise erzeugtes Produkt veröffentlichen.
+## Verbleibende Arbeit
+- Indexkapazitätsgrenze unabhängig prüfen, ohne Milliarden Materialien anzulegen.
+  Die aktuelle Prüfung begrenzt den int-Materialzähler und vector::max_size;
+  sie ist keine Laufzeitprüfung unter tatsächlicher Speichererschöpfung.
 - Verbleibende Kopier-/Indexverengungen und Bindungsauflösung im Importadapter auditieren.
   Gemeinsame native Regeln für Importer, Generatoren und direkte API-Aufrufer.
-- Öffentliche Fehler-, Ownership-, Invalidierungs- und Kostenverträge aktualisieren.
+- Späte Fehler im gesamten Weltaufbau prüfen: frühere Änderungen an World.Pieces und
+  anderen Begleitdaten sind durch das Verwerfen des Geometry-Kandidaten nicht zurückgerollt.
+  Vollständige Transaktion einschließlich aktiver Welt durch unabhängige Fehlerfälle belegen.
+- Alle Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen.
   Vollständige Asset-/Instanzmigration bleibt WI 2150; Runtime-Ausnahmen WI 2194.
 
 ## Abnahme
@@ -55,7 +52,8 @@ addSurface. Material-/Indexfehler dürfen nicht zur Defaultoberfläche werden.
 - [x] Fehler spät in Materialanimation erhält frühere Materialien und Geometrieansichten.
 - [x] Fehlgeschlagene Probe/Clipwahl erhält Kameras, Clipdauer und Nutzbarkeit der alten Auswahl.
 - [x] Variante mit fehlender Textur wird abgelehnt; folgende Probe nutzt vorherige Auswahl.
-- [ ] Anlegefehler erhalten Materialbestand/Namen/Indexvergabe; Kapazitätsgrenze geprüft.
+- [x] Anlegefehler erhalten Materialbestand/Namen/Indexvergabe; gültiger Retry geprüft.
+- [ ] Kapazitätsgrenze unabhängig geprüft.
 - [ ] Alle intrinsischen Grenzen und Bindungskombinationen unabhängig geprüft, einschließlich
       HDR, IOR-Sonderfall, +infinity-Absorptionsdistanz, NaN, ungültige Enums und Schichtreihenfolge.
 - [ ] Später Import-/Generatorfehler publiziert kein Teilprodukt und erhält aktive Welt.
@@ -68,6 +66,10 @@ Native Materialpublikation/-ersatz, Importkonvertierung, Asset-Roundtrip, Baumge
 Animation, native Bilder/UVs und Platzierung als Regressionen geprüft. Negativkontrollen
 verletzen Erhaltungs-/Publikationsoracles ohne Buildfehler. Variantenfall: sieben Checks
 grün, Altcode scheitert am anschließenden Retry. Kamera-/Clipfall: 15 Checks grün,
-Altcode verletzt vier Garantien. Keine vollständige Corpus-/Weltabnahme behauptet.
+Altcode verletzt vier Garantien. Anlegeprüfung: Negativkontrolle ohne Werteprüfung
+scheitert an den Vertragschecks, nicht am Build; danach sieben gezielte und dreizehn
+Regressionstests grün (ein gemeinsamer Fall, zusätzlich validierter Gerätearm).
+Materialübernahme als eigene Importphase; vier Importregressionen einschließlich
+Khronos-Texturtransformationen grün. Keine vollständige Corpus-/Weltabnahme.
 Letzter Lint: 180 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün;
 drei rote Gruppen bleiben. Einzelverläufe stehen in Git, nicht als fortlaufendes Tagebuch.

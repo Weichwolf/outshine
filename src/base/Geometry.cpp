@@ -237,7 +237,13 @@ bool Geometry::setPlacement(int part, const Mat4 &model) noexcept {
   return true;
 }
 
-MaterialInstance Geometry::addSurface(std::string_view named, const Material &surface) {
+std::expected<MaterialInstance, MaterialError> Geometry::addSurface(std::string_view named,
+                                                                    const Material &surface) {
+  if (!MaterialValuesAreValid(surface)) { return std::unexpected(MaterialError::InvalidMaterial); }
+  if (std::cmp_greater_equal(Held_->Surfaces.size(), std::numeric_limits<int>::max()) ||
+      Held_->Surfaces.size() >= Held_->Surfaces.max_size()) {
+    return std::unexpected(MaterialError::CapacityExceeded);
+  }
   Held_->Surfaces.push_back(Geometry::Held::Named{.Named = std::string(named), .Surface = surface});
   return MaterialInstance(static_cast<int>(Held_->Surfaces.size()) - 1);
 }
@@ -274,14 +280,14 @@ int Geometry::images() const {
   return static_cast<int>(Held_->Images.size());
 }
 
-std::expected<void, MaterialUpdateError> Geometry::setSurface(MaterialInstance surface,
-                                                              const Material &row) noexcept {
+std::expected<void, MaterialError> Geometry::setSurface(MaterialInstance surface,
+                                                        const Material &row) noexcept {
   const int at = surface.index();
   if (at < 0 || static_cast<size_t>(at) >= Held_->Surfaces.size()) {
-    return std::unexpected(MaterialUpdateError::MissingMaterial);
+    return std::unexpected(MaterialError::MissingMaterial);
   }
   if (!MaterialIsValid(row, Held_->Images.size())) {
-    return std::unexpected(MaterialUpdateError::InvalidMaterial);
+    return std::unexpected(MaterialError::InvalidMaterial);
   }
   Held_->Surfaces[static_cast<size_t>(at)].Surface = row;
   return {};

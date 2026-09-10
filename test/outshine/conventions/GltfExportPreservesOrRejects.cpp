@@ -26,7 +26,7 @@ int main() {
   material.BaseColour = {{0.25f, 0.5f, 0.75f, 1}};
   material.Metalness = 0.5f;
   material.Roughness = 0.25f;
-  const auto surface = geometry.addSurface("native surface", material);
+  const auto surface = geometry.addSurface("native surface", material).value();
   const int part = geometry.addPart("triangle", surface);
   const std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
   const std::array<uint32_t, 3> indices{0, 1, 2};
@@ -62,9 +62,11 @@ int main() {
     unsupported.*field = std::numeric_limits<float>::quiet_NaN();
     auto malformed = geometry.clone();
     const auto invalid = malformed.addSurface("unsupported", unsupported);
-    CHECK(malformed.setMaterial(part, invalid), "prepare unsupported material");
-    const auto failed = exportGlb(malformed);
-    CHECK(!failed && !failed.error().empty(), "nonrepresentable material cannot silently export");
+    CHECK(!invalid && invalid.error() == MaterialError::InvalidMaterial,
+          "nonrepresentable material is rejected before it can reach export");
+    CHECK(malformed.surfaces() == 1 && malformed.surfaceAt(surface) == material &&
+              exportGlb(malformed) == output,
+          "rejected material preserves the complete exportable input");
   }
   Material coated = material;
   coated.Clearcoat = 0.5f;
@@ -73,7 +75,7 @@ int main() {
   Material textured = material;
   textured.BaseColourMap.Image = 0;
   auto malformed = geometry.clone();
-  const auto unresolved = malformed.addSurface("unresolved", textured);
+  const auto unresolved = malformed.addSurface("unresolved", textured).value();
   CHECK(malformed.setMaterial(part, unresolved) && !exportGlb(malformed),
         "native texture binding cannot disappear even when its image is missing");
   CHECK(geometry.setSurface(surface, material).has_value(), "restore supported factors");

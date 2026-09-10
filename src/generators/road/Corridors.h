@@ -59,10 +59,10 @@ public:
     double FocalPx = 0.0;
   };
 
-  void Lay(const Site &site,
-           Geometry &ground,
-           std::vector<Yields> *corridor,
-           std::vector<Measure> *notes) const;
+  [[nodiscard]] bool Lay(const Site &site,
+                         Geometry &ground,
+                         std::vector<Yields> *corridor,
+                         std::vector<Measure> *notes) const;
 
 private:
   struct Meets {
@@ -299,10 +299,10 @@ private:
                                                RoadRaised &pavement) const;
 
   static void TellsWhatTheFitFound(Paved &into);
-  static void HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
-                                 const RoadRaised &pavement,
-                                 Paved &into,
-                                 Geometry &ground);
+  [[nodiscard]] static bool HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
+                                               const RoadRaised &pavement,
+                                               Paved &into,
+                                               Geometry &ground);
 
   [[nodiscard]] static std::unordered_map<uint64_t, uint32_t>
   SharedNodesOf(const outshine::Ground::StreetField &ways, std::span<const double> points);

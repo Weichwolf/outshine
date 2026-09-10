@@ -43,6 +43,10 @@
 #include "GroundMesher.h"
 
 namespace outshine {
+namespace Says {
+constexpr auto MaterialCreationFailed = "could not create ground materials";
+constexpr auto PavingCreationFailed = "could not publish road geometry";
+}
 
 constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
 
@@ -235,7 +239,7 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing) {
   }
 }
 
-void Engine::State::Models(const TangentFrame &standing,
+bool Engine::State::Models(const TangentFrame &standing,
                            LongitudeLatitude stands,
                            Geometry &ground,
                            Phasing &clocks) {
@@ -251,10 +255,14 @@ void Engine::State::Models(const TangentFrame &standing,
   tiles.BaseColour[1] = kTileGreen;
   tiles.BaseColour[2] = kTileBlue;
   tiles.Roughness = kTileRoughness;
-  const MaterialInstance wallSurface = ground.addSurface("walls", walls);
-  const MaterialInstance roofSurface = ground.addSurface("roofs", tiles);
-  World.Pieces.Wears({.Walls = static_cast<uint32_t>(wallSurface.index()),
-                      .Roofs = static_cast<uint32_t>(roofSurface.index())});
+  const auto wallSurface = ground.addSurface("walls", walls);
+  const auto roofSurface = ground.addSurface("roofs", tiles);
+  if (!wallSurface || !roofSurface) {
+    Error = Says::MaterialCreationFailed;
+    return false;
+  }
+  World.Pieces.Wears({.Walls = static_cast<uint32_t>(wallSurface->index()),
+                      .Roofs = static_cast<uint32_t>(roofSurface->index())});
   Published.Places(
       "rebuild: the ground ring took",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.PhaseAt)
@@ -263,9 +271,9 @@ void Engine::State::Models(const TangentFrame &standing,
   clocks.PhaseAt = std::chrono::steady_clock::now();
   clocks.CensusAt = clocks.PhaseAt;
   Published.Places(
-      "buildings: the wall surface", static_cast<double>(wallSurface.index()), "index");
+      "buildings: the wall surface", static_cast<double>(wallSurface->index()), "index");
   Published.Places(
-      "buildings: the roof surface", static_cast<double>(roofSurface.index()), "index");
+      "buildings: the roof surface", static_cast<double>(roofSurface->index()), "index");
   Published.Places("buildings: tiles handed to the arena as pieces",
                    static_cast<double>(World.Pieces.Handed()),
                    "tiles");
@@ -285,6 +293,7 @@ void Engine::State::Models(const TangentFrame &standing,
                      static_cast<double>(Picture.Standing->PieceBytesHeld()),
                      "bytes");
   }
+  return true;
 }
 
 Engine::State::Laid
@@ -522,12 +531,18 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       bare.BaseColour[channel] = held.GroundAlbedo[channel];
     }
   }
-  const MaterialInstance ringSurface = ground.addSurface("ground", bare);
+  const auto ringSurface = ground.addSurface("ground", bare);
+  if (!ringSurface) {
+    Error = Says::MaterialCreationFailed;
+    return false;
+  }
 
   Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
   {
     const Heap::Tagged modelling("ground-model");
-    Models(standing, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, ground, clocks);
+    if (!Models(standing, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, ground, clocks)) {
+      return false;
+    }
   }
   phaseAt = clocks.PhaseAt;
   censusAt = clocks.CensusAt;
@@ -587,18 +602,23 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   {
     std::vector<Measure> notes;
-    World.Shipping.Corridors().Lay({.Stack = World.Stack,
-                                    .Network = World.Network.get(),
-                                    .Standing = standing,
-                                    .Draped = drapedOver,
-                                    .Classes = classStructure,
-                                    .CensusAt = clocks.CensusAt,
-                                    .EyeLatDeg = over.LatitudeDeg,
-                                    .EyeLonDeg = over.LongitudeDeg,
-                                    .FocalPx = World.Stack.Footprints().FocalPx()},
-                                   ground,
-                                   &corridor,
-                                   &notes);
+    const bool paved =
+        World.Shipping.Corridors().Lay({.Stack = World.Stack,
+                                        .Network = World.Network.get(),
+                                        .Standing = standing,
+                                        .Draped = drapedOver,
+                                        .Classes = classStructure,
+                                        .CensusAt = clocks.CensusAt,
+                                        .EyeLatDeg = over.LatitudeDeg,
+                                        .EyeLonDeg = over.LongitudeDeg,
+                                        .FocalPx = World.Stack.Footprints().FocalPx()},
+                                       ground,
+                                       &corridor,
+                                       &notes);
+    if (!paved) {
+      Error = Says::PavingCreationFailed;
+      return false;
+    }
     for (const Measure &one : notes) { Published.Places(one.What, one.How, one.Unit.c_str()); }
     clocks.WiresAt = std::chrono::steady_clock::now();
   }
@@ -851,7 +871,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const size_t waterTriangles = order.size() / 3;
     Published.Places("water: triangles", static_cast<double>(waterTriangles), "triangles");
     if (order.size() >= 3) {
-      const int wetPart = ground.addPart("water", ringSurface);
+      const int wetPart = ground.addPart("water", *ringSurface);
       const bool tookWater =
           wetPart >= 0 &&
           ground.setPositions(wetPart, std::span<const float>(places.data(), places.size())) &&
@@ -887,7 +907,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
-  Picture.Standing->GroundIs(ringSurface.index());
+  Picture.Standing->GroundIs(ringSurface->index());
   if (classStructure && !classPalette.empty() &&
       !Picture.Standing->GroundClasses(
           {classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},

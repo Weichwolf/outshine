@@ -339,7 +339,7 @@ struct Engine::State {
   };
 
   void TellsWhatTheGroundHolds(const TangentFrame &standing);
-  void
+  [[nodiscard]] bool
   Models(const TangentFrame &standing, LongitudeLatitude stands, Geometry &ground, Phasing &clocks);
 
   enum class Laid : uint8_t { Refused, Unchanged, Wanted };

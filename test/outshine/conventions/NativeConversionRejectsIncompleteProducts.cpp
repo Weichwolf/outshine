@@ -2,16 +2,15 @@
 #include "Subject.h"
 #include "Check.h"
 #include <array>
-#include <limits>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Geometry input;
-  const auto first = input.addSurface("valid", Material{});
+  const auto first = input.addSurface("valid", Material{}).value();
   Material invalid;
-  invalid.Roughness = std::numeric_limits<float>::quiet_NaN();
-  const auto last = input.addSurface("invalid", invalid);
+  invalid.NormalMap.Image = 0;
+  const auto last = input.addSurface("invalid", invalid).value();
   constexpr std::array positions{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   constexpr std::array indices{0u, 1u, 2u};
   for (const auto material : {first, last}) {

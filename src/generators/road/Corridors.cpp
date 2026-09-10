@@ -1322,12 +1322,12 @@ void Corridors::TellsWhatTheFitFound(Paved &into) {
         "stations");
 }
 
-void Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
+bool Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
                                    const RoadRaised &pavement,
                                    Paved &into,
                                    Geometry &ground) {
 
-  if (pavement.Index.size() < 3) { return; }
+  if (pavement.Index.size() < 3) { return true; }
   Material tarmac;
   for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
   {
@@ -1335,8 +1335,9 @@ void Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wear
     tarmac.Roughness =
         asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
   }
-  const MaterialInstance paved = ground.addSurface("streets", tarmac);
-  const int pavedPart = ground.addPart("streets", paved);
+  const auto paved = ground.addSurface("streets", tarmac);
+  if (!paved) { return false; }
+  const int pavedPart = ground.addPart("streets", *paved);
   const bool tookPaving =
       pavedPart >= 0 &&
       ground.setPositions(
@@ -1349,7 +1350,7 @@ void Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wear
           std::span<const float>(pavement.ColourRgba.data(), pavement.ColourRgba.size())) &&
       ground.setTriangles(pavedPart,
                           std::span<const uint32_t>(pavement.Index.data(), pavement.Index.size()));
-  Notes(into, "streets: the surface they were given", static_cast<double>(paved.index()), "index");
+  Notes(into, "streets: the surface they were given", static_cast<double>(paved->index()), "index");
   Notes(into, "streets: the part they were given", static_cast<double>(pavedPart), "index");
   Notes(into, "streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
   Notes(into,
@@ -1358,6 +1359,7 @@ void Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wear
         "triangles");
   Notes(
       into, "streets: parts the geometry now holds", static_cast<double>(ground.parts()), "parts");
+  return tookPaving;
 }
 
 std::unordered_map<uint64_t, uint32_t>
@@ -1375,7 +1377,7 @@ Corridors::SharedNodesOf(const outshine::Ground::StreetField &ways,
   return shared;
 }
 
-void Corridors::Lay(const Site &site,
+bool Corridors::Lay(const Site &site,
                     Geometry &ground,
                     std::vector<Yields> *corridorOut,
                     std::vector<Measure> *notes) const {
@@ -1576,7 +1578,7 @@ void Corridors::Lay(const Site &site,
   const size_t pavedTriangles = pavement.Index.size() / 3;
   Notes(into, "streets: triangles", static_cast<double>(pavedTriangles), "triangles");
   const auto handingAt = std::chrono::steady_clock::now();
-  HandsThePavingOver(site.Stack.Materials(), pavement, into, ground);
+  if (!HandsThePavingOver(site.Stack.Materials(), pavement, into, ground)) { return false; }
   Notes(into,
         "streets: of that, handing the paving over",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handingAt)
@@ -1588,5 +1590,6 @@ void Corridors::Lay(const Site &site,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pavesAt).count(),
       "ms");
   *notes = std::move(into.Notes);
+  return true;
 }
 }

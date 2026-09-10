@@ -45,7 +45,7 @@ int main() {
   Material white;
   white.BaseColour = {{1, 1, 1, 1}};
   white.Unlit = true;
-  const int controlPart = control.addPart("control", control.addSurface("white", white));
+  const int controlPart = control.addPart("control", control.addSurface("white", white).value());
   CHECK(control.setPositions(controlPart, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
             control.setTriangles(controlPart, std::array<uint32_t, 3>{0, 1, 2}),
         "foreground control geometry stands");

@@ -8,7 +8,7 @@ int main() {
   Geometry geometry;
   Material previous;
   previous.Roughness = 0.25f;
-  const auto index = geometry.addSurface("kept", previous);
+  const auto index = geometry.addSurface("kept", previous).value();
   for (const bool missingImage : {false, true}) {
     auto invalid = previous;
     if (missingImage) {
@@ -17,14 +17,14 @@ int main() {
       invalid.Metalness = std::numeric_limits<float>::quiet_NaN();
     }
     const auto result = geometry.setSurface(index, invalid);
-    CHECK(!result && result.error() == MaterialUpdateError::InvalidMaterial,
+    CHECK(!result && result.error() == MaterialError::InvalidMaterial,
           "invalid replacement rejected with its typed error");
     CHECK(geometry.surfaceAt(index) == previous && geometry.surfaces() == 1 &&
               geometry.surfaceNameOf(0) == "kept",
           "failed replacement preserves values and identity");
   }
   const auto missing = geometry.setSurface(MaterialInstance(7), previous);
-  CHECK(!missing && missing.error() == MaterialUpdateError::MissingMaterial,
+  CHECK(!missing && missing.error() == MaterialError::MissingMaterial,
         "missing slot distinguished");
   auto replacement = previous;
   replacement.Roughness = 0.75f;

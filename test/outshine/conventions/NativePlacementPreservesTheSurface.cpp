@@ -9,7 +9,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Geometry geometry;
-  const int part = geometry.addPart("inclined plane", geometry.addSurface("dielectric", {}));
+  const int part =
+      geometry.addPart("inclined plane", geometry.addSurface("dielectric", {}).value());
   const float unit = std::sqrt(0.5f);
   CHECK(geometry.setPositions(part, std::array<float, 9>{0, 0, 0, 1, 0, -1, 0, 1, 0}), "positions");
   CHECK(

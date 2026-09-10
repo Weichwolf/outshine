@@ -5,8 +5,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Geometry geometry;
-  const auto first = geometry.addSurface("first", {});
-  const auto second = geometry.addSurface("second", {});
+  const auto first = geometry.addSurface("first", {}).value();
+  const auto second = geometry.addSurface("second", {}).value();
   const int part = geometry.addPart("part", first);
   Mat4 placement;
   placement.SetTranslation({{3, 5, 7}});

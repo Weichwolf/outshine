@@ -17,8 +17,7 @@ namespace MaterialValidation {
   return std::isfinite(value) && value >= 0.0f;
 }
 
-[[nodiscard]] inline bool Map(const SurfaceMap &map, size_t images) noexcept {
-  if (map.bound() && std::cmp_greater_equal(map.Image, images)) { return false; }
+[[nodiscard]] inline bool MapParameters(const SurfaceMap &map) noexcept {
   if (map.Set != UvSet::Uv0 && map.Set != UvSet::Uv1) { return false; }
   const auto filter = [](Filter value) {
     return value == Filter::Nearest || value == Filter::Linear;
@@ -71,7 +70,7 @@ namespace MaterialValidation {
 }
 }
 
-[[nodiscard]] inline bool MaterialIsValid(const Material &row, size_t images) noexcept {
+[[nodiscard]] inline bool MaterialValuesAreValid(const Material &row) noexcept {
   if (!MaterialValidation::Factors(row)) { return false; }
   if (row.Alpha != AlphaMode::Opaque && row.Alpha != AlphaMode::Masked &&
       row.Alpha != AlphaMode::Blended) {
@@ -85,7 +84,21 @@ namespace MaterialValidation {
                         &row.SpecularStrengthMap,
                         &row.SpecularTintMap};
   return std::ranges::all_of(
-      maps, [images](const SurfaceMap *map) { return MaterialValidation::Map(*map, images); });
+      maps, [](const SurfaceMap *map) { return MaterialValidation::MapParameters(*map); });
+}
+
+[[nodiscard]] inline bool MaterialIsValid(const Material &row, size_t images) noexcept {
+  if (!MaterialValuesAreValid(row)) { return false; }
+  const std::array maps{&row.BaseColourMap,
+                        &row.NormalMap,
+                        &row.MetalRoughMap,
+                        &row.EmissiveMap,
+                        &row.OcclusionMap,
+                        &row.SpecularStrengthMap,
+                        &row.SpecularTintMap};
+  return std::ranges::all_of(maps, [images](const SurfaceMap *map) {
+    return !map->bound() || std::cmp_less(map->Image, images);
+  });
 }
 }
 #endif

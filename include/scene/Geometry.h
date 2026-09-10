@@ -14,10 +14,11 @@
 
 namespace outshine {
 
-/// Failure when replacing one owned material; neither error changes stored values.
-enum class MaterialUpdateError {
-  MissingMaterial, ///< The owner-local material index is absent.
-  InvalidMaterial  ///< Factors, texture parameters or owner-local image bindings are invalid.
+/// Failure when adding or replacing an owned material; stored values remain unchanged.
+enum class MaterialError {
+  CapacityExceeded, ///< The owner-local material count or storage capacity is exhausted.
+  MissingMaterial,  ///< The owner-local material index is absent.
+  InvalidMaterial   ///< Factors, texture parameters or owner-local image bindings are invalid.
 };
 
 /// Move-only owner of CPU mesh attributes, materials, images, lights and part placements.
@@ -95,11 +96,16 @@ public:
   /// O(1), no allocation; requires exclusive access.
   [[nodiscard]] bool setMaterial(int part, MaterialInstance surface) noexcept;
 
-  /// Append a copied material; numeric and texture-reference validity is the caller's duty.
+  /// Append a material after validating its numeric, sampler and UV values.
+  /// Image references may point to images added later; wellFormed() requires them to resolve.
+  /// InvalidMaterial or CapacityExceeded leaves values, names and slot numbering unchanged.
+  /// Requires exclusive access to this non-moved-from owner. Validation is constant time;
+  /// success copies the name and may allocate or relocate material records.
   /// @param named Name copied into this owner.
   /// @param surface Metallic-roughness material with owner-local image references.
-  /// @return New owner-local material reference. May allocate and relocate material records.
-  [[nodiscard]] MaterialInstance addSurface(std::string_view named, const Material &surface);
+  /// @return New owner-local material reference, or the validation/capacity error.
+  [[nodiscard]] std::expected<MaterialInstance, MaterialError> addSurface(std::string_view named,
+                                                                          const Material &surface);
   /// Append copied light data and placement without numeric validation; may allocate.
   /// @param named Name copied into this owner.
   /// @param light Local light data with PunctualLight's units and conventions.
@@ -197,8 +203,8 @@ public:
   /// @param row Replacement data, including owner-local image references.
   /// @return Success or a typed failure preserving all previous values, names and indices.
   /// Image bindings must already resolve in this owner; no forward references on replacement.
-  [[nodiscard]] std::expected<void, MaterialUpdateError> setSurface(MaterialInstance surface,
-                                                                    const Material &row) noexcept;
+  [[nodiscard]] std::expected<void, MaterialError> setSurface(MaterialInstance surface,
+                                                              const Material &row) noexcept;
 
   /// @return Number of owned lights.
   [[nodiscard]] int lamps() const;

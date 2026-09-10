@@ -20,7 +20,9 @@ struct Surface {
 
   bool Into(Geometry &geometry, const char *name, const Material &material) const {
     if (Indices.empty()) { return true; }
-    const int part = geometry.addPart(name, geometry.addSurface(name, material));
+    const auto surface = geometry.addSurface(name, material);
+    if (!surface) { return false; }
+    const int part = geometry.addPart(name, *surface);
     return part >= 0 && geometry.setPositions(part, Positions) &&
            geometry.setNormals(part, Normals) && geometry.setTexture(part, Uvs) &&
            geometry.setTriangles(part, Indices);

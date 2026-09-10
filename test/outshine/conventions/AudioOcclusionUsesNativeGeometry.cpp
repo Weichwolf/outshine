@@ -11,7 +11,7 @@ int main() {
   Geometry geometry;
   const std::array<float, 9> wall{-1, -1, 0, 1, -1, 0, 0, 1, 0};
   const std::array<uint32_t, 3> indices{0, 1, 2};
-  const int material = geometry.addSurface("wall", {}).index();
+  const int material = geometry.addSurface("wall", {}).value().index();
   for (int n = 0; n < 2; ++n) {
     const int part = geometry.addPart("wall", MaterialInstance(material));
     CHECK(geometry.setPositions(part, wall), "native wall positions");

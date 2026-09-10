@@ -22,7 +22,7 @@ int main(void) {
 
   Geometry made;
   Material flat;
-  const MaterialInstance surface = made.addSurface("flat", flat);
+  const MaterialInstance surface = made.addSurface("flat", flat).value();
   const int part = made.addPart("triangle", surface);
   CHECK(part >= 0, "the geometry stands a part to fill");
 

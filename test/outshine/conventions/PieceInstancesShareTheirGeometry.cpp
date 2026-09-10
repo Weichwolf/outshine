@@ -24,7 +24,7 @@ int main() {
     return Report();
   }
   Geometry base;
-  const int part = base.addPart("offscreen", base.addSurface("white", Material{}));
+  const int part = base.addPart("offscreen", base.addSurface("white", Material{}).value());
   CHECK(base.setPositions(part,
                           std::array<float, 18>{-100.4f,
                                                 -0.4f,
@@ -58,7 +58,7 @@ int main() {
   masked.BaseColourMap.Sampler.Minify = masked.BaseColourMap.Sampler.Magnify = Filter::Nearest;
   masked.BaseColourMap.Sampler.Mip = MipFilter::None;
   masked.NormalMap.Image = base.addImage(1, 1, std::array<uint8_t, 4>{191, 159, 231, 255});
-  const int maskPart = base.addPart("masked-offscreen", base.addSurface("masked", masked));
+  const int maskPart = base.addPart("masked-offscreen", base.addSurface("masked", masked).value());
   CHECK(base.setPositions(maskPart,
                           std::array<float, 9>{99.6f, -0.4f, 0, 100.4f, -0.4f, 0, 100, 0.4f, 0}),
         "masked base positions");
@@ -314,13 +314,13 @@ int main() {
   Geometry missing;
   Material absent;
   absent.BaseColourMap.Image = 0;
-  (void)missing.addSurface("missing image", absent);
+  (void)missing.addSurface("missing image", absent).value();
   CHECK(!scene->RegisterPieceSurfaces(std::move(missing), error),
         "registration refuses a missing native image");
   Geometry glass;
   Material transmitted;
   transmitted.Transmission = 1;
-  (void)glass.addSurface("undeclared glass pass", transmitted);
+  (void)glass.addSurface("undeclared glass pass", transmitted).value();
   CHECK(!scene->RegisterPieceSurfaces(std::move(glass), error),
         "registration refuses an unsupported pass");
   error.clear();
@@ -330,7 +330,7 @@ int main() {
     material.BaseColour = {{1, 1, 1, 1}};
     material.Unlit = true;
     material.BaseColourMap.Image = source.addImage(1, 1, colour);
-    (void)source.addSurface("registered prototype", material);
+    (void)source.addSurface("registered prototype", material).value();
     return scene->RegisterPieceSurfaces(std::move(source), error);
   };
   const auto registeredGreen = registerColour(green);
@@ -375,8 +375,8 @@ int main() {
         "another image owner does not alter resident pixels");
   CHECK(scene->Screenshot("build/instance-native/registered-before.png", error),
         "registered before-rebuild PNG is written");
-  (void)base.addSurface("extra native material one", Material{});
-  (void)base.addSurface("extra native material two", Material{});
+  (void)base.addSurface("extra native material one", Material{}).value();
+  (void)base.addSurface("extra native material two", Material{}).value();
   CHECK(scene->SetGeometry(base.clone(), 0, error),
         "native material growth rebuilds around resident registered pieces");
   scene->Eye(eye);
