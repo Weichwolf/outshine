@@ -89,7 +89,6 @@ Einheiten, Reichweite, Ownership und Fehlerpublikation nach Implementierungsprü
 Abnahme: öffentlicher registrierter Probe-Generator sieht deklarierte Region/Parameter;
 Reader/Writer-Rundlauf erhält sie; Fehler bewahrt Vorgängerszene. Gebäudemaße bleiben
 bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkontrolle.
-
 Writer erhält LatLon jetzt bitgenau mit std::format; sechs Nachkommastellen konnten
 Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind mehr.
 ReadScenarioOsm prüft Koordinaten/Featurebudget und Maße/Ebenen strikt. Grenz- und
@@ -101,7 +100,6 @@ Public-API-Test: elf Fehlerarten × Welt deklariert/nicht deklariert erhalten Zu
 Input und starten keinen Producer; gültige Grenzen/Featurebudget akzeptiert. Vier Tests
 grün, alter Engine-Pfad rot. Wien c307cab8 bytegleich und PNG geöffnet.
 Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung bleiben offen.
-
 ## Dokument als native Deklaration
 Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht zur
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
@@ -111,7 +109,9 @@ acrossM bezog fälschlich den Ursprung in Kontaktbreiten ein. Datenverträge anh
 Assembly/PrepareBodies dokumentiert; drei Assembly/Gravity/Audio-Regressionsfälle grün.
 Body-Dynamik: gemeinsame Eingabeprüfung vor declare/Assembly und nach strengem XML-
 Parsing: Masse/diagonale Trägheit endlich >=0, Position endlich, Quaternion unit
-(Normtoleranz 1e-6). Abgeleitete Kraftüberläufe bleiben separat offen.
+(Normtoleranz 1e-6). Altcode verletzt zwei Negativkontrollen, fünf Regressionen grün.
+ReadBodies: Drive-Dekodierung als eigene Phase trennen, nicht Prüfungen streichen.
+Abgeleitete Kraftüberläufe bleiben separat offen.
 Kontakt/Antrieb/Aero, Geodäsie, Schwerpunkt und Asset-Fitting bleiben offen.
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
