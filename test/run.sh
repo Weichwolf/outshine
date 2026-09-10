@@ -475,8 +475,10 @@ UpToDate() {
   depsPath=${objectPath%.o}.d
   [ -f "$objectPath" ] || return 1
   [ -f "$depsPath" ] || return 1
+  [ -f "$sourcePath" ] || return 1
   [ "$objectPath" -nt "$sourcePath" ] || return 1
   for readAlso in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$depsPath"); do
+    [ -f "$readAlso" ] || return 1
     [ "$objectPath" -nt "$readAlso" ] || return 1
   done
   return 0

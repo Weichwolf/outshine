@@ -112,4 +112,5 @@ Verschieben von Keyframes bleibt Pose mit altem Klassenlayout im Objektcache.
 Existenz jeder Quelle und Compiler-Abhängigkeit vor dem Zeitvergleich verlangen.
 Regression führt die echte Runner-Funktion mit gültigem, neuerem und entferntem
 Header sowie entfernter Quelle aus; danach Import-/Posefälle ohne Cache-Löschung
-neu bauen. Keine Bildänderung beabsichtigt; vollständiges lint bleibt Pflicht.
+neu gebaut: acht Prüfungen grün, Altcode verletzt die Cache-Negativkontrolle.
+Keine Bildänderung beabsichtigt; vollständiges lint bleibt Pflicht.
