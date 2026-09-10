@@ -89,3 +89,14 @@ normal und mit Sanitizer-Abbruch, ohne Buildfehler. Neuer Reader prüft Kommando
 Nullsegmente und int32-Koordinatengrenzen; ClosePath-Cursor und Loch-Winding geprüft.
 Parse-Komplexität 111→71. Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-
 Tests grün, drei rote Gruppen. Wien visuell geöffnet und 0/921600 Pixel verändert.
+
+## Parser-Publikation
+Parse dekodiert in einen eigenen Kandidaten und ersetzt den bisherigen Parserzustand
+nur bei Erfolg. Fehler und fehlende Ebene erhalten alle alten Daten und Views.
+Auch nach der gewählten Ebene äußere Feldrahmen bis zum Ende prüfen; doppelte Namen
+der gewählten Ebene ablehnen. Vorhandene Reader bleiben geliehen, Ergebnis besitzt Daten.
+Tests: gültige Ebene laden, dann frühe/späte Defekte und fehlende Ebene; Inhalt und
+Storage-Adressen müssen erhalten bleiben, erfolgreicher Ersatz muss wirksam werden.
+Dies betrifft OsmVector; OsmField::Accept publiziert weiterhin zu früh und muss danach
+auf einen vollständigen nativen Kachelkandidaten umgestellt werden. Kandidat benötigt
+vorübergehend zusätzlichen Speicher; explizite Bytebudgets bleiben offen.
