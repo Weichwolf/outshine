@@ -48,6 +48,7 @@ constexpr size_t kCorners = 4;
 }
 
 bool Structures::make(const Request &asked, Geometry &into) const {
+  if (!asked.Parameters.empty()) { return false; }
   const double sideM = asked.ExtentM > 0.0 && asked.ExtentM < 200.0 ? asked.ExtentM : 12.0;
   const double lat = asked.LatitudeDeg;
   const double lon = asked.LongitudeDeg;

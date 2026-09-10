@@ -100,6 +100,14 @@ inline constexpr double kErrorPx = 1.0;
 static_assert(Coarser(Detail::Fine, Detail::Massed) == Detail::Massed);
 static_assert(Coarser(Detail::Skyline, Detail::Shell) == Detail::Skyline);
 
+/// Borrowed, case-sensitive generator setting; values are not parsed or normalized.
+/// Both views remain valid only during make/stamps. Copy their characters to retain them.
+/// The receiving generator defines supported names, units, duplicates and value syntax.
+struct Parameter {
+  std::string_view Name;  ///< Borrowed setting identifier; no null terminator is promised.
+  std::string_view Value; ///< Borrowed textual value interpreted by the receiving generator.
+};
+
 /// Value-only generation request with a borrowed terrain provider.
 /// Copies do not extend Ground's lifetime. The generator borrows the request for the
 /// duration of make/stamps; the caller keeps its values and terrain inputs stable.
@@ -109,7 +117,8 @@ struct Request {
   double LatitudeDeg = 0.0;  ///< Window centre latitude, finite and within [-90, 90] degrees.
   double LongitudeDeg = 0.0; ///< Window centre longitude, finite and within [-180, 180] degrees.
   double ExtentM = 0.0;      ///< Window extent in metres; interpretation is generator-specific.
-  uint64_t Seed = 0;         ///< Root seed for reproducible choices with unchanged input data.
+  std::span<const Parameter> Parameters; ///< Borrowed ordered settings; valid only for this call.
+  uint64_t Seed = 0; ///< Root seed for reproducible choices with unchanged input data.
   const HeightSampler *Ground = nullptr; ///< Borrowed terrain provider, or nullptr if unavailable.
   Detail Coarseness = Detail::Fine; ///< Requested representation; support is generator-specific.
 };

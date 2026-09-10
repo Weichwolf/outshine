@@ -93,9 +93,9 @@ Geräteübersetzung sind umgesetzt; vorhandene Geräte-/UI-/Fehlererhaltstests b
 
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
 Request::ExtentM weitergegeben. Structures::make benutzt ExtentM als Gebäudeseitenlänge
-(sonst still 12 m). ReadWorld liest radiusM, WriteScenario verliert es. Außerdem werden
-Generating::Parameters beim Generatoraufruf ignoriert. Quellbefund, keine gültigen
-SOLL-Verträge; nicht durch Dokumentation oder identische Umbenennung legitimieren.
+(sonst still 12 m). ReadWorld liest radiusM, WriteScenario verliert es. Generating::Parameters werden inzwischen serialisiert und als geliehene native
+Parameter weitergereicht. Radius-/Extent-Kopplung bleibt ein ungültiger SOLL-Vertrag;
+nicht durch Dokumentation oder identische Umbenennung legitimieren.
 
 Mit 2126 umsetzen: Georeferenz enthält Position/Referenzrahmen, keine Objektgröße.
 Generierungsregion hat einen einheitlichen räumlichen Vertrag; Gebäudeabmessungen sind
@@ -111,3 +111,7 @@ Einheiten, Reichweite, Ownership und Fehlerpublikation nach Implementierungsprü
 Abnahme: öffentlicher registrierter Probe-Generator sieht deklarierte Region/Parameter;
 Reader/Writer-Rundlauf erhält sie; Fehler bewahrt Vorgängerszene. Gebäudemaße bleiben
 bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkontrolle.
+
+Parameterpfad geprüft: öffentlicher Probe-Generator, exakter XML-Rundlauf, frischer
+Asset-Aufruf, unbekannte Registrierung und verweigerte Builtin-Parameter. Zwei Tests
+bestehen, entfernte Weiterleitung scheitert. Lint 186/330, 32 Claims grün; Wien bytegleich.

@@ -185,21 +185,22 @@ struct Provider {
   std::string WhenAbsent;
 };
 
+/// Owned named textual setting. Copies retain both strings independently.
+/// Values are not parsed here; each consumer defines names, units and value syntax.
+/// This value type provides no validation or synchronization; string storage may allocate.
 struct Setting {
-  std::string Name;
-  std::string Value;
+  std::string Name;  ///< Exact case-sensitive setting identifier.
+  std::string Value; ///< Owned value text, preserved without normalization.
 };
 
-/// One generator a scenario ASKS FOR, by kind, with the settings it is to run under.
-///
-/// It is not a generator: `Generators::Generator` is the thing with `kind()` and `make()`, and it
-/// lives in the generator library's own door. This is the DECLARATION of one -- the same shape as
-/// @ref Compositor beside it -- and naming both ends `Generator` made one word mean the asking and
-/// the answering at once.
+/// Owned request for a registered generator, executed during Engine::declare preparation.
+/// Copies own the registration name and settings. The engine borrows parameter views
+/// only during the producer call; unknown registrations and producer refusals fail declare.
+/// Generation may allocate and query providers. This declaration provides no synchronization.
 struct Generating {
-  /// Which generator, by the `kind()` it answers to.
-  std::string Kind;
-  /// What it is to run under. A setting not named leaves the generator's own default standing.
+  std::string Kind; ///< Exact registered generator identity; empty or unknown names fail declare.
+  /// Ordered settings forwarded without parsing. The generator validates supported values.
+  /// Empty selects the generator's defaults; unsupported settings must be refused.
   std::vector<Setting> Parameters;
 };
 

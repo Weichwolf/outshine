@@ -1,3 +1,4 @@
+#include <span>
 #include "ScenarioWrite.h"
 
 #include <format>
@@ -61,6 +62,24 @@ void StandingAs(std::string &into,
     Number(into, "qw", stands.Facing.W);
   }
   into += "/>\n";
+}
+
+void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
+  if (generators.empty()) { return; }
+  said += "  <generators>\n";
+  for (const auto &generator : generators) {
+    said += "    <generator";
+    Said(said, "kind", generator.Kind);
+    said += ">\n";
+    for (const auto &parameter : generator.Parameters) {
+      said += "      <set";
+      Said(said, "name", parameter.Name);
+      Said(said, "value", parameter.Value);
+      said += "/>\n";
+    }
+    said += "    </generator>\n";
+  }
+  said += "  </generators>\n";
 }
 
 }
@@ -175,6 +194,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
     }
     said += "  </views>\n";
   }
+  WriteGenerators(said, declared.Generators);
   return said + "</scenario>\n";
 }
 

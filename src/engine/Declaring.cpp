@@ -24,6 +24,7 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kUnknownGenerator = "no generator registered for kind: ";
 constexpr auto kInvalidWheelStep = "wheelStepPx requires a finite nonnegative value";
 constexpr auto kInvalidWheelEvent = "wheel position and pixel displacement must be finite";
 constexpr auto kInputHostMissing = "a bound input action requires an offered host";
@@ -417,20 +418,30 @@ bool Engine::generated(const Scenario::Document &scenario) {
   asked.Ground = &stands;
 
   Geometry made;
-  const auto offered = [&](const std::string &kind) {
+  const auto offered = [&](const std::string &kind, std::span<const Scenario::Setting> settings) {
     const Generators::Generator *const stood = S_->World.Offering.named(kind);
-    if (stood == nullptr) { return true; }
-    if (stood->make(asked, made)) { return true; }
+    if (stood == nullptr) {
+      S_->Error = Says::kUnknownGenerator + kind;
+      return false;
+    }
+    std::vector<Generators::Parameter> parameters;
+    parameters.reserve(settings.size());
+    for (const auto &setting : settings) {
+      parameters.push_back({.Name = setting.Name, .Value = setting.Value});
+    }
+    auto request = asked;
+    request.Parameters = parameters;
+    if (stood->make(request, made)) { return true; }
     S_->Error = "the generator of kind '" + kind + "' refused to make anything";
     return false;
   };
 
   for (const Scenario::Asset &shown : scenario.Assets) {
     if (shown.Kind != "generated") { continue; }
-    if (!offered(shown.Uri)) { return false; }
+    if (!offered(shown.Uri, {})) { return false; }
   }
   for (const Scenario::Generating &named : scenario.Generators) {
-    if (!offered(named.Kind)) { return false; }
+    if (!offered(named.Kind, named.Parameters)) { return false; }
   }
   return made.parts() == 0 || setGeometry(made);
 }
