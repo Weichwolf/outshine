@@ -1,5 +1,5 @@
 Type: defect
-State: open
+State: active
 Parent: 2131
 Area: engine, world, scenario
 Tags: architecture, audit, data-driven
@@ -34,3 +34,12 @@ Source-Version/Pin muss Cache-Identität und Replay tatsächlich bestimmen.
 - [ ] Offline mit vollständigem Cache erfolgreich; Miss explizit, null Netzwerkanfragen.
 - [ ] Negativkontrolle ShippedProviders statt Deklaration wird durch Request-Oracle erkannt.
 - [ ] Datenherkunft im Rendermanifest; gleicher Snapshot reproduzierbar, Make-Lint grün.
+
+## Deklarationserhaltung
+Writer verliert Providers und Compositors vollständig. Beide Listen mit Reihenfolge
+und allen Feldern exportieren; XML-Escaping und int-Ranggrenzen unabhängig prüfen.
+Compositor-On als kanonisches true/false schreiben, unabhängig vom offenen yes/no-Fix.
+Öffentliche Typen dokumentieren Besitz und derzeit fehlende Runtime-Wirkung.
+Diese Erhaltung ersetzt weder Provider-Registry noch Compositor-Implementierung.
+Abnahme: Reader/Writer-Fixture mit mehreren Einträgen, Escaping, Rangextrema, bool
+und endlichen Pixelbudgets; Altwriter muss am Inhaltsvergleich scheitern.
