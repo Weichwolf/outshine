@@ -40,15 +40,15 @@ int main() {
     const std::array<Bytes, 2> features{kLine, bad};
     const auto tile = Tile(features);
     OsmVector decoded;
-    bool present = false;
-    CHECK(!decoded.Parse(tile.data(), tile.size(), "x", &present) && present,
+    const auto result = decoded.Parse(tile, "x");
+    CHECK(!result && result.error() == OsmVector::ParseError::InvalidTile,
           "late malformed feature refuses the present layer");
   }
   for (const auto &tail : std::vector<Bytes>{{0x80}, {0}, {0x28, 0x80}}) {
     const std::array<Bytes, 1> features{kLine};
     const auto tile = Tile(features, tail);
     OsmVector decoded;
-    CHECK(!decoded.Parse(tile.data(), tile.size(), "x"), "truncated layer field refuses parsing");
+    CHECK(!decoded.Parse(tile, "x"), "truncated layer field refuses parsing");
   }
   for (const auto &feature : std::vector<Bytes>{
            kLine,
@@ -58,7 +58,7 @@ int main() {
     const std::array<Bytes, 1> features{feature};
     const auto tile = Tile(features);
     OsmVector decoded;
-    CHECK(decoded.Parse(tile.data(), tile.size(), "x") && decoded.Features().size() == 1,
+    CHECK(decoded.Parse(tile, "x") && decoded.Features().size() == 1,
           "packed, unpacked and segmented forms are valid");
     const std::array<int32_t, 4> points{0, 0, 1, 1};
     CHECK(std::ranges::equal(decoded.Points(), points) && decoded.Rings().size() == 1 &&

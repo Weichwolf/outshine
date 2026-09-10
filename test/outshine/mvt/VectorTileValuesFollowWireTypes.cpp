@@ -49,7 +49,7 @@ int main() {
   for (const auto &one : cases) {
     const auto tile = Tile(one.Wire);
     OsmVector decoded;
-    CHECK(decoded.Parse(tile.data(), tile.size(), "x") && decoded.Features().size() == 1,
+    CHECK(decoded.Parse(tile, "x") && decoded.Features().size() == 1,
           "typed numeric fixture parses");
     if (decoded.Features().empty()) { continue; }
     const auto tag = decoded.TagAt(decoded.Features().front(), 0);
@@ -62,8 +62,8 @@ int main() {
       auto exact = std::make_unique<uint8_t[]>(tile.size());
       std::ranges::copy(tile, exact.get());
       OsmVector decoded;
-      bool present = false;
-      CHECK(!decoded.Parse(exact.get(), tile.size(), "x", &present) && present,
+      const auto result = decoded.Parse(std::span(exact.get(), tile.size()), "x");
+      CHECK(!result && result.error() == OsmVector::ParseError::InvalidTile,
             "every truncated fixed-width payload refuses the present layer");
     }
   }
@@ -77,18 +77,17 @@ int main() {
                           {0x0a, 5, 'x'}}) {
     const auto tile = Tile(bad);
     OsmVector decoded;
-    CHECK(!decoded.Parse(tile.data(), tile.size(), "x"), "malformed or untyped value is refused");
+    CHECK(!decoded.Parse(tile, "x"), "malformed or untyped value is refused");
   }
   const auto stringTile = Tile(Bytes{0x0a, 4, 'r', 'o', 'c', 'k', 0x40, 1});
   OsmVector decoded;
-  CHECK(decoded.Parse(stringTile.data(), stringTile.size(), "x"),
-        "string plus unknown extension is valid");
+  CHECK(decoded.Parse(stringTile, "x").has_value(), "string plus unknown extension is valid");
   if (!decoded.Features().empty()) {
     CHECK(decoded.Str(decoded.Features().front(), "value") == "rock",
           "string bytes survive unknown extension");
   }
   const auto duplicate = Tile(Bytes{0x38, 0, 0x38, 1});
-  CHECK(decoded.Parse(duplicate.data(), duplicate.size(), "x"),
+  CHECK(decoded.Parse(duplicate, "x").has_value(),
         "protobuf last-one-wins for repeated singular field");
   if (!decoded.Features().empty()) {
     CHECK(decoded.Num(decoded.Features().front(), "value", -1) == 1,

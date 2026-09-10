@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_OSMVECTOR_H
 
 #include <cstdint>
+#include <expected>
 #include <span>
 #include <string>
 #include <string_view>
@@ -22,8 +23,10 @@ public:
     int Type = 0;
   };
 
-  [[nodiscard]] bool
-  Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present = nullptr);
+  enum class ParseError { MissingLayer, InvalidTile, UnsupportedVersion };
+
+  [[nodiscard]] std::expected<void, ParseError> Parse(std::span<const uint8_t> bytes,
+                                                      std::string_view layer);
 
   [[nodiscard]] int Extent() const { return Extent_; }
 
@@ -47,7 +50,8 @@ public:
   [[nodiscard]] Tag TagAt(const Feature &f, uint32_t i) const;
 
 private:
-  [[nodiscard]] bool Decode(std::span<const uint8_t> bytes, std::string_view layer, bool *present);
+  [[nodiscard]] std::expected<void, ParseError> Decode(std::span<const uint8_t> bytes,
+                                                       std::string_view layer);
 
   int Extent_ = 4096;
   std::vector<Feature> Features_;

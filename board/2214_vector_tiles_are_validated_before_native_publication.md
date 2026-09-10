@@ -80,3 +80,7 @@ OsmField verwendet diese Fehler direkt und übergibt die originale Spangröße o
 size_t→int→size_t-Verengung. Native Kacheltransaktion bleibt der anschließende Schritt.
 Tests unterscheiden leere/fehlende Ebenen, frühe/späte Schäden und unbekannte Version;
 Mutant InvalidTile→MissingLayer muss scheitern. Bestehende Ablehnungsassertionen bleiben.
+Ergebnisvertrag geprüft: zehn MVT-Läufe normal/sanitisiert grün. Mutant, der alle
+Fehler als MissingLayer meldet, scheitert in beiden Varianten ohne Buildfehler.
+Lint unverändert 184/330, 32 Repository-Tests grün; drei rote Gruppen. Keine neuen
+Bildregeln; frühere Wien-Abnahme bleibt Regression des vorherigen Header-Schritts.

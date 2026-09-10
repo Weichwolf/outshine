@@ -34,12 +34,12 @@ int main() {
                           {0x0a, 1, 'x', 0x78, 2, 0x28, 0xc0, 0x80, 0x80, 0x80, 0x10}}) {
     const auto tile = Tile(header, Bytes{0, 0});
     OsmVector decoded;
-    CHECK(!decoded.Parse(tile.data(), tile.size(), "x"), "invalid layer header rejected");
+    CHECK(!decoded.Parse(tile, "x"), "invalid layer header rejected");
   }
   for (const auto &tags : std::vector<Bytes>{{0}, {0, 0, 0}, {1, 0}, {0, 1}}) {
     const auto tile = Tile(valid, tags);
     OsmVector decoded;
-    CHECK(!decoded.Parse(tile.data(), tile.size(), "x"), "invalid dictionary pair rejected");
+    CHECK(!decoded.Parse(tile, "x"), "invalid dictionary pair rejected");
   }
   for (const auto &header :
        std::vector<Bytes>{valid,
@@ -47,8 +47,7 @@ int main() {
                           {0x0a, 1, 'x', 0x78, 2, 0x28, 0xff, 0xff, 0xff, 0xff, 7}}) {
     const auto tile = Tile(header, Bytes{0, 0});
     OsmVector decoded;
-    CHECK(decoded.Parse(tile.data(), tile.size(), "x"),
-          "valid extent and later dictionaries accepted");
+    CHECK(decoded.Parse(tile, "x").has_value(), "valid extent and later dictionaries accepted");
     CHECK(decoded.Features().size() == 1 && decoded.Points().size() == 4 &&
               decoded.Points()[0] == -1 && decoded.Points()[2] == 1,
           "buffered coordinates remain legal outside extent");

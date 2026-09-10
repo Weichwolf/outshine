@@ -29,7 +29,7 @@ Bytes Tile(uint8_t type, std::span<const uint32_t> words) {
 
 bool Parse(outshine::Ground::OsmVector &decoded, uint8_t type, std::span<const uint32_t> words) {
   const auto tile = Tile(type, words);
-  return decoded.Parse(tile.data(), tile.size(), "x");
+  return decoded.Parse(tile, "x").has_value();
 }
 }
 

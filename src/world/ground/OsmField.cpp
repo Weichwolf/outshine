@@ -182,7 +182,6 @@ OsmField::Fetched OsmField::AddTile(TilePool &tiles, TileAt at) {
 int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   int added = 0;
   Settle(tx, ty);
-  const int got = static_cast<int>(vectorTile.size());
 
   const auto tile = static_cast<uint32_t>(Tiles_.size());
   Tiles_.push_back(Tile{.Z = Zoom_,
@@ -193,13 +192,17 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
 
   OsmVector mvt;
   for (uint16_t li = 0; li < static_cast<uint16_t>(Layers_.size()); li++) {
-    bool present = false;
-    if (!mvt.Parse(vectorTile.data(), static_cast<size_t>(got), Layers_[li].c_str(), &present)) {
-      if (present) {
+    const auto decoded = mvt.Parse(vectorTile, Layers_[li]);
+    if (!decoded) {
+      if (decoded.error() != OsmVector::ParseError::MissingLayer) {
         Bad_++;
         Log::Error(LogTag::World,
                    "vectile_undecodable",
-                   {{"z", Zoom_}, {"x", tx}, {"y", ty}, {"bytes", got}, {"layer", Layers_[li]}});
+                   {{"z", Zoom_},
+                    {"x", tx},
+                    {"y", ty},
+                    {"bytes", std::to_string(vectorTile.size())},
+                    {"layer", Layers_[li]}});
       } else {
         Missing_++;
       }
