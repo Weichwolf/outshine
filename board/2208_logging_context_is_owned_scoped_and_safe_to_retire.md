@@ -45,3 +45,15 @@ Nachweis: LoggingScopesRestoreThreadContext prüft fünf Verträge, alle grün;
 Altcode scheitert ohne Buildfehler. Finales make lint: 182 tidy-Befunde, 330
 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei bekannte rote Gruppen.
 Keine visuelle Änderung, kein neuer Render und keine TSan-/Shutdown-Abnahme behauptet.
+
+## Engine-Anbindung und Ausgabeserialisierung
+Framing.cpp::logsTo registriert global; Client Main und PlaceCamera nutzen diesen Pfad.
+Kontext muss über GroundStack::Open nach TilePool sowie über TerrainLoader und Tasks
+weitergegeben werden; bloßer ThreadScope um einen Engine-Aufruf erreicht Worker nicht.
+GroundStack::Close und Tasks-Join müssen vor Freigabe des geliehenen Sinks abschließen.
+TextLogSink::Write zerlegt ein Ereignis in mehrere print-Aufrufe und erfüllt dadurch
+die Callback-Nebenläufigkeit nicht auf Ereignisebene. Pro Sink einen Mutex über die
+gesamte Ausgabe einschließlich Flush halten. Synchroner blockierender Diagnoseadapter,
+keine Zusage begrenzter Framekosten. Unabhängiger Mehrthreadtest prüft vollständige
+Zeilen und exakte Ereignismenge; Negativkontrolle am bisherigen Code. Zwei separate
+Sinks am selben FILE sind damit nicht koordiniert und bleiben Host-Verantwortung.
