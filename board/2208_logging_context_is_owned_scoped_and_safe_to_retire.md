@@ -1,5 +1,5 @@
 Type: defect
-State: open
+State: active
 Parent: 2108
 Area: base, engine, include
 Tags: architecture, audit, lifecycle
@@ -32,3 +32,12 @@ Prozessweiter Sink höchstens ausdrücklich vom Host gewählter Adapter, kein ve
 - [ ] Thread-Sink funktioniert ohne globalen Sink; Shutdown wartet nur gemäß begrenztem Vertrag.
 - [ ] Negativkontrolle des bisherigen Scope-Destruktors verletzt das Kontextoracle.
 - [ ] Thread-/Lifetime-Tests und Lint; Framekosten mit aktivem Logging getrennt messen.
+
+## Nächster Umsetzungsschritt: lokale Scopes
+Vorhandene thread_local Unit ist bereits ein besitzender 32-Byte-Puffer, kein roher
+Labelzeiger. Scopes sichern/restaurieren diesen Puffer beziehungsweise den geliehenen
+Thread-Sink ohne Allokation und sind nicht kopier-/verschiebbar. Labels als StringView
+übernehmen, maximal 31 Bytes plus Terminator. Sink vor Nullprüfung auswählen.
+Unabhängige Callback-Aufzeichnung prüft Verschachtelung, frühen Return, Kopie eines
+veränderten Labels, Trunkierung und getrennte Threads. Altcode muss scheitern.
+Keine Bildänderung erwartet. Globale Registrierung und Engine-Isolation bleiben offen.
