@@ -176,20 +176,28 @@ public:
   [[nodiscard]] bool Read(int type) {
     if (type == 0) { return true; }
     if (Words_.empty()) { return false; }
-    if (type == 1) { return ReadCommand(1, 1, false) && Words_.empty(); }
+    if (type == 1) {
+      const size_t first = Points_.size() / 2;
+      return ReadCommand(1, 1, false) && Words_.empty() && AppendPart(first, true);
+    }
     while (!Words_.empty()) {
       const size_t first = Points_.size() / 2;
       if (!ReadCommand(1, 1, true) || !ReadCommand(2, type == 3 ? 2u : 1u, false)) { return false; }
       if (type == 3 && !Close(first)) { return false; }
-      if (Rings_.size() == std::numeric_limits<uint32_t>::max()) { return false; }
-      Rings_.push_back({.First = static_cast<uint32_t>(first),
-                        .Count = static_cast<uint32_t>(Points_.size() / 2 - first),
-                        .Exterior = type != 3 || PositiveArea(first)});
+      if (!AppendPart(first, type != 3 || PositiveArea(first))) { return false; }
     }
     return true;
   }
 
 private:
+  [[nodiscard]] bool AppendPart(size_t first, bool exterior) {
+    if (Rings_.size() == std::numeric_limits<uint32_t>::max()) { return false; }
+    Rings_.push_back({.First = static_cast<uint32_t>(first),
+                      .Count = static_cast<uint32_t>(Points_.size() / 2 - first),
+                      .Exterior = exterior});
+    return true;
+  }
+
   [[nodiscard]] bool ReadCommand(uint32_t id, uint32_t minimum, bool single) {
     if (Words_.empty()) { return false; }
     const uint32_t command = Words_.front();
@@ -339,6 +347,8 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
   feature.Tags.clear();
   feature.Geometry.clear();
   feature.Type = 0;
+  bool hasType = false;
+  bool hasGeometry = false;
   FieldHeader field;
   while (reader.ReadField(field)) {
     switch (static_cast<FeatureTag>((field.Number << 3u) | field.Wire)) {
@@ -351,11 +361,13 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
         }
         break;
       case FeatureTag::GeometryWord:
+        hasGeometry = true;
         if (!AppendWord(reader, feature.Geometry)) {
           return std::unexpected(Says::kInvalidMvtFeature);
         }
         break;
       case FeatureTag::PackedGeometry:
+        hasGeometry = true;
         if (!AppendPackedWords(reader.Bytes(), feature.Geometry)) {
           return std::unexpected(Says::kInvalidMvtFeature);
         }
@@ -364,6 +376,7 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
         const auto type = reader.Varint();
         if (!reader.Ok || type > 3) { return std::unexpected(Says::kInvalidMvtFeature); }
         feature.Type = static_cast<int>(type);
+        hasType = true;
         break;
       }
       default:
@@ -371,7 +384,7 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
         break;
     }
   }
-  if (!reader.Ok) { return std::unexpected(Says::kInvalidMvtFeature); }
+  if (!reader.Ok || !hasType || !hasGeometry) { return std::unexpected(Says::kInvalidMvtFeature); }
   return {};
 }
 
@@ -463,6 +476,7 @@ OsmVector::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodie
         encoded.Tags.size() > std::numeric_limits<uint32_t>::max() - Tags_.size()) {
       return std::unexpected(ParseError::InvalidTile);
     }
+    if (encoded.Type == 0) { continue; }
     Feature f{};
     f.Type = encoded.Type;
     f.FirstTag = static_cast<uint32_t>(Tags_.size());

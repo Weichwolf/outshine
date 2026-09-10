@@ -75,6 +75,10 @@ int main() {
   CHECK(Parse(points, 1, multiPoint), "specification multipoint accepted");
   CHECK(std::ranges::equal(points.Points(), std::array<int32_t, 4>{5, 7, 2, 2}),
         "multipoint cursor accumulates deltas");
+  CHECK(points.Rings().size() == 1 && points.Rings()[0].First == 0 &&
+            points.Rings()[0].Count == 2 && points.Features().size() == 1 &&
+            points.Features()[0].RingCount == 1,
+        "multipoint positions are referenced by their feature");
   OsmVector lines;
   const std::array<uint32_t, 14> multiLine{9, 4, 4, 18, 0, 16, 16, 0, 9, 17, 17, 10, 4, 8};
   CHECK(Parse(lines, 2, multiLine), "specification multiline accepted");

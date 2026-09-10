@@ -37,7 +37,8 @@ Importer liefern native Geometrie; Reader und Eingabepuffer bleiben an der Forma
   prüft kumulative Indexräume; deklarierte Pfade und Container-max_size bleiben offen.
 - [ ] Explizite Byte-/Decode-/Allokationsbudgets, Abbruch und inkrementelles Decode.
   Kandidaten erhöhen den Spitzenbedarf; Allokationsfehlervertrag mit WI 2194 abstimmen.
-- [ ] Vollständige Ringtopologie: Selbstschnitt, Selbstberührung, Lochzuordnung/-schnitt.
+- [ ] Vollständige Ringtopologie: robuste Orientierung auch bei großen Koordinaten,
+  Selbstschnitt, Selbstberührung, Lochzuordnung/-schnitt.
 - [ ] Alle Formatpflichtfelder, Feldnummern und sonstigen Versions-/Layerverträge;
   vollständige Kachelvalidierung gegenüber nur angeforderten Ebenen präzisieren.
 - [ ] Native Zahlentypen erhalten Integer oberhalb 2^53, statt Double als Universalspeicher.
@@ -108,3 +109,7 @@ Featuretyp erhalten; keine Verbindungssegmente erfinden. UNKNOWN nach MVT §4.3.
 überspringen. Type und Geometry müssen ausdrücklich vorhanden sein (§4.2), nicht durch
 Defaultwerte ersetzt werden. Native Einzel-/Mehrpunkt-Fixture mit analytischen
 Äquatorpositionen und Bounds, fehlende Pflichtfelder und UNKNOWN prüfen; alt muss scheitern.
+Punktabnahme: 14 MVT-/OSM-Prüfungen grün, Referenzierung und Pflichtfelder auch im
+direkt sanitisierten Decoder. Native Punktabnahme scheitert alt ohne Buildfehler.
+Wien-PNG geöffnet, pixelgleich. Lint unverändert 182/330, 32 Repository-Tests grün;
+drei rote Gruppen. POINT bleibt Punktmenge, UNKNOWN erzeugt keine nativen Features.

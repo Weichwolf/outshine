@@ -23,7 +23,11 @@ Bytes Tile(std::span<const Bytes> features, std::span<const uint8_t> tail = {}) 
 int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  for (const auto &bad : std::vector<Bytes>{{0x12, 1, 0x80},
+  for (const auto &bad : std::vector<Bytes>{{},
+                                            {0x18, 0},
+                                            {0x22, 0},
+                                            {0x22, 3, 9, 0, 0},
+                                            {0x12, 1, 0x80},
                                             {0x22, 1, 0x80},
                                             {0x12, 5, 0},
                                             {0x22, 5, 0},
