@@ -230,6 +230,11 @@ private:
   using OutgoingEdges = std::vector<std::vector<Edge>>;
   using EdgesByCell = std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>>;
 
+  [[nodiscard]] bool LocalTurnAllowsRadius(const Edge &incoming,
+                                           size_t previousNode,
+                                           const Edge &outgoing,
+                                           double minimumRadiusM) const;
+
   void SortWaysIntoDeclaredOrder();
   void StationsOfWays();
   void SlopesOfWays();

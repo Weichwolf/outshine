@@ -82,15 +82,15 @@ Graphabfragen, Trefferidentitäten/Rasterränder, TieReach aus Straßenbreiten, 
 Abbruch für Routing und vollständiger atomarer Graphaufbau. ApartM hat iterative
 Längengradnormalisierung; ungültige direkte Eingaben können nicht terminieren.
 
-## Nächster Schritt: Kurvenentscheidung aus A* trennen
+## Kurvenentscheidung und weitere Trennung von A*
 
-Plan (Komplexität 75) mischt Anbindung, Suche, lokale Kurvenprüfung und Rekonstruktion.
+Plan (Komplexität noch 50 statt 75) mischt Anbindung, Suche, lokale Kurvenprüfung und Rekonstruktion.
 Vorhanden: gerichtete Kanten, eingehender Kantenzustand und metrische Kantenlängen.
 Die acos-Auswertung verliert kleine Winkel; kLeastTurnRad setzt zusätzlich nichtnullige
 Krümmung still auf null. Gegenbeispiel: nahezu gerade Kette, aber sehr großer geforderter
 Radius; geometrisch benötigter Tangentenabschnitt passt nicht in die Kantenhälfte.
 
-Private, separat benannte Entscheidung für die lokale Kreisbogennäherung herauslösen.
+LocalTurnAllowsRadius trennt die lokale Kreisbogennäherung von der Suche.
 Winkel per atan2(abs(Kreuzprodukt),Skalarprodukt) bestimmen, keine Winkel-Abschneidung.
 Aus dem rechtwinkligen Tangentendreieck folgt t=R*tan(theta/2). Bestehende Reservierung
 halber Nachbarkanten explizit als konservative lokale Näherung: R<=min(L1,L2)/2/tan(theta/2).
@@ -103,3 +103,7 @@ Abnahme: gerichtete Dreipunktketten, gespiegelte 90-Grad- und sehr kleine Winkel
 Radius unter/über analytischer Grenze, radius=0; ursprünglicher Winkelpfad muss scheitern.
 Bestehende Routingtests und make lint; gültige Places dürfen nicht unbeabsichtigt abweichen.
 Weitere Trennung von Anbindung, Suchzustand und Rekonstruktion anschließend fortsetzen.
+
+Ergebnis: vier Routingtests grün; zusätzlich exakte Gerade mit DBL_MAX-Radius geprüft.
+acos-Gegenprobe scheitert ohne Buildfehler. Lint 187/333, 32 Claims grün; Wien bytegleich,
+PNG visuell geprüft. Rekonstruktion, Suchzustand und Anbindung bleiben zu trennen.

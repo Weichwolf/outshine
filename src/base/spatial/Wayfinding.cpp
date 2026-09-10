@@ -1073,6 +1073,28 @@ Network::ComponentStatistics Network::WeakComponents() const {
   return out;
 }
 
+bool Network::LocalTurnAllowsRadius(const Edge &incoming,
+                                    size_t previousNode,
+                                    const Edge &outgoing,
+                                    double minimumRadiusM) const {
+  if (minimumRadiusM == 0.0) { return true; }
+  if (incoming.LengthM <= 0.0 || outgoing.LengthM <= 0.0) { return false; }
+  const Node &was = Nodes_[previousNode];
+  const Node &here = Nodes_[incoming.To];
+  const Node &there = Nodes_[outgoing.To];
+  const double longitudeScale = std::cos(here.LatitudeDeg * kDegToRad);
+  const double backEast = LonApartDeg(here.LongitudeDeg, was.LongitudeDeg) * longitudeScale;
+  const double backNorth = here.LatitudeDeg - was.LatitudeDeg;
+  const double onEast = LonApartDeg(there.LongitudeDeg, here.LongitudeDeg) * longitudeScale;
+  const double onNorth = there.LatitudeDeg - here.LatitudeDeg;
+  const double cross = std::abs(backEast * onNorth - backNorth * onEast);
+  const double dot = backEast * onEast + backNorth * onNorth;
+  if (cross == 0.0) { return dot > 0.0; }
+  const double turnRad = std::atan2(cross, dot);
+  const double availableM = 0.5 * std::min(incoming.LengthM, outgoing.LengthM);
+  return minimumRadiusM <= availableM / std::tan(0.5 * turnRad);
+}
+
 Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightestM) const {
   Route out;
   if (!ValidCoordinates(from) || !ValidCoordinates(to)) {
@@ -1183,40 +1205,12 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     }
 
     const Node &here = Nodes_[node];
-    const bool hasBack = state < edges;
-    double backEast = 0.0;
-    double backNorth = 0.0;
-    if (hasBack) {
-      const Node &was = Nodes_[leaves[state]];
-      backEast =
-          LonApartDeg(here.LongitudeDeg, was.LongitudeDeg) * std::cos(here.LatitudeDeg * kDegToRad);
-      backNorth = here.LatitudeDeg - was.LatitudeDeg;
-    }
     for (size_t which = 0; which < here.EdgeCount; ++which) {
       const size_t next = here.FirstEdge + which;
       const Edge &edge = Edges_[next];
-      if (hasBack && edge.LengthM > 0.0) {
-        const Node &there = Nodes_[edge.To];
-        const double onEast = LonApartDeg(there.LongitudeDeg, here.LongitudeDeg) *
-                              std::cos(here.LatitudeDeg * kDegToRad);
-        const double onNorth = there.LatitudeDeg - here.LatitudeDeg;
-        const double wasLength = std::sqrt(backEast * backEast + backNorth * backNorth);
-        const double onLength = std::sqrt(onEast * onEast + onNorth * onNorth);
-        if (wasLength > 0.0 && onLength > 0.0) {
-          const double turned = (backEast * onEast + backNorth * onNorth) / (wasLength * onLength);
-          const double turnRad = std::acos(std::clamp(turned, -1.0, 1.0));
-          const double half = 0.5 * turnRad;
-          if (std::tan(half) > 0.0 && tightestM > 0.0 && edge.LengthM > 0.0 &&
-              std::fabs(turnRad) > kLeastTurnRad) {
-            const double shorter =
-                edge.LengthM < Edges_[state].LengthM ? edge.LengthM : Edges_[state].LengthM;
-            const double room = 0.5 * shorter / std::tan(half);
-            if (room < tightestM) {
-              ++out.TurnsRefused;
-              continue;
-            }
-          }
-        }
+      if (state < edges && !LocalTurnAllowsRadius(Edges_[state], leaves[state], edge, tightestM)) {
+        ++out.TurnsRefused;
+        continue;
       }
       const double through = best[state] + edge.LengthM;
       if (through >= best[next]) { continue; }
