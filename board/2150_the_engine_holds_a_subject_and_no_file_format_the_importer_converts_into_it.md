@@ -60,10 +60,12 @@ Mutation. Winding-Diagnostik muss bei unvollständigen Attributen sicher bleiben
 Regression: größerer Aufbau → clear → kleinerer Aufbau, wiederholtes clear,
 NaN/Inf je Attributkanal und Dreiecke mit fehlenden Normalen in jeder Ecke.
 
-Die öffentliche Geometry-Dokumentation beschreibt jetzt auch verbleibende
-Grenzen: unvalidierte Material-/Transformwerte, lokale wiederverwendbare Integer-
-Indizes, unbenutzbare Move-Quellen und allokierende Setter. Vor nativer Runtime-
-Abnahme: validierte Asset-Publikation, echte Handle-Generationen und 2194-Fehlervertrag.
+Nächster Schritt: setPlacement prüft finite Komponenten und die affine letzte Zeile
+(0,0,0,1) vor Mutation; expected unterscheidet fehlenden Part und ungültige Matrix.
+Mat4::TransformPoint ist das algebraische Referenzmodell ohne Perspektivdivision.
+Nullskalierung, Spiegelung und Scherung bleiben zulässig; kein Determinanten-Grenzwert.
+Unabhängiger Test: NaN/Inf in jeder Komponente, Projektionszeile, gültiger Retry und
+Erhalt von Placement/Attributansichten; gültige Render-/Audio-Platzierung unverändert.
 Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge;
 Überlauf und erschöpfte Bildindizes vor Kopie ablehnen. Fehler verändern weder
 Bilder noch Indexvergabe. Dokumentation verbleibender Lücken akzeptiert sie nicht.
