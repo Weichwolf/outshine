@@ -503,33 +503,58 @@ struct GeographicCameraPlacement {
   double PitchDeg = 0.0;
 };
 
+/// Owned camera configuration. Engine::declare copies it; later edits do not update the Engine.
+/// IDs/mode/follow labels/clock scale are checked during declaration. Following requires
+/// assemble(); geographic resolution and camera/projection checks can fail during advance().
+/// Configure outside frames; serialize mutation with reads of the same descriptor. Strings
+/// may allocate. This descriptor owns no renderer, entity or device resource.
 struct View {
-  std::string Id;
+  std::string Id; ///< Nonempty, case-sensitive identifier, unique within the view catalog.
+  /// Projection/lens settings; also the pose for Local. FollowEntity replaces the pose;
+  /// Geodetic replaces the position and, without LooksAt, derives direction from bearing/pitch.
   Camera Sees;
-  /// Selects how the scenario resolves the camera pose.
+  /// One of the three declared modes; unsupported enum values reject declaration.
   CameraPlacement Placement = CameraPlacement::FollowEntity;
-  /// Geographic inputs used only when Placement is Geodetic.
+  /// Geographic inputs used only when Placement is Geodetic; terrain may require streaming.
   GeographicCameraPlacement Geographic;
-  Patch Viewport;
+  Patch Viewport; ///< Stored normalized viewport metadata; not applied by the current renderer.
 
+  /// Copy camera values; no validation, resource access or retained reference to the input.
+  /// @param sees Projection and pose configuration, resolved later according to Placement.
   void setCamera(const Camera &sees) { Sees = sees; }
 
+  /// Copy viewport metadata; does not configure a render region or validate the patch.
+  /// @param over Normalized patch, borrowed only for this copy.
   void setViewport(const Patch &over) { Viewport = over; }
 
+  /// Replace the owned scene label; no scene lookup or rendering effect is implemented.
+  /// @param named Label transferred into this descriptor.
   void setScene(std::string named) { In = std::move(named); }
 
+  /// Borrow the stored scene label, without allocation or scene lookup.
+  /// @return Reference to In, valid until this View is destroyed or relocated. Assignment
+  /// changes the observed value; character pointers can be invalidated by label mutation.
   [[nodiscard]] const std::string &scene() const { return In; }
 
-  std::string In;
-  /** Owned name of the unique placed body followed by this view.
-   * Assembly resolves it; a removed target must be rebound by assembling again.
-   */
+  std::string In; ///< Owned scene-label metadata; does not select a runtime world or scene.
+  /// Owned name of the unique placed body resolved by assemble() for FollowEntity.
+  /// A removed target must be rebound by assembling again. Empty rejects FollowEntity.
   std::string Follows;
+  /// With nonempty Follows, must be "first" or "third". The label does not position the
+  /// camera: DistanceM selects whether the current follower places the eye behind the body.
   std::string Person;
+  /// Metres: body-local seat offset for FollowEntity; world-local displacement otherwise.
+  /// Geodetic local axes are east/up/south. Numeric validity is not fully checked at declare.
   Vec3 OffsetM;
+  /// FollowEntity only: positive metres behind the seat; nonpositive puts the eye at the seat.
+  /// A trailing camera aims at the seat; a seated camera looks along the body's forward axis.
   double DistanceM = 0.0;
+  /// FollowEntity with positive DistanceM: dimensionless rise along body-up per metre behind.
   double RisesBy = kRisesByUnsaid;
+  /// Stored pitch-limit metadata in degrees; no runtime clamp is currently implemented.
   double PitchLimitDeg = kPitchLimitUnsaidDeg;
+  /// Stored dimensionless factor, required finite and positive by declare. Currently does
+  /// not scale simulation time or presentation time; it is not a working time-dilation control.
   double TimeScale = 1.0;
 };
 
