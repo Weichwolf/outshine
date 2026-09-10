@@ -77,6 +77,15 @@ das Urteil über das ganze Projekt.
   Metaphern und irreführende Namen ersetzen. Unklare Zuständigkeiten dabei fachlich
   korrigieren. Aufrufer, Dokumentation, Tests und Datenverträge vollständig migrieren.
 
+## Künstlerischer Maßstab
+
+Ein bewusst gestalteter, plausibler Look ist ein vollwertiges Ziel und besser als
+verfehlter Realismus. Fotorealismus ist Orientierung, kein Vorrang vor einem stimmigen
+Gesamtbild. Lichtführung, Farbgestaltung, räumliche Tiefe, Materiallesbarkeit und zeitliche
+Stabilität entscheiden die Bildabnahme. RDR2/GTA5 bleiben Qualitätsreferenzen, keine Pflicht
+zur Fotokopie. Vereinfachungen dürfen künstlerisch gewollt sein; technische Fehler in
+Geometrie, Beleuchtung, Koordinaten oder Simulation werden dadurch nicht legitimiert.
+
 ## Architektur
 
 - Provider liefern Daten; Generatoren erzeugen Geometrie und Materialien;

@@ -14,6 +14,12 @@ Ein physikalisch glaubhafter Default-Look bleibt Ziel; mehr Grain oder Blur ist 
 für Fotorealismus. Die frühere Behauptung, ein bestimmter Tonemapper mache automatisch ein
 Spielbild, wird durch getrennte lineare Licht- und Kameraabnahme ersetzt.
 
+Künstlerischer Abnahmemaßstab: ein bewusst gestalteter, plausibler Look ist ein
+vollwertiges Ziel und besser als verfehlter Realismus. Lichtführung, Farbgestaltung,
+Tiefe und Materiallesbarkeit als Gesamtbild beurteilen, auch in Bewegung. RDR2/GTA5
+bleiben Qualitätsreferenzen; keine Pflicht zur Fotokopie. Gewollte Vereinfachung ist
+zulässig, Geometrie-/Lichtfehler zu kaschieren nicht.
+
 Belichtungsmessung mit robuster Luminanzverteilung, zeitlicher Adaptation, deklariertem
 EV-Bias und HDR-Shoulder implementieren. Ein Exposure gilt für Sky/Ground/Subjects/Water.
 Linear-HDR-AOV und finale Display-Ausgabe sichern; Farbraum/Output-Transfer genau einmal.
