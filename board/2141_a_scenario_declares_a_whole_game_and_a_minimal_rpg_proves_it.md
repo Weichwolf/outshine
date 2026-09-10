@@ -66,3 +66,12 @@ aktuell ist nur der Export gültiger Tabellenschemas nachgewiesen.
   Event-/Volume-Definitionen und Probes erhalten den jeweils zugesicherten alten Zustand.
 - Vorhandene Tests unter test/outshine/src/scenario/{Tables,Triggers,ScenarioWrite} und
   Public-API-Tests für Assembly-Erhaltung bleiben grün; Negativkontrollen bleiben wirksam.
+
+## Checked Export
+Vor Implementierung: WriteScenario und Engine::writeScenario liefern expected<string,string>.
+Tabellenvalidierung vor Textproduktion über denselben TableBook-Aufbau wie Assembly;
+kein zweiter Schema-/Zahlenparser. Temporäre Tabellen werden vor Textaufbau freigegeben.
+Alle Aufrufer behandeln Ablehnung; Client öffnet bei Writer-Fehler keine Ausgabedatei.
+Public-API-Test: überzählige Types/ungültige Zahlen/doppelte Schlüssel ablehnen, aktive
+Deklaration unverändert, gültige Wiederholung möglich. Writer-Gesamtabdeckung und
+Validierung übriger Sektionen bleiben offen; checked Ergebnis behauptet keine Vollständigkeit.
