@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "ReadTextFile.h"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cmath>
 #include <limits>
@@ -20,7 +21,7 @@ constexpr double kGrainSizeUnsaidM = 0.002;
 constexpr double kHeightAmplitudeUnsaidM = 0.0005;
 constexpr double kDetailCoarseUnsaidM = 2.0;
 constexpr double kDetailFineUnsaidM = 0.3;
-constexpr double kSlopeMaxUnsaidDeg = 90.0;
+constexpr double kMaximumSlopeDeg = 90.0;
 constexpr double kAlbedoUnsaid = 0.15;
 
 constexpr size_t kCatalogByteLimit = size_t{1024} * 1024u;
@@ -127,6 +128,66 @@ ReadOpticalValues(Json::Ref source, GroundMaterials::Material &material, float w
   return {};
 }
 
+std::expected<std::array<float, 2>, std::string> ReadDetailScales(Json::Ref source) {
+  const auto scales = source["detailScaleM"];
+  if (!scales.Valid()) {
+    return std::array{static_cast<float>(kDetailCoarseUnsaidM),
+                      static_cast<float>(kDetailFineUnsaidM)};
+  }
+  if (scales.GetKind() != Json::Kind::Array || scales.Size() != 2) {
+    return std::unexpected("detailScaleM must be a pair");
+  }
+  std::array<float, 2> values{};
+  for (size_t i = 0; i < values.size(); ++i) {
+    const auto value = scales[i];
+    const double number = value.Num(0.0);
+    if (value.GetKind() != Json::Kind::Number || !IsPositiveFloat(number)) {
+      return std::unexpected("detailScaleM must contain positive representable float meters");
+    }
+    values[i] = static_cast<float>(number);
+  }
+  return values;
+}
+
+std::expected<float, std::string> ReadSlopeLimit(Json::Ref source) {
+  const auto range = source["slope"]["plausibleDeg"];
+  if (range.GetKind() != Json::Kind::Array || range.Size() != 2) {
+    return std::unexpected("slope.plausibleDeg must be a pair");
+  }
+  const auto low = range[size_t{0}];
+  const auto high = range[size_t{1}];
+  const double minimum = low.Num(-1.0);
+  const double maximum = high.Num(-1.0);
+  if (low.GetKind() != Json::Kind::Number || high.GetKind() != Json::Kind::Number ||
+      !std::isfinite(minimum) || !std::isfinite(maximum) || minimum < 0.0 ||
+      maximum > kMaximumSlopeDeg || minimum > maximum) {
+    return std::unexpected("slope.plausibleDeg must satisfy 0 <= min <= max <= 90 degrees");
+  }
+  return static_cast<float>(maximum);
+}
+
+std::expected<void, std::string> ReadMetricValues(Json::Ref source,
+                                                  GroundMaterials::Material &material) {
+  const auto grain = ReadFactor(
+      source["grainSizeM"], kGrainSizeUnsaidM, "grainSizeM", std::numeric_limits<float>::max());
+  if (!grain) { return std::unexpected(grain.error()); }
+  const auto height = ReadFactor(source["heightAmplitudeM"],
+                                 kHeightAmplitudeUnsaidM,
+                                 "heightAmplitudeM",
+                                 std::numeric_limits<float>::max());
+  if (!height) { return std::unexpected(height.error()); }
+  const auto detail = ReadDetailScales(source);
+  if (!detail) { return std::unexpected(detail.error()); }
+  const auto slope = ReadSlopeLimit(source);
+  if (!slope) { return std::unexpected(slope.error()); }
+  material.GrainSizeM = *grain;
+  material.HeightAmplitudeM = *height;
+  material.DetailCoarseM = (*detail)[0];
+  material.DetailFineM = (*detail)[1];
+  material.SlopeMaxDeg = *slope;
+  return {};
+}
+
 std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const MoistureModel &model) {
   const float kWet = model.Wet;
   const float wetLo = model.Low;
@@ -145,17 +206,9 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
   const auto moisture = ReadFactor(c["moisture"], 0.0, "class " + m.Name + ": moisture");
   if (!moisture) { return std::unexpected(moisture.error()); }
   m.Moisture = *moisture;
-  m.GrainSizeM = static_cast<float>(c["grainSizeM"].Num(kGrainSizeUnsaidM));
-  m.HeightAmplitudeM = static_cast<float>(c["heightAmplitudeM"].Num(kHeightAmplitudeUnsaidM));
-  m.DetailCoarseM =
-      static_cast<float>(c["detailScaleM"][static_cast<size_t>(0)].Num(kDetailCoarseUnsaidM));
-  m.DetailFineM =
-      static_cast<float>(c["detailScaleM"][static_cast<size_t>(1)].Num(kDetailFineUnsaidM));
-  const Json::Ref pd = c["slope"]["plausibleDeg"];
-  if (pd.Size() != 2) {
-    return std::unexpected("class " + m.Name + ": slope.plausibleDeg must be a pair");
+  if (auto metric = ReadMetricValues(c, m); !metric) {
+    return std::unexpected("class " + m.Name + ": " + metric.error());
   }
-  m.SlopeMaxDeg = static_cast<float>(pd[static_cast<size_t>(1)].Num(kSlopeMaxUnsaidDeg));
   parsed.Litter = c["litter"]["class"].Str("");
 
   const Json::Ref surf = c["surface"];

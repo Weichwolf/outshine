@@ -106,5 +106,6 @@ Paar. Optional fehlendes Paar behält Defaults; vorhandene falsche Typen ablehne
 Hangintervall: Zahlenpaar mit 0 <= min <= max <= 90 Grad, vor Float-Cast geprüft.
 Nur Maximum wird aktuell weitergegeben; GroundSurf/LitterSurf werden vorbereitet,
 aber Detailmaßstäbe aktuell nicht vom Ground-Shader ausgewertet. Kein Rendernachweis
-für prozedurales Mikrorelief behaupten. Negativkontrollen, Erhaltung und gültige
-Grenzen prüfen; vollständige Generator-/Renderintegration bleibt separat offen.
+für prozedurales Mikrorelief behaupten. Altcode verletzt die Negativkontrolle;
+Fehlererhaltung, gültige Grenzen und ausgelieferter Katalog bestehen. Vollständige
+Generator-/Renderintegration bleibt separat offen.
