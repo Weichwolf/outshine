@@ -119,6 +119,59 @@ void WriteAssets(std::string &said, std::span<const Scenario::Asset> assets) {
   said += "  </assets>\n";
 }
 
+void WriteRelief(std::string &said, const Scenario::Relief &relief) {
+  if (relief.Kind.empty()) { return; }
+  said += "    ";
+  said += "<relief";
+  Said(said, "kind", relief.Kind);
+  Number(said, "amplitudeM", relief.AmplitudeM);
+  Number(said, "wavelengthM", relief.WavelengthM);
+  Number(said, "gradient", relief.Gradient);
+  Number(said, "bearingDeg", relief.BearingDeg);
+  Number(said, "seed", static_cast<double>(relief.Seed));
+  said += "/>\n";
+}
+
+void WriteOsmStructure(std::string &said, const Scenario::Structure &one) {
+  said += "      ";
+  said += one.Area ? "<area" : "<way";
+  Said(said, "kind", one.Kind);
+  if (one.WidthM > 0.0) { Number(said, "widthM", one.WidthM); }
+  if (one.HeightM > 0.0) { Number(said, "heightM", one.HeightM); }
+  if (one.Bridge) { Said(said, "bridge", "yes"); }
+  if (one.Tunnel) { Said(said, "tunnel", "yes"); }
+  if (one.Level != 0) { Number(said, "level", static_cast<double>(one.Level)); }
+  std::string shape;
+  for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
+    if (!shape.empty()) { shape += ' '; }
+    shape += std::format("{},{}", one.LatLon[at], one.LatLon[at + 1]);
+  }
+  Said(said, "points", shape);
+  said += "/>\n";
+}
+
+void WriteWorld(std::string &said, const Scenario::WorldSettings &world) {
+  if (!world.Declared) { return; }
+  said += "  <world";
+  Number(said, "lat", world.Origin.LatitudeDeg);
+  Number(said, "lon", world.Origin.LongitudeDeg);
+  Number(said, "patienceS", world.PatienceS);
+  Number(said, "sightM", world.SightM);
+  Number(said, "haze", world.Sky.Haze);
+  if (world.Shape.Kind.empty() && world.Osm.empty()) {
+    said += "/>\n";
+    return;
+  }
+  said += ">\n";
+  WriteRelief(said, world.Shape);
+  if (!world.Osm.empty()) {
+    said += "    <osm>\n";
+    for (const auto &feature : world.Osm) { WriteOsmStructure(said, feature); }
+    said += "    </osm>\n";
+  }
+  said += "  </world>\n";
+}
+
 void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
   if (generators.empty()) { return; }
   said += "  <generators>\n";
@@ -141,53 +194,7 @@ void WriteGenerators(std::string &said, std::span<const Scenario::Generating> ge
 
 std::string WriteScenario(const Scenario::Document &declared) {
   std::string said = "<scenario>\n";
-  if (declared.Ground.Declared) {
-    said += "  <world";
-    Number(said, "lat", declared.Ground.Origin.LatitudeDeg);
-    Number(said, "lon", declared.Ground.Origin.LongitudeDeg);
-    Number(said, "patienceS", declared.Ground.PatienceS);
-    Number(said, "sightM", declared.Ground.SightM);
-    Number(said, "haze", declared.Ground.Sky.Haze);
-    if (declared.Ground.Shape.Kind.empty() && declared.Ground.Osm.empty()) {
-      said += "/>\n";
-    } else {
-      said += ">\n";
-      if (!declared.Ground.Shape.Kind.empty()) {
-        said += "    ";
-        said += "<relief";
-        Said(said, "kind", declared.Ground.Shape.Kind);
-        Number(said, "amplitudeM", declared.Ground.Shape.AmplitudeM);
-        Number(said, "wavelengthM", declared.Ground.Shape.WavelengthM);
-        Number(said, "gradient", declared.Ground.Shape.Gradient);
-        Number(said, "bearingDeg", declared.Ground.Shape.BearingDeg);
-        Number(said, "seed", static_cast<double>(declared.Ground.Shape.Seed));
-        said += "/>\n";
-      }
-      if (!declared.Ground.Osm.empty()) {
-        said += "    ";
-        said += "<osm>\n";
-      }
-      for (const Scenario::Structure &one : declared.Ground.Osm) {
-        said += "      ";
-        said += one.Area ? "<area" : "<way";
-        Said(said, "kind", one.Kind);
-        if (one.WidthM > 0.0) { Number(said, "widthM", one.WidthM); }
-        if (one.HeightM > 0.0) { Number(said, "heightM", one.HeightM); }
-        if (one.Bridge) { Said(said, "bridge", "yes"); }
-        if (one.Tunnel) { Said(said, "tunnel", "yes"); }
-        if (one.Level != 0) { Number(said, "level", static_cast<double>(one.Level)); }
-        std::string shape;
-        for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
-          if (!shape.empty()) { shape += ' '; }
-          shape += std::format("{},{}", one.LatLon[at], one.LatLon[at + 1]);
-        }
-        Said(said, "points", shape);
-        said += "/>\n";
-      }
-      if (!declared.Ground.Osm.empty()) { said += "    </osm>\n"; }
-      said += "  </world>\n";
-    }
-  }
+  WriteWorld(said, declared.Ground);
   if (declared.Render.Declared) {
     said += "  <render";
     Number(said, "widthPx", declared.Render.Frame.WidthPx);

@@ -93,3 +93,6 @@ WriteScenario orchestriert Sektionen. Bestehende Reihenfolge/Werte erhalten. Kei
 Komplexitätsunterdrückung: Funktionen folgen Datenverantwortung. OSM-Koordinaten-,
 Physik-, Generator- und Asset-Roundtrips sichern die Umstellung; fehlende Sektionen
 bleiben offen. Keine Bildänderung durch strukturelle Writer-Änderung erwartet.
+Writer-Zerlegung abgenommen: vier Roundtrip-Suiten grün (OSM/Relief, Physik,
+Generatorparameter, Assets). Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün;
+WriteScenario-Komplexitätsbefund entfällt ohne Unterdrückung, drei rote Gruppen bleiben.
