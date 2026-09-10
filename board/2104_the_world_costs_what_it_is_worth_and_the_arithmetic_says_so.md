@@ -92,3 +92,15 @@ stabil, keine alten Keys, Tags/Ringe/Bounds korrekt. Beide Tests grün, alter Co
 Lint 185/330 statt 186/330, 32 Repository-Prüfungen grün; drei Gruppen bleiben rot.
 Wien c307cab8 bytegleich, PNG geöffnet. Tile-Eviction, Generation-Fingerprint, Projektion
 und transaktionaler Allokationsfehler bleiben offen; dies ist kein kompletter Streamingfix.
+
+## Aktiver Schritt: exakte Änderungskennung
+
+Declare hasht auf 1e-7 Grad/1e-3 m gerundete Werte; ClassField invalidiert nur bei
+Generation-Wechsel. Kleine reale Änderungen bleiben unsichtbar; llround großer
+endlicher Maße ist zusätzlich außerhalb des Integerbereichs. Hash ist keine Identität.
+Eingabe gegen vorhandene kanonische Features/Ringe/Punkte/Tags und Kachel vergleichen,
+keinen zweiten Geometrie-Owner speichern. Nur identischer Inhalt darf unverändert
+zurückkehren; Pending auf null setzen. Sonst neu aufbauen und Generation erhöhen.
+Prüfung: nextafter-Koordinaten/Maße, alle Attribute, Reihenfolge/Anzahl/Kachel und
+Entfernen; identische Daten erhalten Generation und Speicher. Rundungspfad als
+Gegenprobe. Generation-Überlauf und allokationssicherer Austausch bleiben offen.
