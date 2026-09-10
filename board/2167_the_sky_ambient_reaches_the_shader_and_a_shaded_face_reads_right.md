@@ -57,3 +57,13 @@ Der Device-Test aus 2190 verwendet Zenitsonne. Seine NaNs verschwanden durch die
 Korrektur des Temporal-Eingangs, ohne GLSL-Änderung: keine belegte Folge des Sonnenpols.
 Den unabhängig vorhandenen Nullvektor-Verstoß mit Zenit/Nadir und Annäherung prüfen.
 Diese Reparatur ersetzt keine Abnahme von gerichtetem IBL, Sichtbarkeit oder Bounce.
+
+## Offene Sonnenhöhenprüfung
+`test/outshine/integration/places/ScoreWhichWaysTheSunMovesTheGround.cpp` bleibt rot:
+unteres Bildviertel bei 5°/30°/75°: 37,022 / 35,774 / 71,616. Der Test verlangt
+Monotonie, misst aber komplexes Gelände nach Belichtung/Tonemapping. Das beweist
+noch keinen Fehler der direkten Beleuchtung: sin(Höhe) gilt für eine horizontale,
+unverschattete diffuse Fläche bei konstantem einfallendem Direktlicht. Den Vertrag
+mit isoliertem Empfänger, fester Belichtung und linearem Direct-AOV prüfen;
+Geländenormalen, Sichtbarkeit und Belichtungsverlauf separat eingrenzen. Keine
+Toleranzanhebung oder Shaderkorrektur aus dieser ROI-Zahl allein ableiten.

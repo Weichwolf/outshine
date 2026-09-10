@@ -30,7 +30,7 @@ Step 'each place written and read back' build/outshine-client roundtrip
 Step 'the measured sky at Egbert'   python3 test/scripts/score_clear_sky.py
 Step 'khronos static'               sh test/run.sh khronos/glTF/WaterBottle
 Step 'khronos animated'             sh test/run.sh khronos/glTF/BoxAnimated
-Step 'the places on Earth, rendered into build/places'  sh test/run.sh outshine/places
+Step 'the places on Earth, rendered into build/places'  sh test/run.sh outshine/integration/places
 
 printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date +%s) - began))"
 # THE COVERAGE LINE COUNTS RATHER THAN REMEMBERS. It said 27 while the suite held 29, and a
@@ -41,7 +41,7 @@ printf 'score a COMPUTATION rather than a picture, and the only C++ scorers left
 printf 'The render corpus is not here either. AND THE CLIENT DOES NOT RUN HERE: a client is a\n'
 printf 'product, not a check. The one that stood here held this gate for ten minutes when it\n'
 printf 'hung and left three processes behind that poisoned every later run. `make shots` is\n'
-printf 'where the client runs; test/outshine/places is where it is scored, and it is the ONLY\n'
+printf 'where the client runs; test/outshine/integration/places is where it is scored, and it is the ONLY\n'
 printf 'suite this tree still writes about itself.\n'
 printf 'AND ANY CHANGE UNDER src/ OR include/ WANTS `make lint`: it holds\n'
 printf 'the rules about the SOURCE -- no comment, one spelling per type, no block on the frame\n'

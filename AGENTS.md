@@ -205,6 +205,9 @@ das Urteil über das ganze Projekt.
   Schnelle Rückmeldung über einzelne C++-Cases: `make suite SUITE=Pfad/Testname`
   (auch mit `.cpp` oder mehreren Namen). Integrationssuiten nach betroffenen Verträgen
   wählen; erfolgreiche Prüfungen nur bei neuen Änderungen oder offenen Befunden wiederholen.
+- Engine-Tests spiegeln ihre Zuständigkeit: `test/outshine/include/<Header>/` für
+  öffentliche Verträge, `test/outshine/src/<Komponente>/` für Interna. Vollständige
+  Place-Szenarien liegen unter `test/outshine/integration/places/`. Kein Sammelordner.
 - Build, Tests, Lint und Render über Make. Gates nacheinander; während eines Gates
   weder Quellen noch Board ändern. Ergebnis erst nach bestätigtem Prozessende melden.
   Nach jedem Änderungsschritt `make lint` einschließlich clang-tidy ausführen.

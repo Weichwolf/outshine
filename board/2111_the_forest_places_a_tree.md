@@ -30,6 +30,9 @@ Vorbereitung bereit, der anschließende unveränderte Shot wartet jedoch auf 28 
 prototypen und läuft ins Limit; Gelände/OSM sind vollständig resident. Leere oder
 veraltete Instanzgruppen dürfen keine Bereitschaft vortäuschen. Vorbereitung und
 Renderlauf müssen denselben vollständigen, versionierten Prototypbedarf prüfen.
+Der vollständige Places-Lauf bestätigt den Blocker bei allen neun Orten: jeweils
+0 ausstehende/fehlende Geländekacheln, aber 5–30 Kronenprototypen nach dem
+15-s-Limit. Preload-Abnahme bleibt offen; kein Wiederholen bis grün.
 
 ## Umsetzung
 

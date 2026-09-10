@@ -43,7 +43,7 @@ geänderter Toleranzwert war dafür nötig. Sonnenpol-Normalisierung bleibt sepa
 
 ## Nachweis und verbleibende Abnahme
 
-make suite SUITE=outshine/device prüft tatsächliche GPU-Commands, wiederholte Acquire-
+make suite SUITE=outshine/src/render/device prüft tatsächliche GPU-Commands, wiederholte Acquire-
 und Submit-Fehler, genau einmaligen Verbrauch, kalten/warmen Retry, geänderte Atmosphäre,
 endliche temporale Pixel, LUT-Werte und Live-Fehlerweitergabe. Die Suite aktiviert
 GPU-Validierung. Ihre Device-Ownership ist ausdrücklich auf diese Beweistests beschränkt;

@@ -14,7 +14,7 @@
 #   make doc        the door's documentation -> build/doc
 #   make shots      every place through the camera -> build/shots  (PLACE=Wien for one)
 #   make test       the fast gate
-#   make suite      one named suite                                (SUITE=outshine/places)
+#   make suite      one named suite                                (SUITE=outshine/integration/places)
 #   make clean      remove build artefacts
 #   make spotless   and the compiler's own nest in the system temp directory
 #
@@ -135,8 +135,8 @@ corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASE
 test: test-client-arguments test-client-render all ## the fast gate
 	@$(RUN)
 
-suite: all       ## named suite or C++ case (SUITE=outshine/conventions/CameraBindingPrecedesDrawing)
-	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/places))
+suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/Live/CameraBindingPrecedesDrawing)
+	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/integration/places))
 	@$(RUN) $(SUITE)
 
 clean:           ## remove build artefacts

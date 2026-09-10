@@ -212,11 +212,29 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-LayerIncludes() {
+TestProfile() {
   case "$1" in
-    outshine/mvt) printf '%s' "-Isrc/world/ground" ;;
-    outshine/diagnostics) LayerIncludes outshine/conventions ;;
-    outshine/conventions|outshine/device) printf '%s ' "-Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes outshine/places ;;
+    outshine/include/*) printf '%s' 'profile/public' ;;
+    outshine/src/world/ground/OsmVector | outshine/src/world/ground/OsmStorageUsage)
+      printf '%s' 'profile/vector' ;;
+    outshine/src/diagnostics/ProcessHeap | outshine/src/engine/WorldInstanceSink)
+      printf '%s' 'profile/diagnostics' ;;
+    outshine/src/render/device/GpuSubmission | outshine/src/render/device/GroundStorage)
+      printf '%s' 'profile/device' ;;
+    outshine/src/audio/*) printf '%s' 'profile/audio' ;;
+    outshine/src/base/io/Png | outshine/src/base/io/Tasks) printf '%s' 'profile/base' ;;
+    outshine/src/*) printf '%s' 'profile/internal' ;;
+    outshine/integration/places) printf '%s' 'profile/engine' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+LayerIncludes() {
+  case "$(TestProfile "$1")" in
+    profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
+    profile/vector) printf '%s' "-Isrc/world/ground" ;;
+    profile/diagnostics) LayerIncludes profile/internal ;;
+    profile/internal|profile/device) printf '%s ' "-I. -Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes profile/engine ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
     # carried its own hand-written list beside the build line, which is the second spelling of the
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
@@ -224,19 +242,10 @@ LayerIncludes() {
     tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
-    outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/format -Isrc/base/spatial -Isrc/scenario -Itest/harness/shared" ;;
-    outshine/content) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared" ;;
-    outshine/geo) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/base/curve -Isrc/base/curve" ;;
-    outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/import -Itest/harness/shared" ;;
-    outshine/physics) printf '%s' "-Iinclude -Isrc/base -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/actor/body -Isrc/base/curve -Isrc/base/curve -Itest/harness/shared" ;;
-    outshine/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
-    outshine/places) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/data -Isrc/world/entity -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
+    profile/base) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared" ;;
+    profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
+    profile/engine) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/data -Isrc/world/entity -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
     harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Itest/harness/shared" ;;
-    # THE CORPUS RUNNER SEES THE DOOR AND ITS OWN DIRECTORIES, AND THIS LINE IS THE GUARD. The
-    # vendor cases must break when BEHAVIOUR changes and never when a file moves, so the runner is
-    # given `include/` and nothing from `src/` at all -- not one path. A rename anywhere under
-    # `src/` cannot reach a Khronos case, and the way to lose that is to widen this line, which is
-    # why widening it is the finding rather than the fix.
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     *) return 1 ;;
@@ -244,29 +253,20 @@ LayerIncludes() {
 }
 
 LayerToolchain() {
-  case "$1" in
-    outshine/diagnostics) LayerToolchain outshine/conventions ;;
-    outshine/conventions|outshine/device) LayerToolchain outshine/places; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
-    outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+  case "$(TestProfile "$1")" in
+    profile/public) LayerToolchain profile/internal ;;
+    profile/diagnostics) LayerToolchain profile/internal ;;
+    profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
+    profile/engine | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
-# THE SANITISED SET IS NAMED FROM THE LAYERS THAT EXIST, and it went blind once already: it named
-# six `unit/...` layers that were deleted with the suites they belonged to, so every case built
-# unsanitised while the gate still printed a sanitised phase. A layer name here is checked against
-# nothing, which is why the list is re-read whenever a suite is added or removed.
-#
-# `outshine/places` is the one layer deliberately left out, and the reason is the CLOCK rather than
-# the coverage: it renders nine places through Metal and already costs 88 s, so a second build under
-# ASan would put the fast gate out of reach of being run before every commit. Its oracle is the
-# picture digest, which catches a wandering frame the sanitiser could not see anyway.
-# Repository claims inspect text or launch external tools. Instrumenting their C++ wrapper
-# does not instrument those subprocesses; run these meta-checks once. Shared harness code
-# retains its own sanitised tests below.
+# Vector decoding runs under ASan/UBSan; GPU fault injection also runs with SDL validation.
+# Instrumenting repository-claim wrappers would not instrument their subprocesses.
 LayerSanitiser() {
-  case "$1" in
-    outshine/mvt | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
+  case "$(TestProfile "$1")" in
+    profile/vector | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/khronos/validator | harness/geographiclib/geodesic)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
@@ -275,18 +275,19 @@ LayerSanitiser() {
 }
 
 LayerValidation() {
-  case "$1" in
-    outshine/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
+  case "$(TestProfile "$1")" in
+    profile/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerLink() {
-  case "$1" in
-    outshine/diagnostics) LayerLink outshine/conventions ;;
-    outshine/conventions|outshine/device) LayerLink outshine/places ;;
-    outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
-    outshine/places | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
+  case "$(TestProfile "$1")" in
+    profile/public) LayerLink profile/internal ;;
+    profile/base) printf '%s' "-lz" ;;
+    profile/diagnostics) LayerLink profile/internal ;;
+    profile/internal|profile/device) LayerLink profile/engine ;;
+    profile/engine | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf sdl3-shadercross) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     *) printf '%s' "" ;;
@@ -294,23 +295,27 @@ LayerLink() {
 }
 
 LayerGroups() {
-  case "$1" in
-    outshine/mvt) printf '%s' "src/world/ground/OsmVector.cpp" ;;
-    outshine/diagnostics) LayerGroups outshine/conventions; printf ' %s' "src/diagnostics" ;;
-    outshine/conventions|outshine/device) LayerGroups outshine/places ;;
+  case "$(TestProfile "$1")" in
+    profile/public) LayerGroups profile/internal ;;
+    profile/vector) printf '%s' "src/world/ground/OsmVector.cpp" ;;
+    profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
+    profile/internal|profile/device) LayerGroups profile/engine ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
-    outshine/scenario) printf '%s' "src/base/Geometry.cpp src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/Tables.cpp" ;;
-    outshine/content) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
-    outshine/geo) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground src/import src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators" ;;
-    outshine/fuzz) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/world/weather src/world/sky src/base/io src/import" ;;
-    outshine/physics) printf '%s' "src/base src/base/math src/base/geo src/base/spatial src/actor/body src/base/curve" ;;
-    outshine/audio) printf '%s' "src/audio src/base/math" ;;
-    outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/AudioOcclusion.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/engine/CrownAtlas.cpp src/engine/CrownCache.cpp src/engine/CrownPieces.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp src/engine/SimulationState.cpp" ;;
+    profile/base) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
+    profile/audio) printf '%s' "src/audio src/base/math" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/AudioOcclusion.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/engine/CrownAtlas.cpp src/engine/CrownCache.cpp src/engine/CrownPieces.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp src/engine/SimulationState.cpp" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/AudioOcclusion.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/TilePieces.cpp src/engine/HeightSheets.cpp src/engine/HeightSheetsRefinement.cpp src/engine/StructureBakes.cpp src/engine/Engine.cpp src/engine/CrownAtlas.cpp src/engine/CrownCache.cpp src/engine/CrownPieces.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp src/engine/SimulationState.cpp" ;;
     *) return 1 ;;
   esac
+}
+
+GroupRepresentatives() {
+  for representativeSuite in "$@"; do
+    representativeGroups=$(LayerGroups "$representativeSuite" 2>/dev/null) || continue
+    printf '%s\t%s\n' "$representativeGroups" "$representativeSuite"
+  done | awk -F '\t' '!seen[$1]++ { print $2 }'
 }
 
 LayerCases() {
@@ -743,7 +748,7 @@ BuildLibrary() {
       continue
     fi
     $CXX $toolStd $OPT $WARN $toolIncludes \
-      "$tool" $diagnosticObjects build/liboutshine.a $(LayerLink outshine/places) -o "$toolNamed" ||
+      "$tool" $diagnosticObjects build/liboutshine.a $(LayerLink profile/engine) -o "$toolNamed" ||
       Die "$tool does not build into $toolNamed"
     printf -- '-> %s\n' "$toolNamed"
   done
@@ -1041,16 +1046,12 @@ StateReds() {
 }
 
 StateReach() {
-
-  printf '\n## Reach\n\nSuites reaching past `include/` into `src/`, which CLAUDE.md forbids.\n\n'
-  sed -n '/^LayerIncludes()/,/^}/p' "$0" | grep -E "^ +[a-z].*\) printf" |
-    awk -F') printf' '{ names = $1; reaches = ($2 ~ /-Isrc/)
-                        gsub(/^[ \t]+|[ \t]+$/, "", names)
-                        many = split(names, each, /[ \t]*\|[ \t]*/)
-                        for (at = 1; at <= many; ++at) {
-                          if (reaches) { past++ } else { alone = alone "- `" each[at] "`\n" }
-                          all++ } }
-                 END { printf "**%d of %d** declared suite(s) are granted a `-Isrc` path (board:1879).\n\nReaching the library through `include/` alone:\n\n%s", past, all, alone }'
+  printf '\n## Reach\n\nPublic API tests use only `include/`; internal tests under `test/outshine/src/` may reach implementation headers.\n\n| suite | implementation include paths |\n|---|---|\n'
+  for reachSuite in $(TestSources | sed 's|/[^/]*\.cpp$||; s|^test/||' | sort -u); do
+    reachIncludes=$(LayerIncludes "$reachSuite") || continue
+    case "$reachIncludes" in *-Isrc* | *-I.*) reachKind=yes ;; *) reachKind=no ;; esac
+    printf '| `%s` | %s |\n' "$reachSuite" "$reachKind"
+  done
 }
 
 # WHAT AN ORACLE ACTUALLY JUDGES, and it is not the case count. `test262: 813` reads as "the
@@ -1172,7 +1173,7 @@ StateProgress() {
         # by two cases is held by neither if one is missing, so the comma is a conjunction.
         # A PROOF LINE NAMES ITS CASES AND MAY CARRY WHAT THEY READ (board:2003). A token is a
         # proof CLAIM when it starts with one of test/'s six suite roots or with --audit; every
-        # other word is the reading and is not a path. `33/33` is prose; `outshine/places` is a
+        # other word is the reading and is not a path. `33/33` is prose; `profile/engine` is a
         # claim. A tick that makes no claim names no proof.
         holds=no
         for oneProof in $(printf '%s' "$named" | tr ',' ' '); do
@@ -1453,7 +1454,8 @@ fi
 
 if [ "$AUDIT" = 1 ]; then
   bad=0
-  for suiteDir in $(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  auditSuites=$(GroupRepresentatives $(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u))
+  for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     files=""
     for group in $groups; do
@@ -1469,7 +1471,7 @@ if [ "$AUDIT" = 1 ]; then
       bad=1
     fi
   done
-  for suiteDir in $(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
@@ -1514,6 +1516,7 @@ if [ "$AUDITLINK" = 1 ]; then
   auditSuites=$SUITES
   [ -n "$auditSuites" ] ||
     auditSuites=$(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
+  auditSuites=$(GroupRepresentatives $auditSuites)
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     [ -n "$groups" ] || continue

@@ -27,7 +27,7 @@ constexpr const char *kDeviceWork[] = {
 };
 
 [[nodiscard]] bool ProvesTheDevice(const std::string &path) {
-  return path.find("test/outshine/device/") != std::string::npos ||
+  return path.find("test/outshine/src/render/device/") != std::string::npos ||
          path.find("test/harness/") != std::string::npos;
 }
 

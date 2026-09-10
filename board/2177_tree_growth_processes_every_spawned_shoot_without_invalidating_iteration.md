@@ -28,7 +28,7 @@ Rindendreiecke, keine Blattfläche, Oracle rot (`build/tree-native-suite.log`). 
 272934 Rinden- und 80640 Blattdreiecke auf Rank 3, Blattfläche vorhanden.
 `TreeGeometryUsesNativeMaterials` prüft verzweigte Birke, identischen Repeat der Knoten-
 positionen/Radien und einen absichtlich unverzweigten, unbelaubten Kontrollfall.
-`make suite SUITE=outshine/conventions`: 11/11 PASS, Exit 0,
+Die damaligen elf Baum-/Konventionsfälle: 11/11 PASS, Exit 0,
 `build/tree-native-final-suite.log`. PNG `build/tree-native/birch.png` visuell geöffnet:
 Krone vorhanden, jedoch dünnes Astgewirr und große vereinzelte Blattbüschel. Das ist keine
 akzeptierte Vegetationsqualität. Kapazitäts-Stressoracle bleibt offen, deshalb WI nicht geschlossen.
