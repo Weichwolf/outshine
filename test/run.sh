@@ -214,6 +214,7 @@ done
 
 TestProfile() {
   case "$1" in
+    outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/include/*) printf '%s' 'profile/public' ;;
     outshine/src/world/ground/OsmVector | outshine/src/world/ground/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
@@ -231,6 +232,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
+    profile/client-roundtrip) LayerIncludes profile/internal ;;
     profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
     profile/vector) printf '%s' "-Isrc/world/ground" ;;
     profile/diagnostics) LayerIncludes profile/internal ;;
@@ -254,6 +256,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$(TestProfile "$1")" in
+    profile/client-roundtrip) LayerToolchain profile/internal ;;
     profile/public) LayerToolchain profile/internal ;;
     profile/diagnostics) LayerToolchain profile/internal ;;
     profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
@@ -283,6 +286,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
+    profile/client-roundtrip) LayerLink profile/internal ;;
     profile/public) LayerLink profile/internal ;;
     profile/base) printf '%s' "-lz" ;;
     profile/diagnostics) LayerLink profile/internal ;;
@@ -296,6 +300,7 @@ LayerLink() {
 
 LayerGroups() {
   case "$(TestProfile "$1")" in
+    profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/public) LayerGroups profile/internal ;;
     profile/vector) printf '%s' "src/world/ground/OsmVector.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;

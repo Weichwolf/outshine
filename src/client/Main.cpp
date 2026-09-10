@@ -1,5 +1,4 @@
 #include <cstdio>
-#include <print>
 #include <cstddef>
 #include <cstring>
 #include <span>
@@ -16,6 +15,7 @@
 
 #include "PlaceCamera.h"
 #include "RenderAsset.h"
+#include "ScenarioRoundTrip.h"
 #include "format/Number.h"
 #include <cmath>
 
@@ -331,59 +331,7 @@ int main(int argc, char **argv) {
   if (verb == "measures") { return RunScenario(rest, from, true); }
   if (verb == "height") { return QueryTerrainHeight({from, static_cast<std::size_t>(rest)}); }
   if (verb == "roundtrip") {
-    int apart = 0;
-    const std::string held = "build/outshine-roundtrip.scn";
-    for (const Place &one : places) {
-      outshine::Engine engine;
-      if (!engine.declare(one.Declaration)) {
-        std::printf(
-            "APART   %-14s did not declare: %s\n", one.Name.c_str(), engine.error().c_str());
-        ++apart;
-        continue;
-      }
-      const auto first = engine.writeScenario();
-      if (!first) {
-        std::println("APART   {:<14} export failed: {}", one.Name, first.error());
-        ++apart;
-        continue;
-      }
-      std::FILE *const file = std::fopen(held.c_str(), "wb");
-      if (file == nullptr) {
-        std::printf("APART   %-14s cannot write %s\n", one.Name.c_str(), held.c_str());
-        ++apart;
-        continue;
-      }
-      std::fwrite(first->data(), 1, first->size(), file);
-      std::fclose(file);
-      outshine::Engine again;
-      if (!again.readScenario(held)) {
-        std::printf("APART   %-14s the written scenario did not read back: %s\n",
-                    one.Name.c_str(),
-                    again.error().c_str());
-        ++apart;
-        continue;
-      }
-      const auto second = again.writeScenario();
-      if (!second) {
-        std::println("APART   {:<14} repeated export failed: {}", one.Name, second.error());
-        ++apart;
-        continue;
-      }
-      if (first == second) {
-        std::printf("HELD    %-14s %zu byte(s)\n", one.Name.c_str(), first->size());
-      } else {
-        std::printf("APART   %-14s written twice and the two differ\n", one.Name.c_str());
-        ++apart;
-      }
-    }
-    std::printf("\n%d place(s) apart\n", apart);
-    std::printf(
-        "NOT COVERED: a section the WRITER drops. It is missing from the first text, so\n"
-        "the second read has nothing to read and the second text matches -- measured, with\n"
-        "<clock> removed every place lost 59 bytes and this still said 0 apart. The half\n"
-        "it cannot see is held by a lint rule reading the grammar against the writer, and\n"
-        "that rule names itself where lint prints.\n");
-    return apart == 0 ? 0 : 1;
+    return outshine::Client::RoundTripPlaces(places, "build/outshine-roundtrip.scn");
   }
   if (verb == "places") {
     for (const Place &one : places) {

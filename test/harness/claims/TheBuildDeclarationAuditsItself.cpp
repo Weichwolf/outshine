@@ -45,7 +45,9 @@ namespace {
 // watches a closure that never opened.
 [[nodiscard]] std::string OnlyNamedAlone() {
   std::string said;
+  // Seed the runtime library: a test-only leaf can disappear without leaving a library caller.
   (void)Run("L=$(sed -n '/^LayerGroups()/,/^}/p' test/run.sh"
+            " | sed -n '/^    profile\\/engine)/p'"
             " | grep -o 'src/[a-zA-Z0-9/._-]*' | sort -u);"
             " for c in $(printf '%s\\n' \"$L\" | grep '\\.cpp$'); do"
             " d=$(dirname \"$c\");"

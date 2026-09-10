@@ -99,9 +99,15 @@ erhält vorhandene Welt. Szenario-Reader/Writer erhalten alle unterstützten sta
 Deklarationen im Roundtrip; Laufzeithandles/Savegame-Zustand sind kein Importformat.
 
 ## Roundtrip-Client
-Vor Implementierung: Roundtrip-Prüfung aus main in eigene Client-Komponente verschieben.
+Roundtrip-Prüfung aus main in eigene Client-Komponente verschoben.
 Engine-Aufrufe bleiben öffentlich; vorhandenes WriteFileAtomically prüft Schreiben/Close
 und erhält alte Dateien bei IO-Fehlern. Pro-Szenario-Prüfung liefert expected<Bytes,Fehler>,
 CLI zählt Ergebnisse getrennt. Test: gültiger Export und ungültiges Ziel, plus vorhandene
-Short-Write-Negativkontrolle des gemeinsamen IO-Helfers. Keine Aussage über verlorene
+Short-Write-Negativkontrolle des gemeinsamen IO-Helfers; alle Places bestehen über CLI.
+Negativkontrolle mit verschlucktem Schreibfehler scheitert. Keine Aussage über verlorene
 Sektionen aus Selbstvergleich ableiten. Gemeinsamer CLI-Scratchpfad bleibt noch zu isolieren.
+
+Build-Audit-Negativkontrolle wählt den entfernten Provider aus der Engine-Profildeklaration.
+Ein nur vom Test aufgerufenes Client-Blatt erzeugt beim Entfernen keinen ungelösten
+Bibliotheksverweis; die bisherige alphabetische Auswahl war dafür falsch spezifiziert.
+Erwarteter Audit-Fehler unverändert, keine zusätzliche Dateiliste im Test.
