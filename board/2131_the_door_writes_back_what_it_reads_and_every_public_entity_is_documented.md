@@ -103,9 +103,9 @@ Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung b
 Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht zur
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
 dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
-Body als Deklaration: vier nachweislich ungenutzte Such-/Geometriehelfer entfernen;
-acrossM bezog fälschlich den Ursprung in Kontaktbreiten ein. Datenverträge anhand
-Assembly/PrepareBodies dokumentiert; drei Assembly/Gravity/Audio-Regressionsfälle grün.
+Body-Deklaration dokumentiert; ungenutzte Such-/Geometriehelfer entfernt.
+Kind-/Instanznamen vor Aufbau sortiert auf leer/doppelt prüfen; getrennte Namensräume.
+API-Verträge anhand Assembly dokumentieren, Fehlererhalt und gültige Bindungen testen.
 Body-Dynamik: gemeinsame Eingabeprüfung vor declare/Assembly und nach strengem XML-
 Parsing: Masse/diagonale Trägheit endlich >=0, Position endlich, Quaternion unit
 (Normtoleranz 1e-6). Altcode verletzt zwei Negativkontrollen, fünf Regressionen grün.
