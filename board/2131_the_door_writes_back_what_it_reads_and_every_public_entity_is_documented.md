@@ -106,13 +106,15 @@ bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkon
 
 Writer erhält LatLon jetzt bitgenau mit std::format; sechs Nachkommastellen konnten
 Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind mehr.
-16 Fälle mit/ohne Relief, Weg/Fläche, nahe/negative/Pol-/Datumsgrenzen-Koordinaten:
-Originalwerte bleiben exakt; beide Tests grün. Alter Writer scheitert am Relief,
-isolierte alte Zahlenausgabe an Präzision/Punktkollaps; keine Buildfehler.
 ReadScenarioOsm ersetzt permissives strtod: expected-Fehler, vollständige locale-
 unabhängige Zahlen, endliche WGS84-Winkel, zwei Weg-/drei Flächenpunkte und höchstens
 65536 Punkte je Feature vor Wachstum. Kein stiller Teilimport; Document-Kandidat
 erhält Vorgänger bei spätem Fehler. Grenzen/Exponent/Whitespace/Budgetrand geprüft;
 alter Reader rot, drei Tests grün. Wien c307cab8 bytegleich, PNG geöffnet.
 Test-Linklisten und Grammatik-Scanner erfassen den ausgelagerten Reader.
-uint64-Reliefseed, Attributvalidierung und Gesamtbudget bleiben offen.
+Nächster Schritt: widthM/heightM vollständig endlich/nichtnegativ lesen; fehlend = 0,
+explizit ungültig = Fehler. level als vollständigen dezimalen int ohne Float-Zwischenwert
+lesen; Bruchteile/Überlauf/NaN verweigern. Gemeinsame from_chars-/expected-Grenze,
+Feature erst nach allen Prüfungen anhängen. Abnahme: int-Grenzen, Null/Defaults,
+Zahlenreste, negative Maße und später Fehler mit Document-Erhalt; alter Reader rot.
+uint64-Reliefseed, Flags und Gesamtbudget bleiben offen.
