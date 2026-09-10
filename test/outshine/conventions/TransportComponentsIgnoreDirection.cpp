@@ -38,9 +38,9 @@ int main() {
               pieces.UnderFour == 2 && pieces.InUnderFour == 3,
           "converging and diverging directions preserve component sizes four, two and one");
     const auto start = network.Nearest({.LongitudeDeg = -0.01, .LatitudeDeg = -0.01});
-    CHECK(start.has_value(), "leaf node exists");
-    if (start) {
-      const std::array seed{start->Node};
+    CHECK(start && start->has_value(), "leaf node exists");
+    if (start && *start) {
+      const std::array seed{(*start)->Node};
       CHECK(network.Reaches(seed) == (reverse ? 1u : 2u),
             "directed reachability remains distinct from physical connectivity");
     }

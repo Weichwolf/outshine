@@ -177,8 +177,10 @@ public:
     double AwayM = 0.0;
   };
 
-  [[nodiscard]] std::optional<Found> Nearest(LongitudeLatitude to) const;
-  void Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes) const;
+  [[nodiscard]] std::expected<std::optional<Found>, std::string_view>
+  Nearest(LongitudeLatitude to) const;
+  [[nodiscard]] std::expected<void, std::string_view>
+  Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes) const;
 
 private:
   Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}

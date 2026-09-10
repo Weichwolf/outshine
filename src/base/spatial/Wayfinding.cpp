@@ -29,6 +29,8 @@
 namespace outshine::Path {
 
 namespace Says {
+constexpr auto kInvalidSpatialQuery =
+    "spatial query requires canonical finite coordinates and a finite nonnegative radius";
 constexpr auto kInvalidNetworkGrid = "transport grid requires finite positive radius and cell size "
                                      "with representable global indices";
 constexpr auto kInvalidWayCoordinates = "transport way contains invalid geographic coordinates";
@@ -930,16 +932,24 @@ size_t Network::JunctionCount() const {
   return junctions;
 }
 
-std::optional<Network::Found> Network::Nearest(LongitudeLatitude to) const {
+std::expected<std::optional<Network::Found>, std::string_view>
+Network::Nearest(LongitudeLatitude to) const {
+  if (!ValidCoordinates(to)) { return std::unexpected(Says::kInvalidSpatialQuery); }
   if (Nodes_.empty()) { return std::nullopt; }
   std::vector<size_t> found;
   for (int widening = 0;; ++widening) {
     const double reachM = 4.0 * SnapM_ * std::pow(4.0, widening);
     if (!(reachM < std::numbers::pi * RadiusM_)) { break; }
-    Within(to, reachM, found);
+    if (const auto result = Within(to, reachM, found); !result) {
+      return std::unexpected(result.error());
+    }
     if (!found.empty()) { break; }
   }
-  if (found.empty()) { Within(to, std::numbers::pi * RadiusM_, found); }
+  if (found.empty()) {
+    if (const auto result = Within(to, std::numbers::pi * RadiusM_, found); !result) {
+      return std::unexpected(result.error());
+    }
+  }
   size_t best = found.empty() ? 0 : found.front();
   double bestAway =
       ApartM({.LongitudeDeg = to.LongitudeDeg, .LatitudeDeg = to.LatitudeDeg},
@@ -958,29 +968,35 @@ std::optional<Network::Found> Network::Nearest(LongitudeLatitude to) const {
   return Found{.Node = best, .AwayM = bestAway};
 }
 
-void Network::Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes) const {
-  nodes.clear();
-  const int64_t across = static_cast<int64_t>(std::ceil(reachM / SnapM_)) + 1;
-  const uint64_t cells =
-      static_cast<uint64_t>(2 * across + 1) * static_cast<uint64_t>(2 * across + 1);
-  if (Cells_.empty() || cells > Cells_.size()) {
-    for (size_t which = 0; which < Nodes_.size(); ++which) {
-      if (ApartM({.LongitudeDeg = of.LongitudeDeg, .LatitudeDeg = of.LatitudeDeg},
-                 {.LongitudeDeg = Nodes_[which].LongitudeDeg,
-                  .LatitudeDeg = Nodes_[which].LatitudeDeg},
-                 Sphere{.RadiusM = RadiusM_}) <= reachM) {
-        nodes.push_back(which);
-      }
-    }
-    return;
+std::expected<void, std::string_view>
+Network::Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes) const {
+  if (!ValidCoordinates(of) || !std::isfinite(reachM) || reachM < 0.0) {
+    return std::unexpected(Says::kInvalidSpatialQuery);
   }
+  nodes.clear();
+  const auto appendWithin = [&](size_t which) {
+    const Node &node = Nodes_[which];
+    if (ApartM(of,
+               {.LongitudeDeg = node.LongitudeDeg, .LatitudeDeg = node.LatitudeDeg},
+               Sphere{.RadiusM = RadiusM_}) <= reachM) {
+      nodes.push_back(which);
+    }
+  };
+  const double acrossCells = std::ceil(reachM / SnapM_) + 1.0;
+  if (Cells_.empty() || 2.0 * acrossCells + 1.0 > std::sqrt(static_cast<double>(Cells_.size()))) {
+    for (size_t which = 0; which < Nodes_.size(); ++which) { appendWithin(which); }
+    return {};
+  }
+  const auto across = static_cast<int64_t>(acrossCells);
   const int64_t rowHere = RowOf(of.LatitudeDeg);
   const RowShape mine = ShapeRow(rowHere);
   for (int64_t row = rowHere - across; row <= rowHere + across; ++row) {
     const RowShape shape = ShapeRow(row);
-    const int64_t reachCols = static_cast<int64_t>(std::ceil(static_cast<double>(across) *
-                                                             mine.LonCellDeg / shape.LonCellDeg)) +
-                              1;
+    const auto reachCols = static_cast<int64_t>(std::min(
+        static_cast<double>(shape.Columns),
+        shape.Columns == 1
+            ? 1.0
+            : std::ceil(static_cast<double>(across) * mine.LonCellDeg / shape.LonCellDeg) + 1.0));
     const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
     const int64_t centre = ColumnIn(shape, of.LongitudeDeg);
     for (int64_t step = 0; step < span; ++step) {
@@ -988,16 +1004,10 @@ void Network::Within(LongitudeLatitude of, double reachM, std::vector<size_t> &n
           ((centre + step - reachCols) % shape.Columns + shape.Columns) % shape.Columns;
       const auto seen = Cells_.find(KeyAt({.Row = row, .Column = column}));
       if (seen == Cells_.end()) { continue; }
-      for (const size_t candidate : seen->second) {
-        if (ApartM({.LongitudeDeg = of.LongitudeDeg, .LatitudeDeg = of.LatitudeDeg},
-                   {.LongitudeDeg = Nodes_[candidate].LongitudeDeg,
-                    .LatitudeDeg = Nodes_[candidate].LatitudeDeg},
-                   Sphere{.RadiusM = RadiusM_}) <= reachM) {
-          nodes.push_back(candidate);
-        }
-      }
+      for (const size_t candidate : seen->second) { appendWithin(candidate); }
     }
   }
+  return {};
 }
 
 size_t Network::Reaches(std::span<const size_t> from) const {
@@ -1078,29 +1088,39 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     return out;
   }
 
-  const std::optional<Found> started = Nearest(from);
-  const std::optional<Found> finished = Nearest(to);
+  const auto started = Nearest(from);
+  const auto finished = Nearest(to);
   if (!started || !finished) {
+    out.Error = !started ? started.error() : finished.error();
+    return out;
+  }
+  if (!*started || !*finished) {
     out.Error = "a network with no nodes has nothing to start from";
     return out;
   }
-  const size_t start = started->Node;
-  const size_t finish = finished->Node;
-  const double startAwayM = started->AwayM;
-  const double finishAwayM = finished->AwayM;
+  const size_t start = (*started)->Node;
+  const size_t finish = (*finished)->Node;
+  const double startAwayM = (*started)->AwayM;
+  const double finishAwayM = (*finished)->AwayM;
 
   const double never = kBeyondAnyCoordinate;
   const size_t edges = Edges_.size();
   const auto kNoState = static_cast<size_t>(-1);
   std::vector<size_t> nearStart;
-  Within(from, startAwayM + kStartReachM, nearStart);
+  if (const auto result = Within(from, startAwayM + kStartReachM, nearStart); !result) {
+    out.Error = result.error();
+    return out;
+  }
   if (nearStart.empty()) { nearStart.push_back(start); }
   out.StartedFrom = nearStart.size();
 
   std::vector<size_t> nearFinish;
   const double arriveM = Nodes_[finish].HalfWidthM > 0.0 ? 2.0 * Nodes_[finish].HalfWidthM : SnapM_;
   const double goalRadiusM = finishAwayM + arriveM;
-  Within(to, goalRadiusM, nearFinish);
+  if (const auto result = Within(to, goalRadiusM, nearFinish); !result) {
+    out.Error = result.error();
+    return out;
+  }
   if (nearFinish.empty()) { nearFinish.push_back(finish); }
   std::vector<bool> arriving(Nodes_.size(), false);
   for (const size_t which : nearFinish) { arriving[which] = true; }

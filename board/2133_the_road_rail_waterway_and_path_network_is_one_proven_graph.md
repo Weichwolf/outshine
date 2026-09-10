@@ -109,11 +109,12 @@ Corridors reicht Fehler weiter. Positive endliche Werte, höchstens ein Kugelumf
 pro Zelle und höchstens UINT32_MAX Spalten; sechs Transporttests bestehen,
 Factory-Bypass scheitert. Wien-PNG bytegleich; lint unverändert 187/333, 32 Claims grün.
 Offen: Polnähe und das aus Straßenbreiten abgeleitete TieReach prüfen.
-Within/Nearest erhalten explizite Fehlerverträge; große gültige Suchradien wählen
-vor Integer-Casts einen begrenzten Vollscan. Keine stillen leeren Treffer bei Fehlern.
+Within/Nearest liefern expected; Plan reicht Fehler weiter. Within erhält bei Fehler
+den Puffer; große Suchen wählen vor Cast den Vollscan. Spaltenreichweite begrenzt.
 Vorhandene Graph-/Geometriefähigkeiten behalten; erwartetes gültiges Render unverändert.
 
-Abnahme: Null, negative Werte, NaN/±Inf, Subnormale, maximale Double-Werte und
-abgeleitete Überläufe; gültige Grenzfälle samt Pol/Datumsgrenze. Räumliche Treffer
-gegen unabhängigen Distanz-Vollscan prüfen. Entfernte Eingabeprüfung muss scheitern;
-kein Integerüberlauf im Sanitizer. Routingtests, make lint und Wien ohne Vegetation.
+Nachweise: Konfigurationsgrenzen, Trefferzahlen und nächste Distanz gegen unabhängiges
+Kugel-Orakel mit Pol/Datumsgrenze/DBL_MAX. Vollständiger alter Cast-/Quadratpfad scheitert,
+isolierter Cast hier nicht. Engine in conventions unsanitisiert: Nachweis bleibt offen.
+Abfragezustand nach Lay/vor Weave, Trefferidentitäten/Rasterränder und TieReach offen.
+Fünf Tests grün; lint 187/333, 32 Claims grün; Wien-PNG bytegleich und visuell geprüft.
