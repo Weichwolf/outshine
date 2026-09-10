@@ -89,3 +89,11 @@ Materialübernahme als eigene Importphase; vier Importregressionen einschließli
 Khronos-Texturtransformationen grün. Keine vollständige Corpus-/Weltabnahme.
 Letzter Lint: 178 tidy, 251 Dokumentationsdiagnosen, 32 Repository-Tests grün;
 drei rote Gruppen bleiben. Einzelverläufe stehen in Git, nicht als fortlaufendes Tagebuch.
+
+## GroundMaterials-Katalog
+Load leert vor IO den Katalog und publiziert Klassen vor vollständiger Validierung.
+Datei über ReadTextFile mit 1-MiB-Katalogbudget lesen; JSON/Klassen/Referenzen als
+Kandidat aufbauen, erst bei Erfolg ersetzen. Klassen-Decoding von Katalogauflösung
+trennen; gültige Materialarithmetik unverändert. Negativkontrolle: später Klassen-/
+Referenzfehler erhält alle alten Materialien, fehlende/überlange Dateien ebenso.
+Numerische Material-/Modellgrenzen und unbekannte Litter-Verweise bleiben separat offen.
