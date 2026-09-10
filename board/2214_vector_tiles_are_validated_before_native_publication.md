@@ -54,3 +54,15 @@ ASan heap-buffer-overflow (Read 4) aus, ohne Buildfehler. Korrigiert normal/sani
 grün. OSM-Positionsregression grün; Wien c307cab8 bytegleich, PNG geöffnet.
 Abschluss: 184 tidy statt 185, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
 drei Gruppen bleiben rot. Pixelvergleich Wien: 0 geänderte Pixel, RGB-Maximum/Mittel 0.
+
+## Aktiver Schritt: Feature-Wirevertrag
+Feature-Tags und Geometriewörter werden vollständig in ein lokales Formatprodukt
+geparst; fehlerhafte Varints, uint32-Überläufe und abgeschnittene Felder lehnen die
+Ebene ab, statt partielle Features als Erfolg zu melden. Gemeinsamer uint32-Reader,
+packed und unpacked sowie mehrere Segmente desselben repeated Felds unterstützen.
+Featuretyp nur im definierten Enum 0..3. Readerfehler auf Ebene/Feature weiterreichen.
+Die eigentliche Geometrieinterpretation bleibt getrennt und vorerst unverändert;
+Tagreferenzen, Extent/Version, Geometrieregeln und Gesamtkachel-Rollback bleiben offen.
+Tests mit expliziten Bytes: spätes defektes Feature, fehlende Payload, uint32-Überlauf,
+Enumgrenzen, äquivalente packed/unpacked/segmentierte Streams. Alte Fassung muss
+scheitern, neue normal und direkt mit ASan/UBSan grün; Wien-Pixelvergleich und Lint.
