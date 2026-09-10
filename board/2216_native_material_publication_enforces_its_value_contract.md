@@ -87,9 +87,6 @@ scheitert an den Vertragschecks, nicht am Build; danach sieben gezielte und drei
 Regressionstests grün (ein gemeinsamer Fall, zusätzlich validierter Gerätearm).
 Materialübernahme als eigene Importphase; vier Importregressionen einschließlich
 Khronos-Texturtransformationen grün. Keine vollständige Corpus-/Weltabnahme.
-Letzter Lint: 178 tidy, 251 Dokumentationsdiagnosen, 32 Repository-Tests grün;
-drei rote Gruppen bleiben. Einzelverläufe stehen in Git, nicht als fortlaufendes Tagebuch.
-
 ## GroundMaterials-Katalog
 Load liest über ReadTextFile mit 1-MiB-Katalogbudget; JSON/Klassen/Referenzen
 werden als Kandidat aufgebaut und erst bei Erfolg ersetzt. Klassen-Decoding von Katalogauflösung
@@ -100,15 +97,11 @@ Reibungswerte vor Float-Verengung auf positive darstellbare Werte prüfen;
 relative Reibung vor Division auf Float-Bereich prüfen. Extremwerte dürfen weder
 Null noch unendliche Faktoren publizieren; Fehler erhalten den bisherigen Katalog.
 Nachweis: Altcode verletzt Unter-/Überlaufkontrollen von Eingängen und Quotienten;
-mit Prüfung sind Erhaltung, gültiger Retry und ausgelieferter Katalog grün. Andere numerische Material-/Modellgrenzen bleiben separat offen.
+mit Prüfung sind Erhaltung, gültiger Retry und ausgelieferter Katalog grün. Weitere numerische Material-/Modellgrenzen bleiben offen.
 
 ## Eindeutige Katalogreferenzen
-Nichtleere eindeutige Klassennamen erzwingen. Temporären sortierten Namensindex
-für Duplikatprüfung, Reibungsreferenz und Litter-Auflösung verwenden; Materialreihenfolge
-erhalten. Unbekannte nichtleere Litter-Referenz ablehnen statt als -1 verschwinden lassen.
-Vorwärts-/Selbstreferenzen bestehen; Fehler erhalten den bisherigen Katalog.
-Altstand verletzt die Negativkontrolle; Referenz-/Reihenfolge-/Retry-Fälle und
-ausgelieferter Katalog geprüft.
+Sortierter Namensindex prüft eindeutige Namen und löst Referenzen ohne Umordnung.
+Vorwärts-/Selbstreferenzen, Fehlererhaltung und ausgelieferter Katalog geprüft.
 
 ## Nässemodell-Grenzen
 kWet und Klassenfeuchte als endliche Anteile [0,1] vor Float-Verengung prüfen.
@@ -117,3 +110,10 @@ Optionale Modellobjekte und edges-Paar prüfen; Grenzen [0,1], auch nach Float-C
 streng aufsteigend. Smoothstep außerhalb des Intervalls vor der Division sättigen.
 Nachweis: Altcode akzeptiert kollabierende/reverse Grenzen und falsche Typen.
 Korrektur besteht Fehlererhaltung, analytische Endpunkte/Mitte und Katalog-Retry.
+
+## Optische Katalogwerte
+Rauheit, Streuauflage und Albedokanäle auf [0,1] prüfen, sichtbaren/breitbandigen
+Quotienten auf nichtnegative Float-Werte. Quotient darf >1 sein (Firn); erst das
+resultierende Albedo muss [0,1] erfüllen. Typen und RGB-Tripel vor Berechnung prüfen.
+Gültige Float-Arithmetik erhalten. Negativkontrollen plus Quotient >1 mit gültigem
+Albedo; geometrische Skalen-/Hanggrenzen bleiben separat offen.
