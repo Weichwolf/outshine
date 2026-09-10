@@ -575,29 +575,28 @@ enum class Falls : uint8_t {
 
 /// Copied spatial-source parameters; no resources or borrowed storage.
 /// Mutate only with exclusive access. Audio setup validates positive finite RefM for
-/// positional sources; other emitter ranges and enum values are not fully checked yet.
+/// positional sources, valid By, finite nonnegative MostM/Rolloff/BlockedHz and finite
+/// BlockedGain in [0,1], including nonpositional declarations. Cone metadata is unchecked.
 /// Current spatialization uses linear stereo panning, distance gain, Doppler and blocking;
 /// it is not a binaural HRTF renderer. Cone parameters are retained but unapplied.
 struct Emitter {
   bool Positional =
       false; ///< Enable distance, panning, Doppler and blocking; false sends equally left/right.
-  Falls By =
-      Falls::Inverse; ///< Distance gain law; unknown enum values currently take the inverse branch.
+  Falls By = Falls::Inverse; ///< Distance gain law; unknown enum values reject audio preparation.
   double RefM =
       1.0; ///< Positive reference distance in metres; nearer sources retain reference gain.
   /// Linear law only: reference endpoint in metres; values <= RefM select 2 * RefM.
   /// Not a hard audible-distance cutoff for the other laws.
   double MostM = 0.0;
-  double Rolloff =
-      1.0; ///< Dimensionless distance-attenuation coefficient; not range-validated yet.
+  double Rolloff = 1.0; ///< Finite nonnegative dimensionless distance-attenuation coefficient.
   double InnerRad =
       0.0; ///< Stored inner cone angle in radians; angular convention not implemented.
   double OuterRad =
       0.0; ///< Stored outer cone angle in radians; angular convention not implemented.
   double OuterGain = 0.0; ///< Stored dimensionless outer-cone gain; not applied.
-  /// Gain at full obstruction; linearly blended from unity by the blocked fraction.
+  /// Finite gain in [0,1] at full obstruction; blended from unity by the blocked fraction.
   double BlockedGain = 1.0;
-  /// Positive low-pass cutoff in hertz whenever obstruction is nonzero; zero disables it.
+  /// Finite nonnegative cutoff in hertz when obstruction is nonzero; zero disables it.
   double BlockedHz = 0.0;
 };
 
@@ -649,7 +648,8 @@ struct Sound {
   bool Loops = false; ///< Stored playback intent; does not gate or restart the current synth graph.
   /// Source gain in decibels, converted as 10^(GainDb/20); finite gain and route product required.
   double GainDb = 0.0;
-  /// Dimensionless post-spatial-gain send to the shared reverb; not range-validated yet.
+  /// Finite nonnegative post-spatial-gain send to shared reverb; values above one are allowed.
+  /// This does not guarantee finite output for overflowing derived signals or sums.
   double SendShare = 0.0;
 };
 

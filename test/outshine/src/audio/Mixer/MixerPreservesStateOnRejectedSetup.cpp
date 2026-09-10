@@ -2,6 +2,7 @@
 #include "Check.h"
 #include <array>
 #include <string>
+#include <limits>
 
 int main() {
   using namespace outshine;
@@ -50,6 +51,52 @@ int main() {
   for (const char *value : {"-1", "1e30"}) {
     invalidDelay[0].Graph[0].Parameters = {{"delayS", value}};
     CHECK(!mixer.Stands(buses, invalidDelay, 48000), "invalid or over-budget delay rejected");
+  }
+  for (const bool positional : {false, true}) {
+    for (const double value : {-1.0,
+                               std::numeric_limits<double>::infinity(),
+                               std::numeric_limits<double>::quiet_NaN()}) {
+      for (const auto member : {&Scenario::Emitter::MostM,
+                                &Scenario::Emitter::Rolloff,
+                                &Scenario::Emitter::BlockedHz,
+                                &Scenario::Emitter::BlockedGain}) {
+        auto invalid = sounds;
+        invalid[0].Heard.Positional = positional;
+        invalid[0].Heard.*member = value;
+        CHECK(!mixer.Stands(buses, invalid, 96000), "invalid spatial parameter rejected");
+        compare();
+      }
+      auto invalid = sounds;
+      invalid[0].Heard.Positional = positional;
+      invalid[0].SendShare = value;
+      CHECK(!mixer.Stands(buses, invalid, 96000), "invalid reverb send rejected");
+      compare();
+    }
+    auto invalid = sounds;
+    invalid[0].Heard.Positional = positional;
+    invalid[0].Heard.BlockedGain = 1.01;
+    CHECK(!mixer.Stands(buses, invalid, 96000), "obstruction cannot amplify the source");
+    compare();
+    invalid[0].Heard.BlockedGain = 1;
+    invalid[0].Heard.By = static_cast<Scenario::Falls>(255);
+    CHECK(!mixer.Stands(buses, invalid, 96000), "unknown distance model rejected");
+    compare();
+  }
+  for (const auto law :
+       {Scenario::Falls::Linear, Scenario::Falls::Inverse, Scenario::Falls::Exponential}) {
+    auto boundary = sounds;
+    boundary[0].Heard.Positional = true;
+    boundary[0].Heard.By = law;
+    boundary[0].Heard.MostM = 0;
+    boundary[0].Heard.Rolloff = 0;
+    boundary[0].Heard.BlockedGain = 0;
+    boundary[0].Heard.BlockedHz = 0;
+    boundary[0].SendShare = 0;
+    CHECK(mixer.Stands(buses, boundary, 48000).has_value(), "valid zero boundaries accepted");
+    boundary[0].Heard.BlockedGain = 1;
+    boundary[0].SendShare = 2;
+    CHECK(mixer.Stands(buses, boundary, 48000).has_value(),
+          "unity obstruction and boosted send accepted");
   }
   auto delayed = sounds;
   Scenario::Voice delay;

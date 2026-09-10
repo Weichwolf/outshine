@@ -95,9 +95,9 @@ https://valvesoftware.github.io/steam-audio/doc/capi/guide.html
 - [ ] Lint, clang-tidy, unabhängige Tests und wirksame Negativkontrollen abgeschlossen.
 
 ## Aktiver Schritt: sichere räumliche Mischparameter
-Vor Mixer-Publikation gültige Distanzmodell-Enums, endliche nichtnegative MostM,
-Rolloff, BlockedHz und SendShare sowie BlockedGain in [0,1] prüfen. RefM bleibt
+Vor Mixer-Publikation geprüft: gültige Distanzmodell-Enums, endliche nichtnegative MostM,
+Rolloff, BlockedHz und SendShare sowie BlockedGain in [0,1]. RefM bleibt
 für positionale Quellen positiv/endlich. Unbenutzte Kegelsemantik nicht erfinden.
-Fehler müssen DSP-Phase/Samplerate erhalten: blockweise Vergleich mit Kontrollmixer;
-Altcode-Negativkontrolle, gültige Null-/Randwerte und alle Distanzmodelle prüfen.
+Blockvergleich mit Kontrollmixer belegt DSP-Phase/Samplerate bei Fehlern; Altcode rot.
+Sieben Regressionen grün, inklusive gültiger Null-/Randwerte und aller Distanzmodelle.
 Abgeleitete Überläufe und Quell-/Listener-Snapshotvalidierung bleiben separat offen.

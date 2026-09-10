@@ -35,6 +35,7 @@ constexpr double kRt60Decades = -3.0;
 namespace {
 
 namespace Says {
+constexpr auto InvalidSpatial = "invalid audio spatial or send parameter";
 constexpr auto InvalidParameter = "invalid audio parameter";
 constexpr auto DelayBudget = "audio delay exceeds the sample budget";
 constexpr auto InvalidRoom = "invalid audio reverberation parameters";
@@ -105,6 +106,27 @@ PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
     remainingSamples -= count;
   }
   return result;
+}
+
+[[nodiscard]] std::expected<void, std::string>
+ValidateSpatialSources(std::span<const Scenario::Sound> sounds) {
+  for (const auto &sound : sounds) {
+    const auto &emitter = sound.Heard;
+    const std::array magnitudes{emitter.MostM, emitter.Rolloff, emitter.BlockedHz, sound.SendShare};
+    for (const double value : magnitudes) {
+      if (!std::isfinite(value) || value < 0) { return std::unexpected(Says::InvalidSpatial); }
+    }
+    if (!std::isfinite(emitter.BlockedGain) || emitter.BlockedGain < 0 || emitter.BlockedGain > 1) {
+      return std::unexpected(Says::InvalidSpatial);
+    }
+    switch (emitter.By) {
+      case Scenario::Falls::Linear:
+      case Scenario::Falls::Inverse:
+      case Scenario::Falls::Exponential: break;
+      default: return std::unexpected(Says::InvalidSpatial);
+    }
+  }
+  return {};
 }
 
 [[nodiscard]] double Falloff(const Scenario::Emitter &heard, double awayM) {
@@ -451,6 +473,7 @@ std::expected<void, std::string> Mixer::Stands(std::span<const Scenario::Bus> bu
   auto candidate = std::make_unique<Held>();
   auto routing = candidate->Routing.Build(buses, declared);
   if (!routing) { return routing; }
+  if (auto spatial = ValidateSpatialSources(declared); !spatial) { return spatial; }
   candidate->Declared.assign(declared.begin(), declared.end());
   std::string error;
   if (!candidate->BuildSources(declared, rate, error)) { return std::unexpected(std::move(error)); }
