@@ -101,3 +101,10 @@ Anhängen O(1), keine wiederholte Suche durch Geschwister. Knotenlayout unverän
 Abnahme: 60000 Geschwister unter 2 s auf dem Entwicklungsrechner (großzügiges
 Cold-Import-Budget), Reihenfolge und verschachtelte Listen exakt. Altstand benötigt
 2,87 s und verletzt das Budget. 15 Syntax-/Attribut-/Szenario-Regressionen bestehen.
+
+## XML-Dokumentgrenzen
+Nicht-Whitespace außerhalb der Wurzel wird derzeit ignoriert; Attribute ohne
+Trennraum und Kommentare mit innerem Doppelbindestrich werden akzeptiert. Diese
+Syntaxfehler vor Veröffentlichung ablehnen. UTF-8-BOM nur am Dokumentanfang erlauben.
+Abnahme: positive Whitespace-/Kommentar-/BOM-Fälle und ungültige Gegenstücke;
+Parserfehler leeren das Parse-Ergebnis, Szenarioimport erhält sein voriges Dokument.
