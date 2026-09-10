@@ -115,6 +115,6 @@ Offen: Anbindung, Kraftüberläufe, LoadFalloff-Normierung und CircleM-Radius/Du
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
-Neun API-/Writerregressionen grün; geänderte Präsenz bei Nichtdefaults ist dokumentiert.
 Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
-scene.room: Integer-Parsing erhält Dokument bei Fehlern; Altreader rot, drei Regressionen grün.
+scene.room/Surfaces im Writer erhalten: typgerechte Zahlen ohne Double-Zwang,
+Markup/CSS/Skript, Reihenfolge, Patch und Z. Rundlauf mit Grenzwerten und XML-Zeichen.
