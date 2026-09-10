@@ -432,7 +432,7 @@ struct Placement {
 /// access. Source validity is checked when composing or executing, not by this descriptor.
 /// Declaration/replacement may fail while composing; full rollback is not guaranteed yet.
 struct Surface {
-  std::string Document; ///< Inline UI markup; parsed when the overlay is composed.
+  std::string Document; ///< Inline UI markup; XML import/export requires nonempty text.
   /// Inline CSS applied after the user-agent sheet and before styles embedded in Document.
   std::string Style;
   /// Inline script prepended to a clicked action and parsed/run against the offered host.

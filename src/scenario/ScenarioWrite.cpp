@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <expected>
+#include <concepts>
 #include <format>
 #include <cstddef>
 #include <string>
@@ -16,7 +17,13 @@ namespace outshine {
 
 namespace {
 
-void Number(std::string &into, const char *named, double how) {
+namespace Says {
+constexpr auto EmptySurfaceDocument = "surface requires nonempty document text";
+}
+
+template <typename T>
+  requires(std::integral<T> || std::floating_point<T>)
+void Number(std::string &into, const char *named, T how) {
   into += std::format(" {}=\"{}\"", named, how);
 }
 
@@ -45,6 +52,27 @@ void Yes(std::string &into, const char *named, bool how) {
   into += ' ';
   into += named;
   into += how ? "=\"yes\"" : "=\"no\"";
+}
+
+[[nodiscard]] std::expected<void, std::string>
+WriteSurfaces(std::string &into, std::span<const Scenario::Surface> surfaces) {
+  if (surfaces.empty()) { return {}; }
+  into += "  <surfaces>\n";
+  for (const auto &surface : surfaces) {
+    if (surface.Document.empty()) { return std::unexpected(Says::EmptySurfaceDocument); }
+    into += "    <surface";
+    Said(into, "document", surface.Document);
+    Said(into, "style", surface.Style);
+    Said(into, "programme", surface.Programme);
+    Number(into, "leftFrac", surface.Where.LeftFrac);
+    Number(into, "topFrac", surface.Where.TopFrac);
+    Number(into, "widthFrac", surface.Where.WidthFrac);
+    Number(into, "heightFrac", surface.Where.HeightFrac);
+    Number(into, "z", surface.Z);
+    into += "/>\n";
+  }
+  into += "  </surfaces>\n";
+  return {};
 }
 
 void WritePlayer(std::string &into, const Scenario::Player &player) {
@@ -413,6 +441,14 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   }
   std::string said;
   WriteIdentity(said, declared.Named);
+  if (declared.Room != 0) {
+    said += "  <scene";
+    Number(said, "room", declared.Room);
+    said += "/>\n";
+  }
+  if (auto surfaces = WriteSurfaces(said, declared.Surfaces); !surfaces) {
+    return std::unexpected(std::move(surfaces.error()));
+  }
   WriteWorld(said, declared.Ground);
   WriteRender(said, declared.Render);
   if (declared.Motion.Declared) {

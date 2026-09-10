@@ -116,5 +116,5 @@ Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefau
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
 Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
-scene.room/Surfaces im Writer erhalten: typgerechte Zahlen ohne Double-Zwang,
-Markup/CSS/Skript, Reihenfolge, Patch und Z. Rundlauf mit Grenzwerten und XML-Zeichen.
+Writer erhält scene.room/Surfaces ohne Double-Zwang: Quelltexte, Reihenfolge, Patch/Z.
+Grenzwert-/XML-Rundlauf grün; leeres document gemäß Grammatik abgelehnt, Altwriter rot.
