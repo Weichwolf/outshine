@@ -154,6 +154,8 @@ struct Stamp {
 /// Generation may allocate and perform provider work; it is a preparation operation,
 /// not a bounded frame callback. Serialize calls unless an implementation explicitly
 /// permits concurrency; const does not guarantee thread safety of its dependencies.
+/// Engine::declare evaluates generated content again on redeclaration; identical request
+/// values do not establish unchanged provider data. No producer-result cache is promised.
 /// Allocation failure currently follows the allocator contract, not the boolean result.
 class Generator {
 public:

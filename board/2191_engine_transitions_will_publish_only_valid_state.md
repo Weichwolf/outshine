@@ -108,12 +108,12 @@ front()- und Rendererabhängigkeits-Negativkontrollen rot. Trigger tragen volle 
 ## Generatoren bei erneuter Deklaration
 
 SamePicture vergleicht Renderparameter, nicht Generatoren oder deren Providerdaten.
-Der schnelle declare-Pfad ruft generated überhaupt nicht auf. Dadurch können neue
-Parameter oder ein nun ablehnender Producer ignoriert werden. Kein gültiger Cache:
+Der schnelle declare-Pfad übersprang generated: neue Parameter oder ein nun
+ablehnender Producer wurden ignoriert. Korrigiert; kein gültiger Ergebnis-Cache:
 Generator::make darf von geliehenen Providern abhängen, eine Revision fehlt.
-Vorhandenen vollständigen Aufbau verwenden, sobald alte oder neue Deklaration
+Der vollständige Aufbau läuft jetzt, sobald alte oder neue Deklaration
 Generatoren/generated-Assets enthält; Render-Reuse nur ohne solche Inhalte.
 Das gilt auch für unveränderte Parameter und Entfernen des letzten Producers.
-Public-API-Test mit echtem Offscreen-Ziel: wiederholen, Parameter ändern, beide
-Deklarationsformen und Ablehnung prüfen. Alte Bedingung als negative Kontrolle.
+Public-API-Test mit Offscreen-Ziel: neun Checks grün; alter Stand sechs Fehler,
+kein Buildfehler. Parameterweitergabe/Input-Erhalt grün. Wien bytegleich c307cab8.
 Vollständiger Rollback und deklarierte Providerrevisionen bleiben getrennt offen.

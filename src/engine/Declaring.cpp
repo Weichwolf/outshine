@@ -140,6 +140,13 @@ namespace {
   return true;
 }
 
+[[nodiscard]] bool HasGeneratedContent(const Scenario::Document &scenario) {
+  return !scenario.Generators.empty() ||
+         std::ranges::any_of(scenario.Assets, [](const Scenario::Asset &asset) {
+           return asset.Kind == "generated";
+         });
+}
+
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
   return a.Haze == b.Haze && a.SurfaceWidthPx == b.SurfaceWidthPx &&
          a.SurfaceHeightPx == b.SurfaceHeightPx && a.InitialGeometry == b.InitialGeometry &&
@@ -328,7 +335,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Views.emplace(std::move(*stood));
   }
 
-  if (S_->Picture.Standing && SamePicture(S_->Picture.Shown, declared)) {
+  if (S_->Picture.Standing && !HasGeneratedContent(scenario) &&
+      !HasGeneratedContent(S_->Session.Declared) && SamePicture(S_->Picture.Shown, declared)) {
     if (!SameStand(S_->Picture.Shown, declared) &&
         !S_->Picture.Standing->Restands(
             declared.Stands, declared.Variant, declared.Animation, declared.Clip, S_->Error)) {
