@@ -72,7 +72,7 @@ Input-Regressionen prüfen Rendererunabhängigkeit, UI-Hits, Bindungspriorität 
 Ablehnung; Negativkontrollen gegen Renderersperre/frühen Abbruch scheitern am Verhalten.
 Mind/Region/Door geprüft: Metadaten; Layer ersetzt per Region-ID bzw. Door-Endpaar.
 Standing/Placement/Surface geprüft. Restliche Asset-/Audiofelder anhand Loader,
-Overrides, Mixer/BusGraph dokumentieren; wirkungslose Felder und Grenzen benennen.
+Overrides, Mixer/BusGraph dokumentiert; wirkungslose Felder und Grenzen ausdrücklich benannt.
 ## Öffentliche Welt-/Generatorverträge korrigieren
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
 Request::ExtentM weitergegeben; der Regionsvertrag ist uneindeutig. Structures nutzt

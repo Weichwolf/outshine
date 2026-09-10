@@ -352,29 +352,47 @@ struct Lighting {
   double ShadowRadiusM = 0.0;
 };
 
-enum class AssetAnimation { Play, Loop, Ignore, Driven };
-
-struct SurfaceOverride {
-  std::string Named;
-
-  std::string Node;
-
-  int Part = -1;
-
-  bool KeepsMaps = false;
-
-  Material Row;
+/// Playback policy for imported asset animation; consumed by the current primary asset path.
+enum class AssetAnimation {
+  Play,   ///< Advance the selected clip without wrapping; sampling holds its endpoints.
+  Loop,   ///< Advance the selected clip and wrap its playback clock.
+  Ignore, ///< Do not create imported clip playback; retain the imported rest pose.
+  Driven  ///< Suppress imported clip playback; simulation-driven asset posing is not connected yet.
 };
 
-struct Asset {
-  std::string Uri;
-  std::string Digest;
-  std::string Kind;
-  std::string Variant;
-  AssetAnimation Animation = AssetAnimation::Play;
-  int Clip = 0;
+/// Owned material override with legacy imported-material/node/part selectors.
+/// Copies own selector strings and may allocate; mutate only with exclusive access.
+/// Material-name overrides run first, then node/part overrides; the first matching
+/// declaration in each pass wins. No match anywhere rejects loading; individual unmatched
+/// entries are not all rejected. Generic native selector migration remains incomplete.
+struct SurfaceOverride {
+  std::string Named; ///< Exact imported material name; empty can match unnamed materials.
+  std::string Node;  ///< Nonempty exact imported node name, matched independently of Part.
+  /// Zero-based assembled part index; negative disables this selector. Not a stable asset handle.
+  int Part = -1;
+  /// Retain existing texture bindings and ancillary slot settings; false resets them.
+  /// Row is replaced in either case, not merged field by field.
+  bool KeepsMaps = false;
+  Material Row; ///< Native metallic-roughness material values replacing the selected slot's row.
+};
 
-  std::vector<SurfaceOverride> Surfaces;
+/// Owned asset import declaration; copying strings and overrides may allocate.
+/// Mutate only with exclusive access. The current runtime selects the first Kind ==
+/// "gltf" asset as primary and joins additional assets of that kind. Only the primary
+/// asset receives these variant, playback and override settings; other kinds are not loaded.
+/// This legacy selection is not the target format-independent asset architecture.
+struct Asset {
+  std::string Uri; ///< Owned path resolved under the engine's configured asset root.
+  std::string
+      Digest;       ///< Stored digest metadata, round-tripped but not verified by this loader path.
+  std::string Kind; ///< Import-category label; current runtime selection recognizes exactly "gltf".
+  std::string Variant; ///< Primary asset's named material variant; empty uses default assignments.
+  /// Validated playback enum; imported animation is only prepared for Play or Loop.
+  AssetAnimation Animation = AssetAnimation::Play;
+  /// Nonnegative zero-based clip index. Bounds are checked when Play/Loop loads an
+  /// asset with animations; a file without animations does not resolve this index.
+  int Clip = 0;
+  std::vector<SurfaceOverride> Surfaces; ///< Owned ordered overrides for the primary asset.
 };
 
 /// Value-only placement intent, with no allocation or live scene binding.
@@ -548,22 +566,52 @@ struct Volume {
   double DwellS = 0.0;
 };
 
-enum class Falls : uint8_t { Linear, Inverse, Exponential };
+/// Distance attenuation law; evaluated only for positional emitters.
+enum class Falls : uint8_t {
+  Linear,     ///< Linear attenuation using RefM, MostM and Rolloff, clamped to [0,1].
+  Inverse,    ///< RefM / (RefM + Rolloff * (distance - RefM)), with distance at least RefM.
+  Exponential ///< (distance / RefM) raised to -Rolloff, with distance at least RefM.
+};
 
+/// Copied spatial-source parameters; no resources or borrowed storage.
+/// Mutate only with exclusive access. Audio setup validates positive finite RefM for
+/// positional sources; other emitter ranges and enum values are not fully checked yet.
+/// Current spatialization uses linear stereo panning, distance gain, Doppler and blocking;
+/// it is not a binaural HRTF renderer. Cone parameters are retained but unapplied.
 struct Emitter {
-  bool Positional = false;
-  Falls By = Falls::Inverse;
-  double RefM = 1.0;
+  bool Positional =
+      false; ///< Enable distance, panning, Doppler and blocking; false sends equally left/right.
+  Falls By =
+      Falls::Inverse; ///< Distance gain law; unknown enum values currently take the inverse branch.
+  double RefM =
+      1.0; ///< Positive reference distance in metres; nearer sources retain reference gain.
+  /// Linear law only: reference endpoint in metres; values <= RefM select 2 * RefM.
+  /// Not a hard audible-distance cutoff for the other laws.
   double MostM = 0.0;
-  double Rolloff = 1.0;
-  double InnerRad = 0.0;
-  double OuterRad = 0.0;
-  double OuterGain = 0.0;
+  double Rolloff =
+      1.0; ///< Dimensionless distance-attenuation coefficient; not range-validated yet.
+  double InnerRad =
+      0.0; ///< Stored inner cone angle in radians; angular convention not implemented.
+  double OuterRad =
+      0.0; ///< Stored outer cone angle in radians; angular convention not implemented.
+  double OuterGain = 0.0; ///< Stored dimensionless outer-cone gain; not applied.
+  /// Gain at full obstruction; linearly blended from unity by the blocked fraction.
   double BlockedGain = 1.0;
+  /// Positive low-pass cutoff in hertz whenever obstruction is nonzero; zero disables it.
   double BlockedHz = 0.0;
 };
 
-enum class Makes : uint8_t { Oscillator, Noise, Biquad, Delay, Gain, Shaper, Convolver, Mix };
+/// DSP processor category; unsupported processors are rejected during audio setup.
+enum class Makes : uint8_t {
+  Oscillator, ///< Periodic waveform generator.
+  Noise,      ///< Noise generator.
+  Biquad,     ///< Legacy name: current implementation is a one-pole low-pass, not a biquad.
+  Delay,      ///< Prepared delay line with optional internal feedback.
+  Gain,       ///< Scale summed input samples.
+  Shaper,     ///< Unsupported; setup rejects it.
+  Convolver,  ///< Unsupported; setup rejects it.
+  Mix         ///< Sum input nodes.
+};
 
 /** Owned declarative DSP node; setup validates IDs, inputs and processor parameters. */
 struct Voice {
@@ -579,22 +627,29 @@ struct Voice {
   std::vector<Setting> Parameters;
 };
 
+/// Owned source declaration copied during audio preparation; no live stream or DSP state.
+/// Copies may allocate; mutate only with exclusive access. Setup validates graph topology,
+/// IDs, routing and gains before publishing, preserving prior DSP state on failure.
+/// Currently only Graph produces samples; file and client-buffer playback remain unimplemented.
 struct Sound {
-  std::string Id;
-  std::string Uri;
+  std::string Id;  ///< Nonempty source ID, unique in the prepared sound catalogue.
+  std::string Uri; ///< Stored file reference; no decoding or file playback in the current mixer.
   /** Owned acyclic signal graph; its last declared node is the mono source output.
    * Declaration order otherwise does not constrain execution. Empty selects no synth.
    */
   std::vector<Voice> Graph;
-  bool Streamed = false;
+  bool Streamed = false; ///< Stored client-buffer intent; no buffer submission/playback path yet.
   /** Owned body name; audio setup requires a unique placed body in the current assembly.
    * Empty leaves the source unbound; positional unbound sources are silent.
    */
   std::string On;
-  std::string Bus;
-  Emitter Heard;
-  bool Loops = false;
+  std::string
+      Bus; ///< Destination bus ID; empty routes to the unique master, unknown IDs reject setup.
+  Emitter Heard;      ///< Spatialization parameters applied to the current bound source snapshot.
+  bool Loops = false; ///< Stored playback intent; does not gate or restart the current synth graph.
+  /// Source gain in decibels, converted as 10^(GainDb/20); finite gain and route product required.
   double GainDb = 0.0;
+  /// Dimensionless post-spatial-gain send to the shared reverb; not range-validated yet.
   double SendShare = 0.0;
 };
 
@@ -610,10 +665,16 @@ struct Room {
   double WetShare = 0.0;
 };
 
+/// Owned audio routing declaration copied at setup; mutation requires exclusive access.
+/// Exactly one bus is the master. Routes may reference later buses but must be acyclic
+/// and reach the master. Invalid names/routes/gains reject setup without replacing DSP state.
 struct Bus {
-  std::string Id;
-  std::string Into;
+  std::string Id;   ///< Nonempty bus ID, unique in the prepared bus catalogue.
+  std::string Into; ///< Parent bus ID; empty identifies the unique master output.
+  /// Gain in decibels, converted as 10^(GainDb/20); finite gain and route product required.
   double GainDb = 0.0;
+  /// Room parameters validated at setup. Only the first declared active room is used,
+  /// globally for source sends; independent per-bus reverberation is not implemented yet.
   Room Reverberates;
 };
 
