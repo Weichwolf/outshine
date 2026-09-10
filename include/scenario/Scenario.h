@@ -51,7 +51,9 @@ constexpr double kStepUnsaidS = 1.0 / kFpsUnsaid;
 /// How far one notch of a wheel scrolls, in pixels.
 constexpr double kWheelStepUnsaidPx = 48.0;
 
+/// Directional key-light declaration. Scalar values are copied; this aggregate validates none.
 struct Light {
+  /// Illuminance in lux on a surface normal to the incoming light; zero declares no intensity.
   double Lux = 0.0;
   /// Angle toward the source above the horizon, in degrees.
   double ElevationDeg = 0.0;
@@ -59,12 +61,14 @@ struct Light {
   double BearingDeg = 0.0;
 };
 
+/// Owned scenario metadata, copied with Document; copying strings may allocate.
+/// Mutation requires exclusive access. Version is metadata, not a schema-version validator.
 struct Identity {
-  std::string Name;
-  std::string Version;
-  double Epoch = 0.0;
-  double Decay = 0.0;
-  std::string Active;
+  std::string Name;    ///< Human-readable scenario name; empty is unnamed.
+  std::string Version; ///< Opaque version text preserved by scenario import/export.
+  double Epoch = 0.0;  ///< Opaque numeric metadata; no runtime time unit or behavior is assigned.
+  double Decay = 0.0;  ///< Opaque numeric metadata; no runtime decay rule is assigned.
+  std::string Active;  ///< Space-separated layer-set names; layers without a set are always active.
 };
 
 struct Layer {
@@ -222,39 +226,63 @@ struct Compositor {
   bool On = true;
 };
 
+/// Normalized image region, measured from the target's upper-left corner.
+/// Scalar descriptor; no allocation, clamping or validation. Mutation requires exclusive access.
 struct Patch {
-  double LeftFrac = 0.0, TopFrac = 0.0, WidthFrac = 1.0, HeightFrac = 1.0;
+  double LeftFrac = 0.0;   ///< Left edge divided by target width.
+  double TopFrac = 0.0;    ///< Top edge divided by target height, increasing downward.
+  double WidthFrac = 1.0;  ///< Width divided by target width; one spans the full width.
+  double HeightFrac = 1.0; ///< Height divided by target height; one spans the full height.
 
-  [[nodiscard]] bool whole() const {
+  /// @return Whether all four components exactly describe the full target; no tolerance.
+  /// Constant time, no allocation or mutation; does not validate other regions.
+  [[nodiscard]] constexpr bool whole() const noexcept {
     return LeftFrac == 0.0 && TopFrac == 0.0 && WidthFrac == 1.0 && HeightFrac == 1.0;
   }
 };
 
+/// Owned render configuration copied with Document; strings and lists may allocate on copy.
+/// Mutation requires exclusive access. Names are checked during render-plan construction;
+/// numeric validation is not uniform yet. Construction alone does not validate a plan.
 struct RenderPlan {
-  bool Declared = false;
-  Extent Frame;
-  Patch Picture;
+  bool Declared = false; ///< Whether this section participates in scenario declaration/merging.
+  Extent Frame;  ///< Requested image dimensions in pixels; the host supplies the actual target.
+  Patch Picture; ///< Normalized image region; currently available through the native API only.
+  /// Nominal frames per second, also used by the current asset-animation sampling path.
+  /// Positive values replace the engine default; this is not a wall-clock pacing guarantee.
   double Fps = kFpsUnsaid;
+  /// Dimensionless automatic camera-framing fill. Positive values request framing;
+  /// an explicitly bound camera takes precedence. Nonpositive values use contextual defaults.
   double Fill = kFillUnsaid;
-  double OrbitDegPerFrame = 0.0;
+  double OrbitDegPerFrame =
+      0.0; ///< Automatic camera orbit increment per update, in degrees; zero disables.
+  /// Additional named render resources to retain. Standard frame/presentation outputs remain;
+  /// empty requests no extras. Unknown names fail plan construction.
   std::vector<std::string> Outputs;
+  /// Explicit stage selection; nonempty replaces automatic selection, not dependency ordering.
+  /// Empty selects stages from scene content. Unknown or incompatible stages fail construction.
   std::vector<std::string> Stages;
+  /// Display transfer: empty keeps the default, otherwise "linear" or "filmic".
+  /// An explicit transfer requires a display-transfer stage in the compiled plan.
   std::string Transfer;
+  /// Positive linear exposure multiplier, not EV. Nonpositive values use the current
+  /// light-meter/default path. Explicit exposure conflicts with an autoExposure stage.
   double Exposure = 0.0;
+  /// Scene-radiance storage: empty keeps the default, "half" uses 16-bit floats,
+  /// "float" uses 32-bit floats. An explicit choice requires scene-radiance resources.
   std::string Precision;
-
-  /// Whether the engine walks its own geometry to publish what it finds there -- coincident
-  /// corners, edges on one triangle, needles, triangles reaching too far. It answers questions
-  /// about MESH QUALITY, which change when a generator changes and not between two frames, and it
-  /// costs 11.3 s of Shibuya's 19 s load. Off by default: a tool is used surgically, never by
-  /// habit.
-  bool Audits = false;
+  bool Audits = false; ///< Enable CPU mesh-quality diagnostics; work scales with geometry size.
 };
 
+/// Owned lighting declaration; scalar values only, no allocation on copy.
+/// Mutation requires exclusive access. This aggregate does not validate numeric values.
 struct Lighting {
-  bool Declared = false;
-  Light Key;
-  Vec3 IndirectLight;
+  bool Declared = false; ///< Whether this section participates in scenario declaration/merging.
+  Light Key; ///< Directional illuminance and source angles; clock-driven sun selection is separate.
+  Vec3 IndirectLight; ///< Additive environment radiance in scene-linear RGB; zero adds no constant
+                      ///< term.
+  /// Positive shadow-frame radius in metres. Nonpositive values derive half the mesh-bounds
+  /// diagonal where geometry is available; this does not specify shadow-map resolution.
   double ShadowRadiusM = 0.0;
 };
 

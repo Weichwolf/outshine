@@ -66,7 +66,6 @@ Der konkrete lokale Reader/Writer-Datenverlust begründet diesen Auftrag unabhä
 
 Asset-Abnahme: vier Animationsmodi mit unabhängigen Feldwerten vor/nach Write/Read
 grün; Altwriter scheitert ohne Buildfehler. Parser-Erhaltung und Zeichenreferenzen grün.
-Lint: 181 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
 Szenario bleibt eigenständiges Importformat; keine glTF-Erweiterung für Welt-/Spielregeln.
 
 ## Identität, Render und Beleuchtung
@@ -99,4 +98,10 @@ außerhalb dieser Inventur; unabhängige Roundtrip-Fixtures sind maßgeblich.
 Asset-Roundtrip, strikter Clip-Token und gemeinsamer Playback-Validator sind implementiert;
 negative Kontrollen und API-Erhaltung/Retry grün. Welt-/Relief-/OSM-Writer separat;
 OSM-Koordinaten, Physik, Generatorparameter und Assets durch Roundtrip-Fixtures geprüft.
-Letzter Lint: 180 tidy/282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
+Letzter Lint: 180 tidy/251 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
+
+API-Audit: Identity, Patch, RenderPlan und Lighting dokumentieren Besitz, Einheiten,
+Default-/Auswahlverhalten und aktuelle Grenzen anhand der Consumer. Epoch/Decay sind
+nur Metadaten ohne Runtime-Semantik. Fps beeinflusst den bisherigen Animationspfad;
+Orbit ist updateabhängig. Gemeinsame finite Bereichsvalidierung bleibt offen, ebenso
+zeitbasierte Animation/Orbit statt Framekopplung. Dokumentation ist keine Abnahme dieser Lücken.
