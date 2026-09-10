@@ -49,10 +49,10 @@ fehlgeschlagene erhält ihn. Neue deklarierte Inhalte invalidieren die Vorbereit
 Initialen Quellsnapshot ohne Simulationstick publizieren; Engine-Aufrufe serialisieren.
 Öffentlicher API-Test: Rate, erste Samples, Fehler/Zustandserhalt und Redeclare.
 Hallwerte und Ringbudget sind validiert.
-Quellbindung On wählt noch den ersten freistehenden Körper statt der benannten
-Entität. Ortsgebundene Abnahme benötigt die gemeinsame Entity-/Transform-Bindung
-aus 2191; Synthese-/Backend-Arbeit kann unabhängig davon weitergehen. Kein Ersatz
-durch parallele Deklarationsindizes: unplatzierte Bodies verändern deren Zuordnung.
+Quellbindung On löst eindeutige platzierte Bodies über die gemeinsame Simulation auf;
+unplatzierte/fehlende/mehrdeutige Bindungen werden abgelehnt. Öffentliche Regressionen
+behalten. Emitter-Kegel, Loops und allgemeine Emitter-/Send-Zahlengrenzen fehlen noch.
+Dokumentation muss diese Grenzen und Datei-/Streamingquellen ohne Ausgabe benennen.
 Der Mixer verwendet noch nur den ersten aktiven Bus-Hall: Bus-spezifische Effekte
 und unabhängige RT60-/Spektralprüfung fehlen; Worst-Case-Messung bleibt offen.
 Diese Defizite nicht durch konservierte Alt-Ausgaben als richtig deklarieren.
