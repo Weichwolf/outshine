@@ -53,68 +53,53 @@ lesbare Semantikreferenz, [ASAM OpenDRIVE](https://www.asam.net/standards/detail
 für getrennte Road-/Lane-Links und Alignment. Unreal/RAGE dienen als Sandbox-Benchmark;
 kein Ableiten des logischen Netzes aus einem sichtbarkeitsabhängigen Mesh.
 
-## Aktueller Router: vor Integration korrigieren
+## Aktueller Router und verbleibende Verträge
 
-2173 blockiert vollständige Providerintegration, nicht lokale Graphkorrekturen.
-EdgesFromWays berücksichtigt Oneway; Kantenindex und Aufteilung erhalten Richtung.
-Referenz: https://wiki.openstreetmap.org/wiki/Key:oneway — Richtung folgt der
-Punktreihenfolge; reverse/-1 muss im Importadapter ausdrücklich normalisiert werden.
-Eine einzelne gerichtete Gerade muss nur vorwärts routbar sein; Gegenprobe ist
-identische Geometrie ohne Oneway. Mehrere Kanten, Umkehr der Punktfolge und gemischte
-Knoten prüfen. Keine Rendergeometrie erforderlich.
+2173 blockiert Providerintegration, nicht lokale Graphkorrekturen. Oneway und Splicing
+bewahren gerichtete Kanten; Index dedupliziert physische Segmente, lose Enden richten
+sich nach physischer Nachbarschaft. Einbahn-/Abzweigmatrix und Gegenproben bestehen.
+WeakComponents verwendet Union-Find; Reaches bleibt gerichtet. OSM reverse/-1 im Adapter
+normalisieren. Referenz: https://wiki.openstreetmap.org/wiki/Key:oneway.
 
-SpliceInto prüft vorhandene Richtungen vor Mutation und teilt nur diese auf. Der
-Kantenindex dedupliziert physische Segmente unabhängig von Knotenreihenfolge; lose
-Enden werden über physische Nachbarschaft erkannt, nicht über Ausgangsgrad. Nähe darf gemäß Zielmodell
-keine OSM-Verbindung erfinden; die Ablösung des Legacy-Snaps bleibt offen.
+Plan nutzt h(n)=max(0,d(n,Zielzentrum)-Zielradius): konsistente untere Schranke durch
+Dreiecksungleichung, analytische Mehrziel-Gegenprobe besteht. Breite Graphen zusätzlich
+gegen Dijkstra prüfen. Freie Startseeds in 250 m können Barrieren/Fahrtrichtungen
+überspringen; explizite zulässige Anbindung bleibt offen. A*-Referenz:
+https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/astar_search.html.
 
-Plan verwendet eine konsistente untere Entfernungsschranke zum gesamten Zielbereich.
-Analytische Direktkanten widerlegen die frühere Einzelzielheuristik; breitere Graphen
-mit Umwegen/Turn-Regeln zusätzlich gegen unabhängige Dijkstra-Lösung prüfen.
-Start-Reichweite von 250 m kann ebenfalls Barrieren/Fahrtrichtungen überspringen;
-explizite zulässige Anbindung statt freier räumlicher Seeds erforderlich.
+Lay validiert vollständige kanonische Koordinaten, nichtnegative endliche Parameter
+und kumuliertes Punktbudget vor Mutation; Corridors reicht Fehler weiter.
+Factory prüft positive endliche Radien/Zellen und darstellbare 32-Bit-Indizes.
+Within/Nearest liefern expected, sperren nach Lay bis Weave und bewahren Fehlerpuffer;
+große Suchen wählen vor Cast den Vollscan. Leeres Netz bleibt gültig abfragbar.
+Tests/Gegenproben: Einfügefehler/Recovery, Konfigurationsgrenzen, unabhängige sphärische
+Trefferzahlen/nächste Distanz, Pol/Datumsgrenze/DBL_MAX. Vollständiger alter Überlaufpfad
+scheitert, isolierter Cast hier nicht. conventions instrumentiert Engine nicht mit
+Sanitizern: Nachweis offen. Letztes lint 187/333, 32 Claims grün; Wien-PNG bytegleich.
 
-Vorhandene Nachweise: TransportNetworkPreservesOneWay prüft Richtung und Splicing;
-TransportComponentsIgnoreDirection prüft Union-Find gegen konvergierende gerichtete
-Zweige. TransportSearchUsesAllGoals widerlegt die alte Einzelzielheuristik mit
-analytischen Direktkanten in zwei gespiegelten Lagen. Alte Implementierungen scheitern.
-Heuristik h(n)=max(0,d(n,Zielzentrum)-Zielradius) ist durch Dreiecksungleichung eine
-konsistente untere Schranke; sie legitimiert nicht die räumliche Zielanbindung.
-A*-Referenz: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/astar_search.html.
+Offen: OSM-IDs/Modi/Restrictions/Streaming statt Legacy-Snap; Zustandsverträge anderer
+Graphabfragen, Trefferidentitäten/Rasterränder, TieReach aus Straßenbreiten, Budget/
+Abbruch für Routing und vollständiger atomarer Graphaufbau. ApartM hat iterative
+Längengradnormalisierung; ungültige direkte Eingaben können nicht terminieren.
 
-Routing-Eingabegrenze: Plan validiert vor ApartM/Nearest/Within beide Koordinaten
-(endlich, Lon [-180,180], Lat [-90,90]) und Mindestradius (endlich, >=0).
-Fehler liefert leere Route mit Diagnose; gültige Folgeabfrage bleibt nutzbar.
-NaN/±Inf, Bereichsverletzungen und negative Radien testen. Tieferliegende Lay-,
-Sphere-/Snap-, Nearest-/Within-Verträge separat härten; ApartM hat noch iterative
-Längengradnormalisierung, die für nichtendliche Eingaben nicht terminiert.
+## Nächster Schritt: Kurvenentscheidung aus A* trennen
 
-Lay erhält nodiscard expected<void,string_view>: mindestens zwei vollständige
-Lat/Lon-Paare, endliche kanonische Koordinaten, nichtnegative endliche physische
-Way-Parameter und nichtnegative Spurzahl. Kumuliertes Punktbudget vor Zugriff/
-Allokation prüfen; Fehler erhalten bestehenden Graph und Bereitschaft. Corridors
-reicht Lay-Fehler und ungültige Punktspannen weiter, statt Wege still zu verlieren.
-Tests für späte ungültige Koordinate, odd/empty/short, Parameter, Budget und Recovery.
-Validen Wien-Aufbau zur Integrationskontrolle ohne Vegetation rendern.
+Plan (Komplexität 75) mischt Anbindung, Suche, lokale Kurvenprüfung und Rekonstruktion.
+Vorhanden: gerichtete Kanten, eingehender Kantenzustand und metrische Kantenlängen.
+Die acos-Auswertung verliert kleine Winkel; kLeastTurnRad setzt zusätzlich nichtnullige
+Krümmung still auf null. Gegenbeispiel: nahezu gerade Kette, aber sehr großer geforderter
+Radius; geometrisch benötigter Tangentenabschnitt passt nicht in die Kantenhälfte.
 
-## Nächster Schritt: gültige räumliche Indizes ab Erzeugung
+Private, separat benannte Entscheidung für die lokale Kreisbogennäherung herauslösen.
+Winkel per atan2(abs(Kreuzprodukt),Skalarprodukt) bestimmen, keine Winkel-Abschneidung.
+Aus dem rechtwinkligen Tangentendreieck folgt t=R*tan(theta/2). Bestehende Reservierung
+halber Nachbarkanten explizit als konservative lokale Näherung: R<=min(L1,L2)/2/tan(theta/2).
+Gerade erlaubt beliebigen endlichen Radius; echte Umkehr keinen positiven Radius.
+Dies beweist keine fahrbare Weltgeometrie: sphärische Tangenten, Spurbreite, Clearance,
+verbundene Kurven und Klothoiden bleiben Alignment-Aufgabe in 2175. Referenz für getrennte
+Linien/Bögen/Spiralen: https://www.asam.net/fileadmin/Standards/OpenDRIVE/ASAM_OpenDRIVE_BS_V1-7-0.html.
 
-Befund: Network(Snap,Sphere) akzeptiert Null/NaN/Inf. RowOver/ShapeRowOver casten
-ungeprüfte Quotienten nach int64; KeyAt packt Zeile und Spalte in je 32 Bit.
-Within castet ceil(reach/Snap) und quadriert die Zellzahl vor dem Vollscan-Fallback.
-Eine gültige Konstruktion allein verhindert diesen unabhängigen Abfrageüberlauf nicht.
-
-Umgesetzt: private Konstruktion, nodiscard expected<Network,string_view>-Factory;
-Corridors reicht Fehler weiter. Positive endliche Werte, höchstens ein Kugelumfang
-pro Zelle und höchstens UINT32_MAX Spalten; sechs Transporttests bestehen,
-Factory-Bypass scheitert. Wien-PNG bytegleich; lint unverändert 187/333, 32 Claims grün.
-Offen: Trefferidentitäten/Rasterränder und aus Straßenbreiten abgeleitetes TieReach.
-Within/Nearest liefern expected; Plan reicht Fehler weiter. Within erhält bei Fehler
-den Puffer; große Suchen wählen vor Cast den Vollscan. Spaltenreichweite begrenzt.
-Vorhandene Graph-/Geometriefähigkeiten behalten; erwartetes gültiges Render unverändert.
-
-Nachweise: Konfigurationsgrenzen, Trefferzahlen und nächste Distanz gegen unabhängiges
-Kugel-Orakel mit Pol/Datumsgrenze/DBL_MAX. Vollständiger alter Cast-/Quadratpfad scheitert,
-isolierter Cast hier nicht. Engine in conventions unsanitisiert: Nachweis bleibt offen.
-Nearest/Within sperren nach Lay bis Weave (Test/Gegenprobe); andere Graphabfragen offen.
-Fünf Tests grün; lint 187/333, 32 Claims grün; Wien-PNG bytegleich und visuell geprüft.
+Abnahme: gerichtete Dreipunktketten, gespiegelte 90-Grad- und sehr kleine Winkel,
+Radius unter/über analytischer Grenze, radius=0; ursprünglicher Winkelpfad muss scheitern.
+Bestehende Routingtests und make lint; gültige Places dürfen nicht unbeabsichtigt abweichen.
+Weitere Trennung von Anbindung, Suchzustand und Rekonstruktion anschließend fortsetzen.
