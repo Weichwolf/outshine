@@ -54,16 +54,10 @@ Lokale Klone: ../vector-tile-spec (21ff2cb), 2.1/README.md und vector_tile.proto
 MVT-Spezifikation ist Formatvertrag; native Speichergrenzen zusätzlich ausdrücklich prüfen.
 
 ## Nachweis
-14 ausgewählte MVT-/OSM-Prüfungen grün, MVT einschließlich ASan/UBSan. Alte Fixed32-Fassung verursacht heap-buffer-overflow;
-alte Geometriefassung scheitert mit Sanitizer-Abbruch. Falsche MissingLayer-Klassifikation
-wird durch Mutation erkannt. Native Teilveröffentlichung scheitert alt ohne Buildfehler.
-OSM-Positions-/Annahmeprüfungen grün; ungültige Rasteradressen erhalten Daten/Settled.
-Große finite Mercator-Ordinaten, Äquator und Kachelrand analytisch geprüft, einschließlich
-FE_INVALID/FE_OVERFLOW. Alte Projektionsfassung scheitert; nach Integervergleichskorrektur
-betroffenen Test erneut bestanden. Normale OSM-Integration nicht als ASan-Nachweis ausgeben.
-Abschluss-Lint: 182 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
-drei rote Gruppen. Decode- und Accept-Komplexitätswarnungen bei unveränderter Grenze 25 behoben.
-Wien-PNG geöffnet, 0/921600 Pixelabweichung. Einzelbelege und frühere Schritte in Git.
+MVT-Suite normal/ASan/UBSan und native OSM-Regressionsfälle grün. Negativkontrollen
+belegen beschädigte Bytes, falsche Fehlerklassifikation, Punktverlust und Teilpublikation.
+Aktuell 182 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
+Wien zuletzt visuell geprüft und pixelgleich. Einzelbelege in Git.
 
 ## Kumulative Indexkapazität
 Vor Annahme den bestehenden Poolbestand mit allen geplanten Ebenenzuwächsen prüfen.
@@ -113,3 +107,14 @@ Punktabnahme: 14 MVT-/OSM-Prüfungen grün, Referenzierung und Pflichtfelder auc
 direkt sanitisierten Decoder. Native Punktabnahme scheitert alt ohne Buildfehler.
 Wien-PNG geöffnet, pixelgleich. Lint unverändert 182/330, 32 Repository-Tests grün;
 drei rote Gruppen. POINT bleibt Punktmenge, UNKNOWN erzeugt keine nativen Features.
+
+## Exakte Ringorientierung
+Lokaler vtzero-Stand 3205b93: geometry.hpp klassifiziert Ringflächen, verwendet aber
+Exceptions und int64-Summe; next_point verengt ungültige Koordinaten ungeprüft.
+Als Architektur-/Formatreferenz nützlich, kein unveränderter No-Exceptions-Ersatz.
+Für int32-Koordinaten gilt |x0*y1-x1*y0| <= 2^63-2^31; jeder Term passt in int64.
+Bis UINT32_MAX Terme benötigen weniger als 96 vorzeichenbehaftete Bits. Zwei 64-Bit-
+Wörter mit explizitem Carry/Vorzeichenerweiterung summieren exakt und ohne Allokation.
+Nullfläche ablehnen, erster Polygonring muss außen liegen; räumliche Lochzuordnung
+und Selbstschnitte bleiben offen. Unabhängige kleine verschobene Ringe und große Ringe
+über int64-/uint64-Summengrenzen prüfen, samt Negativkontrolle und Wien-Regression.
