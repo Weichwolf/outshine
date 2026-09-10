@@ -92,8 +92,8 @@ Binding-Dokumentation, leere Aktionsnamen, zustandsloser InputPump und getrennte
 Geräteübersetzung sind umgesetzt; vorhandene Geräte-/UI-/Fehlererhaltstests behalten.
 
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
-Request::ExtentM weitergegeben. Structures::make benutzt ExtentM als Gebäudeseitenlänge
-(sonst still 12 m). ReadWorld liest radiusM, WriteScenario verliert es. Generating::Parameters werden inzwischen serialisiert und als geliehene native
+Request::ExtentM weitergegeben; der Regionsvertrag ist uneindeutig. Structures nutzt
+inzwischen einen eigenen widthM-Parameter. ReadWorld liest radiusM, WriteScenario verliert es. Generating::Parameters werden inzwischen serialisiert und als geliehene native
 Parameter weitergereicht. Radius-/Extent-Kopplung bleibt ein ungültiger SOLL-Vertrag;
 nicht durch Dokumentation oder identische Umbenennung legitimieren.
 

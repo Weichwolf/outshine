@@ -194,8 +194,13 @@ protected:
 /// The generators this engine ships with, and the catalogue is CLOSED: a client registers its own
 /// beside them rather than adding a value here.
 enum class Shipped : uint8_t {
-  Structures, ///< Built-in building producer.
-  kCount      ///< Catalogue size sentinel; not a generator.
+  /// Built-in square building producer. Optional widthM is its footprint side in metres
+  /// (default 12), independent of Request::ExtentM. Accepts one finite positive decimal
+  /// value, optionally with exponent, without surrounding whitespace. Unknown/duplicate
+  /// settings and invalid values are refused before output mutation. Terrain anchoring
+  /// and per-feature placement remain implementation limitations of this producer.
+  Structures,
+  kCount ///< Catalogue size sentinel; not a generator.
 };
 
 /// The name each shipped kind answers to in a declaration, in the order the enum names them.

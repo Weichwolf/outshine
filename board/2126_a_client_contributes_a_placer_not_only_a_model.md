@@ -20,9 +20,9 @@ das ist keine gültige weltweit platzierte Terrain-Anbindung. Engine::generated
 überspringt unbekannte Registrierungen still und setzt mehrere Outputs zusammen.
 Die dokumentierten Ist-Grenzen sind keine Abnahme dieses Verhaltens.
 
-API-Audit: Georeference::RadiusM (Default Erdradius) wird Request::ExtentM und dort
-Gebäudeseitenlänge. Parameter erreichen make jetzt als geliehene native Views;
-Region/Featuregröße bleiben zu trennen; Builtin verweigert nicht unterstützte Parameter.
+API-Audit: Georeference::RadiusM (Default Erdradius) wird Request::ExtentM; der
+Regionsvertrag bleibt uneindeutig. Gebäudegröße ist jetzt ein eigener widthM-Parameter;
+unbekannte Einstellungen werden verweigert, native Views bleiben nur im Aufruf gültig.
 Gemeinsame Schema-/API-Migration und Abnahmen in 2131; keine reine Umbenennung.
 
 ## Entscheidung
@@ -93,3 +93,10 @@ Neuer Laufzeitbefund: Structures castet StoredVertex (5 Wörter, gepackte UV/Nor
 als 8-Float-Suppe für Meshed. Default-Erzeugung scheitert im neuen Test. Take übernimmt
 stattdessen span<const StoredVertex>, dekodiert über uv()/norm() und liefert native
 Geometry; alten untypisierten Stride-Vertrag vollständig entfernen. Test unverändert.
+
+Nachweise: Breiten 12/24/240 m, Regionsunabhängigkeit und Fehlererhalt bestehen;
+Wandseiten statt Dachhüllbox messen (0,42 m Überstand bzw. 0,16 m Gesims). Typisierter
+Decoder prüft Position/Index exakt, UV/Normalen nach 16-Bit-Quantisierungsgrenze.
+Beide Gegenproben scheitern; lint 186/330, 32 Claims grün. Isolierter GLB-Clientrender
+build/shots/reference/building-width/structure.png zeigt weiterhin falsche Ausrichtung
+und Flächendiagonalen: Null-Anker/ECEF und Normalen-/Präzisionspfad vor Abnahme korrigieren.

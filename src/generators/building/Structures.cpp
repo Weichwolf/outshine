@@ -1,3 +1,7 @@
+#include <string_view>
+#include <charconv>
+#include <expected>
+#include <system_error>
 #include <span>
 #include "Structures.h"
 
@@ -18,9 +22,31 @@
 
 namespace outshine::Generators {
 
+namespace Says {
+constexpr auto kInvalidStructureWidth = "structures accepts one finite positive widthM parameter";
+}
+
 constexpr uint64_t kSplitMixOffset = 1442695040888963407ull;
 
 namespace {
+
+[[nodiscard]] std::expected<double, std::string_view>
+WidthOf(std::span<const Parameter> parameters) {
+  constexpr double defaultWidthM = 12.0;
+  if (parameters.empty()) { return defaultWidthM; }
+  if (parameters.size() != 1 || parameters.front().Name != "widthM") {
+    return std::unexpected(Says::kInvalidStructureWidth);
+  }
+  const std::string_view text = parameters.front().Value;
+  if (text.empty()) { return std::unexpected(Says::kInvalidStructureWidth); }
+  double widthM = 0.0;
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), widthM);
+  if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
+      !std::isfinite(widthM) || widthM <= 0.0) {
+    return std::unexpected(Says::kInvalidStructureWidth);
+  }
+  return widthM;
+}
 
 constexpr uint64_t kSplitMixWord = 6364136223846793005ull;
 constexpr uint64_t kSplitMixFinaliser = 0xff51afd7ed558ccdull;
@@ -48,8 +74,9 @@ constexpr size_t kCorners = 4;
 }
 
 bool Structures::make(const Request &asked, Geometry &into) const {
-  if (!asked.Parameters.empty()) { return false; }
-  const double sideM = asked.ExtentM > 0.0 && asked.ExtentM < 200.0 ? asked.ExtentM : 12.0;
+  const auto width = WidthOf(asked.Parameters);
+  if (!width) { return false; }
+  const double sideM = *width;
   const double lat = asked.LatitudeDeg;
   const double lon = asked.LongitudeDeg;
   const double halfLatDeg = 0.5 * sideM / kMPerDegLat;
@@ -88,12 +115,7 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   if (soup.empty()) { return false; }
 
   Meshed made;
-  if (!made.Take("structure",
-                 MaterialInstance(0),
-                 reinterpret_cast<const float *>(soup.data()),
-                 soup.size() * kStoredVertexFloats)) {
-    return false;
-  }
+  if (!made.Take("structure", MaterialInstance(0), soup)) { return false; }
   const Geometry stood = made.Handed();
   if (stood.parts() == 0) { return false; }
 
