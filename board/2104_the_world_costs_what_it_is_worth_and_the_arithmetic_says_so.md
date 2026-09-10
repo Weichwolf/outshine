@@ -1,19 +1,15 @@
 Type: debt
-State: open
+State: active
+Parent: 2188
 Area: world, generators, engine, base
 Tags: measured, memory, performance, owner
 Supersedes: 2100, 2102, 2099
 
 # A place costs what its geometry is worth, and a tile that leaves gives its memory back
 
-**Benchmark** -- RAGE streams a heightfield and per-cell props into pools sized once; a cell that
-leaves gives its memory back; the render mesh goes to the GPU and the CPU keeps a `phBound`, and
-`sysMemAllocator` keeps the block's size in a header so returning it is a subtraction. Unreal:
-World Partition loads and UNLOADS cells; `bAllowCPUAccess` is off so the render mesh is not
-addressable from the CPU; `FMalloc::GetAllocationSizeUntyped` exists because the engine refuses
-to ask the platform allocator on the hot path; `FMemStack` is a bump pointer reset per frame.
-**Both agree**: the resident cost is the RING, the transient cost of a tile is that TILE, and
-the CPU keeps the cheap representation only.
+Referenzmaßstab: begrenzte Residency, expliziter Unload und messbarer Speicherbesitz.
+Proprietäre RAGE-Interna sind hier nicht belegt. Historische Messungen unten sind
+keine aktuellen Abnahmen oder bereits erfüllten Speicherbudgets.
 
 ## Where it stands, measured 2026-09-04
 
@@ -83,3 +79,15 @@ its wall triangles -- is board:2127's.
 - reserving the mesh vectors to the announced count made the churn WORSE (3 572 -> 3 804 MB)
 - `Drape::At` as the bottleneck: 4.4 ns per face, a quarter of a second, and it is a BVH now
 - hoisting the junction map out of the levelling loop: one per cent
+
+## Aktiver Schritt: deklarierter OSM-Inhalt
+
+OsmField::Declare ersetzt Features/Ringe/Punkte/Tags, lässt Values/Strings/Keys und
+beide Intern-Indizes jedoch wachsen. Beim vollständigen Ersatz alle zugehörigen
+Pools logisch leeren; Kapazität für Wiederverwendung behalten. Kein globales Interning.
+AppendDeclaredFeature kapselt Ring/Bounds/Tag-Aufbau; Declare verantwortet Austausch
+und Generation. Vorhandene Tags für Breite/Höhe/Brücke/Tunnel/Ebene erhalten.
+Test wiederholt gleiche und wechselnde gleich große Inhalte: HeapBytes stabil nach
+Warmaufbau, keine alten Keys, aktuelle Tags/Ringe/Bounds korrekt; alter Code muss rot.
+Wien vorher/nachher vergleichen. Tile-Eviction, Generation-Fingerprint, Projektion
+und transaktionaler Allokationsfehler bleiben offen; dies ist kein kompletter Streamingfix.
