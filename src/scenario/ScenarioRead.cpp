@@ -34,6 +34,8 @@ namespace outshine {
 namespace Says {
 constexpr auto kInvalidProviderRank =
     "provider rank must be a complete decimal integer in the int range";
+constexpr auto kInvalidSceneRoom =
+    "scene.room requires a complete nonnegative decimal integer in the size_t range";
 constexpr auto kInvalidAssetClip = "asset clip requires an integer in [0,INT_MAX]";
 constexpr auto kInvalidCatchUpCount = "mostStepsInArrears requires an integer in [1,INT_MAX]";
 }
@@ -629,6 +631,23 @@ void ReadPlacementAndUi(const Xml::Ref &root, Scenario::Document &into) {
   }
 }
 
+[[nodiscard]] bool ReadSceneRoom(const Xml::Ref &root, size_t &room, std::string &error) {
+  const auto said = root.Child("scene").Said("room");
+  if (!said) {
+    room = 0;
+    return true;
+  }
+  const std::string_view text = *said;
+  size_t value = 0;
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
+  if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
+    error = Says::kInvalidSceneRoom;
+    return false;
+  }
+  room = value;
+  return true;
+}
+
 void ReadEntityDeclarations(const Xml::Ref &root, Scenario::Document &into) {
   const Xml::Ref kinds = root.Child("kinds");
   for (const Xml::Ref one : kinds.Children("kind")) {
@@ -662,7 +681,6 @@ void ReadEntityDeclarations(const Xml::Ref &root, Scenario::Document &into) {
   }
 
   const Xml::Ref instances = root.Child("instances");
-  into.Room = static_cast<size_t>(root.Child("scene").Num("room", 0.0));
   for (const Xml::Ref one : instances.Children("instance")) {
     Scenario::Instance made;
     made.Of = one.Attr("of");
@@ -1003,6 +1021,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &
   if (!ReadSources(root, into, error)) { return false; }
   if (!ReadAssets(root, into, error)) { return false; }
   ReadPlacementAndUi(root, into);
+  if (!ReadSceneRoom(root, into.Room, error)) { return false; }
   ReadEntityDeclarations(root, into);
   ReadRegionsAndVolumes(root, into);
   ReadAudio(root, into);

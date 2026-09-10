@@ -117,5 +117,5 @@ schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtneg
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
 Neun API-/Writerregressionen grün; geänderte Präsenz bei Nichtdefaults ist dokumentiert.
 Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
-scene.room: ungeprüften Float→size_t-Cast durch vollständiges Dezimalinteger-Parsing
-ersetzen; Größenüberlauf/negative/gebrochene Tokens ablehnen, Dokument erhalten.
+scene.room: vollständiges Dezimalinteger-Parsing ohne Float-Cast; Fehler erhalten Dokument.
+Altreader verletzt Grenzwerttest; reparierter Reader und zwei Assembly-Regressionen grün.
