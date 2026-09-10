@@ -397,7 +397,7 @@ std::expected<void, OsmVector::ParseError> OsmVector::Decode(std::span<const uin
       if (!top.Skip(field.Wire)) { return std::unexpected(ParseError::InvalidTile); }
       continue;
     }
-    Reader L = top.Bytes();
+    const Reader L = top.Bytes();
     if (!top.Ok) { return std::unexpected(ParseError::InvalidTile); }
 
     const auto header = ReadLayerHeader(L);
@@ -412,50 +412,68 @@ std::expected<void, OsmVector::ParseError> OsmVector::Decode(std::span<const uin
     if (*header.Version != 2) { return std::unexpected(ParseError::UnsupportedVersion); }
     Extent_ = static_cast<int>(header.Extent);
 
-    std::vector<Reader> featureBodies;
-    while (L.ReadField(field)) {
-      if (field.Number == 3 && field.Wire == 2) {
-        const Reader s = L.Bytes();
-        if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
-        Keys_.emplace_back(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
-      } else if (field.Number == 4 && field.Wire == 2) {
-        const auto body = L.Bytes();
-        if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
-        auto value = ReadValue(body);
-        if (!value) { return std::unexpected(ParseError::InvalidTile); }
-        Values_.push_back(value->Number);
-        ValueStrs_.push_back(std::move(value->Text));
-        ValueIsNum_.push_back(value->IsNumber);
-      } else if (field.Number == 2 && field.Wire == 2) {
-        featureBodies.push_back(L.Bytes());
-        if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
-      } else if (!L.Skip(field.Wire)) {
-        return std::unexpected(ParseError::InvalidTile);
-      }
-    }
-
-    if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
-    EncodedFeature encoded;
-    for (const Reader body : featureBodies) {
-      if (!ReadFeature(body, encoded) || !ValidTags(encoded.Tags, Keys_.size(), Values_.size()) ||
-          encoded.Tags.size() > std::numeric_limits<uint32_t>::max() - Tags_.size()) {
-        return std::unexpected(ParseError::InvalidTile);
-      }
-      Feature f{};
-      f.Type = encoded.Type;
-      f.FirstTag = static_cast<uint32_t>(Tags_.size());
-      f.FirstRing = static_cast<uint32_t>(Rings_.size());
-      Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());
-      f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
-      GeometryReader geometry(encoded.Geometry, Points_, Rings_);
-      if (!geometry.Read(f.Type)) { return std::unexpected(ParseError::InvalidTile); }
-      f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
-      Features_.push_back(f);
-    }
+    const auto featureBodies = ReadLayerTables(std::span(L.P, L.End));
+    if (!featureBodies) { return std::unexpected(featureBodies.error()); }
+    const auto decoded = DecodeFeatures(*featureBodies);
+    if (!decoded) { return decoded; }
     found = true;
   }
   if (!top.Ok) { return std::unexpected(ParseError::InvalidTile); }
   if (!found) { return std::unexpected(ParseError::MissingLayer); }
+  return {};
+}
+
+std::expected<std::vector<std::span<const uint8_t>>, OsmVector::ParseError>
+OsmVector::ReadLayerTables(std::span<const uint8_t> bytes) {
+  Reader L{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
+  FieldHeader field;
+  std::vector<std::span<const uint8_t>> featureBodies;
+  while (L.ReadField(field)) {
+    if (field.Number == 3 && field.Wire == 2) {
+      const Reader s = L.Bytes();
+      if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
+      Keys_.emplace_back(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
+    } else if (field.Number == 4 && field.Wire == 2) {
+      const auto body = L.Bytes();
+      if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
+      auto value = ReadValue(body);
+      if (!value) { return std::unexpected(ParseError::InvalidTile); }
+      Values_.push_back(value->Number);
+      ValueStrs_.push_back(std::move(value->Text));
+      ValueIsNum_.push_back(value->IsNumber);
+    } else if (field.Number == 2 && field.Wire == 2) {
+      const Reader body = L.Bytes();
+      if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
+      featureBodies.emplace_back(body.P, body.End);
+    } else if (!L.Skip(field.Wire)) {
+      return std::unexpected(ParseError::InvalidTile);
+    }
+  }
+
+  if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
+  return featureBodies;
+}
+
+std::expected<void, OsmVector::ParseError>
+OsmVector::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies) {
+  EncodedFeature encoded;
+  for (const auto bytes : featureBodies) {
+    const Reader body{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
+    if (!ReadFeature(body, encoded) || !ValidTags(encoded.Tags, Keys_.size(), Values_.size()) ||
+        encoded.Tags.size() > std::numeric_limits<uint32_t>::max() - Tags_.size()) {
+      return std::unexpected(ParseError::InvalidTile);
+    }
+    Feature f{};
+    f.Type = encoded.Type;
+    f.FirstTag = static_cast<uint32_t>(Tags_.size());
+    f.FirstRing = static_cast<uint32_t>(Rings_.size());
+    Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());
+    f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
+    GeometryReader geometry(encoded.Geometry, Points_, Rings_);
+    if (!geometry.Read(f.Type)) { return std::unexpected(ParseError::InvalidTile); }
+    f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
+    Features_.push_back(f);
+  }
   return {};
 }
 

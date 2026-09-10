@@ -53,6 +53,11 @@ private:
   [[nodiscard]] std::expected<void, ParseError> Decode(std::span<const uint8_t> bytes,
                                                        std::string_view layer);
 
+  [[nodiscard]] std::expected<std::vector<std::span<const uint8_t>>, ParseError>
+  ReadLayerTables(std::span<const uint8_t> bytes);
+  [[nodiscard]] std::expected<void, ParseError>
+  DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies);
+
   int Extent_ = 4096;
   std::vector<Feature> Features_;
   std::vector<Ring> Rings_;

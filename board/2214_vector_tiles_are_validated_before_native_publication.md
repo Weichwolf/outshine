@@ -60,8 +60,8 @@ OSM-Positions-/Annahmeprüfungen grün; ungültige Rasteradressen erhalten Daten
 Große finite Mercator-Ordinaten, Äquator und Kachelrand analytisch geprüft, einschließlich
 FE_INVALID/FE_OVERFLOW. Alte Projektionsfassung scheitert; nach Integervergleichskorrektur
 betroffenen Test erneut bestanden. Normale OSM-Integration nicht als ASan-Nachweis ausgeben.
-Abschluss-Lint: 183 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
-drei rote Gruppen. Decode-Komplexität 59 (Grenze 25); Accept-Komplexitätswarnung behoben.
+Abschluss-Lint: 182 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
+drei rote Gruppen. Decode- und Accept-Komplexitätswarnungen bei unveränderter Grenze 25 behoben.
 Wien-PNG geöffnet, 0/921600 Pixelabweichung. Einzelbelege und frühere Schritte in Git.
 
 ## Kumulative Indexkapazität
@@ -97,3 +97,6 @@ danach Abbruch-/Yield-Punkt. Atomare Publikation darf nicht monolithisches Decod
 Noch nicht enforced. Später konfigurierbar machen und durch Budget-/Überlasttests sowie
 Benchmarks auf Zielhardware absichern: verschieben, freigeben, Detail reduzieren oder
 expliziter Fehler; keine unbemerkte Teilveröffentlichung. Mit Messdaten kalibrieren.
+Decoder-Phasen geprüft: 14 Regressionen grün. Mutant verschluckt Feature-Fehler und
+scheitert normal/sanitisiert ohne Buildfehler. Abschluss-Lint 182/330, 32 Repository-
+Tests grün, drei rote Gruppen. Letzte Korrektur beschränkt sich auf const für den Reader.
