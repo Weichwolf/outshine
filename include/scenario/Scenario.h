@@ -392,14 +392,37 @@ struct Door {
   Vec3 AtM;
 };
 
+/** Owned trigger declaration, copied by Engine::declare and validated by Engine::assemble.
+ * Assembly accepts at most 256 volumes and preserves the previous simulation on rejection.
+ * Triggers sample simulated body centers in the local world frame; they do not intersect
+ * body shapes or sweep motion between ticks. Boundary points count as inside.
+ * Runtime occupancy is separate from this record and resets on successful assembly.
+ * Mutating the caller's record does not change the engine's copy. Synchronize access
+ * to a shared record externally; copying its strings may allocate.
+ */
 struct Volume {
+  /// Diagnostic label and scenario-layer replacement key; assembly does not require uniqueness.
   std::string Id;
+  /// Region metadata only: currently neither resolved nor used to transform or filter probes.
   std::string In;
+  /// Exact shape name: "box" (also an empty string) or "sphere"; other names reject assembly.
   std::string Shape;
+  /// Finite center in local world meters, in the same frame as simulated body positions.
   Vec3 AtM;
+  /** Finite nonnegative dimensions in meters, validated on every axis.
+   * Box uses axis-aligned half-extents; sphere uses X as radius and ignores Y/Z.
+   * Zero dimensions are valid, including a point volume when all dimensions are zero.
+   */
   Vec3 ExtentM;
+  /// Exact name of a declared Event; missing targets reject assembly.
   std::string Fires;
+  /** Exact transition: "enter", "exit" or "dwell"; empty/unknown values reject assembly.
+   * Enter fires on first observed inclusion; exit requires a previously observed inclusion.
+   * Dwell fires once per uninterrupted occupancy; leaving and reentering starts it again.
+   * XML import defaults an omitted attribute to "enter"; native callers must set it.
+   */
   std::string When;
+  /// Finite positive simulation seconds required for "dwell"; unused for other transitions.
   double DwellS = 0.0;
 };
 

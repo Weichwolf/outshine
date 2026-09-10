@@ -75,7 +75,7 @@ Volume-Index. Assembly prüft und übernimmt Events auch ohne Volumes.
 Fünf Tests bestehen: erster/letzter Index samt Listener/Zählern, 65537 Einträge,
 doppelte/leere Namen, unbekannter Verweis und Simulationserhalt. Beide neuen Fälle
 scheitern im Altstand. Event-Vertrag dokumentiert: Feldnamen sind keine Payloadwerte.
-Offen bleiben Live-Probe-Validierung und die vereinfachte Probe-Zustandsmaschine.
+
 
 ## Geometrische Trigger-Grenzen
 Implementiert: endliche Zentren und nichtnegative endliche Ausdehnungen prüfen;
@@ -83,7 +83,7 @@ Dwell braucht endliche positive Dauer. Nullausdehnung bleibt eine gültige gesch
 Punkt-/Flächenmenge. Sphere nutzt ExtentM.x als Radius; y/z bleiben ungenutzt, aber gültig.
 Quadratsummen durch std::hypot ersetzt: große endliche Distanzen dürfen nicht durch
 inf <= inf als innerhalb gelten. Analytische Rand-, Außen- und Extremwerttests scheitern
-im Altstand und bestehen mit der Korrektur; alle drei Trigger-Tests bestehen. Live-Probe-Zeit/Entity-Validierung und Zustandsmaschine separat offen.
+im Altstand und bestehen mit der Korrektur; alle drei Trigger-Tests bestehen.
 
 ## Laufende Trigger-Probes
 Probe hat einen nodiscard-expected-Vertrag: Sentinel, nichtendliche Position/Zeit,
@@ -95,3 +95,12 @@ begrenzte Occupant-Übergänge strukturiert. Vier Tests bestehen und prüfen Bel
 nach Ablehnung sowie Austritt, Wiedereintritt und einmaliges Dwell. Kapazitäts-/Despawn-
 Politik bleibt offen, keine zusätzlichen unbeschränkten Laufzeitallokationen.
 Negativkontrolle ohne Eingabeprüfung scheitert; Fehlerpfad im Engine-Aufrufer propagiert.
+
+## Öffentlicher Volume-Vertrag und verbleibende Grenzen
+Volume dokumentiert Ownership, Assembly-Ablehnung, Koordinaten, Halbausdehnung/Radius,
+Punktabtastung und Dwell-Neustart. In ist heute unaufgelöste Metadaten; regionale Bindung
+muss implementiert oder explizit abgelehnt werden. Id dient Layer-Ersetzung, wird bei
+Assembly aber nicht auf Eindeutigkeit geprüft. Writer serialisiert Volumes noch nicht.
+Diese Lücken bleiben Teil von 2151/2131; Dokumentation ist keine SOLL-Abnahme.
+Occupancy und Queue sind auf je 256 begrenzt; Überlauf zählt derzeit nur intern.
+Despawn-Freigabe, öffentlich sichtbare Überlast und schnelle Durchquerung separat lösen.
