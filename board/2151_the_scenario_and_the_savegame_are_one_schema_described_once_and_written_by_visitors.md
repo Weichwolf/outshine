@@ -81,12 +81,18 @@ Write/Read prüfen, inklusive leeren Listen und nicht deklarierten Render-/Licht
 Altwriter scheitert an verlorenen Werten ohne Buildfehler; neuer Writer besteht
 die Feld-Oracles und den Asset-Roundtrip. Kein bloßer Text-Fixpunkt als Oracle.
 
-## Prüfung des Guards bleibt offen
-Grammar/Writer vergleicht Elementnamen, keine Semantik oder Attribute. Der Literalregex
-übersieht weitere Tags im selben String sowie berechnete Namen (StandingAs), und fordert
-Reader-Aliasse als eigene Writer-Fähigkeit. Das ist keine vollständige Verlustbilanz.
-Berechtigte Sektionslücken weiter implementieren; Guard später mit unabhängigen positiven
-und negativen Prüferfällen korrigieren, ohne die Erhaltungsanforderung abzuschwächen.
+## Nächster Prüferfix
+Grammar/Writer wird eine ausdrücklich begrenzte statische Literal-Inventur, kein
+Nachweis ausgeführter Writer-Fähigkeiten oder semantischer Erhaltung. Bisheriger Regex
+übersieht Folgetags/verkettete/Raw-Literale und zählt Kommentare als Writer-Fähigkeit.
+Bestehenden getesteten Kommentarscanner wiederverwenden; Literale tokenweise auswerten.
+Unvollständige Quelle/Analyse und leere Grammatik sind Fehler, keine grüne Leermenge.
+Unbekannte Namen weiter rot als fehlender statischer Nachweis; keine Alias-Ausnahmen
+oder pauschalen Exemptions. Unbelegtes „count GREW“ entfernen: keine Baseline existiert.
+Unabhängige Prüferfälle für mehrere/verkettete/Raw-Tags, Kommentare, Char-Literale,
+fehlende Sektionen und kaputte Eingaben; Altprüfer muss fachlich scheitern.
+Dynamische Namen, Reader-Aliasse, Pfade, Attribute und ausgeführte Codepfade bleiben
+außerhalb dieser Inventur; unabhängige Roundtrip-Fixtures sind maßgeblich.
 
 ## Bereits geprüfte Schritte
 Asset-Roundtrip, strikter Clip-Token und gemeinsamer Playback-Validator sind implementiert;
