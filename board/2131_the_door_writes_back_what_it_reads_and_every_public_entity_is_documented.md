@@ -20,8 +20,7 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   Fehler mit Ursache weiterreichen; stabile Vorgängerzustände ausdrücklich nachweisen.
 - Alle deklarierten, unterstützten Szenariowerte verlustfrei schreiben. Reader,
   Writer und Grammatik abgleichen; keine Funktion zum Bestehen des Guards entfernen.
-  Abgeleitete Laufzeitwerte gehören nicht in die Eingabegrammatik.
-- Unacted-Einträge durch wirkliche Umsetzung oder ausdrückliche Ablehnung ersetzen;
+  - Unacted-Einträge durch wirkliche Umsetzung oder ausdrückliche Ablehnung ersetzen;
   keine still getragenen Abschnitte oder doppelten Diagnosen. Provider nach WI 2211.
 - Loading-Messfelder passend zu MiB/Mibit/s benennen; Durchsatz aus demselben
   Messintervall ableiten, statt kumulierte Poolbytes durch einzelne Preload-Zeit teilen.
@@ -118,3 +117,5 @@ schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtneg
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
 Neun API-/Writerregressionen grün; geänderte Präsenz bei Nichtdefaults ist dokumentiert.
 Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
+scene.room: ungeprüften Float→size_t-Cast durch vollständiges Dezimalinteger-Parsing
+ersetzen; Größenüberlauf/negative/gebrochene Tokens ablehnen, Dokument erhalten.
