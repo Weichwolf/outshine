@@ -5,11 +5,8 @@ State: active
 Area: include, scenario
 Tags: measured, gate, door
 Supersedes: 2107
-
 # Öffentliche API erfüllt dokumentierte Verträge; Szenarien bleiben serialisierbar
-
 ## Ziel und Zuständigkeit
-
 Jede öffentliche Entität dokumentiert Einheiten, Koordinaten, Ownership, Lebensdauer,
 Invalidierung, Threadbindung, Vorbedingungen, Kosten und Fehlergarantien soweit relevant.
 Implementierung gegen WI 2188 prüfen; Dokumentation eines Mangels behebt ihn nicht.
@@ -90,7 +87,7 @@ Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vert
 
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
 Request::ExtentM weitergegeben; der Regionsvertrag ist uneindeutig. Structures nutzt
-inzwischen einen eigenen widthM-Parameter. ReadWorld liest radiusM, WriteScenario verliert es. Generating::Parameters werden inzwischen serialisiert und als geliehene native
+inzwischen einen eigenen widthM-Parameter. Reader/Writer erhalten radiusM. Generating::Parameters werden serialisiert und als geliehene native
 Parameter weitergereicht. Radius-/Extent-Kopplung bleibt ein ungültiger SOLL-Vertrag;
 nicht durch Dokumentation oder identische Umbenennung legitimieren.
 
@@ -115,3 +112,9 @@ Public-API-Test: elf Fehlerarten × Welt deklariert/nicht deklariert erhalten Zu
 Input und starten keinen Producer; gültige Grenzen/Featurebudget akzeptiert. Vier Tests
 grün, alter Engine-Pfad rot. Wien c307cab8 bytegleich und PNG geöffnet.
 Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung bleiben offen.
+
+## Dokument als native Deklaration
+Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht zur
+öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
+dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
+Importerregressionen und lint prüfen den Umzug ohne geänderte Assetauswahl.
