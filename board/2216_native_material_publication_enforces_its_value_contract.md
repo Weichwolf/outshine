@@ -78,15 +78,9 @@ separate Transaktions-/Kapazitätslücken; keine vollständige Importtransaktion
 - [ ] make format, passende Tests und make lint/clang-tidy ohne Suppression.
 
 ## Nachweise
-Native Materialpublikation/-ersatz, Importkonvertierung, Asset-Roundtrip, Baumgenerator,
-Animation, native Bilder/UVs und Platzierung als Regressionen geprüft. Negativkontrollen
-verletzen Erhaltungs-/Publikationsoracles ohne Buildfehler. Variantenfall: sieben Checks
-grün, Altcode scheitert am anschließenden Retry. Kamera-/Clipfall: 15 Checks grün,
-Altcode verletzt vier Garantien. Anlegeprüfung: Negativkontrolle ohne Werteprüfung
-scheitert an den Vertragschecks, nicht am Build; danach sieben gezielte und dreizehn
-Regressionstests grün (ein gemeinsamer Fall, zusätzlich validierter Gerätearm).
-Materialübernahme als eigene Importphase; vier Importregressionen einschließlich
-Khronos-Texturtransformationen grün. Keine vollständige Corpus-/Weltabnahme.
+Native Materialpublikation/-ersatz, Importkonvertierung, Animation, Bilder/UVs,
+Platzierung und Generatorprodukte durch Regressionen und Negativkontrollen geprüft.
+Einzelne Nachweise stehen in Git; vollständige Corpus-/Weltabnahme bleibt offen.
 ## GroundMaterials-Katalog
 Load liest über ReadTextFile mit 1-MiB-Budget und publiziert erst den vollständigen
 Kandidaten. Fehler erhalten den alten Katalog. Sortierter Namensindex löst eindeutige
@@ -118,3 +112,11 @@ Konkurrierende Ziele über geordneten Index statt quadratischem Scan erkennen.
 Nachweis: gültige Fixture, isolierte Fehlerproben, Konflikte/Kombination und Retry;
 Altcode verletzt Erhaltung, Korrektur und vier Importerregressionen bestehen.
 Zeitgitter-/Wertevalidierung in Track/Keyframes bleibt separat offen.
+
+## Geprüfte Kurven
+Formatunabhängige Keyframes nach base/math verschieben; geprüfte span-Factory statt
+öffentlichem Rohzeigerkonstruktor. Endliche, streng steigende Zeiten, endliche Werte,
+gültige Interpolation und dimensionssichere Rechnung vor Veröffentlichung erzwingen.
+Track lehnt unbekannte Pfade/negative glTF-Zeiten ab und erhält gültige Vorgänger.
+Zu kleine Sample-Puffer und nichtendliche Abfragen ohne Schreibzugriff ablehnen.
+Analytische STEP/LINEAR/CUBICSPLINE-Kontrollen, Fehlererhaltung und Importerregressionen.
