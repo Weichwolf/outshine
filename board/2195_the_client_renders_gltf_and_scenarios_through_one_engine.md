@@ -84,3 +84,16 @@ Transfer-/Materialverträgen bleibt offen; Vorschau ist keine photorealistische 
 - [ ] Materialien/Licht/Animation und bestehende Szenario-Rendervergleiche bleiben korrekt.
 - [ ] Render-Harness auf gemeinsamen Client ausgerichtet; kein neuer privater Renderpfad.
 - [ ] make lint und betroffene Make-Suiten; Logs im System-Tempverzeichnis.
+
+## Gemeinsamer Importvertrag
+Outshine-Szenario und glTF sind Importadapter mit unterschiedlicher Ausdrucksstärke.
+Formatsyntax/-referenzen und Konvertierung im Adapter; native Weltbeschreibung und
+fachliche Validierung gemeinsam mit direkten Code-Aufrufern über die öffentliche API.
+Kein Importer schreibt an dieser API vorbei in Engine-Interna. glTF-Konventionen
+bleiben im Adapter; Szenarien ergänzen Weltgenerierung, Simulation und Umwelt.
+Import zunächst vorbereiten/validieren, dann transaktional veröffentlichen; gemeldete
+Fehler erhalten die aktive Welt. Dies ist SOLL, keine bestehende Fehlergarantie.
+Abnahme: äquivalente Code-/Szenario-/glTF-Inhalte erzeugen gleiche native Semantik;
+identische native Defekte werden über alle drei Pfade abgelehnt. Später Importfehler
+erhält vorhandene Welt. Szenario-Reader/Writer erhalten alle unterstützten statischen
+Deklarationen im Roundtrip; Laufzeithandles/Savegame-Zustand sind kein Importformat.
