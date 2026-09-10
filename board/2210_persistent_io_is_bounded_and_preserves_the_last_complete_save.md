@@ -1,5 +1,5 @@
 Type: defect
-State: open
+State: active
 Parent: 2191
 Area: engine, base, io
 Tags: architecture, audit, persistence
@@ -32,3 +32,14 @@ Keine schleichende Lockerung, kein pauschales Abort bei behandelbarem IO-Fehler.
 - [ ] Restore veröffentlicht nur vollständigen validierten Zustand; kein Teil-Restore.
 - [ ] Gleichzeitige Save-Versuche kollidieren nicht in gemeinsamen temporären Namen.
 - [ ] Negative Kontrolle direktes wb verletzt Erhaltungsoracle; Make-Lint und IO-Tests.
+
+## Begrenzter gemeinsamer Reader
+ReadTextFile im base/io-Tier ersetzt inline SlurpFile aus EngineHeld. Explizites
+Byte-Limit, NUL-Pfade ablehnen, EOF von ferror unterscheiden, FILE per RAII schließen.
+Bei exakter Grenze höchstens ein zusätzliches Byte zur Übergrößenerkennung lesen.
+Restore: vorhandene Save-Grenze 1 MiB. Szenario plus ausgewählte Layer: zusammen
+16 MiB als gesetztes Startbudget, nicht gemessen; nach erfolgreichen Reads verbleibende
+Bytes reduzieren. Kein Parser-/Allokationsgesamtbudget und kein IO-Zeitlimit behauptet.
+Unabhängige Datei-Fixtures prüfen leer/exakt/zu groß, fehlend, eingebettetes NUL und
+Lesefehler. Mutation ohne Budgetprüfung muss scheitern. Bestehende Parser-Regression,
+öffentlicher Save-/Szenario-Vertrag und Make-Gates gemeinsam migrieren.
