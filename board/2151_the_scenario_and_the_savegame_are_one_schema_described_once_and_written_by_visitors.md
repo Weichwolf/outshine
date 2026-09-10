@@ -66,3 +66,9 @@ Asset-Abnahme: vier Animationsmodi mit unabhängigen Feldwerten vor/nach Write/R
 grün; Altwriter scheitert ohne Buildfehler. Parser-Erhaltung und Zeichenreferenzen grün.
 Lint: 181 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
 Szenario bleibt eigenständiges Importformat; keine glTF-Erweiterung für Welt-/Spielregeln.
+
+Nächster Grenzfix: Asset-Clip als vollständige endliche Dezimalzahl mit ganzzahligem
+Wert in [0, INT_MAX] prüfen, erst danach verengen. Fehlendes Attribut bedeutet 0;
+leeres/ungültiges Attribut ist Fehler. IntegralDecimal wie beim Catch-up-Limit nutzen,
+um gerundete Bruchteile nicht als Integer anzunehmen. Negative/Überlauf/Restzeichen/
+NaN/Inf/Bruchteile und gültige Dezimal-/Exponentformen prüfen; Fehler erhält Dokument.
