@@ -33,8 +33,8 @@ Importer liefern native Geometrie; Reader und Eingabepuffer bleiben an der Forma
   den Pol. Normale Koordinaten werden unverändert berechnet. Keine MVT-Pufferbeschneidung.
 
 ## Offene Abnahme
-- [ ] Kumulative native Index-/Mengengrenzen vor jeder Verengung und Veröffentlichung;
-  insbesondere Features, Rings, Points, Tags, Values und String-Interning.
+- [ ] Gemeinsame Kapazitätsverträge für importierte und deklarierte Daten. MVT-Accept
+  prüft kumulative Indexräume; deklarierte Pfade und Container-max_size bleiben offen.
 - [ ] Explizite Byte-/Decode-/Allokationsbudgets, Abbruch und inkrementelles Decode.
   Kandidaten erhöhen den Spitzenbedarf; Allokationsfehlervertrag mit WI 2194 abstimmen.
 - [ ] Vollständige Ringtopologie: Selbstschnitt, Selbstberührung, Lochzuordnung/-schnitt.
@@ -53,7 +53,7 @@ Lokale Klone: ../vector-tile-spec (21ff2cb), 2.1/README.md und vector_tile.proto
 MVT-Spezifikation ist Formatvertrag; native Speichergrenzen zusätzlich ausdrücklich prüfen.
 
 ## Nachweis
-MVT-Suite normal/ASan/UBSan grün. Alte Fixed32-Fassung verursacht heap-buffer-overflow;
+14 ausgewählte MVT-/OSM-Prüfungen grün, MVT einschließlich ASan/UBSan. Alte Fixed32-Fassung verursacht heap-buffer-overflow;
 alte Geometriefassung scheitert mit Sanitizer-Abbruch. Falsche MissingLayer-Klassifikation
 wird durch Mutation erkannt. Native Teilveröffentlichung scheitert alt ohne Buildfehler.
 OSM-Positions-/Annahmeprüfungen grün; ungültige Rasteradressen erhalten Daten/Settled.
@@ -73,3 +73,7 @@ Tag-Paar; unbekannte Interning-Treffer nicht vorwegnehmen. Keine Mutation bei Ab
 Kapazitätsarithmetik separat mit analytischen Grenzfällen ohne Milliardenallokationen
 prüfen; Negativmutation muss scheitern. Native Annahme-/Positionsregression und Lint.
 Das ist ein Indexvertrag, kein RAM-/Container-max_size-/Decodezeitbudget.
+Kapazitätsabnahme: analytische Grenzfälle normal/sanitisiert grün; Mutation erlaubt
+je einen überzähligen Eintrag und scheitert in beiden Varianten ohne Buildfehler.
+Native Annahme-/Positionsregression grün, Wien visuell geprüft und pixelgleich.
+Abschluss-Lint unverändert 183/330, 32 Repository-Tests grün, drei rote Gruppen.

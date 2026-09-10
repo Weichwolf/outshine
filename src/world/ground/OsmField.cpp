@@ -11,6 +11,7 @@
 #include "Capacity.h"
 #include "Log.h"
 #include "OsmVector.h"
+#include "OsmStorageUsage.h"
 #include "TerrainLoader.h"
 #include "TileGeodesy.h"
 
@@ -51,6 +52,7 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 }
 
 namespace Says {
+constexpr std::string_view kOsmIndexCapacity = "OSM native index capacity exceeded";
 constexpr std::string_view kInvalidOsmTile = "OSM tile address is outside its zoom grid";
 constexpr std::string_view kInvalidVectorTile = "OSM tile contains invalid vector data";
 constexpr std::string_view kUnsupportedVectorTile = "OSM tile version is unsupported";
@@ -219,6 +221,26 @@ ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> na
   }
   return layers;
 }
+
+[[nodiscard]] bool FitsNativeStorage(OsmStorageUsage usage, const VectorLayers &layers) {
+  if (!usage.TryAdd({.Tiles = 1})) { return false; }
+  for (const auto &layer : layers) {
+    if (!layer) { continue; }
+    OsmStorageUsage growth{.Features = layer->Features().size(),
+                           .Rings = layer->Rings().size(),
+                           .Points = layer->Points().size() / 2};
+    for (const auto &feature : layer->Features()) {
+      const size_t pairs = OsmVector::TagCount(feature);
+      if (!growth.TryAdd(
+              {.Tags = feature.TagCount, .Values = pairs, .Keys = pairs, .Strings = pairs})) {
+        return false;
+      }
+    }
+    if (!usage.TryAdd(growth)) { return false; }
+  }
+  return true;
+}
+
 }
 
 std::expected<int, std::string_view>
@@ -231,6 +253,15 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
     ++Bad_;
     return std::unexpected(layers.error());
   }
+  const OsmStorageUsage usage{.Features = Features_.size(),
+                              .Rings = Rings_.size(),
+                              .Points = Points_.size() / 2,
+                              .Tags = Tags_.size(),
+                              .Values = Values_.size(),
+                              .Keys = Keys_.size(),
+                              .Strings = Strings_.size(),
+                              .Tiles = Tiles_.size()};
+  if (!FitsNativeStorage(usage, *layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
   const size_t first = Features_.size();
   Tiles_.push_back(Tile{.Z = Zoom_,
                         .X = tx,
