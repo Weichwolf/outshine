@@ -17,6 +17,9 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto InvalidVolumeGeometry =
+    "volume center and extents must be finite; extents must be nonnegative";
+constexpr auto InvalidDwell = "dwell duration must be finite and positive";
 constexpr auto ExcessEvents = "event catalog exceeds the 16-bit index capacity";
 constexpr auto InvalidEventName = "event names must be nonempty and unique";
 }
@@ -48,6 +51,12 @@ BuildEventIndex(std::span<const Scenario::Event> events) {
 
 std::expected<TriggerField::PreparedVolume, std::string>
 TriggerField::PrepareVolume(const Scenario::Volume &volume, uint16_t event) {
+  for (int axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(volume.AtM[axis]) || !std::isfinite(volume.ExtentM[axis]) ||
+        volume.ExtentM[axis] < 0.0) {
+      return std::unexpected(Says::InvalidVolumeGeometry);
+    }
+  }
   PreparedVolume prepared;
   if (volume.When == "enter") {
     prepared.Opens = When::Enter;
@@ -68,10 +77,8 @@ TriggerField::PrepareVolume(const Scenario::Volume &volume, uint16_t event) {
     return std::unexpected("volume '" + volume.Id + "' is a '" + volume.Shape +
                            "', and a volume is a box or a sphere");
   }
-  if (prepared.Opens == When::Dwell && !(volume.DwellS > 0.0)) {
-    return std::unexpected("volume '" + volume.Id +
-                           "' fires on dwell and declares no dwellS -- a dwell without a "
-                           "duration is an enter wearing a costume");
+  if (prepared.Opens == When::Dwell && (!std::isfinite(volume.DwellS) || volume.DwellS <= 0.0)) {
+    return std::unexpected(Says::InvalidDwell);
   }
   prepared.Event = event;
   prepared.AtM = volume.AtM;
@@ -142,12 +149,8 @@ bool TriggerField::Listen(std::string_view event,
 
 bool TriggerField::Inside(const PreparedVolume &door, const Vec3 &atM) {
   if (door.Sphere != 0) {
-    double away = 0.0;
-    for (int axis = 0; axis < 3; ++axis) {
-      const double gap = atM[axis] - door.AtM[axis];
-      away += gap * gap;
-    }
-    return away <= door.ExtentM[0] * door.ExtentM[0];
+    return std::hypot(atM[0] - door.AtM[0], atM[1] - door.AtM[1], atM[2] - door.AtM[2]) <=
+           door.ExtentM[0];
   }
   for (int axis = 0; axis < 3; ++axis) {
     if (std::fabs(atM[axis] - door.AtM[axis]) > door.ExtentM[axis]) { return false; }

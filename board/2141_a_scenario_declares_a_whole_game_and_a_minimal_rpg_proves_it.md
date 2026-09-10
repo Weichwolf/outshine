@@ -75,12 +75,12 @@ Volume-Index. Assembly prüft und übernimmt Events auch ohne Volumes.
 Fünf Tests bestehen: erster/letzter Index samt Listener/Zählern, 65537 Einträge,
 doppelte/leere Namen, unbekannter Verweis und Simulationserhalt. Beide neuen Fälle
 scheitern im Altstand. Event-Vertrag dokumentiert: Feldnamen sind keine Payloadwerte.
-Offen bleiben geometrische Trigger-Validierung und die vereinfachte Probe-Zustandsmaschine.
+Offen bleiben Live-Probe-Validierung und die vereinfachte Probe-Zustandsmaschine.
 
 ## Geometrische Trigger-Grenzen
-Vor Implementierung: endliche Zentren und nichtnegative endliche Ausdehnungen prüfen;
+Implementiert: endliche Zentren und nichtnegative endliche Ausdehnungen prüfen;
 Dwell braucht endliche positive Dauer. Nullausdehnung bleibt eine gültige geschlossene
 Punkt-/Flächenmenge. Sphere nutzt ExtentM.x als Radius; y/z bleiben ungenutzt, aber gültig.
-Quadratsummen durch std::hypot ersetzen: große endliche Distanzen dürfen nicht durch
-inf <= inf als innerhalb gelten. Analytische Rand-, Außen- und Extremwerttests müssen
-im Altstand scheitern. Live-Probe-Zeit/Entity-Validierung und Zustandsmaschine separat offen.
+Quadratsummen durch std::hypot ersetzt: große endliche Distanzen dürfen nicht durch
+inf <= inf als innerhalb gelten. Analytische Rand-, Außen- und Extremwerttests scheitern
+im Altstand und bestehen mit der Korrektur; alle drei Trigger-Tests bestehen. Live-Probe-Zeit/Entity-Validierung und Zustandsmaschine separat offen.
