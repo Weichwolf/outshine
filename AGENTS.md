@@ -233,3 +233,8 @@ das Urteil über das ganze Projekt.
 - Ad-hoc-Dateivergleiche ohne externe Hash-CLI (`shasum` und ähnliche Aufrufe).
   Renderabweichungen mit `python3 test/scripts/pixels.py vorher.png nachher.png` messen.
   Hashes für Engine-Caches, Asset-Identität und Referenzpins bleiben fachlich erforderlich.
+
+- Keine Websuche. Recherche ausschließlich in lokalen Git-Klonen. Fehlende
+  Referenzrepositories per `git clone` neben Outshine unter `/Users/cosmo/Git/` ablegen.
+  Vorhandene Klone nutzen und den konsultierten Stand nennen.
+  MVT: `../vector-tile-spec`; Protobuf-Dokumentation: `../protobuf-docs`.
