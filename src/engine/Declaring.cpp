@@ -175,6 +175,19 @@ void Engine::ships() {
   (void)S_->World.Offering.offers(S_->World.Shipping.Offered());
 }
 
+namespace {
+[[nodiscard]] std::expected<std::optional<ViewBook>, std::string>
+PrepareViews(const Scenario::Document &scenario) {
+  if (scenario.Views.empty()) { return std::optional<ViewBook>{}; }
+  const std::string_view starting = scenario.Played.View.empty()
+                                        ? std::string_view(scenario.Views.front().Id)
+                                        : std::string_view(scenario.Played.View);
+  auto views = ViewBook::Stand(scenario.Views, starting);
+  if (!views) { return std::unexpected(std::move(views.error())); }
+  return std::optional<ViewBook>{std::move(*views)};
+}
+}
+
 namespace Says {
 constexpr auto InvalidSimulationTiming =
     "simulation requires a finite positive step and positive catch-up count with finite duration";
@@ -200,6 +213,11 @@ Result Engine::declare(const Scenario::Document &scenario) {
   }
   if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
     S_->Error = Says::RevisionExhausted;
+    return std::unexpected(S_->Error);
+  }
+  auto views = PrepareViews(scenario);
+  if (!views) {
+    S_->Error = std::move(views.error());
     return std::unexpected(S_->Error);
   }
   ships();
@@ -328,23 +346,12 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
     return std::unexpected(S_->Error);
   }
-  const auto publishInput = [&] noexcept {
+  const auto publishConfiguration = [&] noexcept {
+    static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
+    S_->Session.Views = std::move(*views);
     static_assert(std::is_nothrow_move_assignable_v<InputMap>);
     S_->Session.Bound = std::move(bindings);
   };
-
-  S_->Session.Views.reset();
-  if (!scenario.Views.empty()) {
-    const std::string_view starting = scenario.Played.View.empty()
-                                          ? std::string_view(scenario.Views.front().Id)
-                                          : std::string_view(scenario.Played.View);
-    auto stood = ViewBook::Stand(scenario.Views, starting);
-    if (!stood) {
-      S_->Error = stood.error();
-      return std::unexpected(S_->Error);
-    }
-    S_->Session.Views.emplace(std::move(*stood));
-  }
 
   if (S_->Picture.Standing && !HasGeneratedContent(scenario) &&
       !HasGeneratedContent(S_->Session.Declared) && SamePicture(S_->Picture.Shown, declared)) {
@@ -364,7 +371,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Sounding.reset();
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    publishInput();
+    publishConfiguration();
     return {};
   }
 
@@ -385,7 +392,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
     if (!generated(scenario)) { return std::unexpected(S_->Error); }
-    publishInput();
+    publishConfiguration();
     return {};
   }
   if (!Core::Live::Open(S_->Picture.Device,
@@ -410,7 +417,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
   if (!generated(scenario)) { return std::unexpected(S_->Error); }
-  publishInput();
+  publishConfiguration();
   return {};
 }
 

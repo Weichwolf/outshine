@@ -109,11 +109,11 @@ den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen o
 mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
 
 ## Transaktionale View-Konfiguration
-`declare` leert Session.Views vor ViewBook::Stand; Ablehnung verliert den alten
-Katalog. Späte Generatorfehler publizieren bereits den Kandidaten. ViewBook vor
-Setup vorbereiten, gemeinsam mit InputMap erst an den drei Erfolgsausgängen
-übernehmen (bestehender RAII/Prepare-Commit-Vertrag, keine weitere Vektorkopie).
-Public-API-Nachweis: frühe Ablehnung erhält Deklaration/Katalog, späte Ablehnung
-erhält den Katalog, Retry ersetzt ihn, erfolgreiche leere Views löschen ihn.
-Alte Implementierung muss scheitern. Gültige Bilder unverändert; kein vollständiger
-Welt-/GPU-Rollback. View-Wertevalidierung und ungenutzte TimeScale bleiben offen.
+ViewBook wird vor Setup vorbereitet und zusammen mit InputMap erst an den drei
+Erfolgsausgängen übernommen. Die frühere reset-/vorzeitige Publikation entfällt;
+Move-Übernahme ist per static_assert nichtwerfend, ohne weitere Vektorkopie.
+RejectedViewsPreservePreviousConfiguration prüft frühe Ablehnung mit erhaltenem
+Deklarationsspeicher, späte Generatorablehnung mit altem Katalog, Retry und Leeren.
+Alter Stand: sechs verletzte Checks; neuer Stand und sechs Kamera-/Input-/Generator-
+Regressionen grün. Öffentlicher Teilfehlervertrag dokumentiert. Kein vollständiger
+Welt-/GPU-Rollback; View-Wertevalidierung und ungenutzte TimeScale bleiben offen.

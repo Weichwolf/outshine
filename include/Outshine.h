@@ -343,6 +343,8 @@ public:
   /// replace assemble() or imply settled(). Changed declarations invalidate prepared audio.
   /// Call on the Engine/video thread outside frames and concurrent Engine work. May allocate,
   /// create device resources and wait for outstanding world jobs during replacement.
+  /// View catalogs are validated before setup and published only on success, together with
+  /// input bindings. Rejection preserves the previous catalog; success with no views clears it.
   /// Validation is incomplete; failures after setup begins may retain partial changes and
   /// invalidate prior scene/declaration views. There is no whole-operation rollback yet.
   /// @param scenario Definition in native scenario units and coordinate conventions.
