@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <cmath>
 #include "ScenarioWrite.h"
+#include "AssetValidation.h"
 #include "OsmValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
@@ -181,6 +182,10 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {
+  for (const auto &asset : scenario.Assets) {
+    const auto valid = ValidateAssetPlayback(asset);
+    if (!valid) { return std::unexpected(std::string(valid.error())); }
+  }
   for (const auto &feature : scenario.Ground.Osm) {
     const auto valid = ValidateOsmStructure(feature);
     if (!valid) { return std::unexpected(std::string(valid.error())); }

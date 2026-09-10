@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include "ScenarioRead.h"
+#include "AssetValidation.h"
 #include "ReadScenarioOsm.h"
 
 #include <scenario/Scenario.h>
@@ -507,6 +508,11 @@ void ReadSources(const Xml::Ref &root, Scenario::Document &into) {
             static_cast<float>(row.Num("coverageCut", static_cast<double>(said.Row.CoverageCut)));
       }
       made.Surfaces.push_back(said);
+    }
+    const auto valid = ValidateAssetPlayback(made);
+    if (!valid) {
+      error = valid.error();
+      return false;
     }
     into.Assets.push_back(made);
   }

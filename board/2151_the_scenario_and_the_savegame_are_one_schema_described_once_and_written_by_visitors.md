@@ -83,3 +83,7 @@ direktes Engine::declare, ohne IO/Mutation. Negativer Clip/ungültiges Enum müs
 am direkten Einstieg scheitern und die vorherige Deklaration erhalten. XML-Syntax und
 Indexexistenz im geladenen Asset bleiben separate Prüfungen. Kein vollständiger
 Weltvalidator behauptet; zunächst gemeinsame fachliche Grenze für Playback-Metadaten.
+Playback-Abnahme: gemeinsamer nichtallokierender expected-Validator in ReadAssets
+und am Anfang von Engine::declare. API-Erhaltung/Retry und zwei Importregressionen
+grün; Altcode scheitert ohne Buildfehler. Lint 181/282, 32 Repository-Tests grün,
+drei rote Gruppen. Kein Nachweis vollständiger Welttransaktion oder Clip-Existenz.
