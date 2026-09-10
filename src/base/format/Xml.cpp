@@ -1,7 +1,5 @@
 #include "Xml.h"
-#include "XmlAttribute.h"
 
-#include <array>
 #include <algorithm>
 
 #include <cstddef>
@@ -9,32 +7,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
-#include <limits>
 #include <string>
 #include <vector>
 
 namespace outshine {
 
-namespace Says {
-constexpr auto kXmlInputTooLarge = "XML input exceeds the 16 MiB text budget";
-}
-
 namespace {
-
-constexpr size_t kXmlMaxTextBytes = size_t{16} * 1024u * 1024u;
-static_assert(kXmlMaxTextBytes <= std::numeric_limits<uint32_t>::max());
-
-bool Space(char c) {
-  return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-}
-
-bool NameStart(char c) {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-}
-
-bool NameChar(char c) {
-  return NameStart(c) || (c >= '0' && c <= '9') || c == '-' || c == '.';
-}
 
 std::string Where(size_t at) {
   return " at byte " + std::to_string(at);
@@ -213,199 +191,6 @@ Xml::Ref Xml::Ref::At(const char *name, size_t which) const {
     ++seen;
   }
   return {};
-}
-
-bool Xml::Parse(const char *text, size_t length) {
-  Error_.clear();
-  SiblingSteps_ = 0;
-  Nodes_.clear();
-  Attributes_.clear();
-  Asked_.clear();
-  Root_ = 0;
-  if (text == nullptr) { return Refuse("there is no document to read", 0); }
-
-  if (length > kXmlMaxTextBytes) { return Refuse(Says::kXmlInputTooLarge, 0); }
-
-  Text_.assign(text, length);
-  Nodes_.emplace_back();
-
-  std::array<uint32_t, kXmlMaxDepth> stack{};
-  size_t depth = 0;
-  size_t at = 0;
-  bool closed = false;
-  std::string decodedAttribute;
-
-  while (at < length) {
-    if (Text_[at] != '<') {
-      const size_t from = at;
-      while (at < length && Text_[at] != '<') { ++at; }
-      if (depth > 0) {
-        size_t start = from;
-        size_t stop = at;
-        while (start < stop && Space(Text_[start])) { ++start; }
-        while (stop > start && Space(Text_[stop - 1])) { --stop; }
-        if (stop > start) {
-          Node &into = Nodes_[stack[depth - 1]];
-          into.TextOff = static_cast<uint32_t>(start);
-          into.TextLen = static_cast<uint32_t>(stop - start);
-        }
-      }
-      continue;
-    }
-
-    if (at + 1 < length && Text_[at + 1] == '?') {
-      const size_t stop = Text_.find("?>", at);
-      if (stop == std::string::npos) { return Refuse("a processing instruction never ends", at); }
-      at = stop + 2;
-      continue;
-    }
-    if (at + 3 < length && Text_.compare(at, 4, "<!--") == 0) {
-      const size_t stop = Text_.find("-->", at);
-      if (stop == std::string::npos) { return Refuse("a comment never ends", at); }
-      at = stop + 3;
-      continue;
-    }
-    if (at + 1 < length && Text_[at + 1] == '!') {
-      return Refuse("this reader takes elements, attributes and text, and a declaration beginning "
-                    "'<!' is a doctype or a section it does not",
-                    at);
-    }
-
-    if (at + 1 < length && Text_[at + 1] == '/') {
-      const size_t name = at + 2;
-      size_t stop = name;
-      while (stop < length && NameChar(Text_[stop])) { ++stop; }
-      if (depth == 0) { return Refuse("a closing tag closes an element nothing opened", at); }
-      const Node &open = Nodes_[stack[depth - 1]];
-      if (open.NameLen != stop - name ||
-          std::memcmp(Text_.data() + open.NameOff, Text_.data() + name, stop - name) != 0) {
-        return Refuse("a closing tag names '" +
-                          Span(static_cast<uint32_t>(name), static_cast<uint32_t>(stop - name)) +
-                          "' and the open element is '" + Span(open.NameOff, open.NameLen) + "'",
-                      at);
-      }
-      while (stop < length && Space(Text_[stop])) { ++stop; }
-      if (stop >= length || Text_[stop] != '>') {
-        return Refuse("a closing tag allows only whitespace after its name, then '>'", stop);
-      }
-      --depth;
-      if (depth == 0) { closed = true; }
-      at = stop + 1;
-      continue;
-    }
-
-    const size_t name = at + 1;
-    if (name >= length || !NameStart(Text_[name])) {
-      return Refuse("an element's name begins with a letter or an underscore", at);
-    }
-    size_t stop = name;
-    while (stop < length && NameChar(Text_[stop])) { ++stop; }
-    if (stop < length && Text_[stop] == ':') {
-      return Refuse("this reader declares no namespaces, and '" +
-                        Span(static_cast<uint32_t>(name), static_cast<uint32_t>(stop - name)) +
-                        ":' is one",
-                    at);
-    }
-    if (closed) { return Refuse("a document carries one root element and this is a second", at); }
-    if (Nodes_.size() >= kXmlMaxNodes) {
-      return Refuse("the document reaches the element bound of " + std::to_string(kXmlMaxNodes),
-                    at);
-    }
-
-    Nodes_.emplace_back();
-    const auto made = static_cast<uint32_t>(Nodes_.size() - 1);
-    Nodes_[made].NameOff = static_cast<uint32_t>(name);
-    Nodes_[made].NameLen = static_cast<uint32_t>(stop - name);
-    Nodes_[made].FirstAttribute = static_cast<uint32_t>(Attributes_.size());
-
-    if (depth == 0) {
-      Root_ = made;
-    } else {
-      const uint32_t parent = stack[depth - 1];
-      if (Nodes_[parent].FirstChild == 0) {
-        Nodes_[parent].FirstChild = made;
-      } else {
-        uint32_t last = Nodes_[parent].FirstChild;
-        while (Nodes_[last].NextSibling != 0) { last = Nodes_[last].NextSibling; }
-        Nodes_[last].NextSibling = made;
-      }
-    }
-
-    at = stop;
-    bool empty = false;
-    while (at < length) {
-      while (at < length && Space(Text_[at])) { ++at; }
-      if (at < length && Text_[at] == '/') {
-        if (at + 1 >= length || Text_[at + 1] != '>') {
-          return Refuse("a self-closing tag ends with '/>'", at);
-        }
-        empty = true;
-        at += 2;
-        break;
-      }
-      if (at < length && Text_[at] == '>') {
-        ++at;
-        break;
-      }
-      if (at >= length) { return Refuse("an element's tag never ends", name); }
-      if (!NameStart(Text_[at])) {
-        return Refuse("an attribute's name begins with a letter or an underscore", at);
-      }
-      const size_t attribute = at;
-      while (at < length && NameChar(Text_[at])) { ++at; }
-      const size_t attributeStop = at;
-      while (at < length && Space(Text_[at])) { ++at; }
-      if (at >= length || Text_[at] != '=') {
-        return Refuse("an attribute carries a value, so its name is followed by '='", attribute);
-      }
-      ++at;
-      while (at < length && Space(Text_[at])) { ++at; }
-      if (at >= length || (Text_[at] != '"' && Text_[at] != '\'')) {
-        return Refuse("an attribute's value is quoted", attribute);
-      }
-      const char quote = Text_[at];
-      ++at;
-      const size_t value = at;
-      while (at < length && Text_[at] != quote) { ++at; }
-      if (at >= length) { return Refuse("an attribute's value never closes", attribute); }
-      if (Attributes_.size() >= kXmlMaxAttributes) {
-        return Refuse("the document reaches the attribute bound of " +
-                          std::to_string(kXmlMaxAttributes),
-                      attribute);
-      }
-      Attribute one;
-      one.NameOff = static_cast<uint32_t>(attribute);
-      one.NameLen = static_cast<uint32_t>(attributeStop - attribute);
-      one.ValueOff = static_cast<uint32_t>(value);
-      if (!DecodeXmlAttribute(std::string_view(Text_).substr(value, at - value),
-                              decodedAttribute)) {
-        return Refuse("invalid XML attribute value or character reference", value);
-      }
-      std::ranges::copy(decodedAttribute, Text_.begin() + static_cast<std::ptrdiff_t>(value));
-      one.ValueLen = static_cast<uint32_t>(decodedAttribute.size());
-      Attributes_.push_back(one);
-      ++Nodes_[made].Attributes;
-      ++at;
-    }
-
-    if (!empty) {
-      if (depth >= kXmlMaxDepth) {
-        return Refuse("the document nests past the depth bound of " + std::to_string(kXmlMaxDepth),
-                      name);
-      }
-      stack[depth++] = made;
-    } else if (depth == 0) {
-      closed = true;
-    }
-  }
-
-  if (depth != 0) {
-    const Node &open = Nodes_[stack[depth - 1]];
-    return Refuse("the element '" + Span(open.NameOff, open.NameLen) + "' is never closed", length);
-  }
-  if (Root_ == 0) { return Refuse("the document carries no element", length); }
-  Asked_.assign(Attributes_.size(), 0);
-  return true;
 }
 
 Xml::Unread Xml::FirstUnread() const {

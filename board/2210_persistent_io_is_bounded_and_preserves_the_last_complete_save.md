@@ -33,8 +33,8 @@ haben einen Besitzer und explizite Zustände; keine leeren Zweitlieferungen als 
 - ContentStore-Gesamtbudget während laufender Writes und Verzeichnis-Inventar begrenzen;
   Eintragszugriffe und atomare Veröffentlichung sind geprüft.
 - Read-/Parser-Gesamtspeicher, lange Layerketten und Zeitbudgets numerisch begrenzen.
-- XML-Parserphasen trennen; quadratisches Geschwister-Anhängen beseitigen, Konformitäts-
-  und Randfälle prüfen. Bestehende Grenzprüfungen nicht lockern.
+- XML-Konformität und verbleibende Speicher-/Arbeitsbudgets prüfen. Parserphasen sind
+  getrennt, Geschwisteraufbau linear; bestehende Grenzprüfungen bleiben erhalten.
 - Restore-Namensauflösung profilieren; Persistenzschema und vollständiger Savegame-Zustand
   bleiben Aufgaben von 2131/2141. Der Deklarationswriter ist noch kein kompletter Savegame-Pfad.
 
@@ -99,5 +99,5 @@ Parse in Text, Markup-Dispatch, Öffnen/Schließen und Attribute trennen; Parser
 nur während des Imports halten. Pro offener Ebene letzten Kindindex speichern:
 Anhängen O(1), keine wiederholte Suche durch Geschwister. Knotenlayout unverändert.
 Abnahme: 60000 Geschwister unter 2 s auf dem Entwicklungsrechner (großzügiges
-Cold-Import-Budget), Reihenfolge und verschachtelte Listen exakt. Altstand muss
-das Zeitbudget verletzen; Syntax-/Attribut-/Szenario-Regressionen bleiben maßgeblich.
+Cold-Import-Budget), Reihenfolge und verschachtelte Listen exakt. Altstand benötigt
+2,87 s und verletzt das Budget. 15 Syntax-/Attribut-/Szenario-Regressionen bestehen.

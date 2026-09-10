@@ -147,6 +147,14 @@ public:
 private:
   friend class Ref;
 
+  struct ParseState;
+  [[nodiscard]] bool ParseText(ParseState &state);
+  [[nodiscard]] bool ParseMarkup(ParseState &state);
+  [[nodiscard]] bool ParseClosingTag(ParseState &state);
+  [[nodiscard]] bool ParseOpeningTag(ParseState &state);
+  [[nodiscard]] bool ParseAttributes(ParseState &state, uint32_t made, bool &empty);
+  [[nodiscard]] bool ParseAttribute(ParseState &state, uint32_t made);
+
   [[nodiscard]] std::string Span(uint32_t off, uint32_t len) const {
     return {Text_.data() + off, len};
   }
