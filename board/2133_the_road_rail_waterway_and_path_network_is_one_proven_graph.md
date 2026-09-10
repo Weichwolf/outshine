@@ -74,24 +74,13 @@ mit Umwegen/Turn-Regeln zusätzlich gegen unabhängige Dijkstra-Lösung prüfen.
 Start-Reichweite von 250 m kann ebenfalls Barrieren/Fahrtrichtungen überspringen;
 explizite zulässige Anbindung statt freier räumlicher Seeds erforderlich.
 
-TransportNetworkPreservesOneWay prüft die gerichtete Gerade und eine Abzweigmatrix:
-beide Punktreihenfolgen, Ein-/Zweirichtungs-Hauptstraße, ein-/ausgehender Spur. Routen
-und genaue Kantenzahlen bestehen. Alte Indexfilterung und alte Splice-Funktion
-scheitern jeweils ohne Buildfehler. WeakComponents trennt physischen Zusammenhang
-von gerichtetem Reaches; OSM-IDs/Modi/Restrictions/Streaming und Startanbindung bleiben offen.
-
-WeakComponents verwendet Union-Find statt gerichteter BFS; konvergierende und
-umgekehrte Einbahnzweige, getrennte Komponente, Einzelknoten und leerer Graph geprüft.
-
-Mehrziel-A*: Gegenbeispiel mit zwei direkten Zielkanten und Fortsetzungen verhindert
-Legacy-Splicing. Kugelgeometrie unabhängig per acos(cos(lat)*cos(lon)) geprüft;
-der alte Router wählt ca. 1112 m statt ca. 1015 m (R=6371008,8 m).
-Heuristik h(n)=max(0,d(n,Zielzentrum)-Zielradius). Alle akzeptierten Ziele liegen
-im selben Radius wie Within; Dreiecksungleichung liefert h(n)<=d(n,jedes Ziel).
-Die Schranke ist konsistent und kostet O(1) je Bewertung, auch bei vielen Zielen.
+Vorhandene Nachweise: TransportNetworkPreservesOneWay prüft Richtung und Splicing;
+TransportComponentsIgnoreDirection prüft Union-Find gegen konvergierende gerichtete
+Zweige. TransportSearchUsesAllGoals widerlegt die alte Einzelzielheuristik mit
+analytischen Direktkanten in zwei gespiegelten Lagen. Alte Implementierungen scheitern.
+Heuristik h(n)=max(0,d(n,Zielzentrum)-Zielradius) ist durch Dreiecksungleichung eine
+konsistente untere Schranke; sie legitimiert nicht die räumliche Zielanbindung.
 A*-Referenz: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/astar_search.html.
-Test in beiden gespiegelten Lagen; ursprüngliche Heuristik muss scheitern. Dies
-beweist nicht die Zulässigkeit der bestehenden räumlichen Start-/Zielanbindung.
 
 Routing-Eingabegrenze: Plan validiert vor ApartM/Nearest/Within beide Koordinaten
 (endlich, Lon [-180,180], Lat [-90,90]) und Mindestradius (endlich, >=0).
@@ -107,3 +96,23 @@ Allokation prüfen; Fehler erhalten bestehenden Graph und Bereitschaft. Corridor
 reicht Lay-Fehler und ungültige Punktspannen weiter, statt Wege still zu verlieren.
 Tests für späte ungültige Koordinate, odd/empty/short, Parameter, Budget und Recovery.
 Validen Wien-Aufbau zur Integrationskontrolle ohne Vegetation rendern.
+
+## Nächster Schritt: gültige räumliche Indizes ab Erzeugung
+
+Befund: Network(Snap,Sphere) akzeptiert Null/NaN/Inf. RowOver/ShapeRowOver casten
+ungeprüfte Quotienten nach int64; KeyAt packt Zeile und Spalte in je 32 Bit.
+Within castet ceil(reach/Snap) und quadriert die Zellzahl vor dem Vollscan-Fallback.
+Eine gültige Konstruktion allein verhindert diesen unabhängigen Abfrageüberlauf nicht.
+
+Entscheidung: private Konstruktion, nodiscard expected<Network,string_view>-Factory;
+Corridors reicht Erzeugungsfehler weiter. Positive endliche Basiswerte und abgeleitete
+Größen prüfen; darstellbare Zellindizes aus der tatsächlichen Bitbreite herleiten.
+Auch grobe Zellen, Polnähe und das aus Straßenbreiten abgeleitete TieReach prüfen.
+Within/Nearest erhalten explizite Fehlerverträge; große gültige Suchradien wählen
+vor Integer-Casts einen begrenzten Vollscan. Keine stillen leeren Treffer bei Fehlern.
+Vorhandene Graph-/Geometriefähigkeiten behalten; erwartetes gültiges Render unverändert.
+
+Abnahme: Null, negative Werte, NaN/±Inf, Subnormale, maximale Double-Werte und
+abgeleitete Überläufe; gültige Grenzfälle samt Pol/Datumsgrenze. Räumliche Treffer
+gegen unabhängigen Distanz-Vollscan prüfen. Entfernte Eingabeprüfung muss scheitern;
+kein Integerüberlauf im Sanitizer. Routingtests, make lint und Wien ohne Vegetation.
