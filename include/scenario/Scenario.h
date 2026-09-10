@@ -134,6 +134,9 @@ struct Relief {
 /// A corpus needs an input it can vary one thing at a time -- a hairpin on a flat plain, the same
 /// hairpin on a cliff -- and real map data cannot be varied at all. What it must never state is the
 /// ANSWER: the terrain function and the design standards do that.
+/// XML parsing and Engine::declare validate kind, scalar values and coordinate pairs
+/// before publication. Direct field mutation does not validate; polygon topology and
+/// total scene budgets require separate checks. Per-feature validation allocates nothing.
 struct Structure {
   /// What the map would call it: `residential`, `motorway`, `track`, `building`, `water`.
   std::string Kind;

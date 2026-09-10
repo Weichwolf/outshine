@@ -1,30 +1,23 @@
 #include "ReadScenarioOsm.h"
+#include "OsmValidation.h"
 #include <charconv>
-#include <cmath>
 #include <cstddef>
 #include <expected>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
-#include <type_traits>
 #include <vector>
 #include <scenario/Scenario.h>
 #include "Xml.h"
 
 namespace outshine {
 namespace Says {
-constexpr auto kInvalidOsmCoordinate =
-    "OSM points require finite latitude,longitude pairs within WGS84 angular bounds";
-constexpr auto kIncompleteOsmFeature = "OSM ways require two points and areas require three points";
-constexpr auto kInvalidOsmDimension = "OSM widthM and heightM require finite nonnegative metres";
 constexpr auto kInvalidOsmLevel =
     "OSM level requires a decimal integer within the signed int range";
-constexpr auto kOsmPointBudget = "OSM feature exceeds the 65536 point preparation budget";
 }
 
 namespace {
-constexpr size_t kMaxOsmPoints = 65536;
 constexpr std::string_view kWhitespace = " \t\r\n";
 
 template <typename Number>
@@ -37,25 +30,20 @@ FeatureNumber(const Xml::Ref &node, const char *attribute, std::string_view diag
   if (parsed.ec != std::errc{} || parsed.ptr != text->data() + text->size()) {
     return std::unexpected(diagnostic);
   }
-  if constexpr (std::is_floating_point_v<Number>) {
-    if (!std::isfinite(value) || value < 0) { return std::unexpected(diagnostic); }
-  }
   return value;
 }
 
-[[nodiscard]] std::expected<double, std::string_view> Coordinate(std::string_view text,
-                                                                 double limit) {
+[[nodiscard]] std::expected<double, std::string_view> Coordinate(std::string_view text) {
   double value = 0;
   const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
-  if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
-      !std::isfinite(value) || std::abs(value) > limit) {
+  if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
     return std::unexpected(Says::kInvalidOsmCoordinate);
   }
   return value;
 }
 
 [[nodiscard]] std::expected<std::vector<double>, std::string_view>
-Coordinates(std::string_view text, bool area) {
+Coordinates(std::string_view text) {
   std::vector<double> coordinates;
   while (true) {
     const size_t start = text.find_first_not_of(kWhitespace);
@@ -68,17 +56,14 @@ Coordinates(std::string_view text, bool area) {
       return std::unexpected(Says::kInvalidOsmCoordinate);
     }
     if (coordinates.size() == kMaxOsmPoints * 2) { return std::unexpected(Says::kOsmPointBudget); }
-    const auto latitude = Coordinate(pair.substr(0, comma), 90.0);
-    const auto longitude = Coordinate(pair.substr(comma + 1), 180.0);
+    const auto latitude = Coordinate(pair.substr(0, comma));
+    const auto longitude = Coordinate(pair.substr(comma + 1));
     if (!latitude) { return std::unexpected(latitude.error()); }
     if (!longitude) { return std::unexpected(longitude.error()); }
     coordinates.push_back(*latitude);
     coordinates.push_back(*longitude);
     if (end == std::string_view::npos) { break; }
     text.remove_prefix(end);
-  }
-  if (coordinates.size() < (area ? 6u : 4u)) {
-    return std::unexpected(Says::kIncompleteOsmFeature);
   }
   return coordinates;
 }
@@ -104,9 +89,11 @@ std::expected<void, std::string_view> ReadScenarioOsm(const Xml::Ref &osm,
       made.Tunnel = node.Said("tunnel").value_or("no") == "yes";
       made.Level = *level;
       const std::string text = node.Said("points").value_or("");
-      auto points = Coordinates(text, area);
+      auto points = Coordinates(text);
       if (!points) { return std::unexpected(points.error()); }
       made.LatLon = std::move(*points);
+      const auto valid = ValidateOsmStructure(made);
+      if (!valid) { return std::unexpected(valid.error()); }
       into.push_back(std::move(made));
     }
   }

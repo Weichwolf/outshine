@@ -108,10 +108,10 @@ Writer erhält LatLon jetzt bitgenau mit std::format; sechs Nachkommastellen kon
 Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind mehr.
 ReadScenarioOsm prüft Koordinaten/Featurebudget und Maße/Ebenen strikt. Grenz- und
 Fehlererhaltstests grün; alte Reader rot. Wien unverändert, Details in Git.
-Native API-Lücke: declare übernimmt Ground.Osm ungeprüft; Asking reicht es weiter.
-Gemeinsamen formatfreien Structure-Validator für Reader und declare nutzen:
-Kind, Maße, Punktpaare, Winkel, Featurebudget. XML prüft Syntax/Budget vor Wachstum.
-Native Prüfung vor jeder Engine-Mutation/Producer-Ausführung, auch ohne Ground.Declared.
-Public-API-Test: ungültige späte Features erhalten writeScenario/Input; kein Producer-
-Aufruf. Gültige Grenzen und Weg/Fläche akzeptieren; ausgelassene Prüfung als Gegenprobe.
+Reader und declare nutzen jetzt denselben formatfreien Structure-Validator für
+Kind, Maße, Punktpaare, Winkel und Featurebudget. XML prüft Syntax/Budget vor Wachstum.
+Native Prüfung vor Engine-Mutation/Producer-Ausführung, auch ohne Ground.Declared.
+Public-API-Test: elf Fehlerarten × Welt deklariert/nicht deklariert erhalten Zustand/
+Input und starten keinen Producer; gültige Grenzen/Featurebudget akzeptiert. Vier Tests
+grün, alter Engine-Pfad rot. Wien c307cab8 bytegleich und PNG geöffnet.
 Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung bleiben offen.

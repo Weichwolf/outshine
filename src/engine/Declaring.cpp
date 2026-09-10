@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <cmath>
 #include "ScenarioWrite.h"
+#include "OsmValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
 #include "ActionHostAdapter.h"
@@ -179,6 +180,10 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {
+  for (const auto &feature : scenario.Ground.Osm) {
+    const auto valid = ValidateOsmStructure(feature);
+    if (!valid) { return std::unexpected(std::string(valid.error())); }
+  }
   if (!std::isfinite(scenario.WheelStepPx) || scenario.WheelStepPx < 0.0) {
     return std::unexpected(Says::kInvalidWheelStep);
   }
