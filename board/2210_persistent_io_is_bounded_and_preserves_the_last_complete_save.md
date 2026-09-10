@@ -91,3 +91,6 @@ Schließtag erlaubt nach Namen nur Whitespace und >; Self-close muss unmittelbar
 sein. Unabhängige gültige/ungültige Fixtures einschließlich EOF prüfen; Altcode muss
 die Ablehnungsfälle verletzen. Keine Bildänderung erwartet. Allgemeine Parserphasen,
 quadratisches Anhängen von Geschwistern und Allokationsbudgets bleiben separat offen.
+Taggrenzen-Abnahme: 18 Syntaxfälle grün; Altcode scheitert ohne Buildfehler.
+Zeichenreferenzen und Szenario-Erhaltung ebenfalls grün. Lint: 181 tidy, 282 Doxygen,
+32 Repository-Tests grün, drei rote Gruppen. Keine vollständige XML-Konformitätszusage.

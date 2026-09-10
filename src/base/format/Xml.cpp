@@ -274,8 +274,10 @@ bool Xml::Parse(const char *text, size_t length) {
                           "' and the open element is '" + Span(open.NameOff, open.NameLen) + "'",
                       at);
       }
-      while (stop < length && Text_[stop] != '>') { ++stop; }
-      if (stop >= length) { return Refuse("a closing tag never ends", at); }
+      while (stop < length && Space(Text_[stop])) { ++stop; }
+      if (stop >= length || Text_[stop] != '>') {
+        return Refuse("a closing tag allows only whitespace after its name, then '>'", stop);
+      }
       --depth;
       if (depth == 0) { closed = true; }
       at = stop + 1;
@@ -324,9 +326,12 @@ bool Xml::Parse(const char *text, size_t length) {
     while (at < length) {
       while (at < length && Space(Text_[at])) { ++at; }
       if (at < length && Text_[at] == '/') {
+        if (at + 1 >= length || Text_[at + 1] != '>') {
+          return Refuse("a self-closing tag ends with '/>'", at);
+        }
         empty = true;
-        ++at;
-        continue;
+        at += 2;
+        break;
       }
       if (at < length && Text_[at] == '>') {
         ++at;
