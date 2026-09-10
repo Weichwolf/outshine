@@ -57,3 +57,9 @@ gesamte Ausgabe einschließlich Flush halten. Synchroner blockierender Diagnosea
 keine Zusage begrenzter Framekosten. Unabhängiger Mehrthreadtest prüft vollständige
 Zeilen und exakte Ereignismenge; Negativkontrolle am bisherigen Code. Zwei separate
 Sinks am selben FILE sind damit nicht koordiniert und bleiben Host-Verantwortung.
+
+Textausgabe umgesetzt: Mutex schützt vollständiges Ereignis samt Flush. Vier Threads
+mit je 64 Ereignissen und 32 Feldern ergeben exakt 256 unvermischt lesbare Zeilen.
+Altcode verletzt dieses Oracle ohne Buildfehler; beide Logging-Regressionen grün.
+Lint unverändert 182/330, 32 Repository-Tests grün, drei rote Gruppen. Engine-
+Registrierung, Worker-Kontextübergabe und begrenzte Diagnosekosten bleiben offen.

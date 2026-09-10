@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_IO_LOGSINKS_H
 #define OUTSHINE_BASE_IO_LOGSINKS_H
 #include <cstdio>
+#include <mutex>
 #include <vector>
 #include "Log.h"
 #include "TextTarget.h"
@@ -16,6 +17,7 @@ public:
 
 private:
   std::FILE *File_;
+  std::mutex Mutex_;
 };
 
 class LogSinkScope {

@@ -1,5 +1,6 @@
 #include "LogSinks.h"
 #include <print>
+#include <mutex>
 #include <span>
 #include <cstdio>
 
@@ -25,6 +26,7 @@ void TextLogSink::Write(double simTimeS,
   const char *const tag = nameOf(who.Tag);
   const char *const event = who.Event;
   if (File_ == nullptr) { return; }
+  const std::scoped_lock lock(Mutex_);
   std::print(File_, "t={:.1f} {} {} {}", simTimeS, LevelStr(level), tag, event);
   if (unit != nullptr) { std::print(File_, " unit={}", unit); }
   for (const auto &fld : fields) {
