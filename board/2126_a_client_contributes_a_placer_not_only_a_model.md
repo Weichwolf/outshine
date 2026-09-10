@@ -79,42 +79,17 @@ Schlüsselkorrektur: build/shots/reference/building-keys/Wien-before.png, visuel
 Mit Vegetation scheitert der Shot aktuell am 15-s-Residency-Limit für Crown-Prototypen,
 nicht mehr an einem Gebäudefehler. Keine visuelle Gesamt- oder Vegetationsabnahme.
 
-BuildingScratch vergleicht vollständige Millimeterpositionen und Rendervertex-Keys
-(Position, gepackte Normale, gepackte UV). Hasharithmetik unsigned; Spiegelkollision
-und UV-/Normalennähte direkt geprüft, entfernte UV-Identität lässt Gegenprobe scheitern.
-Wien-Nachher: build/shots/places/Wien-d89be31c.png, beide PNGs geöffnet; Fernsilhouette
-unauffällig, 28 zusätzliche Dreiecke. Kein Nachweis der Nahbildqualität.
-Offen: Zahlenbereich vor llround, Index-/Scratch-Budgets und Generator-Nahaufnahmen.
-
-Nächste Eingangsgrenze: alle Ringkoordinaten vor MassOf auf gültige geodätische
-Breite/Länge prüfen. SeedOfPlace konvertiert Mikrograd in int32; finite allein
-schützt diesen Pfad nicht. Ungültige Koordinate an jeder Ringposition muss ohne
-Allokation und Outputmutation InvalidPlan liefern. Höhen-/Ableitungsgrenzen separat.
-
-Höhenkonvertierung: MassOf muss ungültige Höhen typisiert melden, statt sie mit
-nicht unterstütztem Grundriss zu vermischen. Vor Scratch-/Polygonaufbau endliche
-Höhe gegen min(Geschosspräferenzen, TallFloor) * (INT_MAX - 1) prüfen; Reserve schützt
-Rundung. Das ist eine Repräsentationsgrenze, kein hinreichendes Echtzeitbudget.
-NaN/Inf/extreme endliche Höhen ohne Allokation ablehnen; Fehler bis Mesh durchreichen.
-
-Vertex-Konvertierung: gerundete Millimeter vor llround auf [-2^63, 2^63) prüfen.
-Site hält einen typisierten Fehlerstatus; nach Fehler keine weiteren Dreiecke.
-Mesh verwirft den eigenen Anhang auch bei diesem Fehler. Extreme endliche Sockelhöhen
-müssen InvalidPlan liefern, vorherige Geometrie erhalten und denselben Scratch wieder
-verwendbar lassen. Float-/Normalen-Repräsentation und Arbeitsbudgets bleiben separat.
-
-CutPiece: zyklische Seitenklassifikation vom Polygonaufbau trennen. Genau zwei
-Vorzeichenwechsel erlauben einen zusammenhängenden Schnitt; Nullwerte überspringen,
-mehrere Ein-/Austritte ablehnen. Reine span-Funktion mit zyklisch rotierten Tests für
-Tangente, Schnitt durch Ecke und mehrere Intervalle prüfen. Das beweist nur die
-Schnittklassifikation; Flächenerhaltung und vollständige Clippingrobustheit bleiben offen.
-
-Dachauswahl: Seitenverhältnis aus BuildingShape ableiten statt als zweiten,
-vertauschbaren double-Parameter übergeben. Nur PitchedShare ist externe Vorgabe;
-Geometrie und abgeleitete Proportion dürfen sich nicht widersprechen. Bestehenden
-Gebäudeaufbau inklusive Fehler-/Retry-Verträgen unverändert nachweisen.
+Gebäudemesher: volle Vertex-Identität, Koordinaten-/Höhen-/Quantisierungsgrenzen,
+zyklische Schnittklassifikation und einheitliches Dachseitenverhältnis sind korrigiert.
+Bestehende Fehler-/Retry-/Geometrietests behalten; Budgets und vollständige Clipping-
+Robustheit bleiben offen. Frühere Einzelresultate stehen in Git.
 
 Structures: widthM als einziger optionaler Größenparameter (Default 12 m), vollständig
 endlich/positiv parsen; Duplikate, unbekannte Namen und Zahlenreste verweigern.
 Request::ExtentM beeinflusst Objektmaße nicht mehr. Direkte Meshvergleiche bei anderen
 Regionen, expliziten Breiten und Fehlererhalt; alter Extent-Pfad als Gegenprobe.
+
+Neuer Laufzeitbefund: Structures castet StoredVertex (5 Wörter, gepackte UV/Normalen)
+als 8-Float-Suppe für Meshed. Default-Erzeugung scheitert im neuen Test. Take übernimmt
+stattdessen span<const StoredVertex>, dekodiert über uv()/norm() und liefert native
+Geometry; alten untypisierten Stride-Vertrag vollständig entfernen. Test unverändert.
