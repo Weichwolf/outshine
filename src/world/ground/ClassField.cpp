@@ -222,9 +222,14 @@ std::expected<void, std::string_view> ClassField::Update(TilePool &tiles, Longit
   }
   const double t0 = Clock();
   if (Declared_.empty()) {
-    const auto fineBuilt = Fine_.Field->Build(tiles, at, Fine_.TileRadius);
+    const auto fineBuilt = Fine_.Field->Build(
+        tiles, at, Fine_.TileRadius, (size_t{2} * kFineRings + 1) * (size_t{2} * kFineRings + 1));
     if (!fineBuilt) { return std::unexpected(fineBuilt.error()); }
-    const auto coarseBuilt = Coarse_.Field->Build(tiles, at, Coarse_.TileRadius);
+    const auto coarseBuilt =
+        Coarse_.Field->Build(tiles,
+                             at,
+                             Coarse_.TileRadius,
+                             (size_t{2} * kCoarseRings + 1) * (size_t{2} * kCoarseRings + 1));
     if (!coarseBuilt) { return std::unexpected(coarseBuilt.error()); }
   } else {
     const std::span<const OsmField::Declared> these(Declared_);

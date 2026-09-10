@@ -103,17 +103,16 @@ Mutation aller beteiligten Felder; Open prüft vor Close. Vier Tests grün, alte
 scheitert an 36/77 Checks. Wien bytegleich und geöffnet. Kein Allokations-Rollback;
 Test der Ablehnung in ClassField/Stack ohne aktive Provider. Nachweise in Git.
 
-## Aktiver Schritt: begrenzter Kachelbesuch
-Build iteriert bisher das ungeprüfte Quadrat [-radius,+radius], auch außerhalb der
-Welt. Negative Radien erscheinen erfolgreich, INT_MIN negiert undefiniert, INT_MAX
-kann Schleifen überlaufen lassen. Keine explizite Grenze für Kachelbesuche.
-Build erhält ein erforderliches Besuchsbudget. Erst Position/Radius prüfen, Fenster
+## Begrenzter Kachelbesuch
+Der alte ungeprüfte Radius ließ ungültige Schleifen und Arbeit außerhalb der Welt zu.
+Build hat ein erforderliches Besuchsbudget. Erst Position/Radius prüfen, Fenster
 in int64 auf die Welt schneiden, dann Anzahl in uint64 vor Mutation gegen Budget
-und int-Zählerkapazität prüfen. Ablehnung per expected; nie teilweise abschneiden.
+und int-Kachelzählerkapazität prüfen. Ablehnung per expected; nie teilweise abschneiden.
 Innere Schleifen laufen ausschließlich über gültige Kacheln. GroundStack setzt
 (2*3+1)^2=49, Klassifikation je (2*1+1)^2=9 als bestehende Reichweitenbudgets.
 Das begrenzt Besuche, nicht Decodierzeit, Bytes oder lineare Settled-Suche. Eviction
 und resumierbare Decode-/Bytebudgets bleiben offen. Reihenfolge gültiger Kacheln bleibt.
-Tests: negative/extreme Radien, Budget knapp unter/exakt benötigter Anzahl, Zustand
-bei Ablehnung, ganzes Zoom-0-Raster mit riesigem Radius, Ränder und Wiederholung.
-Gegenprobe deaktiviert Budgetablehnung; Wien-PNG und Lint prüfen Integration.
+Drei Tests grün: Radius-/Budgetgrenzen, Zustandserhalt, Zoom 0 mit riesigem Radius,
+Ränder und Wiederholung. Gegenprobe zählt eins zu wenig: 3/94 Checks scheitern ohne
+Buildfehler/Timeout; danach korrekt erneut grün. Wien bytegleich, PNG geöffnet.
+Lint: 185 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün, drei Gruppen rot.

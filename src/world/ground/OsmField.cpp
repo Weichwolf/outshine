@@ -53,6 +53,9 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 namespace Says {
 constexpr std::string_view kInvalidOsmPosition =
     "OSM requires finite canonical longitude/latitude and a signed-index-compatible zoom";
+constexpr std::string_view kInvalidOsmRadius = "OSM tile radius must be nonnegative";
+constexpr std::string_view kOsmTileBudgetExceeded =
+    "OSM tile window exceeds its visit budget or counter capacity";
 constexpr std::string_view kOutsideOsmCoverage =
     "OSM position lies outside the Mercator coverage band";
 }
@@ -71,24 +74,54 @@ std::expected<TileAt, std::string_view> OsmField::Locate(LongitudeLatitude at, i
   return TileAt{.X = static_cast<int>(tile->X), .Y = static_cast<int>(tile->Y)};
 }
 
+namespace {
+static_assert(2 * std::numeric_limits<int>::digits < std::numeric_limits<uint64_t>::digits);
+
+struct TileWindow {
+  int64_t MinX, MaxX, MinY, MaxY;
+};
+
+struct TileWindowRequest {
+  TileAt Centre;
+  int Zoom;
+  int Radius;
+  size_t Budget;
+};
+
+std::expected<TileWindow, std::string_view> TileWindowFor(TileWindowRequest request) {
+  if (request.Radius < 0) { return std::unexpected(Says::kInvalidOsmRadius); }
+  const auto last = static_cast<int64_t>((uint64_t{1} << static_cast<unsigned>(request.Zoom)) - 1);
+  const int64_t x = request.Centre.X;
+  const int64_t y = request.Centre.Y;
+  const TileWindow window{.MinX = std::max(int64_t{0}, x - request.Radius),
+                          .MaxX = std::min(last, x + request.Radius),
+                          .MinY = std::max(int64_t{0}, y - request.Radius),
+                          .MaxY = std::min(last, y + request.Radius)};
+  const auto width = static_cast<uint64_t>(window.MaxX - window.MinX + 1);
+  const auto height = static_cast<uint64_t>(window.MaxY - window.MinY + 1);
+  const auto count = width * height;
+  if (count > request.Budget || count > static_cast<uint64_t>(std::numeric_limits<int>::max())) {
+    return std::unexpected(Says::kOsmTileBudgetExceeded);
+  }
+  return window;
+}
+}
+
 std::expected<int, std::string_view>
-OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles) {
+OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget) {
   const auto centre = Locate(at, Zoom_);
   if (!centre) { return std::unexpected(centre.error()); }
+  const auto window =
+      TileWindowFor({.Centre = *centre, .Zoom = Zoom_, .Radius = ringTiles, .Budget = tileBudget});
+  if (!window) { return std::unexpected(window.error()); }
   Pending_ = 0;
   Refused_ = 0;
   CentreX_ = centre->X;
   CentreY_ = centre->Y;
-  const int64_t centreX = centre->X;
-  const int64_t centreY = centre->Y;
-  const auto n = static_cast<int64_t>(uint64_t{1} << static_cast<unsigned>(Zoom_));
   int added = 0;
 
-  for (int dy = -ringTiles; dy <= ringTiles; dy++) {
-    for (int dx = -ringTiles; dx <= ringTiles; dx++) {
-      const int64_t tx = centreX + dx;
-      const int64_t ty = centreY + dy;
-      if (tx < 0 || ty < 0 || tx >= n || ty >= n) { continue; }
+  for (int64_t ty = window->MinY; ty <= window->MaxY; ++ty) {
+    for (int64_t tx = window->MinX; tx <= window->MaxX; ++tx) {
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
 

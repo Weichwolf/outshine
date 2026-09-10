@@ -117,7 +117,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at)
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   if (Declared_.empty()) {
-    const auto built = Vectors_->Build(*Pool_, at, kVectorRing);
+    const auto built = Vectors_->Build(*Pool_, at, kVectorRing, kVectorTiles);
     if (!built) { return std::unexpected(built.error()); }
   } else {
     Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), *vectorTile);

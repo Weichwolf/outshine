@@ -53,7 +53,7 @@ public:
                                                                       int zoom) noexcept;
 
   [[nodiscard]] std::expected<int, std::string_view>
-  Build(TilePool &tiles, LongitudeLatitude at, int ringTiles);
+  Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget);
 
   [[nodiscard]] int CentreX() const { return CentreX_; }
 
