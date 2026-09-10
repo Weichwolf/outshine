@@ -81,29 +81,11 @@ its wall triangles -- is board:2127's.
 - hoisting the junction map out of the levelling loop: one per cent
 
 ## Deklarierter OSM-Inhalt
-
-OsmField::Declare ließ Values/Strings/Keys und beide Intern-Indizes wachsen. Beim
-vollständigen Ersatz werden nun alle zugehörigen Pools logisch geleert; Kapazität
-bleibt für Wiederverwendung erhalten. Kein globales Interning.
-AppendDeclaredFeature kapselt Ring/Bounds/Tag-Aufbau; Declare verantwortet Austausch
-und Generation. Vorhandene Tags für Breite/Höhe/Brücke/Tunnel/Ebene erhalten.
-128 gleiche und 128 wechselnde gleich große Inhalte: HeapBytes nach Warmaufbau
-stabil, keine alten Keys, Tags/Ringe/Bounds korrekt. Beide Tests grün, alter Code rot.
-Lint 185/330 statt 186/330, 32 Repository-Prüfungen grün; drei Gruppen bleiben rot.
-Wien c307cab8 bytegleich, PNG geöffnet. Tile-Eviction, Generation-Überlauf, Projektion
-und transaktionaler Allokationsfehler bleiben offen; dies ist kein kompletter Streamingfix.
-
-## Exakte Änderungskennung
-
-Der alte gerundete Hash übersah nextafter-Änderungen an Koordinaten/Maßen; große
-endliche Maße erzeugten FE_INVALID in llround. ClassField braucht den Generation-
-Wechsel zur Invalidierung. Der Hash wurde vollständig entfernt.
-Eingabe wird gegen vorhandene kanonische Features/Ringe/Punkte/Tags und Kachel
-verglichen, ohne zweiten Owner. Identischer Inhalt kehrt ohne Neuaufbau zurück,
-Pending wird null. Sonst neu aufbauen und erst nach Aufbau Generation erhöhen.
-22 Änderungen und identische Wiederholungen geprüft; drei Tests grün. Alter Hash
-scheitert an vier nextafter-Fällen und FE_INVALID, ohne Buildfehler. Wien bytegleich,
-PNG geöffnet. Generation-Überlauf und allokationssicherer Austausch bleiben offen.
+Alle Pools werden bei Ersatz geleert, Kapazitäten wiederverwendet. Exakter Vergleich
+mit vorhandenen Features ersetzt gerundete Hashes; Generation erst nach Aufbau.
+Tests belegen stabile HeapBytes bei Wiederholung, korrekte Tags/Ringe und Erkennung
+von nextafter-Änderungen. Alte Implementierungen scheitern; Nachweise in Git.
+Tile-Eviction, Generation-Überlauf und transaktionale Allokationsfehler bleiben offen.
 
 ## Sichere Kachelprojektion
 TileIndex::Of lehnt NaN/Inf, nichtkanonische Winkel und ungültigen Zoom vor Casts ab.
@@ -114,3 +96,16 @@ Analytische Achsen-/Randfälle, NaN/Inf/Zoomgrenzen und letzte Kachel bei Zoom 3
 alte Konvertierung scheitert ohne Buildfehler. Drei gezielte Tests grün. Höhe irrelevant.
 OsmField::Declare danach auf diese Grundlage umstellen und Fehler weiterreichen;
 seine signed TileAt-Grenze sowie GroundStack-/ClassField-Fehlerpublikation bleiben offen.
+
+## Aktiver Schritt: Fehlerweitergabe der OSM-Position
+Build und geodätisches Declare nutzen denselben geprüften TileIndex über Locate.
+OsmField hält signed int-Indizes: Zoom höchstens numeric_limits<int>::digits;
+uint32-Zoom 32 bleibt im allgemeinen TileIndex gültig, nicht in diesem Speicherlayout.
+expected trägt Positionsfehler durch ClassField/GroundStack bis Engine preload/update.
+Beide Klassifikationsstufen und Vektorfeld vor Mutation gemeinsam prüfen; ungültige
+Position darf Generation, Daten, Zähler oder Stand nicht verändern. Keine Aussage
+über Allokations-Rollback. Open prüft Position vor Close. Build darf ungültige Position
+nicht als erfolgreich leeren Stream melden. Tile-Ring-Budget bleibt gesondert offen.
+Prüfung: NaN/Inf/Band/Zoom, analytische Datumsgrenze, vorhandenen Inhalt bei Fehler
+erhalten, gültige Wiederholung, drei OSM-Regressionen und Wien-PNG. Gegenprobe mit
+alter geodätischer Projektion; Signaturänderung allein ist kein Fehlernachweis.
