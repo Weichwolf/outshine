@@ -82,13 +82,12 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 Andere rote Gates bleiben sichtbar und ihren WIs zugeordnet. Zielabschluss verlangt
 mehr als grüne Zähler: sämtliche API-SOLL-Abnahmen aus 2188 tatsächlich nachweisen.
 
-## Begrenzte Hilfsfunktionen bereinigen
-SurfaceBindings: verschachtelten Uniformbuffer-Selektor als explizite Verzweigung
-lesen; sämtliche Zählwerte unverändert. TexelChain: Cast-Zieltypen mit auto ableiten.
-Client-Shotbericht: ms/s-Umrechnung mit benannter Einheitenkonstante. Keine Änderung
-an Shaderauswahl, Filterarithmetik oder Berichtswerten. Bestehende Material-/Mip-Orakel
-und vier Client-Argumentprüfungen bestehen; keine zusätzlichen spiegelnden Tests.
-Fünf Tidy-Befunde beseitigt, 32 Repository-Prüfungen grün.
+## glTF-Texturtabelle transaktional aufbauen
+ResolveFileSurface ersetzt Raster vor Fehlerprüfung und hinterlässt ungültige Bindungen.
+Kandidat mit frischen Bindungen; gemeinsame Socket-Dekodierung, Materialmaps und
+Carrier-Prüfung trennen. Erst vollständig publizieren; Slots/Materialindizes abgleichen.
+Negativkontrolle: späte Ablehnung erhält Rasteradresse/Pixels; gültiger Ersatz entfernt
+alte Maps und erhält Filter/UVs. Native Geometrie-/Materialmigration bleibt separat offen.
 
 ## Lichtprojektion in fachliche Phasen trennen
 LightVisibilityStage::Build: Mittelpunkt der schattenwerfenden Platzierungen als
