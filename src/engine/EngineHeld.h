@@ -61,6 +61,7 @@ inline constexpr size_t kParkedBound = 8;
 inline constexpr size_t kBakesLandedPerFrame = 2;
 inline constexpr size_t kBakesLandedInPreload = size_t{1} << 20u;
 inline constexpr size_t kMostSaveBytes = 1u << 20u;
+inline constexpr size_t kMostScenarioBytes = 16u << 20u;
 
 class Collecting : public Sink {
 public:
@@ -120,19 +121,6 @@ private:
     return named;
   }
   return under.back() == '/' ? under + named : under + "/" + named;
-}
-
-[[nodiscard]] inline std::expected<std::string, std::string> SlurpFile(const std::string &held) {
-  std::FILE *const file = std::fopen(held.c_str(), "rb");
-  if (file == nullptr) { return std::unexpected(held + ": no scenario at that path"); }
-  std::string text;
-  std::array<char, 4096> block{};
-  size_t read = 0;
-  while ((read = std::fread(block.data(), 1, block.size(), file)) > 0) {
-    text.append(block.data(), read);
-  }
-  std::fclose(file);
-  return text;
 }
 
 inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {

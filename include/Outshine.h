@@ -312,7 +312,8 @@ public:
   /// Read a scenario file and selected layer files, then pass the owned result to declare().
   /// Relative layer paths resolve against the scenario file's directory. The path is borrowed
   /// only during this call and must contain no embedded NUL. Synchronous file IO and allocation;
-  /// input byte budgets are not yet enforced. Call on the Engine/video thread outside frames.
+  /// the scenario and selected layer files together are limited to 16 MiB of input bytes.
+  /// Call on the Engine/video thread outside frames.
   /// Parsing failure preserves the active declaration but may update layer diagnostics;
   /// declaration failure has declare()'s partial-state guarantee.
   /// @param path Filesystem path to the scenario document.
@@ -468,7 +469,7 @@ public:
   /// @return Success or an owned missing-state/trait, size or IO error; simulation is unchanged.
   [[nodiscard]] Result save(std::string_view path) const;
   /// Apply saved numeric traits to an already assembled matching scenario name/version.
-  /// Reads synchronously into owned storage; input byte limits are not yet enforced. Parses
+  /// Reads synchronously into owned storage, limited to 1 MiB of input bytes. Parses
   /// finite values and validates staged trait rows before applying them. Parse/validation
   /// errors preserve traits; a failure during final publication does not promise rollback.
   /// Does not load assets, assemble a scenario or restore a complete world snapshot.

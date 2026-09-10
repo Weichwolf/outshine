@@ -11,9 +11,9 @@ Depends:
 
 Keeping.cpp Engine::save öffnet das endgültige Ziel mit wb. Short-write/close-Fehler
 werden erkannt, aber die vorherige gültige Datei ist dann bereits überschrieben.
-EngineHeld.h SlurpFile liest bis EOF in einen wachsenden String, ohne Bytebudget oder
-ferror-Prüfung. readScenario und restore verwenden es; der Save-Schreibpfad hat dagegen
-ein Größenlimit. Abbruch/Lesefehler sind deshalb nicht sauber von vollständigem Input getrennt.
+ReadTextFile ersetzt SlurpFile: EOF/Lesefehler getrennt, limitierte Eingaben, RAII-FILE.
+readScenario begrenzt Hauptdatei plus ausgewählte Layer auf insgesamt 16 MiB; restore
+verwendet dieselbe 1-MiB-Grenze wie save. Gesamter Parser-/Allokationsbedarf bleibt offen.
 ContentStore::Write verwendet bereits temporäre Datei und Rename: vorhandene Fähigkeit prüfen.
 
 ## Entscheidung
@@ -43,3 +43,8 @@ Bytes reduzieren. Kein Parser-/Allokationsgesamtbudget und kein IO-Zeitlimit beh
 Unabhängige Datei-Fixtures prüfen leer/exakt/zu groß, fehlend, eingebettetes NUL und
 Lesefehler. Mutation ohne Budgetprüfung muss scheitern. Bestehende Parser-Regression,
 öffentlicher Save-/Szenario-Vertrag und Make-Gates gemeinsam migrieren.
+
+Nachweis: IO-Grenzfälle und Parser-Regressionsfall grün, einschließlich öffentlichem
+Übergrößen- und kumulativem Layerfall. Mutant verwirft Übergrößenfehler und scheitert
+ohne Buildfehler; wiederhergestellter Code grün. Lint 182/315, 32 Repository-Tests grün,
+drei rote Gruppen. Keine atomare Save-/Zeitbudget-/Gesamtspeicherabnahme behauptet.

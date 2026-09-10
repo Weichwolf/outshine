@@ -1,4 +1,5 @@
 #include "EngineHeld.h"
+#include "ReadTextFile.h"
 #include <algorithm>
 #include <array>
 #include <string_view>
@@ -77,7 +78,7 @@ Result Engine::restore(std::string_view path) {
                 "and then applying the state -- one arrival route";
     return std::unexpected(S_->Error);
   }
-  const std::expected<std::string, std::string> slurped = SlurpFile(std::string(path));
+  const std::expected<std::string, std::string> slurped = ReadTextFile(path, kMostSaveBytes);
   if (!slurped) {
     S_->Error = slurped.error();
     return std::unexpected(S_->Error);
