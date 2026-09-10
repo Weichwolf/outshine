@@ -300,6 +300,17 @@ void WriteVolumes(std::string &said, std::span<const Scenario::Volume> volumes) 
   said += "  </volumes>\n";
 }
 
+void WritePersistence(std::string &said, std::span<const Scenario::Persisted> selections) {
+  if (selections.empty()) { return; }
+  said += "  <state>\n";
+  for (const auto &selection : selections) {
+    said += "    <persist";
+    Said(said, "what", selection.What, true);
+    said += "/>\n";
+  }
+  said += "  </state>\n";
+}
+
 void WriteProviders(std::string &said, std::span<const Scenario::Provider> providers) {
   if (providers.empty()) { return; }
   said += "  <providers>\n";
@@ -404,6 +415,7 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteProviders(said, declared.Providers);
   WriteGenerators(said, declared.Generators);
   WriteCompositors(said, declared.Compositors);
+  WritePersistence(said, declared.State);
   return said + "</scenario>\n";
 }
 

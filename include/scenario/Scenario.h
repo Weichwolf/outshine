@@ -788,7 +788,14 @@ struct Binding {
   std::string Action;
 };
 
+/// Owned selection of a numeric instance trait for Engine::save, not a saved value.
+/// Copying the string may allocate; mutation requires exclusive access. Construction
+/// and scenario declaration do not resolve the selection against assembled entities.
 struct Persisted {
+  /// Exact instance.trait selector, split at the first dot during save. Save fails when
+  /// there is no dot or the named instance/trait cannot be resolved; no wildcard syntax.
+  /// Scenario import/export preserve list order and duplicates. Save sorts output rows
+  /// and currently retains duplicates; an empty selection list refuses save.
   std::string What;
 };
 

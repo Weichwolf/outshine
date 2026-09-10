@@ -76,7 +76,7 @@ Deklaration unverändert, gültige Wiederholung möglich. Writer-Gesamtabdeckung
 Validierung übriger Sektionen bleiben offen; checked Ergebnis behauptet keine Vollständigkeit.
 
 ## Persistenz-Auswahl exportieren
-Writer verwirft Document::State. Persisted::What mit Reihenfolge und Escaping
-erhalten; Auswahl ist kein Snapshot der Werte. Save löst instance.trait am ersten
+Writer erhält Document::State mit Reihenfolge, Duplikaten und Escaping;
+die Auswahl ist kein Snapshot der Werte. Save löst instance.trait am ersten
 Punkt auf und lehnt fehlende Zuordnungen ab. Öffentlichen Besitz-/Prüfzeitpunkt
-dokumentieren. Negativkontrolle: Auswahl verschwindet beim bisherigen Export.
+dokumentiert. Negativkontrolle bestätigt den Verlust im Altwriter; fünf Regressionen grün.
