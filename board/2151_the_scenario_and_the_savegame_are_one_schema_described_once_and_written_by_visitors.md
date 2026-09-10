@@ -1,78 +1,63 @@
 Type: debt
-State: open
-Area: scenario, engine
-Tags: architecture, determinism, owner
+State: active
+Parent: 2188
+Area: scenario, import, engine
+Tags: architecture, validation, persistence
+Depends:
 
-# The scenario and the savegame are ONE schema, described once, written by visitors
+# Scenario imports preserve declarations through the common native API
 
-**Benchmark** -- Unreal: ONE description per type (`UPROPERTY` reflection) and `FArchive` is the
-one basis; binary packages, text (`FJsonObjectConverter`), `USaveGame`, replication and the
-property DIFF all read the same table. A level (`.umap`) and a save are the same machinery, and
-they stay two files: the map is what the author declared, the save is what happened. RAGE:
-`parser` -- `.psc` metadata compiled to `parStructure` tables, XML (`.meta`) and PSO binary
-(`.ymt`, and the savegames ARE PSO) from one table; map data and savegame stay apart the same
-way. **Both agree** on all three: one description, N writers; declared and state in one schema;
-declared and state in two files. Both replay STATE streams (RAGE's replay packets, Unreal's
-`DemoNetDriver` checkpoints + deltas) because their simulations are not deterministic;
-outshine's is, by invariant, so an EVENT log is admissible here and is the smaller record.
-Decided with the owner 2026-09-05.
+## Vertrag
+Szenarien deklarieren statische Inhalte und Konfiguration, die auch Code über die
+öffentliche API aufbauen kann. glTF ist ein weiterer Importadapter mit geringerem
+Ausdrucksumfang, kein Runtime-Schema. Formatprüfung und Konvertierung im Adapter;
+fachliche Validierung nativer Daten gemeinsam für beide Importer und direkte Aufrufer.
+Vor Veröffentlichung vollständig vorbereiten und validieren; Fehler erhalten die
+aktive Welt. Integration/Client-Abnahme in WI 2195, Zustandsübergänge in WI 2191.
 
-## Where it stands, measured 2026-09-05
+Szenariobeschreibung und Laufzeit-Snapshot sind getrennte fachliche Verträge. Gemeinsame
+Serialisierungsbausteine sind möglich, ein einziges Schema ist keine Voraussetzung.
+Save/Restore besitzt bereits einen begrenzten Trait-Pfad (WI 2210); vollständige
+Snapshots brauchen explizite Abdeckung aller wiederherzustellenden Systeme. Event-
+Replay erst nach nachgewiesener Deterministik einschließlich externer Eingaben.
+Keine unbelegte plattformübergreifende oder bildweise Bitidentität versprechen.
 
-```
-  include/scenario/Scenario.h     50 structs, 132 scalar fields
-  src/scenario/ScenarioRead.cpp   a hand-written XML walk, 476 string literals
-  src/scenario/ScenarioWrite.cpp  a second hand-written walk, 86 string literals
-  lint                            "the scenario grammar declares a child its writer cannot
-                                  write back, and the count GREW" -- the drift is already
-                                  measured, and "NOT COVERED: attributes" beside it
-  a savegame                      none; the engine holds no snapshot and no event log a
-                                  client can take out or hand back
-```
+## Nachgewiesene Lücken
+ScenarioWrite.cpp schreibt bei Assets nur Uri/Kind. ReadAssets liest zusätzlich
+Digest, Variant, Animation, Clip und Surfaces einschließlich Materialparametern.
+WriteScenario verliert außerdem Szenarionamen und zahlreiche weitere Sektionen.
+Der Grammar/Writer-Guard erkennt Elementnamen, keine verlorenen Attribute. Zweimaliges
+Write/Read kann auf einem bereits reduzierten Dokument stabil sein und ist kein Beweis.
+Xml::Ref::Num/Int akzeptieren Zahlenpräfixe; ungültige Werte fallen auf Defaults zurück.
+ReadAssets verengt Clip von double auf int ohne expliziten Wertebereichsvertrag.
+Vorhanden: typisierte Scenario::Document-Daten, Reader, Writer, öffentliche Engine-
+Einstiege, XML-Zeichenreferenztests und transaktionaler Szenario-Parser.
 
-Two walks over one schema are two sources for one rule; the guard above is the proof they
-drift. C++23 has no reflection (that is C++26's P2996), so the references' table has to be
-written by hand ONCE and read by every writer.
+## Umsetzung
+1. Asset-Deklarationen vollständig erhalten: Metadaten, vier Animationsmodi, Clip,
+   Materialüberschreibungen und Selektoren. Aus unabhängigen XML-Fixtures erwartete
+   typisierte Werte prüfen, anschließend nach Write/Read erneut dieselben Werte.
+2. Unterstützte statische Felder/Sektionen inventarisieren und vollständig migrieren.
+   Gemeinsame Feld-/Enum-Beschreibungen dort einsetzen, wo sie Regeln wirklich teilen;
+   kein Reflection-Gerüst mit paralleler unkontrollierter Feldliste als Vollständigkeitsbeweis.
+3. Syntax, typisierte Beschreibung, fachliche Validierung und Veröffentlichung trennen.
+   Runtime-Datentypen ohne Formatkonventionen; Adapter schreiben keine Interna direkt.
+4. Vorhandene ungültige Attribute ablehnen: vollständige Tokens, Bereich, Endlichkeit,
+   Enums und Booleans prüfen; Diagnose mit Feld/Position. Defaults nur bei Abwesenheit.
+   Fehlertransport mit WI 2194 abstimmen, keine stillen Ersatzwerte.
+5. Versionierung und stabile Datenreferenzen definieren. Keine Laufzeithandles persistieren.
+   Binärformat erst bei belegtem Bedarf; XML bleibt der vorhandene unterstützte Eingang.
 
-## The solution
+## Abnahme
+- [ ] Asset-Fixtures behalten alle unterstützten Felder; Altwriter verletzt das Oracle.
+- [ ] Jede unterstützte statische Sektion besitzt unabhängige Erhaltungsfälle.
+- [ ] Alle unterstützten Deklarationen roundtrip-fähig; Grammar/Writer-Guard grün.
+- [ ] Code, Szenario und glTF nutzen dieselbe native Validierung; äquivalente Inhalte
+      und identische native Fehler über alle drei Pfade geprüft (WI 2195).
+- [ ] Späte Validierungs-/Aufbaufehler erhalten aktive Welt (WI 2191).
+- [ ] Restzeichen, Überlauf, NaN/Inf und ungültige Boolean-/Enum-Tokens werden abgelehnt;
+      valide Randwerte erhalten. Kein Test lockert fachliche Grenzen.
+- [ ] Lint/clang-tidy und passende Regressionen; PNG-Prüfung bei Bildänderung.
 
-- one `Visit(visitor)` per document struct naming each member once with its element name; the
-  XML reader, the XML writer, the diff and the binary reader/writer are VISITORS over that one
-  description, and `ScenarioRead`/`ScenarioWrite` collapse into it. A member the table does
-  not name is a member no format can carry, which is the guard's claim made structural
-- **a savegame is three parts in one schema**: the SCENARIO it was played from (its id and
-  digest, never a copy), a SNAPSHOT of the state at time t (every body's pose, the sim clock,
-  the minds' memories, the seeded generators' seeds), and the EVENT log since the last snapshot
-  (inputs, provider answers as they landed, minds' answers) -- Unreal's checkpoint + delta
-  shape. Loading is declare(scenario) + restore(snapshot) + replay(events), and the
-  determinism invariant is what makes the third part possible at all
-- two writers from the one description: XML for the door (the author reads and diffs it) and
-  binary for size and speed; a scenario may be handed in as either
-- the door's round trip is the case: read → write → read gives the same document, XML and
-  binary give the same document, and a save taken at t and restored renders the same bytes as
-  the run that never stopped
-
-## What will be true
-
-- [ ] `ScenarioRead.cpp` and `ScenarioWrite.cpp` are gone; one description, visitors beside it
-- [ ] the "child its writer cannot write back" guard reads 0 and is deleted, because the
-      structure now holds what it counted
-- [ ] a save at frame N, restored, renders frame N+1 bit-identical to the run that never
-      stopped, at one place, and the nine references unmoved
-- [ ] Negative control: a member added to a struct and not to its `Visit` fails to compile or
-      fails the round-trip case, never passes silently
-
-## Zusätzlicher Grenzbefund und Abnahme
-
-Xml::Ref::Num/Int (src/base/format/Xml.cpp) prüfen nur, ob irgendein Präfix gelesen
-wurde: `12garbage` wird als 12 akzeptiert; vollständig unlesbare Werte fallen auf
-whenAbsent zurück. Flag ersetzt unbekannte Schreibweisen ebenfalls durch Defaults.
-Vorhandene ungültige Werte sind keine fehlenden Attribute. Numerische Tokens vollständig,
-bereichs- und endlichkeitssicher parsen; Fehler mit Attribut/Position bis readScenario
-transportieren. Ausdrückliche Defaults nur bei Abwesenheit. Gemeinsam mit 2194 umsetzen.
-- [ ] Restzeichen, Überlauf, NaN/Inf und ungültiges Boolean ergeben Fehler; valide
-      Randwerte erhalten. Unabhängige Eingabeorakel, nicht nur Writer-Roundtrip.
-
-Die historische Aussage „kein Savegame“ ist überholt: Keeping.cpp besitzt save/restore.
-Dessen begrenzter Zustand ersetzt noch kein vollständiges Snapshot-/Replay-Schema;
-atomare Dateien und begrenztes Lesen liegen in WI 2210.
+Historische Fremdengine-/Determinismusbehauptungen sind keine Abnahmegrundlage.
+Der konkrete lokale Reader/Writer-Datenverlust begründet diesen Auftrag unabhängig davon.
