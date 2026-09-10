@@ -80,12 +80,8 @@ und genaue Kantenzahlen bestehen. Alte Indexfilterung und alte Splice-Funktion
 scheitern jeweils ohne Buildfehler. WeakComponents trennt physischen Zusammenhang
 von gerichtetem Reaches; OSM-IDs/Modi/Restrictions/Streaming und Startanbindung bleiben offen.
 
-Komponenten: InPieces verwendet gerichtete BFS und globales Seen; konvergierende
-Einbahnzweige werden dadurch je Knotenreihenfolge in falsche Teilnetze zerlegt.
-Als WeakComponents/ComponentStatistics benennen: physischer Zusammenhang ohne
-Fahrtrichtung, getrennt von Reaches. Union-Find mit Pfadkompression und Union nach
-Größe benötigt O(V) Scratch, keine zweite Adjazenzliste. Tests für konvergierende
-Einbahnzweige, Richtungsumkehr, getrennte Komponente, Einzelknoten und leeren Graph.
+WeakComponents verwendet Union-Find statt gerichteter BFS; konvergierende und
+umgekehrte Einbahnzweige, getrennte Komponente, Einzelknoten und leerer Graph geprüft.
 
 Mehrziel-A*: Gegenbeispiel mit zwei direkten Zielkanten und Fortsetzungen verhindert
 Legacy-Splicing. Kugelgeometrie unabhängig per acos(cos(lat)*cos(lon)) geprüft;
@@ -103,3 +99,11 @@ Fehler liefert leere Route mit Diagnose; gültige Folgeabfrage bleibt nutzbar.
 NaN/±Inf, Bereichsverletzungen und negative Radien testen. Tieferliegende Lay-,
 Sphere-/Snap-, Nearest-/Within-Verträge separat härten; ApartM hat noch iterative
 Längengradnormalisierung, die für nichtendliche Eingaben nicht terminiert.
+
+Lay erhält nodiscard expected<void,string_view>: mindestens zwei vollständige
+Lat/Lon-Paare, endliche kanonische Koordinaten, nichtnegative endliche physische
+Way-Parameter und nichtnegative Spurzahl. Kumuliertes Punktbudget vor Zugriff/
+Allokation prüfen; Fehler erhalten bestehenden Graph und Bereitschaft. Corridors
+reicht Lay-Fehler und ungültige Punktspannen weiter, statt Wege still zu verlieren.
+Tests für späte ungültige Koordinate, odd/empty/short, Parameter, Budget und Recovery.
+Validen Wien-Aufbau zur Integrationskontrolle ohne Vegetation rendern.
