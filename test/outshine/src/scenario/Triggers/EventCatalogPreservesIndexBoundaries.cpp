@@ -26,7 +26,8 @@ int main() {
     std::string error;
     CHECK(field->Listen(events[capacity - 1].Name, std::span(&read, 1), error),
           "listener field lookup reaches the final event slot");
-    field->Probe({.Index = 1, .Generation = 1}, {}, 0);
+    CHECK(field->Probe({.Index = 1, .Generation = 1}, {}, 0).has_value(),
+          "valid trigger probe accepted");
     CHECK(field->Unheard(events.front().Name) == 1 &&
               field->Unheard(events[capacity - 1].Name) == 0,
           "listener state and unhandled counters use the correct boundary slots");

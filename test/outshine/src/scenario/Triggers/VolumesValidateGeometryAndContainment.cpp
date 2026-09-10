@@ -35,7 +35,8 @@ int main() {
     auto field = prepare();
     CHECK(field.has_value(), "finite geometry prepares");
     if (!field) { return false; }
-    field->Probe({.Index = 1, .Generation = 1}, point, 0);
+    CHECK(field->Probe({.Index = 1, .Generation = 1}, point, 0).has_value(),
+          "valid trigger probe accepted");
     return !field->Drain().empty();
   };
   CHECK(contains({1, 0, 0}), "sphere boundary is included");

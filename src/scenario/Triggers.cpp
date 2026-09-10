@@ -2,6 +2,7 @@
 #include <world/Entity.h>
 #include "math/Vec3.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <unordered_map>
@@ -158,47 +159,55 @@ bool TriggerField::Inside(const PreparedVolume &door, const Vec3 &atM) {
   return true;
 }
 
-void TriggerField::Probe(Entity body, const Vec3 &atM, double nowS) {
-  const auto fire = [&](uint16_t event) {
-    if (Heard_[event] == 0) { ++Unheard_[event]; }
-    if (Ring_.size() >= kMostFired) {
-      ++Overflowed_;
+void TriggerField::Emit(uint16_t event, Entity body) {
+  if (Heard_[event] == 0) { ++Unheard_[event]; }
+  if (Ring_.size() >= kMostFired) {
+    ++Overflowed_;
+    return;
+  }
+  Ring_.push_back(Fired{.Event = event, .Body = body});
+}
+
+void TriggerField::UpdateOccupant(size_t volume, Entity body, const Vec3 &atM, double nowS) {
+  const PreparedVolume &prepared = Volumes_[volume];
+  auto &occupants = Occupants_[volume];
+  const auto found = std::ranges::find(occupants, body, &Occupant::Body);
+  if (!Inside(prepared, atM)) {
+    if (found == occupants.end()) { return; }
+    if (prepared.Opens == When::Exit) { Emit(prepared.Event, body); }
+    *found = occupants.back();
+    occupants.pop_back();
+    return;
+  }
+  if (found == occupants.end()) {
+    if (occupants.size() >= kMostOccupantsPerVolume) {
+      ++Unseated_;
       return;
     }
-    Ring_.push_back(Fired{.Event = event, .Body = body});
-  };
-  for (uint32_t which = 0; which < static_cast<uint32_t>(Volumes_.size()); ++which) {
-    const PreparedVolume &door = Volumes_[which];
-    const bool in = Inside(door, atM);
-    std::vector<Occupant> &seated = Occupants_[which];
-    size_t standing = seated.size();
-    for (size_t at = 0; at < seated.size(); ++at) {
-      if (seated[at].Body == body) {
-        standing = at;
-        break;
-      }
-    }
-    if (in && standing == seated.size()) {
-      if (seated.size() >= kMostOccupantsPerVolume) {
-        ++Unseated_;
-        continue;
-      }
-      seated.push_back(Occupant{.Body = body, .SinceS = nowS, .Dwelt = false});
-      if (door.Opens == When::Enter) { fire(door.Event); }
-      continue;
-    }
-    if (in && standing < seated.size() && door.Opens == When::Dwell && !seated[standing].Dwelt &&
-        nowS - seated[standing].SinceS >= door.DwellS) {
-      seated[standing].Dwelt = true;
-      fire(door.Event);
-      continue;
-    }
-    if (!in && standing < seated.size()) {
-      if (door.Opens == When::Exit) { fire(door.Event); }
-      seated[standing] = seated.back();
-      seated.pop_back();
-    }
+    occupants.push_back(Occupant{.Body = body, .SinceS = nowS, .Dwelt = false});
+    if (prepared.Opens == When::Enter) { Emit(prepared.Event, body); }
+    return;
   }
+  if (prepared.Opens == When::Dwell && !found->Dwelt && nowS - found->SinceS >= prepared.DwellS) {
+    found->Dwelt = true;
+    Emit(prepared.Event, body);
+  }
+}
+
+std::expected<void, TriggerField::ProbeError>
+TriggerField::Probe(Entity body, const Vec3 &atM, double nowS) {
+  if (body == kNoEntity) { return std::unexpected(ProbeError::InvalidEntity); }
+  for (int axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(atM[axis])) { return std::unexpected(ProbeError::InvalidPosition); }
+  }
+  if (!std::isfinite(nowS) || nowS < LastProbeS_) {
+    return std::unexpected(ProbeError::InvalidTime);
+  }
+  LastProbeS_ = nowS;
+  for (size_t volume = 0; volume < Volumes_.size(); ++volume) {
+    UpdateOccupant(volume, body, atM, nowS);
+  }
+  return {};
 }
 
 std::span<const TriggerField::Fired> TriggerField::Drain() {

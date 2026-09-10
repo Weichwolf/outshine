@@ -86,11 +86,12 @@ inf <= inf als innerhalb gelten. Analytische Rand-, Außen- und Extremwerttests 
 im Altstand und bestehen mit der Korrektur; alle drei Trigger-Tests bestehen. Live-Probe-Zeit/Entity-Validierung und Zustandsmaschine separat offen.
 
 ## Laufende Trigger-Probes
-Probe erhält einen nodiscard-expected-Vertrag: Sentinel, nichtendliche Position/Zeit,
+Probe hat einen nodiscard-expected-Vertrag: Sentinel, nichtendliche Position/Zeit,
 negative oder gegenüber letzter akzeptierter Probe rückläufige Zeit werden vor jeder
 Mutation abgelehnt. Gleiche Zeit für mehrere Bodies ist gültig. Registry-Lebendigkeit
 prüft weiterhin der Engine-Aufrufer. Engine propagiert Ablehnung aus advance; bereits
 integrierte Physik wird dabei nicht zurückgerollt. Ein-/Austritt und Verweilen als eigene
-begrenzte Occupant-Übergänge strukturieren. Tests prüfen unveränderte Belegung und Queue
+begrenzte Occupant-Übergänge strukturiert. Vier Tests bestehen und prüfen Belegung und Queue
 nach Ablehnung sowie Austritt, Wiedereintritt und einmaliges Dwell. Kapazitäts-/Despawn-
 Politik bleibt offen, keine zusätzlichen unbeschränkten Laufzeitallokationen.
+Negativkontrolle ohne Eingabeprüfung scheitert; Fehlerpfad im Engine-Aufrufer propagiert.

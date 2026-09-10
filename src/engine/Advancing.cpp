@@ -30,6 +30,8 @@ namespace outshine {
 constexpr double kBelowAnyGroundM = -1.0e3;
 
 namespace Says {
+constexpr auto kInvalidTriggerProbe =
+    "trigger probe rejected an invalid body position or simulation time";
 constexpr auto kInvalidElapsedTime = "advance requires finite nonnegative elapsed seconds";
 constexpr auto kElapsedTimeOverflow = "elapsed time exceeds the simulation accumulator range";
 constexpr auto kCameraAssemblyRequired = "assemble the current declaration before following a body";
@@ -259,13 +261,16 @@ bool Engine::State::Bakes(size_t landsMost) {
   return true;
 }
 
-void Engine::State::UpdateTriggers() {
+bool Engine::State::UpdateTriggers() {
   if (!Simulation->Triggers || Simulation->DeclarationRevision != Session.DeclarationRevision) {
-    return;
+    return true;
   }
   for (const auto &body : Simulation->DynamicBodies) {
     if (!Simulation->Entities.alive(body.Owner)) { continue; }
-    Simulation->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS);
+    if (!Simulation->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS)) {
+      Error = Says::kInvalidTriggerProbe;
+      return false;
+    }
   }
   for (const TriggerField::Fired &fired : Simulation->Triggers->Drain()) {
     ++Session.Fired;
@@ -275,6 +280,7 @@ void Engine::State::UpdateTriggers() {
   }
   Published.Places(
       "events a declared volume has fired", static_cast<double>(Session.Fired), "events");
+  return true;
 }
 
 bool Engine::State::Updates() {
@@ -314,7 +320,7 @@ bool Engine::State::Updates() {
                                 : kStandardGravityMs2;
   Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
   Ticking.ElapsedS += simulationStepS;
-  UpdateTriggers();
+  if (!UpdateTriggers()) { return false; }
   if (!Watches()) { return false; }
   return Grounds(false);
 }

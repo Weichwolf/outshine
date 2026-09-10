@@ -29,7 +29,8 @@ public:
   [[nodiscard]] bool
   Listen(std::string_view event, std::span<const std::string_view> reads, std::string &error);
 
-  void Probe(Entity body, const Vec3 &atM, double nowS);
+  enum class ProbeError : uint8_t { InvalidEntity, InvalidPosition, InvalidTime };
+  [[nodiscard]] std::expected<void, ProbeError> Probe(Entity body, const Vec3 &atM, double nowS);
 
   [[nodiscard]] std::span<const Fired> Drain();
 
@@ -63,6 +64,9 @@ private:
     bool Dwelt = false;
   };
 
+  void Emit(uint16_t event, Entity body);
+  void UpdateOccupant(size_t volume, Entity body, const Vec3 &atM, double nowS);
+  double LastProbeS_ = 0.0;
   std::vector<std::vector<Occupant>> Occupants_;
 
   [[nodiscard]] static bool Inside(const PreparedVolume &door, const Vec3 &atM);

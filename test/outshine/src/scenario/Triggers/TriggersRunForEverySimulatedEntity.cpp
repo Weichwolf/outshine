@@ -66,8 +66,8 @@ int main() {
   if (!field) { return Report(); }
   const Entity first{.Index = 7, .Generation = 1};
   const Entity reused{.Index = 7, .Generation = 2};
-  field->Probe(first, {}, 0);
-  field->Probe(reused, {}, 0);
+  CHECK(field->Probe(first, {}, 0).has_value(), "valid trigger probe accepted");
+  CHECK(field->Probe(reused, {}, 0).has_value(), "valid trigger probe accepted");
   const auto events = field->Drain();
   CHECK(events.size() == 2, "reused index with new generation is a distinct entity");
   if (events.size() == 2) {

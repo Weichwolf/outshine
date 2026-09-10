@@ -366,7 +366,7 @@ struct Engine::State {
   [[nodiscard]] bool Stood();
   void HandsPiecesOver();
   [[nodiscard]] bool Bakes(size_t landsMost);
-  void UpdateTriggers();
+  [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();
