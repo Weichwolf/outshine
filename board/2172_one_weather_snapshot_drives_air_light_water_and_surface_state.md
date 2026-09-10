@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 2169
 Area: world, scenario, render
 Tags: webcam, measured
@@ -60,3 +60,12 @@ Zuständigkeiten: 2167 indirektes Licht, 2128 Schatten/Lichter, 2140 Wolken, 215
 Wahl: eine deklarative Wetterquelle mit physikalischen Verbrauchern statt handgemalter
 Place-Looks. Unreal-Atmosphäre ist die technische Referenz, RAGE-Timecycle nur das
 vergleichbare Organisationsprinzip, keine übernommene proprietäre Implementierung.
+
+## Deklarationsvertrag und Export
+Scenario::Weather dokumentieren: dimensionslose Wolkenanteile, Basis AGL, Wind in
+m/s und meteorologische Herkunftsrichtung; derzeit keine Cloud-/Wind-Verbraucher.
+Haze skaliert nur Mie-Streuung/Extinktion, nicht Rayleigh/Ozon; >1 ist möglich.
+Writer verliert bislang alle sieben Wind-/Wolkenfelder. Vollständig serialisieren;
+exakte Roundtrips mit unabhängigen Feldwerten und Nullgrenzen prüfen. Gemeinsame
+Werte-/Typprüfung an Import-, Declare- und Exportgrenze bleibt erforderlich; derzeit
+keine vollständige Wettervalidierung oder Wetterwirkung behaupten.
