@@ -100,3 +100,12 @@ Native Annahme geprüft: zwölf MVT-/OSM-Läufe grün; Teilveröffentlichungsfix
 rot ohne Buildfehler. Nach Lint-Korrektur beide OSM-Fälle erneut grün. Lint 183 statt
 184 tidy (Accept-Komplexitätswarnung entfällt), 330 Dokumentationsdiagnosen, 32
 Repository-Tests grün; drei rote Gruppen. Wien-PNG geöffnet, 0/921600 Pixelabweichung.
+
+## Projektionsgrenze
+Accept prüft Zoom 0..31 und x/y im zugehörigen Raster vor Decode und Mutation.
+Inverse Mercator-Breite: sinh darf bei großen MVT-Pufferkoordinaten nicht überlaufen.
+Ab |a| >= log(4/epsilon) ist der Polabstand 2*atan(exp(-|a|)) <= epsilon/2;
+auf den darstellbaren Polwert begrenzen, normale Koordinaten unverändert berechnen.
+Ungültige Adressen erhalten Daten/Settled; analytische Äquator-/Rand-/Polwerte und
+FE_INVALID/FE_OVERFLOW prüfen. Alte Fassung muss scheitern; Wien unverändert erwarten.
+Ungewickelte Längengrade an der Datumsgrenze brauchen noch einen expliziten nativen Vertrag.
