@@ -5,6 +5,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <new>
+#include <algorithm>
+#include <mutex>
+#include <string_view>
 
 #ifdef __APPLE__
 #include <malloc/malloc.h>
@@ -24,36 +27,48 @@ std::atomic<size_t> gLiveBytes{0};
 std::atomic<bool> gProcessInstrumentation{false};
 
 constexpr size_t kTagSlots = 32;
-constexpr const char *kUntagged = "untagged";
-constexpr const char *kOverflow = "other";
+constexpr size_t kTagNameBytes = 96;
+constexpr size_t kOverflowTag = 0;
+constexpr size_t kUntaggedTag = 1;
 
-thread_local const char *gTag = nullptr;
+thread_local size_t gTagIndex = kUntaggedTag;
 
 struct TagRow {
-  std::atomic<const char *> Name{nullptr};
+  std::array<char, kTagNameBytes> Name{};
   std::atomic<size_t> Taken{0};
+  std::atomic<bool> Published;
+
+  constexpr TagRow() noexcept : Published(false) {}
+
+  template <size_t N>
+  constexpr explicit TagRow(const std::array<char, N> &name) noexcept : Published(N > 1) {
+    static_assert(N <= kTagNameBytes);
+    std::ranges::copy(name, Name.begin());
+  }
 };
 
-std::array<TagRow, kTagSlots> gTags{};
+constinit std::array<TagRow, kTagSlots> gTags{TagRow{std::to_array("other")},
+                                              TagRow{std::to_array("untagged")}};
+std::mutex gTagMutex;
 
-TagRow *RowFor(const char *tag) {
-  if (gTags[0].Name.load(std::memory_order_relaxed) == nullptr) {
-    const char *empty = nullptr;
-    gTags[0].Name.compare_exchange_strong(empty, kOverflow, std::memory_order_relaxed);
-  }
-  if (tag == kOverflow) { return gTags.data(); }
-  for (size_t at = 1; at < kTagSlots; ++at) {
-    const char *held = gTags[at].Name.load(std::memory_order_relaxed);
-    if (held == tag) { return &gTags[at]; }
-    if (held == nullptr) {
-      const char *empty = nullptr;
-      if (gTags[at].Name.compare_exchange_strong(empty, tag, std::memory_order_relaxed)) {
-        return &gTags[at];
-      }
-      if (gTags[at].Name.load(std::memory_order_relaxed) == tag) { return &gTags[at]; }
+size_t TagIndex(const char *tag) {
+  if (tag == nullptr || *tag == '\0') { return kUntaggedTag; }
+  size_t length = 0;
+  while (length < kTagNameBytes && tag[length] != '\0') { ++length; }
+  if (length == kTagNameBytes) { return kOverflowTag; }
+  const std::string_view name(tag, length);
+  const std::scoped_lock lock(gTagMutex);
+  for (size_t at = 0; at < kTagSlots; ++at) {
+    TagRow &row = gTags[at];
+    if (row.Published.load(std::memory_order_relaxed)) {
+      if (std::string_view(row.Name.data()) == name) { return at; }
+      continue;
     }
+    std::ranges::copy(name, row.Name.begin());
+    row.Published.store(true, std::memory_order_release);
+    return at;
   }
-  return nullptr;
+  return kOverflowTag;
 }
 
 inline size_t BlockBytes(const void *block) {
@@ -68,9 +83,7 @@ inline void *Counted(void *block) {
   if (block == nullptr) { return block; }
   const size_t bytes = BlockBytes(block);
   gLiveBytes.fetch_add(bytes, std::memory_order_relaxed);
-  TagRow *row = RowFor(gTag != nullptr ? gTag : kUntagged);
-  if (row == nullptr) { row = RowFor(kOverflow); }
-  row->Taken.fetch_add(bytes, std::memory_order_relaxed);
+  gTags[gTagIndex].Taken.fetch_add(bytes, std::memory_order_relaxed);
   return block;
 }
 
@@ -144,17 +157,16 @@ size_t Heap::LiveBytes() {
   return gLiveBytes.load(std::memory_order_relaxed);
 }
 
-Heap::Tagged::Tagged(const char *tag) noexcept : Held_(gTag) {
-  gTag = tag;
+Heap::Tagged::Tagged(const char *tag) noexcept : Held_(gTagIndex) {
+  gTagIndex = TagIndex(tag);
 }
 
 Heap::Tagged::~Tagged() noexcept {
-  gTag = Held_;
+  gTagIndex = Held_;
 }
 
 size_t Heap::TakenUnder(const char *tag) {
-  const TagRow *row = RowFor(tag);
-  return row != nullptr ? row->Taken.load(std::memory_order_relaxed) : 0;
+  return gTags[TagIndex(tag)].Taken.load(std::memory_order_relaxed);
 }
 
 size_t Heap::TagCount() {
@@ -162,7 +174,9 @@ size_t Heap::TagCount() {
 }
 
 const char *Heap::TagAt(size_t at) {
-  return at < kTagSlots ? gTags[at].Name.load(std::memory_order_relaxed) : nullptr;
+  return at < kTagSlots && gTags[at].Published.load(std::memory_order_acquire)
+             ? gTags[at].Name.data()
+             : nullptr;
 }
 
 size_t Heap::TakenAt(size_t at) {

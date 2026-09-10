@@ -25,7 +25,7 @@ public:
     Tagged &operator=(const Tagged &) = delete;
 
   private:
-    const char *Held_;
+    size_t Held_;
   };
 
   [[nodiscard]] static size_t TakenUnder(const char *tag);

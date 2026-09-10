@@ -56,4 +56,5 @@ inklusive other/untagged, überlange/unregistrierbare Namen nach other. Registri
 unter Mutex beim Scope-Eintritt; Hot-Path zählt direkt über threadlokalen Slotindex.
 Namen erst nach vollständiger Kopie veröffentlichen; verschachtelte Scopes stellen
 vorigen Index wieder her. Tests: mutierte/freigegebene Namen, gleiche Texte, Threads,
-Überlauf und Scope-Restore. Kein Anspruch auf vollständige Engine-Speicherbilanz.
+Überlauf und Scope-Restore. Altstand verletzt die Namens-Negativkontrolle; fünf
+Allocator-/Callback-Regressionen bestehen. Keine vollständige Engine-Speicherbilanz.
