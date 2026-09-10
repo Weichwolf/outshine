@@ -97,3 +97,9 @@ trennen; gültige Materialarithmetik unverändert. Negativkontrolle: später Kla
 Referenzfehler erhält alte Materialien, fehlende/überlange Dateien ebenso. Altstand
 verletzt die Negativkontrolle; Loader-/Reader-Regressionen samt ausgeliefertem Katalog grün.
 Numerische Material-/Modellgrenzen und unbekannte Litter-Verweise bleiben separat offen.
+
+## Eindeutige Katalogreferenzen
+Nichtleere eindeutige Klassennamen erzwingen. Temporären sortierten Namensindex
+für Duplikatprüfung, Reibungsreferenz und Litter-Auflösung verwenden; Materialreihenfolge
+erhalten. Unbekannte nichtleere Litter-Referenz ablehnen statt als -1 verschwinden lassen.
+Vorwärts-/Selbstreferenzen zulassen. Fehler erhalten den bisherigen Katalog.
