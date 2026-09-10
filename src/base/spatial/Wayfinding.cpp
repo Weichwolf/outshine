@@ -29,6 +29,7 @@
 namespace outshine::Path {
 
 namespace Says {
+constexpr auto kUnbuiltNetwork = "transport network must be rebuilt after source changes";
 constexpr auto kInvalidSpatialQuery =
     "spatial query requires canonical finite coordinates and a finite nonnegative radius";
 constexpr auto kInvalidNetworkGrid = "transport grid requires finite positive radius and cell size "
@@ -935,6 +936,7 @@ size_t Network::JunctionCount() const {
 std::expected<std::optional<Network::Found>, std::string_view>
 Network::Nearest(LongitudeLatitude to) const {
   if (!ValidCoordinates(to)) { return std::unexpected(Says::kInvalidSpatialQuery); }
+  if (!Woven_ && !Ways_.empty()) { return std::unexpected(Says::kUnbuiltNetwork); }
   if (Nodes_.empty()) { return std::nullopt; }
   std::vector<size_t> found;
   for (int widening = 0;; ++widening) {
@@ -973,6 +975,7 @@ Network::Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes)
   if (!ValidCoordinates(of) || !std::isfinite(reachM) || reachM < 0.0) {
     return std::unexpected(Says::kInvalidSpatialQuery);
   }
+  if (!Woven_ && !Ways_.empty()) { return std::unexpected(Says::kUnbuiltNetwork); }
   nodes.clear();
   const auto appendWithin = [&](size_t which) {
     const Node &node = Nodes_[which];

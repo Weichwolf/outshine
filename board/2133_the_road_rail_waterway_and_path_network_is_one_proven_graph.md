@@ -108,7 +108,7 @@ Umgesetzt: private Konstruktion, nodiscard expected<Network,string_view>-Factory
 Corridors reicht Fehler weiter. Positive endliche Werte, höchstens ein Kugelumfang
 pro Zelle und höchstens UINT32_MAX Spalten; sechs Transporttests bestehen,
 Factory-Bypass scheitert. Wien-PNG bytegleich; lint unverändert 187/333, 32 Claims grün.
-Offen: Polnähe und das aus Straßenbreiten abgeleitete TieReach prüfen.
+Offen: Trefferidentitäten/Rasterränder und aus Straßenbreiten abgeleitetes TieReach.
 Within/Nearest liefern expected; Plan reicht Fehler weiter. Within erhält bei Fehler
 den Puffer; große Suchen wählen vor Cast den Vollscan. Spaltenreichweite begrenzt.
 Vorhandene Graph-/Geometriefähigkeiten behalten; erwartetes gültiges Render unverändert.
@@ -116,5 +116,5 @@ Vorhandene Graph-/Geometriefähigkeiten behalten; erwartetes gültiges Render un
 Nachweise: Konfigurationsgrenzen, Trefferzahlen und nächste Distanz gegen unabhängiges
 Kugel-Orakel mit Pol/Datumsgrenze/DBL_MAX. Vollständiger alter Cast-/Quadratpfad scheitert,
 isolierter Cast hier nicht. Engine in conventions unsanitisiert: Nachweis bleibt offen.
-Abfragezustand nach Lay/vor Weave, Trefferidentitäten/Rasterränder und TieReach offen.
+Nearest/Within sperren nach Lay bis Weave (Test/Gegenprobe); andere Graphabfragen offen.
 Fünf Tests grün; lint 187/333, 32 Claims grün; Wien-PNG bytegleich und visuell geprüft.

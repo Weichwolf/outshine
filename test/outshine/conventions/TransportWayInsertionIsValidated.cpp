@@ -15,6 +15,15 @@ int main() {
   auto &network = *networkResult;
   const std::array<double, 4> line{0, 0, 0, 0.01};
   CHECK(network.Lay(line, {}).has_value(), "valid initial way accepted");
+  std::vector<size_t> found{123};
+  const auto needsBuild = [&] {
+    const auto nearest = network.Nearest({});
+    CHECK(!nearest && nearest.error().find("rebuilt") != std::string_view::npos,
+          "unbuilt sources cannot appear as an empty or stale nearest result");
+    CHECK(!network.Within({}, 1000, found) && found == std::vector<size_t>{123},
+          "unbuilt source query preserves the destination");
+  };
+  needsBuild();
   std::string error;
   CHECK(network.Weave(error), "initial network builds");
   const auto capacity = network.PointStreamHeldBytes();
@@ -28,6 +37,7 @@ int main() {
                     0)
               .Found,
           "rejection preserves routing readiness");
+    CHECK(network.Nearest({}).has_value(), "rejected insertion preserves spatial readiness");
   };
   for (const auto points : {std::span<const double>{},
                             std::span<const double>(line).first(2),
@@ -73,6 +83,11 @@ int main() {
            .Plan({.LongitudeDeg = 0, .LatitudeDeg = 0}, {.LongitudeDeg = 0.01, .LatitudeDeg = 0}, 0)
            .Found,
       "successful insertion requires graph rebuilding");
+  needsBuild();
   CHECK(network.Weave(error), "updated source can rebuild");
+  const auto nearest = network.Nearest({});
+  CHECK(nearest && *nearest, "rebuilt graph resumes nearest queries");
+  CHECK(network.Within({}, 0, found).has_value() && found.size() == 1,
+        "rebuilt graph replaces query output with current results");
   return Report();
 }
