@@ -91,14 +91,11 @@ oder pauschalen Exemptions. Unbelegtes „count GREW“ entfernen: keine Baselin
 Unabhängige Prüferfälle für mehrere/verkettete/Raw-Tags, Kommentare, Char-Literale,
 fehlende Sektionen und kaputte Eingaben: elf Tests grün. Altprüfer verletzt sechs der
 neun ursprünglichen Prüferfälle; vollständiger Lint bleibt bei drei roten Gruppen.
-Dynamische Namen, Reader-Aliasse, Pfade, Attribute und ausgeführte Codepfade bleiben
-außerhalb dieser Inventur; unabhängige Roundtrip-Fixtures sind maßgeblich.
 
 ## Bereits geprüfte Schritte
 Asset-Roundtrip, strikter Clip-Token und gemeinsamer Playback-Validator sind implementiert;
 negative Kontrollen und API-Erhaltung/Retry grün. Welt-/Relief-/OSM-Writer separat;
 OSM-Koordinaten, Physik, Generatorparameter und Assets durch Roundtrip-Fixtures geprüft.
-Letzter Lint: 180 tidy/251 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
 
 API-Audit: Identity, Patch, RenderPlan und Lighting dokumentieren Besitz, Einheiten,
 Default-/Auswahlverhalten und aktuelle Grenzen anhand der Consumer. Epoch/Decay sind
@@ -116,3 +113,11 @@ haben derzeit keine Kamerawirkung; Person validiert nur das Label, DistanceM ste
 den Verfolgungsabstand. Keine implementierte Szenenwahl, Viewports oder Zeitdilatation
 behaupten. Diese ungenutzten Konfigurationen fachlich implementieren oder mit
 expliziter Importdiagnose aus der minimalen API entfernen; nicht still verwerfen.
+
+## Atomare Layer-Anwendung
+ApplyLayer verändert Listen vor ReadSectionsOnto; ein später Validierungsfehler
+kann Zieldokument und Trace teilweise ersetzen. Auf einer eigenen Dokument-/Trace-Kopie
+arbeiten und beide erst nach vollständiger Validierung veröffentlichen. Cold-Path-Kosten
+explizit; keine Rollback-Logik im Frame. Layer-API dokumentiert Besitz, Auswahl und Import.
+Abnahme: später Abschnittsfehler nach Listenänderung erhält Dokument und Trace;
+gültiger Retry publiziert beides. Altstand muss diese Negativkontrolle verletzen.
