@@ -419,7 +419,7 @@ struct Volume {
   /** Exact transition: "enter", "exit" or "dwell"; empty/unknown values reject assembly.
    * Enter fires on first observed inclusion; exit requires a previously observed inclusion.
    * Dwell fires once per uninterrupted occupancy; leaving and reentering starts it again.
-   * XML import defaults an omitted attribute to "enter"; native callers must set it.
+   * Both XML import and native assembly require a nonempty transition.
    */
   std::string When;
   /// Finite positive simulation seconds required for "dwell"; unused for other transitions.

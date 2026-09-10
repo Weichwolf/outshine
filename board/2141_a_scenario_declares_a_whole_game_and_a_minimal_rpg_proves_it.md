@@ -100,14 +100,18 @@ Negativkontrolle ohne Eingabeprüfung scheitert; Fehlerpfad im Engine-Aufrufer p
 Volume dokumentiert Ownership, Assembly-Ablehnung, Koordinaten, Halbausdehnung/Radius,
 Punktabtastung und Dwell-Neustart. In ist heute unaufgelöste Metadaten; regionale Bindung
 muss implementiert oder explizit abgelehnt werden. Id dient Layer-Ersetzung, wird bei
-Assembly aber nicht auf Eindeutigkeit geprüft. Writer serialisiert Volumes noch nicht.
+Assembly aber nicht auf Eindeutigkeit geprüft. Writer serialisiert jetzt Events und Volumes.
 Diese Lücken bleiben Teil von 2151/2131; Dokumentation ist keine SOLL-Abnahme.
 Occupancy und Queue sind auf je 256 begrenzt; Überlauf zählt derzeit nur intern.
 Despawn-Freigabe, öffentlich sichtbare Überlast und schnelle Durchquerung separat lösen.
 
 ## Ereignisse und Volumes speichern
-Vor Implementierung: eigene Writer-Phasen für Events samt Carries und alle Volume-Felder.
+Implementiert: eigene Writer-Phasen für Events samt Carries und alle Volume-Felder.
 Reihenfolge, XML-Escaping und endliche Double-Werte exakt erhalten. Shape/When explizit
 schreiben, auch leer: Reader-Defaults dürfen native Werte nicht verändern. Unabhängiger
 Read/Write-Test muss im Altstand Verlust zeigen; gültiger Roundtrip muss wieder assemblieren.
 Keine Speicherung laufender Occupancy behaupten; es geht um die deklarierte Konfiguration.
+
+Grammatik verlangt nichtleere Carries.what und Volume.when. Der Test wurde daran
+korrigiert, nicht die Grammatik gelockert. Native Carries akzeptiert noch leere Namen;
+diese Validierungsdifferenz bleibt offen. Leeres When bleibt nach Schreiben ungültig.

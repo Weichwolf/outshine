@@ -13,8 +13,8 @@ void Number(std::string &into, const char *named, double how) {
   into += std::format(" {}=\"{}\"", named, how);
 }
 
-void Said(std::string &into, const char *named, const std::string &how) {
-  if (how.empty()) { return; }
+void Said(std::string &into, const char *named, const std::string &how, bool writeEmpty = false) {
+  if (how.empty() && !writeEmpty) { return; }
   into += ' ';
   into += named;
   into += "=\"";
@@ -229,6 +229,45 @@ void WriteLighting(std::string &said, const Scenario::Lighting &lighting) {
   said += "/>\n  </lighting>\n";
 }
 
+void WriteEvents(std::string &said, std::span<const Scenario::Event> events) {
+  if (events.empty()) { return; }
+  said += "  <events>\n";
+  for (const auto &event : events) {
+    said += "    <event";
+    Said(said, "name", event.Name, true);
+    said += ">\n";
+    for (const auto &field : event.Carries) {
+      said += "      <carries";
+      Said(said, "what", field, true);
+      said += "/>\n";
+    }
+    said += "    </event>\n";
+  }
+  said += "  </events>\n";
+}
+
+void WriteVolumes(std::string &said, std::span<const Scenario::Volume> volumes) {
+  if (volumes.empty()) { return; }
+  said += "  <volumes>\n";
+  for (const auto &volume : volumes) {
+    said += "    <volume";
+    Said(said, "id", volume.Id, true);
+    Said(said, "in", volume.In);
+    Said(said, "shape", volume.Shape, true);
+    Number(said, "x", volume.AtM[0]);
+    Number(said, "y", volume.AtM[1]);
+    Number(said, "z", volume.AtM[2]);
+    Number(said, "extentX", volume.ExtentM[0]);
+    Number(said, "extentY", volume.ExtentM[1]);
+    Number(said, "extentZ", volume.ExtentM[2]);
+    Said(said, "fires", volume.Fires, true);
+    Said(said, "when", volume.When, true);
+    Number(said, "dwellS", volume.DwellS);
+    said += "/>\n";
+  }
+  said += "  </volumes>\n";
+}
+
 void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
   if (generators.empty()) { return; }
   said += "  <generators>\n";
@@ -294,6 +333,8 @@ std::string WriteScenario(const Scenario::Document &declared) {
     }
     said += "  </views>\n";
   }
+  WriteEvents(said, declared.Events);
+  WriteVolumes(said, declared.Volumes);
   WriteGenerators(said, declared.Generators);
   return said + "</scenario>\n";
 }
