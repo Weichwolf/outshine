@@ -4,17 +4,13 @@ Area: include, engine, world, import
 Tags: architecture, ownership, api
 Parent: 2188
 Depends: 2191, 2150
-
 # Public API exposes native engine contracts with explicit ownership
-
 ## Befund
-
 Die API wird nach Outshines Verträgen gestaltet. Filament-/Cesium-Namensgleichheit,
 ein Header pro Typ und global eindeutige Kurzbezeichner sind keine Abnahmekriterien.
 Der API-Bericht inventarisiert alle öffentlichen Header statt Vorbildnamen zu zählen.
 Namespaces dürfen passende gleichnamige Begriffe enthalten; entscheidend sind
 Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Verantwortung.
-
 - Die undefinierte SwapChain::logsTo-Deklaration ist entfernt; der Logger gehört
   nicht zur Swapchain. Process-globaler Logger und sichere Registrierung bleiben
   in 2208. Frameabschluss und GPU-Warten dokumentieren Zustand und Fehler.
@@ -38,33 +34,26 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
 - Kamera und Audio lösen benannte Körper jetzt gegen die aktuelle Assembly auf;
   Trigger laufen mit Entity-Handles ohne Renderer. Instanzen ohne physikalischen
   Körper benötigen weiterhin dieselbe native Pose-/Geschwindigkeitsquelle.
-
 Callback-Grenze: Script-Werte explizit typisieren; Nothing/Ref nicht als Zahl null
 weiterreichen. Argumente auf kMaxArgs begrenzen, ohne Heapkopie pro Aufruf; Host
 bleibt geliehen. Adapter isoliert prüfen, Fehler ohne Client-Aufruf ablehnen.
-
 ## Entscheidung und Zuständigkeit
-
 2150 implementiert native Mesh-/Material-Assets, Instanzzuordnung und einen gemeinsamen
 Renderpfad für Importer und Generatoren. 2191 besitzt transaktionale Zustandsübergänge
 und die Gültigkeit zusammengehöriger Deklaration, Assembly und Bindungen.
 Dieses WI gestaltet und prüft den öffentlichen Consumer-Vertrag dieser Fähigkeiten.
 Die Abhängigkeiten blockieren die Gesamtabnahme, nicht unabhängige API-Korrekturen.
-
 Assets besitzen unveränderliche Daten; Entities/Instanzen referenzieren sie über
 validierbare Handles. Engine/Simulation besitzen Weltzustand und Lebensdauer.
 Ein Körper ohne Renderkomponente bleibt simulierbar; Mesh-Instanzen benötigen keine
 Physik. Eine Mesh-Ressource kann mehrfach instanziert werden, ohne ihre Daten zu kopieren.
 Materialien, Sichtbarkeit, Animation und Schatten hängen nicht vom Importformat ab.
-
 Geliehene Referenzen/Spans nennen Lebensdauer, Invalidierung, Mutabilität und Threadbindung.
 Langlebige Identitäten erkennen fremde Owner und Generationen. Fehler liefern owned
 expected-Ergebnisse mit klarer Erhaltungsgarantie; kein globaler Fehler als einziges Ergebnis.
 View-/Target-Auswahl und Facaden-Ownership nach Nutzung gestalten, nicht als Vorbildkopie.
 Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträge.
-
 ## Öffentliche Modulgrenzen
-
 - `core/`: Fehler, Logging und Basistypen; `math/`: gemeinsame Mathematik.
 - `world/`: Entity.h enthält Handles; EntityRegistry.h die stabile Entity-Verwaltung,
   erreichbar über Engine::entities(). Implementierung unter src/world/entity/.
@@ -98,13 +87,10 @@ Dokumentation nennt Räume, Einheiten, Vorbedingungen, Kosten und Fehlerverträg
   Native Lichtparameter dokumentieren Lux/Candela, lineare Farbe, lokale Richtung,
   Reichweite und Spot-Halbwinkel; keine unbewiesene Validierung behaupten.
 - Engine.h enthält die Fassade; Outshine.h bleibt optionaler Sammelheader.
-
 Implementierung, Consumer, Installationspfade und Dokumentation gemeinsam migrieren.
 Importer und Generatoren dürfen weder Szenariotypen als native Assettypen benötigen
 noch den Laufzeitbesitz bestimmen. Szenariodaten konfigurieren die native World.
-
 ## Abnahme
-
 - [ ] Kein deklarierter, undefinierter oder bedeutungsloser öffentlicher Einstieg.
 - [ ] Externer Client baut und linkt ausschließlich mit installierten öffentlichen
       Headern/Library; kein src/-Include und kein Importdokument für native Szenen.
@@ -118,3 +104,11 @@ noch den Laufzeitbesitz bestimmen. Szenariodaten konfigurieren die native World.
       dokumentiert, make lint inklusive clang-tidy und relevante Consumer-Tests grün.
 - [ ] Negativkontrollen für falsche Entity-Zuordnung, verlorene Materialreferenzen
       und vorzeitige Ressourcenfreigabe verletzen jeweils ihr Oracle.
+
+## Numerische Vektorverträge
+Vec3::Length quadriert unskaliert; Normalise kann Überlauf als Erfolg publizieren.
+Length über std::hypot, Normalise über größte Absolutkomponente skalieren, danach
+normieren. Null/nichtendliche Eingaben ohne Mutation ablehnen. Nur Floating-Point
+für diese beiden Operationen zulassen; Integer-Normalisierung ist keine sinnvolle API.
+Analytische Achsen/3-4-5-Vektoren, float/double-Extrema und Subnormale prüfen; Altcode
+muss scheitern. Borrowing/Indexgrenzen/Einheiten der Vektoren dokumentieren.
