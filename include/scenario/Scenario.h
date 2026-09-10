@@ -402,20 +402,25 @@ struct Surface {
   int Z = 0;
 };
 
+/// Owned behavior metadata attached to a kind; no runtime scheduler consumes it yet.
+/// Strings own their values; copies may allocate. Mutate only with exclusive access.
+/// Import retains declarations without validating numeric ranges or resolving references.
+/// Budgets are not enforced, and no inference, script execution or timing is promised.
 struct Mind {
-  std::string Tier;
-  std::string Uses;
-  std::string Programme;
-  std::string Prompt;
-  std::string Model;
-  std::string Meanwhile;
-  double Hz = 0.0;
-  double EverySeconds = 0.0;
-  long long StepBudget = 0;
-  int TokenBudget = 0;
-  double LatencyBudgetMs = 0.0;
-  double Temperature = 0.0;
-  long long Seed = 0;
+  std::string Tier;      ///< Unresolved execution-tier label; no scheduling policy is selected.
+  std::string Uses;      ///< Unresolved dependency/provider label, not an acquired resource.
+  std::string Programme; ///< Stored program reference; not loaded or executed.
+  std::string Prompt;    ///< Stored prompt text; never submitted to a model by this declaration.
+  std::string Model;     ///< Unresolved model identifier; no backend is instantiated.
+  std::string Meanwhile; ///< Stored fallback-behavior reference; not executed.
+  double Hz =
+      0.0; ///< Declared update frequency in hertz; no timer or precedence over EverySeconds.
+  double EverySeconds = 0.0; ///< Declared interval in seconds; no timer is installed.
+  long long StepBudget = 0;  ///< Unenforced step count; the unit of execution is not defined yet.
+  int TokenBudget = 0; ///< Unenforced token count; no tokenizer or token-accounting contract yet.
+  double LatencyBudgetMs = 0.0; ///< Unenforced latency limit in milliseconds; no deadline is set.
+  double Temperature = 0.0; ///< Unapplied model sampling parameter; no accepted range is defined.
+  long long Seed = 0; ///< Stored seed; no execution or reproducibility guarantee follows from it.
 };
 
 /// Owned prefab declaration, built in document order during assembly.
@@ -457,20 +462,30 @@ struct Instance {
   std::vector<std::string> Holds;
 };
 
+/// Owned region metadata; currently neither a streaming cell nor a navigation region.
+/// Copies own strings and containers and may allocate; mutate with exclusive access.
+/// Import and layer merge retain values without geometric/range/reference validation.
+/// No terrain preparation, residency or load/unload operation follows from this declaration.
 struct Region {
+  /// Nonempty matching IDs replace entire regions during layer merge; empty IDs append.
+  /// Runtime uniqueness is not currently checked.
   std::string Id;
-  std::string Kind;
-  Vec3 OriginM;
-  double RadiusM = 0.0;
-  bool Streams = true;
-  std::vector<std::string> Uses;
+  std::string Kind; ///< Unresolved region-category label; no runtime behavior is selected.
+  Vec3 OriginM; ///< Declared local-world origin in metres; not transformed or used for residency.
+  double RadiusM = 0.0; ///< Stored radius in metres; not used to bound or select streamed data.
+  bool Streams = true;  ///< Stored streaming intent; does not enable or disable engine streaming.
+  std::vector<std::string> Uses; ///< Owned unresolved resource labels; no loading is requested.
 };
 
+/// Owned directed region-transition metadata; no portal traversal or streaming action yet.
+/// Copying owns strings and may allocate; mutate with exclusive access. References and
+/// coordinates are not validated. Layer merge replaces by the ordered From/To pair,
+/// independently of Id; reversing the pair declares a separate transition.
 struct Door {
-  std::string Id;
-  std::string From;
-  std::string To;
-  Vec3 AtM;
+  std::string Id;   ///< Stored label; not the identity key used by the current layer merge.
+  std::string From; ///< Unresolved source-region label, first component of the layer identity.
+  std::string To; ///< Unresolved destination-region label, second component of the layer identity.
+  Vec3 AtM;       ///< Declared local-world position in metres; not used for traversal or placement.
 };
 
 /** Owned trigger declaration, copied by Engine::declare and validated by Engine::assemble.
