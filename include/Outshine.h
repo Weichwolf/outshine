@@ -236,7 +236,20 @@ public:
   /// Borrow access to this Engine's current target; the result cannot target another Engine.
   /// @return Target facade borrowing this Engine.
   [[nodiscard]] SwapChain swapChain();
+  /// Refresh published diagnostic measurements, including available GPU readbacks.
+  /// May lazily create the render scene and apply pending geometry; this is not a const query
+  /// or a new render. Missing readbacks are skipped rather than reported as errors.
+  /// Call on the Engine/video thread, serialized with all Engine work. May allocate and wait
+  /// for device work. Failure can retain partial setup; no rollback is promised.
+  /// @return Success or an owned render-target/setup error.
   [[nodiscard]] Result inspect();
+  /// Query whether the currently requested world tiles and derived products have caught up.
+  /// Checks terrain, classifications, vectors and enabled vegetation without waiting.
+  /// False when no world tiles were requested; imported geometry alone does not satisfy this
+  /// predicate. A true result is transient as the camera or requested world changes, and does
+  /// not imply a render target, an open frame or completion of all device work.
+  /// Serialize with Engine mutations. No ownership or references are transferred.
+  /// @return Current world-streaming readiness, not general Engine readiness.
   [[nodiscard]] bool settled() const;
 
   /// Advance streaming until the current scene is resident or the time budget expires.
@@ -296,6 +309,14 @@ public:
   /// @return Success or an owned preparation/buffer error; never performs implicit setup.
   [[nodiscard]] Result mix(std::span<float> stereo);
 
+  /// Read a scenario file and selected layer files, then pass the owned result to declare().
+  /// Relative layer paths resolve against the scenario file's directory. The path is borrowed
+  /// only during this call and must contain no embedded NUL. Synchronous file IO and allocation;
+  /// input byte budgets are not yet enforced. Call on the Engine/video thread outside frames.
+  /// Parsing failure preserves the active declaration but may update layer diagnostics;
+  /// declaration failure has declare()'s partial-state guarantee.
+  /// @param path Filesystem path to the scenario document.
+  /// @return Success or an owned IO, parsing or declaration error.
   [[nodiscard]] Result readScenario(std::string_view path);
 
   /// The declaration this engine stands on, written back in the spelling `readScenario` accepts.
@@ -316,7 +337,23 @@ public:
   /// @param geometry Non-moved-from source, held immutable for the duration of this call.
   /// @return Success, or a diagnostic describing validation or setup failure.
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
+  /// Copy a scenario definition and configure its scene, input and generator declarations.
+  /// The source is borrowed for this call; stored data is owned by the Engine. This does not
+  /// replace assemble() or imply settled(). Changed declarations invalidate prepared audio.
+  /// Call on the Engine/video thread outside frames and concurrent Engine work. May allocate,
+  /// create device resources and wait for outstanding world jobs during replacement.
+  /// Validation is incomplete; failures after setup begins may retain partial changes and
+  /// invalidate prior scene/declaration views. There is no whole-operation rollback yet.
+  /// @param scenario Definition in native scenario units and coordinate conventions.
+  /// @return Success or an owned validation, generator or scene-setup error.
   [[nodiscard]] Result declare(const Scenario::Document &scenario);
+  /// Copy replacement UI surfaces, ordered by increasing Z with stable ties.
+  /// Empty input removes the declared surfaces. Requires an existing render scene; this does
+  /// not lazily create one. Call on the Engine/video thread outside frames and concurrent work.
+  /// Font preparation and redeclaration may allocate. The stored declaration is changed before
+  /// renderer redeclaration, so a renderer error does not restore the previous surfaces.
+  /// @param surfaces Borrowed definitions; copied text and layout data are retained.
+  /// @return Success or an owned missing-scene, font or redeclaration error.
   [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);
 
   /// Borrow the stored declaration, initially default-initialized; no copy or allocation.
@@ -375,6 +412,12 @@ public:
   /// @return Success or an owned validation/build error. Fatal allocation failure is separate.
   [[nodiscard]] Result assemble();
 
+  /// Execute one configured fixed simulation step and update streaming and render-scene state.
+  /// Does not sample wall-clock time, consume the elapsed-time accumulator, poll SDL events or
+  /// present a frame. Use the explicit rendering API for drawing/presentation.
+  /// Call on the Engine/video thread, serialized with Engine work. May allocate and perform
+  /// streaming/device setup; failures may retain an advanced clock or partial scene changes.
+  /// @return Success or an owned update/render-scene error; no rollback on failure.
   [[nodiscard]] Result advance();
   /// Add elapsed seconds and execute due fixed steps up to the declared catch-up limit.
   /// Call on the Engine/video thread; steps may allocate and perform streaming/render setup.
@@ -387,13 +430,56 @@ public:
   /// This is configuration, not measured frame duration. Serialize with declaration changes.
   /// @return Configured simulation step duration in seconds.
   [[nodiscard]] double stepSeconds() const;
+  /// Repeatedly call advance() until it fails; requires an existing render scene.
+  /// This synchronous loop has no pacing, event polling or separate cancellation argument.
+  /// It may run indefinitely. Use advance() under the host's loop for scheduled execution.
+  /// Call on the Engine/video thread with no concurrent Engine work. State and error guarantees
+  /// are those of advance(); this operation does not provide a simulation snapshot.
+  /// @return Missing-scene/update error, or success if the loop ends with no diagnostic.
   [[nodiscard]] Result run();
 
+  /// Copy the active named declaration into the bounded parked set and release its render scene.
+  /// Requires an existing render scene and a unique nonempty name. This stores a declaration,
+  /// not a simulation snapshot; simulation and all streaming resources are not fully suspended.
+  /// Clears generated world pieces and may wait for their jobs. Call on the Engine/video thread
+  /// outside frames, serialized with Engine work. Released render resources invalidate views.
+  /// @return Success or an owned missing-scene/name, duplicate-name or capacity error.
   [[nodiscard]] Result park();
+  /// Declare a parked definition and remove its parked entry only after declaration succeeds.
+  /// Requires no existing render scene. Does not restore simulated time or dynamic state from
+  /// parking. Failure retains the parked entry but may partially change the Engine via declare().
+  /// Call on the Engine/video thread outside frames; setup costs and borrowing invalidation
+  /// follow declare(). Serialize with all Engine work.
+  /// @param name Exact parked name, borrowed only for this call.
+  /// @return Success or an owned active-scene, unknown-name or declaration error.
   [[nodiscard]] Result resume(std::string_view name);
+  /// Remove a parked declaration without changing the active scene or performing disk IO.
+  /// Serialize with Engine work. Erasing releases owned declaration storage and may move entries.
+  /// @param name Exact parked name, borrowed only for this call.
+  /// @return Success, or an owned unknown-name error with the parked set unchanged.
   [[nodiscard]] Result discard(std::string_view name);
+  /// Write declared instance.trait persistence rows for the assembled simulation.
+  /// Stores selected numeric traits and scenario name/version, not a complete world snapshot.
+  /// Synchronous, allocating IO; requires no embedded NUL in the path and serialized Engine
+  /// access. Validation and the 1 MiB output-size check precede opening the destination.
+  /// The destination is currently truncated directly: a write/close failure can destroy an
+  /// earlier save. Success does not promise crash durability. Transactional replacement is pending.
+  /// @param path Borrowed output path; no reference is retained.
+  /// @return Success or an owned missing-state/trait, size or IO error; simulation is unchanged.
   [[nodiscard]] Result save(std::string_view path) const;
+  /// Apply saved numeric traits to an already assembled matching scenario name/version.
+  /// Reads synchronously into owned storage; input byte limits are not yet enforced. Parses
+  /// finite values and validates staged trait rows before applying them. Parse/validation
+  /// errors preserve traits; a failure during final publication does not promise rollback.
+  /// Does not load assets, assemble a scenario or restore a complete world snapshot.
+  /// Serialize with all Engine work; borrowed simulation views may observe replaced traits.
+  /// @param path Borrowed input path without embedded NUL; not retained after this call.
+  /// @return Success or an owned IO, identity, parsing or trait-publication error.
   [[nodiscard]] Result restore(std::string_view path);
+  /// Copy parked declaration names in insertion order; no filesystem access.
+  /// Serialize with Engine mutations. Allocates an independent snapshot; later park/resume/
+  /// discard operations do not invalidate the returned strings.
+  /// @return Owned names of currently parked declarations, possibly empty.
   [[nodiscard]] std::vector<std::string> parked() const;
 
   /// Replace the process-wide borrowed diagnostic sink, or detach it with nullptr.

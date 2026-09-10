@@ -103,3 +103,11 @@ parkieren. resume ruft declare auf; ein Fehler kann die aktive Engine teilweise 
 der geparkte Eintrag bleibt dann erhalten. Vollständigen Zustandsvertrag herstellen.
 inspect kann über Stood lazy Renderaufbau auslösen; settled prüft nur Weltstreaming,
 keine allgemeine Renderbereitschaft. Öffentliche Dokumentation muss dies klar trennen.
+run() enthält weder Pacing noch Ereignisverarbeitung oder expliziten Abbruch, sondern
+eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbare Pfad;
+den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
+mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
+Facaden-Dokumentation am Code geprüft: 13 bisher undokumentierte Einstiege beschreiben
+Ownership, Threadbindung, Kosten und Teilfehler. Kein Doxygen-Befund mehr in Outshine.h;
+das ersetzt keine Architekturabnahme. Zeitschritt-/Parser-Regressionen grün. Abschluss-
+Lint: 182 tidy, 315 Dokumentationsdiagnosen, 32 Repository-Tests grün, drei rote Gruppen.
