@@ -79,7 +79,8 @@ class Network {
 public:
   Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
 
-  void Lay(std::span<const double> latLonPairs, const WayClass &of);
+  [[nodiscard]] std::expected<void, std::string_view> Lay(std::span<const double> latLonPairs,
+                                                          const WayClass &of);
   [[nodiscard]] size_t Cross();
   [[nodiscard]] bool Weave(std::string &error);
 

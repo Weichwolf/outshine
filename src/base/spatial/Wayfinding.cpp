@@ -29,6 +29,12 @@
 namespace outshine::Path {
 
 namespace Says {
+constexpr auto kInvalidWayCoordinates = "transport way contains invalid geographic coordinates";
+constexpr auto kInvalidWayPoints =
+    "a transport way requires at least two complete latitude/longitude pairs";
+constexpr auto kNetworkPointBudget = "transport network point budget exceeded";
+constexpr auto kInvalidWayProperties =
+    "transport way physical properties must be finite and nonnegative";
 constexpr auto kInvalidRouteCoordinates =
     "route coordinates must be finite with longitude in [-180,180] and latitude in [-90,90]";
 constexpr auto kInvalidTurnRadius = "minimum turn radius must be finite and nonnegative";
@@ -42,7 +48,7 @@ constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
 constexpr double kTenPercent = 0.10;
 constexpr double kThirtyPercent = 0.30;
 
-[[nodiscard]] bool ValidRouteCoordinates(LongitudeLatitude at) {
+[[nodiscard]] bool ValidCoordinates(LongitudeLatitude at) {
   return std::isfinite(at.LongitudeDeg) && std::isfinite(at.LatitudeDeg) &&
          std::abs(at.LongitudeDeg) <= kDegPerHalfTurn &&
          std::abs(at.LatitudeDeg) <= kDegPerHalfTurn / 2.0;
@@ -111,9 +117,30 @@ double ApartM(LongitudeLatitude from, LongitudeLatitude to, Sphere on) {
   return 2.0 * on.RadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
 }
 
-void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
+std::expected<void, std::string_view> Network::Lay(std::span<const double> latLonPairs,
+                                                   const WayClass &of) {
+  if (latLonPairs.size() < 4 || latLonPairs.size() % 2 != 0) {
+    return std::unexpected(Says::kInvalidWayPoints);
+  }
   const size_t points = latLonPairs.size() / 2;
-  if (points < 2) { return; }
+  if (points > kMaxNetworkPoints || Points_.size() / 2 > kMaxNetworkPoints - points) {
+    return std::unexpected(Says::kNetworkPointBudget);
+  }
+  for (size_t at = 0; at < points; ++at) {
+    if (!ValidCoordinates(
+            {.LongitudeDeg = latLonPairs[2 * at + 1], .LatitudeDeg = latLonPairs[2 * at]})) {
+      return std::unexpected(Says::kInvalidWayCoordinates);
+    }
+  }
+  for (const double value :
+       {of.HalfWidthM, of.MaxGradient, of.MinRadiusM, of.Friction, of.SpeedMps}) {
+    if (!std::isfinite(value) || value < 0.0) {
+      return std::unexpected(Says::kInvalidWayProperties);
+    }
+  }
+  if (of.Lanes < 0 || !std::isfinite(2.0 * of.HalfWidthM)) {
+    return std::unexpected(Says::kInvalidWayProperties);
+  }
   Way way;
   way.First = Points_.size() / 2;
   way.Count = points;
@@ -147,6 +174,7 @@ void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
     WayOf_.push_back(mine);
   }
   Woven_ = false;
+  return {};
 }
 
 Network::RowShape Network::ShapeRow(int64_t row) const {
@@ -1014,7 +1042,7 @@ Network::ComponentStatistics Network::WeakComponents() const {
 
 Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightestM) const {
   Route out;
-  if (!ValidRouteCoordinates(from) || !ValidRouteCoordinates(to)) {
+  if (!ValidCoordinates(from) || !ValidCoordinates(to)) {
     out.Error = Says::kInvalidRouteCoordinates;
     return out;
   }

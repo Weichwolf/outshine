@@ -20,8 +20,9 @@ int main() {
     Path::Network network({.CellM = 1}, {});
     const std::array<double, 6> main{0, 0, 0, 0.01, 0, 0.02};
     const std::array<double, 6> alternative{0, 0, sign * 0.0015, 0.009, sign * 0.003, 0.018};
-    network.Lay(main, {.HalfWidthM = 110, .Oneway = true});
-    network.Lay(alternative, {.Oneway = true});
+    CHECK(network.Lay(main, {.HalfWidthM = 110, .Oneway = true}).has_value(),
+          "valid transport way accepted");
+    CHECK(network.Lay(alternative, {.Oneway = true}).has_value(), "valid transport way accepted");
     std::string error;
     CHECK(network.Weave(error), "two direct routes with non-goal continuations build");
     CHECK(network.NodeCount() == 5 && network.TiedToEdges() == 0,

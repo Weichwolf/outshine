@@ -17,9 +17,12 @@ void CheckSplice(bool reverseRoad, bool outwardSpur, bool oneWay) {
                                                  : std::array<double, 4>{-0.01, 0.01, 0, 0.01};
   const std::array<double, 4> anchor{-0.01, 0.02, 0, 0.02};
   Path::Network network({.CellM = 1}, {});
-  network.Lay(road, {.HalfWidthM = 1, .Oneway = oneWay});
-  network.Lay(spur, {.HalfWidthM = 1, .Oneway = true});
-  network.Lay(anchor, {.HalfWidthM = 1, .Oneway = true});
+  CHECK(network.Lay(road, {.HalfWidthM = 1, .Oneway = oneWay}).has_value(),
+        "valid transport way accepted");
+  CHECK(network.Lay(spur, {.HalfWidthM = 1, .Oneway = true}).has_value(),
+        "valid transport way accepted");
+  CHECK(network.Lay(anchor, {.HalfWidthM = 1, .Oneway = true}).has_value(),
+        "valid transport way accepted");
   std::string error;
   CHECK(network.Weave(error), "directed branch graph builds");
   CHECK(network.TiedToEdges() == 1, "physical loose endpoint splices even with no outgoing edge");
@@ -46,7 +49,7 @@ int main() {
   const LongitudeLatitude east{.LongitudeDeg = 0.01, .LatitudeDeg = 0};
   for (const bool oneWay : {false, true}) {
     Path::Network network({.CellM = 1}, {});
-    network.Lay(points, {.Oneway = oneWay});
+    CHECK(network.Lay(points, {.Oneway = oneWay}).has_value(), "valid transport way accepted");
     std::string error;
     CHECK(network.Weave(error), "two-node transport network builds");
     CHECK(network.Plan(west, east, 0).Found, "forward travel is permitted");

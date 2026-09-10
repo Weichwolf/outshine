@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_ROAD_CORRIDORS_H
 
 #include <array>
+#include <expected>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -207,9 +208,10 @@ private:
   static void TrimLaneEnds(const Edge &edge, Paved &into);
   static void FitLane(const Edge &edge, Paved &into);
 
-  static void LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
-                                  std::span<const double> points,
-                                  Path::Network &net);
+  [[nodiscard]] static std::expected<void, std::string_view>
+  LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
+                      std::span<const double> points,
+                      Path::Network &net);
   static void
   FileCrossing(const Path::Network::Crossing &one, const TangentFrame &standing, Paved &into);
   static void RaiseDeckOver(const Path::Network::Crossing &one,

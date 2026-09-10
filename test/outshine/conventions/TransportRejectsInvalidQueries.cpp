@@ -9,7 +9,7 @@ int main() {
   using namespace outshine::Test;
   Path::Network network({.CellM = 1}, {});
   const std::array<double, 4> line{0, 0, 0, 0.01};
-  network.Lay(line, {});
+  CHECK(network.Lay(line, {}).has_value(), "valid transport way accepted");
   std::string error;
   CHECK(network.Weave(error), "valid network builds");
   const LongitudeLatitude start{.LongitudeDeg = 0, .LatitudeDeg = 0};

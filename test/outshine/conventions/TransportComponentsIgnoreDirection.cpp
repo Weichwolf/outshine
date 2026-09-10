@@ -23,7 +23,7 @@ int main() {
         std::swap(way[0], way[2]);
         std::swap(way[1], way[3]);
       }
-      network.Lay(way, {.Oneway = true});
+      CHECK(network.Lay(way, {.Oneway = true}).has_value(), "valid transport way accepted");
     }
     std::string error;
     CHECK(network.Weave(error), "directed fixture with three physical components builds");

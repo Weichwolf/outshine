@@ -3,6 +3,7 @@
 #include <generation/Generate.h>
 
 #include <algorithm>
+#include <expected>
 #include <array>
 #include <chrono>
 #include <memory>
@@ -39,6 +40,11 @@
 #include "spatial/Refine.h"
 
 namespace outshine::Generators {
+
+namespace Says {
+constexpr auto kInvalidTransportPointRange =
+    "transport way point range exceeds the supplied coordinate stream";
+}
 
 namespace {
 
@@ -551,7 +557,10 @@ Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
   if (vectors == nullptr) { return made; }
   auto net = std::make_shared<Path::Network>(Path::Snap{.CellM = kNodeSnapM},
                                              Path::Sphere{.RadiusM = kWgs84A});
-  LayLanesIntoNetwork(stack.Ways(), vectors->Points(), *net);
+  if (const auto laid = LayLanesIntoNetwork(stack.Ways(), vectors->Points(), *net); !laid) {
+    made.Refusal = laid.error();
+    return made;
+  }
   made.Ways = net->WayCount();
   if (made.Ways > 0 && !net->Weave(made.Refusal)) { return made; }
   made.Nodes = net->NodeCount();
@@ -563,29 +572,32 @@ Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
   return made;
 }
 
-void Corridors::LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
-                                    std::span<const double> points,
-                                    Path::Network &net) {
+std::expected<void, std::string_view> Corridors::LayLanesIntoNetwork(
+    const outshine::Ground::StreetField &ways, std::span<const double> points, Path::Network &net) {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const outshine::Ground::StreetField::Way &lane = ways.Ways()[at];
     if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
       continue;
     }
     const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
-    if (first + static_cast<size_t>(lane.PointCount) * 2 > points.size()) { continue; }
-    net.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
-            Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),
-                           .MaxGradient = 0.0,
-                           .MinRadiusM = 0.0,
-                           .Friction = 0.0,
-                           .SpeedMps = static_cast<double>(lane.SpeedMps),
-                           .Lanes = lane.Lanes,
-                           .Priority = lane.Priority,
-                           .Oneway = lane.Oneway,
-                           .Sealed = lane.Sealed,
-                           .Spans = lane.Bridge,
-                           .Tag = at});
+    if (first > points.size() || lane.PointCount > (points.size() - first) / 2) {
+      return std::unexpected(Says::kInvalidTransportPointRange);
+    }
+    const auto laid = net.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
+                              Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),
+                                             .MaxGradient = 0.0,
+                                             .MinRadiusM = 0.0,
+                                             .Friction = 0.0,
+                                             .SpeedMps = static_cast<double>(lane.SpeedMps),
+                                             .Lanes = lane.Lanes,
+                                             .Priority = lane.Priority,
+                                             .Oneway = lane.Oneway,
+                                             .Sealed = lane.Sealed,
+                                             .Spans = lane.Bridge,
+                                             .Tag = at});
+    if (!laid) { return laid; }
   }
+  return {};
 }
 
 void Corridors::FileCrossing(const Path::Network::Crossing &one,
