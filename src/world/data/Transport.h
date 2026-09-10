@@ -15,21 +15,39 @@ enum class Ticket : uint64_t { None = 0 };
 
 class Wire {
 public:
-  enum class State { Working, Answered, Unreachable, Never };
+  enum class State { Working, Answered, Unreachable, Never, Consumed };
 
-  static Wire Working() { return {State::Working, 0, {}, 0.0}; }
+  Wire(const Wire &) = delete;
+  Wire &operator=(const Wire &) = delete;
 
-  static Wire Answered(int status, std::vector<uint8_t> body) {
+  Wire(Wire &&other) noexcept
+      : Where_(std::exchange(other.Where_, State::Consumed)),
+        Status_(std::exchange(other.Status_, 0)),
+        Body_(std::move(other.Body_)),
+        RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)) {}
+
+  Wire &operator=(Wire &&other) noexcept {
+    if (this == &other) { return *this; }
+    Where_ = std::exchange(other.Where_, State::Consumed);
+    Status_ = std::exchange(other.Status_, 0);
+    Body_ = std::move(other.Body_);
+    RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
+    return *this;
+  }
+
+  [[nodiscard]] static Wire Working() { return {State::Working, 0, {}, 0.0}; }
+
+  [[nodiscard]] static Wire Answered(int status, std::vector<uint8_t> body) {
     return {State::Answered, status, std::move(body), 0.0};
   }
 
-  static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
+  [[nodiscard]] static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
     return {State::Answered, status, std::move(body), retryAfterS};
   }
 
-  static Wire Unreachable() { return {State::Unreachable, 0, {}, 0.0}; }
+  [[nodiscard]] static Wire Unreachable() { return {State::Unreachable, 0, {}, 0.0}; }
 
-  static Wire Never() { return {State::Never, 0, {}, 0.0}; }
+  [[nodiscard]] static Wire Never() { return {State::Never, 0, {}, 0.0}; }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 
@@ -42,6 +60,7 @@ public:
 
   [[nodiscard]] std::optional<Response> Take() {
     if (Where_ != State::Answered) { return std::nullopt; }
+    Where_ = State::Consumed;
     return Response{.Status = Status_, .Body = std::move(Body_)};
   }
 

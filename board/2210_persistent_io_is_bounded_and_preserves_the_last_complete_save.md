@@ -39,13 +39,14 @@ haben einen Besitzer und explizite Zustände; keine leeren Zweitlieferungen als 
 - Restore-Namensauflösung profilieren; Persistenzschema und vollständiger Savegame-Zustand
   bleiben Aufgaben von 2131/2141. Der Deklarationswriter ist noch kein kompletter Savegame-Pfad.
 
-## Nächster Schritt: einmalige Antwortübergabe
-Wire, Fetched und Delivery bekommen einen expliziten Consumed-Zustand. Take liefert
+## Einmalige Antwortübergabe
+Wire, Fetched und Delivery haben einen expliziten Consumed-Zustand. Take liefert
 Payload genau einmal; Move überträgt Besitz und konsumiert die Quelle. Kopieren verbieten,
 Move noexcept; Metadaten nach Take bleiben lesbar für die bestehende Retry-Auswertung.
 Consumer behandeln konsumierte Antworten als Fehler. TilePool übernimmt den Byte-Vektor
 per Move statt ihn nochmals zu kopieren. Keine neuen Frame-Allokationen.
-Negativkontrolle: mehrfaches Take und Take am verschobenen Objekt scheitern im Altstand.
+Negativkontrolle: Altstand verletzt die Take-/Move-Verträge; zurückgesetzte TilePool-Kopie
+verletzt den Allokationsnachweis. Vier Regressionen bestehen, Cache bleibt unabhängig.
 Tests prüfen Move-Konstruktion/-Zuweisung, Bytes/Metadaten, leere Antworten und Retry.
 
 ## Abnahme
@@ -54,6 +55,7 @@ Tests prüfen Move-Konstruktion/-Zuweisung, Bytes/Metadaten, leere Antworten und
 - [x] Restore-Batch mit spätem Fehler erhält alle Traits; Negativkontrolle erkennt Teilpublikation.
 - [x] XML-Tag-/Bytegrenzen, Reader- und Szenario-Erhaltung durch unabhängige Fixtures geprüft.
 - [x] Quellantwort-Negativkontrolle erkennt den zweiten Aufruf nach ungültigem Meaning.
-- [ ] Antwortbesitz und Endzustände vollständig; einmaliger Verbrauch nachweisbar.
+- [x] Wire/Fetched/Delivery nur verschiebbar; einmaliger Take-Verbrauch und Puffertransfer geprüft.
+- [ ] SourceSet-Query-Endzustände vollständig.
 - [ ] IO-, Parser-, Speicher- und Zeitbudgets vollständig durch Tests erzwungen.
 - [ ] make lint einschließlich clang-tidy grün; neue fachliche Schritte mit Regressionen.

@@ -259,8 +259,8 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
     Data::Delivery answer = Sources_.Collect(query, Wire_);
     pollMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    if (const std::optional<Data::Delivery::Answer> taken = answer.Take()) {
-      out->Bytes.assign(taken->Bytes.begin(), taken->Bytes.end());
+    if (std::optional<Data::Delivery::Answer> taken = answer.Take()) {
+      out->Bytes = std::move(taken->Bytes);
       out->At = taken->At;
       Remember(key, out->Bytes.data(), out->Bytes.size(), taken->At, false);
       reply = Reply::Ready;
@@ -278,6 +278,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
         Log::Error(LogTag::World, "tile_undeclared", {{"request", key}});
         reply = Reply::Undeclared;
         break;
+      case Data::Delivery::State::Consumed:
       case Data::Delivery::State::Refused:
         RefuseUntil(key, Wire_.NowMs() + answer.AfterMs());
         Log::Error(LogTag::World, "tile_refused", {{"request", key}});

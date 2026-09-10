@@ -12,19 +12,37 @@ enum class Meaning : uint8_t { Bytes, Absent, Refused, Retry };
 
 class Fetched {
 public:
-  enum class State { Working, Settled };
+  enum class State { Working, Settled, Consumed };
 
-  static Fetched Working() { return {State::Working, Meaning::Retry, {}}; }
+  Fetched(const Fetched &) = delete;
+  Fetched &operator=(const Fetched &) = delete;
 
-  static Fetched Meant(Meaning what) { return {State::Settled, what, {}}; }
+  Fetched(Fetched &&other) noexcept
+      : Where_(std::exchange(other.Where_, State::Consumed)),
+        What_(std::exchange(other.What_, Meaning::Refused)),
+        Bytes_(std::move(other.Bytes_)),
+        RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)) {}
 
-  static Fetched MeantAfter(Meaning what, double retryAfterS) {
+  Fetched &operator=(Fetched &&other) noexcept {
+    if (this == &other) { return *this; }
+    Where_ = std::exchange(other.Where_, State::Consumed);
+    What_ = std::exchange(other.What_, Meaning::Refused);
+    Bytes_ = std::move(other.Bytes_);
+    RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
+    return *this;
+  }
+
+  [[nodiscard]] static Fetched Working() { return {State::Working, Meaning::Retry, {}}; }
+
+  [[nodiscard]] static Fetched Meant(Meaning what) { return {State::Settled, what, {}}; }
+
+  [[nodiscard]] static Fetched MeantAfter(Meaning what, double retryAfterS) {
     Fetched made(State::Settled, what, {});
     made.RetryAfterS_ = retryAfterS;
     return made;
   }
 
-  static Fetched Delivered(std::vector<uint8_t> bytes) {
+  [[nodiscard]] static Fetched Delivered(std::vector<uint8_t> bytes) {
     return {State::Settled, Meaning::Bytes, std::move(bytes)};
   }
 
@@ -39,6 +57,7 @@ public:
 
   [[nodiscard]] std::optional<Settled> Take() {
     if (Where_ != State::Settled) { return std::nullopt; }
+    Where_ = State::Consumed;
     return Settled{.What = What_, .Bytes = std::move(Bytes_)};
   }
 

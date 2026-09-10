@@ -12,7 +12,23 @@ namespace outshine::Data {
 
 class Delivery {
 public:
-  enum class State { Delivered, Pending, Vacant, Undeclared, Refused };
+  enum class State { Delivered, Pending, Vacant, Undeclared, Refused, Consumed };
+
+  Delivery(const Delivery &) = delete;
+  Delivery &operator=(const Delivery &) = delete;
+
+  Delivery(Delivery &&other) noexcept
+      : Where_(std::exchange(other.Where_, State::Consumed)),
+        AfterMs_(std::exchange(other.AfterMs_, 0.0)),
+        Answer_(std::move(other.Answer_)) {}
+
+  Delivery &operator=(Delivery &&other) noexcept {
+    if (this == &other) { return *this; }
+    Where_ = std::exchange(other.Where_, State::Consumed);
+    AfterMs_ = std::exchange(other.AfterMs_, 0.0);
+    Answer_ = std::move(other.Answer_);
+    return *this;
+  }
 
   struct Answer {
     std::string SourceId;
@@ -20,7 +36,7 @@ public:
     std::vector<uint8_t> Bytes;
   };
 
-  static Delivery From(std::string sourceId, Address at, std::vector<uint8_t> bytes) {
+  [[nodiscard]] static Delivery From(std::string sourceId, Address at, std::vector<uint8_t> bytes) {
     Delivery d(State::Delivered);
     d.Answer_.SourceId = std::move(sourceId);
     d.Answer_.At = at;
@@ -28,15 +44,15 @@ public:
     return d;
   }
 
-  static Delivery Waiting() { return Delivery(State::Pending); }
+  [[nodiscard]] static Delivery Waiting() { return Delivery(State::Pending); }
 
-  static Delivery Nothing() { return Delivery(State::Vacant); }
+  [[nodiscard]] static Delivery Nothing() { return Delivery(State::Vacant); }
 
-  static Delivery NoSource() { return Delivery(State::Undeclared); }
+  [[nodiscard]] static Delivery NoSource() { return Delivery(State::Undeclared); }
 
-  static Delivery Wire() { return Delivery(State::Refused); }
+  [[nodiscard]] static Delivery Wire() { return Delivery(State::Refused); }
 
-  static Delivery WireAfter(double afterMs) {
+  [[nodiscard]] static Delivery WireAfter(double afterMs) {
     Delivery d(State::Refused);
     d.AfterMs_ = afterMs > 0.0 ? afterMs : 0.0;
     return d;
@@ -48,6 +64,7 @@ public:
 
   [[nodiscard]] std::optional<Answer> Take() {
     if (Where_ != State::Delivered) { return std::nullopt; }
+    Where_ = State::Consumed;
     return std::move(Answer_);
   }
 

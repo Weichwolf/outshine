@@ -26,7 +26,7 @@ public:
 class ScriptedSource final : public Source {
 public:
   SourceDecl Decl;
-  std::vector<Fetched> Answers;
+  mutable std::vector<Fetched> Answers;
   mutable size_t Calls = 0;
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
@@ -41,16 +41,17 @@ public:
 
   Fetched Collect(const Address &, Ticket, Transport &) const override {
     const size_t at = Calls++;
-    return at < Answers.size() ? Answers[at] : Fetched::Meant(Meaning::Refused);
+    return at < Answers.size() ? std::move(Answers[at]) : Fetched::Meant(Meaning::Refused);
   }
 };
 
-auto SourceWith(std::string name, Rank order, std::vector<Fetched> answers) {
+template <class... Answers> auto SourceWith(std::string name, Rank order, Answers &&...answers) {
   auto source = std::make_unique<ScriptedSource>();
   source->Decl.Id = std::move(name);
   source->Decl.Order = order;
   source->Decl.Keeps = Cacheability::Never;
-  source->Answers = std::move(answers);
+  source->Answers.reserve(sizeof...(Answers));
+  (source->Answers.push_back(std::forward<Answers>(answers)), ...);
   return source;
 }
 }
@@ -62,7 +63,7 @@ int main() {
   ClockTransport transport;
   {
     SourceSet sources(store);
-    auto source = SourceWith("invalid", Rank{0}, {Fetched::Meant(static_cast<Meaning>(255))});
+    auto source = SourceWith("invalid", Rank{0}, Fetched::Meant(static_cast<Meaning>(255)));
     const auto *probe = source.get();
     CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "source registered");
     auto query = sources.Ask(request);
@@ -73,10 +74,10 @@ int main() {
   }
   {
     SourceSet sources(store);
-    CHECK(sources.Add(SourceWith("absent", Rank{0}, {Fetched::Meant(Meaning::Absent)})) ==
+    CHECK(sources.Add(SourceWith("absent", Rank{0}, Fetched::Meant(Meaning::Absent))) ==
               SourceSet::Registration::Accepted,
           "first source registered");
-    CHECK(sources.Add(SourceWith("bytes", Rank{1}, {Fetched::Delivered({1, 2, 3})})) ==
+    CHECK(sources.Add(SourceWith("bytes", Rank{1}, Fetched::Delivered({1, 2, 3}))) ==
               SourceSet::Registration::Accepted,
           "fallback source registered");
     auto query = sources.Ask(request);
@@ -91,10 +92,11 @@ int main() {
   }
   {
     SourceSet sources(store);
-    auto source = SourceWith(
-        "retry",
-        Rank{0},
-        {Fetched::Working(), Fetched::MeantAfter(Meaning::Retry, 0.5), Fetched::Delivered({4})});
+    auto source = SourceWith("retry",
+                             Rank{0},
+                             Fetched::Working(),
+                             Fetched::MeantAfter(Meaning::Retry, 0.5),
+                             Fetched::Delivered({4}));
     source->Decl.RetryBudget = 1;
     const auto *probe = source.get();
     CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted,
@@ -118,7 +120,7 @@ int main() {
   }
   {
     SourceSet sources(store);
-    CHECK(sources.Add(SourceWith("refused", Rank{0}, {Fetched::Meant(Meaning::Retry)})) ==
+    CHECK(sources.Add(SourceWith("refused", Rank{0}, Fetched::Meant(Meaning::Retry))) ==
               SourceSet::Registration::Accepted,
           "zero retry budget registered");
     auto query = sources.Ask(request);
@@ -128,7 +130,7 @@ int main() {
   }
   {
     SourceSet sources(store);
-    CHECK(sources.Add(SourceWith("pending", Rank{0}, {Fetched::Working()})) ==
+    CHECK(sources.Add(SourceWith("pending", Rank{0}, Fetched::Working())) ==
               SourceSet::Registration::Accepted,
           "pending source registered");
     auto query = sources.Ask(request);
