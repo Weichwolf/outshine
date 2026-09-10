@@ -97,3 +97,11 @@ Abnahme: äquivalente Code-/Szenario-/glTF-Inhalte erzeugen gleiche native Seman
 identische native Defekte werden über alle drei Pfade abgelehnt. Später Importfehler
 erhält vorhandene Welt. Szenario-Reader/Writer erhalten alle unterstützten statischen
 Deklarationen im Roundtrip; Laufzeithandles/Savegame-Zustand sind kein Importformat.
+
+## Roundtrip-Client
+Vor Implementierung: Roundtrip-Prüfung aus main in eigene Client-Komponente verschieben.
+Engine-Aufrufe bleiben öffentlich; vorhandenes WriteFileAtomically prüft Schreiben/Close
+und erhält alte Dateien bei IO-Fehlern. Pro-Szenario-Prüfung liefert expected<Bytes,Fehler>,
+CLI zählt Ergebnisse getrennt. Test: gültiger Export und ungültiges Ziel, plus vorhandene
+Short-Write-Negativkontrolle des gemeinsamen IO-Helfers. Keine Aussage über verlorene
+Sektionen aus Selbstvergleich ableiten. Gemeinsamer CLI-Scratchpfad bleibt noch zu isolieren.
