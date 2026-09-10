@@ -84,3 +84,14 @@ Ergebnisvertrag geprüft: zehn MVT-Läufe normal/sanitisiert grün. Mutant, der 
 Fehler als MissingLayer meldet, scheitert in beiden Varianten ohne Buildfehler.
 Lint unverändert 184/330, 32 Repository-Tests grün; drei rote Gruppen. Keine neuen
 Bildregeln; frühere Wien-Abnahme bleibt Regression des vorherigen Header-Schritts.
+
+## Native Annahme
+Alle angeforderten Ebenen zunächst als besitzende Formatprodukte dekodieren. Eine
+beschädigte spätere Ebene verwirft die Kachel, bevor native Pools oder Settled mutieren.
+Fehlende Ebenen sind zulässig; Diagnosezähler getrennt von veröffentlichten Weltdaten.
+Native Ebenenübernahme als eigene Zuständigkeit extrahieren; Accept/AddTile liefern
+expected und Build propagiert Fehler, statt fehlerhafte Kacheln als erledigt zu markieren.
+Bereits vorher erfolgreich angenommene Kacheln bleiben erhalten; kein Gesamt-Build-Rollback.
+Direkte Accept-Fixtures mit gültiger erster/defekter zweiter Ebene, Wiederholung nach
+Korrektur, fehlenden Ebenen und bestehenden Daten müssen alt scheitern und neu bestehen.
+Kumulative Native-Indexgrenzen, Projektionsgrenzen und Allokationsbudgets bleiben separat offen.
