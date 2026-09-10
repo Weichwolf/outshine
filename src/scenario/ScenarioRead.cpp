@@ -8,6 +8,8 @@
 #include <cmath>
 #include "ScenarioRead.h"
 #include "AssetValidation.h"
+#include "CompositorValidation.h"
+#include "Number.h"
 #include "ReadScenarioOsm.h"
 
 #include <scenario/Scenario.h>
@@ -450,9 +452,20 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
   for (const Xml::Ref one : compositors.Children("compositor")) {
     Scenario::Compositor made;
     made.Kind = one.Attr("kind");
-    made.BudgetPx = one.Num("budgetPx", 0.0);
+    if (const auto text = one.Said("budgetPx")) {
+      const auto budget = ParseFiniteNumber(*text);
+      if (!budget) {
+        error = Says::InvalidCompositor;
+        return false;
+      }
+      made.BudgetPx = *budget;
+    }
     made.On = one.Flag("on", true);
     into.Compositors.push_back(made);
+  }
+  if (const auto valid = ValidateCompositors(into.Compositors); !valid) {
+    error = valid.error();
+    return false;
   }
   return true;
 }

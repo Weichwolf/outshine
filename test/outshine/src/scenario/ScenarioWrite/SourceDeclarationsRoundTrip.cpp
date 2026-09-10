@@ -3,6 +3,7 @@
 #include "Check.h"
 #include <limits>
 #include <string>
+#include <string_view>
 
 int main() {
   using namespace outshine;
@@ -43,5 +44,22 @@ int main() {
             "compositor order and all fields preserved");
     }
   }
+  for (const double invalid :
+       {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+    auto candidate = source;
+    candidate.Compositors.front().BudgetPx = invalid;
+    CHECK(!WriteScenario(candidate), "export rejects invalid compositor budget");
+  }
+  for (const std::string_view budget : {"-1", "nan", "inf", "1e999", "1junk", "", " 1"}) {
+    const std::string invalid = "<scenario><compositors><compositor kind='bad' budgetPx='" +
+                                std::string(budget) + "'/></compositors></scenario>";
+    CHECK(!ReadScenario(invalid.data(), invalid.size(), copy, error),
+          "import rejects invalid budget token");
+    CHECK(copy.Compositors.size() == source.Compositors.size() &&
+              copy.Compositors.front().BudgetPx == source.Compositors.front().BudgetPx,
+          "invalid import preserves previous compositor list");
+  }
+  CHECK(ReadScenario(text->data(), text->size(), copy, error) && error.empty(),
+        "valid import retry succeeds");
   return Report();
 }

@@ -3,6 +3,7 @@
 #include <cmath>
 #include "ScenarioWrite.h"
 #include "AssetValidation.h"
+#include "CompositorValidation.h"
 #include "OsmValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
@@ -195,6 +196,9 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {
+  if (const auto valid = ValidateCompositors(scenario.Compositors); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   for (const auto &asset : scenario.Assets) {
     const auto valid = ValidateAssetPlayback(asset);
     if (!valid) { return std::unexpected(std::string(valid.error())); }

@@ -241,12 +241,14 @@ struct Generating {
 };
 
 /// Owned compositor request, preserved by import/export but not executed by the runtime.
-/// Copying Kind may allocate; mutation requires exclusive access. No registration,
-/// budget validation or resource reservation is performed by this descriptor.
+/// Copying Kind may allocate; mutation requires exclusive access. Import, declare and
+/// export require a nonempty Kind and finite nonnegative BudgetPx, including when disabled.
+/// Validation reserves no resources and does not instantiate a compositor.
 struct Compositor {
   /// Exact requested compositor category; layer merging replaces the first matching Kind.
   std::string Kind;
-  /// Requested pixel budget metadata; no interpretation or enforcement is implemented yet.
+  /// Finite nonnegative pixel budget metadata; zero is accepted. Runtime enforcement
+  /// is not implemented. XML requires a complete number token; omitted selects zero.
   double BudgetPx = 0.0;
   /// Requested enable state; false is retained but has no runtime effect yet.
   bool On = true;

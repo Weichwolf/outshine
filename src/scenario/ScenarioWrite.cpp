@@ -1,6 +1,7 @@
 #include <span>
 #include "ScenarioWrite.h"
 #include "Tables.h"
+#include "CompositorValidation.h"
 #include <utility>
 
 #include <expected>
@@ -347,6 +348,9 @@ void WriteGenerators(std::string &said, std::span<const Scenario::Generating> ge
 }
 
 std::expected<std::string, std::string> WriteScenario(const Scenario::Document &declared) {
+  if (const auto valid = ValidateCompositors(declared.Compositors); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   if (auto tables = TableBook::Stand(declared.Tables); !tables) {
     return std::unexpected(std::move(tables.error()));
   }

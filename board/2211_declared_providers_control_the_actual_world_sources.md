@@ -43,7 +43,7 @@ Compositor-On als kanonisches true/false schreiben, unabhängig vom offenen yes/
 Diese Erhaltung ersetzt weder Provider-Registry noch Compositor-Implementierung.
 Abnahme: Reader/Writer-Fixture mit mehreren Einträgen, Escaping, Rangextrema, bool
 und endlichen Pixelbudgets; Altwriter scheitert am Inhaltsvergleich. Fünf Regressionen grün.
-Offen: gemeinsame numerische Validierung, insbesondere nichtendliche Compositor-Budgets.
+Gemeinsame Compositor-Wertevalidierung siehe unten; Registry-/Runtime-Wirkung bleibt offen.
 
 ## Rang-Import
 Provider::Rank wird direkt als vollständiger dezimaler int-Token geparst; optionales
@@ -56,4 +56,5 @@ BudgetPx endlich und nichtnegativ; Kategorie nicht leer. Einen allokationsfreien
 Validator in Reader, Engine::declare und Writer verwenden. XML-Zahlentoken vollständig
 parsen. Ungültige Deklaration erhält vorherigen Zustand; Export liefert Fehler statt
 kaputtem XML. Gültige Null/Bruchwerte bleiben erhalten, unabhängig von On.
-Runtime-Implementierung bleibt offen; Wertevalidierung behauptet keine Ausführung.
+Public-API-Negativkontrolle bestätigt. Runtime-Implementierung bleibt offen;
+Wertevalidierung behauptet keine Ausführung. Import-/Export-Negativfälle und Retry geprüft.
