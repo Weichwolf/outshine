@@ -1,5 +1,36 @@
 # outshine
 
+## Effiziente Entwicklung
+
+Ziel ist nachgewiesener Fortschritt pro Token. Zusammengehörige Änderungen bündeln,
+gezielt lesen und bereits geprüften Kontext nicht wiederholt vollständig laden.
+Lokale Skripte übernehmen reproduzierbare Berechnungen und verdichten Ergebnisse;
+nur relevante Fehler, Gegenbeispiele und Messwerte in den Modellkontext übernehmen.
+CPU-Zeit für Erkenntnis einsetzen, keine Beschäftigungsrechnungen erzeugen.
+
+- Geometrie und Import: deterministisches Fuzzing, Invarianten und automatische
+  Minimierung fehlerhafter Eingaben.
+- Simulation: Driving, Flying und Walking über reproduzierbare Manöver prüfen;
+  Navigation gegen unabhängige Referenzsolver, Regelung und Bewegungsparameter
+  über numerische Versuchsreihen optimieren. Kollision, Stabilität, physikalische
+  Grenzen, Determinismus und Laufzeit sind eigenständige Abnahmekriterien.
+- OSM-Heuristik: Geländeanschluss, Trassierung, Brücken, Tunnel und Knoten über
+  explizite bauliche Nebenbedingungen und messbare Fehler kalibrieren. Logisches
+  Verkehrsnetz und Darstellungsgeometrie getrennt prüfen. Fehlende reale Daten
+  bleiben Unsicherheit; Generatoren erzeugen plausible Welten, keinen Weltzustand.
+- Rendering und Streaming: Bildfehler, Framezeitverteilung, Speicher und Uploadkosten
+  automatisch auswerten; Batchgrößen, LOD und Budgets anhand reproduzierbarer
+  Messreihen wählen. Relevante PNGs weiterhin selbst visuell beurteilen.
+- Vor Optimierung Zielfunktion, Nebenbedingungen und Kostenbudget festlegen.
+  Kalibrierungsfälle von unabhängigen Abnahmefällen trennen; keine Testspezialisierung.
+  Seeds, Parameter und Gegenbeispiele reproduzierbar halten. Lange Läufe nur, wenn
+  ihr erwarteter Erkenntnisgewinn den Aufwand rechtfertigt; Abbruchgrenzen setzen.
+
+Lint, clang-tidy, sinnvolle Tests und Negativkontrollen bleiben Pflicht.
+Logs ins System-Tempverzeichnis. Erfolgreiche Prüfungen erst bei relevanten Änderungen
+oder neuen Befunden wiederholen. Das Wochenkontingent ist über die derzeit verfügbaren
+Agent-Tools nicht abfragbar; Goal-Tokenzahlen nicht als Restkontingent ausgeben.
+
 **A high-performance OPEN-WORLD game engine at RAGE/Unreal level, in C++23, whose world is the real
 EARTH: a digital elevation model under OpenStreetMap's vectors, streamed around a moving camera.**
 The development platform **is** the target: Apple A18 Pro — 2P+4E cores, 5 GPU cores, 8 GB —
