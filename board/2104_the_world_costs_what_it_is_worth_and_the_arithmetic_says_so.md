@@ -97,20 +97,23 @@ alte Konvertierung scheitert ohne Buildfehler. Drei gezielte Tests grün. Höhe 
 OsmField verwendet diese Grundlage mit engerem signed-Index-Vertrag, siehe unten.
 
 ## Fehlerweitergabe der OSM-Position
-Build und geodätisches Declare nutzen denselben geprüften TileIndex über Locate.
-OsmField hält signed int-Indizes: Zoom höchstens numeric_limits<int>::digits;
-uint32-Zoom 32 bleibt im allgemeinen TileIndex gültig, nicht in diesem Speicherlayout.
-expected trägt Positionsfehler durch ClassField/GroundStack bis Engine preload/update.
-Beide Klassifikationsstufen und Vektorfeld vor Mutation gemeinsam prüfen; ungültige
-Position darf Generation, Daten, Zähler oder Stand nicht verändern. Keine Aussage
-über Allokations-Rollback. Open prüft Position vor Close. Build darf ungültige Position
-nicht als erfolgreich leeren Stream melden. Tile-Ring-Budget bleibt gesondert offen.
-Prüfung: NaN/Inf/Band/Zoom, analytische Datumsgrenze, vorhandenen Inhalt bei Fehler
-erhalten, gültige Wiederholung, drei OSM-Regressionen und Wien-PNG. Gegenprobe mit
-alter geodätischer Projektion; Signaturänderung allein ist kein Fehlernachweis.
-Vier gezielte Tests grün; alter Declare-Rechenweg scheitert an 36/77 Checks ohne
-Buildfehler, danach korrigierte Fassung erneut grün. Klassifikations-/Stack-Test prüft
-Ablehnung ohne aktive Provider; kompletter laufender Stream-Rollback nicht belegt.
-Wien c307cab8 bytegleich zur gesicherten Referenz, PNG geöffnet; Bild-SOLL bleibt offen.
-Abschluss-Lint: 185 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
-drei Gruppen bleiben rot. Prüfung umfasst den Arbeitsbaum mit bestehendem WIP.
+Build/Declare teilen Locate: kanonische Winkel, Mercatorband, signed-kompatibler Zoom.
+expected reicht Fehler durch ClassField/GroundStack bis zur Engine. Vorprüfung vor
+Mutation aller beteiligten Felder; Open prüft vor Close. Vier Tests grün, alte Formel
+scheitert an 36/77 Checks. Wien bytegleich und geöffnet. Kein Allokations-Rollback;
+Test der Ablehnung in ClassField/Stack ohne aktive Provider. Nachweise in Git.
+
+## Aktiver Schritt: begrenzter Kachelbesuch
+Build iteriert bisher das ungeprüfte Quadrat [-radius,+radius], auch außerhalb der
+Welt. Negative Radien erscheinen erfolgreich, INT_MIN negiert undefiniert, INT_MAX
+kann Schleifen überlaufen lassen. Keine explizite Grenze für Kachelbesuche.
+Build erhält ein erforderliches Besuchsbudget. Erst Position/Radius prüfen, Fenster
+in int64 auf die Welt schneiden, dann Anzahl in uint64 vor Mutation gegen Budget
+und int-Zählerkapazität prüfen. Ablehnung per expected; nie teilweise abschneiden.
+Innere Schleifen laufen ausschließlich über gültige Kacheln. GroundStack setzt
+(2*3+1)^2=49, Klassifikation je (2*1+1)^2=9 als bestehende Reichweitenbudgets.
+Das begrenzt Besuche, nicht Decodierzeit, Bytes oder lineare Settled-Suche. Eviction
+und resumierbare Decode-/Bytebudgets bleiben offen. Reihenfolge gültiger Kacheln bleibt.
+Tests: negative/extreme Radien, Budget knapp unter/exakt benötigter Anzahl, Zustand
+bei Ablehnung, ganzes Zoom-0-Raster mit riesigem Radius, Ränder und Wiederholung.
+Gegenprobe deaktiviert Budgetablehnung; Wien-PNG und Lint prüfen Integration.
