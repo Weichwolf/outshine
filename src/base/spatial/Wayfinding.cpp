@@ -29,6 +29,8 @@
 namespace outshine::Path {
 
 namespace Says {
+constexpr auto kSearchCostOverflow =
+    "route search encountered costs outside the finite metre range";
 constexpr auto kRouteLegBudget = "route exceeds the configured leg budget";
 constexpr auto kRouteLengthOverflow = "route length exceeds finite metre range";
 constexpr auto kUnbuiltNetwork = "transport network must be rebuilt after source changes";
@@ -1098,6 +1100,138 @@ bool Network::LocalTurnAllowsRadius(const Edge &incoming,
   return minimumRadiusM <= availableM / std::tan(0.5 * turnRad);
 }
 
+class Network::RouteSearch {
+public:
+  struct Input {
+    LongitudeLatitude From;
+    LongitudeLatitude To;
+    std::span<const size_t> Starts;
+    std::span<const size_t> Goals;
+    double GoalRadiusM = 0.0;
+    double MinimumRadiusM = 0.0;
+  };
+
+  RouteSearch(const Network &network, Input input)
+      : Network_(network),
+        Input_(input),
+        Best_(network.Edges_.size() + input.Starts.size(), std::numeric_limits<double>::infinity()),
+        Previous_(Best_.size(), kNoSearchState),
+        Settled_(Best_.size(), false),
+        Seen_(network.Nodes_.size(), false),
+        Sources_(network.Edges_.size(), 0),
+        Goals_(network.Nodes_.size(), false) {
+    for (const size_t goal : input.Goals) { Goals_[goal] = true; }
+    for (size_t node = 0; node < network.Nodes_.size(); ++node) {
+      const Node &here = network.Nodes_[node];
+      for (size_t edge = 0; edge < here.EdgeCount; ++edge) {
+        Sources_[here.FirstEdge + edge] = node;
+      }
+    }
+  }
+
+  [[nodiscard]] std::expected<bool, std::string_view> Run(Route &out) {
+    Seed();
+    while (!Open_.empty()) {
+      const size_t state = Open_.top().second;
+      Open_.pop();
+      if (Settled_[state]) { continue; }
+      Settled_[state] = true;
+      const size_t node = NodeForState(state);
+      if (!Seen_[node]) {
+        Seen_[node] = true;
+        ++out.Reached;
+      }
+      if (Goals_[node]) {
+        Arrived_ = state;
+        return true;
+      }
+      Expand(state, out);
+    }
+    if (CostOverflow_) { return std::unexpected(Says::kSearchCostOverflow); }
+    return false;
+  }
+
+  [[nodiscard]] RouteTrace Trace() const {
+    return {.Arrived = Arrived_, .Predecessors = Previous_, .Starts = Input_.Starts};
+  }
+
+private:
+  [[nodiscard]] size_t NodeForState(size_t state) const {
+    return state < Network_.Edges_.size() ? Network_.Edges_[state].To
+                                          : Input_.Starts[state - Network_.Edges_.size()];
+  }
+
+  [[nodiscard]] double Heuristic(size_t node) const {
+    const Node &here = Network_.Nodes_[node];
+    const double distance =
+        ApartM({.LongitudeDeg = here.LongitudeDeg, .LatitudeDeg = here.LatitudeDeg},
+               Input_.To,
+               Sphere{.RadiusM = Network_.RadiusM_});
+    return std::max(0.0, distance - Input_.GoalRadiusM);
+  }
+
+  struct Candidate {
+    size_t State = kNoSearchState;
+    double DistanceM = 0.0;
+    size_t Predecessor = kNoSearchState;
+  };
+
+  void Offer(Candidate candidate) {
+    if (!std::isfinite(candidate.DistanceM)) {
+      CostOverflow_ = true;
+      return;
+    }
+    if (candidate.DistanceM >= Best_[candidate.State]) { return; }
+    const double priority = candidate.DistanceM + Heuristic(NodeForState(candidate.State));
+    if (!std::isfinite(priority)) {
+      CostOverflow_ = true;
+      return;
+    }
+    Best_[candidate.State] = candidate.DistanceM;
+    Previous_[candidate.State] = candidate.Predecessor;
+    Open_.emplace(priority, candidate.State);
+  }
+
+  void Seed() {
+    for (size_t which = 0; which < Input_.Starts.size(); ++which) {
+      const Node &node = Network_.Nodes_[Input_.Starts[which]];
+      const double awayM =
+          ApartM(Input_.From,
+                 {.LongitudeDeg = node.LongitudeDeg, .LatitudeDeg = node.LatitudeDeg},
+                 Sphere{.RadiusM = Network_.RadiusM_});
+      Offer({.State = Network_.Edges_.size() + which, .DistanceM = awayM});
+    }
+  }
+
+  void Expand(size_t state, Route &out) {
+    const Node &here = Network_.Nodes_[NodeForState(state)];
+    for (size_t which = 0; which < here.EdgeCount; ++which) {
+      const size_t next = here.FirstEdge + which;
+      const Edge &edge = Network_.Edges_[next];
+      if (state < Network_.Edges_.size() &&
+          !Network_.LocalTurnAllowsRadius(
+              Network_.Edges_[state], Sources_[state], edge, Input_.MinimumRadiusM)) {
+        ++out.TurnsRefused;
+        continue;
+      }
+      Offer({.State = next, .DistanceM = Best_[state] + edge.LengthM, .Predecessor = state});
+    }
+  }
+
+  const Network &Network_;
+  Input Input_;
+  std::vector<double> Best_;
+  std::vector<size_t> Previous_;
+  std::vector<bool> Settled_;
+  std::vector<bool> Seen_;
+  std::vector<size_t> Sources_;
+  std::vector<bool> Goals_;
+  using Step = std::pair<double, size_t>;
+  std::priority_queue<Step, std::vector<Step>, std::greater<>> Open_;
+  size_t Arrived_ = kNoSearchState;
+  bool CostOverflow_ = false;
+};
+
 Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightestM) const {
   Route out;
   if (!ValidCoordinates(from) || !ValidCoordinates(to)) {
@@ -1131,8 +1265,6 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
   const double startAwayM = (*started)->AwayM;
   const double finishAwayM = (*finished)->AwayM;
 
-  const double never = kBeyondAnyCoordinate;
-  const size_t edges = Edges_.size();
   std::vector<size_t> nearStart;
   if (const auto result = Within(from, startAwayM + kStartReachM, nearStart); !result) {
     out.Error = result.error();
@@ -1149,81 +1281,20 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     return out;
   }
   if (nearFinish.empty()) { nearFinish.push_back(finish); }
-  std::vector<bool> arriving(Nodes_.size(), false);
-  for (const size_t which : nearFinish) { arriving[which] = true; }
   out.ArrivedAt = nearFinish.size();
-
-  const size_t states = edges + nearStart.size();
-  std::vector<double> best(states, never);
-  std::vector<size_t> came(states, kNoSearchState);
-  std::vector<bool> settled(states, false);
-  std::vector<size_t> leaves(edges, 0);
-  for (size_t node = 0; node < Nodes_.size(); ++node) {
-    for (size_t which = 0; which < Nodes_[node].EdgeCount; ++which) {
-      leaves[Nodes_[node].FirstEdge + which] = node;
-    }
+  RouteSearch search(*this,
+                     {.From = from,
+                      .To = to,
+                      .Starts = nearStart,
+                      .Goals = nearFinish,
+                      .GoalRadiusM = goalRadiusM,
+                      .MinimumRadiusM = tightestM});
+  const auto found = search.Run(out);
+  if (!found) {
+    out.Error = found.error();
+    return out;
   }
-  const auto standsAt = [&](size_t state) {
-    return state < edges ? Edges_[state].To : nearStart[state - edges];
-  };
-  const auto goalM = [&](size_t node) {
-    const double distanceM =
-        ApartM({.LongitudeDeg = Nodes_[node].LongitudeDeg, .LatitudeDeg = Nodes_[node].LatitudeDeg},
-               to,
-               Sphere{.RadiusM = RadiusM_});
-    return std::max(0.0, distanceM - goalRadiusM);
-  };
-
-  using Step = std::pair<double, size_t>;
-  std::priority_queue<Step, std::vector<Step>, std::greater<>> open;
-  for (size_t which = 0; which < nearStart.size(); ++which) {
-    const size_t seed = nearStart[which];
-    const double awayM =
-        ApartM({.LongitudeDeg = from.LongitudeDeg, .LatitudeDeg = from.LatitudeDeg},
-               {.LongitudeDeg = Nodes_[seed].LongitudeDeg, .LatitudeDeg = Nodes_[seed].LatitudeDeg},
-               Sphere{.RadiusM = RadiusM_});
-    const size_t state = edges + which;
-    if (awayM >= best[state]) { continue; }
-    best[state] = awayM;
-    open.emplace(awayM + goalM(seed), state);
-  }
-
-  size_t reached = 0;
-  std::vector<bool> nodeSeen(Nodes_.size(), false);
-  size_t arrived = kNoSearchState;
-  while (!open.empty()) {
-    const size_t state = open.top().second;
-    open.pop();
-    if (settled[state]) { continue; }
-    settled[state] = true;
-    const size_t node = standsAt(state);
-    if (!nodeSeen[node]) {
-      nodeSeen[node] = true;
-      ++reached;
-    }
-    if (arriving[node]) {
-      arrived = state;
-      break;
-    }
-
-    const Node &here = Nodes_[node];
-    for (size_t which = 0; which < here.EdgeCount; ++which) {
-      const size_t next = here.FirstEdge + which;
-      const Edge &edge = Edges_[next];
-      if (state < edges && !LocalTurnAllowsRadius(Edges_[state], leaves[state], edge, tightestM)) {
-        ++out.TurnsRefused;
-        continue;
-      }
-      const double through = best[state] + edge.LengthM;
-      if (through >= best[next]) { continue; }
-      best[next] = through;
-      came[next] = state;
-      open.emplace(through + goalM(edge.To), next);
-    }
-  }
-
-  out.Reached = reached;
-  if (arrived == kNoSearchState) {
+  if (!*found) {
     const size_t joined = Reaches(std::span<const size_t>(nearStart));
     const size_t joinedToEnd = Reaches(std::span<const size_t>(nearFinish));
     out.Component = joined;
@@ -1231,16 +1302,14 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     out.Error = "no chain of ways joins the two ends -- " + std::to_string(joined) + " nodes of " +
                 std::to_string(Nodes_.size()) +
                 " are joined to the start by ANY edge, and the search " + "settled " +
-                std::to_string(reached) + " of those, while " + std::to_string(joinedToEnd) +
+                std::to_string(out.Reached) + " of those, while " + std::to_string(joinedToEnd) +
                 " nodes are joined to the DESTINATION, so what separates the ends is " +
                 (joined + 1 < Nodes_.size() ? std::string("the graph itself")
                                             : std::string("this search, not the graph"));
     return out;
   }
 
-  if (const auto result =
-          ReconstructRoute({.Arrived = arrived, .Predecessors = came, .Starts = nearStart}, out);
-      !result) {
+  if (const auto result = ReconstructRoute(search.Trace(), out); !result) {
     out.Error = result.error();
   }
   return out;

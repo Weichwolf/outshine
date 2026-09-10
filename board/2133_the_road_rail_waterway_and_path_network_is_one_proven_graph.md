@@ -98,8 +98,8 @@ prüfen; Überlauf als Fehler, keine teilweise veröffentlichte Route. Private e
 Funktion trennt Suchzustand von Ergebnis. Analytische meridionale Dreipunktkette
 prüft Reihenfolge/Stationen/Länge/Attribute; entfernte Reihenfolge muss scheitern.
 Vier Routingtests grün, vertauschte Reihenfolge scheitert; lint 187/333, 32 Claims grün.
-Offen: Budget-/Längenextreme als Laufzeittest; A*-Kosten verwenden noch 1e30 statt
-explizitem Unerreichbar-Zustand. Kein produktiver Router-Aufruf im Client-Renderpfad.
+Offen: globales Routenbudget als Laufzeittest; Alternativpfade bei Kostenüberlauf.
+Kein produktiver Router-Aufruf im Client-Renderpfad.
 
 RouteSearch kapselt temporäre Kosten/Vorgänger/Queue und geliehene Endpunktmengen.
 Plan bleibt Validierung/Anbindung/Diagnose/Rekonstruktion. Seed, Expand und Offer
@@ -108,3 +108,7 @@ trennen Initialisierung, zulässige Turns und Kostenupdates. Unendlich statt 1e3
 Ergebnis numerischen Fehler von fehlender Verbindung unterscheiden. Analytische
 skalierte Kugel mit endlichen Wegen >1e30 widerlegt den alten Sentinel. Routingtests,
 Gegenprobe, make lint; keinerlei neue öffentliche API oder dauerhafter Suchzustand.
+Ergebnis: fünf Routingtests grün; endliche Kosten >1e30 und tatsächlicher Überlauf
+unterschieden, alter Sentinel scheitert. Benannte Candidate-Felder verhindern
+Index-/Vorgängerverwechslung. Plan-Komplexitätsbefund entfernt: lint 186/333,
+32 Claims grün. Keine neuen Render-Abhängigkeiten oder dauerhaften Suchdaten.

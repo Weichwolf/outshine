@@ -235,6 +235,8 @@ private:
                                            const Edge &outgoing,
                                            double minimumRadiusM) const;
 
+  class RouteSearch;
+
   struct RouteTrace {
     size_t Arrived = 0;
     std::span<const size_t> Predecessors;
