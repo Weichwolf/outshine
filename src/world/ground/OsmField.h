@@ -16,6 +16,8 @@
 
 namespace outshine::Ground {
 
+class OsmVector;
+
 struct FeatureRun {
   size_t From = 0;
   size_t To = 0;
@@ -59,7 +61,8 @@ public:
 
   [[nodiscard]] int CentreY() const { return CentreY_; }
 
-  [[nodiscard]] int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
+  [[nodiscard]] std::expected<int, std::string_view>
+  Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
   struct Declared {
     std::string Layer;
@@ -146,7 +149,8 @@ private:
     bool Refused = false;
   };
 
-  [[nodiscard]] Fetched AddTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
+  void AppendLayer(const OsmVector &layer, uint16_t layerIndex);
   void Settle(int x, int y);
   void AppendDeclaredFeature(const Declared &one);
   [[nodiscard]] bool MatchesDeclaredFeature(const Feature &feature, const Declared &input) const;

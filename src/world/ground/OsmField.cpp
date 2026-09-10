@@ -51,6 +51,9 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 }
 
 namespace Says {
+constexpr std::string_view kInvalidVectorTile = "OSM tile contains invalid vector data";
+constexpr std::string_view kUnsupportedVectorTile = "OSM tile version is unsupported";
+constexpr std::string_view kTooManyVectorLayers = "OSM layer count exceeds native index capacity";
 constexpr std::string_view kInvalidOsmPosition =
     "OSM requires finite canonical longitude/latitude and a signed-index-compatible zoom";
 constexpr std::string_view kInvalidOsmRadius = "OSM tile radius must be nonnegative";
@@ -125,16 +128,17 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
 
-      const Fetched got = AddTile(tiles, {.X = static_cast<int>(tx), .Y = static_cast<int>(ty)});
-      if (!got.Held) {
-        if (got.Refused) {
+      const auto got = AddTile(tiles, {.X = static_cast<int>(tx), .Y = static_cast<int>(ty)});
+      if (!got) { return std::unexpected(got.error()); }
+      if (!got->Held) {
+        if (got->Refused) {
           Refused_++;
         } else {
           Pending_++;
         }
         continue;
       }
-      added += got.Added;
+      added += got->Added;
       Settle(static_cast<int>(tx), static_cast<int>(ty));
     }
   }
@@ -164,7 +168,7 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   return {Features_.data() + t.FirstFeature, t.FeatureCount};
 }
 
-OsmField::Fetched OsmField::AddTile(TilePool &tiles, TileAt at) {
+std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &tiles, TileAt at) {
   const Data::Fetch request(Data::DataKind::VectorMap,
                             Data::Address::At(Data::TileId{.Zoom = Zoom_,
                                                            .X = static_cast<uint32_t>(at.X),
@@ -172,101 +176,129 @@ OsmField::Fetched OsmField::AddTile(TilePool &tiles, TileAt at) {
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
 
   const bool refused = reply == TilePool::Reply::Refused;
-  if (reply == TilePool::Reply::Pending || refused) { return {.Held = false, .Refused = refused}; }
-  if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) {
-    return {.Held = true};
+  if (reply == TilePool::Reply::Pending || refused) {
+    return Fetched{.Held = false, .Refused = refused};
   }
-  return {.Held = true, .Added = Accept(at.X, at.Y, Scratch_.Bytes)};
+  if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) {
+    return Fetched{.Held = true};
+  }
+  const auto accepted = Accept(at.X, at.Y, Scratch_.Bytes);
+  if (!accepted) { return std::unexpected(accepted.error()); }
+  return Fetched{.Held = true, .Added = *accepted};
 }
 
-int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
-  int added = 0;
-  Settle(tx, ty);
+namespace {
+using VectorLayers = std::vector<std::optional<OsmVector>>;
 
-  const auto tile = static_cast<uint32_t>(Tiles_.size());
+[[nodiscard]] std::expected<VectorLayers, std::string_view>
+ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> names) {
+  if (names.size() > static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1) {
+    return std::unexpected(Says::kTooManyVectorLayers);
+  }
+  VectorLayers layers;
+  layers.reserve(names.size());
+  for (const auto &name : names) {
+    OsmVector layer;
+    const auto result = layer.Parse(bytes, name);
+    if (result) {
+      layers.emplace_back(std::move(layer));
+    } else if (result.error() == OsmVector::ParseError::MissingLayer) {
+      layers.emplace_back(std::nullopt);
+    } else {
+      return std::unexpected(result.error() == OsmVector::ParseError::UnsupportedVersion
+                                 ? Says::kUnsupportedVectorTile
+                                 : Says::kInvalidVectorTile);
+    }
+  }
+  return layers;
+}
+}
+
+std::expected<int, std::string_view>
+OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
+  const auto layers = ReadVectorLayers(vectorTile, Layers_);
+  if (!layers) {
+    ++Bad_;
+    return std::unexpected(layers.error());
+  }
+  const size_t first = Features_.size();
   Tiles_.push_back(Tile{.Z = Zoom_,
                         .X = tx,
                         .Y = ty,
-                        .FirstFeature = static_cast<uint32_t>(Features_.size()),
+                        .FirstFeature = static_cast<uint32_t>(first),
                         .FeatureCount = 0});
-
-  OsmVector mvt;
-  for (uint16_t li = 0; li < static_cast<uint16_t>(Layers_.size()); li++) {
-    const auto decoded = mvt.Parse(vectorTile, Layers_[li]);
-    if (!decoded) {
-      if (decoded.error() != OsmVector::ParseError::MissingLayer) {
-        Bad_++;
-        Log::Error(LogTag::World,
-                   "vectile_undecodable",
-                   {{"z", Zoom_},
-                    {"x", tx},
-                    {"y", ty},
-                    {"bytes", std::to_string(vectorTile.size())},
-                    {"layer", Layers_[li]}});
-      } else {
-        Missing_++;
-      }
-      continue;
-    }
-    const auto ext = static_cast<double>(mvt.Extent());
-    if (mvt.Extent() > 0 && mvt.Extent() < Extent_) { Extent_ = mvt.Extent(); }
-    const std::vector<int32_t> &pts = mvt.Points();
-
-    for (const OsmVector::Feature &sf : mvt.Features()) {
-      Feature f{};
-      f.Tile = tile;
-      f.Layer = li;
-      f.Type = static_cast<uint8_t>(sf.Type);
-      f.FirstRing = static_cast<uint32_t>(Rings_.size());
-      f.FirstTag = static_cast<uint32_t>(Tags_.size());
-      f.MinLat = f.MinLon = kNoLeastYet;
-      f.MaxLat = f.MaxLon = -kNoLeastYet;
-
-      for (uint32_t r = 0; r < sf.RingCount; r++) {
-        const OsmVector::Ring &sr = mvt.Rings()[sf.FirstRing + r];
-        Ring ring{};
-        ring.First = static_cast<uint32_t>(Points_.size() / 2);
-        ring.Count = sr.Count;
-        ring.Exterior = sr.Exterior;
-        for (uint32_t k = 0; k < sr.Count; k++) {
-          const auto px = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2]);
-          const auto py = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2 + 1]);
-          const Geo g = TileFracToGeo(
-              {.X = static_cast<double>(tx) + px / ext, .Y = static_cast<double>(ty) + py / ext},
-              Zoom_);
-          Points_.push_back(g.LatitudeDeg);
-          Points_.push_back(g.LongitudeDeg);
-          f.MinLat = std::min(f.MinLat, g.LatitudeDeg);
-          f.MaxLat = std::max(f.MaxLat, g.LatitudeDeg);
-          f.MinLon = std::min(f.MinLon, g.LongitudeDeg);
-          f.MaxLon = std::max(f.MaxLon, g.LongitudeDeg);
-        }
-        Rings_.push_back(ring);
-      }
-      f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
-
-      for (uint32_t t = 0; t < outshine::Ground::OsmVector::TagCount(sf); t++) {
-        const OsmVector::Tag tag = mvt.TagAt(sf, t);
-        if (tag.Key.empty()) { continue; }
-        Value v{};
-        v.IsNum = tag.IsNum;
-        if (tag.IsNum) {
-          v.Num = tag.Num;
-        } else {
-          v.Str = Intern(Strings_, StringIndex_, tag.Str);
-        }
-        Tags_.push_back(Intern(Keys_, KeyIndex_, tag.Key));
-        Tags_.push_back(static_cast<uint32_t>(Values_.size()));
-        Values_.push_back(v);
-      }
-      f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
-
-      Features_.push_back(f);
-      added++;
+  for (size_t i = 0; i < layers->size(); ++i) {
+    const auto &layer = (*layers)[i];
+    if (layer) {
+      AppendLayer(*layer, static_cast<uint16_t>(i));
+    } else {
+      ++Missing_;
     }
   }
-  Tiles_[tile].FeatureCount = static_cast<uint32_t>(Features_.size()) - Tiles_[tile].FirstFeature;
-  return added;
+  const size_t added = Features_.size() - first;
+  Tiles_.back().FeatureCount = static_cast<uint32_t>(added);
+  Settle(tx, ty);
+  return static_cast<int>(added);
+}
+
+void OsmField::AppendLayer(const OsmVector &layer, uint16_t layerIndex) {
+  const auto tile = static_cast<uint32_t>(Tiles_.size() - 1);
+  const auto ext = static_cast<double>(layer.Extent());
+  Extent_ = std::min(Extent_, layer.Extent());
+  const auto &pts = layer.Points();
+  const int tx = Tiles_.back().X;
+  const int ty = Tiles_.back().Y;
+  for (const OsmVector::Feature &sf : layer.Features()) {
+    Feature f{};
+    f.Tile = tile;
+    f.Layer = layerIndex;
+    f.Type = static_cast<uint8_t>(sf.Type);
+    f.FirstRing = static_cast<uint32_t>(Rings_.size());
+    f.FirstTag = static_cast<uint32_t>(Tags_.size());
+    f.MinLat = f.MinLon = kNoLeastYet;
+    f.MaxLat = f.MaxLon = -kNoLeastYet;
+
+    for (uint32_t r = 0; r < sf.RingCount; r++) {
+      const OsmVector::Ring &sr = layer.Rings()[sf.FirstRing + r];
+      Ring ring{};
+      ring.First = static_cast<uint32_t>(Points_.size() / 2);
+      ring.Count = sr.Count;
+      ring.Exterior = sr.Exterior;
+      for (uint32_t k = 0; k < sr.Count; k++) {
+        const auto px = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2]);
+        const auto py = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2 + 1]);
+        const Geo g = TileFracToGeo(
+            {.X = static_cast<double>(tx) + px / ext, .Y = static_cast<double>(ty) + py / ext},
+            Zoom_);
+        Points_.push_back(g.LatitudeDeg);
+        Points_.push_back(g.LongitudeDeg);
+        f.MinLat = std::min(f.MinLat, g.LatitudeDeg);
+        f.MaxLat = std::max(f.MaxLat, g.LatitudeDeg);
+        f.MinLon = std::min(f.MinLon, g.LongitudeDeg);
+        f.MaxLon = std::max(f.MaxLon, g.LongitudeDeg);
+      }
+      Rings_.push_back(ring);
+    }
+    f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
+
+    for (uint32_t t = 0; t < outshine::Ground::OsmVector::TagCount(sf); t++) {
+      const OsmVector::Tag tag = layer.TagAt(sf, t);
+      if (tag.Key.empty()) { continue; }
+      Value v{};
+      v.IsNum = tag.IsNum;
+      if (tag.IsNum) {
+        v.Num = tag.Num;
+      } else {
+        v.Str = Intern(Strings_, StringIndex_, tag.Str);
+      }
+      Tags_.push_back(Intern(Keys_, KeyIndex_, tag.Key));
+      Tags_.push_back(static_cast<uint32_t>(Values_.size()));
+      Values_.push_back(v);
+    }
+    f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
+
+    Features_.push_back(f);
+  }
 }
 
 void OsmField::Settle() {

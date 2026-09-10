@@ -10,7 +10,7 @@ Tags: correctness, memory, format, bounded
 Der ursprüngliche OsmVector::Parse (Komplexität 176) las Float/Double ohne Restlängenprüfung.
 int64 wird als unsigned, sint64 über einen 32-Bit-Decoder interpretiert. Fehler
 verschachtelter Value-Reader werden ignoriert. Varint-Byte 10 kann überlaufen.
-OsmField::Accept (Komplexität 31) publiziert vor vollständiger Prüfung; Größen
+OsmField::Accept publizierte vor vollständiger Prüfung; Größen
 werden ungeprüft nach int/uint32/uint16 verengt. Geometrie-Deltas können int32
 überlaufen; Version, Extent, Tags und Geometriekommandos sind nicht vollständig geprüft.
 
@@ -55,7 +55,8 @@ normal/sanitisiert, Lint und Wien-Pixelvergleich mit visueller Prüfung erforder
 - [ ] Alle Bytezugriffe, Feldnummern, Längen, Index- und Mengengrenzen geprüft.
 - [ ] Versions-/Extent-/Tagverträge; vollständige Ringtopologie, Löcher und Multipart.
 - [ ] Fehlerhafte Kachel ersetzt keinen gültigen nativen Zustand; fehlend/beschädigt
-  ausdrücklich unterscheidbar. OsmField::Accept publiziert und settled noch zu früh.
+  ausdrücklich unterscheidbar. Decode-Fehler vor Veröffentlichung abgefangen; native
+  Mengen-/Projektions-/Allokationsfehler müssen noch vollständig abgesichert werden.
 - [ ] Native Datentypen erhalten Integerwerte oberhalb 2^53, nicht nur Double.
 - [ ] Byte-/Decodebudgets, Abbruch und inkrementelles Decode. Kandidat erhöht Spitzenbedarf.
 - [ ] Etablierten Protobuf/MVT-Reader für vollständigen Ersatz bewerten (No-Exceptions,
@@ -68,7 +69,7 @@ Varianten rot ohne Buildfehler. Alte Fassungen scheitern ohne Buildfehler;
 Fixed32-Abschneidepuffer verursachen unter ASan einen heap-buffer-overflow, geometrische
 Überläufe einen Sanitizer-Abbruch. Parser-Rollback scheitert alt normal/sanitisiert.
 Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
-Headertrennung reduziert Decode-Komplexität auf 58 (Grenze 25); weitere Zerlegung erforderlich.
+Decode-Komplexität 59 (Grenze 25); weitere Zerlegung erforderlich.
 Wien visuell geöffnet und 0/921600 Pixelabweichung. Frühere Einzelbelege in Git.
 
 ## Ergebnisvertrag
@@ -95,3 +96,7 @@ Bereits vorher erfolgreich angenommene Kacheln bleiben erhalten; kein Gesamt-Bui
 Direkte Accept-Fixtures mit gültiger erster/defekter zweiter Ebene, Wiederholung nach
 Korrektur, fehlenden Ebenen und bestehenden Daten müssen alt scheitern und neu bestehen.
 Kumulative Native-Indexgrenzen, Projektionsgrenzen und Allokationsbudgets bleiben separat offen.
+Native Annahme geprüft: zwölf MVT-/OSM-Läufe grün; Teilveröffentlichungsfixture alt
+rot ohne Buildfehler. Nach Lint-Korrektur beide OSM-Fälle erneut grün. Lint 183 statt
+184 tidy (Accept-Komplexitätswarnung entfällt), 330 Dokumentationsdiagnosen, 32
+Repository-Tests grün; drei rote Gruppen. Wien-PNG geöffnet, 0/921600 Pixelabweichung.
