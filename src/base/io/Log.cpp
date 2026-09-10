@@ -1,7 +1,9 @@
 #include "Log.h"
 #include <array>
+#include <algorithm>
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <span>
 #include <utility>
 
@@ -26,18 +28,16 @@ thread_local LogSink *Log::ThreadSink_ = nullptr;
 thread_local double Log::TimeS_ = 0.0;
 thread_local std::array<char, 32> Log::Unit_ = {};
 
-void Log::SetUnit(const char *label) {
-  if (label == nullptr) {
-    Unit_[0] = 0;
-    return;
-  }
-  snprintf(Unit_.data(), Unit_.size(), "%s", label);
+void Log::SetUnit(std::string_view label) noexcept {
+  const size_t size = std::min(label.size(), Unit_.size() - 1);
+  std::copy_n(label.begin(), size, Unit_.begin());
+  Unit_[size] = 0;
 }
 
 void Log::Emit(LogLevel level, LogTag tag, const char *event, std::span<const LogField> fields) {
-  if ((Sink_ == nullptr) || level < Level_) { return; }
-
+  if (level < Level_) { return; }
   LogSink *out = (ThreadSink_ != nullptr) ? ThreadSink_ : Sink_;
+  if (out == nullptr) { return; }
   out->Write(TimeS_,
              level,
              {.Unit = (Unit_[0] != 0) ? Unit_.data() : nullptr, .Tag = tag, .Event = event},

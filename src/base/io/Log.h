@@ -3,7 +3,7 @@
 #include <array>
 #include <span>
 #include <initializer_list>
-#include <string>
+#include <string_view>
 #include <vector>
 
 #include "Logging.h"
@@ -18,7 +18,7 @@ public:
 
   static void SetTime(double simTimeS) { TimeS_ = simTimeS; }
 
-  static void SetUnit(const char *label);
+  static void SetUnit(std::string_view label) noexcept;
 
   static void SetThreadSink(LogSink *sink) { ThreadSink_ = sink; }
 
@@ -55,6 +55,9 @@ public:
   }
 
 private:
+  friend class LogUnitScope;
+  friend class LogThreadSinkScope;
+
   static void Emit(LogLevel level, LogTag tag, const char *event, std::span<const LogField> fields);
 
   static LogSink *Sink_;
@@ -66,22 +69,30 @@ private:
 
 class LogUnitScope {
 public:
-  explicit LogUnitScope(const std::string &label) { Log::SetUnit(label.c_str()); }
+  explicit LogUnitScope(std::string_view label) noexcept : Previous_(Log::Unit_) {
+    Log::SetUnit(label);
+  }
 
-  ~LogUnitScope() { Log::SetUnit(nullptr); }
+  ~LogUnitScope() { Log::Unit_ = Previous_; }
 
   LogUnitScope(const LogUnitScope &) = delete;
   LogUnitScope &operator=(const LogUnitScope &) = delete;
+
+private:
+  decltype(Log::Unit_) Previous_;
 };
 
 class LogThreadSinkScope {
 public:
-  explicit LogThreadSinkScope(LogSink *sink) { Log::SetThreadSink(sink); }
+  explicit LogThreadSinkScope(LogSink *sink) noexcept { Log::SetThreadSink(sink); }
 
-  ~LogThreadSinkScope() { Log::SetThreadSink(nullptr); }
+  ~LogThreadSinkScope() { Log::SetThreadSink(Previous_); }
 
   LogThreadSinkScope(const LogThreadSinkScope &) = delete;
   LogThreadSinkScope &operator=(const LogThreadSinkScope &) = delete;
+
+private:
+  LogSink *Previous_ = Log::ThreadSink_;
 };
 
 }
