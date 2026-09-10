@@ -65,7 +65,7 @@ vergleichbare Organisationsprinzip, keine übernommene proprietäre Implementier
 Scenario::Weather dokumentieren: dimensionslose Wolkenanteile, Basis AGL, Wind in
 m/s und meteorologische Herkunftsrichtung; derzeit keine Cloud-/Wind-Verbraucher.
 Haze skaliert nur Mie-Streuung/Extinktion, nicht Rayleigh/Ozon; >1 ist möglich.
-Writer verliert bislang alle sieben Wind-/Wolkenfelder. Vollständig serialisieren;
-exakte Roundtrips mit unabhängigen Feldwerten und Nullgrenzen prüfen. Gemeinsame
+Writer erhält jetzt alle sieben Wind-/Wolkenfelder; Altcode verletzt den Roundtrip.
+Sechs Writer-Tests samt exakten Wetterwerten und Nullgrenzen bestehen. Gemeinsame
 Werte-/Typprüfung an Import-, Declare- und Exportgrenze bleibt erforderlich; derzeit
 keine vollständige Wettervalidierung oder Wetterwirkung behaupten.

@@ -161,6 +161,13 @@ void WriteWorld(std::string &said, const Scenario::WorldSettings &world) {
   Number(said, "lon", world.Origin.LongitudeDeg);
   Number(said, "patienceS", world.PatienceS);
   Number(said, "sightM", world.SightM);
+  Number(said, "cloudCover", world.Sky.CloudCover);
+  Number(said, "cloudLow", world.Sky.CloudLow);
+  Number(said, "cloudMid", world.Sky.CloudMid);
+  Number(said, "cloudHigh", world.Sky.CloudHigh);
+  Number(said, "cloudBaseAglM", world.Sky.CloudBaseAglM);
+  Number(said, "windDeg", world.Sky.WindDeg);
+  Number(said, "windMs", world.Sky.WindMs);
   Number(said, "haze", world.Sky.Haze);
   if (world.Shape.Kind.empty() && world.Osm.empty()) {
     said += "/>\n";

@@ -93,24 +93,34 @@ struct Georeference {
   double RadiusM = kEarthMeanRadiusM;
 };
 
+/// Owned weather declaration, copied with the scenario; no borrowed storage or synchronization.
+/// Do not mutate concurrently with readers. Import/export preserve these fields when the world
+/// section is declared. Cloud and wind values are currently metadata: they do not yet drive
+/// rendering or simulation. Only Haze is consumed by the renderer. This aggregate and current
+/// declaration paths do not enforce all of the intended physical ranges below.
 struct Weather {
+  /// Requested total cloud fraction in [0,1]; independent of the layer fractions, not their sum.
   double CloudCover = 0.0;
-  double CloudLow = 0.0, CloudMid = 0.0, CloudHigh = 0.0;
+  /// Requested low-layer cloud fraction in [0,1]; layer altitude bands are not defined here.
+  double CloudLow = 0.0;
+  /// Requested middle-layer cloud fraction in [0,1]; overlap with other layers is unspecified.
+  double CloudMid = 0.0;
+  /// Requested high-layer cloud fraction in [0,1]; no runtime cloud field is generated yet.
+  double CloudHigh = 0.0;
+  /// Requested nonnegative cloud-base height in metres above local ground, not sea level.
+  /// Zero is a literal value; it is not an automatic-height sentinel.
   double CloudBaseAglM = 0.0;
+  /// Meteorological wind-from bearing in degrees: north 0, east 90, clockwise viewed from above.
+  /// Stored without wrapping; conversion into world-space wind is not implemented yet.
   double WindDeg = 0.0;
+  /// Requested nonnegative wind speed in metres per second; zero means calm.
   double WindMs = 0.0;
-
-  /// How much the air between eye and subject is allowed to whiten it, from 0 to 1.
-  ///
-  /// AERIAL PERSPECTIVE IS PHYSICS AND NOT DECORATION -- Rayleigh scattering over a long path is
-  /// why a distant ridge is pale blue, and a renderer that omits it draws a cardboard cutout. But
-  /// the amount is WEATHER: the same Jura ridge is razor-sharp on a cold clear morning and gone by
-  /// noon in summer haze, and a scenario that wants to see the Alps from Venice is declaring the
-  /// morning rather than switching off a shader.
-  ///
-  /// So this scales the scattering the atmosphere already computes. One is the physical amount for
-  /// the declared air; zero is the clearest air the model can state. The DEFAULT IS ONE, because a
-  /// scenario that says nothing about the weather gets the physics rather than a preference.
+  /// Dimensionless multiplier of the reference air's Mie scattering and extinction only.
+  /// One retains the reference aerosols, zero removes them, and values above one increase them.
+  /// Rayleigh scattering and ozone absorption remain unchanged. Supply a finite nonnegative
+  /// value; the current renderer treats nonpositive values as zero but does not validate the
+  /// full numeric range before converting to float. This is not a visibility distance or a
+  /// multiplier of all atmospheric scattering.
   double Haze = 1.0;
 };
 
