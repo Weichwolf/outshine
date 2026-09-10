@@ -463,8 +463,10 @@ public:
   /// Stores selected numeric traits and scenario name/version, not a complete world snapshot.
   /// Synchronous, allocating IO; requires no embedded NUL in the path and serialized Engine
   /// access. Validation and the 1 MiB output-size check precede opening the destination.
-  /// The destination is currently truncated directly: a write/close failure can destroy an
-  /// earlier save. Success does not promise crash durability. Transactional replacement is pending.
+  /// Publishes by replacing the destination directory entry only after a temporary sibling
+  /// file was fully written and closed. IO errors preserve the previous destination. Concurrent
+  /// successful writers publish complete files; the last replacement wins. No crash-durability
+  /// or preservation of the replaced file's metadata is promised.
   /// @param path Borrowed output path; no reference is retained.
   /// @return Success or an owned missing-state/trait, size or IO error; simulation is unchanged.
   [[nodiscard]] Result save(std::string_view path) const;

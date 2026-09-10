@@ -1,15 +1,16 @@
 #include "EngineHeld.h"
 #include "ReadTextFile.h"
+#include "WriteFileAtomically.h"
 #include <algorithm>
 #include <array>
 #include <string_view>
+#include <span>
 #include <expected>
 #include <vector>
 #include <cstddef>
 #include <cstdint>
 #include <charconv>
 #include <string>
-#include <cstdio>
 #include <system_error>
 #include <cmath>
 #include <utility>
@@ -55,17 +56,9 @@ Result Engine::save(std::string_view path) const {
                 std::to_string(kMostSaveBytes);
     return std::unexpected(S_->Error);
   }
-  const std::string held(path);
-  std::FILE *const file = std::fopen(held.c_str(), "wb");
-  if (file == nullptr) {
-    S_->Error = held + ": the save file would not open";
-    return std::unexpected(S_->Error);
-  }
-  const size_t wrote = std::fwrite(text.data(), 1, text.size(), file);
-  const bool closed = std::fclose(file) == 0;
-  if (wrote != text.size() || !closed) {
-    S_->Error = held + ": the save did not reach the disk whole -- a full disk is a refusal, "
-                       "never a successful save";
+  const auto written = WriteFileAtomically(path, std::as_bytes(std::span(text)));
+  if (!written) {
+    S_->Error = written.error();
     return std::unexpected(S_->Error);
   }
   S_->Error.clear();

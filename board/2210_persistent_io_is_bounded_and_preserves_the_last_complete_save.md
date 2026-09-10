@@ -9,8 +9,8 @@ Depends:
 
 ## Beleg und Auswirkung
 
-Keeping.cpp Engine::save öffnet das endgültige Ziel mit wb. Short-write/close-Fehler
-werden erkannt, aber die vorherige gültige Datei ist dann bereits überschrieben.
+Engine::save veröffentlicht über WriteFileAtomically: temporäre Geschwisterdatei,
+Write/Close prüfen, danach Rename. Vorige Datei bleibt bei geprüften IO-Fehlern erhalten.
 ReadTextFile ersetzt SlurpFile: EOF/Lesefehler getrennt, limitierte Eingaben, RAII-FILE.
 readScenario begrenzt Hauptdatei plus ausgewählte Layer auf insgesamt 16 MiB; restore
 verwendet dieselbe 1-MiB-Grenze wie save. Gesamter Parser-/Allokationsbedarf bleibt offen.
@@ -27,11 +27,12 @@ Keine schleichende Lockerung, kein pauschales Abort bei behandelbarem IO-Fehler.
 
 ## Abnahme
 
-- [ ] Injizierter Short-write, close-/rename-Fehler: alte Save-Datei unverändert lesbar.
+- [x] Reale Write-/Close-/Rename-Fehler: vorherige Daten erhalten; öffentlicher Save mitgeprüft.
 - [ ] Übergröße/Lesefehler/lange Layerkette: begrenzter Speicher und präziser Fehler.
 - [ ] Restore veröffentlicht nur vollständigen validierten Zustand; kein Teil-Restore.
-- [ ] Gleichzeitige Save-Versuche kollidieren nicht in gemeinsamen temporären Namen.
-- [ ] Negative Kontrolle direktes wb verletzt Erhaltungsoracle; Make-Lint und IO-Tests.
+- [x] Gleichzeitige Writer verwenden exklusive temporäre Dateien und publizieren vollständig.
+- [x] Bisheriges direktes wb verletzt das öffentliche Erhaltungsoracle ohne Buildfehler.
+- [ ] Make-Lint insgesamt grün; drei projektweite rote Gruppen bleiben.
 
 ## Begrenzter gemeinsamer Reader
 ReadTextFile im base/io-Tier ersetzt inline SlurpFile aus EngineHeld. Explizites
@@ -47,7 +48,7 @@ Lesefehler. Mutation ohne Budgetprüfung muss scheitern. Bestehende Parser-Regre
 Nachweis: IO-Grenzfälle und Parser-Regressionsfall grün, einschließlich öffentlichem
 Übergrößen- und kumulativem Layerfall. Mutant verwirft Übergrößenfehler und scheitert
 ohne Buildfehler; wiederhergestellter Code grün. Lint 182/315, 32 Repository-Tests grün,
-drei rote Gruppen. Keine atomare Save-/Zeitbudget-/Gesamtspeicherabnahme behauptet.
+drei rote Gruppen. Zeitbudget-/Gesamtspeicherabnahme bleibt offen.
 
 ## Atomare Veröffentlichung
 Gemeinsamer WriteFileAtomically-Baustein: exklusives wbx im Zielverzeichnis, begrenzte
@@ -58,3 +59,11 @@ durch Geschwisterdatei; Sichtbarkeitsatomizität, keine fsync-/Crash-Durability-
 Reale POSIX-Dateigrößenlimits im isolierten Testprozess erzeugen Write-/Close-Fehler;
 Rename auf ein Verzeichnis muss verweigern. Gleichzeitige Writer dürfen nur vollständige
 Produkte veröffentlichen. Reader- und öffentlicher Save-Vertrag werden mitgeprüft.
+
+Atomare Abnahme: 15 Writer-Prüfungen sowie Assembly-/Reader-Regressionen grün.
+Dateigrößenlimit erzeugt nachweislich getrennte fwrite- und fclose-Fehler. Öffentlicher
+Save erhält vorherige Bytes; Altcode verletzt genau diesen Vertrag. Vier Writer mit
+je acht Veröffentlichungen werden parallel gelesen: nur vollständige Produkte.
+Pfad als string_view, Daten als span<const byte>; keine vertauschbaren Stringparameter.
+Abschluss-Lint 182/315, 32 Repository-Tests grün; drei rote Gruppen. Crash-Durability
+und Erhalt alter Dateimetadaten sind ausdrücklich nicht Teil dieses Vertrags.
