@@ -68,31 +68,26 @@ grün; Altwriter scheitert ohne Buildfehler. Parser-Erhaltung und Zeichenreferen
 Lint: 181 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
 Szenario bleibt eigenständiges Importformat; keine glTF-Erweiterung für Welt-/Spielregeln.
 
-Nächster Grenzfix: Asset-Clip als vollständige endliche Dezimalzahl mit ganzzahligem
-Wert in [0, INT_MAX] prüfen, erst danach verengen. Fehlendes Attribut bedeutet 0;
-leeres/ungültiges Attribut ist Fehler. IntegralDecimal wie beim Catch-up-Limit nutzen,
-um gerundete Bruchteile nicht als Integer anzunehmen. Negative/Überlauf/Restzeichen/
-NaN/Inf/Bruchteile und gültige Dezimal-/Exponentformen prüfen; Fehler erhält Dokument.
+## Aktueller nächster Schritt
+Identität (name/version/active/epoch/decay), RenderPlan und Lighting vollständig
+entsprechend ReadRender/ReadLighting/ReadRoot serialisieren. Eigene Writer-Phasen;
+keine Änderungen an ungeprüften Reader-Tokens oder Runtime-Fallbacks in diesem Schritt.
+Render: Frame/Fps/Fill/Audits/Orbit/Transfer/Exposure/Precision, geordnete Outputs/Stages.
+Lighting: Key, IndirectLight und ShadowRadiusM. Native Picture ist bislang kein XML-Feld.
+Output/keep sind Reader-Aliasse; Writer verwendet kanonisch output. Keine doppelte Ausgabe.
+Unabhängige XML-Fixtures mit nicht-default Werten und Zeichenreferenzen vor und nach
+Write/Read prüfen, inklusive leeren Listen und nicht deklarierten Render-/Lichtsektionen.
+Altwriter muss an verlorenen Werten scheitern, kein bloßer Text-Fixpunkt als Oracle.
 
-Clip-Abnahme: 28 Checks sowie Asset-Roundtrip und Parser-Erhaltung grün; Altcode
-scheitert ohne Buildfehler. Lint 181 tidy/282 Doxygen, 32 Repository-Tests grün, drei
-rote Gruppen. Vorhandener Clip und direkte API-Validierung bleiben eigene Verträge.
+## Prüfung des Guards bleibt offen
+Grammar/Writer vergleicht Elementnamen, keine Semantik oder Attribute. Der Literalregex
+übersieht weitere Tags im selben String sowie berechnete Namen (StandingAs), und fordert
+Reader-Aliasse als eigene Writer-Fähigkeit. Das ist keine vollständige Verlustbilanz.
+Berechtigte Sektionslücken weiter implementieren; Guard später mit unabhängigen positiven
+und negativen Prüferfällen korrigieren, ohne die Erhaltungsanforderung abzuschwächen.
 
-Gemeinsame Asset-Validierung: Clip >= 0 und definierter Animationsmodus für XML und
-direktes Engine::declare, ohne IO/Mutation. Negativer Clip/ungültiges Enum müssen auch
-am direkten Einstieg scheitern und die vorherige Deklaration erhalten. XML-Syntax und
-Indexexistenz im geladenen Asset bleiben separate Prüfungen. Kein vollständiger
-Weltvalidator behauptet; zunächst gemeinsame fachliche Grenze für Playback-Metadaten.
-Playback-Abnahme: gemeinsamer nichtallokierender expected-Validator in ReadAssets
-und am Anfang von Engine::declare. API-Erhaltung/Retry und zwei Importregressionen
-grün; Altcode scheitert ohne Buildfehler. Lint 181/282, 32 Repository-Tests grün,
-drei rote Gruppen. Kein Nachweis vollständiger Welttransaktion oder Clip-Existenz.
-
-Writer-Zuständigkeiten: Weltattribute, Relief und OSM-Strukturen separat schreiben;
-WriteScenario orchestriert Sektionen. Bestehende Reihenfolge/Werte erhalten. Keine
-Komplexitätsunterdrückung: Funktionen folgen Datenverantwortung. OSM-Koordinaten-,
-Physik-, Generator- und Asset-Roundtrips sichern die Umstellung; fehlende Sektionen
-bleiben offen. Keine Bildänderung durch strukturelle Writer-Änderung erwartet.
-Writer-Zerlegung abgenommen: vier Roundtrip-Suiten grün (OSM/Relief, Physik,
-Generatorparameter, Assets). Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün;
-WriteScenario-Komplexitätsbefund entfällt ohne Unterdrückung, drei rote Gruppen bleiben.
+## Bereits geprüfte Schritte
+Asset-Roundtrip, strikter Clip-Token und gemeinsamer Playback-Validator sind implementiert;
+negative Kontrollen und API-Erhaltung/Retry grün. Welt-/Relief-/OSM-Writer separat;
+OSM-Koordinaten, Physik, Generatorparameter und Assets durch Roundtrip-Fixtures geprüft.
+Letzter Lint: 180 tidy/282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
