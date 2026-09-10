@@ -214,6 +214,7 @@ done
 
 LayerIncludes() {
   case "$1" in
+    outshine/mvt) printf '%s' "-Isrc/world/ground" ;;
     outshine/diagnostics) LayerIncludes outshine/conventions ;;
     outshine/conventions|outshine/device) printf '%s ' "-Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes outshine/places ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
@@ -265,7 +266,7 @@ LayerToolchain() {
 # retains its own sanitised tests below.
 LayerSanitiser() {
   case "$1" in
-    harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
+    outshine/mvt | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/khronos/validator | harness/geographiclib/geodesic)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
@@ -294,6 +295,7 @@ LayerLink() {
 
 LayerGroups() {
   case "$1" in
+    outshine/mvt) printf '%s' "src/world/ground/OsmVector.cpp" ;;
     outshine/diagnostics) LayerGroups outshine/conventions; printf ' %s' "src/diagnostics" ;;
     outshine/conventions|outshine/device) LayerGroups outshine/places ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;

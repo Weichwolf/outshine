@@ -1,7 +1,12 @@
 #include "OsmVector.h"
 
 #include <cstdint>
-#include <cstring>
+#include <cstddef>
+#include <bit>
+#include <expected>
+#include <limits>
+#include <string_view>
+#include <type_traits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -12,7 +17,17 @@ constexpr int kVarintShiftMost = 63;
 
 constexpr uint64_t kVarintPayload = 0x7fu;
 
+namespace Says {
+constexpr std::string_view kInvalidMvtValue =
+    "vector tile value has an invalid wire encoding or value type";
+}
+
 namespace {
+
+struct FieldHeader {
+  uint32_t Number = 0;
+  uint32_t Wire = 0;
+};
 
 struct Reader {
   const uint8_t *P, *End;
@@ -23,6 +38,10 @@ struct Reader {
     int s = 0;
     while (P < End) {
       const uint8_t b = *P++;
+      if (s == kVarintShiftMost && b > 1) {
+        Ok = false;
+        return 0;
+      }
       r |= static_cast<uint64_t>(b & kVarintPayload) << static_cast<uint32_t>(s);
       if ((b & 0x80u) == 0) { return r; }
       s += 7;
@@ -32,13 +51,30 @@ struct Reader {
     return 0;
   }
 
-  [[nodiscard]] bool Field(uint32_t &num, uint32_t &wire) {
+  [[nodiscard]] bool ReadField(FieldHeader &field) {
     if (P >= End) { return false; }
     const uint64_t k = Varint();
-    if (!Ok) { return false; }
-    num = static_cast<uint32_t>(k >> 3u);
-    wire = static_cast<uint32_t>(k & 7u);
+    if (!Ok || k > std::numeric_limits<uint32_t>::max() || (k >> 3u) == 0) {
+      Ok = false;
+      return false;
+    }
+    field.Number = static_cast<uint32_t>(k >> 3u);
+    field.Wire = static_cast<uint32_t>(k & 7u);
     return true;
+  }
+
+  template <typename UInt> UInt Fixed() {
+    static_assert(std::is_unsigned_v<UInt>);
+    if (std::cmp_less(End - P, sizeof(UInt))) {
+      Ok = false;
+      return 0;
+    }
+    UInt bits = 0;
+    for (size_t i = 0; i < sizeof(UInt); ++i) {
+      bits |= static_cast<UInt>(*P++)
+              << static_cast<unsigned>(i * std::numeric_limits<uint8_t>::digits);
+    }
+    return bits;
   }
 
   Reader Bytes() {
@@ -88,6 +124,63 @@ int32_t ZigZag(uint64_t v) {
   return static_cast<int32_t>((v >> 1u) ^ (~(v & 1u) + 1));
 }
 
+struct DecodedValue {
+  std::string Text;
+  double Number = 0.0;
+  bool IsNumber = false;
+};
+
+enum class ValueTag : uint32_t {
+  String = 0x0a,
+  Float = 0x15,
+  Double = 0x19,
+  Int = 0x20,
+  Uint = 0x28,
+  Sint = 0x30,
+  Bool = 0x38
+};
+
+std::expected<DecodedValue, std::string_view> ReadValue(Reader reader) {
+  static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<double>::is_iec559);
+  DecodedValue value;
+  uint32_t type = 0;
+  FieldHeader field;
+  while (reader.ReadField(field)) {
+    switch (static_cast<ValueTag>((field.Number << 3u) | field.Wire)) {
+      case ValueTag::String: {
+        const auto text = reader.Bytes();
+        if (!reader.Ok) { return std::unexpected(Says::kInvalidMvtValue); }
+        value.Text.assign(reinterpret_cast<const char *>(text.P),
+                          static_cast<size_t>(text.End - text.P));
+        break;
+      }
+      case ValueTag::Float: value.Number = std::bit_cast<float>(reader.Fixed<uint32_t>()); break;
+      case ValueTag::Double: value.Number = std::bit_cast<double>(reader.Fixed<uint64_t>()); break;
+      case ValueTag::Int:
+        value.Number = static_cast<double>(std::bit_cast<int64_t>(reader.Varint()));
+        break;
+      case ValueTag::Uint: value.Number = static_cast<double>(reader.Varint()); break;
+      case ValueTag::Sint: {
+        const auto bits = reader.Varint();
+        value.Number =
+            static_cast<double>(std::bit_cast<int64_t>((bits >> 1u) ^ (uint64_t{0} - (bits & 1u))));
+        break;
+      }
+      case ValueTag::Bool: value.Number = reader.Varint() != 0 ? 1.0 : 0.0; break;
+      default:
+        if (!reader.Skip(field.Wire)) { return std::unexpected(Says::kInvalidMvtValue); }
+        continue;
+    }
+    if (!reader.Ok || (type != 0 && type != field.Number)) {
+      return std::unexpected(Says::kInvalidMvtValue);
+    }
+    type = field.Number;
+    value.IsNumber = static_cast<ValueTag>((field.Number << 3u) | field.Wire) != ValueTag::String;
+  }
+  if (!reader.Ok || type == 0) { return std::unexpected(Says::kInvalidMvtValue); }
+  return value;
+}
+
 }
 
 bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
@@ -104,11 +197,10 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
   if ((bytes == nullptr) || len == 0) { return false; }
 
   Reader top{.P = bytes, .End = bytes + len, .Ok = true};
-  uint32_t num = 0;
-  uint32_t wire = 0;
-  while (top.Field(num, wire)) {
-    if (num != 3 || wire != 2) {
-      if (!top.Skip(wire)) { return false; }
+  FieldHeader field;
+  while (top.ReadField(field)) {
+    if (field.Number != 3 || field.Wire != 2) {
+      if (!top.Skip(field.Wire)) { return false; }
       continue;
     }
     Reader L = top.Bytes();
@@ -116,14 +208,13 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
 
     Reader probe = L;
     std::string name;
-    uint32_t n2 = 0;
-    uint32_t w2 = 0;
-    while (probe.Field(n2, w2)) {
-      if (n2 == 1 && w2 == 2) {
+    FieldHeader probeField;
+    while (probe.ReadField(probeField)) {
+      if (probeField.Number == 1 && probeField.Wire == 2) {
         const Reader s = probe.Bytes();
         if (!probe.Ok) { break; }
         name.assign(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
-      } else if (!probe.Skip(w2)) {
+      } else if (!probe.Skip(probeField.Wire)) {
         break;
       }
     }
@@ -131,58 +222,25 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
     if (present != nullptr) { *present = true; }
 
     std::vector<Reader> featureBodies;
-    while (L.Field(num, wire)) {
-      if (num == 3 && wire == 2) {
+    while (L.ReadField(field)) {
+      if (field.Number == 3 && field.Wire == 2) {
         const Reader s = L.Bytes();
         if (!L.Ok) { return false; }
         Keys_.emplace_back(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
-      } else if (num == 4 && wire == 2) {
-        Reader v = L.Bytes();
+      } else if (field.Number == 4 && field.Wire == 2) {
+        const auto body = L.Bytes();
         if (!L.Ok) { return false; }
-        double val = 0.0;
-        std::string str;
-        bool isNum = false;
-        uint32_t vn = 0;
-        uint32_t vw = 0;
-        while (v.Field(vn, vw)) {
-          if (vn == 1 && vw == 2) {
-            const Reader s = v.Bytes();
-            if (!v.Ok) { break; }
-            str.assign(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
-          } else if (vn == 2 && vw == 5) {
-            float f;
-            std::memcpy(&f, v.P, 4);
-            v.P += 4;
-            val = f;
-            isNum = true;
-          } else if (vn == 3 && vw == 1) {
-            double d;
-            std::memcpy(&d, v.P, 8);
-            v.P += 8;
-            val = d;
-            isNum = true;
-          } else if ((vn == 4 || vn == 5) && vw == 0) {
-            val = static_cast<double>(v.Varint());
-            isNum = true;
-          } else if (vn == 6 && vw == 0) {
-            val = static_cast<double>(ZigZag(v.Varint()));
-            isNum = true;
-          } else if (vn == 7 && vw == 0) {
-            val = v.Varint() != 0 ? 1.0 : 0.0;
-            isNum = true;
-          } else if (!v.Skip(vw)) {
-            break;
-          }
-        }
-        Values_.push_back(val);
-        ValueStrs_.push_back(std::move(str));
-        ValueIsNum_.push_back(isNum);
-      } else if (num == 5 && wire == 0) {
+        auto value = ReadValue(body);
+        if (!value) { return false; }
+        Values_.push_back(value->Number);
+        ValueStrs_.push_back(std::move(value->Text));
+        ValueIsNum_.push_back(value->IsNumber);
+      } else if (field.Number == 5 && field.Wire == 0) {
         Extent_ = static_cast<int>(L.Varint());
-      } else if (num == 2 && wire == 2) {
+      } else if (field.Number == 2 && field.Wire == 2) {
         featureBodies.push_back(L.Bytes());
         if (!L.Ok) { return false; }
-      } else if (!L.Skip(wire)) {
+      } else if (!L.Skip(field.Wire)) {
         return false;
       }
     }
@@ -191,11 +249,10 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       Feature f{};
       f.FirstTag = static_cast<uint32_t>(Tags_.size());
       f.FirstRing = static_cast<uint32_t>(Rings_.size());
-      uint32_t fn = 0;
-      uint32_t fw = 0;
+      FieldHeader featureField;
       std::vector<uint32_t> geom;
-      while (F.Field(fn, fw)) {
-        if (fn == 2 && fw == 2) {
+      while (F.ReadField(featureField)) {
+        if (featureField.Number == 2 && featureField.Wire == 2) {
           Reader t = F.Bytes();
           if (!F.Ok) { break; }
           while (t.P < t.End) {
@@ -203,9 +260,9 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
             if (!t.Ok) { break; }
             Tags_.push_back(static_cast<uint32_t>(v));
           }
-        } else if (fn == 3 && fw == 0) {
+        } else if (featureField.Number == 3 && featureField.Wire == 0) {
           f.Type = static_cast<int>(F.Varint());
-        } else if (fn == 4 && fw == 2) {
+        } else if (featureField.Number == 4 && featureField.Wire == 2) {
           Reader gr = F.Bytes();
           if (!F.Ok) { break; }
           while (gr.P < gr.End) {
@@ -213,7 +270,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
             if (!gr.Ok) { break; }
             geom.push_back(static_cast<uint32_t>(v));
           }
-        } else if (!F.Skip(fw)) {
+        } else if (!F.Skip(featureField.Wire)) {
           break;
         }
       }

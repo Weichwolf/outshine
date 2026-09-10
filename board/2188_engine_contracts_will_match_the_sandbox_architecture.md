@@ -3,7 +3,7 @@ State: open
 Area: include, engine, render, world
 Tags: architecture, audit
 Parent: 2169
-Depends: 2093, 2094, 2096, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2190, 2191, 2194, 2207, 2208, 2209, 2210, 2211
+Depends: 2093, 2094, 2096, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2190, 2191, 2194, 2207, 2208, 2209, 2210, 2211, 2214
 
 # Engine contracts will match the streaming sandbox architecture
 
@@ -44,6 +44,7 @@ benötigen keine SDL-Typen. Öffentliche API darf keine Importimplementierung ve
 | Bibliothek ersetzt Host-new/delete; nothrow-Zähler asymmetrisch | 2209 |
 | Save überschreibt vor Erfolg; Szenario-/Restore-Reader unbegrenzt | 2210 |
 | Providerdeklaration ignoriert; Offline vor Cachezugriff abgelehnt | 2211 |
+| MVT-Value-Speicherzugriff repariert; Geometrievalidierung und atomare Kachelannahme offen | 2214 |
 | XML akzeptiert Zahlenpräfixe und ersetzt ungültige Tokens durch Defaults | 2151, 2194 |
 | Upload-/Submit-Fehler weiterverarbeitet; History vor Erfolg fortgeschrieben | 2190 |
 | Jobqueue unbeschränkt; Wait ohne ungültigen/verbrauchtem Handle-Zustand | 2124 |

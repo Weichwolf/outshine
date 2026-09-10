@@ -7,7 +7,7 @@ Tags: correctness, memory, format, bounded
 # Vector tiles are validated before native publication
 
 ## Befund
-OsmVector::Parse (Komplexität 176) liest Float/Double ohne Restlängenprüfung.
+Der ursprüngliche OsmVector::Parse (Komplexität 176) las Float/Double ohne Restlängenprüfung.
 int64 wird als unsigned, sint64 über einen 32-Bit-Decoder interpretiert. Fehler
 verschachtelter Value-Reader werden ignoriert. Varint-Byte 10 kann überlaufen.
 OsmField::Accept (Komplexität 31) publiziert vor vollständiger Prüfung; Größen
@@ -24,10 +24,10 @@ werden ungeprüft nach int/uint32/uint16 verengt. Geometrie-Deltas können int32
   etablierte Protobuf/MVT-Reader gegen No-Exceptions und Ressourcenbudgets bewerten;
   keine zweite unbewiesene Universal-Protobuf-Implementierung aufbauen.
 
-## Aktiver Schritt: Value-Binärvertrag
+## Value-Binärvertrag
 Bestehenden Reader unmittelbar absichern: begrenztes Fixed32/64-Lesen in Little Endian,
 Varint auf 64 Bit begrenzen; Value-Decoder extrahieren. int64 korrekt als Zweierkomplement,
-sint64 mit 64-Bit-ZigZag. Genau ein typisiertes Value-Feld nach Schema. Fehler an Parse
+sint64 mit 64-Bit-ZigZag. Genau ein Value-Typ nach Schema, gleiche singuläre Felder: letztes gewinnt. Fehler an Parse
 weitergeben; kein Value aus abgeschnittenen Bytes. Numerische Speicherung bleibt vorerst
 Double und ist oberhalb ihrer exakten Integer-Präzision noch verlustbehaftet.
 Analytische Bytes für alle sieben Typen, sämtliche Float-/Double-Abschneidepositionen,
@@ -45,3 +45,12 @@ Dies beweist weder sichere Geometriekommandos noch transaktionale Gesamtkachelan
 - [ ] Fehlerhafte Kachel ersetzt keinen gültigen Zustand; fehlend und beschädigt unterscheidbar.
 - [ ] Native Datentypen erhalten Integerwerte; Budgets, Abbruch und inkrementelles Decode.
 - [ ] Unabhängige Formatfixtures, Negativkontrollen und direkt instrumentierter Decoder.
+
+## Nachweis dieses Schritts
+FieldHeader ersetzt vertauschbare Feldnummer-/Wire-Ausgaben. Value-Decodierung separat.
+Alte Fassung scheitert an 22/41 analytischen Checks. MVT-Suite kompiliert OsmVector.cpp
+selbst mit ASan/UBSan; exakt große Abschneidepuffer lösen im alten Decoder einen
+ASan heap-buffer-overflow (Read 4) aus, ohne Buildfehler. Korrigiert normal/sanitisiert
+grün. OSM-Positionsregression grün; Wien c307cab8 bytegleich, PNG geöffnet.
+Abschluss: 184 tidy statt 185, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
+drei Gruppen bleiben rot. Pixelvergleich Wien: 0 geänderte Pixel, RGB-Maximum/Mittel 0.
