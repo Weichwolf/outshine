@@ -48,3 +48,12 @@ lösen und Engine-/Host-Bilanzierung trennen. Der erste Schritt schließt dieses
 - [x] Gezielter Test des skalaren nothrow-Pfads zeigt vor Fix den Zählerfehler.
 - [ ] Engine-Budget umfasst Engine-Speicher; fremde Host-Allokationen separat ausweisen.
 - [ ] OOM-/Budgetfehler nach 2194, Lint und Instrumentierungskosten nach 2108 prüfen.
+
+## Besitzende Heap-Tags
+TagRow hält bisher geliehene char-Zeiger und vergleicht Identität statt Inhalt.
+Namen in festen 96-Byte-Slots besitzen; gleiche Texte zusammenführen. 32 Slots
+inklusive other/untagged, überlange/unregistrierbare Namen nach other. Registrierung
+unter Mutex beim Scope-Eintritt; Hot-Path zählt direkt über threadlokalen Slotindex.
+Namen erst nach vollständiger Kopie veröffentlichen; verschachtelte Scopes stellen
+vorigen Index wieder her. Tests: mutierte/freigegebene Namen, gleiche Texte, Threads,
+Überlauf und Scope-Restore. Kein Anspruch auf vollständige Engine-Speicherbilanz.
