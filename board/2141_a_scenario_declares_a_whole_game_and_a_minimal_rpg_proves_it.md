@@ -65,3 +65,14 @@ TableBook und Simulation publizieren nur vollständige Kandidaten. Vier Tests pr
 Schema-/Zahlenfehler, eigene Datenspeicherung, typisierte Abfrage, Schlüssel, Grenzen
 und erhaltene Simulation nach Assembly-Ablehnung. Beide neuen Tests scheitern im Altstand.
 Öffentliche Table-Verträge sind dokumentiert; keine Quest-/Script-Fähigkeit behaupten.
+
+## Eindeutige Trigger-Ereignisse
+Stand verengt Ereigniszahl und Treffer auf uint16_t; 65536 Ereignisse kollidieren
+mit dem Sentinel, größere Kataloge können ein anderes Ereignis adressieren.
+Genau 2^16 Ereignisse unterstützen (Indices 0..65535), größere Kataloge vor Aufbau
+ablehnen. Nichtleere eindeutige Namen mit kurzlebigem string_view-Index auflösen;
+kein verengter Sentinel. Ereigniskatalog und Volume-Vorbereitung getrennte Phasen.
+Assembly muss deklarierte Events auch ohne Volumes prüfen und übernehmen.
+Grenztests: erster/letzter Index, 65537 Einträge, doppelte/leere Namen, unbekannter
+Verweis; abgelehnte Assembly erhält die alte Simulation. Öffentlichen Event-Vertrag
+beschreiben, inklusive der Grenze zwischen Feldnamen und noch nicht erzeugter Payload.
