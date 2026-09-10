@@ -1,4 +1,5 @@
 #include "OsmVector.h"
+#include "WireFixture.h"
 #include "Check.h"
 #include <array>
 #include <algorithm>
@@ -10,14 +11,8 @@
 #include <vector>
 
 namespace {
-using Bytes = std::vector<uint8_t>;
-
-void Append(Bytes &out, uint8_t tag, std::span<const uint8_t> bytes) {
-  // Fixture messages fit in a one-byte protobuf length.
-  out.push_back(tag);
-  out.push_back(static_cast<uint8_t>(bytes.size()));
-  out.insert(out.end(), bytes.begin(), bytes.end());
-}
+using outshine::Test::Mvt::Append;
+using outshine::Test::Mvt::Bytes;
 
 Bytes Tile(std::span<const uint8_t> value) {
   Bytes layer{0x0a, 1, 'x', 0x78, 2, 0x28, 0x80, 0x20};

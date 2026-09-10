@@ -18,6 +18,8 @@ constexpr int kVarintShiftMost = 63;
 constexpr uint64_t kVarintPayload = 0x7fu;
 
 namespace Says {
+constexpr std::string_view kInvalidMvtFeature =
+    "vector tile feature contains an invalid field or integer";
 constexpr std::string_view kInvalidMvtValue =
     "vector tile value has an invalid wire encoding or value type";
 }
@@ -181,6 +183,74 @@ std::expected<DecodedValue, std::string_view> ReadValue(Reader reader) {
   return value;
 }
 
+struct EncodedFeature {
+  std::vector<uint32_t> Tags;
+  std::vector<uint32_t> Geometry;
+  int Type = 0;
+};
+
+enum class FeatureTag : uint32_t {
+  Tag = 0x10,
+  PackedTags = 0x12,
+  Type = 0x18,
+  GeometryWord = 0x20,
+  PackedGeometry = 0x22
+};
+
+bool AppendWord(Reader &reader, std::vector<uint32_t> &words) {
+  const auto word = reader.Varint();
+  if (!reader.Ok || word > std::numeric_limits<uint32_t>::max()) { return false; }
+  words.push_back(static_cast<uint32_t>(word));
+  return true;
+}
+
+bool AppendPackedWords(Reader reader, std::vector<uint32_t> &words) {
+  while (reader.P < reader.End) {
+    if (!AppendWord(reader, words)) { return false; }
+  }
+  return reader.Ok;
+}
+
+std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature &feature) {
+  feature.Tags.clear();
+  feature.Geometry.clear();
+  feature.Type = 0;
+  FieldHeader field;
+  while (reader.ReadField(field)) {
+    switch (static_cast<FeatureTag>((field.Number << 3u) | field.Wire)) {
+      case FeatureTag::Tag:
+        if (!AppendWord(reader, feature.Tags)) { return std::unexpected(Says::kInvalidMvtFeature); }
+        break;
+      case FeatureTag::PackedTags:
+        if (!AppendPackedWords(reader.Bytes(), feature.Tags)) {
+          return std::unexpected(Says::kInvalidMvtFeature);
+        }
+        break;
+      case FeatureTag::GeometryWord:
+        if (!AppendWord(reader, feature.Geometry)) {
+          return std::unexpected(Says::kInvalidMvtFeature);
+        }
+        break;
+      case FeatureTag::PackedGeometry:
+        if (!AppendPackedWords(reader.Bytes(), feature.Geometry)) {
+          return std::unexpected(Says::kInvalidMvtFeature);
+        }
+        break;
+      case FeatureTag::Type: {
+        const auto type = reader.Varint();
+        if (!reader.Ok || type > 3) { return std::unexpected(Says::kInvalidMvtFeature); }
+        feature.Type = static_cast<int>(type);
+        break;
+      }
+      default:
+        if (!reader.Skip(field.Wire)) { return std::unexpected(Says::kInvalidMvtFeature); }
+        break;
+    }
+  }
+  if (!reader.Ok) { return std::unexpected(Says::kInvalidMvtFeature); }
+  return {};
+}
+
 }
 
 bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
@@ -218,8 +288,12 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         break;
       }
     }
-    if (name != layer) { continue; }
+    if (name != layer) {
+      if (!probe.Ok) { return false; }
+      continue;
+    }
     if (present != nullptr) { *present = true; }
+    if (!probe.Ok) { return false; }
 
     std::vector<Reader> featureBodies;
     while (L.ReadField(field)) {
@@ -245,36 +319,17 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       }
     }
 
-    for (Reader F : featureBodies) {
+    if (!L.Ok) { return false; }
+    EncodedFeature encoded;
+    for (const Reader body : featureBodies) {
+      if (!ReadFeature(body, encoded)) { return false; }
       Feature f{};
+      f.Type = encoded.Type;
       f.FirstTag = static_cast<uint32_t>(Tags_.size());
       f.FirstRing = static_cast<uint32_t>(Rings_.size());
-      FieldHeader featureField;
-      std::vector<uint32_t> geom;
-      while (F.ReadField(featureField)) {
-        if (featureField.Number == 2 && featureField.Wire == 2) {
-          Reader t = F.Bytes();
-          if (!F.Ok) { break; }
-          while (t.P < t.End) {
-            const uint64_t v = t.Varint();
-            if (!t.Ok) { break; }
-            Tags_.push_back(static_cast<uint32_t>(v));
-          }
-        } else if (featureField.Number == 3 && featureField.Wire == 0) {
-          f.Type = static_cast<int>(F.Varint());
-        } else if (featureField.Number == 4 && featureField.Wire == 2) {
-          Reader gr = F.Bytes();
-          if (!F.Ok) { break; }
-          while (gr.P < gr.End) {
-            const uint64_t v = gr.Varint();
-            if (!gr.Ok) { break; }
-            geom.push_back(static_cast<uint32_t>(v));
-          }
-        } else if (!F.Skip(featureField.Wire)) {
-          break;
-        }
-      }
+      Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());
       f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
+      const auto &geom = encoded.Geometry;
 
       int32_t cx = 0;
       int32_t cy = 0;
