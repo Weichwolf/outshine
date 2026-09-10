@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: scenario, engine
 Tags: architecture, owner, ai-first
 Depends: 2131, 2136
@@ -51,3 +51,17 @@ The door gains the records a game is made of and NOTHING that decides how a game
 - [ ] Every section the RPG uses round-trips: read, write, diff empty (board:2131)
 - [ ] Negative control: a scenario that gives a mind an item no `Asset` declares is REFUSED at
       declare, loudly, and a mind's `give` of an item it does not hold is refused at act
+
+## Typisierte Tabellen als geprüfte Datenbasis
+TableBook::Stand vermischt Schema, Zahlenkonvertierung, Schlüsselindex und Publikation
+(Clang-tidy-Komplexität 33). Nicht endliche Zahlen, doppelte/leere Spaltennamen und
+überzählige Typangaben werden bisher akzeptiert. Schema und Zeilenaufbau trennen;
+ParseFiniteNumber wiederverwenden. Table-ID/Spaltennamen nichtleer und eindeutig,
+mindestens eine Spalte, exakte Zeilenbreite; fehlende Typangaben bleiben Text.
+4096-Zeilen-Grenze erhalten. Erste Zelle ist der eindeutige, unveränderte Textschlüssel
+(auch bei Zahlenspalten); endliche Dezimalzahlen vollständig lesen, keine Clamps.
+Zellspeicher einmal mit geprüftem Produkt reservieren, Zeilen direkt darin aufbauen.
+TableBook und Simulation nur als vollständige Kandidaten publizieren. Tests prüfen
+Schema-/Zahlenfehler, eigene Datenspeicherung, typisierte Abfrage, Schlüssel, Grenzen
+und erhaltene Simulation nach Assembly-Ablehnung. Altstand muss Kontrollen verletzen.
+Öffentliche Table-Verträge dokumentieren; keine Quest-/Script-Fähigkeit behaupten.
