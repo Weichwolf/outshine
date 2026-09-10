@@ -115,5 +115,5 @@ kWet und Klassenfeuchte als endliche Anteile [0,1] vor Float-Verengung prüfen.
 Fehlende Werte behalten Defaults, vorhandene falsche Typen werden abgelehnt.
 Optionale Modellobjekte und edges-Paar prüfen; Grenzen [0,1], auch nach Float-Cast
 streng aufsteigend. Smoothstep außerhalb des Intervalls vor der Division sättigen.
-Abnahme: kollabierende/reverse Grenzen, falsche Typen, extreme Zahlen, Erhaltung
-und analytische Endpunkte/Mitte; bestehender Katalog bleibt gültig.
+Nachweis: Altcode akzeptiert kollabierende/reverse Grenzen und falsche Typen.
+Korrektur besteht Fehlererhaltung, analytische Endpunkte/Mitte und Katalog-Retry.

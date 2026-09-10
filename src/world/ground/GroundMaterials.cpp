@@ -42,6 +42,49 @@ bool IsPositiveFloat(double value) {
          value <= std::numeric_limits<float>::max();
 }
 
+std::expected<float, std::string>
+ReadFraction(Json::Ref value, double fallback, std::string_view name) {
+  if (!value.Valid()) { return static_cast<float>(fallback); }
+  const double number = value.Num(-1.0);
+  if (value.GetKind() != Json::Kind::Number || !std::isfinite(number) || number < 0.0 ||
+      number > 1.0) {
+    return std::unexpected(std::string(name) + " must be a finite number in [0,1]");
+  }
+  return static_cast<float>(number);
+}
+
+std::expected<MoistureModel, std::string> ReadMoistureModel(Json::Ref root) {
+  const auto moisture = root["moistureModel"];
+  const auto specular = root["specularModel"];
+  for (const auto model : {moisture, specular}) {
+    if (model.Valid() && model.GetKind() != Json::Kind::Object) {
+      return std::unexpected("moistureModel and specularModel must be objects");
+    }
+  }
+  const auto edges = specular["edges"];
+  if (edges.Valid() && (edges.GetKind() != Json::Kind::Array || edges.Size() != 2)) {
+    return std::unexpected("specularModel.edges must be a pair");
+  }
+  const auto wet = ReadFraction(moisture["kWet"], 0.0, "moistureModel.kWet");
+  if (!wet) { return std::unexpected(wet.error()); }
+  const auto low = ReadFraction(edges[size_t{0}], 0.05, "specularModel.edges[0]");
+  if (!low) { return std::unexpected(low.error()); }
+  const auto high = ReadFraction(edges[size_t{1}], 0.85, "specularModel.edges[1]");
+  if (!high) { return std::unexpected(high.error()); }
+  if (*low >= *high) {
+    return std::unexpected("specularModel.edges must remain strictly increasing as floats");
+  }
+  return MoistureModel{
+      .Wet = *wet, .Low = *low, .High = *high, .Exclusions = moisture["exclusions"]};
+}
+
+float MoistureSpecular(float moisture, float low, float high) {
+  if (moisture <= low) { return 0.0f; }
+  if (moisture >= high) { return 1.0f; }
+  const float t = (moisture - low) / (high - low);
+  return t * t * (3.0f - 2.0f * t);
+}
+
 int FindMaterial(std::span<const GroundMaterials::Material> materials, std::string_view name) {
   for (size_t i = 0; i < materials.size(); ++i) {
     if (materials[i].Name == name) { return static_cast<int>(i); }
@@ -65,7 +108,9 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
                            ": peakFriction must be a positive representable float");
   }
   m.PeakFriction = static_cast<float>(peak.Num(0.0));
-  m.Moisture = static_cast<float>(c["moisture"].Num(0.0));
+  const auto moisture = ReadFraction(c["moisture"], 0.0, "class " + m.Name + ": moisture");
+  if (!moisture) { return std::unexpected(moisture.error()); }
+  m.Moisture = *moisture;
   m.GrainSizeM = static_cast<float>(c["grainSizeM"].Num(kGrainSizeUnsaidM));
   m.HeightAmplitudeM = static_cast<float>(c["heightAmplitudeM"].Num(kHeightAmplitudeUnsaidM));
   m.DetailCoarseM =
@@ -84,8 +129,7 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
   if (surf.StrEquals("coherent")) {
     m.SpecularScale = 1.0f;
   } else if (surf.StrEquals("particulate")) {
-    const float t = std::min(std::max((m.Moisture - wetLo) / (wetHi - wetLo), 0.0f), 1.0f);
-    m.SpecularScale = t * t * (3.0f - 2.0f * t);
+    m.SpecularScale = MoistureSpecular(m.Moisture, wetLo, wetHi);
   } else {
     return std::unexpected("class " + m.Name + ": surface must be 'coherent' or 'particulate'");
   }
@@ -151,13 +195,8 @@ std::expected<void, std::string> ResolveMaterials(std::span<GroundMaterials::Mat
 }
 
 std::expected<std::vector<GroundMaterials::Material>, std::string> ReadCatalog(const Json &doc) {
-  const Json::Ref mm = doc.Root()["moistureModel"];
-  const float kWet = static_cast<float>(mm["kWet"].Num(0.0));
-  const Json::Ref excl = mm["exclusions"];
-  const float wetLo =
-      static_cast<float>(doc.Root()["specularModel"]["edges"][static_cast<size_t>(0)].Num(0.05));
-  const float wetHi =
-      static_cast<float>(doc.Root()["specularModel"]["edges"][static_cast<size_t>(1)].Num(0.85));
+  const auto model = ReadMoistureModel(doc.Root());
+  if (!model) { return std::unexpected(model.error()); }
 
   const std::string reference = doc.Root()["frictionModel"]["reference"].Str("");
   if (reference.empty()) {
@@ -170,13 +209,12 @@ std::expected<std::vector<GroundMaterials::Material>, std::string> ReadCatalog(c
     return std::unexpected("no classes array");
   }
 
-  const MoistureModel model{.Wet = kWet, .Low = wetLo, .High = wetHi, .Exclusions = excl};
   std::vector<GroundMaterials::Material> materials;
   std::vector<std::string> litterName;
   materials.reserve(cls.Size());
   litterName.reserve(cls.Size());
   for (size_t i = 0; i < cls.Size(); ++i) {
-    auto parsed = ReadMaterial(cls[i], model);
+    auto parsed = ReadMaterial(cls[i], *model);
     if (!parsed) { return std::unexpected(std::move(parsed.error())); }
     materials.push_back(std::move(parsed->Value));
     litterName.push_back(std::move(parsed->Litter));

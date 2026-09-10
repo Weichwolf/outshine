@@ -61,6 +61,44 @@ int main() {
               materials.At(0).FrictionFactor == 1,
           "friction quotient failure preserves catalog");
   }
+  for (const auto *model : {R"("moistureModel":{"kWet":1e300})",
+                            R"("moistureModel":{"kWet":-0.1})",
+                            R"("moistureModel":{"kWet":"0.5"})",
+                            R"("moistureModel":null)",
+                            R"("specularModel":false)",
+                            R"("specularModel":{"edges":[0.5,0.5]})",
+                            R"("specularModel":{"edges":[0.8,0.2]})",
+                            R"("specularModel":{"edges":[0.5,0.500000001]})",
+                            R"("specularModel":{"edges":[0,1e300]})",
+                            R"("specularModel":{"edges":[-1,1]})",
+                            R"("specularModel":{"edges":[0,"1"]})",
+                            R"("specularModel":{"edges":[0]})"}) {
+    write("{" + std::string(model) +
+          ",\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row + "]}");
+    CHECK(!materials.Load(path.c_str()), "invalid moisture model rejected");
+    CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f,
+          "model failure preserves previous catalog");
+  }
+  for (const auto *moisture : {"-0.1", "1.1", "1e300", "null", "\"0.5\""}) {
+    write("{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" +
+          row.substr(0, row.size() - 1) + ",\"moisture\":" + moisture + "}]}");
+    CHECK(!materials.Load(path.c_str()), "invalid material moisture rejected");
+    CHECK(materials.Count() == 1 && materials.At(0).PeakFriction == 0.5f,
+          "moisture failure preserves previous catalog");
+  }
+  for (const auto *moisture : {"0", "0.25", "0.5", "0.75", "1"}) {
+    write(
+        std::string(
+            R"({"moistureModel":{"kWet":0.5},"specularModel":{"edges":[0.25,0.75]},"frictionModel":{"reference":"sample"},"classes":[{"name":"sample","peakFriction":1,"surface":"particulate","albedo":[1,1,1],"slope":{"plausibleDeg":[0,90]},"moisture":)") +
+        moisture + "}]}");
+    CHECK(materials.Load(path.c_str()), "valid moisture model loads after failures");
+    const float amount = std::stof(moisture);
+    const float expected = amount <= 0.25f ? 0.0f : (amount >= 0.75f ? 1.0f : 0.5f);
+    CHECK(materials.At(0).SpecularScale == expected,
+          "smoothstep has exact dry, middle and saturated values");
+    CHECK(materials.At(0).Albedo[0] == 1.0f - 0.5f * amount,
+          "wet albedo follows declared attenuation");
+  }
   const std::string forward = row.substr(0, row.size() - 1) + ",\"litter\":{\"class\":\"later\"}}";
   const std::string later =
       R"({"name":"later","peakFriction":1,"surface":"coherent","slope":{"plausibleDeg":[0,90]},"litter":{"class":"later"}})";
