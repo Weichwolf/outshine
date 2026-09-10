@@ -100,3 +100,11 @@ expliziter Fehler; keine unbemerkte Teilveröffentlichung. Mit Messdaten kalibri
 Decoder-Phasen geprüft: 14 Regressionen grün. Mutant verschluckt Feature-Fehler und
 scheitert normal/sanitisiert ohne Buildfehler. Abschluss-Lint 182/330, 32 Repository-
 Tests grün, drei rote Gruppen. Letzte Korrektur beschränkt sich auf const für den Reader.
+
+## Punkt- und UNKNOWN-Features
+Punktkoordinaten brauchen einen referenzierten Geometrieteil, sonst übernimmt OsmField
+keine Punkte und behält Sentinel-Bounds. POINT/MULTIPOINT als Punktmenge im bestehenden
+Featuretyp erhalten; keine Verbindungssegmente erfinden. UNKNOWN nach MVT §4.3.4.1
+überspringen. Type und Geometry müssen ausdrücklich vorhanden sein (§4.2), nicht durch
+Defaultwerte ersetzt werden. Native Einzel-/Mehrpunkt-Fixture mit analytischen
+Äquatorpositionen und Bounds, fehlende Pflichtfelder und UNKNOWN prüfen; alt muss scheitern.
