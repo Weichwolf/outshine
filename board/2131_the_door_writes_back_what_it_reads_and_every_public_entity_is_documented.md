@@ -112,9 +112,9 @@ Abnahme: öffentlicher registrierter Probe-Generator sieht deklarierte Region/Pa
 Reader/Writer-Rundlauf erhält sie; Fehler bewahrt Vorgängerszene. Gebäudemaße bleiben
 bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkontrolle.
 
-## OSM-Koordinaten erhalten
-WriteScenario rundet LatLon mit to_string auf sechs Nachkommastellen; unterschiedliche
-Punkte können zusammenfallen. std::format mit Roundtrip-Darstellung wie Number nutzen.
+Writer rundet LatLon auf sechs Nachkommastellen; nahe Punkte können zusammenfallen.
+std::format nutzen. OSM ohne Relief erzeugt zudem ein ungültiges relief ohne kind;
+Relief nur bei tatsächlich deklariertem Kind schreiben, OSM unabhängig erhalten.
 Test vergleicht ursprüngliche Double-Werte mit gelesenen Werten: nahe Punkte,
 negative Koordinaten, Pole/Datumsgrenze und Weg/Fläche; alter Writer muss scheitern.
-Reader-Validierung, verlustbehafteter uint64-Reliefseed und fehlende Attribute bleiben offen.
+Reader-Validierung, uint64-Reliefseed und fehlende Attribute bleiben offen.
