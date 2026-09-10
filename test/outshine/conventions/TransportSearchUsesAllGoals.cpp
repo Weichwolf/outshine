@@ -17,7 +17,10 @@ int main() {
       radiusM * std::acos(std::cos(0.0015 * radians) * std::cos(0.009 * radians));
   CHECK(shorterM < directM, "independent spherical lengths distinguish the two direct routes");
   for (const double sign : {-1.0, 1.0}) {
-    Path::Network network({.CellM = 1}, {});
+    auto networkResult = Path::Network::Create({.CellM = 1}, {});
+    CHECK(networkResult.has_value(), "valid network configuration accepted");
+    if (!networkResult) { return Report(); }
+    auto &network = *networkResult;
     const std::array<double, 6> main{0, 0, 0, 0.01, 0, 0.02};
     const std::array<double, 6> alternative{0, 0, sign * 0.0015, 0.009, sign * 0.003, 0.018};
     CHECK(network.Lay(main, {.HalfWidthM = 110, .Oneway = true}).has_value(),

@@ -16,7 +16,10 @@ void CheckSplice(bool reverseRoad, bool outwardSpur, bool oneWay) {
   const std::array<double, 4> spur = outwardSpur ? std::array<double, 4>{0, 0.01, -0.01, 0.01}
                                                  : std::array<double, 4>{-0.01, 0.01, 0, 0.01};
   const std::array<double, 4> anchor{-0.01, 0.02, 0, 0.02};
-  Path::Network network({.CellM = 1}, {});
+  auto networkResult = Path::Network::Create({.CellM = 1}, {});
+  CHECK(networkResult.has_value(), "valid network configuration accepted");
+  if (!networkResult) { return; }
+  auto &network = *networkResult;
   CHECK(network.Lay(road, {.HalfWidthM = 1, .Oneway = oneWay}).has_value(),
         "valid transport way accepted");
   CHECK(network.Lay(spur, {.HalfWidthM = 1, .Oneway = true}).has_value(),
@@ -48,7 +51,10 @@ int main() {
   const LongitudeLatitude west{.LongitudeDeg = 0, .LatitudeDeg = 0};
   const LongitudeLatitude east{.LongitudeDeg = 0.01, .LatitudeDeg = 0};
   for (const bool oneWay : {false, true}) {
-    Path::Network network({.CellM = 1}, {});
+    auto networkResult = Path::Network::Create({.CellM = 1}, {});
+    CHECK(networkResult.has_value(), "valid network configuration accepted");
+    if (!networkResult) { return Report(); }
+    auto &network = *networkResult;
     CHECK(network.Lay(points, {.Oneway = oneWay}).has_value(), "valid transport way accepted");
     std::string error;
     CHECK(network.Weave(error), "two-node transport network builds");

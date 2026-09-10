@@ -29,6 +29,8 @@
 namespace outshine::Path {
 
 namespace Says {
+constexpr auto kInvalidNetworkGrid = "transport grid requires finite positive radius and cell size "
+                                     "with representable global indices";
 constexpr auto kInvalidWayCoordinates = "transport way contains invalid geographic coordinates";
 constexpr auto kInvalidWayPoints =
     "a transport way requires at least two complete latitude/longitude pairs";
@@ -115,6 +117,24 @@ double ApartM(LongitudeLatitude from, LongitudeLatitude to, Sphere on) {
       std::sin(0.5 * byLat) * std::sin(0.5 * byLat) +
       std::cos(fromLat) * std::cos(toLat) * std::sin(0.5 * byLon) * std::sin(0.5 * byLon);
   return 2.0 * on.RadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
+}
+
+std::expected<Network, std::string_view> Network::Create(Snap snap, Sphere on) {
+  if (!std::isfinite(snap.CellM) || snap.CellM <= 0.0 || !std::isfinite(on.RadiusM) ||
+      on.RadiusM <= 0.0) {
+    return std::unexpected(Says::kInvalidNetworkGrid);
+  }
+  const double metresPerDegree = MetresPerDegreeLat(on.RadiusM);
+  const double circumferenceM = kDegPerTurn * metresPerDegree;
+  const double latitudeCellDeg = snap.CellM / metresPerDegree;
+  const double columns = std::ceil(kDegPerTurn / latitudeCellDeg);
+  if (!std::isfinite(circumferenceM) || circumferenceM <= 0.0 || !std::isfinite(latitudeCellDeg) ||
+      latitudeCellDeg <= 0.0 || latitudeCellDeg > kDegPerTurn || !std::isfinite(columns) ||
+      columns > static_cast<double>(std::numeric_limits<uint32_t>::max()) ||
+      metresPerDegree * kLeastRunM <= 0.0) {
+    return std::unexpected(Says::kInvalidNetworkGrid);
+  }
+  return Network(snap, on);
 }
 
 std::expected<void, std::string_view> Network::Lay(std::span<const double> latLonPairs,

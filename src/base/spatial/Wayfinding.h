@@ -77,7 +77,7 @@ struct Route {
 
 class Network {
 public:
-  Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
+  [[nodiscard]] static std::expected<Network, std::string_view> Create(Snap snap, Sphere on);
 
   [[nodiscard]] std::expected<void, std::string_view> Lay(std::span<const double> latLonPairs,
                                                           const WayClass &of);
@@ -181,6 +181,8 @@ public:
   void Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes) const;
 
 private:
+  Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
+
   struct Way {
     size_t First = 0;
     size_t Count = 0;

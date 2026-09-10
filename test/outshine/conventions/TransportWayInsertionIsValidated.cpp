@@ -9,7 +9,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Path::Network network({.CellM = 1}, {});
+  auto networkResult = Path::Network::Create({.CellM = 1}, {});
+  CHECK(networkResult.has_value(), "valid network configuration accepted");
+  if (!networkResult) { return Report(); }
+  auto &network = *networkResult;
   const std::array<double, 4> line{0, 0, 0, 0.01};
   CHECK(network.Lay(line, {}).has_value(), "valid initial way accepted");
   std::string error;

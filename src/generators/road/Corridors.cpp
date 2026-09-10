@@ -555,8 +555,13 @@ Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
   Mapped made;
   const outshine::Ground::OsmField *const vectors = stack.Vectors();
   if (vectors == nullptr) { return made; }
-  auto net = std::make_shared<Path::Network>(Path::Snap{.CellM = kNodeSnapM},
-                                             Path::Sphere{.RadiusM = kWgs84A});
+  auto created =
+      Path::Network::Create(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = kWgs84A});
+  if (!created) {
+    made.Refusal = created.error();
+    return made;
+  }
+  auto net = std::make_shared<Path::Network>(std::move(*created));
   if (const auto laid = LayLanesIntoNetwork(stack.Ways(), vectors->Points(), *net); !laid) {
     made.Refusal = laid.error();
     return made;

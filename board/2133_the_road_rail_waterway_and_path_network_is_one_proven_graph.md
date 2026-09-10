@@ -104,10 +104,11 @@ ungeprüfte Quotienten nach int64; KeyAt packt Zeile und Spalte in je 32 Bit.
 Within castet ceil(reach/Snap) und quadriert die Zellzahl vor dem Vollscan-Fallback.
 Eine gültige Konstruktion allein verhindert diesen unabhängigen Abfrageüberlauf nicht.
 
-Entscheidung: private Konstruktion, nodiscard expected<Network,string_view>-Factory;
-Corridors reicht Erzeugungsfehler weiter. Positive endliche Basiswerte und abgeleitete
-Größen prüfen; darstellbare Zellindizes aus der tatsächlichen Bitbreite herleiten.
-Auch grobe Zellen, Polnähe und das aus Straßenbreiten abgeleitete TieReach prüfen.
+Umgesetzt: private Konstruktion, nodiscard expected<Network,string_view>-Factory;
+Corridors reicht Fehler weiter. Positive endliche Werte, höchstens ein Kugelumfang
+pro Zelle und höchstens UINT32_MAX Spalten; sechs Transporttests bestehen,
+Factory-Bypass scheitert. Wien-PNG bytegleich; lint unverändert 187/333, 32 Claims grün.
+Offen: Polnähe und das aus Straßenbreiten abgeleitete TieReach prüfen.
 Within/Nearest erhalten explizite Fehlerverträge; große gültige Suchradien wählen
 vor Integer-Casts einen begrenzten Vollscan. Keine stillen leeren Treffer bei Fehlern.
 Vorhandene Graph-/Geometriefähigkeiten behalten; erwartetes gültiges Render unverändert.
