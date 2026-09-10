@@ -109,7 +109,7 @@ Track-Spans behalten stabile Channel-Besitzer. Direkt in besitzende Puffer dekod
 Konkurrierende Ziele über geordneten Index statt quadratischem Scan erkennen.
 Nachweis: gültige Fixture, isolierte Fehlerproben, Konflikte/Kombination und Retry;
 Altcode verletzt Erhaltung, Korrektur und vier Importerregressionen bestehen.
-Zeitgitter-/Wertevalidierung in Track/Keyframes bleibt separat offen.
+Abgeleitete Werte können weiterhin überlaufen; Rotationsnormen separat absichern.
 
 ## Geprüfte Kurven
 Formatunabhängige Keyframes nach base/math verschieben; geprüfte span-Factory statt
@@ -117,4 +117,4 @@ Formatunabhängige Keyframes nach base/math verschieben; geprüfte span-Factory 
 gültige Interpolation und dimensionssichere Rechnung vor Veröffentlichung erzwingen.
 Track lehnt unbekannte Pfade/negative glTF-Zeiten ab und erhält gültige Vorgänger.
 Zu kleine Sample-Puffer und nichtendliche Abfragen ohne Schreibzugriff ablehnen.
-Analytische STEP/LINEAR/CUBICSPLINE-Kontrollen, Fehlererhaltung und Importerregressionen.
+Analytische STEP/LINEAR/CUBICSPLINE-, Fehlererhaltungs- und Importerprüfungen grün.

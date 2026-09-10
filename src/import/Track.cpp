@@ -1,5 +1,6 @@
 #include "math/Vec4.h"
 #include "Track.h"
+#include "Keyframes.h"
 
 #include <cmath>
 #include <cstddef>
@@ -46,25 +47,34 @@ bool Track::Build(AnimationPath path,
                   std::span<const double> times,
                   std::span<const double> values,
                   Track &out) {
-  if (times.empty()) { return false; }
-  const size_t perKeyframe = (how == Interpolation::CubicSpline) ? 3u : 1u;
-  if (how == Interpolation::CubicSpline && times.size() < 2) { return false; }
-
+  if (times.empty() || times.front() < 0.0) { return false; }
+  switch (path) {
+    case AnimationPath::Translation:
+    case AnimationPath::Rotation:
+    case AnimationPath::Scale:
+    case AnimationPath::Weights:
+    case AnimationPath::MaterialFactor: break;
+    default: return false;
+  }
+  const size_t perKeyframe = how == Interpolation::CubicSpline ? 3u : 1u;
   size_t components = PathComponents(path);
   if (components == 0) {
-    const size_t elements = times.size() * perKeyframe;
-    if (values.size() % elements != 0) { return false; }
-    components = values.size() / elements;
+    if (values.size() % times.size() != 0 || (values.size() / times.size()) % perKeyframe != 0) {
+      return false;
+    }
+    components = values.size() / times.size() / perKeyframe;
   }
-  if (components == 0 || values.size() != times.size() * perKeyframe * components) { return false; }
-
-  out.Curve_ = outshine::Keyframes(how, times.data(), times.size(), values.data(), components);
-  out.Spherical_ = path == AnimationPath::Rotation && components == 4;
-  return out.Curve_.Valid();
+  const auto curve = Keyframes::Build(how, times, values, components);
+  if (!curve) { return false; }
+  Track candidate;
+  candidate.Curve_ = *curve;
+  candidate.Spherical_ = path == AnimationPath::Rotation;
+  out = candidate;
+  return true;
 }
 
 void Track::At(double seconds, std::span<double> out) const {
-  if (!Valid() || out.size() < Components()) { return; }
+  if (!Valid() || !std::isfinite(seconds) || out.size() < Components()) { return; }
   size_t span = 0;
   double weight = 0.0;
 
