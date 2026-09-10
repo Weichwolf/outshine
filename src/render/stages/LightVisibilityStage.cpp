@@ -45,6 +45,33 @@ void LightVisibilityStage::Declare(Overhead sky, double radiusM) {
   Declared_ = radiusM > 0.0 && sunLength > 0.0 && crossLength > 0.0;
 }
 
+Vec3 LightVisibilityStage::CasterCentre() const {
+  Vec3 centre;
+  const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
+  Vec3 least = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
+  Vec3 most = {{-kBeyondAnyCoordinate, -kBeyondAnyCoordinate, -kBeyondAnyCoordinate}};
+  size_t counted = 0;
+  if (Subjects_ != nullptr) {
+    const std::vector<double> &placed = Subjects_->Placements();
+    const size_t slots = placed.size() / 16u;
+    for (size_t slot = 0; slot < slots && slot < CastsBelow_; ++slot) {
+      const double *const model = placed.data() + slot * 16u;
+      for (int axis = 0; axis < 3; ++axis) {
+        const double at = model[12 + static_cast<size_t>(axis)];
+        least[axis] = at < least[axis] ? at : least[axis];
+        most[axis] = at > most[axis] ? at : most[axis];
+      }
+      ++counted;
+    }
+  }
+  if (counted > 0) {
+    for (int axis = 0; axis < 3; ++axis) {
+      centre[axis] = 0.5 * (least[axis] + most[axis]) + anchor[axis];
+    }
+  }
+  return centre;
+}
+
 void LightVisibilityStage::Build(const Vec3 &preView) {
   Vec3 forward = {{-ToSun_[0], -ToSun_[1], -ToSun_[2]}};
   double length = 0.0;
@@ -62,34 +89,7 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
                         forward[0] * right[1] - forward[1] * right[0]}};
 
   const double texelM = 2.0 * RadiusM_ / static_cast<double>(kShadowAtlasPx);
-  Vec3 centre;
-  const auto reported = [this, &centre] {
-    for (int axis = 0; axis < 3; ++axis) { StoodAtM_[axis] = centre[axis]; }
-  };
-  {
-    const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
-    Vec3 least = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
-    Vec3 most = {{-kBeyondAnyCoordinate, -kBeyondAnyCoordinate, -kBeyondAnyCoordinate}};
-    size_t counted = 0;
-    if (Subjects_ != nullptr) {
-      const std::vector<double> &placed = Subjects_->Placements();
-      const size_t slots = placed.size() / 16u;
-      for (size_t slot = 0; slot < slots && slot < CastsBelow_; ++slot) {
-        const double *const model = placed.data() + slot * 16u;
-        for (int axis = 0; axis < 3; ++axis) {
-          const double at = model[12 + static_cast<size_t>(axis)];
-          least[axis] = at < least[axis] ? at : least[axis];
-          most[axis] = at > most[axis] ? at : most[axis];
-        }
-        ++counted;
-      }
-    }
-    if (counted > 0) {
-      for (int axis = 0; axis < 3; ++axis) {
-        centre[axis] = 0.5 * (least[axis] + most[axis]) + anchor[axis];
-      }
-    }
-  }
+  const Vec3 centre = CasterCentre();
   Vec3 centreLight;
   for (int axis = 0; axis < 3; ++axis) {
     centreLight[0] += right[axis] * centre[axis];
@@ -101,7 +101,7 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
   centreLight[1] = std::floor(centreLight[1] / texelM) * texelM;
 
   const double depthM = 2.0 * RadiusM_;
-  reported();
+  StoodAtM_ = centre;
   const double nearAlong = centreLight[2] - depthM;
   const double farAlong = centreLight[2] + depthM;
   for (double &i : LightFromWorld_) { i = 0.0; }

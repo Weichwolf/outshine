@@ -57,6 +57,7 @@ public:
   }
 
 private:
+  [[nodiscard]] Vec3 CasterCentre() const;
   uint32_t CastsBelow_ = kNoBatch;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
   void

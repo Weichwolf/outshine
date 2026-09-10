@@ -101,6 +101,7 @@ Fünf Tidy-Befunde beseitigt, 32 Repository-Prüfungen grün.
 ## Lichtprojektion in fachliche Phasen trennen
 LightVisibilityStage::Build: Mittelpunkt der schattenwerfenden Platzierungen als
 private CasterCentre-Operation trennen; Projektions-/Texelraster-/Frame-Arithmetik
-unverändert. Analytische Kontrolle für Achsen, Reverse-Z und PreView-Kompensation.
+unverändert. Analytische Achsen-/Reverse-Z-/PreView-Kontrolle und orthografischer
+Rendervertrag grün; Vorzeichenmutant verletzt Frame-Orakel. Tidy-Befund beseitigt.
 Numerische Eingabevalidierung und degenerierte Sonnen-/Up-Basen separat prüfen;
 der Strukturumbau beweist noch keine vollständige Schatten-SOLL-Erfüllung.
