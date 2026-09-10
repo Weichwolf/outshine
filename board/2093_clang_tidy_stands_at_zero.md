@@ -3,9 +3,7 @@ State: active
 Area: build, all
 Parent: 2188
 Depends:
-
 # Static analysis will report zero findings with preserved engine contracts
-
 ## Auftrag und Stand
 
 Aktuelles Ziel 2026-09-08: null clang-tidy-Befunde, vollständig dokumentierte API und
@@ -117,4 +115,6 @@ Keine Bildänderung beabsichtigt; vollständiges lint bleibt Pflicht.
 ## Vegetationskatalog als atomarer Snapshot
 Load leert Bestand vor Fehlern und lässt Friction_ beim Reload stehen. IO bis 1 MiB
 und Kandidatenpublikation; Blätter, Substrat, Templates, Regeln, Layer, Höhenlimit als
-Parsing-Phasen. Altcode verletzt Erhaltung/Reload; fünf Regressionen grün. Zahlenprüfung offen.
+Parsing-Phasen. Altcode verletzt Erhaltung/Reload; fünf Regressionen grün. Regelzahlen vor Cast prüfen.
+Rank/Lanes ganzzahlig >=0, Priority int-Bereich; Maße endlich im Float-Bereich.
+Flags bool oder 0/1; Fehler erhalten Snapshot. Übrige Template-Zahlen bleiben offen.
