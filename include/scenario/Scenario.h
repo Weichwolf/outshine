@@ -780,6 +780,9 @@ struct Body {
 /// Mutation requires exclusive access; construction does not resolve body/view names.
 /// Current runtime consumes Is and View regardless of Declared; movement metadata
 /// below is not yet connected to a walking controller or camera-height adjustment.
+/// Import, export and declaration require finite nonnegative height/speeds, even
+/// when Declared is false. Export writes explicit or nondefault selections; import
+/// reconstructs Declared from section presence. Stored values roundtrip unchanged.
 struct Player {
   bool Declared = false; ///< Explicit XML section presence used by layer handling.
   std::string Is;        ///< Exact Body::Name to control; nonempty unresolved names fail assembly.
@@ -850,7 +853,7 @@ struct Persisted {
 /// Concurrent reads require stable contents; mutation needs exclusive access.
 /// References into vectors follow standard vector invalidation rules. Import resolves
 /// layers; Engine::declare does not load or merge Layers itself. Serialization does
-/// not yet preserve every section; see WriteScenario's supported contract.
+/// not yet preserve every section; see Engine::writeScenario's contract.
 struct Document {
   /// Scenario identity and descriptive metadata; owned independently of any source file.
   Identity Named;

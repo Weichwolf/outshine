@@ -52,7 +52,6 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   Implementierungsverlauf und einzelne Messergebnisse bleiben in Git/Temp-Logs.
 - Bildwirksame Änderungen über den Client rendern und PNGs selbst prüfen;
   CPU-Messzeiten nicht als GPU-Ausführungs- oder Präsentationslatenz ausweisen.
-
 ## Verbleibende konkrete Lücken
 
 - InputMap und declare erhalten Bindungen bei Fehlern; Views, deklarierter Zustand
@@ -116,5 +115,6 @@ dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
 Fünf Importer-/Deklarationsregressionen grün; Assetauswahl unverändert.
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
-an Reader/Writer/declare-Grenzen prüfen; Fehlererhaltung und Rundlauf als Negativkontrolle.
+an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
+Neun API-/Writerregressionen grün; geänderte Präsenz bei Nichtdefaults ist dokumentiert.
 Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.

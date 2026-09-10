@@ -3,6 +3,7 @@
 #include "Tables.h"
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
+#include "PlayerValidation.h"
 #include "WorldValidation.h"
 #include <utility>
 
@@ -44,6 +45,22 @@ void Yes(std::string &into, const char *named, bool how) {
   into += ' ';
   into += named;
   into += how ? "=\"yes\"" : "=\"no\"";
+}
+
+void WritePlayer(std::string &into, const Scenario::Player &player) {
+  const Scenario::Player defaults;
+  bool present =
+      player.Declared || !player.Is.empty() || !player.Starts.empty() || !player.View.empty();
+  for (const auto &field : kPlayerFields) {
+    present = present || player.*field.Member != defaults.*field.Member;
+  }
+  if (!present) { return; }
+  into += "  <player";
+  Said(into, "is", player.Is);
+  Said(into, "starts", player.Starts);
+  Said(into, "view", player.View);
+  for (const auto &field : kPlayerFields) { Number(into, field.Name, player.*field.Member); }
+  into += "/>\n";
 }
 
 void StandingAs(std::string &into,
@@ -382,6 +399,9 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   if (const auto valid = ValidateWorld(declared.Ground); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
+  if (const auto valid = ValidatePlayer(declared.Played); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   if (const auto valid = ValidateWeather(declared.Ground.Sky); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
@@ -442,6 +462,7 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteGenerators(said, declared.Generators);
   WriteCompositors(said, declared.Compositors);
   WritePersistence(said, declared.State);
+  WritePlayer(said, declared.Played);
   WriteInput(said, declared.Input, declared.WheelStepPx);
   return said + "</scenario>\n";
 }

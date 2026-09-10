@@ -326,7 +326,7 @@ public:
   /// Failure leaves the declaration and simulation unchanged. Missing trailing table types
   /// become explicit text types. Section coverage and validation beyond tables remain incomplete;
   /// success is not a guarantee that every declared section can already be persisted.
-  /// @return Owned XML text or an owned table-validation error; no partial XML on failure.
+  /// @return Owned XML text or an owned declaration-validation error; no partial XML on failure.
   [[nodiscard]] std::expected<std::string, std::string> writeScenario() const;
   /// Copy native geometry into engine-owned storage; the source may then be changed or destroyed.
   /// Positions are local metres with the geometry's part placements; materials use native indices.

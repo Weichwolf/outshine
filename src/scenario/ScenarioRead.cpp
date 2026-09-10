@@ -10,6 +10,7 @@
 #include "AssetValidation.h"
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
+#include "PlayerValidation.h"
 #include "WorldValidation.h"
 #include "Number.h"
 #include "ReadScenarioOsm.h"
@@ -264,6 +265,30 @@ void ReadStanding(const Xml::Ref &from, Scenario::Standing &into) {
   if (evenly > 0.0) { into.ScaleXyz[0] = into.ScaleXyz[1] = into.ScaleXyz[2] = evenly; }
 }
 
+bool ReadPlayer(const Xml::Ref &from, Scenario::Player &player, std::string &error) {
+  if (from.Valid()) {
+    player.Declared = true;
+    player.Is = from.Said("is").value_or(player.Is.c_str());
+    player.Starts = from.Said("starts").value_or(player.Starts.c_str());
+    player.View = from.Said("view").value_or(player.View.c_str());
+  }
+  for (const auto &field : kPlayerFields) {
+    const auto token = from.Said(field.Name);
+    if (!token) { continue; }
+    const auto value = ParseFiniteNumber(*token);
+    if (!value) {
+      error = std::string(field.Name) + ": " + std::string(Says::InvalidPlayer);
+      return false;
+    }
+    player.*field.Member = *value;
+  }
+  if (const auto valid = ValidatePlayer(player); !valid) {
+    error = valid.error();
+    return false;
+  }
+  return true;
+}
+
 bool ReadWeather(const Xml::Ref &from, Scenario::Weather &weather, std::string &error) {
   for (const auto &field : kWeatherFields) {
     const auto token = from.Said(field.Name);
@@ -415,16 +440,7 @@ ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &er
         into.Time.Start.empty();
   }
 
-  const Xml::Ref player = root.Child("player");
-  if (player.Valid()) {
-    into.Played.Declared = true;
-    into.Played.Is = player.Said("is").value_or(into.Played.Is.c_str());
-    into.Played.Starts = player.Said("starts").value_or(into.Played.Starts.c_str());
-    into.Played.View = player.Said("view").value_or(into.Played.View.c_str());
-    into.Played.EyeHeightM = player.Num("eyeHeightM", into.Played.EyeHeightM);
-    into.Played.WalkMs = player.Num("walkMs", into.Played.WalkMs);
-    into.Played.RunMs = player.Num("runMs", into.Played.RunMs);
-  }
+  if (!ReadPlayer(root.Child("player"), into.Played, error)) { return false; }
 
   return true;
 }
