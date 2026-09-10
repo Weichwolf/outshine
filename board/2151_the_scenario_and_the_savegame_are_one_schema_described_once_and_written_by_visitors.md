@@ -25,7 +25,8 @@ Keine unbelegte plattformübergreifende oder bildweise Bitidentität versprechen
 ## Nachgewiesene Lücken
 Asset-Writer erhält jetzt die vom Reader unterstützten Metadaten, Animation/Clip und
 Surface-Selektoren/Materialparameter. Weitere native Materialfelder sind kein XML-Vertrag.
-WriteScenario verliert außerdem Szenarionamen und zahlreiche weitere Sektionen.
+Identität, Render- und Lichtfelder werden jetzt vollständig gemäß Reader erhalten;
+zahlreiche weitere Sektionen fehlen noch.
 Der Grammar/Writer-Guard erkennt Elementnamen, keine verlorenen Attribute. Zweimaliges
 Write/Read kann auf einem bereits reduzierten Dokument stabil sein und ist kein Beweis.
 Xml::Ref::Num/Int akzeptieren Zahlenpräfixe; ungültige Werte fallen auf Defaults zurück.
@@ -68,16 +69,17 @@ grün; Altwriter scheitert ohne Buildfehler. Parser-Erhaltung und Zeichenreferen
 Lint: 181 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
 Szenario bleibt eigenständiges Importformat; keine glTF-Erweiterung für Welt-/Spielregeln.
 
-## Aktueller nächster Schritt
+## Identität, Render und Beleuchtung
 Identität (name/version/active/epoch/decay), RenderPlan und Lighting vollständig
-entsprechend ReadRender/ReadLighting/ReadRoot serialisieren. Eigene Writer-Phasen;
+entsprechend dem Reader serialisiert, jeweils in eigener Writer-Phase;
 keine Änderungen an ungeprüften Reader-Tokens oder Runtime-Fallbacks in diesem Schritt.
 Render: Frame/Fps/Fill/Audits/Orbit/Transfer/Exposure/Precision, geordnete Outputs/Stages.
 Lighting: Key, IndirectLight und ShadowRadiusM. Native Picture ist bislang kein XML-Feld.
 Output/keep sind Reader-Aliasse; Writer verwendet kanonisch output. Keine doppelte Ausgabe.
 Unabhängige XML-Fixtures mit nicht-default Werten und Zeichenreferenzen vor und nach
 Write/Read prüfen, inklusive leeren Listen und nicht deklarierten Render-/Lichtsektionen.
-Altwriter muss an verlorenen Werten scheitern, kein bloßer Text-Fixpunkt als Oracle.
+Altwriter scheitert an verlorenen Werten ohne Buildfehler; neuer Writer besteht
+die Feld-Oracles und den Asset-Roundtrip. Kein bloßer Text-Fixpunkt als Oracle.
 
 ## Prüfung des Guards bleibt offen
 Grammar/Writer vergleicht Elementnamen, keine Semantik oder Attribute. Der Literalregex

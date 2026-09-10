@@ -172,6 +172,63 @@ void WriteWorld(std::string &said, const Scenario::WorldSettings &world) {
   said += "  </world>\n";
 }
 
+void WriteIdentity(std::string &said, const Scenario::Identity &identity) {
+  said += "<scenario";
+  Said(said, "name", identity.Name);
+  Said(said, "version", identity.Version);
+  Said(said, "active", identity.Active);
+  Number(said, "epoch", identity.Epoch);
+  Number(said, "decay", identity.Decay);
+  said += ">\n";
+}
+
+void WriteRender(std::string &said, const Scenario::RenderPlan &render) {
+  if (!render.Declared) { return; }
+  said += "  <render";
+  Number(said, "widthPx", render.Frame.WidthPx);
+  Number(said, "heightPx", render.Frame.HeightPx);
+  Number(said, "fps", render.Fps);
+  Number(said, "fill", render.Fill);
+  Yes(said, "audits", render.Audits);
+  Number(said, "orbitDegPerFrame", render.OrbitDegPerFrame);
+  Said(said, "transfer", render.Transfer);
+  Number(said, "exposure", render.Exposure);
+  Said(said, "precision", render.Precision);
+  if (render.Outputs.empty() && render.Stages.empty()) {
+    said += "/>\n";
+    return;
+  }
+  said += ">\n";
+  for (const auto &output : render.Outputs) {
+    said += "    <output";
+    Said(said, "name", output);
+    said += "/>\n";
+  }
+  for (const auto &stage : render.Stages) {
+    said += "    <stage";
+    Said(said, "name", stage);
+    said += "/>\n";
+  }
+  said += "  </render>\n";
+}
+
+void WriteLighting(std::string &said, const Scenario::Lighting &lighting) {
+  if (!lighting.Declared) { return; }
+  said += "  <lighting";
+  Number(said, "shadowRadiusM", lighting.ShadowRadiusM);
+  said += ">\n";
+  said += "    <key";
+  Number(said, "lux", lighting.Key.Lux);
+  Number(said, "elevationDeg", lighting.Key.ElevationDeg);
+  Number(said, "bearingDeg", lighting.Key.BearingDeg);
+  said += "/>\n";
+  said += "    <environment";
+  Number(said, "r", lighting.IndirectLight[0]);
+  Number(said, "g", lighting.IndirectLight[1]);
+  Number(said, "b", lighting.IndirectLight[2]);
+  said += "/>\n  </lighting>\n";
+}
+
 void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
   if (generators.empty()) { return; }
   said += "  <generators>\n";
@@ -193,17 +250,10 @@ void WriteGenerators(std::string &said, std::span<const Scenario::Generating> ge
 }
 
 std::string WriteScenario(const Scenario::Document &declared) {
-  std::string said = "<scenario>\n";
+  std::string said;
+  WriteIdentity(said, declared.Named);
   WriteWorld(said, declared.Ground);
-  if (declared.Render.Declared) {
-    said += "  <render";
-    Number(said, "widthPx", declared.Render.Frame.WidthPx);
-    Number(said, "heightPx", declared.Render.Frame.HeightPx);
-    Number(said, "fps", declared.Render.Fps);
-    Number(said, "fill", declared.Render.Fill);
-    Yes(said, "audits", declared.Render.Audits);
-    said += "/>\n";
-  }
+  WriteRender(said, declared.Render);
   if (declared.Motion.Declared) {
     said += "  <physics";
     Said(said, "dial", declared.Motion.Dial);
@@ -218,13 +268,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
     Yes(said, "live", declared.Time.Live);
     said += "/>\n";
   }
-  if (declared.Lit.Declared) {
-    said += "  <lighting>\n    <key";
-    Number(said, "lux", declared.Lit.Key.Lux);
-    Number(said, "elevationDeg", declared.Lit.Key.ElevationDeg);
-    Number(said, "bearingDeg", declared.Lit.Key.BearingDeg);
-    said += "/>\n  </lighting>\n";
-  }
+  WriteLighting(said, declared.Lit);
   WriteAssets(said, declared.Assets);
   if (!declared.Views.empty()) {
     said += "  <views>\n";
