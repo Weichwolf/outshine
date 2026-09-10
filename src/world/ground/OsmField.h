@@ -143,6 +143,8 @@ private:
   [[nodiscard]] Fetched AddTile(TilePool &tiles, TileAt at);
   void Settle(int x, int y);
   void AppendDeclaredFeature(const Declared &one);
+  [[nodiscard]] bool MatchesDeclaredFeature(const Feature &feature, const Declared &input) const;
+  [[nodiscard]] bool MatchesDeclaration(std::span<const Declared> input, TileAt over) const;
 
   std::vector<std::string> Layers_;
   std::vector<Feature> Features_;
@@ -150,7 +152,6 @@ private:
   std::vector<double> Points_;
   std::vector<Tile> Tiles_;
   uint64_t Generation_ = 0;
-  uint64_t Said_ = 0;
   std::vector<uint32_t> Tags_;
   std::vector<std::string> Keys_;
   std::vector<std::string> Strings_;

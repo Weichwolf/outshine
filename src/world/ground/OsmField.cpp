@@ -1,7 +1,8 @@
 #include <algorithm>
+#include <array>
+#include <utility>
 #include <cmath>
 #include <cstdint>
-#include <functional>
 #include <numbers>
 #include "math/Units.h"
 #include "OsmField.h"
@@ -24,11 +25,6 @@
 namespace outshine::Ground {
 
 constexpr double kNoLeastYet = 1e9;
-
-constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ULL;
-constexpr uint64_t kStirPrime = 0x100000001b3ULL;
-constexpr double kFixedPointPerDeg = 1.0e7;
-constexpr double kFixedPointPerM = 1.0e3;
 
 namespace {
 
@@ -327,7 +323,53 @@ void OsmField::AppendDeclaredFeature(const Declared &one) {
   Features_.push_back(made);
 }
 
+bool OsmField::MatchesDeclaredFeature(const Feature &feature, const Declared &input) const {
+  const int layer = std::max(Layer(input.Layer.c_str()), 0);
+  if (std::cmp_not_equal(feature.Layer, layer) || feature.Type != (input.Area ? 3u : 2u) ||
+      feature.RingCount != 1 || feature.TagCount < 2) {
+    return false;
+  }
+  const Ring &ring = Rings_[feature.FirstRing];
+  if (ring.Exterior != input.Area || static_cast<size_t>(ring.Count) * 2 != input.LatLon.size()) {
+    return false;
+  }
+  const auto points =
+      std::span(Points_).subspan(static_cast<size_t>(ring.First) * 2, input.LatLon.size());
+  if (!std::ranges::equal(points, input.LatLon) || Keys_[Tags_[feature.FirstTag]] != input.Key) {
+    return false;
+  }
+  const Value &label = Values_[Tags_[feature.FirstTag + 1]];
+  if (label.IsNum || Strings_[label.Str] != input.Value) { return false; }
+  const std::array<std::pair<const char *, double>, 5> numeric{
+      {{"width", input.WidthM},
+       {"height", input.HeightM},
+       {"bridge", input.Bridge ? 1.0 : 0.0},
+       {"tunnel", input.Tunnel ? 1.0 : 0.0},
+       {"layer", static_cast<double>(input.Level)}}};
+  uint32_t expectedTags = 2;
+  for (const auto &[name, value] : numeric) {
+    if (Num(feature, name, 0.0) != value) { return false; }
+    if (value != 0.0) { expectedTags += 2; }
+  }
+  return feature.TagCount == expectedTags;
+}
+
+bool OsmField::MatchesDeclaration(std::span<const Declared> input, TileAt over) const {
+  if (Tiles_.size() != 1 || Features_.size() != input.size() || CentreX_ != over.X ||
+      CentreY_ != over.Y || Tiles_.front().X != over.X || Tiles_.front().Y != over.Y) {
+    return false;
+  }
+  for (size_t at = 0; at < input.size(); ++at) {
+    if (!MatchesDeclaredFeature(Features_[at], input[at])) { return false; }
+  }
+  return true;
+}
+
 void OsmField::Declare(std::span<const Declared> these, TileAt over) {
+  if (MatchesDeclaration(these, over)) {
+    Pending_ = 0;
+    return;
+  }
   Features_.clear();
   Rings_.clear();
   Points_.clear();
@@ -344,29 +386,6 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
 
   for (const Declared &one : these) { AppendDeclaredFeature(one); }
 
-  {
-    uint64_t said = kGoldenWord;
-    const auto stir = [&said](uint64_t by) { said = (said ^ by) * kStirPrime; };
-    stir(static_cast<uint64_t>(static_cast<uint32_t>(over.X)));
-    stir(static_cast<uint64_t>(static_cast<uint32_t>(over.Y)));
-    for (const Declared &one : these) {
-      stir(std::hash<std::string>{}(one.Value));
-      stir(std::hash<std::string>{}(one.Key));
-      stir(std::hash<std::string>{}(one.Layer));
-      stir(static_cast<uint64_t>(std::llround(one.WidthM * kFixedPointPerM)));
-      stir(static_cast<uint64_t>(std::llround(one.HeightM * kFixedPointPerM)));
-      stir(static_cast<uint64_t>(one.Area ? 1 : 0) | static_cast<uint64_t>(one.Bridge ? 2 : 0) |
-           static_cast<uint64_t>(one.Tunnel ? 4 : 0));
-      stir(static_cast<uint64_t>(static_cast<int64_t>(one.Level)));
-      for (const double held : one.LatLon) {
-        stir(static_cast<uint64_t>(std::llround(held * kFixedPointPerDeg)));
-      }
-    }
-    if (said != Said_) {
-      Said_ = said;
-      ++Generation_;
-    }
-  }
   Tiles_.push_back(Tile{.Z = Zoom_,
                         .X = over.X,
                         .Y = over.Y,
@@ -374,6 +393,7 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
                         .FeatureCount = static_cast<uint32_t>(Features_.size())});
   Settle(over.X, over.Y);
   Pending_ = 0;
+  ++Generation_;
 }
 
 double OsmField::Num(const Feature &f, const char *key, double def) const {

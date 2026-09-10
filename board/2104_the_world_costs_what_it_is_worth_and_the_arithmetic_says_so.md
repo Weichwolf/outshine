@@ -90,17 +90,17 @@ und Generation. Vorhandene Tags für Breite/Höhe/Brücke/Tunnel/Ebene erhalten.
 128 gleiche und 128 wechselnde gleich große Inhalte: HeapBytes nach Warmaufbau
 stabil, keine alten Keys, Tags/Ringe/Bounds korrekt. Beide Tests grün, alter Code rot.
 Lint 185/330 statt 186/330, 32 Repository-Prüfungen grün; drei Gruppen bleiben rot.
-Wien c307cab8 bytegleich, PNG geöffnet. Tile-Eviction, Generation-Fingerprint, Projektion
+Wien c307cab8 bytegleich, PNG geöffnet. Tile-Eviction, Generation-Überlauf, Projektion
 und transaktionaler Allokationsfehler bleiben offen; dies ist kein kompletter Streamingfix.
 
-## Aktiver Schritt: exakte Änderungskennung
+## Exakte Änderungskennung
 
-Declare hasht auf 1e-7 Grad/1e-3 m gerundete Werte; ClassField invalidiert nur bei
-Generation-Wechsel. Kleine reale Änderungen bleiben unsichtbar; llround großer
-endlicher Maße ist zusätzlich außerhalb des Integerbereichs. Hash ist keine Identität.
-Eingabe gegen vorhandene kanonische Features/Ringe/Punkte/Tags und Kachel vergleichen,
-keinen zweiten Geometrie-Owner speichern. Nur identischer Inhalt darf unverändert
-zurückkehren; Pending auf null setzen. Sonst neu aufbauen und Generation erhöhen.
-Prüfung: nextafter-Koordinaten/Maße, alle Attribute, Reihenfolge/Anzahl/Kachel und
-Entfernen; identische Daten erhalten Generation und Speicher. Rundungspfad als
-Gegenprobe. Generation-Überlauf und allokationssicherer Austausch bleiben offen.
+Der alte gerundete Hash übersah nextafter-Änderungen an Koordinaten/Maßen; große
+endliche Maße erzeugten FE_INVALID in llround. ClassField braucht den Generation-
+Wechsel zur Invalidierung. Der Hash wurde vollständig entfernt.
+Eingabe wird gegen vorhandene kanonische Features/Ringe/Punkte/Tags und Kachel
+verglichen, ohne zweiten Owner. Identischer Inhalt kehrt ohne Neuaufbau zurück,
+Pending wird null. Sonst neu aufbauen und erst nach Aufbau Generation erhöhen.
+22 Änderungen und identische Wiederholungen geprüft; drei Tests grün. Alter Hash
+scheitert an vier nextafter-Fällen und FE_INVALID, ohne Buildfehler. Wien bytegleich,
+PNG geöffnet. Generation-Überlauf und allokationssicherer Austausch bleiben offen.
