@@ -88,32 +88,23 @@ Regressionstests grün (ein gemeinsamer Fall, zusätzlich validierter Gerätearm
 Materialübernahme als eigene Importphase; vier Importregressionen einschließlich
 Khronos-Texturtransformationen grün. Keine vollständige Corpus-/Weltabnahme.
 ## GroundMaterials-Katalog
-Load liest über ReadTextFile mit 1-MiB-Katalogbudget; JSON/Klassen/Referenzen
-werden als Kandidat aufgebaut und erst bei Erfolg ersetzt. Klassen-Decoding von Katalogauflösung
-trennen; gültige Materialarithmetik unverändert. Negativkontrolle: später Klassen-/
-Referenzfehler erhält alte Materialien, fehlende/überlange Dateien ebenso. Altstand
-verletzt die Negativkontrolle; Loader-/Reader-Regressionen samt ausgeliefertem Katalog grün.
-Reibungswerte vor Float-Verengung auf positive darstellbare Werte prüfen;
-relative Reibung vor Division auf Float-Bereich prüfen. Extremwerte dürfen weder
-Null noch unendliche Faktoren publizieren; Fehler erhalten den bisherigen Katalog.
-Nachweis: Altcode verletzt Unter-/Überlaufkontrollen von Eingängen und Quotienten;
-mit Prüfung sind Erhaltung, gültiger Retry und ausgelieferter Katalog grün. Weitere numerische Material-/Modellgrenzen bleiben offen.
-
-## Eindeutige Katalogreferenzen
-Sortierter Namensindex prüft eindeutige Namen und löst Referenzen ohne Umordnung.
-Vorwärts-/Selbstreferenzen, Fehlererhaltung und ausgelieferter Katalog geprüft.
-
-## Nässemodell-Grenzen
-kWet und Klassenfeuchte als endliche Anteile [0,1] vor Float-Verengung prüfen.
+Load liest über ReadTextFile mit 1-MiB-Budget und publiziert erst den vollständigen
+Kandidaten. Fehler erhalten den alten Katalog. Sortierter Namensindex löst eindeutige
+Namen, Reibungs- und Litter-Referenzen ohne Umordnung; Vorwärts-/Selbstreferenzen gültig.
+Reibungswerte und Quotienten vor Float-Verengung auf positiven darstellbaren Bereich
+prüfen. kWet/Feuchte [0,1], optionale Modellobjekte und streng aufsteigende Float-edges.
+Smoothstep sättigt außerhalb des Intervalls vor Division. Rauheit, Bedeckung und
+Albedokanäle [0,1]; sichtbarer/breitbandiger Quotient darf >1 sein, Ergebnis-Albedo nicht.
 Fehlende Werte behalten Defaults, vorhandene falsche Typen werden abgelehnt.
-Optionale Modellobjekte und edges-Paar prüfen; Grenzen [0,1], auch nach Float-Cast
-streng aufsteigend. Smoothstep außerhalb des Intervalls vor der Division sättigen.
-Nachweis: Altcode akzeptiert kollabierende/reverse Grenzen und falsche Typen.
-Korrektur besteht Fehlererhaltung, analytische Endpunkte/Mitte und Katalog-Retry.
+Altcode verletzt jeweilige Negativkontrollen; Fehlererhaltung, analytische optische
+Randwerte, Retry und ausgelieferter Katalog bestehen. Gültige Arithmetik unverändert.
 
-## Optische Katalogwerte
-Rauheit, Streuauflage und Albedokanäle auf [0,1] prüfen, sichtbaren/breitbandigen
-Quotienten auf nichtnegative Float-Werte. Quotient darf >1 sein (Firn); erst das
-resultierende Albedo muss [0,1] erfüllen. Typen und RGB-Tripel vor Berechnung prüfen.
-Gültige Float-Arithmetik erhalten. Altcode verletzt Negativkontrollen; korrigierter
-Katalog besteht Fehlererhaltung, Quotient >1 und Randwerte. Skalen/Hanggrenzen offen.
+## Geometrische Katalogwerte
+Korngröße und Höhenamplitude: endliche nichtnegative Meter, Float-Bereich vor Cast;
+null bleibt für Wasser gültig. Detailmaßstäbe: positive darstellbare Meter und echtes
+Paar. Optional fehlendes Paar behält Defaults; vorhandene falsche Typen ablehnen.
+Hangintervall: Zahlenpaar mit 0 <= min <= max <= 90 Grad, vor Float-Cast geprüft.
+Nur Maximum wird aktuell weitergegeben; GroundSurf/LitterSurf werden vorbereitet,
+aber Detailmaßstäbe aktuell nicht vom Ground-Shader ausgewertet. Kein Rendernachweis
+für prozedurales Mikrorelief behaupten. Negativkontrollen, Erhaltung und gültige
+Grenzen prüfen; vollständige Generator-/Renderintegration bleibt separat offen.
