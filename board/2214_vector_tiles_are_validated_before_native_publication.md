@@ -37,8 +37,7 @@ Importer liefern native Geometrie; Reader und Eingabepuffer bleiben an der Forma
   prüft kumulative Indexräume; deklarierte Pfade und Container-max_size bleiben offen.
 - [ ] Explizite Byte-/Decode-/Allokationsbudgets, Abbruch und inkrementelles Decode.
   Kandidaten erhöhen den Spitzenbedarf; Allokationsfehlervertrag mit WI 2194 abstimmen.
-- [ ] Vollständige Ringtopologie: robuste Orientierung auch bei großen Koordinaten,
-  Selbstschnitt, Selbstberührung, Lochzuordnung/-schnitt.
+- [ ] Vollständige Ringtopologie: Selbstschnitt, Selbstberührung, Lochzuordnung/-schnitt.
 - [ ] Alle Formatpflichtfelder, Feldnummern und sonstigen Versions-/Layerverträge;
   vollständige Kachelvalidierung gegenüber nur angeforderten Ebenen präzisieren.
 - [ ] Native Zahlentypen erhalten Integer oberhalb 2^53, statt Double als Universalspeicher.
@@ -68,19 +67,12 @@ Tag-Paar; unbekannte Interning-Treffer nicht vorwegnehmen. Keine Mutation bei Ab
 Kapazitätsarithmetik separat mit analytischen Grenzfällen ohne Milliardenallokationen
 prüfen; Negativmutation muss scheitern. Native Annahme-/Positionsregression und Lint.
 Das ist ein Indexvertrag, kein RAM-/Container-max_size-/Decodezeitbudget.
-Kapazitätsabnahme: analytische Grenzfälle normal/sanitisiert grün; Mutation erlaubt
-je einen überzähligen Eintrag und scheitert in beiden Varianten ohne Buildfehler.
-Native Annahme-/Positionsregression grün, Wien visuell geprüft und pixelgleich.
-Abschluss-Lint unverändert 183/330, 32 Repository-Tests grün, drei rote Gruppen.
 
 ## Decoder-Zuständigkeiten
-Decode sucht/validiert den Ebenenheader und das äußere Framing. ReadLayerTables baut
-besitzende Wörterbücher und liefert geliehene Feature-Byte-Spans; DecodeFeatures prüft
-und übernimmt diese danach mit wiederverwendetem Scratch. So bleiben Feldreihenfolge,
-Input-Lebensdauer und native Publikation ausdrücklich getrennt. Keine neue Speicher-
-oder Fehlersemantik. Bestehende unabhängige MVT-Fixtures und Negativmutation prüfen,
-dass ein Fehler der Feature-Phase nicht als Erfolg zurückkehrt; Lint muss die verbleibende
-Decode-Komplexitätswarnung ohne Unterdrückung beseitigen.
+Decode prüft Ebenenheader und äußeres Framing. ReadLayerTables besitzt Wörterbücher
+und liefert geliehene Feature-Spans; DecodeFeatures übernimmt geprüfte Features mit
+wiederverwendetem Scratch. POINT/MULTIPOINT behalten referenzierte Punktmengen und
+Bounds; UNKNOWN wird übersprungen. Type und Geometry sind Pflichtfelder (§4.2).
 
 ## Vorläufige Ressourcenbudgets (Schätzung, nicht gemessen)
 OSM-resident 256 MiB; gemeinsamer transienter Pool 64 MiB für Rohdaten, Decode-Scratch
@@ -92,22 +84,6 @@ danach Abbruch-/Yield-Punkt. Atomare Publikation darf nicht monolithisches Decod
 Noch nicht enforced. Später konfigurierbar machen und durch Budget-/Überlasttests sowie
 Benchmarks auf Zielhardware absichern: verschieben, freigeben, Detail reduzieren oder
 expliziter Fehler; keine unbemerkte Teilveröffentlichung. Mit Messdaten kalibrieren.
-Decoder-Phasen geprüft: 14 Regressionen grün. Mutant verschluckt Feature-Fehler und
-scheitert normal/sanitisiert ohne Buildfehler. Abschluss-Lint 182/330, 32 Repository-
-Tests grün, drei rote Gruppen. Letzte Korrektur beschränkt sich auf const für den Reader.
-
-## Punkt- und UNKNOWN-Features
-Punktkoordinaten brauchen einen referenzierten Geometrieteil, sonst übernimmt OsmField
-keine Punkte und behält Sentinel-Bounds. POINT/MULTIPOINT als Punktmenge im bestehenden
-Featuretyp erhalten; keine Verbindungssegmente erfinden. UNKNOWN nach MVT §4.3.4.1
-überspringen. Type und Geometry müssen ausdrücklich vorhanden sein (§4.2), nicht durch
-Defaultwerte ersetzt werden. Native Einzel-/Mehrpunkt-Fixture mit analytischen
-Äquatorpositionen und Bounds, fehlende Pflichtfelder und UNKNOWN prüfen; alt muss scheitern.
-Punktabnahme: 14 MVT-/OSM-Prüfungen grün, Referenzierung und Pflichtfelder auch im
-direkt sanitisierten Decoder. Native Punktabnahme scheitert alt ohne Buildfehler.
-Wien-PNG geöffnet, pixelgleich. Lint unverändert 182/330, 32 Repository-Tests grün;
-drei rote Gruppen. POINT bleibt Punktmenge, UNKNOWN erzeugt keine nativen Features.
-
 ## Exakte Ringorientierung
 Lokaler vtzero-Stand 3205b93: geometry.hpp klassifiziert Ringflächen, verwendet aber
 Exceptions und int64-Summe; next_point verengt ungültige Koordinaten ungeprüft.
@@ -115,6 +91,10 @@ Als Architektur-/Formatreferenz nützlich, kein unveränderter No-Exceptions-Ers
 Für int32-Koordinaten gilt |x0*y1-x1*y0| <= 2^63-2^31; jeder Term passt in int64.
 Bis UINT32_MAX Terme benötigen weniger als 96 vorzeichenbehaftete Bits. Zwei 64-Bit-
 Wörter mit explizitem Carry/Vorzeichenerweiterung summieren exakt und ohne Allokation.
-Nullfläche ablehnen, erster Polygonring muss außen liegen; räumliche Lochzuordnung
-und Selbstschnitte bleiben offen. Unabhängige kleine verschobene Ringe und große Ringe
-über int64-/uint64-Summengrenzen prüfen, samt Negativkontrolle und Wien-Regression.
+Nullflächen und führende Innenringe werden abgelehnt. Räumliche Lochzuordnung und
+Selbstschnitte bleiben offen. Unabhängige kleine verschobene Ringe und große Ringe
+über int64-/uint64-Summengrenzen geprüft: 16 MVT-/OSM-Tests grün, Decoder auch ASan/UBSan.
+Bisheriger Decoder scheitert an fünf von sieben Orientierungsprüfungen, normal und
+sanitisiert ohne Buildfehler. Wien-PNG geöffnet: 0/921600 Pixel verändert.
+Abschluss-Lint: 182 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
+drei rote Gruppen bleiben. Keine vollständige Topologieabnahme.

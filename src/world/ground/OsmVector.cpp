@@ -180,11 +180,14 @@ public:
       const size_t first = Points_.size() / 2;
       return ReadCommand(1, 1, false) && Words_.empty() && AppendPart(first, true);
     }
+    const size_t firstRing = Rings_.size();
     while (!Words_.empty()) {
       const size_t first = Points_.size() / 2;
       if (!ReadCommand(1, 1, true) || !ReadCommand(2, type == 3 ? 2u : 1u, false)) { return false; }
       if (type == 3 && !Close(first)) { return false; }
-      if (!AppendPart(first, type != 3 || PositiveArea(first))) { return false; }
+      const int orientation = type == 3 ? AreaSign(first) : 1;
+      if (orientation == 0 || (orientation < 0 && Rings_.size() == firstRing)) { return false; }
+      if (!AppendPart(first, orientation > 0)) { return false; }
     }
     return true;
   }
@@ -240,15 +243,20 @@ private:
     return true;
   }
 
-  [[nodiscard]] bool PositiveArea(size_t first) const {
-    double area = 0.0;
+  [[nodiscard]] int AreaSign(size_t first) const {
+    int64_t high = 0;
+    uint64_t low = 0;
     const size_t end = Points_.size() / 2;
     for (size_t point = first; point < end; ++point) {
       const size_t next = point + 1 == end ? first : point + 1;
-      area += static_cast<double>(Points_[point * 2]) * Points_[next * 2 + 1] -
-              static_cast<double>(Points_[next * 2]) * Points_[point * 2 + 1];
+      const int64_t term = static_cast<int64_t>(Points_[point * 2]) * Points_[next * 2 + 1] -
+                           static_cast<int64_t>(Points_[next * 2]) * Points_[point * 2 + 1];
+      const uint64_t previous = low;
+      low += static_cast<uint64_t>(term);
+      high += (term < 0 ? -1 : 0) + (low < previous ? 1 : 0);
     }
-    return area > 0.0;
+    if (high < 0) { return -1; }
+    return high > 0 || low != 0 ? 1 : 0;
   }
 
   std::span<const uint32_t> Words_;
