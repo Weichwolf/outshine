@@ -6,6 +6,7 @@
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
 #include "PlayerValidation.h"
+#include "BodyValidation.h"
 #include "WorldValidation.h"
 #include "OsmValidation.h"
 #include "AudioOcclusion.h"
@@ -206,6 +207,9 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {
+  if (const auto valid = ValidateBodyDynamics(scenario.Bodies); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   if (const auto valid = ValidatePlayer(scenario.Played); !valid) {
     return std::unexpected(std::string(valid.error()));
   }

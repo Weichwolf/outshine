@@ -716,8 +716,10 @@ struct Slot {
 /// exclusive access. This is neither a live rigid body nor a vehicle controller.
 /// Current integration applies gravity to placed bodies. Contacts, drive magnitudes,
 /// drag and attachment metadata are not yet connected to the force calculation.
-/// Numeric validation is incomplete; callers must supply finite physical values,
-/// nonnegative mass/inertia and a unit orientation quaternion.
+/// Import, declaration and assembly validate finite position, nonnegative finite
+/// mass/inertia and an orientation quaternion within 1e-6 of unit norm, without
+/// normalization. These checks also apply to unplaced bodies. Other body metadata
+/// and overflow in derived forces are not fully validated yet.
 struct Body {
   /// Owned body name used by player, camera and audio bindings. Duplicate names can
   /// make binding fail; assembly does not currently reject every duplicate eagerly.

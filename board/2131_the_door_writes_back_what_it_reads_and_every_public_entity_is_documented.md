@@ -110,7 +110,7 @@ Assembly/PrepareBodies dokumentiert; drei Assembly/Gravity/Audio-Regressionsfäl
 Body-Dynamik: gemeinsame Eingabeprüfung vor declare/Assembly und nach strengem XML-
 Parsing: Masse/diagonale Trägheit endlich >=0, Position endlich, Quaternion unit
 (Normtoleranz 1e-6). Altcode verletzt zwei Negativkontrollen, fünf Regressionen grün.
-ReadBodies: Drive-Dekodierung als eigene Phase trennen, nicht Prüfungen streichen.
+ReadBodies: Drive-Dekodierung getrennt; gültige/ungültige Antriebe zusätzlich geprüft.
 Abgeleitete Kraftüberläufe bleiben separat offen.
 Kontakt/Antrieb/Aero, Geodäsie, Schwerpunkt und Asset-Fitting bleiben offen.
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults

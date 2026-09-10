@@ -1,4 +1,5 @@
 #include "Assembly.h"
+#include "BodyValidation.h"
 
 #include <array>
 #include <expected>
@@ -11,12 +12,12 @@
 
 namespace outshine {
 
-namespace {
 namespace Says {
 constexpr auto CapabilityBudget = "capability catalogue exceeds its supported identifier range";
 constexpr auto EntityBudget = "simulation entity capacity exceeds 65536 slots";
 }
 
+namespace {
 constexpr size_t kMaximumSimulationEntities = 65536;
 static_assert(kMaximumSimulationEntities < std::numeric_limits<uint32_t>::max());
 }
@@ -272,6 +273,10 @@ bool Assemble(const Scenario::Document &declared,
               Column<Traits> &traits,
               Assembled &out,
               std::string &error) {
+  if (const auto valid = ValidateBodyDynamics(declared.Bodies); !valid) {
+    error = valid.error();
+    return false;
+  }
   out = Assembled{};
 
   for (const Scenario::Kind &kind : declared.Kinds) {

@@ -11,6 +11,7 @@
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
 #include "PlayerValidation.h"
+#include "BodyValidation.h"
 #include "WorldValidation.h"
 #include "Number.h"
 #include "ReadScenarioOsm.h"
@@ -846,12 +847,85 @@ void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
   }
 }
 
+bool ReadBodyDynamics(const Xml::Ref &from, Scenario::Body &body, std::string &error) {
+  const auto inertia = from.Child("inertia");
+  const auto at = from.Child("at");
+
+  struct NumberField {
+    Xml::Ref From;
+    const char *Name;
+    double *Value;
+  };
+
+  const std::array fields{
+      NumberField{.From = from, .Name = "massKg", .Value = &body.MassKg},
+      NumberField{.From = inertia, .Name = "ixx", .Value = body.InertiaKgM2.data()},
+      NumberField{.From = inertia, .Name = "iyy", .Value = &body.InertiaKgM2[1]},
+      NumberField{.From = inertia, .Name = "izz", .Value = &body.InertiaKgM2[2]},
+      NumberField{.From = at, .Name = "x", .Value = body.Stands.AtM.data()},
+      NumberField{.From = at, .Name = "y", .Value = &body.Stands.AtM[1]},
+      NumberField{.From = at, .Name = "z", .Value = &body.Stands.AtM[2]},
+      NumberField{.From = at, .Name = "qx", .Value = &body.Stands.Facing.X},
+      NumberField{.From = at, .Name = "qy", .Value = &body.Stands.Facing.Y},
+      NumberField{.From = at, .Name = "qz", .Value = &body.Stands.Facing.Z},
+      NumberField{.From = at, .Name = "qw", .Value = &body.Stands.Facing.W}};
+  for (const auto &field : fields) {
+    const auto token = field.From.Said(field.Name);
+    if (!token) { continue; }
+    const auto value = ParseFiniteNumber(*token);
+    if (!value) {
+      error = std::string(field.Name) + ": " + std::string(Says::InvalidBodyDynamics);
+      return false;
+    }
+    *field.Value = *value;
+  }
+  if (const auto valid = ValidateBodyDynamics(body); !valid) {
+    error = valid.error();
+    return false;
+  }
+  return true;
+}
+
+bool ReadBodyDrives(const Xml::Ref &from,
+                    std::vector<Scenario::Drive> &drives,
+                    std::string &error) {
+  for (const Xml::Ref acts : from.Children("actuator")) {
+    Scenario::Drive does;
+    const std::string named = acts.Attr("does");
+    if (named == "torque") {
+      does.Does = Scenario::Drives::Effort;
+      does.Opposes = acts.Num("opposes", 0.0) != 0.0;
+    } else if (named == "steer") {
+      does.Does = Scenario::Drives::Motion;
+    } else {
+      error = "a body declares a drive that does '" + named +
+              "', and torque and steer are the whole catalogue -- a brake is a torque that "
+              "OPPOSES, which is the one physical difference between it and a drive";
+      return false;
+    }
+    does.PeakNm = acts.Num("peakNm", 0.0);
+    does.PeakN = acts.Num("peakN", 0.0);
+    does.Turns = does.PeakN == 0.0;
+    does.AxisXyz[0] = acts.Num("axisX", 0.0);
+    does.AxisXyz[1] = acts.Num("axisY", does.Turns ? 1.0 : 0.0);
+    does.AxisXyz[2] = acts.Num("axisZ", does.Turns ? 0.0 : -1.0);
+    if (does.PeakNm != 0.0 && does.PeakN != 0.0) {
+      error = "a drive applies a torque about an axis or a force along one, never both, and "
+              "this one declares peakNm and peakN together";
+      return false;
+    }
+    does.Ratio = acts.Num("ratio", 1.0);
+    does.CircleM = acts.Num("circleM", 0.0);
+    drives.push_back(does);
+  }
+  return true;
+}
+
 [[nodiscard]] bool ReadBodies(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   for (const Xml::Ref one : root.Children("body")) {
     Scenario::Body made;
     made.Name = one.Attr("name");
     made.Asset = one.Attr("asset");
-    made.MassKg = one.Num("massKg", 0.0);
     made.WidthM = one.Num("widthM", 0.0);
     made.AssetSpanM = one.Num("assetSpanM", 0.0);
     made.AssetGround = one.Num("assetGround", 0.0);
@@ -867,10 +941,7 @@ void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
     made.CentreOfMassM[1] = centre.Num("y", 0.0);
     made.CentreOfMassM[2] = centre.Num("z", 0.0);
 
-    const Xml::Ref inertia = one.Child("inertia");
-    made.InertiaKgM2[0] = inertia.Num("ixx", 0.0);
-    made.InertiaKgM2[1] = inertia.Num("iyy", 0.0);
-    made.InertiaKgM2[2] = inertia.Num("izz", 0.0);
+    if (!ReadBodyDynamics(one, made, error)) { return false; }
     for (const Xml::Ref touch : one.Children("contact")) {
       Scenario::Contact wheel;
       wheel.At = touch.Attr("at");
@@ -888,35 +959,7 @@ void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
       wheel.Touches.RelaxationM = touch.Num("relaxationM", 0.0);
       made.Contacts.push_back(wheel);
     }
-    for (const Xml::Ref acts : one.Children("actuator")) {
-      Scenario::Drive does;
-      const std::string named = acts.Attr("does");
-      if (named == "torque") {
-        does.Does = Scenario::Drives::Effort;
-        does.Opposes = acts.Num("opposes", 0.0) != 0.0;
-      } else if (named == "steer") {
-        does.Does = Scenario::Drives::Motion;
-      } else {
-        error = "a body declares a drive that does '" + named +
-                "', and torque and steer are the whole catalogue -- a brake is a torque that "
-                "OPPOSES, which is the one physical difference between it and a drive";
-        return false;
-      }
-      does.PeakNm = acts.Num("peakNm", 0.0);
-      does.PeakN = acts.Num("peakN", 0.0);
-      does.Turns = does.PeakN == 0.0;
-      does.AxisXyz[0] = acts.Num("axisX", 0.0);
-      does.AxisXyz[1] = acts.Num("axisY", does.Turns ? 1.0 : 0.0);
-      does.AxisXyz[2] = acts.Num("axisZ", does.Turns ? 0.0 : -1.0);
-      if (does.PeakNm != 0.0 && does.PeakN != 0.0) {
-        error = "a drive applies a torque about an axis or a force along one, never both, and "
-                "this one declares peakNm and peakN together";
-        return false;
-      }
-      does.Ratio = acts.Num("ratio", 1.0);
-      does.CircleM = acts.Num("circleM", 0.0);
-      made.Driven.push_back(does);
-    }
+    if (!ReadBodyDrives(one, made.Driven, error)) { return false; }
     const Xml::Ref aero = one.Child("aero");
     made.DragCoefficient = aero.Num("dragCoefficient", 0.0);
     made.FrontalM2 = aero.Num("frontalM2", 0.0);
