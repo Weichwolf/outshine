@@ -44,7 +44,7 @@ lösen und Engine-/Host-Bilanzierung trennen. Der erste Schritt schließt dieses
 - [x] Externer Client mit kopierten öffentlichen Headern und liboutshine.a läuft außerhalb
       des Checkouts; Engine-Lebensdauer erhält Host-Allocator und new_handler.
       Zusätzliche globale Operatoren scheitern als Linker-Negativkontrolle.
-- [ ] Scalar/Array, throwing/nothrow, aligned/sized delete: symmetrische gezählte Bytes.
+- [x] Scalar/Array, throwing/nothrow, aligned/sized delete: symmetrische gezählte Bytes.
 - [x] Gezielter Test des skalaren nothrow-Pfads zeigt vor Fix den Zählerfehler.
 - [ ] Engine-Budget umfasst Engine-Speicher; fremde Host-Allokationen separat ausweisen.
 - [ ] OOM-/Budgetfehler nach 2194, Lint und Instrumentierungskosten nach 2108 prüfen.
@@ -69,4 +69,5 @@ Diagnosemodul separat prüfen: Scalar/Array, aligned/un-aligned, throwing/nothro
 mit regulärer, sized und passender Konstruktorfehler-Freigabe. Direkte Operatoraufrufe
 verhindern erlaubte New-Expression-Elision. 0/1/257 Bytes, Alignment und Nullfreigaben
 müssen symmetrische LiveBytes liefern. Bestehenden Scalar-Test erweitern statt
-paralleler Prüfkopie. Fehlende Freigabezählung als Negativkontrolle; OOM bleibt separat.
+paralleler Prüfkopie: 16 Paare × 3 Größen bestehen. Fehlende sized-aligned Freigabe
+verletzt die Negativkontrolle; OOM-/new_handler-Verhalten bleibt separat.

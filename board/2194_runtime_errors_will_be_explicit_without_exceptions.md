@@ -3,7 +3,6 @@ State: active
 Area: build, include, engine, generators, audio
 Parent: 2188
 Depends: 2209
-
 # Runtime errors will be explicit without exceptions
 
 ## Entscheidung
@@ -36,8 +35,9 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   explizit ablehnen. Kandidaten und Placed/Instanced-Zähler erst nach Draw-Erfolg
   veröffentlichen. Kapazität, Datenzuordnung und allokationsfreier Callback prüfen;
   absichtlich eingefügte Allokation muss den Test brechen. System-OOM bleibt separat.
-- BuildingMesh::Mesh fängt alles und leert Raised: Scratch-/Output-Budgets und
-  transaktionalen Fehlerpfad erhalten, Caller auf typisierte Fehler umstellen.
+- BuildingMesh::Mesh liefert bereits expected und rollt angehängte Geometrie bei
+  Fehlern zurück. Verbliebenes catch(...) erhält Allokationsfehler; erst durch
+  explizite Scratch-/Output-Allokationsfehler ersetzen, dann exceptionsfrei bauen.
 - Alle Laufzeitaufrufe prüfen: filesystem, format, Containerzugriffe, expected::value,
   Allokation, Fremdbibliotheken und Callbacks. Fataler systemweiter OOM ist getrennt
   von behandelbarer Streaming-Budgeterschöpfung; Fehlerdiagnosen dürfen kein
