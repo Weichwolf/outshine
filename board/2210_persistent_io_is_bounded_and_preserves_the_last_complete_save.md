@@ -93,3 +93,11 @@ Abnahme: temporäre Verzeichnisse, ungültige Schlüssel, fremde Dateien, Symlin
 Bytegrenzen, älteste eigene Datei und gescheiterte Veröffentlichung geprüft.
 Altstand verletzt die Negativkontrolle; vier IO-/Query-Regressionen bestehen.
 Symlink-Prüfung ist keine Absicherung gegen gleichzeitig manipulierte Verzeichnisse.
+
+## XML-Parserphasen und Geschwisteraufbau
+Parse in Text, Markup-Dispatch, Öffnen/Schließen und Attribute trennen; Parserzustand
+nur während des Imports halten. Pro offener Ebene letzten Kindindex speichern:
+Anhängen O(1), keine wiederholte Suche durch Geschwister. Knotenlayout unverändert.
+Abnahme: 60000 Geschwister unter 2 s auf dem Entwicklungsrechner (großzügiges
+Cold-Import-Budget), Reihenfolge und verschachtelte Listen exakt. Altstand muss
+das Zeitbudget verletzen; Syntax-/Attribut-/Szenario-Regressionen bleiben maßgeblich.
