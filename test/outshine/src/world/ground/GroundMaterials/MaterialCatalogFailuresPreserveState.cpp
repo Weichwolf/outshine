@@ -27,6 +27,11 @@ int main() {
   for (const std::string &invalid :
        {"{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row + ",{}]}",
         "{\"frictionModel\":{\"reference\":\"missing\"},\"classes\":[" + row + "]}",
+        "{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row + "," + row + "]}",
+        "{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + row +
+            ",{\"peakFriction\":1,\"surface\":\"coherent\",\"slope\":{\"plausibleDeg\":[0,90]}}]}",
+        "{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" +
+            row.substr(0, row.size() - 1) + ",\"litter\":{\"class\":\"missing\"}}]}",
         std::string("not json"),
         std::string(1024 * 1024 + 1, ' ')}) {
     write(invalid);
@@ -35,6 +40,16 @@ int main() {
               materials.At(0).PeakFriction == 0.5f && materials.At(0).FrictionFactor == 1,
           "failed replacement preserves complete previous catalog");
   }
+  const std::string forward = row.substr(0, row.size() - 1) + ",\"litter\":{\"class\":\"later\"}}";
+  const std::string later =
+      R"({"name":"later","peakFriction":1,"surface":"coherent","slope":{"plausibleDeg":[0,90]},"litter":{"class":"later"}})";
+  write("{\"frictionModel\":{\"reference\":\"reference\"},\"classes\":[" + forward + "," + later +
+        "]}");
+  CHECK(materials.Load(path.c_str()), "forward and self references accepted");
+  CHECK(materials.Count() == 2 && materials.Find("reference") == 0 &&
+            materials.Find("later") == 1 && materials.At(0).LitterClass == 1 &&
+            materials.At(1).LitterClass == 1 && materials.At(1).FrictionFactor == 2,
+        "reference resolution preserves material ordering and ratios");
   CHECK(!materials.Load(nullptr) && materials.Ready(), "null path preserves catalog");
   std::filesystem::remove(path);
   CHECK(!materials.Load(path.c_str()) && materials.Ready(), "missing file preserves catalog");

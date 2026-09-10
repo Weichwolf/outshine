@@ -49,7 +49,8 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
   const Json::Ref excl = model.Exclusions;
   ParsedMaterial parsed{};
   auto &m = parsed.Value;
-  m.Name = c["name"].Str("?");
+  m.Name = c["name"].Str("");
+  if (m.Name.empty()) { return std::unexpected("material class must have a nonempty name"); }
   m.Roughness = static_cast<float>(c["roughness"].Num(kRoughnessUnsaid));
   const Json::Ref peak = c["peakFriction"];
   if (peak.GetKind() != Json::Kind::Number || !(peak.Num(0.0) > 0.0)) {
@@ -98,6 +99,45 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
   return parsed;
 }
 
+struct NamedMaterial {
+  std::string_view Name;
+  int Index;
+};
+
+std::expected<void, std::string> ResolveMaterials(std::span<GroundMaterials::Material> materials,
+                                                  std::span<const std::string> litterNames,
+                                                  std::string_view reference) {
+  std::vector<NamedMaterial> names;
+  names.reserve(materials.size());
+  for (size_t i = 0; i < materials.size(); ++i) {
+    names.push_back({.Name = materials[i].Name, .Index = static_cast<int>(i)});
+  }
+  std::ranges::sort(names, {}, &NamedMaterial::Name);
+  if (std::ranges::adjacent_find(names, {}, &NamedMaterial::Name) != names.end()) {
+    return std::unexpected("material class names must be unique");
+  }
+  const auto find = [&names](std::string_view name) {
+    const auto found = std::ranges::lower_bound(names, name, {}, &NamedMaterial::Name);
+    return found != names.end() && found->Name == name ? found->Index : -1;
+  };
+  const int stands = find(reference);
+  if (stands < 0) {
+    return std::unexpected("frictionModel.reference names an unknown class: " +
+                           std::string(reference));
+  }
+  const float against = materials[static_cast<size_t>(stands)].PeakFriction;
+  for (size_t i = 0; i < materials.size(); ++i) {
+    auto &material = materials[i];
+    material.FrictionFactor = material.PeakFriction / against;
+    if (litterNames[i].empty()) { continue; }
+    material.LitterClass = find(litterNames[i]);
+    if (material.LitterClass < 0) {
+      return std::unexpected("unknown litter class: " + litterNames[i]);
+    }
+  }
+  return {};
+}
+
 std::expected<std::vector<GroundMaterials::Material>, std::string> ReadCatalog(const Json &doc) {
   const Json::Ref mm = doc.Root()["moistureModel"];
   const float kWet = static_cast<float>(mm["kWet"].Num(0.0));
@@ -129,18 +169,8 @@ std::expected<std::vector<GroundMaterials::Material>, std::string> ReadCatalog(c
     materials.push_back(std::move(parsed->Value));
     litterName.push_back(std::move(parsed->Litter));
   }
-  const int stands = FindMaterial(materials, reference);
-  if (stands < 0) {
-    return std::unexpected("frictionModel.reference names '" + reference +
-                           "' and no class carries that name");
-  }
-  const float against = materials[static_cast<size_t>(stands)].PeakFriction;
-  for (auto &one : materials) { one.FrictionFactor = one.PeakFriction / against; }
-
-  for (size_t i = 0; i < materials.size(); i++) {
-    if (!litterName[i].empty()) {
-      materials[i].LitterClass = FindMaterial(materials, litterName[i]);
-    }
+  if (auto resolved = ResolveMaterials(materials, litterName, reference); !resolved) {
+    return std::unexpected(std::move(resolved.error()));
   }
 
   return materials;

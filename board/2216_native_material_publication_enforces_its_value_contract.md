@@ -96,10 +96,12 @@ werden als Kandidat aufgebaut und erst bei Erfolg ersetzt. Klassen-Decoding von 
 trennen; gültige Materialarithmetik unverändert. Negativkontrolle: später Klassen-/
 Referenzfehler erhält alte Materialien, fehlende/überlange Dateien ebenso. Altstand
 verletzt die Negativkontrolle; Loader-/Reader-Regressionen samt ausgeliefertem Katalog grün.
-Numerische Material-/Modellgrenzen und unbekannte Litter-Verweise bleiben separat offen.
+Numerische Material-/Modellgrenzen bleiben separat offen.
 
 ## Eindeutige Katalogreferenzen
 Nichtleere eindeutige Klassennamen erzwingen. Temporären sortierten Namensindex
 für Duplikatprüfung, Reibungsreferenz und Litter-Auflösung verwenden; Materialreihenfolge
 erhalten. Unbekannte nichtleere Litter-Referenz ablehnen statt als -1 verschwinden lassen.
-Vorwärts-/Selbstreferenzen zulassen. Fehler erhalten den bisherigen Katalog.
+Vorwärts-/Selbstreferenzen bestehen; Fehler erhalten den bisherigen Katalog.
+Altstand verletzt die Negativkontrolle; Referenz-/Reihenfolge-/Retry-Fälle und
+ausgelieferter Katalog geprüft.
