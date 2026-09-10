@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <memory>
+#include <expected>
 #include <limits>
 #include <span>
 #include <string>
@@ -273,11 +274,17 @@ int Geometry::images() const {
   return static_cast<int>(Held_->Images.size());
 }
 
-bool Geometry::setSurface(MaterialInstance surface, const Material &row) {
+std::expected<void, MaterialUpdateError> Geometry::setSurface(MaterialInstance surface,
+                                                              const Material &row) noexcept {
   const int at = surface.index();
-  if (at < 0 || static_cast<size_t>(at) >= Held_->Surfaces.size()) { return false; }
+  if (at < 0 || static_cast<size_t>(at) >= Held_->Surfaces.size()) {
+    return std::unexpected(MaterialUpdateError::MissingMaterial);
+  }
+  if (!MaterialIsValid(row, Held_->Images.size())) {
+    return std::unexpected(MaterialUpdateError::InvalidMaterial);
+  }
   Held_->Surfaces[static_cast<size_t>(at)].Surface = row;
-  return true;
+  return {};
 }
 
 ImageView Geometry::imageAt(int image) const {

@@ -2,6 +2,7 @@
 #define OUTSHINE_GEOMETRY_H
 
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <span>
 #include <string_view>
@@ -12,6 +13,12 @@
 #include "PunctualLight.h"
 
 namespace outshine {
+
+/// Failure when replacing one owned material; neither error changes stored values.
+enum class MaterialUpdateError {
+  MissingMaterial, ///< The owner-local material index is absent.
+  InvalidMaterial  ///< Factors, texture parameters or owner-local image bindings are invalid.
+};
 
 /// Move-only owner of CPU mesh attributes, materials, images, lights and part placements.
 /// Vertex positions are local metres in a right-handed, Y-up frame; triangles use CCW
@@ -185,11 +192,13 @@ public:
   /// @return Borrowed stored material, or a static default Material for an absent reference.
   [[nodiscard]] const Material &surfaceAt(MaterialInstance surface) const;
 
-  /// Replace a material by copying without numeric or texture-reference validation.
+  /// Validate and replace one material without allocation; serialize with owner access.
   /// @param surface Owner-local material reference.
   /// @param row Replacement data, including owner-local image references.
-  /// @return False without mutation for an absent reference; true after replacement.
-  bool setSurface(MaterialInstance surface, const Material &row);
+  /// @return Success or a typed failure preserving all previous values, names and indices.
+  /// Image bindings must already resolve in this owner; no forward references on replacement.
+  [[nodiscard]] std::expected<void, MaterialUpdateError> setSurface(MaterialInstance surface,
+                                                                    const Material &row) noexcept;
 
   /// @return Number of owned lights.
   [[nodiscard]] int lamps() const;

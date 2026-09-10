@@ -60,8 +60,10 @@ int main() {
                            &Material::Roughness}) {
     Material unsupported = material;
     unsupported.*field = std::numeric_limits<float>::quiet_NaN();
-    CHECK(geometry.setSurface(surface, unsupported), "prepare unsupported material");
-    const auto failed = exportGlb(geometry);
+    auto malformed = geometry.clone();
+    const auto invalid = malformed.addSurface("unsupported", unsupported);
+    CHECK(malformed.setMaterial(part, invalid), "prepare unsupported material");
+    const auto failed = exportGlb(malformed);
     CHECK(!failed && !failed.error().empty(), "nonrepresentable material cannot silently export");
   }
   Material coated = material;
@@ -70,9 +72,11 @@ int main() {
         "unimplemented material extension cannot be discarded");
   Material textured = material;
   textured.BaseColourMap.Image = 0;
-  CHECK(geometry.setSurface(surface, textured) && !exportGlb(geometry),
+  auto malformed = geometry.clone();
+  const auto unresolved = malformed.addSurface("unresolved", textured);
+  CHECK(malformed.setMaterial(part, unresolved) && !exportGlb(malformed),
         "native texture binding cannot disappear even when its image is missing");
-  CHECK(geometry.setSurface(surface, material), "restore supported factors");
+  CHECK(geometry.setSurface(surface, material).has_value(), "restore supported factors");
   const std::array<uint8_t, 4> pixel{255, 255, 255, 255};
   CHECK(geometry.addImage(1, 1, pixel) == 0 && !exportGlb(geometry),
         "unimplemented image export cannot report success");

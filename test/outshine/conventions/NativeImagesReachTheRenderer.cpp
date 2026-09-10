@@ -75,7 +75,7 @@ int main() {
   const std::array<uint8_t, 4> secondPixel{17, 31, 63, 255};
   Material secondMaterial = material;
   secondMaterial.BaseColourMap.Image = roundtrip.addImage(1, 1, secondPixel);
-  CHECK(roundtrip.setSurface(roundtrip.materialOf(0), secondMaterial),
+  CHECK(roundtrip.setSurface(roundtrip.materialOf(0), secondMaterial).has_value(),
         "second material names its own image");
   Gltf::Subject appended;
   CHECK(appended.Assemble(roundtrip) && assembled.Append(appended),
@@ -130,7 +130,8 @@ int main() {
   CHECK(engine.renderer().saveScreenshot("build/native-materials/colour.png").has_value(),
         "native map PNG is written");
   material.BaseColourMap.Uv = {.OffsetUv = {{1, 0}}, .RotationRad = std::numbers::pi / 2};
-  CHECK(rotated.setSurface(rotated.materialOf(0), material), "declare a quarter-turn UV mapping");
+  CHECK(rotated.setSurface(rotated.materialOf(0), material).has_value(),
+        "declare a quarter-turn UV mapping");
   if (!engine.setGeometry(rotated) || !engine.advance() || !engine.renderer().render({}) ||
       !engine.renderer().readPixels(Buffer::Linear, frame)) {
     Unprepared(engine.error().c_str());

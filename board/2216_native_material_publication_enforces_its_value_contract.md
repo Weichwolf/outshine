@@ -10,8 +10,8 @@ Depends:
 ## Beleg
 include/scene/Material.h dokumentiert Wertebereiche, Farbräume und Lebensdauer.
 Geometry::addSurface kopiert ungeprüft und verengt die Slotzahl auf int;
-setSurface prüft nur den Zielindex. wellFormed prüft Meshattribute/Indizes, keine
-Materialwerte oder Bildbindungen. SubjectDraw::ValidateMaterials prüft Geräte-/Pass-
+setSurface prüft jetzt Zielindex, Werte und Bildbindungen mit typed expected vor Kopie.
+wellFormed prüft vollständige Material-/Meshprodukte einschließlich Bindungen. SubjectDraw::ValidateMaterials prüft Geräte-/Pass-
 Fähigkeiten, keine physikalischen Faktoren. Diese Prüfungen sind nicht austauschbar.
 
 ## Lösung
@@ -61,3 +61,9 @@ getrennte Fehler für fehlenden Slot und ungültige Werte/Bindungen. Alle Prüfu
 Kopie, vorheriges Material bei Fehler erhalten. Importer aktualisieren nach Bildaufbau.
 Publikations-/Export-Negativfixtures erzeugen ungültige Aufbauzustände weiter über
 addSurface; ihre Oracles bleiben bestehen. Neuer Erhaltungstest muss am Altsetter scheitern.
+
+Ersatz-Abnahme: fehlender Slot und ungültige Werte/Bindungen liefern getrennte Fehler,
+keine Allokation/Mutation vor erfolgreicher Prüfung. Erhaltung/Retry, Publikation, Export,
+animierte Importmaterialien und native Bilder/UVs grün. Altsetter verletzt Erhaltungsoracle
+ohne Buildfehler. Export-/Publikations-Negativfälle bleiben über Aufbaupfad erhalten.
+Abschluss-Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün; drei rote Gruppen.
