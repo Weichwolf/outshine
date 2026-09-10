@@ -229,3 +229,7 @@ das Urteil über das ganze Projekt.
   Board. PNG-Referenzen bleiben unter `build/shots/reference/`.
 - Deutsch, du, kurz und direkt. Keine Beschönigung. Ergebnis und Beleg nennen;
   offene Qualitätslücken ausdrücklich offen lassen.
+
+- Ad-hoc-Dateivergleiche ohne externe Hash-CLI (`shasum` und ähnliche Aufrufe).
+  Renderabweichungen mit `python3 test/scripts/pixels.py vorher.png nachher.png` messen.
+  Hashes für Engine-Caches, Asset-Identität und Referenzpins bleiben fachlich erforderlich.

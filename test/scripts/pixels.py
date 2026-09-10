@@ -77,11 +77,15 @@ def apart(one, two):
     moved = 0
     worst = 0
     over1 = 0
+    absolute_error = 0
+    compared_channels = min(3, chA)
     box = [wideA, highA, -1, -1]
     rows = {}
     loudest = []
     for at in range(0, len(a), chA):
-        gap = max(abs(a[at + k] - b[at + k]) for k in range(min(3, chA)))
+        differences = [abs(a[at + k] - b[at + k]) for k in range(compared_channels)]
+        absolute_error += sum(differences)
+        gap = max(differences)
         if gap:
             moved += 1
             worst = max(worst, gap)
@@ -95,6 +99,7 @@ def apart(one, two):
     return {
         "Pixels": pixels,
         "Moved": moved,
+        "MeanAbsoluteChannelError": absolute_error / (pixels * compared_channels),
         "Worst": worst,
         "OverOne": over1,
         "Box": box,
@@ -137,7 +142,8 @@ def main(argv):
     share = 100.0 * told["Moved"] / told["Pixels"]
     print(
         f"{told['Moved']} of {told['Pixels']} pixel(s) differ ({share:.4f} %), "
-        f"{told['OverOne']} by more than 1 of 255, worst {told['Worst']} of 255"
+        f"{told['OverOne']} by more than 1 of 255, worst {told['Worst']} of 255, "
+        f"mean RGB channel error {told['MeanAbsoluteChannelError']:.6f} of 255"
     )
     if told["Moved"]:
         x0, y0, x1, y1 = told["Box"]
