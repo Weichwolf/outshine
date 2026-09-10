@@ -13,6 +13,7 @@ namespace outshine {
 
 namespace {
 namespace Says {
+constexpr auto CapabilityBudget = "capability catalogue exceeds its supported identifier range";
 constexpr auto EntityBudget = "simulation entity capacity exceeds 65536 slots";
 }
 
@@ -44,6 +45,14 @@ namespace {
   }
   names.push_back(name);
   return static_cast<uint32_t>(names.size());
+}
+
+[[nodiscard]] std::expected<void, std::string>
+GiveCapability(EntityRegistry &registry, Entity owner, Assembled &scene, const std::string &name) {
+  const auto tag = TagCatalogue::under(tags::Does, Interned(scene.TagNames, name));
+  if (!tag) { return std::unexpected(Says::CapabilityBudget); }
+  if (!registry.giveTag(owner, *tag)) { return std::unexpected(std::string(registry.error())); }
+  return {};
 }
 
 [[nodiscard]] bool Numbered(const Scenario::Setting &attribute,
@@ -98,9 +107,9 @@ namespace {
               "declaration that names nothing";
       return false;
     }
-    const Tag doing = TagCatalogue::under(tags::Does, Interned(out.TagNames, capability));
-    if (!into.giveTag(prefab, doing)) {
-      error = into.error();
+    const auto tagged = GiveCapability(into, prefab, out, capability);
+    if (!tagged) {
+      error = tagged.error();
       return false;
     }
   }
@@ -240,8 +249,9 @@ namespace {
   for (const Scenario::Drive &does : declaredBody.Driven) {
     const char *const opposing = does.Opposes ? "torque-opposing" : "torque";
     const char *const named = does.Does == Scenario::Drives::Motion ? "steer" : opposing;
-    if (!into.giveTag(body, TagCatalogue::under(tags::Does, Interned(out.TagNames, named)))) {
-      error = into.error();
+    const auto tagged = GiveCapability(into, body, out, named);
+    if (!tagged) {
+      error = tagged.error();
       return false;
     }
   }

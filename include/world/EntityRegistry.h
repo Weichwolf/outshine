@@ -3,6 +3,7 @@
 
 #include "world/Entity.h"
 #include <span>
+#include <expected>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -11,29 +12,39 @@
 
 namespace outshine {
 
-/// Every bit of a tag word set, which is what a tag with no parent matches against.
+/// All bits of a 32-bit tag word.
 constexpr uint32_t kEveryTagBit = 0xFFFFFFFFu;
 
-/// How many ordinals a tag family holds before it needs a wider word.
-constexpr uint32_t kOrdinalMask = 0xFFu;
+/// Mask and maximum nonzero child ordinal: 24 bits within one family.
+constexpr uint32_t kOrdinalMask = 0x00FFFFFFu;
 
 enum class Role : uint8_t { Body, Mind, Tool, Assignment };
 
+/// Two-level numeric tag: an 8-bit family and a 24-bit child ordinal.
+/// Contains no owner or name mapping. Producers and queries must use the same catalogue;
+/// numeric encodings are runtime identities, not persistent save identifiers.
 class Tag {
 public:
-  constexpr Tag() = default;
+  /// Construct an invalid tag, which matches no parent.
+  constexpr Tag() noexcept = default;
 
-  [[nodiscard]] constexpr uint32_t value() const { return Value_; }
+  /// @return Encoded numeric identity, or zero for the invalid tag; no allocation.
+  [[nodiscard]] constexpr uint32_t value() const noexcept { return Value_; }
 
-  [[nodiscard]] constexpr bool within(Tag parent) const {
-    uint32_t mask = kEveryTagBit;
-    for (uint32_t held = parent.Value_; held != 0 && (held & kOrdinalMask) == 0; held >>= 8u) {
-      mask <<= 8u;
-    }
-    return parent.Value_ != 0 && (Value_ & mask) == parent.Value_;
+  /// Query family membership or exact child identity, including self-membership.
+  /// @param parent Family or child from the same catalogue; invalid matches nothing.
+  /// @return True for a matching family, or an identical child. Constant work, no allocation.
+  [[nodiscard]] constexpr bool within(Tag parent) const noexcept {
+    if (parent.Value_ == 0) { return false; }
+    if ((parent.Value_ & kOrdinalMask) != 0) { return Value_ == parent.Value_; }
+    return (Value_ & ~kOrdinalMask) == parent.Value_;
   }
 
-  [[nodiscard]] constexpr bool operator==(Tag other) const { return Value_ == other.Value_; }
+  /// @param other Numeric tag to compare; no catalogue or owner lookup.
+  /// @return Exact encoding equality; two invalid tags compare equal.
+  [[nodiscard]] constexpr bool operator==(Tag other) const noexcept {
+    return Value_ == other.Value_;
+  }
 
 private:
   constexpr explicit Tag(uint32_t value) : Value_(value) {}
@@ -42,12 +53,30 @@ private:
   friend struct TagCatalogue;
 };
 
-struct TagCatalogue {
-  static constexpr Tag Does{0x01000000};
-  static constexpr Tag Offers{0x02000000};
+/// Reasons why a child tag cannot be constructed.
+enum class TagError {
+  InvalidFamily, ///< Invalid tag or an existing child used as a family.
+  InvalidOrdinal ///< Zero or a value exceeding the 24-bit child field.
+};
 
-  [[nodiscard]] static constexpr Tag under(Tag family, uint32_t ordinal) {
-    return Tag(family.Value_ | ((ordinal & kOrdinalMask) << 16u));
+/// Fixed activity families and checked construction; does not intern names or own storage.
+struct TagCatalogue {
+  static constexpr Tag Does{0x01000000};   ///< Activities an entity can perform.
+  static constexpr Tag Offers{0x02000000}; ///< Activities an entity offers to others.
+
+  /// Construct a distinct child without truncating or wrapping its ordinal.
+  /// @param family Nonzero family tag, not a child; checked before the ordinal.
+  /// @param ordinal Child identifier in [1, kOrdinalMask], assigned by the caller's catalogue.
+  /// @return Child or a typed validation error. Constant work, no allocation or mutation.
+  [[nodiscard]] static constexpr std::expected<Tag, TagError> under(Tag family,
+                                                                    uint32_t ordinal) noexcept {
+    if (family.Value_ == 0 || (family.Value_ & kOrdinalMask) != 0) {
+      return std::unexpected(TagError::InvalidFamily);
+    }
+    if (ordinal == 0 || ordinal > kOrdinalMask) {
+      return std::unexpected(TagError::InvalidOrdinal);
+    }
+    return Tag(family.Value_ | ordinal);
   }
 };
 
@@ -56,10 +85,10 @@ inline constexpr Tag Does = TagCatalogue::Does;
 inline constexpr Tag Offers = TagCatalogue::Offers;
 }
 
-static_assert(TagCatalogue::under(tags::Does, 1).within(tags::Does) &&
-                  !tags::Does.within(TagCatalogue::under(tags::Does, 1)),
+static_assert(TagCatalogue::under(tags::Does, 1)->within(tags::Does) &&
+                  !tags::Does.within(*TagCatalogue::under(tags::Does, 1)),
               "a tag is within its family and never the other way round");
-static_assert(!TagCatalogue::under(tags::Does, 1).within(tags::Offers),
+static_assert(!TagCatalogue::under(tags::Does, 1)->within(tags::Offers),
               "and a family holds only its own");
 
 enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, HeldBy };
@@ -129,7 +158,19 @@ public:
   /// @return Role, or nullopt for kNoEntity, stale, removed or foreign handles.
   [[nodiscard]] std::optional<Role> roleOf(Entity of) const;
 
+  /// Attach an exact nonempty tag using the entity's prepared, bounded tag storage.
+  /// No allocation; serialize with registry access. A tag does not carry catalogue ownership.
+  /// @param to Live target in this registry.
+  /// @param tag Tag from the catalogue shared by this registry's producers and queries.
+  /// @return False for invalid target/tag, exact duplicate or full storage, preserving tags
+  ///         and recording error(). Family/child overlap is not an exact duplicate.
   [[nodiscard]] bool giveTag(Entity to, Tag tag);
+  /// Test direct tags and IsA ancestors using Tag::within(); no allocation.
+  /// Work follows the bounded inheritance chain and updates traversal diagnostics. Serialize
+  /// with registry access; the error string is unchanged.
+  /// @param of Live entity in this registry; stale/foreign handles match nothing.
+  /// @param tag Family or exact child from the same catalogue; invalid matches nothing.
+  /// @return Whether a matching tag exists on the entity or an ancestor.
   [[nodiscard]] bool hasTag(Entity of, Tag tag) const;
 
   /// Add a relation under the registry's role, exclusivity and acyclicity rules.
