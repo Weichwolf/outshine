@@ -300,6 +300,21 @@ void WriteVolumes(std::string &said, std::span<const Scenario::Volume> volumes) 
   said += "  </volumes>\n";
 }
 
+void WriteInput(std::string &said,
+                std::span<const Scenario::Binding> bindings,
+                double wheelStepPx) {
+  said += "  <input";
+  Number(said, "wheelStepPx", wheelStepPx);
+  said += ">\n";
+  for (const auto &binding : bindings) {
+    said += "    <bind";
+    Said(said, "event", binding.Event, true);
+    Said(said, "action", binding.Action, true);
+    said += "/>\n";
+  }
+  said += "  </input>\n";
+}
+
 void WritePersistence(std::string &said, std::span<const Scenario::Persisted> selections) {
   if (selections.empty()) { return; }
   said += "  <state>\n";
@@ -416,6 +431,7 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteGenerators(said, declared.Generators);
   WriteCompositors(said, declared.Compositors);
   WritePersistence(said, declared.State);
+  WriteInput(said, declared.Input, declared.WheelStepPx);
   return said + "</scenario>\n";
 }
 

@@ -1,6 +1,9 @@
 #include <Outshine.h>
 #include "Check.h"
 #include <vector>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <string>
 
 namespace {
@@ -34,6 +37,23 @@ int main() {
                  {.Event = "AxisLeftX", .Action = "stick"},
                  {.Event = "TriggerRight", .Action = "trigger"}};
   CHECK(engine.declare(scene).has_value(), "input declaration needs no SDL or render target");
+  const auto serialized = engine.writeScenario();
+  CHECK(serialized.has_value(), "input declaration exports");
+  if (!serialized) { return Report(); }
+  auto temporary = (std::filesystem::temp_directory_path() / "outshine-input-XXXXXX").string();
+  const char *created = mkdtemp(temporary.data());
+  CHECK(created != nullptr, "temporary import directory created");
+  if (!created) { return Report(); }
+  const auto path = std::filesystem::path(created) / "input.scn";
+  std::ofstream file(path);
+  file << *serialized;
+  file.close();
+  CHECK(!file.fail(), "export fixture written");
+  CHECK(engine.readScenario(path.string()).has_value(),
+        "exported declaration reimports through public API");
+  std::error_code cleanup;
+  std::filesystem::remove_all(temporary, cleanup);
+  CHECK(!cleanup, "temporary fixture removed");
   SDL_Event event{};
   for (const auto type : {SDL_EVENT_KEY_DOWN,
                           SDL_EVENT_KEY_UP,

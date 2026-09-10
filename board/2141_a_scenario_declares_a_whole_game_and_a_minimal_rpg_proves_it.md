@@ -82,7 +82,7 @@ Punkt auf und lehnt fehlende Zuordnungen ab. Öffentlichen Besitz-/Prüfzeitpunk
 dokumentiert. Negativkontrolle bestätigt den Verlust im Altwriter; fünf Regressionen grün.
 
 ## Eingabekonfiguration exportieren
-Writer verliert Input und WheelStepPx. Vollständigen input-Abschnitt mit geordneten
-bind-Einträgen und exakter Schrittweite schreiben. Abnahme: bestehender Public-API-
-Dispatchtest exportiert/reimportiert vor den echten SDL-Ereignissen; Altwriter verliert
-die Aktionen. Separate Deklarationsfixture prüft Escaping und Schrittweite.
+Writer erhält Input und WheelStepPx mit geordneten bind-Einträgen und exakter
+Schrittweite. Public-API-Dispatchtest exportiert/reimportiert vor echten SDL-Ereignissen;
+der Altwriter verliert die Aktionen. Separate Fixture prüft Escaping, Null und
+Bruch-Schrittweite. Sieben Input-/Writer-Regressionen bestehen.
