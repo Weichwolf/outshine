@@ -22,6 +22,8 @@ constexpr auto InvalidVolumeGeometry =
     "volume center and extents must be finite; extents must be nonnegative";
 constexpr auto InvalidDwell = "dwell duration must be finite and positive";
 constexpr auto ExcessEvents = "event catalog exceeds the 16-bit index capacity";
+constexpr auto InvalidEventFields =
+    "event field names must be nonempty and unique within each event";
 constexpr auto InvalidEventName = "event names must be nonempty and unique";
 }
 
@@ -34,12 +36,28 @@ using EventIndex = std::unordered_map<std::string_view, uint16_t>;
 constexpr size_t kMostOccupantsPerVolume = 256;
 constexpr size_t kMostFired = 256;
 
+[[nodiscard]] bool ValidEventFields(std::span<const std::string> fields,
+                                    std::vector<std::string_view> &ordered) {
+  ordered.clear();
+  ordered.reserve(fields.size());
+  for (const auto &field : fields) {
+    if (field.empty()) { return false; }
+    ordered.push_back(field);
+  }
+  std::ranges::sort(ordered);
+  return std::ranges::adjacent_find(ordered) == ordered.end();
+}
+
 [[nodiscard]] std::expected<EventIndex, std::string>
 BuildEventIndex(std::span<const Scenario::Event> events) {
   if (events.size() > kMostEvents) { return std::unexpected(Says::ExcessEvents); }
   EventIndex index;
   index.reserve(events.size());
+  std::vector<std::string_view> orderedFields;
   for (size_t at = 0; at < events.size(); ++at) {
+    if (!ValidEventFields(events[at].Carries, orderedFields)) {
+      return std::unexpected(Says::InvalidEventFields);
+    }
     if (events[at].Name.empty() ||
         !index.emplace(events[at].Name, static_cast<uint16_t>(at)).second) {
       return std::unexpected(Says::InvalidEventName);

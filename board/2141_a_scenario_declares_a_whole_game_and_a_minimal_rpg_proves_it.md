@@ -113,8 +113,8 @@ Read/Write-Test muss im Altstand Verlust zeigen; gültiger Roundtrip muss wieder
 Keine Speicherung laufender Occupancy behaupten; es geht um die deklarierte Konfiguration.
 
 Grammatik verlangt nichtleere Carries.what und Volume.when; leeres When bleibt ungültig.
-Nächster Schritt: Assembly lehnt leere/doppelte Carries-Namen auch ohne Volumes ab.
-Geliehene string_views sortieren und benachbarte Duplikate prüfen; deklarierte Reihenfolge
-nicht verändern. Leere Feldliste, gleiche Namen in verschiedenen Events und Groß-/
+Assembly lehnt leere/doppelte Carries-Namen auch ohne Volumes ab.
+Wiederverwendeter string_view-Scratch prüft sortierte benachbarte Duplikate; deklarierte Reihenfolge
+bleibt erhalten. Leere Feldliste, gleiche Namen in verschiedenen Events und Groß-/
 Kleinschreibung bleiben gültig. Public-API-Negativkontrolle und Listener-Tests prüfen
 Ablehnung, Simulationserhalt und erfolgreiche Wiederholung.

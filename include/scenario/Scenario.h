@@ -521,7 +521,9 @@ struct Table {
 /// reads of this descriptor; copying names/field lists and preparing a catalog may allocate.
 struct Event {
   std::string Name; ///< Nonempty, case-sensitive identifier, unique within the event catalog.
-  /// Owned field names checked when an internal listener registers its requested fields.
+  /// Owned, case-sensitive field names; assembly rejects empty names and duplicates within
+  /// this event. An empty list is valid; field names may recur in other events.
+  /// Internal listener registration checks its requested names against this list.
   /// This declares permitted names only: trigger emission currently carries event index and
   /// entity handle, not values for these fields. No scripted payload execution is implied.
   std::vector<std::string> Carries;
