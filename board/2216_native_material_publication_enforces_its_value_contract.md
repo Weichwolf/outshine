@@ -101,3 +101,9 @@ Snapshot-Abnahme: neun Checks grün; Altcode verletzt Material- und Ansichtserha
 an zwei Stellen ohne Buildfehler. Materialanimation und native Bilder als Regressionen
 grün. Kandidatenpublikation nach Textur-/Faktoraufbereitung, ohne zusätzliche Clone.
 Lint 180/282, 32 Repository-Tests grün, drei rote Gruppen. Kamera-/Clip-Rollback offen.
+
+Kamera-/Clip-Folgefix: Camera(index) liest noch Arbeits-Locals nach fehlgeschlagener
+Probe; selectAnimations ersetzt Motion vor erfolgreichem Aufbau. Veröffentlichten
+Posepuffer getrennt halten, bei Erfolg swappen; Clip/Move-Zustand bei Fehler zurücknehmen.
+Fixture um bewegte Kamera und bei t=0 ungültigen zweiten Clip ergänzen; vorherige
+Kamera, Dauer, Geometrieansichten und gültiger Retry müssen erhalten bleiben.
