@@ -1,4 +1,5 @@
 Type: bug
+Parent: 2188
 Depends: 2211
 State: active
 Area: include, scenario
@@ -85,23 +86,28 @@ Ablehnung, Entfernen der Bindung, fehlenden Host und Hits außerhalb der Oberfl�
 Negativkontrollen gegen Renderer-Sperre bzw. vorzeitigen Abbruch bei ungebundenem
 Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vertrag.
 
-## Nächster Umsetzungsschritt
+## Öffentliche Welt-/Generatorverträge korrigieren
 
-Öffentliche Binding-Deklaration dokumentieren: owned Strings, exakte Eventnamen,
-Host-Aufruf ohne Scriptinterpretation, ein numerisches Argument, Gerätenormalisierung,
-keine Aggregation mehrerer Bindungen. Leere Aktionsnamen an der Deklarationsgrenze
-ablehnen; mehrere Events dürfen denselben Namen verwenden. Tests für Ablehnung
-mit erhaltenem Vorgänger, gemeinsame Aktion und Fallunterscheidung. Bestehende
-Input-/UI-/Scrolltests behalten; kein Renderunterschied ohne Eingaben erwartet.
+Binding-Dokumentation, leere Aktionsnamen, zustandsloser InputPump und getrennte
+Geräteübersetzung sind umgesetzt; vorhandene Geräte-/UI-/Fehlererhaltstests behalten.
 
-InputPump zustandslos machen: Translate erhält die Map als geliehene Referenz pro
-Aufruf. Session hält nur die owned Map, weder Pump-Zeiger noch Pumping-Flag.
-Katalogvalidierung bleibt explizit vor Deklarationspublikation. Eine leere Map
-liefert keine Aktionen; keine zweite Quelle für Aktivierungszustand. Bestehende
-Geräte-/UI-/Fehlererhaltstests und wechselnde Maps prüfen; keine Pixeländerung.
+Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
+Request::ExtentM weitergegeben. Structures::make benutzt ExtentM als Gebäudeseitenlänge
+(sonst still 12 m). ReadWorld liest radiusM, WriteScenario verliert es. Außerdem werden
+Generating::Parameters beim Generatoraufruf ignoriert. Quellbefund, keine gültigen
+SOLL-Verträge; nicht durch Dokumentation oder identische Umbenennung legitimieren.
 
-Geräteübersetzung in getrennte Tastatur-, Mausbutton-, Mausbewegungs-, Gamepadbutton-
-und Achsenfunktionen aufteilen. Dispatch-Switch wählt nur die Funktion; gemeinsame
-Bindungsauflösung bleibt einmalig und ohne Allokation. Bestehende Verhaltenstests
-und Achsen-Negativkontrolle sichern Semantik; clang-tidy muss den Komplexitätsbefund
-verlieren, ohne einen neuen Befund in den extrahierten Funktionen zu erzeugen.
+Mit 2126 umsetzen: Georeferenz enthält Position/Referenzrahmen, keine Objektgröße.
+Generierungsregion hat einen einheitlichen räumlichen Vertrag; Gebäudeabmessungen sind
+Generatorparameter bzw. stammen aus Feature-Grundrissen. Vorhandene owned Scenario-
+Parameter über formatunabhängige, für make geliehene Daten weiterreichen; Generation
+darf nicht vom Szenarioparser abhängen. Unbekannte/ungültige Parameter ausdrücklich
+ablehnen. Kein Ignorieren und keine stillen größenabhängigen Ersatzwerte.
+
+Schema, Reader, Writer, Public API und Engine-Aufrufer gemeinsam migrieren. Altes
+world.radiusM nicht still neu interpretieren: als ungültigen Legacy-Vertrag ablehnen
+oder explizit migrieren. Keine Ortsdaten im Code. API-Dokumentation erklärt die neuen
+Einheiten, Reichweite, Ownership und Fehlerpublikation nach Implementierungsprüfung.
+Abnahme: öffentlicher registrierter Probe-Generator sieht deklarierte Region/Parameter;
+Reader/Writer-Rundlauf erhält sie; Fehler bewahrt Vorgängerszene. Gebäudemaße bleiben
+bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkontrolle.

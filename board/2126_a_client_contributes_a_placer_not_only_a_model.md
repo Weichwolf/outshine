@@ -20,6 +20,11 @@ das ist keine gültige weltweit platzierte Terrain-Anbindung. Engine::generated
 überspringt unbekannte Registrierungen still und setzt mehrere Outputs zusammen.
 Die dokumentierten Ist-Grenzen sind keine Abnahme dieses Verhaltens.
 
+API-Audit: Georeference::RadiusM (Default Erdradius) wird Request::ExtentM und dort
+Gebäudeseitenlänge; Generating::Parameters erreichen make nicht. Region/Featuregröße/
+Parameter trennen, Weiterleitung und Ablehnung unbekannter Werte implementieren.
+Gemeinsame Schema-/API-Migration und Abnahmen in 2131; keine reine Umbenennung.
+
 ## Entscheidung
 
 Native Generatorprodukte als owned expected liefern. Meshdaten, Instanzen und
