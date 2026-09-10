@@ -7,18 +7,23 @@
 
 namespace outshine {
 
-/// A two-component vector: a texture coordinate, a raster point, a pair of half-angles.
+/// Owned 2-component value; units and coordinate frame are determined by the caller.
+/// @tparam Number Component type; arithmetic follows that type without saturation or validation.
+/// Views, pointers and references borrow this object's fixed storage until its lifetime ends;
+/// assignment changes the observed values without relocating storage. Moving/copying the
+/// value does not retarget existing views. Serialize writes with all access to the same value.
+/// No allocation or implicit coordinate conversion occurs for the float/double aliases.
 template <typename Number> struct Vector2 {
   /// The two components, in the order the reader of the field names them.
   std::array<Number, 2> Axis = {Number{0}, Number{0}};
 
   /// Reads one component.
-  /// @param axis Which axis, counting from 0.
+  /// @param axis Component index; requires axis < 2. No bounds check is performed.
   /// @return That component.
   [[nodiscard]] constexpr Number operator[](size_t axis) const { return Axis[axis]; }
 
   /// Reaches one component for writing.
-  /// @param axis Which axis, counting from 0.
+  /// @param axis Component index; requires axis < 2. No bounds check is performed.
   /// @return A reference to that component.
   [[nodiscard]] constexpr Number &operator[](size_t axis) { return Axis[axis]; }
 
@@ -55,6 +60,7 @@ template <typename Number> struct Vector2 {
   [[nodiscard]] constexpr Number *data() { return Axis.data(); }
 
   /// Two pairs are the same pair when their components are.
+  /// @return True when all components compare equal; no tolerance is applied.
   [[nodiscard]] constexpr bool operator==(const Vector2 &) const = default;
 };
 

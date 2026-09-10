@@ -2,29 +2,31 @@
 #define OUTSHINE_VEC3_H
 
 #include <array>
+#include <algorithm>
+#include <concepts>
 #include <cmath>
 #include <cstddef>
 #include <span>
 
 namespace outshine {
 
-/// A three-component vector, written once and instantiated for each precision the door speaks.
-///
-/// Precision has one boundary and it is the camera: the scene keeps `Vec3` (64-bit) and the
-/// renderer hands the device `Vec3f` (32-bit). The type carries no alignment of its own -- a
-/// record that wants its rows on a 128-bit boundary for whole-row NEON loads says `alignas(16)`
-/// on the MEMBER, so the padding is that record's decision rather than a tax on every vector.
+/// Owned 3-component value; units and coordinate frame are determined by the caller.
+/// @tparam Number Component type; arithmetic follows that type without saturation or validation.
+/// Views, pointers and references borrow this object's fixed storage until its lifetime ends;
+/// assignment changes the observed values without relocating storage. Moving/copying the
+/// value does not retarget existing views. Serialize writes with all access to the same value.
+/// No allocation or implicit coordinate conversion occurs for the float/double aliases.
 template <typename Number> struct Vector3 {
   /// The x, y, z components in the coordinate frame of the value.
   std::array<Number, 3> Axis = {Number{0}, Number{0}, Number{0}};
 
   /// Reads one component.
-  /// @param axis Which axis, counting from 0.
+  /// @param axis Component index; requires axis < 3. No bounds check is performed.
   /// @return That component.
   [[nodiscard]] constexpr Number operator[](size_t axis) const { return Axis[axis]; }
 
   /// Reaches one component for writing.
-  /// @param axis Which axis, counting from 0.
+  /// @param axis Component index; requires axis < 3. No bounds check is performed.
   /// @return A reference to that component.
   [[nodiscard]] constexpr Number &operator[](size_t axis) { return Axis[axis]; }
 
@@ -61,14 +63,14 @@ template <typename Number> struct Vector3 {
   [[nodiscard]] constexpr Number *data() { return Axis.data(); }
 
   /// Two vectors are the same vector when their components are.
-  /// @return True when every component agrees.
+  /// @return True when all components compare equal; no tolerance is applied.
   [[nodiscard]] constexpr bool operator==(const Vector3 &) const = default;
 };
 
-/// The scene's vector: 64-bit, because a world position in a `float` is a defect.
+/// Double-precision vector, suitable for world-space positions.
 using Vec3 = Vector3<double>;
 
-/// The device's vector: 32-bit, because a `double` reaching a shader is a different defect.
+/// Single-precision vector, suitable for camera-relative device data.
 using Vec3f = Vector3<float>;
 
 static_assert(sizeof(Vec3) == 3 * sizeof(double) && alignof(Vec3) == alignof(double),
@@ -127,16 +129,32 @@ static_assert(Cross(Vec3{{1.0, 0.0, 0.0}}, Vec3{{0.0, 1.0, 0.0}})[2] == 1.0 &&
 static_assert((kProofLeft - Vec3{{1.0, 1.0, 1.0}}) * 2.0 == Vec3{{0.0, 2.0, 4.0}},
               "difference and scale compose the way the arithmetic they replace did");
 
-/// The euclidean length of a vector.
-template <typename Number> [[nodiscard]] Number Length(const Vector3<Number> &v) {
-  return std::sqrt(Dot(v, v));
+/// Euclidean magnitude in the input units, without avoidable intermediate overflow/underflow.
+/// @tparam Number Floating-point component type.
+/// @param v Borrowed vector, unchanged. No coordinate-system conversion occurs.
+/// @return Nonnegative magnitude; infinity if the magnitude is unrepresentable or any
+///         component is infinite. Otherwise a NaN component produces NaN.
+/// @note Constant work, no allocation. Concurrent reads of immutable vectors are safe.
+template <std::floating_point Number>
+[[nodiscard]] Number Length(const Vector3<Number> &v) noexcept {
+  return std::hypot(std::hypot(v[0], v[1]), v[2]);
 }
 
-/// Divides a vector by its own length, and refuses a vector that has none.
-template <typename Number> [[nodiscard]] bool Normalise(Vector3<Number> &v) {
-  const Number length = Length(v);
-  if (!(length > Number{0})) { return false; }
-  for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
+/// Replace a finite nonzero vector by its unit direction in the same coordinate frame.
+/// @tparam Number Floating-point component type.
+/// @param v Exclusively borrowed vector; no references are retained.
+/// @return True on success. Zero or nonfinite input returns false without mutation.
+///         The result is dimensionless; unit length is subject to floating-point rounding.
+/// @note Constant work and no allocation. Requires normal IEEE floating-point semantics;
+///       flushing subnormals to zero can remove a representable direction.
+template <std::floating_point Number> [[nodiscard]] bool Normalise(Vector3<Number> &v) noexcept {
+  if (!std::isfinite(v[0]) || !std::isfinite(v[1]) || !std::isfinite(v[2])) { return false; }
+  const Number scale = std::max({std::abs(v[0]), std::abs(v[1]), std::abs(v[2])});
+  if (scale == Number{0}) { return false; }
+  Vector3<Number> direction{{v[0] / scale, v[1] / scale, v[2] / scale}};
+  const Number length = Length(direction);
+  for (Number &component : direction) { component /= length; }
+  v = direction;
   return true;
 }
 

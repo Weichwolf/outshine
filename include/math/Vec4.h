@@ -7,23 +7,23 @@
 
 namespace outshine {
 
-/// A four-component row.
-///
-/// This is the DEVICE's shape rather than the scene's: a uniform block binds `float4` rows and a
-/// three-component value padded to four is what a shader reads. A quaternion is NOT one of these
-/// -- it is @ref Quat, because a rotation whose components can be indexed is a rotation somebody
-/// will index in the wrong order.
+/// Owned 4-component value; units and coordinate frame are determined by the caller.
+/// @tparam Number Component type; arithmetic follows that type without saturation or validation.
+/// Views, pointers and references borrow this object's fixed storage until its lifetime ends;
+/// assignment changes the observed values without relocating storage. Moving/copying the
+/// value does not retarget existing views. Serialize writes with all access to the same value.
+/// No allocation or implicit coordinate conversion occurs for the float/double aliases.
 template <typename Number> struct Vector4 {
   /// The four components in binding order.
   std::array<Number, 4> Axis = {Number{0}, Number{0}, Number{0}, Number{0}};
 
   /// Reads one component.
-  /// @param axis Which axis, counting from 0.
+  /// @param axis Component index; requires axis < 4. No bounds check is performed.
   /// @return That component.
   [[nodiscard]] constexpr Number operator[](size_t axis) const { return Axis[axis]; }
 
   /// Reaches one component for writing.
-  /// @param axis Which axis, counting from 0.
+  /// @param axis Component index; requires axis < 4. No bounds check is performed.
   /// @return A reference to that component.
   [[nodiscard]] constexpr Number &operator[](size_t axis) { return Axis[axis]; }
 
@@ -60,13 +60,14 @@ template <typename Number> struct Vector4 {
   [[nodiscard]] constexpr Number *data() { return Axis.data(); }
 
   /// Two rows are the same row when their components are.
+  /// @return True when all components compare equal; no tolerance is applied.
   [[nodiscard]] constexpr bool operator==(const Vector4 &) const = default;
 };
 
-/// The device's row: 32-bit, the shape a uniform block binds.
+/// Four single-precision components; GPU buffer alignment is specified by the enclosing layout.
 using Vec4f = Vector4<float>;
 
-/// The scene's row, where one is needed on the far side of the camera.
+/// Four double-precision components.
 using Vec4 = Vector4<double>;
 
 static_assert(sizeof(Vec4f) == 4 * sizeof(float) && alignof(Vec4f) == alignof(float),

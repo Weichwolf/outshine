@@ -112,3 +112,9 @@ normieren. Null/nichtendliche Eingaben ohne Mutation ablehnen. Nur Floating-Poin
 für diese beiden Operationen zulassen; Integer-Normalisierung ist keine sinnvolle API.
 Analytische Achsen/3-4-5-Vektoren, float/double-Extrema und Subnormale prüfen; Altcode
 muss scheitern. Borrowing/Indexgrenzen/Einheiten der Vektoren dokumentieren.
+Nachweis: 20 numerische Prüfungen grün; Altcode scheitert an 12, ohne Buildfehler.
+Normalen-Consumer grün, Wien visuell geprüft und pixelgleich. Length nutzt zwei
+zweistellige hypot-Aufrufe: lokale libc++-Dreierfassung verliert kleinste double-Werte
+wegen unzureichender fester Skalierung (__math/hypot.h). Keine Testlockerung.
+Abschluss-Lint: 182 tidy, 328 Dokumentationsdiagnosen, 32 Repository-Tests grün;
+drei rote Gruppen bleiben. Vektoransichten/Indexgrenzen und Fehlergarantie dokumentiert.
