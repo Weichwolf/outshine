@@ -80,3 +80,9 @@ Writer erhält Document::State mit Reihenfolge, Duplikaten und Escaping;
 die Auswahl ist kein Snapshot der Werte. Save löst instance.trait am ersten
 Punkt auf und lehnt fehlende Zuordnungen ab. Öffentlichen Besitz-/Prüfzeitpunkt
 dokumentiert. Negativkontrolle bestätigt den Verlust im Altwriter; fünf Regressionen grün.
+
+## Eingabekonfiguration exportieren
+Writer verliert Input und WheelStepPx. Vollständigen input-Abschnitt mit geordneten
+bind-Einträgen und exakter Schrittweite schreiben. Abnahme: bestehender Public-API-
+Dispatchtest exportiert/reimportiert vor den echten SDL-Ereignissen; Altwriter verliert
+die Aktionen. Separate Deklarationsfixture prüft Escaping und Schrittweite.
