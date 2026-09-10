@@ -74,15 +74,12 @@ InputBindingsPrecedeUiActions prüft tatsächliche UI-Hits, Bindungspriorität, 
 Ablehnung, Entfernen der Bindung, fehlenden Host und Hits außerhalb der Oberfläche.
 Negativkontrollen gegen Renderer-Sperre bzw. vorzeitigen Abbruch bei ungebundenem
 Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vertrag.
-
 ## Öffentliche Welt-/Generatorverträge korrigieren
-
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
 Request::ExtentM weitergegeben; der Regionsvertrag ist uneindeutig. Structures nutzt
 inzwischen einen eigenen widthM-Parameter. Reader/Writer erhalten radiusM. Generating::Parameters werden serialisiert und als geliehene native
 Parameter weitergereicht. Radius-/Extent-Kopplung bleibt ein ungültiger SOLL-Vertrag;
 nicht durch Dokumentation oder identische Umbenennung legitimieren.
-
 Mit 2126: Georeferenz = Position/Referenzrahmen; Generierungsregion mit einheitlichem
 Raumvertrag. Objektmaße bleiben native Generatorparameter/Feature-Grundrisse.
 Schema, Reader, Writer, Public API und Engine-Aufrufer gemeinsam migrieren. Altes
@@ -112,7 +109,10 @@ dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
 Body als Deklaration: vier nachweislich ungenutzte Such-/Geometriehelfer entfernen;
 acrossM bezog fälschlich den Ursprung in Kontaktbreiten ein. Datenverträge anhand
 Assembly/PrepareBodies dokumentiert; drei Assembly/Gravity/Audio-Regressionsfälle grün.
-Kontakt/Antrieb/Aero, Geodäsie, Schwerpunkt, Zahlenvalidierung und Asset-Fitting offen.
+Body-Dynamik: gemeinsame Eingabeprüfung vor declare/Assembly und nach strengem XML-
+Parsing: Masse/diagonale Trägheit endlich >=0, Position endlich, Quaternion unit
+(Normtoleranz 1e-6). Abgeleitete Kraftüberläufe bleiben separat offen.
+Kontakt/Antrieb/Aero, Geodäsie, Schwerpunkt und Asset-Fitting bleiben offen.
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
