@@ -36,9 +36,9 @@ public:
     float MinEm, MinNm, MaxEm, MaxNm;
   };
 
-  static std::shared_ptr<const FeatureField> Of(std::span<const Feature> features,
-                                                std::span<const Ring> rings,
-                                                std::span<const Vertex> vertices);
+  [[nodiscard]] static std::shared_ptr<const FeatureField> Of(std::span<const Feature> features,
+                                                              std::span<const Ring> rings,
+                                                              std::span<const Vertex> vertices);
 
   [[nodiscard]] size_t Count() const { return Features_.size(); }
 
@@ -60,6 +60,8 @@ private:
   FeatureField(std::span<const Feature> features,
                std::span<const Ring> rings,
                std::span<const Vertex> vertices);
+
+  [[nodiscard]] bool SetBounds(Feature &feature) const;
 
   std::vector<Feature> Features_;
   std::vector<Ring> Rings_;
