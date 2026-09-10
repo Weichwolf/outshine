@@ -76,3 +76,11 @@ Fünf Tests bestehen: erster/letzter Index samt Listener/Zählern, 65537 Einträ
 doppelte/leere Namen, unbekannter Verweis und Simulationserhalt. Beide neuen Fälle
 scheitern im Altstand. Event-Vertrag dokumentiert: Feldnamen sind keine Payloadwerte.
 Offen bleiben geometrische Trigger-Validierung und die vereinfachte Probe-Zustandsmaschine.
+
+## Geometrische Trigger-Grenzen
+Vor Implementierung: endliche Zentren und nichtnegative endliche Ausdehnungen prüfen;
+Dwell braucht endliche positive Dauer. Nullausdehnung bleibt eine gültige geschlossene
+Punkt-/Flächenmenge. Sphere nutzt ExtentM.x als Radius; y/z bleiben ungenutzt, aber gültig.
+Quadratsummen durch std::hypot ersetzen: große endliche Distanzen dürfen nicht durch
+inf <= inf als innerhalb gelten. Analytische Rand-, Außen- und Extremwerttests müssen
+im Altstand scheitern. Live-Probe-Zeit/Entity-Validierung und Zustandsmaschine separat offen.
