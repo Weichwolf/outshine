@@ -86,3 +86,14 @@ Input-Lebensdauer und native Publikation ausdrücklich getrennt. Keine neue Spei
 oder Fehlersemantik. Bestehende unabhängige MVT-Fixtures und Negativmutation prüfen,
 dass ein Fehler der Feature-Phase nicht als Erfolg zurückkehrt; Lint muss die verbleibende
 Decode-Komplexitätswarnung ohne Unterdrückung beseitigen.
+
+## Vorläufige Ressourcenbudgets (Schätzung, nicht gemessen)
+OSM-resident 256 MiB; gemeinsamer transienter Pool 64 MiB für Rohdaten, Decode-Scratch
+und native Kandidaten aller Jobs. Summe 320/8192 MiB = 3,90625 % des 8-GiB-Ziels;
+kein Gesamtbudget der Engine. Rohkachel maximal 8 MiB, höchstens zwei aktive Decode-Jobs;
+deren Einzelmaxima dürfen den gemeinsamen 64-MiB-Pool nicht überbuchen.
+Main-Thread-Publikation 0,5 ms/Frame = 3 % von 1000/60 ms; Worker-Abschnitte 2 ms,
+danach Abbruch-/Yield-Punkt. Atomare Publikation darf nicht monolithisches Decode bedeuten.
+Noch nicht enforced. Später konfigurierbar machen und durch Budget-/Überlasttests sowie
+Benchmarks auf Zielhardware absichern: verschieben, freigeben, Detail reduzieren oder
+expliziter Fehler; keine unbemerkte Teilveröffentlichung. Mit Messdaten kalibrieren.
