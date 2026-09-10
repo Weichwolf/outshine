@@ -60,7 +60,6 @@ vorigen Index wieder her. Tests: mutierte/freigegebene Namen, gleiche Texte, Thr
 Allocator-/Callback-Regressionen bestehen. Keine vollständige Engine-Speicherbilanz.
 
 ## Alignment-Grenze
-TryTakeAligned normalisiert auch 0 und kleine Nicht-Zweierpotenzen auf Pointer-
-Alignment. Ungültige Alignment-Werte vor Plattformaufruf ablehnen; nur positive
-Zweierpotenzen zulassen. Kleine gültige Alignments dürfen stärker ausgerichtet werden.
-Negativkontrolle, Nullgröße und Zählererhaltung direkt über Heap prüfen.
+TryTakeAligned lehnt 0 und Nicht-Zweierpotenzen vor dem Plattformaufruf ab.
+Kleine gültige Alignments dürfen stärker ausgerichtet werden. Negativkontrolle
+bestätigt; Nullgröße und Zählererhaltung geprüft, fünf Allocator-Regressionen grün.

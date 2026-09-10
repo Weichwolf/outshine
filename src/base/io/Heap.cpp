@@ -1,6 +1,7 @@
 #include "Heap.h"
 
 #include <array>
+#include <bit>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -134,6 +135,7 @@ void *Heap::TryTake(size_t bytes) noexcept {
 }
 
 void *Heap::TryTakeAligned(size_t bytes, size_t alignment) noexcept {
+  if (!std::has_single_bit(alignment)) { return nullptr; }
   void *block = nullptr;
   if (posix_memalign(&block,
                      alignment < sizeof(void *) ? sizeof(void *) : alignment,
