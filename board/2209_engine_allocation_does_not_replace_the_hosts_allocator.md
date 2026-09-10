@@ -58,3 +58,9 @@ Namen erst nach vollständiger Kopie veröffentlichen; verschachtelte Scopes ste
 vorigen Index wieder her. Tests: mutierte/freigegebene Namen, gleiche Texte, Threads,
 Überlauf und Scope-Restore. Altstand verletzt die Namens-Negativkontrolle; fünf
 Allocator-/Callback-Regressionen bestehen. Keine vollständige Engine-Speicherbilanz.
+
+## Alignment-Grenze
+TryTakeAligned normalisiert auch 0 und kleine Nicht-Zweierpotenzen auf Pointer-
+Alignment. Ungültige Alignment-Werte vor Plattformaufruf ablehnen; nur positive
+Zweierpotenzen zulassen. Kleine gültige Alignments dürfen stärker ausgerichtet werden.
+Negativkontrolle, Nullgröße und Zählererhaltung direkt über Heap prüfen.
