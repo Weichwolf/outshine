@@ -38,9 +38,11 @@ int main() {
         feature.LatLon = points;
         original.Ground.Osm.push_back(feature);
         const auto text = WriteScenario(original);
+        CHECK(text.has_value(), "scenario export succeeds");
+        if (!text) { return Report(); }
         Scenario::Document restored;
         std::string error;
-        const bool read = ReadScenario(text.data(), text.size(), restored, error);
+        const bool read = ReadScenario(text->data(), text->size(), restored, error);
         CHECK(read, error.empty() ? "serialized OSM parses" : error.c_str());
         CHECK(restored.Ground.Osm.size() == 1, "one input feature stays one feature");
         if (restored.Ground.Osm.size() != 1) { continue; }

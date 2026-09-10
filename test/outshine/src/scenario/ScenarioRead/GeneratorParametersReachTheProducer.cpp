@@ -40,9 +40,11 @@ int main() {
        .Parameters = {{.Name = "label", .Value = "A & <B> \"quoted\"\nnext"},
                       {.Name = "scale", .Value = "1.2500"}}});
   const auto xml = WriteScenario(source);
+  CHECK(xml.has_value(), "scenario export succeeds");
+  if (!xml) { return Report(); }
   Scenario::Document copy;
   std::string error;
-  CHECK(ReadScenario(xml.data(), xml.size(), copy, error), "written generator settings parse");
+  CHECK(ReadScenario(xml->data(), xml->size(), copy, error), "written generator settings parse");
   CHECK(engine.declare(copy).has_value(), "registered generator succeeds through public API");
   const std::vector<std::pair<std::string, std::string>> expected{
       {"label", "A & <B> \"quoted\"\nnext"}, {"scale", "1.2500"}};

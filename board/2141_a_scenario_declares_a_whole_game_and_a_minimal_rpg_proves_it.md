@@ -53,9 +53,8 @@ XML stellt pro Spalte einen Typ dar; fehlende native Typen werden als Text mater
 Escaping einschließlich Tabs/Zeilenwechseln; leere Textzellen und Nullzeilen erhalten.
 Unabhängiger Read/Write-Test prüft konkrete Werte und typisierte TableBook-Abfragen;
 Altstand scheitert wegen fehlender Tabellen, vier Regressionen bestehen. Kein Runtime-Savegame.
-Offen: Writer braucht einen checked Fehlervertrag und gemeinsame Eingabevalidierung.
-Überzählige Types sind nicht in XML darstellbar und dürfen nicht still normalisiert werden;
-aktuell ist nur der Export gültiger Tabellenschemas nachgewiesen.
+Writer lehnt ungültige Tabellen über den gemeinsamen TableBook-Aufbau vor Textproduktion
+ab; überzählige Types werden nicht normalisiert. Weitere Sektionen sind noch nicht validiert.
 
 ## Abnahme
 - Ein Ort, drei NPCs, eine Quest vollständig deklarativ und über die Public API spielbar.
@@ -68,7 +67,7 @@ aktuell ist nur der Export gültiger Tabellenschemas nachgewiesen.
   Public-API-Tests für Assembly-Erhaltung bleiben grün; Negativkontrollen bleiben wirksam.
 
 ## Checked Export
-Vor Implementierung: WriteScenario und Engine::writeScenario liefern expected<string,string>.
+WriteScenario und Engine::writeScenario liefern expected<string,string>.
 Tabellenvalidierung vor Textproduktion über denselben TableBook-Aufbau wie Assembly;
 kein zweiter Schema-/Zahlenparser. Temporäre Tabellen werden vor Textaufbau freigegeben.
 Alle Aufrufer behandeln Ablehnung; Client öffnet bei Writer-Fehler keine Ausgabedatei.

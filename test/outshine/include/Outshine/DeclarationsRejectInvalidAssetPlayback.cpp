@@ -10,7 +10,8 @@ int main() {
   original.Motion.Declared = true;
   original.Motion.StepS = 0.025;
   CHECK(engine.declare(original).has_value(), "initial declaration succeeds");
-  const std::string before = engine.writeScenario();
+  const auto before = engine.writeScenario();
+  CHECK(before.has_value(), "initial declaration exports");
   for (const bool invalidMode : {false, true}) {
     Scenario::Document candidate = original;
     candidate.Motion.StepS = 0.05;

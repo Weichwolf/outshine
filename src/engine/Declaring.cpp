@@ -546,7 +546,7 @@ Result Engine::setGeometry(const Geometry &geometry) {
   return {};
 }
 
-std::string Engine::writeScenario() const {
+std::expected<std::string, std::string> Engine::writeScenario() const {
   return WriteScenario(S_->Session.Declared);
 }
 

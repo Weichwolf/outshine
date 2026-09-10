@@ -320,14 +320,14 @@ public:
   /// @return Success or an owned IO, parsing or declaration error.
   [[nodiscard]] Result readScenario(std::string_view path);
 
-  /// The declaration this engine stands on, written back in the spelling `readScenario` accepts.
-  ///
-  /// A format that is only ever read cannot be diffed against what the engine HOLDS, and that
-  /// asymmetry is how a grammar and its reader drift. With this, `read -> write -> read` is a
-  /// counter-control a client can run: the two texts are the same one, or a section is missing a
-  /// spelling.
-  /// @return Owned serialized declaration; writer coverage remains incomplete.
-  [[nodiscard]] std::string writeScenario() const;
+  /// Serialize the owned declaration, not the current simulated state; synchronous allocation,
+  /// no file IO. Call on the Engine/video thread outside frames. Temporary table preparation
+  /// validates schemas and values using the same contracts as assemble(), before writing XML.
+  /// Failure leaves the declaration and simulation unchanged. Missing trailing table types
+  /// become explicit text types. Section coverage and validation beyond tables remain incomplete;
+  /// success is not a guarantee that every declared section can already be persisted.
+  /// @return Owned XML text or an owned table-validation error; no partial XML on failure.
+  [[nodiscard]] std::expected<std::string, std::string> writeScenario() const;
   /// Copy native geometry into engine-owned storage; the source may then be changed or destroyed.
   /// Positions are local metres with the geometry's part placements; materials use native indices.
   /// Missing normals produce flat shading in the derived render mesh; source data stays intact.

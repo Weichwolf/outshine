@@ -14,14 +14,16 @@ int main() {
     source.Motion.StepS = step;
     source.Motion.MostStepsInArrears = 7;
     const auto text = WriteScenario(source);
+    CHECK(text.has_value(), "scenario export succeeds");
+    if (!text) { return Report(); }
     Scenario::Document copy;
     std::string error;
-    CHECK(ReadScenario(text.data(), text.size(), copy, error), "written physics parses");
+    CHECK(ReadScenario(text->data(), text->size(), copy, error), "written physics parses");
     CHECK(copy.Motion.Declared && copy.Motion.StepS == step &&
               copy.Motion.MostStepsInArrears == 7 && copy.Motion.Dial == source.Motion.Dial,
           "physics declaration retains exact numeric values and escaped text");
   }
-  CHECK(WriteScenario({}).find("<physics") == std::string::npos,
-        "undeclared physics remains absent");
+  const auto empty = WriteScenario({});
+  CHECK(empty && empty->find("<physics") == std::string::npos, "undeclared physics remains absent");
   return Report();
 }

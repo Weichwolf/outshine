@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <print>
 #include <cstddef>
 #include <cstring>
 #include <span>
@@ -340,14 +341,19 @@ int main(int argc, char **argv) {
         ++apart;
         continue;
       }
-      const std::string first = engine.writeScenario();
+      const auto first = engine.writeScenario();
+      if (!first) {
+        std::println("APART   {:<14} export failed: {}", one.Name, first.error());
+        ++apart;
+        continue;
+      }
       std::FILE *const file = std::fopen(held.c_str(), "wb");
       if (file == nullptr) {
         std::printf("APART   %-14s cannot write %s\n", one.Name.c_str(), held.c_str());
         ++apart;
         continue;
       }
-      std::fwrite(first.data(), 1, first.size(), file);
+      std::fwrite(first->data(), 1, first->size(), file);
       std::fclose(file);
       outshine::Engine again;
       if (!again.readScenario(held)) {
@@ -357,9 +363,14 @@ int main(int argc, char **argv) {
         ++apart;
         continue;
       }
-      const std::string second = again.writeScenario();
+      const auto second = again.writeScenario();
+      if (!second) {
+        std::println("APART   {:<14} repeated export failed: {}", one.Name, second.error());
+        ++apart;
+        continue;
+      }
       if (first == second) {
-        std::printf("HELD    %-14s %zu byte(s)\n", one.Name.c_str(), first.size());
+        std::printf("HELD    %-14s %zu byte(s)\n", one.Name.c_str(), first->size());
       } else {
         std::printf("APART   %-14s written twice and the two differ\n", one.Name.c_str());
         ++apart;

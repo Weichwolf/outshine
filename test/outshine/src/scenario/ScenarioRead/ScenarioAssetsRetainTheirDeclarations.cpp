@@ -47,7 +47,10 @@ int main() {
       }
       if (pass == 0) {
         const auto output = WriteScenario(document);
-        CHECK(ReadScenario(output.data(), output.size(), document, error), "written scene parses");
+        CHECK(output.has_value(), "scenario export succeeds");
+        if (!output) { return Report(); }
+        CHECK(ReadScenario(output->data(), output->size(), document, error),
+              "written scene parses");
       }
     }
   }

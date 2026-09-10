@@ -21,10 +21,12 @@ int main() {
        .DwellS = 0.012345678901234567},
       {.Id = "exit", .Shape = "box", .ExtentM = {1, 2, 3}, .Fires = "left", .When = "exit"}};
   auto check = [&] {
-    const std::string text = WriteScenario(source);
+    const auto text = WriteScenario(source);
+    CHECK(text.has_value(), "scenario export succeeds");
+    if (!text) { return; }
     Scenario::Document copy;
     std::string error;
-    const bool parsed = ReadScenario(text.data(), text.size(), copy, error);
+    const bool parsed = ReadScenario(text->data(), text->size(), copy, error);
     CHECK(parsed, error.c_str());
     CHECK(copy.Events.size() == source.Events.size(), "event count survives");
     CHECK(copy.Volumes.size() == source.Volumes.size(), "volume count survives");
@@ -57,10 +59,13 @@ int main() {
   check();
   source.Volumes[0].When.clear();
   const auto invalid = WriteScenario(source);
+  CHECK(invalid.has_value(), "scenario export succeeds");
+  if (!invalid) { return Report(); }
   Scenario::Document rejected;
   std::string error;
-  CHECK(!ReadScenario(invalid.data(), invalid.size(), rejected, error),
+  CHECK(!ReadScenario(invalid->data(), invalid->size(), rejected, error),
         "empty required transition stays invalid after serialization");
-  CHECK(WriteScenario({}).find("<volumes>") == std::string::npos, "empty catalogs remain absent");
+  const auto empty = WriteScenario({});
+  CHECK(empty && empty->find("<volumes>") == std::string::npos, "empty catalogs remain absent");
   return Report();
 }

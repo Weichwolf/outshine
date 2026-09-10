@@ -15,9 +15,11 @@ int main() {
                    {.Id = "empty", .Columns = {"key"}},
                    {.Id = "lexical", .Columns = {"key"}, .Types = {true}, .Rows = {{"01"}, {"1"}}}};
   const auto text = WriteScenario(source);
+  CHECK(text.has_value(), "scenario export succeeds");
+  if (!text) { return Report(); }
   Scenario::Document copy;
   std::string error;
-  const bool parsed = ReadScenario(text.data(), text.size(), copy, error);
+  const bool parsed = ReadScenario(text->data(), text->size(), copy, error);
   CHECK(parsed, error.c_str());
   CHECK(copy.Tables.size() == source.Tables.size(), "table count survives serialization");
   if (!parsed || copy.Tables.size() != source.Tables.size()) { return Report(); }
@@ -44,6 +46,7 @@ int main() {
           "distinct numeric key spellings remain distinct keys");
     CHECK(!book->Number({source.Tables[0].Id, "", "label"}), "text never becomes a number");
   }
-  CHECK(WriteScenario({}).find("<tables>") == std::string::npos, "absent tables remain absent");
+  const auto empty = WriteScenario({});
+  CHECK(empty && empty->find("<tables>") == std::string::npos, "absent tables remain absent");
   return Report();
 }

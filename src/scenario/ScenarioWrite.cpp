@@ -1,6 +1,9 @@
 #include <span>
 #include "ScenarioWrite.h"
+#include "Tables.h"
+#include <utility>
 
+#include <expected>
 #include <format>
 #include <cstddef>
 #include <string>
@@ -316,7 +319,10 @@ void WriteGenerators(std::string &said, std::span<const Scenario::Generating> ge
 
 }
 
-std::string WriteScenario(const Scenario::Document &declared) {
+std::expected<std::string, std::string> WriteScenario(const Scenario::Document &declared) {
+  if (auto tables = TableBook::Stand(declared.Tables); !tables) {
+    return std::unexpected(std::move(tables.error()));
+  }
   std::string said;
   WriteIdentity(said, declared.Named);
   WriteWorld(said, declared.Ground);

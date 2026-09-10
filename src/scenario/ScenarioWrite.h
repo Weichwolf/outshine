@@ -2,12 +2,14 @@
 #define OUTSHINE_SCENARIO_SCENARIOWRITE_H
 
 #include <string>
+#include <expected>
 
 #include <scenario/Scenario.h>
 
 namespace outshine {
 
-[[nodiscard]] std::string WriteScenario(const Scenario::Document &declared);
+[[nodiscard]] std::expected<std::string, std::string>
+WriteScenario(const Scenario::Document &declared);
 
 }
 #endif

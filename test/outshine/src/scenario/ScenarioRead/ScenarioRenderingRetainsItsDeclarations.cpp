@@ -43,7 +43,9 @@ int main() {
             "lighting settings retained");
       if (pass == 0) {
         const auto written = WriteScenario(document);
-        CHECK(ReadScenario(written.data(), written.size(), document, error),
+        CHECK(written.has_value(), "scenario export succeeds");
+        if (!written) { return Report(); }
+        CHECK(ReadScenario(written->data(), written->size(), document, error),
               "written scene parses");
       }
     }
@@ -55,7 +57,9 @@ int main() {
     CHECK(ReadScenario(input.data(), input.size(), document, error), "empty declarations parse");
     const bool declared = input.find("render") != std::string_view::npos;
     const auto written = WriteScenario(document);
-    CHECK(ReadScenario(written.data(), written.size(), document, error),
+    CHECK(written.has_value(), "scenario export succeeds");
+    if (!written) { return Report(); }
+    CHECK(ReadScenario(written->data(), written->size(), document, error),
           "empty declarations roundtrip");
     CHECK(document.Render.Declared == declared && document.Lit.Declared == declared &&
               document.Render.Outputs.empty() && document.Render.Stages.empty(),

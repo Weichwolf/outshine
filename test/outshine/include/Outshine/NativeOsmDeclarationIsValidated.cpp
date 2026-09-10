@@ -43,6 +43,7 @@ int main() {
     for (int bad = 0; bad < 11; ++bad) {
       CHECK(engine.declare(original).has_value(), "original declaration activates");
       const auto previous = engine.writeScenario();
+      CHECK(previous.has_value(), "valid declaration exports before rejection");
       const int calls = probe.Calls;
       auto candidate = original;
       candidate.Input.front().Action = "replacement";
