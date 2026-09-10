@@ -96,7 +96,11 @@ werden als Kandidat aufgebaut und erst bei Erfolg ersetzt. Klassen-Decoding von 
 trennen; gültige Materialarithmetik unverändert. Negativkontrolle: später Klassen-/
 Referenzfehler erhält alte Materialien, fehlende/überlange Dateien ebenso. Altstand
 verletzt die Negativkontrolle; Loader-/Reader-Regressionen samt ausgeliefertem Katalog grün.
-Numerische Material-/Modellgrenzen bleiben separat offen.
+Reibungswerte vor Float-Verengung auf positive darstellbare Werte prüfen;
+relative Reibung vor Division auf Float-Bereich prüfen. Extremwerte dürfen weder
+Null noch unendliche Faktoren publizieren; Fehler erhalten den bisherigen Katalog.
+Abnahme: Unter-/Überlauf von Eingängen und Quotienten, gültiger Retry, ausgelieferter
+Katalog. Andere numerische Material-/Modellgrenzen bleiben separat offen.
 
 ## Eindeutige Katalogreferenzen
 Nichtleere eindeutige Klassennamen erzwingen. Temporären sortierten Namensindex
