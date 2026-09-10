@@ -38,13 +38,6 @@ constexpr auto kInvalidCatchUpCount = "mostStepsInArrears requires an integer in
 
 constexpr double kPitchLimitUnsaidDeg = 89.0;
 
-const Scenario::Asset *Scenario::Document::subject() const {
-  for (const Scenario::Asset &asset : Assets) {
-    if (asset.Kind == "gltf") { return &asset; }
-  }
-  return nullptr;
-}
-
 namespace {
 
 constexpr Spellings<Scenario::Falls, 3> kFalls = {{{"linear", Scenario::Falls::Linear},

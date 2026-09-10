@@ -776,14 +776,19 @@ struct Body {
   }
 };
 
+/// Owned player selection and movement metadata, copied with the document.
+/// Mutation requires exclusive access; construction does not resolve body/view names.
+/// Current runtime consumes Is and View regardless of Declared; movement metadata
+/// below is not yet connected to a walking controller or camera-height adjustment.
 struct Player {
-  bool Declared = false;
-  std::string Is;
-  std::string Starts;
+  bool Declared = false; ///< Explicit XML section presence used by layer handling.
+  std::string Is;        ///< Exact Body::Name to control; nonempty unresolved names fail assembly.
+  std::string Starts;    ///< Owned starting-location metadata; not currently applied by runtime.
+  /// Initial view identifier; empty selects the first view. With no views it has no effect.
   std::string View;
-  double EyeHeightM = kEyeHeightUnsaidM;
-  double WalkMs = kWalkUnsaidMs;
-  double RunMs = kRunUnsaidMs;
+  double EyeHeightM = kEyeHeightUnsaidM; ///< Unapplied eye-height metadata in metres.
+  double WalkMs = kWalkUnsaidMs;         ///< Unapplied walking-speed metadata in metres per second.
+  double RunMs = kRunUnsaidMs;           ///< Unapplied running-speed metadata in metres per second.
 };
 
 /// Owned fixed-step configuration copied by Engine::declare; not a running clock.
@@ -838,34 +843,72 @@ struct Persisted {
   std::string What;
 };
 
+/// Owned scenario declarations, not a live world or an imported geometry container.
+/// Copying duplicates strings and vectors and may allocate. Engine::declare copies
+/// declarations; later edits here do not update the engine. Validation occurs at
+/// import/declaration/assembly boundaries, not during aggregate construction.
+/// Concurrent reads require stable contents; mutation needs exclusive access.
+/// References into vectors follow standard vector invalidation rules. Import resolves
+/// layers; Engine::declare does not load or merge Layers itself. Serialization does
+/// not yet preserve every section; see WriteScenario's supported contract.
 struct Document {
+  /// Scenario identity and descriptive metadata; owned independently of any source file.
   Identity Named;
+  /// Ordered import-layer directives; retained data does not automatically reapply layers.
   std::vector<Layer> Layers;
+  /// Georeference, environment and source declarations copied into the world session.
   WorldSettings Ground;
+  /// Owned provider configurations; declaring these does not synchronously fetch their data.
   std::vector<Provider> Providers;
+  /// Generator requests resolved against registered producer kinds during declaration.
   std::vector<Generating> Generators;
+  /// Ordered composition declarations; validated before engine declaration is published.
   std::vector<Compositor> Compositors;
+  /// Render configuration; dimensions and live render targets are supplied separately to Engine.
   RenderPlan Render;
+  /// Scene illumination and exposure declaration; values carry the Lighting field units.
   Lighting Lit;
+  /// Ordered asset requests, not loaded assets; their strings and overrides belong to this
+  /// document.
   std::vector<Asset> Assets;
+  /// Owned placements referencing assets; no geometry storage or live instance handles.
   std::vector<Placement> Placements;
+  /// UI surface declarations; declaration loads their documents through the configured UI path.
   std::vector<Surface> Surfaces;
 
+  /// Ordered entity prototypes; assembly resolves inheritance and rejects duplicate names.
   std::vector<Kind> Kinds;
+  /// Additional simulation entity slots. Assembly capacity adds bodies, kinds, instances and
+  /// a player mind when selected; the combined capacity must not exceed 65536.
   size_t Room = 0;
+  /// Entity declarations assembled from Kinds, then linked by their declared references.
   std::vector<Instance> Instances;
+  /// Owned region declarations; their presence alone does not establish a streaming scheduler.
   std::vector<Region> Regions;
+  /// Owned connections between declared regions; not runtime navigation edges.
   std::vector<Door> Doors;
+  /// Trigger-volume declarations; live overlap state belongs to the engine.
   std::vector<Volume> Volumes;
+  /// Owned audio-source declarations, distinct from active voices and generated sample buffers.
   std::vector<Sound> Sounds;
+  /// Owned audio routing declarations, distinct from mixer state.
   std::vector<Bus> Buses;
+  /// Declarative lookup tables; assembly validates their domains before publishing simulation
+  /// state.
   std::vector<Table> Tables;
+  /// Event rules over scenario state; evaluation and dispatch use engine-owned state.
   std::vector<Event> Events;
+  /// Ordered camera declarations; first is the initial view unless Played.View selects another.
   std::vector<View> Views;
+  /// Physical body declarations; assembly creates separate entities and body state.
   std::vector<Body> Bodies;
+  /// Player body and initial view selection; Player lists the currently unapplied movement
+  /// metadata.
   Player Played;
 
+  /// Fixed-step simulation configuration; independent of the astronomical Time declaration.
   PhysicsSettings Motion;
+  /// World-time declaration used by astronomical lighting, not the physics accumulator.
   Clock Time;
   /// Owned bindings. Duplicate events or empty actions reject declare; failure retains
   /// prior bindings, success replaces them, and an empty list clears them. Dispatch via
@@ -874,9 +917,8 @@ struct Document {
   /// Vertical UI pixels per wheel unit; finite and nonnegative, validated by declare.
   /// Zero disables wheel movement. Applied to SDL's already direction-adjusted event value.
   double WheelStepPx = kWheelStepUnsaidPx;
+  /// Selectors of instance traits to save; this vector contains no captured runtime values.
   std::vector<Persisted> State;
-
-  [[nodiscard]] const Asset *subject() const;
 };
 
 }

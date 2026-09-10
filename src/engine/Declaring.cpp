@@ -179,6 +179,13 @@ void Engine::ships() {
 }
 
 namespace {
+[[nodiscard]] const Scenario::Asset *FirstGltfAsset(const Scenario::Document &scenario) {
+  for (const Scenario::Asset &asset : scenario.Assets) {
+    if (asset.Kind == "gltf") { return &asset; }
+  }
+  return nullptr;
+}
+
 [[nodiscard]] std::expected<std::optional<ViewBook>, std::string>
 PrepareViews(const Scenario::Document &scenario) {
   if (scenario.Views.empty()) { return std::optional<ViewBook>{}; }
@@ -250,7 +257,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
                 "way a scenario names anything, and a name nobody answers is a refusal";
     return std::unexpected(S_->Error);
   }
-  const Scenario::Asset *const subject = scenario.subject();
+  const Scenario::Asset *const subject = FirstGltfAsset(scenario);
 
   Core::Declaration declared;
   declared.Haze = scenario.Ground.Sky.Haze;

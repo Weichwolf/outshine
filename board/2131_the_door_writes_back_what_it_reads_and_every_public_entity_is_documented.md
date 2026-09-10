@@ -13,9 +13,7 @@ Implementierung gegen WI 2188 prüfen; Dokumentation eines Mangels behebt ihn ni
 WI 2211 blockiert die vollständige Umsetzung deklarierter Provider, nicht die übrige
 API-Arbeit. Zustandsübergänge: WI 2191; Exceptions/Budgets: WI 2194; Lint: WI 2093.
 Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitverträge.
-
 ## Offene Arbeit
-
 - Öffentliche Header anhand aktueller Doxygen-Diagnosen vollständig prüfen; explizite
   Parameter-/Rückgabetags ergänzen. Keine Namenswiederholung als Vertrag ausgeben.
 - Declare/Read/Restore/Layer-Pfade auf Teilmutation prüfen. Kandidaten validieren und
@@ -117,4 +115,6 @@ Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung b
 Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht zur
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
 dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
-Importerregressionen und lint prüfen den Umzug ohne geänderte Assetauswahl.
+Fünf Importer-/Deklarationsregressionen grün; Assetauswahl unverändert.
+Player: Starts/Augenhöhe/Geh-/Laufgeschwindigkeit ohne Runtime-Anbindung; Writer verliert
+Player derzeit vollständig. Umsetzung und Rundlauf bleiben erforderlich.
