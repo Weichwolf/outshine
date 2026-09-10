@@ -112,9 +112,9 @@ Abnahme: öffentlicher registrierter Probe-Generator sieht deklarierte Region/Pa
 Reader/Writer-Rundlauf erhält sie; Fehler bewahrt Vorgängerszene. Gebäudemaße bleiben
 bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkontrolle.
 
-Writer rundet LatLon auf sechs Nachkommastellen; nahe Punkte können zusammenfallen.
-std::format nutzen. OSM ohne Relief erzeugt zudem ein ungültiges relief ohne kind;
-Relief nur bei tatsächlich deklariertem Kind schreiben, OSM unabhängig erhalten.
-Test vergleicht ursprüngliche Double-Werte mit gelesenen Werten: nahe Punkte,
-negative Koordinaten, Pole/Datumsgrenze und Weg/Fläche; alter Writer muss scheitern.
+Writer erhält LatLon jetzt bitgenau mit std::format; sechs Nachkommastellen konnten
+Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind mehr.
+16 Fälle mit/ohne Relief, Weg/Fläche, nahe/negative/Pol-/Datumsgrenzen-Koordinaten:
+Originalwerte bleiben exakt; beide Tests grün. Alter Writer scheitert am Relief,
+isolierte alte Zahlenausgabe an Präzision/Punktkollaps; keine Buildfehler.
 Reader-Validierung, uint64-Reliefseed und fehlende Attribute bleiben offen.

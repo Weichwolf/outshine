@@ -96,15 +96,18 @@ std::string WriteScenario(const Scenario::Document &declared) {
     if (declared.Ground.Shape.Kind.empty() && declared.Ground.Osm.empty()) {
       said += "/>\n";
     } else {
-      said += ">\n    ";
-      said += "<relief";
-      Said(said, "kind", declared.Ground.Shape.Kind);
-      Number(said, "amplitudeM", declared.Ground.Shape.AmplitudeM);
-      Number(said, "wavelengthM", declared.Ground.Shape.WavelengthM);
-      Number(said, "gradient", declared.Ground.Shape.Gradient);
-      Number(said, "bearingDeg", declared.Ground.Shape.BearingDeg);
-      Number(said, "seed", static_cast<double>(declared.Ground.Shape.Seed));
-      said += "/>\n";
+      said += ">\n";
+      if (!declared.Ground.Shape.Kind.empty()) {
+        said += "    ";
+        said += "<relief";
+        Said(said, "kind", declared.Ground.Shape.Kind);
+        Number(said, "amplitudeM", declared.Ground.Shape.AmplitudeM);
+        Number(said, "wavelengthM", declared.Ground.Shape.WavelengthM);
+        Number(said, "gradient", declared.Ground.Shape.Gradient);
+        Number(said, "bearingDeg", declared.Ground.Shape.BearingDeg);
+        Number(said, "seed", static_cast<double>(declared.Ground.Shape.Seed));
+        said += "/>\n";
+      }
       if (!declared.Ground.Osm.empty()) {
         said += "    ";
         said += "<osm>\n";
@@ -121,7 +124,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
         std::string shape;
         for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
           if (!shape.empty()) { shape += ' '; }
-          shape += std::to_string(one.LatLon[at]) + "," + std::to_string(one.LatLon[at + 1]);
+          shape += std::format("{},{}", one.LatLon[at], one.LatLon[at + 1]);
         }
         Said(said, "points", shape);
         said += "/>\n";
