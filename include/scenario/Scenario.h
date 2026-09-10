@@ -1,7 +1,6 @@
 #ifndef OUTSHINE_SCENARIO_H
 #define OUTSHINE_SCENARIO_H
 
-#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -712,68 +711,48 @@ struct Slot {
   Vec3 AtM;
 };
 
+/// Owned body declaration copied into simulation storage during assembly.
+/// Strings and vectors own their values; copying may allocate. Mutate only with
+/// exclusive access. This is neither a live rigid body nor a vehicle controller.
+/// Current integration applies gravity to placed bodies. Contacts, drive magnitudes,
+/// drag and attachment metadata are not yet connected to the force calculation.
+/// Numeric validation is incomplete; callers must supply finite physical values,
+/// nonnegative mass/inertia and a unit orientation quaternion.
 struct Body {
+  /// Owned body name used by player, camera and audio bindings. Duplicate names can
+  /// make binding fail; assembly does not currently reject every duplicate eagerly.
   std::string Name;
+  /// Owned asset reference. Creating dynamic body state does not resolve this asset.
   std::string Asset;
-  bool Placed = false;
+  bool Placed = false; ///< Create dynamic state only when true; otherwise retain declaration only.
+  /// Current dynamics copy AtM as world metres and Facing as orientation. Geodetic
+  /// placement, terrain sampling and scale are not applied by body-state preparation.
   Standing Stands;
-  double MassKg = 0.0;
-  double WidthM = 0.0;
+  double MassKg = 0.0; ///< Kilograms; zero prevents integration, positive values enable motion.
+  double WidthM = 0.0; ///< Declared width in metres; not currently used for collision or drag.
 
-  double AssetSpanM = 0.0;
-
+  double AssetSpanM =
+      0.0; ///< Legacy asset-fitting span in metres, not applied by body preparation.
+  /// Unapplied legacy asset-fitting value; no established runtime unit/space contract yet.
   double AssetGround = 0.0;
-  double AssetCentreX = 0.0, AssetCentreZ = 0.0;
+  /// Unapplied legacy asset-fitting X value; requires migration to an explicit asset transform.
+  double AssetCentreX = 0.0;
+  /// Unapplied legacy asset-fitting Z value; requires migration to an explicit asset transform.
+  double AssetCentreZ = 0.0;
+  /// Body-local centre-of-mass offset in metres; currently stored but not applied to motion.
   Vec3 CentreOfMassM;
+  /// Diagonal body-frame inertia in kg m^2, copied to the rigid body. Zero on an axis
+  /// skips angular acceleration on that axis; products of inertia are not represented.
   Vec3 InertiaKgM2;
+  /// Owned contact/suspension declarations; not yet connected to collision or support forces.
   std::vector<Contact> Contacts;
+  /// Owned drive declarations. Assembly creates capability tags from Does/Opposes;
+  /// the remaining drive parameters do not currently produce forces or steering.
   std::vector<Drive> Driven;
-  double DragCoefficient = 0.0;
-  double FrontalM2 = 0.0;
-  std::vector<Slot> Slots;
-
-  [[nodiscard]] const Drive *can(Drives does) const {
-    for (const Drive &one : Driven) {
-      if (one.Does == does) { return &one; }
-    }
-    return nullptr;
-  }
-
-  [[nodiscard]] const Drive *efforts(bool opposing) const {
-    for (const Drive &one : Driven) {
-      if (one.Does == Drives::Effort && one.Opposes == opposing) { return &one; }
-    }
-    return nullptr;
-  }
-
-  [[nodiscard]] double spanM() const {
-    double aheadM = 0.0;
-    double behindM = 0.0;
-    int ahead = 0;
-    int behind = 0;
-    for (const Contact &one : Contacts) {
-      if (one.AtM[2] < CentreOfMassM[2]) {
-        aheadM += one.AtM[2];
-        ++ahead;
-      } else if (one.AtM[2] > CentreOfMassM[2]) {
-        behindM += one.AtM[2];
-        ++behind;
-      }
-    }
-    return ahead > 0 && behind > 0 ? std::fabs(behindM / static_cast<double>(behind) -
-                                               aheadM / static_cast<double>(ahead))
-                                   : 0.0;
-  }
-
-  [[nodiscard]] double acrossM() const {
-    double leastM = 0.0;
-    double mostM = 0.0;
-    for (const Contact &one : Contacts) {
-      leastM = one.AtM[0] < leastM ? one.AtM[0] : leastM;
-      mostM = one.AtM[0] > mostM ? one.AtM[0] : mostM;
-    }
-    return mostM - leastM;
-  }
+  double DragCoefficient = 0.0; ///< Dimensionless drag metadata; aerodynamic force is not applied.
+  double FrontalM2 = 0.0; ///< Frontal area in square metres; aerodynamic force is not applied.
+  std::vector<Slot>
+      Slots; ///< Owned attachment-point declarations; no active attachment constraints.
 };
 
 /// Owned player selection and movement metadata, copied with the document.

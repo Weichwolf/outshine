@@ -111,8 +111,8 @@ Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht z
 dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
 Body als Deklaration: vier nachweislich ungenutzte Such-/Geometriehelfer entfernen;
 acrossM bezog fälschlich den Ursprung in Kontaktbreiten ein. Datenverträge anhand
-Assembly/PrepareBodies dokumentieren. Fehlende Kontakt-/Antriebs-/Aeroanbindung und
-Legacy-Asset-Fitting bleiben offen; keine Physikvollständigkeit behaupten.
+Assembly/PrepareBodies dokumentiert; drei Assembly/Gravity/Audio-Regressionsfälle grün.
+Kontakt/Antrieb/Aero, Geodäsie, Schwerpunkt, Zahlenvalidierung und Asset-Fitting offen.
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
