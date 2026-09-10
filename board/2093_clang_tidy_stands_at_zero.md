@@ -97,3 +97,10 @@ Client-Shotbericht: ms/s-Umrechnung mit benannter Einheitenkonstante. Keine Änd
 an Shaderauswahl, Filterarithmetik oder Berichtswerten. Bestehende Material-/Mip-Orakel
 und vier Client-Argumentprüfungen bestehen; keine zusätzlichen spiegelnden Tests.
 Fünf Tidy-Befunde beseitigt, 32 Repository-Prüfungen grün.
+
+## Lichtprojektion in fachliche Phasen trennen
+LightVisibilityStage::Build: Mittelpunkt der schattenwerfenden Platzierungen als
+private CasterCentre-Operation trennen; Projektions-/Texelraster-/Frame-Arithmetik
+unverändert. Analytische Kontrolle für Achsen, Reverse-Z und PreView-Kompensation.
+Numerische Eingabevalidierung und degenerierte Sonnen-/Up-Basen separat prüfen;
+der Strukturumbau beweist noch keine vollständige Schatten-SOLL-Erfüllung.
