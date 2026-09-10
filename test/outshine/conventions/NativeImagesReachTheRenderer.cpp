@@ -68,7 +68,10 @@ int main() {
         "absent image references are refused");
   Gltf::Subject assembled;
   CHECK(assembled.Assemble(geometry), "native geometry assembles");
-  Geometry roundtrip = assembled.Handed();
+  auto converted = assembled.Handed();
+  CHECK(converted.has_value(), "native conversion succeeds");
+  if (!converted) { return Report(); }
+  Geometry roundtrip = std::move(*converted);
   CHECK(roundtrip.images() == 1 && roundtrip.imageAt(0).Rgba.size() == pixels.size() &&
             std::equal(pixels.begin(), pixels.end(), roundtrip.imageAt(0).Rgba.begin()),
         "assembly roundtrip owns and preserves native image bytes");
@@ -80,7 +83,10 @@ int main() {
   Gltf::Subject appended;
   CHECK(appended.Assemble(roundtrip) && assembled.Append(appended),
         "native textured subjects append");
-  Geometry joined = assembled.Handed();
+  auto appendedGeometry = assembled.Handed();
+  CHECK(appendedGeometry.has_value(), "appended conversion succeeds");
+  if (!appendedGeometry) { return Report(); }
+  Geometry joined = std::move(*appendedGeometry);
   CHECK(joined.images() == 3 && joined.surfaces() == 2 &&
             joined.surfaceAt(joined.materialOf(0)).BaseColourMap.Image == 0 &&
             joined.surfaceAt(joined.materialOf(1)).BaseColourMap.Image == 2 &&

@@ -8,6 +8,7 @@
 #include <array>
 #include <scene/Geometry.h>
 #include <span>
+#include <expected>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -91,12 +92,14 @@ public:
 
   [[nodiscard]] bool Assemble(const outshine::Geometry &what);
 
-  [[nodiscard]] outshine::Geometry Handed() const;
+  [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed() const;
 
-  [[nodiscard]] outshine::Geometry Handed(const Document &naming) const;
+  [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed(const Document &naming) const;
 
 private:
-  [[nodiscard]] outshine::Geometry Handed(const Document *naming) const;
+  [[nodiscard]] std::expected<void, std::string> CopyNativeAssets(outshine::Geometry &out,
+                                                                  const Document *naming) const;
+  [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed(const Document *naming) const;
 
 public:
   [[nodiscard]] bool Append(const Subject &other);

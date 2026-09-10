@@ -134,7 +134,10 @@ int main() {
   Gltf::Subject lit;
   CHECK(lit.Assemble(geometry), "native lights reach the internal model");
   Gltf::Subject roundtrip;
-  CHECK(roundtrip.Assemble(lit.Handed()), "handing out and reassembling preserves light space");
+  auto converted = lit.Handed();
+  CHECK(converted.has_value(), "native conversion succeeds");
+  if (!converted) { return Report(); }
+  CHECK(roundtrip.Assemble(*converted), "handing out and reassembling preserves light space");
   for (const Gltf::Subject *subject : {&lit, &roundtrip}) {
     CHECK(subject->Lights().size() == 3, "all three punctual light types survive");
     for (const auto &placed : subject->Lights()) {

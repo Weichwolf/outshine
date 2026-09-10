@@ -2,6 +2,7 @@
 #include "math/Vec4.h"
 #include "math/Mat4.h"
 #include "Heap.h"
+#include "MaterialValidation.h"
 #include "math/Units.h"
 #include "math/Vec3.h"
 #include "Subject.h"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <expected>
 #include <ranges>
 #include <span>
 
@@ -29,6 +31,13 @@
 #include "Tangents.h"
 
 namespace outshine::Gltf {
+namespace Says {
+constexpr auto NativeImageFailed = "native image conversion failed";
+constexpr auto NativeMaterialFailed = "native material conversion failed";
+constexpr auto NativePositionsFailed = "native position conversion failed";
+constexpr auto NativeAttributesFailed = "native vertex attribute conversion failed";
+constexpr auto NativeTrianglesFailed = "native triangle conversion failed";
+}
 
 constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ull;
 
@@ -1060,20 +1069,25 @@ std::vector<ImageView> Subject::Images() const {
   return images;
 }
 
-outshine::Geometry Subject::Handed() const {
+std::expected<outshine::Geometry, std::string> Subject::Handed() const {
   return Handed(nullptr);
 }
 
-outshine::Geometry Subject::Handed(const Document &naming) const {
+std::expected<outshine::Geometry, std::string> Subject::Handed(const Document &naming) const {
   return Handed(&naming);
 }
 
-outshine::Geometry Subject::Handed(const Document *naming) const {
-  outshine::Geometry out;
+std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &out,
+                                                           const Document *naming) const {
   for (const Core::Raster &image : Images_) {
-    (void)out.addImage(image.Width, image.Height, image.Rgba);
+    if (out.addImage(image.Width, image.Height, image.Rgba) < 0) {
+      return std::unexpected(Says::NativeImageFailed);
+    }
   }
   for (size_t at = 0; at < Surfaces_.size(); ++at) {
+    if (!MaterialIsValid(Surfaces_[at], Images_.size())) {
+      return std::unexpected(Says::NativeMaterialFailed);
+    }
     const bool named = naming != nullptr && at < naming->Materials().size();
     (void)out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at]);
   }
@@ -1084,6 +1098,13 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
     local.Position = {};
     (void)out.addLamp(lit.NodeName, local, placed);
   }
+  return {};
+}
+
+std::expected<outshine::Geometry, std::string> Subject::Handed(const Document *naming) const {
+  outshine::Geometry out;
+  const auto assets = CopyNativeAssets(out, naming);
+  if (!assets) { return std::unexpected(assets.error()); }
   const auto floats = [](const std::vector<double> &from, size_t first, size_t many) {
     std::vector<float> made(many);
     for (size_t at = 0; at < many; ++at) { made[at] = static_cast<float>(from[first + at]); }
@@ -1093,13 +1114,13 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
     const int made = out.addPart(one.NodeName, MaterialInstance(one.Material));
     const std::vector<float> positions =
         floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
-    (void)out.setPositions(made, std::span<const float>(positions.data(), positions.size()));
+    if (!out.setPositions(made, positions)) { return std::unexpected(Says::NativePositionsFailed); }
 
     struct ChannelRow {
       bool Carried;
       const std::vector<double> *From;
       size_t Stride;
-      void (*Set)(outshine::Geometry &, int, std::span<const float>);
+      bool (*Set)(outshine::Geometry &, int, std::span<const float>);
     };
 
     const std::array<ChannelRow, 5> channels = {
@@ -1108,43 +1129,43 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
           .Stride = 3,
           .Set = [](outshine::Geometry &into,
                     int at,
-                    std::span<const float> held) { (void)into.setNormals(at, held); }},
+                    std::span<const float> held) { return into.setNormals(at, held); }},
          {.Carried = one.HasUv,
           .From = &Uv_,
           .Stride = 2,
           .Set = [](outshine::Geometry &into,
                     int at,
-                    std::span<const float> held) { (void)into.setTexture(at, held, 0); }},
+                    std::span<const float> held) { return into.setTexture(at, held, 0); }},
          {.Carried = one.HasUv1,
           .From = &Uv1_,
           .Stride = 2,
           .Set = [](outshine::Geometry &into,
                     int at,
-                    std::span<const float> held) { (void)into.setTexture(at, held, 1); }},
+                    std::span<const float> held) { return into.setTexture(at, held, 1); }},
          {.Carried = one.HasTangent(),
           .From = &Tangents_,
           .Stride = 4,
           .Set = [](outshine::Geometry &into,
                     int at,
-                    std::span<const float> held) { (void)into.setTangents(at, held); }},
+                    std::span<const float> held) { return into.setTangents(at, held); }},
          {.Carried = one.HasColour,
           .From = &Colours_,
           .Stride = 4,
           .Set = [](outshine::Geometry &into, int at, std::span<const float> held) {
-            (void)into.setColours(at, held);
+            return into.setColours(at, held);
           }}}};
 
     for (const ChannelRow &channel : channels) {
       if (!channel.Carried || channel.From->empty()) { continue; }
       const std::vector<float> held =
           floats(*channel.From, one.FirstVertex * channel.Stride, one.VertexCount * channel.Stride);
-      channel.Set(out, made, std::span<const float>(held.data(), held.size()));
+      if (!channel.Set(out, made, held)) { return std::unexpected(Says::NativeAttributesFailed); }
     }
     std::vector<uint32_t> run(one.IndexCount);
     for (size_t at = 0; at < one.IndexCount; ++at) {
       run[at] = static_cast<uint32_t>(Indices_[one.FirstIndex + at] - one.FirstVertex);
     }
-    (void)out.setTriangles(made, std::span<const uint32_t>(run.data(), run.size()));
+    if (!out.setTriangles(made, run)) { return std::unexpected(Says::NativeTrianglesFailed); }
   }
   return out;
 }

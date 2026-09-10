@@ -113,7 +113,12 @@ struct GltfImporter::Held {
       Why = Assembled.Error();
       return false;
     }
-    Handed = Assembled.Handed(File);
+    auto converted = Assembled.Handed(File);
+    if (!converted) {
+      Why = std::move(converted.error());
+      return false;
+    }
+    Handed = std::move(*converted);
     if (!Wears() || !SampleMaterials(seconds)) { return false; }
     HasEye = Camera(0, Eye);
     return true;

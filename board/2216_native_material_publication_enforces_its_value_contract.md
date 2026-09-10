@@ -69,8 +69,8 @@ ohne Buildfehler. Export-/Publikations-Negativfälle bleiben über Aufbaupfad er
 Abschluss-Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün; drei rote Gruppen.
 
 ## Migration des Anlegevertrags
-Aufruferinventar: Subject::Flatten/Handed ignorieren addSurface; Handed ignoriert zudem
-addImage und Vertex-/Indexsetter. Engine::State::Models ist void und Laying nutzt
+Aufruferinventar: Subject::Flatten/Handed ignorieren noch addSurface. Handed reicht
+Bild-/Vertex-/Indexsetter-Fehler jetzt per expected weiter und prüft Materialwerte. Engine::State::Models ist void und Laying nutzt
 Materialindizes unmittelbar. Structures/Corridors sowie TreeGeometry/CrownAtlas legen
 Materialien für Generatorprodukte an. 15 C++-Testdateien verwenden addSurface.
 Anlegen als expected<MaterialInstance, MaterialError>: intrinsische Werte/Enums/UVs
@@ -83,3 +83,10 @@ erfolgsmeldende leere Geometrie als Ersatz. Aufrufer in einem vollständigen Sch
 migrieren; ungültige Material-Fixtures dann an der frühesten garantierten Grenze prüfen.
 Fehler beim späteren Element mit bereits aufgebauten Vorgängern testen: kein teilweise
 konvertiertes Produkt als Erfolg und keine Veröffentlichung in die aktive Welt.
+
+Handed-Konvertierung abgenommen: expected<Geometry,string>, getrennte Asset-/Mesh-
+Phasen; kein teilkonvertierter Rückgabewert bei geprüftem Bild-/Material-/Setterfehler.
+Importer ersetzt Handed erst nach erfolgreicher Konvertierung. Später Materialfehler,
+Quellerhaltung/Retry sowie Bild-/Platzierungs-/Animationsregressionen grün. Mutation
+ohne Materialprüfung scheitert ohne Buildfehler. Lint 180/282, 32 Repository-Tests
+grün; drei rote Gruppen. Gesamter Import-/Animations-Rollback bleibt separat offen.
