@@ -5,6 +5,7 @@
 #include <bit>
 #include <expected>
 #include <limits>
+#include <span>
 #include <string_view>
 #include <type_traits>
 #include <string>
@@ -122,9 +123,89 @@ struct Reader {
   }
 };
 
-int32_t ZigZag(uint64_t v) {
-  return static_cast<int32_t>((v >> 1u) ^ (~(v & 1u) + 1));
-}
+class GeometryReader {
+public:
+  GeometryReader(std::span<const uint32_t> words,
+                 std::vector<int32_t> &points,
+                 std::vector<OsmVector::Ring> &rings)
+      : Words_(words), Points_(points), Rings_(rings) {}
+
+  [[nodiscard]] bool Read(int type) {
+    if (type == 0) { return true; }
+    if (Words_.empty()) { return false; }
+    if (type == 1) { return ReadCommand(1, 1, false) && Words_.empty(); }
+    while (!Words_.empty()) {
+      const size_t first = Points_.size() / 2;
+      if (!ReadCommand(1, 1, true) || !ReadCommand(2, type == 3 ? 2u : 1u, false)) { return false; }
+      if (type == 3 && !Close(first)) { return false; }
+      if (Rings_.size() == std::numeric_limits<uint32_t>::max()) { return false; }
+      Rings_.push_back({.First = static_cast<uint32_t>(first),
+                        .Count = static_cast<uint32_t>(Points_.size() / 2 - first),
+                        .Exterior = type != 3 || PositiveArea(first)});
+    }
+    return true;
+  }
+
+private:
+  [[nodiscard]] bool ReadCommand(uint32_t id, uint32_t minimum, bool single) {
+    if (Words_.empty()) { return false; }
+    const uint32_t command = Words_.front();
+    Words_ = Words_.subspan(1);
+    const uint32_t count = command >> 3u;
+    if ((command & 7u) != id || count < minimum || (single && count != 1) ||
+        count > Words_.size() / 2 ||
+        count > std::numeric_limits<uint32_t>::max() - Points_.size() / 2) {
+      return false;
+    }
+    for (uint32_t i = 0; i < count; ++i) {
+      const uint32_t dx = Words_[0];
+      const uint32_t dy = Words_[1];
+      Words_ = Words_.subspan(2);
+      if ((id == 2 && dx == 0 && dy == 0) || !Advance(X_, dx) || !Advance(Y_, dy)) { return false; }
+      Points_.push_back(X_);
+      Points_.push_back(Y_);
+    }
+    return true;
+  }
+
+  [[nodiscard]] static bool Advance(int32_t &cursor, uint32_t encoded) {
+    if (encoded == std::numeric_limits<uint32_t>::max()) { return false; }
+    const int64_t magnitude = encoded >> 1u;
+    const int64_t delta = (encoded & 1u) != 0 ? -magnitude - 1 : magnitude;
+    const int64_t next = static_cast<int64_t>(cursor) + delta;
+    if (next < std::numeric_limits<int32_t>::min() || next > std::numeric_limits<int32_t>::max()) {
+      return false;
+    }
+    cursor = static_cast<int32_t>(next);
+    return true;
+  }
+
+  [[nodiscard]] bool Close(size_t first) {
+    if (Words_.empty() || Words_.front() != 15u ||
+        (X_ == Points_[first * 2] && Y_ == Points_[first * 2 + 1])) {
+      return false;
+    }
+    Words_ = Words_.subspan(1);
+    return true;
+  }
+
+  [[nodiscard]] bool PositiveArea(size_t first) const {
+    double area = 0.0;
+    const size_t end = Points_.size() / 2;
+    for (size_t point = first; point < end; ++point) {
+      const size_t next = point + 1 == end ? first : point + 1;
+      area += static_cast<double>(Points_[point * 2]) * Points_[next * 2 + 1] -
+              static_cast<double>(Points_[next * 2]) * Points_[point * 2 + 1];
+    }
+    return area > 0.0;
+  }
+
+  std::span<const uint32_t> Words_;
+  std::vector<int32_t> &Points_;
+  std::vector<OsmVector::Ring> &Rings_;
+  int32_t X_ = 0;
+  int32_t Y_ = 0;
+};
 
 struct DecodedValue {
   std::string Text;
@@ -329,67 +410,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       f.FirstRing = static_cast<uint32_t>(Rings_.size());
       Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());
       f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
-      const auto &geom = encoded.Geometry;
-
-      int32_t cx = 0;
-      int32_t cy = 0;
-      size_t gi = 0;
-      uint32_t ringFirst = 0;
-      int ringCount = 0;
-
-      const auto flushLine = [&] {
-        if (f.Type != 2 || ringCount < 2) { return; }
-        Ring r{};
-        r.First = ringFirst;
-        r.Count = static_cast<uint32_t>(ringCount);
-        r.Exterior = true;
-        Rings_.push_back(r);
-      };
-      while (gi < geom.size()) {
-        const uint32_t cmd = geom[gi] & 7u;
-        const uint32_t cnt = geom[gi] >> 3u;
-        gi++;
-        if (cmd == 1 || cmd == 2) {
-          for (uint32_t k = 0; k < cnt; k++) {
-            if (gi + 1 >= geom.size()) {
-              gi = geom.size();
-              break;
-            }
-            cx += ZigZag(geom[gi]);
-            cy += ZigZag(geom[gi + 1]);
-            gi += 2;
-            if (cmd == 1) {
-              flushLine();
-              ringFirst = static_cast<uint32_t>(Points_.size()) / 2;
-              ringCount = 0;
-            }
-            Points_.push_back(cx);
-            Points_.push_back(cy);
-            ringCount++;
-          }
-        } else if (cmd == 7) {
-          if (ringCount >= 3) {
-            double a = 0.0;
-            for (int k = 0; k < ringCount; k++) {
-              const size_t i0 = (static_cast<size_t>(ringFirst) + static_cast<size_t>(k)) * 2;
-              const size_t i1 =
-                  (static_cast<size_t>(ringFirst) + static_cast<size_t>((k + 1) % ringCount)) * 2;
-              a += static_cast<double>(Points_[i0]) * Points_[i1 + 1] -
-                   static_cast<double>(Points_[i1]) * Points_[i0 + 1];
-            }
-            Ring r{};
-            r.First = ringFirst;
-            r.Count = static_cast<uint32_t>(ringCount);
-
-            r.Exterior = a > 0.0;
-            Rings_.push_back(r);
-          }
-          ringCount = 0;
-        } else {
-          break;
-        }
-      }
-      flushLine();
+      GeometryReader geometry(encoded.Geometry, Points_, Rings_);
+      if (!geometry.Read(f.Type)) { return false; }
       f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
       Features_.push_back(f);
     }

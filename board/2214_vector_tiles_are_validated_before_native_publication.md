@@ -84,3 +84,8 @@ Analytische Punkt-/Multipart-/Polygonfixtures sowie falsche Folgen, Nullsegmente
 abgeschnittene Parameter und Überläufe normal/sanitisiert prüfen; alte Fassung muss
 scheitern. Wien unverändert erwarten, rendern und PNG prüfen. Vollständige Topologie,
 Ressourcenbudgets und transaktionale Gesamtkachel bleiben ausdrücklich offen.
+Geometrieabnahme: sechs MVT-Läufe normal/sanitisiert grün. Alte Fassung scheitert
+normal und mit Sanitizer-Abbruch, ohne Buildfehler. Neuer Reader prüft Kommandofolgen,
+Nullsegmente und int32-Koordinatengrenzen; ClosePath-Cursor und Loch-Winding geprüft.
+Parse-Komplexität 111→71. Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-
+Tests grün, drei rote Gruppen. Wien visuell geöffnet und 0/921600 Pixel verändert.
