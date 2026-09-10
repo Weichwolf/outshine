@@ -73,3 +73,12 @@ without per-frame allocation. Valid geometry must retain the same hits and heigh
 Reference: [PBRT BVH construction and SAH](https://pbr-book.org/4ed/Primitives_and_Intersection_Acceleration/Bounding_Volume_Hierarchies).
 Prove against analytic planes/rays, multi-leaf traversal, invalid indices and failed-refit
 rollback; negative controls must detect fabricated vertices and premature mutation.
+
+## FeatureField-Eingabegrenze
+Factory prüft bisher nur Indexbereiche; NaN/Inf und negative Ribbon-Breiten gelangen
+in räumliche Abfragen. Endliche Koordinaten/Höhen und gültige Form-/Kind-Enums prüfen;
+Bereiche durch Subtraktion statt überlaufbarer Addition absichern. Bounds als eigene
+fachliche Phase berechnen, nicht im verschachtelten Konstruktor. Ribbon-Erweiterung
+muss im Float-Bereich bleiben. Bestehende nullable Factory vorerst erhalten.
+Analytische Fläche/Ribbon, ungültige Werte und Indexbereiche unabhängig prüfen;
+Altcode muss die Negativkontrolle verletzen. Keine Änderung gültiger Bilddaten.
