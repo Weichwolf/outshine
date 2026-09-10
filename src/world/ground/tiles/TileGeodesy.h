@@ -34,9 +34,9 @@ using outshine::kWgs84A;
 
 class TileIndex {
 public:
-  enum class State { Inside, OutsideMercatorBand };
+  enum class State { Inside, OutsideMercatorBand, InvalidInput };
 
-  static TileIndex Of(Geo g, int z);
+  [[nodiscard]] static TileIndex Of(Geo g, int z) noexcept;
 
   [[nodiscard]] State Where() const { return Where_; }
 

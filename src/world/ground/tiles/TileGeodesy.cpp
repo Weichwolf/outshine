@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <limits>
 #include <cstdint>
 
 namespace outshine::Ground {
@@ -19,7 +20,12 @@ constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 
 }
 
-TileIndex TileIndex::Of(Geo g, int z) {
+TileIndex TileIndex::Of(Geo g, int z) noexcept {
+  if (!std::isfinite(g.LatitudeDeg) || !std::isfinite(g.LongitudeDeg) ||
+      std::abs(g.LatitudeDeg) > kPoleLatDeg || std::abs(g.LongitudeDeg) > kDegPerHalfTurn ||
+      z < 0 || z > std::numeric_limits<uint32_t>::digits) {
+    return {State::InvalidInput, Data::TileId{}};
+  }
   if (g.LatitudeDeg < -kMercatorLatMaxDeg || g.LatitudeDeg > kMercatorLatMaxDeg) {
     return {State::OutsideMercatorBand, Data::TileId{}};
   }
@@ -42,9 +48,9 @@ GeoBounds TileBounds(Data::TileId of) {
   GeoBounds b;
   const double n = std::ldexp(1.0, of.Zoom);
   b.MinLonDeg = static_cast<double>(of.X) / n * kDegPerTurn - kDegPerHalfTurn;
-  b.MaxLonDeg = static_cast<double>(of.X + 1) / n * kDegPerTurn - kDegPerHalfTurn;
+  b.MaxLonDeg = (static_cast<double>(of.X) + 1.0) / n * kDegPerTurn - kDegPerHalfTurn;
   const double yn = 1.0 - 2.0 * static_cast<double>(of.Y) / n;
-  const double ys = 1.0 - 2.0 * static_cast<double>(of.Y + 1) / n;
+  const double ys = 1.0 - 2.0 * (static_cast<double>(of.Y) + 1.0) / n;
   b.MaxLatDeg = kRad2Deg * std::atan(std::sinh(kPi * yn));
   b.MinLatDeg = kRad2Deg * std::atan(std::sinh(kPi * ys));
   return b;

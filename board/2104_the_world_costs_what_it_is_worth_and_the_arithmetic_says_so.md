@@ -105,12 +105,12 @@ Pending wird null. Sonst neu aufbauen und erst nach Aufbau Generation erhöhen.
 scheitert an vier nextafter-Fällen und FE_INVALID, ohne Buildfehler. Wien bytegleich,
 PNG geöffnet. Generation-Überlauf und allokationssicherer Austausch bleiben offen.
 
-## Aktiver Schritt: sichere Kachelprojektion
-TileIndex::Of prüft bisher nur das Mercatorband; NaN/ungültiger Zoom erreichen Casts.
-Vor Mathematik endliche kanonische Winkel und Zoom 0..32 prüfen (uint32-Kachelindex:
-2^32 Kacheln, letzter Index 2^32−1). InvalidInput von gültig außerhalb Mercator trennen.
-TileBounds muss Index+1 erst in Double rechnen, sonst überläuft uint32 am Rand.
-Analytische Achsen-/Randfälle, NaN/Inf/Zoomgrenzen und letzte Kachel bei Zoom 32 testen;
-alte Konvertierung als Gegenprobe. Höhenwert ist für Kachelwahl irrelevant.
+## Sichere Kachelprojektion
+TileIndex::Of lehnt NaN/Inf, nichtkanonische Winkel und ungültigen Zoom vor Casts ab.
+Zulässig sind Zoom 0..32 (uint32-Kachelindex:
+2^32 Kacheln, letzter Index 2^32−1). InvalidInput ist von außerhalb Mercator getrennt.
+TileBounds rechnet Index+1 in Double und vermeidet uint32-Überlauf am Rand.
+Analytische Achsen-/Randfälle, NaN/Inf/Zoomgrenzen und letzte Kachel bei Zoom 32 grün;
+alte Konvertierung scheitert ohne Buildfehler. Drei gezielte Tests grün. Höhe irrelevant.
 OsmField::Declare danach auf diese Grundlage umstellen und Fehler weiterreichen;
 seine signed TileAt-Grenze sowie GroundStack-/ClassField-Fehlerpublikation bleiben offen.
