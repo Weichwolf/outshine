@@ -115,6 +115,6 @@ Header sowie entfernter Quelle aus; danach Import-/Posefälle ohne Cache-Löschu
 neu gebaut: acht Prüfungen grün, Altcode verletzt die Cache-Negativkontrolle.
 Keine Bildänderung beabsichtigt; vollständiges lint bleibt Pflicht.
 ## Vegetationskatalog als atomarer Snapshot
-Load leert Bestand vor Fehlern und lässt Friction_ beim Reload stehen. Begrenztes IO
+Load leert Bestand vor Fehlern und lässt Friction_ beim Reload stehen. IO bis 1 MiB
 und Kandidatenpublikation; Blätter, Substrat, Templates, Regeln, Layer, Höhenlimit als
-Parsing-Phasen. Fehlererhaltung/Reload mit anderer Reibung prüfen; gültige Bilder gleich.
+Parsing-Phasen. Altcode verletzt Erhaltung/Reload; fünf Regressionen grün. Zahlenprüfung offen.

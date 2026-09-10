@@ -4,10 +4,12 @@
 #include "Json.h"
 #include "Log.h"
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <limits>
+#include "ReadTextFile.h"
+#include <cstddef>
+#include <expected>
+#include <string>
+#include <type_traits>
+#include <utility>
 #include <unordered_map>
 #include <string_view>
 
@@ -20,53 +22,58 @@ constexpr double kLitterUnsaid = 0.01;
 constexpr double kEdgeReachUnsaidM = 0.05;
 
 bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
-  Table_.clear();
-  Names_.clear();
-  Rules_.clear();
-  Layers_.clear();
-  AreaLayers_.clear();
-  WaterBands_.clear();
-  Error_.clear();
-  Unmapped_ = 0;
-
-  FILE *f = fopen(path, "rb");
-  if (f == nullptr) {
-    Error_ = std::string("open failed: ") + path;
+  constexpr size_t kCatalogByteLimit = size_t{1024} * 1024u;
+  const auto text = ReadTextFile(path != nullptr ? std::string_view(path) : std::string_view{},
+                                 kCatalogByteLimit);
+  if (!text) {
+    Error_ = text.error();
     return false;
   }
-  fseek(f, 0, SEEK_END);
-  const long n = ftell(f);
-  fseek(f, 0, SEEK_SET);
-  std::string text(static_cast<size_t>(n > 0 ? n : 0), '\0');
-  const size_t got = n > 0 ? fread(text.data(), 1, static_cast<size_t>(n), f) : 0;
-  fclose(f);
-  if (got != text.size()) {
-    Error_ = "short read";
-    return false;
-  }
-
   Json doc;
-  if (!doc.Parse(text.c_str(), text.size())) {
+  if (!doc.Parse(text->data(), text->size())) {
     Error_ = "parse failed";
     return false;
   }
-  const Json::Ref tpls = doc.Root()["templates"];
+  const auto root = doc.Root();
+  const auto tpls = root["templates"];
   if (tpls.GetKind() != Json::Kind::Array || tpls.Size() == 0) {
     Error_ = "no templates array";
     return false;
   }
-  if (tpls.Size() > 256) {
+  constexpr size_t kMaximumTemplates = 256;
+  if (tpls.Size() > kMaximumTemplates) {
     Error_ = "more than 256 templates";
     return false;
   }
-
   if (!mats.Ready()) {
     Error_ = "ground-material table not loaded";
     return false;
   }
+  VegetationTemplates candidate;
+  BladeMap blades;
+  if (!candidate.ReadBlades(root, blades) || !candidate.ReadTemplates(root, mats, blades) ||
+      !candidate.ReadRules(tpls) || !candidate.ReadEnvironment(root)) {
+    Error_ = std::move(candidate.Error_);
+    return false;
+  }
+  candidate.ReadLayers(tpls);
+  static_assert(std::is_nothrow_move_assignable_v<VegetationTemplates>);
+  *this = std::move(candidate);
+  Log::Info(LogTag::Veg,
+            "table",
+            {{"path", path},
+             {"classRows", static_cast<int>(Table_.size())},
+             {"osmRules", static_cast<int>(Rules_.size())},
+             {"layers", static_cast<int>(Layers_.size())},
+             {"areaLayers", static_cast<int>(AreaLayers_.size())},
+             {"unmappedRow", static_cast<double>(Unmapped_)},
+             {"rockTemplate", Limit_.RockTemplateName()},
+             {"slopeBandDeg", static_cast<double>(Limit_.SlopeBandDeg())}});
+  return true;
+}
 
-  const Json::Ref blades = doc.Root()["bladeClasses"];
-  std::unordered_map<std::string, Blade> bladeByName;
+bool VegetationTemplates::ReadBlades(const Json::Ref &root, BladeMap &bladeByName) {
+  const Json::Ref blades = root["bladeClasses"];
   for (size_t i = 0; i < blades.Size(); i++) {
     const Json::Ref b = blades[i];
     Blade bl{};
@@ -88,8 +95,12 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     return false;
   }
 
-  Table_.reserve(tpls.Size() + 1);
+  return true;
+}
 
+bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
+                                        const GroundMaterials &materials,
+                                        Row &row) {
   const auto fillSurf = [](Vec4f &dst, const GroundMaterials::Material &m) {
     dst[0] = m.GrainSizeM;
     dst[1] = m.HeightAmplitudeM;
@@ -97,41 +108,46 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     dst[3] = m.DetailFineM;
   };
 
-  const auto substrate = [&](const Json::Ref &g, Row *row) -> bool {
-    const std::string gname = g["class"].Str("");
-    const int gi = mats.Find(gname);
-    if (gi < 0) {
-      Error_ = "unknown ground class: " + gname;
-      return false;
-    }
-    const GroundMaterials::Material &gm = mats.At(static_cast<size_t>(gi));
+  const std::string gname = ground["class"].Str("");
+  const int gi = materials.Find(gname);
+  if (gi < 0) {
+    Error_ = "unknown ground class: " + gname;
+    return false;
+  }
+  const GroundMaterials::Material &gm = materials.At(static_cast<size_t>(gi));
 
-    const std::string lname = g["litterClass"].Str("");
-    const int li = lname.empty() ? gm.LitterClass : mats.Find(lname);
-    if (!lname.empty() && li < 0) {
-      Error_ = "unknown litter class: " + lname;
-      return false;
-    }
-    const GroundMaterials::Material &lm = mats.At(static_cast<size_t>(li >= 0 ? li : gi));
-    row->GroundClass = gi;
-    for (int c = 0; c < 3; c++) {
-      row->Ground[c] = gm.Albedo[c];
-      row->Litter[c] = lm.Albedo[c];
-    }
-    row->Ground[3] = gm.Roughness;
-    row->Litter[3] = lm.Roughness;
-    fillSurf(row->GroundSurf, gm);
-    fillSurf(row->LitterSurf, lm);
-    row->Mix[0] = li >= 0 ? static_cast<float>(g["litterCoverage"].Num(gm.LitterCoverage)) : 0.0f;
-    row->Mix[1] = static_cast<float>(g["contrast"].Num(0.5));
-    row->Mix[2] = gm.SpecularScale;
-    row->Mix[3] = lm.SpecularScale;
-    row->Edge[0] = static_cast<float>(g["edgeReachM"].Num(kEdgeReachUnsaidM));
-    row->Edge[1] = static_cast<float>(g["edgeConstructed"].Num(0.0));
-    row->Edge[3] = gm.SlopeMaxDeg;
-    Friction_.push_back(gm.FrictionFactor);
-    return true;
-  };
+  const std::string lname = ground["litterClass"].Str("");
+  const int li = lname.empty() ? gm.LitterClass : materials.Find(lname);
+  if (!lname.empty() && li < 0) {
+    Error_ = "unknown litter class: " + lname;
+    return false;
+  }
+  const GroundMaterials::Material &lm = materials.At(static_cast<size_t>(li >= 0 ? li : gi));
+  row.GroundClass = gi;
+  for (int c = 0; c < 3; c++) {
+    row.Ground[c] = gm.Albedo[c];
+    row.Litter[c] = lm.Albedo[c];
+  }
+  row.Ground[3] = gm.Roughness;
+  row.Litter[3] = lm.Roughness;
+  fillSurf(row.GroundSurf, gm);
+  fillSurf(row.LitterSurf, lm);
+  row.Mix[0] = li >= 0 ? static_cast<float>(ground["litterCoverage"].Num(gm.LitterCoverage)) : 0.0f;
+  row.Mix[1] = static_cast<float>(ground["contrast"].Num(0.5));
+  row.Mix[2] = gm.SpecularScale;
+  row.Mix[3] = lm.SpecularScale;
+  row.Edge[0] = static_cast<float>(ground["edgeReachM"].Num(kEdgeReachUnsaidM));
+  row.Edge[1] = static_cast<float>(ground["edgeConstructed"].Num(0.0));
+  row.Edge[3] = gm.SlopeMaxDeg;
+  Friction_.push_back(gm.FrictionFactor);
+  return true;
+}
+
+bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
+                                        const GroundMaterials &materials,
+                                        const BladeMap &bladeByName) {
+  const auto tpls = root["templates"];
+  Table_.reserve(tpls.Size() + 1);
 
   for (size_t i = 0; i < tpls.Size(); i++) {
     const Json::Ref t = tpls[i];
@@ -147,7 +163,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     }
 
     Row row{};
-    if (!substrate(g, &row)) { return false; }
+    if (!ReadSubstrate(g, materials, row)) { return false; }
     for (int c = 0; c < 3; c++) {
       row.Grass[c] = bit->second.Green[c];
       row.Dry[c] = bit->second.Dry[c];
@@ -172,20 +188,24 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   }
 
   {
-    const Json::Ref u = doc.Root()["unmapped"];
+    const Json::Ref u = root["unmapped"];
     if (u.GetKind() != Json::Kind::Object) {
       Error_ = "no unmapped substrate declared";
       return false;
     }
     Row row{};
-    if (!substrate(u, &row)) { return false; }
+    if (!ReadSubstrate(u, materials, row)) { return false; }
     Unmapped_ = static_cast<int>(Table_.size());
     Names_.emplace_back("unmapped");
     Table_.push_back(row);
   }
+  return true;
+}
 
-  for (size_t i = 0; i < tpls.Size(); i++) {
-    const Json::Ref rows = tpls[i]["osm"];
+bool VegetationTemplates::ReadRules(const Json::Ref &templates) {
+
+  for (size_t i = 0; i < templates.Size(); i++) {
+    const Json::Ref rows = templates[i]["osm"];
     for (size_t k = 0; k < rows.Size(); k++) {
       const Json::Ref r = rows[k];
       const std::string layer = r["layer"].Str("");
@@ -222,9 +242,13 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     return false;
   }
 
+  return true;
+}
+
+void VegetationTemplates::ReadLayers(const Json::Ref &templates) {
   std::unordered_map<std::string, bool> hasLine;
-  for (size_t i = 0; i < tpls.Size(); i++) {
-    const Json::Ref rows = tpls[i]["osm"];
+  for (size_t i = 0; i < templates.Size(); i++) {
+    const Json::Ref rows = templates[i]["osm"];
     for (size_t k = 0; k < rows.Size(); k++) {
       const std::string layer = rows[k]["layer"].Str("");
       const auto it = hasLine.find(layer);
@@ -240,9 +264,11 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   for (const std::string &l : Layers_) {
     if (!hasLine[l]) { AreaLayers_.push_back(l); }
   }
+}
 
+bool VegetationTemplates::ReadEnvironment(const Json::Ref &root) {
   {
-    const Json::Ref bands = doc.Root()["waterClearance"];
+    const Json::Ref bands = root["waterClearance"];
     for (size_t i = 0; i < bands.Size(); i++) {
       WaterBands_.push_back(
           WaterBand{.RunM = static_cast<float>(bands[i]["runM"].Num(0.0)),
@@ -250,7 +276,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     }
   }
 
-  if (!Limit_.Load(doc.Root())) {
+  if (!Limit_.Load(root)) {
     Error_ = Limit_.Error();
     return false;
   }
@@ -263,16 +289,6 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     return false;
   }
 
-  Log::Info(LogTag::Veg,
-            "table",
-            {{"path", path},
-             {"classRows", static_cast<int>(Table_.size())},
-             {"osmRules", static_cast<int>(Rules_.size())},
-             {"layers", static_cast<int>(Layers_.size())},
-             {"areaLayers", static_cast<int>(AreaLayers_.size())},
-             {"unmappedRow", static_cast<double>(Unmapped_)},
-             {"rockTemplate", Limit_.RockTemplateName()},
-             {"slopeBandDeg", static_cast<double>(Limit_.SlopeBandDeg())}});
   return true;
 }
 

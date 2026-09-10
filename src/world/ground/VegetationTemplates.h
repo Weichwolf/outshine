@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Json.h"
 #include "AlpineLimit.h"
 #include "GroundMaterials.h"
 
@@ -88,6 +89,17 @@ public:
   [[nodiscard]] const std::vector<std::string> &AreaLayers() const { return AreaLayers_; }
 
 private:
+  using BladeMap = std::unordered_map<std::string, Blade>;
+  [[nodiscard]] bool ReadBlades(const Json::Ref &root, BladeMap &bladeByName);
+  [[nodiscard]] bool
+  ReadSubstrate(const Json::Ref &ground, const GroundMaterials &materials, Row &row);
+  [[nodiscard]] bool ReadTemplates(const Json::Ref &root,
+                                   const GroundMaterials &materials,
+                                   const BladeMap &bladeByName);
+  [[nodiscard]] bool ReadRules(const Json::Ref &templates);
+  void ReadLayers(const Json::Ref &templates);
+  [[nodiscard]] bool ReadEnvironment(const Json::Ref &root);
+
   std::vector<Row> Table_;
   std::vector<float> Friction_;
   std::vector<std::string> Names_;
