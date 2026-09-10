@@ -1,4 +1,8 @@
 #include "OsmField.h"
+#include "TileGeodesy.h"
+#include <cfenv>
+#include <cmath>
+#include <limits>
 #include "../mvt/WireFixture.h"
 #include "Check.h"
 #include <array>
@@ -55,5 +59,48 @@ int main() {
   CHECK(static_cast<bool>(accepted) && field.Settled(3, 1) &&
             field.Features().size() == featureCount * 2 + 1,
         "missing optional layer does not reject valid tile");
+
+  struct Address {
+    int Zoom;
+    TileAt At;
+  };
+
+  for (const auto &address : std::array<Address, 7>{{{-1, {0, 0}},
+                                                     {32, {0, 0}},
+                                                     {2, {-1, 0}},
+                                                     {2, {0, -1}},
+                                                     {2, {4, 0}},
+                                                     {2, {0, 4}},
+                                                     {2, {std::numeric_limits<int>::max(), 0}}}}) {
+    OsmField invalid(address.Zoom, layers);
+    std::feclearexcept(FE_ALL_EXCEPT);
+    const auto result = invalid.Accept(address.At.X, address.At.Y, valid);
+    CHECK(!result && invalid.Features().empty() && invalid.Points().empty() &&
+              !invalid.Settled(address.At.X, address.At.Y),
+          "invalid tile address refuses publication");
+    CHECK(std::fetestexcept(FE_INVALID | FE_OVERFLOW) == 0,
+          "invalid address is rejected before unsafe arithmetic");
+  }
+  for (const double y : {2147483647.0,
+                         -2147483647.0,
+                         std::numeric_limits<double>::max(),
+                         -std::numeric_limits<double>::max()}) {
+    std::feclearexcept(FE_ALL_EXCEPT);
+    const auto geo = TileFracToGeo({.X = 0.5, .Y = y}, 0);
+    CHECK(geo.LatitudeDeg == (y > 0 ? -90.0 : 90.0) && geo.LongitudeDeg == 0,
+          "large finite inverse Mercator ordinates round to analytical pole");
+    CHECK(std::fetestexcept(FE_INVALID | FE_OVERFLOW) == 0,
+          "inverse Mercator approaches poles without intermediate overflow");
+  }
+  CHECK_NEAR(TileFracToGeo({.X = 0.5, .Y = 0.5}, 0).LatitudeDeg,
+             0.0,
+             1e-12,
+             "degrees",
+             "Mercator equator");
+  CHECK_NEAR(TileFracToGeo({.X = 0.5, .Y = 0}, 0).LatitudeDeg,
+             85.0511287798066,
+             1e-12,
+             "degrees",
+             "Mercator northern tile boundary");
   return Report();
 }

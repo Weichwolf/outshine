@@ -18,6 +18,14 @@ namespace {
 constexpr double kDeg2Rad = kPi / kDegPerHalfTurn;
 constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 
+[[nodiscard]] double InverseMercatorLatitude(double y) {
+  static const double poleDistance =
+      std::log(4.0 / std::numeric_limits<double>::epsilon()) / (2.0 * kPi);
+  const double centred = 0.5 - y;
+  if (std::abs(centred) >= poleDistance) { return std::copysign(kPoleLatDeg, centred); }
+  return kRad2Deg * std::atan(std::sinh(kPi * (1.0 - 2.0 * y)));
+}
+
 }
 
 TileIndex TileIndex::Of(Geo g, int z) noexcept {
@@ -63,8 +71,7 @@ Geo TileFracToGeo(TileFrac at, int z) {
 
   Geo g;
   g.LongitudeDeg = xf * kDegPerTurn - kDegPerHalfTurn;
-  const double yy = 1.0 - 2.0 * yf;
-  g.LatitudeDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
+  g.LatitudeDeg = InverseMercatorLatitude(yf);
   g.HeightM = 0.0;
   return g;
 }

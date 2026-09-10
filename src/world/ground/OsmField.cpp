@@ -51,6 +51,7 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 }
 
 namespace Says {
+constexpr std::string_view kInvalidOsmTile = "OSM tile address is outside its zoom grid";
 constexpr std::string_view kInvalidVectorTile = "OSM tile contains invalid vector data";
 constexpr std::string_view kUnsupportedVectorTile = "OSM tile version is unsupported";
 constexpr std::string_view kTooManyVectorLayers = "OSM layer count exceeds native index capacity";
@@ -190,6 +191,12 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
 namespace {
 using VectorLayers = std::vector<std::optional<OsmVector>>;
 
+[[nodiscard]] bool ValidTileAddress(TileAt at, int zoom) {
+  if (zoom < 0 || zoom > std::numeric_limits<int>::digits || at.X < 0 || at.Y < 0) { return false; }
+  const uint64_t side = uint64_t{1} << static_cast<unsigned>(zoom);
+  return std::cmp_less(at.X, side) && std::cmp_less(at.Y, side);
+}
+
 [[nodiscard]] std::expected<VectorLayers, std::string_view>
 ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> names) {
   if (names.size() > static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1) {
@@ -216,6 +223,9 @@ ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> na
 
 std::expected<int, std::string_view>
 OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
+  if (!ValidTileAddress({.X = tx, .Y = ty}, Zoom_)) {
+    return std::unexpected(Says::kInvalidOsmTile);
+  }
   const auto layers = ReadVectorLayers(vectorTile, Layers_);
   if (!layers) {
     ++Bad_;
