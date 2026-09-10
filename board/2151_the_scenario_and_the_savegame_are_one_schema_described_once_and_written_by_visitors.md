@@ -87,3 +87,9 @@ Playback-Abnahme: gemeinsamer nichtallokierender expected-Validator in ReadAsset
 und am Anfang von Engine::declare. API-Erhaltung/Retry und zwei Importregressionen
 grün; Altcode scheitert ohne Buildfehler. Lint 181/282, 32 Repository-Tests grün,
 drei rote Gruppen. Kein Nachweis vollständiger Welttransaktion oder Clip-Existenz.
+
+Writer-Zuständigkeiten: Weltattribute, Relief und OSM-Strukturen separat schreiben;
+WriteScenario orchestriert Sektionen. Bestehende Reihenfolge/Werte erhalten. Keine
+Komplexitätsunterdrückung: Funktionen folgen Datenverantwortung. OSM-Koordinaten-,
+Physik-, Generator- und Asset-Roundtrips sichern die Umstellung; fehlende Sektionen
+bleiben offen. Keine Bildänderung durch strukturelle Writer-Änderung erwartet.
