@@ -30,3 +30,18 @@ Public test translation units receive no implementation include directories.
 - No conventions bucket or stale executable test paths remain.
 - `make format` and `make lint`, including clang-tidy, run after migration.
 - No engine or image behavior changes are intended; assertions remain unchanged.
+
+## Bei der vollständigen Ausführung gefunden
+Sechs Fixtures benutzen CameraPlacement ohne outshine-Namespace; Qualifizierung
+korrigieren, Assertions unverändert. Der Trigger-Dwell-Fall verlangt StepS=0-Fallback,
+was dem dokumentierten positiven StepS-Vertrag und dem bestehenden Negativtest
+DeclarationRejectsInvalidSimulationTiming widerspricht. Mit explizitem Zeitschritt
+die Zeitgrenze von beiden Seiten prüfen. Schach-Wiederholung bleibt WI 2179.
+
+## Harness-Kosten
+Die gespiegelten Ordner vervielfachen identische Quellgruppensätze. Der bisherige
+Link-Audit wiederholt deren komplette Prüfung pro Verzeichnis; der Claim läuft
+nach 120 s ins unveränderte Limit. Exakt gleiche, vollständig aufgelöste Gruppen
+innerhalb eines Audit-Laufs einmal prüfen; unterschiedliche Sätze bleiben getrennt.
+Die vorhandenen Duplicate-, Missing- und Ghost-Negativkontrollen müssen weiter
+fehlschlagen. Keine Cache-Wiederverwendung zwischen Läufen oder Toleranzänderung.
