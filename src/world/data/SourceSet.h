@@ -29,8 +29,8 @@ public:
 
   class Query {
   public:
-    Query(Query &&) = default;
-    Query &operator=(Query &&) = default;
+    Query(Query &&other) noexcept;
+    Query &operator=(Query &&) = delete;
     Query(const Query &) = delete;
     Query &operator=(const Query &) = delete;
 
@@ -39,7 +39,14 @@ public:
   private:
     friend class SourceSet;
 
-    explicit Query(Fetch request) : Request_(request) {}
+    enum class Phase { Ready, InFlight, Backoff, Finished };
+
+    Query(const SourceSet &owner, Fetch request) : Owner_(&owner), Request_(request) {}
+
+    void Finish() noexcept;
+
+    const SourceSet *Owner_;
+    Phase Phase_ = Phase::Ready;
 
     Fetch Request_;
     std::vector<const Source *> Candidates_;

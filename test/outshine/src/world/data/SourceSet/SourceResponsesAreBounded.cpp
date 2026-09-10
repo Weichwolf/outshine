@@ -138,8 +138,8 @@ int main() {
           "live ticket created");
     SourceSet::Abandon(query, transport);
     CHECK(transport.Cancels == 1, "abandon cancels the live transport ticket");
-    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Vacant,
-          "abandoned query cannot restart");
+    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed,
+          "abandoned query is consumed and cannot restart");
   }
   return Report();
 }

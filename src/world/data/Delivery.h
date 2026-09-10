@@ -44,6 +44,8 @@ public:
     return d;
   }
 
+  [[nodiscard]] static Delivery Consumed() { return Delivery(State::Consumed); }
+
   [[nodiscard]] static Delivery Waiting() { return Delivery(State::Pending); }
 
   [[nodiscard]] static Delivery Nothing() { return Delivery(State::Vacant); }

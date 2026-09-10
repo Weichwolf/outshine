@@ -18,6 +18,26 @@ constexpr double kRetryBaseMs = 250.0;
 constexpr double kRetryCapMs = 4000.0;
 }
 
+SourceSet::Query::Query(Query &&other) noexcept
+    : Owner_(std::exchange(other.Owner_, nullptr)),
+      Phase_(std::exchange(other.Phase_, Phase::Finished)),
+      Request_(other.Request_),
+      Candidates_(std::move(other.Candidates_)),
+      Next_(std::exchange(other.Next_, 0)),
+      Current_(std::exchange(other.Current_, nullptr)),
+      At_(other.At_),
+      Ticket_(std::exchange(other.Ticket_, Ticket::None)),
+      Attempts_(std::exchange(other.Attempts_, 0)),
+      RetryAtMs_(std::exchange(other.RetryAtMs_, 0.0)) {}
+
+void SourceSet::Query::Finish() noexcept {
+  Phase_ = Phase::Finished;
+  Ticket_ = Ticket::None;
+  Current_ = nullptr;
+  RetryAtMs_ = 0.0;
+  Next_ = Candidates_.size();
+}
+
 SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
   if (!source) { return Registration::Unnamed; }
   const SourceDecl &decl = source->Declaration();
@@ -42,7 +62,7 @@ SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
 }
 
 SourceSet::Query SourceSet::Ask(const Fetch &request) const {
-  Query query(request);
+  Query query(*this, request);
   for (const std::unique_ptr<Source> &source : Sources_) {
     if (source->Covers(request) == Coverage::Inside) { query.Candidates_.push_back(source.get()); }
   }
@@ -50,21 +70,26 @@ SourceSet::Query SourceSet::Ask(const Fetch &request) const {
 }
 
 Delivery SourceSet::Collect(Query &query, Transport &transport) {
-  if (query.RetryAtMs_ > 0.0 && query.Current_ != nullptr) {
+  if (query.Phase_ == Query::Phase::Finished) { return Delivery::Consumed(); }
+  if (query.Owner_ != this) { return Delivery::WireAfter(kRetryCapMs); }
+  if (query.Phase_ == Query::Phase::Backoff) {
     if (transport.NowMs() < query.RetryAtMs_) { return Delivery::Waiting(); }
     query.RetryAtMs_ = 0.0;
     query.Ticket_ = query.Current_->Begin(query.At_, transport);
+    query.Phase_ = Query::Phase::InFlight;
     return Delivery::Waiting();
   }
   if (query.Candidates_.empty()) {
     const std::scoped_lock lock(LedgerMutex_);
+    query.Finish();
     Ledger_.Undeclared++;
     return Delivery::NoSource();
   }
   for (;;) {
-    if (query.Current_ == nullptr) {
+    if (query.Phase_ == Query::Phase::Ready) {
       if (query.Next_ >= query.Candidates_.size()) {
         const std::scoped_lock lock(LedgerMutex_);
+        query.Finish();
         Ledger_.Vacant++;
         return Delivery::Nothing();
       }
@@ -79,6 +104,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           Ledger_.Delivered++;
           Ledger_.FromStore++;
           Ledger_.DeliveredBytes += static_cast<long long>(kept->size());
+          query.Finish();
           return Delivery::From(decl.Id, query.At_, std::move(*kept));
         }
       }
@@ -87,6 +113,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         Ledger_.Asked++;
       }
       query.Ticket_ = query.Current_->Begin(query.At_, transport);
+      query.Phase_ = Query::Phase::InFlight;
     }
 
     Fetched answer = query.Current_->Collect(query.At_, query.Ticket_, transport);
@@ -99,6 +126,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         const std::scoped_lock ledger(LedgerMutex_);
         ++Ledger_.Refused;
       }
+      query.Finish();
       return Delivery::WireAfter(kRetryCapMs);
     }
 
@@ -123,10 +151,12 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       const std::scoped_lock lock(LedgerMutex_);
       ++Ledger_.Delivered;
       Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
+      query.Finish();
       return Delivery::From(decl.Id, query.At_, std::move(response.Bytes));
     }
     case Meaning::Absent: {
       query.Current_ = nullptr;
+      query.Phase_ = Query::Phase::Ready;
       const std::scoped_lock lock(LedgerMutex_);
       ++Ledger_.HandedOver;
       return std::nullopt;
@@ -138,6 +168,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
           const std::scoped_lock lock(LedgerMutex_);
           ++Ledger_.Retried;
         }
+        query.Phase_ = Query::Phase::Backoff;
         query.RetryAtMs_ =
             transport.NowMs() +
             std::fmax(retryAfterS * kMsPerS,
@@ -148,7 +179,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
     case Meaning::Refused: break;
     default: retryAfterS = 0.0; break;
   }
-  query.Current_ = nullptr;
+  query.Finish();
   const std::scoped_lock lock(LedgerMutex_);
   ++Ledger_.Refused;
   return Delivery::WireAfter(std::fmax(retryAfterS * kMsPerS, kRetryCapMs));
@@ -156,9 +187,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
 
 void SourceSet::Abandon(Query &query, Transport &transport) {
   if (query.Ticket_ != Ticket::None) { transport.Cancel(query.Ticket_); }
-  query.Ticket_ = Ticket::None;
-  query.Current_ = nullptr;
-  query.Next_ = query.Candidates_.size();
+  query.Finish();
 }
 
 SourceSet::Ledger SourceSet::Counters() const {

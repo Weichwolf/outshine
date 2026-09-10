@@ -56,16 +56,17 @@ Tests prüfen Move-Konstruktion/-Zuweisung, Bytes/Metadaten, leere Antworten und
 - [x] XML-Tag-/Bytegrenzen, Reader- und Szenario-Erhaltung durch unabhängige Fixtures geprüft.
 - [x] Quellantwort-Negativkontrolle erkennt den zweiten Aufruf nach ungültigem Meaning.
 - [x] Wire/Fetched/Delivery nur verschiebbar; einmaliger Take-Verbrauch und Puffertransfer geprüft.
-- [ ] SourceSet-Query-Endzustände vollständig.
+- [x] Query-Endzustände, Cache-Abschluss, Move-Ticket und SourceSet-Bindung geprüft.
 - [ ] IO-, Parser-, Speicher- und Zeitbudgets vollständig durch Tests erzwungen.
 - [ ] make lint einschließlich clang-tidy grün; neue fachliche Schritte mit Regressionen.
 
 ## Query-Zustandsmaschine
-Vor Implementierung: Ready/InFlight/Backoff/Finished statt indirekter Ticket-/Zeit-Flags.
+Ready/InFlight/Backoff/Finished statt indirekter Ticket-/Zeit-Flags.
 Jedes terminale Ergebnis und Abandon schließen die Query; danach Consumed ohne Quellen-
 oder Ledger-Zugriff. Move-Konstruktion überträgt Ticket und konsumiert die Quelle;
 Move-Zuweisung verbieten, damit ein aktives Ticket nicht ohne Abbruch überschrieben wird.
 Query an erzeugendes SourceSet binden; fremdes Collect ablehnen, Query unverändert.
 SourceSet und benutzter Transport müssen aktive Queries überleben; Abandon bleibt explizit.
 Tests: erneutes Collect nach Delivery/Refusal/Absent/Undeclared/Cancel, Move eines aktiven
-Tickets und Owner-Verwechslung. Altstand-Negativkontrolle, gültiger Retry unverändert.
+Tickets und Owner-Verwechslung bestehen; Cache-Abschluss ebenfalls. Altstand verletzt
+die Negativkontrolle. Fünf Regressionen grün, gültiger Retry unverändert.
