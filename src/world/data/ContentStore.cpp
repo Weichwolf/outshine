@@ -4,7 +4,9 @@
 #include <cstdint>
 #include <atomic>
 #include <cstdio>
-#include <cerrno>
+#include <memory>
+#include <span>
+#include <limits>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -14,6 +16,7 @@
 #include <utility>
 
 #include "Sha256.h"
+#include "WriteFileAtomically.h"
 
 namespace outshine::Data {
 namespace {
@@ -21,6 +24,35 @@ namespace {
 constexpr size_t kDefaultCapBytes = 2ull << 30u;
 
 constexpr const char *kDefaultLeaf = "outshine-content";
+
+constexpr size_t kKeyCharacters = 64;
+
+[[nodiscard]] bool ValidKey(std::string_view key) {
+  return key.size() == kKeyCharacters && std::ranges::all_of(key, [](char c) {
+           return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+         });
+}
+
+[[nodiscard]] std::optional<std::vector<uint8_t>> ReadEntry(const std::string &path, size_t limit) {
+  std::error_code error;
+  if (!std::filesystem::is_regular_file(std::filesystem::symlink_status(path, error)) || error) {
+    return std::nullopt;
+  }
+  std::unique_ptr<std::FILE, decltype(&std::fclose)> file(std::fopen(path.c_str(), "rb"),
+                                                          &std::fclose);
+  if (!file || std::fseek(file.get(), 0, SEEK_END) != 0) { return std::nullopt; }
+  const long size = std::ftell(file.get());
+  if (size <= 0 || std::cmp_greater(size, limit) || std::fseek(file.get(), 0, SEEK_SET) != 0) {
+    return std::nullopt;
+  }
+  std::vector<uint8_t> bytes(static_cast<size_t>(size));
+  if (std::fread(bytes.data(), 1, bytes.size(), file.get()) != bytes.size() ||
+      std::fgetc(file.get()) != EOF || std::ferror(file.get()) != 0) {
+    return std::nullopt;
+  }
+  if (std::fclose(file.release()) != 0) { return std::nullopt; }
+  return bytes;
+}
 
 [[nodiscard]] std::string DefaultDirectory() {
   std::error_code ec;
@@ -60,11 +92,16 @@ ContentStore::ContentStore(const Config &config)
   uintmax_t total = 0;
   for (std::filesystem::directory_iterator it(Directory_, ec), end; !ec && it != end;
        it.increment(ec)) {
-    if (!it->is_regular_file(ec)) { continue; }
+    if (!ValidKey(it->path().filename().string())) { continue; }
+    if (!std::filesystem::is_regular_file(it->symlink_status(ec)) || ec) { continue; }
     Entry e;
     e.Path = it->path();
     e.When = it->last_write_time(ec);
+    if (ec) { break; }
     e.Bytes = it->file_size(ec);
+    if (ec || e.Bytes > static_cast<uintmax_t>(std::numeric_limits<long long>::max()) - total) {
+      return;
+    }
     total += e.Bytes;
     entries.push_back(std::move(e));
   }
@@ -83,23 +120,9 @@ ContentStore::ContentStore(const Config &config)
 std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key,
                                                        size_t mostBytes) const {
   if (Using_ != Use::On) { return std::nullopt; }
-  const std::string path = Directory_ + "/" + std::string(key);
-  std::FILE *f = std::fopen(path.c_str(), "rb");
-  if (f == nullptr) {
-    Misses_.fetch_add(1, std::memory_order_relaxed);
-    return std::nullopt;
-  }
-  std::fseek(f, 0, SEEK_END);
-  const long size = std::ftell(f);
-  std::fseek(f, 0, SEEK_SET);
-  std::vector<uint8_t> kept;
-  bool whole = size > 0 && (mostBytes == 0 || static_cast<size_t>(size) <= mostBytes);
-  if (whole) {
-    kept.resize(static_cast<size_t>(size));
-    whole = std::fread(kept.data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
-  }
-  std::fclose(f);
-  if (!whole) {
+  const size_t limit = mostBytes == 0 ? CapBytes_ : std::min(mostBytes, CapBytes_);
+  auto kept = ValidKey(key) ? ReadEntry(Directory_ + "/" + std::string(key), limit) : std::nullopt;
+  if (!kept) {
     Misses_.fetch_add(1, std::memory_order_relaxed);
     return std::nullopt;
   }
@@ -108,30 +131,14 @@ std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key,
 }
 
 bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
-  if (Using_ != Use::On || bytes == 0) { return false; }
-
-  std::string temp;
-  std::FILE *f = nullptr;
-  for (size_t attempt = 0; attempt < 64; ++attempt) {
-    temp = Directory_ + "/." + std::string(key) + "." +
-           std::to_string(TempSerial_.fetch_add(1, std::memory_order_relaxed));
-    f = std::fopen(temp.c_str(), "wbx");
-    if (f != nullptr || errno != EEXIST) { break; }
-  }
-  if (f == nullptr) {
+  if (Using_ != Use::On) { return false; }
+  if (!ValidKey(key) || data == nullptr || bytes == 0 || bytes > CapBytes_) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
-  const bool written = std::fwrite(data, 1, bytes, f) == bytes;
-  const bool closed = std::fclose(f) == 0;
-  if (!written || !closed) {
-    std::remove(temp.c_str());
-    WriteFailures_.fetch_add(1, std::memory_order_relaxed);
-    return false;
-  }
-  const std::string path = Directory_ + "/" + std::string(key);
-  if (std::rename(temp.c_str(), path.c_str()) != 0) {
-    std::remove(temp.c_str());
+  const auto written = WriteFileAtomically(Directory_ + "/" + std::string(key),
+                                           std::as_bytes(std::span(data, bytes)));
+  if (!written) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }

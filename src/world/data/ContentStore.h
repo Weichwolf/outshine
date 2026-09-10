@@ -55,7 +55,6 @@ private:
   mutable std::atomic<long long> Hits_{0}, Misses_{0};
   std::atomic<long long> Writes_{0}, WriteFailures_{0};
   long long Swept_ = 0, SweptBytes_ = 0;
-  std::atomic<uint64_t> TempSerial_{0};
 };
 
 }

@@ -30,8 +30,8 @@ haben einen Besitzer und explizite Zustände; keine leeren Zweitlieferungen als 
   Bytes, Absent-Fallback, Working, Retry-Budget/Backoff und Cancel sind geprüft.
 
 ## Offene Arbeit
-- ContentStore-IO und Cachepfade auf Fehler, Maximalbytes, Besitz und sichere Veröffentlichung
-  prüfen; vorhandene temporäre Veröffentlichung wiederverwenden statt duplizieren.
+- ContentStore-Gesamtbudget während laufender Writes und Verzeichnis-Inventar begrenzen;
+  Eintragszugriffe und atomare Veröffentlichung sind geprüft.
 - Read-/Parser-Gesamtspeicher, lange Layerketten und Zeitbudgets numerisch begrenzen.
 - XML-Parserphasen trennen; quadratisches Geschwister-Anhängen beseitigen, Konformitäts-
   und Randfälle prüfen. Bestehende Grenzprüfungen nicht lockern.
@@ -90,4 +90,6 @@ Seek/Read/Close prüfen, Handles per RAII halten; ungültige Eingaben als Miss/F
 Keep nutzt WriteFileAtomically statt eigener Tempdatei-Implementierung; Ablehnung erhält
 vorige Bytes. Gesamtbudget während laufender Writes und Parserbudgets bleiben offen.
 Abnahme: temporäre Verzeichnisse, ungültige Schlüssel, fremde Dateien, Symlinks,
-Bytegrenzen und gescheiterte Veröffentlichung; Altstand verletzt die Negativkontrolle.
+Bytegrenzen, älteste eigene Datei und gescheiterte Veröffentlichung geprüft.
+Altstand verletzt die Negativkontrolle; vier IO-/Query-Regressionen bestehen.
+Symlink-Prüfung ist keine Absicherung gegen gleichzeitig manipulierte Verzeichnisse.
