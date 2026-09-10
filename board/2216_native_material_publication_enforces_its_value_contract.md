@@ -43,3 +43,8 @@ Zwei Ebenen: eigentliche Materialwerte und referenzielle Gültigkeit im Assetbes
 
 Kein neues paralleles Materialmodell. Vorhandenen nativen Besitzer und dokumentierte
 Verträge vervollständigen. Vollständige Asset-/Instanzmigration bleibt WI 2150.
+
+Aufbaureihenfolge geprüft: Subject::Flatten legt Materialien vor Bildern an; Handed
+kopiert Bilder vor Materialien. Referenzprüfung am vollständigen Geometry-Produkt in
+wellFormed, vor Engine::setGeometry-Übernahme. Intrinsische Materialwerte, alle Bindungen
+und Materialindizes dort gemeinsam prüfen; Setter-Fehlerverträge bleiben separat offen.
