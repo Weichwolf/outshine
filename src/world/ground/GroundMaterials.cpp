@@ -43,12 +43,13 @@ bool IsPositiveFloat(double value) {
 }
 
 std::expected<float, std::string>
-ReadFraction(Json::Ref value, double fallback, std::string_view name) {
+ReadFactor(Json::Ref value, double fallback, std::string_view name, double maximum = 1.0) {
   if (!value.Valid()) { return static_cast<float>(fallback); }
   const double number = value.Num(-1.0);
   if (value.GetKind() != Json::Kind::Number || !std::isfinite(number) || number < 0.0 ||
-      number > 1.0) {
-    return std::unexpected(std::string(name) + " must be a finite number in [0,1]");
+      number > maximum) {
+    return std::unexpected(std::string(name) +
+                           " must be finite, nonnegative and within its allowed range");
   }
   return static_cast<float>(number);
 }
@@ -65,11 +66,11 @@ std::expected<MoistureModel, std::string> ReadMoistureModel(Json::Ref root) {
   if (edges.Valid() && (edges.GetKind() != Json::Kind::Array || edges.Size() != 2)) {
     return std::unexpected("specularModel.edges must be a pair");
   }
-  const auto wet = ReadFraction(moisture["kWet"], 0.0, "moistureModel.kWet");
+  const auto wet = ReadFactor(moisture["kWet"], 0.0, "moistureModel.kWet");
   if (!wet) { return std::unexpected(wet.error()); }
-  const auto low = ReadFraction(edges[size_t{0}], 0.05, "specularModel.edges[0]");
+  const auto low = ReadFactor(edges[size_t{0}], 0.05, "specularModel.edges[0]");
   if (!low) { return std::unexpected(low.error()); }
-  const auto high = ReadFraction(edges[size_t{1}], 0.85, "specularModel.edges[1]");
+  const auto high = ReadFactor(edges[size_t{1}], 0.85, "specularModel.edges[1]");
   if (!high) { return std::unexpected(high.error()); }
   if (*low >= *high) {
     return std::unexpected("specularModel.edges must remain strictly increasing as floats");
@@ -92,6 +93,40 @@ int FindMaterial(std::span<const GroundMaterials::Material> materials, std::stri
   return -1;
 }
 
+std::expected<void, std::string>
+ReadOpticalValues(Json::Ref source, GroundMaterials::Material &material, float wet) {
+  const auto roughness = ReadFactor(source["roughness"], kRoughnessUnsaid, "roughness");
+  if (!roughness) { return std::unexpected(roughness.error()); }
+  const auto litter = source["litter"];
+  if (litter.Valid() && litter.GetKind() != Json::Kind::Object) {
+    return std::unexpected("litter must be an object");
+  }
+  const auto coverage = ReadFactor(litter["coverage"], 0.0, "litter.coverage");
+  if (!coverage) { return std::unexpected(coverage.error()); }
+  const auto ratio = ReadFactor(source["visibleBroadbandRatio"],
+                                1.0,
+                                "visibleBroadbandRatio",
+                                std::numeric_limits<float>::max());
+  if (!ratio) { return std::unexpected(ratio.error()); }
+  const auto albedo = source["albedo"];
+  if (albedo.Valid() && (albedo.GetKind() != Json::Kind::Array || albedo.Size() != 3)) {
+    return std::unexpected("albedo must be an RGB triplet");
+  }
+  for (size_t channel = 0; channel < 3; ++channel) {
+    const auto value = ReadFactor(albedo[channel], kAlbedoUnsaid, "albedo channel");
+    if (!value) { return std::unexpected(value.error()); }
+    const float attenuated = *value * wet;
+    if (static_cast<double>(attenuated) * *ratio > 1.0) {
+      return std::unexpected("rendered albedo must not exceed one");
+    }
+    material.Albedo[static_cast<int>(channel)] = attenuated * *ratio;
+  }
+  material.Roughness = *roughness;
+  material.LitterCoverage = *coverage;
+  material.VisibleRatio = *ratio;
+  return {};
+}
+
 std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const MoistureModel &model) {
   const float kWet = model.Wet;
   const float wetLo = model.Low;
@@ -101,14 +136,13 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
   auto &m = parsed.Value;
   m.Name = c["name"].Str("");
   if (m.Name.empty()) { return std::unexpected("material class must have a nonempty name"); }
-  m.Roughness = static_cast<float>(c["roughness"].Num(kRoughnessUnsaid));
   const Json::Ref peak = c["peakFriction"];
   if (peak.GetKind() != Json::Kind::Number || !IsPositiveFloat(peak.Num(0.0))) {
     return std::unexpected("class " + m.Name +
                            ": peakFriction must be a positive representable float");
   }
   m.PeakFriction = static_cast<float>(peak.Num(0.0));
-  const auto moisture = ReadFraction(c["moisture"], 0.0, "class " + m.Name + ": moisture");
+  const auto moisture = ReadFactor(c["moisture"], 0.0, "class " + m.Name + ": moisture");
   if (!moisture) { return std::unexpected(moisture.error()); }
   m.Moisture = *moisture;
   m.GrainSizeM = static_cast<float>(c["grainSizeM"].Num(kGrainSizeUnsaidM));
@@ -117,7 +151,6 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
       static_cast<float>(c["detailScaleM"][static_cast<size_t>(0)].Num(kDetailCoarseUnsaidM));
   m.DetailFineM =
       static_cast<float>(c["detailScaleM"][static_cast<size_t>(1)].Num(kDetailFineUnsaidM));
-  m.LitterCoverage = static_cast<float>(c["litter"]["coverage"].Num(0.0));
   const Json::Ref pd = c["slope"]["plausibleDeg"];
   if (pd.Size() != 2) {
     return std::unexpected("class " + m.Name + ": slope.plausibleDeg must be a pair");
@@ -141,10 +174,8 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
 
   const float wet = wetExempt ? 1.0f : (1.0f - kWet * m.Moisture);
 
-  m.VisibleRatio = static_cast<float>(c["visibleBroadbandRatio"].Num(1.0));
-  for (int k = 0; k < 3; k++) {
-    m.Albedo[k] = static_cast<float>(c["albedo"][static_cast<size_t>(k)].Num(kAlbedoUnsaid)) * wet *
-                  m.VisibleRatio;
+  if (auto optical = ReadOpticalValues(c, m, wet); !optical) {
+    return std::unexpected("class " + m.Name + ": " + optical.error());
   }
 
   m.LitterClass = -1;

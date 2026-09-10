@@ -115,5 +115,5 @@ Korrektur besteht Fehlererhaltung, analytische Endpunkte/Mitte und Katalog-Retry
 Rauheit, Streuauflage und Albedokanäle auf [0,1] prüfen, sichtbaren/breitbandigen
 Quotienten auf nichtnegative Float-Werte. Quotient darf >1 sein (Firn); erst das
 resultierende Albedo muss [0,1] erfüllen. Typen und RGB-Tripel vor Berechnung prüfen.
-Gültige Float-Arithmetik erhalten. Negativkontrollen plus Quotient >1 mit gültigem
-Albedo; geometrische Skalen-/Hanggrenzen bleiben separat offen.
+Gültige Float-Arithmetik erhalten. Altcode verletzt Negativkontrollen; korrigierter
+Katalog besteht Fehlererhaltung, Quotient >1 und Randwerte. Skalen/Hanggrenzen offen.
