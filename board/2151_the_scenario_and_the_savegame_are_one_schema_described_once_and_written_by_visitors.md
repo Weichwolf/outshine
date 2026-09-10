@@ -105,3 +105,14 @@ Default-/Auswahlverhalten und aktuelle Grenzen anhand der Consumer. Epoch/Decay 
 nur Metadaten ohne Runtime-Semantik. Fps beeinflusst den bisherigen Animationspfad;
 Orbit ist updateabhängig. Gemeinsame finite Bereichsvalidierung bleibt offen, ebenso
 zeitbasierte Animation/Orbit statt Framekopplung. Dokumentation ist keine Abnahme dieser Lücken.
+
+## Native View-Verträge
+Unbekannte CameraPlacement-Werte werden bisher als Local interpretiert; TimeScale
+akzeptiert positive Unendlichkeit. ViewBook muss den geschlossenen Modus und einen
+endlichen positiven Faktor vor Veröffentlichung prüfen. Public-API-Negativfälle
+erhalten vorherige Deklaration/Katalog; gültige Modi und Faktoren bleiben zulässig.
+View-Felder nach Verwendung dokumentieren: In, Viewport, PitchLimitDeg und TimeScale
+haben derzeit keine Kamerawirkung; Person validiert nur das Label, DistanceM steuert
+den Verfolgungsabstand. Keine implementierte Szenenwahl, Viewports oder Zeitdilatation
+behaupten. Diese ungenutzten Konfigurationen fachlich implementieren oder mit
+expliziter Importdiagnose aus der minimalen API entfernen; nicht still verwerfen.
