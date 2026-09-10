@@ -83,3 +83,11 @@ publiziert vor abgeschlossener Batch-Prüfung und scheitert an zwei Erhaltungsga
 ohne Buildfehler. Parser nutzt geliehene Zeilen; stabile Holder-Gruppierung erhält
 Last-write-wins. Namensauflösung bleibt separat zu profilieren. Abschluss-Lint 181/315,
 32 Repository-Tests grün, drei rote Gruppen; restore-Komplexitätsbefund beseitigt.
+
+## XML-Taggrenzen
+Xml::Parse akzeptiert derzeit beliebige Zeichen nach Schließtag-Namen und Attribute
+nach dem Self-close-Slash. Dadurch passieren syntaktisch ungültige Szenarien die Grenze.
+Schließtag erlaubt nach Namen nur Whitespace und >; Self-close muss unmittelbar />
+sein. Unabhängige gültige/ungültige Fixtures einschließlich EOF prüfen; Altcode muss
+die Ablehnungsfälle verletzen. Keine Bildänderung erwartet. Allgemeine Parserphasen,
+quadratisches Anhängen von Geschwistern und Allokationsbudgets bleiben separat offen.
