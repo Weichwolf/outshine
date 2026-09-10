@@ -60,6 +60,9 @@ private:
     [[nodiscard]] Grid Rows() const { return Grid(Cells.data(), RowCount, Columns.size()); }
   };
 
+  [[nodiscard]] static std::expected<Stood, std::string> PrepareTable(const Scenario::Table &table);
+  [[nodiscard]] static std::expected<void, std::string>
+  AppendRow(Stood &stood, std::span<const std::string> row, const std::string &tableId);
   [[nodiscard]] const Cell *At(CellAt where, bool wantNumber) const;
   std::unordered_map<std::string, Stood, ByName, std::equal_to<>> Held_;
 };

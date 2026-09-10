@@ -53,15 +53,15 @@ The door gains the records a game is made of and NOTHING that decides how a game
       declare, loudly, and a mind's `give` of an item it does not hold is refused at act
 
 ## Typisierte Tabellen als geprüfte Datenbasis
-TableBook::Stand vermischt Schema, Zahlenkonvertierung, Schlüsselindex und Publikation
-(Clang-tidy-Komplexität 33). Nicht endliche Zahlen, doppelte/leere Spaltennamen und
-überzählige Typangaben werden bisher akzeptiert. Schema und Zeilenaufbau trennen;
-ParseFiniteNumber wiederverwenden. Table-ID/Spaltennamen nichtleer und eindeutig,
+TableBook trennt jetzt Schema, Zahlenkonvertierung, Zeilenaufbau und Publikation;
+ParseFiniteNumber ersetzt den eigenen Parser. Nicht endliche Zahlen, doppelte/leere
+Spaltennamen und überzählige Typangaben werden abgelehnt. Spaltenvalidierung sortiert
+geliehene string_views, ohne quadratische Suche. Table-ID/Spaltennamen nichtleer und eindeutig,
 mindestens eine Spalte, exakte Zeilenbreite; fehlende Typangaben bleiben Text.
 4096-Zeilen-Grenze erhalten. Erste Zelle ist der eindeutige, unveränderte Textschlüssel
 (auch bei Zahlenspalten); endliche Dezimalzahlen vollständig lesen, keine Clamps.
 Zellspeicher einmal mit geprüftem Produkt reservieren, Zeilen direkt darin aufbauen.
-TableBook und Simulation nur als vollständige Kandidaten publizieren. Tests prüfen
+TableBook und Simulation publizieren nur vollständige Kandidaten. Vier Tests prüfen
 Schema-/Zahlenfehler, eigene Datenspeicherung, typisierte Abfrage, Schlüssel, Grenzen
-und erhaltene Simulation nach Assembly-Ablehnung. Altstand muss Kontrollen verletzen.
-Öffentliche Table-Verträge dokumentieren; keine Quest-/Script-Fähigkeit behaupten.
+und erhaltene Simulation nach Assembly-Ablehnung. Beide neuen Tests scheitern im Altstand.
+Öffentliche Table-Verträge sind dokumentiert; keine Quest-/Script-Fähigkeit behaupten.

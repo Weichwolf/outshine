@@ -472,10 +472,22 @@ struct Bus {
   Room Reverberates;
 };
 
+/// Owned typed table declaration, copied by declare() and validated/parsed by assemble().
+/// Assembly publishes tables with the simulation only after the complete candidate succeeds;
+/// invalid tables preserve the previous simulation. Later source edits do not update it.
+/// Configure outside simulation steps; serialize mutation with reads of this descriptor.
+/// Setup copies strings, parses numeric cells and allocates storage plus a key index.
 struct Table {
-  std::string Id;
+  std::string Id; ///< Nonempty, case-sensitive identifier, unique among declared tables.
+  /// Ordered nonempty, unique names; at least one column. Names are matched exactly.
   std::vector<std::string> Columns;
+  /// Positional types: true means number, false means text. Omitted trailing types mean text;
+  /// more type entries than columns is an error. Numeric and text lookups never coerce types.
   std::vector<bool> Types;
+  /// At most 4096 rows, each exactly Columns.size() cells; zero rows is valid.
+  /// The first cell's unchanged spelling is the unique row key, including numeric spellings
+  /// and the empty string. Numeric cells require finite decimal values with optional sign
+  /// and exponent, no whitespace/suffix and no overflow/underflow. Text is stored unchanged.
   std::vector<std::vector<std::string>> Rows;
 };
 
