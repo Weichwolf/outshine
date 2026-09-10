@@ -106,15 +106,12 @@ bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkon
 
 Writer erhält LatLon jetzt bitgenau mit std::format; sechs Nachkommastellen konnten
 Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind mehr.
-ReadScenarioOsm ersetzt permissives strtod: expected-Fehler, vollständige locale-
-unabhängige Zahlen, endliche WGS84-Winkel, zwei Weg-/drei Flächenpunkte und höchstens
-65536 Punkte je Feature vor Wachstum. Kein stiller Teilimport; Document-Kandidat
-erhält Vorgänger bei spätem Fehler. Grenzen/Exponent/Whitespace/Budgetrand geprüft;
-alter Reader rot, drei Tests grün. Wien c307cab8 bytegleich, PNG geöffnet.
-Test-Linklisten und Grammatik-Scanner erfassen den ausgelagerten Reader.
-widthM/heightM werden vollständig endlich/nichtnegativ gelesen: fehlend = 0,
-explizit ungültig = Fehler. level direkt als dezimaler int ohne Float-Zwischenwert;
-Bruchteile/Überlauf/NaN verweigert. Gemeinsame from_chars-/expected-Grenze vor Append.
-Int-Grenzen, Null/Defaults, Zahlenreste, negative Maße und später Document-Erhalt
-geprüft: alter Reader rot, drei Tests grün; Wien c307cab8 bytegleich, PNG geöffnet.
-uint64-Reliefseed, Flags, Gesamtbudget und native API-Validierung bleiben offen.
+ReadScenarioOsm prüft Koordinaten/Featurebudget und Maße/Ebenen strikt. Grenz- und
+Fehlererhaltstests grün; alte Reader rot. Wien unverändert, Details in Git.
+Native API-Lücke: declare übernimmt Ground.Osm ungeprüft; Asking reicht es weiter.
+Gemeinsamen formatfreien Structure-Validator für Reader und declare nutzen:
+Kind, Maße, Punktpaare, Winkel, Featurebudget. XML prüft Syntax/Budget vor Wachstum.
+Native Prüfung vor jeder Engine-Mutation/Producer-Ausführung, auch ohne Ground.Declared.
+Public-API-Test: ungültige späte Features erhalten writeScenario/Input; kein Producer-
+Aufruf. Gültige Grenzen und Weg/Fläche akzeptieren; ausgelassene Prüfung als Gegenprobe.
+Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung bleiben offen.
