@@ -81,15 +81,9 @@ Altwriter scheitert an verlorenen Werten ohne Buildfehler; neuer Writer besteht
 die Feld-Oracles und den Asset-Roundtrip. Kein bloßer Text-Fixpunkt als Oracle.
 
 ## Geprüfte Grenzen der Inventur
-Grammar/Writer ist eine ausdrücklich begrenzte statische Literal-Inventur, kein
-Nachweis ausgeführter Writer-Fähigkeiten oder semantischer Erhaltung. Bisheriger Regex
-übersieht Folgetags/verkettete/Raw-Literale und zählt Kommentare als Writer-Fähigkeit.
-Bestehenden getesteten Kommentarscanner wiederverwenden; Literale tokenweise auswerten.
-Unvollständige Literale/Analyse und leere Grammatik sind Fehler, keine grüne Leermenge.
-Unbekannte Namen bleiben fehlender statischer Nachweis; keine pauschalen Exemptions.
-Unabhängige Prüferfälle für mehrere/verkettete/Raw-Tags, Kommentare, Char-Literale,
-fehlende Sektionen und kaputte Eingaben: elf Tests grün. Altprüfer verletzt sechs der
-neun ursprünglichen Prüferfälle; vollständiger Lint bleibt bei drei roten Gruppen.
+Grammar/Writer ist eine statische Literal-Inventur, kein Beweis für Attribute oder
+semantische Erhaltung. Tokenbasierter Scanner prüft Kommentare, verkettete/Raw-Tags
+und kaputte Eingaben; elf Tests grün, Altprüfer verletzt sechs Negativkontrollen.
 
 Asset-Roundtrip, strikter Clip-Token und gemeinsamer Playback-Validator sind implementiert;
 negative Kontrollen und API-Erhaltung/Retry grün. Welt-/Relief-/OSM-Writer separat;
@@ -118,3 +112,13 @@ ist dafür unbegründet. Auswahl, Override-Reihenfolge, verschachtelte Layer-Abl
 und Erhaltung bei Parserfehlern gezielt prüfen. Öffentliche Layer-Daten dokumentieren
 Importzeitpunkt, Besitz und Auswahl dokumentiert; Test grün, entfernte Nested-Prüfung rot.
 Offen: native Windows-Pfadauflösung statt Slash-Erkennung; übrige Merge-Semantik auditieren.
+
+## Grundlegende Weltparameter
+Georeferenz, Gravitation, Luftdichte, Streamingreichweite/-geduld gemeinsam auditieren,
+dokumentieren und verlustfrei exportieren. radiusM ist Generator-Extent, kein verwendeter
+Erdradius; Luftdichte schaltet bisher nur den Himmel. Nullgravitation wählt bislang
+Standardgravitation: bekannte Semantiklücke, nicht als Schwerelosigkeit dokumentieren.
+Gemeinsame finite Werteprüfung für Import/API/Export; Latitude [-90,90], Longitude
+endlich, übrige Größen nichtnegativ. Patience über geprüfte Millisekunden-Pollzahl
+begrenzen und auch GroundPoolConfig vor int-Cast prüfen; keine Doppelkonstante.
+Negativkontrollen, Zustandserhaltung, exakte Roundtrips und gültige Defaults prüfen.
