@@ -103,8 +103,9 @@ Cold-Import-Budget), Reihenfolge und verschachtelte Listen exakt. Altstand benö
 2,87 s und verletzt das Budget. 15 Syntax-/Attribut-/Szenario-Regressionen bestehen.
 
 ## XML-Dokumentgrenzen
-Nicht-Whitespace außerhalb der Wurzel wird derzeit ignoriert; Attribute ohne
-Trennraum und Kommentare mit innerem Doppelbindestrich werden akzeptiert. Diese
-Syntaxfehler vor Veröffentlichung ablehnen. UTF-8-BOM nur am Dokumentanfang erlauben.
+Nicht-Whitespace außerhalb der Wurzel, Attribute ohne Trennraum und Kommentare
+mit innerem Doppelbindestrich werden vor Veröffentlichung abgelehnt. UTF-8-BOM
+ist nur am Dokumentanfang erlaubt; der Altstand verletzt die Negativkontrolle.
 Abnahme: positive Whitespace-/Kommentar-/BOM-Fälle und ungültige Gegenstücke;
 Parserfehler leeren das Parse-Ergebnis, Szenarioimport erhält sein voriges Dokument.
+Sieben Regressionen grün; das ist noch keine vollständige XML-Konformitätsabnahme.

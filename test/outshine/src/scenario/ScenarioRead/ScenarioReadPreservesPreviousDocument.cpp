@@ -12,7 +12,10 @@ int main() {
   scene.Assets.push_back(Scenario::Asset{});
   scene.Assets.back().Uri = "previous.glb";
   std::string error;
-  for (const std::string_view text : {"<scenario>",
+  for (const std::string_view text : {"junk<scenario/>",
+                                      "<scenario/>junk",
+                                      "<scenario name=\"new\"version=\"1\"/>",
+                                      "<scenario>",
                                       "<wrong/>",
                                       "<scenario><unknown/></scenario>",
                                       "<scenario name=\"new\"><assets><asset uri=\"new.glb\" "

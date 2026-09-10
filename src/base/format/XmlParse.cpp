@@ -16,6 +16,8 @@ constexpr auto kXmlInputTooLarge = "XML input exceeds the 16 MiB text budget";
 
 namespace {
 
+constexpr std::string_view kUtf8Bom = "\xEF\xBB\xBF";
+
 constexpr size_t kXmlMaxTextBytes = size_t{16} * 1024u * 1024u;
 static_assert(kXmlMaxTextBytes <= std::numeric_limits<uint32_t>::max());
 
@@ -57,6 +59,7 @@ bool Xml::Parse(const char *text, size_t length) {
   Nodes_.emplace_back();
 
   ParseState state;
+  if (Text_.starts_with(kUtf8Bom)) { state.At = kUtf8Bom.size(); }
   while (state.At < length) {
     if (!ParseMarkup(state)) { return false; }
   }
@@ -76,17 +79,15 @@ bool Xml::ParseText(ParseState &state) {
   const auto &stack = state.Stack;
   const size_t from = at;
   while (at < length && Text_[at] != '<') { ++at; }
-  if (depth > 0) {
-    size_t start = from;
-    size_t stop = at;
-    while (start < stop && Space(Text_[start])) { ++start; }
-    while (stop > start && Space(Text_[stop - 1])) { --stop; }
-    if (stop > start) {
-      Node &into = Nodes_[stack[depth - 1]];
-      into.TextOff = static_cast<uint32_t>(start);
-      into.TextLen = static_cast<uint32_t>(stop - start);
-    }
-  }
+  size_t start = from;
+  size_t stop = at;
+  while (start < stop && Space(Text_[start])) { ++start; }
+  while (stop > start && Space(Text_[stop - 1])) { --stop; }
+  if (stop == start) { return true; }
+  if (depth == 0) { return Refuse("only whitespace is allowed outside the root element", start); }
+  Node &into = Nodes_[stack[depth - 1]];
+  into.TextOff = static_cast<uint32_t>(start);
+  into.TextLen = static_cast<uint32_t>(stop - start);
   return true;
 }
 
@@ -103,6 +104,9 @@ bool Xml::ParseMarkup(ParseState &state) {
   if (at + 3 < length && Text_.compare(at, 4, "<!--") == 0) {
     const size_t stop = Text_.find("-->", at);
     if (stop == std::string::npos) { return Refuse("a comment never ends", at); }
+    if (Text_.find("--", at + 4) != stop) {
+      return Refuse("a comment cannot contain a double hyphen", at);
+    }
     at = stop + 3;
     return true;
   }
@@ -205,6 +209,7 @@ bool Xml::ParseAttributes(ParseState &state, uint32_t made, bool &empty) {
   const size_t length = Text_.size();
   auto &at = state.At;
   while (at < length) {
+    const size_t beforeSpace = at;
     while (at < length && Space(Text_[at])) { ++at; }
     if (at < length && Text_[at] == '/') {
       if (at + 1 >= length || Text_[at + 1] != '>') {
@@ -219,6 +224,7 @@ bool Xml::ParseAttributes(ParseState &state, uint32_t made, bool &empty) {
       return true;
     }
     if (at >= length) { return Refuse("an element's tag never ends", Nodes_[made].NameOff); }
+    if (at == beforeSpace) { return Refuse("an attribute must be preceded by whitespace", at); }
     if (!ParseAttribute(state, made)) { return false; }
   }
   return Refuse("an element's tag never ends", Nodes_[made].NameOff);
