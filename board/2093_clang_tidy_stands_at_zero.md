@@ -112,9 +112,9 @@ Parsing-Phasen. Altcode verletzt Erhaltung/Reload; fünf Regressionen grün. Reg
 Rank 0..255 (ClassBuilder packt acht Bits), Lanes >=0, Priority int; Maße im Float-Bereich.
 Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahlen offen.
 
-## Dach-Triangulierung
-EarClip: Ear-Prüfung getrennt; nichtendliche Koordinaten/Orientierungswerte abgelehnt.
-Überlaufenden int(n*n)+8-Guard durch nachweislichen Fortschritt ersetzt: jeder
-Durchlauf entfernt einen Index oder bricht ab. Indexbereich vor Konvertierung prüfen.
-Acht Gebäudetests grün: Flächen, Reihenfolge und Fehler-Rollback; Altcode-Negativkontrolle rot;
-Selbstschnittvalidierung und globales Triangulierungs-Arbeitsbudget bleiben offen.
+## UI-Markup-Parser
+Read beschädigt bei Fehlern den Vorgänger und behält Scripted bei Wiederverwendung.
+Parserkandidat mit Text-/Tag-/Attribut-/Raw-Text-Phasen; erst vollständig publizieren.
+Explizite Budgets: 1 MiB Quelltext, 65536 Knoten inkl. Dokument, 65536 Attribute,
+256 offene Elemente. Entity-Suche auf bestehende Referenzlänge begrenzen.
+Baum-/Attribut-/Raw-Text-Verträge und Fehler-/Budgeterhalt prüfen; keine HTML-Konformität behaupten.
