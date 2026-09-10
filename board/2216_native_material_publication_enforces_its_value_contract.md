@@ -47,6 +47,17 @@ melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer ü
 - Alle Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen.
   Vollständige Asset-/Instanzmigration bleibt WI 2150; Runtime-Ausnahmen WI 2194.
 
+## Nächster Import-Schritt
+Subject::Assemble prüft bisher lokale Indizes erst nach Clear und partieller Kopie.
+Vorflight für alle Parts: vorhandene Attributregeln plus lokale Indexgrenzen,
+Gesamtvertex-/Komponentenkapazität und uint32-Adressierbarkeit vor Datenänderungen.
+Erst danach Attribute kopieren; affine Platzierung als getrennte Phase nach Mat4-
+Vertrag (Punkte, inverse-transponierte Normalen, Tangenten und gespiegeltes Winding).
+Negativfall: zweiter Part mit ungültigem Index erhält vorherige Daten/Ansichten;
+gültiger Retry und vorhandene unabhängige Spiegelungs-/Skalierungsoracles bleiben grün.
+Keine zusätzliche Geometriekopie. Spätere Normalen-/Tangentenfehler und Append bleiben
+separate Transaktions-/Kapazitätslücken; keine vollständige Importtransaktion behaupten.
+
 ## Abnahme
 - [x] Publikations-/Ersatzfehler, Quellerhaltung und gültiger Retry durch native Tests geprüft.
 - [x] Fehler spät in Materialanimation erhält frühere Materialien und Geometrieansichten.
