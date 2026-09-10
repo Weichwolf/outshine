@@ -111,8 +111,8 @@ Body-Dynamik: gemeinsame Eingabeprüfung vor declare/Assembly und nach strengem 
 Parsing: Masse/diagonale Trägheit endlich >=0, Position endlich, Quaternion unit
 (Normtoleranz 1e-6). Altcode verletzt zwei Negativkontrollen, fünf Regressionen grün.
 ReadBodies: Drive-Dekodierung getrennt; gültige/ungültige Antriebe zusätzlich geprüft.
-Kontakt-/Antriebstypen anhand Reader, Assembly und Prismatic dokumentieren: Einheiten,
-Besitz, reine Metadaten und fehlende Validierung. Laufzeit-Anbindung bleibt offen.
+Kontakt-/Antriebstypen geprüft und dokumentiert: Einheiten, Besitz, fehlende Validierung.
+Offen: Anbindung, Kraftüberläufe, LoadFalloff-Normierung und CircleM-Radius/Durchmesser.
 Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
 schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
 an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.

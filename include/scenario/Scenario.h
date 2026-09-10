@@ -669,46 +669,74 @@ struct View {
   double TimeScale = 1.0;
 };
 
+/// Value parameters for a unilateral spring/damper contact, in SI units.
+/// Independent copies share no state; mutate only with exclusive access. The internal
+/// contact solver consumes these values, but body integration does not yet invoke it.
+/// Nonnegative finite parameters are required by the physical model; declaration and
+/// XML import do not yet enforce this contract. Derived force overflow is unchecked.
 struct Prismatic {
-  double ReachM = 0.0;
-  double StiffnessNPerM = 0.0;
-  double DampingNsPerM = 0.0;
+  double ReachM = 0.0; ///< Uncompressed reach in metres; clearance below it creates compression.
+  double StiffnessNPerM = 0.0; ///< Spring stiffness in newtons per metre of compression.
+  double DampingNsPerM = 0.0;  ///< Damping in newton-seconds per metre; closing speed adds load.
+  /// Metres of spring travel; zero disables the travel stop. Beyond positive travel,
+  /// the solver retains the spring load at the limit and adds the stop load.
   double TravelM = 0.0;
-  double StopNPerM = 0.0;
+  double StopNPerM = 0.0; ///< Additional stop stiffness in newtons per metre beyond travel.
+  /// Load threshold in newtons; zero disables overload reporting. Does not clamp force.
   double LimitN = 0.0;
 };
 
+/// Stored contact-slip parameters; no runtime tyre/contact-force consumer yet.
+/// Plain copied values with exclusive mutation; no range validation at declaration.
+/// These fields do not currently establish a working friction or tyre model.
 struct Slip {
-  double Grip = 0.0;
-  double RadiusM = 0.0;
-  double CorneringNPerRad = 0.0;
-  double RelaxationM = 0.0;
+  double Grip = 0.0;             ///< Declared dimensionless grip coefficient; unapplied.
+  double RadiusM = 0.0;          ///< Declared rolling radius in metres; unapplied.
+  double CorneringNPerRad = 0.0; ///< Declared lateral stiffness in newtons per radian; unapplied.
+  double RelaxationM = 0.0;      ///< Declared slip relaxation length in metres; unapplied.
+  /// Unapplied load-dependence parameter; its normalization and model remain unspecified.
   double LoadFalloff = 0.0;
 };
 
+/// Owned contact declaration copied with its body; not a live collision constraint.
+/// Mutate only with exclusive access. Anchor resolution and numeric validation are
+/// not implemented; stored coordinates currently receive no world-space transform.
 struct Contact {
-  std::string At;
-  Vec3 AtM;
-  Prismatic Strut;
-  Slip Touches;
+  std::string At;  ///< Owned symbolic anchor name; currently unresolved.
+  Vec3 AtM;        ///< Declared body-local contact position in metres, right-handed and Y-up.
+  Prismatic Strut; ///< Spring/damper parameters; not connected to body integration.
+  Slip Touches;    ///< Stored slip parameters; not connected to body integration.
 };
 
-enum class Drives : uint8_t { Effort, Motion };
+/// Actuator capability category used when assembling a body.
+enum class Drives : uint8_t {
+  Effort, ///< Assembly creates torque or torque-opposing capability according to Opposes.
+  Motion  ///< Assembly creates steer capability; no steering constraint is installed.
+};
 
+/// Copied actuator declaration; assembly currently consumes only Does and Opposes.
+/// Other fields remain metadata, without force application or numeric validation.
+/// No borrowed storage; independent copies may be used on separate threads.
 struct Drive {
-  Drives Does = Drives::Effort;
-  bool Opposes = false;
+  Drives Does = Drives::Effort; ///< Capability category; invalid enum values are not rejected yet.
+  bool Opposes = false;         ///< Effort only: select the torque-opposing capability tag.
+  /// Rotational intent when true, linear when false. XML derives this from PeakN == 0;
+  /// direct declarations are not checked for consistency with the magnitude fields.
   bool Turns = true;
+  /// Intended body-local axis, right-handed and Y-up; not normalized or applied yet.
   Vec3 AxisXyz = {{0.0, 1.0, 0.0}};
-  double PeakNm = 0.0;
-  double PeakN = 0.0;
-  double Ratio = 1.0;
-  double CircleM = 0.0;
+  double PeakNm = 0.0; ///< Declared peak torque in newton-metres; XML rejects simultaneous PeakN.
+  double PeakN = 0.0;  ///< Declared peak force in newtons; XML rejects simultaneous PeakNm.
+  double Ratio = 1.0;  ///< Unapplied dimensionless transmission ratio; sign policy unspecified.
+  double CircleM =
+      0.0; ///< Unapplied steering-circle measure in metres; radius/diameter unspecified.
 };
 
+/// Owned attachment declaration copied with its body; no runtime anchor binding yet.
+/// Mutate only with exclusive access. Names and coordinates are not validated.
 struct Slot {
-  std::string At;
-  Vec3 AtM;
+  std::string At; ///< Owned symbolic attachment name; currently unresolved.
+  Vec3 AtM;       ///< Declared body-local attachment position in metres, right-handed and Y-up.
 };
 
 /// Owned body declaration copied into simulation storage during assembly.
