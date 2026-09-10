@@ -89,3 +89,10 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 
 Andere rote Gates bleiben sichtbar und ihren WIs zugeordnet. Zielabschluss verlangt
 mehr als grüne Zähler: sämtliche API-SOLL-Abnahmen aus 2188 tatsächlich nachweisen.
+
+## Begrenzte Hilfsfunktionen bereinigen
+SurfaceBindings: verschachtelten Uniformbuffer-Selektor als explizite Verzweigung
+lesen; sämtliche Zählwerte unverändert. TexelChain: Cast-Zieltypen mit auto ableiten.
+Client-Shotbericht: ms/s-Umrechnung mit benannter Einheitenkonstante. Keine Änderung
+an Shaderauswahl, Filterarithmetik oder Berichtswerten. Bestehende Material-/Mip-Orakel
+und Client-Argumentprüfungen ausführen; keine zusätzlichen spiegelnden Tests.
