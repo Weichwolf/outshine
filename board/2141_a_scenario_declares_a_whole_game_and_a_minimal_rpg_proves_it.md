@@ -4,117 +4,62 @@ Area: scenario, engine
 Tags: architecture, owner, ai-first
 Depends: 2131, 2136
 
-# A scenario declares a WHOLE game, and a minimal RPG played through the door proves it
+# Ein deklaratives Spiel mit wiederholbarem Zustand
 
-**Benchmark** -- Unreal: a game is Blueprints and `GameMode`/`GameState`/`SaveGame` objects a
-studio scripts; RAGE: a script VM (`scr`) over the world with `STAT_` and save blocks. **Both
-agree** that state, ownership, inventory and persistence are the ENGINE's records and the game's
-rules are content over them. Neither has an author who is an AI writing text; here the rules
-are the scenario itself and the only authoring verb is a declaration, so the door has to carry
-what a script carries in the references. **The choice is mine**, and the front page names it:
-a scenario that cannot be written is a game that cannot be made.
+## Ziel
+Eine Szenariodatei beschreibt ein minimales RPG: ein Ort, drei NPCs, eine Quest.
+Spielregeln sind Inhalt; Engine hält Identitäten, Besitz, Zustandsdaten und Zeit.
+Kein spielabhängiger Sondercode. Gespielter Zustand lässt sich speichern und fortsetzen.
 
-## Where it stands, measured 2026-09-05
+## Vorhandene Grundlage
+- Kinds/Instances und Script::Program; TableBook hält typisierte Daten mit eigenen Strings.
+- Tabellen prüfen eindeutige nichtleere IDs/Spalten, mindestens eine Spalte, exakte
+  Zeilenbreite, höchstens 4096 Zeilen und vollständige endliche Dezimalzahlen.
+  Fehlende trailing Types bedeuten Text; erste unveränderte Zelle ist der eindeutige
+  Schlüssel, auch bei numerischer Schreibweise oder leerem Text. Keine Typkoerzierung.
+- Tabellenaufbau trennt Schema, Zahlenkonvertierung und Publikation; Zellspeicher wird
+  mit geprüftem Produkt reserviert. Assembly publiziert nur vollständige Kandidaten.
+- Trigger halten höchstens 256 Volumes, 65536 Ereignisse, 256 Occupants pro Volume
+  und 256 gepufferte Ereignisse. Katalogauflösung verwendet kurzlebige string_views.
+  Ereignis-/Feldnamen sind nichtleer und eindeutig je Katalog/Ereignis; Groß-/
+  Kleinschreibung unterscheidet Namen. Leere Feldlisten sind gültig.
+- Volume-Geometrie ist endlich, Ausdehnung nichtnegativ; geschlossene Box/Kugel,
+  Halbausdehnung bzw. Radius X. std::hypot verhindert Quadrierungsüber-/unterlauf.
+- Probe lehnt Sentinel, nichtendliche Position/Zeit, negative/rückläufige Zeit vor
+  Mutation ab; gleiche Zeit für mehrere Bodies ist gültig. Engine prüft Lebendigkeit
+  und propagiert Fehler. Bereits integrierte Physik wird nicht zurückgerollt.
+  Enter/Exit/Dwell sind getrennte Occupant-Übergänge; Dwell einmal je Aufenthalt.
+- Writer erhält Events/Carries und alle Volume-Felder einschließlich Reihenfolge,
+  Escaping und endlichen Double-Werten. Leeres When bleibt ungültig.
+  Dokumentierte Table-/Event-/Volume-Verträge sind noch keine vollständige SOLL-Abnahme.
 
-```
-  Scenario::Document       Kinds, Instances, Regions, Doors, Events, Tables, Bodies, Player,
-                           Clock, Input, State (Persisted)         include/scenario/Scenario.h:670-701
-  Scenario::Mind           Tier, Programme, Prompt, Model, Hz, budgets   Scenario.h:292-306
-  the engine acts on       Kinds and Instances, a Script::Program; Minds, Regions, Doors are
-                           carried by Unacted() and acted on by nothing   Declaring.cpp:312
-  round trip               writeScenario() exists                     include/Outshine.h:174
-  inventory · ownership    no section
-  quest state · time       Events and Tables exist as records; nothing advances a quest
-  save · load              Persisted is a record; nothing writes a played state back
-```
+## Offene Arbeit
+1. Besitzmodell für Owner/Item/Count; kontrollierte give/take-Operationen, keine
+   impliziten Inventare in NPC-Texten. Unbekannte Assets/fehlender Besitz ergeben Fehler.
+2. Veränderbare Tabellen und deklarierte Ereignisregeln für Quest-/Spielzustand.
+   Carries benennt aktuell nur Felder; Trigger liefern Index/Entity, keine Payloadwerte.
+3. Simulationszeit und NPC-Schedules aus einem expliziten Clock-Vertrag; Replay nach 2142.
+4. Gespielten Zustand separat von der Ausgangsdeklaration speichern: Besitz, Tabellen,
+   Körperpositionen, Uhr und benötigte Trigger-Zustände. Vollständiger Import nach 2131.
+5. Region-Bindung von Volume.In implementieren oder explizit ablehnen; aktuell ignoriert.
+   Volume.Id ist Layer-Schlüssel, Assembly prüft ihn noch nicht auf Eindeutigkeit.
+6. Despawn-Freigabe, öffentlich sichtbare Überlast und schnelle Durchquerung lösen.
+   Aktuell Mittelpunktabtastung pro Tick, keine Körper-/Sweep-Intersection; interne
+   Overflow/Unseated-Zähler reichen als öffentlicher Fehlervertrag nicht aus.
 
-## The solution
+## Nächster Schritt: deklarierte Tabellen schreiben
+Eigene WriteTables-Phase erhält Tabellen-/Spalten-/Zeilenreihenfolge und Zellschreibweise.
+XML stellt pro Spalte einen Typ dar; fehlende native Typen werden als Text materialisiert.
+Escaping einschließlich Tabs/Zeilenwechseln; leere Textzellen und Nullzeilen erhalten.
+Unabhängiger Read/Write-Test prüft konkrete Werte und typisierte TableBook-Abfragen;
+Altstand muss wegen fehlender Tabellen scheitern. Keine Runtime-Savegame-Fähigkeit behaupten.
 
-The door gains the records a game is made of and NOTHING that decides how a game goes:
-
-- **holdings**: who owns what (`Holding{Owner, Item, Count}`), a table the engine keeps and a
-  mind's `give`/`take` verbs move; the scenario seeds it and reads it back
-- **state**: a quest is `Table` rows a mind reads and writes through declared verbs, and
-  `Event`s are what a change of a row fires; no engine code knows the word quest
-- **time**: `Clock` advances the world and the minds' schedules (`EverySeconds`)
-- **save and load**: `writeScenario()` writes the PLAYED state (holdings, tables, positions,
-  clock) as a scenario, and declaring that scenario resumes the game -- the round trip of
-  board:2131 carried to a running world
-
-## What will be true
-
-- [ ] A minimal RPG -- one place, three minds, one quest whose completion is a table row -- is
-      ONE scenario file with no code beside it
-- [ ] Played through the door for N steps, written back, declared again and played the same
-      N steps: the two runs' pictures and tables are byte-identical (the minds' answers
-      replayed from board:2142's event log)
-- [ ] Every section the RPG uses round-trips: read, write, diff empty (board:2131)
-- [ ] Negative control: a scenario that gives a mind an item no `Asset` declares is REFUSED at
-      declare, loudly, and a mind's `give` of an item it does not hold is refused at act
-
-## Typisierte Tabellen als geprüfte Datenbasis
-TableBook trennt jetzt Schema, Zahlenkonvertierung, Zeilenaufbau und Publikation;
-ParseFiniteNumber ersetzt den eigenen Parser. Nicht endliche Zahlen, doppelte/leere
-Spaltennamen und überzählige Typangaben werden abgelehnt. Spaltenvalidierung sortiert
-geliehene string_views, ohne quadratische Suche. Table-ID/Spaltennamen nichtleer und eindeutig,
-mindestens eine Spalte, exakte Zeilenbreite; fehlende Typangaben bleiben Text.
-4096-Zeilen-Grenze erhalten. Erste Zelle ist der eindeutige, unveränderte Textschlüssel
-(auch bei Zahlenspalten); endliche Dezimalzahlen vollständig lesen, keine Clamps.
-Zellspeicher einmal mit geprüftem Produkt reservieren, Zeilen direkt darin aufbauen.
-TableBook und Simulation publizieren nur vollständige Kandidaten. Vier Tests prüfen
-Schema-/Zahlenfehler, eigene Datenspeicherung, typisierte Abfrage, Schlüssel, Grenzen
-und erhaltene Simulation nach Assembly-Ablehnung. Beide neuen Tests scheitern im Altstand.
-Öffentliche Table-Verträge sind dokumentiert; keine Quest-/Script-Fähigkeit behaupten.
-
-## Eindeutige Trigger-Ereignisse
-Der verengte uint16_t-Sentinel ist entfernt. Genau 2^16 Ereignisse sind unterstützt
-(Indices 0..65535), größere Kataloge werden vor Aufbau abgelehnt. Nichtleere eindeutige
-Namen werden mit kurzlebigem string_view-Index aufgelöst. Ereigniskatalog und
-Volume-Vorbereitung sind getrennte Phasen; Occupants speichern keinen redundanten
-Volume-Index. Assembly prüft und übernimmt Events auch ohne Volumes.
-Fünf Tests bestehen: erster/letzter Index samt Listener/Zählern, 65537 Einträge,
-doppelte/leere Namen, unbekannter Verweis und Simulationserhalt. Beide neuen Fälle
-scheitern im Altstand. Event-Vertrag dokumentiert: Feldnamen sind keine Payloadwerte.
-
-
-## Geometrische Trigger-Grenzen
-Implementiert: endliche Zentren und nichtnegative endliche Ausdehnungen prüfen;
-Dwell braucht endliche positive Dauer. Nullausdehnung bleibt eine gültige geschlossene
-Punkt-/Flächenmenge. Sphere nutzt ExtentM.x als Radius; y/z bleiben ungenutzt, aber gültig.
-Quadratsummen durch std::hypot ersetzt: große endliche Distanzen dürfen nicht durch
-inf <= inf als innerhalb gelten. Analytische Rand-, Außen- und Extremwerttests scheitern
-im Altstand und bestehen mit der Korrektur; alle drei Trigger-Tests bestehen.
-
-## Laufende Trigger-Probes
-Probe hat einen nodiscard-expected-Vertrag: Sentinel, nichtendliche Position/Zeit,
-negative oder gegenüber letzter akzeptierter Probe rückläufige Zeit werden vor jeder
-Mutation abgelehnt. Gleiche Zeit für mehrere Bodies ist gültig. Registry-Lebendigkeit
-prüft weiterhin der Engine-Aufrufer. Engine propagiert Ablehnung aus advance; bereits
-integrierte Physik wird dabei nicht zurückgerollt. Ein-/Austritt und Verweilen als eigene
-begrenzte Occupant-Übergänge strukturiert. Vier Tests bestehen und prüfen Belegung und Queue
-nach Ablehnung sowie Austritt, Wiedereintritt und einmaliges Dwell. Kapazitäts-/Despawn-
-Politik bleibt offen, keine zusätzlichen unbeschränkten Laufzeitallokationen.
-Negativkontrolle ohne Eingabeprüfung scheitert; Fehlerpfad im Engine-Aufrufer propagiert.
-
-## Öffentlicher Volume-Vertrag und verbleibende Grenzen
-Volume dokumentiert Ownership, Assembly-Ablehnung, Koordinaten, Halbausdehnung/Radius,
-Punktabtastung und Dwell-Neustart. In ist heute unaufgelöste Metadaten; regionale Bindung
-muss implementiert oder explizit abgelehnt werden. Id dient Layer-Ersetzung, wird bei
-Assembly aber nicht auf Eindeutigkeit geprüft. Writer serialisiert jetzt Events und Volumes.
-Diese Lücken bleiben Teil von 2151/2131; Dokumentation ist keine SOLL-Abnahme.
-Occupancy und Queue sind auf je 256 begrenzt; Überlauf zählt derzeit nur intern.
-Despawn-Freigabe, öffentlich sichtbare Überlast und schnelle Durchquerung separat lösen.
-
-## Ereignisse und Volumes speichern
-Implementiert: eigene Writer-Phasen für Events samt Carries und alle Volume-Felder.
-Reihenfolge, XML-Escaping und endliche Double-Werte exakt erhalten. Shape/When explizit
-schreiben, auch leer: Reader-Defaults dürfen native Werte nicht verändern. Unabhängiger
-Read/Write-Test muss im Altstand Verlust zeigen; gültiger Roundtrip muss wieder assemblieren.
-Keine Speicherung laufender Occupancy behaupten; es geht um die deklarierte Konfiguration.
-
-Grammatik verlangt nichtleere Carries.what und Volume.when; leeres When bleibt ungültig.
-Assembly lehnt leere/doppelte Carries-Namen auch ohne Volumes ab.
-Wiederverwendeter string_view-Scratch prüft sortierte benachbarte Duplikate; deklarierte Reihenfolge
-bleibt erhalten. Leere Feldliste, gleiche Namen in verschiedenen Events und Groß-/
-Kleinschreibung bleiben gültig. Public-API-Negativkontrolle und Listener-Tests prüfen
-Ablehnung, Simulationserhalt und erfolgreiche Wiederholung.
+## Abnahme
+- Ein Ort, drei NPCs, eine Quest vollständig deklarativ und über die Public API spielbar.
+- N Schritte, speichern/laden, weitere N Schritte: gleicher Zustand und gleiche Bilder
+  wie ununterbrochen, mit identischen Eingaben und aufgezeichneten NPC-Antworten (2142).
+- Jede genutzte Sektion bleibt nach Import/Export semantisch gleich; unabhängige Fixtures.
+- Negative Fälle für unbekannte Assets, unzulässige Besitzwechsel, fehlerhafte Tabellen,
+  Event-/Volume-Definitionen und Probes erhalten den jeweils zugesicherten alten Zustand.
+- Vorhandene Tests unter test/outshine/src/scenario/{Tables,Triggers,ScenarioWrite} und
+  Public-API-Tests für Assembly-Erhaltung bleiben grün; Negativkontrollen bleiben wirksam.
