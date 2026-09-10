@@ -39,7 +39,7 @@ Lokale Klone: ../vector-tile-spec (21ff2cb), 2.1/README.md und vector_tile.proto
 ../protobuf-docs (4b88f52), content/programming-guides/encoding.md.
 MVT-Spezifikation ist Formatvertrag; native Speichergrenzen zusätzlich ausdrücklich prüfen.
 
-## Nächster Schritt: Ebenen und Wörterbücher
+## Ebenen und Wörterbücher
 Ebenenheader vor Nutzdaten auslesen: Name, Version und Extent vorhanden; Version 2
 unterstützen, andere Versionen für die gewählte Ebene ablehnen. Extent positiv und
 im nativen int-Raum, vor jeder Verengung prüfen. Headerprüfung aus Decode extrahieren.
@@ -63,9 +63,10 @@ normal/sanitisiert, Lint und Wien-Pixelvergleich mit visueller Prüfung erforder
 - [ ] Durchgängige unabhängige Formatfixtures und direkt instrumentierter Decoder.
 
 ## Aktueller Nachweis
-Acht MVT-Läufe normal/sanitisiert grün. Alte Fassungen scheitern ohne Buildfehler;
+Zehn MVT-Läufe normal/sanitisiert grün. Header-/Tag-Negativkontrolle alt in beiden
+Varianten rot ohne Buildfehler. Alte Fassungen scheitern ohne Buildfehler;
 Fixed32-Abschneidepuffer verursachen unter ASan einen heap-buffer-overflow, geometrische
 Überläufe einen Sanitizer-Abbruch. Parser-Rollback scheitert alt normal/sanitisiert.
 Lint: 184 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
-Geometrietrennung reduziert Parse-Komplexität 111→71; weitere Zerlegung erforderlich.
+Headertrennung reduziert Decode-Komplexität auf 58 (Grenze 25); weitere Zerlegung erforderlich.
 Wien visuell geöffnet und 0/921600 Pixelabweichung. Frühere Einzelbelege in Git.

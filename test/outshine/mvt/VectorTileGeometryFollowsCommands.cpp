@@ -20,7 +20,7 @@ Bytes Tile(uint8_t type, std::span<const uint32_t> words) {
   }
   Bytes feature{0x18, type};
   Append(feature, 0x22, geometry);
-  Bytes layer{0x0a, 1, 'x', 0x78, 2};
+  Bytes layer{0x0a, 1, 'x', 0x78, 2, 0x28, 0x80, 0x20};
   Append(layer, 0x12, feature);
   Bytes tile;
   Append(tile, 0x1a, layer);

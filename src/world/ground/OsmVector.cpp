@@ -123,6 +123,48 @@ struct Reader {
   }
 };
 
+struct LayerHeader {
+  std::string_view Name;
+  uint32_t Version = 0;
+  uint32_t Extent = 0;
+  bool HasName = false;
+  bool Complete = false;
+};
+
+[[nodiscard]] LayerHeader ReadLayerHeader(Reader reader) {
+  LayerHeader header;
+  FieldHeader field;
+  while (reader.ReadField(field)) {
+    if (field.Number == 1 && field.Wire == 2) {
+      const Reader name = reader.Bytes();
+      if (!reader.Ok) { return header; }
+      header.Name = {reinterpret_cast<const char *>(name.P),
+                     static_cast<size_t>(name.End - name.P)};
+      header.HasName = true;
+    } else if ((field.Number == 5 || field.Number == 15) && field.Wire == 0) {
+      const auto value = reader.Varint();
+      if (!reader.Ok || value > std::numeric_limits<uint32_t>::max()) { return header; }
+      if (field.Number == 5) {
+        header.Extent = static_cast<uint32_t>(value);
+      } else {
+        header.Version = static_cast<uint32_t>(value);
+      }
+    } else if (!reader.Skip(field.Wire)) {
+      return header;
+    }
+  }
+  header.Complete = reader.Ok && header.HasName;
+  return header;
+}
+
+[[nodiscard]] bool ValidTags(std::span<const uint32_t> tags, size_t keyCount, size_t valueCount) {
+  if (tags.size() % 2 != 0) { return false; }
+  for (size_t i = 0; i < tags.size(); i += 2) {
+    if (tags[i] >= keyCount || tags[i + 1] >= valueCount) { return false; }
+  }
+  return true;
+}
+
 class GeometryReader {
 public:
   GeometryReader(std::span<const uint32_t> words,
@@ -355,24 +397,17 @@ bool OsmVector::Decode(std::span<const uint8_t> bytes, std::string_view layer, b
     Reader L = top.Bytes();
     if (!top.Ok) { return false; }
 
-    Reader probe = L;
-    std::string name;
-    FieldHeader probeField;
-    while (probe.ReadField(probeField)) {
-      if (probeField.Number == 1 && probeField.Wire == 2) {
-        const Reader s = probe.Bytes();
-        if (!probe.Ok) { break; }
-        name.assign(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
-      } else if (!probe.Skip(probeField.Wire)) {
-        break;
-      }
-    }
-    if (name != layer) {
-      if (!probe.Ok) { return false; }
+    const auto header = ReadLayerHeader(L);
+    if (header.Name != layer) {
+      if (!header.Complete) { return false; }
       continue;
     }
     if (present != nullptr) { *present = true; }
-    if (!probe.Ok || found) { return false; }
+    if (!header.Complete || found || header.Version != 2 || header.Extent == 0 ||
+        std::cmp_greater(header.Extent, std::numeric_limits<int>::max())) {
+      return false;
+    }
+    Extent_ = static_cast<int>(header.Extent);
 
     std::vector<Reader> featureBodies;
     while (L.ReadField(field)) {
@@ -388,8 +423,6 @@ bool OsmVector::Decode(std::span<const uint8_t> bytes, std::string_view layer, b
         Values_.push_back(value->Number);
         ValueStrs_.push_back(std::move(value->Text));
         ValueIsNum_.push_back(value->IsNumber);
-      } else if (field.Number == 5 && field.Wire == 0) {
-        Extent_ = static_cast<int>(L.Varint());
       } else if (field.Number == 2 && field.Wire == 2) {
         featureBodies.push_back(L.Bytes());
         if (!L.Ok) { return false; }
@@ -401,7 +434,10 @@ bool OsmVector::Decode(std::span<const uint8_t> bytes, std::string_view layer, b
     if (!L.Ok) { return false; }
     EncodedFeature encoded;
     for (const Reader body : featureBodies) {
-      if (!ReadFeature(body, encoded)) { return false; }
+      if (!ReadFeature(body, encoded) || !ValidTags(encoded.Tags, Keys_.size(), Values_.size()) ||
+          encoded.Tags.size() > std::numeric_limits<uint32_t>::max() - Tags_.size()) {
+        return false;
+      }
       Feature f{};
       f.Type = encoded.Type;
       f.FirstTag = static_cast<uint32_t>(Tags_.size());
