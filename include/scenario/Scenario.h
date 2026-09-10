@@ -214,7 +214,8 @@ struct Provider {
   std::string Kind;
   /// Opaque requested data revision; not currently applied to cache identity or fetching.
   std::string Pin;
-  /// Requested selection rank; currently ignored by source registration.
+  /// Requested selection rank; currently ignored by source registration. XML accepts a
+  /// complete decimal int with optional sign; omitted is zero, malformed/out-of-range fails.
   int Rank = 0;
   /// Opaque missing-data policy text; currently ignored, with no policy validation here.
   std::string WhenAbsent;

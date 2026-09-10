@@ -43,10 +43,10 @@ Compositor-On als kanonisches true/false schreiben, unabhängig vom offenen yes/
 Diese Erhaltung ersetzt weder Provider-Registry noch Compositor-Implementierung.
 Abnahme: Reader/Writer-Fixture mit mehreren Einträgen, Escaping, Rangextrema, bool
 und endlichen Pixelbudgets; Altwriter scheitert am Inhaltsvergleich. Fünf Regressionen grün.
-Offen: gemeinsame numerische Validierung, insbesondere Rank-Import und nichtendliche Budgets.
+Offen: gemeinsame numerische Validierung, insbesondere nichtendliche Compositor-Budgets.
 
 ## Rang-Import
-Provider::Rank wird derzeit über long long und ungeprüften int-Cast gelesen.
-Direkt als vollständigen dezimalen int-Token parsen, optionales Plus erlauben;
-Überlauf, Suffix, Leerraum und Brüche ablehnen. Fehlend bleibt 0. Reader veröffentlicht
-bei Fehlern weder Dokument noch Teillisten. Int-Extrema und gültiger Retry prüfen.
+Provider::Rank wird direkt als vollständiger dezimaler int-Token geparst; optionales
+Plus bleibt erlaubt. Überlauf, Suffix, Leerraum und Brüche werden abgelehnt, fehlend
+bleibt 0. Negativkontrolle bestätigt; vier Regressionen prüfen Dokumenterhaltung,
+Int-Extrema, gültigen Retry, Layer und Export.

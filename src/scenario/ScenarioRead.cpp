@@ -26,6 +26,8 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kInvalidProviderRank =
+    "provider rank must be a complete decimal integer in the int range";
 constexpr auto kInvalidAssetClip = "asset clip requires an integer in [0,INT_MAX]";
 constexpr auto kInvalidCatchUpCount = "mostStepsInArrears requires an integer in [1,INT_MAX]";
 }
@@ -406,13 +408,29 @@ bool ReadScenario(const char *text, size_t length, Scenario::Document &into, std
 
 namespace {
 
-void ReadSources(const Xml::Ref &root, Scenario::Document &into) {
+bool ReadProviderRank(const Xml::Ref &provider, int &rank) {
+  const auto attribute = provider.Said("rank");
+  if (!attribute) { return true; }
+  std::string_view text(*attribute);
+  if (text.starts_with('+')) {
+    text.remove_prefix(1);
+    if (text.starts_with('-')) { return false; }
+  }
+  if (text.empty()) { return false; }
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), rank);
+  return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
+}
+
+bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {
     Scenario::Provider made;
     made.Kind = one.Attr("kind");
     made.Pin = one.Attr("pin");
-    made.Rank = static_cast<int>(one.Int("rank", 0));
+    if (!ReadProviderRank(one, made.Rank)) {
+      error = Says::kInvalidProviderRank;
+      return false;
+    }
     made.WhenAbsent = one.Attr("whenAbsent");
     into.Providers.push_back(made);
   }
@@ -436,6 +454,7 @@ void ReadSources(const Xml::Ref &root, Scenario::Document &into) {
     made.On = one.Flag("on", true);
     into.Compositors.push_back(made);
   }
+  return true;
 }
 
 [[nodiscard]] bool ReadAssetClip(const Xml::Ref &asset, int &clip, std::string &error) {
@@ -879,7 +898,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &
 
   if (!ReadSectionsOnto(root, into, error)) { return false; }
 
-  ReadSources(root, into);
+  if (!ReadSources(root, into, error)) { return false; }
   if (!ReadAssets(root, into, error)) { return false; }
   ReadPlacementAndUi(root, into);
   ReadEntityDeclarations(root, into);
