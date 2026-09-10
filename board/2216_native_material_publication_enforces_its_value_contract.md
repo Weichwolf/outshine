@@ -109,3 +109,11 @@ aber Detailmaßstäbe aktuell nicht vom Ground-Shader ausgewertet. Kein Renderna
 für prozedurales Mikrorelief behaupten. Altcode verletzt die Negativkontrolle;
 Fehlererhaltung, gültige Grenzen und ausgelieferter Katalog bestehen. Vollständige
 Generator-/Renderintegration bleibt separat offen.
+
+## Atomarer Animationsaufbau
+Pose::Build darf bestehende Posen bei ungültiger Auswahl oder späten Kanalfehlern
+nicht löschen. Kandidat mit Phasen für Ruhepose, Ziel-/Samplerprüfung und Kurvenaufbau;
+Track-Spans behalten stabile Channel-Besitzer. Direkt in besitzende Puffer dekodieren.
+Konkurrierende Ziele über geordneten Index statt quadratischem Scan erkennen.
+Abnahme: analytische Probe vor/nach Fehlern, Konflikte, Kombination und gültiger Retry;
+Materialanimations-/Importerregressionen bleiben gültig. Keine neue Animationssemantik.
