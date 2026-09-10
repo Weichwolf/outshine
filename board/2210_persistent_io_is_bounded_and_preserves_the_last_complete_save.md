@@ -35,7 +35,7 @@ haben einen Besitzer und explizite Zustände; keine leeren Zweitlieferungen als 
 - Read-/Parser-Gesamtspeicher, lange Layerketten und Zeitbudgets numerisch begrenzen.
 - XML-Parserphasen trennen; quadratisches Geschwister-Anhängen beseitigen, Konformitäts-
   und Randfälle prüfen. Bestehende Grenzprüfungen nicht lockern.
-- SourceSet-Query-Endzustände und nichtendliche Retry-Zeiten explizit behandeln.
+- SourceSet-Retry-Zeitwerte und darstellbare Deadlines explizit validieren.
 - Restore-Namensauflösung profilieren; Persistenzschema und vollständiger Savegame-Zustand
   bleiben Aufgaben von 2131/2141. Der Deklarationswriter ist noch kein kompletter Savegame-Pfad.
 
@@ -70,3 +70,13 @@ SourceSet und benutzter Transport müssen aktive Queries überleben; Abandon ble
 Tests: erneutes Collect nach Delivery/Refusal/Absent/Undeclared/Cancel, Move eines aktiven
 Tickets und Owner-Verwechslung bestehen; Cache-Abschluss ebenfalls. Altstand verletzt
 die Negativkontrolle. Fünf Regressionen grün, gültiger Retry unverändert.
+
+## Retry-Zeitvertrag
+Retry-After muss endlich, nichtnegativ und in Millisekunden darstellbar sein.
+Ungültige Angaben beenden die Query als Refused mit endlichem 4000-ms-Fallback.
+Backoff benötigt eine endliche, nichtnegative Uhr und eine darstellbare zukünftige
+Deadline; ungültige Berechnung darf weder Retry-Zähler noch Transport starten.
+Uhrwerte während Backoff ebenfalls validieren. Gültige Serververzögerungen erhalten,
+exponentiellen lokalen Backoff ohne überlaufende Zwischenwerte berechnen.
+Abnahme: Fake-Clock mit NaN/Inf/negativen Werten, Konversions-/Deadline-Überlauf,
+verlorener Zeitauflösung sowie regulärer Deadline; Altstand muss scheitern.
