@@ -107,3 +107,10 @@ Weitere Trennung von Anbindung, Suchzustand und Rekonstruktion anschließend for
 Ergebnis: vier Routingtests grün; zusätzlich exakte Gerade mit DBL_MAX-Radius geprüft.
 acos-Gegenprobe scheitert ohne Buildfehler. Lint 187/333, 32 Claims grün; Wien bytegleich,
 PNG visuell geprüft. Rekonstruktion, Suchzustand und Anbindung bleiben zu trennen.
+
+Rekonstruktion: Vorgängerkette zuerst bis kMaxRouteLegs zählen, erst dann einen
+Leg-Puffer anlegen. Rückwärts direkt in endgültige Reihenfolge schreiben; temporäre
+Knotenliste und reverse entfallen. Metrische Stationen separat vor Veröffentlichung
+prüfen; Überlauf als Fehler, keine teilweise veröffentlichte Route. Private expected-
+Funktion trennt Suchzustand von Ergebnis. Analytische meridionale Dreipunktkette
+prüft Reihenfolge/Stationen/Länge/Attribute; entfernte Reihenfolge muss scheitern.
