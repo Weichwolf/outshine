@@ -1,9 +1,10 @@
+#include <expected>
 #include <algorithm>
 #include <array>
 #include <utility>
 #include <cmath>
 #include <cstdint>
-#include <numbers>
+#include <limits>
 #include "math/Units.h"
 #include "OsmField.h"
 
@@ -49,27 +50,44 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
   return id;
 }
 
-int OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles) {
+namespace Says {
+constexpr std::string_view kInvalidOsmPosition =
+    "OSM requires finite canonical longitude/latitude and a signed-index-compatible zoom";
+constexpr std::string_view kOutsideOsmCoverage =
+    "OSM position lies outside the Mercator coverage band";
+}
+
+std::expected<TileAt, std::string_view> OsmField::Locate(LongitudeLatitude at, int zoom) noexcept {
+  if (zoom < 0 || zoom > std::numeric_limits<int>::digits) {
+    return std::unexpected(Says::kInvalidOsmPosition);
+  }
+  const auto index =
+      Ground::TileIndex::Of({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}, zoom);
+  if (index.Where() == Ground::TileIndex::State::InvalidInput) {
+    return std::unexpected(Says::kInvalidOsmPosition);
+  }
+  const auto tile = index.Tile();
+  if (!tile) { return std::unexpected(Says::kOutsideOsmCoverage); }
+  return TileAt{.X = static_cast<int>(tile->X), .Y = static_cast<int>(tile->Y)};
+}
+
+std::expected<int, std::string_view>
+OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles) {
+  const auto centre = Locate(at, Zoom_);
+  if (!centre) { return std::unexpected(centre.error()); }
   Pending_ = 0;
   Refused_ = 0;
-
-  Geo centre;
-  centre.LongitudeDeg = at.LongitudeDeg;
-  centre.LatitudeDeg = at.LatitudeDeg;
-  const std::optional<Data::TileId> centreTile = TileIndex::Of(centre, Zoom_).Tile();
-  if (!centreTile) { return 0; }
-  CentreX_ = static_cast<int>(centreTile->X);
-  CentreY_ = static_cast<int>(centreTile->Y);
-  const long centreX = static_cast<long>(centreTile->X);
-  const long centreY = static_cast<long>(centreTile->Y);
-
-  const long n = 1L << static_cast<uint32_t>(Zoom_);
+  CentreX_ = centre->X;
+  CentreY_ = centre->Y;
+  const int64_t centreX = centre->X;
+  const int64_t centreY = centre->Y;
+  const auto n = static_cast<int64_t>(uint64_t{1} << static_cast<unsigned>(Zoom_));
   int added = 0;
 
   for (int dy = -ringTiles; dy <= ringTiles; dy++) {
     for (int dx = -ringTiles; dx <= ringTiles; dx++) {
-      const long tx = centreX + dx;
-      const long ty = centreY + dy;
+      const int64_t tx = centreX + dx;
+      const int64_t ty = centreY + dy;
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) { continue; }
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
@@ -248,16 +266,12 @@ int OsmField::Layer(const char *name) const {
   return -1;
 }
 
-void OsmField::Declare(std::span<const Declared> these, LongitudeLatitude at) {
-  const double turn = std::numbers::pi;
-  const double side = std::ldexp(1.0, Zoom_);
-  const double bent = at.LatitudeDeg * turn / kDegPerHalfTurn;
-  Declare(
-      these,
-      TileAt{.X = static_cast<int>(
-                 std::floor((at.LongitudeDeg + kDegPerHalfTurn) / kDegPerTurn * side)),
-             .Y = static_cast<int>(std::floor(
-                 (1.0 - std::log(std::tan(bent) + 1.0 / std::cos(bent)) / turn) / 2.0 * side))});
+std::expected<void, std::string_view> OsmField::Declare(std::span<const Declared> these,
+                                                        LongitudeLatitude at) {
+  const auto tile = Locate(at, Zoom_);
+  if (!tile) { return std::unexpected(tile.error()); }
+  Declare(these, *tile);
+  return {};
 }
 
 void OsmField::AppendDeclaredFeature(const Declared &one) {

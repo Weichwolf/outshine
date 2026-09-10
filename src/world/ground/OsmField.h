@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_OSMFIELD_H
 
 #include <cstdint>
+#include <expected>
 #include <initializer_list>
 #include <span>
 #include <string>
@@ -48,7 +49,11 @@ public:
 
   OsmField(int zoom, std::span<const std::string> layers);
 
-  [[nodiscard]] int Build(TilePool &tiles, LongitudeLatitude at, int ringTiles);
+  [[nodiscard]] static std::expected<TileAt, std::string_view> Locate(LongitudeLatitude at,
+                                                                      int zoom) noexcept;
+
+  [[nodiscard]] std::expected<int, std::string_view>
+  Build(TilePool &tiles, LongitudeLatitude at, int ringTiles);
 
   [[nodiscard]] int CentreX() const { return CentreX_; }
 
@@ -71,7 +76,8 @@ public:
 
   void Declare(std::span<const Declared> these, TileAt over);
 
-  void Declare(std::span<const Declared> these, LongitudeLatitude at);
+  [[nodiscard]] std::expected<void, std::string_view> Declare(std::span<const Declared> these,
+                                                              LongitudeLatitude at);
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
 

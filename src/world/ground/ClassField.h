@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <expected>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -42,7 +43,7 @@ public:
 
   void Open(double lat, double lon);
 
-  void Update(TilePool &tiles, LongitudeLatitude at);
+  [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
 
   std::shared_ptr<const ClassStructure> Read() const {
     const std::scoped_lock lk(Mu_);

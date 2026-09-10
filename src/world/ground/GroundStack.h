@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_GROUNDSTACK_H
 
 #include <memory>
+#include <expected>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -93,7 +94,7 @@ public:
 
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
-  void Restand(LongitudeLatitude at);
+  [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at);
 
   [[nodiscard]] bool StandsAt(LongitudeLatitude at) const { return Stood_ == at && Ingested(); }
 
@@ -103,6 +104,9 @@ public:
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
+  [[nodiscard]] std::expected<TileAt, std::string_view>
+  ValidatePosition(LongitudeLatitude at) const;
+
   std::unique_ptr<Data::ContentStore> Store_;
   std::unique_ptr<Data::SourceSet> Sources_;
   std::unique_ptr<TilePool> Pool_;

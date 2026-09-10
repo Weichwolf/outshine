@@ -1,3 +1,4 @@
+#include <expected>
 #include "math/Units.h"
 #include "ClassField.h"
 
@@ -208,8 +209,12 @@ void ClassField::SubmitDue(double camE, double camN) {
   }
 }
 
-void ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
-  if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return; }
+std::expected<void, std::string_view> ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
+  const auto fine = OsmField::Locate(at, Fine_.Zoom);
+  if (!fine) { return std::unexpected(fine.error()); }
+  const auto coarse = OsmField::Locate(at, Coarse_.Zoom);
+  if (!coarse) { return std::unexpected(coarse.error()); }
+  if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return {}; }
 
   if (!Fine_.Field) {
     Fine_.Field = std::make_unique<OsmField>(Fine_.Zoom, Veg_->Layers());
@@ -217,12 +222,14 @@ void ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
   }
   const double t0 = Clock();
   if (Declared_.empty()) {
-    (void)Fine_.Field->Build(tiles, at, Fine_.TileRadius);
-    (void)Coarse_.Field->Build(tiles, at, Coarse_.TileRadius);
+    const auto fineBuilt = Fine_.Field->Build(tiles, at, Fine_.TileRadius);
+    if (!fineBuilt) { return std::unexpected(fineBuilt.error()); }
+    const auto coarseBuilt = Coarse_.Field->Build(tiles, at, Coarse_.TileRadius);
+    if (!coarseBuilt) { return std::unexpected(coarseBuilt.error()); }
   } else {
     const std::span<const OsmField::Declared> these(Declared_);
-    Fine_.Field->Declare(these, at);
-    Coarse_.Field->Declare(these, at);
+    Fine_.Field->Declare(these, *fine);
+    Coarse_.Field->Declare(these, *coarse);
   }
   const double t1 = Clock();
   Ingest(Fine_);
@@ -250,6 +257,7 @@ void ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
   }
 
   if (!Submitted_) { SubmitDue(cam.EastM, cam.NorthM); }
+  return {};
 }
 
 bool ClassField::Complete() const {

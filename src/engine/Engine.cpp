@@ -309,7 +309,11 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     const double atLat = stands.LatitudeDeg;
     const double atLon = stands.LongitudeDeg;
     S_->HandsPiecesOver();
-    S_->World.Stack.Restand(stands);
+    const auto streamed = S_->World.Stack.Restand(stands);
+    if (!streamed) {
+      S_->Error = streamed.error();
+      return std::unexpected(S_->Error);
+    }
     if (!S_->Bakes(kBakesLandedInPreload)) { return std::unexpected(S_->Error); }
     (void)S_->Grows(atLat, atLon);
     say();

@@ -286,7 +286,11 @@ bool Engine::State::Updates() {
       {
         const Heap::Tagged restanding("world-restand");
         HandsPiecesOver();
-        World.Stack.Restand(stands);
+        const auto streamed = World.Stack.Restand(stands);
+        if (!streamed) {
+          Error = streamed.error();
+          return false;
+        }
         if (!Bakes(kBakesLandedPerFrame)) { return false; }
         {
           const Heap::Tagged growing("world-grow");

@@ -94,10 +94,9 @@ Zulässig sind Zoom 0..32 (uint32-Kachelindex:
 TileBounds rechnet Index+1 in Double und vermeidet uint32-Überlauf am Rand.
 Analytische Achsen-/Randfälle, NaN/Inf/Zoomgrenzen und letzte Kachel bei Zoom 32 grün;
 alte Konvertierung scheitert ohne Buildfehler. Drei gezielte Tests grün. Höhe irrelevant.
-OsmField::Declare danach auf diese Grundlage umstellen und Fehler weiterreichen;
-seine signed TileAt-Grenze sowie GroundStack-/ClassField-Fehlerpublikation bleiben offen.
+OsmField verwendet diese Grundlage mit engerem signed-Index-Vertrag, siehe unten.
 
-## Aktiver Schritt: Fehlerweitergabe der OSM-Position
+## Fehlerweitergabe der OSM-Position
 Build und geodätisches Declare nutzen denselben geprüften TileIndex über Locate.
 OsmField hält signed int-Indizes: Zoom höchstens numeric_limits<int>::digits;
 uint32-Zoom 32 bleibt im allgemeinen TileIndex gültig, nicht in diesem Speicherlayout.
@@ -109,3 +108,9 @@ nicht als erfolgreich leeren Stream melden. Tile-Ring-Budget bleibt gesondert of
 Prüfung: NaN/Inf/Band/Zoom, analytische Datumsgrenze, vorhandenen Inhalt bei Fehler
 erhalten, gültige Wiederholung, drei OSM-Regressionen und Wien-PNG. Gegenprobe mit
 alter geodätischer Projektion; Signaturänderung allein ist kein Fehlernachweis.
+Vier gezielte Tests grün; alter Declare-Rechenweg scheitert an 36/77 Checks ohne
+Buildfehler, danach korrigierte Fassung erneut grün. Klassifikations-/Stack-Test prüft
+Ablehnung ohne aktive Provider; kompletter laufender Stream-Rollback nicht belegt.
+Wien c307cab8 bytegleich zur gesicherten Referenz, PNG geöffnet; Bild-SOLL bleibt offen.
+Abschluss-Lint: 185 tidy, 330 Dokumentationsdiagnosen, 32 Repository-Tests grün;
+drei Gruppen bleiben rot. Prüfung umfasst den Arbeitsbaum mit bestehendem WIP.

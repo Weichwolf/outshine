@@ -1,3 +1,4 @@
+#include <expected>
 #include <array>
 #include "GroundStack.h"
 
@@ -22,14 +23,12 @@ bool GroundStack::Open(const Roots &under,
                        Data::Transport &wire,
                        Sink &say,
                        double patienceS) {
-  Close();
-  const bool onTheBand = std::fabs(focus.LatitudeDeg) <= kMercatorLatMaxDeg;
-  say.Number("the focus latitude the stack was asked for", focus.LatitudeDeg, "deg");
-  say.Number("the furthest the tiling reaches", kMercatorLatMaxDeg, "deg");
-  if (!onTheBand) {
-    say.Say("REFUSED the focus is off the tiling band");
+  const auto position = OsmField::Locate(focus, kFineZoom);
+  if (!position) {
+    say.Refuse(std::string(position.error()));
     return false;
   }
+  Close();
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = under.Cache;
   Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
@@ -87,12 +86,24 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
   return finest;
 }
 
-void GroundStack::Restand(LongitudeLatitude at) {
-  if (!Pool_ || StandsAt(at)) { return; }
+std::expected<TileAt, std::string_view> GroundStack::ValidatePosition(LongitudeLatitude at) const {
+  const auto fine = OsmField::Locate(at, kFineZoom);
+  if (!fine) { return std::unexpected(fine.error()); }
+  const auto coarse = OsmField::Locate(at, kCoarseZoom);
+  if (!coarse) { return std::unexpected(coarse.error()); }
+  const int vectorZoom = Vectors_ ? Vectors_->Zoom() : FinestZoomOf(Data::DataKind::VectorMap);
+  return OsmField::Locate(at, vectorZoom);
+}
+
+std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at) {
+  const auto vectorTile = ValidatePosition(at);
+  if (!vectorTile) { return std::unexpected(vectorTile.error()); }
+  if (!Pool_ || StandsAt(at)) { return {}; }
+  const auto classified = Cls_.Update(*Pool_, at);
+  if (!classified) { return std::unexpected(classified.error()); }
   Stood_ = at;
   Settled_ = false;
-  Cls_.Update(*Pool_, at);
-  if (!Vegetated_) { return; }
+  if (!Vegetated_) { return {}; }
   if (!Vectors_) {
     const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
                                                 OsmLayerName(OsmLayer::WaterPolygons),
@@ -100,17 +111,18 @@ void GroundStack::Restand(LongitudeLatitude at) {
                                                 OsmLayerName(OsmLayer::Streets),
                                                 OsmLayerName(OsmLayer::StreetPolygons)}};
     const int zoom = FinestZoomOf(Data::DataKind::VectorMap);
-    if (zoom <= 0) { return; }
+    if (zoom <= 0) { return {}; }
     Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers));
     WaterBodies_.AnchorAt(Cls_.OriginEcef());
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   if (Declared_.empty()) {
-    (void)Vectors_->Build(*Pool_, at, kVectorRing);
+    const auto built = Vectors_->Build(*Pool_, at, kVectorRing);
+    if (!built) { return std::unexpected(built.error()); }
   } else {
-    Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), at);
+    Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), *vectorTile);
   }
-  if (Vectors_->PendingTiles() > 0) { return; }
+  if (Vectors_->PendingTiles() > 0) { return {}; }
   for (int pass = 0; pass < kVectorTiles; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       Settle();
@@ -133,6 +145,7 @@ void GroundStack::Restand(LongitudeLatitude at) {
     Settle();
     Settled_ = true;
   }
+  return {};
 }
 
 void GroundStack::Settle() {
