@@ -66,9 +66,8 @@ Scenario::Weather dokumentieren: dimensionslose Wolkenanteile, Basis AGL, Wind i
 m/s und meteorologische Herkunftsrichtung; derzeit keine Cloud-/Wind-Verbraucher.
 Haze skaliert nur Mie-Streuung/Extinktion, nicht Rayleigh/Ozon; >1 ist möglich.
 Writer erhält jetzt alle sieben Wind-/Wolkenfelder; Altcode verletzt den Roundtrip.
-Sechs Writer-Tests samt exakten Wetterwerten und Nullgrenzen bestehen. Gemeinsame
-Werte-/Typprüfung an Import-, Declare- und Exportgrenze bleibt erforderlich; derzeit
-keine vollständige Wettervalidierung oder Wetterwirkung behaupten.
+Exakte Wetterwerte und Nullgrenzen bestehen. Gemeinsame Werte-/Typprüfung ist unten
+beschrieben; vollständige Wetterwirkung und räumliche Snapshot-Verträge bleiben offen.
 
 ## Gemeinsame Wettergrenze
 Ein internes Feldschema verbindet XML-Namen, Member und Grenzen für Import/Export
@@ -76,4 +75,5 @@ und API-Vorprüfung: Wolken [0,1], AGL/Windgeschwindigkeit >=0, Windrichtung end
 und unnormalisiert, Haze [0,float-max] für die aktuelle GPU-Verengung. Keine Clamps.
 XML verlangt vollständige endliche Zahlen; fehlende Attribute behalten Defaults.
 Ablehnung vor Veröffentlichung, einschließlich inaktiver Ground-Deklarationen.
-Abnahme: alle Felder mit NaN/Inf/negativen Grenzen, Parser-Tokens, Erhaltung und Retry.
+Nachweis: Altcode verletzt API-/Parser-/Exportkontrollen; acht Tests mit NaN/Inf,
+negativen Grenzen, Parser-Tokens, Erhaltung, Retry und Layer-Regression bestehen.

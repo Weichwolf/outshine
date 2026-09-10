@@ -96,8 +96,10 @@ struct Georeference {
 /// Owned weather declaration, copied with the scenario; no borrowed storage or synchronization.
 /// Do not mutate concurrently with readers. Import/export preserve these fields when the world
 /// section is declared. Cloud and wind values are currently metadata: they do not yet drive
-/// rendering or simulation. Only Haze is consumed by the renderer. This aggregate and current
-/// declaration paths do not enforce all of the intended physical ranges below.
+/// rendering or simulation. Only Haze is consumed by the renderer. Import, Engine::declare and
+/// export reject nonfinite/out-of-range values, including values in an inactive world section.
+/// Failed import/declaration preserves the previous document/engine declaration. XML requires
+/// complete numeric tokens; omitted attributes retain defaults. The aggregate itself is unchecked.
 struct Weather {
   /// Requested total cloud fraction in [0,1]; independent of the layer fractions, not their sum.
   double CloudCover = 0.0;
@@ -118,9 +120,8 @@ struct Weather {
   /// Dimensionless multiplier of the reference air's Mie scattering and extinction only.
   /// One retains the reference aerosols, zero removes them, and values above one increase them.
   /// Rayleigh scattering and ozone absorption remain unchanged. Supply a finite nonnegative
-  /// value; the current renderer treats nonpositive values as zero but does not validate the
-  /// full numeric range before converting to float. This is not a visibility distance or a
-  /// multiplier of all atmospheric scattering.
+  /// value no greater than the largest finite float, as required by GPU storage. This is not
+  /// a visibility distance or a multiplier of all atmospheric scattering.
   double Haze = 1.0;
 };
 

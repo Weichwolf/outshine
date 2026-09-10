@@ -9,6 +9,7 @@
 #include "ScenarioRead.h"
 #include "AssetValidation.h"
 #include "CompositorValidation.h"
+#include "WeatherValidation.h"
 #include "Number.h"
 #include "ReadScenarioOsm.h"
 
@@ -269,6 +270,24 @@ void ReadStanding(const Xml::Ref &from, Scenario::Standing &into) {
   if (evenly > 0.0) { into.ScaleXyz[0] = into.ScaleXyz[1] = into.ScaleXyz[2] = evenly; }
 }
 
+bool ReadWeather(const Xml::Ref &from, Scenario::Weather &weather, std::string &error) {
+  for (const auto &field : kWeatherFields) {
+    const auto token = from.Said(field.Name);
+    if (!token) { continue; }
+    const auto value = ParseFiniteNumber(*token);
+    if (!value) {
+      error = std::string(field.Name) + ": " + std::string(Says::InvalidWeather);
+      return false;
+    }
+    weather.*field.Member = *value;
+  }
+  if (const auto valid = ValidateWeather(weather); !valid) {
+    error = valid.error();
+    return false;
+  }
+  return true;
+}
+
 void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   if (!from.Valid()) { return; }
   into.Ground.Declared = true;
@@ -277,14 +296,6 @@ void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   into.Ground.Origin.RadiusM = from.Num("radiusM", into.Ground.Origin.RadiusM);
   into.Ground.GravityMs2 = from.Num("gravityMs2", into.Ground.GravityMs2);
   into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", into.Ground.AirDensityKgM3);
-  into.Ground.Sky.WindDeg = from.Num("windDeg", into.Ground.Sky.WindDeg);
-  into.Ground.Sky.WindMs = from.Num("windMs", into.Ground.Sky.WindMs);
-  into.Ground.Sky.CloudCover = from.Num("cloudCover", into.Ground.Sky.CloudCover);
-  into.Ground.Sky.CloudLow = from.Num("cloudLow", into.Ground.Sky.CloudLow);
-  into.Ground.Sky.CloudMid = from.Num("cloudMid", into.Ground.Sky.CloudMid);
-  into.Ground.Sky.CloudHigh = from.Num("cloudHigh", into.Ground.Sky.CloudHigh);
-  into.Ground.Sky.CloudBaseAglM = from.Num("cloudBaseAglM", into.Ground.Sky.CloudBaseAglM);
-  into.Ground.Sky.Haze = from.Num("haze", into.Ground.Sky.Haze);
   into.Ground.PatienceS = from.Num("patienceS", into.Ground.PatienceS);
   into.Ground.SightM = from.Num("sightM", into.Ground.SightM);
   const Xml::Ref relief = from.Child("relief");
@@ -348,6 +359,7 @@ void ReadLighting(const Xml::Ref &from, Scenario::Document &into) {
 [[nodiscard]] bool
 ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
+  if (!ReadWeather(root.Child("world"), into.Ground.Sky, error)) { return false; }
   const auto osm = ReadScenarioOsm(root.Child("world").Child("osm"), into.Ground.Osm);
   if (!osm) {
     error = osm.error();

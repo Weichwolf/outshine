@@ -2,6 +2,7 @@
 #include "ScenarioWrite.h"
 #include "Check.h"
 #include <array>
+#include <limits>
 #include <string>
 
 int main() {
@@ -37,6 +38,37 @@ int main() {
     for (const auto field : fields) {
       CHECK(copy.Ground.Sky.*field == weather.*field, "each weather field survives exactly");
     }
+  }
+  for (const auto *name : {"cloudCover",
+                           "cloudLow",
+                           "cloudMid",
+                           "cloudHigh",
+                           "cloudBaseAglM",
+                           "windDeg",
+                           "windMs",
+                           "haze"}) {
+    for (const auto *value : {"nan", "inf", "1e3000", "", "0.5x"}) {
+      const auto text = std::string("<scenario><world ") + name + "=\"" + value + "\"/></scenario>";
+      Scenario::Document copy;
+      copy.Named.Name = "preserved";
+      std::string error;
+      CHECK(!ReadScenario(text.data(), text.size(), copy, error),
+            "malformed weather token refused");
+      CHECK(copy.Named.Name == "preserved", "weather parse failure preserves document");
+    }
+  }
+  for (const auto field : fields) {
+    Scenario::Document invalid;
+    invalid.Ground.Sky.*field = std::numeric_limits<double>::infinity();
+    CHECK(!WriteScenario(invalid), "export rejects nonfinite weather even when inactive");
+  }
+  for (const auto field : std::array{&Scenario::Weather::CloudCover,
+                                     &Scenario::Weather::CloudLow,
+                                     &Scenario::Weather::CloudMid,
+                                     &Scenario::Weather::CloudHigh}) {
+    Scenario::Document invalid;
+    invalid.Ground.Sky.*field = 1.01;
+    CHECK(!WriteScenario(invalid), "cloud fractions cannot exceed one");
   }
   return Report();
 }

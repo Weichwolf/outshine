@@ -2,6 +2,7 @@
 #include "ScenarioWrite.h"
 #include "Tables.h"
 #include "CompositorValidation.h"
+#include "WeatherValidation.h"
 #include <utility>
 
 #include <expected>
@@ -161,14 +162,7 @@ void WriteWorld(std::string &said, const Scenario::WorldSettings &world) {
   Number(said, "lon", world.Origin.LongitudeDeg);
   Number(said, "patienceS", world.PatienceS);
   Number(said, "sightM", world.SightM);
-  Number(said, "cloudCover", world.Sky.CloudCover);
-  Number(said, "cloudLow", world.Sky.CloudLow);
-  Number(said, "cloudMid", world.Sky.CloudMid);
-  Number(said, "cloudHigh", world.Sky.CloudHigh);
-  Number(said, "cloudBaseAglM", world.Sky.CloudBaseAglM);
-  Number(said, "windDeg", world.Sky.WindDeg);
-  Number(said, "windMs", world.Sky.WindMs);
-  Number(said, "haze", world.Sky.Haze);
+  for (const auto &field : kWeatherFields) { Number(said, field.Name, world.Sky.*field.Member); }
   if (world.Shape.Kind.empty() && world.Osm.empty()) {
     said += "/>\n";
     return;
@@ -381,6 +375,9 @@ void WriteGenerators(std::string &said, std::span<const Scenario::Generating> ge
 }
 
 std::expected<std::string, std::string> WriteScenario(const Scenario::Document &declared) {
+  if (const auto valid = ValidateWeather(declared.Ground.Sky); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   if (const auto valid = ValidateCompositors(declared.Compositors); !valid) {
     return std::unexpected(std::string(valid.error()));
   }

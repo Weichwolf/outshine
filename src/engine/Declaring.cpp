@@ -4,6 +4,7 @@
 #include "ScenarioWrite.h"
 #include "AssetValidation.h"
 #include "CompositorValidation.h"
+#include "WeatherValidation.h"
 #include "OsmValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
@@ -196,6 +197,9 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 Result Engine::declare(const Scenario::Document &scenario) {
+  if (const auto valid = ValidateWeather(scenario.Ground.Sky); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   if (const auto valid = ValidateCompositors(scenario.Compositors); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
