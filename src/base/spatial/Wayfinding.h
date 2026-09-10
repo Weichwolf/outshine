@@ -235,6 +235,15 @@ private:
                                            const Edge &outgoing,
                                            double minimumRadiusM) const;
 
+  struct RouteTrace {
+    size_t Arrived = 0;
+    std::span<const size_t> Predecessors;
+    std::span<const size_t> Starts;
+  };
+
+  [[nodiscard]] std::expected<void, std::string_view> ReconstructRoute(RouteTrace trace,
+                                                                       Route &out) const;
+
   void SortWaysIntoDeclaredOrder();
   void StationsOfWays();
   void SlopesOfWays();

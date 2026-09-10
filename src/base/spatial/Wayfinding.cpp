@@ -29,6 +29,8 @@
 namespace outshine::Path {
 
 namespace Says {
+constexpr auto kRouteLegBudget = "route exceeds the configured leg budget";
+constexpr auto kRouteLengthOverflow = "route length exceeds finite metre range";
 constexpr auto kUnbuiltNetwork = "transport network must be rebuilt after source changes";
 constexpr auto kInvalidSpatialQuery =
     "spatial query requires canonical finite coordinates and a finite nonnegative radius";
@@ -52,6 +54,7 @@ namespace {
 constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
 constexpr double kTenPercent = 0.10;
 constexpr double kThirtyPercent = 0.30;
+constexpr size_t kNoSearchState = std::numeric_limits<size_t>::max();
 
 [[nodiscard]] bool ValidCoordinates(LongitudeLatitude at) {
   return std::isfinite(at.LongitudeDeg) && std::isfinite(at.LatitudeDeg) &&
@@ -1130,7 +1133,6 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
 
   const double never = kBeyondAnyCoordinate;
   const size_t edges = Edges_.size();
-  const auto kNoState = static_cast<size_t>(-1);
   std::vector<size_t> nearStart;
   if (const auto result = Within(from, startAwayM + kStartReachM, nearStart); !result) {
     out.Error = result.error();
@@ -1153,7 +1155,7 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
 
   const size_t states = edges + nearStart.size();
   std::vector<double> best(states, never);
-  std::vector<size_t> came(states, kNoState);
+  std::vector<size_t> came(states, kNoSearchState);
   std::vector<bool> settled(states, false);
   std::vector<size_t> leaves(edges, 0);
   for (size_t node = 0; node < Nodes_.size(); ++node) {
@@ -1188,7 +1190,7 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
 
   size_t reached = 0;
   std::vector<bool> nodeSeen(Nodes_.size(), false);
-  size_t arrived = kNoState;
+  size_t arrived = kNoSearchState;
   while (!open.empty()) {
     const size_t state = open.top().second;
     open.pop();
@@ -1221,7 +1223,7 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
   }
 
   out.Reached = reached;
-  if (arrived == kNoState) {
+  if (arrived == kNoSearchState) {
     const size_t joined = Reaches(std::span<const size_t>(nearStart));
     const size_t joinedToEnd = Reaches(std::span<const size_t>(nearFinish));
     out.Component = joined;
@@ -1236,40 +1238,44 @@ Route Network::Plan(LongitudeLatitude from, LongitudeLatitude to, double tightes
     return out;
   }
 
-  std::vector<size_t> back;
-  for (size_t state = arrived; state != kNoState; state = came[state]) {
-    back.push_back(standsAt(state));
-    if (back.size() > kMaxRouteLegs) {
-      out.Error = "a route of more than " + std::to_string(kMaxRouteLegs) + " legs";
-      return out;
-    }
+  if (const auto result =
+          ReconstructRoute({.Arrived = arrived, .Predecessors = came, .Starts = nearStart}, out);
+      !result) {
+    out.Error = result.error();
   }
-  std::ranges::reverse(back);
+  return out;
+}
 
-  out.Legs.reserve(back.size());
-  double alongM = 0.0;
-  for (size_t which = 0; which < back.size(); ++which) {
-    const Node &node = Nodes_[back[which]];
-    if (which > 0) {
-      const Node &was = Nodes_[back[which - 1]];
-      alongM += ApartM({.LongitudeDeg = was.LongitudeDeg, .LatitudeDeg = was.LatitudeDeg},
-                       {.LongitudeDeg = node.LongitudeDeg, .LatitudeDeg = node.LatitudeDeg},
-                       Sphere{.RadiusM = RadiusM_});
-    }
-    Leg leg;
-    leg.At.LatitudeDeg = node.LatitudeDeg;
-    leg.At.LongitudeDeg = node.LongitudeDeg;
-    leg.AlongM = alongM;
-    leg.HalfWidthM = node.HalfWidthM;
-    leg.Friction = node.Friction;
-    leg.MaxGradient = node.MaxGradient;
-    leg.MinRadiusM = node.MinRadiusM;
-    leg.Lanes = node.Lanes;
-    out.Legs.push_back(leg);
+std::expected<void, std::string_view> Network::ReconstructRoute(RouteTrace trace,
+                                                                Route &out) const {
+  size_t count = 0;
+  for (size_t state = trace.Arrived; state != kNoSearchState; state = trace.Predecessors[state]) {
+    if (count == kMaxRouteLegs) { return std::unexpected(Says::kRouteLegBudget); }
+    ++count;
   }
+  std::vector<Leg> legs(count);
+  size_t remaining = count;
+  for (size_t state = trace.Arrived; state != kNoSearchState; state = trace.Predecessors[state]) {
+    const size_t nodeIndex =
+        state < Edges_.size() ? Edges_[state].To : trace.Starts[state - Edges_.size()];
+    const Node &node = Nodes_[nodeIndex];
+    legs[--remaining] = {.At = {.LongitudeDeg = node.LongitudeDeg, .LatitudeDeg = node.LatitudeDeg},
+                         .HalfWidthM = node.HalfWidthM,
+                         .MaxGradient = node.MaxGradient,
+                         .MinRadiusM = node.MinRadiusM,
+                         .Friction = node.Friction,
+                         .Lanes = node.Lanes};
+  }
+  double alongM = 0.0;
+  for (size_t which = 1; which < legs.size(); ++which) {
+    alongM += ApartM(legs[which - 1].At, legs[which].At, Sphere{.RadiusM = RadiusM_});
+    if (!std::isfinite(alongM)) { return std::unexpected(Says::kRouteLengthOverflow); }
+    legs[which].AlongM = alongM;
+  }
+  out.Legs = std::move(legs);
   out.LengthM = alongM;
   out.Found = true;
-  return out;
+  return {};
 }
 
 Network::Elevated Network::Elevate(const HeightSource &heightOf) {

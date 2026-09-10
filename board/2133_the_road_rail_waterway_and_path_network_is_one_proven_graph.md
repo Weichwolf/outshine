@@ -84,7 +84,7 @@ Längengradnormalisierung; ungültige direkte Eingaben können nicht terminieren
 
 ## Kurvenentscheidung und weitere Trennung von A*
 
-Plan (Komplexität noch 50 statt 75) mischt Anbindung, Suche, lokale Kurvenprüfung und Rekonstruktion.
+Plan (Komplexität noch 45 statt 75) mischt Anbindung, Suche, lokale Kurvenprüfung und Rekonstruktion.
 Vorhanden: gerichtete Kanten, eingehender Kantenzustand und metrische Kantenlängen.
 Die acos-Auswertung verliert kleine Winkel; kLeastTurnRad setzt zusätzlich nichtnullige
 Krümmung still auf null. Gegenbeispiel: nahezu gerade Kette, aber sehr großer geforderter
@@ -108,9 +108,12 @@ Ergebnis: vier Routingtests grün; zusätzlich exakte Gerade mit DBL_MAX-Radius 
 acos-Gegenprobe scheitert ohne Buildfehler. Lint 187/333, 32 Claims grün; Wien bytegleich,
 PNG visuell geprüft. Rekonstruktion, Suchzustand und Anbindung bleiben zu trennen.
 
-Rekonstruktion: Vorgängerkette zuerst bis kMaxRouteLegs zählen, erst dann einen
+ReconstructRoute mit benanntem RouteTrace: Kette bis kMaxRouteLegs zählen, dann einen
 Leg-Puffer anlegen. Rückwärts direkt in endgültige Reihenfolge schreiben; temporäre
 Knotenliste und reverse entfallen. Metrische Stationen separat vor Veröffentlichung
 prüfen; Überlauf als Fehler, keine teilweise veröffentlichte Route. Private expected-
 Funktion trennt Suchzustand von Ergebnis. Analytische meridionale Dreipunktkette
 prüft Reihenfolge/Stationen/Länge/Attribute; entfernte Reihenfolge muss scheitern.
+Vier Routingtests grün, vertauschte Reihenfolge scheitert; lint 187/333, 32 Claims grün.
+Offen: Budget-/Längenextreme als Laufzeittest; A*-Kosten verwenden noch 1e30 statt
+explizitem Unerreichbar-Zustand. Kein produktiver Router-Aufruf im Client-Renderpfad.
