@@ -23,8 +23,8 @@ Replay erst nach nachgewiesener Deterministik einschließlich externer Eingaben.
 Keine unbelegte plattformübergreifende oder bildweise Bitidentität versprechen.
 
 ## Nachgewiesene Lücken
-ScenarioWrite.cpp schreibt bei Assets nur Uri/Kind. ReadAssets liest zusätzlich
-Digest, Variant, Animation, Clip und Surfaces einschließlich Materialparametern.
+Asset-Writer erhält jetzt die vom Reader unterstützten Metadaten, Animation/Clip und
+Surface-Selektoren/Materialparameter. Weitere native Materialfelder sind kein XML-Vertrag.
 WriteScenario verliert außerdem Szenarionamen und zahlreiche weitere Sektionen.
 Der Grammar/Writer-Guard erkennt Elementnamen, keine verlorenen Attribute. Zweimaliges
 Write/Read kann auf einem bereits reduzierten Dokument stabil sein und ist kein Beweis.
@@ -49,7 +49,7 @@ Einstiege, XML-Zeichenreferenztests und transaktionaler Szenario-Parser.
    Binärformat erst bei belegtem Bedarf; XML bleibt der vorhandene unterstützte Eingang.
 
 ## Abnahme
-- [ ] Asset-Fixtures behalten alle unterstützten Felder; Altwriter verletzt das Oracle.
+- [x] Asset-Fixtures behalten alle unterstützten Felder; Altwriter verletzt das Oracle.
 - [ ] Jede unterstützte statische Sektion besitzt unabhängige Erhaltungsfälle.
 - [ ] Alle unterstützten Deklarationen roundtrip-fähig; Grammar/Writer-Guard grün.
 - [ ] Code, Szenario und glTF nutzen dieselbe native Validierung; äquivalente Inhalte
@@ -61,3 +61,8 @@ Einstiege, XML-Zeichenreferenztests und transaktionaler Szenario-Parser.
 
 Historische Fremdengine-/Determinismusbehauptungen sind keine Abnahmegrundlage.
 Der konkrete lokale Reader/Writer-Datenverlust begründet diesen Auftrag unabhängig davon.
+
+Asset-Abnahme: vier Animationsmodi mit unabhängigen Feldwerten vor/nach Write/Read
+grün; Altwriter scheitert ohne Buildfehler. Parser-Erhaltung und Zeichenreferenzen grün.
+Lint: 181 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei rote Gruppen.
+Szenario bleibt eigenständiges Importformat; keine glTF-Erweiterung für Welt-/Spielregeln.

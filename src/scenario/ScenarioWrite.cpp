@@ -64,6 +64,61 @@ void StandingAs(std::string &into,
   into += "/>\n";
 }
 
+const char *AnimationName(Scenario::AssetAnimation animation) {
+  switch (animation) {
+    case Scenario::AssetAnimation::Play: return "play";
+    case Scenario::AssetAnimation::Loop: return "loop";
+    case Scenario::AssetAnimation::Ignore: return "ignore";
+    case Scenario::AssetAnimation::Driven: return "driven";
+  }
+  return "invalid";
+}
+
+void WriteSurfaceOverride(std::string &said, const Scenario::SurfaceOverride &surface) {
+  said += "      <wears";
+  Said(said, "named", surface.Named);
+  Said(said, "node", surface.Node);
+  Number(said, "part", surface.Part);
+  Yes(said, "keepsMaps", surface.KeepsMaps);
+  said += ">\n        <row";
+  const auto &row = surface.Row;
+  Number(said, "r", row.BaseColour[0]);
+  Number(said, "g", row.BaseColour[1]);
+  Number(said, "b", row.BaseColour[2]);
+  Number(said, "a", row.BaseColour[3]);
+  Number(said, "metalness", row.Metalness);
+  Number(said, "roughness", row.Roughness);
+  Number(said, "emissionR", row.Emission[0]);
+  Number(said, "emissionG", row.Emission[1]);
+  Number(said, "emissionB", row.Emission[2]);
+  Yes(said, "unlit", row.Unlit);
+  Yes(said, "doubleSided", row.DoubleSided);
+  Number(said, "coverageCut", row.CoverageCut);
+  said += "/>\n      </wears>\n";
+}
+
+void WriteAssets(std::string &said, std::span<const Scenario::Asset> assets) {
+  if (assets.empty()) { return; }
+  said += "  <assets>\n";
+  for (const auto &asset : assets) {
+    said += "    <asset";
+    Said(said, "uri", asset.Uri);
+    Said(said, "kind", asset.Kind);
+    Said(said, "digest", asset.Digest);
+    Said(said, "variant", asset.Variant);
+    Said(said, "animation", AnimationName(asset.Animation));
+    Number(said, "clip", asset.Clip);
+    if (asset.Surfaces.empty()) {
+      said += "/>\n";
+      continue;
+    }
+    said += ">\n";
+    for (const auto &surface : asset.Surfaces) { WriteSurfaceOverride(said, surface); }
+    said += "    </asset>\n";
+  }
+  said += "  </assets>\n";
+}
+
 void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
   if (generators.empty()) { return; }
   said += "  <generators>\n";
@@ -163,16 +218,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
     Number(said, "bearingDeg", declared.Lit.Key.BearingDeg);
     said += "/>\n  </lighting>\n";
   }
-  if (!declared.Assets.empty()) {
-    said += "  <assets>\n";
-    for (const Scenario::Asset &one : declared.Assets) {
-      said += "    <asset";
-      Said(said, "uri", one.Uri);
-      Said(said, "kind", one.Kind);
-      said += "/>\n";
-    }
-    said += "  </assets>\n";
-  }
+  WriteAssets(said, declared.Assets);
   if (!declared.Views.empty()) {
     said += "  <views>\n";
     for (const Scenario::View &one : declared.Views) {
