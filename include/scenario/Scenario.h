@@ -225,8 +225,8 @@ struct WorldSettings {
   /// is not a test.
   std::vector<Structure> Osm;
   /// Finite nonnegative gravitational acceleration magnitude in metres per second squared.
-  /// Simulation applies it along local -Y. Zero currently selects standard gravity rather
-  /// than weightlessness; removing this legacy fallback is a separate simulation change.
+  /// Simulation applies it along local -Y; zero means weightlessness. Omitting the value
+  /// retains standard gravity through the declaration default.
   double GravityMs2 = kStandardGravityMs2;
   /// Finite nonnegative air density in kilograms per cubic metre. Currently only positive
   /// versus zero selects whether the world draws a sky; magnitude does not scale the medium

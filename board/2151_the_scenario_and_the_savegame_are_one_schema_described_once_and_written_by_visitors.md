@@ -111,8 +111,8 @@ Offen: native Windows-Pfadauflösung statt Slash-Erkennung; übrige Merge-Semant
 Georeferenz, Gravitation, Luftdichte, Streamingreichweite/-geduld gemeinsam auditieren,
 dokumentieren und verlustfrei exportieren. radiusM ist Generator-Extent, kein verwendeter
 Erdradius; Luftdichte schaltet bisher nur den Himmel. Versteckten Standardgravitation-
-Fallback im Simulationsschritt entfernen: null bedeutet Schwerelosigkeit, der Default
-bleibt Standardgravitation. Public-API-Test mit analytischen Positionen und Triggern.
+Fallback entfernt: null bedeutet Schwerelosigkeit, Default bleibt Standardgravitation.
+Public-API-Positionsoracle/Trigger geprüft; Altcode verletzt die Schwerelosigkeitskontrolle.
 Gemeinsame finite Werteprüfung für Import/API/Export; Latitude [-90,90], Longitude
 endlich, übrige Größen nichtnegativ. Patience über geprüfte Millisekunden-Pollzahl
 begrenzen und auch GroundPoolConfig vor int-Cast prüfen; keine Doppelkonstante.

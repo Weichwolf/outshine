@@ -315,9 +315,7 @@ bool Engine::State::Updates() {
 
   const double simulationStepS =
       Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
-  const double gravityMs2 = Session.Declared.Ground.GravityMs2 > 0.0
-                                ? Session.Declared.Ground.GravityMs2
-                                : kStandardGravityMs2;
+  const double gravityMs2 = Session.Declared.Ground.GravityMs2;
   Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
   Ticking.ElapsedS += simulationStepS;
   if (!UpdateTriggers()) { return false; }
