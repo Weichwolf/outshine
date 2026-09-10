@@ -112,6 +112,9 @@ schreiben, auch leer: Reader-Defaults dürfen native Werte nicht verändern. Una
 Read/Write-Test muss im Altstand Verlust zeigen; gültiger Roundtrip muss wieder assemblieren.
 Keine Speicherung laufender Occupancy behaupten; es geht um die deklarierte Konfiguration.
 
-Grammatik verlangt nichtleere Carries.what und Volume.when. Der Test wurde daran
-korrigiert, nicht die Grammatik gelockert. Native Carries akzeptiert noch leere Namen;
-diese Validierungsdifferenz bleibt offen. Leeres When bleibt nach Schreiben ungültig.
+Grammatik verlangt nichtleere Carries.what und Volume.when; leeres When bleibt ungültig.
+Nächster Schritt: Assembly lehnt leere/doppelte Carries-Namen auch ohne Volumes ab.
+Geliehene string_views sortieren und benachbarte Duplikate prüfen; deklarierte Reihenfolge
+nicht verändern. Leere Feldliste, gleiche Namen in verschiedenen Events und Groß-/
+Kleinschreibung bleiben gültig. Public-API-Negativkontrolle und Listener-Tests prüfen
+Ablehnung, Simulationserhalt und erfolgreiche Wiederholung.
