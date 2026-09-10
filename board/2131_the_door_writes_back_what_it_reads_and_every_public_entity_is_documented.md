@@ -68,11 +68,12 @@ Physik-Rundlauf erhält Schrittzeit, Nachhollimit und XML-Sonderzeichen. Referen
 https://www.w3.org/TR/xml/#AVNormalize und #NT-CharRef.
 SDL-Achsen werden an beiden Endpunkten korrekt normalisiert; vollständiger Wertebereich
 geprüft. Referenz: https://wiki.libsdl.org/SDL3/SDL_GetGamepadAxis.
-InputBindingsDoNotRequireRendering prüft die öffentliche Weiterleitung aller Geräte;
-InputBindingsPrecedeUiActions prüft tatsächliche UI-Hits, Bindungspriorität, Host-
-Ablehnung, Entfernen der Bindung, fehlenden Host und Hits außerhalb der Oberfläche.
-Negativkontrollen gegen Renderer-Sperre bzw. vorzeitigen Abbruch bei ungebundenem
-Ereignis müssen am Verhalten scheitern. Das ersetzt keinen Scroll-/Capture-Vertrag.
+Input-Regressionen prüfen Rendererunabhängigkeit, UI-Hits, Bindungspriorität und Host-
+Ablehnung; Negativkontrollen gegen Renderersperre/frühen Abbruch scheitern am Verhalten.
+Mind/Region/Door anhand Reader, Layer-Merge und Runtime-Verbrauchern dokumentieren:
+Owned Metadaten, ungesicherte Zahlen und fehlende Scheduler-/Streaming-Anbindung.
+Layer-Identität: Region-ID bzw. gerichtetes Door-Endpaar; nicht fälschlich Door-ID zusagen.
+Fehlende Umsetzung/Validierung und vollständige Serialisierung bleiben offene Arbeit.
 ## Öffentliche Welt-/Generatorverträge korrigieren
 Georeference::RadiusM hat Erdradius als Default, wird aber von Engine::generated als
 Request::ExtentM weitergegeben; der Regionsvertrag ist uneindeutig. Structures nutzt
