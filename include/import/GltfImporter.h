@@ -79,7 +79,8 @@ public:
   /// Samples geometry, camera nodes and supported material factors together: base colour,
   /// metalness, roughness and emissive RGB. Times beyond keys clamp to endpoints.
   /// @param seconds Finite, nonnegative time. Invalid time leaves the asset unchanged.
-  /// @return Success or an owned diagnostic; conversion errors may invalidate borrowed data.
+  /// @return Success or an owned diagnostic; failure preserves the native geometry snapshot
+  /// and its borrowed views. Other internal pose/camera state is not covered by this guarantee.
   /// Success clears error(); rejected time changes only the diagnostic.
   /// Rebuilds CPU geometry and materials, with allocation; serialize with all adapter access.
   [[nodiscard]] std::expected<void, std::string> sampleAnimation(double seconds);

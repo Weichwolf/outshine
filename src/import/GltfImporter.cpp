@@ -118,30 +118,30 @@ struct GltfImporter::Held {
       Why = std::move(converted.error());
       return false;
     }
+    if (!Wears(*converted) || !SampleMaterials(seconds, *converted)) { return false; }
     Handed = std::move(*converted);
-    if (!Wears() || !SampleMaterials(seconds)) { return false; }
     HasEye = Camera(0, Eye);
     return true;
   }
 
-  [[nodiscard]] bool SampleMaterials(double seconds) {
+  [[nodiscard]] bool SampleMaterials(double seconds, Geometry &candidate) {
     if (!Moves) { return true; }
     Motion.FactorsAt(seconds, Factors);
     for (const auto &factor : Factors) {
-      if (factor.Material < 0 || factor.Material >= Handed.surfaces()) {
+      if (factor.Material < 0 || factor.Material >= candidate.surfaces()) {
         Why = Says::MissingSampledMaterial;
         return false;
       }
       const MaterialInstance index(factor.Material);
       auto sampled = ApplyMaterialFactor(
-          Handed.surfaceAt(index),
+          candidate.surfaceAt(index),
           factor,
           File.Materials()[static_cast<size_t>(factor.Material)].EmissiveStrength);
       if (!sampled) {
         Why = std::move(sampled.error());
         return false;
       }
-      if (!Handed.setSurface(index, *sampled)) {
+      if (!candidate.setSurface(index, *sampled)) {
         Why = Says::MaterialPublicationFailed;
         return false;
       }
@@ -159,7 +159,7 @@ struct GltfImporter::Held {
     return true;
   }
 
-  [[nodiscard]] bool Wears() {
+  [[nodiscard]] bool Wears(Geometry &candidate) {
     Render::SurfaceTable table;
     Gltf::ResolveSurfaceTable(File, Assembled, true, true, table);
     if (!Gltf::ResolveFileSurface(
@@ -168,11 +168,11 @@ struct GltfImporter::Held {
     }
     for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
       const int index = slot < table.Material.size() ? table.Material[slot] : -1;
-      if (index < 0 || index >= Handed.surfaces() ||
+      if (index < 0 || index >= candidate.surfaces() ||
           static_cast<size_t>(index) >= File.Materials().size()) {
         continue;
       }
-      Material row = Handed.surfaceAt(MaterialInstance(index));
+      Material row = candidate.surfaceAt(MaterialInstance(index));
       const Render::SubjectMaterial &held = table.Slots[slot];
       const Gltf::Material &declared = File.Materials()[static_cast<size_t>(index)];
 
@@ -197,10 +197,10 @@ struct GltfImporter::Held {
             .Declared = declared.SpecularTint}}};
 
       for (const auto &map : maps) {
-        Names(map.From, map.Into);
+        Names(candidate, map.From, map.Into);
         map.Into.Uv = map.Declared.Uv;
       }
-      if (!Handed.setSurface(MaterialInstance(index), row)) {
+      if (!candidate.setSurface(MaterialInstance(index), row)) {
         Why = "a surface the file declares could not be named on the geometry handed back";
         return false;
       }
@@ -208,9 +208,9 @@ struct GltfImporter::Held {
     return true;
   }
 
-  void Names(const Render::SubjectTexture &from, SurfaceMap &into) {
+  static void Names(Geometry &candidate, const Render::SubjectTexture &from, SurfaceMap &into) {
     if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return; }
-    into.Image = Keeps(from);
+    into.Image = Keeps(candidate, from);
     into.Set = from.Set;
     into.Sampler.Magnify =
         from.Magnify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
@@ -221,11 +221,11 @@ struct GltfImporter::Held {
     into.Sampler.WrapV = WrapOf(from.WrapV);
   }
 
-  [[nodiscard]] int Keeps(const Render::SubjectTexture &from) {
+  [[nodiscard]] static int Keeps(Geometry &candidate, const Render::SubjectTexture &from) {
     const size_t bytes = static_cast<size_t>(from.Width) * static_cast<size_t>(from.Height) * 4u;
     const std::span<const uint8_t> pixels(from.Rgba, bytes);
-    for (int at = 0; at < Handed.images(); ++at) {
-      const ImageView held = Handed.imageAt(at);
+    for (int at = 0; at < candidate.images(); ++at) {
+      const ImageView held = candidate.imageAt(at);
       if (std::cmp_not_equal(held.WidthPx, from.Width) ||
           std::cmp_not_equal(held.HeightPx, from.Height)) {
         continue;
@@ -234,7 +234,7 @@ struct GltfImporter::Held {
         return at;
       }
     }
-    return Handed.addImage(static_cast<int>(from.Width), static_cast<int>(from.Height), pixels);
+    return candidate.addImage(static_cast<int>(from.Width), static_cast<int>(from.Height), pixels);
   }
 };
 

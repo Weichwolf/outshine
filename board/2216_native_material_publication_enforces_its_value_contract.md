@@ -97,3 +97,7 @@ Phasen auf dem vorhandenen Konvertierungskandidaten ausführen, erst bei Erfolg 
 Handed verschieben; keine zusätzliche Geometriekopie. Test mit zwei Materialien und
 später ungültiger Animationsprobe erhält vorherige Faktoren und Geometrieansichten.
 Kamera-/Clipzustand und vollständiger Import-Rollback bleiben gesondert zu prüfen.
+Snapshot-Abnahme: neun Checks grün; Altcode verletzt Material- und Ansichtserhaltung
+an zwei Stellen ohne Buildfehler. Materialanimation und native Bilder als Regressionen
+grün. Kandidatenpublikation nach Textur-/Faktoraufbereitung, ohne zusätzliche Clone.
+Lint 180/282, 32 Repository-Tests grün, drei rote Gruppen. Kamera-/Clip-Rollback offen.
