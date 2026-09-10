@@ -100,3 +100,6 @@ Storage-Adressen müssen erhalten bleiben, erfolgreicher Ersatz muss wirksam wer
 Dies betrifft OsmVector; OsmField::Accept publiziert weiterhin zu früh und muss danach
 auf einen vollständigen nativen Kachelkandidaten umgestellt werden. Kandidat benötigt
 vorübergehend zusätzlichen Speicher; explizite Bytebudgets bleiben offen.
+Parser-Publikation geprüft: acht MVT-Läufe normal/sanitisiert grün; alte Fassung
+in beiden Varianten rot ohne Buildfehler. Lint unverändert 184/330, 32 Repository-
+Tests grün, drei rote Gruppen. Wien-PNG geöffnet, 0/921600 Pixelabweichung.

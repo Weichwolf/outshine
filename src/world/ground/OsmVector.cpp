@@ -336,18 +336,16 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
 
 bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
   if (present != nullptr) { *present = false; }
-  Features_.clear();
-  Rings_.clear();
-  Points_.clear();
-  Tags_.clear();
-  Keys_.clear();
-  Values_.clear();
-  ValueStrs_.clear();
-  ValueIsNum_.clear();
-  Extent_ = 4096;
-  if ((bytes == nullptr) || len == 0) { return false; }
+  if (bytes == nullptr || len == 0 || layer == nullptr) { return false; }
+  OsmVector candidate;
+  if (!candidate.Decode(std::span(bytes, len), layer, present)) { return false; }
+  *this = std::move(candidate);
+  return true;
+}
 
-  Reader top{.P = bytes, .End = bytes + len, .Ok = true};
+bool OsmVector::Decode(std::span<const uint8_t> bytes, std::string_view layer, bool *present) {
+  bool found = false;
+  Reader top{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
   FieldHeader field;
   while (top.ReadField(field)) {
     if (field.Number != 3 || field.Wire != 2) {
@@ -374,7 +372,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       continue;
     }
     if (present != nullptr) { *present = true; }
-    if (!probe.Ok) { return false; }
+    if (!probe.Ok || found) { return false; }
 
     std::vector<Reader> featureBodies;
     while (L.ReadField(field)) {
@@ -415,9 +413,9 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
       Features_.push_back(f);
     }
-    return true;
+    found = true;
   }
-  return false;
+  return top.Ok && found;
 }
 
 double OsmVector::Num(const Feature &f, const char *key, double def) const {

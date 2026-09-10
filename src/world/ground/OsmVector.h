@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_OSMVECTOR_H
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -46,6 +47,8 @@ public:
   [[nodiscard]] Tag TagAt(const Feature &f, uint32_t i) const;
 
 private:
+  [[nodiscard]] bool Decode(std::span<const uint8_t> bytes, std::string_view layer, bool *present);
+
   int Extent_ = 4096;
   std::vector<Feature> Features_;
   std::vector<Ring> Rings_;
