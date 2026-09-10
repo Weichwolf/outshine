@@ -117,8 +117,17 @@ public:
   [[nodiscard]] static std::optional<Resource> ResourceByName(std::string_view name);
 
 private:
-  [[nodiscard]] static bool
-  CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled> *out, std::string &error);
+  [[nodiscard]] bool ResolveDependencies(const PlanSpec &spec, std::string &error);
+  [[nodiscard]] bool ConfigureOutput(const PlanSpec &spec, std::string &error);
+  [[nodiscard]] bool CanSharePass(const Pass &pass, const StageRow &row) const;
+  [[nodiscard]] bool MergeStage(Pass &pass, Stage stage);
+  void BuildPasses();
+  [[nodiscard]] bool AttachComputeTargets(Pass &pass, std::string &error) const;
+  [[nodiscard]] bool AttachRasterTargets(Pass &pass, std::string &error) const;
+  [[nodiscard]] bool AttachTargets(std::string &error);
+  [[nodiscard]] bool IsRead(Resource resource) const;
+  void PlanStorage(const PlanSpec &spec);
+  void BuildDigest();
 
 public:
   [[nodiscard]] bool Holds(Stage stage) const { return HeldStage_[static_cast<size_t>(stage)]; }

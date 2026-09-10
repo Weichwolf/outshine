@@ -114,7 +114,7 @@ Rank 0..255 (ClassBuilder packt acht Bits), Lanes >=0, Priority int; Maße im Fl
 Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahlen offen.
 
 ## Renderplan-Compiler
-Enums und endliche nichtnegative Exposure vor Arrayzugriff prüfen. CompileInto ersetzen
-durch Kandidatenphasen: Abhängigkeiten, Ausgabe, Passfusion, Ziele, Speicherung, Digest.
-Merge-/Attachment-Regeln erhalten; ungültige Specs ablehnen, strukturelle Plan-Snapshots
-vor/nach vergleichen und Speicherbindungs-/Fusionsverträge unabhängig prüfen.
+Enums/Exposure vor Arrayzugriff validiert; Ressourcen-Queue auf Kataloggröße begrenzt.
+Kandidatenphasen für Abhängigkeiten, Ausgabe, Passfusion, Ziele, Speicherung und Digest.
+2 Tests PASS; 4 strukturelle Vorher/Nachher-Pläne identisch. Alte Implementierung scheitert
+an 5 Exposure-/Enum-Negativprüfungen; ungültige Stage-/Resource-IDs werden jetzt abgelehnt.
