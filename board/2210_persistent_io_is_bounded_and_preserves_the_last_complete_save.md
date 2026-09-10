@@ -59,3 +59,13 @@ Tests prüfen Move-Konstruktion/-Zuweisung, Bytes/Metadaten, leere Antworten und
 - [ ] SourceSet-Query-Endzustände vollständig.
 - [ ] IO-, Parser-, Speicher- und Zeitbudgets vollständig durch Tests erzwungen.
 - [ ] make lint einschließlich clang-tidy grün; neue fachliche Schritte mit Regressionen.
+
+## Query-Zustandsmaschine
+Vor Implementierung: Ready/InFlight/Backoff/Finished statt indirekter Ticket-/Zeit-Flags.
+Jedes terminale Ergebnis und Abandon schließen die Query; danach Consumed ohne Quellen-
+oder Ledger-Zugriff. Move-Konstruktion überträgt Ticket und konsumiert die Quelle;
+Move-Zuweisung verbieten, damit ein aktives Ticket nicht ohne Abbruch überschrieben wird.
+Query an erzeugendes SourceSet binden; fremdes Collect ablehnen, Query unverändert.
+SourceSet und benutzter Transport müssen aktive Queries überleben; Abandon bleibt explizit.
+Tests: erneutes Collect nach Delivery/Refusal/Absent/Undeclared/Cancel, Move eines aktiven
+Tickets und Owner-Verwechslung. Altstand-Negativkontrolle, gültiger Retry unverändert.
