@@ -91,9 +91,9 @@ Letzter Lint: 178 tidy, 251 Dokumentationsdiagnosen, 32 Repository-Tests grün;
 drei rote Gruppen bleiben. Einzelverläufe stehen in Git, nicht als fortlaufendes Tagebuch.
 
 ## GroundMaterials-Katalog
-Load leert vor IO den Katalog und publiziert Klassen vor vollständiger Validierung.
-Datei über ReadTextFile mit 1-MiB-Katalogbudget lesen; JSON/Klassen/Referenzen als
-Kandidat aufbauen, erst bei Erfolg ersetzen. Klassen-Decoding von Katalogauflösung
+Load liest über ReadTextFile mit 1-MiB-Katalogbudget; JSON/Klassen/Referenzen
+werden als Kandidat aufgebaut und erst bei Erfolg ersetzt. Klassen-Decoding von Katalogauflösung
 trennen; gültige Materialarithmetik unverändert. Negativkontrolle: später Klassen-/
-Referenzfehler erhält alle alten Materialien, fehlende/überlange Dateien ebenso.
+Referenzfehler erhält alte Materialien, fehlende/überlange Dateien ebenso. Altstand
+verletzt die Negativkontrolle; Loader-/Reader-Regressionen samt ausgeliefertem Katalog grün.
 Numerische Material-/Modellgrenzen und unbekannte Litter-Verweise bleiben separat offen.
