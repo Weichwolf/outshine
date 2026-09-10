@@ -102,14 +102,13 @@ if ! python3 test/scripts/grammar_vs_reader.py; then
   red=$((red + 1))
 fi
 
-# AND THE GRAMMAR AGAINST ITS OWN WRITER, which is the half `roundtrip` cannot see. Reading a place,
-# writing it, reading that back and writing it again holds even when the writer DROPS a section --
-# measured: with `<clock>` removed every place lost 59 bytes and `roundtrip` still said `0 place(s)
-# apart`. A child declared and never written is a capability the engine can be told and can never
-# hand back. Sixty-four stand today and the target is none of them.
-if ! python3 test/scripts/grammar_vs_writer.py; then
-  printf 'lint: the scenario grammar declares a child its writer cannot write back, and the\n' >&2
-  printf 'lint: count GREW. A declaration that cannot be handed back is not declared.\n' >&2
+# Literal coverage is an inventory, not a proof of lossless serialization.
+if ! make test-writer-inventory > "$REPORT/writer-inventory-tests.log" 2>&1; then
+  cat "$REPORT/writer-inventory-tests.log" >&2
+  red=$((red + 1))
+elif ! python3 test/scripts/grammar_vs_writer.py; then
+  printf 'lint: writer source coverage is incomplete; inspect unmatched names and analysis errors.\n' >&2
+  printf 'lint: independent declaration roundtrip tests remain the preservation oracle.\n' >&2
   red=$((red + 1))
 fi
 

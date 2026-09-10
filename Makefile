@@ -196,3 +196,7 @@ render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER
 corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/khronos/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py fetch --manifest "$(MANIFEST)"
+
+.PHONY: test-writer-inventory
+test-writer-inventory: ## verify scenario writer source inventory
+	@cd $(SELF_DIR) && python3 test/scripts/test_grammar_vs_writer.py
