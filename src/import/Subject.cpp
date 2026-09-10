@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstring>
 #include <map>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,6 +38,7 @@ constexpr auto NativeMaterialFailed = "native material conversion failed";
 constexpr auto NativePositionsFailed = "native position conversion failed";
 constexpr auto NativeAttributesFailed = "native vertex attribute conversion failed";
 constexpr auto NativeTrianglesFailed = "native triangle conversion failed";
+constexpr auto NativeCapacityFailed = "native assembly index or attribute capacity exhausted";
 }
 
 constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ull;
@@ -1197,7 +1199,7 @@ void Subject::AssembleLights(const outshine::Geometry &what) {
   }
 }
 
-bool Subject::AssembledPartHolds(const outshine::Geometry &what, int slot, size_t &vertices) {
+std::expected<size_t, std::string> Subject::ValidatePart(const outshine::Geometry &what, int slot) {
   const std::span<const float> pPos = what.positionsOf(slot);
   const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
   const std::span<const float> pNormals = what.normalsOf(slot);
@@ -1207,17 +1209,18 @@ bool Subject::AssembledPartHolds(const outshine::Geometry &what, int slot, size_
   const std::span<const float> pColours = what.coloursOf(slot);
   const std::string where = "assembled piece " + std::to_string(slot);
   if (pPos.empty() || (pPos.size() % 3) != 0) {
-    return Refuse(where + " states " + std::to_string(pPos.size()) +
-                  " position components, which is not a whole run of points");
+    return std::unexpected(where + " states " + std::to_string(pPos.size()) +
+                           " position components, which is not a whole run of points");
   }
-  vertices = pPos.size() / 3;
+  const size_t vertices = pPos.size() / 3;
   if (pIndices.empty() || (pIndices.size() % 3) != 0) {
-    return Refuse(where + " states " + std::to_string(pIndices.size()) +
-                  " indices, which is not a whole run of triangles");
+    return std::unexpected(where + " states " + std::to_string(pIndices.size()) +
+                           " indices, which is not a whole run of triangles");
   }
   if (what.materialOf(slot).index() < -1) {
-    return Refuse(where + " names material " + std::to_string(what.materialOf(slot).index()) +
-                  ", and -1 is the only spelling of naming none");
+    return std::unexpected(where + " names material " +
+                           std::to_string(what.materialOf(slot).index()) +
+                           ", and -1 is the only spelling of naming none");
   }
   std::string why;
   if (!RunIsStatable(pPos, vertices, 3, "positions", where, why) ||
@@ -1226,20 +1229,26 @@ bool Subject::AssembledPartHolds(const outshine::Geometry &what, int slot, size_
       !RunIsStatable(pUv1, vertices, 2, "second-set uv pairs", where, why) ||
       !RunIsStatable(pTangents, vertices, 4, "tangents", where, why) ||
       !RunIsStatable(pColours, vertices, 4, "vertex colours", where, why)) {
-    return Refuse(why);
+    return std::unexpected(why);
   }
 
   for (size_t at = 0; at < pColours.size(); ++at) {
     if (pColours[at] >= 0.0f && pColours[at] <= 1.0f) { continue; }
-    return Refuse(where + " states a vertex colour component of " + std::to_string(pColours[at]) +
-                  " at " + std::to_string(at) +
-                  ", and the format requires every component in [0, 1]");
+    return std::unexpected(where + " states a vertex colour component of " +
+                           std::to_string(pColours[at]) + " at " + std::to_string(at) +
+                           ", and the format requires every component in [0, 1]");
   }
 
-  return true;
+  for (const uint32_t local : pIndices) {
+    if (local >= vertices) {
+      return std::unexpected(where + " addresses vertex " + std::to_string(local) + " of its own " +
+                             std::to_string(vertices));
+    }
+  }
+  return vertices;
 }
 
-bool Subject::AssemblePartInto(const outshine::Geometry &what,
+void Subject::AssemblePartInto(const outshine::Geometry &what,
                                int slot,
                                const Part &part,
                                size_t wholeFloats) {
@@ -1250,8 +1259,6 @@ bool Subject::AssemblePartInto(const outshine::Geometry &what,
   const std::span<const float> pTangents = what.tangentsOf(slot);
   const std::span<const float> pColours = what.coloursOf(slot);
   const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
-  const size_t vertices = pPos.size() / 3;
-  const std::string where = "assembled piece " + std::to_string(slot);
   if (Positions_.capacity() < Positions_.size() + pPos.size()) {
     Positions_.reserve(wholeFloats);
     Uv_.reserve((wholeFloats / 3) * 2);
@@ -1284,30 +1291,31 @@ bool Subject::AssemblePartInto(const outshine::Geometry &what,
   }
 
   for (const uint32_t local : pIndices) {
-    if (local >= vertices) {
-      return Refuse(where + " addresses vertex " + std::to_string(local) + " of its own " +
-                    std::to_string(vertices));
-    }
     Indices_.push_back(static_cast<uint32_t>(part.FirstVertex) + local);
   }
-  const Mat4 &placement = what.placementOf(slot);
-  if (placement == Mat4{}) { return true; }
+  ApplyPartPlacement(what.placementOf(slot), part);
+}
+
+void Subject::ApplyPartPlacement(const Mat4 &placement, const Part &part) {
+  if (placement == Mat4{}) { return; }
   const Vec3 x = {{placement[0], placement[1], placement[2]}};
   const Vec3 y = {{placement[4], placement[5], placement[6]}};
   const Vec3 z = {{placement[8], placement[9], placement[10]}};
-  const Vec3 nx = Cross(y, z), ny = Cross(z, x), nz = Cross(x, y);
+  const Vec3 nx = Cross(y, z);
+  const Vec3 ny = Cross(z, x);
+  const Vec3 nz = Cross(x, y);
   const double sign = Dot(x, nx) < 0 ? -1.0 : 1.0;
-  for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + vertices; ++vertex) {
+  for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + part.VertexCount; ++vertex) {
     const size_t at = vertex * 3;
     const Vec3 local = {{Positions_[at], Positions_[at + 1], Positions_[at + 2]}};
     const Vec3 placed = placement.TransformPoint(local);
     for (size_t axis = 0; axis < 3; ++axis) { Positions_[at + axis] = placed[axis]; }
-    if (!pNormals.empty()) {
+    if (part.HasNormal) {
       Vec3 normal = (nx * Normals_[at] + ny * Normals_[at + 1] + nz * Normals_[at + 2]) * sign;
       (void)Normalise(normal);
       for (size_t axis = 0; axis < 3; ++axis) { Normals_[at + axis] = normal[axis]; }
     }
-    if (!pTangents.empty()) {
+    if (part.HasTangent()) {
       const size_t along = vertex * 4;
       Vec3 tangent = placement.TransformDirection(
           {{Tangents_[along], Tangents_[along + 1], Tangents_[along + 2]}});
@@ -1321,11 +1329,47 @@ bool Subject::AssemblePartInto(const outshine::Geometry &what,
       std::swap(Indices_[at + 1], Indices_[at + 2]);
     }
   }
-  return true;
+}
+
+std::expected<size_t, std::string> Subject::ValidateAssembly(const outshine::Geometry &what) const {
+  if (what.parts() == 0) { return std::unexpected("an assembly of no piece draws nothing"); }
+  const size_t maximumVertices = std::min(Positions_.max_size() / 3, Tangents_.max_size() / 4);
+  constexpr size_t kMaximumClonesPerCorner = 2;
+  size_t projectedVertices = 0;
+  const auto accountVertices = [&](size_t count) {
+    if (count > maximumVertices - projectedVertices) { return false; }
+    if (count > 0 && (projectedVertices > std::numeric_limits<uint32_t>::max() ||
+                      count - 1 > std::numeric_limits<uint32_t>::max() - projectedVertices)) {
+      return false;
+    }
+    projectedVertices += count;
+    return true;
+  };
+  size_t wholeFloats = 0;
+  size_t totalIndices = 0;
+  for (int slot = 0; slot < what.parts(); ++slot) {
+    const auto vertices = ValidatePart(what, slot);
+    if (!vertices) { return std::unexpected(vertices.error()); }
+    const size_t indices = what.trianglesOf(slot).size();
+    if (indices > Indices_.max_size() - totalIndices ||
+        indices > maximumVertices / kMaximumClonesPerCorner || !accountVertices(*vertices) ||
+        !accountVertices(indices * kMaximumClonesPerCorner)) {
+      return std::unexpected(Says::NativeCapacityFailed);
+    }
+    totalIndices += indices;
+    wholeFloats += *vertices * 3;
+  }
+  return wholeFloats;
 }
 
 bool Subject::Assemble(const outshine::Geometry &what) {
   Error_.clear();
+  const auto validated = ValidateAssembly(what);
+  if (!validated) {
+    Error_ = validated.error();
+    return false;
+  }
+  const size_t wholeFloats = *validated;
   Images_.clear();
   Positions_.clear();
   Uv_.clear();
@@ -1346,20 +1390,11 @@ bool Subject::Assemble(const outshine::Geometry &what) {
                        .Height = image.HeightPx,
                        .Rgba = {image.Rgba.begin(), image.Rgba.end()}});
   }
-  size_t wholeFloats = 0;
-  for (int counting = 0; counting < what.parts(); ++counting) {
-    wholeFloats += what.positionsOf(counting).size();
-  }
   for (int surface = 0; surface < what.surfaces(); ++surface) {
     Surfaces_.push_back(what.surfaceAt(MaterialInstance(surface)));
     TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
   }
   AssembleLights(what);
-  if (what.parts() == 0) {
-    return Refuse(
-        "an assembly of no piece draws nothing, and a subject with no triangle is not one");
-  }
-
   for (size_t index = 0; std::cmp_less(index, what.parts()); ++index) {
     const int slot = static_cast<int>(index);
     const std::span<const float> pNormals = what.normalsOf(slot);
@@ -1368,8 +1403,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     const std::span<const float> pTangents = what.tangentsOf(slot);
     const std::span<const float> pColours = what.coloursOf(slot);
     const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
-    size_t vertices = 0;
-    if (!AssembledPartHolds(what, slot, vertices)) { return false; }
+    const size_t vertices = what.positionsOf(slot).size() / 3;
     Part part;
     part.NodeName = std::string(what.nameOf(slot));
     part.Material = what.materialOf(slot).index();
@@ -1384,7 +1418,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
 
     part.Tangent = pTangents.empty() ? TangentSource::None : TangentSource::Supplied;
 
-    if (!AssemblePartInto(what, slot, part, wholeFloats)) { return false; }
+    AssemblePartInto(what, slot, part, wholeFloats);
     part.IndexCount = Indices_.size() - part.FirstIndex;
     if (!FlatNormalsFor(part) || !GeneratedTangentsFor(part)) { return false; }
     part.VertexCount = VertexCount() - part.FirstVertex;

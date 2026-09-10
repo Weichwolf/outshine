@@ -47,14 +47,19 @@ melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer ü
 - Alle Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen.
   Vollständige Asset-/Instanzmigration bleibt WI 2150; Runtime-Ausnahmen WI 2194.
 
-## Nächster Import-Schritt
-Subject::Assemble prüft bisher lokale Indizes erst nach Clear und partieller Kopie.
+## Import-Vorprüfung
+Subject::Assemble prüft lokale Indizes und Attribute jetzt vor Clear und partieller Kopie.
+ValidatePart/ValidateAssembly liefern expected; destruktives Refuse wird vor Mutation vermieden.
 Vorflight für alle Parts: vorhandene Attributregeln plus lokale Indexgrenzen,
 Gesamtvertex-/Komponentenkapazität und uint32-Adressierbarkeit vor Datenänderungen.
+Konservative Obergrenze: Eingangsvertices + zweimal Indexanzahl, weil Normalen- und
+Tangentenbildung jeweils höchstens einen Clone pro Ecke anlegen; keine Vorausallokation
+dieser Obergrenze. Größenrechnung geprüft, reale Speichererschöpfung nicht nachgewiesen.
 Erst danach Attribute kopieren; affine Platzierung als getrennte Phase nach Mat4-
 Vertrag (Punkte, inverse-transponierte Normalen, Tangenten und gespiegeltes Winding).
 Negativfall: zweiter Part mit ungültigem Index erhält vorherige Daten/Ansichten;
-gültiger Retry und vorhandene unabhängige Spiegelungs-/Skalierungsoracles bleiben grün.
+gültiger Retry und vorhandene unabhängige Spiegelungs-/Skalierungsoracles sind grün.
+Altcode verletzt den Erhaltungstest; leerer Input und falsche Attributlängen ebenfalls geprüft.
 Keine zusätzliche Geometriekopie. Spätere Normalen-/Tangentenfehler und Append bleiben
 separate Transaktions-/Kapazitätslücken; keine vollständige Importtransaktion behaupten.
 
@@ -82,5 +87,5 @@ scheitert an den Vertragschecks, nicht am Build; danach sieben gezielte und drei
 Regressionstests grün (ein gemeinsamer Fall, zusätzlich validierter Gerätearm).
 Materialübernahme als eigene Importphase; vier Importregressionen einschließlich
 Khronos-Texturtransformationen grün. Keine vollständige Corpus-/Weltabnahme.
-Letzter Lint: 180 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün;
+Letzter Lint: 178 tidy, 251 Dokumentationsdiagnosen, 32 Repository-Tests grün;
 drei rote Gruppen bleiben. Einzelverläufe stehen in Git, nicht als fortlaufendes Tagebuch.

@@ -172,9 +172,13 @@ private:
   [[nodiscard]] uint32_t CloneVertex(uint32_t vertex);
   [[nodiscard]] Vec3 FaceNormalOf(std::span<const uint32_t, 3> of) const;
   void AssembleLights(const outshine::Geometry &what);
-  [[nodiscard]] bool AssembledPartHolds(const outshine::Geometry &what, int slot, size_t &vertices);
-  [[nodiscard]] bool
+  [[nodiscard]] static std::expected<size_t, std::string>
+  ValidatePart(const outshine::Geometry &what, int slot);
+  [[nodiscard]] std::expected<size_t, std::string>
+  ValidateAssembly(const outshine::Geometry &what) const;
+  void
   AssemblePartInto(const outshine::Geometry &what, int slot, const Part &part, size_t wholeFloats);
+  void ApplyPartPlacement(const Mat4 &placement, const Part &part);
 
   struct Posing {
     const Transform *Pose = nullptr;
