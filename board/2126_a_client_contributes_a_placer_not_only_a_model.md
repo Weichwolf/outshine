@@ -113,3 +113,8 @@ Dachauswahl: Seitenverhältnis aus BuildingShape ableiten statt als zweiten,
 vertauschbaren double-Parameter übergeben. Nur PitchedShare ist externe Vorgabe;
 Geometrie und abgeleitete Proportion dürfen sich nicht widersprechen. Bestehenden
 Gebäudeaufbau inklusive Fehler-/Retry-Verträgen unverändert nachweisen.
+
+Structures: widthM als einziger optionaler Größenparameter (Default 12 m), vollständig
+endlich/positiv parsen; Duplikate, unbekannte Namen und Zahlenreste verweigern.
+Request::ExtentM beeinflusst Objektmaße nicht mehr. Direkte Meshvergleiche bei anderen
+Regionen, expliziten Breiten und Fehlererhalt; alter Extent-Pfad als Gegenprobe.
