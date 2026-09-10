@@ -113,8 +113,8 @@ Rank 0..255 (ClassBuilder packt acht Bits), Lanes >=0, Priority int; Maße im Fl
 Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahlen offen.
 
 ## Dach-Triangulierung
-EarClip: Ear-Prüfung trennen, nichtendliche Koordinaten/Orientierungswerte ablehnen.
-Den überlaufenden int(n*n)+8-Guard durch nachweislichen Fortschritt ersetzen: jeder
+EarClip: Ear-Prüfung getrennt; nichtendliche Koordinaten/Orientierungswerte abgelehnt.
+Überlaufenden int(n*n)+8-Guard durch nachweislichen Fortschritt ersetzt: jeder
 Durchlauf entfernt einen Index oder bricht ab. Indexbereich vor Konvertierung prüfen.
-Analytische konvexe/konkave Flächen, Reihenfolge und Fehler-Rollback vergleichen;
+Acht Gebäudetests grün: Flächen, Reihenfolge und Fehler-Rollback; Altcode-Negativkontrolle rot;
 Selbstschnittvalidierung und globales Triangulierungs-Arbeitsbudget bleiben offen.

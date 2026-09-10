@@ -4,6 +4,7 @@
 #include "RoofSurface.h"
 
 #include <cstddef>
+#include <limits>
 #include <cstdint>
 #include <span>
 
@@ -45,41 +46,58 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   out.push_back(c);
 }
 
-[[nodiscard]] bool
-EarClip(std::span<const En> ring, std::vector<uint32_t> &poly, std::vector<En> &tris) {
-  const size_t n = ring.size();
-  if (n < 3) { return false; }
-  poly.resize(n);
-  for (size_t i = 0; i < n; i++) { poly[i] = static_cast<uint32_t>(i); }
+struct Ear {
+  uint32_t Before;
+  uint32_t Tip;
+  uint32_t After;
+};
+
+[[nodiscard]] bool IsEar(std::span<const En> ring, std::span<const uint32_t> poly, Ear ear) {
   const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
     return (ring[b].EastM - ring[a].EastM) * (ring[c].NorthM - ring[a].NorthM) -
            (ring[c].EastM - ring[a].EastM) * (ring[b].NorthM - ring[a].NorthM);
   };
-  int guard = static_cast<int>(n * n) + 8;
-  while (poly.size() > 2 && guard-- > 0) {
+  const double area = cross(ear.Before, ear.Tip, ear.After);
+  if (!std::isfinite(area) || area <= 0) { return false; }
+  for (const uint32_t point : poly) {
+    if (point == ear.Before || point == ear.Tip || point == ear.After) { continue; }
+    const std::array sides{cross(ear.Before, ear.Tip, point),
+                           cross(ear.Tip, ear.After, point),
+                           cross(ear.After, ear.Before, point)};
+    if (!std::ranges::all_of(sides, [](double side) { return std::isfinite(side); })) {
+      return false;
+    }
+    if (std::ranges::all_of(sides, [](double side) { return side >= 0; })) { return false; }
+  }
+  return true;
+}
+
+[[nodiscard]] bool
+EarClip(std::span<const En> ring, std::vector<uint32_t> &poly, std::vector<En> &tris) {
+  const size_t n = ring.size();
+  if (n < 3 || n > std::numeric_limits<uint32_t>::max()) { return false; }
+  if (!std::ranges::all_of(ring, [](const En &point) {
+        return std::isfinite(point.EastM) && std::isfinite(point.NorthM);
+      })) {
+    return false;
+  }
+  poly.resize(n);
+  for (size_t i = 0; i < n; ++i) { poly[i] = static_cast<uint32_t>(i); }
+  while (poly.size() > 2) {
     bool cut = false;
-    for (size_t i = 0; i < poly.size(); i++) {
-      const uint32_t a = poly[(i + poly.size() - 1) % poly.size()];
-      const uint32_t b = poly[i];
-      const uint32_t c = poly[(i + 1) % poly.size()];
-      if (cross(a, b, c) <= 0.0) { continue; }
-      bool clean = true;
-      for (const uint32_t o : poly) {
-        if (o == a || o == b || o == c) { continue; }
-        if (cross(a, b, o) >= 0.0 && cross(b, c, o) >= 0.0 && cross(c, a, o) >= 0.0) {
-          clean = false;
-          break;
-        }
-      }
-      if (!clean) { continue; }
-      PushTri(tris, ring[a], ring[b], ring[c]);
-      poly.erase(poly.begin() + static_cast<long>(i));
+    for (size_t i = 0; i < poly.size(); ++i) {
+      const Ear ear{.Before = poly[(i + poly.size() - 1) % poly.size()],
+                    .Tip = poly[i],
+                    .After = poly[(i + 1) % poly.size()]};
+      if (!IsEar(ring, poly, ear)) { continue; }
+      PushTri(tris, ring[ear.Before], ring[ear.Tip], ring[ear.After]);
+      poly.erase(poly.begin() + static_cast<std::ptrdiff_t>(i));
       cut = true;
       break;
     }
     if (!cut) { return false; }
   }
-  return poly.size() <= 2;
+  return true;
 }
 
 [[nodiscard]] bool Inside(std::span<const En> ring, const En &p, double marginM) {
