@@ -46,9 +46,9 @@ public:
   [[nodiscard]] std::expected<void, std::string> load(std::string_view path);
   /// Select a named material variant and rebuild the currently selected clips at time zero.
   /// @param variant Exact, case-sensitive imported name; copied, never retained as a view.
-  /// @return Success or an owned diagnostic for an unknown name or conversion failure. Unknown
-  /// names leave the selection and snapshot unchanged; conversion failure may leave partially
-  /// rebuilt data. May allocate and decode textures. Success clears error().
+  /// @return Success or an owned diagnostic for an unknown name or conversion failure.
+  /// Failure preserves the selection, published geometry, camera poses and borrowed geometry
+  /// storage. May allocate and decode textures. Success clears error().
   [[nodiscard]] std::expected<void, std::string> selectMaterialVariant(std::string_view variant);
   /// Read the last recorded diagnostic without allocation; not an independent success indicator.
   /// @return Borrowed diagnostic; copy if needed beyond the next mutation, move or destruction.

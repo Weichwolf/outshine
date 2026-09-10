@@ -264,11 +264,15 @@ std::expected<void, std::string> GltfImporter::load(std::string_view path) {
 
 std::expected<void, std::string> GltfImporter::selectMaterialVariant(std::string_view variant) {
   Held &held = *Held_;
-  const Gltf::VariantSelection wanted{std::string(variant)};
+  Gltf::VariantSelection wanted{std::string(variant)};
   int index = -1;
   if (!wanted.Against(held.File, index, held.Why)) { return std::unexpected(held.Why); }
-  held.Variant = wanted;
-  if (!held.Assemble(0.0)) { return std::unexpected(held.Why); }
+  auto previous = std::move(held.Variant);
+  held.Variant = std::move(wanted);
+  if (!held.Assemble(0.0)) {
+    held.Variant = std::move(previous);
+    return std::unexpected(held.Why);
+  }
   held.Why.clear();
   return {};
 }

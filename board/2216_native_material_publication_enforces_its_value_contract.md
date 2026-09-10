@@ -7,112 +7,67 @@ Depends:
 
 # Native material publication enforces its value contract
 
-## Beleg
-include/scene/Material.h dokumentiert Wertebereiche, Farbräume und Lebensdauer.
-Geometry::addSurface kopiert ungeprüft und verengt die Slotzahl auf int;
-setSurface prüft jetzt Zielindex, Werte und Bildbindungen mit typed expected vor Kopie.
-wellFormed prüft vollständige Material-/Meshprodukte einschließlich Bindungen. SubjectDraw::ValidateMaterials prüft Geräte-/Pass-
-Fähigkeiten, keine physikalischen Faktoren. Diese Prüfungen sind nicht austauschbar.
+## Erreichter Vertrag
+MaterialValidation.h prüft Faktoren gemäß include/scene/Material.h, AlphaMode,
+Sampler-/UV-Enums, finite UV-Transformationen und owner-lokale Bildbindungen.
+HDR-Emission, IOR 0 und positive unendliche AttenuationDistance bleiben zulässig;
+Schichtdicken sind nichtnegativ und geordnet. Keine stillen Clamps/Ersatzmaterialien.
+Geometry::wellFormed prüft vollständige Material-/Meshprodukte einschließlich
+zugewiesener Materialindizes. Engine::setGeometry prüft vor der Übernahme.
+SubjectDraw::ValidateMaterials bleibt getrennte Geräte-/Renderpass-Fähigkeitsprüfung.
 
-## Lösung
-Gemeinsame nichtallokierende native Validierung vor Materialveröffentlichung;
-Importer, Generatoren und direkte API-Aufrufer durch denselben Besitzer führen.
-Zwei Ebenen: eigentliche Materialwerte und referenzielle Gültigkeit im Assetbesitzer.
-- Faktoren gemäß Material.h: finite Werte, zulässige Intervalle, gültiges AlphaMode;
-  nichtnegative Emission/Schichtdicken, geordnete Irideszenzdicken, IOR-Konventionen.
-  Positive unendliche AttenuationDistance ausdrücklich zulässig, NaN niemals.
-- Texturbindungen: gültige Sampler-/UV-Enums und finite UV-Transformationen;
-  gebundene Bilder im Besitzer vorhanden. Negative Bildindizes bleiben ungebunden.
-- Aufbau-Reihenfolge der Importer prüfen: Referenzen bei vollständiger Asset-Publikation
-  validieren, ohne legitime vorbereitete Vorwärtsreferenzen zu verlieren.
-- Fehler typisiert/expected, kein stilles Clamp oder Ersatzmaterial. Ungültiger Ersatz
-  erhält vorherige Werte; fehlgeschlagenes Anlegen verbraucht keinen Slot/keinen Namen.
-  Indexkapazität vor Allokation/Verengung prüfen. API-Dokumentation/Consumer migrieren.
-- Renderer-Fähigkeitsprüfung bleibt getrennt: gültiges Material ist nicht automatisch
-  auf jedem Backend bzw. in jedem Renderplan unterstützt.
+setSurface liefert expected<void, MaterialUpdateError>: fehlender Slot und ungültige
+Werte/Bindungen unterschieden, alle Prüfungen vor nichtallokierender Kopie. Fehler
+bewahren vorherige Werte/Namen/Indizes. Kein vorwärtsreferenzierender Ersatz.
+
+Subject::Handed liefert expected<Geometry,string> mit Asset-/Mesh-Phasen und reicht
+geprüfte Bild-/Material-/Vertex-/Indexsetter-Fehler weiter, statt Teilprodukte auszugeben.
+Der Importer bindet Texturen und sampelt Materialfaktoren auf diesem Kandidaten;
+Handed wird erst danach ersetzt. Keine zusätzliche Geometriekopie.
+Kameraposen haben getrennte Arbeits-/Publikationspuffer; bei Erfolg Swap. Fehlgeschlagene
+Clip- und Variantenwahl stellt die vorige Auswahl wieder her. Geometrieansichten,
+veröffentlichte Kameras und Clipdauer bleiben bei den geprüften Fehlern erhalten.
+
+## Verbleibende Lücke
+Geometry::addSurface kopiert noch ungeprüft und verengt die Slotzahl auf int.
+Subject::Flatten/CopyNativeAssets ignorieren seinen Rückgabewert. Engine::State::Models
+ist void; Laying nutzt Materialindizes unmittelbar. Structures/Corridors sowie
+TreeGeometry/CrownAtlas legen Generator-Materialien an. 15 C++-Testdateien verwenden
+addSurface. Material-/Indexfehler dürfen nicht zur Defaultoberfläche werden.
+
+## Nächste vollständige Migration
+- addSurface als expected<MaterialInstance, MaterialError>; MaterialUpdateError zum
+  gemeinsamen Fehlervertrag erweitern. Intrinsische Werte/Enums/UVs und Indexkapazität
+  vor Allokation/Kopie prüfen; Fehler verbraucht keinen Slot/Namen.
+- Bildreferenzen bei vollständiger Asset-Publikation prüfen: Subject::Flatten legt
+  Materialien vor Bildern an, Handed kopiert Bilder vor Materialien. Legitime
+  Vorwärtsreferenzen beim Aufbau erhalten; keine zweite Materialrepräsentation.
+- Import-/Generator-/Geländeaufrufer vollständig auf Fehlerweitergabe migrieren.
+  Keine unchecked Dereferenzierung, value_or-Defaultmaterialien oder erfolgsmeldende
+  leere Geometrie. Später Fehler darf kein teilweise erzeugtes Produkt veröffentlichen.
+- Verbleibende Kopier-/Indexverengungen und Bindungsauflösung im Importadapter auditieren.
+  Gemeinsame native Regeln für Importer, Generatoren und direkte API-Aufrufer.
+- Öffentliche Fehler-, Ownership-, Invalidierungs- und Kostenverträge aktualisieren.
+  Vollständige Asset-/Instanzmigration bleibt WI 2150; Runtime-Ausnahmen WI 2194.
 
 ## Abnahme
-- [ ] Default, Intervallgrenzen, HDR-Emission und positive unendliche Absorptionsdistanz gültig.
-- [ ] NaN/Inf, ungültige Enums, Dickenreihenfolge und verwaiste Bildbindung abgelehnt;
-      Negativkontrollen verletzen unabhängige Oracle ohne Buildfehler.
-- [ ] add/replace-Fehler erhalten Materialbestand und Indizes; erfolgreicher Retry geprüft.
-- [ ] Äquivalente Import-/Generator-/direkte API-Fälle haben gleiche Ergebnisse.
-- [ ] Unterstützte Khronos-Materialien und native Generatorprodukte bleiben gültig;
-      Bildänderungen mit PNG-Orakeln prüfen, keine Referenzanpassung zur Kaschierung.
-- [ ] make format, passende Tests, make lint einschließlich clang-tidy; keine Suppression.
+- [x] Publikations-/Ersatzfehler, Quellerhaltung und gültiger Retry durch native Tests geprüft.
+- [x] Fehler spät in Materialanimation erhält frühere Materialien und Geometrieansichten.
+- [x] Fehlgeschlagene Probe/Clipwahl erhält Kameras, Clipdauer und Nutzbarkeit der alten Auswahl.
+- [x] Variante mit fehlender Textur wird abgelehnt; folgende Probe nutzt vorherige Auswahl.
+- [ ] Anlegefehler erhalten Materialbestand/Namen/Indexvergabe; Kapazitätsgrenze geprüft.
+- [ ] Alle intrinsischen Grenzen und Bindungskombinationen unabhängig geprüft, einschließlich
+      HDR, IOR-Sonderfall, +infinity-Absorptionsdistanz, NaN, ungültige Enums und Schichtreihenfolge.
+- [ ] Später Import-/Generatorfehler publiziert kein Teilprodukt und erhält aktive Welt.
+- [ ] Khronos-Corpus und Generatorprodukte bleiben gültig; Bildänderungen mit PNG-Orakeln
+      prüfen, keine Referenzanpassung zur Kaschierung von Fehlern.
+- [ ] make format, passende Tests und make lint/clang-tidy ohne Suppression.
 
-Kein neues paralleles Materialmodell. Vorhandenen nativen Besitzer und dokumentierte
-Verträge vervollständigen. Vollständige Asset-/Instanzmigration bleibt WI 2150.
-
-Aufbaureihenfolge geprüft: Subject::Flatten legt Materialien vor Bildern an; Handed
-kopiert Bilder vor Materialien. Referenzprüfung am vollständigen Geometry-Produkt in
-wellFormed, vor Engine::setGeometry-Übernahme. Intrinsische Materialwerte, alle Bindungen
-und Materialindizes dort gemeinsam prüfen; Setter-Fehlerverträge bleiben separat offen.
-
-Publikationsprüfung umgesetzt: wellFormed validiert Materialwerte, alle sieben
-Texturbindungen und zugewiesene Materialindizes; Engine::setGeometry lehnt vorher ab.
-81 Material-/API-Checks grün, Altcode scheitert ohne Buildfehler. Native Geometrie,
-animierte Importmaterialien, Baumgenerator und Asset-Roundtrip als Regressionen grün.
-Abschluss-Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün, drei rote Gruppen.
-Setter-expected-/Rollback-Verträge und vollständige Corpus-/Bildabnahme bleiben offen.
-
-setSurface wird validierender Ersatz: expected<void, MaterialUpdateError>, noexcept,
-getrennte Fehler für fehlenden Slot und ungültige Werte/Bindungen. Alle Prüfungen vor
-Kopie, vorheriges Material bei Fehler erhalten. Importer aktualisieren nach Bildaufbau.
-Publikations-/Export-Negativfixtures erzeugen ungültige Aufbauzustände weiter über
-addSurface; ihre Oracles bleiben bestehen. Neuer Erhaltungstest muss am Altsetter scheitern.
-
-Ersatz-Abnahme: fehlender Slot und ungültige Werte/Bindungen liefern getrennte Fehler,
-keine Allokation/Mutation vor erfolgreicher Prüfung. Erhaltung/Retry, Publikation, Export,
-animierte Importmaterialien und native Bilder/UVs grün. Altsetter verletzt Erhaltungsoracle
-ohne Buildfehler. Export-/Publikations-Negativfälle bleiben über Aufbaupfad erhalten.
-Abschluss-Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün; drei rote Gruppen.
-
-## Migration des Anlegevertrags
-Aufruferinventar: Subject::Flatten/Handed ignorieren noch addSurface. Handed reicht
-Bild-/Vertex-/Indexsetter-Fehler jetzt per expected weiter und prüft Materialwerte. Engine::State::Models ist void und Laying nutzt
-Materialindizes unmittelbar. Structures/Corridors sowie TreeGeometry/CrownAtlas legen
-Materialien für Generatorprodukte an. 15 C++-Testdateien verwenden addSurface.
-Anlegen als expected<MaterialInstance, MaterialError>: intrinsische Werte/Enums/UVs
-und Indexkapazität vor Kopie prüfen; Bildreferenzen erst am vollständigen Produkt.
-MaterialUpdateError zu gemeinsamem Fehlervertrag erweitern, keine zweite Fehlerhierarchie.
-Subject::Handed braucht einen durchgehenden fehlbaren Konvertierungspfad für Bilder,
-Materialien und Meshdaten; Generator-/Geländehelfer müssen Fehler bis zum Aufrufer
-weiterreichen. Keine value_or-Defaultoberfläche, unchecked Dereferenzierung oder
-erfolgsmeldende leere Geometrie als Ersatz. Aufrufer in einem vollständigen Schritt
-migrieren; ungültige Material-Fixtures dann an der frühesten garantierten Grenze prüfen.
-Fehler beim späteren Element mit bereits aufgebauten Vorgängern testen: kein teilweise
-konvertiertes Produkt als Erfolg und keine Veröffentlichung in die aktive Welt.
-
-Handed-Konvertierung abgenommen: expected<Geometry,string>, getrennte Asset-/Mesh-
-Phasen; kein teilkonvertierter Rückgabewert bei geprüftem Bild-/Material-/Setterfehler.
-Importer ersetzt Handed erst nach erfolgreicher Konvertierung. Später Materialfehler,
-Quellerhaltung/Retry sowie Bild-/Platzierungs-/Animationsregressionen grün. Mutation
-ohne Materialprüfung scheitert ohne Buildfehler. Lint 180/282, 32 Repository-Tests
-grün; drei rote Gruppen. Gesamter Import-/Animations-Rollback bleibt separat offen.
-
-Materialanimation publiziert Handed bisher vor Wears/SampleMaterials; ein später
-ungültiger Faktor kann bereits geänderte frühere Materialien sichtbar lassen. Beide
-Phasen auf dem vorhandenen Konvertierungskandidaten ausführen, erst bei Erfolg nach
-Handed verschieben; keine zusätzliche Geometriekopie. Test mit zwei Materialien und
-später ungültiger Animationsprobe erhält vorherige Faktoren und Geometrieansichten.
-Varianten-Auswahl und vollständiger Import-Rollback bleiben gesondert zu prüfen.
-Snapshot-Abnahme: neun Checks grün; Altcode verletzt Material- und Ansichtserhaltung
-an zwei Stellen ohne Buildfehler. Materialanimation und native Bilder als Regressionen
-grün. Kandidatenpublikation nach Textur-/Faktoraufbereitung, ohne zusätzliche Clone.
-Lint 180/282, 32 Repository-Tests grün, drei rote Gruppen. Varianten-Rollback offen.
-
-Kamera-/Clip-Folgefix: Camera(index) liest noch Arbeits-Locals nach fehlgeschlagener
-Probe; selectAnimations ersetzt Motion vor erfolgreichem Aufbau. Veröffentlichten
-Posepuffer getrennt halten, bei Erfolg swappen; Clip/Move-Zustand bei Fehler zurücknehmen.
-Fixture um bewegte Kamera und bei t=0 ungültigen zweiten Clip ergänzen; vorherige
-Kamera, Dauer, Geometrieansichten und gültiger Retry müssen erhalten bleiben.
-
-Pose-/Clip-Abnahme: 15 Checks grün, Altcode scheitert an vier Kamera-/Clipgarantien
-ohne Buildfehler. Veröffentlichten Posepuffer bei Erfolg swappen, alte Clipauswahl
-bei Aufbaufehler zurücknehmen; keine zusätzliche Posekopie. Animation-/Bildregressionen
-grün. Lint 180/282, 32 Repository-Tests grün; drei rote Gruppen, Varianten-Rollback offen.
-
-Varianten-Folgefix: bisherige Auswahl per Move halten und bei Aufbaufehler
-wiederherstellen. Fixture mit gültiger Basis und Variante mit fehlender Textur;
-Fehler erhält Snapshot/Ansichten, folgende Probe muss wieder die Basis verwenden.
+## Nachweise
+Native Materialpublikation/-ersatz, Importkonvertierung, Asset-Roundtrip, Baumgenerator,
+Animation, native Bilder/UVs und Platzierung als Regressionen geprüft. Negativkontrollen
+verletzen Erhaltungs-/Publikationsoracles ohne Buildfehler. Variantenfall: sieben Checks
+grün, Altcode scheitert am anschließenden Retry. Kamera-/Clipfall: 15 Checks grün,
+Altcode verletzt vier Garantien. Keine vollständige Corpus-/Weltabnahme behauptet.
+Letzter Lint: 180 tidy, 282 Dokumentationsdiagnosen, 32 Repository-Tests grün;
+drei rote Gruppen bleiben. Einzelverläufe stehen in Git, nicht als fortlaufendes Tagebuch.
