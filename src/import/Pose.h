@@ -54,6 +54,19 @@ public:
   [[nodiscard]] size_t WeightCount() const { return RestWeights_.size(); }
 
 private:
+  struct BuildState;
+  void InitialiseNodes(const Document &document);
+  [[nodiscard]] bool ValidateChannel(const Document &document,
+                                     const Animation &what,
+                                     const AnimationChannel &channel,
+                                     std::string &error) const;
+  [[nodiscard]] bool AppendChannel(const Document &document,
+                                   const Animation &what,
+                                   const AnimationChannel &channel,
+                                   std::string &error);
+  [[nodiscard]] bool
+  AppendAnimation(const Document &document, int animation, BuildState &state, std::string &error);
+
   struct Viewpoint {
     Vec3 Translation;
     Quat Rotation;

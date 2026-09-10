@@ -1,4 +1,6 @@
 #include <span>
+#include <map>
+#include <tuple>
 #include <algorithm>
 #include <array>
 #include "Pose.h"
@@ -38,15 +40,34 @@ bool Pose::Build(const Document &document, int animation, Pose &out, std::string
   return Build(document, std::span<const int>(one.data(), 1), out, error);
 }
 
+struct Pose::BuildState {
+  std::map<std::tuple<AnimationPath, int, MaterialFactor>, int> Claimed;
+
+  bool Claim(const Document &document,
+             const AnimationChannel &channel,
+             int animation,
+             std::string &error) {
+    const bool material = channel.Path == AnimationPath::MaterialFactor;
+    const auto key = std::tuple{channel.Path,
+                                material ? channel.Material : channel.Node,
+                                material ? channel.Factor : MaterialFactor::BaseColour};
+    const auto [found, inserted] = Claimed.emplace(key, animation);
+    if (inserted) { return true; }
+    error = document.Path() + ": animations " + std::to_string(found->second) + " and " +
+            std::to_string(animation) + " both drive the " + PathName(channel.Path) + " of node " +
+            std::to_string(channel.Node) + ", and the format states no result for that";
+    return false;
+  }
+};
+
 bool Pose::Build(const Document &document,
                  std::span<const int> animations,
                  Pose &out,
                  std::string &error) {
-  out = Pose();
-  const std::vector<Animation> &declared = document.Animations();
+  error.clear();
+  const auto &declared = document.Animations();
   if (animations.empty()) {
-    error = document.Path() + ": a pose is built from a declared set of animations and the set is "
-                              "empty, which is a different statement from a file with none";
+    error = document.Path() + ": a pose requires a nonempty selection of animations";
     return false;
   }
   for (const int animation : animations) {
@@ -56,10 +77,21 @@ bool Pose::Build(const Document &document,
       return false;
     }
   }
-  out.Nodes_.resize(document.Nodes().size());
+  Pose candidate;
+  candidate.InitialiseNodes(document);
+  BuildState state;
+  for (const int animation : animations) {
+    if (!candidate.AppendAnimation(document, animation, state, error)) { return false; }
+  }
+  out = std::move(candidate);
+  return true;
+}
+
+void Pose::InitialiseNodes(const Document &document) {
+  Nodes_.resize(document.Nodes().size());
   for (size_t node = 0; node < document.Nodes().size(); ++node) {
     const Node &source = document.Nodes()[node];
-    Viewpoint &held = out.Nodes_[node];
+    Viewpoint &held = Nodes_[node];
     held.HasMatrix = source.HasMatrix;
     held.Translation = source.Translation;
     held.Scale = source.Scale;
@@ -71,123 +103,113 @@ bool Pose::Build(const Document &document,
     for (size_t at = 0; at < held.WeightCount; ++at) {
       const std::vector<double> &meshWeights =
           document.Meshes()[static_cast<size_t>(source.Mesh)].Weights;
-      out.RestWeights_.push_back(at < meshWeights.size() ? meshWeights[at] : 0.0);
+      RestWeights_.push_back(at < meshWeights.size() ? meshWeights[at] : 0.0);
     }
   }
+}
 
-  bool first = true;
-  std::vector<double> times;
-  std::vector<double> values;
+bool Pose::ValidateChannel(const Document &document,
+                           const Animation &what,
+                           const AnimationChannel &channel,
+                           std::string &error) const {
+  const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
 
-  struct Claim {
-    int Node = -1;
-    AnimationPath Path = AnimationPath::Translation;
-    int Material = -1;
-    MaterialFactor Factor = MaterialFactor::BaseColour;
-  };
-
-  std::vector<Claim> claimed;
-  std::vector<int> claimedBy;
-  for (const int animation : animations) {
-    const Animation &what = declared[static_cast<size_t>(animation)];
-    for (const AnimationChannel &channel : what.Channels) {
-      const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
-
-      if (drivesMaterial && (channel.Material < 0 || static_cast<size_t>(channel.Material) >=
-                                                         document.Materials().size())) {
-        error = Says::InvalidMaterialTarget;
-        return false;
-      }
-      if (!drivesMaterial && channel.Node < 0) { continue; }
-      if (!drivesMaterial && static_cast<size_t>(channel.Node) >= document.Nodes().size()) {
-        error = document.Path() + ": animation channel targets node " +
-                std::to_string(channel.Node) + ", which the file does not carry";
-        return false;
-      }
-
-      if (!drivesMaterial && channel.Path == AnimationPath::Weights &&
-          out.Nodes_[static_cast<size_t>(channel.Node)].WeightCount == 0) {
-        error = document.Path() + ": animation channel targets the morph weights of node " +
-                std::to_string(channel.Node) + ", whose mesh declares no morph target";
-        return false;
-      }
-      if (!drivesMaterial && out.Nodes_[static_cast<size_t>(channel.Node)].HasMatrix) {
-        error = document.Path() + ": node " + std::to_string(channel.Node) +
-                " spells its placement as a matrix and is targeted for animation, which the format "
-                "forbids";
-        return false;
-      }
-      if (channel.Sampler < 0 || static_cast<size_t>(channel.Sampler) >= what.Samplers.size()) {
-        error = document.Path() + ": animation channel names sampler " +
-                std::to_string(channel.Sampler) + " of " + std::to_string(what.Samplers.size());
-        return false;
-      }
-      const AnimationSampler &sampler = what.Samplers[static_cast<size_t>(channel.Sampler)];
-      if (!document.ReadElements(sampler.Input, times)) {
-        error =
-            document.Path() + ": an animation sampler's input does not decode: " + document.Error();
-        return false;
-      }
-      if (!document.ReadElements(sampler.Output, values)) {
-        error = document.Path() +
-                ": an animation sampler's output does not decode: " + document.Error();
-        return false;
-      }
-      auto held = std::make_unique<Channel>();
-      held->Node = channel.Node;
-      held->Path = channel.Path;
-      held->Material = channel.Material;
-      held->Factor = channel.Factor;
-      held->Times = times;
-      held->Values = values;
-      if (!Track::Build(channel.Path, sampler.How, held->Times, held->Values, held->Curve)) {
-        error = document.Path() + ": the " + PathName(channel.Path) + " channel of node " +
-                std::to_string(channel.Node) + " states " + std::to_string(held->Times.size()) +
-                " keyframes and " + std::to_string(held->Values.size()) +
-                " values, which do not describe a curve";
-        return false;
-      }
-
-      if (drivesMaterial && held->Curve.Components() != FactorComponents(channel.Factor)) {
-        error = Says::InvalidMaterialComponents;
-        return false;
-      }
-
-      if (channel.Path == AnimationPath::Weights &&
-          held->Curve.Components() != out.Nodes_[static_cast<size_t>(channel.Node)].WeightCount) {
-        error = document.Path() + ": the weights channel of node " + std::to_string(channel.Node) +
-                " carries " + std::to_string(held->Curve.Components()) +
-                " values per keyframe and its mesh declares " +
-                std::to_string(out.Nodes_[static_cast<size_t>(channel.Node)].WeightCount) +
-                " morph targets";
-        return false;
-      }
-      for (const double when : held->Times) {
-        out.StartS_ = first ? when : std::min(when, out.StartS_);
-        out.EndS_ = first ? when : std::max(when, out.EndS_);
-        first = false;
-      }
-      for (size_t already = 0; already < claimed.size(); ++already) {
-        if (claimed[already].Path != channel.Path) { continue; }
-        if (drivesMaterial ? (claimed[already].Material == channel.Material &&
-                              claimed[already].Factor == channel.Factor)
-                           : claimed[already].Node == channel.Node) {
-          error = document.Path() + ": animations " + std::to_string(claimedBy[already]) + " and " +
-                  std::to_string(animation) + " both drive the " + PathName(channel.Path) +
-                  " of node " + std::to_string(channel.Node) +
-                  ", and the format states no result for that";
-          return false;
-        }
-      }
-      claimed.push_back(Claim{.Node = channel.Node,
-                              .Path = channel.Path,
-                              .Material = channel.Material,
-                              .Factor = channel.Factor});
-      claimedBy.push_back(animation);
-      out.Channels_.push_back(std::move(held));
-    }
+  if (drivesMaterial && (channel.Material < 0 ||
+                         static_cast<size_t>(channel.Material) >= document.Materials().size())) {
+    error = Says::InvalidMaterialTarget;
+    return false;
+  }
+  if (!drivesMaterial && static_cast<size_t>(channel.Node) >= document.Nodes().size()) {
+    error = document.Path() + ": animation channel targets node " + std::to_string(channel.Node) +
+            ", which the file does not carry";
+    return false;
   }
 
+  if (!drivesMaterial && channel.Path == AnimationPath::Weights &&
+      Nodes_[static_cast<size_t>(channel.Node)].WeightCount == 0) {
+    error = document.Path() + ": animation channel targets the morph weights of node " +
+            std::to_string(channel.Node) + ", whose mesh declares no morph target";
+    return false;
+  }
+  if (!drivesMaterial && Nodes_[static_cast<size_t>(channel.Node)].HasMatrix) {
+    error = document.Path() + ": node " + std::to_string(channel.Node) +
+            " spells its placement as a matrix and is targeted for animation, which the format "
+            "forbids";
+    return false;
+  }
+  if (channel.Sampler < 0 || static_cast<size_t>(channel.Sampler) >= what.Samplers.size()) {
+    error = document.Path() + ": animation channel names sampler " +
+            std::to_string(channel.Sampler) + " of " + std::to_string(what.Samplers.size());
+    return false;
+  }
+  return true;
+}
+
+bool Pose::AppendChannel(const Document &document,
+                         const Animation &what,
+                         const AnimationChannel &channel,
+                         std::string &error) {
+  const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
+  const AnimationSampler &sampler = what.Samplers[static_cast<size_t>(channel.Sampler)];
+  auto held = std::make_unique<Channel>();
+  if (!document.ReadElements(sampler.Input, held->Times)) {
+    error = document.Path() + ": an animation sampler's input does not decode: " + document.Error();
+    return false;
+  }
+  if (!document.ReadElements(sampler.Output, held->Values)) {
+    error =
+        document.Path() + ": an animation sampler's output does not decode: " + document.Error();
+    return false;
+  }
+  held->Node = channel.Node;
+  held->Path = channel.Path;
+  held->Material = channel.Material;
+  held->Factor = channel.Factor;
+  if (!Track::Build(channel.Path, sampler.How, held->Times, held->Values, held->Curve)) {
+    error = document.Path() + ": the " + PathName(channel.Path) + " channel of node " +
+            std::to_string(channel.Node) + " states " + std::to_string(held->Times.size()) +
+            " keyframes and " + std::to_string(held->Values.size()) +
+            " values, which do not describe a curve";
+    return false;
+  }
+
+  if (drivesMaterial && held->Curve.Components() != FactorComponents(channel.Factor)) {
+    error = Says::InvalidMaterialComponents;
+    return false;
+  }
+
+  if (channel.Path == AnimationPath::Weights &&
+      held->Curve.Components() != Nodes_[static_cast<size_t>(channel.Node)].WeightCount) {
+    error = document.Path() + ": the weights channel of node " + std::to_string(channel.Node) +
+            " carries " + std::to_string(held->Curve.Components()) +
+            " values per keyframe and its mesh declares " +
+            std::to_string(Nodes_[static_cast<size_t>(channel.Node)].WeightCount) +
+            " morph targets";
+    return false;
+  }
+  bool first = Channels_.empty();
+  for (const double when : held->Times) {
+    StartS_ = first ? when : std::min(when, StartS_);
+    EndS_ = first ? when : std::max(when, EndS_);
+    first = false;
+  }
+  Channels_.push_back(std::move(held));
+  return true;
+}
+
+bool Pose::AppendAnimation(const Document &document,
+                           int animation,
+                           BuildState &state,
+                           std::string &error) {
+  const auto &what = document.Animations()[static_cast<size_t>(animation)];
+  for (const auto &channel : what.Channels) {
+    if (channel.Path != AnimationPath::MaterialFactor && channel.Node < 0) { continue; }
+    if (!ValidateChannel(document, what, channel, error) ||
+        !state.Claim(document, channel, animation, error) ||
+        !AppendChannel(document, what, channel, error)) {
+      return false;
+    }
+  }
   return true;
 }
 

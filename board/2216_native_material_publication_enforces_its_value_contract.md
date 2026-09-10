@@ -115,5 +115,6 @@ Pose::Build darf bestehende Posen bei ungültiger Auswahl oder späten Kanalfehl
 nicht löschen. Kandidat mit Phasen für Ruhepose, Ziel-/Samplerprüfung und Kurvenaufbau;
 Track-Spans behalten stabile Channel-Besitzer. Direkt in besitzende Puffer dekodieren.
 Konkurrierende Ziele über geordneten Index statt quadratischem Scan erkennen.
-Abnahme: analytische Probe vor/nach Fehlern, Konflikte, Kombination und gültiger Retry;
-Materialanimations-/Importerregressionen bleiben gültig. Keine neue Animationssemantik.
+Nachweis: gültige Fixture, isolierte Fehlerproben, Konflikte/Kombination und Retry;
+Altcode verletzt Erhaltung, Korrektur und vier Importerregressionen bestehen.
+Zeitgitter-/Wertevalidierung in Track/Keyframes bleibt separat offen.
