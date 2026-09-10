@@ -94,3 +94,11 @@ quadratisches Anhängen von Geschwistern und Allokationsbudgets bleiben separat 
 Taggrenzen-Abnahme: 18 Syntaxfälle grün; Altcode scheitert ohne Buildfehler.
 Zeichenreferenzen und Szenario-Erhaltung ebenfalls grün. Lint: 181 tidy, 282 Doxygen,
 32 Repository-Tests grün, drei rote Gruppen. Keine vollständige XML-Konformitätszusage.
+
+## In-Memory-XML-Budget
+Xml::Parse kopiert beliebig lange Eingaben vor jeder Budgetprüfung; uint32-Offsets
+können bei großen Texten verengen. Eigene 16-MiB-Textgrenze vor Text_.assign, passend
+zum gesetzten Szenario-Dateibudget. Das begrenzt die Eingabekopie, nicht gesamten RAM
+oder Laufzeit. Exakt 16 MiB akzeptieren, ein Byte darüber ablehnen; ReadScenario muss
+bei Übergröße vorheriges Dokument erhalten. Altcode-Negativkontrolle, gültiger Retry,
+Parser-Regression und Lint. uint32-Darstellbarkeit der Grenze statisch absichern.
