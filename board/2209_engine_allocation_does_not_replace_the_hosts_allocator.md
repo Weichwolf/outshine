@@ -63,3 +63,10 @@ Allocator-/Callback-Regressionen bestehen. Keine vollständige Engine-Speicherbi
 TryTakeAligned lehnt 0 und Nicht-Zweierpotenzen vor dem Plattformaufruf ab.
 Kleine gültige Alignments dürfen stärker ausgerichtet werden. Negativkontrolle
 bestätigt; Nullgröße und Zählererhaltung geprüft, fünf Allocator-Regressionen grün.
+
+## Vollständige Operator-Matrix
+Diagnosemodul separat prüfen: Scalar/Array, aligned/un-aligned, throwing/nothrow
+mit regulärer, sized und passender Konstruktorfehler-Freigabe. Direkte Operatoraufrufe
+verhindern erlaubte New-Expression-Elision. 0/1/257 Bytes, Alignment und Nullfreigaben
+müssen symmetrische LiveBytes liefern. Bestehenden Scalar-Test erweitern statt
+paralleler Prüfkopie. Fehlende Freigabezählung als Negativkontrolle; OOM bleibt separat.
