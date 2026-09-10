@@ -35,7 +35,6 @@ haben einen Besitzer und explizite Zustände; keine leeren Zweitlieferungen als 
 - Read-/Parser-Gesamtspeicher, lange Layerketten und Zeitbudgets numerisch begrenzen.
 - XML-Parserphasen trennen; quadratisches Geschwister-Anhängen beseitigen, Konformitäts-
   und Randfälle prüfen. Bestehende Grenzprüfungen nicht lockern.
-- SourceSet-Retry-Zeitwerte und darstellbare Deadlines explizit validieren.
 - Restore-Namensauflösung profilieren; Persistenzschema und vollständiger Savegame-Zustand
   bleiben Aufgaben von 2131/2141. Der Deklarationswriter ist noch kein kompletter Savegame-Pfad.
 
@@ -57,6 +56,7 @@ Tests prüfen Move-Konstruktion/-Zuweisung, Bytes/Metadaten, leere Antworten und
 - [x] Quellantwort-Negativkontrolle erkennt den zweiten Aufruf nach ungültigem Meaning.
 - [x] Wire/Fetched/Delivery nur verschiebbar; einmaliger Take-Verbrauch und Puffertransfer geprüft.
 - [x] Query-Endzustände, Cache-Abschluss, Move-Ticket und SourceSet-Bindung geprüft.
+- [x] Ungültige Retry-Zeiten/Uhren und Deadline-Überlauf terminieren ohne Neustart.
 - [ ] IO-, Parser-, Speicher- und Zeitbudgets vollständig durch Tests erzwungen.
 - [ ] make lint einschließlich clang-tidy grün; neue fachliche Schritte mit Regressionen.
 
@@ -78,5 +78,6 @@ Backoff benötigt eine endliche, nichtnegative Uhr und eine darstellbare zukünf
 Deadline; ungültige Berechnung darf weder Retry-Zähler noch Transport starten.
 Uhrwerte während Backoff ebenfalls validieren. Gültige Serververzögerungen erhalten,
 exponentiellen lokalen Backoff ohne überlaufende Zwischenwerte berechnen.
-Abnahme: Fake-Clock mit NaN/Inf/negativen Werten, Konversions-/Deadline-Überlauf,
-verlorener Zeitauflösung sowie regulärer Deadline; Altstand muss scheitern.
+Fake-Clock prüft NaN/Inf/negative Werte, Konversions-/Deadline-Überlauf und verlorene
+Zeitauflösung. Reguläre Deadlines und lange Serververzögerungen bleiben erhalten.
+Altstand scheitert an der Negativkontrolle; vier Datenpfad-Regressionen bestehen.

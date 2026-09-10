@@ -1,6 +1,7 @@
 #include "SourceSet.h"
 #include "Check.h"
 #include <memory>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -140,6 +141,77 @@ int main() {
     CHECK(transport.Cancels == 1, "abandon cancels the live transport ticket");
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed,
           "abandoned query is consumed and cannot restart");
+  }
+  const double infinity = std::numeric_limits<double>::infinity();
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  const double largest = std::numeric_limits<double>::max();
+  for (const double delay : {nan, infinity, -1.0, largest}) {
+    for (const Meaning meaning : {Meaning::Retry, Meaning::Refused}) {
+      SourceSet sources(store);
+      auto source = SourceWith("bad-delay", Rank{0}, Fetched::MeantAfter(meaning, delay));
+      source->Decl.RetryBudget = 1;
+      CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+      auto query = sources.Ask(request);
+      const auto answer = sources.Collect(query, transport);
+      CHECK(answer.Where() == Delivery::State::Refused && answer.AfterMs() == 4000,
+            "invalid server delay terminates with finite fallback");
+      CHECK(sources.Counters().Retried == 0 && sources.Counters().Refused == 1,
+            "invalid delay consumes no retry attempt");
+    }
+  }
+  for (const double now : {nan, infinity, -1.0, largest}) {
+    for (const bool duringBackoff : {false, true}) {
+      SourceSet sources(store);
+      auto source = SourceWith("bad-clock", Rank{0}, Fetched::Meant(Meaning::Retry));
+      source->Decl.RetryBudget = 1;
+      CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+      auto query = sources.Ask(request);
+      transport.Now = duringBackoff ? 0 : now;
+      const int begins = transport.Begins;
+      auto answer = sources.Collect(query, transport);
+      if (duringBackoff) {
+        CHECK(answer.Where() == Delivery::State::Pending, "valid clock schedules retry");
+        transport.Now = now == largest ? infinity : now;
+        answer = sources.Collect(query, transport);
+      }
+      CHECK(answer.Where() == Delivery::State::Refused && answer.AfterMs() == 4000,
+            "invalid clock or unrepresentable deadline terminates query");
+      CHECK(transport.Begins == begins + 1, "invalid timing cannot restart transport");
+      CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed,
+            "timing refusal is terminal");
+    }
+  }
+  {
+    SourceSet sources(store);
+    auto source =
+        SourceWith("overflow", Rank{0}, Fetched::MeantAfter(Meaning::Retry, largest / 1000));
+    source->Decl.RetryBudget = 1;
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+    auto query = sources.Ask(request);
+    transport.Now = largest / 2;
+    const auto answer = sources.Collect(query, transport);
+    CHECK(answer.Where() == Delivery::State::Refused && answer.AfterMs() == 4000,
+          "finite delay plus finite clock cannot overflow the deadline");
+    CHECK(sources.Counters().Retried == 0, "overflow consumes no retry attempt");
+  }
+  {
+    SourceSet sources(store);
+    auto source = SourceWith("long-delay", Rank{0}, Fetched::MeantAfter(Meaning::Retry, 10));
+    source->Decl.RetryBudget = 1;
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "registered");
+    auto query = sources.Ask(request);
+    transport.Now = 100;
+    const int begins = transport.Begins;
+    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Pending, "retry scheduled");
+    transport.Now = 10099;
+    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Pending &&
+              transport.Begins == begins + 1,
+          "valid server delay is not clamped to local backoff cap");
+    transport.Now = 10100;
+    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Pending &&
+              transport.Begins == begins + 2,
+          "server deadline includes the clock origin");
+    SourceSet::Abandon(query, transport);
   }
   return Report();
 }

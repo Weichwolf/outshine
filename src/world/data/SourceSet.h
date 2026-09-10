@@ -73,6 +73,10 @@ public:
   [[nodiscard]] Ledger Counters() const;
 
 private:
+  [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
+
+  [[nodiscard]] Delivery Refuse(Query &query, double afterMs);
+
   [[nodiscard]] std::optional<Delivery> ProcessResponse(Query &query,
                                                         Fetched::Settled response,
                                                         double retryAfterS,

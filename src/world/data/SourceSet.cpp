@@ -16,6 +16,8 @@ constexpr double kMsPerS = 1000.0;
 namespace {
 constexpr double kRetryBaseMs = 250.0;
 constexpr double kRetryCapMs = 4000.0;
+constexpr int kRetryCapExponent = 4;
+static_assert(kRetryBaseMs * (1U << static_cast<unsigned>(kRetryCapExponent)) == kRetryCapMs);
 }
 
 SourceSet::Query::Query(Query &&other) noexcept
@@ -72,13 +74,7 @@ SourceSet::Query SourceSet::Ask(const Fetch &request) const {
 Delivery SourceSet::Collect(Query &query, Transport &transport) {
   if (query.Phase_ == Query::Phase::Finished) { return Delivery::Consumed(); }
   if (query.Owner_ != this) { return Delivery::WireAfter(kRetryCapMs); }
-  if (query.Phase_ == Query::Phase::Backoff) {
-    if (transport.NowMs() < query.RetryAtMs_) { return Delivery::Waiting(); }
-    query.RetryAtMs_ = 0.0;
-    query.Ticket_ = query.Current_->Begin(query.At_, transport);
-    query.Phase_ = Query::Phase::InFlight;
-    return Delivery::Waiting();
-  }
+  if (query.Phase_ == Query::Phase::Backoff) { return ResumeRetry(query, transport); }
   if (query.Candidates_.empty()) {
     const std::scoped_lock lock(LedgerMutex_);
     query.Finish();
@@ -121,14 +117,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     query.Ticket_ = Ticket::None;
 
     std::optional<Fetched::Settled> settled = answer.Take();
-    if (!settled) {
-      {
-        const std::scoped_lock ledger(LedgerMutex_);
-        ++Ledger_.Refused;
-      }
-      query.Finish();
-      return Delivery::WireAfter(kRetryCapMs);
-    }
+    if (!settled) { return Refuse(query, kRetryCapMs); }
 
     if (auto delivery =
             ProcessResponse(query, std::move(*settled), answer.RetryAfterS(), transport)) {
@@ -137,11 +126,23 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
   }
 }
 
+Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
+  const double nowMs = transport.NowMs();
+  if (!std::isfinite(nowMs) || nowMs < 0.0) { return Refuse(query, kRetryCapMs); }
+  if (nowMs < query.RetryAtMs_) { return Delivery::Waiting(); }
+  query.RetryAtMs_ = 0.0;
+  query.Ticket_ = query.Current_->Begin(query.At_, transport);
+  query.Phase_ = Query::Phase::InFlight;
+  return Delivery::Waiting();
+}
+
 std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
                                                    Fetched::Settled response,
                                                    double retryAfterS,
                                                    Transport &transport) {
   const SourceDecl &decl = query.Current_->Declaration();
+  const double retryAfterMs = retryAfterS * kMsPerS;
+  const bool validDelay = std::isfinite(retryAfterMs) && retryAfterMs >= 0.0;
   switch (response.What) {
     case Meaning::Bytes: {
       if (decl.Keeps == Cacheability::Forever) {
@@ -162,27 +163,36 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       return std::nullopt;
     }
     case Meaning::Retry:
-      if (query.Attempts_ < decl.RetryBudget) {
+      if (validDelay && query.Attempts_ < decl.RetryBudget) {
+        const double nowMs = transport.NowMs();
+        const double backoffMs =
+            std::ldexp(kRetryBaseMs, std::min(query.Attempts_, kRetryCapExponent));
+        const double deadlineMs = nowMs + std::max(retryAfterMs, backoffMs);
+        if (!std::isfinite(nowMs) || nowMs < 0.0 || !std::isfinite(deadlineMs) ||
+            deadlineMs <= nowMs) {
+          return Refuse(query, kRetryCapMs);
+        }
         ++query.Attempts_;
         {
           const std::scoped_lock lock(LedgerMutex_);
           ++Ledger_.Retried;
         }
         query.Phase_ = Query::Phase::Backoff;
-        query.RetryAtMs_ =
-            transport.NowMs() +
-            std::fmax(retryAfterS * kMsPerS,
-                      std::fmin(std::ldexp(kRetryBaseMs, query.Attempts_ - 1), kRetryCapMs));
+        query.RetryAtMs_ = deadlineMs;
         return Delivery::Waiting();
       }
       break;
     case Meaning::Refused: break;
-    default: retryAfterS = 0.0; break;
+    default: return Refuse(query, kRetryCapMs);
   }
+  return Refuse(query, validDelay ? std::max(retryAfterMs, kRetryCapMs) : kRetryCapMs);
+}
+
+Delivery SourceSet::Refuse(Query &query, double afterMs) {
   query.Finish();
   const std::scoped_lock lock(LedgerMutex_);
   ++Ledger_.Refused;
-  return Delivery::WireAfter(std::fmax(retryAfterS * kMsPerS, kRetryCapMs));
+  return Delivery::WireAfter(afterMs);
 }
 
 void SourceSet::Abandon(Query &query, Transport &transport) {
