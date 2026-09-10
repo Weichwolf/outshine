@@ -77,3 +77,9 @@ NaN/Inf/Bruchteile und gültige Dezimal-/Exponentformen prüfen; Fehler erhält 
 Clip-Abnahme: 28 Checks sowie Asset-Roundtrip und Parser-Erhaltung grün; Altcode
 scheitert ohne Buildfehler. Lint 181 tidy/282 Doxygen, 32 Repository-Tests grün, drei
 rote Gruppen. Vorhandener Clip und direkte API-Validierung bleiben eigene Verträge.
+
+Gemeinsame Asset-Validierung: Clip >= 0 und definierter Animationsmodus für XML und
+direktes Engine::declare, ohne IO/Mutation. Negativer Clip/ungültiges Enum müssen auch
+am direkten Einstieg scheitern und die vorherige Deklaration erhalten. XML-Syntax und
+Indexexistenz im geladenen Asset bleiben separate Prüfungen. Kein vollständiger
+Weltvalidator behauptet; zunächst gemeinsame fachliche Grenze für Playback-Metadaten.
