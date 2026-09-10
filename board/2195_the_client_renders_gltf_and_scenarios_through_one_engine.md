@@ -111,3 +111,7 @@ Build-Audit-Negativkontrolle wählt den entfernten Provider aus der Engine-Profi
 Ein nur vom Test aufgerufenes Client-Blatt erzeugt beim Entfernen keinen ungelösten
 Bibliotheksverweis; die bisherige alphabetische Auswahl war dafür falsch spezifiziert.
 Erwarteter Audit-Fehler unverändert, keine zusätzliche Dateiliste im Test.
+
+CLI-Ausgaben auf typgeprüfte C++-Formatierung umstellen; String-Views ohne temporäre
+Nullterminierungs-Kopien verwenden. Text, Präzision, Spalten und stdout/stderr erhalten.
+Bestehende Argument-/Place-Katalogtests und Roundtrip prüfen die Aufrufer; kein Renderumbau.
