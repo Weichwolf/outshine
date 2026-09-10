@@ -48,3 +48,10 @@ Aufbaureihenfolge geprüft: Subject::Flatten legt Materialien vor Bildern an; Ha
 kopiert Bilder vor Materialien. Referenzprüfung am vollständigen Geometry-Produkt in
 wellFormed, vor Engine::setGeometry-Übernahme. Intrinsische Materialwerte, alle Bindungen
 und Materialindizes dort gemeinsam prüfen; Setter-Fehlerverträge bleiben separat offen.
+
+Publikationsprüfung umgesetzt: wellFormed validiert Materialwerte, alle sieben
+Texturbindungen und zugewiesene Materialindizes; Engine::setGeometry lehnt vorher ab.
+81 Material-/API-Checks grün, Altcode scheitert ohne Buildfehler. Native Geometrie,
+animierte Importmaterialien, Baumgenerator und Asset-Roundtrip als Regressionen grün.
+Abschluss-Lint 180 tidy/282 Doxygen, 32 Repository-Tests grün, drei rote Gruppen.
+Setter-expected-/Rollback-Verträge und vollständige Corpus-/Bildabnahme bleiben offen.

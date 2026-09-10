@@ -1,5 +1,7 @@
 #include "math/Mat4.h"
+#include "MaterialValidation.h"
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
@@ -27,6 +29,18 @@ struct Geometry::Held {
     std::vector<float> Colours;
     std::vector<uint32_t> Indices;
     Mat4 PlacedM;
+
+    [[nodiscard]] bool Valid(size_t materials) const {
+      if (Material >= 0 && std::cmp_greater_equal(Material, materials)) { return false; }
+      if (PositionsM.empty() || Indices.empty()) { return false; }
+      const size_t vertices = PositionsM.size() / 3;
+      if (!Normals.empty() && Normals.size() / 3 != vertices) { return false; }
+      if (!Uv.empty() && Uv.size() / 2 != vertices) { return false; }
+      if (!Uv1.empty() && Uv1.size() / 2 != vertices) { return false; }
+      if (!Tangents.empty() && Tangents.size() / 4 != vertices) { return false; }
+      if (!Colours.empty() && Colours.size() / 4 != vertices) { return false; }
+      return std::ranges::all_of(Indices, [vertices](uint32_t index) { return index < vertices; });
+    }
   };
 
   struct Named {
@@ -369,20 +383,14 @@ std::span<const uint32_t> Geometry::trianglesOf(int part) const {
 
 bool Geometry::wellFormed() const {
   if (Held_->Live == 0) { return false; }
-  for (size_t part = 0; part < Held_->Live; ++part) {
-    const Geometry::Held::Piece &piece = Held_->Parts[part];
-    if (piece.PositionsM.empty() || piece.Indices.empty()) { return false; }
-    const size_t vertices = piece.PositionsM.size() / 3;
-    if (!piece.Normals.empty() && piece.Normals.size() / 3 != vertices) { return false; }
-    if (!piece.Uv.empty() && piece.Uv.size() / 2 != vertices) { return false; }
-    if (!piece.Uv1.empty() && piece.Uv1.size() / 2 != vertices) { return false; }
-    if (!piece.Tangents.empty() && piece.Tangents.size() / 4 != vertices) { return false; }
-    if (!piece.Colours.empty() && piece.Colours.size() / 4 != vertices) { return false; }
-    for (const uint32_t index : piece.Indices) {
-      if (static_cast<size_t>(index) >= vertices) { return false; }
-    }
+  if (!std::ranges::all_of(Held_->Surfaces, [this](const Held::Named &surface) {
+        return MaterialIsValid(surface.Surface, Held_->Images.size());
+      })) {
+    return false;
   }
-  return true;
+  const auto parts = std::span(Held_->Parts).first(Held_->Live);
+  return std::ranges::all_of(
+      parts, [this](const Held::Piece &piece) { return piece.Valid(Held_->Surfaces.size()); });
 }
 
 }

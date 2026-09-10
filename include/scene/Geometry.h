@@ -228,8 +228,10 @@ public:
   [[nodiscard]] std::span<const uint32_t> trianglesOf(int part) const;
   /// Validate active parts, ignoring retained capacity from earlier builds.
   /// Require at least one part, nonempty positions and triangles, matching optional
-  /// attribute counts and in-range indices. Does not validate materials or transforms.
-  /// No allocation or mutation; O(active parts + indices). No concurrent mutation.
+  /// attribute counts and in-range indices. Validate material factors, texture bindings and
+  /// assigned material indices; unbound material indices select the default material.
+  /// Does not validate transforms or renderer feature support.
+  /// No allocation or mutation; O(materials + active parts + indices). No concurrent mutation.
   /// The object must not have been moved from.
   /// @return True if every active part meets these structural conditions.
   [[nodiscard]] bool wellFormed() const;
