@@ -48,3 +48,13 @@ Nachweis: IO-Grenzfälle und Parser-Regressionsfall grün, einschließlich öffe
 Übergrößen- und kumulativem Layerfall. Mutant verwirft Übergrößenfehler und scheitert
 ohne Buildfehler; wiederhergestellter Code grün. Lint 182/315, 32 Repository-Tests grün,
 drei rote Gruppen. Keine atomare Save-/Zeitbudget-/Gesamtspeicherabnahme behauptet.
+
+## Atomare Veröffentlichung
+Gemeinsamer WriteFileAtomically-Baustein: exklusives wbx im Zielverzeichnis, begrenzte
+Namenskollisionsversuche, vollständiges fwrite/fclose, dann filesystem::rename mit
+error_code. RAII schließt und entfernt eigene temporäre Dateien bei Fehlern. Existierendes
+Ziel niemals vor erfolgreicher Veröffentlichung öffnen/trunkieren. Gleicher Datenträger
+durch Geschwisterdatei; Sichtbarkeitsatomizität, keine fsync-/Crash-Durability-Zusage.
+Reale POSIX-Dateigrößenlimits im isolierten Testprozess erzeugen Write-/Close-Fehler;
+Rename auf ein Verzeichnis muss verweigern. Gleichzeitige Writer dürfen nur vollständige
+Produkte veröffentlichen. Reader- und öffentlicher Save-Vertrag werden mitgeprüft.
