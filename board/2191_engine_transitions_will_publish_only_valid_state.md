@@ -95,7 +95,6 @@ Das gilt auch für unveränderte Parameter und Entfernen des letzten Producers.
 Public-API-Test mit Offscreen-Ziel: neun Checks grün; alter Stand sechs Fehler,
 kein Buildfehler. Parameterweitergabe/Input-Erhalt grün. Wien bytegleich c307cab8.
 Vollständiger Rollback und deklarierte Providerrevisionen bleiben getrennt offen.
-
 ## Ergänzter Facaden-Audit
 park/resume halten nur Deklarationen, keinen Simulationssnapshot. park leert Teile
 der Welt und die Renderinstanz, ohne die gesamte Simulation/Streaming-Residency zu
@@ -107,13 +106,18 @@ run() enthält weder Pacing noch Ereignisverarbeitung oder expliziten Abbruch, s
 eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbare Pfad;
 den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
 mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
-
 ## Transaktionale View-Konfiguration
 ViewBook wird vor Setup vorbereitet und zusammen mit InputMap erst an den drei
 Erfolgsausgängen übernommen. Die frühere reset-/vorzeitige Publikation entfällt;
 Move-Übernahme ist per static_assert nichtwerfend, ohne weitere Vektorkopie.
-RejectedViewsPreservePreviousConfiguration prüft frühe Ablehnung mit erhaltenem
-Deklarationsspeicher, späte Generatorablehnung mit altem Katalog, Retry und Leeren.
-Alter Stand: sechs verletzte Checks; neuer Stand und sechs Kamera-/Input-/Generator-
-Regressionen grün. Öffentlicher Teilfehlervertrag dokumentiert. Kein vollständiger
-Welt-/GPU-Rollback; View-Wertevalidierung und ungenutzte TimeScale bleiben offen.
+RejectedViewsPreservePreviousConfiguration und sechs Regressionen prüfen Ablehnung,
+Retry und Leeren; Altcode verletzt sechs Checks. Vollständiger Welt-/GPU-Rollback,
+View-Wertevalidierung und ungenutzte TimeScale bleiben offen.
+## Wiederverwendung des Renderplans
+SamePicture ignoriert Outputs, Transfer und Precision; declare kann Änderungen
+überspringen und sogar ungültige Namen nach erfolgreichem Erstaufbau akzeptieren.
+Entscheidung: alle drei Planparameter in die Reuse-Bedingung aufnehmen. Maßgeblich
+sind Scenario::Render-Verträge und die vorhandene Compiled-Validierung, keine neue Policy.
+Öffentliche API prüft jeden Parameter einzeln gegen einen frischen Engine-Aufbau:
+identische Ablehnung ungültiger Namen und erfolgreicher Wechsel gültiger Ausgaben.
+Joins/Overriding/Surfacing und vollständige atomare Publikation gesondert prüfen.
