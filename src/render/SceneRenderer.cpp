@@ -33,6 +33,11 @@
 namespace outshine::Render {
 
 namespace Says {
+constexpr auto kNoReadbackFrame = "no submitted image is available for colour readback";
+constexpr auto kNoColourOutput = "the render plan has no final colour output";
+constexpr auto kNoColourTexture = "the final colour output has no owned texture";
+constexpr auto kColourReadbackFailed = "colour readback failed: ";
+
 constexpr auto kGpuWaitFailed = "GPU idle wait failed: ";
 constexpr auto kRendererNotReady = "GPU renderer is not initialized";
 constexpr auto kCameraNotConfigured = "render camera is not configured";
@@ -1148,29 +1153,6 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     SDL_ReleaseGPUFence(Device_.Get(), Landed_[LandedAt_]);
     Landed_[LandedAt_] = nullptr;
   }
-  OwnedTransfer taking;
-  if (Wanted_ && HostSurface_ != nullptr) {
-    SDL_GPUTransferBufferCreateInfo wanted{};
-    wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-    wanted.size =
-        static_cast<Uint32>(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
-    taking = OwnedTransfer(Device_.Get(), SDL_CreateGPUTransferBuffer(Device_.Get(), &wanted));
-    if (taking) {
-      SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-      SDL_GPUTextureRegion region{};
-      region.texture = HostSurface_;
-      region.w = static_cast<Uint32>(Width_);
-      region.h = static_cast<Uint32>(Height_);
-      region.d = 1;
-      SDL_GPUTextureTransferInfo into{};
-      into.transfer_buffer = taking.Get();
-      into.pixels_per_row = static_cast<Uint32>(Width_);
-      into.rows_per_layer = static_cast<Uint32>(Height_);
-      SDL_DownloadFromGPUTexture(copy, &region, &into);
-      SDL_EndGPUCopyPass(copy);
-    }
-  }
-
   Landed_[LandedAt_] = Submission_.Submit(Submission_.Context, commands);
   if (swapchain != nullptr) { HostSurface_ = Offscreen_.Get(); }
   if (Landed_[LandedAt_] == nullptr) {
@@ -1184,15 +1166,6 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     return std::unexpected(std::move(error));
   }
   stageSubmission.Commit();
-  if (taking) {
-    SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
-    if (const void *pixels = SDL_MapGPUTransferBuffer(Device_.Get(), taking.Get(), false)) {
-      const auto *bytes = static_cast<const uint8_t *>(pixels);
-      Taken_.assign(bytes, bytes + static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
-      SDL_UnmapGPUTransferBuffer(Device_.Get(), taking.Get());
-    }
-    Wanted_ = false;
-  }
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Camera_.EyeM[axis]; }
   Subjects_.CarryFrame();
@@ -1214,42 +1187,40 @@ void SceneRenderer::WaitForGpu() {
   }
 }
 
-void SceneRenderer::WantsPixels() {
-  Wanted_ = true;
-}
-
 ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
-  if (!Ready_ || !Submitted_) { return ReadState::Failed; }
-  const auto asRgba = [](std::vector<uint8_t> &held, SDL_GPUTextureFormat holds) {
-    if (holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM &&
-        holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB) {
-      return;
-    }
-    for (size_t at = 0; at + 3 < held.size(); at += 4) { std::swap(held[at], held[at + 2]); }
-  };
-  if (Showing_ == nullptr) {
-    SDL_GPUTexture *const held = FrameTex_.Get() != nullptr ? FrameTex_.Get() : HostSurface_;
-    if (held == nullptr) { return ReadState::Failed; }
-    Readback read;
-    if (read.FromTexture(Device_.Get(), held, {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
-        ReadState::Ready) {
-      return ReadState::Failed;
-    }
-    rgba.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
-    std::memcpy(rgba.data(), read.Rows(), rgba.size());
-    asRgba(rgba,
-           Plan_ ? FormatOf(
-                       Plan_->Format(held == HostSurface_ ? Resource::Surface : Resource::FrameTex))
-                 : SDL_GPU_TEXTUREFORMAT_INVALID);
-    return ReadState::Ready;
+  WhyNot_.clear();
+  if (!Ready_ || !Submitted_) {
+    WhyNot_ = Says::kNoReadbackFrame;
+    return ReadState::Failed;
   }
-  if (Taken_.size() == static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u) {
-    rgba = Taken_;
-    asRgba(rgba, SurfaceFormat());
-    return ReadState::Ready;
+  if (!Plan_) {
+    WhyNot_ = Says::kNoColourOutput;
+    return ReadState::Failed;
   }
-  Wanted_ = true;
-  return ReadState::Failed;
+  const auto source = Plan_->Holds(Resource::FrameTex) ? Resource::FrameTex : Resource::Surface;
+  if (!Plan_->Holds(source)) {
+    WhyNot_ = Says::kNoColourOutput;
+    return ReadState::Failed;
+  }
+  SDL_GPUTexture *const held = source == Resource::FrameTex ? FrameTex_.Get() : Offscreen_.Get();
+  if (held == nullptr) {
+    WhyNot_ = Says::kNoColourTexture;
+    return ReadState::Failed;
+  }
+  Readback read;
+  if (read.FromTexture(Device_.Get(), held, {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
+      ReadState::Ready) {
+    WhyNot_ = std::string(Says::kColourReadbackFailed) + SDL_GetError();
+    return ReadState::Failed;
+  }
+  rgba.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
+  std::memcpy(rgba.data(), read.Rows(), rgba.size());
+  const auto format = FormatOf(Plan_->Format(source));
+  if (format == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM ||
+      format == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB) {
+    for (size_t at = 0; at + 3 < rgba.size(); at += 4) { std::swap(rgba[at], rgba[at + 2]); }
+  }
+  return ReadState::Ready;
 }
 
 ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
@@ -1418,7 +1389,6 @@ void SceneRenderer::StopShowing() {
   Offscreen_.Reset();
   HostSurface_ = nullptr;
   Shown_ = {};
-  Taken_.clear();
   Submitted_ = false;
   if (Showing_ == nullptr) { return; }
   SDL_ReleaseWindowFromGPUDevice(Device_.Get(), Showing_);
@@ -1475,7 +1445,6 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   Width_ = widthPx;
   Height_ = heightPx;
   Shown_ = {};
-  Taken_.clear();
   Submitted_ = false;
   WhyNot_.clear();
   return {};

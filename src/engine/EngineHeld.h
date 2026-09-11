@@ -169,12 +169,14 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   return carried;
 }
 
+enum class FrameScope { Closed, Open, DrawSucceeded };
+
 struct Seen {
   Render::SceneRenderer Device;
   std::unique_ptr<Core::Live> Standing;
   Extent Frame{.WidthPx = kFrameUnsaidWidePx, .HeightPx = kFrameUnsaidHighPx};
   bool Targeted = false;
-  bool FrameOpen = false;
+  FrameScope Scope = FrameScope::Closed;
   Core::Declaration Shown;
   Ui::Typeface Face;
   std::optional<Geometry> PendingGeometry;

@@ -953,7 +953,7 @@ bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {
     return false;
   }
   if (Renderer_->ReadPixels(rgba) != Render::ReadState::Ready) {
-    error = "the frame did not come back from the device";
+    error = Renderer_->WhyNot();
     return false;
   }
   return true;
@@ -988,15 +988,6 @@ bool Live::ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::stri
   return true;
 }
 
-bool Live::Present(std::string &error) {
-  if (Renderer_ == nullptr) {
-    error = "a frame was ended on an engine that carries no device";
-    return false;
-  }
-  if (!Renderer_->Presents()) { return true; }
-  return Draw(error);
-}
-
 bool Live::Settle(std::string &error) {
   if (Renderer_ == nullptr) {
     error = "there is no device to wait for";
@@ -1012,7 +1003,7 @@ bool Live::Screenshot(const std::string &path, std::string &error) {
   }
   std::vector<uint8_t> rgba;
   if (Renderer_->ReadPixels(rgba) != Render::ReadState::Ready) {
-    error = "the frame did not come back from the device";
+    error = Renderer_->WhyNot();
     return false;
   }
   const size_t want = static_cast<size_t>(Declared_.SurfaceWidthPx) *

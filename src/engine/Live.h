@@ -244,7 +244,6 @@ public:
 
   [[nodiscard]] bool Carry(const Bearing &held, std::string &error);
 
-  [[nodiscard]] bool Present(std::string &error);
   [[nodiscard]] bool Settle(std::string &error);
 
   [[nodiscard]] bool Screenshot(const std::string &path, std::string &error);

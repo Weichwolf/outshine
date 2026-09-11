@@ -84,12 +84,12 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       Plattformfehlern trennen. Fehlgeschlagene Vorbereitung nie als neue Geometrie melden.
 - [ ] Minimieren/Wiederherstellen, Resize, Fenster-Owner/CommandBuffer-Thread und Shutdown
       mit ausstehenden Uploads/Readbacks nachweisen; falscher Thread als Negativkontrolle.
-- [ ] PNG/History nach Wiederherstellung prüfen; Frame-Pacing und unzulässiges IO-/Worker-
+- [ ] Resize-Screenshot prüft noch Deklarationsmaße; PNG/History und Frame-Pacing prüfen. IO-/Worker-
       Warten trennen, Laufzeit-/Speicherbudget nach 2092 messen.
 
 ## Öffentliche Frame-Vorbedingungen
 BeginFrame verweigert jetzt verschachtelte Aufrufe; Renderer-Kopien teilen denselben
-bool-Zustand. Bereits offenes Frame vor Stood/Setup ablehnen und den laufenden Scope
+Scope-Zustand. Bereits offenes Frame vor Stood/Setup ablehnen und den laufenden Scope
 erhalten. Einmaliges EndFrame schließt ihn; erneutes BeginFrame bleibt möglich.
 Render prüfte Zielgrößenabweichung erst nach Stood, das Szene/Geometrie publizieren kann.
 Alle Extent-Prüfungen vor Szene-/GPU-Vorbereitung als eigene Preflight-Phase ausführen.
@@ -100,19 +100,20 @@ neue PNG-Wirkung beabsichtigt. Referenz ist der oben belegte SDL-Frame-Lebenszyk
 ## Frame-Abschluss und Fenster-Readback
 SDL_gpu.h (lokal /opt/homebrew/include/SDL3): Swapchain-Acquire führt bei Submit
 bereits zur Präsentation; die Swapchain-Textur ist ausschließlich beschreibbar.
-Live::Present zeichnet derzeit nochmals, RenderFrame lädt für Screenshots direkt
-aus der Swapchain. Eigenes FrameTex enthält bereits Tonemapping und Overlay.
-Entscheidung: Scope Closed/Open/DrawSucceeded statt FrameOpen-Bool. Erfolgreiche
+Live::Present zeichnete nochmals, RenderFrame las für Screenshots aus der Swapchain.
+Beide Pfade ersetzt; FrameTex enthält bereits Tonemapping und Overlay.
+Implementiert: Scope Closed/Open/DrawSucceeded statt FrameOpen-Bool. Erfolgreiche
 Draw-Anfragen (auch ein minimiert übersprungener Frame) erfüllen den Scope; endFrame
 schließt ihn ohne weiteren Draw. Ohne erfolgreichen Draw bleibt der bisherige
 Fenster-Draw beim Ende erhalten. Direkte Render-/Readback-Anfragen bleiben explizite
 Draws. Fehlgeschlagener Readback nach erfolgreichem Draw löst keinen Ersatz-Draw aus.
-Readback synchron aus FrameTex, sonst eigenem Offscreen-Ziel; nie Swapchain lesen.
+Readback nur aus deklarierten Farbzielen: FrameTex/Offscreen, nie Swapchain; SDL-Ursache weiterreichen.
 WantsPixels/Taken-Zwischenzustand entfällt. Acquire-/Map-/Wait-Fehler verweigern den
 Readback ohne Überschreiben der Ausgabe; vorbereitete Kopien sauber abbrechen.
 Öffentliche API plus abgefangene echte SDL-Calls prüfen Submit/Swapchain-Anzahl,
 Fenster/Offscreen, leeren Scope, Kopien, minimierten Skip, Draw-/Readback-Fehler und
-Retry. Normal/GPU-validiert; normale Fenster-/Offscreen-PNGs visuell vergleichen.
+Retry und Planwechsel prüfen; Outputs sind laut API zusätzliche Ressourcen. Fenster-/Offscreen-
+Pixel sind identisch, PNGs visuell geprüft: dasselbe farbige Dreieck vor Schwarz.
 Minimierte Readbacks/Frische des letzten Bildes und explizite GPU-Outcomes bleiben
 separat zu präzisieren; ein erfolgreicher CPU-Aufruf beweist keine GPU-Fertigstellung.
 Framing berechnet Frustumdiagnostik auch bei Audits=false: Arbeit/Timing separat korrigieren.

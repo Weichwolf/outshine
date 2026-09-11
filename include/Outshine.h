@@ -117,7 +117,10 @@ public:
   /// @return Success or an owned target/state/setup error.
   [[nodiscard]] Result beginFrame(SwapChain &into);
   /// Close a frame opened by beginFrame() on the same Engine, including facade copies.
-  /// Window targets draw/present the current scene; offscreen targets only close the scope.
+  /// A successful render/readback draw in this scope prevents an additional draw here,
+  /// including a draw skipped for a minimized window. Without one, window targets request
+  /// one draw/presentation; offscreen targets only close the scope. A readback/file failure
+  /// after a successful draw does not cause another draw here.
   /// An unopened frame returns an owned error. The scope is closed even if presentation fails.
   /// Runs on the Engine's video thread and may wait for GPU/presentation resources.
   /// @return Success or an owned frame-state/presentation error.
@@ -135,6 +138,8 @@ public:
   /// A camera must be bound or derivable from object bounds. advance() applies a declared
   /// scenario view; an empty scene without a prepared view returns an error.
   /// @param frame Optional check of the target size in physical pixels; zero selects the target.
+  /// Window draws submit presentation with the render commands; endFrame() does not repeat
+  /// successful draws. Every explicit render call requests a draw, also inside a frame scope.
   /// @return An error if scene/camera preparation fails; submission does not imply GPU completion.
   [[nodiscard]] Result render(Extent frame);
   /// Draw and synchronously read back the current target, then write an RGBA PNG.
@@ -144,10 +149,12 @@ public:
   /// @return Render, readback, encoding or filesystem error, or success. File writes are not
   /// atomic.
   [[nodiscard]] Result saveScreenshot(std::string_view path);
-  /// Draw a frame and copy the target into contiguous RGBA8 rows, top row first.
+  /// Draw a frame and copy the engine-owned final colour image into contiguous RGBA8 rows,
+  /// top row first. Window swapchain textures are never used as a readback source.
   /// Requires a configured target, a camera and a presentable render output. Calls may wait
   /// for GPU completion; use outside latency-critical callbacks. No reference to rgba is kept.
-  /// @param rgba Caller-owned output in the target's transfer encoding, valid only on success.
+  /// @param rgba Caller-owned output in the target's transfer encoding; unchanged on error.
+  /// A readback error can occur after the draw was submitted.
   /// @return Success after readback, or a scene/camera/render/readback error.
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
   /// Draw and synchronously read a float attachment into packed, top-row-first pixels.

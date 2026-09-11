@@ -8,7 +8,7 @@ Depends: 2210
 ## Befund und Entscheidung
 handleEvent trennt inzwischen behandelt, ignoriert und Fehler; öffentliche Input-/
 UI-Tests prüfen dies. Der Legacy-error-Text bleibt separat und kann veraltet sein.
-EngineHeld.h verteilt Phasen über Taken, Targeted, FrameOpen, Carrying usw.; Audio-Vorbereitung ist bereits optional.
+EngineHeld.h verteilt Phasen über Taken, Targeted, FrameScope, Carrying usw.; Audio-Vorbereitung ist bereits optional.
 Unabhängige Eigenschaften bleiben erlaubt; Phasen mit verbotenen Kombinationen
 benötigen dagegen explizite Zustandsautomaten. Keine pauschale Boolean-Ersetzung.
 **Benchmark**: Filament trennt Engine-Ressourcen und Frame-Aufrufverträge.

@@ -32,6 +32,7 @@ public:
   void Release();
 
 private:
+  [[nodiscard]] SDL_GPUCopyPass *BeginCopy();
   [[nodiscard]] ReadState Submit(SDL_GPUCommandBuffer *commands);
   [[nodiscard]] ReadState Map();
   [[nodiscard]] ReadState Land(SDL_GPUCommandBuffer *commands);

@@ -63,6 +63,12 @@ Result ValidateFrameExtent(Extent frame, const Seen &picture) {
   }
   return {};
 }
+
+bool DrawScene(Seen &picture, std::string &error) {
+  if (!picture.Standing->Draw(error)) { return false; }
+  if (picture.Scope != FrameScope::Closed) { picture.Scope = FrameScope::DrawSucceeded; }
+  return true;
+}
 }
 
 Result Engine::prepareAudio(int sampleRateHz) {
@@ -120,7 +126,7 @@ bool Engine::render(Extent frame) {
   }
   if (!S_->Stood()) { return false; }
   const auto began = std::chrono::steady_clock::now();
-  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   S_->Published.Places(
@@ -226,8 +232,7 @@ bool Engine::readPixels(std::vector<uint8_t> &rgba) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
   }
-  S_->Picture.Device.WantsPixels();
-  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
   return S_->Picture.Standing->ReadPixels(rgba, S_->Error);
 }
 
@@ -246,8 +251,7 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
   }
-  S_->Picture.Device.WantsPixels();
-  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
   return S_->Picture.Standing->ReadBuffer(which, out, S_->Error);
 }
 
@@ -270,7 +274,7 @@ bool Engine::presenting() const {
 }
 
 bool Engine::beginFrame() {
-  if (S_->Picture.FrameOpen) {
+  if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kFrameAlreadyOpen;
     return false;
   }
@@ -279,18 +283,21 @@ bool Engine::beginFrame() {
     S_->Error = "a frame is begun over a scenario, and none stands";
     return false;
   }
-  S_->Picture.FrameOpen = true;
+  S_->Picture.Scope = FrameScope::Open;
   return true;
 }
 
 bool Engine::endFrame() {
-  if (!S_->Picture.FrameOpen) {
+  if (S_->Picture.Scope == FrameScope::Closed) {
     S_->Error = "a frame was ended that was never begun";
     return false;
   }
-  S_->Picture.FrameOpen = false;
-  if (!S_->Picture.Standing) { return true; }
-  return S_->Picture.Standing->Present(S_->Error);
+  const auto completed = std::exchange(S_->Picture.Scope, FrameScope::Closed);
+  if (completed == FrameScope::DrawSucceeded || !S_->Picture.Standing ||
+      !S_->Picture.Device.Presents()) {
+    return true;
+  }
+  return DrawScene(S_->Picture, S_->Error);
 }
 
 bool Engine::flushAndWait() {
@@ -304,8 +311,7 @@ bool Engine::saveScreenshot(std::string_view path) {
     S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
     return false;
   }
-  S_->Picture.Device.WantsPixels();
-  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
   return S_->Picture.Standing->Screenshot(std::string(path), S_->Error);
 }
 

@@ -99,7 +99,7 @@ Result Engine::assemble() {
 Engine::~Engine() = default;
 
 Result Engine::drawsInto(SDL_Window *presents) {
-  if (S_->Picture.FrameOpen) {
+  if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
   }
@@ -125,7 +125,7 @@ Result Engine::drawsInto(SDL_Window *presents) {
 }
 
 Result Engine::drawsInto(Extent offscreen) {
-  if (S_->Picture.FrameOpen) {
+  if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
   }

@@ -9,6 +9,7 @@ namespace outshine::Render {
 
 ReadState Readback::Submit(SDL_GPUCommandBuffer *commands) {
   Fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+  Commands = nullptr;
   if (Fence == nullptr) {
     Log::Error(LogTag::Render, "readback_submit_failed", {{"msg", SDL_GetError()}});
     Release();
@@ -49,6 +50,23 @@ ReadState Readback::Map() {
   return ReadState::Ready;
 }
 
+SDL_GPUCopyPass *Readback::BeginCopy() {
+  Commands = SDL_AcquireGPUCommandBuffer(Device);
+  if (Commands == nullptr) {
+    Log::Error(LogTag::Render, "readback_acquire_failed", {{"msg", SDL_GetError()}});
+    Release();
+    return nullptr;
+  }
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(Commands);
+  if (copy == nullptr) {
+    Log::Error(LogTag::Render, "readback_copy_pass_failed", {{"msg", SDL_GetError()}});
+    SDL_CancelGPUCommandBuffer(Commands);
+    Commands = nullptr;
+    Release();
+  }
+  return copy;
+}
+
 ReadState Readback::FromTexture(SDL_GPUDevice *device,
                                 SDL_GPUTexture *texture,
                                 Extent size,
@@ -68,8 +86,8 @@ ReadState Readback::FromTexture(SDL_GPUDevice *device,
     return ReadState::Failed;
   }
 
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  SDL_GPUCopyPass *copy = BeginCopy();
+  if (copy == nullptr) { return ReadState::Failed; }
   SDL_GPUTextureRegion region{};
   region.texture = texture;
   region.w = width;
@@ -81,7 +99,7 @@ ReadState Readback::FromTexture(SDL_GPUDevice *device,
   into.rows_per_layer = height;
   SDL_DownloadFromGPUTexture(copy, &region, &into);
   SDL_EndGPUCopyPass(copy);
-  return Land(commands);
+  return Land(Commands);
 }
 
 ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
@@ -106,8 +124,8 @@ ReadState Readback::Copies(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_
     return ReadState::Failed;
   }
 
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  SDL_GPUCopyPass *copy = BeginCopy();
+  if (copy == nullptr) { return ReadState::Failed; }
   SDL_GPUBufferRegion region{};
   region.buffer = source;
   region.size = bytes;
@@ -115,7 +133,6 @@ ReadState Readback::Copies(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_
   into.transfer_buffer = Transfer;
   SDL_DownloadFromGPUBuffer(copy, &region, &into);
   SDL_EndGPUCopyPass(copy);
-  Commands = commands;
   return ReadState::Pending;
 }
 

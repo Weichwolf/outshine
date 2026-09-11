@@ -117,8 +117,6 @@ public:
 
   [[nodiscard]] int SettleFrames() const { return Plan_ ? Plan_->SettleFrames() : 1; }
 
-  void WantsPixels();
-
   [[nodiscard]] bool Queued() const { return Presenting_ == SDL_GPU_PRESENTMODE_VSYNC; }
 
   [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
@@ -436,8 +434,6 @@ private:
   SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;
   SDL_Window *Showing_ = nullptr;
   Shown Shown_;
-  bool Wanted_ = false;
-  std::vector<uint8_t> Taken_;
   OwnedTexture Offscreen_;
   std::shared_ptr<const Compiled> Plan_;
   Gpu Handles_;
