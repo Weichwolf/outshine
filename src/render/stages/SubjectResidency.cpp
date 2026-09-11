@@ -1,5 +1,6 @@
 #include <span>
 #include <optional>
+#include <limits>
 #include <array>
 #include <atomic>
 #include "SubjectResidency.h"
@@ -29,6 +30,9 @@ constexpr size_t kRgbaChannels = 4u;
 constexpr size_t kAlphaChannel = 3u;
 
 namespace Says {
+inline constexpr std::string_view kInvalidCrossing =
+    "GPU upload names an invalid stream or exceeds Uint32 storage";
+
 inline constexpr std::string_view kCopyAcquireFailed = "GPU copy command acquisition failed: {}";
 inline constexpr std::string_view kCopyPassFailed = "GPU copy pass creation failed: {}";
 inline constexpr std::string_view kCopySubmitFailed = "GPU copy submission failed: {}";
@@ -45,6 +49,19 @@ inline constexpr std::string_view kTopologyStagingDidNotMap =
 }
 
 namespace {
+std::optional<uint32_t> UploadBytes(std::span<const SubjectResidency::Crossing> crossings) {
+  uint64_t total = 0;
+  constexpr auto maximum = std::numeric_limits<uint32_t>::max();
+  for (const auto &crossing : crossings) {
+    if (static_cast<size_t>(crossing.Which) >= SubjectResidency::kStreams) { return std::nullopt; }
+    if (crossing.Bytes == 0 || !crossing.Stands()) { continue; }
+    if (uint64_t{crossing.Offset} + crossing.Bytes > maximum) { return std::nullopt; }
+    total = (total + crossing.Bytes + 15u) & ~uint64_t{15};
+    if (total > maximum) { return std::nullopt; }
+  }
+  return static_cast<uint32_t>(total);
+}
+
 struct CopyCommands {
   SDL_GPUCommandBuffer *Commands;
   SDL_GPUCopyPass *Pass;
@@ -158,7 +175,12 @@ void SubjectResidency::Give(std::vector<Range> &free, Range back) {
 }
 
 bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::string &error) {
-  uint32_t total = 0;
+  const auto measured = UploadBytes(what);
+  if (!measured) {
+    error = Says::kInvalidCrossing;
+    return false;
+  }
+  const uint32_t total = *measured;
   for (const auto &one : what) {
     OwnedBuffer &into = Buffer(one.Which);
     uint32_t *const stood = HeldAt(one.Which);
@@ -180,13 +202,11 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
       }
       *stood = one.Offset + one.Bytes;
     }
-
-    total = (total + one.Bytes + 15u) & ~15u;
   }
   if (total == 0) { return true; }
 
   if (!deferred) { return Submit(what, total, error); }
-  if (StagingUsed_ + total > StagingBytes_ || !Staging_) {
+  if (uint64_t{StagingUsed_} + total > StagingBytes_ || !Staging_) {
     const uint32_t widened = total > StagingBytes_ ? total : StagingBytes_;
     SDL_GPUTransferBufferCreateInfo room{};
     room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -288,11 +308,18 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
 }
 
 bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
+  if (static_cast<size_t>(which) >= kStreams) {
+    error = Says::kInvalidCrossing;
+    return false;
+  }
   OwnedBuffer &held = Buffer(which);
   uint32_t *const stood = HeldAt(which);
   if (held && *stood >= need.Bytes) { return true; }
   uint32_t widened = *stood > 0 ? *stood : need.Bytes;
-  while (widened < need.Bytes) { widened *= 2u; }
+  while (widened < need.Bytes) {
+    widened = static_cast<uint32_t>(
+        std::min(uint64_t{widened} * 2u, uint64_t{std::numeric_limits<uint32_t>::max()}));
+  }
   SDL_GPUBufferCreateInfo wanted{};
   wanted.usage = need.Usage;
   wanted.size = widened;

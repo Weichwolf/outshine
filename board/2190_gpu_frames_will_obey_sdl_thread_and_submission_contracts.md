@@ -114,7 +114,7 @@ Upload- und Grow-Kopien prüfen Acquire/CopyPass/Submit; Grow erhält alten Buff
 FailedTablesRemainRetryable belegt Map/Acquire/Pass/Submit, wiederholte Fehler, Retry
 und GPU-Inhalte normal/SDL-validiert; Grow zusätzlich Handle und Kapazität nach Fehler.
 Retable trennt Subject-/Piece-Aufbau, Materialzuordnung und Upload; Instancing-Test grün.
-Nächster Schritt: Cross prüft alle Stream-IDs, Zielenden und 16-Byte-Stagingsummen
-vor Mutation in uint64; Grow verdoppelt ohne uint32-Überlauf. Test: ungültiger zweiter
-Eintrag darf einen vorherigen Release nicht ausführen; keine GPU-Allokation bei Überlauf.
-Referenz: SDL Uint32-Größen. Vollständige Kandidatenpublikation/Budgets bleiben offen.
+Cross prüft Stream-IDs, Zielenden und 16-Byte-Summen vor Mutation in uint64; Grow ohne
+uint32-Überlauf. GPU-Test: Release vor ungültigem Eintrag/Summenüberlauf bleibt aus,
+keine Allokation; normal/validiert grün. Referenz: SDL Uint32-Größen.
+Offen: atomare Kandidaten/Budgets; Staged-Zielzeiger bei Ersatz bis Recording am Leben halten.

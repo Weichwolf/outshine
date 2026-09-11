@@ -2,6 +2,7 @@
 #include <array>
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <dlfcn.h>
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@ enum class Failure { None, Map, Acquire, Pass, Submit };
 Failure nextFailure = Failure::None;
 unsigned skipFailures = 0;
 unsigned failures = 0;
+unsigned bufferAllocations = 0;
 
 bool Reject(Failure point) {
   if (nextFailure != point) { return false; }
@@ -32,6 +34,13 @@ template <typename F> F Original(const char *name) {
   assert(function != nullptr);
   return function;
 }
+}
+
+extern "C" SDL_GPUBuffer *SDLCALL SDL_CreateGPUBuffer(SDL_GPUDevice *device,
+                                                      const SDL_GPUBufferCreateInfo *info) {
+  ++bufferAllocations;
+  static const auto original = Original<decltype(&SDL_CreateGPUBuffer)>("SDL_CreateGPUBuffer");
+  return original(device, info);
 }
 
 extern "C" void *SDLCALL SDL_MapGPUTransferBuffer(SDL_GPUDevice *device,
@@ -106,6 +115,36 @@ void Growth(SDL_GPUDevice *device) {
     CHECK(residency.Cross(crossing, false, error), "growth fixture uploads known words");
     auto *original = residency.Buffer(stream).Get();
     const auto capacity = residency.HeldOf(stream);
+    const auto maximum = std::numeric_limits<uint32_t>::max();
+    for (const auto invalid :
+         {SubjectResidency::Crossing{.Which = SubjectResidency::Stream::Count},
+          SubjectResidency::Crossing{.Which = stream,
+                                     .Usage = usage,
+                                     .From = expected.data(),
+                                     .Bytes = 16,
+                                     .Offset = maximum - 7},
+          SubjectResidency::Crossing{
+              .Which = stream, .Usage = usage, .From = expected.data(), .Bytes = maximum}}) {
+      std::array<SubjectResidency::Crossing, 2> rejected{{{.Which = stream}, invalid}};
+      const auto allocations = bufferAllocations;
+      CHECK(!residency.Cross(rejected, false, error), "invalid upload is rejected before mutation");
+      CHECK(bufferAllocations == allocations, "invalid upload performs no GPU allocation");
+      CHECK(residency.Buffer(stream).Get() == original && residency.HeldOf(stream) == capacity,
+            "invalid later crossing cannot release an earlier buffer");
+      CHECK(Read(device, original, expected.size()) == expected,
+            "preflight rejection preserves existing GPU data");
+    }
+    auto large = crossing[0];
+    large.Bytes = (maximum / 2u) + 1u;
+    std::array<SubjectResidency::Crossing, 2> oversized{{large, large}};
+    for (const bool deferred : {false, true}) {
+      const auto allocations = bufferAllocations;
+      CHECK(!residency.Cross(oversized, deferred, error),
+            "sum of individually representable uploads is checked");
+      CHECK(bufferAllocations == allocations, "sum overflow performs no GPU allocation");
+      CHECK(residency.Buffer(stream).Get() == original && residency.HeldOf(stream) == capacity,
+            "sum overflow preserves residency");
+    }
     for (unsigned attempt = 0; attempt < 2; ++attempt) {
       nextFailure = point;
       skipFailures = 0;
