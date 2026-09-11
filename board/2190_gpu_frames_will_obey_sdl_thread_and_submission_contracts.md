@@ -4,9 +4,7 @@ Area: render, host
 Tags: architecture, gpu, lifecycle
 Parent: 2188
 Depends:
-
 # GPU frames will obey SDL thread and submission contracts
-
 ## Vertrag und vorhandene Umsetzung
 Stage bleibt logische Renderarbeit; der Compiler bildet daraus GPU-P채sse.
 Aufzeichnung, erfolgreiche Submission und abgeschlossene GPU-Arbeit sind unterschiedliche
@@ -117,4 +115,6 @@ Retry mit GPU-Inhalt belegt; Frame-/Fensterregressionen normal/SDL-validiert gr�
 Pending-Batch wird vor sofortigem Cross oder Buffer-Ersatz/Grow geordnet eingereicht;
 Fehler erhalten Batch/Buffer. GPU-Test belegt Mixed-Reihenfolge, Grow mit Pending und Retry.
 Room entf채llt; Residency trennt Preserve/Discard. Frame-/Instancing-Regressionen gr체n.
-Offen: Frame-CopyPass-Fehler, atomare Mehrbuffer-Kandidaten und Upload-Budgets.
+N채chster Schritt: Upload-CopyPass vor Swapchain-Acquire aufzeichnen, Fehler zur체ckgeben
+und Commands abbrechen; Pending bleibt f체r Retry. Kein Cancel nach Swapchain-Acquire.
+Test: CopyPass-Fehler/Retry plus Frame-/Fensterf채lle. Atomare Kandidaten/Budgets offen.
