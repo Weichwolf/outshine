@@ -116,5 +116,5 @@ Pending-Batch wird vor sofortigem Cross oder Buffer-Ersatz/Grow geordnet eingere
 Fehler erhalten Batch/Buffer. GPU-Test belegt Mixed-Reihenfolge, Grow mit Pending und Retry.
 Room entfällt; Residency trennt Preserve/Discard. Frame-/Instancing-Regressionen grün.
 CopyPass vor Swapchain-Acquire geprüft; Retry/Frame/Fenster in sechs Profilen grün.
-Nächster Schritt: Buffer-Ersatz lokal anlegen; Fehler erhält Handle/Kapazität/GPU-Daten.
-Allokationsfehler injizieren. Mehrbuffer-Atomarität und Upload-Budgets bleiben offen.
+Buffer-Ersatz lokal angelegt; Allokationsfehler erhält Handle/Kapazität/GPU-Daten.
+Wiederholter Fehler und Retry GPU-validiert belegt. Mehrbuffer-Atomarität/Budgets offen.

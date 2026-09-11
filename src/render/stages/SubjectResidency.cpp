@@ -218,13 +218,13 @@ bool SubjectResidency::PrepareBuffers(std::span<Crossing> what, std::string &err
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
       wanted.size = one.Offset + one.Bytes;
-      into = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+      OwnedBuffer candidate(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
       gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
-      if (!into) {
-        *stood = 0;
+      if (!candidate) {
         error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
         return false;
       }
+      into = std::move(candidate);
       *stood = one.Offset + one.Bytes;
     }
   }

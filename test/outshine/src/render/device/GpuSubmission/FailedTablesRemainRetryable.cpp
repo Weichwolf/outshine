@@ -11,7 +11,7 @@
 #include "Check.h"
 
 namespace {
-enum class Failure { None, Map, Acquire, Pass, Submit };
+enum class Failure { None, Map, Acquire, Pass, Submit, Allocate };
 Failure nextFailure = Failure::None;
 unsigned skipFailures = 0;
 unsigned failures = 0;
@@ -39,6 +39,7 @@ template <typename F> F Original(const char *name) {
 extern "C" SDL_GPUBuffer *SDLCALL SDL_CreateGPUBuffer(SDL_GPUDevice *device,
                                                       const SDL_GPUBufferCreateInfo *info) {
   ++bufferAllocations;
+  if (Reject(Failure::Allocate)) { return nullptr; }
   static const auto original = Original<decltype(&SDL_CreateGPUBuffer)>("SDL_CreateGPUBuffer");
   return original(device, info);
 }
@@ -138,6 +139,40 @@ void DeferredRetry(SDL_GPUDevice *device) {
   residency.CommitCrossings();
   CHECK(Read(device, residency.Buffer(stream).Get(), expected.size()) == expected,
         "retry records the unacknowledged upload again");
+}
+
+void FailedReplacement(SDL_GPUDevice *device) {
+  SubjectResidency residency;
+  residency.StandsOn(device, true);
+  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  const std::vector<uint32_t> initial{17, 23, 31, 47};
+  const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
+  std::array<SubjectResidency::Crossing, 1> crossing{
+      {{.Which = stream,
+        .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+        .From = initial.data(),
+        .Bytes = 16}}};
+  std::string error;
+  CHECK(residency.Cross(crossing, false, error), "replacement fixture initializes data");
+  auto *original = residency.Buffer(stream).Get();
+  const auto capacity = residency.HeldOf(stream);
+  crossing[0].From = replacement.data();
+  crossing[0].Bytes = 32;
+  for (unsigned attempt = 0; attempt < 2; ++attempt) {
+    nextFailure = Failure::Allocate;
+    skipFailures = 0;
+    CHECK(!residency.Cross(crossing, false, error), "failed replacement reports allocation error");
+    CHECK(nextFailure == Failure::None && error.find("injected") != std::string::npos,
+          "replacement preserves allocation failure cause");
+    nextFailure = Failure::None;
+    CHECK(residency.Buffer(stream).Get() == original && residency.HeldOf(stream) == capacity,
+          "allocation failure preserves original buffer identity and capacity");
+    CHECK(Read(device, residency.Buffer(stream).Get(), initial.size()) == initial,
+          "allocation failure preserves original GPU data");
+  }
+  CHECK(residency.Cross(crossing, false, error), "replacement retries successfully");
+  CHECK(Read(device, residency.Buffer(stream).Get(), replacement.size()) == replacement,
+        "successful replacement publishes all new GPU words");
 }
 
 void MixedUploads(SDL_GPUDevice *device) {
@@ -347,6 +382,7 @@ int main() {
       Growth(device.Get());
       DeferredRetry(device.Get());
       MixedUploads(device.Get());
+      FailedReplacement(device.Get());
     }
   }
   SDL_Quit();
