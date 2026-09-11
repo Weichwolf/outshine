@@ -412,6 +412,12 @@ private:
   void EncodeSubjectScan(const FrameContext &ctx, const PassRecording &into);
   void EncodeSubjectCompact(const FrameContext &ctx, const PassRecording &into);
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass, StageSubmission &submission);
+  void EncodeComputePass(SDL_GPUCommandBuffer *commands,
+                         const Compiled::Pass &declared,
+                         StageSubmission &submission);
+  void EncodeGraphicsPass(SDL_GPUCommandBuffer *commands,
+                          const Compiled::Pass &declared,
+                          StageSubmission &submission);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};

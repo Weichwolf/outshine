@@ -108,9 +108,10 @@ DrawList-Budgets zurück. Grenztests, Negativkontrollen, Instancing und GPU-Retr
 normal/validiert bestehen. Details in Git. JobsAddress, Pose-Atomarität und
 praktische Frame-/Speicherbudgets bleiben offen; Jobbudget ist konservativ.
 
-## Pass-Aufzeichnung trennen
-EncodePass vermischt Compute-Bindings und Grafik-Attachments (Komplexität 28).
-SDL_gpu.h dokumentiert bei beiden Begin-Aufrufen einen Handle, keinen regulären
-Fehlerausgang. Getrennte private Encoder erhalten Reihenfolge, Touched-Zustand,
-Submission-Journal und Bindings; Dispatcher entscheidet ausschließlich PassKind.
-Abnahme: GPU-Frame-/Upload-Regressionen und Lint; keine neue Null-Fehlersemantik.
+## Getrennte Pass-Aufzeichnung
+Private Compute-/Grafik-Encoder trennen Bindings und Attachments; der Dispatcher
+entscheidet PassKind. Reihenfolge, Touched-Zustand und Submission-Journal bleiben
+unverändert. SDL_gpu.h dokumentiert Begin-Handles ohne regulären Fehlerausgang;
+keine neue Null-Fehlersemantik. Sechs GPU-Regressionen normal/validiert bestehen,
+einschließlich Frame-/Schatten-Readback und injizierter Submission-Abbrüche.
+Clang-tidy 98 → 97; Ressourcen-Vorbedingungen bleiben separat offen.

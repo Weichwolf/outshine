@@ -1000,34 +1000,46 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands,
                                StageSubmission &submission) {
   const Compiled::Pass &declared = Plan_->Passes()[pass];
   if (declared.Kind == PassKind::Compute) {
-    std::array<SDL_GPUStorageTextureReadWriteBinding, kMaxColourAttachments> written = {{}};
-    uint32_t writtenCount = 0;
-    for (const Resource wanted : declared.Targets) {
-      SDL_GPUStorageTextureReadWriteBinding &binding = written[writtenCount++];
-      binding.texture = Target(wanted);
-      binding.cycle = false;
-    }
-
-    std::array<SDL_GPUStorageBufferReadWriteBinding, kMaxColourAttachments> tables = {{}};
-    uint32_t tableCount = 0;
-    for (const Resource wanted : declared.Buffers) {
-      SDL_GPUBuffer *const held = BufferFor(wanted);
-      if (held == nullptr) { continue; }
-      SDL_GPUStorageBufferReadWriteBinding &binding = tables[tableCount++];
-      binding.buffer = held;
-      binding.cycle = false;
-    }
-    const PassRecording into{.Commands = commands,
-                             .Pass = nullptr,
-                             .Dispatch = SDL_BeginGPUComputePass(
-                                 commands, written.data(), writtenCount, tables.data(), tableCount),
-                             .Submission = submission};
-    for (size_t at = 0; at < declared.Count; ++at) {
-      EncodeStage(Plan_->Order()[declared.First + at], into);
-    }
-    SDL_EndGPUComputePass(into.Dispatch);
-    return;
+    EncodeComputePass(commands, declared, submission);
+  } else {
+    EncodeGraphicsPass(commands, declared, submission);
   }
+}
+
+void SceneRenderer::EncodeComputePass(SDL_GPUCommandBuffer *commands,
+                                      const Compiled::Pass &declared,
+                                      StageSubmission &submission) {
+  std::array<SDL_GPUStorageTextureReadWriteBinding, kMaxColourAttachments> written = {{}};
+  uint32_t writtenCount = 0;
+  for (const Resource wanted : declared.Targets) {
+    SDL_GPUStorageTextureReadWriteBinding &binding = written[writtenCount++];
+    binding.texture = Target(wanted);
+    binding.cycle = false;
+  }
+
+  std::array<SDL_GPUStorageBufferReadWriteBinding, kMaxColourAttachments> tables = {{}};
+  uint32_t tableCount = 0;
+  for (const Resource wanted : declared.Buffers) {
+    SDL_GPUBuffer *const held = BufferFor(wanted);
+    if (held == nullptr) { continue; }
+    SDL_GPUStorageBufferReadWriteBinding &binding = tables[tableCount++];
+    binding.buffer = held;
+    binding.cycle = false;
+  }
+  const PassRecording into{.Commands = commands,
+                           .Pass = nullptr,
+                           .Dispatch = SDL_BeginGPUComputePass(
+                               commands, written.data(), writtenCount, tables.data(), tableCount),
+                           .Submission = submission};
+  for (size_t at = 0; at < declared.Count; ++at) {
+    EncodeStage(Plan_->Order()[declared.First + at], into);
+  }
+  SDL_EndGPUComputePass(into.Dispatch);
+}
+
+void SceneRenderer::EncodeGraphicsPass(SDL_GPUCommandBuffer *commands,
+                                       const Compiled::Pass &declared,
+                                       StageSubmission &submission) {
   std::array<SDL_GPUColorTargetInfo, kMaxColourAttachments> colours = {{}};
   uint32_t colourCount = 0;
   for (const Resource wanted : declared.Targets) {
