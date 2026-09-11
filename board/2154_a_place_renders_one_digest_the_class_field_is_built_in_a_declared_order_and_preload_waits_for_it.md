@@ -41,3 +41,11 @@ unterschiedlicher Live-Providerantworten mit demselben Szenario.
 - [ ] Alle Places und Bewegung prüfen; erst nach terminalem Run-Ergebnis berichten.
 
 Historische Digestlisten und diagnostische Sackgassen stehen in der Git-Historie.
+
+## Leere OSM-Generation
+ClassField::Ingest leert Arrays bei Generationwechsel, setzt Stale aber erst nach
+Feature-Ingest. Leere Folgegeneration kann die alte Klassifikation behalten.
+Entscheidung: Generationwechsel invalidiert die Klassifikation unabhängig von Features;
+Ingest in Geometrieübernahme und Featureklassifikation trennen.
+Test: deklarierte Fläche vollständig bauen, durch ausgeschlossene Layer ersetzen,
+ohne Kamerabewegung beide Tiers erneut bauen und alte Klassifikation entfernen.
