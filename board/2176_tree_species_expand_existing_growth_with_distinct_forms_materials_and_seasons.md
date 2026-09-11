@@ -103,3 +103,12 @@ Corpus. Queue-/Blatt-/Scratch-Gesamtbudget, Grower-Publikation und abgeleitete F
 Überläufe bleiben offen; sichere Parse-Repräsentation beweist kein Echtzeitbudget.
 474 Checks sowie drei Blatt-/Wachstums-/Materialregressionen grün; Altimplementierung
 scheitert. Alle 31 Profile akzeptiert. Keine Aussage zu Gesamtkosten maximaler Eingaben.
+
+## Grower-Phasen
+GrowOnce vermischt Queue-Abarbeitung, Einzeltrieb, Richtungsfortschritt, Verzweigung
+und Abschluss. Private Phasen mit geliehenem Growth-Pass-Kontext trennen; Tip als
+lokale Kopie behalten, da Spawn die Queue reallokieren kann. RNG-Aufrufreihenfolge,
+Geometrie und bestehende Stopbedingungen unverändert. Keine neue Allokation pro Schritt.
+Vorher/nachher alle 31 Skelette vollständig vergleichen; zusätzlich endliche Frames,
+zusammenhängende Node-Spans, gültige Eltern und Wiederverwendung prüfen. Dies beweist
+Bestandserhalt, keine Artenqualität. Gesamtbudget/Fehlerpublikation bleiben offen.
