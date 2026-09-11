@@ -65,7 +65,6 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       Frische Ressourcen sichern Fehleratomarität beim Weltumbau. Upload-Ringe und
       budgetierte inkrementelle Streaming-Updates bleiben in 2149/2124.
 - [ ] Weitere Upload-Helfer (u.a. GroundLattice) prüfen Acquire/Submit noch nicht.
-      SubjectDraw::HandTables löscht TablesStale_ vor Retable-Erfolg; Retry erhalten.
       2149 besitzt persistente Upload-Ringe, dieses WI Fehler und Veröffentlichungszustand.
 - [ ] Pass- und Ressourcen-Vorbedingungen nach SDL prüfen; Programmierfehler von echten
       Plattformfehlern trennen. Fehlgeschlagene Vorbereitung nie als neue Geometrie melden.
@@ -104,7 +103,8 @@ FailedTablesRemainRetryable, Frame-/Fenster-/Instancing-Regressionen; Details in
 Vollständige In-place-/Frame-Atomarität und Upload-Budgets bleiben offen.
 
 ## Vertex-Bytebereiche
-HandStreams multipliziert Größen/Offsets vor Cross in uint32; Überlauf umgeht dessen
-Vorprüfung. Entscheidung: Vertexbereich und Komponentenanzahl gemeinsam vor Placements
-und GPU prüfen; keine unabhängig vertauschbaren Byte-/Stride-Parameter.
-Grenztests für 2/3/4 Komponenten, Startoffset, Endbereich und inaktive Streams.
+HandStreams prüft Vertexbereich und Komponentenanzahl vor Placements und GPU;
+uint32-Überläufe von Größe, Offset und kombiniertem Ende werden zurückgewiesen.
+ByteRangesRejectOverflow: 15 Checks für 2/3/4 Komponenten und inaktive Streams;
+Negativkontrolle ohne Bereichsschutz scheitert. Instancing-/Upload-Retry-Regressionen
+bestehen. Clang-tidy 99 → 98; gesamte Pose-Zustandsatomarität bleibt offen.

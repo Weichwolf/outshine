@@ -1,4 +1,5 @@
 #include "SurfaceBindings.h"
+#include "VertexUpload.h"
 #include <format>
 #include "GroundLattice.h"
 #include "SubjectDraw.h"
@@ -686,64 +687,51 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
 bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
-  const uint32_t first = Bound().SubjectVertices().First;
-  const uint32_t positionBytes =
-      Bound().Shape().Vertices * kPositionFloats * static_cast<uint32_t>(sizeof(float));
-  const uint32_t pairBytes =
-      Bound().Shape().Vertices * kPairFloats * static_cast<uint32_t>(sizeof(float));
-  const uint32_t quadBytes =
-      Bound().Shape().Vertices * kQuadFloats * static_cast<uint32_t>(sizeof(float));
+  const SubjectResidency::Range vertices{.First = Bound().SubjectVertices().First,
+                                         .Count = Bound().Shape().Vertices};
   const SubjectStream &previousPose = pose.PrevVerts.Stands() ? pose.PrevVerts : pose.Verts;
-  const auto crossing = [first](SubjectResidency::Stream which,
-                                const SubjectStream &stream,
-                                bool carried,
-                                uint32_t bytes,
-                                uint32_t wide) {
-    SubjectResidency::Crossing made;
-    made.Which = which;
-    made.Usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-    made.Bytes = carried ? bytes : 0u;
-    made.Offset = first * wide * static_cast<uint32_t>(sizeof(float));
-    if (carried) {
-      made.From = stream.From;
-      made.Writes = stream.Writes;
-      made.Carrying = stream.Carrying;
-    }
-    return made;
-  };
-
-  std::array<SubjectResidency::Crossing, 8> streams = {{
-      crossing(SubjectResidency::Stream::Vertex, pose.Verts, true, positionBytes, kPositionFloats),
-      crossing(
-          SubjectResidency::Stream::Emitted, pose.Emitted, true, positionBytes, kPositionFloats),
-      crossing(SubjectResidency::Stream::Normal,
-               pose.Normals,
-               Bound().Shape().HasNormal,
-               positionBytes,
-               kPositionFloats),
-      crossing(SubjectResidency::Stream::Tangent,
-               pose.Tangents,
-               Bound().Shape().HasTangent,
-               quadBytes,
-               kQuadFloats),
-      crossing(
-          SubjectResidency::Stream::Uv, pose.Uv, Bound().Shape().HasUv, pairBytes, kPairFloats),
-      crossing(
-          SubjectResidency::Stream::Uv1, pose.Uv1, Bound().Shape().HasUv1, pairBytes, kPairFloats),
-      crossing(SubjectResidency::Stream::Colour,
-               pose.Colours,
-               Bound().Shape().HasColour,
-               quadBytes,
-               kQuadFloats),
-      crossing(SubjectResidency::Stream::Previous,
-               previousPose,
-               WritesVelocity,
-               positionBytes,
-               kPositionFloats),
-  }};
+  using Stream = SubjectResidency::Stream;
+  const std::array<VertexStreamUpload, 8> uploads{{{.Which = Stream::Vertex,
+                                                    .Source = pose.Verts,
+                                                    .Carried = true,
+                                                    .Components = kPositionFloats},
+                                                   {.Which = Stream::Emitted,
+                                                    .Source = pose.Emitted,
+                                                    .Carried = true,
+                                                    .Components = kPositionFloats},
+                                                   {.Which = Stream::Normal,
+                                                    .Source = pose.Normals,
+                                                    .Carried = Bound().Shape().HasNormal,
+                                                    .Components = kPositionFloats},
+                                                   {.Which = Stream::Tangent,
+                                                    .Source = pose.Tangents,
+                                                    .Carried = Bound().Shape().HasTangent,
+                                                    .Components = kQuadFloats},
+                                                   {.Which = Stream::Uv,
+                                                    .Source = pose.Uv,
+                                                    .Carried = Bound().Shape().HasUv,
+                                                    .Components = kPairFloats},
+                                                   {.Which = Stream::Uv1,
+                                                    .Source = pose.Uv1,
+                                                    .Carried = Bound().Shape().HasUv1,
+                                                    .Components = kPairFloats},
+                                                   {.Which = Stream::Colour,
+                                                    .Source = pose.Colours,
+                                                    .Carried = Bound().Shape().HasColour,
+                                                    .Components = kQuadFloats},
+                                                   {.Which = Stream::Previous,
+                                                    .Source = previousPose,
+                                                    .Carried = WritesVelocity,
+                                                    .Components = kPositionFloats}}};
+  std::array<SubjectResidency::Crossing, uploads.size()> streams;
   size_t count = 0;
-  for (const SubjectResidency::Crossing &one : streams) {
-    if (one.Bytes > 0 && one.Stands()) { streams[count++] = one; }
+  for (const auto &upload : uploads) {
+    const auto crossing = VertexCrossing(upload, vertices);
+    if (!crossing) {
+      error = crossing.error();
+      return false;
+    }
+    if (crossing->Bytes > 0 && crossing->Stands()) { streams[count++] = *crossing; }
   }
   if (!HandPlacements(deferred, error)) { return false; }
   if (!Bound().Cross(
