@@ -88,3 +88,9 @@ P1–P5 aus 2169 unverändert; Architektur muss deren Umsetzung erleichtern.
 - [ ] PNGs bleiben bei rein strukturellen Änderungen gleich; fachliche Fixes gegen
       unabhängiges Oracle und visuell abnehmen, keine falschen Altbilder konservieren.
 - [ ] make lint einschließlich clang-tidy und relevante Make-Tests tatsächlich grün.
+
+## Räumliche Klassifikationsabfrage
+ClassStructure::Evaluate konvertiert unbeschränkte double-Zellkoordinaten vor dem
+Bereichstest nach int. Entscheidung: finite Abfrage und Rasterbereich vor Konvertierung
+prüfen; Tierwahl von einzelner Rasterauswertung trennen. Keine gültigen Treffer ändern.
+Analytische Zellgrenzen, Fine-/Coarse-Fallback, NaN/Inf und große Werte samt FP-Flags prüfen.
