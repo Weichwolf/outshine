@@ -382,16 +382,14 @@ bool Subject::GeneratedTangentsFor(Part &part) {
   if (!needed || !part.HasNormal || !part.HasUv || part.IndexCount == 0) { return true; }
 
   TangentSubject over;
-  over.PositionsM = Positions_.data();
-  over.Normals = Normals_.data();
-  over.Uv = Uv_.data();
-  over.VertexCount = VertexCount();
-  over.Indices = Indices_.data() + part.FirstIndex;
-  over.IndexCount = part.IndexCount;
+  over.PositionsM = Positions_;
+  over.Normals = Normals_;
+  over.Uv = Uv_;
+  over.Indices = std::span(Indices_).subspan(part.FirstIndex, part.IndexCount);
   std::vector<double> corners;
-  std::string error;
-  if (!GenerateTangents(over, corners, error)) {
-    return Refuse("the tangent basis the material needs cannot be generated: " + error);
+  if (const auto generated = GenerateTangents(over, corners); !generated) {
+    return Refuse("the tangent basis the material needs cannot be generated: " +
+                  std::string(generated.error()));
   }
 
   std::map<BasisKey, uint32_t> split;

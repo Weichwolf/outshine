@@ -89,7 +89,6 @@ Materialmap-/Carrier-Prüfungen; Slots/Materialindizes vor Zugriff abgeglichen.
 Altcode verletzt zwei Negativkontrollen: Rasteradresse/Pixels bei Fehler erhalten;
 gültiger Ersatz entfernt alte Maps und erhält Filter/Wrap. Native Geometrie-/Materialmigration bleibt separat offen.
 
-## Bereits abgesicherte Verträge
 Lichtprojektion: CasterCentre getrennt, analytische Reverse-Z-/Frame-Negativkontrolle.
 Buildcache: entfernte Quellen/Header invalidieren Objekte; acht Importregressionen grün.
 Numerische Lichtbasen und vollständige Schattenqualität bleiben offen.
@@ -102,20 +101,20 @@ Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahle
 
 ## UI-Markup-Parser
 Read publiziert Kandidaten; Fehler erhalten Baum/Adressen, Wiederverwendung setzt Scripted zurück.
-Parserkandidat mit Text-/Tag-/Attribut-/Raw-Text-Phasen; erst vollständig publizieren.
 Explizite Budgets: 1 MiB Quelltext, 65536 Knoten inkl. Dokument, 65536 Attribute,
-256 offene Elemente. Entity-Suche auf bestehende Referenzlänge begrenzen.
-Drei Parser-/Input-Tests grün, Altcode rot. HTML-Entity-/Raw-Endtag-Konformität bleibt offen.
+256 offene Elemente; begrenzte Entity-Suche. HTML-Entity-/Raw-Endtag-Konformität bleibt offen.
 
 ## Tangentenimport
-GenerateTangents löscht Ausgabe vor Fehlern und kennt Attributlängen nur aus
-Pointer/VertexCount-Konvention. std::span für Positions-/Normal-/UV-/Indexbereiche;
-Form, Endlichkeit, Indexgrenzen und darstellbare interne Gruppennummern vor Zugriff.
-Ergebnis als Kandidat, Fehler explizit über expected, kein stiller Teilzustand.
-FillSpaces in Untergruppenauswahl und Auswertung je Gruppe zerlegen; bestehende
-Winkelgewichtung/Orientierung/degenerierte Dreiecke erhalten. Analytisches UV-Dreieck,
-Spiegelung, Naht und Degeneration sowie ungültige Längen/Indizes/NaN prüfen.
-Negativkontrolle verletzt Zustandserhalt. Gegenwärtiger Algorithmus ist Bestand,
-kein nachgewiesener MikkTSpace-Ersatz; Referenzkonformität und Import-Arbeitsbudgets
-separat offen. Gültige Basiswerte müssen unverändert bleiben; keine Bildverbesserung
-behaupten. Shader-/Normalmapping-Abnahme bleibt ein eigener Rendernachweis.
+GenerateTangents übernimmt jetzt spans statt Pointer/VertexCount-Konvention.
+Attributform, Endlichkeit, Indexgrenzen und darstellbare Gruppennummern werden
+vor Zugriff geprüft; expected meldet Fehler ohne Änderung der alten Ausgabe.
+FillSpaces trennt Untergruppenauswahl und Gruppenauswertung bei unveränderter
+Winkelgewichtung/Orientierung. Analytisches UV-Dreieck, Spiegelung, Naht und
+Degeneration sowie ungültige Längen/Indizes/NaN geprüft; native MR-Consumer separat.
+Frühes Löschen der Ausgabe verletzt die Zustandserhalt-Negativkontrolle.
+Der Algorithmus ist Bestand, kein nachgewiesener MikkTSpace-Ersatz; gemeinsame
+Vektormathematik, Referenzkonformität und Import-Arbeitsbudgets bleiben offen.
+Shader-/Normalmapping-Abnahme bleibt ein eigener Rendernachweis.
+Khronos primitive_generated_tangent_space ist kein grüner Importnachweis: erwartetes
+Scheitern, weil „no default scene to draw“ vor Tangentengenerierung verweigert wird.
+Asset-Validierung und darstellbare Szene müssen getrennt werden; Konformitätslücke offen.

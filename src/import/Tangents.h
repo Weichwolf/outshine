@@ -2,22 +2,22 @@
 #define OUTSHINE_IMPORT_TANGENTS_H
 
 #include <cstdint>
-#include <string>
+#include <expected>
+#include <span>
+#include <string_view>
 #include <vector>
 
 namespace outshine::Gltf {
 
 struct TangentSubject {
-  const double *PositionsM = nullptr;
-  const double *Normals = nullptr;
-  const double *Uv = nullptr;
-  size_t VertexCount = 0;
-  const uint32_t *Indices = nullptr;
-  size_t IndexCount = 0;
+  std::span<const double> PositionsM;
+  std::span<const double> Normals;
+  std::span<const double> Uv;
+  std::span<const uint32_t> Indices;
 };
 
-[[nodiscard]] bool
-GenerateTangents(const TangentSubject &subject, std::vector<double> &out, std::string &error);
+[[nodiscard]] std::expected<void, std::string_view> GenerateTangents(const TangentSubject &subject,
+                                                                     std::vector<double> &out);
 
 }
 #endif

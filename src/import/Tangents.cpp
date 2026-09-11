@@ -1,6 +1,10 @@
 #include "Tangents.h"
 
 #include <array>
+#include <expected>
+#include <span>
+#include <string_view>
+#include <type_traits>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -138,7 +142,7 @@ private:
     size_t Width = 0;
   };
 
-  [[nodiscard]] Vector At(const double *run, Indexed of) const {
+  [[nodiscard]] Vector At(std::span<const double> run, Indexed of) const {
     const size_t corner = of.Corner;
     const size_t width = of.Width;
     const size_t vertex = Subject_.Indices[corner];
@@ -153,6 +157,8 @@ private:
   };
 
   void Reach(Spreading from);
+  void FillGroup(const Group &group);
+  [[nodiscard]] std::vector<int> MembersOf(const Group &group, int face, size_t corner) const;
 
   const TangentSubject &Subject_;
 
@@ -367,46 +373,54 @@ Space Basis::Evaluate(const std::vector<int> &faces, size_t vertex) const {
   return result;
 }
 
-void Basis::FillSpaces() {
+std::vector<int> Basis::MembersOf(const Group &group, int face, size_t corner) const {
   constexpr double kDefaultThresholdCosine = -1.0;
-  Spaces_.assign(Corner_.size(), Space{});
-  for (const Group &group : Groups_) {
-    std::vector<std::vector<int>> subgroups;
-    std::vector<Space> spaces;
-    for (const int face : group.Faces) {
-      const TriangleInfo &info = Triangles_[static_cast<size_t>(face)];
-      size_t corner = 3;
-      for (size_t at = 0; at < 3; ++at) {
-        if (info.Group[at] == static_cast<int>(&group - Groups_.data())) { corner = at; }
-      }
-      if (corner == 3) { continue; }
-      const Vector normal = NormalOf(Corner_[static_cast<size_t>(face) * 3 + corner]);
-      const Vector os = Perpendicular(info.Os, normal);
-      const Vector ot = Perpendicular(info.Ot, normal);
-      std::vector<int> members;
-      for (const int other : group.Faces) {
-        const TriangleInfo &sibling = Triangles_[static_cast<size_t>(other)];
-        const bool any = info.GroupsWithAny || sibling.GroupsWithAny;
-        const Vector os2 = Perpendicular(sibling.Os, normal);
-        const Vector ot2 = Perpendicular(sibling.Ot, normal);
-        if (any || other == face ||
-            (Dot(os, os2) > kDefaultThresholdCosine && Dot(ot, ot2) > kDefaultThresholdCosine)) {
-          members.push_back(other);
-        }
-      }
-      std::ranges::sort(members);
-      size_t which = 0;
-      while (which < subgroups.size() && subgroups[which] != members) { ++which; }
-      if (which == subgroups.size()) {
-        subgroups.push_back(members);
-        spaces.push_back(Evaluate(members, group.Vertex));
-      }
-      Space &out = Spaces_[Triangles_[static_cast<size_t>(face)].FirstCorner + corner];
-      out = out.Counter == 1 ? Averaged(out, spaces[which]) : spaces[which];
-      out.Counter += 1;
-      out.Orient = group.OrientPreserving;
+  const TriangleInfo &info = Triangles_[static_cast<size_t>(face)];
+  const Vector normal = NormalOf(Corner_[static_cast<size_t>(face) * 3 + corner]);
+  const Vector os = Perpendicular(info.Os, normal);
+  const Vector ot = Perpendicular(info.Ot, normal);
+  std::vector<int> members;
+  for (const int other : group.Faces) {
+    const TriangleInfo &sibling = Triangles_[static_cast<size_t>(other)];
+    const bool any = info.GroupsWithAny || sibling.GroupsWithAny;
+    const Vector os2 = Perpendicular(sibling.Os, normal);
+    const Vector ot2 = Perpendicular(sibling.Ot, normal);
+    if (any || other == face ||
+        (Dot(os, os2) > kDefaultThresholdCosine && Dot(ot, ot2) > kDefaultThresholdCosine)) {
+      members.push_back(other);
     }
   }
+  std::ranges::sort(members);
+  return members;
+}
+
+void Basis::FillGroup(const Group &group) {
+  std::vector<std::vector<int>> subgroups;
+  std::vector<Space> spaces;
+  for (const int face : group.Faces) {
+    const TriangleInfo &info = Triangles_[static_cast<size_t>(face)];
+    size_t corner = 3;
+    for (size_t at = 0; at < 3; ++at) {
+      if (info.Group[at] == static_cast<int>(&group - Groups_.data())) { corner = at; }
+    }
+    if (corner == 3) { continue; }
+    const auto members = MembersOf(group, face, corner);
+    size_t which = 0;
+    while (which < subgroups.size() && subgroups[which] != members) { ++which; }
+    if (which == subgroups.size()) {
+      subgroups.push_back(members);
+      spaces.push_back(Evaluate(members, group.Vertex));
+    }
+    Space &out = Spaces_[Triangles_[static_cast<size_t>(face)].FirstCorner + corner];
+    out = out.Counter == 1 ? Averaged(out, spaces[which]) : spaces[which];
+    out.Counter += 1;
+    out.Orient = group.OrientPreserving;
+  }
+}
+
+void Basis::FillSpaces() {
+  Spaces_.assign(Corner_.size(), Space{});
+  for (const Group &group : Groups_) { FillGroup(group); }
 }
 
 void Basis::CopyIntoDegenerate() {
@@ -434,30 +448,42 @@ void Basis::Emit(std::vector<double> &out) const {
   }
 }
 
-}
-
-bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, std::string &error) {
-  out.clear();
-  if ((subject.PositionsM == nullptr) || (subject.Normals == nullptr) || (subject.Uv == nullptr) ||
-      (subject.Indices == nullptr)) {
-    error = "a tangent basis needs positions, normals, texture coordinates and indices, and one of "
-            "the four was not handed over";
-    return false;
-  }
-  if (subject.IndexCount == 0 || subject.IndexCount % 3 != 0) {
-    error = "a tangent basis is generated over triangles and " +
-            std::to_string(subject.IndexCount) + " indices are not a whole number of them";
-    return false;
-  }
-  for (size_t at = 0; at < subject.IndexCount; ++at) {
-    if (subject.Indices[at] >= subject.VertexCount) {
-      error = "index " + std::to_string(subject.Indices[at]) + " addresses past the " +
-              std::to_string(subject.VertexCount) + " vertices the basis is generated over";
-      return false;
+std::expected<void, std::string_view> ValidateCorners(const TangentSubject &subject) {
+  const size_t vertices = subject.PositionsM.size() / 3;
+  for (const uint32_t index : subject.Indices) {
+    const size_t vertex = index;
+    if (vertex >= vertices) {
+      return std::unexpected("tangent index addresses outside the attributes");
+    }
+    for (const auto values : {subject.PositionsM.subspan(vertex * 3, 3),
+                              subject.Normals.subspan(vertex * 3, 3),
+                              subject.Uv.subspan(vertex * 2, 2)}) {
+      if (!std::ranges::all_of(values, [](double value) { return std::isfinite(value); })) {
+        return std::unexpected("referenced tangent attributes must be finite");
+      }
     }
   }
+  return {};
+}
 
-  Basis basis(subject, subject.IndexCount / 3);
+}
+
+std::expected<void, std::string_view> GenerateTangents(const TangentSubject &subject,
+                                                       std::vector<double> &out) {
+  const size_t vertices = subject.PositionsM.size() / 3;
+  if (vertices == 0 || subject.PositionsM.size() % 3 != 0 ||
+      subject.Normals.size() != subject.PositionsM.size() || subject.Uv.size() / 2 != vertices ||
+      subject.Uv.size() % 2 != 0) {
+    return std::unexpected(
+        "tangent attributes require matching position/normal triples and UV pairs");
+  }
+  if (subject.Indices.empty() || subject.Indices.size() % 3 != 0 ||
+      subject.Indices.size() > static_cast<size_t>(std::numeric_limits<int>::max()) ||
+      subject.Indices.size() > std::vector<double>{}.max_size() / 4) {
+    return std::unexpected("tangent indices must form representable triangle groups");
+  }
+  if (const auto valid = ValidateCorners(subject); !valid) { return valid; }
+  Basis basis(subject, subject.Indices.size() / 3);
   basis.Weld();
   basis.MarkDegenerate();
   basis.MoveDegenerateLast();
@@ -466,8 +492,14 @@ bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, s
   basis.BuildGroups();
   basis.FillSpaces();
   basis.CopyIntoDegenerate();
-  basis.Emit(out);
-  return true;
+  std::vector<double> candidate;
+  basis.Emit(candidate);
+  if (!std::ranges::all_of(candidate, [](double value) { return std::isfinite(value); })) {
+    return std::unexpected("generated tangent basis is not representable");
+  }
+  static_assert(std::is_nothrow_move_assignable_v<std::vector<double>>);
+  out = std::move(candidate);
+  return {};
 }
 
 }
