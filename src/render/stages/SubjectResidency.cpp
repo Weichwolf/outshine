@@ -1,4 +1,5 @@
 #include <span>
+#include <optional>
 #include <array>
 #include <atomic>
 #include "SubjectResidency.h"
@@ -28,6 +29,9 @@ constexpr size_t kRgbaChannels = 4u;
 constexpr size_t kAlphaChannel = 3u;
 
 namespace Says {
+inline constexpr std::string_view kCopyAcquireFailed = "GPU copy command acquisition failed: {}";
+inline constexpr std::string_view kCopyPassFailed = "GPU copy pass creation failed: {}";
+inline constexpr std::string_view kCopySubmitFailed = "GPU copy submission failed: {}";
 inline constexpr std::string_view kStreamFoundNoRoom =
     "a vertex stream found no room on the device: {}";
 inline constexpr std::string_view kPoseStagingFoundNoRoom =
@@ -41,6 +45,34 @@ inline constexpr std::string_view kTopologyStagingDidNotMap =
 }
 
 namespace {
+struct CopyCommands {
+  SDL_GPUCommandBuffer *Commands;
+  SDL_GPUCopyPass *Pass;
+};
+
+std::optional<CopyCommands> BeginCopy(SDL_GPUDevice *device, std::string &error) {
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
+  if (commands == nullptr) {
+    error = std::format(Says::kCopyAcquireFailed, SDL_GetError());
+    return std::nullopt;
+  }
+  SDL_GPUCopyPass *pass = SDL_BeginGPUCopyPass(commands);
+  if (pass == nullptr) {
+    error = std::format(Says::kCopyPassFailed, SDL_GetError());
+    SDL_CancelGPUCommandBuffer(commands);
+    return std::nullopt;
+  }
+  return CopyCommands{.Commands = commands, .Pass = pass};
+}
+
+bool SubmitCopy(CopyCommands copy, std::string &error) {
+  SDL_EndGPUCopyPass(copy.Pass);
+  if (!SDL_SubmitGPUCommandBuffer(copy.Commands)) {
+    error = std::format(Says::kCopySubmitFailed, SDL_GetError());
+    return false;
+  }
+  return true;
+}
 
 float LinearFromSrgb8(uint8_t code) {
   const float encoded = static_cast<float>(code) * (1.0f / kByteSteps);
@@ -241,20 +273,18 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
   }
   SDL_UnmapGPUTransferBuffer(Device_, Bulk_.Get());
 
-  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device_);
-  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  const auto copy = BeginCopy(Device_, error);
+  if (!copy) { return false; }
   at = 0;
   for (const auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Bulk_.Get(), .offset = at};
     const SDL_GPUBufferRegion into{
         .buffer = Buffer(one.Which).Get(), .offset = one.Offset, .size = one.Bytes};
-    SDL_UploadToGPUBuffer(copy, &source, &into, false);
+    SDL_UploadToGPUBuffer(copy->Pass, &source, &into, false);
     at = (at + one.Bytes + 15u) & ~15u;
   }
-  SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  return true;
+  return SubmitCopy(*copy, error);
 }
 
 bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
@@ -273,13 +303,12 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
     return false;
   }
   if (held && *stood > 0) {
-    SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device_);
-    SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+    const auto copy = BeginCopy(Device_, error);
+    if (!copy) { return false; }
     const SDL_GPUBufferLocation from{.buffer = held.Get(), .offset = 0};
     const SDL_GPUBufferLocation to{.buffer = fresh.Get(), .offset = 0};
-    SDL_CopyGPUBufferToBuffer(copy, &from, &to, *stood, false);
-    SDL_EndGPUCopyPass(copy);
-    SDL_SubmitGPUCommandBuffer(commands);
+    SDL_CopyGPUBufferToBuffer(copy->Pass, &from, &to, *stood, false);
+    if (!SubmitCopy(*copy, error)) { return false; }
   }
   held = std::move(fresh);
   *stood = widened;

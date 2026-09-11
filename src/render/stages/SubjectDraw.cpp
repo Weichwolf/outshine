@@ -945,8 +945,13 @@ void SubjectDraw::WearPieces(std::span<const uint32_t> slotOfSurface,
 
 bool SubjectDraw::HandTables(std::string &error) {
   if (!TablesStale_) { return true; }
+  if (!Retable(error)) {
+    Args_.clear();
+    Jobs_ = 0;
+    return false;
+  }
   TablesStale_ = false;
-  return Retable(error);
+  return true;
 }
 
 bool SubjectDraw::Retable(std::string &error) {

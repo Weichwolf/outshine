@@ -21,12 +21,10 @@ Ein Submit verbraucht den Commandbuffer auch im Fehlerpfad. Nach Erwerb einer
 Swapchain-Textur ist Cancel verboten; NULL-Target ohne SDL-Fehler heißt überspringen.
 Device überlebt Ressourcen; SDL verzögert Release selbst. Keine zusätzliche
 Retirement-Queue ohne tatsächlich außerhalb SDL liegende Lebensdauern.
-
 PrepareFrame prüft Renderer/Kamera und Tabellen-/Placement-/DrawArgument-Vorbereitung
 vor Acquire. RenderFrame liefert expected; Live::Draw reicht Fehler weiter.
 Acquire-Fehler endet vor Encode; minimierter NULL-Swapchain-Frame wird verworfen.
 Der Swapchain-Handle wird nach Submit nicht gespeichert. Frame-Transfer besitzt RAII.
-
 Die vier atmosphärischen LUT-Stages benutzen Dirty/Recorded/Submitted. Ein begrenztes,
 frame-lokales Journal registriert tatsächlich aufgezeichnete Updates. Nur erfolgreicher
 Submit veröffentlicht sie; Abbruch macht sie wieder aufzeichnungsbedürftig. Bereits
@@ -113,10 +111,10 @@ separat zu präzisieren; ein erfolgreicher CPU-Aufruf beweist keine GPU-Fertigst
 Framing berechnet Frustumdiagnostik auch bei Audits=false: Arbeit/Timing separat korrigieren.
 
 ## Wiederholbare Tabellen-Uploads
-HandTables löscht TablesStale vor Retable; SubjectResidency ignoriert Acquire/Submit.
-Entscheidung: Marker erst nach Erfolg löschen, fehlgeschlagene Jobs/Args nicht anbieten.
+HandTables hält den Stale-Marker bis Erfolg und verwirft bei Fehler nutzbare Jobs/Args.
 Upload- und Grow-Kopien prüfen Acquire/CopyPass/Submit; Grow erhält alten Buffer bei Fehler.
-Retable in Subject-, Piece- und Uploadphasen trennen. Reale SDL-Fehlerinjektion prüft
-Map/Acquire/Pass/Submit, erneuten Fehler, erfolgreichen Retry und GPU-Tabelleninhalte.
+FailedTablesRemainRetryable belegt Map/Acquire/Pass/Submit, wiederholte Fehler, Retry
+und GPU-Inhalte normal/SDL-validiert; Grow zusätzlich Handle und Kapazität nach Fehler.
+Offen: Retable in Subject-, Piece- und Uploadphasen mit expliziten Verträgen trennen.
 Referenz: obiger SDL-Submissionvertrag. Vollständige Cross-/CPU-/GPU-Kandidatenpublikation
 und Größen-/Wachstumsbudgets bleiben separat offen; kein atomarer Weltumbau behauptet.
