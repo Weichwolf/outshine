@@ -200,12 +200,17 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
   }
   const uint32_t total = *measured;
   if ((!deferred || ReplacesBuffers(what)) && !SubmitPending(error)) { return false; }
-  if (!PrepareBuffers(what, error)) { return false; }
-  if (total == 0) { return true; }
-  return deferred ? StageUploads(what, total, error) : Submit(what, total, error);
+  BufferChanges previous;
+  if (!PrepareBuffers(what, previous, error)) { return false; }
+  const bool accepted =
+      total == 0 || (deferred ? StageUploads(what, total, error) : Submit(what, total, error));
+  if (!accepted) { RestoreBuffers(previous); }
+  return accepted;
 }
 
-bool SubjectResidency::PrepareBuffers(std::span<Crossing> what, std::string &error) {
+bool SubjectResidency::PrepareBuffers(std::span<Crossing> what,
+                                      BufferChanges &previous,
+                                      std::string &error) {
   std::array<OwnedBuffer, kStreams> candidates;
   auto capacities = Held_;
   std::array<bool, kStreams> changed{};
@@ -236,10 +241,21 @@ bool SubjectResidency::PrepareBuffers(std::span<Crossing> what, std::string &err
   }
   for (size_t slot = 0; slot < kStreams; ++slot) {
     if (!changed[slot]) { continue; }
+    previous.Buffers[slot] = std::move(Buffers_[slot]);
+    previous.Capacities[slot] = Held_[slot];
+    previous.Changed[slot] = true;
     Buffers_[slot] = std::move(candidates[slot]);
     Held_[slot] = capacities[slot];
   }
   return true;
+}
+
+void SubjectResidency::RestoreBuffers(BufferChanges &previous) {
+  for (size_t slot = 0; slot < kStreams; ++slot) {
+    if (!previous.Changed[slot]) { continue; }
+    Buffers_[slot] = std::move(previous.Buffers[slot]);
+    Held_[slot] = previous.Capacities[slot];
+  }
 }
 
 bool SubjectResidency::StageUploads(std::span<Crossing> what, uint32_t total, std::string &error) {

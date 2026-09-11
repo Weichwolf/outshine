@@ -115,6 +115,6 @@ CopyPass vor Swapchain-Acquire geprüft; Retry/Frame/Fenster in sechs Profilen g
 Buffer-Ersatz lokal angelegt; Allokationsfehler erhält Handle/Kapazität/GPU-Daten.
 Ersatzbuffer/Releases werden nach vollständiger Vorbereitung gemeinsam publiziert;
 feste Kandidatenarrays je Stream. Zweite Allokation scheitert wiederholt ohne Verlust
-beider Handles/Kapazitäten/GPU-Daten. Nächster Schritt: alte Buffer bis Upload-Ergebnis
-halten, bei Map/Acquire/Pass/Submit-Fehler zurücksetzen; mehrere Ersatzbuffer GPU-prüfen.
+beider Handles/Kapazitäten/GPU-Daten. Alte Buffer bleiben bis Upload-Ergebnis erhalten;
+Map/Acquire/Pass/Submit-Fehler setzen Ersatzbuffer zurück, durch GPU-Readback belegt.
 In-place-Writes/Frame-Abschluss sind davon getrennt; vollständige Atomarität/Budgets offen.

@@ -213,6 +213,21 @@ void FailedBatchReplacement(SDL_GPUDevice *device) {
             "preparation failure preserves every original GPU value");
     }
   }
+  for (Failure point : {Failure::Map, Failure::Acquire, Failure::Pass, Failure::Submit}) {
+    nextFailure = point;
+    skipFailures = 0;
+    CHECK(!residency.Cross(crossing, false, error), "upload failure rejects prepared replacements");
+    CHECK(nextFailure == Failure::None && error.find("injected") != std::string::npos,
+          "replacement reaches the injected upload failure");
+    nextFailure = Failure::None;
+    for (size_t at = 0; at < crossing.size(); ++at) {
+      CHECK(residency.Buffer(crossing[at].Which).Get() == originals[at] &&
+                residency.HeldOf(crossing[at].Which) == 16,
+            "upload failure restores every original buffer and capacity");
+      CHECK(Read(device, residency.Buffer(crossing[at].Which).Get(), initial.size()) == initial,
+            "upload failure retains original GPU contents");
+    }
+  }
   CHECK(residency.Cross(crossing, false, error), "batch replacement retries successfully");
   for (const auto &item : crossing) {
     CHECK(Read(device, residency.Buffer(item.Which).Get(), replacement.size()) == replacement,

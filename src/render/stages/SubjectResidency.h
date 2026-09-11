@@ -171,7 +171,15 @@ struct SubjectResidency {
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
-  [[nodiscard]] bool PrepareBuffers(std::span<Crossing> what, std::string &error);
+  struct BufferChanges {
+    std::array<OwnedBuffer, kStreams> Buffers;
+    std::array<uint32_t, kStreams> Capacities{};
+    std::array<bool, kStreams> Changed{};
+  };
+
+  [[nodiscard]] bool
+  PrepareBuffers(std::span<Crossing> what, BufferChanges &previous, std::string &error);
+  void RestoreBuffers(BufferChanges &previous);
   [[nodiscard]] bool StageUploads(std::span<Crossing> what, uint32_t total, std::string &error);
   [[nodiscard]] bool ReplacesBuffers(std::span<const Crossing> crossings) const;
   [[nodiscard]] bool SubmitPending(std::string &error);
