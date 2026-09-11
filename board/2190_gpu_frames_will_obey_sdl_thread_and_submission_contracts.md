@@ -54,10 +54,6 @@ https://wiki.libsdl.org/SDL3/SDL_GPUVertexBufferDescription
 Clients und fachliche Tests erhalten keine SDL_GPU-Ownership. Die alte Claim-Ausnahme
 für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
 
-Konventionssuite zuletzt 28/29: nur bekannter Mipmap-Wiederholungsfehler 2179,
-423 Kanäle je Wiederholung, maximal 0,00268555, identische Tiefe. Kamera-PNGs geöffnet
-und bytegleich zur gesicherten Referenz. Keine neue fotorealistische Place-Abnahme.
-
 - [x] Reale Offscreen-Acquire-/Submit-Abbrüche liefern Fehler und publizieren weder
       ungeschriebene LUTs noch weitergeschaltete History; der nächste Frame erholt sich.
 - [x] Fusionierter Temporal-Pass liest seinen deklarierten Eingang statt seines Renderziels.
@@ -101,7 +97,22 @@ Vorhandene öffentliche Owner-/Target-Tests erweitern: gleiche/kopierte Facade,
 Resize nach verweigertem Begin, genau ein Ende und Priorität der Größenprüfung vor
 fehlendem verzögert geladenem Asset. Altcode verletzt diese Prüfungen. Gültige Renderarithmetik bleibt unverändert, keine
 neue PNG-Wirkung beabsichtigt. Referenz ist der oben belegte SDL-Frame-Lebenszyklus.
-Weitere Befunde offen: endFrame ruft über Live::Present erneut Draw auf, auch nach
-explizitem render; Submit/Present-Semantik vor Migration vollständig prüfen.
-Framing berechnet Cluster-Frustumdiagnostik auch bei Audits=false; geometrieskalierende
-Arbeit aus dem normalen Framepfad nehmen und Diagnose-/Timingverträge explizit machen.
+## Frame-Abschluss und Fenster-Readback
+SDL_gpu.h (lokal /opt/homebrew/include/SDL3): Swapchain-Acquire führt bei Submit
+bereits zur Präsentation; die Swapchain-Textur ist ausschließlich beschreibbar.
+Live::Present zeichnet derzeit nochmals, RenderFrame lädt für Screenshots direkt
+aus der Swapchain. Eigenes FrameTex enthält bereits Tonemapping und Overlay.
+Entscheidung: Scope Closed/Open/DrawSucceeded statt FrameOpen-Bool. Erfolgreiche
+Draw-Anfragen (auch ein minimiert übersprungener Frame) erfüllen den Scope; endFrame
+schließt ihn ohne weiteren Draw. Ohne erfolgreichen Draw bleibt der bisherige
+Fenster-Draw beim Ende erhalten. Direkte Render-/Readback-Anfragen bleiben explizite
+Draws. Fehlgeschlagener Readback nach erfolgreichem Draw löst keinen Ersatz-Draw aus.
+Readback synchron aus FrameTex, sonst eigenem Offscreen-Ziel; nie Swapchain lesen.
+WantsPixels/Taken-Zwischenzustand entfällt. Acquire-/Map-/Wait-Fehler verweigern den
+Readback ohne Überschreiben der Ausgabe; vorbereitete Kopien sauber abbrechen.
+Öffentliche API plus abgefangene echte SDL-Calls prüfen Submit/Swapchain-Anzahl,
+Fenster/Offscreen, leeren Scope, Kopien, minimierten Skip, Draw-/Readback-Fehler und
+Retry. Normal/GPU-validiert; normale Fenster-/Offscreen-PNGs visuell vergleichen.
+Minimierte Readbacks/Frische des letzten Bildes und explizite GPU-Outcomes bleiben
+separat zu präzisieren; ein erfolgreicher CPU-Aufruf beweist keine GPU-Fertigstellung.
+Framing berechnet Frustumdiagnostik auch bei Audits=false: Arbeit/Timing separat korrigieren.
