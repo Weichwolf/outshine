@@ -10,6 +10,11 @@
 #include <cmath>
 #include <vector>
 #include <span>
+#include <expected>
+#include <string_view>
+#include <limits>
+#include <utility>
+#include <type_traits>
 
 #include "TreeRandom.h"
 
@@ -29,6 +34,10 @@ constexpr float kBroadBase = 0.95f;
 constexpr float kBroadLeast = 0.55f;
 constexpr float kSerrationBite = 0.45f;
 
+constexpr int kPalmateRings = 6;
+constexpr float kMaximumHalfSpreadDeg = 180.0f;
+constexpr float kNormalLengthTolerance = 1e-4f;
+
 constexpr float kQuarterTurnRad = std::numbers::pi_v<float> / 2.0f;
 constexpr float kOutlineFloor = 0.82f;
 constexpr float kOutlineSwing = 0.18f;
@@ -44,12 +53,12 @@ constexpr float kDeg = static_cast<float>(kDeg2Rad);
 
 class Sink {
 public:
-  explicit Sink(TreeMesh &m, float maxDeviation, float maxRelativeAreaError)
-      : Mesh_(m), MaxDeviation_(maxDeviation), MaxRelativeAreaError_(maxRelativeAreaError) {}
+  explicit Sink(TreeMesh &mesh, LeafSimplification simplification)
+      : Mesh_(mesh), Simplification_(simplification) {}
 
-  [[nodiscard]] float MaxDeviation() const { return MaxDeviation_; }
+  [[nodiscard]] float MaxDeviation() const { return Simplification_.MaxDeviation; }
 
-  [[nodiscard]] float MaxRelativeAreaError() const { return MaxRelativeAreaError_; }
+  [[nodiscard]] float MaxRelativeAreaError() const { return Simplification_.MaxRelativeAreaError; }
 
   uint32_t Vert(Vec3f p, Vec3f n, float u, float v) {
     const auto idx = static_cast<uint32_t>(Mesh_.LeafVerts.size() / TreeMesh::kLeafFloats);
@@ -65,7 +74,7 @@ public:
 
 private:
   TreeMesh &Mesh_;
-  float MaxDeviation_, MaxRelativeAreaError_;
+  LeafSimplification Simplification_;
 };
 
 float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
@@ -102,8 +111,10 @@ struct Blade {
 double StripArea(std::span<const Vec3f> positions, size_t first, size_t last) {
   double area = 0.0;
   for (size_t side = 0; side < 2; ++side) {
-    const Vec3f a = positions[first * 3 + side], b = positions[first * 3 + side + 1];
-    const Vec3f c = positions[last * 3 + side + 1], d = positions[last * 3 + side];
+    const Vec3f a = positions[first * 3 + side];
+    const Vec3f b = positions[first * 3 + side + 1];
+    const Vec3f c = positions[last * 3 + side + 1];
+    const Vec3f d = positions[last * 3 + side];
     area += 0.5 * (static_cast<double>(Length(Cross(b - a, c - a))) +
                    static_cast<double>(Length(Cross(c - a, d - a))));
   }
@@ -174,21 +185,21 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, Blade held) 
     for (auto k : tri) {
       const Vec3f fn = Cross(pos[static_cast<size_t>(k[1])] - pos[static_cast<size_t>(k[0])],
                              pos[static_cast<size_t>(k[2])] - pos[static_cast<size_t>(k[0])]);
-      for (int e = 0; e < 3; ++e) {
+      for (size_t e = 0; e < 3; ++e) {
         nrm[static_cast<size_t>(k[e])] = nrm[static_cast<size_t>(k[e])] + fn;
       }
     }
   }
   std::vector<double> areas(static_cast<size_t>(n) + 1, 0.0);
-  for (size_t row = 0; row < static_cast<size_t>(n); ++row) {
+  for (size_t row = 0; std::cmp_less(row, n); ++row) {
     areas[row + 1] = areas[row] + StripArea(pos, row, row + 1);
   }
   const double areaBudget = areas.back() * sink.MaxRelativeAreaError() / static_cast<double>(n);
   std::vector<size_t> rows{0};
-  for (size_t first = 0; first < static_cast<size_t>(n);) {
+  for (size_t first = 0; std::cmp_less(first, n);) {
     size_t last = first + 1;
     if (sink.MaxDeviation() > 0.0f) {
-      for (size_t candidate = first + 2; candidate <= static_cast<size_t>(n); ++candidate) {
+      for (size_t candidate = first + 2; std::cmp_less_equal(candidate, n); ++candidate) {
         if (StripError(pos, first, candidate) <= sink.MaxDeviation() &&
             std::abs(StripArea(pos, first, candidate) - (areas[candidate] - areas[first])) <=
                 areaBudget * static_cast<double>(candidate - first)) {
@@ -211,7 +222,8 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, Blade held) 
     }
   }
   for (size_t row = 0; row + 1 < rows.size(); ++row) {
-    const size_t a = row * 3, d = a + 3;
+    const size_t a = row * 3;
+    const size_t d = a + 3;
     sink.Tri(idx[a], idx[a + 1], idx[d + 1]);
     sink.Tri(idx[a], idx[d + 1], idx[d]);
     sink.Tri(idx[a + 1], idx[a + 2], idx[d + 2]);
@@ -220,7 +232,7 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, Blade held) 
 }
 
 void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
-  const int r = 6;
+  const int r = kPalmateRings;
   int a = p.Segments;
   a = std::max(a, 16);
   int nl = p.PalmateLobes;
@@ -276,7 +288,7 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
       const std::array<std::array<size_t, 3>, 2> tr = {{{q[0], q[1], q[2]}, {q[0], q[2], q[3]}}};
       for (const auto &k : tr) {
         const Vec3f fn = Cross(pos[k[1]] - pos[k[0]], pos[k[2]] - pos[k[0]]);
-        for (int e = 0; e < 3; ++e) { nrm[k[e]] = nrm[k[e]] + fn; }
+        for (size_t e = 0; e < 3; ++e) { nrm[k[e]] = nrm[k[e]] + fn; }
       }
     }
   }
@@ -298,9 +310,8 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
 
 void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
   const float len = p.Length;
-  int n = static_cast<int>(len / kSegmentM);
-  n = std::max(n, kSegmentsLeast);
-  n = std::min(n, kSegmentsMost);
+  const int n = static_cast<int>(std::clamp(
+      len / kSegmentM, static_cast<float>(kSegmentsLeast), static_cast<float>(kSegmentsMost)));
   const float nl = len * p.NeedleLen;
   const float nw = std::fmax(p.NeedleWidth * 0.26f, 0.0042f);
   const float fwd = p.NeedleFwd;
@@ -363,15 +374,93 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
   }
 }
 
+std::expected<void, std::string_view> ValidateShape(const TreeSpecies::Leaf &leaf) {
+  const std::array values{leaf.Length,
+                          leaf.Width,
+                          leaf.Widest,
+                          leaf.BaseFill,
+                          leaf.BaseSkew,
+                          leaf.Tip,
+                          leaf.LobeDepth,
+                          leaf.Serration,
+                          leaf.Fold,
+                          leaf.Curve,
+                          leaf.PalmateSpread,
+                          leaf.NeedleWidth,
+                          leaf.NeedleLen,
+                          leaf.NeedleFwd};
+  if (!std::ranges::all_of(values, [](float value) { return std::isfinite(value); })) {
+    return std::unexpected("leaf shape parameters must be finite");
+  }
+  if (leaf.Segments < 4 || leaf.Segments > TreeLeaf::kMaximumSegments || leaf.Leaflets < 0 ||
+      leaf.Leaflets > TreeLeaf::kMaximumLeaflets || leaf.Lobes < 0 ||
+      leaf.Lobes > TreeLeaf::kMaximumSegments || leaf.PalmateLobes < 3 ||
+      leaf.PalmateLobes > TreeLeaf::kMaximumSegments) {
+    return std::unexpected("leaf subdivisions exceed the generator limits");
+  }
+  if (leaf.Length <= 0 || leaf.Width <= 0 || leaf.Widest <= 0 || leaf.Widest >= 1 ||
+      leaf.NeedleWidth < 0 || leaf.NeedleLen < 0) {
+    return std::unexpected("leaf dimensions or profile peak are invalid");
+  }
+  return {};
 }
 
-void TreeLeaf::Build(const TreeSpecies::Leaf &leaf,
-                     TreeMesh &out,
-                     float maxDeviation,
-                     float maxRelativeAreaError) {
-  out.LeafVerts.clear();
-  out.LeafIdx.clear();
-  Sink sink(out, maxDeviation, maxRelativeAreaError);
+bool Representable(const TreeMesh &mesh) {
+  if (!std::ranges::all_of(mesh.LeafVerts, [](float value) { return std::isfinite(value); })) {
+    return false;
+  }
+  for (size_t at = 0; at < mesh.LeafVerts.size(); at += TreeMesh::kLeafFloats) {
+    const Vec3f normal{{mesh.LeafVerts[at + 3], mesh.LeafVerts[at + 4], mesh.LeafVerts[at + 5]}};
+    if (std::abs(Length(normal) - 1) > kNormalLengthTolerance) { return false; }
+  }
+  return true;
+}
+
+}
+
+std::expected<void, std::string_view> TreeLeaf::Validate(const TreeSpecies::Leaf &leaf) {
+  if (const auto valid = ValidateShape(leaf); !valid) { return valid; }
+  const auto segments = static_cast<size_t>(leaf.Segments);
+  const size_t leaflets = leaf.Leaflets == 0 ? 5 : static_cast<size_t>(leaf.Leaflets);
+  size_t vertices = (segments + 1) * 3;
+  size_t indices = segments * 12;
+  switch (leaf.Kind) {
+    case TreeSpecies::LeafKind::Broad: break;
+    case TreeSpecies::LeafKind::Needle: return {};
+    case TreeSpecies::LeafKind::Palmate:
+      if (leaf.PalmateSpread <= 0 || leaf.PalmateSpread > kMaximumHalfSpreadDeg) {
+        return std::unexpected("palmate half-spread must be in (0, 180] degrees");
+      }
+      vertices = 1 + kPalmateRings * (std::max(segments, size_t{16}) + 1);
+      indices = (3 + (kPalmateRings - 1) * 6) * std::max(segments, size_t{16});
+      break;
+    case TreeSpecies::LeafKind::Pinnate:
+      vertices = 4 + vertices * (2 * leaflets + 1);
+      indices = 6 + indices * (2 * leaflets + 1);
+      break;
+    case TreeSpecies::LeafKind::PalmateCompound:
+      vertices *= leaflets;
+      indices *= leaflets;
+      break;
+    default: return std::unexpected("unknown leaf shape");
+  }
+  if (vertices > kMaximumVertices || indices > kMaximumIndices) {
+    return std::unexpected("leaf mesh exceeds the vertex or index budget");
+  }
+  return {};
+}
+
+std::expected<void, std::string_view>
+TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out, LeafSimplification simplification) {
+  if (const auto valid = Validate(leaf); !valid) { return valid; }
+  if (!std::isfinite(simplification.MaxDeviation) || simplification.MaxDeviation < 0 ||
+      !std::isfinite(simplification.MaxRelativeAreaError) ||
+      simplification.MaxRelativeAreaError < 0 || simplification.MaxRelativeAreaError > 1) {
+    return std::unexpected(
+        "leaf simplification requires a finite distance >= 0 and area share in [0, 1]");
+  }
+  TreeMesh candidate;
+  Sink sink(candidate, simplification);
   switch (leaf.Kind) {
     case TreeSpecies::LeafKind::Palmate: BuildPalmate(sink, leaf); break;
     case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;
@@ -381,6 +470,13 @@ void TreeLeaf::Build(const TreeSpecies::Leaf &leaf,
       BuildBlade(sink, leaf, Vec3f{{0, 0, 0}}, {.AngleRad = 0.0f, .LengthScale = 1.0f});
       break;
   }
+  if (!Representable(candidate)) { return std::unexpected("leaf geometry is not representable"); }
+  static_assert(kMaximumVertices <= std::numeric_limits<uint32_t>::max());
+  static_assert(std::is_nothrow_move_assignable_v<decltype(out.LeafVerts)>);
+  static_assert(std::is_nothrow_move_assignable_v<decltype(out.LeafIdx)>);
+  out.LeafVerts = std::move(candidate.LeafVerts);
+  out.LeafIdx = std::move(candidate.LeafIdx);
+  return {};
 }
 
 }

@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 2169
 Area: generators, assets
 Tags: webcam, measured
@@ -56,24 +56,20 @@ Vegetationsbenchmarks. Art, Material und Standort bleiben Daten hinter derselben
 
 ## Blattgenerator: Eingabevertrag vor Erweiterung
 
-TreeSpecies liest Blattzahlen bisher ohne Bereichsprüfung; unbekannte leaf_kind
-werden still Broad. TreeLeaf::Build löscht das alte Ergebnis vor jeder Prüfung.
-BuildBlade berechnet (Segments + 1) * 3 in int, BuildPalmate 1 + 6 * (Segments + 1):
-Überlauf vor der size_t-Konversion. Pinnate vervielfacht die Ausgabe nach Leaflets.
-BuildNeedleShoot konvertiert Length / 0.0085 nach int vor dem Clamp auf 44..180;
-Clamp nach einer nicht darstellbaren Konversion schützt nicht. PalmateSpread == 0
-führt über pi/2/spread und 0 * inf zu NaN-Geometrie. uint32-Indizes sind ungesichert.
+Behobene Ursache: ungeprüfte Blattzahlen führten zu int-Überlauf vor size_t-
+Konversion, unbeschränkter Vervielfachung und Konversion vor Clamp. Nullspreizung
+lieferte NaN-Geometrie; Build konnte keinen Fehler melden und löschte den Altstand.
 
 Vorhanden: zusammenhängende Meshpuffer, native Geometry-Übernahme, parametrische
 Blätter und unabhängiger baryzentrischer Fehler-/Flächentest. Diese erhalten.
-Entscheidung: ein gemeinsamer geprüfter Blattvertrag für JSON und direkte Aufrufe;
+Implementiert: ein gemeinsamer geprüfter Blattvertrag für JSON und direkte Aufrufe;
 endliche fachliche Parameter, bekannte Form, begrenzte Stationen/Teilblätter und
 abgeleitete Vertex-/Index-/Scratchkosten vor Allokation. Budgets ausdrücklich als
 Enginegrenzen setzen und am vorhandenen Corpus prüfen; keine stillen Ersatzwerte.
 Größen erst nach Prüfung konvertieren, Überläufe vor Multiplikation ausschließen.
 LOD-Abstand und Flächenbudget als benannte Optionen statt austauschbarer float-Argumente.
 Build liefert nodiscard expected und publiziert nur vollständige Kandidaten.
-TreePrototype-Aufbau und GeometryAt müssen Fehler weiterreichen; leere Blattnetze
+TreePrototype-Aufbau und beide GeometryAt-Pfade reichen Fehler weiter; leere Blattnetze
 sind kein Ersatz für eine abgelehnte Geometrie. Keine pauschalen noexcept-Zusagen.
 Verfahren: bestehende Kandidatenpublikation aus TreeSpecies::Parse und geprüfte
 uint32-Kapazität aus TreeGeometry erweitern; kein neuer Morphologiealgorithmus.
@@ -84,3 +80,12 @@ Vertex-/Indexdaten. Entfernte Validierung muss diese Tests brechen. Corpus bleib
 ladbar, gültige Blattnetze behalten Positionen/Normalen/UVs/Indizes. Geänderte gültige
 Geometrie verlangt Place-PNG-Vergleich; reine Eingabeablehnung ist keine Bildabnahme.
 Rinde/Wachstumsbudgets sind dadurch noch nicht abgesichert; WI 2194/2209 bleiben offen.
+
+Gewählte Blattbudgets [SET]: 4..128 Segmente, 0..16 Leaflets (0 verwendet fünf),
+8192 Vertices und 32768 Indizes vor LOD. Broad: 3*(n+1) Vertices, 12*n Indizes;
+Pinnate multipliziert mit 2*Leaflets+1 und addiert 4/6 für die Achse. Palmate hat
+sechs Ringe, Needle höchstens 180 Nadeln. Nutzdaten maximal 256 KiB Vertexwerte
+(8192*8*4) plus 128 KiB Indizes (32768*4); Containerkapazität, Scratch, alter Stand
+und Instanzexpansion kommen hinzu. Kein gemessenes Frame-/Gesamtspeicherbudget.
+Shape-Validierung und expected-Publikation sind implementiert; erzeugte Attribute
+müssen endlich, Normalen einheitlich sein. OOM-Vertrag bleibt in 2194/2209.

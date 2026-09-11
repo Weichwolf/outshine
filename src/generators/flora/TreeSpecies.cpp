@@ -1,6 +1,11 @@
 #include "TreeSpecies.h"
+#include "TreeLeaf.h"
 
 #include <cstdint>
+#include <array>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -26,12 +31,49 @@ int NumI(const Json::Ref &r, const char *key, int def) {
   return r[key].Int(def ? 1 : 0) != 0;
 }
 
-[[nodiscard]] TreeSpecies::LeafKind KindOf(const std::string &s) {
+[[nodiscard]] std::optional<TreeSpecies::LeafKind> KindOf(const std::string &s) {
   if (s == "needle") { return TreeSpecies::LeafKind::Needle; }
   if (s == "palmate") { return TreeSpecies::LeafKind::Palmate; }
   if (s == "pinnate") { return TreeSpecies::LeafKind::Pinnate; }
   if (s == "palmate_compound") { return TreeSpecies::LeafKind::PalmateCompound; }
-  return TreeSpecies::LeafKind::Broad;
+  if (s == "broad") { return TreeSpecies::LeafKind::Broad; }
+  return std::nullopt;
+}
+
+bool ValidLeafNumbers(const Json::Ref &root) {
+  constexpr std::array integers{
+      "leaf_segments", "leaf_lobes", "leaf_leaflets", "leaf_palmate_lobes"};
+  for (const auto *key : integers) {
+    const auto value = root[key];
+    if (!value.Valid()) { continue; }
+    const double number = value.Num();
+    if (value.GetKind() != Json::Kind::Number || !std::isfinite(number) ||
+        number < std::numeric_limits<int>::min() || number > std::numeric_limits<int>::max() ||
+        std::trunc(number) != number) {
+      return false;
+    }
+  }
+  constexpr std::array reals{"leaf_length",
+                             "leaf_width",
+                             "leaf_widest",
+                             "leaf_base_fill",
+                             "leaf_base_skew",
+                             "leaf_tip",
+                             "leaf_lobe_depth",
+                             "leaf_serration",
+                             "leaf_fold",
+                             "leaf_curve",
+                             "leaf_palmate_spread",
+                             "leaf_needle_width",
+                             "leaf_needle_len",
+                             "leaf_needle_fwd"};
+  return std::ranges::all_of(reals, [&root](const char *key) {
+    const auto value = root[key];
+    if (!value.Valid()) { return true; }
+    const double number = value.Num();
+    return value.GetKind() == Json::Kind::Number && std::isfinite(number) &&
+           std::abs(number) <= std::numeric_limits<float>::max();
+  });
 }
 
 }
@@ -117,8 +159,18 @@ bool TreeSpecies::Read(const char *text, size_t len) {
   g.FoliageOnLeader = NumB(r, "foliage_on_leader", g.FoliageOnLeader);
   g.ShadePrune = NumF(r, "shade_prune", g.ShadePrune);
 
+  if (!ValidLeafNumbers(r)) {
+    Error_ = "leaf shape numbers have invalid types or ranges";
+    return false;
+  }
+  const auto kind = r["leaf_kind"];
+  const auto leafKind = KindOf(kind.Valid() ? kind.Str() : "broad");
+  if (!leafKind) {
+    Error_ = "unknown leaf_kind";
+    return false;
+  }
   Leaf &l = Leaf_;
-  l.Kind = KindOf(r["leaf_kind"].Str("broad"));
+  l.Kind = *leafKind;
   l.Segments = NumI(r, "leaf_segments", l.Segments);
   l.Length = NumF(r, "leaf_length", l.Length);
   l.Width = NumF(r, "leaf_width", l.Width);
@@ -143,11 +195,16 @@ bool TreeSpecies::Read(const char *text, size_t len) {
   l.CardsPerPoint = NumI(r, "leaf_cards", l.CardsPerPoint);
   l.CardBudget = NumI(r, "leaf_card_budget", l.CardBudget);
 
+  if (const auto valid = TreeLeaf::Validate(l); !valid) {
+    Error_ = valid.error();
+    return false;
+  }
+
   Shading &s = Shading_;
   s.BarkRoughness = NumF(r, "bark_roughness", s.BarkRoughness);
   s.LeafRoughness = NumF(r, "leaf_roughness", s.LeafRoughness);
-  if (!(s.BarkRoughness >= 0.0f && s.BarkRoughness <= 1.0f && s.LeafRoughness >= 0.0f &&
-        s.LeafRoughness <= 1.0f)) {
+  if (!std::ranges::all_of(std::array{s.BarkRoughness, s.LeafRoughness},
+                           [](float value) { return value >= 0 && value <= 1; })) {
     Error_ = "bark_roughness and leaf_roughness must be in [0, 1]";
     return false;
   }

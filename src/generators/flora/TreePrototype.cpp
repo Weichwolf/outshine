@@ -99,8 +99,8 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   proto.Leaf_ = sp.LeafParams();
   proto.Ranks_.resize(static_cast<size_t>(ModelLadder::kLevels));
 
+  if (!TreeLeaf::Build(sp.LeafParams(), mesh)) { return std::nullopt; }
   grower.Grow(sp, plant);
-  TreeLeaf::Build(sp.LeafParams(), mesh);
   foliage.Build(plant, mesh, sp, 1);
   for (int rank = 0; rank < ModelLadder::kLevels; ++rank) {
     Rank &out = proto.Ranks_[static_cast<size_t>(rank)];

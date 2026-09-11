@@ -55,11 +55,15 @@ int main() {
     leaf.BaseFill = 0.12f;
     leaf.Serration = irregular ? 0.8f : 0.0f;
     TreeMesh reference;
-    TreeLeaf::Build(leaf, reference);
+    CHECK(TreeLeaf::Build(leaf, reference).has_value(), "reference leaf builds");
     for (const float tolerance : {0.01f, 0.04f, 0.1f}) {
       TreeMesh simplified;
       constexpr float areaTolerance = 0.02f;
-      TreeLeaf::Build(leaf, simplified, tolerance, areaTolerance);
+      CHECK(TreeLeaf::Build(leaf,
+                            simplified,
+                            {.MaxDeviation = tolerance, .MaxRelativeAreaError = areaTolerance})
+                .has_value(),
+            "simplified leaf builds");
       const double areaError = std::abs(Area(simplified) / Area(reference) - 1.0);
       CHECK(areaError <= areaTolerance + 1e-6,
             "blade simplification preserves the declared one-sided area budget");

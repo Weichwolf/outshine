@@ -52,7 +52,7 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
       rank > 0 && source.CardLeafM > 0.0f
           ? ModelLadder::Error(static_cast<int>(rank)) * height / (2.0f * source.CardLeafM)
           : 0.0f;
-  TreeLeaf::Build(Leaf_, blade, deviation);
+  if (!TreeLeaf::Build(Leaf_, blade, {.MaxDeviation = deviation})) { return std::nullopt; }
   Surface leaves;
   const size_t perCard = blade.LeafVertexCount();
   if (perCard > 0 && source.CardCount > std::numeric_limits<uint32_t>::max() / perCard) {

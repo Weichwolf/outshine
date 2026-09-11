@@ -162,7 +162,7 @@ int main() {
         ++leafCount;
       }
       TreeMesh leafShape;
-      TreeLeaf::Build(species.LeafParams(), leafShape);
+      CHECK(TreeLeaf::Build(species.LeafParams(), leafShape).has_value(), "species leaf builds");
       TreeFoliage placed;
       placed.Build(first, leafShape, species);
       std::set<std::array<float, 3>> growthAttachments;
