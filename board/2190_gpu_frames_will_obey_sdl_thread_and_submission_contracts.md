@@ -38,9 +38,7 @@ Der echte Device-Test lieferte dadurch 3072/4096 nicht-endliche Kanäle. Nach Ko
 sind alle Kanäle endlich und drei erfolgreiche Framefolgen nach Abbrüchen pixelgleich
 zur ununterbrochenen Ausführung; Irradiance ebenfalls gleich. Kein GLSL-Fix oder
 geänderter Toleranzwert war dafür nötig. Sonnenpol-Normalisierung bleibt separat in 2167.
-
 ## Nachweis und verbleibende Abnahme
-
 make suite SUITE=outshine/src/render/device prüft tatsächliche GPU-Commands, wiederholte Acquire-
 und Submit-Fehler, genau einmaligen Verbrauch, kalten/warmen Retry, geänderte Atmosphäre,
 endliche temporale Pixel, LUT-Werte und Live-Fehlerweitergabe. Die Suite aktiviert
@@ -51,7 +49,6 @@ statische Layoutaufbau sichert die reservierten Felder per static_assert. Refere
 https://wiki.libsdl.org/SDL3/SDL_GPUVertexBufferDescription
 Clients und fachliche Tests erhalten keine SDL_GPU-Ownership. Die alte Claim-Ausnahme
 für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
-
 - [x] Reale Offscreen-Acquire-/Submit-Abbrüche liefern Fehler und publizieren weder
       ungeschriebene LUTs noch weitergeschaltete History; der nächste Frame erholt sich.
 - [x] Fusionierter Temporal-Pass liest seinen deklarierten Eingang statt seines Renderziels.
@@ -117,4 +114,7 @@ Retable trennt Subject-/Piece-Aufbau, Materialzuordnung und Upload; Instancing-T
 Cross prüft Stream-IDs, Zielenden und 16-Byte-Summen vor Mutation in uint64; Grow ohne
 uint32-Überlauf. GPU-Test: Release vor ungültigem Eintrag/Summenüberlauf bleibt aus,
 keine Allokation; normal/validiert grün. Referenz: SDL Uint32-Größen.
-Offen: atomare Kandidaten/Budgets; Staged-Zielzeiger bei Ersatz bis Recording am Leben halten.
+Nächster Schritt: verzögerte Uploads erst nach erfolgreichem Submit quittieren; Recording
+muss bei Abbruch wiederholbar bleiben. Cross/Grow/Room besitzen Zielbuffer gemeinsam.
+Test: Aufnahme abbrechen, erneut aufnehmen, GPU-Inhalt prüfen; Ersatz vor Recording
+und gemischte sofortige/verzögerte Kopien auf Reihenfolge prüfen. Budgets bleiben offen.
