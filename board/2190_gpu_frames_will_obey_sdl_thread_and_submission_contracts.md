@@ -108,3 +108,13 @@ uint32-Überläufe von Größe, Offset und kombiniertem Ende werden zurückgewie
 ByteRangesRejectOverflow: 15 Checks für 2/3/4 Komponenten und inaktive Streams;
 Negativkontrolle ohne Bereichsschutz scheitert. Instancing-/Upload-Retry-Regressionen
 bestehen. Clang-tidy 99 → 98; gesamte Pose-Zustandsatomarität bleibt offen.
+
+## DrawList-Annahmegrenze
+Add prüft Dreiecke/Slots, aber keine Bereichsenden oder kumulierten Indexzahlen;
+Compile addiert uint32 ungeprüft. Zwei gültig teilbare Indexzahlen können umbrechen.
+Vorhandene Add-Fehlerweitergabe nutzen: Quellindex-, Modell- und Clusterenden sowie
+Gesamtindex-/Job-Bytebedarf vor Mutation prüfen; Clear setzt Budgets zurück.
+SDL_GPUBufferCreateInfo.size ist Uint32 (lokales SDL_gpu.h); breite Rechnung vor
+Verengung. Keine künstlichen Großallokationen im Test. Abnahme: Grenzwerte,
+fehlgeschlagene Annahme erhält Listen, Compile/Add/Clear und Cluster-/Instancing-
+Regressionen; Negativkontrolle am alten Code. Bild gültiger Draws bleibt unverändert.
