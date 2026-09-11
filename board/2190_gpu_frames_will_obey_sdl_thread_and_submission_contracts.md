@@ -8,7 +8,6 @@ Depends:
 # GPU frames will obey SDL thread and submission contracts
 
 ## Vertrag und vorhandene Umsetzung
-
 Stage bleibt logische Renderarbeit; der Compiler bildet daraus GPU-Pässe.
 Aufzeichnung, erfolgreiche Submission und abgeschlossene GPU-Arbeit sind unterschiedliche
 Zustände. SDL3 ist maßgeblich, keine vermutete Unreal-/RAGE-RHI:
@@ -30,7 +29,6 @@ frame-lokales Journal registriert tatsächlich aufgezeichnete Updates. Nur erfol
 Submit veröffentlicht sie; Abbruch macht sie wieder aufzeichnungsbedürftig. Bereits
 gültige, unveränderte LUTs bleiben gültig. Jitter/History/LinearAt werden bei Submit-
 Fehler zurückgesetzt; Vorframe-Matrizen und Geometrie erst nach Erfolg fortgeschrieben.
-
 Fusioniertes TemporalResolve/Tonemap liest gemäß Stage-Deklaration SceneAerial;
 ohne TemporalResolve bleibt der Eingang SceneLinear. Configure und Encode verwenden
 dieselbe Auswahl. Vorher wurde SceneLinear gleichzeitig gelesen und beschrieben.
@@ -116,5 +114,7 @@ uint32-Überlauf. GPU-Test: Release vor ungültigem Eintrag/Summenüberlauf blei
 keine Allokation; normal/validiert grün. Referenz: SDL Uint32-Größen.
 Verzögerte Uploads werden erst nach erfolgreichem Submit quittiert; Aufnahmeabbruch und
 Retry mit GPU-Inhalt belegt; Frame-/Fensterregressionen normal/SDL-validiert grün.
-Offen: Cross/Grow/Room-Zielownership; Ersatz vor Recording und gemischte sofortige/
-verzögerte Kopien auf Reihenfolge prüfen. CopyPass-Fehler/Upload-Budgets bleiben offen.
+Entscheidung: Pending-Batch vor sofortigem Cross oder Buffer-Ersatz/Grow einreichen,
+erst bei Erfolg quittieren; sonst keine Mutation. Normales Deferred-Cross bleibt gebündelt.
+GPU-Negativtest belegt falsche Mixed-Reihenfolge. Room auf Residency vereinheitlichen.
+Offen: Frame-CopyPass-Fehler, atomare Mehrbuffer-Kandidaten und Upload-Budgets.
