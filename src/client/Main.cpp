@@ -32,7 +32,7 @@ public:
     std::print("t={:.1f} {:<5} {:<8} {:<7} {}",
                simTimeS,
                Name(level),
-               who.Unit,
+               who.Unit != nullptr ? who.Unit : "",
                outshine::nameOf(who.Tag),
                who.Event);
     for (const outshine::LogField &one : fields) { std::print(" {}={}", one.Key, one.Value); }

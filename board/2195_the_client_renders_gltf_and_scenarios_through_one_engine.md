@@ -115,3 +115,6 @@ Erwarteter Audit-Fehler unverändert, keine zusätzliche Dateiliste im Test.
 CLI-Ausgaben auf typgeprüfte C++-Formatierung umstellen; String-Views ohne temporäre
 Nullterminierungs-Kopien verwenden. Text, Präzision, Spalten und stdout/stderr erhalten.
 Bestehende Argument-/Place-Katalogtests und Roundtrip prüfen die Aufrufer; kein Renderumbau.
+
+Log-Consumer respektiert nun optionales Saying::Unit (nullptr): leer formatieren.
+Vorher strlen-Segfault beim device_ready; Wien-Shot danach erfolgreich.
