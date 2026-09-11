@@ -294,6 +294,8 @@ private:
 public:
   void FlushCrossings(SDL_GPUCommandBuffer *commands) { Bound().FlushCrossings(commands); }
 
+  void CommitCrossings() { Bound().CommitCrossings(); }
+
 private:
   [[nodiscard]] std::array<float, kLightFloats> PackedLights(const FrameContext &ctx) const;
 

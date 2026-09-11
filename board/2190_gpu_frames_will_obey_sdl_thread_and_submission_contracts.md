@@ -114,7 +114,7 @@ Retable trennt Subject-/Piece-Aufbau, Materialzuordnung und Upload; Instancing-T
 Cross prüft Stream-IDs, Zielenden und 16-Byte-Summen vor Mutation in uint64; Grow ohne
 uint32-Überlauf. GPU-Test: Release vor ungültigem Eintrag/Summenüberlauf bleibt aus,
 keine Allokation; normal/validiert grün. Referenz: SDL Uint32-Größen.
-Nächster Schritt: verzögerte Uploads erst nach erfolgreichem Submit quittieren; Recording
-muss bei Abbruch wiederholbar bleiben. Cross/Grow/Room besitzen Zielbuffer gemeinsam.
-Test: Aufnahme abbrechen, erneut aufnehmen, GPU-Inhalt prüfen; Ersatz vor Recording
-und gemischte sofortige/verzögerte Kopien auf Reihenfolge prüfen. Budgets bleiben offen.
+Verzögerte Uploads werden erst nach erfolgreichem Submit quittiert; Aufnahmeabbruch und
+Retry mit GPU-Inhalt belegt; Frame-/Fensterregressionen normal/SDL-validiert grün.
+Offen: Cross/Grow/Room-Zielownership; Ersatz vor Recording und gemischte sofortige/
+verzögerte Kopien auf Reihenfolge prüfen. CopyPass-Fehler/Upload-Budgets bleiben offen.

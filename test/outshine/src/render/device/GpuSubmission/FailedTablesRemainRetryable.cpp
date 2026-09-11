@@ -99,6 +99,38 @@ std::vector<uint32_t> Read(SDL_GPUDevice *device, SDL_GPUBuffer *buffer, size_t 
   return result;
 }
 
+void DeferredRetry(SDL_GPUDevice *device) {
+  SubjectResidency residency;
+  residency.StandsOn(device, true);
+  const std::vector<uint32_t> initial{0, 0, 0, 0};
+  const std::vector<uint32_t> expected{17, 23, 31, 47};
+  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  std::array<SubjectResidency::Crossing, 1> crossing{
+      {{.Which = stream,
+        .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+        .From = initial.data(),
+        .Bytes = 16}}};
+  std::string error;
+  CHECK(residency.Cross(crossing, false, error), "deferred fixture initializes GPU data");
+  crossing[0].From = expected.data();
+  CHECK(residency.Cross(crossing, true, error), "replacement is staged");
+  auto *cancelled = SDL_AcquireGPUCommandBuffer(device);
+  CHECK(cancelled != nullptr, "cancelled recording acquires commands");
+  if (cancelled == nullptr) { return; }
+  residency.FlushCrossings(cancelled);
+  CHECK(SDL_CancelGPUCommandBuffer(cancelled), "recorded upload is cancelled before submission");
+  CHECK(Read(device, residency.Buffer(stream).Get(), initial.size()) == initial,
+        "cancelled commands leave initial GPU contents intact");
+  auto *retry = SDL_AcquireGPUCommandBuffer(device);
+  CHECK(retry != nullptr, "retry acquires commands");
+  if (retry == nullptr) { return; }
+  residency.FlushCrossings(retry);
+  CHECK(SDL_SubmitGPUCommandBuffer(retry), "retry submission succeeds");
+  residency.CommitCrossings();
+  CHECK(Read(device, residency.Buffer(stream).Get(), expected.size()) == expected,
+        "retry records the unacknowledged upload again");
+}
+
 void Growth(SDL_GPUDevice *device) {
   constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
   constexpr auto usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
@@ -251,6 +283,7 @@ int main() {
     if (device) {
       Tables(device.Get());
       Growth(device.Get());
+      DeferredRetry(device.Get());
     }
   }
   SDL_Quit();

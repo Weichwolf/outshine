@@ -354,6 +354,9 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
     gCrossingsFlushed.fetch_add(1u, std::memory_order_relaxed);
   }
   SDL_EndGPUCopyPass(copy);
+}
+
+void SubjectResidency::CommitCrossings() {
   StagedCount_ = 0;
   StagingUsed_ = 0;
   Retired_.clear();

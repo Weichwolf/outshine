@@ -1165,6 +1165,8 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     LinearAt_ = previousLinearAt;
     return std::unexpected(std::move(error));
   }
+  Subjects_.CommitCrossings();
+  if (DrawsGlass_) { Glass_.CommitCrossings(); }
   stageSubmission.Commit();
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Camera_.EyeM[axis]; }

@@ -157,6 +157,7 @@ struct SubjectResidency {
   [[nodiscard]] bool Submit(std::span<Crossing> what, uint32_t total, std::string &error);
   [[nodiscard]] bool Grow(Stream which, Need need, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
+  void CommitCrossings();
 
   void DropStaged() {
     StagedCount_ = 0;
