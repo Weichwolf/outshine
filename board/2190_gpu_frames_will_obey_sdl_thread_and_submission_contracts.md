@@ -10,12 +10,10 @@ Stage bleibt logische Renderarbeit; der Compiler bildet daraus GPU-Pässe.
 Aufzeichnung, erfolgreiche Submission und abgeschlossene GPU-Arbeit sind unterschiedliche
 Zustände. SDL3 ist maßgeblich, keine vermutete Unreal-/RAGE-RHI: https://wiki.libsdl.org/SDL3/SDL_AcquireGPUCommandBuffer
 https://wiki.libsdl.org/SDL3/SDL_WaitAndAcquireGPUSwapchainTexture https://wiki.libsdl.org/SDL3/SDL_SubmitGPUCommandBufferAndAcquireFence
-https://wiki.libsdl.org/SDL3/SDL_CancelGPUCommandBuffer
-CommandBuffer bleibt auf seinem Acquire-Thread; Swapchain auf dem Fenster-Owner.
+https://wiki.libsdl.org/SDL3/SDL_CancelGPUCommandBuffer CommandBuffer bleibt auf seinem Acquire-Thread; Swapchain auf dem Fenster-Owner.
 Ein Submit verbraucht den Commandbuffer auch im Fehlerpfad. Nach Erwerb einer
 Swapchain-Textur ist Cancel verboten; NULL-Target ohne SDL-Fehler heißt überspringen.
-Device überlebt Ressourcen; SDL verzögert Release selbst. Keine zusätzliche
-Retirement-Queue ohne tatsächlich außerhalb SDL liegende Lebensdauern.
+Device überlebt Ressourcen; SDL verzögert Release selbst. Keine zusätzliche Retirement-Queue ohne tatsächlich außerhalb SDL liegende Lebensdauern.
 PrepareFrame prüft Renderer/Kamera und Tabellen-/Placement-/DrawArgument-Vorbereitung
 vor Acquire. RenderFrame liefert expected; Live::Draw reicht Fehler weiter.
 Acquire-Fehler endet vor Encode; minimierter NULL-Swapchain-Frame wird verworfen.
@@ -117,4 +115,6 @@ CopyPass vor Swapchain-Acquire geprüft; Retry/Frame/Fenster in sechs Profilen g
 Buffer-Ersatz lokal angelegt; Allokationsfehler erhält Handle/Kapazität/GPU-Daten.
 Ersatzbuffer/Releases werden nach vollständiger Vorbereitung gemeinsam publiziert;
 feste Kandidatenarrays je Stream. Zweite Allokation scheitert wiederholt ohne Verlust
-beider Handles/Kapazitäten/GPU-Daten. Upload-Submit-Atomarität/Budgets bleiben offen.
+beider Handles/Kapazitäten/GPU-Daten. Nächster Schritt: alte Buffer bis Upload-Ergebnis
+halten, bei Map/Acquire/Pass/Submit-Fehler zurücksetzen; mehrere Ersatzbuffer GPU-prüfen.
+In-place-Writes/Frame-Abschluss sind davon getrennt; vollständige Atomarität/Budgets offen.
