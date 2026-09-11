@@ -363,6 +363,8 @@ private:
 
   void Create(Resource resource);
   [[nodiscard]] bool Configure(Stage stage, std::string &error);
+  [[nodiscard]] bool ConfigurePlanStages();
+  [[nodiscard]] AttachmentSet ColoursForStage(Stage wanted) const;
   void EncodeStage(Stage stage, const PassRecording &into);
 
   struct Executor {

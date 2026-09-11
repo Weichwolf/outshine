@@ -287,6 +287,12 @@ std::expected<void, std::string> SceneRenderer::StandsOffscreen() {
 void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
   WhyNot_.clear();
   Ready_ = false;
+  if (Device_ && !Settle(WhyNot_)) { return; }
+  Submitted_ = false;
+  BeginTemporalRun();
+  Offscreen_.Reset();
+  HostSurface_ = nullptr;
+  Shown_ = {};
   Plan_ = std::move(plan);
   Width_ = frame.WidthPx;
   Height_ = frame.HeightPx;
@@ -301,7 +307,6 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
 
   if (!Stands()) { return; }
 
-  SDL_WaitForGPUIdle(Device_.Get());
   SDL_GPUDevice *const device = Device_.Get();
   Handles_.Device = device;
   Handles_.HdrFormat = FormatOf(Plan_->Format(Resource::SceneHdr));
@@ -314,14 +319,6 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
     Handles_.SceneColours = pass.Targets;
     break;
   }
-  const auto coloursOfPassWith = [this](Stage wanted) {
-    for (const Compiled::Pass &pass : Plan_->Passes()) {
-      for (size_t at = pass.First; at < pass.First + pass.Count; ++at) {
-        if (Plan_->Order()[at] == wanted) { return pass.Targets; }
-      }
-    }
-    return Handles_.SceneColours;
-  };
   Handles_.FiltersFloat32 = SDL_GPUTextureSupportsFormat(device,
                                                          SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
                                                          SDL_GPU_TEXTURETYPE_2D,
@@ -332,17 +329,7 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
     if (Plan_->Holds(id)) { Create(id); }
   }
 
-  for (const Stage stage : Plan_->Order()) {
-    if (stage == Stage::SubjectsTransmissive) { DrawsGlass_ = true; }
-  }
-  for (const Stage stage : Plan_->Order()) {
-    std::string why;
-    Handles_.SceneColours = coloursOfPassWith(stage);
-    if (Configure(stage, why)) { continue; }
-    Log::Error(LogTag::Render, "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
-    WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
-    return;
-  }
+  if (!ConfigurePlanStages()) { return; }
   if (!StandsOffscreen()) { return; }
   Ready_ = true;
 
@@ -366,6 +353,28 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
   for (const std::string &alias : Plan_->Aliases()) {
     Log::Info(LogTag::Render, "plan_alias", {{"alias", alias}});
   }
+}
+
+AttachmentSet SceneRenderer::ColoursForStage(Stage wanted) const {
+  for (const Compiled::Pass &pass : Plan_->Passes()) {
+    for (size_t at = pass.First; at < pass.First + pass.Count; ++at) {
+      if (Plan_->Order()[at] == wanted) { return pass.Targets; }
+    }
+  }
+  return Handles_.SceneColours;
+}
+
+bool SceneRenderer::ConfigurePlanStages() {
+  DrawsGlass_ = Plan_->Holds(Stage::SubjectsTransmissive);
+  for (const Stage stage : Plan_->Order()) {
+    std::string why;
+    Handles_.SceneColours = ColoursForStage(stage);
+    if (Configure(stage, why)) { continue; }
+    Log::Error(LogTag::Render, "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
+    WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
+    return false;
+  }
+  return true;
 }
 
 void SceneRenderer::Create(Resource resource) {
@@ -649,7 +658,7 @@ bool SceneRenderer::Configure(Stage stage, std::string &error) {
 }
 
 bool SceneRenderer::ConfigureSubjects(std::string &error) {
-  if (DrawsGlass_) { Subjects_.GlassIsDrawnElsewhere(); }
+  Subjects_.SetSeparateTransmission(DrawsGlass_);
   return Subjects_.Configure(Handles_, error);
 }
 

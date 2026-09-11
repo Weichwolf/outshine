@@ -108,12 +108,12 @@ API-Regressionen und Negativkontrollen bestehen; Nachweise in Git.
 Offen: Welt-/GPU-Rollback, View-Werte, TimeScale, Joins/Overriding/Surfacing und
 Velocity-Gültigkeit (Hintergrund -10000 ist kein Bewegungsvektor).
 ## Renderer-Neuinitialisierung
-Live ruft Init bei Planwechsel auf derselben Instanz auf. DrawsGlass_ und
-GlassDrawnElsewhere_ bleiben gesetzt; Submitted_/Temporalzustand und Offscreen-Ziel
-bleiben erhalten. DrawsInto setzt Teile zurück, ersetzt keinen Init-Vertrag.
-Plan-/Target-/Stage-Zustände explizit neu aufbauen; GPU-Wait-Fehler vor Umbau prüfen.
-Abnahme: Transmission-/Temporal-/Extent-Wechsel gegen frischen Renderer, Readback
-vor neuem Submit verweigern, fehlgeschlagene Vorbereitung und Retry. Init fachlich teilen.
-Sky-only-Test belegt Metal-Abbruch: SkyStage erzwingt zwei Farbattachments und
-cached Pipe unabhängig vom Plan. Pipeline aus tatsächlichem Passlayout konfigurieren;
-Attachments ohne Sky-Ausgabe maskieren. Validierter Sky-/Temporalwechsel als Abnahme.
+Init prüft GPU-Wait vor Umbau, erneuert Frame-/Temporalzustand und Offscreen-Ziel;
+Transmission folgt dem aktuellen Plan. Stage-Konfiguration/Passzuordnung sind getrennt.
+Sky-Pipeline übernimmt tatsächliche Farbattachments; Normal-/Identitätsziele maskiert.
+183 Checks normal/validiert: Framegültigkeit, Wait/Retry, Größen-/Temporalwechsel
+pixelgleich zu frischer Instanz und Transmission an/aus/an. Altcode-Negativkontrollen
+belegen Frame-/Transmissionfehler; feste Sky-Attachments verursachten Metal-Abbruch.
+Sechs GPU-Regressionen bestehen; Wien visuell geprüft, 0/921600 Pixel verändert.
+Clang-tidy 97 → 96. Vollständiger Allokationsrollback, Freigabe entfallener
+Planressourcen und übrige Readback-Gültigkeitsverträge bleiben offen. Details in Git.

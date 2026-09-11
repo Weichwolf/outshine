@@ -48,7 +48,7 @@ public:
     BehindSampler = exact;
   }
 
-  void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
+  void SetSeparateTransmission(bool enabled) { GlassDrawnElsewhere_ = enabled; }
 
   void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const Mat4 &lightFromWorld) {
     Atlas_ = atlas;

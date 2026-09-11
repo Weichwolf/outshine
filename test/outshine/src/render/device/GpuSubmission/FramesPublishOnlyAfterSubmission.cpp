@@ -173,6 +173,87 @@ void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool c
         "an aborted frame preserves existing LUT validity but cannot publish unsubmitted updates");
 }
 
+void ReinitializationInvalidatesFrames(bool temporal) {
+  const auto compiled =
+      Compiled::Compile({.Outputs = {Resource::Surface}, .Content = {Stage::Sky}});
+  CHECK(compiled.has_value(), "reinitialization plan compiles");
+  if (!compiled) { return; }
+  const auto previous =
+      temporal
+          ? Compiled::Compile({.Outputs = {Resource::Surface},
+                               .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}})
+          : compiled;
+  CHECK(previous.has_value(), "previous render plan compiles");
+  if (!previous) { return; }
+  Faults faults;
+  SceneRenderer renderer(faults.Functions());
+  renderer.Init({32, 32}, *previous);
+  CHECK(renderer.DeviceUsable(), "initial renderer is usable");
+  if (!renderer.DeviceUsable()) { return; }
+  Viewpoint eye;
+  eye.YfovRad = 1;
+  eye.ZNearM = 0.1;
+  eye.ZFarM = 1000;
+  const auto lens = Lens::From(eye, 32, 32);
+  CHECK(lens.has_value(), "reinitialization camera is valid");
+  if (!lens) { return; }
+  renderer.SetCamera(eye, *lens);
+  renderer.SetMedium(kEarthAir);
+  renderer.SetSky({{0, 1, 0}}, {{0, 1, 0}}, 10000, 2);
+  CHECK(renderer.RenderFrame().has_value() && renderer.Drew(), "old plan has a submitted image");
+  faults.Next = Faults::Point::Wait;
+  renderer.Init({48, 48}, *compiled);
+  CHECK(!renderer.DeviceUsable() &&
+            renderer.WhyNot().find("injected GPU wait failure") != std::string::npos,
+        "reinitialization refuses resource replacement after failed GPU wait");
+  renderer.Init({48, 48}, *compiled);
+  CHECK(renderer.DeviceUsable(), "replacement plan initializes after retry");
+  CHECK(!renderer.Drew(), "reinitialization invalidates previous frame publication");
+  std::vector<uint8_t> pixels{1, 2, 3};
+  CHECK(renderer.ReadPixels(pixels) == ReadState::Failed &&
+            pixels == std::vector<uint8_t>({1, 2, 3}),
+        "newly allocated targets cannot be read as a previously submitted image");
+  SceneRenderer fresh;
+  fresh.Init({48, 48}, *compiled);
+  CHECK(fresh.DeviceUsable(), "fresh comparison renderer initializes");
+  if (!fresh.DeviceUsable() || !renderer.DeviceUsable()) { return; }
+  const auto replacementLens = Lens::From(eye, 48, 48);
+  CHECK(replacementLens.has_value(), "replacement lens is valid");
+  if (!replacementLens) { return; }
+  for (auto *target : {&renderer, &fresh}) {
+    target->SetCamera(eye, *replacementLens);
+    target->SetMedium(kEarthAir);
+    target->SetSky({{0, 1, 0}}, {{0, 1, 0}}, 10000, 2);
+    CHECK(target->RenderFrame().has_value(), "replacement and fresh renderer submit");
+  }
+  std::vector<uint8_t> expected;
+  CHECK(renderer.ReadPixels(pixels) == ReadState::Ready &&
+            fresh.ReadPixels(expected) == ReadState::Ready,
+        "both newly submitted targets are readable");
+  CHECK(pixels.size() == 48u * 48u * 4u && pixels == expected,
+        "reinitialized target matches fresh renderer at new extent");
+}
+
+void TransmissionFollowsReplacementPlan() {
+  const auto opaque =
+      Compiled::Compile({.Outputs = {Resource::Surface}, .Content = {Stage::Subjects, Stage::Sky}});
+  const auto glass =
+      Compiled::Compile({.Outputs = {Resource::Surface, Resource::SceneComposited},
+                         .Content = {Stage::Subjects, Stage::SubjectsTransmissive, Stage::Sky}});
+  CHECK(opaque.has_value() && glass.has_value(), "transmission switching plans compile");
+  if (!opaque || !glass) { return; }
+  const std::array<SubjectMaterial, 1> materials{{{.Row = {.Transmission = 1}}}};
+  SceneRenderer renderer;
+  std::string error;
+  for (bool enabled : {true, false, true}) {
+    renderer.Init({32, 32}, enabled ? *glass : *opaque);
+    CHECK(renderer.DeviceUsable(), "replacement transmission configuration initializes");
+    if (!renderer.DeviceUsable()) { return; }
+    CHECK(renderer.AppendSubjectMaterials(materials, error) == enabled,
+          "material admission follows current transmission plan, not previous plan");
+  }
+}
+
 void Exercise() {
   const auto compiled = Compiled::Compile(
       {.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
@@ -346,6 +427,9 @@ int main() {
   if (SDL_WasInit(SDL_INIT_VIDEO) != 0) {
     InitializationUploads();
     Exercise();
+    ReinitializationInvalidatesFrames(false);
+    ReinitializationInvalidatesFrames(true);
+    TransmissionFollowsReplacementPlan();
     ShadowSubmission();
   }
   SDL_Quit();

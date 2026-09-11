@@ -12,6 +12,10 @@
 
 namespace outshine::Render {
 
+namespace Says {
+constexpr auto UnsupportedSkyAttachment = "sky pass has an unsupported colour attachment";
+}
+
 constexpr float kMPerKmF = 1000.0f;
 
 bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
@@ -22,7 +26,6 @@ bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
     error = "the sky draw needs the sky view table and its sampler, and the plan did not hold both";
     return false;
   }
-  if (Pipe) { return true; }
 
   const OwnedShader vertex(gpu.Device,
                            ShaderFrom(gpu.Device,
@@ -38,9 +41,26 @@ bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
                                         error));
   if (!vertex || !fragment) { return false; }
 
-  std::array<SDL_GPUColorTargetDescription, 2> targets = {{}};
-  targets[0].format = gpu.HdrFormat;
-  targets[1] = VelocityTarget(true);
+  std::array<SDL_GPUColorTargetDescription, kMaxColourAttachments> targets = {{}};
+  size_t index = 0;
+  for (const Resource resource : gpu.SceneColours) {
+    auto &target = targets[index++];
+    switch (resource) {
+      case Resource::SceneHdr: target.format = gpu.HdrFormat; break;
+      case Resource::SceneVelocity: target = VelocityTarget(true); break;
+      case Resource::SceneShadingNormal:
+        target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+        target.blend_state.enable_color_write_mask = true;
+        target.blend_state.color_write_mask = 0;
+        break;
+      case Resource::SceneSurfaceIdentity:
+        target.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+        target.blend_state.enable_color_write_mask = true;
+        target.blend_state.color_write_mask = 0;
+        break;
+      default: error = Says::UnsupportedSkyAttachment; return false;
+    }
+  }
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
   pipeline.vertex_shader = vertex.Get();
   pipeline.fragment_shader = fragment.Get();
@@ -49,7 +69,7 @@ bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
   pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
   pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
   pipeline.target_info.color_target_descriptions = targets.data();
-  pipeline.target_info.num_color_targets = 2;
+  pipeline.target_info.num_color_targets = static_cast<uint32_t>(gpu.SceneColours.Size());
   pipeline.target_info.has_depth_stencil_target = true;
   pipeline.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
   pipeline.depth_stencil_state.enable_depth_test = false;
