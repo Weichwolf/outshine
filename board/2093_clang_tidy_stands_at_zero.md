@@ -89,22 +89,10 @@ Materialmap-/Carrier-Prüfungen; Slots/Materialindizes vor Zugriff abgeglichen.
 Altcode verletzt zwei Negativkontrollen: Rasteradresse/Pixels bei Fehler erhalten;
 gültiger Ersatz entfernt alte Maps und erhält Filter/Wrap. Native Geometrie-/Materialmigration bleibt separat offen.
 
-## Lichtprojektion in fachliche Phasen trennen
-LightVisibilityStage::Build: Mittelpunkt der schattenwerfenden Platzierungen als
-private CasterCentre-Operation trennen; Projektions-/Texelraster-/Frame-Arithmetik
-unverändert. Analytische Achsen-/Reverse-Z-/PreView-Kontrolle und orthografischer
-Rendervertrag grün; Vorzeichenmutant verletzt Frame-Orakel. Tidy-Befund beseitigt.
-Numerische Eingabevalidierung und degenerierte Sonnen-/Up-Basen separat prüfen;
-der Strukturumbau beweist noch keine vollständige Schatten-SOLL-Erfüllung.
-
-## Build-Cache bei entfernten Headern
-UpToDate akzeptiert fehlende Voraussetzungen: shell `-nt` ist dann wahr. Beim
-Verschieben von Keyframes bleibt Pose mit altem Klassenlayout im Objektcache.
-Existenz jeder Quelle und Compiler-Abhängigkeit vor dem Zeitvergleich verlangen.
-Regression führt die echte Runner-Funktion mit gültigem, neuerem und entferntem
-Header sowie entfernter Quelle aus; danach Import-/Posefälle ohne Cache-Löschung
-neu gebaut: acht Prüfungen grün, Altcode verletzt die Cache-Negativkontrolle.
-Keine Bildänderung beabsichtigt; vollständiges lint bleibt Pflicht.
+## Bereits abgesicherte Verträge
+Lichtprojektion: CasterCentre getrennt, analytische Reverse-Z-/Frame-Negativkontrolle.
+Buildcache: entfernte Quellen/Header invalidieren Objekte; acht Importregressionen grün.
+Numerische Lichtbasen und vollständige Schattenqualität bleiben offen.
 ## Vegetationskatalog als atomarer Snapshot
 Load leert Bestand vor Fehlern und lässt Friction_ beim Reload stehen. IO bis 1 MiB
 und Kandidatenpublikation; Blätter, Substrat, Templates, Regeln, Layer, Höhenlimit als
@@ -118,3 +106,16 @@ Parserkandidat mit Text-/Tag-/Attribut-/Raw-Text-Phasen; erst vollständig publi
 Explizite Budgets: 1 MiB Quelltext, 65536 Knoten inkl. Dokument, 65536 Attribute,
 256 offene Elemente. Entity-Suche auf bestehende Referenzlänge begrenzen.
 Drei Parser-/Input-Tests grün, Altcode rot. HTML-Entity-/Raw-Endtag-Konformität bleibt offen.
+
+## Tangentenimport
+GenerateTangents löscht Ausgabe vor Fehlern und kennt Attributlängen nur aus
+Pointer/VertexCount-Konvention. std::span für Positions-/Normal-/UV-/Indexbereiche;
+Form, Endlichkeit, Indexgrenzen und darstellbare interne Gruppennummern vor Zugriff.
+Ergebnis als Kandidat, Fehler explizit über expected, kein stiller Teilzustand.
+FillSpaces in Untergruppenauswahl und Auswertung je Gruppe zerlegen; bestehende
+Winkelgewichtung/Orientierung/degenerierte Dreiecke erhalten. Analytisches UV-Dreieck,
+Spiegelung, Naht und Degeneration sowie ungültige Längen/Indizes/NaN prüfen.
+Negativkontrolle verletzt Zustandserhalt. Gegenwärtiger Algorithmus ist Bestand,
+kein nachgewiesener MikkTSpace-Ersatz; Referenzkonformität und Import-Arbeitsbudgets
+separat offen. Gültige Basiswerte müssen unverändert bleiben; keine Bildverbesserung
+behaupten. Shader-/Normalmapping-Abnahme bleibt ein eigener Rendernachweis.
