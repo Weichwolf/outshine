@@ -11,8 +11,6 @@ UI-Tests prüfen dies. Der Legacy-error-Text bleibt separat und kann veraltet se
 EngineHeld.h verteilt Phasen über Taken, Targeted, FrameScope, Carrying usw.; Audio-Vorbereitung ist bereits optional.
 Unabhängige Eigenschaften bleiben erlaubt; Phasen mit verbotenen Kombinationen
 benötigen dagegen explizite Zustandsautomaten. Keine pauschale Boolean-Ersetzung.
-**Benchmark**: Filament trennt Engine-Ressourcen und Frame-Aufrufverträge.
-https://github.com/google/filament/blob/main/filament/include/filament/Renderer.h
 Unreal/RAGE sind kein Beleg für atomare outshine-Declare-Semantik; diese folgt aus
 unserem Szenario-/Sandbox-Vertrag und wird hier ausdrücklich festgelegt.
 Konfiguration validieren, Kandidaten aufbauen, erst dann veröffentlichen. Fehlgeschlagene
@@ -25,8 +23,7 @@ declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückwe
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
 und nicht bewegliche Engine-Owner sind Voraussetzung.
 ## Gemeinsame Szenario-Kameraprojektion
-Khronos definiert Half-Extents und Near/Far-Bedingungen:
-https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#cameras
+Khronos-Kameravertrag: Half-Extents und gültige Near/Far-Bedingungen.
 Watches ersetzte NaN/negative Werte durch Defaults, Carries übernahm nur FOV und
 verlor Near/Far/Orthographic. Beide benutzen jetzt die vorhandene Lens-Grenze;
 keine zweite numerische Validierung.
@@ -95,7 +92,6 @@ Das gilt auch für unveränderte Parameter und Entfernen des letzten Producers.
 Public-API-Test mit Offscreen-Ziel: neun Checks grün; alter Stand sechs Fehler,
 kein Buildfehler. Parameterweitergabe/Input-Erhalt grün. Wien bytegleich c307cab8.
 Vollständiger Rollback und deklarierte Providerrevisionen bleiben getrennt offen.
-## Ergänzter Facaden-Audit
 park/resume halten nur Deklarationen, keinen Simulationssnapshot. park leert Teile
 der Welt und die Renderinstanz, ohne die gesamte Simulation/Streaming-Residency zu
 parkieren. resume ruft declare auf; ein Fehler kann die aktive Engine teilweise ändern,
@@ -114,10 +110,11 @@ RejectedViewsPreservePreviousConfiguration und sechs Regressionen prüfen Ablehn
 Retry und Leeren; Altcode verletzt sechs Checks. Vollständiger Welt-/GPU-Rollback,
 View-Wertevalidierung und ungenutzte TimeScale bleiben offen.
 ## Wiederverwendung des Renderplans
-SamePicture ignoriert Outputs, Transfer und Precision; declare kann Änderungen
-überspringen und sogar ungültige Namen nach erfolgreichem Erstaufbau akzeptieren.
+SamePicture ignorierte Outputs, Transfer und Precision und akzeptierte ungültige
+Änderungen. SameRenderPlan vergleicht jetzt alle fünf Renderplanparameter.
 Entscheidung: alle drei Planparameter in die Reuse-Bedingung aufnehmen. Maßgeblich
 sind Scenario::Render-Verträge und die vorhandene Compiled-Validierung, keine neue Policy.
 Öffentliche API prüft jeden Parameter einzeln gegen einen frischen Engine-Aufbau:
 identische Ablehnung ungültiger Namen und erfolgreicher Wechsel gültiger Ausgaben.
-Joins/Overriding/Surfacing und vollständige atomare Publikation gesondert prüfen.
+Offen: Joins/Overriding/Surfacing, atomare Publikation und Velocity-Gültigkeitsvertrag
+(Hintergrundwert -10000 bisher undokumentiert; kein gültiger Bewegungsvektor).
