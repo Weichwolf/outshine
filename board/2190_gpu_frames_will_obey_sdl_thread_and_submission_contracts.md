@@ -84,7 +84,6 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       mit ausstehenden Uploads/Readbacks nachweisen; falscher Thread als Negativkontrolle.
 - [ ] Resize-Screenshot prüft noch Deklarationsmaße; PNG/History und Frame-Pacing prüfen. IO-/Worker-
       Warten trennen, Laufzeit-/Speicherbudget nach 2092 messen.
-
 ## Öffentliche Frame-Vorbedingungen
 BeginFrame verweigert Verschachtelung über dieselbe oder kopierte Facade vor Setup;
 ein Ende verbraucht den Scope. Extent-Prüfung erfolgt vor Szene-/GPU-Vorbereitung.
@@ -109,12 +108,13 @@ Pixel sind identisch, PNGs visuell geprüft: dasselbe farbige Dreieck vor Schwar
 Minimierte Readbacks/Frische des letzten Bildes und explizite GPU-Outcomes bleiben
 separat zu präzisieren; ein erfolgreicher CPU-Aufruf beweist keine GPU-Fertigstellung.
 Framing berechnet Frustumdiagnostik auch bei Audits=false: Arbeit/Timing separat korrigieren.
-
 ## Wiederholbare Tabellen-Uploads
 HandTables hält den Stale-Marker bis Erfolg und verwirft bei Fehler nutzbare Jobs/Args.
 Upload- und Grow-Kopien prüfen Acquire/CopyPass/Submit; Grow erhält alten Buffer bei Fehler.
 FailedTablesRemainRetryable belegt Map/Acquire/Pass/Submit, wiederholte Fehler, Retry
 und GPU-Inhalte normal/SDL-validiert; Grow zusätzlich Handle und Kapazität nach Fehler.
 Retable trennt Subject-/Piece-Aufbau, Materialzuordnung und Upload; Instancing-Test grün.
-Referenz: obiger SDL-Submissionvertrag. Vollständige Cross-/CPU-/GPU-Kandidatenpublikation
-und Größen-/Wachstumsbudgets bleiben separat offen; kein atomarer Weltumbau behauptet.
+Nächster Schritt: Cross prüft alle Stream-IDs, Zielenden und 16-Byte-Stagingsummen
+vor Mutation in uint64; Grow verdoppelt ohne uint32-Überlauf. Test: ungültiger zweiter
+Eintrag darf einen vorherigen Release nicht ausführen; keine GPU-Allokation bei Überlauf.
+Referenz: SDL Uint32-Größen. Vollständige Kandidatenpublikation/Budgets bleiben offen.
