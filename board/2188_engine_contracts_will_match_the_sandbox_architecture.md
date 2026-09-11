@@ -90,7 +90,8 @@ P1–P5 aus 2169 unverändert; Architektur muss deren Umsetzung erleichtern.
 - [ ] make lint einschließlich clang-tidy und relevante Make-Tests tatsächlich grün.
 
 ## Räumliche Klassifikationsabfrage
-ClassStructure::Evaluate konvertiert unbeschränkte double-Zellkoordinaten vor dem
-Bereichstest nach int. Entscheidung: finite Abfrage und Rasterbereich vor Konvertierung
-prüfen; Tierwahl von einzelner Rasterauswertung trennen. Keine gültigen Treffer ändern.
-Analytische Zellgrenzen, Fine-/Coarse-Fallback, NaN/Inf und große Werte samt FP-Flags prüfen.
+ClassStructure::Evaluate prüft finite Abfrage und Rasterbereich vor Integer-Konvertierung;
+Tierwahl und Rasterauswertung sind getrennt. Analytischer Test: Zellgrenzen, Fine-/Coarse-
+Fallback, NaN/Inf und große Werte samt FP-Flags; vorher 16 Checks rot, jetzt alle 47 grün.
+Klassifikationswechsel-Regression besteht. Wien ohne Vegetation visuell geprüft,
+0/921600 Pixel zur Vorversion verändert; kein Nachweis vollständiger Bildqualität.

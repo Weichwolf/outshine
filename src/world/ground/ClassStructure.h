@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "math/Units.h"
+#include "math/Vec2.h"
 #include "TangentFrame.h"
 
 namespace outshine {
@@ -61,6 +62,13 @@ public:
   int Evaluate(double e, double n, double *distM, int *runnerUp) const;
 
 private:
+  struct Sample {
+    int Class = -1;
+    int RunnerUp = -1;
+    double DistanceM = kNoEdgeM;
+  };
+
+  [[nodiscard]] static Sample EvaluateGrid(const Grid &B, Vec2 at);
   void Pack(int unmappedRow);
   void Probe();
 

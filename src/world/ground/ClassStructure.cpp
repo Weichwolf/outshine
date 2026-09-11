@@ -144,68 +144,79 @@ void ClassStructure::Probe() {
 }
 
 int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) const {
+  Sample sample;
+  if (std::isfinite(e) && std::isfinite(n)) {
+    for (const auto *grid : {Fine_.get(), Coarse_.get()}) {
+      sample = EvaluateGrid(*grid, {{e, n}});
+      if (sample.Class >= 0) { break; }
+    }
+  }
+  if (distM != nullptr) { *distM = sample.DistanceM; }
+  if (runnerUp != nullptr) { *runnerUp = sample.RunnerUp; }
+  return sample.Class;
+}
+
+ClassStructure::Sample ClassStructure::EvaluateGrid(const Grid &B, Vec2 at) {
+  const double e = at[0];
+  const double n = at[1];
+  if (B.W == 0 || B.H == 0 || e < B.OrgE || n < B.OrgN || e >= B.OrgE + B.W * B.CellM ||
+      n >= B.OrgN + B.H * B.CellM) {
+    return {};
+  }
+  const int i = static_cast<int>(std::floor((e - B.OrgE) / B.CellM));
+  const int j = static_cast<int>(std::floor((n - B.OrgN) / B.CellM));
+  if (i < 0 || j < 0 || i >= B.W || j >= B.H) { return {}; }
   int best = -1;
   int bestRank = -1;
   int second = -1;
   int secondRank = -1;
   double bestDist = kNoEdgeM;
-  const std::array<const Grid *, 2> grids = {Fine_.get(), Coarse_.get()};
-  for (const auto &grid : grids) {
-    const Grid &B = *grid;
-    if (B.W == 0) { continue; }
-    const int i = static_cast<int>(std::floor((e - B.OrgE) / B.CellM));
-    const int j = static_cast<int>(std::floor((n - B.OrgN) / B.CellM));
-    if (i < 0 || j < 0 || i >= B.W || j >= B.H) { continue; }
-    const size_t ci = (static_cast<size_t>(j) * B.W + static_cast<size_t>(i)) * 2;
-    const uint32_t c0 = B.Cells[ci];
-    const uint32_t nseed = (c0 >> 16u) & kByteMask;
-    const uint32_t seedFirst = B.Cells[ci + 1];
-    if ((c0 & kByteMask) != kFullByte) {
-      best = static_cast<int>(c0 & kByteMask);
-      bestRank = static_cast<int>((c0 >> 8u) & kByteMask);
-    }
-    const double cx = B.OrgE + static_cast<double>(i) * B.CellM;
-    const double cy = B.OrgN + static_cast<double>(j) * B.CellM;
-    for (uint32_t s = 0; s < nseed; s++) {
-      const uint32_t w0 = B.Seeds[static_cast<size_t>(seedFirst + s) * 3];
-      const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];
-      float halfW;
-      std::memcpy(&halfW, &B.Seeds[(seedFirst + s) * 3 + 2], sizeof halfW);
-      const int tpl = static_cast<int>(w0 & kByteMask);
-      const int rank = static_cast<int>((w0 >> 8u) & kByteMask);
-      const uint32_t nref = (w0 >> 16u) & kByteMask;
-      int wind = static_cast<int>((w0 >> kWindShift) & kByteMask) - kSignedByteBias;
-      double d = kNoEdgeM;
-      for (uint32_t r = 0; r < nref; r++) {
-        const float *p = &B.Edges[static_cast<size_t>(B.Refs[refFirst + r]) * 4];
-        if (halfW <= 0.0f) {
-          wind += CrossX(EdgeAt(p), cy, {.Least = cx, .Most = e});
-          wind += CrossY(EdgeAt(p), e, {.Least = cy, .Most = n});
-        }
-        d = std::min(d, SegDist({{e, n}}, EdgeAt(p)));
-      }
-      if (halfW > 0.0f) {
-        if (d > halfW) { continue; }
-        d = static_cast<double>(halfW) - d;
-      } else if (wind == 0) {
-        continue;
-      }
-      if (rank > bestRank) {
-        second = best;
-        secondRank = bestRank;
-        best = tpl;
-        bestRank = rank;
-        bestDist = d;
-      } else if (rank > secondRank) {
-        second = tpl;
-        secondRank = rank;
-      }
-    }
-    if (best >= 0) { break; }
+  const size_t ci = (static_cast<size_t>(j) * B.W + static_cast<size_t>(i)) * 2;
+  const uint32_t c0 = B.Cells[ci];
+  const uint32_t nseed = (c0 >> 16u) & kByteMask;
+  const uint32_t seedFirst = B.Cells[ci + 1];
+  if ((c0 & kByteMask) != kFullByte) {
+    best = static_cast<int>(c0 & kByteMask);
+    bestRank = static_cast<int>((c0 >> 8u) & kByteMask);
   }
-  if (distM != nullptr) { *distM = bestDist; }
-  if (runnerUp != nullptr) { *runnerUp = second; }
-  return best;
+  const double cx = B.OrgE + static_cast<double>(i) * B.CellM;
+  const double cy = B.OrgN + static_cast<double>(j) * B.CellM;
+  for (uint32_t s = 0; s < nseed; s++) {
+    const uint32_t w0 = B.Seeds[static_cast<size_t>(seedFirst + s) * 3];
+    const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];
+    float halfW;
+    std::memcpy(&halfW, &B.Seeds[(seedFirst + s) * 3 + 2], sizeof halfW);
+    const int tpl = static_cast<int>(w0 & kByteMask);
+    const int rank = static_cast<int>((w0 >> 8u) & kByteMask);
+    const uint32_t nref = (w0 >> 16u) & kByteMask;
+    int wind = static_cast<int>((w0 >> kWindShift) & kByteMask) - kSignedByteBias;
+    double d = kNoEdgeM;
+    for (uint32_t r = 0; r < nref; r++) {
+      const float *p = &B.Edges[static_cast<size_t>(B.Refs[refFirst + r]) * 4];
+      if (halfW <= 0.0f) {
+        wind += CrossX(EdgeAt(p), cy, {.Least = cx, .Most = e});
+        wind += CrossY(EdgeAt(p), e, {.Least = cy, .Most = n});
+      }
+      d = std::min(d, SegDist({{e, n}}, EdgeAt(p)));
+    }
+    if (halfW > 0.0f) {
+      if (d > halfW) { continue; }
+      d = static_cast<double>(halfW) - d;
+    } else if (wind == 0) {
+      continue;
+    }
+    if (rank > bestRank) {
+      second = best;
+      secondRank = bestRank;
+      best = tpl;
+      bestRank = rank;
+      bestDist = d;
+    } else if (rank > secondRank) {
+      second = tpl;
+      secondRank = rank;
+    }
+  }
+  return {.Class = best, .RunnerUp = second, .DistanceM = bestDist};
 }
 
 }
