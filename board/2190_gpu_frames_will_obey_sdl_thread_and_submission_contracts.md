@@ -97,24 +97,14 @@ Pixel sind identisch, PNGs visuell geprüft: dasselbe farbige Dreieck vor Schwar
 Minimierte Readbacks/Frische des letzten Bildes und explizite GPU-Outcomes bleiben
 separat zu präzisieren; ein erfolgreicher CPU-Aufruf beweist keine GPU-Fertigstellung.
 Framing berechnet Frustumdiagnostik auch bei Audits=false: Arbeit/Timing separat korrigieren.
-## Wiederholbare Tabellen-Uploads
-HandTables hält den Stale-Marker bis Erfolg und verwirft bei Fehler nutzbare Jobs/Args.
-Upload- und Grow-Kopien prüfen Acquire/CopyPass/Submit; Grow erhält alten Buffer bei Fehler.
-FailedTablesRemainRetryable belegt Map/Acquire/Pass/Submit, wiederholte Fehler, Retry
-und GPU-Inhalte normal/SDL-validiert; Grow zusätzlich Handle und Kapazität nach Fehler.
-Retable trennt Subject-/Piece-Aufbau, Materialzuordnung und Upload; Instancing-Test grün.
-Cross prüft Stream-IDs, Zielenden und 16-Byte-Summen vor Mutation in uint64; Grow ohne
-uint32-Überlauf. GPU-Test: Release vor ungültigem Eintrag/Summenüberlauf bleibt aus,
-keine Allokation; normal/validiert grün. Referenz: SDL Uint32-Größen.
-Verzögerte Uploads werden erst nach erfolgreichem Submit quittiert; Aufnahmeabbruch und
-Retry mit GPU-Inhalt belegt; Frame-/Fensterregressionen normal/SDL-validiert grün.
-Pending-Batch wird vor sofortigem Cross oder Buffer-Ersatz/Grow geordnet eingereicht;
-Fehler erhalten Batch/Buffer. GPU-Test belegt Mixed-Reihenfolge, Grow mit Pending und Retry.
-Room entfällt; Residency trennt Preserve/Discard. Frame-/Instancing-Regressionen grün.
-CopyPass vor Swapchain-Acquire geprüft; Retry/Frame/Fenster in sechs Profilen grün.
-Buffer-Ersatz lokal angelegt; Allokationsfehler erhält Handle/Kapazität/GPU-Daten.
-Ersatzbuffer/Releases werden nach vollständiger Vorbereitung gemeinsam publiziert;
-feste Kandidatenarrays je Stream. Zweite Allokation scheitert wiederholt ohne Verlust
-beider Handles/Kapazitäten/GPU-Daten. Alte Buffer bleiben bis Upload-Ergebnis erhalten;
-Map/Acquire/Pass/Submit-Fehler setzen Ersatzbuffer zurück, durch GPU-Readback belegt.
-In-place-Writes/Frame-Abschluss sind davon getrennt; vollständige Atomarität/Budgets offen.
+## Upload-Verträge
+Tabellen-Retry, geordnete Pending-Uploads, CopyPass vor Swapchain-Acquire und
+Ersatzbuffer-Rollback bei Allokations-/Uploadfehlern sind implementiert. Nachweise:
+FailedTablesRemainRetryable, Frame-/Fenster-/Instancing-Regressionen; Details in Git.
+Vollständige In-place-/Frame-Atomarität und Upload-Budgets bleiben offen.
+
+## Vertex-Bytebereiche
+HandStreams multipliziert Größen/Offsets vor Cross in uint32; Überlauf umgeht dessen
+Vorprüfung. Entscheidung: Vertexbereich und Komponentenanzahl gemeinsam vor Placements
+und GPU prüfen; keine unabhängig vertauschbaren Byte-/Stride-Parameter.
+Grenztests für 2/3/4 Komponenten, Startoffset, Endbereich und inaktive Streams.
