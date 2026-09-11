@@ -8,10 +8,8 @@ Depends:
 ## Vertrag und vorhandene Umsetzung
 Stage bleibt logische Renderarbeit; der Compiler bildet daraus GPU-Pässe.
 Aufzeichnung, erfolgreiche Submission und abgeschlossene GPU-Arbeit sind unterschiedliche
-Zustände. SDL3 ist maßgeblich, keine vermutete Unreal-/RAGE-RHI:
-https://wiki.libsdl.org/SDL3/SDL_AcquireGPUCommandBuffer
-https://wiki.libsdl.org/SDL3/SDL_WaitAndAcquireGPUSwapchainTexture
-https://wiki.libsdl.org/SDL3/SDL_SubmitGPUCommandBufferAndAcquireFence
+Zustände. SDL3 ist maßgeblich, keine vermutete Unreal-/RAGE-RHI: https://wiki.libsdl.org/SDL3/SDL_AcquireGPUCommandBuffer
+https://wiki.libsdl.org/SDL3/SDL_WaitAndAcquireGPUSwapchainTexture https://wiki.libsdl.org/SDL3/SDL_SubmitGPUCommandBufferAndAcquireFence
 https://wiki.libsdl.org/SDL3/SDL_CancelGPUCommandBuffer
 CommandBuffer bleibt auf seinem Acquire-Thread; Swapchain auf dem Fenster-Owner.
 Ein Submit verbraucht den Commandbuffer auch im Fehlerpfad. Nach Erwerb einer
@@ -117,4 +115,6 @@ Fehler erhalten Batch/Buffer. GPU-Test belegt Mixed-Reihenfolge, Grow mit Pendin
 Room entfällt; Residency trennt Preserve/Discard. Frame-/Instancing-Regressionen grün.
 CopyPass vor Swapchain-Acquire geprüft; Retry/Frame/Fenster in sechs Profilen grün.
 Buffer-Ersatz lokal angelegt; Allokationsfehler erhält Handle/Kapazität/GPU-Daten.
-Wiederholter Fehler und Retry GPU-validiert belegt. Mehrbuffer-Atomarität/Budgets offen.
+Nächster Schritt: alle Ersatzbuffer und Releases erst nach vollständiger Vorbereitung
+publizieren; feste Kandidatenarrays je Stream. Zweite Allokation injiziert fehlschlagen
+lassen, beide Handles/Kapazitäten/Daten prüfen. Upload-Submit-Atomarität/Budgets offen.
