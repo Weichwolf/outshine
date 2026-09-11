@@ -88,15 +88,9 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       Warten trennen, Laufzeit-/Speicherbudget nach 2092 messen.
 
 ## Öffentliche Frame-Vorbedingungen
-BeginFrame verweigert jetzt verschachtelte Aufrufe; Renderer-Kopien teilen denselben
-Scope-Zustand. Bereits offenes Frame vor Stood/Setup ablehnen und den laufenden Scope
-erhalten. Einmaliges EndFrame schließt ihn; erneutes BeginFrame bleibt möglich.
-Render prüfte Zielgrößenabweichung erst nach Stood, das Szene/Geometrie publizieren kann.
-Alle Extent-Prüfungen vor Szene-/GPU-Vorbereitung als eigene Preflight-Phase ausführen.
-Vorhandene öffentliche Owner-/Target-Tests erweitern: gleiche/kopierte Facade,
-Resize nach verweigertem Begin, genau ein Ende und Priorität der Größenprüfung vor
-fehlendem verzögert geladenem Asset. Altcode verletzt diese Prüfungen. Gültige Renderarithmetik bleibt unverändert, keine
-neue PNG-Wirkung beabsichtigt. Referenz ist der oben belegte SDL-Frame-Lebenszyklus.
+BeginFrame verweigert Verschachtelung über dieselbe oder kopierte Facade vor Setup;
+ein Ende verbraucht den Scope. Extent-Prüfung erfolgt vor Szene-/GPU-Vorbereitung.
+Owner-/Target-Tests prüfen Scope-Erhalt und Größenfehler vor verzögertem Asset-Fehler.
 ## Frame-Abschluss und Fenster-Readback
 SDL_gpu.h (lokal /opt/homebrew/include/SDL3): Swapchain-Acquire führt bei Submit
 bereits zur Präsentation; die Swapchain-Textur ist ausschließlich beschreibbar.
@@ -117,3 +111,12 @@ Pixel sind identisch, PNGs visuell geprüft: dasselbe farbige Dreieck vor Schwar
 Minimierte Readbacks/Frische des letzten Bildes und explizite GPU-Outcomes bleiben
 separat zu präzisieren; ein erfolgreicher CPU-Aufruf beweist keine GPU-Fertigstellung.
 Framing berechnet Frustumdiagnostik auch bei Audits=false: Arbeit/Timing separat korrigieren.
+
+## Wiederholbare Tabellen-Uploads
+HandTables löscht TablesStale vor Retable; SubjectResidency ignoriert Acquire/Submit.
+Entscheidung: Marker erst nach Erfolg löschen, fehlgeschlagene Jobs/Args nicht anbieten.
+Upload- und Grow-Kopien prüfen Acquire/CopyPass/Submit; Grow erhält alten Buffer bei Fehler.
+Retable in Subject-, Piece- und Uploadphasen trennen. Reale SDL-Fehlerinjektion prüft
+Map/Acquire/Pass/Submit, erneuten Fehler, erfolgreichen Retry und GPU-Tabelleninhalte.
+Referenz: obiger SDL-Submissionvertrag. Vollständige Cross-/CPU-/GPU-Kandidatenpublikation
+und Größen-/Wachstumsbudgets bleiben separat offen; kein atomarer Weltumbau behauptet.
