@@ -97,3 +97,20 @@ Der rote externe Filter-/Wiederholungsnachweis bleibt in 2179. Noch offen:
 Alpha-Coverage bei Mips/Bewegung, Normalvarianz und Rauheit, Anisotropie,
 Speicher-/Uploadbudget. Boxfilter und ein Materialatlas allein nehmen keine Welt ab.
 Historische Messungen und Negativkontrollen stehen in der Git-Historie.
+
+## Plausibler Boden vor Einzelpflanzen
+Zuerst Gelände ohne Vegetationsgeometrie visuell abnehmen. Aus OSM/DEM, Höhe,
+Neigung, Exposition, geografischer Lage, Klima und Jahreszeit plausible Anteile von
+Fels, Erde, Sand, Gras und Schnee ableiten; Feuchtigkeit/Temperatur zeitlich führen.
+Geologie, Wasser und Nutzung beeinflussen den Zustand: Höhe/Klima bestimmen ihn
+nicht eindeutig. Fehlende Daten deterministisch plausibel ergänzen, kein digitaler Zwilling.
+Drei Ebenen: Bodenzustand, räumliche Materialmischung, PBR-Darstellung. Große Farbflächen,
+mittlere Strukturen und gefilterte Mikrodetails trennen; nicht nur grünes Normalrauschen.
+Natürlicher Boden ist dielektrisch (Metallic=0); BaseColor/Roughness/Normal erzeugen,
+Nässe/Schnee/Gras mit passenden Lichtreaktionen statt falscher Metalness darstellen.
+Gemeinsame Standort-/Dichtedaten verbinden Bodenmaterial und Vegetationsplatzierung.
+Abnahme: kahle Testlandschaft mit Fels/Wiese/Erde, Nah-/Fernansicht, flacher Blick,
+Gegenlicht, Tag/Jahreszeit/Wetterwechsel und Bewegung; stimmiger künstlerischer Look
+ist zulässig. Streamingnähte, Wiederholungen und Flimmern bleiben Fehler.
+Einzelhalme erst ergänzen, wo projizierte Größe, Blickwinkel und Silhouette beitragen;
+keine pauschale Metergrenze. Vegetationsgeometrie folgt in 2137/2176.

@@ -3,7 +3,7 @@ State: open
 Parent: 2169
 Area: generators, render, engine
 Tags: architecture, look, owner
-Depends: 2126, 2123
+Depends: 2126, 2123, 2171
 
 # Grass stands, clouds drift and fire burns -- from generators, lit by the engine
 
@@ -66,3 +66,14 @@ is why the volume pass lives in the renderer beside the sky and not in the gener
 
 A cloud that looks right only at one sun angle. Then the volume pass is not reading the
 medium's transmittance and has its own lighting, which is the split the invariant forbids.
+
+## Generatorfamilie und Reihenfolge
+Bodenmaterial zuerst nach 2171 ohne Pflanzengeometrie abnehmen. Grasbüschel/Stauden
+haben einen eigenen krautigen Generator für Halme, Blätter und Blüten. Bäume und
+verholzte Sträucher teilen Wachstums-/Verzweigungsverfahren aus 2176; keine erzwungene
+Baumlogik für Gräser. Beide liefern dasselbe native Geometrie-/Materialmodell.
+Gemeinsam: Artenparameter, Materialsystem, Wind, LOD, Instancing und Standortregeln.
+Bodenzustand liefert Standortbedingungen und Dichte, kennt aber keine einzelnen Halme.
+Nur sichtbaren Zusatznutzen durch Büschel ergänzen: Gegenlicht, Silhouetten, flache
+Blickwinkel; Entfernung allein genügt nicht. Boden/Gras-Übergang bei Bewegung und
+Jahreszeitenwechsel prüfen, Kosten gegenüber Boden-only messen. Kein Waldumbau vorziehen.
