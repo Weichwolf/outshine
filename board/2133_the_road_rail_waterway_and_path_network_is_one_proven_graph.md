@@ -112,3 +112,9 @@ Ergebnis: fünf Routingtests grün; endliche Kosten >1e30 und tatsächlicher Üb
 unterschieden, alter Sentinel scheitert. Benannte Candidate-Felder verhindern
 Index-/Vorgängerverwechslung. Plan-Komplexitätsbefund entfernt: lint 186/333,
 32 Claims grün. Keine neuen Render-Abhängigkeiten oder dauerhaften Suchdaten.
+
+## Geprüfte Layer-Grenze
+StreetField castet double ungeprüft und ignoriert textuelle Layer. OsmField erhält
+Integer: fehlend optional, Text vollständig parsen, Zahl endlich/ganzzahlig/int32.
+StreetField zählt/verwirft ungültige Features; fehlend bleibt 0. Featureaufbereitung
+von Tile-Fortschritt trennen. MVT-Fixtures prüfen Grenzen, Brüche, Text und Wiederholung.
