@@ -89,3 +89,15 @@ sechs Ringe, Needle höchstens 180 Nadeln. Nutzdaten maximal 256 KiB Vertexwerte
 und Instanzexpansion kommen hinzu. Kein gemessenes Frame-/Gesamtspeicherbudget.
 Shape-Validierung und expected-Publikation sind implementiert; erzeugte Attribute
 müssen endlich, Normalen einheitlich sein. OOM-Vertrag bleibt in 2194/2209.
+
+## Numerische Artdeklaration vor Wachstum
+Vor Parse-Publikation alle gelesenen Zahlen typ- und darstellbarkeitsprüfen; kein
+String/Null als Default, keine Brüche für Zähler, keine float-/int-Überläufe. Seed
+als uint32 lesen, nicht über int. Bestehende Blattvalidierung darin konsolidieren.
+Wachstumszähler erhalten explizite Enginegrenzen: 64 Leader/Whorlzweige/Trunkseiten,
+4096 Trunkschritte/Whorlabstand, Order 0..8. Bole-/Break-Anteile und OrderLen in [0,1]
+verhindern unzulässige Schritt-Konversionen. 31 Profile bleiben zulässig; keine
+Änderung gültiger Wachstumsarithmetik. Fehler behalten vorherige Art und Definition.
+Abnahme: Typen, Grenzen, Brüche, sehr große Zahlen, voller Seedbereich, Recovery und
+Corpus. Queue-/Blatt-/Scratch-Gesamtbudget, Grower-Publikation und abgeleitete Float-
+Überläufe bleiben offen; sichere Parse-Repräsentation beweist kein Echtzeitbudget.
