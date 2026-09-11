@@ -383,6 +383,12 @@ private:
 
   [[nodiscard]] bool RoomForStreams(std::string &error);
   [[nodiscard]] bool Retable(std::string &error);
+  [[nodiscard]] bool BuildSubjectBatches(std::string &error);
+  void PrepareSubjectTables();
+  [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
+  void OrderPieces();
+  [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
+  [[nodiscard]] bool UploadTables(std::string &error);
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
 

@@ -115,6 +115,6 @@ HandTables hält den Stale-Marker bis Erfolg und verwirft bei Fehler nutzbare Jo
 Upload- und Grow-Kopien prüfen Acquire/CopyPass/Submit; Grow erhält alten Buffer bei Fehler.
 FailedTablesRemainRetryable belegt Map/Acquire/Pass/Submit, wiederholte Fehler, Retry
 und GPU-Inhalte normal/SDL-validiert; Grow zusätzlich Handle und Kapazität nach Fehler.
-Offen: Retable in Subject-, Piece- und Uploadphasen mit expliziten Verträgen trennen.
+Retable trennt Subject-/Piece-Aufbau, Materialzuordnung und Upload; Instancing-Test grün.
 Referenz: obiger SDL-Submissionvertrag. Vollständige Cross-/CPU-/GPU-Kandidatenpublikation
 und Größen-/Wachstumsbudgets bleiben separat offen; kein atomarer Weltumbau behauptet.

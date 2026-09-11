@@ -955,14 +955,23 @@ bool SubjectDraw::HandTables(std::string &error) {
 }
 
 bool SubjectDraw::Retable(std::string &error) {
-
   const Heap::Tagged uploading("mesh-cull");
-  const uint32_t subjectIndexFirst = Bound().SubjectIndices().First;
   Batches.clear();
   BatchLayout.clear();
   Args_.clear();
   Jobs_ = 0;
+  if (!BuildSubjectBatches(error)) { return false; }
+  if (Borrows()) { return true; }
+  PrepareSubjectTables();
+  OrderPieces();
+  for (const uint32_t at : TableOrder_) {
+    if (!AppendPieceBatches(Pieces_[at], error)) { return false; }
+  }
+  return UploadTables(error);
+}
 
+bool SubjectDraw::BuildSubjectBatches(std::string &error) {
+  const uint32_t subjectIndexFirst = Bound().SubjectIndices().First;
   for (const DrawBatch &one : SubjectBatches_) {
     DrawBatch batch = one;
     batch.FirstIndex += subjectIndexFirst;
@@ -985,8 +994,11 @@ bool SubjectDraw::Retable(std::string &error) {
     Batches.push_back(batch);
     BatchLayout.push_back(drawn);
   }
-  if (Borrows()) { return true; }
+  return true;
+}
 
+void SubjectDraw::PrepareSubjectTables() {
+  const uint32_t subjectIndexFirst = Bound().SubjectIndices().First;
   std::vector<uint32_t> &jobs = TableJobs_;
   std::vector<float> &spheres = TableSpheres_;
   jobs.assign(SubjectJobs_.begin(), SubjectJobs_.end());
@@ -1003,12 +1015,17 @@ bool SubjectDraw::Retable(std::string &error) {
       batch.JobCount = 0;
     }
   }
+}
 
-  const auto slotOf = [this](const Piece &one) {
-    const auto &slots =
-        one.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
-    return one.Surface.Index < slots.size() ? slots[one.Surface.Index] : kNoSlot;
-  };
+uint32_t SubjectDraw::MaterialSlotFor(const Piece &piece) const {
+  const auto &slots =
+      piece.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
+  return piece.Surface.Index < slots.size() ? slots[piece.Surface.Index] : kNoSlot;
+}
+
+void SubjectDraw::OrderPieces() {
+  auto &jobs = TableJobs_;
+  auto &spheres = TableSpheres_;
   std::vector<uint32_t> &order = TableOrder_;
   order.clear();
   size_t clusters = 0;
@@ -1019,86 +1036,95 @@ bool SubjectDraw::Retable(std::string &error) {
     nextRow += static_cast<uint32_t>(piece.Rows.size());
   }
   for (uint32_t at = 0; at < Pieces_.size(); ++at) {
-    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() && slotOf(Pieces_[at]) != kNoSlot &&
-        slotOf(Pieces_[at]) < Slots.size()) {
+    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() && MaterialSlotFor(Pieces_[at]) != kNoSlot &&
+        MaterialSlotFor(Pieces_[at]) < Slots.size()) {
       order.push_back(at);
       clusters += Pieces_[at].Clusters.size() * Pieces_[at].Rows.size();
     }
   }
   jobs.reserve(jobs.size() + clusters * DrawList::kJobWords);
   spheres.reserve(spheres.size() + clusters * kSphereFloats);
-  std::ranges::sort(order, [this, &slotOf](uint32_t a, uint32_t b) {
+  std::ranges::sort(order, [this](uint32_t a, uint32_t b) {
     const Piece &left = Pieces_[a];
     const Piece &right = Pieces_[b];
-    if (slotOf(left) != slotOf(right)) { return slotOf(left) < slotOf(right); }
+    if (MaterialSlotFor(left) != MaterialSlotFor(right)) {
+      return MaterialSlotFor(left) < MaterialSlotFor(right);
+    }
     if (left.Layout != right.Layout) { return left.Layout < right.Layout; }
     return a < b;
   });
-  for (const uint32_t at : order) {
-    Piece &one = Pieces_[at];
-    VertexLayout layout = one.Layout;
-    const auto &unlit = Slots[slotOf(one)].Unlit;
-    if (unlit) {
-      if (one.Emitted != unlit) {
-        using S = SubjectResidency::Stream;
-        const uint32_t stride = kPositionFloats * static_cast<uint32_t>(sizeof(float));
-        if (!Bound().Grow(S::Emitted,
-                          {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                           .Bytes = (one.V.First + one.V.Count) * stride},
-                          error)) {
-          return false;
-        }
-        SubjectResidency::Crossing crossing{.Which = S::Emitted,
-                                            .Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                            .Bytes = one.V.Count * stride,
-                                            .Offset = one.V.First * stride,
-                                            .Writes = WritePieceEmission,
-                                            .Carrying = &*unlit};
-        if (!Bound().Cross(std::span(&crossing, 1), false, error)) { return false; }
-        one.Emitted = unlit;
-      }
-      VertexRunsCarried carried;
-      carried.Uv = CarriesUv(layout);
-      carried.Uv1 = CarriesUv1(layout);
-      carried.Colour = CarriesColour(layout);
-      (void)LayoutOf(carried, layout);
-    }
-    const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
-    for (size_t instance = 0; instance < runs; ++instance) {
-      const auto row = static_cast<uint32_t>(Batches.size());
-      DrawBatch batch{};
-      batch.FirstIndex = one.I.First;
-      batch.IndexCount = one.IndexCount;
-      batch.MaterialSlot = slotOf(one);
-      batch.Layout = layout;
-      batch.Kind = SurfaceKind::Opaque;
-      batch.Draws = 1;
-      batch.ModelSlot = one.FirstRow + static_cast<uint32_t>(instance);
-      batch.Instances = one.Clusters.empty() ? static_cast<uint32_t>(one.Rows.size()) : 1u;
-      batch.FirstJob = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords);
-      for (const DagCluster &cluster : one.Clusters) {
-        const auto sphere = static_cast<uint32_t>(spheres.size() / kSphereFloats);
-        spheres.insert(spheres.end(),
-                       {cluster.SelfCenter[0],
-                        cluster.SelfCenter[1],
-                        cluster.SelfCenter[2],
-                        cluster.SelfRadius,
-                        cluster.ParentCenter[0],
-                        cluster.ParentCenter[1],
-                        cluster.ParentCenter[2],
-                        cluster.ParentRadius,
-                        cluster.SelfErr,
-                        cluster.ParentErr,
-                        0.0f,
-                        0.0f});
-        jobs.insert(jobs.end(), {sphere, row, one.I.First + cluster.First, cluster.Count});
-      }
-      batch.JobCount = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords) - batch.FirstJob;
-      Batches.push_back(batch);
-      BatchLayout.push_back(layout);
-    }
-  }
+}
 
+bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
+  auto &jobs = TableJobs_;
+  auto &spheres = TableSpheres_;
+  VertexLayout layout = one.Layout;
+  const auto &unlit = Slots[MaterialSlotFor(one)].Unlit;
+  if (unlit) {
+    if (one.Emitted != unlit) {
+      using S = SubjectResidency::Stream;
+      const uint32_t stride = kPositionFloats * static_cast<uint32_t>(sizeof(float));
+      if (!Bound().Grow(
+              S::Emitted,
+              {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX, .Bytes = (one.V.First + one.V.Count) * stride},
+              error)) {
+        return false;
+      }
+      SubjectResidency::Crossing crossing{.Which = S::Emitted,
+                                          .Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                                          .Bytes = one.V.Count * stride,
+                                          .Offset = one.V.First * stride,
+                                          .Writes = WritePieceEmission,
+                                          .Carrying = &*unlit};
+      if (!Bound().Cross(std::span(&crossing, 1), false, error)) { return false; }
+      one.Emitted = unlit;
+    }
+    VertexRunsCarried carried;
+    carried.Uv = CarriesUv(layout);
+    carried.Uv1 = CarriesUv1(layout);
+    carried.Colour = CarriesColour(layout);
+    (void)LayoutOf(carried, layout);
+  }
+  const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
+  for (size_t instance = 0; instance < runs; ++instance) {
+    const auto row = static_cast<uint32_t>(Batches.size());
+    DrawBatch batch{};
+    batch.FirstIndex = one.I.First;
+    batch.IndexCount = one.IndexCount;
+    batch.MaterialSlot = MaterialSlotFor(one);
+    batch.Layout = layout;
+    batch.Kind = SurfaceKind::Opaque;
+    batch.Draws = 1;
+    batch.ModelSlot = one.FirstRow + static_cast<uint32_t>(instance);
+    batch.Instances = one.Clusters.empty() ? static_cast<uint32_t>(one.Rows.size()) : 1u;
+    batch.FirstJob = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords);
+    for (const DagCluster &cluster : one.Clusters) {
+      const auto sphere = static_cast<uint32_t>(spheres.size() / kSphereFloats);
+      spheres.insert(spheres.end(),
+                     {cluster.SelfCenter[0],
+                      cluster.SelfCenter[1],
+                      cluster.SelfCenter[2],
+                      cluster.SelfRadius,
+                      cluster.ParentCenter[0],
+                      cluster.ParentCenter[1],
+                      cluster.ParentCenter[2],
+                      cluster.ParentRadius,
+                      cluster.SelfErr,
+                      cluster.ParentErr,
+                      0.0f,
+                      0.0f});
+      jobs.insert(jobs.end(), {sphere, row, one.I.First + cluster.First, cluster.Count});
+    }
+    batch.JobCount = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords) - batch.FirstJob;
+    Batches.push_back(batch);
+    BatchLayout.push_back(layout);
+  }
+  return true;
+}
+
+bool SubjectDraw::UploadTables(std::string &error) {
+  auto &jobs = TableJobs_;
+  auto &spheres = TableSpheres_;
   if (jobs.empty() || spheres.empty()) { return true; }
   Args_.assign(Batches.size() * kArgWords, 0u);
   std::vector<uint32_t> &rows = TableRows_;
