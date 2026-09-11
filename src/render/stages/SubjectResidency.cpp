@@ -206,15 +206,20 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
 }
 
 bool SubjectResidency::PrepareBuffers(std::span<Crossing> what, std::string &error) {
+  std::array<OwnedBuffer, kStreams> candidates;
+  auto capacities = Held_;
+  std::array<bool, kStreams> changed{};
   for (const auto &one : what) {
-    OwnedBuffer &into = Buffer(one.Which);
-    uint32_t *const stood = HeldAt(one.Which);
+    const auto slot = static_cast<size_t>(one.Which);
     if (one.Bytes == 0 || !one.Stands()) {
-      into.Reset();
-      *stood = 0;
+      candidates[slot].Reset();
+      capacities[slot] = 0;
+      changed[slot] = true;
       continue;
     }
-    if (*stood < one.Offset + one.Bytes || !into) {
+    const bool present =
+        changed[slot] ? static_cast<bool>(candidates[slot]) : static_cast<bool>(Buffers_[slot]);
+    if (capacities[slot] < one.Offset + one.Bytes || !present) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
       wanted.size = one.Offset + one.Bytes;
@@ -224,9 +229,15 @@ bool SubjectResidency::PrepareBuffers(std::span<Crossing> what, std::string &err
         error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
         return false;
       }
-      into = std::move(candidate);
-      *stood = one.Offset + one.Bytes;
+      candidates[slot] = std::move(candidate);
+      capacities[slot] = wanted.size;
+      changed[slot] = true;
     }
+  }
+  for (size_t slot = 0; slot < kStreams; ++slot) {
+    if (!changed[slot]) { continue; }
+    Buffers_[slot] = std::move(candidates[slot]);
+    Held_[slot] = capacities[slot];
   }
   return true;
 }

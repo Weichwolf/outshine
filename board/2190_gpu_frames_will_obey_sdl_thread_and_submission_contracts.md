@@ -115,6 +115,6 @@ Fehler erhalten Batch/Buffer. GPU-Test belegt Mixed-Reihenfolge, Grow mit Pendin
 Room entfällt; Residency trennt Preserve/Discard. Frame-/Instancing-Regressionen grün.
 CopyPass vor Swapchain-Acquire geprüft; Retry/Frame/Fenster in sechs Profilen grün.
 Buffer-Ersatz lokal angelegt; Allokationsfehler erhält Handle/Kapazität/GPU-Daten.
-Nächster Schritt: alle Ersatzbuffer und Releases erst nach vollständiger Vorbereitung
-publizieren; feste Kandidatenarrays je Stream. Zweite Allokation injiziert fehlschlagen
-lassen, beide Handles/Kapazitäten/Daten prüfen. Upload-Submit-Atomarität/Budgets offen.
+Ersatzbuffer/Releases werden nach vollständiger Vorbereitung gemeinsam publiziert;
+feste Kandidatenarrays je Stream. Zweite Allokation scheitert wiederholt ohne Verlust
+beider Handles/Kapazitäten/GPU-Daten. Upload-Submit-Atomarität/Budgets bleiben offen.

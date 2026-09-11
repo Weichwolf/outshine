@@ -175,6 +175,51 @@ void FailedReplacement(SDL_GPUDevice *device) {
         "successful replacement publishes all new GPU words");
 }
 
+void FailedBatchReplacement(SDL_GPUDevice *device) {
+  SubjectResidency residency;
+  residency.StandsOn(device, true);
+  using Stream = SubjectResidency::Stream;
+  const std::vector<uint32_t> initial{17, 23, 31, 47};
+  const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
+  std::array<SubjectResidency::Crossing, 2> crossing{
+      {{.Which = Stream::ClusterJobs,
+        .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+        .From = initial.data(),
+        .Bytes = 16},
+       {.Which = Stream::ClusterBatches,
+        .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+        .From = initial.data(),
+        .Bytes = 16}}};
+  std::string error;
+  CHECK(residency.Cross(crossing, false, error), "batch fixture initializes both buffers");
+  std::array<SDL_GPUBuffer *, 2> originals{residency.Buffer(crossing[0].Which).Get(),
+                                           residency.Buffer(crossing[1].Which).Get()};
+  for (auto &item : crossing) {
+    item.From = replacement.data();
+    item.Bytes = 32;
+  }
+  for (unsigned attempt = 0; attempt < 2; ++attempt) {
+    nextFailure = Failure::Allocate;
+    skipFailures = 1;
+    CHECK(!residency.Cross(crossing, false, error),
+          "second allocation rejects the whole preparation");
+    CHECK(nextFailure == Failure::None, "second allocation fault is reached");
+    nextFailure = Failure::None;
+    for (size_t at = 0; at < crossing.size(); ++at) {
+      CHECK(residency.Buffer(crossing[at].Which).Get() == originals[at] &&
+                residency.HeldOf(crossing[at].Which) == 16,
+            "preparation failure preserves every original buffer");
+      CHECK(Read(device, residency.Buffer(crossing[at].Which).Get(), initial.size()) == initial,
+            "preparation failure preserves every original GPU value");
+    }
+  }
+  CHECK(residency.Cross(crossing, false, error), "batch replacement retries successfully");
+  for (const auto &item : crossing) {
+    CHECK(Read(device, residency.Buffer(item.Which).Get(), replacement.size()) == replacement,
+          "successful batch publishes every replacement");
+  }
+}
+
 void MixedUploads(SDL_GPUDevice *device) {
   SubjectResidency residency;
   residency.StandsOn(device, true);
@@ -383,6 +428,7 @@ int main() {
       DeferredRetry(device.Get());
       MixedUploads(device.Get());
       FailedReplacement(device.Get());
+      FailedBatchReplacement(device.Get());
     }
   }
   SDL_Quit();
