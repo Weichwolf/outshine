@@ -159,7 +159,7 @@ struct SubjectResidency {
   [[nodiscard]] bool Cross(std::span<Crossing> what, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(std::span<Crossing> what, uint32_t total, std::string &error);
   [[nodiscard]] bool Grow(Stream which, Need need, std::string &error);
-  void FlushCrossings(SDL_GPUCommandBuffer *commands);
+  [[nodiscard]] bool FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error);
   void CommitCrossings();
 
   void DropStaged() {

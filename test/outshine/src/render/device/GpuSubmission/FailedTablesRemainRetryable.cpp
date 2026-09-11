@@ -114,17 +114,26 @@ void DeferredRetry(SDL_GPUDevice *device) {
   CHECK(residency.Cross(crossing, false, error), "deferred fixture initializes GPU data");
   crossing[0].From = expected.data();
   CHECK(residency.Cross(crossing, true, error), "replacement is staged");
+  auto *failed = SDL_AcquireGPUCommandBuffer(device);
+  CHECK(failed != nullptr, "failed pass acquires commands");
+  if (failed == nullptr) { return; }
+  nextFailure = Failure::Pass;
+  skipFailures = 0;
+  CHECK(!residency.FlushCrossings(failed, error) && error.find("injected") != std::string::npos,
+        "copy pass failure is reported without consuming pending uploads");
+  nextFailure = Failure::None;
+  CHECK(SDL_CancelGPUCommandBuffer(failed), "failed pass commands can be cancelled");
   auto *cancelled = SDL_AcquireGPUCommandBuffer(device);
   CHECK(cancelled != nullptr, "cancelled recording acquires commands");
   if (cancelled == nullptr) { return; }
-  residency.FlushCrossings(cancelled);
+  CHECK(residency.FlushCrossings(cancelled, error), "pending upload recording succeeds");
   CHECK(SDL_CancelGPUCommandBuffer(cancelled), "recorded upload is cancelled before submission");
   CHECK(Read(device, residency.Buffer(stream).Get(), initial.size()) == initial,
         "cancelled commands leave initial GPU contents intact");
   auto *retry = SDL_AcquireGPUCommandBuffer(device);
   CHECK(retry != nullptr, "retry acquires commands");
   if (retry == nullptr) { return; }
-  residency.FlushCrossings(retry);
+  CHECK(residency.FlushCrossings(retry, error), "pending upload recording succeeds");
   CHECK(SDL_SubmitGPUCommandBuffer(retry), "retry submission succeeds");
   residency.CommitCrossings();
   CHECK(Read(device, residency.Buffer(stream).Get(), expected.size()) == expected,
@@ -152,7 +161,7 @@ void MixedUploads(SDL_GPUDevice *device) {
   auto *commands = SDL_AcquireGPUCommandBuffer(device);
   CHECK(commands != nullptr, "mixed upload recording acquires commands");
   if (commands == nullptr) { return; }
-  residency.FlushCrossings(commands);
+  CHECK(residency.FlushCrossings(commands, error), "pending upload recording succeeds");
   CHECK(SDL_SubmitGPUCommandBuffer(commands), "remaining deferred work submits");
   residency.CommitCrossings();
   CHECK(Read(device, residency.Buffer(stream).Get(), latest.size()) == latest,

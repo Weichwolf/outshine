@@ -369,11 +369,20 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
   return true;
 }
 
-void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
-  if (StagedCount_ == 0 || commands == nullptr) { return; }
+bool SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error) {
+  if (StagedCount_ == 0) { return true; }
+  if (commands == nullptr) {
+    error = std::format(Says::kCopyAcquireFailed, "no command buffer");
+    return false;
+  }
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  if (copy == nullptr) {
+    error = std::format(Says::kCopyPassFailed, SDL_GetError());
+    return false;
+  }
   RecordCrossings(copy);
   SDL_EndGPUCopyPass(copy);
+  return true;
 }
 
 void SubjectResidency::RecordCrossings(SDL_GPUCopyPass *copy) {

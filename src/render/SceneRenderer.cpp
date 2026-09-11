@@ -1104,6 +1104,12 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   if (!prepared) { return prepared; }
   SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());
   if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
+  std::string uploadError;
+  if (!Subjects_.FlushCrossings(commands, uploadError) ||
+      (DrawsGlass_ && !Glass_.FlushCrossings(commands, uploadError))) {
+    SDL_CancelGPUCommandBuffer(commands);
+    return std::unexpected(std::move(uploadError));
+  }
 
   SDL_GPUTexture *swapchain = nullptr;
   if (Showing_ != nullptr) {
@@ -1141,8 +1147,6 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   StageSubmission stageSubmission;
 
   Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands);
-  Subjects_.FlushCrossings(commands);
-  if (DrawsGlass_) { Glass_.FlushCrossings(commands); }
 
   for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) {
     EncodePass(commands, pass, stageSubmission);

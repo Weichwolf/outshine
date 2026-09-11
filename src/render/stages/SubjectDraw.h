@@ -279,7 +279,9 @@ private:
   void BindSurface(const SubjectMaterial &material);
 
 public:
-  void FlushCrossings(SDL_GPUCommandBuffer *commands) { Bound().FlushCrossings(commands); }
+  [[nodiscard]] bool FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error) {
+    return Bound().FlushCrossings(commands, error);
+  }
 
   void CommitCrossings() { Bound().CommitCrossings(); }
 
