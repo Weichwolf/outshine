@@ -91,9 +91,9 @@ Shape-Validierung und expected-Publikation sind implementiert; erzeugte Attribut
 müssen endlich, Normalen einheitlich sein. OOM-Vertrag bleibt in 2194/2209.
 
 ## Numerische Artdeklaration vor Wachstum
-Vor Parse-Publikation alle gelesenen Zahlen typ- und darstellbarkeitsprüfen; kein
+Vor Parse-Publikation werden alle gelesenen Zahlen typ- und darstellbarkeitsgeprüft; kein
 String/Null als Default, keine Brüche für Zähler, keine float-/int-Überläufe. Seed
-als uint32 lesen, nicht über int. Bestehende Blattvalidierung darin konsolidieren.
+bleibt uint32 ohne int-Zwischenschritt; bisherige Blatt-Zahlenprüfung konsolidiert.
 Wachstumszähler erhalten explizite Enginegrenzen: 64 Leader/Whorlzweige/Trunkseiten,
 4096 Trunkschritte/Whorlabstand, Order 0..8. Bole-/Break-Anteile und OrderLen in [0,1]
 verhindern unzulässige Schritt-Konversionen. 31 Profile bleiben zulässig; keine
@@ -101,3 +101,5 @@ verhindern unzulässige Schritt-Konversionen. 31 Profile bleiben zulässig; kein
 Abnahme: Typen, Grenzen, Brüche, sehr große Zahlen, voller Seedbereich, Recovery und
 Corpus. Queue-/Blatt-/Scratch-Gesamtbudget, Grower-Publikation und abgeleitete Float-
 Überläufe bleiben offen; sichere Parse-Repräsentation beweist kein Echtzeitbudget.
+474 Checks sowie drei Blatt-/Wachstums-/Materialregressionen grün; Altimplementierung
+scheitert. Alle 31 Profile akzeptiert. Keine Aussage zu Gesamtkosten maximaler Eingaben.
