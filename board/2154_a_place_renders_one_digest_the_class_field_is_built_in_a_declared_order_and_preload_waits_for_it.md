@@ -43,12 +43,12 @@ unterschiedlicher Live-Providerantworten mit demselben Szenario.
 Historische Digestlisten und diagnostische Sackgassen stehen in der Git-Historie.
 
 ## Leere OSM-Generation
-ClassField::Ingest leert Arrays bei Generationwechsel, setzt Stale aber erst nach
-Feature-Ingest. Leere Folgegeneration kann die alte Klassifikation behalten.
-Entscheidung: Generationwechsel invalidiert die Klassifikation unabhängig von Features;
-Ingest in Geometrieübernahme und Featureklassifikation trennen.
-Test: deklarierte Fläche vollständig bauen, durch ausgeschlossene Layer ersetzen,
-ohne Kamerabewegung beide Tiers erneut bauen und alte Klassifikation entfernen.
-Zusatzbefund: OsmField deklariert unbekannte Layer als Layer 0 und vergleicht sie
-ebenfalls so. Deklarierte Eingaben müssen denselben Layerfilter wie Providerdaten nutzen;
-ausgeschlossene Features beim Identitätsvergleich überspringen, leere Identität stabil halten.
+
+Generationwechsel invalidiert ClassField auch ohne Features; Featureklassifikation
+ist vom inkrementellen Ingest getrennt. Deklarierte OsmField-Eingaben respektieren
+den Layerfilter ohne Layer-0-Fallback; ausgeschlossene Features ändern keine Identität.
+EmptyGenerationReplacesPreviousClasses belegt beide Tiers und Entfernung der alten
+Klasse ohne Kamerabewegung. Gegenprobe ohne Stale-Invalidierung schlägt in beiden
+Checks fehl. Generation-/Storage-/Street-Regressionen bestehen.
+Wien ohne Vegetation vor/nach Invalidierung visuell geprüft: 0/921600 Pixel verändert.
+Das belegt Regressionserhalt; flache Materialien und harte Kontraste bleiben Bildlücken.

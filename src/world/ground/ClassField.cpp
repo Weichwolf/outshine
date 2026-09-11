@@ -77,6 +77,7 @@ void ClassField::Ingest(Tier &t) {
     t.PtsDone = 0;
     t.RingsDone = 0;
     t.FeatsDone = 0;
+    t.Stale = true;
     t.Pts.clear();
     t.Rings.clear();
     t.Feats.clear();
@@ -105,71 +106,72 @@ void ClassField::Ingest(Tier &t) {
   const std::span<const OsmField::Feature> feats = t.Field->Features();
   if (feats.size() <= t.FeatsDone) { return; }
 
-  for (size_t i = t.FeatsDone; i < feats.size(); i++) {
-    const OsmField::Feature &f = feats[i];
-    const std::string_view layer = t.Field->LayerName(static_cast<int>(f.Layer));
-    const std::string_view kind = t.Field->Str(f, "kind");
-    const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
-    if (rule == nullptr) {
-      std::string key(layer);
-      key.append("/").append(kind);
-      if (Unknown_.insert(key).second) {
-        Log::Error(LogTag::World,
-                   "class_unknown_kind",
-                   {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
-      }
-      UnknownFeats_++;
-      continue;
-    }
-
-    if (t.Field->Num(f, "tunnel", 0.0) > 0.5) { continue; }
-    if (f.Type != 2 && f.Type != 3) { continue; }
-    if (f.Type == 2 && rule->WidthM <= 0.0f) {
-      std::string key(layer);
-      key.append("/").append(kind).append("#width");
-      if (Unknown_.insert(key).second) {
-        Log::Error(LogTag::World,
-                   "class_line_without_width",
-                   {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
-      }
-      UnknownFeats_++;
-      continue;
-    }
-
-    ClassBuilder::Feature rec{};
-    rec.FirstRing = f.FirstRing;
-    rec.RingCount = f.RingCount;
-    rec.Rank = rule->Rank;
-    rec.Tpl = static_cast<uint16_t>(rule->Tpl);
-    rec.Form = static_cast<ClassBuilder::Shape>(f.Type);
-    rec.WidthM = rule->WidthM;
-    rec.MinE = rec.MinN = static_cast<float>(kBeyondAnyCoordinate);
-    rec.MaxE = rec.MaxN = -static_cast<float>(kBeyondAnyCoordinate);
-    for (uint32_t r = 0; r < f.RingCount; r++) {
-      const ClassBuilder::Ring &ring = t.Rings[f.FirstRing + r];
-      for (uint32_t k = 0; k < ring.Count; k++) {
-        const float e = t.Pts[(static_cast<size_t>(ring.First) + k) * 2];
-        const float n = t.Pts[(static_cast<size_t>(ring.First) + k) * 2 + 1];
-        rec.MinE = std::min(rec.MinE, e);
-        rec.MaxE = std::max(rec.MaxE, e);
-        rec.MinN = std::min(rec.MinN, n);
-        rec.MaxN = std::max(rec.MaxN, n);
-      }
-    }
-    if (rec.MaxE < rec.MinE) { continue; }
-    const float pad = rec.WidthM * 0.5f;
-    rec.MinE -= pad;
-    rec.MinN -= pad;
-    rec.MaxE += pad;
-    rec.MaxN += pad;
-    t.Feats.push_back(rec);
-  }
+  for (size_t i = t.FeatsDone; i < feats.size(); i++) { AppendFeature(t, feats[i]); }
   t.FeatsDone = feats.size();
   std::ranges::sort(t.Feats, [](const ClassBuilder::Feature &a, const ClassBuilder::Feature &b) {
     return std::tie(a.Rank, a.MinE, a.MinN, a.MaxE, a.MaxN, a.Tpl, a.Form, a.WidthM, a.RingCount) <
            std::tie(b.Rank, b.MinE, b.MinN, b.MaxE, b.MaxN, b.Tpl, b.Form, b.WidthM, b.RingCount);
   });
   t.Stale = true;
+}
+
+void ClassField::AppendFeature(Tier &t, const OsmField::Feature &f) {
+  const std::string_view layer = t.Field->LayerName(static_cast<int>(f.Layer));
+  const std::string_view kind = t.Field->Str(f, "kind");
+  const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
+  if (rule == nullptr) {
+    std::string key(layer);
+    key.append("/").append(kind);
+    if (Unknown_.insert(key).second) {
+      Log::Error(LogTag::World,
+                 "class_unknown_kind",
+                 {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
+    }
+    UnknownFeats_++;
+    return;
+  }
+
+  if (t.Field->Num(f, "tunnel", 0.0) > 0.5) { return; }
+  if (f.Type != 2 && f.Type != 3) { return; }
+  if (f.Type == 2 && rule->WidthM <= 0.0f) {
+    std::string key(layer);
+    key.append("/").append(kind).append("#width");
+    if (Unknown_.insert(key).second) {
+      Log::Error(LogTag::World,
+                 "class_line_without_width",
+                 {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
+    }
+    UnknownFeats_++;
+    return;
+  }
+
+  ClassBuilder::Feature rec{};
+  rec.FirstRing = f.FirstRing;
+  rec.RingCount = f.RingCount;
+  rec.Rank = rule->Rank;
+  rec.Tpl = static_cast<uint16_t>(rule->Tpl);
+  rec.Form = static_cast<ClassBuilder::Shape>(f.Type);
+  rec.WidthM = rule->WidthM;
+  rec.MinE = rec.MinN = static_cast<float>(kBeyondAnyCoordinate);
+  rec.MaxE = rec.MaxN = -static_cast<float>(kBeyondAnyCoordinate);
+  for (uint32_t r = 0; r < f.RingCount; r++) {
+    const ClassBuilder::Ring &ring = t.Rings[f.FirstRing + r];
+    for (uint32_t k = 0; k < ring.Count; k++) {
+      const float e = t.Pts[(static_cast<size_t>(ring.First) + k) * 2];
+      const float n = t.Pts[(static_cast<size_t>(ring.First) + k) * 2 + 1];
+      rec.MinE = std::min(rec.MinE, e);
+      rec.MaxE = std::max(rec.MaxE, e);
+      rec.MinN = std::min(rec.MinN, n);
+      rec.MaxN = std::max(rec.MaxN, n);
+    }
+  }
+  if (rec.MaxE < rec.MinE) { return; }
+  const float pad = rec.WidthM * 0.5f;
+  rec.MinE -= pad;
+  rec.MinN -= pad;
+  rec.MaxE += pad;
+  rec.MaxN += pad;
+  t.Feats.push_back(rec);
 }
 
 ClassBuilder::Job ClassField::LendTo(Tier &t, ClassGrain grain, double camE, double camN) {

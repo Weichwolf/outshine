@@ -396,14 +396,14 @@ void OsmField::AppendDeclaredFeature(const Declared &one) {
     return static_cast<uint32_t>(Values_.size() - 1u);
   };
 
-  if (one.LatLon.size() < 4) { return; }
+  const int layer = Layer(one.Layer.c_str());
+  if (one.LatLon.size() < 4 || layer < 0) { return; }
   Feature made;
   made.FirstRing = static_cast<uint32_t>(Rings_.size());
   made.RingCount = 1;
   made.FirstTag = static_cast<uint32_t>(Tags_.size());
   made.Tile = 0;
-  const int layer = Layer(one.Layer.c_str());
-  made.Layer = static_cast<uint16_t>(layer < 0 ? 0 : layer);
+  made.Layer = static_cast<uint16_t>(layer);
   made.Type = one.Area ? 3u : 2u;
   made.MinLat = made.MaxLat = one.LatLon[0];
   made.MinLon = made.MaxLon = one.LatLon[1];
@@ -449,7 +449,7 @@ void OsmField::AppendDeclaredFeature(const Declared &one) {
 }
 
 bool OsmField::MatchesDeclaredFeature(const Feature &feature, const Declared &input) const {
-  const int layer = std::max(Layer(input.Layer.c_str()), 0);
+  const int layer = Layer(input.Layer.c_str());
   if (std::cmp_not_equal(feature.Layer, layer) || feature.Type != (input.Area ? 3u : 2u) ||
       feature.RingCount != 1 || feature.TagCount < 2) {
     return false;
@@ -480,14 +480,17 @@ bool OsmField::MatchesDeclaredFeature(const Feature &feature, const Declared &in
 }
 
 bool OsmField::MatchesDeclaration(std::span<const Declared> input, TileAt over) const {
-  if (Tiles_.size() != 1 || Features_.size() != input.size() || CentreX_ != over.X ||
-      CentreY_ != over.Y || Tiles_.front().X != over.X || Tiles_.front().Y != over.Y) {
+  if (Tiles_.size() != 1 || CentreX_ != over.X || CentreY_ != over.Y ||
+      Tiles_.front().X != over.X || Tiles_.front().Y != over.Y) {
     return false;
   }
-  for (size_t at = 0; at < input.size(); ++at) {
-    if (!MatchesDeclaredFeature(Features_[at], input[at])) { return false; }
+  size_t at = 0;
+  for (const auto &feature : input) {
+    if (feature.LatLon.size() < 4 || Layer(feature.Layer.c_str()) < 0) { continue; }
+    if (at >= Features_.size() || !MatchesDeclaredFeature(Features_[at], feature)) { return false; }
+    ++at;
   }
-  return true;
+  return at == Features_.size();
 }
 
 void OsmField::Declare(std::span<const Declared> these, TileAt over) {

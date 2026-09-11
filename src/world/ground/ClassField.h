@@ -152,6 +152,7 @@ private:
   };
 
   void Ingest(Tier &t);
+  void AppendFeature(Tier &t, const OsmField::Feature &f);
   void SubmitDue(double camE, double camN);
   ClassBuilder::Job LendTo(Tier &t, ClassGrain grain, double camE, double camN);
 
