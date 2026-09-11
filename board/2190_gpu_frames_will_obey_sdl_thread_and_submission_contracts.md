@@ -102,19 +102,15 @@ Ersatzbuffer-Rollback bei Allokations-/Uploadfehlern sind implementiert. Nachwei
 FailedTablesRemainRetryable, Frame-/Fenster-/Instancing-Regressionen; Details in Git.
 Vollständige In-place-/Frame-Atomarität und Upload-Budgets bleiben offen.
 
-## Vertex-Bytebereiche
-HandStreams prüft Vertexbereich und Komponentenanzahl vor Placements und GPU;
-uint32-Überläufe von Größe, Offset und kombiniertem Ende werden zurückgewiesen.
-ByteRangesRejectOverflow: 15 Checks für 2/3/4 Komponenten und inaktive Streams;
-Negativkontrolle ohne Bereichsschutz scheitert. Instancing-/Upload-Retry-Regressionen
-bestehen. Clang-tidy 99 → 98; gesamte Pose-Zustandsatomarität bleibt offen.
+## Geprüfte Bereichsannahme
+VertexCrossing und DrawList prüfen Byte-/Bereichsgrenzen vor Mutation; Clear setzt
+DrawList-Budgets zurück. Grenztests, Negativkontrollen, Instancing und GPU-Retry
+normal/validiert bestehen. Details in Git. JobsAddress, Pose-Atomarität und
+praktische Frame-/Speicherbudgets bleiben offen; Jobbudget ist konservativ.
 
-## DrawList-Annahmegrenze
-Add prüft Quellindex-, Modell- und Clusterenden sowie kumulierte Index-/Jobbytes
-vor Mutation. Clear setzt die Budgets zurück; Compile erhält die Annahmezähler.
-SDL_GPUBufferCreateInfo.size ist Uint32 (lokales SDL_gpu.h); breite Rechnung vor
-Verengung. Jobbudget ist konservativ vor späterer Batch-Unterdrückung gerechnet.
-AdmissionPreservesRanges: 15 Checks bestehen, alter vollständiger Code verletzt 10.
-Instancing und GPU-Upload-Retry normal/validiert bestehen; Clang-tidy bleibt bei 98.
-Kein Nachweis vollständiger JobsAddress-Validierung oder praktischer Framebudgets;
-Clusterzuordnung, tatsächliche Quellspans und globale Speicherbudgets bleiben offen.
+## Pass-Aufzeichnung trennen
+EncodePass vermischt Compute-Bindings und Grafik-Attachments (Komplexität 28).
+SDL_gpu.h dokumentiert bei beiden Begin-Aufrufen einen Handle, keinen regulären
+Fehlerausgang. Getrennte private Encoder erhalten Reihenfolge, Touched-Zustand,
+Submission-Journal und Bindings; Dispatcher entscheidet ausschließlich PassKind.
+Abnahme: GPU-Frame-/Upload-Regressionen und Lint; keine neue Null-Fehlersemantik.
