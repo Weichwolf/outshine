@@ -112,3 +112,8 @@ Geometrie und bestehende Stopbedingungen unverändert. Keine neue Allokation pro
 Vorher/nachher alle 31 Skelette vollständig vergleichen; zusätzlich endliche Frames,
 zusammenhängende Node-Spans, gültige Eltern und Wiederverwendung prüfen. Dies beweist
 Bestandserhalt, keine Artenqualität. Gesamtbudget/Fehlerpublikation bleiben offen.
+Frame-Prüfung findet im Altstand sechs Arten mit |dot(Dir,Up)| bis 0,0053.
+Gram-Schmidt nahe paralleler Referenz verstärkt Rundungsfehler; Basis abschließend
+über zwei Kreuzprodukte orthogonalisieren und denselben FrameFrom im Fortschritt
+nutzen. Explizite Parallel-/Antiparallel-Proben und GLB-Äste vor/nachher rendern.
+Phasentrennung allein: 49.540.826 Snapshot-Bytes identisch; Frame-Korrektur separat messen.
