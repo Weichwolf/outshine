@@ -249,22 +249,33 @@ std::expected<void, std::string_view> ClassField::Update(TilePool &tiles, Longit
   Cam_[0] = cam.EastM;
   Cam_[1] = cam.NorthM;
 
-  if (std::optional<ClassBuilder::Handback> done = Builder_.Collect()) {
-    Tier &t = TierOf(done->Returned.Grain);
-    t.Pts = std::move(done->Returned.Pts);
-    t.Rings = std::move(done->Returned.Rings);
-    t.Feats = std::move(done->Returned.Feats);
-    t.ArraysLent = false;
-    t.Have = true;
-    Submitted_.reset();
-    const double buildMs = done->Structure->Measured().BuildMs;
-    BuildMsMax_ = std::max(buildMs, BuildMsMax_);
-    const std::scoped_lock lk(Mu_);
-    Published_ = std::move(done->Structure);
-  }
+  CollectFinished();
 
   if (!Submitted_) { SubmitDue(cam.EastM, cam.NorthM); }
   return {};
+}
+
+void ClassField::CollectFinished() {
+  auto done = Builder_.Collect();
+  if (!done) { return; }
+  Tier &t = TierOf(done->Returned.Grain);
+  const bool current =
+      t.Generation == t.Field->Generation() && t.PtsDone == t.Field->Points().size() / 2 &&
+      t.RingsDone == t.Field->Rings().size() && t.FeatsDone == t.Field->Features().size();
+  t.Pts = std::move(done->Returned.Pts);
+  t.Rings = std::move(done->Returned.Rings);
+  t.Feats = std::move(done->Returned.Feats);
+  t.ArraysLent = false;
+  Submitted_.reset();
+  BuildMsMax_ = std::max(done->Structure->Measured().BuildMs, BuildMsMax_);
+  Ingest(t);
+  if (!current) {
+    t.Stale = true;
+    return;
+  }
+  t.Have = true;
+  const std::scoped_lock lk(Mu_);
+  Published_ = std::move(done->Structure);
 }
 
 bool ClassField::Complete() const {

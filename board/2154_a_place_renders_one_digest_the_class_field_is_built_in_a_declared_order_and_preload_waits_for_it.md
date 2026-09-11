@@ -54,9 +54,10 @@ Wien ohne Vegetation vor/nach Invalidierung visuell geprüft: 0/921600 Pixel ver
 Das belegt Regressionserhalt; flache Materialien und harte Kontraste bleiben Bildlücken.
 
 ## Überholte Builder-Ergebnisse
-Ingest überspringt geliehene Tier-Arrays; Collect veröffentlicht danach ungeprüft.
-Bei Fine-only-Änderung während eines Jobs kann Complete den alten Stand bestätigen.
-Entscheidung: nach Rückgabe Generation und Eingabezähler prüfen, aktuelle Daten ingestieren,
-überholte Ergebnisse nicht veröffentlichen und den betroffenen Tier erneut einreichen.
-Test: Straßenlinie einreichen, vor Collect verschieben, ohne weitere Kameraänderung
-auf Complete warten; aktueller Stand und zusätzlicher Fine-Job sind Pflicht.
+
+Collect prüft nach Rückgabe Generation und Eingabezähler und ingestiert Änderungen.
+Überholte Ergebnisse werden nicht publiziert; der betroffene Tier wird erneut gebaut.
+Test: Fine-only-Straße während eines laufenden Jobs verschoben; vorher fehlten Neubau
+und aktuelle Klasse bei Complete, jetzt bestehen beide Checks. Positionsfehlerregression
+bleibt grün. Wien ohne Vegetation visuell geprüft und zur Vorversion pixelgleich.
+Offen bleiben allgemeine Arrival-order-Abnahme und vollständige Input-Manifeste.

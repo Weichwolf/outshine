@@ -71,5 +71,19 @@ int main() {
         "empty generation rebuilds both tiers");
   CHECK(field.ClassAt({}, nullptr, nullptr) == -1,
         "empty generation removes previous area classification");
+  std::array<OsmField::Declared, 1> street{{{.Layer = "streets",
+                                             .Key = "kind",
+                                             .Value = "residential",
+                                             .LatLon = {0, -0.001, 0, 0.001}}}};
+  field.Declares(street);
+  CHECK(field.Update(pool, LongitudeLatitude{}).has_value(), "first road generation is submitted");
+  const auto submitted = field.FineSubmits();
+  CHECK(submitted > fine, "road generation starts a fine job");
+  street[0].LatLon = {0.02, -0.001, 0.02, 0.001};
+  field.Declares(street);
+  CHECK(Complete(field, pool), "superseding generation completes");
+  CHECK(field.FineSubmits() > submitted, "superseded job triggers a new fine build");
+  CHECK(field.ClassAt({}, nullptr, nullptr) == -1,
+        "completion cannot expose a superseded road through the camera");
   return Report();
 }
