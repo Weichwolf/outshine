@@ -102,19 +102,15 @@ run() enthält weder Pacing noch Ereignisverarbeitung oder expliziten Abbruch, s
 eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbare Pfad;
 den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
 mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
-## Transaktionale View-Konfiguration
-ViewBook wird vor Setup vorbereitet und zusammen mit InputMap erst an den drei
-Erfolgsausgängen übernommen. Die frühere reset-/vorzeitige Publikation entfällt;
-Move-Übernahme ist per static_assert nichtwerfend, ohne weitere Vektorkopie.
-RejectedViewsPreservePreviousConfiguration und sechs Regressionen prüfen Ablehnung,
-Retry und Leeren; Altcode verletzt sechs Checks. Vollständiger Welt-/GPU-Rollback,
-View-Wertevalidierung und ungenutzte TimeScale bleiben offen.
-## Wiederverwendung des Renderplans
-SamePicture ignorierte Outputs, Transfer und Precision und akzeptierte ungültige
-Änderungen. SameRenderPlan vergleicht jetzt alle fünf Renderplanparameter.
-Entscheidung: alle drei Planparameter in die Reuse-Bedingung aufnehmen. Maßgeblich
-sind Scenario::Render-Verträge und die vorhandene Compiled-Validierung, keine neue Policy.
-Öffentliche API prüft jeden Parameter einzeln gegen einen frischen Engine-Aufbau:
-identische Ablehnung ungültiger Namen und erfolgreicher Wechsel gültiger Ausgaben.
-Offen: Joins/Overriding/Surfacing, atomare Publikation und Velocity-Gültigkeitsvertrag
-(Hintergrundwert -10000 bisher undokumentiert; kein gültiger Bewegungsvektor).
+## Bereits geprüfte Übergänge
+ViewBook/InputMap publizieren bei Erfolg; SameRenderPlan vergleicht fünf Parameter.
+API-Regressionen und Negativkontrollen bestehen; Nachweise in Git.
+Offen: Welt-/GPU-Rollback, View-Werte, TimeScale, Joins/Overriding/Surfacing und
+Velocity-Gültigkeit (Hintergrund -10000 ist kein Bewegungsvektor).
+## Renderer-Neuinitialisierung
+Live ruft Init bei Planwechsel auf derselben Instanz auf. DrawsGlass_ und
+GlassDrawnElsewhere_ bleiben gesetzt; Submitted_/Temporalzustand und Offscreen-Ziel
+bleiben erhalten. DrawsInto setzt Teile zurück, ersetzt keinen Init-Vertrag.
+Plan-/Target-/Stage-Zustände explizit neu aufbauen; GPU-Wait-Fehler vor Umbau prüfen.
+Abnahme: Transmission-/Temporal-/Extent-Wechsel gegen frischen Renderer, Readback
+vor neuem Submit verweigern, fehlgeschlagene Vorbereitung und Retry. Init fachlich teilen.
