@@ -1,5 +1,6 @@
 #include <Outshine.h>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <type_traits>
 #include "Check.h"
@@ -45,7 +46,11 @@ int main() {
     CHECK(!render.endFrame(), "refusal did not begin a frame on the first Engine");
     CHECK(!other.endFrame(), "refusal did not begin a frame on the second Engine");
     CHECK(render.beginFrame(target).has_value(), "the first owner remains usable");
+    CHECK(!render.beginFrame(target), "an already open frame rejects a repeated begin");
+    CHECK(!copied.beginFrame(target), "facade copies cannot nest their owner's frame");
+    CHECK(!first.drawsInto({48, 32}), "rejected nested begin preserves the original open scope");
     CHECK(copied.endFrame().has_value(), "copied facades share their owner's frame state");
+    CHECK(!render.endFrame(), "exactly one close consumes the original frame");
     CHECK(other.beginFrame(foreign).has_value(), "the second owner remains usable");
     CHECK(other.endFrame().has_value(), "second frame ends independently");
     CHECK(first.drawsInto({48, 32}).has_value(), "target can change without moving the Engine");
@@ -54,6 +59,28 @@ int main() {
     CHECK(copied.beginFrame(target).has_value(),
           "retained facade remains valid after target change");
     CHECK(render.endFrame().has_value(), "frame closes after target change");
+  }
+  {
+    Engine engine;
+    Scenario::Document deferred;
+    Scenario::Asset broken;
+    broken.Kind = "gltf";
+    const auto missing = std::filesystem::temp_directory_path() /
+                         ("outshine-frame-preflight-" + std::to_string(SDL_GetTicksNS()) + ".gltf");
+    CHECK(!std::filesystem::exists(missing), "the deferred asset fixture is absent");
+    broken.Uri = missing.string();
+    deferred.Assets.push_back(broken);
+    CHECK(engine.declare(deferred).has_value(), "scene setup can be deferred without a target");
+    CHECK(engine.drawsInto({32, 32}).has_value(),
+          "configure target without loading the deferred asset");
+    auto renderer = engine.renderer();
+    const auto wrongSize = renderer.render({48, 32});
+    CHECK(!wrongSize && wrongSize.error().find("canvas") != std::string::npos,
+          "extent mismatch is rejected before failing deferred scene setup");
+    const auto correctSize = renderer.render({32, 32});
+    CHECK(!correctSize &&
+              correctSize.error().find(missing.filename().string()) != std::string::npos,
+          "correct extent reaches the independently missing deferred asset");
   }
   SDL_Quit();
   Covers("stable nonmovable owners; public-header isolation; cross-owner refusal without frame "

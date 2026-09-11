@@ -42,8 +42,27 @@ constexpr auto kAudioAssemblyRequired =
     "assemble the current declaration before binding audio sources";
 constexpr auto kAudioDeclarationRequired = "declare content before preparing audio";
 constexpr auto kAudioPreparationRequired = "prepare audio before mixing";
+constexpr auto kFrameAlreadyOpen = "a frame is already open on this engine";
 constexpr auto kInvalidFrameExtent =
     "frame extent must be zero in both dimensions or positive in both";
+}
+
+namespace {
+Result ValidateFrameExtent(Extent frame, const Seen &picture) {
+  const bool defaultTarget = frame.WidthPx == 0 && frame.HeightPx == 0;
+  if (!defaultTarget && (frame.WidthPx <= 0 || frame.HeightPx <= 0)) {
+    return std::unexpected(std::string(Says::kInvalidFrameExtent));
+  }
+  if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
+      (frame.WidthPx != picture.Frame.WidthPx || frame.HeightPx != picture.Frame.HeightPx)) {
+    return std::unexpected("this engine stands on a " + std::to_string(picture.Frame.WidthPx) +
+                           "x" + std::to_string(picture.Frame.HeightPx) +
+                           " canvas and was asked to draw " + std::to_string(frame.WidthPx) + "x" +
+                           std::to_string(frame.HeightPx) +
+                           " -- a canvas is declared before a scenario stands on it");
+  }
+  return {};
+}
 }
 
 Result Engine::prepareAudio(int sampleRateHz) {
@@ -95,21 +114,11 @@ Result Engine::mix(std::span<float> stereo) {
 }
 
 bool Engine::render(Extent frame) {
-  const bool defaultTarget = frame.WidthPx == 0 && frame.HeightPx == 0;
-  if (!defaultTarget && (frame.WidthPx <= 0 || frame.HeightPx <= 0)) {
-    S_->Error = Says::kInvalidFrameExtent;
+  if (const auto valid = ValidateFrameExtent(frame, S_->Picture); !valid) {
+    S_->Error = valid.error();
     return false;
   }
   if (!S_->Stood()) { return false; }
-  if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
-      (frame.WidthPx != S_->Picture.Frame.WidthPx ||
-       frame.HeightPx != S_->Picture.Frame.HeightPx)) {
-    S_->Error = "this engine stands on a " + std::to_string(S_->Picture.Frame.WidthPx) + "x" +
-                std::to_string(S_->Picture.Frame.HeightPx) + " canvas and was asked to draw " +
-                std::to_string(frame.WidthPx) + "x" + std::to_string(frame.HeightPx) +
-                " -- a canvas is declared before a scenario stands on it";
-    return false;
-  }
   const auto began = std::chrono::steady_clock::now();
   if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
   S_->Cost.Render.Took(
@@ -261,6 +270,10 @@ bool Engine::presenting() const {
 }
 
 bool Engine::beginFrame() {
+  if (S_->Picture.FrameOpen) {
+    S_->Error = Says::kFrameAlreadyOpen;
+    return false;
+  }
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "a frame is begun over a scenario, and none stands";

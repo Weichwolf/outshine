@@ -111,7 +111,8 @@ private:
 class Renderer {
 public:
   /// Begin a frame on this renderer's Engine. A foreign target is rejected without changing
-  /// either Engine. The target must have positive dimensions; rendering setup may fail.
+  /// either Engine. A repeated begin is rejected while preserving the existing open scope.
+  /// The target must have positive dimensions; rendering setup may fail.
   /// @param into Borrowed target facade belonging to this renderer's Engine.
   /// @return Success or an owned target/state/setup error.
   [[nodiscard]] Result beginFrame(SwapChain &into);
@@ -129,7 +130,8 @@ public:
   [[nodiscard]] Result flushAndWait();
 
   /// Request a frame from this Engine's current scene. A zero extent uses the configured
-  /// target; a positive extent must match it. Calls are serialized with other Engine work.
+  /// target; a positive extent must match it. Invalid extents are rejected before scene setup.
+  /// Calls are serialized with other Engine work.
   /// A camera must be bound or derivable from object bounds. advance() applies a declared
   /// scenario view; an empty scene without a prepared view returns an error.
   /// @param frame Optional check of the target size in physical pixels; zero selects the target.

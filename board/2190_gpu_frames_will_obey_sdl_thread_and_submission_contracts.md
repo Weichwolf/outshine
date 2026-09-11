@@ -92,14 +92,14 @@ und bytegleich zur gesicherten Referenz. Keine neue fotorealistische Place-Abnah
       Warten trennen, Laufzeit-/Speicherbudget nach 2092 messen.
 
 ## Öffentliche Frame-Vorbedingungen
-BeginFrame akzeptiert bisher verschachtelte Aufrufe; Renderer-Kopien teilen denselben
+BeginFrame verweigert jetzt verschachtelte Aufrufe; Renderer-Kopien teilen denselben
 bool-Zustand. Bereits offenes Frame vor Stood/Setup ablehnen und den laufenden Scope
 erhalten. Einmaliges EndFrame schließt ihn; erneutes BeginFrame bleibt möglich.
-Render prüft Zielgrößenabweichung erst nach Stood, das Szene/Geometrie publizieren kann.
+Render prüfte Zielgrößenabweichung erst nach Stood, das Szene/Geometrie publizieren kann.
 Alle Extent-Prüfungen vor Szene-/GPU-Vorbereitung als eigene Preflight-Phase ausführen.
 Vorhandene öffentliche Owner-/Target-Tests erweitern: gleiche/kopierte Facade,
-Resize nach verweigertem Begin, genau ein Ende und Kamera-/Setupzustand nach ungültigem
-Render. Altcode muss scheitern. Gültige Renderarithmetik bleibt unverändert, keine
+Resize nach verweigertem Begin, genau ein Ende und Priorität der Größenprüfung vor
+fehlendem verzögert geladenem Asset. Altcode verletzt diese Prüfungen. Gültige Renderarithmetik bleibt unverändert, keine
 neue PNG-Wirkung beabsichtigt. Referenz ist der oben belegte SDL-Frame-Lebenszyklus.
 Weitere Befunde offen: endFrame ruft über Live::Present erneut Draw auf, auch nach
 explizitem render; Submit/Present-Semantik vor Migration vollständig prüfen.
