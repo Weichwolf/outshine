@@ -114,3 +114,6 @@ bleiben erhalten. DrawsInto setzt Teile zurück, ersetzt keinen Init-Vertrag.
 Plan-/Target-/Stage-Zustände explizit neu aufbauen; GPU-Wait-Fehler vor Umbau prüfen.
 Abnahme: Transmission-/Temporal-/Extent-Wechsel gegen frischen Renderer, Readback
 vor neuem Submit verweigern, fehlgeschlagene Vorbereitung und Retry. Init fachlich teilen.
+Sky-only-Test belegt Metal-Abbruch: SkyStage erzwingt zwei Farbattachments und
+cached Pipe unabhängig vom Plan. Pipeline aus tatsächlichem Passlayout konfigurieren;
+Attachments ohne Sky-Ausgabe maskieren. Validierter Sky-/Temporalwechsel als Abnahme.
