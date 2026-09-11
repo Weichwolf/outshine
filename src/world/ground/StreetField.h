@@ -49,6 +49,8 @@ public:
 
   [[nodiscard]] long LookedCount() const { return Looked_; }
 
+  [[nodiscard]] long InvalidLayerCount() const { return InvalidLayers_; }
+
   [[nodiscard]] long TunnelCount() const { return Tunnels_; }
 
   [[nodiscard]] long BridgeCount() const { return Bridges_; }
@@ -68,6 +70,11 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
+  void AppendFeature(const OsmField &field,
+                     const OsmField::Feature &feature,
+                     const VegetationTemplates::Rule &rule,
+                     Shape shape);
+  long InvalidLayers_ = 0;
   std::vector<Way> Ways_;
   TileRanges ByTile_;
   TileWatermark Mark_;

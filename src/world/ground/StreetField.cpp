@@ -52,36 +52,50 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
       continue;
     }
 
-    for (uint32_t r = 0; r < f.RingCount; r++) {
-      const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
-      if (ring.Count > kMaxRingPoints) { continue; }
-      if (ribbon && ring.Count < 2) { continue; }
-      if (area && (!ring.Exterior || ring.Count < 3)) { continue; }
-
-      Way w{};
-      w.FirstPoint = ring.First;
-      w.PointCount = ring.Count;
-      w.HalfWidthM = ribbon ? rule->WidthM * 0.5f : 0.0f;
-      w.CoverRow = static_cast<int32_t>(rule->Tpl);
-      w.Form = ribbon ? Shape::Ribbon : Shape::Area;
-      w.Lanes = rule->Lanes;
-      w.Bridge = field.Num(f, "bridge", 0.0) > 0.5;
-      w.Layer = static_cast<int32_t>(field.Num(f, "layer", 0.0));
-      w.ClearanceM = rule->ClearanceM;
-      w.MaxGradient = rule->MaxGradient;
-      w.SpeedMps = rule->SpeedMps;
-      w.Priority = rule->Priority;
-      w.Sealed = rule->Sealed;
-      w.Oneway = rule->Oneway;
-      Bridges_ += w.Bridge ? 1 : 0;
-      Layered_ += w.Layer != 0 ? 1 : 0;
-      LayerSaid_ += field.Str(f, "layer").empty() ? 0 : 1;
-      Ways_.push_back(w);
-    }
+    AppendFeature(field, f, *rule, ribbon ? Shape::Ribbon : Shape::Area);
   }
 
   ByTile_.Set(next.Tile, firstWay, static_cast<uint32_t>(Ways_.size()));
   return static_cast<uint32_t>(Ways_.size());
+}
+
+void StreetField::AppendFeature(const OsmField &field,
+                                const OsmField::Feature &feature,
+                                const VegetationTemplates::Rule &rule,
+                                Shape shape) {
+  const auto layer = field.Integer(feature, "layer");
+  if (!layer) {
+    ++InvalidLayers_;
+    return;
+  }
+  const bool ribbon = shape == Shape::Ribbon;
+  const bool area = shape == Shape::Area;
+  for (uint32_t r = 0; r < feature.RingCount; r++) {
+    const OsmField::Ring &ring = field.Rings()[feature.FirstRing + r];
+    if (ring.Count > kMaxRingPoints) { continue; }
+    if (ribbon && ring.Count < 2) { continue; }
+    if (area && (!ring.Exterior || ring.Count < 3)) { continue; }
+
+    Way w{};
+    w.FirstPoint = ring.First;
+    w.PointCount = ring.Count;
+    w.HalfWidthM = ribbon ? rule.WidthM * 0.5f : 0.0f;
+    w.CoverRow = static_cast<int32_t>(rule.Tpl);
+    w.Form = ribbon ? Shape::Ribbon : Shape::Area;
+    w.Lanes = rule.Lanes;
+    w.Bridge = field.Num(feature, "bridge", 0.0) > 0.5;
+    w.Layer = layer->value_or(0);
+    w.ClearanceM = rule.ClearanceM;
+    w.MaxGradient = rule.MaxGradient;
+    w.SpeedMps = rule.SpeedMps;
+    w.Priority = rule.Priority;
+    w.Sealed = rule.Sealed;
+    w.Oneway = rule.Oneway;
+    Bridges_ += w.Bridge ? 1 : 0;
+    Layered_ += w.Layer != 0 ? 1 : 0;
+    LayerSaid_ += layer->has_value() ? 1 : 0;
+    Ways_.push_back(w);
+  }
 }
 
 }

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <expected>
 #include <initializer_list>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -123,6 +124,9 @@ public:
   [[nodiscard]] std::string_view LayerName(int i) const { return Layers_[static_cast<size_t>(i)]; }
 
   [[nodiscard]] double Num(const Feature &f, const char *key, double def) const;
+
+  [[nodiscard]] std::expected<std::optional<int32_t>, std::string_view>
+  Integer(const Feature &feature, std::string_view key) const;
 
   [[nodiscard]] std::string_view Str(const Feature &f, const char *key) const;
 

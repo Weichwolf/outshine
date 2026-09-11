@@ -1,4 +1,6 @@
 #include <expected>
+#include <charconv>
+#include <system_error>
 #include <algorithm>
 #include <array>
 #include <utility>
@@ -526,6 +528,40 @@ double OsmField::Num(const Feature &f, const char *key, double def) const {
     if (Keys_[k] == key && Values_[v].IsNum) { return Values_[v].Num; }
   }
   return def;
+}
+
+namespace Says {
+constexpr auto InvalidInteger =
+    "OSM integer must be a complete signed decimal or a finite integral int32 value";
+}
+
+std::expected<std::optional<int32_t>, std::string_view>
+OsmField::Integer(const Feature &feature, std::string_view key) const {
+  for (uint32_t at = 0; at + 1 < feature.TagCount; at += 2) {
+    if (Keys_[Tags_[feature.FirstTag + at]] != key) { continue; }
+    const Value &value = Values_[Tags_[feature.FirstTag + at + 1]];
+    if (value.IsNum) {
+      if (!std::isfinite(value.Num) || std::trunc(value.Num) != value.Num ||
+          value.Num < std::numeric_limits<int32_t>::min() ||
+          value.Num > std::numeric_limits<int32_t>::max()) {
+        return std::unexpected(Says::InvalidInteger);
+      }
+      return static_cast<int32_t>(value.Num);
+    }
+    std::string_view text = Strings_[value.Str];
+    if (text.starts_with('+')) {
+      text.remove_prefix(1);
+      if (text.starts_with('-')) { return std::unexpected(Says::InvalidInteger); }
+    }
+    if (text.empty()) { return std::unexpected(Says::InvalidInteger); }
+    int32_t parsed = 0;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), parsed);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size()) {
+      return std::unexpected(Says::InvalidInteger);
+    }
+    return parsed;
+  }
+  return std::nullopt;
 }
 
 std::string_view OsmField::Str(const Feature &f, const char *key) const {

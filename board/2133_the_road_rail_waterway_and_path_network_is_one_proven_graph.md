@@ -114,7 +114,7 @@ Index-/Vorgängerverwechslung. Plan-Komplexitätsbefund entfernt: lint 186/333,
 32 Claims grün. Keine neuen Render-Abhängigkeiten oder dauerhaften Suchdaten.
 
 ## Geprüfte Layer-Grenze
-StreetField castet double ungeprüft und ignoriert textuelle Layer. OsmField erhält
-Integer: fehlend optional, Text vollständig parsen, Zahl endlich/ganzzahlig/int32.
-StreetField zählt/verwirft ungültige Features; fehlend bleibt 0. Featureaufbereitung
-von Tile-Fortschritt trennen. MVT-Fixtures prüfen Grenzen, Brüche, Text und Wiederholung.
+OsmField::Integer trennt fehlend, gültig und Fehler; vollständiger Dezimaltext oder
+endliche ganze int32-Zahl. StreetField zählt/verwirft ungültige Features, fehlend ist 0.
+Tile-Fortschritt und Featureaufbereitung getrennt. 125 Fixture-Checks grün; alter
+Textzugriff verletzt vier. Wien ohne Vegetation pixelgleich, beide PNGs geprüft.
