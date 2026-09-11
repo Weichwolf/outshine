@@ -113,8 +113,8 @@ Rank 0..255 (ClassBuilder packt acht Bits), Lanes >=0, Priority int; Maße im Fl
 Flags bool oder 0/1; Altcode rot, zwei Regressionen grün. Andere Template-Zahlen offen.
 
 ## UI-Markup-Parser
-Read beschädigt bei Fehlern den Vorgänger und behält Scripted bei Wiederverwendung.
+Read publiziert Kandidaten; Fehler erhalten Baum/Adressen, Wiederverwendung setzt Scripted zurück.
 Parserkandidat mit Text-/Tag-/Attribut-/Raw-Text-Phasen; erst vollständig publizieren.
 Explizite Budgets: 1 MiB Quelltext, 65536 Knoten inkl. Dokument, 65536 Attribute,
 256 offene Elemente. Entity-Suche auf bestehende Referenzlänge begrenzen.
-Baum-/Attribut-/Raw-Text-Verträge und Fehler-/Budgeterhalt prüfen; keine HTML-Konformität behaupten.
+Drei Parser-/Input-Tests grün, Altcode rot. HTML-Entity-/Raw-Endtag-Konformität bleibt offen.
