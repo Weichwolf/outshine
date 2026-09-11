@@ -114,7 +114,7 @@ uint32-Überlauf. GPU-Test: Release vor ungültigem Eintrag/Summenüberlauf blei
 keine Allokation; normal/validiert grün. Referenz: SDL Uint32-Größen.
 Verzögerte Uploads werden erst nach erfolgreichem Submit quittiert; Aufnahmeabbruch und
 Retry mit GPU-Inhalt belegt; Frame-/Fensterregressionen normal/SDL-validiert grün.
-Entscheidung: Pending-Batch vor sofortigem Cross oder Buffer-Ersatz/Grow einreichen,
-erst bei Erfolg quittieren; sonst keine Mutation. Normales Deferred-Cross bleibt gebündelt.
-GPU-Negativtest belegt falsche Mixed-Reihenfolge. Room auf Residency vereinheitlichen.
+Pending-Batch wird vor sofortigem Cross oder Buffer-Ersatz/Grow geordnet eingereicht;
+Fehler erhalten Batch/Buffer. GPU-Test belegt Mixed-Reihenfolge, Grow mit Pending und Retry.
+Room entfällt; Residency trennt Preserve/Discard. Frame-/Instancing-Regressionen grün.
 Offen: Frame-CopyPass-Fehler, atomare Mehrbuffer-Kandidaten und Upload-Budgets.

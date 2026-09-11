@@ -177,19 +177,6 @@ private:
   void BindSlot(const PassRecording &into, size_t slot, VertexLayout layout) const;
   void EncodeGround(const PassRecording &into) const;
 
-  [[nodiscard]] bool Room(SubjectResidency::Stream held, SubjectResidency::Need need) {
-    OwnedBuffer &into = Bound().Buffer(held);
-    uint32_t *const stood = Bound().HeldAt(held);
-    if (into && *stood >= need.Bytes) { return true; }
-    SDL_GPUBufferCreateInfo wanted{};
-    wanted.usage = need.Usage;
-    wanted.size = *stood > 0 ? *stood : need.Bytes;
-    while (wanted.size < need.Bytes) { wanted.size *= 2u; }
-    into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
-    *stood = into ? wanted.size : 0u;
-    return static_cast<bool>(into);
-  }
-
 public:
   [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
 

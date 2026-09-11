@@ -46,9 +46,12 @@ struct SubjectResidency {
     Count
   };
 
+  enum class ExistingContents { Preserve, Discard };
+
   struct Need {
     SDL_GPUBufferUsageFlags Usage = 0;
     uint32_t Bytes = 0;
+    ExistingContents Existing = ExistingContents::Preserve;
   };
 
   struct Crossing {
@@ -168,6 +171,11 @@ struct SubjectResidency {
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
+  [[nodiscard]] bool PrepareBuffers(std::span<Crossing> what, std::string &error);
+  [[nodiscard]] bool StageUploads(std::span<Crossing> what, uint32_t total, std::string &error);
+  [[nodiscard]] bool ReplacesBuffers(std::span<const Crossing> crossings) const;
+  [[nodiscard]] bool SubmitPending(std::string &error);
+  void RecordCrossings(SDL_GPUCopyPass *copy);
   [[nodiscard]] static Range Take(std::vector<Range> &free, uint32_t count, uint32_t &top);
   static void Give(std::vector<Range> &free, Range back);
   std::vector<Range> FreeV_;

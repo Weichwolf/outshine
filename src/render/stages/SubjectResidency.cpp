@@ -174,6 +174,24 @@ void SubjectResidency::Give(std::vector<Range> &free, Range back) {
   }
 }
 
+bool SubjectResidency::ReplacesBuffers(std::span<const Crossing> crossings) const {
+  return std::ranges::any_of(crossings, [this](const Crossing &crossing) {
+    return Buffer(crossing.Which) &&
+           (crossing.Bytes == 0 || !crossing.Stands() ||
+            uint64_t{crossing.Offset} + crossing.Bytes > HeldOf(crossing.Which));
+  });
+}
+
+bool SubjectResidency::SubmitPending(std::string &error) {
+  if (StagedCount_ == 0) { return true; }
+  const auto copy = BeginCopy(Device_, error);
+  if (!copy) { return false; }
+  RecordCrossings(copy->Pass);
+  if (!SubmitCopy(*copy, error)) { return false; }
+  CommitCrossings();
+  return true;
+}
+
 bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::string &error) {
   const auto measured = UploadBytes(what);
   if (!measured) {
@@ -181,6 +199,13 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
     return false;
   }
   const uint32_t total = *measured;
+  if ((!deferred || ReplacesBuffers(what)) && !SubmitPending(error)) { return false; }
+  if (!PrepareBuffers(what, error)) { return false; }
+  if (total == 0) { return true; }
+  return deferred ? StageUploads(what, total, error) : Submit(what, total, error);
+}
+
+bool SubjectResidency::PrepareBuffers(std::span<Crossing> what, std::string &error) {
   for (const auto &one : what) {
     OwnedBuffer &into = Buffer(one.Which);
     uint32_t *const stood = HeldAt(one.Which);
@@ -203,9 +228,10 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
       *stood = one.Offset + one.Bytes;
     }
   }
-  if (total == 0) { return true; }
+  return true;
+}
 
-  if (!deferred) { return Submit(what, total, error); }
+bool SubjectResidency::StageUploads(std::span<Crossing> what, uint32_t total, std::string &error) {
   if (uint64_t{StagingUsed_} + total > StagingBytes_ || !Staging_) {
     const uint32_t widened = total > StagingBytes_ ? total : StagingBytes_;
     SDL_GPUTransferBufferCreateInfo room{};
@@ -315,6 +341,7 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
   OwnedBuffer &held = Buffer(which);
   uint32_t *const stood = HeldAt(which);
   if (held && *stood >= need.Bytes) { return true; }
+  if (!SubmitPending(error)) { return false; }
   uint32_t widened = *stood > 0 ? *stood : need.Bytes;
   while (widened < need.Bytes) {
     widened = static_cast<uint32_t>(
@@ -329,7 +356,7 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
     error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
     return false;
   }
-  if (held && *stood > 0) {
+  if (held && *stood > 0 && need.Existing == ExistingContents::Preserve) {
     const auto copy = BeginCopy(Device_, error);
     if (!copy) { return false; }
     const SDL_GPUBufferLocation from{.buffer = held.Get(), .offset = 0};
@@ -345,6 +372,11 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
 void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
   if (StagedCount_ == 0 || commands == nullptr) { return; }
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  RecordCrossings(copy);
+  SDL_EndGPUCopyPass(copy);
+}
+
+void SubjectResidency::RecordCrossings(SDL_GPUCopyPass *copy) {
   for (size_t at = 0; at < StagedCount_; ++at) {
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Staged_[at].Staging,
                                                .offset = Staged_[at].From};
@@ -353,7 +385,6 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
     gCrossingsFlushed.fetch_add(1u, std::memory_order_relaxed);
   }
-  SDL_EndGPUCopyPass(copy);
 }
 
 void SubjectResidency::CommitCrossings() {

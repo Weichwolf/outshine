@@ -131,6 +131,59 @@ void DeferredRetry(SDL_GPUDevice *device) {
         "retry records the unacknowledged upload again");
 }
 
+void MixedUploads(SDL_GPUDevice *device) {
+  SubjectResidency residency;
+  residency.StandsOn(device, true);
+  constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
+  const std::vector<uint32_t> initial{0, 0, 0, 0};
+  const std::vector<uint32_t> staged{17, 23, 31, 47};
+  const std::vector<uint32_t> latest{53, 59, 61, 67};
+  std::array<SubjectResidency::Crossing, 1> crossing{
+      {{.Which = stream,
+        .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+        .From = initial.data(),
+        .Bytes = 16}}};
+  std::string error;
+  CHECK(residency.Cross(crossing, false, error), "mixed fixture initializes data");
+  crossing[0].From = staged.data();
+  CHECK(residency.Cross(crossing, true, error), "earlier upload is deferred");
+  crossing[0].From = latest.data();
+  CHECK(residency.Cross(crossing, false, error), "later upload is immediate");
+  auto *commands = SDL_AcquireGPUCommandBuffer(device);
+  CHECK(commands != nullptr, "mixed upload recording acquires commands");
+  if (commands == nullptr) { return; }
+  residency.FlushCrossings(commands);
+  CHECK(SDL_SubmitGPUCommandBuffer(commands), "remaining deferred work submits");
+  residency.CommitCrossings();
+  CHECK(Read(device, residency.Buffer(stream).Get(), latest.size()) == latest,
+        "earlier deferred data cannot overwrite a later immediate upload");
+  crossing[0].From = staged.data();
+  CHECK(residency.Cross(crossing, true, error), "growth has pending data to preserve");
+  auto *original = residency.Buffer(stream).Get();
+  const auto capacity = residency.HeldOf(stream);
+  for (Failure point : {Failure::Acquire, Failure::Pass, Failure::Submit}) {
+    nextFailure = point;
+    skipFailures = 0;
+    CHECK(
+        !residency.Grow(stream,
+                        {.Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ, .Bytes = capacity * 2},
+                        error),
+        "pending submission failure prevents growth");
+    CHECK(nextFailure == Failure::None, "growth reaches pending submission failure");
+    nextFailure = Failure::None;
+    CHECK(residency.Buffer(stream).Get() == original && residency.HeldOf(stream) == capacity,
+          "failed pending submission preserves residency");
+    CHECK(Read(device, original, latest.size()) == latest,
+          "failed pending submission leaves the submitted GPU version intact");
+  }
+  CHECK(residency.Grow(stream,
+                       {.Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ, .Bytes = capacity * 2},
+                       error),
+        "growth retries pending uploads before copying");
+  CHECK(Read(device, residency.Buffer(stream).Get(), staged.size()) == staged,
+        "grown buffer contains pending values instead of the obsolete submitted version");
+}
+
 void Growth(SDL_GPUDevice *device) {
   constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
   constexpr auto usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
@@ -284,6 +337,7 @@ int main() {
       Tables(device.Get());
       Growth(device.Get());
       DeferredRetry(device.Get());
+      MixedUploads(device.Get());
     }
   }
   SDL_Quit();

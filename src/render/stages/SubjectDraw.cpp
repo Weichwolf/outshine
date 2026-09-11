@@ -1172,17 +1172,26 @@ bool SubjectDraw::UploadTables(std::string &error) {
   constexpr SDL_GPUBufferUsageFlags kCullUse =
       SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
   const uint32_t jobBytes = Jobs_ * static_cast<uint32_t>(sizeof(uint32_t));
-  if (!Room(SubjectResidency::Stream::ClusterKept, {.Usage = kCullUse, .Bytes = jobBytes}) ||
-      !Room(SubjectResidency::Stream::ClusterSlot, {.Usage = kCullUse, .Bytes = jobBytes}) ||
-      !Room(SubjectResidency::Stream::DrawIndex,
-            {.Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-             .Bytes = base * static_cast<uint32_t>(sizeof(uint32_t))}) ||
-      !Room(SubjectResidency::Stream::DrawArguments,
-            {.Usage = SDL_GPU_BUFFERUSAGE_INDIRECT | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-             .Bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t))})) {
+  constexpr auto discard = SubjectResidency::ExistingContents::Discard;
+  if (!Bound().Grow(SubjectResidency::Stream::ClusterKept,
+                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard},
+                    error) ||
+      !Bound().Grow(SubjectResidency::Stream::ClusterSlot,
+                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard},
+                    error) ||
+      !Bound().Grow(SubjectResidency::Stream::DrawIndex,
+                    {.Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+                     .Bytes = base * static_cast<uint32_t>(sizeof(uint32_t)),
+                     .Existing = discard},
+                    error) ||
+      !Bound().Grow(
+          SubjectResidency::Stream::DrawArguments,
+          {.Usage = SDL_GPU_BUFFERUSAGE_INDIRECT | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+           .Bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t)),
+           .Existing = discard},
+          error)) {
     Args_.clear();
     Jobs_ = 0;
-    error = std::string("the cut's compacted run found no room on the device: ") + SDL_GetError();
     return false;
   }
   return HandDrawArguments(false, error);
