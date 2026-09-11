@@ -49,3 +49,6 @@ Entscheidung: Generationwechsel invalidiert die Klassifikation unabhängig von F
 Ingest in Geometrieübernahme und Featureklassifikation trennen.
 Test: deklarierte Fläche vollständig bauen, durch ausgeschlossene Layer ersetzen,
 ohne Kamerabewegung beide Tiers erneut bauen und alte Klassifikation entfernen.
+Zusatzbefund: OsmField deklariert unbekannte Layer als Layer 0 und vergleicht sie
+ebenfalls so. Deklarierte Eingaben müssen denselben Layerfilter wie Providerdaten nutzen;
+ausgeschlossene Features beim Identitätsvergleich überspringen, leere Identität stabil halten.
