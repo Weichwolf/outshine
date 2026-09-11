@@ -115,6 +115,6 @@ Retry mit GPU-Inhalt belegt; Frame-/Fensterregressionen normal/SDL-validiert gr�
 Pending-Batch wird vor sofortigem Cross oder Buffer-Ersatz/Grow geordnet eingereicht;
 Fehler erhalten Batch/Buffer. GPU-Test belegt Mixed-Reihenfolge, Grow mit Pending und Retry.
 Room entfällt; Residency trennt Preserve/Discard. Frame-/Instancing-Regressionen grün.
-Upload-CopyPass wird vor Swapchain-Acquire geprüft; Fehler brechen Commands ab,
-Pending bleibt für Retry. Kein Cancel nach Swapchain-Acquire. CopyPass-/Retry- und
-Frame-/Fenstertests in sechs Profilen grün. Atomare Kandidaten/Upload-Budgets offen.
+CopyPass vor Swapchain-Acquire geprüft; Retry/Frame/Fenster in sechs Profilen grün.
+Nächster Schritt: Buffer-Ersatz lokal anlegen; Fehler erhält Handle/Kapazität/GPU-Daten.
+Allokationsfehler injizieren. Mehrbuffer-Atomarität und Upload-Budgets bleiben offen.
