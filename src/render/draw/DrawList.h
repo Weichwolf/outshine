@@ -252,6 +252,8 @@ private:
   std::vector<DrawBatch> Batches_;
   std::vector<uint32_t> Jobs_;
   uint32_t IndexCount_ = 0;
+  uint32_t AdmittedIndices_ = 0;
+  uint32_t AdmittedJobs_ = 0;
 };
 
 }

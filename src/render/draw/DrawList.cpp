@@ -5,8 +5,13 @@
 #include <cstdint>
 #include <cstddef>
 #include <span>
+#include <limits>
 
 namespace outshine::Render {
+
+namespace Says {
+constexpr auto DrawCapacity = "draw ranges exceed GPU addressing capacity";
+}
 
 namespace {
 
@@ -40,7 +45,19 @@ bool DrawList::Add(const DrawItem &item, std::string &error) {
     return false;
   }
 
+  constexpr uint64_t maximum = std::numeric_limits<uint32_t>::max();
+  const uint64_t indices = uint64_t{AdmittedIndices_} + item.IndexCount;
+  const uint64_t jobs = uint64_t{AdmittedJobs_} + (item.Instances == 1 ? item.ClusterCount : 0u);
+  if (indices > maximum / sizeof(uint32_t) || jobs > maximum / (kJobWords * sizeof(uint32_t)) ||
+      uint64_t{item.SourceFirstIndex} + item.IndexCount > maximum ||
+      uint64_t{item.ModelSlot} + item.Instances > maximum ||
+      uint64_t{item.FirstCluster} + item.ClusterCount > maximum || Draws_.size() >= maximum) {
+    error = Says::DrawCapacity;
+    return false;
+  }
   Draws_.push_back(item);
+  AdmittedIndices_ = static_cast<uint32_t>(indices);
+  AdmittedJobs_ = static_cast<uint32_t>(jobs);
   Draws_.back().Submitted = static_cast<uint32_t>(Draws_.size()) - 1u;
   return true;
 }
@@ -51,6 +68,8 @@ void DrawList::Clear() {
   Batches_.clear();
   Jobs_.clear();
   IndexCount_ = 0;
+  AdmittedIndices_ = 0;
+  AdmittedJobs_ = 0;
 }
 
 void DrawList::Compile() {

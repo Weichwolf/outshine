@@ -110,11 +110,11 @@ Negativkontrolle ohne Bereichsschutz scheitert. Instancing-/Upload-Retry-Regress
 bestehen. Clang-tidy 99 → 98; gesamte Pose-Zustandsatomarität bleibt offen.
 
 ## DrawList-Annahmegrenze
-Add prüft Dreiecke/Slots, aber keine Bereichsenden oder kumulierten Indexzahlen;
-Compile addiert uint32 ungeprüft. Zwei gültig teilbare Indexzahlen können umbrechen.
-Vorhandene Add-Fehlerweitergabe nutzen: Quellindex-, Modell- und Clusterenden sowie
-Gesamtindex-/Job-Bytebedarf vor Mutation prüfen; Clear setzt Budgets zurück.
+Add prüft Quellindex-, Modell- und Clusterenden sowie kumulierte Index-/Jobbytes
+vor Mutation. Clear setzt die Budgets zurück; Compile erhält die Annahmezähler.
 SDL_GPUBufferCreateInfo.size ist Uint32 (lokales SDL_gpu.h); breite Rechnung vor
-Verengung. Keine künstlichen Großallokationen im Test. Abnahme: Grenzwerte,
-fehlgeschlagene Annahme erhält Listen, Compile/Add/Clear und Cluster-/Instancing-
-Regressionen; Negativkontrolle am alten Code. Bild gültiger Draws bleibt unverändert.
+Verengung. Jobbudget ist konservativ vor späterer Batch-Unterdrückung gerechnet.
+AdmissionPreservesRanges: 15 Checks bestehen, alter vollständiger Code verletzt 10.
+Instancing und GPU-Upload-Retry normal/validiert bestehen; Clang-tidy bleibt bei 98.
+Kein Nachweis vollständiger JobsAddress-Validierung oder praktischer Framebudgets;
+Clusterzuordnung, tatsächliche Quellspans und globale Speicherbudgets bleiben offen.
