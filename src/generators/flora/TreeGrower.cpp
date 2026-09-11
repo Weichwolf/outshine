@@ -274,126 +274,155 @@ void TreeGrower::SpawnShoot(const Tip &parent,
   Queue_.push_back(b);
 }
 
+int TreeGrower::AdvanceTip(Tip &t, const TreeSpecies::Growth &g) {
+  const Vec3f oldDir = t.Dir;
+
+  const Frame turned = FrameFrom({.Along = t.Dir, .Reference = t.Up});
+  const Vec3f &nf = turned.Normal;
+  const Vec3f &bf = turned.Binormal;
+  const float wr = g.Wander * kDeg;
+  const float ub = (t.Order == 0) ? g.LeaderBias : g.BranchUpBias;
+  Vec3f want = t.Dir;
+  want = want + nf * (Rng_.Signed() * wr);
+  want = want + bf * (Rng_.Signed() * wr);
+  want = want + Vec3f{{0, 1, 0}} * ub;
+  t.Dir = DirectionOrUp(want);
+
+  const Vec3f nPos = t.Pos + t.Dir * t.Step;
+  Vec3f up = RmfDouble(t.Pos, nPos, oldDir, t.Dir, t.Up);
+  up = FrameFrom({.Along = t.Dir, .Reference = up}).Normal;
+  t.Up = up;
+  t.Pos = nPos;
+  t.Radius = t.Radius * g.Taper;
+  const int last = AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
+  if (t.Order == 0 && t.Leader == 0) { TrunkProfile_.push_back(Vec3f{{t.Pos[1], t.Radius, 0.0f}}); }
+
+  return last;
+}
+
+bool TreeGrower::TurnInsideCrown(Tip &t) const {
+  const float escaped = Escape(t.Pos);
+  if (escaped > 1.0f) {
+    constexpr float kEscapeToFull = 0.25f;
+    const float pull = std::fmin(1.0f, (escaped - 1.0f) / kEscapeToFull) * kBendBack;
+    t.Dir = DirectionOrUp(t.Dir + Inward(t.Pos) * pull);
+    if (t.Order > 0 && escaped > kEscapeStop) { return false; }
+  }
+
+  return true;
+}
+
+void TreeGrower::FoliateStep(const Tip &t, const GrowthPass &pass, int s, float &leafRoll) {
+  const auto &g = pass.Parameters;
+  const float leafThreshold = pass.LeafThreshold;
+  const bool leaderOk =
+      (t.Order != 0) || (s >= static_cast<int>(Form_.BoleFrac * static_cast<float>(t.Steps)));
+  const bool foliated =
+      t.Foliate && leaderOk && ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold));
+  if (foliated && t.Radius < leafThreshold) {
+    leafRoll += kGolden;
+    EmitLeafPoints(t.Pos,
+                   {.Along = t.Dir, .Reference = t.Up},
+                   {.RadiusM = t.Radius, .Count = 3, .RollRad = leafRoll});
+  }
+}
+
+void TreeGrower::BranchStep(Tip &t, const GrowthPass &pass, Sprout from) {
+  const auto &g = pass.Parameters;
+  const int bareSteps = pass.BareSteps;
+  const int last = from.Node;
+  const int s = from.ParentStep;
+  if (t.Bare > 0) {
+    t.Bare--;
+  } else if (t.Order < g.MaxOrder && static_cast<int>(Plant_->Nodes.size()) < kMostTreeNodes) {
+    if (g.WhorlCount > 0 && t.Order == 0) {
+      if (((s - bareSteps) % g.WhorlSpacing) == 0) {
+        for (int wb = 0; wb < g.WhorlCount; ++wb) {
+          SpawnLateral(t,
+                       g,
+                       {.Node = last, .ParentStep = s},
+                       static_cast<float>(wb) * kTau / static_cast<float>(g.WhorlCount) +
+                           Rng_.Signed() * kWhorlJitterRad);
+        }
+      }
+    } else if (Rng_.Unit() < g.BranchChance) {
+      t.Roll += kGolden + Rng_.Signed() * kSpiralJitterRad;
+      SpawnLateral(t, g, {.Node = last, .ParentStep = s}, t.Roll);
+    }
+  }
+}
+
+void TreeGrower::FinishShoot(const Tip &t, const GrowthPass &pass, int last, float leafRoll) {
+  const auto &g = pass.Parameters;
+  const float leafThreshold = pass.LeafThreshold;
+  if (g.TerminalFork && t.Radius > g.TwigRadius && t.Order <= g.MaxOrder &&
+      static_cast<int>(Plant_->Nodes.size()) < kMostTreeNodes &&
+      last > Plant_->Shoots[static_cast<size_t>(t.Shoot)].First) {
+    for (int j = 0; j < 2; ++j) {
+      const float roll = j == 0 ? 0.0f : kTau * 0.5f;
+      const Vec3f fn = RadialAt(t.Dir, t.Up, roll);
+      const Vec3f dir = DirectionOrUp(t.Dir + fn * 0.55f);
+      SpawnShoot(t,
+                 Request{.ParentNode = last,
+                         .Roll = roll,
+                         .Dir = dir,
+                         .Up = fn,
+                         .Radius = t.Radius * kTipTaper,
+                         .Foliate = t.Foliate},
+                 g);
+    }
+  }
+  if (t.Foliate &&
+      ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * kLeafRadiusFactor)) &&
+      t.Radius < leafThreshold * kLeafRadiusFactor) {
+    EmitLeafPoints(
+        t.Pos,
+        {.Along = t.Dir, .Reference = t.Up},
+        {.RadiusM = t.Radius, .Count = kLeafPointsPerWhorl, .RollRad = leafRoll + kLeafRollTurn});
+  }
+}
+
+void TreeGrower::GrowShoot(Tip t, const GrowthPass &pass) {
+  const auto &g = pass.Parameters;
+  Plant_->Shoots[static_cast<size_t>(t.Shoot)].First = static_cast<int>(Plant_->Nodes.size());
+  float leafRoll = t.Roll;
+
+  { t.Up = FrameFrom({.Along = t.Dir, .Reference = t.Up}).Normal; }
+  AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
+  if (Plant_->Shoots[static_cast<size_t>(t.Shoot)].Parent >= 0) {
+    t.Pos = t.Pos + t.Dir * t.Step;
+    AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
+  } else if (t.Leader == 0) {
+    TrunkProfile_.push_back(Vec3f{{t.Pos[1], t.Radius, 0.0f}});
+  }
+
+  int last = static_cast<int>(Plant_->Nodes.size()) - 1;
+  for (int s = 0; s < t.Steps; ++s) {
+    if (static_cast<int>(Plant_->Nodes.size()) >= kMostTreeNodes) { break; }
+    last = AdvanceTip(t, g);
+    if (!TurnInsideCrown(t)) { break; }
+    FoliateStep(t, pass, s, leafRoll);
+    BranchStep(t, pass, {.Node = last, .ParentStep = s});
+    if (t.Radius < g.MinRadius) { break; }
+  }
+  FinishShoot(t, pass, last, leafRoll);
+}
+
 void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
   Plant_->Clear();
   Queue_.clear();
   TrunkProfile_.clear();
   Rng_ = TreeRandom(g.Seed);
-
-  const float leafThreshold = g.TwigRadius * g.FoliageFactor;
-  const int bareSteps =
-      static_cast<int>(std::lround(Form_.BoleFrac * static_cast<float>(g.TrunkSteps)));
-  SeedLeaders(g, bareSteps);
-
-  for (size_t next = 0; next < Queue_.size(); ++next) {
+  const GrowthPass pass{.Parameters = g,
+                        .LeafThreshold = g.TwigRadius * g.FoliageFactor,
+                        .BareSteps = static_cast<int>(
+                            std::lround(Form_.BoleFrac * static_cast<float>(g.TrunkSteps)))};
+  SeedLeaders(g, pass.BareSteps);
+  size_t next = 0;
+  while (next < Queue_.size()) {
     if (static_cast<int>(Plant_->Nodes.size()) >= kMostTreeNodes) { break; }
-    auto t = Queue_[next];
-    Plant_->Shoots[static_cast<size_t>(t.Shoot)].First = static_cast<int>(Plant_->Nodes.size());
-    float leafRoll = t.Roll;
-
-    { t.Up = FrameFrom({.Along = t.Dir, .Reference = t.Up}).Normal; }
-    AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
-    if (Plant_->Shoots[static_cast<size_t>(t.Shoot)].Parent >= 0) {
-      t.Pos = t.Pos + t.Dir * t.Step;
-      AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
-    } else if (t.Leader == 0) {
-      TrunkProfile_.push_back(Vec3f{{t.Pos[1], t.Radius, 0.0f}});
-    }
-
-    int last = static_cast<int>(Plant_->Nodes.size()) - 1;
-    for (int s = 0; s < t.Steps; ++s) {
-      if (static_cast<int>(Plant_->Nodes.size()) >= kMostTreeNodes) { break; }
-      const Vec3f oldDir = t.Dir;
-
-      const Frame turned = FrameFrom({.Along = t.Dir, .Reference = t.Up});
-      const Vec3f &nf = turned.Normal;
-      const Vec3f &bf = turned.Binormal;
-      const float wr = g.Wander * kDeg;
-      const float ub = (t.Order == 0) ? g.LeaderBias : g.BranchUpBias;
-      Vec3f want = t.Dir;
-      want = want + nf * (Rng_.Signed() * wr);
-      want = want + bf * (Rng_.Signed() * wr);
-      want = want + Vec3f{{0, 1, 0}} * ub;
-      t.Dir = DirectionOrUp(want);
-
-      const Vec3f nPos = t.Pos + t.Dir * t.Step;
-      Vec3f up = RmfDouble(t.Pos, nPos, oldDir, t.Dir, t.Up);
-      up = DirectionOrUp(up - t.Dir * Dot(up, t.Dir));
-      t.Up = up;
-      t.Pos = nPos;
-      t.Radius = t.Radius * g.Taper;
-      last = AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
-      if (t.Order == 0 && t.Leader == 0) {
-        TrunkProfile_.push_back(Vec3f{{t.Pos[1], t.Radius, 0.0f}});
-      }
-
-      const float escaped = Escape(t.Pos);
-      if (escaped > 1.0f) {
-        constexpr float kEscapeToFull = 0.25f;
-        const float pull = std::fmin(1.0f, (escaped - 1.0f) / kEscapeToFull) * kBendBack;
-        t.Dir = DirectionOrUp(t.Dir + Inward(t.Pos) * pull);
-        if (t.Order > 0 && escaped > kEscapeStop) { break; }
-      }
-
-      const bool leaderOk =
-          (t.Order != 0) || (s >= static_cast<int>(Form_.BoleFrac * static_cast<float>(t.Steps)));
-      const bool foliated = t.Foliate && leaderOk &&
-                            ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold));
-      if (foliated && t.Radius < leafThreshold) {
-        leafRoll += kGolden;
-        EmitLeafPoints(t.Pos,
-                       {.Along = t.Dir, .Reference = t.Up},
-                       {.RadiusM = t.Radius, .Count = 3, .RollRad = leafRoll});
-      }
-
-      if (t.Bare > 0) {
-        t.Bare--;
-      } else if (t.Order < g.MaxOrder && static_cast<int>(Plant_->Nodes.size()) < kMostTreeNodes) {
-        if (g.WhorlCount > 0 && t.Order == 0) {
-          if (((s - bareSteps) % g.WhorlSpacing) == 0) {
-            for (int wb = 0; wb < g.WhorlCount; ++wb) {
-              SpawnLateral(t,
-                           g,
-                           {.Node = last, .ParentStep = s},
-                           static_cast<float>(wb) * kTau / static_cast<float>(g.WhorlCount) +
-                               Rng_.Signed() * kWhorlJitterRad);
-            }
-          }
-        } else if (Rng_.Unit() < g.BranchChance) {
-          t.Roll += kGolden + Rng_.Signed() * kSpiralJitterRad;
-          SpawnLateral(t, g, {.Node = last, .ParentStep = s}, t.Roll);
-        }
-      }
-      if (t.Radius < g.MinRadius) { break; }
-    }
-
-    if (g.TerminalFork && t.Radius > g.TwigRadius && t.Order <= g.MaxOrder &&
-        static_cast<int>(Plant_->Nodes.size()) < kMostTreeNodes &&
-        last > Plant_->Shoots[static_cast<size_t>(t.Shoot)].First) {
-      for (int j = 0; j < 2; ++j) {
-        const float roll = j == 0 ? 0.0f : kTau * 0.5f;
-        const Vec3f fn = RadialAt(t.Dir, t.Up, roll);
-        const Vec3f dir = DirectionOrUp(t.Dir + fn * 0.55f);
-        SpawnShoot(t,
-                   Request{.ParentNode = last,
-                           .Roll = roll,
-                           .Dir = dir,
-                           .Up = fn,
-                           .Radius = t.Radius * kTipTaper,
-                           .Foliate = t.Foliate},
-                   g);
-      }
-    }
-    if (t.Foliate &&
-        ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * kLeafRadiusFactor)) &&
-        t.Radius < leafThreshold * kLeafRadiusFactor) {
-      EmitLeafPoints(
-          t.Pos,
-          {.Along = t.Dir, .Reference = t.Up},
-          {.RadiusM = t.Radius, .Count = kLeafPointsPerWhorl, .RollRad = leafRoll + kLeafRollTurn});
-    }
+    GrowShoot(Queue_[next++], pass);
   }
-
   MeasureReach();
   NormalizeToUnitHeight(heightM);
 }
@@ -422,8 +451,7 @@ void TreeGrower::MeasureReach() {
   }
 }
 
-void TreeGrower::NormalizeToUnitHeight(float heightM) {
-  if (Plant_->Nodes.empty()) { return; }
+TreeGrower::GrowthBounds TreeGrower::MeasureBounds() const {
   auto mn = Vec3f{{static_cast<float>(kBeyondAnyCoordinate),
                    static_cast<float>(kBeyondAnyCoordinate),
                    static_cast<float>(kBeyondAnyCoordinate)}};
@@ -455,6 +483,14 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
   }
   for (const LeafPoint &p : Plant_->LeafPoints) { cover(p.Pos, Vec3f{}); }
 
+  return {.Least = mn, .Most = mx};
+}
+
+void TreeGrower::NormalizeToUnitHeight(float heightM) {
+  if (Plant_->Nodes.empty()) { return; }
+  const GrowthBounds bounds = MeasureBounds();
+  const Vec3f &mn = bounds.Least;
+  const Vec3f &mx = bounds.Most;
   const bool lying = GrowthForm::Lying(Form_.Arch);
   const float y0 = lying || TrunkProfile_.empty()
                        ? mn[1]

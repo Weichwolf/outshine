@@ -35,7 +35,8 @@ struct Frame {
     nn = alt - tt * Dot(alt, tt);
   }
   const Vec3f normal = DirectionOrUp(nn);
-  return {.Normal = normal, .Binormal = DirectionOrUp(Cross(tt, normal))};
+  const Vec3f binormal = DirectionOrUp(Cross(tt, normal));
+  return {.Normal = DirectionOrUp(Cross(binormal, tt)), .Binormal = binormal};
 }
 
 inline Vec3f RmfDouble(Vec3f p0, Vec3f p1, Vec3f t0, Vec3f t1, Vec3f x0) {

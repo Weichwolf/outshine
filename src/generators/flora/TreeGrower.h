@@ -72,7 +72,27 @@ private:
   [[nodiscard]] float RoomInside(Vec3f from, Vec3f dir, float want) const;
   [[nodiscard]] RingCap LeaderEnd() const;
   int AddNode(int shoot, Vec3f pos, Vec3f dir, Vec3f up, float radius);
+
+  struct GrowthPass {
+    const TreeSpecies::Growth &Parameters;
+    float LeafThreshold;
+    int BareSteps;
+  };
+
+  [[nodiscard]] int AdvanceTip(Tip &t, const TreeSpecies::Growth &g);
+  [[nodiscard]] bool TurnInsideCrown(Tip &t) const;
+  void FoliateStep(const Tip &t, const GrowthPass &pass, int s, float &leafRoll);
+  void BranchStep(Tip &t, const GrowthPass &pass, Sprout from);
+  void FinishShoot(const Tip &t, const GrowthPass &pass, int last, float leafRoll);
+  void GrowShoot(Tip t, const GrowthPass &pass);
   void GrowOnce(const TreeSpecies::Growth &g, float heightM);
+
+  struct GrowthBounds {
+    Vec3f Least;
+    Vec3f Most;
+  };
+
+  [[nodiscard]] GrowthBounds MeasureBounds() const;
 
   void MeasureReach();
   void NormalizeToUnitHeight(float heightM);

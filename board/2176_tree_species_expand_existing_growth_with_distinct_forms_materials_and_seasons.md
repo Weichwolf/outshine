@@ -105,15 +105,16 @@ Corpus. Queue-/Blatt-/Scratch-Gesamtbudget, Grower-Publikation und abgeleitete F
 scheitert. Alle 31 Profile akzeptiert. Keine Aussage zu Gesamtkosten maximaler Eingaben.
 
 ## Grower-Phasen
-GrowOnce vermischt Queue-Abarbeitung, Einzeltrieb, Richtungsfortschritt, Verzweigung
-und Abschluss. Private Phasen mit geliehenem Growth-Pass-Kontext trennen; Tip als
-lokale Kopie behalten, da Spawn die Queue reallokieren kann. RNG-Aufrufreihenfolge,
-Geometrie und bestehende Stopbedingungen unverändert. Keine neue Allokation pro Schritt.
-Vorher/nachher alle 31 Skelette vollständig vergleichen; zusätzlich endliche Frames,
-zusammenhängende Node-Spans, gültige Eltern und Wiederverwendung prüfen. Dies beweist
-Bestandserhalt, keine Artenqualität. Gesamtbudget/Fehlerpublikation bleiben offen.
-Frame-Prüfung findet im Altstand sechs Arten mit |dot(Dir,Up)| bis 0,0053.
-Gram-Schmidt nahe paralleler Referenz verstärkt Rundungsfehler; Basis abschließend
-über zwei Kreuzprodukte orthogonalisieren und denselben FrameFrom im Fortschritt
-nutzen. Explizite Parallel-/Antiparallel-Proben und GLB-Äste vor/nachher rendern.
-Phasentrennung allein: 49.540.826 Snapshot-Bytes identisch; Frame-Korrektur separat messen.
+GrowOnce trennt jetzt Queue-Abarbeitung, Einzeltrieb, Richtungsfortschritt, Verzweigung
+und Abschluss. Geliehener Growth-Pass-Kontext, Tip bleibt lokale Kopie: Spawn kann
+Queue reallokieren. Bounds separat messen; keine neue Allokation pro Schritt.
+Phasentrennung allein: 49.540.826 Snapshot-Bytes für 31 Profile exakt identisch.
+Altstand verletzt Frame-Orthogonalität bei sechs Arten: |dot(Dir,Up)| bis 0,0053.
+FrameFrom orthogonalisiert über zwei Kreuzprodukte und wird im Fortschritt wiederverwendet.
+180 Checks grün: Parallel-/Antiparallel-Proben, gültige Eltern/Node-Spans, endliche
+Frames und Wiederverwendung. Maximaler |dot| danach 1,23e-7 bei 459.253 Nodes.
+Explizite Work-Queue: Stamm mit vier plus drei Triebe mit je fünf Nodes = 19 verarbeitet.
+GLB-Diagnose über öffentlichen Export und outshine-client: Tannenäste vor/nachher
+pixelgleich, PNGs geöffnet. Silhouette mit langem kahlem Leittrieb und kurzen tiefen
+Ästen bleibt morphologisch unbefriedigend. Kein Rinden-/Licht-/Artenqualitätsnachweis.
+Queue-/Gesamtbudget und atomare Fehlerpublikation bleiben offen.
