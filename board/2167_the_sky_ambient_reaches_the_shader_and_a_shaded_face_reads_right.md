@@ -67,3 +67,13 @@ unverschattete diffuse Fläche bei konstantem einfallendem Direktlicht. Den Vert
 mit isoliertem Empfänger, fester Belichtung und linearem Direct-AOV prüfen;
 Geländenormalen, Sichtbarkeit und Belichtungsverlauf separat eingrenzen. Keine
 Toleranzanhebung oder Shaderkorrektur aus dieser ROI-Zahl allein ableiten.
+
+## Clear-sky-Messreferenz
+Egbert/ASTM-Manifeste erhalten, score_clear_sky.py neu anbinden: derzeit falscher
+JSON-Pfad files statt subjects[].files, veralteter Fetchpfad und kein Engine-Aufruf.
+ASTM-Global-Tilt und Egbert-Tagesmaximum sind keine identischen Messbedingungen;
+pauschale 2%-Gleichheit entfernen und durch fachlich begründete Orakel ersetzen.
+Messgeometrie, Sonnenstand, Atmosphäre, Spektralbereich und radiometrische/photometrische
+Einheiten angleichen. Lineare GPU-Ausgabe vor Belichtung/Tonemapping vergleichen;
+Messunsicherheit und Modellabweichung ausweisen. Keine Parameteranpassung nur an Egbert.
+Mindestens unabhängige Sonnenhöhen/Empfängerrichtungen und Negativkontrolle; Anschluss 2218.
