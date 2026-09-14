@@ -103,16 +103,16 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
 ## P0: Fortschritt und nächster Vertrag
-SubjectDraw ohne Tidy-Befund: Validierung vor Mutation, Pipeline-/Binding-Phasen.
-Mesh-/GPU-Tests und Negativkontrollen grün, Wien pixelgleich.
-Lint: 45 Befunde, Writer rot. Renderer-Größen-/Rollback-/Reconfigure-Verträge,
+SubjectDraw/ClassBuilder ohne Tidy-Befund; unabhängige Fehler-/Rastertests,
+Negativkontrollen und Wien pixelgleich. Lint: 45 Befunde, Writer rot.
+Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
 Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-ClassBuilder trennt Kurvenkanten, Zellindex, Scanline-Schnittpunkte, Seeds und
-Packen; Scratch und bisheriger Algorithmus erhalten. Zwölf analytische Checks
-für Loch/Innen/Außen/Rang/Linienbreite/Wiederverwendung grün, Abfragegrenzen grün.
-Winding abgeschaltet: vier Fehler. Lint vollständig: 45 Befunde, ClassBuilder
-ohne Diagnose; Writer rot. Wien geöffnet: 0/921600 Pixel verändert;
-p50/p95/p99 5.25/5.74/6.19 ms, 0/120 über 16.67 ms.
-Numerische Eingangsgrenzen, Job-Abbruch, Überfüllung und vollständige
-OSM-Topologie-Abnahme bleiben offen. Keine neue künstlerische Abnahme.
+Nächster Schritt: CPU-sRGB-Transfer in base/math gemeinsam implementieren;
+Atlas-Encoding, Textur-Upload und Generatorfarben migrieren. glTF-Referenz
+../glTF c184327, Specification.adoc Material: RGB vor Berechnung/Filterung
+dekodieren; Alpha linear. Keine glTF-Typen im gemeinsamen Mathematikmodul.
+Feste Transferwerte, Knie, alle 256 Bytes und unabhängige Double-Rechnung prüfen;
+Negativkontrolle Gamma 2 statt 2.4. Keine Grenzwerte lockern.
+Vorhandene Atlas-Projektion prüfen; WIP-Bake-Umbau nicht mitcommitten.
+Lint sowie Wien-Vergleich; Vegetation bleibt in Places ausgeschaltet.
