@@ -154,6 +154,9 @@ private:
     uint64_t Used = 0;
   };
 
+  [[nodiscard]] std::optional<Job> NextJob();
+  [[nodiscard]] Result RunJob(TerrainTiles &tiles, const Job &job);
+  void PublishResult(const Job &job, Result result);
   void Work(int slot);
   void Carry();
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);

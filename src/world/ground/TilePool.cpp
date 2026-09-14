@@ -465,6 +465,86 @@ void TilePool::Carry() {
   }
 }
 
+std::optional<TilePool::Job> TilePool::NextJob() {
+  std::unique_lock<std::mutex> lock(QueueMutex_);
+  Wake_.wait(lock, [this] { return Stopping_ || !Queue_.empty(); });
+  if (Stopping_) { return std::nullopt; }
+  size_t best = 0;
+  for (size_t i = 1; i < Queue_.size(); i++) {
+    const Job &a = Queue_[i];
+    const Job &b = Queue_[best];
+    if (a.Kind < b.Kind || (a.Kind == b.Kind && a.Z > b.Z) ||
+        (a.Kind == b.Kind && a.Z == b.Z && a.TileDist < b.TileDist)) {
+      best = i;
+    }
+  }
+  Job job = Queue_[best];
+  Queue_.erase(Queue_.begin() + static_cast<long>(best));
+  return job;
+}
+
+TilePool::Result TilePool::RunJob(TerrainTiles &tiles, const Job &job) {
+  Result result;
+  switch (job.Kind) {
+    case Rank::Mesh: {
+      ShapedGround told;
+      {
+        const std::scoped_lock lock(QueueMutex_);
+        told = Shape_;
+      }
+      if (!told.Kind.empty()) {
+        TerrainTiles::Shaped how;
+        how.Kind = told.Kind;
+        how.AmplitudeM = told.AmplitudeM;
+        how.WavelengthM = told.WavelengthM;
+        how.Gradient = told.Gradient;
+        how.BearingDeg = told.BearingDeg;
+        how.FocusLatDeg = told.FocusLatDeg;
+        how.FocusLonDeg = told.FocusLonDeg;
+        how.Seed = told.Seed;
+        tiles.Shapes(how);
+      }
+      RunMesh(tiles, job, &result);
+    }
+      result.Holds = true;
+      break;
+    case Rank::Field:
+      RunField(tiles, job, &result);
+      result.Holds = false;
+      break;
+    case Rank::Fetch:
+      result.State = job.Ask ? FetchInto(*job.Ask, &result.Landed) : Reply::Refused;
+      break;
+  }
+  return result;
+}
+
+void TilePool::PublishResult(const Job &job, Result result) {
+  {
+    const std::scoped_lock lock(QueueMutex_);
+
+    if (result.State == Reply::Pending) {
+      Posted_.erase(job.Key);
+      {
+        const std::scoped_lock ledger(LedgerMutex_);
+        if (job.Kind == Rank::Mesh) { Ledger_.MeshDropped++; }
+        if (job.Kind == Rank::Field) { Ledger_.FieldDropped++; }
+      }
+      Landed_.notify_all();
+    }
+
+    else if (Posted_.contains(job.Key)) {
+      if (result.State == Reply::Absent || result.State == Reply::Undeclared) {
+        result.Build = TileBuild{};
+      }
+      const bool holds = result.Holds;
+      Done_[job.Key] = std::move(result);
+      Lands(job.Key, holds);
+      Landed_.notify_all();
+    }
+  }
+}
+
 void TilePool::Work(int slot) {
   const Heap::Tagged working("tile-worker");
   StackProbe::Enter(StackProbe::Purpose::Tile);
@@ -483,58 +563,14 @@ void TilePool::Work(int slot) {
   ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
 
   for (;;) {
-    Job job;
-    {
-      std::unique_lock<std::mutex> lock(QueueMutex_);
-      Wake_.wait(lock, [this] { return Stopping_ || !Queue_.empty(); });
-      if (Stopping_) { break; }
-      size_t best = 0;
-      for (size_t i = 1; i < Queue_.size(); i++) {
-        const Job &a = Queue_[i];
-        const Job &b = Queue_[best];
-        if (a.Kind < b.Kind || (a.Kind == b.Kind && a.Z > b.Z) ||
-            (a.Kind == b.Kind && a.Z == b.Z && a.TileDist < b.TileDist)) {
-          best = i;
-        }
-      }
-      job = Queue_[best];
-      Queue_.erase(Queue_.begin() + static_cast<long>(best));
-    }
+    const auto next = NextJob();
+    if (!next) { break; }
+    const Job &job = *next;
     Result result;
     const double blockedBefore = tFetchBlockedMs;
     const auto t0 = std::chrono::steady_clock::now();
     tAwaited = 0;
-    switch (job.Kind) {
-      case Rank::Mesh: {
-        ShapedGround told;
-        {
-          const std::scoped_lock lock(QueueMutex_);
-          told = Shape_;
-        }
-        if (!told.Kind.empty()) {
-          TerrainTiles::Shaped how;
-          how.Kind = told.Kind;
-          how.AmplitudeM = told.AmplitudeM;
-          how.WavelengthM = told.WavelengthM;
-          how.Gradient = told.Gradient;
-          how.BearingDeg = told.BearingDeg;
-          how.FocusLatDeg = told.FocusLatDeg;
-          how.FocusLonDeg = told.FocusLonDeg;
-          how.Seed = told.Seed;
-          tiles.Shapes(how);
-        }
-        RunMesh(tiles, job, &result);
-      }
-        result.Holds = true;
-        break;
-      case Rank::Field:
-        RunField(tiles, job, &result);
-        result.Holds = false;
-        break;
-      case Rank::Fetch:
-        result.State = job.Ask ? FetchInto(*job.Ask, &result.Landed) : Reply::Refused;
-        break;
-    }
+    result = RunJob(tiles, job);
     if (result.State == Reply::Pending && tAwaited != 0) {
       const uint64_t awaited = tAwaited;
       tAwaited = 0;
@@ -568,29 +604,7 @@ void TilePool::Work(int slot) {
     }
     StackProbe::Mark();
     ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
-    {
-      const std::scoped_lock lock(QueueMutex_);
-
-      if (result.State == Reply::Pending) {
-        Posted_.erase(job.Key);
-        {
-          const std::scoped_lock ledger(LedgerMutex_);
-          if (job.Kind == Rank::Mesh) { Ledger_.MeshDropped++; }
-          if (job.Kind == Rank::Field) { Ledger_.FieldDropped++; }
-        }
-        Landed_.notify_all();
-      }
-
-      else if (Posted_.contains(job.Key)) {
-        if (result.State == Reply::Absent || result.State == Reply::Undeclared) {
-          result.Build = TileBuild{};
-        }
-        const bool holds = result.Holds;
-        Done_[job.Key] = std::move(result);
-        Lands(job.Key, holds);
-        Landed_.notify_all();
-      }
-    }
+    PublishResult(job, std::move(result));
   }
   ContextBytes_[static_cast<size_t>(slot)].store(0, std::memory_order_relaxed);
 }

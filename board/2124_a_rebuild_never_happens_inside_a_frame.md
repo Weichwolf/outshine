@@ -71,10 +71,11 @@ und offene Writer-Inventur; keine neuen Diagnosen.
 Offen: Carrier-Serialisierung, Queue-Budgets, Mainthread-Decodierung/Aufbau und
 OSM-Gesamtdurchsatz bei kaltem Cache. Der Fix ist keine Streaming-Gesamtabnahme.
 
-## Nächster Tidy-Schritt
+## Worker-Phasen
 
-TilePool::Work vermischt priorisierte Queue-Entnahme mit Mesh-/Field-Ausführung.
-NextJob und RunJob übernehmen diese Zuständigkeiten; Work behält Abhängigkeiten,
-Zeitmessung und Publikation. Reihenfolge, Locks und Fehlerzustände unverändert.
-Abnahme: TilePool-/verzögerte Terrain-Tests und Lint ohne neue Warnung; keine neue
-Streaming-Fähigkeit aus einer reinen Strukturkorrektur behaupten.
+NextJob besitzt priorisierte Queue-Entnahme und Shutdown-Warten, RunJob die Mesh-/
+Field-Ausführung, PublishResult die gesperrte Ergebnisübergabe. Work koordiniert
+Abhängigkeiten und Zeitmessung. Priorität, Locks und Fehlerzustände bleiben erhalten.
+Drei TilePool-/Terrain-Tests grün; Wien ohne Vegetation pixelgleich (0/921600).
+Lint: 94 Tidy-Befunde, keiner mehr in TilePool; Writer-Inventur weiter offen.
+Diese Strukturkorrektur nimmt keine neue Streaming-Fähigkeit ab.
