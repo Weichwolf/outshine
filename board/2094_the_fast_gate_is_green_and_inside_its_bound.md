@@ -116,3 +116,9 @@ Deadline-API-Test grün; Lint 38 Befunde, Preload-Komplexitätswarnung behoben.
 Wien ohne Vegetation gerendert und PNG geöffnet: 0/921600 veränderte Pixel,
 p95 5,88 ms, 0/120 Frames über 16,67 ms; visuelle Material-/Lichtlücken bleiben.
 Kein harter Zeitbound: Callback/Build-Schritt können länger dauern.
+
+Nächster Schritt: declare trennt Eingabevalidierung, Asset-/Render-/Lichtvorbereitung
+von Zustandsveröffentlichung; bestehende Fehlerreihenfolge und Werte erhalten.
+Vorhandene API-Negativtests für Bodies/World/Assets/Views/Input/Renderplan ausführen.
+Wien-PNG auf unverändertes Bild prüfen. Keine neue Formatkopplung: bestehende glTF-
+Zuordnung bleibt Migrationsschuld in 2150; atomare Vollveröffentlichung in 2191 offen.
