@@ -102,18 +102,16 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
-## P0: Renderer-Verträge
-Transfer-/Residency-Diagnosen pro Instanz; Negativkontrollen erkennen gemeinsame
-Zähler. SetMesh validiert vor Mutation; 67 Checks plus GPU-Retry validiert.
-Configure nach Materialart/Variante getrennt; Wien pixelgleich.
-Lint: 46 Befunde, Writer rot. Größen-/Inhaltsprüfung, GPU-Allokationsrollback,
-Attachment-/Reconfigure-Verträge, Pose-Digest, Erfolgs-/Live-Zähler bleiben offen.
+## P0: Fortschritt und nächster Vertrag
+SubjectDraw ohne Tidy-Befund: Validierung vor Mutation, Pipeline-/Binding-Phasen.
+Mesh-/GPU-Tests und Negativkontrollen grün, Wien pixelgleich.
+Lint: 46 Befunde, Writer rot. Renderer-Größen-/Rollback-/Reconfigure-Verträge,
+Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Encode trennt Frame-Uniforms, Vertexstream-Bindung und Draw-Schleife.
-Indexbindung ungebunden/direkt/indirekt; Pipelinewechsel invalidiert Materialslot.
-Lichtoffsets aus lighting.glsl abgeleitet; SDL-Bufferlisten passend const gebunden.
-GPU-Submission normal/validiert und Mesh-Verträge grün. Lint vollständig:
-46 Befunde, SubjectDraw.cpp ohne Diagnose; Writer weiterhin rot.
-Wien geöffnet: 0/921600 Pixel verändert; p50/p95/p99 5.19/5.77/5.95 ms,
-0/120 über 16.67 ms. Kein vollständiger Material-/Binding-Wechselnachweis und
-keine künstlerische Abnahme; die genannten Fehlerverträge bleiben offen.
+Nächster Schritt: ClassBuilder::LayDown in Kurvenkanten, Zellindex, Scanline,
+Seed-Erzeugung und Packen aufteilen. Vorhandenes Winding-/Kantenverfahren,
+Rangfolge, Limits und Scratch-Wiederverwendung erhalten; keine neue Heuristik.
+Unabhängige Innen-/Außen-/Loch-/Rangproben und wiederholte Worker-Jobs prüfen.
+Negativkontrolle entfernt Winding-Beitrag. Lint sowie Wien ohne Vegetation
+vorher/nachher öffnen. Numerische Eingangsgrenzen/Job-Abbruch bleiben separat
+offen; keine vollständige OSM-Topologie-Abnahme durch diesen Umbau.
