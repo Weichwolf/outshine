@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 2169
 Area: generators, world, physics
 Tags: webcam, measured
@@ -98,3 +98,13 @@ atomare Publikation statt blockierendem Weltaufbau. Dokumentierte Junction-Glät
 und Querneigungsgrenzen nicht als Oracle übernehmen. OpenDRIVE bleibt Adapterformat.
 Logisches 2D-Netz mit Ebenen-/Verbindungsidentität unabhängig von sichtbarem Mesh;
 Alignment ergänzt 3D-Pose, Render-/Kollisionsprodukte dürfen keine Topologie erfinden.
+
+## Aktueller P0-Schritt
+
+RoadMesh::Sweep verwirft zwei Stationen vor dem vorhandenen Geraden-Fit;
+Corridors nutzt diesen Pfad für Brückendecks. Mindestfall auf zwei Stationen
+korrigieren, auch verbleibende Zweipunktstücke verarbeiten. Linienfit und
+Höhenprofilaufbau aus LayPiece trennen; Geometrie-/Materialvertrag erhalten.
+Analytische Gerade mit Steigung, gedrehter Lage und angehängtem Ergebnis prüfen;
+der alte Mindestwert muss als Negativkontrolle scheitern. Vorhandener Fit bildet
+bereits 2..N Punkte ab. Kettenregel und komplexe Bauwerke bleiben separat offen.
