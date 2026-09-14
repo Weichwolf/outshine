@@ -105,14 +105,13 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 ## P0: Renderer-Verträge
 Transfer-/Residency-Diagnosen pro Instanz; Negativkontrollen erkennen gemeinsame
 Zähler. SetMesh validiert vor Mutation; 67 Checks plus GPU-Retry validiert.
-Vorzeitige Indexmutation scheitert bei zehn Folge-Posen, nicht am alten Bild.
-Lint: 54 Befunde, Writer rot. Größen-/Inhaltsprüfung, GPU-Allokationsrollback,
-Pose-Digest, Erfolgszähler und globale Live-Zähler bleiben offen.
+Configure nach Materialart/Variante getrennt; Wien pixelgleich.
+Lint: 51 Befunde, Writer rot. Größen-/Inhaltsprüfung, GPU-Allokationsrollback,
+Attachment-/Reconfigure-Verträge, Pose-Digest, Erfolgs-/Live-Zähler bleiben offen.
 
-Configure gliedert Materialart, Pipelinevariante und explizite Shaderauswahl;
-SDL_GPU-Zustände und Buildprodukte erhalten. GPU-Submission normal/validiert
-sowie Mesh-Verträge grün. Vollständiges Lint: 51 Befunde, Writer rot.
-Wien ohne Vegetation geöffnet: 0/921600 Pixel verändert; p50/p95/p99
-5.12/5.70/6.09 ms, 0/120 über 16.67 ms. Keine neue künstlerische Abnahme.
-Offen: Attachment-/Reconfigure-Fehlerverträge und Configure-Allokationsrollback;
-SubjectDraw::Encode bleibt komplex. Keine vollständige Pipeline-/Backend-Abnahme.
+Nächster Schritt: Encode trennt Frame-Uniforms und Vertexstream-Bindung von der
+Draw-Schleife. Binding-Zustand explizit als ungebunden/direkt/indirekt führen;
+Pipelinewechsel invalidiert Materialcache. Reihenfolge/Bufferidentität erhalten.
+Layoutfelder für Sonnenzenit/Kamera aus lighting.glsl (sechs vec4 Header) benennen.
+GPU-Submission normal/validiert, Mesh-Verträge, Lint und Wien-Vergleich.
+Keine neue Renderarchitektur; vorhandene SDL_GPU-Bindings/indirekte Draws nutzen.
