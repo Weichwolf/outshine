@@ -174,6 +174,8 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
+  void PushFrameUniforms(const FrameContext &ctx, const PassRecording &into);
+  void BindVertexStreams(const PassRecording &into, VertexLayout layout) const;
   [[nodiscard]] long ColourAttachment(Resource which) const;
   [[nodiscard]] bool
   ConfigureKind(const Gpu &gpu, const SourceOptions &options, SurfaceKind kind, std::string &error);
@@ -263,6 +265,8 @@ private:
   static constexpr int kLightVec4s = 4;
 
   static constexpr int kLightHeaderFloats = 24;
+  static constexpr int kViewPositionSlot = kLightHeaderFloats - 4;
+  static constexpr int kSunZenithSlot = kViewPositionSlot - 1;
   static constexpr int kLightFloats =
       kLightHeaderFloats + 4 * kLightVec4s * static_cast<int>(kMaxSubjectLights);
 

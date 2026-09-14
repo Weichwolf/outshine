@@ -1364,8 +1364,10 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
     packed[16 + channel] = static_cast<float>(IndirectLight.GroundAlbedo[channel]);
   }
   packed[7] = static_cast<float>(IndirectLight.SkyLux);
-  packed[19] = static_cast<float>(IndirectLight.CosSunZenith);
-  for (size_t axis = 0; axis < 4; ++axis) { packed[20 + axis] = ctx.ViewPosition[axis]; }
+  packed[kSunZenithSlot] = static_cast<float>(IndirectLight.CosSunZenith);
+  for (size_t axis = 0; axis < 4; ++axis) {
+    packed[kViewPositionSlot + axis] = ctx.ViewPosition[axis];
+  }
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
     float *entry = packed.data() + kLightHeaderFloats + at * 4u * static_cast<size_t>(kLightVec4s);
@@ -1425,8 +1427,8 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
     std::array<SDL_GPUBuffer *const, 3> storage = {GroundClasses_, GroundPalette_, SkyIrradiance_};
     SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), 3);
   } else if (CarriesNormal(layout)) {
-    SDL_GPUBuffer *sky = SkyIrradiance_;
-    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, &sky, 1);
+    const std::array<SDL_GPUBuffer *, 1> storage = {SkyIrradiance_};
+    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), 1);
   }
   SDL_PushGPUFragmentUniformData(into.Commands,
                                  0,
@@ -1436,9 +1438,8 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
 
 void SubjectDraw::EncodeGround(const PassRecording &into) const {
   if (Behind != nullptr || Ground_.Drawn() == 0) { return; }
-  for (size_t slot = 0; slot < Slots.size(); ++slot) {
-    if (Slots[slot].Domain != SurfaceDomain::Ground) { continue; }
-    const SurfaceSlot &surface = Slots[slot];
+  for (const SurfaceSlot &surface : Slots) {
+    if (surface.Domain != SurfaceDomain::Ground) { continue; }
     const SDL_GPUTextureSamplerBinding shadow{
         .texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
         .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()};
@@ -1455,42 +1456,78 @@ void SubjectDraw::EncodeGround(const PassRecording &into) const {
   }
 }
 
-void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
-  const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
-                            Bound().Buffer(SubjectResidency::Stream::Index);
-  if (!drawsBatches && (Behind != nullptr || Ground_.Drawn() == 0)) { return; }
+void SubjectDraw::PushFrameUniforms(const FrameContext &ctx, const PassRecording &into) {
   std::array<float, kUniFloats> uniform = {{}};
-  const auto place = [this, &ctx, &uniform, &into] {
-    for (int axis = 0; axis < 3; ++axis) {
-      uniform[kAnchorSlot + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
-      uniform[kPrevAnchorSlot + axis] =
-          static_cast<float>(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);
-    }
-    for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp[i]; }
-    for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp[i]; }
-    for (int i = 0; i < 16; i++) { uniform[32 + i] = static_cast<float>(LightFromWorld_[i]); }
-    ++UniformPushes_;
-    SDL_PushGPUVertexUniformData(into.Commands,
-                                 0,
-                                 uniform.data(),
-                                 static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
-  };
-  place();
+  for (int axis = 0; axis < 3; ++axis) {
+    uniform[kAnchorSlot + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
+    uniform[kPrevAnchorSlot + axis] =
+        static_cast<float>(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);
+  }
+  for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp[i]; }
+  for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp[i]; }
+  for (int i = 0; i < 16; i++) { uniform[32 + i] = static_cast<float>(LightFromWorld_[i]); }
+  ++UniformPushes_;
+  SDL_PushGPUVertexUniformData(
+      into.Commands, 0, uniform.data(), static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
   const std::array<float, kLightFloats> lights = PackedLights(ctx);
   ShadowedFrames_ += lights[2] > 0.5f ? 1u : 0u;
   SDL_PushGPUFragmentUniformData(
       into.Commands, 1, lights.data(), static_cast<uint32_t>(lights.size() * sizeof(float)));
+}
 
-  bool boundCut = false;
-  bool anyIndex = false;
+void SubjectDraw::BindVertexStreams(const PassRecording &into, VertexLayout layout) const {
+  const bool textured = CarriesUv(layout);
+  const bool lit = CarriesNormal(layout);
+  const bool mapped = CarriesTangent(layout);
+  const bool secondUv = CarriesUv1(layout);
+  const bool tinted = CarriesColour(layout);
+  std::array<SDL_GPUBufferBinding, VertexShape::kRuns> runs = {{}};
+  uint32_t count = 0;
+  runs[count++] = SDL_GPUBufferBinding{
+      .buffer = Bound().Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
+  if (textured) {
+    runs[count++] = SDL_GPUBufferBinding{
+        .buffer = Bound().Buffer(SubjectResidency::Stream::Uv).Get(), .offset = 0};
+  }
+  if (secondUv) {
+    runs[count++] = SDL_GPUBufferBinding{
+        .buffer = Bound().Buffer(SubjectResidency::Stream::Uv1).Get(), .offset = 0};
+  }
+  runs[count++] =
+      SDL_GPUBufferBinding{.buffer = lit ? Bound().Buffer(SubjectResidency::Stream::Normal).Get()
+                                         : Bound().Buffer(SubjectResidency::Stream::Emitted).Get(),
+                           .offset = 0};
+  if (mapped) {
+    runs[count++] = SDL_GPUBufferBinding{
+        .buffer = Bound().Buffer(SubjectResidency::Stream::Tangent).Get(), .offset = 0};
+  }
+  if (tinted) {
+    runs[count++] = SDL_GPUBufferBinding{
+        .buffer = Bound().Buffer(SubjectResidency::Stream::Colour).Get(), .offset = 0};
+  }
+
+  if (WritesVelocity) {
+    runs[count++] = SDL_GPUBufferBinding{
+        .buffer = Bound().Buffer(SubjectResidency::Stream::Previous).Get(), .offset = 0};
+  }
+  SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
+}
+
+void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
+  const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
+                            Bound().Buffer(SubjectResidency::Stream::Index);
+  if (!drawsBatches && (Behind != nullptr || Ground_.Drawn() == 0)) { return; }
+  PushFrameUniforms(ctx, into);
+
+  enum class IndexBinding { Unbound, Direct, Indirect };
+  IndexBinding indexBinding = IndexBinding::Unbound;
 
   std::array<SDL_GPUBuffer *const, 1> rows = {
       Bound().Buffer(SubjectResidency::Stream::Placements).Get()};
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   size_t bound = kPipelines;
-  size_t boundSlot = 0;
-  bool slotBound = false;
+  uint32_t boundSlot = kNoSlot;
   const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
                    Bound().Buffer(SubjectResidency::Stream::DrawArguments) && !Args_.empty();
   for (size_t at = 0; drawsBatches && at < Batches.size(); ++at) {
@@ -1503,63 +1540,27 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     if (glassSlot != (Behind != nullptr)) { continue; }
 
     const VertexLayout wanted = BatchLayout[at];
-    const bool textured = CarriesUv(wanted);
-    const bool lit = CarriesNormal(wanted);
-    const bool mapped = CarriesTangent(wanted);
-    const bool secondUv = CarriesUv1(wanted);
-    const bool tinted = CarriesColour(wanted);
-
     const size_t wantedPipeline =
         PipelineAt(surface.Domain, wanted, surface.Kind, surface.CullsBack);
     if (wantedPipeline != bound) {
       SDL_BindGPUGraphicsPipeline(into.Pass, Pipelines[wantedPipeline].Get());
 
-      std::array<SDL_GPUBufferBinding, VertexShape::kRuns> runs = {{}};
-      uint32_t count = 0;
-      runs[count++] = SDL_GPUBufferBinding{
-          .buffer = Bound().Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
-      if (textured) {
-        runs[count++] = SDL_GPUBufferBinding{
-            .buffer = Bound().Buffer(SubjectResidency::Stream::Uv).Get(), .offset = 0};
-      }
-      if (secondUv) {
-        runs[count++] = SDL_GPUBufferBinding{
-            .buffer = Bound().Buffer(SubjectResidency::Stream::Uv1).Get(), .offset = 0};
-      }
-      runs[count++] = SDL_GPUBufferBinding{
-          .buffer = lit ? Bound().Buffer(SubjectResidency::Stream::Normal).Get()
-                        : Bound().Buffer(SubjectResidency::Stream::Emitted).Get(),
-          .offset = 0};
-      if (mapped) {
-        runs[count++] = SDL_GPUBufferBinding{
-            .buffer = Bound().Buffer(SubjectResidency::Stream::Tangent).Get(), .offset = 0};
-      }
-      if (tinted) {
-        runs[count++] = SDL_GPUBufferBinding{
-            .buffer = Bound().Buffer(SubjectResidency::Stream::Colour).Get(), .offset = 0};
-      }
-
-      if (WritesVelocity) {
-        runs[count++] = SDL_GPUBufferBinding{
-            .buffer = Bound().Buffer(SubjectResidency::Stream::Previous).Get(), .offset = 0};
-      }
-      SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
+      BindVertexStreams(into, wanted);
       bound = wantedPipeline;
-      slotBound = false;
+      boundSlot = kNoSlot;
     }
-    if (!slotBound || boundSlot != batch.MaterialSlot) {
+    if (boundSlot != batch.MaterialSlot) {
       BindSlot(into, batch.MaterialSlot, wanted);
       boundSlot = batch.MaterialSlot;
-      slotBound = true;
     }
-    if (!anyIndex || boundCut != culled) {
+    const auto wantedIndex = culled ? IndexBinding::Indirect : IndexBinding::Direct;
+    if (indexBinding != wantedIndex) {
       const SDL_GPUBufferBinding indices{
           .buffer = culled ? Bound().Buffer(SubjectResidency::Stream::DrawIndex).Get()
                            : Bound().Buffer(SubjectResidency::Stream::Index).Get(),
           .offset = 0};
       SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-      boundCut = culled;
-      anyIndex = true;
+      indexBinding = wantedIndex;
     }
     if (culled) {
       SDL_DrawGPUIndexedPrimitivesIndirect(
