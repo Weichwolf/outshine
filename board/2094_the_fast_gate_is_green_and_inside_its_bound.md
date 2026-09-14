@@ -108,13 +108,12 @@ SetSubjectMesh speichert deren lokale Kontexte nicht für spätere GPU-Ausführu
 RecordGeometryDigest trennt optionale Diagnosearbeit von SubjectProxy::Place;
 Bytefolge und FNV-Folding bleiben erhalten. Kamera-Test und beide Submission-Arme
 inklusive GPU-Validierung grün. Wien geöffnet: 0/921600 Pixel verändert.
-Lint: 55 Befunde, Place ohne Diagnose; Writer weiter rot. Globale Digest-/Timing-
-Zähler sind noch nicht pro Engine isoliert. Ownership getrennt korrigieren;
-diese Prüfung ist keine Mehrinstanz-Abnahme.
-
-Nächster Schritt: SubjectTransferMetrics gehört zu SubjectScratch/Core::Live.
-Globale Getter/Zähler entfernen; Engine-Berichte lesen ausschließlich ihren Live.
-PackingMs tatsächlich messen (bisher konstant null), Mesh-/Pose-Upload getrennt
-von Digest messen. Zwei gleichzeitig lebende Renderer mit verschiedenen Modellen
-und deaktivierter Diagnose im zweiten müssen die Werte des ersten unverändert
-lassen. Gemeinsamer statischer Messwertspeicher als Negativkontrolle.
+SubjectTransferMetrics liegt jetzt in SubjectScratch/Core::Live; Berichte lesen
+ihren Instanz-Snapshot. PackingMs wird gemessen, Digest und Mesh-/Pose-Upload
+getrennt als CPU-Aufrufzeit erfasst. Keine Aussage über GPU-Ausführungszeit.
+Zwei Renderer mit unterschiedlicher nativer Geometrie: Mesh-Transfers und
+Digest-Umschaltung isoliert, 14 Checks grün. Statischer Speicher als
+Negativkontrolle: drei Isolationsprüfungen scheitern. Kamera-Vertrag ebenfalls grün.
+Lint vollständig: 55 Befunde, Writer weiter rot; keine neue Tidy-Diagnose.
+Offen: Pose-Transfer separat abnehmen; SubjectResidency::UploadsTaken/UploadsEver
+und Live-Allokationszähler sind weiter global. Keine vollständige Mehrinstanz-Abnahme.

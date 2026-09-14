@@ -141,8 +141,9 @@ bool Engine::render(Extent frame) {
       "the pose's own local transforms, digested", S_->Picture.Standing->LocalsDigest(), "");
   S_->Published.Places(
       "the vertices it assembled from them, digested", S_->Picture.Standing->AssembledDigest(), "");
-  S_->Published.Places(
-      "the geometry the renderer was last offered, digested", Render::HandedGeometryDigest(), "");
+  S_->Published.Places("the geometry the renderer was last offered, digested",
+                       S_->Picture.Standing->TransferMetrics().DigestValue(),
+                       "");
   S_->Published.Places("uploads the subject residency has made in all",
                        static_cast<double>(Render::SubjectResidency::UploadsEver()),
                        "uploads");

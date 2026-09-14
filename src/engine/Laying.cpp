@@ -957,11 +957,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("cook: clusters in all",
                    static_cast<double>(Picture.Standing->Clustering().Clusters),
                    "clusters");
-  Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
   Published.Places(
-      "restand: the geometry handed over, digested", Render::HandedGeometryDigest(), "");
-  Published.Places("rebuild: digesting what it handed over", Render::DigestedMs(), "ms");
-  Published.Places("rebuild: and the device taking them", Render::HandedMs(), "ms");
+      "rebuild: of the streams, packing them", Picture.Standing->TransferMetrics().PackingMs, "ms");
+  Published.Places("restand: the geometry handed over, digested",
+                   Picture.Standing->TransferMetrics().DigestValue(),
+                   "");
+  Published.Places(
+      "rebuild: digesting what it handed over", Picture.Standing->TransferMetrics().DigestMs, "ms");
+  Published.Places(
+      "rebuild: and the device taking them", Picture.Standing->TransferMetrics().UploadMs, "ms");
   Published.Places("rebuild: uploads the residency made",
                    static_cast<double>(Render::SubjectResidency::UploadsTaken()),
                    "uploads");

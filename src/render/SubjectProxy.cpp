@@ -4,7 +4,6 @@
 #include "Shape.h"
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <chrono>
 #include "SubjectProxy.h"
 #include "math/Vec3.h"
@@ -30,8 +29,6 @@ namespace Says {
 constexpr auto kInvalidLens =
     "the camera projection is invalid or cannot be represented by the GPU lens";
 }
-
-constexpr uint64_t kDigestMask = 0xffffffffffffull;
 
 void SubjectProxy::Stands(const Shape &subject, const Vec3 &anchorEcefM) {
   Shape_ = &subject;
@@ -400,12 +397,7 @@ bool Show(SceneRenderer &renderer,
 
 namespace {
 
-std::atomic<double> gPackMs{0.0};
-std::atomic<unsigned long long> gGeometryDigest{0};
-std::atomic<double> gHandMs{0.0};
-std::atomic<double> gDigestMs{0.0};
-
-void RecordGeometryDigest(const Shape &subject, const SubjectScratch &scratch) {
+void RecordGeometryDigest(const Shape &subject, SubjectScratch &scratch) {
   if (scratch.Digests) {
     const auto digestedFrom = std::chrono::steady_clock::now();
     unsigned long long digest = kDigestBasis;
@@ -420,33 +412,16 @@ void RecordGeometryDigest(const Shape &subject, const SubjectScratch &scratch) {
         eat(run.data(), run.size() * sizeof(float));
       }
     }
-    gGeometryDigest.store(digest, std::memory_order_relaxed);
-    gDigestMs.store(
+    scratch.Metrics.GeometryDigest = digest;
+    scratch.Metrics.DigestMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - digestedFrom)
-            .count(),
-        std::memory_order_relaxed);
+            .count();
   } else {
-    gGeometryDigest.store(0, std::memory_order_relaxed);
-    gDigestMs.store(0.0, std::memory_order_relaxed);
+    scratch.Metrics.GeometryDigest = 0;
+    scratch.Metrics.DigestMs = 0.0;
   }
 }
 
-}
-
-double PackedMs() {
-  return gPackMs.load(std::memory_order_relaxed);
-}
-
-double HandedMs() {
-  return gHandMs.load(std::memory_order_relaxed);
-}
-
-double DigestedMs() {
-  return gDigestMs.load(std::memory_order_relaxed);
-}
-
-double HandedGeometryDigest() {
-  return static_cast<double>(gGeometryDigest.load(std::memory_order_relaxed) & kDigestMask);
 }
 
 bool Place(SceneRenderer &renderer,
@@ -477,6 +452,8 @@ bool Place(SceneRenderer &renderer,
     if (!BuildDrawList(proxy, view, subject, scratch.Draws, error)) { return false; }
   }
 
+  scratch.Metrics = {};
+  const auto packingFrom = std::chrono::steady_clock::now();
   const Heap::Tagged packing("index-run");
   scratch.Indices.clear();
   scratch.Indices.reserve(scratch.Draws.IndexCount());
@@ -485,7 +462,6 @@ bool Place(SceneRenderer &renderer,
       scratch.Indices.push_back(subject.Indices[run.SourceFirst + at]);
     }
   }
-  gPackMs.store(0.0, std::memory_order_relaxed);
 
   SubjectMesh mesh;
   const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
@@ -524,18 +500,21 @@ bool Place(SceneRenderer &renderer,
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
   for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
+  scratch.Metrics.PackingMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packingFrom)
+          .count();
   RecordGeometryDigest(subject, scratch);
   mesh.Draws = &scratch.Draws;
   mesh.Clusters = subject.Clusters;
   mesh.ClusterSpheres = subject.ClusterSpheres;
   const Heap::Tagged handing("subject-mesh");
   const auto handedFrom = std::chrono::steady_clock::now();
-  if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
-  gHandMs.store(
+  const bool uploaded = renderer.SetSubjectMesh(mesh, error);
+  scratch.Metrics.UploadMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
-          .count(),
-      std::memory_order_relaxed);
+          .count();
 
+  if (!uploaded) { return false; }
   { std::vector<uint32_t>().swap(scratch.Indices); }
   { std::vector<float>().swap(scratch.Vertices); }
   return Placed(renderer, proxy, error);
@@ -560,6 +539,8 @@ bool Move(SceneRenderer &renderer,
   }
   if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
 
+  scratch.Metrics = {};
+  const auto packingFrom = std::chrono::steady_clock::now();
   SubjectPose pose;
   const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
   const ChannelPack uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2};
@@ -588,6 +569,9 @@ bool Move(SceneRenderer &renderer,
   pose.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
+  scratch.Metrics.PackingMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packingFrom)
+          .count();
   if (scratch.Digests) {
     const auto digestedFrom = std::chrono::steady_clock::now();
     unsigned long long digest = kDigestBasis;
@@ -595,14 +579,13 @@ bool Move(SceneRenderer &renderer,
     for (size_t one = 0; one < scratch.Vertices.size() * sizeof(float); ++one) {
       digest = (digest ^ at[one]) * kDigestPrime;
     }
-    gGeometryDigest.store(digest, std::memory_order_relaxed);
-    gDigestMs.store(
+    scratch.Metrics.GeometryDigest = digest;
+    scratch.Metrics.DigestMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - digestedFrom)
-            .count(),
-        std::memory_order_relaxed);
+            .count();
   } else {
-    gGeometryDigest.store(0, std::memory_order_relaxed);
-    gDigestMs.store(0.0, std::memory_order_relaxed);
+    scratch.Metrics.GeometryDigest = 0;
+    scratch.Metrics.DigestMs = 0.0;
   }
   pose.Positions = scratch.Vertices;
   if (proxy.Previous() != nullptr) {
@@ -612,7 +595,12 @@ bool Move(SceneRenderer &renderer,
   pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
   const Heap::Tagged handing("subject-pose");
-  return renderer.SetSubjectPose(pose, error);
+  const auto handedFrom = std::chrono::steady_clock::now();
+  const bool uploaded = renderer.SetSubjectPose(pose, error);
+  scratch.Metrics.UploadMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
+          .count();
+  return uploaded;
 }
 
 }

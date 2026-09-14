@@ -97,7 +97,23 @@ struct Moving {
 [[nodiscard]] bool
 Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &error);
 
+struct SubjectTransferMetrics {
+  static constexpr uint64_t kDigestMask = 0xffffffffffffull;
+  uint64_t GeometryDigest = 0;
+  double PackingMs = 0;
+  double DigestMs = 0;
+  double UploadMs = 0;
+
+  [[nodiscard]] double DigestValue() const {
+    return static_cast<double>(GeometryDigest & kDigestMask);
+  }
+
+  [[nodiscard]] bool operator==(const SubjectTransferMetrics &) const = default;
+};
+
 struct SubjectScratch {
+  SubjectTransferMetrics Metrics;
+
   bool Digests = false;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
@@ -122,13 +138,6 @@ struct SubjectScratch {
                            const Eye &view,
                            SubjectScratch &scratch,
                            std::string &error);
-
-[[nodiscard]] double PackedMs();
-
-[[nodiscard]] double HandedGeometryDigest();
-
-[[nodiscard]] double DigestedMs();
-[[nodiscard]] double HandedMs();
 
 bool Place(SceneRenderer &renderer,
            const SubjectProxy &proxy,

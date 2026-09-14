@@ -187,6 +187,8 @@ public:
 
   [[nodiscard]] double MediumMs() const { return MediumMs_; }
 
+  [[nodiscard]] Render::SubjectTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
+
   [[nodiscard]] double FramingMs() const { return FramingMs_; }
 
   [[nodiscard]] size_t SkyIntegrations() const { return SkyIntegrations_; }
