@@ -79,3 +79,19 @@ Abhängigkeiten und Zeitmessung. Priorität, Locks und Fehlerzustände bleiben e
 Drei TilePool-/Terrain-Tests grün; Wien ohne Vegetation pixelgleich (0/921600).
 Lint: 94 Tidy-Befunde, keiner mehr in TilePool; Writer-Inventur weiter offen.
 Diese Strukturkorrektur nimmt keine neue Streaming-Fähigkeit ab.
+
+## P0: begrenzte Patchwork-Abdeckung
+
+GroundPatchwork allokiert 16*4^(Levels-1) Maskenbytes und scannt grobe Tiles
+auf feinster Auflösung. Zoom/Levels können ungültige Shifts auslösen. Vorhanden:
+4x4 Tiles je Ebene, dyadische Eltern/Kind-Grenzen, explizite Provider-Antworten.
+Die dyadische Hierarchie erlaubt eine disjunkte Menge fertiger Tile-Bereiche:
+Eltern ersetzen enthaltene Kinder; Abdeckung ist die Summe ihrer Flächen.
+Kein Raster proportional zur Weltfläche. Maximal 16*(kZoomLevels-1) Einträge
+und Provider-Aufrufe; Zoom 1..kZoomLevels-1, Levels auf vorhandene Zoomstufen
+begrenzen, endliche Geoposition und Grid>=2 vor Arbeit prüfen.
+Anfrage, Antwortzählung und Abdeckung trennen; Reihenfolge und Fallback erhalten.
+Ein kleines unabhängiges Zellenorakel prüft Auswahl/Überlappung bei gemischten
+Antworten, reine Anfragen, Datumsgrenze und Polargrenze. Maximalfall bleibt
+begrenzt; ungültige Eingaben erreichen keinen Provider. Negativkontrolle zählt
+Pending als Abdeckung und muss scheitern. Wien-PNG darf strukturell nicht ändern.
