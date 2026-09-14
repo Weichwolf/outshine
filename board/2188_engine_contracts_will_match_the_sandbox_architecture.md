@@ -99,9 +99,9 @@ Klassifikationswechsel-Regression besteht. Wien ohne Vegetation visuell geprüft
 0/921600 Pixel zur Vorversion verändert; kein Nachweis vollständiger Bildqualität.
 
 ## P0: Kameraherkunft und Framing-Prüfung
-SubjectProxy::Eye.StandsInside bedeutet tatsächlich explizite Kamera, nicht
-Innenraumposition. In HasExplicitCamera umbenennen; Live-Aufrufer migrieren.
-Near-Plane-Prüfung bleibt nur automatische Framing-Garantie. Ungenutzten
-Boolean-Parameter entfernen, Box-Ecken und Skalarprodukt aus gemeinsamer Mathematik
-verwenden. Vorhandene Kamera-/Projektionsprüfungen und Wien-Regression sichern
-explizite Kamera, automatisches Framing und unveränderte Darstellung.
+SubjectProxy::Eye.HasExplicitCamera benennt die Kameraherkunft; das frühere
+StandsInside behauptete fälschlich eine Innenraumposition. Live migriert.
+Near-Plane-Prüfung bleibt automatische Framing-Garantie; explizite Kameras dürfen
+Geometrie schneiden. Box-Ecken/Skalarprodukt gemeinsam genutzt, ungenutzter
+Boolean-Parameter entfernt. Drei Kamera-/Projektionsprüfungen grün; Wien geöffnet,
+0/921600 Pixel verändert. Lint: 56 Befunde, Near-Plane-Prüfung ohne Diagnose.

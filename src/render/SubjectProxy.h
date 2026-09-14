@@ -20,7 +20,7 @@ class SceneRenderer;
 
 struct Eye {
   Viewpoint Eye;
-  bool StandsInside = false;
+  bool HasExplicitCamera = false;
   size_t FramedParts = 0;
 };
 

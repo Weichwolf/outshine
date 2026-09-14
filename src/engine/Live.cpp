@@ -757,7 +757,7 @@ bool Live::Look(std::string &error) {
   Render::Viewpoint framed;
   if (HaveEye_) {
     Looking_.Eye = Eye_;
-    Looking_.StandsInside = true;
+    Looking_.HasExplicitCamera = true;
     Render::ShapeStore aiming;
     const auto shape = Gltf::Shaped(Held_.Assembled(), aiming);
     if (!shape) {
@@ -788,7 +788,7 @@ bool Live::Look(std::string &error) {
   framed.Forward = spun(framed.Forward);
   framed.Right = spun(framed.Right);
   framed.Up = spun(framed.Up);
-  Looking_ = {.Eye = framed, .StandsInside = false, .FramedParts = Joined_};
+  Looking_ = {.Eye = framed, .HasExplicitCamera = false, .FramedParts = Joined_};
   Render::ShapeStore aiming;
   const auto shape = Gltf::Shaped(Held_.Assembled(), aiming);
   if (!shape) {
@@ -871,7 +871,7 @@ bool Live::Stand(std::string &error) {
     if (!Stood_.Places(part, unmoved)) { return false; }
   }
   Looking_ = {.Eye = HaveEye_ ? Eye_ : Render::Viewpoint{},
-              .StandsInside = HaveEye_,
+              .HasExplicitCamera = HaveEye_,
               .FramedParts = Joined_};
   for (Mat4 &one : SentBody_) { one.Column.fill(std::numeric_limits<double>::quiet_NaN()); }
   SentBuilt_.Column.fill(std::numeric_limits<double>::quiet_NaN());

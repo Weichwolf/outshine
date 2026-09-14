@@ -119,34 +119,20 @@ namespace {
 [[nodiscard]] bool ClearsNearPlane(const Shape &subject,
                                    const Viewpoint &eye,
                                    size_t framedParts,
-                                   [[maybe_unused]] bool standsInside,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : static_cast<double>(SceneRenderer::kNearM);
   const Box framed = subject.BoundsOf(framedParts);
-  const Vec3 &framedLeast = framed.Min;
-  const Vec3 &framedMost = framed.Max;
   size_t beyond = subject.VertexCount();
   if (framedParts > 0 && framedParts < subject.Parts.size()) {
     const ShapePart &last = subject.Parts[framedParts - 1];
     beyond = last.FirstVertex + last.VertexCount;
   }
 
-  double least = 0.0;
-  bool first = true;
-  for (int corner = 0; corner < 8; ++corner) {
-    double along = 0;
-    for (int axis = 0; axis < 3; ++axis) {
-      const double at = (static_cast<uint32_t>(corner) & (1u << static_cast<uint32_t>(axis))) != 0
-                            ? framedMost[axis]
-                            : framedLeast[axis];
-      along += (at - eye.EyeM[axis]) * eye.Forward[axis];
-    }
-    if (first || along < least) {
-      least = along;
-      first = false;
-    }
+  double least = Dot(framed.Corner(0) - eye.EyeM, eye.Forward);
+  for (unsigned corner = 1; corner < 8; ++corner) {
+    least = std::min(least, Dot(framed.Corner(corner) - eye.EyeM, eye.Forward));
   }
-  if (!first && least > plane) { return true; }
+  if (least > plane) { return true; }
   for (const ShapePart &one : subject.Parts) {
     if (one.FirstVertex >= beyond) { break; }
     for (size_t within = 0; within < one.VertexCount && (within + 1) * 3 <= one.PositionsM.size();
@@ -376,8 +362,7 @@ bool Aim(SceneRenderer &renderer,
     error = Says::kInvalidLens;
     return false;
   }
-  if (!view.StandsInside &&
-      !ClearsNearPlane(subject, eye, view.FramedParts, view.StandsInside, error)) {
+  if (!view.HasExplicitCamera && !ClearsNearPlane(subject, eye, view.FramedParts, error)) {
     return false;
   }
   Vec3 position;
