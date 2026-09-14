@@ -234,13 +234,13 @@ void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadRaised &into) {
 bool FitPiece(std::span<const double> eastNorthM,
               ReferenceLine &line,
               double &tightestM,
-              RoadRefusals *why) {
+              RoadRefusals &why) {
   if (eastNorthM.size() == 4) {
     const double runE = eastNorthM[2] - eastNorthM[0];
     const double runN = eastNorthM[3] - eastNorthM[1];
     const double runM = std::sqrt(runE * runE + runN * runN);
     if (!(runM > 0.0)) {
-      if (why != nullptr) { ++why->TooShort; }
+      ++why.TooShort;
       return false;
     }
     const Placed from{
@@ -248,7 +248,7 @@ bool FitPiece(std::span<const double> eastNorthM,
     const Segment straight{.Shape = Curve::Straight, .LengthM = runM};
     std::string laidWhy;
     if (!line.Lay(from, std::span<const Segment>(&straight, 1), laidWhy)) {
-      if (why != nullptr) { ++why->Fit; }
+      ++why.Fit;
       return false;
     }
   } else {
@@ -257,7 +257,7 @@ bool FitPiece(std::span<const double> eastNorthM,
                             kLayTightestM,
                             line);
     if (!laid.Laid || !(line.LengthM() > 0.0)) {
-      if (why != nullptr) { ++why->Fit; }
+      ++why.Fit;
       return false;
     }
     tightestM = laid.TightestRadiusM;
@@ -275,6 +275,7 @@ std::vector<Knot> ElevationKnots(ElevationSamples samples, double lengthM) {
   const auto gradeM = samples.GradeM;
   const auto reachedM = samples.ReachedM;
   const double wholeM = reachedM[reachedM.size() - 1u] - reachedM[0];
+  const double distanceScale = wholeM / lengthM;
   std::vector<Knot> rise;
   rise.reserve(gradeM.size());
   for (size_t one = 0; one < gradeM.size(); ++one) {
@@ -287,7 +288,8 @@ std::vector<Knot> ElevationKnots(ElevationSamples samples, double lengthM) {
       const double span = reachedM[one] - reachedM[one - 1u];
       rate = span > kLeastTurnRad ? (gradeM[one] - gradeM[one - 1u]) / span : 0.0;
     }
-    rise.push_back(Knot{.AlongM = part * lengthM, .Value = gradeM[one], .RatePerM = rate});
+    rise.push_back(
+        Knot{.AlongM = part * lengthM, .Value = gradeM[one], .RatePerM = rate * distanceScale});
   }
   return rise;
 }
@@ -324,28 +326,28 @@ bool LayPiece(std::span<const double> eastNorthM,
               const Vec3f &wearsLinear,
               double crossfall,
               RoadRaised &into,
-              RoadRefusals *why) {
+              RoadRefusals &why) {
   ReferenceLine line;
   double tightestM = 0.0;
   if (!FitPiece(eastNorthM, line, tightestM, why)) { return false; }
   const auto rise = ElevationKnots(elevation, line.LengthM());
   std::string said;
   if (!line.Rise(std::span<const Knot>(rise.data(), rise.size()), said)) {
-    if (why != nullptr) { ++why->Rise; }
+    ++why.Rise;
     return false;
   }
   const std::array<Knot, 2> bank = {
       {Knot{.AlongM = 0.0, .Value = crossfall, .RatePerM = 0.0},
        Knot{.AlongM = line.LengthM(), .Value = crossfall, .RatePerM = 0.0}}};
   if (!line.Bank(std::span<const Knot>(bank.data(), 2), said)) {
-    if (why != nullptr) { ++why->Bank; }
+    ++why.Bank;
     return false;
   }
 
   const Ribbon woven =
       Sweep(line, SectionFor(halfWidthM, profile), 0.0, line.LengthM(), StepFor(tightestM));
   if (!woven.Woven) {
-    if (why != nullptr) { ++why->Sweep; }
+    ++why.Sweep;
     return false;
   }
   Pour(woven, wearsLinear, into);
@@ -361,7 +363,7 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
   const Vec3f &wearsLinear = how.WearsLinear;
   const double crossfall = how.Crossfall;
   RoadTallied tally;
-  RoadRefusals *const why = &tally.Why;
+  RoadRefusals &why = tally.Why;
   if (along.size() < 2 || !(halfWidthM > 0.0)) { return tally; }
 
   std::vector<double> eastNorth;
@@ -409,7 +411,7 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
       }
     } else {
       ++tally.Refused;
-      if (why != nullptr) { ++why->TooShort; }
+      ++why.TooShort;
     }
     if (got.Laid) { break; }
     if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {

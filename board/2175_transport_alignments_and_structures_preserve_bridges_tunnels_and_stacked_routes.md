@@ -21,8 +21,8 @@ die Kurvenklassen sind damit Produktionscode. Carriageway::Surface berücksichti
 Offsetkrümmung und Bankrate; Differentialtests prüfen die Decknormale. Ribbon prüft
 Randnormalen/Null-Schulter und verweigert horizontale Offset-Faltung. Globale
 Selbstüberschneidung und Kontakt-/Renderübereinstimmung bleiben offen.
-RoadMesh skaliert Stützstationen auf die gefittete Linienlänge, übernimmt Höhenraten
-aber aus ursprünglichen Distanzen: Kettenregel und Anschlussgradienten prüfen.
+RoadMesh skaliert Stützstationen und Höhenraten jetzt konsistent auf die gefittete
+Linienlänge. Gemeinsame Anschlussgradienten mehrerer Abschnitte bleiben zu prüfen.
 Angebotene Kurven-/Fahrnetzklassen benötigen eigene Korrektheits-, Budget- und
 Grenzfallnachweise; deren Existenz oder Lint-Erfolg ist keine Driving-Abnahme.
 
@@ -109,11 +109,12 @@ Wien ohne Vegetation geöffnet: 3235/921600 Pixel verändert; Gegenprobe mit alt
 Mindestlänge reproduziert das Vorbild pixelgenau. Neue Deckflächen, weiterhin
 unzureichende Material-/Lichtqualität. p50/p95/p99 5.26/5.68/6.06 ms, 0/120 über
 16.67 ms; Warmaufnahme, keine vollständige Streaming-/Bauwerksabnahme.
-Lint vollständig: 62 Befunde, Writer rot. Sweep-Komplexität 27 bleibt offen;
-Kettenregel, endliche Eingaben, Kontakt und komplexe Bauwerke weiter prüfen.
+Endliche Eingaben, gemeinsame Anschlussgradienten, Kontakt und komplexe Bauwerke
+bleiben offen; die folgende Korrektur allein nimmt diese Verträge nicht ab.
 
-Nächster P0-Schritt: Bei s = u * Lfit / Lquelle gilt dh/ds = dh/du *
-Lquelle/Lfit. Diese Kettenregel in ElevationKnots anwenden. Ein linearer
-Quellhöhenverlauf muss an den gefitteten Enden Steigung Δh/Lfit behalten;
-analytische Endnormalen und eine scheiternde Altcode-Kontrolle prüfen das.
-Nichtnullable Refusal-Zähler als Referenzen führen statt tote Nullzweige.
+Höhenraten erfüllen nun bei s = u * Lfit/Lquelle die Kettenregel
+dh/ds = dh/du * Lquelle/Lfit. Steigender/fallender linearer Quellverlauf prüft
+die Eintrittsnormalen analytisch; Altcode scheitert achtmal. Alle 13 RoadMesh-/
+Kurventests grün. Fehlerzähler sind nichtnullable Referenzen. RoadMesh ohne Tidy-
+Befunde; insgesamt 61, Writer rot. Wien geöffnet und pixelgleich zur Vorversion;
+p50/p95/p99 5.24/5.73/5.99 ms, 0/120 über 16.67 ms. Höhenfix hier nur analytisch nachgewiesen.
