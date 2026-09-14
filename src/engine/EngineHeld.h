@@ -320,6 +320,10 @@ struct Engine::State {
 
   void Drew();
   void Inspected();
+  [[nodiscard]] bool CanFinishPreload() const;
+  [[nodiscard]] Result PumpPreload();
+  [[nodiscard]] Result PreloadOverflow();
+  [[nodiscard]] Result PreloadTimeout(double bound);
   [[nodiscard]] bool Watches();
 
   struct Classed {

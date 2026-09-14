@@ -66,7 +66,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 55 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 38 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -105,14 +105,14 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 ## P0: Fortschritt und nächster Vertrag
 SubjectDraw/ClassBuilder ohne Tidy-Befund; Fehler-/Raster-/sRGB-Tests grün.
 Render/inspect publizieren unabhängig vom Simulationstick; API-Negativkontrollen
-belegen behobene veraltete Werte. Lint: 39 Befunde, Writer rot.
+belegen behobene veraltete Werte. Lint: 38 Befunde, Writer rot.
 Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
 Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Nächster Schritt: preload trennt Streaming-Pumpen und Kapazitäts-/Timeoutfehler
-von der Bereitschaftsschleife. Vorhandene begrenzte Bakes, TilePool-Wartezeit,
-Callback- und Nullbudget-Verträge erhalten. Konkreten Grounds-Fehler bei Timeout
-im zurückgegebenen Fehler behalten statt durch generischen Zusatz ersetzen.
-Vorhandene Deadline-Tests, Lint und Wien-Preload/PNG-Vergleich.
-Kein harter Zeitbound versprechen; Callback/Build-Schritt können länger dauern.
-Vorhandenen Vegetations-WIP in Engine.cpp/EngineHeld.h selektiv erhalten.
+Preload trennt Streaming-Pumpen, Bereitschaft und Kapazitäts-/Timeoutfehler.
+Begrenzte Bakes, TilePool-Wartezeit, Callback- und Nullbudget-Verträge erhalten.
+Timeout behält den konkreten Grounds-Fehler; Fehler-Injektion dafür noch offen.
+Deadline-API-Test grün; Lint 38 Befunde, Preload-Komplexitätswarnung behoben.
+Wien ohne Vegetation gerendert und PNG geöffnet: 0/921600 veränderte Pixel,
+p95 5,88 ms, 0/120 Frames über 16,67 ms; visuelle Material-/Lichtlücken bleiben.
+Kein harter Zeitbound: Callback/Build-Schritt können länger dauern.

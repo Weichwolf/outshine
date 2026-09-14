@@ -281,6 +281,61 @@ Loading Engine::loading() const {
   return said;
 }
 
+namespace {
+void ReportPreload(const Engine &engine,
+                   std::chrono::steady_clock::time_point began,
+                   const std::function<void(const Loading &)> &tell) {
+  if (!tell) { return; }
+  Loading said = engine.loading();
+  said.ElapsedS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+  said.Megabits = said.ElapsedS > 0.0 ? said.FetchedMB * kBitsPerByte / said.ElapsedS : 0.0;
+  tell(said);
+}
+}
+
+bool Engine::State::CanFinishPreload() const {
+  return World.AskedWanted > 0 && World.AskedPending == 0 && World.Grown && World.Stack.Ingested();
+}
+
+Result Engine::State::PumpPreload() {
+  Published.Opens();
+  if (!Asks()) { return std::unexpected(Error); }
+  const LongitudeLatitude stands = WhereTheEyeStands();
+  const double atLat = stands.LatitudeDeg;
+  const double atLon = stands.LongitudeDeg;
+  HandsPiecesOver();
+  const auto streamed = World.Stack.Restand(stands);
+  if (!streamed) {
+    Error = streamed.error();
+    return std::unexpected(Error);
+  }
+  if (!Bakes(kBakesLandedInPreload)) { return std::unexpected(Error); }
+  (void)Grows(atLat, atLon);
+  return {};
+}
+
+Result Engine::State::PreloadOverflow() {
+
+  (void)Grounds(true);
+  Error = "the world at this place holds " + std::to_string(World.Stack.HeapBytes()) +
+          " bytes against a ceiling of " + std::to_string(Ground::GroundStack::kHoldsBytes) +
+          ", so it stopped ingesting part-way. What it did take depends on which tiles had "
+          "landed when the round ran, which is a picture the declaration does not name";
+  return std::unexpected(Error);
+}
+
+Result Engine::State::PreloadTimeout(double bound) {
+
+  const bool built = Grounds(true);
+  const std::string cause = built ? std::string{} : Error;
+  Error = "the world at this place did not become resident within " + std::to_string(bound) +
+          " s -- " + std::to_string(World.Pending) + " of " + std::to_string(World.Wanted) +
+          " tile(s) still pending, " + std::to_string(World.Bare) + " bare, " +
+          std::to_string(World.RimsMissing) + " rim(s) copied for want of a neighbour" +
+          (built ? "" : ", build failed: " + cause);
+  return std::unexpected(Error);
+}
+
 Result Engine::preload(double patienceS) {
   return preload(patienceS, {});
 }
@@ -290,56 +345,21 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
   const auto began = std::chrono::steady_clock::now();
-  const auto say = [&] {
-    if (!tell) { return; }
-    Loading said = loading();
-    said.ElapsedS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-    said.Megabits = said.ElapsedS > 0.0 ? said.FetchedMB * kBitsPerByte / said.ElapsedS : 0.0;
-    tell(said);
-  };
   const double bound = patienceS;
   if (!S_->Session.Declared.Ground.Declared) {
-    say();
+    ReportPreload(*this, began, tell);
     return Result{};
   }
   for (;;) {
-    S_->Published.Opens();
-    if (!S_->Asks()) { return std::unexpected(S_->Error); }
-    const LongitudeLatitude stands = S_->WhereTheEyeStands();
-    const double atLat = stands.LatitudeDeg;
-    const double atLon = stands.LongitudeDeg;
-    S_->HandsPiecesOver();
-    const auto streamed = S_->World.Stack.Restand(stands);
-    if (!streamed) {
-      S_->Error = streamed.error();
-      return std::unexpected(S_->Error);
-    }
-    if (!S_->Bakes(kBakesLandedInPreload)) { return std::unexpected(S_->Error); }
-    (void)S_->Grows(atLat, atLon);
-    say();
-    if (S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&
-        S_->World.Stack.Ingested()) {
+    if (const auto pumped = S_->PumpPreload(); !pumped) { return pumped; }
+    ReportPreload(*this, began, tell);
+    if (S_->CanFinishPreload()) {
       if (!S_->Grounds(true)) { return std::unexpected(S_->Error); }
       if (settled()) { return Result{}; }
     }
-    if (S_->World.Stack.Overflowing()) {
-      (void)S_->Grounds(true);
-      S_->Error = "the world at this place holds " + std::to_string(S_->World.Stack.HeapBytes()) +
-                  " bytes against a ceiling of " +
-                  std::to_string(Ground::GroundStack::kHoldsBytes) +
-                  ", so it stopped ingesting part-way. What it did take depends on which tiles had "
-                  "landed when the round ran, which is a picture the declaration does not name";
-      return std::unexpected(S_->Error);
-    }
+    if (S_->World.Stack.Overflowing()) { return S_->PreloadOverflow(); }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
-      const bool built = S_->Grounds(true);
-      S_->Error = "the world at this place did not become resident within " +
-                  std::to_string(bound) + " s -- " + std::to_string(S_->World.Pending) + " of " +
-                  std::to_string(S_->World.Wanted) + " tile(s) still pending, " +
-                  std::to_string(S_->World.Bare) + " bare, " +
-                  std::to_string(S_->World.RimsMissing) + " rim(s) copied for want of a neighbour" +
-                  (built ? "" : ", and what did arrive would not build");
-      return std::unexpected(S_->Error);
+      return S_->PreloadTimeout(bound);
     }
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
