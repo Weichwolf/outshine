@@ -223,6 +223,7 @@ Result Engine::inspect() {
                 "anything a readback could tell";
     return std::unexpected(S_->Error);
   }
+  S_->Published.Opens();
   S_->Inspected();
   return {};
 }

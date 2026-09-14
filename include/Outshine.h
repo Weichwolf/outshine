@@ -246,6 +246,8 @@ public:
   /// @return Target facade borrowing this Engine.
   [[nodiscard]] SwapChain swapChain();
   /// Refresh published diagnostic measurements, including available GPU readbacks.
+  /// Each successful call publishes a new measurement round, independently of advance().
+  /// Available values replace their previous samples; unavailable readbacks retain prior samples.
   /// May lazily create the render scene and apply pending geometry; this is not a const query
   /// or a new render. Missing readbacks are skipped rather than reported as errors.
   /// Call on the Engine/video thread, serialized with all Engine work. May allocate and wait

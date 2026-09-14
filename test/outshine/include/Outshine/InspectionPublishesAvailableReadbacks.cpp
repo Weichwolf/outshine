@@ -1,6 +1,7 @@
 #include <Outshine.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -54,6 +55,31 @@ int main() {
       CHECK(exposure && std::isfinite(exposure->How) && exposure->How > 0,
             "inspection publishes a finite positive applied exposure");
       CHECK(engine.inspect().has_value(), "unchanged frame can be inspected repeatedly");
+      Geometry geometry;
+      Material material;
+      material.Unlit = true;
+      const auto surface = geometry.addSurface("white", material);
+      CHECK(surface.has_value(), "native unlit material created");
+      if (surface) {
+        const int part = geometry.addPart("triangle", *surface);
+        CHECK(geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
+                  geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
+              "native triangle prepared");
+        CHECK(engine.setGeometry(geometry).has_value(),
+              "geometry changes without a simulation tick");
+        CHECK(engine.renderer().readPixels(pixels).has_value(), "changed scene rendered");
+        int changedPeak = 0;
+        for (size_t at = 0; at + 3 < pixels.size(); at += 4) {
+          for (size_t channel = 0; channel < 3; ++channel) {
+            changedPeak = std::max(changedPeak, static_cast<int>(pixels[at + channel]));
+          }
+        }
+        CHECK(changedPeak > peak, "new frame is measurably brighter than the previous one");
+        CHECK(engine.inspect().has_value(), "changed frame inspected without advance");
+        presented = find("the brightest the presented frame shows");
+        CHECK(presented && presented->How == changedPeak,
+              "repeated inspection replaces the old value with the current readback");
+      }
     }
   }
   SDL_Quit();

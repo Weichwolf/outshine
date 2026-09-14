@@ -110,10 +110,11 @@ Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
 Readback-Diagnosen in Inspection.cpp; öffentlicher API-Test plus GPU-Verträge
 grün, Alpha-Negativkontrolle scheitert. Lint: 39 Befunde, Writer rot.
-Nächster Schritt: inspect() erhält nach erfolgreicher Vorbereitung eine eigene
-Messrunde. Öffentliche Sequenz leeres Bild → inspizieren → helles natives Mesh →
-rendern → inspizieren ohne advance muss den neuen RGB-Spitzenwert veröffentlichen.
-Vorherige Implementierung als Negativkontrolle; unveränderte Wiederholung bleibt
-gültig. Readbacks bleiben optional, inspect rendert selbst keinen neuen Frame.
+inspect() beginnt nach erfolgreicher Vorbereitung eine eigene Messrunde.
+API-Test: leeres Bild → Inspektion → helles natives Mesh → Render/Inspektion ohne
+advance veröffentlicht den neuen RGB-Spitzenwert. Alter Stand scheitert genau
+an dieser Aktualisierung; korrigiert 15 Checks grün. API-Vertrag dokumentiert:
+verfügbare Werte erneuern, fehlende Readbacks behalten frühere Werte.
+Lint vollständig: 39 Befunde, Writer rot. Keine bildwirksame Änderung.
 Getrennt offen: Messrunden bei wiederholtem render() und historische Clash-Diagnosen.
 Manuelle Engine-Quelldateilisten im Harness: Konsolidierung in 2218.
