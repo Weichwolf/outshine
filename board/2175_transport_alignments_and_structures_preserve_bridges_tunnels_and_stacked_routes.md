@@ -99,12 +99,15 @@ und Querneigungsgrenzen nicht als Oracle übernehmen. OpenDRIVE bleibt Adapterfo
 Logisches 2D-Netz mit Ebenen-/Verbindungsidentität unabhängig von sichtbarem Mesh;
 Alignment ergänzt 3D-Pose, Render-/Kollisionsprodukte dürfen keine Topologie erfinden.
 
-## Aktueller P0-Schritt
+## P0-Nachweis: minimale Decksegmente
 
-RoadMesh::Sweep verwirft zwei Stationen vor dem vorhandenen Geraden-Fit;
-Corridors nutzt diesen Pfad für Brückendecks. Mindestfall auf zwei Stationen
-korrigieren, auch verbleibende Zweipunktstücke verarbeiten. Linienfit und
-Höhenprofilaufbau aus LayPiece trennen; Geometrie-/Materialvertrag erhalten.
-Analytische Gerade mit Steigung, gedrehter Lage und angehängtem Ergebnis prüfen;
-der alte Mindestwert muss als Negativkontrolle scheitern. Vorhandener Fit bildet
-bereits 2..N Punkte ab. Kettenregel und komplexe Bauwerke bleiben separat offen.
+RoadMesh verarbeitet jetzt Zwei-Punkt-Geraden und verbleibende Zweipunktstücke.
+Linienfit, Höhenprofil und Anschlusstore sind getrennt; Profilformeln unverändert.
+Zwölf RoadMesh-/Kurventests grün. Analytischer Fall: 64 m Länge, 16 m Anstieg,
+drei Richtungen, Deckrandlage und appendierte Indizes; Altcode scheitert 15-mal.
+Wien ohne Vegetation geöffnet: 3235/921600 Pixel verändert; Gegenprobe mit alter
+Mindestlänge reproduziert das Vorbild pixelgenau. Neue Deckflächen, weiterhin
+unzureichende Material-/Lichtqualität. p50/p95/p99 5.26/5.68/6.06 ms, 0/120 über
+16.67 ms; Warmaufnahme, keine vollständige Streaming-/Bauwerksabnahme.
+Lint vollständig: 62 Befunde, Writer rot. Sweep-Komplexität 27 bleibt offen;
+Kettenregel, endliche Eingaben, Kontakt und komplexe Bauwerke weiter prüfen.

@@ -231,17 +231,10 @@ void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadRaised &into) {
   for (const uint32_t one : woven.Index) { into.Index.push_back(firstVertex + one); }
 }
 
-bool LayPiece(std::span<const double> eastNorthM,
-              std::span<const double> gradeM,
-              std::span<const double> reachedM,
-              double halfWidthM,
-              RoadProfile profile,
-              const Vec3f &wearsLinear,
-              double crossfall,
-              RoadRaised &into,
+bool FitPiece(std::span<const double> eastNorthM,
+              ReferenceLine &line,
+              double &tightestM,
               RoadRefusals *why) {
-  ReferenceLine line;
-  double tightestM = 0.0;
   if (eastNorthM.size() == 4) {
     const double runE = eastNorthM[2] - eastNorthM[0];
     const double runN = eastNorthM[3] - eastNorthM[1];
@@ -270,6 +263,17 @@ bool LayPiece(std::span<const double> eastNorthM,
     tightestM = laid.TightestRadiusM;
   }
 
+  return true;
+}
+
+struct ElevationSamples {
+  std::span<const double> GradeM;
+  std::span<const double> ReachedM;
+};
+
+std::vector<Knot> ElevationKnots(ElevationSamples samples, double lengthM) {
+  const auto gradeM = samples.GradeM;
+  const auto reachedM = samples.ReachedM;
   const double wholeM = reachedM[reachedM.size() - 1u] - reachedM[0];
   std::vector<Knot> rise;
   rise.reserve(gradeM.size());
@@ -283,8 +287,48 @@ bool LayPiece(std::span<const double> eastNorthM,
       const double span = reachedM[one] - reachedM[one - 1u];
       rate = span > kLeastTurnRad ? (gradeM[one] - gradeM[one - 1u]) / span : 0.0;
     }
-    rise.push_back(Knot{.AlongM = part * line.LengthM(), .Value = gradeM[one], .RatePerM = rate});
+    rise.push_back(Knot{.AlongM = part * lengthM, .Value = gradeM[one], .RatePerM = rate});
   }
+  return rise;
+}
+
+std::array<RoadGate, 2>
+CornerGates(std::span<const RoadStation> along, size_t at, double halfWidthM) {
+  const auto facing = [&](size_t one, size_t two) {
+    const double runE = along[two].EastM - along[one].EastM;
+    const double runN = along[two].NorthM - along[one].NorthM;
+    const double runM = std::sqrt(runE * runE + runN * runN);
+    return runM > kLeastTurnRad ? std::pair<double, double>{runE / runM, runN / runM}
+                                : std::pair<double, double>{0.0, 0.0};
+  };
+  const auto back = facing(at, at - 1u);
+  const auto on = facing(at, at + 1u);
+  return {{RoadGate{.EastM = along[at].EastM,
+                    .NorthM = along[at].NorthM,
+                    .GradeM = along[at].GradeM,
+                    .OutE = back.first,
+                    .OutN = back.second,
+                    .HalfWidthM = halfWidthM},
+           RoadGate{.EastM = along[at].EastM,
+                    .NorthM = along[at].NorthM,
+                    .GradeM = along[at].GradeM,
+                    .OutE = on.first,
+                    .OutN = on.second,
+                    .HalfWidthM = halfWidthM}}};
+}
+
+bool LayPiece(std::span<const double> eastNorthM,
+              ElevationSamples elevation,
+              double halfWidthM,
+              RoadProfile profile,
+              const Vec3f &wearsLinear,
+              double crossfall,
+              RoadRaised &into,
+              RoadRefusals *why) {
+  ReferenceLine line;
+  double tightestM = 0.0;
+  if (!FitPiece(eastNorthM, line, tightestM, why)) { return false; }
+  const auto rise = ElevationKnots(elevation, line.LengthM());
   std::string said;
   if (!line.Rise(std::span<const Knot>(rise.data(), rise.size()), said)) {
     if (why != nullptr) { ++why->Rise; }
@@ -318,7 +362,7 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
   const double crossfall = how.Crossfall;
   RoadTallied tally;
   RoadRefusals *const why = &tally.Why;
-  if (along.size() < 3 || !(halfWidthM > 0.0)) { return tally; }
+  if (along.size() < 2 || !(halfWidthM > 0.0)) { return tally; }
 
   std::vector<double> eastNorth;
   std::vector<double> grade;
@@ -340,7 +384,7 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
   }
 
   size_t from = 0;
-  while (from + 3u <= along.size()) {
+  while (from + 2u <= along.size()) {
     ReferenceLine probe;
     const Fitted got =
         Fit(std::span<const double>(eastNorth.data() + from * 2u, (along.size() - from) * 2u),
@@ -351,8 +395,8 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
     const size_t count = upTo + 1u;
     if (count >= 2u) {
       if (LayPiece(std::span<const double>(eastNorth.data() + from * 2u, count * 2u),
-                   std::span<const double>(grade.data() + from, count),
-                   std::span<const double>(reached.data() + from, count),
+                   {.GradeM = std::span<const double>(grade.data() + from, count),
+                    .ReachedM = std::span<const double>(reached.data() + from, count)},
                    halfWidthM,
                    profile,
                    wearsLinear,
@@ -376,27 +420,7 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
     {
       const size_t at = from + upTo;
       if (at > 0 && at + 1u < along.size()) {
-        const auto facing = [&](size_t one, size_t two) {
-          const double runE = along[two].EastM - along[one].EastM;
-          const double runN = along[two].NorthM - along[one].NorthM;
-          const double runM = std::sqrt(runE * runE + runN * runN);
-          return runM > kLeastTurnRad ? std::pair<double, double>{runE / runM, runN / runM}
-                                      : std::pair<double, double>{0.0, 0.0};
-        };
-        const auto back = facing(at, at - 1u);
-        const auto on = facing(at, at + 1u);
-        const std::array<RoadGate, 2> corner = {{RoadGate{.EastM = along[at].EastM,
-                                                          .NorthM = along[at].NorthM,
-                                                          .GradeM = along[at].GradeM,
-                                                          .OutE = back.first,
-                                                          .OutN = back.second,
-                                                          .HalfWidthM = halfWidthM},
-                                                 RoadGate{.EastM = along[at].EastM,
-                                                          .NorthM = along[at].NorthM,
-                                                          .GradeM = along[at].GradeM,
-                                                          .OutE = on.first,
-                                                          .OutN = on.second,
-                                                          .HalfWidthM = halfWidthM}}};
+        const auto corner = CornerGates(along, at, halfWidthM);
         Junction(std::span<const RoadGate>(corner.data(), 2), {}, wearsLinear, into);
       }
     }
