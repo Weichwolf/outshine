@@ -101,3 +101,11 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
       Artefaktnachweis durch vollständige Renderer-Vertragsprüfung ergänzen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
+
+## P0: Mesh-Übergabe und Diagnosearbeit
+SubjectResidency::StageUploads/Submit führen Stream-Callbacks synchron aus;
+SetSubjectMesh speichert deren lokale Kontexte nicht für spätere GPU-Ausführung.
+Optionale Geometrie-Digest-Arbeit aus SubjectProxy::Place in eigene Phase ziehen;
+Bytefolge und vorhandenes FNV-Folding erhalten. Kamera-/Upload-Prüfung und Wien
+sichern den Gesamtpfad. Globale Digest-/Timing-Zähler sind noch nicht pro Engine
+isoliert; Ownership getrennt korrigieren, nicht als Mehrinstanz-Abnahme werten.
