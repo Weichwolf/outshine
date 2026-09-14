@@ -36,8 +36,16 @@ float Srgb(float linear) {
 namespace {
 constexpr uint64_t kCrownMagic = 0x004e574f5243534full;
 constexpr uint32_t kCrownVersion = 1;
-constexpr size_t kCrownHeaderBytes = 64;
-constexpr size_t kCrownMaterialBytes = 52;
+constexpr size_t kCrownHeaderBytes =
+    2 * sizeof(uint64_t) + 4 * sizeof(uint32_t) + 4 * sizeof(double);
+constexpr size_t kCrownMaterialBytes = 10 * sizeof(float) + 3 * sizeof(uint32_t);
+constexpr size_t kCrownViewBytes = 3 * sizeof(double);
+constexpr size_t kCrownTexelBytes = 4 * sizeof(float) + sizeof(uint32_t);
+constexpr size_t kCrownChecksumBytes = sizeof(uint64_t);
+constexpr double kUnitDirectionSquaredTolerance = 1e-12;
+constexpr float kCapturedNormalSquaredTolerance = 0.003f;
+static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
+static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559);
 
 uint64_t Hash(std::span<const uint8_t> bytes) {
   uint64_t value = kDigestBasis;
@@ -53,7 +61,8 @@ struct CrownWriter {
   std::vector<uint8_t> Bytes;
 
   template <typename T> void Put(T value) {
-    using Word = std::conditional_t<sizeof(T) == 4, uint32_t, uint64_t>;
+    static_assert(sizeof(T) == sizeof(uint32_t) || sizeof(T) == sizeof(uint64_t));
+    using Word = std::conditional_t<sizeof(T) == sizeof(uint32_t), uint32_t, uint64_t>;
     const Word bits = std::bit_cast<Word>(value);
     for (size_t at = 0; at < sizeof(T); ++at) {
       Bytes.push_back(static_cast<uint8_t>(bits >> (at * 8)));
@@ -66,61 +75,75 @@ struct CrownReader {
   size_t At = 0;
 
   template <typename T> T Take() {
-    using Word = std::conditional_t<sizeof(T) == 4, uint32_t, uint64_t>;
+    static_assert(sizeof(T) == sizeof(uint32_t) || sizeof(T) == sizeof(uint64_t));
+    using Word = std::conditional_t<sizeof(T) == sizeof(uint32_t), uint32_t, uint64_t>;
     Word bits = 0;
-    for (size_t at = 0; at < sizeof(T); ++at) { bits |= Word(Bytes[At++]) << (at * 8); }
+    for (size_t at = 0; at < sizeof(T); ++at) {
+      bits |= static_cast<Word>(Bytes[At++]) << (at * 8);
+    }
     return std::bit_cast<T>(bits);
   }
 };
 
+bool CacheableMaterial(const Material &source) {
+  Material core;
+  core.BaseColour = source.BaseColour;
+  core.Metalness = source.Metalness;
+  core.Roughness = source.Roughness;
+  core.Emission = source.Emission;
+  core.Alpha = source.Alpha;
+  core.CoverageCut = source.CoverageCut;
+  core.DoubleSided = source.DoubleSided;
+  core.Unlit = source.Unlit;
+  if (!(source == core) || static_cast<uint32_t>(core.Alpha) > 2) { return false; }
+  for (const float x : core.BaseColour) {
+    if (!std::isfinite(x) || x < 0 || x > 1) { return false; }
+  }
+  for (const float x : core.Emission) {
+    if (!std::isfinite(x) || x < 0) { return false; }
+  }
+  for (const float x : {core.Metalness, core.Roughness, core.CoverageCut}) {
+    if (!std::isfinite(x) || x < 0 || x > 1) { return false; }
+  }
+  return true;
+}
+
+bool CacheableView(const CrownAtlas::View &view, size_t texels, size_t surfaces) {
+  const double norm = Dot(view.TowardEye, view.TowardEye);
+  if (!std::isfinite(norm) || std::abs(norm - 1) > kUnitDirectionSquaredTolerance ||
+      view.TowardEye[1] != 0 || view.Texels.size() != texels) {
+    return false;
+  }
+  for (const auto &pixel : view.Texels) {
+    const float normal = Dot(pixel.Normal, pixel.Normal);
+    if (!std::isfinite(pixel.Depth) || pixel.Depth < 0 || pixel.Depth > 1 ||
+        pixel.Surface > surfaces || ((pixel.Surface > 0) != (pixel.Depth > 0)) ||
+        !std::isfinite(normal) ||
+        (pixel.Surface > 0 ? std::abs(normal - 1) > kCapturedNormalSquaredTolerance
+                           : normal != 0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool Cacheable(const CrownAtlas &atlas) {
   if (atlas.Pixels() < 3 || atlas.Pixels() > 4096 || atlas.Views().empty() ||
       atlas.Views().size() > 64 || atlas.Surfaces().empty() || atlas.Surfaces().size() > 64 ||
-      size_t(atlas.Pixels()) * size_t(atlas.Pixels()) * atlas.Views().size() > kMostAtlasTexels ||
+      static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels()) *
+              atlas.Views().size() >
+          kMostAtlasTexels ||
       !std::isfinite(atlas.HalfExtentM()) || atlas.HalfExtentM() <= 0) {
     return false;
   }
   for (const auto x : atlas.CentreM()) {
     if (!std::isfinite(x)) { return false; }
   }
-  for (const auto &source : atlas.Surfaces()) {
-    Material core;
-    core.BaseColour = source.BaseColour;
-    core.Metalness = source.Metalness;
-    core.Roughness = source.Roughness;
-    core.Emission = source.Emission;
-    core.Alpha = source.Alpha;
-    core.CoverageCut = source.CoverageCut;
-    core.DoubleSided = source.DoubleSided;
-    core.Unlit = source.Unlit;
-    if (!(source == core) || static_cast<uint32_t>(core.Alpha) > 2) { return false; }
-    for (const float x : core.BaseColour) {
-      if (!std::isfinite(x) || x < 0 || x > 1) { return false; }
-    }
-    for (const float x : core.Emission) {
-      if (!std::isfinite(x) || x < 0) { return false; }
-    }
-    for (const float x : {core.Metalness, core.Roughness, core.CoverageCut}) {
-      if (!std::isfinite(x) || x < 0 || x > 1) { return false; }
-    }
-  }
-  for (const auto &view : atlas.Views()) {
-    const double norm = Dot(view.TowardEye, view.TowardEye);
-    if (!std::isfinite(norm) || std::abs(norm - 1) > 1e-12 || view.TowardEye[1] != 0 ||
-        view.Texels.size() != size_t(atlas.Pixels()) * size_t(atlas.Pixels())) {
-      return false;
-    }
-    for (const auto &pixel : view.Texels) {
-      const float normal = Dot(pixel.Normal, pixel.Normal);
-      if (!std::isfinite(pixel.Depth) || pixel.Depth < 0 || pixel.Depth > 1 ||
-          pixel.Surface > atlas.Surfaces().size() || ((pixel.Surface > 0) != (pixel.Depth > 0)) ||
-          !std::isfinite(normal) ||
-          (pixel.Surface > 0 ? std::abs(normal - 1) > .003f : normal != 0)) {
-        return false;
-      }
-    }
-  }
-  return true;
+  const auto texels = static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels());
+  return std::ranges::all_of(atlas.Surfaces(), CacheableMaterial) &&
+         std::ranges::all_of(atlas.Views(), [&](const CrownAtlas::View &view) {
+           return CacheableView(view, texels, atlas.Surfaces().size());
+         });
 }
 }
 
@@ -137,7 +160,10 @@ std::optional<std::vector<uint8_t>> CrownAtlas::Encode(std::string_view provenan
   }
   CrownWriter out;
   out.Bytes.reserve(kCrownHeaderBytes + Surfaces_.size() * kCrownMaterialBytes +
-                    Views_.size() * (24 + size_t(Pixels_) * size_t(Pixels_) * 20) + 8);
+                    Views_.size() *
+                        (kCrownViewBytes + static_cast<size_t>(Pixels_) *
+                                               static_cast<size_t>(Pixels_) * kCrownTexelBytes) +
+                    kCrownChecksumBytes);
   out.Put(kCrownMagic);
   out.Put(kCrownVersion);
   out.Put(Provenance(provenance));
@@ -171,25 +197,31 @@ std::optional<std::vector<uint8_t>> CrownAtlas::Encode(std::string_view provenan
 std::optional<CrownAtlas> CrownAtlas::Decode(std::span<const uint8_t> bytes,
                                              std::string_view provenance,
                                              std::string &error) {
-  const auto refuse = [&]() -> std::optional<CrownAtlas> {
+  const auto refuse = [&] -> std::optional<CrownAtlas> {
     error = "crown artifact is stale, corrupt, unsupported or outside its bounds";
     return std::nullopt;
   };
-  if (provenance.empty() || bytes.size() < kCrownHeaderBytes + 8) { return refuse(); }
-  CrownReader checksum{bytes.last(8)};
-  if (Hash(bytes.first(bytes.size() - 8)) != checksum.Take<uint64_t>()) { return refuse(); }
-  CrownReader in{bytes};
+  if (provenance.empty() || bytes.size() < kCrownHeaderBytes + kCrownChecksumBytes) {
+    return refuse();
+  }
+  CrownReader checksum{.Bytes = bytes.last(kCrownChecksumBytes)};
+  if (Hash(bytes.first(bytes.size() - kCrownChecksumBytes)) != checksum.Take<uint64_t>()) {
+    return refuse();
+  }
+  CrownReader in{.Bytes = bytes};
   if (in.Take<uint64_t>() != kCrownMagic || in.Take<uint32_t>() != kCrownVersion ||
       in.Take<uint64_t>() != Provenance(provenance)) {
     return refuse();
   }
-  const uint32_t pixels = in.Take<uint32_t>(), views = in.Take<uint32_t>(),
-                 surfaces = in.Take<uint32_t>();
-  const uint64_t count = uint64_t(pixels) * pixels;
+  const auto pixels = in.Take<uint32_t>();
+  const auto views = in.Take<uint32_t>();
+  const auto surfaces = in.Take<uint32_t>();
+  const auto count = static_cast<uint64_t>(pixels) * pixels;
   if (pixels < 3 || pixels > 4096 || views == 0 || views > 64 || surfaces == 0 || surfaces > 64 ||
       count * views > kMostAtlasTexels ||
-      kCrownHeaderBytes + uint64_t(surfaces) * kCrownMaterialBytes +
-              uint64_t(views) * (24 + count * 20) + 8 !=
+      kCrownHeaderBytes + static_cast<uint64_t>(surfaces) * kCrownMaterialBytes +
+              static_cast<uint64_t>(views) * (kCrownViewBytes + count * kCrownTexelBytes) +
+              kCrownChecksumBytes !=
           bytes.size()) {
     return refuse();
   }
@@ -204,8 +236,9 @@ std::optional<CrownAtlas> CrownAtlas::Decode(std::span<const uint8_t> bytes,
     surface.Roughness = in.Take<float>();
     for (float &x : surface.Emission) { x = in.Take<float>(); }
     surface.CoverageCut = in.Take<float>();
-    const uint32_t alpha = in.Take<uint32_t>(), sided = in.Take<uint32_t>(),
-                   unlit = in.Take<uint32_t>();
+    const auto alpha = in.Take<uint32_t>();
+    const auto sided = in.Take<uint32_t>();
+    const auto unlit = in.Take<uint32_t>();
     if (alpha > 2 || sided > 1 || unlit > 1) { return refuse(); }
     surface.Alpha = static_cast<AlphaMode>(alpha);
     surface.DoubleSided = sided != 0;

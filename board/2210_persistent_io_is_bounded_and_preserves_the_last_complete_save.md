@@ -112,8 +112,9 @@ Sieben Regressionen grün; das ist noch keine vollständige XML-Konformitätsabn
 
 ## Kronenartefakt-Vertrag
 
-Cacheprüfung nach Material, Ansicht und Container trennen; Bytegrößen aus den
-gespeicherten Skalaren ableiten, IEEE-/Breitenannahmen statisch prüfen. Toleranzen
-und Format bleiben unverändert. Handkodierte kleine Datei prüft Decode/Encode
-ohne GPU; korrupte Dimensionen, Material-/Normalwerte mit gültiger Prüfsumme ablehnen.
-Bestehenden Capture-/Cachetest ergänzen, keinen Vegetationsausbau vorziehen.
+Cacheprüfung trennt Material, Ansicht und Container. Bytegrößen folgen gespeicherten
+Skalaren; IEEE-/Breitenannahmen sind statisch geprüft. Format/Toleranzen unverändert.
+Handkodierte 328-Byte-Datei prüft Decode und exaktes Encode ohne GPU, einschließlich
+korrupter Dimensionen, Material-/Normalwerte bei gültiger Prüfsumme. Negativkontrolle
+ohne Inhaltsvalidierung: sechs Fehler. Binärtest und bestehender Capture-/Cachetest
+bestehen; Lint 74 Tidy-Befunde, Writer-Inventur weiter offen. Kein Vegetationsausbau.
