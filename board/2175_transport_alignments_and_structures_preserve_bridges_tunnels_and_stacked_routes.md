@@ -111,3 +111,9 @@ unzureichende Material-/Lichtqualität. p50/p95/p99 5.26/5.68/6.06 ms, 0/120 üb
 16.67 ms; Warmaufnahme, keine vollständige Streaming-/Bauwerksabnahme.
 Lint vollständig: 62 Befunde, Writer rot. Sweep-Komplexität 27 bleibt offen;
 Kettenregel, endliche Eingaben, Kontakt und komplexe Bauwerke weiter prüfen.
+
+Nächster P0-Schritt: Bei s = u * Lfit / Lquelle gilt dh/ds = dh/du *
+Lquelle/Lfit. Diese Kettenregel in ElevationKnots anwenden. Ein linearer
+Quellhöhenverlauf muss an den gefitteten Enden Steigung Δh/Lfit behalten;
+analytische Endnormalen und eine scheiternde Altcode-Kontrolle prüfen das.
+Nichtnullable Refusal-Zähler als Referenzen führen statt tote Nullzweige.
