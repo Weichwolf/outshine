@@ -97,3 +97,11 @@ Tierwahl und Rasterauswertung sind getrennt. Analytischer Test: Zellgrenzen, Fin
 Fallback, NaN/Inf und große Werte samt FP-Flags; vorher 16 Checks rot, jetzt alle 47 grün.
 Klassifikationswechsel-Regression besteht. Wien ohne Vegetation visuell geprüft,
 0/921600 Pixel zur Vorversion verändert; kein Nachweis vollständiger Bildqualität.
+
+## P0: Kameraherkunft und Framing-Prüfung
+SubjectProxy::Eye.StandsInside bedeutet tatsächlich explizite Kamera, nicht
+Innenraumposition. In HasExplicitCamera umbenennen; Live-Aufrufer migrieren.
+Near-Plane-Prüfung bleibt nur automatische Framing-Garantie. Ungenutzten
+Boolean-Parameter entfernen, Box-Ecken und Skalarprodukt aus gemeinsamer Mathematik
+verwenden. Vorhandene Kamera-/Projektionsprüfungen und Wien-Regression sichern
+explizite Kamera, automatisches Framing und unveränderte Darstellung.
