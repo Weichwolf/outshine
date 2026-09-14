@@ -113,6 +113,12 @@ bool Fetching::Await(double forMs) {
          Completions_ != stood;
 }
 
+bool Fetching::Cancelled(uint64_t ticket) {
+  const std::scoped_lock lock(Mutex_);
+  const auto found = Transfers_.find(ticket);
+  return Stopping_ || found == Transfers_.end() || found->second.Cancelled;
+}
+
 void Fetching::Work() {
   CURL *handle = curl_easy_init();
   for (;;) {
@@ -129,6 +135,8 @@ void Fetching::Work() {
       url = found->second.Url;
     }
 
+    using Progress = std::pair<Fetching *, uint64_t>;
+    Progress progress{this, ticket};
     std::vector<uint8_t> body;
     Sink sink{.Out = &body, .Max = Config_.MaxBodyBytes};
     long status = 0;
@@ -137,6 +145,15 @@ void Fetching::Work() {
     if (handle != nullptr) {
       curl_easy_reset(handle);
       curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
+      curl_easy_setopt(handle, CURLOPT_NOPROGRESS, 0L);
+      curl_easy_setopt(handle, CURLOPT_XFERINFODATA, &progress);
+      curl_easy_setopt(
+          handle,
+          CURLOPT_XFERINFOFUNCTION,
+          +[](void *data, curl_off_t, curl_off_t, curl_off_t, curl_off_t) -> int {
+            auto &active = *static_cast<Progress *>(data);
+            return static_cast<int>(active.first->Cancelled(active.second));
+          });
       curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, Write);
       curl_easy_setopt(handle, CURLOPT_WRITEDATA, &sink);
       curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);

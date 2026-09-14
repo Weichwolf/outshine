@@ -98,7 +98,7 @@ struct GroundStream::Held {
       Held_.Decodes++;
       const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
       TilePool::Landing landing;
-      switch (Held_.Pool.BytesBlocking(request, &landing)) {
+      switch (Held_.Pool.Bytes(request, &landing)) {
         case TilePool::Reply::Ready: {
           const std::optional<Data::TileId> landed = landing.At.Tile();
           if (!landed) { return TerrainBytes::Wire(); }

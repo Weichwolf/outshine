@@ -62,10 +62,11 @@ Fehlerabschluss modellieren. Worker-Warten außerhalb des Framepfads ist legitim
 Place-Rerender: Stack-Sampling belegt Hauptthread in WaterField::Ingest ->
 GroundStream::At -> Oracle::Take -> BytesBlocking -> Fetching::Await.
 Damit blockiert DEM-Nachladen Fortschritt und Preload-Frist trotz IO-Workern.
-Oracle muss über TilePool::Bytes Pending liefern und später erneut auflösen;
-fehlende Nachbarn dürfen nicht als dauerhafte Löcher gecacht werden.
-Prüfung mit verzögerter Quelle: kein Source-/Await-Aufruf auf dem Aufruferthread,
-Pending vor Freigabe, danach korrekte Höhe. Altpfad muss daran scheitern.
-Fetching::Cancel markiert laufende Requests nur; curl läuft bis Timeout weiter.
-Abbruch/Shutdown über curl-Fortschrittscallback, lokale verzögerte HTTP-Antwort
-als unabhängiges Oracle. Carrier-Serialisierung und Queue-Budgets getrennt prüfen.
+Oracle liefert jetzt über TilePool::Bytes Pending und löst später erneut auf.
+Verzögerte Quelle prüft Worker-Zuständigkeit, Pending und spätere korrekte Höhe;
+Altpfad scheitert. Fetching bricht aktive Requests über libcurl-XFERINFO ab,
+auch beim Shutdown. Lokaler HTTP-Test mit einem Worker prüft Freigabe vor Timeout.
+Drei Tests grün, beide Negativkontrollen rot. Lint: unverändert 96 Tidy-Befunde
+und offene Writer-Inventur; keine neuen Diagnosen.
+Offen: Carrier-Serialisierung, Queue-Budgets, Mainthread-Decodierung/Aufbau und
+OSM-Gesamtdurchsatz bei kaltem Cache. Der Fix ist keine Streaming-Gesamtabnahme.

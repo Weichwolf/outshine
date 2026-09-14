@@ -53,6 +53,7 @@ private:
   };
 
   void Work();
+  [[nodiscard]] bool Cancelled(uint64_t ticket);
 
   Config Config_;
   std::mutex Mutex_;
