@@ -103,17 +103,14 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
 ## P0: Mesh-Übergabe und Diagnosearbeit
-Residency-Stream-Callbacks laufen synchron; keine gespeicherten lokalen Kontexte.
-SubjectProxy trennt Digest von Übergabe; Werte liegen in SubjectScratch/Core::Live.
-CPU-Zeiten für Packing/Digest/Upload getrennt. Zwei Renderer: 14 Checks grün;
-statischer Speicher als Negativkontrolle: drei Fehler. Kamera/Submission grün.
-Lint: 55 Befunde, Writer rot. Letzter bildwirksamer Vergleich Wien unverändert.
+Stream-Callbacks laufen synchron. Transfermetriken/Residency-Zähler pro Instanz;
+21 Checks grün, statischer Speicher scheitert sechsmal. GPU-Submission validiert.
+Lint: 55 Befunde, Writer rot. Pose-Nachweis, Erfolgszähler und globale Live-Zähler offen.
 
-Residency-Zähler liegen pro Instanz; beide Renderpässe teilen diesen Besitzer.
-SceneRenderer vermittelt Abfragen; Versuche und aufgezeichnete Copy-Befehle sind
-als solche benannt. TakeUploadBytes erhält kleine Transfers ohne MB-Abschneiden.
-21 Mehrinstanz-Checks grün; statischer Speicher: sechs Fehler. GPU-Submission
-normal/validiert grün. Vollständiges Lint: 55 Befunde, Writer rot.
-Offen: Pose-Transfer, erfolgreiche statt versuchte Transfers, globale Live-Zähler.
-Nächster Befund: SubjectDraw::SetMesh verändert Zustand vor Validierung und prüft
-Indexbereiche mit überlaufbarer Addition; fachliche Grenz-/Fehlerverträge korrigieren.
+Nächster Schritt: SetMesh prüft Daten vor Mutation/DropStaged. ValidateMesh/
+ValidateBatch trennen reine Eingangsprüfung vom Upload; Index-/Instanzbereiche
+ohne Überlauf, Layout vor Tabellenzugriff prüfen. Bisheriges Mesh bei ungültigen
+Eingaben erhalten. Vorhandene DrawList-Zulassung und Residency weiterverwenden.
+GPU-Test: gültiges Mesh, fehlende Streams/Material/UV, überlaufende Bereiche;
+Diagnose, unveränderte Batches/Uploads und zeichnungsfähiger Bestand. Negativkontrolle
+mutiert Zustand vor Prüfung. GPU-Allokationsrollback bleibt eigener offener Vertrag.
