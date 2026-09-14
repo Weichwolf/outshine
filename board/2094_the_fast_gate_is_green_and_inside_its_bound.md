@@ -108,12 +108,12 @@ und Negativkontrollen grün, Wien pixelgleich. Lint: 39 Befunde, Writer rot.
 Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
 Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Readback-Diagnosen liegen in Inspection.cpp, nach Messgegenstand getrennt;
-Ready/Skip, Namen/Einheiten und Reihenfolge erhalten. Velocity-Grenzwert
-entsprechend NDC statt Bodenmetern benannt. Öffentlicher inspect-Test: acht
-Checks grün; Alpha als Helligkeit zählt falsch und lässt Negativkontrolle scheitern.
-GPU-/Mesh-Tests normal/validiert grün. Lint vollständig: 39 Befunde, Writer rot.
-Kein neuer Place-Render: Diagnosepfad verändert die Darstellung nicht.
-Separat prüfen: Ledger::Places verwirft geänderte Werte derselben Runde;
-inspect() öffnet keine Runde. Aktualisierung ohne advance könnte veralten.
-Manuelle Engine-Quelldateilisten im Harness ergänzt; Konsolidierung bleibt in 2218.
+Readback-Diagnosen in Inspection.cpp; öffentlicher API-Test plus GPU-Verträge
+grün, Alpha-Negativkontrolle scheitert. Lint: 39 Befunde, Writer rot.
+Nächster Schritt: inspect() erhält nach erfolgreicher Vorbereitung eine eigene
+Messrunde. Öffentliche Sequenz leeres Bild → inspizieren → helles natives Mesh →
+rendern → inspizieren ohne advance muss den neuen RGB-Spitzenwert veröffentlichen.
+Vorherige Implementierung als Negativkontrolle; unveränderte Wiederholung bleibt
+gültig. Readbacks bleiben optional, inspect rendert selbst keinen neuen Frame.
+Getrennt offen: Messrunden bei wiederholtem render() und historische Clash-Diagnosen.
+Manuelle Engine-Quelldateilisten im Harness: Konsolidierung in 2218.
