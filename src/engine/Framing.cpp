@@ -144,11 +144,11 @@ bool Engine::render(Extent frame) {
   S_->Published.Places("the geometry the renderer was last offered, digested",
                        S_->Picture.Standing->TransferMetrics().DigestValue(),
                        "");
-  S_->Published.Places("uploads the subject residency has made in all",
-                       static_cast<double>(Render::SubjectResidency::UploadsEver()),
+  S_->Published.Places("subject residency upload attempts in all",
+                       static_cast<double>(S_->Picture.Device.TotalUploadAttempts()),
                        "uploads");
-  S_->Published.Places("staged crossings the residency flushed",
-                       static_cast<double>(Render::SubjectResidency::CrossingsFlushed()),
+  S_->Published.Places("staged crossings recorded in copy passes",
+                       static_cast<double>(S_->Picture.Device.RecordedCrossings()),
                        "crossings");
   S_->Published.Places("subject clusters",
                        static_cast<double>(S_->Picture.Standing->Shown().Clusters.size()),

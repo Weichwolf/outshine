@@ -2,7 +2,6 @@
 #include <optional>
 #include <limits>
 #include <array>
-#include <atomic>
 #include "SubjectResidency.h"
 #include <algorithm>
 
@@ -24,7 +23,6 @@ constexpr float kSrgbLinearSlope = 12.92f;
 constexpr float kSrgbOffset = 0.055f;
 constexpr float kSrgbScale = 1.055f;
 constexpr float kSrgbGamma = 2.4f;
-constexpr uint64_t kBytesPerMegabyte = 1000000u;
 constexpr float kEveryMip = 1000.0f;
 constexpr size_t kRgbaChannels = 4u;
 constexpr size_t kAlphaChannel = 3u;
@@ -110,37 +108,30 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
   return filter == SubjectFilter::Nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
 }
 
-std::atomic<size_t> gUploads{0};
-std::atomic<size_t> gUploadsEver{0};
-std::atomic<size_t> gCrossingsFlushed{0};
-std::atomic<size_t> gUploadBytes{0};
-std::atomic<size_t> gBuffersMade{0};
-std::atomic<size_t> gStagingMade{0};
-
 }
 
-size_t SubjectResidency::UploadsTaken() {
-  return gUploads.exchange(0u);
+size_t SubjectResidency::TakeUploadAttempts() {
+  return std::exchange(UploadAttempts_, size_t{0});
 }
 
-size_t SubjectResidency::UploadsEver() {
-  return gUploadsEver.load(std::memory_order_relaxed);
+size_t SubjectResidency::TotalUploadAttempts() const {
+  return TotalUploadAttempts_;
 }
 
-size_t SubjectResidency::CrossingsFlushed() {
-  return gCrossingsFlushed.load(std::memory_order_relaxed);
+size_t SubjectResidency::RecordedCrossings() const {
+  return RecordedCrossings_;
 }
 
-size_t SubjectResidency::UploadMBTaken() {
-  return gUploadBytes.exchange(0u) / kBytesPerMegabyte;
+size_t SubjectResidency::TakeUploadBytes() {
+  return std::exchange(UploadBytes_, size_t{0});
 }
 
-size_t SubjectResidency::BuffersMadeTaken() {
-  return gBuffersMade.exchange(0u);
+size_t SubjectResidency::TakeBufferAllocationAttempts() {
+  return std::exchange(BufferAttempts_, size_t{0});
 }
 
-size_t SubjectResidency::StagingMadeTaken() {
-  return gStagingMade.exchange(0u);
+size_t SubjectResidency::TakeStagingAllocationAttempts() {
+  return std::exchange(StagingAttempts_, size_t{0});
 }
 
 SubjectResidency::Range
@@ -229,7 +220,7 @@ bool SubjectResidency::PrepareBuffers(std::span<Crossing> what,
       wanted.usage = one.Usage;
       wanted.size = one.Offset + one.Bytes;
       OwnedBuffer candidate(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
-      gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
+      BufferAttempts_ += 1u;
       if (!candidate) {
         error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
         return false;
@@ -318,11 +309,11 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
   if (BulkBytes_ < total || !Bulk_) {
     Bulk_ = OwnedTransfer(Device_, SDL_CreateGPUTransferBuffer(Device_, &room));
     BulkBytes_ = Bulk_ ? total : 0u;
-    gStagingMade.fetch_add(1u, std::memory_order_relaxed);
+    StagingAttempts_ += 1u;
   }
-  gUploads.fetch_add(1u, std::memory_order_relaxed);
-  gUploadsEver.fetch_add(1u, std::memory_order_relaxed);
-  gUploadBytes.fetch_add(total, std::memory_order_relaxed);
+  UploadAttempts_ += 1u;
+  TotalUploadAttempts_ += 1u;
+  UploadBytes_ += total;
   if (!Bulk_) {
     error = std::format(Says::kTopologyStagingFoundNoRoom, SDL_GetError());
     return false;
@@ -378,7 +369,7 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
   wanted.usage = need.Usage;
   wanted.size = widened;
   OwnedBuffer fresh(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
-  gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
+  BufferAttempts_ += 1u;
   if (!fresh) {
     error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
     return false;
@@ -419,7 +410,7 @@ void SubjectResidency::RecordCrossings(SDL_GPUCopyPass *copy) {
     const SDL_GPUBufferRegion into{
         .buffer = Staged_[at].Into, .offset = Staged_[at].Offset, .size = Staged_[at].Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
-    gCrossingsFlushed.fetch_add(1u, std::memory_order_relaxed);
+    RecordedCrossings_ += 1u;
   }
 }
 
@@ -486,10 +477,10 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     wantedTransfer.size = bytes;
     SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device_, &wantedTransfer);
-    gStagingMade.fetch_add(1u, std::memory_order_relaxed);
-    gUploads.fetch_add(1u, std::memory_order_relaxed);
-    gUploadsEver.fetch_add(1u, std::memory_order_relaxed);
-    gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
+    StagingAttempts_ += 1u;
+    UploadAttempts_ += 1u;
+    TotalUploadAttempts_ += 1u;
+    UploadBytes_ += bytes;
     void *const mappedLevel = SDL_MapGPUTransferBuffer(Device_, staging, false);
     if (mappedLevel == nullptr) {
       SDL_ReleaseGPUTransferBuffer(Device_, staging);

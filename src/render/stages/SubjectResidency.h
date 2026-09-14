@@ -16,14 +16,14 @@
 namespace outshine::Render {
 
 struct SubjectResidency {
-  [[nodiscard]] static size_t UploadsTaken();
+  [[nodiscard]] size_t TakeUploadAttempts();
 
-  [[nodiscard]] static size_t UploadsEver();
+  [[nodiscard]] size_t TotalUploadAttempts() const;
 
-  [[nodiscard]] static size_t CrossingsFlushed();
-  [[nodiscard]] static size_t UploadMBTaken();
-  [[nodiscard]] static size_t BuffersMadeTaken();
-  [[nodiscard]] static size_t StagingMadeTaken();
+  [[nodiscard]] size_t RecordedCrossings() const;
+  [[nodiscard]] size_t TakeUploadBytes();
+  [[nodiscard]] size_t TakeBufferAllocationAttempts();
+  [[nodiscard]] size_t TakeStagingAllocationAttempts();
 
   enum class Stream : uint8_t {
     Vertex,
@@ -171,6 +171,13 @@ struct SubjectResidency {
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
+  mutable size_t UploadAttempts_ = 0;
+  mutable size_t TotalUploadAttempts_ = 0;
+  size_t RecordedCrossings_ = 0;
+  mutable size_t UploadBytes_ = 0;
+  size_t BufferAttempts_ = 0;
+  mutable size_t StagingAttempts_ = 0;
+
   struct BufferChanges {
     std::array<OwnedBuffer, kStreams> Buffers;
     std::array<uint32_t, kStreams> Capacities{};

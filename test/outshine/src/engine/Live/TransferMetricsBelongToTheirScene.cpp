@@ -32,8 +32,31 @@ int main() {
     CHECK(Core::Live::Open(secondRenderer, declaration, nullptr, second, error),
           "second scene opens");
     if (first && second) {
+      const auto initialUploads = firstRenderer.TotalUploadAttempts();
+      const auto otherUploads = secondRenderer.TotalUploadAttempts();
+      CHECK(initialUploads > 0 && otherUploads > 0, "both renderers recorded initial uploads");
+      CHECK(firstRenderer.TakeUploadAttempts() == initialUploads &&
+                firstRenderer.TakeUploadAttempts() == 0 &&
+                secondRenderer.TakeUploadAttempts() == otherUploads,
+            "consuming one renderer upload count leaves the other intact");
+      const auto firstBuffers = firstRenderer.TakeBufferAllocationAttempts();
+      const auto secondBuffers = secondRenderer.TakeBufferAllocationAttempts();
+      CHECK(firstBuffers > 0 && secondBuffers > 0 &&
+                firstRenderer.TakeBufferAllocationAttempts() == 0,
+            "buffer allocation counters are independent and consumed once");
+      CHECK(firstRenderer.TakeStagingAllocationAttempts() > 0 &&
+                secondRenderer.TakeStagingAllocationAttempts() > 0 &&
+                firstRenderer.TakeStagingAllocationAttempts() == 0,
+            "staging allocation counters belong to their renderer");
+      CHECK(firstRenderer.TakeUploadBytes() > 0 && secondRenderer.TakeUploadBytes() > 0 &&
+                firstRenderer.TakeUploadBytes() == 0,
+            "byte accounting retains sub-megabyte uploads and is consumed independently");
       first->Digests(true);
       CHECK(first->Carries(2, error), "first scene uploads with digest enabled");
+      CHECK(firstRenderer.TotalUploadAttempts() > initialUploads &&
+                secondRenderer.TotalUploadAttempts() == otherUploads,
+            "first mesh upload changes only its residency");
+      const auto beforeUploads = firstRenderer.TotalUploadAttempts();
       const auto before = first->TransferMetrics();
       CHECK(before.GeometryDigest != 0 && std::isfinite(before.PackingMs) &&
                 before.PackingMs >= 0 && std::isfinite(before.DigestMs) && before.DigestMs >= 0 &&
@@ -41,6 +64,9 @@ int main() {
             "first scene exposes a digest and finite CPU phase timings");
       second->Digests(false);
       CHECK(second->Carries(2, error), "second scene uploads without digest work");
+      CHECK(firstRenderer.TotalUploadAttempts() == beforeUploads &&
+                secondRenderer.TotalUploadAttempts() > otherUploads,
+            "second mesh upload cannot change first residency totals");
       const auto other = second->TransferMetrics();
       CHECK(other.GeometryDigest == 0 && other.DigestMs == 0,
             "disabled digest is explicit in the second scene");

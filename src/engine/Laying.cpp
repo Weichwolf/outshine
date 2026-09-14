@@ -966,17 +966,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       "rebuild: digesting what it handed over", Picture.Standing->TransferMetrics().DigestMs, "ms");
   Published.Places(
       "rebuild: and the device taking them", Picture.Standing->TransferMetrics().UploadMs, "ms");
-  Published.Places("rebuild: uploads the residency made",
-                   static_cast<double>(Render::SubjectResidency::UploadsTaken()),
+  Published.Places("rebuild: residency upload attempts",
+                   static_cast<double>(Picture.Device.TakeUploadAttempts()),
                    "uploads");
-  Published.Places("rebuild: megabytes they carried",
-                   static_cast<double>(Render::SubjectResidency::UploadMBTaken()),
-                   "MB");
-  Published.Places("rebuild: device buffers created",
-                   static_cast<double>(Render::SubjectResidency::BuffersMadeTaken()),
+  Published.Places("rebuild: bytes offered for upload",
+                   static_cast<double>(Picture.Device.TakeUploadBytes()),
+                   "bytes");
+  Published.Places("rebuild: device buffer allocation attempts",
+                   static_cast<double>(Picture.Device.TakeBufferAllocationAttempts()),
                    "buffers");
-  Published.Places("rebuild: staging buffers created",
-                   static_cast<double>(Render::SubjectResidency::StagingMadeTaken()),
+  Published.Places("rebuild: staging buffer allocation attempts",
+                   static_cast<double>(Picture.Device.TakeStagingAllocationAttempts()),
                    "buffers");
   Published.Places("rebuild: laying the surface", Picture.Standing->SurfaceMs(), "ms");
   Published.Places("rebuild: settling placements and lights", Picture.Standing->StandMs(), "ms");

@@ -175,6 +175,26 @@ public:
 
   [[nodiscard]] uint32_t PieceTriangles() const { return Subjects_.PieceTriangles(); }
 
+  [[nodiscard]] size_t TakeUploadAttempts() { return Subjects_.Owned().TakeUploadAttempts(); }
+
+  [[nodiscard]] size_t TotalUploadAttempts() const {
+    return Subjects_.Resident().TotalUploadAttempts();
+  }
+
+  [[nodiscard]] size_t RecordedCrossings() const {
+    return Subjects_.Resident().RecordedCrossings();
+  }
+
+  [[nodiscard]] size_t TakeUploadBytes() { return Subjects_.Owned().TakeUploadBytes(); }
+
+  [[nodiscard]] size_t TakeBufferAllocationAttempts() {
+    return Subjects_.Owned().TakeBufferAllocationAttempts();
+  }
+
+  [[nodiscard]] size_t TakeStagingAllocationAttempts() {
+    return Subjects_.Owned().TakeStagingAllocationAttempts();
+  }
+
   [[nodiscard]] uint32_t PieceBytesHeld() const { return Subjects_.Resident().HeldBytes(); }
 
   [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);

@@ -109,10 +109,11 @@ CPU-Zeiten für Packing/Digest/Upload getrennt. Zwei Renderer: 14 Checks grün;
 statischer Speicher als Negativkontrolle: drei Fehler. Kamera/Submission grün.
 Lint: 55 Befunde, Writer rot. Letzter bildwirksamer Vergleich Wien unverändert.
 
-Nächster Schritt: sechs Residency-Zähler an deren Instanz binden; opaker und
-transparenter Pass teilen bereits dieselbe Residency. Abfragen über SceneRenderer;
-Exchange darf keine Diagnose einer anderen Engine konsumieren.
-Zählstellen erfassen teils Versuche statt Erfolge; Berichtsnamen präzisieren.
-Zwei Renderer prüfen kumulative und konsumierende Abfragen; statischer Speicher
-muss scheitern. Kein neues Bild erwartet; GPU-Vertragstests und Lint.
+Residency-Zähler liegen pro Instanz; beide Renderpässe teilen diesen Besitzer.
+SceneRenderer vermittelt Abfragen; Versuche und aufgezeichnete Copy-Befehle sind
+als solche benannt. TakeUploadBytes erhält kleine Transfers ohne MB-Abschneiden.
+21 Mehrinstanz-Checks grün; statischer Speicher: sechs Fehler. GPU-Submission
+normal/validiert grün. Vollständiges Lint: 55 Befunde, Writer rot.
 Offen: Pose-Transfer, erfolgreiche statt versuchte Transfers, globale Live-Zähler.
+Nächster Befund: SubjectDraw::SetMesh verändert Zustand vor Validierung und prüft
+Indexbereiche mit überlaufbarer Addition; fachliche Grenz-/Fehlerverträge korrigieren.
