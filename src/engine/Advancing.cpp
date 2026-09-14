@@ -27,8 +27,6 @@
 
 namespace outshine {
 
-constexpr double kBelowAnyGroundM = -1.0e3;
-
 namespace Says {
 constexpr auto kInvalidTriggerProbe =
     "trigger probe rejected an invalid body position or simulation time";
@@ -402,114 +400,6 @@ void Engine::State::Drew() {
   }
   Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
   Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
-}
-
-void Engine::State::Inspected() {
-  if (!Picture.Standing) { return; }
-  const Heap::Tagged asking("frame-measures");
-  {
-    std::vector<float> depth;
-    if (Picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
-      double least = kBeyondAnyCoordinate;
-      double most = -kBeyondAnyCoordinate;
-      double written = 0.0;
-      for (const float one : depth) {
-        least = std::min(static_cast<double>(one), least);
-        most = std::max(static_cast<double>(one), most);
-        if (one > 0.0f) { written += 1.0; }
-      }
-      Published.Places("the shadow atlas, least depth", least, "");
-      Published.Places("the shadow atlas, most depth", most, "");
-      Published.Places("texels above the clear", written, "texels");
-      Published.Places(
-          "the shadow radius it stood on", Picture.Standing->ShadowRadiusStanding(), "m");
-    }
-  }
-  {
-    Render::KeptDraws kept;
-    if (Picture.Device.ReadKeptIndices(kept) == Render::ReadState::Ready) {
-      Published.Places(
-          "cull: indices the subject cull kept", static_cast<double>(kept.Indices), "indices");
-      Published.Places("cull: batches that kept any", static_cast<double>(kept.Batches), "batches");
-    }
-  }
-  {
-    std::array<float, Render::kIrradianceFloats> held = {{}};
-    if (Picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
-      Picture.Standing->ReadIrradiance(held);
-      {
-        static const std::array<const char *const, 3> kSky = {"the ambient the sky casts, red",
-                                                              "the ambient the sky casts, green",
-                                                              "the ambient the sky casts, blue"};
-        static const std::array<const char *const, 3> kGround = {
-            "the ambient the ground bounces, red",
-            "the ambient the ground bounces, green",
-            "the ambient the ground bounces, blue"};
-        for (size_t at = 0; at < 3; ++at) {
-          Published.Places(kSky[at], Picture.Standing->AmbientStood()[at], "");
-          Published.Places(kGround[at], Picture.Standing->GroundStood()[at], "");
-        }
-      }
-      static const std::array<const char *const, Render::kIrradianceFloats> kNamed = {
-          "the device's sky irradiance, red",
-          "the device's sky irradiance, green",
-          "the device's sky irradiance, blue",
-          "the device's transmittance toward the sun, red",
-          "the device's transmittance toward the sun, green",
-          "the device's transmittance toward the sun, blue"};
-      for (size_t at = 0; at < Render::kIrradianceFloats; ++at) {
-        Published.Places(kNamed[at], static_cast<double>(held[at]), "");
-      }
-    }
-  }
-  {
-    std::vector<float> velocity;
-    if (Picture.Device.ReadSceneVelocity(velocity) == Render::ReadState::Ready) {
-      double moving = 0.0;
-      double furthest = 0.0;
-      for (size_t at = 0; at + 1 < velocity.size(); at += 2) {
-        const auto across = static_cast<double>(velocity[at]);
-        const auto down = static_cast<double>(velocity[at + 1]);
-        if (across <= kBelowAnyGroundM || down <= kBelowAnyGroundM) { continue; }
-        const double moved = std::sqrt(across * across + down * down);
-        if (moved > 0.0) { moving += 1.0; }
-        furthest = std::max(moved, furthest);
-      }
-      Published.Places("pixels the velocity target says moved", moving, "px");
-      Published.Places("the furthest any of them moved", furthest, "ndc");
-    }
-  }
-  Published.Places("the exposure the picture applied",
-                   static_cast<double>(Picture.Device.ExposureApplied()),
-                   "1/(cd/m2)");
-  {
-    std::vector<float> linear;
-    if (Picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
-      double brightest = 0.0;
-      for (size_t at = 0; at + 3 < linear.size(); at += 4) {
-        for (int channel = 0; channel < 3; ++channel) {
-          brightest = static_cast<double>(linear[at + channel]) > brightest
-                          ? static_cast<double>(linear[at + channel])
-                          : brightest;
-        }
-      }
-      Published.Places("the brightest the scene's linear buffer reached", brightest, "");
-    }
-  }
-  {
-    std::vector<uint8_t> shown;
-    if (Picture.Device.ReadPixels(shown) == Render::ReadState::Ready) {
-      double peak = 0.0;
-      for (size_t at = 0; at + 3 < shown.size(); at += 4) {
-        for (int channel = 0; channel < 3; ++channel) {
-          peak = static_cast<double>(shown[at + channel]) > peak
-                     ? static_cast<double>(shown[at + channel])
-                     : peak;
-        }
-      }
-      Published.Places("the brightest the presented frame shows", peak, "of 255");
-    }
-  }
 }
 
 double Engine::stepSeconds() const {

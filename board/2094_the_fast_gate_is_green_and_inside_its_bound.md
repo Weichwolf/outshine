@@ -104,15 +104,16 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 
 ## P0: Fortschritt und nächster Vertrag
 SubjectDraw/ClassBuilder ohne Tidy-Befund; unabhängige Fehler-/Raster-/sRGB-Tests
-und Negativkontrollen grün, Wien pixelgleich. Lint: 40 Befunde, Writer rot.
+und Negativkontrollen grün, Wien pixelgleich. Lint: 39 Befunde, Writer rot.
 Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
 Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Nächster Schritt: Inspected aus Advancing in Inspection.cpp verschieben und
-Readbacks nach Schatten/Culling/Irradiance/Velocity/linearer Farbe/Ausgabe trennen.
-Bestehende Ready-/Skip-Verträge, Messnamen/Einheiten und GPU-Reihenfolge erhalten.
-Vorhandene GPU-Submission-/Readback-Tests nutzen, Lint vollständig.
-Keine bildwirksame Änderung; kein wiederholter Place-Render erforderlich.
+Readback-Diagnosen liegen in Inspection.cpp, nach Messgegenstand getrennt;
+Ready/Skip, Namen/Einheiten und Reihenfolge erhalten. Velocity-Grenzwert
+entsprechend NDC statt Bodenmetern benannt. Öffentlicher inspect-Test: acht
+Checks grün; Alpha als Helligkeit zählt falsch und lässt Negativkontrolle scheitern.
+GPU-/Mesh-Tests normal/validiert grün. Lint vollständig: 39 Befunde, Writer rot.
+Kein neuer Place-Render: Diagnosepfad verändert die Darstellung nicht.
 Separat prüfen: Ledger::Places verwirft geänderte Werte derselben Runde;
 inspect() öffnet keine Runde. Aktualisierung ohne advance könnte veralten.
-Vorhandene Vegetationsänderungen in Advancing nicht mitcommitten.
+Manuelle Engine-Quelldateilisten im Harness ergänzt; Konsolidierung bleibt in 2218.
