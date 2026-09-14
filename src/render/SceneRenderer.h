@@ -218,6 +218,7 @@ public:
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
     const Heap::Tagged relaying("mesh-relay");
+    if (DrawsGlass_ && !Glass_.ValidateMesh(mesh, error)) { return false; }
     return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
   }
 

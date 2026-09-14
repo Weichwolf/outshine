@@ -168,11 +168,15 @@ public:
   [[nodiscard]] bool AppendMaterials(std::span<const SubjectMaterial> materials,
                                      std::string &error);
 
+  [[nodiscard]] bool ValidateMesh(const SubjectMesh &mesh, std::string &error) const;
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
 
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
+  [[nodiscard]] bool
+  ValidateBatch(const SubjectMesh &mesh, const DrawBatch &batch, std::string &error) const;
+
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
   void BindSlot(const PassRecording &into, size_t slot, VertexLayout layout) const;
   void EncodeGround(const PassRecording &into) const;

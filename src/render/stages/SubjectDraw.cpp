@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <span>
 #include <new>
+#include <limits>
 
 #include "Heap.h"
 #include "LightVisibilityStage.h"
@@ -35,6 +36,9 @@
 namespace outshine::Render {
 
 namespace Says {
+constexpr auto MissingMeshAttributes = "mesh vertex layout requires an absent attribute stream";
+constexpr auto InvalidMeshLayout = "mesh batch has an invalid vertex layout";
+constexpr auto InvalidMeshInstances = "mesh instance range exceeds GPU addressing capacity";
 constexpr auto PieceInstanceLimit = "piece instance count exceeds its declared capacity";
 constexpr auto MissingPiece = "instance update names no resident piece";
 }
@@ -548,7 +552,89 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
                   error);
 }
 
+bool SubjectDraw::ValidateBatch(const SubjectMesh &mesh,
+                                const DrawBatch &batch,
+                                std::string &error) const {
+  if (static_cast<size_t>(batch.Layout) >= kVertexLayouts.size()) {
+    error = Says::InvalidMeshLayout;
+    return false;
+  }
+  if ((CarriesUv(batch.Layout) && !mesh.Uv.Stands()) ||
+      (CarriesUv1(batch.Layout) && !mesh.Uv1.Stands()) ||
+      (CarriesNormal(batch.Layout) && !mesh.Normals.Stands()) ||
+      (CarriesTangent(batch.Layout) && !mesh.Tangents.Stands()) ||
+      (CarriesColour(batch.Layout) && !mesh.Colours.Stands())) {
+    error = Says::MissingMeshAttributes;
+    return false;
+  }
+  if (uint64_t{batch.ModelSlot} + batch.Instances > std::numeric_limits<uint32_t>::max()) {
+    error = Says::InvalidMeshInstances;
+    return false;
+  }
+  if (batch.MaterialSlot < Slots.size() && Slots[batch.MaterialSlot].ReadsSecondUv &&
+      !(CarriesUv1(batch.Layout) && mesh.Uv1.Stands())) {
+    error = "surface slot " + std::to_string(batch.MaterialSlot) +
+            " reads an image from the second uv set and the draw wearing it " +
+            (mesh.Uv1.Stands() ? "takes a vertex layout that binds no second run"
+                               : "has no second uv run at all") +
+            ", and the first set is not a substitute for it";
+    return false;
+  }
+  if (batch.MaterialSlot >= Slots.size()) {
+    error = "a draw names surface slot " + std::to_string(batch.MaterialSlot) +
+            " over a table of " + std::to_string(Slots.size()) + " surfaces";
+    return false;
+  }
+  if (uint64_t{batch.FirstIndex} + batch.IndexCount > mesh.IndexCount) {
+    error = "a draw covers indices " + std::to_string(batch.FirstIndex) + " to " +
+            std::to_string(uint64_t{batch.FirstIndex} + batch.IndexCount) + " over a run of " +
+            std::to_string(mesh.IndexCount);
+    return false;
+  }
+  return true;
+}
+
+bool SubjectDraw::ValidateMesh(const SubjectMesh &mesh, std::string &error) const {
+  if (mesh.VertexCount == 0 || mesh.IndexCount == 0) { return true; }
+  if (Device == nullptr) {
+    error = "the subject stage carries no device, so a mesh of " +
+            std::to_string(mesh.VertexCount) + " vertices has nowhere to become resident";
+    return false;
+  }
+  {
+    const char *missing = nullptr;
+    if (!mesh.Verts.Stands()) {
+      missing = "position run";
+    } else if (mesh.Indices == nullptr) {
+      missing = "index run";
+    } else if (mesh.Draws == nullptr) {
+      missing = "draw list";
+    } else if (!mesh.Emitted.Stands()) {
+      missing = "emitted-radiance run";
+    }
+    if (missing != nullptr) {
+      error = std::string("the mesh declares ") + std::to_string(mesh.VertexCount) +
+              " vertices and " + std::to_string(mesh.IndexCount) + " indices but carries no " +
+              missing +
+              " -- a declaration that names geometry it does not hand over draws "
+              "nothing, and drawing nothing is not what it asked for";
+      return false;
+    }
+  }
+
+  if (mesh.PrevVerts.Stands() && !WritesVelocity) {
+    error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
+            "would reach no shader";
+    return false;
+  }
+  for (const DrawBatch &batch : mesh.Draws->Batches()) {
+    if (!ValidateBatch(mesh, batch, error)) { return false; }
+  }
+  return true;
+}
+
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
+  if (!ValidateMesh(mesh, error)) { return false; }
   ++Reshaped_;
   Bound().DropStaged();
   Bound().Shape().Vertices = mesh.VertexCount;
@@ -578,65 +664,6 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
       Bound().SubjectStands({}, {});
     }
     return HandTables(error);
-  }
-  if (Device == nullptr) {
-    Bound().Shape().Indices = 0;
-    error = "the subject stage carries no device, so a mesh of " +
-            std::to_string(Bound().Shape().Vertices) + " vertices has nowhere to become resident";
-    return false;
-  }
-  {
-    const char *missing = nullptr;
-    if (!mesh.Verts.Stands()) {
-      missing = "position run";
-    } else if (mesh.Indices == nullptr) {
-      missing = "index run";
-    } else if (mesh.Draws == nullptr) {
-      missing = "draw list";
-    } else if (!mesh.Emitted.Stands()) {
-      missing = "emitted-radiance run";
-    }
-    if (missing != nullptr) {
-      error = std::string("the mesh declares ") + std::to_string(mesh.VertexCount) +
-              " vertices and " + std::to_string(mesh.IndexCount) + " indices but carries no " +
-              missing +
-              " -- a declaration that names geometry it does not hand over draws "
-              "nothing, and drawing nothing is not what it asked for";
-      Bound().Shape().Indices = 0;
-      return false;
-    }
-  }
-
-  if (mesh.PrevVerts.Stands() && !WritesVelocity) {
-    Bound().Shape().Indices = 0;
-    error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
-            "would reach no shader";
-    return false;
-  }
-  for (const DrawBatch &batch : mesh.Draws->Batches()) {
-    if (batch.MaterialSlot < Slots.size() && Slots[batch.MaterialSlot].ReadsSecondUv &&
-        !(CarriesUv1(batch.Layout) && Bound().Shape().HasUv1)) {
-      Bound().Shape().Indices = 0;
-      error = "surface slot " + std::to_string(batch.MaterialSlot) +
-              " reads an image from the second uv set and the draw wearing it " +
-              (Bound().Shape().HasUv1 ? "takes a vertex layout that binds no second run"
-                                      : "has no second uv run at all") +
-              ", and the first set is not a substitute for it";
-      return false;
-    }
-    if (batch.MaterialSlot >= Slots.size()) {
-      Bound().Shape().Indices = 0;
-      error = "a draw names surface slot " + std::to_string(batch.MaterialSlot) +
-              " over a table of " + std::to_string(Slots.size()) + " surfaces";
-      return false;
-    }
-    if (batch.FirstIndex + batch.IndexCount > Bound().Shape().Indices) {
-      Bound().Shape().Indices = 0;
-      error = "a draw covers indices " + std::to_string(batch.FirstIndex) + " to " +
-              std::to_string(batch.FirstIndex + batch.IndexCount) + " over a run of " +
-              std::to_string(mesh.IndexCount);
-      return false;
-    }
   }
   SubjectBatches_ = mesh.Draws->Batches();
   for (const DrawBatch &batch : SubjectBatches_) {

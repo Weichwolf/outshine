@@ -105,12 +105,14 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 ## P0: Mesh-Übergabe und Diagnosearbeit
 Stream-Callbacks laufen synchron. Transfermetriken/Residency-Zähler pro Instanz;
 21 Checks grün, statischer Speicher scheitert sechsmal. GPU-Submission validiert.
-Lint: 55 Befunde, Writer rot. Pose-Nachweis, Erfolgszähler und globale Live-Zähler offen.
+Erfolgszähler und globale Live-Zähler offen; Transfer-Digest bei Posen separat prüfen.
 
-Nächster Schritt: SetMesh prüft Daten vor Mutation/DropStaged. ValidateMesh/
-ValidateBatch trennen reine Eingangsprüfung vom Upload; Index-/Instanzbereiche
-ohne Überlauf, Layout vor Tabellenzugriff prüfen. Bisheriges Mesh bei ungültigen
-Eingaben erhalten. Vorhandene DrawList-Zulassung und Residency weiterverwenden.
-GPU-Test: gültiges Mesh, fehlende Streams/Material/UV, überlaufende Bereiche;
-Diagnose, unveränderte Batches/Uploads und zeichnungsfähiger Bestand. Negativkontrolle
-mutiert Zustand vor Prüfung. GPU-Allokationsrollback bleibt eigener offener Vertrag.
+SetMesh validiert vor Mutation/DropStaged; ValidateMesh/ValidateBatch prüfen
+Streams, Layout, Material sowie Index-/Instanzbereiche ohne Additionsüberlauf.
+Der transparente Pass wird vor Änderung des opaken Passes geprüft.
+67 Checks: zehn ungültige Eingaben, unveränderte Uploads/Batches/Pixel und danach
+erfolgreicher Pose-Upload. Negativkontrolle mit vorzeitiger Indexmutation scheitert
+zehnmal; nur Pixelvergleich übersah diesen Fehler. GPU-Retry normal/validiert grün.
+Lint vollständig: 54 Befunde, SetMesh ohne Diagnose; Writer weiter rot.
+Offen: GPU-Allokationsrollback und vollständige Größen-/Inhaltsvalidierung
+(Indexwerte, Streamlängen, Cluster-/Bytebereiche); keine umfassende Mesh-Abnahme.
