@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Area: include, engine, render, world
 Tags: architecture, audit
 Parent: 2169
@@ -74,12 +74,14 @@ Webcams bleiben Plausibilitätsmaßstab, kein Soll für einen echten Weltzustand
 
 ## Reihenfolge und Abnahme
 
-P0 zuerst 2190/2191, dann 2124 und 2130/2132 entlang ihrer Abhängigkeiten.
+P0 zuerst sämtliche aktuellen Tidy-/Vertragsfehler (2094); GPU, Jobs und Streaming
+entlang ihrer Abhängigkeiten in vollständigen Schritten korrigieren (2190/2191, 2124, 2130/2132).
 2096/2139 nur zusammen mit tatsächlichen Vertragsverbesserungen; kein großer Rename
 als Ersatz für Bildqualität. 2150 nach dem begonnenen Submission-Fix priorisieren: ein natives Geometriemodell
 für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschließend
 schrittweise pro vollständigem Consumer.
-P1–P5 aus 2169 unverändert; Architektur muss deren Umsetzung erleichtern.
+P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
+Tidy null und vollständige API-Dokumentation sind Pflicht, keine alleinige Architekturabnahme.
 
 - [ ] Minimaler externer Client nutzt nur installierbare öffentliche Header/Library.
 - [ ] Fenster, Offscreen, mehrere Engines, Fehler/Redeclare und Shutdown geprüft.

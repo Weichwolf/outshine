@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Parent: 2169
 Area: generators, assets
 Tags: webcam, measured

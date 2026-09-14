@@ -8,12 +8,11 @@ Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152,
 
 ## Auftrag und Abnahmemaßstab
 
-Stand 2026-09-07, Renderer-Commit **12ceb790**. Ziel: eine plausible, annähernd fotorealistische
+Visueller Ausgangsbefund vom 2026-09-07, Renderer **12ceb790**. Ziel: eine plausible, annähernd fotorealistische
 Open-World-Sandbox in Echtzeit aus **OSM, DEM, Zeit und Wetter**. Die Webcam ist visuelle
 Referenz, kein Generatorinput und kein Auftrag zur Rekonstruktion ihres tatsächlichen Weltzustands.
 Belegte Gelände-/Netz-/Gebäudedaten erhalten; unbekannte Bauformen, Artenmischung, Materialdetail,
 Wolken und Population plausibel und deterministisch generieren. Keine Place-ID-Sondermodelle.
-Zusätzliche Quelldaten wie Fototexturen, Photogrammetrie oder reale Gebäudemodelle sind keine Voraussetzung.
 
 | Gegenstand | Maßstab |
 |---|---|
@@ -27,7 +26,6 @@ Zusätzliche Quelldaten wie Fototexturen, Photogrammetrie oder reale Gebäudemod
 
 Volumetrisches Licht ist eine Kernkompetenz. Lichtführung, Schatten, Atmosphäre und
 Farbgestaltung weltweit über Tages- und Jahreszeiten gemeinsam abnehmen; Details in 2172.
-Die Implementierungsreihenfolge bleibt bestehen; sichtbare Lichtstrahlen allein genügen nicht.
 
 ## SOLL/IST – visuelle Befunde
 
@@ -48,31 +46,35 @@ Feldkirch wurden keine geschätzten Kameraoffsets eingetragen: Pose/Datum und fi
 müssen zuerst auseinandergehalten werden (2170). Tunnel, Nahfassaden, Schatten unter Brücken,
 Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
 
-## Implementierungsreihenfolge
+## Verbindliche Arbeitsreihenfolge
 
-`Depends` bezeichnet Voraussetzungen für die vollständige Abnahme, keine Sperre für unabhängige
-Vorarbeiten. 2169 ist das übergeordnete Abnahme-WI; Kinder hängen nicht zurück von 2169 ab.
+P0 ist der aktuelle Auftrag: clang-tidy auf **null**, vollständige API-Dokumentation
+und belegte Architekturverträge nach 2188. Fehler an der Ursache beheben; Refactoring
+nach technischem Ermessen, keine Suppressionen oder bloßen Zählerkorrekturen.
+Bis zur P0-Abnahme keine neuen visuellen Features. Bestehende Features dürfen für
+Korrektheit/Architektur repariert werden. Place-Regressionen standardmäßig ohne Vegetation.
 
-| Stufe | Arbeiten | Ergebnis |
+| Stufe | Arbeiten | Abnahme vor nächstem Ausbau |
 |---|---|---|
-| P0, belastbare Engine | 2188 API-/Lifecycle-Audit: zuerst 2190/2191, dann 2124 → 2130; 2170 Kamera/Datum; 2154 reproduzierbare Eingänge; 2124 Framepfad; 2132 Streaming; 2123 LOD | bewegte Kamera, begrenzte Residency und zurechenbare Bildfehler |
-| P1, Bildgrundlage | 2166 Terrain einschließlich Seitenflächen → 2144 Nähte; 2171 MR; 2167 indirektes Licht; 2128 Schatten; 2152 GLSL | Gelände und einfache Oberflächen überzeugen bei konsistenter Beleuchtung |
-| P2, gebaute Welt | 2173 Semantik; 2133 logisches Netz → 2175 Alignment/Bauwerke; 2121/2168 Kontakt/Körper; 2138 Gebäude; 2145 Ufer/Wassergeometrie | plausible Formen und räumliche Anschlüsse, befahrbare Brücken und Tunnel |
-| P3, Darstellung vervollständigen | 2172 Wetter → 2140 Wolken; 2129 Reflexionen; 2137 Bodendetail; 2155 Kameraantwort | stimmige Atmosphäre, Wasser und Nahoberflächen |
-| P4, Vegetation | 2111 isolierter Waldnachweis → Weltintegration; 2176 Arten/Ökologie | dichte, passende Bestände mit vollständiger Distanzleiter und Streaming |
-| P5, Population | 2174 Sandbox-Population | belebte Welt auf tragfähiger Darstellung und Navigation |
+| P0 Engine bereinigen | 2094 Gates; 2188 native API/Ownership/Lifecycle, 2190/2191 GPU, 2209 → 2194 Fehler/Allokation, 2124/2130/2132 Jobs und Streaming | null Tidy-Befunde; öffentliche Verträge dokumentiert und geprüft; relevante Tests und Negativkontrollen grün |
+| P1 Materialien und Lichtgrundlage | 2216 Materialverträge, 2179 Filterorakel, 2152 GLSL; 2171 zunächst analytische Flächen; 2167 direkt/indirekt, 2128 Schatten, 2155 Kameraantwort | MR/BRDF/Farbräume/Normalen/Maßstab und Belichtung auf einfachen unabhängigen Szenen überzeugend |
+| P2 Gelände und gebaute Welt | 2170 Pose/Datum; 2166/2144 Gelände; 2173 OSM; 2133 logisches Netz → 2121/2175 Anschlüsse/Bauwerke; 2138 Gebäude; 2145 Wasser/Ufer, 2129 Reflexionen; 2171 auf alle Generatoren übertragen | Städte/Landschaft ohne Pflanzen plausibel; Brücken/Tunnel/gestapelte Ebenen korrekt, Materialdetail und Nah-/Fernübergänge gut |
+| P3 Atmosphäre und Himmel | 2172 gemeinsamer Zeit-/Wetter-/Luftzustand; 2167 weltweite Beleuchtungsabnahme; 2213 Sonne/Mond/Sterne | klare Luft, Dämmerung, Nacht, Jahreszeiten und Hemisphären konsistent; Geländeabschattung und Himmelshelligkeit stimmen |
+| P4 Wolken | 2140 nutzt P3 für Dichte, Streuung, Verdeckung und Wolkenschatten | klar/bedeckt und Wetterwechsel zeitlich stabil; keine doppelte Atmosphärenkomposition |
+| P5 Vegetation | 2111 isolierter ebener Waldnachweis → Weltintegration; 2176 Arten; 2137 krautige Vegetation/Unterwuchs | Instancing, Culling, vollständige LOD-Leiter, Overdraw, Streaming und Standortplausibilität belegt |
+| P6 Population und Effekte | 2174 bewegte Sandbox-Population; 2137 Partikeleffekte; Audioausbau nach 2212 | auf konsistenten Navigations-/Simulationsverträgen aufbauende belebte Welt |
 
-Vor Wiederaufnahme der Weltvegetation verlangt 2111 eine deklarierte großflächige ebene
-Waldszene: gemeinsame Prototypen, Instancing, hierarchisches Culling, Nah-/Mittel-/Fern-LOD,
-räumliches Laden und Freigeben. Fläche, Dichte, Sichtweite und Kamerafahrt vor dem Lauf
-festlegen; PNGs, CPU/GPU-Framezeiten, Overdraw und Speicher einschließlich Spitzen prüfen.
-Die unklare Flächenangabe „24ß km“ wird nicht als erfundene numerische Anforderung übernommen.
-Erst der isolierte Nachweis erlaubt Integration und standortgerechten Artenausbau.
+`Parent` bezeichnet Zugehörigkeit, `Depends` fachliche Voraussetzungen der vollständigen
+Abnahme. Die Tabelle priorisiert Arbeit; keine künstlichen Depends-Ketten nur für Reihenfolge.
+Insbesondere Materialgrundlagen benötigen keine fertige Stadt, Himmelskörper keine Wolken.
+2171s komplette Generatorabnahme folgt erst nach P2; deren Materialkern beginnt in P1.
+2169 ist die Gesamtabnahme; Kinder hängen nicht auf 2169 zurück.
 
-2092/2143 Bewegung und Dauerlauf begleiten jede Stufe, statt erst am Ende Leistung zu prüfen.
-Stufen sind eine Reihenfolge der Integration, keine pauschale Sperre für notwendige
-Abhängigkeitsreparaturen. Priorisierung und Änderungen daran verantwortet der implementierende
-Engine-/C++-/GLSL-Spezialist anhand der Befunde.
+2092/2143 messen Bewegung, Framezeiten und Speicher bei jeder Stufe. API-/Datenverträge,
+Streaming, LOD und Feature-Schalter gehören zur Grundlage, nicht in eine späte Optimierung.
+Plausibler gestalteter Look zählt; technische Geometrie-/Lichtfehler bleiben Fehler.
+Vor Weltvegetation: deklarierte ebene Waldfläche mit Dichte/Sichtweite/Kamerafahrt,
+CPU/GPU/Overdraw/Speicherspitzen und geöffneten PNGs. Kein Weltvegetationsausbau vorher.
 
 ## Verbindliche Abnahmen je Kamera
 
@@ -113,7 +115,6 @@ Farbräumen, Rauheit, Normalen und plausiblen Texturmaßstäben; kein bloßes Gr
       Noch keine belastbaren Einzelpass-Etats: zuerst Profiling, keine addierten isolierten p99.
 - [ ] Logisches Netz unverändert bei Render-LOD/Unsichtbarkeit; räumlicher Kontakt und
       Darstellung versioniert konsistent. Bekannte rote Orakel/Lint bleiben offen.
-
 
 Historische Renderreihen und vollständige Bildidentitäten stehen in Git. Aktuelle
 PNG-Referenzen: `build/shots/reference/terrain-20260908/`. Logs im System-Tempverzeichnis.

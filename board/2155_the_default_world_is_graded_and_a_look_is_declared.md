@@ -3,11 +3,15 @@ State: open
 Parent: 2169
 Area: render, scenario
 Tags: webcam, measured
-Depends: 2170, 2167, 2172
+Depends: 2170, 2167
 
 # A declared camera response preserves credible scene lighting
 
 ## IST / Ziel
+
+Kameraantwort zuerst auf analytischen HDR-/Lichtszenen prüfen (2169 P1).
+Wetter-/Himmelswechsel erweitern später die Integrationsabnahme; 2172 blockiert
+den Belichtungs-/Farbraumvertrag nicht.
 
 Der aktuelle Renderplan meldet `autoExposure` ohne Body und aliasiert den Meter neutral.
 Ein physikalisch glaubhafter Default-Look bleibt Ziel; mehr Grain oder Blur ist kein Beweis

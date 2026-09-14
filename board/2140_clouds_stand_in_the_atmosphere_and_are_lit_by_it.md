@@ -3,7 +3,7 @@ State: open
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: 2172, 2167
+Depends: 2172, 2167, 2213
 
 # Weather generates clouds that share atmosphere and ground lighting
 
@@ -27,6 +27,7 @@ Luftperspektive; Regennebel und Wolken dürfen Gelände nicht falsch überdecken
 
 - [ ] Klar, geschlossene Decke, gebrochene Cumulus, tiefe Wolke über Berg: plausible Tiefe,
       helle Ränder/dunklere Basis, entsprechende direkte/diffuse Beleuchtung am Boden.
+- [ ] Himmelskörper aus 2213 korrekt verdecken; entkoppelte Verdeckung muss scheitern.
 - [ ] Cover 0 lässt Cloud-Beiträge neutral; bewusst abgetrennte Ground-Transmittance scheitert
       am Schattenoracle. Bewegung/Wind/Teleports ohne dauerhaftes Ghosting.
 - [ ] 2092 weist GPU-/History-/Noise-Kosten aus. Kein vorab als gemessen ausgegebener 3-ms-Wert;

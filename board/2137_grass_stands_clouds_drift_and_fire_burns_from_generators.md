@@ -2,78 +2,41 @@ Type: feature
 State: open
 Parent: 2169
 Area: generators, render, engine
-Tags: architecture, look, owner
+Tags: architecture, vegetation, effects
 Depends: 2126, 2123, 2171
 
-# Grass stands, clouds drift and fire burns -- from generators, lit by the engine
+# Ground cover and particle effects use native generation and rendering contracts
 
-## Verbindlicher Audit-Nachtrag, 2026-09-07
+## Zuständigkeit und Reihenfolge
 
-Wolken besitzen ausschließlich 2140/2172; dieses WI besitzt bodennahe Streuvegetation,
-Gras/Steine/Unterwuchs sowie Feuer-/Partikelgeneratoren. 2111 repariert zuerst den sichtbaren
-Baumpfad. Seeds in Weltkoordinaten, Surface-/Nutzungsmasken und Gebäudefreiräume; Mikrodetail
-unter einem Pixel in gefilterte Materialwirkung überführen. Wind/Feuchte/Saison aus 2172,
-Shadows/Blattlicht aus 2128/2171 integrieren. Koerbersee und Olympiaturm auf plausible
-Bodenbedeckung, Overdraw und Bewegung prüfen. Feuer bleibt Sandbox-Funktion ohne Forderung,
-dass es in der Webcam vorhanden sein muss. Keine doppelte Cloud-Implementierung.
+Nach 2169 erst P5 Vegetation, P6 Partikeleffekte. Wolken gehören ausschließlich
+2140/2172. Vorhandene Scatter-/Instanz-/Materialpfade prüfen und verwenden;
+keine vorgeschriebene Verzeichnisstruktur als Ersatz für einen Datenvertrag.
 
-Die folgenden älteren Messungen bleiben historische Evidenz; widersprechende Planannahmen
-sind durch diesen Nachtrag ersetzt.
+## Umsetzung
 
+- Bodenmaterial nach 2171 ohne Pflanzengeometrie abnehmen. Gräser/Stauden/Büschel
+  besitzen einen krautigen Generator; verholzte Sträucher teilen Wachstumsverfahren
+  mit 2176. Beide liefern native Geometrie und Materialien.
+- Standort-/Nutzungsmasken, Gelände sowie Gebäude-/Verkehrsfreiräume bestimmen Placement.
+  Seeds in Weltkoordinaten, stabile Tilegrenzen und deterministische Wiederkehr.
+  Gemeinsame Artenparameter, Wind, Instancing, LOD und räumliches Streaming.
+- Bodenzustand liefert Standort und Dichte, kennt keine einzelnen Halme. Mikrodetail
+  unter einem Pixel geht in gefilterte Materialwirkung über. Geometrie nur für sichtbaren
+  Zusatznutzen: Silhouette, Gegenlicht, flacher Blickwinkel; Entfernung allein genügt nicht.
+- Deklarierte Emitter für Feuer/Rauch/Niederschlag: begrenzte Lebenszeit, feste Partikel-/
+  Uploadbudgets, Abbruch/Freigabe, gemeinsame Licht-/Mediumverträge. Wetter aus 2172
+  liefert den Antrieb. Kein Screen-Space-Ersatz für räumliche Effekte.
+- Öffentliche Generator-/Szenarioverträge nach 2126; Features einzeln schaltbar.
+  Keine bestimmten Pflanzen oder Feuer nur für ein einzelnes Webcam-Bild erzeugen.
 
-**Benchmark** -- Unreal: grass is the Landscape grass system (instanced, density from the
-class layer, streamed in cells), clouds are Volumetric Clouds (a noise volume ray-marched in
-the sky pass), fire and smoke are Niagara particles lit by the scene. RAGE: grass batches per
-block, a cloud layer, and a particle system (`ptfx`) with the same three roles. **Both
-agree**: three generators -- scatter, volume, particle -- and ONE lighting; the generator owns
-the FORM and the renderer owns the LOOK, which is the fifth invariant's own words.
+## Abnahme
 
-## Where it stands, measured 2026-09-04
-
-```
-  grass, clutter      no scatter/ area -- nothing places an instance over an area
-  clouds              no cloud/ area -- the sky is a clear atmosphere
-  particles           the word does not occur in src/ or include/
-  rain, snow, fog     weather is a DATUM the medium obeys; nothing falls
-```
-
-CLAUDE.md's first budget line is *high geometry with RECURSIVE generators*, and a world with
-no grass, no cloud and no fire is a world a photograph argues with at once. A Fallout without
-smoke and a Cyberpunk without rain cannot be declared.
-
-## The solution -- three generator areas, one renderer path each
-
-| area | in | mechanic | out | the renderer's part |
-|---|---|---|---|---|
-| `scatter/` | class + ground | area -> instances | grass, stones, clutter as instanced pieces per tile (board:2122) | the instance path it has, at the tile's rung |
-| `cloud/` | weather | noise -> volume | a density field per sky cell | a VOLUME pass inside the medium: ray-marched, lit by the same transmittance the sky already computes |
-| `effect/` | a declared emitter | seed -> particles | quads and volumes per frame, GPU-simulated | a particle pass lit by the clustered lights (board:2128) |
-
-All three are PLACERS or EMITTERS a scenario declares and a client could replace through the
-door (board:2126). A cloud's FORM is invention; its scattering is the medium's physics, which
-is why the volume pass lives in the renderer beside the sky and not in the generator.
-
-## What will be true
-
-- [ ] `scatter/`, `cloud/`, `effect/` exist with a `reaches` each and no cross-area include,
-      which is board:2110's cut extended by three
-- [ ] Jura shows grass on its meadows and a cloud over its ridge; Kaiserberg shows rain; a
-      declared fire at OldTown shows smoke -- each looked at, each under its digest
-- [ ] Each holds 16.7 ms at p99 at the 720p target with the others on
-- [ ] Negative control: switch the cloud volume off and only the sky's pixels move
-
-## What will show I was wrong
-
-A cloud that looks right only at one sun angle. Then the volume pass is not reading the
-medium's transmittance and has its own lighting, which is the split the invariant forbids.
-
-## Generatorfamilie und Reihenfolge
-Bodenmaterial zuerst nach 2171 ohne Pflanzengeometrie abnehmen. Grasbüschel/Stauden
-haben einen eigenen krautigen Generator für Halme, Blätter und Blüten. Bäume und
-verholzte Sträucher teilen Wachstums-/Verzweigungsverfahren aus 2176; keine erzwungene
-Baumlogik für Gräser. Beide liefern dasselbe native Geometrie-/Materialmodell.
-Gemeinsam: Artenparameter, Materialsystem, Wind, LOD, Instancing und Standortregeln.
-Bodenzustand liefert Standortbedingungen und Dichte, kennt aber keine einzelnen Halme.
-Nur sichtbaren Zusatznutzen durch Büschel ergänzen: Gegenlicht, Silhouetten, flache
-Blickwinkel; Entfernung allein genügt nicht. Boden/Gras-Übergang bei Bewegung und
-Jahreszeitenwechsel prüfen, Kosten gegenüber Boden-only messen. Kein Waldumbau vorziehen.
+- [ ] Boden-only gegen Büschel bei Bewegung/Jahreszeitenwechsel: Mehrwert, Übergänge,
+      Overdraw, CPU/GPU und Speicherspitzen getrennt messen, PNGs selbst öffnen.
+- [ ] Tileeintritt, Grenzen und Seeds prüfen; keine Pflanzen in Gebäuden/Fahrbahnen.
+- [ ] Gegenlicht/Nah-/Fernsicht ohne flackernde Übergänge oder unbeschränkte Arbeit.
+- [ ] Emitter stoppen vollständig; Replay/Teilschritte stimmen innerhalb eines vorher
+      festgelegten Fehlerbudgets. Sättigung bleibt kontrolliert.
+- [ ] Fehlende Belegungsmasken, entkoppelte Windzeit und fehlende Freigabe werden
+      durch unabhängige Prüfungen erkannt. Cloud-Abnahme bleibt in 2140.

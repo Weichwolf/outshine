@@ -8,6 +8,10 @@ Depends:
 
 ## Auftrag und Befund
 
+Aktueller Client-Schritt: Shots-Optionen separat und strikt parsen; konfigurierbare
+Preload-Sekunden bei unverändertem 15-s-Default, getrennt vom Framebudget. Ungültige
+Optionen/Zahlen vor Engine-Aufbau ablehnen; Parser-Grenzfälle und Place-PNG prüfen.
+
 Nutzerauftrag: direkter glTF/GLB-Pfad parallel zum Szenario-Pfad; Datei, Auflösung
 und PNG-Ausgabe genügen. Sinnvolle Auto-Kamera wenn keine glTF-Kamera vorhanden,
 alle Kameravorgaben übersteuerbar. Diesen Client künftig für Render-Abnahmen nutzen.
@@ -107,14 +111,10 @@ Short-Write-Negativkontrolle des gemeinsamen IO-Helfers; alle Places bestehen ü
 Negativkontrolle mit verschlucktem Schreibfehler scheitert. Keine Aussage über verlorene
 Sektionen aus Selbstvergleich ableiten. Gemeinsamer CLI-Scratchpfad bleibt noch zu isolieren.
 
-Build-Audit-Negativkontrolle wählt den entfernten Provider aus der Engine-Profildeklaration.
-Ein nur vom Test aufgerufenes Client-Blatt erzeugt beim Entfernen keinen ungelösten
-Bibliotheksverweis; die bisherige alphabetische Auswahl war dafür falsch spezifiziert.
-Erwarteter Audit-Fehler unverändert, keine zusätzliche Dateiliste im Test.
-
+Build-Audit-Negativkontrolle entfernt einen tatsächlichen Engine-Provider; ein nur
+vom Test aufgerufenes Client-Blatt war als Linkfehleroracle falsch spezifiziert.
 CLI-Ausgaben auf typgeprüfte C++-Formatierung umstellen; String-Views ohne temporäre
 Nullterminierungs-Kopien verwenden. Text, Präzision, Spalten und stdout/stderr erhalten.
-Bestehende Argument-/Place-Katalogtests und Roundtrip prüfen die Aufrufer; kein Renderumbau.
 
 Log-Consumer respektiert nun optionales Saying::Unit (nullptr): leer formatieren.
 Vorher strlen-Segfault beim device_ready; Wien-Shot danach erfolgreich.
