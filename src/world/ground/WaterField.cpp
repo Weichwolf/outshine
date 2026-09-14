@@ -29,29 +29,66 @@ constexpr double kLiftM = 0.15;
 
 }
 
+namespace {
+
+constexpr uint32_t kMaxWaterRingPoints = 512;
+enum class WaterKind { Ignored, Course, Surface };
+
+WaterKind KindOf(const OsmField &field, const OsmField::Feature &feature, OnLayers layers) {
+  if (field.Num(feature, "tunnel", 0.0) > 0.5) { return WaterKind::Ignored; }
+  if (feature.Type == 2 && std::cmp_equal(feature.Layer, layers.Line)) { return WaterKind::Course; }
+  if (feature.Type == 3 && std::cmp_equal(feature.Layer, layers.Poly)) {
+    return WaterKind::Surface;
+  }
+  return WaterKind::Ignored;
+}
+
+bool UsableRing(const OsmField::Ring &ring, WaterKind kind) {
+  if (ring.Count > kMaxWaterRingPoints) { return false; }
+  if (kind == WaterKind::Course) { return ring.Count >= 2; }
+  return kind == WaterKind::Surface && ring.Exterior && ring.Count >= 3;
+}
+
+std::span<const double> RingPoints(const OsmField &field, const OsmField::Ring &ring) {
+  return field.Points().subspan(static_cast<size_t>(ring.First) * 2,
+                                static_cast<size_t>(ring.Count) * 2);
+}
+
+LongitudeLatitude PointAt(std::span<const double> points, size_t index) {
+  return {.LongitudeDeg = points[index * 2 + 1], .LatitudeDeg = points[index * 2]};
+}
+
+bool RingGroundResolved(const GroundQuery &ground, std::span<const double> points) {
+  for (size_t at = 0; at < points.size() / 2; ++at) {
+    if (ground.At(PointAt(points, at)).Where() == GroundSample::State::Pending) { return false; }
+  }
+  return true;
+}
+
+bool ReadHeights(const GroundQuery &ground,
+                 std::span<const double> points,
+                 std::vector<double> &heights) {
+  heights.clear();
+  for (size_t at = 0; at < points.size() / 2; ++at) {
+    const auto height = ground.At(PointAt(points, at)).AslM();
+    if (!height) { return false; }
+    heights.push_back(*height);
+  }
+  return true;
+}
+
+}
+
 bool WaterField::TileGroundResolved(const GroundQuery &ground,
                                     const OsmField &field,
                                     FeatureRun over,
                                     OnLayers on) {
-  const std::span<const double> pts = field.Points();
-  const std::span<const OsmField::Feature> feats = field.Features();
-  for (size_t i = over.From; i < over.To; i++) {
-    const OsmField::Feature &f = feats[i];
-    if (field.Num(f, "tunnel", 0.0) > 0.5) { continue; }
-    const bool isLine = f.Type == 2 && std::cmp_equal(f.Layer, on.Line);
-    const bool isPoly = f.Type == 3 && std::cmp_equal(f.Layer, on.Poly);
-    if (!isLine && !isPoly) { continue; }
-    for (uint32_t r = 0; r < f.RingCount; r++) {
-      const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
-      if (isPoly && (!ring.Exterior || ring.Count < 3 || ring.Count > 512)) { continue; }
-      if (isLine && (ring.Count < 2 || ring.Count > 512)) { continue; }
-      for (uint32_t k = 0; k < ring.Count; k++) {
-        if (ground
-                .At({.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
-                     .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]})
-                .Where() == GroundSample::State::Pending) {
-          return false;
-        }
+  for (const auto &feature : field.Features().subspan(over.From, over.To - over.From)) {
+    const auto kind = KindOf(field, feature, on);
+    if (kind == WaterKind::Ignored) { continue; }
+    for (const auto &ring : field.Rings().subspan(feature.FirstRing, feature.RingCount)) {
+      if (UsableRing(ring, kind) && !RingGroundResolved(ground, RingPoints(field, ring))) {
+        return false;
       }
     }
   }
@@ -64,115 +101,77 @@ void WaterField::AnchorAt(const Vec3 &ecef) {
   Anchored_ = true;
 }
 
+void WaterField::AddCourse(const OsmField &field,
+                           const OsmField::Feature &feature,
+                           const OsmField::Ring &ring,
+                           const VegetationTemplates &vegetation,
+                           std::span<double> heights) {
+  if (heights.front() >= heights.back()) {
+    for (size_t at = 1; at < heights.size(); ++at) {
+      heights[at] = std::min(heights[at], heights[at - 1]);
+    }
+  } else {
+    for (size_t at = heights.size() - 1; at-- > 0;) {
+      heights[at] = std::min(heights[at], heights[at + 1]);
+    }
+  }
+  const auto *rule =
+      vegetation.Find(field.LayerName(static_cast<int>(feature.Layer)), field.Str(feature, "kind"));
+  Course course{};
+  course.FirstPoint = ring.First;
+  course.PointCount = ring.Count;
+  course.FirstLevel = static_cast<uint32_t>(Levels_.size());
+  course.HalfWidthM = rule != nullptr && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
+  for (double height : heights) { Levels_.push_back(static_cast<float>(height)); }
+  Courses_.push_back(course);
+}
+
+void WaterField::AddSurface(const OsmField::Ring &ring, std::span<double> heights) {
+  std::ranges::sort(heights);
+  const double level =
+      heights[static_cast<size_t>(kLevelPercentile * static_cast<double>(heights.size() - 1))];
+  if (std::ranges::any_of(heights,
+                          [level](double height) { return height > level + kShoreToleranceM; })) {
+    ++Outliers_;
+  }
+  Surfaces_.push_back(
+      {.FirstPoint = ring.First, .PointCount = ring.Count, .LevelM = static_cast<float>(level)});
+}
+
 uint32_t WaterField::Ingest(const GroundQuery &ground,
                             const OsmField &field,
                             const VegetationTemplates &veg) {
   assert(Anchored_);
-  const std::span<const OsmField::Feature> feats = field.Features();
-  if (Mark_.Done(feats)) { return static_cast<uint32_t>(Surfaces_.size()); }
-
-  const int poly = field.Layer(OsmLayer::WaterPolygons);
-  const int line = field.Layer(OsmLayer::WaterLines);
-  const TileWatermark::Next next =
-      Mark_.Ask(feats,
+  const auto features = field.Features();
+  if (Mark_.Done(features)) { return static_cast<uint32_t>(Surfaces_.size()); }
+  const OnLayers layers{.Poly = field.Layer(OsmLayer::WaterPolygons),
+                        .Line = field.Layer(OsmLayer::WaterLines)};
+  const auto next =
+      Mark_.Ask(features,
                 field.Tiles(),
                 {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
                 [&](size_t from, size_t to) {
-                  return TileGroundResolved(
-                      ground, field, {.From = from, .To = to}, {.Poly = poly, .Line = line});
+                  return TileGroundResolved(ground, field, {.From = from, .To = to}, layers);
                 });
   if (!next.Found) { return static_cast<uint32_t>(Surfaces_.size()); }
   Mark_.Take(next.Tile);
-  Mark_.Advance(feats);
-
-  const std::span<const double> pts = field.Points();
+  Mark_.Advance(features);
   const auto firstSurface = static_cast<uint32_t>(Surfaces_.size());
-  std::vector<double> hs;
-
-  for (size_t c = next.From; c < next.To; c++) {
-    const OsmField::Feature &f = feats[c];
-
-    if (field.Num(f, "tunnel", 0.0) > 0.5) { continue; }
-    if (f.Type == 2 && std::cmp_equal(f.Layer, line)) {
-      for (uint32_t r = 0; r < f.RingCount; r++) {
-        const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
-        if (ring.Count < 2 || ring.Count > 512) { continue; }
-        hs.clear();
-        bool ok = true;
-        for (uint32_t k = 0; k < ring.Count; k++) {
-          const std::optional<double> aslM =
-              ground
-                  .At({.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
-                       .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]})
-                  .AslM();
-          if (!aslM) {
-            ok = false;
-            break;
-          }
-          hs.push_back(*aslM);
-        }
-        if (!ok) {
-          NoGround_++;
-          continue;
-        }
-
-        if (hs.front() >= hs.back()) {
-          for (size_t k = 1; k < hs.size(); k++) { hs[k] = std::min(hs[k], hs[k - 1]); }
-        } else {
-          for (size_t k = hs.size() - 1; k-- > 0;) { hs[k] = std::min(hs[k], hs[k + 1]); }
-        }
-        Course course{};
-        course.FirstPoint = ring.First;
-        course.PointCount = ring.Count;
-        course.FirstLevel = static_cast<uint32_t>(Levels_.size());
-        const VegetationTemplates::Rule *rule =
-            veg.Find(field.LayerName(static_cast<int>(f.Layer)), field.Str(f, "kind"));
-        course.HalfWidthM = (rule != nullptr) && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
-        for (double h : hs) { Levels_.push_back(static_cast<float>(h)); }
-        Courses_.push_back(course);
-      }
-      continue;
-    }
-    if (f.Type != 3 || std::cmp_not_equal(f.Layer, poly)) { continue; }
-
-    for (uint32_t r = 0; r < f.RingCount; r++) {
-      const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
-      if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) { continue; }
-
-      hs.clear();
-      bool resolved = true;
-      for (uint32_t k = 0; k < ring.Count; k++) {
-        const std::optional<double> aslM =
-            ground
-                .At({.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
-                     .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]})
-                .AslM();
-        if (!aslM) {
-          resolved = false;
-          break;
-        }
-        hs.push_back(*aslM);
-      }
-      if (!resolved) {
-        NoGround_++;
+  std::vector<double> heights;
+  for (const auto &feature : features.subspan(next.From, next.To - next.From)) {
+    const auto kind = KindOf(field, feature, layers);
+    if (kind == WaterKind::Ignored) { continue; }
+    for (const auto &ring : field.Rings().subspan(feature.FirstRing, feature.RingCount)) {
+      if (!UsableRing(ring, kind)) { continue; }
+      if (!ReadHeights(ground, RingPoints(field, ring), heights)) {
+        ++NoGround_;
         continue;
       }
-
-      std::ranges::sort(hs);
-      const double level =
-          hs[static_cast<size_t>(kLevelPercentile * static_cast<double>(hs.size() - 1))];
-      for (const double h : hs) {
-        if (h > level + kShoreToleranceM) {
-          Outliers_++;
-          break;
-        }
+      if (kind == WaterKind::Course) {
+        AddCourse(field, feature, ring, veg, heights);
+      } else {
+        AddSurface(ring, heights);
       }
-
-      Surface s{};
-      s.FirstPoint = ring.First;
-      s.PointCount = ring.Count;
-      s.LevelM = static_cast<float>(level);
-      Surfaces_.push_back(s);
     }
   }
   ByTile_.Set(next.Tile, firstSurface, static_cast<uint32_t>(Surfaces_.size()));

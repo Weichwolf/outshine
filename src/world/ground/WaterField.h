@@ -71,6 +71,12 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
+  void AddCourse(const OsmField &field,
+                 const OsmField::Feature &feature,
+                 const OsmField::Ring &ring,
+                 const VegetationTemplates &vegetation,
+                 std::span<double> heights);
+  void AddSurface(const OsmField::Ring &ring, std::span<double> heights);
   [[nodiscard]] static bool TileGroundResolved(const GroundQuery &ground,
                                                const OsmField &field,
                                                FeatureRun over,

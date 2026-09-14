@@ -42,13 +42,15 @@ RAGE ist visuelle Referenz. Ein Deckel allein behebt keine falsche Uferkonstrukt
 
 ## P0: Wasseraufnahme in prüfbare Phasen trennen
 
-WaterField dupliziert Ringauswahl und Höhenabfragen in Bereitschaftsprüfung,
-Fluss- und Flächenaufnahme. Gemeinsame Auswahl und Höhenleser, getrennte
-Flussprofile/Flächenpegel; bestehende Filter, Pegelheuristik und Reihenfolge
-erhalten. Analytische deklarierte Ringe prüfen Pending→Ready, fehlende Höhen,
-Tunnel-Filter, monotone Flussprofile und niedrigen Flächenpegel samt Ausreißer.
-Negativkontrolle überspringt Pending-Sperre; keine Aufnahme ohne aufgelöste Daten.
-Wien ohne Vegetation vor/nach vergleichen. Tessellierung/Löcher bleiben offen.
+WaterField nutzt gemeinsame Ringauswahl und Höhenleser; Flussprofile und
+Flächenpegel sind getrennt. Bestehende Filter, Pegelheuristik und Reihenfolge
+bleiben erhalten. Deklarierte Ringe prüfen Pending→Ready, fehlende Höhen,
+Tunnel-/Größen-/Layerfilter, beide Flussrichtungen und niedrigen Flächenpegel
+samt Ausreißer. Test grün; ausgeschaltete Pending-Sperre scheitert siebenmal.
+Wien ohne Vegetation geöffnet: 0/921600 Pixel verändert; p50/p95/p99
+5.14/5.79/6.14 ms, 0/120 über 16.67 ms. Keine vollständige Wasserabnahme.
+Lint vollständig: 58 Befunde; Aufnahme/Bereitschaft ohne Diagnose. Tessellierung,
+Löcher und Writer-Coverage bleiben offen.
 Die doppelte Abfrage vor/nach Mark_.Take setzt derzeit stabile GroundQuery-
 Antworten voraus. Übergang Ready→Pending und atomare Veröffentlichung separat
 prüfen; die Aufteilung allein beweist diesen Lebensdauervertrag nicht.
