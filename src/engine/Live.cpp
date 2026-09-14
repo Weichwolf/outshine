@@ -754,7 +754,6 @@ bool Live::PlacedBounds(Extents &into, std::string &error) {
 }
 
 bool Live::Look(std::string &error) {
-  Render::Viewpoint framed;
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.HasExplicitCamera = true;
@@ -770,12 +769,14 @@ bool Live::Look(std::string &error) {
   if (!PlacedBounds(placed, error)) { return false; }
   const Vec3 &least = placed.LeastM;
   const Vec3 &most = placed.MostM;
-  Gltf::Viewpoint fromFile;
-  if (!Gltf::FramingFor(least, most, fromFile, Framing())) {
-    error = "the subject has no extent, so no camera can be derived from it";
+  const auto framing = Render::FrameBounds(
+      {.Min = least, .Max = most},
+      {.Fill = Framing(), .Aspect = Renderer_->PictureW() / Renderer_->PictureH()});
+  if (!framing) {
+    error = framing.error();
     return false;
   }
-  framed = fromFile;
+  Render::Viewpoint framed = *framing;
   const Vec3 centre = {
       {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5}};
   const double turn = Around_ * kDeg2Rad;
@@ -905,19 +906,18 @@ bool Live::Stand(std::string &error) {
       if (!Measure(Seconds(sample), error)) { return false; }
       bounded.Cover(Shaped_.BoundsOf(Joined_));
     }
-    const Vec3 &least = bounded.Min;
-    const Vec3 &most = bounded.Max;
     if (Held_.Frames() > 1 && !Measure(0.0, error)) { return false; }
-    Gltf::Viewpoint fitted;
-    if (!Gltf::FramingFor(least, most, fitted, Framing())) {
-      error = "the subject has no extent over its own grid, so no camera can be derived from it";
+    const auto fitted = Render::FrameBounds(
+        bounded, {.Fill = Framing(), .Aspect = Renderer_->PictureW() / Renderer_->PictureH()});
+    if (!fitted) {
+      error = fitted.error();
       return false;
     }
-    eye = fitted;
+    eye = *fitted;
     Looking_.Eye = eye;
   }
-  return true;
   FramingMs_ = sinceStand();
+  return true;
 }
 
 bool Live::Submit(std::string &error) {

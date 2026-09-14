@@ -1509,44 +1509,10 @@ void Subject::CentreM(Vec3 &out) const {
 }
 
 bool Subject::Frame(Viewpoint &out, double fill, double aspect) const {
-  return FramingFor(Min_, Max_, out, fill, aspect);
-}
-
-bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill, double aspect) {
-  if (!std::isfinite(aspect) || aspect <= 0 || !std::isfinite(fill) || fill < 0) { return false; }
-  for (int axis = 0; axis < 3; ++axis) {
-    if (!std::isfinite(minM[axis]) || !std::isfinite(maxM[axis]) || minM[axis] > maxM[axis]) {
-      return false;
-    }
-  }
-  const Vec3 span = {{maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]}};
-  const double radius = 0.5 * Length(span);
-  if (!(radius > 0) || !std::isfinite(radius)) { return false; }
-  Vec3 centre;
-  for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (minM[axis] + maxM[axis]); }
-
-  const double azimuth = Render::kFramingAzimuthDeg * kDeg2Rad;
-  const double elevation = Render::kFramingElevationDeg * kDeg2Rad;
-
-  const Vec3 toEye = {{std::cos(elevation) * std::cos(azimuth),
-                       std::sin(elevation),
-                       std::cos(elevation) * std::sin(azimuth)}};
-
-  const double yfov =
-      2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);
-  const double halfAngle = std::min(0.5 * yfov, std::atan(std::tan(0.5 * yfov) * aspect));
-  const double distance = radius / std::sin(halfAngle) / (fill > 0 ? fill : Render::kFramingFill);
-  if (!std::isfinite(distance + radius)) { return false; }
-  Vec3 eye;
-  for (int axis = 0; axis < 3; ++axis) { eye[axis] = centre[axis] + toEye[axis] * distance; }
-
-  const std::optional<Viewpoint> seen = Viewpoint::LookAt({.EyeM = eye, .AimM = centre}, 0.0);
-  if (!seen) { return false; }
-  out = *seen;
-  out.YfovRad = yfov;
-  const double floor = radius * Render::kFramingNearFloorFraction;
-  out.ZNearM = (distance - radius > floor) ? distance - radius : floor;
-  out.ZFarM = distance + radius;
+  const auto framed =
+      Render::FrameBounds({.Min = Min_, .Max = Max_}, {.Fill = fill, .Aspect = aspect});
+  if (!framed) { return false; }
+  out = *framed;
   return true;
 }
 
