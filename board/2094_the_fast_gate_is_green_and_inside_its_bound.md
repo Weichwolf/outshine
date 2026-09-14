@@ -109,10 +109,10 @@ Vorzeitige Indexmutation scheitert bei zehn Folge-Posen, nicht am alten Bild.
 Lint: 54 Befunde, Writer rot. Größen-/Inhaltsprüfung, GPU-Allokationsrollback,
 Pose-Digest, Erfolgszähler und globale Live-Zähler bleiben offen.
 
-Nächster Schritt: Configure nach Renderpass/Materialart und Pipelinevariante
-gliedern. Shaderauswahl explizit aus Layout/Domain/SurfaceKind ableiten; bisherige
-Buildprodukte und Bindings unverändert nutzen. Vorhandene GLSL-/SDL_GPU-Technik
-bleibt; keine neue Pipelinearchitektur. Verschachtelte Ternaries entfernen.
-GPU-Submission normal/validiert und Mesh-Verträge prüfen; Lint komplett.
-Wien ohne Vegetation vorher/nachher öffnen/vergleichen. Pipelinefehler müssen
-weiterhin Configure abbrechen; GPU-Retry-Tests bleiben unverändert verpflichtend.
+Configure gliedert Materialart, Pipelinevariante und explizite Shaderauswahl;
+SDL_GPU-Zustände und Buildprodukte erhalten. GPU-Submission normal/validiert
+sowie Mesh-Verträge grün. Vollständiges Lint: 51 Befunde, Writer rot.
+Wien ohne Vegetation geöffnet: 0/921600 Pixel verändert; p50/p95/p99
+5.12/5.70/6.09 ms, 0/120 über 16.67 ms. Keine neue künstlerische Abnahme.
+Offen: Attachment-/Reconfigure-Fehlerverträge und Configure-Allokationsrollback;
+SubjectDraw::Encode bleibt komplex. Keine vollständige Pipeline-/Backend-Abnahme.

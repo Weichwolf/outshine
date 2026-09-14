@@ -174,6 +174,16 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
+  [[nodiscard]] long ColourAttachment(Resource which) const;
+  [[nodiscard]] bool
+  ConfigureKind(const Gpu &gpu, const SourceOptions &options, SurfaceKind kind, std::string &error);
+  [[nodiscard]] bool ConfigureVariant(SurfaceKind kind,
+                                      SurfaceDomain domain,
+                                      VertexLayout layout,
+                                      const SourceOptions &options,
+                                      std::span<const SDL_GPUColorTargetDescription> targets,
+                                      std::string &error);
+
   [[nodiscard]] bool
   ValidateBatch(const SubjectMesh &mesh, const DrawBatch &batch, std::string &error) const;
 
