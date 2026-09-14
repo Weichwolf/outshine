@@ -105,3 +105,11 @@ Near-Plane-Prüfung bleibt automatische Framing-Garantie; explizite Kameras dür
 Geometrie schneiden. Box-Ecken/Skalarprodukt gemeinsam genutzt, ungenutzter
 Boolean-Parameter entfernt. Drei Kamera-/Projektionsprüfungen grün; Wien geöffnet,
 0/921600 Pixel verändert. Lint: 56 Befunde, Near-Plane-Prüfung ohne Diagnose.
+
+Nächster Schritt: FrameBounds im Renderer statt Gltf::FramingFor. Native Box und
+benannte Fill-/Aspect-Optionen liefern expected<Viewpoint,string_view>; Engine
+und Importadapter nutzen dieselbe Implementierung. Keine Formatkonvention im
+Auto-Framing. Bestehende Aspect-Korrektur in Live vollständig übernehmen.
+Analytische Projektion aller Boxecken bei Hoch-/Querformat und ungültige Eingaben
+prüfen; Kamera-GPU-Tests sichern Integration. Fehlende Aspect-Berücksichtigung
+als Negativkontrolle. FramingMs vor dem bisherigen unerreichbaren return erfassen.
