@@ -102,17 +102,17 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
-## P0: Mesh-Übergabe und Diagnosearbeit
-Stream-Callbacks laufen synchron. Transfermetriken/Residency-Zähler pro Instanz;
-21 Checks grün, statischer Speicher scheitert sechsmal. GPU-Submission validiert.
-Erfolgszähler und globale Live-Zähler offen; Transfer-Digest bei Posen separat prüfen.
+## P0: Renderer-Verträge
+Transfer-/Residency-Diagnosen pro Instanz; Negativkontrollen erkennen gemeinsame
+Zähler. SetMesh validiert vor Mutation; 67 Checks plus GPU-Retry validiert.
+Vorzeitige Indexmutation scheitert bei zehn Folge-Posen, nicht am alten Bild.
+Lint: 54 Befunde, Writer rot. Größen-/Inhaltsprüfung, GPU-Allokationsrollback,
+Pose-Digest, Erfolgszähler und globale Live-Zähler bleiben offen.
 
-SetMesh validiert vor Mutation/DropStaged; ValidateMesh/ValidateBatch prüfen
-Streams, Layout, Material sowie Index-/Instanzbereiche ohne Additionsüberlauf.
-Der transparente Pass wird vor Änderung des opaken Passes geprüft.
-67 Checks: zehn ungültige Eingaben, unveränderte Uploads/Batches/Pixel und danach
-erfolgreicher Pose-Upload. Negativkontrolle mit vorzeitiger Indexmutation scheitert
-zehnmal; nur Pixelvergleich übersah diesen Fehler. GPU-Retry normal/validiert grün.
-Lint vollständig: 54 Befunde, SetMesh ohne Diagnose; Writer weiter rot.
-Offen: GPU-Allokationsrollback und vollständige Größen-/Inhaltsvalidierung
-(Indexwerte, Streamlängen, Cluster-/Bytebereiche); keine umfassende Mesh-Abnahme.
+Nächster Schritt: Configure nach Renderpass/Materialart und Pipelinevariante
+gliedern. Shaderauswahl explizit aus Layout/Domain/SurfaceKind ableiten; bisherige
+Buildprodukte und Bindings unverändert nutzen. Vorhandene GLSL-/SDL_GPU-Technik
+bleibt; keine neue Pipelinearchitektur. Verschachtelte Ternaries entfernen.
+GPU-Submission normal/validiert und Mesh-Verträge prüfen; Lint komplett.
+Wien ohne Vegetation vorher/nachher öffnen/vergleichen. Pipelinefehler müssen
+weiterhin Configure abbrechen; GPU-Retry-Tests bleiben unverändert verpflichtend.
