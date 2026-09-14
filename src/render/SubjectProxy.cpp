@@ -405,6 +405,32 @@ std::atomic<unsigned long long> gGeometryDigest{0};
 std::atomic<double> gHandMs{0.0};
 std::atomic<double> gDigestMs{0.0};
 
+void RecordGeometryDigest(const Shape &subject, const SubjectScratch &scratch) {
+  if (scratch.Digests) {
+    const auto digestedFrom = std::chrono::steady_clock::now();
+    unsigned long long digest = kDigestBasis;
+    const auto eat = [&digest](const void *from, size_t bytes) {
+      const auto *at = static_cast<const unsigned char *>(from);
+      for (size_t one = 0; one < bytes; ++one) { digest = DigestFolded(digest, at[one]); }
+    };
+    eat(scratch.Indices.data(), scratch.Indices.size() * sizeof(uint32_t));
+    for (const ShapePart &one : subject.Parts) {
+      for (const std::span<const float> run :
+           {one.PositionsM, one.Normals, one.Tangents, one.Uv, one.Uv1, one.Colours}) {
+        eat(run.data(), run.size() * sizeof(float));
+      }
+    }
+    gGeometryDigest.store(digest, std::memory_order_relaxed);
+    gDigestMs.store(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - digestedFrom)
+            .count(),
+        std::memory_order_relaxed);
+  } else {
+    gGeometryDigest.store(0, std::memory_order_relaxed);
+    gDigestMs.store(0.0, std::memory_order_relaxed);
+  }
+}
+
 }
 
 double PackedMs() {
@@ -498,29 +524,7 @@ bool Place(SceneRenderer &renderer,
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
   for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
-  if (scratch.Digests) {
-    const auto digestedFrom = std::chrono::steady_clock::now();
-    unsigned long long digest = kDigestBasis;
-    const auto eat = [&digest](const void *from, size_t bytes) {
-      const auto *at = static_cast<const unsigned char *>(from);
-      for (size_t one = 0; one < bytes; ++one) { digest = (digest ^ at[one]) * kDigestPrime; }
-    };
-    eat(scratch.Indices.data(), scratch.Indices.size() * sizeof(uint32_t));
-    for (const ShapePart &one : subject.Parts) {
-      for (const std::span<const float> run :
-           {one.PositionsM, one.Normals, one.Tangents, one.Uv, one.Uv1, one.Colours}) {
-        eat(run.data(), run.size() * sizeof(float));
-      }
-    }
-    gGeometryDigest.store(digest, std::memory_order_relaxed);
-    gDigestMs.store(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - digestedFrom)
-            .count(),
-        std::memory_order_relaxed);
-  } else {
-    gGeometryDigest.store(0, std::memory_order_relaxed);
-    gDigestMs.store(0.0, std::memory_order_relaxed);
-  }
+  RecordGeometryDigest(subject, scratch);
   mesh.Draws = &scratch.Draws;
   mesh.Clusters = subject.Clusters;
   mesh.ClusterSpheres = subject.ClusterSpheres;

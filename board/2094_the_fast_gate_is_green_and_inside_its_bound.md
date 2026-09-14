@@ -66,7 +66,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 56 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 55 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -105,7 +105,9 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 ## P0: Mesh-Übergabe und Diagnosearbeit
 SubjectResidency::StageUploads/Submit führen Stream-Callbacks synchron aus;
 SetSubjectMesh speichert deren lokale Kontexte nicht für spätere GPU-Ausführung.
-Optionale Geometrie-Digest-Arbeit aus SubjectProxy::Place in eigene Phase ziehen;
-Bytefolge und vorhandenes FNV-Folding erhalten. Kamera-/Upload-Prüfung und Wien
-sichern den Gesamtpfad. Globale Digest-/Timing-Zähler sind noch nicht pro Engine
-isoliert; Ownership getrennt korrigieren, nicht als Mehrinstanz-Abnahme werten.
+RecordGeometryDigest trennt optionale Diagnosearbeit von SubjectProxy::Place;
+Bytefolge und FNV-Folding bleiben erhalten. Kamera-Test und beide Submission-Arme
+inklusive GPU-Validierung grün. Wien geöffnet: 0/921600 Pixel verändert.
+Lint: 55 Befunde, Place ohne Diagnose; Writer weiter rot. Globale Digest-/Timing-
+Zähler sind noch nicht pro Engine isoliert. Ownership getrennt korrigieren;
+diese Prüfung ist keine Mehrinstanz-Abnahme.
