@@ -37,3 +37,8 @@ RGBA8-Grenzen aus uint8_t ableiten, Deklarationen eindeutig halten. Unabhängige
 3x3-Artefakt prüft Farbtransfer, Alpha-Erhalt, Normalraum und MR-Kanäle ohne GPU.
 Keine geänderte Darstellung und kein Arten-/Vegetationsausbau. Cache-Helfer aus
 2210 borgen den Atlas statt vertauschbarer Zähler; Prädikate vollständig prüfen.
+
+Nachweis: beide CrownAtlas-Tests grün. Das unabhängige 3x3-Artefakt prüft
+Farbtransfer, unveränderte Coverage, Tangentennormalen und MR-Packing; vertauschte
+MR-Kanäle scheitern an allen neun Texeln. Randfüllung und Bytequantisierung bleiben
+unverändert. Vollständiges Lint: 187/187 Units, 63 Befunde; Writer bleibt rot.

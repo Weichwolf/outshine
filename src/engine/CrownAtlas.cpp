@@ -14,6 +14,7 @@
 namespace outshine {
 namespace {
 constexpr size_t kMostAtlasTexels = 1u << 24u;
+constexpr auto kOpaqueByte = std::numeric_limits<uint8_t>::max();
 
 namespace Says {
 constexpr auto Shape =
@@ -25,7 +26,8 @@ constexpr auto Surface = "crown atlas material identity is outside its source ta
 }
 
 uint8_t Byte(float value) {
-  return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+  return static_cast<uint8_t>(
+      std::lround(std::clamp(value, 0.0f, 1.0f) * static_cast<float>(kOpaqueByte)));
 }
 
 float Srgb(float linear) {
@@ -96,35 +98,28 @@ bool CacheableMaterial(const Material &source) {
   core.DoubleSided = source.DoubleSided;
   core.Unlit = source.Unlit;
   if (!(source == core) || static_cast<uint32_t>(core.Alpha) > 2) { return false; }
-  for (const float x : core.BaseColour) {
-    if (!std::isfinite(x) || x < 0 || x > 1) { return false; }
-  }
-  for (const float x : core.Emission) {
-    if (!std::isfinite(x) || x < 0) { return false; }
-  }
-  for (const float x : {core.Metalness, core.Roughness, core.CoverageCut}) {
-    if (!std::isfinite(x) || x < 0 || x > 1) { return false; }
-  }
-  return true;
+  const auto unitFactor = [](float x) { return std::isfinite(x) && x >= 0 && x <= 1; };
+  const std::array factors{core.Metalness, core.Roughness, core.CoverageCut};
+  return std::ranges::all_of(core.BaseColour, unitFactor) &&
+         std::ranges::all_of(core.Emission, [](float x) { return std::isfinite(x) && x >= 0; }) &&
+         std::ranges::all_of(factors, unitFactor);
 }
 
-bool CacheableView(const CrownAtlas::View &view, size_t texels, size_t surfaces) {
+bool CacheableView(const CrownAtlas::View &view, const CrownAtlas &atlas) {
+  const auto texels = static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels());
   const double norm = Dot(view.TowardEye, view.TowardEye);
   if (!std::isfinite(norm) || std::abs(norm - 1) > kUnitDirectionSquaredTolerance ||
       view.TowardEye[1] != 0 || view.Texels.size() != texels) {
     return false;
   }
-  for (const auto &pixel : view.Texels) {
+  return std::ranges::all_of(view.Texels, [&](const CrownAtlas::Texel &pixel) {
     const float normal = Dot(pixel.Normal, pixel.Normal);
-    if (!std::isfinite(pixel.Depth) || pixel.Depth < 0 || pixel.Depth > 1 ||
-        pixel.Surface > surfaces || ((pixel.Surface > 0) != (pixel.Depth > 0)) ||
-        !std::isfinite(normal) ||
-        (pixel.Surface > 0 ? std::abs(normal - 1) > kCapturedNormalSquaredTolerance
-                           : normal != 0)) {
-      return false;
-    }
-  }
-  return true;
+    return std::isfinite(pixel.Depth) && pixel.Depth >= 0 && pixel.Depth <= 1 &&
+           pixel.Surface <= atlas.Surfaces().size() && ((pixel.Surface > 0) == (pixel.Depth > 0)) &&
+           std::isfinite(normal) &&
+           (pixel.Surface > 0 ? std::abs(normal - 1) <= kCapturedNormalSquaredTolerance
+                              : normal == 0);
+  });
 }
 
 bool Cacheable(const CrownAtlas &atlas) {
@@ -139,10 +134,9 @@ bool Cacheable(const CrownAtlas &atlas) {
   for (const auto x : atlas.CentreM()) {
     if (!std::isfinite(x)) { return false; }
   }
-  const auto texels = static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels());
   return std::ranges::all_of(atlas.Surfaces(), CacheableMaterial) &&
          std::ranges::all_of(atlas.Views(), [&](const CrownAtlas::View &view) {
-           return CacheableView(view, texels, atlas.Surfaces().size());
+           return CacheableView(view, atlas);
          });
 }
 }
@@ -258,20 +252,20 @@ std::optional<CrownAtlas> CrownAtlas::Decode(std::span<const uint8_t> bytes,
   return atlas;
 }
 
-std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
-  if (view >= Views_.size()) { return std::nullopt; }
-  const View &source = Views_[view];
+namespace {
+std::vector<uint32_t> NearestCoveredTexels(const CrownAtlas::View &source, int pixels) {
   const size_t count = source.Texels.size();
   constexpr uint32_t missing = std::numeric_limits<uint32_t>::max();
-  std::vector<uint32_t> owner(count, missing), queue;
+  std::vector<uint32_t> owner(count, missing);
+  std::vector<uint32_t> queue;
   queue.reserve(count);
   for (uint32_t at = 0; at < count; ++at) {
     if (source.Texels[at].Surface == 0) { continue; }
     owner[at] = at;
     queue.push_back(at);
   }
-  if (queue.empty()) { return std::nullopt; }
-  const auto width = static_cast<uint32_t>(Pixels_);
+  if (queue.empty()) { return {}; }
+  const auto width = static_cast<uint32_t>(pixels);
   for (size_t next = 0; next < queue.size(); ++next) {
     const uint32_t at = queue[next];
     const auto extend = [&](uint32_t to) {
@@ -284,6 +278,16 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
     if (at >= width) { extend(at - width); }
     if (at + width < count) { extend(at + width); }
   }
+  return owner;
+}
+}
+
+std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
+  if (view >= Views_.size()) { return std::nullopt; }
+  const View &source = Views_[view];
+  const size_t count = source.Texels.size();
+  const auto owner = NearestCoveredTexels(source, Pixels_);
+  if (owner.empty()) { return std::nullopt; }
   const Vec3 toward = source.TowardEye;
   const Vec3 right{{toward[2], 0, -toward[0]}};
   std::array<std::vector<uint8_t>, 3> images;
@@ -294,15 +298,15 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
     Vec3 n{{pixel.Normal[0], pixel.Normal[1], pixel.Normal[2]}};
     if (!Normalise(n)) { return std::nullopt; }
     for (size_t c = 0; c < 3; ++c) { images[0][at * 4 + c] = Byte(Srgb(material.BaseColour[c])); }
-    images[0][at * 4 + 3] = source.Texels[at].Surface > 0 ? 255 : 0;
+    images[0][at * 4 + 3] = source.Texels[at].Surface > 0 ? kOpaqueByte : 0;
     images[1][at * 4] = Byte(static_cast<float>(0.5 * (Dot(n, right) + 1.0)));
     images[1][at * 4 + 1] = Byte(static_cast<float>(0.5 * (1.0 - n[1])));
     images[1][at * 4 + 2] = Byte(static_cast<float>(0.5 * (Dot(n, toward) + 1.0)));
-    images[1][at * 4 + 3] = 255;
-    images[2][at * 4] = 255;
+    images[1][at * 4 + 3] = kOpaqueByte;
+    images[2][at * 4] = kOpaqueByte;
     images[2][at * 4 + 1] = Byte(material.Roughness);
     images[2][at * 4 + 2] = Byte(material.Metalness);
-    images[2][at * 4 + 3] = 255;
+    images[2][at * 4 + 3] = kOpaqueByte;
   }
   Geometry geometry;
   Material material;
@@ -323,7 +327,8 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
                                     CentreM_ + right * HalfExtentM_ - Vec3{{0, HalfExtentM_, 0}},
                                     CentreM_ + right * HalfExtentM_ + Vec3{{0, HalfExtentM_, 0}},
                                     CentreM_ - right * HalfExtentM_ + Vec3{{0, HalfExtentM_, 0}}};
-  std::array<float, 12> positions, normals;
+  std::array<float, 12> positions;
+  std::array<float, 12> normals;
   std::array<float, 16> tangents;
   for (size_t at = 0; at < corners.size(); ++at) {
     for (size_t axis = 0; axis < 3; ++axis) {
