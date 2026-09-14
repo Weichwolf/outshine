@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
@@ -39,3 +39,16 @@ gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
 
 Wahl: getrennte Wasseroberfläche und Geländeform wie öffentliche Unreal-Water-Konzepte;
 RAGE ist visuelle Referenz. Ein Deckel allein behebt keine falsche Uferkonstruktion.
+
+## P0: Wasseraufnahme in prüfbare Phasen trennen
+
+WaterField dupliziert Ringauswahl und Höhenabfragen in Bereitschaftsprüfung,
+Fluss- und Flächenaufnahme. Gemeinsame Auswahl und Höhenleser, getrennte
+Flussprofile/Flächenpegel; bestehende Filter, Pegelheuristik und Reihenfolge
+erhalten. Analytische deklarierte Ringe prüfen Pending→Ready, fehlende Höhen,
+Tunnel-Filter, monotone Flussprofile und niedrigen Flächenpegel samt Ausreißer.
+Negativkontrolle überspringt Pending-Sperre; keine Aufnahme ohne aufgelöste Daten.
+Wien ohne Vegetation vor/nach vergleichen. Tessellierung/Löcher bleiben offen.
+Die doppelte Abfrage vor/nach Mark_.Take setzt derzeit stabile GroundQuery-
+Antworten voraus. Übergang Ready→Pending und atomare Veröffentlichung separat
+prüfen; die Aufteilung allein beweist diesen Lebensdauervertrag nicht.
