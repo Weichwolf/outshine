@@ -80,6 +80,36 @@ private:
     std::vector<uint32_t> Seeds;
   };
 
+  struct RasterWindow {
+    int I0, I1, J0, J1;
+    uint32_t Generation;
+  };
+
+  struct CellSample {
+    int I, J, Winding;
+  };
+
+  void BuildFeatureEdges(const Job &job, const Feature &feature);
+  void IndexFeatureEdges(const Feature &feature,
+                         const ClassStructure::Grid &grid,
+                         const RasterWindow &window);
+  void ScanlineHits(double northM, size_t &nextEdge);
+  void SeedCell(const Feature &feature,
+                ClassStructure::Grid &grid,
+                const RasterWindow &window,
+                CellSample sample,
+                int &overflow);
+  void ScanFeature(const Feature &feature,
+                   ClassStructure::Grid &grid,
+                   const RasterWindow &window,
+                   int &overflow);
+  void PackGrid(ClassStructure::Grid &grid);
+  void RasterizeFeature(const Job &job,
+                        const Feature &feature,
+                        uint32_t &generation,
+                        ClassStructure::Grid &grid,
+                        int &overflow);
+
   void Run();
   void LayDown(const Job &job, ClassStructure::Grid &out, int &overflow);
   size_t ScratchBytes() const;

@@ -105,13 +105,14 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 ## P0: Fortschritt und nächster Vertrag
 SubjectDraw ohne Tidy-Befund: Validierung vor Mutation, Pipeline-/Binding-Phasen.
 Mesh-/GPU-Tests und Negativkontrollen grün, Wien pixelgleich.
-Lint: 46 Befunde, Writer rot. Renderer-Größen-/Rollback-/Reconfigure-Verträge,
+Lint: 45 Befunde, Writer rot. Renderer-Größen-/Rollback-/Reconfigure-Verträge,
 Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Nächster Schritt: ClassBuilder::LayDown in Kurvenkanten, Zellindex, Scanline,
-Seed-Erzeugung und Packen aufteilen. Vorhandenes Winding-/Kantenverfahren,
-Rangfolge, Limits und Scratch-Wiederverwendung erhalten; keine neue Heuristik.
-Unabhängige Innen-/Außen-/Loch-/Rangproben und wiederholte Worker-Jobs prüfen.
-Negativkontrolle entfernt Winding-Beitrag. Lint sowie Wien ohne Vegetation
-vorher/nachher öffnen. Numerische Eingangsgrenzen/Job-Abbruch bleiben separat
-offen; keine vollständige OSM-Topologie-Abnahme durch diesen Umbau.
+ClassBuilder trennt Kurvenkanten, Zellindex, Scanline-Schnittpunkte, Seeds und
+Packen; Scratch und bisheriger Algorithmus erhalten. Zwölf analytische Checks
+für Loch/Innen/Außen/Rang/Linienbreite/Wiederverwendung grün, Abfragegrenzen grün.
+Winding abgeschaltet: vier Fehler. Lint vollständig: 45 Befunde, ClassBuilder
+ohne Diagnose; Writer rot. Wien geöffnet: 0/921600 Pixel verändert;
+p50/p95/p99 5.25/5.74/6.19 ms, 0/120 über 16.67 ms.
+Numerische Eingangsgrenzen, Job-Abbruch, Überfüllung und vollständige
+OSM-Topologie-Abnahme bleiben offen. Keine neue künstlerische Abnahme.
