@@ -82,16 +82,19 @@ Diese Strukturkorrektur nimmt keine neue Streaming-Fähigkeit ab.
 
 ## P0: begrenzte Patchwork-Abdeckung
 
-GroundPatchwork allokiert 16*4^(Levels-1) Maskenbytes und scannt grobe Tiles
-auf feinster Auflösung. Zoom/Levels können ungültige Shifts auslösen. Vorhanden:
-4x4 Tiles je Ebene, dyadische Eltern/Kind-Grenzen, explizite Provider-Antworten.
-Die dyadische Hierarchie erlaubt eine disjunkte Menge fertiger Tile-Bereiche:
-Eltern ersetzen enthaltene Kinder; Abdeckung ist die Summe ihrer Flächen.
-Kein Raster proportional zur Weltfläche. Maximal 16*(kZoomLevels-1) Einträge
-und Provider-Aufrufe; Zoom 1..kZoomLevels-1, Levels auf vorhandene Zoomstufen
-begrenzen, endliche Geoposition und Grid>=2 vor Arbeit prüfen.
-Anfrage, Antwortzählung und Abdeckung trennen; Reihenfolge und Fallback erhalten.
-Ein kleines unabhängiges Zellenorakel prüft Auswahl/Überlappung bei gemischten
-Antworten, reine Anfragen, Datumsgrenze und Polargrenze. Maximalfall bleibt
-begrenzt; ungültige Eingaben erreichen keinen Provider. Negativkontrolle zählt
-Pending als Abdeckung und muss scheitern. Wien-PNG darf strukturell nicht ändern.
+Die alte Maske benötigte 16*4^(Levels-1) Bytes und entsprechende Flächenscans;
+unbegrenzte Zoom-/Levelwerte konnten ungültige Shifts auslösen. Jetzt hält die
+Abdeckung disjunkte dyadische Tile-Bereiche: fertige Eltern ersetzen enthaltene
+Kinder, abgedeckte Fläche ist die Summe der Kinderflächen. Maximal
+16*(kZoomLevels-1) = 368 Bereiche/Provider-Aufrufe, kein weltflächiges Raster.
+Zoom 1..23, Levels positiv und auf vorhandene Zoomstufen begrenzt, Grid>=2,
+Koordinaten endlich; ungültige Eingaben erreichen keinen Provider.
+Anfrage, Antwortzählung und Abdeckung sind getrennt. Reihenfolge und Fallback
+bleiben erhalten, Anfragen ohne Mesh verdecken keine Eltern. Ein unabhängiges
+Zellenorakel prüft gemischte Antworten, ungültige Ready-Meshes, Anfragebetrieb,
+Datumsgrenze/Polgrenzen und Maximalfall: 187 Checks grün. Pending als Abdeckung
+injiziert: 35 Checks rot. Wien geöffnet, 0/921600 Pixel verändert.
+Lint vollständig: 60 Befunde, keiner in GroundPatchwork; Writer weiter rot.
+Warmaufnahme p50/p95/p99 5.26/6.00/6.27 ms, 0/120 über 16.67 ms, sim p99 0.53 ms.
+Kein allgemeiner Geschwindigkeitsnachweis aus einer Aufnahme; Bewegung und
+Dauerlauf bleiben offen. Fremde Provider können intern weiterhin blockieren.
