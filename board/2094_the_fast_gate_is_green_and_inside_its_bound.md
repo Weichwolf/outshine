@@ -103,16 +103,16 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
 ## P0: Fortschritt und nächster Vertrag
-SubjectDraw/ClassBuilder ohne Tidy-Befund; Fehler-/Raster-/sRGB-Tests und
-Negativkontrollen grün, Wien pixelgleich. Lint: 39 Befunde, Writer rot.
-inspect publiziert pro Aufruf neu; Geometriewechsel ohne advance mit 15 Checks
-geprüft, Altcode veraltet. Renderer-Größen-/Rollback-/Reconfigure-Verträge,
-Rastergrenzen/Abbruch, Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
+SubjectDraw/ClassBuilder ohne Tidy-Befund; Fehler-/Raster-/sRGB-Tests grün.
+Render/inspect publizieren unabhängig vom Simulationstick; API-Negativkontrollen
+belegen behobene veraltete Werte. Lint: 39 Befunde, Writer rot.
+Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
+Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Erfolgreiches render() eröffnet nach DrawScene eine eigene Messrunde.
-API-Test: leere Szene → natives Dreieck ohne advance/inspect aktualisiert subject
-draws von null auf eins. Altcode verfehlt genau diesen Wert; korrigiert 19 Checks
-grün. API-Vertrag dokumentiert. Fehler vor/nach Zeichnungsversuch publizieren
-keine erfolgreichen Render-Messwerte; echte Clash-Erkennung bleibt erhalten.
-Lint vollständig: 39 Befunde, Writer rot. Kein bildwirksamer Eingriff.
-Manuelle Engine-Quelldateilisten im Harness: Konsolidierung in 2218.
+Nächster Schritt: preload trennt Streaming-Pumpen und Kapazitäts-/Timeoutfehler
+von der Bereitschaftsschleife. Vorhandene begrenzte Bakes, TilePool-Wartezeit,
+Callback- und Nullbudget-Verträge erhalten. Konkreten Grounds-Fehler bei Timeout
+im zurückgegebenen Fehler behalten statt durch generischen Zusatz ersetzen.
+Vorhandene Deadline-Tests, Lint und Wien-Preload/PNG-Vergleich.
+Kein harter Zeitbound versprechen; Callback/Build-Schritt können länger dauern.
+Vorhandenen Vegetations-WIP in Engine.cpp/EngineHeld.h selektiv erhalten.
