@@ -104,15 +104,15 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 
 ## P0: Fortschritt und nächster Vertrag
 SubjectDraw/ClassBuilder ohne Tidy-Befund; unabhängige Fehler-/Rastertests,
-Negativkontrollen und Wien pixelgleich. Lint: 45 Befunde, Writer rot.
+Negativkontrollen und Wien pixelgleich. Lint: 40 Befunde, Writer rot.
 Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
 Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Nächster Schritt: CPU-sRGB-Transfer in base/math gemeinsam implementieren;
-Atlas-Encoding, Textur-Upload und Generatorfarben migrieren. glTF-Referenz
-../glTF c184327, Specification.adoc Material: RGB vor Berechnung/Filterung
-dekodieren; Alpha linear. Keine glTF-Typen im gemeinsamen Mathematikmodul.
-Feste Transferwerte, Knie, alle 256 Bytes und unabhängige Double-Rechnung prüfen;
-Negativkontrolle Gamma 2 statt 2.4. Keine Grenzwerte lockern.
-Vorhandene Atlas-Projektion prüfen; WIP-Bake-Umbau nicht mitcommitten.
-Lint sowie Wien-Vergleich; Vegetation bleibt in Places ausgeschaltet.
+CPU-sRGB-Transfer liegt gemeinsam in base/math; Atlas-Encoding, Textur-Upload
+und Generatorfarben verwenden ihn. glTF-Referenz ../glTF c184327:
+Farb-RGB vor Berechnung/Filterung dekodieren, Alpha linear belassen.
+780 Checks: feste Werte/Knie/256 Bytes/Double-Orakel; Gamma-2-Negativkontrolle
+scheitert 250-mal. Atlas-Integration grün. Lint vollständig: 40 Befunde, Writer rot.
+Wien geöffnet: 0/921600 Pixel verändert; p50/p95/p99 5.22/5.91/6.16 ms,
+0/120 über 16.67 ms. Keine vollständige Farbraum-/Material-Abnahme.
+Vorhandener Bake-Umbau bleibt uncommittet; nur gemeinsame Transfernutzung übernommen.

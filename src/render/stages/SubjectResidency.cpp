@@ -1,3 +1,4 @@
+#include "math/Srgb.h"
 #include <span>
 #include <optional>
 #include <limits>
@@ -18,11 +19,6 @@ namespace outshine::Render {
 
 constexpr float kByteSteps = 255.0f;
 
-constexpr float kSrgbKnee = 0.04045f;
-constexpr float kSrgbLinearSlope = 12.92f;
-constexpr float kSrgbOffset = 0.055f;
-constexpr float kSrgbScale = 1.055f;
-constexpr float kSrgbGamma = 2.4f;
 constexpr float kEveryMip = 1000.0f;
 constexpr size_t kRgbaChannels = 4u;
 constexpr size_t kAlphaChannel = 3u;
@@ -87,12 +83,6 @@ bool SubmitCopy(CopyCommands copy, std::string &error) {
     return false;
   }
   return true;
-}
-
-float LinearFromSrgb8(uint8_t code) {
-  const float encoded = static_cast<float>(code) * (1.0f / kByteSteps);
-  if (encoded < kSrgbKnee) { return encoded * (1.0f / kSrgbLinearSlope); }
-  return std::pow((encoded + kSrgbOffset) * (1.0f / kSrgbScale), kSrgbGamma);
 }
 
 SDL_GPUSamplerAddressMode AddressOf(SubjectWrap wrap) {
@@ -431,7 +421,9 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     for (size_t channel = 0; channel < 3; ++channel) {
       const uint8_t code = texels[texel * 4u + channel];
       linear[texel * 4u + channel] =
-          decode == Transfer::Srgb ? LinearFromSrgb8(code) : static_cast<float>(code) / kByteSteps;
+          decode == Transfer::Srgb
+              ? ColourSpace::LinearFromSrgb(static_cast<float>(code) / kByteSteps)
+              : static_cast<float>(code) / kByteSteps;
     }
     linear[texel * kRgbaChannels + kAlphaChannel] =
         static_cast<float>(texels[texel * kRgbaChannels + kAlphaChannel]) / kByteSteps;

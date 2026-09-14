@@ -1,3 +1,4 @@
+#include "math/Srgb.h"
 #include "math/Units.h"
 #include "TreePrototype.h"
 #include "math/Vec3.h"
@@ -19,20 +20,9 @@
 
 namespace outshine::Generators {
 
-constexpr float kSrgbKnee = 0.04045f;
-constexpr float kSrgbLinearSlope = 12.92f;
-constexpr float kSrgbOffset = 0.055f;
-constexpr float kSrgbScale = 1.055f;
-constexpr float kSrgbGamma = 2.4f;
-
 namespace {
 
 const Vec3f kLeafBaseLinear = {{0.0684f, 0.1072f, 0.0273f}};
-
-float SrgbToLinear(float v) {
-  return v <= kSrgbKnee ? v / kSrgbLinearSlope
-                        : std::pow((v + kSrgbOffset) / kSrgbScale, kSrgbGamma);
-}
 
 }
 
@@ -41,7 +31,7 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   const TreeSpecies::Shading &sh = sp.ShadingParams();
   const TreeSpecies::Leaf &lf = sp.LeafParams();
   for (int c = 0; c < 3; c++) {
-    look.BarkRgb[c] = SrgbToLinear(sh.BarkColor[c]);
+    look.BarkRgb[c] = ColourSpace::LinearFromSrgb(sh.BarkColor[c]);
     look.LeafRgb[c] = kLeafBaseLinear[c] * sh.LeafTint[c];
   }
   look.BarkDark = sh.BarkDark;

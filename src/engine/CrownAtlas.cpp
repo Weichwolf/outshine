@@ -1,3 +1,4 @@
+#include "math/Srgb.h"
 #include "CrownAtlas.h"
 #include "../../build/CrownBuild.h"
 #include "Digest.h"
@@ -28,10 +29,6 @@ constexpr auto Surface = "crown atlas material identity is outside its source ta
 uint8_t Byte(float value) {
   return static_cast<uint8_t>(
       std::lround(std::clamp(value, 0.0f, 1.0f) * static_cast<float>(kOpaqueByte)));
-}
-
-float Srgb(float linear) {
-  return linear <= 0.0031308f ? 12.92f * linear : 1.055f * std::pow(linear, 1.0f / 2.4f) - 0.055f;
 }
 }
 
@@ -297,7 +294,7 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
     const Material &material = Surfaces_[pixel.Surface - 1];
     Vec3 n{{pixel.Normal[0], pixel.Normal[1], pixel.Normal[2]}};
     if (!Normalise(n)) { return std::nullopt; }
-    for (size_t c = 0; c < 3; ++c) { images[0][at * 4 + c] = Byte(Srgb(material.BaseColour[c])); }
+    for (size_t c = 0; c < 3; ++c) { images[0][at * 4 + c] = Byte(ColourSpace::SrgbFromLinear(material.BaseColour[c])); }
     images[0][at * 4 + 3] = source.Texels[at].Surface > 0 ? kOpaqueByte : 0;
     images[1][at * 4] = Byte(static_cast<float>(0.5 * (Dot(n, right) + 1.0)));
     images[1][at * 4 + 1] = Byte(static_cast<float>(0.5 * (1.0 - n[1])));
