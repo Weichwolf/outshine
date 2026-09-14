@@ -56,3 +56,16 @@ Job-Slots/Queue begrenzen, ungültige Handles explizit ablehnen, Generation/Abbr
 Fehlerabschluss modellieren. Worker-Warten außerhalb des Framepfads ist legitim.
 - [ ] Sättigung, alter Handle, konsumierter Handle und Shutdown mit laufendem Job
       enden definiert; Frameübernahme bleibt nichtblockierend und budgetiert.
+
+## Download-/Query-Pfad
+
+Place-Rerender: Stack-Sampling belegt Hauptthread in WaterField::Ingest ->
+GroundStream::At -> Oracle::Take -> BytesBlocking -> Fetching::Await.
+Damit blockiert DEM-Nachladen Fortschritt und Preload-Frist trotz IO-Workern.
+Oracle muss über TilePool::Bytes Pending liefern und später erneut auflösen;
+fehlende Nachbarn dürfen nicht als dauerhafte Löcher gecacht werden.
+Prüfung mit verzögerter Quelle: kein Source-/Await-Aufruf auf dem Aufruferthread,
+Pending vor Freigabe, danach korrekte Höhe. Altpfad muss daran scheitern.
+Fetching::Cancel markiert laufende Requests nur; curl läuft bis Timeout weiter.
+Abbruch/Shutdown über curl-Fortschrittscallback, lokale verzögerte HTTP-Antwort
+als unabhängiges Oracle. Carrier-Serialisierung und Queue-Budgets getrennt prüfen.
