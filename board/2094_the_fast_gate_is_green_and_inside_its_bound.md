@@ -111,3 +111,10 @@ inklusive GPU-Validierung grün. Wien geöffnet: 0/921600 Pixel verändert.
 Lint: 55 Befunde, Place ohne Diagnose; Writer weiter rot. Globale Digest-/Timing-
 Zähler sind noch nicht pro Engine isoliert. Ownership getrennt korrigieren;
 diese Prüfung ist keine Mehrinstanz-Abnahme.
+
+Nächster Schritt: SubjectTransferMetrics gehört zu SubjectScratch/Core::Live.
+Globale Getter/Zähler entfernen; Engine-Berichte lesen ausschließlich ihren Live.
+PackingMs tatsächlich messen (bisher konstant null), Mesh-/Pose-Upload getrennt
+von Digest messen. Zwei gleichzeitig lebende Renderer mit verschiedenen Modellen
+und deaktivierter Diagnose im zweiten müssen die Werte des ersten unverändert
+lassen. Gemeinsamer statischer Messwertspeicher als Negativkontrolle.
