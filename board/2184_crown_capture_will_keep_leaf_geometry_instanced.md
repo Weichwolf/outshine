@@ -29,3 +29,11 @@ Birken-Feinmesh überein; der Atlas bleibt relightbar und die echte World-Crown-
 Coverage-Prüfung gilt weiter. Falsche Blattorientierung als Negativkontrolle.
 Danach echte ash-/Koerbersee-Vorbereitung mit beobachtetem Speicher, kein Wechsel
 auf leichtere Arten. PNGs und Framekosten nach warmem Laden getrennt abnehmen.
+
+## P0: vorhandene Atlasprojektion bereinigen
+
+Randfüllung über nächste bedeckte Texel von Geometrie-/Materialausgabe trennen.
+RGBA8-Grenzen aus uint8_t ableiten, Deklarationen eindeutig halten. Unabhängiges
+3x3-Artefakt prüft Farbtransfer, Alpha-Erhalt, Normalraum und MR-Kanäle ohne GPU.
+Keine geänderte Darstellung und kein Arten-/Vegetationsausbau. Cache-Helfer aus
+2210 borgen den Atlas statt vertauschbarer Zähler; Prädikate vollständig prüfen.
