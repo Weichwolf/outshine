@@ -103,18 +103,16 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
 ## P0: Fortschritt und nächster Vertrag
-SubjectDraw/ClassBuilder ohne Tidy-Befund; unabhängige Fehler-/Raster-/sRGB-Tests
-und Negativkontrollen grün, Wien pixelgleich. Lint: 39 Befunde, Writer rot.
-Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
-Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
+SubjectDraw/ClassBuilder ohne Tidy-Befund; Fehler-/Raster-/sRGB-Tests und
+Negativkontrollen grün, Wien pixelgleich. Lint: 39 Befunde, Writer rot.
+inspect publiziert pro Aufruf neu; Geometriewechsel ohne advance mit 15 Checks
+geprüft, Altcode veraltet. Renderer-Größen-/Rollback-/Reconfigure-Verträge,
+Rastergrenzen/Abbruch, Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Readback-Diagnosen in Inspection.cpp; öffentlicher API-Test plus GPU-Verträge
-grün, Alpha-Negativkontrolle scheitert. Lint: 39 Befunde, Writer rot.
-inspect() beginnt nach erfolgreicher Vorbereitung eine eigene Messrunde.
-API-Test: leeres Bild → Inspektion → helles natives Mesh → Render/Inspektion ohne
-advance veröffentlicht den neuen RGB-Spitzenwert. Alter Stand scheitert genau
-an dieser Aktualisierung; korrigiert 15 Checks grün. API-Vertrag dokumentiert:
-verfügbare Werte erneuern, fehlende Readbacks behalten frühere Werte.
-Lint vollständig: 39 Befunde, Writer rot. Keine bildwirksame Änderung.
-Getrennt offen: Messrunden bei wiederholtem render() und historische Clash-Diagnosen.
+Nächster Schritt: erfolgreiche render()-Aufrufe eröffnen vor Veröffentlichung
+eine eigene Messrunde. API-Test: zwei Renderaufrufe ohne advance/inspect müssen
+pictures drawn um eins erhöhen. Alter Stand muss den zweiten Zählerstand verpassen.
+Fehlgeschlagene Frames publizieren keine neue Messung. Historische echte
+Clash-Diagnosen bleiben erhalten; keine pauschale Löschung oder Unterdrückung.
+Kein bildwirksamer Eingriff; API-Test und vollständiges Lint.
 Manuelle Engine-Quelldateilisten im Harness: Konsolidierung in 2218.
