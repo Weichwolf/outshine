@@ -70,3 +70,11 @@ Drei Tests grün, beide Negativkontrollen rot. Lint: unverändert 96 Tidy-Befund
 und offene Writer-Inventur; keine neuen Diagnosen.
 Offen: Carrier-Serialisierung, Queue-Budgets, Mainthread-Decodierung/Aufbau und
 OSM-Gesamtdurchsatz bei kaltem Cache. Der Fix ist keine Streaming-Gesamtabnahme.
+
+## Nächster Tidy-Schritt
+
+TilePool::Work vermischt priorisierte Queue-Entnahme mit Mesh-/Field-Ausführung.
+NextJob und RunJob übernehmen diese Zuständigkeiten; Work behält Abhängigkeiten,
+Zeitmessung und Publikation. Reihenfolge, Locks und Fehlerzustände unverändert.
+Abnahme: TilePool-/verzögerte Terrain-Tests und Lint ohne neue Warnung; keine neue
+Streaming-Fähigkeit aus einer reinen Strukturkorrektur behaupten.
