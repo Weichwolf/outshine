@@ -109,3 +109,11 @@ ist nur am Dokumentanfang erlaubt; der Altstand verletzt die Negativkontrolle.
 Abnahme: positive Whitespace-/Kommentar-/BOM-Fälle und ungültige Gegenstücke;
 Parserfehler leeren das Parse-Ergebnis, Szenarioimport erhält sein voriges Dokument.
 Sieben Regressionen grün; das ist noch keine vollständige XML-Konformitätsabnahme.
+
+## Kronenartefakt-Vertrag
+
+Cacheprüfung nach Material, Ansicht und Container trennen; Bytegrößen aus den
+gespeicherten Skalaren ableiten, IEEE-/Breitenannahmen statisch prüfen. Toleranzen
+und Format bleiben unverändert. Handkodierte kleine Datei prüft Decode/Encode
+ohne GPU; korrupte Dimensionen, Material-/Normalwerte mit gültiger Prüfsumme ablehnen.
+Bestehenden Capture-/Cachetest ergänzen, keinen Vegetationsausbau vorziehen.
