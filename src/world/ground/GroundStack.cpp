@@ -117,7 +117,6 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at)
     const int zoom = FinestZoomOf(Data::DataKind::VectorMap);
     if (zoom <= 0) { return {}; }
     Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers));
-    WaterBodies_.AnchorAt(Cls_.OriginEcef());
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   if (Declared_.empty()) {

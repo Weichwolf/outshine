@@ -1,15 +1,7 @@
 #include "WaterField.h"
-#include "math/Vec3.h"
 
-#include "Geodesy.h"
-#include "TerrainLoader.h"
-
-#include <array>
 #include <algorithm>
-#include <cassert>
-#include <cmath>
 #include <cstddef>
-#include <optional>
 #include <span>
 #include <cstdint>
 #include <utility>
@@ -17,15 +9,11 @@
 
 namespace outshine::Ground {
 
-constexpr double kLeastRunM2 = 1e-9;
-
 namespace {
 
 constexpr double kLevelPercentile = 0.05;
 
 constexpr double kShoreToleranceM = 5.0;
-
-constexpr double kLiftM = 0.15;
 
 }
 
@@ -95,12 +83,6 @@ bool WaterField::TileGroundResolved(const GroundQuery &ground,
   return true;
 }
 
-void WaterField::AnchorAt(const Vec3 &ecef) {
-  assert(Surfaces_.empty() && Courses_.empty());
-  for (int c = 0; c < 3; c++) { Anchor_[c] = ecef[c]; }
-  Anchored_ = true;
-}
-
 void WaterField::AddCourse(const OsmField &field,
                            const OsmField::Feature &feature,
                            const OsmField::Ring &ring,
@@ -141,7 +123,6 @@ void WaterField::AddSurface(const OsmField::Ring &ring, std::span<double> height
 uint32_t WaterField::Ingest(const GroundQuery &ground,
                             const OsmField &field,
                             const VegetationTemplates &veg) {
-  assert(Anchored_);
   const auto features = field.Features();
   if (Mark_.Done(features)) { return static_cast<uint32_t>(Surfaces_.size()); }
   const OnLayers layers{.Poly = field.Layer(OsmLayer::WaterPolygons),
@@ -176,147 +157,6 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   }
   ByTile_.Set(next.Tile, firstSurface, static_cast<uint32_t>(Surfaces_.size()));
   return static_cast<uint32_t>(Surfaces_.size());
-}
-
-void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) const {
-  out.clear();
-  const std::span<const double> ring = field.Points();
-  std::vector<double> p3;
-
-  for (const Surface &s : Surfaces_) {
-    const uint32_t n = s.PointCount;
-    if (n < 3) { continue; }
-    const double refLat = ring[static_cast<size_t>(s.FirstPoint) * 2];
-    const double refLon = ring[static_cast<size_t>(s.FirstPoint) * 2 + 1];
-    const Vec3 up = EnuAxesEcef({.LongitudeDeg = refLon, .LatitudeDeg = refLat}).Up;
-
-    p3.resize(static_cast<size_t>(n) * 3);
-    for (uint32_t k = 0; k < n; k++) {
-      Vec3 p;
-      GeoToEcef({.LongitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2 + 1],
-                 .LatitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2],
-                 .HeightM = s.LevelM + kLiftM},
-                p);
-      for (int c = 0; c < 3; c++) { p3[static_cast<size_t>(k) * 3 + c] = p[c] - Anchor_[c]; }
-    }
-
-    std::vector<double> en(static_cast<size_t>(n) * 2);
-    for (uint32_t k = 0; k < n; k++) {
-      const EastNorth at =
-          EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
-                     {.LongitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2 + 1],
-                      .LatitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2]});
-      en[static_cast<size_t>(k) * 2] = at.EastM;
-      en[static_cast<size_t>(k) * 2 + 1] = at.NorthM;
-    }
-    double area2 = 0.0;
-    for (uint32_t k = 0; k < n; k++) {
-      const uint32_t j = (k + 1) % n;
-      area2 += en[static_cast<size_t>(k) * 2] * en[static_cast<size_t>(j) * 2 + 1] -
-               en[static_cast<size_t>(j) * 2] * en[static_cast<size_t>(k) * 2 + 1];
-    }
-    std::vector<uint32_t> poly(n);
-    for (uint32_t k = 0; k < n; k++) { poly[k] = area2 >= 0.0 ? k : n - 1 - k; }
-    auto cross = [&](uint32_t a2, uint32_t b2, uint32_t c2) {
-      return (en[static_cast<size_t>(b2) * 2] - en[static_cast<size_t>(a2) * 2]) *
-                 (en[static_cast<size_t>(c2) * 2 + 1] - en[static_cast<size_t>(a2) * 2 + 1]) -
-             (en[static_cast<size_t>(b2) * 2 + 1] - en[static_cast<size_t>(a2) * 2 + 1]) *
-                 (en[static_cast<size_t>(c2) * 2] - en[static_cast<size_t>(a2) * 2]);
-    };
-    const auto inside = [&](uint32_t a2, uint32_t b2, uint32_t c2, uint32_t q) {
-      return cross(a2, b2, q) >= 0.0 && cross(b2, c2, q) >= 0.0 && cross(c2, a2, q) >= 0.0;
-    };
-    size_t guard = static_cast<size_t>(n) * static_cast<size_t>(n) + 16;
-    while (poly.size() >= 3 && guard-- > 0) {
-      bool clipped = false;
-      for (size_t k = 0; k < poly.size(); k++) {
-        const uint32_t a2 = poly[(k + poly.size() - 1) % poly.size()];
-        const uint32_t b2 = poly[k];
-        const uint32_t c2 = poly[(k + 1) % poly.size()];
-        if (cross(a2, b2, c2) <= 0.0) { continue; }
-        bool clear = true;
-        for (const uint32_t q : poly) {
-          if (q != a2 && q != b2 && q != c2 && inside(a2, b2, c2, q)) {
-            clear = false;
-            break;
-          }
-        }
-        if (!clear) { continue; }
-        for (const uint32_t idx : {a2, b2, c2}) {
-          const double *v = &p3[static_cast<size_t>(idx) * 3];
-          out.push_back(static_cast<float>(v[0]));
-          out.push_back(static_cast<float>(v[1]));
-          out.push_back(static_cast<float>(v[2]));
-          out.push_back(static_cast<float>(up[0]));
-          out.push_back(static_cast<float>(up[1]));
-          out.push_back(static_cast<float>(up[2]));
-        }
-        poly.erase(poly.begin() + static_cast<long>(k));
-        clipped = true;
-        break;
-      }
-      if (!clipped) { break; }
-    }
-  }
-
-  for (const Course &c : Courses_) {
-    if (c.PointCount < 2) { continue; }
-    const double refLat = ring[static_cast<size_t>(c.FirstPoint) * 2];
-    const double refLon = ring[static_cast<size_t>(c.FirstPoint) * 2 + 1];
-    const auto [ea, no, up] = EnuAxesEcef({.LongitudeDeg = refLon, .LatitudeDeg = refLat});
-    std::vector<double> L(static_cast<size_t>(c.PointCount) * 3);
-    std::vector<double> R(static_cast<size_t>(c.PointCount) * 3);
-    for (uint32_t k = 0; k < c.PointCount; k++) {
-      const uint32_t a = k > 0 ? k - 1 : k;
-      const uint32_t b = k + 1 < c.PointCount ? k + 1 : k;
-      const LongitudeLatitudeHeight from{.LongitudeDeg = refLon, .LatitudeDeg = refLat};
-      const EastNorth before =
-          EnuOffsetM(from,
-                     {.LongitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + a) * 2 + 1],
-                      .LatitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + a) * 2]});
-      const EastNorth after =
-          EnuOffsetM(from,
-                     {.LongitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + b) * 2 + 1],
-                      .LatitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + b) * 2]});
-      double tx = after.EastM - before.EastM;
-      double ty = after.NorthM - before.NorthM;
-      const double tl = std::sqrt(tx * tx + ty * ty);
-      if (tl < kLeastRunM2) {
-        tx = 1.0;
-        ty = 0.0;
-      } else {
-        tx /= tl;
-        ty /= tl;
-      }
-      const double px = -ty * c.HalfWidthM;
-      const double py = tx * c.HalfWidthM;
-      const double lat = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2];
-      const double lon = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2 + 1];
-      const double lev = static_cast<double>(Levels_[c.FirstLevel + k]) + kLiftM;
-      Vec3 base;
-      GeoToEcef({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = lev}, base);
-      for (int cc = 0; cc < 3; cc++) {
-        L[static_cast<size_t>(k) * 3 + cc] = base[cc] - Anchor_[cc] + ea[cc] * px + no[cc] * py;
-        R[static_cast<size_t>(k) * 3 + cc] = base[cc] - Anchor_[cc] - ea[cc] * px - no[cc] * py;
-      }
-    }
-    for (uint32_t k = 0; k + 1 < c.PointCount; k++) {
-      const std::array<const double *, 6> q = {&L[static_cast<size_t>(k) * 3],
-                                               &R[static_cast<size_t>(k) * 3],
-                                               &R[static_cast<size_t>(k + 1) * 3],
-                                               &L[static_cast<size_t>(k) * 3],
-                                               &R[static_cast<size_t>(k + 1) * 3],
-                                               &L[static_cast<size_t>(k + 1) * 3]};
-      for (const auto &t : q) {
-        out.push_back(static_cast<float>(t[0]));
-        out.push_back(static_cast<float>(t[1]));
-        out.push_back(static_cast<float>(t[2]));
-        out.push_back(static_cast<float>(up[0]));
-        out.push_back(static_cast<float>(up[1]));
-        out.push_back(static_cast<float>(up[2]));
-      }
-    }
-  }
 }
 
 }

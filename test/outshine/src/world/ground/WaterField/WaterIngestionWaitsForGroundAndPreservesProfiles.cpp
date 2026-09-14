@@ -73,7 +73,6 @@ int main() {
   VegetationTemplates materials;
   Heights ground;
   WaterField water;
-  water.AnchorAt({{6378137, 0, 0}});
   CHECK(water.Ingest(ground, field, materials) == 0 && water.IngestedTiles() == 0 &&
             water.Courses().empty() && water.Levels().empty(),
         "pending terrain publishes no partial water tile");

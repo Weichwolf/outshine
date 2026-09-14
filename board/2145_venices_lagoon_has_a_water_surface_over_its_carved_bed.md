@@ -11,8 +11,8 @@ Depends: 2121, 2173
 
 Die frühere pauschale Diagnose „kein Deckel“ ist nicht mehr haltbar. `Laying.cpp` erzeugt
 Wasserflächen; im vorigen Diagnosebestand Husum 220 Flächen/2998 Dreiecke, Malcesine
-58/1874. Der genutzte Fan-Pfad ist gegen konkave Polygone/Löcher zu prüfen; ein vorhandener
-Earclip-Helfer beweist nicht dessen Verwendung. Aktuelle Bilder zeigen dunkle Wasserflächen,
+58/1874. Der genutzte Fan-Pfad ist gegen konkave Polygone/Löcher zu prüfen; der unbenutzte
+Earclip-Nebenpfad wurde entfernt. Aktuelle Bilder zeigen dunkle Wasserflächen,
 gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
 
 ## Implementierung
@@ -49,21 +49,20 @@ Tunnel-/Größen-/Layerfilter, beide Flussrichtungen und niedrigen Flächenpegel
 samt Ausreißer. Test grün; ausgeschaltete Pending-Sperre scheitert siebenmal.
 Wien ohne Vegetation geöffnet: 0/921600 Pixel verändert; p50/p95/p99
 5.14/5.79/6.14 ms, 0/120 über 16.67 ms. Keine vollständige Wasserabnahme.
-Lint vollständig: 58 Befunde; Aufnahme/Bereitschaft ohne Diagnose. Tessellierung,
-Löcher und Writer-Coverage bleiben offen.
+Aufnahme/Bereitschaft ohne Diagnose. Aktive Flächengenerierung, Löcher und
+Writer-Coverage bleiben offen.
 Die doppelte Abfrage vor/nach Mark_.Take setzt derzeit stabile GroundQuery-
 Antworten voraus. Übergang Ready→Pending und atomare Veröffentlichung separat
 prüfen; die Aufteilung allein beweist diesen Lebensdauervertrag nicht.
 
-## P0: unbenutzten zweiten Renderpfad entfernen
+## P0: ein Datenmodell, ein aktiver Geometriepfad
 
-Quell-/Test-/Header-Audit: WaterField::Tessellate hat keinen Aufrufer. Der aktive
+Quell-/Test-/Header-Audit: WaterField::Tessellate hatte keinen Aufrufer. Der aktive
 Pfad in Engine::State::Grounds baut weiterhin einen Fan in native Geometry.
-Der tote Earclip-/Flussstreifenpfad liefert abweichend interleavte ECEF-Daten,
-kann Teilgeometrie ausgeben und vermittelt eine nicht integrierte Fähigkeit.
-Entfernen statt als weitere Geometrierepräsentation pflegen. WaterField bleibt
-geografisches Wasser-/Pegelmodell; sein nur hierfür benutzter Anchor-Zustand
-entfällt samt GroundStack-Aufruf. Bestehende Aufnahmeprüfungen bleiben erhalten.
-Build, Lint und identisches Wien belegen fehlenden Produktionsverlust, nicht
-korrekte Wasserflächen. Aktiven Fan durch gemeinsamen Polygon-Generator mit
-validierten Außen-/Innenringen und vollständigem Ergebnis/Fehler ersetzen.
+Der tote Earclip-/Flussstreifenpfad mit abweichend interleavten ECEF-Daten ist
+entfernt, ebenso sein exklusiver Anchor-Zustand und der GroundStack-Setup-Aufruf.
+WaterField hält geografische Wasserdaten und Pegel. Build und unveränderte
+Aufnahmeprüfungen grün; Wien geöffnet und pixelgleich (0/921600). Lint: 57 Befunde,
+keiner in WaterField; Writer weiter rot. Damit ist kein aktiver Geometriefehler
+behoben: Fan durch gemeinsamen Polygon-Generator mit validierten Außen-/Innenringen
+und vollständigem Ergebnis/Fehler ersetzen. Wasser-, Bed- und Bank-Verträge oben gelten.

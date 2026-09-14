@@ -2,7 +2,6 @@
 #define OUTSHINE_WORLD_GROUND_WATERFIELD_H
 
 #include <span>
-#include "math/Vec3.h"
 #include "OsmField.h"
 #include "VegetationTemplates.h"
 
@@ -31,8 +30,6 @@ public:
 
   uint32_t Ingest(const GroundQuery &ground, const OsmField &field, const VegetationTemplates &veg);
 
-  void AnchorAt(const Vec3 &ecef);
-
   [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
 
   [[nodiscard]] std::span<const Surface> OfTile(int tile) const {
@@ -44,10 +41,6 @@ public:
   [[nodiscard]] const std::vector<Course> &Courses() const { return Courses_; }
 
   [[nodiscard]] const std::vector<float> &Levels() const { return Levels_; }
-
-  [[nodiscard]] const Vec3 &Anchor() const { return Anchor_; }
-
-  void Tessellate(const OsmField &field, std::vector<float> &out) const;
 
   void Settle() {
     Surfaces_.shrink_to_fit();
@@ -85,8 +78,6 @@ private:
   std::vector<Course> Courses_;
   std::vector<float> Levels_;
   TileRanges ByTile_;
-  Vec3 Anchor_;
-  bool Anchored_ = false;
   TileWatermark Mark_;
   long NoGround_ = 0, Outliers_ = 0;
 };
