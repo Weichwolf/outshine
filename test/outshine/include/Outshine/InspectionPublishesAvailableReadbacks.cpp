@@ -55,6 +55,9 @@ int main() {
       CHECK(exposure && std::isfinite(exposure->How) && exposure->How > 0,
             "inspection publishes a finite positive applied exposure");
       CHECK(engine.inspect().has_value(), "unchanged frame can be inspected repeatedly");
+      CHECK(engine.renderer().render({}).has_value(), "empty scene publishes render metrics");
+      const auto *emptyDraws = find("subject draws");
+      CHECK(emptyDraws && emptyDraws->How == 0, "empty scene publishes zero subject draws");
       Geometry geometry;
       Material material;
       material.Unlit = true;
@@ -67,6 +70,10 @@ int main() {
               "native triangle prepared");
         CHECK(engine.setGeometry(geometry).has_value(),
               "geometry changes without a simulation tick");
+        CHECK(engine.renderer().render({}).has_value(), "changed geometry renders without a tick");
+        const auto *changedDraws = find("subject draws");
+        CHECK(changedDraws && changedDraws->How == 1,
+              "render replaces the empty scene draw count without advance or inspect");
         CHECK(engine.renderer().readPixels(pixels).has_value(), "changed scene rendered");
         int changedPeak = 0;
         for (size_t at = 0; at + 3 < pixels.size(); at += 4) {

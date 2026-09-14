@@ -140,6 +140,7 @@ public:
   /// @param frame Optional check of the target size in physical pixels; zero selects the target.
   /// Window draws submit presentation with the render commands; endFrame() does not repeat
   /// successful draws. Every explicit render call requests a draw, also inside a frame scope.
+  /// Each successful call publishes render measurements independently of simulation ticks.
   /// @return An error if scene/camera preparation fails; submission does not imply GPU completion.
   [[nodiscard]] Result render(Extent frame);
   /// Draw and synchronously read back the current target, then write an RGBA PNG.

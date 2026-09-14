@@ -127,6 +127,7 @@ bool Engine::render(Extent frame) {
   if (!S_->Stood()) { return false; }
   const auto began = std::chrono::steady_clock::now();
   if (!DrawScene(S_->Picture, S_->Error)) { return false; }
+  S_->Published.Opens();
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   S_->Published.Places(

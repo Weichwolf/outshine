@@ -109,10 +109,10 @@ inspect publiziert pro Aufruf neu; Geometriewechsel ohne advance mit 15 Checks
 geprüft, Altcode veraltet. Renderer-Größen-/Rollback-/Reconfigure-Verträge,
 Rastergrenzen/Abbruch, Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
 
-Nächster Schritt: erfolgreiche render()-Aufrufe eröffnen vor Veröffentlichung
-eine eigene Messrunde. API-Test: zwei Renderaufrufe ohne advance/inspect müssen
-pictures drawn um eins erhöhen. Alter Stand muss den zweiten Zählerstand verpassen.
-Fehlgeschlagene Frames publizieren keine neue Messung. Historische echte
-Clash-Diagnosen bleiben erhalten; keine pauschale Löschung oder Unterdrückung.
-Kein bildwirksamer Eingriff; API-Test und vollständiges Lint.
+Erfolgreiches render() eröffnet nach DrawScene eine eigene Messrunde.
+API-Test: leere Szene → natives Dreieck ohne advance/inspect aktualisiert subject
+draws von null auf eins. Altcode verfehlt genau diesen Wert; korrigiert 19 Checks
+grün. API-Vertrag dokumentiert. Fehler vor/nach Zeichnungsversuch publizieren
+keine erfolgreichen Render-Messwerte; echte Clash-Erkennung bleibt erhalten.
+Lint vollständig: 39 Befunde, Writer rot. Kein bildwirksamer Eingriff.
 Manuelle Engine-Quelldateilisten im Harness: Konsolidierung in 2218.
