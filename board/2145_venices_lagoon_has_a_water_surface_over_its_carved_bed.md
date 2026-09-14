@@ -54,3 +54,16 @@ Löcher und Writer-Coverage bleiben offen.
 Die doppelte Abfrage vor/nach Mark_.Take setzt derzeit stabile GroundQuery-
 Antworten voraus. Übergang Ready→Pending und atomare Veröffentlichung separat
 prüfen; die Aufteilung allein beweist diesen Lebensdauervertrag nicht.
+
+## P0: unbenutzten zweiten Renderpfad entfernen
+
+Quell-/Test-/Header-Audit: WaterField::Tessellate hat keinen Aufrufer. Der aktive
+Pfad in Engine::State::Grounds baut weiterhin einen Fan in native Geometry.
+Der tote Earclip-/Flussstreifenpfad liefert abweichend interleavte ECEF-Daten,
+kann Teilgeometrie ausgeben und vermittelt eine nicht integrierte Fähigkeit.
+Entfernen statt als weitere Geometrierepräsentation pflegen. WaterField bleibt
+geografisches Wasser-/Pegelmodell; sein nur hierfür benutzter Anchor-Zustand
+entfällt samt GroundStack-Aufruf. Bestehende Aufnahmeprüfungen bleiben erhalten.
+Build, Lint und identisches Wien belegen fehlenden Produktionsverlust, nicht
+korrekte Wasserflächen. Aktiven Fan durch gemeinsamen Polygon-Generator mit
+validierten Außen-/Innenringen und vollständigem Ergebnis/Fehler ersetzen.
