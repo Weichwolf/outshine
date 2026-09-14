@@ -103,17 +103,16 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
 ## P0: Mesh-Übergabe und Diagnosearbeit
-SubjectResidency::StageUploads/Submit führen Stream-Callbacks synchron aus;
-SetSubjectMesh speichert deren lokale Kontexte nicht für spätere GPU-Ausführung.
-RecordGeometryDigest trennt optionale Diagnosearbeit von SubjectProxy::Place;
-Bytefolge und FNV-Folding bleiben erhalten. Kamera-Test und beide Submission-Arme
-inklusive GPU-Validierung grün. Wien geöffnet: 0/921600 Pixel verändert.
-SubjectTransferMetrics liegt jetzt in SubjectScratch/Core::Live; Berichte lesen
-ihren Instanz-Snapshot. PackingMs wird gemessen, Digest und Mesh-/Pose-Upload
-getrennt als CPU-Aufrufzeit erfasst. Keine Aussage über GPU-Ausführungszeit.
-Zwei Renderer mit unterschiedlicher nativer Geometrie: Mesh-Transfers und
-Digest-Umschaltung isoliert, 14 Checks grün. Statischer Speicher als
-Negativkontrolle: drei Isolationsprüfungen scheitern. Kamera-Vertrag ebenfalls grün.
-Lint vollständig: 55 Befunde, Writer weiter rot; keine neue Tidy-Diagnose.
-Offen: Pose-Transfer separat abnehmen; SubjectResidency::UploadsTaken/UploadsEver
-und Live-Allokationszähler sind weiter global. Keine vollständige Mehrinstanz-Abnahme.
+Residency-Stream-Callbacks laufen synchron; keine gespeicherten lokalen Kontexte.
+SubjectProxy trennt Digest von Übergabe; Werte liegen in SubjectScratch/Core::Live.
+CPU-Zeiten für Packing/Digest/Upload getrennt. Zwei Renderer: 14 Checks grün;
+statischer Speicher als Negativkontrolle: drei Fehler. Kamera/Submission grün.
+Lint: 55 Befunde, Writer rot. Letzter bildwirksamer Vergleich Wien unverändert.
+
+Nächster Schritt: sechs Residency-Zähler an deren Instanz binden; opaker und
+transparenter Pass teilen bereits dieselbe Residency. Abfragen über SceneRenderer;
+Exchange darf keine Diagnose einer anderen Engine konsumieren.
+Zählstellen erfassen teils Versuche statt Erfolge; Berichtsnamen präzisieren.
+Zwei Renderer prüfen kumulative und konsumierende Abfragen; statischer Speicher
+muss scheitern. Kein neues Bild erwartet; GPU-Vertragstests und Lint.
+Offen: Pose-Transfer, erfolgreiche statt versuchte Transfers, globale Live-Zähler.
