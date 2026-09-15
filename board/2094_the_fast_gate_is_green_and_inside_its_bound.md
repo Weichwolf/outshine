@@ -102,3 +102,10 @@ p95 5,77 ms, 0/120 über 16,67 ms. Keine visuelle Qualitätsabnahme daraus ablei
 Wasser-Mesh-Fehler werden zurückgegeben; gezielte Fehler-Injektion dafür noch offen.
 Laying ohne Tidy-Diagnose; insgesamt 35 Befunde, Writer-Inventar 50/76.
 Konkave Wasserflächen/Löcher bleiben in 2145; vollständiger Gelände-Rollback offen.
+
+## Nächster Schritt: Place-Aufnahmephasen
+Draw mischt Preload, Einschwingen, PNG-Ausgabe und Zeitmessung (Komplexität 40).
+Private PreloadShot/MeasureFrames trennen Ladezustand und Messserie vom Capture-Ablauf;
+120 Frames, Quantile und Fehlerweitergabe bleiben gleich. Heapgröße explizit in MiB.
+Vorhandene Quantil-Grenztests und Wien vorher/nachher prüfen Messung und Bildstabilität.
+Offen in 2195: PNG-Lese-/Schreibfehler und globale Client-Konfiguration härten.
