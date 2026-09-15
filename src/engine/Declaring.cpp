@@ -546,18 +546,16 @@ Result Engine::declare(const Scenario::Document &scenario) {
   };
 
   HeadlessDeclaration headless;
-  if (!S_->Picture.Targeted) {
-    auto prepared = PrepareHeadlessDeclaration(scenario,
-                                               S_->World.Offering,
-                                               S_->World.Stack.Ground(),
-                                               S_->World.GroundPositionsM,
-                                               S_->World.GroundIndex);
-    if (!prepared) {
-      S_->Error = std::move(prepared.error());
-      return std::unexpected(S_->Error);
-    }
-    headless = std::move(*prepared);
+  auto prepared = PrepareHeadlessDeclaration(scenario,
+                                             S_->World.Offering,
+                                             S_->World.Stack.Ground(),
+                                             S_->World.GroundPositionsM,
+                                             S_->World.GroundIndex);
+  if (!prepared) {
+    S_->Error = std::move(prepared.error());
+    return std::unexpected(S_->Error);
   }
+  headless = std::move(*prepared);
 
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
@@ -567,6 +565,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
       return std::unexpected(S_->Error);
     }
     if (!wasScrolled.empty() && !candidate->Scrolled(std::move(wasScrolled), S_->Error)) {
+      return std::unexpected(S_->Error);
+    }
+    if (headless.Geometry && !candidate->SetGeometry(headless.Geometry->clone(), 0, S_->Error)) {
       return std::unexpected(S_->Error);
     }
   }
@@ -602,7 +603,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
-  if (!generated(scenario)) { return std::unexpected(S_->Error); }
+  S_->World.AudioOcclusion = headless.Occlusion ? std::move(*headless.Occlusion) : TriangleBvh{};
   publishConfiguration();
   return {};
 }
