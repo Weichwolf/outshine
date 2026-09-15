@@ -102,19 +102,15 @@ identische native Defekte werden über alle drei Pfade abgelehnt. Später Import
 erhält vorhandene Welt. Szenario-Reader/Writer erhalten alle unterstützten statischen
 Deklarationen im Roundtrip; Laufzeithandles/Savegame-Zustand sind kein Importformat.
 
-## Roundtrip-Client
-Roundtrip-Prüfung aus main in eigene Client-Komponente verschoben.
-Engine-Aufrufe bleiben öffentlich; vorhandenes WriteFileAtomically prüft Schreiben/Close
-und erhält alte Dateien bei IO-Fehlern. Pro-Szenario-Prüfung liefert expected<Bytes,Fehler>,
-CLI zählt Ergebnisse getrennt. Test: gültiger Export und ungültiges Ziel, plus vorhandene
-Short-Write-Negativkontrolle des gemeinsamen IO-Helfers; alle Places bestehen über CLI.
-Negativkontrolle mit verschlucktem Schreibfehler scheitert. Keine Aussage über verlorene
-Sektionen aus Selbstvergleich ableiten. Gemeinsamer CLI-Scratchpfad bleibt noch zu isolieren.
+## Readback-Vertrag
+readPixels (Byte/Float) und saveScreenshot rendern implizit erneut; 22 C++-Dateien betroffen.
+SOLL: nur render erzeugt Bilder; Readbacks lesen denselben zuletzt übermittelten Frame.
+Ohne gültigen Frame Fehler. Keine Szenenvorbereitung oder Präsentation durch Readback.
+Dokumentation und alle Aufrufer migrieren: Draws explizit, Farbe/Tiefe/PNG aus einem Frame.
+Abnahme: keine zusätzliche Submission; Byte-/Float-/PNG-Ausgaben stimmen überein.
+Fenster/Offscreen, fehlender Frame, Targetwechsel und IO-Fehler prüfen; Ausgabe erhalten.
+Client-Zeitpunkte explizit erhalten; keine pauschalen Warmup-Extras.
 
-Build-Audit-Negativkontrolle entfernt einen tatsächlichen Engine-Provider; ein nur
-vom Test aufgerufenes Client-Blatt war als Linkfehleroracle falsch spezifiziert.
-CLI-Ausgaben auf typgeprüfte C++-Formatierung umstellen; String-Views ohne temporäre
-Nullterminierungs-Kopien verwenden. Text, Präzision, Spalten und stdout/stderr erhalten.
-
-Log-Consumer respektiert nun optionales Saying::Unit (nullptr): leer formatieren.
-Vorher strlen-Segfault beim device_ready; Wien-Shot danach erfolgreich.
+Roundtrip-Client extrahiert, WriteFileAtomically und Schreibfehler-Gegenprobe geprüft;
+Places bestehen. Gemeinsamen Scratchpfad isolieren. Build-Gegenprobe entfernt Provider.
+Log-Consumer behandelt Saying::Unit=nullptr korrekt; Wien geprüft.
