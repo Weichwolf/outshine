@@ -67,6 +67,8 @@ der Umstellung 0 clang-tidy-Befunde und 24/24 dokumentierte öffentliche Header.
 Die erneute Nearest-Mip-Probe auf dem kompakten Pfad ergibt wieder genau 15 Kanäle
 (maximal 0.0134277). Der verbleibende Basis-Samplingfehler ist damit vom F32-Format
 unabhängig; lineare Mip-Interpolation erzeugt die übrigen 233 Abweichungen.
+Auch Nearest für Minify und Magnify lässt dieselben 15 Kanäle. Der Rest liegt folglich
+nicht in bilinearer oder Mip-Filterung, sondern im ersten texturierten Draw-/Pipelinepfad.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
