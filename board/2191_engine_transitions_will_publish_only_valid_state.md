@@ -5,7 +5,6 @@ Tags: architecture, state, errors
 Parent: 2188
 Depends: 2210
 # Engine transitions will publish only valid state
-## Befund und Entscheidung
 handleEvent trennt inzwischen behandelt, ignoriert und Fehler; öffentliche Input-/
 UI-Tests prüfen dies. Der Legacy-error-Text bleibt separat und kann veraltet sein.
 EngineHeld.h verteilt Phasen über Taken, Targeted, FrameScope, Carrying usw.; Audio-Vorbereitung ist bereits optional.
@@ -25,7 +24,9 @@ mit ignoriertem Submit scheitert zweimal. UI-Wheel grün, Wien-PNG pixelgleich.
 Quad-Uploads publizieren Buffer/Count nach geprüftem Submit; zwei Buffer werden
 wiederverwendet, Cycle schützt laufende Nutzung. 161 Upload-Checks grün;
 ignorierter Quad-Submit verletzt Fehlerbericht/Pixelerhalt. UI-Wheel grün, Wien
-pixelgleich. Gemeinsame Atlas/Quads/Layout/Scroll-/Treffer-Transaktion bleibt offen.
+pixelgleich. Nächster Schritt: Atlas-Kandidat vor Quad-Commit; Layout/Scroll/Treffer
+und Deklarationen erst danach per Move publizieren. Fehler-Injektion über öffentliche
+API prüft Export, Pixel, Aktionen und Retry; Scrollfehler stellen Offsets zurück.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
