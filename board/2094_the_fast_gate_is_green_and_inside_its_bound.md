@@ -95,16 +95,6 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
-## Gelände
-Grounds trennt Verfeinerung, Erdarbeiten, Wasser und Diagnosen; Wien pixelgleich.
-Wasser-Mesh-Fehler werden zurückgegeben; gezielte Injektion und Rollback offen in 2145.
-
-## Place-Aufnahmephasen
-Draw vermischte Preload, Einschwingen, PNG-Ausgabe und Zeitmessung (Komplexität 40).
-Private PreloadShot/MeasureFrames trennen Ladezustand und Messserie vom Capture-Ablauf;
-Quantil-Grenztest grün; Wien vorher/nachher geöffnet, 0/921600 Pixel verändert.
-Offen in 2195: PNG-Lese-/Schreibfehler und globale Client-Konfiguration härten.
-
 ## Client-Befehlsgrenze
 ReadCommandLine, LoadCommandPlaces und ListPlaces trennen Argumente/Katalog vom
 Dispatch; Argumenttexte intern const, einschließlich RenderAsset. Drei Client-Gruppen grün.
@@ -117,3 +107,10 @@ Defaults aus TreeSpecies ableiten, sRGB über gemeinsame Farbmathematik konverti
 Blattbasis einmal als lineare Reflektanz definieren. LookOf bleibt datengetrieben.
 Transferfunktions-, native Material- und Species-Tests grün; sRGB-Gegenprobe scheitert.
 TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grün.
+
+## LOD-Eingabegrenze
+ModelLadder::Error verschiebt abhängig von ungeprüftem int; ungültige Ränge können UB
+auslösen. RelativeDeviation(size_t) liefert optional, prüft Rang vor Shift; Grow und
+BladeOf propagieren Fehler. Vier gültige Abweichungen bleiben 1/4096 bis 1/512.
+Compilezeit-/Laufzeittest prüft Endpunkte, Monotonie, ungültige Ränge einschließlich
+SIZE_MAX; native Geometrie und Wachstum prüfen die migrierten Aufrufer.
