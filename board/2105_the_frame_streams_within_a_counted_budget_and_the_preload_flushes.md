@@ -69,3 +69,13 @@ Abbruch unter 1 s statt 3000 Polls mit je mindestens 1 ms sowie genau einen Canc
 Negativkontrolle ohne Stop-Prüfung: Zeit- und Pollgrenze scheitern; restauriert
 bestehen alle drei TilePool-/nichtblockierenden GroundQuery-Tests.
 Blockierende Fremd-Callbacks sind durch diesen Pollingvertrag nicht abgedeckt.
+
+## Preload-Bereitschaft untersuchen
+Engine::settled prüft zusätzlich Grown, Ingested, vollständige Klassen, deren
+Version und Vektoren. PreloadTimeout nennt diese Blocker nicht und ruft selbst
+Grounds(true) auf: Diagnostik verändert und verlängert den beobachteten Zustand.
+Readiness als gemeinsame interne Wertaufnahme erfassen; Timeout beschreibt diese
+ohne zusätzliche Geometriearbeit. Pending, fehlgeschlagen und fertig unterscheiden.
+Vorhanden: Loading-Zähler, settled-Prädikat, Feldzustände und Published-Messwerte.
+Abnahme: unabhängige Zustandsfälle für jeden Blocker; Timeout ohne zusätzlichen
+Build, unveränderte erfolgreichen Preloads. Keine Bildänderung beabsichtigt.
