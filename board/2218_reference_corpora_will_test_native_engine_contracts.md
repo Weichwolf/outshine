@@ -113,8 +113,8 @@ Velocity-Ausgabe weg. Ohne Aerial MIT sceneVelocity bleibt FAIL; MIT Aerial OHNE
 sceneVelocity PASS. Die frühere Zuordnung zur Luftperspektive war falsch.
 Velocity-Renderziel behalten, aber outVelocity=vec2(0) statt Clip-Differenz: PASS.
 Clip-Isolation: nur curClip.xy/curClip.w weiterhin FAIL; gl_FragCoord.xy*0.001 PASS
-(4 Checks); noperspective weiterhin FAIL. GPU-Wartebarriere vor PrepareFrame: PASS;
-Barriere entfernt: wieder FAIL. Ressourcenlebensdauer/Synchronisation zuerst untersuchen,
-Shaderkosten können den Fehler nur sichtbar machen. Alle Proben zurückgenommen.
+(4 Checks); noperspective FAIL. GPU-Idle vor/nach PrepareFrame oder nur zwischen Frames:
+PASS; nur vor erstem Frame bzw. ohne Barriere: FAIL. Frame-Überlappung untersuchen.
+Ground-Instanzbuffer ohne Cycling weiterhin FAIL. Alle Proben zurückgenommen.
 Die Bandfarben beweisen Luftperspektive nicht; analytische Extinktionsfälle ergänzen.
-LUTs und 192-Byte-Aerial-Uniformblock bytegleich; temporäre Instrumentierung entfernt.
+LUTs und Aerial-Uniformblock bytegleich. SDL-Referenz: ../SDL, 3.4.16, fa2c02b.
