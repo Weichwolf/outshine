@@ -159,7 +159,7 @@ inline void Skip(const char *why) {
 } // namespace outshine::Test
 
 #define CHECK(expression, claim)                                                                   \
-  ::outshine::Test::Checked((expression), #expression, (claim), __FILE__, __LINE__)
+  ::outshine::Test::Checked(static_cast<bool>(expression), #expression, (claim), __FILE__, __LINE__)
 #define CHECK_NEAR(got, want, tolerance, unit, claim)                                              \
   ::outshine::Test::CheckedNear(                                                                   \
       (got), (want), (tolerance), (unit), (claim), #got, __FILE__, __LINE__)

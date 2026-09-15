@@ -2,11 +2,19 @@
 #define OUTSHINE_RENDER_CAMERA_H
 
 #include <cmath>
+#include <expected>
 #include "math/Mat4.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
 
 namespace outshine {
+/// Failure when deriving a camera matrix; the caller output remains unchanged.
+enum class CameraMatrixError {
+  InvalidPose,    ///< Position, orientation or look-at basis is invalid.
+  InvalidLens,    ///< Projection parameters are invalid.
+  Unrepresentable ///< Matrix coefficients are not finite.
+};
+
 /// Right-handed camera: local +X right, +Y up, -Z viewing direction, metres.
 /// Projection matrices use OpenGL NDC depth [-1, 1]; GPU depth conversion is internal.
 /// Self-contained value: copies own all data, no allocations or retained references.
@@ -89,22 +97,24 @@ struct Camera {
 
   /// Camera-to-world rigid transform; rejects invalid position, rotation or look-at basis.
   /// @param out Receives the camera-to-world matrix, column-major, only on success.
-  /// @return False for invalid pose or a numerically unusable basis.
-  [[nodiscard]] bool modelMatrix(Mat4 &out) const noexcept;
+  /// @return Success or InvalidPose; out remains unchanged on failure.
+  [[nodiscard]] std::expected<void, CameraMatrixError> modelMatrix(Mat4 &out) const noexcept;
   /// World-to-camera inverse, including quaternion rotation and roll, or explicit look-at.
   /// @param out Receives a finite world-to-camera matrix only on success.
   /// @return False for invalid pose, singularity or unrepresentable coefficients.
-  [[nodiscard]] bool viewMatrix(Mat4 &out) const noexcept;
+  [[nodiscard]] std::expected<void, CameraMatrixError> viewMatrix(Mat4 &out) const noexcept;
   /// Lens-only projection; independent of placement and look-at target. Aspect is width/height.
   /// @param aspect Positive finite width/height for perspective; ignored for orthographic.
   /// @param out Receives finite projection coefficients only on success.
   /// @return False for invalid lens parameters or unrepresentable coefficients.
-  [[nodiscard]] bool projectionMatrix(double aspect, Mat4 &out) const noexcept;
+  [[nodiscard]] std::expected<void, CameraMatrixError> projectionMatrix(double aspect,
+                                                                        Mat4 &out) const noexcept;
   /// Compose projection * view, mapping world coordinates to homogeneous clip coordinates.
   /// @param aspect Perspective viewport width/height; ignored for orthographic projection.
   /// @param out Receives the finite composed matrix only on success.
   /// @return False for invalid pose/lens or unrepresentable composition.
-  [[nodiscard]] bool clipMatrix(double aspect, Mat4 &out) const noexcept;
+  [[nodiscard]] std::expected<void, CameraMatrixError> clipMatrix(double aspect,
+                                                                  Mat4 &out) const noexcept;
 
   /// An explicit target overrides Orientation. UpM is the world-space look-at up vector.
   bool LooksAt = false;
