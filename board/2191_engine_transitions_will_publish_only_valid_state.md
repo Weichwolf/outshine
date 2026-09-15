@@ -112,3 +112,9 @@ Transmission folgt dem aktuellen Plan. Stage-Konfiguration/Passzuordnung sind ge
 Sky-Pipeline übernimmt tatsächliche Farbattachments; Normal-/Identitätsziele maskiert.
 GPU-Regressionen und Negativkontrollen für Frame-/Transmission-/Größenwechsel grün.
 Allokationsrollback, Freigabe entfallener Planressourcen und Readback-Verträge offen.
+## Bodengebundene Kamera vor Residency
+Footprint-Audit reproduzierbar UNPREPARED: RingWanted ruft Watches vor Focuses/Lay;
+fehlende Kamerahöhe wird als Fehler behandelt, bevor der Ring Daten anfordern kann.
+Pending von ungültiger Kamera trennen; geodetischen Fokus ohne erfundene Höhe laden,
+Kamera erst mit residenter Höhe publizieren. Declare/Preload-Aufrufpfad dabei prüfen.
+Abnahme: kalter Cache, AGL-Kamera, erfolgreicher Preload; echter Datenfehler bleibt rot.
