@@ -50,16 +50,13 @@ und gemeinsam zu nutzende Mathematik fachlich über WI 2150 prüfen.
 
 ## Iterationskosten
 
-Gemessen: TheBuildDeclarationAuditsItself kostet 40,6 s normal und 40,5 s als
-sanitisierter Wrapper. Beide starten dieselben externen Shell-/nm-Prüfungen, die
-keine Instrumentierung erben. Claims nur einmal laufen lassen; alle Build-Audit-
-Negativkontrollen erhalten. Shared-Harness-Sanitizerprüfungen bleiben bestehen.
-Weitere Claims nach Fehlernutzen prüfen und falsche/überflüssige entfernen;
-keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
+Build-Audit-Claims nur einmal ausführen: sanitisierte Wrapper instrumentieren keine
+externen Shell-/nm-Prozesse. Negativkontrollen und Shared-Harness-Prüfungen erhalten.
+Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewerten.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 5 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 4 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -111,7 +108,7 @@ TreeLook/TreePrototype ohne Tidy-Befund; Materialtests grün.
 ## LOD-Eingabegrenze
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 Forest: achtfachen Skyline-Abstand als festen Prüfsollwert benennen; Compilezeitprüfung
-beibehalten, Berechnung unverändert. Format/Build/Lint prüfen diesen reinen Namensschritt.
+beibehalten, Berechnung unverändert. Format/Build grün; Forest ohne Tidy-Befund.
 
 ## Native Instanzgeometrie
 Vorhandenen TreePrototype-Adapter abschließen: gemeinsames natives Blatt-Mesh plus
@@ -119,4 +116,4 @@ Mat4-Placements; expandierter Pfad bleibt derselbe Vertrag. ModelMatrix ist nodi
 Gemeinsamer Frame für Position/Normale; Bounds müssen alle transformierten Vertices
 enthalten. Vergleich gegen expandierte Geometrie sichert Erhalt, kein unabhängiges
 Geometrieorakel. Falsche Translation scheitert; Geometrie-/Atlas-Test grün, Bild pixelgleich.
-Fünf Tidy offen, 33 Regeln grün. Nullskalierung/alle Species, Streaming/Atlas separat prüfen.
+Vier Tidy offen, 33 Regeln grün. Nullskalierung/alle Species, Streaming/Atlas separat prüfen.

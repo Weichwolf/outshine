@@ -74,6 +74,7 @@ std::span<const char *const> Forest::NoteNames() const noexcept {
 namespace {
 
 constexpr double kSpacingPerRung = 2.0;
+constexpr double kExpectedSkylineSpacingScale = 8.0;
 
 [[nodiscard]] constexpr double SpacedFor(Detail coarseness) {
   double spacing = 1.0;
@@ -84,7 +85,8 @@ constexpr double kSpacingPerRung = 2.0;
 static_assert(SpacedFor(Detail::Fine) == 1.0);
 static_assert(SpacedFor(Detail::Shell) == 2.0);
 static_assert(SpacedFor(Detail::Massed) == 4.0);
-static_assert(SpacedFor(Detail::Skyline) == 8.0, "the horizon stands them eight steps apart");
+static_assert(SpacedFor(Detail::Skyline) == kExpectedSkylineSpacingScale,
+              "the horizon stands them eight steps apart");
 
 }
 
