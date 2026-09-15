@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: render
 Tags: owner, audit
 
@@ -70,3 +70,16 @@ should give the same share; a factor of nine says the vertical dark face is miss
 (the sky's irradiance for a horizontal normal, a bounce, or an occlusion applied twice).
 Filament's IndirectLight gives a horizontal normal half the sky and the ground's bounce;
 the number to reach is the wall's 16 %, measured on that kerb.
+
+## Geodetische Kameraausrichtung
+Befund: Advancing::Watches bildet Bearing/Pitch direkt im Weltursprungsframe ab.
+75e146c0 korrigiert die Position, aber nicht die lokale Kompassbasis. Am Äquator
+ist Ost bei Längendifferenz λ im Ursprungsframe (cos λ, -sin λ, 0); aktuell
+(1, 0, 0). Analytisch 30° Richtungsfehler bei 30° Abstand, 90° bei 90°.
+Vorhanden: TangentFrame::Turn, EnuAxesEcef und RenderFrame::ZOfNorth.
+Blickrichtung und orthogonales Kamera-Up aus Bearing/Pitch am Kamerastandort
+ableiten, über ECEF gemeinsam in den nativen Weltframe drehen. Explizites
+LookAt behält seinen dokumentierten Weltkoordinatenvertrag. Vertikale Blicke
+brauchen eine aus Bearing erhaltene Querachse, keine singuläre LookAt-Up-Wahl.
+Abnahme: analytische Äquatorfälle 0/90/180°, Nord/Süd, Pitch ±90°, Orthonormalität,
+NaN/Inf-Ablehnung; alte Ursprungsbasis muss scheitern. Wien-Render vergleichen.
