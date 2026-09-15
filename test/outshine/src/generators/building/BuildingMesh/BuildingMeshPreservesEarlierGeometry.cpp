@@ -124,6 +124,25 @@ int main() {
     CHECK(recovered && output.WallRun == complete.WallRun && output.RoofRun == complete.RoofRun,
           "scratch recovers from coordinate conversion failure");
   }
+  const std::array<double, 5> cornerHeights{};
+  for (const size_t heightCount : {size_t{1}, size_t{3}, size_t{5}}) {
+    plan.CornerAslM = std::span<const double>(cornerHeights).first(heightCount);
+    Raised output = previous;
+    const size_t allocations = calls.load();
+    failAfter = 0;
+    const auto invalid = mesher.Mesh(plan, *scratch, output);
+    failAfter = -1;
+    CHECK(!invalid && invalid.error() == StructureMeshError::InvalidPlan,
+          "corner heights must match every ring point or be absent");
+    CHECK(calls.load() == allocations, "height cardinality fails before allocation");
+    CHECK(output.WallRun == previous.WallRun && output.WallCorners.size() == 3 &&
+              output.RoofRun.empty() && output.RoofCorners.empty(),
+          "invalid height cardinality preserves existing geometry");
+  }
+  plan.CornerAslM = std::span<const double>(cornerHeights).first(ring.size() / 2);
+  Raised level = previous;
+  CHECK(mesher.Mesh(plan, *scratch, level).has_value(), "complete corner heights remain supported");
+  plan.CornerAslM = {};
   const std::array<double, 6> collapsed{47, 9, 47, 9, 47, 9};
   plan.RingLatLon = collapsed;
   const auto unsupported = mesher.Mesh(plan, *scratch, previous);

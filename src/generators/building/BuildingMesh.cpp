@@ -61,7 +61,10 @@ bool ValidFootprintCoordinates(std::span<const double> ring) {
   return true;
 }
 
-bool FinitePlan(const StructurePlan &plan) {
+bool ValidPlanParameters(const StructurePlan &plan) {
+  if (!plan.CornerAslM.empty() && plan.CornerAslM.size() != plan.RingLatLon.size() / 2) {
+    return false;
+  }
   const std::array values{plan.BaseAslM,
                           plan.SeatAslM,
                           plan.FootAslM,
@@ -263,19 +266,15 @@ private:
   Detail Coarseness_ = Detail::Fine;
 };
 
-struct Levels {
-  double BaseAslM = 0.0;
-  double SeatAslM = 0.0;
-  double FootAslM = 0.0;
-};
-
-class Site2Ground {
+class FoundationGround {
 public:
-  Site2Ground(std::span<const double> ringLatLon, std::span<const double> cornerAslM, Levels at)
-      : HighM_(at.SeatAslM - at.BaseAslM), LowM_(at.FootAslM - at.BaseAslM) {
-    const double baseAslM = at.BaseAslM;
-    const size_t n = std::min(cornerAslM.size(), ringLatLon.size() / 2);
-    if (n < 3) { return; }
+  explicit FoundationGround(const StructurePlan &plan)
+      : HighM_(plan.SeatAslM - plan.BaseAslM), LowM_(plan.FootAslM - plan.BaseAslM) {
+    const auto ringLatLon = plan.RingLatLon;
+    const auto cornerAslM = plan.CornerAslM;
+    const double baseAslM = plan.BaseAslM;
+    const size_t n = cornerAslM.size();
+    if (n == 0) { return; }
     std::array<std::array<double, 4>, 3> m = {};
     for (size_t k = 0; k < n; k++) {
       const EastNorth away =
@@ -492,7 +491,7 @@ void Walls(const BuildingShape &s,
 constexpr double kGroundStepM = 2.0;
 
 void SampleGround(const BuildingShape &s,
-                  const Site2Ground &ground,
+                  const FoundationGround &ground,
                   double *lowest,
                   double *highest) {
   bool first = true;
@@ -517,7 +516,7 @@ void SampleGround(const BuildingShape &s,
   if (first) { *lowest = *highest = 0.0; }
 }
 
-double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
+double PlinthFootZ(const BuildingShape &s, const FoundationGround &ground) {
   double lowest = 0.0;
   double highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
@@ -791,7 +790,7 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
       Facade::Metal);
 }
 
-double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
+double PlinthTopZ(const BuildingShape &s, const FoundationGround &ground) {
   double lowest = 0.0;
   double highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
@@ -965,7 +964,7 @@ En OntoKerb(const Frontage &street, const En &p, double back) {
 
 void Pavement(const BuildingShape &s,
               const Frontage &street,
-              const Site2Ground &ground,
+              const FoundationGround &ground,
               double plinthZ,
               Site &site) {
   if (!street.Known || !s.OnGround()) { return; }
@@ -1022,7 +1021,7 @@ std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
 
 std::expected<void, StructureMeshError>
 BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept {
-  if (!ValidFootprintCoordinates(plan.RingLatLon) || !FinitePlan(plan)) {
+  if (!ValidFootprintCoordinates(plan.RingLatLon) || !ValidPlanParameters(plan)) {
     return std::unexpected(StructureMeshError::InvalidPlan);
   }
   auto *buildingScratch = dynamic_cast<BuildingScratch *>(&lent);
@@ -1050,10 +1049,7 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
     if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
 
     Site site(plan, scratch, into);
-    const Site2Ground ground(
-        plan.RingLatLon,
-        plan.CornerAslM,
-        {.BaseAslM = plan.BaseAslM, .SeatAslM = plan.SeatAslM, .FootAslM = plan.FootAslM});
+    const FoundationGround ground(plan);
     for (BuildingShape &part : parts) {
       part.SeatM = PlinthTopZ(part, ground);
       part.SoleM = PlinthFootZ(part, ground);
