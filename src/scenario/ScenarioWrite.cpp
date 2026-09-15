@@ -216,6 +216,75 @@ void WritePlacements(std::string &into, std::span<const Scenario::Placement> pla
   into += "  </placements>\n";
 }
 
+void WriteAttributes(std::string &into, std::span<const Scenario::Setting> attributes) {
+  for (const auto &attribute : attributes) {
+    into += "      <has";
+    Said(into, "name", attribute.Name, true);
+    Said(into, "value", attribute.Value, true);
+    into += "/>\n";
+  }
+}
+
+void WriteMind(std::string &into, const Scenario::Mind &mind) {
+  into += "      <mind";
+  Said(into, "tier", mind.Tier);
+  Said(into, "uses", mind.Uses);
+  Said(into, "programme", mind.Programme);
+  Said(into, "prompt", mind.Prompt);
+  Said(into, "model", mind.Model);
+  Said(into, "meanwhile", mind.Meanwhile);
+  Number(into, "hz", mind.Hz);
+  Number(into, "everyS", mind.EverySeconds);
+  Number(into, "stepBudget", mind.StepBudget);
+  Number(into, "tokenBudget", mind.TokenBudget);
+  Number(into, "latencyBudgetMs", mind.LatencyBudgetMs);
+  Number(into, "temperature", mind.Temperature);
+  Number(into, "seed", mind.Seed);
+  into += "/>\n";
+}
+
+void WriteKinds(std::string &into, std::span<const Scenario::Kind> kinds) {
+  if (kinds.empty()) { return; }
+  into += "  <kinds>\n";
+  for (const auto &kind : kinds) {
+    into += "    <kind";
+    Said(into, "name", kind.Name, true);
+    Said(into, "inherits", kind.Inherits);
+    Said(into, "asset", kind.Asset);
+    into += ">\n";
+    for (const auto &mind : kind.Minds) { WriteMind(into, mind); }
+    for (const auto &capability : kind.Capabilities) {
+      into += "      <may";
+      Said(into, "do", capability, true);
+      into += "/>\n";
+    }
+    WriteAttributes(into, kind.Attributes);
+    into += "    </kind>\n";
+  }
+  into += "  </kinds>\n";
+}
+
+void WriteInstances(std::string &into, std::span<const Scenario::Instance> instances) {
+  if (instances.empty()) { return; }
+  into += "  <instances>\n";
+  for (const auto &instance : instances) {
+    into += "    <instance";
+    Said(into, "of", instance.Of, true);
+    Said(into, "id", instance.Id);
+    Said(into, "in", instance.In);
+    WriteStandingAttributes(into, instance.Stands);
+    into += ">\n";
+    WriteAttributes(into, instance.Attributes);
+    for (const auto &held : instance.Holds) {
+      into += "      <holds";
+      Said(into, "what", held, true);
+      into += "/>\n";
+    }
+    into += "    </instance>\n";
+  }
+  into += "  </instances>\n";
+}
+
 const char *AnimationName(Scenario::AssetAnimation animation) {
   switch (animation) {
     case Scenario::AssetAnimation::Play: return "play";
@@ -614,6 +683,8 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteLighting(said, declared.Lit);
   WriteAssets(said, declared.Assets);
   WritePlacements(said, declared.Placements);
+  WriteKinds(said, declared.Kinds);
+  WriteInstances(said, declared.Instances);
   if (!declared.Views.empty()) {
     said += "  <views>\n";
     for (const Scenario::View &one : declared.Views) {

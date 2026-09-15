@@ -107,13 +107,13 @@ konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapsho
 
 ## Verbleibende Serialisierung
 Audio-Graphen/Routing/Emitter und deklarierter Nullhall bleiben jetzt erhalten;
-150 Rundlaufprüfungen plus Gegenprobe grün. Writer-Inventar 56/76; Body-Pfad offen.
-Kinds/Instances fehlen vollständig im Writer. Gemeinsam exportieren: Typname,
+150 Audio-Prüfungen plus Gegenprobe grün. Writer-Inventar 64/76; Body-Pfad offen.
+Kinds/Instances werden gemeinsam exportiert: Typname,
 Vererbung, Asset, geordnete Minds/Capabilities/Attribute sowie Instanzreferenzen,
 Pose, Overrides und Holds. Bestehenden Standing-Writer und XML-Escaping verwenden.
 Native API-Verträge und der vorhandene Reader bestimmen Einheiten und Zuordnung;
 keine neue Runtime-Semantik für gespeicherte Mind-/Pose-Metadaten behaupten.
 Abnahme: unabhängiges XML und native Werte; genaue Double-/Integergrenzen,
 Sonderzeichen, Reihenfolge und wiederholte Attribute/Referenzen. Runde erhält
-Typen und Instanzen gemeinsam. Fehlender Vererbungsname muss den Test brechen.
-Öffentliche Assembly-Tests für Vererbung/Besitz erhalten; Format und Lint ausführen.
+Typen/Instanzen gemeinsam erhalten; 34 Checks grün, fehlende Vererbung verletzt einen.
+Assembly-/Placement-Tests grün; Lint: 0 Tidy, 33 Regeln, Doku 24/24 ohne Diagnose.
