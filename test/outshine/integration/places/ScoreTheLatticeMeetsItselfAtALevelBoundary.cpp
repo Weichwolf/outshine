@@ -52,6 +52,7 @@ int main(void) {
 
   outshine::Scenario::Document stands;
   stands.Ground.Declared = true;
+  stands.Ground.VegetationEnabled = false;
   stands.Ground.Origin.LatitudeDeg = kLatDeg;
   stands.Ground.Origin.LongitudeDeg = kLonDeg;
   stands.Ground.PatienceS = 3.0;
@@ -74,9 +75,7 @@ int main(void) {
   stands.Views.push_back(watches);
   if (!(engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
         engine.advance())) {
-    Unprepared(
-        ("this place needs terrain tiles and this machine has none cached: " + engine.error())
-            .c_str());
+    Unprepared(("place preparation failed: " + engine.error()).c_str());
     return Report();
   }
 

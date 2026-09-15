@@ -93,6 +93,7 @@ int main(void) {
   const auto stoodAt = [&](double elevationDeg, std::vector<uint8_t> &rgba, double exposure = 0.0) {
     outshine::Scenario::Document stands;
     stands.Ground.Declared = true;
+    stands.Ground.VegetationEnabled = false;
     stands.Ground.Origin.LatitudeDeg = kLatDeg;
     stands.Ground.Origin.LongitudeDeg = kLonDeg;
     stands.Ground.PatienceS = 3.0;
@@ -131,9 +132,7 @@ int main(void) {
   std::vector<uint8_t> low, lowTwice, middling, high, lowAgain;
   if (!stoodAt(5.0, low) || !stoodAt(5.0, lowTwice) || !stoodAt(30.0, middling) ||
       !stoodAt(75.0, high) || !stoodAt(5.0, lowAgain)) {
-    Unprepared(("this place needs terrain and OSM tiles and this machine has none cached: " +
-                engine.error())
-                   .c_str());
+    Unprepared(("place preparation failed: " + engine.error()).c_str());
     return Report();
   }
 

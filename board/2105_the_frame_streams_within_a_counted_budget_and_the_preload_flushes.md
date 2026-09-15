@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: engine, world
 Tags: measured, performance, determinism, owner
 Supersedes: 2109
@@ -60,3 +60,11 @@ on the day, and the walk digest is ready for the day the camera moves again (boa
   difference (five heap numbers of 340), so the next step was a measurement, not a repair
 - three runs are not enough to call a place deterministic: Kaiserberg drew a second digest on
   the twenty-eighth run
+
+## Abbruch laufender Downloads
+TilePool::~TilePool setzt Stopping_ und wartet auf Worker; FetchInto prüft den
+Zustand in seiner Pollschleife nicht. Vor jedem Collect synchronisiert prüfen,
+bei Stop aussteigen und den vorhandenen SourceSet::Abandon-Pfad für Cancel nutzen.
+Mit dauerhaft ausstehender Testquelle prüfen: Shutdown beendet Polling und gibt
+Tickets frei; alte Schleife verletzt die gesetzte Zeitgrenze. Keine echten Downloads.
+Blockierende Fremd-Callbacks sind durch diesen Pollingvertrag nicht abgedeckt.

@@ -113,6 +113,7 @@ int main(void) {
   const auto stood = [&](std::vector<uint8_t> &rgba) {
     outshine::Scenario::Document stands;
     stands.Ground.Declared = true;
+    stands.Ground.VegetationEnabled = false;
     stands.Ground.Origin.LatitudeDeg = kLatDeg;
     stands.Ground.Origin.LongitudeDeg = kLonDeg;
     stands.Ground.PatienceS = 3.0;
@@ -153,9 +154,7 @@ int main(void) {
 
   std::vector<uint8_t> seen, seenAgain;
   if (!stood(seen) || !stood(seenAgain)) {
-    Unprepared(
-        ("this place needs terrain tiles and this machine has none cached: " + engine.error())
-            .c_str());
+    Unprepared(("place preparation failed: " + engine.error()).c_str());
     return Report();
   }
 

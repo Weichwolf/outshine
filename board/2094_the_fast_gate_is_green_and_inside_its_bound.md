@@ -104,8 +104,8 @@ nicht einfach das Limit hochsetzen. Wiederaufbau/Pruning kleiner Fixtures kostet
   unveränderte exakte Prüfung, Untersuchung in 2179.
 - Neun Place-Renders warten auf Vegetation; P0-Abnahmen wie vereinbart explizit
   ohne Vegetation konfigurieren, separate Vegetationstests erhalten. Keine Zeitlockerung.
-- Fünf Gelände-Audits: Kamerahöhe nicht resident. Datenbestand und Reihenfolge
-  der Vorbereitung prüfen; fehlender Cache ist durch den Meldungstext nicht bewiesen.
+- Gelände-Audits ohne Vegetation: Footprint/Normals grün; Air Timeout, Lattice/Sun
+  unvorbereitet. Lattice meldet 0 pending/bare/rims: übrige Readiness-Verträge prüfen.
 - ClaimCorpus erkennt eigene PID als fremden Runner: Reentranz/Ownership korrigieren.
 - Automatischer Rebuild ruft prepare.py all auf, das bei Oracle-Manifesten Blender
   starten kann. Normalen Testpfad von Referenzerzeugung trennen (2218).
