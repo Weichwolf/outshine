@@ -1,5 +1,6 @@
 #include <span>
 #include "ScenarioWrite.h"
+#include "AudioSpellings.h"
 #include "Tables.h"
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
@@ -12,12 +13,14 @@
 #include <format>
 #include <cstddef>
 #include <string>
+#include <string_view>
 
 namespace outshine {
 
 namespace {
 
 namespace Says {
+constexpr auto kInvalidAudioEnum = "audio contains an invalid processor or attenuation enum";
 constexpr auto EmptySurfaceDocument = "surface requires nonempty document text";
 }
 
@@ -27,7 +30,7 @@ void Number(std::string &into, const char *named, T how) {
   into += std::format(" {}=\"{}\"", named, how);
 }
 
-void Said(std::string &into, const char *named, const std::string &how, bool writeEmpty = false) {
+void Said(std::string &into, const char *named, std::string_view how, bool writeEmpty = false) {
   if (how.empty() && !writeEmpty) { return; }
   into += ' ';
   into += named;
@@ -72,6 +75,88 @@ WriteSurfaces(std::string &into, std::span<const Scenario::Surface> surfaces) {
     into += "/>\n";
   }
   into += "  </surfaces>\n";
+  return {};
+}
+
+void WriteBus(std::string &into, const Scenario::Bus &bus) {
+  into += "    <bus";
+  Said(into, "id", bus.Id);
+  Said(into, "into", bus.Into);
+  Number(into, "gainDb", bus.GainDb);
+  if (!bus.Reverberates.Declared) {
+    into += "/>\n";
+    return;
+  }
+  into += ">\n      <room";
+  Number(into, "secondsRt60", bus.Reverberates.SecondsRt60);
+  Number(into, "damping", bus.Reverberates.Damping);
+  Number(into, "wetShare", bus.Reverberates.WetShare);
+  into += "/>\n    </bus>\n";
+}
+
+[[nodiscard]] std::expected<void, std::string> WriteVoice(std::string &into,
+                                                          const Scenario::Voice &voice) {
+  const auto processor = SpellingOf(AudioFormat::kMakes, voice.Does, "");
+  if (processor.empty()) { return std::unexpected(Says::kInvalidAudioEnum); }
+  into += "      <voice";
+  Said(into, "id", voice.Id);
+  Said(into, "does", processor);
+  into += ">\n";
+  for (const auto &input : voice.From) {
+    into += "        <from";
+    Said(into, "id", input);
+    into += "/>\n";
+  }
+  for (const auto &parameter : voice.Parameters) {
+    into += "        <set";
+    Said(into, "name", parameter.Name, true);
+    Said(into, "value", parameter.Value, true);
+    into += "/>\n";
+  }
+  into += "      </voice>\n";
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string> WriteSound(std::string &into,
+                                                          const Scenario::Sound &sound) {
+  const auto attenuation = SpellingOf(AudioFormat::kFalls, sound.Heard.By, "");
+  if (attenuation.empty()) { return std::unexpected(Says::kInvalidAudioEnum); }
+  into += "    <sound";
+  Said(into, "id", sound.Id);
+  Said(into, "uri", sound.Uri);
+  Said(into, "bus", sound.Bus);
+  Said(into, "on", sound.On);
+  Yes(into, "streamed", sound.Streamed);
+  Yes(into, "loops", sound.Loops);
+  Yes(into, "positional", sound.Heard.Positional);
+  Said(into, "falls", attenuation);
+  Number(into, "gainDb", sound.GainDb);
+  Number(into, "sendShare", sound.SendShare);
+  Number(into, "refM", sound.Heard.RefM);
+  Number(into, "mostM", sound.Heard.MostM);
+  Number(into, "rolloff", sound.Heard.Rolloff);
+  Number(into, "innerRad", sound.Heard.InnerRad);
+  Number(into, "outerRad", sound.Heard.OuterRad);
+  Number(into, "outerGain", sound.Heard.OuterGain);
+  Number(into, "blockedGain", sound.Heard.BlockedGain);
+  Number(into, "blockedHz", sound.Heard.BlockedHz);
+  into += ">\n";
+  for (const auto &voice : sound.Graph) {
+    if (auto result = WriteVoice(into, voice); !result) { return result; }
+  }
+  into += "    </sound>\n";
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string> WriteAudio(std::string &into,
+                                                          const Scenario::Document &document) {
+  if (document.Buses.empty() && document.Sounds.empty()) { return {}; }
+  into += "  <audio>\n";
+  for (const auto &bus : document.Buses) { WriteBus(into, bus); }
+  for (const auto &sound : document.Sounds) {
+    if (auto result = WriteSound(into, sound); !result) { return result; }
+  }
+  into += "  </audio>\n";
   return {};
 }
 
@@ -522,6 +607,9 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
     Number(said, "rate", declared.Time.Rate);
     Yes(said, "live", declared.Time.Live);
     said += "/>\n";
+  }
+  if (auto audio = WriteAudio(said, declared); !audio) {
+    return std::unexpected(std::move(audio.error()));
   }
   WriteLighting(said, declared.Lit);
   WriteAssets(said, declared.Assets);

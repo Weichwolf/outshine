@@ -104,9 +104,6 @@ Geometrie-/Referenzvalidierung und Runtime-Anbindung bleiben offen.
 
 Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
 konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
-17 API-Prüfungen belegen Wiederladen mit/ohne Quelle ohne doppelte Platzierungen;
-behaltene Referenzen verletzen fünf Prüfungen. Roh-XML-/Layer-Regressionen grün.
-Writer-Inventar 50/76; übrige Export- und Validierungslücken bleiben offen.
 
 ## Audio-Serialisierung
 Befund: WriteScenario lässt Buses/Sounds vollständig aus. ReadAudio setzt Room.Declared
@@ -116,7 +113,8 @@ Entscheidung: Busroute/Gain/Raum, Sound-/Emitterdaten und geordnete DSP-Graphen 
 Eingangslisten/Parametern schreiben. Enum-Schreibweisen zwischen Reader und Writer
 teilen; unbekannte native Enumwerte beim Export ablehnen. Raumpräsenz bestimmt
 Declared; inaktive Raumparameter bleiben gemäß API ungenutzt.
-Abnahme: unabhängige XML-Eingabe und native Deklarationen, sämtliche Enumwerte,
+Grammatik an Sound-Graph anpassen: URI optional, ignorierte Bus-Voices ablehnen.
+Abnahme: unabhängige XML-Eingabe/native Deklarationen, sämtliche Enumwerte,
 XML-Sonderzeichen, genaue Doubles, Reihenfolge/mehrfache Inputs und deklarierter
-Nullhall. Fehlende Audio-Ausgabe muss Rundlauf brechen. Bestehende Audiotests erhalten.
-Keine Renderänderung erwartet; Format, passende Make-Suiten und vollständiges Lint.
+Nullhall. Entferntes sendShare verletzt drei Rundlaufprüfungen; restauriert 150/150 grün.
+Audio-/Provider-Tests grün; Lint: 0 Tidy, 33 Regeln grün, Writer-Inventar 56/76 rot.

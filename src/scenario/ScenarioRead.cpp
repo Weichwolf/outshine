@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "Spelling.h"
+#include "AudioSpellings.h"
 #include "Xml.h"
 
 namespace outshine {
@@ -43,23 +44,6 @@ constexpr auto kInvalidCatchUpCount = "mostStepsInArrears requires an integer in
 constexpr double kPitchLimitUnsaidDeg = 89.0;
 
 namespace {
-
-constexpr Spellings<Scenario::Falls, 3> kFalls = {{{"linear", Scenario::Falls::Linear},
-                                                   {"inverse", Scenario::Falls::Inverse},
-                                                   {"exponential", Scenario::Falls::Exponential}}};
-
-constexpr Spellings<Scenario::Makes, 8> kMakes = {{{"oscillator", Scenario::Makes::Oscillator},
-                                                   {"noise", Scenario::Makes::Noise},
-                                                   {"biquad", Scenario::Makes::Biquad},
-                                                   {"delay", Scenario::Makes::Delay},
-                                                   {"gain", Scenario::Makes::Gain},
-                                                   {"shaper", Scenario::Makes::Shaper},
-                                                   {"convolver", Scenario::Makes::Convolver},
-                                                   {"mix", Scenario::Makes::Mix}}};
-
-static_assert(EverySpellingStandsOnce(kFalls) && EverySpellingStandsOnce(kMakes),
-              "a spelling table that carries a blank or a repeat resolves a declaration by "
-              "whichever row it reaches first");
 
 [[nodiscard]] bool IntegralDecimal(std::string_view text) {
   if (text.size() > static_cast<size_t>(std::numeric_limits<int>::max())) { return false; }
@@ -96,7 +80,7 @@ struct Element {
   const char *Allowed = "";
 };
 
-const std::array<Element, 80> kGrammar = {{
+const std::array<Element, 81> kGrammar = {{
     {.Path = "scenario",
      .Children =
          "world render lighting providers generators compositors assets placements surfaces kinds "
@@ -148,11 +132,12 @@ const std::array<Element, 80> kGrammar = {{
     {.Path = "scenario/volumes", .Children = "volume"},
     {.Path = "scenario/volumes/volume", .Children = "", .Required = "fires when"},
     {.Path = "scenario/audio", .Children = "bus sound"},
-    {.Path = "scenario/audio/bus", .Children = "room voice", .Required = "id"},
+    {.Path = "scenario/audio/bus", .Children = "room", .Required = "id"},
     {.Path = "scenario/audio/bus/room", .Children = ""},
-    {.Path = "scenario/audio/bus/voice", .Children = "from", .Required = "id"},
-    {.Path = "scenario/audio/bus/voice/from", .Children = "", .Required = "id"},
-    {.Path = "scenario/audio/sound", .Children = "", .Required = "id uri"},
+    {.Path = "scenario/audio/sound", .Children = "voice", .Required = "id"},
+    {.Path = "scenario/audio/sound/voice", .Children = "from set", .Required = "id"},
+    {.Path = "scenario/audio/sound/voice/from", .Children = "", .Required = "id"},
+    {.Path = "scenario/audio/sound/voice/set", .Children = "", .Required = "name"},
     {.Path = "scenario/tables", .Children = "table"},
     {.Path = "scenario/tables/table", .Children = "column row"},
     {.Path = "scenario/tables/table/column", .Children = "", .Required = "name"},
@@ -743,7 +728,7 @@ void ReadAudio(const Xml::Ref &root, Scenario::Document &into) {
     made.Into = one.Attr("into");
     made.GainDb = one.Num("gainDb", 0.0);
     const Xml::Ref room = one.Child("room");
-    made.Reverberates.Declared = room.Num("secondsRt60", 0.0) > 0.0;
+    made.Reverberates.Declared = room.Valid();
     made.Reverberates.SecondsRt60 = room.Num("secondsRt60", 0.0);
     made.Reverberates.Damping = room.Num("damping", 0.5);
     made.Reverberates.WetShare = room.Num("wetShare", 0.0);
@@ -760,7 +745,7 @@ void ReadAudio(const Xml::Ref &root, Scenario::Document &into) {
     made.GainDb = one.Num("gainDb", 0.0);
     made.Heard.Positional = one.Flag("positional", false);
     const std::string falls = one.Attr("falls");
-    made.Heard.By = Means(kFalls, falls, Scenario::Falls::Inverse);
+    made.Heard.By = Means(AudioFormat::kFalls, falls, Scenario::Falls::Inverse);
     made.Heard.RefM = one.Num("refM", 1.0);
     made.Heard.MostM = one.Num("mostM", 0.0);
     made.Heard.Rolloff = one.Num("rolloff", 1.0);
@@ -774,7 +759,7 @@ void ReadAudio(const Xml::Ref &root, Scenario::Document &into) {
       Scenario::Voice makes;
       makes.Id = unit.Attr("id");
       const std::string does = unit.Attr("does");
-      makes.Does = Means(kMakes, does, Scenario::Makes::Oscillator);
+      makes.Does = Means(AudioFormat::kMakes, does, Scenario::Makes::Oscillator);
       for (const Xml::Ref from : unit.Children("from")) { makes.From.push_back(from.Attr("id")); }
       for (const Xml::Ref set : unit.Children("set")) {
         makes.Parameters.push_back(
