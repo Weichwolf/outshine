@@ -8,14 +8,20 @@
 
 namespace outshine::Generators {
 namespace {
+struct VertexInput {
+  Vec3f Position;
+  Vec3f Normal;
+  std::array<float, 2> Uv;
+};
+
 struct Surface {
   std::vector<float> Positions, Normals, Uvs;
   std::vector<uint32_t> Indices;
 
-  void Vertex(Vec3f p, Vec3f n, float u, float v) {
-    Positions.insert(Positions.end(), {p[0], p[1], p[2]});
-    Normals.insert(Normals.end(), {n[0], n[1], n[2]});
-    Uvs.insert(Uvs.end(), {u, v});
+  void AppendVertex(const VertexInput &vertex) {
+    Positions.insert(Positions.end(), {vertex.Position[0], vertex.Position[1], vertex.Position[2]});
+    Normals.insert(Normals.end(), {vertex.Normal[0], vertex.Normal[1], vertex.Normal[2]});
+    Uvs.insert(Uvs.end(), vertex.Uv.begin(), vertex.Uv.end());
   }
 
   bool Into(Geometry &geometry, const char *name, const Material &material) const {
@@ -37,10 +43,9 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
   Surface bark;
   for (size_t at = 0; at < source.BarkVerts.size(); at += TreeMesh::kBarkFloats) {
     const float *v = source.BarkVerts.data() + at;
-    bark.Vertex(Vec3f{{v[0], v[1], v[2]}} * height,
-                Vec3f{{v[3], v[4], v[5]}},
-                v[0] * height,
-                v[1] * height);
+    bark.AppendVertex({.Position = Vec3f{{v[0], v[1], v[2]}} * height,
+                       .Normal = Vec3f{{v[3], v[4], v[5]}},
+                       .Uv = {v[0] * height, v[1] * height}});
   }
   bark.Indices = source.BarkIdx;
   Material barkMaterial;
@@ -72,7 +77,8 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
       const float *p = blade.LeafVerts.data() + v;
       const Vec3f local = x * p[0] + along * p[1] + z * p[2];
       const Vec3f normal = DirectionOrUp(x * p[3] + along * p[4] + z * p[5]);
-      leaves.Vertex(origin + local * source.CardLeafM, normal, p[6], p[7]);
+      leaves.AppendVertex(
+          {.Position = origin + local * source.CardLeafM, .Normal = normal, .Uv = {p[6], p[7]}});
     }
     for (const uint32_t index : blade.LeafIdx) { leaves.Indices.push_back(first + index); }
   }

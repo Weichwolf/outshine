@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 15 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 14 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -115,4 +115,5 @@ RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufru
 SelectShoots/MeshShoot trennen Auswahl/Aufbau; Tests grün, Astqualität bleibt offen.
 Surface::Vertex hat vertauschbare Positions-/Normalenparameter. Benannter VertexInput
 mit Position, Normal und UV ersetzt Positionsargumente an allen Aufrufstellen.
-Native Material-/Geometrietests sichern Datenlayout und transformierte Normalen.
+Nativer Material-/Geometrietest grün; Vertauschbarkeitsbefund weg, 14 Tidy insgesamt.
+33 Repository-Regeln grün; Datenlayout und Geometrieformeln unverändert.
