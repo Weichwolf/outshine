@@ -22,7 +22,10 @@ setSurfaces/Live::Redeclare ersetzen Zustand vor Compose-Erfolg: Rollback fehlt.
 Overlay-Atlas prüft Bytegrenzen/SDL-Ergebnisse und publiziert erst nach Submit.
 87 Checks: sechs GPU-Fehlerpunkte erhalten Pixel, Retry ändert sie; Gegenprobe
 mit ignoriertem Submit scheitert zweimal. UI-Wheel grün, Wien-PNG pixelgleich.
-Offen: gemeinsame Atlas/Quads/UI-Transaktion; SetQuads ignoriert SDL-Fehler.
+Nächster Schritt: Quad-Uploads prüfen alle SDL-Ergebnisse und veröffentlichen
+Buffer/Count erst nach Submit. Zweiter wiederverwendeter Buffer hält alte Pixel
+bei Fehlern; Cycle schützt noch laufende Nutzung. Injizierte Fehler und Retry prüfen.
+Gemeinsame Atlas/Quads/UI-Transaktion bleibt anschließend offen.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
@@ -40,7 +43,6 @@ Kandidat vor Eye-Veröffentlichung durch Lens::From prüfen; fehlende mitgeführ
 Kamerabasis liefert einen Fehler, keinen vorgetäuschten Erfolg.
 ScenarioViewsPreserveProjection prüft analytische Projektion, Fehlererhalt und Recovery;
 Gegenprobe mit alter Abbildung scheitert. Nachweise in Git.
-## Weitere konkrete Lücken
 DrawsInto ändert Dimensionen/Target, baut aber die planabhängigen Frame-Attachments
 und Present-Pipeline nicht als zusammenhängenden Kandidaten neu auf. Größen- und
 Formatwechsel müssen dieses Ressourcenpaket atomar ersetzen, nicht nur das Target.
@@ -76,7 +78,6 @@ Komponenten-Lebensdauer über öffentliche API und Negativkontrolle prüfen.
 Audio bindet nur an die aktuelle Deklarationsrevision; fehlende/unplatzierte/mehrdeutige
 Ziele ablehnen. Stereo-Reorder/-Zielwechsel und Headless-Mehrkörper-Trigger geprüft;
 front()- und Rendererabhängigkeits-Negativkontrollen rot. Trigger tragen volle Entity-Handles.
-## Abnahme
 - [x] Target, Projektion und Input: Fehlererhalt, Recovery und negative Kontrollen geprüft.
       Detailnachweise der abgeschlossenen Schritte stehen in Git.
 - [ ] Öffentliche Übergangstabelle nennt erlaubte Reihenfolge und Fehlergarantien.
@@ -85,7 +86,6 @@ front()- und Rendererabhängigkeits-Negativkontrollen rot. Trigger tragen volle 
 - [x] Irrelevante Events sind unhandled; Input-/UI-Fehler tragen eine eigene Diagnose.
 - [ ] Wiederholtes Declare, Targetwechsel und Featurewechsel ohne Ressourcenwachstum.
 - [ ] Negativkontrolle publiziert vor Validierung; Zustandserhalt-Oracle wird rot.
-## Generatoren bei erneuter Deklaration
 SamePicture vergleicht Renderparameter, nicht Generatoren oder deren Providerdaten.
 Der schnelle declare-Pfad übersprang generated: neue Parameter oder ein nun
 ablehnender Producer wurden ignoriert. Korrigiert; kein gültiger Ergebnis-Cache:
