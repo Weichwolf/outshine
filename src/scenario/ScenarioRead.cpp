@@ -266,6 +266,7 @@ void ReadStanding(const Xml::Ref &from, Scenario::Standing &into) {
   into.Facing.W = from.Num("qw", into.Facing.W);
   const double evenly = from.Num("scale", 0.0);
   if (evenly > 0.0) { into.ScaleXyz[0] = into.ScaleXyz[1] = into.ScaleXyz[2] = evenly; }
+  ReadVector(from, "scaleX", "scaleY", "scaleZ", into.ScaleXyz);
 }
 
 bool ReadPlayer(const Xml::Ref &from, Scenario::Player &player, std::string &error) {

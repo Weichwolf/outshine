@@ -114,7 +114,7 @@ Koordinaten, false-Streams, XML-Escapes, Ressourcenreihenfolge und gerichtete T�
 Streams-Negativkontrolle wird rot. Trigger-Regression gr체n; Writer-Inventar 47/76.
 Geometrie-/Referenzvalidierung und Runtime-Streaming-/Portal-Anbindung bleiben offen.
 
-N채chster Schritt: placements exportieren; gemeinsame Standing-Attribute erhalten
-lokale Pose auch bei GlobeAnchor und drei Skalierungsachsen. Reader unterst체tzt
-scaleX/Y/Z mit Vorrang vor vorhandenem positivem uniformem scale. Rundlauf mit
-Georeferenz, Quaternion, negativen/Null-Skalen und exakten Doubles; keine Runtime-Anbindung.
+Placement-Export erh채lt lokale Pose auch bei GlobeAnchor und drei Skalierungsachsen.
+Reader: scaleX/Y/Z 체berschreiben den positiven uniformen Legacy-Wert achsweise.
+39 Rundlaufpr체fungen gr체n; ausgelassenes scaleY verletzt zwei Pr체fungen. Physik-/
+Kamera-Regressionen gr체n; Writer-Inventar 49/76. Keine Runtime-Anbindung behauptet.

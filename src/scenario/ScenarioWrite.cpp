@@ -91,11 +91,17 @@ void WritePlayer(std::string &into, const Scenario::Player &player) {
   into += "/>\n";
 }
 
-void StandingAs(std::string &into,
-                const char *element,
-                const outshine::Scenario::Standing &stands) {
-  into += "    <";
-  into += element;
+void WriteStandingAttributes(std::string &into, const Scenario::Standing &stands) {
+  Number(into, "x", stands.AtM[0]);
+  Number(into, "y", stands.AtM[1]);
+  Number(into, "z", stands.AtM[2]);
+  Number(into, "qx", stands.Facing.X);
+  Number(into, "qy", stands.Facing.Y);
+  Number(into, "qz", stands.Facing.Z);
+  Number(into, "qw", stands.Facing.W);
+  Number(into, "scaleX", stands.ScaleXyz[0]);
+  Number(into, "scaleY", stands.ScaleXyz[1]);
+  Number(into, "scaleZ", stands.ScaleXyz[2]);
   if (stands.GlobeAnchor) {
     Number(into, "lat", stands.Geodetic.LatitudeDeg);
     Number(into, "lon", stands.Geodetic.LongitudeDeg);
@@ -103,16 +109,26 @@ void StandingAs(std::string &into,
     Yes(into, "samplesHeight", stands.SamplesHeight);
     Number(into, "bearingDeg", stands.BearingDeg);
     Number(into, "pitchDeg", stands.PitchDeg);
-  } else {
-    Number(into, "x", stands.AtM[0]);
-    Number(into, "y", stands.AtM[1]);
-    Number(into, "z", stands.AtM[2]);
-    Number(into, "qx", stands.Facing.X);
-    Number(into, "qy", stands.Facing.Y);
-    Number(into, "qz", stands.Facing.Z);
-    Number(into, "qw", stands.Facing.W);
   }
+}
+
+void StandingAs(std::string &into, const char *element, const Scenario::Standing &stands) {
+  into += "    <";
+  into += element;
+  WriteStandingAttributes(into, stands);
   into += "/>\n";
+}
+
+void WritePlacements(std::string &into, std::span<const Scenario::Placement> placements) {
+  if (placements.empty()) { return; }
+  into += "  <placements>\n";
+  for (const auto &placement : placements) {
+    into += "    <place";
+    Said(into, "asset", placement.Asset, true);
+    WriteStandingAttributes(into, placement.Stands);
+    into += "/>\n";
+  }
+  into += "  </placements>\n";
 }
 
 const char *AnimationName(Scenario::AssetAnimation animation) {
@@ -502,6 +518,7 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   }
   WriteLighting(said, declared.Lit);
   WriteAssets(said, declared.Assets);
+  WritePlacements(said, declared.Placements);
   if (!declared.Views.empty()) {
     said += "  <views>\n";
     for (const Scenario::View &one : declared.Views) {

@@ -406,6 +406,8 @@ struct Standing {
   /// Local-to-world orientation quaternion. Body validation requires finite components
   /// and unit norm within 1e-6; it never silently normalizes this value.
   Quat Facing;
+  /// XML scaleX/scaleY/scaleZ override corresponding axes after legacy positive uniform scale.
+  /// Export writes all three axes; zero and negative values are retained, not validated.
   Vec3 ScaleXyz = {
       {1.0, 1.0, 1.0}}; ///< Dimensionless scale metadata; unapplied by body preparation.
 
