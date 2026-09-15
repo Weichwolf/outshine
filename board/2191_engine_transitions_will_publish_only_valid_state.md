@@ -104,7 +104,6 @@ eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbar
 den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
 mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
 ViewBook/InputMap publizieren bei Erfolg; SameRenderPlan vergleicht fünf Parameter.
-API-Regressionen und Negativkontrollen bestehen; Nachweise in Git.
 Offen: Welt-/GPU-Rollback, View-Werte, TimeScale, Joins/Overriding/Surfacing und
 Velocity-Gültigkeit (Hintergrund -10000 ist kein Bewegungsvektor).
 Init prüft GPU-Wait vor Umbau, erneuert Frame-/Temporalzustand und Offscreen-Ziel;
@@ -117,4 +116,5 @@ Footprint-Audit reproduzierbar UNPREPARED: RingWanted ruft Watches vor Focuses/L
 fehlende Kamerahöhe wird als Fehler behandelt, bevor der Ring Daten anfordern kann.
 Pending von ungültiger Kamera trennen; geodetischen Fokus ohne erfundene Höhe laden,
 Kamera erst mit residenter Höhe publizieren. Declare/Preload-Aufrufpfad dabei prüfen.
-Abnahme: kalter Cache, AGL-Kamera, erfolgreicher Preload; echter Datenfehler bleibt rot.
+Kamera nutzt noch lineares EnuFrame, Geometrie ECEF-TangentFrame: gemeinsam ECEF
+auflösen, Offset erhalten; Pending/Hole und analytische Positionen unabhängig prüfen.
