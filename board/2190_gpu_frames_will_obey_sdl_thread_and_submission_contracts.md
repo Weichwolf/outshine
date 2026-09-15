@@ -67,8 +67,8 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
 - Subject-Texturupload prüft Image-, Transfer-, Map-, Acquire-, CopyPass-, Submit- und
   Samplerfehler als expected; kein Surface-Slot publiziert Teilbilder. Append und Ersetzung
   bewahren bei Ablehnung die vorherige Materialtabelle. GroundLattice prüft statische Uploads;
-  abgelehnte Height-Pages geben ihre Nummer zurück. Sichtbarkeitsfehler erreichen RenderFrame;
-  die vorige Instanzallokation und Tile-Tabelle bleiben stehen. Uploadbudgets bleiben offen.
+  abgelehnte Height-Pages geben ihre Nummer zurück, Sichtbarkeitsfehler erreichen RenderFrame.
+  Der Stage-Test injiziert jede Uploadablehnung; Tile-Tabelle und Zähler bleiben stehen. Budgets offen.
 - [ ] Pass- und Ressourcen-Vorbedingungen nach SDL prüfen; Programmierfehler von echten
       Plattformfehlern trennen. Fehlgeschlagene Vorbereitung nie als neue Geometrie melden.
 - [ ] Minimieren/Wiederherstellen, Resize, Fenster-Owner/CommandBuffer-Thread und Shutdown
