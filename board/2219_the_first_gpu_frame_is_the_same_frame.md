@@ -32,6 +32,13 @@ ließen 470 rot. Weder Culling-Ergebnis noch Pyramideninhalt oder Temporal-Forts
 sind die Ursache. ABeautifulGame trägt keine Alpha-Modi und `Shape` clustert ohnehin
 nur opaque/masked Geometrie.
 
+Temporäre Readbacks am selben Ort zeigen den Unterschied bereits in `SceneHdr`: 471
+Kanäle (maximal 0.00268555) weichen ab; `SceneAerial` zeigt 470. Die Fehlerregion
+bleibt die Schachgeometrie, während die Tiefe exakt bleibt. Damit liegen Atmosphäre,
+Resolve und Display hinter dem ersten fehlerhaften Producer. Als Nächstes sind
+Subject-Textur-/Materialresidenz, Uploadreihenfolge und die erste Samplerbindung zu
+prüfen.
+
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
 SPIR-V→MSL nur die Ziel-MSL-Version, keine Präzisions- oder Compileoption. Die
@@ -44,9 +51,9 @@ ohne vollständiges Xcode nicht reproduzierbar.
 
 ## Lösung und Abnahme
 
-1. `SceneHdr`, `SceneAerial`, `SceneLinear` und die beteiligten LUT-/Irradiance-Outputs
-   nacheinander bytegenau lesen. Erst- und Folgeframe müssen pro Stufe dieselben
-   Eingänge, Clear/Load/Store-Zustände und Abhängigkeiten haben. Den ersten abweichenden
+1. Subject-Textur-/Materialresidenz, Uploadreihenfolge und erste Samplerbindung gegen
+   den ersten `SceneHdr`-Draw prüfen. Erst- und Folgeframe müssen pro Stufe dieselben
+   Eingänge, Clear/Load/Store-Zustände und Abhängigkeiten haben. Den fehlerhaften
    Producer mit einem vollständigen Ressourcenvertrag reparieren; keine Vorlauf-Frames,
    Uploadbatches oder Diagnoseausgaben behalten.
 2. Falls Metal die Ursache ist, GLSL als Quelle behalten und einen reproduzierbaren
