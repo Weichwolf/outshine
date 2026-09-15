@@ -54,5 +54,37 @@ inline constexpr std::string_view kCameraPositionInvalid =
   }
   return station;
 }
+
+struct GeographicCameraAxes {
+  Vec3 Forward;
+  Vec3 Up;
+};
+
+[[nodiscard]] inline std::expected<GeographicCameraAxes, std::string_view>
+ResolveGeodeticCameraAxes(const Scenario::GeographicCameraPlacement &camera,
+                          LongitudeLatitude origin) noexcept {
+  if (!std::isfinite(camera.BearingDeg) || !std::isfinite(camera.PitchDeg)) {
+    return std::unexpected(Says::kCameraPositionInvalid);
+  }
+  const double bearing = std::remainder(camera.BearingDeg, kDegPerHalfTurn * 2.0) * kDeg2Rad;
+  const double pitch = std::remainder(camera.PitchDeg, kDegPerHalfTurn * 2.0) * kDeg2Rad;
+  const EnuAxes axes = EnuAxesEcef(camera.Geodetic);
+  const Vec3 horizontal = axes.East * std::sin(bearing) + axes.North * std::cos(bearing);
+  const TangentFrame frame = TangentFrame::At(origin);
+  const auto native = [&](const Vec3 &direction) {
+    const auto local = frame.Turn(direction);
+    return Vec3{{local.EastM, local.UpM, RenderFrame::ZOfNorth(local.NorthM)}};
+  };
+  const GeographicCameraAxes result{
+      .Forward = native(horizontal * std::cos(pitch) + axes.Up * std::sin(pitch)),
+      .Up = native(axes.Up * std::cos(pitch) - horizontal * std::sin(pitch))};
+  for (int axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(result.Forward[axis]) || !std::isfinite(result.Up[axis])) {
+      return std::unexpected(Says::kCameraPositionInvalid);
+    }
+  }
+  return result;
+}
+
 }
 #endif

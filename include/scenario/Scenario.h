@@ -727,9 +727,9 @@ struct GeographicCameraPlacement {
   LongitudeLatitudeHeight Geodetic;
   /// Interpret height as metres above the sampled terrain instead of absolute height.
   bool SamplesHeight = false;
-  /// Viewing azimuth clockwise from north, degrees.
+  /// Viewing azimuth clockwise from local north at Geodetic, degrees; ignored for explicit LookAt.
   double BearingDeg = 0.0;
-  /// Viewing elevation above the horizon, degrees.
+  /// Viewing elevation above the local horizon, degrees. Bearing fixes roll at vertical views.
   double PitchDeg = 0.0;
 };
 

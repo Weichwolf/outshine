@@ -83,3 +83,6 @@ LookAt behält seinen dokumentierten Weltkoordinatenvertrag. Vertikale Blicke
 brauchen eine aus Bearing erhaltene Querachse, keine singuläre LookAt-Up-Wahl.
 Abnahme: analytische Äquatorfälle 0/90/180°, Nord/Süd, Pitch ±90°, Orthonormalität,
 NaN/Inf-Ablehnung; alte Ursprungsbasis muss scheitern. Wien-Render vergleichen.
+Nachweis: 84 Kompasschecks grün; Ursprungsbasis als Negativkontrolle erzeugt 18 Fehler,
+restaurierter Stand grün. Positions-/Höhentests bleiben grün. Wien geöffnet und
+pixelgleich (0/921600); make lint vollständig grün. Weitere Renderverträge oben offen.

@@ -116,11 +116,17 @@ bool Engine::State::Watches() {
   Camera resolved = seen.Sees;
   resolved.PositionM = station;
   if (seen.Placement == Scenario::CameraPlacement::Geodetic && !seen.Sees.LooksAt) {
-    const double bearing = seen.Geographic.BearingDeg * kDeg2Rad;
-    const double pitch = seen.Geographic.PitchDeg * kDeg2Rad;
-    const Vec3 ahead = EastUpSouthDirection(bearing, pitch);
+    const auto axes =
+        ResolveGeodeticCameraAxes(seen.Geographic,
+                                  {.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
+                                   .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
+    if (!axes) {
+      Error = axes.error();
+      return false;
+    }
     resolved.LooksAt = true;
-    resolved.LookAtM = station + ahead;
+    resolved.LookAtM = station + axes->Forward;
+    resolved.UpM = axes->Up;
   }
   Mat4 model;
   if (!resolved.modelMatrix(model)) {

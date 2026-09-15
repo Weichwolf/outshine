@@ -117,4 +117,4 @@ fehlende Kamerahöhe wird als Fehler behandelt, bevor der Ring Daten anfordern k
 Pending von ungültiger Kamera trennen; geodetischen Fokus ohne erfundene Höhe laden,
 Kamera erst mit residenter Höhe publizieren. Declare/Preload-Aufrufpfad dabei prüfen.
 Gemeinsamer ECEF-Resolver: 18 Checks für Position/Offset/Pending/Hole; Negativkontrolle
-9 Fehler, restauriert grün. Wien pixelgleich, Lint grün. Entfernte Kompassbasis offen.
+9 Fehler, restauriert grün. Wien pixelgleich, Lint grün. Kompassbasis korrigiert: 2149.
