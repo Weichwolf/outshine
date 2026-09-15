@@ -94,6 +94,8 @@ public:
   Live(const Live &) = delete;
   Live &operator=(const Live &) = delete;
 
+  void RelinquishRenderer() noexcept { Renderer_ = nullptr; }
+
   [[nodiscard]] static bool Open(Render::SceneRenderer &renderer,
                                  Declaration declaration,
                                  const Ui::Font *font,

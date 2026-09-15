@@ -164,6 +164,7 @@ bool Live::Open(Render::SceneRenderer &renderer,
   }
   std::unique_ptr<Live> live(new Live(renderer, std::move(declaration), font));
   if (!live->Build(error)) { return false; }
+  if (out != nullptr) { out->RelinquishRenderer(); }
   out = std::move(live);
   return true;
 }
