@@ -93,6 +93,43 @@ Geometry Geometry::clone() const {
   return copy;
 }
 
+std::expected<void, GeometryAppendError> Geometry::append(const Geometry &source) {
+  if (!source.wellFormed()) { return std::unexpected(GeometryAppendError::MalformedSource); }
+  if (Held_->Surfaces.size() >
+          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Surfaces.size() ||
+      Held_->Images.size() >
+          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Images.size()) {
+    return std::unexpected(GeometryAppendError::CapacityExceeded);
+  }
+  Geometry candidate = clone();
+  const int imageBase = static_cast<int>(candidate.Held_->Images.size());
+  const int materialBase = static_cast<int>(candidate.Held_->Surfaces.size());
+  candidate.Held_->Images.insert(
+      candidate.Held_->Images.end(), source.Held_->Images.begin(), source.Held_->Images.end());
+  for (Held::Named surface : source.Held_->Surfaces) {
+    const auto remap = [imageBase](SurfaceMap &map) {
+      if (map.Image >= 0) { map.Image += imageBase; }
+    };
+    remap(surface.Surface.BaseColourMap);
+    remap(surface.Surface.NormalMap);
+    remap(surface.Surface.MetalRoughMap);
+    remap(surface.Surface.EmissiveMap);
+    remap(surface.Surface.OcclusionMap);
+    remap(surface.Surface.SpecularStrengthMap);
+    remap(surface.Surface.SpecularTintMap);
+    candidate.Held_->Surfaces.push_back(std::move(surface));
+  }
+  for (Held::Piece part : std::span(source.Held_->Parts).first(source.Held_->Live)) {
+    if (part.Material >= 0) { part.Material += materialBase; }
+    candidate.Held_->Parts.push_back(std::move(part));
+    ++candidate.Held_->Live;
+  }
+  candidate.Held_->Lamps.insert(
+      candidate.Held_->Lamps.end(), source.Held_->Lamps.begin(), source.Held_->Lamps.end());
+  *this = std::move(candidate);
+  return {};
+}
+
 void Geometry::clear() {
   for (size_t at = 0; at < Held_->Live && at < Held_->Parts.size(); ++at) {
     Geometry::Held::Piece &piece = Held_->Parts[at];

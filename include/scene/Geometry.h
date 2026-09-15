@@ -27,6 +27,12 @@ enum class PlacementError {
   InvalidTransform ///< Components are nonfinite or the last row is not (0, 0, 0, 1).
 };
 
+/// Failure while combining independently owned native geometry snapshots.
+enum class GeometryAppendError {
+  MalformedSource, ///< Source has no complete native geometry product.
+  CapacityExceeded ///< Combined owner-local indices cannot be represented.
+};
+
 /// Move-only owner of CPU mesh attributes, materials, images, lights and part placements.
 /// Vertex positions are local metres in a right-handed, Y-up frame; triangles use CCW
 /// front faces. Part placements map local coordinates into model space. No import-format
@@ -70,6 +76,15 @@ public:
   /// Cost and allocations scale with active owned data. Allocation failure may throw.
   /// @return Independent geometry; later mutation or destruction of either owner is isolated.
   [[nodiscard]] Geometry clone() const;
+
+  /// Append a complete native snapshot transactionally, remapping its owner-local image and
+  /// material indices. The source remains unchanged; success invalidates every borrowed view of
+  /// this geometry because its complete owned storage is replaced. Failure preserves both
+  /// geometries. Requires exclusive access to this owner and no concurrent mutation of source.
+  /// @param source Complete native geometry whose parts, materials, images and lights are copied.
+  /// @return Success, or a typed source/capacity error. Allocation failure follows the allocator
+  /// contract separately. Cost and allocation scale with the combined owned data.
+  [[nodiscard]] std::expected<void, GeometryAppendError> append(const Geometry &source);
 
   /// Append an empty part with identity placement; fill attributes before publication.
   /// @param named Name copied into this owner.
