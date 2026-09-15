@@ -23,7 +23,7 @@ public:
     for (const auto &parameter : request.Parameters) {
       Seen.emplace_back(parameter.Name, parameter.Value);
     }
-    return Geometry{};
+    return outshine::Geometry{};
   }
 };
 }
@@ -60,8 +60,6 @@ int main() {
   const std::array<Generators::Parameter, 1> unsupported{{{.Name = "unknown", .Value = "1"}}};
   Generators::Request request;
   request.Parameters = unsupported;
-  Geometry output;
-  CHECK(!structures.make(request, output) && output.parts() == 0 && output.surfaces() == 0,
-        "built-in producer refuses unsupported settings before modifying output");
+  CHECK(!structures.make(request), "built-in producer refuses unsupported settings");
   return Report();
 }

@@ -257,6 +257,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
+    outshine/src/client/ProcessBoundary) printf '%s' "$CXXSTD"; return ;;
     outshine/src/base/*) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3)"; return ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)"; return ;;
     outshine/src/generators/*) printf '%s' "$CXXSTD -fno-exceptions"; return ;;
@@ -267,9 +268,9 @@ LayerToolchain() {
     profile/public) LayerToolchain profile/internal ;;
     profile/diagnostics) LayerToolchain profile/internal ;;
     profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
-    profile/engine | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    *) printf '%s' "$CXXSTD" ;;
+    profile/engine | harness/wpt/css) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    *) printf '%s' "$CXXSTD -fno-exceptions" ;;
   esac
 }
 # Vector decoding runs under ASan/UBSan; GPU fault injection also runs with SDL validation.

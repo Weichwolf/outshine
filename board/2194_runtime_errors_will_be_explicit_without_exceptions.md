@@ -36,7 +36,7 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   veröffentlichen. Kapazität, Datenzuordnung und allokationsfreier Callback prüfen;
   absichtlich eingefügte Allokation muss den Test brechen. System-OOM bleibt separat.
 - BuildingMesh::Mesh liefert expected und rollt behandelbare Meshfehler zurück.
-  System-OOM bleibt fatal; Bibliothek sowie Base-/Generator-Tests bauen mit `-fno-exceptions`; nur der Client-Prozessadapter darf fremde Exceptions in einen Exitstatus übersetzen.
+  System-OOM bleibt fatal; Bibliothek und Tests bauen mit `-fno-exceptions`; nur der Client-Prozessadapter darf fremde Exceptions in einen Exitstatus übersetzen.
   Eckhöhen werden vor Allokation geprüft: leer oder exakt pro Ringpunkt;
   sechs Negativchecks bestätigt. Scratch- und Output-Vektoren brauchen weiterhin begrenzte,
   explizite Vorallokation, bevor sie als behandelbare Budgetfehler gelten können.
