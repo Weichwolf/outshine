@@ -1360,22 +1360,19 @@ Network::Elevated Network::Elevate(const HeightSource &heightOf) {
   Elevated made;
   const size_t points = Points_.size() / 2;
   HeightsM_.assign(points, 0.0);
-  constexpr double kUnknown = std::numeric_limits<double>::quiet_NaN();
-  std::vector<double> atNode(Nodes_.size(), kUnknown);
+  std::vector<std::optional<double>> atNode;
+  if (Woven_) {
+    atNode.reserve(Nodes_.size());
+    for (const auto &node : Nodes_) {
+      atNode.push_back(SampleFiniteHeight(
+          heightOf, {.LongitudeDeg = node.LongitudeDeg, .LatitudeDeg = node.LatitudeDeg}));
+    }
+  }
   for (size_t at = 0; at < points; ++at) {
     const size_t node = Woven_ && at < NodeOfPoint_.size() ? NodeOfPoint_[at] : Nodes_.size();
     std::optional<double> height;
     if (node < Nodes_.size()) {
-      if (std::isnan(atNode[node])) {
-        const std::optional<double> stood = SampleFiniteHeight(
-            heightOf,
-            {.LongitudeDeg = Nodes_[node].LongitudeDeg, .LatitudeDeg = Nodes_[node].LatitudeDeg});
-        if (stood) {
-          atNode[node] = *stood;
-          Nodes_[node].HeightM = *stood;
-        }
-      }
-      if (!std::isnan(atNode[node])) { height = atNode[node]; }
+      height = atNode[node];
     } else {
       height = SampleFiniteHeight(
           heightOf, {.LongitudeDeg = Points_[2 * at + 1], .LatitudeDeg = Points_[2 * at]});

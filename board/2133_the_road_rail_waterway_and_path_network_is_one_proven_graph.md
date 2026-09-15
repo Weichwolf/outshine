@@ -110,9 +110,8 @@ Elevate übernimmt derzeit NaN/Inf und ruft auch leere HeightSource auf. Eingabe
 prüft optional + isfinite; ungültig zählt wie fehlend als Refused (vorige Weghöhe/0).
 Profile vor/nach Weave: 138 Checks zu ±Höhen, NaN/±Inf, fehlender/leerer Quelle.
 Ohne Endlichkeitsprüfung scheitern 20 Checks; Routenstationen bleiben geprüft.
-Nächster Schritt: jede Knotenhöhe genau einmal je Elevate abfragen, auch fehlende.
-Ungenutztes Node.HeightM entfernen; Profile bleiben alleiniger Höhenspeicher.
-Gegenprobe: wechselnde Quelle am geteilten Knoten; nächster Aufruf darf neu abfragen.
+Jede Knotenhöhe einmal je Elevate abfragen, auch fehlende; Node.HeightM entfällt.
+Drei Tests grün, wechselnde Quelle verletzt im alten Code drei Checks; Wien pixelgleich.
 Revisionsinvalidierung und explizite Gültigkeit statt Ersatzhöhe bleiben offen.
 
 ## Geprüfte Layer-Grenze

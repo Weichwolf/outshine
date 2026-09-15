@@ -211,7 +211,6 @@ private:
     double MaxGradient = 0.0;
     double MinRadiusM = 0.0;
     double Friction = 0.0;
-    double HeightM = 0.0;
     int Lanes = 0;
   };
 
