@@ -201,6 +201,7 @@ Result Engine::park() {
   }
   S_->Session.Asleep.push_back(S_->Session.Declared);
   S_->World.Bakes.Clear();
+  S_->World.Stack.Footprints().ResetDerived();
   S_->World.Pieces.Clear();
   S_->World.Sheets.Clear();
   S_->World.Crowns.reset();

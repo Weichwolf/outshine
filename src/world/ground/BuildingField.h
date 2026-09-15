@@ -57,6 +57,7 @@ public:
   [[nodiscard]] double TileSpanM() const { return TileSpanM_; }
 
   void AnchorAt(const Vec3 &ecef);
+  void ResetDerived();
 
   [[nodiscard]] std::optional<TileWatermark::Next>
   Next(const OsmField &field, const std::function<bool(FeatureRun)> &groundStands);

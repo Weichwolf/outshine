@@ -112,3 +112,8 @@ nur Watermark zurücksetzen und doppelte Footprints anhängen. Ausstehende Jobs 
 Reset beenden; Abbruch darf keine als fertig markierten, verlorenen Tiles hinterlassen.
 Abnahme: unabhängig kontrollierter Field/Bake-Reset sowie Szenen-A/B/A mit gleichen
 Gebäudeteilen, Geometrie und Pixeln. Keine Lockerung des Wiederkehrtests.
+
+ResetDerived verwirft nach Jobabschluss Footprints, Tilebereiche und Bake-Marken
+zusammen; Konfiguration bleibt. Drei unabhängige Resetzyklen grün, fehlendes Löschen
+von Prints scheitert. A/B/A jetzt 37,022→37,018, exakte Pixelprüfung weiterhin rot.
+Lint grün; Wien ohne Vegetation pixelidentisch (0/921600), PNG geöffnet.

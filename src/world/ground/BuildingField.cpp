@@ -10,6 +10,17 @@
 
 namespace outshine::Ground {
 
+void BuildingField::ResetDerived() {
+  Prints_.clear();
+  TrianglesHanded_ = 0;
+  Taken_ = Accepted_ = 0;
+  ByTile_ = {};
+  Mark_ = {};
+  OsmHeights_ = DefaultHeights_ = Fronted_ = 0;
+  SeatSpread_.clear();
+  Across_.clear();
+}
+
 void BuildingField::AnchorAt(const Vec3 &ecef) {
   assert(Prints_.empty());
   for (int c = 0; c < 3; c++) { Anchor_[c] = ecef[c]; }

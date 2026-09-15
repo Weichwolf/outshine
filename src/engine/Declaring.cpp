@@ -438,6 +438,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
   S_->World.Bakes.Clear();
+  S_->World.Stack.Footprints().ResetDerived();
   S_->World.Pieces.Clear();
   S_->World.Sheets.Clear();
   S_->World.PiecesFramed = false;
@@ -466,6 +467,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
                         S_->Picture.Standing,
                         S_->Error)) {
     S_->World.Bakes.Clear();
+    S_->World.Stack.Footprints().ResetDerived();
     S_->World.Pieces.Clear();
     S_->World.Sheets.Clear();
     S_->World.Crowns.reset();
