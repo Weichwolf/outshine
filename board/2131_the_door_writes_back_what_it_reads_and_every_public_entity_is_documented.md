@@ -87,17 +87,6 @@ Einheiten, Reichweite, Ownership und Fehlerpublikation nach Implementierungsprü
 Abnahme: öffentlicher registrierter Probe-Generator sieht deklarierte Region/Parameter;
 Reader/Writer-Rundlauf erhält sie; Fehler bewahrt Vorgängerszene. Gebäudemaße bleiben
 bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkontrolle.
-Writer erhält LatLon jetzt bitgenau mit std::format; sechs Nachkommastellen konnten
-Punkte zusammenlegen. OSM ohne Relief schreibt kein ungültiges relief ohne kind mehr.
-ReadScenarioOsm prüft Koordinaten/Featurebudget und Maße/Ebenen strikt. Grenz- und
-Fehlererhaltstests grün; alte Reader rot. Wien unverändert, Details in Git.
-Reader und declare nutzen jetzt denselben formatfreien Structure-Validator für
-Kind, Maße, Punktpaare, Winkel und Featurebudget. XML prüft Syntax/Budget vor Wachstum.
-Native Prüfung vor Engine-Mutation/Producer-Ausführung, auch ohne Ground.Declared.
-Public-API-Test: elf Fehlerarten × Welt deklariert/nicht deklariert erhalten Zustand/
-Input und starten keinen Producer; gültige Grenzen/Featurebudget akzeptiert. Vier Tests
-grün, alter Engine-Pfad rot. Wien c307cab8 bytegleich und PNG geöffnet.
-Parser-Tests behalten. uint64-Reliefseed, Flags, Gesamtbudget und Ringprüfung bleiben offen.
 ## Dokument als native Deklaration
 Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht zur
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
@@ -118,3 +107,16 @@ konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapsho
 17 API-Prüfungen belegen Wiederladen mit/ohne Quelle ohne doppelte Platzierungen;
 behaltene Referenzen verletzen fünf Prüfungen. Roh-XML-/Layer-Regressionen grün.
 Writer-Inventar 50/76; übrige Export- und Validierungslücken bleiben offen.
+
+## Audio-Serialisierung
+Befund: WriteScenario lässt Buses/Sounds vollständig aus. ReadAudio setzt Room.Declared
+über RT60 > 0 statt Elementpräsenz; deklarierter Nullhall geht verloren.
+Vorhanden: native Audio-Deklarationen, XML-Reader, Mixer-/BusGraph-Validierung.
+Entscheidung: Busroute/Gain/Raum, Sound-/Emitterdaten und geordnete DSP-Graphen samt
+Eingangslisten/Parametern schreiben. Enum-Schreibweisen zwischen Reader und Writer
+teilen; unbekannte native Enumwerte beim Export ablehnen. Raumpräsenz bestimmt
+Declared; inaktive Raumparameter bleiben gemäß API ungenutzt.
+Abnahme: unabhängige XML-Eingabe und native Deklarationen, sämtliche Enumwerte,
+XML-Sonderzeichen, genaue Doubles, Reihenfolge/mehrfache Inputs und deklarierter
+Nullhall. Fehlende Audio-Ausgabe muss Rundlauf brechen. Bestehende Audiotests erhalten.
+Keine Renderänderung erwartet; Format, passende Make-Suiten und vollständiges Lint.
