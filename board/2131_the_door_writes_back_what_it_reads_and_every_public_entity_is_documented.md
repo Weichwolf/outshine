@@ -106,14 +106,15 @@ Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
 konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
 
 ## Verbleibende Serialisierung
-Audio und Kinds/Instances erhalten; unabhängige Rundläufe/Gegenproben grün.
-Writer-Inventar 71/76; Body-Rundlauf erhält alle Felder samt Kontakten, Antrieben,
-Slots und Assetmetadaten schreiben; vorhandene Dynamikvalidierung vor Export nutzen.
-Pose und Aktivierung trennen: body.placed explizit, ohne Attribut gilt weiter at-Präsenz.
-actuator.turns explizit, ohne Attribut gilt weiter PeakN == 0. Opposes auch bei
-Motion erhalten. Ungültige Antriebs-Enums oder gleichzeitige Kraft/Torque ablehnen.
-Aktivierung und Achsentyp sind native Zustände, keine Ableitung aus Zahlenwerten.
-Abnahme: unabhängiges Legacy-XML, alle Felder, unplatzierte Pose, lineare Nullkraft,
-exakte Doubles/Sonderzeichen: 55 Checks grün; fehlendes ixx verletzt zwei Checks.
-Dynamiktests behalten; Format und Lint. Keine vollständige Kontakt-/Antriebsvalidierung
-oder funktionierende Fahrzeugphysik behaupten; diese Verträge bleiben offen.
+Audio, Kinds/Instances und Bodies erhalten; Rundläufe/Gegenproben grün.
+Writer-Inventar 71/76. Views verlieren Clipping, Projektion, Belichtung, Follow-
+Parameter und LookAt/Up; Viewport und Szenenlabel fehlen auch im Reader.
+Alle Camera-/View-Werte exportieren. placement und looksAt explizit speichern,
+sonst würde gespeicherte Pose/Zielpunkt die Aktivierung ändern. Ohne Attribute
+Legacy-Ableitung aus at/Geodäsie/lookAt erhalten; unbekannte Modi ablehnen.
+Viewport/Szenenlabel bleiben gespeicherte Metadaten, keine neue Renderfunktion.
+Gemeinsame Modusschreibweisen; View-Writer als fachliche Phase aus Hauptwriter lösen.
+Abnahme: lokale/geografische/Follow-Kameras, beide Projektionen, explizite/inaktive
+Ziele, sämtliche Werte exakt, ungültiger Modus; unabhängige XML-/native Fixtures.
+Entferntes nearM muss Rundlauf brechen. Bestehende Kameratests, Format und Lint.
+Wien nach Readeränderung erneut rendern und mit gesicherter PNG vergleichen.
