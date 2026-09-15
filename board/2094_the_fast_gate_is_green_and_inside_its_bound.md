@@ -114,5 +114,6 @@ beibehalten, Berechnung unverändert. Format/Build grün; Forest ohne Tidy-Befun
 CommandLine hält ausschließlich string_view/span auf Prozessargumente, keine Stringkopie.
 ReadCommandLine als isolierten noexcept-Parser prüfen: leere Eingabe, Override, fehlender
 Befehl und Nullargumente; Rückgabe muss den ursprünglichen Speicher referenzieren.
-CLI-Daten-/Argumenttests erhalten Befehle/Fehlercodes. Weitere Wurfpfade bleiben in 2194;
+Parser-/CLI-Tests und 33 Regeln grün; letzte Tidy-Spur führt zur formatierten Ausgabe.
+Weitere Wurfpfade bleiben in 2194;
 kein mechanisches noexcept an den Client oder Ersatz der OOM-/Budgetverträge.

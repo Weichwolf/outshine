@@ -1,3 +1,4 @@
+#include "CommandLine.h"
 #include <expected>
 #include <cstdio>
 #include <print>
@@ -301,10 +302,10 @@ constexpr auto kHeightCoordinates =
   return 0;
 }
 
-std::expected<std::vector<Place>, std::string> LoadCommandPlaces(std::string_view verb,
-                                                                 const std::string &directory) {
-  if (verb == "shots" || verb == "places" || verb == "roundtrip") {
-    return outshine::Shots::LoadPlaces(directory);
+std::expected<std::vector<Place>, std::string>
+LoadCommandPlaces(const outshine::Client::CommandLine &command) {
+  if (command.Verb == "shots" || command.Verb == "places" || command.Verb == "roundtrip") {
+    return outshine::Shots::LoadPlaces(command.Directory);
   }
   return std::vector<Place>{};
 }
@@ -329,50 +330,20 @@ int ListPlaces(std::span<const Place> places) {
   return 0;
 }
 
-struct CommandLine {
-  std::string Directory = "src/assets/places";
-  std::string_view Verb = "help";
-  int Count = 0;
-  const char *const *Values = nullptr;
-};
-
-std::expected<CommandLine, std::string_view>
-ReadCommandLine(std::span<const char *const> arguments) {
-  const size_t argc = arguments.size();
-  const auto *const argv = arguments.data();
-  CommandLine command;
-  size_t argument = 1;
-  if (argc > argument && std::string_view(argv[argument]) == "--places") {
-    if (argc <= argument + 2) {
-      return std::unexpected("--places requires a directory and command");
-    }
-    command.Directory = argv[argument + 1];
-    argument += 2;
-  }
-  if (argc > argument) {
-    command.Verb = argv[argument];
-    command.Count = static_cast<int>(argc - argument - 1);
-    command.Values = argv + argument + 1;
-  } else {
-    command.Values = argv + argc;
-  }
-  return command;
-}
-
 }
 
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const auto command = ReadCommandLine(std::span(argv, static_cast<size_t>(argc)));
+  const auto command =
+      outshine::Client::ReadCommandLine(std::span(argv, static_cast<size_t>(argc)));
   if (!command) {
     std::println(stderr, "outshine-client: {}", command.error());
     return 2;
   }
-  const auto &directory = command->Directory;
   const auto verb = command->Verb;
-  const auto rest = command->Count;
-  const auto *const from = command->Values;
-  auto loaded = LoadCommandPlaces(verb, directory);
+  const auto rest = static_cast<int>(command->Arguments.size());
+  const auto *const from = command->Arguments.data();
+  auto loaded = LoadCommandPlaces(*command);
   if (!loaded) {
     std::println(stderr, "outshine-client: {}", loaded.error());
     return 1;
