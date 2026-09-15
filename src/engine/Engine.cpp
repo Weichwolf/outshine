@@ -325,6 +325,7 @@ bool Engine::State::CanFinishPreload() const {
 }
 
 Result Engine::State::PumpPreload() {
+  if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.Opens();
   if (!Asks()) { return std::unexpected(Error); }
   const LongitudeLatitude stands = WhereTheEyeStands();
@@ -336,14 +337,13 @@ Result Engine::State::PumpPreload() {
     Error = streamed.error();
     return std::unexpected(Error);
   }
+  if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   if (!Bakes(kBakesLandedInPreload)) { return std::unexpected(Error); }
   (void)Grows(atLat, atLon);
   return {};
 }
 
 Result Engine::State::PreloadOverflow() {
-
-  (void)Grounds(true);
   Error = "the world at this place holds " + std::to_string(World.Stack.HeapBytes()) +
           " bytes against a ceiling of " + std::to_string(Ground::GroundStack::kHoldsBytes) +
           ", so it stopped ingesting part-way. What it did take depends on which tiles had "
@@ -379,7 +379,6 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
       if (!S_->UpdateCrowns(true)) { return std::unexpected(S_->Error); }
       if (settled()) { return Result{}; }
     }
-    if (S_->World.Stack.Overflowing()) { return S_->PreloadOverflow(); }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       return S_->PreloadTimeout(bound);
     }
