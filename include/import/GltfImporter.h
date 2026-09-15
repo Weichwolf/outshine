@@ -85,12 +85,6 @@ public:
   /// Rebuilds CPU geometry and materials, with allocation; serialize with all adapter access.
   [[nodiscard]] std::expected<void, std::string> sampleAnimation(double seconds);
 
-  /// @return Whether camera zero has an unambiguous, noncollapsed placement in the current pose.
-  /// Constant-time, no allocation; false for an empty adapter.
-  [[nodiscard]] bool hasDefaultCamera() const;
-  /// Borrow camera zero at the current pose; requires hasDefaultCamera(). No allocation.
-  /// @return Native camera view, invalidated by mutation, move or destruction.
-  [[nodiscard]] const Camera &camera() const;
   /// @return Number of camera definitions, including definitions without a node placement.
   /// Constant-time, no allocation; zero for an empty adapter.
   [[nodiscard]] int cameraCount() const;

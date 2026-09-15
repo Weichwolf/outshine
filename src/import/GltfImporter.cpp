@@ -93,13 +93,11 @@ struct GltfImporter::Held {
   Gltf::Pose Motion;
   Gltf::VariantSelection Variant;
   Geometry Handed;
-  Camera Eye;
   std::vector<Gltf::Transform> Locals;
   std::vector<Gltf::Transform> PublishedLocals;
   std::vector<double> Weights;
   std::vector<Gltf::Pose::FactorAt> Factors;
   std::string Why;
-  bool HasEye = false;
   bool Moves = false;
 
   [[nodiscard]] bool Assemble(double seconds) {
@@ -126,9 +124,6 @@ struct GltfImporter::Held {
     } else {
       PublishedLocals.clear();
     }
-    auto camera = ResolveCamera(0);
-    HasEye = camera.has_value();
-    if (camera) { Eye = *camera; }
     return true;
   }
 
@@ -327,10 +322,6 @@ std::expected<void, std::string> GltfImporter::sampleAnimation(double seconds) {
   return {};
 }
 
-bool GltfImporter::hasDefaultCamera() const {
-  return Held_->HasEye;
-}
-
 int GltfImporter::cameraCount() const {
   return static_cast<int>(Held_->File.Cameras().size());
 }
@@ -352,10 +343,6 @@ GltfImporter::frameCamera(Extent viewport) const noexcept {
   Camera camera;
   Render::CameraOf(fitted, camera);
   return camera;
-}
-
-const Camera &GltfImporter::camera() const {
-  return Held_->Eye;
 }
 
 }

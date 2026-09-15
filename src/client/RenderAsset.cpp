@@ -192,8 +192,15 @@ struct AssetRenderOptions {
     const auto selected = asset.camera(options.CameraIndex);
     if (!selected) { return std::unexpected(Says::CameraUnavailable); }
     camera = *selected;
-  } else if (options.Camera == CameraMode::Default && asset.hasDefaultCamera()) {
-    camera = asset.camera();
+  } else if (options.Camera == CameraMode::Default) {
+    const auto selected = asset.camera(0);
+    if (selected) {
+      camera = *selected;
+    } else {
+      const auto framed = asset.frameCamera(options.Frame);
+      if (!framed) { return std::unexpected(Says::CannotFrame); }
+      camera = *framed;
+    }
   } else {
     const auto framed = asset.frameCamera(options.Frame);
     if (!framed) { return std::unexpected(Says::CannotFrame); }

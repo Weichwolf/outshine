@@ -282,7 +282,7 @@ int main() {
   const auto after = asset.camera(0);
   CHECK(after && after->PositionM == before->PositionM,
         "failed sample preserves indexed camera pose");
-  CHECK(asset.camera().PositionM == before->PositionM, "default camera agrees with indexed camera");
+  CHECK(after && after->PositionM == before->PositionM, "indexed camera retains the accepted pose");
   const std::array invalidClip{1};
   CHECK(!asset.selectAnimations(invalidClip), "clip with invalid initial material is rejected");
   CHECK(asset.durationS() == 1, "failed clip selection retains previous clip duration");

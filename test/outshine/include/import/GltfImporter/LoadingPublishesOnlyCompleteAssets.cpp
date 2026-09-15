@@ -81,8 +81,10 @@ int main() {
         "replacement publishes native geometry and clears the old diagnostic");
   CHECK(asset.load((directory / "unused-camera.gltf").string()).has_value(),
         "uninstantiated camera definitions do not invalidate an asset");
-  CHECK(asset.cameraCount() == 1 && !asset.hasDefaultCamera(),
-        "a camera definition without placement does not pretend to supply a view");
+  const auto unavailablePlacedCamera = asset.camera(0);
+  CHECK(asset.cameraCount() == 1 && !unavailablePlacedCamera &&
+            !unavailablePlacedCamera.error().empty(),
+        "a camera definition without placement returns an owned diagnostic");
   GltfImporter moved = std::move(asset);
   CHECK(moved.geometry().parts() == 1, "move transfers the complete imported asset");
   CHECK(asset.load((directory / "plain.gltf").string()).has_value(),
@@ -121,19 +123,19 @@ int main() {
     CHECK(asset.sampleAnimation(seconds).has_value(),
           "sample absolute time, including backward and beyond final key");
     const auto indexedCamera = asset.camera(0);
-    CHECK(asset.hasDefaultCamera() && indexedCamera, "both camera accessors resolve current pose");
+    CHECK(indexedCamera.has_value(), "indexed camera resolves current pose");
     const double x = 4 * std::min(seconds, 1.0);
     CHECK(indexedCamera && std::abs(indexedCamera->PositionM[0] - x) < 1e-9 &&
               std::abs(indexedCamera->PositionM[1] - 1) < 1e-9 &&
               std::abs(indexedCamera->PositionM[2] - 2) < 1e-9,
           "parent translation and quarter-turn rotate the child offset analytically");
-    CHECK(std::abs(asset.camera().PositionM[0] - x) < 1e-9,
-          "cached default camera uses the same time as explicit selection");
   }
   CHECK(asset.sampleAnimation(0.5).has_value(), "establish a nonzero pose for rejection checks");
   for (const double seconds :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
-    CHECK(!asset.sampleAnimation(seconds) && std::abs(asset.camera().PositionM[0] - 2) < 1e-9,
+    const auto heldCamera = asset.camera(0);
+    CHECK(!asset.sampleAnimation(seconds) && heldCamera &&
+              std::abs(heldCamera->PositionM[0] - 2) < 1e-9,
           "invalid time cannot mutate the accepted camera pose");
   }
   for (const int invalid : {-1, 1}) {
@@ -141,7 +143,9 @@ int main() {
     CHECK(!asset.selectAnimations(rejected), "invalid clip selection fails");
     CHECK(std::abs(asset.durationS() - 1.0) < 1e-9,
           "rejected selection preserves the active animation duration");
-    CHECK(asset.sampleAnimation(0.75) && std::abs(asset.camera().PositionM[0] - 3) < 1e-9,
+    const auto sampled = asset.sampleAnimation(0.75);
+    const auto sampledCamera = asset.camera(0);
+    CHECK(sampled && sampledCamera && std::abs(sampledCamera->PositionM[0] - 3) < 1e-9,
           "previous animation remains sampleable after rejected selection");
   }
   const auto unavailableCamera = asset.camera(1);
@@ -152,7 +156,9 @@ int main() {
   CHECK(asset.sampleAnimation(0.5) && asset.error().empty(),
         "successful sampling clears old error");
   CHECK(!rejectedTime && !rejectedTime.error().empty(), "time diagnostic survives later sampling");
-  CHECK(asset.selectAnimations({}) && std::abs(asset.camera().PositionM[0]) < 1e-9,
+  const auto authored = asset.selectAnimations({});
+  const auto authoredCamera = asset.camera(0);
+  CHECK(authored && authoredCamera && std::abs(authoredCamera->PositionM[0]) < 1e-9,
         "disabling clips restores authored camera transforms rather than stale sampled locals");
   CHECK(asset.selectAnimations(clips) && asset.sampleAnimation(0.5),
         "prepare the camera and geometry snapshot for rendering");
@@ -168,7 +174,12 @@ int main() {
   Scenario::View view;
   view.Id = "sampled-camera";
   view.Person = "first";
-  view.Sees = asset.camera();
+  const auto renderedCamera = asset.camera(0);
+  if (!renderedCamera) {
+    Unprepared(renderedCamera.error().c_str());
+    return Report();
+  }
+  view.Sees = *renderedCamera;
   view.Placement = Scenario::CameraPlacement::Local;
   scene.Views.push_back(view);
   if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene) ||
