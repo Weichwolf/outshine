@@ -364,10 +364,6 @@ void Tables(SDL_GPUDevice *device) {
           .SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
           .Width = 32,
           .Height = 32};
-  gpu.FiltersFloat32 = SDL_GPUTextureSupportsFormat(device,
-                                                    SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
-                                                    SDL_GPU_TEXTURETYPE_2D,
-                                                    SDL_GPU_TEXTUREUSAGE_SAMPLER);
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "one scene attachment is declared");
   std::string error;
   const bool configured = draw.Configure(gpu, error);

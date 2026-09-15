@@ -124,14 +124,9 @@ struct SubjectResidency {
     SubjectI_ = indices;
   }
 
-  void StandsOn(SDL_GPUDevice *device, bool filtersFloat32) {
-    Device_ = device;
-    FiltersFloat32_ = filtersFloat32;
-  }
+  void StandsOn(SDL_GPUDevice *device) { Device_ = device; }
 
   [[nodiscard]] SDL_GPUDevice *Device() const { return Device_; }
-
-  [[nodiscard]] bool FiltersFloat32() const { return FiltersFloat32_; }
 
   [[nodiscard]] OwnedBuffer &Buffer(Stream which) { return Buffers_[static_cast<size_t>(which)]; }
 
@@ -172,8 +167,10 @@ struct SubjectResidency {
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
-  [[nodiscard]] std::expected<void, std::string>
-  UploadMip(SDL_GPUTexture *image, std::span<const float> level, Texels extent, uint32_t mip) const;
+  [[nodiscard]] std::expected<void, std::string> UploadMip(SDL_GPUTexture *image,
+                                                           std::span<const uint8_t> level,
+                                                           Texels extent,
+                                                           uint32_t mip) const;
   mutable size_t UploadAttempts_ = 0;
   mutable size_t TotalUploadAttempts_ = 0;
   size_t RecordedCrossings_ = 0;
@@ -212,7 +209,6 @@ private:
   };
 
   SDL_GPUDevice *Device_ = nullptr;
-  bool FiltersFloat32_ = false;
   std::array<OwnedBuffer, kStreams> Buffers_;
   std::array<uint32_t, kStreams> Held_{};
   Shaping Shape_;

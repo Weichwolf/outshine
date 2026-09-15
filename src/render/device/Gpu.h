@@ -13,8 +13,6 @@ struct Gpu {
   SDL_GPUTextureFormat SurfaceFormat = SDL_GPU_TEXTUREFORMAT_INVALID;
   int Width = 0, Height = 0;
 
-  bool FiltersFloat32 = false;
-
   AttachmentSet SceneColours;
 };
 

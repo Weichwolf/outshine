@@ -107,6 +107,26 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
   return filter == SubjectFilter::Nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
 }
 
+uint8_t Byte(float value) {
+  return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * kByteSteps));
+}
+
+void Encode(std::span<const float> linear,
+            SubjectResidency::Transfer transfer,
+            std::vector<uint8_t> &encoded) {
+  encoded.resize(linear.size());
+  for (size_t texel = 0; texel < linear.size() / kRgbaChannels; ++texel) {
+    for (size_t channel = 0; channel < kAlphaChannel; ++channel) {
+      const float value = linear[texel * kRgbaChannels + channel];
+      encoded[texel * kRgbaChannels + channel] =
+          Byte(transfer == SubjectResidency::Transfer::Srgb ? ColourSpace::SrgbFromLinear(value)
+                                                            : value);
+    }
+    encoded[texel * kRgbaChannels + kAlphaChannel] =
+        Byte(linear[texel * kRgbaChannels + kAlphaChannel]);
+  }
+}
+
 }
 
 size_t SubjectResidency::TakeUploadAttempts() {
@@ -420,11 +440,10 @@ void SubjectResidency::CommitCrossings() {
 }
 
 std::expected<void, std::string> SubjectResidency::UploadMip(SDL_GPUTexture *image,
-                                                             std::span<const float> level,
+                                                             std::span<const uint8_t> level,
                                                              Texels extent,
                                                              uint32_t mip) const {
-  const uint32_t bytes =
-      extent.WidthPx * extent.HeightPx * 4u * static_cast<uint32_t>(sizeof(float));
+  const auto bytes = static_cast<uint32_t>(level.size());
   SDL_GPUTransferBufferCreateInfo wantedTransfer{};
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = bytes;
@@ -497,7 +516,8 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   BoundImage bound;
   SDL_GPUTextureCreateInfo wantedTexture{};
   wantedTexture.type = SDL_GPU_TEXTURETYPE_2D;
-  wantedTexture.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+  wantedTexture.format = decode == Transfer::Srgb ? SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB
+                                                  : SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
   wantedTexture.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
   wantedTexture.width = width;
   wantedTexture.height = height;
@@ -515,6 +535,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   }
 
   std::vector<float> level = linear;
+  std::vector<uint8_t> encoded;
   uint32_t levelWidth = width;
   uint32_t levelHeight = height;
   for (uint32_t which = 0; which < levels; ++which) {
@@ -526,8 +547,9 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
       levelWidth = made.WidthPx;
       levelHeight = made.HeightPx;
     }
+    Encode(level, decode, encoded);
     auto uploaded = UploadMip(
-        bound.Image.Get(), level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, which);
+        bound.Image.Get(), encoded, {.WidthPx = levelWidth, .HeightPx = levelHeight}, which);
     if (!uploaded) { return std::unexpected(std::move(uploaded.error())); }
   }
 

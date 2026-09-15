@@ -179,7 +179,7 @@ std::string FragmentShaderVariant(SurfaceDomain domain, SurfaceKind kind, Vertex
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   Device = gpu.Device;
-  Bound().StandsOn(gpu.Device, gpu.FiltersFloat32);
+  Bound().StandsOn(gpu.Device);
 
   Colours.clear();
   for (const Resource colour : gpu.SceneColours) { Colours.push_back(colour); }
@@ -476,11 +476,6 @@ bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
                                     std::string &error) const {
   if (Device == nullptr) {
     error = "the subject unit has no device, so no surface can be bound";
-    return false;
-  }
-  if (!Bound().FiltersFloat32()) {
-    error = "the device did not grant float32-filterable, and this unit's colour image is linear "
-            "f32 so that the filter runs on exact linear values";
     return false;
   }
   for (size_t slot = 0; slot < materials.size(); ++slot) {

@@ -320,11 +320,6 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
     Handles_.SceneColours = pass.Targets;
     break;
   }
-  Handles_.FiltersFloat32 = SDL_GPUTextureSupportsFormat(device,
-                                                         SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
-                                                         SDL_GPU_TEXTURETYPE_2D,
-                                                         SDL_GPU_TEXTUREUSAGE_SAMPLER);
-
   for (size_t r = 0; r < kResourceCount; ++r) {
     const auto id = static_cast<Resource>(r);
     if (Plan_->Holds(id)) { Create(id); }
@@ -341,8 +336,7 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
              {"driver", SDL_GetGPUDeviceDriver(device)},
              {"plan", Plan_->Digest()},
              {"passes", Plan_->PassCount()},
-             {"stages", static_cast<int>(Plan_->Order().size())},
-             {"f32filter", Handles_.FiltersFloat32}});
+             {"stages", static_cast<int>(Plan_->Order().size())}});
   for (size_t at = 0; at < kStageCount; ++at) {
     const auto stage = static_cast<Stage>(at);
     if (Executable(stage)) { continue; }
