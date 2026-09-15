@@ -234,14 +234,14 @@ Shot Take(const Place &place, bool tells) {
   return drawn;
 }
 
-Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view under) {
-  Shot shot;
-  HeapProbe::ForgetPeak();
+namespace {
+bool PreloadShot(
+    Engine &engine, std::string_view name, bool tells, double preloadSeconds, Shot &shot) {
   const auto asked = std::chrono::steady_clock::now();
   Loading last;
   const bool ready =
       engine
-          .preload(kPatienceS,
+          .preload(preloadSeconds,
                    [&](const Loading &how) {
                      if (!tells) { return; }
                      if (how.ElapsedS - last.ElapsedS < kProgressEveryS && how.share() < 1.0) {
@@ -271,10 +271,75 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
                " did not preload, so nothing measured after this point is "
                "about the declaration: " +
                std::string(engine.error());
-    return shot;
+    return false;
   }
   shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
   (void)HeapProbe::Sample();
+
+  return true;
+}
+
+bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
+  constexpr double kBytesPerMiB = 1024 * 1024;
+  std::vector<double> heldMs;
+  std::vector<double> advancedMs;
+  std::vector<double> renderedMs;
+  heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  advancedMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  renderedMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  for (int at = 0; at < kTimedFrames; ++at) {
+    const auto before = std::chrono::steady_clock::now();
+    if (const auto result = engine.advance(); !result) {
+      shot.Why = std::string(name) + Says::kTimedAdvanceFailed + result.error();
+      return false;
+    }
+    const auto advanced = std::chrono::steady_clock::now();
+    if (const auto result = engine.renderer().render(Extent{}); !result) {
+      shot.Why = std::string(name) + Says::kTimedRenderFailed + result.error();
+      return false;
+    }
+    const auto rendered = std::chrono::steady_clock::now();
+    (void)HeapProbe::Sample();
+    advancedMs.push_back(std::chrono::duration<double, std::milli>(advanced - before).count());
+    renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
+    heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
+    if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
+    shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
+  }
+  shot.Frames = heldMs.size();
+  shot.PeakHeapMB = static_cast<double>(HeapProbe::PeakLiveBytes()) / kBytesPerMiB;
+  shot.PeakCostMs = HeapProbe::SampleCostMs();
+  std::ranges::sort(heldMs);
+  const auto p50 = QuantileOf(heldMs, kMiddleQuantile);
+  const auto p95 = QuantileOf(heldMs, kBroadQuantile);
+  const auto p99 = QuantileOf(heldMs, kWidestQuantile);
+  const auto widest =
+      [](std::vector<double> &of) -> std::expected<std::pair<double, double>, QuantileError> {
+    std::ranges::sort(of);
+    const auto rank = QuantileOf(of, kWidestQuantile);
+    if (!rank) { return std::unexpected(rank.error()); }
+    return std::pair{*rank, of.back()};
+  };
+  const auto advanced = widest(advancedMs);
+  const auto rendered = widest(renderedMs);
+  if (!p50 || !p95 || !p99 || !advanced || !rendered) {
+    shot.Why = std::string(name) + Says::kMissingTimingSamples;
+    return false;
+  }
+  shot.P50Ms = *p50;
+  shot.P95Ms = *p95;
+  shot.P99Ms = *p99;
+  std::tie(shot.AdvanceP99Ms, shot.AdvanceWorstMs) = *advanced;
+  std::tie(shot.RenderP99Ms, shot.RenderWorstMs) = *rendered;
+
+  return true;
+}
+}
+
+Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view under) {
+  Shot shot;
+  HeapProbe::ForgetPeak();
+  if (!PreloadShot(engine, name, tells, kPatienceS, shot)) { return shot; }
 
   const int settle = engine.renderer().settleFrames();
   const int wanted = settle > 2 ? settle : 2;
@@ -333,56 +398,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
     }
   }
 
-  std::vector<double> heldMs;
-  std::vector<double> advancedMs;
-  std::vector<double> renderedMs;
-  heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  advancedMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  renderedMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  for (int at = 0; at < kTimedFrames; ++at) {
-    const auto before = std::chrono::steady_clock::now();
-    if (const auto result = engine.advance(); !result) {
-      shot.Why = std::string(name) + Says::kTimedAdvanceFailed + result.error();
-      return shot;
-    }
-    const auto advanced = std::chrono::steady_clock::now();
-    if (const auto result = engine.renderer().render(Extent{}); !result) {
-      shot.Why = std::string(name) + Says::kTimedRenderFailed + result.error();
-      return shot;
-    }
-    const auto rendered = std::chrono::steady_clock::now();
-    (void)HeapProbe::Sample();
-    advancedMs.push_back(std::chrono::duration<double, std::milli>(advanced - before).count());
-    renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
-    heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
-    if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
-    shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
-  }
-  shot.Frames = heldMs.size();
-  shot.PeakHeapMB = static_cast<double>(HeapProbe::PeakLiveBytes()) / (1024.0 * 1024.0);
-  shot.PeakCostMs = HeapProbe::SampleCostMs();
-  std::ranges::sort(heldMs);
-  const auto p50 = QuantileOf(heldMs, kMiddleQuantile);
-  const auto p95 = QuantileOf(heldMs, kBroadQuantile);
-  const auto p99 = QuantileOf(heldMs, kWidestQuantile);
-  const auto widest =
-      [](std::vector<double> &of) -> std::expected<std::pair<double, double>, QuantileError> {
-    std::ranges::sort(of);
-    const auto rank = QuantileOf(of, kWidestQuantile);
-    if (!rank) { return std::unexpected(rank.error()); }
-    return std::pair{*rank, of.back()};
-  };
-  const auto advanced = widest(advancedMs);
-  const auto rendered = widest(renderedMs);
-  if (!p50 || !p95 || !p99 || !advanced || !rendered) {
-    shot.Why = std::string(name) + Says::kMissingTimingSamples;
-    return shot;
-  }
-  shot.P50Ms = *p50;
-  shot.P95Ms = *p95;
-  shot.P99Ms = *p99;
-  std::tie(shot.AdvanceP99Ms, shot.AdvanceWorstMs) = *advanced;
-  std::tie(shot.RenderP99Ms, shot.RenderWorstMs) = *rendered;
+  if (!MeasureFrames(engine, name, shot)) { return shot; }
 
   shot.Measures = engine.measures();
 
