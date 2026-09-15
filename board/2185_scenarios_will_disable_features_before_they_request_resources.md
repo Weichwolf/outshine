@@ -35,9 +35,9 @@ kein Beleg für einen durchgängigen Ressourcenvertrag.
 ## Abnahme und weitere Pfade
 
 - [ ] Vegetation an/aus durch XML-Roundtrip und wiederholtes Declare erhalten.
-- [ ] Aus mit absichtlich ungültigem Artenpfad erfolgreich, keine Flora-Registry,
+- [x] Katalog aus mit absichtlich ungültigem Artenpfad erfolgreich, keine Flora-Registry,
       kein TreeFor-Ergebnis; Gebäude verfügbar. Wiederan funktioniert.
-- [ ] Aktivieren mit ungültigem Pfad verweigert atomar; vorheriger Zustand gültig.
+- [x] Katalogaktivierung mit ungültigem Pfad verweigert atomar; vorheriger Zustand gültig.
 - [ ] Reales Place-Rendering aus erzeugt ein PNG ohne Crown-Wartebedingung.
 - [ ] Negativkontrolle ignoriert den Schalter und lässt die Ressourcenprüfung rot werden.
 - [ ] Weitere Features inventarisieren und gleiche Verträge implementieren:
@@ -46,3 +46,9 @@ kein Beleg für einen durchgängigen Ressourcenvertrag.
 
 Ein isoliertes PNG ist keine Abnahme des vollständigen Places. Aktivierte und
 deaktivierte Konfigurationen im Ergebnis eindeutig nennen.
+
+Katalogvertrag: 25 Checks, drei Umschaltzyklen; vorzeitiges Löschen alter Generatoren
+erzeugt drei Fehler, restauriert grün. Eigenständiger Test unter generators/Shipped.
+Engine-Abnahme offen: Composes sammelt Shipping::Stands-Fehler nur in Carried;
+als Fehler propagieren. Alte Kronen vor Katalogwechsel freigeben und erneut Declare
+mit aktivierter/deaktivierter Vegetation prüfen. Katalogtest beweist keinen GPU-Lifecycle.

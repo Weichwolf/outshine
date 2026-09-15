@@ -1,4 +1,5 @@
 #include <span>
+#include <cstdint>
 #include "Shipped.h"
 #include "road/Corridors.h"
 
@@ -44,44 +45,62 @@ constexpr Rank kRankFlora{200};
 
 bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
                       std::string_view speciesDir,
-                      std::string &error) {
-  if (Ready()) { return true; }
-  if (!declared.Ready()) {
-    error = "the declared vegetation carries no rows, so nothing shipped can stand on it";
-    return false;
-  }
+                      std::string &error,
+                      bool vegetation) {
+  if (Ready() && VegetationEnabled_ == vegetation) { return true; }
+  Shipping candidate;
+  if (!candidate.BuildCatalogue(declared, speciesDir, error, vegetation)) { return false; }
+  Species_.swap(candidate.Species_);
+  Made_.swap(candidate.Made_);
+  Draws_.swap(candidate.Draws_);
+  std::swap(Placing_, candidate.Placing_);
+  std::swap(Drawing_, candidate.Drawing_);
+  VegetationEnabled_ = vegetation;
+  return true;
+}
 
-  std::vector<float> perM2;
-  perM2.reserve(declared.TemplateCount());
-  for (size_t row = 0; row < declared.TemplateCount(); ++row) {
-    perM2.push_back(declared.Rows()[row].Edge[2]);
-  }
-
+bool Shipping::BuildCatalogue(const outshine::Ground::VegetationTemplates &declared,
+                              std::string_view speciesDir,
+                              std::string &error,
+                              bool vegetation) {
   std::vector<TreeSpecies> species;
-  if (!ReadSpecies(std::string(speciesDir).c_str(), species, error)) { return false; }
-  std::vector<Forest::Stem> stems;
   std::vector<ForestDraw::Prototype> prototypes;
-  stems.reserve(species.size());
-  for (const TreeSpecies &one : species) {
-    prototypes.push_back({.Cluster = ClusterId{static_cast<uint32_t>(stems.size())},
-                          .HeightM = static_cast<double>(one.HeightM())});
-    stems.push_back({.HeightM = static_cast<double>(one.HeightM())});
-  }
-  if (stems.empty() || perM2.empty()) {
-    error = "the declaration names no species or no density, so nothing shipped can stand";
-    return false;
-  }
+  if (vegetation) {
+    if (!declared.Ready()) {
+      error = "the declared vegetation carries no rows, so nothing shipped can stand on it";
+      return false;
+    }
 
-  auto made = std::make_unique<Forest>(std::span<const Forest::Stem>(stems.data(), stems.size()),
-                                       std::span<const float>(perM2.data(), perM2.size()),
-                                       declared.Limit());
-  auto drawn = std::make_unique<ForestDraw>(prototypes);
-  if (!Placing_.Add(kRankFlora, *made) || !Drawing_.Add(kRankFlora, *drawn)) {
-    error = "the shipped catalogue names one rank twice";
-    return false;
+    std::vector<float> perM2;
+    perM2.reserve(declared.TemplateCount());
+    for (size_t row = 0; row < declared.TemplateCount(); ++row) {
+      perM2.push_back(declared.Rows()[row].Edge[2]);
+    }
+
+    if (!ReadSpecies(std::string(speciesDir).c_str(), species, error)) { return false; }
+    std::vector<Forest::Stem> stems;
+    stems.reserve(species.size());
+    for (const TreeSpecies &one : species) {
+      prototypes.push_back({.Cluster = ClusterId{static_cast<uint32_t>(stems.size())},
+                            .HeightM = static_cast<double>(one.HeightM())});
+      stems.push_back({.HeightM = static_cast<double>(one.HeightM())});
+    }
+    if (stems.empty() || perM2.empty()) {
+      error = "the declaration names no species or no density, so nothing shipped can stand";
+      return false;
+    }
+
+    auto made = std::make_unique<Forest>(std::span<const Forest::Stem>(stems.data(), stems.size()),
+                                         std::span<const float>(perM2.data(), perM2.size()),
+                                         declared.Limit());
+    auto drawn = std::make_unique<ForestDraw>(prototypes);
+    if (!Placing_.Add(kRankFlora, *made) || !Drawing_.Add(kRankFlora, *drawn)) {
+      error = "the shipped catalogue names one rank twice";
+      return false;
+    }
+    Made_.push_back(std::move(made));
+    Draws_.push_back(std::move(drawn));
   }
-  Made_.push_back(std::move(made));
-  Draws_.push_back(std::move(drawn));
 
   auto built = std::make_unique<Buildings>(ContactMaterial{0});
   auto drawnBuilt =

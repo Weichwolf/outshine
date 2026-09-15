@@ -29,7 +29,8 @@ public:
 
   [[nodiscard]] bool Stands(const outshine::Ground::VegetationTemplates &declared,
                             std::string_view speciesDir,
-                            std::string &error);
+                            std::string &error,
+                            bool vegetation = true);
 
   [[nodiscard]] bool Ready() const { return !Made_.empty(); }
 
@@ -50,6 +51,11 @@ public:
   [[nodiscard]] const GroundMesher &Covering() const { return *Coverer_; }
 
 private:
+  [[nodiscard]] bool BuildCatalogue(const outshine::Ground::VegetationTemplates &declared,
+                                    std::string_view speciesDir,
+                                    std::string &error,
+                                    bool vegetation);
+  bool VegetationEnabled_ = true;
   std::vector<TreeSpecies> Species_;
   std::unique_ptr<Generator> Offered_;
   std::unique_ptr<GroundMesher> Coverer_;
