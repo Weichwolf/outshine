@@ -103,9 +103,9 @@ run() enthält weder Pacing noch Ereignisverarbeitung oder expliziten Abbruch, s
 eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbare Pfad;
 den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
 mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
-ViewBook/InputMap publizieren bei Erfolg; SameRenderPlan vergleicht fünf Parameter.
+Assembly: Weltaufbau unabhängig von Entitätskapazität; Kandidat für Follow-Kamera verfügbar.
 Offen: Welt-/GPU-Rollback, View-Werte, TimeScale, Joins/Overriding/Surfacing und
-Velocity-Gültigkeit (Hintergrund -10000 ist kein Bewegungsvektor).
+Velocity-Gültigkeit; fehlgeschlagener Weltaufbau erhält die vorige Simulation.
 Init prüft GPU-Wait vor Umbau, erneuert Frame-/Temporalzustand und Offscreen-Ziel;
 Transmission folgt dem aktuellen Plan. Stage-Konfiguration/Passzuordnung sind getrennt.
 Sky-Pipeline übernimmt tatsächliche Farbattachments; Normal-/Identitätsziele maskiert.
