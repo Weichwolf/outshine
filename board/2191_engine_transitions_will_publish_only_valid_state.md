@@ -3,7 +3,7 @@ State: active
 Area: engine, include, scenario
 Tags: architecture, state, errors
 Parent: 2188
-Depends: 2210
+Depends:
 # Engine transitions will publish only valid state
 handleEvent trennt inzwischen behandelt, ignoriert und Fehler; öffentliche Input-/
 UI-Tests prüfen dies. Der Legacy-error-Text bleibt separat und kann veraltet sein.
