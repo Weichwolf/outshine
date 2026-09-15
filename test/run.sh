@@ -256,6 +256,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
+    outshine/src/base/*) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3)"; return ;;
     outshine/src/generators/*) printf '%s' "$CXXSTD -fno-exceptions"; return ;;
     render) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)"; return ;;
   esac

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_BASE_IO_PNG_H
-#define OUTSHINE_BASE_IO_PNG_H
+#ifndef OUTSHINE_BASE_IO_PNGIMAGE_H
+#define OUTSHINE_BASE_IO_PNGIMAGE_H
 
 #include <cstddef>
 #include <cstdint>

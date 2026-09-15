@@ -10,13 +10,6 @@ thread_local bool rejectAllocation = false;
 thread_local size_t allocationAttempts = 0;
 }
 
-void *operator new(size_t bytes) {
-  ++allocationAttempts;
-  if (rejectAllocation) { throw std::bad_alloc{}; }
-  if (void *block = std::malloc(bytes == 0 ? 1 : bytes)) { return block; }
-  throw std::bad_alloc{};
-}
-
 void *operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t &) noexcept {
   ++allocationAttempts;
   if (rejectAllocation) { return nullptr; }

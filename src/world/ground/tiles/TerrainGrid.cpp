@@ -3,7 +3,7 @@
 #include "GroundSample.h"
 
 #include "Log.h"
-#include "Png.h"
+#include "PngImage.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstddef>

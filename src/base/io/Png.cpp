@@ -1,4 +1,4 @@
-#include "Png.h"
+#include "PngImage.h"
 
 #include <array>
 #include <cstdint>

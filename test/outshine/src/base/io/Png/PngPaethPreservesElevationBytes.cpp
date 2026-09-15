@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "Check.h"
-#include "Png.h"
+#include "PngImage.h"
 
 int main() {
   using namespace outshine::Test;
