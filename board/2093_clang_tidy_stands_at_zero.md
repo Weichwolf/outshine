@@ -23,7 +23,6 @@ static_assert-Verträge nach 2194. Compiler-Schalter erst mit belegten Fehlerpfa
 Referenzen: SDL3/Khronos für Plattform/Materialien; belegte Filament-/Cesium-/AAA-
 Verfahren nach 2188. Unveröffentlichte RAGE-Interna werden nicht behauptet.
 ## JSON-Eingabegrenze
-
 ParseValueInside bündelt Container, Literale und Zahlen (Komplexität 98).
 ParseString akzeptiert unbekannte Escapes und rohe Steuerzeichen; fehlgeschlagene
 Dokumente geben Teilknoten frei. Grammatikphasen trennen, Escapes vor Decode prüfen,
