@@ -19,6 +19,9 @@ wechselt ausdrücklich in Failed. Keine Erfolgsvortäuschung durch alte Framebil
 Fehler als strukturierter Code mit Kontext; SDL-Text am Fehlerort übernehmen.
 Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
 setSurfaces/Live::Redeclare ersetzen Zustand vor Compose-Erfolg: Rollback fehlt.
+Overlay-Atlas ignoriert Map/Acquire/Pass/Submit-Fehler und hat uint32-Byteüberlauf.
+Zuerst Upload als Kandidat mit RAII und geprüften SDL-Ergebnissen veröffentlichen;
+Fehlerinjektion muss alte Pixel erhalten und erfolgreichen Retry beweisen.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
@@ -103,7 +106,6 @@ run() enthält weder Pacing noch Ereignisverarbeitung oder expliziten Abbruch, s
 eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbare Pfad;
 den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
 mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
-## Bereits geprüfte Übergänge
 ViewBook/InputMap publizieren bei Erfolg; SameRenderPlan vergleicht fünf Parameter.
 API-Regressionen und Negativkontrollen bestehen; Nachweise in Git.
 Offen: Welt-/GPU-Rollback, View-Werte, TimeScale, Joins/Overriding/Surfacing und
@@ -116,5 +118,4 @@ Sky-Pipeline übernimmt tatsächliche Farbattachments; Normal-/Identitätsziele 
 pixelgleich zu frischer Instanz und Transmission an/aus/an. Altcode-Negativkontrollen
 belegen Frame-/Transmissionfehler; feste Sky-Attachments verursachten Metal-Abbruch.
 Sechs GPU-Regressionen bestehen; Wien visuell geprüft, 0/921600 Pixel verändert.
-Clang-tidy 97 → 96. Vollständiger Allokationsrollback, Freigabe entfallener
-Planressourcen und übrige Readback-Gültigkeitsverträge bleiben offen. Details in Git.
+Allokationsrollback, Freigabe entfallener Planressourcen und Readback-Verträge offen.
