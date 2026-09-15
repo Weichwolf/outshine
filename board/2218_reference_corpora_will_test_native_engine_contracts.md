@@ -113,7 +113,8 @@ Velocity-Ausgabe weg. Ohne Aerial MIT sceneVelocity bleibt FAIL; MIT Aerial OHNE
 sceneVelocity PASS. Die frühere Zuordnung zur Luftperspektive war falsch.
 Velocity-Renderziel behalten, aber outVelocity=vec2(0) statt Clip-Differenz: PASS.
 Clip-Isolation: nur curClip.xy/curClip.w weiterhin FAIL; gl_FragCoord.xy*0.001 PASS
-(4 Checks). Vorherige Matrix allein damit ausgeschlossen; Clip-Varyings/Shaderübersetzung
-weiter isolieren. Alle Proben zurückgenommen. Float-Zwischenpuffer allein beheben FAIL nicht.
+(4 Checks); noperspective weiterhin FAIL. GPU-Wartebarriere vor PrepareFrame: PASS;
+Barriere entfernt: wieder FAIL. Ressourcenlebensdauer/Synchronisation zuerst untersuchen,
+Shaderkosten können den Fehler nur sichtbar machen. Alle Proben zurückgenommen.
 Die Bandfarben beweisen Luftperspektive nicht; analytische Extinktionsfälle ergänzen.
 LUTs und 192-Byte-Aerial-Uniformblock bytegleich; temporäre Instrumentierung entfernt.
