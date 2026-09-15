@@ -17,6 +17,19 @@ void *operator new(size_t bytes) {
   throw std::bad_alloc{};
 }
 
+void *operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t &) noexcept {
+  ++allocationAttempts;
+  if (rejectAllocation) { return nullptr; }
+  const size_t requested = static_cast<size_t>(alignment);
+  const size_t supported = requested < sizeof(void *) ? sizeof(void *) : requested;
+  void *block = nullptr;
+  return posix_memalign(&block, supported, bytes) == 0 ? block : nullptr;
+}
+
+void operator delete(void *block, std::align_val_t) noexcept {
+  std::free(block);
+}
+
 void operator delete(void *block) noexcept {
   std::free(block);
 }
@@ -27,17 +40,14 @@ int main() {
   FlatMap<uint64_t> map;
   for (uint64_t key = 0; key < 256; ++key) {
     const auto inserted = map.Emplace(key, key + 1000);
-    CHECK(inserted.second, "new keys remain insertable across growth");
+    CHECK(inserted && inserted->second, "new keys remain insertable across growth");
     uint64_t *const previous = map.Find(0);
     const size_t before = allocationAttempts;
-    bool completed = false;
-    bool retained = false;
     rejectAllocation = true;
-    try {
-      const auto duplicate = map.Emplace(0, 999);
-      completed = true;
-      retained = !duplicate.second && duplicate.first == previous && *duplicate.first == 1000;
-    } catch (const std::bad_alloc &) {}
+    const auto duplicate = map.Emplace(0, 999);
+    const bool completed = duplicate.has_value();
+    const bool retained = duplicate && !duplicate->second && duplicate->first == previous &&
+                          *duplicate->first == 1000;
     rejectAllocation = false;
     CHECK(completed && allocationAttempts == before, "duplicate insertion never allocates");
     CHECK(retained, "duplicate insertion preserves the existing value and its address");

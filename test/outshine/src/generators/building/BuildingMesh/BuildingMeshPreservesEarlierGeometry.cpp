@@ -10,6 +10,8 @@
 namespace {
 std::atomic<size_t> calls{0};
 thread_local ptrdiff_t failAfter = -1;
+thread_local ptrdiff_t failMapAfter = -1;
+thread_local size_t mapFailures = 0;
 
 struct ForeignScratch final : outshine::MeshScratch {};
 }
@@ -23,6 +25,27 @@ void *operator new(size_t bytes) {
   void *block = std::malloc(bytes == 0 ? 1 : bytes);
   if (block == nullptr) { throw std::bad_alloc{}; }
   return block;
+}
+
+void *operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t &) noexcept {
+  calls.fetch_add(1, std::memory_order_relaxed);
+  if (failAfter >= 0 && failAfter-- == 0) {
+    failAfter = -1;
+    return nullptr;
+  }
+  if (failMapAfter >= 0 && failMapAfter-- == 0) {
+    failMapAfter = -1;
+    ++mapFailures;
+    return nullptr;
+  }
+  const size_t requested = static_cast<size_t>(alignment);
+  const size_t supported = requested < sizeof(void *) ? sizeof(void *) : requested;
+  void *block = nullptr;
+  return posix_memalign(&block, supported, bytes) == 0 ? block : nullptr;
+}
+
+void operator delete(void *block, std::align_val_t) noexcept {
+  std::free(block);
 }
 
 void operator delete(void *block) noexcept {
@@ -52,6 +75,23 @@ int main() {
         "valid building appends geometry");
   CHECK(count > 0, "fault injection observes actual mesh allocations");
   if (!built || count == 0) { return Report(); }
+  for (const ptrdiff_t allocation : {ptrdiff_t{0}, ptrdiff_t{1}, ptrdiff_t{2}}) {
+    scratch = mesher.Scratch();
+    Raised output = previous;
+    const size_t failedBefore = mapFailures;
+    failMapAfter = allocation;
+    const auto rejected = mesher.Mesh(plan, *scratch, output);
+    failMapAfter = -1;
+    CHECK(mapFailures == failedBefore + 1, "fault injection reached a nonthrowing map allocation");
+    CHECK(!rejected && rejected.error() == StructureMeshError::BuildFailed,
+          "nonthrowing map failure reaches the building transaction");
+    CHECK(output.WallRun == previous.WallRun && output.WallCorners.size() == 3 &&
+              output.RoofRun.empty() && output.RoofCorners.empty(),
+          "map allocation failure rolls back appended geometry");
+    CHECK(mesher.Mesh(plan, *scratch, output).has_value() && output.WallRun == complete.WallRun &&
+              output.RoofRun == complete.RoofRun,
+          "building scratch recovers after map allocation failure");
+  }
   for (size_t failure : {size_t{0}, count / 2, count - 1}) {
     scratch = mesher.Scratch();
     Raised output = previous;

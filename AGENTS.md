@@ -258,6 +258,9 @@ Geometrie, Beleuchtung, Koordinaten oder Simulation werden dadurch nicht legitim
 - Werkzeuge standardmäßig still ausführen. Vollständige Logs ins System-Tempverzeichnis;
   bei Erfolg eine knappe Ergebniszeile, bei Fehlern gezielt begrenzte Diagnosen lesen.
   Exitstatus und Prüfabdeckung erhalten; weniger Ausgabe bedeutet nicht weniger Prüfung.
+- stdout und stderr langer Builds, Tests und Renderläufe in dieselbe Logdatei umleiten.
+  Tool-Ausgabebudgets klein setzen; große Diagnosen lokal filtern und aggregieren,
+  statt Rohdaten in den Kontext zu laden. Bei abgeschnittenen Fehlern gezielt nachlesen.
 - Suchen eingrenzen, unabhängige Abfragen bündeln. Erst Fundstellen, dann benötigte
   Ausschnitte lesen; keine ganzen Dateien oder Logs ohne konkreten Erkenntnisbedarf.
 - Laufende Prozesse über ihren Handle abwarten. Keine wiederholten Log-Tails ohne

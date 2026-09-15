@@ -79,9 +79,11 @@ ohne Allokation sowie unveränderten Wert/Adresse. Altstand scheitert an drei
 Wachstumsgrenzen. Behandelbare allgemeine Map-Allokationsfehler bleiben offen.
 
 ## Behandelbares Map-Wachstum
-Nur BuildingScratch nutzt FlatMap produktiv. Slot-Array mit nothrow-Allokation besitzen;
+Nur BuildingScratch nutzt FlatMap produktiv. Ausgerichteter Slot-Speicher nutzt nothrow;
 Emplace liefert expected und erhält bei Fehler Tabelle, Werte und Referenzen. Neue
-Kapazität vor Rehash allokieren, Größenarithmetik prüfen; Schlüssel/Werte nichtwerfend.
+Kapazität entsteht vor Rehash, Größenarithmetik ist geprüft; Schlüssel/Werte nichtwerfend.
 Gebäude-Status übernimmt Map-Fehler und rollt angehängte Geometrie weiterhin zurück.
-Tests: initialer und späterer Allokationsfehler, Wiederaufnahme, Kollisionen, Move/Reuse.
-Andere Scratch-/Output-Vektoren bleiben ein offener Exception-Pfad.
+Tests: erste/spätere Allokationsfehler, Wiederaufnahme, Kollisionen, Move/Reuse.
+Unterdrückte Map-Fehlerweitergabe verletzt neun Gebäudetest-Checks; restauriert grün.
+Konstruktion/Freigabe einschließlich überausgerichteter Werte geprüft; fehlende Destruktoren
+verletzen die Lifetime-Negativkontrolle. Andere Scratch-/Output-Vektoren bleiben offen.

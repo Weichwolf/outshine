@@ -190,13 +190,17 @@ public:
   }
 
   [[nodiscard]] uint32_t Index(const Vtx &v) {
+    if (!Status_) { return 0; }
     const auto ce = static_cast<int64_t>(std::llround(v.P.EastM * 1000.0));
     const auto cn = static_cast<int64_t>(std::llround(v.P.NorthM * 1000.0));
     const auto cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
     const BuildingPositionKey key{.EastMm = ce, .NorthMm = cn, .HeightMm = cz};
     if (const uint32_t *found = Scratch_.Welded.Find(key)) { return *found; }
     const auto made = static_cast<uint32_t>(Scratch_.Welded.Size());
-    (void)Scratch_.Welded.Emplace(key, made);
+    if (!Scratch_.Welded.Emplace(key, made)) {
+      Status_ = std::unexpected(StructureMeshError::BuildFailed);
+      return 0;
+    }
     return made;
   }
 
@@ -212,7 +216,7 @@ public:
     const uint32_t ia = Index(a);
     const uint32_t ib = Index(b);
     const uint32_t ic = Index(c);
-    if (ia == ib || ib == ic || ic == ia) { return; }
+    if (!Status_ || ia == ib || ib == ic || ic == ia) { return; }
     const double e1 = b.P.EastM - a.P.EastM;
     const double n1 = b.P.NorthM - a.P.NorthM;
     const double z1 = b.Z - a.Z;
@@ -225,9 +229,10 @@ public:
     for (double &c2 : nrm) { c2 /= len; }
     const int side = nrm[2] > kSteepestRoof ? 1 : 0;
     std::vector<uint32_t> &run = side == 1 ? Out_.RoofRun : Out_.WallRun;
-    run.push_back(Corner(side, a, ia, nrm));
-    run.push_back(Corner(side, b, ib, nrm));
-    run.push_back(Corner(side, c, ic, nrm));
+    const std::array triangle{
+        Corner(side, a, ia, nrm), Corner(side, b, ib, nrm), Corner(side, c, ic, nrm)};
+    if (!Status_) { return; }
+    run.insert(run.end(), triangle.begin(), triangle.end());
   }
 
   void Quad(const Vtx &a, const Vtx &b, const Vtx &c, const Vtx &d) {
@@ -237,6 +242,7 @@ public:
 
 private:
   [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const Vec3 &nrm) {
+    if (!Status_) { return 0; }
     std::vector<StoredVertex> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
     Vec3f placeM{};
     Vec3f turned{};
@@ -252,7 +258,10 @@ private:
     auto &corners = Scratch_.Corners[static_cast<size_t>(side)];
     if (const uint32_t *found = corners.Find(key)) { return *found; }
     const auto made = static_cast<uint32_t>(soup.size());
-    (void)corners.Emplace(key, made);
+    if (!corners.Emplace(key, made)) {
+      Status_ = std::unexpected(StructureMeshError::BuildFailed);
+      return 0;
+    }
     soup.push_back(vertex);
     return made;
   }
