@@ -22,11 +22,13 @@ gerundet gleich; die exakte Wiederholungsprüfung ist zu Recht rot. Streaming is
 oder an dessen vorheriger Ressourcen-/Pipelinestellung zu behandeln, nicht als
 Atmosphären- oder Mip-Ausnahme.
 
-Die Culling-Inspektion trennt die Schach-Frames erstmals ursächlich: ohne vorige
-Tiefenpyramide hält Frame eins 4 394 688 Indizes, spätere Frames 3 989 952 bei je
-33 Batches. Tiefe bleibt exakt gleich. Die Occlusion-Historie darf ihre sichtbaren
-Ergebnisse nicht ändern; gleiche Culling-Zähler sind dagegen kein allgemeiner Vertrag.
-Konservative Projektion/Pyramidenabfrage und transparente Geometrie prüfen.
+Die Culling-Inspektion hatte zuerst 4 394 688 gegenüber 3 989 952 Indizes bei je
+33 Batches gezeigt. Eine verworfene Untersuchung mit Tangenten-Kugelrechteck und
+zwei zusätzlichen Pyramidentexeln hielt danach in allen Frames exakt 4 394 688
+Indizes, die linearen Frames unterschieden sich dennoch um 404 Kanäle. Das
+Culling-Ergebnis ist somit nicht die Ursache. ABeautifulGame trägt keine Alpha-Modi
+und `Shape` clustert ohnehin nur opaque/masked Geometrie. Der verbleibende Übergang
+ist der `occludes`-Steuerpfad beziehungsweise der Zustand der Tiefenpyramide selbst.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
@@ -40,9 +42,12 @@ ohne vollständiges Xcode nicht reproduzierbar.
 
 ## Lösung und Abnahme
 
-1. Erstframe-Übergänge von Ressourcen, Tabellen, Compute-Culling und Pipelinebindung
-   einzeln gegen unveränderte Bilddaten prüfen. Einen Plattformpfad nur mit belegter
-   Ursache ändern; Uploadbatches, Diagnoseausgaben und Warm-up-Frames nicht behalten.
+1. Die Tiefenpyramide vor ihrem ersten Culling-Zugriff als vollständige All-Far-Historie
+   erzeugen und den gleichen `occludes`-Pfad ab Frame eins ausführen. Die Initialisierung
+   gehört in den Setup-/Ressourcenübergang, darf weder einen Vorlauf-Frame noch Warten
+   im Echtzeitpfad erzeugen und muss bei Zielwechsel erneut gelten. Erst dann
+   Ressourcen-, Tabellen- und Pipelineübergänge einzeln gegen unveränderte Bilddaten
+   prüfen. Uploadbatches und Diagnoseausgaben nicht behalten.
 2. Falls Metal die Ursache ist, GLSL als Quelle behalten und einen reproduzierbaren
    backend-spezifischen Buildproduktpfad wählen, der die benötigte Compilersemantik
    ausdrückt. Keine handgeschriebene Vendor-Shaderquelle und keine Testfall-Ausnahme.
