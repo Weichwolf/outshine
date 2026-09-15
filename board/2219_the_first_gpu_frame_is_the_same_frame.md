@@ -27,6 +27,9 @@ Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 SPIR-V→MSL nur die Ziel-MSL-Version, keine Präzisions- oder Compileoption. Die
 erzeugte GLSL-Variante ist `texture2d<float>.sample`.
 
+`SDL_GPU_DRIVER=vulkan` verweigert dieser Host mit `unsupported`; ein zweites
+SDL_GPU-Backend ist hier nicht verfügbar und bleibt als externe Abnahme offen.
+
 ## Lösung und Abnahme
 
 1. Erstframe-Übergänge von Ressourcen, Tabellen, Compute-Culling und Pipelinebindung
