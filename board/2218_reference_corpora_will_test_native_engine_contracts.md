@@ -114,3 +114,7 @@ Gegenprobe zurückgenommen. Farbabweichung damit auf Luftperspektive/deren Resso
 oder veränderte Pass-Abhängigkeiten eingegrenzt; SkyView-/Transmittance-LUTs prüfen.
 Die Bandfarben beweisen Luftperspektive nicht: Negativkontrolle ohne Pass wird grün.
 Abnahme neu auf unabhängige analytische Strecken/Extinktion ausrichten, nicht lockern.
+
+SkyView-LUT (165888 Bytes), Transmittance-LUT (131072 Bytes) und Aerial-Uniformblock
+(192 Bytes) bytegleich. Pixelzentrum statt interpoliertem ndc behebt FAIL nicht;
+Gegenprobe zurückgenommen. Als Nächstes Pass erhalten, nur Ausgabe isolieren.
