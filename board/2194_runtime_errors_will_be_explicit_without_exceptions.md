@@ -107,7 +107,9 @@ mit ihren eigenen Fachverträgen migrieren. Keine vollständige Runtime-Abnahme.
 
 ## Abnahme
 
-- [ ] Runtime und Generatoren nachweislich ohne Exceptions gebaut und getestet.
+- [x] `make db` erzeugt 189 Compile-Units; keine Runtime-Unit außerhalb des Client-
+      Prozessadapters fehlt `-fno-exceptions`. Laufzeit- und Generatorbuilds verwenden
+      denselben Tiergraphen.
 - [ ] Fehlerergebnisse nodiscard; Ignorieren scheitert als Compiler-Negativkontrolle.
 - [ ] Statische Ownership-/Layout-/Zustandsinvarianten passend abgesichert.
 - [ ] Ungültige Eingaben und ausgeschöpfte Budgets liefern Fehler ohne Teilzustand.
