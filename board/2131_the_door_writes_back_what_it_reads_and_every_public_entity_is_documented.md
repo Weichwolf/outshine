@@ -106,8 +106,8 @@ Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
 konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
 
 ## Antriebsvertrag
-Export prüft Kategorien, Declare/Assembly bisher nicht: ungültige native Drives
-können als andere Fähigkeiten interpretiert werden. Gemeinsamen noexcept-Validator
+Import/Export/Declare/Assembly nutzen denselben geprüften Antriebsvertrag.
+Ungültige native Drives werden vor Publikation abgelehnt. Gemeinsamen noexcept-Validator
 für Kategorie, endliche Zahlen, nichtnegative Peaks/CircleM, nichtverschwindende
 endliche Achse und passenden Kraft-/Drehmomentkanal nutzen. Ratio darf null/negativ
 sein; keine unbewiesene Getriebepolitik. Lineare Nullkraft bleibt gültig.
@@ -116,4 +116,4 @@ Alle vier Grenzen (Import/Export/Declare/Assembly) prüfen denselben nativen Ver
 Ablehnung erhält vorige Deklaration/Simulation. Kein Aufbau einer Fahrzeugphysik.
 Abnahme: beide Kategorien/Modi, Nullwerte, NaN/Inf, negative Peaks, falscher Kanal,
 Nullachse, ungültiges Enum, malformed XML und Fehlererhalt; Gegenprobe ohne Validierung.
-Bestehende Body-Rundläufe/Dynamiktests behalten; Format und vollständiges Lint.
+Fünf Tests grün; entfernte API-Prüfung verletzt 42 Checks. Lint vollständig grün.

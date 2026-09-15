@@ -1,4 +1,5 @@
 #include <format>
+#include <span>
 #include <type_traits>
 #include <ranges>
 #include <charconv>
@@ -34,6 +35,7 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kInvalidBodyNumber = "body parameter requires a complete finite number";
 constexpr auto kUnsupportedRootDrive =
     "root drive declarations are unsupported; no native route model consumes them";
 constexpr auto kInvalidProviderRank =
@@ -872,38 +874,43 @@ void ReadEvents(const Xml::Ref &root, Scenario::Document &into) {
   return true;
 }
 
-bool ReadBodyDynamics(const Xml::Ref &from, Scenario::Body &body, std::string &error) {
-  const auto inertia = from.Child("inertia");
-  const auto at = from.Child("at");
+struct BodyNumberField {
+  Xml::Ref From;
+  const char *Name;
+  double *Value;
+};
 
-  struct NumberField {
-    Xml::Ref From;
-    const char *Name;
-    double *Value;
-  };
-
-  const std::array fields{
-      NumberField{.From = from, .Name = "massKg", .Value = &body.MassKg},
-      NumberField{.From = inertia, .Name = "ixx", .Value = body.InertiaKgM2.data()},
-      NumberField{.From = inertia, .Name = "iyy", .Value = &body.InertiaKgM2[1]},
-      NumberField{.From = inertia, .Name = "izz", .Value = &body.InertiaKgM2[2]},
-      NumberField{.From = at, .Name = "x", .Value = body.Stands.AtM.data()},
-      NumberField{.From = at, .Name = "y", .Value = &body.Stands.AtM[1]},
-      NumberField{.From = at, .Name = "z", .Value = &body.Stands.AtM[2]},
-      NumberField{.From = at, .Name = "qx", .Value = &body.Stands.Facing.X},
-      NumberField{.From = at, .Name = "qy", .Value = &body.Stands.Facing.Y},
-      NumberField{.From = at, .Name = "qz", .Value = &body.Stands.Facing.Z},
-      NumberField{.From = at, .Name = "qw", .Value = &body.Stands.Facing.W}};
+[[nodiscard]] bool ReadBodyNumbers(std::span<const BodyNumberField> fields, std::string &error) {
   for (const auto &field : fields) {
     const auto token = field.From.Said(field.Name);
     if (!token) { continue; }
     const auto value = ParseFiniteNumber(*token);
     if (!value) {
-      error = std::string(field.Name) + ": " + std::string(Says::InvalidBodyDynamics);
+      error = std::string(field.Name) + ": " + std::string(Says::kInvalidBodyNumber);
       return false;
     }
     *field.Value = *value;
   }
+  return true;
+}
+
+bool ReadBodyDynamics(const Xml::Ref &from, Scenario::Body &body, std::string &error) {
+  const auto inertia = from.Child("inertia");
+  const auto at = from.Child("at");
+
+  const std::array fields{
+      BodyNumberField{.From = from, .Name = "massKg", .Value = &body.MassKg},
+      BodyNumberField{.From = inertia, .Name = "ixx", .Value = body.InertiaKgM2.data()},
+      BodyNumberField{.From = inertia, .Name = "iyy", .Value = &body.InertiaKgM2[1]},
+      BodyNumberField{.From = inertia, .Name = "izz", .Value = &body.InertiaKgM2[2]},
+      BodyNumberField{.From = at, .Name = "x", .Value = body.Stands.AtM.data()},
+      BodyNumberField{.From = at, .Name = "y", .Value = &body.Stands.AtM[1]},
+      BodyNumberField{.From = at, .Name = "z", .Value = &body.Stands.AtM[2]},
+      BodyNumberField{.From = at, .Name = "qx", .Value = &body.Stands.Facing.X},
+      BodyNumberField{.From = at, .Name = "qy", .Value = &body.Stands.Facing.Y},
+      BodyNumberField{.From = at, .Name = "qz", .Value = &body.Stands.Facing.Z},
+      BodyNumberField{.From = at, .Name = "qw", .Value = &body.Stands.Facing.W}};
+  if (!ReadBodyNumbers(fields, error)) { return false; }
   if (const auto valid = ValidateBodyDynamics(body); !valid) {
     error = valid.error();
     return false;
@@ -928,19 +935,23 @@ bool ReadBodyDrives(const Xml::Ref &from,
       return false;
     }
     does.Opposes = acts.Flag("opposes", acts.Num("opposes", 0.0) != 0.0);
-    does.PeakNm = acts.Num("peakNm", 0.0);
-    does.PeakN = acts.Num("peakN", 0.0);
+    const std::array magnitudes{
+        BodyNumberField{.From = acts, .Name = "peakNm", .Value = &does.PeakNm},
+        BodyNumberField{.From = acts, .Name = "peakN", .Value = &does.PeakN},
+        BodyNumberField{.From = acts, .Name = "ratio", .Value = &does.Ratio},
+        BodyNumberField{.From = acts, .Name = "circleM", .Value = &does.CircleM}};
+    if (!ReadBodyNumbers(magnitudes, error)) { return false; }
     does.Turns = acts.Flag("turns", does.PeakN == 0.0);
-    does.AxisXyz[0] = acts.Num("axisX", 0.0);
-    does.AxisXyz[1] = acts.Num("axisY", does.Turns ? 1.0 : 0.0);
-    does.AxisXyz[2] = acts.Num("axisZ", does.Turns ? 0.0 : -1.0);
-    if (does.PeakNm != 0.0 && does.PeakN != 0.0) {
-      error = "a drive applies a torque about an axis or a force along one, never both, and "
-              "this one declares peakNm and peakN together";
+    does.AxisXyz = does.Turns ? Vec3{0, 1, 0} : Vec3{0, 0, -1};
+    const std::array axes{
+        BodyNumberField{.From = acts, .Name = "axisX", .Value = does.AxisXyz.data()},
+        BodyNumberField{.From = acts, .Name = "axisY", .Value = &does.AxisXyz[1]},
+        BodyNumberField{.From = acts, .Name = "axisZ", .Value = &does.AxisXyz[2]}};
+    if (!ReadBodyNumbers(axes, error)) { return false; }
+    if (const auto valid = ValidateBodyDrive(does); !valid) {
+      error = valid.error();
       return false;
     }
-    does.Ratio = acts.Num("ratio", 1.0);
-    does.CircleM = acts.Num("circleM", 0.0);
     drives.push_back(does);
   }
   return true;

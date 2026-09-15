@@ -22,8 +22,6 @@ namespace outshine {
 namespace {
 
 namespace Says {
-constexpr auto kInvalidBodyDrive =
-    "body drive requires a known mode and cannot combine peakN with peakNm";
 constexpr auto kInvalidAudioEnum = "audio contains an invalid processor or attenuation enum";
 constexpr auto EmptySurfaceDocument = "surface requires nonempty document text";
 }
@@ -230,9 +228,8 @@ void WriteContact(std::string &into, const Scenario::Contact &contact) {
 
 [[nodiscard]] std::expected<void, std::string> WriteDrive(std::string &into,
                                                           const Scenario::Drive &drive) {
-  if ((drive.Does != Scenario::Drives::Effort && drive.Does != Scenario::Drives::Motion) ||
-      (drive.PeakNm != 0 && drive.PeakN != 0)) {
-    return std::unexpected(Says::kInvalidBodyDrive);
+  if (const auto valid = ValidateBodyDrive(drive); !valid) {
+    return std::unexpected(std::string(valid.error()));
   }
   into += "    <actuator";
   Said(into, "does", drive.Does == Scenario::Drives::Effort ? "torque" : "steer");

@@ -834,19 +834,21 @@ enum class Drives : uint8_t {
 };
 
 /// Copied actuator declaration; assembly currently consumes only Does and Opposes.
-/// Other fields remain metadata, without force application or numeric validation.
+/// Import, export, declaration and assembly validate the category, finite parameters,
+/// nonnegative peaks/CircleM, nonzero finite axis and a matching force/torque channel.
+/// Other fields remain metadata without force application. Ratio may be zero or negative.
 /// No borrowed storage; independent copies may be used on separate threads.
 struct Drive {
-  /// Capability category; export rejects unknown values, assembly does not yet reject them.
+  /// Capability category; unknown values reject import, export, declaration and assembly.
   Drives Does = Drives::Effort;
   bool Opposes = false; ///< Effort only: select the torque-opposing capability tag.
   /// Rotational intent when true, linear when false. XML turns overrides PeakN == 0;
-  /// direct declarations are not checked for consistency with the magnitude fields.
+  /// The inactive magnitude field must be zero; either mode allows zero active magnitude.
   bool Turns = true;
   /// Intended body-local axis, right-handed and Y-up; not normalized or applied yet.
   Vec3 AxisXyz = {{0.0, 1.0, 0.0}};
-  double PeakNm = 0.0; ///< Declared peak torque in newton-metres; XML rejects simultaneous PeakN.
-  double PeakN = 0.0;  ///< Declared peak force in newtons; XML rejects simultaneous PeakNm.
+  double PeakNm = 0.0; ///< Nonnegative finite peak torque in newton-metres; zero in linear mode.
+  double PeakN = 0.0;  ///< Nonnegative finite peak force in newtons; zero in rotational mode.
   double Ratio = 1.0;  ///< Unapplied dimensionless transmission ratio; sign policy unspecified.
   double CircleM =
       0.0; ///< Unapplied steering-circle measure in metres; radius/diameter unspecified.
