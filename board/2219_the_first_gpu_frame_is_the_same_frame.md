@@ -22,6 +22,12 @@ gerundet gleich; die exakte Wiederholungsprüfung ist zu Recht rot. Streaming is
 oder an dessen vorheriger Ressourcen-/Pipelinestellung zu behandeln, nicht als
 Atmosphären- oder Mip-Ausnahme.
 
+Die Culling-Inspektion trennt die Schach-Frames erstmals ursächlich: ohne vorige
+Tiefenpyramide hält Frame eins 4 394 688 Indizes, spätere Frames 3 989 952 bei je
+33 Batches. Tiefe bleibt exakt gleich. Die Occlusion-Historie darf ihre sichtbaren
+Ergebnisse nicht ändern; gleiche Culling-Zähler sind dagegen kein allgemeiner Vertrag.
+Konservative Projektion/Pyramidenabfrage und transparente Geometrie prüfen.
+
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
 SPIR-V→MSL nur die Ziel-MSL-Version, keine Präzisions- oder Compileoption. Die
