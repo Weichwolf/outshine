@@ -13,7 +13,8 @@ public:
   struct Config {
     Data::ContentStore::Config Store;
     size_t Pending = 2;
-    size_t ReadBytes = 16u << 20u;
+    static constexpr size_t kDefaultReadBytes = size_t{16} * 1024 * 1024;
+    size_t ReadBytes = kDefaultReadBytes;
   };
 
   struct Loaded {

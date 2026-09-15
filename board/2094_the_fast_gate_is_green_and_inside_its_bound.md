@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 18 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 16 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -111,8 +111,8 @@ TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grü
 ## LOD-Eingabegrenze
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 
-## Cache-Ownership
-CrownCache ist implizit kopierbar, wartet im Destruktor aber konsumierende Job-Handles ab.
-Kopie/Move sperren (Tasks-Referenz und this-Capture behalten festen Besitzer); Typtraits
-prüfen den Vertrag. Bestehendes ReadBytes-Budget als 16 MiB benennen. CrownPieces-
-Mehrfachdeklaration trennen. Binärartefakt-/ContentStore-Tests sichern angrenzende Verträge.
+## Cache und native Karten
+CrownCache ist bereits durch ContentStore nicht kopier-/verschiebbar; Gegenprobe
+bestätigt den bestehenden Vertrag. Keine zusätzliche Sperre oder redundanter Claim.
+ReadBytes benennt das unveränderte 16-MiB-Budget; CrownPieces deklariert Positionen und
+Normalen getrennt. Binärartefakt- und ContentStore-Tests grün; kein Verhaltensumbau.

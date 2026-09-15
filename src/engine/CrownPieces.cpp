@@ -33,7 +33,8 @@ std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
       error = Says::CrownView;
       return nullptr;
     }
-    const auto positions = geometry->positionsOf(0), normals = geometry->normalsOf(0);
+    const auto positions = geometry->positionsOf(0);
+    const auto normals = geometry->normalsOf(0);
     const auto uv = geometry->textureOf(0);
     std::vector<StoredVertex> vertices(positions.size() / 3);
     for (size_t at = 0; at < vertices.size(); ++at) {
