@@ -9,7 +9,7 @@ class Structures final : public Generator {
 public:
   [[nodiscard]] std::string_view kind() const override { return nameOf(Shipped::Structures); }
 
-  [[nodiscard]] bool make(const Request &asked, Geometry &into) const override;
+  [[nodiscard]] Product make(const Request &asked) const override;
 };
 
 }

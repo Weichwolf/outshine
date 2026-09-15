@@ -19,8 +19,10 @@ int main() {
       request.LatitudeDeg = location.LatitudeDeg;
       request.LongitudeDeg = location.LongitudeDeg;
       request.Seed = seed;
-      Geometry geometry;
-      CHECK(producer.make(request, geometry), "building generation succeeds across hemispheres");
+      const auto product = producer.make(request);
+      CHECK(product.has_value(), "building generation succeeds across hemispheres");
+      if (!product) { continue; }
+      const Geometry &geometry = *product;
       for (int part = 0; part < geometry.parts(); ++part) {
         const auto positions = geometry.positionsOf(part);
         const auto normals = geometry.normalsOf(part);

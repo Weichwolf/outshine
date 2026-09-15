@@ -156,9 +156,11 @@ struct Stamp {
 /// permits concurrency; const does not guarantee thread safety of its dependencies.
 /// Engine::declare evaluates generated content again on redeclaration; identical request
 /// values do not establish unchanged provider data. No producer-result cache is promised.
-/// Allocation failure currently follows the allocator contract, not the boolean result.
+/// Allocation failure currently follows the allocator contract, not the returned product.
 class Generator {
 public:
+  /// Owned geometry result or a diagnostic explaining why the generator refused the request.
+  using Product = std::expected<Geometry, std::string>;
   /// Destroy the implementation through this interface; unregister before destruction.
   virtual ~Generator() = default;
   /// Registered producer identity is not implicitly copied.
@@ -169,13 +171,12 @@ public:
   /// @return Borrowed nonempty registration name, readable until registration copies it.
   /// Exact case-sensitive identifier; no ownership is transferred to the caller.
   [[nodiscard]] virtual std::string_view kind() const = 0;
-  /// Generate native CPU geometry using implementation-specific request semantics.
+  /// Generate one owned native CPU geometry product using implementation-specific request
+  /// semantics.
   /// @param asked Borrowed request; do not retain it or its Ground pointer beyond the call.
-  /// @param into Caller-owned output under exclusive access. Implementations define whether
-  /// they append or replace; the built-in structures generator appends parts and materials.
-  /// @return True when generation succeeds; false when refused. The current interface
-  /// carries no diagnostic and does not guarantee rollback of partially written output.
-  [[nodiscard]] virtual bool make(const Request &asked, Geometry &into) const = 0;
+  /// @return Complete owned geometry, or an owned refusal diagnostic. A valid empty product is
+  /// distinct from refusal. No caller-owned geometry is modified by this operation.
+  [[nodiscard]] virtual Product make(const Request &asked) const = 0;
 
   /// Append requested terrain modifications; the default implementation appends nothing.
   /// @param asked Same request used for geometry generation; borrowed only during the call.

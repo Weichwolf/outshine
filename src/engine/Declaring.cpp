@@ -528,9 +528,21 @@ bool Engine::generated(const Scenario::Document &scenario) {
     }
     auto request = asked;
     request.Parameters = parameters;
-    if (stood->make(request, made)) { return true; }
-    S_->Error = "the generator of kind '" + kind + "' refused to make anything";
-    return false;
+    auto product = stood->make(request);
+    if (!product) {
+      S_->Error = "the generator of kind '" + kind + "' refused: " + product.error();
+      return false;
+    }
+    if (product->parts() == 0 && product->surfaces() == 0 && product->images() == 0 &&
+        product->lamps() == 0) {
+      return true;
+    }
+    const auto appended = made.append(*product);
+    if (!appended) {
+      S_->Error = "the generator of kind '" + kind + "' made unpublishable geometry";
+      return false;
+    }
+    return true;
   };
 
   for (const Scenario::Asset &shown : scenario.Assets) {

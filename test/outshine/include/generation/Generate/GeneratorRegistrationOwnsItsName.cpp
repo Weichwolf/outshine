@@ -14,9 +14,8 @@ public:
     return Name;
   }
 
-  [[nodiscard]] bool make(const outshine::Generators::Request &,
-                          outshine::Geometry &) const override {
-    return false;
+  [[nodiscard]] Product make(const outshine::Generators::Request &) const override {
+    return std::unexpected("unused");
   }
 };
 }

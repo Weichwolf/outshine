@@ -74,9 +74,10 @@ constexpr size_t kCorners = 4;
 
 }
 
-bool Structures::make(const Request &asked, Geometry &into) const {
+Generator::Product Structures::make(const Request &asked) const {
+  Geometry into;
   const auto width = WidthOf(asked.Parameters);
-  if (!width) { return false; }
+  if (!width) { return std::unexpected(std::string(width.error())); }
   const double sideM = *width;
   const double lat = asked.LatitudeDeg;
   const double lon = asked.LongitudeDeg;
@@ -108,7 +109,7 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   const BuildingMesh mesher;
   const std::unique_ptr<MeshScratch> scratch = mesher.Scratch();
   Raised raised;
-  if (!mesher.Mesh(plan, *scratch, raised)) { return false; }
+  if (!mesher.Mesh(plan, *scratch, raised)) { return std::unexpected("could not mesh structure"); }
   std::vector<StoredVertex> soup;
   const auto spread = [&soup](const std::vector<StoredVertex> &corners,
                               const std::vector<uint32_t> &run) {
@@ -116,12 +117,14 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   };
   spread(raised.WallCorners, raised.WallRun);
   spread(raised.RoofCorners, raised.RoofRun);
-  if (soup.empty()) { return false; }
+  if (soup.empty()) { return std::unexpected("structure mesh has no triangles"); }
 
   Meshed made;
-  if (!made.Take("structure", MaterialInstance(0), soup, frame)) { return false; }
+  if (!made.Take("structure", MaterialInstance(0), soup, frame)) {
+    return std::unexpected("could not create structure mesh");
+  }
   const Geometry stood = made.Handed();
-  if (stood.parts() == 0) { return false; }
+  if (stood.parts() == 0) { return std::unexpected("structure mesh has no parts"); }
 
   Material walls;
   walls.BaseColour[0] = kWallRed;
@@ -129,17 +132,17 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   walls.BaseColour[2] = kWallBlue;
   walls.Roughness = kWallRoughness;
   const auto named = into.addSurface("walls", walls);
-  if (!named) { return false; }
+  if (!named) { return std::unexpected("could not create structure material"); }
   for (int part = 0; part < stood.parts(); ++part) {
     const int here = into.addPart("structure", *named);
     if (!into.setPositions(here, stood.positionsOf(part)) ||
         !into.setTriangles(here, stood.trianglesOf(part))) {
-      return false;
+      return std::unexpected("could not publish structure geometry");
     }
     if (!stood.normalsOf(part).empty()) { (void)into.setNormals(here, stood.normalsOf(part)); }
     if (!stood.textureOf(part).empty()) { (void)into.setTexture(here, stood.textureOf(part)); }
   }
-  return true;
+  return into;
 }
 
 }

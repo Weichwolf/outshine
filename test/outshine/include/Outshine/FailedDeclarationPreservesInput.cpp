@@ -18,8 +18,8 @@ class RefusingGenerator final : public outshine::Generators::Generator {
 public:
   std::string_view kind() const override { return "refusing"; }
 
-  bool make(const outshine::Generators::Request &, outshine::Geometry &) const override {
-    return false;
+  Product make(const outshine::Generators::Request &) const override {
+    return std::unexpected("refused");
   }
 };
 }

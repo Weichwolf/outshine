@@ -11,9 +11,9 @@ public:
 
   std::string_view kind() const override { return "native-osm-probe"; }
 
-  bool make(const outshine::Generators::Request &, outshine::Geometry &) const override {
+  Product make(const outshine::Generators::Request &) const override {
     ++Calls;
-    return true;
+    return outshine::Geometry{};
   }
 };
 

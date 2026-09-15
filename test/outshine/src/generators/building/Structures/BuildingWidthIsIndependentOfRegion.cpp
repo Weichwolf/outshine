@@ -32,27 +32,31 @@ int main() {
   for (const auto [text, width] :
        {std::pair{"12", 12.0}, std::pair{"24", 24.0}, std::pair{"240", 240.0}}) {
     const std::array<Generators::Parameter, 1> parameters{{{.Name = "widthM", .Value = text}}};
-    Geometry reference;
     Generators::Request request;
     request.Parameters = parameters;
-    CHECK(producer.make(request, reference), "explicit width produces geometry");
+    const auto product = producer.make(request);
+    CHECK(product.has_value(), "explicit width produces geometry");
+    if (!product) { continue; }
+    const Geometry &reference = *product;
     // Native X is east. The metre-to-degree approximation differs from
     // WGS84 by less than a centimetre at these widths on the equator.
     CHECK(HasNominalEastSides(reference, width),
           "nominal wall sides match declared metres, excluding roof overhang");
     for (const double extent : {1.0, 100.0, 10000.0}) {
       request.ExtentM = extent;
-      Geometry another;
-      CHECK(producer.make(request, another) && another.parts() == reference.parts(),
+      const auto another = producer.make(request);
+      CHECK(another && another->parts() == reference.parts(),
             "changing region retains building geometry");
-      for (int part = 0; part < reference.parts() && part < another.parts(); ++part) {
-        CHECK(std::ranges::equal(reference.positionsOf(part), another.positionsOf(part)),
+      for (int part = 0; part < reference.parts() && another && part < another->parts(); ++part) {
+        CHECK(std::ranges::equal(reference.positionsOf(part), another->positionsOf(part)),
               "region cannot rescale building vertices");
       }
     }
   }
-  Geometry held;
-  CHECK(producer.make({}, held), "default width still works");
+  const auto defaultProduct = producer.make({});
+  CHECK(defaultProduct.has_value(), "default width still works");
+  if (!defaultProduct) { return Report(); }
+  const Geometry &held = *defaultProduct;
   CHECK(HasNominalEastSides(held, 12.0), "default width is twelve metres");
   if (const char *path = std::getenv("OUTSHINE_TEST_GLB")) {
     const auto glb = exportGlb(held);
@@ -71,14 +75,15 @@ int main() {
     const std::array<Generators::Parameter, 1> parameters{{{.Name = "widthM", .Value = invalid}}};
     Generators::Request request;
     request.Parameters = parameters;
-    CHECK(!producer.make(request, held) && held.parts() == parts && held.surfaces() == surfaces,
+    const auto refused = producer.make(request);
+    CHECK(!refused && held.parts() == parts && held.surfaces() == surfaces,
           "invalid width preserves existing output");
   }
   const std::array<Generators::Parameter, 2> duplicates{
       {{.Name = "widthM", .Value = "12"}, {.Name = "widthM", .Value = "24"}}};
   Generators::Request duplicate;
   duplicate.Parameters = duplicates;
-  CHECK(!producer.make(duplicate, held) && held.parts() == parts,
-        "duplicate width is not silently resolved");
+  const auto refusedDuplicate = producer.make(duplicate);
+  CHECK(!refusedDuplicate && held.parts() == parts, "duplicate width is not silently resolved");
   return Report();
 }

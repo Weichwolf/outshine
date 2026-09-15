@@ -17,13 +17,13 @@ public:
 
   std::string_view kind() const override { return "parameter-probe"; }
 
-  bool make(const outshine::Generators::Request &request, outshine::Geometry &) const override {
+  Product make(const outshine::Generators::Request &request) const override {
     ++Calls;
     Seen.clear();
     for (const auto &parameter : request.Parameters) {
       Seen.emplace_back(parameter.Name, parameter.Value);
     }
-    return true;
+    return Geometry{};
   }
 };
 }

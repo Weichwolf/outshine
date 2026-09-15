@@ -14,10 +14,11 @@ public:
 
   std::string_view kind() const override { return "redeclare-probe"; }
 
-  bool make(const outshine::Generators::Request &request, outshine::Geometry &) const override {
+  Product make(const outshine::Generators::Request &request) const override {
     ++Calls;
     Value = request.Parameters.empty() ? "" : std::string(request.Parameters.front().Value);
-    return Accepts;
+    if (!Accepts) { return std::unexpected("refused"); }
+    return outshine::Geometry{};
   }
 };
 }
