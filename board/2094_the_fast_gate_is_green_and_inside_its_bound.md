@@ -56,7 +56,7 @@ Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewe
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 0 Tidy-Befunde (189/189 Units); Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 0 Tidy-Befunde (189/189 Units); Writer-Literalinventar rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -93,18 +93,19 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
 ## Client-Befehlsgrenze
-ReadCommandLine, LoadCommandPlaces und ListPlaces trennen Argumente/Katalog vom
-Dispatch; Argumenttexte intern const, einschließlich RenderAsset. CLI-Gruppen grün.
-Katalog nur für abhängige Befehle laden; ungültiger Katalog darf help/height/run/render
-nicht blockieren. Main ohne Komplexitätsbefund; 33 Repository-Regeln grün.
+Argument-/Katalog-/Dispatch-Phasen geprüft; CLI-Gruppen grün.
 Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.
+## Writer-Gate
+Unmatched Literale sind kein Fehlerschluss: at entsteht per Hilfsaufruf, keep ist
+Importalias. Status 1 als Inventarbefund ausgeben; Status 2/Toolfehler bleiben rot.
+Gesamte ScenarioWrite-Suite als verpflichtendes Verhaltensgate ausführen.
+
 ## Client-Argumentgrenze
 CommandLine hält ausschließlich string_view/span auf Prozessargumente, keine Stringkopie.
 ReadCommandLine als isolierten noexcept-Parser prüfen: leere Eingabe, Override, fehlender
 Befehl und Nullargumente; Rückgabe muss den ursprünglichen Speicher referenzieren.
 Parser-/CLI-Tests und 33 Regeln grün; letzte Tidy-Spur führt zur formatierten Ausgabe.
-Weitere Wurfpfade bleiben in 2194;
-kein mechanisches noexcept an den Client oder Ersatz der OOM-/Budgetverträge.
+Weitere Wurfpfade/OOM-/Budgetverträge bleiben in 2194.
 
 ## Client-Prozessgrenze
 Ungefangene Ausgabe-/Allokationsausnahmen verlassen derzeit main ohne Clientdiagnose.

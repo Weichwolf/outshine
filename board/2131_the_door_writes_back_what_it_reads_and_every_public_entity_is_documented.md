@@ -106,15 +106,14 @@ Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
 konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
 
 ## Verbleibende Serialisierung
-Audio, Kinds/Instances und Bodies erhalten; Rundläufe/Gegenproben grün.
-Writer-Inventar 73/76; at/keep/drive fachlich prüfen. Views erhalten Clipping,
-Projektion, Belichtung, Follow-Werte, Ziel/Up sowie Viewport/Szenenlabel.
-Alle Camera-/View-Werte exportieren. placement und looksAt explizit speichern,
-sonst würde gespeicherte Pose/Zielpunkt die Aktivierung ändern. Ohne Attribute
-Legacy-Ableitung aus at/Geodäsie/lookAt erhalten; unbekannte Modi ablehnen.
-Viewport/Szenenlabel bleiben gespeicherte Metadaten, keine neue Renderfunktion.
-Gemeinsame Modusschreibweisen; View-Writer als fachliche Phase aus Hauptwriter lösen.
-Abnahme: lokale/geografische/Follow-Kameras, beide Projektionen, explizite/inaktive
-Ziele, sämtliche Werte exakt, ungültiger Modus; unabhängige XML-/native Fixtures.
-40 Checks und drei Engine-Kameratests grün; entferntes nearM verletzt den Rundlauf.
-Wien erneut gerendert/geöffnet: 0/921600 Pixel verändert. Lint: 0 Tidy, 33 Regeln grün.
+Audio, Entities, Bodies und Views durch Rundläufe/Gegenproben geprüft.
+Writer-Inventar 73/76: at wird zusammengesetzt, keep als output kanonisiert;
+drive-Attribute werden bereits als ungelesen abgelehnt, leeres drive noch ignoriert.
+Root-drive ausdrücklich ablehnen: kein natives Routenmodell/Reader vorhanden.
+RenderPlan.Picture fehlt in Reader/Writer; vier normalisierte Werte erhalten.
+Render-Tests prüfen alle Parameter, Alias-Kanonisierung, Reihenfolge und leere Listen;
+Negativkontrolle entfernt Picture-Breite. Viewport-Anwendung bleibt Runtime-Auftrag.
+Inventar nur Diagnose: Literalnamen können weder Aliase noch Parameterweitergabe
+beweisen. Analysefehler bleiben rot; konkrete Erhaltungsprüfung als Gate via gesamte
+ScenarioWrite-Suite. Gegenproben und XML-/native Fixtures bleiben maßgeblich.
+Vollständiges Lint ausführen; kein Schluss von grünen Namen auf vollständige API.
