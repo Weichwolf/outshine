@@ -111,10 +111,10 @@ TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grü
 ## LOD-Eingabegrenze
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 
-## Atlas-Aufnahme
-Lichtwerte benannt, implizite Material-ID-Verengung entfernt; Fixture/GPU-Test grün.
-AtlasReadback bündelt Tiefe, Normale, Identität und Dimensionen; ConvertAtlasReadback
-prüft Größen/IDs und veröffentlicht Texel erst nach erfolgreicher Konvertierung.
-Bake trennt damit Aufnahme von Datenprüfung; Werte, Reihenfolge und Fehler bleiben.
-GPU-Atlas-/Binärfixture grün. PrepareAtlasGeometry trennt Materialtabelle/Instanzvertices.
-Atlas ohne Tidy-Befund, insgesamt sechs offen. Bestehender Instancing-Umbau bleibt separat.
+## Native Instanzgeometrie
+Vorhandenen TreePrototype-Adapter abschließen: gemeinsames natives Blatt-Mesh plus
+Mat4-Placements; expandierter Pfad bleibt derselbe Vertrag. ModelMatrix ist nodiscard.
+Gemeinsamer Frame für Position/Normale; Bounds müssen alle transformierten Vertices
+enthalten. Vergleich gegen expandierte Geometrie sichert Erhalt, kein unabhängiges
+Geometrieorakel. Falsche Translation muss scheitern; Materialwerte bleiben identisch.
+Runtime-Streaming und Atlas-Integration bleiben eigene Schritte, keine neue Vegetation.
