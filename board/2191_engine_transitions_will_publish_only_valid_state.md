@@ -27,6 +27,8 @@ assumed: generator output may depend on borrowed, changing provider data.
 - Target candidates retain the old target on SDL extent/composition/parameter/allocation failure.
 - The headless `declare` path now builds generator geometry and audio occlusion before publishing.
   A generator refusal retains declaration, revision, input, pending geometry and occlusion.
+- `Live::Open` detaches a replaced owner only after its successor built successfully, so its
+  destructor cannot clear the successor's renderer products; a failed build retains the old owner.
 
 ## Remaining defect and implementation
 
