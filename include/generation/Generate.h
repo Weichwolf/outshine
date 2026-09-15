@@ -8,7 +8,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include <optional>
 
@@ -101,7 +100,7 @@ static_assert(Coarser(Detail::Fine, Detail::Massed) == Detail::Massed);
 static_assert(Coarser(Detail::Skyline, Detail::Shell) == Detail::Skyline);
 
 /// Borrowed, case-sensitive generator setting; values are not parsed or normalized.
-/// Both views remain valid only during make/stamps. Copy their characters to retain them.
+/// Both views remain valid only during make. Copy their characters to retain them.
 /// The receiving generator defines supported names, units, duplicates and value syntax.
 struct Parameter {
   std::string_view Name;  ///< Borrowed setting identifier; no null terminator is promised.
@@ -110,7 +109,7 @@ struct Parameter {
 
 /// Value-only generation request with a borrowed terrain provider.
 /// Copies do not extend Ground's lifetime. The generator borrows the request for the
-/// duration of make/stamps; the caller keeps its values and terrain inputs stable.
+/// duration of make; the caller keeps its values and terrain inputs stable.
 /// Coordinates use WGS84 geodetic degrees. Concrete generators define supported
 /// windows, missing-data handling and detail levels; this aggregate validates nothing.
 struct Request {
@@ -121,31 +120,6 @@ struct Request {
   uint64_t Seed = 0; ///< Root seed for reproducible choices with unchanged input data.
   const HeightSampler *Ground = nullptr; ///< Borrowed terrain provider, or nullptr if unavailable.
   Detail Coarseness = Detail::Fine; ///< Requested representation; support is generator-specific.
-};
-
-/// A generator's request that the ground become FLAT under what it made, and OPTIONAL by design: a
-/// generator standing on level ground returns none, and the terrain is then untouched byte for
-/// byte.
-///
-/// The generator DECLARES and the ground APPLIES, because a generator does not own the ground and a
-/// second writer of one field is what makes two subsystems disagree about the same place. It is
-/// also what makes the operation orderable: two stamps that overlap disagree, and a ground that
-/// applied them in completion order would render different bytes twice from one declaration.
-struct Stamp {
-  /// The footprint as east/north pairs in world metres, left open -- the ring closes at its first
-  /// point rather than repeating it, so a reader cannot disagree with a writer about whether the
-  /// last pair is the first.
-  std::vector<double> RingEastNorthM;
-
-  /// What the ground becomes inside the ring: the MEAN height over the footprint rather than its
-  /// highest point, because a site balances cut against fill before it builds. A pad seated at the
-  /// highest corner would bury the low side of every sloping plot.
-  double PlateauAslM = 0.0;
-
-  /// How far outside the ring the ground blends back to what it was. The blend is cosine-weighted,
-  /// so the pad is left at zero slope and the terrain rejoined at zero slope -- a linear ramp
-  /// leaves two creases where a viewer's eye goes first.
-  double FalloffM = 0.0;
 };
 
 /// Polymorphic CPU-content producer registered by borrowed address.
@@ -177,17 +151,6 @@ public:
   /// @return Complete owned geometry, or an owned refusal diagnostic. A valid empty product is
   /// distinct from refusal. No caller-owned geometry is modified by this operation.
   [[nodiscard]] virtual Product make(const Request &asked) const = 0;
-
-  /// Append requested terrain modifications; the default implementation appends nothing.
-  /// @param asked Same request used for geometry generation; borrowed only during the call.
-  /// @param into Caller-owned accumulation under exclusive access; preserve existing stamps.
-  /// @return True if this call appended any stamps; false leaves the accumulation unchanged.
-  /// Existing entries do not affect the result. Cost and allocation depend on the producer.
-  [[nodiscard]] virtual bool stamps(const Request &asked, std::vector<Stamp> &into) const {
-    (void)asked;
-    (void)into;
-    return false;
-  }
 
 protected:
   /// Construct the interface subobject without allocation.
