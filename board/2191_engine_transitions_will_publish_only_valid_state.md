@@ -40,10 +40,7 @@ Kandidat vor Eye-Veröffentlichung durch Lens::From prüfen; fehlende mitgeführ
 Kamerabasis liefert einen Fehler, keinen vorgetäuschten Erfolg.
 ScenarioViewsPreserveProjection prüft analytische Projektion, Fehlererhalt und Recovery;
 Gegenprobe mit alter Abbildung scheitert. Nachweise in Git.
-DrawsInto ändert Dimensionen/Target, baut aber die planabhängigen Frame-Attachments
-und Present-Pipeline nicht als zusammenhängenden Kandidaten neu auf. Größen- und
-Formatwechsel müssen dieses Ressourcenpaket atomar ersetzen, nicht nur das Target.
-Noch kein Nachweis korrekter Pixel nach einem solchen Wechsel.
+Targetwechsel publizieren Frame-Ressourcen nur als vollständigen Kandidaten: WI 2222.
 setGeometry liefert derzeit Weltgeometrie; Carries lehnt sie ohne importierten
 Subject-Anteil ab. Explizite native Geometrie-zu-Entity-Zuordnung im API-SOLL aus
 2096 prüfen. Die Kamera-Fixture nutzt deklarierte glTF-Körpergeometrie.
