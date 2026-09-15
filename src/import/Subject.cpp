@@ -631,7 +631,7 @@ bool Subject::ReadTriangleRun(const Document &document,
   return true;
 }
 
-void Subject::EmitPart(outshine::Geometry &made, const Part &part) {
+bool Subject::EmitPart(outshine::Geometry &made, const Part &part) {
   std::vector<float> &narrowed = Scratch_.Narrowed;
   const auto asFloat = [&narrowed](const std::vector<double> &from) {
     narrowed.resize(from.size());
@@ -639,14 +639,15 @@ void Subject::EmitPart(outshine::Geometry &made, const Part &part) {
     return std::span<const float>(narrowed.data(), narrowed.size());
   };
   const int emitted = made.addPart(part.NodeName, MaterialInstance(part.Material));
-  (void)made.setPositions(emitted, asFloat(Scratch_.Pos));
-  if (part.HasNormal) { (void)made.setNormals(emitted, asFloat(Scratch_.Nor)); }
-  if (part.HasUv) { (void)made.setTexture(emitted, asFloat(Scratch_.Uv), 0); }
-  if (part.HasUv1) { (void)made.setTexture(emitted, asFloat(Scratch_.Uv1), 1); }
-  if (part.HasTangent()) { (void)made.setTangents(emitted, asFloat(Scratch_.Tan)); }
-  if (part.HasColour) { (void)made.setColours(emitted, asFloat(Scratch_.Col)); }
-  (void)made.setTriangles(emitted,
-                          std::span<const uint32_t>(Scratch_.Idx.data(), Scratch_.Idx.size()));
+  if (!made.setPositions(emitted, asFloat(Scratch_.Pos))) { return false; }
+  if (part.HasNormal && !made.setNormals(emitted, asFloat(Scratch_.Nor))) { return false; }
+  if (part.HasUv && !made.setTexture(emitted, asFloat(Scratch_.Uv), 0)) { return false; }
+  if (part.HasUv1 && !made.setTexture(emitted, asFloat(Scratch_.Uv1), 1)) { return false; }
+  if (part.HasTangent() && !made.setTangents(emitted, asFloat(Scratch_.Tan))) { return false; }
+  if (part.HasColour && !made.setColours(emitted, asFloat(Scratch_.Col))) { return false; }
+  return made
+      .setTriangles(emitted, std::span<const uint32_t>(Scratch_.Idx.data(), Scratch_.Idx.size()))
+      .has_value();
 }
 
 bool Subject::FlattenLight(const Document &document,
@@ -965,7 +966,7 @@ bool Subject::FlattenPrimitive(const Document &document,
   part.VertexCount = atPos.size() / 3;
 
   if (part.IndexCount == 0) { return true; }
-  EmitPart(made, part);
+  if (!EmitPart(made, part)) { return Refuse(Says::NativeAttributesFailed); }
   return true;
 }
 
@@ -1136,30 +1137,33 @@ std::expected<outshine::Geometry, std::string> Subject::Handed(const Document *n
           .Stride = 3,
           .Set = [](outshine::Geometry &into,
                     int at,
-                    std::span<const float> held) { return into.setNormals(at, held); }},
+                    std::span<const float> held) { return into.setNormals(at, held).has_value(); }},
          {.Carried = one.HasUv,
           .From = &Uv_,
           .Stride = 2,
-          .Set = [](outshine::Geometry &into,
-                    int at,
-                    std::span<const float> held) { return into.setTexture(at, held, 0); }},
+          .Set =
+              [](outshine::Geometry &into, int at, std::span<const float> held) {
+                return into.setTexture(at, held, 0).has_value();
+              }},
          {.Carried = one.HasUv1,
           .From = &Uv1_,
           .Stride = 2,
-          .Set = [](outshine::Geometry &into,
-                    int at,
-                    std::span<const float> held) { return into.setTexture(at, held, 1); }},
+          .Set =
+              [](outshine::Geometry &into, int at, std::span<const float> held) {
+                return into.setTexture(at, held, 1).has_value();
+              }},
          {.Carried = one.HasTangent(),
           .From = &Tangents_,
           .Stride = 4,
-          .Set = [](outshine::Geometry &into,
-                    int at,
-                    std::span<const float> held) { return into.setTangents(at, held); }},
+          .Set =
+              [](outshine::Geometry &into, int at, std::span<const float> held) {
+                return into.setTangents(at, held).has_value();
+              }},
          {.Carried = one.HasColour,
           .From = &Colours_,
           .Stride = 4,
           .Set = [](outshine::Geometry &into, int at, std::span<const float> held) {
-            return into.setColours(at, held);
+            return into.setColours(at, held).has_value();
           }}}};
 
     for (const ChannelRow &channel : channels) {

@@ -163,32 +163,42 @@ namespace {
 constexpr double kUnitWithin = 1.0e-3;
 constexpr double kNoAreaM4 = 1.0e-12;
 
-[[nodiscard]] bool Into(std::vector<float> &slot, std::span<const float> from) {
+[[nodiscard]] std::expected<void, GeometryAttributeError> Into(std::vector<float> &slot,
+                                                               std::span<const float> from) {
   for (const float value : from) {
-    if (!std::isfinite(value)) { return false; }
+    if (!std::isfinite(value)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
   }
   slot.assign(from.begin(), from.end());
-  return true;
+  return {};
 }
 
 }
 
-bool Geometry::setPositions(int part, std::span<const float> metres) {
+std::expected<void, GeometryAttributeError> Geometry::setPositions(int part,
+                                                                   std::span<const float> metres) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
-    return false;
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
   }
   return Into(Held_->Parts[static_cast<size_t>(part)].PositionsM, metres);
 }
 
-bool Geometry::setNormals(int part, std::span<const float> unit) {
+std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
+                                                                 std::span<const float> unit) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || unit.size() % 3 != 0) {
-    return false;
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
   }
   for (size_t at = 0; at + 2 < unit.size(); at += 3) {
     const double length = std::sqrt(static_cast<double>(unit[at]) * unit[at] +
                                     static_cast<double>(unit[at + 1]) * unit[at + 1] +
                                     static_cast<double>(unit[at + 2]) * unit[at + 2]);
-    if (std::fabs(length - 1.0) > kUnitWithin) { return false; }
+    if (!std::isfinite(length)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
+    if (std::fabs(length - 1.0) > kUnitWithin) {
+      return std::unexpected(GeometryAttributeError::NonUnitNormal);
+    }
   }
   return Into(Held_->Parts[static_cast<size_t>(part)].Normals, unit);
 }
@@ -224,33 +234,46 @@ int Geometry::windingAgainstNormals(int part) const {
   return against;
 }
 
-bool Geometry::setTexture(int part, std::span<const float> uv, int set) {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || uv.size() % 2 != 0) { return false; }
-  if (set != 0 && set != 1) { return false; }
+std::expected<void, GeometryAttributeError>
+Geometry::setTexture(int part, std::span<const float> uv, int set) {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
+  }
+  if (uv.size() % 2 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
+  if (set != 0 && set != 1) { return std::unexpected(GeometryAttributeError::InvalidTextureSet); }
   Geometry::Held::Piece &piece = Held_->Parts[static_cast<size_t>(part)];
   return Into(set == 0 ? piece.Uv : piece.Uv1, uv);
 }
 
-bool Geometry::setTangents(int part, std::span<const float> xyzw) {
+std::expected<void, GeometryAttributeError> Geometry::setTangents(int part,
+                                                                  std::span<const float> xyzw) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || xyzw.size() % 4 != 0) {
-    return false;
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
   }
   return Into(Held_->Parts[static_cast<size_t>(part)].Tangents, xyzw);
 }
 
-bool Geometry::setColours(int part, std::span<const float> rgba) {
+std::expected<void, GeometryAttributeError> Geometry::setColours(int part,
+                                                                 std::span<const float> rgba) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || rgba.size() % 4 != 0) {
-    return false;
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
   }
   return Into(Held_->Parts[static_cast<size_t>(part)].Colours, rgba);
 }
 
-bool Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
+std::expected<void, GeometryAttributeError>
+Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || indices.size() % 3 != 0) {
-    return false;
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
   }
   Held_->Parts[static_cast<size_t>(part)].Indices.assign(indices.begin(), indices.end());
-  return true;
+  return {};
 }
 
 std::expected<void, LightMutationError> Geometry::setLight(int lamp,

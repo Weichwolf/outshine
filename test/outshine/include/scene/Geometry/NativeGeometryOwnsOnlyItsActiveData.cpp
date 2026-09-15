@@ -11,8 +11,8 @@ int main() {
   const std::array<uint32_t, 3> triangle{0, 1, 2};
   const auto add = [&] {
     const int part = geometry.addPart("triangle", MaterialInstance{});
-    CHECK(geometry.setPositions(part, positions), "copy local positions");
-    CHECK(geometry.setTriangles(part, triangle), "copy triangle indices");
+    CHECK(geometry.setPositions(part, positions).has_value(), "copy local positions");
+    CHECK(geometry.setTriangles(part, triangle).has_value(), "copy triangle indices");
     return part;
   };
   (void)add();
@@ -72,17 +72,17 @@ int main() {
               geometry.coloursOf(part).empty(),
           "nonfinite colours are rejected without mutation");
   }
-  CHECK(geometry.setNormals(part, std::array<float, 3>{0, 0, -1}),
+  CHECK(geometry.setNormals(part, std::array<float, 3>{0, 0, -1}).has_value(),
         "partial attributes may be supplied while assembling");
   for (const auto indices : {std::array<uint32_t, 3>{0, 1, 2},
                              std::array<uint32_t, 3>{1, 2, 0},
                              std::array<uint32_t, 3>{2, 0, 1}}) {
-    CHECK(geometry.setTriangles(part, indices), "rotate corner order");
+    CHECK(geometry.setTriangles(part, indices).has_value(), "rotate corner order");
     CHECK(geometry.windingAgainstNormals(part) == 0,
           "incomplete normals are safe at every corner and not a winding verdict");
   }
   CHECK(!geometry.wellFormed(), "incomplete attributes cannot be published");
-  CHECK(geometry.setNormals(part, std::array<float, 9>{0, 0, -1, 0, 0, -1, 0, 0, -1}),
+  CHECK(geometry.setNormals(part, std::array<float, 9>{0, 0, -1, 0, 0, -1, 0, 0, -1}).has_value(),
         "complete opposing normals");
   CHECK(geometry.windingAgainstNormals(part) == 1, "complete input detects reversed winding");
   Geometry copied = geometry.clone();

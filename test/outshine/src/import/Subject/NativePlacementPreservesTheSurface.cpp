@@ -12,14 +12,18 @@ int main() {
   const int part =
       geometry.addPart("inclined plane", geometry.addSurface("dielectric", {}).value());
   const float unit = std::sqrt(0.5f);
-  CHECK(geometry.setPositions(part, std::array<float, 9>{0, 0, 0, 1, 0, -1, 0, 1, 0}), "positions");
+  CHECK(geometry.setPositions(part, std::array<float, 9>{0, 0, 0, 1, 0, -1, 0, 1, 0}).has_value(),
+        "positions");
+  CHECK(geometry.setNormals(part, std::array<float, 9>{unit, 0, unit, unit, 0, unit, unit, 0, unit})
+            .has_value(),
+        "normals");
   CHECK(
-      geometry.setNormals(part, std::array<float, 9>{unit, 0, unit, unit, 0, unit, unit, 0, unit}),
-      "normals");
-  CHECK(geometry.setTangents(
-            part, std::array<float, 12>{unit, 0, -unit, 1, unit, 0, -unit, 1, unit, 0, -unit, 1}),
-        "tangents");
-  CHECK(geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}), "triangles");
+      geometry
+          .setTangents(
+              part, std::array<float, 12>{unit, 0, -unit, 1, unit, 0, -unit, 1, unit, 0, -unit, 1})
+          .has_value(),
+      "tangents");
+  CHECK(geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}).has_value(), "triangles");
   for (double mirror : {1.0, -1.0}) {
     Mat4 placement;
     placement[0] = 2 * mirror;

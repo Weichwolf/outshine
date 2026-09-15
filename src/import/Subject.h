@@ -206,7 +206,7 @@ private:
                                      const Transform &world,
                                      std::span<const Transform> skinned,
                                      size_t vertices);
-  void EmitPart(outshine::Geometry &made, const Part &part);
+  [[nodiscard]] bool EmitPart(outshine::Geometry &made, const Part &part);
   [[nodiscard]] bool FlattenLight(const Document &document,
                                   int nodeIndex,
                                   const Node &node,

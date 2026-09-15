@@ -23,7 +23,7 @@ int main() {
     CHECK(candidate.setPositions(added, positions) && candidate.setTriangles(added, indices),
           "candidate mesh prepared");
   }
-  CHECK(candidate.setTriangles(1, std::array{0u, 1u, 3u}),
+  CHECK(candidate.setTriangles(1, std::array{0u, 1u, 3u}).has_value(),
         "unresolved index is stored for validation");
   CHECK(!subject.Assemble(candidate), "invalid later part is rejected");
   CHECK(subject.VertexCount() == 3 && subject.TriangleCount() == 1 && subject.Parts().size() == 1 &&
@@ -39,7 +39,7 @@ int main() {
   CHECK(!subject.Assemble(candidate) && subject.PositionsM().data() == storage &&
             subject.PositionsM()[0] == 7,
         "attribute count failure preserves the previous subject");
-  CHECK(candidate.setNormals(1, {}), "remove incomplete optional attribute");
+  CHECK(candidate.setNormals(1, {}).has_value(), "remove incomplete optional attribute");
   CHECK(candidate.setTriangles(1, indices) && subject.Assemble(candidate),
         "corrected retry succeeds");
   CHECK(subject.VertexCount() == 6 && subject.TriangleCount() == 2 && subject.Parts().size() == 2,

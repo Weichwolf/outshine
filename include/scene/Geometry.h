@@ -38,6 +38,15 @@ enum class MaterialBindingError {
   MissingMaterial ///< The owner-local material index is absent or unbound.
 };
 
+/// Failure when replacing a mesh attribute; the previous attribute remains unchanged.
+enum class GeometryAttributeError {
+  MissingPart,      ///< The owner-local part index is absent.
+  IncompleteTuple,  ///< The scalar count cannot form the attribute's required tuples.
+  NonFiniteValue,   ///< A floating-point attribute contains NaN or infinity.
+  NonUnitNormal,    ///< A normal's length differs from one beyond the documented tolerance.
+  InvalidTextureSet ///< The requested texture coordinate set is not zero or one.
+};
+
 /// Failure while combining independently owned native geometry snapshots.
 enum class GeometryAppendError {
   MalformedSource, ///< Source has no complete native geometry product.
@@ -158,38 +167,44 @@ public:
   /// Requires exclusive access to this non-moved-from object.
   /// @param part Active part index.
   /// @param metres Complete XYZ tuples, or empty to clear positions.
-  /// @return True after copying; false for the validation failures described above.
-  [[nodiscard]] bool setPositions(int part, std::span<const float> metres);
+  /// @return Success, or a typed validation failure without mutation.
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  setPositions(int part, std::span<const float> metres);
   /// Copy XYZ normals; each length must differ from one by at most 0.001.
   /// @param part Active part index.
   /// @param unit Finite tuples of 3 floats; empty removes the optional attribute.
-  /// @return False without mutation for invalid part, tuple size or values; true after copy.
+  /// @return Success, or a typed validation failure without mutation.
   /// O(unit.size()), may allocate; cross-attribute counts are checked by wellFormed().
-  [[nodiscard]] bool setNormals(int part, std::span<const float> unit);
+  [[nodiscard]] std::expected<void, GeometryAttributeError> setNormals(int part,
+                                                                       std::span<const float> unit);
   /// Copy finite UV pairs without clamping or transforming them; O(uv.size()), may allocate.
   /// @param part Active part index.
   /// @param uv Finite UV pairs; empty removes the selected optional attribute.
   /// @param set Coordinate set, exactly 0 or 1.
-  /// @return False without mutation for invalid part, set, tuple size or values; true after copy.
-  [[nodiscard]] bool setTexture(int part, std::span<const float> uv, int set = 0);
+  /// @return Success, or a typed validation failure without mutation.
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  setTexture(int part, std::span<const float> uv, int set = 0);
   /// Copy XYZ tangent directions and handedness W; unit length and W sign are not validated.
   /// @param part Active part index.
   /// @param xyzw Finite tuples of 4 floats; empty removes the optional attribute.
-  /// @return False without mutation for invalid part, tuple size or values; true after copy.
+  /// @return Success, or a typed validation failure without mutation.
   /// O(xyzw.size()), may allocate; cross-attribute counts are checked by wellFormed().
-  [[nodiscard]] bool setTangents(int part, std::span<const float> xyzw);
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  setTangents(int part, std::span<const float> xyzw);
   /// Copy linear RGBA vertex factors; no range clamping or colour conversion.
   /// @param part Active part index.
   /// @param rgba Finite tuples of 4 floats; empty removes the optional attribute.
-  /// @return False without mutation for invalid part, tuple size or values; true after copy.
+  /// @return Success, or a typed validation failure without mutation.
   /// O(rgba.size()), may allocate; cross-attribute counts are checked by wellFormed().
-  [[nodiscard]] bool setColours(int part, std::span<const float> rgba);
+  [[nodiscard]] std::expected<void, GeometryAttributeError> setColours(int part,
+                                                                       std::span<const float> rgba);
   /// Copy triangle indices; O(indices.size()), may allocate.
   /// @param part Active part index.
   /// @param indices Complete CCW triplets of part-local vertex indices; empty clears them.
-  /// @return False without mutation for an absent part or incomplete triplet; true after copy.
+  /// @return Success, or MissingPart/IncompleteTuple without mutation.
   /// Index bounds are deferred to wellFormed(), allowing attributes to be built in any order.
-  [[nodiscard]] bool setTriangles(int part, std::span<const uint32_t> indices);
+  [[nodiscard]] std::expected<void, GeometryAttributeError>
+  setTriangles(int part, std::span<const uint32_t> indices);
 
   /// How many of a part's triangles are wound against their own vertex normals: a triangle
   /// whose counter-clockwise face normal opposes the sum of its three vertex normals. A mesh

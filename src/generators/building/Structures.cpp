@@ -139,8 +139,10 @@ Generator::Product Structures::make(const Request &asked) const {
         !into.setTriangles(here, stood.trianglesOf(part))) {
       return std::unexpected("could not publish structure geometry");
     }
-    if (!stood.normalsOf(part).empty()) { (void)into.setNormals(here, stood.normalsOf(part)); }
-    if (!stood.textureOf(part).empty()) { (void)into.setTexture(here, stood.textureOf(part)); }
+    if ((!stood.normalsOf(part).empty() && !into.setNormals(here, stood.normalsOf(part))) ||
+        (!stood.textureOf(part).empty() && !into.setTexture(here, stood.textureOf(part)))) {
+      return std::unexpected("could not publish structure attributes");
+    }
   }
   return into;
 }

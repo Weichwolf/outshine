@@ -32,21 +32,24 @@ int main(void) {
   const std::array<uint32_t, 3> counterClockwise = {0u, 1u, 2u};
   const std::array<uint32_t, 3> clockwise = {0u, 2u, 1u};
 
-  CHECK(made.setPositions(part, corners), "three corners in the renderer's frame are taken");
+  CHECK(made.setPositions(part, corners).has_value(),
+        "three corners in the renderer's frame are taken");
   CHECK(
-      !made.setNormals(part, twice),
+      made.setNormals(part, twice).error() == GeometryAttributeError::NonUnitNormal,
       "**A NORMAL THAT IS NOT UNIT LENGTH IS REFUSED AT THE DOOR**: the shader presumes it, every "
       "importer owes it, and a length of two is how an accumulated normal looked before "
       "board:2148");
-  CHECK(made.setNormals(part, up), "unit normals are taken");
+  CHECK(made.setNormals(part, up).has_value(), "unit normals are taken");
 
-  CHECK(made.setTriangles(part, counterClockwise), "a counter-clockwise triangle is taken");
+  CHECK(made.setTriangles(part, counterClockwise).has_value(),
+        "a counter-clockwise triangle is taken");
   CHECK(made.windingAgainstNormals(part) == 0,
         "**A COUNTER-CLOCKWISE TRIANGLE FACES ALONG ITS NORMALS**: in a right-handed frame with x "
         "east, y up and z south, (0,0,0) -> (1,0,0) -> (0,0,-1) turns counter-clockwise seen from "
         "+y, so its face normal is +y and agrees with the vertices'");
 
-  CHECK(made.setTriangles(part, clockwise), "the same corners the other way round are taken");
+  CHECK(made.setTriangles(part, clockwise).has_value(),
+        "the same corners the other way round are taken");
   CHECK(made.windingAgainstNormals(part) == 1,
         "**THE NEGATIVE CONTROL: THE FLIPPED TRIANGLE IS COUNTED**: wound clockwise its face "
         "normal is -y against vertex normals of +y, which is the one-triangle case of every dark "
