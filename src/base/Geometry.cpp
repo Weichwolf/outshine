@@ -253,19 +253,25 @@ bool Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
   return true;
 }
 
-bool Geometry::setLight(int lamp, const PunctualLight &light) noexcept {
-  if (lamp < 0 || std::cmp_greater_equal(lamp, Held_->Lamps.size())) { return false; }
+std::expected<void, LightMutationError> Geometry::setLight(int lamp,
+                                                           const PunctualLight &light) noexcept {
+  if (lamp < 0 || std::cmp_greater_equal(lamp, Held_->Lamps.size())) {
+    return std::unexpected(LightMutationError::MissingLight);
+  }
   Held_->Lamps[static_cast<size_t>(lamp)].Light = light;
-  return true;
+  return {};
 }
 
-bool Geometry::setMaterial(int part, MaterialInstance surface) noexcept {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || !surface.bound() ||
-      std::cmp_greater_equal(surface.index(), Held_->Surfaces.size())) {
-    return false;
+std::expected<void, MaterialBindingError> Geometry::setMaterial(int part,
+                                                                MaterialInstance surface) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(MaterialBindingError::MissingPart);
+  }
+  if (!surface.bound() || std::cmp_greater_equal(surface.index(), Held_->Surfaces.size())) {
+    return std::unexpected(MaterialBindingError::MissingMaterial);
   }
   Held_->Parts[static_cast<size_t>(part)].Material = surface.index();
-  return true;
+  return {};
 }
 
 std::expected<void, PlacementError> Geometry::setPlacement(int part, const Mat4 &model) noexcept {

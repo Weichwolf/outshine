@@ -76,7 +76,7 @@ int main() {
   textured.BaseColourMap.Image = 0;
   auto malformed = geometry.clone();
   const auto unresolved = malformed.addSurface("unresolved", textured).value();
-  CHECK(malformed.setMaterial(part, unresolved) && !exportGlb(malformed),
+  CHECK(malformed.setMaterial(part, unresolved).has_value() && !exportGlb(malformed),
         "native texture binding cannot disappear even when its image is missing");
   CHECK(geometry.setSurface(surface, material).has_value(), "restore supported factors");
   const std::array<uint8_t, 4> pixel{255, 255, 255, 255};

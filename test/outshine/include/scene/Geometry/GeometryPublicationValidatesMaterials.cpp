@@ -60,7 +60,7 @@ int main() {
   bad = valid;
   bad.BaseColourMap.Image = 0;
   const auto forward = geometry.addSurface("forward", bad).value();
-  CHECK(forward.index() == 1 && geometry.setMaterial(part, forward),
+  CHECK(forward.index() == 1 && geometry.setMaterial(part, forward).has_value(),
         "failed additions consume no slots; forward image references can be assembled");
   CHECK(!geometry.wellFormed(), "unresolved image prevents publication");
   Engine engine;

@@ -27,6 +27,17 @@ enum class PlacementError {
   InvalidTransform ///< Components are nonfinite or the last row is not (0, 0, 0, 1).
 };
 
+/// Failure when replacing a light owned by native geometry; stored values remain unchanged.
+enum class LightMutationError {
+  MissingLight ///< The owner-local light index is absent.
+};
+
+/// Failure when binding a part to a material; stored values remain unchanged.
+enum class MaterialBindingError {
+  MissingPart,    ///< The owner-local part index is absent.
+  MissingMaterial ///< The owner-local material index is absent or unbound.
+};
+
 /// Failure while combining independently owned native geometry snapshots.
 enum class GeometryAppendError {
   MalformedSource, ///< Source has no complete native geometry product.
@@ -110,16 +121,18 @@ public:
   /// Replace local light data while preserving its name and placement.
   /// @param lamp Active owner-local light index.
   /// @param light Values copied as supplied; validity and units follow PunctualLight.
-  /// @return False without mutation for an absent light; true after replacement.
+  /// @return Success, or MissingLight without mutation.
   /// O(1), no allocation; requires exclusive access. Numeric values are not validated.
-  [[nodiscard]] bool setLight(int lamp, const PunctualLight &light) noexcept;
+  [[nodiscard]] std::expected<void, LightMutationError>
+  setLight(int lamp, const PunctualLight &light) noexcept;
   /// Replace a part's material reference without modifying either material.
   /// @param part Active owner-local part index.
   /// @param surface Bound material reference belonging to this owner; foreign owners
   /// cannot be detected because MaterialInstance stores only an index.
-  /// @return False without mutation for an absent part or material; true after replacement.
+  /// @return Success, or MissingPart/MissingMaterial without mutation.
   /// O(1), no allocation; requires exclusive access.
-  [[nodiscard]] bool setMaterial(int part, MaterialInstance surface) noexcept;
+  [[nodiscard]] std::expected<void, MaterialBindingError>
+  setMaterial(int part, MaterialInstance surface) noexcept;
 
   /// Append a material after validating its numeric, sampler and UV values.
   /// Image references may point to images added later; wellFormed() requires them to resolve.
