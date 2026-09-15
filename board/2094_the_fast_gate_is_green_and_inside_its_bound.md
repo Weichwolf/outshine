@@ -58,7 +58,7 @@ Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewe
 
 Aktuelles Lint vollständig grün: 0 Tidy-Befunde (189/189 Units), Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
-make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
+make test als Ganzes ist rot; konkrete Ergebnisse unten. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
 8/8 Compute-Verträge aus dem tatsächlichen C++-Katalog stimmen mit Reflection überein.
 Der blinde MSL-Scanner ist ersetzt; vollständige Graphics-Selektor-/Shape-Abdeckung,
@@ -92,29 +92,24 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
-## Client-Befehlsgrenze
-Argument-/Katalog-/Dispatch-Phasen geprüft; CLI-Gruppen grün.
-Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.
+## Aktueller Gesamtlauf und nächste Schritte
+make test: 2792 Arme, 2775 PASS, 1 FAIL, 2 BUILD, 14 UNPREPARED; keine Timeouts/Signale.
+Gemessen: 642748 ms Run + 1692318 ms Build/Vorbereitung = 2335066 ms gesamt.
+Die alte Run-Grenze 230000 ms ist überschritten; Population und Kosten neu bewerten,
+nicht einfach das Limit hochsetzen. Wiederaufbau/Pruning kleiner Fixtures kostet IO.
+- Zwei unvollständig migrierte Testaufrufe: Data::kWgs84A -> outshine::kWgs84A;
+  Eye::StandsInside -> HasExplicitCamera. Aktuelle Definitionen und ursprüngliche
+  numerische/Fehlererhaltungsprüfungen belegen die Zuordnung; nur Aufrufer migrieren.
+- MipmappedChessRepeatsLinearPixels: 420 lineare Kanäle weichen ab, Tiefe identisch;
+  unveränderte exakte Prüfung, Untersuchung in 2179.
+- Neun Place-Renders warten auf Vegetation; P0-Abnahmen wie vereinbart explizit
+  ohne Vegetation konfigurieren, separate Vegetationstests erhalten. Keine Zeitlockerung.
+- Fünf Gelände-Audits: Kamerahöhe nicht resident. Datenbestand und Reihenfolge
+  der Vorbereitung prüfen; fehlender Cache ist durch den Meldungstext nicht bewiesen.
+- ClaimCorpus erkennt eigene PID als fremden Runner: Reentranz/Ownership korrigieren.
+- Automatischer Rebuild ruft prepare.py all auf, das bei Oracle-Manifesten Blender
+  starten kann. Normalen Testpfad von Referenzerzeugung trennen (2218).
+
 ## Writer-Gate
-Unmatched Literale sind kein Fehlerschluss: at entsteht per Hilfsaufruf, keep ist
-Importalias. Status 1 als Inventarbefund ausgeben; Status 2/Toolfehler bleiben rot.
-Gesamte ScenarioWrite-Suite als verpflichtendes Verhaltensgate ausführen.
-
-## Client-Argumentgrenze
-CommandLine hält ausschließlich string_view/span auf Prozessargumente, keine Stringkopie.
-ReadCommandLine als isolierten noexcept-Parser prüfen: leere Eingabe, Override, fehlender
-Befehl und Nullargumente; Rückgabe muss den ursprünglichen Speicher referenzieren.
-Parser-/CLI-Tests und 33 Regeln grün; letzte Tidy-Spur führt zur formatierten Ausgabe.
-Weitere Wurfpfade/OOM-/Budgetverträge bleiben in 2194.
-
-## Client-Prozessgrenze
-Ungefangene Ausgabe-/Allokationsausnahmen verlassen derzeit main ohne Clientdiagnose.
-Entscheidung: nur am Client-Einstieg unerwartete Ausnahmen fangen, mit C-stdio ohne
-C++-Formatierung diagnostizieren und EXIT_FAILURE liefern. Kein Weiterbetrieb.
-Normale Rückgabecodes unverändert weiterreichen; RAII beim Entrollen erhalten.
-Dies ist eine Prozessgrenze, keine OOM-Erholung oder Runtime-Fehlerübersetzung.
-2194 bleibt für sämtliche Runtime-/Worker-/Callback-Wurfpfade verbindlich.
-Unabhängige Tests injizieren bad_alloc, Standard- und fremde Ausnahmen; prüfen
-Diagnose, Fehlercode und Destruktorlauf. Entfernte Grenze muss den Test brechen.
-Test und CLI-Gruppen grün; falscher Erfolgsstatus als Gegenprobe rot.
-Lint: 0 Tidy, 33 Regeln, Doku 24/24 ohne Diagnose und 17 Writer-Tests grün.
+Literalinventar bleibt Diagnose; Tool-/Analysefehler sind rot. Alle 17 ScenarioWrite-
+Tests sind verpflichtendes Verhaltensgate und aktuell grün. API-Abnahme bleibt offen.
