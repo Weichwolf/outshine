@@ -59,6 +59,8 @@ public:
   void AnchorAt(const Vec3 &ecef);
   void ResetDerived();
 
+  [[nodiscard]] uint64_t Revision() const noexcept { return Revision_; }
+
   [[nodiscard]] std::optional<TileWatermark::Next>
   Next(const OsmField &field, const std::function<bool(FeatureRun)> &groundStands);
 
@@ -108,6 +110,7 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
+  uint64_t Revision_ = 0;
   std::vector<Footprint> Prints_;
   size_t TrianglesHanded_ = 0;
   size_t Taken_ = 0, Accepted_ = 0;

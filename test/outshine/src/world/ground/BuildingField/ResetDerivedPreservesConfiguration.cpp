@@ -15,6 +15,7 @@ int main() {
   const std::array<BuildingField::Footprint, 1> prints{{{.HeightM = 12.0f}}};
   const std::array<double, 1> spread{2.0}, across{8.0};
   for (int cycle = 0; cycle < 3; ++cycle) {
+    const auto before = field.Revision();
     field.Take(0);
     field.Accept(0,
                  empty,
@@ -25,7 +26,11 @@ int main() {
                   .OsmHeights = 1});
     CHECK(field.Footprints().size() == 1, "rebaking does not append stale footprints");
     CHECK(field.TrianglesHanded() == 12, "new bake owns its own triangle count");
+    CHECK(field.Revision() > before, "accepted bake invalidates dependent terrain");
+    const auto accepted = field.Revision();
     field.ResetDerived();
+    CHECK(field.Revision() > accepted,
+          "reset invalidates dependent terrain even when counts recur");
     CHECK(field.Footprints().empty() && field.OfTile(0).empty(),
           "geometry and tile ranges reset together");
     CHECK(field.IngestedTiles() == 0 && field.Ingested(empty),

@@ -92,4 +92,9 @@ Ursache: Focuses berücksichtigt keine neu fertig gewordenen Gebäudefundamente.
 Entscheidung: BuildingField revisioniert Accept/Reset; Terrain merkt die verwendete
 Revision. Abweichung erzwingt Neuaufbau und verhindert settled. Keine unbedingten
 Neubauten im Framepfad. Test: Revisionen über Resetzyklen und exakte Sonnen-A/B/A;
-alte Vergleichsbedingung als Negativkontrolle. Air separat untersuchen.
+Negativkontrolle ohne Revisionserhöhung bei Accept reproduziert A/B/A-FAIL;
+restauriert Sonnen- und Revisionstest grün. Air separat untersuchen.
+
+Lint grün; Wien-0376042e.png geöffnet: 1939/921600 Pixel geändert, Maximum 24/255,
+mittlerer RGB-Kanalfehler 0,002427/255. Terrain-Footprint-Abhängigkeit jetzt wirksam;
+keine allgemeine Bildqualitätsabnahme. Referenz: build/shots/reference/footprint-revision/.

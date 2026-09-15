@@ -11,6 +11,7 @@
 namespace outshine::Ground {
 
 void BuildingField::ResetDerived() {
+  ++Revision_;
   Prints_.clear();
   TrianglesHanded_ = 0;
   Taken_ = Accepted_ = 0;
@@ -61,6 +62,7 @@ void BuildingField::Accept(uint32_t tile, const OsmField &field, const Baked &ba
   ByTile_.Set(tile, firstPrint, static_cast<uint32_t>(Prints_.size()));
   Mark_.Advance(field.Features());
   ++Accepted_;
+  ++Revision_;
 }
 
 }

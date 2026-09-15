@@ -175,20 +175,23 @@ WorldReadiness Engine::State::Readiness() const {
   const auto classes = World.Stack.Classes().Read();
   const uint64_t version = classes ? classes->Version() : 0;
   const auto *vectors = World.Stack.Vectors();
-  return {{World.AskedWanted > 0 ? "" : Says::kNoTerrainRequests,
-           World.AskedPending == 0 ? "" : Says::kPendingTerrain,
-           World.Bare == 0 ? "" : Says::kMissingTerrain,
-           World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
-           World.Grown ? "" : Says::kPendingSnapshot,
-           World.Stack.Ingested() ? "" : Says::kPendingIngestion,
-           World.Stack.Classes().Complete() && World.LaidClasses == version
-               ? ""
-               : Says::kPendingClassification,
-           vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
-           !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
-                   (World.Crowns && World.Crowns->Ready())
-               ? ""
-               : Says::kPendingVegetation}};
+  return {
+      {World.AskedWanted > 0 ? "" : Says::kNoTerrainRequests,
+       World.AskedPending == 0 ? "" : Says::kPendingTerrain,
+       World.Bare == 0 ? "" : Says::kMissingTerrain,
+       World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
+       World.Grown ? "" : Says::kPendingSnapshot,
+       World.Stack.Ingested() && World.LaidFootprintsRevision == World.Stack.Footprints().Revision()
+           ? ""
+           : Says::kPendingIngestion,
+       World.Stack.Classes().Complete() && World.LaidClasses == version
+           ? ""
+           : Says::kPendingClassification,
+       vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
+       !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
+               (World.Crowns && World.Crowns->Ready())
+           ? ""
+           : Says::kPendingVegetation}};
 }
 
 bool Engine::settled() const {

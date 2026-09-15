@@ -329,6 +329,8 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   const bool grew =
       alsoWhenTilesLanded && (resident != World.LaidResident || World.RimsMissing > 0);
   const bool renamed = classes != World.LaidClasses;
+  const uint64_t footprints = World.Stack.Footprints().Revision();
+  const bool footprintsChanged = footprints != World.LaidFootprintsRevision;
   const Render::Viewpoint &view = Picture.Standing->Watching();
   const std::array<double, 3> projection{
       {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
@@ -370,7 +372,8 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   Published.Places("tiles laid bare on the ellipsoid",
                    static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
                    "tiles");
-  if (World.EverLaid && !elsewhere && !grew && !renamed && !projectionChanged) {
+  if (World.EverLaid && !elsewhere && !grew && !renamed && !projectionChanged &&
+      !footprintsChanged) {
     return Laid::Unchanged;
   }
 
@@ -390,6 +393,7 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   World.LaidFrom = from;
   World.LaidResident = resident;
   World.LaidClasses = classes;
+  World.LaidFootprintsRevision = footprints;
   World.LaidProjection = projection;
   World.EverLaid = true;
   ++World.Relaid;
