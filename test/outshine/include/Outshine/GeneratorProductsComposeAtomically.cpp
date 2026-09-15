@@ -58,11 +58,18 @@ int main() {
     Unprepared(SDL_GetError());
     return Report();
   }
+  Product unnamed("", 0.0F, {{0, 0, 0}});
   Product left("left-product", -0.5F, {{1, 0, 0}});
   Product right("right-product", 0.5F, {{0, 1, 0}});
   Engine engine;
-  engine.offers(left);
-  engine.offers(right);
+  const auto empty = engine.offers(unnamed);
+  CHECK(!empty && empty.error() == "generator registration needs a nonempty kind",
+        "empty generator kind reports a registration refusal");
+  CHECK(engine.offers(left), "left fixture generator registers");
+  const auto duplicate = engine.offers(left);
+  CHECK(!duplicate && duplicate.error() == "generator kind is already registered",
+        "duplicate generator kind reports a registration refusal");
+  CHECK(engine.offers(right), "right fixture generator registers");
   Scenario::Document scenario;
   scenario.Render.Declared = true;
   scenario.Render.Frame = {64, 64};

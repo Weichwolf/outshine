@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <ctime>
 #include <expected>
+#include <exception>
 #include <numeric>
 #include <optional>
 #include <string>
@@ -190,7 +191,8 @@ namespace {
 
 void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }
-  (void)S_->World.Offering.offers(S_->World.Shipping.Offered());
+  const auto shipped = offers(S_->World.Shipping.Offered());
+  if (!shipped) { std::terminate(); }
 }
 
 namespace {

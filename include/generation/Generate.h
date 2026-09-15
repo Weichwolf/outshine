@@ -205,13 +205,19 @@ static_assert(EveryShippedKindIsSpelled(),
 /// After move, the source supports only destruction or move assignment.
 class Registry {
 public:
+  /// Failure while registering a borrowed generator; existing registrations remain unchanged.
+  enum class RegistrationError {
+    EmptyKind,    ///< Generator::kind() returned an empty identifier.
+    DuplicateKind ///< A generator already owns this exact identifier.
+  };
+
   /// Register a borrowed generator under a snapshot of its current kind().
   /// @param maker Object retained by address; kind() is called once and its name copied.
   /// The returned name must remain readable for this call; later changes do not rename the entry.
-  /// @return False for an empty or already registered name, preserving all registrations.
+  /// @return Success, EmptyKind, or DuplicateKind, preserving all registrations on refusal.
   /// Success may allocate; systemwide allocator exhaustion is fatal. Setup operation, linear in
   /// the number of registrations and compared name lengths.
-  [[nodiscard]] bool offers(const Generator &maker);
+  [[nodiscard]] std::expected<void, RegistrationError> offers(const Generator &maker);
 
   /// Find an exact, case-sensitive registration name without calling generator methods.
   /// @param kind Borrowed lookup key; not retained.

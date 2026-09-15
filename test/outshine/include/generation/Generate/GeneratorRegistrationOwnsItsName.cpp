@@ -26,17 +26,20 @@ int main() {
   NamedGenerator first;
   NamedGenerator duplicate;
   Registry registry;
-  CHECK(!registry.offers(first) && registry.count() == 0, "empty name cannot enter catalogue");
+  const auto empty = registry.offers(first);
+  CHECK(!empty && empty.error() == Registry::RegistrationError::EmptyKind && registry.count() == 0,
+        "empty name cannot enter catalogue");
   first.Name = "structures";
-  CHECK(registry.offers(first) && registry.count() == 1, "nonempty name registers");
+  CHECK(registry.offers(first).has_value() && registry.count() == 1, "nonempty name registers");
   const size_t calls = first.Calls;
   first.Name = "changed";
   CHECK(registry.named("structures") == &first && registry.named("changed") == nullptr,
         "registration owns its original name");
   CHECK(first.Calls == calls, "lookup does not execute generator callbacks");
   duplicate.Name = "structures";
-  CHECK(!registry.offers(duplicate) && registry.count() == 1 &&
-            registry.named("structures") == &first,
+  const auto duplicateResult = registry.offers(duplicate);
+  CHECK(!duplicateResult && duplicateResult.error() == Registry::RegistrationError::DuplicateKind &&
+            registry.count() == 1 && registry.named("structures") == &first,
         "duplicate cannot replace existing registration after the provider renames itself");
   CHECK(registry.named("Structures") == nullptr && registry.named("") == nullptr,
         "lookup is case sensitive and unknown names have no fallback");

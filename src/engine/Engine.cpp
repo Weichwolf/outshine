@@ -37,6 +37,8 @@ constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
 constexpr auto kTargetInsideFrame = "end the open frame before changing its target";
 constexpr auto kNullWindow = "the target window is null";
 constexpr auto kWindowExtentFailed = "could not read the target window extent: ";
+constexpr auto kEmptyGeneratorKind = "generator registration needs a nonempty kind";
+constexpr auto kDuplicateGeneratorKind = "generator kind is already registered";
 }
 
 constexpr double kBitsPerByte = 8.0;
@@ -162,8 +164,12 @@ void Engine::offers(Host *host) {
   S_->Offered = host;
 }
 
-void Engine::offers(const Generators::Generator &maker) {
-  (void)S_->World.Offering.offers(maker);
+Result Engine::offers(const Generators::Generator &maker) {
+  const auto offered = S_->World.Offering.offers(maker);
+  if (offered) { return {}; }
+  return std::unexpected(offered.error() == Generators::Registry::RegistrationError::EmptyKind
+                             ? Says::kEmptyGeneratorKind
+                             : Says::kDuplicateGeneratorKind);
 }
 
 const std::vector<std::string> &Engine::unacted() const {

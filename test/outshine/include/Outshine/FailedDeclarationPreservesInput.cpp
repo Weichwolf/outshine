@@ -31,7 +31,7 @@ int main() {
   RefusingGenerator generator;
   Engine engine;
   engine.offers(&receiver);
-  engine.offers(generator);
+  CHECK(engine.offers(generator), "fixture generator registers");
   Scenario::Document original;
   original.Input = {{.Event = "KeyW", .Action = "original"}};
   SDL_Event event{};

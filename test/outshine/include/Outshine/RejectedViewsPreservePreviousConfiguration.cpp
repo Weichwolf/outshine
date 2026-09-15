@@ -18,7 +18,7 @@ int main() {
   using namespace outshine::Test;
   RefusingGenerator generator;
   Engine engine;
-  engine.offers(generator);
+  CHECK(engine.offers(generator), "fixture generator registers");
   Scenario::Document original;
   original.Views.push_back({.Id = "original", .Placement = Scenario::CameraPlacement::Local});
   for (int failure = 0; failure < 5; ++failure) {

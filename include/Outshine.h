@@ -210,7 +210,9 @@ public:
   /// Borrow a generator until Engine destruction. Registration retains its address and never
   /// takes ownership. Duplicate kind names retain the first registration.
   /// @param maker Borrowed generator whose lifetime covers its registration.
-  void offers(const Generators::Generator &maker);
+  /// @return Empty or duplicate-kind diagnostic while retaining all prior registrations;
+  /// otherwise success.
+  [[nodiscard]] Result offers(const Generators::Generator &maker);
   /// Select an exact declared view identifier; camera application occurs during advance().
   /// @param view Borrowed identifier, not retained. No case folding or fallback lookup.
   /// @return Error for missing/unknown views, preserving the active selection; otherwise success.
