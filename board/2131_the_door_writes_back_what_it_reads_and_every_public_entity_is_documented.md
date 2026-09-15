@@ -105,16 +105,15 @@ Geometrie-/Referenzvalidierung und Runtime-Anbindung bleiben offen.
 Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
 konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
 
-## Audio-Serialisierung
-Befund: WriteScenario lässt Buses/Sounds vollständig aus. ReadAudio setzt Room.Declared
-über RT60 > 0 statt Elementpräsenz; deklarierter Nullhall geht verloren.
-Vorhanden: native Audio-Deklarationen, XML-Reader, Mixer-/BusGraph-Validierung.
-Entscheidung: Busroute/Gain/Raum, Sound-/Emitterdaten und geordnete DSP-Graphen samt
-Eingangslisten/Parametern schreiben. Enum-Schreibweisen zwischen Reader und Writer
-teilen; unbekannte native Enumwerte beim Export ablehnen. Raumpräsenz bestimmt
-Declared; inaktive Raumparameter bleiben gemäß API ungenutzt.
-Grammatik an Sound-Graph anpassen: URI optional, ignorierte Bus-Voices ablehnen.
-Abnahme: unabhängige XML-Eingabe/native Deklarationen, sämtliche Enumwerte,
-XML-Sonderzeichen, genaue Doubles, Reihenfolge/mehrfache Inputs und deklarierter
-Nullhall. Entferntes sendShare verletzt drei Rundlaufprüfungen; restauriert 150/150 grün.
-Audio-/Provider-Tests grün; Lint: 0 Tidy, 33 Regeln grün, Writer-Inventar 56/76 rot.
+## Verbleibende Serialisierung
+Audio-Graphen/Routing/Emitter und deklarierter Nullhall bleiben jetzt erhalten;
+150 Rundlaufprüfungen plus Gegenprobe grün. Writer-Inventar 56/76; Body-Pfad offen.
+Kinds/Instances fehlen vollständig im Writer. Gemeinsam exportieren: Typname,
+Vererbung, Asset, geordnete Minds/Capabilities/Attribute sowie Instanzreferenzen,
+Pose, Overrides und Holds. Bestehenden Standing-Writer und XML-Escaping verwenden.
+Native API-Verträge und der vorhandene Reader bestimmen Einheiten und Zuordnung;
+keine neue Runtime-Semantik für gespeicherte Mind-/Pose-Metadaten behaupten.
+Abnahme: unabhängiges XML und native Werte; genaue Double-/Integergrenzen,
+Sonderzeichen, Reihenfolge und wiederholte Attribute/Referenzen. Runde erhält
+Typen und Instanzen gemeinsam. Fehlender Vererbungsname muss den Test brechen.
+Öffentliche Assembly-Tests für Vererbung/Besitz erhalten; Format und Lint ausführen.
