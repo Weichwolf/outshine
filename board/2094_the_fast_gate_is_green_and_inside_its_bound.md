@@ -106,10 +106,12 @@ TreeLook übernimmt Species-Defaults; Standard-Rinde wird von sRGB nach linear g
 Defaults aus TreeSpecies ableiten, sRGB über gemeinsame Farbmathematik konvertieren;
 Blattbasis einmal als lineare Reflektanz definieren. LookOf bleibt datengetrieben.
 Transferfunktions-, native Material- und Species-Tests grün; sRGB-Gegenprobe scheitert.
-TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grün.
+TreeLook/TreePrototype ohne Tidy-Befund; Materialtests grün.
 
 ## LOD-Eingabegrenze
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
+Forest: achtfachen Skyline-Abstand als festen Prüfsollwert benennen; Compilezeitprüfung
+beibehalten, Berechnung unverändert. Format/Build/Lint prüfen diesen reinen Namensschritt.
 
 ## Native Instanzgeometrie
 Vorhandenen TreePrototype-Adapter abschließen: gemeinsames natives Blatt-Mesh plus
