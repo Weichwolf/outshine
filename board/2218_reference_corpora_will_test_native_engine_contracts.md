@@ -115,6 +115,6 @@ Velocity-Renderziel behalten, aber outVelocity=vec2(0) statt Clip-Differenz: PAS
 Clip-Isolation: nur curClip.xy/curClip.w weiterhin FAIL; gl_FragCoord.xy*0.001 PASS
 (4 Checks); noperspective FAIL. GPU-Idle vor/nach PrepareFrame oder nur zwischen Frames:
 PASS; nur vor erstem Frame bzw. ohne Barriere: FAIL. Frame-Überlappung untersuchen.
-Ground-Instanzbuffer ohne Cycling weiterhin FAIL. Alle Proben zurückgenommen.
+Ground ohne Cycling, Farbziele mit Cycling und ohne Schattenbeitrag: jeweils FAIL.
 Die Bandfarben beweisen Luftperspektive nicht; analytische Extinktionsfälle ergänzen.
-LUTs und Aerial-Uniformblock bytegleich. SDL-Referenz: ../SDL, 3.4.16, fa2c02b.
+Metal-GPU-Validierung aktiv, keine Zugriffsdiagnose; FAIL. Alle Proben zurückgenommen.
