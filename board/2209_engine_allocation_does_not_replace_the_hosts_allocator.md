@@ -71,3 +71,9 @@ verhindern erlaubte New-Expression-Elision. 0/1/257 Bytes, Alignment und Nullfre
 müssen symmetrische LiveBytes liefern. Bestehenden Scalar-Test erweitern statt
 paralleler Prüfkopie: 16 Paare × 3 Größen bestehen. Fehlende sized-aligned Freigabe
 verletzt die Negativkontrolle; OOM-/new_handler-Verhalten bleibt separat.
+
+## Doppelte Map-Einträge
+FlatMap prüft Wachstum vor Schlüsselgleichheit. An der Lastgrenze kann ein Duplikat
+allokieren und vorhandene Referenzen invalidieren. Vor Wachstum vorhandenen Schlüssel
+prüfen; normale Einfügepfade behalten ihre einzelne Suche. Fault-Injection über mehrere
+Tabellenfüllstände: Duplikate ohne Allokation, bestehender Wert und Adresse unverändert.
