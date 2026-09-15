@@ -19,14 +19,14 @@ wechselt ausdrücklich in Failed. Keine Erfolgsvortäuschung durch alte Framebil
 Fehler als strukturierter Code mit Kontext; SDL-Text am Fehlerort übernehmen.
 Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
 setSurfaces/Live::Redeclare ersetzen Zustand vor Compose-Erfolg: Rollback fehlt.
-Overlay-Atlas ignoriert Map/Acquire/Pass/Submit-Fehler und hat uint32-Byteüberlauf.
-Zuerst Upload als Kandidat mit RAII und geprüften SDL-Ergebnissen veröffentlichen;
-Fehlerinjektion muss alte Pixel erhalten und erfolgreichen Retry beweisen.
+Overlay-Atlas prüft Bytegrenzen/SDL-Ergebnisse und publiziert erst nach Submit.
+87 Checks: sechs GPU-Fehlerpunkte erhalten Pixel, Retry ändert sie; Gegenprobe
+mit ignoriertem Submit scheitert zweimal. UI-Wheel grün, Wien-PNG pixelgleich.
+Offen: gemeinsame Atlas/Quads/UI-Transaktion; SetQuads ignoriert SDL-Fehler.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
 und nicht bewegliche Engine-Owner sind Voraussetzung.
-## Gemeinsame Szenario-Kameraprojektion
 Khronos-Kameravertrag: Half-Extents und gültige Near/Far-Bedingungen.
 Watches ersetzte NaN/negative Werte durch Defaults, Carries übernahm nur FOV und
 verlor Near/Far/Orthographic. Beide benutzen jetzt die vorhandene Lens-Grenze;
@@ -39,7 +39,7 @@ und Setter dokumentieren die Trennung von Deklaration und Runtime-Validierung.
 Kandidat vor Eye-Veröffentlichung durch Lens::From prüfen; fehlende mitgeführte
 Kamerabasis liefert einen Fehler, keinen vorgetäuschten Erfolg.
 ScenarioViewsPreserveProjection prüft analytische Projektion, Fehlererhalt und Recovery;
-Gegenprobe mit alter Abbildung scheitert. Einzelresultate und PNG-Nachweise in Git.
+Gegenprobe mit alter Abbildung scheitert. Nachweise in Git.
 ## Weitere konkrete Lücken
 DrawsInto ändert Dimensionen/Target, baut aber die planabhängigen Frame-Attachments
 und Present-Pipeline nicht als zusammenhängenden Kandidaten neu auf. Größen- und
@@ -110,7 +110,6 @@ ViewBook/InputMap publizieren bei Erfolg; SameRenderPlan vergleicht fünf Parame
 API-Regressionen und Negativkontrollen bestehen; Nachweise in Git.
 Offen: Welt-/GPU-Rollback, View-Werte, TimeScale, Joins/Overriding/Surfacing und
 Velocity-Gültigkeit (Hintergrund -10000 ist kein Bewegungsvektor).
-## Renderer-Neuinitialisierung
 Init prüft GPU-Wait vor Umbau, erneuert Frame-/Temporalzustand und Offscreen-Ziel;
 Transmission folgt dem aktuellen Plan. Stage-Konfiguration/Passzuordnung sind getrennt.
 Sky-Pipeline übernimmt tatsächliche Farbattachments; Normal-/Identitätsziele maskiert.

@@ -4,12 +4,18 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <utility>
 
 #include "ShaderFile.h"
 
 namespace outshine::Render {
+
+namespace Says {
+constexpr auto kInvalidOverlayAtlas =
+    "overlay atlas requires a device, texels and positive dimensions within SDL upload limits";
+}
 
 namespace {
 
@@ -89,8 +95,11 @@ bool OverlayDraw::Configure(const Gpu &gpu,
 
 bool OverlayDraw::SetAtlas(
     const Gpu &gpu, const uint8_t *rgba, int width, int height, std::string &error) {
-  if (rgba == nullptr || width <= 0 || height <= 0) {
-    error = "the overlay atlas has no texels, and a texture of nothing is not a texture";
+  constexpr uint32_t channels = 4;
+  if (gpu.Device == nullptr || rgba == nullptr || width <= 0 || height <= 0 ||
+      static_cast<uint64_t>(width) * static_cast<uint64_t>(height) >
+          std::numeric_limits<uint32_t>::max() / channels) {
+    error = Says::kInvalidOverlayAtlas;
     return false;
   }
   SDL_GPUTextureCreateInfo wanted{};
@@ -111,18 +120,32 @@ bool OverlayDraw::SetAtlas(
   SDL_GPUTransferBufferCreateInfo wantedTransfer{};
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = bytes;
-  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer);
-  if (staging == nullptr) {
-    error = std::string("the overlay atlas has no staging buffer: ") + SDL_GetError();
+  const OwnedTransfer staging(gpu.Device, SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer));
+  if (!staging) {
+    error = SDL_GetError();
     return false;
   }
-  std::memcpy(SDL_MapGPUTransferBuffer(gpu.Device, staging, false), rgba, bytes);
-  SDL_UnmapGPUTransferBuffer(gpu.Device, staging);
+  void *mapped = SDL_MapGPUTransferBuffer(gpu.Device, staging.Get(), false);
+  if (mapped == nullptr) {
+    error = SDL_GetError();
+    return false;
+  }
+  std::memcpy(mapped, rgba, bytes);
+  SDL_UnmapGPUTransferBuffer(gpu.Device, staging.Get());
 
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(gpu.Device);
+  if (commands == nullptr) {
+    error = SDL_GetError();
+    return false;
+  }
   SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  if (copy == nullptr) {
+    error = SDL_GetError();
+    (void)SDL_CancelGPUCommandBuffer(commands);
+    return false;
+  }
   SDL_GPUTextureTransferInfo source{};
-  source.transfer_buffer = staging;
+  source.transfer_buffer = staging.Get();
   SDL_GPUTextureRegion into{};
   into.texture = made.Get();
   into.w = static_cast<Uint32>(width);
@@ -130,8 +153,10 @@ bool OverlayDraw::SetAtlas(
   into.d = 1;
   SDL_UploadToGPUTexture(copy, &source, &into, false);
   SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  SDL_ReleaseGPUTransferBuffer(gpu.Device, staging);
+  if (!SDL_SubmitGPUCommandBuffer(commands)) {
+    error = SDL_GetError();
+    return false;
+  }
   Atlas = std::move(made);
   return true;
 }
