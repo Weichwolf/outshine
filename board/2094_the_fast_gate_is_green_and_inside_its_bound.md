@@ -95,24 +95,9 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
-## P0: Fortschritt und nächster Vertrag
-SubjectDraw/ClassBuilder ohne Tidy-Befund; Fehler-/Raster-/sRGB-Tests grün.
-Render/inspect publizieren unabhängig vom Simulationstick; API-Negativkontrollen
-belegen behobene veraltete Werte. Lint: 37 Befunde, Writer rot.
-Renderer-Größen-/Rollback-/Reconfigure-Verträge, Rastergrenzen/Abbruch,
-Pose-Digest sowie Erfolgs-/Live-Zähler bleiben offen.
-
-Preload trennt Streaming-Pumpen, Bereitschaft und Kapazitäts-/Timeoutfehler.
-Begrenzte Bakes, TilePool-Wartezeit, Callback- und Nullbudget-Verträge erhalten.
-Timeout behält den konkreten Grounds-Fehler; Fehler-Injektion dafür noch offen.
-Deadline-API-Test grün; Lint 38 Befunde, Preload-Komplexitätswarnung behoben.
-Wien ohne Vegetation gerendert und PNG geöffnet: 0/921600 veränderte Pixel,
-p95 5,88 ms, 0/120 Frames über 16,67 ms; visuelle Material-/Lichtlücken bleiben.
-Kein harter Zeitbound: Callback/Build-Schritt können länger dauern.
-
-declare trennt Eingabevalidierung, Asset-/Render-/Lichtvorbereitung von
-Zustandsveröffentlichung. Beide UI-Pfade nutzen dieselbe stabile Flächenvorbereitung.
-Neun API-Tests grün; 33/33 Repository-Prüfungen grün; Declaring ohne Tidy-Diagnose.
-Wien-PNG geöffnet: 0/921600 veränderte Pixel, p95 5,85 ms, 0/120 über 16,67 ms.
-Bestehende glTF-Zuordnung bleibt Migrationsschuld in 2150; atomare Veröffentlichung
-und setSurfaces/Live::Redeclare-Rollback in 2191 offen.
+## P0: nächster Schritt
+Grounds trennt Verfeinerung, Gebäudepads/Seebecken, Erdarbeiten und Wassergeometrie.
+Vorhandene Reihenfolge und Berechnungen erhalten; Wasser-Mesh-Fehler zurückgeben,
+statt bloß eine Diagnose zu setzen. Höhen-/Press-Regressionen und Wien-PNG vergleichen.
+Konkave Wasserflächen/Löcher bleiben in 2145; voller Gelände-Publish-Rollback offen.
+Aktuell 37 Tidy-Befunde, Writer-Inventar 50/76; API-Abnahme bleibt 2188.
