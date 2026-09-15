@@ -71,11 +71,12 @@ bestehen alle drei TilePool-/nichtblockierenden GroundQuery-Tests.
 Blockierende Fremd-Callbacks sind durch diesen Pollingvertrag nicht abgedeckt.
 
 ## Preload-Bereitschaft untersuchen
-Engine::settled prüft zusätzlich Grown, Ingested, vollständige Klassen, deren
-Version und Vektoren. PreloadTimeout nennt diese Blocker nicht und ruft selbst
-Grounds(true) auf: Diagnostik verändert und verlängert den beobachteten Zustand.
-Readiness als gemeinsame interne Wertaufnahme erfassen; Timeout beschreibt diese
-ohne zusätzliche Geometriearbeit. Pending, fehlgeschlagen und fertig unterscheiden.
-Vorhanden: Loading-Zähler, settled-Prädikat, Feldzustände und Published-Messwerte.
-Abnahme: unabhängige Zustandsfälle für jeden Blocker; Timeout ohne zusätzlichen
-Build, unveränderte erfolgreichen Preloads. Keine Bildänderung beabsichtigt.
+Engine::settled und PreloadTimeout nutzen jetzt dieselbe Readiness-Wertaufnahme.
+Sie benennt Terrainanforderung, Download, Deckung, Nachbarn, Generator-Snapshot,
+Ingestion, Klassifikation/Version, Vektoren und aktivierte Vegetation. Der Timeout
+führt keine zusätzliche Grounds-Arbeit aus; schon laufende Arbeit kann überziehen.
+Nachweis: jeder einzelne Blocker und mehrere gleichzeitig verhindern Bereitschaft;
+Negativkontrolle mit ignorierten Blockern scheitert, restauriert grün. Bestehende
+Deadline-API-Prüfung und Lattice bestehen unverändert. Kein visueller Pfad geändert.
+Offen: deterministischer API-Nachweis des Timeout-Pfads mit kontrollierten Quellen;
+Cache-/Streamingursache des früheren Lattice-Timeouts und harte Arbeitsbudgets.

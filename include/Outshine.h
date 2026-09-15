@@ -267,6 +267,7 @@ public:
   /// Advance streaming until the current scene is resident or the time budget expires.
   /// Runs synchronously on the Engine/video thread; may allocate, perform IO and wait.
   /// Work units may overrun the budget; this is not a hard execution-time bound.
+  /// Timeout reports outstanding streaming stages without starting another geometry build.
   /// @param patienceS Finite nonnegative seconds; zero permits a readiness attempt without waiting.
   /// @return Success when ready (including a scene without ground), or an owned error.
   /// Invalid budgets fail before work. Other failures may retain partial streaming progress.

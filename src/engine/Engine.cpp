@@ -19,6 +19,16 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kNoTerrainRequests = "terrain requests absent";
+constexpr auto kPendingTerrain = "terrain downloads pending";
+constexpr auto kMissingTerrain = "terrain coverage missing";
+constexpr auto kMissingNeighbours = "terrain neighbours missing";
+constexpr auto kPendingSnapshot = "generator snapshot pending";
+constexpr auto kPendingIngestion = "world ingestion pending";
+constexpr auto kPendingClassification = "terrain classification pending";
+constexpr auto kPendingVectors = "vector tiles pending";
+constexpr auto kPendingVegetation = "vegetation prototypes pending";
+
 constexpr auto kInvalidHeightCoordinate =
     "height query requires finite longitude in [-180,180] and latitude in [-90,90] degrees";
 constexpr auto kHeightOutsideCoverage = "height query is outside Mercator terrain coverage";
@@ -161,16 +171,28 @@ const std::vector<Measure> &Engine::measures() const {
   return S_->Published.Numbers();
 }
 
-bool Engine::settled() const {
-  const std::shared_ptr<const ClassStructure> classes = S_->World.Stack.Classes().Read();
+WorldReadiness Engine::State::Readiness() const {
+  const auto classes = World.Stack.Classes().Read();
   const uint64_t version = classes ? classes->Version() : 0;
-  const Ground::OsmField *vectors = S_->World.Stack.Vectors();
-  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
-         S_->World.RimsMissing == 0 && S_->World.Grown && S_->World.Stack.Ingested() &&
-         S_->World.Stack.Classes().Complete() && S_->World.LaidClasses == version &&
-         vectors != nullptr && vectors->PendingTiles() == 0 &&
-         (!S_->Picture.Standing || !S_->Session.Declared.Ground.VegetationEnabled ||
-          (S_->World.Crowns && S_->World.Crowns->Ready()));
+  const auto *vectors = World.Stack.Vectors();
+  return {{World.AskedWanted > 0 ? "" : Says::kNoTerrainRequests,
+           World.AskedPending == 0 ? "" : Says::kPendingTerrain,
+           World.Bare == 0 ? "" : Says::kMissingTerrain,
+           World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
+           World.Grown ? "" : Says::kPendingSnapshot,
+           World.Stack.Ingested() ? "" : Says::kPendingIngestion,
+           World.Stack.Classes().Complete() && World.LaidClasses == version
+               ? ""
+               : Says::kPendingClassification,
+           vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
+           !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
+                   (World.Crowns && World.Crowns->Ready())
+               ? ""
+               : Says::kPendingVegetation}};
+}
+
+bool Engine::settled() const {
+  return S_->Readiness().Ready();
 }
 
 Result Renderer::render(Extent frame) {
@@ -327,17 +349,8 @@ Result Engine::State::PreloadOverflow() {
 }
 
 Result Engine::State::PreloadTimeout(double bound) {
-
-  const bool built = Grounds(true);
-  const std::string cause = built ? std::string{} : Error;
-  Error = "the world at this place did not become resident within " + std::to_string(bound) +
-          " s -- " + std::to_string(World.Pending) + " of " + std::to_string(World.Wanted) +
-          " tile(s) still pending, " + std::to_string(World.Bare) + " bare, " +
-          std::to_string(World.RimsMissing) + " rim(s) copied for want of a neighbour" +
-          (World.Crowns ? ", " + std::to_string(World.Crowns->Wanted() - World.Crowns->Resident()) +
-                              " crown prototype(s) pending"
-                        : "") +
-          (built ? "" : ", build failed: " + cause);
+  Error = "the world did not become resident within " + std::to_string(bound) +
+          " s: " + Readiness().Describe();
   return std::unexpected(Error);
 }
 

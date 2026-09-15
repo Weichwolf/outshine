@@ -13,6 +13,7 @@
 #include "HeapProbe.h"
 #include "Shipped.h"
 #include "WorldCrowns.h"
+#include "WorldReadiness.h"
 #include "StructureMesher.h"
 #include "Rigid.h"
 #include "GroundSnapshot.h"
@@ -322,6 +323,7 @@ struct Engine::State {
 
   void Drew();
   void Inspected();
+  [[nodiscard]] WorldReadiness Readiness() const;
   [[nodiscard]] bool CanFinishPreload() const;
   [[nodiscard]] Result PumpPreload();
   [[nodiscard]] Result PreloadOverflow();
