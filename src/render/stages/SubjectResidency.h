@@ -4,6 +4,7 @@
 #include <span>
 #include <array>
 #include <cstdint>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -167,10 +168,12 @@ struct SubjectResidency {
     StagingUsed_ = 0;
   }
 
-  [[nodiscard]] BoundImage
+  [[nodiscard]] std::expected<BoundImage, std::string>
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
+  [[nodiscard]] std::expected<void, std::string>
+  UploadMip(SDL_GPUTexture *image, std::span<const float> level, Texels extent, uint32_t mip) const;
   mutable size_t UploadAttempts_ = 0;
   mutable size_t TotalUploadAttempts_ = 0;
   size_t RecordedCrossings_ = 0;

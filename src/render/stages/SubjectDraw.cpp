@@ -322,7 +322,7 @@ size_t SubjectDraw::PipelineAt(SurfaceDomain domain,
   return (placed * 2u + (cullsBack ? 1u : 0u)) * kSurfaceKinds + static_cast<size_t>(kind);
 }
 
-void SubjectDraw::BindSurface(const SubjectMaterial &material) {
+bool SubjectDraw::BindSurface(const SubjectMaterial &material, std::string &error) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
@@ -332,18 +332,36 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
         {material.Row.BaseColour[0], material.Row.BaseColour[1], material.Row.BaseColour[2]}};
   }
   slot.ReadsSecondUv = material.ReadsSecondUv();
-  slot.Colour = Bound().Upload(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value);
-  slot.Normal =
-      Bound().Upload(material.Normal, SubjectResidency::Transfer::Linear, TexelKind::Direction);
-  slot.MetalRough =
-      Bound().Upload(material.MetalRough, SubjectResidency::Transfer::Linear, TexelKind::Value);
-  slot.Emissive =
-      Bound().Upload(material.Emissive, SubjectResidency::Transfer::Srgb, TexelKind::Value);
-
-  slot.SpecularStrength = Bound().Upload(
-      material.SpecularStrength, SubjectResidency::Transfer::Linear, TexelKind::Value);
-  slot.SpecularTint =
-      Bound().Upload(material.SpecularTint, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+  const auto bind = [&](const SubjectTexture &texture,
+                        SubjectResidency::Transfer transfer,
+                        TexelKind texel,
+                        SubjectResidency::BoundImage &into) {
+    auto uploaded = Bound().Upload(texture, transfer, texel);
+    if (!uploaded) {
+      error = std::move(uploaded.error());
+      return false;
+    }
+    into = std::move(*uploaded);
+    return true;
+  };
+  if (!bind(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value, slot.Colour) ||
+      !bind(
+          material.Normal, SubjectResidency::Transfer::Linear, TexelKind::Direction, slot.Normal) ||
+      !bind(material.MetalRough,
+            SubjectResidency::Transfer::Linear,
+            TexelKind::Value,
+            slot.MetalRough) ||
+      !bind(material.Emissive, SubjectResidency::Transfer::Srgb, TexelKind::Value, slot.Emissive) ||
+      !bind(material.SpecularStrength,
+            SubjectResidency::Transfer::Linear,
+            TexelKind::Value,
+            slot.SpecularStrength) ||
+      !bind(material.SpecularTint,
+            SubjectResidency::Transfer::Srgb,
+            TexelKind::Value,
+            slot.SpecularTint)) {
+    return false;
+  }
 
   const Material &row = material.Row;
 
@@ -407,6 +425,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
     slot.Row[at++] = image->Set == UvSet::Uv1 ? 1.0f : 0.0f;
   }
   Slots.push_back(std::move(slot));
+  return true;
 }
 
 uint32_t SubjectDraw::ColourImages() const {
@@ -482,18 +501,32 @@ bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
 
 bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
   if (!ValidateMaterials(materials, error)) { return false; }
-  for (const auto &material : materials) { BindSurface(material); }
+  const size_t was = Slots.size();
+  for (const auto &material : materials) {
+    if (BindSurface(material, error)) { continue; }
+    Slots.resize(was);
+    return false;
+  }
   if (!materials.empty()) { TablesStale_ = true; }
   return true;
 }
 
 bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
   if (!ValidateMaterials(materials, error)) { return false; }
+  auto previousSlots = std::move(Slots);
+  auto previousBatches = std::move(Batches);
+  auto previousLayouts = std::move(BatchLayout);
+  const uint32_t previousIndices = Bound().Shape().Indices;
   Slots.clear();
   Batches.clear();
   BatchLayout.clear();
   Bound().Shape().Indices = 0;
-  return AppendMaterials(materials, error);
+  if (AppendMaterials(materials, error)) { return true; }
+  Slots = std::move(previousSlots);
+  Batches = std::move(previousBatches);
+  BatchLayout = std::move(previousLayouts);
+  Bound().Shape().Indices = previousIndices;
+  return false;
 }
 
 namespace {

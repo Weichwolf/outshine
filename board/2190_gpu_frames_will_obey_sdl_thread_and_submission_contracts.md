@@ -64,8 +64,9 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       wiederholte Fehler, größere Ersatzdaten und Retry; normal und GPU-validiert.
       Frische Ressourcen sichern Fehleratomarität beim Weltumbau. Upload-Ringe und
       budgetierte inkrementelle Streaming-Updates bleiben in 2149/2124.
-- [ ] Weitere Upload-Helfer (u.a. GroundLattice) prüfen Acquire/Submit noch nicht.
-      2149 besitzt persistente Upload-Ringe, dieses WI Fehler und Veröffentlichungszustand.
+- Subject-Texturupload prüft Image-, Transfer-, Map-, Acquire-, CopyPass-, Submit- und
+  Samplerfehler als expected; kein Surface-Slot publiziert Teilbilder. Append und Ersetzung
+  bewahren bei Ablehnung die vorherige Materialtabelle. GroundLattice bleibt in 2149/2190 offen.
 - [ ] Pass- und Ressourcen-Vorbedingungen nach SDL prüfen; Programmierfehler von echten
       Plattformfehlern trennen. Fehlgeschlagene Vorbereitung nie als neue Geometrie melden.
 - [ ] Minimieren/Wiederherstellen, Resize, Fenster-Owner/CommandBuffer-Thread und Shutdown

@@ -1,6 +1,7 @@
 #include "math/Srgb.h"
 #include <span>
 #include <optional>
+#include <expected>
 #include <limits>
 #include <array>
 #include "SubjectResidency.h"
@@ -40,6 +41,14 @@ inline constexpr std::string_view kTopologyStagingFoundNoRoom =
     "the topology's staging buffer found no room on the device: {}";
 inline constexpr std::string_view kTopologyStagingDidNotMap =
     "the topology's staging buffer did not map: {}";
+inline constexpr std::string_view kTextureImageFoundNoRoom =
+    "the texture image found no room on the device: {}";
+inline constexpr std::string_view kTextureStagingFoundNoRoom =
+    "the texture's staging buffer found no room on the device: {}";
+inline constexpr std::string_view kTextureStagingDidNotMap =
+    "the texture's staging buffer did not map: {}";
+inline constexpr std::string_view kTextureSamplerFailed =
+    "the texture sampler was refused by the device: {}";
 }
 
 namespace {
@@ -410,7 +419,57 @@ void SubjectResidency::CommitCrossings() {
   Retired_.clear();
 }
 
-SubjectResidency::BoundImage
+std::expected<void, std::string> SubjectResidency::UploadMip(SDL_GPUTexture *image,
+                                                             std::span<const float> level,
+                                                             Texels extent,
+                                                             uint32_t mip) const {
+  const uint32_t bytes =
+      extent.WidthPx * extent.HeightPx * 4u * static_cast<uint32_t>(sizeof(float));
+  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
+  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  wantedTransfer.size = bytes;
+  const OwnedTransfer staging(Device_, SDL_CreateGPUTransferBuffer(Device_, &wantedTransfer));
+  StagingAttempts_ += 1u;
+  UploadAttempts_ += 1u;
+  TotalUploadAttempts_ += 1u;
+  UploadBytes_ += bytes;
+  if (!staging) {
+    return std::unexpected(std::format(Says::kTextureStagingFoundNoRoom, SDL_GetError()));
+  }
+  void *const mappedLevel = SDL_MapGPUTransferBuffer(Device_, staging.Get(), false);
+  if (mappedLevel == nullptr) {
+    return std::unexpected(std::format(Says::kTextureStagingDidNotMap, SDL_GetError()));
+  }
+  std::memcpy(mappedLevel, level.data(), bytes);
+  SDL_UnmapGPUTransferBuffer(Device_, staging.Get());
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_);
+  if (commands == nullptr) {
+    return std::unexpected(std::format(Says::kCopyAcquireFailed, SDL_GetError()));
+  }
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  if (copy == nullptr) {
+    SDL_CancelGPUCommandBuffer(commands);
+    return std::unexpected(std::format(Says::kCopyPassFailed, SDL_GetError()));
+  }
+  SDL_GPUTextureTransferInfo source{};
+  source.transfer_buffer = staging.Get();
+  source.pixels_per_row = extent.WidthPx;
+  source.rows_per_layer = extent.HeightPx;
+  SDL_GPUTextureRegion into{};
+  into.texture = image;
+  into.mip_level = mip;
+  into.w = extent.WidthPx;
+  into.h = extent.HeightPx;
+  into.d = 1;
+  SDL_UploadToGPUTexture(copy, &source, &into, false);
+  SDL_EndGPUCopyPass(copy);
+  if (!SDL_SubmitGPUCommandBuffer(commands)) {
+    return std::unexpected(std::format(Says::kCopySubmitFailed, SDL_GetError()));
+  }
+  return {};
+}
+
+std::expected<SubjectResidency::BoundImage, std::string>
 SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
   static const std::array<uint8_t, 4> white = {{255, 255, 255, 255}};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
@@ -451,6 +510,9 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   wantedTexture.num_levels = levels;
   wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
   bound.Image = OwnedTexture(Device_, SDL_CreateGPUTexture(Device_, &wantedTexture));
+  if (!bound.Image) {
+    return std::unexpected(std::format(Says::kTextureImageFoundNoRoom, SDL_GetError()));
+  }
 
   std::vector<float> level = linear;
   uint32_t levelWidth = width;
@@ -464,39 +526,9 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
       levelWidth = made.WidthPx;
       levelHeight = made.HeightPx;
     }
-    const uint32_t bytes = levelWidth * levelHeight * 4u * static_cast<uint32_t>(sizeof(float));
-    SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-    wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    wantedTransfer.size = bytes;
-    SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device_, &wantedTransfer);
-    StagingAttempts_ += 1u;
-    UploadAttempts_ += 1u;
-    TotalUploadAttempts_ += 1u;
-    UploadBytes_ += bytes;
-    void *const mappedLevel = SDL_MapGPUTransferBuffer(Device_, staging, false);
-    if (mappedLevel == nullptr) {
-      SDL_ReleaseGPUTransferBuffer(Device_, staging);
-      bound.Image.Reset();
-      return bound;
-    }
-    std::memcpy(mappedLevel, level.data(), bytes);
-    SDL_UnmapGPUTransferBuffer(Device_, staging);
-    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_);
-    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-    SDL_GPUTextureTransferInfo source{};
-    source.transfer_buffer = staging;
-    source.pixels_per_row = levelWidth;
-    source.rows_per_layer = levelHeight;
-    SDL_GPUTextureRegion into{};
-    into.texture = bound.Image.Get();
-    into.mip_level = which;
-    into.w = levelWidth;
-    into.h = levelHeight;
-    into.d = 1;
-    SDL_UploadToGPUTexture(copy, &source, &into, false);
-    SDL_EndGPUCopyPass(copy);
-    SDL_SubmitGPUCommandBuffer(commands);
-    SDL_ReleaseGPUTransferBuffer(Device_, staging);
+    auto uploaded = UploadMip(
+        bound.Image.Get(), level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, which);
+    if (!uploaded) { return std::unexpected(std::move(uploaded.error())); }
   }
 
   SDL_GPUSamplerCreateInfo wantedSampler{};
@@ -512,6 +544,9 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
 
   wantedSampler.max_lod = kEveryMip;
   bound.Sample = OwnedSampler(Device_, SDL_CreateGPUSampler(Device_, &wantedSampler));
+  if (!bound.Sample) {
+    return std::unexpected(std::format(Says::kTextureSamplerFailed, SDL_GetError()));
+  }
   return bound;
 }
 

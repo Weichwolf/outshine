@@ -294,7 +294,7 @@ private:
 
   bool GlassDrawnElsewhere_ = false;
 
-  void BindSurface(const SubjectMaterial &material);
+  [[nodiscard]] bool BindSurface(const SubjectMaterial &material, std::string &error);
 
 public:
   [[nodiscard]] bool FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error) {
