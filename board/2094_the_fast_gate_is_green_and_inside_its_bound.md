@@ -113,3 +113,6 @@ nicht einfach das Limit hochsetzen. Wiederaufbau/Pruning kleiner Fixtures kostet
 ## Writer-Gate
 Literalinventar bleibt Diagnose; Tool-/Analysefehler sind rot. Alle 17 ScenarioWrite-
 Tests sind verpflichtendes Verhaltensgate und aktuell grün. API-Abnahme bleibt offen.
+
+Lint schreibt standardmäßig eine Ergebniszeile; vollständige Ausgabe im System-Temp,
+bei Fehlern höchstens zwölf Diagnosezeilen. --verbose erhält die Detailansicht.

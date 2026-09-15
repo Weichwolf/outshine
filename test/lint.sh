@@ -12,6 +12,19 @@
 set -eu
 cd "$(dirname "$0")/.."
 
+if [ "${1:-}" != --verbose ]; then
+  transcript=$(mktemp "${TMPDIR:-/tmp}/outshine-lint-output.XXXXXX")
+  verdict=0
+  sh test/lint.sh --verbose > "$transcript" 2>&1 || verdict=$?
+  if [ "$verdict" -eq 0 ]; then
+    printf 'lint: PASS; details: %s\n' "$transcript"
+  else
+    printf 'lint: FAIL (exit %s); details: %s\n' "$verdict" "$transcript" >&2
+    grep -E '^(FAIL|BUILD|UNPREP|TIMEOUT|SIGNAL|lint:.*(failed|RED|missing|no compile|to go))' "$transcript" | head -12 >&2 || true
+  fi
+  exit "$verdict"
+fi
+
 LLVM=${LLVM_BIN:-/opt/homebrew/opt/llvm/bin}
 # run-clang-tidy spawns clang-tidy by NAME, so naming the directory is not enough.
 PATH="$LLVM:$PATH"
@@ -31,6 +44,7 @@ for tool in clang-format clang-tidy; do
     exit 2
   }
 done
+make test-format test-tidy-analysis test-documentation test-reference-cache db
 [ -f compile_commands.json ] || { printf 'lint: no compile_commands.json -- run `make db`\n' >&2; exit 2; }
 
 mkdir -p "$REPORT"
