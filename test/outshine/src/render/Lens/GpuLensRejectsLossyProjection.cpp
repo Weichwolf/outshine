@@ -123,7 +123,7 @@ void FailedAimPreservesLens() {
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;
   view.Eye.ZFarM = 10;
-  view.StandsInside = true;
+  view.HasExplicitCamera = true;
   Shape shape;
   std::string error;
   CHECK(Aim(renderer, shape, view, {}, error), "bind an initial valid lens");
@@ -134,14 +134,14 @@ void FailedAimPreservesLens() {
   part.PositionsM = positions;
   shape.Parts = {&part, 1};
   view.Eye.ZNearM = 1;
-  view.StandsInside = false;
+  view.HasExplicitCamera = false;
   CHECK(!Aim(renderer, shape, view, {}, error) && !error.empty(),
         "geometry inside the new near plane rejects the candidate camera");
   CHECK(renderer.NearMetres() == original,
         "failed geometric validation preserves the previously published projection");
-  view.StandsInside = true;
+  view.HasExplicitCamera = true;
   CHECK(Aim(renderer, shape, view, {}, error) && renderer.NearMetres() == 1,
-        "an explicitly permitted inside view publishes the new projection");
+        "an explicit camera may clip geometry and publishes the new projection");
 }
 } // namespace
 

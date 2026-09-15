@@ -97,9 +97,9 @@ make test: 2792 Arme, 2775 PASS, 1 FAIL, 2 BUILD, 14 UNPREPARED; keine Timeouts/
 Gemessen: 642748 ms Run + 1692318 ms Build/Vorbereitung = 2335066 ms gesamt.
 Die alte Run-Grenze 230000 ms ist überschritten; Population und Kosten neu bewerten,
 nicht einfach das Limit hochsetzen. Wiederaufbau/Pruning kleiner Fixtures kostet IO.
-- Zwei unvollständig migrierte Testaufrufe: Data::kWgs84A -> outshine::kWgs84A;
-  Eye::StandsInside -> HasExplicitCamera. Aktuelle Definitionen und ursprüngliche
-  numerische/Fehlererhaltungsprüfungen belegen die Zuordnung; nur Aufrufer migrieren.
+- Beide veralteten Testaufrufe migriert: WGS84-Konstante im nativen Namespace,
+  Eye::HasExplicitCamera statt StandsInside. GeographicLib regulär/sanitisiert und
+  GPU-Lens bestehen (3/3); unveränderte Prüfkriterien. make lint vollständig grün.
 - MipmappedChessRepeatsLinearPixels: 420 lineare Kanäle weichen ab, Tiefe identisch;
   unveränderte exakte Prüfung, Untersuchung in 2179.
 - Neun Place-Renders warten auf Vegetation; P0-Abnahmen wie vereinbart explizit

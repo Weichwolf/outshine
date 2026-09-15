@@ -1,3 +1,4 @@
+#include "math/Units.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -32,7 +33,7 @@ struct Row {
 }
 
 [[nodiscard]] double SphereApartM(const Row &one) {
-  const double kR = outshine::Data::kWgs84A;
+  const double kR = outshine::kWgs84A;
   const double fromLat = one.FromLatDeg * outshine::kDeg2Rad;
   const double toLat = one.ToLatDeg * outshine::kDeg2Rad;
   const double byLat = (one.ToLatDeg - one.FromLatDeg) * outshine::kDeg2Rad;
@@ -77,7 +78,7 @@ int main(int argc, char **argv) {
     const outshine::Geodesic said = outshine::GeodesicOn(
         {.LongitudeDeg = one.FromLonDeg, .LatitudeDeg = one.FromLatDeg},
         {.LongitudeDeg = one.ToLonDeg, .LatitudeDeg = one.ToLatDeg},
-        {.SemiMajorM = outshine::Data::kWgs84A, .Flattening = outshine::Data::kWgs84F});
+        {.SemiMajorM = outshine::kWgs84A, .Flattening = outshine::Data::kWgs84F});
     if (!said.Converged) {
       if (one.AlongM > widestUnsettledM) { widestUnsettledM = one.AlongM; }
       if (one.AlongM < closestUnsettledM) { closestUnsettledM = one.AlongM; }
