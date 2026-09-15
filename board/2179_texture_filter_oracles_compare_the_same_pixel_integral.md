@@ -68,7 +68,11 @@ der neue Piece-Instanzpfad ist keine notwendige Ursache. Keine Wiederholung bis 
 | Float32-Ableitungsausgabe | Fehler verschwindet; Instrumentierung beeinflusst ihn |
 | Float16-Ableitungsausgabe | Ableitungen gleich quantisiert, Farbfehler bleibt |
 | SDL-Shadercross-MSL-Ausgabe | float2-UV und float-Textur, keine erklärte Half-Absenkung |
+| verworfener Vorlauf-Frame | alle nachfolgenden Frames bitgenau; nur die erste Submission besitzt abweichende Farbe |
+| gemeinsame Mip-Copy-Submission | 464 statt 467 Kanäle abweichend; Probe zurückgenommen, Uploadreihenfolge ist nicht die Ursache |
+| SubjectDraw::CarryFrame aus | 470 Kanäle abweichend; Framezähler ist nicht die Ursache |
 
-Nächste Prüfung: Ableitungsauswertung und Sampler-/Compilerverhalten im originalen
-Renderpfad kausal trennen. Keine permanente Diagnoseausgabe als Reparatur.
-Alle Proben zurückgenommen. Exakte Läufe stehen in der Git-Historie.
+Die erste Submission ändert einen Renderzustand, während Tiefe und alle späteren Farben exakt
+bleiben. Nächste Prüfung: Erstframe-Tabellen/Culling und implizite Ableitung kausal trennen.
+Keine permanente Diagnoseausgabe oder verworfenen Warm-up als Reparatur. Alle Proben sind
+zurückgenommen. Exakte Läufe stehen in der Git-Historie.
