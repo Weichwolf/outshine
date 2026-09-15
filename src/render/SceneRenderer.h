@@ -390,6 +390,7 @@ private:
   std::array<Effort, kStageCount> Spent_ = {{}};
 
   void Create(Resource resource);
+  [[nodiscard]] bool Created(Resource resource) const;
   [[nodiscard]] bool Configure(Stage stage, std::string &error);
   [[nodiscard]] bool ConfigurePlanStages();
   [[nodiscard]] AttachmentSet ColoursForStage(Stage wanted) const;

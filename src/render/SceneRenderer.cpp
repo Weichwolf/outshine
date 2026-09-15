@@ -322,7 +322,12 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
   }
   for (size_t r = 0; r < kResourceCount; ++r) {
     const auto id = static_cast<Resource>(r);
-    if (Plan_->Holds(id)) { Create(id); }
+    if (!Plan_->Holds(id)) { continue; }
+    Create(id);
+    if (Created(id)) { continue; }
+    WhyNot_ =
+        std::string("could not create render resource '") + Row(id).Name + "': " + SDL_GetError();
+    return std::unexpected(WhyNot_);
   }
 
   if (!ConfigurePlanStages()) { return std::unexpected(WhyNot_); }
@@ -522,6 +527,46 @@ void SceneRenderer::Create(Resource resource) {
       return;
     case Resource::kCount: return;
   }
+}
+
+bool SceneRenderer::Created(Resource resource) const {
+  switch (resource) {
+    case Resource::LinearSampler: return static_cast<bool>(Samp_);
+    case Resource::SceneHdr: return static_cast<bool>(HdrTex_);
+    case Resource::SceneTransmissive: return static_cast<bool>(TransmissiveTex_);
+    case Resource::SceneComposited: return static_cast<bool>(CompositedTex_);
+    case Resource::SceneAerial: return static_cast<bool>(AerialTex_);
+    case Resource::SceneVelocity: return static_cast<bool>(VelTex_);
+    case Resource::SceneShadingNormal: return static_cast<bool>(ShadingNormalTex_);
+    case Resource::SceneSurfaceIdentity: return static_cast<bool>(SurfaceIdentityTex_);
+    case Resource::SceneDepth: return static_cast<bool>(DepthTex_);
+    case Resource::FrameTex: return static_cast<bool>(FrameTex_);
+    case Resource::TransmittanceLut: return static_cast<bool>(TransmittanceLut_);
+    case Resource::MultiScatterLut: return static_cast<bool>(MultiScatterLut_);
+    case Resource::SkyViewLut: return static_cast<bool>(SkyViewLut_);
+    case Resource::LutSampler: return static_cast<bool>(LutSamp_);
+    case Resource::AtmosphereUniform:
+    case Resource::CascadeUniform:
+    case Resource::IrradianceBuffer: return static_cast<bool>(IrradianceBuffer_);
+    case Resource::DepthPyramid: return static_cast<bool>(Pyramid_);
+    case Resource::VegetationTable:
+    case Resource::Meter:
+    case Resource::ShadowAtlas: return static_cast<bool>(ShadowAtlas_);
+    case Resource::SceneLinear: return LinearTex_[0] && LinearTex_[1];
+    case Resource::OverlayAtlas:
+    case Resource::Surface:
+    case Resource::ClusterSphere:
+    case Resource::ClusterIndex:
+    case Resource::ClusterJobs:
+    case Resource::ClusterBatches:
+    case Resource::ClusterKept:
+    case Resource::ClusterSlot:
+    case Resource::DrawIndex:
+    case Resource::DrawArguments:
+    case Resource::AoBuffer:
+    case Resource::kCount: return true;
+  }
+  return false;
 }
 
 SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
