@@ -112,7 +112,8 @@ Korrigierte Pass-Isolation: explizite Stage-Liste lässt auch die standardmäßi
 Velocity-Ausgabe weg. Ohne Aerial MIT sceneVelocity bleibt FAIL; MIT Aerial OHNE
 sceneVelocity PASS. Die frühere Zuordnung zur Luftperspektive war falsch.
 Velocity-Renderziel behalten, aber outVelocity=vec2(0) statt Clip-Differenz: PASS.
-Damit Velocity-Berechnung/Variantenpfad untersuchen; konstante Ausgabe zurückgenommen,
-keine Entfernung des Features. Float-Zwischenpuffer allein beheben FAIL nicht.
+Clip-Isolation: nur curClip.xy/curClip.w weiterhin FAIL; gl_FragCoord.xy*0.001 PASS
+(4 Checks). Vorherige Matrix allein damit ausgeschlossen; Clip-Varyings/Shaderübersetzung
+weiter isolieren. Alle Proben zurückgenommen. Float-Zwischenpuffer allein beheben FAIL nicht.
 Die Bandfarben beweisen Luftperspektive nicht; analytische Extinktionsfälle ergänzen.
 LUTs und 192-Byte-Aerial-Uniformblock bytegleich; temporäre Instrumentierung entfernt.
