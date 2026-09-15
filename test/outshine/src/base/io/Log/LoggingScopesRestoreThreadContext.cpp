@@ -1,4 +1,5 @@
 #include "io/Log.h"
+#include "io/LogSinks.h"
 #include "Check.h"
 #include <string>
 #include <string_view>
@@ -65,6 +66,20 @@ int main() {
     Say();
   }
   CHECK(fallback.Units.back() == "view", "label copy respects a non-terminated view extent");
+  RecordingSink globalOuter, globalInner;
+  {
+    const LogSinkScope outerScope(&globalOuter);
+    Say();
+    {
+      const LogSinkScope innerScope(&globalInner);
+      Say();
+    }
+    Say();
+  }
+  Say();
+  CHECK(globalOuter.Units.size() == 2 && globalInner.Units.size() == 1,
+        "nested global scopes restore their outer sink");
+  CHECK(fallback.Units.back().empty(), "global scope exit restores its earlier sink");
   Log::SetSink(nullptr);
   RecordingSink first, second;
   std::thread a([&] {

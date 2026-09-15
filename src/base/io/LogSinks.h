@@ -22,12 +22,15 @@ private:
 
 class LogSinkScope {
 public:
-  explicit LogSinkScope(LogSink *sink) { Log::SetSink(sink); }
+  explicit LogSinkScope(LogSink *sink) noexcept : Previous_(Log::Sink_) { Log::SetSink(sink); }
 
-  ~LogSinkScope() { Log::SetSink(nullptr); }
+  ~LogSinkScope() { Log::SetSink(Previous_); }
 
   LogSinkScope(const LogSinkScope &) = delete;
   LogSinkScope &operator=(const LogSinkScope &) = delete;
+
+private:
+  LogSink *Previous_ = nullptr;
 };
 
 }

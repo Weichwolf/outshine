@@ -57,6 +57,7 @@ public:
 private:
   friend class LogUnitScope;
   friend class LogThreadSinkScope;
+  friend class LogSinkScope;
 
   static void Emit(LogLevel level, LogTag tag, const char *event, std::span<const LogField> fields);
 

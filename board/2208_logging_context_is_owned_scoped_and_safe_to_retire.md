@@ -41,6 +41,9 @@ Unabhängige Callback-Aufzeichnung prüft Verschachtelung, frühen Return, Kopie
 veränderten Labels, Trunkierung und getrennte Threads. Altcode scheitert, korrigierter Regressionstest grün.
 Keine Bildänderung erwartet. Globale Registrierung und Engine-Isolation bleiben offen.
 
+`LogSinkScope` restauriert nun ebenfalls seinen vorherigen globalen Sink; der
+Kontexttest prüft äußere, innere und danach wiederhergestellte Ausgabe.
+
 Nachweis: LoggingScopesRestoreThreadContext prüft fünf Verträge, alle grün;
 Altcode scheitert ohne Buildfehler. Finales make lint: 182 tidy-Befunde, 330
 Dokumentationsdiagnosen, 32 Repository-Tests grün; drei bekannte rote Gruppen.
