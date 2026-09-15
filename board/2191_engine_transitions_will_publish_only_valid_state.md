@@ -18,6 +18,7 @@ Konfiguration validieren, Kandidaten aufbauen, erst dann veröffentlichen. Fehlg
 wechselt ausdrücklich in Failed. Keine Erfolgsvortäuschung durch alte Framebilder.
 Fehler als strukturierter Code mit Kontext; SDL-Text am Fehlerort übernehmen.
 Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
+setSurfaces/Live::Redeclare ersetzen Zustand vor Compose-Erfolg: Rollback fehlt.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles

@@ -40,6 +40,29 @@ constexpr auto kInputHostMissing = "a bound input action requires an offered hos
 
 namespace {
 
+[[nodiscard]] std::vector<Core::Shows>
+PrepareSurfaces(std::span<const Scenario::Surface> surfaces) {
+  std::vector<size_t> ordered(surfaces.size());
+  std::ranges::iota(ordered, size_t{0});
+  std::ranges::stable_sort(
+      ordered, [&surfaces](size_t a, size_t b) { return surfaces[a].Z < surfaces[b].Z; });
+  std::vector<Core::Shows> laid;
+  laid.reserve(ordered.size());
+  for (const size_t at : ordered) {
+    const Scenario::Surface *const surface = &surfaces[at];
+    Core::Shows shows;
+    shows.Markup = surface->Document;
+    shows.Style = surface->Style;
+    shows.Programme = surface->Programme;
+    shows.LeftFrac = surface->Where.LeftFrac;
+    shows.TopFrac = surface->Where.TopFrac;
+    shows.WidthFrac = surface->Where.WidthFrac;
+    shows.HeightFrac = surface->Where.HeightFrac;
+    laid.push_back(std::move(shows));
+  }
+  return laid;
+}
+
 [[nodiscard]] Holds<bool>
 DispatchInput(Host *host, const InputMap &bindings, std::span<const Core::InputPump::Fired> fired) {
   if (host == nullptr) { return std::unexpected(Says::kInputHostMissing); }
@@ -108,24 +131,7 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
       !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
-  std::vector<size_t> ordered(surfaces.size());
-  std::ranges::iota(ordered, size_t{0});
-  std::ranges::stable_sort(
-      ordered, [&surfaces](size_t a, size_t b) { return surfaces[a].Z < surfaces[b].Z; });
-  std::vector<Core::Shows> laid;
-  laid.reserve(ordered.size());
-  for (const size_t at : ordered) {
-    const Scenario::Surface *const surface = &surfaces[at];
-    Core::Shows shows;
-    shows.Markup = surface->Document;
-    shows.Style = surface->Style;
-    shows.Programme = surface->Programme;
-    shows.LeftFrac = surface->Where.LeftFrac;
-    shows.TopFrac = surface->Where.TopFrac;
-    shows.WidthFrac = surface->Where.WidthFrac;
-    shows.HeightFrac = surface->Where.HeightFrac;
-    laid.push_back(std::move(shows));
-  }
+  auto laid = PrepareSurfaces(surfaces);
   S_->Session.Declared.Surfaces = surfaces;
   return S_->Picture.Standing->Redeclare(std::move(laid), S_->Error) ? Result{}
                                                                      : std::unexpected(S_->Error);
@@ -211,7 +217,8 @@ constexpr auto InvalidSimulationTiming =
 constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
-Result Engine::declare(const Scenario::Document &scenario) {
+namespace {
+[[nodiscard]] Result ValidateDeclarationInputs(const Scenario::Document &scenario) {
   if (const auto valid = ValidateBodyDynamics(scenario.Bodies); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
@@ -243,41 +250,39 @@ Result Engine::declare(const Scenario::Document &scenario) {
       !std::isfinite(scenario.Motion.StepS * scenario.Motion.MostStepsInArrears)) {
     return std::unexpected(Says::InvalidSimulationTiming);
   }
-  if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
-    S_->Error = Says::RevisionExhausted;
-    return std::unexpected(S_->Error);
-  }
-  auto views = PrepareViews(scenario);
-  if (!views) {
-    S_->Error = std::move(views.error());
-    return std::unexpected(S_->Error);
-  }
-  ships();
-  const auto offers = [this](const std::string &kind) {
-    return S_->World.Offering.named(kind) != nullptr;
+  return {};
+}
+
+[[nodiscard]] Result ValidateOfferedGenerators(const Scenario::Document &scenario,
+                                               const Generators::Registry &registry,
+                                               std::string &error) {
+  const auto offers = [&registry](const std::string &kind) {
+    return registry.named(kind) != nullptr;
   };
   for (const Scenario::Generating &named : scenario.Generators) {
     if (offers(named.Kind)) { continue; }
-    S_->Error = "the scenario declares a generator of kind '" + named.Kind +
-                "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
-                "never a line that is counted and dropped";
-    return std::unexpected(S_->Error);
+    error = "the scenario declares a generator of kind '" + named.Kind +
+            "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
+            "never a line that is counted and dropped";
+    return std::unexpected(error);
   }
   for (const Scenario::Asset &shown : scenario.Assets) {
     if (shown.Kind != "generated" || offers(shown.Uri)) { continue; }
-    S_->Error = "the scenario stands the generated asset '" + shown.Uri +
-                "' and nothing offers a generator of that kind -- an asset names a generator the "
-                "way a scenario names anything, and a name nobody answers is a refusal";
-    return std::unexpected(S_->Error);
+    error = "the scenario stands the generated asset '" + shown.Uri +
+            "' and nothing offers a generator of that kind -- an asset names a generator the "
+            "way a scenario names anything, and a name nobody answers is a refusal";
+    return std::unexpected(error);
   }
+  return {};
+}
+
+void PrepareImportedAssets(const Scenario::Document &scenario,
+                           const std::string &assets,
+                           Core::Declaration &declared) {
   const Scenario::Asset *const subject = FirstGltfAsset(scenario);
 
-  Core::Declaration declared;
-  declared.Haze = scenario.Ground.Sky.Haze;
-  declared.SurfaceWidthPx = S_->Picture.Frame.WidthPx;
-  declared.SurfaceHeightPx = S_->Picture.Frame.HeightPx;
   if (subject != nullptr) {
-    declared.Stands = Beneath(S_->Session.Under.Assets, subject->Uri);
+    declared.Stands = Beneath(assets, subject->Uri);
     bool first = true;
     for (const Scenario::Asset &shown : scenario.Assets) {
       if (shown.Kind != "gltf") { continue; }
@@ -285,13 +290,16 @@ Result Engine::declare(const Scenario::Document &scenario) {
         first = false;
         continue;
       }
-      declared.Joins.push_back(Beneath(S_->Session.Under.Assets, shown.Uri));
+      declared.Joins.push_back(Beneath(assets, shown.Uri));
     }
     declared.Variant = subject->Variant;
     declared.Overriding = subject->Surfaces;
     declared.Animation = subject->Animation;
     declared.Clip = subject->Clip;
   }
+}
+
+void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration &declared) {
   declared.DrawsSky = scenario.Ground.Declared && scenario.Ground.AirDensityKgM3 > 0.0;
   const Scenario::Patch whole;
   const Scenario::Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
@@ -309,6 +317,11 @@ Result Engine::declare(const Scenario::Document &scenario) {
   declared.PictureTopFrac = picture.TopFrac;
   declared.PictureWidthFrac = picture.WidthFrac;
   declared.PictureHeightFrac = picture.HeightFrac;
+}
+
+[[nodiscard]] Result PrepareLighting(const Scenario::Document &scenario,
+                                     Core::Declaration &declared,
+                                     std::string &error) {
   if (scenario.Lit.Declared) {
     declared.KeyLux = scenario.Lit.Key.Lux;
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
@@ -320,24 +333,24 @@ Result Engine::declare(const Scenario::Document &scenario) {
     const bool anglePut = scenario.Lit.Declared && (scenario.Lit.Key.ElevationDeg != 0.0 ||
                                                     scenario.Lit.Key.BearingDeg != 0.0);
     if (scenario.Ground.Declared && anglePut && scenario.Time.Declared) {
-      S_->Error = "this scenario declares a clock AND hand-sets the key light to " +
-                  Said(scenario.Lit.Key.ElevationDeg) + " degrees up on bearing " +
-                  Said(scenario.Lit.Key.BearingDeg) +
-                  " -- over a place on Earth only one of the two can be true, and a sun that does "
-                  "not follow the hour disagrees with its own shadows the moment the clock moves";
-      return std::unexpected(S_->Error);
+      error = "this scenario declares a clock AND hand-sets the key light to " +
+              Said(scenario.Lit.Key.ElevationDeg) + " degrees up on bearing " +
+              Said(scenario.Lit.Key.BearingDeg) +
+              " -- over a place on Earth only one of the two can be true, and a sun that does "
+              "not follow the hour disagrees with its own shadows the moment the clock moves";
+      return std::unexpected(error);
     }
     if (scenario.Ground.Declared && !anglePut) {
       int64_t whenS = 0;
       const bool live = !scenario.Time.Declared || scenario.Time.Live;
       if (scenario.Time.Start.empty() || !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
         if (!live && scenario.Time.Declared) {
-          S_->Error = "this scenario declares a clock that is neither LIVE nor a stated instant -- "
-                      "'" +
-                      scenario.Time.Start +
-                      "' is not an ISO 8601 UTC time, and a sky has to "
-                      "stand at some hour";
-          return std::unexpected(S_->Error);
+          error = "this scenario declares a clock that is neither LIVE nor a stated instant -- "
+                  "'" +
+                  scenario.Time.Start +
+                  "' is not an ISO 8601 UTC time, and a sky has to "
+                  "stand at some hour";
+          return std::unexpected(error);
         }
         whenS = static_cast<int64_t>(std::time(nullptr));
       }
@@ -350,23 +363,35 @@ Result Engine::declare(const Scenario::Document &scenario) {
     }
   }
 
-  std::vector<size_t> ordered(scenario.Surfaces.size());
-  std::ranges::iota(ordered, size_t{0});
-  std::ranges::stable_sort(ordered, [&scenario](size_t a, size_t b) {
-    return scenario.Surfaces[a].Z < scenario.Surfaces[b].Z;
-  });
-  for (const size_t at : ordered) {
-    const Scenario::Surface *const surface = &scenario.Surfaces[at];
-    Core::Shows shows;
-    shows.Markup = surface->Document;
-    shows.Style = surface->Style;
-    shows.Programme = surface->Programme;
-    shows.LeftFrac = surface->Where.LeftFrac;
-    shows.TopFrac = surface->Where.TopFrac;
-    shows.WidthFrac = surface->Where.WidthFrac;
-    shows.HeightFrac = surface->Where.HeightFrac;
-    declared.Surfaces.push_back(std::move(shows));
+  return {};
+}
+}
+
+Result Engine::declare(const Scenario::Document &scenario) {
+  if (const auto valid = ValidateDeclarationInputs(scenario); !valid) { return valid; }
+  if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
+    S_->Error = Says::RevisionExhausted;
+    return std::unexpected(S_->Error);
   }
+  auto views = PrepareViews(scenario);
+  if (!views) {
+    S_->Error = std::move(views.error());
+    return std::unexpected(S_->Error);
+  }
+  ships();
+  if (const auto valid = ValidateOfferedGenerators(scenario, S_->World.Offering, S_->Error);
+      !valid) {
+    return valid;
+  }
+  Core::Declaration declared;
+  declared.Haze = scenario.Ground.Sky.Haze;
+  declared.SurfaceWidthPx = S_->Picture.Frame.WidthPx;
+  declared.SurfaceHeightPx = S_->Picture.Frame.HeightPx;
+  PrepareImportedAssets(scenario, S_->Session.Under.Assets, declared);
+  PrepareRenderSettings(scenario, declared);
+  if (const auto lit = PrepareLighting(scenario, declared, S_->Error); !lit) { return lit; }
+
+  declared.Surfaces = PrepareSurfaces(scenario.Surfaces);
   if (!declared.Surfaces.empty() &&
       !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
