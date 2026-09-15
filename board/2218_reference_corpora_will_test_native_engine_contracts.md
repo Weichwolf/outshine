@@ -61,3 +61,17 @@ Negativkontrolle und echten Engine-Aufruf. Fehlende Daten sind unvorbereitet/rot
 Kleine schnelle Auswahl regelmäßig, große Audits benannt; Laufzeiten messen.
 Keine Engine-Sonderfälle nach Testname/Hash, keine Normalisierung fehlerhafter Ergebnisse.
 Erledigte Teilaufträge hier verdichten; Implementierungen in ihren Fach-WIs abschließen.
+
+## Widerlegte Belichtungsannahme im Sonnen-Audit
+ScoreWhichWaysTheSunMovesTheGround verlangt für 5° nach 75° ein anderes Bild und
+rechtfertigt das mit zeitlicher Belichtungsanpassung. Messung über Engine::inspect:
+ExposureApplied bleibt bei 5/5/30/75/5° exakt 5,20833346e-5. Herleitung im Live-Pfad:
+2,5 / (1,2 × 40000 Lux) = 5,20833333e-5, Rundung auf Float erklärt die Differenz.
+Explizite halbe/doppelte Belichtung kommt korrekt an. Der Verlust von 37,022 auf
+1,140 mittlere Bodenhelligkeit ist damit keine Belichtungsanpassung. Temporäre
+Messinstrumentierung entfernt; unveränderte Assertions weiterhin reproduzierbar.
+Die Ungleichheits-Assertion ist nachweislich falsch begründet und muss durch den
+Wiederkehrvertrag gleicher Szenen ersetzt werden; nicht durch eine Toleranz.
+Vor Rendereränderung Schatten, atmosphärische LUTs, temporale Historie und Geometrie
+bei A/B/A isolieren. Unabhängigen kleinen Fall über outshine-client aufbauen und
+PNGs vergleichen; Hang-/Schattenszenen beweisen kein allgemeines sin(elevation).

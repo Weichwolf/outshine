@@ -99,10 +99,10 @@ nicht einfach das Limit hochsetzen. Wiederaufbau/Pruning kleiner Fixtures kostet
 - Gelände-Audits ohne Vegetation: Footprint/Normals/Lattice im warmen Cache grün.
   Air/Sun erreichen jetzt Bildprüfungen (8107/5412 ms), beide FAIL statt Timeout:
   Air verletzt Wiederholbarkeit; Sun verletzt monotone Bildhelligkeit bei 5/30/75°.
-  Sun mischt Belichtungshistorie mit Lichtprüfung: 5° nach 75° fällt von 37,022 auf
+  Sun behauptet Belichtungsanpassung: 5° nach 75° fällt von 37,022 auf
   1,140; 30° liegt mit 35,774 unter 5°. Ursache nicht allein daraus ableitbar.
-  Fixierte Belichtung, zeitlich definierte Aufnahme und unabhängige Lichtgeometrie
-  in 2218 spezifizieren. Bis dahin keine Grenzwerte oder Assertions lockern.
+  ExposureApplied ist aber in allen fünf Aufnahmen exakt gleich (Nachweis 2218).
+  Zustandsfehler untersuchen; die behauptete Anpassung ist als Ursache widerlegt.
   Air: ungefragten Komplettdump der Measures und build/*.rgba entfernt; fachliche
   Bandmessungen, Fehler und sämtliche Assertions bleiben erhalten.
 - ClaimCorpus erkennt eigene PID als fremden Runner: Reentranz/Ownership korrigieren.
