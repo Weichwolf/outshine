@@ -576,6 +576,10 @@ void WriteRender(std::string &said, const Scenario::RenderPlan &render) {
   said += "  <render";
   Number(said, "widthPx", render.Frame.WidthPx);
   Number(said, "heightPx", render.Frame.HeightPx);
+  Number(said, "leftFrac", render.Picture.LeftFrac);
+  Number(said, "topFrac", render.Picture.TopFrac);
+  Number(said, "widthFrac", render.Picture.WidthFrac);
+  Number(said, "heightFrac", render.Picture.HeightFrac);
   Number(said, "fps", render.Fps);
   Number(said, "fill", render.Fill);
   Yes(said, "audits", render.Audits);

@@ -313,7 +313,7 @@ struct Patch {
 struct RenderPlan {
   bool Declared = false; ///< Whether this section participates in scenario declaration/merging.
   Extent Frame;  ///< Requested image dimensions in pixels; the host supplies the actual target.
-  Patch Picture; ///< Normalized image region; currently available through the native API only.
+  Patch Picture; ///< Normalized image region, retained by native and XML declarations.
   /// Nominal frames per second, also used by the current asset-animation sampling path.
   /// Positive values replace the engine default; this is not a wall-clock pacing guarantee.
   double Fps = kFpsUnsaid;

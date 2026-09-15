@@ -56,7 +56,7 @@ Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewe
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 0 Tidy-Befunde (189/189 Units); Writer-Literalinventar rot; Dokumentation 24/24 Header,
+Aktuelles Lint vollständig grün: 0 Tidy-Befunde (189/189 Units), Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -117,4 +117,4 @@ Dies ist eine Prozessgrenze, keine OOM-Erholung oder Runtime-Fehlerübersetzung.
 Unabhängige Tests injizieren bad_alloc, Standard- und fremde Ausnahmen; prüfen
 Diagnose, Fehlercode und Destruktorlauf. Entfernte Grenze muss den Test brechen.
 Test und CLI-Gruppen grün; falscher Erfolgsstatus als Gegenprobe rot.
-Lint vollständig: 0 Tidy, 33 Regeln grün, Doku 24/24 ohne Diagnose; Writer bleibt rot.
+Lint: 0 Tidy, 33 Regeln, Doku 24/24 ohne Diagnose und 17 Writer-Tests grün.

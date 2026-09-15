@@ -112,8 +112,8 @@ drive-Attribute werden bereits als ungelesen abgelehnt, leeres drive noch ignori
 Root-drive ausdrücklich ablehnen: kein natives Routenmodell/Reader vorhanden.
 RenderPlan.Picture fehlt in Reader/Writer; vier normalisierte Werte erhalten.
 Render-Tests prüfen alle Parameter, Alias-Kanonisierung, Reihenfolge und leere Listen;
-Negativkontrolle entfernt Picture-Breite. Viewport-Anwendung bleibt Runtime-Auftrag.
+Entfernte Picture-Breite verletzt zwei Checks; restauriert 21/21 grün.
 Inventar nur Diagnose: Literalnamen können weder Aliase noch Parameterweitergabe
 beweisen. Analysefehler bleiben rot; konkrete Erhaltungsprüfung als Gate via gesamte
 ScenarioWrite-Suite. Gegenproben und XML-/native Fixtures bleiben maßgeblich.
-Vollständiges Lint ausführen; kein Schluss von grünen Namen auf vollständige API.
+Lint vollständig grün: 0 Tidy, 33 Regeln, 17/17 Writer-Tests. API-Abnahme bleibt offen.

@@ -34,6 +34,8 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kUnsupportedRootDrive =
+    "root drive declarations are unsupported; no native route model consumes them";
 constexpr auto kInvalidProviderRank =
     "provider rank must be a complete decimal integer in the int range";
 constexpr auto kInvalidSceneRoom =
@@ -349,6 +351,10 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   if (Declares(from, "stage")) { into.Render.Stages.clear(); }
   into.Render.Frame.WidthPx = static_cast<int>(from.Int("widthPx", into.Render.Frame.WidthPx));
   into.Render.Frame.HeightPx = static_cast<int>(from.Int("heightPx", into.Render.Frame.HeightPx));
+  into.Render.Picture.LeftFrac = from.Num("leftFrac", into.Render.Picture.LeftFrac);
+  into.Render.Picture.TopFrac = from.Num("topFrac", into.Render.Picture.TopFrac);
+  into.Render.Picture.WidthFrac = from.Num("widthFrac", into.Render.Picture.WidthFrac);
+  into.Render.Picture.HeightFrac = from.Num("heightFrac", into.Render.Picture.HeightFrac);
   into.Render.Fps = from.Num("fps", into.Render.Fps);
   into.Render.Fill = from.Num("fill", into.Render.Fill);
   into.Render.Audits = std::string(from.Said("audits").value_or("no")) == "yes";
@@ -1005,6 +1011,10 @@ bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &
   }
 
   if (!Grammatical(root, "scenario", error)) { return false; }
+  if (root.Child("drive").Valid()) {
+    error = Says::kUnsupportedRootDrive;
+    return false;
+  }
 
   into.Named.Name = root.Attr("name");
   into.Named.Version = root.Attr("version");
