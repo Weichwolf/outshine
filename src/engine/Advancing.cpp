@@ -438,13 +438,4 @@ Result Engine::advance(double elapsedS) {
   return stood ? Result{} : std::unexpected(S_->Error);
 }
 
-Result Engine::run() {
-  if (!S_->Picture.Standing) {
-    S_->Error = "no scenario is standing, so there is nothing to run";
-    return std::unexpected(S_->Error);
-  }
-  while (advance()) {}
-  return S_->Error.empty() ? Result{} : std::unexpected(S_->Error);
-}
-
 }

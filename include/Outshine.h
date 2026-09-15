@@ -451,13 +451,6 @@ public:
   /// This is configuration, not measured frame duration. Serialize with declaration changes.
   /// @return Configured simulation step duration in seconds.
   [[nodiscard]] double stepSeconds() const;
-  /// Repeatedly call advance() until it fails; requires an existing render scene.
-  /// This synchronous loop has no pacing, event polling or separate cancellation argument.
-  /// It may run indefinitely. Use advance() under the host's loop for scheduled execution.
-  /// Call on the Engine/video thread with no concurrent Engine work. State and error guarantees
-  /// are those of advance(); this operation does not provide a simulation snapshot.
-  /// @return Missing-scene/update error, or success if the loop ends with no diagnostic.
-  [[nodiscard]] Result run();
 
   /// Copy the active named declaration into the bounded parked set and release its render scene.
   /// Requires an existing render scene and a unique nonempty name. This stores a declaration,
