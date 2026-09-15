@@ -70,6 +70,7 @@ der neue Piece-Instanzpfad ist keine notwendige Ursache. Keine Wiederholung bis 
 | SDL-Shadercross-MSL-Ausgabe | float2-UV und float-Textur, keine erklärte Half-Absenkung |
 | verworfener Vorlauf-Frame | alle nachfolgenden Frames bitgenau; nur die erste Submission besitzt abweichende Farbe |
 | gemeinsame Mip-Copy-Submission | 464 statt 467 Kanäle abweichend; Probe zurückgenommen, Uploadreihenfolge ist nicht die Ursache |
+| SDL-Transferpuffer nach Submit freigegeben | SDL 3.4.16 garantiert sichere verzögerte Freigabe; kein Lifetime-Fehler des Upload-Puffers |
 | SubjectDraw::CarryFrame aus | 470 Kanäle abweichend; Framezähler ist nicht die Ursache |
 
 Die erste Submission ändert einen Renderzustand, während Tiefe und alle späteren Farben exakt
