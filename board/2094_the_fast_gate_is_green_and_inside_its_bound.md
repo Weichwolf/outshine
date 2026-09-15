@@ -111,9 +111,8 @@ TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grü
 ## LOD-Eingabegrenze
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 
-## Mesher-Phasen
-Draw mischt Sichtauswahl, Elternfortpflanzung und Astaufbau (Komplexität 39).
-SelectShoots und MeshShoot trennen diese Zuständigkeiten, temporäre Ringpuffer lokal.
-Rang-/Ast-Reihenfolge, Kragen, Kappen, Seeds und Export bleiben unverändert.
-Wachstums-/native Geometrietests grün; Mesher ohne Tidy, 15 insgesamt, 33 Regeln grün.
-Diagnose-GLB direkt gerendert/PNG geöffnet: dünne, ungleich verteilte Äste; keine Bildabnahme.
+## Mesher und Vertex-Vertrag
+SelectShoots/MeshShoot trennen Auswahl/Aufbau; Tests grün, Astqualität bleibt offen.
+Surface::Vertex hat vertauschbare Positions-/Normalenparameter. Benannter VertexInput
+mit Position, Normal und UV ersetzt Positionsargumente an allen Aufrufstellen.
+Native Material-/Geometrietests sichern Datenlayout und transformierte Normalen.
