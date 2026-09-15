@@ -108,12 +108,11 @@ maximal 198 HDR-Einheiten. RGBA: 256 Kanäle, maximal 6/255. Ausgaben als zusät
 Planattachments angefordert; temporäre Instrumentierung entfernt. Schattenatlas ebenfalls
 bitgleich: 0/4194304 Texel verschieden. Weiter: Beleuchtung/Filterauswertung isolieren.
 
-Pass-Isolation: ohne AerialPerspective bestehen alle vier Assertions; die Bandfarben
-beweisen daher keine Luftperspektive. Unabhängige Strecken-/Extinktionsprüfung nötig.
-Bei erhaltenem Pass mit Ausgabe nur lit bleibt Wiederholbarkeit FAIL. Atmosphärenformel
-ist damit nicht der Ursprung. Direkt aus HdrTex gelesene Eingangsfarbe unterscheidet
-sich schon in 910/230400 Kanälen, maximal 236 HDR-Einheiten. Vorgelagerten HDR-Pfad
-und veränderte Pass-/Formatwahl ohne AerialPerspective vergleichen.
-SkyView-LUT (165888 Bytes), Transmittance-LUT (131072 Bytes), Aerial-Uniformblock
-(192 Bytes) bytegleich. Pixelzentrum statt interpoliertem ndc behebt FAIL nicht.
-Alle temporären Shader-/Readback-Änderungen zurückgenommen.
+Korrigierte Pass-Isolation: explizite Stage-Liste lässt auch die standardmäßige
+Velocity-Ausgabe weg. Ohne Aerial MIT sceneVelocity bleibt FAIL; MIT Aerial OHNE
+sceneVelocity PASS. Die frühere Zuordnung zur Luftperspektive war falsch.
+Velocity-Renderziel behalten, aber outVelocity=vec2(0) statt Clip-Differenz: PASS.
+Damit Velocity-Berechnung/Variantenpfad untersuchen; konstante Ausgabe zurückgenommen,
+keine Entfernung des Features. Float-Zwischenpuffer allein beheben FAIL nicht.
+Die Bandfarben beweisen Luftperspektive nicht; analytische Extinktionsfälle ergänzen.
+LUTs und 192-Byte-Aerial-Uniformblock bytegleich; temporäre Instrumentierung entfernt.
