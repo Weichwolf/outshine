@@ -107,3 +107,10 @@ ShadingNormal und SurfaceIdentity je 0/230400. SceneLinear: 916/230400 Kanäle,
 maximal 198 HDR-Einheiten. RGBA: 256 Kanäle, maximal 6/255. Ausgaben als zusätzliche
 Planattachments angefordert; temporäre Instrumentierung entfernt. Schattenatlas ebenfalls
 bitgleich: 0/4194304 Texel verschieden. Weiter: Beleuchtung/Filterauswertung isolieren.
+
+Pass-Isolation: explizite Stages subjects/overlay/sky/lightVisibility ohne
+AerialPerspective bestehen alle vier Air-Assertions, auch Wiederholbarkeit.
+Gegenprobe zurückgenommen. Farbabweichung damit auf Luftperspektive/deren Ressourcen
+oder veränderte Pass-Abhängigkeiten eingegrenzt; SkyView-/Transmittance-LUTs prüfen.
+Die Bandfarben beweisen Luftperspektive nicht: Negativkontrolle ohne Pass wird grün.
+Abnahme neu auf unabhängige analytische Strecken/Extinktion ausrichten, nicht lockern.
