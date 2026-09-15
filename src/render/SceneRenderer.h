@@ -507,6 +507,7 @@ private:
   float CosSunZenith_ = 1.0f;
   float EyeHeightM_ = 0.0f;
   OverlayDraw Overlay_;
+  OverlayPipeline OverlayPipe_;
   PresentStage Present_;
 
   bool Ready_ = false;

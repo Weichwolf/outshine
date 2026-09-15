@@ -24,10 +24,10 @@ constexpr uint32_t kAttributes = 5;
 
 }
 
-bool OverlayDraw::Configure(const Gpu &gpu,
-                            SDL_GPUSampler *smooth,
-                            SDL_GPUTextureFormat targetFormat,
-                            std::string &error) {
+bool OverlayPipeline::Configure(const Gpu &gpu,
+                                SDL_GPUSampler *smooth,
+                                SDL_GPUTextureFormat targetFormat,
+                                std::string &error) {
   Smooth = smooth;
 
   Encodes = targetFormat == SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB ||
@@ -90,6 +90,11 @@ bool OverlayDraw::Configure(const Gpu &gpu,
   }
   Pipe = OwnedPipeline(gpu.Device, made);
 
+  return true;
+}
+
+bool OverlayDraw::EnsureAtlas(const Gpu &gpu, std::string &error) {
+  if (Atlas_) { return true; }
   static const std::array<uint8_t, 4> kWhite = {{255, 255, 255, 255}};
   return SetAtlas(gpu, kWhite.data(), 1, 1, error);
 }
@@ -158,7 +163,7 @@ bool OverlayDraw::SetAtlas(
     error = SDL_GetError();
     return false;
   }
-  Atlas = std::move(made);
+  Atlas_ = std::move(made);
   return true;
 }
 
@@ -245,13 +250,18 @@ bool OverlayDraw::Replace(const Gpu &gpu,
     return false;
   }
   if (!SetQuads(gpu, quads, count, error)) { return false; }
-  if (atlas != nullptr) { Atlas = std::move(candidate.Atlas); }
+  if (atlas != nullptr) { Atlas_ = std::move(candidate.Atlas_); }
   return true;
 }
 
-void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
+void OverlayPipeline::Encode(const OverlayDraw &overlay,
+                             const FrameContext &ctx,
+                             const PassRecording &into) {
   (void)ctx;
-  if (!Pipe || Count == 0 || !Verts || WidthPx <= 0 || HeightPx <= 0) { return; }
+  if (!Pipe || overlay.Held() == 0 || overlay.Vertices() == nullptr || overlay.Atlas() == nullptr ||
+      WidthPx <= 0 || HeightPx <= 0) {
+    return;
+  }
 
   struct Frame {
     Vec2f TargetPx;
@@ -264,11 +274,11 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_PushGPUVertexUniformData(into.Commands, 0, &frame, sizeof frame);
 
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUBufferBinding binding{.buffer = Verts.Get(), .offset = 0};
+  const SDL_GPUBufferBinding binding{.buffer = overlay.Vertices(), .offset = 0};
   SDL_BindGPUVertexBuffers(into.Pass, 0, &binding, 1);
-  const SDL_GPUTextureSamplerBinding sampled{.texture = Atlas.Get(), .sampler = Smooth};
+  const SDL_GPUTextureSamplerBinding sampled{.texture = overlay.Atlas(), .sampler = Smooth};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &sampled, 1);
-  SDL_DrawGPUPrimitives(into.Pass, 6, Count, 0, 0);
+  SDL_DrawGPUPrimitives(into.Pass, 6, overlay.Held(), 0, 0);
 }
 
 }

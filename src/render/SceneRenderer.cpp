@@ -675,8 +675,9 @@ bool SceneRenderer::ConfigureCompositeTransmission(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureOverlay(std::string &error) {
-  return Overlay_.Configure(
-      Handles_, Samp_.Get(), FormatOf(Plan_->Format(Resource::FrameTex)), error);
+  return Overlay_.EnsureAtlas(Handles_, error) &&
+         OverlayPipe_.Configure(
+             Handles_, Samp_.Get(), FormatOf(Plan_->Format(Resource::FrameTex)), error);
 }
 
 bool SceneRenderer::ConfigurePresent(std::string &error) {
@@ -833,8 +834,8 @@ void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &
 
 void SceneRenderer::EncodeOverlay(const FrameContext &ctx, const PassRecording &into) {
   Picture(false, into);
-  Overlay_.Bind(Extent{.WidthPx = Width_, .HeightPx = Height_});
-  Overlay_.Encode(ctx, into);
+  OverlayPipe_.Bind(Extent{.WidthPx = Width_, .HeightPx = Height_});
+  OverlayPipe_.Encode(Overlay_, ctx, into);
 }
 
 void SceneRenderer::EncodePresent(const FrameContext &ctx, const PassRecording &into) {

@@ -25,13 +25,6 @@ inline constexpr size_t kMaxOverlayQuads = 16384;
 
 class OverlayDraw {
 public:
-  static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1, .FragmentSamplers = 1};
-
-  [[nodiscard]] bool Configure(const Gpu &gpu,
-                               SDL_GPUSampler *smooth,
-                               SDL_GPUTextureFormat targetFormat,
-                               std::string &error);
-
   [[nodiscard]] bool
   SetAtlas(const Gpu &gpu, const uint8_t *rgba, int width, int height, std::string &error);
 
@@ -50,22 +43,40 @@ public:
                              const AtlasPixels *atlas,
                              std::string &error);
 
+  [[nodiscard]] bool EnsureAtlas(const Gpu &gpu, std::string &error);
+
+  [[nodiscard]] uint32_t Held() const { return Count; }
+
+  [[nodiscard]] SDL_GPUBuffer *Vertices() const { return Verts.Get(); }
+
+  [[nodiscard]] SDL_GPUTexture *Atlas() const { return Atlas_.Get(); }
+
+private:
+  OwnedBuffer Verts;
+  OwnedBuffer SpareVerts;
+  OwnedTexture Atlas_;
+  uint32_t Count = 0;
+};
+
+class OverlayPipeline {
+public:
+  static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1, .FragmentSamplers = 1};
+
+  [[nodiscard]] bool Configure(const Gpu &gpu,
+                               SDL_GPUSampler *smooth,
+                               SDL_GPUTextureFormat targetFormat,
+                               std::string &error);
+
   void Bind(Extent frame) {
     WidthPx = frame.WidthPx;
     HeightPx = frame.HeightPx;
   }
 
-  void Encode(const FrameContext &ctx, const PassRecording &into);
-
-  [[nodiscard]] uint32_t Held() const { return Count; }
+  void Encode(const OverlayDraw &overlay, const FrameContext &ctx, const PassRecording &into);
 
 private:
   OwnedPipeline Pipe;
-  OwnedBuffer Verts;
-  OwnedBuffer SpareVerts;
-  OwnedTexture Atlas;
   SDL_GPUSampler *Smooth = nullptr;
-  uint32_t Count = 0;
   int WidthPx = 0, HeightPx = 0;
   bool Encodes = false;
 };
