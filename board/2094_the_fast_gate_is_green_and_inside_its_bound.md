@@ -56,7 +56,7 @@ Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewe
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 4 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 2 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -116,4 +116,5 @@ fasst Aufträge zusammen; Step bedient bisher nur die erste Gruppe: weitere blei
 Cache-Ergebnis an alle wartenden Gruppen gleicher Provenienz verteilen; Resident nur nach
 GPU-Publikation. Vorbereitung/Polling/Cache-Übernahme getrennt halten. Duplicate-Species-
 Fixture mit zwei Clustern und einem Cache-Artefakt muss vollständig Ready erreichen;
-Einzelempfänger-Gegenprobe scheitert. Cache-/Live-/Species-Lebensdauer bleibt explizite Pflicht.
+Fixture grün, Einzelempfänger-Gegenprobe scheitert. Zwei Tidy, 33 Regeln grün.
+Kaltstart, Abbruch und Cache-/Live-/Species-Lebensdauer weiterhin vollständig prüfen.
