@@ -72,6 +72,10 @@ nicht in bilinearer oder Mip-Filterung, sondern im ersten texturierten Draw-/Pip
 Ein temporärer GLSL-Pfad mit `textureLod(..., 0.0)` für alle sechs Materialmappen
 behält die texturierte Variante und Bindungen, ergibt aber 247 Kanäle. Implizite
 LOD-/Derivativwahl ist damit ebenfalls nicht ursächlich.
+Ein weiterer GLSL-Versuch behielt Variantenschlüssel und alle Sampler, führte die
+sechs Abfragen jedoch ausschließlich in einem zur Laufzeit nicht erreichten
+Materialzweig aus. 244 Kanäle bleiben rot. Texelwerte und ihre tatsächliche Abfrage
+sind damit nicht die Ursache; der erste texturierte Pipeline-/Descriptorpfad bleibt.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
