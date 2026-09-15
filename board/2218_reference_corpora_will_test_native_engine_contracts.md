@@ -105,5 +105,5 @@ Farb-/Tiefenvergleiche; Readback-Vertrag zuerst unter 2195 konsolidieren.
 Readbacks desselben Frames nach API-Korrektur: Tiefe 0/57600 Unterschiede;
 ShadingNormal und SurfaceIdentity je 0/230400. SceneLinear: 916/230400 Kanäle,
 maximal 198 HDR-Einheiten. RGBA: 256 Kanäle, maximal 6/255. Ausgaben als zusätzliche
-Planattachments angefordert; temporäre Instrumentierung entfernt. Weitere Isolation:
-Schattenatlas texelweise statt nur Extrema, dann Beleuchtung/Filterauswertung.
+Planattachments angefordert; temporäre Instrumentierung entfernt. Schattenatlas ebenfalls
+bitgleich: 0/4194304 Texel verschieden. Weiter: Beleuchtung/Filterauswertung isolieren.
