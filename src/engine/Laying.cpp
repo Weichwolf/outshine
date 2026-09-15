@@ -44,6 +44,7 @@
 
 namespace outshine {
 namespace Says {
+constexpr auto WaterCreationFailed = "could not publish water geometry";
 constexpr auto MaterialCreationFailed = "could not create ground materials";
 constexpr auto PavingCreationFailed = "could not publish road geometry";
 }
@@ -59,6 +60,7 @@ static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
 namespace {
 
 constexpr double kPerMille = 1000.0;
+constexpr float kVerticalSlopeDeg = 90.0f;
 
 constexpr float kWallRed = 0.74f;
 constexpr float kWallGreen = 0.71f;
@@ -96,7 +98,7 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
   for (size_t channel = 0; channel < 3; ++channel) {
     palette[rowAt(rows) + channel] = fallback.GroundAlbedo[channel];
   }
-  palette[kPaletteStride * (rows + 2u) + rows] = 90.0f;
+  palette[kPaletteStride * (rows + 2u) + rows] = kVerticalSlopeDeg;
   return palette;
 }
 
@@ -441,6 +443,345 @@ std::expected<Around, Engine::State::Laid> Engine::State::RingWanted(bool alsoWh
   return over;
 }
 
+bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
+                                       Patchwork &patchwork,
+                                       const Around &over) {
+  {
+    World.Sheets.Framed(standing);
+    Published.Places(
+        "ground: virtual tiles the lattice refines to",
+        static_cast<double>(HeightSheets::Refine(
+            patchwork,
+            {.FinestZoom = over.Zoom,
+             .Levels = kLatticeVirtualLevels,
+             .Eye = {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}})),
+        "tiles");
+    const Render::Viewpoint &eye = Picture.Standing->Watching();
+    HeightSheets::Detail detail{.EyeM = eye.EyeM};
+    if (eye.Kind == Render::CameraKind::Orthographic) {
+      detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
+    } else {
+      detail.FocalPx =
+          static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
+    }
+    if (!World.Sheets.RefineByError(patchwork, World.Stack.Ground(), detail, Error)) {
+      return false;
+    }
+    const auto haloAt = std::chrono::steady_clock::now();
+    Published.Places(
+        "ground: sheets the lattice haloed",
+        static_cast<double>(World.Sheets.Halos(patchwork, World.Stack.Ground(), over.Zoom)),
+        "sheets");
+    World.RimsMissing = World.Sheets.RimsMissing();
+    Published.Places("ground: rims copied for want of a neighbour",
+                     static_cast<double>(World.RimsMissing),
+                     "sheets");
+    Published.Places(
+        "ground: of that, haloing",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - haloAt)
+            .count(),
+        "ms");
+  }
+  {
+    const HeightSheets::Soup soup = World.Sheets.SoupOf(patchwork);
+    World.GroundPositionsM = soup.PositionM;
+    World.GroundIndex = soup.Index;
+    TellsTheRelief(
+        {.Tallest = soup.TallestM, .Lowest = soup.LowestM, .TallestOutM = soup.TallestOutM});
+  }
+  return true;
+}
+
+namespace {
+void AppendBuildingStamps(const Ground::BuildingField &pads,
+                          std::span<const double> points,
+                          const TangentFrame &standing,
+                          std::vector<Yields> &yielding) {
+  for (const Ground::BuildingField::Footprint &one : pads.Footprints()) {
+    if (one.PointCount < 3) { continue; }
+    Yields made;
+    made.RingEastNorthM.reserve(static_cast<size_t>(one.PointCount) * 2u);
+    made.LowE = kBeyondAnyCoordinate;
+    made.HighE = -kBeyondAnyCoordinate;
+    made.LowN = kBeyondAnyCoordinate;
+    made.HighN = -kBeyondAnyCoordinate;
+    bool whole = true;
+    for (uint32_t step = 0; step < one.PointCount && whole; ++step) {
+      const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
+      if (at + 1 >= points.size()) {
+        whole = false;
+        break;
+      }
+      const EastNorthUp seated = standing.Place({.LongitudeDeg = points[at + 1],
+                                                 .LatitudeDeg = points[at],
+                                                 .HeightM = static_cast<double>(one.SeatM)});
+      const double eastM = seated.EastM;
+      const double northM = seated.NorthM;
+      made.RingEastNorthM.push_back(eastM);
+      made.RingEastNorthM.push_back(northM);
+      made.LowE = std::min(made.LowE, eastM);
+      made.HighE = std::max(made.HighE, eastM);
+      made.LowN = std::min(made.LowN, northM);
+      made.HighN = std::max(made.HighN, northM);
+    }
+    if (!whole) { continue; }
+    {
+      const size_t first = static_cast<size_t>(one.FirstPoint) * 2u;
+      const EastNorthUp placed = standing.Place({.LongitudeDeg = points[first + 1],
+                                                 .LatitudeDeg = points[first],
+                                                 .HeightM = static_cast<double>(one.SeatM)});
+      made.PlateauM = placed.UpM;
+    }
+    made.ApronM = kPadApronM;
+    made.YieldM = std::fabs(static_cast<double>(one.SeatM) - static_cast<double>(one.BaseM));
+    made.SeamEastNorthM = made.RingEastNorthM;
+    yielding.push_back(std::move(made));
+  }
+}
+}
+
+namespace {
+void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
+                      std::span<const double> points,
+                      const TangentFrame &standing,
+                      std::vector<Yields> &yielding) {
+  for (const Ground::WaterField::Surface &lake : lakes) {
+    if (lake.PointCount < 3) { continue; }
+    const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2u;
+    if (last > points.size()) { continue; }
+    Yields made;
+    made.RingEastNorthM.reserve(static_cast<size_t>(lake.PointCount) * 2u);
+    made.LowE = kBeyondAnyCoordinate;
+    made.HighE = -kBeyondAnyCoordinate;
+    made.LowN = kBeyondAnyCoordinate;
+    made.HighN = -kBeyondAnyCoordinate;
+    std::vector<double> bedM;
+    bedM.reserve(lake.PointCount);
+    for (uint32_t step = 0; step < lake.PointCount; ++step) {
+      const size_t at = (static_cast<size_t>(lake.FirstPoint) + step) * 2u;
+      const EastNorthUp shore =
+          standing.Place({.LongitudeDeg = points[at + 1],
+                          .LatitudeDeg = points[at],
+                          .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
+      made.RingEastNorthM.push_back(shore.EastM);
+      made.RingEastNorthM.push_back(shore.NorthM);
+      made.LowE = std::min(made.LowE, shore.EastM);
+      made.HighE = std::max(made.HighE, shore.EastM);
+      made.LowN = std::min(made.LowN, shore.NorthM);
+      made.HighN = std::max(made.HighN, shore.NorthM);
+      bedM.push_back(shore.UpM);
+    }
+    made.AtE = 0.5 * (made.LowE + made.HighE);
+    made.AtN = 0.5 * (made.LowN + made.HighN);
+    made.SagInv = 1.0 / kWgs84A;
+    double plateau = 0.0;
+    for (size_t corner = 0; corner < bedM.size(); ++corner) {
+      const double dE = made.RingEastNorthM[corner * 2u] - made.AtE;
+      const double dN = made.RingEastNorthM[corner * 2u + 1u] - made.AtN;
+      plateau += bedM[corner] + 0.5 * (dE * dE + dN * dN) * made.SagInv;
+    }
+    made.PlateauM = plateau / static_cast<double>(bedM.size());
+    made.ApronM = kWaterBankM;
+    made.YieldM = kWaterBedM;
+    made.Kind = Stamp::Basin;
+    made.SeamEastNorthM = made.RingEastNorthM;
+    yielding.push_back(std::move(made));
+  }
+}
+}
+
+bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
+                                          Patchwork &patchwork,
+                                          std::vector<Yields> corridor) {
+
+  const Ground::BuildingField &pads = World.Stack.Footprints();
+  const Ground::OsmField *const shapes = World.Stack.Vectors();
+  std::vector<Yields> yielding;
+  if (shapes != nullptr) { AppendBuildingStamps(pads, shapes->Points(), standing, yielding); }
+  const size_t builtPads = yielding.size();
+  if (shapes != nullptr) {
+    AppendLakeStamps(World.Stack.WaterBodies().Surfaces(), shapes->Points(), standing, yielding);
+  }
+  const size_t builtLakes = yielding.size() - builtPads;
+  Published.Places("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
+  yielding.insert(yielding.end(),
+                  std::make_move_iterator(corridor.begin()),
+                  std::make_move_iterator(corridor.end()));
+  Published.Places("ground: pads that press it", static_cast<double>(builtPads), "pads");
+  Published.Places("ground: corridor pieces that press it",
+                   static_cast<double>(yielding.size() - builtPads - builtLakes),
+                   "pieces");
+  const auto pressAt = std::chrono::steady_clock::now();
+  const HeightSheets::Pressed pressed_ = World.Sheets.Press(yielding, patchwork, kMostEarthworkM);
+  Published.Places(
+      "ground: lattice nodes the stamps pressed", static_cast<double>(pressed_.Nodes), "nodes");
+  Published.Places("ground: stamps refused as STRUCTURES, past the earthwork bound",
+                   static_cast<double>(pressed_.Structures),
+                   "yields");
+  Published.Places("ground: nodes held where a stamp still asked past the bound",
+                   static_cast<double>(pressed_.Held),
+                   "nodes");
+  Published.Places("ground: and the deepest it cut", pressed_.DeepestM, "m");
+  Published.Places("ground: and the highest it filled", pressed_.RaisedM, "m");
+  for (const auto &[what, floors] :
+       {std::pair{"pads", &pressed_.Pads}, std::pair{"corridor pieces", &pressed_.Corridors}}) {
+    Published.Places(std::format("ground: {} with a lattice node inside", what),
+                     static_cast<double>(floors->Stamps),
+                     "stamps");
+    Published.Places(std::format("ground: {} no lattice node reaches", what),
+                     static_cast<double>(floors->Unreached),
+                     "stamps");
+    Published.Places(std::format("ground: nodes inside those {}", what),
+                     static_cast<double>(floors->Nodes),
+                     "nodes");
+    Published.Places(std::format("ground: of those {} nodes, another stamp decided", what),
+                     static_cast<double>(floors->Contested),
+                     "nodes");
+    Published.Places(
+        std::format("ground: nodes inside {} above their plane after the press, worst", what),
+        floors->AboveM,
+        "m");
+    Published.Places(
+        std::format("ground: nodes inside {} that fill, below it after the press, worst", what),
+        floors->BelowM,
+        "m");
+    Published.Places(std::format("ground: nodes inside {} that do not fill, below it, worst", what),
+                     floors->UnfilledM,
+                     "m");
+    Published.Places(std::format("ground: those {} nodes above it before the press, worst", what),
+                     floors->WasAboveM,
+                     "m");
+    Published.Places(
+        std::format("ground: those filling {} nodes below it before the press, worst", what),
+        floors->WasBelowM,
+        "m");
+  }
+  Published.Places(
+      "ground: of that, pressing",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt).count(),
+      "ms");
+  if (!World.Sheets.Hands(patchwork, Error)) { return false; }
+  const HeightSheets::Soup pressed = World.Sheets.SoupOf(patchwork);
+  World.GroundPositionsM = pressed.PositionM;
+  World.GroundIndex = pressed.Index;
+  return true;
+}
+
+bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
+                                       Geometry &ground,
+                                       MaterialInstance ringSurface) {
+
+  const auto waterAt = std::chrono::steady_clock::now();
+  const Ground::WaterField &wet = World.Stack.WaterBodies();
+  const Ground::OsmField *const vectors = World.Stack.Vectors();
+  std::vector<float> places;
+  std::vector<float> facing;
+  std::vector<float> lidUv;
+  std::vector<uint32_t> order;
+  size_t lidsLaid = 0;
+  size_t lidsRefused = 0;
+  {
+    const auto points = vectors != nullptr ? vectors->Points() : std::span<const double>{};
+    const auto surfaces = vectors != nullptr
+                              ? std::span<const Ground::WaterField::Surface>(wet.Surfaces())
+                              : std::span<const Ground::WaterField::Surface>{};
+    for (const Ground::WaterField::Surface &lake : surfaces) {
+      if (lake.PointCount < 3) {
+        ++lidsRefused;
+        continue;
+      }
+      const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2;
+      if (last > points.size()) {
+        ++lidsRefused;
+        continue;
+      }
+      const size_t began = places.size();
+      for (uint32_t step = 1; step + 1 < lake.PointCount; ++step) {
+        const std::array<uint32_t, 3> corners = {{0u, step, step + 1u}};
+        for (const uint32_t corner : corners) {
+          const size_t at = (static_cast<size_t>(lake.FirstPoint) + corner) * 2;
+          double eastM = 0.0;
+          double upM = 0.0;
+          double northM = 0.0;
+          const EastNorthUp placed = standing.Place({.LongitudeDeg = points[at + 1],
+                                                     .LatitudeDeg = points[at],
+                                                     .HeightM = static_cast<double>(lake.LevelM)});
+          eastM = placed.EastM;
+          upM = placed.UpM;
+          northM = placed.NorthM;
+          places.push_back(static_cast<float>(eastM));
+          places.push_back(static_cast<float>(upM));
+          places.push_back(static_cast<float>(RenderFrame::ZOfNorth(northM)));
+          facing.push_back(0.0f);
+          facing.push_back(1.0f);
+          facing.push_back(0.0f);
+          lidUv.push_back(static_cast<float>(eastM));
+          lidUv.push_back(static_cast<float>(northM));
+          order.push_back(static_cast<uint32_t>(order.size()));
+        }
+      }
+      if (places.size() > began) {
+        ++lidsLaid;
+      } else {
+        ++lidsRefused;
+      }
+    }
+  }
+  Published.Places(
+      "water: of that, laying the surfaces",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt).count(),
+      "ms");
+  Published.Places("water: surfaces laid", static_cast<double>(lidsLaid), "surfaces");
+  Published.Places("water: surfaces refused", static_cast<double>(lidsRefused), "surfaces");
+  const size_t waterTriangles = order.size() / 3;
+  Published.Places("water: triangles", static_cast<double>(waterTriangles), "triangles");
+  if (order.size() >= 3) {
+    const int wetPart = ground.addPart("water", ringSurface);
+    const bool tookWater =
+        wetPart >= 0 &&
+        ground.setPositions(wetPart, std::span<const float>(places.data(), places.size())) &&
+        ground.setNormals(wetPart, std::span<const float>(facing.data(), facing.size())) &&
+        ground.setTriangles(wetPart, std::span<const uint32_t>(order.data(), order.size())) &&
+        ground.setTexture(wetPart, std::span<const float>(lidUv.data(), lidUv.size()), 0);
+    Published.Places("water: the geometry took it", tookWater ? 1.0 : 0.0, "yes/no");
+    if (!tookWater) {
+      Error = Says::WaterCreationFailed;
+      return false;
+    }
+  }
+  return true;
+}
+
+void Engine::State::ReportGroundPlacements() {
+  for (size_t part = 0; part < Picture.Standing->Shown().Parts.size(); ++part) {
+    const Render::ShapePart &one = Picture.Standing->Shown().Parts[part];
+    Published.Places("restand: subject part " + std::to_string(part) + " first vertex",
+                     static_cast<double>(one.FirstVertex),
+                     "");
+    Published.Places("restand: subject part " + std::to_string(part) + " vertex count",
+                     static_cast<double>(one.VertexCount),
+                     "");
+    Published.Places("restand: subject part " + std::to_string(part) + " first index",
+                     static_cast<double>(one.FirstIndex),
+                     "");
+    Published.Places("restand: subject part " + std::to_string(part) + " index count",
+                     static_cast<double>(one.IndexCount),
+                     "");
+  }
+  for (size_t part = 0; part < Picture.Standing->PartsStanding(); ++part) {
+    const double *const m = Picture.Standing->PlacementStanding(part);
+    if (m == nullptr) { continue; }
+    double most = 0.0;
+    for (int at = 0; at < 16; ++at) { most += std::fabs(m[at]); }
+    Published.Places("restand: part " + std::to_string(part) +
+                         " placement, sum of the absolute terms",
+                     most,
+                     "");
+    Published.Places(
+        "restand: part " + std::to_string(part) + " diagonal", m[0] + m[5] + m[10] + m[15], "");
+  }
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying("world-ground");
   auto phaseAt = std::chrono::steady_clock::now();
@@ -475,47 +816,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double frameLon = anchorLon;
   const TangentFrame standing =
       TangentFrame::At({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat});
-  {
-    World.Sheets.Framed(standing);
-    Published.Places(
-        "ground: virtual tiles the lattice refines to",
-        static_cast<double>(HeightSheets::Refine(
-            *laid,
-            {.FinestZoom = over.Zoom,
-             .Levels = kLatticeVirtualLevels,
-             .Eye = {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}})),
-        "tiles");
-    const Render::Viewpoint &eye = Picture.Standing->Watching();
-    HeightSheets::Detail detail{.EyeM = eye.EyeM};
-    if (eye.Kind == Render::CameraKind::Orthographic) {
-      detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
-    } else {
-      detail.FocalPx =
-          static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
-    }
-    if (!World.Sheets.RefineByError(*laid, World.Stack.Ground(), detail, Error)) { return false; }
-    const auto haloAt = std::chrono::steady_clock::now();
-    Published.Places(
-        "ground: sheets the lattice haloed",
-        static_cast<double>(World.Sheets.Halos(*laid, World.Stack.Ground(), over.Zoom)),
-        "sheets");
-    World.RimsMissing = World.Sheets.RimsMissing();
-    Published.Places("ground: rims copied for want of a neighbour",
-                     static_cast<double>(World.RimsMissing),
-                     "sheets");
-    Published.Places(
-        "ground: of that, haloing",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - haloAt)
-            .count(),
-        "ms");
-  }
-  {
-    const HeightSheets::Soup soup = World.Sheets.SoupOf(*laid);
-    World.GroundPositionsM = soup.PositionM;
-    World.GroundIndex = soup.Index;
-    TellsTheRelief(
-        {.Tallest = soup.TallestM, .Lowest = soup.LowestM, .TallestOutM = soup.TallestOutM});
-  }
+  if (!RefineGroundSheets(standing, *laid, over)) { return false; }
   Classed classed;
   {
     const Heap::Tagged classing("ground-classify");
@@ -624,164 +925,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   World.Sheets.ForgetsFields();
 
-  {
-    const Ground::BuildingField &pads = World.Stack.Footprints();
-    const Ground::OsmField *const shapes = World.Stack.Vectors();
-    std::vector<Yields> yielding;
-    if (shapes != nullptr) {
-      const std::span<const double> points = shapes->Points();
-      for (const Ground::BuildingField::Footprint &one : pads.Footprints()) {
-        if (one.PointCount < 3) { continue; }
-        Yields made;
-        made.RingEastNorthM.reserve(static_cast<size_t>(one.PointCount) * 2u);
-        made.LowE = kBeyondAnyCoordinate;
-        made.HighE = -kBeyondAnyCoordinate;
-        made.LowN = kBeyondAnyCoordinate;
-        made.HighN = -kBeyondAnyCoordinate;
-        bool whole = true;
-        for (uint32_t step = 0; step < one.PointCount && whole; ++step) {
-          const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
-          if (at + 1 >= points.size()) {
-            whole = false;
-            break;
-          }
-          const EastNorthUp seated = standing.Place({.LongitudeDeg = points[at + 1],
-                                                     .LatitudeDeg = points[at],
-                                                     .HeightM = static_cast<double>(one.SeatM)});
-          const double eastM = seated.EastM;
-          const double northM = seated.NorthM;
-          made.RingEastNorthM.push_back(eastM);
-          made.RingEastNorthM.push_back(northM);
-          made.LowE = std::min(made.LowE, eastM);
-          made.HighE = std::max(made.HighE, eastM);
-          made.LowN = std::min(made.LowN, northM);
-          made.HighN = std::max(made.HighN, northM);
-        }
-        if (!whole) { continue; }
-        {
-          const size_t first = static_cast<size_t>(one.FirstPoint) * 2u;
-          const EastNorthUp placed = standing.Place({.LongitudeDeg = points[first + 1],
-                                                     .LatitudeDeg = points[first],
-                                                     .HeightM = static_cast<double>(one.SeatM)});
-          made.PlateauM = placed.UpM;
-        }
-        made.ApronM = kPadApronM;
-        made.YieldM = std::fabs(static_cast<double>(one.SeatM) - static_cast<double>(one.BaseM));
-        made.SeamEastNorthM = made.RingEastNorthM;
-        yielding.push_back(std::move(made));
-      }
-    }
-    const size_t builtPads = yielding.size();
-    if (shapes != nullptr) {
-      const std::span<const double> points = shapes->Points();
-      for (const Ground::WaterField::Surface &lake : World.Stack.WaterBodies().Surfaces()) {
-        if (lake.PointCount < 3) { continue; }
-        const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2u;
-        if (last > points.size()) { continue; }
-        Yields made;
-        made.RingEastNorthM.reserve(static_cast<size_t>(lake.PointCount) * 2u);
-        made.LowE = kBeyondAnyCoordinate;
-        made.HighE = -kBeyondAnyCoordinate;
-        made.LowN = kBeyondAnyCoordinate;
-        made.HighN = -kBeyondAnyCoordinate;
-        std::vector<double> bedM;
-        bedM.reserve(lake.PointCount);
-        for (uint32_t step = 0; step < lake.PointCount; ++step) {
-          const size_t at = (static_cast<size_t>(lake.FirstPoint) + step) * 2u;
-          const EastNorthUp shore =
-              standing.Place({.LongitudeDeg = points[at + 1],
-                              .LatitudeDeg = points[at],
-                              .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
-          made.RingEastNorthM.push_back(shore.EastM);
-          made.RingEastNorthM.push_back(shore.NorthM);
-          made.LowE = std::min(made.LowE, shore.EastM);
-          made.HighE = std::max(made.HighE, shore.EastM);
-          made.LowN = std::min(made.LowN, shore.NorthM);
-          made.HighN = std::max(made.HighN, shore.NorthM);
-          bedM.push_back(shore.UpM);
-        }
-        made.AtE = 0.5 * (made.LowE + made.HighE);
-        made.AtN = 0.5 * (made.LowN + made.HighN);
-        made.SagInv = 1.0 / kWgs84A;
-        double plateau = 0.0;
-        for (size_t corner = 0; corner < bedM.size(); ++corner) {
-          const double dE = made.RingEastNorthM[corner * 2u] - made.AtE;
-          const double dN = made.RingEastNorthM[corner * 2u + 1u] - made.AtN;
-          plateau += bedM[corner] + 0.5 * (dE * dE + dN * dN) * made.SagInv;
-        }
-        made.PlateauM = plateau / static_cast<double>(bedM.size());
-        made.ApronM = kWaterBankM;
-        made.YieldM = kWaterBedM;
-        made.Kind = Stamp::Basin;
-        made.SeamEastNorthM = made.RingEastNorthM;
-        yielding.push_back(std::move(made));
-      }
-    }
-    const size_t builtLakes = yielding.size() - builtPads;
-    Published.Places("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
-    yielding.insert(yielding.end(),
-                    std::make_move_iterator(corridor.begin()),
-                    std::make_move_iterator(corridor.end()));
-    Published.Places("ground: pads that press it", static_cast<double>(builtPads), "pads");
-    Published.Places("ground: corridor pieces that press it",
-                     static_cast<double>(yielding.size() - builtPads - builtLakes),
-                     "pieces");
-    const auto pressAt = std::chrono::steady_clock::now();
-    const HeightSheets::Pressed pressed_ = World.Sheets.Press(yielding, *laid, kMostEarthworkM);
-    Published.Places(
-        "ground: lattice nodes the stamps pressed", static_cast<double>(pressed_.Nodes), "nodes");
-    Published.Places("ground: stamps refused as STRUCTURES, past the earthwork bound",
-                     static_cast<double>(pressed_.Structures),
-                     "yields");
-    Published.Places("ground: nodes held where a stamp still asked past the bound",
-                     static_cast<double>(pressed_.Held),
-                     "nodes");
-    Published.Places("ground: and the deepest it cut", pressed_.DeepestM, "m");
-    Published.Places("ground: and the highest it filled", pressed_.RaisedM, "m");
-    for (const auto &[what, floors] :
-         {std::pair{"pads", &pressed_.Pads}, std::pair{"corridor pieces", &pressed_.Corridors}}) {
-      Published.Places(std::format("ground: {} with a lattice node inside", what),
-                       static_cast<double>(floors->Stamps),
-                       "stamps");
-      Published.Places(std::format("ground: {} no lattice node reaches", what),
-                       static_cast<double>(floors->Unreached),
-                       "stamps");
-      Published.Places(std::format("ground: nodes inside those {}", what),
-                       static_cast<double>(floors->Nodes),
-                       "nodes");
-      Published.Places(std::format("ground: of those {} nodes, another stamp decided", what),
-                       static_cast<double>(floors->Contested),
-                       "nodes");
-      Published.Places(
-          std::format("ground: nodes inside {} above their plane after the press, worst", what),
-          floors->AboveM,
-          "m");
-      Published.Places(
-          std::format("ground: nodes inside {} that fill, below it after the press, worst", what),
-          floors->BelowM,
-          "m");
-      Published.Places(
-          std::format("ground: nodes inside {} that do not fill, below it, worst", what),
-          floors->UnfilledM,
-          "m");
-      Published.Places(std::format("ground: those {} nodes above it before the press, worst", what),
-                       floors->WasAboveM,
-                       "m");
-      Published.Places(
-          std::format("ground: those filling {} nodes below it before the press, worst", what),
-          floors->WasBelowM,
-          "m");
-    }
-    Published.Places(
-        "ground: of that, pressing",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt)
-            .count(),
-        "ms");
-    if (!World.Sheets.Hands(*laid, Error)) { return false; }
-    const HeightSheets::Soup pressed = World.Sheets.SoupOf(*laid);
-    World.GroundPositionsM = pressed.PositionM;
-    World.GroundIndex = pressed.Index;
-  }
+  if (!ApplyGroundEarthworks(standing, *laid, std::move(corridor))) { return false; }
   Published.Places(
       "ground: height pages standing", static_cast<double>(World.Sheets.Standing()), "pages");
   Published.Places(
@@ -805,82 +949,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("ground: sheets NOT drawn for want of nodes",
                    static_cast<double>(World.Sheets.Flat()),
                    "tiles");
-  {
-    const auto waterAt = std::chrono::steady_clock::now();
-    const Ground::WaterField &wet = World.Stack.WaterBodies();
-    const Ground::OsmField *const vectors = World.Stack.Vectors();
-    std::vector<float> places;
-    std::vector<float> facing;
-    std::vector<float> lidUv;
-    std::vector<uint32_t> order;
-    size_t lidsLaid = 0;
-    size_t lidsRefused = 0;
-    if (vectors != nullptr) {
-      const std::span<const double> points = vectors->Points();
-      for (const Ground::WaterField::Surface &lake : wet.Surfaces()) {
-        if (lake.PointCount < 3) {
-          ++lidsRefused;
-          continue;
-        }
-        const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2;
-        if (last > points.size()) {
-          ++lidsRefused;
-          continue;
-        }
-        const size_t began = places.size();
-        const bool whole = true;
-        for (uint32_t step = 1; step + 1 < lake.PointCount && whole; ++step) {
-          const std::array<uint32_t, 3> corners = {{0u, step, step + 1u}};
-          for (const uint32_t corner : corners) {
-            const size_t at = (static_cast<size_t>(lake.FirstPoint) + corner) * 2;
-            double eastM = 0.0;
-            double upM = 0.0;
-            double northM = 0.0;
-            const EastNorthUp placed =
-                standing.Place({.LongitudeDeg = points[at + 1],
-                                .LatitudeDeg = points[at],
-                                .HeightM = static_cast<double>(lake.LevelM)});
-            eastM = placed.EastM;
-            upM = placed.UpM;
-            northM = placed.NorthM;
-            places.push_back(static_cast<float>(eastM));
-            places.push_back(static_cast<float>(upM));
-            places.push_back(static_cast<float>(RenderFrame::ZOfNorth(northM)));
-            facing.push_back(0.0f);
-            facing.push_back(1.0f);
-            facing.push_back(0.0f);
-            lidUv.push_back(static_cast<float>(eastM));
-            lidUv.push_back(static_cast<float>(northM));
-            order.push_back(static_cast<uint32_t>(order.size()));
-          }
-        }
-        if (places.size() > began) {
-          ++lidsLaid;
-        } else {
-          ++lidsRefused;
-        }
-      }
-    }
-    Published.Places(
-        "water: of that, laying the surfaces",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt)
-            .count(),
-        "ms");
-    Published.Places("water: surfaces laid", static_cast<double>(lidsLaid), "surfaces");
-    Published.Places("water: surfaces refused", static_cast<double>(lidsRefused), "surfaces");
-    const size_t waterTriangles = order.size() / 3;
-    Published.Places("water: triangles", static_cast<double>(waterTriangles), "triangles");
-    if (order.size() >= 3) {
-      const int wetPart = ground.addPart("water", *ringSurface);
-      const bool tookWater =
-          wetPart >= 0 &&
-          ground.setPositions(wetPart, std::span<const float>(places.data(), places.size())) &&
-          ground.setNormals(wetPart, std::span<const float>(facing.data(), facing.size())) &&
-          ground.setTriangles(wetPart, std::span<const uint32_t>(order.data(), order.size())) &&
-          ground.setTexture(wetPart, std::span<const float>(lidUv.data(), lidUv.size()), 0);
-      Published.Places("water: the geometry took it", tookWater ? 1.0 : 0.0, "yes/no");
-    }
-  }
+  if (!BuildWaterSurfaces(standing, ground, *ringSurface)) { return false; }
 
   Published.Places(
       "rebuild: of that, the streets and the water",
@@ -994,33 +1063,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                    "instances");
   Published.Places(
       "restand: the near plane the renderer stands on", Picture.Standing->NearStanding(), "m");
-  for (size_t part = 0; part < Picture.Standing->Shown().Parts.size(); ++part) {
-    const Render::ShapePart &one = Picture.Standing->Shown().Parts[part];
-    Published.Places("restand: subject part " + std::to_string(part) + " first vertex",
-                     static_cast<double>(one.FirstVertex),
-                     "");
-    Published.Places("restand: subject part " + std::to_string(part) + " vertex count",
-                     static_cast<double>(one.VertexCount),
-                     "");
-    Published.Places("restand: subject part " + std::to_string(part) + " first index",
-                     static_cast<double>(one.FirstIndex),
-                     "");
-    Published.Places("restand: subject part " + std::to_string(part) + " index count",
-                     static_cast<double>(one.IndexCount),
-                     "");
-  }
-  for (size_t part = 0; part < Picture.Standing->PartsStanding(); ++part) {
-    const double *const m = Picture.Standing->PlacementStanding(part);
-    if (m == nullptr) { continue; }
-    double most = 0.0;
-    for (int at = 0; at < 16; ++at) { most += std::fabs(m[at]); }
-    Published.Places("restand: part " + std::to_string(part) +
-                         " placement, sum of the absolute terms",
-                     most,
-                     "");
-    Published.Places(
-        "restand: part " + std::to_string(part) + " diagonal", m[0] + m[5] + m[10] + m[15], "");
-  }
+  ReportGroundPlacements();
   World.GroundTiles = laid->Tiles;
   Published.Places("tiles the ring laid", static_cast<double>(laid->Tiles), "tiles");
   Published.Places("tiles it is still waiting for", static_cast<double>(laid->Pending), "tiles");

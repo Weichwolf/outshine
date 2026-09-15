@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 37 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 35 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -95,9 +95,10 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
-## P0: nächster Schritt
-Grounds trennt Verfeinerung, Gebäudepads/Seebecken, Erdarbeiten und Wassergeometrie.
-Vorhandene Reihenfolge und Berechnungen erhalten; Wasser-Mesh-Fehler zurückgeben,
-statt bloß eine Diagnose zu setzen. Höhen-/Press-Regressionen und Wien-PNG vergleichen.
-Konkave Wasserflächen/Löcher bleiben in 2145; voller Gelände-Publish-Rollback offen.
-Aktuell 37 Tidy-Befunde, Writer-Inventar 50/76; API-Abnahme bleibt 2188.
+## P0: aktueller Stand
+Grounds trennt Verfeinerung, Gebäudepads/Seebecken, Erdarbeiten, Wasser und Diagnosen.
+Höhen-/Kachelüberdeckungstests grün. Wien geöffnet: 0/921600 veränderte Pixel;
+p95 5,77 ms, 0/120 über 16,67 ms. Keine visuelle Qualitätsabnahme daraus ableiten.
+Wasser-Mesh-Fehler werden zurückgegeben; gezielte Fehler-Injektion dafür noch offen.
+Laying ohne Tidy-Diagnose; insgesamt 35 Befunde, Writer-Inventar 50/76.
+Konkave Wasserflächen/Löcher bleiben in 2145; vollständiger Gelände-Rollback offen.

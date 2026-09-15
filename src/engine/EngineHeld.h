@@ -361,6 +361,14 @@ struct Engine::State {
   void TellsTheRelief(Relieved over);
   [[nodiscard]] std::expected<Around, Laid> RingWanted(bool alsoWhenTilesLanded);
 
+  [[nodiscard]] bool
+  RefineGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &over);
+  [[nodiscard]] bool ApplyGroundEarthworks(const TangentFrame &standing,
+                                           Patchwork &patchwork,
+                                           std::vector<Yields> corridor);
+  [[nodiscard]] bool
+  BuildWaterSurfaces(const TangentFrame &standing, Geometry &ground, MaterialInstance ringSurface);
+  void ReportGroundPlacements();
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
   [[nodiscard]] bool Asks();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
