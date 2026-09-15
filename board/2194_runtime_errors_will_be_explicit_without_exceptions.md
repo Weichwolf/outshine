@@ -36,8 +36,8 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   veröffentlichen. Kapazität, Datenzuordnung und allokationsfreier Callback prüfen;
   absichtlich eingefügte Allokation muss den Test brechen. System-OOM bleibt separat.
 - BuildingMesh::Mesh liefert bereits expected und rollt angehängte Geometrie bei
-  Fehlern zurück. Verbliebenes catch(...) erhält Allokationsfehler; erst durch
-  explizite Scratch-/Output-Allokationsfehler ersetzen, dann exceptionsfrei bauen.
+  Fehlern zurück. catch erst nach expliziten Scratch-/Output-Allokationsfehlern entfernen.
+  Eckhöhen leer oder exakt pro Ringpunkt: vor Allokation prüfen, kein stilles min-Abschneiden.
 - Alle Laufzeitaufrufe prüfen: filesystem, format, Containerzugriffe, expected::value,
   Allokation, Fremdbibliotheken und Callbacks. Fataler systemweiter OOM ist getrennt
   von behandelbarer Streaming-Budgeterschöpfung; Fehlerdiagnosen dürfen kein
