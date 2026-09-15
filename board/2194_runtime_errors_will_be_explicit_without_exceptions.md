@@ -116,5 +116,5 @@ mit ihren eigenen Fachverträgen migrieren. Keine vollständige Runtime-Abnahme.
 - [ ] make lint einschließlich clang-tidy und betroffene Make-Suiten ausgeführt;
   neue Fehlerpfade mit wirksamen Negativkontrollen geprüft.
 
-Parallel zum fachlichen Tidy-/API-Umbau aus 2093 abarbeiten. Keine erwartete Änderung
-gültiger Renderbilder; geometrische Verhaltensänderungen erfordern PNG-Abnahme.
+SceneRenderer::Init liefert jetzt [[nodiscard]] expected statt Ready_/WhyNot_ als
+alleinigen Fehlerkanal; GPU-Fehlerinjektion und Erfolg prüfen den Rückgabewert.

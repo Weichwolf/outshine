@@ -85,8 +85,8 @@ void InitializationUploads() {
   {
     Faults faults;
     SceneRenderer renderer(faults.Functions());
-    renderer.Init({32, 32}, *compiled);
-    CHECK(renderer.DeviceUsable(), "renderer initialized for the wait contract");
+    CHECK(renderer.Init({32, 32}, *compiled).has_value(),
+          "renderer initialized for the wait contract");
     if (renderer.DeviceUsable()) {
       faults.Next = Faults::Point::Wait;
       CHECK(!renderer.Settle(error) && error.find("injected GPU wait failure") != std::string::npos,
@@ -101,9 +101,10 @@ void InitializationUploads() {
     Faults faults;
     faults.Next = point;
     SceneRenderer renderer(faults.Functions());
-    renderer.Init({32, 32}, *compiled);
-    CHECK(!renderer.DeviceUsable() && renderer.WhyNot().find("injected") != std::string::npos,
-          "failed fallback upload prevents renderer readiness and preserves the SDL diagnosis");
+    const auto stood = renderer.Init({32, 32}, *compiled);
+    CHECK(!stood && stood.error().find("injected") != std::string::npos,
+          "failed fallback upload returns the SDL diagnosis");
+    CHECK(!renderer.DeviceUsable(), "failed fallback upload prevents renderer readiness");
   }
 }
 
@@ -187,8 +188,7 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   if (!previous) { return; }
   Faults faults;
   SceneRenderer renderer(faults.Functions());
-  renderer.Init({32, 32}, *previous);
-  CHECK(renderer.DeviceUsable(), "initial renderer is usable");
+  CHECK(renderer.Init({32, 32}, *previous).has_value(), "initial renderer is usable");
   if (!renderer.DeviceUsable()) { return; }
   Viewpoint eye;
   eye.YfovRad = 1;
@@ -202,20 +202,19 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   renderer.SetSky({{0, 1, 0}}, {{0, 1, 0}}, 10000, 2);
   CHECK(renderer.RenderFrame().has_value() && renderer.Drew(), "old plan has a submitted image");
   faults.Next = Faults::Point::Wait;
-  renderer.Init({48, 48}, *compiled);
-  CHECK(!renderer.DeviceUsable() &&
-            renderer.WhyNot().find("injected GPU wait failure") != std::string::npos,
+  const auto refused = renderer.Init({48, 48}, *compiled);
+  CHECK(!refused && refused.error().find("injected GPU wait failure") != std::string::npos,
+        "reinitialization returns its failed GPU wait");
+  CHECK(!renderer.DeviceUsable(),
         "reinitialization refuses resource replacement after failed GPU wait");
-  renderer.Init({48, 48}, *compiled);
-  CHECK(renderer.DeviceUsable(), "replacement plan initializes after retry");
+  CHECK(renderer.Init({48, 48}, *compiled).has_value(), "replacement plan initializes after retry");
   CHECK(!renderer.Drew(), "reinitialization invalidates previous frame publication");
   std::vector<uint8_t> pixels{1, 2, 3};
   CHECK(renderer.ReadPixels(pixels) == ReadState::Failed &&
             pixels == std::vector<uint8_t>({1, 2, 3}),
         "newly allocated targets cannot be read as a previously submitted image");
   SceneRenderer fresh;
-  fresh.Init({48, 48}, *compiled);
-  CHECK(fresh.DeviceUsable(), "fresh comparison renderer initializes");
+  CHECK(fresh.Init({48, 48}, *compiled).has_value(), "fresh comparison renderer initializes");
   if (!fresh.DeviceUsable() || !renderer.DeviceUsable()) { return; }
   const auto replacementLens = Lens::From(eye, 48, 48);
   CHECK(replacementLens.has_value(), "replacement lens is valid");
@@ -246,8 +245,8 @@ void TransmissionFollowsReplacementPlan() {
   SceneRenderer renderer;
   std::string error;
   for (bool enabled : {true, false, true}) {
-    renderer.Init({32, 32}, enabled ? *glass : *opaque);
-    CHECK(renderer.DeviceUsable(), "replacement transmission configuration initializes");
+    CHECK(renderer.Init({32, 32}, enabled ? *glass : *opaque).has_value(),
+          "replacement transmission configuration initializes");
     if (!renderer.DeviceUsable()) { return; }
     CHECK(renderer.AppendSubjectMaterials(materials, error) == enabled,
           "material admission follows current transmission plan, not previous plan");

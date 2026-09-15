@@ -284,10 +284,11 @@ std::expected<void, std::string> SceneRenderer::StandsOffscreen() {
   return {};
 }
 
-void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
+std::expected<void, std::string> SceneRenderer::Init(Extent frame,
+                                                     std::shared_ptr<const Compiled> plan) {
   WhyNot_.clear();
   Ready_ = false;
-  if (Device_ && !Settle(WhyNot_)) { return; }
+  if (Device_ && !Settle(WhyNot_)) { return std::unexpected(WhyNot_); }
   Submitted_ = false;
   BeginTemporalRun();
   Offscreen_.Reset();
@@ -302,10 +303,10 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
     Log::Error(LogTag::Render, "stage_not_executed", {{"stage", Row(stage).Name}});
     WhyNot_ = std::string("this device layer does not execute the stage '") + Row(stage).Name +
               "', which the catalogue offers and the consumer declared";
-    return;
+    return std::unexpected(WhyNot_);
   }
 
-  if (!Stands()) { return; }
+  if (!Stands()) { return std::unexpected(WhyNot_); }
 
   SDL_GPUDevice *const device = Device_.Get();
   Handles_.Device = device;
@@ -329,8 +330,8 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
     if (Plan_->Holds(id)) { Create(id); }
   }
 
-  if (!ConfigurePlanStages()) { return; }
-  if (!StandsOffscreen()) { return; }
+  if (!ConfigurePlanStages()) { return std::unexpected(WhyNot_); }
+  if (const auto stood = StandsOffscreen(); !stood) { return std::unexpected(stood.error()); }
   Ready_ = true;
 
   Log::Info(LogTag::Render,
@@ -353,6 +354,7 @@ void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
   for (const std::string &alias : Plan_->Aliases()) {
     Log::Info(LogTag::Render, "plan_alias", {{"alias", alias}});
   }
+  return {};
 }
 
 AttachmentSet SceneRenderer::ColoursForStage(Stage wanted) const {

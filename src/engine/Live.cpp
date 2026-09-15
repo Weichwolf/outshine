@@ -614,12 +614,10 @@ bool Live::StandsPlan(std::string &error) {
     Plan_ = *std::move(made);
     PlanDeclared_ = std::move(declaration);
     PlanInits_ += 1;
-    Renderer_->Init({.WidthPx = Declared_.SurfaceWidthPx, .HeightPx = Declared_.SurfaceHeightPx},
-                    Plan_);
-    if (!Renderer_->DeviceUsable()) {
-      error = Renderer_->WhyNot().empty()
-                  ? std::string("the device did not come up, so this scenario cannot be stood up")
-                  : Renderer_->WhyNot();
+    const auto stood = Renderer_->Init(
+        {.WidthPx = Declared_.SurfaceWidthPx, .HeightPx = Declared_.SurfaceHeightPx}, Plan_);
+    if (!stood) {
+      error = std::move(stood).error();
       return false;
     }
   }

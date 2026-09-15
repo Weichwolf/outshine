@@ -59,7 +59,8 @@ struct PyramidDepths {
 
 class SceneRenderer {
 public:
-  void Init(Extent frame, std::shared_ptr<const Compiled> plan);
+  [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
+                                                      std::shared_ptr<const Compiled> plan);
 
   [[nodiscard]] const Compiled &Plan() const { return *Plan_; }
 
