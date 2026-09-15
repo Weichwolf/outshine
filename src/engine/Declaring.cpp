@@ -164,6 +164,131 @@ namespace {
          });
 }
 
+[[nodiscard]] std::expected<std::optional<Geometry>, std::string>
+BuildGeneratedGeometry(const Scenario::Document &scenario,
+                       const Generators::Registry &registry,
+                       const GroundQuery &ground) {
+  class Stands final : public Generators::HeightSampler {
+  public:
+    explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
+
+    [[nodiscard]] std::optional<double>
+    sampleHeightAslM(const LongitudeLatitudeHeight &at) const override {
+      return From_.At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}).AslM();
+    }
+
+  private:
+    const GroundQuery &From_;
+  };
+
+  const Stands stands(ground);
+  Generators::Request asked;
+  asked.LatitudeDeg = scenario.Ground.Origin.LatitudeDeg;
+  asked.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg;
+  asked.ExtentM = scenario.Ground.Origin.RadiusM;
+  asked.Ground = &stands;
+  Geometry made;
+  const auto offered =
+      [&registry, &asked, &made](
+          const std::string &kind,
+          std::span<const Scenario::Setting> settings) -> std::expected<void, std::string> {
+    const Generators::Generator *const stood = registry.named(kind);
+    if (stood == nullptr) { return std::unexpected(Says::kUnknownGenerator + kind); }
+    std::vector<Generators::Parameter> parameters;
+    parameters.reserve(settings.size());
+    for (const auto &setting : settings) {
+      parameters.push_back({.Name = setting.Name, .Value = setting.Value});
+    }
+    auto request = asked;
+    request.Parameters = parameters;
+    auto product = stood->make(request);
+    if (!product) {
+      return std::unexpected("the generator of kind '" + kind + "' refused: " + product.error());
+    }
+    if (product->parts() == 0 && product->surfaces() == 0 && product->images() == 0 &&
+        product->lamps() == 0) {
+      return {};
+    }
+    if (!made.append(*product)) {
+      return std::unexpected("the generator of kind '" + kind + "' made unpublishable geometry");
+    }
+    return {};
+  };
+  for (const Scenario::Asset &shown : scenario.Assets) {
+    if (shown.Kind != "generated") { continue; }
+    if (const auto product = offered(shown.Uri, {}); !product) {
+      return std::unexpected(product.error());
+    }
+  }
+  for (const Scenario::Generating &named : scenario.Generators) {
+    if (const auto product = offered(named.Kind, named.Parameters); !product) {
+      return std::unexpected(product.error());
+    }
+  }
+  if (made.parts() == 0) { return std::optional<Geometry>{}; }
+  return std::optional<Geometry>{std::move(made)};
+}
+
+struct HeadlessDeclaration {
+  std::optional<Geometry> Geometry;
+  std::optional<TriangleBvh> Occlusion;
+};
+
+[[nodiscard]] std::expected<HeadlessDeclaration, std::string>
+PrepareHeadlessDeclaration(const Scenario::Document &scenario,
+                           const Generators::Registry &registry,
+                           const GroundQuery &ground,
+                           std::span<const float> groundPositionsM,
+                           std::span<const uint32_t> groundIndex) {
+  auto made = BuildGeneratedGeometry(scenario, registry, ground);
+  if (!made) { return std::unexpected(std::move(made.error())); }
+  HeadlessDeclaration prepared;
+  prepared.Geometry = std::move(*made);
+  if (!prepared.Geometry) { return prepared; }
+  auto occlusion = Core::BuildAudioOcclusion(*prepared.Geometry, groundPositionsM, groundIndex);
+  if (!occlusion) { return std::unexpected(std::move(occlusion.error())); }
+  prepared.Occlusion.emplace(std::move(*occlusion));
+  return prepared;
+}
+
+[[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b);
+[[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b);
+
+[[nodiscard]] std::optional<Result> ReuseDeclaration(const Scenario::Document &scenario,
+                                                     Core::Declaration &declared,
+                                                     Seen &picture,
+                                                     Kept &session,
+                                                     std::optional<ViewBook> &views,
+                                                     InputMap &bindings,
+                                                     std::string &error) {
+  if (!picture.Standing || HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
+      !SamePicture(picture.Shown, declared) ||
+      session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled) {
+    return std::nullopt;
+  }
+  if (!SameStand(picture.Shown, declared) &&
+      !picture.Standing->Restands(
+          declared.Stands, declared.Variant, declared.Animation, declared.Clip, error)) {
+    return Result{std::unexpected(error)};
+  }
+  if (!SameSurfaces(picture.Shown.Surfaces, declared.Surfaces) &&
+      !picture.Standing->Redeclare(declared.Surfaces, error)) {
+    return Result{std::unexpected(error)};
+  }
+  picture.Shown = std::move(declared);
+  session.Declared = scenario;
+  ++session.DeclarationRevision;
+  session.AudioBodies.clear();
+  session.Sounding.reset();
+  session.Carried = Unacted(scenario);
+  error.clear();
+  static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
+  session.Views = std::move(views);
+  static_assert(std::is_nothrow_move_assignable_v<InputMap>);
+  session.Bound = std::move(bindings);
+  return Result{};
+}
+
 [[nodiscard]] bool SameRenderPlan(const Core::Declaration &a, const Core::Declaration &b) {
   return a.Stages == b.Stages && a.Outputs == b.Outputs && a.Transfer == b.Transfer &&
          a.Precision == b.Precision && a.Exposure == b.Exposure;
@@ -407,6 +532,11 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
     return std::unexpected(S_->Error);
   }
+  if (auto reused = ReuseDeclaration(
+          scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
+    return std::move(*reused);
+  }
+
   const auto publishConfiguration = [&] noexcept {
     static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
     S_->Session.Views = std::move(*views);
@@ -414,27 +544,18 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Bound = std::move(bindings);
   };
 
-  if (S_->Picture.Standing && !HasGeneratedContent(scenario) &&
-      !HasGeneratedContent(S_->Session.Declared) && SamePicture(S_->Picture.Shown, declared) &&
-      S_->Session.Declared.Ground.VegetationEnabled == scenario.Ground.VegetationEnabled) {
-    if (!SameStand(S_->Picture.Shown, declared) &&
-        !S_->Picture.Standing->Restands(
-            declared.Stands, declared.Variant, declared.Animation, declared.Clip, S_->Error)) {
+  HeadlessDeclaration headless;
+  if (!S_->Picture.Targeted) {
+    auto prepared = PrepareHeadlessDeclaration(scenario,
+                                               S_->World.Offering,
+                                               S_->World.Stack.Ground(),
+                                               S_->World.GroundPositionsM,
+                                               S_->World.GroundIndex);
+    if (!prepared) {
+      S_->Error = std::move(prepared.error());
       return std::unexpected(S_->Error);
     }
-    if (!SameSurfaces(S_->Picture.Shown.Surfaces, declared.Surfaces) &&
-        !S_->Picture.Standing->Redeclare(declared.Surfaces, S_->Error)) {
-      return std::unexpected(S_->Error);
-    }
-    S_->Picture.Shown = std::move(declared);
-    S_->Session.Declared = scenario;
-    ++S_->Session.DeclarationRevision;
-    S_->Session.AudioBodies.clear();
-    S_->Session.Sounding.reset();
-    S_->Session.Carried = Unacted(scenario);
-    S_->Error.clear();
-    publishConfiguration();
-    return {};
+    headless = std::move(*prepared);
   }
 
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
@@ -452,6 +573,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Picture.Standing.reset();
   S_->Picture.Shown = declared;
   if (!S_->Picture.Targeted) {
+    S_->Picture.PendingGeometry = std::move(headless.Geometry);
+    S_->World.AudioOcclusion = headless.Occlusion ? std::move(*headless.Occlusion) : TriangleBvh{};
     S_->Session.Declared = scenario;
     ++S_->Session.DeclarationRevision;
     S_->Session.AudioBodies.clear();
@@ -459,7 +582,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    if (!generated(scenario)) { return std::unexpected(S_->Error); }
     publishConfiguration();
     return {};
   }
@@ -495,66 +617,12 @@ Result Engine::declare(const Scenario::Document &scenario) {
 }
 
 bool Engine::generated(const Scenario::Document &scenario) {
-  class Stands final : public Generators::HeightSampler {
-  public:
-    explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
-
-    [[nodiscard]] std::optional<double>
-    sampleHeightAslM(const LongitudeLatitudeHeight &at) const override {
-      return From_.At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}).AslM();
-    }
-
-  private:
-    const GroundQuery &From_;
-  };
-
-  const Stands stands(S_->World.Stack.Ground());
-
-  Generators::Request asked;
-  asked.LatitudeDeg = scenario.Ground.Origin.LatitudeDeg;
-  asked.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg;
-  asked.ExtentM = scenario.Ground.Origin.RadiusM;
-  asked.Ground = &stands;
-
-  Geometry made;
-  const auto offered = [&](const std::string &kind, std::span<const Scenario::Setting> settings) {
-    const Generators::Generator *const stood = S_->World.Offering.named(kind);
-    if (stood == nullptr) {
-      S_->Error = Says::kUnknownGenerator + kind;
-      return false;
-    }
-    std::vector<Generators::Parameter> parameters;
-    parameters.reserve(settings.size());
-    for (const auto &setting : settings) {
-      parameters.push_back({.Name = setting.Name, .Value = setting.Value});
-    }
-    auto request = asked;
-    request.Parameters = parameters;
-    auto product = stood->make(request);
-    if (!product) {
-      S_->Error = "the generator of kind '" + kind + "' refused: " + product.error();
-      return false;
-    }
-    if (product->parts() == 0 && product->surfaces() == 0 && product->images() == 0 &&
-        product->lamps() == 0) {
-      return true;
-    }
-    const auto appended = made.append(*product);
-    if (!appended) {
-      S_->Error = "the generator of kind '" + kind + "' made unpublishable geometry";
-      return false;
-    }
-    return true;
-  };
-
-  for (const Scenario::Asset &shown : scenario.Assets) {
-    if (shown.Kind != "generated") { continue; }
-    if (!offered(shown.Uri, {})) { return false; }
+  auto made = BuildGeneratedGeometry(scenario, S_->World.Offering, S_->World.Stack.Ground());
+  if (!made) {
+    S_->Error = std::move(made.error());
+    return false;
   }
-  for (const Scenario::Generating &named : scenario.Generators) {
-    if (!offered(named.Kind, named.Parameters)) { return false; }
-  }
-  return made.parts() == 0 || setGeometry(made);
+  return !*made || setGeometry(**made);
 }
 
 bool Engine::readScenarioInto(std::string_view path, Scenario::Document &out) {

@@ -51,6 +51,11 @@ int main() {
       default: candidate.Generators.push_back({.Kind = "refusing"}); break;
     }
     CHECK(!engine.declare(candidate), "invalid candidate is refused");
+    CHECK(engine.declaration().Input.size() == 1 &&
+              engine.declaration().Input.front().Event == "KeyW" &&
+              engine.declaration().Input.front().Action == "original" &&
+              engine.declaration().Generators.empty(),
+          "a rejected declaration retains the complete previous declaration");
     receiver.Last.clear();
     const auto handled = engine.handleEvent(event);
     CHECK(handled && *handled && receiver.Last == "original",
