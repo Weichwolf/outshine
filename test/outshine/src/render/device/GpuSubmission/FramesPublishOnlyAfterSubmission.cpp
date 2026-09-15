@@ -273,9 +273,9 @@ void Exercise() {
   CHECK(lens.has_value(), "the camera projection is valid");
   if (!lens) { return; }
   for (auto *renderer : {&control, &actual}) {
-    renderer->Init({32, 32}, *compiled);
-    CHECK(renderer->DeviceUsable(), "the real renderer initializes");
-    if (!renderer->DeviceUsable()) {
+    const auto started = renderer->Init({32, 32}, *compiled);
+    CHECK(started.has_value(), "the real renderer initializes");
+    if (!started) {
       std::printf("renderer: %s\n", renderer->WhyNot().c_str());
       return;
     }

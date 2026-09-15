@@ -25,10 +25,12 @@ Atmosphären- oder Mip-Ausnahme.
 Die Culling-Inspektion hatte zuerst 4 394 688 gegenüber 3 989 952 Indizes bei je
 33 Batches gezeigt. Eine verworfene Untersuchung mit Tangenten-Kugelrechteck und
 zwei zusätzlichen Pyramidentexeln hielt danach in allen Frames exakt 4 394 688
-Indizes, die linearen Frames unterschieden sich dennoch um 404 Kanäle. Das
-Culling-Ergebnis ist somit nicht die Ursache. ABeautifulGame trägt keine Alpha-Modi
-und `Shape` clustert ohnehin nur opaque/masked Geometrie. Der verbleibende Übergang
-ist der `occludes`-Steuerpfad beziehungsweise der Zustand der Tiefenpyramide selbst.
+Indizes, die linearen Frames unterschieden sich dennoch um 404 Kanäle. Eine
+vollständige All-Far-Pyramide ohne spätere Pyramiden-Updates ließ 400 Kanäle rot;
+festes Jitter, keine History-Fortschreibung und unveränderter Linear-Targetindex
+ließen 470 rot. Weder Culling-Ergebnis noch Pyramideninhalt oder Temporal-Fortschritt
+sind die Ursache. ABeautifulGame trägt keine Alpha-Modi und `Shape` clustert ohnehin
+nur opaque/masked Geometrie.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
@@ -42,12 +44,11 @@ ohne vollständiges Xcode nicht reproduzierbar.
 
 ## Lösung und Abnahme
 
-1. Die Tiefenpyramide vor ihrem ersten Culling-Zugriff als vollständige All-Far-Historie
-   erzeugen und den gleichen `occludes`-Pfad ab Frame eins ausführen. Die Initialisierung
-   gehört in den Setup-/Ressourcenübergang, darf weder einen Vorlauf-Frame noch Warten
-   im Echtzeitpfad erzeugen und muss bei Zielwechsel erneut gelten. Erst dann
-   Ressourcen-, Tabellen- und Pipelineübergänge einzeln gegen unveränderte Bilddaten
-   prüfen. Uploadbatches und Diagnoseausgaben nicht behalten.
+1. `SceneHdr`, `SceneAerial`, `SceneLinear` und die beteiligten LUT-/Irradiance-Outputs
+   nacheinander bytegenau lesen. Erst- und Folgeframe müssen pro Stufe dieselben
+   Eingänge, Clear/Load/Store-Zustände und Abhängigkeiten haben. Den ersten abweichenden
+   Producer mit einem vollständigen Ressourcenvertrag reparieren; keine Vorlauf-Frames,
+   Uploadbatches oder Diagnoseausgaben behalten.
 2. Falls Metal die Ursache ist, GLSL als Quelle behalten und einen reproduzierbaren
    backend-spezifischen Buildproduktpfad wählen, der die benötigte Compilersemantik
    ausdrückt. Keine handgeschriebene Vendor-Shaderquelle und keine Testfall-Ausnahme.
