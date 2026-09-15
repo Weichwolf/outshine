@@ -110,11 +110,8 @@ RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufru
 Forest: achtfachen Skyline-Abstand als festen Prüfsollwert benennen; Compilezeitprüfung
 beibehalten, Berechnung unverändert. Format/Build grün; Forest ohne Tidy-Befund.
 
-## WorldCrowns-Zustandsübergänge
-Mehrere Cluster können dieselbe Species-Definition/Cache-Provenienz tragen. Cache.Read
-fasst Aufträge zusammen; Step bedient bisher nur die erste Gruppe: weitere bleiben Reading.
-Cache-Ergebnis an alle wartenden Gruppen gleicher Provenienz verteilen; Resident nur nach
-GPU-Publikation. Vorbereitung/Polling/Cache-Übernahme getrennt halten. Duplicate-Species-
-Fixture mit zwei Clustern und einem Cache-Artefakt muss vollständig Ready erreichen;
-Fixture grün, Einzelempfänger-Gegenprobe scheitert. Zwei Tidy, 33 Regeln grün.
-Kaltstart, Abbruch und Cache-/Live-/Species-Lebensdauer weiterhin vollständig prüfen.
+## Client-Argumentgrenze
+Portable main(int, char**) beibehalten. ReadCommandLine nimmt einen geliehenen span
+statt getrenntem argc/argv; Count erst nach durch argc begrenzter Span-Größe ableiten.
+CLI-Daten-/Argumenttests prüfen dieselben Befehle und Fehlercodes. Exceptiondiagnose
+bleibt 2194; keine Catch-Hülle oder mechanisches noexcept als Ersatz für Verträge.
