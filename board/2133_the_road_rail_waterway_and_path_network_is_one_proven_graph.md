@@ -105,8 +105,12 @@ RouteSearch kapselt temporären Suchzustand; endliche Kosten >1e30 und tatsächl
 Überlauf werden unterschieden. Fünf Routingtests und Negativkontrollen grün; Details in Git.
 
 Grounds erneuert World.Network nur bei geänderter Wegeanzahl. Topologie-/Höhenänderung
-bei gleicher Anzahl könnte unbemerkt bleiben. Datenrevisionen als Cache-Schlüssel
-prüfen; Test mit unveränderter Anzahl und verändertem Verlauf/Höhenfeld ergänzen.
+bei gleicher Anzahl könnte unbemerkt bleiben. Gemeinsame Wege-/DEM-Revision fehlt;
+explizite Publikationsrevisionen statt weiterer Zähler benötigen eigene Änderungsprüfung.
+Elevate übernimmt derzeit NaN/Inf und ruft auch leere HeightSource auf. Eingabegrenze
+prüft optional + isfinite; ungültig zählt wie fehlend als Refused (vorige Weghöhe/0).
+Analytische Profile vor/nach Weave prüfen ±Höhen, NaN/±Inf, fehlende/leere Quelle.
+Offen: Knotenprofil bei erneut fehlenden Höhen und Revisionsinvalidierung des Netzes.
 
 ## Geprüfte Layer-Grenze
 OsmField::Integer trennt fehlend, gültig und Fehler; vollständiger Dezimaltext oder
