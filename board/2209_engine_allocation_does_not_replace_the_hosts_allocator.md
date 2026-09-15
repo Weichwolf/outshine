@@ -77,3 +77,11 @@ FlatMap prüft vorhandene Schlüssel vor nötigem Wachstum; normale Einfügepfad
 ihre einzelne Suche. Fault-Injection über mehrere Tabellenfüllstände prüft Duplikate
 ohne Allokation sowie unveränderten Wert/Adresse. Altstand scheitert an drei
 Wachstumsgrenzen. Behandelbare allgemeine Map-Allokationsfehler bleiben offen.
+
+## Behandelbares Map-Wachstum
+Nur BuildingScratch nutzt FlatMap produktiv. Slot-Array mit nothrow-Allokation besitzen;
+Emplace liefert expected und erhält bei Fehler Tabelle, Werte und Referenzen. Neue
+Kapazität vor Rehash allokieren, Größenarithmetik prüfen; Schlüssel/Werte nichtwerfend.
+Gebäude-Status übernimmt Map-Fehler und rollt angehängte Geometrie weiterhin zurück.
+Tests: initialer und späterer Allokationsfehler, Wiederaufnahme, Kollisionen, Move/Reuse.
+Andere Scratch-/Output-Vektoren bleiben ein offener Exception-Pfad.
