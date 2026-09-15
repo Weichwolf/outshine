@@ -25,7 +25,7 @@ Materialpfade weiterverwenden, sofern ihre Verträge halten.
 | ScenarioRead/Write: getrennte Schema-Walks und unvollständige Tokenvalidierung | 2151, 2131 |
 | Grounds/Laying: globaler Aufbau und nachträgliche Terrainänderung | 2124, 2166, 2144 |
 | WorldCrowns: statische Residency und unvollständige Distanzleiter | 2111, 2123, 2132 |
-| Rote Format-/Tidy-/Repository-Gates | 2093, 2094 |
+| Lint grün; Engine-Fassade 45/46 PASS, bekannter Mipmap-Fehler bleibt | 2094, 2179 |
 
 Ziel: Plattformadapter → Engine-Fassade → Simulation/Streaming/Rendering.
 Provider liefern versionierte Daten; Generatoren liefern native Produkte;

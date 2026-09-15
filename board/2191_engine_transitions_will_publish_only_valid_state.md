@@ -93,10 +93,9 @@ Das gilt auch für unveränderte Parameter und Entfernen des letzten Producers.
 Public-API-Test mit Offscreen-Ziel: neun Checks grün; alter Stand sechs Fehler,
 kein Buildfehler. Parameterweitergabe/Input-Erhalt grün. Wien bytegleich c307cab8.
 Vollständiger Rollback und deklarierte Providerrevisionen bleiben getrennt offen.
-park/resume halten nur Deklarationen, keinen Simulationssnapshot. park leert Teile
-der Welt und die Renderinstanz, ohne die gesamte Simulation/Streaming-Residency zu
-parkieren. resume ruft declare auf; ein Fehler kann die aktive Engine teilweise ändern,
-der geparkte Eintrag bleibt dann erhalten. Vollständigen Zustandsvertrag herstellen.
+Park-API ungenutzt und ohne Simulationssnapshot: park/resume/discard/parked entfernen.
+Host besitzt Deklarationen; declare/assemble übernimmt sie. save/restore bleibt begrenzte
+Trait-Persistenz; vollständige Weltsnapshots sind damit ausdrücklich nicht implementiert.
 inspect kann über Stood lazy Renderaufbau auslösen; settled prüft nur Weltstreaming,
 keine allgemeine Renderbereitschaft. Öffentliche Dokumentation muss dies klar trennen.
 Engine::run hat keine Projektaufrufer und nur eine ungebremste advance-Schleife.
