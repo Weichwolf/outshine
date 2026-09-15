@@ -130,7 +130,7 @@ struct Request {
 /// permits concurrency; const does not guarantee thread safety of its dependencies.
 /// Engine::declare evaluates generated content again on redeclaration; identical request
 /// values do not establish unchanged provider data. No producer-result cache is promised.
-/// Allocation failure currently follows the allocator contract, not the returned product.
+/// Systemwide allocator exhaustion is fatal and outside the returned product contract.
 class Generator {
 public:
   /// Owned geometry result or a diagnostic explaining why the generator refused the request.
@@ -209,8 +209,8 @@ public:
   /// @param maker Object retained by address; kind() is called once and its name copied.
   /// The returned name must remain readable for this call; later changes do not rename the entry.
   /// @return False for an empty or already registered name, preserving all registrations.
-  /// Success may allocate; allocation failure follows the allocator contract. Setup operation,
-  /// linear in the number of registrations and compared name lengths.
+  /// Success may allocate; systemwide allocator exhaustion is fatal. Setup operation, linear in
+  /// the number of registrations and compared name lengths.
   [[nodiscard]] bool offers(const Generator &maker);
 
   /// Find an exact, case-sensitive registration name without calling generator methods.

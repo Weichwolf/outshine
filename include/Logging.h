@@ -88,8 +88,8 @@ public:
     const char *Event = nullptr; ///< Required non-null event name when passed to Write.
   };
 
-  /// Consume one event on the emitting thread. Exceptions are not caught at this boundary;
-  /// implementations should report sink failures through an independent channel.
+  /// Consume one event on the emitting thread. Implementations must not throw; report sink
+  /// failures through an independent channel.
   /// @param simTimeS Emitting thread's simulation time, in seconds; not wall-clock time.
   /// @param level Event severity.
   /// @param who Borrowed identity; copy the strings before retaining it beyond this call.

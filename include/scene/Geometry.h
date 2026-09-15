@@ -69,8 +69,8 @@ enum class GeometryAppendError {
 /// source supports only destruction or move assignment. Query operations are O(1) and
 /// allocate nothing unless documented otherwise. Additions and attribute replacements
 /// may allocate and are preparation operations, not bounded realtime operations.
-/// Allocation failure currently follows the allocator's exception contract; boolean
-/// and integer failure results describe input validation, not allocation failure.
+/// Systemwide allocator exhaustion is fatal. Boolean and integer failure results describe input
+/// validation, not allocation failure.
 class Geometry {
 public:
   /// Create an empty owner; allocates its private storage.
@@ -93,7 +93,7 @@ public:
   /// Copy active parts, materials, images and lights into an independent native owner.
   /// Owner-local indices and local-to-model placements are preserved; spare part capacity is not.
   /// Requires a non-moved-from source without concurrent mutation. Source views remain valid.
-  /// Cost and allocations scale with active owned data. Allocation failure may throw.
+  /// Cost and allocations scale with active owned data. Systemwide allocator exhaustion is fatal.
   /// @return Independent geometry; later mutation or destruction of either owner is isolated.
   [[nodiscard]] Geometry clone() const;
 
@@ -102,8 +102,8 @@ public:
   /// this geometry because its complete owned storage is replaced. Failure preserves both
   /// geometries. Requires exclusive access to this owner and no concurrent mutation of source.
   /// @param source Complete native geometry whose parts, materials, images and lights are copied.
-  /// @return Success, or a typed source/capacity error. Allocation failure follows the allocator
-  /// contract separately. Cost and allocation scale with the combined owned data.
+  /// @return Success, or a typed source/capacity error. Systemwide allocator exhaustion is fatal.
+  /// Cost and allocation scale with the combined owned data.
   [[nodiscard]] std::expected<void, GeometryAppendError> append(const Geometry &source);
 
   /// Append an empty part with identity placement; fill attributes before publication.

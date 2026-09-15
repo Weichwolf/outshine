@@ -18,7 +18,7 @@ class Geometry;
 /// than silently discarded. This is a geometry snapshot, not a world or animation serializer.
 /// Allocates and performs CPU conversion proportional to input size; preparation operation,
 /// not a realtime call. No filesystem/GPU access or thread affinity; independent calls are safe.
-/// Allocation failure follows the allocator contract, separately from validation errors.
+/// Systemwide allocator exhaustion is fatal, separately from validation errors.
 [[nodiscard]] std::expected<std::vector<uint8_t>, std::string> exportGlb(const Geometry &geometry);
 }
 #endif

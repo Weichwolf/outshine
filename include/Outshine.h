@@ -350,7 +350,8 @@ public:
   /// Call on the engine/video thread, outside concurrent engine work. Requires well-formed data.
   /// Allocates CPU copies and may prepare GPU resources; use during scene setup, not per frame.
   /// Invalid input is rejected before replacement. GPU setup errors are returned; renderer
-  /// recovery after a setup failure is not yet transactional. Allocation failure may throw.
+  /// recovery after a setup failure is not yet transactional. Systemwide allocator exhaustion is
+  /// fatal and outside Result.
   /// @param geometry Non-moved-from source, held immutable for the duration of this call.
   /// @return Success, or a diagnostic describing validation or setup failure.
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
@@ -406,7 +407,8 @@ public:
 
   /// Allocate two CPU timing rings with up to steps entries each, discarding saved samples.
   /// Zero disables retention; aggregate counters remain. Call during setup and serialize with
-  /// Engine operations. Allocation failure may throw; replacing both rings is not transactional.
+  /// Engine operations. Systemwide allocator exhaustion is fatal; replacing both rings is not
+  /// transactional.
   /// @param steps Maximum retained samples per timing ring; zero disables retention.
   void keepSamples(size_t steps);
   /// Replace out with retained advance() CPU wall times in milliseconds, oldest first.
