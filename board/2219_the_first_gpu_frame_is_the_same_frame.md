@@ -64,6 +64,10 @@ Test ist noch rot, aber nur mit 248 statt 470 Kanälen bei demselben Maximum. Da
 belegt einen Teilbeitrag des F32-Pfads, keine Reparatur. `make lint` bestätigt nach
 der Umstellung 0 clang-tidy-Befunde und 24/24 dokumentierte öffentliche Header.
 
+Die erneute Nearest-Mip-Probe auf dem kompakten Pfad ergibt wieder genau 15 Kanäle
+(maximal 0.0134277). Der verbleibende Basis-Samplingfehler ist damit vom F32-Format
+unabhängig; lineare Mip-Interpolation erzeugt die übrigen 233 Abweichungen.
+
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
 SPIR-V→MSL nur die Ziel-MSL-Version, keine Präzisions- oder Compileoption. Die
