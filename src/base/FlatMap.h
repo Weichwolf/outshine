@@ -54,7 +54,10 @@ public:
   [[nodiscard]] bool Holds(const Key &key) const noexcept { return Find(key) != nullptr; }
 
   std::pair<Value *, bool> Emplace(const Key &key, Value value) {
-    if (Held_ * 10u >= Slots_.size() * 7u) { Widen(); }
+    if (Held_ * 10u >= Slots_.size() * 7u) {
+      if (Value *existing = Find(key)) { return {existing, false}; }
+      Widen();
+    }
     for (size_t at = Where(key);; at = (at + 1u) & Mask()) {
       Slot &one = Slots_[at];
       if (one.Epoch != Epoch_) {

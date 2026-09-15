@@ -73,7 +73,7 @@ paralleler Prüfkopie: 16 Paare × 3 Größen bestehen. Fehlende sized-aligned F
 verletzt die Negativkontrolle; OOM-/new_handler-Verhalten bleibt separat.
 
 ## Doppelte Map-Einträge
-FlatMap prüft Wachstum vor Schlüsselgleichheit. An der Lastgrenze kann ein Duplikat
-allokieren und vorhandene Referenzen invalidieren. Vor Wachstum vorhandenen Schlüssel
-prüfen; normale Einfügepfade behalten ihre einzelne Suche. Fault-Injection über mehrere
-Tabellenfüllstände: Duplikate ohne Allokation, bestehender Wert und Adresse unverändert.
+FlatMap prüft vorhandene Schlüssel vor nötigem Wachstum; normale Einfügepfade behalten
+ihre einzelne Suche. Fault-Injection über mehrere Tabellenfüllstände prüft Duplikate
+ohne Allokation sowie unveränderten Wert/Adresse. Altstand scheitert an drei
+Wachstumsgrenzen. Behandelbare allgemeine Map-Allokationsfehler bleiben offen.
