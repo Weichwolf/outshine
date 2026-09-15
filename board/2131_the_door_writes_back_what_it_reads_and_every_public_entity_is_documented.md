@@ -106,14 +106,14 @@ Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
 konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
 
 ## Verbleibende Serialisierung
-Audio-Graphen/Routing/Emitter und deklarierter Nullhall bleiben jetzt erhalten;
-150 Audio-Prüfungen plus Gegenprobe grün. Writer-Inventar 64/76; Body-Pfad offen.
-Kinds/Instances werden gemeinsam exportiert: Typname,
-Vererbung, Asset, geordnete Minds/Capabilities/Attribute sowie Instanzreferenzen,
-Pose, Overrides und Holds. Bestehenden Standing-Writer und XML-Escaping verwenden.
-Native API-Verträge und der vorhandene Reader bestimmen Einheiten und Zuordnung;
-keine neue Runtime-Semantik für gespeicherte Mind-/Pose-Metadaten behaupten.
-Abnahme: unabhängiges XML und native Werte; genaue Double-/Integergrenzen,
-Sonderzeichen, Reihenfolge und wiederholte Attribute/Referenzen. Runde erhält
-Typen/Instanzen gemeinsam erhalten; 34 Checks grün, fehlende Vererbung verletzt einen.
-Assembly-/Placement-Tests grün; Lint: 0 Tidy, 33 Regeln, Doku 24/24 ohne Diagnose.
+Audio und Kinds/Instances erhalten; unabhängige Rundläufe/Gegenproben grün.
+Writer-Inventar 64/76; Body-Pfad fehlt. Alle Bodyfelder samt Kontakten, Antrieben,
+Slots und Assetmetadaten schreiben; vorhandene Dynamikvalidierung vor Export nutzen.
+Pose und Aktivierung trennen: body.placed explizit, ohne Attribut gilt weiter at-Präsenz.
+actuator.turns explizit, ohne Attribut gilt weiter PeakN == 0. Opposes auch bei
+Motion erhalten. Ungültige Antriebs-Enums oder gleichzeitige Kraft/Torque ablehnen.
+Aktivierung und Achsentyp sind native Zustände, keine Ableitung aus Zahlenwerten.
+Abnahme: unabhängiges Legacy-XML, alle Felder, unplatzierte Pose, lineare Nullkraft,
+exakte Doubles und Sonderzeichen. Fehlendes Trägheitsmoment muss Rundlauf brechen.
+Dynamiktests behalten; Format und Lint. Keine vollständige Kontakt-/Antriebsvalidierung
+oder funktionierende Fahrzeugphysik behaupten; diese Verträge bleiben offen.
