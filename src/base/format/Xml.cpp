@@ -103,8 +103,8 @@ long long Xml::Ref::Int(const char *attribute, long long whenAbsent) const {
 bool Xml::Ref::Flag(const char *attribute, bool whenAbsent) const {
   if (!Has(attribute)) { return whenAbsent; }
   const std::string value = Attr(attribute);
-  if (value == "true" || value == "1") { return true; }
-  if (value == "false" || value == "0") { return false; }
+  if (value == "true" || value == "1" || value == "yes") { return true; }
+  if (value == "false" || value == "0" || value == "no") { return false; }
   return whenAbsent;
 }
 
