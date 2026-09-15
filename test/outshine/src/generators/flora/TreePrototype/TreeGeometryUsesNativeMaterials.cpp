@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <limits>
 #include <fstream>
 #include <iterator>
 #include <filesystem>
@@ -101,6 +103,66 @@ int main() {
     if (!geometry) { return Report(); }
     CHECK(geometry->parts() == 2 && geometry->surfaces() == 2,
           "bark and leaves have separate surfaces");
+    if (rank == 0) {
+      const auto shared = tree->InstancedGeometryAt(rank);
+      CHECK(shared.has_value(), "fine tree exposes its existing leaf instances without expansion");
+      if (shared) {
+        CHECK(std::ranges::equal(shared->Bark.positionsOf(0), geometry->positionsOf(0)) &&
+                  std::ranges::equal(shared->Bark.trianglesOf(0), geometry->trianglesOf(0)),
+              "instanced capture retains every fine bark vertex and triangle");
+        const auto leaf = shared->Leaf.positionsOf(0), normal = shared->Leaf.normalsOf(0);
+        const auto original = geometry->positionsOf(1), originalNormal = geometry->normalsOf(1);
+        CHECK(original.size() == leaf.size() * shared->Placements.size(),
+              "shared leaf mesh and placements account for every expanded fine leaf vertex");
+        double positionError = 0, normalError = 0, extent = 1;
+        bool boundsHold = true;
+        for (size_t axis = 0; axis < 3; ++axis) {
+          extent =
+              std::max({extent, std::abs(shared->LeastM[axis]), std::abs(shared->MostM[axis])});
+        }
+        if (original.size() == leaf.size() * shared->Placements.size()) {
+          for (size_t card = 0; card < shared->Placements.size(); ++card) {
+            const auto &model = shared->Placements[card];
+            for (size_t vertex = 0; vertex < leaf.size(); vertex += 3) {
+              const auto position =
+                  model.TransformPoint({{leaf[vertex], leaf[vertex + 1], leaf[vertex + 2]}});
+              auto direction = model.TransformDirection(
+                  {{normal[vertex], normal[vertex + 1], normal[vertex + 2]}});
+              if (!Normalise(direction)) { normalError = 2; }
+              const size_t at = card * leaf.size() + vertex;
+              for (size_t axis = 0; axis < 3; ++axis) {
+                boundsHold = boundsHold && position[axis] >= shared->LeastM[axis] - 1e-5 &&
+                             position[axis] <= shared->MostM[axis] + 1e-5;
+                positionError =
+                    std::max(positionError, std::abs(position[axis] - original[at + axis]));
+                normalError =
+                    std::max(normalError, std::abs(direction[axis] - originalNormal[at + axis]));
+              }
+            }
+          }
+        }
+        CHECK(boundsHold,
+              "instance bounds contain every expanded leaf vertex within 10 micrometres");
+        constexpr double rounding = 8 * std::numeric_limits<float>::epsilon();
+        std::printf("instanced fine leaf max position error=%g m, normal component error=%g; "
+                    "rounding bounds %g m / %g\n",
+                    positionError,
+                    normalError,
+                    rounding * extent,
+                    rounding);
+        CHECK(positionError <= rounding * extent,
+              "instanced fine leaves preserve expanded positions within the declared eight-epsilon "
+              "tolerance");
+        CHECK(normalError <= rounding,
+              "instanced fine leaves preserve expanded normals within the declared eight-epsilon "
+              "tolerance");
+        const auto &before = geometry->surfaceAt(MaterialInstance(1));
+        const auto &after = shared->Leaf.surfaceAt(MaterialInstance(0));
+        CHECK(before.BaseColour == after.BaseColour && before.Roughness == after.Roughness &&
+                  before.Metalness == after.Metalness && before.DoubleSided == after.DoubleSided,
+              "instanced fine leaves retain their native metallic-roughness material");
+      }
+    }
     for (int part = 0; part < geometry->parts(); ++part) {
       const Material &material = geometry->surfaceAt(geometry->materialOf(part));
       CHECK(material.Metalness == 0, "wood and foliage are dielectric");

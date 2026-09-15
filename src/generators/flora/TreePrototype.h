@@ -34,6 +34,14 @@ public:
 
   [[nodiscard]] std::optional<Geometry> GeometryAt(size_t rank) const;
 
+  struct InstancedGeometry {
+    Geometry Bark, Leaf;
+    std::vector<Mat4> Placements;
+    Vec3 LeastM, MostM;
+  };
+
+  [[nodiscard]] std::optional<InstancedGeometry> InstancedGeometryAt(size_t rank) const;
+
   enum Row : int {
     BarkRgb = 0,
     BarkDark = 3,

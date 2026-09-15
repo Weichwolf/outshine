@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 6 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 5 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -116,5 +116,5 @@ Vorhandenen TreePrototype-Adapter abschließen: gemeinsames natives Blatt-Mesh p
 Mat4-Placements; expandierter Pfad bleibt derselbe Vertrag. ModelMatrix ist nodiscard.
 Gemeinsamer Frame für Position/Normale; Bounds müssen alle transformierten Vertices
 enthalten. Vergleich gegen expandierte Geometrie sichert Erhalt, kein unabhängiges
-Geometrieorakel. Falsche Translation muss scheitern; Materialwerte bleiben identisch.
-Runtime-Streaming und Atlas-Integration bleiben eigene Schritte, keine neue Vegetation.
+Geometrieorakel. Falsche Translation scheitert; Geometrie-/Atlas-Test grün, Bild pixelgleich.
+Fünf Tidy offen, 33 Regeln grün. Nullskalierung/alle Species, Streaming/Atlas separat prüfen.
