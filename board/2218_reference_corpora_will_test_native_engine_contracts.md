@@ -70,8 +70,8 @@ ExposureApplied bleibt bei 5/5/30/75/5° exakt 5,20833346e-5. Herleitung im Live
 Explizite halbe/doppelte Belichtung kommt korrekt an. Der Verlust von 37,022 auf
 1,140 mittlere Bodenhelligkeit ist damit keine Belichtungsanpassung. Temporäre
 Messinstrumentierung entfernt; unveränderte Assertions weiterhin reproduzierbar.
-Die Ungleichheits-Assertion ist nachweislich falsch begründet und muss durch den
-Wiederkehrvertrag gleicher Szenen ersetzt werden; nicht durch eine Toleranz.
+Ungleichheits-Assertion durch exakte Pixelgleichheit ersetzt; auch die direkte
+Wiederholung vergleicht sämtliche Pixel statt nur die mittlere Bodenhelligkeit.
 Vor Rendereränderung Schatten, atmosphärische LUTs, temporale Historie und Geometrie
 bei A/B/A isolieren. Unabhängigen kleinen Fall über outshine-client aufbauen und
 PNGs vergleichen; Hang-/Schattenszenen beweisen kein allgemeines sin(elevation).

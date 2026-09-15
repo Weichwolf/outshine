@@ -153,23 +153,9 @@ int main(void) {
   std::printf(
       "5 deg AGAIN, after the 75 deg frame %7.3f   (%+.4f)\n", atFiveAgain, atFiveAgain - atFive);
 
-  CHECK(
-      atFiveTwice == atFive,
-      "**THE CONTROL: THE SAME DECLARATION FROM THE SAME HISTORY GIVES THE SAME PICTURE, TO THE "
-      "BIT**. Every claim below is a difference between two renders, and a difference is evidence "
-      "only if an unchanged input reproduces. If this goes red the case is reading streaming that "
-      "had not finished, or noise, and has been calling it sunlight");
-
-  CHECK(
-      atFiveAgain != atFive,
-      "**THE SECOND CONTROL: THE RENDERER CARRIES EXPOSURE STATE, AND THIS CASE SAYS SO**. The "
-      "same 5 deg declaration rendered after the 75 deg frame comes back an order of magnitude "
-      "darker, because the exposure has adapted to a bright scene and one frame does not undo it. "
-      "That is not a defect and this case does not treat it as one -- it is why the control above "
-      "is `from the same history` rather than `the same declaration`, and why the arms below are "
-      "read in ASCENDING order. A first draft of this case demanded statelessness from a renderer "
-      "that legitimately adapts and went red on the engine being right. If THIS check goes red "
-      "the adaptation has gone, and the control above has quietly become vacuous");
+  CHECK(lowTwice == low, "repeating the same scene reproduces every pixel");
+  CHECK(lowAgain == low,
+        "returning to the same scene after changing sunlight reproduces every pixel");
 
   CHECK(atSeventyFive > atFive,
         "**THE SUN REACHES THE GROUND**: board:2020's own second control, unrun until now. A "
