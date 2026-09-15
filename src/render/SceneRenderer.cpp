@@ -1173,7 +1173,11 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   }
 
   if (Landed_[LandedAt_] != nullptr) {
-    SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
+    if (!SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1)) {
+      const std::string error = SDL_GetError();
+      SDL_CancelGPUCommandBuffer(commands);
+      return std::unexpected(error);
+    }
     SDL_ReleaseGPUFence(Device_.Get(), Landed_[LandedAt_]);
     Landed_[LandedAt_] = nullptr;
   }

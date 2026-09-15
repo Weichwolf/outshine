@@ -102,7 +102,7 @@ std::vector<uint32_t> Read(SDL_GPUDevice *device, SDL_GPUBuffer *buffer, size_t 
 
 void DeferredRetry(SDL_GPUDevice *device) {
   SubjectResidency residency;
-  residency.StandsOn(device, true);
+  residency.StandsOn(device);
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> expected{17, 23, 31, 47};
   constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
@@ -143,7 +143,7 @@ void DeferredRetry(SDL_GPUDevice *device) {
 
 void FailedReplacement(SDL_GPUDevice *device) {
   SubjectResidency residency;
-  residency.StandsOn(device, true);
+  residency.StandsOn(device);
   constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
@@ -177,7 +177,7 @@ void FailedReplacement(SDL_GPUDevice *device) {
 
 void FailedBatchReplacement(SDL_GPUDevice *device) {
   SubjectResidency residency;
-  residency.StandsOn(device, true);
+  residency.StandsOn(device);
   using Stream = SubjectResidency::Stream;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
@@ -237,7 +237,7 @@ void FailedBatchReplacement(SDL_GPUDevice *device) {
 
 void MixedUploads(SDL_GPUDevice *device) {
   SubjectResidency residency;
-  residency.StandsOn(device, true);
+  residency.StandsOn(device);
   constexpr auto stream = SubjectResidency::Stream::ClusterJobs;
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> staged{17, 23, 31, 47};
@@ -294,7 +294,7 @@ void Growth(SDL_GPUDevice *device) {
   const std::vector<uint32_t> expected{17, 23, 31, 47};
   for (Failure point : {Failure::Acquire, Failure::Pass, Failure::Submit}) {
     SubjectResidency residency;
-    residency.StandsOn(device, true);
+    residency.StandsOn(device);
     std::string error;
     std::array<SubjectResidency::Crossing, 1> crossing{
         {{.Which = stream,
