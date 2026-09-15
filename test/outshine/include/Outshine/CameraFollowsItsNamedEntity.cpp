@@ -64,12 +64,14 @@ int main() {
             "camera position comes from the named entity independently of array order");
     };
     checkEye(4);
+    CHECK(engine.renderer().render({}).has_value(), "render right camera");
     CHECK(engine.renderer()
               .saveScreenshot((directory / "outshine-follow-camera-right.png").string())
               .has_value(),
           "capture right target");
     CHECK(engine.setView("left-view").has_value(), "switch active target");
     checkEye(-4);
+    CHECK(engine.renderer().render({}).has_value(), "render left camera");
     CHECK(engine.renderer()
               .saveScreenshot((directory / "outshine-follow-camera-left.png").string())
               .has_value(),

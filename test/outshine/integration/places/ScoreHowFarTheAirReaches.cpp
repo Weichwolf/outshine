@@ -138,6 +138,7 @@ int main(void) {
     stands.Views.push_back(watches);
     const bool okay = engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
                       engine.advance() && engine.renderer().render(outshine::Extent{}) &&
+                      engine.renderer().render(outshine::Extent{}) &&
                       engine.renderer().readPixels(rgba);
     return okay;
   };

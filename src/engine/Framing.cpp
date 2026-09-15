@@ -230,12 +230,10 @@ Result Engine::inspect() {
 }
 
 bool Engine::readPixels(std::vector<uint8_t> &rgba) {
-  if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
   }
-  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
   return S_->Picture.Standing->ReadPixels(rgba, S_->Error);
 }
 
@@ -249,12 +247,10 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
     case Buffer::Colour: S_->Error = Says::kColourReadbackIsBytes; return false;
     default: S_->Error = Says::kUnknownReadbackBuffer; return false;
   }
-  if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
   }
-  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
   return S_->Picture.Standing->ReadBuffer(which, out, S_->Error);
 }
 
@@ -309,12 +305,10 @@ bool Engine::flushAndWait() {
 }
 
 bool Engine::saveScreenshot(std::string_view path) {
-  if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
     return false;
   }
-  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
   return S_->Picture.Standing->Screenshot(std::string(path), S_->Error);
 }
 

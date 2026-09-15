@@ -57,6 +57,7 @@ void AdditionalOutputIsApplied() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scene.Views.push_back(view);
   CHECK(engine.declare(scene) && engine.assemble() && engine.advance(), "initial scene is ready");
+  CHECK(engine.renderer().render({}).has_value(), "render initial plan");
   std::vector<float> velocity{17};
   const auto missing = engine.renderer().readPixels(Buffer::Velocity, velocity);
   CHECK(!missing && missing.error().find("no velocity") != std::string::npos,
@@ -64,6 +65,7 @@ void AdditionalOutputIsApplied() {
   scene.Render.Outputs = {"sceneVelocity"};
   CHECK(engine.declare(scene) && engine.assemble() && engine.advance(),
         "only the additional output changes");
+  CHECK(engine.renderer().render({}).has_value(), "render replacement plan");
   CHECK(engine.renderer().readPixels(Buffer::Velocity, velocity).has_value(),
         "the changed plan actually retains the requested velocity attachment");
   CHECK(velocity.size() == 32u * 32u * 2u,

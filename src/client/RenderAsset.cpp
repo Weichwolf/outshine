@@ -269,6 +269,7 @@ struct AssetRenderOptions {
     auto rendered = renderer.render({});
     if (!rendered) { return rendered; }
   }
+  if (auto rendered = renderer.render({}); !rendered) { return rendered; }
   return renderer.saveScreenshot(options.Output);
 }
 }

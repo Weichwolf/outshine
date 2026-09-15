@@ -90,6 +90,7 @@ struct Frame {
 
 Frame Capture(Engine &engine) {
   Frame frame;
+  CHECK(engine.renderer().render({}).has_value(), "render projection before reading attachments");
   CHECK(engine.renderer().readPixels(Buffer::Linear, frame.Colour).has_value(),
         "read the actual linear frame through the public renderer");
   CHECK(engine.renderer().readPixels(Buffer::Depth, frame.Depth).has_value(),

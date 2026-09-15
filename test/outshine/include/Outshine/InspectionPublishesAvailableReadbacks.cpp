@@ -33,6 +33,7 @@ int main() {
     CHECK(ready, "explicit scene camera is ready");
     if (ready) {
       std::vector<uint8_t> pixels;
+      CHECK(engine.renderer().render({}).has_value(), "explicitly render before readback");
       CHECK(engine.renderer().readPixels(pixels).has_value() && pixels.size() == 32u * 32u * 4u,
             "public readback provides complete RGBA image");
       CHECK(engine.inspect().has_value(), "public inspection reads the available frame");

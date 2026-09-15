@@ -123,7 +123,7 @@ int main(void) {
       return false;
     }
     const int settle = std::max(2, engine.renderer().settleFrames());
-    for (int frame = 0; frame < settle; ++frame) {
+    for (int frame = 0; frame < settle + 1; ++frame) {
       if (!engine.renderer().render(outshine::Extent{})) { return false; }
     }
     return static_cast<bool>(engine.renderer().readPixels(rgba));

@@ -143,27 +143,27 @@ public:
   /// Each successful call publishes render measurements independently of simulation ticks.
   /// @return An error if scene/camera preparation fails; submission does not imply GPU completion.
   [[nodiscard]] Result render(Extent frame);
-  /// Draw and synchronously read back the current target, then write an RGBA PNG.
+  /// Save the last successfully rendered frame as an RGBA PNG without drawing again.
   /// Runs on the Engine/video thread; may allocate, wait for the GPU and perform IO.
   /// Parent directories are created as needed; an existing file is overwritten.
   /// @param path Borrowed filesystem path, copied for writing; relative to the process directory.
-  /// @return Render, readback, encoding or filesystem error, or success. File writes are not
+  /// @return Missing-frame, readback, encoding or filesystem error, or success. Writes are not
   /// atomic.
   [[nodiscard]] Result saveScreenshot(std::string_view path);
-  /// Draw a frame and copy the engine-owned final colour image into contiguous RGBA8 rows,
+  /// Copy the last successfully rendered final colour image into contiguous RGBA8 rows,
   /// top row first. Window swapchain textures are never used as a readback source.
-  /// Requires a configured target, a camera and a presentable render output. Calls may wait
-  /// for GPU completion; use outside latency-critical callbacks. No reference to rgba is kept.
+  /// Requires a successfully rendered presentable output. Does not render or prepare a camera. May
+  /// wait for GPU completion; use outside latency-critical callbacks. No reference to rgba is kept.
   /// @param rgba Caller-owned output in the target's transfer encoding; unchanged on error.
-  /// A readback error can occur after the draw was submitted.
-  /// @return Success after readback, or a scene/camera/render/readback error.
+  /// Repeated readbacks do not change simulation, temporal history or presentation.
+  /// @return Success after readback, or a missing-frame/readback error.
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
-  /// Draw and synchronously read a float attachment into packed, top-row-first pixels.
+  /// Read a float attachment of the last rendered frame into packed, top-row-first pixels.
   /// Runs on the Engine/video thread and may allocate or wait for the GPU. No output
   /// reference is retained. Components per pixel follow Buffer; no depth linearization.
-  /// @param which Float attachment; Colour and unknown values fail before rendering.
+  /// @param which Float attachment; Colour and unknown values fail without GPU work.
   /// @param out Caller-owned vector, replaced on success; consume contents only on success.
-  /// @return Success or input, render, unavailable-attachment or GPU-readback error.
+  /// @return Success or input, missing-frame, unavailable-attachment or GPU-readback error.
   [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
 
   /// Query the compiled plan's suggested temporal warm-up frame count without rendering.

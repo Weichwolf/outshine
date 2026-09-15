@@ -152,6 +152,8 @@ int main() {
     const bool ready = engine.declare(Declaration(true)) && engine.assemble() && engine.advance();
     CHECK(ready, "an explicit view can be prepared after failed draw attempts");
     if (ready) {
+      CHECK(!renderer.readPixels(pixels), "readback requires an explicitly rendered frame");
+      CHECK(renderer.render({}).has_value(), "render prepared camera");
       CHECK(renderer.readPixels(pixels).has_value() && pixels.size() == 32u * 32u * 4u,
             "the same renderer recovers and produces a complete RGBA frame");
       constexpr std::array<Extent, 5> invalid = {{{-1, 32}, {0, 32}, {32, 0}, {32, -1}, {48, 32}}};

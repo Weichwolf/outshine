@@ -103,7 +103,7 @@ erhält vorhandene Welt. Szenario-Reader/Writer erhalten alle unterstützten sta
 Deklarationen im Roundtrip; Laufzeithandles/Savegame-Zustand sind kein Importformat.
 
 ## Readback-Vertrag
-readPixels (Byte/Float) und saveScreenshot rendern implizit erneut; 22 C++-Dateien betroffen.
+Bisher renderten Readbacks implizit erneut; 22 C++-Dateien wurden auditiert.
 SOLL: nur render erzeugt Bilder; Readbacks lesen denselben zuletzt übermittelten Frame.
 Ohne gültigen Frame Fehler. Keine Szenenvorbereitung oder Präsentation durch Readback.
 Dokumentation und alle Aufrufer migrieren: Draws explizit, Farbe/Tiefe/PNG aus einem Frame.
@@ -114,3 +114,7 @@ Client-Zeitpunkte explizit erhalten; keine pauschalen Warmup-Extras.
 Roundtrip-Client extrahiert, WriteFileAtomically und Schreibfehler-Gegenprobe geprüft;
 Places bestehen. Gemeinsamen Scratchpfad isolieren. Build-Gegenprobe entfernt Provider.
 Log-Consumer behandelt Saying::Unit=nullptr korrekt; Wien geprüft.
+
+Readback ohne Draw umgesetzt; abhängige Tests/Client-Draws explizit migriert.
+Fenstertest regulär/validiert grün; impliziter Draw als Gegenprobe verletzt 7 Checks.
+Lint/glTF-Client grün; PNGs geprüft. Wien 1939/921600 Pixel geändert; Air/Mipmap offen.

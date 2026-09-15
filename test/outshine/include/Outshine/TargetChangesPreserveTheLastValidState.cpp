@@ -179,6 +179,7 @@ int main() {
       if (ready) {
         auto renderer = offscreen.renderer();
         std::vector<uint8_t> before;
+        CHECK(renderer.render({}).has_value(), "explicitly render before readback");
         CHECK(renderer.readPixels(before).has_value() && before.size() == 32u * 32u * 4u,
               "the original target produces a complete RGBA frame");
         const unsigned released = releasedTextures;

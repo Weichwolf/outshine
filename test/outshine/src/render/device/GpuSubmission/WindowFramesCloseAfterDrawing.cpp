@@ -243,10 +243,16 @@ int main() {
 
     std::vector<uint8_t> windowPixels;
     CHECK(renderer.beginFrame(target).has_value(), "readback scope begins");
-    CHECK(renderer.readPixels(windowPixels).has_value(), "window pixels are readable");
     before = swapchainCalls;
-    CHECK(renderer.endFrame().has_value() && swapchainCalls == before,
-          "a readback's successful draw already satisfies the scope");
+    CHECK(renderer.readPixels(windowPixels).has_value(), "window pixels are readable");
+    CHECK(swapchainCalls == before, "colour readback never acquires another swapchain image");
+    std::vector<uint8_t> repeatedPixels;
+    CHECK(renderer.readPixels(repeatedPixels).has_value() && repeatedPixels == windowPixels &&
+              swapchainCalls == before,
+          "repeated readback preserves the submitted frame");
+    before = swapchainCalls;
+    CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
+          "readback does not draw or satisfy an empty frame scope");
     CHECK(forbiddenReads == 0, "no readback reads a write-only swapchain texture");
 
     for (const auto failure : {DownloadFailure::Acquire,
@@ -264,8 +270,8 @@ int main() {
       CHECK((preserved == std::vector<uint8_t>{17, 19, 23}),
             "failed readback preserves caller data");
       before = swapchainCalls;
-      CHECK(renderer.endFrame().has_value() && swapchainCalls == before,
-            "failed readback does not undo its successfully submitted draw");
+      CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
+            "failed readback leaves the empty frame scope unchanged");
       CHECK(renderer.readPixels(windowPixels).has_value(),
             "readback recovers after the injected failure");
       CHECK(downloads.empty() && downloadCommands.empty() && downloadFences.empty(),
@@ -276,8 +282,8 @@ int main() {
     CHECK(renderer.readPixels(Buffer::Linear, linear).has_value(),
           "scene-linear readback succeeds");
     before = swapchainCalls;
-    CHECK(renderer.endFrame().has_value() && swapchainCalls == before,
-          "float readback also satisfies its frame scope");
+    CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
+          "float readback leaves presentation to endFrame");
     const auto blocked = std::filesystem::temp_directory_path() /
                          ("outshine-frame-file-" + std::to_string(SDL_GetTicksNS()));
     {
@@ -289,8 +295,8 @@ int main() {
     CHECK(!renderer.saveScreenshot((blocked / "image.png").string()),
           "screenshot reports a directory error");
     before = swapchainCalls;
-    CHECK(renderer.endFrame().has_value() && swapchainCalls == before,
-          "file failure does not trigger a second draw");
+    CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
+          "file failure leaves the frame undrawn until endFrame");
     std::filesystem::remove(blocked);
 
     Engine offscreen;
@@ -302,6 +308,7 @@ int main() {
     const unsigned commandsBefore = commandAcquires;
     CHECK(offscreenRenderer.endFrame().has_value() && commandAcquires == commandsBefore,
           "empty offscreen scope creates no GPU work");
+    CHECK(offscreenRenderer.render({}).has_value(), "render offscreen target explicitly");
     std::vector<uint8_t> offscreenPixels;
     CHECK(offscreen.renderer().readPixels(offscreenPixels).has_value(),
           "offscreen pixels are readable");
@@ -325,6 +332,7 @@ int main() {
             "offscreen screenshot is written through the public API");
     }
     CHECK(Prepare(offscreen, false), "the same target adds linear output and changes its material");
+    CHECK(offscreenRenderer.render({}).has_value(), "render replacement scene explicitly");
     std::vector<uint8_t> changed;
     CHECK(offscreen.renderer().readPixels(changed).has_value(),
           "additional linear output preserves the standard colour output");

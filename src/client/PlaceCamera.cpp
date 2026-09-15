@@ -374,7 +374,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   const std::string into = std::string("build/shots/") + std::string(under);
   std::filesystem::create_directories(into, failed);
   const std::string writing = into + "/" + std::string(name) + ".writing";
-  if (engine.renderer().saveScreenshot(writing).has_value()) {
+  if (engine.renderer().render({}) && engine.renderer().saveScreenshot(writing)) {
     std::string bytes;
     if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
       std::array<char, 65536> block{};
