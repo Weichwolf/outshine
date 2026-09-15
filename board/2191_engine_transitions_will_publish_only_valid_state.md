@@ -110,7 +110,7 @@ Init prüft GPU-Wait vor Umbau, erneuert Frame-/Temporalzustand und Offscreen-Zi
 Transmission folgt dem aktuellen Plan. Stage-Konfiguration/Passzuordnung sind getrennt.
 Sky-Pipeline übernimmt tatsächliche Farbattachments; Normal-/Identitätsziele maskiert.
 GPU-Regressionen und Negativkontrollen für Frame-/Transmission-/Größenwechsel grün.
-Allokationsrollback, Freigabe entfallener Planressourcen und Readback-Verträge offen.
+Preload: Overflow vor Pump/Abschluss prüfen; Fehlerpfad ohne zusätzlichen Geländeaufbau.
 ## Bodengebundene Kamera vor Residency
 Footprint-Audit reproduzierbar UNPREPARED: RingWanted ruft Watches vor Focuses/Lay;
 fehlende Kamerahöhe wird als Fehler behandelt, bevor der Ring Daten anfordern kann.
