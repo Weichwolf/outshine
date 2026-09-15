@@ -99,10 +99,9 @@ parkieren. resume ruft declare auf; ein Fehler kann die aktive Engine teilweise 
 der geparkte Eintrag bleibt dann erhalten. Vollständigen Zustandsvertrag herstellen.
 inspect kann über Stood lazy Renderaufbau auslösen; settled prüft nur Weltstreaming,
 keine allgemeine Renderbereitschaft. Öffentliche Dokumentation muss dies klar trennen.
-run() enthält weder Pacing noch Ereignisverarbeitung oder expliziten Abbruch, sondern
-eine advance-Schleife bis Fehler. Host-gesteuerte Ausführung bleibt der nutzbare Pfad;
-den öffentlichen Komforteinstieg durch einen nachweisbaren Lifecycle ersetzen oder
-mit vollständig migrierten Aufrufern entfernen. Keine implizite Endlosschleife als SOLL.
+Engine::run hat keine Projektaufrufer und nur eine ungebremste advance-Schleife.
+Entscheidung: entfernen; Host besitzt Ereignisverarbeitung, Zeitbudget und Abbruch und
+steuert advance() bzw. advance(elapsedS). Client-Befehl run ist ein separater Szenario-Einstieg.
 Assembly komponiert unabhängig von Entitätskapazität; Follow nutzt Kandidat, Fehler rollt Simulation zurück.
 Offen: Welt-/GPU-Rollback, View-Werte, TimeScale, Joins/Overriding/Surfacing und
 Velocity-Gültigkeit; fehlgeschlagener Weltaufbau erhält die vorige Simulation.
