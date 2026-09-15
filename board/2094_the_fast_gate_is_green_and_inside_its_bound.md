@@ -111,7 +111,8 @@ Forest: achtfachen Skyline-Abstand als festen Prüfsollwert benennen; Compilezei
 beibehalten, Berechnung unverändert. Format/Build grün; Forest ohne Tidy-Befund.
 
 ## Client-Argumentgrenze
-Portable main(int, char**) beibehalten. ReadCommandLine nimmt einen geliehenen span
-statt getrenntem argc/argv; Count erst nach durch argc begrenzter Span-Größe ableiten.
-CLI-Daten-/Argumenttests und 33 Regeln grün; argv-Befund weg. Exceptiondiagnose
-bleibt 2194; keine Catch-Hülle oder mechanisches noexcept als Ersatz für Verträge.
+CommandLine hält ausschließlich string_view/span auf Prozessargumente, keine Stringkopie.
+ReadCommandLine als isolierten noexcept-Parser prüfen: leere Eingabe, Override, fehlender
+Befehl und Nullargumente; Rückgabe muss den ursprünglichen Speicher referenzieren.
+CLI-Daten-/Argumenttests erhalten Befehle/Fehlercodes. Weitere Wurfpfade bleiben in 2194;
+kein mechanisches noexcept an den Client oder Ersatz der OOM-/Budgetverträge.
