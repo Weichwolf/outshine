@@ -73,7 +73,8 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 
 ## Abnahme
 
-- [ ] make lint meldet null Tidy-Befunde; Analysefehler dürfen nicht als null gelten.
+- [x] make lint meldet null Tidy-Befunde: 189/189 Einheiten, 0 Befunde (2026-09-15).
+      Analysefehler gelten weiterhin nicht als null.
 - [ ] Öffentliche API null undokumentiert und ihre tatsächlichen Verträge geprüft.
 - [ ] Relevante Konventions-/Fehler-/Lebensdauer-Tests inklusive Negativkontrollen grün.
 - [ ] Bildwirksame Änderungen durch Places-PNGs und unabhängige Orakel abgenommen.

@@ -44,10 +44,10 @@ Keine Bildänderung erwartet. Globale Registrierung und Engine-Isolation bleiben
 `LogSinkScope` restauriert nun ebenfalls seinen vorherigen globalen Sink; der
 Kontexttest prüft äußere, innere und danach wiederhergestellte Ausgabe.
 
-Nachweis: LoggingScopesRestoreThreadContext prüft fünf Verträge, alle grün;
-Altcode scheitert ohne Buildfehler. Finales make lint: 182 tidy-Befunde, 330
-Dokumentationsdiagnosen, 32 Repository-Tests grün; drei bekannte rote Gruppen.
-Keine visuelle Änderung, kein neuer Render und keine TSan-/Shutdown-Abnahme behauptet.
+Nachweis: LoggingScopesRestoreThreadContext prüft die lokalen Kontextverträge;
+Altcode scheitert ohne Buildfehler. Finales make lint: 189/189 Analyse-Einheiten,
+0 Befunde. Keine visuelle Änderung, kein neuer Render und keine TSan-/Shutdown-
+Abnahme behauptet.
 
 ## Engine-Anbindung und Ausgabeserialisierung
 Framing.cpp::logsTo registriert global; Client Main und PlaceCamera nutzen diesen Pfad.
