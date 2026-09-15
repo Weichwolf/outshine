@@ -116,5 +116,5 @@ Footprint-Audit reproduzierbar UNPREPARED: RingWanted ruft Watches vor Focuses/L
 fehlende Kamerahöhe wird als Fehler behandelt, bevor der Ring Daten anfordern kann.
 Pending von ungültiger Kamera trennen; geodetischen Fokus ohne erfundene Höhe laden,
 Kamera erst mit residenter Höhe publizieren. Declare/Preload-Aufrufpfad dabei prüfen.
-Kamera nutzt noch lineares EnuFrame, Geometrie ECEF-TangentFrame: gemeinsam ECEF
-auflösen, Offset erhalten; Pending/Hole und analytische Positionen unabhängig prüfen.
+Gemeinsamer ECEF-Resolver: 18 Checks für Position/Offset/Pending/Hole; Negativkontrolle
+9 Fehler, restauriert grün. Wien pixelgleich, Lint grün. Entfernte Kompassbasis offen.

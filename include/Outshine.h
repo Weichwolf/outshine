@@ -423,6 +423,7 @@ public:
   /// Total capacity (reserve, bodies, kinds, instances and player mind) is limited to 65536
   /// entity slots. Allocates on the calling thread; serialize with all Engine operations. No render
   /// target is required. With a target and no entities, world composition may also run.
+  /// Pending terrain heights defer geodetic camera publication; preload resolves residency.
   /// Success replaces simulation state and invalidates borrowed EntityRegistry references and
   /// prepared audio. Failure preserves previous simulation state; this does not roll back
   /// declare().

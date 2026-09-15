@@ -1,3 +1,4 @@
+#include "GeodeticCamera.h"
 #include "Digest.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
@@ -67,10 +68,21 @@ LongitudeLatitude Engine::State::WhereTheEyeStands() const {
   const double anchorLat = Session.Declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = Session.Declared.Ground.Origin.LongitudeDeg;
   LongitudeLatitude stands{.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat};
-  if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return stands; }
-  const TangentFrame anchored =
-      TangentFrame::At({.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat});
-  const Vec3 &eye = Picture.Standing->Watching().EyeM;
+  Vec3 eye;
+  if (Session.Views && Session.Views->Active().Placement == Scenario::CameraPlacement::Geodetic) {
+    const auto &camera = Session.Views->Active();
+    const auto position = ResolveGeodeticCamera(
+        camera, stands, World.Stack.Opened() ? &World.Stack.Ground() : nullptr);
+    if (!position || !*position) {
+      return {.LongitudeDeg = camera.Geographic.Geodetic.LongitudeDeg,
+              .LatitudeDeg = camera.Geographic.Geodetic.LatitudeDeg};
+    }
+    eye = **position;
+  } else {
+    if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return stands; }
+    eye = Picture.Standing->Watching().EyeM;
+  }
+  const TangentFrame anchored = TangentFrame::At(stands);
   Vec3 held;
   for (int axis = 0; axis < 3; ++axis) {
     held[axis] = anchored.OriginEcef()[axis] + eye[0] * anchored.EastEcef()[axis] +
@@ -320,8 +332,9 @@ bool Engine::State::Asks() {
   if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
   Around over;
-  over.LatitudeDeg = declared.Ground.Origin.LatitudeDeg;
-  over.LongitudeDeg = declared.Ground.Origin.LongitudeDeg;
+  const LongitudeLatitude focus = WhereTheEyeStands();
+  over.LatitudeDeg = focus.LatitudeDeg;
+  over.LongitudeDeg = focus.LongitudeDeg;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Asking = true;
   {

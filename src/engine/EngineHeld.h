@@ -348,7 +348,7 @@ struct Engine::State {
   [[nodiscard]] bool
   Models(const TangentFrame &standing, LongitudeLatitude stands, Geometry &ground, Phasing &clocks);
 
-  enum class Laid : uint8_t { Refused, Unchanged, Wanted };
+  enum class Laid : uint8_t { Refused, Pending, Unchanged, Wanted };
 
   [[nodiscard]] Laid Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded);
 

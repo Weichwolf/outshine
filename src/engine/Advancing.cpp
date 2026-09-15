@@ -1,3 +1,4 @@
+#include "GeodeticCamera.h"
 #include "Earth.h"
 #include "AzimuthElevation.h"
 #include "math/Units.h"
@@ -94,42 +95,20 @@ bool Engine::State::Watches() {
   }
   Vec3 station = seen.Sees.PositionM + seen.OffsetM;
   if (seen.Placement == Scenario::CameraPlacement::Geodetic) {
-    double heightM = seen.Geographic.Geodetic.HeightM;
-    if (seen.Geographic.SamplesHeight) {
-      if (!World.Stack.Opened()) {
-        Error = "a view samples the ground's height and no ground stands -- a scenario declares a "
-                "world before anything can be placed on it";
-        return false;
-      }
-      const GroundSample under =
-          World.Stack.Ground().At({.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
-                                   .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg});
-      const std::optional<double> aslM = under.AslM();
-      if (!aslM) {
-        Error = "a view samples the ground at " + Said(seen.Geographic.Geodetic.LatitudeDeg) +
-                ", " + Said(seen.Geographic.Geodetic.LongitudeDeg) +
-                " and the terrain there is not resident -- the height it stands at is not a "
-                "number this engine may invent";
-        return false;
-      }
-      heightM += *aslM;
-    }
-    const Ground::EnuFrame frame = Ground::EnuFrame::At(
-        Ground::Geo{.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                    .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
-    const std::optional<Ground::Enu> where =
-        frame.FromGeo(Ground::Geo{.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
-                                  .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg,
-                                  .HeightM = heightM});
-    if (!where) {
-      Error = "a view stands at " + Said(seen.Geographic.Geodetic.LatitudeDeg) + ", " +
-              Said(seen.Geographic.Geodetic.LongitudeDeg) +
-              " and the world's own origin is too polar for a local frame to carry it";
+    const auto position =
+        ResolveGeodeticCamera(seen,
+                              {.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
+                               .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg},
+                              World.Stack.Opened() ? &World.Stack.Ground() : nullptr);
+    if (!position) {
+      Error = position.error();
       return false;
     }
-    station[0] = where->EastM + seen.OffsetM[0];
-    station[1] = where->UpM + seen.OffsetM[1];
-    station[2] = -where->NorthM + seen.OffsetM[2];
+    if (!*position) {
+      Error = "geodetic camera height is pending; preload terrain before advancing";
+      return false;
+    }
+    station = **position;
   }
   Published.Places("the standing eye, east", station[0], "m");
   Published.Places("the standing eye, up", station[1], "m");

@@ -1,3 +1,4 @@
+#include "GeodeticCamera.h"
 #include "Digest.h"
 #include "math/RenderFrame.h"
 #include "math/Quantile.h"
@@ -434,9 +435,23 @@ std::expected<Around, Engine::State::Laid> Engine::State::RingWanted(bool alsoWh
                      over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
                      "m");
   }
+  if (Session.Views) {
+    const Scenario::View &camera = Session.Views->Active();
+    if (camera.Placement == Scenario::CameraPlacement::Geodetic &&
+        camera.Geographic.SamplesHeight) {
+      const auto position = ResolveGeodeticCamera(
+          camera, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, &World.Stack.Ground());
+      if (!position) {
+        Error = position.error();
+        return std::unexpected(Laid::Refused);
+      }
+      if (!*position) { return std::unexpected(Laid::Pending); }
+    }
+  }
   if (!Watches()) { return std::unexpected(Laid::Refused); }
   switch (Focuses(over, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded)) {
     case Laid::Refused: return std::unexpected(Laid::Refused);
+    case Laid::Pending: return std::unexpected(Laid::Pending);
     case Laid::Unchanged: return std::unexpected(Laid::Unchanged);
     case Laid::Wanted: break;
   }
@@ -794,7 +809,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 
   const auto asked = RingWanted(alsoWhenTilesLanded);
-  if (!asked) { return asked.error() == Laid::Unchanged; }
+  if (!asked) { return asked.error() == Laid::Unchanged || asked.error() == Laid::Pending; }
   const Around over = *asked;
 
   const auto rebuildBegan = std::chrono::steady_clock::now();
