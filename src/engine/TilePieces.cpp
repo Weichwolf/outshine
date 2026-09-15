@@ -80,6 +80,7 @@ void TilePieces::Forgets(uint32_t tile) {
 
 void TilePieces::Clear() {
   while (!Standing_.empty()) { Forgets(Standing_.back().Tile); }
+  Live_ = nullptr;
   Digest_ = 0;
   Handed_ = 0;
   Refused_ = 0;

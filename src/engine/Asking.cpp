@@ -327,6 +327,7 @@ bool Engine::State::Composes() {
     World.Table = Generators::TableOf(World.Stack.Vegetation());
   }
 
+  HandsPiecesOver();
   return Grounds(true);
 }
 

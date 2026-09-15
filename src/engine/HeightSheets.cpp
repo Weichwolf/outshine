@@ -649,6 +649,7 @@ void HeightSheets::Clear() {
     std::string ignored;
     (void)Live_->SetGroundLattice({}, {}, ignored);
   }
+  Live_ = nullptr;
   Held_.clear();
   PageIndex_.clear();
   Instances_.clear();

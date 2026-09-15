@@ -94,3 +94,10 @@ Crash-Gegenprobe lokalisiert: GroundLattice::PlacePage über HeightSheets::Hands
 Grounds, Composes, assemble. Clear behält Live_; Composes bindet vor Grounds nicht
 neu. Vertrag: beim Löschen GPU-Seiten freigeben und Besitzerreferenz lösen; vor
 Geometriearbeit neue Szene binden; beim Live-Ersatz Terrain-Residency invalidieren.
+
+Umgesetzt: Clear löst Live-Referenzen in HeightSheets/TilePieces nach Freigabe;
+Composes bindet vor Grounds, Live-Ersatz invalidiert EverLaid. Wiederholungsprobe
+ohne Crash; Sonnen-Audit 7/7, aber falscher A/B/A-Vertrag bleibt offen in 2218:
+5° zuletzt 10,327 statt zuerst 37,022. Air-Wiederholbarkeit weiterhin FAIL.
+make lint grün; Wien ohne Vegetation pixelidentisch (0/921600), PNG geöffnet,
+p95 6,20 ms. Das belegt Bestandserhalt, keine vollständige Lifecycle-Abnahme.
