@@ -336,9 +336,12 @@ struct CommandLine {
   const char *const *Values = nullptr;
 };
 
-std::expected<CommandLine, std::string_view> ReadCommandLine(int argc, const char *const *argv) {
+std::expected<CommandLine, std::string_view>
+ReadCommandLine(std::span<const char *const> arguments) {
+  const size_t argc = arguments.size();
+  const auto *const argv = arguments.data();
   CommandLine command;
-  int argument = 1;
+  size_t argument = 1;
   if (argc > argument && std::string_view(argv[argument]) == "--places") {
     if (argc <= argument + 2) {
       return std::unexpected("--places requires a directory and command");
@@ -348,7 +351,7 @@ std::expected<CommandLine, std::string_view> ReadCommandLine(int argc, const cha
   }
   if (argc > argument) {
     command.Verb = argv[argument];
-    command.Count = argc - argument - 1;
+    command.Count = static_cast<int>(argc - argument - 1);
     command.Values = argv + argument + 1;
   } else {
     command.Values = argv + argc;
@@ -360,7 +363,7 @@ std::expected<CommandLine, std::string_view> ReadCommandLine(int argc, const cha
 
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const auto command = ReadCommandLine(argc, argv);
+  const auto command = ReadCommandLine(std::span(argv, static_cast<size_t>(argc)));
   if (!command) {
     std::println(stderr, "outshine-client: {}", command.error());
     return 2;

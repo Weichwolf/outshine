@@ -56,7 +56,7 @@ Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewe
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 2 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 1 Tidy-Befund und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -113,5 +113,5 @@ beibehalten, Berechnung unverändert. Format/Build grün; Forest ohne Tidy-Befun
 ## Client-Argumentgrenze
 Portable main(int, char**) beibehalten. ReadCommandLine nimmt einen geliehenen span
 statt getrenntem argc/argv; Count erst nach durch argc begrenzter Span-Größe ableiten.
-CLI-Daten-/Argumenttests prüfen dieselben Befehle und Fehlercodes. Exceptiondiagnose
+CLI-Daten-/Argumenttests und 33 Regeln grün; argv-Befund weg. Exceptiondiagnose
 bleibt 2194; keine Catch-Hülle oder mechanisches noexcept als Ersatz für Verträge.
