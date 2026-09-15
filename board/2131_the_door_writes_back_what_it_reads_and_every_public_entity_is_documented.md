@@ -107,8 +107,8 @@ konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapsho
 
 ## Verbleibende Serialisierung
 Audio, Kinds/Instances und Bodies erhalten; Rundläufe/Gegenproben grün.
-Writer-Inventar 71/76. Views verlieren Clipping, Projektion, Belichtung, Follow-
-Parameter und LookAt/Up; Viewport und Szenenlabel fehlen auch im Reader.
+Writer-Inventar 73/76; at/keep/drive fachlich prüfen. Views erhalten Clipping,
+Projektion, Belichtung, Follow-Werte, Ziel/Up sowie Viewport/Szenenlabel.
 Alle Camera-/View-Werte exportieren. placement und looksAt explizit speichern,
 sonst würde gespeicherte Pose/Zielpunkt die Aktivierung ändern. Ohne Attribute
 Legacy-Ableitung aus at/Geodäsie/lookAt erhalten; unbekannte Modi ablehnen.
@@ -116,5 +116,5 @@ Viewport/Szenenlabel bleiben gespeicherte Metadaten, keine neue Renderfunktion.
 Gemeinsame Modusschreibweisen; View-Writer als fachliche Phase aus Hauptwriter lösen.
 Abnahme: lokale/geografische/Follow-Kameras, beide Projektionen, explizite/inaktive
 Ziele, sämtliche Werte exakt, ungültiger Modus; unabhängige XML-/native Fixtures.
-Entferntes nearM muss Rundlauf brechen. Bestehende Kameratests, Format und Lint.
-Wien nach Readeränderung erneut rendern und mit gesicherter PNG vergleichen.
+40 Checks und drei Engine-Kameratests grün; entferntes nearM verletzt den Rundlauf.
+Wien erneut gerendert/geöffnet: 0/921600 Pixel verändert. Lint: 0 Tidy, 33 Regeln grün.

@@ -28,6 +28,7 @@
 
 #include "Spelling.h"
 #include "AudioSpellings.h"
+#include "CameraSpellings.h"
 #include "Xml.h"
 
 namespace outshine {
@@ -807,7 +808,7 @@ void ReadEvents(const Xml::Ref &root, Scenario::Document &into) {
   }
 }
 
-void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
+[[nodiscard]] bool ReadViews(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   const Xml::Ref views = root.Child("views");
   for (const Xml::Ref one : views.Children("view")) {
     Scenario::View made;
@@ -825,6 +826,19 @@ void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
                          .BearingDeg = placement.BearingDeg,
                          .PitchDeg = placement.PitchDeg};
     }
+    if (const auto mode = one.Said("placement")) {
+      const auto parsed = CameraFormat::ReadPlacement(*mode);
+      if (!parsed) {
+        error = parsed.error();
+        return false;
+      }
+      made.Placement = *parsed;
+    }
+    made.In = one.Attr("in");
+    made.Viewport.LeftFrac = one.Num("leftFrac", 0.0);
+    made.Viewport.TopFrac = one.Num("topFrac", 0.0);
+    made.Viewport.WidthFrac = one.Num("widthFrac", 1.0);
+    made.Viewport.HeightFrac = one.Num("heightFrac", 1.0);
     made.Person = one.Attr("person");
     made.DistanceM = one.Num("distanceM", 0.0);
     made.RisesBy = one.Num("risesBy", made.RisesBy);
@@ -841,14 +855,15 @@ void ReadViews(const Xml::Ref &root, Scenario::Document &into) {
     made.Sees.ApertureFStops = one.Num("apertureFStops", 0.0);
     made.Sees.ShutterS = one.Num("shutterS", 0.0);
     made.Sees.SensitivityIso = one.Num("sensitivityIso", 0.0);
+    made.Sees.LooksAt = one.Flag("looksAt", Declares(one, "lookAt"));
     if (Declares(one, "lookAt")) {
-      made.Sees.LooksAt = true;
       ReadVector(one.Child("lookAt"), "x", "y", "z", made.Sees.LookAtM);
     }
     if (Declares(one, "up")) { ReadVector(one.Child("up"), "x", "y", "z", made.Sees.UpM); }
     made.TimeScale = one.Num("timeScale", 1.0);
     into.Views.push_back(made);
   }
+  return true;
 }
 
 bool ReadBodyDynamics(const Xml::Ref &from, Scenario::Body &body, std::string &error) {
@@ -1013,7 +1028,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &
   ReadAudio(root, into);
   if (!ReadTables(root, into, error)) { return false; }
   ReadEvents(root, into);
-  ReadViews(root, into);
+  if (!ReadViews(root, into, error)) { return false; }
   if (!ReadBodies(root, into, error)) { return false; }
 
   const Xml::Ref state = root.Child("state");

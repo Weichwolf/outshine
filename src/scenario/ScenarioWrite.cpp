@@ -2,6 +2,7 @@
 #include "ScenarioWrite.h"
 #include "BodyValidation.h"
 #include "AudioSpellings.h"
+#include "CameraSpellings.h"
 #include "Tables.h"
 #include "CompositorValidation.h"
 #include "WeatherValidation.h"
@@ -296,6 +297,75 @@ void WriteBodyShape(std::string &into, const Scenario::Body &body) {
     }
     into += "  </body>\n";
   }
+  return {};
+}
+
+void WriteCameraPose(std::string &into, const Scenario::View &view) {
+  Scenario::Standing placement;
+  placement.AtM = view.Sees.PositionM;
+  placement.Facing = view.Sees.Orientation;
+  placement.GlobeAnchor = true;
+  placement.Geodetic = view.Geographic.Geodetic;
+  placement.SamplesHeight = view.Geographic.SamplesHeight;
+  placement.BearingDeg = view.Geographic.BearingDeg;
+  placement.PitchDeg = view.Geographic.PitchDeg;
+  StandingAs(into, "at", placement);
+  into += "      <lookAt";
+  Number(into, "x", view.Sees.LookAtM[0]);
+  Number(into, "y", view.Sees.LookAtM[1]);
+  Number(into, "z", view.Sees.LookAtM[2]);
+  into += "/>\n      <up";
+  Number(into, "x", view.Sees.UpM[0]);
+  Number(into, "y", view.Sees.UpM[1]);
+  Number(into, "z", view.Sees.UpM[2]);
+  into += "/>\n";
+}
+
+void WriteCameraParameters(std::string &into, const Scenario::View &view) {
+  Number(into, "fovDeg", view.Sees.FovDeg);
+  Number(into, "nearM", view.Sees.NearM);
+  Number(into, "farM", view.Sees.FarM);
+  Number(into, "xMagM", view.Sees.XMagM);
+  Number(into, "yMagM", view.Sees.YMagM);
+  Number(into, "apertureFStops", view.Sees.ApertureFStops);
+  Number(into, "shutterS", view.Sees.ShutterS);
+  Number(into, "sensitivityIso", view.Sees.SensitivityIso);
+  Number(into, "distanceM", view.DistanceM);
+  Number(into, "risesBy", view.RisesBy);
+  Number(into, "pitchLimitDeg", view.PitchLimitDeg);
+  Number(into, "timeScale", view.TimeScale);
+  Number(into, "leftFrac", view.Viewport.LeftFrac);
+  Number(into, "topFrac", view.Viewport.TopFrac);
+  Number(into, "widthFrac", view.Viewport.WidthFrac);
+  Number(into, "heightFrac", view.Viewport.HeightFrac);
+  Number(into, "offsetX", view.OffsetM[0]);
+  Number(into, "offsetY", view.OffsetM[1]);
+  Number(into, "offsetZ", view.OffsetM[2]);
+  Yes(into, "orthographic", view.Sees.Orthographic);
+  Yes(into, "looksAt", view.Sees.LooksAt);
+}
+
+[[nodiscard]] std::expected<void, std::string> WriteViews(std::string &into,
+                                                          std::span<const Scenario::View> views) {
+  if (views.empty()) { return {}; }
+  into += "  <views>\n";
+  for (const auto &view : views) {
+    const auto mode = SpellingOf(CameraFormat::kPlacements, view.Placement, "");
+    if (mode.empty()) {
+      return std::unexpected(std::string(CameraFormat::Says::kInvalidPlacement));
+    }
+    into += "    <view";
+    Said(into, "id", view.Id, true);
+    Said(into, "in", view.In);
+    Said(into, "person", view.Person);
+    Said(into, "follows", view.Follows);
+    Said(into, "placement", mode);
+    WriteCameraParameters(into, view);
+    into += ">\n";
+    WriteCameraPose(into, view);
+    into += "    </view>\n";
+  }
+  into += "  </views>\n";
   return {};
 }
 
@@ -783,29 +853,8 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   }
   WriteKinds(said, declared.Kinds);
   WriteInstances(said, declared.Instances);
-  if (!declared.Views.empty()) {
-    said += "  <views>\n";
-    for (const Scenario::View &one : declared.Views) {
-      said += "    <view";
-      Said(said, "id", one.Id);
-      Said(said, "person", one.Person);
-      Said(said, "follows", one.Follows);
-      Number(said, "fovDeg", one.Sees.FovDeg);
-      said += ">\n";
-      if (one.Placement != Scenario::CameraPlacement::FollowEntity) {
-        Scenario::Standing placement;
-        placement.AtM = one.Sees.PositionM;
-        placement.Facing = one.Sees.Orientation;
-        placement.GlobeAnchor = one.Placement == Scenario::CameraPlacement::Geodetic;
-        placement.Geodetic = one.Geographic.Geodetic;
-        placement.SamplesHeight = one.Geographic.SamplesHeight;
-        placement.BearingDeg = one.Geographic.BearingDeg;
-        placement.PitchDeg = one.Geographic.PitchDeg;
-        StandingAs(said, "at", placement);
-      }
-      said += "    </view>\n";
-    }
-    said += "  </views>\n";
+  if (auto views = WriteViews(said, declared.Views); !views) {
+    return std::unexpected(std::move(views.error()));
   }
   WriteTables(said, declared.Tables);
   WriteRegions(said, declared.Regions, declared.Doors);
