@@ -40,8 +40,10 @@ owner. Generation must not mutate live state during preparation.
 `Live` ownership and CPU products now remain local through open, scroll restoration and generated
 geometry preparation. This is incomplete: `Live::Build` uploads meshes, surfaces and overlays into
 the shared `SceneRenderer`, so a failed candidate can still replace GPU-visible state. Stage a
-separate renderer resource set or capture/restore all mutated renderer products; prove old pixels
-and retry after injected upload, surface and overlay failures.
+separate renderer resource set. Snapshot/restore is rejected: mesh, material, overlay, light and
+plan mutations have coupled GPU ownership and cannot prove complete restoration. Publish the staged set
+only after all uploads succeed; prove preserved old pixels and retry after injected upload, surface and
+overlay failures.
 
 Inventory each mutator: `offers`, `setRoots`, `setSurfaces`, `declare`, `assemble`, target setup,
 save and restore. Unsupported declarations are rejected under 2131. Stable borrowed handles and

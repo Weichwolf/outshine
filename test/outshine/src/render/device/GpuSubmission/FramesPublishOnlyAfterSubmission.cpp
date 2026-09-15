@@ -15,59 +15,70 @@ using namespace outshine::Render;
 using namespace outshine::Test;
 
 struct Faults {
-  enum class Point { None, Map, Acquire, Submit, Wait };
+  enum class Point { None, Map, Acquire, Submit, FenceWait, Wait };
   Point Next = Point::None;
   size_t Acquired = 0;
   size_t Submitted = 0;
   size_t Cancelled = 0;
+  size_t FenceWaits = 0;
 
   GpuSubmission Functions() {
-    return {.Context = this,
-            .Acquire = [](void *context, SDL_GPUDevice *device) -> SDL_GPUCommandBuffer * {
+    return {
+        .Context = this,
+        .Acquire = [](void *context, SDL_GPUDevice *device) -> SDL_GPUCommandBuffer * {
+          auto &faults = *static_cast<Faults *>(context);
+          if (faults.Next == Point::Acquire) {
+            faults.Next = Point::None;
+            SDL_SetError("injected frame acquire failure");
+            return nullptr;
+          }
+          ++faults.Acquired;
+          return SDL_AcquireGPUCommandBuffer(device);
+        },
+        .Submit = [](void *context, SDL_GPUCommandBuffer *commands) -> SDL_GPUFence * {
+          auto &faults = *static_cast<Faults *>(context);
+          ++faults.Submitted;
+          if (faults.Next == Point::Submit) {
+            faults.Next = Point::None;
+            // Only offscreen commands are cancelled: cancellation after swapchain acquire is
+            // illegal.
+            CHECK(SDL_CancelGPUCommandBuffer(commands),
+                  "the injected failure consumes real commands");
+            ++faults.Cancelled;
+            SDL_SetError("injected frame submit failure");
+            return nullptr;
+          }
+          return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+        },
+        .MapUpload =
+            [](void *context, SDL_GPUDevice *device, SDL_GPUTransferBuffer *transfer) -> void * {
+          auto &faults = *static_cast<Faults *>(context);
+          if (faults.Next == Point::Map) {
+            faults.Next = Point::None;
+            SDL_SetError("injected initialization map failure");
+            return nullptr;
+          }
+          return SDL_MapGPUTransferBuffer(device, transfer, false);
+        },
+        .WaitFence =
+            [](void *context, SDL_GPUDevice *device, SDL_GPUFence *const *fences, uint32_t count) {
               auto &faults = *static_cast<Faults *>(context);
-              if (faults.Next == Point::Acquire) {
+              ++faults.FenceWaits;
+              if (faults.Next == Point::FenceWait) {
                 faults.Next = Point::None;
-                SDL_SetError("injected frame acquire failure");
-                return nullptr;
+                return SDL_SetError("injected frame fence wait failure");
               }
-              ++faults.Acquired;
-              return SDL_AcquireGPUCommandBuffer(device);
+              return SDL_WaitForGPUFences(device, true, fences, count);
             },
-            .Submit = [](void *context, SDL_GPUCommandBuffer *commands) -> SDL_GPUFence * {
+        .WaitIdle =
+            [](void *context, SDL_GPUDevice *device) {
               auto &faults = *static_cast<Faults *>(context);
-              ++faults.Submitted;
-              if (faults.Next == Point::Submit) {
+              if (faults.Next == Point::Wait) {
                 faults.Next = Point::None;
-                // Only offscreen commands are cancelled: cancellation after swapchain acquire is
-                // illegal.
-                CHECK(SDL_CancelGPUCommandBuffer(commands),
-                      "the injected failure consumes real commands");
-                ++faults.Cancelled;
-                SDL_SetError("injected frame submit failure");
-                return nullptr;
+                return SDL_SetError("injected GPU wait failure");
               }
-              return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-            },
-            .MapUpload = [](void *context,
-                            SDL_GPUDevice *device,
-                            SDL_GPUTransferBuffer *transfer) -> void * {
-              auto &faults = *static_cast<Faults *>(context);
-              if (faults.Next == Point::Map) {
-                faults.Next = Point::None;
-                SDL_SetError("injected initialization map failure");
-                return nullptr;
-              }
-              return SDL_MapGPUTransferBuffer(device, transfer, false);
-            },
-            .WaitIdle =
-                [](void *context, SDL_GPUDevice *device) {
-                  auto &faults = *static_cast<Faults *>(context);
-                  if (faults.Next == Point::Wait) {
-                    faults.Next = Point::None;
-                    return SDL_SetError("injected GPU wait failure");
-                  }
-                  return SDL_WaitForGPUIdle(device);
-                }};
+              return SDL_WaitForGPUIdle(device);
+            }};
   }
 };
 
@@ -297,6 +308,20 @@ void Exercise() {
   CHECK(control.RenderFrame().has_value() && actual.RenderFrame().has_value(),
         "a warm temporal frame also recovers");
   Match(Capture(control), Capture(actual));
+  CHECK(control.RenderFrame().has_value() && actual.RenderFrame().has_value(),
+        "two submitted frames fill the fence ring before its reuse");
+  const auto submits = faults.Submitted;
+  const auto waits = faults.FenceWaits;
+  faults.Next = Faults::Point::FenceWait;
+  const auto fenceRejected = actual.RenderFrame();
+  CHECK(!fenceRejected && fenceRejected.error() == "injected frame fence wait failure" &&
+            faults.Next == Faults::Point::None,
+        "a reused in-flight fence propagates its wait failure");
+  CHECK(faults.Submitted == submits && faults.FenceWaits == waits + 1,
+        "failed fence waiting cancels the new command before submission");
+  CHECK(control.RenderFrame().has_value() && actual.RenderFrame().has_value(),
+        "a failed in-flight fence wait preserves the temporal retry");
+  Match(Capture(control), Capture(actual));
   control.SetMedium(Hazed(kEarthAir, 0));
   actual.SetMedium(Hazed(kEarthAir, 0));
   Reject(actual, faults, Faults::Point::Submit, false);
@@ -306,8 +331,8 @@ void Exercise() {
   Match(changed, Capture(actual));
   CHECK(changed.Irradiance != first.Irradiance,
         "the changed atmosphere is a meaningful LUT update");
-  CHECK(faults.Cancelled == 4 && faults.Acquired == faults.Submitted,
-        "each acquired offscreen command is consumed once, including four rejected submissions");
+  CHECK(faults.Cancelled == 4 && faults.Acquired == faults.Submitted + 1,
+        "four rejected submissions and one rejected fence wait consume every acquired command");
 
   Core::Declaration declaration;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;

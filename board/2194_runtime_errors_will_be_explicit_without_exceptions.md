@@ -62,7 +62,6 @@ und Besitzwechsel erst nach Erfolg. Kontrollmixer prüft identische Folgeblöcke
 abgelehnter Änderung von Rate/Routing und Zustandserhalt bei später Quellenablehnung.
 
 Audio-Qualität, Stereo-/Kopfhörer-Ausgabe und Backend-Evaluation: WI 2212.
-
 ## SDL3_mixer als Wiedergabebasis
 
 Lokal SDL3_mixer 3.2.4 vorhanden; noch keine integrierte Outshine-Abhängigkeit.
@@ -118,5 +117,4 @@ mit ihren eigenen Fachverträgen migrieren. Keine vollständige Runtime-Abnahme.
 - [ ] make lint einschließlich clang-tidy und betroffene Make-Suiten ausgeführt;
   neue Fehlerpfade mit wirksamen Negativkontrollen geprüft.
 
-SceneRenderer::Init liefert jetzt [[nodiscard]] expected statt Ready_/WhyNot_ als
-alleinigen Fehlerkanal; GPU-Fehlerinjektion und Erfolg prüfen den Rückgabewert.
+SceneRenderer::Init liefert jetzt [[nodiscard]] expected statt Ready_/WhyNot_ als alleinigen Fehlerkanal; GPU-Fehlerinjektion und Erfolg prüfen den Rückgabewert.

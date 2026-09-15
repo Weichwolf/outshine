@@ -52,8 +52,8 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       Herkunftsabhängige Casterauswahl, Instanzen und Terrain bleiben in 2128/2150 offen.
 - [ ] Read-/Write-/Vorframe-Zugriffe im Plan ausdrücklich beschreiben und gegen konkrete
       Bindings prüfen; Shader-Katalog 2152 ersetzt keinen Ressourcen-Lebenszyklus.
-- [ ] Fence-Wait-/Readback-Fehler prüfen und von bereits eingereichter Arbeit trennen;
-      Screenshot darf die schreibgeschützte Swapchain nicht als Quelle lesen.
+- [x] Injizierbarer Fence-Wait bricht den neuen Commandbuffer vor Submit ab, hält die alte Fence,
+      stellt temporale Historie wieder her und ist normal/GPU-validiert mit 205 Checks grün. Readback bleibt getrennt: Screenshots lesen keine schreibgeschützte Swapchain.
 - [x] GroundStorage übernimmt Klassen/Palette gemeinsam als unveränderliche GPU-Version.
       Quellspans und uint32-Bytegrenzen werden getrennt von Mindestkapazität geprüft;
       leere/kurze Inputs initialisieren den Rest mit Null. Ein Upload-Submit veröffentlicht

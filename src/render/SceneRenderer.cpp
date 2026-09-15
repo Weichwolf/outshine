@@ -1162,9 +1162,18 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     LinearAt_ = 1 - LinearAt_;
   }
   StageSubmission stageSubmission;
+  const auto restoreTemporalState = [&] {
+    Jitter_ = previousJitter;
+    PrevJitter_ = previousPrevJitter;
+    JitterAt_ = previousJitterAt;
+    HistoryStarted_ = previousHistoryStarted;
+    HistoryHeld_ = previousHistoryHeld;
+    LinearAt_ = previousLinearAt;
+  };
 
   if (!Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands, uploadError)) {
     SDL_CancelGPUCommandBuffer(commands);
+    restoreTemporalState();
     return std::unexpected(std::move(uploadError));
   }
 
@@ -1173,9 +1182,10 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   }
 
   if (Landed_[LandedAt_] != nullptr) {
-    if (!SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1)) {
+    if (!Submission_.WaitFence(Submission_.Context, Device_.Get(), &Landed_[LandedAt_], 1)) {
       const std::string error = SDL_GetError();
       SDL_CancelGPUCommandBuffer(commands);
+      restoreTemporalState();
       return std::unexpected(error);
     }
     SDL_ReleaseGPUFence(Device_.Get(), Landed_[LandedAt_]);
@@ -1185,12 +1195,7 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   if (swapchain != nullptr) { HostSurface_ = Offscreen_.Get(); }
   if (Landed_[LandedAt_] == nullptr) {
     std::string error = SDL_GetError();
-    Jitter_ = previousJitter;
-    PrevJitter_ = previousPrevJitter;
-    JitterAt_ = previousJitterAt;
-    HistoryStarted_ = previousHistoryStarted;
-    HistoryHeld_ = previousHistoryHeld;
-    LinearAt_ = previousLinearAt;
+    restoreTemporalState();
     return std::unexpected(std::move(error));
   }
   Subjects_.CommitCrossings();
