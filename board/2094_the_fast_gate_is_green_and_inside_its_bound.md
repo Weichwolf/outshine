@@ -56,7 +56,7 @@ Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewe
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 1 Tidy-Befund und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 0 Tidy-Befunde (189/189 Units); Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -94,9 +94,9 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 
 ## Client-Befehlsgrenze
 ReadCommandLine, LoadCommandPlaces und ListPlaces trennen Argumente/Katalog vom
-Dispatch; Argumenttexte intern const, einschließlich RenderAsset. Drei Client-Gruppen grün.
+Dispatch; Argumenttexte intern const, einschließlich RenderAsset. CLI-Gruppen grün.
 Katalog nur für abhängige Befehle laden; ungültiger Katalog darf help/height/run/render
-nicht blockieren. Main ohne Komplexitätsbefund; insgesamt 31 Tidy, 33 Regeln grün.
+nicht blockieren. Main ohne Komplexitätsbefund; 33 Repository-Regeln grün.
 Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.
 ## Client-Argumentgrenze
 CommandLine hält ausschließlich string_view/span auf Prozessargumente, keine Stringkopie.
@@ -115,4 +115,5 @@ Dies ist eine Prozessgrenze, keine OOM-Erholung oder Runtime-Fehlerübersetzung.
 2194 bleibt für sämtliche Runtime-/Worker-/Callback-Wurfpfade verbindlich.
 Unabhängige Tests injizieren bad_alloc, Standard- und fremde Ausnahmen; prüfen
 Diagnose, Fehlercode und Destruktorlauf. Entfernte Grenze muss den Test brechen.
-Keine Bildänderung erwartet. Parser-/CLI-Tests und vollständiges Lint ausführen.
+Test und CLI-Gruppen grün; falscher Erfolgsstatus als Gegenprobe rot.
+Lint vollständig: 0 Tidy, 33 Regeln grün, Doku 24/24 ohne Diagnose; Writer bleibt rot.

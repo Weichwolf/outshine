@@ -1,4 +1,5 @@
 #include "CommandLine.h"
+#include "ProcessBoundary.h"
 #include <expected>
 #include <cstdio>
 #include <print>
@@ -330,12 +331,8 @@ int ListPlaces(std::span<const Place> places) {
   return 0;
 }
 
-}
-
-int main(int argc, char **argv) {
-  std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const auto command =
-      outshine::Client::ReadCommandLine(std::span(argv, static_cast<size_t>(argc)));
+int RunClientCommand(std::span<const char *const> arguments) {
+  const auto command = outshine::Client::ReadCommandLine(arguments);
   if (!command) {
     std::println(stderr, "outshine-client: {}", command.error());
     return 2;
@@ -360,4 +357,14 @@ int main(int argc, char **argv) {
   if (verb == "places") { return ListPlaces(places); }
   Usage();
   return verb == "help" || verb == "--help" ? 0 : 2;
+}
+
+}
+
+int main(int argc, char **argv) {
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+  return outshine::Client::RunAtProcessBoundary(
+      [arguments = std::span(argv, static_cast<size_t>(argc))] {
+        return RunClientCommand(arguments);
+      });
 }
