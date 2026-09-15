@@ -27,17 +27,16 @@ assumed: generator output may depend on borrowed, changing provider data.
 - Target candidates retain the old target on SDL extent/composition/parameter/allocation failure.
 - The headless `declare` path now builds generator geometry and audio occlusion before publishing.
   A generator refusal retains declaration, revision, input, pending geometry and occlusion.
-- `Live::Open` detaches a replaced owner only after its successor built successfully, so its
-  destructor cannot clear the successor's renderer products; a failed build retains the old owner.
+- `Live::Open` and `Engine::declare` detach a replaced `Live` owner only after its successor,
+  scroll restoration and generated geometry succeeded. Its destructor therefore cannot clear
+  the successor's renderer products; a failed CPU-side build retains the old owner.
 
 ## Remaining defect and implementation
 
-The targeted full-declaration path still clears `World` and passes `Picture::Standing` directly to
-`Live::Open` before live construction, UI scroll restoration and generated geometry complete.
-Any failure can therefore destroy the prior scene. Build `Live`, generated geometry, audio
-occlusion, views, bindings and UI state as local candidates. Apply generated geometry to the new
-live object, restore scroll offsets, then clear/release replaced world products and swap every
-owner. Generation must not mutate live state during preparation.
+The targeted full-declaration path builds `Live`, generated geometry, audio occlusion, views,
+bindings and UI state locally, then detaches and replaces the old owner only after the candidate
+is complete. Generation must not mutate live state during preparation. Its remaining failure
+boundary is GPU-visible state, not CPU ownership.
 
 `Live` ownership and CPU products now remain local through open, scroll restoration and generated
 geometry preparation. This is incomplete: `Live::Build` uploads meshes, surfaces and overlays into

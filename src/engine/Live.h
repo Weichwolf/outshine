@@ -94,8 +94,6 @@ public:
   Live(const Live &) = delete;
   Live &operator=(const Live &) = delete;
 
-  void RelinquishRenderer() noexcept { Renderer_ = nullptr; }
-
   [[nodiscard]] static bool Open(Render::SceneRenderer &renderer,
                                  Declaration declaration,
                                  const Ui::Font *font,
@@ -366,6 +364,12 @@ public:
   [[nodiscard]] int Frames() const { return Held_.Frames(); }
 
 private:
+  friend class ::outshine::Engine;
+
+  static void HandOffRenderer(std::unique_ptr<Live> &owner) noexcept {
+    if (owner != nullptr) { owner->Renderer_ = nullptr; }
+  }
+
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
   static size_t AssetReads_;
   static size_t PlanInits_;

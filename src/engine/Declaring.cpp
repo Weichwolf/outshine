@@ -595,6 +595,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     publishConfiguration();
     return {};
   }
+  Core::Live::HandOffRenderer(S_->Picture.Standing);
   S_->Picture.Standing = std::move(candidate);
   S_->Session.Declared = scenario;
   ++S_->Session.DeclarationRevision;
