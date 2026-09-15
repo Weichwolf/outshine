@@ -120,12 +120,12 @@ int main() {
   for (const double seconds : {0.5, 1.0, 0.25, 2.0, 0.0}) {
     CHECK(asset.sampleAnimation(seconds).has_value(),
           "sample absolute time, including backward and beyond final key");
-    Camera camera;
-    CHECK(asset.hasDefaultCamera() && asset.camera(0, camera),
-          "both camera accessors resolve current pose");
+    const auto indexedCamera = asset.camera(0);
+    CHECK(asset.hasDefaultCamera() && indexedCamera, "both camera accessors resolve current pose");
     const double x = 4 * std::min(seconds, 1.0);
-    CHECK(std::abs(camera.PositionM[0] - x) < 1e-9 && std::abs(camera.PositionM[1] - 1) < 1e-9 &&
-              std::abs(camera.PositionM[2] - 2) < 1e-9,
+    CHECK(indexedCamera && std::abs(indexedCamera->PositionM[0] - x) < 1e-9 &&
+              std::abs(indexedCamera->PositionM[1] - 1) < 1e-9 &&
+              std::abs(indexedCamera->PositionM[2] - 2) < 1e-9,
           "parent translation and quarter-turn rotate the child offset analytically");
     CHECK(std::abs(asset.camera().PositionM[0] - x) < 1e-9,
           "cached default camera uses the same time as explicit selection");
@@ -144,6 +144,9 @@ int main() {
     CHECK(asset.sampleAnimation(0.75) && std::abs(asset.camera().PositionM[0] - 3) < 1e-9,
           "previous animation remains sampleable after rejected selection");
   }
+  const auto unavailableCamera = asset.camera(1);
+  CHECK(!unavailableCamera && !unavailableCamera.error().empty(),
+        "unavailable indexed camera returns an owned diagnostic");
   const auto rejectedTime = asset.sampleAnimation(-1);
   CHECK(!rejectedTime && !rejectedTime.error().empty(), "time failure owns its diagnostic");
   CHECK(asset.sampleAnimation(0.5) && asset.error().empty(),

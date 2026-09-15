@@ -189,9 +189,9 @@ struct AssetRenderOptions {
                                           const GltfImporter &asset) {
   Camera camera;
   if (options.Camera == CameraMode::Indexed) {
-    if (!asset.camera(options.CameraIndex, camera)) {
-      return std::unexpected(Says::CameraUnavailable);
-    }
+    const auto selected = asset.camera(options.CameraIndex);
+    if (!selected) { return std::unexpected(Says::CameraUnavailable); }
+    camera = *selected;
   } else if (options.Camera == CameraMode::Default && asset.hasDefaultCamera()) {
     camera = asset.camera();
   } else {

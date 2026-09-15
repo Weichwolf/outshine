@@ -271,24 +271,24 @@ int main() {
   const float *positions = asset.geometry().positionsOf(0).data();
   CHECK(first.BaseColour[0] == 1 && second.Roughness == 0.5f,
         "initial sample matches independent values");
-  Camera before;
-  CHECK(asset.camera(0, before) && before.PositionM[0] == 0, "initial camera matches fixture");
+  const auto before = asset.camera(0);
+  CHECK(before && before->PositionM[0] == 0, "initial camera matches fixture");
   CHECK(!asset.sampleAnimation(1), "later invalid factor rejects sample");
   CHECK(asset.geometry().surfaceAt(MaterialInstance(0)) == first &&
             asset.geometry().surfaceAt(MaterialInstance(1)) == second,
         "failed later factor preserves both previous materials");
   CHECK(asset.geometry().positionsOf(0).data() == positions,
         "failed sample retains borrowed geometry storage");
-  Camera after;
-  CHECK(asset.camera(0, after) && after.PositionM == before.PositionM,
+  const auto after = asset.camera(0);
+  CHECK(after && after->PositionM == before->PositionM,
         "failed sample preserves indexed camera pose");
-  CHECK(asset.camera().PositionM == before.PositionM, "default camera agrees with indexed camera");
+  CHECK(asset.camera().PositionM == before->PositionM, "default camera agrees with indexed camera");
   const std::array invalidClip{1};
   CHECK(!asset.selectAnimations(invalidClip), "clip with invalid initial material is rejected");
   CHECK(asset.durationS() == 1, "failed clip selection retains previous clip duration");
   CHECK(asset.sampleAnimation(0.25).has_value(),
         "previous clip remains usable after failed selection");
-  CHECK(asset.camera(0, after) && after.PositionM[0] == 2.5,
-        "successful retry publishes matching camera pose");
+  const auto retried = asset.camera(0);
+  CHECK(retried && retried->PositionM[0] == 2.5, "successful retry publishes matching camera pose");
   return Report();
 }

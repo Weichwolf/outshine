@@ -96,10 +96,10 @@ public:
   [[nodiscard]] int cameraCount() const;
   /// Resolve a camera using the current sampled node transforms and its authored projection.
   /// @param index Zero-based camera definition index.
-  /// @param out Caller-owned result; unchanged on failure. No references are retained.
-  /// @return False for an invalid index, ambiguous/missing placement or collapsed basis.
+  /// @return An owned camera, or an owned diagnostic for an invalid index, ambiguous/missing
+  /// placement or collapsed basis. No adapter views are retained by the returned value.
   /// Walks the ancestor chain and may allocate; serialize with mutation of this adapter.
-  [[nodiscard]] bool camera(int index, Camera &out) const;
+  [[nodiscard]] std::expected<Camera, std::string> camera(int index) const;
 
   /// Failure to derive a camera for the requested viewport.
   enum class FrameError {

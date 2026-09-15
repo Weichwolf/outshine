@@ -126,7 +126,9 @@ struct GltfImporter::Held {
     } else {
       PublishedLocals.clear();
     }
-    HasEye = Camera(0, Eye);
+    auto camera = ResolveCamera(0);
+    HasEye = camera.has_value();
+    if (camera) { Eye = *camera; }
     return true;
   }
 
@@ -155,13 +157,16 @@ struct GltfImporter::Held {
     return true;
   }
 
-  [[nodiscard]] bool Camera(int index, Camera &out) const {
+  [[nodiscard]] std::expected<Camera, std::string> ResolveCamera(int index) const {
     Render::Viewpoint placed;
     std::string why;
     const std::span<const Gltf::Transform> locals = PublishedLocals;
-    if (!Gltf::DeclaredPlacement(File, index, placed, why, locals)) { return false; }
-    Render::CameraOf(placed, out);
-    return true;
+    if (!Gltf::DeclaredPlacement(File, index, placed, why, locals)) {
+      return std::unexpected(std::move(why));
+    }
+    Camera camera;
+    Render::CameraOf(placed, camera);
+    return camera;
   }
 
   [[nodiscard]] bool Wears(Geometry &candidate) {
@@ -330,8 +335,8 @@ int GltfImporter::cameraCount() const {
   return static_cast<int>(Held_->File.Cameras().size());
 }
 
-bool GltfImporter::camera(int index, Camera &out) const {
-  return Held_->Camera(index, out);
+std::expected<Camera, std::string> GltfImporter::camera(int index) const {
+  return Held_->ResolveCamera(index);
 }
 
 std::expected<Camera, GltfImporter::FrameError>
