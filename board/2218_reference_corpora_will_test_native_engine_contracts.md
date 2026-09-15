@@ -105,7 +105,6 @@ Farb-/Tiefenvergleiche; Readback-Vertrag zuerst unter 2195 konsolidieren.
 Readbacks: Tiefe, ShadingNormal, SurfaceIdentity und Schattenatlas bitgleich;
 SceneLinear und RGBA verschieden. Explizite Stage-Listen hatten unbemerkt Velocity
 entfernt: ohne Aerial MIT Velocity FAIL; MIT Aerial OHNE Velocity PASS.
-Konstante Velocity oder gl_FragCoord-Ausgabe PASS; curClip allein und noperspective FAIL.
 GPU-Idle zwischen Frames PASS; nur vor erstem Frame oder ohne Barriere FAIL.
 Ground ohne Cycling, Farbziele mit Cycling, ohne Schattenbeitrag: jeweils FAIL.
 Metal-GPU-Validierung aktiv, keine Zugriffsdiagnose. SDL: ../SDL, 3.4.16, fa2c02b.
@@ -114,7 +113,8 @@ Neu: reine Materialfarbe bei kleinem Pegel PASS, mit Faktor 10000 FAIL; der klei
 Pegel verdeckte den Fehler. Direkt- und Umgebungslicht isoliert jeweils Wiederholungs-FAIL.
 Float-Captures ohne Aerial, MIT Velocity: UV vollständig bitgleich; wears.rgb*10000
 unterscheidet 465/466/466 Kanäle, Maxima 171.443/143.238/199.647 vor Beleuchtung.
-Nur ein inhaltlicher Upload der Klassen (6346460 Bytes) und Palette (316 Bytes).
-Nächster Schritt: fwidth/Helper-Invocations und Klassifikationsauswertung isolieren.
+Float-Isolation: Klasse, Zweitklasse, Randabstand und Neigung bitgleich; fwidth-U/V
+unterscheidet 7126/7127 Pixel, maximal 26560.785/4468.367 m. fwidthFine wird in MSL
+zu fwidth; FAIL. Quotientenregel-Ableitung ebenfalls FAIL. Helper-/Quad-Auswertung prüfen.
 Alle Instrumentierungen zurückgenommen; Rohdaten im System-Tempverzeichnis.
 Die Bandfarben allein beweisen Luftperspektive nicht; analytische Extinktionsfälle fehlen.
