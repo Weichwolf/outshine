@@ -94,3 +94,10 @@ Readback-API auditieren: explizites Rendern und Kopieren eines fertigen Frames
 trennen; dokumentierte bisherige Implizit-Draw-Aufrufer vollständig migrieren (2195).
 Keine pauschale Erhöhung von settleFrames als Reparatur. Der Frame muss seinen
 Vertrag erfüllen oder eine spezifizierte temporale Vorgeschichte benötigen.
+
+Direkter Dump bereits ausgelesener RGBA-Daten ohne weitere Draws: 150/57600 Pixel
+verschieden, maximal 6/255 je Kanal, Bounding-Box x=1..316/y=62..177 bei 320×180.
+Dumps im System-Temp outshine-air-raw-{0,1}.rgba; Instrumentierung zurückgenommen.
+Die Abweichung ist damit belegt, aber weder allgemeine Belichtungsänderung noch
+lokaler einzelner Objektfehler bewiesen. Implizite Draws erschweren gleiche-Frame-
+Farb-/Tiefenvergleiche; Readback-Vertrag zuerst unter 2195 konsolidieren.
