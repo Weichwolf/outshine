@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 16 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 15 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -111,12 +111,9 @@ TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grü
 ## LOD-Eingabegrenze
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 
-## Cache und native Karten
-ContentStore verhindert bereits Cache-Kopien/Moves; Gegenprobe bestätigt dies.
-16-MiB-Budget benannt, Vertex-Deklarationen getrennt; angrenzende Tests grün.
-
 ## Mesher-Phasen
 Draw mischt Sichtauswahl, Elternfortpflanzung und Astaufbau (Komplexität 39).
 SelectShoots und MeshShoot trennen diese Zuständigkeiten, temporäre Ringpuffer lokal.
 Rang-/Ast-Reihenfolge, Kragen, Kappen, Seeds und Export bleiben unverändert.
-Wachstums-/native Geometrietests prüfen die vorhandenen Verbraucher; keine neue Flora.
+Wachstums-/native Geometrietests grün; Mesher ohne Tidy, 15 insgesamt, 33 Regeln grün.
+Diagnose-GLB direkt gerendert/PNG geöffnet: dünne, ungleich verteilte Äste; keine Bildabnahme.

@@ -66,6 +66,8 @@ private:
                             Fitted within,
                             std::span<int> out);
   [[nodiscard]] static float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot);
+  void SelectShoots(const TreeSkeleton &plant);
+  void MeshShoot(const TreeSkeleton &plant, size_t shootIndex);
   void Export(TreeMesh &out);
 
   float PixelGrow_ = 0.0f;

@@ -232,6 +232,15 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
   Drawn_.assign(plant.Shoots.size(), 0);
   out.ClearBark();
 
+  SelectShoots(plant);
+  for (size_t i = 0; i < plant.Shoots.size(); ++i) {
+    if (Drawn_[i] != 0u) { MeshShoot(plant, i); }
+  }
+
+  Export(out);
+}
+
+void TreeMesher::SelectShoots(const TreeSkeleton &plant) {
   for (size_t i = 0; i < plant.Shoots.size(); ++i) {
     const TreeSkeleton::Shoot &shoot = plant.Shoots[i];
     if (shoot.Count < 2 || shoot.Reach <= PixelGrow_) { continue; }
@@ -245,64 +254,61 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
     const int parent = plant.Shoots[i].Parent;
     if (Drawn_[i] != 0u && parent >= 0) { Drawn_[static_cast<size_t>(parent)] = 1; }
   }
+}
 
+void TreeMesher::MeshShoot(const TreeSkeleton &plant, size_t shootIndex) {
   std::array<int, kMaxSides> ring{};
   std::array<int, kMaxSides> next{};
-  for (size_t i = 0; i < plant.Shoots.size(); ++i) {
-    if (Drawn_[i] == 0u) { continue; }
-    const TreeSkeleton::Shoot &shoot = plant.Shoots[i];
-    const int last = shoot.First + shoot.Count - 1;
-    const TreeSkeleton::Node &anchor = plant.Nodes[static_cast<size_t>(shoot.First)];
-    const int sides = SidesFor({.RadiusM = anchor.Radius, .Declared = shoot.Sides});
+  const TreeSkeleton::Shoot &shoot = plant.Shoots[shootIndex];
+  const int last = shoot.First + shoot.Count - 1;
+  const TreeSkeleton::Node &anchor = plant.Nodes[static_cast<size_t>(shoot.First)];
+  const int sides = SidesFor({.RadiusM = anchor.Radius, .Declared = shoot.Sides});
 
-    int face = -1;
-    if (shoot.Parent >= 0 && (Drawn_[static_cast<size_t>(shoot.Parent)] != 0u)) {
-      const Band band = Bands_[static_cast<size_t>(shoot.ParentNode)];
-      if (band.First >= 0) {
-        int k0 = static_cast<int>(shoot.Roll / kTau * static_cast<float>(band.Sides)) % band.Sides;
-        if (k0 < 0) { k0 += band.Sides; }
-        face = band.First + k0;
-      }
+  int face = -1;
+  if (shoot.Parent >= 0 && (Drawn_[static_cast<size_t>(shoot.Parent)] != 0u)) {
+    const Band band = Bands_[static_cast<size_t>(shoot.ParentNode)];
+    if (band.First >= 0) {
+      int k0 = static_cast<int>(shoot.Roll / kTau * static_cast<float>(band.Sides)) % band.Sides;
+      if (k0 < 0) { k0 += band.Sides; }
+      face = band.First + k0;
     }
-    int at = shoot.First;
-    const int wall = static_cast<int>(Faces_.size());
-    if (face >= 0 && Collar(face,
-                            anchor,
-                            plant.Nodes[static_cast<size_t>(shoot.First) + 1u],
-                            {.Sides = sides, .RoomM = RoomAt(plant, shoot)},
-                            ring)) {
-      at = shoot.First + 1;
-      Bands_[static_cast<size_t>(at)] = Band{.First = wall, .Sides = sides};
-    } else {
-      Ring(anchor, anchor.Radius, sides, ring);
-      Cap(anchor, ring, sides, RingCap::Base, 0u);
-    }
-    RingsOf(plant, shoot, at);
-    int covered = at;
-    for (size_t station = 1; station < Stations_.size(); ++station) {
-      const int n = Stations_[station];
-      const int first = static_cast<int>(Faces_.size());
-      Ring(plant.Nodes[static_cast<size_t>(n)],
-           plant.Nodes[static_cast<size_t>(n)].Radius,
-           sides,
-           next);
-      Wall(ring, next, sides);
+  }
+  int at = shoot.First;
+  const int wall = static_cast<int>(Faces_.size());
+  if (face >= 0 && Collar(face,
+                          anchor,
+                          plant.Nodes[static_cast<size_t>(shoot.First) + 1u],
+                          {.Sides = sides, .RoomM = RoomAt(plant, shoot)},
+                          ring)) {
+    at = shoot.First + 1;
+    Bands_[static_cast<size_t>(at)] = Band{.First = wall, .Sides = sides};
+  } else {
+    Ring(anchor, anchor.Radius, sides, ring);
+    Cap(anchor, ring, sides, RingCap::Base, 0u);
+  }
+  RingsOf(plant, shoot, at);
+  int covered = at;
+  for (size_t station = 1; station < Stations_.size(); ++station) {
+    const int n = Stations_[station];
+    const int first = static_cast<int>(Faces_.size());
+    Ring(plant.Nodes[static_cast<size_t>(n)],
+         plant.Nodes[static_cast<size_t>(n)].Radius,
+         sides,
+         next);
+    Wall(ring, next, sides);
 
-      for (int skipped = covered + 1; skipped <= n; ++skipped) {
-        Bands_[static_cast<size_t>(skipped)] = Band{.First = first, .Sides = sides};
-      }
-      covered = n;
-      for (int j = 0; j < sides; ++j) { ring[j] = next[j]; }
+    for (int skipped = covered + 1; skipped <= n; ++skipped) {
+      Bands_[static_cast<size_t>(skipped)] = Band{.First = first, .Sides = sides};
     }
-
-    Cap(plant.Nodes[static_cast<size_t>(last)],
-        ring,
-        sides,
-        shoot.End,
-        plant.Seed * kKnuthWord + static_cast<uint32_t>(i) + 1u);
+    covered = n;
+    for (int j = 0; j < sides; ++j) { ring[j] = next[j]; }
   }
 
-  Export(out);
+  Cap(plant.Nodes[static_cast<size_t>(last)],
+      ring,
+      sides,
+      shoot.End,
+      plant.Seed * kKnuthWord + static_cast<uint32_t>(shootIndex) + 1u);
 }
 
 void TreeMesher::Export(TreeMesh &out) {
