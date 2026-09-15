@@ -62,9 +62,10 @@ on the day, and the walk digest is ready for the day the camera moves again (boa
   the twenty-eighth run
 
 ## Abbruch laufender Downloads
-TilePool::~TilePool setzt Stopping_ und wartet auf Worker; FetchInto prüft den
-Zustand in seiner Pollschleife nicht. Vor jedem Collect synchronisiert prüfen,
-bei Stop aussteigen und den vorhandenen SourceSet::Abandon-Pfad für Cancel nutzen.
-Mit dauerhaft ausstehender Testquelle prüfen: Shutdown beendet Polling und gibt
-Tickets frei; alte Schleife verletzt die gesetzte Zeitgrenze. Keine echten Downloads.
+FetchInto prüft Stopping_ synchronisiert vor jedem Collect. Shutdown beendet
+Polling und nutzt SourceSet::Abandon zum Freigeben des offenen Tickets.
+Nachweis: ShutdownCancelsPendingFetch mit unabhängiger Pending-Quelle prüft
+Abbruch unter 1 s statt 3000 Polls mit je mindestens 1 ms sowie genau einen Cancel.
+Negativkontrolle ohne Stop-Prüfung: Zeit- und Pollgrenze scheitern; restauriert
+bestehen alle drei TilePool-/nichtblockierenden GroundQuery-Tests.
 Blockierende Fremd-Callbacks sind durch diesen Pollingvertrag nicht abgedeckt.

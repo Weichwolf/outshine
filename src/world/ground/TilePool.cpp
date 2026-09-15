@@ -255,6 +255,10 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
   double pollMs = 0.0;
   const int attempts = PollAttempts_ > 0 ? PollAttempts_ : kPollAttempts;
   for (int attempt = 0; attempt < attempts && reply == Reply::Pending; attempt++) {
+    {
+      const std::scoped_lock lock(QueueMutex_);
+      if (Stopping_) { break; }
+    }
     const auto t0 = std::chrono::steady_clock::now();
     Data::Delivery answer = Sources_.Collect(query, Wire_);
     pollMs +=
