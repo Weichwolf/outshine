@@ -4,7 +4,7 @@
 #include <span>
 
 namespace outshine::Client {
-[[nodiscard]] int RenderAsset(std::span<char *const> arguments);
+[[nodiscard]] int RenderAsset(std::span<const char *const> arguments);
 }
 
 #endif

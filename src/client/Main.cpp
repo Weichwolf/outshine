@@ -1,3 +1,4 @@
+#include <expected>
 #include <cstdio>
 #include <print>
 #include <cstddef>
@@ -154,7 +155,7 @@ void Usage() {
   return true;
 }
 
-int TakeShots(std::span<const Place> places, int argc, char *const *argv) {
+int TakeShots(std::span<const Place> places, int argc, const char *const *argv) {
   std::vector<const Place *> taking;
   bool rows = false;
   bool everyMeasure = false;
@@ -198,7 +199,7 @@ int TakeShots(std::span<const Place> places, int argc, char *const *argv) {
   return refused == 0 ? 0 : 1;
 }
 
-int RunScenario(int argc, char *const *argv, bool everyMeasure) {
+int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   bool rows = false;
   std::string into = "khronos";
   while (argc > 0 && argv[0][0] == '-') {
@@ -260,7 +261,7 @@ constexpr auto kHeightCoordinates =
     "outshine-client: height requires finite latitude in [-90,90] and longitude in [-180,180]\n";
 }
 
-[[nodiscard]] int QueryTerrainHeight(std::span<char *const> arguments) {
+[[nodiscard]] int QueryTerrainHeight(std::span<const char *const> arguments) {
   if (arguments.size() != 2) {
     std::fputs(Says::kHeightArguments, stderr);
     return 2;
@@ -300,32 +301,80 @@ constexpr auto kHeightCoordinates =
   return 0;
 }
 
+std::expected<std::vector<Place>, std::string> LoadCommandPlaces(std::string_view verb,
+                                                                 const std::string &directory) {
+  if (verb == "shots" || verb == "places" || verb == "roundtrip") {
+    return outshine::Shots::LoadPlaces(directory);
+  }
+  return std::vector<Place>{};
+}
+
+int ListPlaces(std::span<const Place> places) {
+  for (const Place &one : places) {
+    const auto &view = one.Declaration.Views.front().Sees;
+    const auto &at = one.Declaration.Views.front().Geographic;
+    const auto &frame = one.Declaration.Render.Frame;
+    std::println("{}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{}\t{}\t{}",
+                 one.Name,
+                 at.Geodetic.LatitudeDeg,
+                 at.Geodetic.LongitudeDeg,
+                 at.Geodetic.HeightM,
+                 at.BearingDeg,
+                 at.PitchDeg,
+                 view.FovDeg,
+                 frame.WidthPx,
+                 frame.HeightPx,
+                 one.Declaration.Time.Start);
+  }
+  return 0;
+}
+
+struct CommandLine {
+  std::string Directory = "src/assets/places";
+  std::string_view Verb = "help";
+  int Count = 0;
+  const char *const *Values = nullptr;
+};
+
+std::expected<CommandLine, std::string_view> ReadCommandLine(int argc, const char *const *argv) {
+  CommandLine command;
+  int argument = 1;
+  if (argc > argument && std::string_view(argv[argument]) == "--places") {
+    if (argc <= argument + 2) {
+      return std::unexpected("--places requires a directory and command");
+    }
+    command.Directory = argv[argument + 1];
+    argument += 2;
+  }
+  if (argc > argument) {
+    command.Verb = argv[argument];
+    command.Count = argc - argument - 1;
+    command.Values = argv + argument + 1;
+  } else {
+    command.Values = argv + argc;
+  }
+  return command;
+}
+
 }
 
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  std::string directory = "src/assets/places";
-  int argument = 1;
-  if (argc > argument && std::string_view(argv[argument]) == "--places") {
-    if (argc <= argument + 2) {
-      std::println(stderr, "outshine-client: --places requires a directory and command");
-      return 2;
-    }
-    directory = argv[argument + 1];
-    argument += 2;
+  const auto command = ReadCommandLine(argc, argv);
+  if (!command) {
+    std::println(stderr, "outshine-client: {}", command.error());
+    return 2;
   }
-  const std::string verb = argc > argument ? argv[argument] : "help";
-  const int rest = argc > argument ? argc - argument - 1 : 0;
-  char *const *const from = argv + (argc > argument ? argument + 1 : argc);
-  std::vector<Place> places;
-  if (verb == "shots" || verb == "places" || verb == "roundtrip") {
-    auto loaded = outshine::Shots::LoadPlaces(directory);
-    if (!loaded) {
-      std::println(stderr, "outshine-client: {}", loaded.error());
-      return 1;
-    }
-    places = std::move(*loaded);
+  const auto &directory = command->Directory;
+  const auto verb = command->Verb;
+  const auto rest = command->Count;
+  const auto *const from = command->Values;
+  auto loaded = LoadCommandPlaces(verb, directory);
+  if (!loaded) {
+    std::println(stderr, "outshine-client: {}", loaded.error());
+    return 1;
   }
+  const auto &places = *loaded;
   if (verb == "shots") { return TakeShots(places, rest, from); }
   if (verb == "render") { return outshine::Client::RenderAsset({from, static_cast<size_t>(rest)}); }
   if (verb == "run") { return RunScenario(rest, from, false); }
@@ -334,25 +383,7 @@ int main(int argc, char **argv) {
   if (verb == "roundtrip") {
     return outshine::Client::RoundTripPlaces(places, "build/outshine-roundtrip.scn");
   }
-  if (verb == "places") {
-    for (const Place &one : places) {
-      const auto &view = one.Declaration.Views.front().Sees;
-      const auto &at = one.Declaration.Views.front().Geographic;
-      const auto &frame = one.Declaration.Render.Frame;
-      std::println("{}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{:.12g}\t{}\t{}\t{}",
-                   one.Name,
-                   at.Geodetic.LatitudeDeg,
-                   at.Geodetic.LongitudeDeg,
-                   at.Geodetic.HeightM,
-                   at.BearingDeg,
-                   at.PitchDeg,
-                   view.FovDeg,
-                   frame.WidthPx,
-                   frame.HeightPx,
-                   one.Declaration.Time.Start);
-    }
-    return 0;
-  }
+  if (verb == "places") { return ListPlaces(places); }
   Usage();
   return verb == "help" || verb == "--help" ? 0 : 2;
 }

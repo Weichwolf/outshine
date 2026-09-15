@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 32 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 31 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -112,8 +112,8 @@ PlaceCamera ohne Tidy-Befund; 32 insgesamt, 33 Repository-Regeln grün.
 Offen in 2195: PNG-Lese-/Schreibfehler und globale Client-Konfiguration härten.
 
 ## Client-Befehlsgrenze
-Main koppelt Katalogladen/-ausgabe an Dispatch. LoadCommandPlaces und ListPlaces
-kapseln diese Aufgaben; geliehene Argumente werden intern als const gelesen.
+ReadCommandLine, LoadCommandPlaces und ListPlaces trennen Argumente/Katalog vom
+Dispatch; Argumenttexte intern const, einschließlich RenderAsset. Drei Client-Gruppen grün.
 Katalog nur für abhängige Befehle laden; ungültiger Katalog darf help/height/run/render
-nicht blockieren. Client-Daten-/Argumenttests prüfen Fehlercodes und Kameradeklaration.
+nicht blockieren. Main ohne Komplexitätsbefund; insgesamt 31 Tidy, 33 Regeln grün.
 Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.

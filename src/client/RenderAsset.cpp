@@ -150,7 +150,7 @@ struct AssetRenderOptions {
   return {};
 }
 
-[[nodiscard]] Holds<AssetRenderOptions> ParseRenderOptions(std::span<char *const> arguments) {
+[[nodiscard]] Holds<AssetRenderOptions> ParseRenderOptions(std::span<const char *const> arguments) {
   if (arguments.size() < 3 || (arguments.size() - 3) % 2 != 0) {
     return std::unexpected(Says::Usage);
   }
@@ -273,7 +273,7 @@ struct AssetRenderOptions {
 }
 }
 
-int RenderAsset(std::span<char *const> arguments) {
+int RenderAsset(std::span<const char *const> arguments) {
   auto options = ParseRenderOptions(arguments);
   if (!options) {
     std::println(stderr, "outshine-client: {}", options.error());
