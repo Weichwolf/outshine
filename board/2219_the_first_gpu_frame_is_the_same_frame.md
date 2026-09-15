@@ -29,6 +29,8 @@ erzeugte GLSL-Variante ist `texture2d<float>.sample`.
 
 `SDL_GPU_DRIVER=vulkan` verweigert dieser Host mit `unsupported`; ein zweites
 SDL_GPU-Backend ist hier nicht verfügbar und bleibt als externe Abnahme offen.
+`xcrun metal` und `metallib` fehlen ebenfalls; ein lokaler Metallib-Versuch ist
+ohne vollständiges Xcode nicht reproduzierbar.
 
 ## Lösung und Abnahme
 
