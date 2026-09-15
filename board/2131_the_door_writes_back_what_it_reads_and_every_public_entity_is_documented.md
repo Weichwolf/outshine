@@ -106,15 +106,12 @@ dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
 Body-Deklaration dokumentiert; ungenutzte Such-/Geometriehelfer entfernt.
 Kind-/Instanznamen vor Aufbau auf leer/doppelt geprüft; getrennte Namensräume.
 API-Verträge dokumentiert; Altcode rot, drei Assembly-Regressionen mit Fehlererhalt grün.
-Body-Dynamik: gemeinsame Eingabeprüfung vor declare/Assembly und nach strengem XML-
-Parsing: Masse/diagonale Trägheit endlich >=0, Position endlich, Quaternion unit
-(Normtoleranz 1e-6). Altcode verletzt zwei Negativkontrollen, fünf Regressionen grün.
-ReadBodies: Drive-Dekodierung getrennt; gültige/ungültige Antriebe zusätzlich geprüft.
-Kontakt-/Antriebstypen geprüft und dokumentiert: Einheiten, Besitz, fehlende Validierung.
-Offen: Anbindung, Kraftüberläufe, LoadFalloff-Normierung und CircleM-Radius/Durchmesser.
-Player-Writer: alle sechs Werte erhalten; Abschnitt bei Declared oder Nichtdefaults
-schreiben. Import rekonstruiert Präsenz. Drei numerische Werte endlich/nichtnegativ
-an Reader/Writer/declare-Grenzen geprüft; Altcode verletzt zwei Negativkontrollen.
-Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
-Writer erhält scene.room/Surfaces ohne Double-Zwang: Quelltexte, Reihenfolge, Patch/Z.
-Grenzwert-/XML-Rundlauf grün; leeres document gemäß Grammatik abgelehnt, Altwriter rot.
+Body-/Kontakt-/Antriebsverträge geprüft; Anbindung, Kraftüberläufe, LoadFalloff und
+CircleM-Radius/Durchmesser bleiben offen. Player- und UI/Capacity-Writer erhalten
+Werte mit geprüften Rundläufen und Negativkontrollen; Nachweise in Git.
+Player-Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
+
+Nächster Schritt: Region/Uses/Door werden gelesen, aber nicht exportiert.
+Metadaten einschließlich false-Streams, Reihenfolge und Double-Präzision erhalten;
+unabhängiges XML und Feldvergleich prüfen den Rundlauf. Negativkontrolle entfernt
+Streams. Keine Runtime-Streaming-/Portal-Fähigkeit daraus ableiten.
