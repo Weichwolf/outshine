@@ -492,6 +492,13 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   }
   std::string said;
   WriteIdentity(said, declared.Named);
+  for (const auto &layer : declared.Layers) {
+    said += "  <layer";
+    Said(said, "id", layer.Id);
+    Said(said, "path", layer.Path, true);
+    Said(said, "set", layer.Set);
+    said += "/>\n";
+  }
   if (declared.Room != 0) {
     said += "  <scene";
     Number(said, "room", declared.Room);

@@ -325,6 +325,8 @@ public:
   /// Relative layer paths resolve against the scenario file's directory. The path is borrowed
   /// only during this call and must contain no embedded NUL. Synchronous file IO and allocation;
   /// the scenario and selected layer files together are limited to 16 MiB of input bytes.
+  /// Successfully resolved layer references are consumed; the owned declaration is a flattened
+  /// snapshot. Exporting and reloading it does not read or apply the source layers again.
   /// Call on the Engine/video thread outside frames.
   /// Parsing failure preserves the active declaration but may update layer diagnostics;
   /// declaration failure has declare()'s partial-state guarantee.

@@ -577,6 +577,7 @@ bool Engine::readScenarioInto(std::string_view path, Scenario::Document &out) {
       return false;
     }
   }
+  out.Layers.clear();
   return true;
 }
 

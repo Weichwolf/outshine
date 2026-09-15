@@ -113,8 +113,8 @@ Region-/Placement-Export erhält geprüfte Metadaten, lokale/geografische Pose u
 Skalierungsachsen; unabhängige Rundläufe und Negativkontrollen grün. Details in Git.
 Geometrie-/Referenzvalidierung und Runtime-Anbindung bleiben offen.
 
-Nächster Schritt: Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge.
-Engine::readScenario konsumiert Referenzen erst nach erfolgreicher Auflösung;
-Snapshots enthalten aufgelösten Inhalt, keine erneut anzuwendenden Layer.
-Öffentliche API prüft Wiederladen ohne Quelldateien und ohne doppelte Platzierungen;
-Roh-XML-Rundlauf erhält Pfade, Aktivierung und Escapes. Keine stillen IO-Sonderpfade.
+Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
+konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
+17 API-Prüfungen belegen Wiederladen mit/ohne Quelle ohne doppelte Platzierungen;
+behaltene Referenzen verletzen fünf Prüfungen. Roh-XML-/Layer-Regressionen grün.
+Writer-Inventar 50/76; übrige Export- und Validierungslücken bleiben offen.
