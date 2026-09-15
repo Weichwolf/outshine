@@ -424,11 +424,12 @@ public:
   /// Build entity, component, table, trigger and physics state for the current declaration.
   /// Total capacity (reserve, bodies, kinds, instances and player mind) is limited to 65536
   /// entity slots. Allocates on the calling thread; serialize with all Engine operations. No render
-  /// target is required. With a target and no entities, world composition may also run.
+  /// target is required. With a target, also compose the world using the candidate simulation;
+  /// entity capacity does not change world setup. May perform IO and allocate device resources.
   /// Pending terrain heights defer geodetic camera publication; preload resolves residency.
   /// Success replaces simulation state and invalidates borrowed EntityRegistry references and
   /// prepared audio. Failure preserves previous simulation state; this does not roll back
-  /// declare().
+  /// declare() or partial world/device setup.
   /// @return Success or an owned validation/build error. Fatal allocation failure is separate.
   [[nodiscard]] Result assemble();
 

@@ -98,8 +98,11 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   candidate->ViewBodies = std::move(*viewBodies);
-  if (named == 0 && S_->Picture.Targeted && !S_->Composes()) { return std::unexpected(S_->Error); }
-  S_->Simulation = std::move(candidate);
+  auto previous = std::exchange(S_->Simulation, std::move(candidate));
+  if (S_->Picture.Targeted && !S_->Composes()) {
+    S_->Simulation = std::move(previous);
+    return std::unexpected(S_->Error);
+  }
   S_->Session.Sounding.reset();
   S_->Session.AudioBodies.clear();
   S_->Error.clear();
