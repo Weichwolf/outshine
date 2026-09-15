@@ -98,18 +98,6 @@ Dispatch; Argumenttexte intern const, einschließlich RenderAsset. Drei Client-G
 Katalog nur für abhängige Befehle laden; ungültiger Katalog darf help/height/run/render
 nicht blockieren. Main ohne Komplexitätsbefund; insgesamt 31 Tidy, 33 Regeln grün.
 Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.
-## Materialdefaults
-TreeLook übernimmt Species-Defaults; Standard-Rinde wird von sRGB nach linear gewandelt.
-Defaults aus TreeSpecies ableiten, sRGB über gemeinsame Farbmathematik konvertieren;
-Blattbasis einmal als lineare Reflektanz definieren. LookOf bleibt datengetrieben.
-Transferfunktions-, native Material- und Species-Tests grün; sRGB-Gegenprobe scheitert.
-TreeLook/TreePrototype ohne Tidy-Befund; Materialtests grün.
-
-## LOD-Eingabegrenze
-RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
-Forest: achtfachen Skyline-Abstand als festen Prüfsollwert benennen; Compilezeitprüfung
-beibehalten, Berechnung unverändert. Format/Build grün; Forest ohne Tidy-Befund.
-
 ## Client-Argumentgrenze
 CommandLine hält ausschließlich string_view/span auf Prozessargumente, keine Stringkopie.
 ReadCommandLine als isolierten noexcept-Parser prüfen: leere Eingabe, Override, fehlender
@@ -117,3 +105,14 @@ Befehl und Nullargumente; Rückgabe muss den ursprünglichen Speicher referenzie
 Parser-/CLI-Tests und 33 Regeln grün; letzte Tidy-Spur führt zur formatierten Ausgabe.
 Weitere Wurfpfade bleiben in 2194;
 kein mechanisches noexcept an den Client oder Ersatz der OOM-/Budgetverträge.
+
+## Client-Prozessgrenze
+Ungefangene Ausgabe-/Allokationsausnahmen verlassen derzeit main ohne Clientdiagnose.
+Entscheidung: nur am Client-Einstieg unerwartete Ausnahmen fangen, mit C-stdio ohne
+C++-Formatierung diagnostizieren und EXIT_FAILURE liefern. Kein Weiterbetrieb.
+Normale Rückgabecodes unverändert weiterreichen; RAII beim Entrollen erhalten.
+Dies ist eine Prozessgrenze, keine OOM-Erholung oder Runtime-Fehlerübersetzung.
+2194 bleibt für sämtliche Runtime-/Worker-/Callback-Wurfpfade verbindlich.
+Unabhängige Tests injizieren bad_alloc, Standard- und fremde Ausnahmen; prüfen
+Diagnose, Fehlercode und Destruktorlauf. Entfernte Grenze muss den Test brechen.
+Keine Bildänderung erwartet. Parser-/CLI-Tests und vollständiges Lint ausführen.
