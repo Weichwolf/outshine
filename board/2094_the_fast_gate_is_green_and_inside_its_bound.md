@@ -117,4 +117,5 @@ AtlasReadback bündelt Tiefe, Normale, Identität und Dimensionen; ConvertAtlasR
 prüft Größen/IDs und veröffentlicht Texel erst nach erfolgreicher Konvertierung.
 Bake trennt damit Aufnahme von Datenprüfung; Werte, Reihenfolge und Fehler bleiben.
 GPU-Atlas-/Binärfixture grün, 33 Regeln grün. Bake-Komplexität 37→30, neun Tidy offen.
-Nächste Trennung: Geometrievorbereitung und Aufnahmeaufbau; Grenzwert bleibt 25.
+PrepareAtlasGeometry kapselt Materialtabelle und optionale Instanzvertices vor Aufnahme.
+Native Geometry-Eingabe bleibt gemeinsam; bestehender Instancing-Umbau separat.
