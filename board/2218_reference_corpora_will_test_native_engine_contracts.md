@@ -80,12 +80,17 @@ Zusätzliche Gegenprobe: 32 statt mindestens 2 Renderframes liefert dieselben
 Bodenhelligkeiten 37,022/35,774/71,616/1,140. Längeres Render-Settling allein behebt
 A/B/A nicht. Temporäre Änderung entfernt; Terrain-Invalidierung weiter in 2105.
 
-## Air-Aufnahmephase
-ScoreHowFarTheAirReaches bleibt nach Gebäuderevisionsfix rot. Unveränderte vier
-Assertions bestehen mit zwei Renderframes pro Aufnahme; bloße Verwendung von
-renderer.settleFrames() behebt nichts. Compiled berechnet die Zahl nur aus
-TemporalResolve (1 plus temporale Frames). Temporäre Versuche zurückgenommen.
-Vor Anpassung des Tests erste/zweite GPU-Ausgabe bei festem Weltzustand isolieren:
-Atmosphären-LUT-Erzeugung, Pass-Abhängigkeiten und erstmalige Kamerabindung prüfen.
-Kein pauschales zusätzliches Rendern als Reparatur; der erste Frame muss seinen
-Rendervertrag erfüllen oder eine spezifizierte temporale Vorgeschichte benötigen.
+## Air-Aufnahmephase und implizite Draws
+Air bleibt nach Gebäuderevisionsfix rot. Zwei explizite render-Aufrufe statt einem
+lassen alle vier Assertions bestehen. Achtung: readPixels rendert intern erneut
+(Framing.cpp), ebenso saveScreenshot; damit wurden tatsächlich drei statt zwei
+Frames erzeugt. Die bisherigen Framebezeichnungen waren unvollständig.
+Belichtung, GPU-Irradianz, Sonnentransmission, Bodenlicht und Schatten-Extrema sind
+in vier inspizierten Aufnahmen gleich. Screenshot-Versuch liefert gleiche PNGs,
+fügt aber selbst Frames hinzu und isoliert daher die betroffenen Ausgaben nicht.
+Temporäre Instrumentierung entfernt. Folgemessung muss die bereits ausgelesenen
+RGBA-Daten speichern, ohne Screenshot-Aufruf oder weitere Draws.
+Readback-API auditieren: explizites Rendern und Kopieren eines fertigen Frames
+trennen; dokumentierte bisherige Implizit-Draw-Aufrufer vollständig migrieren (2195).
+Keine pauschale Erhöhung von settleFrames als Reparatur. Der Frame muss seinen
+Vertrag erfüllen oder eine spezifizierte temporale Vorgeschichte benötigen.
