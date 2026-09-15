@@ -413,7 +413,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
   };
 
   if (S_->Picture.Standing && !HasGeneratedContent(scenario) &&
-      !HasGeneratedContent(S_->Session.Declared) && SamePicture(S_->Picture.Shown, declared)) {
+      !HasGeneratedContent(S_->Session.Declared) && SamePicture(S_->Picture.Shown, declared) &&
+      S_->Session.Declared.Ground.VegetationEnabled == scenario.Ground.VegetationEnabled) {
     if (!SameStand(S_->Picture.Shown, declared) &&
         !S_->Picture.Standing->Restands(
             declared.Stands, declared.Variant, declared.Animation, declared.Clip, S_->Error)) {
@@ -440,6 +441,10 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.Pieces.Clear();
   S_->World.Sheets.Clear();
   S_->World.PiecesFramed = false;
+  S_->World.Crowns.reset();
+  S_->World.Instances.clear();
+  S_->World.Placed = S_->World.Instanced = 0;
+  S_->World.Grown = false;
   S_->Picture.Standing.reset();
   S_->Picture.Shown = declared;
   if (!S_->Picture.Targeted) {
@@ -462,6 +467,10 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->World.Bakes.Clear();
     S_->World.Pieces.Clear();
     S_->World.Sheets.Clear();
+    S_->World.Crowns.reset();
+    S_->World.Instances.clear();
+    S_->World.Placed = S_->World.Instanced = 0;
+    S_->World.Grown = false;
     S_->Picture.Standing.reset();
     return std::unexpected(S_->Error);
   }

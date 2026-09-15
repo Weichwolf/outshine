@@ -214,6 +214,8 @@ struct Structure {
 struct WorldSettings {
   /// Whether the world section participates in assembly, layer merging and XML export.
   bool Declared = false;
+  /// Generate and stream vegetation; disabling it preserves terrain landcover and buildings.
+  bool VegetationEnabled = true;
   /// Geographic anchor and extent supplied to world generation.
   Georeference Origin;
 

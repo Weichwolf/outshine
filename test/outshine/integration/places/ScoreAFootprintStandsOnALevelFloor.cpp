@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -53,6 +54,7 @@ int main(void) {
 
   outshine::Scenario::Document stands;
   stands.Ground.Declared = true;
+  stands.Ground.VegetationEnabled = false;
   stands.Ground.Origin.LatitudeDeg = kLatDeg;
   stands.Ground.Origin.LongitudeDeg = kLonDeg;
   stands.Ground.PatienceS = 3.0;
@@ -73,11 +75,21 @@ int main(void) {
   watches.Geographic.PitchDeg = kPitchDeg;
   watches.Sees.FovDeg = kFovDeg;
   stands.Views.push_back(watches);
-  if (!(engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
-        engine.advance())) {
-    Unprepared(("this place needs terrain and vector tiles and this machine has none cached: " +
-                engine.error())
-                   .c_str());
+  const auto timed = [](const char *phase, auto &&operation) {
+    const auto began = std::chrono::steady_clock::now();
+    const auto result = operation();
+    std::printf(
+        "PHASE %s %.3f ms %s\n",
+        phase,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        result ? "ready" : "failed");
+    return result;
+  };
+  if (!(timed("declare", [&] { return engine.declare(stands); }) &&
+        timed("assemble", [&] { return engine.assemble(); }) &&
+        timed("preload", [&] { return engine.preload(kPatienceS); }) &&
+        timed("advance", [&] { return engine.advance(); }))) {
+    Unprepared(("place preparation failed: " + engine.error()).c_str());
     return Report();
   }
 

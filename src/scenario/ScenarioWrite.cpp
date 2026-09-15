@@ -540,6 +540,7 @@ void WriteWorld(std::string &said, const Scenario::WorldSettings &world) {
   Number(said, "radiusM", world.Origin.RadiusM);
   Number(said, "gravityMs2", world.GravityMs2);
   Number(said, "airDensityKgM3", world.AirDensityKgM3);
+  Yes(said, "vegetation", world.VegetationEnabled);
   Number(said, "lon", world.Origin.LongitudeDeg);
   Number(said, "patienceS", world.PatienceS);
   Number(said, "sightM", world.SightM);

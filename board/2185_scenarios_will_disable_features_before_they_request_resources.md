@@ -34,11 +34,12 @@ kein Beleg für einen durchgängigen Ressourcenvertrag.
 
 ## Abnahme und weitere Pfade
 
-- [ ] Vegetation an/aus durch XML-Roundtrip und wiederholtes Declare erhalten.
+- [x] Vegetation an/aus durch XML-Roundtrip erhalten, Default bleibt an.
+- [ ] Wiederholtes Engine-Declare mit residenten Kronen im gesamten Weltpfad prüfen.
 - [x] Katalog aus mit absichtlich ungültigem Artenpfad erfolgreich, keine Flora-Registry,
       kein TreeFor-Ergebnis; Gebäude verfügbar. Wiederan funktioniert.
 - [x] Katalogaktivierung mit ungültigem Pfad verweigert atomar; vorheriger Zustand gültig.
-- [ ] Reales Place-Rendering aus erzeugt ein PNG ohne Crown-Wartebedingung.
+- [x] Wien aus rendert ohne Crown-Wartebedingung; Wiederholung pixelgleich.
 - [ ] Negativkontrolle ignoriert den Schalter und lässt die Ressourcenprüfung rot werden.
 - [ ] Weitere Features inventarisieren und gleiche Verträge implementieren:
       Gebäude, Verkehrsgeometrie, Wasser, Atmosphäre, Schatten und Postprocessing.
@@ -49,6 +50,9 @@ deaktivierte Konfigurationen im Ergebnis eindeutig nennen.
 
 Katalogvertrag: 25 Checks, drei Umschaltzyklen; vorzeitiges Löschen alter Generatoren
 erzeugt drei Fehler, restauriert grün. Eigenständiger Test unter generators/Shipped.
-Engine-Abnahme offen: Composes sammelt Shipping::Stands-Fehler nur in Carried;
-als Fehler propagieren. Alte Kronen vor Katalogwechsel freigeben und erneut Declare
-mit aktivierter/deaktivierter Vegetation prüfen. Katalogtest beweist keinen GPU-Lifecycle.
+Composes propagiert Katalogfehler; Public-API-Test erhält die bisherige Simulation
+und prüft Erholung. Alte Kronen werden vor Katalog/Live-Wechsel freigegeben.
+GPU-Manager: drei Lade-/Freigabezyklen, 33 Checks; ohne Release fünf Fehler,
+restauriert grün. Vollständige Engine-Wiederdeklaration und Speicherbudgets bleiben offen.
+Wien 26834bdb wiederholt pixelgleich; gegenüber vorher 685/921600 Pixel höchstens
+ein Farbwert anders, Ursache nicht isoliert. Keine visuelle Gesamtqualitätsabnahme.

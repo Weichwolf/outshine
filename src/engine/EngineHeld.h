@@ -12,6 +12,7 @@
 #include "Fetching.h"
 #include "HeapProbe.h"
 #include "Shipped.h"
+#include "WorldCrowns.h"
 #include "StructureMesher.h"
 #include "Rigid.h"
 #include "GroundSnapshot.h"
@@ -209,6 +210,7 @@ struct Surrounds {
   using Standing = WorldInstance;
 
   std::vector<Standing> Instances;
+  std::unique_ptr<WorldCrowns> Crowns;
   size_t Pending = 0;
   size_t Bare = 0;
   size_t Wanted = 0;
@@ -379,6 +381,7 @@ struct Engine::State {
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
   [[nodiscard]] bool Stood();
   void HandsPiecesOver();
+  [[nodiscard]] bool UpdateCrowns(bool prepare);
   [[nodiscard]] bool Bakes(size_t landsMost);
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();

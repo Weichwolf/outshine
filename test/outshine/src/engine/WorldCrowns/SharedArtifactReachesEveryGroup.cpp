@@ -75,20 +75,33 @@ int main() {
   CHECK(Core::Live::Open(renderer, declaration, nullptr, live, error), "resident renderer opens");
   if (!live) { return Report(); }
   const std::array<WorldInstance, 2> instances{{{.Cluster = 0}, {.Cluster = 1}}};
-  auto crowns =
-      WorldCrowns::Create(*live, catalogue, instances, TangentFrame::At({}), config, error);
-  CHECK(crowns && crowns->Wanted() == 2, "both cluster groups are retained");
-  if (!crowns) { return Report(); }
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  bool stepped = true;
-  while (!crowns->Ready() && std::chrono::steady_clock::now() < deadline) {
-    if (!crowns->Step({{0, 0, 10}}, false, error)) {
-      stepped = false;
-      break;
+  const auto initialPieces = live->PiecesStanding();
+  for (int cycle = 0; cycle < 3; ++cycle) {
+    auto crowns =
+        WorldCrowns::Create(*live, catalogue, instances, TangentFrame::At({}), config, error);
+    CHECK(crowns && crowns->Wanted() == 2, "both cluster groups are retained");
+    if (!crowns) { return Report(); }
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    bool stepped = true;
+    while (!crowns->Ready() && std::chrono::steady_clock::now() < deadline) {
+      if (!crowns->Step({{0, 0, 10}}, false, error)) {
+        stepped = false;
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    CHECK(stepped, "cached loading requires no preparation");
+    CHECK(crowns->Ready() && crowns->Resident() == 2,
+          "one cache result reaches both waiting groups");
+    CHECK(live->PiecesStanding() == initialPieces + 2, "both crown groups publish render pieces");
+    crowns.reset();
+    CHECK(live->PiecesStanding() == initialPieces,
+          "destroying crowns releases all their render pieces");
+    CHECK(catalogue.Stands(vegetation, (directory / "species").string(), error, false) &&
+              catalogue.TreeFor(Generators::ClusterId{0}) == nullptr,
+          "species can be released after their crown users are destroyed");
+    CHECK(catalogue.Stands(vegetation, (directory / "species").string(), error, true),
+          "species catalogue reactivates for the next residency cycle");
   }
-  CHECK(stepped, "cached loading requires no preparation");
-  CHECK(crowns->Ready() && crowns->Resident() == 2, "one cache result reaches both waiting groups");
   return Report();
 }

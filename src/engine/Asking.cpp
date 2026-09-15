@@ -315,11 +315,14 @@ bool Engine::State::Composes() {
                                std::ldexp(1.0, vectorZoom);
     World.Stack.FootprintTilesSpan(vectorSpanM);
   }
-  if (!World.Shipping.Ready() && World.Stack.Vegetated()) {
+  if (World.Stack.Vegetated()) {
     std::string why;
-    if (!World.Shipping.Stands(
-            World.Stack.Vegetation(), std::string(Session.Under.Shipped) + "/world/species", why)) {
-      Session.Carried.push_back("nothing shipped stands: " + why);
+    if (!World.Shipping.Stands(World.Stack.Vegetation(),
+                               std::string(Session.Under.Shipped) + "/world/species",
+                               why,
+                               declared.Ground.VegetationEnabled)) {
+      Error = std::move(why);
+      return false;
     }
     World.Table = Generators::TableOf(World.Stack.Vegetation());
   }

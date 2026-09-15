@@ -168,7 +168,9 @@ bool Engine::settled() const {
   return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
          S_->World.RimsMissing == 0 && S_->World.Grown && S_->World.Stack.Ingested() &&
          S_->World.Stack.Classes().Complete() && S_->World.LaidClasses == version &&
-         vectors != nullptr && vectors->PendingTiles() == 0;
+         vectors != nullptr && vectors->PendingTiles() == 0 &&
+         (!S_->Picture.Standing || !S_->Session.Declared.Ground.VegetationEnabled ||
+          (S_->World.Crowns && S_->World.Crowns->Ready()));
 }
 
 Result Renderer::render(Extent frame) {
@@ -332,6 +334,9 @@ Result Engine::State::PreloadTimeout(double bound) {
           " s -- " + std::to_string(World.Pending) + " of " + std::to_string(World.Wanted) +
           " tile(s) still pending, " + std::to_string(World.Bare) + " bare, " +
           std::to_string(World.RimsMissing) + " rim(s) copied for want of a neighbour" +
+          (World.Crowns ? ", " + std::to_string(World.Crowns->Wanted() - World.Crowns->Resident()) +
+                              " crown prototype(s) pending"
+                        : "") +
           (built ? "" : ", build failed: " + cause);
   return std::unexpected(Error);
 }
@@ -355,6 +360,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     ReportPreload(*this, began, tell);
     if (S_->CanFinishPreload()) {
       if (!S_->Grounds(true)) { return std::unexpected(S_->Error); }
+      if (!S_->UpdateCrowns(true)) { return std::unexpected(S_->Error); }
       if (settled()) { return Result{}; }
     }
     if (S_->World.Stack.Overflowing()) { return S_->PreloadOverflow(); }

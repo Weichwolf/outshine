@@ -203,6 +203,10 @@ Result Engine::park() {
   S_->World.Bakes.Clear();
   S_->World.Pieces.Clear();
   S_->World.Sheets.Clear();
+  S_->World.Crowns.reset();
+  S_->World.Instances.clear();
+  S_->World.Placed = S_->World.Instanced = 0;
+  S_->World.Grown = false;
   S_->Picture.Standing.reset();
   S_->Error.clear();
   return {};

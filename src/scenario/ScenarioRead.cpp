@@ -334,6 +334,7 @@ bool ReadWorldNumbers(const Xml::Ref &from, Scenario::WorldSettings &world, std:
 void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   if (!from.Valid()) { return; }
   into.Ground.Declared = true;
+  into.Ground.VegetationEnabled = from.Flag("vegetation", true);
   const Xml::Ref relief = from.Child("relief");
   if (relief.Valid()) {
     into.Ground.Shape.Kind = relief.Said("kind").value_or(into.Ground.Shape.Kind.c_str());
