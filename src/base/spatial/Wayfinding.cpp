@@ -1347,6 +1347,15 @@ std::expected<void, std::string_view> Network::ReconstructRoute(RouteTrace trace
   return {};
 }
 
+namespace {
+std::optional<double> SampleFiniteHeight(const Network::HeightSource &source,
+                                         LongitudeLatitude at) {
+  if (!source) { return std::nullopt; }
+  const auto height = source(at);
+  return height && std::isfinite(*height) ? height : std::nullopt;
+}
+}
+
 Network::Elevated Network::Elevate(const HeightSource &heightOf) {
   Elevated made;
   const size_t points = Points_.size() / 2;
@@ -1358,7 +1367,8 @@ Network::Elevated Network::Elevate(const HeightSource &heightOf) {
     std::optional<double> height;
     if (node < Nodes_.size()) {
       if (std::isnan(atNode[node])) {
-        const std::optional<double> stood = heightOf(
+        const std::optional<double> stood = SampleFiniteHeight(
+            heightOf,
             {.LongitudeDeg = Nodes_[node].LongitudeDeg, .LatitudeDeg = Nodes_[node].LatitudeDeg});
         if (stood) {
           atNode[node] = *stood;
@@ -1367,7 +1377,8 @@ Network::Elevated Network::Elevate(const HeightSource &heightOf) {
       }
       if (!std::isnan(atNode[node])) { height = atNode[node]; }
     } else {
-      height = heightOf({.LongitudeDeg = Points_[2 * at + 1], .LatitudeDeg = Points_[2 * at]});
+      height = SampleFiniteHeight(
+          heightOf, {.LongitudeDeg = Points_[2 * at + 1], .LatitudeDeg = Points_[2 * at]});
     }
     if (height) {
       HeightsM_[at] = *height;

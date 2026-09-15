@@ -109,7 +109,8 @@ bei gleicher Anzahl könnte unbemerkt bleiben. Gemeinsame Wege-/DEM-Revision feh
 explizite Publikationsrevisionen statt weiterer Zähler benötigen eigene Änderungsprüfung.
 Elevate übernimmt derzeit NaN/Inf und ruft auch leere HeightSource auf. Eingabegrenze
 prüft optional + isfinite; ungültig zählt wie fehlend als Refused (vorige Weghöhe/0).
-Analytische Profile vor/nach Weave prüfen ±Höhen, NaN/±Inf, fehlende/leere Quelle.
+Profile vor/nach Weave: 138 Checks zu ±Höhen, NaN/±Inf, fehlender/leerer Quelle.
+Ohne Endlichkeitsprüfung scheitern 20 Checks; Routenstationen bleiben geprüft.
 Offen: Knotenprofil bei erneut fehlenden Höhen und Revisionsinvalidierung des Netzes.
 
 ## Geprüfte Layer-Grenze
