@@ -1,5 +1,6 @@
 #include <span>
 #include "ScenarioWrite.h"
+#include "BodyValidation.h"
 #include "AudioSpellings.h"
 #include "Tables.h"
 #include "CompositorValidation.h"
@@ -20,6 +21,8 @@ namespace outshine {
 namespace {
 
 namespace Says {
+constexpr auto kInvalidBodyDrive =
+    "body drive requires a known mode and cannot combine peakN with peakNm";
 constexpr auto kInvalidAudioEnum = "audio contains an invalid processor or attenuation enum";
 constexpr auto EmptySurfaceDocument = "surface requires nonempty document text";
 }
@@ -202,6 +205,98 @@ void StandingAs(std::string &into, const char *element, const Scenario::Standing
   into += element;
   WriteStandingAttributes(into, stands);
   into += "/>\n";
+}
+
+void WriteContact(std::string &into, const Scenario::Contact &contact) {
+  into += "    <contact";
+  Said(into, "at", contact.At);
+  Number(into, "x", contact.AtM[0]);
+  Number(into, "y", contact.AtM[1]);
+  Number(into, "z", contact.AtM[2]);
+  Number(into, "reachM", contact.Strut.ReachM);
+  Number(into, "stiffnessNPerM", contact.Strut.StiffnessNPerM);
+  Number(into, "dampingNsPerM", contact.Strut.DampingNsPerM);
+  Number(into, "travelM", contact.Strut.TravelM);
+  Number(into, "stopNPerM", contact.Strut.StopNPerM);
+  Number(into, "limitN", contact.Strut.LimitN);
+  Number(into, "grip", contact.Touches.Grip);
+  Number(into, "loadFalloff", contact.Touches.LoadFalloff);
+  Number(into, "radiusM", contact.Touches.RadiusM);
+  Number(into, "corneringNPerRad", contact.Touches.CorneringNPerRad);
+  Number(into, "relaxationM", contact.Touches.RelaxationM);
+  into += "/>\n";
+}
+
+[[nodiscard]] std::expected<void, std::string> WriteDrive(std::string &into,
+                                                          const Scenario::Drive &drive) {
+  if ((drive.Does != Scenario::Drives::Effort && drive.Does != Scenario::Drives::Motion) ||
+      (drive.PeakNm != 0 && drive.PeakN != 0)) {
+    return std::unexpected(Says::kInvalidBodyDrive);
+  }
+  into += "    <actuator";
+  Said(into, "does", drive.Does == Scenario::Drives::Effort ? "torque" : "steer");
+  Yes(into, "opposes", drive.Opposes);
+  Yes(into, "turns", drive.Turns);
+  Number(into, "axisX", drive.AxisXyz[0]);
+  Number(into, "axisY", drive.AxisXyz[1]);
+  Number(into, "axisZ", drive.AxisXyz[2]);
+  Number(into, "peakNm", drive.PeakNm);
+  Number(into, "peakN", drive.PeakN);
+  Number(into, "ratio", drive.Ratio);
+  Number(into, "circleM", drive.CircleM);
+  into += "/>\n";
+  return {};
+}
+
+void WriteBodyShape(std::string &into, const Scenario::Body &body) {
+  into += "    <centreOfMass";
+  Number(into, "x", body.CentreOfMassM[0]);
+  Number(into, "y", body.CentreOfMassM[1]);
+  Number(into, "z", body.CentreOfMassM[2]);
+  into += "/>\n    <inertia";
+  Number(into, "ixx", body.InertiaKgM2[0]);
+  Number(into, "iyy", body.InertiaKgM2[1]);
+  Number(into, "izz", body.InertiaKgM2[2]);
+  into += "/>\n    <aero";
+  Number(into, "dragCoefficient", body.DragCoefficient);
+  Number(into, "frontalM2", body.FrontalM2);
+  into += "/>\n";
+  for (const auto &slot : body.Slots) {
+    into += "    <slot";
+    Said(into, "at", slot.At);
+    Number(into, "x", slot.AtM[0]);
+    Number(into, "y", slot.AtM[1]);
+    Number(into, "z", slot.AtM[2]);
+    into += "/>\n";
+  }
+}
+
+[[nodiscard]] std::expected<void, std::string> WriteBodies(std::string &into,
+                                                           std::span<const Scenario::Body> bodies) {
+  if (const auto valid = ValidateBodyDynamics(bodies); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
+  for (const auto &body : bodies) {
+    into += "  <body";
+    Said(into, "name", body.Name);
+    Said(into, "asset", body.Asset);
+    Yes(into, "placed", body.Placed);
+    Number(into, "massKg", body.MassKg);
+    Number(into, "widthM", body.WidthM);
+    Number(into, "assetSpanM", body.AssetSpanM);
+    Number(into, "assetGround", body.AssetGround);
+    Number(into, "assetCentreX", body.AssetCentreX);
+    Number(into, "assetCentreZ", body.AssetCentreZ);
+    into += ">\n";
+    StandingAs(into, "at", body.Stands);
+    WriteBodyShape(into, body);
+    for (const auto &contact : body.Contacts) { WriteContact(into, contact); }
+    for (const auto &drive : body.Driven) {
+      if (auto result = WriteDrive(into, drive); !result) { return result; }
+    }
+    into += "  </body>\n";
+  }
+  return {};
 }
 
 void WritePlacements(std::string &into, std::span<const Scenario::Placement> placements) {
@@ -683,6 +778,9 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteLighting(said, declared.Lit);
   WriteAssets(said, declared.Assets);
   WritePlacements(said, declared.Placements);
+  if (auto bodies = WriteBodies(said, declared.Bodies); !bodies) {
+    return std::unexpected(std::move(bodies.error()));
+  }
   WriteKinds(said, declared.Kinds);
   WriteInstances(said, declared.Instances);
   if (!declared.Views.empty()) {

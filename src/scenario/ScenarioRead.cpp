@@ -898,7 +898,6 @@ bool ReadBodyDrives(const Xml::Ref &from,
     const std::string named = acts.Attr("does");
     if (named == "torque") {
       does.Does = Scenario::Drives::Effort;
-      does.Opposes = acts.Num("opposes", 0.0) != 0.0;
     } else if (named == "steer") {
       does.Does = Scenario::Drives::Motion;
     } else {
@@ -907,9 +906,10 @@ bool ReadBodyDrives(const Xml::Ref &from,
               "OPPOSES, which is the one physical difference between it and a drive";
       return false;
     }
+    does.Opposes = acts.Flag("opposes", acts.Num("opposes", 0.0) != 0.0);
     does.PeakNm = acts.Num("peakNm", 0.0);
     does.PeakN = acts.Num("peakN", 0.0);
-    does.Turns = does.PeakN == 0.0;
+    does.Turns = acts.Flag("turns", does.PeakN == 0.0);
     does.AxisXyz[0] = acts.Num("axisX", 0.0);
     does.AxisXyz[1] = acts.Num("axisY", does.Turns ? 1.0 : 0.0);
     does.AxisXyz[2] = acts.Num("axisZ", does.Turns ? 0.0 : -1.0);
@@ -935,9 +935,9 @@ bool ReadBodyDrives(const Xml::Ref &from,
     made.AssetGround = one.Num("assetGround", 0.0);
     made.AssetCentreX = one.Num("assetCentreX", 0.0);
     made.AssetCentreZ = one.Num("assetCentreZ", 0.0);
+    made.Placed = one.Flag("placed", Declares(one, "at"));
     if (Declares(one, "at")) {
       const Xml::Ref where = one.Child("at");
-      made.Placed = true;
       ReadStanding(where, made.Stands);
     }
     const Xml::Ref centre = one.Child("centreOfMass");

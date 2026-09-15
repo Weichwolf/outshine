@@ -837,9 +837,10 @@ enum class Drives : uint8_t {
 /// Other fields remain metadata, without force application or numeric validation.
 /// No borrowed storage; independent copies may be used on separate threads.
 struct Drive {
-  Drives Does = Drives::Effort; ///< Capability category; invalid enum values are not rejected yet.
-  bool Opposes = false;         ///< Effort only: select the torque-opposing capability tag.
-  /// Rotational intent when true, linear when false. XML derives this from PeakN == 0;
+  /// Capability category; export rejects unknown values, assembly does not yet reject them.
+  Drives Does = Drives::Effort;
+  bool Opposes = false; ///< Effort only: select the torque-opposing capability tag.
+  /// Rotational intent when true, linear when false. XML turns overrides PeakN == 0;
   /// direct declarations are not checked for consistency with the magnitude fields.
   bool Turns = true;
   /// Intended body-local axis, right-handed and Y-up; not normalized or applied yet.
@@ -873,7 +874,8 @@ struct Body {
   std::string Name;
   /// Owned asset reference. Creating dynamic body state does not resolve this asset.
   std::string Asset;
-  bool Placed = false; ///< Create dynamic state only when true; otherwise retain declaration only.
+  /// Create dynamic state only when true. XML placed overrides presence of an at element.
+  bool Placed = false;
   /// Current dynamics copy AtM as world metres and Facing as orientation. Geodetic
   /// placement, terrain sampling and scale are not applied by body-state preparation.
   Standing Stands;

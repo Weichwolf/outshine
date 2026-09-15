@@ -107,13 +107,13 @@ konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapsho
 
 ## Verbleibende Serialisierung
 Audio und Kinds/Instances erhalten; unabhängige Rundläufe/Gegenproben grün.
-Writer-Inventar 64/76; Body-Pfad fehlt. Alle Bodyfelder samt Kontakten, Antrieben,
+Writer-Inventar 71/76; Body-Rundlauf erhält alle Felder samt Kontakten, Antrieben,
 Slots und Assetmetadaten schreiben; vorhandene Dynamikvalidierung vor Export nutzen.
 Pose und Aktivierung trennen: body.placed explizit, ohne Attribut gilt weiter at-Präsenz.
 actuator.turns explizit, ohne Attribut gilt weiter PeakN == 0. Opposes auch bei
 Motion erhalten. Ungültige Antriebs-Enums oder gleichzeitige Kraft/Torque ablehnen.
 Aktivierung und Achsentyp sind native Zustände, keine Ableitung aus Zahlenwerten.
 Abnahme: unabhängiges Legacy-XML, alle Felder, unplatzierte Pose, lineare Nullkraft,
-exakte Doubles und Sonderzeichen. Fehlendes Trägheitsmoment muss Rundlauf brechen.
+exakte Doubles/Sonderzeichen: 55 Checks grün; fehlendes ixx verletzt zwei Checks.
 Dynamiktests behalten; Format und Lint. Keine vollständige Kontakt-/Antriebsvalidierung
 oder funktionierende Fahrzeugphysik behaupten; diese Verträge bleiben offen.
