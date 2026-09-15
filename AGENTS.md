@@ -250,3 +250,17 @@ Geometrie, Beleuchtung, Koordinaten oder Simulation werden dadurch nicht legitim
   Referenzrepositories per `git clone` neben Outshine unter `/Users/cosmo/Git/` ablegen.
   Vorhandene Klone nutzen und den konsultierten Stand nennen.
   MVT: `../vector-tile-spec`; Protobuf-Dokumentation: `../protobuf-docs`.
+
+## Token- und Ausgabeökonomie
+
+- Tokens für Denken und Entscheidungen einsetzen, nicht für unnötiges Lesen oder
+  wiederholte Zustandsberichte. Bekannte Inhalte nicht erneut ausgeben.
+- Werkzeuge standardmäßig still ausführen. Vollständige Logs ins System-Tempverzeichnis;
+  bei Erfolg eine knappe Ergebniszeile, bei Fehlern gezielt begrenzte Diagnosen lesen.
+  Exitstatus und Prüfabdeckung erhalten; weniger Ausgabe bedeutet nicht weniger Prüfung.
+- Suchen eingrenzen, unabhängige Abfragen bündeln. Erst Fundstellen, dann benötigte
+  Ausschnitte lesen; keine ganzen Dateien oder Logs ohne konkreten Erkenntnisbedarf.
+- Laufende Prozesse über ihren Handle abwarten. Keine wiederholten Log-Tails ohne
+  Fehler oder Stillstandsverdacht. Details einmal zum Abschluss auswerten.
+- Zusammenhängende Änderungen vor den Pflichtprüfungen bündeln. Erfolgreiche Gates
+  nur nach relevanten Änderungen oder bei offenem Befund wiederholen.
