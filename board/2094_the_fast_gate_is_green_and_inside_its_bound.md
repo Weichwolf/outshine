@@ -110,3 +110,10 @@ Private PreloadShot/MeasureFrames trennen Ladezustand und Messserie vom Capture-
 Quantil-Grenztest grün; Wien vorher/nachher geöffnet, 0/921600 Pixel verändert.
 PlaceCamera ohne Tidy-Befund; 32 insgesamt, 33 Repository-Regeln grün.
 Offen in 2195: PNG-Lese-/Schreibfehler und globale Client-Konfiguration härten.
+
+## Client-Befehlsgrenze
+Main koppelt Katalogladen/-ausgabe an Dispatch. LoadCommandPlaces und ListPlaces
+kapseln diese Aufgaben; geliehene Argumente werden intern als const gelesen.
+Katalog nur für abhängige Befehle laden; ungültiger Katalog darf help/height/run/render
+nicht blockieren. Client-Daten-/Argumenttests prüfen Fehlercodes und Kameradeklaration.
+Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.
