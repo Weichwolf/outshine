@@ -66,7 +66,10 @@ void ExportBark(const TreeSkeleton &tree) {
   using namespace outshine::Test;
   TreeMesh mesh;
   TreeMesher mesher;
-  mesher.Draw(tree, ModelLadder::Error(0), mesh);
+  const auto deviation = ModelLadder::RelativeDeviation(0);
+  CHECK(deviation.has_value(), "finest detail level is valid");
+  if (!deviation) { return; }
+  mesher.Draw(tree, *deviation, mesh);
   Geometry geometry;
   Material material;
   material.Unlit = true;

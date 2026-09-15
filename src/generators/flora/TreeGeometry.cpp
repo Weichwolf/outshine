@@ -47,11 +47,12 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
   barkMaterial.Roughness = Look_.BarkRoughness;
   for (int c = 0; c < 3; ++c) { barkMaterial.BaseColour[c] = Look_.BarkRgb[c]; }
 
+  const auto relativeDeviation = ModelLadder::RelativeDeviation(rank);
+  if (!relativeDeviation) { return std::nullopt; }
   TreeMesh blade;
-  const float deviation =
-      rank > 0 && source.CardLeafM > 0.0f
-          ? ModelLadder::Error(static_cast<int>(rank)) * height / (2.0f * source.CardLeafM)
-          : 0.0f;
+  const float deviation = rank > 0 && source.CardLeafM > 0.0f
+                              ? *relativeDeviation * height / (2.0f * source.CardLeafM)
+                              : 0.0f;
   if (!TreeLeaf::Build(Leaf_, blade, {.MaxDeviation = deviation})) { return std::nullopt; }
   Surface leaves;
   const size_t perCard = blade.LeafVertexCount();

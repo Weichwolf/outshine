@@ -90,7 +90,9 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   foliage.Build(plant, mesh, sp, 1);
   for (int rank = 0; rank < ModelLadder::kLevels; ++rank) {
     Rank &out = proto.Ranks_[static_cast<size_t>(rank)];
-    mesher.Draw(plant, ModelLadder::Error(rank), mesh);
+    const auto deviation = ModelLadder::RelativeDeviation(static_cast<size_t>(rank));
+    if (!deviation) { return std::nullopt; }
+    mesher.Draw(plant, *deviation, mesh);
     out.Cards = foliage.Instances();
     out.CardCount = static_cast<uint32_t>(foliage.Count());
     out.CardLeafM = foliage.CardLeafM(

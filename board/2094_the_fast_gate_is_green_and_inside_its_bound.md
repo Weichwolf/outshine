@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 19 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 18 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -109,8 +109,8 @@ Transferfunktions-, native Material- und Species-Tests grün; sRGB-Gegenprobe sc
 TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grün.
 
 ## LOD-Eingabegrenze
-ModelLadder::Error verschiebt abhängig von ungeprüftem int; ungültige Ränge können UB
+ModelLadder::Error verschob abhängig von ungeprüftem int; ungültige Ränge konnten UB
 auslösen. RelativeDeviation(size_t) liefert optional, prüft Rang vor Shift; Grow und
 BladeOf propagieren Fehler. Vier gültige Abweichungen bleiben 1/4096 bis 1/512.
-Compilezeit-/Laufzeittest prüft Endpunkte, Monotonie, ungültige Ränge einschließlich
-SIZE_MAX; native Geometrie und Wachstum prüfen die migrierten Aufrufer.
+Compilezeit-/Laufzeittest prüft alle vier Werte und ungültige Ränge bis SIZE_MAX.
+Drei Tests grün: LOD, native Geometrie, Wachstum; 18 Tidy, 33 Repository-Regeln grün.
