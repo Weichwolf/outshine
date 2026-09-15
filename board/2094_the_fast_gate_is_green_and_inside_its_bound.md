@@ -112,7 +112,8 @@ TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grü
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 
 ## Atlas-Aufnahme
-Aufnahmelicht mit Einheiten benennen, Readback-Puffer einzeln deklarieren; Material-ID
-gegen Tabellengröße ohne implizite size_t→float-Verengung prüfen. Bestehende Zahlen und
-Capture-Verfahren erhalten; unabhängiges Binärfixture und GPU-Atlas-Test grün.
-9 Tidy-Befunde verbleiben, 33 Repository-Regeln grün; Writer-Inventar weiter offen.
+Lichtwerte benannt, implizite Material-ID-Verengung entfernt; Fixture/GPU-Test grün.
+AtlasReadback bündelt Tiefe, Normale, Identität und Dimensionen; ConvertAtlasReadback
+prüft Größen/IDs und veröffentlicht Texel erst nach erfolgreicher Konvertierung.
+Bake trennt damit Aufnahme von Datenprüfung; Werte, Reihenfolge und Fehler bleiben.
+GPU-Atlas- und Binärfixture-Test prüfen Capture und gespeicherte Materialverträge.
