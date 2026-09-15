@@ -181,6 +181,23 @@ int main() {
       CHECK(renderer.SetOverlay(nullptr, 0, error), "empty input removes overlay");
       CHECK(read() != baseline, "empty overlay no longer draws white");
       CHECK(renderer.SetOverlay(&quad, 1, error), "overlay restored after removal");
+      const OverlayDraw::AtlasPixels blackAtlas{.Rgba = black.data(), .Width = 1, .Height = 1};
+      const OverlayDraw::AtlasPixels whiteAtlas{.Rgba = white.data(), .Width = 1, .Height = 1};
+      for (const auto failure :
+           {Failure::Transfer, Failure::Map, Failure::Acquire, Failure::Pass, Failure::Submit}) {
+        nextFailure = failure;
+        skipFailures = 1;
+        const unsigned before = failures;
+        CHECK(!renderer.ReplaceOverlay(replacement, &blackAtlas, error),
+              "second upload failure rejects combined replacement");
+        CHECK(failures == before + 1 && nextFailure == Failure::None,
+              "failure reached quad phase after successful atlas upload");
+        CHECK(read() == baseline, "combined failure preserves both previous atlas and geometry");
+        CHECK(renderer.ReplaceOverlay(replacement, &blackAtlas, error), "combined retry succeeds");
+        CHECK(read() != baseline, "combined retry publishes new pixels");
+        CHECK(renderer.ReplaceOverlay(std::span<const OverlayQuad>(&quad, 1), &whiteAtlas, error),
+              "combined baseline restored");
+      }
       for (const auto dimensions :
            {std::array{0, 1},
             std::array{1, -1},

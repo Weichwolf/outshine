@@ -304,9 +304,13 @@ public:
   }
 
   [[nodiscard]] Holds<bool> Wheeled(double xPx, double yPx, double byPx, std::string &error) {
+    auto previous = Over_.Scrolled();
     bool again = false;
     Over_.Wheeled(xPx, yPx, byPx, again);
-    if (again && !Compose(error)) { return std::unexpected(error); }
+    if (again && !Compose(error)) {
+      Over_.Scrolled(std::move(previous));
+      return std::unexpected(error);
+    }
     return again;
   }
 
@@ -316,8 +320,11 @@ public:
 
   [[nodiscard]] bool Scrolled(std::vector<std::vector<Ui::Layout::Scrolled>> kept,
                               std::string &error) {
+    auto previous = Over_.Scrolled();
     Over_.Scrolled(std::move(kept));
-    return Compose(error);
+    if (Compose(error)) { return true; }
+    Over_.Scrolled(std::move(previous));
+    return false;
   }
 
   [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
@@ -415,9 +422,11 @@ private:
   [[nodiscard]] bool Stand(std::string &error);
   [[nodiscard]] bool Submit(std::string &error);
 
-  [[nodiscard]] bool Compose(std::string &error) {
+  [[nodiscard]] bool Compose(std::string &error) { return Compose(Declared_.Surfaces, error); }
+
+  [[nodiscard]] bool Compose(std::span<const Shows> surfaces, std::string &error) {
     return Over_.Compose(*Renderer_,
-                         Declared_.Surfaces,
+                         surfaces,
                          {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
                           .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)},
                          error);

@@ -38,6 +38,18 @@ public:
   [[nodiscard]] bool
   SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t count, std::string &error);
 
+  struct AtlasPixels {
+    const uint8_t *Rgba = nullptr;
+    int Width = 0;
+    int Height = 0;
+  };
+
+  [[nodiscard]] bool Replace(const Gpu &gpu,
+                             const OverlayQuad *quads,
+                             size_t count,
+                             const AtlasPixels *atlas,
+                             std::string &error);
+
   void Bind(Extent frame) {
     WidthPx = frame.WidthPx;
     HeightPx = frame.HeightPx;

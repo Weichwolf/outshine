@@ -934,8 +934,9 @@ const std::string &Live::ProgrammeOf(size_t surface) const {
 }
 
 bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
+  if (!Compose(surfaces, error)) { return false; }
   Declared_.Surfaces = std::move(surfaces);
-  return Compose(error);
+  return true;
 }
 
 void Live::SkyEye(double aboveGroundM) {

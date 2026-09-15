@@ -365,8 +365,8 @@ public:
   /// Copy replacement UI surfaces, ordered by increasing Z with stable ties.
   /// Empty input removes the declared surfaces. Requires an existing render scene; this does
   /// not lazily create one. Call on the Engine/video thread outside frames and concurrent work.
-  /// Font preparation and redeclaration may allocate. The stored declaration is changed before
-  /// renderer redeclaration, so a renderer error does not restore the previous surfaces.
+  /// Font preparation and redeclaration may allocate and submit GPU uploads. Reported failures
+  /// preserve the previous surfaces, rendered overlay and hit targets. Shared font caches may grow.
   /// @param surfaces Borrowed definitions; copied text and layout data are retained.
   /// @return Success or an owned missing-scene, font or redeclaration error.
   [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);

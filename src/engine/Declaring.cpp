@@ -131,10 +131,12 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
       !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
-  auto laid = PrepareSurfaces(surfaces);
-  S_->Session.Declared.Surfaces = surfaces;
-  return S_->Picture.Standing->Redeclare(std::move(laid), S_->Error) ? Result{}
-                                                                     : std::unexpected(S_->Error);
+  auto candidate = surfaces;
+  auto laid = PrepareSurfaces(candidate);
+  if (!S_->Picture.Standing->Redeclare(laid, S_->Error)) { return std::unexpected(S_->Error); }
+  S_->Session.Declared.Surfaces = std::move(candidate);
+  S_->Picture.Shown.Surfaces = std::move(laid);
+  return {};
 }
 
 namespace {

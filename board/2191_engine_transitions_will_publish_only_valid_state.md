@@ -17,16 +17,12 @@ Konfiguration validieren, Kandidaten aufbauen, erst dann veröffentlichen. Fehlg
 wechselt ausdrücklich in Failed. Keine Erfolgsvortäuschung durch alte Framebilder.
 Fehler als strukturierter Code mit Kontext; SDL-Text am Fehlerort übernehmen.
 Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
-setSurfaces/Live::Redeclare ersetzen Zustand vor Compose-Erfolg: Rollback fehlt.
-Overlay-Atlas prüft Bytegrenzen/SDL-Ergebnisse und publiziert erst nach Submit.
-87 Checks: sechs GPU-Fehlerpunkte erhalten Pixel, Retry ändert sie; Gegenprobe
-mit ignoriertem Submit scheitert zweimal. UI-Wheel grün, Wien-PNG pixelgleich.
-Quad-Uploads publizieren Buffer/Count nach geprüftem Submit; zwei Buffer werden
-wiederverwendet, Cycle schützt laufende Nutzung. 161 Upload-Checks grün;
-ignorierter Quad-Submit verletzt Fehlerbericht/Pixelerhalt. UI-Wheel grün, Wien
-pixelgleich. Nächster Schritt: Atlas-Kandidat vor Quad-Commit; Layout/Scroll/Treffer
-und Deklarationen erst danach per Move publizieren. Fehler-Injektion über öffentliche
-API prüft Export, Pixel, Aktionen und Retry; Scrollfehler stellen Offsets zurück.
+UI-Komposition publiziert Atlas/Quads/Layout/Treffer und Deklarationen nach Erfolg.
+Font-Caches dürfen wachsen; fehlgeschlagene Scrollkomposition stellt Offsets zurück.
+Public-API-Tests prüfen Export, Pixel, Aktionen, Retry und erneutes declare nach
+setSurfaces; frühes Löschen des Trefferlayouts verletzt drei Prüfungen.
+GPU-Tests injizieren auch Quad-Fehler nach erfolgreichem Atlas-Upload; alte Pixel
+bleiben erhalten. Zwei Quad-Buffer werden wiederverwendet. Wien-PNG pixelgleich.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles
@@ -114,8 +110,5 @@ Velocity-Gültigkeit (Hintergrund -10000 ist kein Bewegungsvektor).
 Init prüft GPU-Wait vor Umbau, erneuert Frame-/Temporalzustand und Offscreen-Ziel;
 Transmission folgt dem aktuellen Plan. Stage-Konfiguration/Passzuordnung sind getrennt.
 Sky-Pipeline übernimmt tatsächliche Farbattachments; Normal-/Identitätsziele maskiert.
-183 Checks normal/validiert: Framegültigkeit, Wait/Retry, Größen-/Temporalwechsel
-pixelgleich zu frischer Instanz und Transmission an/aus/an. Altcode-Negativkontrollen
-belegen Frame-/Transmissionfehler; feste Sky-Attachments verursachten Metal-Abbruch.
-Sechs GPU-Regressionen bestehen; Wien visuell geprüft, 0/921600 Pixel verändert.
+GPU-Regressionen und Negativkontrollen für Frame-/Transmission-/Größenwechsel grün.
 Allokationsrollback, Freigabe entfallener Planressourcen und Readback-Verträge offen.

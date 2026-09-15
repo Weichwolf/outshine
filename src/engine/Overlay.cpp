@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace outshine::Core {
 
@@ -55,13 +56,13 @@ bool Overlay::Compose(Render::SceneRenderer &renderer,
                       std::string &error) {
   const double surfaceWidthPx = over.WidthPx;
   const double surfaceHeightPx = over.HeightPx;
-  Laid_.clear();
-  Quads_.clear();
-  Laid_.resize(surfaces.size());
-  Scrolled_.resize(surfaces.size());
+  std::vector<Laid> candidate(surfaces.size());
+  std::vector<Render::OverlayQuad> quads;
+  auto scrolled = Scrolled_;
+  scrolled.resize(surfaces.size());
   for (size_t at = 0; at < surfaces.size(); ++at) {
     const Shows &declared = surfaces[at];
-    Laid &laid = Laid_[at];
+    Laid &laid = candidate[at];
     const double widthPx = declared.WidthFrac * surfaceWidthPx;
     const double heightPx = declared.HeightFrac * surfaceHeightPx;
     if (widthPx <= 0.0 || heightPx <= 0.0) { continue; }
@@ -81,21 +82,25 @@ bool Overlay::Compose(Render::SceneRenderer &renderer,
                            widthPx,
                            heightPx,
                            *Font_,
-                           std::span<const Ui::Layout::Scrolled>(Scrolled_[at]),
+                           std::span<const Ui::Layout::Scrolled>(scrolled[at]),
                            error)) {
       return false;
     }
     if (!laid.Painted.Build(laid.Placed, *Font_, error)) { return false; }
-    AsOverlay(laid.Painted.Quads(), laid.LeftPx, laid.TopPx, Quads_);
+    AsOverlay(laid.Painted.Quads(), laid.LeftPx, laid.TopPx, quads);
   }
-  if (Font_ != nullptr && Font_->Cut() != Cut_) {
-    Cut_ = Font_->Cut();
-    if (!renderer.SetOverlayAtlas(
-            Font_->Sheet(), Font_->SheetWidthPx(), Font_->SheetHeightPx(), error)) {
-      return false;
-    }
+  const bool changed = Font_ != nullptr && Font_->Cut() != Cut_;
+  Render::OverlayDraw::AtlasPixels atlas;
+  if (changed) {
+    atlas = {
+        .Rgba = Font_->Sheet(), .Width = Font_->SheetWidthPx(), .Height = Font_->SheetHeightPx()};
   }
-  return renderer.SetOverlay(Quads_.data(), Quads_.size(), error);
+  if (!renderer.ReplaceOverlay(quads, changed ? &atlas : nullptr, error)) { return false; }
+  Laid_ = std::move(candidate);
+  Quads_ = std::move(quads);
+  Scrolled_ = std::move(scrolled);
+  if (changed) { Cut_ = Font_->Cut(); }
+  return true;
 }
 
 void Overlay::Wheeled(double xPx, double yPx, double byPx, bool &again) {

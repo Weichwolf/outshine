@@ -234,6 +234,21 @@ bool OverlayDraw::SetQuads(const Gpu &gpu,
   return true;
 }
 
+bool OverlayDraw::Replace(const Gpu &gpu,
+                          const OverlayQuad *quads,
+                          size_t count,
+                          const AtlasPixels *atlas,
+                          std::string &error) {
+  OverlayDraw candidate;
+  if (atlas != nullptr &&
+      !candidate.SetAtlas(gpu, atlas->Rgba, atlas->Width, atlas->Height, error)) {
+    return false;
+  }
+  if (!SetQuads(gpu, quads, count, error)) { return false; }
+  if (atlas != nullptr) { Atlas = std::move(candidate.Atlas); }
+  return true;
+}
+
 void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
   if (!Pipe || Count == 0 || !Verts || WidthPx <= 0 || HeightPx <= 0) { return; }
