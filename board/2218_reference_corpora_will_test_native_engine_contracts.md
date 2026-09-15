@@ -75,3 +75,7 @@ Wiederkehrvertrag gleicher Szenen ersetzt werden; nicht durch eine Toleranz.
 Vor Rendereränderung Schatten, atmosphärische LUTs, temporale Historie und Geometrie
 bei A/B/A isolieren. Unabhängigen kleinen Fall über outshine-client aufbauen und
 PNGs vergleichen; Hang-/Schattenszenen beweisen kein allgemeines sin(elevation).
+
+Zusätzliche Gegenprobe: 32 statt mindestens 2 Renderframes liefert dieselben
+Bodenhelligkeiten 37,022/35,774/71,616/1,140. Längeres Render-Settling allein behebt
+A/B/A nicht. Temporäre Änderung entfernt; Terrain-Invalidierung weiter in 2105.

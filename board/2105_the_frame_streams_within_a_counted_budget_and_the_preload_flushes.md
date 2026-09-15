@@ -80,3 +80,12 @@ Negativkontrolle mit ignorierten Blockern scheitert, restauriert grün. Bestehen
 Deadline-API-Prüfung und Lattice bestehen unverändert. Kein visueller Pfad geändert.
 Offen: deterministischer API-Nachweis des Timeout-Pfads mit kontrollierten Quellen;
 Cache-/Streamingursache des früheren Lattice-Timeouts und harte Arbeitsbudgets.
+
+## Szenenwechsel und Terrain-Lebensdauer
+Declaring ersetzt Live, leert Pieces/Sheets und setzt PiecesFramed zurück, lässt
+aber EverLaid/LaidFrom/LaidResident/LaidClasses bestehen. Focuses kann dadurch eine
+neue Render-Szene als unverändert behandeln. Konsistente Invalidierung aller aus
+Live abgeleiteten Terrain-/Material-/GPU-Zustände untersuchen, nicht einzelne Flags.
+Gegenprobe EverLaid=false beim Ersatz: Sonnen-Audit wird UNPREPARED ohne error();
+Änderung zurückgenommen. Zuerst fehlschlagende Phase und fehlenden Fehlervertrag
+isolieren, dann atomaren Reset und A/B/A-Wiederkehr über öffentliche API nachweisen.
