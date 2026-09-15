@@ -452,26 +452,6 @@ public:
   /// @return Configured simulation step duration in seconds.
   [[nodiscard]] double stepSeconds() const;
 
-  /// Copy the active named declaration into the bounded parked set and release its render scene.
-  /// Requires an existing render scene and a unique nonempty name. This stores a declaration,
-  /// not a simulation snapshot; simulation and all streaming resources are not fully suspended.
-  /// Clears generated world pieces and may wait for their jobs. Call on the Engine/video thread
-  /// outside frames, serialized with Engine work. Released render resources invalidate views.
-  /// @return Success or an owned missing-scene/name, duplicate-name or capacity error.
-  [[nodiscard]] Result park();
-  /// Declare a parked definition and remove its parked entry only after declaration succeeds.
-  /// Requires no existing render scene. Does not restore simulated time or dynamic state from
-  /// parking. Failure retains the parked entry but may partially change the Engine via declare().
-  /// Call on the Engine/video thread outside frames; setup costs and borrowing invalidation
-  /// follow declare(). Serialize with all Engine work.
-  /// @param name Exact parked name, borrowed only for this call.
-  /// @return Success or an owned active-scene, unknown-name or declaration error.
-  [[nodiscard]] Result resume(std::string_view name);
-  /// Remove a parked declaration without changing the active scene or performing disk IO.
-  /// Serialize with Engine work. Erasing releases owned declaration storage and may move entries.
-  /// @param name Exact parked name, borrowed only for this call.
-  /// @return Success, or an owned unknown-name error with the parked set unchanged.
-  [[nodiscard]] Result discard(std::string_view name);
   /// Write declared instance.trait persistence rows for the assembled simulation.
   /// Stores selected numeric traits and scenario name/version, not a complete world snapshot.
   /// Synchronous, allocating IO; requires no embedded NUL in the path and serialized Engine
@@ -493,11 +473,6 @@ public:
   /// @param path Borrowed input path without embedded NUL; not retained after this call.
   /// @return Success or an owned IO, identity, parsing or trait-publication error.
   [[nodiscard]] Result restore(std::string_view path);
-  /// Copy parked declaration names in insertion order; no filesystem access.
-  /// Serialize with Engine mutations. Allocates an independent snapshot; later park/resume/
-  /// discard operations do not invalidate the returned strings.
-  /// @return Owned names of currently parked declarations, possibly empty.
-  [[nodiscard]] std::vector<std::string> parked() const;
 
   /// Replace the process-wide borrowed diagnostic sink, or detach it with nullptr.
   /// @param sink Sink that outlives registration and outstanding callbacks. Change registration

@@ -59,7 +59,6 @@ namespace outshine {
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
 
-inline constexpr size_t kParkedBound = 8;
 inline constexpr size_t kBakesLandedPerFrame = 2;
 inline constexpr size_t kBakesLandedInPreload = size_t{1} << 20u;
 inline constexpr size_t kMostSaveBytes = 1u << 20u;
@@ -189,7 +188,6 @@ struct Kept {
   uint64_t DeclarationRevision = 0;
   bool Taken = false;
   std::vector<std::string> Carried;
-  std::vector<Scenario::Document> Asleep;
   std::vector<std::string> LayerTrace;
   Roots Under;
   std::optional<ViewBook> Views;
