@@ -95,13 +95,9 @@ plattformgerecht als Fehler behandeln und den Negativfall prüfen.
 - [ ] make test und make lint vollständig grün; Zeitgrenzen aus gemessenem Umfang
       begründen. Langsame Gate-Teile reparieren, nicht aus der Pflicht entfernen.
 
-## P0: aktueller Stand
-Grounds trennt Verfeinerung, Gebäudepads/Seebecken, Erdarbeiten, Wasser und Diagnosen.
-Höhen-/Kachelüberdeckungstests grün. Wien geöffnet: 0/921600 veränderte Pixel;
-p95 5,77 ms, 0/120 über 16,67 ms. Keine visuelle Qualitätsabnahme daraus ableiten.
-Wasser-Mesh-Fehler werden zurückgegeben; gezielte Fehler-Injektion dafür noch offen.
-Laying ohne Tidy-Diagnose; insgesamt 35 Befunde, Writer-Inventar 50/76.
-Konkave Wasserflächen/Löcher bleiben in 2145; vollständiger Gelände-Rollback offen.
+## Gelände
+Grounds trennt Verfeinerung, Erdarbeiten, Wasser und Diagnosen; Wien pixelgleich.
+Wasser-Mesh-Fehler werden zurückgegeben; gezielte Injektion und Rollback offen in 2145.
 
 ## Place-Aufnahmephasen
 Draw vermischte Preload, Einschwingen, PNG-Ausgabe und Zeitmessung (Komplexität 40).
@@ -117,3 +113,10 @@ Dispatch; Argumenttexte intern const, einschließlich RenderAsset. Drei Client-G
 Katalog nur für abhängige Befehle laden; ungültiger Katalog darf help/height/run/render
 nicht blockieren. Main ohne Komplexitätsbefund; insgesamt 31 Tidy, 33 Regeln grün.
 Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.
+
+## Materialdefaults
+TreeLook dupliziert Species-Defaults; Standard-Rinde ist sRGB statt linear.
+Defaults aus TreeSpecies ableiten, sRGB über gemeinsame Farbmathematik konvertieren;
+Blattbasis einmal als lineare Reflektanz definieren. LookOf bleibt datengetrieben.
+Unabhängiger Transferfunktions-Test prüft Default und explizite Species; bestehende
+native Material-/Species-Tests sichern Fehlergrenzen. Keine neuen Vegetationsfeatures.
