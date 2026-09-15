@@ -1046,34 +1046,29 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
     TrimAppend(into.WallRun, sizes[2]);
     TrimAppend(into.RoofRun, sizes[3]);
   };
-  try {
-    const auto mass = MassOf(plan.RingLatLon,
-                             {.HeightM = plan.HeightM,
-                              .HeightMeasured = plan.HeightMeasured,
-                              .PitchedShare = plan.PitchedShare},
-                             plan.Street,
-                             scratch);
-    if (!mass) { return std::unexpected(mass.error()); }
-    const std::span<BuildingShape> parts = *mass;
-    if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
+  const auto mass = MassOf(plan.RingLatLon,
+                           {.HeightM = plan.HeightM,
+                            .HeightMeasured = plan.HeightMeasured,
+                            .PitchedShare = plan.PitchedShare},
+                           plan.Street,
+                           scratch);
+  if (!mass) { return std::unexpected(mass.error()); }
+  const std::span<BuildingShape> parts = *mass;
+  if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
 
-    Site site(plan, scratch, into);
-    const FoundationGround ground(plan);
-    for (BuildingShape &part : parts) {
-      part.SeatM = PlinthTopZ(part, ground);
-      part.SoleM = PlinthFootZ(part, ground);
+  Site site(plan, scratch, into);
+  const FoundationGround ground(plan);
+  for (BuildingShape &part : parts) {
+    part.SeatM = PlinthTopZ(part, ground);
+    part.SoleM = PlinthFootZ(part, ground);
+  }
+  for (const BuildingShape &part : parts) {
+    RaisePart(part, site);
+    Pavement(part, plan.Street, ground, part.SeatM, site);
+    if (const auto status = site.Status(); !status) {
+      rollback();
+      return status;
     }
-    for (const BuildingShape &part : parts) {
-      RaisePart(part, site);
-      Pavement(part, plan.Street, ground, part.SeatM, site);
-      if (const auto status = site.Status(); !status) {
-        rollback();
-        return status;
-      }
-    }
-  } catch (...) {
-    rollback();
-    return std::unexpected(StructureMeshError::BuildFailed);
   }
   return {};
 }

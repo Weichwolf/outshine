@@ -255,6 +255,9 @@ LayerIncludes() {
 }
 
 LayerToolchain() {
+  case "$1" in
+    outshine/src/generators/*) printf '%s' "$CXXSTD -fno-exceptions"; return ;;
+  esac
   case "$(TestProfile "$1")" in
     profile/client-roundtrip) LayerToolchain profile/internal ;;
     profile/public) LayerToolchain profile/internal ;;
@@ -444,6 +447,7 @@ GroupIncludes() {
 
 GroupToolchain() {
   case "$1" in
+    src/generators | src/generators/*) printf '%s' "$CXXSTD -fno-exceptions" ;;
     src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/Overlay.cpp | src/engine/Asset.cpp | src/engine/Laying.cpp | src/engine/Asking.cpp | src/engine/Telling.cpp | src/engine/AudioOcclusion.cpp | src/engine/Framing.cpp | src/engine/Declaring.cpp | src/engine/Keeping.cpp | src/engine/Advancing.cpp | src/engine/Inspection.cpp | src/engine/TilePieces.cpp | src/engine/HeightSheets.cpp | src/engine/HeightSheetsRefinement.cpp | src/engine/StructureBakes.cpp | src/engine/Live.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD" ;;
   esac

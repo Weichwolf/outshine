@@ -35,9 +35,11 @@ https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
   explizit ablehnen. Kandidaten und Placed/Instanced-Zähler erst nach Draw-Erfolg
   veröffentlichen. Kapazität, Datenzuordnung und allokationsfreier Callback prüfen;
   absichtlich eingefügte Allokation muss den Test brechen. System-OOM bleibt separat.
-- BuildingMesh::Mesh liefert bereits expected und rollt angehängte Geometrie bei
-  Fehlern zurück. catch erst nach expliziten Scratch-/Output-Allokationsfehlern entfernen.
-  Eckhöhen werden vor Allokation geprüft: leer oder exakt pro Ringpunkt; sechs Negativchecks bestätigt.
+- BuildingMesh::Mesh liefert expected und rollt behandelbare Meshfehler zurück.
+  System-OOM bleibt fatal; der Generator-Tier und seine Tests bauen mit
+  `-fno-exceptions`. Eckhöhen werden vor Allokation geprüft: leer oder exakt pro Ringpunkt;
+  sechs Negativchecks bestätigt. Scratch- und Output-Vektoren brauchen weiterhin begrenzte,
+  explizite Vorallokation, bevor sie als behandelbare Budgetfehler gelten können.
 - Alle Laufzeitaufrufe prüfen: filesystem, format, Containerzugriffe, expected::value,
   Allokation, Fremdbibliotheken und Callbacks. Fataler systemweiter OOM ist getrennt
   von behandelbarer Streaming-Budgeterschöpfung; Fehlerdiagnosen dürfen kein
@@ -95,12 +97,10 @@ dieses Setupbudget nicht umgehen. Abgelehntes Hall-Setup erhält Rate und Laufzu
 QueryTerrainHeight validiert die Koordinaten jetzt vor Engine-/SDL-Initialisierung.
 Der vorherige atof-Pfad akzeptierte unter anderem Zahlenpräfixe und Ersatznullen.
 C++-Vertrag: https://eel.is/c++draft/charconv.from.chars
-Gemeinsamer kleiner Parser in base/format: string_view, nodiscard expected<double,
-NumberError>, noexcept; from_chars statt Locale/Exceptions/temporärer Strings.
+Gemeinsamer kleiner Parser in base/format: string_view, nodiscard expected<double, NumberError>, noexcept; from_chars statt Locale/Exceptions/temporärer Strings.
 Akzeptiert endliche dezimale Zahlen samt Vorzeichen und Exponent; keine Rand-Leerzeichen,
 Restzeichen, NaN/Inf oder Über-/Unterläufe. Keine Ersatznull bei ungültiger Eingabe.
-height erhält einen geliehenen span der Argumente und verlangt exakt zwei, Latitude in [-90,90], Longitude in [-180,180];
-Ablehnung vor Engine-/SDL-/Provider-Aufbau. Gültige Abfrage bleibt unverändert.
+height erhält einen geliehenen span der Argumente und verlangt exakt zwei, Latitude in [-90,90], Longitude in [-180,180]; Ablehnung vor Engine-/SDL-/Provider-Aufbau. Gültige Abfrage bleibt unverändert.
 Unabhängige Parser-/CLI-Fälle und Negativkontrolle ohne Endzeigerprüfung sichern den
 Vertrag; ignorierte Ergebnisse scheitern unter den Clientflags. Weitere Consumer
 mit ihren eigenen Fachverträgen migrieren. Keine vollständige Runtime-Abnahme.
