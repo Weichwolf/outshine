@@ -109,8 +109,10 @@ Transferfunktions-, native Material- und Species-Tests grün; sRGB-Gegenprobe sc
 TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grün.
 
 ## LOD-Eingabegrenze
-ModelLadder::Error verschob abhängig von ungeprüftem int; ungültige Ränge konnten UB
-auslösen. RelativeDeviation(size_t) liefert optional, prüft Rang vor Shift; Grow und
-BladeOf propagieren Fehler. Vier gültige Abweichungen bleiben 1/4096 bis 1/512.
-Compilezeit-/Laufzeittest prüft alle vier Werte und ungültige Ränge bis SIZE_MAX.
-Drei Tests grün: LOD, native Geometrie, Wachstum; 18 Tidy, 33 Repository-Regeln grün.
+RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
+
+## Cache-Ownership
+CrownCache ist implizit kopierbar, wartet im Destruktor aber konsumierende Job-Handles ab.
+Kopie/Move sperren (Tasks-Referenz und this-Capture behalten festen Besitzer); Typtraits
+prüfen den Vertrag. Bestehendes ReadBytes-Budget als 16 MiB benennen. CrownPieces-
+Mehrfachdeklaration trennen. Binärartefakt-/ContentStore-Tests sichern angrenzende Verträge.
