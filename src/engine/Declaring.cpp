@@ -23,6 +23,7 @@
 #include <expected>
 #include <exception>
 #include <numeric>
+#include <memory>
 #include <optional>
 #include <string>
 #include <span>
@@ -560,6 +561,15 @@ Result Engine::declare(const Scenario::Document &scenario) {
 
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
+  std::unique_ptr<Core::Live> candidate;
+  if (S_->Picture.Targeted) {
+    if (!Core::Live::Open(S_->Picture.Device, declared, &S_->Picture.Face, candidate, S_->Error)) {
+      return std::unexpected(S_->Error);
+    }
+    if (!wasScrolled.empty() && !candidate->Scrolled(std::move(wasScrolled), S_->Error)) {
+      return std::unexpected(S_->Error);
+    }
+  }
   S_->World.Bakes.Clear();
   S_->World.Stack.Footprints().ResetDerived();
   S_->World.Pieces.Clear();
@@ -570,8 +580,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.Instances.clear();
   S_->World.Placed = S_->World.Instanced = 0;
   S_->World.Grown = false;
-  S_->Picture.Standing.reset();
-  S_->Picture.Shown = declared;
+  S_->Picture.Shown = std::move(declared);
   if (!S_->Picture.Targeted) {
     S_->Picture.PendingGeometry = std::move(headless.Geometry);
     S_->World.AudioOcclusion = headless.Occlusion ? std::move(*headless.Occlusion) : TriangleBvh{};
@@ -585,25 +594,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     publishConfiguration();
     return {};
   }
-  if (!Core::Live::Open(S_->Picture.Device,
-                        std::move(declared),
-                        &S_->Picture.Face,
-                        S_->Picture.Standing,
-                        S_->Error)) {
-    S_->World.Bakes.Clear();
-    S_->World.Stack.Footprints().ResetDerived();
-    S_->World.Pieces.Clear();
-    S_->World.Sheets.Clear();
-    S_->World.Crowns.reset();
-    S_->World.Instances.clear();
-    S_->World.Placed = S_->World.Instanced = 0;
-    S_->World.Grown = false;
-    S_->Picture.Standing.reset();
-    return std::unexpected(S_->Error);
-  }
-  if (!wasScrolled.empty() && !S_->Picture.Standing->Scrolled(std::move(wasScrolled), S_->Error)) {
-    return std::unexpected(S_->Error);
-  }
+  S_->Picture.Standing = std::move(candidate);
   S_->Session.Declared = scenario;
   ++S_->Session.DeclarationRevision;
   S_->Session.AudioBodies.clear();
