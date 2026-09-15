@@ -62,7 +62,6 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   sowie Elementtext sind noch nicht vollständig geprüft. Keine XML-Konformität behaupten.
 - Motion.Dial bleibt gespeichert, Time.Rate ungenutzt; laufende astronomische Zeit
   nach WI 2213 anbinden. Die aktuelle Sonnenzeit wird bei declare berechnet.
-## Bestandsschutz durch Verhaltenstests
 ReadScenario publiziert erst nach vollständiger Prüfung; Fehler erhalten den Vorgänger.
 Physik-Rundlauf erhält Schrittzeit, Nachhollimit und XML-Sonderzeichen. Referenz:
 https://www.w3.org/TR/xml/#AVNormalize und #NT-CharRef.
@@ -110,8 +109,12 @@ Body-/Kontakt-/Antriebsverträge geprüft; Anbindung, Kraftüberläufe, LoadFall
 CircleM-Radius/Durchmesser bleiben offen. Player- und UI/Capacity-Writer erhalten
 Werte mit geprüften Rundläufen und Negativkontrollen; Nachweise in Git.
 Player-Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
-
 Region/Uses/Door werden exportiert. 41 Rundlaufprüfungen erhalten endliche Double-
 Koordinaten, false-Streams, XML-Escapes, Ressourcenreihenfolge und gerichtete Türen;
 Streams-Negativkontrolle wird rot. Trigger-Regression grün; Writer-Inventar 47/76.
 Geometrie-/Referenzvalidierung und Runtime-Streaming-/Portal-Anbindung bleiben offen.
+
+Nächster Schritt: placements exportieren; gemeinsame Standing-Attribute erhalten
+lokale Pose auch bei GlobeAnchor und drei Skalierungsachsen. Reader unterstützt
+scaleX/Y/Z mit Vorrang vor vorhandenem positivem uniformem scale. Rundlauf mit
+Georeferenz, Quaternion, negativen/Null-Skalen und exakten Doubles; keine Runtime-Anbindung.
