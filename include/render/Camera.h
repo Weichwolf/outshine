@@ -101,18 +101,21 @@ struct Camera {
   [[nodiscard]] std::expected<void, CameraMatrixError> modelMatrix(Mat4 &out) const noexcept;
   /// World-to-camera inverse, including quaternion rotation and roll, or explicit look-at.
   /// @param out Receives a finite world-to-camera matrix only on success.
-  /// @return False for invalid pose, singularity or unrepresentable coefficients.
+  /// @return Success, or InvalidPose for an invalid or singular view basis, or
+  /// Unrepresentable when finite coefficients cannot be produced.
   [[nodiscard]] std::expected<void, CameraMatrixError> viewMatrix(Mat4 &out) const noexcept;
   /// Lens-only projection; independent of placement and look-at target. Aspect is width/height.
   /// @param aspect Positive finite width/height for perspective; ignored for orthographic.
   /// @param out Receives finite projection coefficients only on success.
-  /// @return False for invalid lens parameters or unrepresentable coefficients.
+  /// @return Success, InvalidLens for an invalid lens, or Unrepresentable when finite
+  /// coefficients cannot be produced.
   [[nodiscard]] std::expected<void, CameraMatrixError> projectionMatrix(double aspect,
                                                                         Mat4 &out) const noexcept;
   /// Compose projection * view, mapping world coordinates to homogeneous clip coordinates.
   /// @param aspect Perspective viewport width/height; ignored for orthographic projection.
   /// @param out Receives the finite composed matrix only on success.
-  /// @return False for invalid pose/lens or unrepresentable composition.
+  /// @return Success, InvalidPose, InvalidLens, or Unrepresentable; out remains
+  /// unchanged on failure.
   [[nodiscard]] std::expected<void, CameraMatrixError> clipMatrix(double aspect,
                                                                   Mat4 &out) const noexcept;
 
