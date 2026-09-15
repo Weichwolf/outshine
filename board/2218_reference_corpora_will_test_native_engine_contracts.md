@@ -101,3 +101,9 @@ Dumps im System-Temp outshine-air-raw-{0,1}.rgba; Instrumentierung zurückgenomm
 Die Abweichung ist damit belegt, aber weder allgemeine Belichtungsänderung noch
 lokaler einzelner Objektfehler bewiesen. Implizite Draws erschweren gleiche-Frame-
 Farb-/Tiefenvergleiche; Readback-Vertrag zuerst unter 2195 konsolidieren.
+
+Readbacks desselben Frames nach API-Korrektur: Tiefe 0/57600 Unterschiede;
+ShadingNormal und SurfaceIdentity je 0/230400. SceneLinear: 916/230400 Kanäle,
+maximal 198 HDR-Einheiten. RGBA: 256 Kanäle, maximal 6/255. Ausgaben als zusätzliche
+Planattachments angefordert; temporäre Instrumentierung entfernt. Weitere Isolation:
+Schattenatlas texelweise statt nur Extrema, dann Beleuchtung/Filterauswertung.
