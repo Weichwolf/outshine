@@ -111,9 +111,7 @@ TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grü
 ## LOD-Eingabegrenze
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 
-## Mesher und Vertex-Vertrag
-SelectShoots/MeshShoot trennen Auswahl/Aufbau; Tests grün, Astqualität bleibt offen.
-Surface::Vertex hat vertauschbare Positions-/Normalenparameter. Benannter VertexInput
-mit Position, Normal und UV ersetzt Positionsargumente an allen Aufrufstellen.
-Nativer Material-/Geometrietest grün; Vertauschbarkeitsbefund weg, 14 Tidy insgesamt.
-33 Repository-Regeln grün; Datenlayout und Geometrieformeln unverändert.
+## Atlas-Aufnahme
+Aufnahmelicht mit Einheiten benennen, Readback-Puffer einzeln deklarieren; Material-ID
+gegen Tabellengröße ohne implizite size_t→float-Verengung prüfen. Bestehende Zahlen und
+Capture-Verfahren erhalten; unabhängiges Binärfixture und GPU-Atlas-Vertrag prüfen.
