@@ -349,6 +349,42 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
   return geometry;
 }
 
+namespace {
+struct AtlasReadback {
+  std::span<const float> Depth;
+  std::span<const float> Normal;
+  std::span<const float> Identity;
+  size_t PixelCount;
+  size_t MaterialCount;
+};
+
+std::optional<std::vector<CrownAtlas::Texel>> ConvertAtlasReadback(const AtlasReadback &readback,
+                                                                   std::string &error) {
+  const size_t count = readback.PixelCount;
+  if (readback.Depth.size() != count || readback.Normal.size() != count * 4 ||
+      readback.Identity.size() != count * 4) {
+    error = Says::Readback;
+    return std::nullopt;
+  }
+  std::vector<CrownAtlas::Texel> texels(count);
+  for (size_t pixel = 0; pixel < count; ++pixel) {
+    const float surface = readback.Identity[pixel * 4];
+    if (!std::isfinite(surface) || surface < 0 ||
+        static_cast<double>(surface) > static_cast<double>(readback.MaterialCount) ||
+        surface != std::floor(surface)) {
+      error = Says::Surface;
+      return std::nullopt;
+    }
+    texels[pixel] = {.Normal = {{readback.Normal[pixel * 4],
+                                 readback.Normal[pixel * 4 + 1],
+                                 readback.Normal[pixel * 4 + 2]}},
+                     .Depth = readback.Depth[pixel],
+                     .Surface = static_cast<uint32_t>(surface)};
+  }
+  return texels;
+}
+}
+
 std::optional<CrownAtlas>
 CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string &error) {
   if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64 ||
@@ -431,25 +467,14 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
       error = engine.error();
       return std::nullopt;
     }
-    if (depth.size() != count || normal.size() != count * 4 || identity.size() != count * 4) {
-      error = Says::Readback;
-      return std::nullopt;
-    }
-    auto &texels = atlas.Views_[at].Texels;
-    texels.resize(count);
-    for (size_t pixel = 0; pixel < count; ++pixel) {
-      const float surface = identity[pixel * 4];
-      if (!std::isfinite(surface) || surface < 0 ||
-          static_cast<double>(surface) > static_cast<double>(atlas.Surfaces_.size()) ||
-          surface != std::floor(surface)) {
-        error = Says::Surface;
-        return std::nullopt;
-      }
-      texels[pixel] = {
-          .Normal = {{normal[pixel * 4], normal[pixel * 4 + 1], normal[pixel * 4 + 2]}},
-          .Depth = depth[pixel],
-          .Surface = static_cast<uint32_t>(surface)};
-    }
+    auto texels = ConvertAtlasReadback({.Depth = depth,
+                                        .Normal = normal,
+                                        .Identity = identity,
+                                        .PixelCount = count,
+                                        .MaterialCount = atlas.Surfaces_.size()},
+                                       error);
+    if (!texels) { return std::nullopt; }
+    atlas.Views_[at].Texels = std::move(*texels);
   }
   return atlas;
 }

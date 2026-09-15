@@ -116,4 +116,5 @@ Lichtwerte benannt, implizite Material-ID-Verengung entfernt; Fixture/GPU-Test g
 AtlasReadback bündelt Tiefe, Normale, Identität und Dimensionen; ConvertAtlasReadback
 prüft Größen/IDs und veröffentlicht Texel erst nach erfolgreicher Konvertierung.
 Bake trennt damit Aufnahme von Datenprüfung; Werte, Reihenfolge und Fehler bleiben.
-GPU-Atlas- und Binärfixture-Test prüfen Capture und gespeicherte Materialverträge.
+GPU-Atlas-/Binärfixture grün, 33 Regeln grün. Bake-Komplexität 37→30, neun Tidy offen.
+Nächste Trennung: Geometrievorbereitung und Aufnahmeaufbau; Grenzwert bleibt 25.
