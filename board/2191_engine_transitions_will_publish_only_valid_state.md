@@ -15,6 +15,15 @@ unserem Szenario-/Sandbox-Vertrag und wird hier ausdrücklich festgelegt.
 Konfiguration validieren, Kandidaten aufbauen, erst dann veröffentlichen. Fehlgeschlagene
 änderbare Konfiguration erhält den letzten gültigen Zustand; irreversibler Devicefehler
 wechselt ausdrücklich in Failed. Keine Erfolgsvortäuschung durch alte Framebilder.
+
+`Engine::declare` verletzt dies beim vollständigen Aufbau weiterhin konkret:
+`World`-Produkte und `Picture::Standing` werden vor `Live::Open`, Wiederherstellung der
+Scrollzustände und `generated` gelöscht; `generated` kann danach noch scheitern. Der
+Headless-Pfad publiziert zudem Deklaration und Revision vor `generated`. Ein Kandidat
+muss World-, Live-, UI-, View-, Input-, Audio- und Deklarationszustand vollständig
+vorbereiten und erst nach allen fehlbaren Schritten per nichtwerfender Übergabe
+tauschen. Eine Negativkontrolle injiziert Fehler nach jedem der drei Punkte und
+beweist, dass die vorige Szenenansicht, Welt und Deklarationsrevision nutzbar bleiben.
 Fehler als strukturierter Code mit Kontext; SDL-Text am Fehlerort übernehmen.
 Eventergebnis unterscheidet behandelt, ignoriert und fehlgeschlagen.
 UI-Komposition publiziert Atlas/Quads/Layout/Treffer und Deklarationen nach Erfolg.
