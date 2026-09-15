@@ -105,15 +105,15 @@ Geometrie-/Referenzvalidierung und Runtime-Anbindung bleiben offen.
 Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge. Engine::readScenario
 konsumiert Referenzen nach erfolgreicher Auflösung; Export enthält den Snapshot.
 
-## Verbleibende Serialisierung
-Audio, Entities, Bodies und Views durch Rundläufe/Gegenproben geprüft.
-Writer-Inventar 73/76: at wird zusammengesetzt, keep als output kanonisiert;
-drive-Attribute werden bereits als ungelesen abgelehnt, leeres drive noch ignoriert.
-Root-drive ausdrücklich ablehnen: kein natives Routenmodell/Reader vorhanden.
-RenderPlan.Picture fehlt in Reader/Writer; vier normalisierte Werte erhalten.
-Render-Tests prüfen alle Parameter, Alias-Kanonisierung, Reihenfolge und leere Listen;
-Entfernte Picture-Breite verletzt zwei Checks; restauriert 21/21 grün.
-Inventar nur Diagnose: Literalnamen können weder Aliase noch Parameterweitergabe
-beweisen. Analysefehler bleiben rot; konkrete Erhaltungsprüfung als Gate via gesamte
-ScenarioWrite-Suite. Gegenproben und XML-/native Fixtures bleiben maßgeblich.
-Lint vollständig grün: 0 Tidy, 33 Regeln, 17/17 Writer-Tests. API-Abnahme bleibt offen.
+## Antriebsvertrag
+Export prüft Kategorien, Declare/Assembly bisher nicht: ungültige native Drives
+können als andere Fähigkeiten interpretiert werden. Gemeinsamen noexcept-Validator
+für Kategorie, endliche Zahlen, nichtnegative Peaks/CircleM, nichtverschwindende
+endliche Achse und passenden Kraft-/Drehmomentkanal nutzen. Ratio darf null/negativ
+sein; keine unbewiesene Getriebepolitik. Lineare Nullkraft bleibt gültig.
+Reader muss vollständige endliche Zahlen lesen, keine Ersatznull für ungültige Tokens.
+Alle vier Grenzen (Import/Export/Declare/Assembly) prüfen denselben nativen Vertrag;
+Ablehnung erhält vorige Deklaration/Simulation. Kein Aufbau einer Fahrzeugphysik.
+Abnahme: beide Kategorien/Modi, Nullwerte, NaN/Inf, negative Peaks, falscher Kanal,
+Nullachse, ungültiges Enum, malformed XML und Fehlererhalt; Gegenprobe ohne Validierung.
+Bestehende Body-Rundläufe/Dynamiktests behalten; Format und vollständiges Lint.
