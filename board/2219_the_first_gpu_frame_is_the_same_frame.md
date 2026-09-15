@@ -39,6 +39,23 @@ Resolve und Display hinter dem ersten fehlerhaften Producer. Als Nächstes sind
 Subject-Textur-/Materialresidenz, Uploadreihenfolge und die erste Samplerbindung zu
 prüfen.
 
+Die Kausalitätsproben grenzen den Producer weiter ein. Werden die vorhandenen Mappen
+durch die regulären 1×1-Ersatztexturen ersetzt, wiederholt das texturierte Unlit-Draw
+bitgenau. Beschränkt `SubjectResidency` alle Mappen temporär auf Basis-Mip 0, ist es
+ebenfalls exakt. Mipmap-Nearest verringert den Fehler auf 15 Kanäle (maximal
+0.0145264), lässt ihn also bestehen; lineare Mip-Interpolation verstärkt ihn nur.
+Ein einzelner Transferbuffer/Copy-Pass für die gesamte Kette statt eines Submits je
+Mip lässt 470 Kanäle rot. `SDL_WaitForGPUIdle` nach jedem vollständigen Upload ebenso.
+Die Kette ist beim ersten Draw daher nicht bloß unfertig. Beide Eingriffe wurden
+verworfen: der erste erhöht temporären Speicher ohne Nutzen, der zweite blockiert.
+
+Alle Materialmappen werden gegenwärtig als dekodiertes
+`R32G32B32A32_FLOAT` gehalten. Das bewahrt lineare Filterwerte, ist für mobile
+Materialresidenz aber weder speicher- noch bandbreitenangemessen und koppelt die
+Kette an F32-Samplerverhalten. Ein Formatpfad mit korrekter Transfer-/Mip-Semantik
+für Farb- und Datentexturen ist nun der nächste überprüfbare Kandidat; er darf nicht
+die Wiederholungsprüfung abschwächen.
+
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
 SPIR-V→MSL nur die Ziel-MSL-Version, keine Präzisions- oder Compileoption. Die
@@ -51,15 +68,19 @@ ohne vollständiges Xcode nicht reproduzierbar.
 
 ## Lösung und Abnahme
 
-1. Subject-Textur-/Materialresidenz, Uploadreihenfolge und erste Samplerbindung gegen
-   den ersten `SceneHdr`-Draw prüfen. Erst- und Folgeframe müssen pro Stufe dieselben
-   Eingänge, Clear/Load/Store-Zustände und Abhängigkeiten haben. Den fehlerhaften
-   Producer mit einem vollständigen Ressourcenvertrag reparieren; keine Vorlauf-Frames,
-   Uploadbatches oder Diagnoseausgaben behalten.
-2. Falls Metal die Ursache ist, GLSL als Quelle behalten und einen reproduzierbaren
+1. Materialtexturen nach Farb- und Datenbedeutung in einen kompakten nativen
+   GPU-Formatvertrag überführen. sRGB-Dekodierung, lineare Mipbildung, Filterung,
+   Alpha und Normalvektoren müssen je Pfad ausdrücklich stimmen. Speicher-, Upload-
+   und Samplingkosten gegen den heutigen F32-Pfad messen; Basis-Mip und mehrstufige
+   Mappen getrennt wiederholen.
+2. Erst- und Folgeframe müssen pro Stufe dieselben Eingänge, Clear/Load/Store-Zustände
+   und Abhängigkeiten haben. Den fehlerhaften Producer mit einem vollständigen
+   Ressourcenvertrag reparieren; keine Vorlauf-Frames, Uploadbatches, Idle-Waits oder
+   Diagnoseausgaben behalten.
+3. Falls Metal die Ursache ist, GLSL als Quelle behalten und einen reproduzierbaren
    backend-spezifischen Buildproduktpfad wählen, der die benötigte Compilersemantik
    ausdrückt. Keine handgeschriebene Vendor-Shaderquelle und keine Testfall-Ausnahme.
-3. Dieselbe Wiederholbarkeitsabnahme auf mindestens einem weiteren SDL_GPU-Backend
+4. Dieselbe Wiederholbarkeitsabnahme auf mindestens einem weiteren SDL_GPU-Backend
    ausführen; Backend/Driver/Shaderprodukt protokollieren.
 
 - [ ] Erster, zweiter und erneut deklarierter statischer Frame sind bytegenau;
