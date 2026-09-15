@@ -101,3 +101,14 @@ ohne Crash; Sonnen-Audit 7/7, aber falscher A/B/A-Vertrag bleibt offen in 2218:
 5° zuletzt 10,327 statt zuerst 37,022. Air-Wiederholbarkeit weiterhin FAIL.
 make lint grün; Wien ohne Vegetation pixelidentisch (0/921600), PNG geöffnet,
 p95 6,20 ms. Das belegt Bestandserhalt, keine vollständige Lifecycle-Abnahme.
+
+A/B/A lokalisiert: erste Szene 96 Gebäudeteile/98 Draws, Rückkehr 0 Teile/2 Draws;
+keine Änderung der gemessenen Atmosphären-/Belichtungswerte. BuildingField behält
+Mark_/Taken_/Accepted_ und hält Tiles für verarbeitet, während Declaring Bakes und
+Pieces leert. StructureBakes::Posts bekommt deshalb keine erneut zu liefernden Tiles.
+Entscheidung: Bake-Residency und GPU-Residency konsistent an Szenenwechsel binden;
+logische Footprints erhalten oder aus Daten deterministisch neu erzeugen, niemals
+nur Watermark zurücksetzen und doppelte Footprints anhängen. Ausstehende Jobs vor
+Reset beenden; Abbruch darf keine als fertig markierten, verlorenen Tiles hinterlassen.
+Abnahme: unabhängig kontrollierter Field/Bake-Reset sowie Szenen-A/B/A mit gleichen
+Gebäudeteilen, Geometrie und Pixeln. Keine Lockerung des Wiederkehrtests.
