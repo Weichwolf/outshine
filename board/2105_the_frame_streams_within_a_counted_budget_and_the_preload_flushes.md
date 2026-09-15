@@ -82,38 +82,14 @@ Offen: deterministischer API-Nachweis des Timeout-Pfads mit kontrollierten Quell
 Cache-/Streamingursache des früheren Lattice-Timeouts und harte Arbeitsbudgets.
 
 ## Szenenwechsel und Terrain-Lebensdauer
-Declaring ersetzt Live, leert Pieces/Sheets und setzt PiecesFramed zurück, lässt
-aber EverLaid/LaidFrom/LaidResident/LaidClasses bestehen. Focuses kann dadurch eine
-neue Render-Szene als unverändert behandeln. Konsistente Invalidierung aller aus
-Live abgeleiteten Terrain-/Material-/GPU-Zustände untersuchen, nicht einzelne Flags.
-Gegenprobe EverLaid=false beim Ersatz: Sonnen-Audit wird UNPREPARED ohne error();
-Änderung zurückgenommen. Zuerst fehlschlagende Phase und fehlenden Fehlervertrag
-isolieren, dann atomaren Reset und A/B/A-Wiederkehr über öffentliche API nachweisen.
-
-Crash-Gegenprobe lokalisiert: GroundLattice::PlacePage über HeightSheets::Hands,
-Grounds, Composes, assemble. Clear behält Live_; Composes bindet vor Grounds nicht
-neu. Vertrag: beim Löschen GPU-Seiten freigeben und Besitzerreferenz lösen; vor
-Geometriearbeit neue Szene binden; beim Live-Ersatz Terrain-Residency invalidieren.
-
-Umgesetzt: Clear löst Live-Referenzen in HeightSheets/TilePieces nach Freigabe;
-Composes bindet vor Grounds, Live-Ersatz invalidiert EverLaid. Wiederholungsprobe
-ohne Crash; Sonnen-Audit 7/7, aber falscher A/B/A-Vertrag bleibt offen in 2218:
-5° zuletzt 10,327 statt zuerst 37,022. Air-Wiederholbarkeit weiterhin FAIL.
-make lint grün; Wien ohne Vegetation pixelidentisch (0/921600), PNG geöffnet,
-p95 6,20 ms. Das belegt Bestandserhalt, keine vollständige Lifecycle-Abnahme.
-
-A/B/A lokalisiert: erste Szene 96 Gebäudeteile/98 Draws, Rückkehr 0 Teile/2 Draws;
-keine Änderung der gemessenen Atmosphären-/Belichtungswerte. BuildingField behält
-Mark_/Taken_/Accepted_ und hält Tiles für verarbeitet, während Declaring Bakes und
-Pieces leert. StructureBakes::Posts bekommt deshalb keine erneut zu liefernden Tiles.
-Entscheidung: Bake-Residency und GPU-Residency konsistent an Szenenwechsel binden;
-logische Footprints erhalten oder aus Daten deterministisch neu erzeugen, niemals
-nur Watermark zurücksetzen und doppelte Footprints anhängen. Ausstehende Jobs vor
-Reset beenden; Abbruch darf keine als fertig markierten, verlorenen Tiles hinterlassen.
-Abnahme: unabhängig kontrollierter Field/Bake-Reset sowie Szenen-A/B/A mit gleichen
-Gebäudeteilen, Geometrie und Pixeln. Keine Lockerung des Wiederkehrtests.
-
-ResetDerived verwirft nach Jobabschluss Footprints, Tilebereiche und Bake-Marken
-zusammen; Konfiguration bleibt. Drei unabhängige Resetzyklen grün, fehlendes Löschen
-von Prints scheitert. A/B/A jetzt 37,022→37,018, exakte Pixelprüfung weiterhin rot.
-Lint grün; Wien ohne Vegetation pixelidentisch (0/921600), PNG geöffnet.
+Live-Referenzen werden beim Clear gelöst und vor Grounds neu gebunden; EverLaid
+wird beim Szenenwechsel invalidiert. BuildingField::ResetDerived verwirft nach
+Jobabschluss Footprints, Bereiche und Verarbeitungsmarken gemeinsam, erhält die
+Konfiguration. Drei Resetzyklen samt Negativkontrolle geprüft; Wien pixelidentisch.
+Sonnen-A/B/A bleibt zunächst 37,022→37,018. Pauschal erzwungener finaler Neuaufbau
+besteht dagegen die exakte Pixelprüfung; Air bleibt FAIL. Gegenprobe zurückgenommen.
+Ursache: Focuses berücksichtigt keine neu fertig gewordenen Gebäudefundamente.
+Entscheidung: BuildingField revisioniert Accept/Reset; Terrain merkt die verwendete
+Revision. Abweichung erzwingt Neuaufbau und verhindert settled. Keine unbedingten
+Neubauten im Framepfad. Test: Revisionen über Resetzyklen und exakte Sonnen-A/B/A;
+alte Vergleichsbedingung als Negativkontrolle. Air separat untersuchen.
