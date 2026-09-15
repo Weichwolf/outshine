@@ -112,7 +112,11 @@ TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grü
 RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufrufer migriert.
 
 ## Cache und native Karten
-CrownCache ist bereits durch ContentStore nicht kopier-/verschiebbar; Gegenprobe
-bestätigt den bestehenden Vertrag. Keine zusätzliche Sperre oder redundanter Claim.
-ReadBytes benennt das unveränderte 16-MiB-Budget; CrownPieces deklariert Positionen und
-Normalen getrennt. Binärartefakt- und ContentStore-Tests grün; kein Verhaltensumbau.
+ContentStore verhindert bereits Cache-Kopien/Moves; Gegenprobe bestätigt dies.
+16-MiB-Budget benannt, Vertex-Deklarationen getrennt; angrenzende Tests grün.
+
+## Mesher-Phasen
+Draw mischt Sichtauswahl, Elternfortpflanzung und Astaufbau (Komplexität 39).
+SelectShoots und MeshShoot trennen diese Zuständigkeiten, temporäre Ringpuffer lokal.
+Rang-/Ast-Reihenfolge, Kragen, Kappen, Seeds und Export bleiben unverändert.
+Wachstums-/native Geometrietests prüfen die vorhandenen Verbraucher; keine neue Flora.
