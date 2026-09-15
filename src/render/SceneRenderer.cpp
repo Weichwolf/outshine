@@ -1167,7 +1167,10 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   }
   StageSubmission stageSubmission;
 
-  Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands);
+  if (!Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands, uploadError)) {
+    SDL_CancelGPUCommandBuffer(commands);
+    return std::unexpected(std::move(uploadError));
+  }
 
   for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) {
     EncodePass(commands, pass, stageSubmission);

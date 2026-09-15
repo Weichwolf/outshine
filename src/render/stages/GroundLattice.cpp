@@ -10,6 +10,7 @@
 
 #include <cstring>
 #include <format>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -27,6 +28,11 @@ constexpr std::string_view kPageWrongSize =
     "a height page is {} nodes a side and this one brought {} floats";
 constexpr std::string_view kPagesFull = "every one of the {} height pages is placed";
 constexpr std::string_view kStagingDidNotMap = "the height page's staging did not map: {}";
+constexpr std::string_view kCopyAcquireFailed =
+    "ground upload could not acquire a copy command buffer: {}";
+constexpr std::string_view kCopyPassFailed = "ground upload could not begin a copy pass: {}";
+constexpr std::string_view kCopySubmitFailed = "ground upload could not submit its copy: {}";
+constexpr std::string_view kVisibleUploadFailed = "ground visibility upload failed: {}";
 }
 
 using SidePlanes = std::array<std::array<float, 4>, 4>;
@@ -79,6 +85,35 @@ struct LatticeVertexInput {
 static_assert(MakeLatticeVertexInput().Buffers[0].instance_step_rate == 0 &&
               MakeLatticeVertexInput().Buffers[1].instance_step_rate == 0);
 
+struct CopyCommands {
+  SDL_GPUCommandBuffer *Commands;
+  SDL_GPUCopyPass *Pass;
+};
+
+[[nodiscard]] std::optional<CopyCommands> BeginCopy(SDL_GPUDevice *device, std::string &error) {
+  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(device);
+  if (commands == nullptr) {
+    error = std::format(Says::kCopyAcquireFailed, SDL_GetError());
+    return std::nullopt;
+  }
+  SDL_GPUCopyPass *const pass = SDL_BeginGPUCopyPass(commands);
+  if (pass == nullptr) {
+    error = std::format(Says::kCopyPassFailed, SDL_GetError());
+    SDL_CancelGPUCommandBuffer(commands);
+    return std::nullopt;
+  }
+  return CopyCommands{.Commands = commands, .Pass = pass};
+}
+
+[[nodiscard]] bool SubmitCopy(CopyCommands copy, std::string &error) {
+  SDL_EndGPUCopyPass(copy.Pass);
+  if (!SDL_SubmitGPUCommandBuffer(copy.Commands)) {
+    error = std::format(Says::kCopySubmitFailed, SDL_GetError());
+    return false;
+  }
+  return true;
+}
+
 bool UploadBuffer(SDL_GPUDevice *device,
                   SDL_GPUBuffer *into,
                   const void *from,
@@ -99,14 +134,12 @@ bool UploadBuffer(SDL_GPUDevice *device,
   }
   std::memcpy(mapped, from, bytes);
   SDL_UnmapGPUTransferBuffer(device, staging.Get());
-  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(device);
-  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  const std::optional<CopyCommands> copy = BeginCopy(device, error);
+  if (!copy) { return false; }
   const SDL_GPUTransferBufferLocation source{.transfer_buffer = staging.Get(), .offset = 0};
   const SDL_GPUBufferRegion region{.buffer = into, .offset = 0, .size = bytes};
-  SDL_UploadToGPUBuffer(copy, &source, &region, false);
-  SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  return true;
+  SDL_UploadToGPUBuffer(copy->Pass, &source, &region, false);
+  return SubmitCopy(*copy, error);
 }
 
 }
@@ -162,26 +195,40 @@ bool GroundLattice::BuildGrid(std::span<const float> fractions,
   SDL_GPUBufferCreateInfo wanted{};
   wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
   wanted.size = static_cast<uint32_t>(grid.size() * sizeof(float));
-  into = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
-  if (!Index_) {
-    wanted.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-    wanted.size = static_cast<uint32_t>(index.size() * sizeof(uint32_t));
-    Index_ = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
-    if (!Index_ || !UploadBuffer(Device_,
-                                 Index_.Get(),
-                                 index.data(),
-                                 static_cast<uint32_t>(index.size() * sizeof(uint32_t)),
-                                 error)) {
-      error = std::format(Says::kBufferRefused, "grid", SDL_GetError());
-      return false;
-    }
-  }
-  if (!into) {
+  OwnedBuffer madeGrid(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+  if (!madeGrid) {
     error = std::format(Says::kBufferRefused, "grid", SDL_GetError());
     return false;
   }
-  return UploadBuffer(
-      Device_, into.Get(), grid.data(), static_cast<uint32_t>(grid.size() * sizeof(float)), error);
+  OwnedBuffer madeIndex;
+  SDL_GPUBuffer *indexBuffer = Index_.Get();
+  if (!Index_) {
+    wanted.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+    wanted.size = static_cast<uint32_t>(index.size() * sizeof(uint32_t));
+    madeIndex = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+    if (!madeIndex) {
+      error = std::format(Says::kBufferRefused, "grid", SDL_GetError());
+      return false;
+    }
+    indexBuffer = madeIndex.Get();
+    if (!UploadBuffer(Device_,
+                      indexBuffer,
+                      index.data(),
+                      static_cast<uint32_t>(index.size() * sizeof(uint32_t)),
+                      error)) {
+      return false;
+    }
+  }
+  if (!UploadBuffer(Device_,
+                    madeGrid.Get(),
+                    grid.data(),
+                    static_cast<uint32_t>(grid.size() * sizeof(float)),
+                    error)) {
+    return false;
+  }
+  if (madeIndex) { Index_ = std::move(madeIndex); }
+  into = std::move(madeGrid);
+  return true;
 }
 
 bool GroundLattice::BuildPages(std::string &error) {
@@ -345,29 +392,41 @@ PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error
     return kNoPage;
   }
   PageId page = kNoPage;
+  bool borrowed = false;
   if (!Spare_.empty()) {
     page = Spare_.back();
     Spare_.pop_back();
+    borrowed = true;
   } else if (PagesMade_ < kPages) {
     page = PagesMade_++;
   } else {
     error = std::format(Says::kPagesFull, kPages);
     return kNoPage;
   }
+  const auto restore = [this, page, borrowed] {
+    if (borrowed) {
+      Spare_.push_back(page);
+    } else {
+      --PagesMade_;
+    }
+  };
   SDL_GPUTransferBufferCreateInfo room{};
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = static_cast<uint32_t>(nodes.size_bytes());
   const OwnedTransfer staging(Device_, SDL_CreateGPUTransferBuffer(Device_, &room));
   void *const mapped = staging ? SDL_MapGPUTransferBuffer(Device_, staging.Get(), false) : nullptr;
   if (mapped == nullptr) {
-    Spare_.push_back(page);
+    restore();
     error = std::format(Says::kStagingDidNotMap, SDL_GetError());
     return kNoPage;
   }
   std::memcpy(mapped, nodes.data(), nodes.size_bytes());
   SDL_UnmapGPUTransferBuffer(Device_, staging.Get());
-  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device_);
-  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  const std::optional<CopyCommands> copy = BeginCopy(Device_, error);
+  if (!copy) {
+    restore();
+    return kNoPage;
+  }
   SDL_GPUTextureTransferInfo source{};
   source.transfer_buffer = staging.Get();
   SDL_GPUTextureRegion into{};
@@ -378,9 +437,11 @@ PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error
   into.w = static_cast<uint32_t>(kPageSide);
   into.h = static_cast<uint32_t>(kPageSide);
   into.d = 1;
-  SDL_UploadToGPUTexture(copy, &source, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
+  SDL_UploadToGPUTexture(copy->Pass, &source, &into, false);
+  if (!SubmitCopy(*copy, error)) {
+    restore();
+    return kNoPage;
+  }
   ++PagesLive_;
   return page;
 }
@@ -455,12 +516,17 @@ bool GroundLattice::SetInstances(std::span<const GroundTile> real,
   return true;
 }
 
-void GroundLattice::Cull(const FrameContext &ctx,
+bool GroundLattice::Cull(const FrameContext &ctx,
                          const Vec3 &anchorM,
-                         SDL_GPUCommandBuffer *commands) {
+                         SDL_GPUCommandBuffer *commands,
+                         std::string &error) {
   VisibleReal_ = 0;
   VisibleVirtual_ = 0;
-  if (Held_.empty() || Device_ == nullptr || commands == nullptr) { return; }
+  if (Held_.empty()) { return true; }
+  if (Device_ == nullptr || commands == nullptr) {
+    error = std::format(Says::kVisibleUploadFailed, "no device or command buffer");
+    return false;
+  }
   std::array<float, 3> shift{};
   for (size_t axis = 0; axis < 3; ++axis) {
     shift[axis] = static_cast<float>(anchorM[static_cast<int>(axis)] +
@@ -488,13 +554,15 @@ void GroundLattice::Cull(const FrameContext &ctx,
       ++VisibleVirtual_;
     }
   }
-  if (!Seen_.empty() && !HandsVisible(commands)) {
+  if (!Seen_.empty() && !HandsVisible(commands, error)) {
     VisibleReal_ = 0;
     VisibleVirtual_ = 0;
+    return false;
   }
+  return true;
 }
 
-bool GroundLattice::HandsVisible(SDL_GPUCommandBuffer *commands) {
+bool GroundLattice::HandsVisible(SDL_GPUCommandBuffer *commands, std::string &error) {
   const auto count = static_cast<uint32_t>(Seen_.size());
   const uint32_t bytes = count * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float));
   if (!Visible_ || VisibleRoom_ < count) {
@@ -503,19 +571,31 @@ bool GroundLattice::HandsVisible(SDL_GPUCommandBuffer *commands) {
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
     wanted.size = room * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float));
-    Visible_ = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+    OwnedBuffer visible(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
     SDL_GPUTransferBufferCreateInfo staging{};
     staging.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     staging.size = wanted.size;
-    VisibleStaging_ = OwnedTransfer(Device_, SDL_CreateGPUTransferBuffer(Device_, &staging));
-    VisibleRoom_ = Visible_ && VisibleStaging_ ? room : 0;
-    if (VisibleRoom_ == 0) { return false; }
+    OwnedTransfer visibleStaging(Device_, SDL_CreateGPUTransferBuffer(Device_, &staging));
+    if (!visible || !visibleStaging) {
+      error = std::format(Says::kVisibleUploadFailed, SDL_GetError());
+      return false;
+    }
+    Visible_ = std::move(visible);
+    VisibleStaging_ = std::move(visibleStaging);
+    VisibleRoom_ = room;
   }
   void *const mapped = SDL_MapGPUTransferBuffer(Device_, VisibleStaging_.Get(), true);
-  if (mapped == nullptr) { return false; }
+  if (mapped == nullptr) {
+    error = std::format(Says::kVisibleUploadFailed, SDL_GetError());
+    return false;
+  }
   std::memcpy(mapped, Seen_.data(), bytes);
   SDL_UnmapGPUTransferBuffer(Device_, VisibleStaging_.Get());
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  if (copy == nullptr) {
+    error = std::format(Says::kVisibleUploadFailed, SDL_GetError());
+    return false;
+  }
   const SDL_GPUTransferBufferLocation source{.transfer_buffer = VisibleStaging_.Get(), .offset = 0};
   const SDL_GPUBufferRegion region{.buffer = Visible_.Get(), .offset = 0, .size = bytes};
   SDL_UploadToGPUBuffer(copy, &source, &region, true);

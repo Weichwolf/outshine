@@ -67,7 +67,10 @@ public:
                                   std::span<const GroundTile> virtual_,
                                   std::string &error);
 
-  void Cull(const FrameContext &ctx, const Vec3 &anchorM, SDL_GPUCommandBuffer *commands);
+  [[nodiscard]] bool Cull(const FrameContext &ctx,
+                          const Vec3 &anchorM,
+                          SDL_GPUCommandBuffer *commands,
+                          std::string &error);
   void Encode(const PassRecording &into) const;
   void Cast(const PassRecording &into) const;
 
@@ -90,7 +93,7 @@ private:
   [[nodiscard]] bool
   BuildGrid(std::span<const float> fractions, OwnedBuffer &into, std::string &error);
   [[nodiscard]] bool BuildPages(std::string &error);
-  [[nodiscard]] bool HandsVisible(SDL_GPUCommandBuffer *commands);
+  [[nodiscard]] bool HandsVisible(SDL_GPUCommandBuffer *commands, std::string &error);
   void Draw(const PassRecording &into,
             SDL_GPUGraphicsPipeline *pipeline,
             const OwnedBuffer &instances,
