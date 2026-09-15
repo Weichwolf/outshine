@@ -110,10 +110,10 @@ RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufru
 Forest: achtfachen Skyline-Abstand als festen Prüfsollwert benennen; Compilezeitprüfung
 beibehalten, Berechnung unverändert. Format/Build grün; Forest ohne Tidy-Befund.
 
-## Native Instanzgeometrie
-Vorhandenen TreePrototype-Adapter abschließen: gemeinsames natives Blatt-Mesh plus
-Mat4-Placements; expandierter Pfad bleibt derselbe Vertrag. ModelMatrix ist nodiscard.
-Gemeinsamer Frame für Position/Normale; Bounds müssen alle transformierten Vertices
-enthalten. Vergleich gegen expandierte Geometrie sichert Erhalt, kein unabhängiges
-Geometrieorakel. Falsche Translation scheitert; Geometrie-/Atlas-Test grün, Bild pixelgleich.
-Vier Tidy offen, 33 Regeln grün. Nullskalierung/alle Species, Streaming/Atlas separat prüfen.
+## WorldCrowns-Zustandsübergänge
+Mehrere Cluster können dieselbe Species-Definition/Cache-Provenienz tragen. Cache.Read
+fasst Aufträge zusammen; Step bedient bisher nur die erste Gruppe: weitere bleiben Reading.
+Cache-Ergebnis an alle wartenden Gruppen gleicher Provenienz verteilen; Resident nur nach
+GPU-Publikation. Vorbereitung/Polling/Cache-Übernahme getrennt halten. Duplicate-Species-
+Fixture mit zwei Clustern und einem Cache-Artefakt muss vollständig Ready erreichen;
+Einzelempfänger-Gegenprobe scheitert. Cache-/Live-/Species-Lebensdauer bleibt explizite Pflicht.
