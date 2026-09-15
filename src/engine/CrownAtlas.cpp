@@ -1,5 +1,6 @@
 #include "math/Srgb.h"
 #include "CrownAtlas.h"
+#include "StoredVertex.h"
 #include "../../build/CrownBuild.h"
 #include "Digest.h"
 #include <bit>
@@ -385,6 +386,37 @@ std::optional<std::vector<CrownAtlas::Texel>> ConvertAtlasReadback(const AtlasRe
 }
 }
 
+namespace {
+struct PreparedAtlasGeometry {
+  std::vector<Material> Surfaces;
+  std::vector<StoredVertex> Vertices;
+};
+
+std::optional<PreparedAtlasGeometry>
+PrepareAtlasGeometry(Geometry &base, std::string &error, const Geometry *leaf = nullptr) {
+  if (leaf != nullptr && !base.addSurface("leaves", leaf->surfaceAt(MaterialInstance(0)))) {
+    error = Says::Geometry;
+    return std::nullopt;
+  }
+  PreparedAtlasGeometry prepared;
+  for (int at = 0; at < base.surfaces(); ++at) {
+    prepared.Surfaces.push_back(base.surfaceAt(MaterialInstance(at)));
+  }
+  if (leaf == nullptr) { return prepared; }
+  const auto positions = leaf->positionsOf(0);
+  const auto normals = leaf->normalsOf(0);
+  const auto uv = leaf->textureOf(0);
+  prepared.Vertices.resize(positions.size() / 3);
+  for (size_t at = 0; at < prepared.Vertices.size(); ++at) {
+    prepared.Vertices[at] =
+        StoredVertex::Of({{positions[at * 3], positions[at * 3 + 1], positions[at * 3 + 2]}},
+                         {{uv[at * 2], uv[at * 2 + 1]}},
+                         {{normals[at * 3], normals[at * 3 + 1], normals[at * 3 + 2]}});
+  }
+  return prepared;
+}
+}
+
 std::optional<CrownAtlas>
 CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string &error) {
   if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64 ||
@@ -421,9 +453,9 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
     error = Says::Bounds;
     return std::nullopt;
   }
-  for (int at = 0; at < geometry->surfaces(); ++at) {
-    atlas.Surfaces_.push_back(geometry->surfaceAt(MaterialInstance(at)));
-  }
+  auto prepared = PrepareAtlasGeometry(*geometry, error);
+  if (!prepared) { return std::nullopt; }
+  atlas.Surfaces_ = std::move(prepared->Surfaces);
   Scenario::Document scenario;
   scenario.Render.Declared = true;
   scenario.Render.Frame = {shape.Pixels, shape.Pixels};

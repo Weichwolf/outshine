@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 9 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 6 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -116,6 +116,5 @@ Lichtwerte benannt, implizite Material-ID-Verengung entfernt; Fixture/GPU-Test g
 AtlasReadback bündelt Tiefe, Normale, Identität und Dimensionen; ConvertAtlasReadback
 prüft Größen/IDs und veröffentlicht Texel erst nach erfolgreicher Konvertierung.
 Bake trennt damit Aufnahme von Datenprüfung; Werte, Reihenfolge und Fehler bleiben.
-GPU-Atlas-/Binärfixture grün, 33 Regeln grün. Bake-Komplexität 37→30, neun Tidy offen.
-PrepareAtlasGeometry kapselt Materialtabelle und optionale Instanzvertices vor Aufnahme.
-Native Geometry-Eingabe bleibt gemeinsam; bestehender Instancing-Umbau separat.
+GPU-Atlas-/Binärfixture grün. PrepareAtlasGeometry trennt Materialtabelle/Instanzvertices.
+Atlas ohne Tidy-Befund, insgesamt sechs offen. Bestehender Instancing-Umbau bleibt separat.
