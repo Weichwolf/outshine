@@ -152,31 +152,31 @@ public:
   /// @param unit Finite tuples of 3 floats; empty removes the optional attribute.
   /// @return False without mutation for invalid part, tuple size or values; true after copy.
   /// O(unit.size()), may allocate; cross-attribute counts are checked by wellFormed().
-  bool setNormals(int part, std::span<const float> unit);
+  [[nodiscard]] bool setNormals(int part, std::span<const float> unit);
   /// Copy finite UV pairs without clamping or transforming them; O(uv.size()), may allocate.
   /// @param part Active part index.
   /// @param uv Finite UV pairs; empty removes the selected optional attribute.
   /// @param set Coordinate set, exactly 0 or 1.
   /// @return False without mutation for invalid part, set, tuple size or values; true after copy.
-  bool setTexture(int part, std::span<const float> uv, int set = 0);
+  [[nodiscard]] bool setTexture(int part, std::span<const float> uv, int set = 0);
   /// Copy XYZ tangent directions and handedness W; unit length and W sign are not validated.
   /// @param part Active part index.
   /// @param xyzw Finite tuples of 4 floats; empty removes the optional attribute.
   /// @return False without mutation for invalid part, tuple size or values; true after copy.
   /// O(xyzw.size()), may allocate; cross-attribute counts are checked by wellFormed().
-  bool setTangents(int part, std::span<const float> xyzw);
+  [[nodiscard]] bool setTangents(int part, std::span<const float> xyzw);
   /// Copy linear RGBA vertex factors; no range clamping or colour conversion.
   /// @param part Active part index.
   /// @param rgba Finite tuples of 4 floats; empty removes the optional attribute.
   /// @return False without mutation for invalid part, tuple size or values; true after copy.
   /// O(rgba.size()), may allocate; cross-attribute counts are checked by wellFormed().
-  bool setColours(int part, std::span<const float> rgba);
+  [[nodiscard]] bool setColours(int part, std::span<const float> rgba);
   /// Copy triangle indices; O(indices.size()), may allocate.
   /// @param part Active part index.
   /// @param indices Complete CCW triplets of part-local vertex indices; empty clears them.
   /// @return False without mutation for an absent part or incomplete triplet; true after copy.
   /// Index bounds are deferred to wellFormed(), allowing attributes to be built in any order.
-  bool setTriangles(int part, std::span<const uint32_t> indices);
+  [[nodiscard]] bool setTriangles(int part, std::span<const uint32_t> indices);
 
   /// How many of a part's triangles are wound against their own vertex normals: a triangle
   /// whose counter-clockwise face normal opposes the sum of its three vertex normals. A mesh
