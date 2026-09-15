@@ -14,6 +14,9 @@
 
 namespace outshine {
 namespace {
+constexpr double kCaptureIlluminanceLux = 20000;
+constexpr double kCaptureLightBearingDeg = 135;
+constexpr double kCaptureLightElevationDeg = 40;
 constexpr size_t kMostAtlasTexels = 1u << 24u;
 constexpr auto kOpaqueByte = std::numeric_limits<uint8_t>::max();
 
@@ -294,7 +297,9 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
     const Material &material = Surfaces_[pixel.Surface - 1];
     Vec3 n{{pixel.Normal[0], pixel.Normal[1], pixel.Normal[2]}};
     if (!Normalise(n)) { return std::nullopt; }
-    for (size_t c = 0; c < 3; ++c) { images[0][at * 4 + c] = Byte(ColourSpace::SrgbFromLinear(material.BaseColour[c])); }
+    for (size_t c = 0; c < 3; ++c) {
+      images[0][at * 4 + c] = Byte(ColourSpace::SrgbFromLinear(material.BaseColour[c]));
+    }
     images[0][at * 4 + 3] = source.Texels[at].Surface > 0 ? kOpaqueByte : 0;
     images[1][at * 4] = Byte(static_cast<float>(0.5 * (Dot(n, right) + 1.0)));
     images[1][at * 4 + 1] = Byte(static_cast<float>(0.5 * (1.0 - n[1])));
@@ -388,9 +393,9 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
   scenario.Render.Frame = {shape.Pixels, shape.Pixels};
   scenario.Render.Outputs = {"sceneDepth", "sceneShadingNormal", "sceneSurfaceIdentity"};
   scenario.Lit.Declared = true;
-  scenario.Lit.Key.Lux = 20000;
-  scenario.Lit.Key.BearingDeg = 135;
-  scenario.Lit.Key.ElevationDeg = 40;
+  scenario.Lit.Key.Lux = kCaptureIlluminanceLux;
+  scenario.Lit.Key.BearingDeg = kCaptureLightBearingDeg;
+  scenario.Lit.Key.ElevationDeg = kCaptureLightElevationDeg;
   for (unsigned at = 0; at < shape.Views; ++at) {
     const double angle = 2.0 * std::numbers::pi * at / shape.Views;
     const Vec3 direction{{std::sin(angle), 0, std::cos(angle)}};
@@ -408,7 +413,9 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
                                                     .FarM = 5.0 * atlas.HalfExtentM_});
     scenario.Views.push_back(view);
   }
-  std::vector<float> depth, normal, identity;
+  std::vector<float> depth;
+  std::vector<float> normal;
+  std::vector<float> identity;
   const size_t count = static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels);
   for (unsigned at = 0; at < shape.Views; ++at) {
     Engine engine;
@@ -432,7 +439,8 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
     texels.resize(count);
     for (size_t pixel = 0; pixel < count; ++pixel) {
       const float surface = identity[pixel * 4];
-      if (!std::isfinite(surface) || surface < 0 || surface > atlas.Surfaces_.size() ||
+      if (!std::isfinite(surface) || surface < 0 ||
+          static_cast<double>(surface) > static_cast<double>(atlas.Surfaces_.size()) ||
           surface != std::floor(surface)) {
         error = Says::Surface;
         return std::nullopt;

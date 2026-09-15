@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 14 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 9 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -114,4 +114,5 @@ RelativeDeviation prüft Rang vor Shift; vier Werte und SIZE_MAX geprüft, Aufru
 ## Atlas-Aufnahme
 Aufnahmelicht mit Einheiten benennen, Readback-Puffer einzeln deklarieren; Material-ID
 gegen Tabellengröße ohne implizite size_t→float-Verengung prüfen. Bestehende Zahlen und
-Capture-Verfahren erhalten; unabhängiges Binärfixture und GPU-Atlas-Vertrag prüfen.
+Capture-Verfahren erhalten; unabhängiges Binärfixture und GPU-Atlas-Test grün.
+9 Tidy-Befunde verbleiben, 33 Repository-Regeln grün; Writer-Inventar weiter offen.
