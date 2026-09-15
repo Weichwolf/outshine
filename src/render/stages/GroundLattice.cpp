@@ -10,6 +10,7 @@
 
 #include <cstring>
 #include <format>
+#include <limits>
 #include <optional>
 #include <span>
 #include <string>
@@ -33,6 +34,7 @@ constexpr std::string_view kCopyAcquireFailed =
 constexpr std::string_view kCopyPassFailed = "ground upload could not begin a copy pass: {}";
 constexpr std::string_view kCopySubmitFailed = "ground upload could not submit its copy: {}";
 constexpr std::string_view kVisibleUploadFailed = "ground visibility upload failed: {}";
+constexpr std::string_view kTooManyInstances = "the ground lattice has too many instances";
 }
 
 using SidePlanes = std::array<std::array<float, 4>, 4>;
@@ -455,20 +457,29 @@ void GroundLattice::ReleasePage(PageId which) {
 bool GroundLattice::SetInstances(std::span<const GroundTile> real,
                                  std::span<const GroundTile> virtual_,
                                  std::string &error) {
-  RealCount_ = 0;
-  VirtualCount_ = 0;
-  VisibleReal_ = 0;
-  VisibleVirtual_ = 0;
-  Held_.clear();
-  Bounds_.clear();
-  if (real.empty() && virtual_.empty()) { return true; }
+  const size_t maximum = std::numeric_limits<uint32_t>::max() / sizeof(GroundInstance);
+  if (real.size() > maximum || virtual_.size() > maximum - real.size()) {
+    error = std::string(Says::kTooManyInstances);
+    return false;
+  }
+  const size_t total = real.size() + virtual_.size();
+  if (total == 0) {
+    Held_.clear();
+    Bounds_.clear();
+    RealCount_ = 0;
+    VirtualCount_ = 0;
+    VisibleReal_ = 0;
+    VisibleVirtual_ = 0;
+    return true;
+  }
   if (Device_ == nullptr) {
     error = std::string(Says::kNoDevice);
     return false;
   }
-  std::vector<GroundInstance> &instances = Held_;
-  instances.reserve(real.size() + virtual_.size());
-  Bounds_.reserve(real.size() + virtual_.size());
+  std::vector<GroundInstance> instances;
+  std::vector<std::array<float, 4>> bounds;
+  instances.reserve(total);
+  bounds.reserve(total);
   for (const std::span<const GroundTile> tiles : {real, virtual_}) {
     for (const GroundTile &tile : tiles) {
       const GroundInstance &one = tile.Instance;
@@ -481,34 +492,46 @@ bool GroundLattice::SetInstances(std::span<const GroundTile> real,
       }
       const float mid = 0.5f * (tile.LowM + tile.HighM);
       const float half = 0.5f * (tile.HighM - tile.LowM);
-      Bounds_.push_back({{one.Row[12] + one.Row[8] * mid,
-                          one.Row[13] + one.Row[9] * mid,
-                          one.Row[14] + one.Row[10] * mid,
-                          std::sqrt(reach + half * half)}});
+      bounds.push_back({{one.Row[12] + one.Row[8] * mid,
+                         one.Row[13] + one.Row[9] * mid,
+                         one.Row[14] + one.Row[10] * mid,
+                         std::sqrt(reach + half * half)}});
     }
   }
   const auto count = static_cast<uint32_t>(instances.size());
+  OwnedBuffer replacement;
+  SDL_GPUBuffer *target = Instances_.Get();
+  uint32_t room = InstanceRoom_;
   if (!Instances_ || InstanceRoom_ < count) {
-    uint32_t room = InstanceRoom_ > 0 ? InstanceRoom_ : 64u;
-    while (room < count) { room *= 2u; }
+    room = InstanceRoom_ > 0 ? InstanceRoom_ : 64u;
+    while (room < count) {
+      if (room > static_cast<uint32_t>(maximum / 2u)) {
+        room = count;
+        break;
+      }
+      room *= 2u;
+    }
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
     wanted.size = room * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float));
-    Instances_ = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
-    if (!Instances_) {
-      InstanceRoom_ = 0;
+    replacement = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
+    if (!replacement) {
       error = std::format(Says::kBufferRefused, "instances", SDL_GetError());
       return false;
     }
-    InstanceRoom_ = room;
+    target = replacement.Get();
   }
   if (!UploadBuffer(Device_,
-                    Instances_.Get(),
+                    target,
                     instances.data(),
                     static_cast<uint32_t>(instances.size() * sizeof(GroundInstance)),
                     error)) {
     return false;
   }
+  if (replacement) { Instances_ = std::move(replacement); }
+  Held_ = std::move(instances);
+  Bounds_ = std::move(bounds);
+  InstanceRoom_ = room;
   RealCount_ = static_cast<uint32_t>(real.size());
   VirtualCount_ = static_cast<uint32_t>(virtual_.size());
   VisibleReal_ = RealCount_;
