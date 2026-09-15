@@ -102,19 +102,19 @@ Die Abweichung ist damit belegt, aber weder allgemeine Belichtungsänderung noch
 lokaler einzelner Objektfehler bewiesen. Implizite Draws erschweren gleiche-Frame-
 Farb-/Tiefenvergleiche; Readback-Vertrag zuerst unter 2195 konsolidieren.
 
-Readbacks desselben Frames nach API-Korrektur: Tiefe 0/57600 Unterschiede;
-ShadingNormal und SurfaceIdentity je 0/230400. SceneLinear: 916/230400 Kanäle,
-maximal 198 HDR-Einheiten. RGBA: 256 Kanäle, maximal 6/255. Ausgaben als zusätzliche
-Planattachments angefordert; temporäre Instrumentierung entfernt. Schattenatlas ebenfalls
-bitgleich: 0/4194304 Texel verschieden. Weiter: Beleuchtung/Filterauswertung isolieren.
+Readbacks: Tiefe, ShadingNormal, SurfaceIdentity und Schattenatlas bitgleich;
+SceneLinear und RGBA verschieden. Explizite Stage-Listen hatten unbemerkt Velocity
+entfernt: ohne Aerial MIT Velocity FAIL; MIT Aerial OHNE Velocity PASS.
+Konstante Velocity oder gl_FragCoord-Ausgabe PASS; curClip allein und noperspective FAIL.
+GPU-Idle zwischen Frames PASS; nur vor erstem Frame oder ohne Barriere FAIL.
+Ground ohne Cycling, Farbziele mit Cycling, ohne Schattenbeitrag: jeweils FAIL.
+Metal-GPU-Validierung aktiv, keine Zugriffsdiagnose. SDL: ../SDL, 3.4.16, fa2c02b.
 
-Korrigierte Pass-Isolation: explizite Stage-Liste lässt auch die standardmäßige
-Velocity-Ausgabe weg. Ohne Aerial MIT sceneVelocity bleibt FAIL; MIT Aerial OHNE
-sceneVelocity PASS. Die frühere Zuordnung zur Luftperspektive war falsch.
-Velocity-Renderziel behalten, aber outVelocity=vec2(0) statt Clip-Differenz: PASS.
-Clip-Isolation: nur curClip.xy/curClip.w weiterhin FAIL; gl_FragCoord.xy*0.001 PASS
-(4 Checks); noperspective FAIL. GPU-Idle vor/nach PrepareFrame oder nur zwischen Frames:
-PASS; nur vor erstem Frame bzw. ohne Barriere: FAIL. Frame-Überlappung untersuchen.
-Ground ohne Cycling, Farbziele mit Cycling und ohne Schattenbeitrag: jeweils FAIL.
-Die Bandfarben beweisen Luftperspektive nicht; analytische Extinktionsfälle ergänzen.
-Metal-GPU-Validierung aktiv, keine Zugriffsdiagnose; FAIL. Alle Proben zurückgenommen.
+Neu: reine Materialfarbe bei kleinem Pegel PASS, mit Faktor 10000 FAIL; der kleine
+Pegel verdeckte den Fehler. Direkt- und Umgebungslicht isoliert jeweils Wiederholungs-FAIL.
+Float-Captures ohne Aerial, MIT Velocity: UV vollständig bitgleich; wears.rgb*10000
+unterscheidet 465/466/466 Kanäle, Maxima 171.443/143.238/199.647 vor Beleuchtung.
+Nur ein inhaltlicher Upload der Klassen (6346460 Bytes) und Palette (316 Bytes).
+Nächster Schritt: fwidth/Helper-Invocations und Klassifikationsauswertung isolieren.
+Alle Instrumentierungen zurückgenommen; Rohdaten im System-Tempverzeichnis.
+Die Bandfarben allein beweisen Luftperspektive nicht; analytische Extinktionsfälle fehlen.
