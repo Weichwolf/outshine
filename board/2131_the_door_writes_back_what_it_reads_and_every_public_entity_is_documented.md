@@ -109,12 +109,12 @@ Body-/Kontakt-/Antriebsverträge geprüft; Anbindung, Kraftüberläufe, LoadFall
 CircleM-Radius/Durchmesser bleiben offen. Player- und UI/Capacity-Writer erhalten
 Werte mit geprüften Rundläufen und Negativkontrollen; Nachweise in Git.
 Player-Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
-Region/Uses/Door werden exportiert. 41 Rundlaufprüfungen erhalten endliche Double-
-Koordinaten, false-Streams, XML-Escapes, Ressourcenreihenfolge und gerichtete Türen;
-Streams-Negativkontrolle wird rot. Trigger-Regression grün; Writer-Inventar 47/76.
-Geometrie-/Referenzvalidierung und Runtime-Streaming-/Portal-Anbindung bleiben offen.
+Region-/Placement-Export erhält geprüfte Metadaten, lokale/geografische Pose und
+Skalierungsachsen; unabhängige Rundläufe und Negativkontrollen grün. Details in Git.
+Geometrie-/Referenzvalidierung und Runtime-Anbindung bleiben offen.
 
-Placement-Export erhält lokale Pose auch bei GlobeAnchor und drei Skalierungsachsen.
-Reader: scaleX/Y/Z überschreiben den positiven uniformen Legacy-Wert achsweise.
-39 Rundlaufprüfungen grün; ausgelassenes scaleY verletzt zwei Prüfungen. Physik-/
-Kamera-Regressionen grün; Writer-Inventar 49/76. Keine Runtime-Anbindung behauptet.
+Nächster Schritt: Rohdokumente exportieren Layer-ID/Pfad/Set in Reihenfolge.
+Engine::readScenario konsumiert Referenzen erst nach erfolgreicher Auflösung;
+Snapshots enthalten aufgelösten Inhalt, keine erneut anzuwendenden Layer.
+Öffentliche API prüft Wiederladen ohne Quelldateien und ohne doppelte Platzierungen;
+Roh-XML-Rundlauf erhält Pfade, Aktivierung und Escapes. Keine stillen IO-Sonderpfade.
