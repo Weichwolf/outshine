@@ -89,3 +89,8 @@ Live abgeleiteten Terrain-/Material-/GPU-Zustände untersuchen, nicht einzelne F
 Gegenprobe EverLaid=false beim Ersatz: Sonnen-Audit wird UNPREPARED ohne error();
 Änderung zurückgenommen. Zuerst fehlschlagende Phase und fehlenden Fehlervertrag
 isolieren, dann atomaren Reset und A/B/A-Wiederkehr über öffentliche API nachweisen.
+
+Crash-Gegenprobe lokalisiert: GroundLattice::PlacePage über HeightSheets::Hands,
+Grounds, Composes, assemble. Clear behält Live_; Composes bindet vor Grounds nicht
+neu. Vertrag: beim Löschen GPU-Seiten freigeben und Besitzerreferenz lösen; vor
+Geometriearbeit neue Szene binden; beim Live-Ersatz Terrain-Residency invalidieren.
