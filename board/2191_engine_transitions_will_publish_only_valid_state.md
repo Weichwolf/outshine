@@ -22,10 +22,10 @@ setSurfaces/Live::Redeclare ersetzen Zustand vor Compose-Erfolg: Rollback fehlt.
 Overlay-Atlas prüft Bytegrenzen/SDL-Ergebnisse und publiziert erst nach Submit.
 87 Checks: sechs GPU-Fehlerpunkte erhalten Pixel, Retry ändert sie; Gegenprobe
 mit ignoriertem Submit scheitert zweimal. UI-Wheel grün, Wien-PNG pixelgleich.
-Nächster Schritt: Quad-Uploads prüfen alle SDL-Ergebnisse und veröffentlichen
-Buffer/Count erst nach Submit. Zweiter wiederverwendeter Buffer hält alte Pixel
-bei Fehlern; Cycle schützt noch laufende Nutzung. Injizierte Fehler und Retry prüfen.
-Gemeinsame Atlas/Quads/UI-Transaktion bleibt anschließend offen.
+Quad-Uploads publizieren Buffer/Count nach geprüftem Submit; zwei Buffer werden
+wiederverwendet, Cycle schützt laufende Nutzung. 161 Upload-Checks grün;
+ignorierter Quad-Submit verletzt Fehlerbericht/Pixelerhalt. UI-Wheel grün, Wien
+pixelgleich. Gemeinsame Atlas/Quads/Layout/Scroll-/Treffer-Transaktion bleibt offen.
 Alle Engine-Mutatoren inventarisieren, einschließlich offers/setRoots/setSurfaces,
 declare/assemble und save/restore. Unsupported-Deklarationen nach 2131 zurückweisen.
 2185 besitzt Feature-Ressourcen, 2151 Persistenzschema. Stabile geliehene Handles

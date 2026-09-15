@@ -13,6 +13,7 @@
 namespace outshine::Render {
 
 namespace Says {
+constexpr auto kInvalidOverlayQuads = "nonempty overlay requires a GPU device and rectangle data";
 constexpr auto kInvalidOverlayAtlas =
     "overlay atlas requires a device, texels and positive dimensions within SDL upload limits";
 }
@@ -172,43 +173,64 @@ bool OverlayDraw::SetQuads(const Gpu &gpu,
             " past the bound -- a list cut without a word draws a picture nobody declared";
     return false;
   }
-  Count = static_cast<uint32_t>(count);
-  if (count == 0) { return true; }
-
+  if (count == 0) {
+    Count = 0;
+    return true;
+  }
+  if (gpu.Device == nullptr || quads == nullptr) {
+    error = Says::kInvalidOverlayQuads;
+    return false;
+  }
+  static_assert(kMaxOverlayQuads <= std::numeric_limits<uint32_t>::max() / sizeof(OverlayQuad));
   const auto bytes = static_cast<uint32_t>(count * sizeof(OverlayQuad));
-
-  if (!Verts || Capacity < count) {
+  if (!SpareVerts) {
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
     wanted.size = static_cast<Uint32>(kMaxOverlayQuads * sizeof(OverlayQuad));
-    OwnedBuffer made(gpu.Device, SDL_CreateGPUBuffer(gpu.Device, &wanted));
-    if (!made) {
-      error = std::string("the overlay's rectangles have no buffer: ") + SDL_GetError();
+    SpareVerts = OwnedBuffer(gpu.Device, SDL_CreateGPUBuffer(gpu.Device, &wanted));
+    if (!SpareVerts) {
+      error = SDL_GetError();
       return false;
     }
-    Verts = std::move(made);
-    Capacity = static_cast<uint32_t>(kMaxOverlayQuads);
   }
 
   SDL_GPUTransferBufferCreateInfo wantedTransfer{};
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = bytes;
-  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer);
-  if (staging == nullptr) {
-    error = std::string("the overlay's rectangles have no staging buffer: ") + SDL_GetError();
+  const OwnedTransfer staging(gpu.Device, SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer));
+  if (!staging) {
+    error = SDL_GetError();
     return false;
   }
-  std::memcpy(SDL_MapGPUTransferBuffer(gpu.Device, staging, false), quads, bytes);
-  SDL_UnmapGPUTransferBuffer(gpu.Device, staging);
+  void *mapped = SDL_MapGPUTransferBuffer(gpu.Device, staging.Get(), false);
+  if (mapped == nullptr) {
+    error = SDL_GetError();
+    return false;
+  }
+  std::memcpy(mapped, quads, bytes);
+  SDL_UnmapGPUTransferBuffer(gpu.Device, staging.Get());
 
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(gpu.Device);
+  if (commands == nullptr) {
+    error = SDL_GetError();
+    return false;
+  }
   SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  const SDL_GPUTransferBufferLocation from{.transfer_buffer = staging, .offset = 0};
-  const SDL_GPUBufferRegion region{.buffer = Verts.Get(), .offset = 0, .size = bytes};
-  SDL_UploadToGPUBuffer(copy, &from, &region, false);
+  if (copy == nullptr) {
+    error = SDL_GetError();
+    (void)SDL_CancelGPUCommandBuffer(commands);
+    return false;
+  }
+  const SDL_GPUTransferBufferLocation from{.transfer_buffer = staging.Get(), .offset = 0};
+  const SDL_GPUBufferRegion region{.buffer = SpareVerts.Get(), .offset = 0, .size = bytes};
+  SDL_UploadToGPUBuffer(copy, &from, &region, true);
   SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  SDL_ReleaseGPUTransferBuffer(gpu.Device, staging);
+  if (!SDL_SubmitGPUCommandBuffer(commands)) {
+    error = SDL_GetError();
+    return false;
+  }
+  std::swap(Verts, SpareVerts);
+  Count = static_cast<uint32_t>(count);
   return true;
 }
 

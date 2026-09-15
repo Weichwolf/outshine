@@ -13,10 +13,11 @@
 #include "Check.h"
 
 namespace {
-enum class Failure { None, Map, Acquire, Pass, Submit, Allocate, Transfer };
+enum class Failure { None, Map, Acquire, Pass, Submit, Allocate, Transfer, Buffer };
 Failure nextFailure = Failure::None;
 unsigned skipFailures = 0;
 unsigned failures = 0;
+unsigned quadBufferAllocations = 0;
 
 bool Reject(Failure point) {
   if (nextFailure != point) { return false; }
@@ -35,6 +36,14 @@ template <typename F> F Original(const char *name) {
   assert(function != nullptr);
   return function;
 }
+}
+
+extern "C" SDL_GPUBuffer *SDLCALL SDL_CreateGPUBuffer(SDL_GPUDevice *device,
+                                                      const SDL_GPUBufferCreateInfo *info) {
+  if (Reject(Failure::Buffer)) { return nullptr; }
+  if (info->usage == SDL_GPU_BUFFERUSAGE_VERTEX) { ++quadBufferAllocations; }
+  static const auto original = Original<decltype(&SDL_CreateGPUBuffer)>("SDL_CreateGPUBuffer");
+  return original(device, info);
 }
 
 extern "C" SDL_GPUTexture *SDLCALL SDL_CreateGPUTexture(SDL_GPUDevice *device,
@@ -140,6 +149,38 @@ int main() {
         CHECK(read() != baseline, "retry publishes a genuinely different atlas");
         CHECK(renderer.SetOverlayAtlas(white.data(), 1, 1, error), "baseline restored");
       }
+      const unsigned allocated = quadBufferAllocations;
+      std::array<OverlayQuad, 2> replacement{quad, quad};
+      replacement[0].Red = replacement[0].Green = replacement[0].Blue = 0;
+      replacement[1] = replacement[0];
+      for (const auto failure : {Failure::Buffer,
+                                 Failure::Transfer,
+                                 Failure::Map,
+                                 Failure::Acquire,
+                                 Failure::Pass,
+                                 Failure::Submit}) {
+        nextFailure = failure;
+        const unsigned before = failures;
+        error.clear();
+        CHECK(!renderer.SetOverlay(replacement.data(), replacement.size(), error) && !error.empty(),
+              "quad upload failure is reported");
+        CHECK(failures == before + 1 && nextFailure == Failure::None, "quad failure point reached");
+        CHECK(read() == baseline, "quad failure preserves previous geometry and count");
+        CHECK(renderer.SetOverlay(replacement.data(), replacement.size(), error),
+              "quad retry succeeds");
+        CHECK(read() != baseline, "quad retry changes the image");
+        CHECK(renderer.SetOverlay(&quad, 1, error), "original quad restored");
+      }
+      CHECK(quadBufferAllocations == allocated + 1,
+            "replacement reuses two geometry buffers after warming");
+      CHECK(!renderer.SetOverlay(nullptr, 1, error), "nonempty null quad input rejected");
+      CHECK(read() == baseline, "null input preserves overlay");
+      CHECK(!renderer.SetOverlay(&quad, kMaxOverlayQuads + 1, error),
+            "oversized input rejected before reading");
+      CHECK(read() == baseline, "oversized input preserves overlay");
+      CHECK(renderer.SetOverlay(nullptr, 0, error), "empty input removes overlay");
+      CHECK(read() != baseline, "empty overlay no longer draws white");
+      CHECK(renderer.SetOverlay(&quad, 1, error), "overlay restored after removal");
       for (const auto dimensions :
            {std::array{0, 1},
             std::array{1, -1},

@@ -50,10 +50,10 @@ public:
 private:
   OwnedPipeline Pipe;
   OwnedBuffer Verts;
+  OwnedBuffer SpareVerts;
   OwnedTexture Atlas;
   SDL_GPUSampler *Smooth = nullptr;
   uint32_t Count = 0;
-  uint32_t Capacity = 0;
   int WidthPx = 0, HeightPx = 0;
   bool Encodes = false;
 };
