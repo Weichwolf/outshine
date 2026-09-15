@@ -23,6 +23,11 @@ Statische Geometrie, Materialassets und ihre Residency bleiben beim Renderer.
 Formatgebundene Subject-Pipelines werden als Kandidat gebaut und erst mit den
 neuen Attachments veröffentlicht; kein Stage darf auf die abgelösten Ziele zeigen.
 
+`SubjectDraw` und `OverlayDraw` vermischen heute dauerhafte Inhalte (Residenz bzw.
+Atlas/Quads) mit Pipelines. Vor `FrameResources` beide in dauerhaften Inhalt und
+verschiebbare, formatgebundene Bindungen schneiden. GroundStorage bleibt dauerhaft;
+alle Frame-Texturen, Sampler, Pyramide, temporalen Ziele und Stages wandern gemeinsam.
+
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,
 tauscht Ressourcen, Target und Dimension gemeinsam und gibt alte Fensterclaims
