@@ -97,7 +97,6 @@ Knotenliste und reverse entfallen. Metrische Stationen separat vor Veröffentlic
 prüfen; Überlauf als Fehler, keine teilweise veröffentlichte Route. Private expected-
 Funktion trennt Suchzustand von Ergebnis. Analytische meridionale Dreipunktkette
 prüft Reihenfolge/Stationen/Länge/Attribute; entfernte Reihenfolge muss scheitern.
-Vier Routingtests grün, vertauschte Reihenfolge scheitert; lint 187/333, 32 Claims grün.
 Offen: globales Routenbudget als Laufzeittest; Alternativpfade bei Kostenüberlauf.
 Kein produktiver Router-Aufruf im Client-Renderpfad.
 
@@ -111,10 +110,12 @@ Elevate übernimmt derzeit NaN/Inf und ruft auch leere HeightSource auf. Eingabe
 prüft optional + isfinite; ungültig zählt wie fehlend als Refused (vorige Weghöhe/0).
 Profile vor/nach Weave: 138 Checks zu ±Höhen, NaN/±Inf, fehlender/leerer Quelle.
 Ohne Endlichkeitsprüfung scheitern 20 Checks; Routenstationen bleiben geprüft.
-Offen: Knotenprofil bei erneut fehlenden Höhen und Revisionsinvalidierung des Netzes.
+Nächster Schritt: jede Knotenhöhe genau einmal je Elevate abfragen, auch fehlende.
+Ungenutztes Node.HeightM entfernen; Profile bleiben alleiniger Höhenspeicher.
+Gegenprobe: wechselnde Quelle am geteilten Knoten; nächster Aufruf darf neu abfragen.
+Revisionsinvalidierung und explizite Gültigkeit statt Ersatzhöhe bleiben offen.
 
 ## Geprüfte Layer-Grenze
 OsmField::Integer trennt fehlend, gültig und Fehler; vollständiger Dezimaltext oder
 endliche ganze int32-Zahl. StreetField zählt/verwirft ungültige Features, fehlend ist 0.
-Tile-Fortschritt und Featureaufbereitung getrennt. 125 Fixture-Checks grün; alter
-Textzugriff verletzt vier. Wien ohne Vegetation pixelgleich, beide PNGs geprüft.
+Tile-Fortschritt und Featureaufbereitung getrennt; Fixture-Checks und Gegenprobe geprüft.
