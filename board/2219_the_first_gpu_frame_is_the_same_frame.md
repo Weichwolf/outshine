@@ -69,6 +69,9 @@ Die erneute Nearest-Mip-Probe auf dem kompakten Pfad ergibt wieder genau 15 Kan�
 unabhängig; lineare Mip-Interpolation erzeugt die übrigen 233 Abweichungen.
 Auch Nearest für Minify und Magnify lässt dieselben 15 Kanäle. Der Rest liegt folglich
 nicht in bilinearer oder Mip-Filterung, sondern im ersten texturierten Draw-/Pipelinepfad.
+Ein temporärer GLSL-Pfad mit `textureLod(..., 0.0)` für alle sechs Materialmappen
+behält die texturierte Variante und Bindungen, ergibt aber 247 Kanäle. Implizite
+LOD-/Derivativwahl ist damit ebenfalls nicht ursächlich.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
