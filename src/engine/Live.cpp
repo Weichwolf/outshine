@@ -162,7 +162,6 @@ bool Live::Open(Render::SceneRenderer &renderer,
     error = Says::InvalidInitialGeometry;
     return false;
   }
-  out.reset();
   std::unique_ptr<Live> live(new Live(renderer, std::move(declaration), font));
   if (!live->Build(error)) { return false; }
   out = std::move(live);
