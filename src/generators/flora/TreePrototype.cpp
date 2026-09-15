@@ -20,34 +20,30 @@
 
 namespace outshine::Generators {
 
-namespace {
-
-const Vec3f kLeafBaseLinear = {{0.0684f, 0.1072f, 0.0273f}};
-
-}
-
 TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
-  TreeLook look;
   const TreeSpecies::Shading &sh = sp.ShadingParams();
   const TreeSpecies::Leaf &lf = sp.LeafParams();
+  Vec3f bark;
+  Vec3f leaf;
   for (int c = 0; c < 3; c++) {
-    look.BarkRgb[c] = ColourSpace::LinearFromSrgb(sh.BarkColor[c]);
-    look.LeafRgb[c] = kLeafBaseLinear[c] * sh.LeafTint[c];
+    bark[c] = ColourSpace::LinearFromSrgb(sh.BarkColor[c]);
+    leaf[c] = TreeLook::kLeafBaseLinear[c] * sh.LeafTint[c];
   }
-  look.BarkDark = sh.BarkDark;
-  look.BarkFreq = sh.BarkFreq;
-  look.BarkRidge = sh.BarkRidge;
-  look.BarkRoughness = sh.BarkRoughness;
-  look.LeafRoughness = sh.LeafRoughness;
-  look.LeafWidth = lf.Width;
-  look.LeafWidest = lf.Widest;
-  look.LeafTip = lf.Tip;
-  look.LeafBaseFill = lf.BaseFill;
-  look.LeafLobes = static_cast<float>(lf.Lobes);
-  look.LeafLobeDepth = lf.LobeDepth;
-  look.LeafSerration = lf.Serration;
-  look.NeedleWidth = lf.Kind == TreeSpecies::LeafKind::Needle ? lf.NeedleWidth : 0.0f;
-  return look;
+  return {.BarkRgb = bark,
+          .BarkDark = sh.BarkDark,
+          .BarkFreq = sh.BarkFreq,
+          .BarkRidge = sh.BarkRidge,
+          .LeafRgb = leaf,
+          .LeafWidth = lf.Width,
+          .LeafWidest = lf.Widest,
+          .LeafTip = lf.Tip,
+          .LeafBaseFill = lf.BaseFill,
+          .LeafLobes = static_cast<float>(lf.Lobes),
+          .LeafLobeDepth = lf.LobeDepth,
+          .LeafSerration = lf.Serration,
+          .NeedleWidth = lf.Kind == TreeSpecies::LeafKind::Needle ? lf.NeedleWidth : 0.0f,
+          .BarkRoughness = sh.BarkRoughness,
+          .LeafRoughness = sh.LeafRoughness};
 }
 
 void TreePrototype::MaterialRow(const TreeLook &look, std::span<float, kMaterialRowFloats> out) {

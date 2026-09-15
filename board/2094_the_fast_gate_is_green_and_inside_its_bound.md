@@ -59,7 +59,7 @@ keine Laufzeit durch unbegründete Zähler oder bloßes Wiederholen ausgeben.
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint: 31 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
+Aktuelles Lint: 19 Tidy-Befunde und Writer-Coverage rot; Dokumentation 24/24 Header,
 null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist nicht neu abgenommen. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
@@ -102,9 +102,7 @@ Wasser-Mesh-Fehler werden zurückgegeben; gezielte Injektion und Rollback offen 
 ## Place-Aufnahmephasen
 Draw vermischte Preload, Einschwingen, PNG-Ausgabe und Zeitmessung (Komplexität 40).
 Private PreloadShot/MeasureFrames trennen Ladezustand und Messserie vom Capture-Ablauf;
-120 Frames, Quantile und Fehlerweitergabe bleiben gleich. Heapgröße explizit in MiB.
 Quantil-Grenztest grün; Wien vorher/nachher geöffnet, 0/921600 Pixel verändert.
-PlaceCamera ohne Tidy-Befund; 32 insgesamt, 33 Repository-Regeln grün.
 Offen in 2195: PNG-Lese-/Schreibfehler und globale Client-Konfiguration härten.
 
 ## Client-Befehlsgrenze
@@ -113,10 +111,9 @@ Dispatch; Argumenttexte intern const, einschließlich RenderAsset. Drei Client-G
 Katalog nur für abhängige Befehle laden; ungültiger Katalog darf help/height/run/render
 nicht blockieren. Main ohne Komplexitätsbefund; insgesamt 31 Tidy, 33 Regeln grün.
 Exception-Grenze bleibt 2194; keine Catch-Hülle als Ersatz für die Runtime-Migration.
-
 ## Materialdefaults
-TreeLook dupliziert Species-Defaults; Standard-Rinde ist sRGB statt linear.
+TreeLook übernimmt Species-Defaults; Standard-Rinde wird von sRGB nach linear gewandelt.
 Defaults aus TreeSpecies ableiten, sRGB über gemeinsame Farbmathematik konvertieren;
 Blattbasis einmal als lineare Reflektanz definieren. LookOf bleibt datengetrieben.
-Unabhängiger Transferfunktions-Test prüft Default und explizite Species; bestehende
-native Material-/Species-Tests sichern Fehlergrenzen. Keine neuen Vegetationsfeatures.
+Transferfunktions-, native Material- und Species-Tests grün; sRGB-Gegenprobe scheitert.
+TreeLook/TreePrototype ohne Tidy-Befund; 19 insgesamt, 33 Repository-Regeln grün.
