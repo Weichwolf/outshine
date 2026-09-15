@@ -76,6 +76,9 @@ Ein weiterer GLSL-Versuch behielt Variantenschlüssel und alle Sampler, führte 
 sechs Abfragen jedoch ausschließlich in einem zur Laufzeit nicht erreichten
 Materialzweig aus. 244 Kanäle bleiben rot. Texelwerte und ihre tatsächliche Abfrage
 sind damit nicht die Ursache; der erste texturierte Pipeline-/Descriptorpfad bleibt.
+Auch wenn alle sechs Materialslots dieselbe Farbtextur und denselben Sampler binden,
+bleiben 246 Kanäle rot. Die Anzahl/Art der Bindungen, nicht deren individuelle
+Ressourcenidentität, ist der verbleibende untersuchbare Descriptorfaktor.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
