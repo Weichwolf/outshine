@@ -109,7 +109,6 @@ int main(void) {
     return Report();
   }
 
-  int capture = 0;
   const auto stood = [&](std::vector<uint8_t> &rgba) {
     outshine::Scenario::Document stands;
     stands.Ground.Declared = true;
@@ -140,15 +139,6 @@ int main(void) {
     const bool okay = engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
                       engine.advance() && engine.renderer().render(outshine::Extent{}) &&
                       engine.renderer().readPixels(rgba);
-    for (const auto &one : engine.measures()) {
-      std::printf("DIAG %s %.17g\n", one.What.c_str(), one.How);
-    }
-    const std::string file = "build/terrain-air-" + std::to_string(capture++) + ".rgba";
-    std::FILE *output = std::fopen(file.c_str(), "wb");
-    if (output != nullptr) {
-      std::fwrite(rgba.data(), 1, rgba.size(), output);
-      std::fclose(output);
-    }
     return okay;
   };
 

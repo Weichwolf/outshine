@@ -15,18 +15,10 @@ Main.cpp. Er protokolliert Status und Diagnose je Unit und trennt vollständig s
 vollständig mit Befunden sowie unvollständig/fehlgeschlagen. Null Befunde sind bei
 vollständigem Erfolg zulässig. Pfade werden vor dem Deduplizieren kanonisiert.
 
-Sechs Tests mit tatsächlichem clang-tidy und injizierten Prozessfehlern prüfen den
-Ausführungsvertrag. Fixtures übernehmen die echte Compile-Konfiguration aus der
-Datenbank. Scanner-Tests laufen weiter vor Quellmutation. Logs und Ausführungsmanifest
-liegen im System-Tempverzeichnis; keine Warnungsunterdrückung als Reparatur.
-
-Formatierung: make format und Lint benutzen dieselbe Git-basierte Dateiauswahl, mit
-sicherer Übergabe von Pfaden. Leere Abdeckung und Toolfehler sind rot; Dateiverdikte
-werden gezählt, nicht Quelltextzeilen in Diagnosen. Der alte Bericht „740 Dateien“
-war falsch: 20 von 546 Dateien hatten Formatdiagnosen. Keine Stilregeln gelockert.
-Vier Tests mit echtem clang-format prüfen Diagnostics/Fix/Idempotenz, leere Abdeckung,
-fehlendes Tool sowie eigene/ignorierte/gelöschte Dateien und Pfade mit Leerzeichen.
-Aktuell 553 Dateien geprüft, keine Formatabweichung.
+Sechs Tests mit echtem clang-tidy prüfen Prozessfehler und Abdeckung gegen die
+Compile-Datenbank. Scanner laufen vor Quellmutation; Logs liegen im System-Temp.
+Formatierung nutzt die Git-Dateiauswahl und sichere Pfade. Vier clang-format-Tests
+prüfen Fix/Idempotenz, Abdeckung, Toolausfall und Dateistatus einschließlich Leerzeichen.
 
 ## Referenzprüfung
 
@@ -104,10 +96,15 @@ nicht einfach das Limit hochsetzen. Wiederaufbau/Pruning kleiner Fixtures kostet
   unveränderte exakte Prüfung, Untersuchung in 2179.
 - Neun Place-Renders warten auf Vegetation; P0-Abnahmen wie vereinbart explizit
   ohne Vegetation konfigurieren, separate Vegetationstests erhalten. Keine Zeitlockerung.
-- Gelände-Audits ohne Vegetation: Footprint/Normals grün; Air Timeout, Sun
-  unvorbereitet. Lattice bestand im warmen Cache (5155 ms); zuvor bei 15 s
-  unvorbereitet trotz 0 pending/bare/rims. Keine Reparatur bewiesen: Cache-/
-  Streamingzustand isolieren; Timeout muss offene abgeleitete Produkte benennen.
+- Gelände-Audits ohne Vegetation: Footprint/Normals/Lattice im warmen Cache grün.
+  Air/Sun erreichen jetzt Bildprüfungen (8107/5412 ms), beide FAIL statt Timeout:
+  Air verletzt Wiederholbarkeit; Sun verletzt monotone Bildhelligkeit bei 5/30/75°.
+  Sun mischt Belichtungshistorie mit Lichtprüfung: 5° nach 75° fällt von 37,022 auf
+  1,140; 30° liegt mit 35,774 unter 5°. Ursache nicht allein daraus ableitbar.
+  Fixierte Belichtung, zeitlich definierte Aufnahme und unabhängige Lichtgeometrie
+  in 2218 spezifizieren. Bis dahin keine Grenzwerte oder Assertions lockern.
+  Air: ungefragten Komplettdump der Measures und build/*.rgba entfernt; fachliche
+  Bandmessungen, Fehler und sämtliche Assertions bleiben erhalten.
 - ClaimCorpus erkennt eigene PID als fremden Runner: Reentranz/Ownership korrigieren.
 - Automatischer Rebuild ruft prepare.py all auf, das bei Oracle-Manifesten Blender
   starten kann. Normalen Testpfad von Referenzerzeugung trennen (2218).
