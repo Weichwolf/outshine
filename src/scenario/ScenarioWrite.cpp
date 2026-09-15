@@ -311,6 +311,41 @@ void WriteTables(std::string &said, std::span<const Scenario::Table> tables) {
   said += "  </tables>\n";
 }
 
+void WriteRegions(std::string &said,
+                  std::span<const Scenario::Region> regions,
+                  std::span<const Scenario::Door> doors) {
+  if (regions.empty() && doors.empty()) { return; }
+  said += "  <regions>\n";
+  for (const auto &region : regions) {
+    said += "    <region";
+    Said(said, "id", region.Id);
+    Said(said, "kind", region.Kind);
+    Number(said, "x", region.OriginM[0]);
+    Number(said, "y", region.OriginM[1]);
+    Number(said, "z", region.OriginM[2]);
+    Number(said, "radiusM", region.RadiusM);
+    Yes(said, "streams", region.Streams);
+    said += ">\n";
+    for (const auto &resource : region.Uses) {
+      said += "      <uses";
+      Said(said, "what", resource, true);
+      said += "/>\n";
+    }
+    said += "    </region>\n";
+  }
+  for (const auto &door : doors) {
+    said += "    <door";
+    Said(said, "id", door.Id);
+    Said(said, "from", door.From, true);
+    Said(said, "to", door.To, true);
+    Number(said, "x", door.AtM[0]);
+    Number(said, "y", door.AtM[1]);
+    Number(said, "z", door.AtM[2]);
+    said += "/>\n";
+  }
+  said += "  </regions>\n";
+}
+
 void WriteEvents(std::string &said, std::span<const Scenario::Event> events) {
   if (events.empty()) { return; }
   said += "  <events>\n";
@@ -492,6 +527,7 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
     said += "  </views>\n";
   }
   WriteTables(said, declared.Tables);
+  WriteRegions(said, declared.Regions, declared.Doors);
   WriteEvents(said, declared.Events);
   WriteVolumes(said, declared.Volumes);
   WriteProviders(said, declared.Providers);

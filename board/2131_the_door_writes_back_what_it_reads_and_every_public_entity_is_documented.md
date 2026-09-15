@@ -111,7 +111,7 @@ CircleM-Radius/Durchmesser bleiben offen. Player- und UI/Capacity-Writer erhalte
 Werte mit geprüften Rundläufen und Negativkontrollen; Nachweise in Git.
 Player-Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
 
-Nächster Schritt: Region/Uses/Door werden gelesen, aber nicht exportiert.
-Metadaten einschließlich false-Streams, Reihenfolge und Double-Präzision erhalten;
-unabhängiges XML und Feldvergleich prüfen den Rundlauf. Negativkontrolle entfernt
-Streams. Keine Runtime-Streaming-/Portal-Fähigkeit daraus ableiten.
+Region/Uses/Door werden exportiert. 41 Rundlaufprüfungen erhalten endliche Double-
+Koordinaten, false-Streams, XML-Escapes, Ressourcenreihenfolge und gerichtete Türen;
+Streams-Negativkontrolle wird rot. Trigger-Regression grün; Writer-Inventar 47/76.
+Geometrie-/Referenzvalidierung und Runtime-Streaming-/Portal-Anbindung bleiben offen.
