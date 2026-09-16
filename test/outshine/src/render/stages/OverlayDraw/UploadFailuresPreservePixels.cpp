@@ -121,16 +121,17 @@ int main() {
       quad.U1 = quad.V1 = 1;
       constexpr std::array<uint8_t, 4> white{255, 255, 255, 255};
       constexpr std::array<uint8_t, 4> black{0, 0, 0, 255};
-      CHECK(renderer.SetOverlay(&quad, 1, error), "full-frame overlay uploaded");
+      CHECK(renderer.ReplaceOverlay(std::span<const OverlayQuad>(&quad, 1), nullptr, error),
+            "combined overlay replacement provisions its own default atlas");
       const auto read = [&] {
         std::vector<uint8_t> pixels;
         CHECK(scene->Draw(error), error.c_str());
         CHECK(scene->ReadPixels(pixels, error), error.c_str());
         return pixels;
       };
-      CHECK(renderer.SetOverlayAtlas(white.data(), 1, 1, error), "white atlas installed");
       const auto baseline = read();
-      CHECK(baseline.size() == 32 * 32 * 4 && baseline[0] == 255, "overlay produces white pixels");
+      CHECK(baseline.size() == 32 * 32 * 4 && baseline[0] == 255,
+            "the default atlas produces white overlay pixels");
       for (const auto failure : {Failure::Allocate,
                                  Failure::Transfer,
                                  Failure::Map,

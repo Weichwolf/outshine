@@ -30,7 +30,7 @@ Mesh-, Material-, Instanz- und Ground-Residenz bleiben bei ihren Zeichnern. Grou
 bleibt dauerhaft; alle Frame-Texturen, Sampler, Pyramide, temporalen Ziele und Stages wandern
 gemeinsam.
 
-``FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
+`FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
 Readback, temporale Ziele, GPU-Handles, Subject-/Glass-Bindungen und alle formatgebundenen
 Stage-Objekte; seine Beweglichkeit ist statisch gesichert. `Init` baut und konfiguriert den
 vollständigen Plan gegen einen lokalen Kandidaten. Erst nach Erfolg bewegen sich Frame und Plan;
@@ -40,6 +40,10 @@ ausgeführte Erzeugung von Textur, Sampler, Buffer und Grafikpipeline des Target
 Fehler erhält Extent und Pixel; der unmittelbare Retry veröffentlicht den Wechsel. Der Idle-Fehler
 nach vollständigem Kandidatenbau erhält dieselben Pixel (663 Checks). Fehlerhafte
 Stage-Konfigurationen ohne SDL-Ressourcenerzeugung bleiben offen.
+
+`ConfigureOverlay` erzeugt keinen Default-Atlas mehr im veröffentlichten `WorldContent`.
+`OverlayDraw::Replace` erstellt ihn nur als lokalen Kandidaten zusammen mit einer tatsächlichen
+Overlay-Aktualisierung; die Upload-Fehlersuite prüft Defaultbild, Fehlererhalt und Retry.
 
 Offen bleiben Fehler nach vollständiger SDL-Ressourcenerzeugung, aber vor der ersten GPU-Arbeit:
 jede `Configure`-Implementierung braucht eine gezielte Injektion. Die Prüfung erhält alte Pixel,

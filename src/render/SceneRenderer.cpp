@@ -797,9 +797,9 @@ bool SceneRenderer::ConfigureOverlay(SceneRenderer &renderer,
                                      bool drawsGlass,
                                      std::string &error) {
   (void)drawsGlass;
-  return renderer.ActiveState().Content.Overlay.EnsureAtlas(frame.Handles, error) &&
-         frame.OverlayPipe.Configure(
-             frame.Handles, frame.Samp.Get(), FormatOf(plan.Format(Resource::FrameTex)), error);
+  static_cast<void>(renderer);
+  return frame.OverlayPipe.Configure(
+      frame.Handles, frame.Samp.Get(), FormatOf(plan.Format(Resource::FrameTex)), error);
 }
 
 bool SceneRenderer::ConfigurePresent(SceneRenderer &renderer,

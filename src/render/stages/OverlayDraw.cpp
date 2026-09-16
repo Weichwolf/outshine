@@ -249,8 +249,11 @@ bool OverlayDraw::Replace(const Gpu &gpu,
       !candidate.SetAtlas(gpu, atlas->Rgba, atlas->Width, atlas->Height, error)) {
     return false;
   }
+  if (atlas == nullptr && count > 0 && !Atlas_ && !candidate.EnsureAtlas(gpu, error)) {
+    return false;
+  }
   if (!SetQuads(gpu, quads, count, error)) { return false; }
-  if (atlas != nullptr) { Atlas_ = std::move(candidate.Atlas_); }
+  if (candidate.Atlas_) { Atlas_ = std::move(candidate.Atlas_); }
   return true;
 }
 
