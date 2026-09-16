@@ -433,7 +433,8 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
 }
 
 void TilePool::Carry() {
-  const Heap::Tagged carrying("tile-carrier");
+  static const Heap::Tag kCarryingTag("tile-carrier");
+  const Heap::Tagged carrying(kCarryingTag);
   StackProbe::Enter(StackProbe::Purpose::Tile);
   tCarries = true;
   for (;;) {
@@ -561,7 +562,8 @@ void TilePool::PublishResult(const Job &job, Result result) {
 }
 
 void TilePool::Work(int slot) {
-  const Heap::Tagged working("tile-worker");
+  static const Heap::Tag kWorkingTag("tile-worker");
+  const Heap::Tagged working(kWorkingTag);
   StackProbe::Enter(StackProbe::Purpose::Tile);
   const EnuFrame frame =
       EnuFrame::At(Geo{.LongitudeDeg = OriginLonDeg_, .LatitudeDeg = OriginLatDeg_});

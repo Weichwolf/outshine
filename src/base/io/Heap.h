@@ -17,8 +17,18 @@ public:
 
   static size_t LiveBytes();
 
+  class Tag {
+  public:
+    explicit Tag(const char *name) noexcept;
+    [[nodiscard]] size_t Index() const noexcept;
+
+  private:
+    size_t Index_;
+  };
+
   class Tagged {
   public:
+    explicit Tagged(const Tag &tag) noexcept;
     explicit Tagged(const char *tag) noexcept;
     ~Tagged() noexcept;
     Tagged(const Tagged &) = delete;

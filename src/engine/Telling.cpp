@@ -78,7 +78,8 @@ bool Engine::State::Stood() {
 }
 
 void Engine::State::Tells() {
-  const Heap::Tagged telling("frame-tells");
+  static const Heap::Tag kTellingTag("frame-tells");
+  const Heap::Tagged telling(kTellingTag);
   if (Heap::ProcessInstrumentationEnabled()) {
     Published.Places(
         "process C++ heap live bytes", static_cast<double>(Heap::LiveBytes()), "bytes");

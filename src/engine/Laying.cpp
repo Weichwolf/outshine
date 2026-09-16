@@ -818,7 +818,8 @@ void Engine::State::ReportGroundPlacements() {
 }
 
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
-  const Heap::Tagged laying("world-ground");
+  static const Heap::Tag kLayingTag("world-ground");
+  const Heap::Tagged laying(kLayingTag);
   auto phaseAt = std::chrono::steady_clock::now();
   auto censusAt = phaseAt;
   auto wiresAt = phaseAt;
@@ -837,7 +838,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   std::optional<Patchwork> patchwork;
   {
-    const Heap::Tagged patching("ground-patchwork");
+    static const Heap::Tag kPatchingTag("ground-patchwork");
+    const Heap::Tagged patching(kPatchingTag);
     auto made = World.Shipping.Covering().Lay(World.Stack.Pool(), over);
     if (!made) {
       Error = made.error();
@@ -854,7 +856,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (!RefineGroundSheets(standing, *laid, over)) { return false; }
   Classed classed;
   {
-    const Heap::Tagged classing("ground-classify");
+    static const Heap::Tag kClassingTag("ground-classify");
+    const Heap::Tagged classing(kClassingTag);
     classed = Classify(World.Sheets.SoupOf(*laid, over.Zoom).PositionM);
   }
   const std::vector<float> &classPalette = classed.Palette;
@@ -875,7 +878,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
   {
-    const Heap::Tagged modelling("ground-model");
+    static const Heap::Tag kModellingTag("ground-model");
+    const Heap::Tagged modelling(kModellingTag);
     if (!Models(standing, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, ground, clocks)) {
       return false;
     }

@@ -326,7 +326,8 @@ bool Engine::State::Updates() {
       const auto streamingFrom = std::chrono::steady_clock::now();
       const size_t heldBefore = World.Stack.Footprints().IngestedTiles();
       {
-        const Heap::Tagged restanding("world-restand");
+        static const Heap::Tag kRestandingTag("world-restand");
+        const Heap::Tagged restanding(kRestandingTag);
         HandsPiecesOver();
         const auto streamed = World.Stack.Restand(stands);
         if (!streamed) {
@@ -335,7 +336,8 @@ bool Engine::State::Updates() {
         }
         if (!Bakes(kBakesLandedPerFrame)) { return false; }
         {
-          const Heap::Tagged growing("world-grow");
+          static const Heap::Tag kGrowingTag("world-grow");
+          const Heap::Tagged growing(kGrowingTag);
           (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);
         }
       }
@@ -397,8 +399,10 @@ Result Engine::advance() {
 }
 
 void Engine::State::Drew() {
-  const Heap::Tagged drew("frame-drew");
-  const Heap::Tagged telling("frame-measures");
+  static const Heap::Tag kDrewTag("frame-drew");
+  const Heap::Tagged drew(kDrewTag);
+  static const Heap::Tag kTellingTag("frame-measures");
+  const Heap::Tagged telling(kTellingTag);
   Published.Places(
       "bodies the world's generators placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(

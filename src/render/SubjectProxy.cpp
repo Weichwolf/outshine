@@ -448,13 +448,15 @@ bool Place(SceneRenderer &renderer,
   if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
 
   {
-    const Heap::Tagged inside("draw-list");
+    static const Heap::Tag kInsideTag("draw-list");
+    const Heap::Tagged inside(kInsideTag);
     if (!BuildDrawList(proxy, view, subject, scratch.Draws, error)) { return false; }
   }
 
   scratch.Metrics = {};
   const auto packingFrom = std::chrono::steady_clock::now();
-  const Heap::Tagged packing("index-run");
+  static const Heap::Tag kPackingTag("index-run");
+  const Heap::Tagged packing(kPackingTag);
   scratch.Indices.clear();
   scratch.Indices.reserve(scratch.Draws.IndexCount());
   for (const IndexRun &run : scratch.Draws.Runs()) {
@@ -507,7 +509,8 @@ bool Place(SceneRenderer &renderer,
   mesh.Draws = &scratch.Draws;
   mesh.Clusters = subject.Clusters;
   mesh.ClusterSpheres = subject.ClusterSpheres;
-  const Heap::Tagged handing("subject-mesh");
+  static const Heap::Tag kHandingTag("subject-mesh");
+  const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
   const bool uploaded = renderer.SetSubjectMesh(mesh, error);
   scratch.Metrics.UploadMs =
@@ -594,7 +597,8 @@ bool Move(SceneRenderer &renderer,
   }
   pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
-  const Heap::Tagged handing("subject-pose");
+  static const Heap::Tag kHandingTag("subject-pose");
+  const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
   const bool uploaded = renderer.SetSubjectPose(pose, error);
   scratch.Metrics.UploadMs =

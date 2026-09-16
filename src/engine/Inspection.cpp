@@ -125,7 +125,8 @@ void InspectPresentedColour(Seen &picture, Core::Ledger &published) {
 
 void Engine::State::Inspected() {
   if (!Picture.Standing) { return; }
-  const Heap::Tagged asking("frame-measures");
+  static const Heap::Tag kAskingTag("frame-measures");
+  const Heap::Tagged asking(kAskingTag);
   InspectShadow(Picture, Published);
   InspectCulling(Picture, Published);
   InspectIrradiance(Picture, Published);

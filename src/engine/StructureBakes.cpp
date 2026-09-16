@@ -166,7 +166,8 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
     MeshScratch *const scratch = job.Scratch.get();
     Output *const out = job.Out.get();
     job.Handle = Pool_->Post([raw, under, mesher, scratch, out] {
-      const Heap::Tagged baking("structure-bake");
+      static const Heap::Tag kBakingTag("structure-bake");
+      const Heap::Tagged baking(kBakingTag);
       out->Status = Generators::BakeStructures(*raw, *under, *mesher, *scratch, out->Tile);
     });
     Queue_.push_back(std::move(job));

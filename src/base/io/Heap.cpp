@@ -159,6 +159,16 @@ size_t Heap::LiveBytes() {
   return gLiveBytes.load(std::memory_order_relaxed);
 }
 
+Heap::Tag::Tag(const char *name) noexcept : Index_(TagIndex(name)) {}
+
+size_t Heap::Tag::Index() const noexcept {
+  return Index_;
+}
+
+Heap::Tagged::Tagged(const Tag &tag) noexcept : Held_(gTagIndex) {
+  gTagIndex = tag.Index();
+}
+
 Heap::Tagged::Tagged(const char *tag) noexcept : Held_(gTagIndex) {
   gTagIndex = TagIndex(tag);
 }

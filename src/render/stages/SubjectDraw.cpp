@@ -782,7 +782,8 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   if (Borrows()) { return HandTables(error); }
 
   {
-    const Heap::Tagged uploading("mesh-upload");
+    static const Heap::Tag kUploadingTag("mesh-upload");
+    const Heap::Tagged uploading(kUploadingTag);
     Bound().GiveVertices(Bound().SubjectVertices());
     Bound().GiveIndices(Bound().SubjectIndices());
     const SubjectResidency::Range v = Bound().TakeVertices(mesh.VertexCount);
@@ -822,7 +823,8 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 }
 
 bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
-  const Heap::Tagged uploading("mesh-upload");
+  static const Heap::Tag kUploadingTag("mesh-upload");
+  const Heap::Tagged uploading(kUploadingTag);
   const SubjectResidency::Range vertices{.First = Bound().SubjectVertices().First,
                                          .Count = Bound().Shape().Vertices};
   const SubjectStream &previousPose = pose.PrevVerts.Stands() ? pose.PrevVerts : pose.Verts;
@@ -924,7 +926,8 @@ bool SubjectDraw::ValidatePiece(const PieceMesh &piece, std::string &error) cons
 
 PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   if (!ValidatePiece(piece, error)) { return kNoPiece; }
-  const Heap::Tagged uploading("mesh-upload");
+  static const Heap::Tag kUploadingTag("mesh-upload");
+  const Heap::Tagged uploading(kUploadingTag);
   const auto verts = static_cast<uint32_t>(piece.Verts.size());
   const auto indices = static_cast<uint32_t>(piece.Indices.size());
   SubjectResidency &res = Bound();
@@ -1091,7 +1094,8 @@ bool SubjectDraw::HandTables(std::string &error) {
 }
 
 bool SubjectDraw::Retable(std::string &error) {
-  const Heap::Tagged uploading("mesh-cull");
+  static const Heap::Tag kUploadingTag("mesh-cull");
+  const Heap::Tagged uploading(kUploadingTag);
   Batches.clear();
   BatchLayout.clear();
   Args_.clear();

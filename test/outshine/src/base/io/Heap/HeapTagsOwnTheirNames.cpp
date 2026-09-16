@@ -16,6 +16,13 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   const size_t baseline = Heap::LiveBytes();
+  static const Heap::Tag frameTag("prepared-frame");
+  const size_t frameBefore = Heap::TakenUnder("prepared-frame");
+  {
+    Heap::Tagged scope(frameTag);
+    Allocate();
+  }
+  CHECK(Heap::TakenUnder("prepared-frame") > frameBefore, "prepared tag attributes its allocation");
   char name[] = "temporary-tag";
   {
     Heap::Tagged scope(name);

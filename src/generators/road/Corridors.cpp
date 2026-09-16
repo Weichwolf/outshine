@@ -399,7 +399,8 @@ void Corridors::PaveEdge(const Paving &on,
     return std::chrono::duration<double, std::milli>(tookFrom - was).count();
   };
   {
-    const Heap::Tagged fitting("road-fit");
+    static const Heap::Tag kFittingTag("road-fit");
+    const Heap::Tagged fitting(kFittingTag);
     FitLane(edge, into);
   }
   into.FitMs += since();
@@ -1457,7 +1458,8 @@ bool Corridors::Lay(const Site &site,
   Notes(into, "streets: of that, raising the decks", since(), "ms");
   if (paving) {
     const Paving &on = *paving;
-    const Heap::Tagged pavingHeap("road-pave");
+    static const Heap::Tag kPavingHeapTag("road-pave");
+    const Heap::Tagged pavingHeap(kPavingHeapTag);
     for (const Pass pass : {Pass::Designing, Pass::Paving}) {
       const std::string_view doing = Doing(pass);
       for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {

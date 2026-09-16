@@ -221,7 +221,8 @@ bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail
 }
 
 bool Engine::State::Composes() {
-  const Heap::Tagged composing("world-compose");
+  static const Heap::Tag kComposingTag("world-compose");
+  const Heap::Tagged composing(kComposingTag);
   World.GroundTiles = 0;
   if (!Stood()) { return false; }
   const Scenario::Document &declared = Session.Declared;

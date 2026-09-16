@@ -63,7 +63,8 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
   if (Moves_) {
     const bool first = Assembled_.VertexCount() == 0;
     if (!first && records) {
-      const Heap::Tagged copying("pose-previous");
+      static const Heap::Tag kCopyingTag("pose-previous");
+      const Heap::Tagged copying(kCopyingTag);
       PreviousPositionsM_ = Assembled_.PositionsM();
     }
     Motion_.At(seconds, Locals_, Weights_);
@@ -76,7 +77,8 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
       }
       LocalsDigest_ = static_cast<double>(keyed % kDigestModulus);
     }
-    const Heap::Tagged building("pose-build");
+    static const Heap::Tag kBuildingTag("pose-build");
+    const Heap::Tagged building(kBuildingTag);
     if (Assembled_.Build(File_,
                          std::span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
                          std::span<const double>(Weights_.data(), Weights_.size()),

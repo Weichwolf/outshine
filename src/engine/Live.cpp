@@ -1493,7 +1493,8 @@ size_t Live::AssetReads_ = 0;
 size_t Live::PlanInits_ = 0;
 
 bool Live::Advance(std::string &error) {
-  const Heap::Tagged advancing("live-advance");
+  static const Heap::Tag kAdvancingTag("live-advance");
+  const Heap::Tagged advancing(kAdvancingTag);
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
   if (Held_.Moves() && Held_.DurationS() > 0.0) {
@@ -1501,13 +1502,15 @@ bool Live::Advance(std::string &error) {
                    Declared_.Animation == Scenario::AssetAnimation::Loop);
     const size_t beforePose = Heap::TakenUnder("live-pose");
     {
-      const Heap::Tagged posing("live-pose");
+      static const Heap::Tag kPosingTag("live-pose");
+      const Heap::Tagged posing(kPosingTag);
       if (!Pose(Held_.AtS(), error)) { return false; }
     }
     TookPosing_ = took("live-pose", beforePose);
     const size_t beforeSubmit = Heap::TakenUnder("live-submit");
     {
-      const Heap::Tagged submitting("live-submit");
+      static const Heap::Tag kSubmittingTag("live-submit");
+      const Heap::Tagged submitting(kSubmittingTag);
       if (!Submit(error)) { return false; }
     }
     TookSubmitting_ = took("live-submit", beforeSubmit);
@@ -1518,7 +1521,8 @@ bool Live::Advance(std::string &error) {
   if (orbits || Aim_ != AimState::Bound) {
     const size_t beforeAim = Heap::TakenUnder("live-aim");
     {
-      const Heap::Tagged aiming("live-aim");
+      static const Heap::Tag kAimingTag("live-aim");
+      const Heap::Tagged aiming(kAimingTag);
       if (!Look(error)) { return false; }
     }
     Aim_ = AimState::Bound;
@@ -1538,7 +1542,8 @@ bool Live::Draw(std::string &error) {
   }
   const size_t beforeDraw = Heap::TakenUnder("render-frame");
   {
-    const Heap::Tagged drawing("render-frame");
+    static const Heap::Tag kDrawingTag("render-frame");
+    const Heap::Tagged drawing(kDrawingTag);
     auto rendered = Renderer_->RenderFrame();
     if (!rendered) {
       error = std::move(rendered.error());

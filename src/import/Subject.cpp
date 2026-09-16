@@ -1045,7 +1045,8 @@ bool Subject::Flatten(const Document &document,
   const std::vector<PlacedLight> lit = Lights_;
   const Undrawn missed = Undrawn_;
   {
-    const Heap::Tagged assembling("pose-assemble");
+    static const Heap::Tag kAssemblingTag("pose-assemble");
+    const Heap::Tagged assembling(kAssemblingTag);
     if (!Assemble(made)) { return false; }
   }
   Lights_ = lit;
