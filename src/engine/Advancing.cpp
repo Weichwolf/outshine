@@ -254,6 +254,8 @@ bool Engine::State::Bakes(size_t landsMost) {
       "buildings: tiles in the bake right now", static_cast<double>(World.Bakes.Queued()), "tiles");
   Published.Places(
       "buildings: tiles deferred for ground", static_cast<double>(World.Bakes.Deferred()), "asks");
+  Published.Places(
+      "buildings: stale tiles discarded", static_cast<double>(World.Bakes.Discarded()), "tiles");
   return true;
 }
 

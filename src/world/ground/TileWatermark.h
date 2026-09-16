@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_TILEWATERMARK_H
 
 #include <algorithm>
+#include <cassert>
 #include <span>
 #include <cstdint>
 #include <vector>
@@ -82,6 +83,13 @@ public:
   void Take(uint32_t tile) {
     Takes_++;
     Ahead_.insert(std::ranges::lower_bound(Ahead_, tile), tile);
+  }
+
+  void Release(uint32_t tile) {
+    const auto at = std::ranges::lower_bound(Ahead_, tile);
+    assert(at != Ahead_.end() && *at == tile && Takes_ > 0);
+    Ahead_.erase(at);
+    --Takes_;
   }
 
   void Advance(std::span<const OsmField::Feature> feats) {

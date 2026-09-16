@@ -6,6 +6,7 @@
 #include "OsmField.h"
 
 #include <cstdint>
+#include <cassert>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -91,6 +92,11 @@ public:
   void Take(uint32_t tile) {
     Mark_.Take(tile);
     ++Taken_;
+  }
+
+  void Release(uint32_t tile) {
+    Mark_.Release(tile);
+    --Taken_;
   }
 
   [[nodiscard]] PendingAcceptance PrepareAcceptance(uint32_t tile, const Baked &baked);

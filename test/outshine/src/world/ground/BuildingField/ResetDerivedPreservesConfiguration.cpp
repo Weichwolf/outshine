@@ -18,6 +18,10 @@ int main() {
   for (int cycle = 0; cycle < 3; ++cycle) {
     const auto before = field.Revision();
     field.Take(0);
+    field.Release(0);
+    CHECK(field.IngestedTiles() == 0 && field.Footprints().empty() && field.Revision() == before,
+          "abandoned bake restores the pending tile without publishing data");
+    field.Take(0);
     const BuildingField::Baked baked{.Prints = prints,
                                      .SeatSpreadM = spread,
                                      .AcrossM = across,

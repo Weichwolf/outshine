@@ -154,8 +154,16 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
     };
     const std::optional<Ground::TileWatermark::Next> next = prints.Next(vectors, groundStands);
     if (!next || !heights) { break; }
+    const uint64_t vectorGeneration = vectors.Generation();
+    const uint64_t footprintRevision = prints.Revision();
+    const double focalPx = prints.FocalPx();
+    const double tileSpanM = prints.TileSpanM();
     prints.Take(next->Tile);
     Job job{.Tile = next->Tile,
+            .VectorGeneration = vectorGeneration,
+            .FootprintRevision = footprintRevision,
+            .FocalPx = focalPx,
+            .TileSpanM = tileSpanM,
             .Raw = Borrowed(IdleRaw_),
             .Heights = std::move(heights),
             .Out = Borrowed(IdleOut_),
@@ -188,6 +196,20 @@ StructureBakes::NextLanding(Ground::GroundStack &stack) {
   IdleRaw_.reserve(IdleRaw_.size() + 1u);
   IdleOut_.reserve(IdleOut_.size() + 1u);
   IdleScratch_.reserve(IdleScratch_.size() + 1u);
+  const Ground::BuildingField &prints = stack.Footprints();
+  const Ground::OsmField *vectors = stack.Vectors();
+  if (vectors == nullptr || job.VectorGeneration != vectors->Generation() ||
+      job.FootprintRevision != prints.Revision() || job.FocalPx != prints.FocalPx() ||
+      job.TileSpanM != prints.TileSpanM()) {
+    stack.Footprints().Release(job.Tile);
+    Job &stale = Queue_.front();
+    IdleRaw_.push_back(std::move(stale.Raw));
+    IdleOut_.push_back(std::move(stale.Out));
+    IdleScratch_.push_back(std::move(stale.Scratch));
+    Queue_.pop_front();
+    ++Discarded_;
+    return std::optional<Landing>{};
+  }
   const Generators::BakedTile &baked = job.Out->Tile;
   const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
   return Landing{.Tile = job.Tile,

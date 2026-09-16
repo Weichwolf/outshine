@@ -51,6 +51,8 @@ public:
 
   [[nodiscard]] size_t Deferred() const { return Deferred_; }
 
+  [[nodiscard]] size_t Discarded() const { return Discarded_; }
+
 private:
   struct Output {
     Generators::BakedTile Tile;
@@ -59,6 +61,10 @@ private:
 
   struct Job {
     uint32_t Tile = 0;
+    uint64_t VectorGeneration = 0;
+    uint64_t FootprintRevision = 0;
+    double FocalPx = 0.0;
+    double TileSpanM = 0.0;
     std::unique_ptr<Generators::RawTile> Raw;
     std::shared_ptr<const Ground::HeightField> Heights;
     std::unique_ptr<Output> Out;
@@ -85,6 +91,7 @@ private:
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;
+  size_t Discarded_ = 0;
 };
 
 }
