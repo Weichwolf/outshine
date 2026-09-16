@@ -78,3 +78,13 @@ after replacement still needs independent coverage. Engine tests now include the
 required by their aggregate state.
 The final ground `SetGeometry` and earlier CPU/network/height publication remain a separate
 transaction gap; fixing pointer rebinding does not establish whole-ground atomicity.
+
+## Published ground revision
+
+`Focuses` marks revisions and `EverLaid` before any terrain build succeeds. A later failure
+can therefore suppress retry as unchanged and report ingestion/classification ready against
+unpublished products. Replace the separate revision fields/flag with an optional published
+`GroundRevision`; carry the requested revision alongside `Around`, and publish it only after
+successful geometry installation. Reset invalidates the publication. Test first build, failed
+attempt/retry, residency-only requests, changed data/projection, missing rims and reset. This
+repairs scheduling/readiness; earlier GPU/CPU product mutation remains the transaction work above.
