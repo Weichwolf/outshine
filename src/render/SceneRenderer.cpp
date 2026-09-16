@@ -276,11 +276,9 @@ std::expected<OwnedTexture, std::string> SceneRenderer::MakeOffscreen(const Comp
   return texture;
 }
 
-std::expected<void, std::string> SceneRenderer::StandsOffscreen(FrameResources &frame,
-                                                                const Compiled *plan) {
-  if (Showing_ != nullptr || frame.Offscreen || frame.Width <= 0 || frame.Height <= 0) {
-    return {};
-  }
+std::expected<void, std::string>
+SceneRenderer::StandsOffscreen(FrameResources &frame, const Compiled *plan, bool presents) {
+  if (presents || frame.Offscreen || frame.Width <= 0 || frame.Height <= 0) { return {}; }
   auto texture = MakeOffscreen(plan, {.WidthPx = frame.Width, .HeightPx = frame.Height});
   if (!texture) { return std::unexpected(texture.error()); }
   frame.Offscreen = std::move(*texture);
@@ -290,6 +288,11 @@ std::expected<void, std::string> SceneRenderer::StandsOffscreen(FrameResources &
 
 std::expected<void, std::string> SceneRenderer::Init(Extent frame,
                                                      std::shared_ptr<const Compiled> plan) {
+  return InitForTarget(frame, std::move(plan), Showing_ != nullptr);
+}
+
+std::expected<void, std::string>
+SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents) {
   WhyNot_.clear();
   if (Device_ && !Settle(WhyNot_)) { return std::unexpected(WhyNot_); }
 
@@ -327,7 +330,7 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
         std::string("could not create render resource '") + Row(id).Name + "': " + SDL_GetError();
     return std::unexpected(WhyNot_);
   }
-  if (const auto stood = StandsOffscreen(candidate, plan.get()); !stood) {
+  if (const auto stood = StandsOffscreen(candidate, plan.get(), presents); !stood) {
     return std::unexpected(stood.error());
   }
 
@@ -1661,16 +1664,28 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   if (widthPx <= 0 || heightPx <= 0) { return std::unexpected(Says::kInvalidTargetExtent); }
   if (!Stands()) { return std::unexpected(WhyNot_); }
 
-  OwnedTexture texture;
+  const bool changedWindow = presents != nullptr && Showing_ != presents;
   auto mode = Presenting_;
-  if (presents != nullptr && Showing_ != presents) {
+  if (changedWindow) {
     const auto claimed = ClaimWindow(presents);
     if (!claimed) { return std::unexpected(claimed.error()); }
     mode = *claimed;
+  }
+
+  if (Plan_ != nullptr) {
+    const auto rebuilt =
+        InitForTarget({.WidthPx = widthPx, .HeightPx = heightPx}, Plan_, presents != nullptr);
+    if (!rebuilt) {
+      if (changedWindow) { SDL_ReleaseWindowFromGPUDevice(Device_.Get(), presents); }
+      return std::unexpected(rebuilt.error());
+    }
   } else if (presents == nullptr) {
-    auto made = MakeOffscreen(Plan_.get(), {.WidthPx = widthPx, .HeightPx = heightPx});
+    auto made = MakeOffscreen(nullptr, {.WidthPx = widthPx, .HeightPx = heightPx});
     if (!made) { return std::unexpected(made.error()); }
-    texture = std::move(*made);
+    Frame_.Offscreen = std::move(*made);
+    Frame_.HostSurface = Frame_.Offscreen.Get();
+    Frame_.Width = widthPx;
+    Frame_.Height = heightPx;
   }
 
   if (Showing_ != nullptr && Showing_ != presents) {
@@ -1678,10 +1693,6 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   }
   Showing_ = presents;
   Presenting_ = mode;
-  Frame_.Offscreen = std::move(texture);
-  Frame_.HostSurface = Frame_.Offscreen.Get();
-  Frame_.Width = widthPx;
-  Frame_.Height = heightPx;
   Frame_.Shown = {};
   Submitted_ = false;
   WhyNot_.clear();

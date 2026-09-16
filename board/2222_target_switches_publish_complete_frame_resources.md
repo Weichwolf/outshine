@@ -54,8 +54,8 @@ Ressourcenproblem nicht.
 
 - [x] Offscreen 32x32 → 48x32 liefert nach dem Wechsel 48x32 Oberflächenpixel
       (56 Checks). Dies beweist noch keine dimensionierten internen Attachments.
-- [ ] Offscreen 32x32 → 48x32 baut sämtliche Attachments, Readbacks und Stages
-      kandidatenseitig neu und rendert sie nach Veröffentlichung vollständig.
+- [x] Offscreen 32x32 → 48x32 baut sämtliche Attachments, Readbacks und Stages
+      kandidatenseitig neu und rendert sie nach Veröffentlichung vollständig (56 Checks).
 - [ ] Fensterformat- und Extentwechsel ersetzen dieselben Ressourcen gemeinsam.
 - [ ] Injektionen für Claim, jede Attachment-/Pyramid-/Pipeline-Erzeugung und
       Stage-Konfiguration erhalten alte Pixel, Claim und Renderbarkeit.

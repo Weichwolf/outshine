@@ -575,8 +575,10 @@ private:
   static_assert(std::is_nothrow_move_assignable_v<FrameResources>);
 
   bool Stands();
-  [[nodiscard]] std::expected<void, std::string> StandsOffscreen(FrameResources &frame,
-                                                                 const Compiled *plan);
+  [[nodiscard]] std::expected<void, std::string>
+  InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents);
+  [[nodiscard]] std::expected<void, std::string>
+  StandsOffscreen(FrameResources &frame, const Compiled *plan, bool presents);
   [[nodiscard]] std::expected<OwnedTexture, std::string> MakeOffscreen(const Compiled *plan,
                                                                        Extent frame);
   [[nodiscard]] std::expected<SDL_GPUPresentMode, std::string> ClaimWindow(SDL_Window *window);
