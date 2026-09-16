@@ -24,6 +24,7 @@
 #include <map>
 #include <limits>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -42,6 +43,8 @@ constexpr auto NativeCapacityFailed = "native assembly index or attribute capaci
 }
 
 constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ull;
+
+static_assert(std::is_nothrow_move_assignable_v<Subject>);
 
 namespace {
 
@@ -1372,6 +1375,16 @@ std::expected<size_t, std::string> Subject::ValidateAssembly(const outshine::Geo
 }
 
 bool Subject::Assemble(const outshine::Geometry &what) {
+  Subject candidate;
+  if (!candidate.AssembleUnchecked(what)) {
+    Error_ = std::move(candidate.Error_);
+    return false;
+  }
+  PublishAssembly(std::move(candidate));
+  return true;
+}
+
+bool Subject::AssembleUnchecked(const outshine::Geometry &what) {
   Error_.clear();
   const auto validated = ValidateAssembly(what);
   if (!validated) {
@@ -1438,12 +1451,17 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   return true;
 }
 
+void Subject::PublishAssembly(Subject &&candidate) noexcept {
+  *this = std::move(candidate);
+}
+
 bool Subject::Append(const Subject &other) {
   if (other.Parts_.empty()) {
-    return Refuse(
-        "a subject with no part appends nothing, and an empty append is a caller's mistake "
-        "rather than a shape this can carry");
+    Error_ = "a subject with no part appends nothing, and an empty append is a caller's mistake "
+             "rather than a shape this can carry";
+    return false;
   }
+  Error_.clear();
   const size_t vertexBase = VertexCount();
   const size_t indexBase = Indices_.size();
   const size_t vertexTotal = vertexBase + other.VertexCount();

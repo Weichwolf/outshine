@@ -44,5 +44,8 @@ int main() {
         "corrected retry succeeds");
   CHECK(subject.VertexCount() == 6 && subject.TriangleCount() == 2 && subject.Parts().size() == 2,
         "valid assembly publishes every part");
+  CHECK(
+      subject.PositionsM().data() != storage,
+      "successful assembly publishes a prepared candidate instead of rebuilding the active owner");
   return Report();
 }

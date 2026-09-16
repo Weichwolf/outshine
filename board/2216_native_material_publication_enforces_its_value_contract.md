@@ -34,30 +34,24 @@ bleiben beim Aufbau erlaubt; vollständige Publikation verlangt aufgelöste Bind
 Import-/Generator-/Geländeaufrufer reichen Anlegefehler weiter. Models und Corridors::Lay
 melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer übergeben.
 
-## Nächster ausführbarer Schritt: Import-Transaktion
+## Import-Transaktion
 
-`src/import/Subject.cpp` und seine Assemble-/Append-Implementierungen bleiben
-Importadapter. Native `Geometry` und MaterialValidation besitzen die gemeinsamen
-Werte-/Bindungsregeln; keine zweiten Khronos-Regeln in der Runtime implementieren.
-Zuerst die späten Fehlerpfade von Normalen-/Tangentenaufbau und Append verfolgen.
-Vorflight allein garantiert keine Transaktion: alle potenziell fehlschlagenden Schritte
-müssen vor Mutation veröffentlichter Geometrie/Ansichten abgeschlossen sein.
-Bestehenden Importkandidaten verwenden; kein Snapshot-Rollback und keine weitere
-vollständige Geometriekopie nur zur Fehlerkaschierung. Borrowed Views bleiben bei
-Ablehnung gültig, bei Erfolg gilt der dokumentierte Invalidierungsvertrag.
+`Subject::Assemble` baut jetzt vollständig in einem lokalen Subject und übernimmt ihn
+nur durch nachweislich nichtwerfenden Move. Vorflight und spätere Normalen-/Tangentenarbeit
+können damit keinen publizierten Owner mutieren; der Fehlertext bleibt beim alten Owner erhalten.
+Keine Geometriekopie und kein Rollback. Der Erhaltungsoracle deckt Fehler vor Publish,
+Retry sowie die andere Speicheradresse des erfolgreichen Kandidaten ab; Altcode baut
+im aktiven Speicher und scheitert daran. Die heute explizit erreichbaren Tangenten-Eingabefehler
+deckt `ValidatePart` vor dem Kandidaten ab; die Transaktion schützt künftige spätere Fehlerpfade
+ohne eine künstliche Fehlerbedingung zu behaupten.
 
-Abnahme unter `test/outshine/src/import/Subject/`: gültiges Asset A, Fehler erst im
-zweiten Part oder in abgeleiteten Normalen/Tangenten, Geometrie/Material-/Kamerawerte
-von A unverändert, anschließend gültiger Retry. Test muss gegen alten fehlerhaften
-Pfad scheitern. Kann ein vermuteter Fehler nicht entstehen, belegte Vorbedingungen
-festhalten statt einen künstlichen Defekt zu behaupten. Kapazitätsrechnung vor
-Verengung mit vorhandenen nativen Hilfen; reale OOM bleibt fatal gemäß WI 2194.
-`make format`, diese Importtests und `make lint`; bei veränderter gültiger Geometrie
-zusätzlich glTF-Clientrender mit gepinntem Bildvergleich, keine neuen Referenzpins.
+Ein leerer `Append` setzte zuvor `Refuse` ein und löschte den veröffentlichten Subject.
+Er schreibt nur seine lokale Diagnose; Daten und geliehene Views bleiben gültig, ein
+gültiger Append retryt. `RejectedAppendPreservesPublishedSubject` ist die Negativkontrolle.
 
-Ground-Gesamtpublikation gehört WI 2224; Material-/Shaderausbau und Assetmigration
-bleiben getrennt. Anschließend fehlende intrinsische Werte-/Bindungskombinationen
-gegen `include/scene/Material.h` ergänzen, nicht vorhandene Tests duplizieren.
+`Geometry`/MaterialValidation bleiben die alleinigen Werteverträge. Als Nächstes
+intrinsische Werte-/Bindungskombinationen gegen `include/scene/Material.h` ergänzen;
+Ground-Gesamtpublikation bleibt WI 2224. Reale OOM bleibt fatal gemäß WI 2194.
 
 ## Native-Konstruktionsfehler
 `addImage` liefert expected mit Maß-/Bytezahl-/Kapazitätsfehler; Erhaltung und Retry sind geprüft.

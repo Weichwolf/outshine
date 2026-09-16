@@ -91,6 +91,8 @@ public:
   [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed(const Document &naming) const;
 
 private:
+  [[nodiscard]] bool AssembleUnchecked(const outshine::Geometry &what);
+  void PublishAssembly(Subject &&candidate) noexcept;
   [[nodiscard]] std::expected<void, std::string> CopyNativeAssets(outshine::Geometry &out,
                                                                   const Document *naming) const;
   [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed(const Document *naming) const;
