@@ -30,6 +30,7 @@ private:
     Vec3 Direction;
     Render::PieceId Piece = Render::kNoPiece;
     std::vector<Mat4> Rows;
+    std::vector<Mat4> NextRows;
   };
 
   Core::Live *Live_;

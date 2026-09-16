@@ -142,8 +142,15 @@ public:
 
   [[nodiscard]] Render::PieceId PlacePiece(const Render::PieceMesh &piece, std::string &error);
 
+  struct PieceRows {
+    Render::PieceId Piece = Render::kNoPiece;
+    std::span<const Mat4> Rows;
+  };
+
   [[nodiscard]] bool
   SetPieceInstances(Render::PieceId which, std::span<const Mat4> rows, std::string &error);
+
+  [[nodiscard]] bool SetPieceInstances(std::span<const PieceRows> pieces, std::string &error);
 
   void ReleasePiece(Render::PieceId which);
 

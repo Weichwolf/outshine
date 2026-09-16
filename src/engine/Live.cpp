@@ -45,6 +45,8 @@ constexpr auto NoPieceSurfaces = "piece registration requires a live renderer an
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
 constexpr auto MissingHeightPage = "the height-page handle names no live resource in this world";
+constexpr auto RepeatedPiece = "an instance update names one piece more than once";
+constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
 constexpr auto NoNativeWorld = "world replacement requires native world geometry";
 }
 
@@ -89,13 +91,51 @@ Render::PieceId Live::PlacePiece(const Render::PieceMesh &piece, std::string &er
 bool Live::SetPieceInstances(Render::PieceId which,
                              std::span<const Mat4> rows,
                              std::string &error) {
-  if (Renderer_ == nullptr || which >= Pieces_.size() || !Pieces_[which].Live) {
+  const PieceRows one{.Piece = which, .Rows = rows};
+  return SetPieceInstances({&one, 1}, error);
+}
+
+bool Live::SetPieceInstances(std::span<const PieceRows> pieces, std::string &error) {
+  if (Renderer_ == nullptr) {
     error = Says::MissingPiece;
     return false;
   }
-  Piece &piece = Pieces_[which];
-  if (!Renderer_->SetPieceInstances(piece.Resident, rows, error)) { return false; }
-  piece.Rows.assign(rows.begin(), rows.end());
+  for (size_t at = 0; at < pieces.size(); ++at) {
+    const PieceRows &change = pieces[at];
+    if (change.Piece >= Pieces_.size() || !Pieces_[change.Piece].Live) {
+      error = Says::MissingPiece;
+      return false;
+    }
+    if (Pieces_[change.Piece].MaxInstances > 0 &&
+        change.Rows.size() > Pieces_[change.Piece].MaxInstances) {
+      error = Says::PieceCapacity;
+      return false;
+    }
+    for (size_t earlier = 0; earlier < at; ++earlier) {
+      if (pieces[earlier].Piece == change.Piece) {
+        error = Says::RepeatedPiece;
+        return false;
+      }
+    }
+  }
+  size_t changed = 0;
+  for (; changed < pieces.size(); ++changed) {
+    const PieceRows &change = pieces[changed];
+    if (Renderer_->SetPieceInstances(Pieces_[change.Piece].Resident, change.Rows, error)) {
+      continue;
+    }
+    while (changed > 0) {
+      --changed;
+      const PieceRows &undo = pieces[changed];
+      std::string ignored;
+      (void)Renderer_->SetPieceInstances(
+          Pieces_[undo.Piece].Resident, Pieces_[undo.Piece].Rows, ignored);
+    }
+    return false;
+  }
+  for (const PieceRows &change : pieces) {
+    Pieces_[change.Piece].Rows.assign(change.Rows.begin(), change.Rows.end());
+  }
   return true;
 }
 

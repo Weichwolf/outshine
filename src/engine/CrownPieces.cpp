@@ -55,6 +55,7 @@ std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
     View held;
     held.Direction = atlas.Views()[view].TowardEye;
     held.Rows.reserve(maxInstances);
+    held.NextRows.reserve(maxInstances);
     held.Piece = live.PlacePiece(piece, error);
     if (held.Piece == Render::kNoPiece) { return nullptr; }
     result->Views_.push_back(std::move(held));
@@ -72,7 +73,7 @@ bool CrownPieces::Update(std::span<const Mat4> models, const Vec3 &eye, std::str
     error = Says::CrownLimit;
     return false;
   }
-  for (auto &view : Views_) { view.Rows.clear(); }
+  for (auto &view : Views_) { view.NextRows.clear(); }
   for (const auto &model : models) {
     const Vec3 toward = eye - model.TransformPoint(Centre_);
     size_t selected = 0;
@@ -84,11 +85,15 @@ bool CrownPieces::Update(std::span<const Mat4> models, const Vec3 &eye, std::str
         selected = at;
       }
     }
-    Views_[selected].Rows.push_back(model);
+    Views_[selected].NextRows.push_back(model);
   }
-  for (auto &view : Views_) {
-    if (!Live_->SetPieceInstances(view.Piece, view.Rows, error)) { return false; }
+  std::vector<Core::Live::PieceRows> changes;
+  changes.reserve(Views_.size());
+  for (const auto &view : Views_) {
+    changes.push_back({.Piece = view.Piece, .Rows = view.NextRows});
   }
+  if (!Live_->SetPieceInstances(changes, error)) { return false; }
+  for (auto &view : Views_) { view.Rows.swap(view.NextRows); }
   return true;
 }
 }
