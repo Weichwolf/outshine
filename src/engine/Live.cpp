@@ -759,14 +759,29 @@ std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::stri
   for (size_t at = 0; at < count; ++at) {
     slots[at].Row = source.surfaceAt(MaterialInstance(static_cast<int>(at)));
   }
-  if (!Render::ResolveNativeTextures(source, slots, error) ||
-      !Renderer_->AppendSubjectMaterials(slots, error)) {
+  if (!Render::ResolveNativeTextures(source, slots, error)) { return std::nullopt; }
+  const auto first = static_cast<uint32_t>(RegisteredSlots_.size());
+  const size_t slotsBefore = Table_.Slots.size();
+  const size_t materialsBefore = Table_.Material.size();
+  const size_t decodedBefore = Table_.Decoded.size();
+  AppendPieceSurfaces(slots);
+  const auto restores = [this, slotsBefore, materialsBefore, decodedBefore, first] {
+    Table_.Slots.resize(slotsBefore);
+    Table_.Material.resize(materialsBefore);
+    Table_.Decoded.resize(decodedBefore);
+    RegisteredSlots_.resize(first);
+  };
+  if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) {
+    restores();
     return std::nullopt;
   }
-  const auto first = static_cast<uint32_t>(RegisteredSlots_.size());
+  if (!Renderer_->AppendSubjectMaterials(slots, error)) {
+    restores();
+    std::string ignored;
+    (void)Stood_.Wears(Table_.PartSlot, Table_.Slots, ignored);
+    return std::nullopt;
+  }
   RegisteredSurfaces_.push_back({.Source = std::move(source), .Slots = std::move(slots)});
-  AppendPieceSurfaces(RegisteredSurfaces_.back().Slots);
-  if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return std::nullopt; }
   WearsPieces();
   return first;
 }
