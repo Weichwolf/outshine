@@ -38,18 +38,24 @@ danach binden die langlebigen Zeichner auf die neue Binding-Adresse. Eine abgele
 oder Textur erhält aktive Deklaration und lesbare Pixel. Der Test injiziert beides am echten
 SDL-Aufruf und prüft 54 Bedingungen.
 
-`DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
-Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,
-tauscht Ressourcen, Target und Dimension gemeinsam und gibt alte Fensterclaims
-frei. Fehler geben ihre SDL-Ursache zurück, zerstören nur Kandidaten und erhalten
-den alten Frame les- und renderbar. Ein irreversibler Devicefehler wechselt
-ausdrücklich in Failed; ein normales Ressourcenproblem nicht.
+**Widerlegt:** `DrawsInto` validiert und claimt aktuell nur das Ziel, setzt dann
+`Frame_.Offscreen`, `HostSurface`, Extent und Fenster direkt. Es baut die planabhängigen
+Attachments, Readbacks und Stages nicht neu. Der 48×32-Test beweist deshalb allein die
+Oberflächengröße, keine vollständige Frame-Transaktion.
+
+`DrawsInto` muss einen Zielkandidaten mit aktuellem Device, Plan und Zielformat vollständig
+bauen und konfigurieren. Erst danach wartet es die letzte alte Nutzung ab, tauscht Frame,
+Target, Dimension und Binding-Adressen gemeinsam und gibt alte Fensterclaims frei. Fehler
+geben ihre SDL-Ursache zurück, zerstören nur Kandidaten und erhalten den alten Frame les- und
+renderbar. Ein irreversibler Devicefehler wechselt ausdrücklich in Failed; ein normales
+Ressourcenproblem nicht.
 
 ## Abnahme
 
-- [x] Offscreen 32x32 → 48x32 rendert nach dem Wechsel vollständige 48x32-Pixel
-      nach einer echten GPU-Frame-Abnahme (56 Checks). Alte Pixel bleiben nach jeder
-      abgelehnten Textur-/Pipeline-Erzeugung lesbar.
+- [x] Offscreen 32x32 → 48x32 liefert nach dem Wechsel 48x32 Oberflächenpixel
+      (56 Checks). Dies beweist noch keine dimensionierten internen Attachments.
+- [ ] Offscreen 32x32 → 48x32 baut sämtliche Attachments, Readbacks und Stages
+      kandidatenseitig neu und rendert sie nach Veröffentlichung vollständig.
 - [ ] Fensterformat- und Extentwechsel ersetzen dieselben Ressourcen gemeinsam.
 - [ ] Injektionen für Claim, jede Attachment-/Pyramid-/Pipeline-Erzeugung und
       Stage-Konfiguration erhalten alte Pixel, Claim und Renderbarkeit.
