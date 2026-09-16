@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <array>
+#include <cassert>
+#include <dlfcn.h>
 #include <vector>
 
 #include <SDL3/SDL.h>
@@ -8,6 +10,9 @@
 #include "Check.h"
 
 namespace {
+bool rejectSubmission = false;
+unsigned rejectedSubmissions = 0;
+
 class Product final : public outshine::Generators::Generator {
 public:
   Product(std::string_view named, float centreX, const std::array<float, 3> &colour)
@@ -49,6 +54,21 @@ private:
   float CentreX_;
   std::array<float, 3> Colour_;
 };
+}
+
+extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *commands) {
+  if (rejectSubmission) {
+    rejectSubmission = false;
+    ++rejectedSubmissions;
+    const bool cancelled = SDL_CancelGPUCommandBuffer(commands);
+    assert(cancelled);
+    SDL_SetError("injected generated-world submission failure");
+    return false;
+  }
+  static const auto original = reinterpret_cast<decltype(&SDL_SubmitGPUCommandBuffer)>(
+      dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBuffer"));
+  assert(original != nullptr);
+  return original(commands);
 }
 
 int main() {
@@ -99,5 +119,18 @@ int main() {
   }
   CHECK(redMax > 0.9F && greenMax > 0.9F,
         "two products compose with their own remapped native materials");
+  const auto previous = pixels;
+  rejectSubmission = true;
+  CHECK(!engine.declare(scenario),
+        "generated candidate rejects its injected GPU submission failure");
+  CHECK(rejectedSubmissions == 1 && !rejectSubmission,
+        "generated candidate reaches the injected submission failure once");
+  CHECK(engine.renderer().render({}).has_value(),
+        "retained world remains renderable after rejection");
+  std::vector<float> retained;
+  CHECK(engine.renderer().readPixels(Buffer::Linear, retained).has_value() && retained == previous,
+        "rejected generated candidate preserves previous world pixels");
+  CHECK(engine.declare(scenario) && engine.assemble() && engine.advance(),
+        "generated candidate retries after the rejected submission");
   return Report();
 }

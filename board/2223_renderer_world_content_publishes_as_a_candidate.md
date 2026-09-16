@@ -50,6 +50,8 @@ composition oracle exposed the stale-candidate-pointer failure before this contr
 
 - Inject failure separately at mesh upload, material upload, placement upload, light/sky binding,
   overlay atlas upload and overlay quad upload after an old rendered world exists.
+- [x] A generated-world GPU submission failure after candidate construction preserves the former
+  linear pixels and accepts the immediate declaration retry.
 - Each rejection preserves old pixels, readable buffers, declaration and revision; the immediate
   retry publishes the new world exactly once.
 - Repeated A→B→A declarations have bounded GPU ownership and no stale content binding.
