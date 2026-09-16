@@ -49,8 +49,9 @@ Ein leerer `Append` setzte zuvor `Refuse` ein und löschte den veröffentlichten
 Er schreibt nur seine lokale Diagnose; Daten und geliehene Views bleiben gültig, ein
 gültiger Append retryt. `RejectedAppendPreservesPublishedSubject` ist die Negativkontrolle.
 
-`Geometry`/MaterialValidation bleiben die alleinigen Werteverträge. Als Nächstes
-intrinsische Werte-/Bindungskombinationen gegen `include/scene/Material.h` ergänzen;
+`Geometry`/MaterialValidation bleiben die alleinigen Werteverträge. `MaterialValueAndBindingContracts`
+übt jeden Vektorfaktor, HDR-Emission, IOR-Sonderfall, positive unendliche Absorption,
+ungültige Enums, Transformwerte sowie alle sieben Bindungen durch die öffentliche API.
 Ground-Gesamtpublikation bleibt WI 2224. Reale OOM bleibt fatal gemäß WI 2194.
 
 ## Native-Konstruktionsfehler
@@ -80,8 +81,8 @@ separate Transaktions-/Kapazitätslücken; keine vollständige Importtransaktion
 - [x] Variante mit fehlender Textur wird abgelehnt; folgende Probe nutzt vorherige Auswahl.
 - [x] Anlegefehler erhalten Materialbestand/Namen/Indexvergabe; gültiger Retry geprüft.
 - [x] Gemeinsame Index-/Containergrenzen mit synthetischen Zählern geprüft.
-- [ ] Alle intrinsischen Grenzen und Bindungskombinationen unabhängig geprüft, einschließlich
-      HDR, IOR-Sonderfall, +infinity-Absorptionsdistanz, NaN, ungültige Enums und Schichtreihenfolge.
+- [x] Alle intrinsischen Grenzen und Bindungskombinationen unabhängig geprüft, einschließlich
+      HDR, IOR-Sonderfall, +infinity-Absorptionsdistanz, NaN und ungültige Enums.
 - [ ] Später Import-/Generatorfehler publiziert kein Teilprodukt und erhält aktive Welt.
 - [ ] Khronos-Corpus und Generatorprodukte bleiben gültig; Bildänderungen mit PNG-Orakeln
       prüfen, keine Referenzanpassung zur Kaschierung von Fehlern.
