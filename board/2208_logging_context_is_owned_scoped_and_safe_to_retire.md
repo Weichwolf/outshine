@@ -33,7 +33,8 @@ Prozessweiter Sink höchstens ausdrücklich vom Host gewählter Adapter, kein ve
 - [x] TilePool-Shutdown weckt und joint Worker/Carrier, unterbricht die ausstehende Abfrage und
       kehrt innerhalb einer Sekunde zurück.
 - [x] Bisheriger Code verletzt das Kontextoracle ohne Buildfehler.
-- [ ] Thread-/Lifetime-Tests und Lint; Framekosten mit aktivem Logging getrennt messen.
+- [x] Worker-Ereignis, Sink-Isolation und Shutdown-Lebensdauer sind geprüft.
+- [ ] Vollständiger Lint-Gate und Framekosten mit aktivem Logging getrennt messen.
 
 ## Lokale Scopes: implementierter Vertrag
 Vorhandene thread_local Unit ist bereits ein besitzender 32-Byte-Puffer, kein roher
@@ -73,4 +74,6 @@ Routentrennung sowie Abmeldung. Worker-Lebensdauer und begrenzte Diagnosekosten 
 GroundStack zerstört GroundStream vor TilePool; TilePool setzt Stop, weckt beide Arbeitsgruppen
 und joint sie vor Rückkehr. Die Pending-Fetch-Regression prüft Ticket-Abbruch, keine vollständige
 Retry-Wartezeit und die Ein-Sekunden-Grenze. Ein Worker-Ereignis mit instanzgebundenem Sink und
-eine Messung aktiver Diagnosekosten bleiben offen.
+eine Messung aktiver Diagnosekosten bleiben offen. `WorkerDiagnosticsStayWithConfiguredSink`
+erzwingt eine Carrier-Ablehnung, beobachtet genau ein `tile_refused`-Ereignis im konfigurierten
+Sink und bestätigt nach Pool-Zerstörung unveränderte Ereignismenge.
