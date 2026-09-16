@@ -5,10 +5,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <ratio>
 #include <span>
 #include <vector>
 #include <string_view>
@@ -133,6 +135,12 @@ bool StructureBakes::Complete(const Ground::GroundStack &stack) const {
   return vectors == nullptr || (Queue_.empty() && stack.Footprints().Ingested(*vectors));
 }
 
+size_t StructureBakes::QueuedStructures() const {
+  size_t count = 0;
+  for (const Job &job : Queue_) { count += job.Raw->Structures.size(); }
+  return count;
+}
+
 std::unique_ptr<MeshScratch> StructureBakes::LentScratch() {
   if (IdleScratch_.empty()) { return Mesher_->Scratch(); }
   std::unique_ptr<MeshScratch> one = std::move(IdleScratch_.back());
@@ -180,10 +188,14 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
     Output *const out = job.Out.get();
     const std::shared_ptr<std::atomic_bool> stopping = job.Stopping;
     job.Handle = Pool_->Post([raw, under, mesher, scratch, out, stopping] {
+      const auto began = std::chrono::steady_clock::now();
       static const Heap::Tag kBakingTag("structure-bake");
       const Heap::Tagged baking(kBakingTag);
       out->Status =
           Generators::BakeStructures(*raw, *under, *mesher, *scratch, out->Tile, stopping.get());
+      out->BakeMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count();
     });
     Queue_.push_back(std::move(job));
     ++Posted_;
@@ -267,6 +279,8 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
     const Generators::BakedTile &baked = job.Out->Tile;
     assert(landing.Tile == job.Tile && landing.Baked == &baked && landing.Footprints);
     if (!landing.Footprints) { std::terminate(); }
+    BakedMs_ += job.Out->BakeMs;
+    SlowestBakeMs_ = std::max(SlowestBakeMs_, job.Out->BakeMs);
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
            IdleScratch_.size() < IdleScratch_.capacity());
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
@@ -290,6 +304,7 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
                {"blocks", baked.Blocks},
                {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
                {"awayKm", job.Raw->AwayM / kMPerKm},
+               {"bakeMs", job.Out->BakeMs},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
     IdleRaw_.push_back(std::move(job.Raw));
     IdleOut_.push_back(std::move(job.Out));

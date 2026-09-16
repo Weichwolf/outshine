@@ -69,10 +69,19 @@ public:
 
   [[nodiscard]] size_t Discarded() const { return Discarded_; }
 
+  [[nodiscard]] double MeanBakeMs() const {
+    return Landed_ > 0 ? BakedMs_ / static_cast<double>(Landed_) : 0.0;
+  }
+
+  [[nodiscard]] double SlowestBakeMs() const { return SlowestBakeMs_; }
+
+  [[nodiscard]] size_t QueuedStructures() const;
+
 private:
   struct Output {
     Generators::BakedTile Tile;
     std::expected<void, Generators::StructureBakeError> Status;
+    double BakeMs = 0.0;
   };
 
   struct Job {
@@ -106,6 +115,8 @@ private:
   size_t Landed_ = 0;
   size_t Deferred_ = 0;
   size_t Discarded_ = 0;
+  double BakedMs_ = 0.0;
+  double SlowestBakeMs_ = 0.0;
 };
 
 }

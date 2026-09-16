@@ -383,7 +383,10 @@ Result Engine::State::PreloadTimeout(double bound) {
     Error += "; structure bakes=" + std::to_string(World.Bakes.Landed()) + "/" +
              std::to_string(World.Bakes.Posted()) +
              ", queued=" + std::to_string(World.Bakes.Queued()) +
-             ", deferred=" + std::to_string(World.Bakes.Deferred());
+             ", structures=" + std::to_string(World.Bakes.QueuedStructures()) +
+             ", deferred=" + std::to_string(World.Bakes.Deferred()) +
+             ", meanMs=" + std::to_string(World.Bakes.MeanBakeMs()) +
+             ", maxMs=" + std::to_string(World.Bakes.SlowestBakeMs());
   }
   if (const auto &ground = World.GroundPublished.Current();
       ground && ground->Footprints != World.Stack.Footprints().Revision()) {
