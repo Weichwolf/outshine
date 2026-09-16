@@ -56,7 +56,12 @@ bool Live::GroundClasses(std::span<const uint32_t> classes,
     error = Says::GroundRendererMissing;
     return false;
   }
-  return Renderer_->SetGroundClasses(classes, palette, error);
+  std::vector<uint32_t> classData(classes.begin(), classes.end());
+  std::vector<float> paletteData(palette.begin(), palette.end());
+  if (!Renderer_->SetGroundClasses(classes, palette, error)) { return false; }
+  GroundClasses_.swap(classData);
+  GroundPalette_.swap(paletteData);
+  return true;
 }
 
 Render::PieceId Live::PlacePiece(const Render::PieceMesh &piece, std::string &error) {
@@ -749,6 +754,10 @@ bool Live::RestoresPieceResources(const Live &previous, std::string &error) {
 }
 
 bool Live::RestoresGroundResources(const Live &previous, std::string &error) {
+  if ((!previous.GroundClasses_.empty() || !previous.GroundPalette_.empty()) &&
+      !GroundClasses(previous.GroundClasses_, previous.GroundPalette_, error)) {
+    return false;
+  }
   HeightPages_ = previous.HeightPages_;
   for (HeightPage &page : HeightPages_) {
     if (!page.Live) { continue; }

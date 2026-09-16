@@ -1075,16 +1075,16 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
 bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                      std::span<const float> palette,
                                      std::string &error) {
-  const auto uploaded =
-      GroundStorage_.Replace(ActiveState().Frame.Handles.Device, classes, palette, Submission_);
+  const auto uploaded = ActiveState().Content.Ground.Replace(
+      ActiveState().Frame.Handles.Device, classes, palette, Submission_);
   if (!uploaded) {
     error = uploaded.error();
     return false;
   }
-  ActiveState().Content.Subjects.GroundFrom(
-      {.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
-  ActiveState().Content.Glass.GroundFrom(
-      {.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
+  ActiveState().Content.Subjects.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
+                                             .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
+                                          .Palette = ActiveState().Content.Ground.Palette()});
   return true;
 }
 
@@ -1095,18 +1095,19 @@ bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
                                         std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  if (!renderer.GroundStorage_.Ready()) {
-    const auto uploaded =
-        renderer.GroundStorage_.Replace(frame.Handles.Device, {}, {}, renderer.Submission_);
+  if (!renderer.ActiveState().Content.Ground.Ready()) {
+    const auto uploaded = renderer.ActiveState().Content.Ground.Replace(
+        frame.Handles.Device, {}, {}, renderer.Submission_);
     if (!uploaded) {
       error = uploaded.error();
       return false;
     }
     renderer.ActiveState().Content.Subjects.GroundFrom(
-        {.Classes = renderer.GroundStorage_.Classes(),
-         .Palette = renderer.GroundStorage_.Palette()});
-    renderer.ActiveState().Content.Glass.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
-                                                     .Palette = renderer.GroundStorage_.Palette()});
+        {.Classes = renderer.ActiveState().Content.Ground.Classes(),
+         .Palette = renderer.ActiveState().Content.Ground.Palette()});
+    renderer.ActiveState().Content.Glass.GroundFrom(
+        {.Classes = renderer.ActiveState().Content.Ground.Classes(),
+         .Palette = renderer.ActiveState().Content.Ground.Palette()});
   }
   return frame.SkyIrradianceStage.Configure(frame.Handles,
                                             frame.TransmittanceLut.Get(),

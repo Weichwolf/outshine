@@ -602,6 +602,7 @@ private:
   OwnedDevice Device_;
 
   struct WorldContent {
+    GroundStorage Ground;
     SubjectDraw Subjects;
     SubjectDraw Glass;
     OverlayDraw Overlay;
@@ -704,7 +705,6 @@ private:
 
   SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;
   SDL_Window *Showing_ = nullptr;
-  GroundStorage GroundStorage_;
   static constexpr int kJitterPeriod = 8;
 
   struct Placed {

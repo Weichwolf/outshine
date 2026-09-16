@@ -523,6 +523,8 @@ private:
   };
 
   std::vector<HeightPage> HeightPages_;
+  std::vector<uint32_t> GroundClasses_;
+  std::vector<float> GroundPalette_;
   std::vector<float> GroundGrid_;
   std::vector<Render::GroundTile> GroundReal_, GroundVirtual_;
   [[nodiscard]] bool RestoresGroundResources(const Live &previous, std::string &error);

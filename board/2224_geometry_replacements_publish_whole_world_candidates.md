@@ -96,7 +96,10 @@ GPU/CPU product mutation and that end-to-end failure proof remain the transactio
 `SceneRenderer::GroundStorage_` is renderer-global while subjects/glass are world-owned.
 A candidate class/palette upload replaces active buffers before publication, so rejection can
 retire buffers still borrowed by the old subjects. Move `GroundStorage` into `WorldContent`,
-using its existing move-only publication boundary. `Live` owns copied class/palette inputs and
-restores them with the other ground resources. Test real GPU payload/handle preservation across
-candidate upload, abandonment, retry and publication; a new declaration must start with empty
-classification. This is required before whole-ground candidate construction can be safe.
+using its existing move-only publication boundary. Implemented: `Live` owns copied class/palette
+inputs and restores them with other ground resources. Real GPU payload/handle tests cover candidate
+upload, abandonment, retry, publication and empty classification for a new declaration. The former
+code fails five checks; corrected ownership and three related suites pass. Graz without vegetation
+renders successfully: 71/921600 changed pixels versus the saved historical image, confined to the
+left slope; no broad material regression on visual inspection. This is not a controlled before/after
+proof or visual quality approval. Whole-ground transaction work remains open.
