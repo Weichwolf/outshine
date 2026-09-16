@@ -79,3 +79,6 @@ verbleibenden Verbraucher sind die uncommitteten Client-Änderungen in `Main.cpp
 Fassadenfehler entfallen darf. Eine entfernte API mit diesen Aufrufern wäre kein
 Fortschritt, sondern ein kaputter Zwischenstand. Dokumentationsanalyse besteht; die
 vollständige Entfernung samt Erhaltungs-/Retry-Tests bleibt offen.
+
+Direkter Doxygen-Lauf: 24/24 öffentliche Header, null Diagnosen. Das beweist die
+Dokumentationsabdeckung; es ersetzt nicht die noch offene Fassadenmigration.
