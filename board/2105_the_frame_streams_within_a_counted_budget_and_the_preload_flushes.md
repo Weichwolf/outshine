@@ -99,22 +99,21 @@ Lint grün; Wien-0376042e.png geöffnet: 1939/921600 Pixel geändert, Maximum 24
 mittlerer RGB-Kanalfehler 0,002427/255. Terrain-Footprint-Abhängigkeit jetzt wirksam;
 keine allgemeine Bildqualitätsabnahme. Referenz: build/shots/reference/footprint-revision/.
 
-## Malcesine cold preload, 2026-09-16
+## Malcesine post-arrival bottleneck, 2026-09-16
 
-`outshine-client shots --preload-seconds 30 Malcesine` fetched all 128 terrain and
-49 primary OSM tiles in 0.4 s, then still timed out at 30 s with missing terrain,
-ingestion, classification and vegetation. The cache grew from 58.5 to 70.8 MB after
-the primary tiles were resident. Thus download arrival is not the current blocker.
+All 128 DEM and 49 primary OSM tiles arrive in 0.4–0.5 s. With vegetation disabled,
+preload still times out at 20 s while ingestion, terrain coverage and classification remain
+pending. Download is not the blocker.
 
-TilePool had a false progress metric: `Outstanding` included retained completed jobs,
-reporting roughly 1,100 "in flight" requests despite none pending. It now subtracts
-`Done_`; an independent carrier test proves a completed unconsumed reply counts zero.
-GroundPoolConfig now gives each compute worker one carrier, capped at six; the prior
-implicit two-carrier default was a real throughput constraint but did not clear this
-preload timeout. Next: isolate the post-arrival terrain-field/classification pipeline
-and split the first-frame residency contract from background LOD refinement.
+`State::Bakes` currently calls `Live::PreparesWorldReplacement` for every finished building
+tile. That clones the resident world and starts a renderer candidate before one structure tile
+is inserted; the repeated `device_ready` events and serial preload follow directly. An unlimited
+batch instead creates unbounded work and was rejected.
 
-ClassField now starts no raster job until both source windows report zero pending tiles;
-otherwise each landing invalidates a partial result. `IncompleteTilesDoNotStartClassification`
-proves the pending state publishes zero fine/coarse jobs. Malcesine still misses 20 s, so this
-removes redundant work but does not close the post-arrival residency investigation.
+Decision: structure residency becomes a separately versioned, bounded streaming product. A
+round stages a declared maximum of completed tile uploads, validates all uploads before publish,
+and commits one GPU residency delta without cloning the complete world. Failure retains the
+previous residency and requeues staged work in deterministic order. Measure CPU/GPU upload,
+publication count, queue age and ready latency on Malcesine without vegetation; then validate
+same digest across repeated preload and movement. Do not tune request carriers or timeout values
+until this boundary exists.
