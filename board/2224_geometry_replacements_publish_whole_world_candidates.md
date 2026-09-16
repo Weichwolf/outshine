@@ -48,6 +48,9 @@ Copy/prepare costs are explicit preparation work; no bounded-frame-time claim wi
   routing graph, readbacks and rendered old pixels survive together, beyond the synthetic candidate
   fixture. Terrain topology, CPU positions/indices, network counters and revisions are covered.
 - Failed structure roof after accepted wall upload publishes neither tile nor terrain input.
+  `TilePieces::Hands` currently forgets the old tile before preparing its replacement. Defer
+  removal until wall and roof succeed; extend the existing roof-refusal test with preserved
+  old geometry/digest and successful retry. Outer bake-job publication remains separately tested.
 - Reject stale streaming results after a newer revision is current.
 - Camera/animation/native replacements retain placements and frame state.
 - Piece/crown behavior after replacement needs independent coverage beyond height ownership.
