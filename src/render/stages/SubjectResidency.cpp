@@ -20,7 +20,6 @@ namespace outshine::Render {
 
 constexpr float kByteSteps = 255.0f;
 
-constexpr float kEveryMip = 1000.0f;
 constexpr size_t kRgbaChannels = 4u;
 constexpr size_t kAlphaChannel = 3u;
 
@@ -564,7 +563,8 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   wantedSampler.mipmap_mode = texture.Mip == SubjectMip::Nearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
                                                                  : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
 
-  wantedSampler.max_lod = kEveryMip;
+  wantedSampler.min_lod = 0.0f;
+  wantedSampler.max_lod = static_cast<float>(levels - 1u);
   bound.Sample = OwnedSampler(Device_, SDL_CreateGPUSampler(Device_, &wantedSampler));
   if (!bound.Sample) {
     return std::unexpected(std::format(Says::kTextureSamplerFailed, SDL_GetError()));
