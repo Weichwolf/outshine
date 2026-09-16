@@ -9,11 +9,12 @@ Depends:
 
 ## Beleg und Grenze
 
-Log.cpp hält prozessweite Sink_/Level_ und einen geliehenen thread_local Sink-Zeiger.
-Engine::logsTo setzt denselben globalen Sink für alle Instanzen. Unit-Labels liegen in
-einem eigenen thread_local 32-Byte-Puffer. Globale Registrierung bleibt umzubauen.
-Logging.h verlangt bereits quieszente Registrierung und eine ausreichend lange Sink-Lebensdauer;
-vertragswidriges gleichzeitiges Austauschen wird nicht als nachgewiesener Engine-Race ausgegeben.
+Log.cpp hält den Prozess-Level und einen geliehenen thread_local Sink-Zeiger. Jede Engine besitzt
+ihren `Diagnostics`-Zeiger; ihr Scope setzt und restauriert den Thread-Sink für den jeweiligen
+Aufruf. Unit-Labels liegen in einem eigenen thread_local 32-Byte-Puffer. GroundStack übergibt
+den Sink ausdrücklich an TilePool-Worker. `Logging.h` verlangt quieszente Registrierung und eine
+ausreichende Sink-Lebensdauer; gleichzeitiges Austauschen wird nicht als nachgewiesener Race
+ausgegeben.
 
 ## Entscheidung
 
@@ -25,7 +26,8 @@ Prozessweiter Sink höchstens ausdrücklich vom Host gewählter Adapter, kein ve
 
 ## Abnahme
 
-- [ ] Zwei Engines mit verschiedenen Sinks; keine fremden Meldungen und kein Dangling-Sink.
+- [x] Zwei Engines mit getrennten Sinks empfangen keine fremden Meldungen; eine abgemeldete Route
+      erhält keinen späteren Callback.
 - [x] Verschachtelte Unit-/Sink-Scopes restaurieren den äußeren Kontext, auch bei frühem Return.
 - [x] Thread-Sink funktioniert ohne globalen Sink; getrennte Thread-Aufzeichnungen geprüft.
 - [ ] Shutdown wartet nur gemäß begrenztem Vertrag.
@@ -50,8 +52,8 @@ Altcode scheitert ohne Buildfehler. Finales make lint: 189/189 Analyse-Einheiten
 Abnahme behauptet.
 
 ## Engine-Anbindung und Ausgabeserialisierung
-Framing.cpp::logsTo registriert global; Client Main und PlaceCamera nutzen diesen Pfad.
-Kontext muss über GroundStack::Open nach TilePool sowie über TerrainLoader und Tasks
+Framing.cpp::logsTo setzt den Engine-eigenen geliehenen Sink. Client Main und PlaceCamera nutzen
+diesen Pfad. Kontext muss über GroundStack::Open nach TilePool sowie über TerrainLoader und Tasks
 weitergegeben werden; bloßer ThreadScope um einen Engine-Aufruf erreicht Worker nicht.
 GroundStack::Close und Tasks-Join müssen vor Freigabe des geliehenen Sinks abschließen.
 TextLogSink::Write zerlegt ein Ereignis in mehrere print-Aufrufe und erfüllt dadurch
@@ -64,5 +66,5 @@ Sinks am selben FILE sind damit nicht koordiniert und bleiben Host-Verantwortung
 Textausgabe umgesetzt: Mutex schützt vollständiges Ereignis samt Flush. Vier Threads
 mit je 64 Ereignissen und 32 Feldern ergeben exakt 256 unvermischt lesbare Zeilen.
 Altcode verletzt dieses Oracle ohne Buildfehler; beide Logging-Regressionen grün.
-Lint unverändert 182/330, 32 Repository-Tests grün, drei rote Gruppen. Engine-
-Registrierung, Worker-Kontextübergabe und begrenzte Diagnosekosten bleiben offen.
+Der öffentliche Zwei-Engine-Test löst ohne SDL-Video je eine Renderdiagnose aus und prüft
+Routentrennung sowie Abmeldung. Worker-Lebensdauer und begrenzte Diagnosekosten bleiben offen.
