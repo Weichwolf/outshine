@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include "src/generators/building/StructureBake.h"
 #include "Check.h"
 
@@ -93,5 +95,23 @@ int main() {
             sliced.Built.WallRun == oneShot.Built.WallRun &&
             sliced.Built.RoofRun == oneShot.Built.RoofRun,
         "one-structure ranges produce the same complete tile as one uninterrupted bake");
+
+  RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
+  auto cancelledScratch = cancelledMesher.Scratch();
+  Generators::StructureBakeProgress cancelled;
+  Generators::BakedTile cancelledOutput;
+  std::atomic_bool stopping{false};
+  const auto beforeCancel = cancelled.Advance(
+      raw, *heights, cancelledMesher, *cancelledScratch, cancelledOutput, 1, &stopping);
+  stopping.store(true);
+  const auto afterCancel = cancelled.Advance(
+      raw, *heights, cancelledMesher, *cancelledScratch, cancelledOutput, 1, &stopping);
+  CHECK(beforeCancel && !*beforeCancel && !afterCancel,
+        "cancelling between ranges cannot report a complete tile");
+  if (!afterCancel) {
+    const auto *reason = std::get_if<Generators::StructureBakeErrorKind>(&afterCancel.error());
+    CHECK(reason && *reason == Generators::StructureBakeErrorKind::Cancelled,
+          "cancellation reaches the generator boundary as its explicit error");
+  }
   return Report();
 }
