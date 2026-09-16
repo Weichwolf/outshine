@@ -3,118 +3,60 @@ State: active
 Area: build, include, engine, generators, audio
 Parent: 2188
 Depends: 2209
-# Runtime errors will be explicit without exceptions
 
-## Entscheidung
+# Runtime errors are explicit without exceptions
 
-Nutzerentscheidung: exceptionsfreie Engine-Runtime; erwartete Fehler über
-`[[nodiscard]] std::expected<T, Error>`, statische Invarianten über `static_assert`.
-Vorhandene expected-/RAII-Verträge nutzen. Kein mechanisches noexcept an jede
-Funktion, keine entfernten Fehlerprüfungen als Ersatz für einen Fehlervertrag.
-SDL3 verlangt keinen C++-Exception-Pfad. Die Core Guidelines E.25/E.26 beschreiben
-explizite Fehlerbehandlung ohne Exceptions; F.6 beschreibt noexcept-Verträge:
-https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Re-no-throw
-https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rf-noexcept
+## Problem
 
-## Befund und Umsetzung
+Engine runtime and generators must compile without C++ exceptions. A recoverable error
+must be local, owned and checked; a mutable diagnostic string or an invalid sentinel
+as the only error channel couples unrelated calls and cannot describe the preserved
+state. Fatal system-wide OOM is not a recoverable `expected` error.
 
-- Audio-Parameter sind nichtwerfend vorbereitet. Graphen beim Setup in ganzzahlige
-  Kanten und eine deterministische topologische Reihenfolge kompilieren; eindeutige
-  IDs, vorhandene Ziele und Zyklen prüfen. Letzter deklarierter Knoten bleibt Ausgang,
-  nicht letzter ausgeführter Knoten. Vorwärtsreferenzen sind gültig. Setup begrenzt
-  alle Quellen zusammen auf 1024 Knoten/4096 Kanten (gesetzte Enginebudgets).
-  Analytische Signale, Permutationen und Ablehnungen mit Zustandserhalt prüfen.
-  Scratch beim Setup für den größten Quellgraphen vorbereiten; Verarbeitung in
-  256-Frame-Teilstücken ohne zusätzliche Ausgabelatenz. Maximal 1024 × 256 × 8 Byte
-  Knotenspeicher (2 MiB), dazu drei 256-Sample-Double-Puffer (6 KiB). Gesetztes Budget,
-  kein Hardwaremesswert. Erster Block und variable Größen: keine C++-Heap-Allokation;
-  zusammenhängende und aufgeteilte Ausgabe müssen inklusive Delay/Hall übereinstimmen.
-- Instanzübernahme: eigener WorldInstanceSink schreibt in vorbereiteten span; Add
-  allokiert nicht. Shipped-DrawSources liefern höchstens eine Instanz pro platziertem
-  Körper; daran Setupgröße ableiten, insgesamt höchstens 2^20 Instanzen. Mehrbedarf
-  explizit ablehnen. Kandidaten und Placed/Instanced-Zähler erst nach Draw-Erfolg
-  veröffentlichen. Kapazität, Datenzuordnung und allokationsfreier Callback prüfen;
-  absichtlich eingefügte Allokation muss den Test brechen. System-OOM bleibt separat.
-- BuildingMesh::Mesh liefert expected und rollt behandelbare Meshfehler zurück.
-  System-OOM bleibt fatal; Bibliothek und Tests bauen mit `-fno-exceptions`; nur der Client-Prozessadapter darf fremde Exceptions in einen Exitstatus übersetzen.
-  Eckhöhen werden vor Allokation geprüft: leer oder exakt pro Ringpunkt;
-  sechs Negativchecks bestätigt. Scratch- und Output-Vektoren brauchen weiterhin begrenzte,
-  explizite Vorallokation, bevor sie als behandelbare Budgetfehler gelten können.
-- Alle Laufzeitaufrufe prüfen: filesystem, format, Containerzugriffe, expected::value,
-  Allokation, Fremdbibliotheken und Callbacks. Fataler systemweiter OOM ist getrennt
-  von behandelbarer Streaming-Budgeterschöpfung; Fehlerdiagnosen dürfen kein
-  unbeschränktes Allokieren voraussetzen.
-- Exceptionpflichtige Fremdpfade nur in abgegrenzten Adaptern mit eigener
-  Compilerkonfiguration; dort übersetzen, bevor die Engine aufgerufen wird.
-- Danach -fno-exceptions für eigene Runtime/Generatoren und deren Tests aktivieren;
-  Build und Compile-Datenbank müssen dieselbe Konfiguration führen. Tools und
-  Drittanbieter explizit prüfen, keine pauschale Flag-Vererbung.
+`EntityRegistry` currently exposes this flaw publicly: `open`, relation/tag/seat
+mutations return `bool`; `addEntity` and `instantiate` overload `kNoEntity`; callers
+must later borrow `error()`. That loses a typed cause, makes ignored failures easy and
+makes diagnostics race with the next call. Query absence remains a value (`optional`,
+false or zero count), not an error.
 
-## Audio-Routing
+## Decision
 
-BusGraph::Build leert den bisherigen Graphen vor der Validierung und akzeptiert
-nicht endliche Gains. Kandidatenaufbau mit separaten Bus-/Routing-/Soundphasen,
-Publikation erst nach vollständigem Erfolg. Ungültige IDs, Ziele, Zyklen, Budgets
-und Zahlen müssen den vorherigen Graphen samt Stimmenzähler erhalten. Unabhängiger
-Audio-Test prüft Ablehnung, Weiterverwendung und erfolgreichen Ersatz.
-Mixer::Stands baut Routing, Quellen, Hall und Laufzustand als Kandidat auf; Abtastrate
-und Besitzwechsel erst nach Erfolg. Kontrollmixer prüft identische Folgeblöcke nach
-abgelehnter Änderung von Rate/Routing und Zustandserhalt bei später Quellenablehnung.
+Compile runtime, generators and tests with `-fno-exceptions`; the client process
+adapter translates exceptions from explicitly isolated foreign code before entering
+the runtime. Use `[[nodiscard]] std::expected<T, Error>` at public and subsystem
+boundaries where an input, capacity, IO, GPU, provider or callback failure is
+recoverable. Use compact typed errors where callers branch on cause; format diagnostic
+text at the boundary. `noexcept` states a proved nonthrowing contract only.
 
-Audio-Qualität, Stereo-/Kopfhörer-Ausgabe und Backend-Evaluation: WI 2212.
-## SDL3_mixer als Wiedergabebasis
+Migrate `EntityRegistry` mutations to typed expected results, including creation and
+instantiation. Successful mutations publish complete state; errors preserve slots,
+relations, tags, seats and valid handles. Remove `error()` only after every consumer
+uses the returned error. Keep query APIs allocation-free and distinguish absent results
+from rejected requests. The scenario assembler maps registry errors to its owned engine
+result without global registry diagnostics.
 
-Lokal SDL3_mixer 3.2.4 vorhanden; noch keine integrierte Outshine-Abhängigkeit.
-WI 2212 priorisiert Synthese und Zweikanalqualität. SDL3_mixer für ergänzende
-Standarddekodierung, Tracks und Ausgabe evaluieren; keine Vorfestlegung des DSP-Backends. MIX_CreateMixer
-mit Float-Stereo und MIX_Generate passt zum vorhandenen Engine::mix-Speichervertrag.
-Rückgabe >= 0 bedeutet Erfolg, auch wenn nur angehängte Stille geliefert wurde.
-https://wiki.libsdl.org/SDL3_mixer/MIX_Generate
-Outshine behält Weltposition/Listener, Quellenbudget, Verdeckung und Akustiksteuerung.
-SDL-3D ist listenerrelativ, mischt Quellen mono und liefert kein Doppler oder frei
-wählbare Distanzmodelle: https://wiki.libsdl.org/SDL3_mixer/MIX_SetTrack3DPosition
-Migration durch unabhängige PCM-/WAV-Fixtures, Blockkontinuität, Gain, Stop/Loop,
-Gerätelosigkeit und Fehler-/Lifetime-Tests beweisen. Synthese und vorhandene
-Szenariofähigkeiten erhalten; eigener DSP nur für nachgewiesene Backendlücken.
-Vor Runtime-Umbau Buildabhängigkeit/Version und Init-/Shutdown-Ownership festlegen.
-Keine behauptete Echtzeitgarantie aus SDL-Thread-Safety; Allokation/IO separat messen.
+Setup allocates bounded scratch before publication. Audio graph/mixer preparation,
+streaming and geometry baking use candidates and retain the running state on rejection.
+Audio quality and backend choice belong to 2212; native asset publication to 2216;
+world candidate publication to 2191/2224.
 
-## Vorbereitete Audio-Parameter
+## Evidence
 
-Numeric-Parameter vor Publikation mit ParseFiniteNumber validieren und in nativen
-Voice-Werten speichern; kein stod/catch oder Stringparsing im Audioblock. Negative
-Delayzeiten und nicht endliche Werte ablehnen. Delay-Ringe beim Setup reservieren,
-gemeinsam auf 8 Mi Samples Double begrenzen (64 MiB); Budget ist eine Enginegrenze,
-kein Hardwaremesswert. Fehler müssen den laufenden Mixer erhalten. Hall-Setup,
-Quellvirtualisierung und vollständige Echtzeitmessungen bleiben offen. Hallparameter
-vor Publikation validieren: endliche RT60 >= 0, Damping/WetShare in [0,1].
-Hallringe zusammen auf 8 Mi Double-Samples (64 MiB) begrenzen; Abtastraten dürfen
-dieses Setupbudget nicht umgehen. Abgelehntes Hall-Setup erhält Rate und Laufzustand.
+- `make db` has 189 units and runtime/generator units use `-fno-exceptions`.
+- `SceneRenderer::Init` already returns `[[nodiscard]] expected` and its GPU error
+  path is tested.
+- `TagCatalogue::under` is constexpr expected with static negative checks.
+- Direct clang-tidy run after `4c6ac6a99`: 189/189 units, zero findings. The full
+  lint gate remains blocked separately by the external immutable reference cache (2226).
 
-## Vollständige CLI-Zahlenkonvertierung
+## Proof
 
-QueryTerrainHeight validiert die Koordinaten jetzt vor Engine-/SDL-Initialisierung.
-Der vorherige atof-Pfad akzeptierte unter anderem Zahlenpräfixe und Ersatznullen.
-C++-Vertrag: https://eel.is/c++draft/charconv.from.chars
-Gemeinsamer kleiner Parser in base/format: string_view, nodiscard expected<double, NumberError>, noexcept; from_chars statt Locale/Exceptions/temporärer Strings.
-Akzeptiert endliche dezimale Zahlen samt Vorzeichen und Exponent; keine Rand-Leerzeichen,
-Restzeichen, NaN/Inf oder Über-/Unterläufe. Keine Ersatznull bei ungültiger Eingabe.
-height erhält einen geliehenen span der Argumente und verlangt exakt zwei, Latitude in [-90,90], Longitude in [-180,180]; Ablehnung vor Engine-/SDL-/Provider-Aufbau. Gültige Abfrage bleibt unverändert.
-Unabhängige Parser-/CLI-Fälle und Negativkontrolle ohne Endzeigerprüfung sichern den
-Vertrag; ignorierte Ergebnisse scheitern unter den Clientflags. Weitere Consumer
-mit ihren eigenen Fachverträgen migrieren. Keine vollständige Runtime-Abnahme.
-
-## Abnahme
-
-- [x] `make db` erzeugt 189 Compile-Units; keine Runtime-Unit außerhalb des Client-
-      Prozessadapters fehlt `-fno-exceptions`. Laufzeit- und Generatorbuilds verwenden
-      denselben Tiergraphen.
-- [ ] Fehlerergebnisse nodiscard; Ignorieren scheitert als Compiler-Negativkontrolle.
-- [ ] Statische Ownership-/Layout-/Zustandsinvarianten passend abgesichert.
-- [ ] Ungültige Eingaben und ausgeschöpfte Budgets liefern Fehler ohne Teilzustand.
-- [ ] Bibliotheks-/Callback-Grenzen dokumentiert und inklusive Fehlerpfaden geprüft.
-- [ ] Fataler OOM-Vertrag dokumentiert; keine behauptete OOM-Erholung durch expected.
-- [ ] make lint einschließlich clang-tidy und betroffene Make-Suiten ausgeführt;
-  neue Fehlerpfade mit wirksamen Negativkontrollen geprüft.
-
-SceneRenderer::Init liefert jetzt [[nodiscard]] expected statt Ready_/WhyNot_ als alleinigen Fehlerkanal; GPU-Fehlerinjektion und Erfolg prüfen den Rückgabewert.
+- Compiler-negative cases reject ignored relevant expected results.
+- Registry invalid capacity, role, handle, relation, tag, seat and exhaustion return
+  the typed cause and leave the complete prior state usable; retry after a rejection
+  succeeds where capacity permits.
+- Foreign callbacks, filesystem and GPU failures cross the runtime boundary as owned
+  errors; no exception enters an engine frame or audio block.
+- Allocation/IO occurs before realtime publication; prepared frame and audio paths
+  have bounded work and no routine allocation.
+- `make format`, affected suites and `make lint` run after every migration step.
