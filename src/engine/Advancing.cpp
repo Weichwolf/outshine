@@ -229,22 +229,19 @@ void Engine::State::HandsPiecesOver() {
 bool Engine::State::Bakes(size_t landsMost) {
   if (!World.GroundPublished.Current()) { return true; }
   if (!World.Stack.Opened()) { return true; }
-  size_t landed = 0;
-  while (landed < landsMost) {
-    auto ready = World.Bakes.NextLanding(World.Stack);
-    if (!ready) {
-      Error = Generators::Describe(ready.error());
-      return false;
-    }
-    if (!*ready) { break; }
+  auto ready = World.Bakes.NextLandings(World.Stack, landsMost);
+  if (!ready) {
+    Error = Generators::Describe(ready.error());
+    return false;
+  }
+  if (!ready->empty()) {
     if (auto published =
-            PublishStructureTile(World, Picture.Device, Picture.Standing, **ready, &Picture.Face);
+            PublishStructureTiles(World, Picture.Device, Picture.Standing, *ready, &Picture.Face);
         !published) {
       Error = std::move(published.error());
       return false;
     }
-    World.Bakes.CommitsLanding(World.Stack, std::move(**ready));
-    ++landed;
+    World.Bakes.CommitsLandings(World.Stack, *ready);
   }
   (void)World.Bakes.Posts(World.Stack);
   Published.Places(

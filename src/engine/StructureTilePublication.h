@@ -6,6 +6,7 @@
 #include <cassert>
 #include <expected>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -26,6 +27,31 @@ PublishStructureTile(Surrounds &world,
   std::string error;
   if (!pieces.Hands(landing.Tile, baked, landing.AnchorEcef, error)) {
     return std::unexpected(std::move(error));
+  }
+  if (auto published = candidate.Publish(scene); !published) { return published; }
+  static_assert(std::is_nothrow_move_assignable_v<TilePieces>);
+  world.Pieces = std::move(pieces);
+  world.BindLiveResources(*scene);
+  return {};
+}
+
+[[nodiscard]] inline std::expected<void, std::string>
+PublishStructureTiles(Surrounds &world,
+                      Render::SceneRenderer &renderer,
+                      std::unique_ptr<Core::Live> &scene,
+                      std::span<const StructureBakes::Landing> landings,
+                      const Ui::Font *font) {
+  assert(scene);
+  Core::WorldCandidate candidate(renderer);
+  if (auto prepared = candidate.Prepare(*scene, font); !prepared) { return prepared; }
+  TilePieces pieces = world.Pieces;
+  pieces.Into(&candidate.Scene());
+  std::string error;
+  for (const StructureBakes::Landing &landing : landings) {
+    assert(landing.Baked);
+    if (!pieces.Hands(landing.Tile, *landing.Baked, landing.AnchorEcef, error)) {
+      return std::unexpected(std::move(error));
+    }
   }
   if (auto published = candidate.Publish(scene); !published) { return published; }
   static_assert(std::is_nothrow_move_assignable_v<TilePieces>);

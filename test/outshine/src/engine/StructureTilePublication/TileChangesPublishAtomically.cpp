@@ -84,6 +84,21 @@ int main() {
       CHECK(PublishStructureTile(world, renderer, scene, landing, nullptr).has_value() &&
                 renderer.PiecesStanding() == 2 && world.Pieces.Handed() == 3,
             "buildings can return after an empty revision");
+      std::array<StructureBakes::Landing, 2> batch{
+          {{.Tile = 8, .Baked = &built, .AnchorEcef = {}},
+           {.Tile = 9, .Baked = &built, .AnchorEcef = {}}}};
+      CHECK(PublishStructureTiles(world, renderer, scene, batch, nullptr).has_value() &&
+                renderer.PiecesStanding() == 6 && world.Pieces.Handed() == 5,
+            "two complete tiles publish through one world candidate");
+      const auto batched = scene.get();
+      const auto batchedDigest = world.Pieces.Digest();
+      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
+      CHECK(!PublishStructureTiles(world, renderer, scene, batch, nullptr) &&
+                scene.get() == batched && renderer.PiecesStanding() == 6 &&
+                world.Pieces.Digest() == batchedDigest,
+            "a later tile failure abandons the whole structure batch");
+      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
+                          .Roofs = static_cast<uint32_t>(roof->index())});
       {
         Core::WorldCandidate outer(renderer);
         const auto prepared = outer.Prepare(*scene, nullptr);
@@ -99,6 +114,8 @@ int main() {
         }
       }
       world.Pieces.Forgets(7);
+      world.Pieces.Forgets(8);
+      world.Pieces.Forgets(9);
       CHECK(renderer.PiecesStanding() == 0 && scene->PieceSourceBytes() == 0,
             "streaming owner still addresses published pieces after all replacements");
     }

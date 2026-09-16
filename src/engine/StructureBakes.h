@@ -6,6 +6,7 @@
 #include <deque>
 #include <memory>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -51,9 +52,9 @@ public:
     std::optional<Ground::BuildingField::PendingAcceptance> Footprints;
   };
 
-  [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError>
-  NextLanding(Ground::GroundStack &stack);
-  void CommitsLanding(Ground::GroundStack &stack, Landing landing) noexcept;
+  [[nodiscard]] std::expected<std::vector<Landing>, Generators::StructureBakeError>
+  NextLandings(Ground::GroundStack &stack, size_t most);
+  void CommitsLandings(Ground::GroundStack &stack, std::span<Landing> landings) noexcept;
   void Clear();
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }

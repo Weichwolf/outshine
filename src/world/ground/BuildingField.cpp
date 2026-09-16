@@ -50,12 +50,15 @@ BuildingField::Next(const OsmField &field, const std::function<bool(FeatureRun)>
   return next;
 }
 
+void BuildingField::PreparesAcceptances(AcceptanceCapacity capacity) {
+  Prints_.reserve(Prints_.size() + capacity.Prints);
+  SeatSpread_.reserve(SeatSpread_.size() + capacity.Spread);
+  Across_.reserve(Across_.size() + capacity.Across);
+  ByTile_.Prepare(capacity.LargestTile);
+}
+
 BuildingField::PendingAcceptance BuildingField::PrepareAcceptance(uint32_t tile,
                                                                   const Baked &baked) {
-  Prints_.reserve(Prints_.size() + baked.Prints.size());
-  SeatSpread_.reserve(SeatSpread_.size() + baked.SeatSpreadM.size());
-  Across_.reserve(Across_.size() + baked.AcrossM.size());
-  ByTile_.Prepare(tile);
   return {this, tile, baked};
 }
 

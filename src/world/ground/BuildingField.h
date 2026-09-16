@@ -47,6 +47,13 @@ public:
     int Fronted = 0;
   };
 
+  struct AcceptanceCapacity {
+    size_t Prints = 0;
+    size_t Spread = 0;
+    size_t Across = 0;
+    uint32_t LargestTile = 0;
+  };
+
   class PendingAcceptance {
     friend class BuildingField;
 
@@ -100,6 +107,7 @@ public:
   }
 
   [[nodiscard]] PendingAcceptance PrepareAcceptance(uint32_t tile, const Baked &baked);
+  void PreparesAcceptances(AcceptanceCapacity capacity);
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
 
