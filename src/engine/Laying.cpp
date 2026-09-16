@@ -679,8 +679,24 @@ bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
       "ground: of that, pressing",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt).count(),
       "ms");
-  if (!World.Sheets.Hands(patchwork, Error)) { return false; }
-  const HeightSheets::Soup pressed = World.Sheets.SoupOf(patchwork);
+  std::unique_ptr<Core::Live> candidate;
+  if (!Core::Live::PreparesWorldReplacement(
+          Picture.Device, *Picture.Standing, &Picture.Face, candidate, Error)) {
+    return false;
+  }
+  HeightSheets sheets = World.Sheets;
+  sheets.Into(candidate.get());
+  if (!sheets.Hands(patchwork, Error)) {
+    candidate.reset();
+    Picture.Device.AbandonsWorldCandidate();
+    return false;
+  }
+  const HeightSheets::Soup pressed = sheets.SoupOf(patchwork);
+  if (!Core::Live::PublishesPreparedWorld(Picture.Device, Picture.Standing, candidate, Error)) {
+    return false;
+  }
+  World.Sheets = std::move(sheets);
+  World.Sheets.Into(Picture.Standing.get());
   World.GroundPositionsM = pressed.PositionM;
   World.GroundIndex = pressed.Index;
   return true;

@@ -110,6 +110,21 @@ public:
                                              const Ui::Font *font,
                                              std::unique_ptr<Live> &out,
                                              std::string &error);
+  [[nodiscard]] static bool PreparesGeometryReplacement(Render::SceneRenderer &renderer,
+                                                        const Live &previous,
+                                                        Geometry replacement,
+                                                        const Ui::Font *font,
+                                                        std::unique_ptr<Live> &candidate,
+                                                        std::string &error);
+  [[nodiscard]] static bool PreparesWorldReplacement(Render::SceneRenderer &renderer,
+                                                     const Live &previous,
+                                                     const Ui::Font *font,
+                                                     std::unique_ptr<Live> &candidate,
+                                                     std::string &error);
+  [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
+                                                   std::unique_ptr<Live> &out,
+                                                   std::unique_ptr<Live> &candidate,
+                                                   std::string &error);
 
   [[nodiscard]] bool Carries(size_t bodies, std::string &error);
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);

@@ -45,6 +45,7 @@ constexpr auto NoPieceSurfaces = "piece registration requires a live renderer an
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
 constexpr auto MissingHeightPage = "the height-page handle names no live resource in this world";
+constexpr auto NoNativeWorld = "world replacement requires native world geometry";
 }
 
 bool Live::GroundClasses(std::span<const uint32_t> classes,
@@ -310,8 +311,21 @@ bool Live::ReplacesGeometry(Render::SceneRenderer &renderer,
                             const Ui::Font *font,
                             std::unique_ptr<Live> &out,
                             std::string &error) {
-  if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<Live> candidate;
+  if (!PreparesGeometryReplacement(
+          renderer, previous, std::move(replacement), font, candidate, error)) {
+    return false;
+  }
+  return PublishesPreparedWorld(renderer, out, candidate, error);
+}
+
+bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
+                                       const Live &previous,
+                                       Geometry replacement,
+                                       const Ui::Font *font,
+                                       std::unique_ptr<Live> &candidate,
+                                       std::string &error) {
+  if (!renderer.BeginsWorldCandidate(error)) { return false; }
   if (!Prepare(renderer, previous.Declared_, font, candidate, error)) {
     renderer.AbandonsWorldCandidate();
     return false;
@@ -331,6 +345,26 @@ bool Live::ReplacesGeometry(Render::SceneRenderer &renderer,
   candidate->HaveEye_ = previous.HaveEye_;
   candidate->Aim_ = previous.Aim_;
   candidate->Around_ = previous.Around_;
+  return true;
+}
+
+bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
+                                    const Live &previous,
+                                    const Ui::Font *font,
+                                    std::unique_ptr<Live> &candidate,
+                                    std::string &error) {
+  if (!previous.Held_.HoldsBuilt()) {
+    error = Says::NoNativeWorld;
+    return false;
+  }
+  return PreparesGeometryReplacement(
+      renderer, previous, previous.Held_.Built().clone(), font, candidate, error);
+}
+
+bool Live::PublishesPreparedWorld(Render::SceneRenderer &renderer,
+                                  std::unique_ptr<Live> &out,
+                                  std::unique_ptr<Live> &candidate,
+                                  std::string &error) {
   if (!renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
