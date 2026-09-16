@@ -233,6 +233,7 @@ private:
 
   [[nodiscard]] bool
   ValidateBatch(const SubjectMesh &mesh, const DrawBatch &batch, std::string &error) const;
+  [[nodiscard]] bool ValidatePiece(const PieceMesh &piece, std::string &error) const;
 
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
   void BindSlot(const PassRecording &into, size_t slot, VertexLayout layout) const;

@@ -886,39 +886,44 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   return true;
 }
 
-PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
-  if (Borrows()) { return kNoPiece; }
+bool SubjectDraw::ValidatePiece(const PieceMesh &piece, std::string &error) const {
+  if (Borrows()) { return false; }
   if (piece.MaxInstances > 0 && std::max(size_t{1}, piece.Instances.size()) > piece.MaxInstances) {
     error = Says::PieceInstanceLimit;
-    return kNoPiece;
+    return false;
   }
   if (piece.Verts.empty() || piece.Indices.size() < 3 || piece.Indices.size() % 3 != 0) {
     error = "a piece of " + std::to_string(piece.Verts.size()) + " vertices and " +
             std::to_string(piece.Indices.size()) +
             " indices is not a mesh, and placing nothing is not what was asked for";
-    return kNoPiece;
+    return false;
   }
   if (!piece.Colours.empty() && piece.Colours.size() != piece.Verts.size() * kQuadFloats) {
     error = "a piece carries " + std::to_string(piece.Colours.size() / kQuadFloats) +
             " colours over " + std::to_string(piece.Verts.size()) + " vertices";
-    return kNoPiece;
+    return false;
   }
   if (!piece.Tangents.empty() &&
       (piece.Tangents.size() != piece.Verts.size() * kQuadFloats || !piece.Textured)) {
     error = "piece tangents require UVs and one float4 per vertex";
-    return kNoPiece;
+    return false;
   }
   if (Binding().Device == nullptr) {
     error = "the subject stage carries no device, so a piece has nowhere to become resident";
-    return kNoPiece;
+    return false;
   }
   const std::span<const uint32_t> slots = piece.Surface.From == PieceSurface::Source::Registered
                                               ? std::span<const uint32_t>(RegisteredSlotOf_)
                                               : std::span<const uint32_t>(SlotOf_);
   if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] == kNoSlot) {
     error = "a piece refers to a surface the subject does not register";
-    return kNoPiece;
+    return false;
   }
+  return true;
+}
+
+PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
+  if (!ValidatePiece(piece, error)) { return kNoPiece; }
   const Heap::Tagged uploading("mesh-upload");
   const auto verts = static_cast<uint32_t>(piece.Verts.size());
   const auto indices = static_cast<uint32_t>(piece.Indices.size());
