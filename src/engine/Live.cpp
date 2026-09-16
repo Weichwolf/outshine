@@ -44,6 +44,7 @@ constexpr auto NoGeometrySurface = "native geometry requires a declared surface 
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
+constexpr auto MissingHeightPage = "the height-page handle names no live resource in this world";
 }
 
 bool Live::GroundClasses(std::span<const uint32_t> classes,
@@ -103,6 +104,70 @@ void Live::ReleasePiece(Render::PieceId which) {
   Renderer_->ReleasePiece(piece.Resident);
   piece.Resident = Render::kNoPiece;
   piece.Live = false;
+}
+
+Render::PageId Live::PlaceHeightPage(std::span<const float> nodes, std::string &error) {
+  if (Renderer_ == nullptr || HeightPages_.size() >= Render::kNoPage) {
+    error = Says::MissingHeightPage;
+    return Render::kNoPage;
+  }
+  HeightPage held{.Nodes = {nodes.begin(), nodes.end()}};
+  held.Resident = Renderer_->PlaceHeightPage(held.Nodes, error);
+  if (held.Resident == Render::kNoPage) { return Render::kNoPage; }
+  held.Live = true;
+  HeightPages_.push_back(std::move(held));
+  return static_cast<Render::PageId>(HeightPages_.size() - 1u);
+}
+
+void Live::ReleaseHeightPage(Render::PageId which) {
+  if (Renderer_ == nullptr || which >= HeightPages_.size() || !HeightPages_[which].Live) { return; }
+  HeightPage &page = HeightPages_[which];
+  Renderer_->ReleaseHeightPage(page.Resident);
+  page.Resident = Render::kNoPage;
+  page.Live = false;
+}
+
+bool Live::SetGroundGrid(std::span<const float> fractions, std::string &error) {
+  if (Renderer_ == nullptr || !Renderer_->SetGroundGrid(fractions, error)) {
+    return Renderer_ == nullptr;
+  }
+  GroundGrid_.assign(fractions.begin(), fractions.end());
+  return true;
+}
+
+bool Live::PublishesGroundLattice(std::span<const Render::GroundTile> real,
+                                  std::span<const Render::GroundTile> virtual_,
+                                  std::string &error) {
+  const auto translated = [this, &error](std::span<const Render::GroundTile> source,
+                                         std::vector<Render::GroundTile> &into) {
+    into.assign(source.begin(), source.end());
+    for (Render::GroundTile &tile : into) {
+      const float encoded = tile.Instance.Page;
+      const auto page = static_cast<Render::PageId>(encoded);
+      if (!std::isfinite(encoded) || static_cast<float>(page) != encoded ||
+          page >= HeightPages_.size() || !HeightPages_[page].Live) {
+        error = Says::MissingHeightPage;
+        return false;
+      }
+      tile.Instance.Page = static_cast<float>(HeightPages_[page].Resident);
+    }
+    return true;
+  };
+  std::vector<Render::GroundTile> residentReal;
+  std::vector<Render::GroundTile> residentVirtual;
+  if (!translated(real, residentReal) || !translated(virtual_, residentVirtual)) { return false; }
+  return Renderer_->SetGroundLattice(residentReal, residentVirtual, error);
+}
+
+bool Live::SetGroundLattice(std::span<const Render::GroundTile> real,
+                            std::span<const Render::GroundTile> virtual_,
+                            std::string &error) {
+  if (Renderer_ == nullptr || !PublishesGroundLattice(real, virtual_, error)) {
+    return Renderer_ == nullptr;
+  }
+  GroundReal_.assign(real.begin(), real.end());
+  GroundVirtual_.assign(virtual_.begin(), virtual_.end());
+  return true;
 }
 
 constexpr double kExposureCalibration = 1.2;
@@ -256,6 +321,7 @@ bool Live::ReplacesGeometry(Render::SceneRenderer &renderer,
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
   if (!candidate->SetGeometry(std::move(replacement), previous.Carrying_, error) ||
       !candidate->RestoresPieceResources(previous, error) ||
+      !candidate->RestoresGroundResources(previous, error) ||
       !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -589,6 +655,19 @@ bool Live::RestoresPieceResources(const Live &previous, std::string &error) {
     if (piece.Resident == Render::kNoPiece) { return false; }
   }
   return true;
+}
+
+bool Live::RestoresGroundResources(const Live &previous, std::string &error) {
+  HeightPages_ = previous.HeightPages_;
+  for (HeightPage &page : HeightPages_) {
+    if (!page.Live) { continue; }
+    page.Resident = Renderer_->PlaceHeightPage(page.Nodes, error);
+    if (page.Resident == Render::kNoPage) { return false; }
+  }
+  if (!previous.GroundGrid_.empty() && !SetGroundGrid(previous.GroundGrid_, error)) {
+    return false;
+  }
+  return SetGroundLattice(previous.GroundReal_, previous.GroundVirtual_, error);
 }
 
 std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::string &error) {

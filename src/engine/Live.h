@@ -132,23 +132,15 @@ public:
 
   void ReleasePiece(Render::PieceId which);
 
-  [[nodiscard]] Render::PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
-    return Renderer_ == nullptr ? Render::kNoPage : Renderer_->PlaceHeightPage(nodes, error);
-  }
+  [[nodiscard]] Render::PageId PlaceHeightPage(std::span<const float> nodes, std::string &error);
 
-  void ReleaseHeightPage(Render::PageId which) {
-    if (Renderer_ != nullptr) { Renderer_->ReleaseHeightPage(which); }
-  }
+  void ReleaseHeightPage(Render::PageId which);
 
-  [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
-    return Renderer_ == nullptr || Renderer_->SetGroundGrid(fractions, error);
-  }
+  [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error);
 
   [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundTile> real,
                                       std::span<const Render::GroundTile> virtual_,
-                                      std::string &error) {
-    return Renderer_ == nullptr || Renderer_->SetGroundLattice(real, virtual_, error);
-  }
+                                      std::string &error);
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const {
     return Renderer_ == nullptr ? 0u : Renderer_->GroundLatticeTriangles();
@@ -501,6 +493,20 @@ private:
 
   std::vector<Piece> Pieces_;
   [[nodiscard]] bool RestoresPieceResources(const Live &previous, std::string &error);
+
+  struct HeightPage {
+    std::vector<float> Nodes;
+    Render::PageId Resident = Render::kNoPage;
+    bool Live = false;
+  };
+
+  std::vector<HeightPage> HeightPages_;
+  std::vector<float> GroundGrid_;
+  std::vector<Render::GroundTile> GroundReal_, GroundVirtual_;
+  [[nodiscard]] bool RestoresGroundResources(const Live &previous, std::string &error);
+  [[nodiscard]] bool PublishesGroundLattice(std::span<const Render::GroundTile> real,
+                                            std::span<const Render::GroundTile> virtual_,
+                                            std::string &error);
   Posed Held_;
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;
