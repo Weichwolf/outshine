@@ -21,7 +21,9 @@ int main() {
     CHECK(ready, "initial simulation assembled");
     if (!ready) { return Report(); }
     EntityRegistry *const previous = &engine.entities();
-    const Entity marker = previous->addEntity(Role::Tool);
+    const auto marker = previous->addEntity(Role::Tool);
+    CHECK(marker.has_value(), "spare entity capacity remains usable");
+    if (!marker) { return Report(); }
     for (const bool populated : {true, false}) {
       Scenario::Document world = populated ? initial : Scenario::Document{};
       world.Ground.Declared = true;
@@ -35,7 +37,7 @@ int main() {
             "world setup failure reaches the caller");
       CHECK(&engine.entities() == previous, "failed world setup preserves simulation ownership");
       if (&engine.entities() != previous) { return Report(); }
-      CHECK(previous->alive(marker), "previous simulation remains usable");
+      CHECK(previous->alive(*marker), "previous simulation remains usable");
     }
   }
   SDL_Quit();

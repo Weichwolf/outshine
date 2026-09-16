@@ -492,11 +492,6 @@ public:
   /// successful simulation assembly or an open frame. Serialize with Engine mutations.
   /// @return True when an internal render scene exists.
   [[nodiscard]] bool standing() const;
-  /// Borrow the legacy diagnostic string until Engine destruction; later calls may change it
-  /// and invalidate character pointers. Serialize with Engine operations. Some expected-returning
-  /// calls do not update or clear it: use their returned error as the authoritative result.
-  /// @return Borrowed legacy diagnostic, possibly empty or stale.
-  [[nodiscard]] const std::string &error() const;
 
 private:
   friend class Renderer;

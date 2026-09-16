@@ -85,11 +85,18 @@ int main(void) {
         result ? "ready" : "failed");
     return result;
   };
-  if (!(timed("declare", [&] { return engine.declare(stands); }) &&
-        timed("assemble", [&] { return engine.assemble(); }) &&
-        timed("preload", [&] { return engine.preload(kPatienceS); }) &&
-        timed("advance", [&] { return engine.advance(); }))) {
-    Unprepared(("place preparation failed: " + engine.error()).c_str());
+  auto prepared = timed("declare", [&] { return engine.declare(stands); });
+  if (prepared) {
+    prepared = timed("assemble", [&] { return engine.assemble(); });
+  }
+  if (prepared) {
+    prepared = timed("preload", [&] { return engine.preload(kPatienceS); });
+  }
+  if (prepared) {
+    prepared = timed("advance", [&] { return engine.advance(); });
+  }
+  if (!prepared) {
+    Unprepared(("place preparation failed: " + prepared.error()).c_str());
     return Report();
   }
 

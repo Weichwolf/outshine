@@ -90,7 +90,9 @@ int main(void) {
     return Report();
   }
 
-  const auto stoodAt = [&](double elevationDeg, std::vector<uint8_t> &rgba, double exposure = 0.0) {
+  const auto stoodAt = [&](double elevationDeg,
+                           std::vector<uint8_t> &rgba,
+                           double exposure = 0.0) -> outshine::Result {
     outshine::Scenario::Document stands;
     stands.Ground.Declared = true;
     stands.Ground.VegetationEnabled = false;
@@ -118,21 +120,26 @@ int main(void) {
     watches.Geographic.PitchDeg = kPitchDeg;
     watches.Sees.FovDeg = kFovDeg;
     stands.Views.push_back(watches);
-    if (!(engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
-          engine.advance())) {
-      return false;
-    }
+    auto prepared = engine.declare(stands);
+    if (prepared) { prepared = engine.assemble(); }
+    if (prepared) { prepared = engine.preload(kPatienceS); }
+    if (prepared) { prepared = engine.advance(); }
     const int settle = std::max(2, engine.renderer().settleFrames());
-    for (int frame = 0; frame < settle + 1; ++frame) {
-      if (!engine.renderer().render(outshine::Extent{})) { return false; }
+    for (int frame = 0; prepared && frame < settle + 1; ++frame) {
+      prepared = engine.renderer().render(outshine::Extent{});
     }
-    return static_cast<bool>(engine.renderer().readPixels(rgba));
+    if (prepared) { prepared = engine.renderer().readPixels(rgba); }
+    return prepared;
   };
 
   std::vector<uint8_t> low, lowTwice, middling, high, lowAgain;
-  if (!stoodAt(5.0, low) || !stoodAt(5.0, lowTwice) || !stoodAt(30.0, middling) ||
-      !stoodAt(75.0, high) || !stoodAt(5.0, lowAgain)) {
-    Unprepared(("place preparation failed: " + engine.error()).c_str());
+  auto prepared = stoodAt(5.0, low);
+  if (prepared) { prepared = stoodAt(5.0, lowTwice); }
+  if (prepared) { prepared = stoodAt(30.0, middling); }
+  if (prepared) { prepared = stoodAt(75.0, high); }
+  if (prepared) { prepared = stoodAt(5.0, lowAgain); }
+  if (!prepared) {
+    Unprepared(("place preparation failed: " + prepared.error()).c_str());
     return Report();
   }
 
@@ -193,8 +200,10 @@ int main(void) {
   const double ev100 = std::log2(40000.0 / 2.5);
   const double derived = 1.0 / (1.2 * std::pow(2.0, ev100));
   std::vector<uint8_t> dim, bright;
-  if (!stoodAt(30.0, dim, derived * 0.5) || !stoodAt(30.0, bright, derived * 2.0)) {
-    Unprepared(("a declared exposure would not stand: " + engine.error()).c_str());
+  prepared = stoodAt(30.0, dim, derived * 0.5);
+  if (prepared) { prepared = stoodAt(30.0, bright, derived * 2.0); }
+  if (!prepared) {
+    Unprepared(("a declared exposure would not stand: " + prepared.error()).c_str());
     return Report();
   }
   const double atHalf = Luminance(dim, kWidePx, groundFrom, kHighPx);

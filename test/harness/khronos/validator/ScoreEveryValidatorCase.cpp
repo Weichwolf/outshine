@@ -91,8 +91,11 @@ int main(int argc, char **argv) {
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
 
-  const bool stood = engine.declare(stands) && engine.assemble();
-  const std::string why = engine.error();
+  const auto declared = engine.declare(stands);
+  const auto assembled =
+      declared ? engine.assemble() : outshine::Result(std::unexpected(declared.error()));
+  const bool stood = assembled.has_value();
+  const std::string why = stood ? std::string() : assembled.error();
   std::printf("OUTSHINE %s%s%s\n",
               stood ? "stood" : "refused",
               stood ? "" : ": ",

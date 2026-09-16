@@ -211,11 +211,11 @@ bool Engine::settled() const {
 }
 
 Result Renderer::render(Extent frame) {
-  return Of_->render(frame) ? Result{} : std::unexpected(Of_->error());
+  return Of_->render(frame) ? Result{} : std::unexpected(Of_->S_->Error);
 }
 
 Result Renderer::saveScreenshot(std::string_view path) {
-  return Of_->saveScreenshot(path) ? Result{} : std::unexpected(Of_->error());
+  return Of_->saveScreenshot(path) ? Result{} : std::unexpected(Of_->S_->Error);
 }
 
 int Renderer::settleFrames() const {
@@ -223,11 +223,11 @@ int Renderer::settleFrames() const {
 }
 
 Result Renderer::readPixels(std::vector<uint8_t> &rgba) {
-  return Of_->readPixels(rgba) ? Result{} : std::unexpected(Of_->error());
+  return Of_->readPixels(rgba) ? Result{} : std::unexpected(Of_->S_->Error);
 }
 
 Result Renderer::readPixels(Buffer which, std::vector<float> &out) {
-  return Of_->readPixels(which, out) ? Result{} : std::unexpected(Of_->error());
+  return Of_->readPixels(which, out) ? Result{} : std::unexpected(Of_->S_->Error);
 }
 
 Renderer Engine::renderer() {
@@ -252,15 +252,15 @@ Result Renderer::beginFrame(SwapChain &into) {
     return std::unexpected(std::string("a frame is begun against a canvas and this one is "
                                        "0x0 -- drawsInto declares it before a frame opens"));
   }
-  return Of_->beginFrame() ? Result{} : std::unexpected(Of_->error());
+  return Of_->beginFrame() ? Result{} : std::unexpected(Of_->S_->Error);
 }
 
 Result Renderer::endFrame() {
-  return Of_->endFrame() ? Result{} : std::unexpected(Of_->error());
+  return Of_->endFrame() ? Result{} : std::unexpected(Of_->S_->Error);
 }
 
 Result Renderer::flushAndWait() {
-  return Of_->flushAndWait() ? Result{} : std::unexpected(Of_->error());
+  return Of_->flushAndWait() ? Result{} : std::unexpected(Of_->S_->Error);
 }
 
 Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
@@ -416,10 +416,6 @@ Result Engine::setView(std::string_view view) {
 
 bool Engine::standing() const {
   return S_->Picture.Standing != nullptr;
-}
-
-const std::string &Engine::error() const {
-  return S_->Error;
 }
 
 }

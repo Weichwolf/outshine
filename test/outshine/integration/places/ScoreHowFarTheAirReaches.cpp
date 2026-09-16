@@ -109,7 +109,7 @@ int main(void) {
     return Report();
   }
 
-  const auto stood = [&](std::vector<uint8_t> &rgba) {
+  const auto stood = [&](std::vector<uint8_t> &rgba) -> outshine::Result {
     outshine::Scenario::Document stands;
     stands.Ground.Declared = true;
     stands.Ground.VegetationEnabled = false;
@@ -136,16 +136,21 @@ int main(void) {
     watches.Geographic.PitchDeg = kPitchDeg;
     watches.Sees.FovDeg = kFovDeg;
     stands.Views.push_back(watches);
-    const bool okay = engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
-                      engine.advance() && engine.renderer().render(outshine::Extent{}) &&
-                      engine.renderer().render(outshine::Extent{}) &&
-                      engine.renderer().readPixels(rgba);
-    return okay;
+    auto prepared = engine.declare(stands);
+    if (prepared) { prepared = engine.assemble(); }
+    if (prepared) { prepared = engine.preload(kPatienceS); }
+    if (prepared) { prepared = engine.advance(); }
+    if (prepared) { prepared = engine.renderer().render(outshine::Extent{}); }
+    if (prepared) { prepared = engine.renderer().render(outshine::Extent{}); }
+    if (prepared) { prepared = engine.renderer().readPixels(rgba); }
+    return prepared;
   };
 
   std::vector<uint8_t> seen, seenAgain;
-  if (!stood(seen) || !stood(seenAgain)) {
-    Unprepared(("place preparation failed: " + engine.error()).c_str());
+  auto prepared = stood(seen);
+  if (prepared) { prepared = stood(seenAgain); }
+  if (!prepared) {
+    Unprepared(("place preparation failed: " + prepared.error()).c_str());
     return Report();
   }
 
