@@ -912,6 +912,13 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
     error = "the subject stage carries no device, so a piece has nowhere to become resident";
     return kNoPiece;
   }
+  const std::span<const uint32_t> slots = piece.Surface.From == PieceSurface::Source::Registered
+                                              ? std::span<const uint32_t>(RegisteredSlotOf_)
+                                              : std::span<const uint32_t>(SlotOf_);
+  if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] == kNoSlot) {
+    error = "a piece refers to a surface the subject does not register";
+    return kNoPiece;
+  }
   const Heap::Tagged uploading("mesh-upload");
   const auto verts = static_cast<uint32_t>(piece.Verts.size());
   const auto indices = static_cast<uint32_t>(piece.Indices.size());
