@@ -30,6 +30,10 @@ assumed: generator output may depend on borrowed, changing provider data.
 - `Live::Open` and `Engine::declare` detach a replaced `Live` owner only after its successor,
   scroll restoration and generated geometry succeeded. Its destructor therefore cannot clear
   the successor's renderer products; a failed CPU-side build retains the old owner.
+- `SceneRenderer` now builds a move-only `SceneState` candidate containing frame, plan and world
+  content. Full declarations publish it only after geometry and overlays succeed; a generated-world
+  submit failure retains prior linear pixels and retries. Frame-owned cull and shadow stages rebind
+  their subject address after the content move.
 
 ## Remaining defect and implementation
 
@@ -38,13 +42,14 @@ bindings and UI state locally, then detaches and replaces the old owner only aft
 is complete. Generation must not mutate live state during preparation. Its remaining failure
 boundary is GPU-visible state, not CPU ownership.
 
-`Live` ownership and CPU products now remain local through open, scroll restoration and generated
-geometry preparation. This is incomplete: `Live::Build` uploads meshes, surfaces and overlays into
-the shared `SceneRenderer`, so a failed candidate can still replace GPU-visible state. Stage a
-separate renderer resource set. Snapshot/restore is rejected: mesh, material, overlay, light and
-plan mutations have coupled GPU ownership and cannot prove complete restoration. Publish the staged set
-only after all uploads succeed; prove preserved old pixels and retry after injected upload, surface and
-overlay failures.
+`Live` ownership and CPU products remain local through open, scroll restoration and generated
+geometry preparation. `SceneState` stages all GPU-visible declaration products under WI 2223;
+snapshot/restore remains rejected because coupled GPU ownership cannot prove complete restoration.
+
+The remaining direct geometry mutators call `Live::SetGeometry` on the published owner. They need a
+cloneable native world-input candidate, not a CPU move-and-rollback; WI 2224 owns `setGeometry`,
+pending geometry and streaming ground. Surface-only redeclaration, `Restands`, `offers`, `setRoots`,
+save and restore remain separately inventoried.
 
 Inventory each mutator: `offers`, `setRoots`, `setSurfaces`, `declare`, `assemble`, target setup,
 save and restore. Unsupported declarations are rejected under 2131. Stable borrowed handles and
