@@ -21,6 +21,25 @@ namespace outshine::Render {
 
 struct SurfaceOutputs;
 
+class GroundPipelineBinding {
+public:
+  [[nodiscard]] bool ConfigureLit(SDL_GPUDevice *device,
+                                  const SurfaceOutputs &outputs,
+                                  std::span<const SDL_GPUColorTargetDescription> targets,
+                                  SDL_GPUVertexInputState input,
+                                  std::string &error);
+  [[nodiscard]] bool
+  ConfigureDepth(SDL_GPUDevice *device, SDL_GPUVertexInputState input, std::string &error);
+
+  [[nodiscard]] SDL_GPUGraphicsPipeline *Lit() const { return Lit_.Get(); }
+
+  [[nodiscard]] SDL_GPUGraphicsPipeline *Depth() const { return Depth_.Get(); }
+
+private:
+  OwnedPipeline Lit_;
+  OwnedPipeline Depth_;
+};
+
 class GroundLattice {
 public:
 #define GROUND_INT(name, value) static constexpr int name = value;
@@ -101,8 +120,7 @@ private:
             uint32_t virtual_) const;
 
   SDL_GPUDevice *Device_ = nullptr;
-  OwnedPipeline Lit_;
-  OwnedPipeline Depth_;
+  GroundPipelineBinding Pipelines_;
   OwnedTexture Pages_;
   OwnedSampler Nearest_;
   OwnedBuffer Grid_;

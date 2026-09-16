@@ -389,6 +389,17 @@ void Tables(SDL_GPUDevice *device) {
   CHECK(draw.Configure(gpu, error), "subject pipelines configure again after a refusal");
   CHECK(draw.PipelineCount() == pipelines,
         "successful retry publishes the complete subject pipeline set");
+  const unsigned beforeGroundFailure = failures;
+  nextFailure = Failure::Pipeline;
+  skipFailures = pipelines;
+  error.clear();
+  CHECK(!draw.Configure(gpu, error), "a refused ground pipeline rejects reconfiguration");
+  CHECK(failures == beforeGroundFailure + 1 && error.find("injected") != std::string::npos,
+        "a refused ground pipeline reports its injected SDL diagnostic");
+  CHECK(draw.PipelineCount() == pipelines,
+        "a refused ground pipeline preserves the previously published subject pipelines");
+  nextFailure = Failure::None;
+  CHECK(draw.Configure(gpu, error), "the ground pipeline configures again after a refusal");
   const std::array<SubjectMaterial, 1> materials{};
   const bool materialReady = draw.SetMaterials(materials, error);
   CHECK(materialReady, error.c_str());

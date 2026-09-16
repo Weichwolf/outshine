@@ -29,9 +29,9 @@ verschiebbare, formatgebundene Bindungen schneiden. GroundStorage bleibt dauerha
 alle Frame-Texturen, Sampler, Pyramide, temporalen Ziele und Stages wandern gemeinsam.
 
 `SubjectDraw` baut seine Subject-Pipelines bereits als lokalen Kandidaten; Mesh-, Material-
-und Instanzresidenz bleiben stehen. `GroundLattice` besitzt dagegen noch Seiten, Grid, Instanzen
-und Lit-/Depth-Pipelines zusammen. Diese Pipelinebindungen müssen vor dem finalen Tausch aus
-dem dauerhaften Lattice-Inhalt herausgelöst werden.
+und Instanzresidenz bleiben stehen. `GroundLattice` trennt seine Lit-/Depth-Bindungen nun von
+Seiten, Grid und Instanzen. Beide Bindungssätze werden später gemeinsam mit den übrigen
+formatgebundenen Frame-Ressourcen getauscht.
 
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,

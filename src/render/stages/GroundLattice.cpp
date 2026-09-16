@@ -266,6 +266,87 @@ bool GroundLattice::BuildPages(std::string &error) {
   return true;
 }
 
+bool GroundPipelineBinding::ConfigureLit(SDL_GPUDevice *device,
+                                         const SurfaceOutputs &outputs,
+                                         std::span<const SDL_GPUColorTargetDescription> targets,
+                                         SDL_GPUVertexInputState input,
+                                         std::string &error) {
+  const OwnedShader vertex(device,
+                           ShaderFrom(device,
+                                      outputs.VertexPath("groundLattice"),
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      GroundLattice::LitShape,
+                                      error));
+  const OwnedShader fragment(device,
+                             ShaderFrom(device,
+                                        outputs.FragmentPath("groundLit"),
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        GroundLattice::LitShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
+  SDL_GPUGraphicsPipelineCreateInfo wanted{};
+  wanted.vertex_shader = vertex.Get();
+  wanted.fragment_shader = fragment.Get();
+  wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+  wanted.vertex_input_state = input;
+  wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
+  wanted.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+  wanted.target_info.color_target_descriptions = targets.data();
+  wanted.target_info.num_color_targets = static_cast<Uint32>(targets.size());
+  wanted.target_info.has_depth_stencil_target = true;
+  wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+  wanted.depth_stencil_state.enable_depth_test = true;
+  wanted.depth_stencil_state.enable_depth_write = true;
+  wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
+  SDL_GPUGraphicsPipeline *const made = SDL_CreateGPUGraphicsPipeline(device, &wanted);
+  if (made == nullptr) {
+    error = std::format(Says::kPipelineRefused, SDL_GetError());
+    return false;
+  }
+  Lit_ = OwnedPipeline(device, made);
+  return true;
+}
+
+bool GroundPipelineBinding::ConfigureDepth(SDL_GPUDevice *device,
+                                           SDL_GPUVertexInputState input,
+                                           std::string &error) {
+  const OwnedShader vertex(device,
+                           ShaderFrom(device,
+                                      "build/shaders/groundLatticeDepth.vert.spv",
+                                      SDL_GPU_SHADERSTAGE_VERTEX,
+                                      GroundLattice::DepthShape,
+                                      error));
+  const OwnedShader fragment(device,
+                             ShaderFrom(device,
+                                        "build/shaders/depth.frag.spv",
+                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                        GroundLattice::DepthShape,
+                                        error));
+  if (!vertex || !fragment) { return false; }
+  SDL_GPUGraphicsPipelineCreateInfo wanted{};
+  wanted.vertex_shader = vertex.Get();
+  wanted.fragment_shader = fragment.Get();
+  wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+  wanted.vertex_input_state = input;
+  wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
+  wanted.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+  wanted.depth_stencil_state.enable_depth_test = true;
+  wanted.depth_stencil_state.enable_depth_write = true;
+  wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
+  wanted.target_info.num_color_targets = 0;
+  wanted.target_info.has_depth_stencil_target = true;
+  wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+  SDL_GPUGraphicsPipeline *const made = SDL_CreateGPUGraphicsPipeline(device, &wanted);
+  if (made == nullptr) {
+    error = std::format(Says::kPipelineRefused, SDL_GetError());
+    return false;
+  }
+  Depth_ = OwnedPipeline(device, made);
+  return true;
+}
+
 bool GroundLattice::Configure(SDL_GPUDevice *device,
                               const SurfaceOutputs &outputs,
                               std::span<const SDL_GPUColorTargetDescription> targets,
@@ -288,45 +369,13 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
       return false;
     }
   }
-  const OwnedShader vertex(Device_,
-                           ShaderFrom(Device_,
-                                      outputs.VertexPath("groundLattice"),
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      LitShape,
-                                      error));
-  const OwnedShader fragment(Device_,
-                             ShaderFrom(Device_,
-                                        outputs.FragmentPath("groundLit"),
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        LitShape,
-                                        error));
-  if (!vertex || !fragment) { return false; }
   const LatticeVertexInput in = MakeLatticeVertexInput();
-  SDL_GPUGraphicsPipelineCreateInfo wanted{};
-  wanted.vertex_shader = vertex.Get();
-  wanted.fragment_shader = fragment.Get();
-  wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  wanted.vertex_input_state.vertex_buffer_descriptions = in.Buffers.data();
-  wanted.vertex_input_state.num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size());
-  wanted.vertex_input_state.vertex_attributes = in.Attributes.data();
-  wanted.vertex_input_state.num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size());
-  wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
-  wanted.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  wanted.target_info.color_target_descriptions = targets.data();
-  wanted.target_info.num_color_targets = static_cast<Uint32>(targets.size());
-  wanted.target_info.has_depth_stencil_target = true;
-  wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-  wanted.depth_stencil_state.enable_depth_test = true;
-  wanted.depth_stencil_state.enable_depth_write = true;
-  wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
-  SDL_GPUGraphicsPipeline *const made = SDL_CreateGPUGraphicsPipeline(Device_, &wanted);
-  if (made == nullptr) {
-    error = std::format(Says::kPipelineRefused, SDL_GetError());
-    return false;
-  }
-  Lit_ = OwnedPipeline(Device_, made);
-  return true;
+  const SDL_GPUVertexInputState input{
+      .vertex_buffer_descriptions = in.Buffers.data(),
+      .num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size()),
+      .vertex_attributes = in.Attributes.data(),
+      .num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size())};
+  return Pipelines_.ConfigureLit(Device_, outputs, targets, input, error);
 }
 
 bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
@@ -334,42 +383,13 @@ bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
     error = std::string(Says::kNoDevice);
     return false;
   }
-  const OwnedShader vertex(device,
-                           ShaderFrom(device,
-                                      "build/shaders/groundLatticeDepth.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      DepthShape,
-                                      error));
-  const OwnedShader fragment(
-      device,
-      ShaderFrom(
-          device, "build/shaders/depth.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, DepthShape, error));
-  if (!vertex || !fragment) { return false; }
   const LatticeVertexInput in = MakeLatticeVertexInput();
-  SDL_GPUGraphicsPipelineCreateInfo wanted{};
-  wanted.vertex_shader = vertex.Get();
-  wanted.fragment_shader = fragment.Get();
-  wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  wanted.vertex_input_state.vertex_buffer_descriptions = in.Buffers.data();
-  wanted.vertex_input_state.num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size());
-  wanted.vertex_input_state.vertex_attributes = in.Attributes.data();
-  wanted.vertex_input_state.num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size());
-  wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
-  wanted.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  wanted.depth_stencil_state.enable_depth_test = true;
-  wanted.depth_stencil_state.enable_depth_write = true;
-  wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
-  wanted.target_info.num_color_targets = 0;
-  wanted.target_info.has_depth_stencil_target = true;
-  wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-  SDL_GPUGraphicsPipeline *const made = SDL_CreateGPUGraphicsPipeline(device, &wanted);
-  if (made == nullptr) {
-    error = std::format(Says::kPipelineRefused, SDL_GetError());
-    return false;
-  }
-  Depth_ = OwnedPipeline(device, made);
-  return true;
+  const SDL_GPUVertexInputState input{
+      .vertex_buffer_descriptions = in.Buffers.data(),
+      .num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size()),
+      .vertex_attributes = in.Attributes.data(),
+      .num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size())};
+  return Pipelines_.ConfigureDepth(device, input, error);
 }
 
 bool GroundLattice::SetGrid(std::span<const float> fractions, std::string &error) {
@@ -652,11 +672,11 @@ void GroundLattice::Draw(const PassRecording &into,
 }
 
 void GroundLattice::Encode(const PassRecording &into) const {
-  Draw(into, Lit_.Get(), Visible_, VisibleReal_, VisibleVirtual_);
+  Draw(into, Pipelines_.Lit(), Visible_, VisibleReal_, VisibleVirtual_);
 }
 
 void GroundLattice::Cast(const PassRecording &into) const {
-  Draw(into, Depth_.Get(), Instances_, RealCount_, VirtualCount_);
+  Draw(into, Pipelines_.Depth(), Instances_, RealCount_, VirtualCount_);
 }
 
 }
