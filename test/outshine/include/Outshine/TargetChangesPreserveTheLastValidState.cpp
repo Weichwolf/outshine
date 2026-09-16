@@ -57,6 +57,14 @@ outshine::Scenario::Document TargetScenario(outshine::Extent extent) {
   scene.Views.push_back(view);
   return scene;
 }
+
+outshine::Result Prepare(outshine::Engine &engine, const outshine::Scenario::Document &scenario) {
+  auto declared = engine.declare(scenario);
+  if (!declared) { return declared; }
+  auto assembled = engine.assemble();
+  if (!assembled) { return assembled; }
+  return engine.advance();
+}
 } // namespace
 
 extern "C" bool SDLCALL SDL_GetWindowSizeInPixels(SDL_Window *window, int *width, int *height) {
@@ -218,10 +226,9 @@ int main() {
                 "the public error retains the SDL failure at its origin");
         }
       }
-      const bool ready =
-          owner.declare(TargetScenario(original)) && owner.assemble() && owner.advance();
+      const auto ready = Prepare(owner, TargetScenario(original));
       CHECK(ready, "the retained window configures a real presentation plan and camera");
-      if (!ready) { std::printf("presentation setup: %s\n", owner.error().c_str()); }
+      if (!ready) { std::printf("presentation setup: %s\n", ready.error().c_str()); }
       auto target = owner.swapChain();
       auto renderer = owner.renderer();
       const bool began = ready && renderer.beginFrame(target).has_value();
@@ -249,10 +256,9 @@ int main() {
     {
       Engine offscreen;
       CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(), "offscreen target is configured");
-      const bool ready = offscreen.declare(TargetScenario({32, 32})) && offscreen.assemble() &&
-                         offscreen.advance();
+      const auto ready = Prepare(offscreen, TargetScenario({32, 32}));
       CHECK(ready, "the plan allocates an offscreen surface and camera");
-      if (!ready) { std::printf("offscreen setup: %s\n", offscreen.error().c_str()); }
+      if (!ready) { std::printf("offscreen setup: %s\n", ready.error().c_str()); }
       if (ready) {
         auto renderer = offscreen.renderer();
         std::vector<uint8_t> before;
@@ -350,7 +356,6 @@ int main() {
               "invalid inputs cannot replace the existing target");
         CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(),
               "replacement succeeds after the injected failure");
-        CHECK(offscreen.error().empty(), "successful recovery clears the previous operation error");
         CHECK(offscreen.drawsInto(Extent{48, 32}).has_value() &&
                   offscreen.swapChain().extent().WidthPx == 48,
               "a complete target candidate publishes its new extent");
