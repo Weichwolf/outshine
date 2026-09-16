@@ -34,8 +34,10 @@ int main() {
   CHECK(built.has_value(), built ? "simulation built" : built.error().c_str());
   if (!built) { return Report(); }
   EntityRegistry *const original = &engine.entities();
-  const Entity marker = original->addEntity(Role::Tool);
-  CHECK(original->alive(marker), "spare entity capacity remains usable after publication");
+  const auto marker = original->addEntity(Role::Tool);
+  CHECK(marker.has_value(), "spare entity capacity remains usable after publication");
+  if (!marker) { return Report(); }
+  CHECK(original->alive(*marker), "spare entity capacity remains usable after publication");
   const auto path = std::filesystem::temp_directory_path() /
                     ("outshine-assembly-owner-" + std::to_string(getpid()) + ".save");
   const auto saved = engine.save(path.string());
@@ -54,14 +56,14 @@ int main() {
   CHECK(&engine.entities() == original,
         "failed assembly preserves the borrowed EntityRegistry object");
   if (&engine.entities() != original) { return Report(); }
-  CHECK(original->alive(marker),
+  CHECK(original->alive(*marker),
         "failed assembly preserves existing entities and spare allocations");
   for (const size_t reserve : {size_t{65536}, std::numeric_limits<size_t>::max()}) {
     auto excessive = scene;
     excessive.Room = reserve;
     CHECK(engine.declare(excessive).has_value(), "capacity request declared before allocation");
     CHECK(!engine.assemble(), "capacity budget and arithmetic overflow rejected");
-    CHECK(&engine.entities() == original && original->alive(marker),
+    CHECK(&engine.entities() == original && original->alive(*marker),
           "budget rejection preserves live scene");
   }
   CHECK(engine.declare(scene) && engine.assemble(), "valid reassembly recovers after rejection");

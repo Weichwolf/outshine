@@ -385,6 +385,7 @@ void Engine::frameTimesMs(std::vector<double> &out) const {
 }
 
 Result Engine::advance() {
+  [[maybe_unused]] const auto logs = S_->Logs();
   const auto began = std::chrono::steady_clock::now();
   S_->Published.Opens();
   if (!S_->Updates()) { return std::unexpected(S_->Error); }

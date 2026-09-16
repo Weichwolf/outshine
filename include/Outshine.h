@@ -483,10 +483,10 @@ public:
   /// @return Success or an owned IO, identity, parsing or trait-publication error.
   [[nodiscard]] Result restore(std::string_view path);
 
-  /// Replace the process-wide borrowed diagnostic sink, or detach it with nullptr.
-  /// @param sink Sink that outlives registration and outstanding callbacks. Change registration
-  /// only while all log producers are quiescent; callbacks may run on multiple emitting threads.
-  static void logsTo(LogSink *sink);
+  /// Route this Engine's diagnostics to a borrowed sink, or detach with nullptr.
+  /// @param sink Sink that outlives this registration and all callbacks from this Engine's workers.
+  /// Serialize replacement with Engine work; distinct Engines keep independent routes.
+  void logsTo(LogSink *sink);
 
   /// Report whether an internal render scene exists; does not imply streaming readiness,
   /// successful simulation assembly or an open frame. Serialize with Engine mutations.

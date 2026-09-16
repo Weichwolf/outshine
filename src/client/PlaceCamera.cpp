@@ -207,7 +207,7 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation =
     shot.Why = "SDL did not start, so nothing can be drawn";
     return false;
   }
-  if (Telling != nullptr) { outshine::Engine::logsTo(Telling); }
+  if (Telling != nullptr) { engine.logsTo(Telling); }
   engine.setRoots(Roots{.Assets = "src/assets/drive",
                         .Shipped = "src/assets",
                         .Cache = "/tmp/outshine-drive-cache",

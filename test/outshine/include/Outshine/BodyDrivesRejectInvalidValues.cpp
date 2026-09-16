@@ -14,13 +14,15 @@ int main() {
   CHECK(engine.declare(source) && engine.assemble(), "valid actuator assembles");
   auto *registry = &engine.entities();
   const auto marker = registry->addEntity(Role::Tool);
+  CHECK(marker.has_value(), "spare entity capacity remains usable");
+  if (!marker) { return Report(); }
   auto reject = [&](const Scenario::Drive &drive) {
     auto candidate = source;
     candidate.Bodies[0].Name = "rejected";
     candidate.Bodies[0].Driven[0] = drive;
     CHECK(!engine.declare(candidate), "invalid actuator rejected before declaration publication");
     CHECK(engine.declaration().Bodies[0].Name == "kept", "previous declaration survives");
-    CHECK(&engine.entities() == registry && registry->alive(marker), "live simulation survives");
+    CHECK(&engine.entities() == registry && registry->alive(*marker), "live simulation survives");
   };
   auto bad = Scenario::Drive{};
   bad.Does = static_cast<Scenario::Drives>(255);

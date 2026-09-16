@@ -18,13 +18,15 @@ int main() {
         "valid dynamic body assembled");
   auto *registry = &engine.entities();
   const auto marker = registry->addEntity(Role::Tool);
+  CHECK(marker.has_value(), "spare entity capacity remains usable");
+  if (!marker) { return Report(); }
   const auto reject = [&](Scenario::Body invalid) {
     auto candidate = source;
     invalid.Name = "invalid";
     candidate.Bodies[0] = invalid;
     CHECK(!engine.declare(candidate), "invalid dynamics rejected before publication");
     CHECK(engine.declaration().Bodies[0].Name == "kept", "body declaration preserved");
-    CHECK(&engine.entities() == registry && registry->alive(marker), "live simulation preserved");
+    CHECK(&engine.entities() == registry && registry->alive(*marker), "live simulation preserved");
   };
   for (double invalid :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {

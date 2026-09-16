@@ -21,8 +21,6 @@ LogField::LogField(const char *key, long long v) : Key(key), Value(std::to_strin
 
 LogField::LogField(const char *key, std::string v) : Key(key), Value(std::move(v)) {}
 
-LogSink *Log::Sink_ = nullptr;
-
 LogLevel Log::Level_ = LogLevel::Debug;
 thread_local LogSink *Log::ThreadSink_ = nullptr;
 thread_local double Log::TimeS_ = 0.0;
@@ -36,7 +34,7 @@ void Log::SetUnit(std::string_view label) noexcept {
 
 void Log::Emit(LogLevel level, LogTag tag, const char *event, std::span<const LogField> fields) {
   if (level < Level_) { return; }
-  LogSink *out = (ThreadSink_ != nullptr) ? ThreadSink_ : Sink_;
+  LogSink *out = ThreadSink_;
   if (out == nullptr) { return; }
   out->Write(TimeS_,
              level,

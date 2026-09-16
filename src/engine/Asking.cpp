@@ -248,6 +248,7 @@ bool Engine::State::Composes() {
                         {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                         *World.Wire,
                         say,
+                        Diagnostics,
                         Session.Declared.Ground.PatienceS)) {
     Error = say.WhyNot();
     return false;

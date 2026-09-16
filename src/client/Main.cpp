@@ -149,7 +149,7 @@ void Usage() {
     std::println("outshine-client: SDL did not start");
     return false;
   }
-  outshine::Engine::logsTo(&gTelling);
+  engine.logsTo(&gTelling);
   engine.setRoots(outshine::Roots{.Assets = "src/assets/drive",
                                   .Shipped = "src/assets",
                                   .Cache = "/tmp/outshine-drive-cache",

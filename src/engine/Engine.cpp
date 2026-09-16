@@ -46,6 +46,7 @@ constexpr double kBitsPerByte = 8.0;
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
 Result Engine::assemble() {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Session.Taken) {
     S_->Error = "declare content before assembling simulation";
     return std::unexpected(S_->Error);
@@ -114,6 +115,7 @@ Result Engine::assemble() {
 Engine::~Engine() = default;
 
 Result Engine::drawsInto(SDL_Window *presents) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
@@ -140,6 +142,7 @@ Result Engine::drawsInto(SDL_Window *presents) {
 }
 
 Result Engine::drawsInto(Extent offscreen) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
@@ -371,6 +374,7 @@ Result Engine::preload(double patienceS) {
 }
 
 Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!std::isfinite(patienceS) || patienceS < 0.0) {
     return std::unexpected(Says::kInvalidPreloadBudget);
   }

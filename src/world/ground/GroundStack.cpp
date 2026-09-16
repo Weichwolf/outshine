@@ -22,6 +22,7 @@ bool GroundStack::Open(const Roots &under,
                        LongitudeLatitude focus,
                        Data::Transport &wire,
                        Sink &say,
+                       LogSink *diagnostics,
                        double patienceS) {
   const auto position = OsmField::Locate(focus, kFineZoom);
   if (!position) {
@@ -52,7 +53,9 @@ bool GroundStack::Open(const Roots &under,
   outshine::Ground::GroundSurface surface;
   surface.Grid = outshine::Ground::kStreamGrid;
   surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
-  Pool_ = std::make_unique<outshine::Ground::TilePool>(*config, sources, wire);
+  auto poolConfig = *config;
+  poolConfig.Diagnostics = diagnostics;
+  Pool_ = std::make_unique<outshine::Ground::TilePool>(poolConfig, sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   SurfaceZoom_ = surface.Z;
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg);

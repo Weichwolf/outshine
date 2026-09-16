@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <mutex>
 #include <vector>
-#include "Log.h"
+#include "Logging.h"
 #include "TextTarget.h"
 
 namespace outshine {
@@ -18,19 +18,6 @@ public:
 private:
   std::FILE *File_;
   std::mutex Mutex_;
-};
-
-class LogSinkScope {
-public:
-  explicit LogSinkScope(LogSink *sink) noexcept : Previous_(Log::Sink_) { Log::SetSink(sink); }
-
-  ~LogSinkScope() { Log::SetSink(Previous_); }
-
-  LogSinkScope(const LogSinkScope &) = delete;
-  LogSinkScope &operator=(const LogSinkScope &) = delete;
-
-private:
-  LogSink *Previous_ = nullptr;
 };
 
 }

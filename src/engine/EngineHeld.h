@@ -25,6 +25,7 @@
 #include "WorldPlacement.h"
 #include "StructureBakes.h"
 #include "Tasks.h"
+#include "Log.h"
 
 #include <chrono>
 #include <thread>
@@ -319,7 +320,10 @@ struct Engine::State {
   Ticks Ticking;
   Core::Ledger Published;
   Host *Offered = nullptr;
+  LogSink *Diagnostics = nullptr;
   std::string Error;
+
+  [[nodiscard]] LogThreadSinkScope Logs() const { return LogThreadSinkScope(Diagnostics); }
 
   void Drew();
   void Inspected();

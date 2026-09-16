@@ -72,6 +72,7 @@ bool DrawScene(Seen &picture, std::string &error) {
 }
 
 Result Engine::prepareAudio(int sampleRateHz) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Session.Taken) {
     S_->Error = Says::kAudioDeclarationRequired;
     return std::unexpected(S_->Error);
@@ -106,6 +107,7 @@ Result Engine::prepareAudio(int sampleRateHz) {
 }
 
 Result Engine::mix(std::span<float> stereo) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Session.Sounding) {
     S_->Error = Says::kAudioPreparationRequired;
     return std::unexpected(S_->Error);
@@ -120,6 +122,7 @@ Result Engine::mix(std::span<float> stereo) {
 }
 
 bool Engine::render(Extent frame) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto valid = ValidateFrameExtent(frame, S_->Picture); !valid) {
     S_->Error = valid.error();
     return false;
@@ -218,6 +221,7 @@ bool Engine::render(Extent frame) {
 }
 
 Result Engine::inspect() {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Stood()) { return std::unexpected(S_->Error); }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be inspected -- a scenario is declared before a frame carries "
@@ -230,6 +234,7 @@ Result Engine::inspect() {
 }
 
 bool Engine::readPixels(std::vector<uint8_t> &rgba) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
@@ -238,6 +243,7 @@ bool Engine::readPixels(std::vector<uint8_t> &rgba) {
 }
 
 bool Engine::readPixels(Buffer which, std::vector<float> &out) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   switch (which) {
     case Buffer::Linear:
     case Buffer::Depth:
@@ -255,7 +261,7 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
 }
 
 void Engine::logsTo(LogSink *sink) {
-  outshine::Log::SetSink(sink);
+  S_->Diagnostics = sink;
 }
 
 Extent Engine::canvas() const {
@@ -273,6 +279,7 @@ bool Engine::presenting() const {
 }
 
 bool Engine::beginFrame() {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kFrameAlreadyOpen;
     return false;
@@ -287,6 +294,7 @@ bool Engine::beginFrame() {
 }
 
 bool Engine::endFrame() {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (S_->Picture.Scope == FrameScope::Closed) {
     S_->Error = "a frame was ended that was never begun";
     return false;
@@ -300,11 +308,13 @@ bool Engine::endFrame() {
 }
 
 bool Engine::flushAndWait() {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Picture.Standing) { return true; }
   return S_->Picture.Standing->Settle(S_->Error);
 }
 
 bool Engine::saveScreenshot(std::string_view path) {
+  [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
     return false;

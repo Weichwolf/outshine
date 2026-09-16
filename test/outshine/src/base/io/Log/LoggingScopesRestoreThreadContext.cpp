@@ -1,5 +1,4 @@
 #include "io/Log.h"
-#include "io/LogSinks.h"
 #include "Check.h"
 #include <string>
 #include <string_view>
@@ -37,9 +36,9 @@ int main() {
   static_assert(!std::is_copy_constructible_v<LogThreadSinkScope>);
   static_assert(!std::is_move_constructible_v<LogThreadSinkScope>);
   RecordingSink fallback, outer, inner;
-  Log::SetSink(&fallback);
   Log::SetLevel(LogLevel::Info);
   {
+    const LogThreadSinkScope fallbackRoute(&fallback);
     const LogThreadSinkScope routing(&outer);
     std::string label = "outer";
     const LogUnitScope unit(label);
@@ -48,39 +47,32 @@ int main() {
     Nested(inner);
     Say();
     {
-      const LogThreadSinkScope useFallback(nullptr);
+      const LogThreadSinkScope useFallback(&fallback);
       const LogUnitScope longLabel(std::string(64, 'x'));
       Say();
     }
     Say();
   }
-  Say();
+  {
+    const LogThreadSinkScope fallbackRoute(&fallback);
+    Say();
+  }
   CHECK(outer.Units == std::vector<std::string>({"outer", "outer", "outer"}),
         "nested scopes restore owned outer unit and borrowed sink");
   CHECK(inner.Units == std::vector<std::string>({"inner"}), "inner context is isolated");
   CHECK(fallback.Units == std::vector<std::string>({std::string(31, 'x'), ""}),
-        "null thread sink falls back and long label is terminated at 31 bytes");
+        "explicit routes receive bounded unit labels");
   {
+    const LogThreadSinkScope route(&fallback);
     const char label[] = {'v', 'i', 'e', 'w', 'x'};
     const LogUnitScope unit(std::string_view(label, 4));
     Say();
   }
-  CHECK(fallback.Units.back() == "view", "label copy respects a non-terminated view extent");
-  RecordingSink globalOuter, globalInner;
   {
-    const LogSinkScope outerScope(&globalOuter);
-    Say();
-    {
-      const LogSinkScope innerScope(&globalInner);
-      Say();
-    }
+    const LogThreadSinkScope silence(nullptr);
     Say();
   }
-  Say();
-  CHECK(globalOuter.Units.size() == 2 && globalInner.Units.size() == 1,
-        "nested global scopes restore their outer sink");
-  CHECK(fallback.Units.back().empty(), "global scope exit restores its earlier sink");
-  Log::SetSink(nullptr);
+  CHECK(fallback.Units.back() == "view", "label copy respects a non-terminated view extent");
   RecordingSink first, second;
   std::thread a([&] {
     const LogThreadSinkScope routing(&first);

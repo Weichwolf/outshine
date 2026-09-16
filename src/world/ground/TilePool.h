@@ -22,6 +22,10 @@
 #include "TileMeshes.h"
 #include "Fetch.h"
 
+namespace outshine {
+class LogSink;
+}
+
 namespace outshine::Data {
 class SourceSet;
 class Transport;
@@ -81,6 +85,8 @@ public:
     int PollAttempts = 0;
 
     int Carriers = 0;
+
+    LogSink *Diagnostics = nullptr;
   };
 
   TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport);
@@ -186,6 +192,7 @@ private:
   std::shared_ptr<Ground::DecodedCache> Decoded_;
   const int PollAttempts_;
   const int CarrierCount_;
+  LogSink *const Diagnostics_;
 
   mutable std::mutex CacheMutex_;
   std::vector<CacheEntry> Cache_;

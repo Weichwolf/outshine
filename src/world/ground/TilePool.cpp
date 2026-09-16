@@ -87,18 +87,25 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       Decoded_(std::make_shared<Ground::DecodedCache>(config.DecodedBytes)),
       PollAttempts_(config.PollAttempts),
       CarrierCount_(config.Carriers),
+      Diagnostics_(config.Diagnostics),
       FocusLatDeg_(config.OriginLatDeg),
       FocusLonDeg_(config.OriginLonDeg) {
   const int n = config.Threads > 0 ? config.Threads : 1;
   ContextBytes_ = std::vector<std::atomic<size_t>>(static_cast<size_t>(n));
   Threads_.reserve(static_cast<size_t>(n));
   for (int i = 0; i < n; i++) {
-    Threads_.emplace_back([this, i] { Work(i); });
+    Threads_.emplace_back([this, i] {
+      const LogThreadSinkScope logs(Diagnostics_);
+      Work(i);
+    });
   }
   const int carriers = CarrierCount_ > 0 ? CarrierCount_ : 2;
   Carriers_.reserve(static_cast<size_t>(carriers));
   for (int i = 0; i < carriers; i++) {
-    Carriers_.emplace_back([this] { Carry(); });
+    Carriers_.emplace_back([this] {
+      const LogThreadSinkScope logs(Diagnostics_);
+      Carry();
+    });
   }
   Log::Info(LogTag::World,
             "tilepool",

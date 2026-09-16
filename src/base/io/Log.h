@@ -12,8 +12,6 @@ namespace outshine {
 
 class Log {
 public:
-  static void SetSink(LogSink *sink) { Sink_ = sink; }
-
   static void SetLevel(LogLevel level) { Level_ = level; }
 
   static void SetTime(double simTimeS) { TimeS_ = simTimeS; }
@@ -57,11 +55,9 @@ public:
 private:
   friend class LogUnitScope;
   friend class LogThreadSinkScope;
-  friend class LogSinkScope;
 
   static void Emit(LogLevel level, LogTag tag, const char *event, std::span<const LogField> fields);
 
-  static LogSink *Sink_;
   static LogLevel Level_;
   static thread_local LogSink *ThreadSink_;
   static thread_local double TimeS_;

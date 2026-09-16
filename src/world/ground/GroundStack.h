@@ -23,6 +23,7 @@
 #include <Outshine.h>
 
 namespace outshine {
+class LogSink;
 class Sink;
 }
 
@@ -45,6 +46,7 @@ public:
                           LongitudeLatitude focus,
                           Data::Transport &wire,
                           Sink &say,
+                          LogSink *diagnostics,
                           double patienceS = 0.0);
   void Close();
 
