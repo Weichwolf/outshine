@@ -7,6 +7,7 @@
 
 #include "math/Vec3.h"
 #include "SubjectTypes.h"
+#include "ResourceHandle.h"
 #include "StructureBake.h"
 #include "TangentFrame.h"
 
@@ -51,8 +52,8 @@ public:
 private:
   struct Standing {
     uint32_t Tile = 0;
-    Render::PieceId Walls = Render::kNoPiece;
-    Render::PieceId Roofs = Render::kNoPiece;
+    Core::PieceHandle Walls{};
+    Core::PieceHandle Roofs{};
   };
 
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;

@@ -496,7 +496,10 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
       piece.MaxInstances = static_cast<uint32_t>(geometry->Placements.size());
       piece.Surface = Render::PieceSurface(1);
       piece.Textured = true;
-      if (live->PlacePiece(piece, error) == Render::kNoPiece) { return std::nullopt; }
+      if (auto placed = live->PlacePiece(piece); !placed) {
+        error = std::move(placed.error());
+        return std::nullopt;
+      }
     }
     if (!live->Draw(error)) { return std::nullopt; }
     renderer.WaitForGpu();

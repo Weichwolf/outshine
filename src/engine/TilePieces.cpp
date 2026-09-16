@@ -48,9 +48,9 @@ bool TilePieces::Hands(uint32_t tile,
                                         std::span<const uint32_t> run,
                                         const ClusteredMesh &cut,
                                         uint32_t surface) {
-    if (run.empty()) { return Render::kNoPiece; }
+    if (run.empty()) { return Core::PieceHandle{}; }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
-    const Render::PieceId placed =
+    const auto placed =
         Live_->PlacePiece({.Tangents = {},
                            .Verts = corners,
                            .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
@@ -59,10 +59,12 @@ bool TilePieces::Hands(uint32_t tile,
                            .Colours = {},
                            .Row = row,
                            .Instances = {},
-                           .Surface = Render::PieceSurface(surface)},
-                          why);
-    if (placed == Render::kNoPiece && why.empty()) { why = "tile geometry upload failed"; }
-    return placed;
+                           .Surface = Render::PieceSurface(surface)});
+    if (!placed) {
+      why = placed.error();
+      return Core::PieceHandle{};
+    }
+    return *placed;
   };
   const Raised &built = baked.Built;
   stood.Walls = place(built.WallCorners, built.WallRun, baked.Walls, WallsSurface_);
@@ -74,16 +76,14 @@ bool TilePieces::Hands(uint32_t tile,
   }
   stood.Roofs = place(built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_);
   if (!why.empty()) {
-    if (stood.Walls != Render::kNoPiece) { Live_->ReleasePiece(stood.Walls); }
+    if (stood.Walls) { Live_->ReleasePiece(stood.Walls); }
     ++Refused_;
     Why_ = why;
     error = why;
     return false;
   }
   Forgets(tile);
-  if (stood.Walls != Render::kNoPiece || stood.Roofs != Render::kNoPiece) {
-    Standing_.push_back(stood);
-  }
+  if (stood.Walls || stood.Roofs) { Standing_.push_back(stood); }
   Digest_ = (Digest_ ^ baked.Digest) * kDigestPrime;
   ++Handed_;
   return true;
@@ -93,8 +93,8 @@ void TilePieces::Forgets(uint32_t tile) {
   const auto at = std::ranges::find(Standing_, tile, &Standing::Tile);
   if (at == Standing_.end()) { return; }
   if (Live_ != nullptr) {
-    if (at->Walls != Render::kNoPiece) { Live_->ReleasePiece(at->Walls); }
-    if (at->Roofs != Render::kNoPiece) { Live_->ReleasePiece(at->Roofs); }
+    if (at->Walls) { Live_->ReleasePiece(at->Walls); }
+    if (at->Roofs) { Live_->ReleasePiece(at->Roofs); }
   }
   Standing_.erase(at);
 }

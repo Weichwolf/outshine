@@ -10,8 +10,8 @@ Tags: ownership, handles, memory, streaming
 
 ## Befund und Ziel
 
-`Live::{Pieces_,HeightPages_}` wächst pro Aufnahme; Release leert Nutzdaten, aber keine
-Slots werden wiederverwendet. Kandidaten kopieren/scannen historische Einträge.
+Der ursprüngliche Befund: `Live::{Pieces_,HeightPages_}` wächst pro Aufnahme; Release
+leert Nutzdaten ohne Slotreuse. Pieces sind inzwischen migriert (siehe Grundlage). Kandidaten kopieren/scannen historische Einträge.
 `HeightSheets::TileOf` kodiert native Page-ID als Float in `Render::GroundTile`;
 `Live::PublishesGroundLattice` wandelt zurück und ersetzt sie durch die GPU-Adresse.
 Damit vermischen sich native Identität und Renderer-ABI. Slotreuse ohne Generation
@@ -24,6 +24,8 @@ würde alte Handles auf neue Ressourcen umleiten.
   keine implizite Integer-/Float-Konvertierung. Gültigkeitsbereich ist die native
   Weltlinie einschließlich ihrer Ersatzkandidaten, nicht eine fremde Engine/Deklaration.
   Ressourcenhalter bei neuer Deklaration vollständig zurücksetzen; keine globalen IDs.
+  Neu erzeugte Kandidatenhandles dürfen vor Commit nicht nach außen gelangen; bei
+  Abbruch verwerfen. Nur bereits publizierte Identitäten über Welt-Ersatz bewahren.
 - `Live` besitzt Slotmetadaten, Freiliste und Payloads. Lookup prüft Bereich, belegt
   und Generation. Release verwirft Payload und GPU-Resident, erhöht Generation und
   gibt Slot frei; wiederholtes Release/alter Handle ist wirkungslos. Generation darf
@@ -42,16 +44,21 @@ würde alte Handles auf neue Ressourcen umleiten.
   nicht die Zahl der historischen Aufnahmen. Ein absolutes Engine-Speicherlimit
   folgt separat aus WI 2228; diese Änderung darf keines behaupten.
 
-## Umsetzung in vollständigen Schritten
+## Implementierte Grundlage und nächste Schritte
 
-1. Neue Aufnahmefunktionen liefern `[[nodiscard]] expected<Handle, string>` mit
-   besitzendem Fehlertext; ungültiger Handle ist kein zweiter Fehlerkanal.
-   Piece-Handle samt Slots in `Live.h/.cpp`; alle Consumer `TilePieces`, `CrownPieces`,
-   `CrownAtlas`, `PieceRows` migrieren. `Render`-interne IDs unangetastet lassen.
-2. HeightPage-Handle, native Tile-Beschreibung, `HeightSheets.h/.cpp`, Live-Ground-
-   Snapshots und Übersetzung migrieren. Suche nach allen `Render::PageId`/`.Page`-
+PieceHandle und ResourceSlotState liegen in `ResourceHandle.h`. Live verwendet eine
+intrusive Freiliste in den Slotmetadaten; Release allokiert nicht und gibt CPU-Payloads
+frei. `PlacePiece` liefert expected mit besitzendem Fehlertext. TilePieces, CrownPieces,
+CrownAtlas und PieceRows sind migriert; Renderer-IDs bleiben unverändert.
+Metadatenkapazität ist separat messbar. Alte Implementierung verletzt zwei Slotreuse-
+Checks. Freiliste/Generation über Kandidatenabbruch, spätes GPU-Submitversagen und
+Retry sowie Generation nahe uint64-Maximum geprüft. Die Batch-Testfixture registriert
+nun tatsächlich ihre zuvor fehlende Materialoberfläche; keine Fehlergrenze gelockert.
+
+1. HeightPage-Handle, native Tile-Beschreibung, `HeightSheets.h/.cpp`, Live-Ground-
+   Snapshots und Übersetzung migrieren. Aufnahme ebenfalls als expected<Handle, string>. Suche nach allen `Render::PageId`/`.Page`-
    Verwendungen im Engine-Verzeichnis; keine heimliche Float-Zwischenrepräsentation.
-3. Kandidaten/Rebinding und optionale Speicherdiagnostik vervollständigen. Kleine
+2. Kandidaten/Rebinding und optionale Speicherdiagnostik vervollständigen. Kleine
    interne Slotverwaltung nur für tatsächlich gemeinsame Logik; kein Public-Pool-API.
 
 ## Widerlegbare Abnahme

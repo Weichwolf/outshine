@@ -39,16 +39,24 @@ int main() {
       mesh.Instances = instances;
       mesh.MaxInstances = instances.size();
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
-      Render::PieceId stalePiece = Render::kNoPiece;
+      Core::PieceHandle stalePiece;
       Render::PageId stalePage = Render::kNoPage;
+      size_t slotBytes = 0;
       for (int iteration = 0; iteration != 3; ++iteration) {
-        const auto piece = scene->PlacePiece(mesh, error);
+        const auto piece = scene->PlacePiece(mesh);
         const auto page = scene->PlaceHeightPage(nodes, error);
-        CHECK(piece != Render::kNoPiece && page != Render::kNoPage, "streamed resources upload");
+        CHECK(piece.has_value() && page != Render::kNoPage, "streamed resources upload");
+        if (!piece || page == Render::kNoPage) { return Report(); }
+        CHECK(scene->PieceSlots() == 1,
+              "one simultaneously resident piece reuses its slot across releases");
         CHECK(scene->PieceSourceBytes() >= sizeof(vertices) + sizeof(indices) + sizeof(instances) &&
                   scene->HeightPageSourceBytes() >= nodes.size() * sizeof(float),
               "diagnostics count independently sized input payloads including instance rows");
+        if (iteration == 0) { slotBytes = scene->PieceSlotBytes(); }
         if (iteration > 0) {
+          CHECK(piece->Slot == stalePiece.Slot && piece->Generation != stalePiece.Generation &&
+                    scene->PieceSlotBytes() == slotBytes,
+                "slot reuse changes identity without growing metadata capacity");
           const auto pieceBytes = scene->PieceSourceBytes();
           const auto pageBytes = scene->HeightPageSourceBytes();
           CHECK(!scene->SetPieceInstances(stalePiece, instances, error),
@@ -59,15 +67,15 @@ int main() {
                     scene->HeightPageSourceBytes() == pageBytes,
                 "releasing old handles cannot remove successor payloads");
         }
-        scene->ReleasePiece(piece);
+        scene->ReleasePiece(*piece);
         scene->ReleaseHeightPage(page);
         CHECK(scene->PieceSourceBytes() == 0 && scene->HeightPageSourceBytes() == 0,
               "release returns all piece/page payload capacity despite retaining handle records");
-        scene->ReleasePiece(piece);
+        scene->ReleasePiece(*piece);
         scene->ReleaseHeightPage(page);
         CHECK(scene->PieceSourceBytes() == 0 && scene->HeightPageSourceBytes() == 0,
               "repeated release remains harmless");
-        stalePiece = piece;
+        stalePiece = *piece;
         stalePage = page;
       }
       std::unique_ptr<Core::Live> candidate;

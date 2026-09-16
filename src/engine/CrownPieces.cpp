@@ -56,8 +56,12 @@ std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
     held.Direction = atlas.Views()[view].TowardEye;
     held.Rows.reserve(maxInstances);
     held.NextRows.reserve(maxInstances);
-    held.Piece = live.PlacePiece(piece, error);
-    if (held.Piece == Render::kNoPiece) { return nullptr; }
+    auto placed = live.PlacePiece(piece);
+    if (!placed) {
+      error = std::move(placed.error());
+      return nullptr;
+    }
+    held.Piece = *placed;
     result->Views_.push_back(std::move(held));
     if (!live.SetPieceInstances(result->Views_.back().Piece, {}, error)) { return nullptr; }
   }

@@ -17,6 +17,7 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 
+#include "ResourceHandle.h"
 #include "Asset.h"
 #include "Document.h"
 #include "SubjectProxy.h"
@@ -140,19 +141,19 @@ public:
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
-  [[nodiscard]] Render::PieceId PlacePiece(const Render::PieceMesh &piece, std::string &error);
+  [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(const Render::PieceMesh &piece);
 
   struct PieceRows {
-    Render::PieceId Piece = Render::kNoPiece;
+    PieceHandle Piece;
     std::span<const Mat4> Rows;
   };
 
   [[nodiscard]] bool
-  SetPieceInstances(Render::PieceId which, std::span<const Mat4> rows, std::string &error);
+  SetPieceInstances(PieceHandle which, std::span<const Mat4> rows, std::string &error);
 
   [[nodiscard]] bool SetPieceInstances(std::span<const PieceRows> pieces, std::string &error);
 
-  void ReleasePiece(Render::PieceId which);
+  void ReleasePiece(PieceHandle which);
 
   [[nodiscard]] Render::PageId PlaceHeightPage(std::span<const float> nodes, std::string &error);
 
@@ -177,6 +178,13 @@ public:
   }
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
+
+  [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
+
+  [[nodiscard]] size_t PieceSlotBytes() const noexcept {
+    return Pieces_.capacity() * sizeof(Piece);
+  }
+
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
 
   [[nodiscard]] uint32_t PieceBytesHeld() const {
@@ -489,6 +497,7 @@ private:
   void RestorePieceSurfaces();
 
   struct Piece {
+    ResourceSlotState State{};
     std::vector<float> Tangents;
     std::vector<StoredVertex> Vertices;
     std::vector<uint32_t> Indices;
@@ -500,7 +509,6 @@ private:
     Render::PieceSurface Surface;
     Render::PieceId Resident = Render::kNoPiece;
     bool Textured = false;
-    bool Live = false;
 
     [[nodiscard]] Render::PieceMesh Mesh() const noexcept {
       return {.Tangents = Tangents,
@@ -517,6 +525,8 @@ private:
   };
 
   std::vector<Piece> Pieces_;
+  uint32_t FirstFreePiece_ = kNoResourceSlot;
+  [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
   [[nodiscard]] bool RestoresPieceResources(const Live &previous, std::string &error);
 
   struct HeightPage {

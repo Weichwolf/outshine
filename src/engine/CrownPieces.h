@@ -3,6 +3,7 @@
 
 #include "CrownAtlas.h"
 #include "SubjectTypes.h"
+#include "ResourceHandle.h"
 #include <memory>
 
 namespace outshine {
@@ -28,7 +29,7 @@ private:
 
   struct View {
     Vec3 Direction;
-    Render::PieceId Piece = Render::kNoPiece;
+    Core::PieceHandle Piece{};
     std::vector<Mat4> Rows;
     std::vector<Mat4> NextRows;
   };
