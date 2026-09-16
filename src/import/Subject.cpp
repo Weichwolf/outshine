@@ -1105,7 +1105,9 @@ std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &o
     placed.SetTranslation({{lit.Light.Position[0], lit.Light.Position[1], lit.Light.Position[2]}});
     PunctualLight local = lit.Light;
     local.Position = {};
-    (void)out.addLamp(lit.NodeName, local, placed);
+    if (!out.addLamp(lit.NodeName, local, placed)) {
+      return std::unexpected(Says::NativeCapacityFailed);
+    }
   }
   return {};
 }

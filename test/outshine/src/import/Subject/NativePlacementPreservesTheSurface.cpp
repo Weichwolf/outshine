@@ -116,7 +116,8 @@ int main() {
     light.Position = {{1, 2, 3}};
     light.Intensity = 37;
     light.RangeM = 19;
-    CHECK(geometry.addLamp("placed lamp", light, lampPlacement) >= 0, "native light placement");
+    CHECK(geometry.addLamp("placed lamp", light, lampPlacement).has_value(),
+          "native light placement");
   }
   Render::ShapeStore nativeStorage;
   const auto nativeResult = Render::PrepareShape(geometry, nativeStorage);

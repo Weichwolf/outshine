@@ -10,7 +10,10 @@ int main() {
   const int part = geometry.addPart("part", first);
   Mat4 placement;
   placement.SetTranslation({{3, 5, 7}});
-  const int lamp = geometry.addLamp("lamp", {}, placement);
+  const auto created = geometry.addLamp("lamp", {}, placement);
+  CHECK(created.has_value(), "native light creation returns an owned result");
+  if (!created) { return Report(); }
+  const int lamp = *created;
   PunctualLight light;
   light.Intensity = 23;
   CHECK(geometry.setPlacement(part, placement).has_value(), "direct placement mutation succeeds");

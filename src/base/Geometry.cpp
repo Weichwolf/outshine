@@ -321,7 +321,12 @@ std::expected<MaterialInstance, MaterialError> Geometry::addSurface(std::string_
   return MaterialInstance(static_cast<int>(Held_->Surfaces.size()) - 1);
 }
 
-int Geometry::addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed) {
+std::expected<int, LightMutationError>
+Geometry::addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed) {
+  if (std::cmp_greater_equal(Held_->Lamps.size(), std::numeric_limits<int>::max()) ||
+      Held_->Lamps.size() >= Held_->Lamps.max_size()) {
+    return std::unexpected(LightMutationError::CapacityExceeded);
+  }
   Geometry::Held::Placed lamp;
   lamp.Named = std::string(named);
   lamp.Light = light;

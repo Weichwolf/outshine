@@ -27,9 +27,10 @@ enum class PlacementError {
   InvalidTransform ///< Components are nonfinite or the last row is not (0, 0, 0, 1).
 };
 
-/// Failure when replacing a light owned by native geometry; stored values remain unchanged.
+/// Failure when adding or replacing a native light; stored values remain unchanged.
 enum class LightMutationError {
-  MissingLight ///< The owner-local light index is absent.
+  MissingLight,    ///< The owner-local light index is absent.
+  CapacityExceeded ///< No further owner-local light index can be allocated.
 };
 
 /// Failure when binding a part to a material; stored values remain unchanged.
@@ -164,8 +165,9 @@ public:
   /// @param named Name copied into this owner.
   /// @param light Local light data with PunctualLight's units and conventions.
   /// @param placed Local-to-model affine placement; translations in metres.
-  /// @return New zero-based owner-local light index.
-  int addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed);
+  /// @return New zero-based owner-local light index, or CapacityExceeded without mutation.
+  [[nodiscard]] std::expected<int, LightMutationError>
+  addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed);
 
   /// Copy finite XYZ positions in local metres; the source is borrowed only during the call.
   /// Return false without mutation for an invalid part, incomplete XYZ tuple or nonfinite

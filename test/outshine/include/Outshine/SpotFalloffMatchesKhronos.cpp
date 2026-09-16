@@ -36,7 +36,7 @@ int main() {
     light.Position = {{0, 0, 2}};
     light.OuterConeRad = std::acos(0.5f);
     if (at == 1) { light.Direction = {{std::sqrt(1.0f - 0.75f * 0.75f), 0, -0.75f}}; }
-    geometry.addLamp("measured", light, Mat4{});
+    CHECK(geometry.addLamp("measured", light, Mat4{}).has_value(), "create measured light");
     Engine engine;
     Scenario::Document declaration;
     declaration.Render.Declared = true;
