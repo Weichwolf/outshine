@@ -47,7 +47,9 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
    gleiche Tile-ID allein ist keine Identität. A→B→spätes A als deterministischen Test bauen.
    `d557454a4` bindet Structure-Bakes an OSM-Generation, Footprint-Revision, Fokalmaßstab
    und Tile-Spannweite; ein unpassender fertiger Job gibt sein Watermark frei und wird recycelt.
-   Der A→B→späte-A-Orakel durch den öffentlichen Pfad bleibt offen.
+   `StructureBakes/BakeRevisionRejectsChangedInputs.cpp` prüft den vollständigen
+   Revisionsvergleich gegen Fokalmaßstab und Footprint-Revision. Der A→B→späte-A-Orakel
+   durch den öffentlichen Pfad bleibt offen.
    Fixture: ein lokaler Provider liefert einen festen OSM-Tile mit Gebäudegrundriss und eine
    feste DEM-Seite; A wird vollständig gerendert, B ändert Quelle oder Projektion, dann darf
    ein verspätetes A weder Bild noch Routing, Materialmapping, Albedo oder Revision verändern.

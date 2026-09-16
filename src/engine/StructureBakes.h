@@ -29,6 +29,19 @@ public:
     Mesher_ = mesher;
   }
 
+  struct BakeRevision {
+    uint64_t Vectors = 0;
+    uint64_t Footprints = 0;
+    double FocalPx = 0.0;
+    double TileSpanM = 0.0;
+
+    [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
+                               const Ground::BuildingField &footprints) const noexcept {
+      return Vectors == vectors.Generation() && Footprints == footprints.Revision() &&
+             FocalPx == footprints.FocalPx() && TileSpanM == footprints.TileSpanM();
+    }
+  };
+
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack);
 
   struct Landing {
@@ -61,10 +74,7 @@ private:
 
   struct Job {
     uint32_t Tile = 0;
-    uint64_t VectorGeneration = 0;
-    uint64_t FootprintRevision = 0;
-    double FocalPx = 0.0;
-    double TileSpanM = 0.0;
+    BakeRevision Revision;
     std::unique_ptr<Generators::RawTile> Raw;
     std::shared_ptr<const Ground::HeightField> Heights;
     std::unique_ptr<Output> Out;

@@ -154,16 +154,13 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
     };
     const std::optional<Ground::TileWatermark::Next> next = prints.Next(vectors, groundStands);
     if (!next || !heights) { break; }
-    const uint64_t vectorGeneration = vectors.Generation();
-    const uint64_t footprintRevision = prints.Revision();
-    const double focalPx = prints.FocalPx();
-    const double tileSpanM = prints.TileSpanM();
+    const BakeRevision revision{.Vectors = vectors.Generation(),
+                                .Footprints = prints.Revision(),
+                                .FocalPx = prints.FocalPx(),
+                                .TileSpanM = prints.TileSpanM()};
     prints.Take(next->Tile);
     Job job{.Tile = next->Tile,
-            .VectorGeneration = vectorGeneration,
-            .FootprintRevision = footprintRevision,
-            .FocalPx = focalPx,
-            .TileSpanM = tileSpanM,
+            .Revision = revision,
             .Raw = Borrowed(IdleRaw_),
             .Heights = std::move(heights),
             .Out = Borrowed(IdleOut_),
@@ -197,9 +194,7 @@ StructureBakes::NextLanding(Ground::GroundStack &stack) {
   IdleScratch_.reserve(IdleScratch_.size() + 1u);
   const Ground::BuildingField &prints = stack.Footprints();
   const Ground::OsmField *vectors = stack.Vectors();
-  if (vectors == nullptr || job.VectorGeneration != vectors->Generation() ||
-      job.FootprintRevision != prints.Revision() || job.FocalPx != prints.FocalPx() ||
-      job.TileSpanM != prints.TileSpanM()) {
+  if (vectors == nullptr || !job.Revision.Matches(*vectors, prints)) {
     stack.Footprints().Release(job.Tile);
     Job &stale = Queue_.front();
     IdleRaw_.push_back(std::move(stale.Raw));
