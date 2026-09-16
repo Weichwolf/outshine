@@ -119,18 +119,12 @@ public:
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
-  [[nodiscard]] Render::PieceId PlacePiece(const Render::PieceMesh &piece, std::string &error) {
-    return Renderer_ == nullptr ? Render::kNoPiece : Renderer_->PlacePiece(piece, error);
-  }
+  [[nodiscard]] Render::PieceId PlacePiece(const Render::PieceMesh &piece, std::string &error);
 
   [[nodiscard]] bool
-  SetPieceInstances(Render::PieceId which, std::span<const Mat4> rows, std::string &error) {
-    return Renderer_ != nullptr && Renderer_->SetPieceInstances(which, rows, error);
-  }
+  SetPieceInstances(Render::PieceId which, std::span<const Mat4> rows, std::string &error);
 
-  void ReleasePiece(Render::PieceId which) {
-    if (Renderer_ != nullptr) { Renderer_->ReleasePiece(which); }
-  }
+  void ReleasePiece(Render::PieceId which);
 
   [[nodiscard]] Render::PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
     return Renderer_ == nullptr ? Render::kNoPage : Renderer_->PlaceHeightPage(nodes, error);
@@ -470,6 +464,36 @@ private:
   std::vector<uint32_t> RegisteredSlots_;
   void AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots);
   void RestorePieceSurfaces();
+
+  struct Piece {
+    std::vector<float> Tangents;
+    std::vector<StoredVertex> Vertices;
+    std::vector<uint32_t> Indices;
+    std::vector<DagCluster> Clusters;
+    std::vector<float> Colours;
+    Mat4 Row;
+    std::vector<Mat4> Rows;
+    uint32_t MaxInstances = 0;
+    Render::PieceSurface Surface;
+    Render::PieceId Resident = Render::kNoPiece;
+    bool Textured = false;
+    bool Live = false;
+
+    [[nodiscard]] Render::PieceMesh Mesh() const noexcept {
+      return {.Tangents = Tangents,
+              .Verts = Vertices,
+              .Indices = Indices,
+              .Clusters = Clusters,
+              .Colours = Colours,
+              .Row = Row,
+              .Instances = Rows,
+              .MaxInstances = MaxInstances,
+              .Surface = Surface,
+              .Textured = Textured};
+    }
+  };
+
+  std::vector<Piece> Pieces_;
   Posed Held_;
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;

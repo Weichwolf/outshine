@@ -408,6 +408,8 @@ int main() {
     CHECK(scene->Screenshot("build/instance-native/registered-both.png", error),
           "both retained prototype PNG is written");
     scene->ReleasePiece(bluePiece);
+    CHECK(!scene->SetPieceInstances(bluePiece, {}, error),
+          "a released Live handle cannot address a future renderer piece");
   }
   scene->ReleasePiece(ownedPiece);
   return Report();

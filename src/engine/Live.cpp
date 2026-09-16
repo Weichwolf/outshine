@@ -43,6 +43,7 @@ constexpr auto InvalidInitialGeometry = "initial native geometry is not well for
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
+constexpr auto MissingPiece = "the piece handle names no live resource in this world";
 }
 
 bool Live::GroundClasses(std::span<const uint32_t> classes,
@@ -53,6 +54,55 @@ bool Live::GroundClasses(std::span<const uint32_t> classes,
     return false;
   }
   return Renderer_->SetGroundClasses(classes, palette, error);
+}
+
+Render::PieceId Live::PlacePiece(const Render::PieceMesh &piece, std::string &error) {
+  if (Renderer_ == nullptr) {
+    error = Says::MissingPiece;
+    return Render::kNoPiece;
+  }
+  Piece held{.Tangents = {piece.Tangents.begin(), piece.Tangents.end()},
+             .Vertices = {piece.Verts.begin(), piece.Verts.end()},
+             .Indices = {piece.Indices.begin(), piece.Indices.end()},
+             .Clusters = {piece.Clusters.begin(), piece.Clusters.end()},
+             .Colours = {piece.Colours.begin(), piece.Colours.end()},
+             .Row = piece.Row,
+             .Rows = {piece.Instances.begin(), piece.Instances.end()},
+             .MaxInstances = piece.MaxInstances,
+             .Surface = piece.Surface,
+             .Textured = piece.Textured};
+  held.Resident = Renderer_->PlacePiece(held.Mesh(), error);
+  if (held.Resident == Render::kNoPiece) { return Render::kNoPiece; }
+  held.Live = true;
+  const size_t next = Pieces_.size();
+  if (next >= Render::kNoPiece) {
+    Renderer_->ReleasePiece(held.Resident);
+    error = Says::MissingPiece;
+    return Render::kNoPiece;
+  }
+  Pieces_.push_back(std::move(held));
+  return static_cast<Render::PieceId>(next);
+}
+
+bool Live::SetPieceInstances(Render::PieceId which,
+                             std::span<const Mat4> rows,
+                             std::string &error) {
+  if (Renderer_ == nullptr || which >= Pieces_.size() || !Pieces_[which].Live) {
+    error = Says::MissingPiece;
+    return false;
+  }
+  Piece &piece = Pieces_[which];
+  if (!Renderer_->SetPieceInstances(piece.Resident, rows, error)) { return false; }
+  piece.Rows.assign(rows.begin(), rows.end());
+  return true;
+}
+
+void Live::ReleasePiece(Render::PieceId which) {
+  if (Renderer_ == nullptr || which >= Pieces_.size() || !Pieces_[which].Live) { return; }
+  Piece &piece = Pieces_[which];
+  Renderer_->ReleasePiece(piece.Resident);
+  piece.Resident = Render::kNoPiece;
+  piece.Live = false;
 }
 
 constexpr double kExposureCalibration = 1.2;
