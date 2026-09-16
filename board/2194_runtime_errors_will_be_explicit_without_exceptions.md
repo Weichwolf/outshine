@@ -73,12 +73,9 @@ world candidate publication to 2191/2224.
 
 ## Engine-Fassade
 
-`Engine::error()` bleibt noch öffentlich, obwohl die Mutatoren `Result` liefern. Die
-verbleibenden Verbraucher sind die uncommitteten Client-Änderungen in `Main.cpp` und
-`PlaceCamera.cpp`; sie müssen ihre jeweilige Rückgabe lokal behalten, bevor der
-Fassadenfehler entfallen darf. Eine entfernte API mit diesen Aufrufern wäre kein
-Fortschritt, sondern ein kaputter Zwischenstand. Dokumentationsanalyse besteht; die
-vollständige Entfernung samt Erhaltungs-/Retry-Tests bleibt offen.
-
-Direkter Doxygen-Lauf: 24/24 öffentliche Header, null Diagnosen. Das beweist die
-Dokumentationsabdeckung; es ersetzt nicht die noch offene Fassadenmigration.
+`Engine::error()` ist entfernt. Client und Tests behalten den jeweiligen `Result` bis
+zur Ausgabegreze; ein späterer Engine-Aufruf kann keine frühere Diagnose ersetzen.
+`WorldAssemblyDoesNotDependOnEntities`, die Place- und Tree-Materialtests sowie die
+Client-Prozessgrenze prüfen die migrierten Verbraucher. Doxygen meldet 24/24 öffentliche
+Header ohne Diagnose. Das beweist Abdeckung, nicht die offenen Echtzeit-/Allokations-
+und Kandidatenpublikationsverträge anderer WIs.
