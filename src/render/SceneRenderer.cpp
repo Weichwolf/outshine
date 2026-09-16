@@ -150,24 +150,24 @@ float HalfToFloat(uint16_t bits) {
 }
 
 void SceneRenderer::SetCamera(const CameraBasis &basis, const Lens &lens) noexcept {
-  Camera_ = basis;
-  FovDeg_ = lens.FovDeg;
-  OrthoWidthM_ = lens.OrthoWidthM;
-  OrthoM_ = lens.OrthoM;
-  NearM_ = lens.NearM;
-  FarM_ = lens.FarM;
-  CameraFull_ = true;
+  State_.Camera = basis;
+  State_.FovDeg = lens.FovDeg;
+  State_.OrthoWidthM = lens.OrthoWidthM;
+  State_.OrthoM = lens.OrthoM;
+  State_.NearM = lens.NearM;
+  State_.FarM = lens.FarM;
+  State_.CameraFull = true;
 }
 
 Lens SceneRenderer::Through() const {
   return {.WidePx = PictureW(),
           .HighPx = PictureH(),
-          .FovDeg = FovDeg_,
-          .OrthoWidthM = OrthoWidthM_,
-          .OrthoM = OrthoM_,
-          .NearM = NearM_,
-          .FarM = FarM_,
-          .Jitter = Jitter_};
+          .FovDeg = State_.FovDeg,
+          .OrthoWidthM = State_.OrthoWidthM,
+          .OrthoM = State_.OrthoM,
+          .NearM = State_.NearM,
+          .FarM = State_.FarM,
+          .Jitter = State_.Jitter};
 }
 
 const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRenderer::kExecutors =
@@ -337,31 +337,31 @@ SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan,
   if (!ConfigurePlanStages(candidate, *plan, drawsGlass)) { return std::unexpected(WhyNot_); }
   if (Device_ && !Settle(WhyNot_)) { return std::unexpected(WhyNot_); }
   Ready_ = false;
-  Submitted_ = false;
-  Frame_ = std::move(candidate);
-  Plan_ = std::move(plan);
-  Content_.DrawsGlass = drawsGlass;
+  State_.Submitted = false;
+  State_.Frame = std::move(candidate);
+  State_.Plan = std::move(plan);
+  State_.Content.DrawsGlass = drawsGlass;
   BindFrameResources();
   BeginTemporalRun();
   Ready_ = true;
 
   Log::Info(LogTag::Render,
             "device_ready",
-            {{"width", Frame_.Width},
-             {"height", Frame_.Height},
+            {{"width", State_.Frame.Width},
+             {"height", State_.Frame.Height},
              {"driver", SDL_GetGPUDeviceDriver(device)},
-             {"plan", Plan_->Digest()},
-             {"passes", Plan_->PassCount()},
-             {"stages", static_cast<int>(Plan_->Order().size())}});
+             {"plan", State_.Plan->Digest()},
+             {"passes", State_.Plan->PassCount()},
+             {"stages", static_cast<int>(State_.Plan->Order().size())}});
   for (size_t at = 0; at < kStageCount; ++at) {
     const auto stage = static_cast<Stage>(at);
     if (Executable(stage)) { continue; }
     Log::Info(LogTag::Render, "stage_without_a_body", {{"stage", Row(stage).Name}});
   }
-  for (const std::string &merge : Plan_->Merges()) {
+  for (const std::string &merge : State_.Plan->Merges()) {
     Log::Info(LogTag::Render, "plan_merge", {{"merge", merge}});
   }
-  for (const std::string &alias : Plan_->Aliases()) {
+  for (const std::string &alias : State_.Plan->Aliases()) {
     Log::Info(LogTag::Render, "plan_alias", {{"alias", alias}});
   }
   return {};
@@ -587,7 +587,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
 }
 
 SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
-  return Target(Frame_, resource);
+  return Target(State_.Frame, resource);
 }
 
 SDL_GPUTexture *SceneRenderer::Target(const FrameResources &frame, Resource resource) {
@@ -634,7 +634,7 @@ SDL_GPUTexture *SceneRenderer::Target(const FrameResources &frame, Resource reso
 }
 
 SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
-  const SubjectResidency &resident = Content_.Subjects.Resident();
+  const SubjectResidency &resident = State_.Content.Subjects.Resident();
   switch (resource) {
     case Resource::ClusterSphere:
       return resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get();
@@ -647,18 +647,18 @@ SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
     case Resource::DrawIndex: return resident.Buffer(SubjectResidency::Stream::DrawIndex).Get();
     case Resource::DrawArguments:
       return resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
-    case Resource::IrradianceBuffer: return Frame_.IrradianceBuffer.Get();
-    case Resource::DepthPyramid: return Frame_.Pyramid.Get();
+    case Resource::IrradianceBuffer: return State_.Frame.IrradianceBuffer.Get();
+    case Resource::DepthPyramid: return State_.Frame.Pyramid.Get();
     default: return nullptr;
   }
 }
 
 DisplayOptions SceneRenderer::Display() const {
   DisplayOptions options;
-  options.Exposure = Plan_->Exposure();
-  options.Curve = Plan_->Display();
+  options.Exposure = State_.Plan->Exposure();
+  options.Curve = State_.Plan->Display();
 
-  options.Temporal = Plan_->Holds(Stage::TemporalResolve);
+  options.Temporal = State_.Plan->Holds(Stage::TemporalResolve);
   return options;
 }
 
@@ -666,18 +666,19 @@ SceneRenderer::Placed SceneRenderer::PictureRect() const {
   Placed out;
   out.LeftPx = 0;
   out.TopPx = 0;
-  out.WidthPx = static_cast<double>(Frame_.Width);
-  out.HeightPx = static_cast<double>(Frame_.Height);
-  if (RegionW_ > 0 && RegionH_ > 0) {
-    out.LeftPx = RegionX_ * static_cast<double>(Frame_.Width);
-    out.TopPx = RegionY_ * static_cast<double>(Frame_.Height);
-    out.WidthPx = RegionW_ * static_cast<double>(Frame_.Width);
-    out.HeightPx = RegionH_ * static_cast<double>(Frame_.Height);
+  out.WidthPx = static_cast<double>(State_.Frame.Width);
+  out.HeightPx = static_cast<double>(State_.Frame.Height);
+  if (State_.RegionW > 0 && State_.RegionH > 0) {
+    out.LeftPx = State_.RegionX * static_cast<double>(State_.Frame.Width);
+    out.TopPx = State_.RegionY * static_cast<double>(State_.Frame.Height);
+    out.WidthPx = State_.RegionW * static_cast<double>(State_.Frame.Width);
+    out.HeightPx = State_.RegionH * static_cast<double>(State_.Frame.Height);
   }
-  if (RegionAspect_ > 0 && out.WidthPx > 0 && out.HeightPx > 0) {
-    const double fitted =
-        out.WidthPx / out.HeightPx > RegionAspect_ ? out.HeightPx * RegionAspect_ : out.WidthPx;
-    const double tall = fitted / RegionAspect_;
+  if (State_.RegionAspect > 0 && out.WidthPx > 0 && out.HeightPx > 0) {
+    const double fitted = out.WidthPx / out.HeightPx > State_.RegionAspect
+                              ? out.HeightPx * State_.RegionAspect
+                              : out.WidthPx;
+    const double tall = fitted / State_.RegionAspect;
     out.LeftPx += (out.WidthPx - fitted) / 2.0;
     out.TopPx += (out.HeightPx - tall) / 2.0;
     out.WidthPx = fitted;
@@ -696,17 +697,18 @@ double SceneRenderer::PictureH() const {
 
 SDL_GPUTextureFormat SceneRenderer::SurfaceFormat() const {
   if (Showing_ != nullptr) { return SDL_GetGPUSwapchainTextureFormat(Device_.Get(), Showing_); }
-  return Plan_ ? FormatOf(Plan_->Format(Resource::Surface)) : SDL_GPU_TEXTUREFORMAT_INVALID;
+  return State_.Plan ? FormatOf(State_.Plan->Format(Resource::Surface))
+                     : SDL_GPU_TEXTUREFORMAT_INVALID;
 }
 
 SDL_GPUTexture *SceneRenderer::DisplaySource() const {
   const auto input =
-      Plan_->Holds(Stage::TemporalResolve) ? Resource::SceneAerial : Resource::SceneLinear;
-  return Target(Plan_->Bound(input));
+      State_.Plan->Holds(Stage::TemporalResolve) ? Resource::SceneAerial : Resource::SceneLinear;
+  return Target(State_.Plan->Bound(input));
 }
 
 SDL_GPUTexture *SceneRenderer::LinearSource() const {
-  return Target(Plan_->Bound(Resource::SceneLinear));
+  return Target(State_.Plan->Bound(Resource::SceneLinear));
 }
 
 bool SceneRenderer::Configure(
@@ -726,7 +728,7 @@ bool SceneRenderer::ConfigureSubjects(SceneRenderer &renderer,
                                       bool drawsGlass,
                                       std::string &error) {
   (void)plan;
-  return renderer.Content_.Subjects.Configure(
+  return renderer.State_.Content.Subjects.Configure(
       frame.SubjectPipelines, frame.Handles, nullptr, nullptr, drawsGlass, error);
 }
 
@@ -737,8 +739,8 @@ bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
                                    std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  renderer.Content_.Glass.Shares(renderer.Content_.Subjects.Owned());
-  return renderer.Content_.Glass.Configure(
+  renderer.State_.Content.Glass.Shares(renderer.State_.Content.Subjects.Owned());
+  return renderer.State_.Content.Glass.Configure(
       frame.GlassPipelines, frame.Handles, frame.HdrTex.Get(), frame.Samp.Get(), false, error);
 }
 
@@ -764,7 +766,7 @@ bool SceneRenderer::ConfigureOverlay(SceneRenderer &renderer,
                                      bool drawsGlass,
                                      std::string &error) {
   (void)drawsGlass;
-  return renderer.Content_.Overlay.EnsureAtlas(frame.Handles, error) &&
+  return renderer.State_.Content.Overlay.EnsureAtlas(frame.Handles, error) &&
          frame.OverlayPipe.Configure(
              frame.Handles, frame.Samp.Get(), FormatOf(plan.Format(Resource::FrameTex)), error);
 }
@@ -884,15 +886,17 @@ bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
                                              std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  return frame.Shadow.Configure(renderer.Content_.Subjects, frame.Handles, error);
+  return frame.Shadow.Configure(renderer.State_.Content.Subjects, frame.Handles, error);
 }
 
 void SceneRenderer::BindFrameResources() {
-  Content_.Subjects.UsePipelines(Frame_.SubjectPipelines);
-  Content_.Glass.UsePipelines(Frame_.GlassPipelines);
-  Content_.Glass.Shares(Content_.Subjects.Owned());
-  Content_.Subjects.SkyFrom(Frame_.IrradianceBuffer.Get());
-  if (Content_.DrawsGlass) { Content_.Glass.SkyFrom(Frame_.IrradianceBuffer.Get()); }
+  State_.Content.Subjects.UsePipelines(State_.Frame.SubjectPipelines);
+  State_.Content.Glass.UsePipelines(State_.Frame.GlassPipelines);
+  State_.Content.Glass.Shares(State_.Content.Subjects.Owned());
+  State_.Content.Subjects.SkyFrom(State_.Frame.IrradianceBuffer.Get());
+  if (State_.Content.DrawsGlass) {
+    State_.Content.Glass.SkyFrom(State_.Frame.IrradianceBuffer.Get());
+  }
 }
 
 void SceneRenderer::Picture(bool picture, const PassRecording &into) {
@@ -900,8 +904,8 @@ void SceneRenderer::Picture(bool picture, const PassRecording &into) {
   const Placed rect = PictureRect();
   where.x = picture ? static_cast<float>(rect.LeftPx) : 0.0f;
   where.y = picture ? static_cast<float>(rect.TopPx) : 0.0f;
-  where.w = picture ? static_cast<float>(rect.WidthPx) : static_cast<float>(Frame_.Width);
-  where.h = picture ? static_cast<float>(rect.HeightPx) : static_cast<float>(Frame_.Height);
+  where.w = picture ? static_cast<float>(rect.WidthPx) : static_cast<float>(State_.Frame.Width);
+  where.h = picture ? static_cast<float>(rect.HeightPx) : static_cast<float>(State_.Frame.Height);
   where.min_depth = 0.0f;
   where.max_depth = 1.0f;
   if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
@@ -909,19 +913,22 @@ void SceneRenderer::Picture(bool picture, const PassRecording &into) {
 
 FrameContext SceneRenderer::Framing() const {
   FrameContext ctx{};
-  if (OrthoM_ > 0) {
+  if (State_.OrthoM > 0) {
     for (int axis = 0; axis < 3; ++axis) {
-      ctx.ViewPosition[axis] = static_cast<float>(-Camera_.Forward[axis]);
+      ctx.ViewPosition[axis] = static_cast<float>(-State_.Camera.Forward[axis]);
     }
     ctx.ViewPosition[3] = 0;
   }
-  for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Camera_.EyeM[axis]; }
+  for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -State_.Camera.EyeM[axis]; }
 
-  ctx.Mvp = MvpCamRel(Camera_, Through());
+  ctx.Mvp = MvpCamRel(State_.Camera, Through());
   for (int axis = 0; axis < 3; axis++) {
-    ctx.PrevPreViewTranslation[axis] = Submitted_ ? -PrevEye_[axis] : ctx.PreViewTranslation[axis];
+    ctx.PrevPreViewTranslation[axis] =
+        State_.Submitted ? -State_.PrevEye[axis] : ctx.PreViewTranslation[axis];
   }
-  for (int at = 0; at < 16; at++) { ctx.PrevMvp[at] = Submitted_ ? PrevMvp_[at] : ctx.Mvp[at]; }
+  for (int at = 0; at < 16; at++) {
+    ctx.PrevMvp[at] = State_.Submitted ? State_.PrevMvp[at] : ctx.Mvp[at];
+  }
   return ctx;
 }
 
@@ -942,7 +949,8 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
   spent.Surfaces = 0;
   spent.Placements = 0;
   if (stage == Stage::Subjects || stage == Stage::SubjectsTransmissive) {
-    const SubjectDraw &drew = stage == Stage::Subjects ? Content_.Subjects : Content_.Glass;
+    const SubjectDraw &drew =
+        stage == Stage::Subjects ? State_.Content.Subjects : State_.Content.Glass;
     uint32_t surfaces = 0;
     uint32_t placements = 0;
     for (const DrawBatch &batch : drew.Drawn()) {
@@ -966,77 +974,80 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
 
 void SceneRenderer::EncodeSubjects(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  Content_.Subjects.Encode(ctx, into);
+  State_.Content.Subjects.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeGlass(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  Content_.Glass.Encode(ctx, into);
+  State_.Content.Glass.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx,
                                                 const PassRecording &into) {
   Picture(true, into);
-  Frame_.CompositeTransmission.Encode(ctx, into);
+  State_.Frame.CompositeTransmission.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
-  Frame_.Tonemap.Bind(DisplaySource());
-  const Vec2f delta = {{Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]}};
-  Frame_.Tonemap.BindTemporal(
-      {.History = Frame_.LinearTex[1 - Frame_.LinearAt].Get(), .Velocity = Frame_.VelTex.Get()},
-      Extent{.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
+  State_.Frame.Tonemap.Bind(DisplaySource());
+  const Vec2f delta = {
+      {State_.Jitter[0] - State_.PrevJitter[0], State_.Jitter[1] - State_.PrevJitter[1]}};
+  State_.Frame.Tonemap.BindTemporal(
+      {.History = State_.Frame.LinearTex[1 - State_.Frame.LinearAt].Get(),
+       .Velocity = State_.Frame.VelTex.Get()},
+      Extent{.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height},
       delta,
-      Frame_.HistoryHeld);
+      State_.Frame.HistoryHeld);
   Picture(true, into);
-  Frame_.Tonemap.Encode(ctx, into);
+  State_.Frame.Tonemap.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeOverlay(const FrameContext &ctx, const PassRecording &into) {
   Picture(false, into);
-  Frame_.OverlayPipe.Bind(Extent{.WidthPx = Frame_.Width, .HeightPx = Frame_.Height});
-  Frame_.OverlayPipe.Encode(Content_.Overlay, ctx, into);
+  State_.Frame.OverlayPipe.Bind(
+      Extent{.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height});
+  State_.Frame.OverlayPipe.Encode(State_.Content.Overlay, ctx, into);
 }
 
 void SceneRenderer::EncodePresent(const FrameContext &ctx, const PassRecording &into) {
   {
     std::string why;
-    if (!Frame_.Present.For(Frame_.Handles, SurfaceFormat(), why)) {
+    if (!State_.Frame.Present.For(State_.Frame.Handles, SurfaceFormat(), why)) {
       Log::Error(LogTag::Render, "present_not_built", {{"msg", why}});
       return;
     }
   }
   Picture(false, into);
-  Frame_.Present.Encode(ctx, into);
+  State_.Frame.Present.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeMediumTransmittance(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
-  Frame_.MediumTransmittance.Encode(into);
+  State_.Frame.MediumTransmittance.Encode(into);
 }
 
 void SceneRenderer::EncodeMediumMultiScatter(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
-  Frame_.MultiScatter.Encode(into);
+  State_.Frame.MultiScatter.Encode(into);
 }
 
 void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
-  Frame_.Radiance.Encode(into);
+  State_.Frame.Radiance.Encode(into);
 }
 
 bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                      std::span<const float> palette,
                                      std::string &error) {
   const auto uploaded =
-      GroundStorage_.Replace(Frame_.Handles.Device, classes, palette, Submission_);
+      GroundStorage_.Replace(State_.Frame.Handles.Device, classes, palette, Submission_);
   if (!uploaded) {
     error = uploaded.error();
     return false;
   }
-  Content_.Subjects.GroundFrom(
+  State_.Content.Subjects.GroundFrom(
       {.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
-  Content_.Glass.GroundFrom(
+  State_.Content.Glass.GroundFrom(
       {.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
   return true;
 }
@@ -1055,10 +1066,10 @@ bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
       error = uploaded.error();
       return false;
     }
-    renderer.Content_.Subjects.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
-                                           .Palette = renderer.GroundStorage_.Palette()});
-    renderer.Content_.Glass.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
-                                        .Palette = renderer.GroundStorage_.Palette()});
+    renderer.State_.Content.Subjects.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
+                                                 .Palette = renderer.GroundStorage_.Palette()});
+    renderer.State_.Content.Glass.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
+                                              .Palette = renderer.GroundStorage_.Palette()});
   }
   return frame.SkyIrradianceStage.Configure(frame.Handles,
                                             frame.TransmittanceLut.Get(),
@@ -1070,7 +1081,7 @@ bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
 
 void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
-  Frame_.SkyIrradianceStage.Encode(into);
+  State_.Frame.SkyIrradianceStage.Encode(into);
 }
 
 bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
@@ -1091,7 +1102,7 @@ bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
 
 void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
-  Frame_.PyramidStage.Encode(into);
+  State_.Frame.PyramidStage.Encode(into);
 }
 
 bool SceneRenderer::ConfigureSubjectCull(SceneRenderer &renderer,
@@ -1104,26 +1115,27 @@ bool SceneRenderer::ConfigureSubjectCull(SceneRenderer &renderer,
   frame.Cull.PyramidFrom(frame.Pyramid.Get(),
                          PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
                                       .HeightPx = static_cast<uint32_t>(frame.Height)}));
-  return frame.Cull.Configure(renderer.Content_.Subjects, frame.Handles, error);
+  return frame.Cull.Configure(renderer.State_.Content.Subjects, frame.Handles, error);
 }
 
 void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
-  Frame_.Cull.Projects(static_cast<float>(Frame_.Height));
-  Frame_.Cull.EncodeCull(ctx, into);
+  State_.Frame.Cull.Projects(static_cast<float>(State_.Frame.Height));
+  State_.Frame.Cull.EncodeCull(ctx, into);
 }
 
 void SceneRenderer::EncodeSubjectScan(const FrameContext &ctx, const PassRecording &into) {
-  Frame_.Cull.EncodeScan(ctx, into);
+  State_.Frame.Cull.EncodeScan(ctx, into);
 }
 
 void SceneRenderer::EncodeSubjectCompact(const FrameContext &ctx, const PassRecording &into) {
-  Frame_.Cull.EncodeCompact(ctx, into);
+  State_.Frame.Cull.EncodeCompact(ctx, into);
 }
 
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
-  Frame_.Shadow.Encode(ctx, into);
-  Content_.Subjects.ShadowedBy(
-      Frame_.ShadowAtlas.Get(), Frame_.LutSamp.Get(), Frame_.Shadow.LightFromWorld());
+  State_.Frame.Shadow.Encode(ctx, into);
+  State_.Content.Subjects.ShadowedBy(State_.Frame.ShadowAtlas.Get(),
+                                     State_.Frame.LutSamp.Get(),
+                                     State_.Frame.Shadow.LightFromWorld());
 }
 
 bool SceneRenderer::Settle(std::string &error) {
@@ -1140,38 +1152,38 @@ bool SceneRenderer::Settle(std::string &error) {
 }
 
 void SceneRenderer::SettleShadow() {
-  Frame_.Shadow.Prepare(Framing());
-  Touched_[static_cast<size_t>(Resource::ShadowAtlas)] = Frame_.Shadow.Cached();
+  State_.Frame.Shadow.Prepare(Framing());
+  Touched_[static_cast<size_t>(Resource::ShadowAtlas)] = State_.Frame.Shadow.Cached();
 }
 
 EyeBasis SceneRenderer::Eye() const {
-  assert(OrthoM_ > 0.0f || FovDeg_ > 0.0f);
+  assert(State_.OrthoM > 0.0f || State_.FovDeg > 0.0f);
   EyeBasis eye;
   eye.TanHalfHeight =
-      OrthoM_ > 0.0f ? 0.0f : std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
+      State_.OrthoM > 0.0f ? 0.0f : std::tan(static_cast<float>(State_.FovDeg * kDeg2Rad) * 0.5f);
   eye.TanHalfWidth =
       eye.TanHalfHeight * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
   for (int axis = 0; axis < 3; ++axis) {
-    eye.Right[axis] = static_cast<float>(Camera_.Right[axis]);
-    eye.Up[axis] = static_cast<float>(Camera_.Up[axis]);
-    eye.Forward[axis] = static_cast<float>(Camera_.Forward[axis]);
+    eye.Right[axis] = static_cast<float>(State_.Camera.Right[axis]);
+    eye.Up[axis] = static_cast<float>(State_.Camera.Up[axis]);
+    eye.Forward[axis] = static_cast<float>(State_.Camera.Forward[axis]);
   }
   return eye;
 }
 
 void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  Frame_.Aerial.SetBasis(Eye());
+  State_.Frame.Aerial.SetBasis(Eye());
   const Mat4f projection = Through().Projection();
-  Frame_.Aerial.SetDepthReconstruction(
+  State_.Frame.Aerial.SetDepthReconstruction(
       {{projection[14], projection[15], projection[10], -projection[11]}});
-  Frame_.Aerial.Encode(ctx, into);
+  State_.Frame.Aerial.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  Frame_.Sky.SetBasis(Eye());
-  Frame_.Sky.Encode(ctx, into);
+  State_.Frame.Sky.SetBasis(Eye());
+  State_.Frame.Sky.Encode(ctx, into);
 }
 
 namespace {
@@ -1196,7 +1208,7 @@ Vec2f HaltonJitter(int at) {
 void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands,
                                size_t pass,
                                StageSubmission &submission) {
-  const Compiled::Pass &declared = Plan_->Passes()[pass];
+  const Compiled::Pass &declared = State_.Plan->Passes()[pass];
   if (declared.Kind == PassKind::Compute) {
     EncodeComputePass(commands, declared, submission);
   } else {
@@ -1230,7 +1242,7 @@ void SceneRenderer::EncodeComputePass(SDL_GPUCommandBuffer *commands,
                                commands, written.data(), writtenCount, tables.data(), tableCount),
                            .Submission = submission};
   for (size_t at = 0; at < declared.Count; ++at) {
-    EncodeStage(Plan_->Order()[declared.First + at], into);
+    EncodeStage(State_.Plan->Order()[declared.First + at], into);
   }
   SDL_EndGPUComputePass(into.Dispatch);
 }
@@ -1246,7 +1258,8 @@ void SceneRenderer::EncodeGraphicsPass(SDL_GPUCommandBuffer *commands,
     attachment.load_op =
         Touched_[static_cast<size_t>(wanted)] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
     Touched_[static_cast<size_t>(wanted)] = true;
-    attachment.store_op = Plan_->Stored(wanted) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+    attachment.store_op =
+        State_.Plan->Stored(wanted) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
 
     const bool carriesCoverage =
         wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
@@ -1263,7 +1276,7 @@ void SceneRenderer::EncodeGraphicsPass(SDL_GPUCommandBuffer *commands,
         Touched_[static_cast<size_t>(declared.Depth)] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
     Touched_[static_cast<size_t>(declared.Depth)] = true;
     depth.store_op =
-        Plan_->Stored(declared.Depth) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+        State_.Plan->Stored(declared.Depth) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
     depth.clear_depth = 0.0f;
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
@@ -1275,36 +1288,39 @@ void SceneRenderer::EncodeGraphicsPass(SDL_GPUCommandBuffer *commands,
       .Dispatch = nullptr,
       .Submission = submission};
   for (size_t at = 0; at < declared.Count; ++at) {
-    EncodeStage(Plan_->Order()[declared.First + at], into);
+    EncodeStage(State_.Plan->Order()[declared.First + at], into);
   }
   SDL_EndGPURenderPass(into.Pass);
 }
 
 void SceneRenderer::BeginTemporalRun() {
-  HistoryStarted_ = false;
-  JitterAt_ = 0;
-  Jitter_[0] = 0.0f;
-  Jitter_[1] = 0.0f;
-  PrevJitter_[0] = 0.0f;
-  PrevJitter_[1] = 0.0f;
-  Frame_.LinearAt = 0;
-  Frame_.HistoryHeld = false;
+  State_.HistoryStarted = false;
+  State_.JitterAt = 0;
+  State_.Jitter[0] = 0.0f;
+  State_.Jitter[1] = 0.0f;
+  State_.PrevJitter[0] = 0.0f;
+  State_.PrevJitter[1] = 0.0f;
+  State_.Frame.LinearAt = 0;
+  State_.Frame.HistoryHeld = false;
 }
 
 std::expected<void, std::string> SceneRenderer::PrepareFrame() {
   if (!Ready_) { return std::unexpected(WhyNot_.empty() ? Says::kRendererNotReady : WhyNot_); }
-  if (!CameraFull_) { return std::unexpected(Says::kCameraNotConfigured); }
+  if (!State_.CameraFull) { return std::unexpected(Says::kCameraNotConfigured); }
 
-  Content_.Subjects.CastsNoShadow();
+  State_.Content.Subjects.CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
   SettleShadow();
   {
     std::string why;
-    if (!Content_.Subjects.HandTables(why) || !Content_.Subjects.HandPlacements(false, why) ||
-        (Content_.DrawsGlass && !Content_.Glass.HandTables(why))) {
+    if (!State_.Content.Subjects.HandTables(why) ||
+        !State_.Content.Subjects.HandPlacements(false, why) ||
+        (State_.Content.DrawsGlass && !State_.Content.Glass.HandTables(why))) {
       return std::unexpected(std::move(why));
     }
-    if (!Content_.Subjects.HandDrawArguments(true, why)) { return std::unexpected(std::move(why)); }
+    if (!State_.Content.Subjects.HandDrawArguments(true, why)) {
+      return std::unexpected(std::move(why));
+    }
   }
   return {};
 }
@@ -1315,8 +1331,8 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());
   if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
   std::string uploadError;
-  if (!Content_.Subjects.FlushCrossings(commands, uploadError) ||
-      (Content_.DrawsGlass && !Content_.Glass.FlushCrossings(commands, uploadError))) {
+  if (!State_.Content.Subjects.FlushCrossings(commands, uploadError) ||
+      (State_.Content.DrawsGlass && !State_.Content.Glass.FlushCrossings(commands, uploadError))) {
     SDL_CancelGPUCommandBuffer(commands);
     return std::unexpected(std::move(uploadError));
   }
@@ -1334,44 +1350,44 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
       if (!SDL_CancelGPUCommandBuffer(commands)) { return std::unexpected(SDL_GetError()); }
       return {};
     }
-    Frame_.Shown.WidthPx = static_cast<int>(gotW);
-    Frame_.Shown.HeightPx = static_cast<int>(gotH);
-    Frame_.HostSurface = swapchain;
+    State_.Frame.Shown.WidthPx = static_cast<int>(gotW);
+    State_.Frame.Shown.HeightPx = static_cast<int>(gotH);
+    State_.Frame.HostSurface = swapchain;
   }
 
-  const auto previousJitter = Jitter_;
-  const auto previousPrevJitter = PrevJitter_;
-  const auto previousJitterAt = JitterAt_;
-  const auto previousHistoryStarted = HistoryStarted_;
-  const auto previousHistoryHeld = Frame_.HistoryHeld;
-  const auto previousLinearAt = Frame_.LinearAt;
-  if (Plan_->Holds(Stage::TemporalResolve)) {
-    PrevJitter_ = Jitter_;
-    JitterAt_ = (JitterAt_ + 1) % kJitterPeriod;
-    Jitter_ = HaltonJitter(JitterAt_);
+  const auto previousJitter = State_.Jitter;
+  const auto previousPrevJitter = State_.PrevJitter;
+  const auto previousJitterAt = State_.JitterAt;
+  const auto previousHistoryStarted = State_.HistoryStarted;
+  const auto previousHistoryHeld = State_.Frame.HistoryHeld;
+  const auto previousLinearAt = State_.Frame.LinearAt;
+  if (State_.Plan->Holds(Stage::TemporalResolve)) {
+    State_.PrevJitter = State_.Jitter;
+    State_.JitterAt = (State_.JitterAt + 1) % kJitterPeriod;
+    State_.Jitter = HaltonJitter(State_.JitterAt);
 
-    Frame_.HistoryHeld = HistoryStarted_;
-    HistoryStarted_ = true;
-    Frame_.LinearAt = 1 - Frame_.LinearAt;
+    State_.Frame.HistoryHeld = State_.HistoryStarted;
+    State_.HistoryStarted = true;
+    State_.Frame.LinearAt = 1 - State_.Frame.LinearAt;
   }
   StageSubmission stageSubmission;
   const auto restoreTemporalState = [&] {
-    Jitter_ = previousJitter;
-    PrevJitter_ = previousPrevJitter;
-    JitterAt_ = previousJitterAt;
-    HistoryStarted_ = previousHistoryStarted;
-    Frame_.HistoryHeld = previousHistoryHeld;
-    Frame_.LinearAt = previousLinearAt;
+    State_.Jitter = previousJitter;
+    State_.PrevJitter = previousPrevJitter;
+    State_.JitterAt = previousJitterAt;
+    State_.HistoryStarted = previousHistoryStarted;
+    State_.Frame.HistoryHeld = previousHistoryHeld;
+    State_.Frame.LinearAt = previousLinearAt;
   };
 
-  if (!Content_.Subjects.Ground().Cull(
-          Framing(), Content_.Subjects.AnchorM(), commands, uploadError)) {
+  if (!State_.Content.Subjects.Ground().Cull(
+          Framing(), State_.Content.Subjects.AnchorM(), commands, uploadError)) {
     SDL_CancelGPUCommandBuffer(commands);
     restoreTemporalState();
     return std::unexpected(std::move(uploadError));
   }
 
-  for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) {
+  for (size_t pass = 0; pass < State_.Plan->Passes().size(); ++pass) {
     EncodePass(commands, pass, stageSubmission);
   }
 
@@ -1386,22 +1402,22 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     Landed_[LandedAt_] = nullptr;
   }
   Landed_[LandedAt_] = Submission_.Submit(Submission_.Context, commands);
-  if (swapchain != nullptr) { Frame_.HostSurface = Frame_.Offscreen.Get(); }
+  if (swapchain != nullptr) { State_.Frame.HostSurface = State_.Frame.Offscreen.Get(); }
   if (Landed_[LandedAt_] == nullptr) {
     std::string error = SDL_GetError();
     restoreTemporalState();
     return std::unexpected(std::move(error));
   }
-  Content_.Subjects.CommitCrossings();
-  if (Content_.DrawsGlass) { Content_.Glass.CommitCrossings(); }
+  State_.Content.Subjects.CommitCrossings();
+  if (State_.Content.DrawsGlass) { State_.Content.Glass.CommitCrossings(); }
   stageSubmission.Commit();
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
-  for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Camera_.EyeM[axis]; }
-  Content_.Subjects.CarryFrame();
-  Content_.Glass.CarryFrame();
+  for (int axis = 0; axis < 3; axis++) { State_.PrevEye[axis] = State_.Camera.EyeM[axis]; }
+  State_.Content.Subjects.CarryFrame();
+  State_.Content.Glass.CarryFrame();
 
-  PrevMvp_ = MvpCamRel(Camera_, Through());
-  Submitted_ = true;
+  State_.PrevMvp = MvpCamRel(State_.Camera, Through());
+  State_.Submitted = true;
   return {};
 }
 
@@ -1418,35 +1434,38 @@ void SceneRenderer::WaitForGpu() {
 
 ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
   WhyNot_.clear();
-  if (!Ready_ || !Submitted_) {
+  if (!Ready_ || !State_.Submitted) {
     WhyNot_ = Says::kNoReadbackFrame;
     return ReadState::Failed;
   }
-  if (!Plan_) {
+  if (!State_.Plan) {
     WhyNot_ = Says::kNoColourOutput;
     return ReadState::Failed;
   }
-  const auto source = Plan_->Holds(Resource::FrameTex) ? Resource::FrameTex : Resource::Surface;
-  if (!Plan_->Holds(source)) {
+  const auto source =
+      State_.Plan->Holds(Resource::FrameTex) ? Resource::FrameTex : Resource::Surface;
+  if (!State_.Plan->Holds(source)) {
     WhyNot_ = Says::kNoColourOutput;
     return ReadState::Failed;
   }
   SDL_GPUTexture *const held =
-      source == Resource::FrameTex ? Frame_.FrameTex.Get() : Frame_.Offscreen.Get();
+      source == Resource::FrameTex ? State_.Frame.FrameTex.Get() : State_.Frame.Offscreen.Get();
   if (held == nullptr) {
     WhyNot_ = Says::kNoColourTexture;
     return ReadState::Failed;
   }
   Readback read;
-  if (read.FromTexture(
-          Device_.Get(), held, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 4u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       held,
+                       {.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height},
+                       4u) != ReadState::Ready) {
     WhyNot_ = std::string(Says::kColourReadbackFailed) + SDL_GetError();
     return ReadState::Failed;
   }
-  rgba.resize(static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u);
+  rgba.resize(static_cast<size_t>(State_.Frame.Width) * static_cast<size_t>(State_.Frame.Height) *
+              4u);
   std::memcpy(rgba.data(), read.Rows(), rgba.size());
-  const auto format = FormatOf(Plan_->Format(source));
+  const auto format = FormatOf(State_.Plan->Format(source));
   if (format == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM ||
       format == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB) {
     for (size_t at = 0; at + 3 < rgba.size(); at += 4) { std::swap(rgba[at], rgba[at + 2]); }
@@ -1455,15 +1474,15 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
 }
 
 ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
-  if (!Ready_ || !Frame_.DepthTex) { return ReadState::Failed; }
+  if (!Ready_ || !State_.Frame.DepthTex) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.Get(),
-                       Frame_.DepthTex.Get(),
-                       {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
+                       State_.Frame.DepthTex.Get(),
+                       {.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height},
                        4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  depth.resize(static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height));
+  depth.resize(static_cast<size_t>(State_.Frame.Width) * static_cast<size_t>(State_.Frame.Height));
   std::memcpy(depth.data(), read.Rows(), depth.size() * sizeof(float));
   return ReadState::Ready;
 }
@@ -1471,16 +1490,16 @@ ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
 ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
   SDL_GPUTexture *source = LinearSource();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
-  const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
+  const bool wide = State_.Plan->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
   if (read.FromTexture(Device_.Get(),
                        source,
-                       {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
+                       {.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height},
                        wide ? 16u : 8u) != ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components =
-      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u;
+      static_cast<size_t>(State_.Frame.Width) * static_cast<size_t>(State_.Frame.Height) * 4u;
   rgba.resize(components);
   if (wide) {
     std::memcpy(rgba.data(), read.Rows(), components * sizeof(float));
@@ -1496,12 +1515,12 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
 }
 
 ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
-  if (!Ready_ || !Frame_.ShadowAtlas || !Frame_.Shadow.HasSubmittedData()) {
+  if (!Ready_ || !State_.Frame.ShadowAtlas || !State_.Frame.Shadow.HasSubmittedData()) {
     return ReadState::Failed;
   }
   Readback read;
   if (read.FromTexture(Device_.Get(),
-                       Frame_.ShadowAtlas.Get(),
+                       State_.Frame.ShadowAtlas.Get(),
                        {.WidthPx = kShadowAtlasPx, .HeightPx = kShadowAtlasPx},
                        4u) != ReadState::Ready) {
     return ReadState::Failed;
@@ -1513,9 +1532,9 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
-  const SubjectResidency &resident = Content_.Subjects.Resident();
+  const SubjectResidency &resident = State_.Content.Subjects.Resident();
   SDL_GPUBuffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
-  const uint32_t rows = Content_.Subjects.ClusterBatchRows();
+  const uint32_t rows = State_.Content.Subjects.ClusterBatchRows();
   if (!Ready_ || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
@@ -1530,22 +1549,22 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
 
 ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
   into = {};
-  if (!Ready_ || !Frame_.Pyramid) { return ReadState::Failed; }
-  const PyramidShape shape = PyramidOver({.WidthPx = static_cast<uint32_t>(Frame_.Width),
-                                          .HeightPx = static_cast<uint32_t>(Frame_.Height)});
+  if (!Ready_ || !State_.Frame.Pyramid) { return ReadState::Failed; }
+  const PyramidShape shape = PyramidOver({.WidthPx = static_cast<uint32_t>(State_.Frame.Width),
+                                          .HeightPx = static_cast<uint32_t>(State_.Frame.Height)});
   const uint32_t texels = shape.Wide[0] * shape.High[0];
   if (texels == 0) { return ReadState::Failed; }
-  const ReadState landed = Frame_.PyramidRead.Poll();
+  const ReadState landed = State_.Frame.PyramidRead.Poll();
   if (landed == ReadState::Failed) {
-    return Frame_.PyramidRead.Enqueue(Device_.Get(),
-                                      Frame_.Pyramid.Get(),
-                                      texels * static_cast<uint32_t>(sizeof(float))) ==
+    return State_.Frame.PyramidRead.Enqueue(Device_.Get(),
+                                            State_.Frame.Pyramid.Get(),
+                                            texels * static_cast<uint32_t>(sizeof(float))) ==
                    ReadState::Failed
                ? ReadState::Failed
                : ReadState::Pending;
   }
   if (landed == ReadState::Pending) { return ReadState::Pending; }
-  const auto *const held = reinterpret_cast<const float *>(Frame_.PyramidRead.Rows());
+  const auto *const held = reinterpret_cast<const float *>(State_.Frame.PyramidRead.Rows());
   double summed = 0.0;
   into.Nearest = held[0];
   into.Farthest = held[0];
@@ -1555,17 +1574,17 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
     summed += static_cast<double>(held[at]);
   }
   into.Mean = static_cast<float>(summed / static_cast<double>(texels));
-  Frame_.PyramidRead.Release();
+  State_.Frame.PyramidRead.Release();
   return ReadState::Ready;
 }
 
 ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> out) {
-  if (!Ready_ || !Frame_.IrradianceBuffer || !Frame_.SkyIrradianceStage.Settled()) {
+  if (!Ready_ || !State_.Frame.IrradianceBuffer || !State_.Frame.SkyIrradianceStage.Settled()) {
     return ReadState::Failed;
   }
   Readback read;
   if (read.FromBuffer(Device_.Get(),
-                      Frame_.IrradianceBuffer.Get(),
+                      State_.Frame.IrradianceBuffer.Get(),
                       kIrradianceFloats * static_cast<uint32_t>(sizeof(float))) !=
       ReadState::Ready) {
     return ReadState::Failed;
@@ -1575,16 +1594,17 @@ ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> o
 }
 
 ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
-  SDL_GPUTexture *source = Frame_.ShadingNormalTex.Get();
+  SDL_GPUTexture *source = State_.Frame.ShadingNormalTex.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(
-          Device_.Get(), source, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 8u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       {.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height},
+                       8u) != ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components =
-      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u;
+      static_cast<size_t>(State_.Frame.Width) * static_cast<size_t>(State_.Frame.Height) * 4u;
   xyz.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -1595,16 +1615,17 @@ ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
 }
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
-  SDL_GPUTexture *source = Frame_.VelTex.Get();
+  SDL_GPUTexture *source = State_.Frame.VelTex.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(
-          Device_.Get(), source, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 4u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       {.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height},
+                       4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components =
-      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 2u;
+      static_cast<size_t>(State_.Frame.Width) * static_cast<size_t>(State_.Frame.Height) * 2u;
   xy.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -1615,26 +1636,27 @@ ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
 }
 
 ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
-  SDL_GPUTexture *source = Frame_.SurfaceIdentityTex.Get();
+  SDL_GPUTexture *source = State_.Frame.SurfaceIdentityTex.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(
-          Device_.Get(), source, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 16u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       {.WidthPx = State_.Frame.Width, .HeightPx = State_.Frame.Height},
+                       16u) != ReadState::Ready) {
     return ReadState::Failed;
   }
   const size_t components =
-      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u;
+      static_cast<size_t>(State_.Frame.Width) * static_cast<size_t>(State_.Frame.Height) * 4u;
   slot.resize(components);
   std::memcpy(slot.data(), read.Rows(), components * sizeof(float));
   return ReadState::Ready;
 }
 
 void SceneRenderer::StopShowing() {
-  Frame_.Offscreen.Reset();
-  Frame_.HostSurface = nullptr;
-  Frame_.Shown = {};
-  Submitted_ = false;
+  State_.Frame.Offscreen.Reset();
+  State_.Frame.HostSurface = nullptr;
+  State_.Frame.Shown = {};
+  State_.Submitted = false;
   if (Showing_ == nullptr) { return; }
   SDL_ReleaseWindowFromGPUDevice(Device_.Get(), Showing_);
   Showing_ = nullptr;
@@ -1676,9 +1698,9 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
     mode = *claimed;
   }
 
-  if (Plan_ != nullptr) {
+  if (State_.Plan != nullptr) {
     const auto rebuilt =
-        InitForTarget({.WidthPx = widthPx, .HeightPx = heightPx}, Plan_, presents != nullptr);
+        InitForTarget({.WidthPx = widthPx, .HeightPx = heightPx}, State_.Plan, presents != nullptr);
     if (!rebuilt) {
       if (changedWindow) { SDL_ReleaseWindowFromGPUDevice(Device_.Get(), presents); }
       return std::unexpected(rebuilt.error());
@@ -1686,10 +1708,10 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   } else if (presents == nullptr) {
     auto made = MakeOffscreen(nullptr, {.WidthPx = widthPx, .HeightPx = heightPx});
     if (!made) { return std::unexpected(made.error()); }
-    Frame_.Offscreen = std::move(*made);
-    Frame_.HostSurface = Frame_.Offscreen.Get();
-    Frame_.Width = widthPx;
-    Frame_.Height = heightPx;
+    State_.Frame.Offscreen = std::move(*made);
+    State_.Frame.HostSurface = State_.Frame.Offscreen.Get();
+    State_.Frame.Width = widthPx;
+    State_.Frame.Height = heightPx;
   }
 
   if (Showing_ != nullptr && Showing_ != presents) {
@@ -1697,8 +1719,8 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   }
   Showing_ = presents;
   Presenting_ = mode;
-  Frame_.Shown = {};
-  Submitted_ = false;
+  State_.Frame.Shown = {};
+  State_.Submitted = false;
   WhyNot_.clear();
   return {};
 }
@@ -1710,8 +1732,8 @@ SceneRenderer::Presented() const {
         "no window is being shown on: a frame is presented to a surface the caller declared, "
         "and `DrawsInto` names one");
   }
-  if (Frame_.Shown.WidthPx == 0) { return std::optional<Shown>(); }
-  return std::optional<Shown>(Frame_.Shown);
+  if (State_.Frame.Shown.WidthPx == 0) { return std::optional<Shown>(); }
+  return std::optional<Shown>(State_.Frame.Shown);
 }
 
 }

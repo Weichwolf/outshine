@@ -63,7 +63,7 @@ public:
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
                                                       std::shared_ptr<const Compiled> plan);
 
-  [[nodiscard]] const Compiled &Plan() const { return *Plan_; }
+  [[nodiscard]] const Compiled &Plan() const { return *State_.Plan; }
 
   [[nodiscard]] bool DeviceUsable() const { return Ready_; }
 
@@ -81,7 +81,7 @@ public:
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
 
-  void PresentInto(SDL_GPUTexture *surface) { Frame_.HostSurface = surface; }
+  void PresentInto(SDL_GPUTexture *surface) { State_.Frame.HostSurface = surface; }
 
   struct Region {
     double X = 0.0;
@@ -92,16 +92,16 @@ public:
   };
 
   void SetPictureRegion(Region into) {
-    RegionX_ = into.X;
-    RegionY_ = into.Y;
-    RegionW_ = into.Width;
-    RegionH_ = into.Height;
-    RegionAspect_ = into.Aspect;
+    State_.RegionX = into.X;
+    State_.RegionY = into.Y;
+    State_.RegionW = into.Width;
+    State_.RegionH = into.Height;
+    State_.RegionAspect = into.Aspect;
   }
 
   [[nodiscard]] std::expected<void, std::string> RenderFrame();
 
-  [[nodiscard]] bool Drew() const { return Submitted_; }
+  [[nodiscard]] bool Drew() const { return State_.Submitted; }
 
   ~SceneRenderer() {
     WaitForGpu();
@@ -117,7 +117,7 @@ public:
 
   static constexpr int kFramesInFlight = 2;
 
-  [[nodiscard]] int SettleFrames() const { return Plan_ ? Plan_->SettleFrames() : 1; }
+  [[nodiscard]] int SettleFrames() const { return State_.Plan ? State_.Plan->SettleFrames() : 1; }
 
   [[nodiscard]] bool Queued() const { return Presenting_ == SDL_GPU_PRESENTMODE_VSYNC; }
 
@@ -130,7 +130,7 @@ public:
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   [[nodiscard]] static bool Executable(Stage stage);
 
-  void CastsBelow(uint32_t slot) { Frame_.Shadow.CastsBelow(slot); }
+  void CastsBelow(uint32_t slot) { State_.Frame.Shadow.CastsBelow(slot); }
 
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = static_cast<float>(outshine::Camera::kNearestM);
@@ -140,68 +140,72 @@ public:
   [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
-    return Content_.Subjects.PlacePiece(piece, error);
+    return State_.Content.Subjects.PlacePiece(piece, error);
   }
 
-  void ReleasePiece(PieceId which) { Content_.Subjects.ReleasePiece(which); }
+  void ReleasePiece(PieceId which) { State_.Content.Subjects.ReleasePiece(which); }
 
   [[nodiscard]] PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
-    return Content_.Subjects.Ground().PlacePage(nodes, error);
+    return State_.Content.Subjects.Ground().PlacePage(nodes, error);
   }
 
-  void ReleaseHeightPage(PageId which) { Content_.Subjects.Ground().ReleasePage(which); }
+  void ReleaseHeightPage(PageId which) { State_.Content.Subjects.Ground().ReleasePage(which); }
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
-    return Content_.Subjects.Ground().SetGrid(fractions, error);
+    return State_.Content.Subjects.Ground().SetGrid(fractions, error);
   }
 
   [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,
                                       std::span<const GroundTile> virtual_,
                                       std::string &error) {
-    return Content_.Subjects.Ground().SetInstances(real, virtual_, error);
+    return State_.Content.Subjects.Ground().SetInstances(real, virtual_, error);
   }
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const {
-    return Content_.Subjects.Ground().Triangles();
+    return State_.Content.Subjects.Ground().Triangles();
   }
 
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error) {
-    return Content_.Subjects.SetPieceInstances(which, rows, error);
+    return State_.Content.Subjects.SetPieceInstances(which, rows, error);
   }
 
   void WearPieces(std::span<const uint32_t> slotOfSurface,
                   std::span<const uint32_t> registered = {}) {
-    Content_.Subjects.WearPieces(slotOfSurface, registered);
+    State_.Content.Subjects.WearPieces(slotOfSurface, registered);
   }
 
-  [[nodiscard]] uint32_t PiecesStanding() const { return Content_.Subjects.PiecesStanding(); }
+  [[nodiscard]] uint32_t PiecesStanding() const { return State_.Content.Subjects.PiecesStanding(); }
 
-  [[nodiscard]] uint32_t PieceTriangles() const { return Content_.Subjects.PieceTriangles(); }
+  [[nodiscard]] uint32_t PieceTriangles() const { return State_.Content.Subjects.PieceTriangles(); }
 
   [[nodiscard]] size_t TakeUploadAttempts() {
-    return Content_.Subjects.Owned().TakeUploadAttempts();
+    return State_.Content.Subjects.Owned().TakeUploadAttempts();
   }
 
   [[nodiscard]] size_t TotalUploadAttempts() const {
-    return Content_.Subjects.Resident().TotalUploadAttempts();
+    return State_.Content.Subjects.Resident().TotalUploadAttempts();
   }
 
   [[nodiscard]] size_t RecordedCrossings() const {
-    return Content_.Subjects.Resident().RecordedCrossings();
+    return State_.Content.Subjects.Resident().RecordedCrossings();
   }
 
-  [[nodiscard]] size_t TakeUploadBytes() { return Content_.Subjects.Owned().TakeUploadBytes(); }
+  [[nodiscard]] size_t TakeUploadBytes() {
+    return State_.Content.Subjects.Owned().TakeUploadBytes();
+  }
 
   [[nodiscard]] size_t TakeBufferAllocationAttempts() {
-    return Content_.Subjects.Owned().TakeBufferAllocationAttempts();
+    return State_.Content.Subjects.Owned().TakeBufferAllocationAttempts();
   }
 
   [[nodiscard]] size_t TakeStagingAllocationAttempts() {
-    return Content_.Subjects.Owned().TakeStagingAllocationAttempts();
+    return State_.Content.Subjects.Owned().TakeStagingAllocationAttempts();
   }
 
-  [[nodiscard]] uint32_t PieceBytesHeld() const { return Content_.Subjects.Resident().HeldBytes(); }
+  [[nodiscard]] uint32_t PieceBytesHeld() const {
+    return State_.Content.Subjects.Resident().HeldBytes();
+  }
 
   [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);
 
@@ -216,137 +220,146 @@ public:
   [[nodiscard]] bool ReplaceOverlay(std::span<const OverlayQuad> quads,
                                     const OverlayDraw::AtlasPixels *atlas,
                                     std::string &error) {
-    return Content_.Overlay.Replace(Frame_.Handles, quads.data(), quads.size(), atlas, error);
+    return State_.Content.Overlay.Replace(
+        State_.Frame.Handles, quads.data(), quads.size(), atlas, error);
   }
 
   [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
-    return Content_.Overlay.SetQuads(Frame_.Handles, quads, count, error);
+    return State_.Content.Overlay.SetQuads(State_.Frame.Handles, quads, count, error);
   }
 
   [[nodiscard]] bool
   SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
-    return Content_.Overlay.SetAtlas(Frame_.Handles, rgba, width, height, error);
+    return State_.Content.Overlay.SetAtlas(State_.Frame.Handles, rgba, width, height, error);
   }
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
     const Heap::Tagged relaying("mesh-relay");
-    if (Content_.DrawsGlass && !Content_.Glass.ValidateMesh(mesh, error)) { return false; }
-    return Content_.Subjects.SetMesh(mesh, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.SetMesh(mesh, error));
+    if (State_.Content.DrawsGlass && !State_.Content.Glass.ValidateMesh(mesh, error)) {
+      return false;
+    }
+    return State_.Content.Subjects.SetMesh(mesh, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.SetMesh(mesh, error));
   }
 
   [[nodiscard]] bool SubjectPlacementRows(size_t rows, std::string &error) {
-    return Content_.Subjects.PlacementRows(rows, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.PlacementRows(rows, error));
+    return State_.Content.Subjects.PlacementRows(rows, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.PlacementRows(rows, error));
   }
 
   void MoveSubjectPlacement(size_t slot, const Mat4 &model) {
-    Content_.Subjects.MovePlacement(slot, model);
-    if (Content_.DrawsGlass) { Content_.Glass.MovePlacement(slot, model); }
+    State_.Content.Subjects.MovePlacement(slot, model);
+    if (State_.Content.DrawsGlass) { State_.Content.Glass.MovePlacement(slot, model); }
   }
 
   [[nodiscard]] bool HandSubjectPlacements(std::string &error) {
-    return Content_.Subjects.HandPlacements(false, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.HandPlacements(false, error));
+    return State_.Content.Subjects.HandPlacements(false, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.HandPlacements(false, error));
   }
 
   [[nodiscard]] size_t SubjectPlacementsMoved() const {
-    return Content_.Subjects.PlacementsMoved();
+    return State_.Content.Subjects.PlacementsMoved();
   }
 
-  [[nodiscard]] uint32_t SubjectBytesStaged() const { return Content_.Subjects.StagedBytes(); }
+  [[nodiscard]] uint32_t SubjectBytesStaged() const {
+    return State_.Content.Subjects.StagedBytes();
+  }
 
-  void ForgetSubjectStaging() { Content_.Subjects.ForgetStagedCount(); }
+  void ForgetSubjectStaging() { State_.Content.Subjects.ForgetStagedCount(); }
 
-  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return Frame_.Shadow.StoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return State_.Frame.Shadow.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
-    return Content_.Subjects.SetPlacements(models, rows, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.SetPlacements(models, rows, error));
+    return State_.Content.Subjects.SetPlacements(models, rows, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.SetPlacements(models, rows, error));
   }
 
   [[nodiscard]] bool SetSubjectPose(const SubjectPose &pose, std::string &error) {
-    return Content_.Subjects.SetPose(pose, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.SetPose(pose, error));
+    return State_.Content.Subjects.SetPose(pose, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.SetPose(pose, error));
   }
 
   [[nodiscard]] bool SetSubjectMaterials(std::span<const SubjectMaterial> materials,
                                          std::string &error) {
-    return Content_.Subjects.SetMaterials(materials, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.SetMaterials(materials, error));
+    return State_.Content.Subjects.SetMaterials(materials, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.SetMaterials(materials, error));
   }
 
   [[nodiscard]] bool AppendSubjectMaterials(std::span<const SubjectMaterial> materials,
                                             std::string &error) {
-    if (!Content_.Subjects.ValidateMaterials(materials, error) ||
-        (Content_.DrawsGlass && !Content_.Glass.ValidateMaterials(materials, error))) {
+    if (!State_.Content.Subjects.ValidateMaterials(materials, error) ||
+        (State_.Content.DrawsGlass && !State_.Content.Glass.ValidateMaterials(materials, error))) {
       return false;
     }
-    return Content_.Subjects.AppendMaterials(materials, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.AppendMaterials(materials, error));
+    return State_.Content.Subjects.AppendMaterials(materials, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.AppendMaterials(materials, error));
   }
 
   [[nodiscard]] bool SetSubjectLights(std::span<const SubjectLight> lights, std::string &error) {
-    return Content_.Subjects.SetLights(lights, error) &&
-           (!Content_.DrawsGlass || Content_.Glass.SetLights(lights, error));
+    return State_.Content.Subjects.SetLights(lights, error) &&
+           (!State_.Content.DrawsGlass || State_.Content.Glass.SetLights(lights, error));
   }
 
   void SetMedium(const Medium &medium) {
-    Medium_ = medium;
-    Frame_.MediumTransmittance.Declare(medium);
-    Frame_.MultiScatter.Declare(medium);
-    Frame_.Radiance.Declare(medium, CosSunZenith_, EyeHeightM_);
-    Frame_.SkyIrradianceStage.Declare(medium, CosSunZenith_);
+    State_.Medium = medium;
+    State_.Frame.MediumTransmittance.Declare(medium);
+    State_.Frame.MultiScatter.Declare(medium);
+    State_.Frame.Radiance.Declare(medium, State_.CosSunZenith, State_.EyeHeightM);
+    State_.Frame.SkyIrradianceStage.Declare(medium, State_.CosSunZenith);
   }
 
   void SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM) {
-    Frame_.Shadow.Declare({.ToSun = toSun, .Up = up}, radiusM);
+    State_.Frame.Shadow.Declare({.ToSun = toSun, .Up = up}, radiusM);
   }
 
   void SetSky(const Vec3f &toSun, const Vec3f &up, float illuminanceLux, float eyeHeightM) {
-    CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
-    EyeHeightM_ = eyeHeightM;
-    Frame_.Radiance.Declare(Medium_, CosSunZenith_, EyeHeightM_);
-    Frame_.SkyIrradianceStage.Declare(Medium_, CosSunZenith_);
+    State_.CosSunZenith = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
+    State_.EyeHeightM = eyeHeightM;
+    State_.Frame.Radiance.Declare(State_.Medium, State_.CosSunZenith, State_.EyeHeightM);
+    State_.Frame.SkyIrradianceStage.Declare(State_.Medium, State_.CosSunZenith);
     const SkyStanding stands = {
         .SunDir = toSun, .WorldUp = up, .IlluminanceLux = illuminanceLux, .EyeHeightM = eyeHeightM};
-    Frame_.Sky.Declare(Medium_, stands);
-    Frame_.Aerial.Declare(Medium_, stands);
+    State_.Frame.Sky.Declare(State_.Medium, stands);
+    State_.Frame.Aerial.Declare(State_.Medium, stands);
   }
 
   void SetSkyEye(float eyeHeightM) {
-    if (!Frame_.Sky.Stands()) { return; }
-    EyeHeightM_ = eyeHeightM;
-    Frame_.Radiance.Declare(Medium_, CosSunZenith_, EyeHeightM_);
-    Frame_.SkyIrradianceStage.Declare(Medium_, CosSunZenith_);
-    Frame_.Sky.Eye(Medium_, eyeHeightM);
-    Frame_.Aerial.Eye(Medium_, eyeHeightM);
+    if (!State_.Frame.Sky.Stands()) { return; }
+    State_.EyeHeightM = eyeHeightM;
+    State_.Frame.Radiance.Declare(State_.Medium, State_.CosSunZenith, State_.EyeHeightM);
+    State_.Frame.SkyIrradianceStage.Declare(State_.Medium, State_.CosSunZenith);
+    State_.Frame.Sky.Eye(State_.Medium, eyeHeightM);
+    State_.Frame.Aerial.Eye(State_.Medium, eyeHeightM);
   }
 
-  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return Frame_.SkyViewLut.Get(); }
+  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return State_.Frame.SkyViewLut.Get(); }
 
-  [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const { return Frame_.MultiScatterLut.Get(); }
+  [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const {
+    return State_.Frame.MultiScatterLut.Get();
+  }
 
-  [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const { return Frame_.TransmittanceLut.Get(); }
+  [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const {
+    return State_.Frame.TransmittanceLut.Get();
+  }
 
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
-    Content_.Subjects.SetEnvironment(environment);
-    if (Content_.DrawsGlass) { Content_.Glass.SetEnvironment(environment); }
+    State_.Content.Subjects.SetEnvironment(environment);
+    if (State_.Content.DrawsGlass) { State_.Content.Glass.SetEnvironment(environment); }
   }
 
-  [[nodiscard]] uint32_t SubjectBatchCount() const { return Content_.Subjects.BatchCount(); }
+  [[nodiscard]] uint32_t SubjectBatchCount() const { return State_.Content.Subjects.BatchCount(); }
 
   [[nodiscard]] uint32_t SubjectBatchesTaking(VertexLayout layout) const {
     uint32_t many = 0;
-    for (const DrawBatch &batch : Content_.Subjects.Drawn()) {
+    for (const DrawBatch &batch : State_.Content.Subjects.Drawn()) {
       many += batch.Layout == layout ? 1u : 0u;
     }
     return many;
   }
 
-  [[nodiscard]] size_t ShadowCastCount() const { return Frame_.Shadow.CastBatches(); }
+  [[nodiscard]] size_t ShadowCastCount() const { return State_.Frame.Shadow.CastBatches(); }
 
-  [[nodiscard]] size_t ShadowedFrames() const { return Content_.Subjects.ShadowedFrames(); }
+  [[nodiscard]] size_t ShadowedFrames() const { return State_.Content.Subjects.ShadowedFrames(); }
 
   struct Effort {
     double TookMs = 0.0;
@@ -366,14 +379,18 @@ public:
   }
 
   [[nodiscard]] size_t SubjectUniformPushes() const {
-    return Content_.Subjects.UniformPushes() + Content_.Glass.UniformPushes();
+    return State_.Content.Subjects.UniformPushes() + State_.Content.Glass.UniformPushes();
   }
 
-  [[nodiscard]] float ExposureApplied() const { return Plan_ ? Plan_->Exposure() : 0.0f; }
+  [[nodiscard]] float ExposureApplied() const {
+    return State_.Plan ? State_.Plan->Exposure() : 0.0f;
+  }
 
-  [[nodiscard]] uint32_t SubjectDrawCount() const { return Content_.Subjects.DrawCount(); }
+  [[nodiscard]] uint32_t SubjectDrawCount() const { return State_.Content.Subjects.DrawCount(); }
 
-  [[nodiscard]] uint32_t SubjectPipelineCount() const { return Content_.Subjects.PipelineCount(); }
+  [[nodiscard]] uint32_t SubjectPipelineCount() const {
+    return State_.Content.Subjects.PipelineCount();
+  }
 
   void SetCamera(const CameraBasis &basis, const Lens &lens) noexcept;
 
@@ -381,13 +398,13 @@ public:
                                       std::span<const float> palette,
                                       std::string &error);
 
-  [[nodiscard]] float NearMetres() const { return NearM_; }
+  [[nodiscard]] float NearMetres() const { return State_.NearM; }
 
   void BeginTemporalRun();
 
-  [[nodiscard]] int SceneW() const { return Frame_.Width; }
+  [[nodiscard]] int SceneW() const { return State_.Frame.Width; }
 
-  [[nodiscard]] int SceneH() const { return Frame_.Height; }
+  [[nodiscard]] int SceneH() const { return State_.Frame.Height; }
 
   [[nodiscard]] double PictureW() const;
   [[nodiscard]] double PictureH() const;
@@ -595,10 +612,46 @@ private:
     SubjectPipelineBinding GlassPipelines;
   };
 
+  struct SceneState {
+    FrameResources Frame;
+    std::shared_ptr<const Compiled> Plan;
+    WorldContent Content;
+    Medium Medium = kEarthAir;
+    float CosSunZenith = 1.0f;
+    float EyeHeightM = 0.0f;
+    bool HistoryStarted = false;
+    int JitterAt = 0;
+    Vec2f Jitter = {{0.0f, 0.0f}};
+    Vec2f PrevJitter = {{0.0f, 0.0f}};
+    bool CameraFull = false;
+    double RegionX = 0.0;
+    double RegionY = 0.0;
+    double RegionW = 0.0;
+    double RegionH = 0.0;
+    double RegionAspect = 0.0;
+    CameraBasis Camera;
+    float FovDeg = 0.0f;
+    float OrthoWidthM = 0.0f;
+    float OrthoM = 0.0f;
+    float NearM = kNearM;
+    float FarM = 0.0f;
+    bool Submitted = false;
+    Vec3 PrevEye = {{0, 0, 0}};
+    Mat4f PrevMvp = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+
+    SceneState() = default;
+    SceneState(const SceneState &) = delete;
+    SceneState &operator=(const SceneState &) = delete;
+    SceneState(SceneState &&) noexcept = default;
+    SceneState &operator=(SceneState &&) noexcept = default;
+  };
+
   static_assert(std::is_nothrow_move_constructible_v<FrameResources>);
   static_assert(std::is_nothrow_move_assignable_v<FrameResources>);
   static_assert(std::is_nothrow_move_constructible_v<WorldContent>);
   static_assert(std::is_nothrow_move_assignable_v<WorldContent>);
+  static_assert(std::is_nothrow_move_constructible_v<SceneState>);
+  static_assert(std::is_nothrow_move_assignable_v<SceneState>);
 
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>
@@ -611,25 +664,11 @@ private:
 
   SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;
   SDL_Window *Showing_ = nullptr;
-  FrameResources Frame_;
-  std::shared_ptr<const Compiled> Plan_;
-  WorldContent Content_;
   GroundStorage GroundStorage_;
-  Medium Medium_ = kEarthAir;
-  float CosSunZenith_ = 1.0f;
-  float EyeHeightM_ = 0.0f;
-
   bool Ready_ = false;
   std::string WhyNot_;
-  bool HistoryStarted_ = false;
 
   static constexpr int kJitterPeriod = 8;
-  int JitterAt_ = 0;
-  Vec2f Jitter_ = {{0.0f, 0.0f}};
-  Vec2f PrevJitter_ = {{0.0f, 0.0f}};
-  bool CameraFull_ = false;
-
-  double RegionX_ = 0, RegionY_ = 0, RegionW_ = 0, RegionH_ = 0, RegionAspect_ = 0;
 
   struct Placed {
     double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
@@ -637,19 +676,9 @@ private:
 
   [[nodiscard]] Placed PictureRect() const;
   [[nodiscard]] Lens Through() const;
-  CameraBasis Camera_;
-  float FovDeg_ = 0.0f;
-  float OrthoWidthM_ = 0.0f;
-  float OrthoM_ = 0.0f;
-  float NearM_ = kNearM;
-  float FarM_ = 0.0f;
-
-  bool Submitted_ = false;
-
   std::array<SDL_GPUFence *, kFramesInFlight> Landed_ = {};
   int LandedAt_ = 0;
-  Vec3 PrevEye_ = {{0, 0, 0}};
-  Mat4f PrevMvp_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  SceneState State_;
 };
 
 }
