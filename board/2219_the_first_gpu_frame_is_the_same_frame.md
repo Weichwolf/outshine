@@ -79,9 +79,10 @@ sind damit nicht die Ursache; der erste texturierte Pipeline-/Descriptorpfad ble
 Die Sechs-Slot-Probe erklärt den konkreten Schachfall nicht: dessen `Unlit`-Material
 läuft über `SubjectProxy` und `AppendPieceBatches` als flache texturierte Variante.
 Diese GLSL-Variante hat genau `imageMap` und `SurfaceBindings` bindet genau einen
-Sampler. Die frühere Descriptor-Anzahl-Hypothese ist daher verworfen. Nächste Probe:
-den ersten Gebrauch eines einzelnen vollständigen Texture/Sampler-Paars gegen einen
-untexturierten Flat-Draw und gegen die Readback-/Submission-Grenze trennen.
+Sampler. Die frühere Descriptor-Anzahl-Hypothese ist daher verworfen. Eine temporäre
+Probe ohne den einmaligen ersten PNG-Readback bleibt bei exakt 250 Kanälen und 0,00195312;
+der Bildexport ändert den Zustand nicht. Nächste Probe: den ersten Gebrauch eines einzelnen
+vollständigen Texture/Sampler-Paars gegen einen untexturierten Flat-Draw trennen.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
