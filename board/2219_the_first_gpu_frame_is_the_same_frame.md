@@ -76,9 +76,12 @@ Ein weiterer GLSL-Versuch behielt Variantenschlüssel und alle Sampler, führte 
 sechs Abfragen jedoch ausschließlich in einem zur Laufzeit nicht erreichten
 Materialzweig aus. 244 Kanäle bleiben rot. Texelwerte und ihre tatsächliche Abfrage
 sind damit nicht die Ursache; der erste texturierte Pipeline-/Descriptorpfad bleibt.
-Auch wenn alle sechs Materialslots dieselbe Farbtextur und denselben Sampler binden,
-bleiben 246 Kanäle rot. Die Anzahl/Art der Bindungen, nicht deren individuelle
-Ressourcenidentität, ist der verbleibende untersuchbare Descriptorfaktor.
+Die Sechs-Slot-Probe erklärt den konkreten Schachfall nicht: dessen `Unlit`-Material
+läuft über `SubjectProxy` und `AppendPieceBatches` als flache texturierte Variante.
+Diese GLSL-Variante hat genau `imageMap` und `SurfaceBindings` bindet genau einen
+Sampler. Die frühere Descriptor-Anzahl-Hypothese ist daher verworfen. Nächste Probe:
+den ersten Gebrauch eines einzelnen vollständigen Texture/Sampler-Paars gegen einen
+untexturierten Flat-Draw und gegen die Readback-/Submission-Grenze trennen.
 
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
