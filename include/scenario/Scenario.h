@@ -280,20 +280,6 @@ struct Generating {
   std::vector<Setting> Parameters;
 };
 
-/// Owned compositor request, preserved by import/export but not executed by the runtime.
-/// Copying Kind may allocate; mutation requires exclusive access. Import, declare and
-/// export require a nonempty Kind and finite nonnegative BudgetPx, including when disabled.
-/// Validation reserves no resources and does not instantiate a compositor.
-struct Compositor {
-  /// Exact requested compositor category; layer merging replaces the first matching Kind.
-  std::string Kind;
-  /// Finite nonnegative pixel budget metadata; zero is accepted. Runtime enforcement
-  /// is not implemented. XML requires a complete number token; omitted selects zero.
-  double BudgetPx = 0.0;
-  /// Requested enable state; false is retained but has no runtime effect yet.
-  bool On = true;
-};
-
 /// Normalized image region, measured from the target's upper-left corner.
 /// Scalar descriptor; no allocation, clamping or validation. Mutation requires exclusive access.
 struct Patch {
@@ -991,8 +977,6 @@ struct Document {
   std::vector<Provider> Providers;
   /// Generator requests resolved against registered producer kinds during declaration.
   std::vector<Generating> Generators;
-  /// Ordered composition declarations; validated before engine declaration is published.
-  std::vector<Compositor> Compositors;
   /// Render configuration; dimensions and live render targets are supplied separately to Engine.
   RenderPlan Render;
   /// Scene illumination and exposure declaration; values carry the Lighting field units.

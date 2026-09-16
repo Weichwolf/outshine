@@ -36,25 +36,14 @@ Source-Version/Pin muss Cache-Identität und Replay tatsächlich bestimmen.
 - [ ] Datenherkunft im Rendermanifest; gleicher Snapshot reproduzierbar, Make-Lint grün.
 
 ## Deklarationserhaltung
-Writer erhält Providers und Compositors mit Reihenfolge und allen Feldern.
-XML-Escaping, int-Ranggrenzen, Pixelbudgets und bool sind unabhängig geprüft.
-Compositor-On als kanonisches true/false schreiben, unabhängig vom offenen yes/no-Fix.
-Öffentliche Typen dokumentieren Besitz und derzeit fehlende Runtime-Wirkung.
-Diese Erhaltung ersetzt weder Provider-Registry noch Compositor-Implementierung.
-Abnahme: Reader/Writer-Fixture mit mehreren Einträgen, Escaping, Rangextrema, bool
-und endlichen Pixelbudgets; Altwriter scheitert am Inhaltsvergleich. Fünf Regressionen grün.
-Gemeinsame Compositor-Wertevalidierung siehe unten; Registry-/Runtime-Wirkung bleibt offen.
+Writer erhält Provider mit Reihenfolge und allen Feldern. XML-Escaping und
+int-Ranggrenzen sind unabhängig geprüft. Nicht ausgeführte Compositor-Metadaten wurden
+aus Szenario, Layer-Merge, Writer und Engine entfernt; ihre Erhaltung wäre kein Nutzen.
+Abnahme: Reader/Writer-Fixture mit mehreren Providern, Escaping und Rangextrema;
+Altwriter scheitert am Inhaltsvergleich. Registry-/Runtime-Wirkung bleibt separat.
 
 ## Rang-Import
 Provider::Rank wird direkt als vollständiger dezimaler int-Token geparst; optionales
 Plus bleibt erlaubt. Überlauf, Suffix, Leerraum und Brüche werden abgelehnt, fehlend
 bleibt 0. Negativkontrolle bestätigt; vier Regressionen prüfen Dokumenterhaltung,
 Int-Extrema, gültigen Retry, Layer und Export.
-
-## Gemeinsamer Compositor-Wertevertrag
-BudgetPx endlich und nichtnegativ; Kategorie nicht leer. Einen allokationsfreien
-Validator in Reader, Engine::declare und Writer verwenden. XML-Zahlentoken vollständig
-parsen. Ungültige Deklaration erhält vorherigen Zustand; Export liefert Fehler statt
-kaputtem XML. Gültige Null/Bruchwerte bleiben erhalten, unabhängig von On.
-Public-API-Negativkontrolle bestätigt. Runtime-Implementierung bleibt offen;
-Wertevalidierung behauptet keine Ausführung. Import-/Export-Negativfälle und Retry geprüft.

@@ -145,7 +145,6 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   note(scenario.Layers.size(), "layers");
   note(scenario.Providers.size(), "providers");
   note(scenario.Generators.size(), "generators");
-  note(scenario.Compositors.size(), "compositors");
   note(scenario.Placements.size(), "placements");
   note(scenario.Surfaces.size(), "surfaces");
   note(scenario.Kinds.size(), "kinds");

@@ -3,7 +3,6 @@
 #include <cmath>
 #include "ScenarioWrite.h"
 #include "AssetValidation.h"
-#include "CompositorValidation.h"
 #include "WeatherValidation.h"
 #include "PlayerValidation.h"
 #include "BodyValidation.h"
@@ -430,9 +429,6 @@ namespace {
     return std::unexpected(std::string(valid.error()));
   }
   if (const auto valid = ValidateWeather(scenario.Ground.Sky); !valid) {
-    return std::unexpected(std::string(valid.error()));
-  }
-  if (const auto valid = ValidateCompositors(scenario.Compositors); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
   for (const auto &asset : scenario.Assets) {

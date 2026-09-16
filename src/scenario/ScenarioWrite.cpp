@@ -4,7 +4,6 @@
 #include "AudioSpellings.h"
 #include "CameraSpellings.h"
 #include "Tables.h"
-#include "CompositorValidation.h"
 #include "WeatherValidation.h"
 #include "PlayerValidation.h"
 #include "WorldValidation.h"
@@ -758,19 +757,6 @@ void WriteProviders(std::string &said, std::span<const Scenario::Provider> provi
   said += "  </providers>\n";
 }
 
-void WriteCompositors(std::string &said, std::span<const Scenario::Compositor> compositors) {
-  if (compositors.empty()) { return; }
-  said += "  <compositors>\n";
-  for (const auto &compositor : compositors) {
-    said += "    <compositor";
-    Said(said, "kind", compositor.Kind, true);
-    Number(said, "budgetPx", compositor.BudgetPx);
-    said += compositor.On ? " on=\"true\"" : " on=\"false\"";
-    said += "/>\n";
-  }
-  said += "  </compositors>\n";
-}
-
 void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
   if (generators.empty()) { return; }
   said += "  <generators>\n";
@@ -799,9 +785,6 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
     return std::unexpected(std::string(valid.error()));
   }
   if (const auto valid = ValidateWeather(declared.Ground.Sky); !valid) {
-    return std::unexpected(std::string(valid.error()));
-  }
-  if (const auto valid = ValidateCompositors(declared.Compositors); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
   if (auto tables = TableBook::Stand(declared.Tables); !tables) {
@@ -860,7 +843,6 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteVolumes(said, declared.Volumes);
   WriteProviders(said, declared.Providers);
   WriteGenerators(said, declared.Generators);
-  WriteCompositors(said, declared.Compositors);
   WritePersistence(said, declared.State);
   WritePlayer(said, declared.Played);
   WriteInput(said, declared.Input, declared.WheelStepPx);

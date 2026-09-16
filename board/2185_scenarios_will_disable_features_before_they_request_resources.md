@@ -28,9 +28,8 @@ Ressourcenänderung und gibt bisherige Kronen vor einem Katalogwechsel frei.
 Der Katalogwechsel wird atomar aufgebaut; fehlgeschlagenes Aktivieren zerstört
 keinen zuvor gültigen Katalog. Kein universeller Schalter ohne tatsächlichen Consumer.
 
-Vorhanden: WorldSettings, XML-Lesen/Schreiben, Shipping-Registries, WorldCrowns-
-Lebenszyklus. Compositor.On steuert bereits andere deklarierte Bereiche, ist aber
-kein Beleg für einen durchgängigen Ressourcenvertrag.
+Vorhanden: WorldSettings, XML-Lesen/Schreiben, Shipping-Registries und WorldCrowns-
+Lebenszyklus. Nicht ausgeführte Szenario-Metadaten gehören nicht in den Vertrag.
 
 ## Abnahme und weitere Pfade
 

@@ -155,12 +155,6 @@ bool MergeLayer(Scenario::Document &into,
             "generator",
             ByKindField<Scenario::Generating>{},
             trace);
-  MergeRows(into.Compositors,
-            layer.Compositors,
-            named,
-            "compositor",
-            ByKindField<Scenario::Compositor>{},
-            trace);
   MergeRows(into.Regions, layer.Regions, named, "region", ByIdField<Scenario::Region>{}, trace);
   MergeRows(into.Doors, layer.Doors, named, "door", ByDoorEnds{}, trace);
   MergeRows(into.Volumes, layer.Volumes, named, "volume", ByIdField<Scenario::Volume>{}, trace);

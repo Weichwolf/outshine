@@ -9,7 +9,6 @@
 #include <cmath>
 #include "ScenarioRead.h"
 #include "AssetValidation.h"
-#include "CompositorValidation.h"
 #include "WeatherValidation.h"
 #include "PlayerValidation.h"
 #include "BodyValidation.h"
@@ -89,7 +88,7 @@ struct Element {
 const std::array<Element, 81> kGrammar = {{
     {.Path = "scenario",
      .Children =
-         "world render lighting providers generators compositors assets placements surfaces kinds "
+         "world render lighting providers generators assets placements surfaces kinds "
          "instances regions volumes audio tables events views body player drive physics clock "
          "scene "
          "input state layer"},
@@ -112,8 +111,6 @@ const std::array<Element, 81> kGrammar = {{
     {.Path = "scenario/generators", .Children = "generator"},
     {.Path = "scenario/generators/generator", .Children = "set", .Required = "kind"},
     {.Path = "scenario/generators/generator/set", .Children = ""},
-    {.Path = "scenario/compositors", .Children = "compositor"},
-    {.Path = "scenario/compositors/compositor", .Children = "", .Required = "kind"},
     {.Path = "scenario/assets", .Children = "asset"},
     {.Path = "scenario/assets/asset", .Children = "wears", .Required = "uri"},
     {.Path = "scenario/assets/asset/wears", .Children = "row", .Required = ""},
@@ -494,25 +491,6 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
     into.Generators.push_back(made);
   }
 
-  const Xml::Ref compositors = root.Child("compositors");
-  for (const Xml::Ref one : compositors.Children("compositor")) {
-    Scenario::Compositor made;
-    made.Kind = one.Attr("kind");
-    if (const auto text = one.Said("budgetPx")) {
-      const auto budget = ParseFiniteNumber(*text);
-      if (!budget) {
-        error = Says::InvalidCompositor;
-        return false;
-      }
-      made.BudgetPx = *budget;
-    }
-    made.On = one.Flag("on", true);
-    into.Compositors.push_back(made);
-  }
-  if (const auto valid = ValidateCompositors(into.Compositors); !valid) {
-    error = valid.error();
-    return false;
-  }
   return true;
 }
 
