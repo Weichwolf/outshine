@@ -875,7 +875,9 @@ std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::stri
 
 void Live::WearsPieces() {
   if (Renderer_ == nullptr) { return; }
-  std::vector<uint32_t> slotOf(Shaped_.Surfaces.size(), Render::kNoSlot);
+  const size_t surfaces =
+      Held_.HoldsBuilt() ? static_cast<size_t>(Held_.Built().surfaces()) : Shaped_.Surfaces.size();
+  std::vector<uint32_t> slotOf(surfaces, Render::kNoSlot);
   for (size_t slot = 0; slot < Table_.Material.size(); ++slot) {
     const int surface = Table_.Material[slot];
     if (surface >= 0 && static_cast<size_t>(surface) < slotOf.size()) {

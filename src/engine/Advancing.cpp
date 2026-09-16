@@ -227,6 +227,7 @@ void Engine::State::HandsPiecesOver() {
 }
 
 bool Engine::State::Bakes(size_t landsMost) {
+  if (!World.GroundPublished.Current()) { return true; }
   if (!World.Stack.Opened()) { return true; }
   size_t landed = 0;
   while (landed < landsMost) {

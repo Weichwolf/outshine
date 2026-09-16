@@ -918,7 +918,11 @@ bool SubjectDraw::ValidatePiece(const PieceMesh &piece, std::string &error) cons
                                               ? std::span<const uint32_t>(RegisteredSlotOf_)
                                               : std::span<const uint32_t>(SlotOf_);
   if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] == kNoSlot) {
-    error = "a piece refers to a surface the subject does not register";
+    error = "a piece refers to " +
+            std::string(piece.Surface.From == PieceSurface::Source::Registered ? "a registered"
+                                                                               : "a native") +
+            " surface " + std::to_string(piece.Surface.Index) + " but the subject has " +
+            std::to_string(slots.size()) + " surface slots";
     return false;
   }
   return true;

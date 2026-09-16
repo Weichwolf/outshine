@@ -1,4 +1,5 @@
 #include "StructureTilePublication.h"
+#include "GroundWorldCandidate.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -10,17 +11,16 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
     Geometry base;
-    const auto ground = base.addSurface("ground", Material{});
+    const auto groundSurface = base.addSurface("ground", Material{});
     const auto wall = base.addSurface("wall", Material{});
     const auto roof = base.addSurface("roof", Material{});
-    CHECK(ground && wall && roof, "fixture materials exist");
-    if (!ground || !wall || !roof) { return Report(); }
-    const auto part = base.addPart("base", *ground);
+    CHECK(groundSurface && wall && roof, "fixture materials exist");
+    if (!groundSurface || !wall || !roof) { return Report(); }
+    const auto part = base.addPart("base", *groundSurface);
     CHECK(part && base.setPositions(*part, std::array<float, 9>{0, 0, 0, 1, 0, 0, 0, 1, 0}) &&
               base.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
           "base geometry is valid");
     Core::Declaration declaration;
-    declaration.InitialGeometry = &base;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
     Render::SceneRenderer renderer;
@@ -30,6 +30,13 @@ int main() {
     if (scene) {
       Surrounds world;
       world.BindLiveResources(*scene);
+      GroundWorldCandidate ground(renderer, world);
+      CHECK(ground.Prepare(*scene, nullptr).has_value(),
+            "ground candidate prepares from an empty world");
+      CHECK(ground.Scene().SetGeometry(base.clone(), 0, error),
+            "ground candidate carries every streamed piece material slot");
+      CHECK(ground.Publish(world, scene, {.Region = 1}).has_value(),
+            "ground candidate publishes its native material table");
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
                           .Roofs = static_cast<uint32_t>(roof->index())});
       Generators::BakedTile built;

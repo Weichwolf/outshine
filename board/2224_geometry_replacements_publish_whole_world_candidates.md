@@ -50,9 +50,11 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
    `StructureBakes/BakeRevisionRejectsChangedInputs.cpp` prüft den vollständigen
    Revisionsvergleich gegen Fokalmaßstab und Footprint-Revision. Der A→B→späte-A-Orakel
    durch den öffentlichen Pfad bleibt offen. Die reale Drive-Ground-Fixture
-   `ScoreAFootprintStandsOnALevelFloor` scheitert derzeit in `preload` nach 13,5 s mit
-   `a piece refers to a surface the subject does not register`; Ursache im Streaming-
-   Zustandsübergang beheben, nicht Timeout oder Fixture lockern.
+   `ScoreAFootprintStandsOnALevelFloor` deckte den vorzeitigen Bake auf: vor der ersten
+   Ground-Publikation haben die Default-Piece-Flächen keine native Slottabelle. `State::Bakes`
+   wartet jetzt auf `GroundPublished`; die Fixture erreicht danach ihren regulären 15-s-Timeout
+   mit ausstehender Ingestion/Klassifikation. Den Streaming-Engpass löst WI 2105, nicht eine
+   gelockerte Fixture oder ein längeres Timeout.
    Fixture: ein lokaler Provider liefert einen festen OSM-Tile mit Gebäudegrundriss und eine
    feste DEM-Seite; A wird vollständig gerendert, B ändert Quelle oder Projektion, dann darf
    ein verspätetes A weder Bild noch Routing, Materialmapping, Albedo oder Revision verändern.
