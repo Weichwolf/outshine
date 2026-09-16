@@ -497,6 +497,8 @@ private:
     SubjectCullStage Cull;
     OverlayPipeline OverlayPipe;
     PresentStage Present;
+    SubjectPipelineBinding SubjectPipelines;
+    SubjectPipelineBinding GlassPipelines;
   };
 
   static_assert(std::is_nothrow_move_constructible_v<FrameResources>);

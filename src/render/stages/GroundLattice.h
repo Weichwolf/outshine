@@ -72,11 +72,20 @@ public:
                                       .FragmentStorageBuffers = 3};
   static constexpr DrawShape DepthShape{.VertexSamplers = 1, .VertexUniformBuffers = 1};
 
+  [[nodiscard]] bool Configure(GroundPipelineBinding &pipelines,
+                               SDL_GPUDevice *device,
+                               const SurfaceOutputs &outputs,
+                               std::span<const SDL_GPUColorTargetDescription> targets,
+                               std::string &error);
+  [[nodiscard]] static bool
+  ConfigureDepth(GroundPipelineBinding &pipelines, SDL_GPUDevice *device, std::string &error);
   [[nodiscard]] bool Configure(SDL_GPUDevice *device,
                                const SurfaceOutputs &outputs,
                                std::span<const SDL_GPUColorTargetDescription> targets,
                                std::string &error);
   [[nodiscard]] bool ConfigureDepth(SDL_GPUDevice *device, std::string &error);
+
+  void UsePipelines(GroundPipelineBinding &pipelines) noexcept { Pipelines_ = &pipelines; }
 
   [[nodiscard]] bool SetGrid(std::span<const float> fractions, std::string &error);
 
@@ -120,7 +129,8 @@ private:
             uint32_t virtual_) const;
 
   SDL_GPUDevice *Device_ = nullptr;
-  GroundPipelineBinding Pipelines_;
+  GroundPipelineBinding OwnedPipelines_;
+  GroundPipelineBinding *Pipelines_ = &OwnedPipelines_;
   OwnedTexture Pages_;
   OwnedSampler Nearest_;
   OwnedBuffer Grid_;

@@ -178,6 +178,20 @@ std::string FragmentShaderVariant(SurfaceDomain domain, SurfaceKind kind, Vertex
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
+  SubjectPipelineBinding candidate;
+  if (!Configure(candidate, gpu, nullptr, nullptr, false, error)) { return false; }
+  OwnedBinding_ = std::move(candidate);
+  Binding_ = &OwnedBinding_;
+  Ground_.UsePipelines(OwnedBinding_.Ground);
+  return true;
+}
+
+bool SubjectDraw::Configure(SubjectPipelineBinding &binding,
+                            const Gpu &gpu,
+                            SDL_GPUTexture *behind,
+                            SDL_GPUSampler *exact,
+                            bool separateTransmission,
+                            std::string &error) {
   std::vector<Resource> colours(gpu.SceneColours.begin(), gpu.SceneColours.end());
   const bool writesVelocity = ColourAttachment(colours, Resource::SceneVelocity) >= 0;
   const long normalIndex = ColourAttachment(colours, Resource::SceneShadingNormal);
@@ -191,7 +205,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   std::array<OwnedPipeline, kPipelines> pipelines;
   uint32_t built = 0;
 
-  const bool glass = Behind != nullptr;
+  const bool glass = behind != nullptr;
   for (const SurfaceKind kind : {SurfaceKind::Opaque,
                                  SurfaceKind::Masked,
                                  SurfaceKind::Blended,
@@ -216,6 +230,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
     targets[options.IdentityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
   }
   if (!glass && !Ground_.Configure(
+                    binding.Ground,
                     gpu.Device,
                     options,
                     std::span<const SDL_GPUColorTargetDescription>(targets.data(), colours.size()),
@@ -224,11 +239,14 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   }
 
   Bound().StandsOn(gpu.Device);
-  Device = gpu.Device;
-  Colours = std::move(colours);
-  WritesVelocity = writesVelocity;
-  Pipelines = std::move(pipelines);
-  Built = built;
+  binding.Device = gpu.Device;
+  binding.Colours = std::move(colours);
+  binding.WritesVelocity = writesVelocity;
+  binding.Pipelines = std::move(pipelines);
+  binding.Built = built;
+  binding.Behind = behind;
+  binding.BehindSampler = exact;
+  binding.GlassDrawnElsewhere = separateTransmission;
   return true;
 }
 
@@ -496,7 +514,7 @@ uint32_t SubjectDraw::Textured() const {
 
 bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
                                     std::string &error) const {
-  if (Device == nullptr) {
+  if (Binding().Device == nullptr) {
     error = "the subject unit has no device, so no surface can be bound";
     return false;
   }
@@ -504,7 +522,7 @@ bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
     const SurfaceKind kind = materials[slot].State().Kind();
 
     if ((kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive) &&
-        Behind == nullptr && !GlassDrawnElsewhere_) {
+        Binding().Behind == nullptr && !Binding().GlassDrawnElsewhere) {
       error = "surface slot " + std::to_string(slot) + " is " + KindName(kind) +
               ", and no pass of this plan draws it -- what is transmitted through a sheet or "
               "refracted by a volume is the scene behind it, so a subject carrying one needs the "
@@ -629,9 +647,9 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
          res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
          res.Grow(S::Uv, {.Usage = vertex, .Bytes = bytes(verts, kPairFloats)}, error) &&
          res.Grow(S::Colour, {.Usage = vertex, .Bytes = bytes(verts, kQuadFloats)}, error) &&
-         (!WritesVelocity || res.Grow(S::Previous,
-                                      {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)},
-                                      error)) &&
+         (!Binding().WritesVelocity ||
+          res.Grow(
+              S::Previous, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error)) &&
          (subject == 0 ||
           (res.Grow(
                S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error) &&
@@ -687,7 +705,7 @@ bool SubjectDraw::ValidateBatch(const SubjectMesh &mesh,
 
 bool SubjectDraw::ValidateMesh(const SubjectMesh &mesh, std::string &error) const {
   if (mesh.VertexCount == 0 || mesh.IndexCount == 0) { return true; }
-  if (Device == nullptr) {
+  if (Binding().Device == nullptr) {
     error = "the subject stage carries no device, so a mesh of " +
             std::to_string(mesh.VertexCount) + " vertices has nowhere to become resident";
     return false;
@@ -713,7 +731,7 @@ bool SubjectDraw::ValidateMesh(const SubjectMesh &mesh, std::string &error) cons
     }
   }
 
-  if (mesh.PrevVerts.Stands() && !WritesVelocity) {
+  if (mesh.PrevVerts.Stands() && !Binding().WritesVelocity) {
     error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
             "would reach no shader";
     return false;
@@ -839,7 +857,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
                                                     .Components = kQuadFloats},
                                                    {.Which = Stream::Previous,
                                                     .Source = previousPose,
-                                                    .Carried = WritesVelocity,
+                                                    .Carried = Binding().WritesVelocity,
                                                     .Components = kPositionFloats}}};
   std::array<SubjectResidency::Crossing, uploads.size()> streams;
   size_t count = 0;
@@ -859,7 +877,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   }
   if (!Bound().Buffer(SubjectResidency::Stream::Vertex) ||
       !Bound().Buffer(SubjectResidency::Stream::Emitted) ||
-      (WritesVelocity && !Bound().Buffer(SubjectResidency::Stream::Previous)) ||
+      (Binding().WritesVelocity && !Bound().Buffer(SubjectResidency::Stream::Previous)) ||
       (Bound().Shape().HasColour && !Bound().Buffer(SubjectResidency::Stream::Colour))) {
     Bound().Shape().Indices = 0;
     error = std::string("the subject's vertex streams did not reach the device: ") + SDL_GetError();
@@ -890,7 +908,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
     error = "piece tangents require UVs and one float4 per vertex";
     return kNoPiece;
   }
-  if (Device == nullptr) {
+  if (Binding().Device == nullptr) {
     error = "the subject stage carries no device, so a piece has nowhere to become resident";
     return kNoPiece;
   }
@@ -941,7 +959,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
        .Carrying = &rebased},
       {.Which = SubjectResidency::Stream::Previous,
        .Usage = vertexUse,
-       .Bytes = WritesVelocity ? positionBytes : 0u,
+       .Bytes = Binding().WritesVelocity ? positionBytes : 0u,
        .Offset = floatsAt(kPositionFloats),
        .Writes = WritePiecePositions,
        .Carrying = &carrying},
@@ -1462,8 +1480,9 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
         .sampler = surface.SpecularStrength.Sample.Get()},
        {.texture = surface.SpecularTint.Image.Get(), .sampler = surface.SpecularTint.Sample.Get()},
 
-       {.texture = Behind != nullptr ? Behind : surface.Colour.Image.Get(),
-        .sampler = BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
+       {.texture = Binding().Behind != nullptr ? Binding().Behind : surface.Colour.Image.Get(),
+        .sampler = Binding().BehindSampler != nullptr ? Binding().BehindSampler
+                                                      : surface.Colour.Sample.Get()},
 
        {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
         .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}}};
@@ -1487,7 +1506,7 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
 }
 
 void SubjectDraw::EncodeGround(const PassRecording &into) const {
-  if (Behind != nullptr || Ground_.Drawn() == 0) { return; }
+  if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return; }
   for (const SurfaceSlot &surface : Slots) {
     if (surface.Domain != SurfaceDomain::Ground) { continue; }
     const SDL_GPUTextureSamplerBinding shadow{
@@ -1556,7 +1575,7 @@ void SubjectDraw::BindVertexStreams(const PassRecording &into, VertexLayout layo
         .buffer = Bound().Buffer(SubjectResidency::Stream::Colour).Get(), .offset = 0};
   }
 
-  if (WritesVelocity) {
+  if (Binding().WritesVelocity) {
     runs[count++] = SDL_GPUBufferBinding{
         .buffer = Bound().Buffer(SubjectResidency::Stream::Previous).Get(), .offset = 0};
   }
@@ -1566,7 +1585,7 @@ void SubjectDraw::BindVertexStreams(const PassRecording &into, VertexLayout layo
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
                             Bound().Buffer(SubjectResidency::Stream::Index);
-  if (!drawsBatches && (Behind != nullptr || Ground_.Drawn() == 0)) { return; }
+  if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return; }
   PushFrameUniforms(ctx, into);
 
   enum class IndexBinding { Unbound, Direct, Indirect };
@@ -1587,13 +1606,13 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
     const bool glassSlot =
         surface.Kind == SurfaceKind::ThinTransmissive || surface.Kind == SurfaceKind::Refractive;
-    if (glassSlot != (Behind != nullptr)) { continue; }
+    if (glassSlot != (Binding().Behind != nullptr)) { continue; }
 
     const VertexLayout wanted = BatchLayout[at];
     const size_t wantedPipeline =
         PipelineAt(surface.Domain, wanted, surface.Kind, surface.CullsBack);
     if (wantedPipeline != bound) {
-      SDL_BindGPUGraphicsPipeline(into.Pass, Pipelines[wantedPipeline].Get());
+      SDL_BindGPUGraphicsPipeline(into.Pass, Binding().Pipelines[wantedPipeline].Get());
 
       BindVertexStreams(into, wanted);
       bound = wantedPipeline;

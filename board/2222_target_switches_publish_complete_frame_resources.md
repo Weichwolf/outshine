@@ -23,21 +23,19 @@ Statische Geometrie, Materialassets und ihre Residency bleiben beim Renderer.
 Formatgebundene Subject-Pipelines werden als Kandidat gebaut und erst mit den
 neuen Attachments veröffentlicht; kein Stage darf auf die abgelösten Ziele zeigen.
 
-`SubjectDraw` und `OverlayDraw` vermischen heute dauerhafte Inhalte (Residenz bzw.
-Atlas/Quads) mit Pipelines. Vor `FrameResources` beide in dauerhaften Inhalt und
-verschiebbare, formatgebundene Bindungen schneiden. GroundStorage bleibt dauerhaft;
-alle Frame-Texturen, Sampler, Pyramide, temporalen Ziele und Stages wandern gemeinsam.
-
-`SubjectDraw` baut seine Subject-Pipelines bereits als lokalen Kandidaten; Mesh-, Material-
-und Instanzresidenz bleiben stehen. `GroundLattice` trennt seine Lit-/Depth-Bindungen nun von
-Seiten, Grid und Instanzen. Beide Bindungssätze werden später gemeinsam mit den übrigen
-formatgebundenen Frame-Ressourcen getauscht.
+`SubjectDraw` und `OverlayDraw` dürfen dauerhafte Inhalte (Residenz bzw. Atlas/Quads)
+nicht mit Pipelines vermischen. Subject- und Glass-Pipelines einschließlich Transmission,
+Velocityvertrag und Ground Lit-/Depth-Pipelines sind nun verschiebbare `FrameResources`.
+Mesh-, Material-, Instanz- und Ground-Residenz bleiben bei ihren Zeichnern. GroundStorage
+bleibt dauerhaft; alle Frame-Texturen, Sampler, Pyramide, temporalen Ziele und Stages wandern
+gemeinsam.
 
 `FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
-Readback, temporale Ziele, GPU-Handles und alle formatgebundenen Stage-Objekte; seine
-Beweglichkeit ist statisch gesichert. Reine Ressourcenallokation baut und prüft nun einen lokalen
-Kandidaten; eine Absage erhält aktive Deklaration und Pixel. Als Nächstes müssen Plan-gebundene
-Stages und ihre Bindungen ebenfalls vor der nichtwerfenden Veröffentlichung im Kandidaten stehen.
+Readback, temporale Ziele, GPU-Handles, Subject-/Glass-Bindungen und alle formatgebundenen
+Stage-Objekte; seine Beweglichkeit ist statisch gesichert. Reine Ressourcenallokation baut und
+prüft einen lokalen Kandidaten; eine Absage erhält aktive Deklaration und Pixel. Als Nächstes
+konfiguriert `Init` sämtliche Plan-Stages einschließlich dieser Bindungen gegen den Kandidaten;
+erst dann darf die nichtwerfende Veröffentlichung Frame, Plan und Bindungszeiger tauschen.
 
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,

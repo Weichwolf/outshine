@@ -708,14 +708,26 @@ bool SceneRenderer::Configure(Stage stage, std::string &error) {
 }
 
 bool SceneRenderer::ConfigureSubjects(std::string &error) {
-  Subjects_.SetSeparateTransmission(DrawsGlass_);
-  return Subjects_.Configure(Frame_.Handles, error);
+  if (!Subjects_.Configure(
+          Frame_.SubjectPipelines, Frame_.Handles, nullptr, nullptr, DrawsGlass_, error)) {
+    return false;
+  }
+  Subjects_.UsePipelines(Frame_.SubjectPipelines);
+  return true;
 }
 
 bool SceneRenderer::ConfigureGlass(std::string &error) {
   Glass_.Shares(Subjects_.Owned());
-  Glass_.SeeThroughTo(Frame_.HdrTex.Get(), Frame_.Samp.Get());
-  return Glass_.Configure(Frame_.Handles, error);
+  if (!Glass_.Configure(Frame_.GlassPipelines,
+                        Frame_.Handles,
+                        Frame_.HdrTex.Get(),
+                        Frame_.Samp.Get(),
+                        false,
+                        error)) {
+    return false;
+  }
+  Glass_.UsePipelines(Frame_.GlassPipelines);
+  return true;
 }
 
 bool SceneRenderer::ConfigureCompositeTransmission(std::string &error) {

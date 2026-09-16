@@ -25,6 +25,29 @@
 
 namespace outshine::Render {
 
+class SubjectPipelineBinding {
+public:
+  SubjectPipelineBinding() = default;
+  SubjectPipelineBinding(const SubjectPipelineBinding &) = delete;
+  SubjectPipelineBinding &operator=(const SubjectPipelineBinding &) = delete;
+  SubjectPipelineBinding(SubjectPipelineBinding &&) noexcept = default;
+  SubjectPipelineBinding &operator=(SubjectPipelineBinding &&) noexcept = default;
+
+private:
+  friend class SubjectDraw;
+  static constexpr size_t kPipelineCount =
+      kSurfaceDomains * kVertexLayouts.size() * 2 * kSurfaceKinds;
+  SDL_GPUDevice *Device = nullptr;
+  std::array<OwnedPipeline, kPipelineCount> Pipelines;
+  uint32_t Built = 0;
+  std::vector<Resource> Colours;
+  GroundPipelineBinding Ground;
+  SDL_GPUTexture *Behind = nullptr;
+  SDL_GPUSampler *BehindSampler = nullptr;
+  bool GlassDrawnElsewhere = false;
+  bool WritesVelocity = false;
+};
+
 class SubjectDraw {
 public:
   using SourceOptions = SurfaceOutputs;
@@ -42,13 +65,21 @@ public:
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
+  [[nodiscard]] bool Configure(SubjectPipelineBinding &binding,
+                               const Gpu &gpu,
+                               SDL_GPUTexture *behind,
+                               SDL_GPUSampler *exact,
+                               bool separateTransmission,
+                               std::string &error);
+
+  void UsePipelines(SubjectPipelineBinding &binding) noexcept { Binding_ = &binding; }
 
   void SeeThroughTo(SDL_GPUTexture *behind, SDL_GPUSampler *exact) {
-    Behind = behind;
-    BehindSampler = exact;
+    Binding().Behind = behind;
+    Binding().BehindSampler = exact;
   }
 
-  void SetSeparateTransmission(bool enabled) { GlassDrawnElsewhere_ = enabled; }
+  void SetSeparateTransmission(bool enabled) { Binding().GlassDrawnElsewhere = enabled; }
 
   void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const Mat4 &lightFromWorld) {
     Atlas_ = atlas;
@@ -260,7 +291,7 @@ public:
 
   [[nodiscard]] uint32_t DrawCount() const;
 
-  [[nodiscard]] uint32_t PipelineCount() const { return Built; }
+  [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
 
 private:
   static constexpr int kUniFloats = 56;
@@ -300,10 +331,6 @@ private:
   };
 
   GroundLattice Ground_;
-  SDL_GPUTexture *Behind = nullptr;
-  SDL_GPUSampler *BehindSampler = nullptr;
-
-  bool GlassDrawnElsewhere_ = false;
 
   [[nodiscard]] bool BindSurface(const SubjectMaterial &material, std::string &error);
 
@@ -320,16 +347,11 @@ private:
   [[nodiscard]] static size_t
   PipelineAt(SurfaceDomain domain, VertexLayout layout, SurfaceKind kind, bool cullsBack);
 
-  SDL_GPUDevice *Device = nullptr;
-  std::array<OwnedPipeline, kPipelines> Pipelines;
-  uint32_t Built = 0;
-
   std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
 
   std::vector<VertexLayout> BatchLayout;
 
-  std::vector<Resource> Colours;
   SubjectResidency Own_;
   SubjectResidency *At_ = nullptr;
   SDL_GPUBuffer *SkyIrradiance_ = nullptr;
@@ -409,7 +431,12 @@ private:
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
 
-  bool WritesVelocity = false;
+  SubjectPipelineBinding OwnedBinding_;
+  SubjectPipelineBinding *Binding_ = &OwnedBinding_;
+
+  [[nodiscard]] SubjectPipelineBinding &Binding() { return *Binding_; }
+
+  [[nodiscard]] const SubjectPipelineBinding &Binding() const { return *Binding_; }
 };
 
 }

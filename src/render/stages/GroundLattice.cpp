@@ -347,7 +347,8 @@ bool GroundPipelineBinding::ConfigureDepth(SDL_GPUDevice *device,
   return true;
 }
 
-bool GroundLattice::Configure(SDL_GPUDevice *device,
+bool GroundLattice::Configure(GroundPipelineBinding &pipelines,
+                              SDL_GPUDevice *device,
                               const SurfaceOutputs &outputs,
                               std::span<const SDL_GPUColorTargetDescription> targets,
                               std::string &error) {
@@ -375,10 +376,12 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
       .num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size()),
       .vertex_attributes = in.Attributes.data(),
       .num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size())};
-  return Pipelines_.ConfigureLit(Device_, outputs, targets, input, error);
+  return pipelines.ConfigureLit(Device_, outputs, targets, input, error);
 }
 
-bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
+bool GroundLattice::ConfigureDepth(GroundPipelineBinding &pipelines,
+                                   SDL_GPUDevice *device,
+                                   std::string &error) {
   if (device == nullptr) {
     error = std::string(Says::kNoDevice);
     return false;
@@ -389,7 +392,26 @@ bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
       .num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size()),
       .vertex_attributes = in.Attributes.data(),
       .num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size())};
-  return Pipelines_.ConfigureDepth(device, input, error);
+  return pipelines.ConfigureDepth(device, input, error);
+}
+
+bool GroundLattice::Configure(SDL_GPUDevice *device,
+                              const SurfaceOutputs &outputs,
+                              std::span<const SDL_GPUColorTargetDescription> targets,
+                              std::string &error) {
+  GroundPipelineBinding candidate;
+  if (!Configure(candidate, device, outputs, targets, error)) { return false; }
+  OwnedPipelines_ = std::move(candidate);
+  Pipelines_ = &OwnedPipelines_;
+  return true;
+}
+
+bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
+  GroundPipelineBinding candidate;
+  if (!ConfigureDepth(candidate, device, error)) { return false; }
+  OwnedPipelines_ = std::move(candidate);
+  Pipelines_ = &OwnedPipelines_;
+  return true;
 }
 
 bool GroundLattice::SetGrid(std::span<const float> fractions, std::string &error) {
@@ -672,11 +694,11 @@ void GroundLattice::Draw(const PassRecording &into,
 }
 
 void GroundLattice::Encode(const PassRecording &into) const {
-  Draw(into, Pipelines_.Lit(), Visible_, VisibleReal_, VisibleVirtual_);
+  Draw(into, Pipelines_->Lit(), Visible_, VisibleReal_, VisibleVirtual_);
 }
 
 void GroundLattice::Cast(const PassRecording &into) const {
-  Draw(into, Pipelines_.Depth(), Instances_, RealCount_, VirtualCount_);
+  Draw(into, Pipelines_->Depth(), Instances_, RealCount_, VirtualCount_);
 }
 
 }
