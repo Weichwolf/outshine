@@ -13,6 +13,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
   Geometry geometry;
   const std::array<uint8_t, 16> pixels{
       255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255};
@@ -109,15 +113,15 @@ int main() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scenario.Views.push_back(view);
   std::vector<float> frame;
-  if (!engine.drawsInto({320, 320}) || !engine.declare(scenario) || !engine.setGeometry(geometry)) {
-    Unprepared(engine.error().c_str());
+  if (!accepted(engine.drawsInto({320, 320})) || !accepted(engine.declare(scenario)) ||
+      !accepted(engine.setGeometry(geometry))) {
     return Report();
   }
   Geometry rotated = geometry.clone();
   geometry.clear();
-  if (!engine.assemble() || !engine.advance() || !engine.renderer().render({}) ||
-      !engine.renderer().readPixels(Buffer::Linear, frame)) {
-    Unprepared(engine.error().c_str());
+  if (!accepted(engine.assemble()) || !accepted(engine.advance()) ||
+      !accepted(engine.renderer().render({})) ||
+      !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
     return Report();
   }
   CHECK(frame.size() == 320u * 320u * 4u, "linear frame has the declared dimensions");
@@ -138,9 +142,9 @@ int main() {
   material.BaseColourMap.Uv = {.OffsetUv = {{1, 0}}, .RotationRad = std::numbers::pi / 2};
   CHECK(rotated.setSurface(rotated.materialOf(0), material).has_value(),
         "declare a quarter-turn UV mapping");
-  if (!engine.setGeometry(rotated) || !engine.advance() || !engine.renderer().render({}) ||
-      !engine.renderer().readPixels(Buffer::Linear, frame)) {
-    Unprepared(engine.error().c_str());
+  if (!accepted(engine.setGeometry(rotated)) || !accepted(engine.advance()) ||
+      !accepted(engine.renderer().render({})) ||
+      !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
     return Report();
   }
   // Mapping (u,v) -> (1-v,u): top-left samples green; then yellow, red, blue.

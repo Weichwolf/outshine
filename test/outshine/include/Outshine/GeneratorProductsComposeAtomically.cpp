@@ -74,6 +74,10 @@ extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *command
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
     return Report();
@@ -103,10 +107,10 @@ int main() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scenario.Views.push_back(view);
   std::vector<float> pixels;
-  if (!engine.drawsInto({64, 64}) || !engine.declare(scenario) || !engine.assemble() ||
-      !engine.advance() || !engine.renderer().render({}) ||
-      !engine.renderer().readPixels(Buffer::Linear, pixels)) {
-    Unprepared(engine.error().c_str());
+  if (!accepted(engine.drawsInto({64, 64})) || !accepted(engine.declare(scenario)) ||
+      !accepted(engine.assemble()) || !accepted(engine.advance()) ||
+      !accepted(engine.renderer().render({})) ||
+      !accepted(engine.renderer().readPixels(Buffer::Linear, pixels))) {
     return Report();
   }
   CHECK(pixels.size() == 64u * 64u * 4u, "generated image dimensions");

@@ -148,11 +148,13 @@ Frame CheckProjection(Engine &engine, const Camera &camera) {
 std::vector<float> Exercise(bool carried, const std::string &path) {
   Engine engine;
   const auto declared = Declaration(carried, path);
-  const bool ready = engine.drawsInto(Extent{64, 64}) && engine.declare(declared) &&
-                     engine.assemble() && engine.advance();
+  auto ready = engine.drawsInto(Extent{64, 64});
+  if (ready) { ready = engine.declare(declared); }
+  if (ready) { ready = engine.assemble(); }
+  if (ready) { ready = engine.advance(); }
   CHECK(ready, "a fully declared camera binds through the public Engine API");
   if (!ready) {
-    std::printf("camera setup: %s\n", engine.error().c_str());
+    std::printf("camera setup: %s\n", ready.error().c_str());
     return {};
   }
   CheckProjection(engine, declared.Views[0].Sees);
