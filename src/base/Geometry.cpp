@@ -1,5 +1,6 @@
 #include "math/Mat4.h"
 #include "MaterialValidation.h"
+#include "GeometryCapacity.h"
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -150,8 +151,7 @@ void Geometry::clear() {
 
 std::expected<int, GeometryPartError> Geometry::addPart(std::string_view named,
                                                         MaterialInstance material) {
-  if (std::cmp_greater_equal(Held_->Live, std::numeric_limits<int>::max()) ||
-      Held_->Live >= Held_->Parts.max_size()) {
+  if (!CanAppendGeometryEntry(Held_->Live, Held_->Parts.max_size())) {
     return std::unexpected(GeometryPartError::CapacityExceeded);
   }
   if (Held_->Live == Held_->Parts.size()) { Held_->Parts.emplace_back(); }
@@ -318,8 +318,7 @@ std::expected<void, PlacementError> Geometry::setPlacement(int part, const Mat4 
 std::expected<MaterialInstance, MaterialError> Geometry::addSurface(std::string_view named,
                                                                     const Material &surface) {
   if (!MaterialValuesAreValid(surface)) { return std::unexpected(MaterialError::InvalidMaterial); }
-  if (std::cmp_greater_equal(Held_->Surfaces.size(), std::numeric_limits<int>::max()) ||
-      Held_->Surfaces.size() >= Held_->Surfaces.max_size()) {
+  if (!CanAppendGeometryEntry(Held_->Surfaces.size(), Held_->Surfaces.max_size())) {
     return std::unexpected(MaterialError::CapacityExceeded);
   }
   Held_->Surfaces.push_back(Geometry::Held::Named{.Named = std::string(named), .Surface = surface});
@@ -328,8 +327,7 @@ std::expected<MaterialInstance, MaterialError> Geometry::addSurface(std::string_
 
 std::expected<int, LightMutationError>
 Geometry::addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed) {
-  if (std::cmp_greater_equal(Held_->Lamps.size(), std::numeric_limits<int>::max()) ||
-      Held_->Lamps.size() >= Held_->Lamps.max_size()) {
+  if (!CanAppendGeometryEntry(Held_->Lamps.size(), Held_->Lamps.max_size())) {
     return std::unexpected(LightMutationError::CapacityExceeded);
   }
   Geometry::Held::Placed lamp;
@@ -345,7 +343,7 @@ Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
   if (widthPx <= 0 || heightPx <= 0) {
     return std::unexpected(GeometryImageError::InvalidDimensions);
   }
-  if (std::cmp_greater_equal(Held_->Images.size(), std::numeric_limits<int>::max())) {
+  if (!CanAppendGeometryEntry(Held_->Images.size(), Held_->Images.max_size())) {
     return std::unexpected(GeometryImageError::CapacityExceeded);
   }
   constexpr size_t bytesPerPixel = 4;

@@ -34,7 +34,7 @@ Import-/Generator-/Geländeaufrufer reichen Anlegefehler weiter. Models und Corr
 melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer übergeben.
 
 ## Verbleibende Arbeit
-- Material- und übrige Indexgrenzen ohne reale Speichererschöpfung unabhängig prüfen.
+- Reale Speichererschöpfung bleibt außerhalb der synthetischen Zählerprüfung.
 - Kopier-/Indexverengungen und Bindungsauflösung mit gemeinsamen nativen Regeln auditieren.
 - Späte Fehler im gesamten Weltaufbau prüfen: frühere Änderungen an World.Pieces und
   anderen Begleitdaten sind durch das Verwerfen des Geometry-Kandidaten nicht zurückgerollt.
@@ -44,7 +44,7 @@ melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer ü
 ## Native-Konstruktionsfehler
 `addImage` liefert expected mit Maß-/Bytezahl-/Kapazitätsfehler; Erhaltung und Retry sind geprüft.
 `addLamp` liefert expected mit Kapazitätsprüfung; native/Import-/Spotlichtprüfungen grün.
-`addPart` liefert expected; Aufrufer geprüft. Synthetische Kapazitätsabnahme bleibt offen.
+`addPart` liefert expected. Gemeinsame Zählerprüfung: Null-, Container-, int- und size_t-Grenzen geprüft.
 ## Import-Vorprüfung
 Subject::Assemble prüft lokale Indizes und Attribute jetzt vor Clear und partieller Kopie.
 ValidatePart/ValidateAssembly liefern expected; destruktives Refuse wird vor Mutation vermieden.
@@ -67,7 +67,7 @@ separate Transaktions-/Kapazitätslücken; keine vollständige Importtransaktion
 - [x] Fehlgeschlagene Probe/Clipwahl erhält Kameras, Clipdauer und Nutzbarkeit der alten Auswahl.
 - [x] Variante mit fehlender Textur wird abgelehnt; folgende Probe nutzt vorherige Auswahl.
 - [x] Anlegefehler erhalten Materialbestand/Namen/Indexvergabe; gültiger Retry geprüft.
-- [ ] Kapazitätsgrenze unabhängig geprüft.
+- [x] Gemeinsame Index-/Containergrenzen mit synthetischen Zählern geprüft.
 - [ ] Alle intrinsischen Grenzen und Bindungskombinationen unabhängig geprüft, einschließlich
       HDR, IOR-Sonderfall, +infinity-Absorptionsdistanz, NaN, ungültige Enums und Schichtreihenfolge.
 - [ ] Später Import-/Generatorfehler publiziert kein Teilprodukt und erhält aktive Welt.
