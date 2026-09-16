@@ -13,11 +13,12 @@ must be local, owned and checked; a mutable diagnostic string or an invalid sent
 as the only error channel couples unrelated calls and cannot describe the preserved
 state. Fatal system-wide OOM is not a recoverable `expected` error.
 
-`EntityRegistry` currently exposes this flaw publicly: `open`, relation/tag/seat
-mutations return `bool`; `addEntity` and `instantiate` overload `kNoEntity`; callers
-must later borrow `error()`. That loses a typed cause, makes ignored failures easy and
-makes diagnostics race with the next call. Query absence remains a value (`optional`,
-false or zero count), not an error.
+`EntityRegistry` exposed this flaw publicly: `open`, relation/tag/seat mutations
+returned `bool`; `addEntity` and `instantiate` overloaded `kNoEntity`; callers then
+borrowed `error()`. `GltfImporter` likewise returned `expected` while retaining a
+second, mutable public `error()` channel. Both make ignored failures easy and let a
+later call replace a diagnostic. Query absence remains a value (`optional`, false or
+zero count), not an error.
 
 ## Decision
 
@@ -29,11 +30,12 @@ recoverable. Use compact typed errors where callers branch on cause; format diag
 text at the boundary. `noexcept` states a proved nonthrowing contract only.
 
 Migrate `EntityRegistry` mutations to typed expected results, including creation and
-instantiation. Successful mutations publish complete state; errors preserve slots,
-relations, tags, seats and valid handles. Remove `error()` only after every consumer
-uses the returned error. Keep query APIs allocation-free and distinguish absent results
-from rejected requests. The scenario assembler maps registry errors to its owned engine
-result without global registry diagnostics.
+instantiation. `GltfImporter` returns its owned `expected` diagnostic as its sole public
+failure channel. Successful mutations publish complete state; errors preserve slots,
+relations, tags, seats, valid handles and imported snapshots. Remove public `error()`
+only after every consumer uses the returned error. Keep query APIs allocation-free and
+distinguish absent results from rejected requests. The scenario assembler maps registry
+errors to its owned engine result without global registry diagnostics.
 
 Setup allocates bounded scratch before publication. Audio graph/mixer preparation,
 streaming and geometry baking use candidates and retain the running state on rejection.
@@ -49,7 +51,10 @@ world candidate publication to 2191/2224.
 - `EntityRegistry` public mutations now return owned `RegistryError` expected results;
   creation and instantiation no longer overload `kNoEntity`, and public `error()` is gone.
   Header, entity-column and simulation contract suites cover success, rejection and state reuse.
-- Direct clang-tidy run after `4c6ac6a99`: 189/189 units, zero findings. The full
+- `GltfImporter` now exposes only its owned `expected` diagnostics; failed loading,
+  variant and animation operations preserve the published asset and their returned errors
+  survive subsequent successful operations. Its focused public suite passes.
+- Direct clang-tidy run after this migration: 189/189 units, zero findings. The full
   lint gate remains blocked separately by the external immutable reference cache (2226).
 
 ## Proof

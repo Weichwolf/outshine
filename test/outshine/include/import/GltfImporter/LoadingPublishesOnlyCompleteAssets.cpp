@@ -62,23 +62,22 @@ int main() {
   const auto rejectedVariant = asset.selectMaterialVariant("absent");
   CHECK(!rejectedVariant && !rejectedVariant.error().empty(),
         "variant failure owns its diagnostic");
-  CHECK(asset.selectMaterialVariant("alternate") && asset.error().empty(),
-        "successful variant clears old error");
+  CHECK(asset.selectMaterialVariant("alternate"),
+        "successful variant remains independent of the earlier failure");
   CHECK(!rejectedVariant && !rejectedVariant.error().empty(),
         "returned error survives later successful mutation");
   const int parts = asset.geometry().parts();
   CHECK(parts == 1, "fixture contains one mesh part");
   for (const char *name : {"missing.gltf", "bad.gltf"}) {
     const auto failed = asset.load((directory / name).string());
-    CHECK(!failed && !failed.error().empty() && failed.error() == asset.error(),
-          "failed import returns its own diagnostic");
+    CHECK(!failed && !failed.error().empty(), "failed import returns its own diagnostic");
     CHECK(asset.geometry().parts() == parts && asset.selectMaterialVariant("alternate"),
           "failure preserves prior geometry, document and variant selection");
   }
   CHECK(asset.load((directory / "plain.gltf").string()).has_value(),
         "successful replacement resets a variant absent from the new asset");
-  CHECK(asset.error().empty() && asset.geometry().parts() == 1,
-        "replacement publishes native geometry and clears the old diagnostic");
+  CHECK(asset.geometry().parts() == 1,
+        "replacement publishes native geometry independently of earlier diagnostics");
   CHECK(asset.load((directory / "unused-camera.gltf").string()).has_value(),
         "uninstantiated camera definitions do not invalidate an asset");
   const auto unavailablePlacedCamera = asset.camera(0);
@@ -153,8 +152,8 @@ int main() {
         "unavailable indexed camera returns an owned diagnostic");
   const auto rejectedTime = asset.sampleAnimation(-1);
   CHECK(!rejectedTime && !rejectedTime.error().empty(), "time failure owns its diagnostic");
-  CHECK(asset.sampleAnimation(0.5) && asset.error().empty(),
-        "successful sampling clears old error");
+  CHECK(asset.sampleAnimation(0.5),
+        "successful sampling remains independent of the earlier failure");
   CHECK(!rejectedTime && !rejectedTime.error().empty(), "time diagnostic survives later sampling");
   const auto authored = asset.selectAnimations({});
   const auto authoredCamera = asset.camera(0);

@@ -251,9 +251,7 @@ GltfImporter &GltfImporter::operator=(GltfImporter &&) noexcept = default;
 
 std::expected<void, std::string> GltfImporter::load(std::string_view path) {
   auto candidate = std::make_unique<Held>();
-  const auto refuse = [&](std::string why) -> std::expected<void, std::string> {
-    if (!Held_) { Held_ = std::make_unique<Held>(); }
-    Held_->Why = why;
+  const auto refuse = [](std::string why) -> std::expected<void, std::string> {
     return std::unexpected(std::move(why));
   };
   if (!candidate->File.ReadFile(path)) { return refuse(candidate->File.Error()); }
@@ -273,7 +271,6 @@ std::expected<void, std::string> GltfImporter::selectMaterialVariant(std::string
     held.Variant = std::move(previous);
     return std::unexpected(held.Why);
   }
-  held.Why.clear();
   return {};
 }
 
@@ -292,12 +289,7 @@ std::expected<void, std::string> GltfImporter::selectAnimations(std::span<const 
     held.Moves = previouslyMoved;
     return std::unexpected(held.Why);
   }
-  held.Why.clear();
   return {};
-}
-
-const std::string &GltfImporter::error() const {
-  return Held_->Why;
 }
 
 const Geometry &GltfImporter::geometry() const {
@@ -318,7 +310,6 @@ std::expected<void, std::string> GltfImporter::sampleAnimation(double seconds) {
     return std::unexpected(Held_->Why);
   }
   if (!Held_->Assemble(seconds)) { return std::unexpected(Held_->Why); }
-  Held_->Why.clear();
   return {};
 }
 

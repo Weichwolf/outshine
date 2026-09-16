@@ -40,21 +40,16 @@ public:
   /// Load and convert a complete asset before replacing the current one.
   /// @param path Borrowed filesystem path; external resources resolve relative to the asset.
   /// @return Success, or an owned diagnostic. Failure preserves the previous asset and
-  /// its selections, geometry and cameras; only error() changes. Success resets variant
-  /// and animation selections. Performs blocking IO and allocation; no path is borrowed.
+  /// its selections, geometry and cameras. Success resets variant and animation selections.
+  /// Performs blocking IO and allocation; no path is borrowed.
   /// A moved-from adapter may be reused by loading a new asset.
   [[nodiscard]] std::expected<void, std::string> load(std::string_view path);
   /// Select a named material variant and rebuild the currently selected clips at time zero.
   /// @param variant Exact, case-sensitive imported name; copied, never retained as a view.
   /// @return Success or an owned diagnostic for an unknown name or conversion failure.
   /// Failure preserves the selection, published geometry, camera poses and borrowed geometry
-  /// storage. May allocate and decode textures. Success clears error().
+  /// storage. May allocate and decode textures.
   [[nodiscard]] std::expected<void, std::string> selectMaterialVariant(std::string_view variant);
-  /// Read the last recorded diagnostic without allocation; not an independent success indicator.
-  /// @return Borrowed diagnostic; copy if needed beyond the next mutation, move or destruction.
-  /// Successful load()/selectMaterialVariant()/selectAnimations()/sampleAnimation() clears it;
-  /// queries leave it unchanged.
-  [[nodiscard]] const std::string &error() const;
 
   /// Read the latest native snapshot without copying or allocating; empty before first load.
   /// @return Borrowed geometry in native metres, right-handed Y-up coordinates.
@@ -67,7 +62,7 @@ public:
   /// @return Success or an owned diagnostic. Failure preserves active clips, duration, native
   /// geometry and published cameras, including borrowed geometry storage.
   /// Rebuilds CPU geometry and materials and may allocate; serialize with all adapter access.
-  /// Requires an adapter that has not been moved from. Success clears error().
+  /// Requires an adapter that has not been moved from.
   [[nodiscard]] std::expected<void, std::string> selectAnimations(std::span<const int> animations);
   /// @return Number of imported clip definitions, independent of the active selection.
   /// Constant-time, no allocation; zero for an empty adapter.
@@ -81,7 +76,6 @@ public:
   /// @param seconds Finite, nonnegative time. Invalid time leaves the asset unchanged.
   /// @return Success or an owned diagnostic; failure preserves the native geometry snapshot
   /// and its borrowed views, active clips and published camera poses.
-  /// Success clears error(); rejected time changes only the diagnostic.
   /// Rebuilds CPU geometry and materials, with allocation; serialize with all adapter access.
   [[nodiscard]] std::expected<void, std::string> sampleAnimation(double seconds);
 
