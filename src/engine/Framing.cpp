@@ -121,15 +121,14 @@ Result Engine::mix(std::span<float> stereo) {
   return {};
 }
 
-bool Engine::render(Extent frame) {
+Result Engine::render(Extent frame) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto valid = ValidateFrameExtent(frame, S_->Picture); !valid) {
-    S_->Error = valid.error();
-    return false;
+    return std::unexpected(valid.error());
   }
-  if (!S_->Stood()) { return false; }
+  if (!S_->Stood()) { return std::unexpected(S_->Error); }
   const auto began = std::chrono::steady_clock::now();
-  if (!DrawScene(S_->Picture, S_->Error)) { return false; }
+  if (!DrawScene(S_->Picture, S_->Error)) { return std::unexpected(S_->Error); }
   S_->Published.Opens();
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
@@ -217,7 +216,7 @@ bool Engine::render(Extent frame) {
         "draws taking vertex layout " + std::to_string(at), static_cast<double>(many), "draws");
   }
   S_->Drew();
-  return true;
+  return {};
 }
 
 Result Engine::inspect() {
@@ -233,16 +232,17 @@ Result Engine::inspect() {
   return {};
 }
 
-bool Engine::readPixels(std::vector<uint8_t> &rgba) {
+Result Engine::readPixels(std::vector<uint8_t> &rgba) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Picture.Standing) {
-    S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
-    return false;
+    return std::unexpected(std::string(
+        "nothing stands to be read -- a scenario is declared before a frame carries pixels"));
   }
-  return S_->Picture.Standing->ReadPixels(rgba, S_->Error);
+  if (S_->Picture.Standing->ReadPixels(rgba, S_->Error)) { return {}; }
+  return std::unexpected(S_->Error);
 }
 
-bool Engine::readPixels(Buffer which, std::vector<float> &out) {
+Result Engine::readPixels(Buffer which, std::vector<float> &out) {
   [[maybe_unused]] const auto logs = S_->Logs();
   switch (which) {
     case Buffer::Linear:
@@ -250,14 +250,15 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
     case Buffer::ShadingNormal:
     case Buffer::SurfaceIdentity:
     case Buffer::Velocity: break;
-    case Buffer::Colour: S_->Error = Says::kColourReadbackIsBytes; return false;
-    default: S_->Error = Says::kUnknownReadbackBuffer; return false;
+    case Buffer::Colour: return std::unexpected(std::string(Says::kColourReadbackIsBytes));
+    default: return std::unexpected(std::string(Says::kUnknownReadbackBuffer));
   }
   if (!S_->Picture.Standing) {
-    S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
-    return false;
+    return std::unexpected(std::string(
+        "nothing stands to be read -- a scenario is declared before a frame carries pixels"));
   }
-  return S_->Picture.Standing->ReadBuffer(which, out, S_->Error);
+  if (S_->Picture.Standing->ReadBuffer(which, out, S_->Error)) { return {}; }
+  return std::unexpected(S_->Error);
 }
 
 void Engine::logsTo(LogSink *sink) {
@@ -311,13 +312,14 @@ Result Engine::flushAndWait() {
   return std::unexpected(S_->Error);
 }
 
-bool Engine::saveScreenshot(std::string_view path) {
+Result Engine::saveScreenshot(std::string_view path) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Picture.Standing) {
-    S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
-    return false;
+    return std::unexpected(std::string(
+        "nothing stands to be captured -- a scenario is declared before a frame is kept"));
   }
-  return S_->Picture.Standing->Screenshot(std::string(path), S_->Error);
+  if (S_->Picture.Standing->Screenshot(std::string(path), S_->Error)) { return {}; }
+  return std::unexpected(S_->Error);
 }
 
 }

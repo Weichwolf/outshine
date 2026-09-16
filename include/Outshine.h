@@ -497,10 +497,10 @@ public:
 
 private:
   friend class Renderer;
-  [[nodiscard]] bool render(Extent frame);
-  [[nodiscard]] bool saveScreenshot(std::string_view path);
-  [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
-  [[nodiscard]] bool readPixels(Buffer which, std::vector<float> &out);
+  [[nodiscard]] Result render(Extent frame);
+  [[nodiscard]] Result saveScreenshot(std::string_view path);
+  [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
   [[nodiscard]] Result beginFrame();
   [[nodiscard]] Result endFrame();
   [[nodiscard]] Result flushAndWait();

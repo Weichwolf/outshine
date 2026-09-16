@@ -219,11 +219,11 @@ bool Engine::settled() const {
 }
 
 Result Renderer::render(Extent frame) {
-  return Of_->render(frame) ? Result{} : std::unexpected(Of_->S_->Error);
+  return Of_->render(frame);
 }
 
 Result Renderer::saveScreenshot(std::string_view path) {
-  return Of_->saveScreenshot(path) ? Result{} : std::unexpected(Of_->S_->Error);
+  return Of_->saveScreenshot(path);
 }
 
 int Renderer::settleFrames() const {
@@ -231,11 +231,11 @@ int Renderer::settleFrames() const {
 }
 
 Result Renderer::readPixels(std::vector<uint8_t> &rgba) {
-  return Of_->readPixels(rgba) ? Result{} : std::unexpected(Of_->S_->Error);
+  return Of_->readPixels(rgba);
 }
 
 Result Renderer::readPixels(Buffer which, std::vector<float> &out) {
-  return Of_->readPixels(which, out) ? Result{} : std::unexpected(Of_->S_->Error);
+  return Of_->readPixels(which, out);
 }
 
 Renderer Engine::renderer() {

@@ -34,9 +34,9 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
 - Zeitsteuerung: Überlastpolitik und Frame-Arbeitsbudget bestimmen, Restzeit und
   Zustände bei fehlgeschlagenen Schritten prüfen. Positive endliche StepS und gültige
   Nachhollimits allein sind kein Echtzeitnachweis.
-- Frame-Fassade liefert begin/end/flush direkt als Result; Render, Screenshot und Readback
-  nutzen weiter Bool plus Legacy-error und benötigen denselben Fehlervertrag. Messwerte
-  brauchen bei Nutzung einen Snapshot-/Frischevertrag; Timing-Ring-Allokation bleibt offen.
+- Renderer-Fassade liefert Frame, Render, Capture und Readback direkt als Result; untere
+  SDL-Operationen reichen ihre Diagnose nur in diesen Aufruf weiter. Messwerte brauchen bei
+  Nutzung einen Snapshot-/Frischevertrag; Timing-Ring-Allokation bleibt offen.
 ## Abnahme
 - Vollständiger make lint mit null clang-tidy- und Dokumentationsdiagnosen;
   alle öffentlichen Header erfasst. Grüne Zähler ersetzen keine Vertragsprüfung.
