@@ -74,7 +74,8 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 
 - [x] make lint meldet null Tidy-Befunde: 189/189 Einheiten, 0 Befunde (2026-09-15).
       Analysefehler gelten weiterhin nicht als null.
-- [ ] Öffentliche API null undokumentiert und ihre tatsächlichen Verträge geprüft.
+- [ ] Öffentliche API-Verträge gegen 2188 vollständig geprüft. Doxygen: 24/24 Header,
+      0 Diagnosen (2026-09-16); dies beweist Dokumentationsabdeckung, nicht Vertragsrichtigkeit.
 - [ ] Relevante Konventions-/Fehler-/Lebensdauer-Tests inklusive Negativkontrollen grün.
 - [ ] Bildwirksame Änderungen durch Places-PNGs und unabhängige Orakel abgenommen.
 - [ ] Komplexitätsabbau erhält Determinismus, begrenzte Arbeit und Fehlersicherheit.
