@@ -8,12 +8,23 @@
 #include "Check.h"
 
 namespace {
-enum class Failure { None, Extent, Composition, Parameters, Texture, Pipeline };
+enum class Failure { None, Extent, Composition, Parameters, Texture, Sampler, Buffer, Pipeline };
 Failure inject = Failure::None;
 unsigned injected = 0;
 unsigned createdTextures = 0;
+unsigned createdSamplers = 0;
+unsigned createdBuffers = 0;
+unsigned createdPipelines = 0;
 unsigned releasedTextures = 0;
 unsigned releasedWindows = 0;
+unsigned textureAttempt = 0;
+unsigned samplerAttempt = 0;
+unsigned bufferAttempt = 0;
+unsigned pipelineAttempt = 0;
+unsigned failTextureAt = 1;
+unsigned failSamplerAt = 1;
+unsigned failBufferAt = 1;
+unsigned failPipelineAt = 1;
 
 template <typename Function> Function Original(const char *name) {
   const auto function = reinterpret_cast<Function>(dlsym(RTLD_NEXT, name));
@@ -74,7 +85,7 @@ extern "C" bool SDLCALL SDL_SetGPUSwapchainParameters(SDL_GPUDevice *device,
 
 extern "C" SDL_GPUTexture *SDLCALL SDL_CreateGPUTexture(SDL_GPUDevice *device,
                                                         const SDL_GPUTextureCreateInfo *info) {
-  if (inject == Failure::Texture) {
+  if (inject == Failure::Texture && ++textureAttempt == failTextureAt) {
     ++injected;
     SDL_SetError("injected target allocation failure");
     return nullptr;
@@ -85,16 +96,44 @@ extern "C" SDL_GPUTexture *SDLCALL SDL_CreateGPUTexture(SDL_GPUDevice *device,
   return made;
 }
 
+extern "C" SDL_GPUSampler *SDLCALL SDL_CreateGPUSampler(SDL_GPUDevice *device,
+                                                        const SDL_GPUSamplerCreateInfo *info) {
+  if (inject == Failure::Sampler && ++samplerAttempt == failSamplerAt) {
+    ++injected;
+    SDL_SetError("injected target sampler failure");
+    return nullptr;
+  }
+  static const auto original = Original<decltype(&SDL_CreateGPUSampler)>("SDL_CreateGPUSampler");
+  SDL_GPUSampler *const made = original(device, info);
+  createdSamplers += made != nullptr ? 1u : 0u;
+  return made;
+}
+
+extern "C" SDL_GPUBuffer *SDLCALL SDL_CreateGPUBuffer(SDL_GPUDevice *device,
+                                                      const SDL_GPUBufferCreateInfo *info) {
+  if (inject == Failure::Buffer && ++bufferAttempt == failBufferAt) {
+    ++injected;
+    SDL_SetError("injected target buffer failure");
+    return nullptr;
+  }
+  static const auto original = Original<decltype(&SDL_CreateGPUBuffer)>("SDL_CreateGPUBuffer");
+  SDL_GPUBuffer *const made = original(device, info);
+  createdBuffers += made != nullptr ? 1u : 0u;
+  return made;
+}
+
 extern "C" SDL_GPUGraphicsPipeline *SDLCALL SDL_CreateGPUGraphicsPipeline(
     SDL_GPUDevice *device, const SDL_GPUGraphicsPipelineCreateInfo *info) {
-  if (inject == Failure::Pipeline) {
+  if (inject == Failure::Pipeline && ++pipelineAttempt == failPipelineAt) {
     ++injected;
     SDL_SetError("injected stage pipeline failure");
     return nullptr;
   }
   static const auto original =
       Original<decltype(&SDL_CreateGPUGraphicsPipeline)>("SDL_CreateGPUGraphicsPipeline");
-  return original(device, info);
+  SDL_GPUGraphicsPipeline *const made = original(device, info);
+  createdPipelines += made != nullptr ? 1u : 0u;
+  return made;
 }
 
 extern "C" void SDLCALL SDL_ReleaseGPUTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture) {
@@ -205,6 +244,8 @@ int main() {
         changedPlan.Render.Outputs = {"surface", "sceneVelocity"};
         const auto declared = offscreen.writeScenario();
         const unsigned planFailures = injected;
+        textureAttempt = 0;
+        failTextureAt = 1;
         inject = Failure::Texture;
         const auto refusedPlan = offscreen.declare(changedPlan);
         inject = Failure::None;
@@ -217,6 +258,8 @@ int main() {
         CHECK(renderer.readPixels(afterPlanFailure).has_value() && afterPlanFailure == before,
               "a refused frame-resource candidate retains the readable previous pixels");
         const unsigned pipelineFailures = injected;
+        pipelineAttempt = 0;
+        failPipelineAt = 1;
         inject = Failure::Pipeline;
         const auto refusedPipeline = offscreen.declare(changedPlan);
         inject = Failure::None;
@@ -239,6 +282,8 @@ int main() {
               "the changed plan produces its own complete reference frame");
         const unsigned released = releasedTextures;
         const unsigned failures = injected;
+        textureAttempt = 0;
+        failTextureAt = 1;
         inject = Failure::Texture;
         const auto refused = offscreen.drawsInto(Extent{48, 32});
         inject = Failure::None;
@@ -251,6 +296,8 @@ int main() {
         CHECK(renderer.readPixels(after).has_value() && after == beforeTargetFailure,
               "the retained offscreen target remains renderable with identical pixels");
         const unsigned targetPipelineFailures = injected;
+        pipelineAttempt = 0;
+        failPipelineAt = 1;
         inject = Failure::Pipeline;
         const auto refusedTargetPipeline = offscreen.drawsInto(Extent{48, 32});
         inject = Failure::None;
@@ -275,10 +322,16 @@ int main() {
                   widened.size() == 48u * 32u * 4u,
               "the published target renders a complete frame at its new extent");
         const unsigned madeBeforeRepeat = createdTextures;
+        const unsigned samplersBeforeRepeat = createdSamplers;
+        const unsigned buffersBeforeRepeat = createdBuffers;
+        const unsigned pipelinesBeforeRepeat = createdPipelines;
         const unsigned releasedBeforeRepeat = releasedTextures;
         CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(),
               "first repeated target switch succeeds");
         const unsigned firstMade = createdTextures - madeBeforeRepeat;
+        const unsigned firstSamplers = createdSamplers - samplersBeforeRepeat;
+        const unsigned firstBuffers = createdBuffers - buffersBeforeRepeat;
+        const unsigned firstPipelines = createdPipelines - pipelinesBeforeRepeat;
         const unsigned firstReleased = releasedTextures - releasedBeforeRepeat;
         CHECK(offscreen.drawsInto(Extent{48, 32}).has_value(),
               "second repeated target switch succeeds");
@@ -286,14 +339,67 @@ int main() {
                   releasedTextures - releasedBeforeRepeat == 2u * firstReleased &&
                   firstMade == firstReleased,
               "repeated target switches keep a fixed resource budget");
+        CHECK(createdPipelines - pipelinesBeforeRepeat == 2u * firstPipelines,
+              "repeated target switches build a fixed pipeline set");
+        CHECK(createdSamplers - samplersBeforeRepeat == 2u * firstSamplers &&
+                  createdBuffers - buffersBeforeRepeat == 2u * firstBuffers,
+              "repeated target switches build fixed sampler and buffer sets");
+
+        const auto rejectsEachCandidateCreation = [&](Failure failure, unsigned count) {
+          for (unsigned at = 1; at <= count; ++at) {
+            const Extent retained = offscreen.swapChain().extent();
+            const Extent next{retained.WidthPx == 32 ? 48 : 32, 32};
+            std::vector<uint8_t> expected;
+            CHECK(renderer.render({}).has_value() && renderer.readPixels(expected).has_value(),
+                  "the retained target has pixels before an injected candidate failure");
+            const unsigned failuresBefore = injected;
+            switch (failure) {
+              case Failure::Texture:
+                textureAttempt = 0;
+                failTextureAt = at;
+                break;
+              case Failure::Sampler:
+                samplerAttempt = 0;
+                failSamplerAt = at;
+                break;
+              case Failure::Buffer:
+                bufferAttempt = 0;
+                failBufferAt = at;
+                break;
+              default:
+                pipelineAttempt = 0;
+                failPipelineAt = at;
+                break;
+            }
+            inject = failure;
+            const auto refusedCandidate = offscreen.drawsInto(next);
+            inject = Failure::None;
+            CHECK(injected == failuresBefore + 1 && !refusedCandidate,
+                  "every target candidate creation boundary rejects independently");
+            CHECK(offscreen.swapChain().extent().WidthPx == retained.WidthPx &&
+                      offscreen.swapChain().extent().HeightPx == retained.HeightPx,
+                  "a rejected candidate keeps the active target extent");
+            std::vector<uint8_t> retainedPixels;
+            CHECK(renderer.readPixels(retainedPixels).has_value() && retainedPixels == expected,
+                  "a rejected candidate keeps the active target pixels");
+            CHECK(offscreen.drawsInto(next).has_value(),
+                  "a target switch retries after every candidate creation failure");
+          }
+        };
+        rejectsEachCandidateCreation(Failure::Texture, firstMade);
+        rejectsEachCandidateCreation(Failure::Sampler, firstSamplers);
+        rejectsEachCandidateCreation(Failure::Buffer, firstBuffers);
+        rejectsEachCandidateCreation(Failure::Pipeline, firstPipelines);
       }
     }
   }
   SDL_DestroyWindow(candidate);
   SDL_DestroyWindow(first);
   SDL_Quit();
-  Covers("real SDL claims and presentation; atomic extent/claim/configuration/texture failures via "
-         "link-time SDL interception; open-frame rejection; borrowed window lifetime; retained "
-         "offscreen pixels; not minimized swapchain acquisition or full pipeline resize");
+  Covers(
+      "real SDL claims and presentation; atomic extent, claim and configuration failures; every "
+      "target-candidate texture, sampler, buffer and graphics-pipeline creation through link-time "
+      "SDL interception; open-frame rejection; borrowed window lifetime; retained offscreen "
+      "pixels");
   return Report();
 }

@@ -35,8 +35,10 @@ Readback, temporale Ziele, GPU-Handles, Subject-/Glass-Bindungen und alle format
 Stage-Objekte; seine Beweglichkeit ist statisch gesichert. `Init` baut und konfiguriert den
 vollständigen Plan gegen einen lokalen Kandidaten. Erst nach Erfolg bewegen sich Frame und Plan;
 danach binden die langlebigen Zeichner auf die neue Binding-Adresse. Eine abgelehnte Pipeline
-oder Textur erhält aktive Deklaration und lesbare Pixel. Der Test injiziert beides am echten
-SDL-Aufruf und prüft 54 Bedingungen.
+oder Textur erhält aktive Deklaration und lesbare Pixel. Der Test iteriert jede tatsächlich
+ausgeführte Erzeugung von Textur, Sampler, Buffer und Grafikpipeline des Target-Kandidaten. Jeder
+Fehler erhält Extent und Pixel; der unmittelbare Retry veröffentlicht den Wechsel (659 Checks).
+Fehlerhafte Stage-Konfigurationen ohne SDL-Ressourcenerzeugung bleiben offen.
 
 **Widerlegt:** `DrawsInto` validiert und claimt aktuell nur das Ziel, setzt dann
 `Frame_.Offscreen`, `HostSurface`, Extent und Fenster direkt. Es baut die planabhängigen
@@ -58,8 +60,10 @@ Ressourcenproblem nicht.
       kandidatenseitig neu und rendert sie nach Veröffentlichung vollständig (56 Checks).
 - [x] Fensterformat- und Extentwechsel ersetzen dieselben Ressourcen gemeinsam;
       das neue Fenster öffnet und präsentiert anschließend einen vollständigen Frame (59 Checks).
-- [ ] Injektionen für Claim, jede Attachment-/Pyramid-/Pipeline-Erzeugung und
-      Stage-Konfiguration erhalten alte Pixel, Claim und Renderbarkeit.
+- [x] Jede tatsächlich gebaute Textur, jeder Sampler, Buffer und jede Grafikpipeline des
+      Target-Kandidaten kann einzeln scheitern; Pixel, Extent und Retry bleiben gültig (659 Checks).
+- [ ] Injektionen für Claim und jede Stage-Konfiguration ohne SDL-Ressourcenerzeugung erhalten
+      alte Pixel, Claim und Renderbarkeit.
 - [x] Erfolgreicher Wechsel gibt den alten Claim nach Veröffentlichung frei; wiederholte
       48×32↔32×32-Wechsel erzeugen und geben dieselbe Texturmenge frei (62 Checks).
 - [ ] Negativkontrolle veröffentlicht Target vor Kandidatabschluss und verletzt
