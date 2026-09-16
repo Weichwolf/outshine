@@ -65,3 +65,8 @@ nonmoving engine owners are prerequisites where retained references exist.
 - [ ] Repeat declare, target change and feature toggles show no resource growth.
 - [ ] Negative control that publishes before validation is red.
 - [ ] Relevant public API tests, target tests and `make lint` are green.
+
+`setGeometry` beschrieb den GPU-Fehlerpfad fälschlich als nichttransaktional. Der Code bereitet
+eine `Live`- und Renderer-Kandidatin vor, verwirft sie bei Fehler und veröffentlicht erst danach.
+Die öffentliche Doku nennt jetzt die erhaltene alte Szene und Audio-Occlusion; Dokumentationstest
+und 189/189 tidy sind grün. Der vollständige Übergangstisch und Fault-Injection bleiben offen.

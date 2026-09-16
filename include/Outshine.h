@@ -351,10 +351,12 @@ public:
   /// Missing normals produce flat shading in the derived render mesh; source data stays intact.
   /// Call on the engine/video thread, outside concurrent engine work. Requires well-formed data.
   /// Allocates CPU copies and may prepare GPU resources; use during scene setup, not per frame.
-  /// Invalid input is rejected before replacement. GPU setup errors are returned; renderer
-  /// recovery after a setup failure is not yet transactional. Systemwide allocator exhaustion is
-  /// fatal and outside Result.
-  /// @param geometry Non-moved-from source, held immutable for the duration of this call.
+  /// Invalid input is rejected before replacement. A configured render scene builds and uploads a
+  /// replacement candidate before publishing it; a rejected setup retains the prior scene and
+  /// audio-occlusion state. Without a render scene, a successful call replaces the pending native
+  /// geometry and occlusion products. Systemwide allocator exhaustion is fatal and outside Result.
+  /// @param geometry Borrowed source held immutable for this call; it may be changed or destroyed
+  /// after return.
   /// @return Success, or a diagnostic describing validation or setup failure.
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
   /// Copy a scenario definition and configure its scene, input and generator declarations.
