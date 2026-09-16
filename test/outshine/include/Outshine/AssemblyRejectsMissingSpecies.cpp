@@ -38,8 +38,9 @@ int main() {
     CHECK(engine.declare(world).has_value(),
           "world declaration accepted before resource preparation");
     const auto assembled = engine.assemble();
-    CHECK(!assembled && engine.error().find((root / "world/species").string()) != std::string::npos,
-          engine.error().c_str());
+    CHECK(!assembled &&
+              assembled.error().find((root / "world/species").string()) != std::string::npos,
+          assembled ? "assembly unexpectedly succeeded" : assembled.error().c_str());
     CHECK(&engine.entities() == previous,
           "failed world preparation preserves prior simulation ownership");
     CHECK(engine.declare(empty) && engine.assemble(), "valid declaration recovers after the error");

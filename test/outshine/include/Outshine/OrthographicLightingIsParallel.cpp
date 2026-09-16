@@ -11,6 +11,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
     return Report();
@@ -41,11 +45,10 @@ int main() {
     view.Sees.PositionM = {{0, 0, at == 0 ? 2.0 : 8.0}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
     declaration.Views.push_back(view);
-    if (!engine.drawsInto({64, 64}) || !engine.declare(declaration) ||
-        !engine.setGeometry(geometry) || !engine.assemble() || !engine.advance() ||
-        !engine.renderer().render({}) ||
-        !engine.renderer().readPixels(Buffer::Linear, frames[at])) {
-      Unprepared(engine.error().c_str());
+    if (!accepted(engine.drawsInto({64, 64})) || !accepted(engine.declare(declaration)) ||
+        !accepted(engine.setGeometry(geometry)) || !accepted(engine.assemble()) ||
+        !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+        !accepted(engine.renderer().readPixels(Buffer::Linear, frames[at]))) {
       return Report();
     }
   }

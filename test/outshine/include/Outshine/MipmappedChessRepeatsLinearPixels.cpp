@@ -14,6 +14,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
   const std::string path = PreparedRoot() + "/test-khronos-glTF-ABeautifulGame/scene.gltf";
   GltfImporter loaded;
   const auto ready = loaded.load(path);
@@ -53,9 +57,8 @@ int main() {
     return Report();
   }
   Engine engine;
-  if (!engine.drawsInto({1280, 720}) || !engine.declare(scenario) || !engine.assemble() ||
-      !engine.advance()) {
-    Unprepared(engine.error().c_str());
+  if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
+      !accepted(engine.assemble()) || !accepted(engine.advance())) {
     return Report();
   }
   std::vector<float> first, repeated, firstDepth, repeatedDepth;

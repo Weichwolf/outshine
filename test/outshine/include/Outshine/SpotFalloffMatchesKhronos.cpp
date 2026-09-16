@@ -10,6 +10,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
     return Report();
@@ -48,10 +52,10 @@ int main() {
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
     declaration.Views.push_back(view);
     std::vector<float> frame;
-    if (!engine.drawsInto({65, 65}) || !engine.declare(declaration) ||
-        !engine.setGeometry(geometry) || !engine.assemble() || !engine.advance() ||
-        !engine.renderer().render({}) || !engine.renderer().readPixels(Buffer::Linear, frame)) {
-      Unprepared(engine.error().c_str());
+    if (!accepted(engine.drawsInto({65, 65})) || !accepted(engine.declare(declaration)) ||
+        !accepted(engine.setGeometry(geometry)) || !accepted(engine.assemble()) ||
+        !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+        !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
       return Report();
     }
     CHECK(frame.size() == 65u * 65u * 4u, "linear image dimensions");

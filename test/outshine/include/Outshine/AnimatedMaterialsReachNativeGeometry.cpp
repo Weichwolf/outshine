@@ -11,6 +11,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
   std::string pattern =
       (std::filesystem::temp_directory_path() / "outshine-material-XXXXXX").string();
   if (mkdtemp(pattern.data()) == nullptr) {
@@ -104,15 +108,13 @@ int main() {
   view.Sees.PositionM = {{0, 0, 3}};
   scene.Views.push_back(view);
   CHECK(asset.selectAnimations(clips).has_value(), "reselect material clip for rendering");
-  if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene)) {
-    Unprepared(engine.error().c_str());
+  if (!accepted(engine.drawsInto(scene.Render.Frame)) || !accepted(engine.declare(scene))) {
     return Report();
   }
   for (const double time : {0.0, 1.0}) {
     CHECK(asset.sampleAnimation(time).has_value(), "freeze an endpoint for native rendering");
-    if (!engine.setGeometry(asset.geometry()) || !engine.assemble() || !engine.advance() ||
-        !engine.renderer().render({})) {
-      Unprepared(engine.error().c_str());
+    if (!accepted(engine.setGeometry(asset.geometry())) || !accepted(engine.assemble()) ||
+        !accepted(engine.advance()) || !accepted(engine.renderer().render({}))) {
       return Report();
     }
     const auto path = std::filesystem::temp_directory_path() /
