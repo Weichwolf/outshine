@@ -770,7 +770,6 @@ bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
                                    std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  renderer.ActiveState().Content.Glass.Shares(renderer.ActiveState().Content.Subjects.Owned());
   return renderer.ActiveState().Content.Glass.Configure(
       frame.GlassPipelines, frame.Handles, frame.HdrTex.Get(), frame.Samp.Get(), false, error);
 }

@@ -44,6 +44,8 @@ Stage-Konfigurationen ohne SDL-Ressourcenerzeugung bleiben offen.
 `ConfigureOverlay` erzeugt keinen Default-Atlas mehr im veröffentlichten `WorldContent`.
 `OverlayDraw::Replace` erstellt ihn nur als lokalen Kandidaten zusammen mit einer tatsächlichen
 Overlay-Aktualisierung; die Upload-Fehlersuite prüft Defaultbild, Fehlererhalt und Retry.
+`ConfigureGlass` setzt die Residency-Sharing-Beziehung nicht mehr während der
+Kandidatkonfiguration; `BindFrameResources` setzt sie erst nach Veröffentlichung.
 
 Offen bleiben Fehler nach vollständiger SDL-Ressourcenerzeugung, aber vor der ersten GPU-Arbeit:
 jede `Configure`-Implementierung braucht eine gezielte Injektion. Die Prüfung erhält alte Pixel,

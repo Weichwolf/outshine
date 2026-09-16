@@ -216,8 +216,8 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   const auto refused = renderer.Init({48, 48}, *compiled);
   CHECK(!refused && refused.error().find("injected GPU wait failure") != std::string::npos,
         "reinitialization returns its failed GPU wait");
-  CHECK(!renderer.DeviceUsable(),
-        "reinitialization refuses resource replacement after failed GPU wait");
+  CHECK(renderer.DeviceUsable() && renderer.Drew(),
+        "failed GPU wait retains the usable renderer and submitted frame");
   CHECK(renderer.Init({48, 48}, *compiled).has_value(), "replacement plan initializes after retry");
   CHECK(!renderer.Drew(), "reinitialization invalidates previous frame publication");
   std::vector<uint8_t> pixels{1, 2, 3};
