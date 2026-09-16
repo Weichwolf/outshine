@@ -46,6 +46,30 @@ public:
     int Fronted = 0;
   };
 
+  class PendingAcceptance {
+    friend class BuildingField;
+
+  public:
+    PendingAcceptance(const PendingAcceptance &) = delete;
+    PendingAcceptance &operator=(const PendingAcceptance &) = delete;
+    PendingAcceptance(PendingAcceptance &&) noexcept = default;
+    PendingAcceptance &operator=(PendingAcceptance &&) noexcept = default;
+
+  private:
+    PendingAcceptance(const BuildingField *owner, uint32_t tile, const Baked &baked) noexcept
+        : Owner_(owner),
+          Tile_(tile),
+          Prints_(baked.Prints.size()),
+          Spread_(baked.SeatSpreadM.size()),
+          Across_(baked.AcrossM.size()) {}
+
+    const BuildingField *Owner_ = nullptr;
+    uint32_t Tile_ = 0;
+    size_t Prints_ = 0;
+    size_t Spread_ = 0;
+    size_t Across_ = 0;
+  };
+
   void SeenWith(double focalPx) { FocalPx_ = focalPx; }
 
   void TilesSpan(double tileSpanM) { TileSpanM_ = tileSpanM; }
@@ -69,7 +93,9 @@ public:
     ++Taken_;
   }
 
-  void Accept(uint32_t tile, const OsmField &field, const Baked &baked);
+  [[nodiscard]] PendingAcceptance PrepareAcceptance(uint32_t tile, const Baked &baked);
+  void
+  CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
 
   [[nodiscard]] double AwayFromCentreM(const OsmField &field, uint32_t tile) const;
 

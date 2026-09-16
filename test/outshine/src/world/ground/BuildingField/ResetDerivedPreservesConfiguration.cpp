@@ -1,6 +1,7 @@
 #include "BuildingField.h"
 #include "Check.h"
 #include <array>
+#include <utility>
 
 int main() {
   using namespace outshine;
@@ -17,13 +18,15 @@ int main() {
   for (int cycle = 0; cycle < 3; ++cycle) {
     const auto before = field.Revision();
     field.Take(0);
-    field.Accept(0,
-                 empty,
-                 {.Prints = prints,
-                  .SeatSpreadM = spread,
-                  .AcrossM = across,
-                  .Triangles = 12,
-                  .OsmHeights = 1});
+    const BuildingField::Baked baked{.Prints = prints,
+                                     .SeatSpreadM = spread,
+                                     .AcrossM = across,
+                                     .Triangles = 12,
+                                     .OsmHeights = 1};
+    auto pending = field.PrepareAcceptance(0, baked);
+    CHECK(field.Footprints().empty() && field.Revision() == before,
+          "prepared acceptance does not publish footprints");
+    field.CommitAcceptance(std::move(pending), empty, baked);
     CHECK(field.Footprints().size() == 1, "rebaking does not append stale footprints");
     CHECK(field.TrianglesHanded() == 12, "new bake owns its own triangle count");
     CHECK(field.Revision() > before, "accepted bake invalidates dependent terrain");

@@ -230,7 +230,7 @@ bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   size_t landed = 0;
   while (landed < landsMost) {
-    const auto ready = World.Bakes.NextLanding();
+    auto ready = World.Bakes.NextLanding(World.Stack);
     if (!ready) {
       Error = Generators::Describe(ready.error());
       return false;
@@ -242,7 +242,7 @@ bool Engine::State::Bakes(size_t landsMost) {
       Error = std::move(published.error());
       return false;
     }
-    World.Bakes.CommitsLanding(World.Stack);
+    World.Bakes.CommitsLanding(World.Stack, std::move(**ready));
     ++landed;
   }
   (void)World.Bakes.Posts(World.Stack);

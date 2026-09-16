@@ -50,7 +50,20 @@ BuildingField::Next(const OsmField &field, const std::function<bool(FeatureRun)>
   return next;
 }
 
-void BuildingField::Accept(uint32_t tile, const OsmField &field, const Baked &baked) {
+BuildingField::PendingAcceptance BuildingField::PrepareAcceptance(uint32_t tile,
+                                                                  const Baked &baked) {
+  Prints_.reserve(Prints_.size() + baked.Prints.size());
+  SeatSpread_.reserve(SeatSpread_.size() + baked.SeatSpreadM.size());
+  Across_.reserve(Across_.size() + baked.AcrossM.size());
+  ByTile_.Prepare(tile);
+  return {this, tile, baked};
+}
+
+void BuildingField::CommitAcceptance(PendingAcceptance pending,
+                                     const OsmField &field,
+                                     const Baked &baked) noexcept {
+  assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
+         pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
   const auto firstPrint = static_cast<uint32_t>(Prints_.size());
   Prints_.insert(Prints_.end(), baked.Prints.begin(), baked.Prints.end());
   SeatSpread_.insert(SeatSpread_.end(), baked.SeatSpreadM.begin(), baked.SeatSpreadM.end());
@@ -59,7 +72,7 @@ void BuildingField::Accept(uint32_t tile, const OsmField &field, const Baked &ba
   DefaultHeights_ += baked.DefaultHeights;
   Fronted_ += baked.Fronted;
   TrianglesHanded_ += baked.Triangles;
-  ByTile_.Set(tile, firstPrint, static_cast<uint32_t>(Prints_.size()));
+  ByTile_.Set(pending.Tile_, firstPrint, static_cast<uint32_t>(Prints_.size()));
   Mark_.Advance(field.Features());
   ++Accepted_;
   ++Revision_;

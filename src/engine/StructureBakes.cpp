@@ -2,6 +2,7 @@
 #include "StructureBakes.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -178,28 +179,42 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
 }
 
 std::expected<std::optional<StructureBakes::Landing>, Generators::StructureBakeError>
-StructureBakes::NextLanding() {
+StructureBakes::NextLanding(Ground::GroundStack &stack) {
   if (Pool_ == nullptr || Queue_.empty() || !Pool_->Done(Queue_.front().Handle)) {
     return std::optional<Landing>{};
   }
   const Job &job = Queue_.front();
   if (!job.Out->Status) { return std::unexpected(job.Out->Status.error()); }
-  return Landing{.Tile = job.Tile, .Baked = &job.Out->Tile, .AnchorEcef = job.Raw->AnchorEcef};
-}
-
-void StructureBakes::CommitsLanding(Ground::GroundStack &stack) {
-  Job &job = Queue_.front();
   const Generators::BakedTile &baked = job.Out->Tile;
   const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-  stack.Footprints().Accept(job.Tile,
-                            *stack.Vectors(),
-                            {.Prints = baked.Prints,
-                             .SeatSpreadM = baked.SeatSpreadM,
-                             .AcrossM = baked.AcrossM,
-                             .Triangles = triangles,
-                             .OsmHeights = baked.OsmHeights,
-                             .DefaultHeights = baked.DefaultHeights,
-                             .Fronted = baked.Fronted});
+  return Landing{.Tile = job.Tile,
+                 .Baked = &baked,
+                 .AnchorEcef = job.Raw->AnchorEcef,
+                 .Footprints =
+                     stack.Footprints().PrepareAcceptance(job.Tile,
+                                                          {.Prints = baked.Prints,
+                                                           .SeatSpreadM = baked.SeatSpreadM,
+                                                           .AcrossM = baked.AcrossM,
+                                                           .Triangles = triangles,
+                                                           .OsmHeights = baked.OsmHeights,
+                                                           .DefaultHeights = baked.DefaultHeights,
+                                                           .Fronted = baked.Fronted})};
+}
+
+void StructureBakes::CommitsLanding(Ground::GroundStack &stack, Landing landing) noexcept {
+  Job &job = Queue_.front();
+  const Generators::BakedTile &baked = job.Out->Tile;
+  assert(landing.Baked == &baked && landing.Footprints);
+  const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
+  stack.Footprints().CommitAcceptance(std::move(*landing.Footprints),
+                                      *stack.Vectors(),
+                                      {.Prints = baked.Prints,
+                                       .SeatSpreadM = baked.SeatSpreadM,
+                                       .AcrossM = baked.AcrossM,
+                                       .Triangles = triangles,
+                                       .OsmHeights = baked.OsmHeights,
+                                       .DefaultHeights = baked.DefaultHeights,
+                                       .Fronted = baked.Fronted});
   Log::Info(LogTag::World,
             "buildings",
             {{"added", static_cast<int>(baked.Prints.size())},
@@ -213,7 +228,6 @@ void StructureBakes::CommitsLanding(Ground::GroundStack &stack) {
              {"awayKm", job.Raw->AwayM / kMPerKm},
              {"queued", static_cast<int>(Queue_.size() - 1)}});
   IdleRaw_.push_back(std::move(job.Raw));
-  job.Out->Tile.Built = Raised{};
   IdleOut_.push_back(std::move(job.Out));
   IdleScratch_.push_back(std::move(job.Scratch));
   Queue_.pop_front();

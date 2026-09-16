@@ -21,6 +21,8 @@ public:
     Ranges_[tile] = Range{.First = first, .Count = end - first};
   }
 
+  void Prepare(uint32_t tile) { Ranges_.reserve(static_cast<size_t>(tile) + 1u); }
+
   [[nodiscard]] Range At(uint32_t tile) const {
     return static_cast<size_t>(tile) < Ranges_.size() ? Ranges_[tile] : Range{};
   }

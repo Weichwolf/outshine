@@ -35,10 +35,12 @@ public:
     uint32_t Tile = 0;
     const Generators::BakedTile *Baked = nullptr;
     Vec3 AnchorEcef;
+    std::optional<Ground::BuildingField::PendingAcceptance> Footprints;
   };
 
-  [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError> NextLanding();
-  void CommitsLanding(Ground::GroundStack &stack);
+  [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError>
+  NextLanding(Ground::GroundStack &stack);
+  void CommitsLanding(Ground::GroundStack &stack, Landing landing) noexcept;
   void Clear();
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
