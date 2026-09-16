@@ -199,8 +199,8 @@ StructureBakes::NextLandings(Ground::GroundStack &stack, size_t most) {
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
   Ground::BuildingField &prints = stack.Footprints();
-  while (!Queue_.empty() && Pool_->Done(Queue_.front().Handle) &&
-         !Queue_.front().Revision.Matches(*vectors, prints)) {
+  while (!Queue_.empty() && !Queue_.front().Revision.Matches(*vectors, prints)) {
+    if (!Pool_->Done(Queue_.front().Handle)) { break; }
     IdleRaw_.reserve(IdleRaw_.size() + 1u);
     IdleOut_.reserve(IdleOut_.size() + 1u);
     IdleScratch_.reserve(IdleScratch_.size() + 1u);
