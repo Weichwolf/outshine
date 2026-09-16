@@ -2,7 +2,7 @@
 #define OUTSHINE_ENGINE_GROUNDWORLDCANDIDATE_H
 
 #include "EngineHeld.h"
-#include <cassert>
+#include "WorldCandidate.h"
 #include <expected>
 #include <memory>
 #include <string>
@@ -33,45 +33,28 @@ public:
                   .NetworkOfWays = world.NetworkOfWays,
                   .RimsMissing = world.RimsMissing,
                   .Surfaces = {}},
-        Renderer_(renderer) {}
+        World_(renderer) {}
 
   GroundWorldCandidate(const GroundWorldCandidate &) = delete;
   GroundWorldCandidate &operator=(const GroundWorldCandidate &) = delete;
   GroundWorldCandidate(GroundWorldCandidate &&) = delete;
   GroundWorldCandidate &operator=(GroundWorldCandidate &&) = delete;
 
-  ~GroundWorldCandidate() {
-    if (Live_) {
-      Live_.reset();
-      Renderer_.AbandonsWorldCandidate();
-    }
-  }
-
   [[nodiscard]] GroundBuildProducts &Products() noexcept { return Products_; }
 
-  [[nodiscard]] Core::Live &Scene() noexcept {
-    assert(Live_);
-    return *Live_;
-  }
+  [[nodiscard]] Core::Live &Scene() noexcept { return World_.Scene(); }
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::Live &previous,
                                                          const Ui::Font *font) {
-    std::string error;
-    if (!Core::Live::PreparesWorldReplacement(Renderer_, previous, font, Live_, error)) {
-      return std::unexpected(std::move(error));
-    }
-    Products_.Sheets.Into(Live_.get());
+    if (auto prepared = World_.Prepare(previous, font); !prepared) { return prepared; }
+    Products_.Sheets.Into(&World_.Scene());
     return {};
   }
 
   [[nodiscard]] std::expected<void, std::string> Publish(Surrounds &world,
                                                          std::unique_ptr<Core::Live> &published,
                                                          const GroundRevision &revision) {
-    assert(Live_);
-    std::string error;
-    if (!Core::Live::PublishesPreparedWorld(Renderer_, published, Live_, error)) {
-      return std::unexpected(std::move(error));
-    }
+    if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
     world.Sheets = std::move(Products_.Sheets);
     world.GroundPositionsM = std::move(Products_.PositionsM);
     world.GroundIndex = std::move(Products_.Indices);
@@ -86,9 +69,8 @@ public:
   }
 
 private:
-  std::unique_ptr<Core::Live> Live_;
   GroundBuildProducts Products_;
-  Render::SceneRenderer &Renderer_;
+  Core::WorldCandidate World_;
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Indices)>);

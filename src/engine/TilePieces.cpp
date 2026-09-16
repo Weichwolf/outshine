@@ -48,7 +48,7 @@ bool TilePieces::Hands(uint32_t tile,
                                         std::span<const uint32_t> run,
                                         const ClusteredMesh &cut,
                                         uint32_t surface) {
-    if (run.size() < 3) { return Render::kNoPiece; }
+    if (run.empty()) { return Render::kNoPiece; }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
     const Render::PieceId placed =
         Live_->PlacePiece({.Tangents = {},
@@ -81,7 +81,9 @@ bool TilePieces::Hands(uint32_t tile,
     return false;
   }
   Forgets(tile);
-  Standing_.push_back(stood);
+  if (stood.Walls != Render::kNoPiece || stood.Roofs != Render::kNoPiece) {
+    Standing_.push_back(stood);
+  }
   Digest_ = (Digest_ ^ baked.Digest) * kDigestPrime;
   ++Handed_;
   return true;

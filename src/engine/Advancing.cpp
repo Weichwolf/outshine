@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "EngineHeld.h"
+#include "StructureTilePublication.h"
 #include "Lens.h"
 #include "Viewing.h"
 #include "Views.h"
@@ -235,26 +236,12 @@ bool Engine::State::Bakes(size_t landsMost) {
       return false;
     }
     if (!*ready) { break; }
-    std::unique_ptr<Core::Live> candidate;
-    if (!Core::Live::PreparesWorldReplacement(
-            Picture.Device, *Picture.Standing, &Picture.Face, candidate, Error)) {
+    if (auto published =
+            PublishStructureTile(World, Picture.Device, Picture.Standing, **ready, &Picture.Face);
+        !published) {
+      Error = std::move(published.error());
       return false;
     }
-    TilePieces pieces = World.Pieces;
-    pieces.Into(candidate.get());
-    const StructureBakes::Landing &landing = **ready;
-    const Generators::BakedTile &baked = *landing.Baked;
-    const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    if (triangles > 0 && !pieces.Hands(landing.Tile, baked, landing.AnchorEcef, Error)) {
-      candidate.reset();
-      Picture.Device.AbandonsWorldCandidate();
-      return false;
-    }
-    if (!Core::Live::PublishesPreparedWorld(Picture.Device, Picture.Standing, candidate, Error)) {
-      return false;
-    }
-    World.Pieces = std::move(pieces);
-    World.BindLiveResources(*Picture.Standing);
     World.Bakes.CommitsLanding(World.Stack);
     ++landed;
   }

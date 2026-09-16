@@ -1,0 +1,37 @@
+#ifndef OUTSHINE_ENGINE_STRUCTURETILEPUBLICATION_H
+#define OUTSHINE_ENGINE_STRUCTURETILEPUBLICATION_H
+
+#include "EngineHeld.h"
+#include "WorldCandidate.h"
+#include <cassert>
+#include <expected>
+#include <memory>
+#include <string>
+#include <type_traits>
+#include <utility>
+
+namespace outshine {
+[[nodiscard]] inline std::expected<void, std::string>
+PublishStructureTile(Surrounds &world,
+                     Render::SceneRenderer &renderer,
+                     std::unique_ptr<Core::Live> &scene,
+                     const StructureBakes::Landing &landing,
+                     const Ui::Font *font) {
+  assert(scene && landing.Baked);
+  Core::WorldCandidate candidate(renderer);
+  if (auto prepared = candidate.Prepare(*scene, font); !prepared) { return prepared; }
+  TilePieces pieces = world.Pieces;
+  pieces.Into(&candidate.Scene());
+  const auto &baked = *landing.Baked;
+  std::string error;
+  if (!pieces.Hands(landing.Tile, baked, landing.AnchorEcef, error)) {
+    return std::unexpected(std::move(error));
+  }
+  if (auto published = candidate.Publish(scene); !published) { return published; }
+  static_assert(std::is_nothrow_move_assignable_v<TilePieces>);
+  world.Pieces = std::move(pieces);
+  world.BindLiveResources(*scene);
+  return {};
+}
+}
+#endif
