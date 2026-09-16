@@ -69,5 +69,8 @@ int main() {
   CHECK(pool.AwaitLanding(1.0), "the carrier publishes the completed request");
   CHECK(pool.Counters().Outstanding == 0,
         "a completed result retained for its caller is not counted as outstanding work");
+  CHECK(pool.ResidentBytes() ==
+            pool.ByteCacheBytes() + pool.DemCacheBytes() + pool.SchedulerBytes(),
+        "resident tile memory includes transport, terrain and scheduler storage exactly once");
   return Report();
 }

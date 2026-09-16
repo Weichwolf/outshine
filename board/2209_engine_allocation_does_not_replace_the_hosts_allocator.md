@@ -87,3 +87,13 @@ Tests: erste/spätere Allokationsfehler, Wiederaufnahme, Kollisionen, Move/Reuse
 Unterdrückte Map-Fehlerweitergabe verletzt neun Gebäudetest-Checks; restauriert grün.
 Konstruktion/Freigabe einschließlich überausgerichteter Werte geprüft; fehlende Destruktoren
 verletzen die Lifetime-Negativkontrolle. Andere Scratch-/Output-Vektoren bleiben offen.
+
+## TilePool-Residenz
+GroundStack rechnet nun TilePool-Byte-, DEM- und Scheduler-Residenz in das Weltlimit ein.
+Der gemeinsame Decode-Cache zählt in der DEM-Gruppe genau einmal, obwohl jeder Worker ihn
+teilt. Der Momentwert sperrt seine drei Gruppen nacheinander und ist keine atomare
+Querschnittsaufnahme während aktiver Worker. Cache-Index, wartende Hilfscontainer und
+weitere Engine-Produkte sind noch nicht vollständig bilanziert; die 512-MiB-Grenze ist
+daher jetzt enger, aber keine vollständige Engine-Speicherzusage. TilePayloadOwnership
+prüft die definierte Summe. Format, fokussierte Suite und 189/189 tidy ohne Befund liefen;
+make lint stoppt ausschließlich am fehlenden extern gepinnten Referenzcache.

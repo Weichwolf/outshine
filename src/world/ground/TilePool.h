@@ -117,6 +117,8 @@ public:
 
   size_t SchedulerBytes() const;
 
+  [[nodiscard]] size_t ResidentBytes() const;
+
   int ThreadCount() const { return static_cast<int>(Threads_.size()); }
 
   int InFlightCap() const { return static_cast<int>(Threads_.size()); }

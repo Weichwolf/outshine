@@ -160,11 +160,15 @@ size_t TilePool::ByteCacheBytes() const {
 }
 
 size_t TilePool::DemCacheBytes() const {
-  size_t bytes = CapacityBytes(ContextBytes_);
+  size_t bytes = Decoded_->Bytes() + CapacityBytes(ContextBytes_);
   for (const std::atomic<size_t> &slot : ContextBytes_) {
     bytes += slot.load(std::memory_order_relaxed);
   }
   return bytes;
+}
+
+size_t TilePool::ResidentBytes() const {
+  return ByteCacheBytes() + DemCacheBytes() + SchedulerBytes();
 }
 
 size_t TilePool::SchedulerBytes() const {

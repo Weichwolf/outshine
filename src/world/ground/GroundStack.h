@@ -58,7 +58,8 @@ public:
 
   [[nodiscard]] std::size_t HeapBytes() const {
     return Cls_.HeapBytes() + Footprints_.HeapBytes() + WaterBodies_.HeapBytes() +
-           Ways_.HeapBytes() + (Vectors_ ? Vectors_->HeapBytes() : 0u);
+           Ways_.HeapBytes() + (Vectors_ ? Vectors_->HeapBytes() : 0u) +
+           (Pool_ ? Pool_->ResidentBytes() : 0u);
   }
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
