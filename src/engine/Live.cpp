@@ -239,6 +239,42 @@ bool Live::Prepare(Render::SceneRenderer &renderer,
   return true;
 }
 
+bool Live::ReplacesGeometry(Render::SceneRenderer &renderer,
+                            const Live &previous,
+                            Geometry replacement,
+                            const Ui::Font *font,
+                            std::unique_ptr<Live> &out,
+                            std::string &error) {
+  if (!renderer.BeginsWorldCandidate(error)) { return false; }
+  std::unique_ptr<Live> candidate;
+  if (!Prepare(renderer, previous.Declared_, font, candidate, error)) {
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  candidate->GroundAlbedo_ = previous.GroundAlbedo_;
+  candidate->GroundSurface_ = previous.GroundSurface_;
+  candidate->Scratch_.Digests = previous.Scratch_.Digests;
+  if (!candidate->SetGeometry(std::move(replacement), previous.Carrying_, error) ||
+      !candidate->RestoresPieceResources(previous, error) ||
+      !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
+    candidate.reset();
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  candidate->Eye_ = previous.Eye_;
+  candidate->HaveEye_ = previous.HaveEye_;
+  candidate->Aim_ = previous.Aim_;
+  candidate->Around_ = previous.Around_;
+  if (!renderer.PublishesWorldCandidate(error)) {
+    candidate.reset();
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  HandOffRenderer(out);
+  out = std::move(candidate);
+  return true;
+}
+
 double Live::Framing() const {
   return Declared_.Fill > 0.0 ? Declared_.Fill : Render::kFramingFill;
 }
@@ -540,6 +576,19 @@ void Live::AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots) {
 void Live::RestorePieceSurfaces() {
   RegisteredSlots_.clear();
   for (const auto &source : RegisteredSurfaces_) { AppendPieceSurfaces(source.Slots); }
+}
+
+bool Live::RestoresPieceResources(const Live &previous, std::string &error) {
+  for (const PieceSurfaces &source : previous.RegisteredSurfaces_) {
+    if (!RegisterPieceSurfaces(source.Source.clone(), error)) { return false; }
+  }
+  Pieces_ = previous.Pieces_;
+  for (Piece &piece : Pieces_) {
+    if (!piece.Live) { continue; }
+    piece.Resident = Renderer_->PlacePiece(piece.Mesh(), error);
+    if (piece.Resident == Render::kNoPiece) { return false; }
+  }
+  return true;
 }
 
 std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::string &error) {

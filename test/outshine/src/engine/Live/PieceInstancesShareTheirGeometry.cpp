@@ -377,8 +377,8 @@ int main() {
         "registered before-rebuild PNG is written");
   (void)base.addSurface("extra native material one", Material{}).value();
   (void)base.addSurface("extra native material two", Material{}).value();
-  CHECK(scene->SetGeometry(base.clone(), 0, error),
-        "native material growth rebuilds around resident registered pieces");
+  CHECK(Core::Live::ReplacesGeometry(renderer, *scene, base.clone(), nullptr, scene, error),
+        "native material growth publishes around resident registered pieces");
   scene->Eye(eye);
   CHECK(scene->Draw(error), "registered instances draw after native material indices shift");
   renderer.WaitForGpu();

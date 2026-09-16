@@ -715,7 +715,12 @@ Result Engine::setGeometry(const Geometry &geometry) {
     S_->Error.clear();
     return {};
   }
-  if (!S_->Picture.Standing->SetGeometry(geometry.clone(), 0, S_->Error)) {
+  if (!Core::Live::ReplacesGeometry(S_->Picture.Device,
+                                    *S_->Picture.Standing,
+                                    geometry.clone(),
+                                    &S_->Picture.Face,
+                                    S_->Picture.Standing,
+                                    S_->Error)) {
     return std::unexpected(S_->Error);
   }
   S_->World.AudioOcclusion = std::move(*occlusion);
