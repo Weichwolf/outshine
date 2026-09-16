@@ -98,3 +98,18 @@ restauriert Sonnen- und Revisionstest grün. Air separat untersuchen.
 Lint grün; Wien-0376042e.png geöffnet: 1939/921600 Pixel geändert, Maximum 24/255,
 mittlerer RGB-Kanalfehler 0,002427/255. Terrain-Footprint-Abhängigkeit jetzt wirksam;
 keine allgemeine Bildqualitätsabnahme. Referenz: build/shots/reference/footprint-revision/.
+
+## Malcesine cold preload, 2026-09-16
+
+`outshine-client shots --preload-seconds 30 Malcesine` fetched all 128 terrain and
+49 primary OSM tiles in 0.4 s, then still timed out at 30 s with missing terrain,
+ingestion, classification and vegetation. The cache grew from 58.5 to 70.8 MB after
+the primary tiles were resident. Thus download arrival is not the current blocker.
+
+TilePool had a false progress metric: `Outstanding` included retained completed jobs,
+reporting roughly 1,100 "in flight" requests despite none pending. It now subtracts
+`Done_`; an independent carrier test proves a completed unconsumed reply counts zero.
+GroundPoolConfig now gives each compute worker one carrier, capped at six; the prior
+implicit two-carrier default was a real throughput constraint but did not clear this
+preload timeout. Next: isolate the post-arrival terrain-field/classification pipeline
+and split the first-frame residency contract from background LOD refinement.

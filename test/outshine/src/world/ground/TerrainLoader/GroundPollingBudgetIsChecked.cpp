@@ -18,6 +18,13 @@ int main() {
         "one eighth second yields 125 millisecond polls");
   const auto defaults = GroundPoolConfig({});
   CHECK(defaults && defaults->PollAttempts == 0, "zero preserves pool-default selection");
+  const auto workers = GroundPoolConfig({}, {.Workers = 4});
+  CHECK(workers && workers->Threads == 4 && workers->Carriers == 4,
+        "each configured compute worker receives a carrier within the transport cap");
+  const auto capped = GroundPoolConfig({}, {.Workers = 32});
+  CHECK(capped && capped->Threads == 32 && capped->Carriers == 6,
+        "carrier concurrency remains bounded when compute work is configured above the transport "
+        "cap");
   const double maximum = static_cast<double>(std::numeric_limits<int>::max()) / 1000.0;
   const auto boundary = GroundPoolConfig({}, {.PatienceS = maximum});
   CHECK(boundary && boundary->PollAttempts == std::numeric_limits<int>::max(),

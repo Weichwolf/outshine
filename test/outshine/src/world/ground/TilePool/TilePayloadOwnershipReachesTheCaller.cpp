@@ -62,5 +62,12 @@ int main() {
         "cached tile remains available");
   CHECK(cached.Bytes == std::vector<uint8_t>({1, 2, 3}) && probe->Calls == 1,
         "cache owns an independent snapshot and does not refetch");
+  TilePool::Landing asynchronous;
+  CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(1)), &asynchronous) ==
+            TilePool::Reply::Pending,
+        "a fresh request starts a carrier job");
+  CHECK(pool.AwaitLanding(1.0), "the carrier publishes the completed request");
+  CHECK(pool.Counters().Outstanding == 0,
+        "a completed result retained for its caller is not counted as outstanding work");
   return Report();
 }

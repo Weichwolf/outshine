@@ -144,7 +144,7 @@ TilePool::Ledger TilePool::Counters() const {
   out.Posts = Posts_;
   out.Repeats = Repeats_;
   out.QueueDepth = static_cast<long long>(Queue_.size());
-  out.Outstanding = static_cast<long long>(Posted_.size());
+  out.Outstanding = static_cast<long long>(Posted_.size() - Done_.size());
   out.Parked = static_cast<long long>(Awaiting_.size());
   out.ParkedJobs = 0;
   for (const auto &one : Awaiting_) { out.ParkedJobs += static_cast<long long>(one.second.size()); }

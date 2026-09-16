@@ -37,6 +37,8 @@ namespace {
 
 constexpr int kMaxTileThreads = 6;
 
+constexpr int kMaxTileCarriers = 6;
+
 constexpr size_t kByteBudget = size_t{64} * 1024 * 1024;
 
 constexpr size_t kPoolDecodedBytes = size_t{32} * 1024 * 1024;
@@ -411,6 +413,7 @@ std::expected<TilePool::Config, std::string_view> GroundPoolConfig(LongitudeLati
   config.OriginLatDeg = at.LatitudeDeg;
   config.OriginLonDeg = at.LongitudeDeg;
   config.Threads = DerivedThreads(how.Workers);
+  config.Carriers = std::min(config.Threads, kMaxTileCarriers);
   config.ByteBudget = kByteBudget;
   config.DecodedBytes = kPoolDecodedBytes;
   config.PollAttempts = *attempts;
