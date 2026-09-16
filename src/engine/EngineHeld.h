@@ -403,6 +403,7 @@ struct Engine::State {
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void Tells();
+  void TellResourcePayloads();
   void PublishAudioSnapshot();
   [[nodiscard]] bool IsAudioOccluded(const Vec3 &sourceM) const;
 };

@@ -143,12 +143,29 @@ bool Live::SetPieceInstances(std::span<const PieceRows> pieces, std::string &err
   return true;
 }
 
+size_t Live::PieceSourceBytes() const noexcept {
+  size_t bytes = 0;
+  for (const Piece &piece : Pieces_) {
+    bytes += piece.Tangents.capacity() * sizeof(float) +
+             piece.Vertices.capacity() * sizeof(StoredVertex) +
+             piece.Indices.capacity() * sizeof(uint32_t) +
+             piece.Clusters.capacity() * sizeof(DagCluster) +
+             piece.Colours.capacity() * sizeof(float) + piece.Rows.capacity() * sizeof(Mat4);
+  }
+  return bytes;
+}
+
+size_t Live::HeightPageSourceBytes() const noexcept {
+  size_t bytes = 0;
+  for (const HeightPage &page : HeightPages_) { bytes += page.Nodes.capacity() * sizeof(float); }
+  return bytes;
+}
+
 void Live::ReleasePiece(Render::PieceId which) {
   if (Renderer_ == nullptr || which >= Pieces_.size() || !Pieces_[which].Live) { return; }
   Piece &piece = Pieces_[which];
   Renderer_->ReleasePiece(piece.Resident);
-  piece.Resident = Render::kNoPiece;
-  piece.Live = false;
+  piece = Piece{};
 }
 
 Render::PageId Live::PlaceHeightPage(std::span<const float> nodes, std::string &error) {
@@ -168,8 +185,7 @@ void Live::ReleaseHeightPage(Render::PageId which) {
   if (Renderer_ == nullptr || which >= HeightPages_.size() || !HeightPages_[which].Live) { return; }
   HeightPage &page = HeightPages_[which];
   Renderer_->ReleaseHeightPage(page.Resident);
-  page.Resident = Render::kNoPage;
-  page.Live = false;
+  page = HeightPage{};
 }
 
 bool Live::SetGroundGrid(std::span<const float> fractions, std::string &error) {

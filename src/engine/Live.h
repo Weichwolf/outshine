@@ -176,6 +176,9 @@ public:
     return Renderer_ == nullptr ? 0u : Renderer_->PieceTriangles();
   }
 
+  [[nodiscard]] size_t PieceSourceBytes() const noexcept;
+  [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
+
   [[nodiscard]] uint32_t PieceBytesHeld() const {
     return Renderer_ == nullptr ? 0u : Renderer_->PieceBytesHeld();
   }

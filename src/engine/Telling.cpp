@@ -78,10 +78,21 @@ bool Engine::State::Stood() {
   return true;
 }
 
+void Engine::State::TellResourcePayloads() {
+  if (!Picture.Standing) { return; }
+  Published.Places("streamed piece CPU payload capacity",
+                   static_cast<double>(Picture.Standing->PieceSourceBytes()),
+                   "bytes");
+  Published.Places("height page CPU payload capacity",
+                   static_cast<double>(Picture.Standing->HeightPageSourceBytes()),
+                   "bytes");
+}
+
 void Engine::State::Tells() {
   static const Heap::Tag kTellingTag("frame-tells");
   const Heap::Tagged telling(kTellingTag);
   if (Heap::ProcessInstrumentationEnabled()) {
+    TellResourcePayloads();
     Published.Places(
         "process C++ heap live bytes", static_cast<double>(Heap::LiveBytes()), "bytes");
     for (size_t at = 0; at < Heap::TagCount(); ++at) {

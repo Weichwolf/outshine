@@ -56,12 +56,10 @@ Copy/prepare costs are explicit preparation work; no bounded-frame-time claim wi
 - Reject stale streaming results after a newer revision is current.
 - Camera/animation/native replacements retain placements and frame state.
 - Piece/crown behavior after replacement needs independent coverage beyond height ownership.
-- `Live::ReleasePiece` / `ReleaseHeightPage` currently retain released CPU payloads in append-only
-  handle tables; later candidates copy those dead payloads. Release them and bound/reuse handle
-  metadata without accepting stale handles; repeated streaming/retry must not grow retired storage.
-  First release owned vector payloads while retaining invalid handle records. Add piece/page CPU
-  payload capacity counters to existing optional diagnostics; test real placement, release, double
-  release, stale-handle rejection and candidate reconstruction. Metadata reuse remains separate.
+- `Live::ReleasePiece` / `ReleaseHeightPage` now discard owned CPU vector payloads. Optional
+  diagnostics expose retained piece/page payload capacity. Placement/release cycles, double
+  release, stale handles and candidate reconstruction pass; the old code fails seven checks.
+  Append-only handle metadata still grows: bound/reuse slots without accepting stale handles.
 - `Restands` and surface-only redeclaration remain separate mutation audits.
 - Public geometry/audio occlusion must publish together; no partial declaration replacement.
 
