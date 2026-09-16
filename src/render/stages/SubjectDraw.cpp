@@ -178,22 +178,18 @@ std::string FragmentShaderVariant(SurfaceDomain domain, SurfaceKind kind, Vertex
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
-  Device = gpu.Device;
-  Bound().StandsOn(gpu.Device);
-
-  Colours.clear();
-  for (const Resource colour : gpu.SceneColours) { Colours.push_back(colour); }
-  WritesVelocity = ColourAttachment(Resource::SceneVelocity) >= 0;
-  const bool writesVelocity = WritesVelocity;
-  const long normalIndex = ColourAttachment(Resource::SceneShadingNormal);
-  const long identityIndex = ColourAttachment(Resource::SceneSurfaceIdentity);
+  std::vector<Resource> colours(gpu.SceneColours.begin(), gpu.SceneColours.end());
+  const bool writesVelocity = ColourAttachment(colours, Resource::SceneVelocity) >= 0;
+  const long normalIndex = ColourAttachment(colours, Resource::SceneShadingNormal);
+  const long identityIndex = ColourAttachment(colours, Resource::SceneSurfaceIdentity);
 
   SourceOptions options;
   options.WritesVelocity = writesVelocity;
   options.NormalIndex = normalIndex;
   options.IdentityIndex = identityIndex;
 
-  Built = 0;
+  std::array<OwnedPipeline, kPipelines> pipelines;
+  uint32_t built = 0;
 
   const bool glass = Behind != nullptr;
   for (const SurfaceKind kind : {SurfaceKind::Opaque,
@@ -205,19 +201,48 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
       continue;
     }
 
-    if (!ConfigureKind(gpu, options, kind, error)) { return false; }
+    if (!ConfigureKind(gpu, options, colours, kind, pipelines, built, error)) { return false; }
   }
+
+  std::array<SDL_GPUColorTargetDescription, kMaxColourAttachments> targets = {{}};
+  targets[0].format = gpu.HdrFormat;
+  if (options.WritesVelocity) {
+    targets[ColourAttachment(colours, Resource::SceneVelocity)] = VelocityTarget(true);
+  }
+  if (options.NormalIndex >= 0) {
+    targets[options.NormalIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+  }
+  if (options.IdentityIndex >= 0) {
+    targets[options.IdentityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+  }
+  if (!glass && !Ground_.Configure(
+                    gpu.Device,
+                    options,
+                    std::span<const SDL_GPUColorTargetDescription>(targets.data(), colours.size()),
+                    error)) {
+    return false;
+  }
+
+  Bound().StandsOn(gpu.Device);
+  Device = gpu.Device;
+  Colours = std::move(colours);
+  WritesVelocity = writesVelocity;
+  Pipelines = std::move(pipelines);
+  Built = built;
   return true;
 }
 
-long SubjectDraw::ColourAttachment(Resource which) const {
-  const auto at = std::ranges::find(Colours, which);
-  return at == Colours.end() ? -1 : static_cast<long>(at - Colours.begin());
+long SubjectDraw::ColourAttachment(std::span<const Resource> colours, Resource which) {
+  const auto at = std::ranges::find(colours, which);
+  return at == colours.end() ? -1 : static_cast<long>(at - colours.begin());
 }
 
 bool SubjectDraw::ConfigureKind(const Gpu &gpu,
                                 const SourceOptions &options,
+                                std::span<const Resource> colours,
                                 SurfaceKind kind,
+                                std::array<OwnedPipeline, kPipelines> &pipelines,
+                                uint32_t &built,
                                 std::string &error) {
   const bool blends = kind == SurfaceKind::Blended;
   std::array<SDL_GPUColorTargetDescription, kMaxColourAttachments> targets = {{}};
@@ -225,7 +250,7 @@ bool SubjectDraw::ConfigureKind(const Gpu &gpu,
   if (blends) { targets[0].blend_state = OverBlend(); }
 
   if (options.WritesVelocity) {
-    targets[ColourAttachment(Resource::SceneVelocity)] = VelocityTarget(!blends);
+    targets[ColourAttachment(colours, Resource::SceneVelocity)] = VelocityTarget(!blends);
   }
 
   if (options.NormalIndex >= 0) {
@@ -235,15 +260,6 @@ bool SubjectDraw::ConfigureKind(const Gpu &gpu,
   if (options.IdentityIndex >= 0) {
     targets[options.IdentityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
   }
-  if (kind == SurfaceKind::Opaque && Behind == nullptr &&
-      !Ground_.Configure(
-          Device,
-          options,
-          std::span<const SDL_GPUColorTargetDescription>(targets.data(), Colours.size()),
-          error)) {
-    return false;
-  }
-
   for (const SurfaceDomain domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
     for (const VertexLayoutRow &row : kVertexLayouts) {
       if (!DomainPresents(domain, ShadingArmOf(row.Layout), CarriesUv(row.Layout), kind)) {
@@ -254,7 +270,10 @@ bool SubjectDraw::ConfigureKind(const Gpu &gpu,
               domain,
               row.Layout,
               options,
-              std::span<const SDL_GPUColorTargetDescription>(targets.data(), Colours.size()),
+              std::span<const SDL_GPUColorTargetDescription>(targets.data(), colours.size()),
+              gpu.Device,
+              pipelines,
+              built,
               error)) {
         return false;
       }
@@ -268,6 +287,9 @@ bool SubjectDraw::ConfigureVariant(SurfaceKind kind,
                                    VertexLayout layout,
                                    const SourceOptions &options,
                                    std::span<const SDL_GPUColorTargetDescription> targets,
+                                   SDL_GPUDevice *device,
+                                   std::array<OwnedPipeline, kPipelines> &pipelines,
+                                   uint32_t &built,
                                    std::string &error) {
   const VertexShape shape = ShapeOf(layout, options.WritesVelocity);
   const char *const entry = FragmentEntry(domain, kind, layout);
@@ -276,10 +298,10 @@ bool SubjectDraw::ConfigureVariant(SurfaceKind kind,
   const std::string fragmentPath =
       options.FragmentPath(FragmentShaderVariant(domain, kind, layout));
   const OwnedShader vertex(
-      Device, ShaderFrom(Device, vertexPath, SDL_GPU_SHADERSTAGE_VERTEX, bindings.Shape, error));
+      device, ShaderFrom(device, vertexPath, SDL_GPU_SHADERSTAGE_VERTEX, bindings.Shape, error));
   const OwnedShader fragment(
-      Device,
-      ShaderFrom(Device, fragmentPath, SDL_GPU_SHADERSTAGE_FRAGMENT, bindings.Shape, error));
+      device,
+      ShaderFrom(device, fragmentPath, SDL_GPU_SHADERSTAGE_FRAGMENT, bindings.Shape, error));
   if (!vertex || !fragment) { return false; }
   SDL_GPUGraphicsPipelineCreateInfo wanted{};
   wanted.vertex_shader = vertex.Get();
@@ -302,13 +324,13 @@ bool SubjectDraw::ConfigureVariant(SurfaceKind kind,
 
   for (const bool cullsBack : {false, true}) {
     wanted.rasterizer_state.cull_mode = cullsBack ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
-    SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(Device, &wanted);
+    SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(device, &wanted);
     if (made == nullptr) {
       error = std::string("the subject's pipeline was refused at ") + entry + ": " + SDL_GetError();
       return false;
     }
-    Pipelines[PipelineAt(domain, layout, kind, cullsBack)] = OwnedPipeline(Device, made);
-    ++Built;
+    pipelines[PipelineAt(domain, layout, kind, cullsBack)] = OwnedPipeline(device, made);
+    ++built;
   }
   return true;
 }

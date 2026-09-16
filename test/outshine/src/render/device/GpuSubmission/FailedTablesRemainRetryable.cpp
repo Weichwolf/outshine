@@ -11,7 +11,7 @@
 #include "Check.h"
 
 namespace {
-enum class Failure { None, Map, Acquire, Pass, Submit, Allocate };
+enum class Failure { None, Map, Acquire, Pass, Submit, Allocate, Pipeline };
 Failure nextFailure = Failure::None;
 unsigned skipFailures = 0;
 unsigned failures = 0;
@@ -77,6 +77,14 @@ extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *command
   static const auto original =
       Original<decltype(&SDL_SubmitGPUCommandBuffer)>("SDL_SubmitGPUCommandBuffer");
   return original(commands);
+}
+
+extern "C" SDL_GPUGraphicsPipeline *SDLCALL SDL_CreateGPUGraphicsPipeline(
+    SDL_GPUDevice *device, const SDL_GPUGraphicsPipelineCreateInfo *info) {
+  if (Reject(Failure::Pipeline)) { return nullptr; }
+  static const auto original =
+      Original<decltype(&SDL_CreateGPUGraphicsPipeline)>("SDL_CreateGPUGraphicsPipeline");
+  return original(device, info);
 }
 
 namespace {
@@ -369,6 +377,18 @@ void Tables(SDL_GPUDevice *device) {
   const bool configured = draw.Configure(gpu, error);
   CHECK(configured, error.c_str());
   if (!configured) { return; }
+  const uint32_t pipelines = draw.PipelineCount();
+  nextFailure = Failure::Pipeline;
+  error.clear();
+  CHECK(!draw.Configure(gpu, error), "a refused subject pipeline rejects reconfiguration");
+  CHECK(error.find("injected") != std::string::npos,
+        "a refused subject pipeline retains its SDL diagnostic");
+  CHECK(draw.PipelineCount() == pipelines,
+        "a refused subject pipeline preserves the previously published pipeline set");
+  nextFailure = Failure::None;
+  CHECK(draw.Configure(gpu, error), "subject pipelines configure again after a refusal");
+  CHECK(draw.PipelineCount() == pipelines,
+        "successful retry publishes the complete subject pipeline set");
   const std::array<SubjectMaterial, 1> materials{};
   const bool materialReady = draw.SetMaterials(materials, error);
   CHECK(materialReady, error.c_str());

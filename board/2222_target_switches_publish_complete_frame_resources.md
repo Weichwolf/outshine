@@ -28,6 +28,11 @@ Atlas/Quads) mit Pipelines. Vor `FrameResources` beide in dauerhaften Inhalt und
 verschiebbare, formatgebundene Bindungen schneiden. GroundStorage bleibt dauerhaft;
 alle Frame-Texturen, Sampler, Pyramide, temporalen Ziele und Stages wandern gemeinsam.
 
+`SubjectDraw` baut seine Subject-Pipelines bereits als lokalen Kandidaten; Mesh-, Material-
+und Instanzresidenz bleiben stehen. `GroundLattice` besitzt dagegen noch Seiten, Grid, Instanzen
+und Lit-/Depth-Pipelines zusammen. Diese Pipelinebindungen müssen vor dem finalen Tausch aus
+dem dauerhaften Lattice-Inhalt herausgelöst werden.
+
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,
 tauscht Ressourcen, Target und Dimension gemeinsam und gibt alte Fensterclaims

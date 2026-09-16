@@ -174,17 +174,28 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
+  static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
+  static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
+
   void PushFrameUniforms(const FrameContext &ctx, const PassRecording &into);
   void BindVertexStreams(const PassRecording &into, VertexLayout layout) const;
-  [[nodiscard]] long ColourAttachment(Resource which) const;
-  [[nodiscard]] bool
-  ConfigureKind(const Gpu &gpu, const SourceOptions &options, SurfaceKind kind, std::string &error);
-  [[nodiscard]] bool ConfigureVariant(SurfaceKind kind,
-                                      SurfaceDomain domain,
-                                      VertexLayout layout,
-                                      const SourceOptions &options,
-                                      std::span<const SDL_GPUColorTargetDescription> targets,
-                                      std::string &error);
+  [[nodiscard]] static long ColourAttachment(std::span<const Resource> colours, Resource which);
+  [[nodiscard]] static bool ConfigureKind(const Gpu &gpu,
+                                          const SourceOptions &options,
+                                          std::span<const Resource> colours,
+                                          SurfaceKind kind,
+                                          std::array<OwnedPipeline, kPipelines> &pipelines,
+                                          uint32_t &built,
+                                          std::string &error);
+  [[nodiscard]] static bool ConfigureVariant(SurfaceKind kind,
+                                             SurfaceDomain domain,
+                                             VertexLayout layout,
+                                             const SourceOptions &options,
+                                             std::span<const SDL_GPUColorTargetDescription> targets,
+                                             SDL_GPUDevice *device,
+                                             std::array<OwnedPipeline, kPipelines> &pipelines,
+                                             uint32_t &built,
+                                             std::string &error);
 
   [[nodiscard]] bool
   ValidateBatch(const SubjectMesh &mesh, const DrawBatch &batch, std::string &error) const;
@@ -308,9 +319,6 @@ private:
 
   [[nodiscard]] static size_t
   PipelineAt(SurfaceDomain domain, VertexLayout layout, SurfaceKind kind, bool cullsBack);
-
-  static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
-  static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
 
   SDL_GPUDevice *Device = nullptr;
   std::array<OwnedPipeline, kPipelines> Pipelines;
