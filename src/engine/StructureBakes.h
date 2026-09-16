@@ -59,6 +59,8 @@ public:
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
 
+  [[nodiscard]] bool Complete(const Ground::GroundStack &stack) const;
+
   [[nodiscard]] size_t Posted() const { return Posted_; }
 
   [[nodiscard]] size_t Landed() const { return Landed_; }

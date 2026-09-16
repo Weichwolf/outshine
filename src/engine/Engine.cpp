@@ -196,23 +196,23 @@ WorldReadiness Engine::State::Readiness() const {
   const uint64_t version = classes ? classes->Version() : 0;
   const auto *vectors = World.Stack.Vectors();
   const auto &ground = World.GroundPublished.Current();
-  return {
-      {World.AskedWanted > 0 ? "" : Says::kNoTerrainRequests,
-       World.AskedPending == 0 ? "" : Says::kPendingTerrain,
-       World.Bare == 0 ? "" : Says::kMissingTerrain,
-       World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
-       World.Grown ? "" : Says::kPendingSnapshot,
-       ground && World.Stack.Ingested() && ground->Footprints == World.Stack.Footprints().Revision()
-           ? ""
-           : Says::kPendingIngestion,
-       ground && World.Stack.Classes().Complete() && ground->Classes == version
-           ? ""
-           : Says::kPendingClassification,
-       vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
-       !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
-               (World.Crowns && World.Crowns->Ready())
-           ? ""
-           : Says::kPendingVegetation}};
+  return {{World.AskedWanted > 0 ? "" : Says::kNoTerrainRequests,
+           World.AskedPending == 0 ? "" : Says::kPendingTerrain,
+           World.Bare == 0 ? "" : Says::kMissingTerrain,
+           World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
+           World.Grown ? "" : Says::kPendingSnapshot,
+           ground && World.Stack.Ingested() && World.Bakes.Complete(World.Stack) &&
+                   ground->Footprints == World.Stack.Footprints().Revision()
+               ? ""
+               : Says::kPendingIngestion,
+           ground && World.Stack.Classes().Complete() && ground->Classes == version
+               ? ""
+               : Says::kPendingClassification,
+           vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
+           !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
+                   (World.Crowns && World.Crowns->Ready())
+               ? ""
+               : Says::kPendingVegetation}};
 }
 
 bool Engine::settled() const {
@@ -399,7 +399,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     if (S_->CanFinishPreload()) {
       if (!S_->Grounds(true)) { return std::unexpected(S_->Error); }
       if (!S_->UpdateCrowns(true)) { return std::unexpected(S_->Error); }
-      if (settled()) { return Result{}; }
+      if (S_->World.Bakes.Complete(S_->World.Stack) && settled()) { return Result{}; }
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       return S_->PreloadTimeout(bound);

@@ -171,8 +171,7 @@ void GroundStack::Settle() {
 
 bool GroundStack::Drained() const {
   if (!Vegetated_ || !Vectors_) { return true; }
-  return Ways_.Ingested(*Vectors_) && WaterBodies_.Ingested(*Vectors_) &&
-         Footprints_.Ingested(*Vectors_);
+  return Ways_.Ingested(*Vectors_) && WaterBodies_.Ingested(*Vectors_);
 }
 
 bool GroundStack::Ingested() const {

@@ -127,6 +127,11 @@ StructureBakes::~StructureBakes() {
   Clear();
 }
 
+bool StructureBakes::Complete(const Ground::GroundStack &stack) const {
+  const Ground::OsmField *const vectors = stack.Vectors();
+  return vectors == nullptr || (Queue_.empty() && stack.Footprints().Ingested(*vectors));
+}
+
 std::unique_ptr<MeshScratch> StructureBakes::LentScratch() {
   if (IdleScratch_.empty()) { return Mesher_->Scratch(); }
   std::unique_ptr<MeshScratch> one = std::move(IdleScratch_.back());

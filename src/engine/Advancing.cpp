@@ -227,8 +227,11 @@ void Engine::State::HandsPiecesOver() {
 }
 
 bool Engine::State::Bakes(size_t landsMost) {
-  if (!World.GroundPublished.Current()) { return true; }
   if (!World.Stack.Opened()) { return true; }
+  if (!World.GroundPublished.Current()) {
+    (void)World.Bakes.Posts(World.Stack);
+    return true;
+  }
   auto ready = World.Bakes.NextLandings(World.Stack, landsMost);
   if (!ready) {
     Error = Generators::Describe(ready.error());

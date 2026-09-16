@@ -102,7 +102,6 @@ mittlerer RGB-Kanalfehler 0,002427/255. Terrain-Footprint-Abhängigkeit jetzt wi
 keine allgemeine Bildqualitätsabnahme. Referenz: build/shots/reference/footprint-revision/.
 
 ## Malcesine post-arrival bottleneck, 2026-09-16
-
 All 128 DEM and 49 primary OSM tiles arrive in 0.4–0.5 s. Vegetation remains disabled, yet
 preload times out after 15 s with ingestion and classification pending. Download is not the blocker.
 
@@ -114,6 +113,8 @@ the classification cause.
 When a vector window has settled while `ClassBuilder` rasterizes, `preload` must not poll it.
 `AwaitProgress` waits either for a carrier landing or that worker's completion, capped by the
 existing preload wait. The worker wake and collect contract has a focused ClassBuilder test.
-The focused Place run remains unprepared after 15 s. A five-second process sample found all
-classification and tile workers idle while the main thread awaited a TilePool landing. Next inspect
-the outstanding/requested state and ground-publication revision; do not alter carriers or timeouts.
+Cause: ground ingestion required accepted structure bakes, while bakes waited for a published ground
+world.
+Structure scheduling is now allowed before the initial ground candidate; road/water ingestion gates
+that candidate, while `StructureBakes::Complete` gates final readiness and the footprint-revision
+rebuild. The focused Place control must prove the cycle is gone before changing carriers or timeouts.
