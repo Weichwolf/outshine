@@ -284,8 +284,50 @@ PrepareHeadlessDeclaration(const Scenario::Document &scenario,
   return prepared;
 }
 
+struct PreparedRuntimeDeclaration {
+  HeadlessDeclaration Headless;
+  std::unique_ptr<Core::Live> Targeted;
+};
+
+[[nodiscard]] std::expected<PreparedRuntimeDeclaration, std::string>
+PrepareRuntimeDeclaration(const Scenario::Document &scenario,
+                          const Generators::Registry &registry,
+                          const GroundQuery &ground,
+                          std::span<const float> groundPositionsM,
+                          std::span<const uint32_t> groundIndex,
+                          Seen &picture,
+                          const Core::Declaration &declared) {
+  auto headless =
+      PrepareHeadlessDeclaration(scenario, registry, ground, groundPositionsM, groundIndex);
+  if (!headless) { return std::unexpected(std::move(headless.error())); }
+  PreparedRuntimeDeclaration prepared{.Headless = std::move(*headless), .Targeted = {}};
+  std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
+  if (picture.Standing) { wasScrolled = picture.Standing->Scrolled(); }
+  if (!picture.Targeted) { return prepared; }
+  std::string error;
+  if (!PrepareTargetedDeclaration(picture.Device,
+                                  declared,
+                                  &picture.Face,
+                                  prepared.Headless,
+                                  wasScrolled,
+                                  prepared.Targeted,
+                                  error)) {
+    return std::unexpected(std::move(error));
+  }
+  return prepared;
+}
+
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b);
 [[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b);
+
+void PublishConfiguration(Kept &session,
+                          std::optional<ViewBook> &views,
+                          InputMap &bindings) noexcept {
+  static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
+  session.Views = std::move(views);
+  static_assert(std::is_nothrow_move_assignable_v<InputMap>);
+  session.Bound = std::move(bindings);
+}
 
 [[nodiscard]] std::optional<Result> ReuseDeclaration(const Scenario::Document &scenario,
                                                      Core::Declaration &declared,
@@ -315,10 +357,7 @@ PrepareHeadlessDeclaration(const Scenario::Document &scenario,
   session.Sounding.reset();
   session.Carried = Unacted(scenario);
   error.clear();
-  static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
-  session.Views = std::move(views);
-  static_assert(std::is_nothrow_move_assignable_v<InputMap>);
-  session.Bound = std::move(bindings);
+  PublishConfiguration(session, views, bindings);
   return Result{};
 }
 
@@ -571,35 +610,15 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::move(*reused);
   }
 
-  const auto publishConfiguration = [&] noexcept {
-    static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
-    S_->Session.Views = std::move(*views);
-    static_assert(std::is_nothrow_move_assignable_v<InputMap>);
-    S_->Session.Bound = std::move(bindings);
-  };
-
-  HeadlessDeclaration headless;
-  auto prepared = PrepareHeadlessDeclaration(scenario,
-                                             S_->World.Offering,
-                                             S_->World.Stack.Ground(),
-                                             S_->World.GroundPositionsM,
-                                             S_->World.GroundIndex);
+  auto prepared = PrepareRuntimeDeclaration(scenario,
+                                            S_->World.Offering,
+                                            S_->World.Stack.Ground(),
+                                            S_->World.GroundPositionsM,
+                                            S_->World.GroundIndex,
+                                            S_->Picture,
+                                            declared);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
-    return std::unexpected(S_->Error);
-  }
-  headless = std::move(*prepared);
-
-  std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
-  if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
-  std::unique_ptr<Core::Live> candidate;
-  if (S_->Picture.Targeted && !PrepareTargetedDeclaration(S_->Picture.Device,
-                                                          declared,
-                                                          &S_->Picture.Face,
-                                                          headless,
-                                                          wasScrolled,
-                                                          candidate,
-                                                          S_->Error)) {
     return std::unexpected(S_->Error);
   }
   S_->World.Bakes.Clear();
@@ -614,8 +633,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.Grown = false;
   S_->Picture.Shown = std::move(declared);
   if (!S_->Picture.Targeted) {
-    S_->Picture.PendingGeometry = std::move(headless.Geometry);
-    S_->Picture.PendingAudioOcclusion = std::move(headless.Occlusion);
+    S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);
+    S_->Picture.PendingAudioOcclusion = std::move(prepared->Headless.Occlusion);
     S_->Session.Declared = scenario;
     ++S_->Session.DeclarationRevision;
     S_->Session.AudioBodies.clear();
@@ -623,11 +642,11 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    publishConfiguration();
+    PublishConfiguration(S_->Session, *views, bindings);
     return {};
   }
   Core::Live::HandOffRenderer(S_->Picture.Standing);
-  S_->Picture.Standing = std::move(candidate);
+  S_->Picture.Standing = std::move(prepared->Targeted);
   S_->Session.Declared = scenario;
   ++S_->Session.DeclarationRevision;
   S_->Session.AudioBodies.clear();
@@ -635,8 +654,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
-  S_->World.AudioOcclusion = headless.Occlusion ? std::move(*headless.Occlusion) : TriangleBvh{};
-  publishConfiguration();
+  S_->World.AudioOcclusion =
+      prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
+  PublishConfiguration(S_->Session, *views, bindings);
   return {};
 }
 

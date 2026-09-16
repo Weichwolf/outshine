@@ -34,7 +34,6 @@ und Grenzwerte erhalten. Unicode-Surrogatersatz separat behandeln.
 Referenz: https://www.rfc-editor.org/rfc/rfc8259.html
 
 ## PNG-Höhendaten
-
 ReadPng mischt Container, Header, Inflation und Zeilenfilter (Komplexität 42).
 CRC, Kompressions-/Filtermethode und Abschluss werden bisher nicht geprüft.
 Containerprüfung und Filterrekonstruktion fachlich trennen; beschädigte Chunks,
@@ -72,7 +71,7 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 
 ## Abnahme
 
-- [x] make lint meldet null Tidy-Befunde: 189/189 Einheiten, 0 Befunde (2026-09-15).
+- [x] make lint meldet null Tidy-Befunde: 189/189 Einheiten, 0 Befunde (2026-09-16).
       Analysefehler gelten weiterhin nicht als null.
 - [ ] Öffentliche API-Verträge gegen 2188 vollständig geprüft. Doxygen: 24/24 Header,
       0 Diagnosen (2026-09-16); dies beweist Dokumentationsabdeckung, nicht Vertragsrichtigkeit.

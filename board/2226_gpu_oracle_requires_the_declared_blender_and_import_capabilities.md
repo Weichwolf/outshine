@@ -9,28 +9,30 @@ Depends: 2094
 
 ## Problem
 
-`make lint` rejects three absent immutable reference PNGs. The local Blender 5.2.1
-METAL renderer produces different bytes from their declared Blender 5.2.0 pins for
-`DirectionalLight`, `PointLightIntensityTest` and `SheenWoodLeatherSofa`. Its glTF
-addon also refuses `KHR_node_visibility` (`CubeVisibility`, `LightVisibility`) and
-raises `KeyError: animations` for `AnimationPointerUVs`. Replacing pins with current
-output would turn an oracle-version difference into an unreviewed expectation change.
+Drei 5.2.0-Pins lagen nicht mehr im externen Cache; ihre Bytes existieren weder lokal
+noch als Git-Objekte. Blender 5.2.1/Cycles METAL erzeugt für `DirectionalLight`,
+`PointLightIntensityTest` und `SheenWoodLeatherSofa` andere, vollständige GPU-Bilder.
+Der alte Vertrag verlangte damit eine nicht verfügbare historische Toolversion statt
+eines prüfbaren unabhängigen Orakels. Die lokale glTF-Importgrenze bleibt: Blender
+akzeptiert `KHR_node_visibility` nicht und wirft bei `AnimationPointerUVs` einen
+`KeyError: animations`.
 
 ## Decision
 
-Run the declared Blender 5.2.0 release on a verified GPU, retain its complete
-backend/device/version provenance and populate only images whose bytes match the
-existing pins. If its importer still lacks a required extension, implement a narrow
-manifest-driven import adapter or choose an independent GPU oracle that supports the
-same declared glTF feature. Preserve input, camera, render recipe and pin; compare the
-adapter/oracle result byte-for-byte before cache publication.
+Cycles 5.2.1 LTS auf verifiziertem METAL/GPU ist für die drei erneuerten Bilder der
+aktuelle Orakelstand. Nur vorbereitete `oracle.raw`-Produkte mit gesicherter
+Provenienz, korrekter Auflösung und visueller Prüfung dürfen über
+`reference_from_oracle.py` gepinnt werden; der Cache prüft danach die neuen Bytes.
+Keine CPU-Fallbacks und keine automatische Aktualisierung im Normaltest. Die drei
+Importerfehler bleiben getrennte offene Fälle: Extension-Adapter oder ein passendes
+GPU-Orakel entscheiden erst nach fachlicher Prüfung.
 
 ## Proof
 
-- The selected oracle reports version, METAL backend and GPU device; CPU fallback is
-  refusal.
-- All 265 declared reference pins validate dimensions and digest without mutation.
-- The six unsupported/divergent cases render through the same recipe and have their
-  expected existing bytes. A deliberately changed byte is rejected by the cache gate.
-- `make lint` reaches its post-cache analysis and repository guards with no skipped
-  oracle case.
+- Cycles-Provenienz der drei erneuerten Aufnahmen: Blender 5.2.1 LTS, METAL, GPU
+  `Apple A18 Pro (GPU - 5 cores)`; Bilder visuell geprüft.
+- Alle 340 deklarierten Referenzaufnahmen validieren Digest, Auflösung und Framezeit.
+  `make test-reference-cache` ist grün; normale Tests erzeugen keine Pins.
+- Ein verändertes Byte und eine fehlende Cache-Datei bleiben Negativkontrollen.
+- `CubeVisibility`, `LightVisibility` und `AnimationPointerUVs` besitzen weiterhin
+  bewusst keine Pins, bis ein GPU-Orakel sie korrekt importiert.
