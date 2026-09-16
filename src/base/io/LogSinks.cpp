@@ -21,7 +21,7 @@ const char *LevelStr(LogLevel l) {
 void TextLogSink::Write(double simTimeS,
                         LogLevel level,
                         Saying who,
-                        std::span<const LogField> fields) {
+                        std::span<const LogField> fields) noexcept {
   const char *const unit = who.Unit;
   const char *const tag = nameOf(who.Tag);
   const char *const event = who.Event;

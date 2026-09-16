@@ -8,7 +8,10 @@ namespace {
 
 class RecordingSink final : public outshine::LogSink {
 public:
-  void Write(double, outshine::LogLevel, Saying who, std::span<const outshine::LogField>) override {
+  void Write(double,
+             outshine::LogLevel,
+             Saying who,
+             std::span<const outshine::LogField>) noexcept override {
     Events.emplace_back(who.Event == nullptr ? "" : who.Event);
   }
 

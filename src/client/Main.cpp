@@ -32,21 +32,25 @@ public:
   void Write(double simTimeS,
              outshine::LogLevel level,
              Saying who,
-             std::span<const outshine::LogField> fields) override {
+             std::span<const outshine::LogField> fields) noexcept override {
     if (level == outshine::LogLevel::Debug && !Loud) { return; }
-    std::print("t={:.1f} {:<5} {:<8} {:<7} {}",
-               simTimeS,
-               Name(level),
-               who.Unit != nullptr ? who.Unit : "",
-               outshine::nameOf(who.Tag),
-               who.Event);
-    for (const outshine::LogField &one : fields) { std::print(" {}={}", one.Key, one.Value); }
-    std::println("");
+    try {
+      std::print("t={:.1f} {:<5} {:<8} {:<7} {}",
+                 simTimeS,
+                 Name(level),
+                 who.Unit != nullptr ? who.Unit : "",
+                 outshine::nameOf(who.Tag),
+                 who.Event);
+      for (const outshine::LogField &one : fields) { std::print(" {}={}", one.Key, one.Value); }
+      std::println("");
+    } catch (...) { ReportFailure(); }
   }
 
   bool Loud = false;
 
 private:
+  static void ReportFailure() noexcept { std::fputs("outshine-client: log sink failed\n", stderr); }
+
   static const char *Name(outshine::LogLevel level) {
     switch (level) {
       case outshine::LogLevel::Debug: return "DEBUG";

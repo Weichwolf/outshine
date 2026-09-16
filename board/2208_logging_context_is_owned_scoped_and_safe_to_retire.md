@@ -12,9 +12,9 @@ Depends:
 Log.cpp hält den Prozess-Level und einen geliehenen thread_local Sink-Zeiger. Jede Engine besitzt
 ihren `Diagnostics`-Zeiger; ihr Scope setzt und restauriert den Thread-Sink für den jeweiligen
 Aufruf. Unit-Labels liegen in einem eigenen thread_local 32-Byte-Puffer. GroundStack übergibt
-den Sink ausdrücklich an TilePool-Worker. `Logging.h` verlangt quieszente Registrierung und eine
-ausreichende Sink-Lebensdauer; gleichzeitiges Austauschen wird nicht als nachgewiesener Race
-ausgegeben.
+den Sink ausdrücklich an TilePool-Worker. `LogSink::Write` ist `noexcept`; `Logging.h` verlangt
+quieszente Registrierung und ausreichende Sink-Lebensdauer. Gleichzeitiges Austauschen ist kein
+nachgewiesener Race-freier Vertrag.
 
 ## Entscheidung
 

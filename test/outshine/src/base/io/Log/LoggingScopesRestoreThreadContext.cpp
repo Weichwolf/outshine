@@ -4,6 +4,7 @@
 #include <string_view>
 #include <thread>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -12,7 +13,7 @@ using namespace outshine;
 struct RecordingSink final : LogSink {
   std::vector<std::string> Units;
 
-  void Write(double, LogLevel, Saying who, std::span<const LogField>) override {
+  void Write(double, LogLevel, Saying who, std::span<const LogField>) noexcept override {
     Units.emplace_back(who.Unit != nullptr ? who.Unit : "");
   }
 };
@@ -33,6 +34,7 @@ int main() {
   using namespace outshine::Test;
   static_assert(!std::is_copy_constructible_v<LogUnitScope>);
   static_assert(!std::is_move_constructible_v<LogUnitScope>);
+  static_assert(noexcept(std::declval<LogSink &>().Write(0.0, LogLevel::Info, {}, {})));
   static_assert(!std::is_copy_constructible_v<LogThreadSinkScope>);
   static_assert(!std::is_move_constructible_v<LogThreadSinkScope>);
   RecordingSink fallback, outer, inner;

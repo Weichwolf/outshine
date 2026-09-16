@@ -95,7 +95,7 @@ public:
   /// @param who Borrowed identity; copy the strings before retaining it beyond this call.
   /// @param fields Borrowed fields; retaining them requires copying values and key strings.
   virtual void
-  Write(double simTimeS, LogLevel level, Saying who, std::span<const LogField> fields) = 0;
+  Write(double simTimeS, LogLevel level, Saying who, std::span<const LogField> fields) noexcept = 0;
 };
 
 }
