@@ -67,7 +67,7 @@ struct Roots {
   std::string Shipped; ///< Base directory for shipped fonts, sky and generator data.
   std::string Cache;   ///< Tile/provider cache directory; backend policies govern persistence.
   bool Offline =
-      false; ///< Reject creation of the engine's fetching service; not a process-wide network ban.
+      false; ///< Prohibit network requests; providers may still serve local files and cache hits.
 };
 
 class Engine;

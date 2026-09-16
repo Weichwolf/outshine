@@ -39,8 +39,10 @@ Source-Version/Pin muss Cache-Identität und Replay tatsächlich bestimmen.
 Provider gelangen aus der Szenariodeklaration in die Source-Registry; eine leere Liste
 verwendet explizit die ausgelieferten Defaults. Pin ist Teil der Cache-Identität, Rank
 ordnet gleichartige Quellen und `whenAbsent` ist vor IO entweder `hand over` oder `fail`.
-XML-Escaping und int-Ranggrenzen sind unabhängig geprüft. Nicht ausgeführte
-Compositor-Metadaten wurden aus Szenario, Layer-Merge, Writer und Engine entfernt.
+Offline installiert einen Transport ohne Netzaufrufe: Cache-Treffer bleiben möglich,
+Misses verweigern ohne Retry. XML-Escaping und int-Ranggrenzen sind unabhängig geprüft.
+Nicht ausgeführte Compositor-Metadaten wurden aus Szenario, Layer-Merge, Writer und
+Engine entfernt.
 
 ## Rang-Import
 Provider::Rank wird direkt als vollständiger dezimaler int-Token geparst; optionales

@@ -1,4 +1,6 @@
 #include "SourceSet.h"
+#include "OfflineTransport.h"
+#include "TerrariumDem.h"
 #include "Check.h"
 #include <memory>
 #include <array>
@@ -125,7 +127,7 @@ int main() {
     if (!std::filesystem::is_directory(directory)) { return Report(); }
     ContentStore cache({.Directory = directory});
     SourceSet sources(cache);
-    ProbeTransport transport;
+    OfflineTransport transport;
     auto source = std::make_unique<ProbeSource>();
     source->Decl.Keeps = Cacheability::Forever;
     const auto *probe = source.get();
@@ -138,11 +140,22 @@ int main() {
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Delivered,
           "cache satisfies query");
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed &&
-              probe->Calls == 0 && transport.Begins == 0 && sources.Counters().FromStore == 1,
+              probe->Calls == 0 && sources.Counters().FromStore == 1,
           "cached completion cannot enter the source afterward");
     std::error_code error;
     std::filesystem::remove_all(directory, error);
     CHECK(!error, "cache directory removed");
+  }
+  {
+    ContentStore cache({.Using = ContentStore::Use::Off});
+    SourceSet sources(cache);
+    OfflineTransport transport;
+    CHECK(sources.Add(std::make_unique<TerrariumDem>("", Rank{0}, AbsencePolicy::HandOver)) ==
+              SourceSet::Registration::Accepted,
+          "offline terrain source registers");
+    auto query = sources.Ask(Fetch(DataKind::Elevation, Address::At({.Zoom = 0, .X = 0, .Y = 0})));
+    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Refused,
+          "offline cache miss refuses without a network retry");
   }
   return Report();
 }

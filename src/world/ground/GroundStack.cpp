@@ -44,7 +44,7 @@ bool GroundStack::Open(const Roots &under,
   const bool registered =
       outshine::Data::RegisterDeclared(sources, providers, under.Shipped + "/sky", refused);
   if (!registered) {
-    say.Say(Line("REFUSED %s", refused.c_str()));
+    say.Refuse(refused);
     Close();
     return false;
   }

@@ -30,11 +30,12 @@ int main() {
       world.Ground.VegetationEnabled = false;
       world.Ground.Origin.LatitudeDeg = 47;
       world.Ground.Origin.LongitudeDeg = 8;
+      world.Providers.push_back({.Kind = "unavailable"});
       CHECK(engine.declare(world).has_value(), "ground declaration accepted before assembly");
       const auto built = engine.assemble();
-      CHECK(!built, "offline ground fails independently of entity capacity");
-      CHECK(!built && built.error().find("offline") != std::string::npos,
-            "world setup failure reaches the caller");
+      CHECK(!built, "invalid world source fails independently of entity capacity");
+      CHECK(!built && built.error().find("unavailable") != std::string::npos,
+            "world source failure reaches the caller");
       CHECK(&engine.entities() == previous, "failed world setup preserves simulation ownership");
       if (&engine.entities() != previous) { return Report(); }
       CHECK(previous->alive(*marker), "previous simulation remains usable");

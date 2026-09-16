@@ -34,6 +34,7 @@
 
 #include "EngineHeld.h"
 #include "GroundMesher.h"
+#include "OfflineTransport.h"
 #include "WorldInstanceSink.h"
 
 namespace outshine {
@@ -236,10 +237,10 @@ bool Engine::State::Composes() {
   const double atLon = declared.Ground.Origin.LongitudeDeg;
   if (!World.Wire) {
     if (Session.Under.Offline) {
-      Error = "the ground is FETCHED and the engine was declared offline";
-      return false;
+      World.Wire = std::make_unique<Data::OfflineTransport>();
+    } else {
+      World.Wire = std::make_unique<Fetching>(Fetching::Config{});
     }
-    World.Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
 
   const std::span<const Scenario::Provider> providers =
