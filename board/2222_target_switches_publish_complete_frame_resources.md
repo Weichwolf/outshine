@@ -56,7 +56,8 @@ Ressourcenproblem nicht.
       (56 Checks). Dies beweist noch keine dimensionierten internen Attachments.
 - [x] Offscreen 32x32 → 48x32 baut sämtliche Attachments, Readbacks und Stages
       kandidatenseitig neu und rendert sie nach Veröffentlichung vollständig (56 Checks).
-- [ ] Fensterformat- und Extentwechsel ersetzen dieselben Ressourcen gemeinsam.
+- [x] Fensterformat- und Extentwechsel ersetzen dieselben Ressourcen gemeinsam;
+      das neue Fenster öffnet und präsentiert anschließend einen vollständigen Frame (59 Checks).
 - [ ] Injektionen für Claim, jede Attachment-/Pyramid-/Pipeline-Erzeugung und
       Stage-Konfiguration erhalten alte Pixel, Claim und Renderbarkeit.
 - [ ] Erfolgreicher Wechsel gibt den alten Claim nach Veröffentlichung frei; kein
