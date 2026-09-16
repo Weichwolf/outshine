@@ -32,11 +32,15 @@ in provenance. Do not alter manifests, loosen the check or silently render on CP
   `Advancing.cpp` was repaired in `4c6ac6a99` and the complete run repeated.
 - Documentation: 24/24 public headers, 0 diagnostics (2026-09-16). This proves
   coverage, not the API contract audit in 2188/2093.
-- `make lint` is red at `test-reference-cache`: the local cache contains 6 of the
-  declared 265 distinct image pins; 259 are missing. The first uncovered pin is
-  `68c1bce3…`. Pin `8077bf23…` and pin `39fa55fa…` were independently recreated from
-  the local Khronos asset-generator clone with Cycles METAL on Apple A18 Pro GPU and
-  matched their declared bytes exactly.
+- The local cache has 262 of 265 distinct image pins. 176 Khronos cases completed on
+  Cycles METAL, Apple A18 Pro GPU; all matching PNGs were pinned only after byte
+  comparison. Three pins remain red: `DirectionalLight` (`6ebf0b58…`),
+  `PointLightIntensityTest` (`d13fd52c…`) and `SheenWoodLeatherSofa`
+  (`8ffee8b9…`). Blender 5.2.1 generates different bytes from their declared 5.2.0
+  references, so none was replaced. `CubeVisibility` and `LightVisibility` cannot
+  import because the local Blender addon lacks `KHR_node_visibility`; its
+  `AnimationPointerUVs` importer raises `KeyError: animations`. Those failures did
+  not alter pins and must remain explicit oracle incompatibilities.
 - The gates before the cache check pass: formatter, comment scanner, compile graph,
   tidy-runner fixtures and documentation/reference-store fixture suites.
 
@@ -51,7 +55,9 @@ in provenance. Do not alter manifests, loosen the check or silently render on CP
 
 ## Remaining work
 
-1. Supply the complete external reference cache from reproducible GPU provenance.
+1. Obtain the declared Blender 5.2.0 GPU oracle or diagnose the three render-byte
+   differences without repinning. Repair or explicitly replace only the unsupported
+   Blender importer path for the three rejected cases.
 2. Resolve the separate `make test` failures in their owning WIs; neither gate may
    hide a failure by changing bounds, inputs or assertions.
 3. Complete the API-contract and shader-artifact audits required by 2188/2093/2152.
