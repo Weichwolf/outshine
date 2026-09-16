@@ -407,7 +407,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
     if (!S_->World.Stack.Opened()) { continue; }
-    (void)S_->World.Stack.Pool().AwaitLanding(leftS < kMostWaitS ? leftS : kMostWaitS);
+    (void)S_->World.Stack.AwaitProgress(leftS < kMostWaitS ? leftS : kMostWaitS);
   }
 }
 

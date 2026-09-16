@@ -76,6 +76,10 @@ public:
 
   [[nodiscard]] bool Complete() const;
 
+  [[nodiscard]] bool Building() const { return Submitted_.has_value(); }
+
+  [[nodiscard]] bool AwaitBuild(double seconds) { return Builder_.AwaitCompletion(seconds); }
+
   int PendingTiles() const {
     return Fine_.Field ? Fine_.Field->PendingTiles() + Coarse_.Field->PendingTiles() : -1;
   }

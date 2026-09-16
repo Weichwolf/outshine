@@ -102,6 +102,8 @@ public:
   [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at,
                                                               size_t ingestTilesMost);
 
+  [[nodiscard]] bool AwaitProgress(double seconds);
+
   [[nodiscard]] bool StandsAt(LongitudeLatitude at) const { return Stood_ == at && Ingested(); }
 
   void Settle();

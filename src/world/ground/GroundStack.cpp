@@ -155,6 +155,12 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   return {};
 }
 
+bool GroundStack::AwaitProgress(double seconds) {
+  if (seconds <= 0.0 || !Pool_) { return false; }
+  if (Cls_.Building()) { return Cls_.AwaitBuild(seconds); }
+  return Pool_->AwaitLanding(seconds);
+}
+
 void GroundStack::Settle() {
   Cls_.Settle();
   Footprints_.Settle();

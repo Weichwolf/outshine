@@ -103,18 +103,17 @@ keine allgemeine Bildqualitätsabnahme. Referenz: build/shots/reference/footprin
 
 ## Malcesine post-arrival bottleneck, 2026-09-16
 
-All 128 DEM and 49 primary OSM tiles arrive in 0.4–0.5 s. With vegetation disabled,
-preload still times out at 20 s while ingestion, terrain coverage and classification remain
-pending. Download is not the blocker.
+All 128 DEM and 49 primary OSM tiles arrive in 0.4–0.5 s. Vegetation remains disabled, yet
+preload times out after 15 s with ingestion and classification pending. Download is not the blocker.
 
-`State::Bakes` currently calls `Live::PreparesWorldReplacement` for every finished building
-tile. That clones the resident world and starts a renderer candidate before one structure tile
-is inserted; the repeated `device_ready` events and serial preload follow directly. An unlimited
-batch instead creates unbounded work and was rejected.
+`86be6773e` batches contiguous current structure bakes into one world candidate. It reserves every
+footprint before upload, commits only after publication and retains the prior residency on failure;
+the atomic two-tile/late-error control proves that boundary. The timeout remains: batching was not
+the classification cause.
 
-Decision: structure residency becomes a separately versioned, bounded streaming product. A
-round stages a declared maximum of completed tile uploads, validates all uploads before publish,
-and commits one GPU residency delta without cloning the complete world. Failure retains the
-previous residency and requeues staged work in deterministic order. Measure CPU/GPU upload,
-publication count, queue age and ready latency on Malcesine without vegetation; then validate
-same digest across repeated preload and movement; do not tune request carriers or timeout values until this boundary exists.
+When a vector window has settled while `ClassBuilder` rasterizes, `preload` must not poll it.
+`AwaitProgress` waits either for a carrier landing or that worker's completion, capped by the
+existing preload wait. The worker wake and collect contract has a focused ClassBuilder test.
+The focused Place run remains unprepared after 15 s. A five-second process sample found all
+classification and tile workers idle while the main thread awaited a TilePool landing. Next inspect
+the outstanding/requested state and ground-publication revision; do not alter carriers or timeouts.

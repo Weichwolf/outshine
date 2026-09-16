@@ -59,6 +59,7 @@ public:
 
   void Submit(Job job);
   std::optional<Handback> Collect();
+  [[nodiscard]] bool AwaitCompletion(double seconds);
 
   size_t HeapBytes() const { return HeapBytes_.load(std::memory_order_relaxed); }
 

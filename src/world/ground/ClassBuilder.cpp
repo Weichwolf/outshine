@@ -155,6 +155,14 @@ std::optional<ClassBuilder::Handback> ClassBuilder::Collect() {
   return out;
 }
 
+bool ClassBuilder::AwaitCompletion(double seconds) {
+  if (seconds <= 0.0) { return false; }
+  std::unique_lock<std::mutex> lk(Mu_);
+  return Cv_.wait_for(lk, std::chrono::duration<double>(seconds), [this] {
+    return Stop_ || Stage_ != Stage::Building;
+  });
+}
+
 size_t ClassBuilder::ScratchBytes() const {
   const Workspace &w = Workspace_;
   return CapacityBytes(w.Base) + CapacityBytes(w.BaseRank) + CapacityBytes(w.SeedHead) +
@@ -207,6 +215,7 @@ void ClassBuilder::Run() {
       Result_ = std::move(y);
       Stage_ = Stage::Done;
     }
+    Cv_.notify_one();
   }
 }
 

@@ -1,8 +1,6 @@
 #include "ClassBuilder.h"
 #include "Check.h"
-#include <chrono>
 #include <memory>
-#include <thread>
 #include <utility>
 
 namespace {
@@ -39,14 +37,10 @@ ClassBuilder::Job Polygon(bool overlay) {
 
 std::shared_ptr<const ClassStructure> Build(ClassBuilder &builder, ClassBuilder::Job job) {
   builder.Submit(std::move(job));
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (std::chrono::steady_clock::now() < deadline) {
-    auto result = builder.Collect();
-    if (result) { return result->Structure; }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  CHECK(false, "small raster job finishes within five seconds");
-  return {};
+  CHECK(builder.AwaitCompletion(5.0), "small raster job wakes its waiter within five seconds");
+  const auto result = builder.Collect();
+  CHECK(result.has_value(), "a completed raster job is collectable after its wake");
+  return result ? result->Structure : nullptr;
 }
 }
 
