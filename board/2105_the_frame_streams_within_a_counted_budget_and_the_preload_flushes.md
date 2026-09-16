@@ -55,14 +55,6 @@ on the day, and the walk digest is ready for the day the camera moves again (boa
 - [ ] Negative control: set the counted budget so low the walk never catches up, and the walk
       digest moves
 
-## Ruled out, measured
-
-- the candidate set (`PendingTiles() > 0` early return) -- in, right by the invariant, and
-  CentralPark still drew two pictures six runs later; the measures could not see the
-  difference (five heap numbers of 340), so the next step was a measurement, not a repair
-- three runs are not enough to call a place deterministic: Kaiserberg drew a second digest on
-  the twenty-eighth run
-
 ## Abbruch laufender Downloads
 FetchInto prüft Stopping_ synchronisiert vor jedem Collect. Shutdown beendet
 Polling und nutzt SourceSet::Abandon zum Freigeben des offenen Tickets.
@@ -118,3 +110,10 @@ world.
 Structure scheduling is now allowed before the initial ground candidate; road/water ingestion gates
 that candidate, while `StructureBakes::Complete` gates final readiness and the footprint-revision
 rebuild. The focused Place control must prove the cycle is gone before changing carriers or timeouts.
+
+## Aktueller Struktur-Bake-Blocker, 2026-09-17
+
+Der fokussierte Boden-Kontaktfall hat einen publizierten Grund und vollständig ingestete Daten.
+Nach 15 s stehen 32/36 Bakes; vier laufen, 22 Tiles warteten zeitweise auf DEM. Laufzeit und
+Wartegrund pro Bake erfassen, dann die teure Stufe oder Serialisierung begrenzen. Abnahme: der
+unveränderte Fall wird innerhalb 15 s resident, ohne vorzeitige Bereitschaft oder längere Frist.

@@ -179,4 +179,14 @@ bool GroundStack::Ingested() const {
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
+std::string GroundStack::IngestionStatus() const {
+  if (!Vectors_) { return "vectors=absent"; }
+  return "streets=" + std::to_string(Ways_.IngestedTiles()) + "/" +
+         std::to_string(static_cast<int>(Ways_.Ingested(*Vectors_))) +
+         ", water=" + std::to_string(WaterBodies_.IngestedTiles()) + "/" +
+         std::to_string(static_cast<int>(WaterBodies_.Ingested(*Vectors_))) +
+         ", waterDeferrals=" + std::to_string(WaterBodies_.Deferrals()) +
+         ", classes=" + std::to_string(static_cast<int>(Cls_.Complete()));
+}
+
 }

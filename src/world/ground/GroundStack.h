@@ -6,6 +6,7 @@
 #include <expected>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 
 #include "ContentStore.h"
@@ -109,6 +110,7 @@ public:
   void Settle();
   [[nodiscard]] bool Drained() const;
   [[nodiscard]] bool Ingested() const;
+  [[nodiscard]] std::string IngestionStatus() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:

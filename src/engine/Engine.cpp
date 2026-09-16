@@ -373,8 +373,23 @@ Result Engine::State::PreloadOverflow() {
 }
 
 Result Engine::State::PreloadTimeout(double bound) {
+  const WorldReadiness readiness = Readiness();
+  const std::string pendingGround = Error;
   Error = "the world did not become resident within " + std::to_string(bound) +
-          " s: " + Readiness().Describe();
+          " s: " + readiness.Describe();
+  if (!World.Stack.Ingested()) { Error += " (" + World.Stack.IngestionStatus() + ")"; }
+  if (!World.GroundPublished.Current() && !pendingGround.empty()) { Error += "; " + pendingGround; }
+  if (World.GroundPublished.Current() && !World.Bakes.Complete(World.Stack)) {
+    Error += "; structure bakes=" + std::to_string(World.Bakes.Landed()) + "/" +
+             std::to_string(World.Bakes.Posted()) +
+             ", queued=" + std::to_string(World.Bakes.Queued()) +
+             ", deferred=" + std::to_string(World.Bakes.Deferred());
+  }
+  if (const auto &ground = World.GroundPublished.Current();
+      ground && ground->Footprints != World.Stack.Footprints().Revision()) {
+    Error += "; footprint revision=" + std::to_string(ground->Footprints) + "/" +
+             std::to_string(World.Stack.Footprints().Revision());
+  }
   return std::unexpected(Error);
 }
 
