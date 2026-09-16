@@ -185,6 +185,9 @@ StructureBakes::NextLanding(Ground::GroundStack &stack) {
   }
   const Job &job = Queue_.front();
   if (!job.Out->Status) { return std::unexpected(job.Out->Status.error()); }
+  IdleRaw_.reserve(IdleRaw_.size() + 1u);
+  IdleOut_.reserve(IdleOut_.size() + 1u);
+  IdleScratch_.reserve(IdleScratch_.size() + 1u);
   const Generators::BakedTile &baked = job.Out->Tile;
   const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
   return Landing{.Tile = job.Tile,
@@ -205,6 +208,8 @@ void StructureBakes::CommitsLanding(Ground::GroundStack &stack, Landing landing)
   Job &job = Queue_.front();
   const Generators::BakedTile &baked = job.Out->Tile;
   assert(landing.Baked == &baked && landing.Footprints);
+  assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
+         IdleScratch_.size() < IdleScratch_.capacity());
   const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
   stack.Footprints().CommitAcceptance(std::move(*landing.Footprints),
                                       *stack.Vectors(),
