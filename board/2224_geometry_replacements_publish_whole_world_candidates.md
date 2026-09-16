@@ -90,3 +90,13 @@ revision. Tests cover first build, uncommitted request/retry, residency-only cha
 data/projection, missing rims and reset. Readiness and resource-replacement regressions pass.
 These are state-contract tests, not injected failures of a complete OSM ground build. Earlier
 GPU/CPU product mutation and that end-to-end failure proof remain the transaction work above.
+
+## Ground classification ownership
+
+`SceneRenderer::GroundStorage_` is renderer-global while subjects/glass are world-owned.
+A candidate class/palette upload replaces active buffers before publication, so rejection can
+retire buffers still borrowed by the old subjects. Move `GroundStorage` into `WorldContent`,
+using its existing move-only publication boundary. `Live` owns copied class/palette inputs and
+restores them with the other ground resources. Test real GPU payload/handle preservation across
+candidate upload, abandonment, retry and publication; a new declaration must start with empty
+classification. This is required before whole-ground candidate construction can be safe.
