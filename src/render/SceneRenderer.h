@@ -130,7 +130,7 @@ public:
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   [[nodiscard]] static bool Executable(Stage stage);
 
-  void CastsBelow(uint32_t slot) { Shadow_.CastsBelow(slot); }
+  void CastsBelow(uint32_t slot) { Frame_.Shadow.CastsBelow(slot); }
 
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = static_cast<float>(outshine::Camera::kNearestM);
@@ -251,7 +251,7 @@ public:
 
   void ForgetSubjectStaging() { Subjects_.ForgetStagedCount(); }
 
-  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return Shadow_.StoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return Frame_.Shadow.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
     return Subjects_.SetPlacements(models, rows, error) &&
@@ -284,34 +284,34 @@ public:
 
   void SetMedium(const Medium &medium) {
     Medium_ = medium;
-    MediumTransmittance_.Declare(medium);
-    MultiScatter_.Declare(medium);
-    Radiance_.Declare(medium, CosSunZenith_, EyeHeightM_);
-    SkyIrradianceStage_.Declare(medium, CosSunZenith_);
+    Frame_.MediumTransmittance.Declare(medium);
+    Frame_.MultiScatter.Declare(medium);
+    Frame_.Radiance.Declare(medium, CosSunZenith_, EyeHeightM_);
+    Frame_.SkyIrradianceStage.Declare(medium, CosSunZenith_);
   }
 
   void SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM) {
-    Shadow_.Declare({.ToSun = toSun, .Up = up}, radiusM);
+    Frame_.Shadow.Declare({.ToSun = toSun, .Up = up}, radiusM);
   }
 
   void SetSky(const Vec3f &toSun, const Vec3f &up, float illuminanceLux, float eyeHeightM) {
     CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
     EyeHeightM_ = eyeHeightM;
-    Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
-    SkyIrradianceStage_.Declare(Medium_, CosSunZenith_);
+    Frame_.Radiance.Declare(Medium_, CosSunZenith_, EyeHeightM_);
+    Frame_.SkyIrradianceStage.Declare(Medium_, CosSunZenith_);
     const SkyStanding stands = {
         .SunDir = toSun, .WorldUp = up, .IlluminanceLux = illuminanceLux, .EyeHeightM = eyeHeightM};
-    Sky_.Declare(Medium_, stands);
-    Aerial_.Declare(Medium_, stands);
+    Frame_.Sky.Declare(Medium_, stands);
+    Frame_.Aerial.Declare(Medium_, stands);
   }
 
   void SetSkyEye(float eyeHeightM) {
-    if (!Sky_.Stands()) { return; }
+    if (!Frame_.Sky.Stands()) { return; }
     EyeHeightM_ = eyeHeightM;
-    Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
-    SkyIrradianceStage_.Declare(Medium_, CosSunZenith_);
-    Sky_.Eye(Medium_, eyeHeightM);
-    Aerial_.Eye(Medium_, eyeHeightM);
+    Frame_.Radiance.Declare(Medium_, CosSunZenith_, EyeHeightM_);
+    Frame_.SkyIrradianceStage.Declare(Medium_, CosSunZenith_);
+    Frame_.Sky.Eye(Medium_, eyeHeightM);
+    Frame_.Aerial.Eye(Medium_, eyeHeightM);
   }
 
   [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return Frame_.SkyViewLut.Get(); }
@@ -333,7 +333,7 @@ public:
     return many;
   }
 
-  [[nodiscard]] size_t ShadowCastCount() const { return Shadow_.CastBatches(); }
+  [[nodiscard]] size_t ShadowCastCount() const { return Frame_.Shadow.CastBatches(); }
 
   [[nodiscard]] size_t ShadowedFrames() const { return Subjects_.ShadowedFrames(); }
 
@@ -482,6 +482,19 @@ private:
     std::array<OwnedTexture, 2> LinearTex{};
     int LinearAt = 0;
     bool HistoryHeld = false;
+    CompositeTransmissionStage CompositeTransmission;
+    AerialPerspectiveStage Aerial;
+    TonemapStage Tonemap;
+    MediumTransmittanceStage MediumTransmittance;
+    MediumMultiScatterStage MultiScatter;
+    MediumRadianceStage Radiance;
+    IrradianceStage SkyIrradianceStage;
+    DepthPyramidStage PyramidStage;
+    SkyStage Sky;
+    LightVisibilityStage Shadow;
+    SubjectCullStage Cull;
+    OverlayPipeline OverlayPipe;
+    PresentStage Present;
   };
 
   static_assert(std::is_nothrow_move_constructible_v<FrameResources>);
@@ -501,24 +514,11 @@ private:
   SubjectDraw Glass_;
 
   bool DrawsGlass_ = false;
-  CompositeTransmissionStage CompositeTransmission_;
-  AerialPerspectiveStage Aerial_;
-  TonemapStage Tonemap_;
-  MediumTransmittanceStage MediumTransmittance_;
-  MediumMultiScatterStage MultiScatter_;
-  MediumRadianceStage Radiance_;
-  IrradianceStage SkyIrradianceStage_;
-  DepthPyramidStage PyramidStage_;
   GroundStorage GroundStorage_;
-  SkyStage Sky_;
-  LightVisibilityStage Shadow_;
-  SubjectCullStage Cull_;
   Medium Medium_ = kEarthAir;
   float CosSunZenith_ = 1.0f;
   float EyeHeightM_ = 0.0f;
   OverlayDraw Overlay_;
-  OverlayPipeline OverlayPipe_;
-  PresentStage Present_;
 
   bool Ready_ = false;
   std::string WhyNot_;

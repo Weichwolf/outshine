@@ -34,9 +34,9 @@ Seiten, Grid und Instanzen. Beide Bindungssätze werden später gemeinsam mit de
 formatgebundenen Frame-Ressourcen getauscht.
 
 `FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
-Readback, temporale Ziele und die GPU-Handles; seine Beweglichkeit ist statisch gesichert. Die
-Stage-Objekte konfigurieren noch direkt auf diese Gruppe. Als Nächstes müssen sie samt Plan als
-vollständiger Kandidat gebaut und in einem nichtwerfenden Schritt veröffentlicht werden.
+Readback, temporale Ziele, GPU-Handles und alle formatgebundenen Stage-Objekte; seine
+Beweglichkeit ist statisch gesichert. Als Nächstes müssen die Gruppe und der Plan als vollständiger
+Kandidat gebaut und in einem nichtwerfenden Schritt veröffentlicht werden.
 
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,
