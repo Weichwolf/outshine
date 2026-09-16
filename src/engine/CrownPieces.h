@@ -17,6 +17,9 @@ public:
   ~CrownPieces();
   CrownPieces(const CrownPieces &) = delete;
   CrownPieces &operator=(const CrownPieces &) = delete;
+
+  void Into(Core::Live &live) noexcept { Live_ = &live; }
+
   [[nodiscard]] bool Update(std::span<const Mat4> models, const Vec3 &eye, std::string &error);
 
 private:

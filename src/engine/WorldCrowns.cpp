@@ -66,6 +66,13 @@ bool WorldCrowns::Ready() const {
                              [](const Group &group) { return group.State == Phase::Resident; });
 }
 
+void WorldCrowns::Into(Core::Live &live) noexcept {
+  Live_ = &live;
+  for (Group &group : Groups_) {
+    if (group.Pieces) { group.Pieces->Into(live); }
+  }
+}
+
 size_t WorldCrowns::Resident() const {
   return static_cast<size_t>(std::ranges::count_if(
       Groups_, [](const Group &group) { return group.State == Phase::Resident; }));

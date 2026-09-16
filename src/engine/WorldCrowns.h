@@ -23,6 +23,7 @@ public:
                                              const Config &config,
                                              std::string &error);
   ~WorldCrowns();
+  void Into(Core::Live &live) noexcept;
   [[nodiscard]] bool Step(const Vec3 &eye, bool prepare, std::string &error);
   [[nodiscard]] bool Ready() const;
   [[nodiscard]] size_t Resident() const;

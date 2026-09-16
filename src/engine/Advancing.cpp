@@ -216,6 +216,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 void Engine::State::HandsPiecesOver() {
   World.Pieces.Into(Picture.Standing.get());
   World.Sheets.Into(Picture.Standing.get());
+  if (World.Crowns) { World.Crowns->Into(*Picture.Standing); }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   World.Bakes.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }

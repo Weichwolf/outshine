@@ -94,6 +94,15 @@ int main() {
     CHECK(crowns->Ready() && crowns->Resident() == 2,
           "one cache result reaches both waiting groups");
     CHECK(live->PiecesStanding() == initialPieces + 2, "both crown groups publish render pieces");
+    if (cycle == 0) {
+      CHECK(Core::Live::ReplacesGeometry(renderer, *live, geometry->clone(), nullptr, live, error),
+            "world publication retains the crown piece descriptions");
+      crowns->Into(*live);
+      CHECK(crowns->Step({{0, 0, 10}}, false, error),
+            "crown groups rebind their stable piece handles after publication");
+      CHECK(live->PiecesStanding() == initialPieces + 2,
+            "rebound crown groups retain every resident prototype");
+    }
     crowns.reset();
     CHECK(live->PiecesStanding() == initialPieces,
           "destroying crowns releases all their render pieces");
