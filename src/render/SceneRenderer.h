@@ -551,6 +551,12 @@ private:
     SubjectDraw Glass;
     OverlayDraw Overlay;
     bool DrawsGlass = false;
+
+    WorldContent() = default;
+    WorldContent(const WorldContent &) = delete;
+    WorldContent &operator=(const WorldContent &) = delete;
+    WorldContent(WorldContent &&) noexcept = default;
+    WorldContent &operator=(WorldContent &&) noexcept = default;
   };
 
   struct FrameResources {
@@ -591,6 +597,8 @@ private:
 
   static_assert(std::is_nothrow_move_constructible_v<FrameResources>);
   static_assert(std::is_nothrow_move_assignable_v<FrameResources>);
+  static_assert(std::is_nothrow_move_constructible_v<WorldContent>);
+  static_assert(std::is_nothrow_move_assignable_v<WorldContent>);
 
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>

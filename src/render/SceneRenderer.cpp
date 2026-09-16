@@ -890,6 +890,7 @@ bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
 void SceneRenderer::BindFrameResources() {
   Content_.Subjects.UsePipelines(Frame_.SubjectPipelines);
   Content_.Glass.UsePipelines(Frame_.GlassPipelines);
+  Content_.Glass.Shares(Content_.Subjects.Owned());
   Content_.Subjects.SkyFrom(Frame_.IrradianceBuffer.Get());
   if (Content_.DrawsGlass) { Content_.Glass.SkyFrom(Frame_.IrradianceBuffer.Get()); }
 }
