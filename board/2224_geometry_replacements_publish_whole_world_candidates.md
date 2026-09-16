@@ -63,3 +63,15 @@ native geometry and generated ground are not scenario data.
   remain valid.
 - Stream two ground revisions and reject the first after the second is current; stale work cannot
   publish. Run focused suites and `make lint`.
+
+## Streaming owner rebinding
+
+Publication destroys the previous `Live`. `TilePieces`, `HeightSheets` and `WorldCrowns`
+retain borrowed `Live` pointers. Bake publication currently rebinds only pieces; earthwork
+publication only sheets; public/pending geometry replacement rebinds neither. The next
+same-frame ground/vegetation operation can dereference the retired owner. Use one nonthrowing
+`Surrounds::BindLiveResources` operation after each successful replacement and before further
+streaming work. Keep pool creation and bake setup outside this operation. Prove that resource
+operations after replacement address the new world, including retained height-page handles.
+The final ground `SetGeometry` and earlier CPU/network/height publication remain a separate
+transaction gap; fixing pointer rebinding does not establish whole-ground atomicity.
