@@ -19,6 +19,10 @@ Material erhalten einen eigenen Default-Slot; Pixel-Orakel prüft dessen Farbe.
 Draws instanziert dasselbe Subject unabhängig von Body::Asset. Native Asset-/Entity-
 Bindung muss auch Physik ohne Mesh und Renderinstanzen ohne Physik erlauben.
 
+Audit 2026-09-16: `Live::CarriesBuilt` ignoriert `SurfaceOverride` auf direkter `Geometry`;
+gemischte Assets lösen Materialnamen allein aus `Gltf::Document`. Vor dem Entfernen des
+Importdokuments müssen beide Pfade gleiche Named-/Part-Overrides haben; ein No-op-/Pixeloracle prüft das.
+
 UV-Grenze: native Rotation algebraisch definieren (+U nach +V), glTFs visuell
 gegenläufige Rotation beim Import konvertieren. Das GLSL-Beispiel der Extension
 hat einen bekannten [Vorzeichenfehler](https://github.com/KhronosGroup/glTF/issues/1563).
@@ -31,7 +35,6 @@ identische native Produkte. glTF ist ein beliebiges unterstütztes Importformat;
 Document, Accessors, Dateinodes und Extension-Dispatch enden am Importadapter.
 Bestehende Geometry-, Material-, Transform- und GPU-Packing-Fähigkeiten nutzen,
 aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
-
 ## Datenverträge
 
 - Mesh-Assets besitzen lokale Vertex-/Indexdaten, Submeshes, Bounds und Material-
@@ -78,7 +81,6 @@ Fehlende Normalen werden als getrennte Flächennormalen aufbereitet; 2179 bleibt
 AudioOcclusion.cpp leitet die Audio-BVH aus nativen Parts mit Platzierung ab;
 keine Physikkollision. Audio-BVH wird nach erfolgreichem Render-Aufbau publiziert.
 Vollständiger GPU-Rollback und atomarer Welt-/Render-Austausch bleiben offen.
-
 ## Migrationsfolge
 
 Importer-Namen folgen Khronos (Node/Mesh/Primitive/Material/Animation/Skin), Runtime-Namen
@@ -94,7 +96,6 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
 
 Diese Grenze hat nach Submission-Fix 2190 Vorrang; 2128 behebt Instanz-/Terrain-Schatten;
 2195 nutzt den Importadapter für den direkten Clientpfad. Keine zyklischen Blocker.
-
 ## Referenzmaßstab
 
 Engine-Assets, getrennte Instanzen und Importadapter sind das Architekturziel.
