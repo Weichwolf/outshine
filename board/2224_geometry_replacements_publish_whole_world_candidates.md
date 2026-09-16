@@ -23,6 +23,13 @@ new `Live` and `SceneState` from that snapshot plus the replacement geometry. Th
 occlusion and renderer state remain published until the candidate succeeds. A successful nonthrowing
 move replaces both owners; a failed candidate is destroyed without touching either old owner.
 
+`Render::PieceId` and `PageId` are candidate-local renderer indices, so they must never escape as
+long-lived engine resource identities. `Live` owns copyable piece/page descriptions and exposes
+stable, generation-checked handles to `TilePieces`, `CrownPieces` and streaming owners. Publication
+recreates candidate-local renderer resources from those descriptions, then rebinds the stable
+handles. Released or superseded handles fail validation; relying on matching allocation order is
+not a contract.
+
 Do not move the published `Live` into a candidate and move it back on failure: `SetGeometry` mutates
 its CPU state and such a rollback cannot prove restoration. Do not rebuild through scenario export:
 native geometry and generated ground are not scenario data.
