@@ -17,17 +17,17 @@ an allocator-detected invalid/double free in this exact stack:
 `StructureBakes::~StructureBakes` → `Engine::State::~State`.
 
 `StructureBakes::Clear` waits queued task handles before destroying their `Raw`, `Output` and
-`Scratch` owners, but the report proves that this ownership or the worker's scratch mutation is
-not safe. The timeout must be a clean failure, never memory corruption.
+`Scratch` owners, but `StructureBakes` had no destructor and therefore never called it when
+`Surrounds` was destroyed. Its queue was released while `Tasks` still ran a bake. The timeout
+must be a clean failure, never memory corruption.
 
 ## Decision
 
-Establish whether a bake worker can still access a job after `Tasks::Wait`, whether a scratch is
-leased twice, or whether `BakeStructures` corrupts a `BuildingScratch` buffer. Reproduce with a
-controlled queued real bake that tears down before landing; build that test and its complete
-engine/generator dependency closure under AddressSanitizer and UndefinedBehaviorSanitizer. Fix
-the proven owner or bounds violation at its source. Do not retain jobs forever, skip shutdown,
-or turn the timeout into success.
+`StructureBakes` destruction calls `Clear` before its owning `Tasks` member is destroyed, so every
+queued job reaches `Wait` before any job owner is released. Keep the controlled queued real-bake
+shutdown case and AddressSanitizer/UndefinedBehaviorSanitizer coverage: they must distinguish a
+future scratch bounds violation from the repaired lifetime race. Do not retain jobs forever, skip
+shutdown, or turn the timeout into success.
 
 ## Proof
 
@@ -35,7 +35,9 @@ or turn the timeout into success.
   worker and exits with no sanitizer finding, trap or leak.
 - Repeated timeout/shutdown cycles and a completed landing both preserve scratch exclusivity and
   exit cleanly.
-- `ScoreEveryMeshFacesOutward` no longer signals after a preload timeout. Its streaming readiness
-  remains independently governed by 2105.
+- `ScoreEveryMeshFacesOutward` reaches its 15-s preload timeout without a new crash report or
+  signal after destructor-driven `Clear`; its streaming readiness remains governed by 2105.
+- A controlled real bake is stopped before landing and runs under ASan/UBSan to isolate future
+  scratch corruption from task lifetime.
 - Negative control that destroys a leased scratch before its task completes is caught by the
   sanitizer contract.

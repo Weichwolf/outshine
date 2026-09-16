@@ -22,6 +22,8 @@ namespace outshine {
 
 class StructureBakes {
 public:
+  ~StructureBakes();
+
   void Opens(Tasks *pool, const StructureMesher *mesher) {
     Pool_ = pool;
     Mesher_ = mesher;

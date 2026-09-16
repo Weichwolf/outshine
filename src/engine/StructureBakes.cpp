@@ -121,6 +121,10 @@ BlocksUnder(const Ground::GroundStream &ground,
 
 }
 
+StructureBakes::~StructureBakes() {
+  Clear();
+}
+
 std::unique_ptr<MeshScratch> StructureBakes::LentScratch() {
   if (IdleScratch_.empty()) { return Mesher_->Scratch(); }
   std::unique_ptr<MeshScratch> one = std::move(IdleScratch_.back());
