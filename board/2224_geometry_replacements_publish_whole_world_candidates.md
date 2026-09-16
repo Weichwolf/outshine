@@ -59,6 +59,9 @@ Copy/prepare costs are explicit preparation work; no bounded-frame-time claim wi
 - `Live::ReleasePiece` / `ReleaseHeightPage` currently retain released CPU payloads in append-only
   handle tables; later candidates copy those dead payloads. Release them and bound/reuse handle
   metadata without accepting stale handles; repeated streaming/retry must not grow retired storage.
+  First release owned vector payloads while retaining invalid handle records. Add piece/page CPU
+  payload capacity counters to existing optional diagnostics; test real placement, release, double
+  release, stale-handle rejection and candidate reconstruction. Metadata reuse remains separate.
 - `Restands` and surface-only redeclaration remain separate mutation audits.
 - Public geometry/audio occlusion must publish together; no partial declaration replacement.
 
