@@ -606,14 +606,14 @@ struct Emitter {
 
 /// DSP processor category; unsupported processors are rejected during audio setup.
 enum class Makes : uint8_t {
-  Oscillator, ///< Periodic waveform generator.
-  Noise,      ///< Noise generator.
-  Biquad,     ///< Legacy name: current implementation is a one-pole low-pass, not a biquad.
-  Delay,      ///< Prepared delay line with optional internal feedback.
-  Gain,       ///< Scale summed input samples.
-  Shaper,     ///< Unsupported; setup rejects it.
-  Convolver,  ///< Unsupported; setup rejects it.
-  Mix         ///< Sum input nodes.
+  Oscillator,     ///< Periodic waveform generator.
+  Noise,          ///< Noise generator.
+  OnePoleLowPass, ///< First-order low-pass filter.
+  Delay,          ///< Prepared delay line with optional internal feedback.
+  Gain,           ///< Scale summed input samples.
+  Shaper,         ///< Unsupported; setup rejects it.
+  Convolver,      ///< Unsupported; setup rejects it.
+  Mix             ///< Sum input nodes.
 };
 
 /** Owned declarative DSP node; setup validates IDs, inputs and processor parameters. */

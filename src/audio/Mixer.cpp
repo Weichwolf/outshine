@@ -70,7 +70,9 @@ constexpr size_t kEffectRingSampleBudget = size_t{8} * 1024 * 1024;
 [[nodiscard]] std::expected<Running, std::string>
 PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
   Running result;
-  if (voice.Does == Scenario::Makes::Biquad) { result.FrequencyHz = kDefaultFilterFrequencyHz; }
+  if (voice.Does == Scenario::Makes::OnePoleLowPass) {
+    result.FrequencyHz = kDefaultFilterFrequencyHz;
+  }
   double delaySeconds = kDefaultDelaySeconds;
   for (const auto &parameter : voice.Parameters) {
     if (parameter.Name == "shape") {
@@ -232,7 +234,7 @@ void ProcessSignal(Scenario::Makes kind,
       for (size_t frame = 0; frame < frames; ++frame) { out[frame] = in[frame] * by; }
       break;
     }
-    case Scenario::Makes::Biquad: {
+    case Scenario::Makes::OnePoleLowPass: {
       const double hz = kept.FrequencyHz;
       const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / static_cast<double>(rate));
       for (size_t frame = 0; frame < frames; ++frame) {

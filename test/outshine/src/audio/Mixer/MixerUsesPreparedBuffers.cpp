@@ -56,7 +56,7 @@ int main() {
   oscillator.Parameters = {{"frequency", "1000"}};
   Scenario::Voice filter;
   filter.Id = "filter";
-  filter.Does = Scenario::Makes::Biquad;
+  filter.Does = Scenario::Makes::OnePoleLowPass;
   filter.From = {"osc"};
   Scenario::Voice delay;
   delay.Id = "delay";

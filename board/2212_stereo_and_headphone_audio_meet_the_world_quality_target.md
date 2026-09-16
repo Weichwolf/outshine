@@ -40,8 +40,10 @@ Formatadapter dürfen daraus native Syntheseprodukte erzeugen, nicht die Runtime
 
 Mixer erzeugt Synthese, einfachen Tiefpass, Delay, Panning, Doppler und Hall.
 Setup ist transaktional; numerische Parameter und Delay-Ringe werden vorbereitet.
-Datei-/Streamingquellen fehlen im Wiedergabepfad. Der als Biquad benannte Prozessor
-ist ein Einpol-Tiefpass. Graphkanten sind beim Setup validiert und kompiliert;
+Datei-/Streamingquellen fehlen im Wiedergabepfad. Der Einpol-Tiefpass heißt im
+öffentlichen Vertrag OnePoleLowPass; historische Szenarien mit biquad werden beim
+Einlesen kanonisch migriert. Unbekannte Audio-Enums lehnt der Reader ab. Graphkanten
+sind beim Setup validiert und kompiliert;
 Signal-Scratch wird beim Setup reserviert, variable Ausgabeblöcke intern geteilt.
 Engine::prepareAudio(sampleRateHz) bereitet außerhalb der Ausgabe vor; mix(stereo)
 verwendet ausschließlich diesen Zustand. Erfolgreiche Vorbereitung setzt DSP zurück,

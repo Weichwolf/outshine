@@ -44,6 +44,7 @@ constexpr auto kInvalidSceneRoom =
     "scene.room requires a complete nonnegative decimal integer in the size_t range";
 constexpr auto kInvalidAssetClip = "asset clip requires an integer in [0,INT_MAX]";
 constexpr auto kInvalidCatchUpCount = "mostStepsInArrears requires an integer in [1,INT_MAX]";
+constexpr auto kInvalidAudioEnum = "audio enum is not a supported token";
 }
 
 constexpr double kPitchLimitUnsaidDeg = 89.0;
@@ -730,55 +731,77 @@ void ReadRegionsAndVolumes(const Xml::Ref &root, Scenario::Document &into) {
   }
 }
 
-void ReadAudio(const Xml::Ref &root, Scenario::Document &into) {
-  const Xml::Ref audio = root.Child("audio");
-  for (const Xml::Ref one : audio.Children("bus")) {
-    Scenario::Bus made;
-    made.Id = one.Attr("id");
-    made.Into = one.Attr("into");
-    made.GainDb = one.Num("gainDb", 0.0);
-    const Xml::Ref room = one.Child("room");
-    made.Reverberates.Declared = room.Valid();
-    made.Reverberates.SecondsRt60 = room.Num("secondsRt60", 0.0);
-    made.Reverberates.Damping = room.Num("damping", 0.5);
-    made.Reverberates.WetShare = room.Num("wetShare", 0.0);
-    into.Buses.push_back(made);
-  }
-  for (const Xml::Ref one : audio.Children("sound")) {
-    Scenario::Sound made;
-    made.Id = one.Attr("id");
-    made.Uri = one.Attr("uri");
-    made.Bus = one.Attr("bus");
-    made.On = one.Attr("on");
-    made.Streamed = one.Flag("streamed", false);
-    made.Loops = one.Flag("loops", false);
-    made.GainDb = one.Num("gainDb", 0.0);
-    made.Heard.Positional = one.Flag("positional", false);
-    const std::string falls = one.Attr("falls");
-    made.Heard.By = Means(AudioFormat::kFalls, falls, Scenario::Falls::Inverse);
-    made.Heard.RefM = one.Num("refM", 1.0);
-    made.Heard.MostM = one.Num("mostM", 0.0);
-    made.Heard.Rolloff = one.Num("rolloff", 1.0);
-    made.Heard.InnerRad = one.Num("innerRad", 0.0);
-    made.Heard.OuterRad = one.Num("outerRad", 0.0);
-    made.Heard.OuterGain = one.Num("outerGain", 0.0);
-    made.Heard.BlockedGain = one.Num("blockedGain", 1.0);
-    made.Heard.BlockedHz = one.Num("blockedHz", 0.0);
-    made.SendShare = one.Num("sendShare", 0.0);
-    for (const Xml::Ref unit : one.Children("voice")) {
-      Scenario::Voice makes;
-      makes.Id = unit.Attr("id");
-      const std::string does = unit.Attr("does");
-      makes.Does = Means(AudioFormat::kMakes, does, Scenario::Makes::Oscillator);
-      for (const Xml::Ref from : unit.Children("from")) { makes.From.push_back(from.Attr("id")); }
-      for (const Xml::Ref set : unit.Children("set")) {
-        makes.Parameters.push_back(
-            Scenario::Setting{.Name = set.Attr("name"), .Value = set.Attr("value")});
-      }
-      made.Graph.push_back(makes);
+void ReadBus(const Xml::Ref &one, Scenario::Document &into) {
+  Scenario::Bus made;
+  made.Id = one.Attr("id");
+  made.Into = one.Attr("into");
+  made.GainDb = one.Num("gainDb", 0.0);
+  const Xml::Ref room = one.Child("room");
+  made.Reverberates.Declared = room.Valid();
+  made.Reverberates.SecondsRt60 = room.Num("secondsRt60", 0.0);
+  made.Reverberates.Damping = room.Num("damping", 0.5);
+  made.Reverberates.WetShare = room.Num("wetShare", 0.0);
+  into.Buses.push_back(made);
+}
+
+[[nodiscard]] bool ReadSound(const Xml::Ref &one, Scenario::Document &into, std::string &error) {
+  Scenario::Sound made;
+  made.Id = one.Attr("id");
+  made.Uri = one.Attr("uri");
+  made.Bus = one.Attr("bus");
+  made.On = one.Attr("on");
+  made.Streamed = one.Flag("streamed", false);
+  made.Loops = one.Flag("loops", false);
+  made.GainDb = one.Num("gainDb", 0.0);
+  made.Heard.Positional = one.Flag("positional", false);
+  const std::string falls = one.Attr("falls");
+  if (!falls.empty()) {
+    const auto law = AudioFormat::FallNamed(falls);
+    if (!law) {
+      error = Says::kInvalidAudioEnum;
+      return false;
     }
-    into.Sounds.push_back(made);
+    made.Heard.By = *law;
   }
+  made.Heard.RefM = one.Num("refM", 1.0);
+  made.Heard.MostM = one.Num("mostM", 0.0);
+  made.Heard.Rolloff = one.Num("rolloff", 1.0);
+  made.Heard.InnerRad = one.Num("innerRad", 0.0);
+  made.Heard.OuterRad = one.Num("outerRad", 0.0);
+  made.Heard.OuterGain = one.Num("outerGain", 0.0);
+  made.Heard.BlockedGain = one.Num("blockedGain", 1.0);
+  made.Heard.BlockedHz = one.Num("blockedHz", 0.0);
+  made.SendShare = one.Num("sendShare", 0.0);
+  for (const Xml::Ref unit : one.Children("voice")) {
+    Scenario::Voice makes;
+    makes.Id = unit.Attr("id");
+    const std::string does = unit.Attr("does");
+    if (!does.empty()) {
+      const auto processor = AudioFormat::MakeNamed(does);
+      if (!processor) {
+        error = Says::kInvalidAudioEnum;
+        return false;
+      }
+      makes.Does = *processor;
+    }
+    for (const Xml::Ref from : unit.Children("from")) { makes.From.push_back(from.Attr("id")); }
+    for (const Xml::Ref set : unit.Children("set")) {
+      makes.Parameters.push_back(
+          Scenario::Setting{.Name = set.Attr("name"), .Value = set.Attr("value")});
+    }
+    made.Graph.push_back(makes);
+  }
+  into.Sounds.push_back(made);
+  return true;
+}
+
+[[nodiscard]] bool ReadAudio(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
+  const Xml::Ref audio = root.Child("audio");
+  for (const Xml::Ref one : audio.Children("bus")) { ReadBus(one, into); }
+  for (const Xml::Ref one : audio.Children("sound")) {
+    if (!ReadSound(one, into, error)) { return false; }
+  }
+  return true;
 }
 
 [[nodiscard]] bool ReadTables(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
@@ -1047,7 +1070,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &
   if (!ReadSceneRoom(root, into.Room, error)) { return false; }
   ReadEntityDeclarations(root, into);
   ReadRegionsAndVolumes(root, into);
-  ReadAudio(root, into);
+  if (!ReadAudio(root, into, error)) { return false; }
   if (!ReadTables(root, into, error)) { return false; }
   ReadEvents(root, into);
   if (!ReadViews(root, into, error)) { return false; }

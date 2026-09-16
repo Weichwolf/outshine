@@ -50,7 +50,7 @@ int main() {
                  .BlockedHz = 1350.25};
   constexpr std::array processors{Scenario::Makes::Oscillator,
                                   Scenario::Makes::Noise,
-                                  Scenario::Makes::Biquad,
+                                  Scenario::Makes::OnePoleLowPass,
                                   Scenario::Makes::Delay,
                                   Scenario::Makes::Gain,
                                   Scenario::Makes::Shaper,
@@ -123,6 +123,27 @@ int main() {
   Scenario::Document rejected;
   CHECK(!ReadScenario(ignoredBusVoice.data(), ignoredBusVoice.size(), rejected, error),
         "unsupported bus processor is rejected instead of ignored");
+  constexpr std::string_view legacy =
+      R"(<scenario><audio><sound id="legacy"><voice id="filter" does="biquad"/></sound></audio></scenario>)";
+  Scenario::Document migrated;
+  CHECK(ReadScenario(legacy.data(), legacy.size(), migrated, error),
+        "legacy filter token remains readable");
+  CHECK(migrated.Sounds.size() == 1 && migrated.Sounds[0].Graph.size() == 1 &&
+            migrated.Sounds[0].Graph[0].Does == Scenario::Makes::OnePoleLowPass,
+        "legacy token has the truthful native processor");
+  const auto canonical = WriteScenario(migrated);
+  CHECK(canonical && canonical->find("does=\"onePoleLowPass\"") != std::string::npos &&
+            canonical->find("biquad") == std::string::npos,
+        "writer emits only the truthful filter token");
+  for (const std::string_view attributes : {"does=\"unknown\"", "falls=\"unknown\""}) {
+    const std::string malformed = "<scenario><audio><sound id=\"bad\" " + std::string(attributes) +
+                                  "><voice id=\"tone\"/></sound></audio></scenario>";
+    CHECK(!ReadScenario(malformed.data(), malformed.size(), migrated, error),
+          "unknown audio enum rejects the whole declaration");
+    CHECK(migrated.Sounds.size() == 1 && migrated.Sounds[0].Graph.size() == 1 &&
+              migrated.Sounds[0].Graph[0].Does == Scenario::Makes::OnePoleLowPass,
+          "unknown audio enum preserves the prior declaration");
+  }
   const auto empty = WriteScenario({});
   CHECK(empty && empty->find("<audio>") == std::string::npos, "empty audio remains absent");
   return Report();
