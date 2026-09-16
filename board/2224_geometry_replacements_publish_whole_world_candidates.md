@@ -45,6 +45,9 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
    einschließlich Projektion und Quellidentität. Vor Publikation mit aktuellem Auftrag
    vergleichen. Veralteten fertigen Job freigeben, ohne aktuelle Welt/Revision zu verändern;
    gleiche Tile-ID allein ist keine Identität. A→B→spätes A als deterministischen Test bauen.
+   `d557454a4` bindet Structure-Bakes an OSM-Generation, Footprint-Revision, Fokalmaßstab
+   und Tile-Spannweite; ein unpassender fertiger Job gibt sein Watermark frei und wird recycelt.
+   Der A→B→späte-A-Orakel durch den öffentlichen Pfad bleibt offen.
 3. Öffentlichen Gesamtpfad testen: kleiner deterministischer OSM-/DEM-Provider, Engine-API,
    zunächst gültige Welt A, dann B mit spätem Klassen-/Geometrie-Submitfehler.
    Materialmapping, Albedo, tatsächliches Routingnetz, GPU-Readback und Bild von A erhalten;
