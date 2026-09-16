@@ -251,7 +251,9 @@ std::expected<void, std::string_view> ClassField::Update(TilePool &tiles, Longit
 
   CollectFinished();
 
-  if (!Submitted_) { SubmitDue(cam.EastM, cam.NorthM); }
+  if (!Submitted_ && Fine_.Field->PendingTiles() == 0 && Coarse_.Field->PendingTiles() == 0) {
+    SubmitDue(cam.EastM, cam.NorthM);
+  }
   return {};
 }
 

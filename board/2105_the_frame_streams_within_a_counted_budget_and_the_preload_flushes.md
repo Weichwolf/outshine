@@ -113,3 +113,8 @@ GroundPoolConfig now gives each compute worker one carrier, capped at six; the p
 implicit two-carrier default was a real throughput constraint but did not clear this
 preload timeout. Next: isolate the post-arrival terrain-field/classification pipeline
 and split the first-frame residency contract from background LOD refinement.
+
+ClassField now starts no raster job until both source windows report zero pending tiles;
+otherwise each landing invalidates a partial result. `IncompleteTilesDoNotStartClassification`
+proves the pending state publishes zero fine/coarse jobs. Malcesine still misses 20 s, so this
+removes redundant work but does not close the post-arrival residency investigation.
