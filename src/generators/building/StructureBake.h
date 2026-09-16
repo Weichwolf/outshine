@@ -74,6 +74,27 @@ struct BakedTile {
   size_t UnsupportedMeshes = 0;
 };
 
+class StructureBakeProgress {
+public:
+  StructureBakeProgress();
+  ~StructureBakeProgress();
+  StructureBakeProgress(const StructureBakeProgress &) = delete;
+  StructureBakeProgress &operator=(const StructureBakeProgress &) = delete;
+
+  [[nodiscard]] std::expected<bool, StructureBakeError>
+  Advance(const RawTile &raw,
+          const outshine::Ground::HeightField &heights,
+          const StructureMesher &mesher,
+          MeshScratch &scratch,
+          BakedTile &out,
+          size_t structuresMost,
+          const std::atomic_bool *stopping = nullptr);
+
+private:
+  struct State;
+  std::unique_ptr<State> State_;
+};
+
 [[nodiscard]] std::expected<void, StructureBakeError>
 BakeStructures(const RawTile &raw,
                const outshine::Ground::HeightField &heights,

@@ -28,6 +28,7 @@ namespace {
 constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBakesPerThread = 1;
+constexpr size_t kStructuresPerSlice = 32;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 int PitchedOf(std::string_view said) {
@@ -148,6 +149,55 @@ std::unique_ptr<MeshScratch> StructureBakes::LentScratch() {
   return one;
 }
 
+void StructureBakes::PostSlice(Job &job) {
+  job.Finished = false;
+  const Generators::RawTile *const raw = job.Raw.get();
+  const Ground::HeightField *const under = job.Heights.get();
+  const StructureMesher *const mesher = Mesher_;
+  MeshScratch *const scratch = job.Scratch.get();
+  Generators::StructureBakeProgress *const progress = job.Progress.get();
+  Output *const out = job.Out.get();
+  const std::shared_ptr<std::atomic_bool> stopping = job.Stopping;
+  job.Handle = Pool_->Post([raw, under, mesher, scratch, progress, out, stopping] {
+    const auto began = std::chrono::steady_clock::now();
+    static const Heap::Tag kBakingTag("structure-bake");
+    const Heap::Tagged baking(kBakingTag);
+    const auto advanced = progress->Advance(
+        *raw, *under, *mesher, *scratch, out->Tile, kStructuresPerSlice, stopping.get());
+    if (!advanced) {
+      out->Status = std::unexpected(advanced.error());
+    } else {
+      out->Complete = *advanced;
+    }
+    out->BakeMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  });
+}
+
+void StructureBakes::DiscardStale(const Ground::OsmField &vectors, Ground::BuildingField &prints) {
+  while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints)) {
+    Job &stale = Queue_.front();
+    if (!stale.Finished) { stale.Finished = Pool_->Done(stale.Handle); }
+    if (!stale.Finished) { return; }
+    IdleRaw_.reserve(IdleRaw_.size() + 1u);
+    IdleOut_.reserve(IdleOut_.size() + 1u);
+    IdleScratch_.reserve(IdleScratch_.size() + 1u);
+    prints.Release(stale.Tile);
+    IdleRaw_.push_back(std::move(stale.Raw));
+    IdleOut_.push_back(std::move(stale.Out));
+    IdleScratch_.push_back(std::move(stale.Scratch));
+    Queue_.pop_front();
+    ++Discarded_;
+  }
+}
+
+void StructureBakes::ResumeSlices() {
+  for (Job &job : Queue_) {
+    if (!job.Finished) { job.Finished = Pool_->Done(job.Handle); }
+    if (job.Finished && job.Out->Status && !job.Out->Complete) { PostSlice(job); }
+  }
+}
+
 size_t StructureBakes::Posts(Ground::GroundStack &stack) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr) { return 0; }
   const Ground::OsmField &vectors = *stack.Vectors();
@@ -179,25 +229,14 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
             .Heights = std::move(heights),
             .Out = Borrowed(IdleOut_),
             .Scratch = LentScratch(),
+            .Progress = std::make_unique<Generators::StructureBakeProgress>(),
             .Stopping = std::make_shared<std::atomic_bool>(false)};
     RawOf(vectors, prints, *next, *job.Raw);
-    const Generators::RawTile *const raw = job.Raw.get();
-    const Ground::HeightField *const under = job.Heights.get();
-    const StructureMesher *const mesher = Mesher_;
-    MeshScratch *const scratch = job.Scratch.get();
-    Output *const out = job.Out.get();
-    const std::shared_ptr<std::atomic_bool> stopping = job.Stopping;
-    job.Handle = Pool_->Post([raw, under, mesher, scratch, out, stopping] {
-      const auto began = std::chrono::steady_clock::now();
-      static const Heap::Tag kBakingTag("structure-bake");
-      const Heap::Tagged baking(kBakingTag);
-      out->Status =
-          Generators::BakeStructures(*raw, *under, *mesher, *scratch, out->Tile, stopping.get());
-      out->BakeMs =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
-    });
+    job.Out->Status = {};
+    job.Out->Complete = false;
+    job.Out->BakeMs = 0.0;
     Queue_.push_back(std::move(job));
+    PostSlice(Queue_.back());
     ++Posted_;
     ++posted;
   }
@@ -211,31 +250,21 @@ StructureBakes::NextLandings(Ground::GroundStack &stack, size_t most) {
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
   Ground::BuildingField &prints = stack.Footprints();
-  while (!Queue_.empty() && !Queue_.front().Revision.Matches(*vectors, prints)) {
-    if (!Pool_->Done(Queue_.front().Handle)) { break; }
-    IdleRaw_.reserve(IdleRaw_.size() + 1u);
-    IdleOut_.reserve(IdleOut_.size() + 1u);
-    IdleScratch_.reserve(IdleScratch_.size() + 1u);
-    prints.Release(Queue_.front().Tile);
-    Job &stale = Queue_.front();
-    IdleRaw_.push_back(std::move(stale.Raw));
-    IdleOut_.push_back(std::move(stale.Out));
-    IdleScratch_.push_back(std::move(stale.Scratch));
-    Queue_.pop_front();
-    ++Discarded_;
-  }
+  DiscardStale(*vectors, prints);
+  ResumeSlices();
   size_t count = 0;
   size_t printCount = 0;
   size_t spreadCount = 0;
   size_t acrossCount = 0;
   uint32_t largestTile = 0;
   while (count < most && count < Queue_.size()) {
-    const Job &job = Queue_[count];
-    if (!Pool_->Done(job.Handle) || !job.Revision.Matches(*vectors, prints)) { break; }
+    Job &job = Queue_[count];
+    if (!job.Finished || !job.Revision.Matches(*vectors, prints)) { break; }
     if (!job.Out->Status) {
       if (count == 0) { return std::unexpected(job.Out->Status.error()); }
       break;
     }
+    if (!job.Out->Complete) { break; }
     const Generators::BakedTile &baked = job.Out->Tile;
     printCount += baked.Prints.size();
     spreadCount += baked.SeatSpreadM.size();
@@ -317,7 +346,9 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
 void StructureBakes::Clear() {
   for (const Job &job : Queue_) {
     job.Stopping->store(true, std::memory_order_relaxed);
-    if (Pool_ != nullptr && job.Handle != Tasks::kNoTask) { Pool_->Wait(job.Handle); }
+    if (Pool_ != nullptr && !job.Finished && job.Handle != Tasks::kNoTask) {
+      Pool_->Wait(job.Handle);
+    }
   }
   Queue_.clear();
   IdleRaw_.clear();

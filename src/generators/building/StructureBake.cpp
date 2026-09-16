@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
@@ -576,55 +577,86 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
 
 }
 
-std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
-                                                       const outshine::Ground::HeightField &heights,
-                                                       const StructureMesher &mesher,
-                                                       MeshScratch &scratch,
-                                                       BakedTile &out,
-                                                       const std::atomic_bool *stopping) {
-  out.Walls = {};
-  out.Roofs = {};
-  out.Built.Clear();
-  out.Prints.clear();
-  out.SeatSpreadM.clear();
-  out.AcrossM.clear();
-  out.OsmHeights = 0;
-  out.DefaultHeights = 0;
-  out.Fronted = 0;
-  out.Lumped = 0;
-  out.Blocks = 0;
-  out.NoGround = 0;
-  out.UnsupportedMeshes = 0;
+struct StructureBakeProgress::State {
+  std::vector<WayLine> Ways;
+  std::map<uint64_t, Lumped> Lumps;
+  std::vector<double> Corners;
+  size_t Next = 0;
+  bool Started = false;
+};
 
+StructureBakeProgress::StructureBakeProgress() : State_(std::make_unique<State>()) {}
+
+StructureBakeProgress::~StructureBakeProgress() = default;
+
+std::expected<bool, StructureBakeError>
+StructureBakeProgress::Advance(const RawTile &raw,
+                               const outshine::Ground::HeightField &heights,
+                               const StructureMesher &mesher,
+                               MeshScratch &scratch,
+                               BakedTile &out,
+                               size_t structuresMost,
+                               const std::atomic_bool *stopping) {
+  if (structuresMost == 0) { return false; }
+  State &state = *State_;
+  if (!state.Started) {
+    out.Walls = {};
+    out.Roofs = {};
+    out.Built.Clear();
+    out.Prints.clear();
+    out.SeatSpreadM.clear();
+    out.AcrossM.clear();
+    out.OsmHeights = 0;
+    out.DefaultHeights = 0;
+    out.Fronted = 0;
+    out.Lumped = 0;
+    out.Blocks = 0;
+    out.NoGround = 0;
+    out.UnsupportedMeshes = 0;
+    state.Ways = LinesOf(raw);
+    state.Started = true;
+  }
   const std::span<const double> pts = raw.LatLon;
-  const std::vector<WayLine> ways = LinesOf(raw);
-
-  std::map<uint64_t, Lumped> lumps;
-  std::vector<double> corners;
   const double awayAtLeastM = std::max(raw.AwayM, kNearestSeenM);
   const double statedM =
       raw.TileSpanM > 0.0 && raw.Extent > 0 ? raw.TileSpanM / static_cast<double>(raw.Extent) : 0.0;
-
-  for (const RawTile::Structure &one : raw.Structures) {
+  const size_t until = std::min(state.Next + structuresMost, raw.Structures.size());
+  for (; state.Next < until; ++state.Next) {
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     const auto baked = BakeOne(raw,
                                heights,
                                mesher,
                                scratch,
                                out,
-                               one,
+                               raw.Structures[state.Next],
                                pts,
-                               ways,
-                               lumps,
-                               corners,
+                               state.Ways,
+                               state.Lumps,
+                               state.Corners,
                                awayAtLeastM,
                                statedM,
                                stopping);
     if (!baked) { return std::unexpected(baked.error()); }
   }
-
+  if (state.Next < raw.Structures.size()) { return false; }
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-  return FinishStructures(lumps, raw, mesher, scratch, corners, out, stopping);
+  const auto finished =
+      FinishStructures(state.Lumps, raw, mesher, scratch, state.Corners, out, stopping);
+  if (!finished) { return std::unexpected(finished.error()); }
+  return true;
+}
+
+std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
+                                                       const outshine::Ground::HeightField &heights,
+                                                       const StructureMesher &mesher,
+                                                       MeshScratch &scratch,
+                                                       BakedTile &out,
+                                                       const std::atomic_bool *stopping) {
+  StructureBakeProgress progress;
+  const auto completed =
+      progress.Advance(raw, heights, mesher, scratch, out, raw.Structures.size(), stopping);
+  if (!completed) { return std::unexpected(completed.error()); }
+  return {};
 }
 
 }

@@ -81,6 +81,7 @@ private:
   struct Output {
     Generators::BakedTile Tile;
     std::expected<void, Generators::StructureBakeError> Status;
+    bool Complete = false;
     double BakeMs = 0.0;
   };
 
@@ -91,8 +92,10 @@ private:
     std::shared_ptr<const Ground::HeightField> Heights;
     std::unique_ptr<Output> Out;
     std::unique_ptr<MeshScratch> Scratch;
+    std::unique_ptr<Generators::StructureBakeProgress> Progress;
     std::shared_ptr<std::atomic_bool> Stopping;
     Tasks::Handle Handle = Tasks::kNoTask;
+    bool Finished = false;
   };
 
   template <typename T>
@@ -104,6 +107,9 @@ private:
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
+  void PostSlice(Job &job);
+  void DiscardStale(const Ground::OsmField &vectors, Ground::BuildingField &prints);
+  void ResumeSlices();
 
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
