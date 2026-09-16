@@ -30,7 +30,8 @@ Prozessweiter Sink höchstens ausdrücklich vom Host gewählter Adapter, kein ve
       erhält keinen späteren Callback.
 - [x] Verschachtelte Unit-/Sink-Scopes restaurieren den äußeren Kontext, auch bei frühem Return.
 - [x] Thread-Sink funktioniert ohne globalen Sink; getrennte Thread-Aufzeichnungen geprüft.
-- [ ] Shutdown wartet nur gemäß begrenztem Vertrag.
+- [x] TilePool-Shutdown weckt und joint Worker/Carrier, unterbricht die ausstehende Abfrage und
+      kehrt innerhalb einer Sekunde zurück.
 - [x] Bisheriger Code verletzt das Kontextoracle ohne Buildfehler.
 - [ ] Thread-/Lifetime-Tests und Lint; Framekosten mit aktivem Logging getrennt messen.
 
@@ -68,3 +69,8 @@ mit je 64 Ereignissen und 32 Feldern ergeben exakt 256 unvermischt lesbare Zeile
 Altcode verletzt dieses Oracle ohne Buildfehler; beide Logging-Regressionen grün.
 Der öffentliche Zwei-Engine-Test löst ohne SDL-Video je eine Renderdiagnose aus und prüft
 Routentrennung sowie Abmeldung. Worker-Lebensdauer und begrenzte Diagnosekosten bleiben offen.
+
+GroundStack zerstört GroundStream vor TilePool; TilePool setzt Stop, weckt beide Arbeitsgruppen
+und joint sie vor Rückkehr. Die Pending-Fetch-Regression prüft Ticket-Abbruch, keine vollständige
+Retry-Wartezeit und die Ein-Sekunden-Grenze. Ein Worker-Ereignis mit instanzgebundenem Sink und
+eine Messung aktiver Diagnosekosten bleiben offen.
