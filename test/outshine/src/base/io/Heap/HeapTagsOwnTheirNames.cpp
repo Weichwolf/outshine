@@ -1,6 +1,7 @@
 #include "Heap.h"
 #include "Check.h"
 #include <array>
+#include <barrier>
 #include <charconv>
 #include <string_view>
 #include <thread>
@@ -55,17 +56,30 @@ int main() {
   CHECK(Heap::TakenUnder("outer") > outerBefore && Heap::TakenUnder("inner") > innerBefore,
         "nested scopes restore previous attribution");
   const size_t parallelBefore = Heap::TakenUnder("parallel");
+  static const Heap::Tag parallelTag("parallel");
   std::array<std::thread, 4> workers;
   for (auto &worker : workers) {
     worker = std::thread([] {
-      char local[] = "parallel";
-      Heap::Tagged scope(local);
+      Heap::Tagged scope(parallelTag);
       Allocate();
     });
   }
   for (auto &worker : workers) { worker.join(); }
   CHECK(Heap::TakenUnder("parallel") >= parallelBefore + 4 * 32,
         "threads share owned label without losing counts");
+  const size_t contendedBefore = Heap::TakenUnder("contended");
+  std::barrier contendedStart(4);
+  for (auto &worker : workers) {
+    worker = std::thread([&contendedStart] {
+      char local[] = "contended";
+      contendedStart.arrive_and_wait();
+      Heap::Tagged scope(local);
+      Allocate();
+    });
+  }
+  for (auto &worker : workers) { worker.join(); }
+  CHECK(Heap::TakenUnder("contended") > contendedBefore,
+        "contended registration publishes a complete name without waiting");
   const size_t overflowBefore = Heap::TakenUnder("other");
   std::array<char, 128> longName{};
   longName.fill('x');

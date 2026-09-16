@@ -53,8 +53,8 @@ lösen und Engine-/Host-Bilanzierung trennen. Der erste Schritt schließt dieses
 TagRow hält bisher geliehene char-Zeiger und vergleicht Identität statt Inhalt.
 Namen in festen 96-Byte-Slots besitzen; gleiche Texte zusammenführen. 32 Slots
 inklusive other/untagged, überlange/unregistrierbare Namen nach other. Registrierung
-unter Mutex bei der Tag-Erstellung; vorbereitete Hot-Path-Scopes zählen direkt über
-threadlokalen Slotindex.
+über eine begrenzte atomare Slot-Reservierung bei der Tag-Erstellung; vorbereitete
+Hot-Path-Scopes zählen direkt über threadlokalen Slotindex.
 Namen erst nach vollständiger Kopie veröffentlichen; verschachtelte Scopes stellen
 vorigen Index wieder her. Tests: mutierte/freigegebene Namen, gleiche Texte, Threads,
 Überlauf und Scope-Restore. Altstand verletzt die Namens-Negativkontrolle; fünf
@@ -63,9 +63,10 @@ Allocator-/Callback-Regressionen bestehen. Keine vollständige Engine-Speicherbi
 `Heap::Tag` registriert einen festen Namen einmal und hält dessen Slot. Alle festen
 Scopes in Engine, Renderer, Import, Terrain und Straßengenerator übergeben diesen
 vorbereiteten Tag; Eintritt und Austritt schreiben ausschließlich den threadlokalen
-Slot. Der String-Konstruktor bleibt für den dynamischen Pipeline-Namen und darf nicht
-in einen Framepfad gelangen. Die vorbereitete-Tag-Suite und die betroffenen Render-/
-Tile-Suiten bestehen.
+Slot. Gleiche Namen starten an derselben Hash-Position; konkurrierende Erstregistrierung
+fällt kontrolliert auf `other` zurück statt zu warten. Der String-Konstruktor bleibt für
+den dynamischen Pipeline-Namen und darf nicht in einen Framepfad gelangen. Die
+vorbereitete-Tag-Suite und die betroffenen Render-/Tile-Suiten bestehen.
 
 ## Alignment-Grenze
 TryTakeAligned lehnt 0 und Nicht-Zweierpotenzen vor dem Plattformaufruf ab.

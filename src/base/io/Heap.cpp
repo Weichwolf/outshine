@@ -3,11 +3,11 @@
 #include <array>
 #include <bit>
 #include <atomic>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <new>
 #include <algorithm>
-#include <mutex>
 #include <string_view>
 
 #ifdef __APPLE__
@@ -31,6 +31,11 @@ constexpr size_t kTagSlots = 32;
 constexpr size_t kTagNameBytes = 96;
 constexpr size_t kOverflowTag = 0;
 constexpr size_t kUntaggedTag = 1;
+constexpr size_t kFirstNamedTag = 2;
+constexpr std::string_view kOverflowName = "other";
+constexpr std::string_view kUntaggedName = "untagged";
+constexpr uint64_t kTagHashOffset = 1469598103934665603ULL;
+constexpr uint64_t kTagHashPrime = 1099511628211ULL;
 
 thread_local size_t gTagIndex = kUntaggedTag;
 
@@ -50,23 +55,43 @@ struct TagRow {
 
 constinit std::array<TagRow, kTagSlots> gTags{TagRow{std::to_array("other")},
                                               TagRow{std::to_array("untagged")}};
-std::mutex gTagMutex;
+constinit std::array<std::atomic_flag, kTagSlots> gTagClaims{};
 
-size_t TagIndex(const char *tag) {
+size_t TagHash(std::string_view name) noexcept {
+  uint64_t hash = kTagHashOffset;
+  for (const char character : name) {
+    hash ^= static_cast<unsigned char>(character);
+    hash *= kTagHashPrime;
+  }
+  return static_cast<size_t>(hash);
+}
+
+size_t TagIndex(const char *tag) noexcept {
   if (tag == nullptr || *tag == '\0') { return kUntaggedTag; }
   size_t length = 0;
   while (length < kTagNameBytes && tag[length] != '\0') { ++length; }
   if (length == kTagNameBytes) { return kOverflowTag; }
   const std::string_view name(tag, length);
-  const std::scoped_lock lock(gTagMutex);
-  for (size_t at = 0; at < kTagSlots; ++at) {
+  if (name == kOverflowName) { return kOverflowTag; }
+  if (name == kUntaggedName) { return kUntaggedTag; }
+  const size_t span = kTagSlots - kFirstNamedTag;
+  const size_t first = kFirstNamedTag + TagHash(name) % span;
+  for (size_t offset = 0; offset < span; ++offset) {
+    const size_t at = kFirstNamedTag + (first - kFirstNamedTag + offset) % span;
     TagRow &row = gTags[at];
+    if (row.Published.load(std::memory_order_acquire)) {
+      if (std::string_view(row.Name.data()) == name) { return at; }
+      continue;
+    }
+    if (gTagClaims[at].test_and_set(std::memory_order_acquire)) { return kOverflowTag; }
     if (row.Published.load(std::memory_order_relaxed)) {
+      gTagClaims[at].clear(std::memory_order_release);
       if (std::string_view(row.Name.data()) == name) { return at; }
       continue;
     }
     std::ranges::copy(name, row.Name.begin());
     row.Published.store(true, std::memory_order_release);
+    gTagClaims[at].clear(std::memory_order_release);
     return at;
   }
   return kOverflowTag;
