@@ -31,6 +31,17 @@ constexpr double kSeamToleranceM = 1.0e-3;
   return -1.0;
 }
 
+[[nodiscard]] outshine::Result Prepare(outshine::Engine &engine,
+                                       const outshine::Scenario::Document &scenario) {
+  auto declared = engine.declare(scenario);
+  if (!declared) { return declared; }
+  auto assembled = engine.assemble();
+  if (!assembled) { return assembled; }
+  auto loaded = engine.preload(kPatienceS);
+  if (!loaded) { return loaded; }
+  return engine.advance();
+}
+
 } // namespace
 
 int main(void) {
@@ -73,9 +84,9 @@ int main(void) {
   watches.Geographic.PitchDeg = kPitchDeg;
   watches.Sees.FovDeg = kFovDeg;
   stands.Views.push_back(watches);
-  if (!(engine.declare(stands) && engine.assemble() && engine.preload(kPatienceS) &&
-        engine.advance())) {
-    Unprepared(("place preparation failed: " + engine.error()).c_str());
+  const auto prepared = Prepare(engine, stands);
+  if (!prepared) {
+    Unprepared(("place preparation failed: " + prepared.error()).c_str());
     return Report();
   }
 
