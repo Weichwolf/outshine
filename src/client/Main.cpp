@@ -154,9 +154,11 @@ void Usage() {
                                   .Shipped = "src/assets",
                                   .Cache = "/tmp/outshine-drive-cache",
                                   .Offline = false});
-  if (frame.WidthPx > 0 && frame.HeightPx > 0 && !engine.drawsInto(frame)) {
-    std::println("outshine-client: the device stood no canvas -- {}", engine.error());
-    return false;
+  if (frame.WidthPx > 0 && frame.HeightPx > 0) {
+    if (const auto targeted = engine.drawsInto(frame); !targeted) {
+      std::println("outshine-client: the device stood no canvas -- {}", targeted.error());
+      return false;
+    }
   }
   return true;
 }
@@ -232,20 +234,20 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   const std::string named = argc > 1 ? argv[1] : "scenario";
   outshine::Engine engine;
   if (!Stands(engine, {})) { return 2; }
-  if (!engine.readScenario(argv[0])) {
-    std::println("outshine-client: {} -- {}", argv[0], engine.error());
+  if (const auto read = engine.readScenario(argv[0]); !read) {
+    std::println("outshine-client: {} -- {}", argv[0], read.error());
     return 1;
   }
   outshine::Extent frame = engine.declaration().Render.Frame;
   if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
     frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};
   }
-  if (!engine.drawsInto(frame)) {
-    std::println("outshine-client: {}", engine.error());
+  if (const auto targeted = engine.drawsInto(frame); !targeted) {
+    std::println("outshine-client: {}", targeted.error());
     return 1;
   }
-  if (!engine.assemble()) {
-    std::println("outshine-client: {} did not assemble -- {}", argv[0], engine.error());
+  if (const auto assembled = engine.assemble(); !assembled) {
+    std::println("outshine-client: {} did not assemble -- {}", argv[0], assembled.error());
     return 1;
   }
   const Shot shot = outshine::Shots::Draw(engine, named, true, into);
@@ -294,8 +296,16 @@ constexpr auto kHeightCoordinates =
   constexpr double kTerrainRequestTimeoutS = 10.0;
   constexpr double kTerrainPreloadTimeoutS = 15.0;
   stands.Ground.PatienceS = kTerrainRequestTimeoutS;
-  if (!engine.declare(stands) || !engine.assemble() || !engine.preload(kTerrainPreloadTimeoutS)) {
-    std::println("outshine-client: the ground did not arrive -- {}", engine.error());
+  if (const auto declared = engine.declare(stands); !declared) {
+    std::println("outshine-client: the ground declaration failed -- {}", declared.error());
+    return 1;
+  }
+  if (const auto assembled = engine.assemble(); !assembled) {
+    std::println("outshine-client: the ground did not assemble -- {}", assembled.error());
+    return 1;
+  }
+  if (const auto preloaded = engine.preload(kTerrainPreloadTimeoutS); !preloaded) {
+    std::println("outshine-client: the ground did not arrive -- {}", preloaded.error());
     return 1;
   }
   const outshine::Holds<double> heightM = engine.sampleHeight(

@@ -212,8 +212,8 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation =
                         .Shipped = "src/assets",
                         .Cache = "/tmp/outshine-drive-cache",
                         .Offline = false});
-  if (!engine.drawsInto(place.Declaration.Render.Frame)) {
-    shot.Why = "the device stood no canvas";
+  if (const auto targeted = engine.drawsInto(place.Declaration.Render.Frame); !targeted) {
+    shot.Why = "the device stood no canvas: " + targeted.error();
     return false;
   }
 
@@ -222,8 +222,12 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation =
   stands.Ground.VegetationEnabled = stands.Ground.VegetationEnabled && vegetation;
 
   const auto began = std::chrono::steady_clock::now();
-  if (!engine.declare(stands) || !engine.assemble()) {
-    shot.Why = std::string(place.Name) + " was declared and did not assemble: " + engine.error();
+  if (const auto declared = engine.declare(stands); !declared) {
+    shot.Why = std::string(place.Name) + " was not declared: " + declared.error();
+    return false;
+  }
+  if (const auto assembled = engine.assemble(); !assembled) {
+    shot.Why = std::string(place.Name) + " was not assembled: " + assembled.error();
     return false;
   }
   shot.StandingMs =
@@ -237,7 +241,7 @@ std::string Prepare(const Place &place, double patienceS) {
   Shot shot;
   if (!OpenPlace(engine, place, shot)) { return shot.Why; }
   double last = 0;
-  const auto ready = engine.preload(patienceS, [&](const Loading &how) {
+  const Result ready = engine.preload(patienceS, [&](const Loading &how) {
     if (how.ElapsedS - last < 5) { return; }
     last = how.ElapsedS;
     std::println("PREPARE {} elapsed {:.1f} s", place.Name, how.ElapsedS);
@@ -247,7 +251,7 @@ std::string Prepare(const Place &place, double patienceS) {
       }
     }
   });
-  return ready ? std::string{} : engine.error();
+  return ready ? std::string{} : ready.error();
 }
 
 Shot Take(const Place &place, bool tells, bool vegetation, double preloadSeconds) {
@@ -264,38 +268,32 @@ bool PreloadShot(
     Engine &engine, std::string_view name, bool tells, double preloadSeconds, Shot &shot) {
   const auto asked = std::chrono::steady_clock::now();
   Loading last;
-  const bool ready =
-      engine
-          .preload(preloadSeconds,
-                   [&](const Loading &how) {
-                     if (!tells) { return; }
-                     if (how.ElapsedS - last.ElapsedS < kProgressEveryS && how.share() < 1.0) {
-                       return;
-                     }
-                     last = how;
-                     std::print("\r    loading  terrain {}/{}  osm {}/{}  {} in flight  {:.1f} MB  "
-                                "{:.0f} Mbit/s  {:.1f} s   ",
-                                how.GroundArrived,
-                                how.GroundWanted,
-                                how.VectorArrived,
-                                how.VectorWanted,
-                                how.Outstanding,
-                                how.FetchedMB,
-                                how.Megabits,
-                                how.ElapsedS);
-                     std::fflush(stdout);
-                   })
-          .has_value();
+  const Result ready = engine.preload(preloadSeconds, [&](const Loading &how) {
+    if (!tells) { return; }
+    if (how.ElapsedS - last.ElapsedS < kProgressEveryS && how.share() < 1.0) { return; }
+    last = how;
+    std::print("\r    loading  terrain {}/{}  osm {}/{}  {} in flight  {:.1f} MB  "
+               "{:.0f} Mbit/s  {:.1f} s   ",
+               how.GroundArrived,
+               how.GroundWanted,
+               how.VectorArrived,
+               how.VectorWanted,
+               how.Outstanding,
+               how.FetchedMB,
+               how.Megabits,
+               how.ElapsedS);
+    std::fflush(stdout);
+  });
   if (tells) { std::println(""); }
 
   const auto stood = std::chrono::steady_clock::now();
   shot.StreamedS = last.ElapsedS;
-  shot.Preloaded = ready;
+  shot.Preloaded = ready.has_value();
   if (!ready) {
     shot.Why = std::string(name) +
                " did not preload, so nothing measured after this point is "
                "about the declaration: " +
-               std::string(engine.error());
+               ready.error();
     return false;
   }
   shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
@@ -373,12 +371,12 @@ Shot Draw(Engine &engine,
   const int settle = engine.renderer().settleFrames();
   const int wanted = settle > 2 ? settle : 2;
   for (int at = 0; at < wanted; ++at) {
-    if (!engine.advance()) {
-      shot.Why = std::string(name) + " did not advance: " + engine.error();
+    if (const auto advanced = engine.advance(); !advanced) {
+      shot.Why = std::string(name) + " did not advance: " + advanced.error();
       return shot;
     }
-    if (!engine.renderer().render(Extent{})) {
-      shot.Why = std::string(name) + " did not render: " + engine.error();
+    if (const auto rendered = engine.renderer().render(Extent{}); !rendered) {
+      shot.Why = std::string(name) + " did not render: " + rendered.error();
       return shot;
     }
   }
@@ -392,9 +390,11 @@ Shot Draw(Engine &engine,
   shot.Triangles = measured("building triangles the world meshed");
   shot.BareTiles = measured("tiles laid bare on the ellipsoid");
 
-  if (Audits && !engine.inspect()) {
-    shot.Why = std::string(name) + " refused its audit: " + engine.error();
-    return shot;
+  if (Audits) {
+    if (const auto inspected = engine.inspect(); !inspected) {
+      shot.Why = std::string(name) + " refused its audit: " + inspected.error();
+      return shot;
+    }
   }
   shot.SettledOver = static_cast<double>(wanted);
   shot.PosedAtS = measured("and the instant it is posed at");
