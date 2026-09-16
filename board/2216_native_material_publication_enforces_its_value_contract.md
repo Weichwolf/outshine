@@ -34,17 +34,17 @@ Import-/Generator-/Geländeaufrufer reichen Anlegefehler weiter. Models und Corr
 melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer übergeben.
 
 ## Verbleibende Arbeit
-- Indexkapazitätsgrenze unabhängig prüfen, ohne Milliarden Materialien anzulegen.
-  Die aktuelle Prüfung begrenzt den int-Materialzähler und vector::max_size;
-  sie ist keine Laufzeitprüfung unter tatsächlicher Speichererschöpfung.
-- Verbleibende Kopier-/Indexverengungen und Bindungsauflösung im Importadapter auditieren.
-  Gemeinsame native Regeln für Importer, Generatoren und direkte API-Aufrufer.
+- Material- und übrige Indexgrenzen ohne reale Speichererschöpfung unabhängig prüfen.
+- Kopier-/Indexverengungen und Bindungsauflösung mit gemeinsamen nativen Regeln auditieren.
 - Späte Fehler im gesamten Weltaufbau prüfen: frühere Änderungen an World.Pieces und
   anderen Begleitdaten sind durch das Verwerfen des Geometry-Kandidaten nicht zurückgerollt.
   Vollständige Transaktion einschließlich aktiver Welt durch unabhängige Fehlerfälle belegen.
-- Alle Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen.
-  Vollständige Asset-/Instanzmigration bleibt WI 2150; Runtime-Ausnahmen WI 2194.
+- Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen; Assetmigration bleibt WI 2150.
 
+## Native-Konstruktionsfehler
+`addImage` liefert noch `-1`; `addPart`/`addLamp` verengen Zähler ohne Kapazitätsvertrag.
+Auf `[[nodiscard]] expected<Index, GeometryBuildError>` migrieren: Grenzen vor Mutation prüfen,
+Bestand/Index beim Fehler erhalten und Ursache unverändert durch direkte, Import- und Generatorpfade reichen.
 ## Import-Vorprüfung
 Subject::Assemble prüft lokale Indizes und Attribute jetzt vor Clear und partieller Kopie.
 ValidatePart/ValidateAssembly liefern expected; destruktives Refuse wird vor Mutation vermieden.
