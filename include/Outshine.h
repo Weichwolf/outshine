@@ -501,9 +501,9 @@ private:
   [[nodiscard]] bool saveScreenshot(std::string_view path);
   [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] bool readPixels(Buffer which, std::vector<float> &out);
-  [[nodiscard]] bool beginFrame();
-  [[nodiscard]] bool endFrame();
-  [[nodiscard]] bool flushAndWait();
+  [[nodiscard]] Result beginFrame();
+  [[nodiscard]] Result endFrame();
+  [[nodiscard]] Result flushAndWait();
   [[nodiscard]] Extent canvas() const;
 
   [[nodiscard]] bool camera(Camera &out) const;

@@ -278,39 +278,37 @@ bool Engine::presenting() const {
   return S_->Picture.Device.Presents();
 }
 
-bool Engine::beginFrame() {
+Result Engine::beginFrame() {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (S_->Picture.Scope != FrameScope::Closed) {
-    S_->Error = Says::kFrameAlreadyOpen;
-    return false;
+    return std::unexpected(std::string(Says::kFrameAlreadyOpen));
   }
-  if (!S_->Stood()) { return false; }
+  if (!S_->Stood()) { return std::unexpected(S_->Error); }
   if (!S_->Picture.Standing) {
-    S_->Error = "a frame is begun over a scenario, and none stands";
-    return false;
+    return std::unexpected(std::string("a frame is begun over a scenario, and none stands"));
   }
   S_->Picture.Scope = FrameScope::Open;
-  return true;
+  return {};
 }
 
-bool Engine::endFrame() {
+Result Engine::endFrame() {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (S_->Picture.Scope == FrameScope::Closed) {
-    S_->Error = "a frame was ended that was never begun";
-    return false;
+    return std::unexpected(std::string("a frame was ended that was never begun"));
   }
   const auto completed = std::exchange(S_->Picture.Scope, FrameScope::Closed);
   if (completed == FrameScope::DrawSucceeded || !S_->Picture.Standing ||
       !S_->Picture.Device.Presents()) {
-    return true;
+    return {};
   }
-  return DrawScene(S_->Picture, S_->Error);
+  if (DrawScene(S_->Picture, S_->Error)) { return {}; }
+  return std::unexpected(S_->Error);
 }
 
-bool Engine::flushAndWait() {
+Result Engine::flushAndWait() {
   [[maybe_unused]] const auto logs = S_->Logs();
-  if (!S_->Picture.Standing) { return true; }
-  return S_->Picture.Standing->Settle(S_->Error);
+  if (!S_->Picture.Standing || S_->Picture.Standing->Settle(S_->Error)) { return {}; }
+  return std::unexpected(S_->Error);
 }
 
 bool Engine::saveScreenshot(std::string_view path) {

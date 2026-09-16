@@ -260,15 +260,15 @@ Result Renderer::beginFrame(SwapChain &into) {
     return std::unexpected(std::string("a frame is begun against a canvas and this one is "
                                        "0x0 -- drawsInto declares it before a frame opens"));
   }
-  return Of_->beginFrame() ? Result{} : std::unexpected(Of_->S_->Error);
+  return Of_->beginFrame();
 }
 
 Result Renderer::endFrame() {
-  return Of_->endFrame() ? Result{} : std::unexpected(Of_->S_->Error);
+  return Of_->endFrame();
 }
 
 Result Renderer::flushAndWait() {
-  return Of_->flushAndWait() ? Result{} : std::unexpected(Of_->S_->Error);
+  return Of_->flushAndWait();
 }
 
 Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {

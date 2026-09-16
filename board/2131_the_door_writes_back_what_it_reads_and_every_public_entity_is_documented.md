@@ -34,9 +34,9 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
 - Zeitsteuerung: Überlastpolitik und Frame-Arbeitsbudget bestimmen, Restzeit und
   Zustände bei fehlgeschlagenen Schritten prüfen. Positive endliche StepS und gültige
   Nachhollimits allein sind kein Echtzeitnachweis.
-- Diagnose-API: Legacy-error nicht als Ergebnis letzter expected-Aufrufe verwenden.
-  Messwerte können veraltet sein; Snapshot-/Frischevertrag bei Nutzung berücksichtigen.
-  Timing-Ring-Allokation ist noch nicht budgetiert oder gemeinsam transaktional.
+- Frame-Fassade liefert begin/end/flush direkt als Result; Render, Screenshot und Readback
+  nutzen weiter Bool plus Legacy-error und benötigen denselben Fehlervertrag. Messwerte
+  brauchen bei Nutzung einen Snapshot-/Frischevertrag; Timing-Ring-Allokation bleibt offen.
 ## Abnahme
 - Vollständiger make lint mit null clang-tidy- und Dokumentationsdiagnosen;
   alle öffentlichen Header erfasst. Grüne Zähler ersetzen keine Vertragsprüfung.
