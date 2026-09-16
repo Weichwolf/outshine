@@ -1,4 +1,5 @@
 #include "HeightSheets.h"
+#include <expected>
 
 #include "Digest.h"
 #include "math/RenderFrame.h"
@@ -50,29 +51,32 @@ namespace {
 
 }
 
-Render::PageId
-HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error) {
+std::expected<Core::HeightPageHandle, std::string>
+HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes) {
   const auto key = std::tuple{tile.Zoom, tile.X, tile.Y};
   const auto found = PageIndex_.find(key);
   if (found != PageIndex_.end()) {
     Held &one = Held_[found->second];
-    if (one.Page == Render::kNoPage || !std::ranges::equal(one.Nodes, nodes)) {
-      Live_->ReleaseHeightPage(one.Page);
-      one.Page = Live_->PlaceHeightPage(nodes, error);
-      one.Nodes.assign(nodes.begin(), nodes.end());
-    }
+    if (one.Page && std::ranges::equal(one.Nodes, nodes)) { return one.Page; }
+    std::vector<float> replacement(nodes.begin(), nodes.end());
+    const auto page = Live_->PlaceHeightPage(replacement);
+    if (!page) { return std::unexpected(page.error()); }
+    Live_->ReleaseHeightPage(one.Page);
+    one.Page = *page;
+    one.Nodes = std::move(replacement);
     return one.Page;
   }
-  const Render::PageId page = Live_->PlaceHeightPage(nodes, error);
-  if (page == Render::kNoPage) { return page; }
+  std::vector<float> owned(nodes.begin(), nodes.end());
+  const auto page = Live_->PlaceHeightPage(owned);
+  if (!page) { return std::unexpected(page.error()); }
   PageIndex_.emplace(key, Held_.size());
-  Held_.push_back(
-      {.Tile = tile, .Page = page, .Nodes = std::vector<float>(nodes.begin(), nodes.end())});
-  return page;
+  Held_.push_back({.Tile = tile, .Page = *page, .Nodes = std::move(owned)});
+  return *page;
 }
 
-Render::GroundTile
-HeightSheets::TileOf(Data::TileId tile, Render::PageId page, std::span<const float> nodes) const {
+Core::GroundTile HeightSheets::TileOf(Data::TileId tile,
+                                      Core::HeightPageHandle page,
+                                      std::span<const float> nodes) const {
   const Ground::GeoBounds bounds = Ground::TileBounds(tile);
   const double midLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
   const double midLat = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg);
@@ -93,7 +97,7 @@ HeightSheets::TileOf(Data::TileId tile, Render::PageId page, std::span<const flo
   const Vec3 &north = Frame_.NorthEcef();
   const Vec3 &up = Frame_.UpEcef();
   const EastNorthUp at = Frame_.Place(centre);
-  Render::GroundInstance made;
+  Core::GroundTile made;
   const std::array<const Vec3 *, 3> axes = {{&tile_.East, &tile_.North, &tile_.Up}};
   for (size_t column = 0; column < 3; ++column) {
     made.Row[column * 4u] = static_cast<float>(Dot(east, *axes[column]));
@@ -107,7 +111,7 @@ HeightSheets::TileOf(Data::TileId tile, Render::PageId page, std::span<const flo
   made.Row[14] = static_cast<float>(RenderFrame::ZOfNorth(at.NorthM));
   made.Row[15] = 1.0f;
   made.Corners = {{nw[0], nw[1], ne[0], ne[1], sw[0], sw[1], se[0], se[1]}};
-  made.Page = static_cast<float>(page);
+  made.Page = page;
   made.SagInv = static_cast<float>(1.0 / std::sqrt(Dot(centre, centre)));
   const auto steps = static_cast<float>(Render::GroundLattice::kSide - 1);
   made.StepE = 0.5f * ((ne[0] - nw[0]) + (se[0] - sw[0])) / steps;
@@ -115,9 +119,9 @@ HeightSheets::TileOf(Data::TileId tile, Render::PageId page, std::span<const flo
   const auto [low, high] = std::ranges::minmax_element(nodes);
   const float skirt = Render::GroundLattice::kSkirtSteps * std::max(made.StepE, made.StepN);
   const float sag = 0.5f * std::max({Dot2(nw), Dot2(ne), Dot2(sw), Dot2(se)}) * made.SagInv;
-  return {.Instance = made,
-          .LowM = (nodes.empty() ? 0.0f : *low) - skirt - sag,
-          .HighM = nodes.empty() ? 0.0f : *high};
+  made.LowM = (nodes.empty() ? 0.0f : *low) - skirt - sag;
+  made.HighM = nodes.empty() ? 0.0f : *high;
+  return made;
 }
 
 namespace {
@@ -604,15 +608,16 @@ bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
   Virtual_.clear();
   const size_t nodes = Render::GroundLattice::kPageNodes;
   for (const Sheet &sheet : laid.Sheets) {
-    Render::PageId page = Render::kNoPage;
-    if (sheet.Side == Render::GroundLattice::kSide && sheet.Nodes.size() == nodes) {
-      page = PageFor(sheet.Tile, sheet.Nodes, error);
-    } else {
+    if (sheet.Side != Render::GroundLattice::kSide || sheet.Nodes.size() != nodes) {
       ++Flat_;
       continue;
     }
-    if (page == Render::kNoPage) { return false; }
-    (sheet.Virtual ? Virtual_ : Instances_).push_back(TileOf(sheet.Tile, page, sheet.Nodes));
+    const auto page = PageFor(sheet.Tile, sheet.Nodes);
+    if (!page) {
+      error = page.error();
+      return false;
+    }
+    (sheet.Virtual ? Virtual_ : Instances_).push_back(TileOf(sheet.Tile, *page, sheet.Nodes));
   }
   if (!HandsGrid(laid, error)) { return false; }
   return Live_->SetGroundLattice(Instances_, Virtual_, error);
@@ -662,14 +667,19 @@ uint64_t HeightSheets::Digest() const {
   uint64_t digest = kDigestBasis;
   const auto fold = [&digest](uint32_t word) { digest = (digest ^ word) * kDigestPrime; };
   const auto foldFloat = [&fold](float value) { fold(std::bit_cast<uint32_t>(value)); };
-  for (const std::vector<Render::GroundTile> *tiles : {&Instances_, &Virtual_}) {
-    for (const Render::GroundTile &one : *tiles) {
-      for (const float value : one.Instance.Row) { foldFloat(value); }
-      for (const float value : one.Instance.Corners) { foldFloat(value); }
-      foldFloat(one.Instance.Page);
-      foldFloat(one.Instance.SagInv);
-      foldFloat(one.Instance.StepE);
-      foldFloat(one.Instance.StepN);
+  const auto foldPage = [&fold](Core::HeightPageHandle page) {
+    fold(page.Slot);
+    fold(static_cast<uint32_t>(page.Generation));
+    fold(static_cast<uint32_t>(page.Generation >> 32u));
+  };
+  for (const std::vector<Core::GroundTile> *tiles : {&Instances_, &Virtual_}) {
+    for (const Core::GroundTile &one : *tiles) {
+      for (const float value : one.Row) { foldFloat(value); }
+      for (const float value : one.Corners) { foldFloat(value); }
+      foldPage(one.Page);
+      foldFloat(one.SagInv);
+      foldFloat(one.StepE);
+      foldFloat(one.StepN);
       foldFloat(one.LowM);
       foldFloat(one.HighM);
     }
@@ -678,7 +688,7 @@ uint64_t HeightSheets::Digest() const {
     fold(static_cast<uint32_t>(held.Tile.Zoom));
     fold(static_cast<uint32_t>(held.Tile.X));
     fold(static_cast<uint32_t>(held.Tile.Y));
-    fold(held.Page);
+    foldPage(held.Page);
     for (const float value : held.Nodes) { foldFloat(value); }
   }
   return digest;

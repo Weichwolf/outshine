@@ -1,7 +1,7 @@
 Type: defect
 State: active
 Parent: 2209
-Depends: 2191, 2222, 2223, 2224, 2225, 2229
+Depends: 2191, 2222, 2223, 2224, 2225
 Area: engine, world, render, audio
 Tags: memory, budget, realtime
 

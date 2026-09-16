@@ -1,5 +1,6 @@
 Type: bug
 State: active
+Architecture: ready
 Area: engine, include, scenario
 Tags: architecture, state, errors
 Parent: 2188

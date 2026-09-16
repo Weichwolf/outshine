@@ -31,7 +31,7 @@ Referenzen: `build/shots/reference/empty-tile-publication/Graz-before.png` und
 - Alternative: längere feste Wartezeit. Kostet Durchlaufzeit und garantiert weder
   gleichen Datenstand noch gleiche Publikationsreihenfolge; deshalb nicht als Lösung.
 - Blockiert: strikte deterministische Place-Bildabnahme, nicht analytische/GPU-
-  Vertragsprüfungen oder die unabhängige Implementierung von WI 2229/2216.
+  Vertragsprüfungen oder die unabhängige Implementierung von WI 2224/2216.
 
 ## Untersuchung und Abnahme
 

@@ -60,15 +60,16 @@ int main() {
       world.GroundPublished.Publish(oldRevision);
       Core::Live *const oldScene = scene.get();
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
-      const auto page = scene->PlaceHeightPage(nodes, error);
-      CHECK(page != Render::kNoPage, "original height page uploads");
+      const auto page = scene->PlaceHeightPage(nodes);
+      CHECK(page.has_value(), "original height page uploads");
+      if (!page) { return Report(); }
       std::vector<float> fractions(Render::GroundLattice::kSide);
       for (size_t at = 0; at < fractions.size(); ++at) {
         fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
       }
-      Render::GroundTile tile;
-      tile.Instance.Corners = {{-1, -1, 1, -1, -1, 1, 1, 1}};
-      tile.Instance.Page = static_cast<float>(page);
+      Core::GroundTile tile;
+      tile.Corners = {{-1, -1, 1, -1, -1, 1, 1, 1}};
+      tile.Page = *page;
       tile.LowM = tile.HighM = 3.0f;
       CHECK(scene->SetGroundGrid(fractions, error) &&
                 scene->SetGroundLattice({&tile, 1}, {}, error),

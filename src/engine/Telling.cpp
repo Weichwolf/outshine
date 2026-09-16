@@ -86,6 +86,9 @@ void Engine::State::TellResourcePayloads() {
   Published.Places("streamed piece slot capacity",
                    static_cast<double>(Picture.Standing->PieceSlotBytes()),
                    "bytes");
+  Published.Places("height page slot capacity",
+                   static_cast<double>(Picture.Standing->HeightPageSlotBytes()),
+                   "bytes");
   Published.Places("height page CPU payload capacity",
                    static_cast<double>(Picture.Standing->HeightPageSourceBytes()),
                    "bytes");

@@ -16,7 +16,8 @@
 #include <optional>
 #include <utility>
 #include "TerrainLoader.h"
-#include "SubjectTypes.h"
+#include "GroundTile.h"
+#include <expected>
 #include "TangentFrame.h"
 
 namespace outshine {
@@ -114,21 +115,21 @@ public:
 private:
   struct Held {
     Data::TileId Tile;
-    Render::PageId Page = Render::kNoPage;
+    Core::HeightPageHandle Page{};
     std::vector<float> Nodes;
   };
 
   [[nodiscard]] bool HandsGrid(const Patchwork &laid, std::string &error);
   void StitchEdges(Patchwork &laid);
-  [[nodiscard]] Render::PageId
-  PageFor(Data::TileId tile, std::span<const float> nodes, std::string &error);
-  [[nodiscard]] Render::GroundTile
-  TileOf(Data::TileId tile, Render::PageId page, std::span<const float> nodes) const;
+  [[nodiscard]] std::expected<Core::HeightPageHandle, std::string>
+  PageFor(Data::TileId tile, std::span<const float> nodes);
+  [[nodiscard]] Core::GroundTile
+  TileOf(Data::TileId tile, Core::HeightPageHandle page, std::span<const float> nodes) const;
 
   std::vector<Held> Held_;
   std::map<std::tuple<int, uint32_t, uint32_t>, size_t> PageIndex_;
-  std::vector<Render::GroundTile> Instances_;
-  std::vector<Render::GroundTile> Virtual_;
+  std::vector<Core::GroundTile> Instances_;
+  std::vector<Core::GroundTile> Virtual_;
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
                                                     Data::TileId tile);
   static void AsksFields(const Ground::GroundStream &ground, const Patchwork &laid, int finestZoom);

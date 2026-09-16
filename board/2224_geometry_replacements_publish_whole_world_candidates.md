@@ -25,13 +25,14 @@ den äußeren Kandidaten nicht verwerfen. `GroundWorldCandidate.h` ergänzt Shee
 Terrainpositionen/Indizes, Netz, Materialslots und Revision; Revision wird zuletzt gesetzt.
 `Surrounds::BindLiveResources` bindet Pieces, Sheets und Crowns ohne Allokation neu.
 Ground-Klassen-GPU-Puffer gehören zum WorldContent, ihre CPU-Inputs zu Live.
-Native Piece/Page-Identität ist bislang append-only; sichere Wiederverwendung ist WI 2229.
+Piece/Page-Identität verwendet native generational Handles und wiederverwendbare Slots.
+Kandidaten kopieren Identitäten/Freilisten, nur Live übersetzt GPU-Adressen. Native
+GroundTile-Daten enthalten keine als Float kodierten Handles; der Upload prüft exakte
+GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Freigabe vor.
 
 ## Nächste Schritte in Reihenfolge
 
-1. Native Handle-/GPU-Adressgrenze unter WI 2229 vollständig migrieren. Bestehende
-   Candidate-Snapshots behalten gültige native Identitäten; GPU-Adressen werden neu aufgelöst.
-2. Bake-Publikation vervollständigen: `StructureBakes::{NextLanding,CommitsLanding}`,
+1. Bake-Publikation vervollständigen: `StructureBakes::{NextLanding,CommitsLanding}`,
    `StructureTilePublication.h`, `Advancing.cpp` und
    `src/world/ground/BuildingField.{h,cpp}` gemeinsam prüfen.
    Aktuell werden Footprints erst nach GPU-Publikation in `CommitsLanding` übernommen.
@@ -40,15 +41,15 @@ Native Piece/Page-Identität ist bislang append-only; sichere Wiederverwendung i
    bleibt bis Commit/Abbruch im Queue-Owner; Landing ist nur geliehen, nie über Commit halten.
    Uploadfehler konsumiert weder Job noch Footprints. Gültiger Retry konsumiert genau einmal.
    Nicht mit einem zweiten Test-Publikationspfad oder bloßen Zählerkopien nachweisen.
-3. Stale Ergebnisse abweisen: Bake-/Ground-Anfragen tragen die benötigte Datenrevision
+2. Stale Ergebnisse abweisen: Bake-/Ground-Anfragen tragen die benötigte Datenrevision
    einschließlich Projektion und Quellidentität. Vor Publikation mit aktuellem Auftrag
    vergleichen. Veralteten fertigen Job freigeben, ohne aktuelle Welt/Revision zu verändern;
    gleiche Tile-ID allein ist keine Identität. A→B→spätes A als deterministischen Test bauen.
-4. Öffentlichen Gesamtpfad testen: kleiner deterministischer OSM-/DEM-Provider, Engine-API,
+3. Öffentlichen Gesamtpfad testen: kleiner deterministischer OSM-/DEM-Provider, Engine-API,
    zunächst gültige Welt A, dann B mit spätem Klassen-/Geometrie-Submitfehler.
    Materialmapping, Albedo, tatsächliches Routingnetz, GPU-Readback und Bild von A erhalten;
    Retry liefert B. Beide SDL-Submitfunktionen im bestehenden Fault-Injection-Stil erfassen.
-5. `Restands`, surface-only redeclare, Kamera-/Animationsersatz und öffentliche
+4. `Restands`, surface-only redeclare, Kamera-/Animationsersatz und öffentliche
    Geometrie-/Audio-Occlusion im Übergangsinventar von WI 2191 prüfen. Pro Übergang ein
    vollständiger Änderungsschritt; kein allgemeines Transaktionsframework auf Vorrat.
 
@@ -67,7 +68,11 @@ Native Piece/Page-Identität ist bislang append-only; sichere Wiederverwendung i
 - `Live/GroundResourcesSurviveWorldPublication.cpp`: Höhenhalter über zwei Ersatzwelten.
   Piece-/Crown-Rebinding zusätzlich mit tatsächlicher Folgeoperation belegen.
 - `Live/ReleasedResourcesDropCpuPayloads.cpp`: CPU-Nutzdaten werden freigegeben;
-  keine Behauptung begrenzter Handle-Metadaten vor WI 2229.
+  Slotreuse stabilisiert Metadaten bei fester Spitzenbelegung. Piece-/Page-Kandidaten,
+  stale Handles, GPU-Fehler, Retry und Generationsüberlauf sind separat geprüft.
+  `HeightSheets/FailedPageReplacementKeepsPreviousPage.cpp` prüft Erhaltung beim
+  GPU-Seitenfehler; alter Freigabe-vor-Upload-Pfad verletzt zwei Checks.
+  GPU-Floatadressgrenzen sind analytisch geprüft. Absolutes Speicherbudget bleibt WI 2228.
 - Tests liegen unter `test/outshine/src/engine/<Komponente>/`; öffentliche Übergänge
   unter `test/outshine/include/Outshine/`. Produktionsoperation aufrufen, nicht nachbauen.
 - Ground-Transaktion: Graz ohne Vegetation unverändert, 0/921600 abweichende Pixel;

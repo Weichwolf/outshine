@@ -5,6 +5,7 @@
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "Live.h"
+#include "GroundTileUpload.h"
 #include "AzimuthElevation.h"
 
 #include "Shaped.h"
@@ -44,6 +45,8 @@ constexpr auto NoGeometrySurface = "native geometry requires a declared surface 
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
+constexpr auto HeightPageLimit = "height-page storage exceeds the native slot index range";
+constexpr auto HeightPageUploadFailed = "height-page upload failed";
 constexpr auto MissingHeightPage = "the height-page handle names no live resource in this world";
 constexpr auto RepeatedPiece = "an instance update names one piece more than once";
 constexpr auto PieceUploadFailed = "piece geometry upload failed";
@@ -183,24 +186,47 @@ void Live::ReleasePiece(PieceHandle which) {
   piece.State = state;
 }
 
-Render::PageId Live::PlaceHeightPage(std::span<const float> nodes, std::string &error) {
-  if (Renderer_ == nullptr || HeightPages_.size() >= Render::kNoPage) {
-    error = Says::MissingHeightPage;
-    return Render::kNoPage;
+std::expected<HeightPageHandle, std::string> Live::PlaceHeightPage(std::span<const float> nodes) {
+  if (Renderer_ == nullptr) { return std::unexpected(Says::MissingHeightPage); }
+  if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
+    return std::unexpected(Says::HeightPageLimit);
   }
   HeightPage held{.Nodes = {nodes.begin(), nodes.end()}};
+  std::string error;
   held.Resident = Renderer_->PlaceHeightPage(held.Nodes, error);
-  if (held.Resident == Render::kNoPage) { return Render::kNoPage; }
-  held.Live = true;
-  HeightPages_.push_back(std::move(held));
-  return static_cast<Render::PageId>(HeightPages_.size() - 1u);
+  if (held.Resident == Render::kNoPage) {
+    return std::unexpected(error.empty() ? std::string(Says::HeightPageUploadFailed)
+                                         : std::move(error));
+  }
+  held.State.Occupied = true;
+  uint32_t slot = FirstFreeHeightPage_;
+  if (slot != kNoResourceSlot) {
+    held.State.Generation = HeightPages_[slot].State.Generation;
+    FirstFreeHeightPage_ = HeightPages_[slot].State.NextFree;
+    HeightPages_[slot] = std::move(held);
+  } else {
+    slot = static_cast<uint32_t>(HeightPages_.size());
+    HeightPages_.push_back(std::move(held));
+  }
+  return HeightPageHandle{.Slot = slot, .Generation = HeightPages_[slot].State.Generation};
 }
 
-void Live::ReleaseHeightPage(Render::PageId which) {
-  if (Renderer_ == nullptr || which >= HeightPages_.size() || !HeightPages_[which].Live) { return; }
-  HeightPage &page = HeightPages_[which];
+bool Live::HasHeightPage(HeightPageHandle handle) const noexcept {
+  return handle.Slot < HeightPages_.size() &&
+         HeightPages_[handle.Slot].State.Matches(handle.Generation);
+}
+
+void Live::ReleaseHeightPage(HeightPageHandle which) {
+  if (Renderer_ == nullptr || !HasHeightPage(which)) { return; }
+  HeightPage &page = HeightPages_[which.Slot];
   Renderer_->ReleaseHeightPage(page.Resident);
+  ResourceSlotState state = page.State;
+  if (state.Release()) {
+    state.NextFree = FirstFreeHeightPage_;
+    FirstFreeHeightPage_ = which.Slot;
+  }
   page = HeightPage{};
+  page.State = state;
 }
 
 bool Live::SetGroundGrid(std::span<const float> fractions, std::string &error) {
@@ -211,21 +237,23 @@ bool Live::SetGroundGrid(std::span<const float> fractions, std::string &error) {
   return true;
 }
 
-bool Live::PublishesGroundLattice(std::span<const Render::GroundTile> real,
-                                  std::span<const Render::GroundTile> virtual_,
+bool Live::PublishesGroundLattice(std::span<const GroundTile> real,
+                                  std::span<const GroundTile> virtual_,
                                   std::string &error) {
-  const auto translated = [this, &error](std::span<const Render::GroundTile> source,
+  const auto translated = [this, &error](std::span<const GroundTile> source,
                                          std::vector<Render::GroundTile> &into) {
-    into.assign(source.begin(), source.end());
-    for (Render::GroundTile &tile : into) {
-      const float encoded = tile.Instance.Page;
-      const auto page = static_cast<Render::PageId>(encoded);
-      if (!std::isfinite(encoded) || static_cast<float>(page) != encoded ||
-          page >= HeightPages_.size() || !HeightPages_[page].Live) {
+    into.reserve(source.size());
+    for (const GroundTile &tile : source) {
+      if (!HasHeightPage(tile.Page)) {
         error = Says::MissingHeightPage;
         return false;
       }
-      tile.Instance.Page = static_cast<float>(HeightPages_[page].Resident);
+      const auto encoded = EncodeGroundTile(tile, HeightPages_[tile.Page.Slot].Resident);
+      if (!encoded) {
+        error = encoded.error();
+        return false;
+      }
+      into.push_back(*encoded);
     }
     return true;
   };
@@ -235,8 +263,8 @@ bool Live::PublishesGroundLattice(std::span<const Render::GroundTile> real,
   return Renderer_->SetGroundLattice(residentReal, residentVirtual, error);
 }
 
-bool Live::SetGroundLattice(std::span<const Render::GroundTile> real,
-                            std::span<const Render::GroundTile> virtual_,
+bool Live::SetGroundLattice(std::span<const GroundTile> real,
+                            std::span<const GroundTile> virtual_,
                             std::string &error) {
   if (Renderer_ == nullptr || !PublishesGroundLattice(real, virtual_, error)) {
     return Renderer_ == nullptr;
@@ -791,8 +819,9 @@ bool Live::RestoresGroundResources(const Live &previous, std::string &error) {
     return false;
   }
   HeightPages_ = previous.HeightPages_;
+  FirstFreeHeightPage_ = previous.FirstFreeHeightPage_;
   for (HeightPage &page : HeightPages_) {
-    if (!page.Live) { continue; }
+    if (!page.State.Occupied) { continue; }
     page.Resident = Renderer_->PlaceHeightPage(page.Nodes, error);
     if (page.Resident == Render::kNoPage) { return false; }
   }

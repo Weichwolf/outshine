@@ -18,6 +18,7 @@
 #include <scenario/Scenario.h>
 
 #include "ResourceHandle.h"
+#include "GroundTile.h"
 #include "Asset.h"
 #include "Document.h"
 #include "SubjectProxy.h"
@@ -155,14 +156,15 @@ public:
 
   void ReleasePiece(PieceHandle which);
 
-  [[nodiscard]] Render::PageId PlaceHeightPage(std::span<const float> nodes, std::string &error);
+  [[nodiscard]] std::expected<HeightPageHandle, std::string>
+  PlaceHeightPage(std::span<const float> nodes);
 
-  void ReleaseHeightPage(Render::PageId which);
+  void ReleaseHeightPage(HeightPageHandle which);
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error);
 
-  [[nodiscard]] bool SetGroundLattice(std::span<const Render::GroundTile> real,
-                                      std::span<const Render::GroundTile> virtual_,
+  [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,
+                                      std::span<const GroundTile> virtual_,
                                       std::string &error);
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const {
@@ -186,6 +188,12 @@ public:
   }
 
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
+
+  [[nodiscard]] size_t HeightPageSlots() const noexcept { return HeightPages_.size(); }
+
+  [[nodiscard]] size_t HeightPageSlotBytes() const noexcept {
+    return HeightPages_.capacity() * sizeof(HeightPage);
+  }
 
   [[nodiscard]] uint32_t PieceBytesHeld() const {
     return Renderer_ == nullptr ? 0u : Renderer_->PieceBytesHeld();
@@ -530,19 +538,21 @@ private:
   [[nodiscard]] bool RestoresPieceResources(const Live &previous, std::string &error);
 
   struct HeightPage {
+    ResourceSlotState State{};
     std::vector<float> Nodes;
     Render::PageId Resident = Render::kNoPage;
-    bool Live = false;
   };
 
   std::vector<HeightPage> HeightPages_;
+  uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
+  [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   std::vector<uint32_t> GroundClasses_;
   std::vector<float> GroundPalette_;
   std::vector<float> GroundGrid_;
-  std::vector<Render::GroundTile> GroundReal_, GroundVirtual_;
+  std::vector<GroundTile> GroundReal_, GroundVirtual_;
   [[nodiscard]] bool RestoresGroundResources(const Live &previous, std::string &error);
-  [[nodiscard]] bool PublishesGroundLattice(std::span<const Render::GroundTile> real,
-                                            std::span<const Render::GroundTile> virtual_,
+  [[nodiscard]] bool PublishesGroundLattice(std::span<const GroundTile> real,
+                                            std::span<const GroundTile> virtual_,
                                             std::string &error);
   Posed Held_;
   Render::SubjectProxy Stood_;

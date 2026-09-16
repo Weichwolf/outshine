@@ -1,4 +1,5 @@
 #include "Live.h"
+#include "WorldCandidate.h"
 #include "EngineHeld.h"
 #include "SceneRenderer.h"
 #include "Check.h"
@@ -28,15 +29,20 @@ int main() {
       Surrounds world;
       world.BindLiveResources(*scene);
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
-      const Render::PageId page = scene->PlaceHeightPage(nodes, error);
-      CHECK(page != Render::kNoPage, "a stable height-page handle is placed");
+      const auto removed = scene->PlaceHeightPage(nodes);
+      CHECK(removed.has_value(), "a predecessor creates a gap in native slot identity");
+      if (!removed) { return Report(); }
+      const auto page = scene->PlaceHeightPage(nodes);
+      CHECK(page.has_value(), "a stable height-page handle is placed");
+      if (!page) { return Report(); }
+      scene->ReleaseHeightPage(*removed);
       std::vector<float> fractions(Render::GroundLattice::kSide);
       for (size_t at = 0; at < fractions.size(); ++at) {
         fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
       }
-      Render::GroundTile tile;
-      tile.Instance.Corners = {{-1, -1, 1, -1, -1, 1, 1, 1}};
-      tile.Instance.Page = static_cast<float>(page);
+      Core::GroundTile tile;
+      tile.Corners = {{-1, -1, 1, -1, -1, 1, 1, 1}};
+      tile.Page = *page;
       tile.LowM = 3.0f;
       tile.HighM = 3.0f;
       CHECK(scene->SetGroundGrid(fractions, error) &&
@@ -56,9 +62,46 @@ int main() {
       world.BindLiveResources(*scene);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "candidate publication retains the ground tile topology");
-      scene->ReleaseHeightPage(page);
-      CHECK(!scene->SetGroundLattice({&tile, 1}, {}, error),
-            "released stable page handles cannot address a later resident page");
+      scene->ReleaseHeightPage(*page);
+      const auto replacement = scene->PlaceHeightPage(nodes);
+      CHECK(replacement && replacement->Slot == page->Slot &&
+                replacement->Generation != page->Generation,
+            "a replaced height page uses a new generation in the same native slot");
+      if (!replacement) { return Report(); }
+      Core::GroundTile next = tile;
+      next.Page = *replacement;
+      CHECK(scene->SetGroundLattice({&next, 1}, {}, error), "replacement page publishes");
+      CHECK(!scene->SetGroundLattice({&tile, 1}, {}, error) &&
+                renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
+            "stale lattice input is rejected without changing the current topology");
+      for (const Core::HeightPageHandle invalid :
+           {Core::HeightPageHandle{},
+            Core::HeightPageHandle{.Slot = Core::kNoResourceSlot - 1, .Generation = 1},
+            Core::HeightPageHandle{.Slot = replacement->Slot, .Generation = 0}}) {
+        Core::GroundTile refused = next;
+        refused.Page = invalid;
+        CHECK(!scene->SetGroundLattice({&refused, 1}, {}, error) &&
+                  renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
+              "invalid page identities preserve the published lattice");
+        scene->ReleaseHeightPage(invalid);
+      }
+      const auto payload = scene->HeightPageSourceBytes();
+      scene->ReleaseHeightPage(*page);
+      CHECK(scene->HeightPageSourceBytes() == payload,
+            "stale page release cannot remove its successor");
+      {
+        Core::WorldCandidate rejected(renderer);
+        const auto prepared = rejected.Prepare(*scene, nullptr);
+        CHECK(prepared && rejected.Scene().SetGroundLattice({&next, 1}, {}, error),
+              "candidate reconstruction preserves the new page generation");
+      }
+      CHECK(scene->SetGroundLattice({&next, 1}, {}, error),
+            "candidate rejection keeps published page identity usable");
+      Core::WorldCandidate successor(renderer);
+      CHECK(successor.Prepare(*scene, nullptr) && successor.Publish(scene) &&
+                scene->SetGroundLattice({&next, 1}, {}, error),
+            "a second candidate publishes the reused native generation");
+      world.BindLiveResources(*scene);
       world.Sheets.Clear();
       CHECK(renderer.GroundLatticeTriangles() == 0,
             "rebound streaming owner clears the current world after two replacements");
