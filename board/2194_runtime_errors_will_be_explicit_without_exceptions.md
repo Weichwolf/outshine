@@ -70,3 +70,12 @@ world candidate publication to 2191/2224.
 - Allocation/IO occurs before realtime publication; prepared frame and audio paths
   have bounded work and no routine allocation.
 - `make format`, affected suites and `make lint` run after every migration step.
+
+## Engine-Fassade
+
+`Engine::error()` bleibt noch öffentlich, obwohl die Mutatoren `Result` liefern. Die
+verbleibenden Verbraucher sind die uncommitteten Client-Änderungen in `Main.cpp` und
+`PlaceCamera.cpp`; sie müssen ihre jeweilige Rückgabe lokal behalten, bevor der
+Fassadenfehler entfallen darf. Eine entfernte API mit diesen Aufrufern wäre kein
+Fortschritt, sondern ein kaputter Zwischenstand. Dokumentationsanalyse besteht; die
+vollständige Entfernung samt Erhaltungs-/Retry-Tests bleibt offen.
