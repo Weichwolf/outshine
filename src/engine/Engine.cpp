@@ -353,7 +353,7 @@ Result Engine::State::PumpPreload() {
   const double atLat = stands.LatitudeDeg;
   const double atLon = stands.LongitudeDeg;
   HandsPiecesOver();
-  const auto streamed = World.Stack.Restand(stands);
+  const auto streamed = World.Stack.Restand(stands, Ground::kVectorTiles);
   if (!streamed) {
     Error = streamed.error();
     return std::unexpected(Error);

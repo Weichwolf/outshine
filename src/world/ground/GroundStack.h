@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_GROUNDSTACK_H
 
 #include <memory>
+#include <cstddef>
 #include <expected>
 #include <optional>
 #include <span>
@@ -31,6 +32,7 @@ namespace outshine::Ground {
 
 constexpr int kVectorRing = 3;
 constexpr int kVectorTiles = (2 * kVectorRing + 1) * (2 * kVectorRing + 1);
+constexpr size_t kFrameIngestTiles = 1;
 
 class GroundStack {
 public:
@@ -97,7 +99,8 @@ public:
 
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
-  [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at);
+  [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at,
+                                                              size_t ingestTilesMost);
 
   [[nodiscard]] bool StandsAt(LongitudeLatitude at) const { return Stood_ == at && Ingested(); }
 

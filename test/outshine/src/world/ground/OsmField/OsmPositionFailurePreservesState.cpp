@@ -64,7 +64,7 @@ int main() {
               field.CentreX() == 8192 && field.CentreY() == 8192,
           "failure preserves declaration, storage and streaming state");
     const auto classified = classes.Update(pool, at);
-    const auto streamed = stack.Restand(at);
+    const auto streamed = stack.Restand(at, Ground::kVectorTiles);
     CHECK(!classified && !streamed,
           "position errors propagate through classification and ground stack");
     CHECK(classes.FineSubmits() == 0 && classes.CoarseSubmits() == 0 && !stack.Opened(),
