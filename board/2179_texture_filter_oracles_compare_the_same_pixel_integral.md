@@ -88,6 +88,8 @@ der neue Piece-Instanzpfad ist keine notwendige Ursache. Keine Wiederholung bis 
 | SDL-Transferpuffer nach Submit freigegeben | SDL 3.4.16 garantiert sichere verzögerte Freigabe; kein Lifetime-Fehler des Upload-Puffers |
 | SubjectDraw::CarryFrame aus | 470 Kanäle abweichend; Framezähler ist nicht die Ursache |
 | TemporalResolve vollständig ausgeschlossen | 170 statt 249 Kanäle abweichend, gleiches Maximum 0,00268555; Temporal verstärkt den Erstframe-Effekt, verursacht ihn nicht |
+| GPU vor dem ersten Frame vollständig geleert | 248 statt 249 Kanäle abweichend; ausstehende Asset-Uploads sind nicht die Ursache |
+| Erste abweichende Pixelwerte | ausschließlich RGB texturierter Punkte, etwa (673,319): 0,230225/0,197754/0,162842 gegen 0,231201/0,198486/0,163574; Tiefe und Alpha exakt |
 
 Die erste Submission ändert einen Renderzustand, während Tiefe und alle späteren Farben exakt
 bleiben. Nächste Prüfung: Erstframe-Tabellen/Culling und implizite Ableitung kausal trennen.
