@@ -41,17 +41,11 @@ Fehler erhält Extent und Pixel; der unmittelbare Retry veröffentlicht den Wech
 nach vollständigem Kandidatenbau erhält dieselben Pixel (663 Checks). Fehlerhafte
 Stage-Konfigurationen ohne SDL-Ressourcenerzeugung bleiben offen.
 
-**Widerlegt:** `DrawsInto` validiert und claimt aktuell nur das Ziel, setzt dann
-`Frame_.Offscreen`, `HostSurface`, Extent und Fenster direkt. Es baut die planabhängigen
-Attachments, Readbacks und Stages nicht neu. Der 48×32-Test beweist deshalb allein die
-Oberflächengröße, keine vollständige Frame-Transaktion.
-
-`DrawsInto` muss einen Zielkandidaten mit aktuellem Device, Plan und Zielformat vollständig
-bauen und konfigurieren. Erst danach wartet es die letzte alte Nutzung ab, tauscht Frame,
-Target, Dimension und Binding-Adressen gemeinsam und gibt alte Fensterclaims frei. Fehler
-geben ihre SDL-Ursache zurück, zerstören nur Kandidaten und erhalten den alten Frame les- und
-renderbar. Ein irreversibler Devicefehler wechselt ausdrücklich in Failed; ein normales
-Ressourcenproblem nicht.
+Offen bleiben Fehler nach vollständiger SDL-Ressourcenerzeugung, aber vor der ersten GPU-Arbeit:
+jede `Configure`-Implementierung braucht eine gezielte Injektion. Die Prüfung erhält alte Pixel,
+Target-Claim, Extent und Renderbarkeit und wiederholt den Wechsel erfolgreich. Ein normaler
+Ressourcenfehler zerstört nur den Kandidaten; nur ein irreversibler Devicefehler wechselt in
+einen expliziten Failed-Zustand.
 
 ## Abnahme
 
