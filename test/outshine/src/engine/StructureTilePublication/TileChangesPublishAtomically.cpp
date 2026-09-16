@@ -10,10 +10,12 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
     Geometry base;
-    const auto surface = base.addSurface("wall", Material{});
-    CHECK(surface.has_value(), "fixture material exists");
-    if (!surface) { return Report(); }
-    const auto part = base.addPart("base", *surface);
+    const auto ground = base.addSurface("ground", Material{});
+    const auto wall = base.addSurface("wall", Material{});
+    const auto roof = base.addSurface("roof", Material{});
+    CHECK(ground && wall && roof, "fixture materials exist");
+    if (!ground || !wall || !roof) { return Report(); }
+    const auto part = base.addPart("base", *ground);
     CHECK(part && base.setPositions(*part, std::array<float, 9>{0, 0, 0, 1, 0, 0, 0, 1, 0}) &&
               base.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
           "base geometry is valid");
@@ -28,7 +30,8 @@ int main() {
     if (scene) {
       Surrounds world;
       world.BindLiveResources(*scene);
-      world.Pieces.Wears({.Walls = 0, .Roofs = 0});
+      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
+                          .Roofs = static_cast<uint32_t>(roof->index())});
       Generators::BakedTile built;
       built.Built.WallCorners = {StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
                                  StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
@@ -44,14 +47,15 @@ int main() {
       const auto original = scene.get();
       const auto digest = world.Pieces.Digest();
       const auto payload = scene->PieceSourceBytes();
-      world.Pieces.Wears({.Walls = 0, .Roofs = 1});
+      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
       CHECK(!PublishStructureTile(world, renderer, scene, landing, nullptr),
             "replacement roof refuses after its candidate wall uploads");
       CHECK(scene.get() == original && renderer.PiecesStanding() == 2 &&
                 world.Pieces.Digest() == digest && world.Pieces.Handed() == 1 &&
                 scene->PieceSourceBytes() == payload,
             "rejected tile keeps old world, geometry, digest and source payload");
-      world.Pieces.Wears({.Walls = 0, .Roofs = 0});
+      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
+                          .Roofs = static_cast<uint32_t>(roof->index())});
       for (size_t count : {size_t{1}, size_t{2}}) {
         Generators::BakedTile malformed;
         malformed.Built.WallCorners = built.Built.WallCorners;
