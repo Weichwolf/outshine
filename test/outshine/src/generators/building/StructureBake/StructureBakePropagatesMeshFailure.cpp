@@ -64,5 +64,25 @@ int main() {
   const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
   CHECK(result && unsupported.Calls == 2 && output.UnsupportedMeshes == 2,
         "unsupported forms are counted and processing continues to the next building");
+
+  RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
+  auto oneShotScratch = oneShotMesher.Scratch();
+  Generators::BakedTile oneShot;
+  const auto oneShotResult =
+      Generators::BakeStructures(raw, *heights, oneShotMesher, *oneShotScratch, oneShot);
+  RefusingMesher slicedMesher(StructureMeshError::UnsupportedFootprint);
+  auto slicedScratch = slicedMesher.Scratch();
+  Generators::StructureBakeProgress progress;
+  Generators::BakedTile sliced;
+  const auto first = progress.Advance(raw, *heights, slicedMesher, *slicedScratch, sliced, 1);
+  const auto second = progress.Advance(raw, *heights, slicedMesher, *slicedScratch, sliced, 1);
+  CHECK(oneShotResult && first && second && !*first && *second,
+        "a bounded bake retains its aggregate until its final structure range");
+  CHECK(slicedMesher.Calls == oneShotMesher.Calls &&
+            sliced.Prints.size() == oneShot.Prints.size() &&
+            sliced.UnsupportedMeshes == oneShot.UnsupportedMeshes &&
+            sliced.Built.WallRun == oneShot.Built.WallRun &&
+            sliced.Built.RoofRun == oneShot.Built.RoofRun,
+        "one-structure ranges produce the same complete tile as one uninterrupted bake");
   return Report();
 }
