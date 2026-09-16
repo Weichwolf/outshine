@@ -13,6 +13,10 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
   std::string pattern = (std::filesystem::temp_directory_path() / "outshine-load-XXXXXX").string();
   const char *created = mkdtemp(pattern.data());
   CHECK(created != nullptr, "independent fixture directory exists");
@@ -181,10 +185,9 @@ int main() {
   view.Sees = *renderedCamera;
   view.Placement = Scenario::CameraPlacement::Local;
   scene.Views.push_back(view);
-  if (!engine.drawsInto(scene.Render.Frame) || !engine.declare(scene) ||
-      !engine.setGeometry(asset.geometry()) || !engine.assemble() || !engine.advance() ||
-      !engine.renderer().render({})) {
-    Unprepared(engine.error().c_str());
+  if (!accepted(engine.drawsInto(scene.Render.Frame)) || !accepted(engine.declare(scene)) ||
+      !accepted(engine.setGeometry(asset.geometry())) || !accepted(engine.assemble()) ||
+      !accepted(engine.advance()) || !accepted(engine.renderer().render({}))) {
     return Report();
   }
   CHECK(engine.renderer()
