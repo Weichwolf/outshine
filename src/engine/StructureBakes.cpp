@@ -192,7 +192,6 @@ StructureBakes::NextLanding(Ground::GroundStack &stack) {
     return std::optional<Landing>{};
   }
   const Job &job = Queue_.front();
-  if (!job.Out->Status) { return std::unexpected(job.Out->Status.error()); }
   IdleRaw_.reserve(IdleRaw_.size() + 1u);
   IdleOut_.reserve(IdleOut_.size() + 1u);
   IdleScratch_.reserve(IdleScratch_.size() + 1u);
@@ -210,6 +209,7 @@ StructureBakes::NextLanding(Ground::GroundStack &stack) {
     ++Discarded_;
     return std::optional<Landing>{};
   }
+  if (!job.Out->Status) { return std::unexpected(job.Out->Status.error()); }
   const Generators::BakedTile &baked = job.Out->Tile;
   const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
   return Landing{.Tile = job.Tile,
