@@ -62,6 +62,17 @@ int main() {
   }
   CHECK(frame.size() == 320u * 320u * 4u, "linear frame has the declared dimensions");
   if (frame.size() != 320u * 320u * 4u) { return Report(); }
+  constexpr float kLinearHalf = 0.5f;
+  constexpr float kSrgbCodes = 255.0f;
+  constexpr float kR16ReadbackError = 1.0f / 1024.0f;
+  const auto encodedFromLinear = [](float value) {
+    return value <= 0.0031308f ? value * 12.92f : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
+  };
+  const auto linearFromEncoded = [](float value) {
+    return value <= 0.04045f ? value / 12.92f : std::pow((value + 0.055f) / 1.055f, 2.4f);
+  };
+  const float storedSrgb = std::round(encodedFromLinear(kLinearHalf) * kSrgbCodes) / kSrgbCodes;
+  const float expectedRed = linearFromEncoded(storedSrgb);
   float worst = 0;
   for (size_t y = 90; y < 230; ++y) {
     for (size_t x = 90; x < 230; ++x) {
@@ -70,10 +81,11 @@ int main() {
         worst = 1;
         continue;
       }
-      worst = std::max(worst, std::abs(frame[at] / frame[at + 1] - 0.5f));
+      worst = std::max(worst, std::abs(frame[at] / frame[at + 1] - expectedRed));
     }
   }
-  CHECK(worst < 1e-5f, "minified checker integrates half red against constant green");
+  CHECK(worst <= kR16ReadbackError,
+        "minified checker stores the quantized linear half red against constant green");
   std::vector<float> repeat;
   CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, repeat),
         "repeat renders");

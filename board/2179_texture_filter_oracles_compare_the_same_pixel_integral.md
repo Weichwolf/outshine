@@ -63,6 +63,10 @@ sRGB-Code und erlaubten Speicher-/Readbackfehler herleiten; mutierte Gamma-Mips 
 Mipmap-Auswahl müssen weiterhin rot werden. Das ist eine Korrektur der nachweislich falschen
 Spezifikation, keine gelockerte Bildabnahme.
 
+Der Native-Mip-Test verwendet nun dieses quantisierte Soll und eine aus dem R16-Readback
+abgeleitete Grenze von 1/1024; er besteht. Rohe Gamma-Mittelung oder die Basisebene liegen weit
+außerhalb dieses Intervalls. Die weitergehenden Vendor- und Mutation-Abnahmen bleiben offen.
+
 
 ## Eingrenzung des Wiederholungsfehlers
 
