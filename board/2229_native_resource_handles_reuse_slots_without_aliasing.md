@@ -58,6 +58,13 @@ nun tatsächlich ihre zuvor fehlende Materialoberfläche; keine Fehlergrenze gel
 1. HeightPage-Handle, native Tile-Beschreibung, `HeightSheets.h/.cpp`, Live-Ground-
    Snapshots und Übersetzung migrieren. Aufnahme ebenfalls als expected<Handle, string>. Suche nach allen `Render::PageId`/`.Page`-
    Verwendungen im Engine-Verzeichnis; keine heimliche Float-Zwischenrepräsentation.
+   `GroundTile.h` enthält native flache Instanzgeometrie plus HeightPageHandle;
+   `GroundTileUpload.h` übersetzt an der Live/Render-Grenze. Kein natives Handle im
+   Floatfeld: GPU-ID als Float nur übernehmen, wenn Double(Float(ID)) == Double(ID),
+   ohne Float→Integer-Cast. Sentinel vorher ablehnen; 2^24±1 und uint32-Maximum testen.
+   `HeightSheets::PageFor`: neue Nodes und GPU-Seite vorhalten, erst bei Erfolg alte
+   Seite freigeben und Handle/Nodes ersetzen. Fehlversuch erhält vorhandene Seite;
+   gesamter Sheets-/Lattice-Aufbau bleibt innerhalb des WorldCandidate-Vertrags.
 2. Kandidaten/Rebinding und optionale Speicherdiagnostik vervollständigen. Kleine
    interne Slotverwaltung nur für tatsächlich gemeinsame Logik; kein Public-Pool-API.
 
