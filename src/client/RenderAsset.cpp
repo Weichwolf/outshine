@@ -266,10 +266,16 @@ struct AssetRenderOptions {
         .Lux = std::numbers::pi, .ElevationDeg = kStudioAngleDeg, .BearingDeg = kStudioAngleDeg};
     scene.Lit.IndirectLight = {{kStudioFill, kStudioFill, kStudioFill}};
   }
-  if (!engine.drawsInto(options.Frame) || !engine.declare(scene) ||
-      !engine.setGeometry(asset.geometry()) || !engine.assemble() || !engine.advance()) {
-    return std::unexpected(engine.error());
-  }
+  auto targeted = engine.drawsInto(options.Frame);
+  if (!targeted) { return std::unexpected(std::move(targeted.error())); }
+  auto declared = engine.declare(scene);
+  if (!declared) { return std::unexpected(std::move(declared.error())); }
+  auto geometry = engine.setGeometry(asset.geometry());
+  if (!geometry) { return std::unexpected(std::move(geometry.error())); }
+  auto assembled = engine.assemble();
+  if (!assembled) { return std::unexpected(std::move(assembled.error())); }
+  auto advanced = engine.advance();
+  if (!advanced) { return std::unexpected(std::move(advanced.error())); }
   auto renderer = engine.renderer();
   const int frames = std::max(renderer.settleFrames(), 2);
   for (int frame = 0; frame < frames; ++frame) {

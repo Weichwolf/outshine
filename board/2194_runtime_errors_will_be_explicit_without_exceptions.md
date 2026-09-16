@@ -54,6 +54,8 @@ world candidate publication to 2191/2224.
 - `GltfImporter` now exposes only its owned `expected` diagnostics; failed loading,
   variant and animation operations preserve the published asset and their returned errors
   survive subsequent successful operations. Its focused public suite passes.
+- The direct glTF client render path propagates each Engine `Result` at the operation
+  boundary; it no longer derives a capture failure from `Engine::error()`.
 - Direct clang-tidy run after this migration: 189/189 units, zero findings. The full
   lint gate remains blocked separately by the external immutable reference cache (2226).
 
