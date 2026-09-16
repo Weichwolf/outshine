@@ -35,10 +35,12 @@ site left to check.
 
 ## The solution
 
-`Restand(at, TileBudget)`: the frame passes a declared count (one tile), the preload passes the
-ring. The ceiling REFUSES -- returns `unexpected` with the bytes and the bound -- instead of
-breaking out of a loop nobody told. With board:2122 the frame's form only PLACES pieces a worker
-finished, so its budget is a count of placements and the mesh cost is not in the frame at all.
+`Restand(at, ingestTilesMost)` now carries the budget explicitly: `advance` passes one ingestion
+round, `preload` passes the complete 49-tile vector ring. Provider requests remain asynchronous;
+the value bounds ingestion work, not downloads. `OsmPositionFailurePreservesState` compiles and
+checks the explicit contract at the error boundary. A measured frame proof and the ceiling refusal
+remain open. With board:2122 the frame's form only PLACES pieces a worker finished, so its budget
+is a count of placements and the mesh cost is not in the frame at all.
 
 And the instrument closes the gap board:2109 named: `make shots` writes one digest over the 120
 timed frames beside the still's, so a nondeterministic `advance()` on a settled world is visible
@@ -115,5 +117,4 @@ round stages a declared maximum of completed tile uploads, validates all uploads
 and commits one GPU residency delta without cloning the complete world. Failure retains the
 previous residency and requeues staged work in deterministic order. Measure CPU/GPU upload,
 publication count, queue age and ready latency on Malcesine without vegetation; then validate
-same digest across repeated preload and movement. Do not tune request carriers or timeout values
-until this boundary exists.
+same digest across repeated preload and movement; do not tune request carriers or timeout values until this boundary exists.
