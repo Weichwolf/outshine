@@ -47,7 +47,6 @@ constexpr auto MissingPiece = "the piece handle names no live resource in this w
 constexpr auto MissingHeightPage = "the height-page handle names no live resource in this world";
 constexpr auto RepeatedPiece = "an instance update names one piece more than once";
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
-constexpr auto NoNativeWorld = "world replacement requires native world geometry";
 }
 
 bool Live::GroundClasses(std::span<const uint32_t> classes,
@@ -393,12 +392,30 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                     const Ui::Font *font,
                                     std::unique_ptr<Live> &candidate,
                                     std::string &error) {
-  if (!previous.Held_.HoldsBuilt()) {
-    error = Says::NoNativeWorld;
+  if (previous.Held_.HoldsBuilt()) {
+    return PreparesGeometryReplacement(
+        renderer, previous, previous.Held_.Built().clone(), font, candidate, error);
+  }
+  if (!renderer.BeginsWorldCandidate(error)) { return false; }
+  if (!Prepare(renderer, previous.Declared_, font, candidate, error)) {
+    renderer.AbandonsWorldCandidate();
     return false;
   }
-  return PreparesGeometryReplacement(
-      renderer, previous, previous.Held_.Built().clone(), font, candidate, error);
+  candidate->GroundAlbedo_ = previous.GroundAlbedo_;
+  candidate->GroundSurface_ = previous.GroundSurface_;
+  candidate->Scratch_.Digests = previous.Scratch_.Digests;
+  if (!candidate->RestoresPieceResources(previous, error) ||
+      !candidate->RestoresGroundResources(previous, error) ||
+      !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
+    candidate.reset();
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  candidate->Eye_ = previous.Eye_;
+  candidate->HaveEye_ = previous.HaveEye_;
+  candidate->Aim_ = previous.Aim_;
+  candidate->Around_ = previous.Around_;
+  return true;
 }
 
 bool Live::PublishesPreparedWorld(Render::SceneRenderer &renderer,

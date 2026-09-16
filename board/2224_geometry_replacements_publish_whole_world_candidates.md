@@ -14,8 +14,10 @@ Tags: geometry, ownership, state
 That method changes its held geometry, material selection, proxy, camera state and shared renderer
 products before `Build` can fail. WI 2223 makes a fresh declaration transactional, but these three
 replacement paths can still leave a mixed CPU/GPU world. Current Place setup reaches the
-candidate path but aborts with `world replacement requires native world geometry`: the provider
-result is not accepted as the native candidate input, so streamed terrain cannot publish at all.
+candidate path previously aborted with `world replacement requires native world geometry`: the
+provider result was not accepted as the native candidate input. The first streamed-world candidate
+now rebuilds the declaration without a static mesh, restores its live resources and publishes before
+the provider installs ground geometry; `GroundResourcesSurviveWorldPublication` covers that path.
 
 ## Decision
 
@@ -50,8 +52,9 @@ native geometry and generated ground are not scenario data.
 
 ## Proof
 
-- A declared streamed Place reaches its first complete native-world candidate without a prior
-  static `setGeometry` call; failure returns its local `Result` and preserves the former world.
+- `GroundResourcesSurviveWorldPublication` proves a geometryless declared world publishes its
+  first streamed-world candidate and retains its height-page/lattice resources. Place preload now
+  passes this boundary and separately waits for ingestion/classification (2105).
 - Inject upload, material, placement and submit failures after an existing native or ground world
   rendered; old pixels, readbacks, audio occlusion, declaration and revision remain unchanged.
 - Retry every rejected replacement and verify exactly one new publication.
