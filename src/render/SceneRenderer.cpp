@@ -294,7 +294,6 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
 std::expected<void, std::string>
 SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents) {
   WhyNot_.clear();
-  if (Device_ && !Settle(WhyNot_)) { return std::unexpected(WhyNot_); }
 
   for (const Stage stage : plan->Order()) {
     if (Executable(stage)) { continue; }
@@ -336,6 +335,7 @@ SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan,
 
   const bool drawsGlass = plan->Holds(Stage::SubjectsTransmissive);
   if (!ConfigurePlanStages(candidate, *plan, drawsGlass)) { return std::unexpected(WhyNot_); }
+  if (Device_ && !Settle(WhyNot_)) { return std::unexpected(WhyNot_); }
   Ready_ = false;
   Submitted_ = false;
   Frame_ = std::move(candidate);

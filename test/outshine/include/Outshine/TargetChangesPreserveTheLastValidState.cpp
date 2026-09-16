@@ -8,7 +8,17 @@
 #include "Check.h"
 
 namespace {
-enum class Failure { None, Extent, Composition, Parameters, Texture, Sampler, Buffer, Pipeline };
+enum class Failure {
+  None,
+  Extent,
+  Composition,
+  Parameters,
+  Idle,
+  Texture,
+  Sampler,
+  Buffer,
+  Pipeline
+};
 Failure inject = Failure::None;
 unsigned injected = 0;
 unsigned createdTextures = 0;
@@ -81,6 +91,15 @@ extern "C" bool SDLCALL SDL_SetGPUSwapchainParameters(SDL_GPUDevice *device,
   static const auto original =
       Original<decltype(&SDL_SetGPUSwapchainParameters)>("SDL_SetGPUSwapchainParameters");
   return original(device, window, composition, mode);
+}
+
+extern "C" bool SDLCALL SDL_WaitForGPUIdle(SDL_GPUDevice *device) {
+  if (inject == Failure::Idle) {
+    ++injected;
+    return SDL_SetError("injected GPU idle failure");
+  }
+  static const auto original = Original<decltype(&SDL_WaitForGPUIdle)>("SDL_WaitForGPUIdle");
+  return original(device);
 }
 
 extern "C" SDL_GPUTexture *SDLCALL SDL_CreateGPUTexture(SDL_GPUDevice *device,
@@ -308,6 +327,24 @@ int main() {
         CHECK(renderer.readPixels(afterTargetPipelineFailure).has_value() &&
                   afterTargetPipelineFailure == beforeTargetFailure,
               "a refused target pipeline candidate retains the readable previous pixels");
+        const unsigned texturesBeforeIdleFailure = createdTextures;
+        const unsigned pipelinesBeforeIdleFailure = createdPipelines;
+        const unsigned idleFailures = injected;
+        inject = Failure::Idle;
+        const auto refusedIdle = offscreen.drawsInto(Extent{48, 32});
+        inject = Failure::None;
+        CHECK(injected == idleFailures + 1 && !refusedIdle &&
+                  refusedIdle.error().find("injected") != std::string::npos,
+              "an idle failure reaches the public target caller");
+        CHECK(createdTextures > texturesBeforeIdleFailure &&
+                  createdPipelines > pipelinesBeforeIdleFailure,
+              "the target candidate is complete before the old GPU usage is settled");
+        CHECK(offscreen.swapChain().extent().WidthPx == 32,
+              "a failed post-build settle keeps the old target extent");
+        std::vector<uint8_t> afterIdleFailure;
+        CHECK(renderer.readPixels(afterIdleFailure).has_value() &&
+                  afterIdleFailure == beforeTargetFailure,
+              "a failed post-build settle keeps the old target pixels");
         CHECK(!offscreen.drawsInto(Extent{-1, 32}) &&
                   !offscreen.drawsInto(static_cast<SDL_Window *>(nullptr)),
               "invalid inputs cannot replace the existing target");

@@ -37,8 +37,9 @@ vollständigen Plan gegen einen lokalen Kandidaten. Erst nach Erfolg bewegen sic
 danach binden die langlebigen Zeichner auf die neue Binding-Adresse. Eine abgelehnte Pipeline
 oder Textur erhält aktive Deklaration und lesbare Pixel. Der Test iteriert jede tatsächlich
 ausgeführte Erzeugung von Textur, Sampler, Buffer und Grafikpipeline des Target-Kandidaten. Jeder
-Fehler erhält Extent und Pixel; der unmittelbare Retry veröffentlicht den Wechsel (659 Checks).
-Fehlerhafte Stage-Konfigurationen ohne SDL-Ressourcenerzeugung bleiben offen.
+Fehler erhält Extent und Pixel; der unmittelbare Retry veröffentlicht den Wechsel. Der Idle-Fehler
+nach vollständigem Kandidatenbau erhält dieselben Pixel (663 Checks). Fehlerhafte
+Stage-Konfigurationen ohne SDL-Ressourcenerzeugung bleiben offen.
 
 **Widerlegt:** `DrawsInto` validiert und claimt aktuell nur das Ziel, setzt dann
 `Frame_.Offscreen`, `HostSurface`, Extent und Fenster direkt. Es baut die planabhängigen
@@ -61,7 +62,9 @@ Ressourcenproblem nicht.
 - [x] Fensterformat- und Extentwechsel ersetzen dieselben Ressourcen gemeinsam;
       das neue Fenster öffnet und präsentiert anschließend einen vollständigen Frame (59 Checks).
 - [x] Jede tatsächlich gebaute Textur, jeder Sampler, Buffer und jede Grafikpipeline des
-      Target-Kandidaten kann einzeln scheitern; Pixel, Extent und Retry bleiben gültig (659 Checks).
+      Target-Kandidaten kann einzeln scheitern; Pixel, Extent und Retry bleiben gültig (663 Checks).
+- [x] Der Kandidat entsteht vollständig vor dem Warten auf die letzte alte GPU-Nutzung; ein
+      fehlgeschlagenes Warten erhält den alten Frame (663 Checks).
 - [ ] Injektionen für Claim und jede Stage-Konfiguration ohne SDL-Ressourcenerzeugung erhalten
       alte Pixel, Claim und Renderbarkeit.
 - [x] Erfolgreicher Wechsel gibt den alten Claim nach Veröffentlichung frei; wiederholte
