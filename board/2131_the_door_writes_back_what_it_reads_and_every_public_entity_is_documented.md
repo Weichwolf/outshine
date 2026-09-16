@@ -24,8 +24,9 @@ Benchmark-Orchestrierung bleibt im Client, die Engine liefert nutzbare Laufzeitv
   keine still getragenen Abschnitte oder doppelten Diagnosen. Provider nach WI 2211.
 - Loading-Messfelder passend zu MiB/Mibit/s benennen; Durchsatz aus demselben
   Messintervall ableiten, statt kumulierte Poolbytes durch einzelne Preload-Zeit teilen.
-- Root-/Providerwechsel als validierten Lebenszyklus behandeln; aktuelle Setup-
-  Vorbedingung migriert vorhandene Ressourcen nicht und wird nicht erzwungen.
+- Root-Wechsel ist vor der ersten Deklaration ein `[[nodiscard]] Result; danach verweigert
+  die Engine die Änderung atomar, weil Assetpfade und World-Quellen bereits gebunden sind.
+  Providerwechsel bleibt ein deklarativer Rebuild und wird nicht als Root-Mutation getarnt.
 - Event-Vertrag: Scrolländerung, Ereigniskoordinaten und Richtung prüfen.
   Bindungsdispatch ohne Renderer sowie UI-Fallback/Priorität sind dynamisch geprüft.
 - Terrainabfragen: Residency von möglicher Tile-Vorbereitung trennen; interne

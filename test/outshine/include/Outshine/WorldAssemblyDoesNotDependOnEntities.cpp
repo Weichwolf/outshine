@@ -9,7 +9,8 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
     Engine engine;
-    engine.setRoots({.Shipped = "src/assets", .Offline = true});
+    CHECK(engine.setRoots({.Shipped = "src/assets", .Offline = true}).has_value(),
+          "roots are accepted before declaration");
     CHECK(engine.drawsInto(Extent{64, 64}).has_value(), "offscreen target configured");
     Scenario::Document initial;
     initial.Room = 4;
@@ -21,6 +22,10 @@ int main() {
     CHECK(ready, "initial simulation assembled");
     if (!ready) { return Report(); }
     EntityRegistry *const previous = &engine.entities();
+    const auto changedRoots = engine.setRoots({.Shipped = "wrong", .Offline = false});
+    CHECK(!changedRoots && changedRoots.error().find("roots") != std::string::npos,
+          "roots reject a change after declaration");
+    CHECK(&engine.entities() == previous, "rejected roots preserve the assembled simulation");
     const auto marker = previous->addEntity(Role::Tool);
     CHECK(marker.has_value(), "spare entity capacity remains usable");
     if (!marker) { return Report(); }

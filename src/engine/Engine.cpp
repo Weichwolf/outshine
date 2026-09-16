@@ -19,6 +19,8 @@
 namespace outshine {
 
 namespace Says {
+constexpr auto kRootsAfterDeclaration =
+    "roots cannot change after declaration because prepared assets and world sources retain them";
 constexpr auto kNoTerrainRequests = "terrain requests absent";
 constexpr auto kPendingTerrain = "terrain downloads pending";
 constexpr auto kMissingTerrain = "terrain coverage missing";
@@ -159,8 +161,14 @@ Result Engine::drawsInto(Extent offscreen) {
   return {};
 }
 
-void Engine::setRoots(Roots roots) {
+Result Engine::setRoots(Roots roots) {
+  if (S_->Session.Taken) {
+    S_->Error = Says::kRootsAfterDeclaration;
+    return std::unexpected(S_->Error);
+  }
   S_->Session.Under = std::move(roots);
+  S_->Error.clear();
+  return {};
 }
 
 void Engine::offers(Host *host) {

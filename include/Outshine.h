@@ -238,10 +238,12 @@ public:
   /// @return Success or an error describing invalid input or device configuration failure.
   [[nodiscard]] Result drawsInto(Extent offscreen);
   /// Store owned paths for subsequent setup; performs no filesystem validation or IO.
-  /// Call before declaring/loading content and serialize with every other Engine call.
-  /// Existing assets, providers and fetch services are not reopened or migrated.
+  /// Replace roots before the first successful declaration and serialize with every Engine call.
   /// @param roots Configuration moved into the Engine; no references to the argument remain.
-  void setRoots(Roots roots);
+  /// @return Success before declaration; otherwise an owned diagnostic and unchanged roots.
+  /// Does not open files, providers or GPU resources. Constant-time apart from destroying old
+  /// paths.
+  [[nodiscard]] Result setRoots(Roots roots);
   /// Borrow a facade bound to this Engine; no GPU resources are allocated by this call.
   /// @return Renderer facade borrowing this Engine.
   [[nodiscard]] Renderer renderer();

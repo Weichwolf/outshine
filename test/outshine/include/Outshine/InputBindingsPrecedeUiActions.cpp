@@ -24,7 +24,7 @@ int main() {
     Receiver receiver;
     Engine engine;
     engine.offers(&receiver);
-    engine.setRoots({.Shipped = "src/assets"});
+    (void)engine.setRoots({.Shipped = "src/assets"});
     const auto target = engine.drawsInto(Extent{64, 64});
     CHECK(target.has_value(), target ? "offscreen UI target ready" : target.error().c_str());
     Scenario::Document scene;

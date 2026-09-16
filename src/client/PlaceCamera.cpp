@@ -208,10 +208,14 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation =
     return false;
   }
   if (Telling != nullptr) { engine.logsTo(Telling); }
-  engine.setRoots(Roots{.Assets = "src/assets/drive",
-                        .Shipped = "src/assets",
-                        .Cache = "/tmp/outshine-drive-cache",
-                        .Offline = false});
+  if (const auto rooted = engine.setRoots(Roots{.Assets = "src/assets/drive",
+                                                .Shipped = "src/assets",
+                                                .Cache = "/tmp/outshine-drive-cache",
+                                                .Offline = false});
+      !rooted) {
+    shot.Why = "the engine rejected its roots: " + rooted.error();
+    return false;
+  }
   if (const auto targeted = engine.drawsInto(place.Declaration.Render.Frame); !targeted) {
     shot.Why = "the device stood no canvas: " + targeted.error();
     return false;

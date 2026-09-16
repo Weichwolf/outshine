@@ -23,7 +23,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for public assembly path");
   {
     Engine engine;
-    engine.setRoots(
+    (void)engine.setRoots(
         {.Assets = "src/assets/drive", .Shipped = temporary, .Cache = (root / "cache").string()});
     CHECK(engine.drawsInto({32, 32}).has_value(), "offscreen target opens");
     Scenario::Document empty;

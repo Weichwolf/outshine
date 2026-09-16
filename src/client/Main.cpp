@@ -150,10 +150,14 @@ void Usage() {
     return false;
   }
   engine.logsTo(&gTelling);
-  engine.setRoots(outshine::Roots{.Assets = "src/assets/drive",
-                                  .Shipped = "src/assets",
-                                  .Cache = "/tmp/outshine-drive-cache",
-                                  .Offline = false});
+  if (const auto rooted = engine.setRoots(outshine::Roots{.Assets = "src/assets/drive",
+                                                          .Shipped = "src/assets",
+                                                          .Cache = "/tmp/outshine-drive-cache",
+                                                          .Offline = false});
+      !rooted) {
+    std::println("outshine-client: the engine rejected its roots -- {}", rooted.error());
+    return false;
+  }
   if (frame.WidthPx > 0 && frame.HeightPx > 0) {
     if (const auto targeted = engine.drawsInto(frame); !targeted) {
       std::println("outshine-client: the device stood no canvas -- {}", targeted.error());

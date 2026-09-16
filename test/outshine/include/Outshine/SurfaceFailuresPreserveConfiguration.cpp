@@ -43,7 +43,7 @@ int main() {
     Receiver receiver;
     Engine engine;
     engine.offers(&receiver);
-    engine.setRoots({.Shipped = "src/assets"});
+    (void)engine.setRoots({.Shipped = "src/assets"});
     CHECK(engine.drawsInto(Extent{64, 64}).has_value(), "offscreen target ready");
     Scenario::Document document;
     document.Render.Declared = true;
