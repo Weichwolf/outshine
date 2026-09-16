@@ -41,7 +41,6 @@ bool TilePieces::Hands(uint32_t tile,
     error = "tile geometry requires a live world";
     return false;
   }
-  Forgets(tile);
   const Mat4 row = RowFor(anchorEcef);
   Standing stood{.Tile = tile};
   std::string why;
@@ -81,6 +80,7 @@ bool TilePieces::Hands(uint32_t tile,
     error = why;
     return false;
   }
+  Forgets(tile);
   Standing_.push_back(stood);
   Digest_ = (Digest_ ^ baked.Digest) * kDigestPrime;
   ++Handed_;

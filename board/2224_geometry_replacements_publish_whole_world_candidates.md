@@ -18,7 +18,8 @@ The published revision changes last. Provider requests and preparation caches re
 
 Public and pending geometry replacement and completed structure bakes use prepared `Live` /
 renderer candidates. Native geometryless declarations can prepare their first streamed world.
-Stable generation-checked piece/page handles survive recreation of renderer-local resources.
+Owner-local piece/page handles survive recreation of renderer-local resources. Released handles
+are invalidated; bounded slot reuse/generation handling still needs implementation.
 All replacement paths rebind pieces, height sheets and crowns via nonthrowing
 `Surrounds::BindLiveResources`; rebinding contains no worker/pool setup.
 `GroundPublication` records only successfully installed revisions, supports retry after an
@@ -48,12 +49,16 @@ Copy/prepare costs are explicit preparation work; no bounded-frame-time claim wi
   routing graph, readbacks and rendered old pixels survive together, beyond the synthetic candidate
   fixture. Terrain topology, CPU positions/indices, network counters and revisions are covered.
 - Failed structure roof after accepted wall upload publishes neither tile nor terrain input.
-  `TilePieces::Hands` currently forgets the old tile before preparing its replacement. Defer
-  removal until wall and roof succeed; extend the existing roof-refusal test with preserved
-  old geometry/digest and successful retry. Outer bake-job publication remains separately tested.
+  `TilePieces::Hands` now removes old pieces only after both replacement uploads succeed. The
+  original roof-refusal fixture lacked a base material and failed at the wall; fixed preparation
+  exposes old-tile loss on former code. Old geometry/digest preservation and retry are tested.
+  Complete bake-job/footprint publication still needs its independent failure proof.
 - Reject stale streaming results after a newer revision is current.
 - Camera/animation/native replacements retain placements and frame state.
 - Piece/crown behavior after replacement needs independent coverage beyond height ownership.
+- `Live::ReleasePiece` / `ReleaseHeightPage` currently retain released CPU payloads in append-only
+  handle tables; later candidates copy those dead payloads. Release them and bound/reuse handle
+  metadata without accepting stale handles; repeated streaming/retry must not grow retired storage.
 - `Restands` and surface-only redeclaration remain separate mutation audits.
 - Public geometry/audio occlusion must publish together; no partial declaration replacement.
 
