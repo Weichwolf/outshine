@@ -1,5 +1,5 @@
 Type: bug
-State: ready
+State: active
 Parent: 2191
 Area: engine, render, flora, test
 Tags: streaming, ownership, transaction
