@@ -53,6 +53,11 @@ Copy/prepare costs are explicit preparation work; no bounded-frame-time claim wi
   original roof-refusal fixture lacked a base material and failed at the wall; fixed preparation
   exposes old-tile loss on former code. Old geometry/digest preservation and retry are tested.
   Complete bake-job/footprint publication still needs its independent failure proof.
+- Empty bake results currently skip `TilePieces::Hands`, retaining old buildings. Extract the
+  production tile-publication operation for direct tests; route empty results through replacement.
+  Share a `Core::WorldCandidate` RAII owner between ground and tile publication instead of manual
+  candidate cleanup. Test roof refusal, empty replacement, retry and rejection of nested candidates.
+  Empty accepted tiles must not retain empty piece-owner records.
 - Reject stale streaming results after a newer revision is current.
 - Camera/animation/native replacements retain placements and frame state.
 - Piece/crown behavior after replacement needs independent coverage beyond height ownership.
