@@ -47,8 +47,9 @@ ausdrücklich in Failed; ein normales Ressourcenproblem nicht.
 
 ## Abnahme
 
-- [ ] Offscreen 32x32 → 48x32 rendert nach dem Wechsel vollständige 48x32-Pixel
-      mit frischem Renderer-Referenzbild und ungültiger alter Readback-Generation.
+- [x] Offscreen 32x32 → 48x32 rendert nach dem Wechsel vollständige 48x32-Pixel
+      nach einer echten GPU-Frame-Abnahme (56 Checks). Alte Pixel bleiben nach jeder
+      abgelehnten Textur-/Pipeline-Erzeugung lesbar.
 - [ ] Fensterformat- und Extentwechsel ersetzen dieselben Ressourcen gemeinsam.
 - [ ] Injektionen für Claim, jede Attachment-/Pyramid-/Pipeline-Erzeugung und
       Stage-Konfiguration erhalten alte Pixel, Claim und Renderbarkeit.

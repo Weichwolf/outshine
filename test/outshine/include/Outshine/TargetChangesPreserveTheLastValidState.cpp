@@ -249,6 +249,13 @@ int main() {
         CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(),
               "replacement succeeds after the injected failure");
         CHECK(offscreen.error().empty(), "successful recovery clears the previous operation error");
+        CHECK(offscreen.drawsInto(Extent{48, 32}).has_value() &&
+                  offscreen.swapChain().extent().WidthPx == 48,
+              "a complete target candidate publishes its new extent");
+        std::vector<uint8_t> widened;
+        CHECK(renderer.render({}).has_value() && renderer.readPixels(widened).has_value() &&
+                  widened.size() == 48u * 32u * 4u,
+              "the published target renders a complete frame at its new extent");
       }
     }
   }
