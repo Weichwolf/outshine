@@ -1,5 +1,6 @@
 #include <expected>
 #include <exception>
+#include <atomic>
 #include "StructureBakes.h"
 
 #include <algorithm>
@@ -169,17 +170,20 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
             .Raw = Borrowed(IdleRaw_),
             .Heights = std::move(heights),
             .Out = Borrowed(IdleOut_),
-            .Scratch = LentScratch()};
+            .Scratch = LentScratch(),
+            .Stopping = std::make_shared<std::atomic_bool>(false)};
     RawOf(vectors, prints, *next, *job.Raw);
     const Generators::RawTile *const raw = job.Raw.get();
     const Ground::HeightField *const under = job.Heights.get();
     const StructureMesher *const mesher = Mesher_;
     MeshScratch *const scratch = job.Scratch.get();
     Output *const out = job.Out.get();
-    job.Handle = Pool_->Post([raw, under, mesher, scratch, out] {
+    const std::shared_ptr<std::atomic_bool> stopping = job.Stopping;
+    job.Handle = Pool_->Post([raw, under, mesher, scratch, out, stopping] {
       static const Heap::Tag kBakingTag("structure-bake");
       const Heap::Tagged baking(kBakingTag);
-      out->Status = Generators::BakeStructures(*raw, *under, *mesher, *scratch, out->Tile);
+      out->Status =
+          Generators::BakeStructures(*raw, *under, *mesher, *scratch, out->Tile, stopping.get());
     });
     Queue_.push_back(std::move(job));
     ++Posted_;
@@ -297,6 +301,7 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
 
 void StructureBakes::Clear() {
   for (const Job &job : Queue_) {
+    job.Stopping->store(true, std::memory_order_relaxed);
     if (Pool_ != nullptr && job.Handle != Tasks::kNoTask) { Pool_->Wait(job.Handle); }
   }
   Queue_.clear();

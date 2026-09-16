@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STRUCTUREBAKES_H
 
 #include <expected>
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -81,6 +82,7 @@ private:
     std::shared_ptr<const Ground::HeightField> Heights;
     std::unique_ptr<Output> Out;
     std::unique_ptr<MeshScratch> Scratch;
+    std::shared_ptr<std::atomic_bool> Stopping;
     Tasks::Handle Handle = Tasks::kNoTask;
   };
 

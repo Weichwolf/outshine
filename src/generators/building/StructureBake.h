@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
 #include <expected>
+#include <atomic>
 #include <variant>
 #include <string_view>
 #include <cstdint>
@@ -17,7 +18,9 @@
 
 namespace outshine::Generators {
 
-using StructureBakeError = std::variant<StructureMeshError, ClusterError>;
+enum class StructureBakeErrorKind { Cancelled };
+
+using StructureBakeError = std::variant<StructureMeshError, ClusterError, StructureBakeErrorKind>;
 
 [[nodiscard]] inline std::string_view Describe(const StructureBakeError &error) noexcept {
   if (const auto *mesh = std::get_if<StructureMeshError>(&error)) {
@@ -26,7 +29,7 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError>;
   if (const auto *cluster = std::get_if<ClusterError>(&error)) {
     return outshine::Describe(*cluster);
   }
-  return "unknown structure bake error";
+  return "structure bake cancelled";
 }
 
 struct RawTile {
@@ -76,7 +79,8 @@ BakeStructures(const RawTile &raw,
                const outshine::Ground::HeightField &heights,
                const StructureMesher &mesher,
                MeshScratch &scratch,
-               BakedTile &out);
+               BakedTile &out,
+               const std::atomic_bool *stopping = nullptr);
 
 }
 #endif

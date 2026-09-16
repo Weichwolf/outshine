@@ -5,6 +5,7 @@
 #include "Digest.h"
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -28,6 +29,11 @@ constexpr double kBlocksPerTile = 8.0;
 constexpr int64_t kCellBiasTiles = 0x20000000LL;
 constexpr uint32_t kKnuthWord = 2654435761u;
 constexpr uint32_t kSecondKnuthWord = 2246822519u;
+
+[[nodiscard]] bool WasStopped(const std::atomic_bool *stopping) {
+  return stopping != nullptr && stopping->load(std::memory_order_relaxed);
+}
+
 constexpr uint32_t kPlaceMixWord = 3266489917u;
 constexpr double kMicroDegree = 1.0e6;
 constexpr double kNoNearestYet = 1.0e29;
@@ -424,8 +430,10 @@ std::expected<void, StructureBakeError> FinishStructures(const std::map<uint64_t
                                                          const StructureMesher &mesher,
                                                          MeshScratch &scratch,
                                                          std::vector<double> &corners,
-                                                         BakedTile &out) {
+                                                         BakedTile &out,
+                                                         const std::atomic_bool *stopping) {
   for (const auto &[where, block] : lumps) {
+    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     (void)where;
     const auto built = AccountMesh(RaiseLump(block, raw, mesher, scratch, corners, out.Built), out);
     if (!built) { return std::unexpected(built.error()); }
@@ -458,13 +466,117 @@ std::vector<WayLine> LinesOf(const RawTile &raw) {
   return ways;
 }
 
+std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
+                                                const outshine::Ground::HeightField &heights,
+                                                const StructureMesher &mesher,
+                                                MeshScratch &scratch,
+                                                BakedTile &out,
+                                                const RawTile::Structure &one,
+                                                std::span<const double> pts,
+                                                const std::vector<WayLine> &ways,
+                                                std::map<uint64_t, Lumped> &lumps,
+                                                std::vector<double> &corners,
+                                                double awayAtLeastM,
+                                                double statedM) {
+  const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
+  if (ring.Count < 3 || ring.Count > kMostRingPoints) { return {}; }
+  const Seated seated = RingBase(heights, pts, ring, corners);
+  if (!seated.Stood) {
+    ++out.NoGround;
+    return {};
+  }
+  const double base = seated.BaseM;
+  const double seat = seated.SeatM;
+
+  double lowLat = kNoLeastYet;
+  double highLat = -kNoLeastYet;
+  double lowLon = kNoLeastYet;
+  double highLon = -kNoLeastYet;
+  for (uint32_t k = 0; k < ring.Count; k++) {
+    lowLat = std::min(lowLat, LatOf(pts, ring.First + k));
+    highLat = std::max(highLat, LatOf(pts, ring.First + k));
+    lowLon = std::min(lowLon, LonOf(pts, ring.First + k));
+    highLon = std::max(highLon, LonOf(pts, ring.First + k));
+  }
+  const double perLonM = kMPerDegLon * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
+  out.SeatSpreadM.push_back(seat - base);
+  out.AcrossM.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
+
+  double standBackM = -1.0;
+  const Frontage street = NearestStreet(pts, ring, ways, &standBackM);
+
+  BuildingField::Footprint fp{};
+  fp.FirstPoint = one.SourceFirst;
+  fp.PointCount = ring.Count;
+  fp.Street = street;
+  if (street.Known) { out.Fronted++; }
+  if (one.HeightM > 0.0 && std::fabs(one.HeightM - kFillHeightM) > kSameHeightM) {
+    fp.HeightM = static_cast<float>(one.HeightM);
+    fp.Source = BuildingField::HeightSource::Osm;
+    out.OsmHeights++;
+  } else {
+    const int storeys = DefaultStoreys(
+        {.AreaM2 = RingAreaM2(pts, ring), .AcrossM = AcrossM(pts, ring), .StandBackM = standBackM},
+        {.LongitudeDeg = LonOf(pts, ring.First), .LatitudeDeg = LatOf(pts, ring.First)});
+    fp.HeightM = static_cast<float>(static_cast<double>(storeys) * kStoreyM + kRoofAllowanceM);
+    fp.Source = BuildingField::HeightSource::Default;
+    out.DefaultHeights++;
+  }
+  fp.BaseM = static_cast<float>(base);
+  fp.FootM = static_cast<float>(base);
+  fp.SeatM = static_cast<float>(seat);
+
+  Detail level = Detail::Fine;
+  if (Unseen(std::max(kArchitectureM, statedM), raw.FocalPx, awayAtLeastM)) {
+    level = Detail::Shell;
+  }
+  if (level == Detail::Shell &&
+      Unseen(0.5 * raw.TileSpanM / kBlocksPerTile, raw.FocalPx, awayAtLeastM)) {
+    level = Detail::Massed;
+  }
+  fp.Coarseness = level;
+  out.Prints.push_back(fp);
+
+  if (level >= Detail::Massed) {
+    Lump(lumps,
+         {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
+         {.BaseM = base,
+          .SeatM = seat,
+          .HeightM = fp.HeightM,
+          .RoofAreaM2 = RingAreaM2(pts, ring),
+          .Pitched = one.Pitched != 0,
+          .Level = level},
+         raw.TileSpanM / kBlocksPerTile);
+    ++out.Lumped;
+    return {};
+  }
+
+  StructurePlan plan;
+  plan.RingLatLon = std::span<const double>(pts.data() + static_cast<size_t>(ring.First) * 2,
+                                            static_cast<size_t>(ring.Count) * 2);
+  plan.BaseAslM = fp.BaseM;
+  plan.SeatAslM = fp.SeatM;
+  plan.FootAslM = fp.FootM;
+  plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
+  plan.HeightM = fp.HeightM;
+  plan.HeightMeasured = fp.Source == BuildingField::HeightSource::Osm;
+  plan.Street = fp.Street;
+  plan.AnchorEcef = raw.AnchorEcef;
+  plan.FocalPx = raw.FocalPx;
+  plan.Coarseness = fp.Coarseness;
+  const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
+  if (!built) { return std::unexpected(built.error()); }
+  return {};
+}
+
 }
 
 std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
                                                        const outshine::Ground::HeightField &heights,
                                                        const StructureMesher &mesher,
                                                        MeshScratch &scratch,
-                                                       BakedTile &out) {
+                                                       BakedTile &out,
+                                                       const std::atomic_bool *stopping) {
   out.Walls = {};
   out.Roofs = {};
   out.Built.Clear();
@@ -489,99 +601,14 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
       raw.TileSpanM > 0.0 && raw.Extent > 0 ? raw.TileSpanM / static_cast<double>(raw.Extent) : 0.0;
 
   for (const RawTile::Structure &one : raw.Structures) {
-    const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
-    if (ring.Count < 3 || ring.Count > kMostRingPoints) { continue; }
-    const Seated seated = RingBase(heights, pts, ring, corners);
-    if (!seated.Stood) {
-      ++out.NoGround;
-      continue;
-    }
-    const double base = seated.BaseM;
-    const double seat = seated.SeatM;
-
-    double lowLat = kNoLeastYet;
-    double highLat = -kNoLeastYet;
-    double lowLon = kNoLeastYet;
-    double highLon = -kNoLeastYet;
-    for (uint32_t k = 0; k < ring.Count; k++) {
-      lowLat = std::min(lowLat, LatOf(pts, ring.First + k));
-      highLat = std::max(highLat, LatOf(pts, ring.First + k));
-      lowLon = std::min(lowLon, LonOf(pts, ring.First + k));
-      highLon = std::max(highLon, LonOf(pts, ring.First + k));
-    }
-    const double perLonM = kMPerDegLon * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
-    out.SeatSpreadM.push_back(seat - base);
-    out.AcrossM.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
-
-    double standBackM = -1.0;
-    const Frontage street = NearestStreet(pts, ring, ways, &standBackM);
-
-    BuildingField::Footprint fp{};
-    fp.FirstPoint = one.SourceFirst;
-    fp.PointCount = ring.Count;
-    fp.Street = street;
-    if (street.Known) { out.Fronted++; }
-    if (one.HeightM > 0.0 && std::fabs(one.HeightM - kFillHeightM) > kSameHeightM) {
-      fp.HeightM = static_cast<float>(one.HeightM);
-      fp.Source = BuildingField::HeightSource::Osm;
-      out.OsmHeights++;
-    } else {
-      const int storeys = DefaultStoreys(
-          {.AreaM2 = RingAreaM2(pts, ring),
-           .AcrossM = AcrossM(pts, ring),
-           .StandBackM = standBackM},
-          {.LongitudeDeg = LonOf(pts, ring.First), .LatitudeDeg = LatOf(pts, ring.First)});
-      fp.HeightM = static_cast<float>(static_cast<double>(storeys) * kStoreyM + kRoofAllowanceM);
-      fp.Source = BuildingField::HeightSource::Default;
-      out.DefaultHeights++;
-    }
-    fp.BaseM = static_cast<float>(base);
-    fp.FootM = static_cast<float>(base);
-    fp.SeatM = static_cast<float>(seat);
-
-    Detail level = Detail::Fine;
-    if (Unseen(std::max(kArchitectureM, statedM), raw.FocalPx, awayAtLeastM)) {
-      level = Detail::Shell;
-    }
-    if (level == Detail::Shell &&
-        Unseen(0.5 * raw.TileSpanM / kBlocksPerTile, raw.FocalPx, awayAtLeastM)) {
-      level = Detail::Massed;
-    }
-    fp.Coarseness = level;
-    out.Prints.push_back(fp);
-
-    if (level >= Detail::Massed) {
-      Lump(lumps,
-           {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
-           {.BaseM = base,
-            .SeatM = seat,
-            .HeightM = fp.HeightM,
-            .RoofAreaM2 = RingAreaM2(pts, ring),
-            .Pitched = one.Pitched != 0,
-            .Level = level},
-           raw.TileSpanM / kBlocksPerTile);
-      ++out.Lumped;
-      continue;
-    }
-
-    StructurePlan plan;
-    plan.RingLatLon = std::span<const double>(pts.data() + static_cast<size_t>(ring.First) * 2,
-                                              static_cast<size_t>(ring.Count) * 2);
-    plan.BaseAslM = fp.BaseM;
-    plan.SeatAslM = fp.SeatM;
-    plan.FootAslM = fp.FootM;
-    plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
-    plan.HeightM = fp.HeightM;
-    plan.HeightMeasured = fp.Source == BuildingField::HeightSource::Osm;
-    plan.Street = fp.Street;
-    plan.AnchorEcef = raw.AnchorEcef;
-    plan.FocalPx = raw.FocalPx;
-    plan.Coarseness = fp.Coarseness;
-    const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
-    if (!built) { return std::unexpected(built.error()); }
+    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+    const auto baked = BakeOne(
+        raw, heights, mesher, scratch, out, one, pts, ways, lumps, corners, awayAtLeastM, statedM);
+    if (!baked) { return std::unexpected(baked.error()); }
   }
 
-  return FinishStructures(lumps, raw, mesher, scratch, corners, out);
+  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+  return FinishStructures(lumps, raw, mesher, scratch, corners, out, stopping);
 }
 
 }
