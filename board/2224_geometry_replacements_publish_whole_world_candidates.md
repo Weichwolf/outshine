@@ -48,6 +48,11 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
    `d557454a4` bindet Structure-Bakes an OSM-Generation, Footprint-Revision, Fokalmaßstab
    und Tile-Spannweite; ein unpassender fertiger Job gibt sein Watermark frei und wird recycelt.
    Der A→B→späte-A-Orakel durch den öffentlichen Pfad bleibt offen.
+   Fixture: ein lokaler Provider liefert einen festen OSM-Tile mit Gebäudegrundriss und eine
+   feste DEM-Seite; A wird vollständig gerendert, B ändert Quelle oder Projektion, dann darf
+   ein verspätetes A weder Bild noch Routing, Materialmapping, Albedo oder Revision verändern.
+   Beide SDL-Submit-Hooks werden jeweils nach vollständigem Kandidatenaufbau verweigert;
+   der gültige B-Retry muss genau einmal landen.
 3. Öffentlichen Gesamtpfad testen: kleiner deterministischer OSM-/DEM-Provider, Engine-API,
    zunächst gültige Welt A, dann B mit spätem Klassen-/Geometrie-Submitfehler.
    Materialmapping, Albedo, tatsächliches Routingnetz, GPU-Readback und Bild von A erhalten;
