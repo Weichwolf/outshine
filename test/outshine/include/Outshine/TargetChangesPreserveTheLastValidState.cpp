@@ -243,6 +243,17 @@ int main() {
         std::vector<uint8_t> after;
         CHECK(renderer.readPixels(after).has_value() && after == beforeTargetFailure,
               "the retained offscreen target remains renderable with identical pixels");
+        const unsigned targetPipelineFailures = injected;
+        inject = Failure::Pipeline;
+        const auto refusedTargetPipeline = offscreen.drawsInto(Extent{48, 32});
+        inject = Failure::None;
+        CHECK(injected == targetPipelineFailures + 1 && !refusedTargetPipeline &&
+                  refusedTargetPipeline.error().find("injected") != std::string::npos,
+              "target pipeline failure reaches the public caller");
+        std::vector<uint8_t> afterTargetPipelineFailure;
+        CHECK(renderer.readPixels(afterTargetPipelineFailure).has_value() &&
+                  afterTargetPipelineFailure == beforeTargetFailure,
+              "a refused target pipeline candidate retains the readable previous pixels");
         CHECK(!offscreen.drawsInto(Extent{-1, 32}) &&
                   !offscreen.drawsInto(static_cast<SDL_Window *>(nullptr)),
               "invalid inputs cannot replace the existing target");
