@@ -276,11 +276,13 @@ std::expected<OwnedTexture, std::string> SceneRenderer::MakeOffscreen(Extent fra
 }
 
 std::expected<void, std::string> SceneRenderer::StandsOffscreen() {
-  if (Showing_ != nullptr || Offscreen_ || Width_ <= 0 || Height_ <= 0) { return {}; }
-  auto texture = MakeOffscreen({.WidthPx = Width_, .HeightPx = Height_});
+  if (Showing_ != nullptr || Frame_.Offscreen || Frame_.Width <= 0 || Frame_.Height <= 0) {
+    return {};
+  }
+  auto texture = MakeOffscreen({.WidthPx = Frame_.Width, .HeightPx = Frame_.Height});
   if (!texture) { return std::unexpected(texture.error()); }
-  Offscreen_ = std::move(*texture);
-  HostSurface_ = Offscreen_.Get();
+  Frame_.Offscreen = std::move(*texture);
+  Frame_.HostSurface = Frame_.Offscreen.Get();
   return {};
 }
 
@@ -291,12 +293,12 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
   if (Device_ && !Settle(WhyNot_)) { return std::unexpected(WhyNot_); }
   Submitted_ = false;
   BeginTemporalRun();
-  Offscreen_.Reset();
-  HostSurface_ = nullptr;
-  Shown_ = {};
+  Frame_.Offscreen.Reset();
+  Frame_.HostSurface = nullptr;
+  Frame_.Shown = {};
   Plan_ = std::move(plan);
-  Width_ = frame.WidthPx;
-  Height_ = frame.HeightPx;
+  Frame_.Width = frame.WidthPx;
+  Frame_.Height = frame.HeightPx;
 
   for (const Stage stage : Plan_->Order()) {
     if (Executable(stage)) { continue; }
@@ -309,15 +311,15 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
   if (!Stands()) { return std::unexpected(WhyNot_); }
 
   SDL_GPUDevice *const device = Device_.Get();
-  Handles_.Device = device;
-  Handles_.HdrFormat = FormatOf(Plan_->Format(Resource::SceneHdr));
-  Handles_.SurfaceFormat = FormatOf(Plan_->Format(Resource::FrameTex));
-  Handles_.Width = Width_;
-  Handles_.Height = Height_;
+  Frame_.Handles.Device = device;
+  Frame_.Handles.HdrFormat = FormatOf(Plan_->Format(Resource::SceneHdr));
+  Frame_.Handles.SurfaceFormat = FormatOf(Plan_->Format(Resource::FrameTex));
+  Frame_.Handles.Width = Frame_.Width;
+  Frame_.Handles.Height = Frame_.Height;
 
   for (const Compiled::Pass &pass : Plan_->Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
-    Handles_.SceneColours = pass.Targets;
+    Frame_.Handles.SceneColours = pass.Targets;
     break;
   }
   for (size_t r = 0; r < kResourceCount; ++r) {
@@ -336,8 +338,8 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
 
   Log::Info(LogTag::Render,
             "device_ready",
-            {{"width", Width_},
-             {"height", Height_},
+            {{"width", Frame_.Width},
+             {"height", Frame_.Height},
              {"driver", SDL_GetGPUDeviceDriver(device)},
              {"plan", Plan_->Digest()},
              {"passes", Plan_->PassCount()},
@@ -362,14 +364,14 @@ AttachmentSet SceneRenderer::ColoursForStage(Stage wanted) const {
       if (Plan_->Order()[at] == wanted) { return pass.Targets; }
     }
   }
-  return Handles_.SceneColours;
+  return Frame_.Handles.SceneColours;
 }
 
 bool SceneRenderer::ConfigurePlanStages() {
   DrawsGlass_ = Plan_->Holds(Stage::SubjectsTransmissive);
   for (const Stage stage : Plan_->Order()) {
     std::string why;
-    Handles_.SceneColours = ColoursForStage(stage);
+    Frame_.Handles.SceneColours = ColoursForStage(stage);
     if (Configure(stage, why)) { continue; }
     Log::Error(LogTag::Render, "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
     WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
@@ -384,8 +386,8 @@ void SceneRenderer::Create(Resource resource) {
     wanted.type = SDL_GPU_TEXTURETYPE_2D;
     wanted.format = FormatOf(Plan_->Format(of));
     wanted.usage = usage;
-    wanted.width = static_cast<uint32_t>(Width_);
-    wanted.height = static_cast<uint32_t>(Height_);
+    wanted.width = static_cast<uint32_t>(Frame_.Width);
+    wanted.height = static_cast<uint32_t>(Frame_.Height);
     wanted.layer_count_or_depth = 1;
     wanted.num_levels = 1;
     wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
@@ -403,24 +405,26 @@ void SceneRenderer::Create(Resource resource) {
       wanted.min_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-      Samp_ = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+      Frame_.Samp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
       return;
     }
 
     case Resource::OverlayAtlas: return;
-    case Resource::SceneHdr: HdrTex_ = target(resource, colour); return;
-    case Resource::SceneTransmissive: TransmissiveTex_ = target(resource, colour); return;
-    case Resource::SceneComposited: CompositedTex_ = target(resource, colour); return;
-    case Resource::SceneAerial: AerialTex_ = target(resource, colour); return;
-    case Resource::SceneVelocity: VelTex_ = target(resource, colour); return;
-    case Resource::SceneShadingNormal: ShadingNormalTex_ = target(resource, colour); return;
-    case Resource::SceneSurfaceIdentity: SurfaceIdentityTex_ = target(resource, colour); return;
+    case Resource::SceneHdr: Frame_.HdrTex = target(resource, colour); return;
+    case Resource::SceneTransmissive: Frame_.TransmissiveTex = target(resource, colour); return;
+    case Resource::SceneComposited: Frame_.CompositedTex = target(resource, colour); return;
+    case Resource::SceneAerial: Frame_.AerialTex = target(resource, colour); return;
+    case Resource::SceneVelocity: Frame_.VelTex = target(resource, colour); return;
+    case Resource::SceneShadingNormal: Frame_.ShadingNormalTex = target(resource, colour); return;
+    case Resource::SceneSurfaceIdentity:
+      Frame_.SurfaceIdentityTex = target(resource, colour);
+      return;
     case Resource::SceneDepth:
 
-      DepthTex_ = target(resource,
-                         SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER);
+      Frame_.DepthTex = target(
+          resource, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER);
       return;
-    case Resource::FrameTex: FrameTex_ = target(resource, colour); return;
+    case Resource::FrameTex: Frame_.FrameTex = target(resource, colour); return;
 
     case Resource::Surface:
     case Resource::ClusterSphere:
@@ -450,14 +454,15 @@ void SceneRenderer::Create(Resource resource) {
           case Resource::MultiScatterLut:
             return {.WidthPx = kMultiScatterLutSize,
                     .HeightPx = kMultiScatterLutSize,
-                    .Into = &MultiScatterLut_};
+                    .Into = &Frame_.MultiScatterLut};
           case Resource::SkyViewLut:
-            return {
-                .WidthPx = kSkyViewLutWidth, .HeightPx = kSkyViewLutHeight, .Into = &SkyViewLut_};
+            return {.WidthPx = kSkyViewLutWidth,
+                    .HeightPx = kSkyViewLutHeight,
+                    .Into = &Frame_.SkyViewLut};
           default:
             return {.WidthPx = kTransmittanceLutWidth,
                     .HeightPx = kTransmittanceLutHeight,
-                    .Into = &TransmittanceLut_};
+                    .Into = &Frame_.TransmittanceLut};
         }
       }();
       wanted.width = shape.WidthPx;
@@ -476,7 +481,7 @@ void SceneRenderer::Create(Resource resource) {
       wanted.min_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-      LutSamp_ = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+      Frame_.LutSamp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
       return;
     }
     case Resource::AtmosphereUniform:
@@ -486,19 +491,20 @@ void SceneRenderer::Create(Resource resource) {
       wanted.usage =
           SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
       wanted.size = kIrradianceFloats * static_cast<uint32_t>(sizeof(float));
-      IrradianceBuffer_ =
-          OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
+      Frame_.IrradianceBuffer =
+          OwnedBuffer(Frame_.Handles.Device, SDL_CreateGPUBuffer(Frame_.Handles.Device, &wanted));
       return;
     }
     case Resource::DepthPyramid: {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage =
           SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-      wanted.size = PyramidOver({.WidthPx = static_cast<uint32_t>(Width_),
-                                 .HeightPx = static_cast<uint32_t>(Height_)})
+      wanted.size = PyramidOver({.WidthPx = static_cast<uint32_t>(Frame_.Width),
+                                 .HeightPx = static_cast<uint32_t>(Frame_.Height)})
                         .Texels *
                     static_cast<uint32_t>(sizeof(float));
-      Pyramid_ = OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
+      Frame_.Pyramid =
+          OwnedBuffer(Frame_.Handles.Device, SDL_CreateGPUBuffer(Frame_.Handles.Device, &wanted));
       return;
     }
     case Resource::VegetationTable:
@@ -513,17 +519,18 @@ void SceneRenderer::Create(Resource resource) {
       wanted.layer_count_or_depth = 1;
       wanted.num_levels = 1;
       wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
-      ShadowAtlas_ = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
+      Frame_.ShadowAtlas =
+          OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
       return;
     }
     case Resource::AoBuffer: return;
 
     case Resource::SceneLinear:
 
-      LinearTex_[0] = target(resource, colour);
-      LinearTex_[1] = target(resource, colour);
-      LinearAt_ = 0;
-      HistoryHeld_ = false;
+      Frame_.LinearTex[0] = target(resource, colour);
+      Frame_.LinearTex[1] = target(resource, colour);
+      Frame_.LinearAt = 0;
+      Frame_.HistoryHeld = false;
       return;
     case Resource::kCount: return;
   }
@@ -531,28 +538,28 @@ void SceneRenderer::Create(Resource resource) {
 
 bool SceneRenderer::Created(Resource resource) const {
   switch (resource) {
-    case Resource::LinearSampler: return static_cast<bool>(Samp_);
-    case Resource::SceneHdr: return static_cast<bool>(HdrTex_);
-    case Resource::SceneTransmissive: return static_cast<bool>(TransmissiveTex_);
-    case Resource::SceneComposited: return static_cast<bool>(CompositedTex_);
-    case Resource::SceneAerial: return static_cast<bool>(AerialTex_);
-    case Resource::SceneVelocity: return static_cast<bool>(VelTex_);
-    case Resource::SceneShadingNormal: return static_cast<bool>(ShadingNormalTex_);
-    case Resource::SceneSurfaceIdentity: return static_cast<bool>(SurfaceIdentityTex_);
-    case Resource::SceneDepth: return static_cast<bool>(DepthTex_);
-    case Resource::FrameTex: return static_cast<bool>(FrameTex_);
-    case Resource::TransmittanceLut: return static_cast<bool>(TransmittanceLut_);
-    case Resource::MultiScatterLut: return static_cast<bool>(MultiScatterLut_);
-    case Resource::SkyViewLut: return static_cast<bool>(SkyViewLut_);
-    case Resource::LutSampler: return static_cast<bool>(LutSamp_);
+    case Resource::LinearSampler: return static_cast<bool>(Frame_.Samp);
+    case Resource::SceneHdr: return static_cast<bool>(Frame_.HdrTex);
+    case Resource::SceneTransmissive: return static_cast<bool>(Frame_.TransmissiveTex);
+    case Resource::SceneComposited: return static_cast<bool>(Frame_.CompositedTex);
+    case Resource::SceneAerial: return static_cast<bool>(Frame_.AerialTex);
+    case Resource::SceneVelocity: return static_cast<bool>(Frame_.VelTex);
+    case Resource::SceneShadingNormal: return static_cast<bool>(Frame_.ShadingNormalTex);
+    case Resource::SceneSurfaceIdentity: return static_cast<bool>(Frame_.SurfaceIdentityTex);
+    case Resource::SceneDepth: return static_cast<bool>(Frame_.DepthTex);
+    case Resource::FrameTex: return static_cast<bool>(Frame_.FrameTex);
+    case Resource::TransmittanceLut: return static_cast<bool>(Frame_.TransmittanceLut);
+    case Resource::MultiScatterLut: return static_cast<bool>(Frame_.MultiScatterLut);
+    case Resource::SkyViewLut: return static_cast<bool>(Frame_.SkyViewLut);
+    case Resource::LutSampler: return static_cast<bool>(Frame_.LutSamp);
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
-    case Resource::IrradianceBuffer: return static_cast<bool>(IrradianceBuffer_);
-    case Resource::DepthPyramid: return static_cast<bool>(Pyramid_);
+    case Resource::IrradianceBuffer: return static_cast<bool>(Frame_.IrradianceBuffer);
+    case Resource::DepthPyramid: return static_cast<bool>(Frame_.Pyramid);
     case Resource::VegetationTable:
     case Resource::Meter:
-    case Resource::ShadowAtlas: return static_cast<bool>(ShadowAtlas_);
-    case Resource::SceneLinear: return LinearTex_[0] && LinearTex_[1];
+    case Resource::ShadowAtlas: return static_cast<bool>(Frame_.ShadowAtlas);
+    case Resource::SceneLinear: return Frame_.LinearTex[0] && Frame_.LinearTex[1];
     case Resource::OverlayAtlas:
     case Resource::Surface:
     case Resource::ClusterSphere:
@@ -572,17 +579,17 @@ bool SceneRenderer::Created(Resource resource) const {
 SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
   switch (resource) {
     case Resource::OverlayAtlas: return nullptr;
-    case Resource::SceneHdr: return HdrTex_.Get();
-    case Resource::SceneTransmissive: return TransmissiveTex_.Get();
-    case Resource::SceneComposited: return CompositedTex_.Get();
-    case Resource::SceneAerial: return AerialTex_.Get();
-    case Resource::SceneVelocity: return VelTex_.Get();
-    case Resource::SceneShadingNormal: return ShadingNormalTex_.Get();
-    case Resource::SceneSurfaceIdentity: return SurfaceIdentityTex_.Get();
-    case Resource::SceneDepth: return DepthTex_.Get();
-    case Resource::FrameTex: return FrameTex_.Get();
+    case Resource::SceneHdr: return Frame_.HdrTex.Get();
+    case Resource::SceneTransmissive: return Frame_.TransmissiveTex.Get();
+    case Resource::SceneComposited: return Frame_.CompositedTex.Get();
+    case Resource::SceneAerial: return Frame_.AerialTex.Get();
+    case Resource::SceneVelocity: return Frame_.VelTex.Get();
+    case Resource::SceneShadingNormal: return Frame_.ShadingNormalTex.Get();
+    case Resource::SceneSurfaceIdentity: return Frame_.SurfaceIdentityTex.Get();
+    case Resource::SceneDepth: return Frame_.DepthTex.Get();
+    case Resource::FrameTex: return Frame_.FrameTex.Get();
 
-    case Resource::Surface: return HostSurface_;
+    case Resource::Surface: return Frame_.HostSurface;
 
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
@@ -592,10 +599,10 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
-    case Resource::TransmittanceLut: return TransmittanceLut_.Get();
-    case Resource::MultiScatterLut: return MultiScatterLut_.Get();
-    case Resource::SkyViewLut: return SkyViewLut_.Get();
-    case Resource::ShadowAtlas: return ShadowAtlas_.Get();
+    case Resource::TransmittanceLut: return Frame_.TransmittanceLut.Get();
+    case Resource::MultiScatterLut: return Frame_.MultiScatterLut.Get();
+    case Resource::SkyViewLut: return Frame_.SkyViewLut.Get();
+    case Resource::ShadowAtlas: return Frame_.ShadowAtlas.Get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
@@ -606,7 +613,7 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::DepthPyramid:
     case Resource::AoBuffer: return nullptr;
 
-    case Resource::SceneLinear: return LinearTex_[LinearAt_].Get();
+    case Resource::SceneLinear: return Frame_.LinearTex[Frame_.LinearAt].Get();
     case Resource::kCount: return nullptr;
   }
   return nullptr;
@@ -626,8 +633,8 @@ SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
     case Resource::DrawIndex: return resident.Buffer(SubjectResidency::Stream::DrawIndex).Get();
     case Resource::DrawArguments:
       return resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
-    case Resource::IrradianceBuffer: return IrradianceBuffer_.Get();
-    case Resource::DepthPyramid: return Pyramid_.Get();
+    case Resource::IrradianceBuffer: return Frame_.IrradianceBuffer.Get();
+    case Resource::DepthPyramid: return Frame_.Pyramid.Get();
     default: return nullptr;
   }
 }
@@ -645,13 +652,13 @@ SceneRenderer::Placed SceneRenderer::PictureRect() const {
   Placed out;
   out.LeftPx = 0;
   out.TopPx = 0;
-  out.WidthPx = static_cast<double>(Width_);
-  out.HeightPx = static_cast<double>(Height_);
+  out.WidthPx = static_cast<double>(Frame_.Width);
+  out.HeightPx = static_cast<double>(Frame_.Height);
   if (RegionW_ > 0 && RegionH_ > 0) {
-    out.LeftPx = RegionX_ * static_cast<double>(Width_);
-    out.TopPx = RegionY_ * static_cast<double>(Height_);
-    out.WidthPx = RegionW_ * static_cast<double>(Width_);
-    out.HeightPx = RegionH_ * static_cast<double>(Height_);
+    out.LeftPx = RegionX_ * static_cast<double>(Frame_.Width);
+    out.TopPx = RegionY_ * static_cast<double>(Frame_.Height);
+    out.WidthPx = RegionW_ * static_cast<double>(Frame_.Width);
+    out.HeightPx = RegionH_ * static_cast<double>(Frame_.Height);
   }
   if (RegionAspect_ > 0 && out.WidthPx > 0 && out.HeightPx > 0) {
     const double fitted =
@@ -700,85 +707,88 @@ bool SceneRenderer::Configure(Stage stage, std::string &error) {
 
 bool SceneRenderer::ConfigureSubjects(std::string &error) {
   Subjects_.SetSeparateTransmission(DrawsGlass_);
-  return Subjects_.Configure(Handles_, error);
+  return Subjects_.Configure(Frame_.Handles, error);
 }
 
 bool SceneRenderer::ConfigureGlass(std::string &error) {
   Glass_.Shares(Subjects_.Owned());
-  Glass_.SeeThroughTo(HdrTex_.Get(), Samp_.Get());
-  return Glass_.Configure(Handles_, error);
+  Glass_.SeeThroughTo(Frame_.HdrTex.Get(), Frame_.Samp.Get());
+  return Glass_.Configure(Frame_.Handles, error);
 }
 
 bool SceneRenderer::ConfigureCompositeTransmission(std::string &error) {
   return CompositeTransmission_.Configure(
-      Handles_,
-      {.Opaque = HdrTex_.Get(),
-       .Transmissive = TransmissiveTex_.Get(),
-       .Exact = Samp_.Get(),
+      Frame_.Handles,
+      {.Opaque = Frame_.HdrTex.Get(),
+       .Transmissive = Frame_.TransmissiveTex.Get(),
+       .Exact = Frame_.Samp.Get(),
        .Target = FormatOf(Plan_->Format(Resource::SceneComposited))},
       error);
 }
 
 bool SceneRenderer::ConfigureOverlay(std::string &error) {
-  return Overlay_.EnsureAtlas(Handles_, error) &&
+  return Overlay_.EnsureAtlas(Frame_.Handles, error) &&
          OverlayPipe_.Configure(
-             Handles_, Samp_.Get(), FormatOf(Plan_->Format(Resource::FrameTex)), error);
+             Frame_.Handles, Frame_.Samp.Get(), FormatOf(Plan_->Format(Resource::FrameTex)), error);
 }
 
 bool SceneRenderer::ConfigurePresent(std::string &error) {
-  return Present_.Configure(Handles_, FrameTex_.Get(), Samp_.Get(), error);
+  return Present_.Configure(Frame_.Handles, Frame_.FrameTex.Get(), Frame_.Samp.Get(), error);
 }
 
 bool SceneRenderer::ConfigureTonemap(std::string &error) {
-  return Tonemap_.Configure(Handles_,
+  return Tonemap_.Configure(Frame_.Handles,
                             {.Scene = DisplaySource(),
-                             .Depth = DepthTex_.Get(),
-                             .Exact = Samp_.Get(),
+                             .Depth = Frame_.DepthTex.Get(),
+                             .Exact = Frame_.Samp.Get(),
                              .Linear = FormatOf(Plan_->Format(Resource::SceneLinear))},
                             Display(),
                             error);
 }
 
 bool SceneRenderer::ConfigureMediumTransmittance(std::string &error) {
-  return MediumTransmittance_.Configure(Handles_, TransmittanceLut_.Get(), error);
+  return MediumTransmittance_.Configure(Frame_.Handles, Frame_.TransmittanceLut.Get(), error);
 }
 
 bool SceneRenderer::ConfigureMediumMultiScatter(std::string &error) {
-  return MultiScatter_.Configure(
-      Handles_, TransmittanceLut_.Get(), LutSamp_.Get(), MultiScatterLut_.Get(), error);
+  return MultiScatter_.Configure(Frame_.Handles,
+                                 Frame_.TransmittanceLut.Get(),
+                                 Frame_.LutSamp.Get(),
+                                 Frame_.MultiScatterLut.Get(),
+                                 error);
 }
 
 bool SceneRenderer::ConfigureMediumRadiance(std::string &error) {
-  return Radiance_.Configure(Handles_,
-                             TransmittanceLut_.Get(),
-                             MultiScatterLut_.Get(),
-                             LutSamp_.Get(),
-                             SkyViewLut_.Get(),
+  return Radiance_.Configure(Frame_.Handles,
+                             Frame_.TransmittanceLut.Get(),
+                             Frame_.MultiScatterLut.Get(),
+                             Frame_.LutSamp.Get(),
+                             Frame_.SkyViewLut.Get(),
                              error);
 }
 
 bool SceneRenderer::ConfigureSky(std::string &error) {
-  return Sky_.Configure(Handles_,
-                        {.SkyView = SkyViewLut_.Get(),
-                         .Transmittance = TransmittanceLut_.Get(),
-                         .Lut = LutSamp_.Get()},
+  return Sky_.Configure(Frame_.Handles,
+                        {.SkyView = Frame_.SkyViewLut.Get(),
+                         .Transmittance = Frame_.TransmittanceLut.Get(),
+                         .Lut = Frame_.LutSamp.Get()},
                         error);
 }
 
 bool SceneRenderer::ConfigureAerialPerspective(std::string &error) {
-  return Aerial_.Configure(Handles_,
+  return Aerial_.Configure(Frame_.Handles,
                            {.Scene = Target(Plan_->Bound(Resource::SceneComposited)),
-                            .Depth = DepthTex_.Get(),
-                            .SkyView = SkyViewLut_.Get(),
-                            .Transmittance = TransmittanceLut_.Get(),
-                            .Exact = Samp_.Get(),
-                            .Lut = LutSamp_.Get()},
+                            .Depth = Frame_.DepthTex.Get(),
+                            .SkyView = Frame_.SkyViewLut.Get(),
+                            .Transmittance = Frame_.TransmittanceLut.Get(),
+                            .Exact = Frame_.Samp.Get(),
+                            .Lut = Frame_.LutSamp.Get()},
                            FormatOf(Plan_->Format(Resource::SceneAerial)),
                            error);
 }
 
 bool SceneRenderer::ConfigureLightVisibility(std::string &error) {
-  return Shadow_.Configure(Subjects_, Handles_, error);
+  return Shadow_.Configure(Subjects_, Frame_.Handles, error);
 }
 
 void SceneRenderer::Picture(bool picture, const PassRecording &into) {
@@ -786,8 +796,8 @@ void SceneRenderer::Picture(bool picture, const PassRecording &into) {
   const Placed rect = PictureRect();
   where.x = picture ? static_cast<float>(rect.LeftPx) : 0.0f;
   where.y = picture ? static_cast<float>(rect.TopPx) : 0.0f;
-  where.w = picture ? static_cast<float>(rect.WidthPx) : static_cast<float>(Width_);
-  where.h = picture ? static_cast<float>(rect.HeightPx) : static_cast<float>(Height_);
+  where.w = picture ? static_cast<float>(rect.WidthPx) : static_cast<float>(Frame_.Width);
+  where.h = picture ? static_cast<float>(rect.HeightPx) : static_cast<float>(Frame_.Height);
   where.min_depth = 0.0f;
   where.max_depth = 1.0f;
   if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
@@ -869,24 +879,25 @@ void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx,
 void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
   Tonemap_.Bind(DisplaySource());
   const Vec2f delta = {{Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]}};
-  Tonemap_.BindTemporal({.History = LinearTex_[1 - LinearAt_].Get(), .Velocity = VelTex_.Get()},
-                        Extent{.WidthPx = Width_, .HeightPx = Height_},
-                        delta,
-                        HistoryHeld_);
+  Tonemap_.BindTemporal(
+      {.History = Frame_.LinearTex[1 - Frame_.LinearAt].Get(), .Velocity = Frame_.VelTex.Get()},
+      Extent{.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
+      delta,
+      Frame_.HistoryHeld);
   Picture(true, into);
   Tonemap_.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeOverlay(const FrameContext &ctx, const PassRecording &into) {
   Picture(false, into);
-  OverlayPipe_.Bind(Extent{.WidthPx = Width_, .HeightPx = Height_});
+  OverlayPipe_.Bind(Extent{.WidthPx = Frame_.Width, .HeightPx = Frame_.Height});
   OverlayPipe_.Encode(Overlay_, ctx, into);
 }
 
 void SceneRenderer::EncodePresent(const FrameContext &ctx, const PassRecording &into) {
   {
     std::string why;
-    if (!Present_.For(Handles_, SurfaceFormat(), why)) {
+    if (!Present_.For(Frame_.Handles, SurfaceFormat(), why)) {
       Log::Error(LogTag::Render, "present_not_built", {{"msg", why}});
       return;
     }
@@ -913,7 +924,8 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
 bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                      std::span<const float> palette,
                                      std::string &error) {
-  const auto uploaded = GroundStorage_.Replace(Handles_.Device, classes, palette, Submission_);
+  const auto uploaded =
+      GroundStorage_.Replace(Frame_.Handles.Device, classes, palette, Submission_);
   if (!uploaded) {
     error = uploaded.error();
     return false;
@@ -924,14 +936,14 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
 }
 
 bool SceneRenderer::ConfigureIrradiance(std::string &error) {
-  Subjects_.SkyFrom(IrradianceBuffer_.Get());
-  if (DrawsGlass_) { Glass_.SkyFrom(IrradianceBuffer_.Get()); }
+  Subjects_.SkyFrom(Frame_.IrradianceBuffer.Get());
+  if (DrawsGlass_) { Glass_.SkyFrom(Frame_.IrradianceBuffer.Get()); }
   if (!GroundStorage_.Ready() && !SetGroundClasses({}, {}, error)) { return false; }
-  return SkyIrradianceStage_.Configure(Handles_,
-                                       TransmittanceLut_.Get(),
-                                       MultiScatterLut_.Get(),
-                                       LutSamp_.Get(),
-                                       IrradianceBuffer_.Get(),
+  return SkyIrradianceStage_.Configure(Frame_.Handles,
+                                       Frame_.TransmittanceLut.Get(),
+                                       Frame_.MultiScatterLut.Get(),
+                                       Frame_.LutSamp.Get(),
+                                       Frame_.IrradianceBuffer.Get(),
                                        error);
 }
 
@@ -941,11 +953,11 @@ void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecordin
 }
 
 bool SceneRenderer::ConfigureDepthPyramid(std::string &error) {
-  return PyramidStage_.Configure(Handles_,
-                                 DepthTex_.Get(),
-                                 Samp_.Get(),
-                                 Pyramid_.Get(),
-                                 {.WidthPx = Width_, .HeightPx = Height_},
+  return PyramidStage_.Configure(Frame_.Handles,
+                                 Frame_.DepthTex.Get(),
+                                 Frame_.Samp.Get(),
+                                 Frame_.Pyramid.Get(),
+                                 {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
                                  error);
 }
 
@@ -955,14 +967,14 @@ void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecord
 }
 
 bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
-  Cull_.PyramidFrom(Pyramid_.Get(),
-                    PyramidOver({.WidthPx = static_cast<uint32_t>(Width_),
-                                 .HeightPx = static_cast<uint32_t>(Height_)}));
-  return Cull_.Configure(Subjects_, Handles_, error);
+  Cull_.PyramidFrom(Frame_.Pyramid.Get(),
+                    PyramidOver({.WidthPx = static_cast<uint32_t>(Frame_.Width),
+                                 .HeightPx = static_cast<uint32_t>(Frame_.Height)}));
+  return Cull_.Configure(Subjects_, Frame_.Handles, error);
 }
 
 void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
-  Cull_.Projects(static_cast<float>(Height_));
+  Cull_.Projects(static_cast<float>(Frame_.Height));
   Cull_.EncodeCull(ctx, into);
 }
 
@@ -976,7 +988,7 @@ void SceneRenderer::EncodeSubjectCompact(const FrameContext &ctx, const PassReco
 
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   Shadow_.Encode(ctx, into);
-  Subjects_.ShadowedBy(ShadowAtlas_.Get(), LutSamp_.Get(), Shadow_.LightFromWorld());
+  Subjects_.ShadowedBy(Frame_.ShadowAtlas.Get(), Frame_.LutSamp.Get(), Shadow_.LightFromWorld());
 }
 
 bool SceneRenderer::Settle(std::string &error) {
@@ -1140,8 +1152,8 @@ void SceneRenderer::BeginTemporalRun() {
   Jitter_[1] = 0.0f;
   PrevJitter_[0] = 0.0f;
   PrevJitter_[1] = 0.0f;
-  LinearAt_ = 0;
-  HistoryHeld_ = false;
+  Frame_.LinearAt = 0;
+  Frame_.HistoryHeld = false;
 }
 
 std::expected<void, std::string> SceneRenderer::PrepareFrame() {
@@ -1187,25 +1199,25 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
       if (!SDL_CancelGPUCommandBuffer(commands)) { return std::unexpected(SDL_GetError()); }
       return {};
     }
-    Shown_.WidthPx = static_cast<int>(gotW);
-    Shown_.HeightPx = static_cast<int>(gotH);
-    HostSurface_ = swapchain;
+    Frame_.Shown.WidthPx = static_cast<int>(gotW);
+    Frame_.Shown.HeightPx = static_cast<int>(gotH);
+    Frame_.HostSurface = swapchain;
   }
 
   const auto previousJitter = Jitter_;
   const auto previousPrevJitter = PrevJitter_;
   const auto previousJitterAt = JitterAt_;
   const auto previousHistoryStarted = HistoryStarted_;
-  const auto previousHistoryHeld = HistoryHeld_;
-  const auto previousLinearAt = LinearAt_;
+  const auto previousHistoryHeld = Frame_.HistoryHeld;
+  const auto previousLinearAt = Frame_.LinearAt;
   if (Plan_->Holds(Stage::TemporalResolve)) {
     PrevJitter_ = Jitter_;
     JitterAt_ = (JitterAt_ + 1) % kJitterPeriod;
     Jitter_ = HaltonJitter(JitterAt_);
 
-    HistoryHeld_ = HistoryStarted_;
+    Frame_.HistoryHeld = HistoryStarted_;
     HistoryStarted_ = true;
-    LinearAt_ = 1 - LinearAt_;
+    Frame_.LinearAt = 1 - Frame_.LinearAt;
   }
   StageSubmission stageSubmission;
   const auto restoreTemporalState = [&] {
@@ -1213,8 +1225,8 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     PrevJitter_ = previousPrevJitter;
     JitterAt_ = previousJitterAt;
     HistoryStarted_ = previousHistoryStarted;
-    HistoryHeld_ = previousHistoryHeld;
-    LinearAt_ = previousLinearAt;
+    Frame_.HistoryHeld = previousHistoryHeld;
+    Frame_.LinearAt = previousLinearAt;
   };
 
   if (!Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands, uploadError)) {
@@ -1238,7 +1250,7 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     Landed_[LandedAt_] = nullptr;
   }
   Landed_[LandedAt_] = Submission_.Submit(Submission_.Context, commands);
-  if (swapchain != nullptr) { HostSurface_ = Offscreen_.Get(); }
+  if (swapchain != nullptr) { Frame_.HostSurface = Frame_.Offscreen.Get(); }
   if (Landed_[LandedAt_] == nullptr) {
     std::string error = SDL_GetError();
     restoreTemporalState();
@@ -1283,18 +1295,20 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     WhyNot_ = Says::kNoColourOutput;
     return ReadState::Failed;
   }
-  SDL_GPUTexture *const held = source == Resource::FrameTex ? FrameTex_.Get() : Offscreen_.Get();
+  SDL_GPUTexture *const held =
+      source == Resource::FrameTex ? Frame_.FrameTex.Get() : Frame_.Offscreen.Get();
   if (held == nullptr) {
     WhyNot_ = Says::kNoColourTexture;
     return ReadState::Failed;
   }
   Readback read;
-  if (read.FromTexture(Device_.Get(), held, {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
+  if (read.FromTexture(
+          Device_.Get(), held, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 4u) !=
       ReadState::Ready) {
     WhyNot_ = std::string(Says::kColourReadbackFailed) + SDL_GetError();
     return ReadState::Failed;
   }
-  rgba.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
+  rgba.resize(static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u);
   std::memcpy(rgba.data(), read.Rows(), rgba.size());
   const auto format = FormatOf(Plan_->Format(source));
   if (format == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM ||
@@ -1305,14 +1319,15 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
 }
 
 ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
-  if (!Ready_ || !DepthTex_) { return ReadState::Failed; }
+  if (!Ready_ || !Frame_.DepthTex) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(
-          Device_.Get(), DepthTex_.Get(), {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       Frame_.DepthTex.Get(),
+                       {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
+                       4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  depth.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_));
+  depth.resize(static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height));
   std::memcpy(depth.data(), read.Rows(), depth.size() * sizeof(float));
   return ReadState::Ready;
 }
@@ -1322,12 +1337,14 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
-  if (read.FromTexture(
-          Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, wide ? 16u : 8u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
+                       wide ? 16u : 8u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
+  const size_t components =
+      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u;
   rgba.resize(components);
   if (wide) {
     std::memcpy(rgba.data(), read.Rows(), components * sizeof(float));
@@ -1343,10 +1360,10 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
 }
 
 ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
-  if (!Ready_ || !ShadowAtlas_ || !Shadow_.HasSubmittedData()) { return ReadState::Failed; }
+  if (!Ready_ || !Frame_.ShadowAtlas || !Shadow_.HasSubmittedData()) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.Get(),
-                       ShadowAtlas_.Get(),
+                       Frame_.ShadowAtlas.Get(),
                        {.WidthPx = kShadowAtlasPx, .HeightPx = kShadowAtlasPx},
                        4u) != ReadState::Ready) {
     return ReadState::Failed;
@@ -1375,21 +1392,22 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
 
 ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
   into = {};
-  if (!Ready_ || !Pyramid_) { return ReadState::Failed; }
-  const PyramidShape shape = PyramidOver(
-      {.WidthPx = static_cast<uint32_t>(Width_), .HeightPx = static_cast<uint32_t>(Height_)});
+  if (!Ready_ || !Frame_.Pyramid) { return ReadState::Failed; }
+  const PyramidShape shape = PyramidOver({.WidthPx = static_cast<uint32_t>(Frame_.Width),
+                                          .HeightPx = static_cast<uint32_t>(Frame_.Height)});
   const uint32_t texels = shape.Wide[0] * shape.High[0];
   if (texels == 0) { return ReadState::Failed; }
-  const ReadState landed = PyramidRead_.Poll();
+  const ReadState landed = Frame_.PyramidRead.Poll();
   if (landed == ReadState::Failed) {
-    return PyramidRead_.Enqueue(Device_.Get(),
-                                Pyramid_.Get(),
-                                texels * static_cast<uint32_t>(sizeof(float))) == ReadState::Failed
+    return Frame_.PyramidRead.Enqueue(Device_.Get(),
+                                      Frame_.Pyramid.Get(),
+                                      texels * static_cast<uint32_t>(sizeof(float))) ==
+                   ReadState::Failed
                ? ReadState::Failed
                : ReadState::Pending;
   }
   if (landed == ReadState::Pending) { return ReadState::Pending; }
-  const auto *const held = reinterpret_cast<const float *>(PyramidRead_.Rows());
+  const auto *const held = reinterpret_cast<const float *>(Frame_.PyramidRead.Rows());
   double summed = 0.0;
   into.Nearest = held[0];
   into.Farthest = held[0];
@@ -1399,15 +1417,17 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
     summed += static_cast<double>(held[at]);
   }
   into.Mean = static_cast<float>(summed / static_cast<double>(texels));
-  PyramidRead_.Release();
+  Frame_.PyramidRead.Release();
   return ReadState::Ready;
 }
 
 ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> out) {
-  if (!Ready_ || !IrradianceBuffer_ || !SkyIrradianceStage_.Settled()) { return ReadState::Failed; }
+  if (!Ready_ || !Frame_.IrradianceBuffer || !SkyIrradianceStage_.Settled()) {
+    return ReadState::Failed;
+  }
   Readback read;
   if (read.FromBuffer(Device_.Get(),
-                      IrradianceBuffer_.Get(),
+                      Frame_.IrradianceBuffer.Get(),
                       kIrradianceFloats * static_cast<uint32_t>(sizeof(float))) !=
       ReadState::Ready) {
     return ReadState::Failed;
@@ -1417,14 +1437,16 @@ ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> o
 }
 
 ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
-  SDL_GPUTexture *source = ShadingNormalTex_.Get();
+  SDL_GPUTexture *source = Frame_.ShadingNormalTex.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, 8u) !=
+  if (read.FromTexture(
+          Device_.Get(), source, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 8u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
+  const size_t components =
+      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u;
   xyz.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -1435,14 +1457,16 @@ ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
 }
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
-  SDL_GPUTexture *source = VelTex_.Get();
+  SDL_GPUTexture *source = Frame_.VelTex.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, 4u) !=
+  if (read.FromTexture(
+          Device_.Get(), source, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 4u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 2u;
+  const size_t components =
+      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 2u;
   xy.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -1453,23 +1477,25 @@ ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
 }
 
 ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
-  SDL_GPUTexture *source = SurfaceIdentityTex_.Get();
+  SDL_GPUTexture *source = Frame_.SurfaceIdentityTex.Get();
   if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, {.WidthPx = Width_, .HeightPx = Height_}, 16u) !=
+  if (read.FromTexture(
+          Device_.Get(), source, {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height}, 16u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
+  const size_t components =
+      static_cast<size_t>(Frame_.Width) * static_cast<size_t>(Frame_.Height) * 4u;
   slot.resize(components);
   std::memcpy(slot.data(), read.Rows(), components * sizeof(float));
   return ReadState::Ready;
 }
 
 void SceneRenderer::StopShowing() {
-  Offscreen_.Reset();
-  HostSurface_ = nullptr;
-  Shown_ = {};
+  Frame_.Offscreen.Reset();
+  Frame_.HostSurface = nullptr;
+  Frame_.Shown = {};
   Submitted_ = false;
   if (Showing_ == nullptr) { return; }
   SDL_ReleaseWindowFromGPUDevice(Device_.Get(), Showing_);
@@ -1521,11 +1547,11 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   }
   Showing_ = presents;
   Presenting_ = mode;
-  Offscreen_ = std::move(texture);
-  HostSurface_ = Offscreen_.Get();
-  Width_ = widthPx;
-  Height_ = heightPx;
-  Shown_ = {};
+  Frame_.Offscreen = std::move(texture);
+  Frame_.HostSurface = Frame_.Offscreen.Get();
+  Frame_.Width = widthPx;
+  Frame_.Height = heightPx;
+  Frame_.Shown = {};
   Submitted_ = false;
   WhyNot_.clear();
   return {};
@@ -1538,8 +1564,8 @@ SceneRenderer::Presented() const {
         "no window is being shown on: a frame is presented to a surface the caller declared, "
         "and `DrawsInto` names one");
   }
-  if (Shown_.WidthPx == 0) { return std::optional<Shown>(); }
-  return std::optional<Shown>(Shown_);
+  if (Frame_.Shown.WidthPx == 0) { return std::optional<Shown>(); }
+  return std::optional<Shown>(Frame_.Shown);
 }
 
 }

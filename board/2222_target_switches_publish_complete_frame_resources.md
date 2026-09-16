@@ -33,6 +33,11 @@ und Instanzresidenz bleiben stehen. `GroundLattice` trennt seine Lit-/Depth-Bind
 Seiten, Grid und Instanzen. Beide Bindungssätze werden später gemeinsam mit den übrigen
 formatgebundenen Frame-Ressourcen getauscht.
 
+`FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
+Readback, temporale Ziele und die GPU-Handles; seine Beweglichkeit ist statisch gesichert. Die
+Stage-Objekte konfigurieren noch direkt auf diese Gruppe. Als Nächstes müssen sie samt Plan als
+vollständiger Kandidat gebaut und in einem nichtwerfenden Schritt veröffentlicht werden.
+
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,
 tauscht Ressourcen, Target und Dimension gemeinsam und gibt alte Fensterclaims

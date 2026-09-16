@@ -16,6 +16,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <SDL3/SDL_gpu.h>
@@ -80,7 +81,7 @@ public:
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
 
-  void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
+  void PresentInto(SDL_GPUTexture *surface) { Frame_.HostSurface = surface; }
 
   struct Region {
     double X = 0.0;
@@ -211,16 +212,16 @@ public:
   [[nodiscard]] bool ReplaceOverlay(std::span<const OverlayQuad> quads,
                                     const OverlayDraw::AtlasPixels *atlas,
                                     std::string &error) {
-    return Overlay_.Replace(Handles_, quads.data(), quads.size(), atlas, error);
+    return Overlay_.Replace(Frame_.Handles, quads.data(), quads.size(), atlas, error);
   }
 
   [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
-    return Overlay_.SetQuads(Handles_, quads, count, error);
+    return Overlay_.SetQuads(Frame_.Handles, quads, count, error);
   }
 
   [[nodiscard]] bool
   SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
-    return Overlay_.SetAtlas(Handles_, rgba, width, height, error);
+    return Overlay_.SetAtlas(Frame_.Handles, rgba, width, height, error);
   }
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
@@ -313,11 +314,11 @@ public:
     Aerial_.Eye(Medium_, eyeHeightM);
   }
 
-  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return SkyViewLut_.Get(); }
+  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return Frame_.SkyViewLut.Get(); }
 
-  [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const { return MultiScatterLut_.Get(); }
+  [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const { return Frame_.MultiScatterLut.Get(); }
 
-  [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const { return TransmittanceLut_.Get(); }
+  [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const { return Frame_.TransmittanceLut.Get(); }
 
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
     Subjects_.SetEnvironment(environment);
@@ -373,9 +374,9 @@ public:
 
   void BeginTemporalRun();
 
-  [[nodiscard]] int SceneW() const { return Width_; }
+  [[nodiscard]] int SceneW() const { return Frame_.Width; }
 
-  [[nodiscard]] int SceneH() const { return Height_; }
+  [[nodiscard]] int SceneH() const { return Frame_.Height; }
 
   [[nodiscard]] double PictureW() const;
   [[nodiscard]] double PictureH() const;
@@ -462,7 +463,30 @@ private:
 
   OwnedDevice Device_;
 
-  SDL_GPUTexture *HostSurface_ = nullptr;
+  struct FrameResources {
+    SDL_GPUTexture *HostSurface = nullptr;
+    Shown Shown;
+    OwnedTexture Offscreen;
+    Gpu Handles;
+    OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
+    OwnedTexture TransmittanceLut, MultiScatterLut, SkyViewLut;
+    OwnedTexture ShadowAtlas;
+    OwnedTexture TransmissiveTex, CompositedTex, AerialTex;
+    OwnedTexture ShadingNormalTex;
+    OwnedTexture SurfaceIdentityTex;
+    OwnedSampler Samp, LutSamp;
+    OwnedBuffer IrradianceBuffer;
+    OwnedBuffer Pyramid;
+    Readback PyramidRead;
+    int Width = 0, Height = 0;
+    std::array<OwnedTexture, 2> LinearTex{};
+    int LinearAt = 0;
+    bool HistoryHeld = false;
+  };
+
+  static_assert(std::is_nothrow_move_constructible_v<FrameResources>);
+  static_assert(std::is_nothrow_move_assignable_v<FrameResources>);
+
   bool Stands();
   [[nodiscard]] std::expected<void, std::string> StandsOffscreen();
   [[nodiscard]] std::expected<OwnedTexture, std::string> MakeOffscreen(Extent frame);
@@ -470,20 +494,8 @@ private:
 
   SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;
   SDL_Window *Showing_ = nullptr;
-  Shown Shown_;
-  OwnedTexture Offscreen_;
+  FrameResources Frame_;
   std::shared_ptr<const Compiled> Plan_;
-  Gpu Handles_;
-  OwnedTexture HdrTex_, VelTex_, DepthTex_, FrameTex_;
-  OwnedTexture TransmittanceLut_, MultiScatterLut_, SkyViewLut_;
-  OwnedTexture ShadowAtlas_;
-
-  OwnedTexture TransmissiveTex_, CompositedTex_, AerialTex_;
-
-  OwnedTexture ShadingNormalTex_;
-
-  OwnedTexture SurfaceIdentityTex_;
-  OwnedSampler Samp_, LutSamp_;
   SubjectDraw Subjects_;
 
   SubjectDraw Glass_;
@@ -498,9 +510,6 @@ private:
   IrradianceStage SkyIrradianceStage_;
   DepthPyramidStage PyramidStage_;
   GroundStorage GroundStorage_;
-  OwnedBuffer IrradianceBuffer_;
-  OwnedBuffer Pyramid_;
-  Readback PyramidRead_;
   SkyStage Sky_;
   LightVisibilityStage Shadow_;
   SubjectCullStage Cull_;
@@ -513,12 +522,6 @@ private:
 
   bool Ready_ = false;
   std::string WhyNot_;
-  int Width_ = 0, Height_ = 0;
-
-  std::array<OwnedTexture, 2> LinearTex_{};
-  int LinearAt_ = 0;
-  bool HistoryHeld_ = false;
-
   bool HistoryStarted_ = false;
 
   static constexpr int kJitterPeriod = 8;

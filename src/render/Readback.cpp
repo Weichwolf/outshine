@@ -7,6 +7,39 @@
 
 namespace outshine::Render {
 
+Readback::Readback(Readback &&from) noexcept
+    : Device(from.Device),
+      Fence(from.Fence),
+      Commands(from.Commands),
+      Transfer(from.Transfer),
+      Mapped(from.Mapped),
+      Row(from.Row) {
+  from.Device = nullptr;
+  from.Fence = nullptr;
+  from.Commands = nullptr;
+  from.Transfer = nullptr;
+  from.Mapped = nullptr;
+  from.Row = 0;
+}
+
+Readback &Readback::operator=(Readback &&from) noexcept {
+  if (this == &from) { return *this; }
+  Release();
+  Device = from.Device;
+  Fence = from.Fence;
+  Commands = from.Commands;
+  Transfer = from.Transfer;
+  Mapped = from.Mapped;
+  Row = from.Row;
+  from.Device = nullptr;
+  from.Fence = nullptr;
+  from.Commands = nullptr;
+  from.Transfer = nullptr;
+  from.Mapped = nullptr;
+  from.Row = 0;
+  return *this;
+}
+
 ReadState Readback::Submit(SDL_GPUCommandBuffer *commands) {
   Fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
   Commands = nullptr;

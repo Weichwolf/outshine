@@ -16,6 +16,8 @@ public:
   ~Readback() { Release(); }
 
   Readback() = default;
+  Readback(Readback &&from) noexcept;
+  Readback &operator=(Readback &&from) noexcept;
   Readback(const Readback &) = delete;
   Readback &operator=(const Readback &) = delete;
 
