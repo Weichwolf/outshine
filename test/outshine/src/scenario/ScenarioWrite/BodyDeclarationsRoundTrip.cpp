@@ -9,8 +9,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr std::string_view input = R"(<scenario>
-    <body name="vehicle" asset="mesh&amp;paint" massKg="1250.1234567890123" widthM="2.5"
-      assetSpanM="4.75" assetGround="-0.25" assetCentreX="0.125" assetCentreZ="-0.375">
+    <body name="vehicle" asset="mesh&amp;paint" massKg="1250.1234567890123" widthM="2.5">
       <at x="12.345678901234567" y="-2" z="3" qx="0" qy="1" qz="0" qw="0"
         scaleX="2" scaleY="3" scaleZ="4" lat="47.5" lon="11.25" heightM="123.25"
         samplesHeight="yes" bearingDeg="90" pitchDeg="-15"/>
@@ -51,9 +50,7 @@ int main() {
     const auto &b = copy.Bodies[i];
     CHECK(a.Name == b.Name && a.Asset == b.Asset && a.Placed == b.Placed,
           "identity and activation survive independently of stored pose");
-    CHECK(a.MassKg == b.MassKg && a.WidthM == b.WidthM && a.AssetSpanM == b.AssetSpanM &&
-              a.AssetGround == b.AssetGround && a.AssetCentreX == b.AssetCentreX &&
-              a.AssetCentreZ == b.AssetCentreZ && a.DragCoefficient == b.DragCoefficient &&
+    CHECK(a.MassKg == b.MassKg && a.WidthM == b.WidthM && a.DragCoefficient == b.DragCoefficient &&
               a.FrontalM2 == b.FrontalM2,
           "body scalar parameters survive");
     for (int axis = 0; axis < 3; ++axis) {
@@ -114,6 +111,13 @@ int main() {
   source.Bodies[0].Driven[0].Does = Scenario::Drives::Effort;
   source.Bodies[0].Driven[0].PeakN = 1;
   CHECK(!WriteScenario(source), "export rejects simultaneous force and torque");
+  for (const std::string_view attribute :
+       {"assetSpanM=\"4\"", "assetGround=\"-1\"", "assetCentreX=\"0\"", "assetCentreZ=\"0\""}) {
+    const std::string retired =
+        "<scenario><body name=\"legacy\" " + std::string(attribute) + "/></scenario>";
+    CHECK(!ReadScenario(retired.data(), retired.size(), source, error),
+          "retired asset fitting cannot silently alter a body declaration");
+  }
   constexpr std::string_view explicitActivation =
       R"(<scenario><body name="origin" placed="yes"/></scenario>)";
   Scenario::Document activated;

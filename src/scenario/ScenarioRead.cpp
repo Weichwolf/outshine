@@ -981,16 +981,24 @@ bool ReadBodyDrives(const Xml::Ref &from,
   return true;
 }
 
+[[nodiscard]] bool RejectRetiredAssetFitting(const Xml::Ref &body, std::string &error) {
+  for (const char *const attribute :
+       {"assetSpanM", "assetGround", "assetCentreX", "assetCentreZ"}) {
+    if (!body.Said(attribute)) { continue; }
+    error = "body attribute '" + std::string(attribute) +
+            "' was retired because no runtime applies asset fitting";
+    return false;
+  }
+  return true;
+}
+
 [[nodiscard]] bool ReadBodies(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   for (const Xml::Ref one : root.Children("body")) {
+    if (!RejectRetiredAssetFitting(one, error)) { return false; }
     Scenario::Body made;
     made.Name = one.Attr("name");
     made.Asset = one.Attr("asset");
     made.WidthM = one.Num("widthM", 0.0);
-    made.AssetSpanM = one.Num("assetSpanM", 0.0);
-    made.AssetGround = one.Num("assetGround", 0.0);
-    made.AssetCentreX = one.Num("assetCentreX", 0.0);
-    made.AssetCentreZ = one.Num("assetCentreZ", 0.0);
     made.Placed = one.Flag("placed", Declares(one, "at"));
     if (Declares(one, "at")) {
       const Xml::Ref where = one.Child("at");

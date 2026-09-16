@@ -886,14 +886,6 @@ struct Body {
   double MassKg = 0.0; ///< Kilograms; zero prevents integration, positive values enable motion.
   double WidthM = 0.0; ///< Declared width in metres; not currently used for collision or drag.
 
-  double AssetSpanM =
-      0.0; ///< Legacy asset-fitting span in metres, not applied by body preparation.
-  /// Unapplied legacy asset-fitting value; no established runtime unit/space contract yet.
-  double AssetGround = 0.0;
-  /// Unapplied legacy asset-fitting X value; requires migration to an explicit asset transform.
-  double AssetCentreX = 0.0;
-  /// Unapplied legacy asset-fitting Z value; requires migration to an explicit asset transform.
-  double AssetCentreZ = 0.0;
   /// Body-local centre-of-mass offset in metres; currently stored but not applied to motion.
   Vec3 CentreOfMassM;
   /// Diagonal body-frame inertia in kg m^2, copied to the rigid body. Zero on an axis

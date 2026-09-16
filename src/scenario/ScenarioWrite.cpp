@@ -281,10 +281,6 @@ void WriteBodyShape(std::string &into, const Scenario::Body &body) {
     Yes(into, "placed", body.Placed);
     Number(into, "massKg", body.MassKg);
     Number(into, "widthM", body.WidthM);
-    Number(into, "assetSpanM", body.AssetSpanM);
-    Number(into, "assetGround", body.AssetGround);
-    Number(into, "assetCentreX", body.AssetCentreX);
-    Number(into, "assetCentreZ", body.AssetCentreZ);
     into += ">\n";
     StandingAs(into, "at", body.Stands);
     WriteBodyShape(into, body);

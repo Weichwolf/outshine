@@ -17,7 +17,8 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
 - Engine::setGeometry besitzt eine native Kopie, aber ohne Entity-/Instanzzuordnung.
   Live::Carry verlangt Joined_ > 0 und lehnt rein generierte Geometrie ab.
   Draws überträgt alle Simulationskörper als Instanzen desselben SubjectProxy;
-  Body::Asset bestimmt dort nicht die tatsächlich instanzierte Geometrie.
+  Body::Asset bestimmt dort nicht die tatsächlich instanzierte Geometrie; ungenutzte
+  Asset-Fitting-Metadaten sind entfernt, alte XML-Attribute werden verweigert.
 - Die Registry besitzt eine stabile Adresse und ist nicht verschiebbar. Handles
   tragen Registry-Epoche, Index und Generation; Columns speichern vollständige
   Identitäten. Fremde Handles und Reopen dürfen keine Komponenten übernehmen.
@@ -104,7 +105,6 @@ noch den Laufzeitbesitz bestimmen. Szenariodaten konfigurieren die native World.
       dokumentiert, make lint inklusive clang-tidy und relevante Consumer-Tests grün.
 - [ ] Negativkontrollen für falsche Entity-Zuordnung, verlorene Materialreferenzen
       und vorzeitige Ressourcenfreigabe verletzen jeweils ihr Oracle.
-
 ## Numerische Vektorverträge
 Vec3::Length quadriert unskaliert; Normalise kann Überlauf als Erfolg publizieren.
 Length über std::hypot, Normalise über größte Absolutkomponente skalieren, danach
