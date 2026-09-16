@@ -8,7 +8,7 @@ outshine::Geometry Make(uint8_t red) {
   const std::array<uint8_t, 4> pixel{red, 0, 0, 255};
   const std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
   const std::array<uint32_t, 3> triangle{0, 1, 2};
-  (void)geometry.addImage(1, 1, pixel);
+  (void)*geometry.addImage(1, 1, pixel);
   outshine::Material material;
   material.BaseColourMap.Image = 0;
   const auto surface = geometry.addSurface("surface", material);

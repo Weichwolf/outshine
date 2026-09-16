@@ -20,7 +20,7 @@ int main() {
   for (size_t y = 0; y < 512; ++y) {
     for (size_t x = 0; x < 512; ++x) { pixels[(y * 512 + x) * 4] = (x + y) % 2 ? 255 : 0; }
   }
-  const int image = geometry.addImage(512, 512, pixels);
+  const int image = *geometry.addImage(512, 512, pixels);
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
   material.Unlit = true;

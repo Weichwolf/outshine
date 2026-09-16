@@ -53,6 +53,13 @@ enum class GeometryAppendError {
   CapacityExceeded ///< Combined owner-local indices cannot be represented.
 };
 
+/// Failure while adding an owned RGBA8 image; existing images remain unchanged.
+enum class GeometryImageError {
+  InvalidDimensions, ///< Width or height cannot describe a positive RGBA8 image.
+  ByteCountMismatch, ///< Supplied bytes do not exactly cover the declared image.
+  CapacityExceeded   ///< Another owner-local image index cannot be represented.
+};
+
 /// Move-only owner of CPU mesh attributes, materials, images, lights and part placements.
 /// Vertex positions are local metres in a right-handed, Y-up frame; triangles use CCW
 /// front faces. Part placements map local coordinates into model space. No import-format
@@ -233,9 +240,9 @@ public:
   /// @param heightPx Positive height in pixels.
   /// @param rgba Exactly widthPx * heightPx * 4 bytes, in row order, without padding.
   /// Texture usage determines sRGB versus linear interpretation.
-  /// @return New zero-based image index, or -1 without mutation for invalid dimensions,
-  /// size overflow, exhausted index range or a mismatched input byte count.
-  int addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba);
+  /// @return New owner-local image index, or a typed input/capacity error without mutation.
+  [[nodiscard]] std::expected<int, GeometryImageError>
+  addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba);
   /// @return Number of owned images.
   [[nodiscard]] int images() const;
   /// @param image Owner-local image index.

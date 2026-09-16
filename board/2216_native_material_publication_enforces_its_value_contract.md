@@ -42,9 +42,9 @@ melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer ü
 - Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen; Assetmigration bleibt WI 2150.
 
 ## Native-Konstruktionsfehler
-`addImage` liefert noch `-1`; `addPart`/`addLamp` verengen Zähler ohne Kapazitätsvertrag.
-Auf `[[nodiscard]] expected<Index, GeometryBuildError>` migrieren: Grenzen vor Mutation prüfen,
-Bestand/Index beim Fehler erhalten und Ursache unverändert durch direkte, Import- und Generatorpfade reichen.
+`addImage` liefert expected mit Maß-/Bytezahl-/Kapazitätsfehler; Erhaltung und Retry sind geprüft.
+`addPart`/`addLamp` auf expected migrieren: Indexgrenzen vor Mutation prüfen,
+Bestand/Index beim Fehler erhalten. Import-/Atlasgrenzen behandeln Bildfehler noch als Text/nullopt.
 ## Import-Vorprüfung
 Subject::Assemble prüft lokale Indizes und Attribute jetzt vor Clear und partieller Kopie.
 ValidatePart/ValidateAssembly liefern expected; destruktives Refuse wird vor Mutation vermieden.

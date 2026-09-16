@@ -329,8 +329,9 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
   std::array<SurfaceMap *, 3> maps{
       &material.BaseColourMap, &material.NormalMap, &material.MetalRoughMap};
   for (size_t at = 0; at < maps.size(); ++at) {
-    maps[at]->Image = geometry.addImage(Pixels_, Pixels_, images[at]);
-    if (maps[at]->Image < 0) { return std::nullopt; }
+    const auto image = geometry.addImage(Pixels_, Pixels_, images[at]);
+    if (!image) { return std::nullopt; }
+    maps[at]->Image = *image;
     maps[at]->Sampler.WrapU = maps[at]->Sampler.WrapV = Wrap::ClampToEdge;
   }
   const auto surface = geometry.addSurface("crown", material);

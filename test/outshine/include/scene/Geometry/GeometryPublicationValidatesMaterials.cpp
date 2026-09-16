@@ -66,7 +66,7 @@ int main() {
   Engine engine;
   CHECK(!engine.setGeometry(geometry), "public engine rejects unresolved material geometry");
   const std::array<uint8_t, 4> pixel{255, 255, 255, 255};
-  CHECK(geometry.addImage(1, 1, pixel) == 0 && geometry.wellFormed(),
+  CHECK(*geometry.addImage(1, 1, pixel) == 0 && geometry.wellFormed(),
         "resolved image permits publication");
   valid.Emission[0] = 1000;
   valid.Ior = 0;

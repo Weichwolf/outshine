@@ -1087,7 +1087,7 @@ std::expected<outshine::Geometry, std::string> Subject::Handed(const Document &n
 std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &out,
                                                            const Document *naming) const {
   for (const Core::Raster &image : Images_) {
-    if (out.addImage(image.Width, image.Height, image.Rgba) < 0) {
+    if (!out.addImage(image.Width, image.Height, image.Rgba)) {
       return std::unexpected(Says::NativeImageFailed);
     }
   }

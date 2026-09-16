@@ -20,7 +20,7 @@ int main() {
   Geometry geometry;
   const std::array<uint8_t, 16> pixels{
       255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255};
-  const int image = geometry.addImage(2, 2, pixels);
+  const int image = *geometry.addImage(2, 2, pixels);
   CHECK(image >= 0, "native RGBA image is accepted");
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
@@ -81,7 +81,7 @@ int main() {
         "assembly roundtrip owns and preserves native image bytes");
   const std::array<uint8_t, 4> secondPixel{17, 31, 63, 255};
   Material secondMaterial = material;
-  secondMaterial.BaseColourMap.Image = roundtrip.addImage(1, 1, secondPixel);
+  secondMaterial.BaseColourMap.Image = *roundtrip.addImage(1, 1, secondPixel);
   CHECK(roundtrip.setSurface(roundtrip.materialOf(0), secondMaterial).has_value(),
         "second material names its own image");
   Gltf::Subject appended;

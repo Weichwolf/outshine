@@ -54,10 +54,10 @@ int main() {
   masked.Alpha = AlphaMode::Masked;
   masked.DoubleSided = true;
   masked.BaseColourMap.Image =
-      base.addImage(2, 1, std::array<uint8_t, 8>{255, 255, 255, 0, 255, 255, 255, 255});
+      *base.addImage(2, 1, std::array<uint8_t, 8>{255, 255, 255, 0, 255, 255, 255, 255});
   masked.BaseColourMap.Sampler.Minify = masked.BaseColourMap.Sampler.Magnify = Filter::Nearest;
   masked.BaseColourMap.Sampler.Mip = MipFilter::None;
-  masked.NormalMap.Image = base.addImage(1, 1, std::array<uint8_t, 4>{191, 159, 231, 255});
+  masked.NormalMap.Image = *base.addImage(1, 1, std::array<uint8_t, 4>{191, 159, 231, 255});
   const int maskPart = base.addPart("masked-offscreen", base.addSurface("masked", masked).value());
   CHECK(base.setPositions(maskPart,
                           std::array<float, 9>{99.6f, -0.4f, 0, 100.4f, -0.4f, 0, 100, 0.4f, 0}),
@@ -329,7 +329,7 @@ int main() {
     Material material;
     material.BaseColour = {{1, 1, 1, 1}};
     material.Unlit = true;
-    material.BaseColourMap.Image = source.addImage(1, 1, colour);
+    material.BaseColourMap.Image = *source.addImage(1, 1, colour);
     (void)source.addSurface("registered prototype", material).value();
     return scene->RegisterPieceSurfaces(std::move(source), error);
   };

@@ -80,7 +80,7 @@ int main() {
         "native texture binding cannot disappear even when its image is missing");
   CHECK(geometry.setSurface(surface, material).has_value(), "restore supported factors");
   const std::array<uint8_t, 4> pixel{255, 255, 255, 255};
-  CHECK(geometry.addImage(1, 1, pixel) == 0 && !exportGlb(geometry),
+  CHECK(*geometry.addImage(1, 1, pixel) == 0 && !exportGlb(geometry),
         "unimplemented image export cannot report success");
   CHECK(geometry.images() == 1 && geometry.surfaceAt(surface) == material &&
             geometry.positionsOf(part).size() == positions.size(),

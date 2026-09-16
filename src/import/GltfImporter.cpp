@@ -202,7 +202,10 @@ struct GltfImporter::Held {
             .Declared = declared.SpecularTint}}};
 
       for (const auto &map : maps) {
-        Names(candidate, map.From, map.Into);
+        if (!Names(candidate, map.From, map.Into)) {
+          Why = "native texture image could not be stored";
+          return false;
+        }
         map.Into.Uv = map.Declared.Uv;
       }
       if (!candidate.setSurface(MaterialInstance(index), row)) {
@@ -213,9 +216,12 @@ struct GltfImporter::Held {
     return true;
   }
 
-  static void Names(Geometry &candidate, const Render::SubjectTexture &from, SurfaceMap &into) {
-    if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return; }
-    into.Image = Keeps(candidate, from);
+  [[nodiscard]] static bool
+  Names(Geometry &candidate, const Render::SubjectTexture &from, SurfaceMap &into) {
+    if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return true; }
+    const auto image = Keeps(candidate, from);
+    if (!image) { return false; }
+    into.Image = *image;
     into.Set = from.Set;
     into.Sampler.Magnify =
         from.Magnify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
@@ -224,9 +230,11 @@ struct GltfImporter::Held {
     into.Sampler.Mip = MipOf(from.Mip);
     into.Sampler.WrapU = WrapOf(from.WrapU);
     into.Sampler.WrapV = WrapOf(from.WrapV);
+    return true;
   }
 
-  [[nodiscard]] static int Keeps(Geometry &candidate, const Render::SubjectTexture &from) {
+  [[nodiscard]] static std::expected<int, GeometryImageError>
+  Keeps(Geometry &candidate, const Render::SubjectTexture &from) {
     const size_t bytes = static_cast<size_t>(from.Width) * static_cast<size_t>(from.Height) * 4u;
     const std::span<const uint8_t> pixels(from.Rgba, bytes);
     for (int at = 0; at < candidate.images(); ++at) {

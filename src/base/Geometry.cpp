@@ -330,17 +330,22 @@ int Geometry::addLamp(std::string_view named, const PunctualLight &light, const 
   return static_cast<int>(Held_->Lamps.size()) - 1;
 }
 
-int Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
-  if (widthPx <= 0 || heightPx <= 0 ||
-      std::cmp_greater_equal(Held_->Images.size(), std::numeric_limits<int>::max())) {
-    return -1;
+std::expected<int, GeometryImageError>
+Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
+  if (widthPx <= 0 || heightPx <= 0) {
+    return std::unexpected(GeometryImageError::InvalidDimensions);
+  }
+  if (std::cmp_greater_equal(Held_->Images.size(), std::numeric_limits<int>::max())) {
+    return std::unexpected(GeometryImageError::CapacityExceeded);
   }
   constexpr size_t bytesPerPixel = 4;
   const auto width = static_cast<size_t>(widthPx);
   const auto height = static_cast<size_t>(heightPx);
-  if (width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) { return -1; }
+  if (width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
+    return std::unexpected(GeometryImageError::InvalidDimensions);
+  }
   const size_t bytes = width * height * bytesPerPixel;
-  if (rgba.size() != bytes) { return -1; }
+  if (rgba.size() != bytes) { return std::unexpected(GeometryImageError::ByteCountMismatch); }
   Held::Picture made;
   made.WidthPx = widthPx;
   made.HeightPx = heightPx;
