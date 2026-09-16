@@ -13,7 +13,9 @@ Tags: geometry, ownership, state
 `Engine::State::Models` for streamed ground call `Live::SetGeometry` on the published `Live`.
 That method changes its held geometry, material selection, proxy, camera state and shared renderer
 products before `Build` can fail. WI 2223 makes a fresh declaration transactional, but these three
-replacement paths can still leave a mixed CPU/GPU world.
+replacement paths can still leave a mixed CPU/GPU world. Current Place setup reaches the
+candidate path but aborts with `world replacement requires native world geometry`: the provider
+result is not accepted as the native candidate input, so streamed terrain cannot publish at all.
 
 ## Decision
 
@@ -37,7 +39,8 @@ native geometry and generated ground are not scenario data.
 ## Scope
 
 - Public `setGeometry` replaces native geometry and audio occlusion together.
-- Pending geometry entering a newly targeted world uses the candidate path.
+- Pending geometry entering a newly targeted world uses the candidate path and accepts its
+  provider-supplied native geometry without requiring a separate static `setGeometry` call.
 - Streaming ground rebuild preserves prior visible ground until the new mesh, material tables and
   placement rows are complete; superseded streaming results remain discardable.
 - Completed structure bakes stage their tile pieces in the candidate and retain their bake job until
@@ -47,6 +50,8 @@ native geometry and generated ground are not scenario data.
 
 ## Proof
 
+- A declared streamed Place reaches its first complete native-world candidate without a prior
+  static `setGeometry` call; failure returns its local `Result` and preserves the former world.
 - Inject upload, material, placement and submit failures after an existing native or ground world
   rendered; old pixels, readbacks, audio occlusion, declaration and revision remain unchanged.
 - Retry every rejected replacement and verify exactly one new publication.
