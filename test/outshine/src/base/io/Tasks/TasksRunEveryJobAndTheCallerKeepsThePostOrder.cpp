@@ -84,6 +84,14 @@ int main(void) {
     CHECK(true, "a pool destroyed with work queued joins its running jobs and drops the rest");
   }
 
+  {
+    Tasks pool(1);
+    const Tasks::Handle posted = pool.Post([] {});
+    CHECK(pool.AwaitCompletion(1.0),
+          "a completion wait wakes for a worker result without consuming its handle");
+    pool.Wait(posted);
+  }
+
   Covers("board:2122 the compute pool: every job runs once on a worker, the poster consumes in "
          "post order whatever the thread count, and destruction never blocks on work not started");
   return Report();

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <thread>
@@ -56,6 +57,13 @@ bool Tasks::Done(Handle which) {
   if (at == Done_.end()) { return false; }
   Done_.erase(at);
   return true;
+}
+
+bool Tasks::AwaitCompletion(double seconds) {
+  if (!(seconds > 0.0)) { return false; }
+  std::unique_lock<std::mutex> lock(Mutex_);
+  return Landed_.wait_for(
+      lock, std::chrono::duration<double>(seconds), [this] { return !Done_.empty(); });
 }
 
 void Tasks::Wait(Handle which) {

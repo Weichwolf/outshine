@@ -27,6 +27,7 @@ public:
 
   [[nodiscard]] Handle Post(Job job);
   [[nodiscard]] bool Done(Handle which);
+  [[nodiscard]] bool AwaitCompletion(double seconds);
   void Wait(Handle which);
 
   [[nodiscard]] int Threads() const { return static_cast<int>(Threads_.size()); }

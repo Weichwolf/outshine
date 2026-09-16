@@ -333,6 +333,7 @@ struct Engine::State {
   [[nodiscard]] Result PumpPreload();
   [[nodiscard]] Result PreloadOverflow();
   [[nodiscard]] Result PreloadTimeout(double bound);
+  void AwaitPreloadProgress(double seconds);
   [[nodiscard]] bool Watches();
 
   struct Classed {

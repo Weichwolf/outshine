@@ -396,6 +396,11 @@ Result Engine::State::PreloadTimeout(double bound) {
   return std::unexpected(Error);
 }
 
+void Engine::State::AwaitPreloadProgress(double seconds) {
+  if (World.Bakes.AwaitSlice(seconds)) { return; }
+  (void)World.Stack.AwaitProgress(seconds);
+}
+
 Result Engine::preload(double patienceS) {
   return preload(patienceS, {});
 }
@@ -425,7 +430,8 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
     if (!S_->World.Stack.Opened()) { continue; }
-    (void)S_->World.Stack.AwaitProgress(leftS < kMostWaitS ? leftS : kMostWaitS);
+    const double waitS = leftS < kMostWaitS ? leftS : kMostWaitS;
+    S_->AwaitPreloadProgress(waitS);
   }
 }
 

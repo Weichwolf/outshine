@@ -28,7 +28,7 @@ namespace {
 constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBakesPerThread = 1;
-constexpr size_t kStructuresPerSlice = 32;
+constexpr size_t kStructuresPerSlice = 64;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 int PitchedOf(std::string_view said) {

@@ -77,6 +77,10 @@ public:
 
   [[nodiscard]] size_t QueuedStructures() const;
 
+  [[nodiscard]] bool AwaitSlice(double seconds) const {
+    return Pool_ != nullptr && !Queue_.empty() && Pool_->AwaitCompletion(seconds);
+  }
+
 private:
   struct Output {
     Generators::BakedTile Tile;
