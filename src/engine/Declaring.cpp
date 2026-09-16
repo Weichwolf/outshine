@@ -235,6 +235,37 @@ struct HeadlessDeclaration {
   std::optional<TriangleBvh> Occlusion;
 };
 
+[[nodiscard]] bool
+PrepareTargetedDeclaration(Render::SceneRenderer &renderer,
+                           const Core::Declaration &declared,
+                           const Ui::Font *font,
+                           HeadlessDeclaration &headless,
+                           std::vector<std::vector<Ui::Layout::Scrolled>> &wasScrolled,
+                           std::unique_ptr<Core::Live> &candidate,
+                           std::string &error) {
+  if (!renderer.BeginsWorldCandidate(error)) { return false; }
+  if (!Core::Live::Prepare(renderer, declared, font, candidate, error)) {
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  if (!wasScrolled.empty() && !candidate->Scrolled(std::move(wasScrolled), error)) {
+    candidate.reset();
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  if (headless.Geometry && !candidate->SetGeometry(headless.Geometry->clone(), 0, error)) {
+    candidate.reset();
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  if (!renderer.PublishesWorldCandidate(error)) {
+    candidate.reset();
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  return true;
+}
+
 [[nodiscard]] std::expected<HeadlessDeclaration, std::string>
 PrepareHeadlessDeclaration(const Scenario::Document &scenario,
                            const Generators::Registry &registry,
@@ -560,16 +591,14 @@ Result Engine::declare(const Scenario::Document &scenario) {
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
   std::unique_ptr<Core::Live> candidate;
-  if (S_->Picture.Targeted) {
-    if (!Core::Live::Open(S_->Picture.Device, declared, &S_->Picture.Face, candidate, S_->Error)) {
-      return std::unexpected(S_->Error);
-    }
-    if (!wasScrolled.empty() && !candidate->Scrolled(std::move(wasScrolled), S_->Error)) {
-      return std::unexpected(S_->Error);
-    }
-    if (headless.Geometry && !candidate->SetGeometry(headless.Geometry->clone(), 0, S_->Error)) {
-      return std::unexpected(S_->Error);
-    }
+  if (S_->Picture.Targeted && !PrepareTargetedDeclaration(S_->Picture.Device,
+                                                          declared,
+                                                          &S_->Picture.Face,
+                                                          headless,
+                                                          wasScrolled,
+                                                          candidate,
+                                                          S_->Error)) {
+    return std::unexpected(S_->Error);
   }
   S_->World.Bakes.Clear();
   S_->World.Stack.Footprints().ResetDerived();

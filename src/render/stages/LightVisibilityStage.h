@@ -23,6 +23,8 @@ class LightVisibilityStage {
 public:
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
 
+  void Binds(SubjectDraw &subjects) noexcept { Subjects_ = &subjects; }
+
   struct Overhead {
     Vec3f ToSun;
     Vec3f Up;

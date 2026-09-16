@@ -81,7 +81,7 @@ bool SubjectCullStage::EnsurePipeline(const Gpu &gpu,
 }
 
 bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
-  Subjects_ = &subjects;
+  Binds(subjects);
   return EnsurePipeline(gpu, CullShader, Cull_, error) &&
          EnsurePipeline(gpu, ScanShader, Scan_, error) &&
          EnsurePipeline(gpu, CompactShader, Compact_, error);

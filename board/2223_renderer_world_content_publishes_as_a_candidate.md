@@ -32,6 +32,10 @@ RAII ownership, complete candidate construction, `static_assert`ed nonthrowing t
 publication point. Snapshot/restore and clearing the active renderer during candidate construction
 are prohibited.
 
+`LightVisibilityStage` and `SubjectCullStage` may retain a `SubjectDraw` address while pipelines
+remain frame-owned. Publication therefore rebinds those addresses without allocation; the generator
+composition oracle exposed the stale-candidate-pointer failure before this contract was added.
+
 ## Boundaries
 
 - Device, window claim, frame attachments and GPU fences remain renderer/platform state.

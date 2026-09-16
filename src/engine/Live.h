@@ -99,6 +99,11 @@ public:
                                  const Ui::Font *font,
                                  std::unique_ptr<Live> &out,
                                  std::string &error);
+  [[nodiscard]] static bool Prepare(Render::SceneRenderer &renderer,
+                                    Declaration declaration,
+                                    const Ui::Font *font,
+                                    std::unique_ptr<Live> &out,
+                                    std::string &error);
 
   [[nodiscard]] bool Carries(size_t bodies, std::string &error);
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);

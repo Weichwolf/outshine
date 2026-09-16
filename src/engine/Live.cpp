@@ -158,13 +158,31 @@ bool Live::Open(Render::SceneRenderer &renderer,
                 const Ui::Font *font,
                 std::unique_ptr<Live> &out,
                 std::string &error) {
+  if (!renderer.BeginsWorldCandidate(error)) { return false; }
+  if (!Prepare(renderer, std::move(declaration), font, out, error)) {
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  if (!renderer.PublishesWorldCandidate(error)) {
+    out.reset();
+    renderer.AbandonsWorldCandidate();
+    return false;
+  }
+  HandOffRenderer(out);
+  return true;
+}
+
+bool Live::Prepare(Render::SceneRenderer &renderer,
+                   Declaration declaration,
+                   const Ui::Font *font,
+                   std::unique_ptr<Live> &out,
+                   std::string &error) {
   if (declaration.InitialGeometry != nullptr && !declaration.InitialGeometry->wellFormed()) {
     error = Says::InvalidInitialGeometry;
     return false;
   }
   std::unique_ptr<Live> live(new Live(renderer, std::move(declaration), font));
   if (!live->Build(error)) { return false; }
-  HandOffRenderer(out);
   out = std::move(live);
   return true;
 }

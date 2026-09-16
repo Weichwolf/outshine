@@ -30,6 +30,8 @@ public:
 
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
 
+  void Binds(SubjectDraw &subjects) noexcept { Subjects_ = &subjects; }
+
   void EncodeCull(const FrameContext &ctx, const PassRecording &into);
   void EncodeScan(const FrameContext &ctx, const PassRecording &into);
   void EncodeCompact(const FrameContext &ctx, const PassRecording &into);

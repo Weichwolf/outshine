@@ -20,7 +20,7 @@ constexpr size_t kUniformFloats = 20;
 
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Cache_.Invalidate();
-  Subjects_ = &subjects;
+  Binds(subjects);
   return ConfigureDepthOnly(gpu, error);
 }
 
