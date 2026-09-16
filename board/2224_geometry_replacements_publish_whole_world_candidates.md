@@ -40,6 +40,9 @@ native geometry and generated ground are not scenario data.
 - Pending geometry entering a newly targeted world uses the candidate path.
 - Streaming ground rebuild preserves prior visible ground until the new mesh, material tables and
   placement rows are complete; superseded streaming results remain discardable.
+- Completed structure bakes stage their tile pieces in the candidate and retain their bake job until
+  publication succeeds. A rejected wall or roof upload publishes neither tile geometry nor its
+  footprint-derived terrain input.
 - `Restands` and surface-only redeclaration remain separate mutation audits.
 
 ## Proof
@@ -47,6 +50,7 @@ native geometry and generated ground are not scenario data.
 - Inject upload, material, placement and submit failures after an existing native or ground world
   rendered; old pixels, readbacks, audio occlusion, declaration and revision remain unchanged.
 - Retry every rejected replacement and verify exactly one new publication.
+- Reject a building roof after its wall upload and verify the candidate retains no partial tile.
 - Move a camera and animated body through a native replacement; retained placements and frame state
   remain valid.
 - Stream two ground revisions and reject the first after the second is current; stale work cannot

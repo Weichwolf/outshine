@@ -5,8 +5,11 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
+
+#include "math/Vec3.h"
 
 #include "HeightField.h"
 #include "GroundStack.h"
@@ -25,8 +28,15 @@ public:
   }
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack);
-  [[nodiscard]] std::expected<size_t, Generators::StructureBakeError>
-  Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most);
+
+  struct Landing {
+    uint32_t Tile = 0;
+    const Generators::BakedTile *Baked = nullptr;
+    Vec3 AnchorEcef;
+  };
+
+  [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError> NextLanding();
+  void CommitsLanding(Ground::GroundStack &stack);
   void Clear();
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }

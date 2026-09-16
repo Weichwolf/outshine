@@ -172,46 +172,47 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
   return posted;
 }
 
-std::expected<size_t, Generators::StructureBakeError>
-StructureBakes::Lands(Ground::GroundStack &stack, TilePieces &pieces, size_t most) {
-  if (Pool_ == nullptr || stack.Vectors() == nullptr) { return 0; }
-  size_t landed = 0;
-  while (!Queue_.empty() && landed < most && Pool_->Done(Queue_.front().Handle)) {
-    Job &job = Queue_.front();
-    if (!job.Out->Status) { return std::unexpected(job.Out->Status.error()); }
-    const Generators::BakedTile &baked = job.Out->Tile;
-    const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    stack.Footprints().Accept(job.Tile,
-                              *stack.Vectors(),
-                              {.Prints = baked.Prints,
-                               .SeatSpreadM = baked.SeatSpreadM,
-                               .AcrossM = baked.AcrossM,
-                               .Triangles = triangles,
-                               .OsmHeights = baked.OsmHeights,
-                               .DefaultHeights = baked.DefaultHeights,
-                               .Fronted = baked.Fronted});
-    if (triangles > 0) { pieces.Hands(job.Tile, baked, job.Raw->AnchorEcef); }
-    Log::Info(LogTag::World,
-              "buildings",
-              {{"added", static_cast<int>(baked.Prints.size())},
-               {"total", static_cast<int>(stack.Footprints().Footprints().size())},
-               {"osmHeight", stack.Footprints().OsmHeights()},
-               {"defaultHeight", stack.Footprints().DefaultHeights()},
-               {"vertsMB", static_cast<double>(baked.Built.UsedBytes()) / kBytesPerMB},
-               {"lumped", baked.Lumped},
-               {"blocks", baked.Blocks},
-               {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
-               {"awayKm", job.Raw->AwayM / kMPerKm},
-               {"queued", static_cast<int>(Queue_.size() - 1)}});
-    IdleRaw_.push_back(std::move(job.Raw));
-    job.Out->Tile.Built = Raised{};
-    IdleOut_.push_back(std::move(job.Out));
-    IdleScratch_.push_back(std::move(job.Scratch));
-    Queue_.pop_front();
-    ++Landed_;
-    ++landed;
+std::expected<std::optional<StructureBakes::Landing>, Generators::StructureBakeError>
+StructureBakes::NextLanding() {
+  if (Pool_ == nullptr || Queue_.empty() || !Pool_->Done(Queue_.front().Handle)) {
+    return std::optional<Landing>{};
   }
-  return landed;
+  const Job &job = Queue_.front();
+  if (!job.Out->Status) { return std::unexpected(job.Out->Status.error()); }
+  return Landing{.Tile = job.Tile, .Baked = &job.Out->Tile, .AnchorEcef = job.Raw->AnchorEcef};
+}
+
+void StructureBakes::CommitsLanding(Ground::GroundStack &stack) {
+  Job &job = Queue_.front();
+  const Generators::BakedTile &baked = job.Out->Tile;
+  const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
+  stack.Footprints().Accept(job.Tile,
+                            *stack.Vectors(),
+                            {.Prints = baked.Prints,
+                             .SeatSpreadM = baked.SeatSpreadM,
+                             .AcrossM = baked.AcrossM,
+                             .Triangles = triangles,
+                             .OsmHeights = baked.OsmHeights,
+                             .DefaultHeights = baked.DefaultHeights,
+                             .Fronted = baked.Fronted});
+  Log::Info(LogTag::World,
+            "buildings",
+            {{"added", static_cast<int>(baked.Prints.size())},
+             {"total", static_cast<int>(stack.Footprints().Footprints().size())},
+             {"osmHeight", stack.Footprints().OsmHeights()},
+             {"defaultHeight", stack.Footprints().DefaultHeights()},
+             {"vertsMB", static_cast<double>(baked.Built.UsedBytes()) / kBytesPerMB},
+             {"lumped", baked.Lumped},
+             {"blocks", baked.Blocks},
+             {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
+             {"awayKm", job.Raw->AwayM / kMPerKm},
+             {"queued", static_cast<int>(Queue_.size() - 1)}});
+  IdleRaw_.push_back(std::move(job.Raw));
+  job.Out->Tile.Built = Raised{};
+  IdleOut_.push_back(std::move(job.Out));
+  IdleScratch_.push_back(std::move(job.Scratch));
+  Queue_.pop_front();
+  ++Landed_;
 }
 
 void StructureBakes::Clear() {

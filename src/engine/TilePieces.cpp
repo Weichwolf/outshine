@@ -33,9 +33,15 @@ Mat4 TilePieces::RowFor(const Vec3 &anchorEcef) const {
   return row;
 }
 
-void TilePieces::Hands(uint32_t tile, const Generators::BakedTile &baked, const Vec3 &anchorEcef) {
+bool TilePieces::Hands(uint32_t tile,
+                       const Generators::BakedTile &baked,
+                       const Vec3 &anchorEcef,
+                       std::string &error) {
+  if (Live_ == nullptr) {
+    error = "tile geometry requires a live world";
+    return false;
+  }
   Forgets(tile);
-  if (Live_ == nullptr) { return; }
   const Mat4 row = RowFor(anchorEcef);
   Standing stood{.Tile = tile};
   std::string why;
@@ -45,27 +51,40 @@ void TilePieces::Hands(uint32_t tile, const Generators::BakedTile &baked, const 
                                         uint32_t surface) {
     if (run.size() < 3) { return Render::kNoPiece; }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
-    return Live_->PlacePiece({.Tangents = {},
-                              .Verts = corners,
-                              .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
-                              .Clusters = cooked ? std::span<const DagCluster>(cut.Clusters)
-                                                 : std::span<const DagCluster>(),
-                              .Colours = {},
-                              .Row = row,
-                              .Instances = {},
-                              .Surface = Render::PieceSurface(surface)},
-                             why);
+    const Render::PieceId placed =
+        Live_->PlacePiece({.Tangents = {},
+                           .Verts = corners,
+                           .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
+                           .Clusters = cooked ? std::span<const DagCluster>(cut.Clusters)
+                                              : std::span<const DagCluster>(),
+                           .Colours = {},
+                           .Row = row,
+                           .Instances = {},
+                           .Surface = Render::PieceSurface(surface)},
+                          why);
+    if (placed == Render::kNoPiece && why.empty()) { why = "tile geometry upload failed"; }
+    return placed;
   };
   const Raised &built = baked.Built;
   stood.Walls = place(built.WallCorners, built.WallRun, baked.Walls, WallsSurface_);
-  stood.Roofs = place(built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_);
   if (!why.empty()) {
     ++Refused_;
     Why_ = why;
+    error = why;
+    return false;
+  }
+  stood.Roofs = place(built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_);
+  if (!why.empty()) {
+    if (stood.Walls != Render::kNoPiece) { Live_->ReleasePiece(stood.Walls); }
+    ++Refused_;
+    Why_ = why;
+    error = why;
+    return false;
   }
   Standing_.push_back(stood);
   Digest_ = (Digest_ ^ baked.Digest) * kDigestPrime;
   ++Handed_;
+  return true;
 }
 
 void TilePieces::Forgets(uint32_t tile) {

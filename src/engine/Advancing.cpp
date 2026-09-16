@@ -228,10 +228,36 @@ void Engine::State::HandsPiecesOver() {
 
 bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
-  const auto landed = World.Bakes.Lands(World.Stack, World.Pieces, landsMost);
-  if (!landed) {
-    Error = Generators::Describe(landed.error());
-    return false;
+  size_t landed = 0;
+  while (landed < landsMost) {
+    const auto ready = World.Bakes.NextLanding();
+    if (!ready) {
+      Error = Generators::Describe(ready.error());
+      return false;
+    }
+    if (!*ready) { break; }
+    std::unique_ptr<Core::Live> candidate;
+    if (!Core::Live::PreparesWorldReplacement(
+            Picture.Device, *Picture.Standing, &Picture.Face, candidate, Error)) {
+      return false;
+    }
+    TilePieces pieces = World.Pieces;
+    pieces.Into(candidate.get());
+    const StructureBakes::Landing &landing = **ready;
+    const Generators::BakedTile &baked = *landing.Baked;
+    const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
+    if (triangles > 0 && !pieces.Hands(landing.Tile, baked, landing.AnchorEcef, Error)) {
+      candidate.reset();
+      Picture.Device.AbandonsWorldCandidate();
+      return false;
+    }
+    if (!Core::Live::PublishesPreparedWorld(Picture.Device, Picture.Standing, candidate, Error)) {
+      return false;
+    }
+    World.Pieces = std::move(pieces);
+    World.Pieces.Into(Picture.Standing.get());
+    World.Bakes.CommitsLanding(World.Stack);
+    ++landed;
   }
   (void)World.Bakes.Posts(World.Stack);
   Published.Places(

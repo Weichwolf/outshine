@@ -32,7 +32,10 @@ public:
     RoofsSurface_ = these.Roofs;
   }
 
-  void Hands(uint32_t tile, const Generators::BakedTile &baked, const Vec3 &anchorEcef);
+  [[nodiscard]] bool Hands(uint32_t tile,
+                           const Generators::BakedTile &baked,
+                           const Vec3 &anchorEcef,
+                           std::string &error);
 
   void Forgets(uint32_t tile);
   void Clear();
