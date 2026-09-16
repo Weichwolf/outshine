@@ -49,14 +49,31 @@ bool Engine::State::Stood() {
     Core::Declaration wanted = Picture.Shown;
     wanted.SurfaceWidthPx = Picture.Frame.WidthPx;
     wanted.SurfaceHeightPx = Picture.Frame.HeightPx;
+    if (Picture.PendingGeometry) { wanted.InitialGeometry = &*Picture.PendingGeometry; }
     if (!Core::Live::Open(
             Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing, Error)) {
       return false;
     }
+    Picture.PendingGeometry.reset();
+    if (Picture.PendingAudioOcclusion) {
+      World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
+      Picture.PendingAudioOcclusion.reset();
+    }
   }
   if (!Picture.PendingGeometry) { return true; }
-  if (!Picture.Standing->SetGeometry(Picture.PendingGeometry->clone(), 0, Error)) { return false; }
+  if (!Core::Live::ReplacesGeometry(Picture.Device,
+                                    *Picture.Standing,
+                                    Picture.PendingGeometry->clone(),
+                                    &Picture.Face,
+                                    Picture.Standing,
+                                    Error)) {
+    return false;
+  }
   Picture.PendingGeometry.reset();
+  if (Picture.PendingAudioOcclusion) {
+    World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
+    Picture.PendingAudioOcclusion.reset();
+  }
   return true;
 }
 

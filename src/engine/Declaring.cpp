@@ -613,7 +613,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Picture.Shown = std::move(declared);
   if (!S_->Picture.Targeted) {
     S_->Picture.PendingGeometry = std::move(headless.Geometry);
-    S_->World.AudioOcclusion = headless.Occlusion ? std::move(*headless.Occlusion) : TriangleBvh{};
+    S_->Picture.PendingAudioOcclusion = std::move(headless.Occlusion);
     S_->Session.Declared = scenario;
     ++S_->Session.DeclarationRevision;
     S_->Session.AudioBodies.clear();
@@ -710,8 +710,8 @@ Result Engine::setGeometry(const Geometry &geometry) {
     return std::unexpected(S_->Error);
   }
   if (!S_->Picture.Standing) {
-    S_->World.AudioOcclusion = std::move(*occlusion);
     S_->Picture.PendingGeometry = geometry.clone();
+    S_->Picture.PendingAudioOcclusion.emplace(std::move(*occlusion));
     S_->Error.clear();
     return {};
   }

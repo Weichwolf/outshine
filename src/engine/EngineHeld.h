@@ -181,6 +181,7 @@ struct Seen {
   Core::Declaration Shown;
   Ui::Typeface Face;
   std::optional<Geometry> PendingGeometry;
+  std::optional<TriangleBvh> PendingAudioOcclusion;
 };
 
 struct Kept {
