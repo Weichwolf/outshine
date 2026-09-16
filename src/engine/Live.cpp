@@ -159,16 +159,18 @@ bool Live::Open(Render::SceneRenderer &renderer,
                 std::unique_ptr<Live> &out,
                 std::string &error) {
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
-  if (!Prepare(renderer, std::move(declaration), font, out, error)) {
+  std::unique_ptr<Live> candidate;
+  if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
   if (!renderer.PublishesWorldCandidate(error)) {
-    out.reset();
+    candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;
   }
   HandOffRenderer(out);
+  out = std::move(candidate);
   return true;
 }
 

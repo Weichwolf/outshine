@@ -32,6 +32,10 @@ RAII ownership, complete candidate construction, `static_assert`ed nonthrowing t
 publication point. Snapshot/restore and clearing the active renderer during candidate construction
 are prohibited.
 
+The candidate remains in a local owner until publication. Only then may `Live::Open` hand the
+renderer from the previous output owner to that candidate. Building directly into the output owner
+would instead detach the newly published `Live` and leave later draw calls with a null renderer.
+
 `LightVisibilityStage` and `SubjectCullStage` may retain a `SubjectDraw` address while pipelines
 remain frame-owned. Publication therefore rebinds those addresses without allocation; the generator
 composition oracle exposed the stale-candidate-pointer failure before this contract was added.
@@ -52,6 +56,7 @@ composition oracle exposed the stale-candidate-pointer failure before this contr
   overlay atlas upload and overlay quad upload after an old rendered world exists.
 - [x] A generated-world GPU submission failure after candidate construction preserves the former
   linear pixels and accepts the immediate declaration retry.
+- [x] `Live::Open` keeps its newly published owner renderer-bound; an imported-camera scene draws.
 - Each rejection preserves old pixels, readable buffers, declaration and revision; the immediate
   retry publishes the new world exactly once.
 - Repeated A→B→A declarations have bounded GPU ownership and no stale content binding.
