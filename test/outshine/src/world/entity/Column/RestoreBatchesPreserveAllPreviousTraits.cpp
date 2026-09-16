@@ -14,8 +14,12 @@ int main() {
   using namespace outshine::Test;
   EntityRegistry registry;
   CHECK(registry.open(4), "registry opened");
-  const auto first = registry.addEntity(Role::Tool);
-  const auto second = registry.addEntity(Role::Tool);
+  const auto addedFirst = registry.addEntity(Role::Tool);
+  const auto addedSecond = registry.addEntity(Role::Tool);
+  CHECK(addedFirst && addedSecond, "fixture entities are allocated");
+  if (!addedFirst || !addedSecond) { return Report(); }
+  const Entity first = *addedFirst;
+  const Entity second = *addedSecond;
   Column<int> values;
   CHECK(values.Open(registry) && values.Put(first, 10) && values.Put(second, 20),
         "columns prepared");

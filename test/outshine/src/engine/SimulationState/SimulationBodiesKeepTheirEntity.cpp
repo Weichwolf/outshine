@@ -11,9 +11,14 @@ int main() {
   SimulationState simulation;
   CHECK(simulation.Entities.open(3) && simulation.Bodies.Open(simulation.Entities),
         "component storage opened");
-  const Entity unrelated = simulation.Entities.addEntity(Role::Tool);
-  const Entity unplaced = simulation.Entities.addEntity(Role::Body);
-  const Entity placed = simulation.Entities.addEntity(Role::Body);
+  const auto addedUnrelated = simulation.Entities.addEntity(Role::Tool);
+  const auto addedUnplaced = simulation.Entities.addEntity(Role::Body);
+  const auto addedPlaced = simulation.Entities.addEntity(Role::Body);
+  CHECK(addedUnrelated && addedUnplaced && addedPlaced, "fixture entities are allocated");
+  if (!addedUnrelated || !addedUnplaced || !addedPlaced) { return Report(); }
+  const Entity unrelated = *addedUnrelated;
+  const Entity unplaced = *addedUnplaced;
+  const Entity placed = *addedPlaced;
   Scenario::Body definition;
   definition.Name = "template";
   CHECK(simulation.Bodies.Put(unplaced, definition), "unplaced body registered");

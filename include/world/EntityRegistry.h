@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace outshine {
@@ -63,6 +64,13 @@ private:
 enum class TagError {
   InvalidFamily, ///< Invalid tag or an existing child used as a family.
   InvalidOrdinal ///< Zero or a value exceeding the 24-bit child field.
+};
+
+/// Owned reason supplied by a rejected registry mutation.
+/// The message is valid independently of the registry and can cross an engine boundary.
+struct RegistryError {
+  /// Text describing the rejected mutation; owns its storage independently of the registry.
+  std::string Message;
 };
 
 /// Fixed activity families and checked construction; does not intern names or own storage.
@@ -156,15 +164,15 @@ public:
   /// handles. Existing component columns must be repopulated; previous values never bind to new
   /// entities. Allocates on the calling thread; serialize with all access to this registry.
   /// @param capacity Positive number of entity slots to allocate.
-  /// @return False for zero/unaddressable capacity or exhausted identity space, preserving the
-  /// previous epoch. Allocation failure remains fatal/separate from these validation errors.
-  [[nodiscard]] bool open(size_t capacity);
+  /// @return Empty success or an owned rejection, preserving the previous epoch. Allocation
+  /// failure remains fatal/separate from these validation errors.
+  [[nodiscard]] std::expected<void, RegistryError> open(size_t capacity);
 
   /// Allocate a slot from the prepared pool; no growth or allocation on success.
   /// @param role Supported entity role.
-  /// @return Registry-owned handle, or kNoEntity for invalid role/full pool; rejection
-  /// preserves existing entities and available slots and records error().
-  [[nodiscard]] Entity addEntity(Role role);
+  /// @return Registry-owned handle or an owned rejection for invalid role/full pool. Rejection
+  /// preserves existing entities and available slots.
+  [[nodiscard]] std::expected<Entity, RegistryError> addEntity(Role role);
   /// Remove an entity and its ChildOf descendants, invalidating their handles and relations.
   /// Foreign/stale handles are ignored. Work follows affected entities and incident edges;
   /// uses prepared traversal storage. Does not remove separately owned component storage.
@@ -183,9 +191,9 @@ public:
   /// No allocation; serialize with registry access. A tag does not carry catalogue ownership.
   /// @param to Live target in this registry.
   /// @param tag Tag from the catalogue shared by this registry's producers and queries.
-  /// @return False for invalid target/tag, exact duplicate or full storage, preserving tags
-  ///         and recording error(). Family/child overlap is not an exact duplicate.
-  [[nodiscard]] bool giveTag(Entity to, Tag tag);
+  /// @return Empty success or an owned rejection for invalid target/tag, duplicate or full
+  /// storage. Rejection preserves tags. Family/child overlap is not an exact duplicate.
+  [[nodiscard]] std::expected<void, RegistryError> giveTag(Entity to, Tag tag);
   /// Test direct tags and IsA ancestors using Tag::within(); no allocation.
   /// Work follows the bounded inheritance chain and updates traversal diagnostics. Serialize
   /// with registry access; the error string is unchanged.
@@ -198,14 +206,14 @@ public:
   /// @param from Live source belonging to this registry epoch.
   /// @param how Supported relation; invalid enum values are rejected.
   /// @param to Live target belonging to this registry epoch.
-  /// @return Success; false preserves relations and records error().
-  [[nodiscard]] bool link(Entity from, Relation how, Entity to);
+  /// @return Empty success or an owned rejection; rejection preserves relations.
+  [[nodiscard]] std::expected<void, RegistryError> link(Entity from, Relation how, Entity to);
   /// Replace the target of an existing exclusive relation after validating the replacement.
   /// @param from Live source with an existing relation of the requested kind.
   /// @param how Supported exclusive relation; invalid enum values are rejected.
   /// @param to Live replacement target satisfying the relation rules.
-  /// @return Success; false preserves the original target and records error().
-  [[nodiscard]] bool relink(Entity from, Relation how, Entity to);
+  /// @return Empty success or an owned rejection; rejection preserves the original target.
+  [[nodiscard]] std::expected<void, RegistryError> relink(Entity from, Relation how, Entity to);
   /// Query the first matching outgoing edge; no inherited lookup or allocation.
   /// @param of Source handle; stale/foreign handles yield no target.
   /// @param how Relation to query; invalid values yield no target.
@@ -252,8 +260,8 @@ public:
   /// Failure removes partially created copies and preserves existing entities, but consumes
   /// their temporary slot generations and may change allocation order and diagnostics.
   /// @param prefab Live source root in this registry.
-  /// @return New root or kNoEntity with error() describing invalid input/capacity/relation failure.
-  [[nodiscard]] Entity instantiate(Entity prefab);
+  /// @return New root or an owned rejection for invalid input, capacity or relation failure.
+  [[nodiscard]] std::expected<Entity, RegistryError> instantiate(Entity prefab);
   /// Find a direct ChildOf child whose IsA target is the specified prefab child.
   /// Does not search recursively; use the corresponding parent copy for a deeper child.
   /// @param which Borrowed handles in this registry; no ownership transfer.
@@ -265,8 +273,9 @@ public:
   /// @param at Live offering entity; an existing offer cannot be replaced by this operation.
   /// @param activity Nonempty activity tag from the shared catalogue.
   /// @param seats Seat count in [1, 4], the current prepared per-offer capacity.
-  /// @return Success or false with error(); validation failures preserve the previous offer.
-  [[nodiscard]] bool offerSeats(Entity at, Tag activity, size_t seats);
+  /// @return Empty success or an owned rejection; validation failures preserve the prior offer.
+  [[nodiscard]] std::expected<void, RegistryError>
+  offerSeats(Entity at, Tag activity, size_t seats);
   /// Enumerate registered offers matching Tag::within(), regardless of remaining free seats.
   /// @param activity Family or child to match; invalid tags match nothing.
   /// @param into Borrowed prefix output; unused elements remain unchanged.
@@ -277,19 +286,19 @@ public:
   /// Reclaims slots held by dead entities while searching. No role/capability or distance
   /// check is performed; higher-level scheduling must decide eligibility.
   /// @param who Live claimant and offering entity in this registry.
-  /// @return Success or false with error() for invalid handles, missing offer, duplicate claim
-  ///         or exhaustion. Uses bounded prepared storage without allocation.
-  [[nodiscard]] bool claimSeat(Seating who);
+  /// @return Empty success or an owned rejection for invalid handles, missing offer, duplicate
+  /// claim or exhaustion. Uses bounded prepared storage without allocation.
+  [[nodiscard]] std::expected<void, RegistryError> claimSeat(Seating who);
   /// Change this claimant's existing reservation from Claimed to Occupied.
   /// @param who Live claimant and offering entity in this registry.
-  /// @return Success or false with error(); invalid handles or a missing claim preserve seats.
-  /// No allocation; calling again on an occupied seat is an error, not an idempotent success.
-  [[nodiscard]] bool takeSeat(Seating who);
+  /// @return Empty success or an owned rejection; invalid handles or a missing claim preserve
+  /// seats. No allocation; calling again on an occupied seat is an error.
+  [[nodiscard]] std::expected<void, RegistryError> takeSeat(Seating who);
   /// Release this claimant's Claimed or Occupied seat.
   /// @param who Live claimant and offering entity in this registry.
-  /// @return Success or false with error() for invalid handles or no held seat.
-  /// No allocation. Dead claimants are reclaimed by later claimSeat() calls instead.
-  [[nodiscard]] bool releaseSeat(Seating who);
+  /// @return Empty success or an owned rejection for invalid handles or no held seat. No
+  /// allocation. Dead claimants are reclaimed by later claimSeat() calls instead.
+  [[nodiscard]] std::expected<void, RegistryError> releaseSeat(Seating who);
   /// Query this claimant's reservation without allocation or error-state change.
   /// @param who Both handles must be live in this registry; neither is retained by this query.
   /// @return Claimed/Occupied for the reservation; Free when absent or either handle is invalid.
@@ -299,11 +308,6 @@ public:
   /// @return Prepared slot capacity, including used and free slots; zero before open().
   /// Constant-time, nonallocating query; serialize with registry access.
   [[nodiscard]] size_t capacity() const;
-  /// Borrow the most recently recorded diagnostic; successful operations need not clear it.
-  /// @return Text valid until a later diagnostic change or registry destruction. Copy to retain.
-  /// No allocation; serialize access, including use of the returned view, with mutations.
-  [[nodiscard]] std::string_view error() const;
-
   /// @return Accumulated traversal-step counter, not elapsed time or total operation count.
   /// Const queries can increase it. Constant-time, nonallocating; serialize registry access.
   [[nodiscard]] size_t touched() const;

@@ -46,6 +46,9 @@ world candidate publication to 2191/2224.
 - `SceneRenderer::Init` already returns `[[nodiscard]] expected` and its GPU error
   path is tested.
 - `TagCatalogue::under` is constexpr expected with static negative checks.
+- `EntityRegistry` public mutations now return owned `RegistryError` expected results;
+  creation and instantiation no longer overload `kNoEntity`, and public `error()` is gone.
+  Header, entity-column and simulation contract suites cover success, rejection and state reuse.
 - Direct clang-tidy run after `4c6ac6a99`: 189/189 units, zero findings. The full
   lint gate remains blocked separately by the external immutable reference cache (2226).
 

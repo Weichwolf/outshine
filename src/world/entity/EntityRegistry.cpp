@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <atomic>
+#include <expected>
 #include <limits>
 #include <cstdint>
 #include <array>
@@ -44,7 +45,7 @@ struct EntityRegistry::Kept {
 
   size_t capacity() const { return Slots_.size(); }
 
-  std::string_view error() const { return Said_; }
+  [[nodiscard]] RegistryError failure() const { return {.Message = std::string(Said_)}; }
 
   size_t touched() const { return Touched_; }
 
@@ -710,12 +711,15 @@ bool EntityRegistry::Kept::Refuse(std::initializer_list<std::string_view> parts)
   return false;
 }
 
-bool EntityRegistry::open(size_t capacity) {
-  return Kept_->open(capacity);
+std::expected<void, RegistryError> EntityRegistry::open(size_t capacity) {
+  if (Kept_->open(capacity)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
-Entity EntityRegistry::addEntity(Role role) {
-  return Kept_->addEntity(role);
+std::expected<Entity, RegistryError> EntityRegistry::addEntity(Role role) {
+  const Entity entity = Kept_->addEntity(role);
+  if (entity != kNoEntity) { return entity; }
+  return std::unexpected(Kept_->failure());
 }
 
 void EntityRegistry::remove(Entity of) {
@@ -730,20 +734,23 @@ std::optional<Role> EntityRegistry::roleOf(Entity of) const {
   return Kept_->roleOf(of);
 }
 
-bool EntityRegistry::giveTag(Entity to, Tag tag) {
-  return Kept_->giveTag(to, tag);
+std::expected<void, RegistryError> EntityRegistry::giveTag(Entity to, Tag tag) {
+  if (Kept_->giveTag(to, tag)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
 bool EntityRegistry::hasTag(Entity of, Tag tag) const {
   return Kept_->hasTag(of, tag);
 }
 
-bool EntityRegistry::link(Entity from, Relation how, Entity to) {
-  return Kept_->link(from, how, to);
+std::expected<void, RegistryError> EntityRegistry::link(Entity from, Relation how, Entity to) {
+  if (Kept_->link(from, how, to)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
-bool EntityRegistry::relink(Entity from, Relation how, Entity to) {
-  return Kept_->relink(from, how, to);
+std::expected<void, RegistryError> EntityRegistry::relink(Entity from, Relation how, Entity to) {
+  if (Kept_->relink(from, how, to)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
 Entity EntityRegistry::targetOf(Entity of, Relation how) const {
@@ -771,32 +778,39 @@ size_t EntityRegistry::entitiesWithTagAndRole(Tag tag, Role role, std::span<Enti
   return Kept_->entitiesWithTagAndRole(tag, role, into);
 }
 
-Entity EntityRegistry::instantiate(Entity prefab) {
-  return Kept_->instantiate(prefab);
+std::expected<Entity, RegistryError> EntityRegistry::instantiate(Entity prefab) {
+  const Entity entity = Kept_->instantiate(prefab);
+  if (entity != kNoEntity) { return entity; }
+  return std::unexpected(Kept_->failure());
 }
 
 Entity EntityRegistry::copyOf(Instanced which) const {
   return Kept_->copyOf(which);
 }
 
-bool EntityRegistry::offerSeats(Entity at, Tag activity, size_t seats) {
-  return Kept_->offerSeats(at, activity, seats);
+std::expected<void, RegistryError>
+EntityRegistry::offerSeats(Entity at, Tag activity, size_t seats) {
+  if (Kept_->offerSeats(at, activity, seats)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
 size_t EntityRegistry::entitiesOffering(Tag activity, std::span<Entity> into) const {
   return Kept_->entitiesOffering(activity, into);
 }
 
-bool EntityRegistry::claimSeat(Seating who) {
-  return Kept_->claimSeat(who);
+std::expected<void, RegistryError> EntityRegistry::claimSeat(Seating who) {
+  if (Kept_->claimSeat(who)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
-bool EntityRegistry::takeSeat(Seating who) {
-  return Kept_->takeSeat(who);
+std::expected<void, RegistryError> EntityRegistry::takeSeat(Seating who) {
+  if (Kept_->takeSeat(who)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
-bool EntityRegistry::releaseSeat(Seating who) {
-  return Kept_->releaseSeat(who);
+std::expected<void, RegistryError> EntityRegistry::releaseSeat(Seating who) {
+  if (Kept_->releaseSeat(who)) { return {}; }
+  return std::unexpected(Kept_->failure());
 }
 
 Seat EntityRegistry::seatOf(Seating who) const {
@@ -805,10 +819,6 @@ Seat EntityRegistry::seatOf(Seating who) const {
 
 size_t EntityRegistry::capacity() const {
   return Kept_->capacity();
-}
-
-std::string_view EntityRegistry::error() const {
-  return Kept_->error();
 }
 
 size_t EntityRegistry::touched() const {

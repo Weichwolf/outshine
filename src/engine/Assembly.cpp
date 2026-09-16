@@ -56,7 +56,8 @@ namespace {
 GiveCapability(EntityRegistry &registry, Entity owner, Assembled &scene, const std::string &name) {
   const auto tag = TagCatalogue::under(tags::Does, Interned(scene.TagNames, name));
   if (!tag) { return std::unexpected(Says::CapabilityBudget); }
-  if (!registry.giveTag(owner, *tag)) { return std::unexpected(std::string(registry.error())); }
+  const auto given = registry.giveTag(owner, *tag);
+  if (!given) { return std::unexpected(given.error().Message); }
   return {};
 }
 
@@ -102,11 +103,12 @@ template <typename Row>
                                Column<Traits> &traits,
                                Assembled &out,
                                std::string &error) {
-  const Entity prefab = into.addEntity(Role::Body);
-  if (!into.alive(prefab)) {
-    error = into.error();
+  const auto added = into.addEntity(Role::Body);
+  if (!added) {
+    error = added.error().Message;
     return false;
   }
+  const Entity prefab = *added;
   if (!kind.Inherits.empty()) {
     const Entity parent = out.PrefabNamed(kind.Inherits);
     if (parent == kNoEntity) {
@@ -115,8 +117,9 @@ template <typename Row>
               "cycle cannot even be spelled";
       return false;
     }
-    if (!into.link(prefab, Relation::IsA, parent)) {
-      error = into.error();
+    const auto linked = into.link(prefab, Relation::IsA, parent);
+    if (!linked) {
+      error = linked.error().Message;
       return false;
     }
   }
@@ -197,11 +200,12 @@ template <typename Row>
         "the instance '" + instance.Id + "' is of '" + instance.Of + "', which no kind declares";
     return false;
   }
-  const Entity stood = into.instantiate(prefab);
-  if (!into.alive(stood)) {
-    error = into.error();
+  const auto instantiated = into.instantiate(prefab);
+  if (!instantiated) {
+    error = instantiated.error().Message;
     return false;
   }
+  const Entity stood = *instantiated;
   Traits resolved;
   if (!ResolveInheritedTraits(instance, prefab, into, traits, resolved, error)) { return false; }
   for (const Scenario::Setting &attribute : instance.Attributes) {
@@ -234,8 +238,9 @@ template <typename Row>
       error = "the instance '" + instance.Id + "' holds '" + what + "', which nothing declares";
       return false;
     }
-    if (!into.link(held, Relation::HeldBy, holder)) {
-      error = into.error();
+    const auto linked = into.link(held, Relation::HeldBy, holder);
+    if (!linked) {
+      error = linked.error().Message;
       return false;
     }
   }
@@ -247,8 +252,9 @@ template <typename Row>
       return false;
     }
     const Entity self = out.InstanceNamed(instance.Id);
-    if (!into.link(self, Relation::HeldBy, room)) {
-      error = into.error();
+    const auto linked = into.link(self, Relation::HeldBy, room);
+    if (!linked) {
+      error = linked.error().Message;
       return false;
     }
   }
@@ -261,11 +267,12 @@ template <typename Row>
                              Column<Scenario::Body> &bodies,
                              Assembled &out,
                              std::string &error) {
-  const Entity body = into.addEntity(Role::Body);
-  if (!into.alive(body)) {
-    error = into.error();
+  const auto added = into.addEntity(Role::Body);
+  if (!added) {
+    error = added.error().Message;
     return false;
   }
+  const Entity body = *added;
   for (const Scenario::Drive &does : declaredBody.Driven) {
     const char *const opposing = does.Opposes ? "torque-opposing" : "torque";
     const char *const named = does.Does == Scenario::Drives::Motion ? "steer" : opposing;
@@ -327,10 +334,15 @@ bool Assemble(const Scenario::Document &declared,
       error = "the player is '" + declared.Played.Is + "', which no body declares";
       return false;
     }
-    out.PlayerMind = into.addEntity(Role::Mind);
-    if (!into.alive(out.PlayerMind) ||
-        !into.link(out.PlayerBody, Relation::DrivenBy, out.PlayerMind)) {
-      error = into.error();
+    const auto added = into.addEntity(Role::Mind);
+    if (!added) {
+      error = added.error().Message;
+      return false;
+    }
+    out.PlayerMind = *added;
+    const auto linked = into.link(out.PlayerBody, Relation::DrivenBy, out.PlayerMind);
+    if (!linked) {
+      error = linked.error().Message;
       return false;
     }
   }

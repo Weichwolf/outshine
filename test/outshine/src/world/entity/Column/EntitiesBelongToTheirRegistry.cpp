@@ -12,8 +12,12 @@ int main() {
   EntityRegistry first;
   EntityRegistry second;
   CHECK(first.open(2) && second.open(2), "independent registries open");
-  const Entity original = first.addEntity(Role::Body);
-  const Entity foreign = second.addEntity(Role::Body);
+  const auto addedOriginal = first.addEntity(Role::Body);
+  const auto addedForeign = second.addEntity(Role::Body);
+  CHECK(addedOriginal && addedForeign, "fixture entities are allocated");
+  if (!addedOriginal || !addedForeign) { return Report(); }
+  const Entity original = *addedOriginal;
+  const Entity foreign = *addedForeign;
   CHECK(original.Index == foreign.Index && original.Generation == foreign.Generation,
         "fixture collides in local slot and generation");
   CHECK(original != foreign && !first.alive(foreign) && !second.alive(original),
@@ -27,7 +31,10 @@ int main() {
   first.remove(foreign);
   CHECK(first.alive(original), "foreign removal cannot destroy the local entity");
   CHECK(first.open(2), "registry opens a fresh epoch");
-  const Entity replacement = first.addEntity(Role::Body);
+  const auto addedReplacement = first.addEntity(Role::Body);
+  CHECK(addedReplacement, "replacement is allocated");
+  if (!addedReplacement) { return Report(); }
+  const Entity replacement = *addedReplacement;
   CHECK(replacement != original && !first.alive(original), "reopening invalidates old handles");
   CHECK(values.Get(replacement) == nullptr, "new entity cannot inherit a stale component");
   int count = 0;
