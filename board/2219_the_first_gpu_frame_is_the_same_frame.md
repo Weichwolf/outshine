@@ -81,14 +81,16 @@ läuft über `SubjectProxy` und `AppendPieceBatches` als flache texturierte Vari
 Diese GLSL-Variante hat genau `imageMap` und `SurfaceBindings` bindet genau einen
 Sampler. Die frühere Descriptor-Anzahl-Hypothese ist daher verworfen. Eine temporäre
 Probe ohne den einmaligen ersten PNG-Readback bleibt bei exakt 250 Kanälen und 0,00195312;
-der Bildexport ändert den Zustand nicht. Nächste Probe: den ersten Gebrauch eines einzelnen
-vollständigen Texture/Sampler-Paars gegen einen untexturierten Flat-Draw trennen.
-
+der Bildexport ändert den Zustand nicht. Eine temporäre Flat-GLSL-Probe ersetzt ausschließlich
+`texture` durch `texelFetch` aus Ebene 0: alle drei Wiederholungen sind auf 3 686 400 Kanälen
+bitgenau. Die mipmapped Ressource und ihr Descriptor bleiben dabei gebunden. Der Fehler liegt
+somit in der ersten Hardware-Sampleroperation, nicht im Zugriff auf die Ressource. Der Fetch-Pfad
+ist kein Fix: Er verwirft Wrap-, Bilinear- und Mipfilterung. Nächste Probe: die SDL/Metal-Sampler-
+Zustände und eine portable, echtzeitfähige Abhilfe mit unveränderter Filtersemantik trennen.
 Lokaler Referenzstand: `../SDL` fa2c02b (3.4.16) kompiliert MSL über
 `newLibraryWithSource(..., options:nil)`; `../SDL_shadercross` 1ff05be bietet für
 SPIR-V→MSL nur die Ziel-MSL-Version, keine Präzisions- oder Compileoption. Die
 erzeugte GLSL-Variante ist `texture2d<float>.sample`.
-
 `SDL_GPU_DRIVER=vulkan` verweigert dieser Host mit `unsupported`; ein zweites
 SDL_GPU-Backend ist hier nicht verfügbar und bleibt als externe Abnahme offen.
 `xcrun metal` und `metallib` fehlen ebenfalls; ein lokaler Metallib-Versuch ist
