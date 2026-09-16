@@ -144,7 +144,8 @@ double AcrossM(std::span<const double> pts, Ring ring) {
 Frontage NearestStreet(std::span<const double> pts,
                        Ring ring,
                        std::span<const WayLine> ways,
-                       double *standBackM) {
+                       double *standBackM,
+                       const std::atomic_bool *stopping) {
   Frontage out;
   *standBackM = -1.0;
   const double refLat = LatOf(pts, ring.First);
@@ -168,10 +169,12 @@ Frontage NearestStreet(std::span<const double> pts,
   double bDirN = 0.0;
   double bHalf = 0.0;
   for (const WayLine &w : ways) {
+    if (WasStopped(stopping)) { return out; }
     if (w.HalfWidthM * 2.0 < kCarriagewayM) { continue; }
     if (refLat < w.MinLat - padDeg || refLat > w.MaxLat + padDeg) { continue; }
     if (refLon < w.MinLon - padDeg || refLon > w.MaxLon + padDeg) { continue; }
     for (size_t k = 0; k + 3 < w.LatLon.size(); k += 2) {
+      if (WasStopped(stopping)) { return out; }
       const LongitudeLatitudeHeight from{.LongitudeDeg = refLon, .LatitudeDeg = refLat};
       const EastNorth a =
           EnuOffsetM(from, {.LongitudeDeg = w.LatLon[k + 1], .LatitudeDeg = w.LatLon[k]});
@@ -477,7 +480,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 std::map<uint64_t, Lumped> &lumps,
                                                 std::vector<double> &corners,
                                                 double awayAtLeastM,
-                                                double statedM) {
+                                                double statedM,
+                                                const std::atomic_bool *stopping) {
   const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
   if (ring.Count < 3 || ring.Count > kMostRingPoints) { return {}; }
   const Seated seated = RingBase(heights, pts, ring, corners);
@@ -503,7 +507,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.AcrossM.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
 
   double standBackM = -1.0;
-  const Frontage street = NearestStreet(pts, ring, ways, &standBackM);
+  const Frontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
+  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
 
   BuildingField::Footprint fp{};
   fp.FirstPoint = one.SourceFirst;
@@ -602,8 +607,19 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
 
   for (const RawTile::Structure &one : raw.Structures) {
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-    const auto baked = BakeOne(
-        raw, heights, mesher, scratch, out, one, pts, ways, lumps, corners, awayAtLeastM, statedM);
+    const auto baked = BakeOne(raw,
+                               heights,
+                               mesher,
+                               scratch,
+                               out,
+                               one,
+                               pts,
+                               ways,
+                               lumps,
+                               corners,
+                               awayAtLeastM,
+                               statedM,
+                               stopping);
     if (!baked) { return std::unexpected(baked.error()); }
   }
 
