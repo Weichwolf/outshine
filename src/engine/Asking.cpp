@@ -242,15 +242,16 @@ bool Engine::State::Composes() {
     World.Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
 
+  const std::span<const Scenario::Provider> providers =
+      declared.Providers.empty() ? Data::ShippedProviders() : std::span(declared.Providers);
   Collecting say;
-  if (!World.Stack.Opened() &&
-      !World.Stack.Open(Session.Under,
-                        {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
-                        {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-                        *World.Wire,
-                        say,
-                        Diagnostics,
-                        Session.Declared.Ground.PatienceS)) {
+  if (!World.Stack.Opened() && !World.Stack.Open(Session.Under,
+                                                 providers,
+                                                 {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
+                                                 *World.Wire,
+                                                 say,
+                                                 Diagnostics,
+                                                 Session.Declared.Ground.PatienceS)) {
     Error = say.WhyNot();
     return false;
   }

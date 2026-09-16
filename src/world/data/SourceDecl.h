@@ -10,7 +10,9 @@
 
 namespace outshine::Data {
 
-enum class Rank : uint16_t {};
+enum class Rank : int32_t {};
+
+enum class AbsencePolicy : uint8_t { HandOver, Refuse };
 
 enum class WireFormat : uint8_t { TerrariumPng, MapboxVectorTile, StarBandBinary };
 [[nodiscard]] const char *Name(WireFormat wire) noexcept;
@@ -28,12 +30,14 @@ struct SourceDecl {
   std::string Id;
 
   uint32_t Version = 1;
+  std::string Revision;
 
   DataKind Kind = DataKind::Elevation;
   Scheme How = Scheme::TileZxy;
   WireFormat Wire = WireFormat::TerrariumPng;
 
   Rank Order = Rank{0};
+  AbsencePolicy OnAbsent = AbsencePolicy::HandOver;
 
   int MinZoom = 0;
   int MaxZoom = 0;

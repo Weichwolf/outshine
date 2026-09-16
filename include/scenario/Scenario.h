@@ -244,20 +244,20 @@ struct WorldSettings {
   double SightM = kSightUnsaidM;
 };
 
-/// Owned source-selection declaration; copying strings may allocate.
-/// Mutation requires exclusive access. Import/export preserve these values, but world
-/// preparation currently selects shipped providers instead of this list. These fields
-/// therefore do not yet control data provenance, ordering or failure policy.
+/// Owned source-selection declaration. Import/export preserve these values and world preparation
+/// maps each supported provider to a native source. Copying strings may allocate; mutation requires
+/// exclusive access. An empty provider list selects the shipped default source configuration.
 struct Provider {
   /// Exact source category; layer merging replaces the first matching Kind.
   /// Shipped registration recognizes terrain, vector and stars; no arbitrary URL resolver.
   std::string Kind;
-  /// Opaque requested data revision; not currently applied to cache identity or fetching.
+  /// Opaque data revision incorporated into cache identity. It does not alter a provider endpoint.
   std::string Pin;
-  /// Requested selection rank; currently ignored by source registration. XML accepts a
+  /// Selection rank among sources of the same category; lower ranks are tried first. XML accepts a
   /// complete decimal int with optional sign; omitted is zero, malformed/out-of-range fails.
   int Rank = 0;
-  /// Opaque missing-data policy text; currently ignored, with no policy validation here.
+  /// Missing-data policy: empty or `hand over` tries the next rank; `fail` stops the request.
+  /// Any other value fails world preparation before IO.
   std::string WhenAbsent;
 };
 

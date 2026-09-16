@@ -68,6 +68,8 @@ std::string ContentKey(const SourceDecl &decl, const Address &at) {
   subject += '\n';
   subject += std::to_string(decl.Version);
   subject += '\n';
+  subject += decl.Revision;
+  subject += '\n';
   subject += Name(decl.Kind);
   subject += '\n';
   subject += at.Text();

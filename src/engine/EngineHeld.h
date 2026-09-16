@@ -143,7 +143,6 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
     if (many > 0) { carried.push_back(std::to_string(many) + " " + what); }
   };
   note(scenario.Layers.size(), "layers");
-  note(scenario.Providers.size(), "providers");
   note(scenario.Generators.size(), "generators");
   note(scenario.Placements.size(), "placements");
   note(scenario.Surfaces.size(), "surfaces");

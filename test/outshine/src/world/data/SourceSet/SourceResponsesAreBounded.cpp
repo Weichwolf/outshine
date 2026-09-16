@@ -93,6 +93,21 @@ int main() {
   }
   {
     SourceSet sources(store);
+    auto first = SourceWith("closed", Rank{0}, Fetched::Meant(Meaning::Absent));
+    first->Decl.OnAbsent = AbsencePolicy::Refuse;
+    const auto *probe = first.get();
+    CHECK(sources.Add(std::move(first)) == SourceSet::Registration::Accepted,
+          "closed source registered");
+    CHECK(sources.Add(SourceWith("next", Rank{1}, Fetched::Delivered({4}))) ==
+              SourceSet::Registration::Accepted,
+          "fallback after closed source registered");
+    auto query = sources.Ask(request);
+    CHECK(sources.Collect(query, transport).Where() == Delivery::State::Refused &&
+              probe->Calls == 1,
+          "fail-on-absence refuses without consulting a lower-ranked source");
+  }
+  {
+    SourceSet sources(store);
     auto source = SourceWith("retry",
                              Rank{0},
                              Fetched::Working(),

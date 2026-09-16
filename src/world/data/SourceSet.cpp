@@ -156,6 +156,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       return Delivery::From(decl.Id, query.At_, std::move(response.Bytes));
     }
     case Meaning::Absent: {
+      if (decl.OnAbsent == AbsencePolicy::Refuse) { return Refuse(query, kRetryCapMs); }
       query.Current_ = nullptr;
       query.Phase_ = Query::Phase::Ready;
       const std::scoped_lock lock(LedgerMutex_);

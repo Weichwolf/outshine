@@ -2,6 +2,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <span>
 #include <string_view>
@@ -26,6 +27,12 @@ constexpr std::array<const char *, 3> kKinds = {{"terrain", "vector", "stars"}};
   return all;
 }
 
+[[nodiscard]] std::optional<AbsencePolicy> ParseAbsence(std::string_view said) {
+  if (said.empty() || said == "hand over") { return AbsencePolicy::HandOver; }
+  if (said == "fail") { return AbsencePolicy::Refuse; }
+  return std::nullopt;
+}
+
 }
 
 bool RegisterDeclared(SourceSet &set,
@@ -33,13 +40,20 @@ bool RegisterDeclared(SourceSet &set,
                       std::string_view starDirectory,
                       std::string &error) {
   for (const Scenario::Provider &provider : providers) {
+    const std::optional<AbsencePolicy> absence = ParseAbsence(provider.WhenAbsent);
+    if (!absence) {
+      error = "the provider of kind '" + provider.Kind + "' declares unknown whenAbsent policy '" +
+              provider.WhenAbsent + "'; this engine carries: hand over fail";
+      return false;
+    }
+    const Rank order = static_cast<Rank>(provider.Rank);
     std::unique_ptr<Source> made;
     if (provider.Kind == "terrain") {
-      made = std::make_unique<TerrariumDem>();
+      made = std::make_unique<TerrariumDem>(provider.Pin, order, *absence);
     } else if (provider.Kind == "vector") {
-      made = std::make_unique<VersatilesVector>();
+      made = std::make_unique<VersatilesVector>(provider.Pin, order, *absence);
     } else if (provider.Kind == "stars") {
-      made = std::make_unique<StarBands>(std::string(starDirectory));
+      made = std::make_unique<StarBands>(std::string(starDirectory), provider.Pin, order, *absence);
     } else {
       error = "the scenario declares a provider of kind '" + provider.Kind +
               "', and this engine carries: " + Catalogue();

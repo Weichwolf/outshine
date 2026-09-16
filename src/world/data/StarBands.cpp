@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <cstdio>
 #include <utility>
 #include <vector>
@@ -13,15 +14,17 @@ constexpr size_t kTypicalPayloadBytes = 13380;
 
 namespace {
 
-[[nodiscard]] SourceDecl Declared() {
+[[nodiscard]] SourceDecl Declared(std::string revision, Rank order, AbsencePolicy absence) {
   SourceDecl d;
   d.Id = "hyg.bands";
 
   d.Version = 1;
+  d.Revision = std::move(revision);
   d.Kind = DataKind::StarCatalogue;
   d.How = Scheme::WholeWorld;
   d.Wire = WireFormat::StarBandBinary;
-  d.Order = Rank{0};
+  d.Order = order;
+  d.OnAbsent = absence;
   d.Keeps = Cacheability::Never;
   d.Need = Necessity::Required;
   d.Latency = LatencyClass::Local;
@@ -33,7 +36,8 @@ namespace {
 
 }
 
-StarBands::StarBands(std::string directory) : Directory_(std::move(directory)), Decl_(Declared()) {}
+StarBands::StarBands(std::string directory, std::string revision, Rank order, AbsencePolicy absence)
+    : Directory_(std::move(directory)), Decl_(Declared(std::move(revision), order, absence)) {}
 
 Coverage StarBands::Covers(const Fetch &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }

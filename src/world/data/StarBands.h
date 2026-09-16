@@ -9,7 +9,7 @@ namespace outshine::Data {
 
 class StarBands : public Source {
 public:
-  explicit StarBands(std::string directory);
+  StarBands(std::string directory, std::string revision, Rank order, AbsencePolicy absence);
 
   static constexpr uint32_t kBands = 4;
 

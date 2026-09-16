@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <optional>
 #include <format>
+#include <string>
 #include <string_view>
+#include <utility>
 
 #include <cstdio>
 
@@ -17,14 +19,16 @@ inline constexpr std::string_view kTile = "https://tiles.versatiles.org/tiles/os
 
 namespace {
 
-[[nodiscard]] SourceDecl Declared() {
+[[nodiscard]] SourceDecl Declared(std::string revision, Rank order, AbsencePolicy absence) {
   SourceDecl d;
   d.Id = "versatiles.osm";
   d.Version = 1;
+  d.Revision = std::move(revision);
   d.Kind = DataKind::VectorMap;
   d.How = Scheme::TileZxy;
   d.Wire = WireFormat::MapboxVectorTile;
-  d.Order = Rank{0};
+  d.Order = order;
+  d.OnAbsent = absence;
   d.MinZoom = 0;
   d.MaxZoom = 14;
   d.AncestorFill = false;
@@ -39,7 +43,8 @@ namespace {
 
 }
 
-VersatilesVector::VersatilesVector() : WebTileSource(Declared()) {}
+VersatilesVector::VersatilesVector(std::string revision, Rank order, AbsencePolicy absence)
+    : WebTileSource(Declared(std::move(revision), order, absence)) {}
 
 std::string VersatilesVector::Url(const Address &at) const {
   const std::optional<TileId> tile = at.Tile();
