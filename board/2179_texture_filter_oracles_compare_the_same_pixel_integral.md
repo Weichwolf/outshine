@@ -101,3 +101,10 @@ zurückgenommen. Exakte Läufe stehen in der Git-Historie.
 demselben Frame. Der erste Frame hat damit keinen Occlusion-Eingang, der zweite einen. Das erklärt
 den Zustandswechsel, nicht die sichtbare Abweichung: Occlusion Culling muss konservativ bleiben
 und bei statischer Kamera denselben sichtbaren Output liefern.
+
+Die Eckprojektion wurde durch ein homogenes Clip-Intervall ersetzt: Zeilenlängen der Projektionsmatrix
+begrenzen X/Y/Z und W über der Kugel, alle vier Quotientenenden liefern Bildschirmrechteck und
+nächste Tiefe. Das ist absichtlich weiter als die Kugel und kann daher keine sichtbare Fläche
+wegcullen. `NativeMipImagesReachTheRenderer` bleibt grün. Die ABeautifulGame-Wiederholungsabnahme
+ist aktuell unscored, weil Pin `260a21ace17aff8aee322a2ba661d090cf178b57c8e1c855d2134d39aca0586b`
+im Referenzcache fehlt; keine Wirksamkeitsbehauptung vor dessen Wiederherstellung.
