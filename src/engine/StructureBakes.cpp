@@ -38,6 +38,7 @@ int PitchedOf(std::string_view said) {
 
 void RawOf(const Ground::OsmField &vectors,
            const Ground::BuildingField &prints,
+           const Ground::StreetField &streets,
            const Ground::TileWatermark::Next &next,
            Generators::RawTile &raw) {
   raw.LatLon.clear();
@@ -52,6 +53,17 @@ void RawOf(const Ground::OsmField &vectors,
   const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
   const std::span<const Ground::OsmField::Feature> feats = vectors.Features();
   const std::span<const double> points = vectors.Points();
+  for (const Ground::StreetField::Way &way : streets.OfTile(static_cast<int>(next.Tile))) {
+    const auto first = static_cast<size_t>(way.FirstPoint);
+    const auto count = static_cast<size_t>(way.PointCount);
+    if (count < 2 || first + count > points.size() / 2) { continue; }
+    const auto local = static_cast<uint32_t>(raw.LatLon.size() / 2);
+    raw.LatLon.insert(raw.LatLon.end(),
+                      points.begin() + static_cast<long>(first) * 2,
+                      points.begin() + static_cast<long>(first + count) * 2);
+    raw.Ways.push_back(
+        {.LocalFirst = local, .PointCount = way.PointCount, .HalfWidthM = way.HalfWidthM});
+  }
   for (size_t at = next.From; at < next.To; ++at) {
     const Ground::OsmField::Feature &f = feats[at];
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
@@ -231,7 +243,7 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
             .Scratch = LentScratch(),
             .Progress = std::make_unique<Generators::StructureBakeProgress>(),
             .Stopping = std::make_shared<std::atomic_bool>(false)};
-    RawOf(vectors, prints, *next, *job.Raw);
+    RawOf(vectors, prints, stack.Ways(), *next, *job.Raw);
     job.Out->Status = {};
     job.Out->Complete = false;
     job.Out->BakeMs = 0.0;

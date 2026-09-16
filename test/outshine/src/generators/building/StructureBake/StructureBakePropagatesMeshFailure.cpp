@@ -64,6 +64,15 @@ int main() {
   const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
   CHECK(result && unsupported.Calls == 2 && output.UnsupportedMeshes == 2,
         "unsupported forms are counted and processing continues to the next building");
+  raw.LatLon.insert(raw.LatLon.end(), {47, 8.9998, 47.0001, 8.9998});
+  raw.Ways.push_back({.LocalFirst = 4, .PointCount = 2, .HalfWidthM = 4});
+  RefusingMesher frontedMesher(StructureMeshError::UnsupportedFootprint);
+  auto frontedScratch = frontedMesher.Scratch();
+  Generators::BakedTile fronted;
+  const auto frontedResult =
+      Generators::BakeStructures(raw, *heights, frontedMesher, *frontedScratch, fronted);
+  CHECK(frontedResult && fronted.Fronted == 2,
+        "a nearby road line gives every building in its tile a known frontage");
 
   RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto oneShotScratch = oneShotMesher.Scratch();
