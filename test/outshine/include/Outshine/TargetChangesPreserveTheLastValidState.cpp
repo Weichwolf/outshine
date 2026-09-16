@@ -8,7 +8,7 @@
 #include "Check.h"
 
 namespace {
-enum class Failure { None, Extent, Composition, Parameters, Texture };
+enum class Failure { None, Extent, Composition, Parameters, Texture, Pipeline };
 Failure inject = Failure::None;
 unsigned injected = 0;
 unsigned releasedTextures = 0;
@@ -79,6 +79,18 @@ extern "C" SDL_GPUTexture *SDLCALL SDL_CreateGPUTexture(SDL_GPUDevice *device,
     return nullptr;
   }
   static const auto original = Original<decltype(&SDL_CreateGPUTexture)>("SDL_CreateGPUTexture");
+  return original(device, info);
+}
+
+extern "C" SDL_GPUGraphicsPipeline *SDLCALL SDL_CreateGPUGraphicsPipeline(
+    SDL_GPUDevice *device, const SDL_GPUGraphicsPipelineCreateInfo *info) {
+  if (inject == Failure::Pipeline) {
+    ++injected;
+    SDL_SetError("injected stage pipeline failure");
+    return nullptr;
+  }
+  static const auto original =
+      Original<decltype(&SDL_CreateGPUGraphicsPipeline)>("SDL_CreateGPUGraphicsPipeline");
   return original(device, info);
 }
 
@@ -197,6 +209,19 @@ int main() {
         std::vector<uint8_t> afterPlanFailure;
         CHECK(renderer.readPixels(afterPlanFailure).has_value() && afterPlanFailure == before,
               "a refused frame-resource candidate retains the readable previous pixels");
+        const unsigned pipelineFailures = injected;
+        inject = Failure::Pipeline;
+        const auto refusedPipeline = offscreen.declare(changedPlan);
+        inject = Failure::None;
+        CHECK(injected == pipelineFailures + 1 && !refusedPipeline &&
+                  refusedPipeline.error().find("injected") != std::string::npos,
+              "stage pipeline failure reaches the changed render-plan declaration");
+        CHECK(offscreen.writeScenario() == declared,
+              "a refused stage pipeline candidate retains the active declaration");
+        std::vector<uint8_t> afterPipelineFailure;
+        CHECK(renderer.readPixels(afterPipelineFailure).has_value() &&
+                  afterPipelineFailure == before,
+              "a refused stage pipeline candidate retains the readable previous pixels");
         CHECK(offscreen.declare(changedPlan).has_value() && offscreen.assemble().has_value() &&
                   offscreen.advance().has_value(),
               "the changed render plan publishes after the injected allocation failure");

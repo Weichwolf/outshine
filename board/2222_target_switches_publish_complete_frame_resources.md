@@ -30,12 +30,13 @@ Mesh-, Material-, Instanz- und Ground-Residenz bleiben bei ihren Zeichnern. Grou
 bleibt dauerhaft; alle Frame-Texturen, Sampler, Pyramide, temporalen Ziele und Stages wandern
 gemeinsam.
 
-`FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
+``FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
 Readback, temporale Ziele, GPU-Handles, Subject-/Glass-Bindungen und alle formatgebundenen
-Stage-Objekte; seine Beweglichkeit ist statisch gesichert. Reine Ressourcenallokation baut und
-prüft einen lokalen Kandidaten; eine Absage erhält aktive Deklaration und Pixel. Als Nächstes
-konfiguriert `Init` sämtliche Plan-Stages einschließlich dieser Bindungen gegen den Kandidaten;
-erst dann darf die nichtwerfende Veröffentlichung Frame, Plan und Bindungszeiger tauschen.
+Stage-Objekte; seine Beweglichkeit ist statisch gesichert. `Init` baut und konfiguriert den
+vollständigen Plan gegen einen lokalen Kandidaten. Erst nach Erfolg bewegen sich Frame und Plan;
+danach binden die langlebigen Zeichner auf die neue Binding-Adresse. Eine abgelehnte Pipeline
+oder Textur erhält aktive Deklaration und lesbare Pixel. Der Test injiziert beides am echten
+SDL-Aufruf und prüft 54 Bedingungen.
 
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,

@@ -331,12 +331,15 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
     return std::unexpected(stood.error());
   }
 
+  const bool drawsGlass = plan->Holds(Stage::SubjectsTransmissive);
+  if (!ConfigurePlanStages(candidate, *plan, drawsGlass)) { return std::unexpected(WhyNot_); }
   Ready_ = false;
   Submitted_ = false;
   Frame_ = std::move(candidate);
   Plan_ = std::move(plan);
+  DrawsGlass_ = drawsGlass;
+  BindFrameResources();
   BeginTemporalRun();
-  if (!ConfigurePlanStages()) { return std::unexpected(WhyNot_); }
   Ready_ = true;
 
   Log::Info(LogTag::Render,
@@ -361,21 +364,23 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
   return {};
 }
 
-AttachmentSet SceneRenderer::ColoursForStage(Stage wanted) const {
-  for (const Compiled::Pass &pass : Plan_->Passes()) {
+AttachmentSet
+SceneRenderer::ColoursForStage(const FrameResources &frame, const Compiled &plan, Stage wanted) {
+  for (const Compiled::Pass &pass : plan.Passes()) {
     for (size_t at = pass.First; at < pass.First + pass.Count; ++at) {
-      if (Plan_->Order()[at] == wanted) { return pass.Targets; }
+      if (plan.Order()[at] == wanted) { return pass.Targets; }
     }
   }
-  return Frame_.Handles.SceneColours;
+  return frame.Handles.SceneColours;
 }
 
-bool SceneRenderer::ConfigurePlanStages() {
-  DrawsGlass_ = Plan_->Holds(Stage::SubjectsTransmissive);
-  for (const Stage stage : Plan_->Order()) {
+bool SceneRenderer::ConfigurePlanStages(FrameResources &frame,
+                                        const Compiled &plan,
+                                        bool drawsGlass) {
+  for (const Stage stage : plan.Order()) {
     std::string why;
-    Frame_.Handles.SceneColours = ColoursForStage(stage);
-    if (Configure(stage, why)) { continue; }
+    frame.Handles.SceneColours = ColoursForStage(frame, plan, stage);
+    if (Configure(stage, frame, plan, drawsGlass, why)) { continue; }
     Log::Error(LogTag::Render, "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
     WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
     return false;
@@ -579,19 +584,23 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
 }
 
 SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
+  return Target(Frame_, resource);
+}
+
+SDL_GPUTexture *SceneRenderer::Target(const FrameResources &frame, Resource resource) {
   switch (resource) {
     case Resource::OverlayAtlas: return nullptr;
-    case Resource::SceneHdr: return Frame_.HdrTex.Get();
-    case Resource::SceneTransmissive: return Frame_.TransmissiveTex.Get();
-    case Resource::SceneComposited: return Frame_.CompositedTex.Get();
-    case Resource::SceneAerial: return Frame_.AerialTex.Get();
-    case Resource::SceneVelocity: return Frame_.VelTex.Get();
-    case Resource::SceneShadingNormal: return Frame_.ShadingNormalTex.Get();
-    case Resource::SceneSurfaceIdentity: return Frame_.SurfaceIdentityTex.Get();
-    case Resource::SceneDepth: return Frame_.DepthTex.Get();
-    case Resource::FrameTex: return Frame_.FrameTex.Get();
+    case Resource::SceneHdr: return frame.HdrTex.Get();
+    case Resource::SceneTransmissive: return frame.TransmissiveTex.Get();
+    case Resource::SceneComposited: return frame.CompositedTex.Get();
+    case Resource::SceneAerial: return frame.AerialTex.Get();
+    case Resource::SceneVelocity: return frame.VelTex.Get();
+    case Resource::SceneShadingNormal: return frame.ShadingNormalTex.Get();
+    case Resource::SceneSurfaceIdentity: return frame.SurfaceIdentityTex.Get();
+    case Resource::SceneDepth: return frame.DepthTex.Get();
+    case Resource::FrameTex: return frame.FrameTex.Get();
 
-    case Resource::Surface: return Frame_.HostSurface;
+    case Resource::Surface: return frame.HostSurface;
 
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
@@ -601,10 +610,10 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
-    case Resource::TransmittanceLut: return Frame_.TransmittanceLut.Get();
-    case Resource::MultiScatterLut: return Frame_.MultiScatterLut.Get();
-    case Resource::SkyViewLut: return Frame_.SkyViewLut.Get();
-    case Resource::ShadowAtlas: return Frame_.ShadowAtlas.Get();
+    case Resource::TransmittanceLut: return frame.TransmittanceLut.Get();
+    case Resource::MultiScatterLut: return frame.MultiScatterLut.Get();
+    case Resource::SkyViewLut: return frame.SkyViewLut.Get();
+    case Resource::ShadowAtlas: return frame.ShadowAtlas.Get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
@@ -615,7 +624,7 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::DepthPyramid:
     case Resource::AoBuffer: return nullptr;
 
-    case Resource::SceneLinear: return Frame_.LinearTex[Frame_.LinearAt].Get();
+    case Resource::SceneLinear: return frame.LinearTex[frame.LinearAt].Get();
     case Resource::kCount: return nullptr;
   }
   return nullptr;
@@ -697,112 +706,189 @@ SDL_GPUTexture *SceneRenderer::LinearSource() const {
   return Target(Plan_->Bound(Resource::SceneLinear));
 }
 
-bool SceneRenderer::Configure(Stage stage, std::string &error) {
+bool SceneRenderer::Configure(
+    Stage stage, FrameResources &frame, const Compiled &plan, bool drawsGlass, std::string &error) {
   const Executor *seat = ExecutorOf(stage);
   if (seat == nullptr) {
     error = "this device layer does not execute the stage";
     return false;
   }
   if (seat->Configure == nullptr) { return true; }
-  return (this->*seat->Configure)(error);
+  return seat->Configure(*this, frame, plan, drawsGlass, error);
 }
 
-bool SceneRenderer::ConfigureSubjects(std::string &error) {
-  if (!Subjects_.Configure(
-          Frame_.SubjectPipelines, Frame_.Handles, nullptr, nullptr, DrawsGlass_, error)) {
-    return false;
-  }
-  Subjects_.UsePipelines(Frame_.SubjectPipelines);
-  return true;
+bool SceneRenderer::ConfigureSubjects(SceneRenderer &renderer,
+                                      FrameResources &frame,
+                                      const Compiled &plan,
+                                      bool drawsGlass,
+                                      std::string &error) {
+  (void)plan;
+  return renderer.Subjects_.Configure(
+      frame.SubjectPipelines, frame.Handles, nullptr, nullptr, drawsGlass, error);
 }
 
-bool SceneRenderer::ConfigureGlass(std::string &error) {
-  Glass_.Shares(Subjects_.Owned());
-  if (!Glass_.Configure(Frame_.GlassPipelines,
-                        Frame_.Handles,
-                        Frame_.HdrTex.Get(),
-                        Frame_.Samp.Get(),
-                        false,
-                        error)) {
-    return false;
-  }
-  Glass_.UsePipelines(Frame_.GlassPipelines);
-  return true;
+bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
+                                   FrameResources &frame,
+                                   const Compiled &plan,
+                                   bool drawsGlass,
+                                   std::string &error) {
+  (void)plan;
+  (void)drawsGlass;
+  renderer.Glass_.Shares(renderer.Subjects_.Owned());
+  return renderer.Glass_.Configure(
+      frame.GlassPipelines, frame.Handles, frame.HdrTex.Get(), frame.Samp.Get(), false, error);
 }
 
-bool SceneRenderer::ConfigureCompositeTransmission(std::string &error) {
-  return Frame_.CompositeTransmission.Configure(
-      Frame_.Handles,
-      {.Opaque = Frame_.HdrTex.Get(),
-       .Transmissive = Frame_.TransmissiveTex.Get(),
-       .Exact = Frame_.Samp.Get(),
-       .Target = FormatOf(Plan_->Format(Resource::SceneComposited))},
+bool SceneRenderer::ConfigureCompositeTransmission(SceneRenderer &renderer,
+                                                   FrameResources &frame,
+                                                   const Compiled &plan,
+                                                   bool drawsGlass,
+                                                   std::string &error) {
+  static_cast<void>(renderer);
+  (void)drawsGlass;
+  return frame.CompositeTransmission.Configure(
+      frame.Handles,
+      {.Opaque = frame.HdrTex.Get(),
+       .Transmissive = frame.TransmissiveTex.Get(),
+       .Exact = frame.Samp.Get(),
+       .Target = FormatOf(plan.Format(Resource::SceneComposited))},
       error);
 }
 
-bool SceneRenderer::ConfigureOverlay(std::string &error) {
-  return Overlay_.EnsureAtlas(Frame_.Handles, error) &&
-         Frame_.OverlayPipe.Configure(
-             Frame_.Handles, Frame_.Samp.Get(), FormatOf(Plan_->Format(Resource::FrameTex)), error);
+bool SceneRenderer::ConfigureOverlay(SceneRenderer &renderer,
+                                     FrameResources &frame,
+                                     const Compiled &plan,
+                                     bool drawsGlass,
+                                     std::string &error) {
+  (void)drawsGlass;
+  return renderer.Overlay_.EnsureAtlas(frame.Handles, error) &&
+         frame.OverlayPipe.Configure(
+             frame.Handles, frame.Samp.Get(), FormatOf(plan.Format(Resource::FrameTex)), error);
 }
 
-bool SceneRenderer::ConfigurePresent(std::string &error) {
-  return Frame_.Present.Configure(Frame_.Handles, Frame_.FrameTex.Get(), Frame_.Samp.Get(), error);
+bool SceneRenderer::ConfigurePresent(SceneRenderer &renderer,
+                                     FrameResources &frame,
+                                     const Compiled &plan,
+                                     bool drawsGlass,
+                                     std::string &error) {
+  static_cast<void>(renderer);
+  (void)plan;
+  (void)drawsGlass;
+  return frame.Present.Configure(frame.Handles, frame.FrameTex.Get(), frame.Samp.Get(), error);
 }
 
-bool SceneRenderer::ConfigureTonemap(std::string &error) {
-  return Frame_.Tonemap.Configure(Frame_.Handles,
-                                  {.Scene = DisplaySource(),
-                                   .Depth = Frame_.DepthTex.Get(),
-                                   .Exact = Frame_.Samp.Get(),
-                                   .Linear = FormatOf(Plan_->Format(Resource::SceneLinear))},
-                                  Display(),
-                                  error);
-}
-
-bool SceneRenderer::ConfigureMediumTransmittance(std::string &error) {
-  return Frame_.MediumTransmittance.Configure(Frame_.Handles, Frame_.TransmittanceLut.Get(), error);
-}
-
-bool SceneRenderer::ConfigureMediumMultiScatter(std::string &error) {
-  return Frame_.MultiScatter.Configure(Frame_.Handles,
-                                       Frame_.TransmittanceLut.Get(),
-                                       Frame_.LutSamp.Get(),
-                                       Frame_.MultiScatterLut.Get(),
-                                       error);
-}
-
-bool SceneRenderer::ConfigureMediumRadiance(std::string &error) {
-  return Frame_.Radiance.Configure(Frame_.Handles,
-                                   Frame_.TransmittanceLut.Get(),
-                                   Frame_.MultiScatterLut.Get(),
-                                   Frame_.LutSamp.Get(),
-                                   Frame_.SkyViewLut.Get(),
-                                   error);
-}
-
-bool SceneRenderer::ConfigureSky(std::string &error) {
-  return Frame_.Sky.Configure(Frame_.Handles,
-                              {.SkyView = Frame_.SkyViewLut.Get(),
-                               .Transmittance = Frame_.TransmittanceLut.Get(),
-                               .Lut = Frame_.LutSamp.Get()},
-                              error);
-}
-
-bool SceneRenderer::ConfigureAerialPerspective(std::string &error) {
-  return Frame_.Aerial.Configure(Frame_.Handles,
-                                 {.Scene = Target(Plan_->Bound(Resource::SceneComposited)),
-                                  .Depth = Frame_.DepthTex.Get(),
-                                  .SkyView = Frame_.SkyViewLut.Get(),
-                                  .Transmittance = Frame_.TransmittanceLut.Get(),
-                                  .Exact = Frame_.Samp.Get(),
-                                  .Lut = Frame_.LutSamp.Get()},
-                                 FormatOf(Plan_->Format(Resource::SceneAerial)),
+bool SceneRenderer::ConfigureTonemap(SceneRenderer &renderer,
+                                     FrameResources &frame,
+                                     const Compiled &plan,
+                                     bool drawsGlass,
+                                     std::string &error) {
+  static_cast<void>(renderer);
+  (void)drawsGlass;
+  const Resource input =
+      plan.Holds(Stage::TemporalResolve) ? Resource::SceneAerial : Resource::SceneLinear;
+  DisplayOptions display;
+  display.Exposure = plan.Exposure();
+  display.Curve = plan.Display();
+  display.Temporal = plan.Holds(Stage::TemporalResolve);
+  return frame.Tonemap.Configure(frame.Handles,
+                                 {.Scene = Target(frame, plan.Bound(input)),
+                                  .Depth = frame.DepthTex.Get(),
+                                  .Exact = frame.Samp.Get(),
+                                  .Linear = FormatOf(plan.Format(Resource::SceneLinear))},
+                                 display,
                                  error);
 }
 
-bool SceneRenderer::ConfigureLightVisibility(std::string &error) {
-  return Frame_.Shadow.Configure(Subjects_, Frame_.Handles, error);
+bool SceneRenderer::ConfigureMediumTransmittance(SceneRenderer &renderer,
+                                                 FrameResources &frame,
+                                                 const Compiled &plan,
+                                                 bool drawsGlass,
+                                                 std::string &error) {
+  static_cast<void>(renderer);
+  (void)plan;
+  (void)drawsGlass;
+  return frame.MediumTransmittance.Configure(frame.Handles, frame.TransmittanceLut.Get(), error);
+}
+
+bool SceneRenderer::ConfigureMediumMultiScatter(SceneRenderer &renderer,
+                                                FrameResources &frame,
+                                                const Compiled &plan,
+                                                bool drawsGlass,
+                                                std::string &error) {
+  static_cast<void>(renderer);
+  (void)plan;
+  (void)drawsGlass;
+  return frame.MultiScatter.Configure(frame.Handles,
+                                      frame.TransmittanceLut.Get(),
+                                      frame.LutSamp.Get(),
+                                      frame.MultiScatterLut.Get(),
+                                      error);
+}
+
+bool SceneRenderer::ConfigureMediumRadiance(SceneRenderer &renderer,
+                                            FrameResources &frame,
+                                            const Compiled &plan,
+                                            bool drawsGlass,
+                                            std::string &error) {
+  static_cast<void>(renderer);
+  (void)plan;
+  (void)drawsGlass;
+  return frame.Radiance.Configure(frame.Handles,
+                                  frame.TransmittanceLut.Get(),
+                                  frame.MultiScatterLut.Get(),
+                                  frame.LutSamp.Get(),
+                                  frame.SkyViewLut.Get(),
+                                  error);
+}
+
+bool SceneRenderer::ConfigureSky(SceneRenderer &renderer,
+                                 FrameResources &frame,
+                                 const Compiled &plan,
+                                 bool drawsGlass,
+                                 std::string &error) {
+  static_cast<void>(renderer);
+  (void)plan;
+  (void)drawsGlass;
+  return frame.Sky.Configure(frame.Handles,
+                             {.SkyView = frame.SkyViewLut.Get(),
+                              .Transmittance = frame.TransmittanceLut.Get(),
+                              .Lut = frame.LutSamp.Get()},
+                             error);
+}
+
+bool SceneRenderer::ConfigureAerialPerspective(SceneRenderer &renderer,
+                                               FrameResources &frame,
+                                               const Compiled &plan,
+                                               bool drawsGlass,
+                                               std::string &error) {
+  static_cast<void>(renderer);
+  (void)drawsGlass;
+  return frame.Aerial.Configure(frame.Handles,
+                                {.Scene = Target(frame, plan.Bound(Resource::SceneComposited)),
+                                 .Depth = frame.DepthTex.Get(),
+                                 .SkyView = frame.SkyViewLut.Get(),
+                                 .Transmittance = frame.TransmittanceLut.Get(),
+                                 .Exact = frame.Samp.Get(),
+                                 .Lut = frame.LutSamp.Get()},
+                                FormatOf(plan.Format(Resource::SceneAerial)),
+                                error);
+}
+
+bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
+                                             FrameResources &frame,
+                                             const Compiled &plan,
+                                             bool drawsGlass,
+                                             std::string &error) {
+  (void)plan;
+  (void)drawsGlass;
+  return frame.Shadow.Configure(renderer.Subjects_, frame.Handles, error);
+}
+
+void SceneRenderer::BindFrameResources() {
+  Subjects_.UsePipelines(Frame_.SubjectPipelines);
+  Glass_.UsePipelines(Frame_.GlassPipelines);
+  Subjects_.SkyFrom(Frame_.IrradianceBuffer.Get());
+  if (DrawsGlass_) { Glass_.SkyFrom(Frame_.IrradianceBuffer.Get()); }
 }
 
 void SceneRenderer::Picture(bool picture, const PassRecording &into) {
@@ -949,16 +1035,31 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
   return true;
 }
 
-bool SceneRenderer::ConfigureIrradiance(std::string &error) {
-  Subjects_.SkyFrom(Frame_.IrradianceBuffer.Get());
-  if (DrawsGlass_) { Glass_.SkyFrom(Frame_.IrradianceBuffer.Get()); }
-  if (!GroundStorage_.Ready() && !SetGroundClasses({}, {}, error)) { return false; }
-  return Frame_.SkyIrradianceStage.Configure(Frame_.Handles,
-                                             Frame_.TransmittanceLut.Get(),
-                                             Frame_.MultiScatterLut.Get(),
-                                             Frame_.LutSamp.Get(),
-                                             Frame_.IrradianceBuffer.Get(),
-                                             error);
+bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
+                                        FrameResources &frame,
+                                        const Compiled &plan,
+                                        bool drawsGlass,
+                                        std::string &error) {
+  (void)plan;
+  (void)drawsGlass;
+  if (!renderer.GroundStorage_.Ready()) {
+    const auto uploaded =
+        renderer.GroundStorage_.Replace(frame.Handles.Device, {}, {}, renderer.Submission_);
+    if (!uploaded) {
+      error = uploaded.error();
+      return false;
+    }
+    renderer.Subjects_.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
+                                   .Palette = renderer.GroundStorage_.Palette()});
+    renderer.Glass_.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
+                                .Palette = renderer.GroundStorage_.Palette()});
+  }
+  return frame.SkyIrradianceStage.Configure(frame.Handles,
+                                            frame.TransmittanceLut.Get(),
+                                            frame.MultiScatterLut.Get(),
+                                            frame.LutSamp.Get(),
+                                            frame.IrradianceBuffer.Get(),
+                                            error);
 }
 
 void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecording &into) {
@@ -966,13 +1067,20 @@ void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecordin
   Frame_.SkyIrradianceStage.Encode(into);
 }
 
-bool SceneRenderer::ConfigureDepthPyramid(std::string &error) {
-  return Frame_.PyramidStage.Configure(Frame_.Handles,
-                                       Frame_.DepthTex.Get(),
-                                       Frame_.Samp.Get(),
-                                       Frame_.Pyramid.Get(),
-                                       {.WidthPx = Frame_.Width, .HeightPx = Frame_.Height},
-                                       error);
+bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
+                                          FrameResources &frame,
+                                          const Compiled &plan,
+                                          bool drawsGlass,
+                                          std::string &error) {
+  static_cast<void>(renderer);
+  (void)plan;
+  (void)drawsGlass;
+  return frame.PyramidStage.Configure(frame.Handles,
+                                      frame.DepthTex.Get(),
+                                      frame.Samp.Get(),
+                                      frame.Pyramid.Get(),
+                                      {.WidthPx = frame.Width, .HeightPx = frame.Height},
+                                      error);
 }
 
 void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into) {
@@ -980,11 +1088,17 @@ void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecord
   Frame_.PyramidStage.Encode(into);
 }
 
-bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
-  Frame_.Cull.PyramidFrom(Frame_.Pyramid.Get(),
-                          PyramidOver({.WidthPx = static_cast<uint32_t>(Frame_.Width),
-                                       .HeightPx = static_cast<uint32_t>(Frame_.Height)}));
-  return Frame_.Cull.Configure(Subjects_, Frame_.Handles, error);
+bool SceneRenderer::ConfigureSubjectCull(SceneRenderer &renderer,
+                                         FrameResources &frame,
+                                         const Compiled &plan,
+                                         bool drawsGlass,
+                                         std::string &error) {
+  (void)plan;
+  (void)drawsGlass;
+  frame.Cull.PyramidFrom(frame.Pyramid.Get(),
+                         PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
+                                      .HeightPx = static_cast<uint32_t>(frame.Height)}));
+  return frame.Cull.Configure(renderer.Subjects_, frame.Handles, error);
 }
 
 void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {

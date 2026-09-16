@@ -394,14 +394,24 @@ private:
 
   void Create(FrameResources &frame, const Compiled &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
-  [[nodiscard]] bool Configure(Stage stage, std::string &error);
-  [[nodiscard]] bool ConfigurePlanStages();
-  [[nodiscard]] AttachmentSet ColoursForStage(Stage wanted) const;
+  [[nodiscard]] bool Configure(Stage stage,
+                               FrameResources &frame,
+                               const Compiled &plan,
+                               bool drawsGlass,
+                               std::string &error);
+  [[nodiscard]] bool
+  ConfigurePlanStages(FrameResources &frame, const Compiled &plan, bool drawsGlass);
+  [[nodiscard]] static AttachmentSet
+  ColoursForStage(const FrameResources &frame, const Compiled &plan, Stage wanted);
   void EncodeStage(Stage stage, const PassRecording &into);
 
   struct Executor {
     Stage Named;
-    bool (SceneRenderer::*Configure)(std::string &error);
+    bool (*Configure)(SceneRenderer &renderer,
+                      FrameResources &frame,
+                      const Compiled &plan,
+                      bool drawsGlass,
+                      std::string &error);
     void (SceneRenderer::*Encode)(const FrameContext &ctx, const PassRecording &into);
   };
 
@@ -409,23 +419,81 @@ private:
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   void Picture(bool picture, const PassRecording &into);
-  [[nodiscard]] bool ConfigureSubjects(std::string &error);
-  [[nodiscard]] bool ConfigureGlass(std::string &error);
-  [[nodiscard]] bool ConfigureCompositeTransmission(std::string &error);
-  [[nodiscard]] bool ConfigureOverlay(std::string &error);
-  [[nodiscard]] bool ConfigurePresent(std::string &error);
-  [[nodiscard]] bool ConfigureTonemap(std::string &error);
-  [[nodiscard]] bool ConfigureMediumTransmittance(std::string &error);
-  [[nodiscard]] bool ConfigureMediumMultiScatter(std::string &error);
-  [[nodiscard]] bool ConfigureMediumRadiance(std::string &error);
-
-  [[nodiscard]] bool ConfigureIrradiance(std::string &error);
-
-  [[nodiscard]] bool ConfigureDepthPyramid(std::string &error);
-  [[nodiscard]] bool ConfigureSky(std::string &error);
-  [[nodiscard]] bool ConfigureAerialPerspective(std::string &error);
-  [[nodiscard]] bool ConfigureLightVisibility(std::string &error);
-  [[nodiscard]] bool ConfigureSubjectCull(std::string &error);
+  [[nodiscard]] static bool ConfigureSubjects(SceneRenderer &renderer,
+                                              FrameResources &frame,
+                                              const Compiled &plan,
+                                              bool drawsGlass,
+                                              std::string &error);
+  [[nodiscard]] static bool ConfigureGlass(SceneRenderer &renderer,
+                                           FrameResources &frame,
+                                           const Compiled &plan,
+                                           bool drawsGlass,
+                                           std::string &error);
+  [[nodiscard]] static bool ConfigureCompositeTransmission(SceneRenderer &renderer,
+                                                           FrameResources &frame,
+                                                           const Compiled &plan,
+                                                           bool drawsGlass,
+                                                           std::string &error);
+  [[nodiscard]] static bool ConfigureOverlay(SceneRenderer &renderer,
+                                             FrameResources &frame,
+                                             const Compiled &plan,
+                                             bool drawsGlass,
+                                             std::string &error);
+  [[nodiscard]] static bool ConfigurePresent(SceneRenderer &renderer,
+                                             FrameResources &frame,
+                                             const Compiled &plan,
+                                             bool drawsGlass,
+                                             std::string &error);
+  [[nodiscard]] static bool ConfigureTonemap(SceneRenderer &renderer,
+                                             FrameResources &frame,
+                                             const Compiled &plan,
+                                             bool drawsGlass,
+                                             std::string &error);
+  [[nodiscard]] static bool ConfigureMediumTransmittance(SceneRenderer &renderer,
+                                                         FrameResources &frame,
+                                                         const Compiled &plan,
+                                                         bool drawsGlass,
+                                                         std::string &error);
+  [[nodiscard]] static bool ConfigureMediumMultiScatter(SceneRenderer &renderer,
+                                                        FrameResources &frame,
+                                                        const Compiled &plan,
+                                                        bool drawsGlass,
+                                                        std::string &error);
+  [[nodiscard]] static bool ConfigureMediumRadiance(SceneRenderer &renderer,
+                                                    FrameResources &frame,
+                                                    const Compiled &plan,
+                                                    bool drawsGlass,
+                                                    std::string &error);
+  [[nodiscard]] static bool ConfigureIrradiance(SceneRenderer &renderer,
+                                                FrameResources &frame,
+                                                const Compiled &plan,
+                                                bool drawsGlass,
+                                                std::string &error);
+  [[nodiscard]] static bool ConfigureDepthPyramid(SceneRenderer &renderer,
+                                                  FrameResources &frame,
+                                                  const Compiled &plan,
+                                                  bool drawsGlass,
+                                                  std::string &error);
+  [[nodiscard]] static bool ConfigureSky(SceneRenderer &renderer,
+                                         FrameResources &frame,
+                                         const Compiled &plan,
+                                         bool drawsGlass,
+                                         std::string &error);
+  [[nodiscard]] static bool ConfigureAerialPerspective(SceneRenderer &renderer,
+                                                       FrameResources &frame,
+                                                       const Compiled &plan,
+                                                       bool drawsGlass,
+                                                       std::string &error);
+  [[nodiscard]] static bool ConfigureLightVisibility(SceneRenderer &renderer,
+                                                     FrameResources &frame,
+                                                     const Compiled &plan,
+                                                     bool drawsGlass,
+                                                     std::string &error);
+  [[nodiscard]] static bool ConfigureSubjectCull(SceneRenderer &renderer,
+                                                 FrameResources &frame,
+                                                 const Compiled &plan,
+                                                 bool drawsGlass,
+                                                 std::string &error);
   void EncodeSubjects(const FrameContext &ctx, const PassRecording &into);
   void EncodeGlass(const FrameContext &ctx, const PassRecording &into);
   void EncodeCompositeTransmission(const FrameContext &ctx, const PassRecording &into);
@@ -456,6 +524,8 @@ private:
   void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
+  [[nodiscard]] static SDL_GPUTexture *Target(const FrameResources &frame, Resource resource);
+  void BindFrameResources();
 
   [[nodiscard]] SDL_GPUBuffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;

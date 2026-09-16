@@ -72,7 +72,10 @@ public:
                                bool separateTransmission,
                                std::string &error);
 
-  void UsePipelines(SubjectPipelineBinding &binding) noexcept { Binding_ = &binding; }
+  void UsePipelines(SubjectPipelineBinding &binding) noexcept {
+    Binding_ = &binding;
+    Ground_.UsePipelines(binding.Ground);
+  }
 
   void SeeThroughTo(SDL_GPUTexture *behind, SDL_GPUSampler *exact) {
     Binding().Behind = behind;
