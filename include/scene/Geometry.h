@@ -82,8 +82,8 @@ enum class GeometryImageError {
 /// source supports only destruction or move assignment. Query operations are O(1) and
 /// allocate nothing unless documented otherwise. Additions and attribute replacements
 /// may allocate and are preparation operations, not bounded realtime operations.
-/// Systemwide allocator exhaustion is fatal. Boolean and integer failure results describe input
-/// validation, not allocation failure.
+/// Systemwide allocator exhaustion is fatal. Typed mutation errors report invalid input or
+/// unrepresentable storage/index requirements; they do not report allocator exhaustion.
 class Geometry {
 public:
   /// Create an empty owner; allocates its private storage.
@@ -177,7 +177,7 @@ public:
   addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed);
 
   /// Copy finite XYZ positions in local metres; the source is borrowed only during the call.
-  /// Return false without mutation for an invalid part, incomplete XYZ tuple or nonfinite
+  /// Return a typed error without mutation for an invalid part, incomplete XYZ tuple or nonfinite
   /// value. Cross-attribute lengths and index bounds are checked by wellFormed().
   /// Successful replacement invalidates positionsOf(part); may allocate, O(metres.size()).
   /// Requires exclusive access to this non-moved-from object.
