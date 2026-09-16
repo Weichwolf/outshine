@@ -60,8 +60,8 @@ Ressourcenproblem nicht.
       das neue Fenster öffnet und präsentiert anschließend einen vollständigen Frame (59 Checks).
 - [ ] Injektionen für Claim, jede Attachment-/Pyramid-/Pipeline-Erzeugung und
       Stage-Konfiguration erhalten alte Pixel, Claim und Renderbarkeit.
-- [ ] Erfolgreicher Wechsel gibt den alten Claim nach Veröffentlichung frei; kein
-      Ressourcenwachstum bei Wiederholung.
+- [x] Erfolgreicher Wechsel gibt den alten Claim nach Veröffentlichung frei; wiederholte
+      48×32↔32×32-Wechsel erzeugen und geben dieselbe Texturmenge frei (62 Checks).
 - [ ] Negativkontrolle veröffentlicht Target vor Kandidatabschluss und verletzt
       mindestens Pixel-, Extent- und Fehlererhalt-Oracle.
 

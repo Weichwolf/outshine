@@ -11,6 +11,7 @@ namespace {
 enum class Failure { None, Extent, Composition, Parameters, Texture, Pipeline };
 Failure inject = Failure::None;
 unsigned injected = 0;
+unsigned createdTextures = 0;
 unsigned releasedTextures = 0;
 unsigned releasedWindows = 0;
 
@@ -79,7 +80,9 @@ extern "C" SDL_GPUTexture *SDLCALL SDL_CreateGPUTexture(SDL_GPUDevice *device,
     return nullptr;
   }
   static const auto original = Original<decltype(&SDL_CreateGPUTexture)>("SDL_CreateGPUTexture");
-  return original(device, info);
+  SDL_GPUTexture *const made = original(device, info);
+  createdTextures += made != nullptr ? 1u : 0u;
+  return made;
 }
 
 extern "C" SDL_GPUGraphicsPipeline *SDLCALL SDL_CreateGPUGraphicsPipeline(
@@ -271,6 +274,18 @@ int main() {
         CHECK(renderer.render({}).has_value() && renderer.readPixels(widened).has_value() &&
                   widened.size() == 48u * 32u * 4u,
               "the published target renders a complete frame at its new extent");
+        const unsigned madeBeforeRepeat = createdTextures;
+        const unsigned releasedBeforeRepeat = releasedTextures;
+        CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(),
+              "first repeated target switch succeeds");
+        const unsigned firstMade = createdTextures - madeBeforeRepeat;
+        const unsigned firstReleased = releasedTextures - releasedBeforeRepeat;
+        CHECK(offscreen.drawsInto(Extent{48, 32}).has_value(),
+              "second repeated target switch succeeds");
+        CHECK(createdTextures - madeBeforeRepeat == 2u * firstMade &&
+                  releasedTextures - releasedBeforeRepeat == 2u * firstReleased &&
+                  firstMade == firstReleased,
+              "repeated target switches keep a fixed resource budget");
       }
     }
   }
