@@ -638,7 +638,9 @@ bool Subject::EmitPart(outshine::Geometry &made, const Part &part) {
     for (size_t at = 0; at < from.size(); ++at) { narrowed[at] = static_cast<float>(from[at]); }
     return std::span<const float>(narrowed.data(), narrowed.size());
   };
-  const int emitted = made.addPart(part.NodeName, MaterialInstance(part.Material));
+  const auto createdPart = made.addPart(part.NodeName, MaterialInstance(part.Material));
+  if (!createdPart) { return false; }
+  const int emitted = *createdPart;
   if (!made.setPositions(emitted, asFloat(Scratch_.Pos))) { return false; }
   if (part.HasNormal && !made.setNormals(emitted, asFloat(Scratch_.Nor))) { return false; }
   if (part.HasUv && !made.setTexture(emitted, asFloat(Scratch_.Uv), 0)) { return false; }
@@ -1122,7 +1124,9 @@ std::expected<outshine::Geometry, std::string> Subject::Handed(const Document *n
     return made;
   };
   for (const Part &one : Parts_) {
-    const int made = out.addPart(one.NodeName, MaterialInstance(one.Material));
+    const auto createdPart = out.addPart(one.NodeName, MaterialInstance(one.Material));
+    if (!createdPart) { return std::unexpected(Says::NativeCapacityFailed); }
+    const int made = *createdPart;
     const std::vector<float> positions =
         floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
     if (!out.setPositions(made, positions)) { return std::unexpected(Says::NativePositionsFailed); }

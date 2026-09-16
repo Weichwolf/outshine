@@ -7,7 +7,7 @@ int main() {
   Geometry geometry;
   const auto first = geometry.addSurface("first", {}).value();
   const auto second = geometry.addSurface("second", {}).value();
-  const int part = geometry.addPart("part", first);
+  const int part = geometry.addPart("part", first).value();
   Mat4 placement;
   placement.SetTranslation({{3, 5, 7}});
   const auto created = geometry.addLamp("lamp", {}, placement);

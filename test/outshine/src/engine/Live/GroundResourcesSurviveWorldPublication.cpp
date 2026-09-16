@@ -12,7 +12,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
     Geometry geometry;
-    const int part = geometry.addPart("triangle", MaterialInstance{});
+    const int part = geometry.addPart("triangle", MaterialInstance{}).value();
     CHECK(geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
               geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
           "replacement geometry is valid");

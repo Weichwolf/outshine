@@ -65,7 +65,7 @@ int main() {
       const auto surface = geometry.addSurface("white", material);
       CHECK(surface.has_value(), "native unlit material created");
       if (surface) {
-        const int part = geometry.addPart("triangle", *surface);
+        const int part = geometry.addPart("triangle", *surface).value();
         CHECK(geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
                   geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
               "native triangle prepared");

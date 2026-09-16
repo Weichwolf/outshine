@@ -353,7 +353,8 @@ void Exercise() {
 
 void ShadowSubmission() {
   Geometry geometry;
-  const int part = geometry.addPart("caster", geometry.addSurface("white", Material{}).value());
+  const int part =
+      geometry.addPart("caster", geometry.addSurface("white", Material{}).value()).value();
   CHECK(
       geometry.setPositions(part, std::array<float, 24>{-1, -1, -1, 1, -1, -1, 1, 1, -1, -1, 1, -1,
                                                         -1, -1, 1,  1, -1, 1,  1, 1, 1,  -1, 1, 1}),

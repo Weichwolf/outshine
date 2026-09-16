@@ -16,7 +16,7 @@ int main() {
   constexpr std::array positions{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   constexpr std::array normals{0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f};
   for (const float direction : {1.0f, -1.0f}) {
-    const int part = geometry.addPart("triangle", *surface);
+    const int part = geometry.addPart("triangle", *surface).value();
     const std::array uv{0.0f, 0.0f, direction, 0.0f, 0.0f, 1.0f};
     CHECK(geometry.setPositions(part, positions) && geometry.setNormals(part, normals) &&
               geometry.setTexture(part, uv) && geometry.setTriangles(part, std::array{0u, 1u, 2u}),

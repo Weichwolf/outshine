@@ -56,7 +56,7 @@ bool Prepare(outshine::Engine &engine, bool colour = true) {
   Geometry geometry;
   const auto surface = geometry.addSurface("copper coloured test", material);
   if (!surface) { return false; }
-  const int part = geometry.addPart("triangle", *surface);
+  const int part = geometry.addPart("triangle", *surface).value();
   return geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
          geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}) && engine.declare(scene) &&
          engine.setGeometry(geometry) && engine.assemble() && engine.advance();

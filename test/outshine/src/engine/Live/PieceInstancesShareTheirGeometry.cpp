@@ -24,7 +24,7 @@ int main() {
     return Report();
   }
   Geometry base;
-  const int part = base.addPart("offscreen", base.addSurface("white", Material{}).value());
+  const int part = base.addPart("offscreen", base.addSurface("white", Material{}).value()).value();
   CHECK(base.setPositions(part,
                           std::array<float, 18>{-100.4f,
                                                 -0.4f,
@@ -58,7 +58,8 @@ int main() {
   masked.BaseColourMap.Sampler.Minify = masked.BaseColourMap.Sampler.Magnify = Filter::Nearest;
   masked.BaseColourMap.Sampler.Mip = MipFilter::None;
   masked.NormalMap.Image = *base.addImage(1, 1, std::array<uint8_t, 4>{191, 159, 231, 255});
-  const int maskPart = base.addPart("masked-offscreen", base.addSurface("masked", masked).value());
+  const int maskPart =
+      base.addPart("masked-offscreen", base.addSurface("masked", masked).value()).value();
   CHECK(base.setPositions(maskPart,
                           std::array<float, 9>{99.6f, -0.4f, 0, 100.4f, -0.4f, 0, 100, 0.4f, 0}),
         "masked base positions");

@@ -31,7 +31,8 @@ int main() {
   material.BaseColourMap.Sampler.Mip = MipFilter::None;
   material.BaseColourMap.Sampler.WrapU = Wrap::ClampToEdge;
   material.BaseColourMap.Sampler.WrapV = Wrap::ClampToEdge;
-  const int part = geometry.addPart("quad", geometry.addSurface("colour", material).value());
+  const int part =
+      geometry.addPart("quad", geometry.addSurface("colour", material).value()).value();
   CHECK(geometry.setPositions(part, std::array<float, 12>{-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0}),
         "positions");
   CHECK(geometry.setNormals(part, std::array<float, 12>{0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1}),

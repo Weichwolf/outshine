@@ -10,7 +10,7 @@ int main() {
   constexpr std::array positions{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   constexpr std::array indices{0u, 1u, 2u};
   Geometry previous;
-  const int original = previous.addPart("previous", {});
+  const int original = previous.addPart("previous", {}).value();
   CHECK(previous.setPositions(original, previousPositions) &&
             previous.setTriangles(original, indices),
         "previous native mesh prepared");
@@ -19,7 +19,7 @@ int main() {
   const auto *storage = subject.PositionsM().data();
   Geometry candidate;
   for (int part = 0; part < 2; ++part) {
-    const int added = candidate.addPart("candidate", {});
+    const int added = candidate.addPart("candidate", {}).value();
     CHECK(candidate.setPositions(added, positions) && candidate.setTriangles(added, indices),
           "candidate mesh prepared");
   }

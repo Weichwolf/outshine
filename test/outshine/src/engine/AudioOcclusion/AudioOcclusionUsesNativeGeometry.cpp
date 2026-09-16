@@ -13,7 +13,7 @@ int main() {
   const std::array<uint32_t, 3> indices{0, 1, 2};
   const int material = geometry.addSurface("wall", {}).value().index();
   for (int n = 0; n < 2; ++n) {
-    const int part = geometry.addPart("wall", MaterialInstance(material));
+    const int part = geometry.addPart("wall", MaterialInstance(material)).value();
     CHECK(geometry.setPositions(part, wall), "native wall positions");
     CHECK(geometry.setTriangles(part, indices), "native wall triangles");
     Mat4 placement;

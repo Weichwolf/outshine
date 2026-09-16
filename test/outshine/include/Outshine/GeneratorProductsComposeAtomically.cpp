@@ -27,7 +27,7 @@ public:
     material.Unlit = true;
     const auto surface = geometry.addSurface(Name_, material);
     if (!surface) { return std::unexpected("could not create product material"); }
-    const int part = geometry.addPart(Name_, *surface);
+    const int part = geometry.addPart(Name_, *surface).value();
     constexpr float halfWidthM = 0.45F;
     if (!geometry.setPositions(part,
                                std::array<float, 12>{CentreX_ - halfWidthM,

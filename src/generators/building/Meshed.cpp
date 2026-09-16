@@ -53,7 +53,9 @@ bool Meshed::Take(std::string_view named,
     run[vertex] = static_cast<uint32_t>(vertex);
   }
 
-  const int part = Held_.addPart(named, material);
+  const auto createdPart = Held_.addPart(named, material);
+  if (!createdPart) { return false; }
+  const int part = *createdPart;
   return Held_.setPositions(part, positionsM) && Held_.setTexture(part, uv) &&
          Held_.setNormals(part, normalM) && Held_.setTriangles(part, run);
 }

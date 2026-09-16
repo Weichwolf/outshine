@@ -134,7 +134,9 @@ Generator::Product Structures::make(const Request &asked) const {
   const auto named = into.addSurface("walls", walls);
   if (!named) { return std::unexpected("could not create structure material"); }
   for (int part = 0; part < stood.parts(); ++part) {
-    const int here = into.addPart("structure", *named);
+    const auto createdPart = into.addPart("structure", *named);
+    if (!createdPart) { return std::unexpected("structure part capacity exceeded"); }
+    const int here = *createdPart;
     if (!into.setPositions(here, stood.positionsOf(part)) ||
         !into.setTriangles(here, stood.trianglesOf(part))) {
       return std::unexpected("could not publish structure geometry");

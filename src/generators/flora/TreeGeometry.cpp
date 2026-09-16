@@ -34,7 +34,9 @@ struct Surface {
     if (Indices.empty()) { return true; }
     const auto surface = geometry.addSurface(name, material);
     if (!surface) { return false; }
-    const int part = geometry.addPart(name, *surface);
+    const auto createdPart = geometry.addPart(name, *surface);
+    if (!createdPart) { return false; }
+    const int part = *createdPart;
     return part >= 0 && geometry.setPositions(part, Positions) &&
            geometry.setNormals(part, Normals) && geometry.setTexture(part, Uvs) &&
            geometry.setTriangles(part, Indices);

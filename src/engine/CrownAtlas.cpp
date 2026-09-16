@@ -336,7 +336,9 @@ std::optional<Geometry> CrownAtlas::GeometryAt(size_t view) const {
   }
   const auto surface = geometry.addSurface("crown", material);
   if (!surface) { return std::nullopt; }
-  const int part = geometry.addPart("crown", *surface);
+  const auto createdPart = geometry.addPart("crown", *surface);
+  if (!createdPart) { return std::nullopt; }
+  const int part = *createdPart;
   const std::array<Vec3, 4> corners{CentreM_ - right * HalfExtentM_ - Vec3{{0, HalfExtentM_, 0}},
                                     CentreM_ + right * HalfExtentM_ - Vec3{{0, HalfExtentM_, 0}},
                                     CentreM_ + right * HalfExtentM_ + Vec3{{0, HalfExtentM_, 0}},

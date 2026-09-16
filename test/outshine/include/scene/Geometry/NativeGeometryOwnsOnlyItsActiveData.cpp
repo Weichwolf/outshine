@@ -10,7 +10,7 @@ int main() {
   const std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
   const std::array<uint32_t, 3> triangle{0, 1, 2};
   const auto add = [&] {
-    const int part = geometry.addPart("triangle", MaterialInstance{});
+    const int part = geometry.addPart("triangle", MaterialInstance{}).value();
     CHECK(geometry.setPositions(part, positions).has_value(), "copy local positions");
     CHECK(geometry.setTriangles(part, triangle).has_value(), "copy triangle indices");
     return part;

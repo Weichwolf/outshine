@@ -84,7 +84,7 @@ void ImportedCameraSurvivesBinding() {
   }
   {
     Geometry native;
-    const int part = native.addPart("native default material", MaterialInstance{});
+    const int part = native.addPart("native default material", MaterialInstance{}).value();
     CHECK(native.setPositions(
               part, std::array<float, 9>{0.8f, -0.5f, 0, 2.2f, -0.5f, 0, 1.5f, 0.5f, 0}) &&
               native.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),

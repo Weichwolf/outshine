@@ -1338,7 +1338,9 @@ bool Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wear
   }
   const auto paved = ground.addSurface("streets", tarmac);
   if (!paved) { return false; }
-  const int pavedPart = ground.addPart("streets", *paved);
+  const auto createdPart = ground.addPart("streets", *paved);
+  if (!createdPart) { return false; }
+  const int pavedPart = *createdPart;
   const bool tookPaving =
       pavedPart >= 0 &&
       ground.setPositions(

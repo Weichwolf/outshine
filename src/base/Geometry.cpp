@@ -148,7 +148,12 @@ void Geometry::clear() {
   Held_->Lamps.clear();
 }
 
-int Geometry::addPart(std::string_view named, MaterialInstance material) {
+std::expected<int, GeometryPartError> Geometry::addPart(std::string_view named,
+                                                        MaterialInstance material) {
+  if (std::cmp_greater_equal(Held_->Live, std::numeric_limits<int>::max()) ||
+      Held_->Live >= Held_->Parts.max_size()) {
+    return std::unexpected(GeometryPartError::CapacityExceeded);
+  }
   if (Held_->Live == Held_->Parts.size()) { Held_->Parts.emplace_back(); }
   Geometry::Held::Piece &piece = Held_->Parts[Held_->Live];
   piece.Named.assign(named.begin(), named.end());

@@ -14,7 +14,7 @@ int main() {
   if (!initialized) { return Report(); }
   {
     Geometry geometry;
-    const int part = geometry.addPart("triangle", MaterialInstance{});
+    const int part = geometry.addPart("triangle", MaterialInstance{}).value();
     CHECK(geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
               geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
           "native geometry ready");

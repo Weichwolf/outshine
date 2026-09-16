@@ -37,7 +37,7 @@ int main() {
   CHECK(textured.ReadFile((root / "textured.gltf").string()), textured.Error().c_str());
   CHECK(plain.ReadFile((root / "plain.gltf").string()), plain.Error().c_str());
   Geometry geometry;
-  const int part = geometry.addPart("triangle", {});
+  const int part = geometry.addPart("triangle", {}).value();
   CHECK(geometry.setPositions(part, std::array{0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f}) &&
             geometry.setTriangles(part, std::array{0u, 1u, 2u}) &&
             geometry.setTexture(part, std::array{0.f, 0.f, 1.f, 0.f, 0.f, 1.f}),

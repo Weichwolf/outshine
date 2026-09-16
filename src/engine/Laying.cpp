@@ -771,7 +771,12 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
   const size_t waterTriangles = order.size() / 3;
   Published.Places("water: triangles", static_cast<double>(waterTriangles), "triangles");
   if (order.size() >= 3) {
-    const int wetPart = ground.addPart("water", ringSurface);
+    const auto createdPart = ground.addPart("water", ringSurface);
+    if (!createdPart) {
+      Error = Says::WaterCreationFailed;
+      return false;
+    }
+    const int wetPart = *createdPart;
     const bool tookWater =
         wetPart >= 0 &&
         ground.setPositions(wetPart, std::span<const float>(places.data(), places.size())) &&

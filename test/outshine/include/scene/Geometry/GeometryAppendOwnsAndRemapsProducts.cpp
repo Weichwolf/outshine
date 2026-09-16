@@ -13,7 +13,7 @@ outshine::Geometry Make(uint8_t red) {
   material.BaseColourMap.Image = 0;
   const auto surface = geometry.addSurface("surface", material);
   if (!surface) { return geometry; }
-  const int part = geometry.addPart("triangle", *surface);
+  const int part = geometry.addPart("triangle", *surface).value();
   (void)geometry.setPositions(part, positions);
   (void)geometry.setTriangles(part, triangle);
   return geometry;

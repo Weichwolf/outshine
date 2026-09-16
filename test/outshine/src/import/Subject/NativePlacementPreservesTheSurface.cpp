@@ -10,7 +10,7 @@ int main() {
   using namespace outshine::Test;
   Geometry geometry;
   const int part =
-      geometry.addPart("inclined plane", geometry.addSurface("dielectric", {}).value());
+      geometry.addPart("inclined plane", geometry.addSurface("dielectric", {}).value()).value();
   const float unit = std::sqrt(0.5f);
   CHECK(geometry.setPositions(part, std::array<float, 9>{0, 0, 0, 1, 0, -1, 0, 1, 0}).has_value(),
         "positions");
@@ -186,7 +186,7 @@ int main() {
   CHECK(combined.Parts[0].Name == "inclined plane" && combined.Lamps.size() == 6,
         "packed names and lights belong to the render storage");
   Geometry faceted;
-  const int facePart = faceted.addPart("shared hard edge", MaterialInstance{});
+  const int facePart = faceted.addPart("shared hard edge", MaterialInstance{}).value();
   CHECK(faceted.setPositions(facePart, std::array<float, 12>{0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1}) &&
             faceted.setTexture(facePart, std::array<float, 8>{0, 0, 1, 0, 0, 1, 1, 1}) &&
             faceted.setTriangles(facePart, std::array<uint32_t, 6>{0, 1, 2, 0, 3, 1}),

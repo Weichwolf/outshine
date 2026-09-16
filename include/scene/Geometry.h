@@ -21,6 +21,11 @@ enum class MaterialError {
   InvalidMaterial   ///< Factors, texture parameters or owner-local image bindings are invalid.
 };
 
+/// Failure when creating an empty mesh part; existing parts remain unchanged.
+enum class GeometryPartError {
+  CapacityExceeded ///< The owner-local part count or storage capacity is exhausted.
+};
+
 /// Failure when replacing a mesh part's local-to-model transform; no state changes.
 enum class PlacementError {
   MissingPart,     ///< The owner-local part index is absent.
@@ -117,9 +122,11 @@ public:
   /// Append an empty part with identity placement; fill attributes before publication.
   /// @param named Name copied into this owner.
   /// @param material Owner-local reference, or unbound for the default material.
-  /// @return New zero-based part index. The reference is stored without validation.
+  /// @return New zero-based part index, or CapacityExceeded without mutation.
+  /// The material reference is stored without validation.
   /// May grow part storage; cost includes copying the name and relocating part records.
-  int addPart(std::string_view named, MaterialInstance material);
+  [[nodiscard]] std::expected<int, GeometryPartError> addPart(std::string_view named,
+                                                              MaterialInstance material);
   /// Remove all active parts, materials, images and lights; retain reusable part capacity.
   /// Invalidates all borrowed views and part/material/image indices. Requires exclusive
   /// access to this non-moved-from object; no concurrent readers or writers are allowed.

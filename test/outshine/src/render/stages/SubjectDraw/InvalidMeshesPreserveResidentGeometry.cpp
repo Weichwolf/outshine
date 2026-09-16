@@ -21,7 +21,7 @@ int main() {
     constexpr std::array<float, 9> emitted{};
     constexpr std::array<uint32_t, 3> indices{0, 1, 2};
     Geometry geometry;
-    const int part = geometry.addPart("triangle", MaterialInstance{});
+    const int part = geometry.addPart("triangle", MaterialInstance{}).value();
     CHECK(geometry.setPositions(part, positions) && geometry.setTriangles(part, indices),
           "native triangle prepared");
     Core::Declaration declaration;

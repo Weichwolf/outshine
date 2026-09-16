@@ -7,7 +7,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Geometry geometry;
-  const int part = geometry.addPart("triangle", {});
+  const int part = geometry.addPart("triangle", {}).value();
   constexpr std::array positions{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   constexpr std::array indices{0u, 1u, 2u};
   CHECK(geometry.setPositions(part, positions) && geometry.setTriangles(part, indices),

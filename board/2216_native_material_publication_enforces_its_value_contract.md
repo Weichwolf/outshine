@@ -44,7 +44,7 @@ melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer ü
 ## Native-Konstruktionsfehler
 `addImage` liefert expected mit Maß-/Bytezahl-/Kapazitätsfehler; Erhaltung und Retry sind geprüft.
 `addLamp` liefert expected mit Kapazitätsprüfung; native/Import-/Spotlichtprüfungen grün.
-`addPart` und synthetische Kapazitätsabnahme bleiben offen; Bildfehler an Adaptern noch Text/nullopt.
+`addPart` liefert expected; Aufrufer geprüft. Synthetische Kapazitätsabnahme bleibt offen.
 ## Import-Vorprüfung
 Subject::Assemble prüft lokale Indizes und Attribute jetzt vor Clear und partieller Kopie.
 ValidatePart/ValidateAssembly liefern expected; destruktives Refuse wird vor Mutation vermieden.

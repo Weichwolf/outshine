@@ -91,7 +91,8 @@ int main() {
     material.BaseColour = {0.35f, 0.35f, 0.35f, 1};
     material.Roughness = 0.35f;
     const int part =
-        geometry.addPart("graded curved road", geometry.addSurface("road", material).value());
+        geometry.addPart("graded curved road", geometry.addSurface("road", material).value())
+            .value();
     CHECK(geometry.setPositions(part, ribbon.PositionM) &&
               geometry.setNormals(part, ribbon.NormalM) &&
               geometry.setTriangles(part, ribbon.Index),

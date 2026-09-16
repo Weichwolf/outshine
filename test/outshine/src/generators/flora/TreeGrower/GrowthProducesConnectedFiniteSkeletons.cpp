@@ -77,7 +77,7 @@ void ExportBark(const TreeSkeleton &tree) {
   const auto surface = geometry.addSurface("diagnostic bark silhouette", material);
   CHECK(surface.has_value(), "diagnostic material is native");
   if (!surface) { return; }
-  const int part = geometry.addPart("fir branches", *surface);
+  const int part = geometry.addPart("fir branches", *surface).value();
   std::vector<float> positions;
   std::vector<float> normals;
   for (size_t at = 0; at < mesh.BarkVertexCount(); ++at) {

@@ -14,7 +14,7 @@ int main() {
   constexpr std::array positions{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   constexpr std::array indices{0u, 1u, 2u};
   for (const auto material : {first, last}) {
-    const int part = input.addPart("triangle", material);
+    const int part = input.addPart("triangle", material).value();
     CHECK(input.setPositions(part, positions) && input.setTriangles(part, indices),
           "source mesh prepared");
   }

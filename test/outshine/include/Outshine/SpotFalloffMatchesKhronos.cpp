@@ -23,7 +23,8 @@ int main() {
     Geometry geometry;
     Material material;
     material.Roughness = 0.5f;
-    const int part = geometry.addPart("plane", geometry.addSurface("dielectric", material).value());
+    const int part =
+        geometry.addPart("plane", geometry.addSurface("dielectric", material).value()).value();
     CHECK(
         geometry.setPositions(part, std::array<float, 12>{-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0}),
         "plane positions");

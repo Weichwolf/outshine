@@ -23,7 +23,7 @@ int main(void) {
   Geometry made;
   Material flat;
   const MaterialInstance surface = made.addSurface("flat", flat).value();
-  const int part = made.addPart("triangle", surface);
+  const int part = made.addPart("triangle", surface).value();
   CHECK(part >= 0, "the geometry stands a part to fill");
 
   const std::array<float, 9> corners = {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f};

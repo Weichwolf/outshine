@@ -27,7 +27,7 @@ int main() {
   material.Metalness = 0.5f;
   material.Roughness = 0.25f;
   const auto surface = geometry.addSurface("native surface", material).value();
-  const int part = geometry.addPart("triangle", surface);
+  const int part = geometry.addPart("triangle", surface).value();
   const std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
   const std::array<uint32_t, 3> indices{0, 1, 2};
   CHECK(geometry.setPositions(part, positions) && geometry.setTriangles(part, indices),
