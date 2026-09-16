@@ -182,6 +182,29 @@ int main() {
         CHECK(renderer.render({}).has_value(), "explicitly render before readback");
         CHECK(renderer.readPixels(before).has_value() && before.size() == 32u * 32u * 4u,
               "the original target produces a complete RGBA frame");
+        auto changedPlan = TargetScenario({32, 32});
+        changedPlan.Render.Outputs = {"surface", "sceneVelocity"};
+        const auto declared = offscreen.writeScenario();
+        const unsigned planFailures = injected;
+        inject = Failure::Texture;
+        const auto refusedPlan = offscreen.declare(changedPlan);
+        inject = Failure::None;
+        CHECK(injected == planFailures + 1 && !refusedPlan &&
+                  refusedPlan.error().find("injected") != std::string::npos,
+              "frame-resource allocation failure reaches the changed render-plan declaration");
+        CHECK(offscreen.writeScenario() == declared,
+              "a refused frame-resource candidate retains the active declaration");
+        std::vector<uint8_t> afterPlanFailure;
+        CHECK(renderer.readPixels(afterPlanFailure).has_value() && afterPlanFailure == before,
+              "a refused frame-resource candidate retains the readable previous pixels");
+        CHECK(offscreen.declare(changedPlan).has_value() && offscreen.assemble().has_value() &&
+                  offscreen.advance().has_value(),
+              "the changed render plan publishes after the injected allocation failure");
+        std::vector<uint8_t> beforeTargetFailure;
+        CHECK(renderer.render({}).has_value(), "render the changed plan before target replacement");
+        CHECK(renderer.readPixels(beforeTargetFailure).has_value() &&
+                  beforeTargetFailure.size() == 32u * 32u * 4u,
+              "the changed plan produces its own complete reference frame");
         const unsigned released = releasedTextures;
         const unsigned failures = injected;
         inject = Failure::Texture;
@@ -193,7 +216,7 @@ int main() {
         CHECK(releasedTextures == released && offscreen.swapChain().extent().WidthPx == 32,
               "failed allocation retains the existing texture and dimensions");
         std::vector<uint8_t> after;
-        CHECK(renderer.readPixels(after).has_value() && after == before,
+        CHECK(renderer.readPixels(after).has_value() && after == beforeTargetFailure,
               "the retained offscreen target remains renderable with identical pixels");
         CHECK(!offscreen.drawsInto(Extent{-1, 32}) &&
                   !offscreen.drawsInto(static_cast<SDL_Window *>(nullptr)),

@@ -386,12 +386,14 @@ public:
   }
 
 private:
+  struct FrameResources;
+
   [[nodiscard]] std::expected<void, std::string> PrepareFrame();
   GpuSubmission Submission_;
   std::array<Effort, kStageCount> Spent_ = {{}};
 
-  void Create(Resource resource);
-  [[nodiscard]] bool Created(Resource resource) const;
+  void Create(FrameResources &frame, const Compiled &plan, Resource resource);
+  [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
   [[nodiscard]] bool Configure(Stage stage, std::string &error);
   [[nodiscard]] bool ConfigurePlanStages();
   [[nodiscard]] AttachmentSet ColoursForStage(Stage wanted) const;
@@ -501,8 +503,10 @@ private:
   static_assert(std::is_nothrow_move_assignable_v<FrameResources>);
 
   bool Stands();
-  [[nodiscard]] std::expected<void, std::string> StandsOffscreen();
-  [[nodiscard]] std::expected<OwnedTexture, std::string> MakeOffscreen(Extent frame);
+  [[nodiscard]] std::expected<void, std::string> StandsOffscreen(FrameResources &frame,
+                                                                 const Compiled *plan);
+  [[nodiscard]] std::expected<OwnedTexture, std::string> MakeOffscreen(const Compiled *plan,
+                                                                       Extent frame);
   [[nodiscard]] std::expected<SDL_GPUPresentMode, std::string> ClaimWindow(SDL_Window *window);
 
   SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;

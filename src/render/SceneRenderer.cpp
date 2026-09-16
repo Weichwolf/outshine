@@ -257,11 +257,12 @@ bool SceneRenderer::Stands() {
   return true;
 }
 
-std::expected<OwnedTexture, std::string> SceneRenderer::MakeOffscreen(Extent frame) {
-  if (Plan_ == nullptr || !Plan_->Holds(Resource::Surface)) { return OwnedTexture{}; }
+std::expected<OwnedTexture, std::string> SceneRenderer::MakeOffscreen(const Compiled *plan,
+                                                                      Extent frame) {
+  if (plan == nullptr || !plan->Holds(Resource::Surface)) { return OwnedTexture{}; }
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
-  wanted.format = FormatOf(Plan_->Format(Resource::Surface));
+  wanted.format = FormatOf(plan->Format(Resource::Surface));
   wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
   wanted.width = static_cast<Uint32>(frame.WidthPx);
   wanted.height = static_cast<Uint32>(frame.HeightPx);
@@ -275,32 +276,24 @@ std::expected<OwnedTexture, std::string> SceneRenderer::MakeOffscreen(Extent fra
   return texture;
 }
 
-std::expected<void, std::string> SceneRenderer::StandsOffscreen() {
-  if (Showing_ != nullptr || Frame_.Offscreen || Frame_.Width <= 0 || Frame_.Height <= 0) {
+std::expected<void, std::string> SceneRenderer::StandsOffscreen(FrameResources &frame,
+                                                                const Compiled *plan) {
+  if (Showing_ != nullptr || frame.Offscreen || frame.Width <= 0 || frame.Height <= 0) {
     return {};
   }
-  auto texture = MakeOffscreen({.WidthPx = Frame_.Width, .HeightPx = Frame_.Height});
+  auto texture = MakeOffscreen(plan, {.WidthPx = frame.Width, .HeightPx = frame.Height});
   if (!texture) { return std::unexpected(texture.error()); }
-  Frame_.Offscreen = std::move(*texture);
-  Frame_.HostSurface = Frame_.Offscreen.Get();
+  frame.Offscreen = std::move(*texture);
+  frame.HostSurface = frame.Offscreen.Get();
   return {};
 }
 
 std::expected<void, std::string> SceneRenderer::Init(Extent frame,
                                                      std::shared_ptr<const Compiled> plan) {
   WhyNot_.clear();
-  Ready_ = false;
   if (Device_ && !Settle(WhyNot_)) { return std::unexpected(WhyNot_); }
-  Submitted_ = false;
-  BeginTemporalRun();
-  Frame_.Offscreen.Reset();
-  Frame_.HostSurface = nullptr;
-  Frame_.Shown = {};
-  Plan_ = std::move(plan);
-  Frame_.Width = frame.WidthPx;
-  Frame_.Height = frame.HeightPx;
 
-  for (const Stage stage : Plan_->Order()) {
+  for (const Stage stage : plan->Order()) {
     if (Executable(stage)) { continue; }
     Log::Error(LogTag::Render, "stage_not_executed", {{"stage", Row(stage).Name}});
     WhyNot_ = std::string("this device layer does not execute the stage '") + Row(stage).Name +
@@ -311,29 +304,39 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
   if (!Stands()) { return std::unexpected(WhyNot_); }
 
   SDL_GPUDevice *const device = Device_.Get();
-  Frame_.Handles.Device = device;
-  Frame_.Handles.HdrFormat = FormatOf(Plan_->Format(Resource::SceneHdr));
-  Frame_.Handles.SurfaceFormat = FormatOf(Plan_->Format(Resource::FrameTex));
-  Frame_.Handles.Width = Frame_.Width;
-  Frame_.Handles.Height = Frame_.Height;
+  FrameResources candidate;
+  candidate.Width = frame.WidthPx;
+  candidate.Height = frame.HeightPx;
+  candidate.Handles.Device = device;
+  candidate.Handles.HdrFormat = FormatOf(plan->Format(Resource::SceneHdr));
+  candidate.Handles.SurfaceFormat = FormatOf(plan->Format(Resource::FrameTex));
+  candidate.Handles.Width = candidate.Width;
+  candidate.Handles.Height = candidate.Height;
 
-  for (const Compiled::Pass &pass : Plan_->Passes()) {
+  for (const Compiled::Pass &pass : plan->Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
-    Frame_.Handles.SceneColours = pass.Targets;
+    candidate.Handles.SceneColours = pass.Targets;
     break;
   }
   for (size_t r = 0; r < kResourceCount; ++r) {
     const auto id = static_cast<Resource>(r);
-    if (!Plan_->Holds(id)) { continue; }
-    Create(id);
-    if (Created(id)) { continue; }
+    if (!plan->Holds(id)) { continue; }
+    Create(candidate, *plan, id);
+    if (Created(candidate, id)) { continue; }
     WhyNot_ =
         std::string("could not create render resource '") + Row(id).Name + "': " + SDL_GetError();
     return std::unexpected(WhyNot_);
   }
+  if (const auto stood = StandsOffscreen(candidate, plan.get()); !stood) {
+    return std::unexpected(stood.error());
+  }
 
+  Ready_ = false;
+  Submitted_ = false;
+  Frame_ = std::move(candidate);
+  Plan_ = std::move(plan);
+  BeginTemporalRun();
   if (!ConfigurePlanStages()) { return std::unexpected(WhyNot_); }
-  if (const auto stood = StandsOffscreen(); !stood) { return std::unexpected(stood.error()); }
   Ready_ = true;
 
   Log::Info(LogTag::Render,
@@ -380,14 +383,14 @@ bool SceneRenderer::ConfigurePlanStages() {
   return true;
 }
 
-void SceneRenderer::Create(Resource resource) {
+void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource resource) {
   const auto target = [&](Resource of, SDL_GPUTextureUsageFlags usage) {
     SDL_GPUTextureCreateInfo wanted{};
     wanted.type = SDL_GPU_TEXTURETYPE_2D;
-    wanted.format = FormatOf(Plan_->Format(of));
+    wanted.format = FormatOf(plan.Format(of));
     wanted.usage = usage;
-    wanted.width = static_cast<uint32_t>(Frame_.Width);
-    wanted.height = static_cast<uint32_t>(Frame_.Height);
+    wanted.width = static_cast<uint32_t>(frame.Width);
+    wanted.height = static_cast<uint32_t>(frame.Height);
     wanted.layer_count_or_depth = 1;
     wanted.num_levels = 1;
     wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
@@ -405,26 +408,26 @@ void SceneRenderer::Create(Resource resource) {
       wanted.min_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-      Frame_.Samp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+      frame.Samp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
       return;
     }
 
     case Resource::OverlayAtlas: return;
-    case Resource::SceneHdr: Frame_.HdrTex = target(resource, colour); return;
-    case Resource::SceneTransmissive: Frame_.TransmissiveTex = target(resource, colour); return;
-    case Resource::SceneComposited: Frame_.CompositedTex = target(resource, colour); return;
-    case Resource::SceneAerial: Frame_.AerialTex = target(resource, colour); return;
-    case Resource::SceneVelocity: Frame_.VelTex = target(resource, colour); return;
-    case Resource::SceneShadingNormal: Frame_.ShadingNormalTex = target(resource, colour); return;
+    case Resource::SceneHdr: frame.HdrTex = target(resource, colour); return;
+    case Resource::SceneTransmissive: frame.TransmissiveTex = target(resource, colour); return;
+    case Resource::SceneComposited: frame.CompositedTex = target(resource, colour); return;
+    case Resource::SceneAerial: frame.AerialTex = target(resource, colour); return;
+    case Resource::SceneVelocity: frame.VelTex = target(resource, colour); return;
+    case Resource::SceneShadingNormal: frame.ShadingNormalTex = target(resource, colour); return;
     case Resource::SceneSurfaceIdentity:
-      Frame_.SurfaceIdentityTex = target(resource, colour);
+      frame.SurfaceIdentityTex = target(resource, colour);
       return;
     case Resource::SceneDepth:
 
-      Frame_.DepthTex = target(
+      frame.DepthTex = target(
           resource, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER);
       return;
-    case Resource::FrameTex: Frame_.FrameTex = target(resource, colour); return;
+    case Resource::FrameTex: frame.FrameTex = target(resource, colour); return;
 
     case Resource::Surface:
     case Resource::ClusterSphere:
@@ -440,7 +443,7 @@ void SceneRenderer::Create(Resource resource) {
     case Resource::SkyViewLut: {
       SDL_GPUTextureCreateInfo wanted{};
       wanted.type = SDL_GPU_TEXTURETYPE_2D;
-      wanted.format = FormatOf(Plan_->Format(resource));
+      wanted.format = FormatOf(plan.Format(resource));
       wanted.usage = SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_TEXTUREUSAGE_SAMPLER;
 
       struct LutShape {
@@ -449,20 +452,20 @@ void SceneRenderer::Create(Resource resource) {
         OwnedTexture *Into;
       };
 
-      const LutShape shape = [this, resource] -> LutShape {
+      const LutShape shape = [&frame, resource] -> LutShape {
         switch (resource) {
           case Resource::MultiScatterLut:
             return {.WidthPx = kMultiScatterLutSize,
                     .HeightPx = kMultiScatterLutSize,
-                    .Into = &Frame_.MultiScatterLut};
+                    .Into = &frame.MultiScatterLut};
           case Resource::SkyViewLut:
             return {.WidthPx = kSkyViewLutWidth,
                     .HeightPx = kSkyViewLutHeight,
-                    .Into = &Frame_.SkyViewLut};
+                    .Into = &frame.SkyViewLut};
           default:
             return {.WidthPx = kTransmittanceLutWidth,
                     .HeightPx = kTransmittanceLutHeight,
-                    .Into = &Frame_.TransmittanceLut};
+                    .Into = &frame.TransmittanceLut};
         }
       }();
       wanted.width = shape.WidthPx;
@@ -481,7 +484,7 @@ void SceneRenderer::Create(Resource resource) {
       wanted.min_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-      Frame_.LutSamp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+      frame.LutSamp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
       return;
     }
     case Resource::AtmosphereUniform:
@@ -491,20 +494,20 @@ void SceneRenderer::Create(Resource resource) {
       wanted.usage =
           SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
       wanted.size = kIrradianceFloats * static_cast<uint32_t>(sizeof(float));
-      Frame_.IrradianceBuffer =
-          OwnedBuffer(Frame_.Handles.Device, SDL_CreateGPUBuffer(Frame_.Handles.Device, &wanted));
+      frame.IrradianceBuffer =
+          OwnedBuffer(frame.Handles.Device, SDL_CreateGPUBuffer(frame.Handles.Device, &wanted));
       return;
     }
     case Resource::DepthPyramid: {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage =
           SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-      wanted.size = PyramidOver({.WidthPx = static_cast<uint32_t>(Frame_.Width),
-                                 .HeightPx = static_cast<uint32_t>(Frame_.Height)})
+      wanted.size = PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
+                                 .HeightPx = static_cast<uint32_t>(frame.Height)})
                         .Texels *
                     static_cast<uint32_t>(sizeof(float));
-      Frame_.Pyramid =
-          OwnedBuffer(Frame_.Handles.Device, SDL_CreateGPUBuffer(Frame_.Handles.Device, &wanted));
+      frame.Pyramid =
+          OwnedBuffer(frame.Handles.Device, SDL_CreateGPUBuffer(frame.Handles.Device, &wanted));
       return;
     }
     case Resource::VegetationTable:
@@ -519,47 +522,46 @@ void SceneRenderer::Create(Resource resource) {
       wanted.layer_count_or_depth = 1;
       wanted.num_levels = 1;
       wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
-      Frame_.ShadowAtlas =
-          OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
+      frame.ShadowAtlas = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
       return;
     }
     case Resource::AoBuffer: return;
 
     case Resource::SceneLinear:
 
-      Frame_.LinearTex[0] = target(resource, colour);
-      Frame_.LinearTex[1] = target(resource, colour);
-      Frame_.LinearAt = 0;
-      Frame_.HistoryHeld = false;
+      frame.LinearTex[0] = target(resource, colour);
+      frame.LinearTex[1] = target(resource, colour);
+      frame.LinearAt = 0;
+      frame.HistoryHeld = false;
       return;
     case Resource::kCount: return;
   }
 }
 
-bool SceneRenderer::Created(Resource resource) const {
+bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
   switch (resource) {
-    case Resource::LinearSampler: return static_cast<bool>(Frame_.Samp);
-    case Resource::SceneHdr: return static_cast<bool>(Frame_.HdrTex);
-    case Resource::SceneTransmissive: return static_cast<bool>(Frame_.TransmissiveTex);
-    case Resource::SceneComposited: return static_cast<bool>(Frame_.CompositedTex);
-    case Resource::SceneAerial: return static_cast<bool>(Frame_.AerialTex);
-    case Resource::SceneVelocity: return static_cast<bool>(Frame_.VelTex);
-    case Resource::SceneShadingNormal: return static_cast<bool>(Frame_.ShadingNormalTex);
-    case Resource::SceneSurfaceIdentity: return static_cast<bool>(Frame_.SurfaceIdentityTex);
-    case Resource::SceneDepth: return static_cast<bool>(Frame_.DepthTex);
-    case Resource::FrameTex: return static_cast<bool>(Frame_.FrameTex);
-    case Resource::TransmittanceLut: return static_cast<bool>(Frame_.TransmittanceLut);
-    case Resource::MultiScatterLut: return static_cast<bool>(Frame_.MultiScatterLut);
-    case Resource::SkyViewLut: return static_cast<bool>(Frame_.SkyViewLut);
-    case Resource::LutSampler: return static_cast<bool>(Frame_.LutSamp);
+    case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
+    case Resource::SceneHdr: return static_cast<bool>(frame.HdrTex);
+    case Resource::SceneTransmissive: return static_cast<bool>(frame.TransmissiveTex);
+    case Resource::SceneComposited: return static_cast<bool>(frame.CompositedTex);
+    case Resource::SceneAerial: return static_cast<bool>(frame.AerialTex);
+    case Resource::SceneVelocity: return static_cast<bool>(frame.VelTex);
+    case Resource::SceneShadingNormal: return static_cast<bool>(frame.ShadingNormalTex);
+    case Resource::SceneSurfaceIdentity: return static_cast<bool>(frame.SurfaceIdentityTex);
+    case Resource::SceneDepth: return static_cast<bool>(frame.DepthTex);
+    case Resource::FrameTex: return static_cast<bool>(frame.FrameTex);
+    case Resource::TransmittanceLut: return static_cast<bool>(frame.TransmittanceLut);
+    case Resource::MultiScatterLut: return static_cast<bool>(frame.MultiScatterLut);
+    case Resource::SkyViewLut: return static_cast<bool>(frame.SkyViewLut);
+    case Resource::LutSampler: return static_cast<bool>(frame.LutSamp);
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
-    case Resource::IrradianceBuffer: return static_cast<bool>(Frame_.IrradianceBuffer);
-    case Resource::DepthPyramid: return static_cast<bool>(Frame_.Pyramid);
+    case Resource::IrradianceBuffer: return static_cast<bool>(frame.IrradianceBuffer);
+    case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
     case Resource::VegetationTable:
     case Resource::Meter:
-    case Resource::ShadowAtlas: return static_cast<bool>(Frame_.ShadowAtlas);
-    case Resource::SceneLinear: return Frame_.LinearTex[0] && Frame_.LinearTex[1];
+    case Resource::ShadowAtlas: return static_cast<bool>(frame.ShadowAtlas);
+    case Resource::SceneLinear: return frame.LinearTex[0] && frame.LinearTex[1];
     case Resource::OverlayAtlas:
     case Resource::Surface:
     case Resource::ClusterSphere:
@@ -1540,7 +1542,7 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
     if (!claimed) { return std::unexpected(claimed.error()); }
     mode = *claimed;
   } else if (presents == nullptr) {
-    auto made = MakeOffscreen({.WidthPx = widthPx, .HeightPx = heightPx});
+    auto made = MakeOffscreen(Plan_.get(), {.WidthPx = widthPx, .HeightPx = heightPx});
     if (!made) { return std::unexpected(made.error()); }
     texture = std::move(*made);
   }

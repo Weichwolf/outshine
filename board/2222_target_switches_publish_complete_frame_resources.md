@@ -35,8 +35,9 @@ formatgebundenen Frame-Ressourcen getauscht.
 
 `FrameResources` besitzt inzwischen Extent, Zieloberfläche, Attachments, Sampler, Pyramiden-
 Readback, temporale Ziele, GPU-Handles und alle formatgebundenen Stage-Objekte; seine
-Beweglichkeit ist statisch gesichert. Als Nächstes müssen die Gruppe und der Plan als vollständiger
-Kandidat gebaut und in einem nichtwerfenden Schritt veröffentlicht werden.
+Beweglichkeit ist statisch gesichert. Reine Ressourcenallokation baut und prüft nun einen lokalen
+Kandidaten; eine Absage erhält aktive Deklaration und Pixel. Als Nächstes müssen Plan-gebundene
+Stages und ihre Bindungen ebenfalls vor der nichtwerfenden Veröffentlichung im Kandidaten stehen.
 
 `DrawsInto` validiert Extent und baut/claimt den Kandidaten mit aktuellem Device,
 Plan und Zielformat vollständig. Erst danach wartet es die letzte alte Nutzung ab,
