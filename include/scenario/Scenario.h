@@ -750,9 +750,9 @@ struct View {
   void setScene(std::string named) { In = std::move(named); }
 
   /// Borrow the stored scene label, without allocation or scene lookup.
-  /// @return Reference to In, valid until this View is destroyed or relocated. Assignment
-  /// changes the observed value; character pointers can be invalidated by label mutation.
-  [[nodiscard]] const std::string &scene() const { return In; }
+  /// @return View into In, valid until this View is destroyed or its label is replaced or
+  /// relocated.
+  [[nodiscard]] std::string_view scene() const noexcept { return In; }
 
   std::string In; ///< Owned scene-label metadata; does not select a runtime world or scene.
   /// Owned name of the unique placed body resolved by assemble() for FollowEntity.
