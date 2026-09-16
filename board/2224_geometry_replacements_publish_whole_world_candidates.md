@@ -83,8 +83,10 @@ transaction gap; fixing pointer rebinding does not establish whole-ground atomic
 
 `Focuses` marks revisions and `EverLaid` before any terrain build succeeds. A later failure
 can therefore suppress retry as unchanged and report ingestion/classification ready against
-unpublished products. Replace the separate revision fields/flag with an optional published
-`GroundRevision`; carry the requested revision alongside `Around`, and publish it only after
-successful geometry installation. Reset invalidates the publication. Test first build, failed
-attempt/retry, residency-only requests, changed data/projection, missing rims and reset. This
-repairs scheduling/readiness; earlier GPU/CPU product mutation remains the transaction work above.
+unpublished products. `GroundPublication` now owns an optional published `GroundRevision`;
+the request carries its revision alongside `Around`, and `Grounds` publishes it only after
+successful geometry installation. Reset invalidates publication; readiness requires a published
+revision. Tests cover first build, uncommitted request/retry, residency-only changes, changed
+data/projection, missing rims and reset. Readiness and resource-replacement regressions pass.
+These are state-contract tests, not injected failures of a complete OSM ground build. Earlier
+GPU/CPU product mutation and that end-to-end failure proof remain the transaction work above.

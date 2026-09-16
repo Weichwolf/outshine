@@ -622,7 +622,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.Pieces.Clear();
   S_->World.Sheets.Clear();
   S_->World.PiecesFramed = false;
-  S_->World.EverLaid = false;
+  S_->World.GroundPublished.Reset();
   S_->World.Crowns.reset();
   S_->World.Instances.clear();
   S_->World.Placed = S_->World.Instanced = 0;

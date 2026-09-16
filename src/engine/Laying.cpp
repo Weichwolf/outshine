@@ -300,7 +300,9 @@ bool Engine::State::Models(const TangentFrame &standing,
 }
 
 Engine::State::Laid
-Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded) {
+Engine::State::Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded) {
+  const Around &over = request.Coverage;
+  const GroundRevision previous = World.GroundPublished.Current().value_or(GroundRevision{});
   const double atLat = at.LatitudeDeg;
   const double atLon = at.LongitudeDeg;
   const Ground::TileFrac here = Ground::ToTileFracClamped(
@@ -325,16 +327,17 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
   const std::shared_ptr<const ClassStructure> naming = World.Stack.Classes().Read();
   const uint64_t classes = naming ? naming->Version() : 0;
-  const bool elsewhere = from != World.LaidFrom;
-  const bool grew =
-      alsoWhenTilesLanded && (resident != World.LaidResident || World.RimsMissing > 0);
-  const bool renamed = classes != World.LaidClasses;
+  const bool elsewhere = from != previous.Region;
+  const bool renamed = classes != previous.Classes;
   const uint64_t footprints = World.Stack.Footprints().Revision();
-  const bool footprintsChanged = footprints != World.LaidFootprintsRevision;
   const Render::Viewpoint &view = Picture.Standing->Watching();
   const std::array<double, 3> projection{
       {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
-  const bool projectionChanged = projection != World.LaidProjection;
+  request.Revision = {.Region = from,
+                      .ResidentTiles = resident,
+                      .Classes = classes,
+                      .Footprints = footprints,
+                      .Projection = projection};
   Published.Places("building triangles the world meshed",
                    static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                    "triangles");
@@ -372,8 +375,8 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   Published.Places("tiles laid bare on the ellipsoid",
                    static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
                    "tiles");
-  if (World.EverLaid && !elsewhere && !grew && !renamed && !projectionChanged &&
-      !footprintsChanged) {
+  if (!World.GroundPublished.NeedsRebuild(
+          request.Revision, alsoWhenTilesLanded, World.RimsMissing > 0)) {
     return Laid::Unchanged;
   }
 
@@ -387,16 +390,10 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
       "rebuilds since the world stood", static_cast<double>(World.Relaid + 1u), "rebuilds");
   Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
   Published.Places("rebuild: tiles resident when it did", static_cast<double>(resident), "tiles");
-  Published.Places(
-      "rebuild: and resident the time before", static_cast<double>(World.LaidResident), "tiles");
+  Published.Places("rebuild: and resident the time before",
+                   static_cast<double>(previous.ResidentTiles),
+                   "tiles");
   Published.Places("rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
-  World.LaidFrom = from;
-  World.LaidResident = resident;
-  World.LaidClasses = classes;
-  World.LaidFootprintsRevision = footprints;
-  World.LaidProjection = projection;
-  World.EverLaid = true;
-  ++World.Relaid;
   return Laid::Wanted;
 }
 
@@ -408,7 +405,8 @@ void Engine::State::TellsTheRelief(Relieved over) {
       "relief: so the true relief, with the sphere taken out", over.Tallest - over.Lowest, "m");
 }
 
-std::expected<Around, Engine::State::Laid> Engine::State::RingWanted(bool alsoWhenTilesLanded) {
+std::expected<Engine::State::GroundRequest, Engine::State::Laid>
+Engine::State::RingWanted(bool alsoWhenTilesLanded) {
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
@@ -453,13 +451,14 @@ std::expected<Around, Engine::State::Laid> Engine::State::RingWanted(bool alsoWh
     }
   }
   if (!Watches()) { return std::unexpected(Laid::Refused); }
-  switch (Focuses(over, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded)) {
+  GroundRequest request{.Coverage = over, .Revision = {}};
+  switch (Focuses(request, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded)) {
     case Laid::Refused: return std::unexpected(Laid::Refused);
     case Laid::Pending: return std::unexpected(Laid::Pending);
     case Laid::Unchanged: return std::unexpected(Laid::Unchanged);
     case Laid::Wanted: break;
   }
-  return over;
+  return request;
 }
 
 bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
@@ -836,7 +835,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   const auto asked = RingWanted(alsoWhenTilesLanded);
   if (!asked) { return asked.error() == Laid::Unchanged || asked.error() == Laid::Pending; }
-  const Around over = *asked;
+  const Around over = asked->Coverage;
 
   const auto rebuildBegan = std::chrono::steady_clock::now();
   {}
@@ -1041,6 +1040,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (!Picture.Standing->SetGeometry(std::move(ground), drivenParts, wearing, Error)) {
     return false;
   }
+  World.GroundPublished.Publish(asked->Revision);
+  ++World.Relaid;
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");

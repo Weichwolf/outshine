@@ -14,6 +14,7 @@
 #include "Shipped.h"
 #include "WorldCrowns.h"
 #include "WorldReadiness.h"
+#include "GroundPublication.h"
 #include "StructureMesher.h"
 #include "Rigid.h"
 #include "GroundSnapshot.h"
@@ -221,11 +222,7 @@ struct Surrounds {
   size_t Wanted = 0;
   size_t AskedPending = 0;
   size_t AskedWanted = 0;
-  uint64_t LaidFrom = 0;
-  size_t LaidResident = 0;
-  uint64_t LaidClasses = 0;
-  uint64_t LaidFootprintsRevision = 0;
-  std::array<double, 3> LaidProjection{};
+  GroundPublication GroundPublished;
 
   TilePieces Pieces;
   HeightSheets Sheets;
@@ -234,7 +231,6 @@ struct Surrounds {
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
   StructureBakes Bakes;
-  bool EverLaid = false;
   size_t Relaid = 0;
   size_t Asked = 0;
   double RebuildMs = 0.0;
@@ -362,7 +358,13 @@ struct Engine::State {
 
   enum class Laid : uint8_t { Refused, Pending, Unchanged, Wanted };
 
-  [[nodiscard]] Laid Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded);
+  struct GroundRequest {
+    Around Coverage;
+    GroundRevision Revision;
+  };
+
+  [[nodiscard]] Laid
+  Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded);
 
   struct Relieved {
     double Tallest = 0.0;
@@ -371,7 +373,7 @@ struct Engine::State {
   };
 
   void TellsTheRelief(Relieved over);
-  [[nodiscard]] std::expected<Around, Laid> RingWanted(bool alsoWhenTilesLanded);
+  [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded);
 
   [[nodiscard]] bool
   RefineGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &over);

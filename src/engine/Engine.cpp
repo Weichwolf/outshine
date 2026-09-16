@@ -195,16 +195,17 @@ WorldReadiness Engine::State::Readiness() const {
   const auto classes = World.Stack.Classes().Read();
   const uint64_t version = classes ? classes->Version() : 0;
   const auto *vectors = World.Stack.Vectors();
+  const auto &ground = World.GroundPublished.Current();
   return {
       {World.AskedWanted > 0 ? "" : Says::kNoTerrainRequests,
        World.AskedPending == 0 ? "" : Says::kPendingTerrain,
        World.Bare == 0 ? "" : Says::kMissingTerrain,
        World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
        World.Grown ? "" : Says::kPendingSnapshot,
-       World.Stack.Ingested() && World.LaidFootprintsRevision == World.Stack.Footprints().Revision()
+       ground && World.Stack.Ingested() && ground->Footprints == World.Stack.Footprints().Revision()
            ? ""
            : Says::kPendingIngestion,
-       World.Stack.Classes().Complete() && World.LaidClasses == version
+       ground && World.Stack.Classes().Complete() && ground->Classes == version
            ? ""
            : Says::kPendingClassification,
        vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
