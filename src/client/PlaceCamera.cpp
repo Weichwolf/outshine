@@ -53,7 +53,6 @@ constexpr double kProgressEveryS = 0.25;
 
 namespace {
 
-constexpr double kPatienceS = 15.0;
 constexpr int kTimedFrames = 120;
 
 }
@@ -202,13 +201,12 @@ double ControlVariation() {
 LogSink *Telling = nullptr;
 bool Audits = false;
 
-Shot Take(const Place &place, bool tells) {
-  Shot shot;
+namespace {
+bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation = true) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     shot.Why = "SDL did not start, so nothing can be drawn";
-    return shot;
+    return false;
   }
-  Engine engine;
   if (Telling != nullptr) { outshine::Engine::logsTo(Telling); }
   engine.setRoots(Roots{.Assets = "src/assets/drive",
                         .Shipped = "src/assets",
@@ -216,21 +214,48 @@ Shot Take(const Place &place, bool tells) {
                         .Offline = false});
   if (!engine.drawsInto(place.Declaration.Render.Frame)) {
     shot.Why = "the device stood no canvas";
-    return shot;
+    return false;
   }
 
   Scenario::Document stands = place.Declaration;
   stands.Render.Audits = Audits;
+  stands.Ground.VegetationEnabled = stands.Ground.VegetationEnabled && vegetation;
 
   const auto began = std::chrono::steady_clock::now();
   if (!engine.declare(stands) || !engine.assemble()) {
     shot.Why = std::string(place.Name) + " was declared and did not assemble: " + engine.error();
-    return shot;
+    return false;
   }
-  const double stoodMs =
+  shot.StandingMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  Shot drawn = Draw(engine, place.Name, tells);
-  drawn.StandingMs = stoodMs;
+  return true;
+}
+}
+
+std::string Prepare(const Place &place, double patienceS) {
+  Engine engine;
+  Shot shot;
+  if (!OpenPlace(engine, place, shot)) { return shot.Why; }
+  double last = 0;
+  const auto ready = engine.preload(patienceS, [&](const Loading &how) {
+    if (how.ElapsedS - last < 5) { return; }
+    last = how.ElapsedS;
+    std::println("PREPARE {} elapsed {:.1f} s", place.Name, how.ElapsedS);
+    for (const auto &measure : engine.measures()) {
+      if (measure.What.starts_with("flora: crown")) {
+        std::println("        {}: {:.0f}", measure.What, measure.How);
+      }
+    }
+  });
+  return ready ? std::string{} : engine.error();
+}
+
+Shot Take(const Place &place, bool tells, bool vegetation, double preloadSeconds) {
+  Engine engine;
+  Shot shot;
+  if (!OpenPlace(engine, place, shot, vegetation)) { return shot; }
+  Shot drawn = Draw(engine, place.Name, tells, "places", preloadSeconds);
+  drawn.StandingMs = shot.StandingMs;
   return drawn;
 }
 
@@ -336,10 +361,14 @@ bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
 }
 }
 
-Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view under) {
+Shot Draw(Engine &engine,
+          std::string_view name,
+          bool tells,
+          std::string_view under,
+          double preloadSeconds) {
   Shot shot;
   HeapProbe::ForgetPeak();
-  if (!PreloadShot(engine, name, tells, kPatienceS, shot)) { return shot; }
+  if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
 
   const int settle = engine.renderer().settleFrames();
   const int wanted = settle > 2 ? settle : 2;

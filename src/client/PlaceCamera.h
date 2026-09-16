@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <Outshine.h>
+#include "ShotOptions.h"
 
 namespace outshine {
 class Engine;
@@ -60,7 +61,8 @@ struct Shot {
 [[nodiscard]] Shot Draw(class ::outshine::Engine &engine,
                         std::string_view name,
                         bool tells,
-                        std::string_view under = "places");
+                        std::string_view under = "places",
+                        double preloadSeconds = Client::kDefaultPreloadSeconds);
 
 [[nodiscard]] std::expected<std::vector<Place>, std::string>
 LoadPlaces(const std::filesystem::path &directory);
@@ -73,7 +75,11 @@ extern ::outshine::LogSink *Telling;
 
 extern bool Audits;
 
-[[nodiscard]] Shot Take(const Place &place, bool tells);
+[[nodiscard]] Shot Take(const Place &place,
+                        bool tells,
+                        bool vegetation = true,
+                        double preloadSeconds = Client::kDefaultPreloadSeconds);
+[[nodiscard]] std::string Prepare(const Place &place, double patienceS);
 
 }
 #endif

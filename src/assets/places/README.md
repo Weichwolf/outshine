@@ -1,7 +1,7 @@
 # Place-Szenarien
 
 Jede `.scenario`-Datei ist ein normales Outshine-Szenario. Der Dateistamm ist der Name.
-`outshine-client --places <Verzeichnis> places|shots|roundtrip` lädt den Katalog;
+`outshine-client --places <Verzeichnis> places|shots|prepare|roundtrip` lädt den Katalog;
 Standard ist `src/assets/places`. `run <Datei>` verwendet dieselbe öffentliche Szenario-API.
 Neue Places benötigen keine C++-Änderung und keinen Rebuild. Ausgabe von `places` ist TSV:
 Name, Breitengrad, Längengrad, Höhe in m, Bearing in Grad, Pitch in Grad, vertikaler FOV

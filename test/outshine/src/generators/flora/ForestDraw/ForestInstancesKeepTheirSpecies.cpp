@@ -58,6 +58,7 @@ int main() {
   std::string error;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped ground materials load");
   CHECK(vegetation.Load("src/assets/world/vegetation.json", materials), "shipped vegetation loads");
+
   std::vector<TreeSpecies> sources;
   CHECK(ReadSpecies("src/assets/world/species", sources, error) && !sources.empty(),
         "source species catalogue loads");

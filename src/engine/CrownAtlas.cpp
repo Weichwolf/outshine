@@ -1,12 +1,21 @@
 #include "math/Srgb.h"
 #include "CrownAtlas.h"
 #include "StoredVertex.h"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 #include "../../build/CrownBuild.h"
 #include "Digest.h"
 #include <bit>
 #include <type_traits>
-#include <Outshine.h>
-#include <scenario/Scenario.h>
+#include "Live.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -34,6 +43,7 @@ uint8_t Byte(float value) {
   return static_cast<uint8_t>(
       std::lround(std::clamp(value, 0.0f, 1.0f) * static_cast<float>(kOpaqueByte)));
 }
+
 }
 
 namespace {
@@ -425,26 +435,15 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
     error = Says::Shape;
     return std::nullopt;
   }
-  auto geometry = tree.GeometryAt(0);
+  auto geometry = tree.InstancedGeometryAt(0);
   if (!geometry) {
     error = Says::Geometry;
     return std::nullopt;
   }
   CrownAtlas atlas;
   atlas.Pixels_ = shape.Pixels;
-  Vec3 least{{std::numeric_limits<double>::infinity(),
-              std::numeric_limits<double>::infinity(),
-              std::numeric_limits<double>::infinity()}};
-  Vec3 most = least * -1.0;
-  for (int part = 0; part < geometry->parts(); ++part) {
-    const auto positions = geometry->positionsOf(part);
-    for (size_t at = 0; at < positions.size(); at += 3) {
-      for (size_t axis = 0; axis < 3; ++axis) {
-        least[axis] = std::min(least[axis], static_cast<double>(positions[at + axis]));
-        most[axis] = std::max(most[axis], static_cast<double>(positions[at + axis]));
-      }
-    }
-  }
+  const Vec3 least = geometry->LeastM;
+  const Vec3 most = geometry->MostM;
   atlas.CentreM_ = (least + most) * 0.5;
   const Vec3 half = (most - least) * 0.5;
   atlas.HalfExtentM_ = std::max(std::hypot(half[0], half[2]), half[1]) *
@@ -453,50 +452,55 @@ CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string
     error = Says::Bounds;
     return std::nullopt;
   }
-  auto prepared = PrepareAtlasGeometry(*geometry, error);
+  const bool leaves = !geometry->Placements.empty() && geometry->Leaf.parts() > 0;
+  auto prepared = PrepareAtlasGeometry(geometry->Bark, error, leaves ? &geometry->Leaf : nullptr);
   if (!prepared) { return std::nullopt; }
   atlas.Surfaces_ = std::move(prepared->Surfaces);
-  Scenario::Document scenario;
-  scenario.Render.Declared = true;
-  scenario.Render.Frame = {shape.Pixels, shape.Pixels};
-  scenario.Render.Outputs = {"sceneDepth", "sceneShadingNormal", "sceneSurfaceIdentity"};
-  scenario.Lit.Declared = true;
-  scenario.Lit.Key.Lux = kCaptureIlluminanceLux;
-  scenario.Lit.Key.BearingDeg = kCaptureLightBearingDeg;
-  scenario.Lit.Key.ElevationDeg = kCaptureLightElevationDeg;
-  for (unsigned at = 0; at < shape.Views; ++at) {
-    const double angle = 2.0 * std::numbers::pi * at / shape.Views;
-    const Vec3 direction{{std::sin(angle), 0, std::cos(angle)}};
-    atlas.Views_.push_back({.TowardEye = direction, .Texels = {}});
-    Scenario::View view;
-    view.Id = std::to_string(at);
-    view.Person = "first";
-    view.Sees.Placed = true;
-    view.Sees.Stands.AtM = atlas.CentreM_ + direction * (3.0 * atlas.HalfExtentM_);
-    view.Sees.LooksAt = true;
-    view.Sees.LookAtM = atlas.CentreM_;
-    view.Sees.setProjection(Scenario::Camera::Ortho{.XMagM = atlas.HalfExtentM_,
-                                                    .YMagM = atlas.HalfExtentM_,
-                                                    .NearM = atlas.HalfExtentM_,
-                                                    .FarM = 5.0 * atlas.HalfExtentM_});
-    scenario.Views.push_back(view);
-  }
   std::vector<float> depth;
   std::vector<float> normal;
   std::vector<float> identity;
   const size_t count = static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels);
   for (unsigned at = 0; at < shape.Views; ++at) {
-    Engine engine;
-    if (!engine.drawsInto({shape.Pixels, shape.Pixels}) || !engine.declare(scenario) ||
-        !engine.setView(std::to_string(at)) || !engine.setGeometry(*geometry) ||
-        !engine.assemble() || !engine.advance()) {
-      error = engine.error();
+    const double angle = 2 * std::numbers::pi * at / shape.Views;
+    const Vec3 direction{{std::sin(angle), 0, std::cos(angle)}};
+    atlas.Views_.push_back({.TowardEye = direction, .Texels = {}});
+    Render::SceneRenderer renderer;
+    Core::Declaration declaration;
+    declaration.InitialGeometry = &geometry->Bark;
+    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = shape.Pixels;
+    declaration.Outputs = {"sceneDepth", "sceneShadingNormal", "sceneSurfaceIdentity"};
+    declaration.KeyLux = kCaptureIlluminanceLux;
+    declaration.KeyBearingDeg = kCaptureLightBearingDeg;
+    declaration.KeyElevationDeg = kCaptureLightElevationDeg;
+    std::unique_ptr<Core::Live> live;
+    if (!Core::Live::Open(renderer, declaration, nullptr, live, error)) { return std::nullopt; }
+    auto camera = Render::Viewpoint::LookAt(
+        {.EyeM = atlas.CentreM_ + direction * (3 * atlas.HalfExtentM_), .AimM = atlas.CentreM_}, 0);
+    if (!camera) {
+      error = Says::Bounds;
       return std::nullopt;
     }
-    if (!engine.renderer().render({}) || !engine.renderer().readPixels(Buffer::Depth, depth) ||
-        !engine.renderer().readPixels(Buffer::ShadingNormal, normal) ||
-        !engine.renderer().readPixels(Buffer::SurfaceIdentity, identity)) {
-      error = engine.error();
+    camera->Kind = Render::CameraKind::Orthographic;
+    camera->XMagM = camera->YMagM = atlas.HalfExtentM_;
+    camera->ZNearM = atlas.HalfExtentM_;
+    camera->ZFarM = 5 * atlas.HalfExtentM_;
+    live->Eye(*camera);
+    if (leaves) {
+      Render::PieceMesh piece;
+      piece.Verts = prepared->Vertices;
+      piece.Indices = geometry->Leaf.trianglesOf(0);
+      piece.Instances = geometry->Placements;
+      piece.MaxInstances = static_cast<uint32_t>(geometry->Placements.size());
+      piece.Surface = Render::PieceSurface(1);
+      piece.Textured = true;
+      if (live->PlacePiece(piece, error) == Render::kNoPiece) { return std::nullopt; }
+    }
+    if (!live->Draw(error)) { return std::nullopt; }
+    renderer.WaitForGpu();
+    if (renderer.ReadDepth(depth) != Render::ReadState::Ready ||
+        renderer.ReadShadingNormal(normal) != Render::ReadState::Ready ||
+        renderer.ReadSurfaceIdentity(identity) != Render::ReadState::Ready) {
+      error = Says::Readback;
       return std::nullopt;
     }
     auto texels = ConvertAtlasReadback({.Depth = depth,

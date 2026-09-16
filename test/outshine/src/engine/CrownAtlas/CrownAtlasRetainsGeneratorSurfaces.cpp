@@ -10,6 +10,7 @@
 #include <scenario/Scenario.h>
 #include "CrownAtlas.h"
 #include "CrownPieces.h"
+#include "WorldCrowns.h"
 #include "Live.h"
 #include "math/Units.h"
 #include "Tasks.h"
@@ -449,12 +450,11 @@ int main() {
           "changing the light relights captured crown surfaces");
   }
   const auto baseCard = atlas->GeometryAt(0);
-  Gltf::Subject baseSubject;
-  CHECK(baseCard && baseSubject.Assemble(*baseCard),
-        "crown piece fixture starts from the native card reference");
+  CHECK(baseCard.has_value(), "crown piece fixture starts from the native card reference");
+  if (!baseCard) { return Report(); }
   Render::SceneRenderer renderer;
   Core::Declaration declaration;
-  declaration.Built = &baseSubject;
+  declaration.InitialGeometry = &*baseCard;
   declaration.SurfaceWidthPx = 384;
   declaration.SurfaceHeightPx = 128;
   declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
@@ -554,6 +554,90 @@ int main() {
   }
   crowns.reset();
   CHECK(renderer.PiecesStanding() == 0, "destroying the crown owner releases every view prototype");
+  outshine::Ground::GroundMaterials materials;
+  outshine::Ground::VegetationTemplates vegetation;
+  Generators::Shipping catalogue;
+  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
+            vegetation.Load("src/assets/world/vegetation.json", materials) &&
+            catalogue.Stands(vegetation, "src/assets/world/species", error),
+        "world crown catalogue loads through the production species path");
+  uint32_t birch = 0;
+  while (const auto *one = catalogue.TreeFor(Generators::ClusterId{birch})) {
+    if (one->Definition() == species.Definition()) { break; }
+    ++birch;
+  }
+  CHECK(catalogue.TreeFor(Generators::ClusterId{birch}) != nullptr,
+        "the loaded atlas resolves to its actual catalogue cluster");
+  std::array<WorldInstance, 2> placements{
+      {{.Body = 17, .Cluster = birch}, {.Body = 18, .Cluster = ~0u}}};
+  WorldCrowns::Config worldConfig{.Cache = {.Store = cacheStore},
+                                  .Shape = {.Pixels = 128, .Views = 4}};
+  const auto worldFrame = TangentFrame::At({});
+  auto world = WorldCrowns::Create(*live, catalogue, placements, worldFrame, worldConfig, error);
+  CHECK(world && world->Wanted() == 1 && !world->Ready(),
+        "only tree clusters request resident crown prototypes");
+  auto camera = Render::Viewpoint::LookAt(
+      {.EyeM = atlas->CentreM() + Vec3{{0, 0, 9 * extent}}, .AimM = atlas->CentreM()}, 0.0);
+  CHECK(camera.has_value(), "world crown camera has a valid basis");
+  if (world && camera) {
+    camera->Kind = Render::CameraKind::Orthographic;
+    camera->XMagM = 3 * extent;
+    camera->YMagM = extent;
+    camera->ZNearM = extent;
+    camera->ZFarM = 15 * extent;
+    live->Eye(*camera);
+    bool stepped = true;
+    const auto began = std::chrono::steady_clock::now();
+    while (!world->Ready() && std::chrono::steady_clock::now() - began < std::chrono::seconds(5)) {
+      if (!world->Step(camera->EyeM, false, error)) {
+        stepped = false;
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(stepped && world->Ready() && world->Resident() == 1,
+          "world crown consumer loads the matching artifact without preparation");
+    CHECK(live->Draw(error), "geographically placed resident crown draws");
+    renderer.WaitForGpu();
+    std::vector<float> depth;
+    CHECK(renderer.ReadDepth(depth) == Render::ReadState::Ready && depth.size() == 384u * 128u,
+          "world crown depth frame is complete");
+    size_t mismatch = 0;
+    if (depth.size() == 384u * 128u) {
+      for (size_t y = 0; y < 128; ++y) {
+        for (size_t x = 0; x < 384; ++x) {
+          const bool expected =
+              x >= 128 && x < 256 && atlas->Views()[0].Texels[y * 128 + x - 128].Surface > 0;
+          mismatch += (depth[y * 384 + x] > 0) != expected;
+        }
+      }
+    }
+    CHECK(mismatch == 0,
+          "world consumer preserves the captured crown coverage at its geographic root");
+    CHECK(live->Screenshot("build/crown-atlas/world.png", error),
+          "world crown consumer PNG is written");
+    CHECK(renderer.PieceTriangles() == 8,
+          "one geographic tree retains only the four shared view prototypes");
+  }
+  world.reset();
+  CHECK(renderer.PiecesStanding() == 0, "world crown destruction releases all resident prototypes");
+  worldConfig.Shape.Views = 5;
+  const auto missingStart = std::chrono::steady_clock::now();
+  {
+    auto absent = WorldCrowns::Create(*live, catalogue, placements, worldFrame, worldConfig, error);
+    CHECK(absent != nullptr, "an absent capture shape can request its artifact");
+    if (absent) {
+      for (int attempt = 0; attempt < 20; ++attempt) {
+        CHECK(absent->Step({}, false, error),
+              "realtime polling defers a missing crown instead of baking it");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      CHECK(!absent->Ready() && absent->Resident() == 0 && renderer.PiecesStanding() == 0,
+            "missing crown remains explicitly nonresident");
+    }
+  }
+  CHECK(std::chrono::steady_clock::now() - missingStart < std::chrono::seconds(1),
+        "missing crown destruction drains IO without waiting for an unrequested expensive bake");
   std::printf(
       "atlas capture, checks and PNG export %.3f ms; payload %zu bytes; no world frame-rate "
       "claim\n",

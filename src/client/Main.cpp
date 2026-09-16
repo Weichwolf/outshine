@@ -1,9 +1,11 @@
 #include "CommandLine.h"
 #include "ProcessBoundary.h"
+#include "ShotOptions.h"
 #include <expected>
 #include <cstdio>
 #include <print>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <span>
 #include <string>
@@ -124,8 +126,10 @@ void Usage() {
       "    --camera auto|index --time seconds --animation index --variant name\n"
       "    --position x,y,z --look-at x,y,z --fov degrees\n"
       "    --lighting auto|authored|studio --exposure multiplier\n"
-      "  shots [--rows] [--measures] [--audit] [--all | <place>]\n"
-      "                                   stand each place, draw it, keep the picture\n"
+      "  prepare <place> <timeout-seconds>\n"
+      "  shots [--rows] [--measures] [--audit] [--no-vegetation] [--all | <place>]\n"
+      "    --preload-seconds <seconds>     preparation timeout (default 15); separate from frame "
+      "timing\n"
       "  places                           list the external scenario cameras\n"
       "  --places <directory> <command>   override src/assets/places\n"
       "  roundtrip                        write each place, read it back, write it again\n"
@@ -159,39 +163,41 @@ void Usage() {
 
 int TakeShots(std::span<const Place> places, int argc, const char *const *argv) {
   std::vector<const Place *> taking;
-  bool rows = false;
-  bool everyMeasure = false;
-  while (argc > 0 && argv[0][0] == '-' && std::strcmp(argv[0], "--all") != 0) {
-    if (std::strcmp(argv[0], "--rows") == 0) { rows = true; }
-    if (std::strcmp(argv[0], "--measures") == 0) { everyMeasure = true; }
-    if (std::strcmp(argv[0], "--audit") == 0) { outshine::Shots::Audits = true; }
-    --argc;
-    ++argv;
+  const std::span<const char *const> arguments(argv, static_cast<size_t>(argc));
+  const auto parsed = outshine::Client::ReadShotOptions(arguments);
+  if (!parsed) {
+    std::println(stderr, "outshine-client: {}", parsed.error());
+    return 2;
   }
-  if (argc < 1 || std::strcmp(argv[0], "--all") == 0) {
+  const auto &options = *parsed;
+  outshine::Shots::Audits = options.Audit;
+  const auto names = arguments.subspan(options.FirstPlace);
+  if (options.All || names.empty()) {
     for (const Place &one : places) { taking.push_back(&one); }
   } else {
-    for (int at = 0; at < argc; ++at) {
-      const Place *const named = outshine::Shots::PlaceNamed(places, argv[at]);
+    for (const char *name : names) {
+      const Place *const named = outshine::Shots::PlaceNamed(places, name);
       if (named == nullptr) {
-        std::println("outshine-client: no place is called '{}'", argv[at]);
-        Usage();
+        std::println(stderr, "outshine-client: no place is called '{}'", name);
         return 2;
       }
       taking.push_back(named);
     }
   }
   std::println("CONTROL\t{:.4f}", outshine::Shots::ControlVariation());
+  std::println("SCENARIO\tvegetation={}", options.Vegetation ? "yes" : "no");
+  std::println("PRELOAD\t{} s", options.PreloadSeconds);
   int refused = 0;
   for (const Place *const one : taking) {
     outshine::Shots::Telling = &gTelling;
-    const Shot shot = outshine::Shots::Take(*one, !rows);
-    if (rows) {
+    const Shot shot =
+        outshine::Shots::Take(*one, !options.Rows, options.Vegetation, options.PreloadSeconds);
+    if (options.Rows) {
       Row(shot, one->Name);
     } else {
       Tell(shot, one->Name);
     }
-    if (everyMeasure) {
+    if (options.Measures) {
       for (const outshine::Measure &measure : shot.Measures) {
         std::println("        {:<56} {:14.3f} {}", measure.What, measure.How, measure.Unit);
       }
@@ -305,7 +311,8 @@ constexpr auto kHeightCoordinates =
 
 std::expected<std::vector<Place>, std::string>
 LoadCommandPlaces(const outshine::Client::CommandLine &command) {
-  if (command.Verb == "shots" || command.Verb == "places" || command.Verb == "roundtrip") {
+  if (command.Verb == "shots" || command.Verb == "prepare" || command.Verb == "places" ||
+      command.Verb == "roundtrip") {
     return outshine::Shots::LoadPlaces(command.Directory);
   }
   return std::vector<Place>{};
@@ -347,6 +354,20 @@ int RunClientCommand(std::span<const char *const> arguments) {
   }
   const auto &places = *loaded;
   if (verb == "shots") { return TakeShots(places, rest, from); }
+  if (verb == "prepare" && rest == 2) {
+    const auto *place = outshine::Shots::PlaceNamed(places, from[0]);
+    char *end = nullptr;
+    const double seconds = std::strtod(from[1], &end);
+    if (place == nullptr || end == from[1] || *end != 0 || !std::isfinite(seconds) ||
+        seconds <= 0) {
+      return 2;
+    }
+    outshine::Shots::Telling = &gTelling;
+    const std::string why = outshine::Shots::Prepare(*place, seconds);
+    std::println(
+        "PREPARE {} {}; no frame-rate measurement", place->Name, why.empty() ? "ready" : why);
+    return why.empty() ? 0 : 1;
+  }
   if (verb == "render") { return outshine::Client::RenderAsset({from, static_cast<size_t>(rest)}); }
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }

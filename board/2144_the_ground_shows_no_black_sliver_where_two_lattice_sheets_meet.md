@@ -14,14 +14,15 @@ Die dunklen Stellen allein beweisen kein Loch: Schatten, Deckung, Winding und fe
 Flächen durch Depth-/Face-ID-/Normalbilder auseinanderhalten. Einstieg:
 `src/world/ground/tiles/TerrainGrid.*`, GroundLattice und `src/engine/Laying.cpp`.
 
-Aktueller Malcesine-Lauf ohne Vegetation: StitchEdges verändert virtuelle Randpunkte
-um bis zu 183,594 m, reale um 15,496 m; nach vorheriger Fehlerselektion. Stamping
-senkt höchstens 28,161 m ab und hebt höchstens 29,656 m an. Der Skirt-Verdacht ist
-in 2166 widerlegt. Ob die maximale Randänderung die sichtbare Felswand trifft,
-ist offen. Temporäre Diagnose protokolliert neue Randfehler-Maxima mit Tile, Quellzoom,
-Geokoordinate sowie Höhe vor/nach Stitching; Logs ins System-Tempverzeichnis.
-Erwartung: räumliche Zuordnung trennt sichtbare Wand von entfernten Nahtfehlern.
-Diagnose verändert keine Höhen und wird nach Auswertung wieder entfernt.
+Malcesine ohne Vegetation: 1598 Kantenmaxima lokalisiert; PNG 46e4db5c unverändert
+und geöffnet. Globales Maximum 183,594 m liegt außerhalb des Kamerablicks. Große
+in den Frustum projizierte Werte liegen überwiegend weit entfernt und können verdeckt
+sein; Frustum ist keine Sichtbarkeitsprüfung. Ein wandnaher Kandidat bei
+10,722656250° E / 45,771115228° N wechselt 422,675 → 433,882 m (11,208 m),
+zwischen Quellzoom 13 und 12. Keine bewiesene Erklärung des gesamten Faltenvorhangs.
+Diagnose entfernt. Rohhöhen, finale Oberfläche und Nahtkorrektur müssen getrennt
+gegen Bild-/Geometriefehler geprüft werden. Temporäre Logs `outshine-seam-edges-*`
+liegen im System-Tempverzeichnis. Skirt-Gegenprobe steht in 2166.
 
 Gemeinsame finale Rand-Samples und Edge-IDs je Tile/LOD, Nachbar-LOD beschränken,
 Stitch-Indizes oder gemeinsam morphten Rand verwenden. Stamp-/Relief-Änderungen invalidieren

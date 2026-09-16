@@ -1,5 +1,3 @@
-#include <algorithm>
-#include <limits>
 #include <fstream>
 #include <iterator>
 #include <filesystem>
@@ -7,6 +5,7 @@
 #include <set>
 #include <array>
 #include <chrono>
+#include <limits>
 #include <SDL3/SDL.h>
 #include <Outshine.h>
 #include <scenario/Scenario.h>
