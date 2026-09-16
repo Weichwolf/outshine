@@ -1,7 +1,6 @@
 Type: bug
 State: ready
 Parent: 2191
-Depends: 2224
 Area: engine, render, flora, test
 Tags: streaming, ownership, transaction
 
