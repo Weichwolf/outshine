@@ -161,7 +161,6 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
     const std::optional<Ground::TileWatermark::Next> next = prints.Next(vectors, groundStands);
     if (!next || !heights) { break; }
     const BakeRevision revision{.Vectors = vectors.Generation(),
-                                .Footprints = prints.Revision(),
                                 .FocalPx = prints.FocalPx(),
                                 .TileSpanM = prints.TileSpanM()};
     prints.Take(next->Tile);

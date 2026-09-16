@@ -32,14 +32,13 @@ public:
 
   struct BakeRevision {
     uint64_t Vectors = 0;
-    uint64_t Footprints = 0;
     double FocalPx = 0.0;
     double TileSpanM = 0.0;
 
     [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
                                const Ground::BuildingField &footprints) const noexcept {
-      return Vectors == vectors.Generation() && Footprints == footprints.Revision() &&
-             FocalPx == footprints.FocalPx() && TileSpanM == footprints.TileSpanM();
+      return Vectors == vectors.Generation() && FocalPx == footprints.FocalPx() &&
+             TileSpanM == footprints.TileSpanM();
     }
   };
 

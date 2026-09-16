@@ -15,7 +15,6 @@ int main() {
   footprints.SeenWith(720.0);
   footprints.TilesSpan(2400.0);
   const StructureBakes::BakeRevision revision{.Vectors = vectors.Generation(),
-                                              .Footprints = footprints.Revision(),
                                               .FocalPx = footprints.FocalPx(),
                                               .TileSpanM = footprints.TileSpanM()};
   CHECK(revision.Matches(vectors, footprints), "posted bake inputs still match");
@@ -23,9 +22,9 @@ int main() {
   CHECK(!revision.Matches(vectors, footprints), "changed focal scale makes a bake stale");
   footprints.SeenWith(720.0);
   footprints.ResetDerived();
-  CHECK(!revision.Matches(vectors, footprints), "changed footprint revision makes a bake stale");
+  CHECK(revision.Matches(vectors, footprints),
+        "accepted footprints do not invalidate sibling bakes");
   const StructureBakes::BakeRevision vectorRevision{.Vectors = vectors.Generation(),
-                                                    .Footprints = footprints.Revision(),
                                                     .FocalPx = footprints.FocalPx(),
                                                     .TileSpanM = footprints.TileSpanM()};
   CHECK(vectorRevision.Matches(vectors, footprints), "declared vector source still matches");
