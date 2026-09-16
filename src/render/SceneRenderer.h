@@ -140,64 +140,68 @@ public:
   [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
 
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
-    return Subjects_.PlacePiece(piece, error);
+    return Content_.Subjects.PlacePiece(piece, error);
   }
 
-  void ReleasePiece(PieceId which) { Subjects_.ReleasePiece(which); }
+  void ReleasePiece(PieceId which) { Content_.Subjects.ReleasePiece(which); }
 
   [[nodiscard]] PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
-    return Subjects_.Ground().PlacePage(nodes, error);
+    return Content_.Subjects.Ground().PlacePage(nodes, error);
   }
 
-  void ReleaseHeightPage(PageId which) { Subjects_.Ground().ReleasePage(which); }
+  void ReleaseHeightPage(PageId which) { Content_.Subjects.Ground().ReleasePage(which); }
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
-    return Subjects_.Ground().SetGrid(fractions, error);
+    return Content_.Subjects.Ground().SetGrid(fractions, error);
   }
 
   [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,
                                       std::span<const GroundTile> virtual_,
                                       std::string &error) {
-    return Subjects_.Ground().SetInstances(real, virtual_, error);
+    return Content_.Subjects.Ground().SetInstances(real, virtual_, error);
   }
 
-  [[nodiscard]] uint32_t GroundLatticeTriangles() const { return Subjects_.Ground().Triangles(); }
+  [[nodiscard]] uint32_t GroundLatticeTriangles() const {
+    return Content_.Subjects.Ground().Triangles();
+  }
 
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error) {
-    return Subjects_.SetPieceInstances(which, rows, error);
+    return Content_.Subjects.SetPieceInstances(which, rows, error);
   }
 
   void WearPieces(std::span<const uint32_t> slotOfSurface,
                   std::span<const uint32_t> registered = {}) {
-    Subjects_.WearPieces(slotOfSurface, registered);
+    Content_.Subjects.WearPieces(slotOfSurface, registered);
   }
 
-  [[nodiscard]] uint32_t PiecesStanding() const { return Subjects_.PiecesStanding(); }
+  [[nodiscard]] uint32_t PiecesStanding() const { return Content_.Subjects.PiecesStanding(); }
 
-  [[nodiscard]] uint32_t PieceTriangles() const { return Subjects_.PieceTriangles(); }
+  [[nodiscard]] uint32_t PieceTriangles() const { return Content_.Subjects.PieceTriangles(); }
 
-  [[nodiscard]] size_t TakeUploadAttempts() { return Subjects_.Owned().TakeUploadAttempts(); }
+  [[nodiscard]] size_t TakeUploadAttempts() {
+    return Content_.Subjects.Owned().TakeUploadAttempts();
+  }
 
   [[nodiscard]] size_t TotalUploadAttempts() const {
-    return Subjects_.Resident().TotalUploadAttempts();
+    return Content_.Subjects.Resident().TotalUploadAttempts();
   }
 
   [[nodiscard]] size_t RecordedCrossings() const {
-    return Subjects_.Resident().RecordedCrossings();
+    return Content_.Subjects.Resident().RecordedCrossings();
   }
 
-  [[nodiscard]] size_t TakeUploadBytes() { return Subjects_.Owned().TakeUploadBytes(); }
+  [[nodiscard]] size_t TakeUploadBytes() { return Content_.Subjects.Owned().TakeUploadBytes(); }
 
   [[nodiscard]] size_t TakeBufferAllocationAttempts() {
-    return Subjects_.Owned().TakeBufferAllocationAttempts();
+    return Content_.Subjects.Owned().TakeBufferAllocationAttempts();
   }
 
   [[nodiscard]] size_t TakeStagingAllocationAttempts() {
-    return Subjects_.Owned().TakeStagingAllocationAttempts();
+    return Content_.Subjects.Owned().TakeStagingAllocationAttempts();
   }
 
-  [[nodiscard]] uint32_t PieceBytesHeld() const { return Subjects_.Resident().HeldBytes(); }
+  [[nodiscard]] uint32_t PieceBytesHeld() const { return Content_.Subjects.Resident().HeldBytes(); }
 
   [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);
 
@@ -212,74 +216,79 @@ public:
   [[nodiscard]] bool ReplaceOverlay(std::span<const OverlayQuad> quads,
                                     const OverlayDraw::AtlasPixels *atlas,
                                     std::string &error) {
-    return Overlay_.Replace(Frame_.Handles, quads.data(), quads.size(), atlas, error);
+    return Content_.Overlay.Replace(Frame_.Handles, quads.data(), quads.size(), atlas, error);
   }
 
   [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
-    return Overlay_.SetQuads(Frame_.Handles, quads, count, error);
+    return Content_.Overlay.SetQuads(Frame_.Handles, quads, count, error);
   }
 
   [[nodiscard]] bool
   SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
-    return Overlay_.SetAtlas(Frame_.Handles, rgba, width, height, error);
+    return Content_.Overlay.SetAtlas(Frame_.Handles, rgba, width, height, error);
   }
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
     const Heap::Tagged relaying("mesh-relay");
-    if (DrawsGlass_ && !Glass_.ValidateMesh(mesh, error)) { return false; }
-    return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
+    if (Content_.DrawsGlass && !Content_.Glass.ValidateMesh(mesh, error)) { return false; }
+    return Content_.Subjects.SetMesh(mesh, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.SetMesh(mesh, error));
   }
 
   [[nodiscard]] bool SubjectPlacementRows(size_t rows, std::string &error) {
-    return Subjects_.PlacementRows(rows, error) &&
-           (!DrawsGlass_ || Glass_.PlacementRows(rows, error));
+    return Content_.Subjects.PlacementRows(rows, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.PlacementRows(rows, error));
   }
 
   void MoveSubjectPlacement(size_t slot, const Mat4 &model) {
-    Subjects_.MovePlacement(slot, model);
-    if (DrawsGlass_) { Glass_.MovePlacement(slot, model); }
+    Content_.Subjects.MovePlacement(slot, model);
+    if (Content_.DrawsGlass) { Content_.Glass.MovePlacement(slot, model); }
   }
 
   [[nodiscard]] bool HandSubjectPlacements(std::string &error) {
-    return Subjects_.HandPlacements(false, error) &&
-           (!DrawsGlass_ || Glass_.HandPlacements(false, error));
+    return Content_.Subjects.HandPlacements(false, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.HandPlacements(false, error));
   }
 
-  [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
+  [[nodiscard]] size_t SubjectPlacementsMoved() const {
+    return Content_.Subjects.PlacementsMoved();
+  }
 
-  [[nodiscard]] uint32_t SubjectBytesStaged() const { return Subjects_.StagedBytes(); }
+  [[nodiscard]] uint32_t SubjectBytesStaged() const { return Content_.Subjects.StagedBytes(); }
 
-  void ForgetSubjectStaging() { Subjects_.ForgetStagedCount(); }
+  void ForgetSubjectStaging() { Content_.Subjects.ForgetStagedCount(); }
 
   [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return Frame_.Shadow.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
-    return Subjects_.SetPlacements(models, rows, error) &&
-           (!DrawsGlass_ || Glass_.SetPlacements(models, rows, error));
+    return Content_.Subjects.SetPlacements(models, rows, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.SetPlacements(models, rows, error));
   }
 
   [[nodiscard]] bool SetSubjectPose(const SubjectPose &pose, std::string &error) {
-    return Subjects_.SetPose(pose, error) && (!DrawsGlass_ || Glass_.SetPose(pose, error));
+    return Content_.Subjects.SetPose(pose, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.SetPose(pose, error));
   }
 
   [[nodiscard]] bool SetSubjectMaterials(std::span<const SubjectMaterial> materials,
                                          std::string &error) {
-    return Subjects_.SetMaterials(materials, error) &&
-           (!DrawsGlass_ || Glass_.SetMaterials(materials, error));
+    return Content_.Subjects.SetMaterials(materials, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.SetMaterials(materials, error));
   }
 
   [[nodiscard]] bool AppendSubjectMaterials(std::span<const SubjectMaterial> materials,
                                             std::string &error) {
-    if (!Subjects_.ValidateMaterials(materials, error) ||
-        (DrawsGlass_ && !Glass_.ValidateMaterials(materials, error))) {
+    if (!Content_.Subjects.ValidateMaterials(materials, error) ||
+        (Content_.DrawsGlass && !Content_.Glass.ValidateMaterials(materials, error))) {
       return false;
     }
-    return Subjects_.AppendMaterials(materials, error) &&
-           (!DrawsGlass_ || Glass_.AppendMaterials(materials, error));
+    return Content_.Subjects.AppendMaterials(materials, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.AppendMaterials(materials, error));
   }
 
   [[nodiscard]] bool SetSubjectLights(std::span<const SubjectLight> lights, std::string &error) {
-    return Subjects_.SetLights(lights, error) && (!DrawsGlass_ || Glass_.SetLights(lights, error));
+    return Content_.Subjects.SetLights(lights, error) &&
+           (!Content_.DrawsGlass || Content_.Glass.SetLights(lights, error));
   }
 
   void SetMedium(const Medium &medium) {
@@ -321,21 +330,23 @@ public:
   [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const { return Frame_.TransmittanceLut.Get(); }
 
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
-    Subjects_.SetEnvironment(environment);
-    if (DrawsGlass_) { Glass_.SetEnvironment(environment); }
+    Content_.Subjects.SetEnvironment(environment);
+    if (Content_.DrawsGlass) { Content_.Glass.SetEnvironment(environment); }
   }
 
-  [[nodiscard]] uint32_t SubjectBatchCount() const { return Subjects_.BatchCount(); }
+  [[nodiscard]] uint32_t SubjectBatchCount() const { return Content_.Subjects.BatchCount(); }
 
   [[nodiscard]] uint32_t SubjectBatchesTaking(VertexLayout layout) const {
     uint32_t many = 0;
-    for (const DrawBatch &batch : Subjects_.Drawn()) { many += batch.Layout == layout ? 1u : 0u; }
+    for (const DrawBatch &batch : Content_.Subjects.Drawn()) {
+      many += batch.Layout == layout ? 1u : 0u;
+    }
     return many;
   }
 
   [[nodiscard]] size_t ShadowCastCount() const { return Frame_.Shadow.CastBatches(); }
 
-  [[nodiscard]] size_t ShadowedFrames() const { return Subjects_.ShadowedFrames(); }
+  [[nodiscard]] size_t ShadowedFrames() const { return Content_.Subjects.ShadowedFrames(); }
 
   struct Effort {
     double TookMs = 0.0;
@@ -355,14 +366,14 @@ public:
   }
 
   [[nodiscard]] size_t SubjectUniformPushes() const {
-    return Subjects_.UniformPushes() + Glass_.UniformPushes();
+    return Content_.Subjects.UniformPushes() + Content_.Glass.UniformPushes();
   }
 
   [[nodiscard]] float ExposureApplied() const { return Plan_ ? Plan_->Exposure() : 0.0f; }
 
-  [[nodiscard]] uint32_t SubjectDrawCount() const { return Subjects_.DrawCount(); }
+  [[nodiscard]] uint32_t SubjectDrawCount() const { return Content_.Subjects.DrawCount(); }
 
-  [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }
+  [[nodiscard]] uint32_t SubjectPipelineCount() const { return Content_.Subjects.PipelineCount(); }
 
   void SetCamera(const CameraBasis &basis, const Lens &lens) noexcept;
 
@@ -535,6 +546,13 @@ private:
 
   OwnedDevice Device_;
 
+  struct WorldContent {
+    SubjectDraw Subjects;
+    SubjectDraw Glass;
+    OverlayDraw Overlay;
+    bool DrawsGlass = false;
+  };
+
   struct FrameResources {
     SDL_GPUTexture *HostSurface = nullptr;
     Shown Shown;
@@ -587,16 +605,11 @@ private:
   SDL_Window *Showing_ = nullptr;
   FrameResources Frame_;
   std::shared_ptr<const Compiled> Plan_;
-  SubjectDraw Subjects_;
-
-  SubjectDraw Glass_;
-
-  bool DrawsGlass_ = false;
+  WorldContent Content_;
   GroundStorage GroundStorage_;
   Medium Medium_ = kEarthAir;
   float CosSunZenith_ = 1.0f;
   float EyeHeightM_ = 0.0f;
-  OverlayDraw Overlay_;
 
   bool Ready_ = false;
   std::string WhyNot_;

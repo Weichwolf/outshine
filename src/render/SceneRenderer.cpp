@@ -340,7 +340,7 @@ SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan,
   Submitted_ = false;
   Frame_ = std::move(candidate);
   Plan_ = std::move(plan);
-  DrawsGlass_ = drawsGlass;
+  Content_.DrawsGlass = drawsGlass;
   BindFrameResources();
   BeginTemporalRun();
   Ready_ = true;
@@ -634,7 +634,7 @@ SDL_GPUTexture *SceneRenderer::Target(const FrameResources &frame, Resource reso
 }
 
 SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
-  const SubjectResidency &resident = Subjects_.Resident();
+  const SubjectResidency &resident = Content_.Subjects.Resident();
   switch (resource) {
     case Resource::ClusterSphere:
       return resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get();
@@ -726,7 +726,7 @@ bool SceneRenderer::ConfigureSubjects(SceneRenderer &renderer,
                                       bool drawsGlass,
                                       std::string &error) {
   (void)plan;
-  return renderer.Subjects_.Configure(
+  return renderer.Content_.Subjects.Configure(
       frame.SubjectPipelines, frame.Handles, nullptr, nullptr, drawsGlass, error);
 }
 
@@ -737,8 +737,8 @@ bool SceneRenderer::ConfigureGlass(SceneRenderer &renderer,
                                    std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  renderer.Glass_.Shares(renderer.Subjects_.Owned());
-  return renderer.Glass_.Configure(
+  renderer.Content_.Glass.Shares(renderer.Content_.Subjects.Owned());
+  return renderer.Content_.Glass.Configure(
       frame.GlassPipelines, frame.Handles, frame.HdrTex.Get(), frame.Samp.Get(), false, error);
 }
 
@@ -764,7 +764,7 @@ bool SceneRenderer::ConfigureOverlay(SceneRenderer &renderer,
                                      bool drawsGlass,
                                      std::string &error) {
   (void)drawsGlass;
-  return renderer.Overlay_.EnsureAtlas(frame.Handles, error) &&
+  return renderer.Content_.Overlay.EnsureAtlas(frame.Handles, error) &&
          frame.OverlayPipe.Configure(
              frame.Handles, frame.Samp.Get(), FormatOf(plan.Format(Resource::FrameTex)), error);
 }
@@ -884,14 +884,14 @@ bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
                                              std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  return frame.Shadow.Configure(renderer.Subjects_, frame.Handles, error);
+  return frame.Shadow.Configure(renderer.Content_.Subjects, frame.Handles, error);
 }
 
 void SceneRenderer::BindFrameResources() {
-  Subjects_.UsePipelines(Frame_.SubjectPipelines);
-  Glass_.UsePipelines(Frame_.GlassPipelines);
-  Subjects_.SkyFrom(Frame_.IrradianceBuffer.Get());
-  if (DrawsGlass_) { Glass_.SkyFrom(Frame_.IrradianceBuffer.Get()); }
+  Content_.Subjects.UsePipelines(Frame_.SubjectPipelines);
+  Content_.Glass.UsePipelines(Frame_.GlassPipelines);
+  Content_.Subjects.SkyFrom(Frame_.IrradianceBuffer.Get());
+  if (Content_.DrawsGlass) { Content_.Glass.SkyFrom(Frame_.IrradianceBuffer.Get()); }
 }
 
 void SceneRenderer::Picture(bool picture, const PassRecording &into) {
@@ -941,7 +941,7 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
   spent.Surfaces = 0;
   spent.Placements = 0;
   if (stage == Stage::Subjects || stage == Stage::SubjectsTransmissive) {
-    const SubjectDraw &drew = stage == Stage::Subjects ? Subjects_ : Glass_;
+    const SubjectDraw &drew = stage == Stage::Subjects ? Content_.Subjects : Content_.Glass;
     uint32_t surfaces = 0;
     uint32_t placements = 0;
     for (const DrawBatch &batch : drew.Drawn()) {
@@ -965,12 +965,12 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
 
 void SceneRenderer::EncodeSubjects(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  Subjects_.Encode(ctx, into);
+  Content_.Subjects.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeGlass(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  Glass_.Encode(ctx, into);
+  Content_.Glass.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx,
@@ -994,7 +994,7 @@ void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &
 void SceneRenderer::EncodeOverlay(const FrameContext &ctx, const PassRecording &into) {
   Picture(false, into);
   Frame_.OverlayPipe.Bind(Extent{.WidthPx = Frame_.Width, .HeightPx = Frame_.Height});
-  Frame_.OverlayPipe.Encode(Overlay_, ctx, into);
+  Frame_.OverlayPipe.Encode(Content_.Overlay, ctx, into);
 }
 
 void SceneRenderer::EncodePresent(const FrameContext &ctx, const PassRecording &into) {
@@ -1033,8 +1033,10 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
     error = uploaded.error();
     return false;
   }
-  Subjects_.GroundFrom({.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
-  Glass_.GroundFrom({.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
+  Content_.Subjects.GroundFrom(
+      {.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
+  Content_.Glass.GroundFrom(
+      {.Classes = GroundStorage_.Classes(), .Palette = GroundStorage_.Palette()});
   return true;
 }
 
@@ -1052,10 +1054,10 @@ bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
       error = uploaded.error();
       return false;
     }
-    renderer.Subjects_.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
-                                   .Palette = renderer.GroundStorage_.Palette()});
-    renderer.Glass_.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
-                                .Palette = renderer.GroundStorage_.Palette()});
+    renderer.Content_.Subjects.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
+                                           .Palette = renderer.GroundStorage_.Palette()});
+    renderer.Content_.Glass.GroundFrom({.Classes = renderer.GroundStorage_.Classes(),
+                                        .Palette = renderer.GroundStorage_.Palette()});
   }
   return frame.SkyIrradianceStage.Configure(frame.Handles,
                                             frame.TransmittanceLut.Get(),
@@ -1101,7 +1103,7 @@ bool SceneRenderer::ConfigureSubjectCull(SceneRenderer &renderer,
   frame.Cull.PyramidFrom(frame.Pyramid.Get(),
                          PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
                                       .HeightPx = static_cast<uint32_t>(frame.Height)}));
-  return frame.Cull.Configure(renderer.Subjects_, frame.Handles, error);
+  return frame.Cull.Configure(renderer.Content_.Subjects, frame.Handles, error);
 }
 
 void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
@@ -1119,7 +1121,7 @@ void SceneRenderer::EncodeSubjectCompact(const FrameContext &ctx, const PassReco
 
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   Frame_.Shadow.Encode(ctx, into);
-  Subjects_.ShadowedBy(
+  Content_.Subjects.ShadowedBy(
       Frame_.ShadowAtlas.Get(), Frame_.LutSamp.Get(), Frame_.Shadow.LightFromWorld());
 }
 
@@ -1292,16 +1294,16 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
   if (!Ready_) { return std::unexpected(WhyNot_.empty() ? Says::kRendererNotReady : WhyNot_); }
   if (!CameraFull_) { return std::unexpected(Says::kCameraNotConfigured); }
 
-  Subjects_.CastsNoShadow();
+  Content_.Subjects.CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
   SettleShadow();
   {
     std::string why;
-    if (!Subjects_.HandTables(why) || !Subjects_.HandPlacements(false, why) ||
-        (DrawsGlass_ && !Glass_.HandTables(why))) {
+    if (!Content_.Subjects.HandTables(why) || !Content_.Subjects.HandPlacements(false, why) ||
+        (Content_.DrawsGlass && !Content_.Glass.HandTables(why))) {
       return std::unexpected(std::move(why));
     }
-    if (!Subjects_.HandDrawArguments(true, why)) { return std::unexpected(std::move(why)); }
+    if (!Content_.Subjects.HandDrawArguments(true, why)) { return std::unexpected(std::move(why)); }
   }
   return {};
 }
@@ -1312,8 +1314,8 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());
   if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
   std::string uploadError;
-  if (!Subjects_.FlushCrossings(commands, uploadError) ||
-      (DrawsGlass_ && !Glass_.FlushCrossings(commands, uploadError))) {
+  if (!Content_.Subjects.FlushCrossings(commands, uploadError) ||
+      (Content_.DrawsGlass && !Content_.Glass.FlushCrossings(commands, uploadError))) {
     SDL_CancelGPUCommandBuffer(commands);
     return std::unexpected(std::move(uploadError));
   }
@@ -1361,7 +1363,8 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     Frame_.LinearAt = previousLinearAt;
   };
 
-  if (!Subjects_.Ground().Cull(Framing(), Subjects_.AnchorM(), commands, uploadError)) {
+  if (!Content_.Subjects.Ground().Cull(
+          Framing(), Content_.Subjects.AnchorM(), commands, uploadError)) {
     SDL_CancelGPUCommandBuffer(commands);
     restoreTemporalState();
     return std::unexpected(std::move(uploadError));
@@ -1388,13 +1391,13 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
     restoreTemporalState();
     return std::unexpected(std::move(error));
   }
-  Subjects_.CommitCrossings();
-  if (DrawsGlass_) { Glass_.CommitCrossings(); }
+  Content_.Subjects.CommitCrossings();
+  if (Content_.DrawsGlass) { Content_.Glass.CommitCrossings(); }
   stageSubmission.Commit();
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Camera_.EyeM[axis]; }
-  Subjects_.CarryFrame();
-  Glass_.CarryFrame();
+  Content_.Subjects.CarryFrame();
+  Content_.Glass.CarryFrame();
 
   PrevMvp_ = MvpCamRel(Camera_, Through());
   Submitted_ = true;
@@ -1509,9 +1512,9 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
-  const SubjectResidency &resident = Subjects_.Resident();
+  const SubjectResidency &resident = Content_.Subjects.Resident();
   SDL_GPUBuffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
-  const uint32_t rows = Subjects_.ClusterBatchRows();
+  const uint32_t rows = Content_.Subjects.ClusterBatchRows();
   if (!Ready_ || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
