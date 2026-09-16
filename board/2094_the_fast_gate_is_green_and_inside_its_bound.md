@@ -48,8 +48,11 @@ Weitere Claims nach belegtem Fehlernutzen und tatsächlichen Laufzeitkosten bewe
 
 ## Verbleibende Arbeit
 
-Aktuelles Lint vollständig grün: 0 Tidy-Befunde (189/189 Units), Dokumentation 24/24 Header,
-null Diagnosen. Fachliche API-Abnahme bleibt 2188. P0 vor Featureausbau nach 2169.
+Tidy-Nachweis: 0 Befunde (189/189 Units, 2026-09-15); Dokumentation 24/24 Header,
+null Diagnosen (2026-09-16). `make lint` ist aktuell rot, weil der deklarierte immutable
+Khronos-Pin `8077bf…` im lokalen Referenzcache fehlt. Das ist ein fehlender Prüfeingang,
+kein Grund zur Pinänderung oder zur Deaktivierung des Gates. Fachliche API-Abnahme bleibt
+2188. P0 vor Featureausbau nach 2169.
 make test als Ganzes ist rot; konkrete Ergebnisse unten. Shaderpaket nach 2152: 455/455
 SPIR-V-Artefakte reflektiert und gegen SDL-Bindings geprüft, zehn Testgruppen grün;
 8/8 Compute-Verträge aus dem tatsächlichen C++-Katalog stimmen mit Reflection überein.
