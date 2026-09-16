@@ -171,6 +171,10 @@ int main() {
         CHECK(renderer.endFrame().has_value(), "the original window still presents that frame");
       }
       CHECK(owner.drawsInto(candidate).has_value(), "a closed frame permits a valid target switch");
+      auto replacement = owner.swapChain();
+      const bool replacementFrame = renderer.beginFrame(replacement).has_value();
+      CHECK(replacementFrame && renderer.endFrame().has_value(),
+            "the replaced window opens and presents a complete frame");
       CHECK(contender.drawsInto(first).has_value(),
             "successful replacement releases the old window");
     }
