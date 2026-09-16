@@ -36,9 +36,9 @@ melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer ü
 ## Verbleibende Arbeit
 - Reale Speichererschöpfung bleibt außerhalb der synthetischen Zählerprüfung.
 - Kopier-/Indexverengungen und Bindungsauflösung mit gemeinsamen nativen Regeln auditieren.
-- Späte Fehler im gesamten Weltaufbau prüfen: frühere Änderungen an World.Pieces und
-  anderen Begleitdaten sind durch das Verwerfen des Geometry-Kandidaten nicht zurückgerollt.
-  Vollständige Transaktion einschließlich aktiver Welt durch unabhängige Fehlerfälle belegen.
+- Ground-Kandidat umfasst nun Höhen, Geometrie, Netz und Materialslots (WI 2224); späte
+  Klassen-/Geometrie-Uploadfehler und Retry am Transaktionsobjekt geprüft. Vollständigen
+  Engine-/OSM-Pfad einschließlich Materialabbildung, Albedo und Pixeln noch unabhängig belegen.
 - Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen; Assetmigration bleibt WI 2150.
 
 ## Native-Konstruktionsfehler

@@ -27,7 +27,7 @@ public:
     uint32_t Roofs = 2;
   };
 
-  void Wears(Surfaces these) {
+  void Wears(Surfaces these) noexcept {
     WallsSurface_ = these.Walls;
     RoofsSurface_ = these.Roofs;
   }

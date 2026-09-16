@@ -7,12 +7,12 @@ Tags: geometry, ownership, state, gpu
 
 # Geometry replacements publish whole world candidates
 
-## Remaining defect
+## Ground publication boundary
 
-`Engine::State::Grounds` still changes active height sheets, ground positions, network,
-material indices and bounced-light albedo before water/material/geometry preparation finishes.
-`ApplyGroundEarthworks` publishes a partial world; final `Live::SetGeometry` then mutates it.
-A late failure can leave mixed CPU/GPU products even though the published revision stays old.
+`Engine::State::Grounds` now stages sheets, ground positions/indices, network, material slots and
+bounced-light albedo in one candidate. Earthworks no longer publish an intermediate world; final
+geometry/classification must succeed before the renderer owner and nonthrowing CPU moves commit.
+The published revision changes last. Provider requests and preparation caches remain independent.
 
 ## Existing foundation
 
@@ -29,7 +29,7 @@ declaration starts with empty classification. Old global storage failed five GPU
 
 ## Decision
 
-Use one `GroundWorldCandidate` for an entire ground rebuild. It owns prepared `Live`, copied
+`GroundWorldCandidate` owns an entire ground rebuild. It owns prepared `Live`, copied
 height-sheet state, new terrain positions/indices, candidate network and building material slots.
 Classification changes bounced-light albedo only on candidate `Live`. Refinement and earthworks
 use candidate sheets; earthworks do not publish. Final geometry and classification uploads must
@@ -44,8 +44,9 @@ Copy/prepare costs are explicit preparation work; no bounded-frame-time claim wi
 
 ## Scope still requiring proof
 
-- Whole-ground rejection after height upload and before final geometry publication: old terrain,
-  network, material mapping, albedo, revision, readbacks and pixels survive together.
+- End-to-end public Engine/OSM failure after height upload: material mapping, albedo, actual
+  routing graph, readbacks and rendered old pixels survive together, beyond the synthetic candidate
+  fixture. Terrain topology, CPU positions/indices, network counters and revisions are covered.
 - Failed structure roof after accepted wall upload publishes neither tile nor terrain input.
 - Reject stale streaming results after a newer revision is current.
 - Camera/animation/native replacements retain placements and frame state.
@@ -54,6 +55,12 @@ Copy/prepare costs are explicit preparation work; no bounded-frame-time claim wi
 - Public geometry/audio occlusion must publish together; no partial declaration replacement.
 
 ## Evidence
+
+- `LateFailurePreservesPublishedGround`: actual class and geometry GPU submission failures after
+  staged terrain changes preserve the old renderer owner, terrain topology and CPU publication;
+  immediate retry installs staged products and revision once. Both SDL submit entry points injected.
+- Whole-ground migration: Graz without vegetation is pixel-identical to the pre-change render
+  (0/921600 differing pixels), PNG opened. Reference: build/shots/reference/ground-world-transaction/.
 
 - `GroundResourcesSurviveWorldPublication`: geometryless declaration, two replacements, stable
   height-page handles and operation through rebound streaming owner. Removing rebinding fails.

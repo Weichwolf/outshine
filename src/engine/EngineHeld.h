@@ -57,6 +57,7 @@
 #include "ScenarioRead.h"
 
 namespace outshine {
+struct GroundBuildProducts;
 
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
@@ -344,7 +345,7 @@ struct Engine::State {
   [[nodiscard]] static std::vector<float> PaletteOver(const Ground::VegetationTemplates &wearing,
                                                       const Render::Medium &fallback);
 
-  [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM);
+  [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM, Core::Live &candidate);
 
   struct Phasing {
     std::chrono::steady_clock::time_point PhaseAt;
@@ -354,7 +355,7 @@ struct Engine::State {
 
   void TellsWhatTheGroundHolds(const TangentFrame &standing);
   [[nodiscard]] bool
-  Models(const TangentFrame &standing, LongitudeLatitude stands, Geometry &ground, Phasing &clocks);
+  Models(const TangentFrame &standing, GroundBuildProducts &build, Phasing &clocks);
 
   enum class Laid : uint8_t { Refused, Pending, Unchanged, Wanted };
 
@@ -375,11 +376,14 @@ struct Engine::State {
   void TellsTheRelief(Relieved over);
   [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded);
 
-  [[nodiscard]] bool
-  RefineGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &over);
+  [[nodiscard]] bool RefineGroundSheets(const TangentFrame &standing,
+                                        Patchwork &patchwork,
+                                        const Around &over,
+                                        GroundBuildProducts &build);
   [[nodiscard]] bool ApplyGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,
-                                           std::vector<Yields> corridor);
+                                           std::vector<Yields> corridor,
+                                           GroundBuildProducts &build);
   [[nodiscard]] bool
   BuildWaterSurfaces(const TangentFrame &standing, Geometry &ground, MaterialInstance ringSurface);
   void ReportGroundPlacements();

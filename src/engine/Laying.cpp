@@ -41,6 +41,7 @@
 #include "spatial/Refine.h"
 #include "Corridors.h"
 #include "EngineHeld.h"
+#include "GroundWorldCandidate.h"
 #include "GroundMesher.h"
 
 namespace outshine {
@@ -103,7 +104,8 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
   return palette;
 }
 
-Engine::State::Classed Engine::State::Classify(std::span<const float> groundPositionsM) {
+Engine::State::Classed Engine::State::Classify(std::span<const float> groundPositionsM,
+                                               Core::Live &candidate) {
   Classed out;
   const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
   const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
@@ -131,14 +133,14 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
     }
     if (worn > 0.0) {
       const Vec3 wornMean = {{wornSum[0] / worn, wornSum[1] / worn, wornSum[2] / worn}};
-      Picture.Standing->Grounding(wornMean);
+      candidate.Grounding(wornMean);
       Published.Places(
           "lighting: the ground it bounces off, red", kPerMille * wornMean[0], "albedo/1000");
       Published.Places("lighting: green", kPerMille * wornMean[1], "albedo/1000");
       Published.Places("lighting: blue", kPerMille * wornMean[2], "albedo/1000");
     }
   }
-  const Render::SubjectEnvironment &lighting = Picture.Standing->AmbientStanding();
+  const Render::SubjectEnvironment &lighting = candidate.AmbientStanding();
   Published.Places("lighting: the sky's own radiance, red", lighting.RadianceLinear[0], "cd/m2");
   Published.Places("lighting: sky green", lighting.RadianceLinear[1], "cd/m2");
   Published.Places("lighting: sky blue", lighting.RadianceLinear[2], "cd/m2");
@@ -243,10 +245,9 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing) {
 }
 
 bool Engine::State::Models(const TangentFrame &standing,
-                           LongitudeLatitude stands,
-                           Geometry &ground,
+                           GroundBuildProducts &build,
                            Phasing &clocks) {
-  (void)stands;
+  Geometry &ground = build.Ground;
   TellsWhatTheGroundHolds(standing);
   Material walls;
   walls.BaseColour[0] = kWallRed;
@@ -264,8 +265,8 @@ bool Engine::State::Models(const TangentFrame &standing,
     Error = Says::MaterialCreationFailed;
     return false;
   }
-  World.Pieces.Wears({.Walls = static_cast<uint32_t>(wallSurface->index()),
-                      .Roofs = static_cast<uint32_t>(roofSurface->index())});
+  build.Surfaces = {.Walls = static_cast<uint32_t>(wallSurface->index()),
+                    .Roofs = static_cast<uint32_t>(roofSurface->index())};
   Published.Places(
       "rebuild: the ground ring took",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.PhaseAt)
@@ -319,9 +320,6 @@ Engine::State::Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWh
     Error = sees.error();
     return Laid::Refused;
   }
-  World.Pending = sees->Pending;
-  World.Bare = sees->Bare;
-  World.Wanted = sees->Tiles;
   World.AskedPending = sees->Pending;
   World.AskedWanted = sees->Tiles;
   const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
@@ -463,9 +461,10 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded) {
 
 bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
                                        Patchwork &patchwork,
-                                       const Around &over) {
+                                       const Around &over,
+                                       GroundBuildProducts &build) {
   {
-    World.Sheets.Framed(standing);
+    build.Sheets.Framed(standing);
     Published.Places(
         "ground: virtual tiles the lattice refines to",
         static_cast<double>(HeightSheets::Refine(
@@ -482,17 +481,17 @@ bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
       detail.FocalPx =
           static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
     }
-    if (!World.Sheets.RefineByError(patchwork, World.Stack.Ground(), detail, Error)) {
+    if (!build.Sheets.RefineByError(patchwork, World.Stack.Ground(), detail, Error)) {
       return false;
     }
     const auto haloAt = std::chrono::steady_clock::now();
     Published.Places(
         "ground: sheets the lattice haloed",
-        static_cast<double>(World.Sheets.Halos(patchwork, World.Stack.Ground(), over.Zoom)),
+        static_cast<double>(build.Sheets.Halos(patchwork, World.Stack.Ground(), over.Zoom)),
         "sheets");
-    World.RimsMissing = World.Sheets.RimsMissing();
+    build.RimsMissing = build.Sheets.RimsMissing();
     Published.Places("ground: rims copied for want of a neighbour",
-                     static_cast<double>(World.RimsMissing),
+                     static_cast<double>(build.RimsMissing),
                      "sheets");
     Published.Places(
         "ground: of that, haloing",
@@ -501,9 +500,9 @@ bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
         "ms");
   }
   {
-    const HeightSheets::Soup soup = World.Sheets.SoupOf(patchwork);
-    World.GroundPositionsM = soup.PositionM;
-    World.GroundIndex = soup.Index;
+    const HeightSheets::Soup soup = build.Sheets.SoupOf(patchwork);
+    build.PositionsM = soup.PositionM;
+    build.Indices = soup.Index;
     TellsTheRelief(
         {.Tallest = soup.TallestM, .Lowest = soup.LowestM, .TallestOutM = soup.TallestOutM});
   }
@@ -610,7 +609,8 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
 
 bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
-                                          std::vector<Yields> corridor) {
+                                          std::vector<Yields> corridor,
+                                          GroundBuildProducts &build) {
 
   const Ground::BuildingField &pads = World.Stack.Footprints();
   const Ground::OsmField *const shapes = World.Stack.Vectors();
@@ -630,7 +630,7 @@ bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
                    static_cast<double>(yielding.size() - builtPads - builtLakes),
                    "pieces");
   const auto pressAt = std::chrono::steady_clock::now();
-  const HeightSheets::Pressed pressed_ = World.Sheets.Press(yielding, patchwork, kMostEarthworkM);
+  const HeightSheets::Pressed pressed_ = build.Sheets.Press(yielding, patchwork, kMostEarthworkM);
   Published.Places(
       "ground: lattice nodes the stamps pressed", static_cast<double>(pressed_.Nodes), "nodes");
   Published.Places("ground: stamps refused as STRUCTURES, past the earthwork bound",
@@ -678,26 +678,10 @@ bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
       "ground: of that, pressing",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt).count(),
       "ms");
-  std::unique_ptr<Core::Live> candidate;
-  if (!Core::Live::PreparesWorldReplacement(
-          Picture.Device, *Picture.Standing, &Picture.Face, candidate, Error)) {
-    return false;
-  }
-  HeightSheets sheets = World.Sheets;
-  sheets.Into(candidate.get());
-  if (!sheets.Hands(patchwork, Error)) {
-    candidate.reset();
-    Picture.Device.AbandonsWorldCandidate();
-    return false;
-  }
-  const HeightSheets::Soup pressed = sheets.SoupOf(patchwork);
-  if (!Core::Live::PublishesPreparedWorld(Picture.Device, Picture.Standing, candidate, Error)) {
-    return false;
-  }
-  World.Sheets = std::move(sheets);
-  World.BindLiveResources(*Picture.Standing);
-  World.GroundPositionsM = pressed.PositionM;
-  World.GroundIndex = pressed.Index;
+  if (!build.Sheets.Hands(patchwork, Error)) { return false; }
+  HeightSheets::Soup pressed = build.Sheets.SoupOf(patchwork);
+  build.PositionsM = std::move(pressed.PositionM);
+  build.Indices = std::move(pressed.Index);
   return true;
 }
 
@@ -836,6 +820,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const auto asked = RingWanted(alsoWhenTilesLanded);
   if (!asked) { return asked.error() == Laid::Unchanged || asked.error() == Laid::Pending; }
   const Around over = asked->Coverage;
+  GroundWorldCandidate candidate(Picture.Device, World);
+  if (auto prepared = candidate.Prepare(*Picture.Standing, &Picture.Face); !prepared) {
+    Error = std::move(prepared.error());
+    return false;
+  }
+  GroundBuildProducts &build = candidate.Products();
+  Core::Live &live = candidate.Scene();
 
   const auto rebuildBegan = std::chrono::steady_clock::now();
   {}
@@ -857,16 +848,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double frameLon = anchorLon;
   const TangentFrame standing =
       TangentFrame::At({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat});
-  if (!RefineGroundSheets(standing, *laid, over)) { return false; }
+  if (!RefineGroundSheets(standing, *laid, over, build)) { return false; }
   Classed classed;
   {
     static const Heap::Tag kClassingTag("ground-classify");
     const Heap::Tagged classing(kClassingTag);
-    classed = Classify(World.Sheets.SoupOf(*laid, over.Zoom).PositionM);
+    classed = Classify(build.Sheets.SoupOf(*laid, over.Zoom).PositionM, live);
   }
   const std::vector<float> &classPalette = classed.Palette;
   const std::shared_ptr<const ClassStructure> &classStructure = classed.Structure;
-  Geometry ground;
+  Geometry &ground = build.Ground;
   Material bare;
   {
     const Render::Medium held = Render::kEarthAir;
@@ -884,9 +875,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   {
     static const Heap::Tag kModellingTag("ground-model");
     const Heap::Tagged modelling(kModellingTag);
-    if (!Models(standing, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, ground, clocks)) {
-      return false;
-    }
+    if (!Models(standing, build, clocks)) { return false; }
   }
   phaseAt = clocks.PhaseAt;
   censusAt = clocks.CensusAt;
@@ -899,26 +888,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           .count(),
       "ms");
   censusAt = std::chrono::steady_clock::now();
-  const TriangleBvh surface = TriangleBvh::Over(
-      std::span<const float>(World.GroundPositionsM.data(), World.GroundPositionsM.size()),
-      std::span<const uint32_t>(World.GroundIndex.data(), World.GroundIndex.size()));
+  const TriangleBvh surface =
+      TriangleBvh::Over(std::span<const float>(build.PositionsM.data(), build.PositionsM.size()),
+                        std::span<const uint32_t>(build.Indices.data(), build.Indices.size()));
   Published.Places(
       "rebuild: of that, the surface the world stands on",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
           .count(),
       "ms");
   Published.Places("ground: triangles the drape can reach",
-                   static_cast<double>(World.GroundIndex.size()) / 3.0,
+                   static_cast<double>(build.Indices.size()) / 3.0,
                    "triangles");
   Drape drapedOver{.Surface = surface, .Field = {}};
-  World.Sheets.ForgetsFields();
-  drapedOver.Field = [this, &over](Drape::EastNorth at) {
-    return World.Sheets.FieldUpM(World.Stack.Ground(), over.Zoom, at);
+  build.Sheets.ForgetsFields();
+  drapedOver.Field = [this, &over, &build](Drape::EastNorth at) {
+    return build.Sheets.FieldUpM(World.Stack.Ground(), over.Zoom, at);
   };
-  if (World.Stack.Ways().Ways().size() != World.NetworkOfWays) {
+  if (World.Stack.Ways().Ways().size() != build.NetworkOfWays) {
     const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
-    World.Network = mapped.Network;
-    World.NetworkOfWays = World.Stack.Ways().Ways().size();
+    build.Network = mapped.Network;
+    build.NetworkOfWays = World.Stack.Ways().Ways().size();
     Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
     Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
     Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
@@ -948,7 +937,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     std::vector<Measure> notes;
     const bool paved =
         World.Shipping.Corridors().Lay({.Stack = World.Stack,
-                                        .Network = World.Network.get(),
+                                        .Network = build.Network.get(),
                                         .Standing = standing,
                                         .Draped = drapedOver,
                                         .Classes = classStructure,
@@ -966,15 +955,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     for (const Measure &one : notes) { Published.Places(one.What, one.How, one.Unit.c_str()); }
     clocks.WiresAt = std::chrono::steady_clock::now();
   }
-  World.Sheets.ForgetsFields();
+  build.Sheets.ForgetsFields();
 
-  if (!ApplyGroundEarthworks(standing, *laid, std::move(corridor))) { return false; }
+  if (!ApplyGroundEarthworks(standing, *laid, std::move(corridor), build)) { return false; }
   Published.Places(
-      "ground: height pages standing", static_cast<double>(World.Sheets.Standing()), "pages");
+      "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
   Published.Places(
-      "ground: tiles the lattice draws", static_cast<double>(World.Sheets.Instances()), "tiles");
-  for (const auto &[name, kind] : {std::pair{"virtual", World.Sheets.Seams().Virtual},
-                                   std::pair{"real", World.Sheets.Seams().Real}}) {
+      "ground: tiles the lattice draws", static_cast<double>(build.Sheets.Instances()), "tiles");
+  for (const auto &[name, kind] : {std::pair{"virtual", build.Sheets.Seams().Virtual},
+                                   std::pair{"real", build.Sheets.Seams().Real}}) {
     const std::string at = std::string("ground: seam, ") + name + ", ";
     Published.Places(at + "edges stitched", static_cast<double>(kind.Edges), "edges");
     Published.Places(at + "even nodes off the coarser node, worst", kind.EvenM, "m");
@@ -983,14 +972,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places(at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
   }
   {
-    const uint64_t sheets = World.Sheets.Digest();
+    const uint64_t sheets = build.Sheets.Digest();
     Published.Places(
         "ground: the sheets' digest, low half", static_cast<double>(sheets & kLowWord), "digest");
     Published.Places(
         "ground: the sheets' digest, high half", static_cast<double>(sheets >> 32U), "digest");
   }
   Published.Places("ground: sheets NOT drawn for want of nodes",
-                   static_cast<double>(World.Sheets.Flat()),
+                   static_cast<double>(build.Sheets.Flat()),
                    "tiles");
   if (!BuildWaterSurfaces(standing, ground, *ringSurface)) { return false; }
 
@@ -1003,11 +992,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
-  const Render::Medium air = Render::kEarthAir;
-  Material wearing;
-  for (int channel = 0; channel < 3; ++channel) {
-    wearing.BaseColour[channel] = air.GroundAlbedo[channel];
-  }
 
   const size_t drivenParts = Picture.Standing->CarriedParts();
   Published.Places("restand: the carried count the world hands over",
@@ -1019,15 +1003,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
-  Picture.Standing->GroundIs(ringSurface->index());
+  live.GroundIs(ringSurface->index());
   if (classStructure && !classPalette.empty() &&
-      !Picture.Standing->GroundClasses(
-          {classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},
-          classPalette,
-          Error)) {
+      !live.GroundClasses({classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},
+                          classPalette,
+                          Error)) {
     return false;
   }
-  Picture.Standing->Digests(declared.Render.Audits);
+  live.Digests(declared.Render.Audits);
   {
     size_t handed = 0;
     for (int part = 0; part < ground.parts(); ++part) {
@@ -1037,11 +1020,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
     Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
   }
-  if (!Picture.Standing->SetGeometry(std::move(ground), drivenParts, wearing, Error)) {
+  if (!live.SetGeometry(std::move(ground), drivenParts, bare, Error)) { return false; }
+  if (auto published = candidate.Publish(World, Picture.Standing, asked->Revision); !published) {
+    Error = std::move(published.error());
     return false;
   }
-  World.GroundPublished.Publish(asked->Revision);
-  ++World.Relaid;
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
