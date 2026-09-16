@@ -364,10 +364,11 @@ public:
   /// create device resources and wait for outstanding world jobs during replacement.
   /// View catalogs are validated before setup and published only on success, together with
   /// input bindings. Rejection preserves the previous catalog; success with no views clears it.
-  /// Headless declarations prepare generated geometry and audio occlusion before publication;
-  /// their generator failures preserve the complete prior state. Validation remains incomplete:
-  /// failures after targeted scene setup begins may retain partial changes and invalidate prior
-  /// scene/declaration views. There is no whole-operation rollback yet.
+  /// A non-reused declaration with a configured target builds frame resources, world content,
+  /// generated geometry and overlays as a candidate. Its failure preserves the published target,
+  /// world pixels, declaration, views, bindings and audio snapshot; success invalidates prior
+  /// borrowed scene references. Reused declarations and direct native geometry replacement have
+  /// narrower failure contracts while their transition candidates are completed.
   /// @param scenario Definition in native scenario units and coordinate conventions.
   /// @return Success or an owned validation, generator or scene-setup error.
   [[nodiscard]] Result declare(const Scenario::Document &scenario);
