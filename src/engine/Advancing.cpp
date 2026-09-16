@@ -215,9 +215,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 }
 
 void Engine::State::HandsPiecesOver() {
-  World.Pieces.Into(Picture.Standing.get());
-  World.Sheets.Into(Picture.Standing.get());
-  if (World.Crowns) { World.Crowns->Into(*Picture.Standing); }
+  World.BindLiveResources(*Picture.Standing);
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   World.Bakes.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }
@@ -256,7 +254,7 @@ bool Engine::State::Bakes(size_t landsMost) {
       return false;
     }
     World.Pieces = std::move(pieces);
-    World.Pieces.Into(Picture.Standing.get());
+    World.BindLiveResources(*Picture.Standing);
     World.Bakes.CommitsLanding(World.Stack);
     ++landed;
   }

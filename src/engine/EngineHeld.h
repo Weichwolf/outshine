@@ -201,6 +201,12 @@ struct Kept {
 };
 
 struct Surrounds {
+  void BindLiveResources(Core::Live &live) noexcept {
+    Pieces.Into(&live);
+    Sheets.Into(&live);
+    if (Crowns) { Crowns->Into(live); }
+  }
+
   std::unique_ptr<Data::Transport> Wire;
   Ground::GroundStack Stack;
   Generators::Registry Offering;

@@ -67,11 +67,14 @@ native geometry and generated ground are not scenario data.
 ## Streaming owner rebinding
 
 Publication destroys the previous `Live`. `TilePieces`, `HeightSheets` and `WorldCrowns`
-retain borrowed `Live` pointers. Bake publication currently rebinds only pieces; earthwork
-publication only sheets; public/pending geometry replacement rebinds neither. The next
-same-frame ground/vegetation operation can dereference the retired owner. Use one nonthrowing
-`Surrounds::BindLiveResources` operation after each successful replacement and before further
-streaming work. Keep pool creation and bake setup outside this operation. Prove that resource
-operations after replacement address the new world, including retained height-page handles.
+retain borrowed `Live` pointers. Bake publication rebound only pieces; earthwork
+publication only sheets; public/pending geometry replacement rebound neither. The next
+same-frame ground/vegetation operation can dereference the retired owner. All four paths now use nonthrowing
+`Surrounds::BindLiveResources` after successful replacement and before further streaming work.
+Pool creation and bake setup remain separate. The height-resource test replaces twice and then
+clears the new lattice through its streaming owner. Removing height-owner rebinding fails that
+assertion; stable page handles and generated-world publication also pass. Piece/crown behavior
+after replacement still needs independent coverage. Engine tests now include the audio headers
+required by their aggregate state.
 The final ground `SetGeometry` and earlier CPU/network/height publication remain a separate
 transaction gap; fixing pointer rebinding does not establish whole-ground atomicity.

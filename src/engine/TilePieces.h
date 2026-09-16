@@ -18,7 +18,7 @@ namespace outshine {
 
 class TilePieces {
 public:
-  void Into(Core::Live *live) { Live_ = live; }
+  void Into(Core::Live *live) noexcept { Live_ = live; }
 
   void Framed(const TangentFrame &frame) { Frame_ = frame; }
 

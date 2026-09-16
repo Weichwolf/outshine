@@ -1,4 +1,5 @@
 #include "Live.h"
+#include "EngineHeld.h"
 #include "SceneRenderer.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
@@ -24,6 +25,8 @@ int main() {
     std::string error;
     CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "ground fixture opens");
     if (scene) {
+      Surrounds world;
+      world.BindLiveResources(*scene);
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
       const Render::PageId page = scene->PlaceHeightPage(nodes, error);
       CHECK(page != Render::kNoPage, "a stable height-page handle is placed");
@@ -45,15 +48,20 @@ int main() {
       CHECK(Core::Live::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error) &&
                 Core::Live::PublishesPreparedWorld(renderer, scene, candidate, error),
             "an empty declared world publishes its first streamed-ground candidate");
+      world.BindLiveResources(*scene);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "first streamed-world publication retains the ground tile topology");
       CHECK(Core::Live::ReplacesGeometry(renderer, *scene, geometry.clone(), nullptr, scene, error),
             "geometry replacement recreates ground resources in its candidate");
+      world.BindLiveResources(*scene);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "candidate publication retains the ground tile topology");
       scene->ReleaseHeightPage(page);
       CHECK(!scene->SetGroundLattice({&tile, 1}, {}, error),
             "released stable page handles cannot address a later resident page");
+      world.Sheets.Clear();
+      CHECK(renderer.GroundLatticeTriangles() == 0,
+            "rebound streaming owner clears the current world after two replacements");
     }
   }
   SDL_Quit();

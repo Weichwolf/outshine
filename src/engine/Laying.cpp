@@ -696,7 +696,7 @@ bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
     return false;
   }
   World.Sheets = std::move(sheets);
-  World.Sheets.Into(Picture.Standing.get());
+  World.BindLiveResources(*Picture.Standing);
   World.GroundPositionsM = pressed.PositionM;
   World.GroundIndex = pressed.Index;
   return true;

@@ -69,6 +69,7 @@ bool Engine::State::Stood() {
                                     Error)) {
     return false;
   }
+  World.BindLiveResources(*Picture.Standing);
   Picture.PendingGeometry.reset();
   if (Picture.PendingAudioOcclusion) {
     World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
