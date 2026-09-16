@@ -52,6 +52,17 @@ Manifest nutzen, keine neue Engine-eigene Soll-PNG als unabhängiges Oracle ausg
 
 Keine Änderung an Vendor-Manifesten, Oracles oder Akzeptanzschranken im bisherigen Mip-Schritt.
 
+## Native Quantisierung
+
+`NativeMipImagesReachTheRenderer` misst aktuell maximal 0,00244141 gegen die geforderte lineare
+Hälfte. Der Mip-Upload speichert Base-Colour korrekt als `R8G8B8A8_SRGB`: `sRGB(0,5) × 255 =
+187,516`, somit Code 188. Dessen Rückwandlung ergibt 0,502886 und liegt schon vor der
+Renderzielquantisierung 0,002886 von 0,5 entfernt. Die Schranke 1e-5 kann für diesen Vertrag
+nicht erfüllt werden. Sie durch ein analytisches Quantisierungsoracle ersetzen: erwarteten
+sRGB-Code und erlaubten Speicher-/Readbackfehler herleiten; mutierte Gamma-Mips und falsche
+Mipmap-Auswahl müssen weiterhin rot werden. Das ist eine Korrektur der nachweislich falschen
+Spezifikation, keine gelockerte Bildabnahme.
+
 
 ## Eingrenzung des Wiederholungsfehlers
 
