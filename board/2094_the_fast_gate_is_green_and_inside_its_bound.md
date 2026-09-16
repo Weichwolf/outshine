@@ -26,6 +26,15 @@ The reference cache is deliberately outside Git. Populate it only through the
 manifest's pinned local source and Cycles on a verified GPU; record the backend/device
 in provenance. Do not alter manifests, loosen the check or silently render on CPU.
 
+## Runner preflight failure
+
+Tool-version failure previously left `units` empty despite known database entries.
+The timeout fixture exposed this when Python startup exceeded its 0.1-second budget.
+Record each missing unit as incomplete with the abort diagnostic and unknown duration;
+never invent a successful process exit or change timeout thresholds. A missing-tool
+fixture with two declared sources deterministically reproduces the missing records.
+Existing per-unit records remain intact; malformed databases still cannot declare units.
+
 ## Current evidence
 
 - Tidy: 189/189 units, 0 findings (2026-09-16). The last direct-include finding in

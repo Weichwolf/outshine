@@ -83,6 +83,19 @@ class TidyExecution(unittest.TestCase):
         self.database([self.main])
         self.assertFalse(self.run_analysis(2, self.root / 'missing-tool')['complete'])
 
+    def test_preflight_failure_records_each_unit(self):
+        second = self.root / 'src/Second.cpp'
+        second.write_text('int second() { return 0; }\n')
+        self.database([self.main, second])
+        summary = self.run_analysis(2, self.root / 'missing-tool')
+        self.assertFalse(summary['complete'])
+        self.assertEqual({row['file'] for row in summary['units']},
+                         {str(self.main.resolve()), str(second.resolve())})
+        for row in summary['units']:
+            self.assertIsNone(row['returncode'])
+            self.assertTrue(row['error'])
+            self.assertTrue((self.root / 'report' / row['log']).is_file())
+
     def test_process_failure_and_timeout_are_not_zero(self):
         fake = self.root / 'failing-tool'
         for statement, timeout in [('raise SystemExit(3)', 30), ('time.sleep(5)', 0.1)]:

@@ -85,6 +85,14 @@ def analyse(root, report, tool, jobs, timeout):
                                all(row['returncode'] == 0 for row in summary['units']))
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as failed:
         summary['error'] = str(failed)
+        recorded = {row['file'] for row in summary['units']}
+        missing = [path for path in summary['expected'] if path not in recorded]
+        if missing:
+            error = 'analysis aborted without a recorded result: ' + str(failed)
+            log = 'tidy.aborted.log'
+            (report / log).write_text(error + '\n')
+            summary['units'].extend({'file': path, 'returncode': None, 'error': error,
+                                     'elapsedSeconds': None, 'log': log} for path in missing)
     summary['findings'] = len(diagnostics)
     (report / 'tidy.log').write_text(''.join(combined))
     (report / 'tidy.unique').write_text(''.join(line + '\n' for line in sorted(diagnostics)))
