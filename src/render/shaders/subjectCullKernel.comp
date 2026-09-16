@@ -46,25 +46,34 @@ void main() {
     }
   }
   if (view.occludes != 0u) {
-    vec2 least = vec2(1.0e30, 1.0e30);
-    vec2 most = vec2(-1.0e30, -1.0e30);
-    float nearest = -1.0e30;
-    bool astride = false;
-    for (uint corner = 0u; corner < 8u; ++corner) {
-      const vec3 at = centre + radius * vec3((corner & 1u) != 0u ? 1.0 : -1.0,
-                                                 (corner & 2u) != 0u ? 1.0 : -1.0,
-                                                 (corner & 4u) != 0u ? 1.0 : -1.0);
-      const vec4 said = view.clip * vec4(at, 1.0);
-      if (said.w <= 1.0e-6) {
-        astride = true;
-        break;
-      }
-      const vec3 ndc = said.xyz / said.w;
-      least = min(least, ndc.xy);
-      most = max(most, ndc.xy);
-      nearest = max(nearest, ndc.z);
-    }
-    if (!astride) {
+    const vec4 said = view.clip * vec4(centre, 1.0);
+    const vec3 xrow = vec3(view.clip[0][0], view.clip[1][0], view.clip[2][0]);
+    const vec3 yrow = vec3(view.clip[0][1], view.clip[1][1], view.clip[2][1]);
+    const vec3 zrow = vec3(view.clip[0][2], view.clip[1][2], view.clip[2][2]);
+    const vec3 wrow = vec3(view.clip[0][3], view.clip[1][3], view.clip[2][3]);
+    const float xradius = radius * length(xrow);
+    const float yradius = radius * length(yrow);
+    const float zradius = radius * length(zrow);
+    const float wradius = radius * length(wrow);
+    const float wleast = said.w - wradius;
+    if (wleast > 1.0e-6) {
+      const float wmost = said.w + wradius;
+      const float xleast = said.x - xradius;
+      const float xmost = said.x + xradius;
+      const float yleast = said.y - yradius;
+      const float ymost = said.y + yradius;
+      const float zleast = said.z - zradius;
+      const float zmost = said.z + zradius;
+      const vec2 least = vec2(min(min(xleast / wleast, xleast / wmost),
+                                  min(xmost / wleast, xmost / wmost)),
+                              min(min(yleast / wleast, yleast / wmost),
+                                  min(ymost / wleast, ymost / wmost)));
+      const vec2 most = vec2(max(max(xleast / wleast, xleast / wmost),
+                                 max(xmost / wleast, xmost / wmost)),
+                             max(max(yleast / wleast, yleast / wmost),
+                                 max(ymost / wleast, ymost / wmost)));
+      const float nearest = max(max(zleast / wleast, zleast / wmost),
+                                max(zmost / wleast, zmost / wmost));
       const vec2 lo = clamp(vec2(least.x * 0.5 + 0.5, 0.5 - most.y * 0.5), 0.0, 1.0);
       const vec2 hi = clamp(vec2(most.x * 0.5 + 0.5, 0.5 - least.y * 0.5), 0.0, 1.0);
       float across = max((hi.x - lo.x) * float(view.pyramidWide[0]),
