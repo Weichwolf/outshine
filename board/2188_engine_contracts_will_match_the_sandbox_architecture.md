@@ -15,7 +15,7 @@ Keine komplette Neuschreibung und kein ECS-/Framegraph-Umbau ohne konkreten Befu
 Bestehende RAII-GPU-Wrapper, TilePool, Worker, Renderplan, Registry und native
 Materialpfade weiterverwenden, sofern ihre Verträge halten.
 
-| Befund im aktuellen Code | Verantwortliches WI |
+| Historischer Auditbefund; aktuellen Status im WI prüfen | Verantwortliches WI |
 |---|---|
 | Target-/Kamerapublikation teilweise repariert; weitere Zustandsübergänge offen | 2191 |
 | Declaring.cpp: nicht behandeltes Event als Fehler mit gemeinsamem Error | 2191 |
@@ -25,7 +25,7 @@ Materialpfade weiterverwenden, sofern ihre Verträge halten.
 | ScenarioRead/Write: getrennte Schema-Walks und unvollständige Tokenvalidierung | 2151, 2131 |
 | Grounds/Laying: globaler Aufbau und nachträgliche Terrainänderung | 2124, 2166, 2144 |
 | WorldCrowns: statische Residency und unvollständige Distanzleiter | 2111, 2123, 2132 |
-| Lint grün; Engine-Fassade 45/46 PASS, bekannter Mipmap-Fehler bleibt | 2094, 2179 |
+| Prüfqualität und Mipmap-Vertrag getrennt nachweisen | 2094, 2179 |
 
 Ziel: Plattformadapter → Engine-Fassade → Simulation/Streaming/Rendering.
 Provider liefern versionierte Daten; Generatoren liefern native Produkte;
@@ -81,6 +81,15 @@ als Ersatz für Bildqualität. 2150 nach dem begonnenen Submission-Fix priorisie
 für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschließend
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
+Konkrete nächste Arbeitsfolge: WI 2224 Tile-/Ground-Publikation, WI 2229 native
+Ressourcenhandles, dann WI 2224 Bake-/Footprint-Commit und Stale-Ergebnisse; anschließend
+öffentliche Übergangsnachweise aus 2191/2223. Native Material-/Importvalidierung 2216 pro
+Consumer abschließen; 2228 führt danach die vollständige Budgetbilanz zusammen.
+Ausführbare Reserve für Coding: (1) WI 2229 Piece-Handles, (2) WI 2216 späte
+Importfehler/Append, (3) WI 2224 Bake-/Footprint-Commit. Bei Architekturfrage im ersten
+Schritt den nächsten unabhängigen wählen; keine gleichzeitigen Änderungen derselben Owner.
+Diese Reihenfolge ist Priorität, kein zusätzlicher Depends-Zyklus. Bereits vorhandene
+Kandidaten nutzen; offene Nachweise nicht als noch fehlende Implementierung ausgeben.
 Tidy null und vollständige API-Dokumentation sind Pflicht, keine alleinige Architekturabnahme.
 
 - [ ] Minimaler externer Client nutzt nur installierbare öffentliche Header/Library.
@@ -91,26 +100,8 @@ Tidy null und vollständige API-Dokumentation sind Pflicht, keine alleinige Arch
       unabhängiges Oracle und visuell abnehmen, keine falschen Altbilder konservieren.
 - [ ] make lint einschließlich clang-tidy und relevante Make-Tests tatsächlich grün.
 
-## Räumliche Klassifikationsabfrage
-ClassStructure::Evaluate prüft finite Abfrage und Rasterbereich vor Integer-Konvertierung;
-Tierwahl und Rasterauswertung sind getrennt. Analytischer Test: Zellgrenzen, Fine-/Coarse-
-Fallback, NaN/Inf und große Werte samt FP-Flags; vorher 16 Checks rot, jetzt alle 47 grün.
-Klassifikationswechsel-Regression besteht. Wien ohne Vegetation visuell geprüft,
-0/921600 Pixel zur Vorversion verändert; kein Nachweis vollständiger Bildqualität.
-
-## P0: Kameraherkunft und Framing-Prüfung
-SubjectProxy::Eye.HasExplicitCamera benennt die Kameraherkunft; das frühere
-StandsInside behauptete fälschlich eine Innenraumposition. Live migriert.
-Near-Plane-Prüfung bleibt automatische Framing-Garantie; explizite Kameras dürfen
-Geometrie schneiden. Box-Ecken/Skalarprodukt gemeinsam genutzt, ungenutzter
-Boolean-Parameter entfernt. Drei Kamera-/Projektionsprüfungen grün; Wien geöffnet,
-0/921600 Pixel verändert. Lint: 56 Befunde, Near-Plane-Prüfung ohne Diagnose.
-
-FrameBounds liegt jetzt im Renderer und liefert expected<Viewpoint,string_view>
-aus nativer Box und benannten Fill-/Aspect-Optionen. Engine und Importadapter
-nutzen denselben allokationsfreien noexcept-Pfad. Die vorhandene Live-Aspect-
-Korrektur ist vollständig übernommen; FramingMs wird vor return erfasst.
-Vier Tests grün; 122 analytische Checks für Boxprojektion und Fehlerfälle.
-Ignoriertes Aspect verletzt 16 Projektionen. Wien geöffnet und pixelgleich;
-Lint vollständig: 188/188 Units, 56 Befunde, keiner im neuen Framing-Modul.
-Andere Runtime-Importkopplungen und fachliche API-Abnahme bleiben offen.
+## Bereits nutzbare Grundlagen
+Räumliche Klassifikationsabfrage und natives FrameBounds haben analytische Prüfungen;
+FrameBounds wird gemeinsam durch Engine und Importadapter genutzt. Historische Tidy-
+Zahlen sind kein aktueller Gate-Status. Aktuelle Belege stehen in den Implementierungs-
+commits; fehlende Gesamt-API-/Streaming-Abnahme bleibt Aufgabe dieses Parent-WI.

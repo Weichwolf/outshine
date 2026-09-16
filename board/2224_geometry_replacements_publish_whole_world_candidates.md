@@ -1,88 +1,76 @@
 Type: bug
 State: active
 Parent: 2191
-Depends: 2223
+Depends:
+Architecture: ready
 Area: engine, render, test
 Tags: geometry, ownership, state, gpu
 
-# Geometry replacements publish whole world candidates
+# World replacements publish one coherent native revision
 
-## Ground publication boundary
+## Architekturvertrag
 
-`Engine::State::Grounds` now stages sheets, ground positions/indices, network, material slots and
-bounced-light albedo in one candidate. Earthworks no longer publish an intermediate world; final
-geometry/classification must succeed before the renderer owner and nonthrowing CPU moves commit.
-The published revision changes last. Provider requests and preparation caches remain independent.
+`Core::Live` besitzt native Weltinputs; `Render::WorldContent` besitzt daraus erzeugte
+GPU-Produkte. `Surrounds` besitzt Streamingzustand, logisches Netz und Ressourcenhalter.
+Ein vorbereiteter Nachfolger veröffentlicht diese Produkte gemeinsam auf dem Engine-Thread.
+Provider-Anfragen und Vorbereitungscaches dürfen fortschreiten; veröffentlichte Geometrie,
+Materialzuordnung, Lichtparameter, Netz, Audio-Occlusion und Revision bei Ablehnung nicht.
+Keine Mutation des aktiven Owners mit anschließendem Snapshot-Rollback.
 
-## Existing foundation
+## Vorhandene Grundlage
 
-Public and pending geometry replacement and completed structure bakes use prepared `Live` /
-renderer candidates. Native geometryless declarations can prepare their first streamed world.
-Owner-local piece/page handles survive recreation of renderer-local resources. Released handles
-are invalidated; bounded slot reuse/generation handling still needs implementation.
-All replacement paths rebind pieces, height sheets and crowns via nonthrowing
-`Surrounds::BindLiveResources`; rebinding contains no worker/pool setup.
-`GroundPublication` records only successfully installed revisions, supports retry after an
-uncommitted request and prevents unpublished classes/buildings from reporting ready.
-Ground classification GPU buffers belong to `WorldContent`; `Live` owns their CPU inputs.
-Candidate rejection preserves old buffers/data, retry restores the original snapshot and a fresh
-declaration starts with empty classification. Old global storage failed five GPU checks.
+`WorldCandidate.h` kapselt Prepare/Publish/Abandon für `Live` und Renderer. Bei Fehler
+zerstört RAII ausschließlich den Kandidaten. Abgelehnte verschachtelte Vorbereitung darf
+den äußeren Kandidaten nicht verwerfen. `GroundWorldCandidate.h` ergänzt Sheets,
+Terrainpositionen/Indizes, Netz, Materialslots und Revision; Revision wird zuletzt gesetzt.
+`Surrounds::BindLiveResources` bindet Pieces, Sheets und Crowns ohne Allokation neu.
+Ground-Klassen-GPU-Puffer gehören zum WorldContent, ihre CPU-Inputs zu Live.
+Native Piece/Page-Identität ist bislang append-only; sichere Wiederverwendung ist WI 2229.
 
-## Decision
+## Nächste Schritte in Reihenfolge
 
-`GroundWorldCandidate` owns an entire ground rebuild. It owns prepared `Live`, copied
-height-sheet state, new terrain positions/indices, candidate network and building material slots.
-Classification changes bounced-light albedo only on candidate `Live`. Refinement and earthworks
-use candidate sheets; earthworks do not publish. Final geometry and classification uploads must
-succeed before publishing renderer/Live and nonthrowingly transferring CPU products. Publish the
-matching ground revision last. A local RAII owner abandons the candidate on every early return.
-Request counters and provider/generator caches may advance; published-world products may not.
-Do not snapshot and restore a mutated published owner. Do not rebuild via scenario export.
+1. Native Handle-/GPU-Adressgrenze unter WI 2229 vollständig migrieren. Bestehende
+   Candidate-Snapshots behalten gültige native Identitäten; GPU-Adressen werden neu aufgelöst.
+2. Bake-Publikation vervollständigen: `StructureBakes::{NextLanding,CommitsLanding}`,
+   `StructureTilePublication.h`, `Advancing.cpp` und
+   `src/world/ground/BuildingField.{h,cpp}` gemeinsam prüfen.
+   Aktuell werden Footprints erst nach GPU-Publikation in `CommitsLanding` übernommen.
+   Vor Veröffentlichung Footprint-Nachfolger inklusive Kapazität vorbereiten; danach nur
+   nichtwerfende Transfers, Rebinding, Queue-Verbrauch und Revisionswechsel. Job-Output
+   bleibt bis Commit/Abbruch im Queue-Owner; Landing ist nur geliehen, nie über Commit halten.
+   Uploadfehler konsumiert weder Job noch Footprints. Gültiger Retry konsumiert genau einmal.
+   Nicht mit einem zweiten Test-Publikationspfad oder bloßen Zählerkopien nachweisen.
+3. Stale Ergebnisse abweisen: Bake-/Ground-Anfragen tragen die benötigte Datenrevision
+   einschließlich Projektion und Quellidentität. Vor Publikation mit aktuellem Auftrag
+   vergleichen. Veralteten fertigen Job freigeben, ohne aktuelle Welt/Revision zu verändern;
+   gleiche Tile-ID allein ist keine Identität. A→B→spätes A als deterministischen Test bauen.
+4. Öffentlichen Gesamtpfad testen: kleiner deterministischer OSM-/DEM-Provider, Engine-API,
+   zunächst gültige Welt A, dann B mit spätem Klassen-/Geometrie-Submitfehler.
+   Materialmapping, Albedo, tatsächliches Routingnetz, GPU-Readback und Bild von A erhalten;
+   Retry liefert B. Beide SDL-Submitfunktionen im bestehenden Fault-Injection-Stil erfassen.
+5. `Restands`, surface-only redeclare, Kamera-/Animationsersatz und öffentliche
+   Geometrie-/Audio-Occlusion im Übergangsinventar von WI 2191 prüfen. Pro Übergang ein
+   vollständiger Änderungsschritt; kein allgemeines Transaktionsframework auf Vorrat.
 
-CPU/GPU identity remains independent of resource allocation order. GPU-, material-, placement-,
-height- and class-upload errors must preserve old scene resources and permit an immediate retry.
-Copy/prepare costs are explicit preparation work; no bounded-frame-time claim without measurement.
+## Abnahme und vorhandene Nachweise
 
-## Scope still requiring proof
+- `StructureTilePublication/TileChangesPublishAtomically.cpp`: leerer Ersatz entfernt
+  Gebäude, unvollständige Dreiecke werden abgelehnt; Dachfehler, Retry, verschachtelte
+  Kandidaten und Rebinding geprüft. Fix 947d891d9; drei gezielte Suiten und Lint grün.
+  Graz zweimal geöffnet: zweiter Lauf pixelgleich zum Ausgangsbild, zwischen Läufen
+  68/921600 Pixel am linken Hang verschieden. Reproduzierbarkeitsbefund separat WI 2230.
 
-- End-to-end public Engine/OSM failure after height upload: material mapping, albedo, actual
-  routing graph, readbacks and rendered old pixels survive together, beyond the synthetic candidate
-  fixture. Terrain topology, CPU positions/indices, network counters and revisions are covered.
-- Failed structure roof after accepted wall upload publishes neither tile nor terrain input.
-  `TilePieces::Hands` now removes old pieces only after both replacement uploads succeed. The
-  original roof-refusal fixture lacked a base material and failed at the wall; fixed preparation
-  exposes old-tile loss on former code. Old geometry/digest preservation and retry are tested.
-  Complete bake-job/footprint publication still needs its independent failure proof.
-- Empty bake results currently skip `TilePieces::Hands`, retaining old buildings. Extract the
-  production tile-publication operation for direct tests; route empty results through replacement.
-  Share a `Core::WorldCandidate` RAII owner between ground and tile publication instead of manual
-  candidate cleanup. Test roof refusal, empty replacement, retry and rejection of nested candidates.
-  Empty accepted tiles must not retain empty piece-owner records.
-- Reject stale streaming results after a newer revision is current.
-- Camera/animation/native replacements retain placements and frame state.
-- Piece/crown behavior after replacement needs independent coverage beyond height ownership.
-- `Live::ReleasePiece` / `ReleaseHeightPage` now discard owned CPU vector payloads. Optional
-  diagnostics expose retained piece/page payload capacity. Placement/release cycles, double
-  release, stale handles and candidate reconstruction pass; the old code fails seven checks.
-  Append-only handle metadata still grows: bound/reuse slots without accepting stale handles.
-- `Restands` and surface-only redeclaration remain separate mutation audits.
-- Public geometry/audio occlusion must publish together; no partial declaration replacement.
-
-## Evidence
-
-- `LateFailurePreservesPublishedGround`: actual class and geometry GPU submission failures after
-  staged terrain changes preserve the old renderer owner, terrain topology and CPU publication;
-  immediate retry installs staged products and revision once. Both SDL submit entry points injected.
-- Whole-ground migration: Graz without vegetation is pixel-identical to the pre-change render
-  (0/921600 differing pixels), PNG opened. Reference: build/shots/reference/ground-world-transaction/.
-
-- `GroundResourcesSurviveWorldPublication`: geometryless declaration, two replacements, stable
-  height-page handles and operation through rebound streaming owner. Removing rebinding fails.
-- `FailedBuildsRemainEligibleForRetry`: publication state, retry, residency policy, changed
-  data/projection and reset. State-contract proof, not injected whole-OSM-build failure.
-- `GroundClassificationBelongsToItsWorld`: actual GPU handle/payload preservation across candidate
-  upload, rejection, retry, publication and new declaration. Related generator/upload suites pass.
-- Graz without vegetation renders. Visual inspection against saved historical image: 71/921600
-  pixels differ on the left slope; no broad material regression. Not a controlled causal comparison
-  or visual-quality approval. References remain under build/shots/reference/ground-classification-ownership/.
-- For each completed step: make format, focused tests, make lint; image changes via client PNGs.
+- `test/outshine/src/engine/GroundWorldCandidate/LateFailurePreservesPublishedGround.cpp`:
+  späte Klassen-/Geometriefehler erhalten CPU-/GPU-Welt und Revision; Retry funktioniert.
+- `Live/GroundClassificationBelongsToItsWorld.cpp`: Klassifikationspuffer gehören dem
+  richtigen Owner; verworfene Kandidaten erhalten alte Inhalte.
+- `Live/GroundResourcesSurviveWorldPublication.cpp`: Höhenhalter über zwei Ersatzwelten.
+  Piece-/Crown-Rebinding zusätzlich mit tatsächlicher Folgeoperation belegen.
+- `Live/ReleasedResourcesDropCpuPayloads.cpp`: CPU-Nutzdaten werden freigegeben;
+  keine Behauptung begrenzter Handle-Metadaten vor WI 2229.
+- Tests liegen unter `test/outshine/src/engine/<Komponente>/`; öffentliche Übergänge
+  unter `test/outshine/include/Outshine/`. Produktionsoperation aufrufen, nicht nachbauen.
+- Ground-Transaktion: Graz ohne Vegetation unverändert, 0/921600 abweichende Pixel;
+  Referenz `build/shots/reference/ground-world-transaction/`. Keine visuelle Qualitätsabnahme.
+- Pro Schritt `make format`, betroffene `make suite SUITE=...`, `make lint`.
+  Bildwirksame Änderungen zusätzlich über Client rendern, PNG öffnen und vergleichen.

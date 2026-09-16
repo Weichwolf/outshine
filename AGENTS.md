@@ -190,6 +190,46 @@ Geometrie, Beleuchtung, Koordinaten oder Simulation werden dadurch nicht legitim
 
 ## Arbeitsweise
 
+### Architekturrunde und Implementierung
+
+- Zwei Arbeitsrollen, über das Board koordiniert: Architektur entscheidet Verträge und
+  Prioritäten; Coding implementiert freigegebene Schritte, prüft und committet. Das sind
+  Rollen, keine Bindung an Modellnamen. Modellwechsel und Zeitplanung erfolgen extern;
+  diese Datei startet keinen Scheduler und verspricht keinen unbeaufsichtigten Dauerlauf.
+- Tägliche Architekturrunde mit Richtbudget 60 Minuten; übrige Laufzeit für Coding.
+  Das Verhältnis ist ein Startwert, keine gemessene optimale Aufteilung. Bei kritischer
+  Vertragslücke früher prüfen. Nicht täglich das ganze Projekt neu auditieren: seit der
+  letzten Runde geänderte WIs/Commits, offene Fragen, Fehler und nächste Abnahmen lesen.
+- Architektur hält eine kleine geordnete Arbeitsreserve im zuständigen Parent-WI bereit:
+  zunächst drei unabhängig ausführbare Schritte, bei Bedarf mehr für die nächste Runde.
+  `Depends` enthält nur echte technische Blocker, keine Prioritäten oder offenen
+  Restprüfungen einer bereits nutzbaren Grundlage. `Parent` bleibt fachliche Zugehörigkeit.
+- Ein ausführbarer WI hat `Architecture: ready` und benennt Problem/Beleg, Zuständigkeiten,
+  Datenfluss, Ownership/Lebensdauer, Fehler-/Commitgrenze, relevante Dateien, begrenzte
+  Umsetzungsschritte und widerlegbare Abnahme samt Befehlen. Bei unveränderten Verträgen
+  reicht deren genaue Referenz. Fehlende Budgetwerte als zu messend kennzeichnen.
+  Neue Architekturfragen setzen `Architecture: question`; ungesichtete WIs haben kein
+  Freigabemerkmal. `State` beschreibt weiterhin den Implementierungsstand.
+- Coding entscheidet lokale Implementierungsdetails selbst. Widerspricht der Code dem
+  freigegebenen Vertrag oder erfordert die Lösung eine andere API, Ownership, Datenform,
+  Fehlergarantie oder Budgetpolitik: betroffenen Schritt anhalten und im WI unter
+  `## Architekturfragen` knapp festhalten: Frage, Code-/Testbefund, bevorzugte Lösung,
+  Alternative mit Kosten und welche Arbeit blockiert ist. Keine Dialoghistorie anhängen.
+  Unabhängige freigegebene Arbeit fortsetzen; keine widersprüchliche Architektur erraten.
+- Architektur beantwortet Fragen durch Änderung des verbindlichen Vertrags und der
+  Abnahme, entfernt erledigte Fragen und setzt wieder `Architecture: ready`. Änderungen
+  an bereits begonnenen Verträgen explizit mit betroffenen Aufrufern/Tests benennen.
+  Git hält die Entscheidungshistorie; WIs bleiben unter 120 Zeilen und 12 KiB.
+- Coding meldet Abschluss mit Commit und tatsächlichen Prüfbelegen, nicht mit Erfolgstext
+  ohne Nachweis. Architektur prüft besonders neue Grenzen, Fehlerpfade und Bildwirkung;
+  erfolgreiche unveränderte Gates nicht wiederholen. Pflichtformatierung, Tests, Lint
+  und visuelle Abnahme gelten für beide Rollen unverändert.
+- Nach einigen Runden anhand erledigter abgenommener Schritte, Nacharbeit und Wartezeit
+  prüfen, ob die Aufteilung spart. Tokenkosten nur bei verfügbaren Messwerten angeben.
+  Wiederkehrende Rückfragen durch bessere WI-Verträge beheben, nicht durch mehr Prosa.
+
+### Umsetzung und Prüfung
+
 - Selbstständig nach Priorität und Abhängigkeiten arbeiten. Annahmen begründen,
   Unsicherheit benennen. Bei Widerstand Ursache untersuchen; nicht improvisiert umgehen.
 - `board/`, relevante Historie und `make help` lesen. Neue Befunde als WIs erfassen;

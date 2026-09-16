@@ -46,14 +46,30 @@ boundary is GPU-visible state, not CPU ownership.
 geometry preparation. `SceneState` stages all GPU-visible declaration products under WI 2223;
 snapshot/restore remains rejected because coupled GPU ownership cannot prove complete restoration.
 
-The remaining direct geometry mutators call `Live::SetGeometry` on the published owner. They need a
-cloneable native world-input candidate, not a CPU move-and-rollback; WI 2224 owns `setGeometry`,
-pending geometry and streaming ground. Surface-only redeclaration, `Restands`, `offers`, `setRoots`,
-save and restore remain separately inventoried.
+`setGeometry`, pending geometry and streaming ground already prepare native world candidates
+under WI 2224. Do not reimplement them as direct live mutation. Remaining work is whole-product
+proof and the transition audit below; 2224 owns its concrete implementation order.
 
-Inventory each mutator: `offers`, `setRoots`, `setSurfaces`, `declare`, `assemble`, target setup,
-save and restore. Unsupported declarations are rejected under 2131. Stable borrowed handles and
-nonmoving engine owners are prerequisites where retained references exist.
+## Transition audit after the current world-publication work
+
+For each public mutator in `include/Outshine.h`, trace its implementation in `src/engine/`
+and record: admissible state, borrowed inputs, published owners, fallible preparation,
+nonthrowing commit, invalidated references, thread affinity and failure result. Keep that
+contract next to the public declaration; do not build a second descriptive state machine.
+Order: surface replacement/Restands, offers/setRoots, save/restore, then remaining setters.
+Only combine transitions whose ownership and commit boundary actually coincide.
+
+Geometry and audio occlusion must derive from the same candidate geometry. Prepare both
+before swapping either; fault injection must observe the previous audio snapshot as well
+as pixels. Camera/animation updates retain valid placements and current frame parameters.
+New declaration resets world-local handles; same-world replacement preserves their identity.
+Frame/target resources belong to WI 2222, GPU world ownership to 2223, world inputs to 2224;
+do not make these nested owners compete for renderer cleanup.
+
+Each implementation step gets a test under `test/outshine/include/Outshine/`: valid A,
+rejected B after a late operation, A still usable, valid B succeeds on immediate retry.
+Use internal GPU injection only to trigger the public operation's failure. Document actual
+coverage; a helper test does not prove the full public transition.
 
 ## Acceptance
 
@@ -65,8 +81,3 @@ nonmoving engine owners are prerequisites where retained references exist.
 - [ ] Repeat declare, target change and feature toggles show no resource growth.
 - [ ] Negative control that publishes before validation is red.
 - [ ] Relevant public API tests, target tests and `make lint` are green.
-
-`setGeometry` beschrieb den GPU-Fehlerpfad fälschlich als nichttransaktional. Der Code bereitet
-eine `Live`- und Renderer-Kandidatin vor, verwirft sie bei Fehler und veröffentlicht erst danach.
-Die öffentliche Doku nennt jetzt die erhaltene alte Szene und Audio-Occlusion; Dokumentationstest
-und 189/189 tidy sind grün. Der vollständige Übergangstisch und Fault-Injection bleiben offen.

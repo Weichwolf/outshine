@@ -7,7 +7,14 @@ Tags: ownership, state, gpu
 
 # Renderer world content publishes as a candidate
 
-## Problem
+## Aktueller Arbeitsumfang
+
+SceneState/WorldContent-Kandidaten sind implementiert; WI 2224 nutzt sie bereits.
+Die folgende Problembeschreibung begründet den Vertrag, nicht einen erneuten Umbau.
+Nächste Arbeit ist die noch offene Fehler-/Rebinding-Matrix unter Proof, über bestehende
+Produktionsoperationen. Kein zweiter Candidate-Owner und keine neue Renderer-Fassade.
+
+## Ursprünglicher Defekt
 
 `Live::Open` constructs a CPU-local `Live`, then `Live::Build` mutates the active
 `SceneRenderer`: plan setup, mesh/material/placement uploads, lights, sky, picture region and

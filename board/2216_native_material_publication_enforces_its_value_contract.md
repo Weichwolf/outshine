@@ -4,6 +4,7 @@ Parent: 2150
 Area: scene, base, import, render
 Tags: validation, materials, ownership
 Depends:
+Architecture: ready
 # Native material publication enforces its value contract
 ## Erreichter Vertrag
 MaterialValidation.h prüft Faktoren gemäß include/scene/Material.h, AlphaMode,
@@ -33,13 +34,30 @@ bleiben beim Aufbau erlaubt; vollständige Publikation verlangt aufgelöste Bind
 Import-/Generator-/Geländeaufrufer reichen Anlegefehler weiter. Models und Corridors::Lay
 melden Fehler; Ground-Kandidaten werden bei diesen Fehlern nicht zum Renderer übergeben.
 
-## Verbleibende Arbeit
-- Reale Speichererschöpfung bleibt außerhalb der synthetischen Zählerprüfung.
-- Kopier-/Indexverengungen und Bindungsauflösung mit gemeinsamen nativen Regeln auditieren.
-- Ground-Kandidat umfasst nun Höhen, Geometrie, Netz und Materialslots (WI 2224); späte
-  Klassen-/Geometrie-Uploadfehler und Retry am Transaktionsobjekt geprüft. Vollständigen
-  Engine-/OSM-Pfad einschließlich Materialabbildung, Albedo und Pixeln noch unabhängig belegen.
-- Werte-/Bindungskombinationen und Corpus-/Generatorprodukte prüfen; Assetmigration bleibt WI 2150.
+## Nächster ausführbarer Schritt: Import-Transaktion
+
+`src/import/Subject.cpp` und seine Assemble-/Append-Implementierungen bleiben
+Importadapter. Native `Geometry` und MaterialValidation besitzen die gemeinsamen
+Werte-/Bindungsregeln; keine zweiten Khronos-Regeln in der Runtime implementieren.
+Zuerst die späten Fehlerpfade von Normalen-/Tangentenaufbau und Append verfolgen.
+Vorflight allein garantiert keine Transaktion: alle potenziell fehlschlagenden Schritte
+müssen vor Mutation veröffentlichter Geometrie/Ansichten abgeschlossen sein.
+Bestehenden Importkandidaten verwenden; kein Snapshot-Rollback und keine weitere
+vollständige Geometriekopie nur zur Fehlerkaschierung. Borrowed Views bleiben bei
+Ablehnung gültig, bei Erfolg gilt der dokumentierte Invalidierungsvertrag.
+
+Abnahme unter `test/outshine/src/import/Subject/`: gültiges Asset A, Fehler erst im
+zweiten Part oder in abgeleiteten Normalen/Tangenten, Geometrie/Material-/Kamerawerte
+von A unverändert, anschließend gültiger Retry. Test muss gegen alten fehlerhaften
+Pfad scheitern. Kann ein vermuteter Fehler nicht entstehen, belegte Vorbedingungen
+festhalten statt einen künstlichen Defekt zu behaupten. Kapazitätsrechnung vor
+Verengung mit vorhandenen nativen Hilfen; reale OOM bleibt fatal gemäß WI 2194.
+`make format`, diese Importtests und `make lint`; bei veränderter gültiger Geometrie
+zusätzlich glTF-Clientrender mit gepinntem Bildvergleich, keine neuen Referenzpins.
+
+Ground-Gesamtpublikation gehört WI 2224; Material-/Shaderausbau und Assetmigration
+bleiben getrennt. Anschließend fehlende intrinsische Werte-/Bindungskombinationen
+gegen `include/scene/Material.h` ergänzen, nicht vorhandene Tests duplizieren.
 
 ## Native-Konstruktionsfehler
 `addImage` liefert expected mit Maß-/Bytezahl-/Kapazitätsfehler; Erhaltung und Retry sind geprüft.
@@ -80,41 +98,19 @@ Native Materialpublikation/-ersatz, Importkonvertierung, Animation, Bilder/UVs,
 Platzierung und Generatorprodukte durch Regressionen und Negativkontrollen geprüft.
 Einzelne Nachweise stehen in Git; vollständige Corpus-/Weltabnahme bleibt offen.
 ## GroundMaterials-Katalog
-Load liest über ReadTextFile mit 1-MiB-Budget und publiziert erst den vollständigen
-Kandidaten. Fehler erhalten den alten Katalog. Sortierter Namensindex löst eindeutige
-Namen, Reibungs- und Litter-Referenzen ohne Umordnung; Vorwärts-/Selbstreferenzen gültig.
-Reibungswerte und Quotienten vor Float-Verengung auf positiven darstellbaren Bereich
-prüfen. kWet/Feuchte [0,1], optionale Modellobjekte und streng aufsteigende Float-edges.
-Smoothstep sättigt außerhalb des Intervalls vor Division. Rauheit, Bedeckung und
-Albedokanäle [0,1]; sichtbarer/breitbandiger Quotient darf >1 sein, Ergebnis-Albedo nicht.
-Fehlende Werte behalten Defaults, vorhandene falsche Typen werden abgelehnt.
-Altcode verletzt jeweilige Negativkontrollen; Fehlererhaltung, analytische optische
-Randwerte, Retry und ausgelieferter Katalog bestehen. Gültige Arithmetik unverändert.
+Katalog lädt bounded in einen Kandidaten. Werte, Namen, Vorwärtsreferenzen und
+Float-Verengungen werden vor Publikation validiert; Fehler erhalten den alten Katalog.
+Analytische optische Grenzen, Retry und ausgelieferter Katalog sind geprüft.
 
 ## Geometrische Katalogwerte
-Korngröße und Höhenamplitude: endliche nichtnegative Meter, Float-Bereich vor Cast;
-null bleibt für Wasser gültig. Detailmaßstäbe: positive darstellbare Meter und echtes
-Paar. Optional fehlendes Paar behält Defaults; vorhandene falsche Typen ablehnen.
-Hangintervall: Zahlenpaar mit 0 <= min <= max <= 90 Grad, vor Float-Cast geprüft.
-Nur Maximum wird aktuell weitergegeben; GroundSurf/LitterSurf werden vorbereitet,
-aber Detailmaßstäbe aktuell nicht vom Ground-Shader ausgewertet. Kein Rendernachweis
-für prozedurales Mikrorelief behaupten. Altcode verletzt die Negativkontrolle;
-Fehlererhaltung, gültige Grenzen und ausgelieferter Katalog bestehen. Vollständige
-Generator-/Renderintegration bleibt separat offen.
+Metrische Größen, Detailpaare und Hangintervalle validiert; Fehler erhalten Bestand.
+GroundSurf/LitterSurf sind vorbereitet, Detailmaßstäbe aber noch nicht im Shader
+integriert. Keine Behauptung eines geprüften prozeduralen Mikroreliefs.
 
-## Atomarer Animationsaufbau
-Pose::Build darf bestehende Posen bei ungültiger Auswahl oder späten Kanalfehlern
-nicht löschen. Kandidat mit Phasen für Ruhepose, Ziel-/Samplerprüfung und Kurvenaufbau;
-Track-Spans behalten stabile Channel-Besitzer. Direkt in besitzende Puffer dekodieren.
-Konkurrierende Ziele über geordneten Index statt quadratischem Scan erkennen.
-Nachweis: gültige Fixture, isolierte Fehlerproben, Konflikte/Kombination und Retry;
-Altcode verletzt Erhaltung, Korrektur und vier Importerregressionen bestehen.
-Abgeleitete Werte können weiterhin überlaufen; Rotationsnormen separat absichern.
-
-## Geprüfte Kurven
-Formatunabhängige Keyframes nach base/math verschieben; geprüfte span-Factory statt
-öffentlichem Rohzeigerkonstruktor. Endliche, streng steigende Zeiten, endliche Werte,
-gültige Interpolation und dimensionssichere Rechnung vor Veröffentlichung erzwingen.
-Track lehnt unbekannte Pfade/negative glTF-Zeiten ab und erhält gültige Vorgänger.
-Zu kleine Sample-Puffer und nichtendliche Abfragen ohne Schreibzugriff ablehnen.
-Analytische STEP/LINEAR/CUBICSPLINE-, Fehlererhaltungs- und Importerprüfungen grün.
+## Animation und Kurven
+Pose::Build bereitet Ruhepose, Kanäle und Kurven als Kandidat vor; Spans behalten
+stabile Channel-Besitzer. Konflikte, Fehlererhaltung und Retry sind geprüft.
+Formatunabhängige Keyframes in base/math: geprüfte span-Factory, endliche streng
+steigende Zeiten/Werte, gültige Interpolation und Sample-Grenzen. Analytische
+STEP/LINEAR/CUBICSPLINE- und Importerprüfungen bestehen. Abgeleitete Überläufe und
+Rotationsnormen bleiben separat zu prüfen; keine vollständige Animationsabnahme.
