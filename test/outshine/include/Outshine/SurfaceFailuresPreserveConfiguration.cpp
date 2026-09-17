@@ -1,5 +1,6 @@
 #include <Outshine.h>
 #include "Check.h"
+#include <array>
 #include <cassert>
 #include <dlfcn.h>
 #include <string>
@@ -95,7 +96,9 @@ int main() {
       CHECK(engine.writeScenario() == saved && read() == initial,
             "GPU failure preserves declaration and pixels");
       click("old");
-      CHECK(engine.setSurfaces(candidate).has_value(), "replacement retry succeeds");
+      const std::array borrowedSurfaces{candidate[0]};
+      CHECK(engine.setSurfaces(borrowedSurfaces).has_value(),
+            "replacement accepts a borrowed contiguous surface range");
       CHECK(read() != initial && engine.writeScenario() != saved,
             "successful replacement publishes different pixels and declaration");
       click("newAction");

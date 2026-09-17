@@ -26,6 +26,8 @@ assumed: generator output may depend on borrowed, changing provider data.
 - `assemble` builds a complete simulation candidate and restores the old one when composition
   fails. Entity handles bind camera, audio and triggers; transient body indices do not.
 - Target candidates retain the old target on SDL extent/composition/parameter/allocation failure.
+- `setSurfaces` borrows `std::span<const Scenario::Surface>` and copies only into its candidate;
+  array input, GPU rejection, retry, rendered pixels and hit targets are covered publicly.
 - The headless `declare` path now builds generator geometry and audio occlusion before publishing.
   A generator refusal retains declaration, revision, input, pending geometry and occlusion.
 - `Live::Open` and `Engine::declare` detach a replaced `Live` owner only after its successor,

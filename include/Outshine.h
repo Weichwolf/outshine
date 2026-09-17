@@ -383,7 +383,7 @@ public:
   /// preserve the previous surfaces, rendered overlay and hit targets. Shared font caches may grow.
   /// @param surfaces Borrowed definitions; copied text and layout data are retained.
   /// @return Success or an owned missing-scene, font or redeclaration error.
-  [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);
+  [[nodiscard]] Result setSurfaces(std::span<const Scenario::Surface> surfaces);
 
   /// Borrow the stored declaration, initially default-initialized; no copy or allocation.
   /// Valid until Engine destruction, but content may change during declaration/loading/restore.

@@ -122,7 +122,7 @@ Holds<bool> Engine::handleEvent(const SDL_Event &event) {
   return answering.Fired();
 }
 
-Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
+Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands, so there is no picture for a surface to be laid over -- a "
@@ -133,7 +133,7 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
       !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
-  auto candidate = surfaces;
+  std::vector<Scenario::Surface> candidate(surfaces.begin(), surfaces.end());
   auto laid = PrepareSurfaces(candidate);
   if (!S_->Picture.Standing->Redeclare(laid, S_->Error)) { return std::unexpected(S_->Error); }
   S_->Session.Declared.Surfaces = std::move(candidate);
