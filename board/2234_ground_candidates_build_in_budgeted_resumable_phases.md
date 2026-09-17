@@ -23,13 +23,13 @@ revisions discard the candidate only after worker/GPU ownership permits it. Init
 and the final footprint revision follow the same state machine; no partially built terrain or
 building state reaches `Live`.
 
-The first ground revision starts from admitted terrain/vector coverage, before the final generator
-snapshot, class revision and structure bakes. Those later revisions trigger an owned rebuild.
-`preload` flushes only candidates with admitted immutable inputs; frame updates advance one phase.
-The floor-place control proved a model phase before this split consumes the last 15 s slack.
-ClassBuilder already publishes Fine with an empty immutable Coarse grid, then publishes a later Coarse
-revision. The remaining work is to measure which admitted candidate or bake transition consumes the
-preload deadline; do not duplicate this existing progressive-publication mechanism.
+The first candidate starts after admitted terrain/vector coverage. Its completed phases retain only
+terrain, class and material products; class/footprint revisions therefore still restart a finished
+candidate. Structure bakes remain queued until the active world can publish their complete mesh
+and footprint together. Moving them into a ground candidate requires a separate owned footprint
+and bake-output successor: otherwise the queue cannot plan its next tile without mutating the
+active field, or its completed meshes are lost. That handoff belongs to WI 2224. Do not claim
+pre-ground bake landing or a final-footprint candidate before that owner exists.
 
 ## Acceptance
 
