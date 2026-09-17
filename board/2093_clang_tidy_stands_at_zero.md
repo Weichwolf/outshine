@@ -82,13 +82,6 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 Andere rote Gates bleiben sichtbar und ihren WIs zugeordnet. Zielabschluss verlangt
 mehr als grüne Zähler: sämtliche API-SOLL-Abnahmen aus 2188 tatsächlich nachweisen.
 
-## glTF-Texturtabelle transaktional aufbauen
-ResolveFileSurface ersetzt Raster vor Fehlerprüfung und hinterlässt ungültige Bindungen.
-Kandidat mit frischen Bindungen, gemeinsamer Socket-Dekodierung und getrennten
-Materialmap-/Carrier-Prüfungen; Slots/Materialindizes vor Zugriff abgeglichen.
-Altcode verletzt zwei Negativkontrollen: Rasteradresse/Pixels bei Fehler erhalten;
-gültiger Ersatz entfernt alte Maps und erhält Filter/Wrap. Native Geometrie-/Materialmigration bleibt separat offen.
-
 Lichtprojektion: CasterCentre getrennt, analytische Reverse-Z-/Frame-Negativkontrolle.
 Buildcache: entfernte Quellen/Header invalidieren Objekte; acht Importregressionen grün.
 Numerische Lichtbasen und vollständige Schattenqualität bleiben offen.

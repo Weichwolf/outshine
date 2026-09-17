@@ -22,8 +22,8 @@ int main() {
   CHECK(source.Assemble(input),
         "legacy source can hold a candidate awaiting publication validation");
   const auto failed = source.Handed();
-  CHECK(!failed && !failed.error().empty(),
-        "invalid later material returns an error, not a partial product");
+  CHECK(!failed && failed.error() == "material values or image bindings are invalid",
+        "invalid later material preserves its native validation cause");
   CHECK(source.Parts().size() == 2, "failed conversion retains its source");
   CHECK(input.setSurface(last, Material{}).has_value() && source.Assemble(input),
         "corrected source prepared");

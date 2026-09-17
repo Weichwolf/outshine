@@ -34,7 +34,6 @@
 
 namespace outshine::Gltf {
 namespace Says {
-constexpr auto NativeMaterialFailed = "native material conversion failed";
 constexpr auto NativeAttributesFailed = "native vertex attribute conversion failed";
 constexpr auto NativeCapacityFailed = "native assembly index or attribute capacity exhausted";
 }
@@ -976,7 +975,8 @@ bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry
   for (const Material &declared : document.Materials()) {
     outshine::Material row = declared.Surface;
     row.NeedsTangents = declared.Normal.Texture >= 0;
-    if (!made.addSurface("", row)) { return Refuse(Says::NativeMaterialFailed); }
+    const auto added = made.addSurface("", row);
+    if (!added) { return Refuse(std::string(Describe(added.error()))); }
   }
   return true;
 }
@@ -1094,7 +1094,7 @@ std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &o
   }
   for (size_t at = 0; at < Surfaces_.size(); ++at) {
     if (!MaterialIsValid(Surfaces_[at], Images_.size())) {
-      return std::unexpected(Says::NativeMaterialFailed);
+      return std::unexpected(std::string(Describe(MaterialError::InvalidMaterial)));
     }
     const bool named = naming != nullptr && at < naming->Materials().size();
     const auto added =
