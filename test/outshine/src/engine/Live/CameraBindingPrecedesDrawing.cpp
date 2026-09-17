@@ -100,10 +100,15 @@ void ImportedCameraSurvivesBinding() {
     declaration.Outputs = {"sceneLinear"};
     declaration.Surfacing.front().BaseColour = {{0, 1, 0, 1}};
     declaration.Surfacing.front().Unlit = true;
-    Scenario::SurfaceOverride override;
-    override.Named = "native mixed material";
-    override.Row = declaration.Surfacing.front();
-    declaration.Overriding.push_back(override);
+    Scenario::SurfaceOverride named;
+    named.Named = "native mixed material";
+    named.Row = declaration.Surfacing.front();
+    named.Row.BaseColour = {{0, 0, 1, 1}};
+    declaration.Overriding.push_back(named);
+    Scenario::SurfaceOverride byPart;
+    byPart.Node = "native default material";
+    byPart.Row = declaration.Surfacing.front();
+    declaration.Overriding.push_back(byPart);
     Render::SceneRenderer renderer;
     std::unique_ptr<Core::Live> scene;
     std::string error;
@@ -126,7 +131,8 @@ void ImportedCameraSurvivesBinding() {
       const size_t pixel = (16u * 32u + 24u) * 4u;
       CHECK(pixels.size() > pixel + 2u && pixels[pixel] < 0.1f && pixels[pixel + 1u] > 0.9f &&
                 pixels[pixel + 2u] < 0.1f,
-            "named native material override wins in a mixed imported/native scene");
+            "native part-name override runs after the native material-name override in a mixed "
+            "scene");
     }
     if (!error.empty()) { std::printf("mixed native material: %s\n", error.c_str()); }
   }
