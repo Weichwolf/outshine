@@ -65,6 +65,10 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    der veröffentlichte Stand erhält daraus eine sortierte, wertbesitzende Arbeitsset-Identität
    und eine monotone akzeptierte Produktrevision. Cache-Key und Capture-Diagnose verwenden
    dieselbe Identität. Die Revision ist kein Payload-Hash und kein Runtime-Handle.
+   Vektor- und Höhenpfad treffen erst im `GroundStack` zusammen: `OsmField` hält eigene
+   residente Tiles, `GroundStream` sticht Höhenfelder in LOD-Slots. Darum erfasst der
+   Candidate beim Aufbau genau seine genutzten Terrain-/Vektorkacheln dort; weder der
+   veränderliche TilePool-Cache noch alle gerade geladenen Kacheln definieren den Snapshot.
 2. Engine-eigene Capture-Sitzung und Client-Anbindung implementieren. Bestehende
    preload-/Readiness-Bedingungen wiederverwenden; Readback wartet auf seinen Submit.
    Referenz: lokales ../SDL, Stand fa2c02b, include/SDL3/SDL_gpu.h, Fence-Vertrag.
