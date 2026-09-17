@@ -35,15 +35,18 @@ public:
     uint64_t Vectors = 0;
     double FocalPx = 0.0;
     double TileSpanM = 0.0;
+    LongitudeLatitude Eye;
 
     [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
-                               const Ground::BuildingField &footprints) const noexcept {
+                               const Ground::BuildingField &footprints,
+                               LongitudeLatitude eye) const noexcept {
       return Vectors == vectors.Generation() && FocalPx == footprints.FocalPx() &&
-             TileSpanM == footprints.TileSpanM();
+             TileSpanM == footprints.TileSpanM() && Eye.LongitudeDeg == eye.LongitudeDeg &&
+             Eye.LatitudeDeg == eye.LatitudeDeg;
     }
   };
 
-  [[nodiscard]] size_t Posts(Ground::GroundStack &stack);
+  [[nodiscard]] size_t Posts(Ground::GroundStack &stack, LongitudeLatitude eye);
 
   struct Landing {
     uint32_t Tile = 0;
@@ -53,7 +56,7 @@ public:
   };
 
   [[nodiscard]] std::expected<std::vector<Landing>, Generators::StructureBakeError>
-  NextLandings(Ground::GroundStack &stack, size_t most);
+  NextLandings(Ground::GroundStack &stack, LongitudeLatitude eye, size_t most);
   void CommitsLandings(Ground::GroundStack &stack, std::span<Landing> landings) noexcept;
   void Clear();
 
@@ -112,7 +115,9 @@ private:
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
   void PostSlice(Job &job);
-  void DiscardStale(const Ground::OsmField &vectors, Ground::BuildingField &prints);
+  void DiscardStale(const Ground::OsmField &vectors,
+                    Ground::BuildingField &prints,
+                    LongitudeLatitude eye);
   void ResumeSlices();
 
   Tasks *Pool_ = nullptr;

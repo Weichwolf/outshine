@@ -51,7 +51,7 @@ struct RawTile {
   std::vector<Structure> Structures;
   std::vector<Way> Ways;
   Vec3 AnchorEcef;
-  double AwayM = 0.0;
+  LongitudeLatitude Eye;
   double FocalPx = 0.0;
   double TileSpanM = 0.0;
   int Extent = 4096;

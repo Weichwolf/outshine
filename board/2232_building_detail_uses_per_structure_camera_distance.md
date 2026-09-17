@@ -29,3 +29,10 @@ proxy for geometry visibility.
 - A moved camera invalidates an unfinished bake before publication.
 - The floor-contact Place retains its geometry contract and improves or preserves its 15 s
   residency result without lowering quality; focused tests and lint pass.
+
+## Measurement
+
+2026-09-17: the direct floor-contact executable remained unprepared after 16.62 s, with 27/31
+tiles baked and four jobs holding 376 structures. The prior tile-wide LOD choice is removed, but
+the bounded-bake scheduler/residency bottleneck remains in 2231; this WI cannot close on that
+measurement alone.

@@ -28,14 +28,6 @@ void BuildingField::AnchorAt(const Vec3 &ecef) {
   Anchored_ = true;
 }
 
-double BuildingField::AwayFromCentreM(const OsmField &field, uint32_t tile) const {
-  const std::span<const OsmField::Tile> tiles = field.Tiles();
-  if (tile >= tiles.size() || !(TileSpanM_ > 0.0)) { return 0.0; }
-  const auto across = static_cast<double>(tiles[tile].X - field.CentreX());
-  const auto down = static_cast<double>(tiles[tile].Y - field.CentreY());
-  return std::sqrt(across * across + down * down) * TileSpanM_;
-}
-
 std::optional<TileWatermark::Next>
 BuildingField::Next(const OsmField &field, const std::function<bool(FeatureRun)> &groundStands) {
   assert(Anchored_);

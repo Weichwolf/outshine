@@ -36,7 +36,7 @@ int main() {
   raw.LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
   raw.Structures.push_back({.PointCount = 4, .HeightM = 6});
   raw.FocalPx = 1000;
-  raw.AwayM = 1;
+  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
   raw.TileSpanM = 1000;
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
@@ -75,6 +75,17 @@ int main() {
       Generators::BakeStructures(raw, *heights, frontedMesher, *frontedScratch, fronted);
   CHECK(frontedResult && fronted.Fronted == 2,
         "a nearby road line gives every building in its tile a known frontage");
+
+  Generators::RawTile distant = raw;
+  distant.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 0};
+  RefusingMesher distantMesher(StructureMeshError::UnsupportedFootprint);
+  auto distantScratch = distantMesher.Scratch();
+  Generators::BakedTile distantOutput;
+  const auto distantResult =
+      Generators::BakeStructures(distant, *heights, distantMesher, *distantScratch, distantOutput);
+  CHECK(distantResult && distantMesher.Calls == 0 && distantOutput.Prints.size() == 2 &&
+            distantOutput.Prints.front().Coarseness == Generators::Detail::Massed,
+        "a distant building in the same raw tile uses massed geometry instead of a detailed mesh");
 
   RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto oneShotScratch = oneShotMesher.Scratch();

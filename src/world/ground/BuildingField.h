@@ -111,8 +111,6 @@ public:
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
 
-  [[nodiscard]] double AwayFromCentreM(const OsmField &field, uint32_t tile) const;
-
   [[nodiscard]] size_t TrianglesHanded() const { return TrianglesHanded_; }
 
   [[nodiscard]] const Vec3 &Anchor() const { return Anchor_; }

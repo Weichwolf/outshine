@@ -40,12 +40,13 @@ void RawOf(const Ground::OsmField &vectors,
            const Ground::BuildingField &prints,
            const Ground::StreetField &streets,
            const Ground::TileWatermark::Next &next,
+           LongitudeLatitude eye,
            Generators::RawTile &raw) {
   raw.LatLon.clear();
   raw.Structures.clear();
   raw.Ways.clear();
   raw.AnchorEcef = prints.Anchor();
-  raw.AwayM = prints.AwayFromCentreM(vectors, next.Tile);
+  raw.Eye = eye;
   raw.FocalPx = prints.FocalPx();
   raw.TileSpanM = prints.TileSpanM();
   raw.Extent = vectors.Extent();
@@ -186,8 +187,10 @@ void StructureBakes::PostSlice(Job &job) {
   });
 }
 
-void StructureBakes::DiscardStale(const Ground::OsmField &vectors, Ground::BuildingField &prints) {
-  while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints)) {
+void StructureBakes::DiscardStale(const Ground::OsmField &vectors,
+                                  Ground::BuildingField &prints,
+                                  LongitudeLatitude eye) {
+  while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints, eye)) {
     Job &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = Pool_->Done(stale.Handle); }
     if (!stale.Finished) { return; }
@@ -210,7 +213,7 @@ void StructureBakes::ResumeSlices() {
   }
 }
 
-size_t StructureBakes::Posts(Ground::GroundStack &stack) {
+size_t StructureBakes::Posts(Ground::GroundStack &stack, LongitudeLatitude eye) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr) { return 0; }
   const Ground::OsmField &vectors = *stack.Vectors();
   Ground::BuildingField &prints = stack.Footprints();
@@ -233,7 +236,8 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
     if (!next || !heights) { break; }
     const BakeRevision revision{.Vectors = vectors.Generation(),
                                 .FocalPx = prints.FocalPx(),
-                                .TileSpanM = prints.TileSpanM()};
+                                .TileSpanM = prints.TileSpanM(),
+                                .Eye = eye};
     prints.Take(next->Tile);
     Job job{.Tile = next->Tile,
             .Revision = revision,
@@ -243,7 +247,7 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
             .Scratch = LentScratch(),
             .Progress = std::make_unique<Generators::StructureBakeProgress>(),
             .Stopping = std::make_shared<std::atomic_bool>(false)};
-    RawOf(vectors, prints, stack.Ways(), *next, *job.Raw);
+    RawOf(vectors, prints, stack.Ways(), *next, eye, *job.Raw);
     job.Out->Status = {};
     job.Out->Complete = false;
     job.Out->BakeMs = 0.0;
@@ -256,13 +260,13 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack) {
 }
 
 std::expected<std::vector<StructureBakes::Landing>, Generators::StructureBakeError>
-StructureBakes::NextLandings(Ground::GroundStack &stack, size_t most) {
+StructureBakes::NextLandings(Ground::GroundStack &stack, LongitudeLatitude eye, size_t most) {
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
   Ground::BuildingField &prints = stack.Footprints();
-  DiscardStale(*vectors, prints);
+  DiscardStale(*vectors, prints, eye);
   ResumeSlices();
   size_t count = 0;
   size_t printCount = 0;
@@ -271,7 +275,7 @@ StructureBakes::NextLandings(Ground::GroundStack &stack, size_t most) {
   uint32_t largestTile = 0;
   while (count < most && count < Queue_.size()) {
     Job &job = Queue_[count];
-    if (!job.Finished || !job.Revision.Matches(*vectors, prints)) { break; }
+    if (!job.Finished || !job.Revision.Matches(*vectors, prints, eye)) { break; }
     if (!job.Out->Status) {
       if (count == 0) { return std::unexpected(job.Out->Status.error()); }
       break;
@@ -344,7 +348,6 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
                {"lumped", baked.Lumped},
                {"blocks", baked.Blocks},
                {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
-               {"awayKm", job.Raw->AwayM / kMPerKm},
                {"bakeMs", job.Out->BakeMs},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
     IdleRaw_.push_back(std::move(job.Raw));

@@ -480,7 +480,6 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const std::vector<WayLine> &ways,
                                                 std::map<uint64_t, Lumped> &lumps,
                                                 std::vector<double> &corners,
-                                                double awayAtLeastM,
                                                 double statedM,
                                                 const std::atomic_bool *stopping) {
   const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
@@ -503,6 +502,12 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
     lowLon = std::min(lowLon, LonOf(pts, ring.First + k));
     highLon = std::max(highLon, LonOf(pts, ring.First + k));
   }
+  const double nearLat = std::clamp(raw.Eye.LatitudeDeg, lowLat, highLat);
+  const double nearLon = std::clamp(raw.Eye.LongitudeDeg, lowLon, highLon);
+  const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
+  const double eastM =
+      (nearLon - raw.Eye.LongitudeDeg) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
+  const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
   const double perLonM = kMPerDegLon * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
   out.SeatSpreadM.push_back(seat - base);
   out.AcrossM.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
@@ -617,7 +622,6 @@ StructureBakeProgress::Advance(const RawTile &raw,
     state.Started = true;
   }
   const std::span<const double> pts = raw.LatLon;
-  const double awayAtLeastM = std::max(raw.AwayM, kNearestSeenM);
   const double statedM =
       raw.TileSpanM > 0.0 && raw.Extent > 0 ? raw.TileSpanM / static_cast<double>(raw.Extent) : 0.0;
   const size_t until = std::min(state.Next + structuresMost, raw.Structures.size());
@@ -633,7 +637,6 @@ StructureBakeProgress::Advance(const RawTile &raw,
                                state.Ways,
                                state.Lumps,
                                state.Corners,
-                               awayAtLeastM,
                                statedM,
                                stopping);
     if (!baked) { return std::unexpected(baked.error()); }
