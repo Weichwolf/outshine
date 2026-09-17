@@ -46,7 +46,8 @@ public:
     }
   };
 
-  [[nodiscard]] size_t Posts(Ground::GroundStack &stack, LongitudeLatitude eye);
+  [[nodiscard]] size_t
+  Posts(Ground::GroundStack &stack, Ground::BuildingField &footprints, LongitudeLatitude eye);
 
   struct Landing {
     uint32_t Tile = 0;
@@ -56,14 +57,20 @@ public:
   };
 
   [[nodiscard]] std::expected<std::vector<Landing>, Generators::StructureBakeError>
-  NextLandings(Ground::GroundStack &stack, LongitudeLatitude eye, size_t most);
+  NextLandings(Ground::GroundStack &stack,
+               Ground::BuildingField &footprints,
+               LongitudeLatitude eye,
+               size_t most);
   void ResumeCompletedSlices();
-  void CommitsLandings(Ground::GroundStack &stack, std::span<Landing> landings) noexcept;
+  void CommitsLandings(Ground::GroundStack &stack,
+                       Ground::BuildingField &footprints,
+                       std::span<Landing> landings) noexcept;
   void Clear();
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
 
-  [[nodiscard]] bool Complete(const Ground::GroundStack &stack) const;
+  [[nodiscard]] bool Complete(const Ground::GroundStack &stack,
+                              const Ground::BuildingField &footprints) const;
 
   [[nodiscard]] size_t Posted() const { return Posted_; }
 

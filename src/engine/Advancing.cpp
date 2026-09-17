@@ -231,10 +231,10 @@ bool Engine::State::Bakes(size_t landsMost) {
   const LongitudeLatitude eye = WhereTheEyeStands();
   if (!World.GroundPublished.Current()) {
     World.Bakes.ResumeCompletedSlices();
-    (void)World.Bakes.Posts(World.Stack, eye);
+    (void)World.Bakes.Posts(World.Stack, World.Stack.Footprints(), eye);
     return true;
   }
-  auto ready = World.Bakes.NextLandings(World.Stack, eye, landsMost);
+  auto ready = World.Bakes.NextLandings(World.Stack, World.Stack.Footprints(), eye, landsMost);
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
@@ -246,9 +246,9 @@ bool Engine::State::Bakes(size_t landsMost) {
       Error = std::move(published.error());
       return false;
     }
-    World.Bakes.CommitsLandings(World.Stack, *ready);
+    World.Bakes.CommitsLandings(World.Stack, World.Stack.Footprints(), *ready);
   }
-  (void)World.Bakes.Posts(World.Stack, eye);
+  (void)World.Bakes.Posts(World.Stack, World.Stack.Footprints(), eye);
   Published.Places(
       "buildings: tiles posted to the bake", static_cast<double>(World.Bakes.Posted()), "tiles");
   Published.Places(

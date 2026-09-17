@@ -202,7 +202,8 @@ WorldReadiness Engine::State::Readiness() const {
            World.Bare == 0 ? "" : Says::kMissingTerrain,
            World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
            World.Grown ? "" : Says::kPendingSnapshot,
-           ground && World.Stack.Ingested() && World.Bakes.Complete(World.Stack) &&
+           ground && World.Stack.Ingested() &&
+                   World.Bakes.Complete(World.Stack, World.Stack.Footprints()) &&
                    ground->Footprints == World.Stack.Footprints().Revision()
                ? ""
                : Says::kPendingIngestion,
@@ -356,7 +357,7 @@ bool Engine::State::CanAdvanceGroundCandidate() const {
 }
 
 Result Engine::State::FinishesPreload() {
-  const bool bakesComplete = World.Bakes.Complete(World.Stack);
+  const bool bakesComplete = World.Bakes.Complete(World.Stack, World.Stack.Footprints());
   if ((!World.GroundPublished.Current() || bakesComplete) && !Grounds(true)) {
     return std::unexpected(Error);
   }
@@ -370,7 +371,7 @@ Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, d
     if (const Result finished = FinishesPreload(); !finished) {
       return std::unexpected(finished.error());
     }
-    if (World.Bakes.Complete(World.Stack) && Readiness().Ready() &&
+    if (World.Bakes.Complete(World.Stack, World.Stack.Footprints()) && Readiness().Ready() &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
       return PreloadFlush::Ready;
     }
@@ -422,7 +423,8 @@ Result Engine::State::PreloadTimeout(double bound) {
           " s: " + readiness.Describe();
   if (!World.Stack.Ingested()) { Error += " (" + World.Stack.IngestionStatus() + ")"; }
   if (!World.GroundPublished.Current() && !pendingGround.empty()) { Error += "; " + pendingGround; }
-  if (World.GroundPublished.Current() && !World.Bakes.Complete(World.Stack)) {
+  if (World.GroundPublished.Current() &&
+      !World.Bakes.Complete(World.Stack, World.Stack.Footprints())) {
     Error += "; structure bakes=" + std::to_string(World.Bakes.Landed()) + "/" +
              std::to_string(World.Bakes.Posted()) +
              ", queued=" + std::to_string(World.Bakes.Queued()) +

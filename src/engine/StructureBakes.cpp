@@ -145,9 +145,10 @@ StructureBakes::~StructureBakes() {
   Clear();
 }
 
-bool StructureBakes::Complete(const Ground::GroundStack &stack) const {
+bool StructureBakes::Complete(const Ground::GroundStack &stack,
+                              const Ground::BuildingField &footprints) const {
   const Ground::OsmField *const vectors = stack.Vectors();
-  return vectors == nullptr || (Queue_.empty() && stack.Footprints().Ingested(*vectors));
+  return vectors == nullptr || (Queue_.empty() && footprints.Ingested(*vectors));
 }
 
 size_t StructureBakes::QueuedStructures() const {
@@ -233,10 +234,11 @@ void StructureBakes::ResumeCompletedSlices() {
   }
 }
 
-size_t StructureBakes::Posts(Ground::GroundStack &stack, LongitudeLatitude eye) {
+size_t StructureBakes::Posts(Ground::GroundStack &stack,
+                             Ground::BuildingField &prints,
+                             LongitudeLatitude eye) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr) { return 0; }
   const Ground::OsmField &vectors = *stack.Vectors();
-  Ground::BuildingField &prints = stack.Footprints();
   size_t posted = 0;
   const size_t inFlightMost = static_cast<size_t>(Pool_->Threads()) * kBakesPerThread;
   const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
@@ -281,12 +283,14 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack, LongitudeLatitude eye) 
 }
 
 std::expected<std::vector<StructureBakes::Landing>, Generators::StructureBakeError>
-StructureBakes::NextLandings(Ground::GroundStack &stack, LongitudeLatitude eye, size_t most) {
+StructureBakes::NextLandings(Ground::GroundStack &stack,
+                             Ground::BuildingField &prints,
+                             LongitudeLatitude eye,
+                             size_t most) {
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
-  Ground::BuildingField &prints = stack.Footprints();
   DiscardStale(*vectors, prints, eye);
   ResumeCompletedSlices();
   size_t count = 0;
@@ -339,6 +343,7 @@ StructureBakes::NextLandings(Ground::GroundStack &stack, LongitudeLatitude eye, 
 }
 
 void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
+                                     Ground::BuildingField &footprints,
                                      std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
     Job &job = Queue_.front();
@@ -350,15 +355,15 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
            IdleScratch_.size() < IdleScratch_.capacity());
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    stack.Footprints().CommitAcceptance(std::move(landing.Footprints.value()),
-                                        *stack.Vectors(),
-                                        {.Prints = baked.Prints,
-                                         .SeatSpreadM = baked.SeatSpreadM,
-                                         .AcrossM = baked.AcrossM,
-                                         .Triangles = triangles,
-                                         .OsmHeights = baked.OsmHeights,
-                                         .DefaultHeights = baked.DefaultHeights,
-                                         .Fronted = baked.Fronted});
+    footprints.CommitAcceptance(std::move(landing.Footprints.value()),
+                                *stack.Vectors(),
+                                {.Prints = baked.Prints,
+                                 .SeatSpreadM = baked.SeatSpreadM,
+                                 .AcrossM = baked.AcrossM,
+                                 .Triangles = triangles,
+                                 .OsmHeights = baked.OsmHeights,
+                                 .DefaultHeights = baked.DefaultHeights,
+                                 .Fronted = baked.Fronted});
     Log::Info(LogTag::World,
               "buildings",
               {{"added", static_cast<int>(baked.Prints.size())},
