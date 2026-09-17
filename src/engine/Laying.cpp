@@ -82,6 +82,41 @@ constexpr size_t kBounceProbeStride = 16;
 
 }
 
+class GroundBuildState {
+public:
+  GroundBuildState(Render::SceneRenderer &renderer,
+                   const Surrounds &world,
+                   Around coverage,
+                   GroundRevision revision)
+      : Coverage_(coverage), Revision_(revision), Candidate_(renderer, world) {}
+
+  [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
+    return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
+           Revision_.Footprints == revision.Footprints &&
+           Revision_.Projection == revision.Projection;
+  }
+
+  [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }
+
+  [[nodiscard]] const GroundRevision &Revision() const noexcept { return Revision_; }
+
+  [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
+
+  [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
+
+  void Prepared(bool prepared) noexcept { Prepared_ = prepared; }
+
+private:
+  Around Coverage_;
+  GroundRevision Revision_;
+  GroundWorldCandidate Candidate_;
+  bool Prepared_ = false;
+};
+
+Surrounds::Surrounds() = default;
+
+Surrounds::~Surrounds() = default;
+
 std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
                                               const Render::Medium &fallback) {
   const size_t rows = wearing.TemplateCount();
@@ -805,6 +840,23 @@ void Engine::State::ReportGroundPlacements() {
   }
 }
 
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const GroundRequest &request) {
+  if (!World.GroundBuild || !World.GroundBuild->Matches(request.Revision)) {
+    World.GroundBuild = std::make_unique<GroundBuildState>(
+        Picture.Device, World, request.Coverage, request.Revision);
+    return GroundBuildProgress::Pending;
+  }
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.Prepared()) { return GroundBuildProgress::Ready; }
+  if (auto prepared = state.Candidate().Prepare(*Picture.Standing, &Picture.Face); !prepared) {
+    Error = std::move(prepared.error());
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  state.Prepared(true);
+  return GroundBuildProgress::Pending;
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   static const Heap::Tag kLayingTag("world-ground");
   const Heap::Tagged laying(kLayingTag);
@@ -812,19 +864,18 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   auto censusAt = phaseAt;
   auto wiresAt = phaseAt;
   const Scenario::Document &declared = Session.Declared;
-  if (!declared.Ground.Declared) { return true; }
-  if (!Picture.Standing || !World.Stack.Opened()) { return true; }
+  if (!declared.Ground.Declared || !Picture.Standing || !World.Stack.Opened()) { return true; }
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 
   const auto asked = RingWanted(alsoWhenTilesLanded);
   if (!asked) { return asked.error() == Laid::Unchanged || asked.error() == Laid::Pending; }
-  const Around over = asked->Coverage;
-  GroundWorldCandidate candidate(Picture.Device, World);
-  if (auto prepared = candidate.Prepare(*Picture.Standing, &Picture.Face); !prepared) {
-    Error = std::move(prepared.error());
-    return false;
-  }
+  const GroundBuildProgress progress = BeginsGroundBuild(*asked);
+  if (progress == GroundBuildProgress::Failed) { return false; }
+  if (progress == GroundBuildProgress::Pending) { return true; }
+  GroundBuildState &state = *World.GroundBuild;
+  const Around &over = state.Coverage();
+  GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
   Core::Live &live = candidate.Scene();
 
@@ -1021,10 +1072,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
   }
   if (!live.SetGeometry(std::move(ground), drivenParts, bare, Error)) { return false; }
-  if (auto published = candidate.Publish(World, Picture.Standing, asked->Revision); !published) {
+  if (auto published = candidate.Publish(World, Picture.Standing, state.Revision()); !published) {
     Error = std::move(published.error());
+    World.GroundBuild.reset();
     return false;
   }
+  World.GroundBuild.reset();
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");

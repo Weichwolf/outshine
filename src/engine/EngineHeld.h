@@ -58,6 +58,7 @@
 
 namespace outshine {
 struct GroundBuildProducts;
+class GroundBuildState;
 
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
@@ -203,6 +204,13 @@ struct Kept {
 };
 
 struct Surrounds {
+  Surrounds();
+  ~Surrounds();
+  Surrounds(const Surrounds &) = delete;
+  Surrounds &operator=(const Surrounds &) = delete;
+  Surrounds(Surrounds &&) = delete;
+  Surrounds &operator=(Surrounds &&) = delete;
+
   void BindLiveResources(Core::Live &live) noexcept {
     Pieces.Into(&live);
     Sheets.Into(&live);
@@ -224,6 +232,7 @@ struct Surrounds {
   size_t AskedPending = 0;
   size_t AskedWanted = 0;
   GroundPublication GroundPublished;
+  std::unique_ptr<GroundBuildState> GroundBuild;
 
   TilePieces Pieces;
   HeightSheets Sheets;
@@ -365,6 +374,10 @@ struct Engine::State {
     Around Coverage;
     GroundRevision Revision;
   };
+
+  enum class GroundBuildProgress : uint8_t { Failed, Pending, Ready };
+
+  [[nodiscard]] GroundBuildProgress BeginsGroundBuild(const GroundRequest &request);
 
   [[nodiscard]] Laid
   Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded);
