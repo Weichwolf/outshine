@@ -386,7 +386,8 @@ Result Engine::State::PreloadTimeout(double bound) {
              ", structures=" + std::to_string(World.Bakes.QueuedStructures()) +
              ", deferred=" + std::to_string(World.Bakes.Deferred()) +
              ", meanMs=" + std::to_string(World.Bakes.MeanBakeMs()) +
-             ", maxMs=" + std::to_string(World.Bakes.SlowestBakeMs());
+             ", maxMs=" + std::to_string(World.Bakes.SlowestBakeMs()) +
+             ", maxSliceMs=" + std::to_string(World.Bakes.SlowestSliceMs());
   }
   if (const auto &ground = World.GroundPublished.Current();
       ground && ground->Footprints != World.Stack.Footprints().Revision()) {

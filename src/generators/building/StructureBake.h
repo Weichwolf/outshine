@@ -90,6 +90,8 @@ public:
           size_t structuresMost,
           const std::atomic_bool *stopping = nullptr);
 
+  [[nodiscard]] size_t BakedStructures() const noexcept;
+
 private:
   struct State;
   std::unique_ptr<State> State_;

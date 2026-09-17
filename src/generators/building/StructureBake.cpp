@@ -594,6 +594,10 @@ StructureBakeProgress::StructureBakeProgress() : State_(std::make_unique<State>(
 
 StructureBakeProgress::~StructureBakeProgress() = default;
 
+size_t StructureBakeProgress::BakedStructures() const noexcept {
+  return State_->Next;
+}
+
 std::expected<bool, StructureBakeError>
 StructureBakeProgress::Advance(const RawTile &raw,
                                const outshine::Ground::HeightField &heights,

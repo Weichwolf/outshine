@@ -151,7 +151,10 @@ bool StructureBakes::Complete(const Ground::GroundStack &stack) const {
 
 size_t StructureBakes::QueuedStructures() const {
   size_t count = 0;
-  for (const Job &job : Queue_) { count += job.Raw->Structures.size(); }
+  for (const Job &job : Queue_) {
+    const size_t all = job.Raw->Structures.size();
+    count += all > job.BakedStructures ? all - job.BakedStructures : 0;
+  }
   return count;
 }
 
@@ -182,8 +185,9 @@ void StructureBakes::PostSlice(Job &job) {
     } else {
       out->Complete = *advanced;
     }
-    out->BakeMs +=
+    out->LastSliceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    out->BakeMs += out->LastSliceMs;
   });
 }
 
@@ -206,9 +210,17 @@ void StructureBakes::DiscardStale(const Ground::OsmField &vectors,
   }
 }
 
-void StructureBakes::ResumeSlices() {
+void StructureBakes::ResumeCompletedSlices() {
   for (Job &job : Queue_) {
-    if (!job.Finished) { job.Finished = Pool_->Done(job.Handle); }
+    if (!job.Finished) {
+      job.Finished = Pool_->Done(job.Handle);
+      if (job.Finished) {
+        job.BakedStructures = job.Progress->BakedStructures();
+        ++job.Slices;
+        job.SlowestSliceMs = std::max(job.SlowestSliceMs, job.Out->LastSliceMs);
+        SlowestSliceMs_ = std::max(SlowestSliceMs_, job.Out->LastSliceMs);
+      }
+    }
     if (job.Finished && job.Out->Status && !job.Out->Complete) { PostSlice(job); }
   }
 }
@@ -251,6 +263,7 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack, LongitudeLatitude eye) 
     job.Out->Status = {};
     job.Out->Complete = false;
     job.Out->BakeMs = 0.0;
+    job.Out->LastSliceMs = 0.0;
     Queue_.push_back(std::move(job));
     PostSlice(Queue_.back());
     ++Posted_;
@@ -267,7 +280,7 @@ StructureBakes::NextLandings(Ground::GroundStack &stack, LongitudeLatitude eye, 
   if (vectors == nullptr) { return landings; }
   Ground::BuildingField &prints = stack.Footprints();
   DiscardStale(*vectors, prints, eye);
-  ResumeSlices();
+  ResumeCompletedSlices();
   size_t count = 0;
   size_t printCount = 0;
   size_t spreadCount = 0;

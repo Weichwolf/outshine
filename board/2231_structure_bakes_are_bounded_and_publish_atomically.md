@@ -23,6 +23,14 @@ owners until the final worker returns. Range boundaries preserve source order an
 accepted tile as one uninterrupted bake. Final clustering also has a declared bound or continuation;
 no hidden unbounded tail remains.
 
+Only the main thread reads range progress, after consuming the worker completion. Timeout diagnostics
+therefore report a stable upper bound of remaining structures and the maximum completed slice time;
+they never read mutable generator state while a worker owns it.
+
+The initial preload phase resumes completed ranges before a ground snapshot is publishable. It may
+advance private aggregates, but cannot hand off a partial tile; publication remains in the landing
+phase.
+
 ## Acceptance
 
 - A fixture with more than two ranges has no published footprint or geometry before its final range;
@@ -32,3 +40,10 @@ no hidden unbounded tail remains.
 - Per-range structure and elapsed-work limits are measured. The unchanged floor-contact Place
   becomes resident within 15 s without reducing geometry or extending its timeout.
 - Small, empty and rejected structures preserve existing output/error contracts; lint passes.
+
+## Measurement
+
+2026-09-17: completed ranges now resume during initial preload. The floor-contact executable still
+missed its 15 s bound at 15.47 s (23/27 tiles, four jobs, estimated 629 structures remaining,
+maximum completed slice 4.65 ms). This disproves a costly single-range tail but does not yet prove
+the full residency budget; scheduler throughput and tile admission remain open.

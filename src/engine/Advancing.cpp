@@ -230,6 +230,7 @@ bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = WhereTheEyeStands();
   if (!World.GroundPublished.Current()) {
+    World.Bakes.ResumeCompletedSlices();
     (void)World.Bakes.Posts(World.Stack, eye);
     return true;
   }

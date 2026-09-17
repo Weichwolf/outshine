@@ -57,6 +57,7 @@ public:
 
   [[nodiscard]] std::expected<std::vector<Landing>, Generators::StructureBakeError>
   NextLandings(Ground::GroundStack &stack, LongitudeLatitude eye, size_t most);
+  void ResumeCompletedSlices();
   void CommitsLandings(Ground::GroundStack &stack, std::span<Landing> landings) noexcept;
   void Clear();
 
@@ -78,6 +79,8 @@ public:
 
   [[nodiscard]] double SlowestBakeMs() const { return SlowestBakeMs_; }
 
+  [[nodiscard]] double SlowestSliceMs() const { return SlowestSliceMs_; }
+
   [[nodiscard]] size_t QueuedStructures() const;
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
@@ -90,6 +93,7 @@ private:
     std::expected<void, Generators::StructureBakeError> Status;
     bool Complete = false;
     double BakeMs = 0.0;
+    double LastSliceMs = 0.0;
   };
 
   struct Job {
@@ -102,6 +106,9 @@ private:
     std::unique_ptr<Generators::StructureBakeProgress> Progress;
     std::shared_ptr<std::atomic_bool> Stopping;
     Tasks::Handle Handle = Tasks::kNoTask;
+    size_t BakedStructures = 0;
+    size_t Slices = 0;
+    double SlowestSliceMs = 0.0;
     bool Finished = false;
   };
 
@@ -118,7 +125,6 @@ private:
   void DiscardStale(const Ground::OsmField &vectors,
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye);
-  void ResumeSlices();
 
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
@@ -132,6 +138,7 @@ private:
   size_t Discarded_ = 0;
   double BakedMs_ = 0.0;
   double SlowestBakeMs_ = 0.0;
+  double SlowestSliceMs_ = 0.0;
 };
 
 }

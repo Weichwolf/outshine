@@ -97,6 +97,8 @@ int main() {
   Generators::StructureBakeProgress progress;
   Generators::BakedTile sliced;
   const auto first = progress.Advance(raw, *heights, slicedMesher, *slicedScratch, sliced, 1);
+  CHECK(progress.BakedStructures() == 1,
+        "a completed range exposes its exact structure count after the worker boundary");
   const auto second = progress.Advance(raw, *heights, slicedMesher, *slicedScratch, sliced, 1);
   CHECK(oneShotResult && first && second && !*first && *second,
         "a bounded bake retains its aggregate until its final structure range");
