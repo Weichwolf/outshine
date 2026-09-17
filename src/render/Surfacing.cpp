@@ -86,6 +86,7 @@ void ResolveDeclaredSurface(const Shape &geometry,
                             SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
+  out.NativeMaterial.clear();
   out.PartSlot.clear();
   out.Decoded.clear();
 
@@ -96,6 +97,7 @@ void ResolveDeclaredSurface(const Shape &geometry,
     out.Slots.push_back(slot);
     out.Decoded.emplace_back();
     out.Material.push_back(0);
+    out.NativeMaterial.push_back(-1);
     return;
   }
   for (size_t part = 0; part < geometry.Parts.size(); ++part) {
@@ -115,6 +117,7 @@ void ResolveDeclaredSurface(const Shape &geometry,
       out.Slots.push_back(surface);
       out.Decoded.emplace_back();
       out.Material.push_back(material);
+      out.NativeMaterial.push_back(-1);
     }
     out.PartSlot[part] = static_cast<uint32_t>(slot);
   }
@@ -127,6 +130,7 @@ void ResolveDeclaredSurface(const Shape &geometry,
     out.Slots.push_back(unworn);
     out.Decoded.emplace_back();
     out.Material.push_back(static_cast<int>(surface));
+    out.NativeMaterial.push_back(-1);
   }
 }
 

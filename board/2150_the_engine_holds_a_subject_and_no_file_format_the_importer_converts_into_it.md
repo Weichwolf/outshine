@@ -4,7 +4,6 @@ Area: engine, import, scene, render
 Tags: architecture, ownership, audit
 Parent: 2188
 Depends: 2216
-
 # Importers and generators deliver one engine-owned geometry model
 
 ## Befund und Entscheidung
@@ -19,9 +18,10 @@ Material erhalten einen eigenen Default-Slot; Pixel-Orakel prüft dessen Farbe.
 Draws instanziert dasselbe Subject unabhängig von Body::Asset. Native Asset-/Entity-
 Bindung muss auch Physik ohne Mesh und Renderinstanzen ohne Physik erlauben.
 
-Audit 2026-09-16: `Live::CarriesBuilt` ignoriert `SurfaceOverride` auf direkter `Geometry`;
-gemischte Assets lösen Materialnamen allein aus `Gltf::Document`. Vor dem Entfernen des
-Importdokuments müssen beide Pfade gleiche Named-/Part-Overrides haben; ein No-op-/Pixeloracle prüft das.
+Override-Vertrag: `SurfaceTable` trennt glTF- und native Materialherkunft. Direkte und
+gemischte native Geometry verwenden ihre Material- und Partnamen für Named-/Part-Overrides;
+keine Übereinstimmung lehnt die Deklaration ab. Das Mischszenen-Pixeloracle fordert eine
+benannte native Oberfläche gegen ein importiertes Asset grün; Altcode lässt sie rot.
 
 UV-Grenze: native Rotation algebraisch definieren (+U nach +V), glTFs visuell
 gegenläufige Rotation beim Import konvertieren. Das GLSL-Beispiel der Extension

@@ -26,6 +26,7 @@ struct SurfaceRasters {
 struct SurfaceTable {
   std::vector<SubjectMaterial> Slots;
   std::vector<int> Material;
+  std::vector<int> NativeMaterial;
   std::vector<uint32_t> PartSlot;
   std::vector<SurfaceRasters> Decoded;
 };

@@ -90,6 +90,7 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
                          Render::SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
+  out.NativeMaterial.clear();
   out.Decoded.clear();
   out.PartSlot.assign(geometry.Parts().size(), 0);
   for (size_t part = 0; part < geometry.Parts().size(); ++part) {
@@ -114,6 +115,7 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
         if (!ownMaterials) { surface.Row.Alpha = AlphaMode::Opaque; }
       }
       out.Material.push_back(material);
+      out.NativeMaterial.push_back(-1);
       out.Slots.push_back(surface);
     }
     out.PartSlot[part] = static_cast<uint32_t>(slot);
@@ -266,6 +268,7 @@ namespace {
                                       std::string &error) {
   static_assert(std::is_nothrow_move_assignable_v<Render::SurfaceTable>);
   if (table.Material.size() != table.Slots.size() ||
+      table.NativeMaterial.size() != table.Slots.size() ||
       std::ranges::any_of(table.PartSlot,
                           [&](uint32_t slot) { return slot >= table.Slots.size(); })) {
     error = Says::InconsistentSlots;
@@ -273,6 +276,7 @@ namespace {
   }
   Render::SurfaceTable candidate;
   candidate.Material = table.Material;
+  candidate.NativeMaterial = table.NativeMaterial;
   candidate.PartSlot = table.PartSlot;
   candidate.Slots.reserve(table.Slots.size());
   for (const auto &slot : table.Slots) {

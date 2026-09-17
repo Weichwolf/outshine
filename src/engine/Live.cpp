@@ -23,6 +23,7 @@
 
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <optional>
 #include <utility>
 #include <ratio>
@@ -586,8 +587,11 @@ void Live::PaintsPart(Wearing what,
   }
   if (what.Slot < wearers.size()) { wearers[what.Slot] -= 1u; }
   const int carried = what.Slot < Table_.Material.size() ? Table_.Material[what.Slot] : -1;
+  const int native =
+      what.Slot < Table_.NativeMaterial.size() ? Table_.NativeMaterial[what.Slot] : -1;
   Table_.Slots.push_back(made);
   Table_.Material.push_back(carried);
+  Table_.NativeMaterial.push_back(native);
   Table_.Decoded.emplace_back();
   Table_.PartSlot[what.Part] = static_cast<uint32_t>(Table_.Slots.size() - 1u);
 }
@@ -603,6 +607,7 @@ size_t Live::WornByNodeOrPart() {
   }
   Table_.Slots.reserve(Table_.Slots.size() + many);
   Table_.Material.reserve(Table_.Material.size() + many);
+  Table_.NativeMaterial.reserve(Table_.NativeMaterial.size() + many);
   Table_.Decoded.reserve(Table_.Decoded.size() + many);
   for (size_t part = 0; part < many; ++part) {
     const uint32_t slot = Table_.PartSlot[part];
@@ -619,8 +624,7 @@ size_t Live::WornByNodeOrPart() {
   return took;
 }
 
-bool Live::WearsOverrides(std::string &error) {
-  size_t took = 0;
+bool Live::WearsOverrides([[maybe_unused]] std::string &error) {
   for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
     const int index = Table_.Material[slot];
     if (index < 0 || static_cast<size_t>(index) >= Held_.File().Materials().size()) { continue; }
@@ -629,21 +633,73 @@ bool Live::WearsOverrides(std::string &error) {
       if (said.Named != named) { continue; }
       if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
       Table_.Slots[slot].Row = said.Row;
+      ++OverridesWorn_;
+      break;
+    }
+  }
+  OverridesWorn_ += WornByNodeOrPart();
+  return true;
+}
+
+size_t Live::WornByNativeSurfaceAndPart(size_t firstPart) {
+  return WornByNativeSurface() + WornByNativeParts(firstPart);
+}
+
+size_t Live::WornByNativeSurface() {
+  size_t took = 0;
+  const Geometry &native = Held_.Built();
+  for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
+    const int surface = Table_.NativeMaterial[slot];
+    if (surface < 0 || surface >= native.surfaces()) { continue; }
+    const std::string_view named = native.surfaceNameOf(surface);
+    for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
+      if (said.Named != named) { continue; }
+      if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
+      Table_.Slots[slot].Row = said.Row;
       ++took;
       break;
     }
   }
-  took += WornByNodeOrPart();
-  if (took == 0) {
-    error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
-            " surface(s) of '" + Declared_.Stands +
-            "' and the file carries neither those "
-            "material names, those node names nor those part indices -- a surface declared "
-            "onto nothing changes "
-            "no pixel and says it did";
-    return false;
+  return took;
+}
+
+size_t Live::WornByNativeParts(size_t firstPart) {
+  size_t took = 0;
+  std::vector<uint32_t> wearers(Table_.Slots.size(), 0u);
+  for (const uint32_t worn : Table_.PartSlot) {
+    if (worn < wearers.size()) { wearers[worn] += 1u; }
   }
-  return true;
+  const auto nativeParts = static_cast<size_t>(Held_.Built().parts());
+  const size_t available =
+      Table_.PartSlot.size() > firstPart ? Table_.PartSlot.size() - firstPart : 0u;
+  const size_t many = std::min(nativeParts, available);
+  Table_.Slots.reserve(Table_.Slots.size() + many);
+  Table_.Material.reserve(Table_.Material.size() + many);
+  Table_.NativeMaterial.reserve(Table_.NativeMaterial.size() + many);
+  Table_.Decoded.reserve(Table_.Decoded.size() + many);
+  for (size_t local = 0; local < many; ++local) {
+    const size_t part = firstPart + local;
+    const uint32_t slot = Table_.PartSlot[part];
+    if (slot >= Table_.Slots.size() || part >= Shaped_.Parts.size()) { continue; }
+    for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
+      const bool byNode = !said.Node.empty() && said.Node == Shaped_.Parts[part].Name;
+      const bool byPart = said.Part >= 0 && std::cmp_equal(said.Part, part);
+      if (!byNode && !byPart) { continue; }
+      PaintsPart({.Part = part, .Slot = slot}, said, wearers);
+      ++took;
+      break;
+    }
+  }
+  return took;
+}
+
+bool Live::RejectsUnwornOverrides(std::string &error) const {
+  if (Declared_.Overriding.empty() || OverridesWorn_ > 0) { return true; }
+  error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
+          " surface(s) of '" + Declared_.Stands +
+          "' and the subject carries neither those material names, those part names nor those "
+          "part indices -- a surface declared onto nothing changes no pixel and says it did";
+  return false;
 }
 
 bool Live::JoinsSubjects(std::string &error) {
@@ -686,9 +742,10 @@ bool Live::StandsSubjects(std::string &error) {
                                 error)) {
     return false;
   }
+  OverridesWorn_ = 0;
   if (!Declared_.Overriding.empty() && !WearsOverrides(error)) { return false; }
-
-  return !Held_.HoldsBuilt() || AppendNativeSurfaceTable(error);
+  if (Held_.HoldsBuilt() && !AppendNativeSurfaceTable(error)) { return false; }
+  return RejectsUnwornOverrides(error);
 }
 
 bool Live::AppendNativeSurfaceTable(std::string &error) {
@@ -699,6 +756,7 @@ bool Live::AppendNativeSurfaceTable(std::string &error) {
     made.Row = also.surfaceAt(MaterialInstance(surface));
     Table_.Slots.push_back(made);
     Table_.Material.push_back(-1);
+    Table_.NativeMaterial.push_back(surface);
     Table_.Decoded.emplace_back();
   }
   const size_t before = Table_.PartSlot.size();
@@ -720,6 +778,7 @@ bool Live::AppendNativeSurfaceTable(std::string &error) {
         surface.Row = Declared_.Surfacing.front();
         Table_.Slots.push_back(surface);
         Table_.Material.push_back(-1);
+        Table_.NativeMaterial.push_back(-1);
         Table_.Decoded.emplace_back();
       }
       slot = *defaultSlot;
@@ -730,6 +789,7 @@ bool Live::AppendNativeSurfaceTable(std::string &error) {
           also, std::span<Render::SubjectMaterial>(Table_.Slots).subspan(base), error)) {
     return false;
   }
+  OverridesWorn_ += WornByNativeSurfaceAndPart(before);
   Joined_ = before;
   Carrying_ = before;
   return true;
@@ -767,11 +827,15 @@ bool Live::CarriesBuilt(std::string &error) {
           .count();
   const auto resolvedFrom = std::chrono::steady_clock::now();
   Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
+  Table_.NativeMaterial = Table_.Material;
   const bool textured =
       Held_.HoldsBuilt()
           ? Render::ResolveNativeTextures(Held_.Built(), Table_.Slots, error)
           : Render::ResolveNativeTextures(Held_.Assembled().Images(), Table_.Slots, error);
   if (!textured) { return false; }
+  OverridesWorn_ = 0;
+  OverridesWorn_ += WornByNativeSurfaceAndPart(0);
+  if (!RejectsUnwornOverrides(error)) { return false; }
   if (GroundSurface_ >= 0) {
     for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
       if (Table_.Material[slot] == GroundSurface_) {
@@ -790,6 +854,7 @@ void Live::AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots) {
     RegisteredSlots_.push_back(static_cast<uint32_t>(Table_.Slots.size()));
     Table_.Slots.push_back(slot);
     Table_.Material.push_back(-1);
+    Table_.NativeMaterial.push_back(-1);
     Table_.Decoded.emplace_back();
   }
 }
@@ -850,14 +915,17 @@ std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::stri
   const auto first = static_cast<uint32_t>(RegisteredSlots_.size());
   const size_t slotsBefore = Table_.Slots.size();
   const size_t materialsBefore = Table_.Material.size();
+  const size_t nativeMaterialsBefore = Table_.NativeMaterial.size();
   const size_t decodedBefore = Table_.Decoded.size();
   AppendPieceSurfaces(slots);
-  const auto restores = [this, slotsBefore, materialsBefore, decodedBefore, first] {
-    Table_.Slots.resize(slotsBefore);
-    Table_.Material.resize(materialsBefore);
-    Table_.Decoded.resize(decodedBefore);
-    RegisteredSlots_.resize(first);
-  };
+  const auto restores =
+      [this, slotsBefore, materialsBefore, nativeMaterialsBefore, decodedBefore, first] {
+        Table_.Slots.resize(slotsBefore);
+        Table_.Material.resize(materialsBefore);
+        Table_.NativeMaterial.resize(nativeMaterialsBefore);
+        Table_.Decoded.resize(decodedBefore);
+        RegisteredSlots_.resize(first);
+      };
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) {
     restores();
     return std::nullopt;
@@ -878,8 +946,8 @@ void Live::WearsPieces() {
   const size_t surfaces =
       Held_.HoldsBuilt() ? static_cast<size_t>(Held_.Built().surfaces()) : Shaped_.Surfaces.size();
   std::vector<uint32_t> slotOf(surfaces, Render::kNoSlot);
-  for (size_t slot = 0; slot < Table_.Material.size(); ++slot) {
-    const int surface = Table_.Material[slot];
+  for (size_t slot = 0; slot < Table_.NativeMaterial.size(); ++slot) {
+    const int surface = Table_.NativeMaterial[slot];
     if (surface >= 0 && static_cast<size_t>(surface) < slotOf.size()) {
       slotOf[static_cast<size_t>(surface)] = static_cast<uint32_t>(slot);
     }

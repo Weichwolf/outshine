@@ -348,14 +348,14 @@ enum class AssetAnimation {
   Driven  ///< Suppress imported clip playback; simulation-driven asset posing is not connected yet.
 };
 
-/// Owned material override with legacy imported-material/node/part selectors.
+/// Owned material override with native material and part selectors.
 /// Copies own selector strings and may allocate; mutate only with exclusive access.
-/// Material-name overrides run first, then node/part overrides; the first matching
+/// Material-name overrides run first, then part-name/part-index overrides; the first matching
 /// declaration in each pass wins. No match anywhere rejects loading; individual unmatched
-/// entries are not all rejected. Generic native selector migration remains incomplete.
+/// entries are not all rejected. Native geometry and imported geometry use this same contract.
 struct SurfaceOverride {
-  std::string Named; ///< Exact imported material name; empty can match unnamed materials.
-  std::string Node;  ///< Nonempty exact imported node name, matched independently of Part.
+  std::string Named; ///< Exact native material name; empty can match unnamed materials.
+  std::string Node;  ///< Nonempty exact native part name, matched independently of Part.
   /// Zero-based assembled part index; negative disables this selector. Not a stable asset handle.
   int Part = -1;
   /// Retain existing texture bindings and ancillary slot settings; false resets them.

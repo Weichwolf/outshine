@@ -84,11 +84,15 @@ void ImportedCameraSurvivesBinding() {
   }
   {
     Geometry native;
-    const int part = native.addPart("native default material", MaterialInstance{}).value();
+    Material nativeMaterial;
+    nativeMaterial.BaseColour = {{1, 0, 0, 1}};
+    nativeMaterial.Unlit = true;
+    const auto nativeSurface = native.addSurface("native mixed material", nativeMaterial).value();
+    const int part = native.addPart("native default material", nativeSurface).value();
     CHECK(native.setPositions(
               part, std::array<float, 9>{0.8f, -0.5f, 0, 2.2f, -0.5f, 0, 1.5f, 0.5f, 0}) &&
               native.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}),
-          "native fixture has an intentionally unbound material");
+          "native fixture carries a named material independent of the imported table");
     Core::Declaration declaration;
     declaration.Stands = path.string();
     declaration.InitialGeometry = &native;
@@ -96,6 +100,10 @@ void ImportedCameraSurvivesBinding() {
     declaration.Outputs = {"sceneLinear"};
     declaration.Surfacing.front().BaseColour = {{0, 1, 0, 1}};
     declaration.Surfacing.front().Unlit = true;
+    Scenario::SurfaceOverride override;
+    override.Named = "native mixed material";
+    override.Row = declaration.Surfacing.front();
+    declaration.Overriding.push_back(override);
     Render::SceneRenderer renderer;
     std::unique_ptr<Core::Live> scene;
     std::string error;
@@ -118,7 +126,7 @@ void ImportedCameraSurvivesBinding() {
       const size_t pixel = (16u * 32u + 24u) * 4u;
       CHECK(pixels.size() > pixel + 2u && pixels[pixel] < 0.1f && pixels[pixel + 1u] > 0.9f &&
                 pixels[pixel + 2u] < 0.1f,
-            "unbound native part uses the declared green material, not an imported slot");
+            "named native material override wins in a mixed imported/native scene");
     }
     if (!error.empty()) { std::printf("mixed native material: %s\n", error.c_str()); }
   }

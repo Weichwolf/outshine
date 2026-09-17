@@ -47,6 +47,7 @@ int main() {
   Render::SurfaceTable table;
   table.Slots.resize(1);
   table.Material = {0};
+  table.NativeMaterial = {-1};
   table.PartSlot = {0};
   std::string error;
   CHECK(

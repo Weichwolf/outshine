@@ -423,7 +423,11 @@ private:
   void
   PaintsPart(Wearing what, const Scenario::SurfaceOverride &said, std::vector<uint32_t> &wearers);
   [[nodiscard]] size_t WornByNodeOrPart();
+  [[nodiscard]] size_t WornByNativeSurfaceAndPart(size_t firstPart);
+  [[nodiscard]] size_t WornByNativeSurface();
+  [[nodiscard]] size_t WornByNativeParts(size_t firstPart);
   [[nodiscard]] bool WearsOverrides(std::string &error);
+  [[nodiscard]] bool RejectsUnwornOverrides(std::string &error) const;
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
   void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
@@ -493,6 +497,7 @@ private:
   void CoverShapedParts();
   [[nodiscard]] bool PartVolumes(std::string &error);
   Render::SurfaceTable Table_;
+  size_t OverridesWorn_ = 0;
 
   struct PieceSurfaces {
     Geometry Source;
