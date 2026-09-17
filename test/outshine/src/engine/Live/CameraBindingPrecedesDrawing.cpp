@@ -71,6 +71,9 @@ void ImportedCameraSurvivesBinding() {
                 scene->Aimed().ZFarM == 20,
             "first drawing preserves the authored camera instead of silently fitting bounds");
       scene->FrameItself();
+      CHECK(scene->Advance(error), "native camera framing is prepared outside the draw call");
+      CHECK(Core::Live::TookAiming() == 0,
+            "camera validation reuses the published native shape without allocation");
       const bool rebuilt =
           scene->Restands(path.string(), {}, Scenario::AssetAnimation::Play, 0, error);
       CHECK(rebuilt, "the subject can rebind while an explicit framing request is pending");
