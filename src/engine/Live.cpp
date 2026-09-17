@@ -1135,10 +1135,8 @@ std::expected<void, std::string> Live::BindSubject() {
 }
 
 bool Live::Pose(double seconds, std::string &error) {
-  if (Held_.Moves() && Shaped_.VertexCount() > 0) { CapturesPreviousPositions(); }
   if (!Held_.Poses(seconds, error)) { return false; }
   if (!Reshape(error)) { return false; }
-  if (Held_.Moves() && PreviousPositionsM_.empty()) { CapturesPreviousPositions(); }
   return true;
 }
 
@@ -1154,13 +1152,12 @@ void Live::Eye(const Render::Viewpoint &from) noexcept {
   Aim_ = AimState::Dirty;
 }
 
-void Live::CapturesPreviousPositions() {
-  PreviousPositionsM_.clear();
-  PreviousPositionsM_.reserve(Shaped_.VertexCount() * 3u);
+void Live::CapturesRenderedPositions() {
+  RenderedPositionsM_.clear();
+  RenderedPositionsM_.reserve(Shaped_.VertexCount() * 3u);
   for (const Render::ShapePart &part : Shaped_.Parts) {
-    for (const float position : part.PositionsM) {
-      PreviousPositionsM_.push_back(static_cast<double>(position));
-    }
+    RenderedPositionsM_.insert(
+        RenderedPositionsM_.end(), part.PositionsM.begin(), part.PositionsM.end());
   }
 }
 
@@ -1317,7 +1314,9 @@ bool Live::Stand(std::string &error) {
               .FramedParts = Joined_};
   for (Mat4 &one : SentBody_) { one.Column.fill(std::numeric_limits<double>::quiet_NaN()); }
   SentBuilt_.Column.fill(std::numeric_limits<double>::quiet_NaN());
-  if (Held_.Moves()) { Stood_.Posed(&PreviousPositionsM_); }
+  if (Held_.Moves() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
+    Stood_.Posed(RenderedPositionsM_);
+  }
   PlacesMs_ = sinceStand();
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
   WearsMs_ = sinceStand();
@@ -1670,6 +1669,10 @@ bool Live::Draw(std::string &error) {
     if (!rendered) {
       error = std::move(rendered.error());
       return false;
+    }
+    if (Held_.Moves()) {
+      CapturesRenderedPositions();
+      Stood_.Posed(RenderedPositionsM_);
     }
   }
   TookDrawing_ = Heap::TakenUnder("render-frame") - beforeDraw;

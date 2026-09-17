@@ -310,9 +310,9 @@ void PackEmitted(const void *carrying, float *into, uint32_t floats) {
 }
 
 void PackPrevious(const void *carrying, float *into, uint32_t floats) {
-  const std::vector<double> &held = *static_cast<const std::vector<double> *>(carrying);
+  const std::span<const float> held = *static_cast<const std::span<const float> *>(carrying);
   const uint32_t many = held.size() < floats ? static_cast<uint32_t>(held.size()) : floats;
-  for (uint32_t at = 0; at < many; ++at) { into[at] = static_cast<float>(held[at]); }
+  if (many > 0) { std::memcpy(into, held.data(), static_cast<size_t>(many) * sizeof(float)); }
   if (many < floats) {
     std::memset(into + many, 0, static_cast<size_t>(floats - many) * sizeof(float));
   }
@@ -439,8 +439,8 @@ bool Place(SceneRenderer &renderer,
     return false;
   }
   if (!Agrees(proxy, subject, error)) { return false; }
-  if ((proxy.Previous() != nullptr) && proxy.Previous()->size() / 3 != subject.VertexCount()) {
-    error = "the proxy's previous pose carries " + std::to_string(proxy.Previous()->size() / 3) +
+  if (!proxy.Previous().empty() && proxy.Previous().size() / 3 != subject.VertexCount()) {
+    error = "the proxy's previous pose carries " + std::to_string(proxy.Previous().size() / 3) +
             " vertices and this one carries " + std::to_string(subject.VertexCount()) +
             ", so no vertex has a place it moved from";
     return false;
@@ -494,9 +494,9 @@ bool Place(SceneRenderer &renderer,
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   mesh.Positions = scratch.Vertices;
-  if (proxy.Previous() != nullptr) {
+  if (!proxy.Previous().empty()) {
     mesh.PrevVerts =
-        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = proxy.Previous()};
+        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
   }
   mesh.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   mesh.Indices = scratch.Indices.data();
@@ -534,8 +534,8 @@ bool Move(SceneRenderer &renderer,
   }
   const Shape &subject = *proxy.Shaped();
   if (!Agrees(proxy, subject, error)) { return false; }
-  if ((proxy.Previous() != nullptr) && proxy.Previous()->size() / 3 != subject.VertexCount()) {
-    error = "the proxy's previous pose carries " + std::to_string(proxy.Previous()->size() / 3) +
+  if (!proxy.Previous().empty() && proxy.Previous().size() / 3 != subject.VertexCount()) {
+    error = "the proxy's previous pose carries " + std::to_string(proxy.Previous().size() / 3) +
             " vertices and this one carries " + std::to_string(subject.VertexCount()) +
             ", so no vertex has a place it moved from";
     return false;
@@ -591,9 +591,9 @@ bool Move(SceneRenderer &renderer,
     scratch.Metrics.DigestMs = 0.0;
   }
   pose.Positions = scratch.Vertices;
-  if (proxy.Previous() != nullptr) {
+  if (!proxy.Previous().empty()) {
     pose.PrevVerts =
-        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = proxy.Previous()};
+        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
   }
   pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }

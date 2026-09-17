@@ -17,9 +17,7 @@ device failure enters an explicit failed state; it never presents stale pixels a
 Candidate publication uses a proven nonthrowing transfer. Errors carry an engine error code and
 operation context; SDL diagnostics are copied at their boundary. No producer result cache is
 assumed: generator output may depend on borrowed, changing provider data.
-
 ## Current evidence
-
 - `handleEvent` distinguishes handled, ignored and failed events. Input/UI failures are covered.
 - Lens construction is shared by declared and imported cameras; projection validation, recovery
   and its negative control are covered by public tests.
@@ -40,9 +38,7 @@ assumed: generator output may depend on borrowed, changing provider data.
   content. Full declarations publish it only after geometry and overlays succeed; a generated-world
   submit failure retains prior linear pixels and retries. Frame-owned cull and shadow stages rebind
   their subject address after the content move.
-
 ## Remaining defect and implementation
-
 The targeted full-declaration path builds `Live`, generated geometry, audio occlusion, views,
 bindings and UI state locally, then detaches and replaces the old owner only after the candidate
 is complete. Generation must not mutate live state during preparation. Its remaining failure
@@ -55,9 +51,7 @@ snapshot/restore remains rejected because coupled GPU ownership cannot prove com
 `setGeometry`, pending geometry and streaming ground already prepare native world candidates
 under WI 2224. Do not reimplement them as direct live mutation. Remaining work is whole-product
 proof and the transition audit below; 2224 owns its concrete implementation order.
-
 ## Transition audit after the current world-publication work
-
 For each public mutator in `include/Outshine.h`, trace its implementation in `src/engine/`
 and record: admissible state, borrowed inputs, published owners, fallible preparation,
 nonthrowing commit, invalidated references, thread affinity and failure result. Keep that
@@ -83,6 +77,13 @@ Source audit: Live::Restands changes Declared_ and clears Held_ before Build suc
 Live::Pose replaces PreviousPositionsM_ before Poses/Reshape can fail. This proves
 mutation ordering, not that every public caller exposes the failed intermediate state.
 Trace each public caller first; reuse its existing candidate where it already isolates Live.
+
+The first implementation keeps the last successfully submitted local vertex pose as a borrowed
+`std::span<const float>` in the proxy. A topology mismatch selects the current-position fallback;
+the old per-pose double-to-float conversion is gone. The direct proxy test proves borrowing and
+fallback. The current scene-velocity readback of the tiny imported fixture contains only clear
+values, so it is not a motion oracle; retain the two-advance requirement below until a visible,
+analytically checked movement fixture proves it.
 
 1. Test rejected asset/clip replacement through the public API: declaration, geometry,
    camera, audio and next rendered frame remain A; valid B retries. Include different

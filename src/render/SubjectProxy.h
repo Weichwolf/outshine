@@ -28,7 +28,7 @@ class SubjectProxy {
 public:
   void Stands(const Shape &subject, const Vec3 &anchorEcefM);
 
-  void Posed(const std::vector<double> *previousPositionsM) { Previous_ = previousPositionsM; }
+  void Posed(std::span<const float> previousPositionsM) { Previous_ = previousPositionsM; }
 
   [[nodiscard]] bool Wears(std::span<const uint32_t> partSlot,
                            std::span<const SubjectMaterial> slots,
@@ -64,7 +64,7 @@ public:
 
   [[nodiscard]] std::span<const SubjectMaterial> Slots() const { return Surfaces_; }
 
-  [[nodiscard]] const std::vector<double> *Previous() const { return Previous_; }
+  [[nodiscard]] const std::span<const float> &Previous() const { return Previous_; }
 
   [[nodiscard]] std::span<const outshine::PunctualLight> Lights() const { return Lights_; }
 
@@ -79,7 +79,7 @@ private:
   size_t Instances_ = 1;
   bool Placed_ = false;
   std::vector<SubjectMaterial> Surfaces_;
-  const std::vector<double> *Previous_ = nullptr;
+  std::span<const float> Previous_;
   std::vector<outshine::PunctualLight> Lights_;
   SubjectEnvironment Environment_;
 };
