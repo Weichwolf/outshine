@@ -102,6 +102,10 @@ public:
 
   [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
 
+  [[nodiscard]] Patchwork *Laid() noexcept { return Patchwork_ ? &*Patchwork_ : nullptr; }
+
+  void Lays(Patchwork patchwork) noexcept { Patchwork_.emplace(std::move(patchwork)); }
+
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
   void Prepared(bool prepared) noexcept { Prepared_ = prepared; }
@@ -110,6 +114,7 @@ private:
   Around Coverage_;
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
+  std::optional<Patchwork> Patchwork_;
   bool Prepared_ = false;
 };
 
@@ -857,6 +862,21 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
   return GroundBuildProgress::Pending;
 }
 
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundPatchwork(const Around &coverage) {
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.Laid() != nullptr) { return GroundBuildProgress::Ready; }
+  static const Heap::Tag kPatchingTag("ground-patchwork");
+  const Heap::Tagged patching(kPatchingTag);
+  auto made = World.Shipping.Covering().Lay(World.Stack.Pool(), coverage);
+  if (!made) {
+    Error = made.error();
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  state.Lays(*std::move(made));
+  return GroundBuildProgress::Pending;
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   static const Heap::Tag kLayingTag("world-ground");
   const Heap::Tagged laying(kLayingTag);
@@ -882,29 +902,21 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const auto rebuildBegan = std::chrono::steady_clock::now();
   {}
 
-  std::optional<Patchwork> patchwork;
-  {
-    static const Heap::Tag kPatchingTag("ground-patchwork");
-    const Heap::Tagged patching(kPatchingTag);
-    auto made = World.Shipping.Covering().Lay(World.Stack.Pool(), over);
-    if (!made) {
-      Error = made.error();
-      return false;
-    }
-    patchwork = *std::move(made);
-  }
-  Patchwork *const laid = &*patchwork;
+  const GroundBuildProgress patchwork = BeginsGroundPatchwork(over);
+  if (patchwork == GroundBuildProgress::Failed) { return false; }
+  if (patchwork == GroundBuildProgress::Pending) { return true; }
+  Patchwork &laid = *state.Laid();
 
   const double frameLat = anchorLat;
   const double frameLon = anchorLon;
   const TangentFrame standing =
       TangentFrame::At({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat});
-  if (!RefineGroundSheets(standing, *laid, over, build)) { return false; }
+  if (!RefineGroundSheets(standing, laid, over, build)) { return false; }
   Classed classed;
   {
     static const Heap::Tag kClassingTag("ground-classify");
     const Heap::Tagged classing(kClassingTag);
-    classed = Classify(build.Sheets.SoupOf(*laid, over.Zoom).PositionM, live);
+    classed = Classify(build.Sheets.SoupOf(laid, over.Zoom).PositionM, live);
   }
   const std::vector<float> &classPalette = classed.Palette;
   const std::shared_ptr<const ClassStructure> &classStructure = classed.Structure;
@@ -1008,7 +1020,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   build.Sheets.ForgetsFields();
 
-  if (!ApplyGroundEarthworks(standing, *laid, std::move(corridor), build)) { return false; }
+  if (!ApplyGroundEarthworks(standing, laid, std::move(corridor), build)) { return false; }
   Published.Places(
       "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
   Published.Places(
@@ -1145,11 +1157,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places(
       "restand: the near plane the renderer stands on", Picture.Standing->NearStanding(), "m");
   ReportGroundPlacements();
-  World.GroundTiles = laid->Tiles;
-  Published.Places("tiles the ring laid", static_cast<double>(laid->Tiles), "tiles");
-  Published.Places("tiles it is still waiting for", static_cast<double>(laid->Pending), "tiles");
-  Published.Places("tiles the stack does not hold", static_cast<double>(laid->Absent), "tiles");
-  Published.Places("tiles it refused", static_cast<double>(laid->Refused), "tiles");
+  World.GroundTiles = laid.Tiles;
+  Published.Places("tiles the ring laid", static_cast<double>(laid.Tiles), "tiles");
+  Published.Places("tiles it is still waiting for", static_cast<double>(laid.Pending), "tiles");
+  Published.Places("tiles the stack does not hold", static_cast<double>(laid.Absent), "tiles");
+  Published.Places("tiles it refused", static_cast<double>(laid.Refused), "tiles");
   Published.Places("the sun stands this high", Picture.Standing->Standing().KeyElevationDeg, "deg");
   Published.Places("and bears", Picture.Standing->Standing().KeyBearingDeg, "deg");
   Published.Places("the light that reaches the ground", Picture.Standing->MeteredLux(), "lux");
@@ -1166,15 +1178,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       "rebuild: times the world was built WHOLE", static_cast<double>(World.Rebuilds), "rebuilds");
   Published.Places("and how often it was asked about", static_cast<double>(World.Asked), "walks");
   Published.Places(
-      "levels the cascade laid", static_cast<double>(over.Zoom - laid->CoarsestZoom + 1), "levels");
+      "levels the cascade laid", static_cast<double>(over.Zoom - laid.CoarsestZoom + 1), "levels");
   Published.Places(
-      "tiles it skipped as already covered", static_cast<double>(laid->Skipped), "tiles");
-  Published.Places("tiles the last rebuild laid bare", static_cast<double>(laid->Bare), "tiles");
-  World.Pending = laid->Pending;
-  World.Bare = laid->Bare;
-  World.Wanted = laid->Tiles;
+      "tiles it skipped as already covered", static_cast<double>(laid.Skipped), "tiles");
+  Published.Places("tiles the last rebuild laid bare", static_cast<double>(laid.Bare), "tiles");
+  World.Pending = laid.Pending;
+  World.Bare = laid.Bare;
+  World.Wanted = laid.Tiles;
   Published.Places(
-      "tiles that overlap a finer level", static_cast<double>(laid->Overlapped), "tiles");
+      "tiles that overlap a finer level", static_cast<double>(laid.Overlapped), "tiles");
   return true;
 }
 }

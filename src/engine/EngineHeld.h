@@ -378,6 +378,7 @@ struct Engine::State {
   enum class GroundBuildProgress : uint8_t { Failed, Pending, Ready };
 
   [[nodiscard]] GroundBuildProgress BeginsGroundBuild(const GroundRequest &request);
+  [[nodiscard]] GroundBuildProgress BeginsGroundPatchwork(const Around &coverage);
 
   [[nodiscard]] Laid
   Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded);
