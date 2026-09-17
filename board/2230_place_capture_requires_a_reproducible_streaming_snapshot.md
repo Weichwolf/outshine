@@ -1,6 +1,6 @@
 Type: defect
 State: open
-Architecture: question
+Architecture: ready
 Parent: 2218
 Depends:
 Area: client, engine, test
@@ -19,31 +19,51 @@ Beide PNGs geöffnet. Reproduzierbarkeit fehlt; die Ursache ist noch nicht isoli
 Referenzen: `build/shots/reference/empty-tile-publication/Graz-before.png` und
 `Graz-after-first.png`. Keine Toleranzerhöhung und kein Neupinnen zum Kaschieren.
 
-## Architekturfragen
+## Verbindliche Architekturentscheidung
 
-- Frage: Unterscheiden sich publizierter Streamingstand, deterministische Produktdaten
-  oder ausschließlich GPU-Auswertung beim Capture? Der Befund beweist noch keinen
-  bestimmten dieser Mechanismen und keine Regression durch den Tile-Fix.
-- Vorschlag: Capture an expliziten veröffentlichten Snapshot binden; begrenzte
-  Bereitschaftsbedingung auf benötigte Revisionen statt abgelaufene Wartezeit stützen.
-  Zuerst bestehende Shot-/Readiness-Verträge und Produktdigests verfolgen; Quell-/Ground-
-  Revision, Kamera, Zeit, Wetter und Samples der betroffenen Hangdaten gezielt vergleichen.
-- Alternative: längere feste Wartezeit. Kostet Durchlaufzeit und garantiert weder
-  gleichen Datenstand noch gleiche Publikationsreihenfolge; deshalb nicht als Lösung.
-- Blockiert: strikte deterministische Place-Bildabnahme, nicht analytische/GPU-
-  Vertragsprüfungen oder die unabhängige Implementierung von WI 2224/2216.
+Capture bindet einen vollständig publizierten Weltstand, nicht eine Wartezeit.
+`PlaceCamera.cpp::Draw` ruft nach preload mehrfach advance auf; dadurch ist der
+Preload-Stand allein kein Beleg für den schließlich aufgenommenen Stand. Das ist
+belegter Kontrollfluss, noch keine bewiesene Ursache der 68 abweichenden Pixel.
 
-## Untersuchung und Abnahme
+Die Engine besitzt eine zeitlich begrenzte Capture-Sitzung auf ihrem Engine-Thread.
+Sie hält Referenzen auf publizierte Produkte, keine zweite Weltkopie. Ihr Vertrag:
+- Eintritt erst bei vollständiger Abdeckung des expliziten Kamera-/LOD-Arbeitssets;
+  Quelle, Inputrevision und akzeptierte Produktrevision je Tile gehören zum Stand.
+- Kamera, Simulationszeit, Wetter, Seed, Qualität und temporale Samplefolge fixieren.
+  Bereitschaft darf nicht allein aus leeren IO-Queues abgeleitet werden.
+- Während Settling und Readback keine Weltpublikation und kein Simulationstick.
+  Renderer darf seine temporale Historie mit deklarierter Samplefolge aufbauen.
+  Worker dürfen private Produkte vorbereiten; Rückstau bleibt begrenzt.
+- Ende/Abbruch löst Pins per RAII; reguläres Streaming setzt danach fort.
+  Timeout oder fehlende Quelle liefert Fehler, kein erfolgreiches Teilbild.
+- Screenshot und Messlauf sind getrennte Phasen: bewegtes Streaming erst nach Ende
+  der Capture-Sitzung messen. Keine eingefrorene Welt als Streamingbenchmark ausgeben.
 
-1. Produktionspfad von Make shots zum Client-Capture verfolgen, keine zweite Render-
-   Implementierung bauen. Logs nur für die eingegrenzten Revisionen/Produkte ergänzen.
-2. Gleiche Eingaben offline aus bestehendem Cache, gleicher Kamerastand und Zeitpunkt;
-   kleine Höhen-/OSM-Fixture mit kontrollierbar vertauschter Worker-Fertigstellung.
-3. Bei abweichenden CPU-Produkten zuerst Reihenfolge/Revision isolieren; bei gleichen
-   Produkten GPU-Eingaben und Readback prüfen. Ursache und Vertragsentscheidung im WI
-   ersetzen, danach `Architecture: ready` setzen und erst dann strukturell umbauen.
-4. Gleicher Snapshot liefert gleiche deklarierte Bildmetrik bei Wiederholung und
-   vertauschter Worker-Reihenfolge. Nichtfertige/fehlgeschlagene Quelle führt bounded
-   zu einem expliziten Fehler, niemals zu erfolgreichem halbfertigem Capture.
-5. Negativkontrolle gegen belegten alten Fehler; Graz-PNGs und gezielte Tests, Lint.
-   Backendübergreifende Bitgleichheit wird damit nicht behauptet.
+Keine allgemeine Pause-API für alle Subsysteme einführen. Den schmalen Engine-Vertrag
+am Clientbedarf ableiten; outshine-client bleibt einziger dateibasierter Renderpfad.
+Snapshot-Bindung ist kein Beweis für deterministische Generatorprodukte: bei gleichen
+Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behoben werden.
+
+## Ausführbare Schritte und Abnahme
+
+1. Zuerst ohne Architekturumbau zwei Cache-offline-Captures vergleichen: Arbeitsset,
+   akzeptierte Revisionen, Kamera/Zeit/Samples und native Produktdaten. Nur eine kompakte
+   Differenzdiagnose ins System-Temp; keine vollständigen Meshlogs. Reihenfolgeunterschiede
+   über stabile Quellidentitäten vergleichen, nicht über zufällige Runtime-Handles.
+2. Engine-eigene Capture-Sitzung und Client-Anbindung implementieren. Bestehende
+   preload-/Readiness-Bedingungen wiederverwenden; Readback wartet auf seinen Submit.
+   Referenz: lokales ../SDL, Stand fa2c02b, include/SDL3/SDL_gpu.h, Fence-Vertrag.
+3. Öffentlicher Test unter test/outshine/include/Outshine/: kleine OSM-/DEM-Fixture,
+   vertauschte Workerfertigstellung, gleiche Inhalte; verspätetes Produkt während
+   Capture bleibt privat, nach Freigabe wird Streaming fortgesetzt. Abbruch/Timeout
+   gibt Pins frei und erhält die nutzbare Welt. Mutation während Capture als Negativkontrolle.
+4. Bei gleichen CPU-Produkten GPU-Eingaben/Readback untersuchen; keine Toleranzerhöhung.
+   Gleicher Backendstand und Snapshot liefern gleiche vereinbarte Bildmetrik.
+   Backendübergreifende Bitgleichheit ist kein Vertrag.
+5. make format; make suite SUITE=outshine/include/Outshine; make lint;
+   make shots PLACE='--no-vegetation --preload-seconds 120 Graz' zweimal.
+   PNGs öffnen und mit test/scripts/pixels.py vergleichen. Keine Neupins zur Kaschierung.
+
+Die Ursachenuntersuchung ist sofort ausführbar. Nur deterministische Place-Abnahme
+wartet auf diesen Nachweis; native Migration und analytische Tests sind unabhängig.

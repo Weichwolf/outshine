@@ -111,9 +111,9 @@ Structure scheduling is now allowed before the initial ground candidate; road/wa
 that candidate, while `StructureBakes::Complete` gates final readiness and the footprint-revision
 rebuild. The focused Place control must prove the cycle is gone before changing carriers or timeouts.
 
-## Aktueller Struktur-Bake-Blocker, 2026-09-17
+## Verbleibende Budgetarbeit
 
-Der fokussierte Boden-Kontaktfall hat einen publizierten Grund und vollständig ingestete Daten.
-Nach 15 s stehen 32/36 Bakes; vier laufen, 22 Tiles warteten zeitweise auf DEM. Laufzeit und
-Wartegrund pro Bake erfassen, dann die teure Stufe oder Serialisierung begrenzen. Abnahme: der
-unveränderte Fall wird innerhalb 15 s resident, ohne vorzeitige Bereitschaft oder längere Frist.
+Die frühere 32/36-Bake-Timeoutdiagnose ist durch den späteren erfolgreichen
+Kandidatenpfad in WI 2231 überholt; kein aktueller globaler Blocker. Restarbeiten:
+2231 begrenzt auch große Einzelstrukturen und Clustering, 2233 die Compute-Zulassung,
+2234 Ground-Phasen. Unveränderte Fristen und vollständige Produkte weiter prüfen.

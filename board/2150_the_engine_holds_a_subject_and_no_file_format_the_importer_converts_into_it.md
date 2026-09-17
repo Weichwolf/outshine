@@ -3,7 +3,7 @@ State: active
 Area: engine, import, scene, render
 Tags: architecture, ownership, audit
 Parent: 2188
-Depends: 2216
+Depends:
 # Importers and generators deliver one engine-owned geometry model
 
 ## Befund und Entscheidung
@@ -36,7 +36,6 @@ Document, Accessors, Dateinodes und Extension-Dispatch enden am Importadapter.
 Bestehende Geometry-, Material-, Transform- und GPU-Packing-Fähigkeiten nutzen,
 aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
 ## Datenverträge
-
 - Mesh-Assets besitzen lokale Vertex-/Indexdaten, Submeshes, Bounds und Material-
   referenzen. Attribute, Topologie, Indexbreite und Validierung explizit definieren.
 - Material-/Textur-Assets sind engine-eigen; Metallic-Roughness, Farbräume und
@@ -55,7 +54,7 @@ aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
 - Importfehler transaktional als expected, geliehene Spans mit Lebensdauervertrag;
   keine Importarbeit oder unbeschränkten Allokationen im Framepfad.
 
-## Vorbedingungen im nativen Besitzer
+## Native Validierungsverträge (Restnachweise in 2216)
 `Geometry::wellFormed` muss aktive Parts statt zurückbehaltener Kapazität prüfen.
 `clear` entfernt auch Bilder; Attributsetter verweigern nichtendliche Werte ohne
 Mutation. Winding-Diagnostik muss bei unvollständigen Attributen sicher bleiben.
@@ -85,19 +84,21 @@ Vollständiger GPU-Rollback und atomarer Welt-/Render-Austausch bleiben offen.
 
 Importer-Namen folgen Khronos (Node/Mesh/Primitive/Material/Animation/Skin), Runtime-Namen
 bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im Adapter.
-1. Native Asset-/Instanzverträge aus vorhandenen Consumern ableiten; Geometry und
-   Subject-Felder vollständig zuordnen, Besitz und Invalidierung dokumentieren.
+1. Asset.h besitzt weiterhin Document/Subject/Pose; Includes nur umzuhängen genügt nicht.
+   Geometry bleibt statischer Besitzer; bestehende Handles referenzieren Assets/Instanzen.
 2. Einen vollständigen statischen Pfad migrieren: Generator und glTF-Importer →
-   derselbe native Mesh-/Materialbesitzer → Instanz → Renderer. Alten Umweg entfernen.
+   derselbe native Mesh-/Materialbesitzer → Instanz → Renderer. Bilder/Materialslots beim
+   Append genau einmal relokieren; Overrides danach herkunftsunabhängig auflösen.
+   Importdokument vor Rendern freigeben; Join zweier Assets mit gleichen lokalen Slots prüfen.
 3. Animation, Varianten, Kameras und Asset-Lebensdauer vollständig migrieren;
-   Importdokument nach Konvertierung freigeben. Keine verlorenen Fähigkeiten.
+   Clips/Skeletons/Morphziele beim Import besitzen, nur Pose/Deltas im Tick auswerten.
+   Importer::sampleAnimation im Frame wäre keine native Migration. Keine verlorenen Fähigkeiten.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 
-Diese Grenze hat nach Submission-Fix 2190 Vorrang; 2128 behebt Instanz-/Terrain-Schatten;
+Wertevalidierung 2216 ist nutzbar, ihre Gesamtabnahme kein Startblocker; 2128 behebt Instanz-/Terrain-Schatten;
 2195 nutzt den Importadapter für den direkten Clientpfad. Keine zyklischen Blocker.
 ## Referenzmaßstab
-
 Engine-Assets, getrennte Instanzen und Importadapter sind das Architekturziel.
 Unreal/Filament/Cesium anhand veröffentlichter Asset-, Rendering- und Streaming-
 Verträge prüfen; konkrete Übernahme vor Implementierung belegen. RAGE liefert
@@ -105,7 +106,6 @@ visuelle und funktionale Ziele, keine behauptete Kenntnis proprietärer Interna.
 Keinen kompletten ECS oder neuen Assetcontainer ohne konkreten Consumer erfinden.
 
 ## Abnahme
-
 - [ ] Importer und Generator erzeugen nachweislich denselben nativen Meshvertrag.
 - [ ] Äquivalente importierte/generierte Fixtures haben gleiche Materialien,
       Instanzen, Schatten und Bounds; mehrere Instanzen teilen den Meshbesitzer.

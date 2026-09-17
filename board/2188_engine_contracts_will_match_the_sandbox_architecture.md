@@ -81,16 +81,20 @@ als Ersatz für Bildqualität. 2150 nach dem begonnenen Submission-Fix priorisie
 für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschließend
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
-Konkrete nächste Arbeitsfolge: WI 2224 Bake-/Footprint-Commit und Stale-Ergebnisse;
-anschließend öffentliche Übergangsnachweise aus 2191/2223. Native Ressourcenhandles
-sind implementiert. Material-/Importvalidierung 2216 pro Consumer abschließen;
-2228 führt danach die vollständige Budgetbilanz zusammen.
-Ausführbare Reserve für Coding: (1) WI 2224 Bake-/Footprint-Commit, (2) WI 2216 späte
-Importfehler/Append, (3) WI 2191 Übergangsaudit, zuerst Surface/Restands. Bei
-Architekturfrage den nächsten unabhängigen Schritt wählen; keine gleichzeitigen
-Änderungen derselben Owner.
-Diese Reihenfolge ist Priorität, kein zusätzlicher Depends-Zyklus. Bereits vorhandene
-Kandidaten nutzen; offene Nachweise nicht als noch fehlende Implementierung ausgeben.
+Verbindliche Coding-Reserve, Architekturrunde 2026-09-17:
+1. 2191: Ersatz-/Animationshistorie, öffentliche Fehlerfälle vor Reparatur reproduzieren.
+   Kandidaten wiederverwenden; letzter erfolgreicher Submit bestimmt Renderhistorie.
+2. 2230: Capture-Revisionsvergleich, dann Engine-eigene Snapshot-Bindung. Architekturfrage
+   entschieden; Ursachenvergleich sofort ausführbar, keine längere Wartezeit als Lösung.
+3. 2224: öffentliche A→B→spätes-A-Prüfung und Submitfehler; vorhandenen Bake-/Footprint-
+   Kandidaten vervollständigen, keine bereits implementierte Übergabe neu bauen.
+Danach 2150: statischer nativer Importpfad samt Materialrelokation, anschließend native
+Animation. 2216 ist kein pauschaler Startblocker: Wertevalidierung ist bereits vorhanden;
+Restabnahmen begleiten den jeweiligen Consumer. 2228 integriert Speicherbudgets.
+Diese Reihenfolge priorisiert Korrektheit vor breiter Migration; sie erzeugt keine
+Depends-Kanten zwischen unabhängigen Schritten. Bei einer neuen Architekturfrage den
+nächsten freigegebenen Schritt nehmen. Historische Timeoutzahlen sind keine aktuelle
+Blockademeldung. Keine externe Blockade ist in dieser Runde nachgewiesen.
 Tidy null und vollständige API-Dokumentation sind Pflicht, keine alleinige Architekturabnahme.
 Öffentliche geliehene Surface-/Mess-/Diagnosefolgen verwenden `std::span<const T>`;
 Konfigurationsdaten werden erst im jeweiligen Kandidaten kopiert. Array-Aufrufer,

@@ -74,6 +74,34 @@ rejected B after a late operation, A still usable, valid B succeeds on immediate
 Use internal GPU injection only to trigger the public operation's failure. Document actual
 coverage; a helper test does not prove the full public transition.
 
+## Next bounded change: replacement and animation history
+
+Source audit: Live::Restands changes Declared_ and clears Held_ before Build succeeds.
+Live::Pose replaces PreviousPositionsM_ before Poses/Reshape can fail. This proves
+mutation ordering, not that every public caller exposes the failed intermediate state.
+Trace each public caller first; reuse its existing candidate where it already isolates Live.
+
+1. Test rejected asset/clip replacement through the public API: declaration, geometry,
+   camera, audio and next rendered frame remain A; valid B retries. Include different
+   vertex counts. Repair the missing candidate boundary, not a snapshot/restore wrapper.
+2. Render history belongs to the last successfully submitted render snapshot, not the
+   last advance or bounds measurement. Pose computes candidate current data only.
+   Commit history with SceneRenderer's successful Submit, matching topology generation,
+   origin and camera. First frame, topology change and owner replacement use current
+   positions as previous; failed submit and Measure do not advance history.
+3. Reuse SceneState and existing frame/fence owners (WI 2190); retain buffers until GPU
+   completion. No per-pose float-to-double copy for GPU history. Double world placement
+   remains separate from local float deformation data. No format types in this contract.
+4. Tests: two advances without render, failed pose, failed submit then retry, replacement
+   with fewer vertices, and bounds measurement between draws. Compare motion data with
+   independently computed previous/current transforms; assert no allocation after warmup.
+
+Files: src/engine/Live.cpp, Asset.h, src/render/SceneRenderer.cpp and its SceneState.
+Reference: ../SDL at fa2c02b, include/SDL3/SDL_gpu.h submission/fence lifetime.
+Commands: make format; make suite SUITE=outshine/include/Outshine; make lint.
+Animation-history tests additionally belong under test/outshine/src/render/.
+This fix does not require completion of native import migration in WI 2150.
+
 ## Acceptance
 
 - [ ] Public transition table documents call ordering, invalidation, thread affinity and errors.

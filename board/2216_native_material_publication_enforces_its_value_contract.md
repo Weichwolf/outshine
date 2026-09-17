@@ -71,8 +71,8 @@ Vertrag (Punkte, inverse-transponierte Normalen, Tangenten und gespiegeltes Wind
 Negativfall: zweiter Part mit ungültigem Index erhält vorherige Daten/Ansichten;
 gültiger Retry und vorhandene unabhängige Spiegelungs-/Skalierungsoracles sind grün.
 Altcode verletzt den Erhaltungstest; leerer Input und falsche Attributlängen ebenfalls geprüft.
-Keine zusätzliche Geometriekopie. Spätere Normalen-/Tangentenfehler und Append bleiben
-separate Transaktions-/Kapazitätslücken; keine vollständige Importtransaktion behaupten.
+Keine zusätzliche Geometriekopie. Assemble-Kandidat und leerer Append sind oben getrennt
+abgedeckt; Restauftrag ist späte Fehlerpropagation bis zur Engine-Publikation.
 
 ## Abnahme
 - [x] Publikations-/Ersatzfehler, Quellerhaltung und gültiger Retry durch native Tests geprüft.
