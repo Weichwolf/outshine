@@ -31,6 +31,24 @@ constexpr auto InvalidMaterialFactor =
     "sampled material factor is outside its finite unit interval";
 constexpr auto EmissionOverflow = "sampled emission exceeds native finite storage";
 constexpr auto MaterialPublicationFailed = "sampled material could not be published";
+
+[[nodiscard]] constexpr std::string_view MaterialFailure(MaterialError error) noexcept {
+  switch (error) {
+    case MaterialError::CapacityExceeded: return "material capacity exceeded";
+    case MaterialError::MissingMaterial: return "material is absent";
+    case MaterialError::InvalidMaterial: return "material values or image bindings are invalid";
+  }
+  return "unknown material error";
+}
+
+[[nodiscard]] constexpr std::string_view ImageFailure(GeometryImageError error) noexcept {
+  switch (error) {
+    case GeometryImageError::InvalidDimensions: return "image dimensions are invalid";
+    case GeometryImageError::ByteCountMismatch: return "image byte count does not match dimensions";
+    case GeometryImageError::CapacityExceeded: return "image capacity exceeded";
+  }
+  return "unknown image error";
+}
 }
 
 [[nodiscard]] std::expected<Material, std::string>
@@ -144,8 +162,10 @@ struct GltfImporter::Held {
         Why = std::move(sampled.error());
         return false;
       }
-      if (!candidate.setSurface(index, *sampled)) {
-        Why = Says::MaterialPublicationFailed;
+      const auto published = candidate.setSurface(index, *sampled);
+      if (!published) {
+        Why = std::string(Says::MaterialPublicationFailed) + ": " +
+              std::string(Says::MaterialFailure(published.error()));
         return false;
       }
     }
@@ -202,25 +222,28 @@ struct GltfImporter::Held {
             .Declared = declared.SpecularTint}}};
 
       for (const auto &map : maps) {
-        if (!Names(candidate, map.From, map.Into)) {
-          Why = "native texture image could not be stored";
+        auto named = Names(candidate, map.From, map.Into);
+        if (!named) {
+          Why = std::move(named.error());
           return false;
         }
         map.Into.Uv = map.Declared.Uv;
       }
-      if (!candidate.setSurface(MaterialInstance(index), row)) {
-        Why = "a surface the file declares could not be named on the geometry handed back";
+      const auto published = candidate.setSurface(MaterialInstance(index), row);
+      if (!published) {
+        Why = "a surface the file declares could not be named on the geometry handed back: " +
+              std::string(Says::MaterialFailure(published.error()));
         return false;
       }
     }
     return true;
   }
 
-  [[nodiscard]] static bool
+  [[nodiscard]] static std::expected<void, std::string>
   Names(Geometry &candidate, const Render::SubjectTexture &from, SurfaceMap &into) {
-    if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return true; }
+    if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return {}; }
     const auto image = Keeps(candidate, from);
-    if (!image) { return false; }
+    if (!image) { return std::unexpected(std::string(Says::ImageFailure(image.error()))); }
     into.Image = *image;
     into.Set = from.Set;
     into.Sampler.Magnify =
@@ -230,7 +253,7 @@ struct GltfImporter::Held {
     into.Sampler.Mip = MipOf(from.Mip);
     into.Sampler.WrapU = WrapOf(from.WrapU);
     into.Sampler.WrapV = WrapOf(from.WrapV);
-    return true;
+    return {};
   }
 
   [[nodiscard]] static std::expected<int, GeometryImageError>

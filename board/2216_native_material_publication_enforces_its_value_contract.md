@@ -91,6 +91,9 @@ separate Transaktions-/Kapazitätslücken; keine vollständige Importtransaktion
 ## Nachweise
 Native Materialpublikation/-ersatz, Importkonvertierung, Animation, Bilder/UVs,
 Platzierung und Generatorprodukte durch Regressionen und Negativkontrollen geprüft.
+Der glTF-Adapter erhält Bild- und Materialfehler aus `Geometry` bis zu seinem owned
+`expected`-Text; fehlende, ungültige und Kapazitätsursachen werden nicht mehr zu einem
+pauschalen Veröffentlichungsfehler zusammengezogen.
 Einzelne Nachweise stehen in Git; vollständige Corpus-/Weltabnahme bleibt offen.
 ## GroundMaterials-Katalog
 Katalog lädt bounded in einen Kandidaten. Werte, Namen, Vorwärtsreferenzen und
