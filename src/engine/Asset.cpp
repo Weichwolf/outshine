@@ -18,6 +18,7 @@ void Posed::Clears() {
   Built_.clear();
   HoldsBuilt_ = false;
   File_ = Gltf::Document();
+  Camera_.reset();
   Read_ = false;
   Moves_ = false;
   Frames_ = 1;
@@ -38,6 +39,11 @@ bool Posed::Reads(const Sited &asset,
   if (!File_.ReadFile(path)) {
     error = File_.Error();
     return false;
+  }
+  Render::Viewpoint camera;
+  std::string why;
+  if (!File_.Cameras().empty() && Gltf::DeclaredPlacement(File_, 0, camera, why)) {
+    Camera_ = camera;
   }
   if (!File_.Animations().empty() && (animation == Scenario::AssetAnimation::Play ||
                                       animation == Scenario::AssetAnimation::Loop)) {

@@ -5,6 +5,7 @@
 #include <string>
 #include <cmath>
 #include <vector>
+#include <optional>
 
 #include <scene/Geometry.h>
 #include <scenario/Scenario.h>
@@ -53,6 +54,8 @@ public:
 
   [[nodiscard]] const Gltf::Document &File() const { return File_; }
 
+  [[nodiscard]] const std::optional<Render::Viewpoint> &Camera() const { return Camera_; }
+
   [[nodiscard]] const Gltf::Subject &Assembled() const { return Assembled_; }
 
   [[nodiscard]] bool Measures(double seconds, std::string &error);
@@ -85,6 +88,7 @@ public:
 
 private:
   Gltf::Document File_;
+  std::optional<Render::Viewpoint> Camera_;
   Gltf::Subject Assembled_;
   outshine::Geometry Built_;
   bool HoldsBuilt_ = false;

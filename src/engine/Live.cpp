@@ -1331,12 +1331,9 @@ bool Live::Stand(std::string &error) {
   StandsEnvironment();
   MediumMs_ = sinceStand();
 
-  std::string why;
   Render::Viewpoint eye = Looking_.Eye;
-  Gltf::Viewpoint placed;
-  const bool declared =
-      !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, placed, why);
-  if (declared) { eye = placed; }
+  const bool declared = Held_.Camera().has_value();
+  if (declared) { eye = *Held_.Camera(); }
   Looking_.Eye = eye;
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
     const auto boundedFrom = std::chrono::steady_clock::now();
