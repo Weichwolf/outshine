@@ -85,6 +85,7 @@ constexpr size_t kBounceProbeStride = 16;
 class GroundBuildState {
 public:
   enum class SheetPhase : uint8_t { NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
+  enum class Stage : uint8_t { NeedsClasses, NeedsGeometry };
 
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
@@ -112,6 +113,10 @@ public:
 
   void AdvancesSheetsTo(SheetPhase phase) noexcept { SheetBuilding_ = phase; }
 
+  [[nodiscard]] Stage NextStage() const noexcept { return NextStage_; }
+
+  void AdvancesTo(Stage stage) noexcept { NextStage_ = stage; }
+
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
   void Prepared(bool prepared) noexcept { Prepared_ = prepared; }
@@ -122,6 +127,7 @@ private:
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
   SheetPhase SheetBuilding_ = SheetPhase::NeedsRefinement;
+  Stage NextStage_ = Stage::NeedsClasses;
   bool Prepared_ = false;
 };
 
@@ -893,6 +899,22 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
   return GroundBuildProgress::Failed;
 }
 
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
+    return GroundBuildProgress::Ready;
+  }
+  GroundBuildProducts &build = state.Candidate().Products();
+  Core::Live &live = state.Candidate().Scene();
+  static const Heap::Tag kClassingTag("ground-classify");
+  const Heap::Tagged classing(kClassingTag);
+  Classed classed = Classify(build.PositionsM, live);
+  build.ClassPalette = std::move(classed.Palette);
+  build.ClassStructure = std::move(classed.Structure);
+  state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
+  return GroundBuildProgress::Pending;
+}
+
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundPatchwork(const Around &coverage) {
   GroundBuildState &state = *World.GroundBuild;
   if (state.Laid() != nullptr) { return GroundBuildProgress::Ready; }
@@ -944,14 +966,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (sheetProgress != GroundBuildProgress::Ready) {
     return sheetProgress != GroundBuildProgress::Failed;
   }
-  Classed classed;
-  {
-    static const Heap::Tag kClassingTag("ground-classify");
-    const Heap::Tagged classing(kClassingTag);
-    classed = Classify(build.Sheets.SoupOf(laid, over.Zoom).PositionM, live);
-  }
-  const std::vector<float> &classPalette = classed.Palette;
-  const std::shared_ptr<const ClassStructure> &classStructure = classed.Structure;
+  const GroundBuildProgress classes = BeginsGroundClasses();
+  if (classes != GroundBuildProgress::Ready) { return classes != GroundBuildProgress::Failed; }
+  const std::vector<float> &classPalette = build.ClassPalette;
+  const std::shared_ptr<const ClassStructure> &classStructure = build.ClassStructure;
   Geometry &ground = build.Ground;
   Material bare;
   {

@@ -16,6 +16,8 @@ struct GroundBuildProducts {
   Geometry Ground;
   std::vector<float> PositionsM;
   std::vector<uint32_t> Indices;
+  std::vector<float> ClassPalette;
+  std::shared_ptr<const ClassStructure> ClassStructure;
   std::shared_ptr<const Path::Network> Network;
   size_t NetworkOfWays = 0;
   size_t RimsMissing = 0;
@@ -29,6 +31,8 @@ public:
                   .Ground = {},
                   .PositionsM = {},
                   .Indices = {},
+                  .ClassPalette = {},
+                  .ClassStructure = {},
                   .Network = world.Network,
                   .NetworkOfWays = world.NetworkOfWays,
                   .RimsMissing = world.RimsMissing,
@@ -74,6 +78,8 @@ private:
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Indices)>);
+  static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::ClassPalette)>);
+  static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::ClassStructure)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Network)>);
 };
 }
