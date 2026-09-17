@@ -129,6 +129,11 @@ int main(void) {
   if (!prepared) {
     std::printf("PRELOAD generator work %.3f ms\n",
                 Measured(engine.measures(), "preload: generator work"));
+    for (const char *what : {"rebuild: and handing it to the device took",
+                             "rebuild: and the buildings, streets and water took",
+                             "class field: it calls itself complete"}) {
+      std::printf("PRELOAD %s %.3f\n", what, Measured(engine.measures(), what));
+    }
     Unprepared(("place preparation failed: " + prepared.error()).c_str());
     return Report();
   }
