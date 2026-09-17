@@ -1199,13 +1199,7 @@ bool Live::Look(std::string &error) {
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.HasExplicitCamera = true;
-    Render::ShapeStore aiming;
-    const auto shape = Gltf::Shaped(Held_.Assembled(), aiming);
-    if (!shape) {
-      error = Describe(shape.error());
-      return false;
-    }
-    return Render::Aim(*Renderer_, *shape, Looking_, Stood_.Anchor(), error);
+    return Render::Aim(*Renderer_, Shaped_, Looking_, Stood_.Anchor(), error);
   }
   Extents placed;
   if (!PlacedBounds(placed, error)) { return false; }
@@ -1232,13 +1226,7 @@ bool Live::Look(std::string &error) {
   framed.Right = spun(framed.Right);
   framed.Up = spun(framed.Up);
   Looking_ = {.Eye = framed, .HasExplicitCamera = false, .FramedParts = Joined_};
-  Render::ShapeStore aiming;
-  const auto shape = Gltf::Shaped(Held_.Assembled(), aiming);
-  if (!shape) {
-    error = Describe(shape.error());
-    return false;
-  }
-  return Render::Aim(*Renderer_, *shape, Looking_, Stood_.Anchor(), error);
+  return Render::Aim(*Renderer_, Shaped_, Looking_, Stood_.Anchor(), error);
 }
 
 void Live::StandsEnvironment() {
