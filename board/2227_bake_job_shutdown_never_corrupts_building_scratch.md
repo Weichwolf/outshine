@@ -25,12 +25,13 @@ its ownership contract.
 
 ## Proof
 
-- `ScoreAFootprintStandsOnALevelFloor` reaches the legitimate 15 s ingestion failure and exits as
-  `UNPREPARED`, never as a 120 s timeout or signal.
-- A completed landing and repeated preload-timeout destruction preserve scratch exclusivity under
-  ASan/UBSan.
-- A deliberately premature scratch release is detected by the sanitizer test; normal shutdown has
-  no allocator finding, trap or leak.
+- Source audit: `Clear` sets every stop flag, waits for each unconsumed handle and only then destroys
+  queue, raw input, output and scratch. `NextLandings` consumes a current completion only on its
+  landing path; stale work consumes it only when discarded.
+- No checked-in Floor-Contact or scratch-lifetime sanitizer oracle exists. Add a focused task fixture:
+  hold a worker in its scratch, call `Clear`, release the worker and prove destruction returns;
+  a deliberately early release must fail under ASan/UBSan. Until then this repair is implemented but
+  not accepted.
 
 ## Priority
 

@@ -45,8 +45,8 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
    Ground-Publikation arbeitet `State::Bakes` gegen diesen Kandidaten. Nichtwerfende
    Transfers veröffentlichen Footprints, Pieces, `Live` und GPU-Welt gemeinsam.
    Ein unanchored Field lehnt Bake-Aufnahme ab. `BakeRevisionRejectsChangedInputs`
-   prüft den Revisionsvertrag; `ScoreAFootprintStandsOnALevelFloor` erreicht den
-   regulären vollständigen Pfad. Noch offen: A→B→spätes-A über die öffentliche API,
+   prüft den Revisionsvertrag. Ein eingecheckter vollständiger Floor-Contact-Pfad fehlt;
+   er darf nicht als Nachweis behauptet werden. Noch offen: A→B→spätes-A über die öffentliche API,
    GPU-Submit-Fehler während Bake-Publikation und erneuter Bindungsnachweis nach
    Kandidatenwechsel.
 2. Stale Ergebnisse abweisen: Bake-/Ground-Anfragen tragen die benötigte Datenrevision

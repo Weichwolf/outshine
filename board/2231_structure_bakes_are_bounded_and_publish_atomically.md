@@ -69,8 +69,8 @@ genau einem `Massed`-Mesh; null Meshes war ein falscher, korrigierter Testvertra
 Der Test beweist die Generatoraggregation, nicht die öffentliche Kandidatenpublikation.
 
 2026-09-17: candidate-owned footprints and pieces remove the active-world handoff from the
-preload critical path. `ScoreAFootprintStandsOnALevelFloor` passed its unchanged public
-floor/road checks in 3.55 s.
+preload critical path. The cited public Floor-Contact executable is not checked in; its former
+3.55-second claim is historical, not current acceptance evidence.
 
 2026-09-17: the prior Graz bake-timeout diagnosis was stale. With the candidate path, all
 structure landings complete and the no-vegetation client capture passes: 1,940,223 building
