@@ -23,6 +23,11 @@ revisions discard the candidate only after worker/GPU ownership permits it. Init
 and the final footprint revision follow the same state machine; no partially built terrain or
 building state reaches `Live`.
 
+The first ground revision starts from admitted terrain/vector coverage, before the final generator
+snapshot, class revision and structure bakes. Those later revisions trigger an owned rebuild.
+`preload` flushes only candidates with admitted immutable inputs; frame updates advance one phase.
+The floor-place control proved a model phase before this split consumes the last 15 s slack.
+
 ## Acceptance
 
 - Deterministic phase tests cover initial build, every phase boundary, stale input, cancellation
