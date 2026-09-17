@@ -33,6 +33,15 @@ its ownership contract.
   a deliberately early release must fail under ASan/UBSan. Until then this repair is implemented but
   not accepted.
 
+## Next implementation
+
+Do not add a friend or test-only insertion path to `StructureBakes`. Extract its private `Job` into
+an internal move-only `StructureBakeTask`: it owns raw tile, heights, output, scratch, progress,
+stop flag and completion handle. `Start`, `Resume`, `RequestStop` and `Join` express the actual
+worker lifetime; only `Join` releases payload ownership. `StructureBakes` keeps admission, ordering
+and landing. The focused test constructs this real task with a blocking mesher, verifies `Clear`
+waits for its completion, then runs the deliberate premature-release process under sanitizers.
+
 ## Priority
 
 The ownership repair is independent of renderer-world replacement: workers own only their job
