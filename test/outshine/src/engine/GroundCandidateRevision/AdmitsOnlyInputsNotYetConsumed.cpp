@@ -10,9 +10,10 @@ int main() {
   GroundRevision latest = initial;
   latest.Classes = 5;
   latest.Footprints = 7;
+  latest.ResidentTiles = 9;
   CHECK(candidate.Accepts(latest) && candidate.Current().Classes == 5 &&
-            candidate.Current().Footprints == 7,
-        "a candidate admits data that no completed phase consumed");
+            candidate.Current().Footprints == 7 && candidate.Current().ResidentTiles == 4,
+        "a candidate admits unconsumed data without claiming later tile residency");
   candidate.AdvancesTo(GroundCandidateRevision::Stage::NeedsGroundSurface);
   ++latest.Footprints;
   CHECK(candidate.Accepts(latest) && candidate.Current().Footprints == 8,

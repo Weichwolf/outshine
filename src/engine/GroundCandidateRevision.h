@@ -19,7 +19,9 @@ public:
     if (Revision_.Footprints != revision.Footprints && Stage_ == Stage::NeedsGeometry) {
       return false;
     }
-    Revision_ = revision;
+    GroundRevision admitted = revision;
+    admitted.ResidentTiles = Revision_.ResidentTiles;
+    Revision_ = admitted;
     return true;
   }
 
