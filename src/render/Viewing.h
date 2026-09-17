@@ -77,6 +77,28 @@ inline std::optional<Viewpoint> Viewpoint::LookAt(Looking from, const Vec3 &upM)
   return out;
 }
 
+[[nodiscard]] inline std::expected<Viewpoint, CameraMatrixError>
+ViewpointOf(const outshine::Camera &from) noexcept {
+  Mat4 model;
+  if (const auto modelled = from.modelMatrix(model); !modelled) {
+    return std::unexpected(modelled.error());
+  }
+  Viewpoint out;
+  for (int axis = 0; axis < 3; ++axis) {
+    out.EyeM[axis] = model[12 + axis];
+    out.Right[axis] = model[axis];
+    out.Up[axis] = model[4 + axis];
+    out.Forward[axis] = -model[8 + axis];
+  }
+  out.Kind = from.Orthographic ? CameraKind::Orthographic : CameraKind::Perspective;
+  out.YfovRad = from.FovDeg * kDeg2Rad;
+  out.XMagM = from.XMagM;
+  out.YMagM = from.YMagM;
+  out.ZNearM = from.NearM;
+  out.ZFarM = from.FarM;
+  return out;
+}
+
 inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
   out = {};
   out.LooksAt = true;
