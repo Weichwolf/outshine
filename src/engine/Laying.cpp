@@ -891,8 +891,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const auto asked = RingWanted(alsoWhenTilesLanded);
   if (!asked) { return asked.error() == Laid::Unchanged || asked.error() == Laid::Pending; }
   const GroundBuildProgress progress = BeginsGroundBuild(*asked);
-  if (progress == GroundBuildProgress::Failed) { return false; }
-  if (progress == GroundBuildProgress::Pending) { return true; }
+  if (progress != GroundBuildProgress::Ready) { return progress != GroundBuildProgress::Failed; }
   GroundBuildState &state = *World.GroundBuild;
   const Around &over = state.Coverage();
   GroundWorldCandidate &candidate = state.Candidate();
@@ -903,8 +902,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   {}
 
   const GroundBuildProgress patchwork = BeginsGroundPatchwork(over);
-  if (patchwork == GroundBuildProgress::Failed) { return false; }
-  if (patchwork == GroundBuildProgress::Pending) { return true; }
+  if (patchwork != GroundBuildProgress::Ready) { return patchwork != GroundBuildProgress::Failed; }
   Patchwork &laid = *state.Laid();
 
   const double frameLat = anchorLat;
