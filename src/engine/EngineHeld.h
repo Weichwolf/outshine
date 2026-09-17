@@ -389,6 +389,10 @@ struct Engine::State {
   BeginsGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
   [[nodiscard]] GroundBuildProgress BeginsGroundClasses();
   [[nodiscard]] GroundBuildProgress BeginsGroundSurface();
+  [[nodiscard]] GroundBuildProgress BeginsGroundModels(const TangentFrame &standing);
+  [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing);
+  [[nodiscard]] Ground::BuildingField *CandidateFootprints() noexcept;
+  [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 
   [[nodiscard]] Laid
   Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded);
@@ -408,6 +412,7 @@ struct Engine::State {
                                         GroundBuildProducts &build);
   [[nodiscard]] bool ApplyGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,
+                                           const Ground::BuildingField &footprints,
                                            std::vector<Yields> corridor,
                                            GroundBuildProducts &build);
   [[nodiscard]] bool

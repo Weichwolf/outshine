@@ -230,8 +230,11 @@ bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = WhereTheEyeStands();
   if (!World.GroundPublished.Current()) {
+    Ground::BuildingField *const footprints = CandidateFootprints();
+    if (footprints == nullptr) { return true; }
     World.Bakes.ResumeCompletedSlices();
-    (void)World.Bakes.Posts(World.Stack, World.Stack.Footprints(), eye);
+    if (!StagesGroundBakes(landsMost)) { return false; }
+    (void)World.Bakes.Posts(World.Stack, *footprints, eye);
     return true;
   }
   auto ready = World.Bakes.NextLandings(World.Stack, World.Stack.Footprints(), eye, landsMost);

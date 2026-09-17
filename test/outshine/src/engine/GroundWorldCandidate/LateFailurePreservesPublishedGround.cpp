@@ -50,6 +50,7 @@ int main() {
     CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "initial world opens");
     if (scene) {
       Surrounds world;
+      Ground::BuildingField footprints;
       world.BindLiveResources(*scene);
       world.GroundPositionsM = {1, 2, 3};
       world.GroundIndex = {0};
@@ -82,7 +83,7 @@ int main() {
             "replacement native geometry is complete");
       for (bool rejectGeometry : {false, true}) {
         {
-          GroundWorldCandidate build(renderer, world);
+          GroundWorldCandidate build(renderer, world, footprints);
           const auto prepared = build.Prepare(*scene, nullptr);
           CHECK(prepared.has_value(), "terrain candidate prepares from the active world");
           if (prepared) {
@@ -113,7 +114,7 @@ int main() {
                   world.GroundPublished.NeedsRebuild(nextRevision, false, false),
               "late failure preserves CPU terrain, network metadata and publication revision");
       }
-      GroundWorldCandidate retry(renderer, world);
+      GroundWorldCandidate retry(renderer, world, footprints);
       const auto prepared = retry.Prepare(*scene, nullptr);
       CHECK(prepared.has_value(), "an immediate retry can acquire the abandoned candidate slot");
       if (prepared) {
@@ -124,7 +125,8 @@ int main() {
         CHECK(retry.Scene().SetGroundLattice({}, {}, error) &&
                   retry.Scene().SetGeometry(geometry.clone(), 0, error),
               "retry finishes GPU preparation");
-        CHECK(retry.Publish(world, scene, nextRevision).has_value(), "complete retry publishes");
+        CHECK(retry.Publish(world, footprints, scene, nextRevision).has_value(),
+              "complete retry publishes");
         CHECK(scene.get() != oldScene && renderer.GroundLatticeTriangles() == 0 &&
                   world.GroundPositionsM == std::vector<float>({9, 8, 7}) &&
                   world.GroundIndex == std::vector<uint32_t>({0, 0, 0}) &&

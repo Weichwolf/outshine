@@ -13,6 +13,8 @@
 namespace outshine {
 struct GroundBuildProducts {
   HeightSheets Sheets;
+  Ground::BuildingField Footprints;
+  TilePieces Pieces;
   Geometry Ground;
   std::vector<float> PositionsM;
   std::vector<uint32_t> Indices;
@@ -28,8 +30,12 @@ struct GroundBuildProducts {
 
 class GroundWorldCandidate {
 public:
-  GroundWorldCandidate(Render::SceneRenderer &renderer, const Surrounds &world)
+  GroundWorldCandidate(Render::SceneRenderer &renderer,
+                       const Surrounds &world,
+                       const Ground::BuildingField &footprints)
       : Products_{.Sheets = world.Sheets,
+                  .Footprints = footprints,
+                  .Pieces = world.Pieces,
                   .Ground = {},
                   .PositionsM = {},
                   .Indices = {},
@@ -56,19 +62,23 @@ public:
                                                          const Ui::Font *font) {
     if (auto prepared = World_.Prepare(previous, font); !prepared) { return prepared; }
     Products_.Sheets.Into(&World_.Scene());
+    Products_.Pieces.Into(&World_.Scene());
     return {};
   }
 
   [[nodiscard]] std::expected<void, std::string> Publish(Surrounds &world,
+                                                         Ground::BuildingField &footprints,
                                                          std::unique_ptr<Core::Live> &published,
                                                          const GroundRevision &revision) {
     if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
+    footprints = std::move(Products_.Footprints);
     world.Sheets = std::move(Products_.Sheets);
     world.GroundPositionsM = std::move(Products_.PositionsM);
     world.GroundIndex = std::move(Products_.Indices);
     world.Network = std::move(Products_.Network);
     world.NetworkOfWays = Products_.NetworkOfWays;
     world.RimsMissing = Products_.RimsMissing;
+    world.Pieces = std::move(Products_.Pieces);
     world.Pieces.Wears(Products_.Surfaces);
     world.BindLiveResources(*published);
     world.GroundPublished.Publish(revision);
@@ -80,6 +90,8 @@ private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
+  static_assert(std::is_nothrow_move_assignable_v<Ground::BuildingField>);
+  static_assert(std::is_nothrow_move_assignable_v<TilePieces>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Indices)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::ClassPalette)>);

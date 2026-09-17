@@ -85,13 +85,20 @@ constexpr size_t kBounceProbeStride = 16;
 class GroundBuildState {
 public:
   enum class SheetPhase : uint8_t { NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
-  enum class Stage : uint8_t { NeedsClasses, NeedsGroundSurface, NeedsGeometry };
+  enum class Stage : uint8_t {
+    NeedsClasses,
+    NeedsGroundSurface,
+    NeedsModels,
+    NeedsBakes,
+    NeedsGeometry
+  };
 
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
+                   const Ground::BuildingField &footprints,
                    Around coverage,
                    GroundRevision revision)
-      : Coverage_(coverage), Revision_(revision), Candidate_(renderer, world) {}
+      : Coverage_(coverage), Revision_(revision), Candidate_(renderer, world, footprints) {}
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
@@ -104,6 +111,12 @@ public:
   [[nodiscard]] const GroundRevision &Revision() const noexcept { return Revision_; }
 
   [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
+
+  [[nodiscard]] Ground::BuildingField &Footprints() noexcept {
+    return Candidate_.Products().Footprints;
+  }
+
+  void PublishesFootprints() noexcept { Revision_.Footprints = Footprints().Revision(); }
 
   [[nodiscard]] Patchwork *Laid() noexcept { return Patchwork_ ? &*Patchwork_ : nullptr; }
 
@@ -641,10 +654,11 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
 
 bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
+                                          const Ground::BuildingField &footprints,
                                           std::vector<Yields> corridor,
                                           GroundBuildProducts &build) {
 
-  const Ground::BuildingField &pads = World.Stack.Footprints();
+  const Ground::BuildingField &pads = footprints;
   const Ground::OsmField *const shapes = World.Stack.Vectors();
   std::vector<Yields> yielding;
   if (shapes != nullptr) { AppendBuildingStamps(pads, shapes->Points(), standing, yielding); }
@@ -840,7 +854,7 @@ void Engine::State::ReportGroundPlacements() {
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const GroundRequest &request) {
   if (!World.GroundBuild || !World.GroundBuild->Matches(request.Revision)) {
     World.GroundBuild = std::make_unique<GroundBuildState>(
-        Picture.Device, World, request.Coverage, request.Revision);
+        Picture.Device, World, World.Stack.Footprints(), request.Coverage, request.Revision);
     return GroundBuildProgress::Pending;
   }
   GroundBuildState &state = *World.GroundBuild;
@@ -901,7 +915,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
+  if (state.NextStage() != GroundBuildState::Stage::NeedsClasses) {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
@@ -917,7 +931,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
+  if (state.NextStage() != GroundBuildState::Stage::NeedsGroundSurface) {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
@@ -934,8 +948,69 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
   }
   build.GroundMaterial = bare;
   build.GroundSurface = *ringSurface;
+  state.AdvancesTo(GroundBuildState::Stage::NeedsModels);
+  return GroundBuildProgress::Pending;
+}
+
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const TangentFrame &standing) {
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.NextStage() != GroundBuildState::Stage::NeedsModels) {
+    return GroundBuildProgress::Ready;
+  }
+  const auto began = std::chrono::steady_clock::now();
+  Phasing clocks{.PhaseAt = began, .CensusAt = began, .WiresAt = began};
+  static const Heap::Tag kModellingTag("ground-model");
+  const Heap::Tagged modelling(kModellingTag);
+  GroundWorldCandidate &candidate = state.Candidate();
+  GroundBuildProducts &build = candidate.Products();
+  if (!Models(standing, build, clocks) ||
+      !candidate.Scene().SetGeometry(build.Ground.clone(), 0, build.GroundMaterial, Error)) {
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  state.AdvancesTo(GroundBuildState::Stage::NeedsBakes);
+  return GroundBuildProgress::Pending;
+}
+
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundBakes(const TangentFrame &standing) {
+  (void)standing;
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.NextStage() != GroundBuildState::Stage::NeedsBakes) {
+    return GroundBuildProgress::Ready;
+  }
+  if (!World.Bakes.Complete(World.Stack, state.Footprints())) {
+    return GroundBuildProgress::Pending;
+  }
   state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
   return GroundBuildProgress::Pending;
+}
+
+Ground::BuildingField *Engine::State::CandidateFootprints() noexcept {
+  return World.GroundBuild ? &World.GroundBuild->Footprints() : nullptr;
+}
+
+bool Engine::State::StagesGroundBakes(size_t landsMost) {
+  if (!World.GroundBuild || World.GroundBuild->NextStage() != GroundBuildState::Stage::NeedsBakes) {
+    return true;
+  }
+  GroundBuildState &state = *World.GroundBuild;
+  GroundWorldCandidate &candidate = state.Candidate();
+  GroundBuildProducts &build = candidate.Products();
+  auto ready =
+      World.Bakes.NextLandings(World.Stack, state.Footprints(), WhereTheEyeStands(), landsMost);
+  if (!ready) {
+    Error = Generators::Describe(ready.error());
+    return false;
+  }
+  build.Pieces.Wears(build.Surfaces);
+  for (const StructureBakes::Landing &landing : *ready) {
+    if (!build.Pieces.Hands(landing.Tile, *landing.Baked, landing.AnchorEcef, Error)) {
+      return false;
+    }
+  }
+  World.Bakes.CommitsLandings(World.Stack, state.Footprints(), *ready);
+  (void)World.Bakes.Posts(World.Stack, state.Footprints(), WhereTheEyeStands());
+  return true;
 }
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundPatchwork(const Around &coverage) {
@@ -1001,15 +1076,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Material &bare = build.GroundMaterial;
   const MaterialInstance ringSurface = build.GroundSurface;
 
+  const GroundBuildProgress models = BeginsGroundModels(standing);
+  if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
+  const GroundBuildProgress bakes = BeginsGroundBakes(standing);
+  if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
   Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
-  {
-    static const Heap::Tag kModellingTag("ground-model");
-    const Heap::Tagged modelling(kModellingTag);
-    if (!Models(standing, build, clocks)) { return false; }
-  }
-  phaseAt = clocks.PhaseAt;
-  censusAt = clocks.CensusAt;
-  wiresAt = clocks.WiresAt;
 
   std::vector<Yields> corridor;
   Published.Places(
@@ -1065,19 +1136,18 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   {
     std::vector<Measure> notes;
-    const bool paved =
-        World.Shipping.Corridors().Lay({.Stack = World.Stack,
-                                        .Network = build.Network.get(),
-                                        .Standing = standing,
-                                        .Draped = drapedOver,
-                                        .Classes = classStructure,
-                                        .CensusAt = clocks.CensusAt,
-                                        .EyeLatDeg = over.LatitudeDeg,
-                                        .EyeLonDeg = over.LongitudeDeg,
-                                        .FocalPx = World.Stack.Footprints().FocalPx()},
-                                       ground,
-                                       &corridor,
-                                       &notes);
+    const bool paved = World.Shipping.Corridors().Lay({.Stack = World.Stack,
+                                                       .Network = build.Network.get(),
+                                                       .Standing = standing,
+                                                       .Draped = drapedOver,
+                                                       .Classes = classStructure,
+                                                       .CensusAt = clocks.CensusAt,
+                                                       .EyeLatDeg = over.LatitudeDeg,
+                                                       .EyeLonDeg = over.LongitudeDeg,
+                                                       .FocalPx = build.Footprints.FocalPx()},
+                                                      ground,
+                                                      &corridor,
+                                                      &notes);
     if (!paved) {
       Error = Says::PavingCreationFailed;
       return false;
@@ -1087,7 +1157,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   build.Sheets.ForgetsFields();
 
-  if (!ApplyGroundEarthworks(standing, laid, std::move(corridor), build)) { return false; }
+  if (!ApplyGroundEarthworks(standing, laid, build.Footprints, std::move(corridor), build)) {
+    return false;
+  }
   Published.Places(
       "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
   Published.Places(
@@ -1151,7 +1223,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
   }
   if (!live.SetGeometry(std::move(ground), drivenParts, bare, Error)) { return false; }
-  if (auto published = candidate.Publish(World, Picture.Standing, state.Revision()); !published) {
+  state.PublishesFootprints();
+  if (auto published =
+          candidate.Publish(World, World.Stack.Footprints(), Picture.Standing, state.Revision());
+      !published) {
     Error = std::move(published.error());
     World.GroundBuild.reset();
     return false;
