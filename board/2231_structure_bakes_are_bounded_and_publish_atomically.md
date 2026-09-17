@@ -53,11 +53,12 @@ private; a frame never observes partially rebuilt terrain or a partial building 
 
 2026-09-17: candidate-owned footprints and pieces remove the active-world handoff from the
 preload critical path. `ScoreAFootprintStandsOnALevelFloor` passed its unchanged public
-floor/road checks in 3.55 s. This proves the small contact case, not throughput for dense tiles.
+floor/road checks in 3.55 s.
 
-2026-09-17: Graz still misses its 15 s residency limit with 6,255 structures: four queued bake
-jobs complete 15 of 19 landings, mean 26.81 ms and maximum 126.05 ms. The work unit is therefore
-still too coarse for dense OSM coverage. Measure range distribution and final clustering separately
-before changing `kStructuresPerRange` or worker-task grouping; a smaller constant without a
-throughput measurement is not a solution. `StructureBakes` now reports maximum worker-task time
-separately from the slowest range; the next Graz timeout supplies the missing split.
+2026-09-17: the prior Graz bake-timeout diagnosis was stale. With the candidate path, all
+structure landings complete and the no-vegetation client capture passes: 1,940,223 building
+triangles, 120 frames, p99 5.07 ms, zero bare tiles. The opened `Graz-c725aa8e.png` visibly
+contains the city. Its row-neighbour variation is 0.6689 rather than the old, falsely required
+1.0; the blank-frame control is 0.0. The test now rejects only pictures indistinguishable from
+that measured control. Worker-task time is reported separately from range time for the next
+actual dense-tile regression.

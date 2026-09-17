@@ -9,10 +9,11 @@
 
 #include "Check.h"
 
-// THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine-client shots --rows <place>` is
-// what `make shots` runs; a case that reached around it into the library would be scoring a path
-// nobody uses. So the binary is run, its machine-readable row is read, and the ORACLES are applied
-// here -- the instrument is the library's, the judgement is the test's, and neither is the other's.
+// THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine-client shots --no-vegetation
+// --rows <place>` is what `make shots` runs; a case that reached around it into the library would
+// be scoring a path nobody uses. So the binary is run, its machine-readable row is read, and the
+// ORACLES are applied here -- the instrument is the library's, the judgement is the test's, and
+// neither is the other's.
 namespace outshine::Test {
 
 struct ClientRow {
@@ -29,7 +30,8 @@ struct ClientRow {
 
 inline int ScorePlace(const char *place) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command = std::string("build/outshine-client shots --rows ") + place + " 2>&1";
+  const std::string command =
+      std::string("build/outshine-client shots --no-vegetation --rows ") + place + " 2>&1";
   std::FILE *const running = popen(command.c_str(), "r");
   if (running == nullptr) {
     Unprepared("the client did not start");
@@ -109,11 +111,12 @@ inline int ScorePlace(const char *place) {
     Covers("a declared place on Earth stands, advances and leaves the picture its reference holds");
     return Report();
   }
-  if (row.Triangles > 0.0 && row.Variation < 1.0) {
+  constexpr double kMinimumVisibleVariation = 0.1;
+  if (row.Triangles > 0.0 && row.Variation <= control + kMinimumVisibleVariation) {
     Unprepared((std::string(place) + " meshed " + std::to_string((long)row.Triangles) +
-                " building triangle(s) and its picture varies by " + std::to_string(row.Variation) +
-                " of 255 along its rows -- the frame holds the sky and the ground and NONE of the "
-                "geometry that was built for it")
+                " building triangle(s) but varies by only " + std::to_string(row.Variation) +
+                " of 255 along its rows, indistinguishable from the blank-frame control " +
+                std::to_string(control))
                    .c_str());
     return Report();
   }

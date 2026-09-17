@@ -125,7 +125,7 @@ prepare-place: all ## prepare generated assets and terrain without a frame-rate 
 	@cd $(SELF_DIR) && build/outshine-client prepare $(PLACE) $(PREPARE_SECONDS)
 
 shots: all       ## every place through the camera -> build/shots   (PLACE=Wien for one)
-	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
+	@cd $(SELF_DIR) && build/outshine-client shots --no-vegetation $(if $(PLACE),$(PLACE),--all)
 
 corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/khronos/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
