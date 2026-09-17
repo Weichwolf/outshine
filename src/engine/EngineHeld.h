@@ -339,6 +339,7 @@ struct Engine::State {
   void Inspected();
   [[nodiscard]] WorldReadiness Readiness() const;
   [[nodiscard]] bool CanFinishPreload() const;
+  [[nodiscard]] bool CanBeginGroundCandidate() const;
   [[nodiscard]] bool CanAdvanceGroundCandidate() const;
   [[nodiscard]] Result PumpPreload();
   [[nodiscard]] Result PreloadOverflow();

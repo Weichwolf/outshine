@@ -347,6 +347,10 @@ bool Engine::State::CanFinishPreload() const {
   return World.AskedWanted > 0 && World.AskedPending == 0 && World.Grown && World.Stack.Ingested();
 }
 
+bool Engine::State::CanBeginGroundCandidate() const {
+  return World.AskedWanted > 0 && World.AskedPending == 0 && World.Stack.Ingested();
+}
+
 bool Engine::State::CanAdvanceGroundCandidate() const {
   return World.GroundBuild != nullptr && World.Stack.Ingested();
 }
@@ -459,7 +463,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
   for (;;) {
     if (const auto pumped = S_->PumpPreload(); !pumped) { return pumped; }
     ReportPreload(*this, began, tell);
-    if (S_->CanFinishPreload() || S_->CanAdvanceGroundCandidate()) {
+    if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
       const auto finished = S_->FlushPreloadGround(began, bound);
       if (!finished) { return std::unexpected(finished.error()); }
       if (*finished == State::PreloadFlush::Ready) { return Result{}; }
