@@ -24,9 +24,8 @@ and the final footprint revision follow the same state machine; no partially bui
 building state reaches `Live`.
 
 The first ground revision starts from admitted terrain/vector coverage. A candidate may admit a newer
-class revision until classification and a newer footprint revision until modelling; its admitted tile
-residency remains fixed. Region and projection always restart it. Once a phase consumed an input, its revision
-change owns a new candidate. This retains
+class revision until classification and a newer footprint revision until modelling; region and projection
+always restart it. Once a phase consumed an input, its revision change owns a new candidate. This retains
 valid prior work without publishing mixed revisions. Structure bakes commit their data before any ground
 publication; modelling waits for their complete footprint revision, then runs once. `preload` flushes admitted
 candidates; frame updates advance one phase. ClassBuilder already publishes Fine with an empty immutable Coarse
