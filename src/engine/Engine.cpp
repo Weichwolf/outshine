@@ -49,6 +49,27 @@ constexpr double kBitsPerByte = 8.0;
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
+Capture::~Capture() {
+  release();
+}
+
+Capture::Capture(Capture &&other) noexcept : Engine_(std::exchange(other.Engine_, nullptr)) {}
+
+void Capture::release() noexcept {
+  if (Engine_ != nullptr) {
+    Engine_->S_->Capturing = false;
+    Engine_ = nullptr;
+  }
+}
+
+Capture &Capture::operator=(Capture &&other) noexcept {
+  if (this != &other) {
+    if (Engine_ != nullptr) { Engine_->S_->Capturing = false; }
+    Engine_ = std::exchange(other.Engine_, nullptr);
+  }
+  return *this;
+}
+
 Result Engine::assemble() {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (!S_->Session.Taken) {
@@ -220,6 +241,13 @@ WorldReadiness Engine::State::Readiness() const {
 
 bool Engine::settled() const {
   return S_->Readiness().Ready();
+}
+
+Holds<Capture> Engine::beginCapture() {
+  if (S_->Capturing) { return std::unexpected("a capture already holds this engine"); }
+  if (!settled()) { return std::unexpected("capture requires a settled published world"); }
+  S_->Capturing = true;
+  return Capture(*this);
 }
 
 Result Renderer::render(Extent frame) {

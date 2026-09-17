@@ -332,6 +332,7 @@ struct Engine::State {
   Host *Offered = nullptr;
   LogSink *Diagnostics = nullptr;
   std::string Error;
+  bool Capturing = false;
 
   [[nodiscard]] LogThreadSinkScope Logs() const { return LogThreadSinkScope(Diagnostics); }
 

@@ -72,6 +72,29 @@ struct Roots {
 
 class Engine;
 
+class Capture {
+public:
+  /// Release the capture lock if still held; Engine must outlive this handle.
+  ~Capture();
+  /// Transfer the exclusive capture lock without allocation.
+  /// @param other Source handle, left empty.
+  Capture(Capture &&other) noexcept;
+  /// Release this lock then take other's lock.
+  /// @param other Source handle, left empty.
+  Capture &operator=(Capture &&other) noexcept;
+  /// Release the lock before destruction; repeated calls are harmless.
+  void release() noexcept;
+  Capture(const Capture &) = delete;
+  Capture &operator=(const Capture &) = delete;
+
+private:
+  friend class Engine;
+
+  explicit Capture(Engine &engine) noexcept : Engine_(&engine) {}
+
+  Engine *Engine_ = nullptr;
+};
+
 /// Readback attachment selector. Availability depends on the compiled render plan.
 /// Diagnostic attachments describe rasterized surfaces, not persistent world objects.
 enum class Buffer {
@@ -267,6 +290,10 @@ public:
   /// Serialize with Engine mutations. No ownership or references are transferred.
   /// @return Current world-streaming readiness, not general Engine readiness.
   [[nodiscard]] bool settled() const;
+  /// Lock a settled published world for deterministic rendering and readback.
+  /// Rendering remains permitted; advance and world mutation are refused until release().
+  /// @return A move-only lock, or an owned readiness/overlap error.
+  [[nodiscard]] Holds<Capture> beginCapture();
 
   /// Advance streaming until the current scene is resident or the time budget expires.
   /// Runs synchronously on the Engine/video thread; may allocate, perform IO and wait.
@@ -496,6 +523,7 @@ public:
   [[nodiscard]] bool standing() const;
 
 private:
+  friend class Capture;
   friend class Renderer;
   [[nodiscard]] Result render(Extent frame);
   [[nodiscard]] Result saveScreenshot(std::string_view path);

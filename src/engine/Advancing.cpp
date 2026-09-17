@@ -381,6 +381,9 @@ void Engine::frameTimesMs(std::vector<double> &out) const {
 
 Result Engine::advance() {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (S_->Capturing) {
+    return std::unexpected("advance is refused while a capture holds the world");
+  }
   const auto began = std::chrono::steady_clock::now();
   S_->Published.Opens();
   if (!S_->Updates()) { return std::unexpected(S_->Error); }

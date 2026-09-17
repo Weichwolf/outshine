@@ -371,14 +371,15 @@ Shot Draw(Engine &engine,
   Shot shot;
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
+  auto capture = engine.beginCapture();
+  if (!capture) {
+    shot.Why = std::string(name) + " did not begin capture: " + capture.error();
+    return shot;
+  }
 
   const int settle = engine.renderer().settleFrames();
   const int wanted = settle > 2 ? settle : 2;
   for (int at = 0; at < wanted; ++at) {
-    if (const auto advanced = engine.advance(); !advanced) {
-      shot.Why = std::string(name) + " did not advance: " + advanced.error();
-      return shot;
-    }
     if (const auto rendered = engine.renderer().render(Extent{}); !rendered) {
       shot.Why = std::string(name) + " did not render: " + rendered.error();
       return shot;
@@ -402,6 +403,7 @@ Shot Draw(Engine &engine,
   }
   shot.SettledOver = static_cast<double>(wanted);
   shot.PosedAtS = measured("and the instant it is posed at");
+  capture->release();
 
   std::error_code failed;
   const std::string into = std::string("build/shots/") + std::string(under);
