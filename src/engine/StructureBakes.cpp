@@ -195,8 +195,10 @@ void StructureBakes::PostSlice(Job &job) {
       }
       out->Complete = *advanced;
     }
-    out->BakeMs +=
+    const double taskMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    out->LastTaskMs = taskMs;
+    out->BakeMs += taskMs;
   });
 }
 
@@ -227,7 +229,9 @@ void StructureBakes::ResumeCompletedSlices() {
         job.BakedStructures = job.Progress->BakedStructures();
         ++job.Slices;
         job.SlowestSliceMs = std::max(job.SlowestSliceMs, job.Out->LastSliceMs);
+        job.SlowestTaskMs = std::max(job.SlowestTaskMs, job.Out->LastTaskMs);
         SlowestSliceMs_ = std::max(SlowestSliceMs_, job.Out->LastSliceMs);
+        SlowestTaskMs_ = std::max(SlowestTaskMs_, job.Out->LastTaskMs);
       }
     }
     if (job.Finished && job.Out->Status && !job.Out->Complete) { PostSlice(job); }
@@ -276,6 +280,7 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack,
     job.Out->Complete = false;
     job.Out->BakeMs = 0.0;
     job.Out->LastSliceMs = 0.0;
+    job.Out->LastTaskMs = 0.0;
     Queue_.push_back(std::move(job));
     PostSlice(Queue_.back());
     ++Posted_;

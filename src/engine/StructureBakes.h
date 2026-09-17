@@ -88,6 +88,8 @@ public:
 
   [[nodiscard]] double SlowestSliceMs() const { return SlowestSliceMs_; }
 
+  [[nodiscard]] double SlowestTaskMs() const { return SlowestTaskMs_; }
+
   [[nodiscard]] size_t QueuedStructures() const;
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
@@ -101,6 +103,7 @@ private:
     bool Complete = false;
     double BakeMs = 0.0;
     double LastSliceMs = 0.0;
+    double LastTaskMs = 0.0;
   };
 
   struct Job {
@@ -116,6 +119,7 @@ private:
     size_t BakedStructures = 0;
     size_t Slices = 0;
     double SlowestSliceMs = 0.0;
+    double SlowestTaskMs = 0.0;
     bool Finished = false;
   };
 
@@ -146,6 +150,7 @@ private:
   double BakedMs_ = 0.0;
   double SlowestBakeMs_ = 0.0;
   double SlowestSliceMs_ = 0.0;
+  double SlowestTaskMs_ = 0.0;
 };
 
 }

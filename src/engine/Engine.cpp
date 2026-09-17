@@ -432,6 +432,7 @@ Result Engine::State::PreloadTimeout(double bound) {
              ", deferred=" + std::to_string(World.Bakes.Deferred()) +
              ", meanMs=" + std::to_string(World.Bakes.MeanBakeMs()) +
              ", maxMs=" + std::to_string(World.Bakes.SlowestBakeMs()) +
+             ", maxTaskMs=" + std::to_string(World.Bakes.SlowestTaskMs()) +
              ", maxSliceMs=" + std::to_string(World.Bakes.SlowestSliceMs());
   }
   if (const auto &ground = World.GroundPublished.Current();

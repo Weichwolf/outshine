@@ -59,4 +59,5 @@ floor/road checks in 3.55 s. This proves the small contact case, not throughput 
 jobs complete 15 of 19 landings, mean 26.81 ms and maximum 126.05 ms. The work unit is therefore
 still too coarse for dense OSM coverage. Measure range distribution and final clustering separately
 before changing `kStructuresPerRange` or worker-task grouping; a smaller constant without a
-throughput measurement is not a solution.
+throughput measurement is not a solution. `StructureBakes` now reports maximum worker-task time
+separately from the slowest range; the next Graz timeout supplies the missing split.
