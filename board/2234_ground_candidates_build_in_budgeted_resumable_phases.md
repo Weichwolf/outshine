@@ -27,9 +27,9 @@ The first ground revision starts from admitted terrain/vector coverage, before t
 snapshot, class revision and structure bakes. Those later revisions trigger an owned rebuild.
 `preload` flushes only candidates with admitted immutable inputs; frame updates advance one phase.
 The floor-place control proved a model phase before this split consumes the last 15 s slack.
-ClassBuilder currently serializes Fine and Coarse and publishes only after both. Fine must publish as
-an immutable first revision for the near candidate; Coarse publishes a later revision. Tests must
-prove that the first revision never reads coarse cells and that the later revision replaces it atomically.
+ClassBuilder already publishes Fine with an empty immutable Coarse grid, then publishes a later Coarse
+revision. The remaining work is to measure which admitted candidate or bake transition consumes the
+preload deadline; do not duplicate this existing progressive-publication mechanism.
 
 ## Acceptance
 
