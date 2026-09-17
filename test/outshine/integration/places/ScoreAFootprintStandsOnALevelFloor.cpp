@@ -90,7 +90,21 @@ int main(void) {
     prepared = timed("assemble", [&] { return engine.assemble(); });
   }
   if (prepared) {
-    prepared = timed("preload", [&] { return engine.preload(kPatienceS); });
+    outshine::Loading loading;
+    prepared = timed("preload", [&] {
+      return engine.preload(kPatienceS,
+                            [&loading](const outshine::Loading &current) { loading = current; });
+    });
+    if (!prepared) {
+      prepared = std::unexpected(prepared.error() +
+                                 "; streaming ground=" + std::to_string(loading.GroundArrived) +
+                                 "/" + std::to_string(loading.GroundWanted) +
+                                 ", vector=" + std::to_string(loading.VectorArrived) + "/" +
+                                 std::to_string(loading.VectorWanted) +
+                                 ", outstanding=" + std::to_string(loading.Outstanding) +
+                                 ", fetchedMiB=" + std::to_string(loading.FetchedMB) +
+                                 ", meanFetchMs=" + std::to_string(loading.MeanFetchMs));
+    }
   }
   if (prepared) {
     prepared = timed("advance", [&] { return engine.advance(); });
