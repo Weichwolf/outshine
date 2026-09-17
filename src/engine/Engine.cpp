@@ -310,6 +310,7 @@ double Engine::loadProgress() const {
 }
 
 constexpr double kMostWaitS = 0.05;
+constexpr size_t kPreloadGroundAdvancesMost = 16;
 
 Loading Engine::loading() const {
   Loading said;
@@ -353,6 +354,24 @@ Result Engine::State::FinishesPreload() {
   }
   if (bakesComplete && !UpdateCrowns(true)) { return std::unexpected(Error); }
   return {};
+}
+
+std::expected<Engine::State::PreloadFlush, std::string>
+Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, double bound) {
+  for (size_t advance = 0; advance < kPreloadGroundAdvancesMost; ++advance) {
+    if (const Result finished = FinishesPreload(); !finished) {
+      return std::unexpected(finished.error());
+    }
+    if (World.Bakes.Complete(World.Stack) && Readiness().Ready() &&
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
+      return PreloadFlush::Ready;
+    }
+    if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
+      return PreloadFlush::Pending;
+    }
+    if (!World.GroundBuild) { break; }
+  }
+  return PreloadFlush::Pending;
 }
 
 Result Engine::State::PumpPreload() {
@@ -437,11 +456,9 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     if (const auto pumped = S_->PumpPreload(); !pumped) { return pumped; }
     ReportPreload(*this, began, tell);
     if (S_->CanFinishPreload()) {
-      if (const Result finished = S_->FinishesPreload(); !finished) { return finished; }
-      if (S_->World.Bakes.Complete(S_->World.Stack) && settled() &&
-          std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
-        return Result{};
-      }
+      const auto finished = S_->FlushPreloadGround(began, bound);
+      if (!finished) { return std::unexpected(finished.error()); }
+      if (*finished == State::PreloadFlush::Ready) { return Result{}; }
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       return S_->PreloadTimeout(bound);

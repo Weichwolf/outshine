@@ -341,7 +341,11 @@ struct Engine::State {
   [[nodiscard]] bool CanFinishPreload() const;
   [[nodiscard]] Result PumpPreload();
   [[nodiscard]] Result PreloadOverflow();
+  enum class PreloadFlush : uint8_t { Pending, Ready };
+
   [[nodiscard]] Result FinishesPreload();
+  [[nodiscard]] std::expected<PreloadFlush, std::string>
+  FlushPreloadGround(std::chrono::steady_clock::time_point began, double bound);
   [[nodiscard]] Result PreloadTimeout(double bound);
   void AwaitPreloadProgress(double seconds);
   [[nodiscard]] bool Watches();
