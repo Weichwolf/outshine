@@ -972,7 +972,8 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress Engine::State::BeginsGroundBakes(const TangentFrame &standing) {
+Engine::State::GroundBuildProgress
+Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
   (void)standing;
   GroundBuildState &state = *World.GroundBuild;
   if (state.NextStage() != GroundBuildState::Stage::NeedsBakes) {
@@ -985,7 +986,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBakes(const Tangen
   return GroundBuildProgress::Pending;
 }
 
-Ground::BuildingField *Engine::State::CandidateFootprints() noexcept {
+Ground::BuildingField *Engine::State::CandidateFootprints() const noexcept {
   return World.GroundBuild ? &World.GroundBuild->Footprints() : nullptr;
 }
 
@@ -1033,7 +1034,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying(kLayingTag);
   auto phaseAt = std::chrono::steady_clock::now();
   auto censusAt = phaseAt;
-  auto wiresAt = phaseAt;
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared || !Picture.Standing || !World.Stack.Opened()) { return true; }
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
@@ -1080,7 +1080,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
   const GroundBuildProgress bakes = BeginsGroundBakes(standing);
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
-  Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
+  Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = phaseAt};
 
   std::vector<Yields> corridor;
   Published.Places(
@@ -1187,7 +1187,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   Published.Places(
       "rebuild: of that, the streets and the water",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wiresAt).count(),
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.WiresAt)
+          .count(),
       "ms");
   Published.Places(
       "rebuild: and the buildings, streets and water took",

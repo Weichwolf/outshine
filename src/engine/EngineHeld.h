@@ -390,8 +390,8 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginsGroundClasses();
   [[nodiscard]] GroundBuildProgress BeginsGroundSurface();
   [[nodiscard]] GroundBuildProgress BeginsGroundModels(const TangentFrame &standing);
-  [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing);
-  [[nodiscard]] Ground::BuildingField *CandidateFootprints() noexcept;
+  [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing) const;
+  [[nodiscard]] Ground::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 
   [[nodiscard]] Laid
