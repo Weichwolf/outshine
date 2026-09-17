@@ -641,13 +641,12 @@ bool Live::WearsOverrides([[maybe_unused]] std::string &error) {
   return true;
 }
 
-size_t Live::WornByNativeSurfaceAndPart(size_t firstPart) {
-  return WornByNativeSurface() + WornByNativeParts(firstPart);
+size_t Live::WornByNativeSurfaceAndPart(const Geometry &native, size_t firstPart) {
+  return WornByNativeSurface(native) + WornByNativeParts(native, firstPart);
 }
 
-size_t Live::WornByNativeSurface() {
+size_t Live::WornByNativeSurface(const Geometry &native) {
   size_t took = 0;
-  const Geometry &native = Held_.Built();
   for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
     const int surface = Table_.NativeMaterial[slot];
     if (surface < 0 || surface >= native.surfaces()) { continue; }
@@ -663,13 +662,13 @@ size_t Live::WornByNativeSurface() {
   return took;
 }
 
-size_t Live::WornByNativeParts(size_t firstPart) {
+size_t Live::WornByNativeParts(const Geometry &native, size_t firstPart) {
   size_t took = 0;
   std::vector<uint32_t> wearers(Table_.Slots.size(), 0u);
   for (const uint32_t worn : Table_.PartSlot) {
     if (worn < wearers.size()) { wearers[worn] += 1u; }
   }
-  const auto nativeParts = static_cast<size_t>(Held_.Built().parts());
+  const auto nativeParts = static_cast<size_t>(native.parts());
   const size_t available =
       Table_.PartSlot.size() > firstPart ? Table_.PartSlot.size() - firstPart : 0u;
   const size_t many = std::min(nativeParts, available);
@@ -744,13 +743,13 @@ bool Live::StandsSubjects(std::string &error) {
   }
   OverridesWorn_ = 0;
   if (!Declared_.Overriding.empty() && !WearsOverrides(error)) { return false; }
-  if (Held_.HoldsBuilt() && !AppendNativeSurfaceTable(error)) { return false; }
+  if (Held_.HoldsBuilt() && !AppendNativeSurfaceTable(Held_.Built(), error)) { return false; }
   return RejectsUnwornOverrides(error);
 }
 
-bool Live::AppendNativeSurfaceTable(std::string &error) {
+bool Live::AppendNativeSurfaceTable(const Geometry &native, std::string &error) {
   const auto base = static_cast<uint32_t>(Table_.Slots.size());
-  const outshine::Geometry &also = Held_.Built();
+  const Geometry &also = native;
   for (int surface = 0; surface < also.surfaces(); ++surface) {
     Render::SubjectMaterial made;
     made.Row = also.surfaceAt(MaterialInstance(surface));
@@ -789,7 +788,7 @@ bool Live::AppendNativeSurfaceTable(std::string &error) {
           also, std::span<Render::SubjectMaterial>(Table_.Slots).subspan(base), error)) {
     return false;
   }
-  OverridesWorn_ += WornByNativeSurfaceAndPart(before);
+  OverridesWorn_ += WornByNativeSurfaceAndPart(native, before);
   Joined_ = before;
   Carrying_ = before;
   return true;
@@ -834,7 +833,7 @@ bool Live::CarriesBuilt(std::string &error) {
           : Render::ResolveNativeTextures(Held_.Assembled().Images(), Table_.Slots, error);
   if (!textured) { return false; }
   OverridesWorn_ = 0;
-  OverridesWorn_ += WornByNativeSurfaceAndPart(0);
+  OverridesWorn_ += WornByNativeSurfaceAndPart(Held_.Built(), 0);
   if (!RejectsUnwornOverrides(error)) { return false; }
   if (GroundSurface_ >= 0) {
     for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
