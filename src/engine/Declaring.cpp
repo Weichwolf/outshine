@@ -336,14 +336,9 @@ void PublishConfiguration(Kept &session,
                                                      InputMap &bindings,
                                                      std::string &error) {
   if (!picture.Standing || HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
-      !SamePicture(picture.Shown, declared) ||
+      !SamePicture(picture.Shown, declared) || !SameStand(picture.Shown, declared) ||
       session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled) {
     return std::nullopt;
-  }
-  if (!SameStand(picture.Shown, declared) &&
-      !picture.Standing->Restands(
-          declared.Stands, declared.Variant, declared.Animation, declared.Clip, error)) {
-    return Result{std::unexpected(error)};
   }
   if (!SameSurfaces(picture.Shown.Surfaces, declared.Surfaces) &&
       !picture.Standing->Redeclare(declared.Surfaces, error)) {

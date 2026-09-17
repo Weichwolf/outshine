@@ -33,6 +33,9 @@ assumed: generator output may depend on borrowed, changing provider data.
 - `Live::Open` and `Engine::declare` detach a replaced `Live` owner only after its successor,
   scroll restoration and generated geometry succeeded. Its destructor therefore cannot clear
   the successor's renderer products; a failed CPU-side build retains the old owner.
+- A changed imported asset, variant or clip no longer takes the in-place reuse path. It builds
+  the same full candidate as a first declaration. The public missing-asset regression preserves
+  the prior declaration and linear frame, then accepts an immediate valid retry.
 - `SceneRenderer` now builds a move-only `SceneState` candidate containing frame, plan and world
   content. Full declarations publish it only after geometry and overlays succeed; a generated-world
   submit failure retains prior linear pixels and retries. Frame-owned cull and shadow stages rebind

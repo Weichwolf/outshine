@@ -1582,20 +1582,6 @@ bool Live::Carry(size_t body, const Bearing &held, std::string &error) {
   return true;
 }
 
-bool Live::Restands(std::string stands,
-                    std::string variant,
-                    Scenario::AssetAnimation animation,
-                    int clip,
-                    std::string &error) {
-  Declared_.Stands = std::move(stands);
-  Declared_.Variant = std::move(variant);
-  Declared_.Animation = animation;
-  Declared_.Clip = clip;
-  Stoodup_ = false;
-  Held_.Clears();
-  return Build(error);
-}
-
 bool Live::SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error) {
   if (Declared_.Surfacing.empty()) {
     error = Says::NoGeometrySurface;

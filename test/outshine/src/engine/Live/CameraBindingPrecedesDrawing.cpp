@@ -74,8 +74,7 @@ void ImportedCameraSurvivesBinding() {
       CHECK(scene->Advance(error), "native camera framing is prepared outside the draw call");
       CHECK(Core::Live::TookAiming() == 0,
             "camera validation reuses the published native shape without allocation");
-      const bool rebuilt =
-          scene->Restands(path.string(), {}, Scenario::AssetAnimation::Play, 0, error);
+      const bool rebuilt = Core::Live::Open(renderer, declaration, nullptr, scene, error);
       CHECK(rebuilt, "the subject can rebind while an explicit framing request is pending");
       if (rebuilt) {
         CHECK(scene->Draw(error), "the pending framing request draws after rebind");

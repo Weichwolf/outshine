@@ -128,11 +128,6 @@ public:
 
   [[nodiscard]] bool Carries(size_t bodies, std::string &error);
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
-  [[nodiscard]] bool Restands(std::string stands,
-                              std::string variant,
-                              Scenario::AssetAnimation animation,
-                              int clip,
-                              std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   [[nodiscard]] std::optional<uint32_t> RegisterPieceSurfaces(Geometry &&source,

@@ -69,6 +69,23 @@ int main() {
               .saveScreenshot((directory / "outshine-follow-camera-right.png").string())
               .has_value(),
           "capture right target");
+    std::vector<float> beforeReplacement;
+    CHECK(engine.renderer().readPixels(Buffer::Linear, beforeReplacement).has_value(),
+          "the accepted imported asset has a readable frame");
+    auto missingAsset = scene;
+    missingAsset.Assets.front().Uri = (directory / "outshine-absent-asset.gltf").string();
+    const auto refusedAsset = engine.declare(missingAsset);
+    CHECK(!refusedAsset && refusedAsset.error().find("outshine-absent-asset") != std::string::npos,
+          "a late imported-asset failure is rejected by the public declaration");
+    CHECK(engine.declaration().Assets.front().Uri == scene.Assets.front().Uri,
+          "the rejected asset keeps the published declaration");
+    std::vector<float> afterReplacement;
+    CHECK(engine.renderer().render({}).has_value() &&
+              engine.renderer().readPixels(Buffer::Linear, afterReplacement).has_value() &&
+              afterReplacement == beforeReplacement,
+          "a rejected imported-asset replacement preserves the rendered world");
+    CHECK(engine.declare(scene) && engine.assemble(),
+          "the accepted asset immediately retries after the rejected replacement");
     CHECK(engine.setView("left-view").has_value(), "switch active target");
     checkEye(-4);
     CHECK(engine.renderer().render({}).has_value(), "render left camera");
