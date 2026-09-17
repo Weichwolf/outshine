@@ -19,6 +19,12 @@ Beide PNGs geöffnet. Reproduzierbarkeit fehlt; die Ursache ist noch nicht isoli
 Referenzen: `build/shots/reference/empty-tile-publication/Graz-before.png` und
 `Graz-after-first.png`. Keine Toleranzerhöhung und kein Neupinnen zum Kaschieren.
 
+Stand 2026-09-18: Drei Cache-warme Läufe mit `--no-vegetation --preload-seconds 120 Graz`
+erzeugten nach dem Capture-Clientpfad `Graz-cf91dc2d.png`; der direkte Vergleich zweier
+getrennter Dateien meldet 0/921600 abweichende Pixel. Der Screenshot und Readback liegen
+jetzt im RAII-Bereich, öffentliche Weltmutationen sind gesperrt. Das beweist nur den
+seriellen Clientlauf: Revision-Pins und die vertauschte Workerfertigstellung fehlen weiter.
+
 ## Verbindliche Architekturentscheidung
 
 Capture bindet einen vollständig publizierten Weltstand, nicht eine Wartezeit.

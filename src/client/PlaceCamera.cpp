@@ -371,65 +371,66 @@ Shot Draw(Engine &engine,
   Shot shot;
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
-  auto capture = engine.beginCapture();
-  if (!capture) {
-    shot.Why = std::string(name) + " did not begin capture: " + capture.error();
-    return shot;
-  }
-
-  const int settle = engine.renderer().settleFrames();
-  const int wanted = settle > 2 ? settle : 2;
-  for (int at = 0; at < wanted; ++at) {
-    if (const auto rendered = engine.renderer().render(Extent{}); !rendered) {
-      shot.Why = std::string(name) + " did not render: " + rendered.error();
-      return shot;
-    }
-  }
-
-  const auto measured = [&engine](const char *what) {
-    for (const Measure &held : engine.measures()) {
-      if (held.What == what) { return held.How; }
-    }
-    return 0.0;
-  };
-  shot.Triangles = measured("building triangles the world meshed");
-  shot.BareTiles = measured("tiles laid bare on the ellipsoid");
-
-  if (Audits) {
-    if (const auto inspected = engine.inspect(); !inspected) {
-      shot.Why = std::string(name) + " refused its audit: " + inspected.error();
-      return shot;
-    }
-  }
-  shot.SettledOver = static_cast<double>(wanted);
-  shot.PosedAtS = measured("and the instant it is posed at");
-  capture->release();
-
-  std::error_code failed;
-  const std::string into = std::string("build/shots/") + std::string(under);
-  std::filesystem::create_directories(into, failed);
-  const std::string writing = into + "/" + std::string(name) + ".writing";
-  if (engine.renderer().render({}) && engine.renderer().saveScreenshot(writing)) {
-    std::string bytes;
-    if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
-      std::array<char, 65536> block{};
-      std::size_t read = 0;
-      while ((read = std::fread(block.data(), 1, block.size(), held)) > 0) {
-        bytes.append(block.data(), read);
-      }
-      std::fclose(held);
-    }
-    shot.Digest = Sha256Hex(bytes).substr(0, 8);
-    shot.Wrote = into + "/" + std::string(name) + "-" + shot.Digest + ".png";
-    std::filesystem::rename(writing, shot.Wrote, failed);
-    shot.Kept = !failed;
-  }
-
   {
-    std::vector<std::uint8_t> pixels;
-    if (engine.renderer().readPixels(pixels).has_value()) {
-      const Extent frame = engine.swapChain().extent();
-      shot.VariationAlongRows = VariationAlongRows(pixels, frame.WidthPx, frame.HeightPx);
+    auto capture = engine.beginCapture();
+    if (!capture) {
+      shot.Why = std::string(name) + " did not begin capture: " + capture.error();
+      return shot;
+    }
+
+    const int settle = engine.renderer().settleFrames();
+    const int wanted = settle > 2 ? settle : 2;
+    for (int at = 0; at < wanted; ++at) {
+      if (const auto rendered = engine.renderer().render(Extent{}); !rendered) {
+        shot.Why = std::string(name) + " did not render: " + rendered.error();
+        return shot;
+      }
+    }
+
+    const auto measured = [&engine](const char *what) {
+      for (const Measure &held : engine.measures()) {
+        if (held.What == what) { return held.How; }
+      }
+      return 0.0;
+    };
+    shot.Triangles = measured("building triangles the world meshed");
+    shot.BareTiles = measured("tiles laid bare on the ellipsoid");
+
+    if (Audits) {
+      if (const auto inspected = engine.inspect(); !inspected) {
+        shot.Why = std::string(name) + " refused its audit: " + inspected.error();
+        return shot;
+      }
+    }
+    shot.SettledOver = static_cast<double>(wanted);
+    shot.PosedAtS = measured("and the instant it is posed at");
+
+    std::error_code failed;
+    const std::string into = std::string("build/shots/") + std::string(under);
+    std::filesystem::create_directories(into, failed);
+    const std::string writing = into + "/" + std::string(name) + ".writing";
+    if (engine.renderer().saveScreenshot(writing)) {
+      std::string bytes;
+      if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
+        std::array<char, 65536> block{};
+        std::size_t read = 0;
+        while ((read = std::fread(block.data(), 1, block.size(), held)) > 0) {
+          bytes.append(block.data(), read);
+        }
+        std::fclose(held);
+      }
+      shot.Digest = Sha256Hex(bytes).substr(0, 8);
+      shot.Wrote = into + "/" + std::string(name) + "-" + shot.Digest + ".png";
+      std::filesystem::rename(writing, shot.Wrote, failed);
+      shot.Kept = !failed;
+    }
+
+    {
+      std::vector<std::uint8_t> pixels;
+      if (engine.renderer().readPixels(pixels).has_value()) {
+        const Extent frame = engine.swapChain().extent();
+        shot.VariationAlongRows = VariationAlongRows(pixels, frame.WidthPx, frame.HeightPx);
+      }
     }
   }
 
