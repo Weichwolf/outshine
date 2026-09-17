@@ -1,4 +1,3 @@
-#include "GroundCandidateRevision.h"
 #include "GeodeticCamera.h"
 #include "Digest.h"
 #include "math/RenderFrame.h"
@@ -86,6 +85,7 @@ constexpr size_t kBounceProbeStride = 16;
 class GroundBuildState {
 public:
   enum class SheetPhase : uint8_t { NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
+  enum class Stage : uint8_t { NeedsClasses, NeedsGroundSurface, NeedsGeometry };
 
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
@@ -93,13 +93,15 @@ public:
                    GroundRevision revision)
       : Coverage_(coverage), Revision_(revision), Candidate_(renderer, world) {}
 
-  [[nodiscard]] bool Accepts(const GroundRevision &revision) noexcept {
-    return Revision_.Accepts(revision);
+  [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
+    return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
+           Revision_.Footprints == revision.Footprints &&
+           Revision_.Projection == revision.Projection;
   }
 
   [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }
 
-  [[nodiscard]] const GroundRevision &Revision() const noexcept { return Revision_.Current(); }
+  [[nodiscard]] const GroundRevision &Revision() const noexcept { return Revision_; }
 
   [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
 
@@ -111,11 +113,9 @@ public:
 
   void AdvancesSheetsTo(SheetPhase phase) noexcept { SheetBuilding_ = phase; }
 
-  [[nodiscard]] GroundCandidateRevision::Stage NextStage() const noexcept {
-    return Revision_.NextStage();
-  }
+  [[nodiscard]] Stage NextStage() const noexcept { return NextStage_; }
 
-  void AdvancesTo(GroundCandidateRevision::Stage stage) noexcept { Revision_.AdvancesTo(stage); }
+  void AdvancesTo(Stage stage) noexcept { NextStage_ = stage; }
 
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
@@ -123,10 +123,11 @@ public:
 
 private:
   Around Coverage_;
-  GroundCandidateRevision Revision_;
+  GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
   SheetPhase SheetBuilding_ = SheetPhase::NeedsRefinement;
+  Stage NextStage_ = Stage::NeedsClasses;
   bool Prepared_ = false;
 };
 
@@ -837,7 +838,7 @@ void Engine::State::ReportGroundPlacements() {
 }
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const GroundRequest &request) {
-  if (!World.GroundBuild || !World.GroundBuild->Accepts(request.Revision)) {
+  if (!World.GroundBuild || !World.GroundBuild->Matches(request.Revision)) {
     World.GroundBuild = std::make_unique<GroundBuildState>(
         Picture.Device, World, request.Coverage, request.Revision);
     return GroundBuildProgress::Pending;
@@ -900,7 +901,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() != GroundCandidateRevision::Stage::NeedsClasses) {
+  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
@@ -910,13 +911,13 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
   Classed classed = Classify(build.PositionsM, live);
   build.ClassPalette = std::move(classed.Palette);
   build.ClassStructure = std::move(classed.Structure);
-  state.AdvancesTo(GroundCandidateRevision::Stage::NeedsGroundSurface);
+  state.AdvancesTo(GroundBuildState::Stage::NeedsGroundSurface);
   return GroundBuildProgress::Pending;
 }
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() != GroundCandidateRevision::Stage::NeedsGroundSurface) {
+  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
@@ -933,25 +934,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
   }
   build.GroundMaterial = bare;
   build.GroundSurface = *ringSurface;
-  state.AdvancesTo(GroundCandidateRevision::Stage::NeedsModels);
-  return GroundBuildProgress::Pending;
-}
-
-Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const TangentFrame &standing) {
-  GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() != GroundCandidateRevision::Stage::NeedsModels) {
-    return GroundBuildProgress::Ready;
-  }
-  if (!World.Bakes.Complete(World.Stack)) { return GroundBuildProgress::Pending; }
-  const auto began = std::chrono::steady_clock::now();
-  Phasing clocks{.PhaseAt = began, .CensusAt = began, .WiresAt = began};
-  static const Heap::Tag kModellingTag("ground-model");
-  const Heap::Tagged modelling(kModellingTag);
-  if (!Models(standing, state.Candidate().Products(), clocks)) {
-    World.GroundBuild.reset();
-    return GroundBuildProgress::Failed;
-  }
-  state.AdvancesTo(GroundCandidateRevision::Stage::NeedsGeometry);
+  state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
   return GroundBuildProgress::Pending;
 }
 
@@ -975,6 +958,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying(kLayingTag);
   auto phaseAt = std::chrono::steady_clock::now();
   auto censusAt = phaseAt;
+  auto wiresAt = phaseAt;
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared || !Picture.Standing || !World.Stack.Opened()) { return true; }
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
@@ -1017,9 +1001,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Material &bare = build.GroundMaterial;
   const MaterialInstance ringSurface = build.GroundSurface;
 
-  const GroundBuildProgress models = BeginsGroundModels(standing);
-  if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
-  Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = phaseAt};
+  Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
+  {
+    static const Heap::Tag kModellingTag("ground-model");
+    const Heap::Tagged modelling(kModellingTag);
+    if (!Models(standing, build, clocks)) { return false; }
+  }
+  phaseAt = clocks.PhaseAt;
+  censusAt = clocks.CensusAt;
+  wiresAt = clocks.WiresAt;
 
   std::vector<Yields> corridor;
   Published.Places(
@@ -1125,8 +1115,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   Published.Places(
       "rebuild: of that, the streets and the water",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.WiresAt)
-          .count(),
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wiresAt).count(),
       "ms");
   Published.Places(
       "rebuild: and the buildings, streets and water took",

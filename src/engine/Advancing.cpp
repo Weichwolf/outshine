@@ -232,12 +232,6 @@ bool Engine::State::Bakes(size_t landsMost) {
   if (!World.GroundPublished.Current()) {
     World.Bakes.ResumeCompletedSlices();
     (void)World.Bakes.Posts(World.Stack, eye);
-    auto ready = World.Bakes.NextLandings(World.Stack, eye, landsMost);
-    if (!ready) {
-      Error = Generators::Describe(ready.error());
-      return false;
-    }
-    World.Bakes.CommitsLandings(World.Stack, *ready);
     return true;
   }
   auto ready = World.Bakes.NextLandings(World.Stack, eye, landsMost);
