@@ -379,6 +379,8 @@ struct Engine::State {
 
   [[nodiscard]] GroundBuildProgress BeginsGroundBuild(const GroundRequest &request);
   [[nodiscard]] GroundBuildProgress BeginsGroundPatchwork(const Around &coverage);
+  [[nodiscard]] GroundBuildProgress
+  BeginsGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
 
   [[nodiscard]] Laid
   Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded);

@@ -84,6 +84,8 @@ constexpr size_t kBounceProbeStride = 16;
 
 class GroundBuildState {
 public:
+  enum class SheetPhase : uint8_t { NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
+
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
                    Around coverage,
@@ -106,6 +108,10 @@ public:
 
   void Lays(Patchwork patchwork) noexcept { Patchwork_.emplace(std::move(patchwork)); }
 
+  [[nodiscard]] SheetPhase SheetBuilding() const noexcept { return SheetBuilding_; }
+
+  void AdvancesSheetsTo(SheetPhase phase) noexcept { SheetBuilding_ = phase; }
+
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
   void Prepared(bool prepared) noexcept { Prepared_ = prepared; }
@@ -115,6 +121,7 @@ private:
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
+  SheetPhase SheetBuilding_ = SheetPhase::NeedsRefinement;
   bool Prepared_ = false;
 };
 
@@ -524,27 +531,6 @@ bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
     if (!build.Sheets.RefineByError(patchwork, World.Stack.Ground(), detail, Error)) {
       return false;
     }
-    const auto haloAt = std::chrono::steady_clock::now();
-    Published.Places(
-        "ground: sheets the lattice haloed",
-        static_cast<double>(build.Sheets.Halos(patchwork, World.Stack.Ground(), over.Zoom)),
-        "sheets");
-    build.RimsMissing = build.Sheets.RimsMissing();
-    Published.Places("ground: rims copied for want of a neighbour",
-                     static_cast<double>(build.RimsMissing),
-                     "sheets");
-    Published.Places(
-        "ground: of that, haloing",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - haloAt)
-            .count(),
-        "ms");
-  }
-  {
-    const HeightSheets::Soup soup = build.Sheets.SoupOf(patchwork);
-    build.PositionsM = soup.PositionM;
-    build.Indices = soup.Index;
-    TellsTheRelief(
-        {.Tallest = soup.TallestM, .Lowest = soup.LowestM, .TallestOutM = soup.TallestOutM});
   }
   return true;
 }
@@ -862,6 +848,51 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
   return GroundBuildProgress::Pending;
 }
 
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const TangentFrame &standing,
+                                                                     Patchwork &patchwork,
+                                                                     const Around &coverage) {
+  GroundBuildState &state = *World.GroundBuild;
+  GroundBuildProducts &build = state.Candidate().Products();
+  switch (state.SheetBuilding()) {
+    case GroundBuildState::SheetPhase::NeedsRefinement:
+      if (!RefineGroundSheets(standing, patchwork, coverage, build)) {
+        World.GroundBuild.reset();
+        return GroundBuildProgress::Failed;
+      }
+      state.AdvancesSheetsTo(GroundBuildState::SheetPhase::NeedsHalos);
+      return GroundBuildProgress::Pending;
+    case GroundBuildState::SheetPhase::NeedsHalos: {
+      const auto haloAt = std::chrono::steady_clock::now();
+      Published.Places(
+          "ground: sheets the lattice haloed",
+          static_cast<double>(build.Sheets.Halos(patchwork, World.Stack.Ground(), coverage.Zoom)),
+          "sheets");
+      build.RimsMissing = build.Sheets.RimsMissing();
+      Published.Places("ground: rims copied for want of a neighbour",
+                       static_cast<double>(build.RimsMissing),
+                       "sheets");
+      Published.Places(
+          "ground: of that, haloing",
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - haloAt)
+              .count(),
+          "ms");
+      state.AdvancesSheetsTo(GroundBuildState::SheetPhase::NeedsMesh);
+      return GroundBuildProgress::Pending;
+    }
+    case GroundBuildState::SheetPhase::NeedsMesh: {
+      const HeightSheets::Soup soup = build.Sheets.SoupOf(patchwork);
+      build.PositionsM = soup.PositionM;
+      build.Indices = soup.Index;
+      TellsTheRelief(
+          {.Tallest = soup.TallestM, .Lowest = soup.LowestM, .TallestOutM = soup.TallestOutM});
+      state.AdvancesSheetsTo(GroundBuildState::SheetPhase::Ready);
+      return GroundBuildProgress::Ready;
+    }
+    case GroundBuildState::SheetPhase::Ready: return GroundBuildProgress::Ready;
+  }
+  return GroundBuildProgress::Failed;
+}
+
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundPatchwork(const Around &coverage) {
   GroundBuildState &state = *World.GroundBuild;
   if (state.Laid() != nullptr) { return GroundBuildProgress::Ready; }
@@ -909,7 +940,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double frameLon = anchorLon;
   const TangentFrame standing =
       TangentFrame::At({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat});
-  if (!RefineGroundSheets(standing, laid, over, build)) { return false; }
+  const GroundBuildProgress sheetProgress = BeginsGroundSheets(standing, laid, over);
+  if (sheetProgress != GroundBuildProgress::Ready) {
+    return sheetProgress != GroundBuildProgress::Failed;
+  }
   Classed classed;
   {
     static const Heap::Tag kClassingTag("ground-classify");
