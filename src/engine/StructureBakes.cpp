@@ -237,7 +237,9 @@ void StructureBakes::ResumeCompletedSlices() {
 size_t StructureBakes::Posts(Ground::GroundStack &stack,
                              Ground::BuildingField &prints,
                              LongitudeLatitude eye) {
-  if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr) { return 0; }
+  if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
+    return 0;
+  }
   const Ground::OsmField &vectors = *stack.Vectors();
   size_t posted = 0;
   const size_t inFlightMost = static_cast<size_t>(Pool_->Threads()) * kBakesPerThread;

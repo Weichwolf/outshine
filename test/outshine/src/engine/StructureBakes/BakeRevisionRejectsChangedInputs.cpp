@@ -11,7 +11,9 @@ int main() {
   const std::array<Ground::OsmField::Declared, 0> noFeatures;
   vectors.Declare(noFeatures, {.X = 18, .Y = 27});
   Ground::BuildingField footprints;
+  CHECK(!footprints.Anchored(), "a default footprint field refuses bake admission");
   footprints.AnchorAt({{0, 0, 0}});
+  CHECK(footprints.Anchored(), "an anchored field admits bake scheduling");
   footprints.SeenWith(720.0);
   footprints.TilesSpan(2400.0);
   const StructureBakes::BakeRevision revision{.Vectors = vectors.Generation(),

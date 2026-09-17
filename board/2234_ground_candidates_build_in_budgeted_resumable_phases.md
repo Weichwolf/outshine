@@ -25,11 +25,10 @@ building state reaches `Live`.
 
 The first candidate starts after admitted terrain/vector coverage. Its completed phases retain only
 terrain, class and material products; class/footprint revisions therefore still restart a finished
-candidate. Structure bakes remain queued until the active world can publish their complete mesh
-and footprint together. Moving them into a ground candidate requires a separate owned footprint
-and bake-output successor: otherwise the queue cannot plan its next tile without mutating the
-active field, or its completed meshes are lost. That handoff belongs to WI 2224. Do not claim
-pre-ground bake landing or a final-footprint candidate before that owner exists.
+candidate. WI 2224 supplies the separate candidate `BuildingField` and `TilePieces`: bake planning,
+landing and mesh handoff occur there before publication, while the active world remains unchanged.
+This WI owns the remaining bounded scheduling, phase timing and peak-memory proof; it must not
+reintroduce active-world mutation to shorten preload.
 
 ## Acceptance
 

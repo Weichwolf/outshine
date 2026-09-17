@@ -32,34 +32,20 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
 
 ## Nächste Schritte in Reihenfolge
 
-1. Bake-Publikation vervollständigen: `StructureBakes::{NextLanding,CommitsLanding}`,
-   `StructureTilePublication.h`, `Advancing.cpp` und
-   `src/world/ground/BuildingField.{h,cpp}` gemeinsam prüfen.
-   Aktuell werden Footprints erst nach GPU-Publikation in `CommitsLanding` übernommen.
-   Vor Veröffentlichung Footprint-Nachfolger inklusive Kapazität vorbereiten; danach nur
-   nichtwerfende Transfers, Rebinding, Queue-Verbrauch und Revisionswechsel. Job-Output
-   bleibt bis Commit/Abbruch im Queue-Owner; Landing ist nur geliehen, nie über Commit halten.
-   Uploadfehler konsumiert weder Job noch Footprints. Gültiger Retry konsumiert genau einmal.
-   Nicht mit einem zweiten Test-Publikationspfad oder bloßen Zählerkopien nachweisen.
+1. Die Bake-Übergabe ist jetzt eigentümerscharf: `GroundBuildProducts` besitzt
+   `BuildingField` und `TilePieces` bis `GroundWorldCandidate::Publish`.
+   `StructureBakes` erhält den Footprint-Owner ausdrücklich; vor der ersten
+   Ground-Publikation arbeitet `State::Bakes` gegen diesen Kandidaten. Nichtwerfende
+   Transfers veröffentlichen Footprints, Pieces, `Live` und GPU-Welt gemeinsam.
+   Ein unanchored Field lehnt Bake-Aufnahme ab. `BakeRevisionRejectsChangedInputs`
+   prüft den Revisionsvertrag; `ScoreAFootprintStandsOnALevelFloor` erreicht den
+   regulären vollständigen Pfad. Noch offen: A→B→spätes-A über die öffentliche API,
+   GPU-Submit-Fehler während Bake-Publikation und erneuter Bindungsnachweis nach
+   Kandidatenwechsel.
 2. Stale Ergebnisse abweisen: Bake-/Ground-Anfragen tragen die benötigte Datenrevision
    einschließlich Projektion und Quellidentität. Vor Publikation mit aktuellem Auftrag
    vergleichen. Veralteten fertigen Job freigeben, ohne aktuelle Welt/Revision zu verändern;
-   gleiche Tile-ID allein ist keine Identität. A→B→spätes A als deterministischen Test bauen.
-   `d557454a4` bindet Structure-Bakes an OSM-Generation, Footprint-Revision, Fokalmaßstab
-   und Tile-Spannweite; ein unpassender fertiger Job gibt sein Watermark frei und wird recycelt.
-   `StructureBakes/BakeRevisionRejectsChangedInputs.cpp` prüft den vollständigen
-   Revisionsvergleich gegen Fokalmaßstab und Footprint-Revision. Der A→B→späte-A-Orakel
-   durch den öffentlichen Pfad bleibt offen. Die reale Drive-Ground-Fixture
-   `ScoreAFootprintStandsOnALevelFloor` deckte den vorzeitigen Bake auf: vor der ersten
-   Ground-Publikation haben die Default-Piece-Flächen keine native Slottabelle. `State::Bakes`
-   wartet jetzt auf `GroundPublished`; die Fixture erreicht danach ihren regulären 15-s-Timeout
-   mit ausstehender Ingestion/Klassifikation. Den Streaming-Engpass löst WI 2105, nicht eine
-   gelockerte Fixture oder ein längeres Timeout.
-   Fixture: ein lokaler Provider liefert einen festen OSM-Tile mit Gebäudegrundriss und eine
-   feste DEM-Seite; A wird vollständig gerendert, B ändert Quelle oder Projektion, dann darf
-   ein verspätetes A weder Bild noch Routing, Materialmapping, Albedo oder Revision verändern.
-   Beide SDL-Submit-Hooks werden jeweils nach vollständigem Kandidatenaufbau verweigert;
-   der gültige B-Retry muss genau einmal landen.
+   gleiche Tile-ID allein ist keine Identität.
 3. Öffentlichen Gesamtpfad testen: kleiner deterministischer OSM-/DEM-Provider, Engine-API,
    zunächst gültige Welt A, dann B mit spätem Klassen-/Geometrie-Submitfehler.
    Materialmapping, Albedo, tatsächliches Routingnetz, GPU-Readback und Bild von A erhalten;

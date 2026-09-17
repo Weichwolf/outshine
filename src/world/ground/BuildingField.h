@@ -115,6 +115,8 @@ public:
 
   [[nodiscard]] const Vec3 &Anchor() const { return Anchor_; }
 
+  [[nodiscard]] bool Anchored() const noexcept { return Anchored_; }
+
   [[nodiscard]] const std::vector<Footprint> &Footprints() const { return Prints_; }
 
   [[nodiscard]] std::span<const Footprint> OfTile(int tile) const {
