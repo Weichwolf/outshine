@@ -81,6 +81,9 @@ DispatchInput(Host *host, const InputMap &bindings, std::span<const Core::InputP
 }
 
 Holds<bool> Engine::handleEvent(const SDL_Event &event) {
+  if (const auto permission = S_->MutationPermission(); !permission) {
+    return std::unexpected(permission.error());
+  }
   if (S_->Picture.Standing && event.type == SDL_EVENT_MOUSE_WHEEL) {
     const double displacementPx =
         -static_cast<double>(event.wheel.y) * S_->Session.Declared.WheelStepPx;
@@ -124,6 +127,7 @@ Holds<bool> Engine::handleEvent(const SDL_Event &event) {
 
 Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands, so there is no picture for a surface to be laid over -- a "
                 "scenario is declared before its surfaces are exchanged";
@@ -561,6 +565,7 @@ void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration
 
 Result Engine::declare(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (const auto valid = ValidateDeclarationInputs(scenario); !valid) { return valid; }
   if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
     S_->Error = Says::RevisionExhausted;
@@ -712,6 +717,7 @@ bool Engine::readScenarioInto(std::string_view path, Scenario::Document &out) {
 
 Result Engine::setGeometry(const Geometry &geometry) {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!geometry.wellFormed()) {
     S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
                 "than an empty picture";
@@ -748,6 +754,7 @@ std::expected<std::string, std::string> Engine::writeScenario() const {
 
 Result Engine::readScenario(std::string_view path) {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   Scenario::Document scenario;
   if (!readScenarioInto(path, scenario)) { return std::unexpected(S_->Error); }
   const std::vector<std::string> traced = S_->Session.LayerTrace;

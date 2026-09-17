@@ -129,6 +129,7 @@ StageSavedTraits(std::span<SavedTrait> traits, const Column<Traits> &column) {
 }
 
 Result Engine::restore(std::string_view path) {
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (S_->Simulation->Stood.Instances.empty() && S_->Session.Declared.Instances.empty()) {
     S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
                 "and then applying the state -- one arrival route";

@@ -72,6 +72,9 @@ struct Roots {
 
 class Engine;
 
+/// Move-only capture lock over one Engine's published render state.
+/// The originating Engine must outlive this handle. Releasing or destroying the final owner
+/// resumes the mutations that beginCapture() temporarily refuses.
 class Capture {
 public:
   /// Release the capture lock if still held; Engine must outlive this handle.
@@ -81,6 +84,7 @@ public:
   Capture(Capture &&other) noexcept;
   /// Release this lock then take other's lock.
   /// @param other Source handle, left empty.
+  /// @return This lock after any prior lock has been released.
   Capture &operator=(Capture &&other) noexcept;
   /// Release the lock before destruction; repeated calls are harmless.
   void release() noexcept;
@@ -290,9 +294,13 @@ public:
   /// Serialize with Engine mutations. No ownership or references are transferred.
   /// @return Current world-streaming readiness, not general Engine readiness.
   [[nodiscard]] bool settled() const;
-  /// Lock a settled published world for deterministic rendering and readback.
-  /// Rendering remains permitted; advance and world mutation are refused until release().
-  /// @return A move-only lock, or an owned readiness/overlap error.
+  /// Lock the assembled render scene and, when ground is declared, its settled published world.
+  /// Rendering, readback and diagnostics remain permitted. Simulation, declarations, geometry,
+  /// targets, roots, generator registration, views, preload and state restore are refused until
+  /// release() or destruction. Input dispatch is refused; audio mixing and diagnostics remain
+  /// available because they do not publish visual world state. Worker products remain private
+  /// while the lock is held.
+  /// @return A move-only lock, or an owned scene/readiness/overlap error.
   [[nodiscard]] Holds<Capture> beginCapture();
 
   /// Advance streaming until the current scene is resident or the time budget expires.

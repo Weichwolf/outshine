@@ -321,6 +321,11 @@ struct Ticks {
   double ElapsedS = 0.0;
 };
 
+namespace Says {
+inline constexpr std::string_view kCaptureMutation =
+    "a capture holds the published world; end it before mutating engine state";
+}
+
 struct Engine::State {
   Seen Picture;
   Kept Session;
@@ -335,6 +340,12 @@ struct Engine::State {
   bool Capturing = false;
 
   [[nodiscard]] LogThreadSinkScope Logs() const { return LogThreadSinkScope(Diagnostics); }
+
+  [[nodiscard]] Result MutationPermission() {
+    if (!Capturing) { return {}; }
+    Error = Says::kCaptureMutation;
+    return std::unexpected(Error);
+  }
 
   void Drew();
   void Inspected();

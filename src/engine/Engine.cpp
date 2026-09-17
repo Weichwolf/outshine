@@ -72,6 +72,7 @@ Capture &Capture::operator=(Capture &&other) noexcept {
 
 Result Engine::assemble() {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!S_->Session.Taken) {
     S_->Error = "declare content before assembling simulation";
     return std::unexpected(S_->Error);
@@ -141,6 +142,7 @@ Engine::~Engine() = default;
 
 Result Engine::drawsInto(SDL_Window *presents) {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
@@ -168,6 +170,7 @@ Result Engine::drawsInto(SDL_Window *presents) {
 
 Result Engine::drawsInto(Extent offscreen) {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
@@ -185,6 +188,7 @@ Result Engine::drawsInto(Extent offscreen) {
 }
 
 Result Engine::setRoots(Roots roots) {
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (S_->Session.Taken) {
     S_->Error = Says::kRootsAfterDeclaration;
     return std::unexpected(S_->Error);
@@ -199,6 +203,7 @@ void Engine::offers(Host *host) {
 }
 
 Result Engine::offers(const Generators::Generator &maker) {
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   const auto offered = S_->World.Offering.offers(maker);
   if (offered) { return {}; }
   return std::unexpected(offered.error() == Generators::Registry::RegistrationError::EmptyKind
@@ -245,7 +250,12 @@ bool Engine::settled() const {
 
 Holds<Capture> Engine::beginCapture() {
   if (S_->Capturing) { return std::unexpected("a capture already holds this engine"); }
-  if (!settled()) { return std::unexpected("capture requires a settled published world"); }
+  if (!S_->Picture.Standing) {
+    return std::unexpected("capture requires a declared and assembled render scene");
+  }
+  if (S_->Session.Declared.Ground.Declared && !settled()) {
+    return std::unexpected("capture requires a settled published world");
+  }
   S_->Capturing = true;
   return Capture(*this);
 }
@@ -483,6 +493,7 @@ Result Engine::preload(double patienceS) {
 
 Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
   [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!std::isfinite(patienceS) || patienceS < 0.0) {
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
@@ -512,6 +523,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
 }
 
 Result Engine::setView(std::string_view view) {
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!S_->Session.Views) {
     S_->Error = "the scenario declares no views, so there is none to take";
     return std::unexpected(S_->Error);
