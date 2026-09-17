@@ -403,8 +403,8 @@ public:
   [[nodiscard]] const EntityRegistry &entities() const;
   /// Borrow diagnostic names of declaration sections carried without implementation.
   /// Additional generation diagnostics may be appended. This is not a capability registry.
-  /// The vector belongs to the Engine until destruction; mutations may replace its contents
-  /// and invalidate element references. Serialize access with all Engine mutations.
+  /// The returned range borrows Engine storage; mutations may replace its contents and
+  /// invalidate element references. Serialize access with all Engine mutations.
   /// @return Borrowed diagnostic names; copy to retain across mutations.
   [[nodiscard]] std::span<const std::string> unacted() const;
   /// Borrow declared and published diagnostics; each Measure supplies its own unit.
