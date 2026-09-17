@@ -57,6 +57,7 @@ Capture::Capture(Capture &&other) noexcept : Engine_(std::exchange(other.Engine_
 
 void Capture::release() noexcept {
   if (Engine_ != nullptr) {
+    Engine_->S_->World.GroundPublished.EndCapture();
     Engine_->S_->Capturing = false;
     Engine_ = nullptr;
   }
@@ -64,7 +65,7 @@ void Capture::release() noexcept {
 
 Capture &Capture::operator=(Capture &&other) noexcept {
   if (this != &other) {
-    if (Engine_ != nullptr) { Engine_->S_->Capturing = false; }
+    release();
     Engine_ = std::exchange(other.Engine_, nullptr);
   }
   return *this;
@@ -255,6 +256,9 @@ Holds<Capture> Engine::beginCapture() {
   }
   if (S_->Session.Declared.Ground.Declared && !settled()) {
     return std::unexpected("capture requires a settled published world");
+  }
+  if (S_->Session.Declared.Ground.Declared && !S_->World.GroundPublished.BeginCapture()) {
+    return std::unexpected("capture could not pin the published ground");
   }
   S_->Capturing = true;
   return Capture(*this);

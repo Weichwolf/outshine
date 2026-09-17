@@ -58,7 +58,7 @@ int main() {
       world.RimsMissing = 2;
       const GroundRevision oldRevision{.Region = 17};
       const GroundRevision nextRevision{.Region = 18};
-      world.GroundPublished.Publish(oldRevision);
+      CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
       Core::Live *const oldScene = scene.get();
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
       const auto page = scene->PlaceHeightPage(nodes);
@@ -113,6 +113,23 @@ int main() {
                   world.RimsMissing == 2 && world.Relaid == 0 &&
                   world.GroundPublished.NeedsRebuild(nextRevision, false, false),
               "late failure preserves CPU terrain, network metadata and publication revision");
+      }
+      {
+        GroundWorldCandidate held(renderer, world, footprints);
+        const auto heldPrepared = held.Prepare(*scene, nullptr);
+        CHECK(heldPrepared.has_value(), "capture candidate prepares against the published world");
+        if (heldPrepared) {
+          held.Products().PositionsM = {9, 8, 7};
+          held.Products().Indices = {0, 0, 0};
+          held.Products().NetworkOfWays = 19;
+          CHECK(world.GroundPublished.BeginCapture(), "published ground enters capture");
+          const auto heldResult = held.Publish(world, footprints, scene, nextRevision);
+          CHECK(!heldResult && scene.get() == oldScene &&
+                    world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
+                    world.NetworkOfWays == 7 && world.Relaid == 0,
+                "capture refuses a late candidate before changing live or CPU world products");
+          world.GroundPublished.EndCapture();
+        }
       }
       GroundWorldCandidate retry(renderer, world, footprints);
       const auto prepared = retry.Prepare(*scene, nullptr);

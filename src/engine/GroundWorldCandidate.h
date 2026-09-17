@@ -70,6 +70,9 @@ public:
                                                          Ground::BuildingField &footprints,
                                                          std::unique_ptr<Core::Live> &published,
                                                          const GroundRevision &revision) {
+    if (!world.GroundPublished.CanPublish()) {
+      return std::unexpected("a capture holds the published ground");
+    }
     if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
     footprints = std::move(Products_.Footprints);
     world.Sheets = std::move(Products_.Sheets);
@@ -81,7 +84,9 @@ public:
     world.Pieces = std::move(Products_.Pieces);
     world.Pieces.Wears(Products_.Surfaces);
     world.BindLiveResources(*published);
-    world.GroundPublished.Publish(revision);
+    if (!world.GroundPublished.Publish(revision)) {
+      return std::unexpected("a capture holds the published ground");
+    }
     ++world.Relaid;
     return {};
   }

@@ -23,7 +23,9 @@ Stand 2026-09-18: Drei Cache-warme Läufe mit `--no-vegetation --preload-seconds
 erzeugten nach dem Capture-Clientpfad `Graz-cf91dc2d.png`; der direkte Vergleich zweier
 getrennter Dateien meldet 0/921600 abweichende Pixel. Der Screenshot und Readback liegen
 jetzt im RAII-Bereich, öffentliche Weltmutationen sind gesperrt. Das beweist nur den
-seriellen Clientlauf: Revision-Pins und die vertauschte Workerfertigstellung fehlen weiter.
+seriellen Clientlauf. `GroundPublication` schließt während Capture zusätzlich den
+Ground-Candidate-Commit vor jeder Live-/CPU-Änderung; dessen Negativtest ist grün.
+Pro-Tile-Quell- und Produktrevisionen sowie die vertauschte Workerfertigstellung fehlen weiter.
 
 ## Verbindliche Architekturentscheidung
 

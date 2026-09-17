@@ -298,8 +298,8 @@ public:
   /// Rendering, readback and diagnostics remain permitted. Simulation, declarations, geometry,
   /// targets, roots, generator registration, views, preload and state restore are refused until
   /// release() or destruction. Input dispatch is refused; audio mixing and diagnostics remain
-  /// available because they do not publish visual world state. Worker products remain private
-  /// while the lock is held.
+  /// available because they do not publish visual world state. Ground publication is pinned at
+  /// its candidate commit boundary; worker products remain private while the lock is held.
   /// @return A move-only lock, or an owned scene/readiness/overlap error.
   [[nodiscard]] Holds<Capture> beginCapture();
 

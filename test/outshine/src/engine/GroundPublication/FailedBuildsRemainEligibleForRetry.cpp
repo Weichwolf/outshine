@@ -12,7 +12,7 @@ int main() {
         "an unpublished world needs its first build even without tile arrivals");
   CHECK(publication.NeedsRebuild(initial, false, false) && !publication.Current(),
         "requesting a build that never publishes does not suppress retry");
-  publication.Publish(initial);
+  CHECK(publication.Publish(initial), "the first complete ground revision publishes");
   CHECK(!publication.NeedsRebuild(initial, true, false),
         "the successfully published revision needs no duplicate build");
   std::array<GroundRevision, 6> changed{initial, initial, initial, initial, initial, initial};
@@ -38,7 +38,13 @@ int main() {
   CHECK(!publication.NeedsRebuild(initial, false, true) &&
             publication.NeedsRebuild(initial, true, true),
         "missing neighbour rims remain eligible when residency updates are requested");
-  publication.Publish(changed[2]);
+  CHECK(publication.BeginCapture() && !publication.CanPublish(),
+        "capture closes the publication boundary around the complete revision");
+  CHECK(!publication.Publish(changed[2]) && publication.Current()->Footprints == initial.Footprints,
+        "a late ground revision remains unpublished while capture holds the prior revision");
+  publication.EndCapture();
+  CHECK(publication.CanPublish() && publication.Publish(changed[2]),
+        "releasing capture resumes ground publication");
   CHECK(publication.Current()->Footprints == 4 &&
             !publication.NeedsRebuild(changed[2], false, false),
         "a successful retry advances the published building revision");
