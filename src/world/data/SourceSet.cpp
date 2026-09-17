@@ -101,7 +101,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           Ledger_.FromStore++;
           Ledger_.DeliveredBytes += static_cast<long long>(kept->size());
           query.Finish();
-          return Delivery::From(decl.Id, query.At_, std::move(*kept));
+          return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(*kept));
         }
       }
       {
@@ -153,7 +153,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       ++Ledger_.Delivered;
       Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
       query.Finish();
-      return Delivery::From(decl.Id, query.At_, std::move(response.Bytes));
+      return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(response.Bytes));
     }
     case Meaning::Absent: {
       if (decl.OnAbsent == AbsencePolicy::Refuse) { return Refuse(query, kRetryCapMs); }

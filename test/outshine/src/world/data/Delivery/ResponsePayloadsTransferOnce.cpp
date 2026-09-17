@@ -27,7 +27,8 @@ int main() {
   using namespace outshine::Test;
   CheckOwnership(Wire::Answered(200, {1, 2}), Wire::Working());
   CheckOwnership(Fetched::Delivered({3, 4}), Fetched::Working());
-  CheckOwnership(Delivery::From("source", Address::Whole(7), {5, 6}), Delivery::Waiting());
+  CheckOwnership(Delivery::From("source", "revision", Address::Whole(7), {5, 6}),
+                 Delivery::Waiting());
   std::vector<uint8_t> bytes{7, 8, 9};
   const auto *storage = bytes.data();
   auto wire = Wire::Answered(200, std::move(bytes), 0.5);
@@ -43,10 +44,11 @@ int main() {
         "source interpretation transfers the same allocation");
   CHECK(!fetched.Take(), "source payload is consumed exactly once");
   if (!settled) { return Report(); }
-  auto delivered = Delivery::From("origin", Address::Whole(7), std::move(settled->Bytes));
+  auto delivered =
+      Delivery::From("origin", "revision", Address::Whole(7), std::move(settled->Bytes));
   const auto answer = delivered.Take();
-  CHECK(answer && answer->SourceId == "origin" && answer->Bytes.data() == storage &&
-            answer->Bytes == std::vector<uint8_t>({7, 8, 9}),
+  CHECK(answer && answer->SourceId == "origin" && answer->SourceRevision == "revision" &&
+            answer->Bytes.data() == storage && answer->Bytes == std::vector<uint8_t>({7, 8, 9}),
         "delivery transfers original storage and source identity");
   CHECK(!delivered.Take(), "delivery payload is consumed exactly once");
   auto empty = Wire::Answered(204, {});

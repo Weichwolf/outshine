@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <ratio>
 #include <thread>
 #include <vector>
@@ -162,7 +163,10 @@ TilePool::Ledger TilePool::Counters() const {
 size_t TilePool::ByteCacheBytes() const {
   const std::scoped_lock lock(CacheMutex_);
   size_t bytes = CapacityBytes(Cache_);
-  for (const CacheEntry &e : Cache_) { bytes += e.Key.capacity() + CapacityBytes(e.Data); }
+  for (const CacheEntry &e : Cache_) {
+    bytes += e.Key.capacity() + e.SourceId.capacity() + e.SourceRevision.capacity() +
+             CapacityBytes(e.Data);
+  }
   return bytes;
 }
 
@@ -215,12 +219,19 @@ TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
   if (e.Absent) { return Reply::Absent; }
   if (e.Data.empty() && e.RefusedUntilMs > 0.0) { return Reply::Pending; }
   out->Bytes.assign(e.Data.begin(), e.Data.end());
+  out->SourceId = e.SourceId;
+  out->SourceRevision = e.SourceRevision;
   out->At = e.At;
   return Reply::Ready;
 }
 
-void TilePool::Remember(
-    const std::string &key, const uint8_t *data, size_t len, const Data::Address &at, bool absent) {
+void TilePool::Remember(const std::string &key,
+                        const uint8_t *data,
+                        size_t len,
+                        const Data::Address &at,
+                        std::string_view sourceId,
+                        std::string_view sourceRevision,
+                        bool absent) {
   const std::scoped_lock lock(CacheMutex_);
   if (CacheAt_.contains(key)) { return; }
   long evicted = 0;
@@ -246,6 +257,8 @@ void TilePool::Remember(
   CacheEntry e;
   e.Key = key;
   e.At = at;
+  e.SourceId = sourceId;
+  e.SourceRevision = sourceRevision;
   e.Absent = absent;
   e.Used = ++CacheClock_;
   if (!absent && len > 0) { e.Data.assign(data, data + len); }
@@ -276,8 +289,16 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     if (std::optional<Data::Delivery::Answer> taken = answer.Take()) {
       out->Bytes = std::move(taken->Bytes);
+      out->SourceId = std::move(taken->SourceId);
+      out->SourceRevision = std::move(taken->SourceRevision);
       out->At = taken->At;
-      Remember(key, out->Bytes.data(), out->Bytes.size(), taken->At, false);
+      Remember(key,
+               out->Bytes.data(),
+               out->Bytes.size(),
+               taken->At,
+               out->SourceId,
+               out->SourceRevision,
+               false);
       reply = Reply::Ready;
       break;
     }
@@ -285,7 +306,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
       case Data::Delivery::State::Pending: (void)Wire_.Await(static_cast<double>(kPollMs)); break;
       case Data::Delivery::State::Vacant:
 
-        Remember(key, nullptr, 0, request.Where(), true);
+        Remember(key, nullptr, 0, request.Where(), {}, {}, true);
         reply = Reply::Absent;
         break;
       case Data::Delivery::State::Undeclared:

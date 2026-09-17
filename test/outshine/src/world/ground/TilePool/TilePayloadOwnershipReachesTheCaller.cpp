@@ -20,7 +20,7 @@ public:
 
 class ByteSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "owned", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "owned", .Revision = "fixture-r1", .Keeps = Cacheability::Never};
   mutable std::vector<uint8_t> Bytes{1, 2, 3};
   mutable int Calls = 0;
 
@@ -56,12 +56,15 @@ int main() {
         "source supplies tile bytes");
   CHECK(first.Bytes.data() == allocation && first.Bytes == std::vector<uint8_t>({1, 2, 3}),
         "caller receives the source allocation without an intermediate copy");
+  CHECK(first.SourceId == "owned" && first.SourceRevision == "fixture-r1",
+        "caller receives the declared source identity with tile bytes");
   if (!first.Bytes.empty()) { first.Bytes[0] = 9; }
   TilePool::Landing cached;
   CHECK(pool.BytesBlocking(request, &cached) == TilePool::Reply::Ready,
         "cached tile remains available");
-  CHECK(cached.Bytes == std::vector<uint8_t>({1, 2, 3}) && probe->Calls == 1,
-        "cache owns an independent snapshot and does not refetch");
+  CHECK(cached.Bytes == std::vector<uint8_t>({1, 2, 3}) && cached.SourceId == "owned" &&
+            cached.SourceRevision == "fixture-r1" && probe->Calls == 1,
+        "cache owns an independent payload and provenance snapshot without refetching");
   TilePool::Landing asynchronous;
   CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(1)), &asynchronous) ==
             TilePool::Reply::Pending,

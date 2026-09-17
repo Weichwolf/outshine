@@ -11,6 +11,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -108,6 +109,8 @@ public:
 
   struct Landing {
     std::vector<uint8_t> Bytes;
+    std::string SourceId;
+    std::string SourceRevision;
     Data::Address At = Data::Address::Whole(0);
   };
 
@@ -155,6 +158,8 @@ private:
   struct CacheEntry {
     std::string Key;
     std::vector<uint8_t> Data;
+    std::string SourceId;
+    std::string SourceRevision;
 
     Data::Address At = Data::Address::Whole(0);
     bool Absent = false;
@@ -182,6 +187,8 @@ private:
                 const uint8_t *data,
                 size_t len,
                 const Data::Address &at,
+                std::string_view sourceId,
+                std::string_view sourceRevision,
                 bool absent);
   [[nodiscard]] Reply FetchInto(const Data::Fetch &request, Landing *out);
 

@@ -32,13 +32,16 @@ public:
 
   struct Answer {
     std::string SourceId;
+    std::string SourceRevision;
     Address At = Address::Whole(0);
     std::vector<uint8_t> Bytes;
   };
 
-  [[nodiscard]] static Delivery From(std::string sourceId, Address at, std::vector<uint8_t> bytes) {
+  [[nodiscard]] static Delivery
+  From(std::string sourceId, std::string sourceRevision, Address at, std::vector<uint8_t> bytes) {
     Delivery d(State::Delivered);
     d.Answer_.SourceId = std::move(sourceId);
+    d.Answer_.SourceRevision = std::move(sourceRevision);
     d.Answer_.At = at;
     d.Answer_.Bytes = std::move(bytes);
     return d;
