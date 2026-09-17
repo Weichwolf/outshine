@@ -85,7 +85,7 @@ constexpr size_t kBounceProbeStride = 16;
 class GroundBuildState {
 public:
   enum class SheetPhase : uint8_t { NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
-  enum class Stage : uint8_t { NeedsClasses, NeedsGeometry };
+  enum class Stage : uint8_t { NeedsClasses, NeedsGroundSurface, NeedsGeometry };
 
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
@@ -911,6 +911,29 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
   Classed classed = Classify(build.PositionsM, live);
   build.ClassPalette = std::move(classed.Palette);
   build.ClassStructure = std::move(classed.Structure);
+  state.AdvancesTo(GroundBuildState::Stage::NeedsGroundSurface);
+  return GroundBuildProgress::Pending;
+}
+
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
+    return GroundBuildProgress::Ready;
+  }
+  GroundBuildProducts &build = state.Candidate().Products();
+  Material bare;
+  const Render::Medium held = Render::kEarthAir;
+  for (int channel = 0; channel < 3; ++channel) {
+    bare.BaseColour[channel] = held.GroundAlbedo[channel];
+  }
+  const auto ringSurface = build.Ground.addSurface("ground", bare);
+  if (!ringSurface) {
+    Error = Says::MaterialCreationFailed;
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  build.GroundMaterial = bare;
+  build.GroundSurface = *ringSurface;
   state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
   return GroundBuildProgress::Pending;
 }
@@ -967,22 +990,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     return sheetProgress != GroundBuildProgress::Failed;
   }
   const GroundBuildProgress classes = BeginsGroundClasses();
-  if (classes != GroundBuildProgress::Ready) { return classes != GroundBuildProgress::Failed; }
+  if (classes == GroundBuildProgress::Failed) { return false; }
+  const GroundBuildProgress materialProgress = BeginsGroundSurface();
+  if (materialProgress != GroundBuildProgress::Ready) {
+    return materialProgress != GroundBuildProgress::Failed;
+  }
   const std::vector<float> &classPalette = build.ClassPalette;
   const std::shared_ptr<const ClassStructure> &classStructure = build.ClassStructure;
   Geometry &ground = build.Ground;
-  Material bare;
-  {
-    const Render::Medium held = Render::kEarthAir;
-    for (int channel = 0; channel < 3; ++channel) {
-      bare.BaseColour[channel] = held.GroundAlbedo[channel];
-    }
-  }
-  const auto ringSurface = ground.addSurface("ground", bare);
-  if (!ringSurface) {
-    Error = Says::MaterialCreationFailed;
-    return false;
-  }
+  const Material &bare = build.GroundMaterial;
+  const MaterialInstance ringSurface = build.GroundSurface;
 
   Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
   {
@@ -1094,7 +1111,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("ground: sheets NOT drawn for want of nodes",
                    static_cast<double>(build.Sheets.Flat()),
                    "tiles");
-  if (!BuildWaterSurfaces(standing, ground, *ringSurface)) { return false; }
+  if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
 
   Published.Places(
       "rebuild: of that, the streets and the water",
@@ -1116,7 +1133,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
-  live.GroundIs(ringSurface->index());
+  live.GroundIs(ringSurface.index());
   if (classStructure && !classPalette.empty() &&
       !live.GroundClasses({classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},
                           classPalette,
