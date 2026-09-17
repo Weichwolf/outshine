@@ -32,7 +32,7 @@ constexpr double kTilePx = 256.0;
 /// @return tileSpanM / 256 for positive input, otherwise zero; NaN also produces zero.
 /// This heuristic does not prove which OSM features exist or can safely be discarded.
 /// No allocation, ownership transfer or coordinate conversion; safe for concurrent calls.
-[[nodiscard]] constexpr double CarriesFromM(double tileSpanM) {
+[[nodiscard]] constexpr double CarriesFromM(double tileSpanM) noexcept {
   return tileSpanM > 0.0 ? tileSpanM / kTilePx : 0.0;
 }
 
@@ -58,11 +58,13 @@ constexpr double kAverageDayRangeM =
 /// @return Model range in metres; positive infinity yields zero. This is not a geometric
 ///         horizon, actual weather observation or universal physical visibility limit.
 /// No allocation or mutation; safe for concurrent calls. Molecular extinction remains fixed.
-[[nodiscard]] constexpr double VisualRangeM(double haze) {
+[[nodiscard]] constexpr double VisualRangeM(double haze) noexcept {
   const double perKm = kRayleighExtinctionPerKm + kMieExtinctionPerKm * (haze > 0.0 ? haze : 0.0);
   return kContrastThresholdLn / perKm * kMPerKm;
 }
 
+static_assert(noexcept(CarriesFromM(0.0)) && noexcept(VisualRangeM(0.0)),
+              "pure visibility arithmetic does not throw");
 static_assert(VisualRangeM(0.0) == kClearAirRangeM, "zero aerosol matches the model baseline");
 static_assert(VisualRangeM(1.0) == kAverageDayRangeM,
               "unit haze matches the reference aerosol level");
