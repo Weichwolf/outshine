@@ -51,16 +51,12 @@ private; a frame never observes partially rebuilt terrain or a partial building 
 
 ## Measurement
 
-2026-09-17: completed ranges now resume during initial preload. The floor-contact executable still
-missed its 15 s bound at 15.47 s (23/27 tiles, four jobs, estimated 629 structures remaining,
-maximum completed slice 4.65 ms). This disproves a costly single-range tail but does not yet prove
-the full residency budget; scheduler throughput and tile admission remain open.
+2026-09-17: candidate-owned footprints and pieces remove the active-world handoff from the
+preload critical path. `ScoreAFootprintStandsOnALevelFloor` passed its unchanged public
+floor/road checks in 3.55 s. This proves the small contact case, not throughput for dense tiles.
 
-2026-09-17: deferring intermediate ground rebuilds produced a ready floor-contact Place in
-12.74 s. The unchanged test passed all five floor/road contact checks; terrain and vector inputs
-were ready by 0.47 s. The serial rebuild of each intermediate footprint revision was the remaining
-critical-path error.
-
-A repeat completed at 16.50 s because `preload` checked its deadline before the final synchronous
-ground build only. The Place test now enforces its declared 15 s wall-clock budget; bounded final
-world assembly remains open.
+2026-09-17: Graz still misses its 15 s residency limit with 6,255 structures: four queued bake
+jobs complete 15 of 19 landings, mean 26.81 ms and maximum 126.05 ms. The work unit is therefore
+still too coarse for dense OSM coverage. Measure range distribution and final clustering separately
+before changing `kStructuresPerRange` or worker-task grouping; a smaller constant without a
+throughput measurement is not a solution.
