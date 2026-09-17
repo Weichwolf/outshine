@@ -7,6 +7,12 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  static_assert(noexcept(Describe(MaterialError::InvalidMaterial)) &&
+                noexcept(Describe(GeometryImageError::ByteCountMismatch)));
+  CHECK(Describe(MaterialError::MissingMaterial) == "material is absent" &&
+            Describe(GeometryImageError::ByteCountMismatch) ==
+                "image byte count does not match dimensions",
+        "native mutation errors carry stable diagnostic text");
   Geometry geometry;
   Material valid;
   const auto surface = geometry.addSurface("material", valid).value();

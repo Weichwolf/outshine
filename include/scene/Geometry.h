@@ -66,6 +66,30 @@ enum class GeometryImageError {
   CapacityExceeded   ///< Another owner-local image index cannot be represented.
 };
 
+/// Stable diagnostic text for a native geometry mutation error.
+/// @param error Typed mutation failure to describe.
+/// @return Static text; no allocation or owner access.
+[[nodiscard]] constexpr std::string_view Describe(MaterialError error) noexcept {
+  switch (error) {
+    case MaterialError::CapacityExceeded: return "material capacity exceeded";
+    case MaterialError::MissingMaterial: return "material is absent";
+    case MaterialError::InvalidMaterial: return "material values or image bindings are invalid";
+  }
+  return "unknown material error";
+}
+
+/// Stable diagnostic text for a native RGBA8 image mutation error.
+/// @param error Typed image failure to describe.
+/// @return Static text; no allocation or owner access.
+[[nodiscard]] constexpr std::string_view Describe(GeometryImageError error) noexcept {
+  switch (error) {
+    case GeometryImageError::InvalidDimensions: return "image dimensions are invalid";
+    case GeometryImageError::ByteCountMismatch: return "image byte count does not match dimensions";
+    case GeometryImageError::CapacityExceeded: return "image capacity exceeded";
+  }
+  return "unknown image error";
+}
+
 /// Move-only owner of CPU mesh attributes, materials, images, lights and part placements.
 /// Vertex positions are local metres in a right-handed, Y-up frame; triangles use CCW
 /// front faces. Part placements map local coordinates into model space. No import-format
