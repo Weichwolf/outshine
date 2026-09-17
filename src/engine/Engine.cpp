@@ -348,7 +348,7 @@ bool Engine::State::CanFinishPreload() const {
 }
 
 bool Engine::State::CanAdvanceGroundCandidate() const {
-  return World.GroundBuild != nullptr && World.Grown && World.Stack.Ingested();
+  return World.GroundBuild != nullptr && World.Stack.Ingested();
 }
 
 Result Engine::State::FinishesPreload() {
