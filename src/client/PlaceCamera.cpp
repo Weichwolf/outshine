@@ -433,7 +433,7 @@ Shot Draw(Engine &engine,
 
   if (!MeasureFrames(engine, name, shot)) { return shot; }
 
-  shot.Measures = engine.measures();
+  shot.Measures.assign(engine.measures().begin(), engine.measures().end());
 
   return shot;
 }

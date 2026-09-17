@@ -138,7 +138,7 @@ int main(void) {
     return Report();
   }
 
-  const std::vector<outshine::Measure> &told = engine.measures();
+  const std::span<const outshine::Measure> told = engine.measures();
   const double pads = Measured(told, "ground: pads with a lattice node inside");
   const double padsUnreached = Measured(told, "ground: pads no lattice node reaches");
   const double padNodes = Measured(told, "ground: nodes inside those pads");

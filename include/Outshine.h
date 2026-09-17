@@ -406,13 +406,13 @@ public:
   /// The vector belongs to the Engine until destruction; mutations may replace its contents
   /// and invalidate element references. Serialize access with all Engine mutations.
   /// @return Borrowed diagnostic names; copy to retain across mutations.
-  [[nodiscard]] const std::vector<std::string> &unacted() const;
+  [[nodiscard]] std::span<const std::string> unacted() const;
   /// Borrow declared and published diagnostics; each Measure supplies its own unit.
   /// Values may come from different updates and persist when not refreshed; not a frame snapshot.
   /// The vector lives until Engine destruction. Publication/declaration may change values or
   /// invalidate element references. Serialize access with Engine mutations; copying allocates.
   /// @return Borrowed measurements with per-entry units and update histories.
-  [[nodiscard]] const std::vector<Measure> &measures() const;
+  [[nodiscard]] std::span<const Measure> measures() const;
 
   /// Allocate two CPU timing rings with up to steps entries each, discarding saved samples.
   /// Zero disables retention; aggregate counters remain. Call during setup and serialize with

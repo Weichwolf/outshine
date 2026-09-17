@@ -89,7 +89,7 @@ int main(void) {
     return Report();
   }
 
-  const std::vector<outshine::Measure> &told = engine.measures();
+  const std::span<const outshine::Measure> told = engine.measures();
   const double took = Measured(told, "streets: the geometry took them");
   const double against = Measured(told, "streets: triangles wound against their normals");
   std::printf("STREETS  the geometry took them %.0f   triangles wound against their normals %.0f\n",

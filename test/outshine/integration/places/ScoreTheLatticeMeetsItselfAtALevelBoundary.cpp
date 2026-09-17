@@ -90,7 +90,7 @@ int main(void) {
     return Report();
   }
 
-  const std::vector<outshine::Measure> &told = engine.measures();
+  const std::span<const outshine::Measure> told = engine.measures();
   const double virtualEdges = Measured(told, "ground: seam, virtual, edges stitched");
   const double virtualEven =
       Measured(told, "ground: seam, virtual, even nodes off the coarser node, worst");

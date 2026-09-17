@@ -184,11 +184,11 @@ Result Engine::offers(const Generators::Generator &maker) {
                              : Says::kDuplicateGeneratorKind);
 }
 
-const std::vector<std::string> &Engine::unacted() const {
+std::span<const std::string> Engine::unacted() const {
   return S_->Session.Carried;
 }
 
-const std::vector<Measure> &Engine::measures() const {
+std::span<const Measure> Engine::measures() const {
   return S_->Published.Numbers();
 }
 

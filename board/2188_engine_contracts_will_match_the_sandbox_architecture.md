@@ -92,6 +92,9 @@ Architekturfrage den nächsten unabhängigen Schritt wählen; keine gleichzeitig
 Diese Reihenfolge ist Priorität, kein zusätzlicher Depends-Zyklus. Bereits vorhandene
 Kandidaten nutzen; offene Nachweise nicht als noch fehlende Implementierung ausgeben.
 Tidy null und vollständige API-Dokumentation sind Pflicht, keine alleinige Architekturabnahme.
+Öffentliche geliehene Surface-/Mess-/Diagnosefolgen verwenden `std::span<const T>`;
+Konfigurationsdaten werden erst im jeweiligen Kandidaten kopiert. Array-Aufrufer,
+Invalidierung und Retry gehören zu den jeweiligen öffentlichen Vertragsprüfungen.
 
 - [ ] Minimaler externer Client nutzt nur installierbare öffentliche Header/Library.
 - [ ] Fenster, Offscreen, mehrere Engines, Fehler/Redeclare und Shutdown geprüft.
