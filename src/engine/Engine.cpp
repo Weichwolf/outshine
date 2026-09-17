@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cmath>
 #include <ratio>
+#include <span>
 
 namespace outshine {
 
