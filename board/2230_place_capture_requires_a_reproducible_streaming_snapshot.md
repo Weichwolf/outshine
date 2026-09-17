@@ -59,6 +59,12 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    akzeptierte Revisionen, Kamera/Zeit/Samples und native Produktdaten. Nur eine kompakte
    Differenzdiagnose ins System-Temp; keine vollständigen Meshlogs. Reihenfolgeunterschiede
    über stabile Quellidentitäten vergleichen, nicht über zufällige Runtime-Handles.
+   Der vorhandene Datenfluss verwirft `SourceDecl::Revision` nach `SourceSet::Collect`:
+   `Delivery::Answer` und `TilePool::Landing` führen derzeit nur Quelle/Adresse bzw. Bytes.
+   Zuerst Quelle-ID und deklarierte Revision bis zur residenten Terrain-/Vektorkachel tragen;
+   der veröffentlichte Stand erhält daraus eine sortierte, wertbesitzende Arbeitsset-Identität
+   und eine monotone akzeptierte Produktrevision. Cache-Key und Capture-Diagnose verwenden
+   dieselbe Identität. Die Revision ist kein Payload-Hash und kein Runtime-Handle.
 2. Engine-eigene Capture-Sitzung und Client-Anbindung implementieren. Bestehende
    preload-/Readiness-Bedingungen wiederverwenden; Readback wartet auf seinen Submit.
    Referenz: lokales ../SDL, Stand fa2c02b, include/SDL3/SDL_gpu.h, Fence-Vertrag.
