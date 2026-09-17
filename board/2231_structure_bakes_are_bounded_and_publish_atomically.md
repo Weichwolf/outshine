@@ -31,6 +31,10 @@ The initial preload phase resumes completed ranges before a ground snapshot is p
 advance private aggregates, but cannot hand off a partial tile; publication remains in the landing
 phase.
 
+One worker task owns at most four 64-structure ranges. It records the slowest individual range,
+then yields the aggregate to the main thread. This bounds worker work while avoiding one full
+engine-pump delay after every 64 structures.
+
 ## Acceptance
 
 - A fixture with more than two ranges has no published footprint or geometry before its final range;

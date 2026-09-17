@@ -28,7 +28,8 @@ namespace {
 constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBakesPerThread = 1;
-constexpr size_t kStructuresPerSlice = 64;
+constexpr size_t kStructuresPerRange = 64;
+constexpr size_t kRangesPerWorkerTask = 4;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 int PitchedOf(std::string_view said) {
@@ -178,16 +179,23 @@ void StructureBakes::PostSlice(Job &job) {
     const auto began = std::chrono::steady_clock::now();
     static const Heap::Tag kBakingTag("structure-bake");
     const Heap::Tagged baking(kBakingTag);
-    const auto advanced = progress->Advance(
-        *raw, *under, *mesher, *scratch, out->Tile, kStructuresPerSlice, stopping.get());
-    if (!advanced) {
-      out->Status = std::unexpected(advanced.error());
-    } else {
+    out->LastSliceMs = 0.0;
+    for (size_t range = 0; range < kRangesPerWorkerTask && !out->Complete; ++range) {
+      const auto rangeBegan = std::chrono::steady_clock::now();
+      const auto advanced = progress->Advance(
+          *raw, *under, *mesher, *scratch, out->Tile, kStructuresPerRange, stopping.get());
+      const double rangeMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rangeBegan)
+              .count();
+      out->LastSliceMs = std::max(out->LastSliceMs, rangeMs);
+      if (!advanced) {
+        out->Status = std::unexpected(advanced.error());
+        break;
+      }
       out->Complete = *advanced;
     }
-    out->LastSliceMs =
+    out->BakeMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    out->BakeMs += out->LastSliceMs;
   });
 }
 
