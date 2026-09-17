@@ -89,7 +89,8 @@ int main(void) {
     const Tasks::Handle posted = pool.Post([] {});
     CHECK(pool.AwaitCompletion(1.0),
           "a completion wait wakes for a worker result without consuming its handle");
-    pool.Wait(posted);
+    CHECK(pool.Done(posted), "Done consumes a completed handle exactly once");
+    CHECK(!pool.Done(posted), "a consumed completion cannot be consumed again");
   }
 
   Covers("board:2122 the compute pool: every job runs once on a worker, the poster consumes in "
