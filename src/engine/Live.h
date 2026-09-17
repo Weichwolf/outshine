@@ -492,6 +492,7 @@ private:
   Mat4 SentBuilt_{};
 
   std::vector<Box> PartBounds_;
+  void CapturesPreviousPositions();
   void CoverShapedParts();
   [[nodiscard]] bool PartVolumes(std::string &error);
   Render::SurfaceTable Table_;
@@ -564,6 +565,7 @@ private:
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
+  std::vector<double> PreviousPositionsM_;
   int GroundSurface_ = -1;
   void WearsPieces();
   uint64_t ShapedAt_ = 0;

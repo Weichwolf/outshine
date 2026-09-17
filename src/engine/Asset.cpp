@@ -58,21 +58,15 @@ bool Posed::Reads(const Sited &asset,
 }
 
 bool Posed::Measures(double seconds, std::string &error) {
-  return PoseInto(seconds, false, error);
+  return PoseInto(seconds, error);
 }
 
 bool Posed::Poses(double seconds, std::string &error) {
-  return PoseInto(seconds, true, error);
+  return PoseInto(seconds, error);
 }
 
-bool Posed::PoseInto(double seconds, bool records, std::string &error) {
+bool Posed::PoseInto(double seconds, std::string &error) {
   if (Moves_) {
-    const bool first = Assembled_.VertexCount() == 0;
-    if (!first && records) {
-      static const Heap::Tag kCopyingTag("pose-previous");
-      const Heap::Tagged copying(kCopyingTag);
-      PreviousPositionsM_ = Assembled_.PositionsM();
-    }
     Motion_.At(seconds, Locals_, Weights_);
     {
       uint64_t keyed = kDigestBasis;
@@ -90,7 +84,6 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
                          std::span<const double>(Weights_.data(), Weights_.size()),
                          Variant_)) {
       Changed_ += 1;
-      if (first && records) { PreviousPositionsM_ = Assembled_.PositionsM(); }
       {
         uint64_t keyed = kDigestBasis;
         for (const double part : Assembled_.PositionsM()) {

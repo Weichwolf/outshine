@@ -60,8 +60,6 @@ public:
 
   [[nodiscard]] bool Measures(double seconds, std::string &error);
 
-  [[nodiscard]] const std::vector<double> &Previous() const { return PreviousPositionsM_; }
-
   [[nodiscard]] bool Moves() const { return Moves_; }
 
   [[nodiscard]] double LocalsDigest() const { return LocalsDigest_; }
@@ -97,8 +95,7 @@ private:
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;
   std::vector<double> Weights_;
-  [[nodiscard]] bool PoseInto(double seconds, bool records, std::string &error);
-  std::vector<double> PreviousPositionsM_;
+  [[nodiscard]] bool PoseInto(double seconds, std::string &error);
   bool Moves_ = false;
   double LocalsDigest_ = 0.0;
   double AssembledDigest_ = 0.0;
