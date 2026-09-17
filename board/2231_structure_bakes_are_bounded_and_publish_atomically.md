@@ -1,7 +1,7 @@
 Type: defect
 State: active
 Parent: 2105
-Depends: 2227
+Depends:
 Area: engine, generators, world
 Tags: streaming, realtime, ownership
 
@@ -38,6 +38,17 @@ engine-pump delay after every 64 structures.
 Preload creates an initial ground candidate to establish material resources, then defers its next
 ground rebuild until every structure bake has landed. Intermediate footprint revisions remain
 private; a frame never observes partially rebuilt terrain or a partial building tile.
+
+## Next implementation
+
+Priority P0. The production scheduler already carries `StructureBakeProgress`, takes 64
+structures per range and runs at most four ranges per task. Prove that contract before changing
+its constants: add a deterministic fixture with more than 256 structures and an observable
+candidate world A. It must show that every intermediate completion leaves A's footprints,
+pieces, revision and readback intact; only the final range yields B. Then make the per-range
+structure cap and the measured task/slice maxima explicit diagnostics of the public preload
+failure. If clustering exceeds the same bound, split only clustering into resumable slices with
+the source order preserved. Do not split the published tile or relax the 15-second Place limit.
 
 ## Acceptance
 

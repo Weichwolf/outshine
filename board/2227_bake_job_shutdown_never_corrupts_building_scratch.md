@@ -2,7 +2,7 @@ Type: bug
 State: active
 Area: engine, generators, world
 Parent: 2105
-Depends: 2224
+Depends:
 Tags: ownership, streaming, shutdown
 
 # Bake-job shutdown never corrupts building scratch
@@ -31,3 +31,10 @@ its ownership contract.
   ASan/UBSan.
 - A deliberately premature scratch release is detected by the sanitizer test; normal shutdown has
   no allocator finding, trap or leak.
+
+## Priority
+
+The ownership repair is independent of renderer-world replacement: workers own only their job
+storage, and `Clear` joins them before that storage is released. It therefore must not block
+WI 2231. Keep this WI active only until the focused cancellation test is present; it is a
+correctness check, not a prerequisite for bounded range scheduling.

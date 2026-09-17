@@ -32,6 +32,13 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
 
 ## Nächste Schritte in Reihenfolge
 
+Die öffentliche Geometrieersetzung hat bereits die richtige Grenze: sie baut die
+Audio-Occlusion vor dem Kandidaten, `Live::ReplacesGeometry` bereitet alle fehlbaren
+GPU-Produkte vor, und erst `PublishesPreparedWorld` tauscht den Owner. Danach sind
+`Surrounds::BindLiveResources` und der Occlusion-Move nichtwerfende Übergaben. Ein
+fehlgeschlagener Submit lässt daher Welt, Audio und Bild bei A; ein Retry darf B
+publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung.
+
 1. Die Bake-Übergabe ist jetzt eigentümerscharf: `GroundBuildProducts` besitzt
    `BuildingField` und `TilePieces` bis `GroundWorldCandidate::Publish`.
    `StructureBakes` erhält den Footprint-Owner ausdrücklich; vor der ersten
@@ -50,7 +57,12 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
    zunächst gültige Welt A, dann B mit spätem Klassen-/Geometrie-Submitfehler.
    Materialmapping, Albedo, tatsächliches Routingnetz, GPU-Readback und Bild von A erhalten;
    Retry liefert B. Beide SDL-Submitfunktionen im bestehenden Fault-Injection-Stil erfassen.
-4. `Restands`, surface-only redeclare, Kamera-/Animationsersatz und öffentliche
+4. Öffentliche Geometrie-A→B→spätes-A samt GPU-Submit-Fehler als einzelnes
+   `test/outshine/include/Outshine/`-Oracle ergänzen. Es misst Pixel und einen
+   verdeckten Audio-Strahl von A, erzwingt die späte Ablehnung von B und verlangt
+   unmittelbar danach den erfolgreichen B-Retry. Dies belegt den bestehenden
+   Übergang; keinen zweiten Transaktionsrahmen einführen.
+5. `Restands`, surface-only redeclare, Kamera-/Animationsersatz und öffentliche
    Geometrie-/Audio-Occlusion im Übergangsinventar von WI 2191 prüfen. Pro Übergang ein
    vollständiger Änderungsschritt; kein allgemeines Transaktionsframework auf Vorrat.
 

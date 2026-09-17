@@ -84,10 +84,13 @@ P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichte
 Verbindliche Coding-Reserve, Architekturrunde 2026-09-17:
 1. 2191: Ersatz-/Animationshistorie, öffentliche Fehlerfälle vor Reparatur reproduzieren.
    Kandidaten wiederverwenden; letzter erfolgreicher Submit bestimmt Renderhistorie.
-2. 2230: Capture-Revisionsvergleich, dann Engine-eigene Snapshot-Bindung. Architekturfrage
-   entschieden; Ursachenvergleich sofort ausführbar, keine längere Wartezeit als Lösung.
-3. 2224: öffentliche A→B→spätes-A-Prüfung und Submitfehler; vorhandenen Bake-/Footprint-
-   Kandidaten vervollständigen, keine bereits implementierte Übergabe neu bauen.
+2. P0 2231: vorhandene 64er Bereiche mit mehr als vier Bereichen beweisen; keine Teilwelt
+   publizieren. Die Kündigungsprüfung 2227 ist unabhängig und blockiert diesen Schritt nicht.
+3. P0 2233: erst nach 2231 Vektor-Decode, Feldaufnahme und Bakebereiche unter einem
+   deterministischen Compute-Budget zulassen.
+4. P0 2234: danach jeden Ground-Kandidaten in dieselben messbaren, abbrechbaren Phasen zerlegen.
+5. P1 2230: verwendete Terrain-/Vektorprodukte beim Candidate erfassen und Capture gegen genau
+   diesen Stand binden; keine Cache-Gesamtheit als Snapshot ausgeben.
 Danach 2150: statischer nativer Importpfad samt Materialrelokation, anschließend native
 Animation. 2216 ist kein pauschaler Startblocker: Wertevalidierung ist bereits vorhanden;
 Restabnahmen begleiten den jeweiligen Consumer. 2228 integriert Speicherbudgets.
