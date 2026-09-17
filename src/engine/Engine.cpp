@@ -438,7 +438,10 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     ReportPreload(*this, began, tell);
     if (S_->CanFinishPreload()) {
       if (const Result finished = S_->FinishesPreload(); !finished) { return finished; }
-      if (S_->World.Bakes.Complete(S_->World.Stack) && settled()) { return Result{}; }
+      if (S_->World.Bakes.Complete(S_->World.Stack) && settled() &&
+          std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
+        return Result{};
+      }
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       return S_->PreloadTimeout(bound);
