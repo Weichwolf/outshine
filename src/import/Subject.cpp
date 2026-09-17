@@ -34,11 +34,8 @@
 
 namespace outshine::Gltf {
 namespace Says {
-constexpr auto NativeImageFailed = "native image conversion failed";
 constexpr auto NativeMaterialFailed = "native material conversion failed";
-constexpr auto NativePositionsFailed = "native position conversion failed";
 constexpr auto NativeAttributesFailed = "native vertex attribute conversion failed";
-constexpr auto NativeTrianglesFailed = "native triangle conversion failed";
 constexpr auto NativeCapacityFailed = "native assembly index or attribute capacity exhausted";
 }
 
@@ -1092,27 +1089,25 @@ std::expected<outshine::Geometry, std::string> Subject::Handed(const Document &n
 std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &out,
                                                            const Document *naming) const {
   for (const Core::Raster &image : Images_) {
-    if (!out.addImage(image.Width, image.Height, image.Rgba)) {
-      return std::unexpected(Says::NativeImageFailed);
-    }
+    const auto added = out.addImage(image.Width, image.Height, image.Rgba);
+    if (!added) { return std::unexpected(std::string(Describe(added.error()))); }
   }
   for (size_t at = 0; at < Surfaces_.size(); ++at) {
     if (!MaterialIsValid(Surfaces_[at], Images_.size())) {
       return std::unexpected(Says::NativeMaterialFailed);
     }
     const bool named = naming != nullptr && at < naming->Materials().size();
-    if (!out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at])) {
-      return std::unexpected(Says::NativeMaterialFailed);
-    }
+    const auto added =
+        out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at]);
+    if (!added) { return std::unexpected(std::string(Describe(added.error()))); }
   }
   for (const PlacedLight &lit : Lights_) {
     Mat4 placed;
     placed.SetTranslation({{lit.Light.Position[0], lit.Light.Position[1], lit.Light.Position[2]}});
     PunctualLight local = lit.Light;
     local.Position = {};
-    if (!out.addLamp(lit.NodeName, local, placed)) {
-      return std::unexpected(Says::NativeCapacityFailed);
-    }
+    const auto added = out.addLamp(lit.NodeName, local, placed);
+    if (!added) { return std::unexpected(std::string(Describe(added.error()))); }
   }
   return {};
 }
@@ -1128,17 +1123,20 @@ std::expected<outshine::Geometry, std::string> Subject::Handed(const Document *n
   };
   for (const Part &one : Parts_) {
     const auto createdPart = out.addPart(one.NodeName, MaterialInstance(one.Material));
-    if (!createdPart) { return std::unexpected(Says::NativeCapacityFailed); }
+    if (!createdPart) { return std::unexpected(std::string(Describe(createdPart.error()))); }
     const int made = *createdPart;
     const std::vector<float> positions =
         floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
-    if (!out.setPositions(made, positions)) { return std::unexpected(Says::NativePositionsFailed); }
+    const auto positioned = out.setPositions(made, positions);
+    if (!positioned) { return std::unexpected(std::string(Describe(positioned.error()))); }
 
     struct ChannelRow {
       bool Carried;
       const std::vector<double> *From;
       size_t Stride;
-      bool (*Set)(outshine::Geometry &, int, std::span<const float>);
+      std::expected<void, GeometryAttributeError> (*Set)(outshine::Geometry &,
+                                                         int,
+                                                         std::span<const float>);
     };
 
     const std::array<ChannelRow, 5> channels = {
@@ -1147,46 +1145,45 @@ std::expected<outshine::Geometry, std::string> Subject::Handed(const Document *n
           .Stride = 3,
           .Set = [](outshine::Geometry &into,
                     int at,
-                    std::span<const float> held) { return into.setNormals(at, held).has_value(); }},
+                    std::span<const float> held) { return into.setNormals(at, held); }},
          {.Carried = one.HasUv,
           .From = &Uv_,
           .Stride = 2,
-          .Set =
-              [](outshine::Geometry &into, int at, std::span<const float> held) {
-                return into.setTexture(at, held, 0).has_value();
-              }},
+          .Set = [](outshine::Geometry &into,
+                    int at,
+                    std::span<const float> held) { return into.setTexture(at, held, 0); }},
          {.Carried = one.HasUv1,
           .From = &Uv1_,
           .Stride = 2,
-          .Set =
-              [](outshine::Geometry &into, int at, std::span<const float> held) {
-                return into.setTexture(at, held, 1).has_value();
-              }},
+          .Set = [](outshine::Geometry &into,
+                    int at,
+                    std::span<const float> held) { return into.setTexture(at, held, 1); }},
          {.Carried = one.HasTangent(),
           .From = &Tangents_,
           .Stride = 4,
-          .Set =
-              [](outshine::Geometry &into, int at, std::span<const float> held) {
-                return into.setTangents(at, held).has_value();
-              }},
+          .Set = [](outshine::Geometry &into,
+                    int at,
+                    std::span<const float> held) { return into.setTangents(at, held); }},
          {.Carried = one.HasColour,
           .From = &Colours_,
           .Stride = 4,
           .Set = [](outshine::Geometry &into, int at, std::span<const float> held) {
-            return into.setColours(at, held).has_value();
+            return into.setColours(at, held);
           }}}};
 
     for (const ChannelRow &channel : channels) {
       if (!channel.Carried || channel.From->empty()) { continue; }
       const std::vector<float> held =
           floats(*channel.From, one.FirstVertex * channel.Stride, one.VertexCount * channel.Stride);
-      if (!channel.Set(out, made, held)) { return std::unexpected(Says::NativeAttributesFailed); }
+      const auto set = channel.Set(out, made, held);
+      if (!set) { return std::unexpected(std::string(Describe(set.error()))); }
     }
     std::vector<uint32_t> run(one.IndexCount);
     for (size_t at = 0; at < one.IndexCount; ++at) {
       run[at] = static_cast<uint32_t>(Indices_[one.FirstIndex + at] - one.FirstVertex);
     }
-    if (!out.setTriangles(made, run)) { return std::unexpected(Says::NativeTrianglesFailed); }
+    const auto triangulated = out.setTriangles(made, run);
+    if (!triangulated) { return std::unexpected(std::string(Describe(triangulated.error()))); }
   }
   return out;
 }

@@ -66,6 +66,39 @@ enum class GeometryImageError {
   CapacityExceeded   ///< Another owner-local image index cannot be represented.
 };
 
+/// Stable diagnostic text for a native part creation error.
+/// @param error Typed part failure to describe.
+/// @return Static text; no allocation or owner access.
+[[nodiscard]] constexpr std::string_view Describe(GeometryPartError error) noexcept {
+  if (error == GeometryPartError::CapacityExceeded) { return "part capacity exceeded"; }
+  return "unknown part error";
+}
+
+/// Stable diagnostic text for a native attribute mutation error.
+/// @param error Typed attribute failure to describe.
+/// @return Static text; no allocation or owner access.
+[[nodiscard]] constexpr std::string_view Describe(GeometryAttributeError error) noexcept {
+  switch (error) {
+    case GeometryAttributeError::MissingPart: return "part is absent";
+    case GeometryAttributeError::IncompleteTuple: return "attribute tuple count is incomplete";
+    case GeometryAttributeError::NonFiniteValue: return "attribute contains a nonfinite value";
+    case GeometryAttributeError::NonUnitNormal: return "normal is not unit length";
+    case GeometryAttributeError::InvalidTextureSet: return "texture coordinate set is invalid";
+  }
+  return "unknown attribute error";
+}
+
+/// Stable diagnostic text for a native light mutation error.
+/// @param error Typed light failure to describe.
+/// @return Static text; no allocation or owner access.
+[[nodiscard]] constexpr std::string_view Describe(LightMutationError error) noexcept {
+  switch (error) {
+    case LightMutationError::MissingLight: return "light is absent";
+    case LightMutationError::CapacityExceeded: return "light capacity exceeded";
+  }
+  return "unknown light error";
+}
+
 /// Stable diagnostic text for a native geometry mutation error.
 /// @param error Typed mutation failure to describe.
 /// @return Static text; no allocation or owner access.
