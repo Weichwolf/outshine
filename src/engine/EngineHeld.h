@@ -332,6 +332,7 @@ struct Engine::State {
   [[nodiscard]] bool CanFinishPreload() const;
   [[nodiscard]] Result PumpPreload();
   [[nodiscard]] Result PreloadOverflow();
+  [[nodiscard]] Result FinishesPreload();
   [[nodiscard]] Result PreloadTimeout(double bound);
   void AwaitPreloadProgress(double seconds);
   [[nodiscard]] bool Watches();

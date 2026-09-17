@@ -86,30 +86,49 @@ int main(void) {
     return result;
   };
   auto prepared = timed("declare", [&] { return engine.declare(stands); });
+  double preloadMs = 0.0;
   if (prepared) {
     prepared = timed("assemble", [&] { return engine.assemble(); });
   }
   if (prepared) {
     outshine::Loading loading;
+    double groundReadyS = -1.0;
+    double vectorReadyS = -1.0;
+    const auto preloadBegan = std::chrono::steady_clock::now();
     prepared = timed("preload", [&] {
-      return engine.preload(kPatienceS,
-                            [&loading](const outshine::Loading &current) { loading = current; });
+      return engine.preload(
+          kPatienceS, [&loading, &groundReadyS, &vectorReadyS](const outshine::Loading &current) {
+            loading = current;
+            if (groundReadyS < 0.0 && current.GroundWanted > 0 &&
+                current.GroundArrived == current.GroundWanted) {
+              groundReadyS = current.ElapsedS;
+            }
+            if (vectorReadyS < 0.0 && current.VectorWanted > 0 &&
+                current.VectorArrived == current.VectorWanted) {
+              vectorReadyS = current.ElapsedS;
+            }
+          });
+      preloadMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - preloadBegan)
+              .count();
     });
     if (!prepared) {
-      prepared = std::unexpected(prepared.error() +
-                                 "; streaming ground=" + std::to_string(loading.GroundArrived) +
-                                 "/" + std::to_string(loading.GroundWanted) +
-                                 ", vector=" + std::to_string(loading.VectorArrived) + "/" +
-                                 std::to_string(loading.VectorWanted) +
-                                 ", outstanding=" + std::to_string(loading.Outstanding) +
-                                 ", fetchedMiB=" + std::to_string(loading.FetchedMB) +
-                                 ", meanFetchMs=" + std::to_string(loading.MeanFetchMs));
+      prepared = std::unexpected(
+          prepared.error() + "; streaming ground=" + std::to_string(loading.GroundArrived) + "/" +
+          std::to_string(loading.GroundWanted) + ", vector=" +
+          std::to_string(loading.VectorArrived) + "/" + std::to_string(loading.VectorWanted) +
+          ", outstanding=" + std::to_string(loading.Outstanding) +
+          ", fetchedMiB=" + std::to_string(loading.FetchedMB) + ", meanFetchMs=" +
+          std::to_string(loading.MeanFetchMs) + ", groundReadyS=" + std::to_string(groundReadyS) +
+          ", vectorReadyS=" + std::to_string(vectorReadyS));
     }
   }
   if (prepared) {
     prepared = timed("advance", [&] { return engine.advance(); });
   }
   if (!prepared) {
+    std::printf("PRELOAD generator work %.3f ms\n",
+                Measured(engine.measures(), "preload: generator work"));
     Unprepared(("place preparation failed: " + prepared.error()).c_str());
     return Report();
   }
@@ -161,6 +180,10 @@ int main(void) {
         "**THE LATTICE REACHES INTO FOOTPRINTS**: at least one pad holds a lattice node inside "
         "its ring, so the claims below are about real nodes. Zero here means the resolution "
         "never reached a footprint and every claim below is vacuous");
+
+  CHECK(preloadMs <= kPatienceS * 1000.0,
+        "**THE PLACE BECOMES RESIDENT WITHIN ITS DECLARED PRELOAD BUDGET**: final world assembly "
+        "must not silently run after the 15-second budget has expired");
 
   CHECK(padWasAbove > kStampWorthM,
         "**THE NEGATIVE CONTROL: THE GROUND STOOD ABOVE THE SEAT BEFORE THE PRESS**. Without the "

@@ -35,6 +35,10 @@ One worker task owns at most four 64-structure ranges. It records the slowest in
 then yields the aggregate to the main thread. This bounds worker work while avoiding one full
 engine-pump delay after every 64 structures.
 
+Preload creates an initial ground candidate to establish material resources, then defers its next
+ground rebuild until every structure bake has landed. Intermediate footprint revisions remain
+private; a frame never observes partially rebuilt terrain or a partial building tile.
+
 ## Acceptance
 
 - A fixture with more than two ranges has no published footprint or geometry before its final range;
@@ -51,3 +55,12 @@ engine-pump delay after every 64 structures.
 missed its 15 s bound at 15.47 s (23/27 tiles, four jobs, estimated 629 structures remaining,
 maximum completed slice 4.65 ms). This disproves a costly single-range tail but does not yet prove
 the full residency budget; scheduler throughput and tile admission remain open.
+
+2026-09-17: deferring intermediate ground rebuilds produced a ready floor-contact Place in
+12.74 s. The unchanged test passed all five floor/road contact checks; terrain and vector inputs
+were ready by 0.47 s. The serial rebuild of each intermediate footprint revision was the remaining
+critical-path error.
+
+A repeat completed at 16.50 s because `preload` checked its deadline before the final synchronous
+ground build only. The Place test now enforces its declared 15 s wall-clock budget; bounded final
+world assembly remains open.

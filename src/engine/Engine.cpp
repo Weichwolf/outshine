@@ -15,6 +15,7 @@
 #include <functional>
 #include <chrono>
 #include <cmath>
+#include <ratio>
 
 namespace outshine {
 
@@ -345,6 +346,15 @@ bool Engine::State::CanFinishPreload() const {
   return World.AskedWanted > 0 && World.AskedPending == 0 && World.Grown && World.Stack.Ingested();
 }
 
+Result Engine::State::FinishesPreload() {
+  const bool bakesComplete = World.Bakes.Complete(World.Stack);
+  if ((!World.GroundPublished.Current() || bakesComplete) && !Grounds(true)) {
+    return std::unexpected(Error);
+  }
+  if (bakesComplete && !UpdateCrowns(true)) { return std::unexpected(Error); }
+  return {};
+}
+
 Result Engine::State::PumpPreload() {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.Opens();
@@ -360,7 +370,13 @@ Result Engine::State::PumpPreload() {
   }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   if (!Bakes(kBakesLandedInPreload)) { return std::unexpected(Error); }
+  const auto growthBegan = std::chrono::steady_clock::now();
   (void)Grows(atLat, atLon);
+  Published.Places(
+      "preload: generator work",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - growthBegan)
+          .count(),
+      "ms");
   return {};
 }
 
@@ -421,8 +437,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     if (const auto pumped = S_->PumpPreload(); !pumped) { return pumped; }
     ReportPreload(*this, began, tell);
     if (S_->CanFinishPreload()) {
-      if (!S_->Grounds(true)) { return std::unexpected(S_->Error); }
-      if (!S_->UpdateCrowns(true)) { return std::unexpected(S_->Error); }
+      if (const Result finished = S_->FinishesPreload(); !finished) { return finished; }
       if (S_->World.Bakes.Complete(S_->World.Stack) && settled()) { return Result{}; }
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
