@@ -62,6 +62,12 @@ the source order preserved. Do not split the published tile or relax the 15-seco
 
 ## Measurement
 
+`StructureBakePropagatesMeshFailure` prüft 257 Strukturen gegen einen One-Shot: vier
+vollständige 64er-Bereiche bleiben unvollständig, erst der fünfte schließt das Produkt,
+und beide Ergebnisse sind identisch. Ein entfernter Tile bündelt seine zwei Gebäude in
+genau einem `Massed`-Mesh; null Meshes war ein falscher, korrigierter Testvertrag.
+Der Test beweist die Generatoraggregation, nicht die öffentliche Kandidatenpublikation.
+
 2026-09-17: candidate-owned footprints and pieces remove the active-world handoff from the
 preload critical path. `ScoreAFootprintStandsOnALevelFloor` passed its unchanged public
 floor/road checks in 3.55 s.

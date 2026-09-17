@@ -15,14 +15,16 @@ public:
   }
 
   std::expected<void, outshine::StructureMeshError>
-  Mesh(const outshine::StructurePlan &,
+  Mesh(const outshine::StructurePlan &plan,
        outshine::MeshScratch &,
        outshine::Raised &) const noexcept override {
     ++Calls;
+    LastCoarseness = plan.Coarseness;
     return std::unexpected(Error_);
   }
 
   mutable size_t Calls = 0;
+  mutable outshine::Generators::Detail LastCoarseness = outshine::Generators::Detail::Fine;
 
 private:
   outshine::StructureMeshError Error_;
@@ -83,9 +85,12 @@ int main() {
   Generators::BakedTile distantOutput;
   const auto distantResult =
       Generators::BakeStructures(distant, *heights, distantMesher, *distantScratch, distantOutput);
-  CHECK(distantResult && distantMesher.Calls == 0 && distantOutput.Prints.size() == 2 &&
-            distantOutput.Prints.front().Coarseness == Generators::Detail::Massed,
-        "a distant building in the same raw tile uses massed geometry instead of a detailed mesh");
+  CHECK(distantResult, "a distant tile finishes its bake");
+  CHECK(distantMesher.Calls == 1 && distantMesher.LastCoarseness == Generators::Detail::Massed,
+        "a distant tile batches its buildings into one massed mesh");
+  CHECK(distantOutput.Prints.size() == 2, "a distant tile retains every footprint");
+  CHECK(distantOutput.Prints.front().Coarseness == Generators::Detail::Massed,
+        "a distant building uses massed geometry");
 
   RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto oneShotScratch = oneShotMesher.Scratch();
@@ -108,6 +113,36 @@ int main() {
             sliced.Built.WallRun == oneShot.Built.WallRun &&
             sliced.Built.RoofRun == oneShot.Built.RoofRun,
         "one-structure ranges produce the same complete tile as one uninterrupted bake");
+
+  Generators::RawTile many = raw;
+  many.Ways.clear();
+  many.Structures.assign(257, raw.Structures.front());
+  RefusingMesher manyOneShotMesher(StructureMeshError::UnsupportedFootprint);
+  auto manyOneShotScratch = manyOneShotMesher.Scratch();
+  Generators::BakedTile manyOneShot;
+  const auto manyOneShotResult = Generators::BakeStructures(
+      many, *heights, manyOneShotMesher, *manyOneShotScratch, manyOneShot);
+  RefusingMesher manySlicedMesher(StructureMeshError::UnsupportedFootprint);
+  auto manySlicedScratch = manySlicedMesher.Scratch();
+  Generators::StructureBakeProgress manyProgress;
+  Generators::BakedTile manySliced;
+  for (size_t range = 0; range < 4; ++range) {
+    const auto incomplete =
+        manyProgress.Advance(many, *heights, manySlicedMesher, *manySlicedScratch, manySliced, 64);
+    CHECK(incomplete && !*incomplete && manyProgress.BakedStructures() == (range + 1) * 64,
+          "each complete 64-structure range retains the private aggregate");
+  }
+  const auto manyComplete =
+      manyProgress.Advance(many, *heights, manySlicedMesher, *manySlicedScratch, manySliced, 64);
+  CHECK(manyOneShotResult && manyComplete && *manyComplete &&
+            manyProgress.BakedStructures() == many.Structures.size(),
+        "the final short range alone completes a 257-structure aggregate");
+  CHECK(manySlicedMesher.Calls == manyOneShotMesher.Calls &&
+            manySliced.Prints.size() == manyOneShot.Prints.size() &&
+            manySliced.UnsupportedMeshes == manyOneShot.UnsupportedMeshes &&
+            manySliced.Built.WallRun == manyOneShot.Built.WallRun &&
+            manySliced.Built.RoofRun == manyOneShot.Built.RoofRun,
+        "five bounded ranges equal one uninterrupted 257-structure bake");
 
   RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
   auto cancelledScratch = cancelledMesher.Scratch();
