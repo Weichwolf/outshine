@@ -216,7 +216,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 }
 
 void Engine::State::HandsPiecesOver() {
-  World.BindLiveResources(*Picture.Standing);
+  World.BindRuntimeResources(*Picture.Standing, Picture.Device);
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   World.StructureBuilds.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }

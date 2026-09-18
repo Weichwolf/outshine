@@ -31,7 +31,7 @@ PublishStructureTile(Surrounds &world,
   if (auto published = candidate.Publish(scene); !published) { return published; }
   static_assert(std::is_nothrow_move_assignable_v<TilePieces>);
   world.Pieces = std::move(pieces);
-  world.BindLiveResources(*scene);
+  world.BindRuntimeResources(*scene, renderer);
   return {};
 }
 
@@ -56,7 +56,7 @@ PublishStructureTiles(Surrounds &world,
   if (auto published = candidate.Publish(scene); !published) { return published; }
   static_assert(std::is_nothrow_move_assignable_v<TilePieces>);
   world.Pieces = std::move(pieces);
-  world.BindLiveResources(*scene);
+  world.BindRuntimeResources(*scene, renderer);
   return {};
 }
 }

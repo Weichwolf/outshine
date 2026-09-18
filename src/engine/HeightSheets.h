@@ -15,20 +15,20 @@
 #include <optional>
 #include <utility>
 #include "TerrainLoader.h"
-#include "GroundTile.h"
+#include "scene/TerrainTile.h"
 #include <expected>
 #include "TangentFrame.h"
 #include "TerrainRefinement.h"
 
 namespace outshine {
 
-namespace Core {
-class Live;
+namespace Render {
+class SceneRenderer;
 }
 
 class HeightSheets {
 public:
-  void Into(Core::Live *live) noexcept { Live_ = live; }
+  void Into(Render::SceneRenderer *renderer) noexcept { Renderer_ = renderer; }
 
   void Framed(const TangentFrame &frame) {
     Frame_ = frame;
@@ -95,13 +95,13 @@ private:
   void StitchEdges(Patchwork &laid);
   [[nodiscard]] std::expected<Render::HeightPageHandle, std::string>
   PageFor(Data::TileId tile, std::span<const float> nodes);
-  [[nodiscard]] Core::GroundTile
+  [[nodiscard]] Render::TerrainTile
   TileOf(Data::TileId tile, Render::HeightPageHandle page, std::span<const float> nodes) const;
 
   std::vector<Held> Held_;
   std::map<std::tuple<int, uint32_t, uint32_t>, size_t> PageIndex_;
-  std::vector<Core::GroundTile> Instances_;
-  std::vector<Core::GroundTile> Virtual_;
+  std::vector<Render::TerrainTile> Instances_;
+  std::vector<Render::TerrainTile> Virtual_;
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
                                                     Data::TileId tile);
   static void AsksFields(const Ground::GroundStream &ground, const Patchwork &laid, int finestZoom);
@@ -114,7 +114,7 @@ private:
   size_t RimsMissing_ = 0;
   Seam Seams_;
   uint32_t GridPostings_ = 0;
-  Core::Live *Live_ = nullptr;
+  Render::SceneRenderer *Renderer_ = nullptr;
   TangentFrame Frame_ = TangentFrame::At({});
   bool Framed_ = false;
 };

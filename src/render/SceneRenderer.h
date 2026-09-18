@@ -178,13 +178,8 @@ public:
     ActiveState().Content.Resources.ReleaseHeightPage(ActiveState().Content.Subjects, which);
   }
 
-  [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept {
-    return ActiveState().Content.Resources.HeightPageResident(which);
-  }
-
-  [[nodiscard]] bool RestoreHeightPages(std::string &error) {
-    return ActiveState().Content.Resources.RestoreHeightPages(ActiveState().Content.Subjects,
-                                                              error);
+  [[nodiscard]] bool RestoreTerrain(std::string &error) {
+    return ActiveState().Content.Resources.RestoreTerrain(ActiveState().Content.Subjects, error);
   }
 
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept {
@@ -200,7 +195,15 @@ public:
   }
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
-    return ActiveState().Content.Subjects.Ground().SetGrid(fractions, error);
+    return ActiveState().Content.Resources.SetGroundGrid(
+        ActiveState().Content.Subjects, fractions, error);
+  }
+
+  [[nodiscard]] bool SetTerrainTiles(std::span<const TerrainTile> real,
+                                     std::span<const TerrainTile> virtual_,
+                                     std::string &error) {
+    return ActiveState().Content.Resources.SetTerrainTiles(
+        ActiveState().Content.Subjects, real, virtual_, error);
   }
 
   [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,

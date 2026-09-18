@@ -51,7 +51,7 @@ int main() {
     CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "world opens");
     if (scene) {
       HeightSheets sheets;
-      sheets.Into(scene.get());
+      sheets.Into(&renderer);
       sheets.Framed(TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0}));
       Patchwork patch;
       patch.Sheets.push_back({.Tile = {.Zoom = 14, .X = 8192, .Y = 8192},
@@ -59,31 +59,31 @@ int main() {
                               .Side = Render::GroundLattice::kSide,
                               .Postings = Render::GroundLattice::kSide});
       CHECK(sheets.Hands(patch, error), "initial sheet publishes");
-      const auto bytes = scene->HeightPageSourceBytes();
+      const auto bytes = renderer.HeightPageSourceBytes();
       const auto triangles = renderer.GroundLatticeTriangles();
       CHECK(bytes > 0 && triangles > 0, "fixture owns actual height data and topology");
       patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes, 7);
       rejectSubmit = true;
       CHECK(!sheets.Hands(patch, error) && !rejectSubmit,
             "replacement fails at actual GPU submission");
-      CHECK(scene->HeightPageSourceBytes() == bytes &&
+      CHECK(renderer.HeightPageSourceBytes() == bytes &&
                 renderer.GroundLatticeTriangles() == triangles,
             "failed page upload retains the previous resident page and CPU payload");
       patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes, 3);
-      CHECK(sheets.Hands(patch, error) && scene->HeightPageSlots() == 1,
+      CHECK(sheets.Hands(patch, error) && renderer.HeightPageSlots() == 1,
             "previous heights remain usable without allocating a replacement page");
       patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes, 7);
-      CHECK(sheets.Hands(patch, error) && scene->HeightPageSourceBytes() == bytes,
+      CHECK(sheets.Hands(patch, error) && renderer.HeightPageSourceBytes() == bytes,
             "valid retry replaces the page and releases its predecessor");
       for (int step = 0; step < 4; ++step) {
         patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes,
                                           static_cast<float>(10 + step));
-        CHECK(sheets.Hands(patch, error) && scene->HeightPageSlots() == 2 &&
-                  scene->HeightPageSourceBytes() == bytes,
+        CHECK(sheets.Hands(patch, error) && renderer.HeightPageSlots() == 2 &&
+                  renderer.HeightPageSourceBytes() == bytes,
               "replacement overlap stays at two reusable slots with one retained payload");
       }
       sheets.Clear();
-      CHECK(scene->HeightPageSourceBytes() == 0 && renderer.GroundLatticeTriangles() == 0,
+      CHECK(renderer.HeightPageSourceBytes() == 0 && renderer.GroundLatticeTriangles() == 0,
             "streaming owner releases the successfully replaced page");
     }
   }

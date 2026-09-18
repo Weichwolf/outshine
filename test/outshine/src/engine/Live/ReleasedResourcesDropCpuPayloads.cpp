@@ -45,44 +45,44 @@ int main() {
       size_t pageSlotBytes = 0;
       for (int iteration = 0; iteration != 3; ++iteration) {
         const auto piece = scene->PlacePiece(mesh);
-        const auto page = scene->PlaceHeightPage(nodes);
+        const auto page = renderer.PlaceHeightPage(nodes);
         CHECK(piece.has_value() && page.has_value(), "streamed resources upload");
         if (!piece || !page) { return Report(); }
         CHECK(scene->PieceSlots() == 1,
               "one simultaneously resident piece reuses its slot across releases");
-        CHECK(scene->HeightPageSlots() == 1,
+        CHECK(renderer.HeightPageSlots() == 1,
               "one simultaneously resident height page reuses its slot across releases");
         CHECK(scene->PieceSourceBytes() >= sizeof(vertices) + sizeof(indices) + sizeof(instances) &&
-                  scene->HeightPageSourceBytes() >= nodes.size() * sizeof(float),
+                  renderer.HeightPageSourceBytes() >= nodes.size() * sizeof(float),
               "diagnostics count independently sized input payloads including instance rows");
         if (iteration == 0) {
           slotBytes = scene->PieceSlotBytes();
-          pageSlotBytes = scene->HeightPageSlotBytes();
+          pageSlotBytes = renderer.HeightPageSlotBytes();
         }
         if (iteration > 0) {
           CHECK(page->Slot == stalePage.Slot && page->Generation != stalePage.Generation &&
-                    scene->HeightPageSlotBytes() == pageSlotBytes,
+                    renderer.HeightPageSlotBytes() == pageSlotBytes,
                 "height slot reuse changes identity without growing metadata capacity");
           CHECK(piece->Slot == stalePiece.Slot && piece->Generation != stalePiece.Generation &&
                     scene->PieceSlotBytes() == slotBytes,
                 "slot reuse changes identity without growing metadata capacity");
           const auto pieceBytes = scene->PieceSourceBytes();
-          const auto pageBytes = scene->HeightPageSourceBytes();
+          const auto pageBytes = renderer.HeightPageSourceBytes();
           CHECK(!scene->SetPieceInstances(stalePiece, instances, error),
                 "a released piece handle cannot update its successor");
           scene->ReleasePiece(stalePiece);
-          scene->ReleaseHeightPage(stalePage);
+          renderer.ReleaseHeightPage(stalePage);
           CHECK(scene->PieceSourceBytes() == pieceBytes &&
-                    scene->HeightPageSourceBytes() == pageBytes,
+                    renderer.HeightPageSourceBytes() == pageBytes,
                 "releasing old handles cannot remove successor payloads");
         }
         scene->ReleasePiece(*piece);
-        scene->ReleaseHeightPage(*page);
-        CHECK(scene->PieceSourceBytes() == 0 && scene->HeightPageSourceBytes() == 0,
+        renderer.ReleaseHeightPage(*page);
+        CHECK(scene->PieceSourceBytes() == 0 && renderer.HeightPageSourceBytes() == 0,
               "release returns all piece/page payload capacity despite retaining handle records");
         scene->ReleasePiece(*piece);
-        scene->ReleaseHeightPage(*page);
-        CHECK(scene->PieceSourceBytes() == 0 && scene->HeightPageSourceBytes() == 0,
+        renderer.ReleaseHeightPage(*page);
+        CHECK(scene->PieceSourceBytes() == 0 && renderer.HeightPageSourceBytes() == 0,
               "repeated release remains harmless");
         stalePiece = *piece;
         stalePage = *page;
@@ -92,7 +92,7 @@ int main() {
           Core::Live::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error);
       CHECK(prepared, "world replacement accepts the remaining live resources");
       if (prepared) {
-        CHECK(candidate->PieceSourceBytes() == 0 && candidate->HeightPageSourceBytes() == 0,
+        CHECK(candidate->PieceSourceBytes() == 0 && renderer.HeightPageSourceBytes() == 0,
               "world snapshots do not copy retired resource payloads");
         CHECK(Core::Live::PublishesPreparedWorld(renderer, scene, candidate, error),
               "replacement publishes");

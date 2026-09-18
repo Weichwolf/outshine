@@ -51,7 +51,7 @@ int main() {
     if (scene) {
       Surrounds world;
       Ground::BuildingField footprints;
-      world.BindLiveResources(*scene);
+      world.BindRuntimeResources(*scene, renderer);
       world.GroundPositionsM = {1, 2, 3};
       world.GroundIndex = {0};
       world.NetworkOfWays = 7;
@@ -61,19 +61,19 @@ int main() {
       CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
       Core::Live *const oldScene = scene.get();
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
-      const auto page = scene->PlaceHeightPage(nodes);
+      const auto page = renderer.PlaceHeightPage(nodes);
       CHECK(page.has_value(), "original height page uploads");
       if (!page) { return Report(); }
       std::vector<float> fractions(Render::GroundLattice::kSide);
       for (size_t at = 0; at < fractions.size(); ++at) {
         fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
       }
-      Core::GroundTile tile;
+      Render::TerrainTile tile;
       tile.Corners = {{-1, -1, 1, -1, -1, 1, 1, 1}};
       tile.Page = *page;
       tile.LowM = tile.HighM = 3.0f;
-      CHECK(scene->SetGroundGrid(fractions, error) &&
-                scene->SetGroundLattice({&tile, 1}, {}, error),
+      CHECK(renderer.SetGroundGrid(fractions, error) &&
+                renderer.SetTerrainTiles({&tile, 1}, {}, error),
             "original world has a complete terrain lattice");
       Geometry geometry;
       const auto part = geometry.addPart("triangle", MaterialInstance{});
@@ -91,7 +91,7 @@ int main() {
             build.Products().Indices = {0, 0, 0};
             build.Products().NetworkOfWays = 19;
             build.Products().RimsMissing = 0;
-            CHECK(build.Scene().SetGroundLattice({}, {}, error), "candidate changes terrain first");
+            CHECK(renderer.SetTerrainTiles({}, {}, error), "candidate changes terrain first");
             rejectSubmit = true;
             const bool accepted =
                 rejectGeometry
@@ -139,7 +139,7 @@ int main() {
         retry.Products().Indices = {0, 0, 0};
         retry.Products().NetworkOfWays = 19;
         retry.Products().RimsMissing = 0;
-        CHECK(retry.Scene().SetGroundLattice({}, {}, error) &&
+        CHECK(renderer.SetTerrainTiles({}, {}, error) &&
                   retry.Scene().SetGeometry(geometry.clone(), 0, error),
               "retry finishes GPU preparation");
         CHECK(retry.Publish(world, footprints, scene, nextRevision).has_value(),

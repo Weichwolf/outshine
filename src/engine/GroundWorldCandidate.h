@@ -61,7 +61,7 @@ public:
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::Live &previous,
                                                          const Ui::Font *font) {
     if (auto prepared = World_.Prepare(previous, font); !prepared) { return prepared; }
-    Products_.Sheets.Into(&World_.Scene());
+    Products_.Sheets.Into(&World_.Renderer());
     Products_.Pieces.Into(&World_.Scene());
     return {};
   }
@@ -83,7 +83,7 @@ public:
     world.RimsMissing = Products_.RimsMissing;
     world.Pieces = std::move(Products_.Pieces);
     world.Pieces.Wears(Products_.Surfaces);
-    world.BindLiveResources(*published);
+    world.BindRuntimeResources(*published, World_.Renderer());
     if (!world.GroundPublished.Publish(revision)) {
       return std::unexpected("a capture holds the published ground");
     }

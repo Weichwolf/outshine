@@ -1,6 +1,7 @@
 #include "SceneResources.h"
 
 #include "SubjectDraw.h"
+#include "TerrainTileUpload.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -9,6 +10,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace outshine::Render {
 namespace Says {
@@ -134,13 +136,16 @@ void SceneResources::ReleasePiece(SubjectDraw &subjects, PieceHandle which) {
   piece.State = state;
 }
 
-void SceneResources::CopyPieceSourcesFrom(const SceneResources &source) {
+void SceneResources::CopySourcesFrom(const SceneResources &source) {
   Pieces_ = source.Pieces_;
   FirstFreePiece_ = source.FirstFreePiece_;
   for (Piece &piece : Pieces_) { piece.Resident = kNoPiece; }
   HeightPages_ = source.HeightPages_;
   FirstFreeHeightPage_ = source.FirstFreeHeightPage_;
   for (HeightPage &page : HeightPages_) { page.Resident = kNoPage; }
+  GroundGrid_ = source.GroundGrid_;
+  GroundReal_ = source.GroundReal_;
+  GroundVirtual_ = source.GroundVirtual_;
 }
 
 bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {
@@ -218,6 +223,48 @@ bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &erro
     if (page.Resident == kNoPage) { return false; }
   }
   return true;
+}
+
+bool SceneResources::SetGroundGrid(SubjectDraw &subjects,
+                                   std::span<const float> fractions,
+                                   std::string &error) {
+  if (!subjects.Ground().SetGrid(fractions, error)) { return false; }
+  GroundGrid_.assign(fractions.begin(), fractions.end());
+  return true;
+}
+
+bool SceneResources::SetTerrainTiles(SubjectDraw &subjects,
+                                     std::span<const TerrainTile> real,
+                                     std::span<const TerrainTile> virtual_,
+                                     std::string &error) {
+  const auto translate = [this, &error](std::span<const TerrainTile> source,
+                                        std::vector<GroundTile> &into) {
+    into.reserve(source.size());
+    for (const TerrainTile &tile : source) {
+      const auto encoded = EncodeTerrainTile(tile, HeightPageResident(tile.Page));
+      if (!encoded) {
+        error = encoded.error();
+        return false;
+      }
+      into.push_back(*encoded);
+    }
+    return true;
+  };
+  std::vector<GroundTile> residentReal;
+  std::vector<GroundTile> residentVirtual;
+  if (!translate(real, residentReal) || !translate(virtual_, residentVirtual) ||
+      !subjects.Ground().SetInstances(residentReal, residentVirtual, error)) {
+    return false;
+  }
+  GroundReal_.assign(real.begin(), real.end());
+  GroundVirtual_.assign(virtual_.begin(), virtual_.end());
+  return true;
+}
+
+bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
+  if (!RestoreHeightPages(subjects, error)) { return false; }
+  if (!GroundGrid_.empty() && !subjects.Ground().SetGrid(GroundGrid_, error)) { return false; }
+  return SetTerrainTiles(subjects, GroundReal_, GroundVirtual_, error);
 }
 
 size_t SceneResources::HeightPageSourceBytes() const noexcept {

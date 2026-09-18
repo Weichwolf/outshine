@@ -18,7 +18,6 @@
 #include <scenario/Scenario.h>
 
 #include "ResourceHandle.h"
-#include "GroundTile.h"
 #include "Asset.h"
 #include "SubjectProxy.h"
 #include "Overlay.h"
@@ -147,17 +146,6 @@ public:
 
   void ReleasePiece(Render::PieceHandle which);
 
-  [[nodiscard]] std::expected<Render::HeightPageHandle, std::string>
-  PlaceHeightPage(std::span<const float> nodes);
-
-  void ReleaseHeightPage(Render::HeightPageHandle which);
-
-  [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error);
-
-  [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,
-                                      std::span<const GroundTile> virtual_,
-                                      std::string &error);
-
   [[nodiscard]] uint32_t GroundLatticeTriangles() const {
     return Renderer_ == nullptr ? 0u : Renderer_->GroundLatticeTriangles();
   }
@@ -178,16 +166,6 @@ public:
 
   [[nodiscard]] size_t PieceSlotBytes() const noexcept {
     return Renderer_ == nullptr ? 0 : Renderer_->PieceSlotBytes();
-  }
-
-  [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
-
-  [[nodiscard]] size_t HeightPageSlots() const noexcept {
-    return Renderer_ == nullptr ? 0 : Renderer_->HeightPageSlots();
-  }
-
-  [[nodiscard]] size_t HeightPageSlotBytes() const noexcept {
-    return Renderer_ == nullptr ? 0 : Renderer_->HeightPageSlotBytes();
   }
 
   [[nodiscard]] uint32_t PieceBytesHeld() const {
@@ -509,12 +487,7 @@ private:
 
   std::vector<uint32_t> GroundClasses_;
   std::vector<float> GroundPalette_;
-  std::vector<float> GroundGrid_;
-  std::vector<GroundTile> GroundReal_, GroundVirtual_;
   [[nodiscard]] bool RestoresGroundResources(const Live &previous, std::string &error);
-  [[nodiscard]] bool PublishesGroundLattice(std::span<const GroundTile> real,
-                                            std::span<const GroundTile> virtual_,
-                                            std::string &error);
   Posed Held_;
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;

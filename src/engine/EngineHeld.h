@@ -211,9 +211,9 @@ struct Surrounds {
   Surrounds(Surrounds &&) = delete;
   Surrounds &operator=(Surrounds &&) = delete;
 
-  void BindLiveResources(Core::Live &live) noexcept {
+  void BindRuntimeResources(Core::Live &live, Render::SceneRenderer &renderer) noexcept {
     Pieces.Into(&live);
-    Sheets.Into(&live);
+    Sheets.Into(&renderer);
     if (Crowns) { Crowns->Into(live); }
   }
 

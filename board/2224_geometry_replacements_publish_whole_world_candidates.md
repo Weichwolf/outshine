@@ -23,7 +23,7 @@ Keine Mutation des aktiven Owners mit anschließendem Snapshot-Rollback.
 zerstört RAII ausschließlich den Kandidaten. Abgelehnte verschachtelte Vorbereitung darf
 den äußeren Kandidaten nicht verwerfen. `GroundWorldCandidate.h` ergänzt Sheets,
 Terrainpositionen/Indizes, Netz, Materialslots und Revision; Revision wird zuletzt gesetzt.
-`Surrounds::BindLiveResources` bindet Pieces, Sheets und Crowns ohne Allokation neu.
+`Surrounds::BindRuntimeResources` bindet Pieces, Sheets und Crowns ohne Allokation neu.
 Ground-Klassen-GPU-Puffer gehören zum WorldContent, ihre CPU-Inputs zu Live.
 Piece/Page-Identität verwendet native generational Handles und wiederverwendbare Slots.
 Kandidaten kopieren Identitäten/Freilisten, nur Live übersetzt GPU-Adressen. Native
@@ -35,7 +35,7 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
 Die öffentliche Geometrieersetzung hat bereits die richtige Grenze: sie baut die
 Audio-Occlusion vor dem Kandidaten, `Live::ReplacesGeometry` bereitet alle fehlbaren
 GPU-Produkte vor, und erst `PublishesPreparedWorld` tauscht den Owner. Danach sind
-`Surrounds::BindLiveResources` und der Occlusion-Move nichtwerfende Übergaben. Ein
+`Surrounds::BindRuntimeResources` und der Occlusion-Move nichtwerfende Übergaben. Ein
 fehlgeschlagener Submit lässt daher Welt, Audio und Bild bei A; ein Retry darf B
 publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung.
 

@@ -23,7 +23,7 @@
 #include "Geodesy.h"
 #include "TerrainGrid.h"
 #include "GroundLattice.h"
-#include "Live.h"
+#include "SceneRenderer.h"
 #include "TileGeodesy.h"
 #include "math/Vec3.h"
 
@@ -59,24 +59,24 @@ HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes) {
     Held &one = Held_[found->second];
     if (one.Page && std::ranges::equal(one.Nodes, nodes)) { return one.Page; }
     std::vector<float> replacement(nodes.begin(), nodes.end());
-    const auto page = Live_->PlaceHeightPage(replacement);
+    const auto page = Renderer_->PlaceHeightPage(replacement);
     if (!page) { return std::unexpected(page.error()); }
-    Live_->ReleaseHeightPage(one.Page);
+    Renderer_->ReleaseHeightPage(one.Page);
     one.Page = *page;
     one.Nodes = std::move(replacement);
     return one.Page;
   }
   std::vector<float> owned(nodes.begin(), nodes.end());
-  const auto page = Live_->PlaceHeightPage(owned);
+  const auto page = Renderer_->PlaceHeightPage(owned);
   if (!page) { return std::unexpected(page.error()); }
   PageIndex_.emplace(key, Held_.size());
   Held_.push_back({.Tile = tile, .Page = *page, .Nodes = std::move(owned)});
   return *page;
 }
 
-Core::GroundTile HeightSheets::TileOf(Data::TileId tile,
-                                      Render::HeightPageHandle page,
-                                      std::span<const float> nodes) const {
+Render::TerrainTile HeightSheets::TileOf(Data::TileId tile,
+                                         Render::HeightPageHandle page,
+                                         std::span<const float> nodes) const {
   const Ground::GeoBounds bounds = Ground::TileBounds(tile);
   const double midLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
   const double midLat = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg);
@@ -97,7 +97,7 @@ Core::GroundTile HeightSheets::TileOf(Data::TileId tile,
   const Vec3 &north = Frame_.NorthEcef();
   const Vec3 &up = Frame_.UpEcef();
   const EastNorthUp at = Frame_.Place(centre);
-  Core::GroundTile made;
+  Render::TerrainTile made;
   const std::array<const Vec3 *, 3> axes = {{&tile_.East, &tile_.North, &tile_.Up}};
   for (size_t column = 0; column < 3; ++column) {
     made.Row[column * 4u] = static_cast<float>(Dot(east, *axes[column]));
@@ -456,7 +456,7 @@ bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
       fractions.push_back(
           static_cast<float>(FractionOf(k, sheet.Postings, Render::GroundLattice::kSide)));
     }
-    if (!Live_->SetGroundGrid(fractions, error)) { return false; }
+    if (!Renderer_->SetGroundGrid(fractions, error)) { return false; }
     GridPostings_ = sheet.Postings;
     return true;
   }
@@ -464,12 +464,12 @@ bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
 }
 
 bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
-  if (Live_ == nullptr || !Framed_) { return true; }
+  if (Renderer_ == nullptr || !Framed_) { return true; }
   std::map<SheetKey, size_t> wanted;
   for (size_t i = 0; i < laid.Sheets.size(); ++i) { wanted.emplace(KeyOf(laid.Sheets[i].Tile), i); }
   std::erase_if(Held_, [&](const Held &one) {
     if (wanted.contains(KeyOf(one.Tile))) { return false; }
-    Live_->ReleaseHeightPage(one.Page);
+    Renderer_->ReleaseHeightPage(one.Page);
     return true;
   });
   PageIndex_.clear();
@@ -492,7 +492,7 @@ bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
     (sheet.Virtual ? Virtual_ : Instances_).push_back(TileOf(sheet.Tile, *page, sheet.Nodes));
   }
   if (!HandsGrid(laid, error)) { return false; }
-  return Live_->SetGroundLattice(Instances_, Virtual_, error);
+  return Renderer_->SetTerrainTiles(Instances_, Virtual_, error);
 }
 
 std::optional<double>
@@ -521,12 +521,12 @@ HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastNorth a
 }
 
 void HeightSheets::Clear() {
-  if (Live_ != nullptr) {
-    for (const Held &one : Held_) { Live_->ReleaseHeightPage(one.Page); }
+  if (Renderer_ != nullptr) {
+    for (const Held &one : Held_) { Renderer_->ReleaseHeightPage(one.Page); }
     std::string ignored;
-    (void)Live_->SetGroundLattice({}, {}, ignored);
+    (void)Renderer_->SetTerrainTiles({}, {}, ignored);
   }
-  Live_ = nullptr;
+  Renderer_ = nullptr;
   Held_.clear();
   PageIndex_.clear();
   Instances_.clear();
@@ -544,8 +544,8 @@ uint64_t HeightSheets::Digest() const {
     fold(static_cast<uint32_t>(page.Generation));
     fold(static_cast<uint32_t>(page.Generation >> 32u));
   };
-  for (const std::vector<Core::GroundTile> *tiles : {&Instances_, &Virtual_}) {
-    for (const Core::GroundTile &one : *tiles) {
+  for (const std::vector<Render::TerrainTile> *tiles : {&Instances_, &Virtual_}) {
+    for (const Render::TerrainTile &one : *tiles) {
       for (const float value : one.Row) { foldFloat(value); }
       for (const float value : one.Corners) { foldFloat(value); }
       foldPage(one.Page);

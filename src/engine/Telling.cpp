@@ -69,7 +69,7 @@ bool Engine::State::Stood() {
                                     Error)) {
     return false;
   }
-  World.BindLiveResources(*Picture.Standing);
+  World.BindRuntimeResources(*Picture.Standing, Picture.Device);
   Picture.PendingGeometry.reset();
   if (Picture.PendingAudioOcclusion) {
     World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
@@ -87,10 +87,10 @@ void Engine::State::TellResourcePayloads() {
                    static_cast<double>(Picture.Standing->PieceSlotBytes()),
                    "bytes");
   Published.Places("height page slot capacity",
-                   static_cast<double>(Picture.Standing->HeightPageSlotBytes()),
+                   static_cast<double>(Picture.Device.HeightPageSlotBytes()),
                    "bytes");
   Published.Places("height page CPU payload capacity",
-                   static_cast<double>(Picture.Standing->HeightPageSourceBytes()),
+                   static_cast<double>(Picture.Device.HeightPageSourceBytes()),
                    "bytes");
 }
 

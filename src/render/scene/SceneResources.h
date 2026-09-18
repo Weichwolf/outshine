@@ -3,6 +3,7 @@
 
 #include "ResourceHandle.h"
 #include "SubjectTypes.h"
+#include "TerrainTile.h"
 
 #include <cstddef>
 #include <expected>
@@ -31,7 +32,7 @@ public:
   SetPieceInstances(SubjectDraw &subjects, std::span<const PieceRows> pieces, std::string &error);
   void ReleasePiece(SubjectDraw &subjects, PieceHandle which);
 
-  void CopyPieceSourcesFrom(const SceneResources &source);
+  void CopySourcesFrom(const SceneResources &source);
   [[nodiscard]] bool RestorePieces(SubjectDraw &subjects, std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
@@ -47,6 +48,13 @@ public:
   void ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which);
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
   [[nodiscard]] bool RestoreHeightPages(SubjectDraw &subjects, std::string &error);
+  [[nodiscard]] bool
+  SetGroundGrid(SubjectDraw &subjects, std::span<const float> fractions, std::string &error);
+  [[nodiscard]] bool SetTerrainTiles(SubjectDraw &subjects,
+                                     std::span<const TerrainTile> real,
+                                     std::span<const TerrainTile> virtual_,
+                                     std::string &error);
+  [[nodiscard]] bool RestoreTerrain(SubjectDraw &subjects, std::string &error);
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
 
   [[nodiscard]] size_t HeightPageSlots() const noexcept { return HeightPages_.size(); }
@@ -87,6 +95,9 @@ private:
   uint32_t FirstFreePiece_ = kNoResourceSlot;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
+  std::vector<float> GroundGrid_;
+  std::vector<TerrainTile> GroundReal_;
+  std::vector<TerrainTile> GroundVirtual_;
 };
 
 }

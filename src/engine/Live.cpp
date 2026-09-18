@@ -5,7 +5,6 @@
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "Live.h"
-#include "GroundTileUpload.h"
 #include "AzimuthElevation.h"
 
 #include "Shaped.h"
@@ -46,7 +45,6 @@ constexpr auto NoGeometrySurface = "native geometry requires a declared surface 
 constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
 constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
-constexpr auto MissingHeightPage = "the height-page handle names no live resource in this world";
 }
 
 bool Live::GroundClasses(std::span<const uint32_t> classes,
@@ -93,65 +91,6 @@ size_t Live::PieceSourceBytes() const noexcept {
 
 void Live::ReleasePiece(Render::PieceHandle which) {
   if (Renderer_ != nullptr) { Renderer_->ReleasePiece(which); }
-}
-
-size_t Live::HeightPageSourceBytes() const noexcept {
-  return Renderer_ == nullptr ? 0 : Renderer_->HeightPageSourceBytes();
-}
-
-std::expected<Render::HeightPageHandle, std::string>
-Live::PlaceHeightPage(std::span<const float> nodes) {
-  if (Renderer_ == nullptr) { return std::unexpected(Says::MissingHeightPage); }
-  return Renderer_->PlaceHeightPage(nodes);
-}
-
-void Live::ReleaseHeightPage(Render::HeightPageHandle which) {
-  if (Renderer_ != nullptr) { Renderer_->ReleaseHeightPage(which); }
-}
-
-bool Live::SetGroundGrid(std::span<const float> fractions, std::string &error) {
-  if (Renderer_ == nullptr || !Renderer_->SetGroundGrid(fractions, error)) {
-    return Renderer_ == nullptr;
-  }
-  GroundGrid_.assign(fractions.begin(), fractions.end());
-  return true;
-}
-
-bool Live::PublishesGroundLattice(std::span<const GroundTile> real,
-                                  std::span<const GroundTile> virtual_,
-                                  std::string &error) {
-  const auto translated = [this, &error](std::span<const GroundTile> source,
-                                         std::vector<Render::GroundTile> &into) {
-    into.reserve(source.size());
-    for (const GroundTile &tile : source) {
-      if (Renderer_->HeightPageResident(tile.Page) == Render::kNoPage) {
-        error = Says::MissingHeightPage;
-        return false;
-      }
-      const auto encoded = EncodeGroundTile(tile, Renderer_->HeightPageResident(tile.Page));
-      if (!encoded) {
-        error = encoded.error();
-        return false;
-      }
-      into.push_back(*encoded);
-    }
-    return true;
-  };
-  std::vector<Render::GroundTile> residentReal;
-  std::vector<Render::GroundTile> residentVirtual;
-  if (!translated(real, residentReal) || !translated(virtual_, residentVirtual)) { return false; }
-  return Renderer_->SetGroundLattice(residentReal, residentVirtual, error);
-}
-
-bool Live::SetGroundLattice(std::span<const GroundTile> real,
-                            std::span<const GroundTile> virtual_,
-                            std::string &error) {
-  if (Renderer_ == nullptr || !PublishesGroundLattice(real, virtual_, error)) {
-    return Renderer_ == nullptr;
-  }
-  GroundReal_.assign(real.begin(), real.end());
-  GroundVirtual_.assign(virtual_.begin(), virtual_.end());
-  return true;
 }
 
 constexpr double kExposureCalibration = 1.2;
@@ -756,11 +695,7 @@ bool Live::RestoresGroundResources(const Live &previous, std::string &error) {
       !GroundClasses(previous.GroundClasses_, previous.GroundPalette_, error)) {
     return false;
   }
-  if (!Renderer_->RestoreHeightPages(error)) { return false; }
-  if (!previous.GroundGrid_.empty() && !SetGroundGrid(previous.GroundGrid_, error)) {
-    return false;
-  }
-  return SetGroundLattice(previous.GroundReal_, previous.GroundVirtual_, error);
+  return Renderer_->RestoreTerrain(error);
 }
 
 std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::string &error) {

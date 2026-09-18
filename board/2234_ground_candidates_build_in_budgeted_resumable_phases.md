@@ -42,7 +42,8 @@ for later GPU sampling; CPU reuse/readback needs its proper completion contract 
 ## Bounded implementation
 
 1. Measure per-stage elapsed time and candidate peak bytes in Engine::State::Grounds (src/engine/Laying.cpp),
-   src/engine/GroundWorldCandidate.h, GroundPublication.h and GroundTileUpload.h.
+   src/engine/GroundWorldCandidate.h, GroundPublication.h and
+   src/render/scene/TerrainTileUpload.h.
    Use completion snapshots, no periodic logs. Keep an uninterrupted control path in
    tests as an oracle for identical native products, not a second production algorithm.
 2. Make the longest measured stage resumable using the existing candidate. A controlled

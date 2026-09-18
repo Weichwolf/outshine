@@ -30,6 +30,8 @@ public:
     return *Scene_;
   }
 
+  [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
+
   [[nodiscard]] std::expected<void, std::string> Prepare(const Live &previous,
                                                          const Ui::Font *font) {
     std::string error;

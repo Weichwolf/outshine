@@ -58,18 +58,16 @@ Reuse SceneState/WorldContent from 2223; move ResourceHandle.h to the owning low
 proofs. Renderer cannot include engine headers. WI 2237 uses this same resource boundary;
 it must not invent a competing one. No new threads or algorithm changes in this slice.
 
-`Render::PieceHandle`, `Render::HeightPageHandle` and their generation state now live under
-`render/scene`. Engine consumers and replacement tests use the owning namespace directly; the
-generation, distinct-handle and world-replacement proofs remain green. Slot storage still resides
-in Live and is the next extraction step, so this WI remains active.
-
 `Render::SceneResources` now owns piece CPU sources, resident IDs, generation slots, free-list
 reuse and atomic instance batches inside `SceneRenderer::WorldContent`. Candidate creation copies
 only source state, then rebuilds candidate GPU residents; rejection leaves the published owner
 untouched and publication moves the complete owner. Live delegates piece operations and no longer
-stores piece slots. Height-page samples, generations, free slots and resident IDs now share the
-same owner and candidate-copy contract; Live resolves handles through it when publishing the
-ground lattice. Direct TilePieces, CrownPieces and HeightSheets consumers remain to migrate.
+stores piece slots. The same owner now holds height-page sources and handles, terrain-tile bindings
+and ground-grid parameters. It translates native `TerrainTile` bindings into GPU instances and
+restores the complete terrain resource set inside a world candidate. `HeightSheets` depends on
+`SceneRenderer` instead of `Live`; all migrated height-page and terrain forwarding methods and
+state have been removed from `Live`. TilePieces and CrownPieces remain to migrate after their
+material-slot registration is extracted from Live.
 
 ## Acceptance
 

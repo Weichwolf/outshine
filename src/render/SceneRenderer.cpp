@@ -298,7 +298,7 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error) {
     return false;
   }
   Candidate_.emplace();
-  Candidate_->Content.Resources.CopyPieceSourcesFrom(State_.Content.Resources);
+  Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources);
   error.clear();
   return true;
 }
