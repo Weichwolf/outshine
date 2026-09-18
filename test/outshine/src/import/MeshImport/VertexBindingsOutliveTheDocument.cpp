@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "DeformationImport.h"
+#include "MeshImport.h"
 #include "Document.h"
 
 #include <array>
@@ -49,14 +49,14 @@ int main() {
     CHECK(file.good(), "vertex binding declaration written");
   }
 
-  DeformationAsset deformations;
+  MeshAssetSet meshes;
   std::string error;
   {
     Document document;
     CHECK(document.ReadFile((root / "skin.gltf").string()), document.Error().c_str());
-    CHECK(ImportDeformations(document, deformations, error), error.c_str());
+    CHECK(ImportMeshAssets(document, meshes, error), error.c_str());
   }
-  const PrimitiveDeformation *primitive = deformations.Find(0, 0);
+  const MeshPrimitive *primitive = meshes.Find(0, 0);
   CHECK(primitive != nullptr, "native mesh and primitive identity retained");
   if (primitive != nullptr) {
     CHECK(primitive->Skin.Sets == 1 && primitive->Skin.Vertices == 3 &&

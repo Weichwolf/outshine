@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "DeformationImport.h"
+#include "MeshImport.h"
 #include "Document.h"
 
 #include <array>
@@ -53,16 +53,18 @@ int main() {
     CHECK(file.good(), "morph declaration written");
   }
 
-  DeformationAsset deformations;
+  MeshAssetSet meshes;
   std::string error;
   {
     Document document;
     CHECK(document.ReadFile((root / "morph.gltf").string()), document.Error().c_str());
-    CHECK(ImportDeformations(document, deformations, error), error.c_str());
+    CHECK(ImportMeshAssets(document, meshes, error), error.c_str());
   }
-  const PrimitiveDeformation *primitive = deformations.Find(0, 0);
+  const MeshPrimitive *primitive = meshes.Find(0, 0);
   CHECK(primitive != nullptr, "native morph primitive retained");
   if (primitive != nullptr) {
+    CHECK(primitive->Positions == std::vector<float>({0, 0, 0, 1, 0, 0, 0, 1, 0}),
+          "native base positions remain complete after the import document is gone");
     CHECK(primitive->MorphTargets.size() == 2, "morph target order retained");
     if (primitive->MorphTargets.size() == 2) {
       const MorphTargetDelta &first = primitive->MorphTargets[0];

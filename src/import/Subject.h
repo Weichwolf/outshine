@@ -17,7 +17,7 @@
 #include "Viewport.h"
 #include "scene/Camera.h"
 #include "AffineTransform.h"
-#include "DeformationAsset.h"
+#include "MeshAsset.h"
 #include "Skeleton.h"
 #include "Variant.h"
 
@@ -74,12 +74,12 @@ class Subject {
 public:
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
-                           const DeformationAsset &deformations,
+                           const MeshAssetSet &meshes,
                            const VariantSelection &variant = {});
 
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
-                           const DeformationAsset &deformations,
+                           const MeshAssetSet &meshes,
                            std::span<const AffineTransform> pose,
                            std::span<const double> weights,
                            const VariantSelection &variant = {});
@@ -177,7 +177,7 @@ private:
 
   struct Posing {
     std::span<const Skeleton> Skeletons;
-    const DeformationAsset *Deformations = nullptr;
+    const MeshAssetSet *Meshes = nullptr;
     const AffineTransform *Pose = nullptr;
     const double *Weights = nullptr;
     int Variant = -1;
@@ -201,7 +201,7 @@ private:
     const AffineTransform &World;
     const AffineTransform &Placed;
     std::span<const AffineTransform> Joints;
-    const PrimitiveDeformation &Deformation;
+    const MeshPrimitive &Primitive;
     Morphing Morph;
     int Variant = -1;
   };
@@ -228,7 +228,7 @@ private:
                                        Part &part);
   [[nodiscard]] bool ReadVertexNormals(const Document &document,
                                        const Primitive &primitive,
-                                       const PrimitiveDeformation &deformation,
+                                       const MeshPrimitive &mesh,
                                        const VertexPlacement &place,
                                        Morphing morph,
                                        size_t vertices,
@@ -260,7 +260,7 @@ private:
   [[nodiscard]] bool CopyDeclaredMaterials(const Document &document, outshine::Geometry &made);
   [[nodiscard]] bool Flatten(const Document &document,
                              std::span<const Skeleton> skeletons,
-                             const DeformationAsset &deformations,
+                             const MeshAssetSet &meshes,
                              const AffineTransform *pose,
                              const double *weights,
                              const VariantSelection &variant);
@@ -273,9 +273,8 @@ private:
     size_t Vertices = 0;
   };
 
-  static void MorphDeltasFor(const PrimitiveDeformation &deformation,
-                             const Deltas &over,
-                             std::vector<double> &out);
+  static void
+  MorphDeltasFor(const MeshPrimitive &mesh, const Deltas &over, std::vector<double> &out);
   [[nodiscard]] static AffineTransform
   JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransform &world);
 
@@ -290,7 +289,7 @@ private:
 
   [[nodiscard]] bool SuppliedTangentsFor(const Document &document,
                                          const Primitive &primitive,
-                                         const PrimitiveDeformation &deformation,
+                                         const MeshPrimitive &mesh,
                                          const VertexPlacement &place,
                                          std::span<const double> morphWeights,
                                          Part &part,

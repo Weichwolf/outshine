@@ -138,18 +138,18 @@ BasisKey KeyOf(double x, double y, double z, double w) {
 
 }
 
-void Subject::MorphDeltasFor(const PrimitiveDeformation &deformation,
+void Subject::MorphDeltasFor(const MeshPrimitive &mesh,
                              const Deltas &over,
                              std::vector<double> &out) {
   const size_t vertices = over.Vertices;
   out.clear();
-  if (over.Morph.Count == 0 || deformation.MorphTargets.empty()) { return; }
-  for (size_t target = 0; target < over.Morph.Count && target < deformation.MorphTargets.size();
+  if (over.Morph.Count == 0 || mesh.MorphTargets.empty()) { return; }
+  for (size_t target = 0; target < over.Morph.Count && target < mesh.MorphTargets.size();
        ++target) {
     const double share = over.Morph.Weights[target];
     if (share == 0.0) { continue; }
-    const MorphTargetDelta &nativeTarget = deformation.MorphTargets[target];
-    const std::vector<double> *delta = nullptr;
+    const MorphTargetDelta &nativeTarget = mesh.MorphTargets[target];
+    const std::vector<float> *delta = nullptr;
     switch (over.Which) {
       case Deltas::Attribute::Position: delta = &nativeTarget.Positions; break;
       case Deltas::Attribute::Normal: delta = &nativeTarget.Normals; break;
@@ -204,7 +204,7 @@ bool Subject::BlendJoints(const Document &document,
 
 bool Subject::SuppliedTangentsFor(const Document &document,
                                   const Primitive &primitive,
-                                  const PrimitiveDeformation &deformation,
+                                  const MeshPrimitive &mesh,
                                   const VertexPlacement &place,
                                   std::span<const double> morphWeights,
                                   Part &part,
@@ -223,7 +223,7 @@ bool Subject::SuppliedTangentsFor(const Document &document,
     }
 
     std::vector<double> morphedTangents;
-    MorphDeltasFor(deformation,
+    MorphDeltasFor(mesh,
                    {.Which = Deltas::Attribute::Tangent,
                     .Morph = {.Weights = morphWeights, .Count = morphWeights.size()},
                     .Vertices = vertices},
@@ -405,14 +405,14 @@ bool Subject::Refuse(std::string why) {
 
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
-                    const DeformationAsset &deformations,
+                    const MeshAssetSet &meshes,
                     const VariantSelection &variant) {
-  return Flatten(document, skeletons, deformations, nullptr, nullptr, variant);
+  return Flatten(document, skeletons, meshes, nullptr, nullptr, variant);
 }
 
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
-                    const DeformationAsset &deformations,
+                    const MeshAssetSet &meshes,
                     std::span<const AffineTransform> pose,
                     std::span<const double> weights,
                     const VariantSelection &variant) {
@@ -429,7 +429,7 @@ bool Subject::Build(const Document &document,
   }
   return Flatten(document,
                  skeletons,
-                 deformations,
+                 meshes,
                  pose.data(),
                  (!weights.empty()) ? weights.data() : nullptr,
                  variant);
@@ -665,7 +665,7 @@ bool Subject::ReadVertexColours(const Document &document,
 
 bool Subject::ReadVertexNormals(const Document &document,
                                 const Primitive &primitive,
-                                const PrimitiveDeformation &deformation,
+                                const MeshPrimitive &mesh,
                                 const VertexPlacement &place,
                                 Morphing morph,
                                 size_t vertices,
@@ -686,7 +686,7 @@ bool Subject::ReadVertexNormals(const Document &document,
     }
     std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
     morphedNormals.clear();
-    MorphDeltasFor(deformation,
+    MorphDeltasFor(mesh,
                    {.Which = Deltas::Attribute::Normal, .Morph = morph, .Vertices = vertices},
                    morphedNormals);
     for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
@@ -785,10 +785,10 @@ bool Subject::FlattenMesh(const Document &document,
   for (const AffineTransform &placedWorld : instances) {
     for (size_t primitiveIndex = 0; primitiveIndex < mesh.Primitives.size(); ++primitiveIndex) {
       const Primitive &primitive = mesh.Primitives[primitiveIndex];
-      const PrimitiveDeformation *deformation =
-          posed.Deformations->Find(static_cast<size_t>(node.Mesh), primitiveIndex);
-      if (deformation == nullptr) {
-        return Refuse(document.Path() + ": native deformation asset has no mesh " +
+      const MeshPrimitive *meshAsset =
+          posed.Meshes->Find(static_cast<size_t>(node.Mesh), primitiveIndex);
+      if (meshAsset == nullptr) {
+        return Refuse(document.Path() + ": native mesh asset has no mesh " +
                       std::to_string(node.Mesh) + " primitive " + std::to_string(primitiveIndex));
       }
       ++primitives;
@@ -797,7 +797,7 @@ bool Subject::FlattenMesh(const Document &document,
           .World = world,
           .Placed = placedWorld,
           .Joints = jointMatrices,
-          .Deformation = *deformation,
+          .Primitive = *meshAsset,
           .Morph = {.Weights = std::span<const double>(nodeWeights.data(), morphCount),
                     .Count = morphCount},
           .Variant = posed.Variant};
@@ -838,30 +838,23 @@ bool Subject::FlattenPrimitive(const Document &document,
     if (mode < 7) { ++Undrawn_.ByMode[mode]; }
     return true;
   }
-  const int position = primitive.Find("POSITION");
-  if (position < 0) {
+  elements.assign(under.Primitive.Positions.begin(), under.Primitive.Positions.end());
+  if (elements.empty()) {
     return Refuse(document.Path() + ": primitive of mesh " + std::to_string(under.Node.Mesh) +
-                  " carries no POSITION, and nothing here invents one");
-  }
-  if (!document.ReadElements(position, elements)) {
-    return Refuse(document.Path() + ": POSITION does not decode: " + document.Error());
-  }
-  if (elements.size() % 3 != 0) {
-    return Refuse(document.Path() + ": POSITION decodes to " + std::to_string(elements.size()) +
-                  " components, which is not a whole number of points");
+                  " carries no native positions, and nothing here invents them");
   }
   const size_t vertices = elements.size() / 3;
 
   std::vector<double> &morphedPositions = Scratch_.Morphed;
   morphedPositions.clear();
-  MorphDeltasFor(under.Deformation,
+  MorphDeltasFor(under.Primitive,
                  {.Which = Deltas::Attribute::Position, .Morph = under.Morph, .Vertices = vertices},
                  morphedPositions);
   for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
   std::vector<AffineTransform> &skinned = Scratch_.Skinned;
   skinned.clear();
   if (under.Node.Skin >= 0) {
-    const VertexSkinBinding &binding = under.Deformation.Skin;
+    const VertexSkinBinding &binding = under.Primitive.Skin;
     if (binding.Vertices != vertices) {
       return Refuse(document.Path() + ": native skin binding has " +
                     std::to_string(binding.Vertices) + " vertices for a primitive carrying " +
@@ -883,7 +876,7 @@ bool Subject::FlattenPrimitive(const Document &document,
   if (!ReadVertexColours(document, primitive, vertices, part)) { return false; }
 
   if (!ReadVertexNormals(
-          document, primitive, under.Deformation, place, under.Morph, vertices, part)) {
+          document, primitive, under.Primitive, place, under.Morph, vertices, part)) {
     return false;
   }
 
@@ -891,7 +884,7 @@ bool Subject::FlattenPrimitive(const Document &document,
   part.IndexCount = atIdx.size();
   if (!SuppliedTangentsFor(document,
                            primitive,
-                           under.Deformation,
+                           under.Primitive,
                            place,
                            under.Morph.Weights,
                            part,
@@ -918,7 +911,7 @@ bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry
 
 bool Subject::Flatten(const Document &document,
                       std::span<const Skeleton> skeletons,
-                      const DeformationAsset &deformations,
+                      const MeshAssetSet &meshes,
                       const AffineTransform *pose,
                       const double *weights,
                       const VariantSelection &variant) {
@@ -950,7 +943,7 @@ bool Subject::Flatten(const Document &document,
     }
   }
   const Posing posed{.Skeletons = skeletons,
-                     .Deformations = &deformations,
+                     .Meshes = &meshes,
                      .Pose = pose,
                      .Weights = weights,
                      .Variant = activeVariant};

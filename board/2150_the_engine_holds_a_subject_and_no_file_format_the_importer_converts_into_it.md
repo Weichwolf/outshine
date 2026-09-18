@@ -90,9 +90,9 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
 2. Native Kamera und automatische Bounds-Rahmung liegen in Math/Content; der Importer
    kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
 3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele; `Skeleton` besitzt
-   Joint-Nodes/inverse Binds; `DeformationAsset` besitzt Vertex-Joints/-Weights und alle Morphdeltas.
-   Pose-Sampling ist O(Nodes+Tracks). Nächstens Basis-Meshdaten importieren; `sampleAnimation` dekodiert
-   POSITION/NORMAL/TANGENT/UV/Farbe/Indizes weiterhin aus dem Document.
+   Joint-Nodes/inverse Binds; `MeshAssetSet` besitzt Basispositionen, Skinbindung und Morphdeltas.
+   Pose-Sampling ist O(Nodes+Tracks). Nächstens NORMAL/TANGENT/UV/Farbe/Indizes importieren;
+   `sampleAnimation` darf danach keine Accessors oder Meshdaten aus dem Document lesen.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 
