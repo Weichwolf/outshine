@@ -2,6 +2,7 @@ Type: defect
 State: active
 Parent: 2105
 Depends:
+Priority: P0
 Area: engine, generators, world
 Tags: streaming, realtime, ownership
 
@@ -39,16 +40,20 @@ Preload creates an initial ground candidate to establish material resources, the
 ground rebuild until every structure bake has landed. Intermediate footprint revisions remain
 private; a frame never observes partially rebuilt terrain or a partial building tile.
 
-## Next implementation
+## Implementation order
 
-Priority P0. The production scheduler already carries `StructureBakeProgress`, takes 64
-structures per range and runs at most four ranges per task. Prove that contract before changing
-its constants: add a deterministic fixture with more than 256 structures and an observable
-candidate world A. It must show that every intermediate completion leaves A's footprints,
-pieces, revision and readback intact; only the final range yields B. Then make the per-range
-structure cap and the measured task/slice maxima explicit diagnostics of the public preload
-failure. If clustering exceeds the same bound, split only clustering into resumable slices with
-the source order preserved. Do not split the published tile or relax the 15-second Place limit.
+The production scheduler already carries `StructureBakeProgress`, takes 64 structures per range
+and runs at most four ranges per task. Prove the existing contract before changing its constants.
+
+1. **P0-A:** Add a deterministic public-Engine fixture with world A and 257 structures for B.
+   After every one of the first four completed ranges, read A's footprint set, pieces, revision
+   and GPU output. All must remain A. Only final completion may publish B.
+2. **P0-B:** Run the same input as an uninterrupted one-shot generator control. Source ordering,
+   accepted structures and final native products must match exactly.
+3. **P0-C:** Expose range count, maximum structures/range, maximum range CPU time and final
+   clustering time through the bounded preload diagnostic. It reads completion snapshots only.
+4. **P0-D:** If clustering violates the range bound, make only clustering resumable and preserve
+   source order. Do not split a tile's publication or relax the 15-second Place limit.
 
 ## Acceptance
 

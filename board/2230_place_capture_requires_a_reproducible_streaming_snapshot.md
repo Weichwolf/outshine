@@ -3,6 +3,7 @@ State: active
 Architecture: ready
 Parent: 2218
 Depends:
+Priority: P1
 Area: client, engine, test
 Tags: determinism, streaming, capture
 

@@ -81,16 +81,18 @@ als Ersatz für Bildqualität. 2150 nach dem begonnenen Submission-Fix priorisie
 für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschließend
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
-Verbindliche Coding-Reserve, Architekturrunde 2026-09-17:
-1. 2191: Ersatz-/Animationshistorie, öffentliche Fehlerfälle vor Reparatur reproduzieren.
-   Kandidaten wiederverwenden; letzter erfolgreicher Submit bestimmt Renderhistorie.
-2. P0 2231: vorhandene 64er Bereiche mit mehr als vier Bereichen beweisen; keine Teilwelt
-   publizieren. Die Bake-Task-Kündigungsprüfung ist unabhängig und blockiert diesen Schritt nicht.
-3. P0 2233: erst nach 2231 Vektor-Decode, Feldaufnahme und Bakebereiche unter einem
-   deterministischen Compute-Budget zulassen.
-4. P0 2234: danach jeden Ground-Kandidaten in dieselben messbaren, abbrechbaren Phasen zerlegen.
-5. P1 2230: verwendete Terrain-/Vektorprodukte beim Candidate erfassen und Capture gegen genau
-   diesen Stand binden; keine Cache-Gesamtheit als Snapshot ausgeben.
+Verbindliche Implementierungsreihenfolge:
+1. **P0-A, 2219:** jeder erste statische GPU-Frame muss mit jedem Folgeframe identisch sein.
+   Unfertige SampledImages dürfen nicht in eine veröffentlichte Welt gelangen.
+2. **P0-B, 2231:** den bestehenden 64er-Structure-Bake-Vertrag öffentlich beweisen und erst bei
+   einem belegten ungebundenen Clustering-Schritt weiter zerlegen.
+3. **P0-C, 2233:** danach Vektoren, Feldaufnahme und Bakebereiche durch einen deterministischen
+   Compute-Budget-Owner zulassen.
+4. **P0-D, 2234:** Ground-Aufbau in denselben messbaren, abbrechbaren Candidate-Phasen führen.
+5. **P1, 2230:** verwendete Terrain-/Vektorprodukte beim Candidate erfassen und Capture gegen
+   genau diesen Stand binden; keine Cache-Gesamtheit als Snapshot ausgeben.
+6. **P1, 2179 und 2171:** erst auf dem deterministischen Renderer die deklarativen Filterorakel
+   schließen und den nativen Materialpfad anhand dieser Orakel ausbauen.
 Danach 2150: statischer nativer Importpfad samt Materialrelokation, anschließend native
 Animation. 2216 ist kein pauschaler Startblocker: Wertevalidierung ist bereits vorhanden;
 Restabnahmen begleiten den jeweiligen Consumer. 2228 integriert Speicherbudgets.
