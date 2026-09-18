@@ -378,12 +378,14 @@ bool Live::Open(Render::SceneRenderer &renderer,
                 const Ui::Font *font,
                 std::unique_ptr<Live> &out,
                 std::string &error) {
+  const bool framesSubject = out && !out->Looking_.HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<Live> candidate;
   if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
+  if (framesSubject) { candidate->FrameItself(); }
   if (!renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
