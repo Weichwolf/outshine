@@ -18,6 +18,7 @@
 #include <scenario/Scenario.h>
 
 #include "Asset.h"
+#include "CameraState.h"
 #include "SubjectProxy.h"
 #include "Overlay.h"
 #include "Layout.h"
@@ -221,9 +222,9 @@ public:
 
   void Eye(const Render::Viewpoint &from) noexcept;
 
-  [[nodiscard]] const Render::Viewpoint &Aimed() const { return Looking_.Eye; }
+  [[nodiscard]] const Render::Viewpoint &Aimed() const { return Camera_.Prepared().Eye; }
 
-  [[nodiscard]] const Render::Viewpoint &Watching() const { return Eye_; }
+  [[nodiscard]] const Render::Viewpoint &Watching() const { return Camera_.Override(); }
 
   [[nodiscard]] const Declaration &Standing() const { return Declared_; }
 
@@ -249,12 +250,9 @@ public:
     return Stood_.Placement(part).data();
   }
 
-  [[nodiscard]] bool Watched() const { return HaveEye_; }
+  [[nodiscard]] bool Watched() const { return Camera_.HasOverride(); }
 
-  void FrameItself() {
-    HaveEye_ = false;
-    Aim_ = AimState::Dirty;
-  }
+  void FrameItself() { Camera_.FrameSubject(); }
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const {
     return Over_.Under(xPx, yPx, surface);
@@ -405,10 +403,7 @@ private:
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
-  Render::Viewpoint Eye_;
-  bool HaveEye_ = false;
-  enum class AimState { Unbound, Bound, Dirty };
-  AimState Aim_ = AimState::Unbound;
+  Render::CameraState Camera_;
   std::vector<Mat4> SentBody_;
   Mat4 SentBuilt_{};
 
@@ -424,7 +419,6 @@ private:
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
   Posed Held_;
   Render::SubjectProxy Stood_;
-  Render::Eye Looking_;
   Render::SubjectScratch Scratch_;
 
   Render::ShapeStore ShapeParts_;
@@ -450,8 +444,6 @@ private:
   bool Stoodup_ = false;
   size_t Joined_ = 0;
   size_t Carrying_ = 0;
-
-  double Around_ = 0.0;
 };
 
 }

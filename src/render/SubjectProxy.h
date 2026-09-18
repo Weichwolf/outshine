@@ -12,17 +12,12 @@
 #include <vector>
 
 #include "DrawList.h"
+#include "CameraState.h"
 #include "SubjectDraw.h"
 
 namespace outshine::Render {
 
 class SceneRenderer;
-
-struct Eye {
-  Viewpoint Eye;
-  bool HasExplicitCamera = false;
-  size_t FramedParts = 0;
-};
 
 class SubjectProxy {
 public:
@@ -123,31 +118,31 @@ struct SubjectScratch {
 
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
                        const Shape &subject,
-                       const Eye &view,
+                       const SubjectView &view,
                        const Vec3 &anchorEcefM,
                        std::string &error);
 
 [[nodiscard]] bool Show(SceneRenderer &renderer,
                         const SubjectProxy &proxy,
-                        const Eye &view,
+                        const SubjectView &view,
                         SubjectScratch &scratch,
                         std::string &error);
 
 [[nodiscard]] bool Surface(SceneRenderer &renderer,
                            const SubjectProxy &proxy,
-                           const Eye &view,
+                           const SubjectView &view,
                            SubjectScratch &scratch,
                            std::string &error);
 
 bool Place(SceneRenderer &renderer,
            const SubjectProxy &proxy,
-           const Eye &view,
+           const SubjectView &view,
            SubjectScratch &scratch,
            std::string &error);
 
 [[nodiscard]] bool Move(SceneRenderer &renderer,
                         const SubjectProxy &proxy,
-                        const Eye &view,
+                        const SubjectView &view,
                         SubjectScratch &scratch,
                         std::string &error);
 

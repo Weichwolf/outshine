@@ -143,7 +143,7 @@ bool Live::Open(Render::SceneRenderer &renderer,
                 const Ui::Font *font,
                 std::unique_ptr<Live> &out,
                 std::string &error) {
-  const bool framesSubject = out && !out->Looking_.HasExplicitCamera;
+  const bool framesSubject = out && !out->Camera_.Prepared().HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<Live> candidate;
   if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
@@ -211,10 +211,7 @@ bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  candidate->Eye_ = previous.Eye_;
-  candidate->HaveEye_ = previous.HaveEye_;
-  candidate->Aim_ = previous.Aim_;
-  candidate->Around_ = previous.Around_;
+  candidate->Camera_ = previous.Camera_;
   return true;
 }
 
@@ -241,10 +238,7 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  candidate->Eye_ = previous.Eye_;
-  candidate->HaveEye_ = previous.HaveEye_;
-  candidate->Aim_ = previous.Aim_;
-  candidate->Around_ = previous.Around_;
+  candidate->Camera_ = previous.Camera_;
   return true;
 }
 
@@ -767,18 +761,18 @@ std::expected<void, std::string> Live::BindSubject() {
     Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
     if (!Stand(error)) { return std::unexpected(std::move(error)); }
     StandMs_ = sinceInside();
-    if (!Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error)) {
+    if (!Render::Surface(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error)) {
       return std::unexpected(std::move(error));
     }
     SurfaceMs_ = sinceInside();
     if (!Submit(error)) { return std::unexpected(std::move(error)); }
-    if (Aim_ == AimState::Unbound) { Aim_ = AimState::Bound; }
+    if (Camera_.IsUnbound()) { Camera_.MarkBound(); }
     SubmitMs_ = sinceInside();
     InsideMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wholeFrom)
             .count();
   } else {
-    if (Aim_ == AimState::Bound) { Aim_ = AimState::Unbound; }
+    if (!Camera_.NeedsBinding()) { Camera_.Unbind(); }
     if (!Renderer_->SetSubjectMaterials(Table_.Slots, error)) {
       return std::unexpected(std::move(error));
     }
@@ -800,9 +794,7 @@ bool Live::Measure(double seconds, std::string &error) {
 }
 
 void Live::Eye(const Render::Viewpoint &from) noexcept {
-  Eye_ = from;
-  HaveEye_ = true;
-  Aim_ = AimState::Dirty;
+  Camera_.Override(from);
 }
 
 void Live::CapturesRenderedPositions() {
@@ -857,10 +849,10 @@ bool Live::PlacedBounds(Extents &into, std::string &error) {
 }
 
 bool Live::Look(std::string &error) {
-  if (HaveEye_) {
-    Looking_.Eye = Eye_;
-    Looking_.HasExplicitCamera = true;
-    return Render::Aim(*Renderer_, Shaped_, Looking_, Stood_.Anchor(), error);
+  if (Camera_.HasOverride()) {
+    Camera_.Prepared().Eye = Camera_.Override();
+    Camera_.Prepared().HasExplicitCamera = true;
+    return Render::Aim(*Renderer_, Shaped_, Camera_.Prepared(), Stood_.Anchor(), error);
   }
   Extents placed;
   if (!PlacedBounds(placed, error)) { return false; }
@@ -876,7 +868,7 @@ bool Live::Look(std::string &error) {
   Render::Viewpoint framed = *framing;
   const Vec3 centre = {
       {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5}};
-  const double turn = Around_ * kDeg2Rad;
+  const double turn = Camera_.OrbitDegrees() * kDeg2Rad;
   const double cosine = std::cos(turn);
   const double sine = std::sin(turn);
   const auto spun = [cosine, sine](const Vec3 &from) {
@@ -886,8 +878,8 @@ bool Live::Look(std::string &error) {
   framed.Forward = spun(framed.Forward);
   framed.Right = spun(framed.Right);
   framed.Up = spun(framed.Up);
-  Looking_ = {.Eye = framed, .HasExplicitCamera = false, .FramedParts = Joined_};
-  return Render::Aim(*Renderer_, Shaped_, Looking_, Stood_.Anchor(), error);
+  Camera_.Prepare(framed, false, Joined_);
+  return Render::Aim(*Renderer_, Shaped_, Camera_.Prepared(), Stood_.Anchor(), error);
 }
 
 void Live::StandsEnvironment() {
@@ -962,9 +954,9 @@ bool Live::Stand(std::string &error) {
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
     if (!Stood_.Places(part, unmoved)) { return false; }
   }
-  Looking_ = {.Eye = HaveEye_ ? Eye_ : Render::Viewpoint{},
-              .HasExplicitCamera = HaveEye_,
-              .FramedParts = Joined_};
+  Camera_.Prepare(Camera_.HasOverride() ? Camera_.Override() : Render::Viewpoint{},
+                  Camera_.HasOverride(),
+                  Joined_);
   for (Mat4 &one : SentBody_) { one.Column.fill(std::numeric_limits<double>::quiet_NaN()); }
   SentBuilt_.Column.fill(std::numeric_limits<double>::quiet_NaN());
   if (Held_.Moves() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
@@ -982,11 +974,11 @@ bool Live::Stand(std::string &error) {
   StandsEnvironment();
   MediumMs_ = sinceStand();
 
-  Render::Viewpoint eye = Looking_.Eye;
+  Render::Viewpoint eye = Camera_.Prepared().Eye;
   const bool declared = Held_.Camera().has_value();
   if (declared) { eye = *Held_.Camera(); }
-  Looking_.Eye = eye;
-  if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
+  Camera_.Prepared().Eye = eye;
+  if (!Camera_.HasOverride() && (Declared_.Fill > 0.0 || !declared)) {
     const auto boundedFrom = std::chrono::steady_clock::now();
     Box bounded = Shaped_.BoundsOf(Joined_);
     BoundsMs_ =
@@ -1004,7 +996,7 @@ bool Live::Stand(std::string &error) {
       return false;
     }
     eye = *fitted;
-    Looking_.Eye = eye;
+    Camera_.Prepared().Eye = eye;
   }
   FramingMs_ = sinceStand();
   return true;
@@ -1012,10 +1004,10 @@ bool Live::Stand(std::string &error) {
 
 bool Live::Submit(std::string &error) {
   if (!Stoodup_) {
-    Stoodup_ = Render::Place(*Renderer_, Stood_, Looking_, Scratch_, error);
+    Stoodup_ = Render::Place(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error);
     return Stoodup_;
   }
-  return Render::Move(*Renderer_, Stood_, Looking_, Scratch_, error);
+  return Render::Move(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error);
 }
 
 const std::string &Live::ProgrammeOf(size_t surface) const {
@@ -1154,7 +1146,7 @@ bool Live::SetGeometry(outshine::Geometry &&built,
                        size_t carried,
                        const Material &wearing,
                        std::string &error) {
-  Aim_ = AimState::Dirty;
+  Camera_.Invalidate();
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
   Held_.Carries(std::move(built));
@@ -1199,15 +1191,15 @@ bool Live::Advance(std::string &error) {
   }
 
   const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Shaped_.TriangleCount() > 0;
-  if (orbits) { Around_ += Declared_.OrbitDegPerFrame; }
-  if (orbits || Aim_ != AimState::Bound) {
+  if (orbits) { Camera_.AdvanceOrbit(Declared_.OrbitDegPerFrame); }
+  if (orbits || Camera_.NeedsBinding()) {
     const size_t beforeAim = Heap::TakenUnder("live-aim");
     {
       static const Heap::Tag kAimingTag("live-aim");
       const Heap::Tagged aiming(kAimingTag);
       if (!Look(error)) { return false; }
     }
-    Aim_ = AimState::Bound;
+    Camera_.MarkBound();
     TookAiming_ = took("live-aim", beforeAim);
   }
   return true;
@@ -1218,9 +1210,9 @@ bool Live::Draw(std::string &error) {
     error = "no device stands, so there is nothing to draw with";
     return false;
   }
-  if (Aim_ != AimState::Bound) {
+  if (Camera_.NeedsBinding()) {
     if (!Look(error)) { return false; }
-    Aim_ = AimState::Bound;
+    Camera_.MarkBound();
   }
   const size_t beforeDraw = Heap::TakenUnder("render-frame");
   {

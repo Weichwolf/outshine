@@ -221,7 +221,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
 }
 
 [[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy,
-                                 const Eye &view,
+                                 const SubjectView &view,
                                  const Shape &subject,
                                  DrawList &list,
                                  std::string &error) {
@@ -350,7 +350,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
 
 bool Aim(SceneRenderer &renderer,
          const Shape &subject,
-         const Eye &view,
+         const SubjectView &view,
          const Vec3 &anchorEcefM,
          std::string &error) {
   const Viewpoint &eye = view.Eye;
@@ -371,7 +371,7 @@ bool Aim(SceneRenderer &renderer,
 
 bool Surface(SceneRenderer &renderer,
              const SubjectProxy &proxy,
-             [[maybe_unused]] const Eye &view,
+             [[maybe_unused]] const SubjectView &view,
              SubjectScratch &scratch,
              std::string &error) {
   if (proxy.Shaped() == nullptr) {
@@ -388,7 +388,7 @@ bool Surface(SceneRenderer &renderer,
 
 bool Show(SceneRenderer &renderer,
           const SubjectProxy &proxy,
-          const Eye &view,
+          const SubjectView &view,
           SubjectScratch &scratch,
           std::string &error) {
   return Surface(renderer, proxy, view, scratch, error) &&
@@ -426,7 +426,7 @@ void RecordGeometryDigest(const Shape &subject, SubjectScratch &scratch) {
 
 bool Place(SceneRenderer &renderer,
            const SubjectProxy &proxy,
-           const Eye &view,
+           const SubjectView &view,
            SubjectScratch &scratch,
            std::string &error) {
   if (proxy.Shaped() == nullptr) {
@@ -525,7 +525,7 @@ bool Place(SceneRenderer &renderer,
 
 bool Move(SceneRenderer &renderer,
           const SubjectProxy &proxy,
-          const Eye &view,
+          const SubjectView &view,
           SubjectScratch &scratch,
           std::string &error) {
   if (proxy.Shaped() == nullptr) {

@@ -119,7 +119,7 @@ void FailedAimPreservesLens() {
   const auto target = renderer.DrawsInto(32, 32, nullptr);
   CHECK(target.has_value(), "a real target supplies the camera viewport");
   if (!target) { return; }
-  Eye view;
+  SubjectView view;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;
   view.Eye.ZFarM = 10;

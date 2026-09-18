@@ -99,6 +99,7 @@ ownership proof moved beside SceneResources.
 
 The physical atmosphere model, CPU integration and exact-state cache now belong to world/sky.
 Render consumes the shared medium contract; Live only translates declarations and lighting output.
+Render CameraState now owns override, prepared view, binding phase and orbit across replacement.
 
 Do not let SceneResources duplicate Live's complete import-facing SurfaceTable. The base table is
 an input to scene publication until its separate extraction; registered generated materials are an
