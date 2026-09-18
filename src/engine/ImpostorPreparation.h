@@ -5,7 +5,6 @@
 #include "ImpostorAtlasShape.h"
 #include "TreePrototype.h"
 #include <optional>
-#include <cstddef>
 #include <string>
 #include <string_view>
 
@@ -16,9 +15,6 @@ namespace outshine {
 
 [[nodiscard]] std::string ImpostorAtlasProvenance(std::string_view species,
                                                   Content::ImpostorAtlasShape shape);
-
-[[nodiscard]] std::optional<Geometry> BuildImpostorCard(const Content::ImpostorAtlas &atlas,
-                                                        size_t view);
 
 }
 #endif

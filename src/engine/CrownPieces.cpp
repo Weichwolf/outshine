@@ -28,7 +28,7 @@ std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
   auto result = std::unique_ptr<CrownPieces>(new CrownPieces(live, atlas.CentreM(), maxInstances));
   result->Views_.reserve(atlas.Views().size());
   for (size_t view = 0; view < atlas.Views().size(); ++view) {
-    auto geometry = BuildImpostorCard(atlas, view);
+    auto geometry = Render::BuildImpostorCard(atlas, view);
     if (!geometry || geometry->parts() != 1) {
       error = Says::CrownView;
       return nullptr;

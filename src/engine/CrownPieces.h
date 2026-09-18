@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_CROWNPIECES_H
 
 #include "ImpostorPreparation.h"
+#include "ImpostorCard.h"
 #include "SubjectTypes.h"
 #include "ResourceHandle.h"
 #include <memory>

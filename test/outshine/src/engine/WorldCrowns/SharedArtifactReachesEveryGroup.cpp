@@ -63,7 +63,7 @@ int main() {
   Data::ImpostorCache cache(tasks, config.Cache);
   CHECK(cache.Publish(*atlas, ImpostorAtlasProvenance(species->Definition(), config.Shape), error),
         "one shared cache artifact published");
-  auto geometry = BuildImpostorCard(*atlas, 0);
+  auto geometry = Render::BuildImpostorCard(*atlas, 0);
   CHECK(geometry.has_value(), "capture card exists");
   if (!geometry) { return Report(); }
   Render::SceneRenderer renderer;
