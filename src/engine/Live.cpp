@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "Heap.h"
-#include "Framing.h"
+#include "CameraFraming.h"
 #include "SubjectProxy.h"
 #include "Wgs84.h"
 
@@ -33,6 +33,7 @@ namespace outshine::Core {
 namespace Says {
 constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
+constexpr auto InvalidFramedCamera = "automatic framing produced an invalid renderer camera";
 }
 
 constexpr double kExposureCalibration = 1.2;
@@ -252,7 +253,23 @@ bool Live::PublishesPreparedWorld(Render::SceneRenderer &renderer,
 }
 
 double Live::Framing() const {
-  return Declared_.Fill > 0.0 ? Declared_.Fill : Render::kFramingFill;
+  return Declared_.Fill > 0.0 ? Declared_.Fill : kCameraFramingFill;
+}
+
+bool Live::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const {
+  const auto fitted = FrameCamera(
+      bounds, {.Fill = Framing(), .Aspect = Renderer_->PictureW() / Renderer_->PictureH()});
+  if (!fitted) {
+    error = fitted.error();
+    return false;
+  }
+  const auto viewed = Render::ViewpointOf(*fitted);
+  if (!viewed) {
+    error = Says::InvalidFramedCamera;
+    return false;
+  }
+  out = *viewed;
+  return true;
 }
 
 bool Live::Reshape(std::string &error) {
@@ -740,14 +757,8 @@ bool Live::Look(std::string &error) {
   if (!PlacedBounds(placed, error)) { return false; }
   const Vec3 &least = placed.LeastM;
   const Vec3 &most = placed.MostM;
-  const auto framing = Render::FrameBounds(
-      {.Min = least, .Max = most},
-      {.Fill = Framing(), .Aspect = Renderer_->PictureW() / Renderer_->PictureH()});
-  if (!framing) {
-    error = framing.error();
-    return false;
-  }
-  Render::Viewpoint framed = *framing;
+  Render::Viewpoint framed;
+  if (!FitsViewTo({.Min = least, .Max = most}, framed, error)) { return false; }
   const Vec3 centre = {
       {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5}};
   const double turn = Camera_.OrbitDegrees() * kDeg2Rad;
@@ -870,13 +881,7 @@ bool Live::Stand(std::string &error) {
       bounded.Cover(Shaped_.BoundsOf(Joined_));
     }
     if (Held_.Frames() > 1 && !Measure(0.0, error)) { return false; }
-    const auto fitted = Render::FrameBounds(
-        bounded, {.Fill = Framing(), .Aspect = Renderer_->PictureW() / Renderer_->PictureH()});
-    if (!fitted) {
-      error = fitted.error();
-      return false;
-    }
-    eye = *fitted;
+    if (!FitsViewTo(bounded, eye, error)) { return false; }
     Camera_.Prepared().Eye = eye;
   }
   FramingMs_ = sinceStand();

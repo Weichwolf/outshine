@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <expected>
 #include "Extent.h"
-#include "Viewing.h"
 #include <cstdint>
 #include <memory>
 #include <limits>
@@ -16,6 +15,7 @@
 #include <vector>
 
 #include "Document.h"
+#include "CameraFraming.h"
 #include "Pose.h"
 #include "Subject.h"
 #include "Variant.h"
@@ -137,15 +137,13 @@ struct GltfImporter::Held {
   }
 
   [[nodiscard]] std::expected<Camera, std::string> ResolveCamera(int index) const {
-    Render::Viewpoint placed;
+    Camera placed;
     std::string why;
     const std::span<const Gltf::Transform> locals = PublishedLocals;
     if (!Gltf::DeclaredPlacement(File, index, placed, why, locals)) {
       return std::unexpected(std::move(why));
     }
-    Camera camera;
-    Render::CameraOf(placed, camera);
-    return camera;
+    return placed;
   }
 
   [[nodiscard]] bool Wears(Geometry &candidate) {
@@ -236,14 +234,12 @@ GltfImporter::frameCamera(Extent viewport) const noexcept {
   if (viewport.WidthPx <= 0 || viewport.HeightPx <= 0) {
     return std::unexpected(FrameError::InvalidViewport);
   }
-  Render::Viewpoint fitted;
+  Camera fitted;
   const double aspect = static_cast<double>(viewport.WidthPx) / viewport.HeightPx;
-  if (!Held_ || !Held_->Assembled.Frame(fitted, Render::kFramingFill, aspect)) {
+  if (!Held_ || !Held_->Assembled.Frame(fitted, kCameraFramingFill, aspect)) {
     return std::unexpected(FrameError::InvalidBounds);
   }
-  Camera camera;
-  Render::CameraOf(fitted, camera);
-  return camera;
+  return fitted;
 }
 
 }

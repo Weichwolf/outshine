@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_CAMERA_H
-#define OUTSHINE_RENDER_CAMERA_H
+#ifndef OUTSHINE_SCENE_CAMERA_H
+#define OUTSHINE_SCENE_CAMERA_H
 
 #include <cmath>
 #include <expected>

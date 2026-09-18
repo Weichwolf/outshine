@@ -42,12 +42,12 @@ struct Pair {
 };
 
 constexpr Pair kConstants[] = {
-    {"kFramingAzimuthDeg", "FRAMING_AZIMUTH_DEG"},
-    {"kFramingElevationDeg", "FRAMING_ELEVATION_DEG"},
-    {"kFramingSensorHalfHeightMm", "FRAMING_SENSOR_HALF_HEIGHT_MM"},
-    {"kFramingFocalLengthMm", "FRAMING_FOCAL_LENGTH_MM"},
-    {"kFramingFill", "FRAMING_FILL"},
-    {"kFramingNearFloorFraction", "FRAMING_NEAR_FLOOR_FRACTION"},
+    {"kCameraFramingAzimuthDeg", "FRAMING_AZIMUTH_DEG"},
+    {"kCameraFramingElevationDeg", "FRAMING_ELEVATION_DEG"},
+    {"kCameraFramingSensorHalfHeightMm", "FRAMING_SENSOR_HALF_HEIGHT_MM"},
+    {"kCameraFramingFocalLengthMm", "FRAMING_FOCAL_LENGTH_MM"},
+    {"kCameraFramingFill", "FRAMING_FILL"},
+    {"kCameraFramingNearFloorFraction", "FRAMING_NEAR_FLOOR_FRACTION"},
 };
 
 } // namespace
@@ -56,7 +56,7 @@ int main() {
   using namespace outshine::Test;
 
   std::string header, preparer;
-  const bool read = Slurp("src/render/Framing.h", header) &&
+  const bool read = Slurp("src/base/math/CameraFraming.h", header) &&
                     Slurp("test/harness/shared/corpus/prep/in_blender_render.py", preparer);
   CHECK(read, "both statements of the framing rule are in the tree to be compared");
   if (!read) { return Report(); }
@@ -66,7 +66,8 @@ int main() {
     double engine = 0.0, python = 0.0;
     const bool inEngine = NumberAfter(header, constant.InTheEngine, engine);
     const bool inPreparer = NumberAfter(preparer, constant.InThePreparer, python);
-    CHECK(inEngine, (std::string("src/render/Framing.h declares ") + constant.InTheEngine).c_str());
+    CHECK(inEngine,
+          (std::string("src/base/math/CameraFraming.h declares ") + constant.InTheEngine).c_str());
     CHECK(inPreparer, (std::string("the preparer declares ") + constant.InThePreparer).c_str());
     if (!inEngine || !inPreparer) { continue; }
     const bool same = engine == python;
@@ -87,8 +88,8 @@ int main() {
   Note("framing constants agreeing across the two statements", (double)agreeing, "constants");
 
   size_t declared = 0;
-  for (size_t at = header.find("kFraming"); at != std::string::npos;
-       at = header.find("kFraming", at + 1)) {
+  for (size_t at = header.find("kCameraFraming"); at != std::string::npos;
+       at = header.find("kCameraFraming", at + 1)) {
     const size_t line = header.find('\n', at);
     const size_t equals = header.find('=', at);
     if (equals != std::string::npos && (line == std::string::npos || equals < line)) { ++declared; }

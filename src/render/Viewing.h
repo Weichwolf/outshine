@@ -8,7 +8,7 @@
 #include "math/Vec3.h"
 #include <array>
 #include <cmath>
-#include "render/Camera.h"
+#include "scene/Camera.h"
 #include <numbers>
 #include <cstdint>
 

@@ -88,8 +88,8 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
 1. Der statische Pfad Generator/glTF-Importer → native Geometry → Renderer steht;
    Bilder und Materialslots werden beim Append einmal relokiert, Overrides danach
    herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
-2. Native Kamera/Bounds nach Math/Content verschieben; Importer darf Render-Typen nicht
-   kennen. `Posed` durch formatfreien Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
+2. Native Kamera und automatische Bounds-Rahmung liegen in Math/Content; der Importer
+   kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
 3. Animation, Varianten und Asset-Lebensdauer vollständig migrieren;
    Clips/Skeletons/Morphziele beim Import besitzen, nur Pose/Deltas im Tick auswerten.
    Importer::sampleAnimation im Frame wäre keine native Migration. Keine verlorenen Fähigkeiten.

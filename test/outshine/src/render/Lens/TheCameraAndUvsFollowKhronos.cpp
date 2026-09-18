@@ -1,7 +1,7 @@
 #include <cmath>
 #include <numbers>
 #include <limits>
-#include <render/Camera.h>
+#include "scene/Camera.h"
 #include <scene/UvTransform.h>
 #include "Check.h"
 #include "Lens.h"

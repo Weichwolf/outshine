@@ -4,9 +4,8 @@
 #include <algorithm>
 #include <expected>
 #include "math/Mat4.h"
-#include "render/Camera.h"
+#include "scene/Camera.h"
 #include "math/TransformMatrix.h"
-#include "Viewing.h"
 
 namespace outshine {
 
@@ -48,14 +47,17 @@ std::expected<void, CameraMatrixError> Camera::modelMatrix(Mat4 &out) const noex
       return std::unexpected(CameraMatrixError::InvalidPose);
     }
   }
-  const auto basis = Render::Viewpoint::LookAt({.EyeM = PositionM, .AimM = LookAtM}, UpM);
-  if (!basis) { return std::unexpected(CameraMatrixError::InvalidPose); }
+  Vec3 forward = LookAtM - PositionM;
+  if (!Normalise(forward)) { return std::unexpected(CameraMatrixError::InvalidPose); }
+  Vec3 right = Cross(forward, UpM);
+  if (!Normalise(right)) { return std::unexpected(CameraMatrixError::InvalidPose); }
+  const Vec3 up = Cross(right, forward);
   out = Mat4{};
   for (int axis = 0; axis < 3; ++axis) {
-    out[axis] = basis->Right[axis];
-    out[4 + axis] = basis->Up[axis];
-    out[8 + axis] = -basis->Forward[axis];
-    out[12 + axis] = basis->EyeM[axis];
+    out[axis] = right[axis];
+    out[4 + axis] = up[axis];
+    out[8 + axis] = -forward[axis];
+    out[12 + axis] = PositionM[axis];
   }
   return {};
 }

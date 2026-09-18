@@ -3,7 +3,6 @@
 
 #include "math/Box.h"
 #include "math/Vec3.h"
-#include "Viewing.h"
 #include "Image.h"
 #include <array>
 #include <scene/Geometry.h>
@@ -16,7 +15,7 @@
 #include "scene/PunctualLight.h"
 
 #include "Viewport.h"
-#include "Framing.h"
+#include "scene/Camera.h"
 #include "Transform.h"
 #include "Variant.h"
 
@@ -29,15 +28,9 @@ namespace outshine::Gltf {
 class Document;
 struct Primitive;
 
-using Render::Viewpoint;
-
-[[nodiscard]] bool ViewOf(const Viewpoint &from, Transform &out);
-
-[[nodiscard]] bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out);
-
 [[nodiscard]] bool DeclaredPlacement(const Document &document,
                                      int cameraIndex,
-                                     Viewpoint &out,
+                                     outshine::Camera &out,
                                      std::string &error,
                                      std::span<const Transform> locals = {});
 
@@ -154,8 +147,7 @@ public:
   [[nodiscard]] double RadiusM() const;
   void CentreM(Vec3 &out) const;
 
-  [[nodiscard]] bool
-  Frame(Viewpoint &out, double fill = Render::kFramingFill, double aspect = 1.0) const;
+  [[nodiscard]] bool Frame(outshine::Camera &out, double fill, double aspect) const;
 
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 

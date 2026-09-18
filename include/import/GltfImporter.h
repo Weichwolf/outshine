@@ -9,7 +9,7 @@
 #include <string_view>
 
 #include "scene/Geometry.h"
-#include "render/Camera.h"
+#include "scene/Camera.h"
 
 namespace outshine {
 

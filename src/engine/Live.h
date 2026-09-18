@@ -359,6 +359,8 @@ private:
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] std::expected<void, std::string> BindSubject();
   [[nodiscard]] double Framing() const;
+  [[nodiscard]] bool
+  FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const;
   [[nodiscard]] bool Pose(double seconds, std::string &error);
   [[nodiscard]] bool Measure(double seconds, std::string &error);
 

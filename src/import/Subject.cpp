@@ -29,7 +29,7 @@
 #include <vector>
 
 #include "Document.h"
-#include "Framing.h"
+#include "CameraFraming.h"
 #include "Tangents.h"
 
 namespace outshine::Gltf {
@@ -463,36 +463,6 @@ bool Subject::FlatNormalsFor(Part &part) {
   }
   part.HasNormal = true;
   part.VertexCount += VertexCount() - before;
-  return true;
-}
-
-bool ViewOf(const Viewpoint &from, Transform &out) {
-  Transform world;
-  for (int axis = 0; axis < 3; ++axis) {
-    world.M[axis] = from.Right[axis];
-    world.M[4 + axis] = from.Up[axis];
-    world.M[8 + axis] = -from.Forward[axis];
-    world.M[12 + axis] = from.EyeM[axis];
-  }
-  world.M[3] = world.M[7] = world.M[11] = 0;
-  world.M[15] = 1;
-  return world.Inverse(out);
-}
-
-bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out) {
-  Camera lens;
-  lens.Kind = from.Kind == Render::CameraKind::Orthographic ? CameraKind::Orthographic
-                                                            : CameraKind::Perspective;
-  lens.YfovRad = from.YfovRad;
-  lens.XMagM = from.XMagM;
-  lens.YMagM = from.YMagM;
-  lens.ZNearM = from.ZNearM;
-  lens.ZFarM = from.ZFarM;
-  Transform projection;
-  Transform view;
-  if (!lens.Projection(viewportAspect, projection)) { return false; }
-  if (!ViewOf(from, view)) { return false; }
-  out = projection * view;
   return true;
 }
 
@@ -1534,9 +1504,8 @@ void Subject::CentreM(Vec3 &out) const {
   out = (Min_ + Max_) * 0.5;
 }
 
-bool Subject::Frame(Viewpoint &out, double fill, double aspect) const {
-  const auto framed =
-      Render::FrameBounds({.Min = Min_, .Max = Max_}, {.Fill = fill, .Aspect = aspect});
+bool Subject::Frame(outshine::Camera &out, double fill, double aspect) const {
+  const auto framed = FrameCamera({.Min = Min_, .Max = Max_}, {.Fill = fill, .Aspect = aspect});
   if (!framed) { return false; }
   out = *framed;
   return true;
@@ -1544,7 +1513,7 @@ bool Subject::Frame(Viewpoint &out, double fill, double aspect) const {
 
 bool DeclaredPlacement(const Document &document,
                        int cameraIndex,
-                       Viewpoint &out,
+                       outshine::Camera &out,
                        std::string &error,
                        std::span<const Transform> locals) {
   if (cameraIndex < 0 || static_cast<size_t>(cameraIndex) >= document.Cameras().size()) {
@@ -1575,24 +1544,28 @@ bool DeclaredPlacement(const Document &document,
             std::to_string(cameraIndex) + " and its world transform does not resolve";
     return false;
   }
+  Vec3 up;
+  Vec3 forward;
   for (int axis = 0; axis < 3; ++axis) {
-    out.Right[axis] = world.M[axis];
-    out.Up[axis] = world.M[4 + axis];
-    out.Forward[axis] = -world.M[8 + axis];
-    out.EyeM[axis] = world.M[12 + axis];
+    up[axis] = world.M[4 + axis];
+    forward[axis] = -world.M[8 + axis];
+    out.PositionM[axis] = world.M[12 + axis];
   }
-  if (!Normalise(out.Right) || !Normalise(out.Up) || !Normalise(out.Forward)) {
+  if (!Normalise(up) || !Normalise(forward)) {
     error = document.Path() + ": node " + std::to_string(holder) + " carries camera " +
             std::to_string(cameraIndex) + " and its basis has collapsed";
     return false;
   }
-  out.Kind = lens.Kind == CameraKind::Orthographic ? Render::CameraKind::Orthographic
-                                                   : Render::CameraKind::Perspective;
-  out.YfovRad = lens.YfovRad;
-  out.XMagM = lens.XMagM;
-  out.YMagM = lens.YMagM;
-  out.ZNearM = lens.ZNearM;
-  out.ZFarM = lens.ZFarM;
+  out.LooksAt = true;
+  out.LookAtM = out.PositionM + forward;
+  out.UpM = up;
+  if (lens.Kind == CameraKind::Orthographic) {
+    out.setProjection(outshine::Camera::Ortho{
+        .XMagM = lens.XMagM, .YMagM = lens.YMagM, .NearM = lens.ZNearM, .FarM = lens.ZFarM});
+  } else {
+    out.setProjection(outshine::Camera::Perspective{
+        .FovDeg = lens.YfovRad * kRad2Deg, .NearM = lens.ZNearM, .FarM = lens.ZFarM});
+  }
   return true;
 }
 

@@ -12,7 +12,7 @@
 #include "math/Vec3.h"
 
 #include "Extent.h"
-#include "render/Camera.h"
+#include "scene/Camera.h"
 
 namespace outshine::Scenario {
 

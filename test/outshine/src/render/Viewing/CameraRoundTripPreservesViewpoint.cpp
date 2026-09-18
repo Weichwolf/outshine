@@ -9,25 +9,26 @@ int main() {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
-  const std::array<Viewpoint, 2> views = {{
-      {.EyeM = {{3, -2, 7}},
-       .Forward = {{0, 0, -1}},
-       .Right = {{1, 0, 0}},
-       .Up = {{0, 1, 0}},
-       .Kind = CameraKind::Perspective,
-       .YfovRad = 1.2,
-       .ZNearM = 0.125,
-       .ZFarM = 400},
-      {.EyeM = {{-4, 5, 6}},
-       .Forward = {{-1, 0, 0}},
-       .Right = {{0, 0, -1}},
-       .Up = {{0, 1, 0}},
-       .Kind = CameraKind::Orthographic,
-       .XMagM = 17,
-       .YMagM = 9,
-       .ZNearM = 0,
-       .ZFarM = 80},
-  }};
+  Viewpoint perspective;
+  perspective.EyeM = {{3, -2, 7}};
+  perspective.Forward = {{0, 0, -1}};
+  perspective.Right = {{1, 0, 0}};
+  perspective.Up = {{0, 1, 0}};
+  perspective.Kind = CameraKind::Perspective;
+  perspective.YfovRad = 1.2;
+  perspective.ZNearM = 0.125;
+  perspective.ZFarM = 400;
+  Viewpoint orthographic;
+  orthographic.EyeM = {{-4, 5, 6}};
+  orthographic.Forward = {{-1, 0, 0}};
+  orthographic.Right = {{0, 0, -1}};
+  orthographic.Up = {{0, 1, 0}};
+  orthographic.Kind = CameraKind::Orthographic;
+  orthographic.XMagM = 17;
+  orthographic.YMagM = 9;
+  orthographic.ZNearM = 0;
+  orthographic.ZFarM = 80;
+  const std::array views{perspective, orthographic};
   for (const Viewpoint &source : views) {
     Camera camera;
     CameraOf(source, camera);
