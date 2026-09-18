@@ -93,12 +93,12 @@ the native Geometry sources because their images back SubjectTexture pointers an
 
 ## Acceptance
 
-- [ ] Consumers compile against the extracted owner without Live/EngineHeld includes.
-- [ ] Public A -> failed B -> retry B proves pixels, handles and terrain resources remain
+- [x] Consumers compile against the extracted owner without Live/EngineHeld includes.
+- [x] Public A -> failed B -> retry B proves pixels, handles and terrain resources remain
       coherent; old owner destruction cannot clear the successor's resources.
-- [ ] Stale handle after release/reuse is rejected; failed bulk instance update is atomic.
-- [ ] Repeated replacement has bounded retained bytes and unchanged completed-frame pixels.
+- [x] Stale handle after release/reuse is rejected; failed bulk instance update is atomic.
+- [x] Repeated replacement has bounded retained bytes and unchanged completed-frame pixels.
 - [ ] make format; make suite SUITE=outshine/include/Outshine; focused resource lifetime
-      suites migrated from test/outshine/src/engine/Live (PieceHandlesSurviveWorldReplacement,
+      suites under test/outshine/src/render/scene/SceneResources (PieceHandlesSurviveWorldReplacement,
       PieceInstanceBatchRejectsPartialUpdates, GroundResourcesSurviveWorldPublication); make lint. Use existing client captures for
       before/after PNG checks; record existing WI 2219 failures separately, never mask them.

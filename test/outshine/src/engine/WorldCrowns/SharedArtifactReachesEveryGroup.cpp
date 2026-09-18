@@ -74,7 +74,7 @@ int main() {
   CHECK(Core::Live::Open(renderer, declaration, nullptr, live, error), "resident renderer opens");
   if (!live) { return Report(); }
   const std::array<WorldInstance, 2> instances{{{.Cluster = 0}, {.Cluster = 1}}};
-  const auto initialPieces = live->PiecesStanding();
+  const auto initialPieces = renderer.PiecesStanding();
   for (int cycle = 0; cycle < 3; ++cycle) {
     auto crowns =
         WorldCrowns::Create(renderer, catalogue, instances, TangentFrame::At({}), config, error);
@@ -92,18 +92,19 @@ int main() {
     CHECK(stepped, "cached loading requires no preparation");
     CHECK(crowns->Ready() && crowns->Resident() == 2,
           "one cache result reaches both waiting groups");
-    CHECK(live->PiecesStanding() == initialPieces + 2, "both crown groups publish render pieces");
+    CHECK(renderer.PiecesStanding() == initialPieces + 2,
+          "both crown groups publish render pieces");
     if (cycle == 0) {
       CHECK(Core::Live::ReplacesGeometry(renderer, *live, geometry->clone(), nullptr, live, error),
             "world publication retains the crown piece descriptions");
       crowns->Into(renderer);
       CHECK(crowns->Step({{0, 0, 10}}, false, error),
             "crown groups rebind their stable piece handles after publication");
-      CHECK(live->PiecesStanding() == initialPieces + 2,
+      CHECK(renderer.PiecesStanding() == initialPieces + 2,
             "rebound crown groups retain every resident prototype");
     }
     crowns.reset();
-    CHECK(live->PiecesStanding() == initialPieces,
+    CHECK(renderer.PiecesStanding() == initialPieces,
           "destroying crowns releases all their render pieces");
     CHECK(catalogue.Stands(vegetation, (directory / "species").string(), error, false) &&
               catalogue.TreeFor(Generators::ClusterId{0}) == nullptr,

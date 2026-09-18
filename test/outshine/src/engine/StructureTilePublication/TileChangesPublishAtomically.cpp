@@ -54,13 +54,13 @@ int main() {
             "complete tile publishes wall and roof");
       const auto original = scene.get();
       const auto digest = world.Pieces.Digest();
-      const auto payload = scene->PieceSourceBytes();
+      const auto payload = renderer.PieceSourceBytes();
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
       CHECK(!PublishStructureTile(world, renderer, scene, landing, nullptr),
             "replacement roof refuses after its candidate wall uploads");
       CHECK(scene.get() == original && renderer.PiecesStanding() == 2 &&
                 world.Pieces.Digest() == digest && world.Pieces.Handed() == 1 &&
-                scene->PieceSourceBytes() == payload,
+                renderer.PieceSourceBytes() == payload,
             "rejected tile keeps old world, geometry, digest and source payload");
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
                           .Roofs = static_cast<uint32_t>(roof->index())});
@@ -78,7 +78,7 @@ int main() {
       landing.Baked = &empty;
       CHECK(PublishStructureTile(world, renderer, scene, landing, nullptr).has_value(),
             "empty tile is an accepted replacement");
-      CHECK(renderer.PiecesStanding() == 0 && scene->PieceSourceBytes() == 0 &&
+      CHECK(renderer.PiecesStanding() == 0 && renderer.PieceSourceBytes() == 0 &&
                 world.Pieces.Handed() == 2 && world.Pieces.Digest() != digest,
             "empty replacement removes previous buildings and advances publication");
       landing.Baked = &built;
@@ -117,7 +117,7 @@ int main() {
       world.Pieces.Forgets(7);
       world.Pieces.Forgets(8);
       world.Pieces.Forgets(9);
-      CHECK(renderer.PiecesStanding() == 0 && scene->PieceSourceBytes() == 0,
+      CHECK(renderer.PiecesStanding() == 0 && renderer.PieceSourceBytes() == 0,
             "streaming owner still addresses published pieces after all replacements");
     }
   }

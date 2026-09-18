@@ -17,7 +17,6 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 
-#include "ResourceHandle.h"
 #include "Asset.h"
 #include "SubjectProxy.h"
 #include "Overlay.h"
@@ -130,44 +129,6 @@ public:
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
-
-  [[nodiscard]] std::expected<Render::PieceHandle, std::string>
-  PlacePiece(const Render::PieceMesh &piece);
-
-  using PieceRows = Render::SceneResources::PieceRows;
-
-  [[nodiscard]] bool
-  SetPieceInstances(Render::PieceHandle which, std::span<const Mat4> rows, std::string &error);
-
-  [[nodiscard]] bool SetPieceInstances(std::span<const PieceRows> pieces, std::string &error);
-
-  void ReleasePiece(Render::PieceHandle which);
-
-  [[nodiscard]] uint32_t GroundLatticeTriangles() const {
-    return Renderer_ == nullptr ? 0u : Renderer_->GroundLatticeTriangles();
-  }
-
-  [[nodiscard]] uint32_t PiecesStanding() const {
-    return Renderer_ == nullptr ? 0u : Renderer_->PiecesStanding();
-  }
-
-  [[nodiscard]] uint32_t PieceTriangles() const {
-    return Renderer_ == nullptr ? 0u : Renderer_->PieceTriangles();
-  }
-
-  [[nodiscard]] size_t PieceSourceBytes() const noexcept;
-
-  [[nodiscard]] size_t PieceSlots() const noexcept {
-    return Renderer_ == nullptr ? 0 : Renderer_->PieceSlots();
-  }
-
-  [[nodiscard]] size_t PieceSlotBytes() const noexcept {
-    return Renderer_ == nullptr ? 0 : Renderer_->PieceSlotBytes();
-  }
-
-  [[nodiscard]] uint32_t PieceBytesHeld() const {
-    return Renderer_ == nullptr ? 0u : Renderer_->PieceBytesHeld();
-  }
 
   [[nodiscard]] bool GroundClasses(std::span<const uint32_t> classes,
                                    std::span<const float> palette,

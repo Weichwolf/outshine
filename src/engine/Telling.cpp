@@ -81,10 +81,10 @@ bool Engine::State::Stood() {
 void Engine::State::TellResourcePayloads() {
   if (!Picture.Standing) { return; }
   Published.Places("streamed piece CPU payload capacity",
-                   static_cast<double>(Picture.Standing->PieceSourceBytes()),
+                   static_cast<double>(Picture.Device.PieceSourceBytes()),
                    "bytes");
   Published.Places("streamed piece slot capacity",
-                   static_cast<double>(Picture.Standing->PieceSlotBytes()),
+                   static_cast<double>(Picture.Device.PieceSlotBytes()),
                    "bytes");
   Published.Places("height page slot capacity",
                    static_cast<double>(Picture.Device.HeightPageSlotBytes()),

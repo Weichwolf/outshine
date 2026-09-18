@@ -178,7 +178,7 @@ std::optional<Content::ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePr
       piece.MaxInstances = static_cast<uint32_t>(geometry->Placements.size());
       piece.Surface = Render::PieceSurface(1);
       piece.Textured = true;
-      if (auto placed = live->PlacePiece(piece); !placed) {
+      if (auto placed = renderer.PlacePiece(piece); !placed) {
         error = std::move(placed.error());
         return std::nullopt;
       }

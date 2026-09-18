@@ -42,7 +42,6 @@ namespace Says {
 constexpr auto GroundRendererMissing = "ground storage requires a live renderer";
 constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
-constexpr auto MissingPiece = "the piece handle names no live resource in this world";
 }
 
 bool Live::GroundClasses(std::span<const uint32_t> classes,
@@ -58,37 +57,6 @@ bool Live::GroundClasses(std::span<const uint32_t> classes,
   GroundClasses_.swap(classData);
   GroundPalette_.swap(paletteData);
   return true;
-}
-
-std::expected<Render::PieceHandle, std::string> Live::PlacePiece(const Render::PieceMesh &piece) {
-  if (Renderer_ == nullptr) { return std::unexpected(Says::MissingPiece); }
-  return Renderer_->PlacePiece(piece);
-}
-
-bool Live::SetPieceInstances(Render::PieceHandle which,
-                             std::span<const Mat4> rows,
-                             std::string &error) {
-  if (Renderer_ == nullptr) {
-    error = Says::MissingPiece;
-    return false;
-  }
-  return Renderer_->SetPieceInstances(which, rows, error);
-}
-
-bool Live::SetPieceInstances(std::span<const PieceRows> pieces, std::string &error) {
-  if (Renderer_ == nullptr) {
-    error = Says::MissingPiece;
-    return false;
-  }
-  return Renderer_->SetPieceInstances(pieces, error);
-}
-
-size_t Live::PieceSourceBytes() const noexcept {
-  return Renderer_ == nullptr ? 0 : Renderer_->PieceSourceBytes();
-}
-
-void Live::ReleasePiece(Render::PieceHandle which) {
-  if (Renderer_ != nullptr) { Renderer_->ReleasePiece(which); }
 }
 
 constexpr double kExposureCalibration = 1.2;

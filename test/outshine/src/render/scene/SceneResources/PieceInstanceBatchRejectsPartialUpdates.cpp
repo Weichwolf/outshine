@@ -33,22 +33,22 @@ int main() {
            StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 1, 0}})}};
       const std::array<uint32_t, 3> indices{0, 1, 2};
       const Render::PieceMesh mesh{.Verts = vertices, .Indices = indices};
-      const auto first = scene->PlacePiece(mesh);
-      const auto second = scene->PlacePiece(mesh);
+      const auto first = renderer.PlacePiece(mesh);
+      const auto second = renderer.PlacePiece(mesh);
       CHECK(first && second, "two pieces become resident");
       if (!first || !second) { return Report(); }
       const std::array<Mat4, 1> row{};
-      const std::array<Core::Live::PieceRows, 2> initial{
+      const std::array<Render::SceneResources::PieceRows, 2> initial{
           {{.Piece = *first, .Rows = row}, {.Piece = *second, .Rows = row}}};
-      CHECK(scene->SetPieceInstances(initial, error), "a complete instance batch applies");
-      const std::array<Core::Live::PieceRows, 2> invalid{
+      CHECK(renderer.SetPieceInstances(initial, error), "a complete instance batch applies");
+      const std::array<Render::SceneResources::PieceRows, 2> invalid{
           {{.Piece = *first, .Rows = {}}, {.Piece = {}, .Rows = row}}};
-      CHECK(!scene->SetPieceInstances(invalid, error), "an unknown piece rejects the full batch");
-      CHECK(scene->SetPieceInstances(*second, row, error),
+      CHECK(!renderer.SetPieceInstances(invalid, error), "an unknown piece rejects the full batch");
+      CHECK(renderer.SetPieceInstances(*second, row, error),
             "a rejected batch preserves the earlier resident pieces");
-      const std::array<Core::Live::PieceRows, 2> repeated{
+      const std::array<Render::SceneResources::PieceRows, 2> repeated{
           {{.Piece = *first, .Rows = row}, {.Piece = *first, .Rows = row}}};
-      CHECK(!scene->SetPieceInstances(repeated, error), "a batch cannot assign one piece twice");
+      CHECK(!renderer.SetPieceInstances(repeated, error), "a batch cannot assign one piece twice");
     }
   }
   SDL_Quit();

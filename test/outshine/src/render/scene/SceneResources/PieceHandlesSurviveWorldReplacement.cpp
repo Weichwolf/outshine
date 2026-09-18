@@ -64,54 +64,54 @@ int main() {
           StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 0, 1}})};
       const std::array<uint32_t, 3> indices{0, 1, 2};
       const Render::PieceMesh mesh{.Verts = vertices, .Indices = indices};
-      const auto first = scene->PlacePiece(mesh);
-      const auto second = scene->PlacePiece(mesh);
+      const auto first = renderer.PlacePiece(mesh);
+      const auto second = renderer.PlacePiece(mesh);
       CHECK(first && second, "two native identities exist");
       if (!first || !second) { return Report(); }
-      scene->ReleasePiece(*first);
-      const auto bytes = scene->PieceSourceBytes();
+      renderer.ReleasePiece(*first);
+      const auto bytes = renderer.PieceSourceBytes();
       {
         Core::WorldCandidate rejected(renderer);
         const auto prepared = rejected.Prepare(*scene, nullptr);
         CHECK(prepared.has_value(), "candidate copies live and free slots");
         if (!prepared) { return Report(); }
-        CHECK(rejected.Scene().SetPieceInstances(*second, {}, error),
+        CHECK(renderer.SetPieceInstances(*second, {}, error),
               "native slot one resolves after GPU recreation compacts away slot zero");
-        const auto temporary = rejected.Scene().PlacePiece(mesh);
+        const auto temporary = renderer.PlacePiece(mesh);
         CHECK(temporary && temporary->Slot == first->Slot &&
                   temporary->Generation == first->Generation + 1,
               "candidate reuses its copied free slot");
       }
-      CHECK(renderer.PiecesStanding() == 1 && scene->PieceSourceBytes() == bytes &&
-                scene->SetPieceInstances(*second, {}, error),
+      CHECK(renderer.PiecesStanding() == 1 && renderer.PieceSourceBytes() == bytes &&
+                renderer.SetPieceInstances(*second, {}, error),
             "candidate rejection preserves the original identity and payload");
       Core::WorldCandidate candidate(renderer);
       const auto prepared = candidate.Prepare(*scene, nullptr);
       CHECK(prepared.has_value(), "retry prepares");
       if (!prepared) { return Report(); }
       rejectSubmit = true;
-      const auto failed = candidate.Scene().PlacePiece(mesh);
-      CHECK(!failed && !rejectSubmit && candidate.Scene().PieceSlots() == 2 &&
-                candidate.Scene().PieceSourceBytes() == bytes,
+      const auto failed = renderer.PlacePiece(mesh);
+      CHECK(!failed && !rejectSubmit && renderer.PieceSlots() == 2 &&
+                renderer.PieceSourceBytes() == bytes,
             "late GPU upload failure consumes neither slot nor payload");
-      const auto replacement = candidate.Scene().PlacePiece(mesh);
+      const auto replacement = renderer.PlacePiece(mesh);
       CHECK(replacement && replacement->Slot == first->Slot &&
                 replacement->Generation == first->Generation + 1,
             "retry keeps the free slot generation unchanged after failure");
       if (!replacement) { return Report(); }
       CHECK(candidate.Publish(scene).has_value(), "complete resource world publishes");
-      CHECK(scene->SetPieceInstances(*second, {}, error) &&
-                scene->SetPieceInstances(*replacement, {}, error) &&
-                !scene->SetPieceInstances(*first, {}, error),
+      CHECK(renderer.SetPieceInstances(*second, {}, error) &&
+                renderer.SetPieceInstances(*replacement, {}, error) &&
+                !renderer.SetPieceInstances(*first, {}, error),
             "publication preserves valid native handles and rejects the released generation");
       const Render::PieceHandle outside{.Slot = Render::kNoResourceSlot - 1, .Generation = 1};
-      CHECK(!scene->SetPieceInstances(outside, {}, error), "out-of-range handle is rejected");
-      scene->ReleasePiece(outside);
-      scene->ReleasePiece(*first);
+      CHECK(!renderer.SetPieceInstances(outside, {}, error), "out-of-range handle is rejected");
+      renderer.ReleasePiece(outside);
+      renderer.ReleasePiece(*first);
       CHECK(renderer.PiecesStanding() == 2, "invalid releases preserve both current pieces");
-      scene->ReleasePiece(*second);
-      scene->ReleasePiece(*replacement);
-      CHECK(scene->PieceSourceBytes() == 0 && renderer.PiecesStanding() == 0,
+      renderer.ReleasePiece(*second);
+      renderer.ReleasePiece(*replacement);
+      CHECK(renderer.PieceSourceBytes() == 0 && renderer.PiecesStanding() == 0,
             "published handles release the reconstructed resources");
     }
   }

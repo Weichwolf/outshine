@@ -344,7 +344,7 @@ int main() {
   owned.Instances = std::span(rows).subspan(1);
   owned.Surface = Render::PieceSurface::Registered(*registeredGreen);
   owned.Textured = true;
-  const auto ownedPiece = scene->PlacePiece(owned);
+  const auto ownedPiece = renderer.PlacePiece(owned);
   CHECK(ownedPiece.has_value() && scene->Draw(error),
         "registered texture reaches two instances after source destruction");
   renderer.WaitForGpu();
@@ -393,7 +393,7 @@ int main() {
     owned.Instances = {};
     owned.Row[13] = 1;
     owned.Surface = Render::PieceSurface::Registered(*registeredBlue);
-    const auto bluePiece = scene->PlacePiece(owned);
+    const auto bluePiece = renderer.PlacePiece(owned);
     CHECK(bluePiece.has_value() && scene->Draw(error),
           "a retained second handle remains usable after rebuild");
     renderer.WaitForGpu();
@@ -409,11 +409,11 @@ int main() {
     CHECK(scene->Screenshot("build/instance-native/registered-both.png", error),
           "both retained prototype PNG is written");
     if (!bluePiece) { return Report(); }
-    scene->ReleasePiece(*bluePiece);
-    CHECK(!scene->SetPieceInstances(*bluePiece, {}, error),
+    renderer.ReleasePiece(*bluePiece);
+    CHECK(!renderer.SetPieceInstances(*bluePiece, {}, error),
           "a released Live handle cannot address a future renderer piece");
   }
   if (!ownedPiece) { return Report(); }
-  scene->ReleasePiece(*ownedPiece);
+  renderer.ReleasePiece(*ownedPiece);
   return Report();
 }

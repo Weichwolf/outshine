@@ -356,13 +356,13 @@ bool Engine::State::Models(const TangentFrame &standing,
                    "triangles");
   if (Picture.Standing) {
     Published.Places("buildings: pieces standing in the arena",
-                     static_cast<double>(Picture.Standing->PiecesStanding()),
+                     static_cast<double>(Picture.Device.PiecesStanding()),
                      "pieces");
     Published.Places("buildings: triangles the arena holds",
-                     static_cast<double>(Picture.Standing->PieceTriangles()),
+                     static_cast<double>(Picture.Device.PieceTriangles()),
                      "triangles");
     Published.Places("buildings: bytes the arena holds on the device",
-                     static_cast<double>(Picture.Standing->PieceBytesHeld()),
+                     static_cast<double>(Picture.Device.PieceBytesHeld()),
                      "bytes");
   }
   return true;
@@ -421,7 +421,7 @@ Engine::State::Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWh
                    static_cast<double>(World.StructureBuilds.Queued()),
                    "tiles");
   Published.Places("world: the building pieces the device holds",
-                   Picture.Standing ? static_cast<double>(Picture.Standing->PieceBytesHeld()) : 0.0,
+                   Picture.Standing ? static_cast<double>(Picture.Device.PieceBytesHeld()) : 0.0,
                    "bytes");
   Published.Places(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
