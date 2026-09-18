@@ -1,5 +1,5 @@
 #include "Document.h"
-#include "Pose.h"
+#include "AnimationImport.h"
 #include "Check.h"
 #include <array>
 #include <cstdlib>
@@ -42,16 +42,16 @@ int main() {
   const bool loaded = document.ReadFile((root / "scene.gltf").string());
   CHECK(loaded, document.Error().c_str());
   if (!loaded) { return Report(); }
-  Pose pose;
+  AnimationClip clip;
   std::string error;
-  CHECK(Pose::Build(document, 0, pose, error), "initial pose built");
+  CHECK(AnimationImport::Build(document, 0, clip, error), "initial pose built");
   const auto preserved = [&] {
     std::vector<AffineTransform> locals;
     std::vector<double> weights;
-    pose.At(0.5, locals, weights);
-    return pose.Valid() && pose.NodeCount() == 3 && pose.ChannelCount() == 1 &&
-           pose.StartS() == 0 && pose.EndS() == 1 && locals.size() == 3 && locals[0].M[12] == 1 &&
-           locals[0].M[13] == 2 && locals[0].M[14] == 3 && locals[1].M[12] == 0;
+    clip.SamplePose(0.5, locals, weights);
+    return clip.Valid() && clip.NodeCount() == 3 && clip.TrackCount() == 1 && clip.StartS() == 0 &&
+           clip.EndS() == 1 && locals.size() == 3 && locals[0].M[12] == 1 && locals[0].M[13] == 2 &&
+           locals[0].M[14] == 3 && locals[1].M[12] == 0;
   };
   CHECK(preserved(), "linear midpoint is analytically known");
   for (const auto &selection : {std::vector<int>{},
@@ -60,21 +60,22 @@ int main() {
                                 std::vector<int>{1, 0, 2},
                                 std::vector<int>{0, 0},
                                 std::vector<int>{1, 3}}) {
-    CHECK(Pose::Build(document, 0, pose, error) && preserved(),
+    CHECK(AnimationImport::Build(document, 0, clip, error) && preserved(),
           "each failure starts from a valid pose");
-    CHECK(!Pose::Build(document, std::span<const int>(selection), pose, error) && !error.empty(),
+    CHECK(!AnimationImport::Build(document, std::span<const int>(selection), clip, error) &&
+              !error.empty(),
           "invalid selection or late channel failure is diagnosed");
     CHECK(preserved(), "failed pose replacement preserves usable curves and metadata");
   }
-  CHECK(Pose::Build(document, std::array{0, 1}, pose, error),
+  CHECK(AnimationImport::Build(document, std::array{0, 1}, clip, error),
         "disjoint animation combination accepted");
   std::vector<AffineTransform> locals;
   std::vector<double> weights;
-  pose.At(0.5, locals, weights);
+  clip.SamplePose(0.5, locals, weights);
   CHECK(locals.size() == 3 && locals[0].M[12] == 1 && locals[1].M[14] == 3 &&
-            pose.ChannelCount() == 2,
+            clip.TrackCount() == 2,
         "combined tracks retain their own stable sample buffers");
-  CHECK(Pose::Build(document, 0, pose, error) && preserved() && error.empty(),
+  CHECK(AnimationImport::Build(document, 0, clip, error) && preserved() && error.empty(),
         "valid replacement remains usable");
   std::error_code cleanup;
   std::filesystem::remove_all(root, cleanup);

@@ -15,8 +15,9 @@
 #include <vector>
 
 #include "Document.h"
+#include "AnimationClip.h"
 #include "CameraFraming.h"
-#include "Pose.h"
+#include "AnimationImport.h"
 #include "Subject.h"
 #include "Variant.h"
 #include "native/NativeMaterials.h"
@@ -34,27 +35,38 @@ constexpr auto MaterialPublicationFailed = "sampled material could not be publis
 }
 
 [[nodiscard]] std::expected<Material, std::string>
-ApplyMaterialFactor(Material material, const Gltf::Pose::FactorAt &factor, double strength) {
-  const size_t components = Gltf::FactorComponents(factor.Factor);
+ApplyMaterialFactor(Material material, const AnimatedMaterialSample &factor, double strength) {
+  size_t components = 0;
+  switch (factor.Property) {
+    case AnimationTarget::BaseColour: components = 4; break;
+    case AnimationTarget::Metalness:
+    case AnimationTarget::Roughness: components = 1; break;
+    case AnimationTarget::Emission: components = 3; break;
+    case AnimationTarget::Translation:
+    case AnimationTarget::Rotation:
+    case AnimationTarget::Scale:
+    case AnimationTarget::MorphWeights:
+      return std::unexpected(std::string(Says::InvalidMaterialFactor));
+  }
   for (size_t channel = 0; channel < components; ++channel) {
     if (!std::isfinite(factor.Values[channel]) || factor.Values[channel] < 0.0 ||
         factor.Values[channel] > 1.0) {
       return std::unexpected(std::string(Says::InvalidMaterialFactor));
     }
   }
-  switch (factor.Factor) {
-    case Gltf::MaterialFactor::BaseColour:
+  switch (factor.Property) {
+    case AnimationTarget::BaseColour:
       for (size_t channel = 0; channel < 4; ++channel) {
         material.BaseColour[channel] = static_cast<float>(factor.Values[channel]);
       }
       break;
-    case Gltf::MaterialFactor::Metalness:
+    case AnimationTarget::Metalness:
       material.Metalness = static_cast<float>(factor.Values[0]);
       break;
-    case Gltf::MaterialFactor::Roughness:
+    case AnimationTarget::Roughness:
       material.Roughness = static_cast<float>(factor.Values[0]);
       break;
-    case Gltf::MaterialFactor::Emissive:
+    case AnimationTarget::Emission:
       for (size_t channel = 0; channel < 3; ++channel) {
         const double value = factor.Values[channel] * strength;
         if (!std::isfinite(value) || value > std::numeric_limits<float>::max()) {
@@ -63,6 +75,11 @@ ApplyMaterialFactor(Material material, const Gltf::Pose::FactorAt &factor, doubl
         material.Emission[channel] = static_cast<float>(value);
       }
       break;
+    case AnimationTarget::Translation:
+    case AnimationTarget::Rotation:
+    case AnimationTarget::Scale:
+    case AnimationTarget::MorphWeights:
+      return std::unexpected(std::string(Says::InvalidMaterialFactor));
   }
   return material;
 }
@@ -72,19 +89,19 @@ ApplyMaterialFactor(Material material, const Gltf::Pose::FactorAt &factor, doubl
 struct GltfImporter::Held {
   Gltf::Document File;
   Gltf::Subject Assembled;
-  Gltf::Pose Motion;
+  AnimationClip Motion;
   Gltf::VariantSelection Variant;
   Geometry Handed;
   std::vector<AffineTransform> Locals;
   std::vector<AffineTransform> PublishedLocals;
   std::vector<double> Weights;
-  std::vector<Gltf::Pose::FactorAt> Factors;
+  std::vector<AnimatedMaterialSample> Factors;
   std::string Why;
   bool Moves = false;
 
   [[nodiscard]] bool Assemble(double seconds) {
     const bool built =
-        Moves ? (Motion.At(seconds, Locals, Weights),
+        Moves ? (Motion.SamplePose(seconds, Locals, Weights),
                  Assembled.Build(File,
                                  std::span<const AffineTransform>(Locals.data(), Locals.size()),
                                  std::span<const double>(Weights.data(), Weights.size()),
@@ -111,7 +128,7 @@ struct GltfImporter::Held {
 
   [[nodiscard]] bool SampleMaterials(double seconds, Geometry &candidate) {
     if (!Moves) { return true; }
-    Motion.FactorsAt(seconds, Factors);
+    Motion.SampleMaterials(seconds, Factors);
     for (const auto &factor : Factors) {
       if (factor.Material < 0 || factor.Material >= candidate.surfaces()) {
         Why = Says::MissingSampledMaterial;
@@ -184,8 +201,9 @@ std::expected<void, std::string> GltfImporter::selectMaterialVariant(std::string
 
 std::expected<void, std::string> GltfImporter::selectAnimations(std::span<const int> animations) {
   Held &held = *Held_;
-  Gltf::Pose candidate;
-  if (!animations.empty() && !Gltf::Pose::Build(held.File, animations, candidate, held.Why)) {
+  AnimationClip candidate;
+  if (!animations.empty() &&
+      !Gltf::AnimationImport::Build(held.File, animations, candidate, held.Why)) {
     return std::unexpected(held.Why);
   }
   auto previous = std::move(held.Motion);

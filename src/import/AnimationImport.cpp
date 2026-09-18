@@ -3,7 +3,7 @@
 #include <tuple>
 #include <algorithm>
 #include <array>
-#include "Pose.h"
+#include "AnimationImport.h"
 
 #include "Document.h"
 #include <string>
@@ -33,14 +33,34 @@ const char *PathName(AnimationPath path) {
   return "unknown";
 }
 
+AnimationTarget NativeTarget(const AnimationChannel &channel) {
+  switch (channel.Path) {
+    case AnimationPath::Translation: return AnimationTarget::Translation;
+    case AnimationPath::Rotation: return AnimationTarget::Rotation;
+    case AnimationPath::Scale: return AnimationTarget::Scale;
+    case AnimationPath::Weights: return AnimationTarget::MorphWeights;
+    case AnimationPath::MaterialFactor:
+      switch (channel.Factor) {
+        case MaterialFactor::BaseColour: return AnimationTarget::BaseColour;
+        case MaterialFactor::Metalness: return AnimationTarget::Metalness;
+        case MaterialFactor::Roughness: return AnimationTarget::Roughness;
+        case MaterialFactor::Emissive: return AnimationTarget::Emission;
+      }
+  }
+  return AnimationTarget::Translation;
 }
 
-bool Pose::Build(const Document &document, int animation, Pose &out, std::string &error) {
+}
+
+bool AnimationImport::Build(const Document &document,
+                            int animation,
+                            AnimationClip &out,
+                            std::string &error) {
   const std::array<int, 1> one = {{animation}};
   return Build(document, std::span<const int>(one.data(), 1), out, error);
 }
 
-struct Pose::BuildState {
+struct AnimationImport::BuildState {
   std::map<std::tuple<AnimationPath, int, MaterialFactor>, int> Claimed;
 
   bool Claim(const Document &document,
@@ -60,10 +80,10 @@ struct Pose::BuildState {
   }
 };
 
-bool Pose::Build(const Document &document,
-                 std::span<const int> animations,
-                 Pose &out,
-                 std::string &error) {
+bool AnimationImport::Build(const Document &document,
+                            std::span<const int> animations,
+                            AnimationClip &out,
+                            std::string &error) {
   error.clear();
   const auto &declared = document.Animations();
   if (animations.empty()) {
@@ -77,21 +97,21 @@ bool Pose::Build(const Document &document,
       return false;
     }
   }
-  Pose candidate;
+  AnimationImport candidate;
   candidate.InitialiseNodes(document);
   BuildState state;
   for (const int animation : animations) {
     if (!candidate.AppendAnimation(document, animation, state, error)) { return false; }
   }
-  out = std::move(candidate);
+  candidate.Publish(out);
   return true;
 }
 
-void Pose::InitialiseNodes(const Document &document) {
+void AnimationImport::InitialiseNodes(const Document &document) {
   Nodes_.resize(document.Nodes().size());
   for (size_t node = 0; node < document.Nodes().size(); ++node) {
     const Node &source = document.Nodes()[node];
-    Viewpoint &held = Nodes_[node];
+    AnimationRestPose &held = Nodes_[node];
     held.HasMatrix = source.HasMatrix;
     held.Translation = source.Translation;
     held.Scale = source.Scale;
@@ -108,10 +128,10 @@ void Pose::InitialiseNodes(const Document &document) {
   }
 }
 
-bool Pose::ValidateChannel(const Document &document,
-                           const Animation &what,
-                           const AnimationChannel &channel,
-                           std::string &error) const {
+bool AnimationImport::ValidateChannel(const Document &document,
+                                      const Animation &what,
+                                      const AnimationChannel &channel,
+                                      std::string &error) const {
   const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
 
   if (drivesMaterial && (channel.Material < 0 ||
@@ -145,13 +165,13 @@ bool Pose::ValidateChannel(const Document &document,
   return true;
 }
 
-bool Pose::AppendChannel(const Document &document,
-                         const Animation &what,
-                         const AnimationChannel &channel,
-                         std::string &error) {
+bool AnimationImport::AppendChannel(const Document &document,
+                                    const Animation &what,
+                                    const AnimationChannel &channel,
+                                    std::string &error) {
   const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
   const AnimationSampler &sampler = what.Samplers[static_cast<size_t>(channel.Sampler)];
-  auto held = std::make_unique<Channel>();
+  auto held = std::make_unique<AnimationTrack>();
   if (!document.ReadElements(sampler.Input, held->Times)) {
     error = document.Path() + ": an animation sampler's input does not decode: " + document.Error();
     return false;
@@ -161,10 +181,8 @@ bool Pose::AppendChannel(const Document &document,
         document.Path() + ": an animation sampler's output does not decode: " + document.Error();
     return false;
   }
-  held->Node = channel.Node;
-  held->Path = channel.Path;
-  held->Material = channel.Material;
-  held->Factor = channel.Factor;
+  held->Target = drivesMaterial ? channel.Material : channel.Node;
+  held->Property = NativeTarget(channel);
   const size_t fixedComponents = PathComponents(channel.Path);
   const size_t perKeyframe = sampler.How == Interpolation::CubicSpline ? 3u : 1u;
   size_t components = fixedComponents;
@@ -201,20 +219,20 @@ bool Pose::AppendChannel(const Document &document,
             " morph targets";
     return false;
   }
-  bool first = Channels_.empty();
+  bool first = Tracks_.empty();
   for (const double when : held->Times) {
     StartS_ = first ? when : std::min(when, StartS_);
     EndS_ = first ? when : std::max(when, EndS_);
     first = false;
   }
-  Channels_.push_back(std::move(held));
+  Tracks_.push_back(std::move(held));
   return true;
 }
 
-bool Pose::AppendAnimation(const Document &document,
-                           int animation,
-                           BuildState &state,
-                           std::string &error) {
+bool AnimationImport::AppendAnimation(const Document &document,
+                                      int animation,
+                                      BuildState &state,
+                                      std::string &error) {
   const auto &what = document.Animations()[static_cast<size_t>(animation)];
   for (const auto &channel : what.Channels) {
     if (channel.Path != AnimationPath::MaterialFactor && channel.Node < 0) { continue; }
@@ -227,53 +245,11 @@ bool Pose::AppendAnimation(const Document &document,
   return true;
 }
 
-void Pose::At(double seconds,
-              std::vector<AffineTransform> &locals,
-              std::vector<double> &weights) const {
-  locals.resize(Nodes_.size());
-  weights = RestWeights_;
-  for (size_t node = 0; node < Nodes_.size(); ++node) {
-    Viewpoint posed = Nodes_[node];
-    for (const std::unique_ptr<Channel> &channel : Channels_) {
-      if (std::cmp_not_equal(channel->Node, node)) { continue; }
-      switch (channel->Path) {
-        case AnimationPath::Translation: channel->Curve.At(seconds, posed.Translation.Row()); break;
-        case AnimationPath::Rotation: {
-          std::array<double, 4> sampled = {0.0, 0.0, 0.0, 1.0};
-          channel->Curve.At(seconds, sampled);
-          posed.Rotation = {.X = sampled[0], .Y = sampled[1], .Z = sampled[2], .W = sampled[3]};
-          break;
-        }
-        case AnimationPath::Scale: channel->Curve.At(seconds, posed.Scale.Row()); break;
-
-        case AnimationPath::MaterialFactor: break;
-        case AnimationPath::Weights:
-          channel->Curve.At(seconds, std::span(weights).subspan(posed.WeightFirst));
-          break;
-      }
-    }
-    locals[node] = posed.HasMatrix
-                       ? AffineTransform::FromColumnMajor(posed.Matrix)
-                       : AffineTransform::FromTrs(posed.Translation, posed.Rotation, posed.Scale);
-  }
-}
-
-void Pose::FactorsAt(double seconds, std::vector<FactorAt> &factors) const {
-  factors.clear();
-  for (const std::unique_ptr<Channel> &channel : Channels_) {
-    if (channel->Path != AnimationPath::MaterialFactor || channel->Material < 0) { continue; }
-    FactorAt sampled;
-    sampled.Material = channel->Material;
-    sampled.Factor = channel->Factor;
-
-    std::array<double, 4> all = {0, 0, 0, 0};
-    channel->Curve.At(seconds, all);
-    const size_t width = FactorComponents(channel->Factor);
-    for (size_t component = 0; component < width && component < 4; ++component) {
-      sampled.Values[component] = all[component];
-    }
-    factors.push_back(sampled);
-  }
+void AnimationImport::Publish(AnimationClip &out) {
+  out.Adopt(std::move(Nodes_),
+            std::move(RestWeights_),
+            std::move(Tracks_),
+            {.StartS = StartS_, .EndS = EndS_});
 }
 
 }
