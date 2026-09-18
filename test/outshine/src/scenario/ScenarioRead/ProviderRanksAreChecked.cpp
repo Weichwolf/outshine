@@ -9,7 +9,7 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document document;
   document.Named.Name = "previous";
-  document.Providers.push_back({.Kind = "previous", .Rank = 7});
+  document.Providers.push_back({.Kind = "previous", .Priority = 7});
   std::string error;
   for (const std::string_view rank : {"2147483648",
                                       "-2147483649",
@@ -29,7 +29,8 @@ int main() {
     CHECK(!ReadScenario(text.data(), text.size(), document, error), "invalid rank rejected");
     CHECK(!error.empty(), "invalid rank diagnosed");
     CHECK(document.Named.Name == "previous" && document.Providers.size() == 1 &&
-              document.Providers.front().Kind == "previous" && document.Providers.front().Rank == 7,
+              document.Providers.front().Kind == "previous" &&
+              document.Providers.front().Priority == 7,
           "invalid later rank preserves previous document");
   }
   for (const int rank : {std::numeric_limits<int>::min(), 0, std::numeric_limits<int>::max()}) {
@@ -37,14 +38,19 @@ int main() {
                              std::to_string(rank) + "'/></providers></scenario>";
     CHECK(ReadScenario(text.data(), text.size(), document, error) && error.empty(),
           "valid retry succeeds");
-    CHECK(document.Providers.size() == 1 && document.Providers.front().Rank == rank,
+    CHECK(document.Providers.size() == 1 && document.Providers.front().Priority == rank,
           "int rank preserved");
   }
   constexpr std::string_view text = "<scenario><providers><provider kind='a' rank='+12'/>"
                                     "<provider kind='b'/></providers></scenario>";
   CHECK(ReadScenario(text.data(), text.size(), document, error), "plus and omitted rank accepted");
-  CHECK(document.Providers.size() == 2 && document.Providers[0].Rank == 12 &&
-            document.Providers[1].Rank == 0,
+  CHECK(document.Providers.size() == 2 && document.Providers[0].Priority == 12 &&
+            document.Providers[1].Priority == 0,
         "plus and default rank preserved");
+  constexpr std::string_view invalidPolicy =
+      "<scenario><providers><provider kind='terrain' whenAbsent='retry'/></providers></scenario>";
+  CHECK(!ReadScenario(invalidPolicy.data(), invalidPolicy.size(), document, error) &&
+            !error.empty() && document.Providers.size() == 2,
+        "unknown absence policy rejects without replacing the previous document");
   return Report();
 }

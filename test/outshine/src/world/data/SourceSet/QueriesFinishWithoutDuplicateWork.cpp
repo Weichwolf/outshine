@@ -150,7 +150,7 @@ int main() {
     ContentStore cache({.Using = ContentStore::Use::Off});
     SourceSet sources(cache);
     OfflineTransport transport;
-    CHECK(sources.Add(std::make_unique<TerrariumDem>("", Rank{0}, AbsencePolicy::HandOver)) ==
+    CHECK(sources.Add(std::make_unique<TerrariumDem>("", Rank{0}, AbsencePolicy::Continue)) ==
               SourceSet::Registration::Accepted,
           "offline terrain source registers");
     auto query = sources.Ask(Fetch(DataKind::Elevation, Address::At({.Zoom = 0, .X = 0, .Y = 0})));

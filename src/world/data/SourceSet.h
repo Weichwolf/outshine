@@ -22,6 +22,7 @@ public:
   SourceSet &operator=(const SourceSet &) = delete;
 
   [[nodiscard]] Registration Add(std::unique_ptr<Source> source);
+  [[nodiscard]] Registration AddAll(std::vector<std::unique_ptr<Source>> sources);
 
   [[nodiscard]] size_t Count() const noexcept { return Sources_.size(); }
 

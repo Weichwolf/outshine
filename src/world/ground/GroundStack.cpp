@@ -18,7 +18,7 @@
 namespace outshine::Ground {
 
 bool GroundStack::Open(const Roots &under,
-                       std::span<const Scenario::Provider> providers,
+                       std::span<const Data::SourceProvider> providers,
                        LongitudeLatitude focus,
                        Data::Transport &wire,
                        Sink &say,

@@ -50,6 +50,12 @@ path names. Existing violations must become named migration findings, not broad 
    Preserve checked DSP/plan construction and candidate failure semantics; no new graph or
    public feature. Coordinate header names with WI 2096 and schema conversion with WI 2151.
 
+`Data::SourceProvider` now owns revision, priority and typed missing-data policy in the public
+world boundary. Scenario XML converts `pin`, `rank` and `whenAbsent` there; DeclaredSources,
+GroundStack and source registration contain no Scenario provider type or schema-policy string.
+SourceSet batch registration validates every source and duplicate `(kind, priority)` before one
+publication, so a late failure leaves the prior set unchanged and a valid retry succeeds.
+
 Commands: make format; run existing declared-provider tests with make suite and the
 repository dependency checks through make lint. Later audio/renderer slices run their
 focused suites, direct API/import equivalence and relevant frame/PCM regression controls.

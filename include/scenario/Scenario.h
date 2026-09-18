@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <world/SourceProvider.h>
+
 #include "Earth.h"
 #include "math/Mat4.h"
 #include "scene/Material.h"
@@ -242,23 +244,6 @@ struct WorldSettings {
   /// Finite nonnegative requested world streaming horizon in metres. Zero currently selects
   /// the default 240 km horizon. This is separate from camera clip planes and generator extent.
   double SightM = kSightUnsaidM;
-};
-
-/// Owned source-selection declaration. Import/export preserve these values and world preparation
-/// maps each supported provider to a native source. Copying strings may allocate; mutation requires
-/// exclusive access. An empty provider list selects the shipped default source configuration.
-struct Provider {
-  /// Exact source category; layer merging replaces the first matching Kind.
-  /// Shipped registration recognizes terrain, vector and stars; no arbitrary URL resolver.
-  std::string Kind;
-  /// Opaque data revision incorporated into cache identity. It does not alter a provider endpoint.
-  std::string Pin;
-  /// Selection rank among sources of the same category; lower ranks are tried first. XML accepts a
-  /// complete decimal int with optional sign; omitted is zero, malformed/out-of-range fails.
-  int Rank = 0;
-  /// Missing-data policy: empty or `hand over` tries the next rank; `fail` stops the request.
-  /// Any other value fails world preparation before IO.
-  std::string WhenAbsent;
 };
 
 /// Owned named textual setting. Copies retain both strings independently.
@@ -974,7 +959,7 @@ struct Document {
   /// Georeference, environment and source declarations copied into the world session.
   WorldSettings Ground;
   /// Owned provider configurations; declaring these does not synchronously fetch their data.
-  std::vector<Provider> Providers;
+  std::vector<Data::SourceProvider> Providers;
   /// Generator requests resolved against registered producer kinds during declaration.
   std::vector<Generating> Generators;
   /// Render configuration; dimensions and live render targets are supplied separately to Engine.

@@ -743,15 +743,18 @@ void WritePersistence(std::string &said, std::span<const Scenario::Persisted> se
   said += "  </state>\n";
 }
 
-void WriteProviders(std::string &said, std::span<const Scenario::Provider> providers) {
+void WriteProviders(std::string &said, std::span<const Data::SourceProvider> providers) {
   if (providers.empty()) { return; }
   said += "  <providers>\n";
   for (const auto &provider : providers) {
     said += "    <provider";
     Said(said, "kind", provider.Kind, true);
-    Said(said, "pin", provider.Pin);
-    said += std::format(" rank=\"{}\"", provider.Rank);
-    Said(said, "whenAbsent", provider.WhenAbsent);
+    Said(said, "pin", provider.Revision);
+    said += std::format(" rank=\"{}\"", provider.Priority);
+    switch (provider.Missing) {
+      case Data::MissingDataPolicy::Continue: break;
+      case Data::MissingDataPolicy::Fail: Said(said, "whenAbsent", "fail"); break;
+    }
     said += "/>\n";
   }
   said += "  </providers>\n";

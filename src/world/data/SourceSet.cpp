@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <cstdint>
+#include <iterator>
 #include <utility>
 #include <optional>
 #include <vector>
@@ -41,16 +43,31 @@ void SourceSet::Query::Finish() noexcept {
 }
 
 SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
-  if (!source) { return Registration::Unnamed; }
-  const SourceDecl &decl = source->Declaration();
-  if (decl.Id.empty()) { return Registration::Unnamed; }
-  for (const std::unique_ptr<Source> &held : Sources_) {
-    const SourceDecl &other = held->Declaration();
-    if (other.Kind == decl.Kind && other.Order == decl.Order) {
-      return Registration::DuplicateRank;
+  std::vector<std::unique_ptr<Source>> one;
+  one.push_back(std::move(source));
+  return AddAll(std::move(one));
+}
+
+SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> sources) {
+  for (size_t at = 0; at < sources.size(); ++at) {
+    if (!sources[at] || sources[at]->Declaration().Id.empty()) { return Registration::Unnamed; }
+    const SourceDecl &decl = sources[at]->Declaration();
+    for (const std::unique_ptr<Source> &held : Sources_) {
+      const SourceDecl &other = held->Declaration();
+      if (other.Kind == decl.Kind && other.Order == decl.Order) {
+        return Registration::DuplicateRank;
+      }
+    }
+    for (size_t previous = 0; previous < at; ++previous) {
+      const SourceDecl &other = sources[previous]->Declaration();
+      if (other.Kind == decl.Kind && other.Order == decl.Order) {
+        return Registration::DuplicateRank;
+      }
     }
   }
-  Sources_.push_back(std::move(source));
+  Sources_.insert(Sources_.end(),
+                  std::make_move_iterator(sources.begin()),
+                  std::make_move_iterator(sources.end()));
 
   std::ranges::sort(Sources_,
 
@@ -156,7 +173,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(response.Bytes));
     }
     case Meaning::Absent: {
-      if (decl.OnAbsent == AbsencePolicy::Refuse) { return Refuse(query, kRetryCapMs); }
+      if (decl.OnAbsent == AbsencePolicy::Fail) { return Refuse(query, kRetryCapMs); }
       query.Current_ = nullptr;
       query.Phase_ = Query::Phase::Ready;
       const std::scoped_lock lock(LedgerMutex_);

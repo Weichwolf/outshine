@@ -7,12 +7,13 @@
 
 #include "Address.h"
 #include "DataKind.h"
+#include <world/SourceProvider.h>
 
 namespace outshine::Data {
 
 enum class Rank : int32_t {};
 
-enum class AbsencePolicy : uint8_t { HandOver, Refuse };
+using AbsencePolicy = MissingDataPolicy;
 
 enum class WireFormat : uint8_t { TerrariumPng, MapboxVectorTile, StarBandBinary };
 [[nodiscard]] const char *Name(WireFormat wire) noexcept;
@@ -37,7 +38,7 @@ struct SourceDecl {
   WireFormat Wire = WireFormat::TerrariumPng;
 
   Rank Order = Rank{0};
-  AbsencePolicy OnAbsent = AbsencePolicy::HandOver;
+  AbsencePolicy OnAbsent = AbsencePolicy::Continue;
 
   int MinZoom = 0;
   int MaxZoom = 0;

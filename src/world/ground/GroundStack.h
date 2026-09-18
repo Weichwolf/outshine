@@ -45,7 +45,7 @@ public:
   GroundStack &operator=(const GroundStack &) = delete;
 
   [[nodiscard]] bool Open(const Roots &under,
-                          std::span<const Scenario::Provider> providers,
+                          std::span<const Data::SourceProvider> providers,
                           LongitudeLatitude focus,
                           Data::Transport &wire,
                           Sink &say,

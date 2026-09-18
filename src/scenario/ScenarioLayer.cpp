@@ -147,8 +147,12 @@ bool MergeLayer(Scenario::Document &into,
   MergeRows(into.Kinds, layer.Kinds, named, "kind", ByKindName{}, trace);
   MergeRows(into.Instances, layer.Instances, named, "instance", ByInstanceId{}, trace);
   MergeRows(into.Assets, layer.Assets, named, "asset", ByAssetUri{}, trace);
-  MergeRows(
-      into.Providers, layer.Providers, named, "provider", ByKindField<Scenario::Provider>{}, trace);
+  MergeRows(into.Providers,
+            layer.Providers,
+            named,
+            "provider",
+            ByKindField<Data::SourceProvider>{},
+            trace);
   MergeRows(into.Generators,
             layer.Generators,
             named,

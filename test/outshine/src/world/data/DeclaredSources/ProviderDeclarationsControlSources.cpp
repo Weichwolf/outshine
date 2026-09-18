@@ -10,13 +10,13 @@ int main() {
   using namespace outshine::Test;
   ContentStore store({.Using = ContentStore::Use::Off});
   SourceSet sources(store);
-  const std::array<Scenario::Provider, 3> declared = {{
-      {.Kind = "terrain", .Pin = "dem-older", .Rank = 8, .WhenAbsent = "hand over"},
-      {.Kind = "terrain", .Pin = "dem-2026-09", .Rank = -9, .WhenAbsent = "fail"},
-      {.Kind = "vector",
-       .Pin = "osm-2026-09",
-       .Rank = std::numeric_limits<int>::max(),
-       .WhenAbsent = "hand over"},
+  const std::array<SourceProvider, 3> declared = {{
+      {.Kind = "terrain", .Revision = "dem-older", .Priority = 8},
+      {.Kind = "terrain",
+       .Revision = "dem-2026-09",
+       .Priority = -9,
+       .Missing = MissingDataPolicy::Fail},
+      {.Kind = "vector", .Revision = "osm-2026-09", .Priority = std::numeric_limits<int>::max()},
   }};
   std::string error;
   CHECK(RegisterDeclared(sources, declared, "sky", error), error.c_str());
@@ -26,14 +26,14 @@ int main() {
     const SourceDecl &older = sources.At(1).Declaration();
     const SourceDecl &vector = sources.At(2).Declaration();
     CHECK(preferred.Revision == "dem-2026-09" && preferred.Order == Rank{-9} &&
-              preferred.OnAbsent == AbsencePolicy::Refuse,
+              preferred.OnAbsent == AbsencePolicy::Fail,
           "lower terrain rank and absence policy reach the native source first");
     CHECK(older.Revision == "dem-older" && older.Order == Rank{8} &&
-              older.OnAbsent == AbsencePolicy::HandOver,
+              older.OnAbsent == AbsencePolicy::Continue,
           "next terrain rank remains available as fallback");
     CHECK(vector.Revision == "osm-2026-09" &&
               vector.Order == Rank{std::numeric_limits<int>::max()} &&
-              vector.OnAbsent == AbsencePolicy::HandOver,
+              vector.OnAbsent == AbsencePolicy::Continue,
           "vector declaration preserves an extreme rank");
     SourceDecl anotherRevision = preferred;
     anotherRevision.Revision = "dem-2026-10";
@@ -42,12 +42,17 @@ int main() {
           "a pin change produces a different cache identity");
   }
   SourceSet rejected(store);
-  const std::array<Scenario::Provider, 1> invalid = {{
-      {.Kind = "terrain", .WhenAbsent = "retry forever"},
+  const std::array<SourceProvider, 2> invalid = {{
+      {.Kind = "terrain"},
+      {.Kind = "vector", .Missing = static_cast<MissingDataPolicy>(255)},
   }};
   error.clear();
   CHECK(!RegisterDeclared(rejected, invalid, "sky", error) && !error.empty() &&
             rejected.Count() == 0,
         "unknown absence policy is rejected before registration");
+  const std::array<SourceProvider, 1> retry = {{{.Kind = "terrain"}}};
+  error.clear();
+  CHECK(RegisterDeclared(rejected, retry, "sky", error) && error.empty() && rejected.Count() == 1,
+        "valid retry publishes a complete source set");
   return Report();
 }

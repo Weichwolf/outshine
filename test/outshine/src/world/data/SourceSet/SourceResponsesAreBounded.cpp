@@ -94,7 +94,7 @@ int main() {
   {
     SourceSet sources(store);
     auto first = SourceWith("closed", Rank{0}, Fetched::Meant(Meaning::Absent));
-    first->Decl.OnAbsent = AbsencePolicy::Refuse;
+    first->Decl.OnAbsent = AbsencePolicy::Fail;
     const auto *probe = first.get();
     CHECK(sources.Add(std::move(first)) == SourceSet::Registration::Accepted,
           "closed source registered");

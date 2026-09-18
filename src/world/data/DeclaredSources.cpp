@@ -2,11 +2,11 @@
 
 #include <array>
 #include <memory>
-#include <optional>
 #include <string>
 #include <span>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "StarBands.h"
 #include "TerrariumDem.h"
@@ -27,57 +27,53 @@ constexpr std::array<const char *, 3> kKinds = {{"terrain", "vector", "stars"}};
   return all;
 }
 
-[[nodiscard]] std::optional<AbsencePolicy> ParseAbsence(std::string_view said) {
-  if (said.empty() || said == "hand over") { return AbsencePolicy::HandOver; }
-  if (said == "fail") { return AbsencePolicy::Refuse; }
-  return std::nullopt;
-}
-
 }
 
 bool RegisterDeclared(SourceSet &set,
-                      std::span<const Scenario::Provider> providers,
+                      std::span<const SourceProvider> providers,
                       std::string_view starDirectory,
                       std::string &error) {
-  for (const Scenario::Provider &provider : providers) {
-    const std::optional<AbsencePolicy> absence = ParseAbsence(provider.WhenAbsent);
-    if (!absence) {
-      error = "the provider of kind '" + provider.Kind + "' declares unknown whenAbsent policy '" +
-              provider.WhenAbsent + "'; this engine carries: hand over fail";
+  std::vector<std::unique_ptr<Source>> candidates;
+  candidates.reserve(providers.size());
+  for (const SourceProvider &provider : providers) {
+    if (provider.Missing != MissingDataPolicy::Continue &&
+        provider.Missing != MissingDataPolicy::Fail) {
+      error = "the provider of kind '" + provider.Kind + "' declares an invalid missing policy";
       return false;
     }
-    const Rank order = static_cast<Rank>(provider.Rank);
+    const Rank order = static_cast<Rank>(provider.Priority);
     std::unique_ptr<Source> made;
     if (provider.Kind == "terrain") {
-      made = std::make_unique<TerrariumDem>(provider.Pin, order, *absence);
+      made = std::make_unique<TerrariumDem>(provider.Revision, order, provider.Missing);
     } else if (provider.Kind == "vector") {
-      made = std::make_unique<VersatilesVector>(provider.Pin, order, *absence);
+      made = std::make_unique<VersatilesVector>(provider.Revision, order, provider.Missing);
     } else if (provider.Kind == "stars") {
-      made = std::make_unique<StarBands>(std::string(starDirectory), provider.Pin, order, *absence);
+      made = std::make_unique<StarBands>(
+          std::string(starDirectory), provider.Revision, order, provider.Missing);
     } else {
       error = "the scenario declares a provider of kind '" + provider.Kind +
               "', and this engine carries: " + Catalogue();
       return false;
     }
-    switch (set.Add(std::move(made))) {
-      case SourceSet::Registration::Accepted: break;
-      case SourceSet::Registration::DuplicateRank:
-        error = "the scenario declares two providers of kind '" + provider.Kind +
-                "' at one rank, and a lookup with two answers has none";
-        return false;
-      case SourceSet::Registration::Unnamed:
-        error = "the provider of kind '" + provider.Kind + "' carries no id";
-        return false;
-    }
+    candidates.push_back(std::move(made));
+  }
+  switch (set.AddAll(std::move(candidates))) {
+    case SourceSet::Registration::Accepted: break;
+    case SourceSet::Registration::DuplicateRank:
+      error = "the providers declare one source kind and priority twice";
+      return false;
+    case SourceSet::Registration::Unnamed:
+      error = "a provider resolves to a source without an id";
+      return false;
   }
   return true;
 }
 
-std::span<const Scenario::Provider> ShippedProviders() {
-  static const std::array<Scenario::Provider, 3> shipped = {{
-      {.Kind = "terrain", .Pin = "", .Rank = 0, .WhenAbsent = "hand over"},
-      {.Kind = "vector", .Pin = "", .Rank = 1, .WhenAbsent = "hand over"},
-      {.Kind = "stars", .Pin = "", .Rank = 2, .WhenAbsent = "hand over"},
+std::span<const SourceProvider> ShippedProviders() {
+  static const std::array<SourceProvider, 3> shipped = {{
+      {.Kind = "terrain", .Revision = "", .Priority = 0, .Missing = MissingDataPolicy::Continue},
+      {.Kind = "vector", .Revision = "", .Priority = 1, .Missing = MissingDataPolicy::Continue},
+      {.Kind = "stars", .Revision = "", .Priority = 2, .Missing = MissingDataPolicy::Continue},
   }};
   return shipped;
 }

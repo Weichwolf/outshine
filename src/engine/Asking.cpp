@@ -243,7 +243,7 @@ bool Engine::State::Composes() {
     }
   }
 
-  const std::span<const Scenario::Provider> providers =
+  const std::span<const Data::SourceProvider> providers =
       declared.Providers.empty() ? Data::ShippedProviders() : std::span(declared.Providers);
   Collecting say;
   if (!World.Stack.Opened() && !World.Stack.Open(Session.Under,

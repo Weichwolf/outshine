@@ -39,6 +39,7 @@ constexpr auto kUnsupportedRootDrive =
     "root drive declarations are unsupported; no native route model consumes them";
 constexpr auto kInvalidProviderRank =
     "provider rank must be a complete decimal integer in the int range";
+constexpr auto kInvalidProviderAbsence = "provider whenAbsent must be 'hand over' or 'fail'";
 constexpr auto kInvalidSceneRoom =
     "scene.room requires a complete nonnegative decimal integer in the size_t range";
 constexpr auto kInvalidAssetClip = "asset clip requires an integer in [0,INT_MAX]";
@@ -469,14 +470,22 @@ bool ReadProviderRank(const Xml::Ref &provider, int &rank) {
 bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {
-    Scenario::Provider made;
+    Data::SourceProvider made;
     made.Kind = one.Attr("kind");
-    made.Pin = one.Attr("pin");
-    if (!ReadProviderRank(one, made.Rank)) {
+    made.Revision = one.Attr("pin");
+    if (!ReadProviderRank(one, made.Priority)) {
       error = Says::kInvalidProviderRank;
       return false;
     }
-    made.WhenAbsent = one.Attr("whenAbsent");
+    const std::string absence = one.Attr("whenAbsent");
+    if (absence.empty() || absence == "hand over") {
+      made.Missing = Data::MissingDataPolicy::Continue;
+    } else if (absence == "fail") {
+      made.Missing = Data::MissingDataPolicy::Fail;
+    } else {
+      error = Says::kInvalidProviderAbsence;
+      return false;
+    }
     into.Providers.push_back(made);
   }
 

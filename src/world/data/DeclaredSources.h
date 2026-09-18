@@ -4,18 +4,18 @@
 #include <span>
 #include <string>
 
-#include <scenario/Scenario.h>
+#include <world/SourceProvider.h>
 
 #include "SourceSet.h"
 
 namespace outshine::Data {
 
 [[nodiscard]] bool RegisterDeclared(SourceSet &set,
-                                    std::span<const Scenario::Provider> providers,
+                                    std::span<const SourceProvider> providers,
                                     std::string_view starDirectory,
                                     std::string &error);
 
-[[nodiscard]] std::span<const Scenario::Provider> ShippedProviders();
+[[nodiscard]] std::span<const SourceProvider> ShippedProviders();
 
 }
 #endif

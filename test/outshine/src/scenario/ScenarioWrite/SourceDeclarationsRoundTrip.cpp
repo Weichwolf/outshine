@@ -10,13 +10,12 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document source;
   source.Providers = {{.Kind = "terrain",
-                       .Pin = "snapshot & <a>\"\t",
-                       .Rank = std::numeric_limits<int>::min(),
-                       .WhenAbsent = "hand over"},
+                       .Revision = "snapshot & <a>\"\t",
+                       .Priority = std::numeric_limits<int>::min()},
                       {.Kind = "vector",
-                       .Pin = "other'\n",
-                       .Rank = std::numeric_limits<int>::max(),
-                       .WhenAbsent = "fail"},
+                       .Revision = "other'\n",
+                       .Priority = std::numeric_limits<int>::max(),
+                       .Missing = Data::MissingDataPolicy::Fail},
                       {.Kind = "stars"}};
   const auto text = WriteScenario(source);
   CHECK(text.has_value(), "export succeeds");
@@ -29,7 +28,8 @@ int main() {
     for (size_t i = 0; i < source.Providers.size(); ++i) {
       const auto &a = source.Providers[i];
       const auto &b = copy.Providers[i];
-      CHECK(a.Kind == b.Kind && a.Pin == b.Pin && a.Rank == b.Rank && a.WhenAbsent == b.WhenAbsent,
+      CHECK(a.Kind == b.Kind && a.Revision == b.Revision && a.Priority == b.Priority &&
+                a.Missing == b.Missing,
             "provider order and all fields preserved");
     }
   }
