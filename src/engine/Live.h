@@ -138,10 +138,7 @@ public:
   [[nodiscard]] std::expected<Render::PieceHandle, std::string>
   PlacePiece(const Render::PieceMesh &piece);
 
-  struct PieceRows {
-    Render::PieceHandle Piece;
-    std::span<const Mat4> Rows;
-  };
+  using PieceRows = Render::SceneResources::PieceRows;
 
   [[nodiscard]] bool
   SetPieceInstances(Render::PieceHandle which, std::span<const Mat4> rows, std::string &error);
@@ -175,10 +172,12 @@ public:
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
 
-  [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
+  [[nodiscard]] size_t PieceSlots() const noexcept {
+    return Renderer_ == nullptr ? 0 : Renderer_->PieceSlots();
+  }
 
   [[nodiscard]] size_t PieceSlotBytes() const noexcept {
-    return Pieces_.capacity() * sizeof(Piece);
+    return Renderer_ == nullptr ? 0 : Renderer_->PieceSlotBytes();
   }
 
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
@@ -504,37 +503,6 @@ private:
   void AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots);
   void RestorePieceSurfaces();
 
-  struct Piece {
-    Render::ResourceSlotState State{};
-    std::vector<float> Tangents;
-    std::vector<StoredVertex> Vertices;
-    std::vector<uint32_t> Indices;
-    std::vector<DagCluster> Clusters;
-    std::vector<float> Colours;
-    Mat4 Row;
-    std::vector<Mat4> Rows;
-    uint32_t MaxInstances = 0;
-    Render::PieceSurface Surface;
-    Render::PieceId Resident = Render::kNoPiece;
-    bool Textured = false;
-
-    [[nodiscard]] Render::PieceMesh Mesh() const noexcept {
-      return {.Tangents = Tangents,
-              .Verts = Vertices,
-              .Indices = Indices,
-              .Clusters = Clusters,
-              .Colours = Colours,
-              .Row = Row,
-              .Instances = Rows,
-              .MaxInstances = MaxInstances,
-              .Surface = Surface,
-              .Textured = Textured};
-    }
-  };
-
-  std::vector<Piece> Pieces_;
-  uint32_t FirstFreePiece_ = Render::kNoResourceSlot;
-  [[nodiscard]] bool HasPiece(Render::PieceHandle handle) const noexcept;
   [[nodiscard]] bool RestoresPieceResources(const Live &previous, std::string &error);
 
   struct HeightPage {

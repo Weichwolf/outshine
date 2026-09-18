@@ -63,6 +63,12 @@ it must not invent a competing one. No new threads or algorithm changes in this 
 generation, distinct-handle and world-replacement proofs remain green. Slot storage still resides
 in Live and is the next extraction step, so this WI remains active.
 
+`Render::SceneResources` now owns piece CPU sources, resident IDs, generation slots, free-list
+reuse and atomic instance batches inside `SceneRenderer::WorldContent`. Candidate creation copies
+only source state, then rebuilds candidate GPU residents; rejection leaves the published owner
+untouched and publication moves the complete owner. Live delegates piece operations and no longer
+stores piece slots. Height pages and direct consumers remain to migrate.
+
 ## Acceptance
 
 - [ ] Consumers compile against the extracted owner without Live/EngineHeld includes.

@@ -49,10 +49,6 @@ constexpr auto MissingPiece = "the piece handle names no live resource in this w
 constexpr auto HeightPageLimit = "height-page storage exceeds the native slot index range";
 constexpr auto HeightPageUploadFailed = "height-page upload failed";
 constexpr auto MissingHeightPage = "the height-page handle names no live resource in this world";
-constexpr auto RepeatedPiece = "an instance update names one piece more than once";
-constexpr auto PieceUploadFailed = "piece geometry upload failed";
-constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index range";
-constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
 }
 
 bool Live::GroundClasses(std::span<const uint32_t> classes,
@@ -72,46 +68,17 @@ bool Live::GroundClasses(std::span<const uint32_t> classes,
 
 std::expected<Render::PieceHandle, std::string> Live::PlacePiece(const Render::PieceMesh &piece) {
   if (Renderer_ == nullptr) { return std::unexpected(Says::MissingPiece); }
-  if (FirstFreePiece_ == Render::kNoResourceSlot && Pieces_.size() >= Render::kNoResourceSlot) {
-    return std::unexpected(Says::PieceSlotLimit);
-  }
-  std::string error;
-  Piece held{.Tangents = {piece.Tangents.begin(), piece.Tangents.end()},
-             .Vertices = {piece.Verts.begin(), piece.Verts.end()},
-             .Indices = {piece.Indices.begin(), piece.Indices.end()},
-             .Clusters = {piece.Clusters.begin(), piece.Clusters.end()},
-             .Colours = {piece.Colours.begin(), piece.Colours.end()},
-             .Row = piece.Row,
-             .Rows = {piece.Instances.begin(), piece.Instances.end()},
-             .MaxInstances = piece.MaxInstances,
-             .Surface = piece.Surface,
-             .Textured = piece.Textured};
-  held.Resident = Renderer_->PlacePiece(held.Mesh(), error);
-  if (held.Resident == Render::kNoPiece) {
-    return std::unexpected(error.empty() ? std::string(Says::PieceUploadFailed) : std::move(error));
-  }
-  held.State.Occupied = true;
-  uint32_t slot = FirstFreePiece_;
-  if (slot != Render::kNoResourceSlot) {
-    held.State.Generation = Pieces_[slot].State.Generation;
-    FirstFreePiece_ = Pieces_[slot].State.NextFree;
-    Pieces_[slot] = std::move(held);
-  } else {
-    slot = static_cast<uint32_t>(Pieces_.size());
-    Pieces_.push_back(std::move(held));
-  }
-  return Render::PieceHandle{.Slot = slot, .Generation = Pieces_[slot].State.Generation};
-}
-
-bool Live::HasPiece(Render::PieceHandle handle) const noexcept {
-  return handle.Slot < Pieces_.size() && Pieces_[handle.Slot].State.Matches(handle.Generation);
+  return Renderer_->PlacePiece(piece);
 }
 
 bool Live::SetPieceInstances(Render::PieceHandle which,
                              std::span<const Mat4> rows,
                              std::string &error) {
-  const PieceRows one{.Piece = which, .Rows = rows};
-  return SetPieceInstances({&one, 1}, error);
+  if (Renderer_ == nullptr) {
+    error = Says::MissingPiece;
+    return false;
+  }
+  return Renderer_->SetPieceInstances(which, rows, error);
 }
 
 bool Live::SetPieceInstances(std::span<const PieceRows> pieces, std::string &error) {
@@ -119,74 +86,21 @@ bool Live::SetPieceInstances(std::span<const PieceRows> pieces, std::string &err
     error = Says::MissingPiece;
     return false;
   }
-  for (size_t at = 0; at < pieces.size(); ++at) {
-    const PieceRows &change = pieces[at];
-    if (!HasPiece(change.Piece)) {
-      error = Says::MissingPiece;
-      return false;
-    }
-    if (Pieces_[change.Piece.Slot].MaxInstances > 0 &&
-        change.Rows.size() > Pieces_[change.Piece.Slot].MaxInstances) {
-      error = Says::PieceCapacity;
-      return false;
-    }
-    for (size_t earlier = 0; earlier < at; ++earlier) {
-      if (pieces[earlier].Piece == change.Piece) {
-        error = Says::RepeatedPiece;
-        return false;
-      }
-    }
-  }
-  size_t changed = 0;
-  for (; changed < pieces.size(); ++changed) {
-    const PieceRows &change = pieces[changed];
-    if (Renderer_->SetPieceInstances(Pieces_[change.Piece.Slot].Resident, change.Rows, error)) {
-      continue;
-    }
-    while (changed > 0) {
-      --changed;
-      const PieceRows &undo = pieces[changed];
-      std::string ignored;
-      (void)Renderer_->SetPieceInstances(
-          Pieces_[undo.Piece.Slot].Resident, Pieces_[undo.Piece.Slot].Rows, ignored);
-    }
-    return false;
-  }
-  for (const PieceRows &change : pieces) {
-    Pieces_[change.Piece.Slot].Rows.assign(change.Rows.begin(), change.Rows.end());
-  }
-  return true;
+  return Renderer_->SetPieceInstances(pieces, error);
 }
 
 size_t Live::PieceSourceBytes() const noexcept {
-  size_t bytes = 0;
-  for (const Piece &piece : Pieces_) {
-    bytes += piece.Tangents.capacity() * sizeof(float) +
-             piece.Vertices.capacity() * sizeof(StoredVertex) +
-             piece.Indices.capacity() * sizeof(uint32_t) +
-             piece.Clusters.capacity() * sizeof(DagCluster) +
-             piece.Colours.capacity() * sizeof(float) + piece.Rows.capacity() * sizeof(Mat4);
-  }
-  return bytes;
+  return Renderer_ == nullptr ? 0 : Renderer_->PieceSourceBytes();
+}
+
+void Live::ReleasePiece(Render::PieceHandle which) {
+  if (Renderer_ != nullptr) { Renderer_->ReleasePiece(which); }
 }
 
 size_t Live::HeightPageSourceBytes() const noexcept {
   size_t bytes = 0;
   for (const HeightPage &page : HeightPages_) { bytes += page.Nodes.capacity() * sizeof(float); }
   return bytes;
-}
-
-void Live::ReleasePiece(Render::PieceHandle which) {
-  if (Renderer_ == nullptr || !HasPiece(which)) { return; }
-  Piece &piece = Pieces_[which.Slot];
-  Renderer_->ReleasePiece(piece.Resident);
-  Render::ResourceSlotState state = piece.State;
-  if (state.Release()) {
-    state.NextFree = FirstFreePiece_;
-    FirstFreePiece_ = which.Slot;
-  }
-  piece = Piece{};
-  piece.State = state;
 }
 
 std::expected<Render::HeightPageHandle, std::string>
@@ -873,14 +787,7 @@ bool Live::RestoresPieceResources(const Live &previous, std::string &error) {
   for (const PieceSurfaces &source : previous.RegisteredSurfaces_) {
     if (!RegisterPieceSurfaces(source.Source.clone(), error)) { return false; }
   }
-  Pieces_ = previous.Pieces_;
-  FirstFreePiece_ = previous.FirstFreePiece_;
-  for (Piece &piece : Pieces_) {
-    if (!piece.State.Occupied) { continue; }
-    piece.Resident = Renderer_->PlacePiece(piece.Mesh(), error);
-    if (piece.Resident == Render::kNoPiece) { return false; }
-  }
-  return true;
+  return Renderer_->RestorePieces(error);
 }
 
 bool Live::RestoresGroundResources(const Live &previous, std::string &error) {

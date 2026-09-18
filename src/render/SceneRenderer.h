@@ -27,6 +27,7 @@
 #include "GroundStorage.h"
 #include "GpuOwned.h"
 #include "Readback.h"
+#include "scene/SceneResources.h"
 #include "Viewing.h"
 #include "Compiled.h"
 #include "stages/OverlayDraw.h"
@@ -144,8 +145,18 @@ public:
 
   [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
 
+  using PieceRows = SceneResources::PieceRows;
+
+  [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(const PieceMesh &piece) {
+    return ActiveState().Content.Resources.PlacePiece(ActiveState().Content.Subjects, piece);
+  }
+
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
     return ActiveState().Content.Subjects.PlacePiece(piece, error);
+  }
+
+  void ReleasePiece(PieceHandle which) {
+    ActiveState().Content.Resources.ReleasePiece(ActiveState().Content.Subjects, which);
   }
 
   void ReleasePiece(PieceId which) { ActiveState().Content.Subjects.ReleasePiece(which); }
@@ -173,8 +184,35 @@ public:
   }
 
   [[nodiscard]] bool
+  SetPieceInstances(PieceHandle which, std::span<const Mat4> rows, std::string &error) {
+    return ActiveState().Content.Resources.SetPieceInstances(
+        ActiveState().Content.Subjects, which, rows, error);
+  }
+
+  [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error) {
     return ActiveState().Content.Subjects.SetPieceInstances(which, rows, error);
+  }
+
+  [[nodiscard]] bool SetPieceInstances(std::span<const PieceRows> pieces, std::string &error) {
+    return ActiveState().Content.Resources.SetPieceInstances(
+        ActiveState().Content.Subjects, pieces, error);
+  }
+
+  [[nodiscard]] bool RestorePieces(std::string &error) {
+    return ActiveState().Content.Resources.RestorePieces(ActiveState().Content.Subjects, error);
+  }
+
+  [[nodiscard]] size_t PieceSourceBytes() const noexcept {
+    return ActiveState().Content.Resources.PieceSourceBytes();
+  }
+
+  [[nodiscard]] size_t PieceSlots() const noexcept {
+    return ActiveState().Content.Resources.PieceSlots();
+  }
+
+  [[nodiscard]] size_t PieceSlotBytes() const noexcept {
+    return ActiveState().Content.Resources.PieceSlotBytes();
   }
 
   void WearPieces(std::span<const uint32_t> slotOfSurface,
@@ -603,6 +641,7 @@ private:
 
   struct WorldContent {
     GroundStorage Ground;
+    SceneResources Resources;
     SubjectDraw Subjects;
     SubjectDraw Glass;
     OverlayDraw Overlay;
