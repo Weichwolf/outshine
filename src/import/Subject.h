@@ -21,7 +21,6 @@
 #include "MeshAsset.h"
 #include "SceneAsset.h"
 #include "Skeleton.h"
-#include "Variant.h"
 
 namespace outshine {
 class Geometry;
@@ -72,7 +71,7 @@ public:
                            const MeshAssetSet &meshes,
                            const MaterialAssetSet &materials,
                            const SceneAsset &scene,
-                           const VariantSelection &variant = {});
+                           int variant = -1);
 
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
@@ -81,7 +80,7 @@ public:
                            const SceneAsset &scene,
                            std::span<const AffineTransform> pose,
                            std::span<const double> weights,
-                           const VariantSelection &variant = {});
+                           int variant = -1);
 
   [[nodiscard]] bool Assemble(const outshine::Geometry &what);
 
@@ -251,7 +250,7 @@ private:
                              const SceneAsset &scene,
                              const AffineTransform *pose,
                              const double *weights,
-                             const VariantSelection &variant);
+                             int variant);
 
   void Bound();
 

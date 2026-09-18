@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -22,7 +23,6 @@
 #include "SceneImport.h"
 #include "SkeletonImport.h"
 #include "Subject.h"
-#include "Variant.h"
 #include "MaterialImport.h"
 
 namespace outshine {
@@ -97,7 +97,7 @@ struct GltfImporter::Held {
   MeshAssetSet Meshes;
   MaterialAssetSet Materials;
   SceneAsset Scene;
-  Gltf::VariantSelection Variant;
+  int Variant = -1;
   Geometry Handed;
   std::vector<AffineTransform> Locals;
   std::vector<AffineTransform> PublishedLocals;
@@ -213,13 +213,17 @@ std::expected<void, std::string> GltfImporter::load(std::string_view path) {
 
 std::expected<void, std::string> GltfImporter::selectMaterialVariant(std::string_view variant) {
   Held &held = *Held_;
-  Gltf::VariantSelection wanted{std::string(variant)};
-  int index = -1;
-  if (!wanted.Against(held.File, index, held.Why)) { return std::unexpected(held.Why); }
-  auto previous = std::move(held.Variant);
-  held.Variant = std::move(wanted);
+  const std::optional<int> wanted = held.Meshes.FindVariant(variant);
+  if (!wanted) {
+    held.Why = "material variant '" + std::string(variant) + "' is absent; available variants:";
+    for (const std::string &name : held.Meshes.Variants()) { held.Why += " '" + name + "'"; }
+    if (held.Meshes.Variants().empty()) { held.Why += " none"; }
+    return std::unexpected(held.Why);
+  }
+  const int previous = held.Variant;
+  held.Variant = *wanted;
   if (!held.Assemble(0.0)) {
-    held.Variant = std::move(previous);
+    held.Variant = previous;
     return std::unexpected(held.Why);
   }
   return {};

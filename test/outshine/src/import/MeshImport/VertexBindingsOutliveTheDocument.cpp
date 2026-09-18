@@ -35,7 +35,9 @@ int main() {
   }
   {
     std::ofstream file(root / "skin.gltf");
-    file << R"({"asset":{"version":"2.0"},"buffers":[{"uri":"data.bin","byteLength":160}],
+    file << R"({"asset":{"version":"2.0"},"extensionsUsed":["KHR_materials_variants"],
+      "extensions":{"KHR_materials_variants":{"variants":[{"name":"alternate"}]}},
+      "buffers":[{"uri":"data.bin","byteLength":160}],
       "bufferViews":[{"buffer":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":12},
         {"buffer":0,"byteOffset":48,"byteLength":48},{"buffer":0,"byteOffset":96,"byteLength":64}],
       "accessors":[
@@ -58,6 +60,7 @@ int main() {
   }
   const MeshPrimitive *primitive = meshes.Find(0, 0);
   CHECK(primitive != nullptr, "native mesh and primitive identity retained");
+  CHECK(meshes.FindVariant("alternate") == 0, "native variant names outlive the import document");
   if (primitive != nullptr) {
     CHECK(primitive->Skin.Sets == 1 && primitive->Skin.Vertices == 3 &&
               primitive->Skin.Joints == std::vector<uint32_t>(12, 0) &&

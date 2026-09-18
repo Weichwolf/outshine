@@ -331,7 +331,8 @@ bool ImportMeshAssets(const Document &document, MeshAssetSet &out, std::string &
     meshes.push_back(std::move(nativeMesh));
   }
   if (!ValidateSkinnedNodes(document, meshes, error)) { return false; }
-  out.Adopt(std::move(meshes));
+  std::vector<std::string> variantNames = document.Variants();
+  out.Adopt(std::move(meshes), std::move(variantNames));
   error.clear();
   return true;
 }

@@ -3,6 +3,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace outshine {
@@ -44,14 +48,21 @@ struct MeshAsset {
 
 class MeshAssetSet {
 public:
-  void Adopt(std::vector<MeshAsset> &&meshes);
+  void Adopt(std::vector<MeshAsset> &&meshes, std::vector<std::string> &&variantNames);
   [[nodiscard]] const MeshPrimitive *Find(size_t mesh, size_t primitive) const noexcept;
   [[nodiscard]] size_t PrimitiveCount(size_t mesh) const noexcept;
 
   [[nodiscard]] size_t MeshCount() const { return Meshes_.size(); }
 
+  [[nodiscard]] std::optional<int> FindVariant(std::string_view name) const noexcept;
+
+  [[nodiscard]] bool AcceptsVariant(int variant) const noexcept;
+
+  [[nodiscard]] std::span<const std::string> Variants() const noexcept { return VariantNames_; }
+
 private:
   std::vector<MeshAsset> Meshes_;
+  std::vector<std::string> VariantNames_;
 };
 
 }

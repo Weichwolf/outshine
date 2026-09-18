@@ -343,7 +343,7 @@ bool Subject::Build(const Document &document,
                     const MeshAssetSet &meshes,
                     const MaterialAssetSet &materials,
                     const SceneAsset &scene,
-                    const VariantSelection &variant) {
+                    int variant) {
   return Flatten(document, skeletons, meshes, materials, scene, nullptr, nullptr, variant);
 }
 
@@ -354,7 +354,7 @@ bool Subject::Build(const Document &document,
                     const SceneAsset &scene,
                     std::span<const AffineTransform> pose,
                     std::span<const double> weights,
-                    const VariantSelection &variant) {
+                    int variant) {
   if (pose.size() != scene.NodeCount()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(pose.size()) +
                   " local transforms and the file carries " + std::to_string(scene.NodeCount()) +
@@ -715,7 +715,7 @@ bool Subject::Flatten(const Document &document,
                       const SceneAsset &scene,
                       const AffineTransform *pose,
                       const double *weights,
-                      const VariantSelection &variant) {
+                      int variant) {
   Error_.clear();
   Images_.clear();
   Positions_.clear();
@@ -734,12 +734,9 @@ bool Subject::Flatten(const Document &document,
   if (!copiedMaterials) { return Refuse(copiedMaterials.error()); }
   if (scene.Roots().empty()) { return Refuse(document.Path() + ": no default scene to draw"); }
 
-  int activeVariant = -1;
-  {
-    std::string why;
-    if (!variant.Against(document, activeVariant, why)) {
-      return Refuse(document.Path() + ": the declaration " + why);
-    }
+  if (!meshes.AcceptsVariant(variant)) {
+    return Refuse(document.Path() + ": native material variant " + std::to_string(variant) +
+                  " is absent");
   }
   const Posing posed{.Skeletons = skeletons,
                      .Meshes = &meshes,
@@ -747,7 +744,7 @@ bool Subject::Flatten(const Document &document,
                      .Scene = &scene,
                      .Pose = pose,
                      .Weights = weights,
-                     .Variant = activeVariant};
+                     .Variant = variant};
 
   std::vector<uint32_t> pending(scene.Roots().rbegin(), scene.Roots().rend());
 
