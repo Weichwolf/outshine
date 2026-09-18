@@ -25,6 +25,8 @@ struct Fixture {
   OwnedTexture Source;
   OwnedSampler Sampler;
   OwnedPipeline Pipeline;
+  OwnedBuffer Vertices;
+  bool Derivatives = false;
   bool DescriptorTable = false;
 
   explicit Fixture(SDL_GPUDevice *device) : Device(device) {}
@@ -173,9 +175,11 @@ bool UploadChain(Fixture &fixture, MipMode mode, bool separateSubmits) {
   return record(0, levels);
 }
 
-bool Configure(Fixture &fixture, MipMode mode, bool separateSubmits, bool descriptorTable) {
+bool Configure(
+    Fixture &fixture, MipMode mode, bool separateSubmits, bool descriptorTable, bool derivatives) {
   if (!UploadChain(fixture, mode, separateSubmits)) { return false; }
   fixture.DescriptorTable = descriptorTable;
+  fixture.Derivatives = derivatives;
   SDL_GPUSamplerCreateInfo sampler{};
   sampler.min_filter = SDL_GPU_FILTER_LINEAR;
   sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
@@ -186,14 +190,14 @@ bool Configure(Fixture &fixture, MipMode mode, bool separateSubmits, bool descri
       OwnedSampler(fixture.Device.Get(), SDL_CreateGPUSampler(fixture.Device.Get(), &sampler));
   if (!fixture.Sampler) { return false; }
   std::string error;
-  const OwnedShader vertex(fixture.Device.Get(),
-                           ShaderFrom(fixture.Device.Get(),
-                                      "build/shaders/fullscreen.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      DrawShape{},
-                                      error));
+  const char *vertexPath = derivatives ? "build/shaders/filteredMipDerivativeSample.vert.spv"
+                                       : "build/shaders/fullscreen.vert.spv";
+  const OwnedShader vertex(
+      fixture.Device.Get(),
+      ShaderFrom(fixture.Device.Get(), vertexPath, SDL_GPU_SHADERSTAGE_VERTEX, DrawShape{}, error));
   const DrawShape shape{.FragmentSamplers = descriptorTable ? 8u : 1u};
   const char *fragmentPath = descriptorTable ? "build/shaders/filteredMipDescriptorSample.frag.spv"
+                             : derivatives   ? "build/shaders/filteredMipDerivativeSample.frag.spv"
                                              : "build/shaders/filteredMipSample.frag.spv";
   const OwnedShader fragment(
       fixture.Device.Get(),
@@ -203,17 +207,61 @@ bool Configure(Fixture &fixture, MipMode mode, bool separateSubmits, bool descri
     return false;
   }
   SDL_GPUColorTargetDescription target{.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM};
+  SDL_GPUVertexBufferDescription buffer{.slot = 0, .pitch = 5u * sizeof(float)};
+  const std::array<SDL_GPUVertexAttribute, 2> attributes = {
+      SDL_GPUVertexAttribute{.location = 0,
+                             .buffer_slot = 0,
+                             .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+                             .offset = 0},
+      SDL_GPUVertexAttribute{.location = 1,
+                             .buffer_slot = 0,
+                             .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+                             .offset = 3u * sizeof(float)}};
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
   pipeline.vertex_shader = vertex.Get();
   pipeline.fragment_shader = fragment.Get();
   pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+  if (derivatives) {
+    pipeline.vertex_input_state.vertex_buffer_descriptions = &buffer;
+    pipeline.vertex_input_state.num_vertex_buffers = 1;
+    pipeline.vertex_input_state.vertex_attributes = attributes.data();
+    pipeline.vertex_input_state.num_vertex_attributes = static_cast<uint32_t>(attributes.size());
+  }
   pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
   pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
   pipeline.target_info.color_target_descriptions = &target;
   pipeline.target_info.num_color_targets = 1;
   fixture.Pipeline = OwnedPipeline(fixture.Device.Get(),
                                    SDL_CreateGPUGraphicsPipeline(fixture.Device.Get(), &pipeline));
-  return static_cast<bool>(fixture.Pipeline);
+  if (!fixture.Pipeline || !derivatives) { return static_cast<bool>(fixture.Pipeline); }
+  constexpr std::array<float, 15> vertices = {-1, -1, 0, 0, 0, 3, -1, 0, 2, 0, -1, 3, 0, 0, 2};
+  SDL_GPUBufferCreateInfo vertexBuffer{.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                                       .size =
+                                           static_cast<uint32_t>(vertices.size() * sizeof(float))};
+  fixture.Vertices =
+      OwnedBuffer(fixture.Device.Get(), SDL_CreateGPUBuffer(fixture.Device.Get(), &vertexBuffer));
+  if (!fixture.Vertices) { return false; }
+  SDL_GPUTransferBufferCreateInfo stagingInfo{.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                                              .size = vertexBuffer.size};
+  const OwnedTransfer staging(fixture.Device.Get(),
+                              SDL_CreateGPUTransferBuffer(fixture.Device.Get(), &stagingInfo));
+  if (!staging) { return false; }
+  void *mapped = SDL_MapGPUTransferBuffer(fixture.Device.Get(), staging.Get(), false);
+  if (mapped == nullptr) { return false; }
+  std::memcpy(mapped, vertices.data(), vertexBuffer.size);
+  SDL_UnmapGPUTransferBuffer(fixture.Device.Get(), staging.Get());
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(fixture.Device.Get());
+  if (commands == nullptr) { return false; }
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  if (copy == nullptr) {
+    SDL_CancelGPUCommandBuffer(commands);
+    return false;
+  }
+  SDL_GPUBufferRegion destination{.buffer = fixture.Vertices.Get(), .size = vertexBuffer.size};
+  SDL_GPUTransferBufferLocation source{.transfer_buffer = staging.Get()};
+  SDL_UploadToGPUBuffer(copy, &source, &destination, false);
+  SDL_EndGPUCopyPass(copy);
+  return SDL_SubmitGPUCommandBuffer(commands);
 }
 
 std::vector<uint8_t> Draw(Fixture &fixture) {
@@ -245,6 +293,10 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
     return {};
   }
   SDL_BindGPUGraphicsPipeline(pass, fixture.Pipeline.Get());
+  if (fixture.Derivatives) {
+    const SDL_GPUBufferBinding vertices{.buffer = fixture.Vertices.Get()};
+    SDL_BindGPUVertexBuffers(pass, 0, &vertices, 1);
+  }
   const SDL_GPUTextureSamplerBinding binding{.texture = fixture.Source.Get(),
                                              .sampler = fixture.Sampler.Get()};
   const std::array<SDL_GPUTextureSamplerBinding, 8> descriptors = {
@@ -276,26 +328,30 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   return pixels;
 }
 
-std::vector<uint8_t> Render(MipMode mode, bool separateSubmits, bool descriptorTable) {
+std::vector<uint8_t>
+Render(MipMode mode, bool separateSubmits, bool descriptorTable, bool derivatives) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  if (!fixture.Device || !Configure(fixture, mode, separateSubmits, descriptorTable)) { return {}; }
+  if (!fixture.Device || !Configure(fixture, mode, separateSubmits, descriptorTable, derivatives)) {
+    return {};
+  }
   return Draw(fixture);
 }
 
-void CheckMode(MipMode mode, bool separateSubmits, bool descriptorTable, const char *name) {
+void CheckMode(
+    MipMode mode, bool separateSubmits, bool descriptorTable, bool derivatives, const char *name) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  CHECK(fixture.Device && Configure(fixture, mode, separateSubmits, descriptorTable),
+  CHECK(fixture.Device && Configure(fixture, mode, separateSubmits, descriptorTable, derivatives),
         "the raw SDL fixture configures");
   if (!fixture.Device || !fixture.Pipeline) { return; }
   const auto first = Draw(fixture);
   const auto repeated = Draw(fixture);
-  const auto fresh = Render(mode, separateSubmits, descriptorTable);
+  const auto fresh = Render(mode, separateSubmits, descriptorTable, derivatives);
   CHECK(!first.empty(), "the raw SDL fixture renders its first filtered frame");
   CHECK(first == repeated, name);
   CHECK(first == fresh, "a fresh SDL device has the same first filtered frame");
@@ -304,12 +360,13 @@ void CheckMode(MipMode mode, bool separateSubmits, bool descriptorTable, const c
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes for raw filtered sampling");
-  CheckMode(MipMode::None, false, false, "base-only linear sampling repeats exactly");
-  CheckMode(MipMode::Nearest, false, false, "batched nearest-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, false, false, "batched linear-mip sampling repeats exactly");
-  CheckMode(MipMode::Nearest, true, false, "per-level nearest-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, true, false, "per-level linear-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, true, true, "eight material sampler bindings repeat exactly");
+  CheckMode(MipMode::None, false, false, false, "base-only linear sampling repeats exactly");
+  CheckMode(MipMode::Nearest, false, false, false, "batched nearest-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, false, false, false, "batched linear-mip sampling repeats exactly");
+  CheckMode(MipMode::Nearest, true, false, false, "per-level nearest-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, true, false, false, "per-level linear-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, true, true, false, "eight material sampler bindings repeat exactly");
+  CheckMode(MipMode::Linear, true, false, true, "interpolated UV derivatives repeat exactly");
   SDL_Quit();
   return Report();
 }

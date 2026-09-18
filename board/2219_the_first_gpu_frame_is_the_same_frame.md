@@ -27,9 +27,10 @@ actual `UploadMip` shape: one short-lived staging buffer and submit per mip leve
 It also binds eight actively sampled material descriptors. It owns only texture,
 immutable samplers, fullscreen GLSL `texture()` pipeline, target and direct readback.
 Raw filtered sampling, generated mip values, per-level submission, transient staging
-and descriptor-table cardinality are therefore not the defect. The next reducer is
-the imported mesh derivative footprint. Atmosphere is already disproved by the
-pre-atmosphere repeat evidence.
+descriptor-table cardinality and standard interpolated UV derivatives are therefore
+not the defect. The next reducer is Outshine's actual Subject vertex/fragment pipeline,
+then the imported data content. Atmosphere is already disproved by the pre-atmosphere
+repeat evidence.
 
 ## Decision
 
@@ -57,9 +58,10 @@ green test requires the next reducer to add one missing engine input at a time.
 2. [x] Add the engine's generated mip texels and both one-submit and one-submit-per-level
    staging forms to the raw fixture.
 3. [x] Bind and actively sample the complete eight-slot material descriptor table.
-4. Reduce the imported mesh derivative footprint without changing its sampler or material.
-   Do not return to atmosphere without new contrary evidence.
-5. In parallel but separately, WI 2235 makes complete sampled-image ownership and
+4. [x] Prove a raw static vertexbuffer with interpolated UV derivatives exact.
+5. Reduce Outshine's Subject vertex/fragment pipeline without changing its sampler or material;
+   then add imported data content. Do not return to atmosphere without new contrary evidence.
+6. In parallel but separately, WI 2235 makes complete sampled-image ownership and
    asynchronous candidate publication correct. It must preserve pixels but is not
    claimed as this defect's repair.
 
