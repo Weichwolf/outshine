@@ -25,6 +25,7 @@ struct Fixture {
   OwnedTexture Source;
   OwnedSampler Sampler;
   OwnedPipeline Pipeline;
+  bool DescriptorTable = false;
 
   explicit Fixture(SDL_GPUDevice *device) : Device(device) {}
 };
@@ -172,8 +173,9 @@ bool UploadChain(Fixture &fixture, MipMode mode, bool separateSubmits) {
   return record(0, levels);
 }
 
-bool Configure(Fixture &fixture, MipMode mode, bool separateSubmits) {
+bool Configure(Fixture &fixture, MipMode mode, bool separateSubmits, bool descriptorTable) {
   if (!UploadChain(fixture, mode, separateSubmits)) { return false; }
+  fixture.DescriptorTable = descriptorTable;
   SDL_GPUSamplerCreateInfo sampler{};
   sampler.min_filter = SDL_GPU_FILTER_LINEAR;
   sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
@@ -190,13 +192,12 @@ bool Configure(Fixture &fixture, MipMode mode, bool separateSubmits) {
                                       SDL_GPU_SHADERSTAGE_VERTEX,
                                       DrawShape{},
                                       error));
-  const DrawShape shape{.FragmentSamplers = 1};
-  const OwnedShader fragment(fixture.Device.Get(),
-                             ShaderFrom(fixture.Device.Get(),
-                                        "build/shaders/filteredMipSample.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        shape,
-                                        error));
+  const DrawShape shape{.FragmentSamplers = descriptorTable ? 8u : 1u};
+  const char *fragmentPath = descriptorTable ? "build/shaders/filteredMipDescriptorSample.frag.spv"
+                                             : "build/shaders/filteredMipSample.frag.spv";
+  const OwnedShader fragment(
+      fixture.Device.Get(),
+      ShaderFrom(fixture.Device.Get(), fragmentPath, SDL_GPU_SHADERSTAGE_FRAGMENT, shape, error));
   if (!vertex || !fragment) {
     SDL_SetError("%s", error.c_str());
     return false;
@@ -246,7 +247,9 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   SDL_BindGPUGraphicsPipeline(pass, fixture.Pipeline.Get());
   const SDL_GPUTextureSamplerBinding binding{.texture = fixture.Source.Get(),
                                              .sampler = fixture.Sampler.Get()};
-  SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
+  const std::array<SDL_GPUTextureSamplerBinding, 8> descriptors = {
+      binding, binding, binding, binding, binding, binding, binding, binding};
+  SDL_BindGPUFragmentSamplers(pass, 0, descriptors.data(), fixture.DescriptorTable ? 8u : 1u);
   SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
   SDL_EndGPURenderPass(pass);
   SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
@@ -273,26 +276,26 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   return pixels;
 }
 
-std::vector<uint8_t> Render(MipMode mode, bool separateSubmits) {
+std::vector<uint8_t> Render(MipMode mode, bool separateSubmits, bool descriptorTable) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  if (!fixture.Device || !Configure(fixture, mode, separateSubmits)) { return {}; }
+  if (!fixture.Device || !Configure(fixture, mode, separateSubmits, descriptorTable)) { return {}; }
   return Draw(fixture);
 }
 
-void CheckMode(MipMode mode, bool separateSubmits, const char *name) {
+void CheckMode(MipMode mode, bool separateSubmits, bool descriptorTable, const char *name) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  CHECK(fixture.Device && Configure(fixture, mode, separateSubmits),
+  CHECK(fixture.Device && Configure(fixture, mode, separateSubmits, descriptorTable),
         "the raw SDL fixture configures");
   if (!fixture.Device || !fixture.Pipeline) { return; }
   const auto first = Draw(fixture);
   const auto repeated = Draw(fixture);
-  const auto fresh = Render(mode, separateSubmits);
+  const auto fresh = Render(mode, separateSubmits, descriptorTable);
   CHECK(!first.empty(), "the raw SDL fixture renders its first filtered frame");
   CHECK(first == repeated, name);
   CHECK(first == fresh, "a fresh SDL device has the same first filtered frame");
@@ -301,11 +304,12 @@ void CheckMode(MipMode mode, bool separateSubmits, const char *name) {
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes for raw filtered sampling");
-  CheckMode(MipMode::None, false, "base-only linear sampling repeats exactly");
-  CheckMode(MipMode::Nearest, false, "batched nearest-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, false, "batched linear-mip sampling repeats exactly");
-  CheckMode(MipMode::Nearest, true, "per-level nearest-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, true, "per-level linear-mip sampling repeats exactly");
+  CheckMode(MipMode::None, false, false, "base-only linear sampling repeats exactly");
+  CheckMode(MipMode::Nearest, false, false, "batched nearest-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, false, false, "batched linear-mip sampling repeats exactly");
+  CheckMode(MipMode::Nearest, true, false, "per-level nearest-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, true, false, "per-level linear-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, true, true, "eight material sampler bindings repeat exactly");
   SDL_Quit();
   return Report();
 }

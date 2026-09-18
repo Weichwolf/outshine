@@ -24,11 +24,12 @@ SDL_GPU device: base-only, nearest-mip and linear-mip variants agree byte-for-by
 between their first draw, second draw and a fresh-device first draw. It uses the
 engine's `HalveInPlace` values, then tests both one packed chain submit and the
 actual `UploadMip` shape: one short-lived staging buffer and submit per mip level.
-It owns only texture, immutable sampler, fullscreen GLSL `texture()` pipeline, target
-and direct readback. Raw filtered sampling, generated mip values, per-level submission
-and transient staging are therefore not the defect. The next reducer starts at the
-material descriptor table, then imported mesh derivative footprint. Atmosphere is
-already disproved by the pre-atmosphere repeat evidence.
+It also binds eight actively sampled material descriptors. It owns only texture,
+immutable samplers, fullscreen GLSL `texture()` pipeline, target and direct readback.
+Raw filtered sampling, generated mip values, per-level submission, transient staging
+and descriptor-table cardinality are therefore not the defect. The next reducer is
+the imported mesh derivative footprint. Atmosphere is already disproved by the
+pre-atmosphere repeat evidence.
 
 ## Decision
 
@@ -55,9 +56,10 @@ green test requires the next reducer to add one missing engine input at a time.
 1. [x] Add and run the raw matrix. This WI has no dependency on broad GPU ownership work.
 2. [x] Add the engine's generated mip texels and both one-submit and one-submit-per-level
    staging forms to the raw fixture.
-3. Add one engine factor at a time: material descriptor table, then imported mesh
-   derivative footprint. Do not return to atmosphere without new contrary evidence.
-4. In parallel but separately, WI 2235 makes complete sampled-image ownership and
+3. [x] Bind and actively sample the complete eight-slot material descriptor table.
+4. Reduce the imported mesh derivative footprint without changing its sampler or material.
+   Do not return to atmosphere without new contrary evidence.
+5. In parallel but separately, WI 2235 makes complete sampled-image ownership and
    asynchronous candidate publication correct. It must preserve pixels but is not
    claimed as this defect's repair.
 
