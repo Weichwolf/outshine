@@ -29,8 +29,9 @@ TestSources() { git ls-files --cached --others --exclude-standard "$TREES" | gre
 
 BUILD=${TMPDIR:-/tmp}
 # the nest carries the checkout identity (board:1649): parallel checkouts get parallel
-# nests, a worktree gate cannot sweep this one mid-run, and a collision is unspellable
-NEST=$(printf %s "$ROOT" | shasum -a 256 | cut -c1-12)
+# nests, a worktree gate cannot sweep this one mid-run, and the encoded absolute path cannot
+# collide with another checkout path
+NEST=$(printf %s "$ROOT" | tr '/' '_')
 BUILD=${BUILD%/}/outshine-tests.$NEST
 INHERITED_NEST=${OUTSHINE_NEST:-}
 export OUTSHINE_NEST="$BUILD"
