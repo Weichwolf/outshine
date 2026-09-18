@@ -65,10 +65,12 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       Frische Ressourcen sichern Fehleratomarität beim Weltumbau. Upload-Ringe und
       budgetierte inkrementelle Streaming-Updates bleiben in 2149/2124.
 - Subject-Texturupload prüft Image-, Transfer-, Map-, Acquire-, CopyPass-, Submit- und
-  Samplerfehler als expected; kein Surface-Slot publiziert Teilbilder. Append und Ersetzung
-  bewahren bei Ablehnung die vorherige Materialtabelle. GroundLattice prüft statische Uploads;
-  abgelehnte Height-Pages geben ihre Nummer zurück, Sichtbarkeitsfehler erreichen RenderFrame.
-  Der Stage-Test injiziert jede Uploadablehnung; Tile-Tabelle und Zähler bleiben stehen. Budgets offen.
+  Samplerfehler als expected. Die frühere Behauptung, kein Surface-Slot publiziere Teilbilder,
+  ist falsch: jeder Mip-Level wird separat eingereicht und `BoundImage` besitzt weder Staging
+  noch Fence. WI 2235 ersetzt diese Lücke durch eine gepackte `SampledImage`-Kette und eine
+  asynchrone Weltpublikation. GroundLattice prüft statische Uploads; abgelehnte Height-Pages
+  geben ihre Nummer zurück, Sichtbarkeitsfehler erreichen RenderFrame. Der Stage-Test injiziert
+  jede Uploadablehnung; Tile-Tabelle und Zähler bleiben stehen. Budgets offen.
 - [ ] Pass- und Ressourcen-Vorbedingungen nach SDL prüfen; Programmierfehler von echten
       Plattformfehlern trennen. Fehlgeschlagene Vorbereitung nie als neue Geometrie melden.
 - [ ] Minimieren/Wiederherstellen, Resize, Fenster-Owner/CommandBuffer-Thread und Shutdown
@@ -104,13 +106,11 @@ Tabellen-Retry, geordnete Pending-Uploads, CopyPass vor Swapchain-Acquire und
 Ersatzbuffer-Rollback bei Allokations-/Uploadfehlern sind implementiert. Nachweise:
 FailedTablesRemainRetryable, Frame-/Fenster-/Instancing-Regressionen; Details in Git.
 Vollständige In-place-/Frame-Atomarität und Upload-Budgets bleiben offen.
-
 ## Geprüfte Bereichsannahme
 VertexCrossing und DrawList prüfen Byte-/Bereichsgrenzen vor Mutation; Clear setzt
 DrawList-Budgets zurück. Grenztests, Negativkontrollen, Instancing und GPU-Retry
 normal/validiert bestehen. Details in Git. JobsAddress, Pose-Atomarität und
 praktische Frame-/Speicherbudgets bleiben offen; Jobbudget ist konservativ.
-
 ## Getrennte Pass-Aufzeichnung
 Private Compute-/Grafik-Encoder trennen Bindings und Attachments; der Dispatcher
 entscheidet PassKind. Reihenfolge, Touched-Zustand und Submission-Journal bleiben

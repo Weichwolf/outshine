@@ -1,70 +1,61 @@
 Type: bug
 State: active
 Parent: 2188
-Depends: 2190
+Depends:
 Priority: P0
 Area: render, SDL3, test
 Tags: determinism, backend, measured
 
-# A static GPU world renders identically from its first submission
+# A static GPU image has no first-frame exception
 
 ## Proven defect
 
 `MipmappedChessRepeatsLinearPixels` changes 252 linear RGB channels between the
-first and every later static frame (maximum 0.00195312); depth and alpha are exact.
-The same class of defect occurs in the atmospheric repeat case. A discarded warm-up
-frame makes later frames equal and is prohibited.
+first and later static frames (maximum 0.00195312). Depth and alpha are exact.
+A discarded warm-up frame is prohibited. Idle waits, culling, depth pyramid,
+temporal state, texture-copy grouping, explicit LOD and texel reads are not causal.
+Replacing `texture` with `texelFetch` makes the frames equal with the same descriptor.
 
-The fault is before atmosphere, resolve and presentation. The cull result, depth
-pyramid, temporal state, texture copy grouping, idle waits, explicit LOD and actual
-texel reads are not causal. Replacing `texture` with `texelFetch` makes all frames
-equal while retaining the same bound mip resource and descriptor. The remaining
-producer is the first filtered hardware sample or its resource readiness contract.
+`LinearTextureSamplingRepeats` is green: a public-API 2×2 unlit quad with linear
+min/mag filtering and `MipFilter::None` is exact on first and second frame. The
+fault therefore requires mip selection or an additional input of the imported chess
+path. This result removes base upload and ordinary bilinear sampling from the next
+search space; it does not prove raw SDL_GPU behaviour.
 
-Today `SubjectResidency::UploadMip` submits every mip level through the raw SDL submit
-function, retains neither a fence nor a texture-upload owner, and returns a bindable
-`BoundImage` immediately. That violates the required publication boundary regardless
-of whether the backend happens to defer transfer-buffer destruction safely.
+## Decision
 
-## Architecture decision
+Build the diagnostic as a raw SDL_GPU device test under
+`test/outshine/src/render/device/FilteredMipSampling/`. It owns its windowless device,
+RGBA texture, one immutable sampler, fullscreen pipeline, target and readback. It
+uses the shipped GLSL-derived SPIR-V product and the exact engine sampler descriptor,
+but neither Engine, SceneRenderer, importer nor material code. The fixture uploads a
+complete mip chain before recording its only static draw; no warm-up, idle wait or
+later upload is allowed.
 
-The idle-wait probe already disproves incomplete transfer execution as the direct
-cause. A `SampledImage` owner with one complete mip upload and fence-retained staging
-is still required for resource lifetime and belongs under 2190/2191, but it must not
-be presented as a repair for this image defect.
+Run three inputs at the same projected footprint: one level with mip disabled, a
+complete chain with nearest-mip selection, and a complete chain with linear-mip
+selection. For each, compare first draw, second draw and a fresh-device first draw
+byte-for-byte. Print only changed-channel count, first offset and maximum delta.
 
-2219 first reduces the fault to a minimal SDL_GPU filtered-sampling reproducer:
-one immutable texture, one immutable sampler, one static fullscreen primitive and
-linear readback. It uses the same GLSL source and exact sampler state as the engine,
-then compares first, second and freshly recreated device frames. The reproducer must
-also test base-only, nearest-mip and linear-mip textures. It contains no scene graph,
-culling, temporal targets, uploads after setup or engine material code.
+A red raw test is an SDL/backend/compiler/driver defect. Record local SDL commit,
+backend, OS, GPU, shader product and sampler descriptor; reproduce on one other
+locally pinned SDL/backend product. Do not add an engine workaround. A green raw
+test narrows the next reducer to the first engine input absent from this fixture.
 
-If the minimal reproducer fails, the defect is an SDL backend/compiler/driver issue.
-Record SDL commit, backend, OS, GPU, sampler descriptor and generated shader product,
-then test a locally pinned newer SDL or second available backend. Do not carry a
-warm-up, idle wait, vendor shader source or altered filtering into Outshine. If the
-minimal reproducer passes, its differing input is a causal boundary and the engine
-path is reduced from there.
+## Order
 
-## Implementation order
-
-1. **P0-A:** Build and run the minimal reproducer for every declared mip filter.
-2. **P0-B:** Compare its first-frame results with the engine contracts and identify
-   the first differing input if the reproducer passes.
-3. **P0-C:** If it fails, pin and test a second local SDL/backend product; record the
-   exact upstream reproducer rather than guessing at engine fixes.
-4. **P1, 2190/2191:** Independently add the `SampledImage` lifetime owner and the
-   asynchronous `PendingWorldPublication` transition with failure, shutdown and retry
-   proofs. This work must preserve pixels but does not close 2219 by itself.
+1. Add and run the raw matrix. This WI has no dependency on broad GPU ownership work.
+2. If green, add one engine factor at a time: upload batching, generated mip values,
+   material descriptor table, imported mesh derivative footprint, then atmosphere.
+3. In parallel but separately, WI 2235 makes complete sampled-image ownership and
+   asynchronous candidate publication correct. It must preserve pixels but is not
+   claimed as this defect's repair.
 
 ## Acceptance
 
-- [ ] First, second and redeclared static frames are byte-identical for mipmapped
-      chess and atmospheric scenes; their existing negative controls remain red.
-- [ ] Minimal SDL_GPU reproducer identifies whether the remaining defect is upstream
-      or isolates the first differing engine input.
-- [ ] A failed or cancelled texture upload exposes neither a partial mip chain nor
-      an invalid descriptor and preserves the previous world and pixels (2190/2191).
-- [ ] No warm-up, blocking idle wait, vendor shader path or loosened image threshold
-      reaches production.
+- [ ] The raw matrix reports exact first/second/fresh-device equality or an upstream
+      reproducer with its complete local product record.
+- [ ] Existing chess and atmospheric repeat checks become exact without a warm-up,
+      blocking idle wait, vendor shader path, changed filter or relaxed threshold.
+- [ ] Negative controls still expose a changed mip, descriptor or texel path.
+- [ ] Relevant device/public suites and `make lint` pass.

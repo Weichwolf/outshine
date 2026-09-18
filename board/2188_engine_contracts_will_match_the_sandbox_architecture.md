@@ -4,9 +4,7 @@ Area: include, engine, render, world
 Tags: architecture, audit
 Parent: 2169
 Depends: 2093, 2094, 2096, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2190, 2191, 2194, 2207, 2208, 2209, 2210, 2211, 2214
-
 # Engine contracts will match the streaming sandbox architecture
-
 ## Entscheidung und Umfang
 
 Quellprüfung 2026-09-08, keine vollständige Race-/Backend-Abnahme.
@@ -82,8 +80,8 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
 Verbindliche Implementierungsreihenfolge:
-1. **P0-A, 2219:** jeder erste statische GPU-Frame muss mit jedem Folgeframe identisch sein.
-   Unfertige SampledImages dürfen nicht in eine veröffentlichte Welt gelangen.
+1. **P0-A, 2219:** den ersten GPU-Bildfehler mit der raw-SDL-Mipmatrix kausal
+   einordnen. Keine Ownership- oder Warm-up-Vermutung als Bildfix ausgeben.
 2. **P0-B, 2231:** den bestehenden 64er-Structure-Bake-Vertrag öffentlich beweisen und erst bei
    einem belegten ungebundenen Clustering-Schritt weiter zerlegen.
 3. **P0-C, 2233:** danach Vektoren, Feldaufnahme und Bakebereiche durch einen deterministischen
@@ -91,7 +89,9 @@ Verbindliche Implementierungsreihenfolge:
 4. **P0-D, 2234:** Ground-Aufbau in denselben messbaren, abbrechbaren Candidate-Phasen führen.
 5. **P1, 2230:** verwendete Terrain-/Vektorprodukte beim Candidate erfassen und Capture gegen
    genau diesen Stand binden; keine Cache-Gesamtheit als Snapshot ausgeben.
-6. **P1, 2179 und 2171:** erst auf dem deterministischen Renderer die deklarativen Filterorakel
+6. **P1, 2235:** vollständige SampledImage-Ketten als eine asynchrone
+   Kandidatenpublikation unter dem Zustandsvertrag von 2191 führen.
+7. **P1, 2179 und 2171:** erst auf dem deterministischen Renderer die deklarativen Filterorakel
    schließen und den nativen Materialpfad anhand dieser Orakel ausbauen.
 Danach 2150: statischer nativer Importpfad samt Materialrelokation, anschließend native
 Animation. 2216 ist kein pauschaler Startblocker: Wertevalidierung ist bereits vorhanden;
