@@ -17,10 +17,15 @@ temporal state, texture-copy grouping, explicit LOD and texel reads are not caus
 Replacing `texture` with `texelFetch` makes the frames equal with the same descriptor.
 
 `LinearTextureSamplingRepeats` is green: a public-API 2×2 unlit quad with linear
-min/mag filtering and `MipFilter::None` is exact on first and second frame. The
-fault therefore requires mip selection or an additional input of the imported chess
-path. This result removes base upload and ordinary bilinear sampling from the next
-search space; it does not prove raw SDL_GPU behaviour.
+min/mag filtering and `MipFilter::None` is exact on first and second frame.
+
+`FilteredMipSampling/FirstFrameMatchesRepeatedSampling` is green on the local
+SDL_GPU device: base-only, nearest-mip and linear-mip variants agree byte-for-byte
+between their first draw, second draw and a fresh-device first draw. It owns only a
+texture, immutable sampler, fullscreen GLSL `texture()` pipeline, target and direct
+readback. Raw filtered sampling is therefore not the defect. The remaining reducer
+starts at the first engine input absent from it: generated mip contents, per-level
+upload submission, material table, imported derivative footprint and atmosphere.
 
 ## Decision
 
@@ -39,13 +44,14 @@ byte-for-byte. Print only changed-channel count, first offset and maximum delta.
 
 A red raw test is an SDL/backend/compiler/driver defect. Record local SDL commit,
 backend, OS, GPU, shader product and sampler descriptor; reproduce on one other
-locally pinned SDL/backend product. Do not add an engine workaround. A green raw
-test narrows the next reducer to the first engine input absent from this fixture.
+locally pinned SDL/backend product. Do not add an engine workaround. The current
+green test requires the next reducer to add one missing engine input at a time.
 
 ## Order
 
-1. Add and run the raw matrix. This WI has no dependency on broad GPU ownership work.
-2. If green, add one engine factor at a time: upload batching, generated mip values,
+1. [x] Add and run the raw matrix. This WI has no dependency on broad GPU ownership work.
+2. Add the engine's generated mip texels to the raw fixture; then vary only one
+   property per run: a single upload submission versus one submission per level,
    material descriptor table, imported mesh derivative footprint, then atmosphere.
 3. In parallel but separately, WI 2235 makes complete sampled-image ownership and
    asynchronous candidate publication correct. It must preserve pixels but is not
