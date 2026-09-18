@@ -49,3 +49,15 @@ explizit messen. Keine Hardware-Kernreservierung ohne Messung und Plattformgaran
 - [ ] Audio bleibt störungsfrei; Shutdown wartet kontrolliert außerhalb des Framepfads.
 - [ ] Negativkontrolle überschreibt einen gehaltenen Snapshot und verletzt das Oracle.
 - [ ] Bewegung/PNG-Abnahme gemäß 2092/2169, keine bloße Threadzahl als Erfolg.
+
+## Zuständigkeitsmigration vor Parallelisierung
+
+src/scenario/Triggers.* besitzt laufende Entity-/Zeit-Zustände; src/engine/SimulationState.*
+speichert Scenario::Body. Native Simulationszustände und Triggerauswertung gehören unter
+src/simulation/ (bestehende actor/body-Kerne verwenden), nicht in den Szenarioimport.
+Szenario-Volumes/Events/Bodies an der Grenze in native Konfiguration überführen (2238).
+Ein Simulationsbesitzer hält Körper, Triggerzustand und Zeitschritt; Engine koordiniert.
+Erster Schritt bleibt seriell: gleicher Ereignisstrom für Enter/Exit/Dwell, feste Zeit,
+gelöschte Entity/Handle-Generation und Queue-Überlauf. Erst danach Snapshot-Parallelisierung.
+AudioOcclusion aus engine nach audio: reine native Geometrie -> akustische BVH;
+Engine publiziert diese mit derselben Geometrierevision. Keine Kopie der Physikwelt.

@@ -71,3 +71,8 @@ composition oracle exposed the stale-candidate-pointer failure before this contr
   retry oracle.
 - Render a static subject before and after an unrelated target change to prove content rebinding
   preserves pixels. Run relevant suites and `make lint`.
+
+## Strukturaudit: vorhandene Besitzer weiterverwenden
+WI 2236 verschiebt Live-Ressourcen in vorhandenen WorldContent-Besitz. SceneRenderer
+verantwortet Submission/Device; kohärente Frame-/World-Parameter ersetzen durchgereichte
+Stage-Details pro Aufrufergruppe. Kein zweiter Framegraph oder konkurrierender Commit.

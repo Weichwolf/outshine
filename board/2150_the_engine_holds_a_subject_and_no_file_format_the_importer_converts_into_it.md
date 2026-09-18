@@ -84,8 +84,8 @@ Vollständiger GPU-Rollback und atomarer Welt-/Render-Austausch bleiben offen.
 
 Importer-Namen folgen Khronos (Node/Mesh/Primitive/Material/Animation/Skin), Runtime-Namen
 bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im Adapter.
-1. Asset.h besitzt weiterhin Document/Subject/Pose; Includes nur umzuhängen genügt nicht.
-   Geometry bleibt statischer Besitzer; bestehende Handles referenzieren Assets/Instanzen.
+1. Asset.h hält Document/Subject/Pose; import/Subject.h verwendet render Viewing/Framing.
+   Native Kamera/Bounds nach Math/Content; import->render pro Consumer entfernen, keine Typ-Tarnung.
 2. Einen vollständigen statischen Pfad migrieren: Generator und glTF-Importer →
    derselbe native Mesh-/Materialbesitzer → Instanz → Renderer. Bilder/Materialslots beim
    Append genau einmal relokieren; Overrides danach herkunftsunabhängig auflösen.

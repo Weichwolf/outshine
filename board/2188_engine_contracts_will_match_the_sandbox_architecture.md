@@ -80,27 +80,27 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
 Arbeitsreserve für Coding; fehlgeschlagene Gates zuerst reparieren:
-1. **P0, 2219 (ready):** begrenzter Erstbild-Vergleich mit eingefrorenen Draw-Inputs und
-   kontrollierter Readback-Reihenfolge. Ursache offen; keine spekulative Shaderreparatur.
-2. **P0, 2231 (ready, unabhängig):** öffentliche atomare Veröffentlichung des vorhandenen
-   Range-Schedulers beweisen. Worker-Completion-Grenzen verwenden, keine fremden Daten lesen.
-3. **P0, 2191 (ready, unabhängig):** sichtbares analytisches Bewegungsorakel und Renderhistory
-   des letzten erfolgreichen Submit; zwei Advances und fehlgeschlagener Submit als Kontrollen.
-Danach nach gemessenem Engpass:
-4. **P0, 2234 (ready):** längste Ground-Arbeitseinheit im vorhandenen Candidate fortsetzbar
-   machen; Phasennamen allein begrenzen keine Arbeit.
-5. **P1, 2233 (ready):** begrenzte Compute-Zulassung mit Rückstau; Scheduling darf zeitabhängig
-   sein, native Produkte bleiben deterministisch. Keine unbelegte Contention-Diagnose.
-6. **P1, 2235 (ready):** Mip-Uploads bündeln. Lokale Kandidaten und SDL-Ordering tragen bereits;
-   keine neue Pending-Welt oder Fence pro Bild. Kein behaupteter Fix für WI 2219.
-7. **P1, 2179 (ready):** Factory-Übersetzung und analytische Orakel unabhängig reparieren;
-   finale Repeat-Abnahme bleibt offen bis 2219. Danach Materialpfad 2171.
-2230 bindet Capture an tatsächlich verwendete Produkte; anschließend 2150 statischer nativer
-Import samt Materialrelokation, dann native Animation. 2216 ist kein pauschaler Startblocker:
-Wertevalidierung existiert; Restprüfungen begleiten Consumer. 2228 integriert Speicherbudgets.
-Bei Architekturfrage den begrenzten Befund im WI hinterlegen und nächsten ready-Schritt nehmen.
-Depends enthält echte technische Voraussetzungen, keine Prioritätskette oder Restabnahmen.
-Historische Timing-/Tidy-Werte sind kein aktueller Gate-Status. Keine externe Blockade belegt.
+1. **P0, 2219 (ready):** begrenzter Erstbild-Vergleich mit eingefrorenen Draw-Inputs.
+   Danach Evidenz/Fix oder Architekturfrage; unabhängige Arbeit bleibt ausführbar.
+2. **P0, 2237 (ready):** Terrain-/Earthworks-Algorithmen aus Engine herauslösen;
+   Streaming und Veröffentlichung bleiben Integration. Keine Vegetationserweiterung.
+3. **P0, 2236 (ready):** Live verliert Ressourcenbesitz an vorhandenen WorldContent;
+   konkrete Consumer migrieren, Fehleratomarität und Handle-Identität erhalten.
+4. **P0, 2238 (ready):** native Provider-Konfiguration statt Scenario-Typen im Backend;
+   öffentliche Header-Abhängigkeiten mitprüfen. Diese drei ersten Refactors sind unabhängig.
+5. **P0, 2231 / 2191 (ready):** öffentliche Tile-Atomarität und History des letzten Submit
+   beweisen; keine Worker-Datenrennen oder bloß leere Bewegungsbilder als Nachweis.
+6. **P0, 2234 (ready):** längste gemessene Ground-Einheit fortsetzbar machen, danach
+   **P1, 2233:** Zulassung/Rückstau budgetieren. Schedulingzeit und Produktdeterminismus trennen.
+7. **P1, 2235 / 2179 (ready):** Mip-Uploads ohne unnötige Fences bündeln;
+   Factory-Übersetzung unabhängig reparieren, Repeat-Abnahme bleibt bis 2219 offen.
+Strukturaudit aller Module und konkrete Zuständigkeiten: 2139, Kinder 2236–2238.
+2230 bindet Capture an verwendete Produkte; 2150 migriert statischen nativen Import,
+danach native Animation. 2216-Restprüfungen begleiten Consumer; 2228 budgetiert Speicher.
+Bei Architekturfrage Befund ins WI und nächsten ready-Schritt nehmen. Ein Commit oder ein
+blockiertes WI erfüllt nicht das Engine-Ziel. Keine externe Gesamtblockade nachgewiesen.
+Depends sind technische Voraussetzungen, keine Prioritätskette oder bereits nutzbare
+Grundlagen mit offenen Restprüfungen. Historische Zahlen sind kein aktueller Gate-Status.
 Tidy null und vollständige API-Dokumentation sind Pflicht, keine alleinige Architekturabnahme.
 Öffentliche geliehene Surface-/Mess-/Diagnosefolgen verwenden `std::span<const T>`;
 Konfigurationsdaten werden erst im jeweiligen Kandidaten kopiert. Array-Aufrufer,

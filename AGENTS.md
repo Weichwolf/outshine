@@ -220,6 +220,16 @@ Geometrie, Beleuchtung, Koordinaten oder Simulation werden dadurch nicht legitim
   Abnahme, entfernt erledigte Fragen und setzt wieder `Architecture: ready`. Änderungen
   an bereits begonnenen Verträgen explizit mit betroffenen Aufrufern/Tests benennen.
   Git hält die Entscheidungshistorie; WIs bleiben unter 120 Zeilen und 12 KiB.
+- Coding arbeitet die freigegebene Reserve ohne erneute Startfreigabe ab. Ein Commit,
+  ein grünes Gate oder ein blockiertes Einzel-WI beendet nicht das übergeordnete Ziel.
+  Nach jedem Schritt nächstes ready-WI wählen; bei Architekturfrage den betroffenen
+  Schritt parken und unabhängig weiterarbeiten. Ist die Reserve leer, offene WIs gegen
+  vorhandene Verträge prüfen und die nächste ausführbare Reparatur konkretisieren.
+  Nur expliziter Nutzerstopp, tatsächlich erfülltes Gesamtziel oder ein belegter externer
+  Blocker ohne mögliche unabhängige Arbeit rechtfertigt den Stopp. Plattform-/Budgetende
+  ehrlich melden; diese Datei kann keine Laufzeit oder automatische Fortsetzung erzwingen.
+  Zieltexte mit Dateiverweis vollständig lesen: die Aufgabe im Anhang ist das Ziel,
+  nicht das Lesen der Datei. Einen falschen Complete-Status nie als Zielerfüllung ausgeben.
 - Coding meldet Abschluss mit Commit und tatsächlichen Prüfbelegen, nicht mit Erfolgstext
   ohne Nachweis. Architektur prüft besonders neue Grenzen, Fehlerpfade und Bildwirkung;
   erfolgreiche unveränderte Gates nicht wiederholen. Pflichtformatierung, Tests, Lint

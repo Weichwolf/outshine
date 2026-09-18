@@ -67,15 +67,9 @@ gegen Dijkstra prüfen. Freie Startseeds in 250 m können Barrieren/Fahrtrichtun
 überspringen; explizite zulässige Anbindung bleibt offen. A*-Referenz:
 https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/astar_search.html.
 
-Lay validiert vollständige kanonische Koordinaten, nichtnegative endliche Parameter
-und kumuliertes Punktbudget vor Mutation; Corridors reicht Fehler weiter.
-Factory prüft positive endliche Radien/Zellen und darstellbare 32-Bit-Indizes.
-Within/Nearest liefern expected, sperren nach Lay bis Weave und bewahren Fehlerpuffer;
-große Suchen wählen vor Cast den Vollscan. Leeres Netz bleibt gültig abfragbar.
-Tests/Gegenproben: Einfügefehler/Recovery, Konfigurationsgrenzen, unabhängige sphärische
-Trefferzahlen/nächste Distanz, Pol/Datumsgrenze/DBL_MAX. Vollständiger alter Überlaufpfad
-scheitert, isolierter Cast hier nicht. conventions instrumentiert Engine nicht mit
-Sanitizern: Nachweis offen. Letztes lint 187/333, 32 Claims grün; Wien-PNG bytegleich.
+Lay/Factory und räumliche Abfragen besitzen Validierungs-/Recovery-Tests für
+Koordinaten, Budgets, Indizes und sphärische Suche. Diese lokalen Belege ersetzen
+keine Sanitizer-, Streaming- oder vollständige Router-Abnahme; Verlauf steht in Git.
 
 Offen: OSM-IDs/Modi/Restrictions/Streaming statt Legacy-Snap; Zustandsverträge anderer
 Graphabfragen, Trefferidentitäten/Rasterränder, TieReach aus Straßenbreiten, Budget/
@@ -91,17 +85,10 @@ Kein Fahrbarkeitsnachweis: sphärische Tangenten, Spurbreite, Clearance, verbund
 und Klothoiden bleiben 2175. Referenz für Linien/Bögen/Spiralen:
 https://www.asam.net/fileadmin/Standards/OpenDRIVE/ASAM_OpenDRIVE_BS_V1-7-0.html.
 
-ReconstructRoute mit benanntem RouteTrace: Kette bis kMaxRouteLegs zählen, dann einen
-Leg-Puffer anlegen. Rückwärts direkt in endgültige Reihenfolge schreiben; temporäre
-Knotenliste und reverse entfallen. Metrische Stationen separat vor Veröffentlichung
-prüfen; Überlauf als Fehler, keine teilweise veröffentlichte Route. Private expected-
-Funktion trennt Suchzustand von Ergebnis. Analytische meridionale Dreipunktkette
-prüft Reihenfolge/Stationen/Länge/Attribute; entfernte Reihenfolge muss scheitern.
-Offen: globales Routenbudget als Laufzeittest; Alternativpfade bei Kostenüberlauf.
+ReconstructRoute prüft Stationen vor Veröffentlichung; RouteSearch kapselt Suchzustand
+und unterscheidet große endliche Kosten von Überlauf. Analytische Routingkontrollen
+bestehen; globales Laufzeitbudget und Alternativpfade bei Überlauf bleiben offen.
 Kein produktiver Router-Aufruf im Client-Renderpfad.
-
-RouteSearch kapselt temporären Suchzustand; endliche Kosten >1e30 und tatsächlicher
-Überlauf werden unterschieden. Fünf Routingtests und Negativkontrollen grün; Details in Git.
 
 Grounds erneuert World.Network nur bei geänderter Wegeanzahl. Topologie-/Höhenänderung
 bei gleicher Anzahl könnte unbemerkt bleiben. Gemeinsame Wege-/DEM-Revision fehlt;
@@ -118,3 +105,13 @@ Revisionsinvalidierung und explizite Gültigkeit statt Ersatzhöhe bleiben offen
 OsmField::Integer trennt fehlend, gültig und Fehler; vollständiger Dezimaltext oder
 endliche ganze int32-Zahl. StreetField zählt/verwirft ungültige Features, fehlend ist 0.
 Tile-Fortschritt und Featureaufbereitung getrennt; Fixture-Checks und Gegenprobe geprüft.
+
+## Modulgrenze aus Strukturaudit
+
+src/base/spatial/Wayfinding.* enthält geographische Strecken, Breite, Steigung und
+Radiusregeln. Transportregeln und Netzbesitz nach src/world/navigation trennen; nur
+allgemeine Graphsuche, räumliche Indizes und Mathematik bleiben base. Vor Verschiebung
+Generator-Consumer inventarisieren: world darf nicht zurück auf generators zeigen.
+Logisches Netz ist der native Vertrag; Road-Generator liest es für Geometrie, ohne es
+zu besitzen oder Render-LOD zur Navigationsentscheidung zu machen. Bestehende analytische
+Routing-/Topologieprüfungen migrieren; keine neue Suchstrategie in diesem Schritt.
