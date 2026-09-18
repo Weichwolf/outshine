@@ -65,9 +65,10 @@ green test requires the next reducer to add one missing engine input at a time.
 3. [x] Bind and actively sample the complete eight-slot material descriptor table.
 4. [x] Prove a raw static vertexbuffer with interpolated UV derivatives exact.
 5. [x] Send a cloned imported native Geometry through `setGeometry`; it is red.
-6. Reduce GeometryPacking/Subject construction before the Subject vertex/fragment pipeline.
-   Keep imported geometry, camera, sampler and material fixed. Do not return to atmosphere.
-7. In parallel but separately, WI 2235 makes complete sampled-image ownership and
+6. [x] Prove the Chess perspective on a single native mipmapped quad exact.
+7. Reduce GeometryPacking's multi-part and optional-attribute input before Subject pipeline
+   work. Keep camera, sampler and material fixed. Do not return to atmosphere.
+8. In parallel but separately, WI 2235 makes complete sampled-image ownership and
    asynchronous candidate publication correct. It must preserve pixels but is not
    claimed as this defect's repair.
 
