@@ -57,6 +57,8 @@ Stale results are rejected before the existing candidate commit; old world remai
    Preserve atlas wire-format/version and update crown-provenance inputs with file moves.
    GPU capture runs only in explicit preparation, never a normal frame. Reuse WI 2236's
    resource API when migrating Live-bound consumers; codec/algorithm extraction is independent.
+   Start from the neutral `Content::ImpostorAtlasShape` value contract; neither capture settings
+   nor cache keys may require the Engine-owned CrownAtlas type.
 
 No vegetation feature expansion or new atlas algorithm here. Existing renderer-backed
 preparation stays usable while its ownership is separated. Do not use a file move as proof.

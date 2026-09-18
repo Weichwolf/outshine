@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_CROWNATLAS_H
 
 #include "TreePrototype.h"
+#include "ImpostorAtlasShape.h"
 #include <optional>
 #include <string>
 #include <string_view>
@@ -23,15 +24,12 @@ public:
     std::vector<Texel> Texels;
   };
 
-  struct Shape {
-    int Pixels = 256;
-    unsigned Views = 8;
-  };
+  static std::optional<CrownAtlas> Bake(const Generators::TreePrototype &tree,
+                                        Content::ImpostorAtlasShape shape,
+                                        std::string &error);
 
-  static std::optional<CrownAtlas>
-  Bake(const Generators::TreePrototype &tree, Shape shape, std::string &error);
-
-  [[nodiscard]] static std::string ProvenanceFor(std::string_view species, Shape shape);
+  [[nodiscard]] static std::string ProvenanceFor(std::string_view species,
+                                                 Content::ImpostorAtlasShape shape);
 
   [[nodiscard]] std::optional<std::vector<uint8_t>> Encode(std::string_view provenance,
                                                            std::string &error) const;

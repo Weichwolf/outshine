@@ -11,7 +11,7 @@ class WorldCrowns {
 public:
   struct Config {
     CrownCache::Config Cache;
-    CrownAtlas::Shape Shape;
+    Content::ImpostorAtlasShape Shape;
     size_t Prototypes = 64;
     size_t Instances = 65536;
   };
@@ -50,7 +50,7 @@ private:
   Tasks Io_{2};
   Tasks Preparation_{1};
   CrownCache Cache_;
-  CrownAtlas::Shape Shape_;
+  Content::ImpostorAtlasShape Shape_;
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;
   std::string PreparedError_, Failure_;

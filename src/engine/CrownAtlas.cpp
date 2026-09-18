@@ -152,7 +152,7 @@ bool Cacheable(const CrownAtlas &atlas) {
 }
 }
 
-std::string CrownAtlas::ProvenanceFor(std::string_view species, Shape shape) {
+std::string CrownAtlas::ProvenanceFor(std::string_view species, Content::ImpostorAtlasShape shape) {
   return std::string(kCrownBuildIdentity) + "/" + std::to_string(shape.Pixels) + "/" +
          std::to_string(shape.Views) + "/" + std::string(species);
 }
@@ -430,8 +430,9 @@ PrepareAtlasGeometry(Geometry &base, std::string &error, const Geometry *leaf = 
 }
 }
 
-std::optional<CrownAtlas>
-CrownAtlas::Bake(const Generators::TreePrototype &tree, Shape shape, std::string &error) {
+std::optional<CrownAtlas> CrownAtlas::Bake(const Generators::TreePrototype &tree,
+                                           Content::ImpostorAtlasShape shape,
+                                           std::string &error) {
   if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64 ||
       static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels) * shape.Views >
           kMostAtlasTexels) {
