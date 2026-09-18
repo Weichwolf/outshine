@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -16,7 +15,6 @@
 #include <string_view>
 #include <utility>
 
-#include "Heap.h"
 #include "Log.h"
 #include "Shape.h"
 #include "OsmLayer.h"
@@ -28,8 +26,6 @@ namespace {
 constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBakesPerThread = 1;
-constexpr size_t kStructuresPerRange = 64;
-constexpr size_t kRangesPerWorkerTask = 4;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 int PitchedOf(std::string_view said) {
@@ -153,9 +149,9 @@ bool StructureBakes::Complete(const Ground::GroundStack &stack,
 
 size_t StructureBakes::QueuedStructures() const {
   size_t count = 0;
-  for (const Job &job : Queue_) {
-    const size_t all = job.Raw->Structures.size();
-    count += all > job.BakedStructures ? all - job.BakedStructures : 0;
+  for (const QueuedBake &bake : Queue_) {
+    const size_t all = bake.Task.Raw().Structures.size();
+    count += all > bake.BakedStructures ? all - bake.BakedStructures : 0;
   }
   return count;
 }
@@ -167,74 +163,50 @@ std::unique_ptr<MeshScratch> StructureBakes::LentScratch() {
   return one;
 }
 
-void StructureBakes::PostSlice(Job &job) {
-  job.Finished = false;
-  const Generators::RawTile *const raw = job.Raw.get();
-  const Ground::HeightField *const under = job.Heights.get();
-  const StructureMesher *const mesher = Mesher_;
-  MeshScratch *const scratch = job.Scratch.get();
-  Generators::StructureBakeProgress *const progress = job.Progress.get();
-  Output *const out = job.Out.get();
-  const std::shared_ptr<std::atomic_bool> stopping = job.Stopping;
-  job.Handle = Pool_->Post([raw, under, mesher, scratch, progress, out, stopping] {
-    const auto began = std::chrono::steady_clock::now();
-    static const Heap::Tag kBakingTag("structure-bake");
-    const Heap::Tagged baking(kBakingTag);
-    out->LastSliceMs = 0.0;
-    for (size_t range = 0; range < kRangesPerWorkerTask && !out->Complete; ++range) {
-      const auto rangeBegan = std::chrono::steady_clock::now();
-      const auto advanced = progress->Advance(
-          *raw, *under, *mesher, *scratch, out->Tile, kStructuresPerRange, stopping.get());
-      const double rangeMs =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rangeBegan)
-              .count();
-      out->LastSliceMs = std::max(out->LastSliceMs, rangeMs);
-      if (!advanced) {
-        out->Status = std::unexpected(advanced.error());
-        break;
-      }
-      out->Complete = *advanced;
-    }
-    const double taskMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    out->LastTaskMs = taskMs;
-    out->BakeMs += taskMs;
-  });
+void StructureBakes::PostSlice(QueuedBake &bake) {
+  if (bake.Slices == 0) {
+    bake.Task.Start(*Pool_, *Mesher_);
+  } else {
+    bake.Task.Resume(*Pool_, *Mesher_);
+  }
+  bake.Finished = false;
 }
 
 void StructureBakes::DiscardStale(const Ground::OsmField &vectors,
                                   Ground::BuildingField &prints,
                                   LongitudeLatitude eye) {
   while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints, eye)) {
-    Job &stale = Queue_.front();
-    if (!stale.Finished) { stale.Finished = Pool_->Done(stale.Handle); }
+    QueuedBake &stale = Queue_.front();
+    if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
     IdleRaw_.reserve(IdleRaw_.size() + 1u);
     IdleOut_.reserve(IdleOut_.size() + 1u);
     IdleScratch_.reserve(IdleScratch_.size() + 1u);
-    prints.Release(stale.Tile);
-    IdleRaw_.push_back(std::move(stale.Raw));
-    IdleOut_.push_back(std::move(stale.Out));
-    IdleScratch_.push_back(std::move(stale.Scratch));
+    prints.Release(stale.Task.Tile());
+    IdleRaw_.push_back(stale.Task.TakeRaw());
+    IdleOut_.push_back(stale.Task.TakeOutput());
+    IdleScratch_.push_back(stale.Task.TakeScratch());
     Queue_.pop_front();
     ++Discarded_;
   }
 }
 
 void StructureBakes::ResumeCompletedSlices() {
-  for (Job &job : Queue_) {
-    if (!job.Finished) {
-      job.Finished = Pool_->Done(job.Handle);
-      if (job.Finished) {
-        job.BakedStructures = job.Progress->BakedStructures();
-        ++job.Slices;
-        job.SlowestSliceMs = std::max(job.SlowestSliceMs, job.Out->LastSliceMs);
-        job.SlowestTaskMs = std::max(job.SlowestTaskMs, job.Out->LastTaskMs);
-        SlowestSliceMs_ = std::max(SlowestSliceMs_, job.Out->LastSliceMs);
-        SlowestTaskMs_ = std::max(SlowestTaskMs_, job.Out->LastTaskMs);
+  for (QueuedBake &bake : Queue_) {
+    if (!bake.Finished) {
+      bake.Finished = bake.Task.TakeCompletion(*Pool_);
+      if (bake.Finished) {
+        bake.BakedStructures = bake.Task.Progress().BakedStructures();
+        ++bake.Slices;
+        bake.SlowestSliceMs = std::max(bake.SlowestSliceMs, bake.Task.Result().LastSliceMs);
+        bake.SlowestTaskMs = std::max(bake.SlowestTaskMs, bake.Task.Result().LastTaskMs);
+        SlowestSliceMs_ = std::max(SlowestSliceMs_, bake.Task.Result().LastSliceMs);
+        SlowestTaskMs_ = std::max(SlowestTaskMs_, bake.Task.Result().LastTaskMs);
       }
     }
-    if (job.Finished && job.Out->Status && !job.Out->Complete) { PostSlice(job); }
+    if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Complete) {
+      PostSlice(bake);
+    }
   }
 }
 
@@ -267,21 +239,18 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack,
                                 .TileSpanM = prints.TileSpanM(),
                                 .Eye = eye};
     prints.Take(next->Tile);
-    Job job{.Tile = next->Tile,
-            .Revision = revision,
-            .Raw = Borrowed(IdleRaw_),
-            .Heights = std::move(heights),
-            .Out = Borrowed(IdleOut_),
-            .Scratch = LentScratch(),
-            .Progress = std::make_unique<Generators::StructureBakeProgress>(),
-            .Stopping = std::make_shared<std::atomic_bool>(false)};
-    RawOf(vectors, prints, stack.Ways(), *next, eye, *job.Raw);
-    job.Out->Status = {};
-    job.Out->Complete = false;
-    job.Out->BakeMs = 0.0;
-    job.Out->LastSliceMs = 0.0;
-    job.Out->LastTaskMs = 0.0;
-    Queue_.push_back(std::move(job));
+    std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
+    RawOf(vectors, prints, stack.Ways(), *next, eye, *raw);
+    std::unique_ptr<StructureBakeTask::Output> output = Borrowed(IdleOut_);
+    output->Status = {};
+    output->Complete = false;
+    output->BakeMs = 0.0;
+    output->LastSliceMs = 0.0;
+    output->LastTaskMs = 0.0;
+    Queue_.push_back(
+        {.Revision = revision,
+         .Task = StructureBakeTask(
+             next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch())});
     PostSlice(Queue_.back());
     ++Posted_;
     ++posted;
@@ -306,18 +275,18 @@ StructureBakes::NextLandings(Ground::GroundStack &stack,
   size_t acrossCount = 0;
   uint32_t largestTile = 0;
   while (count < most && count < Queue_.size()) {
-    Job &job = Queue_[count];
-    if (!job.Finished || !job.Revision.Matches(*vectors, prints, eye)) { break; }
-    if (!job.Out->Status) {
-      if (count == 0) { return std::unexpected(job.Out->Status.error()); }
+    QueuedBake &bake = Queue_[count];
+    if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye)) { break; }
+    if (!bake.Task.Result().Status) {
+      if (count == 0) { return std::unexpected(bake.Task.Result().Status.error()); }
       break;
     }
-    if (!job.Out->Complete) { break; }
-    const Generators::BakedTile &baked = job.Out->Tile;
+    if (!bake.Task.Result().Complete) { break; }
+    const Generators::BakedTile &baked = bake.Task.Result().Tile;
     printCount += baked.Prints.size();
     spreadCount += baked.SeatSpreadM.size();
     acrossCount += baked.AcrossM.size();
-    largestTile = std::max(largestTile, job.Tile);
+    largestTile = std::max(largestTile, bake.Task.Tile());
     ++count;
   }
   if (count == 0) { return landings; }
@@ -330,14 +299,14 @@ StructureBakes::NextLandings(Ground::GroundStack &stack,
                               .LargestTile = largestTile});
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
-    const Job &job = Queue_[at];
-    const Generators::BakedTile &baked = job.Out->Tile;
+    const QueuedBake &bake = Queue_[at];
+    const Generators::BakedTile &baked = bake.Task.Result().Tile;
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
     landings.push_back(
-        {.Tile = job.Tile,
+        {.Tile = bake.Task.Tile(),
          .Baked = &baked,
-         .AnchorEcef = job.Raw->AnchorEcef,
-         .Footprints = prints.PrepareAcceptance(job.Tile,
+         .AnchorEcef = bake.Task.Raw().AnchorEcef,
+         .Footprints = prints.PrepareAcceptance(bake.Task.Tile(),
                                                 {.Prints = baked.Prints,
                                                  .SeatSpreadM = baked.SeatSpreadM,
                                                  .AcrossM = baked.AcrossM,
@@ -353,12 +322,12 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
                                      Ground::BuildingField &footprints,
                                      std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
-    Job &job = Queue_.front();
-    const Generators::BakedTile &baked = job.Out->Tile;
-    assert(landing.Tile == job.Tile && landing.Baked == &baked && landing.Footprints);
+    QueuedBake &bake = Queue_.front();
+    const Generators::BakedTile &baked = bake.Task.Result().Tile;
+    assert(landing.Tile == bake.Task.Tile() && landing.Baked == &baked && landing.Footprints);
     if (!landing.Footprints) { std::terminate(); }
-    BakedMs_ += job.Out->BakeMs;
-    SlowestBakeMs_ = std::max(SlowestBakeMs_, job.Out->BakeMs);
+    BakedMs_ += bake.Task.Result().BakeMs;
+    SlowestBakeMs_ = std::max(SlowestBakeMs_, bake.Task.Result().BakeMs);
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
            IdleScratch_.size() < IdleScratch_.capacity());
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
@@ -381,22 +350,20 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
                {"lumped", baked.Lumped},
                {"blocks", baked.Blocks},
                {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
-               {"bakeMs", job.Out->BakeMs},
+               {"bakeMs", bake.Task.Result().BakeMs},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
-    IdleRaw_.push_back(std::move(job.Raw));
-    IdleOut_.push_back(std::move(job.Out));
-    IdleScratch_.push_back(std::move(job.Scratch));
+    IdleRaw_.push_back(bake.Task.TakeRaw());
+    IdleOut_.push_back(bake.Task.TakeOutput());
+    IdleScratch_.push_back(bake.Task.TakeScratch());
     Queue_.pop_front();
     ++Landed_;
   }
 }
 
 void StructureBakes::Clear() {
-  for (const Job &job : Queue_) {
-    job.Stopping->store(true, std::memory_order_relaxed);
-    if (Pool_ != nullptr && !job.Finished && job.Handle != Tasks::kNoTask) {
-      Pool_->Wait(job.Handle);
-    }
+  for (QueuedBake &bake : Queue_) {
+    bake.Task.RequestStop();
+    if (Pool_ != nullptr) { bake.Task.Join(*Pool_); }
   }
   Queue_.clear();
   IdleRaw_.clear();

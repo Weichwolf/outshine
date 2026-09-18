@@ -2,7 +2,6 @@
 #define OUTSHINE_ENGINE_STRUCTUREBAKES_H
 
 #include <expected>
-#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -16,6 +15,7 @@
 #include "HeightField.h"
 #include "GroundStack.h"
 #include "StructureBake.h"
+#include "StructureBakeTask.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
 #include "TilePieces.h"
@@ -97,25 +97,9 @@ public:
   }
 
 private:
-  struct Output {
-    Generators::BakedTile Tile;
-    std::expected<void, Generators::StructureBakeError> Status;
-    bool Complete = false;
-    double BakeMs = 0.0;
-    double LastSliceMs = 0.0;
-    double LastTaskMs = 0.0;
-  };
-
-  struct Job {
-    uint32_t Tile = 0;
+  struct QueuedBake {
     BakeRevision Revision;
-    std::unique_ptr<Generators::RawTile> Raw;
-    std::shared_ptr<const Ground::HeightField> Heights;
-    std::unique_ptr<Output> Out;
-    std::unique_ptr<MeshScratch> Scratch;
-    std::unique_ptr<Generators::StructureBakeProgress> Progress;
-    std::shared_ptr<std::atomic_bool> Stopping;
-    Tasks::Handle Handle = Tasks::kNoTask;
+    StructureBakeTask Task;
     size_t BakedStructures = 0;
     size_t Slices = 0;
     double SlowestSliceMs = 0.0;
@@ -132,16 +116,16 @@ private:
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
-  void PostSlice(Job &job);
+  void PostSlice(QueuedBake &bake);
   void DiscardStale(const Ground::OsmField &vectors,
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye);
 
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
-  std::deque<Job> Queue_;
+  std::deque<QueuedBake> Queue_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
-  std::vector<std::unique_ptr<Output>> IdleOut_;
+  std::vector<std::unique_ptr<StructureBakeTask::Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
   size_t Posted_ = 0;
   size_t Landed_ = 0;

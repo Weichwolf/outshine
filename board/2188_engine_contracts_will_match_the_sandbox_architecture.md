@@ -85,7 +85,7 @@ Verbindliche Coding-Reserve, Architekturrunde 2026-09-17:
 1. 2191: Ersatz-/Animationshistorie, öffentliche Fehlerfälle vor Reparatur reproduzieren.
    Kandidaten wiederverwenden; letzter erfolgreicher Submit bestimmt Renderhistorie.
 2. P0 2231: vorhandene 64er Bereiche mit mehr als vier Bereichen beweisen; keine Teilwelt
-   publizieren. Die Kündigungsprüfung 2227 ist unabhängig und blockiert diesen Schritt nicht.
+   publizieren. Die Bake-Task-Kündigungsprüfung ist unabhängig und blockiert diesen Schritt nicht.
 3. P0 2233: erst nach 2231 Vektor-Decode, Feldaufnahme und Bakebereiche unter einem
    deterministischen Compute-Budget zulassen.
 4. P0 2234: danach jeden Ground-Kandidaten in dieselben messbaren, abbrechbaren Phasen zerlegen.
