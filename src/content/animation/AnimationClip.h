@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <vector>
 
 #include "AffineTransform.h"
@@ -72,7 +71,7 @@ public:
 
   void Adopt(std::vector<AnimationRestPose> &&nodes,
              std::vector<double> &&weights,
-             std::vector<std::unique_ptr<AnimationTrack>> &&tracks,
+             std::vector<AnimationTrack> &&tracks,
              AnimationTimeRange range);
   void SamplePose(double seconds,
                   std::vector<AffineTransform> &locals,
@@ -85,7 +84,7 @@ private:
     size_t Count = 0;
   };
 
-  std::vector<std::unique_ptr<AnimationTrack>> Tracks_;
+  std::vector<AnimationTrack> Tracks_;
   std::vector<AnimationRestPose> Nodes_;
   std::vector<TrackRange> NodeTracks_;
   std::vector<double> RestWeights_;

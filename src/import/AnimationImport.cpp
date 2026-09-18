@@ -10,7 +10,6 @@
 #include <utility>
 #include <vector>
 #include <cstddef>
-#include <memory>
 
 namespace outshine::Gltf {
 
@@ -171,60 +170,60 @@ bool AnimationImport::AppendChannel(const Document &document,
                                     std::string &error) {
   const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
   const AnimationSampler &sampler = what.Samplers[static_cast<size_t>(channel.Sampler)];
-  auto held = std::make_unique<AnimationTrack>();
-  if (!document.ReadElements(sampler.Input, held->Times)) {
+  AnimationTrack held;
+  if (!document.ReadElements(sampler.Input, held.Times)) {
     error = document.Path() + ": an animation sampler's input does not decode: " + document.Error();
     return false;
   }
-  if (!document.ReadElements(sampler.Output, held->Values)) {
+  if (!document.ReadElements(sampler.Output, held.Values)) {
     error =
         document.Path() + ": an animation sampler's output does not decode: " + document.Error();
     return false;
   }
-  held->Target = drivesMaterial ? channel.Material : channel.Node;
-  held->Property = NativeTarget(channel);
-  if (held->Property == AnimationTarget::Emission) {
-    held->EmissionScale =
+  held.Target = drivesMaterial ? channel.Material : channel.Node;
+  held.Property = NativeTarget(channel);
+  if (held.Property == AnimationTarget::Emission) {
+    held.EmissionScale =
         document.Materials()[static_cast<size_t>(channel.Material)].EmissiveStrength;
   }
   const size_t fixedComponents = PathComponents(channel.Path);
   const size_t perKeyframe = sampler.How == Interpolation::CubicSpline ? 3u : 1u;
   size_t components = fixedComponents;
-  if (components == 0 && !held->Times.empty() && held->Values.size() % held->Times.size() == 0) {
-    const size_t perTime = held->Values.size() / held->Times.size();
+  if (components == 0 && !held.Times.empty() && held.Values.size() % held.Times.size() == 0) {
+    const size_t perTime = held.Values.size() / held.Times.size();
     if (perTime % perKeyframe == 0) { components = perTime / perKeyframe; }
   }
   if (!AnimationCurve::Build(sampler.How,
-                             held->Times,
-                             held->Values,
+                             held.Times,
+                             held.Values,
                              components,
                              channel.Path == AnimationPath::Rotation
                                  ? AnimationCurve::Values::Rotation
                                  : AnimationCurve::Values::Linear,
-                             held->Curve)) {
+                             held.Curve)) {
     error = document.Path() + ": the " + PathName(channel.Path) + " channel of node " +
-            std::to_string(channel.Node) + " states " + std::to_string(held->Times.size()) +
-            " keyframes and " + std::to_string(held->Values.size()) +
+            std::to_string(channel.Node) + " states " + std::to_string(held.Times.size()) +
+            " keyframes and " + std::to_string(held.Values.size()) +
             " values, which do not describe a curve";
     return false;
   }
 
-  if (drivesMaterial && held->Curve.Components() != FactorComponents(channel.Factor)) {
+  if (drivesMaterial && held.Curve.Components() != FactorComponents(channel.Factor)) {
     error = Says::InvalidMaterialComponents;
     return false;
   }
 
   if (channel.Path == AnimationPath::Weights &&
-      held->Curve.Components() != Nodes_[static_cast<size_t>(channel.Node)].WeightCount) {
+      held.Curve.Components() != Nodes_[static_cast<size_t>(channel.Node)].WeightCount) {
     error = document.Path() + ": the weights channel of node " + std::to_string(channel.Node) +
-            " carries " + std::to_string(held->Curve.Components()) +
+            " carries " + std::to_string(held.Curve.Components()) +
             " values per keyframe and its mesh declares " +
             std::to_string(Nodes_[static_cast<size_t>(channel.Node)].WeightCount) +
             " morph targets";
     return false;
   }
   bool first = Tracks_.empty();
-  for (const double when : held->Times) {
+  for (const double when : held.Times) {
     StartS_ = first ? when : std::min(when, StartS_);
     EndS_ = first ? when : std::max(when, EndS_);
     first = false;

@@ -1,7 +1,6 @@
 #ifndef OUTSHINE_IMPORT_ANIMATIONIMPORT_H
 #define OUTSHINE_IMPORT_ANIMATIONIMPORT_H
 
-#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -37,7 +36,7 @@ private:
   AppendAnimation(const Document &document, int animation, BuildState &state, std::string &error);
   void Publish(AnimationClip &out);
 
-  std::vector<std::unique_ptr<AnimationTrack>> Tracks_;
+  std::vector<AnimationTrack> Tracks_;
   std::vector<AnimationRestPose> Nodes_;
   std::vector<double> RestWeights_;
   double StartS_ = 0;

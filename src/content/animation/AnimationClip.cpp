@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <memory>
 #include <ranges>
 #include <span>
 #include <utility>
@@ -36,20 +35,20 @@ size_t MaterialComponents(AnimationTarget target) {
 
 void AnimationClip::Adopt(std::vector<AnimationRestPose> &&nodes,
                           std::vector<double> &&weights,
-                          std::vector<std::unique_ptr<AnimationTrack>> &&tracks,
+                          std::vector<AnimationTrack> &&tracks,
                           AnimationTimeRange range) {
   Nodes_ = std::move(nodes);
   RestWeights_ = std::move(weights);
   Tracks_ = std::move(tracks);
-  std::ranges::stable_sort(Tracks_, [](const auto &left, const auto &right) {
-    const bool leftMaterial = MaterialTarget(left->Property);
-    const bool rightMaterial = MaterialTarget(right->Property);
+  std::ranges::stable_sort(Tracks_, [](const AnimationTrack &left, const AnimationTrack &right) {
+    const bool leftMaterial = MaterialTarget(left.Property);
+    const bool rightMaterial = MaterialTarget(right.Property);
     if (leftMaterial != rightMaterial) { return !leftMaterial; }
-    return !leftMaterial && left->Target < right->Target;
+    return !leftMaterial && left.Target < right.Target;
   });
   NodeTracks_.assign(Nodes_.size(), {});
   for (size_t at = 0; at < Tracks_.size(); ++at) {
-    const AnimationTrack &track = *Tracks_[at];
+    const AnimationTrack &track = Tracks_[at];
     if (MaterialTarget(track.Property) || track.Target < 0 ||
         static_cast<size_t>(track.Target) >= NodeTracks_.size()) {
       continue;
@@ -71,18 +70,18 @@ void AnimationClip::SamplePose(double seconds,
     AnimationRestPose posed = Nodes_[node];
     const TrackRange range = NodeTracks_[node];
     for (size_t at = range.First; at < range.First + range.Count; ++at) {
-      const std::unique_ptr<AnimationTrack> &track = Tracks_[at];
-      switch (track->Property) {
-        case AnimationTarget::Translation: track->Curve.At(seconds, posed.Translation.Row()); break;
+      const AnimationTrack &track = Tracks_[at];
+      switch (track.Property) {
+        case AnimationTarget::Translation: track.Curve.At(seconds, posed.Translation.Row()); break;
         case AnimationTarget::Rotation: {
           std::array<double, 4> sampled = {0.0, 0.0, 0.0, 1.0};
-          track->Curve.At(seconds, sampled);
+          track.Curve.At(seconds, sampled);
           posed.Rotation = {.X = sampled[0], .Y = sampled[1], .Z = sampled[2], .W = sampled[3]};
           break;
         }
-        case AnimationTarget::Scale: track->Curve.At(seconds, posed.Scale.Row()); break;
+        case AnimationTarget::Scale: track.Curve.At(seconds, posed.Scale.Row()); break;
         case AnimationTarget::MorphWeights:
-          track->Curve.At(seconds, std::span(weights).subspan(posed.WeightFirst));
+          track.Curve.At(seconds, std::span(weights).subspan(posed.WeightFirst));
           break;
         case AnimationTarget::BaseColour:
         case AnimationTarget::Metalness:
@@ -99,18 +98,18 @@ void AnimationClip::SamplePose(double seconds,
 void AnimationClip::SampleMaterials(double seconds,
                                     std::vector<AnimatedMaterialSample> &samples) const {
   samples.clear();
-  for (const std::unique_ptr<AnimationTrack> &track : Tracks_) {
-    if (track->Target < 0 || !MaterialTarget(track->Property)) { continue; }
+  for (const AnimationTrack &track : Tracks_) {
+    if (track.Target < 0 || !MaterialTarget(track.Property)) { continue; }
     AnimatedMaterialSample sampled;
-    sampled.Material = track->Target;
-    sampled.Property = track->Property;
+    sampled.Material = track.Target;
+    sampled.Property = track.Property;
     std::array<double, 4> values = {0, 0, 0, 0};
-    track->Curve.At(seconds, values);
-    const size_t width = MaterialComponents(track->Property);
+    track.Curve.At(seconds, values);
+    const size_t width = MaterialComponents(track.Property);
     for (size_t component = 0; component < width; ++component) {
       sampled.Values[component] =
           values[component] *
-          (track->Property == AnimationTarget::Emission ? track->EmissionScale : 1.0);
+          (track.Property == AnimationTarget::Emission ? track.EmissionScale : 1.0);
     }
     samples.push_back(sampled);
   }
