@@ -16,8 +16,15 @@ struct VertexSkinBinding {
   [[nodiscard]] bool Empty() const { return Sets == 0; }
 };
 
+struct MorphTargetDelta {
+  std::vector<double> Positions;
+  std::vector<double> Normals;
+  std::vector<double> Tangents;
+};
+
 struct PrimitiveDeformation {
   VertexSkinBinding Skin;
+  std::vector<MorphTargetDelta> MorphTargets;
 };
 
 struct MeshDeformation {

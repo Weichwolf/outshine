@@ -8,6 +8,7 @@
 
 #include <array>
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <expected>
@@ -137,35 +138,28 @@ BasisKey KeyOf(double x, double y, double z, double w) {
 
 }
 
-bool Subject::MorphDeltasFor(const Document &document,
-                             const Primitive &primitive,
+void Subject::MorphDeltasFor(const PrimitiveDeformation &deformation,
                              const Deltas &over,
                              std::vector<double> &out) {
-  const char *const semantic = over.Semantic;
-  const size_t components = over.Components;
   const size_t vertices = over.Vertices;
   out.clear();
-  if (over.Morph.Count == 0 || primitive.Targets.empty()) { return true; }
-  std::vector<double> delta;
-  for (size_t target = 0; target < over.Morph.Count && target < primitive.Targets.size();
+  if (over.Morph.Count == 0 || deformation.MorphTargets.empty()) { return; }
+  for (size_t target = 0; target < over.Morph.Count && target < deformation.MorphTargets.size();
        ++target) {
     const double share = over.Morph.Weights[target];
     if (share == 0.0) { continue; }
-    const int accessor = primitive.Targets[target].Find(semantic);
-    if (accessor < 0) { continue; }
-    if (!document.ReadElements(accessor, delta)) {
-      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " +
-                    semantic + " does not decode: " + document.Error());
+    const MorphTargetDelta &nativeTarget = deformation.MorphTargets[target];
+    const std::vector<double> *delta = nullptr;
+    switch (over.Which) {
+      case Deltas::Attribute::Position: delta = &nativeTarget.Positions; break;
+      case Deltas::Attribute::Normal: delta = &nativeTarget.Normals; break;
+      case Deltas::Attribute::Tangent: delta = &nativeTarget.Tangents; break;
     }
-    if (delta.size() != vertices * components) {
-      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " +
-                    semantic + " decodes to " + std::to_string(delta.size()) + " components over " +
-                    std::to_string(vertices) + " vertices of " + std::to_string(components));
-    }
-    if (out.empty()) { out.assign(vertices * components, 0.0); }
-    for (size_t at = 0; at < delta.size(); ++at) { out[at] += share * delta[at]; }
+    if (delta->empty()) { continue; }
+    assert(delta->size() == vertices * 3);
+    if (out.empty()) { out.assign(vertices * 3, 0.0); }
+    for (size_t at = 0; at < delta->size(); ++at) { out[at] += share * (*delta)[at]; }
   }
-  return true;
 }
 
 AffineTransform
@@ -210,6 +204,7 @@ bool Subject::BlendJoints(const Document &document,
 
 bool Subject::SuppliedTangentsFor(const Document &document,
                                   const Primitive &primitive,
+                                  const PrimitiveDeformation &deformation,
                                   const VertexPlacement &place,
                                   std::span<const double> morphWeights,
                                   Part &part,
@@ -228,15 +223,11 @@ bool Subject::SuppliedTangentsFor(const Document &document,
     }
 
     std::vector<double> morphedTangents;
-    if (!MorphDeltasFor(document,
-                        primitive,
-                        {.Semantic = "TANGENT",
-                         .Morph = {.Weights = morphWeights, .Count = morphWeights.size()},
-                         .Components = 3,
-                         .Vertices = vertices},
-                        morphedTangents)) {
-      return false;
-    }
+    MorphDeltasFor(deformation,
+                   {.Which = Deltas::Attribute::Tangent,
+                    .Morph = {.Weights = morphWeights, .Count = morphWeights.size()},
+                    .Vertices = vertices},
+                   morphedTangents);
     for (size_t vertex = 0; vertex < vertices && !morphedTangents.empty(); ++vertex) {
       for (size_t axis = 0; axis < 3; ++axis) {
         elements[vertex * 4 + axis] += morphedTangents[vertex * 3 + axis];
@@ -674,6 +665,7 @@ bool Subject::ReadVertexColours(const Document &document,
 
 bool Subject::ReadVertexNormals(const Document &document,
                                 const Primitive &primitive,
+                                const PrimitiveDeformation &deformation,
                                 const VertexPlacement &place,
                                 Morphing morph,
                                 size_t vertices,
@@ -694,13 +686,9 @@ bool Subject::ReadVertexNormals(const Document &document,
     }
     std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
     morphedNormals.clear();
-    if (!MorphDeltasFor(
-            document,
-            primitive,
-            {.Semantic = "NORMAL", .Morph = morph, .Components = 3, .Vertices = vertices},
-            morphedNormals)) {
-      return false;
-    }
+    MorphDeltasFor(deformation,
+                   {.Which = Deltas::Attribute::Normal, .Morph = morph, .Vertices = vertices},
+                   morphedNormals);
     for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
       const Vec3 local = {
@@ -866,13 +854,9 @@ bool Subject::FlattenPrimitive(const Document &document,
 
   std::vector<double> &morphedPositions = Scratch_.Morphed;
   morphedPositions.clear();
-  if (!MorphDeltasFor(
-          document,
-          primitive,
-          {.Semantic = "POSITION", .Morph = under.Morph, .Components = 3, .Vertices = vertices},
-          morphedPositions)) {
-    return false;
-  }
+  MorphDeltasFor(under.Deformation,
+                 {.Which = Deltas::Attribute::Position, .Morph = under.Morph, .Vertices = vertices},
+                 morphedPositions);
   for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
   std::vector<AffineTransform> &skinned = Scratch_.Skinned;
   skinned.clear();
@@ -898,12 +882,21 @@ bool Subject::FlattenPrimitive(const Document &document,
 
   if (!ReadVertexColours(document, primitive, vertices, part)) { return false; }
 
-  if (!ReadVertexNormals(document, primitive, place, under.Morph, vertices, part)) { return false; }
+  if (!ReadVertexNormals(
+          document, primitive, under.Deformation, place, under.Morph, vertices, part)) {
+    return false;
+  }
 
   if (!ReadTriangleRun(document, primitive, under.World, skinned, vertices)) { return false; }
   part.IndexCount = atIdx.size();
-  if (!SuppliedTangentsFor(
-          document, primitive, place, under.Morph.Weights, part, vertices, atTan)) {
+  if (!SuppliedTangentsFor(document,
+                           primitive,
+                           under.Deformation,
+                           place,
+                           under.Morph.Weights,
+                           part,
+                           vertices,
+                           atTan)) {
     return false;
   }
   part.VertexCount = atPos.size() / 3;

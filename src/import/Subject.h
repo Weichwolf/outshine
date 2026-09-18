@@ -228,6 +228,7 @@ private:
                                        Part &part);
   [[nodiscard]] bool ReadVertexNormals(const Document &document,
                                        const Primitive &primitive,
+                                       const PrimitiveDeformation &deformation,
                                        const VertexPlacement &place,
                                        Morphing morph,
                                        size_t vertices,
@@ -267,16 +268,14 @@ private:
   void Bound();
 
   struct Deltas {
-    const char *Semantic = nullptr;
+    enum class Attribute { Position, Normal, Tangent } Which = Attribute::Position;
     Morphing Morph;
-    size_t Components = 0;
     size_t Vertices = 0;
   };
 
-  [[nodiscard]] bool MorphDeltasFor(const Document &document,
-                                    const Primitive &primitive,
-                                    const Deltas &over,
-                                    std::vector<double> &out);
+  static void MorphDeltasFor(const PrimitiveDeformation &deformation,
+                             const Deltas &over,
+                             std::vector<double> &out);
   [[nodiscard]] static AffineTransform
   JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransform &world);
 
@@ -291,6 +290,7 @@ private:
 
   [[nodiscard]] bool SuppliedTangentsFor(const Document &document,
                                          const Primitive &primitive,
+                                         const PrimitiveDeformation &deformation,
                                          const VertexPlacement &place,
                                          std::span<const double> morphWeights,
                                          Part &part,

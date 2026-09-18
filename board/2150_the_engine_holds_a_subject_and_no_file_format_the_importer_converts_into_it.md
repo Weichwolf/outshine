@@ -82,7 +82,6 @@ AudioOcclusion.cpp leitet die Audio-BVH aus nativen Parts mit Platzierung ab;
 keine Physikkollision. Audio-BVH wird nach erfolgreichem Render-Aufbau publiziert.
 Vollständiger GPU-Rollback und atomarer Welt-/Render-Austausch bleiben offen.
 ## Migrationsfolge
-
 Importer-Namen folgen Khronos (Node/Mesh/Primitive/Material/Animation/Skin), Runtime-Namen
 bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im Adapter.
 1. Der statische Pfad Generator/glTF-Importer → native Geometry → Renderer steht;
@@ -90,9 +89,10 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
 2. Native Kamera und automatische Bounds-Rahmung liegen in Math/Content; der Importer
    kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
-3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele; `Skeleton` Joint-Nodes
-   und inverse Binds; `DeformationAsset` Vertex-Joints/-Weights. Pose-Sampling ist O(Nodes+Tracks).
-   Als Nächstes Morph-/Basis-Meshdaten importieren; sampleAnimation baut noch Document-Geometrie.
+3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele; `Skeleton` besitzt
+   Joint-Nodes/inverse Binds; `DeformationAsset` besitzt Vertex-Joints/-Weights und alle Morphdeltas.
+   Pose-Sampling ist O(Nodes+Tracks). Nächstens Basis-Meshdaten importieren; `sampleAnimation` dekodiert
+   POSITION/NORMAL/TANGENT/UV/Farbe/Indizes weiterhin aus dem Document.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 

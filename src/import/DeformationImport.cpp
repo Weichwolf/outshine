@@ -68,6 +68,56 @@ bool ImportSkin(const Document &document,
   return true;
 }
 
+bool ImportMorphAttribute(const Document &document,
+                          const MorphTarget &target,
+                          const char *semantic,
+                          size_t vertices,
+                          std::vector<double> &out,
+                          std::string &error) {
+  const int accessor = target.Find(semantic);
+  if (accessor < 0) { return true; }
+  if (!document.ReadElements(accessor, out)) {
+    error = document.Path() + ": morph " + semantic + " does not decode: " + document.Error();
+    return false;
+  }
+  if (out.size() != vertices * 3) {
+    error = std::format("{}: morph {} has {} components for {} vertices instead of VEC3",
+                        document.Path(),
+                        semantic,
+                        out.size(),
+                        vertices);
+    return false;
+  }
+  for (size_t component = 0; component < out.size(); ++component) {
+    if (!std::isfinite(out[component])) {
+      error = std::format(
+          "{}: morph {} component {} is not finite", document.Path(), semantic, component);
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ImportMorphTargets(const Document &document,
+                        const Primitive &primitive,
+                        size_t vertices,
+                        std::vector<MorphTargetDelta> &out,
+                        std::string &error) {
+  out.reserve(primitive.Targets.size());
+  for (const MorphTarget &target : primitive.Targets) {
+    MorphTargetDelta nativeTarget;
+    if (!ImportMorphAttribute(
+            document, target, "POSITION", vertices, nativeTarget.Positions, error) ||
+        !ImportMorphAttribute(document, target, "NORMAL", vertices, nativeTarget.Normals, error) ||
+        !ImportMorphAttribute(
+            document, target, "TANGENT", vertices, nativeTarget.Tangents, error)) {
+      return false;
+    }
+    out.push_back(std::move(nativeTarget));
+  }
+  return true;
+}
+
 }
 
 bool ImportDeformations(const Document &document, DeformationAsset &out, std::string &error) {
@@ -89,6 +139,9 @@ bool ImportDeformations(const Document &document, DeformationAsset &out, std::st
         vertices = positions.size() / 3;
       }
       if (!ImportSkin(document, primitive, vertices, nativePrimitive.Skin, error)) { return false; }
+      if (!ImportMorphTargets(document, primitive, vertices, nativePrimitive.MorphTargets, error)) {
+        return false;
+      }
       nativeMesh.Primitives.push_back(std::move(nativePrimitive));
     }
     meshes.push_back(std::move(nativeMesh));
