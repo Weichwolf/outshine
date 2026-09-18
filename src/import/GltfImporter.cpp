@@ -90,7 +90,7 @@ ApplyMaterialFactor(Material material, const AnimatedMaterialSample &factor) {
 }
 
 struct GltfImporter::Held {
-  Gltf::Document File;
+  std::string Source;
   Gltf::Subject Assembled;
   AnimationClip Motion;
   AnimationAssetSet Animations;
@@ -110,7 +110,7 @@ struct GltfImporter::Held {
   [[nodiscard]] bool Assemble(double seconds) {
     const bool built =
         Moves ? (Motion.SamplePose(seconds, Locals, Weights),
-                 Assembled.Build(File,
+                 Assembled.Build(Source,
                                  Skeletons,
                                  Meshes,
                                  Materials,
@@ -118,7 +118,7 @@ struct GltfImporter::Held {
                                  std::span<const AffineTransform>(Locals.data(), Locals.size()),
                                  std::span<const double>(Weights.data(), Weights.size()),
                                  Variant))
-              : Assembled.Build(File, Skeletons, Meshes, Materials, Scene, Variant);
+              : Assembled.Build(Source, Skeletons, Meshes, Materials, Scene, Variant);
     if (!built) {
       Why = Assembled.Error();
       return false;
@@ -164,7 +164,7 @@ struct GltfImporter::Held {
 
   [[nodiscard]] std::expected<Camera, std::string> ResolveCamera(int index) const {
     if (index < 0) {
-      return std::unexpected(File.Path() + ": camera " + std::to_string(index) + " is absent");
+      return std::unexpected(Source + ": camera " + std::to_string(index) + " is absent");
     }
     const std::span<const AffineTransform> locals = PublishedLocals;
     auto placed = Scene.PlacedCamera(static_cast<size_t>(index), locals);
@@ -179,7 +179,7 @@ struct GltfImporter::Held {
       } else {
         reason = "has an invalid world pose";
       }
-      return std::unexpected(File.Path() + ": camera " + std::to_string(index) + " " + reason);
+      return std::unexpected(Source + ": camera " + std::to_string(index) + " " + reason);
     }
     return *placed;
   }
@@ -193,21 +193,23 @@ GltfImporter &GltfImporter::operator=(GltfImporter &&) noexcept = default;
 
 std::expected<void, std::string> GltfImporter::load(std::string_view path) {
   auto candidate = std::make_unique<Held>();
+  Gltf::Document document;
   const auto refuse = [](std::string why) -> std::expected<void, std::string> {
     return std::unexpected(std::move(why));
   };
-  if (!candidate->File.ReadFile(path)) { return refuse(candidate->File.Error()); }
-  if (!Gltf::ImportSkeletons(candidate->File, candidate->Skeletons, candidate->Why)) {
+  if (!document.ReadFile(path)) { return refuse(document.Error()); }
+  candidate->Source = document.Path();
+  if (!Gltf::ImportSkeletons(document, candidate->Skeletons, candidate->Why)) {
     return refuse(std::move(candidate->Why));
   }
-  if (!Gltf::ImportMeshAssets(candidate->File, candidate->Meshes, candidate->Why)) {
+  if (!Gltf::ImportMeshAssets(document, candidate->Meshes, candidate->Why)) {
     return refuse(std::move(candidate->Why));
   }
-  Gltf::ImportMaterialAssets(candidate->File, candidate->Materials);
-  if (!Gltf::ImportSceneAsset(candidate->File, candidate->Scene, candidate->Why)) {
+  Gltf::ImportMaterialAssets(document, candidate->Materials);
+  if (!Gltf::ImportSceneAsset(document, candidate->Scene, candidate->Why)) {
     return refuse(std::move(candidate->Why));
   }
-  Gltf::AnimationImport::ImportAll(candidate->File, candidate->Animations);
+  Gltf::AnimationImport::ImportAll(document, candidate->Animations);
   if (!candidate->Assemble(0.0)) { return refuse(std::move(candidate->Why)); }
   Held_ = std::move(candidate);
   return {};

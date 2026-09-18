@@ -92,7 +92,7 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    Joint-Nodes/inverse Binds; `MeshAssetSet` besitzt alle Vertex-/Indexdaten, Skinbindung und Morphdeltas.
    Mesh-Accessors werden nur beim Import dekodiert. `SceneAsset` besitzt Hierarchie, Restpose,
    Roots, Morphbereiche, Instanzen, Lichter und Kameras. `MaterialAssetSet` besitzt Bilder, Namen
-   und Oberflächen; Variantenwahl und Sampling sind dokumentfrei. `AnimationAssetSet` besitzt und kombiniert alle Clips; nächstens fällt `Document` aus `Held`.
+   und Oberflächen; Variantenwahl und Sampling sind dokumentfrei. `AnimationAssetSet` besitzt und kombiniert alle Clips; `Document` endet vollständig in `load()`.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 
@@ -109,7 +109,7 @@ Keinen kompletten ECS oder neuen Assetcontainer ohne konkreten Consumer erfinden
 - [ ] Importer und Generator erzeugen nachweislich denselben nativen Meshvertrag.
 - [ ] Äquivalente importierte/generierte Fixtures haben gleiche Materialien,
       Instanzen, Schatten und Bounds; mehrere Instanzen teilen den Meshbesitzer.
-- [ ] Freigabe des Importdokuments beeinflusst Rendering und Animation nicht.
+- [x] Freigabe des Importdokuments beeinflusst Rendering und Animation nicht.
 - [ ] Handles nach Unload/Reload, Teilfehler und veraltete Streaming-Ergebnisse geprüft.
 - [ ] Engine/Render/Generator bauen ohne Importheader; absichtlicher Import-Include
       scheitert am Tiervertrag. Format-Corpustests bleiben ausdrücklich erlaubt.

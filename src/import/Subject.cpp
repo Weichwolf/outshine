@@ -27,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "Document.h"
 #include "CameraFraming.h"
 #include "Tangents.h"
 
@@ -114,7 +113,7 @@ Subject::JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransfo
   return world * skeleton.InverseBind[joint];
 }
 
-bool Subject::BlendJoints(const Document &document,
+bool Subject::BlendJoints(std::string_view source,
                           std::span<const AffineTransform> joints,
                           const VertexSkinBinding &bound,
                           size_t vertices,
@@ -130,7 +129,7 @@ bool Subject::BlendJoints(const Document &document,
         if (share == 0.0) { continue; }
         const uint32_t named = bound.Joints[base + slot];
         if (static_cast<size_t>(named) >= joints.size()) {
-          return Refuse(document.Path() + ": JOINTS_" + std::to_string(set) + " of vertex " +
+          return Refuse(std::string(source) + ": JOINTS_" + std::to_string(set) + " of vertex " +
                         std::to_string(vertex) + " names joint " + std::to_string(named) +
                         " and the skin declares " + std::to_string(joints.size()));
         }
@@ -140,7 +139,7 @@ bool Subject::BlendJoints(const Document &document,
       }
     }
     if (sum == 0.0) {
-      return Refuse(document.Path() + ": the weights of vertex " + std::to_string(vertex) +
+      return Refuse(std::string(source) + ": the weights of vertex " + std::to_string(vertex) +
                     " sum to zero over all " + std::to_string(bound.Sets) +
                     " sets, so the vertex is bound to no joint and names no position");
     }
@@ -338,16 +337,16 @@ bool Subject::Refuse(std::string why) {
   return false;
 }
 
-bool Subject::Build(const Document &document,
+bool Subject::Build(std::string_view source,
                     std::span<const Skeleton> skeletons,
                     const MeshAssetSet &meshes,
                     const MaterialAssetSet &materials,
                     const SceneAsset &scene,
                     int variant) {
-  return Flatten(document, skeletons, meshes, materials, scene, nullptr, nullptr, variant);
+  return Flatten(source, skeletons, meshes, materials, scene, nullptr, nullptr, variant);
 }
 
-bool Subject::Build(const Document &document,
+bool Subject::Build(std::string_view source,
                     std::span<const Skeleton> skeletons,
                     const MeshAssetSet &meshes,
                     const MaterialAssetSet &materials,
@@ -356,17 +355,17 @@ bool Subject::Build(const Document &document,
                     std::span<const double> weights,
                     int variant) {
   if (pose.size() != scene.NodeCount()) {
-    return Refuse(document.Path() + ": the pose states " + std::to_string(pose.size()) +
+    return Refuse(std::string(source) + ": the pose states " + std::to_string(pose.size()) +
                   " local transforms and the file carries " + std::to_string(scene.NodeCount()) +
                   " nodes");
   }
 
   if (!weights.empty() && weights.size() != scene.MorphWeightCount()) {
-    return Refuse(document.Path() + ": the pose states " + std::to_string(weights.size()) +
+    return Refuse(std::string(source) + ": the pose states " + std::to_string(weights.size()) +
                   " morph weights and the file's nodes carry " +
                   std::to_string(scene.MorphWeightCount()));
   }
-  return Flatten(document,
+  return Flatten(source,
                  skeletons,
                  meshes,
                  materials,
@@ -394,7 +393,7 @@ void InstanceTransforms(const SceneAsset &scene,
 }
 }
 
-bool Subject::ReadTriangleRun(const Document &document,
+bool Subject::ReadTriangleRun(std::string_view source,
                               const MeshPrimitive &mesh,
                               const AffineTransform &world,
                               std::span<const AffineTransform> skinned) {
@@ -405,7 +404,7 @@ bool Subject::ReadTriangleRun(const Document &document,
     mirrored = skinned[0].LinearDeterminant() < 0;
     for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
       if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
-        return Refuse(document.Path() + ": vertex " + std::to_string(vertex) +
+        return Refuse(std::string(source) + ": vertex " + std::to_string(vertex) +
                       " of a skinned primitive blends to a transform whose determinant has the "
                       "opposite sign to vertex 0's, so the primitive would need two windings");
       }
@@ -441,7 +440,7 @@ bool Subject::EmitPart(outshine::Geometry &made, const Part &part) {
       .has_value();
 }
 
-bool Subject::FlattenLight(const Document &document,
+bool Subject::FlattenLight(std::string_view source,
                            size_t nodeIndex,
                            const SceneNodeAsset &node,
                            const SceneLightAsset &light,
@@ -459,7 +458,7 @@ bool Subject::FlattenLight(const Document &document,
   Vec3 beam;
   placement.Direction(axis, beam);
   if (!Normalise(beam)) {
-    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+    return Refuse(std::string(source) + ": node " + std::to_string(nodeIndex) +
                   " carries a light and its transform collapses the beam to zero length");
   }
   for (int component = 0; component < 3; ++component) {
@@ -535,7 +534,7 @@ bool Subject::PlacementOf(const Posing &posed, size_t node, AffineTransform &out
   return posed.Scene->WorldTransform(node, pose, out);
 }
 
-bool Subject::ResolveJointMatrices(const Document &document,
+bool Subject::ResolveJointMatrices(std::string_view source,
                                    const Posing &posed,
                                    size_t nodeIndex,
                                    const SceneNodeAsset &node,
@@ -543,7 +542,7 @@ bool Subject::ResolveJointMatrices(const Document &document,
   out.clear();
   if (node.Skin < 0) { return true; }
   if (static_cast<size_t>(node.Skin) >= posed.Skeletons.size()) {
-    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+    return Refuse(std::string(source) + ": node " + std::to_string(nodeIndex) +
                   " names a native skeleton the imported asset does not carry");
   }
   const Skeleton &skeleton = posed.Skeletons[static_cast<size_t>(node.Skin)];
@@ -552,33 +551,33 @@ bool Subject::ResolveJointMatrices(const Document &document,
     AffineTransform placed;
     const uint32_t jointNode = skeleton.JointNodes[joint];
     if (!PlacementOf(posed, static_cast<size_t>(jointNode), placed)) {
-      return Refuse(document.Path() + ": joint node " + std::to_string(jointNode) +
-                    " has no world transform: " + document.Error());
+      return Refuse(std::string(source) + ": joint node " + std::to_string(jointNode) +
+                    " has no world transform");
     }
     out[joint] = JointMatrix(skeleton, joint, placed);
   }
   return true;
 }
 
-bool Subject::FlattenMesh(const Document &document,
+bool Subject::FlattenMesh(std::string_view source,
                           const Posing &posed,
                           int nodeIndex,
                           outshine::Geometry &made,
                           size_t &primitives) {
   const SceneNodeAsset *nativeNode = posed.Scene->Node(static_cast<size_t>(nodeIndex));
   if (nativeNode == nullptr) {
-    return Refuse(document.Path() + ": native scene has no node " + std::to_string(nodeIndex));
+    return Refuse(std::string(source) + ": native scene has no node " + std::to_string(nodeIndex));
   }
   const SceneNodeAsset &node = *nativeNode;
   if (node.Mesh < 0) { return true; }
   if (static_cast<size_t>(node.Mesh) >= posed.Meshes->MeshCount()) {
-    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) + " names mesh " +
+    return Refuse(std::string(source) + ": node " + std::to_string(nodeIndex) + " names mesh " +
                   std::to_string(node.Mesh) + ", which the file does not carry");
   }
   AffineTransform world;
   if (!PlacementOf(posed, static_cast<size_t>(nodeIndex), world)) {
-    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                  " has no world transform: " + document.Error());
+    return Refuse(std::string(source) + ": node " + std::to_string(nodeIndex) +
+                  " has no world transform");
   }
 
   const size_t morphCount = node.RestMorphWeights.size();
@@ -592,7 +591,7 @@ bool Subject::FlattenMesh(const Document &document,
   }
 
   std::vector<AffineTransform> &jointMatrices = Scratch_.Joints;
-  if (!ResolveJointMatrices(document, posed, nodeIndex, node, jointMatrices)) { return false; }
+  if (!ResolveJointMatrices(source, posed, nodeIndex, node, jointMatrices)) { return false; }
 
   std::vector<AffineTransform> &instances = Scratch_.Instances;
   instances.clear();
@@ -603,7 +602,7 @@ bool Subject::FlattenMesh(const Document &document,
       const MeshPrimitive *meshAsset =
           posed.Meshes->Find(static_cast<size_t>(node.Mesh), primitiveIndex);
       if (meshAsset == nullptr) {
-        return Refuse(document.Path() + ": native mesh asset has no mesh " +
+        return Refuse(std::string(source) + ": native mesh asset has no mesh " +
                       std::to_string(node.Mesh) + " primitive " + std::to_string(primitiveIndex));
       }
       ++primitives;
@@ -617,13 +616,13 @@ bool Subject::FlattenMesh(const Document &document,
           .Morph = {.Weights = std::span<const double>(nodeWeights.data(), morphCount),
                     .Count = morphCount},
           .Variant = posed.Variant};
-      if (!FlattenPrimitive(document, under, made)) { return false; }
+      if (!FlattenPrimitive(source, under, made)) { return false; }
     }
   }
   return true;
 }
 
-bool Subject::FlattenPrimitive(const Document &document,
+bool Subject::FlattenPrimitive(std::string_view source,
                                const Placing &under,
                                outshine::Geometry &made) {
   std::vector<double> &elements = Scratch_.Elements;
@@ -631,12 +630,12 @@ bool Subject::FlattenPrimitive(const Document &document,
   part.NodeName = under.Node.Name;
   part.Material = under.Primitive.MaterialFor(under.Variant);
   if (part.Material >= 0 && static_cast<size_t>(part.Material) >= under.Materials.MaterialCount()) {
-    return Refuse(document.Path() + ": native primitive names absent material " +
+    return Refuse(std::string(source) + ": native primitive names absent material " +
                   std::to_string(part.Material));
   }
   const std::string_view materialError = under.Materials.ErrorAt(part.Material);
   if (!materialError.empty()) {
-    return Refuse(document.Path() + ": " + std::string(materialError));
+    return Refuse(std::string(source) + ": " + std::string(materialError));
   }
   part.FirstVertex = 0;
   part.FirstIndex = 0;
@@ -661,7 +660,7 @@ bool Subject::FlattenPrimitive(const Document &document,
   }
   elements.assign(under.Primitive.Positions.begin(), under.Primitive.Positions.end());
   if (elements.empty()) {
-    return Refuse(document.Path() + ": primitive of mesh " + std::to_string(under.Node.Mesh) +
+    return Refuse(std::string(source) + ": primitive of mesh " + std::to_string(under.Node.Mesh) +
                   " carries no native positions, and nothing here invents them");
   }
   const size_t vertices = elements.size() / 3;
@@ -677,11 +676,11 @@ bool Subject::FlattenPrimitive(const Document &document,
   if (under.Node.Skin >= 0) {
     const VertexSkinBinding &binding = under.Primitive.Skin;
     if (binding.Vertices != vertices) {
-      return Refuse(document.Path() + ": native skin binding has " +
+      return Refuse(std::string(source) + ": native skin binding has " +
                     std::to_string(binding.Vertices) + " vertices for a primitive carrying " +
                     std::to_string(vertices));
     }
-    if (!BlendJoints(document, under.Joints, binding, vertices, skinned)) { return false; }
+    if (!BlendJoints(source, under.Joints, binding, vertices, skinned)) { return false; }
   }
   const VertexPlacement place{.Node = under.Placed,
                               .Skinned = skinned.empty() ? nullptr : skinned.data()};
@@ -698,7 +697,7 @@ bool Subject::FlattenPrimitive(const Document &document,
 
   ReadVertexNormals(under.Primitive, place, under.Morph, vertices, part);
 
-  if (!ReadTriangleRun(document, under.Primitive, under.World, skinned)) { return false; }
+  if (!ReadTriangleRun(source, under.Primitive, under.World, skinned)) { return false; }
   part.IndexCount = atIdx.size();
   SuppliedTangentsFor(under.Primitive, place, under.Morph.Weights, part, vertices, atTan);
   part.VertexCount = atPos.size() / 3;
@@ -708,7 +707,7 @@ bool Subject::FlattenPrimitive(const Document &document,
   return true;
 }
 
-bool Subject::Flatten(const Document &document,
+bool Subject::Flatten(std::string_view source,
                       std::span<const Skeleton> skeletons,
                       const MeshAssetSet &meshes,
                       const MaterialAssetSet &materials,
@@ -732,10 +731,10 @@ bool Subject::Flatten(const Document &document,
   made.clear();
   const auto copiedMaterials = materials.CopyTo(made);
   if (!copiedMaterials) { return Refuse(copiedMaterials.error()); }
-  if (scene.Roots().empty()) { return Refuse(document.Path() + ": no default scene to draw"); }
+  if (scene.Roots().empty()) { return Refuse(std::string(source) + ": no default scene to draw"); }
 
   if (!meshes.AcceptsVariant(variant)) {
-    return Refuse(document.Path() + ": native material variant " + std::to_string(variant) +
+    return Refuse(std::string(source) + ": native material variant " + std::to_string(variant) +
                   " is absent");
   }
   const Posing posed{.Skeletons = skeletons,
@@ -754,7 +753,7 @@ bool Subject::Flatten(const Document &document,
     pending.pop_back();
     const SceneNodeAsset *nodeAsset = scene.Node(static_cast<size_t>(nodeIndex));
     if (nodeAsset == nullptr) {
-      return Refuse(document.Path() + ": scene names node " + std::to_string(nodeIndex) +
+      return Refuse(std::string(source) + ": scene names node " + std::to_string(nodeIndex) +
                     ", which the file does not carry");
     }
     const SceneNodeAsset &node = *nodeAsset;
@@ -763,25 +762,25 @@ bool Subject::Flatten(const Document &document,
     if (node.Light >= 0) {
       const SceneLightAsset *light = scene.Light(static_cast<size_t>(node.Light));
       if (light == nullptr) {
-        return Refuse(document.Path() + ": native scene has no light " +
+        return Refuse(std::string(source) + ": native scene has no light " +
                       std::to_string(node.Light));
       }
       AffineTransform placement;
       if (!PlacementOf(posed, static_cast<size_t>(nodeIndex), placement)) {
-        return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                      " carries a light and has no world transform: " + document.Error());
+        return Refuse(std::string(source) + ": node " + std::to_string(nodeIndex) +
+                      " carries a light and has no world transform");
       }
-      if (!FlattenLight(document, static_cast<size_t>(nodeIndex), node, *light, placement)) {
+      if (!FlattenLight(source, static_cast<size_t>(nodeIndex), node, *light, placement)) {
         return false;
       }
     }
-    if (!FlattenMesh(document, posed, static_cast<int>(nodeIndex), made, primitives)) {
+    if (!FlattenMesh(source, posed, static_cast<int>(nodeIndex), made, primitives)) {
       return false;
     }
   }
 
   if (made.parts() == 0) {
-    return Refuse(document.Path() + ": the default scene draws no triangle over " +
+    return Refuse(std::string(source) + ": the default scene draws no triangle over " +
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");
   }
 

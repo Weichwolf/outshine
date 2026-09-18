@@ -28,8 +28,6 @@ class Geometry;
 
 namespace outshine::Gltf {
 
-class Document;
-
 enum class TangentSource { None, Supplied, Generated };
 
 struct VertexPlacement {
@@ -66,14 +64,14 @@ struct PlacedLight {
 
 class Subject {
 public:
-  [[nodiscard]] bool Build(const Document &document,
+  [[nodiscard]] bool Build(std::string_view source,
                            std::span<const Skeleton> skeletons,
                            const MeshAssetSet &meshes,
                            const MaterialAssetSet &materials,
                            const SceneAsset &scene,
                            int variant = -1);
 
-  [[nodiscard]] bool Build(const Document &document,
+  [[nodiscard]] bool Build(std::string_view source,
                            std::span<const Skeleton> skeletons,
                            const MeshAssetSet &meshes,
                            const MaterialAssetSet &materials,
@@ -180,12 +178,12 @@ private:
   };
 
   [[nodiscard]] static bool PlacementOf(const Posing &posed, size_t node, AffineTransform &out);
-  [[nodiscard]] bool ResolveJointMatrices(const Document &document,
+  [[nodiscard]] bool ResolveJointMatrices(std::string_view source,
                                           const Posing &posed,
                                           size_t nodeIndex,
                                           const SceneNodeAsset &node,
                                           std::vector<AffineTransform> &out);
-  [[nodiscard]] bool FlattenMesh(const Document &document,
+  [[nodiscard]] bool FlattenMesh(std::string_view source,
                                  const Posing &posed,
                                  int nodeIndex,
                                  outshine::Geometry &made,
@@ -203,13 +201,13 @@ private:
   };
 
   [[nodiscard]] bool
-  FlattenPrimitive(const Document &document, const Placing &under, outshine::Geometry &made);
-  [[nodiscard]] bool ReadTriangleRun(const Document &document,
+  FlattenPrimitive(std::string_view source, const Placing &under, outshine::Geometry &made);
+  [[nodiscard]] bool ReadTriangleRun(std::string_view source,
                                      const MeshPrimitive &mesh,
                                      const AffineTransform &world,
                                      std::span<const AffineTransform> skinned);
   [[nodiscard]] bool EmitPart(outshine::Geometry &made, const Part &part);
-  [[nodiscard]] bool FlattenLight(const Document &document,
+  [[nodiscard]] bool FlattenLight(std::string_view source,
                                   size_t nodeIndex,
                                   const SceneNodeAsset &node,
                                   const SceneLightAsset &light,
@@ -243,7 +241,7 @@ private:
   mutable Scratch Scratch_;
   [[nodiscard]] bool Refuse(std::string why);
 
-  [[nodiscard]] bool Flatten(const Document &document,
+  [[nodiscard]] bool Flatten(std::string_view source,
                              std::span<const Skeleton> skeletons,
                              const MeshAssetSet &meshes,
                              const MaterialAssetSet &materials,
@@ -265,7 +263,7 @@ private:
   [[nodiscard]] static AffineTransform
   JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransform &world);
 
-  [[nodiscard]] bool BlendJoints(const Document &document,
+  [[nodiscard]] bool BlendJoints(std::string_view source,
                                  std::span<const AffineTransform> joints,
                                  const VertexSkinBinding &bound,
                                  size_t vertices,
