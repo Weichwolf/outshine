@@ -80,9 +80,9 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
 Verbindliche Implementierungsreihenfolge:
-1. **P0-A, 2219:** `Subject`-Shadervertrag reparieren: Vertexlayout und Materialprogramm
-   trennen, finale Texturkoordinaten im Vertexprogramm bilden und den realen Pfad
-   gegen den grünen SDL-Reducer beweisen; keine Ownership-/Warm-up-Theorie als Bildfix.
+1. **P0-A, 2219:** `Subject`-Shadervertrag: Vertexlayout/Materialprogramm trennen,
+   finale UVs im Vertexprogramm bilden und gegen den grünen SDL-Reducer beweisen;
+   keine Ownership-/Warm-up-Theorie als Bildfix.
 2. **P0-B, 2235:** vollständige `SampledImage`-Ketten als einen `WorldContent`-
    Kandidaten führen. Ein unvollständiges Bild darf zu keinem Zeitpunkt bindbar sein.
 3. **P0-C, 2231:** den bestehenden 64er-Structure-Bake-Vertrag öffentlich beweisen und erst bei
@@ -113,7 +113,6 @@ Invalidierung und Retry gehören zu den jeweiligen öffentlichen Vertragsprüfun
 - [ ] PNGs bleiben bei rein strukturellen Änderungen gleich; fachliche Fixes gegen
       unabhängiges Oracle und visuell abnehmen, keine falschen Altbilder konservieren.
 - [ ] make lint einschließlich clang-tidy und relevante Make-Tests tatsächlich grün.
-
 ## Bereits nutzbare Grundlagen
 Räumliche Klassifikationsabfrage und natives FrameBounds haben analytische Prüfungen;
 FrameBounds wird gemeinsam durch Engine und Importadapter genutzt. Historische Tidy-
