@@ -96,9 +96,9 @@ texel fetch, force a LOD, warm a frame, or change a tolerance.
    checker control is exact, so sampler policy and normal selection are excluded.
 10. [x] Replace the generated checker with the selected imported base-colour image:
     it remains exact, excluding image content and its mip chain.
-11. Feed four declared UV pairs from the imported part into the same quad, then add
-    its indexed triangles without changing camera, sampler or image. Compare first
-    and second frame at every boundary; distinguish coordinate values from topology.
+11. [x] Feed four declared UV pairs from the imported part into the same quad: exact.
+    Next add indexed triangles and the complete UV distribution without changing
+    camera, sampler or image; distinguish topology from full derivative variation.
 12. Only a failing transform boundary permits the vertex-side final-UV candidate;
     otherwise continue reduction without redesigning material program selection.
 13. WI 2235 separately repairs incomplete image ownership and publication. It must
