@@ -29,13 +29,14 @@ int main() {
     CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "initial world opens");
     if (scene) {
       Surrounds world;
+      Ground::BuildingField footprints;
       world.BindLiveResources(*scene);
-      GroundWorldCandidate ground(renderer, world);
+      GroundWorldCandidate ground(renderer, world, footprints);
       CHECK(ground.Prepare(*scene, nullptr).has_value(),
             "ground candidate prepares from an empty world");
       CHECK(ground.Scene().SetGeometry(base.clone(), 0, error),
             "ground candidate carries every streamed piece material slot");
-      CHECK(ground.Publish(world, scene, {.Region = 1}).has_value(),
+      CHECK(ground.Publish(world, footprints, scene, {.Region = 1}).has_value(),
             "ground candidate publishes its native material table");
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
                           .Roofs = static_cast<uint32_t>(roof->index())});
