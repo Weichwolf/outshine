@@ -7,6 +7,7 @@
 #include <vector>
 #include <SDL3/SDL.h>
 #include "Live.h"
+#include "FrameCapture.h"
 #include "Check.h"
 
 static_assert(!std::is_convertible_v<uint32_t, outshine::Render::PieceSurface>);
@@ -82,6 +83,9 @@ int main() {
     Unprepared(error.c_str());
     return Report();
   }
+  const auto screenshot = [&](std::string_view path, std::string &why) {
+    return Core::SaveFrame(renderer, {.WidthPx = 320, .HeightPx = 320}, path, why);
+  };
   Render::Viewpoint eye;
   eye.EyeM = {{0, 0, 4}};
   eye.Kind = Render::CameraKind::Orthographic;
@@ -136,9 +140,9 @@ int main() {
             "both visible instances survive even when the first is outside the frustum");
       CHECK(depth[160u * 320u + 160u] == 0, "the gap contains no unplaced prototype");
     }
-    CHECK(scene->Screenshot(clustered ? "build/instance-native/clustered.png"
-                                      : "build/instance-native/instanced.png",
-                            error),
+    CHECK(screenshot(clustered ? "build/instance-native/clustered.png"
+                               : "build/instance-native/instanced.png",
+                     error),
           "instanced PNG is written");
     const auto placedDepth = depth;
     CHECK(renderer.SetPieceInstances(id, {}, error) && scene->Draw(error),
@@ -237,7 +241,7 @@ int main() {
       const std::string path = std::string("build/instance-native/masked-") +
                                (clustered ? "clustered-" : "direct-") +
                                (back ? "back.png" : "front.png");
-      CHECK(scene->Screenshot(path, error), "masked card PNG is written");
+      CHECK(screenshot(path, error), "masked card PNG is written");
       renderer.ReleasePiece(id);
     }
   }
@@ -253,7 +257,7 @@ int main() {
   CHECK(renderer.ReadSceneLinear(before) == Render::ReadState::Ready &&
             before.size() == 320u * 320u * 4u,
         "resident colour is captured before arrival");
-  CHECK(scene->Screenshot("build/instance-native/material-before.png", error),
+  CHECK(screenshot("build/instance-native/material-before.png", error),
         "before-arrival PNG is written");
   std::array<Render::SubjectMaterial, 2> rejected;
   rejected[1].Row.Transmission = 1;
@@ -302,7 +306,7 @@ int main() {
                  "unlit instance retains the decoded texture value within half-float rounding");
     }
   }
-  CHECK(scene->Screenshot("build/instance-native/material-after.png", error),
+  CHECK(screenshot("build/instance-native/material-after.png", error),
         "after-arrival PNG is written");
   renderer.ReleasePiece(newPiece);
   renderer.ReleasePiece(oldPiece);
@@ -374,7 +378,7 @@ int main() {
   CHECK(renderer.ReadSceneLinear(registeredAfter) == Render::ReadState::Ready &&
             registeredAfter == registeredBefore,
         "another image owner does not alter resident pixels");
-  CHECK(scene->Screenshot("build/instance-native/registered-before.png", error),
+  CHECK(screenshot("build/instance-native/registered-before.png", error),
         "registered before-rebuild PNG is written");
   (void)base.addSurface("extra native material one", Material{}).value();
   (void)base.addSurface("extra native material two", Material{}).value();
@@ -387,7 +391,7 @@ int main() {
             registeredAfter == registeredBefore,
         "rebuilding the native surface table preserves every registered pixel without replacing "
         "pieces");
-  CHECK(scene->Screenshot("build/instance-native/registered-after.png", error),
+  CHECK(screenshot("build/instance-native/registered-after.png", error),
         "registered after-rebuild PNG is written");
   if (registeredBlue) {
     owned.Instances = {};
@@ -406,7 +410,7 @@ int main() {
                 registeredAfter[pixel + 1] < 0.1f,
             "the second handle still samples its blue image");
     }
-    CHECK(scene->Screenshot("build/instance-native/registered-both.png", error),
+    CHECK(screenshot("build/instance-native/registered-both.png", error),
           "both retained prototype PNG is written");
     if (!bluePiece) { return Report(); }
     renderer.ReleasePiece(*bluePiece);

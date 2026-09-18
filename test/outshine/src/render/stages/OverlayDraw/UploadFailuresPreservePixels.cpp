@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "Live.h"
+#include "FrameCapture.h"
 #include "SceneRenderer.h"
 #include <memory>
 #include "Readback.h"
@@ -126,7 +127,7 @@ int main() {
       const auto read = [&] {
         std::vector<uint8_t> pixels;
         CHECK(scene->Draw(error), error.c_str());
-        CHECK(scene->ReadPixels(pixels, error), error.c_str());
+        CHECK(Core::ReadFrame(renderer, pixels, error), error.c_str());
         return pixels;
       };
       const auto baseline = read();

@@ -215,15 +215,6 @@ public:
 
   [[nodiscard]] bool Carry(const Bearing &held, std::string &error);
 
-  [[nodiscard]] bool Settle(std::string &error);
-
-  [[nodiscard]] bool Screenshot(const std::string &path, std::string &error);
-
-  [[nodiscard]] bool ReadPixels(std::vector<uint8_t> &rgba, std::string &error);
-
-  [[nodiscard]] bool
-  ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::string &error);
-
   [[nodiscard]] bool PlacedBounds(Extents &into, std::string &error);
 
   void SkyEye(double aboveGroundM);

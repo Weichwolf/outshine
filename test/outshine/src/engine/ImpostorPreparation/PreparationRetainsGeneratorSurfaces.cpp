@@ -11,6 +11,7 @@
 #include "ImpostorPreparation.h"
 #include "CrownPieces.h"
 #include "WorldCrowns.h"
+#include "FrameCapture.h"
 #include "Live.h"
 #include "math/Units.h"
 #include "Tasks.h"
@@ -469,6 +470,9 @@ int main() {
   CHECK(Core::Live::Open(renderer, declaration, nullptr, live, error),
         "crown piece Live opens with the reference lighting");
   if (!live) { return Report(); }
+  const auto screenshot = [&](std::string_view path, std::string &why) {
+    return Core::SaveFrame(renderer, {.WidthPx = 384, .HeightPx = 128}, path, why);
+  };
   Render::SubjectMesh empty;
   empty.Anchor = {{kWgs84A, 0, 0}};
   CHECK(renderer.SetSubjectMesh(empty, error),
@@ -547,7 +551,7 @@ int main() {
           "shared tangent frames preserve rotated captured crown normals");
     CHECK(renderer.PieceTriangles() == 2 * atlas->Views().size(),
           "view switching retains the same prototype triangle count");
-    CHECK(live->Screenshot("build/crown-atlas/pieces-" + std::to_string(view) + ".png", error),
+    CHECK(screenshot("build/crown-atlas/pieces-" + std::to_string(view) + ".png", error),
           "shared crown PNG is written");
     CHECK(crowns->Update({}, camera->EyeM, error) && live->Draw(error),
           "empty instance groups deactivate every view");
@@ -618,8 +622,7 @@ int main() {
     }
     CHECK(mismatch == 0,
           "world consumer preserves the captured crown coverage at its geographic root");
-    CHECK(live->Screenshot("build/crown-atlas/world.png", error),
-          "world crown consumer PNG is written");
+    CHECK(screenshot("build/crown-atlas/world.png", error), "world crown consumer PNG is written");
     CHECK(renderer.PieceTriangles() == 8,
           "one geographic tree retains only the four shared view prototypes");
   }

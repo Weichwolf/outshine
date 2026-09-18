@@ -1,4 +1,7 @@
 #include "Digest.h"
+#include "FrameCapture.h"
+#include "Image.h"
+#include "SceneRenderer.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
@@ -25,6 +28,9 @@
 #include <unordered_set>
 #include <utility>
 #include <chrono>
+#include <cstdio>
+#include <filesystem>
+#include <system_error>
 #include <vector>
 
 #include "Fit.h"
@@ -238,7 +244,7 @@ Result Engine::readPixels(std::vector<uint8_t> &rgba) {
     return std::unexpected(std::string(
         "nothing stands to be read -- a scenario is declared before a frame carries pixels"));
   }
-  if (S_->Picture.Standing->ReadPixels(rgba, S_->Error)) { return {}; }
+  if (Core::ReadFrame(S_->Picture.Device, rgba, S_->Error)) { return {}; }
   return std::unexpected(S_->Error);
 }
 
@@ -257,7 +263,7 @@ Result Engine::readPixels(Buffer which, std::vector<float> &out) {
     return std::unexpected(std::string(
         "nothing stands to be read -- a scenario is declared before a frame carries pixels"));
   }
-  if (S_->Picture.Standing->ReadBuffer(which, out, S_->Error)) { return {}; }
+  if (Core::ReadFrame(S_->Picture.Device, which, out, S_->Error)) { return {}; }
   return std::unexpected(S_->Error);
 }
 
@@ -308,7 +314,7 @@ Result Engine::endFrame() {
 
 Result Engine::flushAndWait() {
   [[maybe_unused]] const auto logs = S_->Logs();
-  if (!S_->Picture.Standing || S_->Picture.Standing->Settle(S_->Error)) { return {}; }
+  if (!S_->Picture.Standing || S_->Picture.Device.Settle(S_->Error)) { return {}; }
   return std::unexpected(S_->Error);
 }
 
@@ -318,8 +324,94 @@ Result Engine::saveScreenshot(std::string_view path) {
     return std::unexpected(std::string(
         "nothing stands to be captured -- a scenario is declared before a frame is kept"));
   }
-  if (S_->Picture.Standing->Screenshot(std::string(path), S_->Error)) { return {}; }
+  if (Core::SaveFrame(S_->Picture.Device, S_->Picture.Frame, path, S_->Error)) { return {}; }
   return std::unexpected(S_->Error);
+}
+
+}
+
+namespace outshine::Core {
+
+bool ReadFrame(Render::SceneRenderer &renderer, std::vector<uint8_t> &rgba, std::string &error) {
+  if (!renderer.Drew()) {
+    error = "nothing has been drawn yet, so there is no frame to read";
+    return false;
+  }
+  if (renderer.ReadPixels(rgba) != Render::ReadState::Ready) {
+    error = renderer.WhyNot();
+    return false;
+  }
+  return true;
+}
+
+bool ReadFrame(Render::SceneRenderer &renderer,
+               outshine::Buffer buffer,
+               std::vector<float> &out,
+               std::string &error) {
+  if (!renderer.Drew()) {
+    error = "nothing has been drawn yet, so there is no frame to read";
+    return false;
+  }
+  Render::ReadState state = Render::ReadState::Failed;
+  switch (buffer) {
+    case outshine::Buffer::Colour:
+      error = "the displayed picture is read as bytes, not as scene-referred float";
+      return false;
+    case outshine::Buffer::Linear: state = renderer.ReadSceneLinear(out); break;
+    case outshine::Buffer::Depth: state = renderer.ReadDepth(out); break;
+    case outshine::Buffer::ShadingNormal: state = renderer.ReadShadingNormal(out); break;
+    case outshine::Buffer::SurfaceIdentity: state = renderer.ReadSurfaceIdentity(out); break;
+    case outshine::Buffer::Velocity:
+      if (!renderer.Plan().Holds(Render::Resource::SceneVelocity)) {
+        error = "this plan carries no velocity, so no frame of it has one to read";
+        return false;
+      }
+      state = renderer.ReadSceneVelocity(out);
+      break;
+  }
+  if (state != Render::ReadState::Ready) {
+    error = "the frame did not come back from the device";
+    return false;
+  }
+  return true;
+}
+
+bool SaveFrame(Render::SceneRenderer &renderer,
+               Extent frame,
+               std::string_view path,
+               std::string &error) {
+  std::vector<uint8_t> rgba;
+  if (!ReadFrame(renderer, rgba, error)) { return false; }
+  const size_t want = static_cast<size_t>(frame.WidthPx) * static_cast<size_t>(frame.HeightPx) * 4u;
+  if (rgba.size() != want) {
+    error = "the frame read back " + std::to_string(rgba.size()) + " bytes and " +
+            std::to_string(frame.WidthPx) + " by " + std::to_string(frame.HeightPx) + " rgba is " +
+            std::to_string(want);
+    return false;
+  }
+  std::vector<uint8_t> png;
+  if (!EncodePng(rgba.data(), frame.WidthPx, frame.HeightPx, png)) {
+    error = "the frame did not encode as a png";
+    return false;
+  }
+  const std::filesystem::path named(path);
+  if (named.has_parent_path()) {
+    std::error_code ignored;
+    std::filesystem::create_directories(named.parent_path(), ignored);
+  }
+  std::FILE *const file = std::fopen(named.string().c_str(), "wb");
+  if (file == nullptr) {
+    error = "the screenshot could not be opened for writing at " + named.string();
+    return false;
+  }
+  const size_t wrote = std::fwrite(png.data(), 1, png.size(), file);
+  std::fclose(file);
+  if (wrote != png.size()) {
+    error = "the screenshot wrote " + std::to_string(wrote) + " of " + std::to_string(png.size()) +
+            " bytes to " + named.string();
+    return false;
+  }
+  return true;
 }
 
 }

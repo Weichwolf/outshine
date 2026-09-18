@@ -11,6 +11,7 @@
 #include "Surfaces.h"
 
 #include <cstdint>
+#include <cstddef>
 #include <limits>
 
 #include <algorithm>
@@ -18,15 +19,11 @@
 #include <memory>
 #include <numbers>
 #include <cmath>
-#include <filesystem>
-
-#include <cstdio>
 #include <string>
 #include <string_view>
 #include <optional>
 #include <utility>
 #include <ratio>
-#include <system_error>
 #include <vector>
 
 #include "Heap.h"
@@ -1089,98 +1086,6 @@ void Live::SkyEye(double aboveGroundM) {
   const double quantisedM =
       std::floor(std::fmax(0.0, aboveGroundM) / kSkyEyeStepM + 0.5) * kSkyEyeStepM;
   Renderer_->SetSkyEye(static_cast<float>(quantisedM));
-}
-
-bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {
-  if (Renderer_ == nullptr || !Renderer_->Drew()) {
-    error = "nothing has been drawn yet, so there is no frame to read";
-    return false;
-  }
-  if (Renderer_->ReadPixels(rgba) != Render::ReadState::Ready) {
-    error = Renderer_->WhyNot();
-    return false;
-  }
-  return true;
-}
-
-bool Live::ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::string &error) {
-  if (Renderer_ == nullptr || !Renderer_->Drew()) {
-    error = "nothing has been drawn yet, so there is no frame to read";
-    return false;
-  }
-  Render::ReadState state = Render::ReadState::Failed;
-  switch (which) {
-    case outshine::Buffer::Colour:
-      error = "the displayed picture is read as bytes, not as scene-referred float";
-      return false;
-    case outshine::Buffer::Linear: state = Renderer_->ReadSceneLinear(out); break;
-    case outshine::Buffer::Depth: state = Renderer_->ReadDepth(out); break;
-    case outshine::Buffer::ShadingNormal: state = Renderer_->ReadShadingNormal(out); break;
-    case outshine::Buffer::SurfaceIdentity: state = Renderer_->ReadSurfaceIdentity(out); break;
-    case outshine::Buffer::Velocity:
-      if (!Renderer_->Plan().Holds(Render::Resource::SceneVelocity)) {
-        error = "this plan carries no velocity, so no frame of it has one to read";
-        return false;
-      }
-      state = Renderer_->ReadSceneVelocity(out);
-      break;
-  }
-  if (state != Render::ReadState::Ready) {
-    error = "the frame did not come back from the device";
-    return false;
-  }
-  return true;
-}
-
-bool Live::Settle(std::string &error) {
-  if (Renderer_ == nullptr) {
-    error = "there is no device to wait for";
-    return false;
-  }
-  return Renderer_->Settle(error);
-}
-
-bool Live::Screenshot(const std::string &path, std::string &error) {
-  if (Renderer_ == nullptr || !Renderer_->Drew()) {
-    error = "nothing has been drawn yet, so there is no frame to write";
-    return false;
-  }
-  std::vector<uint8_t> rgba;
-  if (Renderer_->ReadPixels(rgba) != Render::ReadState::Ready) {
-    error = Renderer_->WhyNot();
-    return false;
-  }
-  const size_t want = static_cast<size_t>(Declared_.SurfaceWidthPx) *
-                      static_cast<size_t>(Declared_.SurfaceHeightPx) * 4u;
-  if (rgba.size() != want) {
-    error = "the frame read back " + std::to_string(rgba.size()) + " bytes and " +
-            std::to_string(Declared_.SurfaceWidthPx) + " by " +
-            std::to_string(Declared_.SurfaceHeightPx) + " rgba is " + std::to_string(want);
-    return false;
-  }
-  std::vector<uint8_t> png;
-  if (!EncodePng(rgba.data(), Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, png)) {
-    error = "the frame did not encode as a png";
-    return false;
-  }
-  const std::filesystem::path named(path);
-  if (named.has_parent_path()) {
-    std::error_code why;
-    std::filesystem::create_directories(named.parent_path(), why);
-  }
-  std::FILE *const file = std::fopen(path.c_str(), "wb");
-  if (file == nullptr) {
-    error = "the screenshot could not be opened for writing at " + path;
-    return false;
-  }
-  const size_t wrote = std::fwrite(png.data(), 1, png.size(), file);
-  std::fclose(file);
-  if (wrote != png.size()) {
-    error = "the screenshot wrote " + std::to_string(wrote) + " of " + std::to_string(png.size()) +
-            " bytes to " + path;
-    return false;
-  }
-  return true;
 }
 
 bool Live::Carries(size_t bodies, std::string &error) {
