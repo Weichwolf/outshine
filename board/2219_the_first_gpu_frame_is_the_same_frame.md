@@ -37,10 +37,8 @@ therefore survives without `Scenario::Asset` loading and is inside native Geomet
 Subject construction or its render pipeline.
 
 `PerspectiveNativeMipImagesRepeatLinearPixels` is exact with the Chess camera,
-1280×720 target and the same filtered checker material. Clearing all tangent vectors
-or all UV1 data from the native Chess clone separately leaves the exact 504-channel,
-0.220703 defect. The remaining input is GeometryPacking's multi-part, position/normal,
-UV0 or material data. Atmosphere is already disproved by the pre-atmosphere evidence.
+1280×720 target and the same filtered checker material. Clearing all tangent vectors, UV1 data or vertex colours from the native Chess clone
+separately leaves the exact 504-channel, 0.220703 defect. The remaining input is GeometryPacking's multi-part, position/normal, UV0 or material data. Atmosphere is already disproved by the pre-atmosphere evidence.
 
 ## Decision
 
