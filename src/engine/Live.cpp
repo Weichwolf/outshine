@@ -70,9 +70,9 @@ bool Live::GroundClasses(std::span<const uint32_t> classes,
   return true;
 }
 
-std::expected<PieceHandle, std::string> Live::PlacePiece(const Render::PieceMesh &piece) {
+std::expected<Render::PieceHandle, std::string> Live::PlacePiece(const Render::PieceMesh &piece) {
   if (Renderer_ == nullptr) { return std::unexpected(Says::MissingPiece); }
-  if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
+  if (FirstFreePiece_ == Render::kNoResourceSlot && Pieces_.size() >= Render::kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
   }
   std::string error;
@@ -92,7 +92,7 @@ std::expected<PieceHandle, std::string> Live::PlacePiece(const Render::PieceMesh
   }
   held.State.Occupied = true;
   uint32_t slot = FirstFreePiece_;
-  if (slot != kNoResourceSlot) {
+  if (slot != Render::kNoResourceSlot) {
     held.State.Generation = Pieces_[slot].State.Generation;
     FirstFreePiece_ = Pieces_[slot].State.NextFree;
     Pieces_[slot] = std::move(held);
@@ -100,14 +100,16 @@ std::expected<PieceHandle, std::string> Live::PlacePiece(const Render::PieceMesh
     slot = static_cast<uint32_t>(Pieces_.size());
     Pieces_.push_back(std::move(held));
   }
-  return PieceHandle{.Slot = slot, .Generation = Pieces_[slot].State.Generation};
+  return Render::PieceHandle{.Slot = slot, .Generation = Pieces_[slot].State.Generation};
 }
 
-bool Live::HasPiece(PieceHandle handle) const noexcept {
+bool Live::HasPiece(Render::PieceHandle handle) const noexcept {
   return handle.Slot < Pieces_.size() && Pieces_[handle.Slot].State.Matches(handle.Generation);
 }
 
-bool Live::SetPieceInstances(PieceHandle which, std::span<const Mat4> rows, std::string &error) {
+bool Live::SetPieceInstances(Render::PieceHandle which,
+                             std::span<const Mat4> rows,
+                             std::string &error) {
   const PieceRows one{.Piece = which, .Rows = rows};
   return SetPieceInstances({&one, 1}, error);
 }
@@ -174,11 +176,11 @@ size_t Live::HeightPageSourceBytes() const noexcept {
   return bytes;
 }
 
-void Live::ReleasePiece(PieceHandle which) {
+void Live::ReleasePiece(Render::PieceHandle which) {
   if (Renderer_ == nullptr || !HasPiece(which)) { return; }
   Piece &piece = Pieces_[which.Slot];
   Renderer_->ReleasePiece(piece.Resident);
-  ResourceSlotState state = piece.State;
+  Render::ResourceSlotState state = piece.State;
   if (state.Release()) {
     state.NextFree = FirstFreePiece_;
     FirstFreePiece_ = which.Slot;
@@ -187,9 +189,11 @@ void Live::ReleasePiece(PieceHandle which) {
   piece.State = state;
 }
 
-std::expected<HeightPageHandle, std::string> Live::PlaceHeightPage(std::span<const float> nodes) {
+std::expected<Render::HeightPageHandle, std::string>
+Live::PlaceHeightPage(std::span<const float> nodes) {
   if (Renderer_ == nullptr) { return std::unexpected(Says::MissingHeightPage); }
-  if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
+  if (FirstFreeHeightPage_ == Render::kNoResourceSlot &&
+      HeightPages_.size() >= Render::kNoResourceSlot) {
     return std::unexpected(Says::HeightPageLimit);
   }
   HeightPage held{.Nodes = {nodes.begin(), nodes.end()}};
@@ -201,7 +205,7 @@ std::expected<HeightPageHandle, std::string> Live::PlaceHeightPage(std::span<con
   }
   held.State.Occupied = true;
   uint32_t slot = FirstFreeHeightPage_;
-  if (slot != kNoResourceSlot) {
+  if (slot != Render::kNoResourceSlot) {
     held.State.Generation = HeightPages_[slot].State.Generation;
     FirstFreeHeightPage_ = HeightPages_[slot].State.NextFree;
     HeightPages_[slot] = std::move(held);
@@ -209,19 +213,19 @@ std::expected<HeightPageHandle, std::string> Live::PlaceHeightPage(std::span<con
     slot = static_cast<uint32_t>(HeightPages_.size());
     HeightPages_.push_back(std::move(held));
   }
-  return HeightPageHandle{.Slot = slot, .Generation = HeightPages_[slot].State.Generation};
+  return Render::HeightPageHandle{.Slot = slot, .Generation = HeightPages_[slot].State.Generation};
 }
 
-bool Live::HasHeightPage(HeightPageHandle handle) const noexcept {
+bool Live::HasHeightPage(Render::HeightPageHandle handle) const noexcept {
   return handle.Slot < HeightPages_.size() &&
          HeightPages_[handle.Slot].State.Matches(handle.Generation);
 }
 
-void Live::ReleaseHeightPage(HeightPageHandle which) {
+void Live::ReleaseHeightPage(Render::HeightPageHandle which) {
   if (Renderer_ == nullptr || !HasHeightPage(which)) { return; }
   HeightPage &page = HeightPages_[which.Slot];
   Renderer_->ReleaseHeightPage(page.Resident);
-  ResourceSlotState state = page.State;
+  Render::ResourceSlotState state = page.State;
   if (state.Release()) {
     state.NextFree = FirstFreeHeightPage_;
     FirstFreeHeightPage_ = which.Slot;

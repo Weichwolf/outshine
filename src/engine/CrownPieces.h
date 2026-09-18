@@ -32,7 +32,7 @@ private:
 
   struct View {
     Vec3 Direction;
-    Core::PieceHandle Piece{};
+    Render::PieceHandle Piece{};
     std::vector<Mat4> Rows;
     std::vector<Mat4> NextRows;
   };

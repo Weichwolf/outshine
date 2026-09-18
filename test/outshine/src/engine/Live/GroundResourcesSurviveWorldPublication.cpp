@@ -74,10 +74,10 @@ int main() {
       CHECK(!scene->SetGroundLattice({&tile, 1}, {}, error) &&
                 renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "stale lattice input is rejected without changing the current topology");
-      for (const Core::HeightPageHandle invalid :
-           {Core::HeightPageHandle{},
-            Core::HeightPageHandle{.Slot = Core::kNoResourceSlot - 1, .Generation = 1},
-            Core::HeightPageHandle{.Slot = replacement->Slot, .Generation = 0}}) {
+      for (const Render::HeightPageHandle invalid :
+           {Render::HeightPageHandle{},
+            Render::HeightPageHandle{.Slot = Render::kNoResourceSlot - 1, .Generation = 1},
+            Render::HeightPageHandle{.Slot = replacement->Slot, .Generation = 0}}) {
         Core::GroundTile refused = next;
         refused.Page = invalid;
         CHECK(!scene->SetGroundLattice({&refused, 1}, {}, error) &&

@@ -87,16 +87,16 @@ public:
 private:
   struct Held {
     Data::TileId Tile;
-    Core::HeightPageHandle Page{};
+    Render::HeightPageHandle Page{};
     std::vector<float> Nodes;
   };
 
   [[nodiscard]] bool HandsGrid(const Patchwork &laid, std::string &error);
   void StitchEdges(Patchwork &laid);
-  [[nodiscard]] std::expected<Core::HeightPageHandle, std::string>
+  [[nodiscard]] std::expected<Render::HeightPageHandle, std::string>
   PageFor(Data::TileId tile, std::span<const float> nodes);
   [[nodiscard]] Core::GroundTile
-  TileOf(Data::TileId tile, Core::HeightPageHandle page, std::span<const float> nodes) const;
+  TileOf(Data::TileId tile, Render::HeightPageHandle page, std::span<const float> nodes) const;
 
   std::vector<Held> Held_;
   std::map<std::tuple<int, uint32_t, uint32_t>, size_t> PageIndex_;

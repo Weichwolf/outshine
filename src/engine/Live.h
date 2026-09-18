@@ -135,24 +135,25 @@ public:
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
-  [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(const Render::PieceMesh &piece);
+  [[nodiscard]] std::expected<Render::PieceHandle, std::string>
+  PlacePiece(const Render::PieceMesh &piece);
 
   struct PieceRows {
-    PieceHandle Piece;
+    Render::PieceHandle Piece;
     std::span<const Mat4> Rows;
   };
 
   [[nodiscard]] bool
-  SetPieceInstances(PieceHandle which, std::span<const Mat4> rows, std::string &error);
+  SetPieceInstances(Render::PieceHandle which, std::span<const Mat4> rows, std::string &error);
 
   [[nodiscard]] bool SetPieceInstances(std::span<const PieceRows> pieces, std::string &error);
 
-  void ReleasePiece(PieceHandle which);
+  void ReleasePiece(Render::PieceHandle which);
 
-  [[nodiscard]] std::expected<HeightPageHandle, std::string>
+  [[nodiscard]] std::expected<Render::HeightPageHandle, std::string>
   PlaceHeightPage(std::span<const float> nodes);
 
-  void ReleaseHeightPage(HeightPageHandle which);
+  void ReleaseHeightPage(Render::HeightPageHandle which);
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error);
 
@@ -504,7 +505,7 @@ private:
   void RestorePieceSurfaces();
 
   struct Piece {
-    ResourceSlotState State{};
+    Render::ResourceSlotState State{};
     std::vector<float> Tangents;
     std::vector<StoredVertex> Vertices;
     std::vector<uint32_t> Indices;
@@ -532,19 +533,19 @@ private:
   };
 
   std::vector<Piece> Pieces_;
-  uint32_t FirstFreePiece_ = kNoResourceSlot;
-  [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
+  uint32_t FirstFreePiece_ = Render::kNoResourceSlot;
+  [[nodiscard]] bool HasPiece(Render::PieceHandle handle) const noexcept;
   [[nodiscard]] bool RestoresPieceResources(const Live &previous, std::string &error);
 
   struct HeightPage {
-    ResourceSlotState State{};
+    Render::ResourceSlotState State{};
     std::vector<float> Nodes;
     Render::PageId Resident = Render::kNoPage;
   };
 
   std::vector<HeightPage> HeightPages_;
-  uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
-  [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
+  uint32_t FirstFreeHeightPage_ = Render::kNoResourceSlot;
+  [[nodiscard]] bool HasHeightPage(Render::HeightPageHandle handle) const noexcept;
   std::vector<uint32_t> GroundClasses_;
   std::vector<float> GroundPalette_;
   std::vector<float> GroundGrid_;

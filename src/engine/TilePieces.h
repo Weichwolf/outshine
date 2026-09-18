@@ -52,8 +52,8 @@ public:
 private:
   struct Standing {
     uint32_t Tile = 0;
-    Core::PieceHandle Walls{};
-    Core::PieceHandle Roofs{};
+    Render::PieceHandle Walls{};
+    Render::PieceHandle Roofs{};
   };
 
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;

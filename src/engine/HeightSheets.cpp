@@ -51,7 +51,7 @@ namespace {
 
 }
 
-std::expected<Core::HeightPageHandle, std::string>
+std::expected<Render::HeightPageHandle, std::string>
 HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes) {
   const auto key = std::tuple{tile.Zoom, tile.X, tile.Y};
   const auto found = PageIndex_.find(key);
@@ -75,7 +75,7 @@ HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes) {
 }
 
 Core::GroundTile HeightSheets::TileOf(Data::TileId tile,
-                                      Core::HeightPageHandle page,
+                                      Render::HeightPageHandle page,
                                       std::span<const float> nodes) const {
   const Ground::GeoBounds bounds = Ground::TileBounds(tile);
   const double midLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
@@ -539,7 +539,7 @@ uint64_t HeightSheets::Digest() const {
   uint64_t digest = kDigestBasis;
   const auto fold = [&digest](uint32_t word) { digest = (digest ^ word) * kDigestPrime; };
   const auto foldFloat = [&fold](float value) { fold(std::bit_cast<uint32_t>(value)); };
-  const auto foldPage = [&fold](Core::HeightPageHandle page) {
+  const auto foldPage = [&fold](Render::HeightPageHandle page) {
     fold(page.Slot);
     fold(static_cast<uint32_t>(page.Generation));
     fold(static_cast<uint32_t>(page.Generation >> 32u));

@@ -58,6 +58,11 @@ Reuse SceneState/WorldContent from 2223; move ResourceHandle.h to the owning low
 proofs. Renderer cannot include engine headers. WI 2237 uses this same resource boundary;
 it must not invent a competing one. No new threads or algorithm changes in this slice.
 
+`Render::PieceHandle`, `Render::HeightPageHandle` and their generation state now live under
+`render/scene`. Engine consumers and replacement tests use the owning namespace directly; the
+generation, distinct-handle and world-replacement proofs remain green. Slot storage still resides
+in Live and is the next extraction step, so this WI remains active.
+
 ## Acceptance
 
 - [ ] Consumers compile against the extracted owner without Live/EngineHeld includes.

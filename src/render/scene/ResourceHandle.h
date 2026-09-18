@@ -1,10 +1,10 @@
-#ifndef OUTSHINE_ENGINE_RESOURCEHANDLE_H
-#define OUTSHINE_ENGINE_RESOURCEHANDLE_H
+#ifndef OUTSHINE_RENDER_SCENE_RESOURCEHANDLE_H
+#define OUTSHINE_RENDER_SCENE_RESOURCEHANDLE_H
 
 #include <cstdint>
 #include <limits>
 
-namespace outshine::Core {
+namespace outshine::Render {
 inline constexpr uint32_t kNoResourceSlot = std::numeric_limits<uint32_t>::max();
 
 struct PieceHandle {

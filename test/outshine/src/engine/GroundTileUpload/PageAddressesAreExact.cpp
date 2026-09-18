@@ -4,9 +4,9 @@
 #include <type_traits>
 
 using namespace outshine;
-static_assert(!std::is_convertible_v<Core::HeightPageHandle, Core::PieceHandle>);
-static_assert(!std::is_convertible_v<Core::PieceHandle, Core::HeightPageHandle>);
-static_assert(!std::is_convertible_v<Core::HeightPageHandle, float>);
+static_assert(!std::is_convertible_v<Render::HeightPageHandle, Render::PieceHandle>);
+static_assert(!std::is_convertible_v<Render::PieceHandle, Render::HeightPageHandle>);
+static_assert(!std::is_convertible_v<Render::HeightPageHandle, float>);
 
 int main() {
   using namespace outshine::Test;

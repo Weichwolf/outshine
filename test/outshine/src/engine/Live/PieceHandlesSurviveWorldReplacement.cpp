@@ -104,7 +104,7 @@ int main() {
                 scene->SetPieceInstances(*replacement, {}, error) &&
                 !scene->SetPieceInstances(*first, {}, error),
             "publication preserves valid native handles and rejects the released generation");
-      const Core::PieceHandle outside{.Slot = Core::kNoResourceSlot - 1, .Generation = 1};
+      const Render::PieceHandle outside{.Slot = Render::kNoResourceSlot - 1, .Generation = 1};
       CHECK(!scene->SetPieceInstances(outside, {}, error), "out-of-range handle is rejected");
       scene->ReleasePiece(outside);
       scene->ReleasePiece(*first);

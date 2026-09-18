@@ -3,7 +3,7 @@
 #include <limits>
 #include <type_traits>
 
-using namespace outshine::Core;
+using namespace outshine::Render;
 static_assert(!PieceHandle{});
 static_assert(!std::is_convertible_v<uint32_t, PieceHandle>);
 static_assert(!std::is_convertible_v<PieceHandle, uint32_t>);
