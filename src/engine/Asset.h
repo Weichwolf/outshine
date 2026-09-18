@@ -10,16 +10,26 @@
 #include <string>
 #include <vector>
 
-#include <import/GltfImporter.h>
 #include <scene/Geometry.h>
 #include <scenario/Scenario.h>
 
 #include "Viewing.h"
 
+namespace outshine {
+class GltfImporter;
+}
+
 namespace outshine::Core {
 
 class Posed {
 public:
+  Posed();
+  ~Posed();
+  Posed(Posed &&) noexcept;
+  Posed &operator=(Posed &&) noexcept;
+  Posed(const Posed &) = delete;
+  Posed &operator=(const Posed &) = delete;
+
   void Clears();
 
   struct Sited {
@@ -76,8 +86,9 @@ public:
 
 private:
   struct Asset {
-    std::unique_ptr<GltfImporter> Importer;
+    std::unique_ptr<GltfImporter> Animator;
     outshine::Geometry Snapshot;
+    std::optional<outshine::Camera> Camera;
   };
 
   std::vector<Asset> Assets_;

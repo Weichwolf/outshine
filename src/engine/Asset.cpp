@@ -6,10 +6,13 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <import/GltfImporter.h>
 
 #include "Asset.h"
 #include "Digest.h"
@@ -17,6 +20,11 @@
 namespace outshine::Core {
 
 constexpr uint64_t kDigestModulus = 1000000007ull;
+
+Posed::Posed() = default;
+Posed::~Posed() = default;
+Posed::Posed(Posed &&) noexcept = default;
+Posed &Posed::operator=(Posed &&) noexcept = default;
 
 void Posed::Clears() {
   Assets_.clear();
@@ -49,32 +57,37 @@ bool Posed::Reads(const Sited &asset,
   if (Read_) { return true; }
   Posed importedAsset;
   Asset imported;
-  imported.Importer = std::make_unique<GltfImporter>();
-  if (auto loaded = imported.Importer->load(asset.Path); !loaded) {
+  imported.Animator = std::make_unique<GltfImporter>();
+  if (auto loaded = imported.Animator->load(asset.Path); !loaded) {
     error = std::move(loaded.error());
     return false;
   }
   if (!asset.Variant.empty()) {
-    if (auto selected = imported.Importer->selectMaterialVariant(asset.Variant); !selected) {
+    if (auto selected = imported.Animator->selectMaterialVariant(asset.Variant); !selected) {
       error = std::move(selected.error());
       return false;
     }
   }
   const bool animates =
       animation == Scenario::AssetAnimation::Play || animation == Scenario::AssetAnimation::Loop;
-  if (animates && imported.Importer->animationCount() > 0) {
+  if (animates && imported.Animator->animationCount() > 0) {
     const std::array clips{at.Clip};
-    if (auto selected = imported.Importer->selectAnimations(clips); !selected) {
+    if (auto selected = imported.Animator->selectAnimations(clips); !selected) {
       error = std::move(selected.error());
       return false;
     }
   }
-  imported.Snapshot = imported.Importer->geometry().clone();
+  imported.Snapshot = imported.Animator->geometry().clone();
+  if (imported.Animator->cameraCount() > 0) {
+    const auto camera = imported.Animator->camera(0);
+    if (camera) { imported.Camera = *camera; }
+  }
+  importedAsset.DurationS_ = imported.Animator->durationS();
+  importedAsset.Moves_ = importedAsset.DurationS_ > 0.0;
+  if (!importedAsset.Moves_) { imported.Animator.reset(); }
   importedAsset.Assets_.push_back(std::move(imported));
   importedAsset.HoldsBuilt_ = true;
   importedAsset.Read_ = true;
-  importedAsset.DurationS_ = importedAsset.Assets_.front().Importer->durationS();
-  importedAsset.Moves_ = importedAsset.DurationS_ > 0.0;
   importedAsset.Frames_ =
       importedAsset.Moves_
           ? std::max(1, static_cast<int>(std::lround(importedAsset.DurationS_ * at.Fps)))
@@ -121,22 +134,36 @@ bool Posed::Poses(double seconds, std::string &error) {
 
 bool Posed::PoseInto(double seconds, std::string &error) {
   if (Assets_.empty()) { return true; }
+  if (!Moves_) {
+    AtS_ = seconds;
+    return true;
+  }
   std::vector<outshine::Geometry> snapshots;
+  std::vector<std::optional<outshine::Camera>> cameras;
   snapshots.reserve(Assets_.size());
+  cameras.reserve(Assets_.size());
   for (Asset &asset : Assets_) {
-    if (asset.Importer != nullptr) {
-      if (auto sampled = asset.Importer->sampleAnimation(seconds); !sampled) {
+    if (asset.Animator != nullptr) {
+      if (auto sampled = asset.Animator->sampleAnimation(seconds); !sampled) {
         error = std::move(sampled.error());
         return false;
       }
-      snapshots.push_back(asset.Importer->geometry().clone());
+      snapshots.push_back(asset.Animator->geometry().clone());
+      std::optional<outshine::Camera> camera;
+      if (asset.Animator->cameraCount() > 0) {
+        const auto sampled = asset.Animator->camera(0);
+        if (sampled) { camera = *sampled; }
+      }
+      cameras.push_back(camera);
     } else {
       snapshots.push_back(asset.Snapshot.clone());
+      cameras.push_back(asset.Camera);
     }
   }
   if (!Rebuild(snapshots, error)) { return false; }
   for (size_t at = 0; at < Assets_.size(); ++at) {
     Assets_[at].Snapshot = std::move(snapshots[at]);
+    Assets_[at].Camera = cameras[at];
   }
   AtS_ = seconds;
   RefreshCamera();
@@ -170,10 +197,8 @@ bool Posed::Rebuild(std::span<const outshine::Geometry> snapshots, std::string &
 void Posed::RefreshCamera() {
   Camera_.reset();
   for (const Asset &asset : Assets_) {
-    if (asset.Importer == nullptr || asset.Importer->cameraCount() == 0) { continue; }
-    const auto imported = asset.Importer->camera(0);
-    if (!imported) { continue; }
-    const auto viewpoint = Render::ViewpointOf(*imported);
+    if (!asset.Camera) { continue; }
+    const auto viewpoint = Render::ViewpointOf(*asset.Camera);
     if (viewpoint) { Camera_ = *viewpoint; }
     return;
   }

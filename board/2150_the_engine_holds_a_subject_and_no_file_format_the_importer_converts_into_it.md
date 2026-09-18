@@ -10,9 +10,9 @@ Depends:
 Quellprüfung 2026-09-18: `Live` konsumiert für importierte und generierte Subjects nur
 noch native `Geometry`; Materialauflösung, Overrides, Shape-Aufbau und Piece-Bindung
 kennen keine glTF-Herkunft mehr. `Posed` besitzt vollständige native Snapshots und
-fügt deren Bilder, Oberflächen und Parts transaktional zusammen. Der Adapter bleibt
-vorläufig pro Asset am Runtime-Besitzer, weil Animation, Varianten und Kameraposen
-noch daraus ausgewertet werden. Das ist die nächste zu entfernende Formatkopplung.
+fügt Bilder, Oberflächen und Parts transaktional zusammen. Statische Assets übernehmen
+Kamera und Geometrie und geben den Importadapter sofort frei. Nur aktive Animationen
+halten ihn vorläufig zur Auswertung; das ist die nächste Formatkopplung.
 Der ungenutzte glTF→Render-Surface-/Shape-Rückpfad ist entfernt; native Renderer-
 Tests tragen dessen Material-, Bildlebensdauer- und Fehleratomaritätsverträge.
 InitialGeometry wird beim Öffnen nativ kopiert; Live speichert keinen geliehenen
