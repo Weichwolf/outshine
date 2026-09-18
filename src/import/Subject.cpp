@@ -594,10 +594,9 @@ bool Subject::FlattenMesh(const Document &document,
   std::vector<AffineTransform> &instances = Scratch_.Instances;
   instances.clear();
   InstanceTransforms(*posed.Scene, static_cast<size_t>(nodeIndex), world, instances);
-  const Mesh &mesh = document.Meshes()[static_cast<size_t>(node.Mesh)];
   for (const AffineTransform &placedWorld : instances) {
-    for (size_t primitiveIndex = 0; primitiveIndex < mesh.Primitives.size(); ++primitiveIndex) {
-      const Primitive &primitive = mesh.Primitives[primitiveIndex];
+    const size_t primitiveCount = posed.Meshes->PrimitiveCount(static_cast<size_t>(node.Mesh));
+    for (size_t primitiveIndex = 0; primitiveIndex < primitiveCount; ++primitiveIndex) {
       const MeshPrimitive *meshAsset =
           posed.Meshes->Find(static_cast<size_t>(node.Mesh), primitiveIndex);
       if (meshAsset == nullptr) {
@@ -614,20 +613,19 @@ bool Subject::FlattenMesh(const Document &document,
           .Morph = {.Weights = std::span<const double>(nodeWeights.data(), morphCount),
                     .Count = morphCount},
           .Variant = posed.Variant};
-      if (!FlattenPrimitive(document, primitive, under, made)) { return false; }
+      if (!FlattenPrimitive(document, under, made)) { return false; }
     }
   }
   return true;
 }
 
 bool Subject::FlattenPrimitive(const Document &document,
-                               const Primitive &primitive,
                                const Placing &under,
                                outshine::Geometry &made) {
   std::vector<double> &elements = Scratch_.Elements;
   Part part;
   part.NodeName = under.Node.Name;
-  part.Material = primitive.MaterialUnder(under.Variant);
+  part.Material = under.Primitive.MaterialFor(under.Variant);
   part.FirstVertex = 0;
   part.FirstIndex = 0;
   std::vector<double> &atPos = Scratch_.Pos;

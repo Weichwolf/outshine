@@ -268,6 +268,8 @@ bool ImportPrimitive(const Document &document,
                      const Primitive &primitive,
                      MeshPrimitive &out,
                      std::string &error) {
+  out.Material = primitive.Material;
+  out.VariantMaterials = primitive.VariantMaterials;
   const int position = primitive.Find("POSITION");
   size_t vertices = 0;
   if (position >= 0) {

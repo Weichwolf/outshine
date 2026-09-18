@@ -32,6 +32,10 @@ struct MeshPrimitive {
   std::vector<float> SecondaryTextureCoordinates;
   std::vector<float> Colours;
   std::vector<uint32_t> Triangles;
+  int Material = -1;
+  std::vector<int> VariantMaterials;
+
+  [[nodiscard]] int MaterialFor(int variant) const noexcept;
 };
 
 struct MeshAsset {
@@ -42,6 +46,7 @@ class MeshAssetSet {
 public:
   void Adopt(std::vector<MeshAsset> &&meshes);
   [[nodiscard]] const MeshPrimitive *Find(size_t mesh, size_t primitive) const noexcept;
+  [[nodiscard]] size_t PrimitiveCount(size_t mesh) const noexcept;
 
   [[nodiscard]] size_t MeshCount() const { return Meshes_.size(); }
 

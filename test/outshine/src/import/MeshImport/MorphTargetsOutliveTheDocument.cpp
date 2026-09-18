@@ -33,7 +33,9 @@ int main() {
   }
   {
     std::ofstream file(root / "morph.gltf");
-    file << R"({"asset":{"version":"2.0"},"buffers":[{"uri":"data.bin","byteLength":372}],
+    file << R"({"asset":{"version":"2.0"},"extensionsUsed":["KHR_materials_variants"],
+      "extensions":{"KHR_materials_variants":{"variants":[{"name":"alternate"}]}},
+      "buffers":[{"uri":"data.bin","byteLength":372}],
       "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},
         {"buffer":0,"byteOffset":36,"byteLength":36},{"buffer":0,"byteOffset":72,"byteLength":36},
         {"buffer":0,"byteOffset":108,"byteLength":36},{"buffer":0,"byteOffset":144,"byteLength":36},
@@ -52,9 +54,10 @@ int main() {
         {"bufferView":7,"componentType":5126,"count":3,"type":"VEC4"},
         {"bufferView":8,"componentType":5126,"count":3,"type":"VEC2"},
         {"bufferView":9,"componentType":5126,"count":3,"type":"VEC4"}],
-      "meshes":[{"primitives":[{"attributes":{"POSITION":0,"NORMAL":0,"TANGENT":7,
-        "TEXCOORD_0":8,"COLOR_0":9},"targets":[
-        {"POSITION":1,"NORMAL":2,"TANGENT":3},{"POSITION":4,"NORMAL":5,"TANGENT":6}]}]}],
+      "materials":[{},{}],"meshes":[{"primitives":[{"attributes":{"POSITION":0,"NORMAL":0,"TANGENT":7,
+        "TEXCOORD_0":8,"COLOR_0":9},"material":0,"targets":[
+        {"POSITION":1,"NORMAL":2,"TANGENT":3},{"POSITION":4,"NORMAL":5,"TANGENT":6}],
+        "extensions":{"KHR_materials_variants":{"mappings":[{"material":1,"variants":[0]}]}}}]}],
       "nodes":[{"mesh":0}],"scenes":[{"nodes":[0]}],"scene":0})";
     CHECK(file.good(), "morph declaration written");
   }
@@ -78,8 +81,9 @@ int main() {
               primitive->TextureCoordinates == std::vector<float>({0, 0, 1, 0, 0, 1}) &&
               primitive->SecondaryTextureCoordinates.empty() && primitive->Colours.size() == 12 &&
               primitive->Colours.front() == 1 && primitive->Colours.back() == 1 &&
-              primitive->Triangles == std::vector<uint32_t>({0, 1, 2}),
-          "native tangent, UV, colour and triangles outlive the import document");
+              primitive->Triangles == std::vector<uint32_t>({0, 1, 2}) &&
+              primitive->MaterialFor(-1) == 0 && primitive->MaterialFor(0) == 1,
+          "native tangent, UV, colour, triangles and material bindings outlive the document");
     CHECK(primitive->MorphTargets.size() == 2, "morph target order retained");
     if (primitive->MorphTargets.size() == 2) {
       const MorphTargetDelta &first = primitive->MorphTargets[0];

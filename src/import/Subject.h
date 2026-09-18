@@ -29,7 +29,6 @@ class Geometry;
 namespace outshine::Gltf {
 
 class Document;
-struct Primitive;
 
 [[nodiscard]] bool DeclaredPlacement(const Document &document,
                                      int cameraIndex,
@@ -210,10 +209,8 @@ private:
     int Variant = -1;
   };
 
-  [[nodiscard]] bool FlattenPrimitive(const Document &document,
-                                      const Primitive &primitive,
-                                      const Placing &under,
-                                      outshine::Geometry &made);
+  [[nodiscard]] bool
+  FlattenPrimitive(const Document &document, const Placing &under, outshine::Geometry &made);
   [[nodiscard]] bool ReadTriangleRun(const Document &document,
                                      const MeshPrimitive &mesh,
                                      const AffineTransform &world,
