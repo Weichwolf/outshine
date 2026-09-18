@@ -23,7 +23,7 @@
 #include "SkeletonImport.h"
 #include "Subject.h"
 #include "Variant.h"
-#include "native/NativeMaterials.h"
+#include "MaterialImport.h"
 
 namespace outshine {
 namespace {
@@ -95,6 +95,7 @@ struct GltfImporter::Held {
   AnimationClip Motion;
   std::vector<Skeleton> Skeletons;
   MeshAssetSet Meshes;
+  MaterialAssetSet Materials;
   SceneAsset Scene;
   Gltf::VariantSelection Variant;
   Geometry Handed;
@@ -111,21 +112,22 @@ struct GltfImporter::Held {
                  Assembled.Build(File,
                                  Skeletons,
                                  Meshes,
+                                 Materials,
                                  Scene,
                                  std::span<const AffineTransform>(Locals.data(), Locals.size()),
                                  std::span<const double>(Weights.data(), Weights.size()),
                                  Variant))
-              : Assembled.Build(File, Skeletons, Meshes, Scene, Variant);
+              : Assembled.Build(File, Skeletons, Meshes, Materials, Scene, Variant);
     if (!built) {
       Why = Assembled.Error();
       return false;
     }
-    auto converted = Assembled.Handed(File);
+    auto converted = Assembled.Handed();
     if (!converted) {
       Why = std::move(converted.error());
       return false;
     }
-    if (!Wears(*converted) || !SampleMaterials(seconds, *converted)) { return false; }
+    if (!SampleMaterials(seconds, *converted)) { return false; }
     Handed = std::move(*converted);
     if (Moves) {
       PublishedLocals.swap(Locals);
@@ -168,10 +170,6 @@ struct GltfImporter::Held {
     }
     return placed;
   }
-
-  [[nodiscard]] bool Wears(Geometry &candidate) {
-    return Gltf::ResolveNativeMaterialImages(File, Assembled, candidate, Why);
-  }
 };
 
 GltfImporter::GltfImporter() : Held_(std::make_unique<Held>()) {}
@@ -192,6 +190,7 @@ std::expected<void, std::string> GltfImporter::load(std::string_view path) {
   if (!Gltf::ImportMeshAssets(candidate->File, candidate->Meshes, candidate->Why)) {
     return refuse(std::move(candidate->Why));
   }
+  Gltf::ImportMaterialAssets(candidate->File, candidate->Materials);
   if (!Gltf::ImportSceneAsset(candidate->File, candidate->Scene, candidate->Why)) {
     return refuse(std::move(candidate->Why));
   }

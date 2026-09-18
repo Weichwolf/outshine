@@ -13,8 +13,7 @@ kennen keine glTF-Herkunft mehr. `Posed` besitzt vollständige native Snapshots 
 fügt Bilder, Oberflächen und Parts transaktional zusammen. Statische Assets übernehmen
 Kamera und Geometrie und geben den Importadapter sofort frei. Nur aktive Animationen
 halten ihn für Skinning/Morph-Aufbau. Affine Transformationen, Kurven und Clips samt
-skalierter Emissionsziele sind nativ; Materialsampling ist dokumentfrei. Dokumentgeometrie folgt.
-Der ungenutzte glTF→Render-Surface-/Shape-Rückpfad ist entfernt; native Renderer-
+skalierter Emissionsziele sind nativ; der glTF→Render-Rückpfad ist entfernt; native Renderer-
 Tests tragen dessen Material-, Bildlebensdauer- und Fehleratomaritätsverträge.
 InitialGeometry wird beim Öffnen nativ kopiert; Live speichert keinen geliehenen
 Geometriezeiger. Draws instanziert dasselbe Subject unabhängig von Body::Asset.
@@ -92,7 +91,8 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
 3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele; `Skeleton` besitzt
    Joint-Nodes/inverse Binds; `MeshAssetSet` besitzt alle Vertex-/Indexdaten, Skinbindung und Morphdeltas.
    Mesh-Accessors werden nur beim Import dekodiert. `SceneAsset` besitzt Hierarchie, Restpose,
-   Roots, Morphbereiche, Instanzen und Lichter; `MeshPrimitive` Materialvarianten. Nächstens Materialien.
+   Roots, Morphbereiche, Instanzen und Lichter. `MaterialAssetSet` besitzt Bilder, Namen und
+   Oberflächen; Sampling liest keine Quelldatei erneut. Nächstens Kameras und Variantennamen.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 

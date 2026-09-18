@@ -1,6 +1,5 @@
-#include "NativeMaterials.h"
+#include "MaterialImport.h"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -13,7 +12,6 @@
 
 #include "Document.h"
 #include "Image.h"
-#include "Subject.h"
 #include "Types.h"
 
 namespace outshine::Gltf {
@@ -51,7 +49,7 @@ struct NativeSocket {
                                                         const Material &material,
                                                         const TextureRef &declared,
                                                         const char *socket,
-                                                        Geometry &geometry) {
+                                                        std::vector<Core::Raster> &images) {
   const Texture &texture = document.Textures()[static_cast<size_t>(declared.Texture)];
   std::vector<uint8_t> encoded;
   if (!document.ImageBytes(texture.Source, encoded)) {
@@ -65,34 +63,32 @@ struct NativeSocket {
                            " bytes that this decoder does not read");
   }
   const std::span<const uint8_t> pixels = raster.Rgba;
-  for (int at = 0; at < geometry.images(); ++at) {
-    const ImageView held = geometry.imageAt(at);
-    if (held.WidthPx == raster.Width && held.HeightPx == raster.Height &&
+  for (size_t at = 0; at < images.size(); ++at) {
+    const Core::Raster &held = images[at];
+    if (held.Width == raster.Width && held.Height == raster.Height &&
         held.Rgba.size() == pixels.size() &&
         std::memcmp(held.Rgba.data(), pixels.data(), pixels.size()) == 0) {
-      return at;
+      return static_cast<int>(at);
     }
   }
-  const auto kept = geometry.addImage(raster.Width, raster.Height, pixels);
-  if (!kept) { return std::unexpected(std::string(Describe(kept.error()))); }
-  return *kept;
+  images.push_back(std::move(raster));
+  return static_cast<int>(images.size() - 1);
 }
 
 [[nodiscard]] bool ResolveSocket(const Document &document,
                                  const Material &material,
                                  const NativeSocket &socket,
-                                 CarriedUvSets carried,
-                                 Geometry &geometry,
+                                 std::vector<Core::Raster> &images,
                                  SurfaceMap &out,
                                  std::string &error) {
   if (!socket.Declared.Declared()) { return true; }
   UvSet set = UvSet::Uv0;
   std::string why;
-  if (!UvSetOf(socket.Declared, carried, socket.Name, set, why)) {
+  if (!UvSetOf(socket.Declared, CarriedUvSets::Both, socket.Name, set, why)) {
     error = "material '" + material.Name + "' " + why;
     return false;
   }
-  auto image = KeepImage(document, material, socket.Declared, socket.Name, geometry);
+  auto image = KeepImage(document, material, socket.Declared, socket.Name, images);
   if (!image) {
     error = std::move(image.error());
     return false;
@@ -112,42 +108,17 @@ struct NativeSocket {
   return true;
 }
 
-[[nodiscard]] bool MaterialIsUsed(const Geometry &geometry, int material) noexcept {
-  for (int part = 0; part < geometry.parts(); ++part) {
-    if (geometry.materialOf(part).index() == material) { return true; }
-  }
-  return false;
 }
 
-[[nodiscard]] bool MaterialIsDeferredVariant(const Document &document, int material) noexcept {
-  bool variant = false;
-  for (const Mesh &mesh : document.Meshes()) {
-    for (const Primitive &primitive : mesh.Primitives) {
-      if (primitive.Material == material) { return false; }
-      variant = variant || std::ranges::find(primitive.VariantMaterials, material) !=
-                               primitive.VariantMaterials.end();
-    }
-  }
-  return variant;
-}
-
-}
-
-bool ResolveNativeMaterialImages(const Document &document,
-                                 const Subject &subject,
-                                 Geometry &geometry,
-                                 std::string &error) {
-  const CarriedUvSets carried = subject.HasUv1() ? CarriedUvSets::Both : CarriedUvSets::FirstOnly;
-  const size_t many =
-      std::min(static_cast<size_t>(geometry.surfaces()), document.Materials().size());
-  for (size_t index = 0; index < many; ++index) {
-    const int material = static_cast<int>(index);
-    const bool deferred =
-        !MaterialIsUsed(geometry, material) && MaterialIsDeferredVariant(document, material);
-    const Gltf::Material &declared = document.Materials()[index];
-    outshine::Material native = geometry.surfaceAt(MaterialInstance(static_cast<int>(index)));
-    native.NormalScale = static_cast<float>(declared.NormalScale);
-    native.OcclusionStrength = static_cast<float>(declared.OcclusionStrength);
+void ImportMaterialAssets(const Document &document, MaterialAssetSet &out) {
+  std::vector<Core::Raster> images;
+  std::vector<MaterialAsset> materials;
+  materials.reserve(document.Materials().size());
+  for (const Gltf::Material &declared : document.Materials()) {
+    MaterialAsset asset{.Name = declared.Name, .Surface = declared.Surface, .Error = {}};
+    asset.Surface.NeedsTangents = declared.Normal.Texture >= 0;
+    asset.Surface.NormalScale = static_cast<float>(declared.NormalScale);
+    asset.Surface.OcclusionStrength = static_cast<float>(declared.OcclusionStrength);
     const std::array<NativeSocket, 7> sockets = {{
         {.Declared = declared.BaseColour,
          .Destination = &outshine::Material::BaseColourMap,
@@ -171,25 +142,15 @@ bool ResolveNativeMaterialImages(const Document &document,
          .Destination = &outshine::Material::SpecularTintMap,
          .Name = "specularColorTexture"},
     }};
-    bool unresolved = false;
     for (const NativeSocket &socket : sockets) {
       if (!ResolveSocket(
-              document, declared, socket, carried, geometry, native.*socket.Destination, error)) {
-        if (!deferred) { return false; }
-        unresolved = true;
-        error.clear();
+              document, declared, socket, images, asset.Surface.*socket.Destination, asset.Error)) {
         break;
       }
     }
-    if (unresolved) { continue; }
-    const auto published = geometry.setSurface(MaterialInstance(static_cast<int>(index)), native);
-    if (!published) {
-      error = "a decoded glTF material could not be published to native geometry: " +
-              std::string(Describe(published.error()));
-      return false;
-    }
+    materials.push_back(std::move(asset));
   }
-  return true;
+  out.Adopt(std::move(images), std::move(materials));
 }
 
 }

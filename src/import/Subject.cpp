@@ -24,6 +24,7 @@
 #include <map>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -334,20 +335,24 @@ bool Subject::Refuse(std::string why) {
   Colours_.clear();
   Indices_.clear();
   Parts_.clear();
+  Surfaces_.clear();
+  SurfaceNames_.clear();
   return false;
 }
 
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
                     const MeshAssetSet &meshes,
+                    const MaterialAssetSet &materials,
                     const SceneAsset &scene,
                     const VariantSelection &variant) {
-  return Flatten(document, skeletons, meshes, scene, nullptr, nullptr, variant);
+  return Flatten(document, skeletons, meshes, materials, scene, nullptr, nullptr, variant);
 }
 
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
                     const MeshAssetSet &meshes,
+                    const MaterialAssetSet &materials,
                     const SceneAsset &scene,
                     std::span<const AffineTransform> pose,
                     std::span<const double> weights,
@@ -366,6 +371,7 @@ bool Subject::Build(const Document &document,
   return Flatten(document,
                  skeletons,
                  meshes,
+                 materials,
                  scene,
                  pose.data(),
                  (!weights.empty()) ? weights.data() : nullptr,
@@ -605,6 +611,7 @@ bool Subject::FlattenMesh(const Document &document,
       ++primitives;
       const Placing under{
           .Node = node,
+          .Materials = *posed.Materials,
           .World = world,
           .Placed = placedWorld,
           .Joints = jointMatrices,
@@ -625,6 +632,14 @@ bool Subject::FlattenPrimitive(const Document &document,
   Part part;
   part.NodeName = under.Node.Name;
   part.Material = under.Primitive.MaterialFor(under.Variant);
+  if (part.Material >= 0 && static_cast<size_t>(part.Material) >= under.Materials.MaterialCount()) {
+    return Refuse(document.Path() + ": native primitive names absent material " +
+                  std::to_string(part.Material));
+  }
+  const std::string_view materialError = under.Materials.ErrorAt(part.Material);
+  if (!materialError.empty()) {
+    return Refuse(document.Path() + ": " + std::string(materialError));
+  }
   part.FirstVertex = 0;
   part.FirstIndex = 0;
   std::vector<double> &atPos = Scratch_.Pos;
@@ -695,19 +710,10 @@ bool Subject::FlattenPrimitive(const Document &document,
   return true;
 }
 
-bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry &made) {
-  for (const Material &declared : document.Materials()) {
-    outshine::Material row = declared.Surface;
-    row.NeedsTangents = declared.Normal.Texture >= 0;
-    const auto added = made.addSurface("", row);
-    if (!added) { return Refuse(std::string(Describe(added.error()))); }
-  }
-  return true;
-}
-
 bool Subject::Flatten(const Document &document,
                       std::span<const Skeleton> skeletons,
                       const MeshAssetSet &meshes,
+                      const MaterialAssetSet &materials,
                       const SceneAsset &scene,
                       const AffineTransform *pose,
                       const double *weights,
@@ -726,7 +732,8 @@ bool Subject::Flatten(const Document &document,
   Undrawn_ = Undrawn();
   outshine::Geometry &made = Scratch_.Made;
   made.clear();
-  if (!CopyDeclaredMaterials(document, made)) { return false; }
+  const auto copiedMaterials = materials.CopyTo(made);
+  if (!copiedMaterials) { return Refuse(copiedMaterials.error()); }
   if (scene.Roots().empty()) { return Refuse(document.Path() + ": no default scene to draw"); }
 
   int activeVariant = -1;
@@ -738,6 +745,7 @@ bool Subject::Flatten(const Document &document,
   }
   const Posing posed{.Skeletons = skeletons,
                      .Meshes = &meshes,
+                     .Materials = &materials,
                      .Scene = &scene,
                      .Pose = pose,
                      .Weights = weights,
@@ -816,16 +824,7 @@ std::vector<ImageView> Subject::Images() const {
   return images;
 }
 
-std::expected<outshine::Geometry, std::string> Subject::Handed() const {
-  return Handed(nullptr);
-}
-
-std::expected<outshine::Geometry, std::string> Subject::Handed(const Document &naming) const {
-  return Handed(&naming);
-}
-
-std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &out,
-                                                           const Document *naming) const {
+std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &out) const {
   for (const Core::Raster &image : Images_) {
     const auto added = out.addImage(image.Width, image.Height, image.Rgba);
     if (!added) { return std::unexpected(std::string(Describe(added.error()))); }
@@ -834,9 +833,9 @@ std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &o
     if (!MaterialIsValid(Surfaces_[at], Images_.size())) {
       return std::unexpected(std::string(Describe(MaterialError::InvalidMaterial)));
     }
-    const bool named = naming != nullptr && at < naming->Materials().size();
-    const auto added =
-        out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at]);
+    const std::string_view name =
+        at < SurfaceNames_.size() ? SurfaceNames_[at] : std::string_view();
+    const auto added = out.addSurface(name, Surfaces_[at]);
     if (!added) { return std::unexpected(std::string(Describe(added.error()))); }
   }
   for (const PlacedLight &lit : Lights_) {
@@ -850,9 +849,9 @@ std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &o
   return {};
 }
 
-std::expected<outshine::Geometry, std::string> Subject::Handed(const Document *naming) const {
+std::expected<outshine::Geometry, std::string> Subject::Handed() const {
   outshine::Geometry out;
-  const auto assets = CopyNativeAssets(out, naming);
+  const auto assets = CopyNativeAssets(out);
   if (!assets) { return std::unexpected(assets.error()); }
   const auto floats = [](const std::vector<double> &from, size_t first, size_t many) {
     std::vector<float> made(many);
@@ -1138,6 +1137,7 @@ bool Subject::AssembleUnchecked(const outshine::Geometry &what) {
   Parts_.clear();
   Lights_.clear();
   Surfaces_.clear();
+  SurfaceNames_.clear();
   TangentWanted_.clear();
 
   Images_.reserve(static_cast<size_t>(what.images()));
@@ -1149,6 +1149,7 @@ bool Subject::AssembleUnchecked(const outshine::Geometry &what) {
   }
   for (int surface = 0; surface < what.surfaces(); ++surface) {
     Surfaces_.push_back(what.surfaceAt(MaterialInstance(surface)));
+    SurfaceNames_.emplace_back(what.surfaceNameOf(surface));
     TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
   }
   AssembleLights(what);
@@ -1226,6 +1227,7 @@ bool Subject::Append(const Subject &other) {
   const int imageBase = static_cast<int>(Images_.size());
   Images_.insert(Images_.end(), other.Images_.begin(), other.Images_.end());
   Surfaces_.resize(static_cast<size_t>(beyond));
+  SurfaceNames_.resize(static_cast<size_t>(beyond));
   for (outshine::Material surface : other.Surfaces_) {
     for (SurfaceMap *map : {&surface.BaseColourMap,
                             &surface.NormalMap,
@@ -1238,6 +1240,7 @@ bool Subject::Append(const Subject &other) {
     }
     Surfaces_.push_back(surface);
   }
+  SurfaceNames_.insert(SurfaceNames_.end(), other.SurfaceNames_.begin(), other.SurfaceNames_.end());
   Parts_.reserve(Parts_.size() + other.Parts_.size());
   for (Part part : other.Parts_) {
     part.FirstVertex += vertexBase;

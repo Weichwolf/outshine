@@ -17,6 +17,7 @@
 #include "Viewport.h"
 #include "scene/Camera.h"
 #include "AffineTransform.h"
+#include "MaterialAsset.h"
 #include "MeshAsset.h"
 #include "SceneAsset.h"
 #include "Skeleton.h"
@@ -75,12 +76,14 @@ public:
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
                            const MeshAssetSet &meshes,
+                           const MaterialAssetSet &materials,
                            const SceneAsset &scene,
                            const VariantSelection &variant = {});
 
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
                            const MeshAssetSet &meshes,
+                           const MaterialAssetSet &materials,
                            const SceneAsset &scene,
                            std::span<const AffineTransform> pose,
                            std::span<const double> weights,
@@ -90,14 +93,10 @@ public:
 
   [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed() const;
 
-  [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed(const Document &naming) const;
-
 private:
   [[nodiscard]] bool AssembleUnchecked(const outshine::Geometry &what);
   void PublishAssembly(Subject &&candidate) noexcept;
-  [[nodiscard]] std::expected<void, std::string> CopyNativeAssets(outshine::Geometry &out,
-                                                                  const Document *naming) const;
-  [[nodiscard]] std::expected<outshine::Geometry, std::string> Handed(const Document *naming) const;
+  [[nodiscard]] std::expected<void, std::string> CopyNativeAssets(outshine::Geometry &out) const;
 
 public:
   [[nodiscard]] bool Append(const Subject &other);
@@ -180,6 +179,7 @@ private:
   struct Posing {
     std::span<const Skeleton> Skeletons;
     const MeshAssetSet *Meshes = nullptr;
+    const MaterialAssetSet *Materials = nullptr;
     const SceneAsset *Scene = nullptr;
     const AffineTransform *Pose = nullptr;
     const double *Weights = nullptr;
@@ -200,6 +200,7 @@ private:
 
   struct Placing {
     const SceneNodeAsset &Node;
+    const MaterialAssetSet &Materials;
     const AffineTransform &World;
     const AffineTransform &Placed;
     std::span<const AffineTransform> Joints;
@@ -249,10 +250,10 @@ private:
   mutable Scratch Scratch_;
   [[nodiscard]] bool Refuse(std::string why);
 
-  [[nodiscard]] bool CopyDeclaredMaterials(const Document &document, outshine::Geometry &made);
   [[nodiscard]] bool Flatten(const Document &document,
                              std::span<const Skeleton> skeletons,
                              const MeshAssetSet &meshes,
+                             const MaterialAssetSet &materials,
                              const SceneAsset &scene,
                              const AffineTransform *pose,
                              const double *weights,
@@ -298,6 +299,7 @@ private:
   Undrawn Undrawn_;
   std::vector<PlacedLight> Lights_;
   std::vector<outshine::Material> Surfaces_;
+  std::vector<std::string> SurfaceNames_;
   std::vector<Core::Raster> Images_;
   std::vector<uint8_t> TangentWanted_;
   Vec3 Min_;
