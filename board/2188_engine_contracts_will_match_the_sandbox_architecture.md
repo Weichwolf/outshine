@@ -80,17 +80,18 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
 Verbindliche Implementierungsreihenfolge:
-1. **P0-A, 2219:** den ersten GPU-Bildfehler mit der raw-SDL-Mipmatrix kausal
-   einordnen. Keine Ownership- oder Warm-up-Vermutung als Bildfix ausgeben.
-2. **P0-B, 2231:** den bestehenden 64er-Structure-Bake-Vertrag öffentlich beweisen und erst bei
+1. **P0-A, 2219:** `Subject`-Shadervertrag reparieren: Vertexlayout und Materialprogramm
+   trennen, finale Texturkoordinaten im Vertexprogramm bilden und den realen Pfad
+   gegen den grünen SDL-Reducer beweisen; keine Ownership-/Warm-up-Theorie als Bildfix.
+2. **P0-B, 2235:** vollständige `SampledImage`-Ketten als einen `WorldContent`-
+   Kandidaten führen. Ein unvollständiges Bild darf zu keinem Zeitpunkt bindbar sein.
+3. **P0-C, 2231:** den bestehenden 64er-Structure-Bake-Vertrag öffentlich beweisen und erst bei
    einem belegten ungebundenen Clustering-Schritt weiter zerlegen.
-3. **P0-C, 2233:** danach Vektoren, Feldaufnahme und Bakebereiche durch einen deterministischen
+4. **P0-D, 2233:** danach Vektoren, Feldaufnahme und Bakebereiche durch einen deterministischen
    Compute-Budget-Owner zulassen.
-4. **P0-D, 2234:** Ground-Aufbau in denselben messbaren, abbrechbaren Candidate-Phasen führen.
-5. **P1, 2230:** verwendete Terrain-/Vektorprodukte beim Candidate erfassen und Capture gegen
+5. **P0-E, 2234:** Ground-Aufbau in denselben messbaren, abbrechbaren Candidate-Phasen führen.
+6. **P1, 2230:** verwendete Terrain-/Vektorprodukte beim Candidate erfassen und Capture gegen
    genau diesen Stand binden; keine Cache-Gesamtheit als Snapshot ausgeben.
-6. **P1, 2235:** vollständige SampledImage-Ketten als eine asynchrone
-   Kandidatenpublikation unter dem Zustandsvertrag von 2191 führen.
 7. **P1, 2179 und 2171:** erst auf dem deterministischen Renderer die deklarativen Filterorakel
    schließen und den nativen Materialpfad anhand dieser Orakel ausbauen.
 Danach 2150: statischer nativer Importpfad samt Materialrelokation, anschließend native

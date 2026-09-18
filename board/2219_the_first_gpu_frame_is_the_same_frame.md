@@ -64,6 +64,22 @@ backend, OS, GPU, shader product and sampler descriptor; reproduce on one other
 locally pinned SDL/backend product. Do not add an engine workaround. The current
 green test requires the next reducer to add one missing engine input at a time.
 
+The raw matrix is green. The engine repair therefore belongs to `SubjectDraw`, not
+to SDL submission or image upload. Split the pipeline key into an immutable vertex
+layout (`Position`, `Normal`, `Uv0`, …) and a material program (`Unlit`,
+MetallicRoughness, transmission, …). A normal attribute may select a vertex stream;
+it must never make an explicitly unlit material execute a lit fragment program.
+The key and both selected SPIR-V products are test-visible diagnostics.
+
+Apply each material texture transform before rasterization in the matching vertex
+program and interpolate the final sampling coordinate. The fragment program samples
+that varying directly. This gives texture filtering one coordinate contract for
+unlit and lit materials, makes derivatives correspond to the declared transformed
+UV, and removes per-fragment transform precision from the sampling path. Preserve
+the Khronos texture-transform semantics, UV-set selection and linear colour-space
+contract. Do not replace filtering with texel fetch, force a LOD, warm a frame, or
+change a tolerance.
+
 ## Order
 
 1. [x] Add and run the raw matrix. This WI has no dependency on broad GPU ownership work.
@@ -75,12 +91,18 @@ green test requires the next reducer to add one missing engine input at a time.
 6. [x] Prove the Chess perspective on a single native mipmapped quad exact.
 7. [x] Reduce to one copied native part: residual is 3 channels; multi-part packing amplifies it.
 8. [x] Replace only the single part's UV0 with a constant: it is exact.
-9. Reduce the real Subject varying-UV pipeline and compare its derivative inputs against the
-   raw vertex test; then return to multi-part amplification. Keep camera and sampler fixed.
-10. In parallel but separately, WI 2235 makes complete sampled-image ownership and
-10. In parallel but separately, WI 2235 makes complete sampled-image ownership and
-   asynchronous candidate publication correct. It must preserve pixels but is not
-   claimed as this defect's repair.
+9. Record the selected vertex layout, material program and SPIR-V products for the
+   red native clone. First prove that its unlit material does not select a lit
+   fragment program merely because the mesh retains normals.
+10. Add an actual-Subject reducer: same native part, same perspective and sampler,
+    then independently select `Position+Uv0`, `Position+Normal+Uv0`, UV transform
+    identity/nonidentity and one/many parts. Every reducer compares first and second
+    frame exactly and identifies the selected pipeline key.
+11. Implement the separated layout/program key and vertex-side final UV contract.
+    Re-run the reducer before touching packing. Only if one part is exact, reduce
+    multi-part packing with the same program key and camera.
+12. WI 2235 separately repairs incomplete image ownership and publication. It must
+    preserve pixels and is not claimed as this defect's repair.
 
 ## Acceptance
 
@@ -88,5 +110,8 @@ green test requires the next reducer to add one missing engine input at a time.
       reproducer with its complete local product record.
 - [ ] Existing chess and atmospheric repeat checks become exact without a warm-up,
       blocking idle wait, vendor shader path, changed filter or relaxed threshold.
+- [ ] An explicitly unlit native mesh chooses an unlit material program independently
+      of optional normal/tangent attributes; UV-set and texture-transform semantics
+      remain identical to the Khronos adapter contract.
 - [ ] Negative controls still expose a changed mip, descriptor or texel path.
 - [ ] Relevant device/public suites and `make lint` pass.

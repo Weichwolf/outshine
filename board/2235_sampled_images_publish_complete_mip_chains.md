@@ -1,8 +1,8 @@
 Type: bug
 State: active
-Parent: 2190
-Depends: 2191
-Priority: P1
+Parent: 2223
+Depends: 2190, 2223
+Priority: P0
 Area: render, engine, test
 Tags: gpu, ownership, state
 
@@ -25,8 +25,8 @@ one aligned upload allocation; record all levels in one copy pass and submit exa
 once. Any allocation/map/copy/submit failure destroys only the candidate and exposes
 no image. `static_assert` requires nonthrowing moves for the published owner.
 
-`WorldContent` candidates may contain `PendingSampledImage` products. The engine
-state transition owned by WI 2191 polls their fences on the render thread; it never
+`WorldContent` candidates may contain `PendingSampledImage` products. WI 2223 owns
+the only publication point and polls their fences on the render thread; it never
 waits in a frame. Until every required image is ready, the previous published world
 remains drawable. First declaration reports a defined pending/no-world outcome rather
 than sampling a partial product. Completion performs one nonthrowing world swap.
@@ -38,8 +38,9 @@ thread; stale completions cannot publish over a newer revision.
 1. Add packed-chain copy recording and failure injection for each level boundary.
 2. Add `SampledImage` lifetime/fence ownership and prove destruction before and after
    completion is safe.
-3. Integrate the pending-publication state in WI 2191; do not add a second transaction
-   framework in SubjectDraw or WorldCandidate.
+3. Integrate the pending product into the existing `WorldContent` candidate from
+   WI 2223; do not add a second transaction framework in SubjectDraw, WorldCandidate
+   or the public Engine facade.
 4. Prove A remains visible while B uploads, B appears once only after all image fences,
    B failure keeps A, and immediate B retry succeeds. Measure no GPU wait or unbounded
    allocation in the frame path.
