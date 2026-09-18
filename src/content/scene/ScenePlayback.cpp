@@ -12,49 +12,49 @@
 #include <utility>
 #include <vector>
 
-#include "Asset.h"
 #include "AnimatedAsset.h"
 #include "Digest.h"
+#include "ScenePlayback.h"
 
-namespace outshine::Core {
+namespace outshine {
 
 constexpr uint64_t kDigestModulus = 1000000007ull;
 
-Posed::Posed() = default;
-Posed::~Posed() = default;
-Posed::Posed(Posed &&) noexcept = default;
-Posed &Posed::operator=(Posed &&) noexcept = default;
+ScenePlayback::ScenePlayback() = default;
+ScenePlayback::~ScenePlayback() = default;
+ScenePlayback::ScenePlayback(ScenePlayback &&) noexcept = default;
+ScenePlayback &ScenePlayback::operator=(ScenePlayback &&) noexcept = default;
 
-void Posed::Clears() {
+void ScenePlayback::Clear() {
   Assets_.clear();
-  Built_.clear();
-  HoldsBuilt_ = false;
+  Geometry_.clear();
+  HasGeometry_ = false;
   Camera_.reset();
-  Read_ = false;
-  Moves_ = false;
-  Frames_ = 1;
-  AtS_ = 0.0;
+  Loaded_ = false;
+  Animated_ = false;
+  FrameCount_ = 1;
+  TimeS_ = 0.0;
   DurationS_ = 0.0;
-  LocalsDigest_ = 0.0;
-  AssembledDigest_ = 0.0;
-  Changed_ += 1;
+  PlacementDigest_ = 0.0;
+  VertexDigest_ = 0.0;
+  Revision_ += 1;
 }
 
-void Posed::Carries(outshine::Geometry &&built) {
-  Clears();
-  Built_ = std::move(built);
+void ScenePlayback::SetGeometry(outshine::Geometry &&geometry) {
+  Clear();
+  Geometry_ = std::move(geometry);
   Asset asset;
-  asset.Snapshot = Built_.clone();
+  asset.Snapshot = Geometry_.clone();
   Assets_.push_back(std::move(asset));
-  HoldsBuilt_ = true;
+  HasGeometry_ = true;
 }
 
-bool Posed::Reads(const Sited &asset,
-                  Scenario::AssetAnimation animation,
-                  Playing at,
-                  std::string &error) {
-  if (Read_) { return true; }
-  Posed importedAsset;
+bool ScenePlayback::Load(const AssetRequest &asset,
+                         bool animate,
+                         PlaybackSettings settings,
+                         std::string &error) {
+  if (Loaded_) { return true; }
+  ScenePlayback importedAsset;
   Asset imported;
   imported.Animator = std::make_unique<AnimatedAsset>();
   if (auto loaded = imported.Animator->load(asset.Path); !loaded) {
@@ -67,10 +67,8 @@ bool Posed::Reads(const Sited &asset,
       return false;
     }
   }
-  const bool animates =
-      animation == Scenario::AssetAnimation::Play || animation == Scenario::AssetAnimation::Loop;
-  if (animates && imported.Animator->animationCount() > 0) {
-    const std::array clips{at.Clip};
+  if (animate && imported.Animator->animationCount() > 0) {
+    const std::array clips{settings.Clip};
     if (auto selected = imported.Animator->selectAnimations(clips); !selected) {
       error = std::move(selected.error());
       return false;
@@ -82,14 +80,14 @@ bool Posed::Reads(const Sited &asset,
     if (camera) { imported.Camera = *camera; }
   }
   importedAsset.DurationS_ = imported.Animator->durationS();
-  importedAsset.Moves_ = importedAsset.DurationS_ > 0.0;
-  if (!importedAsset.Moves_) { imported.Animator.reset(); }
+  importedAsset.Animated_ = importedAsset.DurationS_ > 0.0;
+  if (!importedAsset.Animated_) { imported.Animator.reset(); }
   importedAsset.Assets_.push_back(std::move(imported));
-  importedAsset.HoldsBuilt_ = true;
-  importedAsset.Read_ = true;
-  importedAsset.Frames_ =
-      importedAsset.Moves_
-          ? std::max(1, static_cast<int>(std::lround(importedAsset.DurationS_ * at.Fps)))
+  importedAsset.HasGeometry_ = true;
+  importedAsset.Loaded_ = true;
+  importedAsset.FrameCount_ =
+      importedAsset.Animated_
+          ? std::max(1, static_cast<int>(std::lround(importedAsset.DurationS_ * settings.Fps)))
           : 1;
   if (!importedAsset.Rebuild(
           std::span<const outshine::Geometry>(&importedAsset.Assets_.front().Snapshot, 1), error)) {
@@ -97,17 +95,17 @@ bool Posed::Reads(const Sited &asset,
   }
   importedAsset.RefreshCamera();
   if (Assets_.empty()) {
-    importedAsset.Changed_ = Changed_ + 1;
+    importedAsset.Revision_ = Revision_ + 1;
     *this = std::move(importedAsset);
     return true;
   }
-  if (!Appends(std::move(importedAsset), error)) { return false; }
-  Read_ = true;
+  if (!Append(std::move(importedAsset), error)) { return false; }
+  Loaded_ = true;
   RefreshCamera();
   return true;
 }
 
-bool Posed::Appends(Posed &&more, std::string &error) {
+bool ScenePlayback::Append(ScenePlayback &&more, std::string &error) {
   std::vector<outshine::Geometry> snapshots;
   snapshots.reserve(Assets_.size() + more.Assets_.size());
   for (const Asset &asset : Assets_) { snapshots.push_back(asset.Snapshot.clone()); }
@@ -117,24 +115,20 @@ bool Posed::Appends(Posed &&more, std::string &error) {
                  std::make_move_iterator(more.Assets_.begin()),
                  std::make_move_iterator(more.Assets_.end()));
   DurationS_ = std::max(DurationS_, more.DurationS_);
-  Moves_ = Moves_ || more.Moves_;
-  Frames_ = std::max(Frames_, more.Frames_);
-  Changed_ += 1;
+  Animated_ = Animated_ || more.Animated_;
+  FrameCount_ = std::max(FrameCount_, more.FrameCount_);
+  Revision_ += 1;
   return true;
 }
 
-bool Posed::Measures(double seconds, std::string &error) {
+bool ScenePlayback::Sample(double seconds, std::string &error) {
   return PoseInto(seconds, error);
 }
 
-bool Posed::Poses(double seconds, std::string &error) {
-  return PoseInto(seconds, error);
-}
-
-bool Posed::PoseInto(double seconds, std::string &error) {
+bool ScenePlayback::PoseInto(double seconds, std::string &error) {
   if (Assets_.empty()) { return true; }
-  if (!Moves_) {
-    AtS_ = seconds;
+  if (!Animated_) {
+    TimeS_ = seconds;
     return true;
   }
   std::vector<outshine::Geometry> snapshots;
@@ -164,13 +158,13 @@ bool Posed::PoseInto(double seconds, std::string &error) {
     Assets_[at].Snapshot = std::move(snapshots[at]);
     Assets_[at].Camera = cameras[at];
   }
-  AtS_ = seconds;
+  TimeS_ = seconds;
   RefreshCamera();
-  Changed_ += 1;
+  Revision_ += 1;
   return true;
 }
 
-bool Posed::Rebuild(std::span<const outshine::Geometry> snapshots, std::string &error) {
+bool ScenePlayback::Rebuild(std::span<const outshine::Geometry> snapshots, std::string &error) {
   outshine::Geometry candidate;
   bool holds = false;
   for (const outshine::Geometry &snapshot : snapshots) {
@@ -187,35 +181,34 @@ bool Posed::Rebuild(std::span<const outshine::Geometry> snapshots, std::string &
       return false;
     }
   }
-  Built_ = std::move(candidate);
-  HoldsBuilt_ = true;
+  Geometry_ = std::move(candidate);
+  HasGeometry_ = true;
   RefreshDigests();
   return true;
 }
 
-void Posed::RefreshCamera() {
+void ScenePlayback::RefreshCamera() {
   Camera_.reset();
   for (const Asset &asset : Assets_) {
     if (!asset.Camera) { continue; }
-    const auto viewpoint = Render::ViewpointOf(*asset.Camera);
-    if (viewpoint) { Camera_ = *viewpoint; }
+    Camera_ = *asset.Camera;
     return;
   }
 }
 
-void Posed::RefreshDigests() {
+void ScenePlayback::RefreshDigests() {
   uint64_t locals = kDigestBasis;
   uint64_t vertices = kDigestBasis;
-  for (int part = 0; part < Built_.parts(); ++part) {
-    for (const double value : Built_.placementOf(part)) {
+  for (int part = 0; part < Geometry_.parts(); ++part) {
+    for (const double value : Geometry_.placementOf(part)) {
       locals = (locals ^ std::bit_cast<uint64_t>(value)) * kDigestPrime;
     }
-    for (const float value : Built_.positionsOf(part)) {
+    for (const float value : Geometry_.positionsOf(part)) {
       vertices = (vertices ^ std::bit_cast<uint32_t>(value)) * kDigestPrime;
     }
   }
-  LocalsDigest_ = static_cast<double>(locals % kDigestModulus);
-  AssembledDigest_ = static_cast<double>(vertices % kDigestModulus);
+  PlacementDigest_ = static_cast<double>(locals % kDigestModulus);
+  VertexDigest_ = static_cast<double>(vertices % kDigestModulus);
 }
 
 }

@@ -17,7 +17,7 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 
-#include "Asset.h"
+#include "ScenePlayback.h"
 #include "CameraState.h"
 #include "SubjectProxy.h"
 #include "SubjectPoseHistory.h"
@@ -307,17 +307,17 @@ public:
 
   static constexpr int kSweepSamples = 16;
 
-  [[nodiscard]] double AtS() const { return Held_.AtS(); }
+  [[nodiscard]] double AtS() const { return Held_.TimeS(); }
 
   [[nodiscard]] double DurationS() const { return Held_.DurationS(); }
 
-  [[nodiscard]] bool Moves() const { return Held_.Moves(); }
+  [[nodiscard]] bool Moves() const { return Held_.IsAnimated(); }
 
-  [[nodiscard]] double LocalsDigest() const { return Held_.LocalsDigest(); }
+  [[nodiscard]] double LocalsDigest() const { return Held_.PlacementDigest(); }
 
-  [[nodiscard]] double AssembledDigest() const { return Held_.AssembledDigest(); }
+  [[nodiscard]] double AssembledDigest() const { return Held_.VertexDigest(); }
 
-  [[nodiscard]] int Frames() const { return Held_.Frames(); }
+  [[nodiscard]] int Frames() const { return Held_.FrameCount(); }
 
 private:
   friend class ::outshine::Engine;
@@ -365,7 +365,7 @@ private:
   [[nodiscard]] bool Measure(double seconds, std::string &error);
 
   [[nodiscard]] int Sweeps() const {
-    const int frames = Held_.Frames();
+    const int frames = Held_.FrameCount();
     return std::clamp(frames, 1, kSweepSamples);
   }
 
@@ -378,6 +378,7 @@ private:
 
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);
+  [[nodiscard]] bool ApplyAuthoredCamera(Render::Viewpoint &out) const;
   [[nodiscard]] bool Submit(std::string &error);
 
   [[nodiscard]] bool Compose(std::string &error) { return Compose(Declared_.Surfaces, error); }
@@ -409,7 +410,7 @@ private:
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
-  Posed Held_;
+  ScenePlayback Held_;
   Render::SubjectProxy Stood_;
   Render::SubjectScratch Scratch_;
 

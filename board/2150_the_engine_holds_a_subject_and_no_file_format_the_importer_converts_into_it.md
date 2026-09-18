@@ -87,7 +87,7 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    Bilder und Materialslots werden beim Append einmal relokiert, Overrides danach
    herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
 2. Native Kamera und Bounds-Rahmung liegen in Math/Content; der Importer kennt keine Render-Typen. `AnimatedAsset` kapselt formatneutral Laden und Playback;
-   `Posed` noch durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
+   `ScenePlayback` besitzt Snapshots, Kameras und Zeit in Content ohne Scenario-/Render-Typen.
 3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele; `Skeleton` besitzt
    Joint-Nodes/inverse Binds; `MeshAssetSet` besitzt alle Vertex-/Indexdaten, Skinbindung und Morphdeltas.
    Mesh-Accessors werden nur beim Import dekodiert. `SceneAsset` besitzt Hierarchie, Restpose,

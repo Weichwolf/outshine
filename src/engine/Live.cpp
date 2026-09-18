@@ -119,7 +119,7 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
 Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
   if (Declared_.InitialGeometry != nullptr) {
-    Held_.Carries(Declared_.InitialGeometry->clone());
+    Held_.SetGeometry(Declared_.InitialGeometry->clone());
     Declared_.InitialGeometry = nullptr;
   }
   Over_.Faces(font);
@@ -216,9 +216,9 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                     const Ui::Font *font,
                                     std::unique_ptr<Live> &candidate,
                                     std::string &error) {
-  if (previous.Held_.HoldsBuilt()) {
+  if (previous.Held_.HasGeometry()) {
     return PreparesGeometryReplacement(
-        renderer, previous, previous.Held_.Built().clone(), font, candidate, error);
+        renderer, previous, previous.Held_.Snapshot().clone(), font, candidate, error);
   }
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   if (!Prepare(renderer, previous.Declared_, font, candidate, error)) {
@@ -273,16 +273,16 @@ bool Live::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &er
 }
 
 bool Live::Reshape(std::string &error) {
-  if (EverShaped_ && ShapedAt_ == Held_.Changed()) { return true; }
+  if (EverShaped_ && ShapedAt_ == Held_.Revision()) { return true; }
   EverShaped_ = false;
   Shaped_ = {};
-  const auto shaped = Render::PrepareShape(Held_.Built(), ShapeParts_);
+  const auto shaped = Render::PrepareShape(Held_.Snapshot(), ShapeParts_);
   if (!shaped) {
     error = Describe(shaped.error());
     return false;
   }
   Shaped_ = *shaped;
-  ShapedAt_ = Held_.Changed();
+  ShapedAt_ = Held_.Revision();
   EverShaped_ = true;
   return true;
 }
@@ -396,27 +396,31 @@ bool Live::RejectsUnwornOverrides(std::string &error) const {
 }
 
 bool Live::JoinsSubjects(std::string &error) {
+  const bool animate = Declared_.Animation == Scenario::AssetAnimation::Play ||
+                       Declared_.Animation == Scenario::AssetAnimation::Loop;
   for (const std::string &joining : Declared_.Joins) {
-    Core::Posed arriving;
-    if (!arriving.Reads({.Path = joining, .Variant = ""},
-                        Declared_.Animation,
-                        {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
-                        error)) {
+    ScenePlayback arriving;
+    if (!arriving.Load({.Path = joining, .Variant = ""},
+                       animate,
+                       {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
+                       error)) {
       return false;
     }
-    if (!arriving.Poses(0.0, error)) { return false; }
+    if (!arriving.Sample(0.0, error)) { return false; }
     AssetReads_ += 1;
-    if (!Held_.Appends(std::move(arriving), error)) { return false; }
+    if (!Held_.Append(std::move(arriving), error)) { return false; }
   }
   return true;
 }
 
 bool Live::StandsSubjects(std::string &error) {
-  if (!Held_.Stands()) {
-    if (!Held_.Reads({.Path = Declared_.Stands, .Variant = Declared_.Variant},
-                     Declared_.Animation,
-                     {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
-                     error)) {
+  if (!Held_.IsLoaded()) {
+    const bool animate = Declared_.Animation == Scenario::AssetAnimation::Play ||
+                         Declared_.Animation == Scenario::AssetAnimation::Loop;
+    if (!Held_.Load({.Path = Declared_.Stands, .Variant = Declared_.Variant},
+                    animate,
+                    {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
+                    error)) {
       return false;
     }
     AssetReads_ += 1;
@@ -427,7 +431,7 @@ bool Live::StandsSubjects(std::string &error) {
 }
 
 void Live::ClearsSubject() {
-  Held_.Clears();
+  Held_.Clear();
   Table_ = Render::SurfaceTable();
   ShadowRadiusStoodM_ = 0.0;
   Joined_ = 0;
@@ -459,10 +463,10 @@ bool Live::CarriesBuilt(std::string &error) {
   const auto resolvedFrom = std::chrono::steady_clock::now();
   Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
   Table_.NativeMaterial = Table_.Material;
-  const bool textured = Render::ResolveNativeTextures(Held_.Built(), Table_.Slots, error);
+  const bool textured = Render::ResolveNativeTextures(Held_.Snapshot(), Table_.Slots, error);
   if (!textured) { return false; }
   OverridesWorn_ = 0;
-  OverridesWorn_ += WornByNativeSurfaceAndPart(Held_.Built(), 0);
+  OverridesWorn_ += WornByNativeSurfaceAndPart(Held_.Snapshot(), 0);
   if (!RejectsUnwornOverrides(error)) { return false; }
   if (GroundSurface_ >= 0) {
     for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
@@ -487,7 +491,7 @@ bool Live::RestoresGroundResources(std::string &error) {
 
 void Live::WearsPieces() {
   if (Renderer_ == nullptr) { return; }
-  const auto surfaces = static_cast<size_t>(Held_.Built().surfaces());
+  const auto surfaces = static_cast<size_t>(Held_.Snapshot().surfaces());
   std::vector<uint32_t> slotOf(surfaces, Render::kNoSlot);
   for (size_t slot = 0; slot < Table_.NativeMaterial.size(); ++slot) {
     const int surface = Table_.NativeMaterial[slot];
@@ -614,8 +618,8 @@ bool Live::StandsPlan(std::string &error) {
 }
 
 bool Live::Build(std::string &error) {
-  if (!Held_.HoldsBuilt() && Declared_.Stands.empty()) { ClearsSubject(); }
-  if (Held_.HoldsBuilt() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
+  if (!Held_.HasGeometry() && Declared_.Stands.empty()) { ClearsSubject(); }
+  if (Held_.HasGeometry() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
   if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
 
   if (!Reshape(error)) { return false; }
@@ -681,13 +685,13 @@ std::expected<void, std::string> Live::BindSubject() {
 }
 
 bool Live::Pose(double seconds, std::string &error) {
-  if (!Held_.Poses(seconds, error)) { return false; }
+  if (!Held_.Sample(seconds, error)) { return false; }
   if (!Reshape(error)) { return false; }
   return true;
 }
 
 bool Live::Measure(double seconds, std::string &error) {
-  if (!Held_.Measures(seconds, error)) { return false; }
+  if (!Held_.Sample(seconds, error)) { return false; }
   if (!Reshape(error)) { return false; }
   return true;
 }
@@ -724,11 +728,11 @@ bool Live::PartVolumes(std::string &error) {
   PartBounds_.assign(parts, Box{});
   CoverShapedParts();
   for (int sample = 0; sample < Sweeps(); ++sample) {
-    if (Seconds(sample) == Held_.AtS()) { continue; }
+    if (Seconds(sample) == Held_.TimeS()) { continue; }
     if (!Measure(Seconds(sample), error)) { return false; }
     CoverShapedParts();
   }
-  return Held_.Frames() <= 1 || Measure(Held_.AtS(), error);
+  return Held_.FrameCount() <= 1 || Measure(Held_.TimeS(), error);
 }
 
 bool Live::PlacedBounds(Extents &into, std::string &error) {
@@ -828,6 +832,14 @@ void Live::EmitsPerPart() {
   }
 }
 
+bool Live::ApplyAuthoredCamera(Render::Viewpoint &out) const {
+  if (!Held_.AuthoredCamera()) { return false; }
+  const auto viewpoint = Render::ViewpointOf(*Held_.AuthoredCamera());
+  if (!viewpoint) { return false; }
+  out = *viewpoint;
+  return true;
+}
+
 bool Live::Stand(std::string &error) {
   auto standFrom = std::chrono::steady_clock::now();
   const auto sinceStand = [&standFrom] {
@@ -851,7 +863,7 @@ bool Live::Stand(std::string &error) {
                   Camera_.HasOverride(),
                   Joined_);
   SubmittedPose_.Reset();
-  if (Held_.Moves() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
+  if (Held_.IsAnimated() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
     Stood_.Posed(RenderedPositionsM_);
   }
   PlacesMs_ = sinceStand();
@@ -867,8 +879,7 @@ bool Live::Stand(std::string &error) {
   MediumMs_ = sinceStand();
 
   Render::Viewpoint eye = Camera_.Prepared().Eye;
-  const bool declared = Held_.Camera().has_value();
-  if (declared) { eye = *Held_.Camera(); }
+  const bool declared = ApplyAuthoredCamera(eye);
   Camera_.Prepared().Eye = eye;
   if (!Camera_.HasOverride() && (Declared_.Fill > 0.0 || !declared)) {
     const auto boundedFrom = std::chrono::steady_clock::now();
@@ -880,7 +891,7 @@ bool Live::Stand(std::string &error) {
       if (!Measure(Seconds(sample), error)) { return false; }
       bounded.Cover(Shaped_.BoundsOf(Joined_));
     }
-    if (Held_.Frames() > 1 && !Measure(0.0, error)) { return false; }
+    if (Held_.FrameCount() > 1 && !Measure(0.0, error)) { return false; }
     if (!FitsViewTo(bounded, eye, error)) { return false; }
     Camera_.Prepared().Eye = eye;
   }
@@ -1026,7 +1037,7 @@ bool Live::SetGeometry(outshine::Geometry &&built,
   Camera_.Invalidate();
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
-  Held_.Carries(std::move(built));
+  Held_.SetGeometry(std::move(built));
   Stoodup_ = false;
   Carrying_ = carried;
   const auto phaseAt = std::chrono::steady_clock::now();
@@ -1048,14 +1059,14 @@ bool Live::Advance(std::string &error) {
   const Heap::Tagged advancing(kAdvancingTag);
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
-  if (Held_.Moves() && Held_.DurationS() > 0.0) {
-    Held_.Advances(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
-                   Declared_.Animation == Scenario::AssetAnimation::Loop);
+  if (Held_.IsAnimated() && Held_.DurationS() > 0.0) {
+    Held_.Advance(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
+                  Declared_.Animation == Scenario::AssetAnimation::Loop);
     const size_t beforePose = Heap::TakenUnder("live-pose");
     {
       static const Heap::Tag kPosingTag("live-pose");
       const Heap::Tagged posing(kPosingTag);
-      if (!Pose(Held_.AtS(), error)) { return false; }
+      if (!Pose(Held_.TimeS(), error)) { return false; }
     }
     TookPosing_ = took("live-pose", beforePose);
     const size_t beforeSubmit = Heap::TakenUnder("live-submit");
@@ -1100,7 +1111,7 @@ bool Live::Draw(std::string &error) {
       error = std::move(rendered.error());
       return false;
     }
-    if (Held_.Moves()) {
+    if (Held_.IsAnimated()) {
       CapturesRenderedPositions();
       Stood_.Posed(RenderedPositionsM_);
     }
