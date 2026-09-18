@@ -3,12 +3,14 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <span>
 #include <vector>
 
 #include "Check.h"
 #include "GpuOwned.h"
 #include "KernelShape.h"
 #include "ShaderFile.h"
+#include "TexelChain.h"
 
 namespace {
 using namespace outshine::Render;
@@ -23,26 +25,51 @@ struct Fixture {
   OwnedTexture Source;
   OwnedSampler Sampler;
   OwnedPipeline Pipeline;
-  OwnedTransfer Upload;
 
   explicit Fixture(SDL_GPUDevice *device) : Device(device) {}
 };
 
 enum class MipMode { None, Nearest, Linear };
 
-std::vector<uint8_t> Pixels(uint32_t width) {
-  std::vector<uint8_t> pixels(static_cast<size_t>(width) * width * kChannels);
+uint32_t Levels(MipMode mode);
+
+std::vector<float> Pixels(uint32_t width) {
+  std::vector<float> pixels(static_cast<size_t>(width) * width * kChannels);
   for (uint32_t y = 0; y < width; ++y) {
     for (uint32_t x = 0; x < width; ++x) {
       const size_t at = (static_cast<size_t>(y) * width + x) * kChannels;
-      const uint8_t checker = ((x ^ y) & 1u) == 0 ? 0 : 255;
+      const float checker = ((x ^ y) & 1u) == 0 ? 0.0f : 1.0f;
       pixels[at] = checker;
-      pixels[at + 1] = static_cast<uint8_t>(255u - checker);
-      pixels[at + 2] = static_cast<uint8_t>((x * 255u) / (width - 1u));
-      pixels[at + 3] = 255;
+      pixels[at + 1] = 1.0f - checker;
+      pixels[at + 2] = static_cast<float>(x) / static_cast<float>(width - 1u);
+      pixels[at + 3] = 1.0f;
     }
   }
   return pixels;
+}
+
+std::vector<uint8_t> Encode(std::span<const float> linear) {
+  std::vector<uint8_t> encoded(linear.size());
+  for (size_t at = 0; at < linear.size(); ++at) {
+    encoded[at] = static_cast<uint8_t>(std::lround(std::clamp(linear[at], 0.0f, 1.0f) * 255.0f));
+  }
+  return encoded;
+}
+
+std::vector<std::vector<uint8_t>> Chain(MipMode mode) {
+  std::vector<float> level = Pixels(kSourceWidth);
+  std::vector<std::vector<uint8_t>> chain;
+  uint32_t width = kSourceWidth;
+  for (uint32_t mip = 0; mip < Levels(mode); ++mip) {
+    chain.push_back(Encode(level));
+    if (width > 1) {
+      std::vector<float> next;
+      HalveInPlace(level, {.WidthPx = width, .HeightPx = width}, next, TexelKind::Value);
+      level.swap(next);
+      width /= 2;
+    }
+  }
+  return chain;
 }
 
 uint32_t Levels(MipMode mode) {
@@ -52,14 +79,11 @@ uint32_t Levels(MipMode mode) {
   return levels;
 }
 
-bool UploadChain(Fixture &fixture, MipMode mode) {
+bool UploadChain(Fixture &fixture, MipMode mode, bool separateSubmits) {
   const uint32_t levels = Levels(mode);
-  std::vector<std::vector<uint8_t>> chain;
+  const auto chain = Chain(mode);
   uint32_t bytes = 0;
-  for (uint32_t width = kSourceWidth; chain.size() < levels; width /= 2) {
-    chain.push_back(Pixels(width));
-    bytes += static_cast<uint32_t>(chain.back().size());
-  }
+  for (const auto &level : chain) { bytes += static_cast<uint32_t>(level.size()); }
   SDL_GPUTextureCreateInfo texture{};
   texture.type = SDL_GPU_TEXTURETYPE_2D;
   texture.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -72,48 +96,84 @@ bool UploadChain(Fixture &fixture, MipMode mode) {
   fixture.Source =
       OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &texture));
   if (!fixture.Source) { return false; }
+  if (separateSubmits) {
+    uint32_t width = kSourceWidth;
+    for (uint32_t mip = 0; mip < levels; ++mip) {
+      SDL_GPUTransferBufferCreateInfo one{};
+      one.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+      one.size = static_cast<uint32_t>(chain[mip].size());
+      const OwnedTransfer staging(fixture.Device.Get(),
+                                  SDL_CreateGPUTransferBuffer(fixture.Device.Get(), &one));
+      if (!staging) { return false; }
+      void *mapped = SDL_MapGPUTransferBuffer(fixture.Device.Get(), staging.Get(), false);
+      if (mapped == nullptr) { return false; }
+      std::memcpy(mapped, chain[mip].data(), chain[mip].size());
+      SDL_UnmapGPUTransferBuffer(fixture.Device.Get(), staging.Get());
+      SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(fixture.Device.Get());
+      if (commands == nullptr) { return false; }
+      SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+      if (copy == nullptr) {
+        SDL_CancelGPUCommandBuffer(commands);
+        return false;
+      }
+      SDL_GPUTextureTransferInfo source{
+          .transfer_buffer = staging.Get(), .pixels_per_row = width, .rows_per_layer = width};
+      SDL_GPUTextureRegion destination{
+          .texture = fixture.Source.Get(), .mip_level = mip, .w = width, .h = width, .d = 1};
+      SDL_UploadToGPUTexture(copy, &source, &destination, false);
+      SDL_EndGPUCopyPass(copy);
+      if (!SDL_SubmitGPUCommandBuffer(commands)) { return false; }
+      width /= 2;
+    }
+    return true;
+  }
   SDL_GPUTransferBufferCreateInfo transfer{};
   transfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   transfer.size = bytes;
-  fixture.Upload = OwnedTransfer(fixture.Device.Get(),
-                                 SDL_CreateGPUTransferBuffer(fixture.Device.Get(), &transfer));
-  if (!fixture.Upload) { return false; }
-  auto *mapped = static_cast<uint8_t *>(
-      SDL_MapGPUTransferBuffer(fixture.Device.Get(), fixture.Upload.Get(), false));
+  OwnedTransfer upload(fixture.Device.Get(),
+                       SDL_CreateGPUTransferBuffer(fixture.Device.Get(), &transfer));
+  if (!upload) { return false; }
+  auto *mapped =
+      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(fixture.Device.Get(), upload.Get(), false));
   if (mapped == nullptr) { return false; }
   uint32_t offset = 0;
   for (const auto &level : chain) {
     std::memcpy(mapped + offset, level.data(), level.size());
     offset += static_cast<uint32_t>(level.size());
   }
-  SDL_UnmapGPUTransferBuffer(fixture.Device.Get(), fixture.Upload.Get());
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(fixture.Device.Get());
-  if (commands == nullptr) { return false; }
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  if (copy == nullptr) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return false;
-  }
-  offset = 0;
-  uint32_t width = kSourceWidth;
-  for (uint32_t mip = 0; mip < levels; ++mip) {
-    SDL_GPUTextureTransferInfo source{.transfer_buffer = fixture.Upload.Get(),
-                                      .offset = offset,
-                                      .pixels_per_row = width,
-                                      .rows_per_layer = width};
-    SDL_GPUTextureRegion destination{
-        .texture = fixture.Source.Get(), .mip_level = mip, .w = width, .h = width, .d = 1};
-    SDL_UploadToGPUTexture(copy, &source, &destination, false);
-    offset += width * width * kChannels;
-    width /= 2;
-  }
-  SDL_EndGPUCopyPass(copy);
-  if (!SDL_SubmitGPUCommandBuffer(commands)) { return false; }
-  return true;
+  SDL_UnmapGPUTransferBuffer(fixture.Device.Get(), upload.Get());
+  const auto record = [&](uint32_t first, uint32_t count) {
+    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(fixture.Device.Get());
+    if (commands == nullptr) { return false; }
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+    if (copy == nullptr) {
+      SDL_CancelGPUCommandBuffer(commands);
+      return false;
+    }
+    uint32_t levelOffset = 0;
+    for (uint32_t prior = 0; prior < first; ++prior) {
+      levelOffset += static_cast<uint32_t>(chain[prior].size());
+    }
+    uint32_t width = kSourceWidth >> first;
+    for (uint32_t mip = first; mip < first + count; ++mip) {
+      SDL_GPUTextureTransferInfo source{.transfer_buffer = upload.Get(),
+                                        .offset = levelOffset,
+                                        .pixels_per_row = width,
+                                        .rows_per_layer = width};
+      SDL_GPUTextureRegion destination{
+          .texture = fixture.Source.Get(), .mip_level = mip, .w = width, .h = width, .d = 1};
+      SDL_UploadToGPUTexture(copy, &source, &destination, false);
+      levelOffset += static_cast<uint32_t>(chain[mip].size());
+      width /= 2;
+    }
+    SDL_EndGPUCopyPass(copy);
+    return SDL_SubmitGPUCommandBuffer(commands);
+  };
+  return record(0, levels);
 }
 
-bool Configure(Fixture &fixture, MipMode mode) {
-  if (!UploadChain(fixture, mode)) { return false; }
+bool Configure(Fixture &fixture, MipMode mode, bool separateSubmits) {
+  if (!UploadChain(fixture, mode, separateSubmits)) { return false; }
   SDL_GPUSamplerCreateInfo sampler{};
   sampler.min_filter = SDL_GPU_FILTER_LINEAR;
   sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
@@ -213,25 +273,26 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   return pixels;
 }
 
-std::vector<uint8_t> Render(MipMode mode) {
+std::vector<uint8_t> Render(MipMode mode, bool separateSubmits) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  if (!fixture.Device || !Configure(fixture, mode)) { return {}; }
+  if (!fixture.Device || !Configure(fixture, mode, separateSubmits)) { return {}; }
   return Draw(fixture);
 }
 
-void CheckMode(MipMode mode, const char *name) {
+void CheckMode(MipMode mode, bool separateSubmits, const char *name) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  CHECK(fixture.Device && Configure(fixture, mode), "the raw SDL fixture configures");
+  CHECK(fixture.Device && Configure(fixture, mode, separateSubmits),
+        "the raw SDL fixture configures");
   if (!fixture.Device || !fixture.Pipeline) { return; }
   const auto first = Draw(fixture);
   const auto repeated = Draw(fixture);
-  const auto fresh = Render(mode);
+  const auto fresh = Render(mode, separateSubmits);
   CHECK(!first.empty(), "the raw SDL fixture renders its first filtered frame");
   CHECK(first == repeated, name);
   CHECK(first == fresh, "a fresh SDL device has the same first filtered frame");
@@ -240,9 +301,11 @@ void CheckMode(MipMode mode, const char *name) {
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes for raw filtered sampling");
-  CheckMode(MipMode::None, "base-only linear sampling repeats exactly");
-  CheckMode(MipMode::Nearest, "nearest-mip linear sampling repeats exactly");
-  CheckMode(MipMode::Linear, "linear-mip linear sampling repeats exactly");
+  CheckMode(MipMode::None, false, "base-only linear sampling repeats exactly");
+  CheckMode(MipMode::Nearest, false, "batched nearest-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, false, "batched linear-mip sampling repeats exactly");
+  CheckMode(MipMode::Nearest, true, "per-level nearest-mip sampling repeats exactly");
+  CheckMode(MipMode::Linear, true, "per-level linear-mip sampling repeats exactly");
   SDL_Quit();
   return Report();
 }
