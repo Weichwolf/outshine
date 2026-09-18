@@ -2,72 +2,40 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
-#include <limits>
 #include <span>
 #include <utility>
 #include <vector>
 
-#include "ChunkSurface.h"
 #include "TileGeodesy.h"
 #include "TerrainGrid.h"
 #include "math/Vec3.h"
 
 namespace outshine::Generators {
-namespace {
-
-[[nodiscard]] double FractionOf(int node, uint32_t postings, int side) {
-  return static_cast<double>(Ground::ChunkNodePosting(node, postings, side)) /
-         static_cast<double>(postings - 1u);
-}
-
-[[nodiscard]] double NodeFraction(const Sheet &sheet, int node, int side) {
-  if (sheet.Virtual || sheet.SourceZoom >= 0) {
-    return static_cast<double>(node) / static_cast<double>(side - 1);
-  }
-  if (node < 0) { return -FractionOf(1, sheet.Postings, side); }
-  if (node >= side) { return 2.0 - FractionOf(side - 2, sheet.Postings, side); }
-  return FractionOf(node, sheet.Postings, side);
-}
-
-[[nodiscard]] size_t PageNode(int column, int row, TerrainPageLayout layout) {
-  const auto pageSide = static_cast<size_t>(layout.Side) + 2u * static_cast<size_t>(layout.Halo);
-  return static_cast<size_t>(row + layout.Halo) * pageSide +
-         static_cast<size_t>(column + layout.Halo);
-}
-
-}
-
 PressedTerrain PressTerrain(std::span<const Yields> yields,
                             Patchwork &candidate,
                             const TangentFrame &frame,
                             TerrainPageLayout layout,
                             double mostEarthworkM) {
-  if (yields.empty() || layout.Side < 2 || layout.Halo < 0) { return {}; }
-  const int64_t pageSideWide =
-      static_cast<int64_t>(layout.Side) + 2 * static_cast<int64_t>(layout.Halo);
-  if (pageSideWide > static_cast<int64_t>(std::numeric_limits<int>::max())) { return {}; }
-  const auto pageSide = static_cast<size_t>(pageSideWide);
-  if (pageSide > std::numeric_limits<size_t>::max() / pageSide) { return {}; }
-  const size_t pageNodes = pageSide * pageSide;
+  if (yields.empty() || !layout.Valid()) { return {}; }
+  const size_t pageSide = layout.PageSide();
   std::vector<EastNorth> positions;
   std::vector<double> heights;
   std::vector<std::pair<size_t, size_t>> sources;
   for (size_t sheetAt = 0; sheetAt < candidate.Sheets.size(); ++sheetAt) {
     const Sheet &sheet = candidate.Sheets[sheetAt];
     if (sheet.Side != layout.Side || (!sheet.Virtual && sheet.Postings < 2) ||
-        sheet.Nodes.size() != pageNodes) {
+        sheet.Nodes.size() != layout.NodeCount()) {
       continue;
     }
     for (int row = -layout.Halo; row < layout.Side + layout.Halo; ++row) {
-      const double rowFraction = NodeFraction(sheet, row, layout.Side);
+      const double rowFraction = layout.FractionAt(sheet, row);
       for (int column = -layout.Halo; column < layout.Side + layout.Halo; ++column) {
-        const double columnFraction = NodeFraction(sheet, column, layout.Side);
+        const double columnFraction = layout.FractionAt(sheet, column);
         const Ground::Geo geo =
             Ground::TileFracToGeo({.X = static_cast<double>(sheet.Tile.X) + columnFraction,
                                    .Y = static_cast<double>(sheet.Tile.Y) + rowFraction},
                                   sheet.Tile.Zoom);
-        const size_t node = PageNode(column, row, layout);
+        const size_t node = layout.NodeAt(column, row);
         const EastNorthUp placed = frame.Place({.LongitudeDeg = geo.LongitudeDeg,
                                                 .LatitudeDeg = geo.LatitudeDeg,
                                                 .HeightM = static_cast<double>(sheet.Nodes[node])});
@@ -111,8 +79,8 @@ PressedTerrain PressTerrain(std::span<const Yields> yields,
     const int column = static_cast<int>(sources[point].second % pageSide) - layout.Halo;
     const int row = static_cast<int>(sources[point].second / pageSide) - layout.Halo;
     const Ground::Geo geo = Ground::TileFracToGeo(
-        {.X = static_cast<double>(sheet.Tile.X) + NodeFraction(sheet, column, layout.Side),
-         .Y = static_cast<double>(sheet.Tile.Y) + NodeFraction(sheet, row, layout.Side)},
+        {.X = static_cast<double>(sheet.Tile.X) + layout.FractionAt(sheet, column),
+         .Y = static_cast<double>(sheet.Tile.Y) + layout.FractionAt(sheet, row)},
         sheet.Tile.Zoom);
     written[point] =
         frame

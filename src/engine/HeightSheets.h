@@ -34,16 +34,6 @@ public:
     Framed_ = true;
   }
 
-  struct Soup {
-    std::vector<float> PositionM;
-    std::vector<uint32_t> Index;
-    double TallestM = 0.0;
-    double LowestM = 0.0;
-    double TallestOutM = 0.0;
-  };
-
-  [[nodiscard]] Soup SoupOf(const Patchwork &laid, int zoomAtLeast = 0) const;
-
   [[nodiscard]] bool Hands(Patchwork &laid, std::string &error);
 
   struct Nearer {

@@ -65,8 +65,14 @@ preparation stays usable while its ownership is separated. Do not use a file mov
 private `Patchwork` storage. Its explicit side/halo layout removes GroundLattice from the
 algorithm. Flat-pad, sloped-corridor and invalid-layout controls run without Engine, SDL or
 renderer; the unchanged public floor-contact Place and standalone generator-link claim pass.
-HeightSheets retains sampling, refinement, mesh assembly and resource application; those
+HeightSheets retains sampling, refinement and resource application; those
 remaining responsibilities are the next slices, so this WI is not complete.
+
+`Generators::BuildTerrainMesh` now converts candidate pages to the native indexed mesh and
+relief range without Engine or renderer ownership. `TerrainPageLayout` owns the shared explicit
+side/halo addressing used by pressing and meshing. HeightSheets no longer owns mesh assembly;
+sampling, halo/refinement and GPU application remain. The analytical quad fixes winding,
+visible-node range and zoom filtering; the public floor-contact Place remains green.
 
 ## Acceptance and commands
 

@@ -40,6 +40,7 @@
 #include "geo/PlaceKey.h"
 #include "spatial/Refine.h"
 #include "Corridors.h"
+#include "TerrainMesh.h"
 #include "TerrainPress.h"
 #include "EngineHeld.h"
 #include "GroundWorldCandidate.h"
@@ -731,9 +732,10 @@ bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt).count(),
       "ms");
   if (!build.Sheets.Hands(patchwork, Error)) { return false; }
-  HeightSheets::Soup pressed = build.Sheets.SoupOf(patchwork);
-  build.PositionsM = std::move(pressed.PositionM);
-  build.Indices = std::move(pressed.Index);
+  Generators::TerrainMesh pressed = Generators::BuildTerrainMesh(
+      patchwork, standing, {.Side = Render::GroundLattice::kSide, .Halo = 1});
+  build.PositionsM = std::move(pressed.PositionsM);
+  build.Indices = std::move(pressed.Indices);
   return true;
 }
 
@@ -906,11 +908,12 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       return GroundBuildProgress::Pending;
     }
     case GroundBuildState::SheetPhase::NeedsMesh: {
-      const HeightSheets::Soup soup = build.Sheets.SoupOf(patchwork);
-      build.PositionsM = soup.PositionM;
-      build.Indices = soup.Index;
+      const Generators::TerrainMesh mesh = Generators::BuildTerrainMesh(
+          patchwork, standing, {.Side = Render::GroundLattice::kSide, .Halo = 1});
+      build.PositionsM = mesh.PositionsM;
+      build.Indices = mesh.Indices;
       TellsTheRelief(
-          {.Tallest = soup.TallestM, .Lowest = soup.LowestM, .TallestOutM = soup.TallestOutM});
+          {.Tallest = mesh.TallestM, .Lowest = mesh.LowestM, .TallestOutM = mesh.TallestDistanceM});
       state.AdvancesSheetsTo(GroundBuildState::SheetPhase::Ready);
       return GroundBuildProgress::Ready;
     }

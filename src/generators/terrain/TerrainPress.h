@@ -7,13 +7,9 @@
 #include "GroundMesher.h"
 #include "GroundYield.h"
 #include "TangentFrame.h"
+#include "TerrainPage.h"
 
 namespace outshine::Generators {
-
-struct TerrainPageLayout {
-  int Side = 0;
-  int Halo = 0;
-};
 
 struct PressedTerrain {
   size_t Nodes = 0;

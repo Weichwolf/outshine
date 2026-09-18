@@ -444,57 +444,6 @@ size_t HeightSheets::Refine(Patchwork &laid, Nearer how) {
   return count;
 }
 
-HeightSheets::Soup HeightSheets::SoupOf(const Patchwork &laid, int zoomAtLeast) const {
-  constexpr int side = Render::GroundLattice::kSide;
-  Soup out;
-  out.TallestM = -kBeyondAnyCoordinate;
-  out.LowestM = kBeyondAnyCoordinate;
-  if (!Framed_) { return out; }
-  for (const Sheet &one : laid.Sheets) {
-    if (one.Side != side || (!one.Virtual && one.Postings < 2) || one.Tile.Zoom < zoomAtLeast ||
-        one.Nodes.size() != Render::GroundLattice::kPageNodes) {
-      continue;
-    }
-    const auto first = static_cast<uint32_t>(out.PositionM.size() / 3u);
-    for (int j = 0; j < side; ++j) {
-      const double fy = NodeFraction(one, j);
-      for (int i = 0; i < side; ++i) {
-        const double fx = NodeFraction(one, i);
-        const Ground::Geo geo = Ground::TileFracToGeo(
-            {.X = static_cast<double>(one.Tile.X) + fx, .Y = static_cast<double>(one.Tile.Y) + fy},
-            one.Tile.Zoom);
-        const auto heightM = static_cast<double>(one.Nodes[PageNode(i, j)]);
-        const EastNorthUp stood = Frame_.Place(
-            {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = heightM});
-        out.PositionM.push_back(static_cast<float>(stood.EastM));
-        out.PositionM.push_back(static_cast<float>(stood.UpM));
-        out.PositionM.push_back(static_cast<float>(RenderFrame::ZOfNorth(stood.NorthM)));
-        if (heightM > out.TallestM) {
-          out.TallestM = heightM;
-          out.TallestOutM = std::hypot(stood.EastM, stood.NorthM);
-        }
-        out.LowestM = std::min(out.LowestM, heightM);
-      }
-    }
-    const auto at = [first](int i, int j) {
-      return first + static_cast<uint32_t>(j) * static_cast<uint32_t>(side) +
-             static_cast<uint32_t>(i);
-    };
-    for (int j = 0; j + 1 < side; ++j) {
-      for (int i = 0; i + 1 < side; ++i) {
-        out.Index.insert(
-            out.Index.end(),
-            {at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i, j), at(i + 1, j + 1), at(i + 1, j)});
-      }
-    }
-  }
-  if (out.PositionM.empty()) {
-    out.TallestM = 0.0;
-    out.LowestM = 0.0;
-  }
-  return out;
-}
-
 bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
   for (const Sheet &sheet : laid.Sheets) {
     if (sheet.Side != Render::GroundLattice::kSide || sheet.Virtual || sheet.Postings < 2 ||
