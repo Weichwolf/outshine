@@ -40,8 +40,9 @@ Subject construction or its render pipeline.
 1280×720 target and the same filtered checker material. Clearing all tangent vectors, UV1 data or vertex colours from the native Chess clone
 separately leaves the exact 504-channel, 0.220703 defect. A copied single native part, including its original images/material and attributes, is also
 red but only changes 3 channels (maximum 0.000244141). Multi-part packing amplifies
-rather than solely causes the defect. The remaining input is one part's position/normal,
-UV0 or material data, followed by multi-part amplification. Atmosphere is already disproved by the pre-atmosphere evidence.
+rather than solely causes the defect. `ImportedChessSinglePartConstantUvRepeatsLinearPixels`
+is exact after replacing only UV0 by a constant. The defect requires varying UV0 derivatives
+inside the real Subject pipeline; material data and geometry positions remain unchanged. Atmosphere is already disproved by the pre-atmosphere evidence.
 
 ## Decision
 
@@ -73,9 +74,11 @@ green test requires the next reducer to add one missing engine input at a time.
 5. [x] Send a cloned imported native Geometry through `setGeometry`; it is red.
 6. [x] Prove the Chess perspective on a single native mipmapped quad exact.
 7. [x] Reduce to one copied native part: residual is 3 channels; multi-part packing amplifies it.
-8. Reduce that part's position/normal, UV0 and material input before multi-part work.
-   Keep camera and sampler fixed. Do not return to atmosphere.
-9. In parallel but separately, WI 2235 makes complete sampled-image ownership and
+8. [x] Replace only the single part's UV0 with a constant: it is exact.
+9. Reduce the real Subject varying-UV pipeline and compare its derivative inputs against the
+   raw vertex test; then return to multi-part amplification. Keep camera and sampler fixed.
+10. In parallel but separately, WI 2235 makes complete sampled-image ownership and
+10. In parallel but separately, WI 2235 makes complete sampled-image ownership and
    asynchronous candidate publication correct. It must preserve pixels but is not
    claimed as this defect's repair.
 
