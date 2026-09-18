@@ -91,8 +91,8 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
 3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele; `Skeleton` besitzt
    Joint-Nodes/inverse Binds; `MeshAssetSet` besitzt alle Vertex-/Indexdaten, Skinbindung und Morphdeltas.
-   Mesh-Accessors werden nur beim Import dekodiert. `SceneAsset` besitzt Node-Instanzen,
-   `MeshPrimitive` Materialvarianten. Nächstens Hierarchie, Restpose, Morphbereiche und Lichter.
+   Mesh-Accessors werden nur beim Import dekodiert. `SceneAsset` besitzt Hierarchie, Restpose,
+   Roots, Morphbereiche und Instanzen; `MeshPrimitive` Materialvarianten. Nächstens native Lichter.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 

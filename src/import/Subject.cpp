@@ -352,16 +352,16 @@ bool Subject::Build(const Document &document,
                     std::span<const AffineTransform> pose,
                     std::span<const double> weights,
                     const VariantSelection &variant) {
-  if (pose.size() != document.Nodes().size()) {
+  if (pose.size() != scene.NodeCount()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(pose.size()) +
-                  " local transforms and the file carries " +
-                  std::to_string(document.Nodes().size()) + " nodes");
+                  " local transforms and the file carries " + std::to_string(scene.NodeCount()) +
+                  " nodes");
   }
 
-  if (!weights.empty() && weights.size() != document.MorphWeightsTotal()) {
+  if (!weights.empty() && weights.size() != scene.MorphWeightCount()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(weights.size()) +
                   " morph weights and the file's nodes carry " +
-                  std::to_string(document.MorphWeightsTotal()));
+                  std::to_string(scene.MorphWeightCount()));
   }
   return Flatten(document,
                  skeletons,
@@ -438,8 +438,8 @@ bool Subject::EmitPart(outshine::Geometry &made, const Part &part) {
 }
 
 bool Subject::FlattenLight(const Document &document,
-                           int nodeIndex,
-                           const Node &node,
+                           size_t nodeIndex,
+                           const SceneNodeAsset &node,
                            const AffineTransform &placement) {
   const LightRef &declared = document.Lights()[static_cast<size_t>(node.Light)];
   PlacedLight placed;
@@ -523,20 +523,18 @@ void Subject::ReadVertexNormals(const MeshPrimitive &mesh,
   }
 }
 
-bool Subject::PlacementOf(const Document &document,
-                          const Posing &posed,
-                          int node,
-                          AffineTransform &out) {
-  return posed.Pose != nullptr
-             ? document.WorldTransform(
-                   node, std::span<const AffineTransform>(posed.Pose, document.Nodes().size()), out)
-             : document.WorldTransform(node, out);
+bool Subject::PlacementOf(const Posing &posed, size_t node, AffineTransform &out) {
+  const std::span<const AffineTransform> pose =
+      posed.Pose == nullptr
+          ? std::span<const AffineTransform>()
+          : std::span<const AffineTransform>(posed.Pose, posed.Scene->NodeCount());
+  return posed.Scene->WorldTransform(node, pose, out);
 }
 
 bool Subject::ResolveJointMatrices(const Document &document,
                                    const Posing &posed,
-                                   int nodeIndex,
-                                   const Node &node,
+                                   size_t nodeIndex,
+                                   const SceneNodeAsset &node,
                                    std::vector<AffineTransform> &out) {
   out.clear();
   if (node.Skin < 0) { return true; }
@@ -549,7 +547,7 @@ bool Subject::ResolveJointMatrices(const Document &document,
   for (size_t joint = 0; joint < skeleton.JointNodes.size(); ++joint) {
     AffineTransform placed;
     const uint32_t jointNode = skeleton.JointNodes[joint];
-    if (!PlacementOf(document, posed, static_cast<int>(jointNode), placed)) {
+    if (!PlacementOf(posed, static_cast<size_t>(jointNode), placed)) {
       return Refuse(document.Path() + ": joint node " + std::to_string(jointNode) +
                     " has no world transform: " + document.Error());
     }
@@ -563,28 +561,29 @@ bool Subject::FlattenMesh(const Document &document,
                           int nodeIndex,
                           outshine::Geometry &made,
                           size_t &primitives) {
-  const Node &node = document.Nodes()[static_cast<size_t>(nodeIndex)];
+  const SceneNodeAsset *nativeNode = posed.Scene->Node(static_cast<size_t>(nodeIndex));
+  if (nativeNode == nullptr) {
+    return Refuse(document.Path() + ": native scene has no node " + std::to_string(nodeIndex));
+  }
+  const SceneNodeAsset &node = *nativeNode;
   if (node.Mesh < 0) { return true; }
-  if (static_cast<size_t>(node.Mesh) >= document.Meshes().size()) {
+  if (static_cast<size_t>(node.Mesh) >= posed.Meshes->MeshCount()) {
     return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) + " names mesh " +
                   std::to_string(node.Mesh) + ", which the file does not carry");
   }
   AffineTransform world;
-  if (!PlacementOf(document, posed, nodeIndex, world)) {
+  if (!PlacementOf(posed, static_cast<size_t>(nodeIndex), world)) {
     return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                   " has no world transform: " + document.Error());
   }
 
-  const size_t morphCount = document.MorphWeightsCount(nodeIndex);
+  const size_t morphCount = node.RestMorphWeights.size();
   std::vector<double> &nodeWeights = Scratch_.NodeWeights;
   nodeWeights.clear();
   if (morphCount > 0) {
-    const std::vector<double> &declared = document.Meshes()[static_cast<size_t>(node.Mesh)].Weights;
     for (size_t at = 0; at < morphCount; ++at) {
-      const double asDeclared = at < declared.size() ? declared[at] : 0.0;
-      nodeWeights.push_back((posed.Weights != nullptr)
-                                ? posed.Weights[document.MorphWeightsFirst(nodeIndex) + at]
-                                : asDeclared);
+      nodeWeights.push_back((posed.Weights != nullptr) ? posed.Weights[node.MorphWeightFirst + at]
+                                                       : node.RestMorphWeights[at]);
     }
   }
 
@@ -728,10 +727,7 @@ bool Subject::Flatten(const Document &document,
   outshine::Geometry &made = Scratch_.Made;
   made.clear();
   if (!CopyDeclaredMaterials(document, made)) { return false; }
-  const int sceneIndex = document.DefaultScene();
-  if (sceneIndex < 0 || static_cast<size_t>(sceneIndex) >= document.Scenes().size()) {
-    return Refuse(document.Path() + ": no default scene to draw");
-  }
+  if (scene.Roots().empty()) { return Refuse(document.Path() + ": no default scene to draw"); }
 
   int activeVariant = -1;
   {
@@ -747,29 +743,33 @@ bool Subject::Flatten(const Document &document,
                      .Weights = weights,
                      .Variant = activeVariant};
 
-  std::vector<int> pending(document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rbegin(),
-                           document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rend());
+  std::vector<uint32_t> pending(scene.Roots().rbegin(), scene.Roots().rend());
 
   size_t primitives = 0;
   while (!pending.empty()) {
-    const int nodeIndex = pending.back();
+    const uint32_t nodeIndex = pending.back();
     pending.pop_back();
-    if (nodeIndex < 0 || static_cast<size_t>(nodeIndex) >= document.Nodes().size()) {
+    const SceneNodeAsset *nodeAsset = scene.Node(static_cast<size_t>(nodeIndex));
+    if (nodeAsset == nullptr) {
       return Refuse(document.Path() + ": scene names node " + std::to_string(nodeIndex) +
                     ", which the file does not carry");
     }
-    const Node &node = document.Nodes()[static_cast<size_t>(nodeIndex)];
+    const SceneNodeAsset &node = *nodeAsset;
     if (!node.Visible) { continue; }
-    for (const int child : std::views::reverse(node.Children)) { pending.push_back(child); }
+    for (const uint32_t child : std::views::reverse(node.Children)) { pending.push_back(child); }
     if (node.Light >= 0) {
       AffineTransform placement;
-      if (!PlacementOf(document, posed, nodeIndex, placement)) {
+      if (!PlacementOf(posed, static_cast<size_t>(nodeIndex), placement)) {
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and has no world transform: " + document.Error());
       }
-      if (!FlattenLight(document, nodeIndex, node, placement)) { return false; }
+      if (!FlattenLight(document, static_cast<size_t>(nodeIndex), node, placement)) {
+        return false;
+      }
     }
-    if (!FlattenMesh(document, posed, nodeIndex, made, primitives)) { return false; }
+    if (!FlattenMesh(document, posed, static_cast<int>(nodeIndex), made, primitives)) {
+      return false;
+    }
   }
 
   if (made.parts() == 0) {

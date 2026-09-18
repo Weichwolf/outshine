@@ -186,12 +186,11 @@ private:
     int Variant = -1;
   };
 
-  [[nodiscard]] static bool
-  PlacementOf(const Document &document, const Posing &posed, int node, AffineTransform &out);
+  [[nodiscard]] static bool PlacementOf(const Posing &posed, size_t node, AffineTransform &out);
   [[nodiscard]] bool ResolveJointMatrices(const Document &document,
                                           const Posing &posed,
-                                          int nodeIndex,
-                                          const Node &node,
+                                          size_t nodeIndex,
+                                          const SceneNodeAsset &node,
                                           std::vector<AffineTransform> &out);
   [[nodiscard]] bool FlattenMesh(const Document &document,
                                  const Posing &posed,
@@ -200,7 +199,7 @@ private:
                                  size_t &primitives);
 
   struct Placing {
-    const Node &Node;
+    const SceneNodeAsset &Node;
     const AffineTransform &World;
     const AffineTransform &Placed;
     std::span<const AffineTransform> Joints;
@@ -217,8 +216,8 @@ private:
                                      std::span<const AffineTransform> skinned);
   [[nodiscard]] bool EmitPart(outshine::Geometry &made, const Part &part);
   [[nodiscard]] bool FlattenLight(const Document &document,
-                                  int nodeIndex,
-                                  const Node &node,
+                                  size_t nodeIndex,
+                                  const SceneNodeAsset &node,
                                   const AffineTransform &placement);
   void ReadUvSets(const MeshPrimitive &mesh, size_t vertices, Part &part);
   void ReadVertexColours(const MeshPrimitive &mesh, size_t vertices, Part &part);

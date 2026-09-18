@@ -34,7 +34,8 @@ int main() {
         {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,0]},
         {"bufferView":1,"componentType":5126,"count":2,"type":"VEC3"}],
       "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
-      "nodes":[{"mesh":0,"extensions":{"EXT_mesh_gpu_instancing":{"attributes":{"TRANSLATION":1}}}}],
+      "nodes":[{"name":"root","children":[1],"translation":[10,0,0]},
+        {"name":"placed","mesh":0,"extensions":{"EXT_mesh_gpu_instancing":{"attributes":{"TRANSLATION":1}}}}],
       "scenes":[{"nodes":[0]}],"scene":0})";
     CHECK(file.good(), "scene declaration written");
   }
@@ -46,7 +47,7 @@ int main() {
     CHECK(document.ReadFile((root / "scene.gltf").string()), document.Error().c_str());
     CHECK(ImportSceneAsset(document, scene, error), error.c_str());
   }
-  const SceneNodeAsset *node = scene.Node(0);
+  const SceneNodeAsset *node = scene.Node(1);
   CHECK(node != nullptr && node->Instances.size() == 2, "native instance count retained");
   if (node != nullptr && node->Instances.size() == 2) {
     Vec3 first;
@@ -56,6 +57,14 @@ int main() {
     CHECK(first == Vec3({{2, 3, 4}}) && second == Vec3({{5, 6, 7}}),
           "native instance transforms outlive the import document");
   }
+  AffineTransform world;
+  Vec3 origin;
+  CHECK(scene.NodeCount() == 2 && scene.Roots().size() == 1 && scene.Roots()[0] == 0 &&
+            node != nullptr && node->Parent == 0 && node->Mesh == 0 && node->Name == "placed" &&
+            scene.WorldTransform(1, {}, world),
+        "native hierarchy, roots and node bindings outlive the import document");
+  world.Point({{0, 0, 0}}, origin);
+  CHECK(origin == Vec3({{10, 0, 0}}), "native rest hierarchy composes in parent-first order");
 
   std::error_code cleanup;
   std::filesystem::remove_all(root, cleanup);

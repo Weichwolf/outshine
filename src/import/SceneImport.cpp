@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -87,12 +88,49 @@ bool ImportInstances(const Document &document,
 bool ImportSceneAsset(const Document &document, SceneAsset &out, std::string &error) {
   std::vector<SceneNodeAsset> nodes;
   nodes.reserve(document.Nodes().size());
-  for (const Node &node : document.Nodes()) {
+  for (size_t nodeIndex = 0; nodeIndex < document.Nodes().size(); ++nodeIndex) {
+    const Node &node = document.Nodes()[nodeIndex];
     SceneNodeAsset native;
+    native.Name = node.Name;
+    native.Mesh = node.Mesh;
+    native.Skin = node.Skin;
+    native.Light = node.Light;
+    native.Visible = node.Visible;
+    native.RestLocal = node.HasMatrix
+                           ? AffineTransform::FromColumnMajor(node.Matrix)
+                           : AffineTransform::FromTrs(node.Translation, node.Rotation, node.Scale);
+    native.MorphWeightFirst = document.MorphWeightsFirst(nodeIndex);
+    const size_t morphCount = document.MorphWeightsCount(nodeIndex);
+    if (morphCount > 0) {
+      const std::vector<double> &declared =
+          document.Meshes()[static_cast<size_t>(node.Mesh)].Weights;
+      native.RestMorphWeights.reserve(morphCount);
+      for (size_t at = 0; at < morphCount; ++at) {
+        native.RestMorphWeights.push_back(at < declared.size() ? declared[at] : 0.0);
+      }
+    }
+    native.Children.reserve(node.Children.size());
+    for (const int child : node.Children) {
+      native.Children.push_back(static_cast<uint32_t>(child));
+    }
     if (!ImportInstances(document, node, native.Instances, error)) { return false; }
     nodes.push_back(std::move(native));
   }
-  out.Adopt(std::move(nodes));
+  for (size_t parent = 0; parent < nodes.size(); ++parent) {
+    for (const uint32_t child : nodes[parent].Children) {
+      nodes[child].Parent = static_cast<int>(parent);
+    }
+  }
+  const int defaultScene = document.DefaultScene();
+  if (defaultScene < 0 || static_cast<size_t>(defaultScene) >= document.Scenes().size()) {
+    error = document.Path() + ": no default scene to import";
+    return false;
+  }
+  std::vector<uint32_t> roots;
+  for (const int root : document.Scenes()[static_cast<size_t>(defaultScene)].Roots) {
+    roots.push_back(static_cast<uint32_t>(root));
+  }
+  out.Adopt(std::move(nodes), std::move(roots), document.MorphWeightsTotal());
   error.clear();
   return true;
 }
