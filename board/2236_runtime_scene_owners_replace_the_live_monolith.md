@@ -66,8 +66,9 @@ stores piece slots. The same owner now holds height-page sources and handles, te
 and ground-grid parameters. It translates native `TerrainTile` bindings into GPU instances and
 restores the complete terrain resource set inside a world candidate. `HeightSheets` depends on
 `SceneRenderer` instead of `Live`; all migrated height-page and terrain forwarding methods and
-state have been removed from `Live`. TilePieces and CrownPieces remain to migrate after their
-material-slot registration is extracted from Live.
+state have been removed from `Live`. `TilePieces` also uses `SceneRenderer` directly because its
+native material indices need no registration. CrownPieces remains to migrate after its material-slot
+registration is extracted from Live.
 
 ## Acceptance
 

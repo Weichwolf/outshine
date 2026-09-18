@@ -9,7 +9,7 @@
 #include <string>
 
 #include "Digest.h"
-#include "Live.h"
+#include "SceneRenderer.h"
 #include "Shape.h"
 
 namespace outshine {
@@ -37,7 +37,7 @@ bool TilePieces::Hands(uint32_t tile,
                        const Generators::BakedTile &baked,
                        const Vec3 &anchorEcef,
                        std::string &error) {
-  if (Live_ == nullptr) {
+  if (Renderer_ == nullptr) {
     error = "tile geometry requires a live world";
     return false;
   }
@@ -51,15 +51,15 @@ bool TilePieces::Hands(uint32_t tile,
     if (run.empty()) { return Render::PieceHandle{}; }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
     const auto placed =
-        Live_->PlacePiece({.Tangents = {},
-                           .Verts = corners,
-                           .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
-                           .Clusters = cooked ? std::span<const DagCluster>(cut.Clusters)
-                                              : std::span<const DagCluster>(),
-                           .Colours = {},
-                           .Row = row,
-                           .Instances = {},
-                           .Surface = Render::PieceSurface(surface)});
+        Renderer_->PlacePiece({.Tangents = {},
+                               .Verts = corners,
+                               .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
+                               .Clusters = cooked ? std::span<const DagCluster>(cut.Clusters)
+                                                  : std::span<const DagCluster>(),
+                               .Colours = {},
+                               .Row = row,
+                               .Instances = {},
+                               .Surface = Render::PieceSurface(surface)});
     if (!placed) {
       why = placed.error();
       return Render::PieceHandle{};
@@ -76,7 +76,7 @@ bool TilePieces::Hands(uint32_t tile,
   }
   stood.Roofs = place(built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_);
   if (!why.empty()) {
-    if (stood.Walls) { Live_->ReleasePiece(stood.Walls); }
+    if (stood.Walls) { Renderer_->ReleasePiece(stood.Walls); }
     ++Refused_;
     Why_ = why;
     error = why;
@@ -92,16 +92,16 @@ bool TilePieces::Hands(uint32_t tile,
 void TilePieces::Forgets(uint32_t tile) {
   const auto at = std::ranges::find(Standing_, tile, &Standing::Tile);
   if (at == Standing_.end()) { return; }
-  if (Live_ != nullptr) {
-    if (at->Walls) { Live_->ReleasePiece(at->Walls); }
-    if (at->Roofs) { Live_->ReleasePiece(at->Roofs); }
+  if (Renderer_ != nullptr) {
+    if (at->Walls) { Renderer_->ReleasePiece(at->Walls); }
+    if (at->Roofs) { Renderer_->ReleasePiece(at->Roofs); }
   }
   Standing_.erase(at);
 }
 
 void TilePieces::Clear() {
   while (!Standing_.empty()) { Forgets(Standing_.back().Tile); }
-  Live_ = nullptr;
+  Renderer_ = nullptr;
   Digest_ = 0;
   Handed_ = 0;
   Refused_ = 0;

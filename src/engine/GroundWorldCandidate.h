@@ -62,7 +62,7 @@ public:
                                                          const Ui::Font *font) {
     if (auto prepared = World_.Prepare(previous, font); !prepared) { return prepared; }
     Products_.Sheets.Into(&World_.Renderer());
-    Products_.Pieces.Into(&World_.Scene());
+    Products_.Pieces.Into(&World_.Renderer());
     return {};
   }
 

@@ -212,7 +212,7 @@ struct Surrounds {
   Surrounds &operator=(Surrounds &&) = delete;
 
   void BindRuntimeResources(Core::Live &live, Render::SceneRenderer &renderer) noexcept {
-    Pieces.Into(&live);
+    Pieces.Into(&renderer);
     Sheets.Into(&renderer);
     if (Crowns) { Crowns->Into(live); }
   }

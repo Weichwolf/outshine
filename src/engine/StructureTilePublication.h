@@ -22,7 +22,7 @@ PublishStructureTile(Surrounds &world,
   Core::WorldCandidate candidate(renderer);
   if (auto prepared = candidate.Prepare(*scene, font); !prepared) { return prepared; }
   TilePieces pieces = world.Pieces;
-  pieces.Into(&candidate.Scene());
+  pieces.Into(&renderer);
   const auto &baked = *landing.Baked;
   std::string error;
   if (!pieces.Hands(landing.Tile, baked, landing.AnchorEcef, error)) {
@@ -45,7 +45,7 @@ PublishStructureTiles(Surrounds &world,
   Core::WorldCandidate candidate(renderer);
   if (auto prepared = candidate.Prepare(*scene, font); !prepared) { return prepared; }
   TilePieces pieces = world.Pieces;
-  pieces.Into(&candidate.Scene());
+  pieces.Into(&renderer);
   std::string error;
   for (const StructureBuildQueue::Landing &landing : landings) {
     assert(landing.Baked);

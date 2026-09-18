@@ -35,7 +35,7 @@ int main() {
       baked.Built.RoofCorners = baked.Built.WallCorners;
       baked.Built.RoofRun = {0, 1, 2};
       TilePieces pieces;
-      pieces.Into(scene.get());
+      pieces.Into(&renderer);
       pieces.Wears({.Walls = 0, .Roofs = 1});
       CHECK(!pieces.Hands(7, baked, {}, error), "invalid roof surface rejects the complete tile");
       CHECK(pieces.Handed() == 0 && renderer.PiecesStanding() == 0,
