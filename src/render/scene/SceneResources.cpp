@@ -17,6 +17,8 @@ constexpr auto RepeatedPiece = "an instance update names one piece more than onc
 constexpr auto PieceUploadFailed = "piece geometry upload failed";
 constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index range";
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
+constexpr auto HeightPageLimit = "height-page storage exceeds the native slot index range";
+constexpr auto HeightPageUploadFailed = "height-page upload failed";
 }
 
 PieceMesh SceneResources::Piece::Mesh() const noexcept {
@@ -136,6 +138,9 @@ void SceneResources::CopyPieceSourcesFrom(const SceneResources &source) {
   Pieces_ = source.Pieces_;
   FirstFreePiece_ = source.FirstFreePiece_;
   for (Piece &piece : Pieces_) { piece.Resident = kNoPiece; }
+  HeightPages_ = source.HeightPages_;
+  FirstFreeHeightPage_ = source.FirstFreeHeightPage_;
+  for (HeightPage &page : HeightPages_) { page.Resident = kNoPage; }
 }
 
 bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {
@@ -156,6 +161,68 @@ size_t SceneResources::PieceSourceBytes() const noexcept {
              piece.Clusters.capacity() * sizeof(DagCluster) +
              piece.Colours.capacity() * sizeof(float) + piece.Rows.capacity() * sizeof(Mat4);
   }
+  return bytes;
+}
+
+std::expected<HeightPageHandle, std::string>
+SceneResources::PlaceHeightPage(SubjectDraw &subjects, std::span<const float> nodes) {
+  if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
+    return std::unexpected(Says::HeightPageLimit);
+  }
+  HeightPage held{.Nodes = {nodes.begin(), nodes.end()}};
+  std::string error;
+  held.Resident = subjects.Ground().PlacePage(held.Nodes, error);
+  if (held.Resident == kNoPage) {
+    return std::unexpected(error.empty() ? std::string(Says::HeightPageUploadFailed)
+                                         : std::move(error));
+  }
+  held.State.Occupied = true;
+  uint32_t slot = FirstFreeHeightPage_;
+  if (slot != kNoResourceSlot) {
+    held.State.Generation = HeightPages_[slot].State.Generation;
+    FirstFreeHeightPage_ = HeightPages_[slot].State.NextFree;
+    HeightPages_[slot] = std::move(held);
+  } else {
+    slot = static_cast<uint32_t>(HeightPages_.size());
+    HeightPages_.push_back(std::move(held));
+  }
+  return HeightPageHandle{.Slot = slot, .Generation = HeightPages_[slot].State.Generation};
+}
+
+bool SceneResources::HasHeightPage(HeightPageHandle handle) const noexcept {
+  return handle.Slot < HeightPages_.size() &&
+         HeightPages_[handle.Slot].State.Matches(handle.Generation);
+}
+
+void SceneResources::ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which) {
+  if (!HasHeightPage(which)) { return; }
+  HeightPage &page = HeightPages_[which.Slot];
+  subjects.Ground().ReleasePage(page.Resident);
+  ResourceSlotState state = page.State;
+  if (state.Release()) {
+    state.NextFree = FirstFreeHeightPage_;
+    FirstFreeHeightPage_ = which.Slot;
+  }
+  page = HeightPage{};
+  page.State = state;
+}
+
+PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept {
+  return HasHeightPage(which) ? HeightPages_[which.Slot].Resident : kNoPage;
+}
+
+bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &error) {
+  for (HeightPage &page : HeightPages_) {
+    if (!page.State.Occupied) { continue; }
+    page.Resident = subjects.Ground().PlacePage(page.Nodes, error);
+    if (page.Resident == kNoPage) { return false; }
+  }
+  return true;
+}
+
+size_t SceneResources::HeightPageSourceBytes() const noexcept {
+  size_t bytes = 0;
+  for (const HeightPage &page : HeightPages_) { bytes += page.Nodes.capacity() * sizeof(float); }
   return bytes;
 }
 

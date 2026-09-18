@@ -165,8 +165,38 @@ public:
     return ActiveState().Content.Subjects.Ground().PlacePage(nodes, error);
   }
 
+  [[nodiscard]] std::expected<HeightPageHandle, std::string>
+  PlaceHeightPage(std::span<const float> nodes) {
+    return ActiveState().Content.Resources.PlaceHeightPage(ActiveState().Content.Subjects, nodes);
+  }
+
   void ReleaseHeightPage(PageId which) {
     ActiveState().Content.Subjects.Ground().ReleasePage(which);
+  }
+
+  void ReleaseHeightPage(HeightPageHandle which) {
+    ActiveState().Content.Resources.ReleaseHeightPage(ActiveState().Content.Subjects, which);
+  }
+
+  [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept {
+    return ActiveState().Content.Resources.HeightPageResident(which);
+  }
+
+  [[nodiscard]] bool RestoreHeightPages(std::string &error) {
+    return ActiveState().Content.Resources.RestoreHeightPages(ActiveState().Content.Subjects,
+                                                              error);
+  }
+
+  [[nodiscard]] size_t HeightPageSourceBytes() const noexcept {
+    return ActiveState().Content.Resources.HeightPageSourceBytes();
+  }
+
+  [[nodiscard]] size_t HeightPageSlots() const noexcept {
+    return ActiveState().Content.Resources.HeightPageSlots();
+  }
+
+  [[nodiscard]] size_t HeightPageSlotBytes() const noexcept {
+    return ActiveState().Content.Resources.HeightPageSlotBytes();
   }
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {

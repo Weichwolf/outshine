@@ -182,10 +182,12 @@ public:
 
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
 
-  [[nodiscard]] size_t HeightPageSlots() const noexcept { return HeightPages_.size(); }
+  [[nodiscard]] size_t HeightPageSlots() const noexcept {
+    return Renderer_ == nullptr ? 0 : Renderer_->HeightPageSlots();
+  }
 
   [[nodiscard]] size_t HeightPageSlotBytes() const noexcept {
-    return HeightPages_.capacity() * sizeof(HeightPage);
+    return Renderer_ == nullptr ? 0 : Renderer_->HeightPageSlotBytes();
   }
 
   [[nodiscard]] uint32_t PieceBytesHeld() const {
@@ -505,15 +507,6 @@ private:
 
   [[nodiscard]] bool RestoresPieceResources(const Live &previous, std::string &error);
 
-  struct HeightPage {
-    Render::ResourceSlotState State{};
-    std::vector<float> Nodes;
-    Render::PageId Resident = Render::kNoPage;
-  };
-
-  std::vector<HeightPage> HeightPages_;
-  uint32_t FirstFreeHeightPage_ = Render::kNoResourceSlot;
-  [[nodiscard]] bool HasHeightPage(Render::HeightPageHandle handle) const noexcept;
   std::vector<uint32_t> GroundClasses_;
   std::vector<float> GroundPalette_;
   std::vector<float> GroundGrid_;

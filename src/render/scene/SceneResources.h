@@ -42,6 +42,19 @@ public:
     return Pieces_.capacity() * sizeof(Piece);
   }
 
+  [[nodiscard]] std::expected<HeightPageHandle, std::string>
+  PlaceHeightPage(SubjectDraw &subjects, std::span<const float> nodes);
+  void ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which);
+  [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
+  [[nodiscard]] bool RestoreHeightPages(SubjectDraw &subjects, std::string &error);
+  [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
+
+  [[nodiscard]] size_t HeightPageSlots() const noexcept { return HeightPages_.size(); }
+
+  [[nodiscard]] size_t HeightPageSlotBytes() const noexcept {
+    return HeightPages_.capacity() * sizeof(HeightPage);
+  }
+
 private:
   struct Piece {
     ResourceSlotState State{};
@@ -62,8 +75,18 @@ private:
 
   [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
 
+  struct HeightPage {
+    ResourceSlotState State{};
+    std::vector<float> Nodes;
+    PageId Resident = kNoPage;
+  };
+
+  [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
+
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;
+  std::vector<HeightPage> HeightPages_;
+  uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
 };
 
 }

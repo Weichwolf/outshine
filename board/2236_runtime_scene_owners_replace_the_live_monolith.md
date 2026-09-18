@@ -67,7 +67,9 @@ in Live and is the next extraction step, so this WI remains active.
 reuse and atomic instance batches inside `SceneRenderer::WorldContent`. Candidate creation copies
 only source state, then rebuilds candidate GPU residents; rejection leaves the published owner
 untouched and publication moves the complete owner. Live delegates piece operations and no longer
-stores piece slots. Height pages and direct consumers remain to migrate.
+stores piece slots. Height-page samples, generations, free slots and resident IDs now share the
+same owner and candidate-copy contract; Live resolves handles through it when publishing the
+ground lattice. Direct TilePieces, CrownPieces and HeightSheets consumers remain to migrate.
 
 ## Acceptance
 
