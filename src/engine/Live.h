@@ -20,6 +20,7 @@
 #include "Asset.h"
 #include "CameraState.h"
 #include "SubjectProxy.h"
+#include "SubjectPoseHistory.h"
 #include "Overlay.h"
 #include "Layout.h"
 #include "Markup.h"
@@ -404,8 +405,7 @@ private:
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
   Render::CameraState Camera_;
-  std::vector<Mat4> SentBody_;
-  Mat4 SentBuilt_{};
+  Render::SubjectPoseHistory SubmittedPose_;
 
   std::vector<Box> PartBounds_;
   void CapturesRenderedPositions();

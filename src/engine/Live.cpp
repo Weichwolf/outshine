@@ -957,8 +957,7 @@ bool Live::Stand(std::string &error) {
   Camera_.Prepare(Camera_.HasOverride() ? Camera_.Override() : Render::Viewpoint{},
                   Camera_.HasOverride(),
                   Joined_);
-  for (Mat4 &one : SentBody_) { one.Column.fill(std::numeric_limits<double>::quiet_NaN()); }
-  SentBuilt_.Column.fill(std::numeric_limits<double>::quiet_NaN());
+  SubmittedPose_.Reset();
   if (Held_.Moves() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
     Stood_.Posed(RenderedPositionsM_);
   }
@@ -1046,11 +1045,7 @@ bool Live::Carries(size_t bodies, std::string &error) {
     Stoodup_ = false;
     if (!Submit(error)) { return false; }
   }
-  if (SentBody_.size() != bodies) {
-    Mat4 unsent{};
-    unsent.Column.fill(std::numeric_limits<double>::quiet_NaN());
-    SentBody_.resize(bodies, unsent);
-  }
+  if (SubmittedPose_.Bodies() != bodies) { SubmittedPose_.Resize(bodies); }
   return true;
 }
 
@@ -1081,12 +1076,8 @@ bool Live::Carry(size_t body, const Bearing &held, std::string &error) {
             ", so nothing standing was held.AsBuilt from what is being carried";
     return false;
   }
-  if (SentBody_.empty()) {
-    Mat4 unsent{};
-    unsent.Column.fill(std::numeric_limits<double>::quiet_NaN());
-    SentBody_.resize(1, unsent);
-  }
-  if (body >= SentBody_.size() || body >= Stood_.Instances()) {
+  SubmittedPose_.EnsureOne();
+  if (body >= SubmittedPose_.Bodies() || body >= Stood_.Instances()) {
     error = "a body numbered " + std::to_string(body) + " was carried into a picture standing " +
             std::to_string(Stood_.Instances()) +
             " deep -- a picture carries the bodies it was told to carry and no others";
@@ -1094,8 +1085,8 @@ bool Live::Carry(size_t body, const Bearing &held, std::string &error) {
   }
   const size_t instances = Stood_.Instances();
   const size_t rows = parts * instances;
-  const bool bodyMoved = !(SentBody_[body] == bodyM);
-  const bool builtMoved = !(SentBuilt_ == held.AsBuilt);
+  const bool bodyMoved = SubmittedPose_.BodyChanged(body, bodyM);
+  const bool builtMoved = SubmittedPose_.BuiltChanged(held.AsBuilt);
   if (!bodyMoved && !builtMoved) { return true; }
 
   const size_t joined = Joined_ < parts ? Joined_ : parts;
@@ -1129,8 +1120,7 @@ bool Live::Carry(size_t body, const Bearing &held, std::string &error) {
     return false;
   }
 
-  SentBody_[body] = bodyM;
-  SentBuilt_ = held.AsBuilt;
+  SubmittedPose_.Commit(body, bodyM, held.AsBuilt);
   return true;
 }
 
