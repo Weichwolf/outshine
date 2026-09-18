@@ -52,7 +52,7 @@ std::unique_ptr<WorldCrowns> WorldCrowns::Create(Core::Live &live,
       }
       Group group;
       group.Species = species;
-      group.Provenance = CrownAtlas::ProvenanceFor(species->Definition(), config.Shape);
+      group.Provenance = ImpostorAtlasProvenance(species->Definition(), config.Shape);
       result->Groups_.push_back(std::move(group));
       previous = instance.Cluster;
     }
@@ -130,7 +130,7 @@ void WorldCrowns::PrepareNext() {
           PreparedError_ = Says::Tree;
           return;
         }
-        auto atlas = CrownAtlas::Bake(*tree, Shape_, PreparedError_);
+        auto atlas = BakeImpostorAtlas(*tree, Shape_, PreparedError_);
         if (atlas) { (void)Cache_.Publish(*atlas, group.Provenance, PreparedError_); }
       });
     }

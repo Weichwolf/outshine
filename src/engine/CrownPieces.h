@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_CROWNPIECES_H
 #define OUTSHINE_ENGINE_CROWNPIECES_H
 
-#include "CrownAtlas.h"
+#include "ImpostorPreparation.h"
 #include "SubjectTypes.h"
 #include "ResourceHandle.h"
 #include <memory>
@@ -13,8 +13,10 @@ class Live;
 
 class CrownPieces {
 public:
-  static std::unique_ptr<CrownPieces>
-  Create(Core::Live &live, const CrownAtlas &atlas, uint32_t maxInstances, std::string &error);
+  static std::unique_ptr<CrownPieces> Create(Core::Live &live,
+                                             const Content::ImpostorAtlas &atlas,
+                                             uint32_t maxInstances,
+                                             std::string &error);
   ~CrownPieces();
   CrownPieces(const CrownPieces &) = delete;
   CrownPieces &operator=(const CrownPieces &) = delete;

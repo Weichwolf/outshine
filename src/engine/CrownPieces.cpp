@@ -18,7 +18,7 @@ constexpr auto CrownLimit = "crown instance count exceeds its declared capacity"
 }
 
 std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
-                                                 const CrownAtlas &atlas,
+                                                 const Content::ImpostorAtlas &atlas,
                                                  uint32_t maxInstances,
                                                  std::string &error) {
   if (maxInstances == 0 || atlas.Views().empty()) {
@@ -28,7 +28,7 @@ std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
   auto result = std::unique_ptr<CrownPieces>(new CrownPieces(live, atlas.CentreM(), maxInstances));
   result->Views_.reserve(atlas.Views().size());
   for (size_t view = 0; view < atlas.Views().size(); ++view) {
-    auto geometry = atlas.GeometryAt(view);
+    auto geometry = BuildImpostorCard(atlas, view);
     if (!geometry || geometry->parts() != 1) {
       error = Says::CrownView;
       return nullptr;

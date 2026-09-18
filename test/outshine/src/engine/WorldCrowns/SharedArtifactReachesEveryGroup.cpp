@@ -56,15 +56,14 @@ int main() {
   config.Prototypes = 2;
   config.Instances = 2;
   config.Cache.Store.Directory = (directory / "cache").string();
-  const auto atlas = CrownAtlas::Bake(*tree, config.Shape, error);
+  const auto atlas = BakeImpostorAtlas(*tree, config.Shape, error);
   CHECK(atlas.has_value(), "fixture atlas captures");
   if (!atlas) { return Report(); }
   Tasks tasks(1);
   CrownCache cache(tasks, config.Cache);
-  CHECK(
-      cache.Publish(*atlas, CrownAtlas::ProvenanceFor(species->Definition(), config.Shape), error),
-      "one shared cache artifact published");
-  auto geometry = atlas->GeometryAt(0);
+  CHECK(cache.Publish(*atlas, ImpostorAtlasProvenance(species->Definition(), config.Shape), error),
+        "one shared cache artifact published");
+  auto geometry = BuildImpostorCard(*atlas, 0);
   CHECK(geometry.has_value(), "capture card exists");
   if (!geometry) { return Report(); }
   Render::SceneRenderer renderer;

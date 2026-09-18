@@ -87,6 +87,12 @@ under `engine/streaming`; `StructureBuildTask` owns each bounded worker continua
 meshing remains in `generators/building`, and atomic candidate publication remains separate.
 The moved lifetime, stale-revision and atomic-publication tests preserve those boundaries.
 
+`Content::ImpostorAtlas` is now the sole stored crown artifact and owns validation plus the
+versioned binary codec under `content/impostor`. Cache, streaming and preparation exchange that
+neutral type directly; the hand-authored fixture proves byte compatibility and corruption bounds
+without renderer setup. GPU capture and card derivation remain Engine integration functions until
+the renderer resource boundary in WI 2236 can own them without importing `Core::Live` into render.
+
 ## Acceptance and commands
 
 - [ ] Terrain computation runs without Engine, SDL or renderer; analytical flat, slope,

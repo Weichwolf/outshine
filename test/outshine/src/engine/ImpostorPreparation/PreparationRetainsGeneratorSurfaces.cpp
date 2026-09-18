@@ -8,7 +8,7 @@
 #include <SDL3/SDL.h>
 #include <Outshine.h>
 #include <scenario/Scenario.h>
-#include "CrownAtlas.h"
+#include "ImpostorPreparation.h"
 #include "CrownPieces.h"
 #include "WorldCrowns.h"
 #include "Live.h"
@@ -39,7 +39,7 @@ int main() {
     return Report();
   }
   std::string error;
-  CHECK(!CrownAtlas::Bake(*tree, {.Pixels = 2, .Views = 4}, error),
+  CHECK(!BakeImpostorAtlas(*tree, {.Pixels = 2, .Views = 4}, error),
         "an atlas with no interior pixels is refused");
   const auto started = std::chrono::steady_clock::now();
   Geometry control;
@@ -83,11 +83,11 @@ int main() {
     stable &= frame == foregroundReference;
   };
   for (size_t count = 0; count < 120; ++count) { drawForeground(0); }
-  std::optional<CrownAtlas> atlas;
+  std::optional<Content::ImpostorAtlas> atlas;
   Tasks worker(1);
   const auto captureStarted = std::chrono::steady_clock::now();
   const auto job =
-      worker.Post([&] { atlas = CrownAtlas::Bake(*tree, {.Pixels = 128, .Views = 4}, error); });
+      worker.Post([&] { atlas = BakeImpostorAtlas(*tree, {.Pixels = 128, .Views = 4}, error); });
   bool finished = false;
   while (!(finished = worker.Done(job)) &&
          std::chrono::steady_clock::now() - captureStarted < std::chrono::seconds(30)) {
@@ -135,10 +135,10 @@ int main() {
     return Report();
   }
   const std::string provenance =
-      CrownAtlas::ProvenanceFor(species.Definition(), {.Pixels = 128, .Views = 4});
-  CHECK(provenance != CrownAtlas::ProvenanceFor(text + "changed", {.Pixels = 128, .Views = 4}) &&
-            provenance != CrownAtlas::ProvenanceFor(text, {.Pixels = 256, .Views = 4}) &&
-            provenance != CrownAtlas::ProvenanceFor(text, {.Pixels = 128, .Views = 8}),
+      ImpostorAtlasProvenance(species.Definition(), {.Pixels = 128, .Views = 4});
+  CHECK(provenance != ImpostorAtlasProvenance(text + "changed", {.Pixels = 128, .Views = 4}) &&
+            provenance != ImpostorAtlasProvenance(text, {.Pixels = 256, .Views = 4}) &&
+            provenance != ImpostorAtlasProvenance(text, {.Pixels = 128, .Views = 8}),
         "species and capture shape participate in the compiled producer identity");
   const auto encoded = atlas->Encode(provenance, error);
   CHECK(encoded.has_value(), "real crown data encodes without material loss");
@@ -146,7 +146,7 @@ int main() {
     std::printf("%s\n", error.c_str());
     return Report();
   }
-  auto restored = CrownAtlas::Decode(*encoded, provenance, error);
+  auto restored = Content::ImpostorAtlas::Decode(*encoded, provenance, error);
   CHECK(restored.has_value(), "versioned crown data reads back");
   if (!restored) { return Report(); }
   bool identical = restored->Pixels() == atlas->Pixels() &&
@@ -172,16 +172,18 @@ int main() {
         "every material, normal, depth, identity and camera bound survives storage exactly");
   CHECK(restored->Encode(provenance, error) == encoded,
         "the artifact has a canonical byte-for-byte round trip");
-  CHECK(!CrownAtlas::Decode(*encoded, provenance + "changed", error),
+  CHECK(!Content::ImpostorAtlas::Decode(*encoded, provenance + "changed", error),
         "changed generator or species provenance invalidates the cache");
   CHECK(!atlas->Encode("", error), "unidentified cache data is refused");
   for (const size_t length : {size_t(0), size_t(8), size_t(71), encoded->size() - 1}) {
-    CHECK(!CrownAtlas::Decode(std::span<const uint8_t>(*encoded).first(length), provenance, error),
+    CHECK(!Content::ImpostorAtlas::Decode(
+              std::span<const uint8_t>(*encoded).first(length), provenance, error),
           "truncated artifact data is refused");
   }
   auto corrupt = *encoded;
   corrupt[100] ^= 1;
-  CHECK(!CrownAtlas::Decode(corrupt, provenance, error), "payload corruption is detected");
+  CHECK(!Content::ImpostorAtlas::Decode(corrupt, provenance, error),
+        "payload corruption is detected");
   const auto resign = [](std::vector<uint8_t> &bytes) {
     uint64_t hash = kDigestBasis;
     for (size_t at = 0; at < bytes.size() - 8; ++at) { hash = DigestFolded(hash, bytes[at]); }
@@ -193,7 +195,7 @@ int main() {
     corrupt = *encoded;
     for (size_t at = 0; at < 4; ++at) { corrupt[field + at] = 255; }
     resign(corrupt);
-    CHECK(!CrownAtlas::Decode(corrupt, provenance, error),
+    CHECK(!Content::ImpostorAtlas::Decode(corrupt, provenance, error),
           "unsupported version and oversized dimensions fail even with a valid checksum");
   }
   corrupt = *encoded;
@@ -202,7 +204,7 @@ int main() {
   corrupt[66] = 192;
   corrupt[67] = 127;
   resign(corrupt);
-  CHECK(!CrownAtlas::Decode(corrupt, provenance, error),
+  CHECK(!Content::ImpostorAtlas::Decode(corrupt, provenance, error),
         "nonfinite material data is refused even with a valid checksum");
   std::ofstream artifact("build/crown-atlas/birch.crown", std::ios::binary);
   artifact.write(reinterpret_cast<const char *>(encoded->data()),
@@ -286,7 +288,7 @@ int main() {
   CHECK(atlas->Surfaces()[0].Roughness == species.ShadingParams().BarkRoughness &&
             atlas->Surfaces()[1].Roughness == species.ShadingParams().LeafRoughness,
         "atlas materials retain declared roughness without baking illumination");
-  CHECK(!atlas->GeometryAt(atlas->Views().size()), "an absent crown view is refused");
+  CHECK(!BuildImpostorCard(*atlas, atlas->Views().size()), "an absent crown view is refused");
   const auto fine = tree->GeometryAt(0);
   CHECK(fine.has_value(), "fine geometry remains available for visual comparison");
   std::filesystem::create_directories("build/crown-atlas");
@@ -335,7 +337,7 @@ int main() {
                  static_cast<std::streamsize>(png.size()));
     CHECK(output.good(), "crown reference PNG is written");
     std::printf("view %zu bark=%zu leaf=%zu sampled pixels\n", view, covered[1], covered[2]);
-    const auto card = atlas->GeometryAt(view);
+    const auto card = BuildImpostorCard(*atlas, view);
     CHECK(card.has_value(), "captured crown exports native geometry");
     if (!card) { continue; }
     const auto material = card->surfaceAt(MaterialInstance(0));
@@ -450,7 +452,7 @@ int main() {
     CHECK(!frames[0].empty() && frames[0] != frames[1],
           "changing the light relights captured crown surfaces");
   }
-  const auto baseCard = atlas->GeometryAt(0);
+  const auto baseCard = BuildImpostorCard(*atlas, 0);
   CHECK(baseCard.has_value(), "crown piece fixture starts from the native card reference");
   if (!baseCard) { return Report(); }
   Render::SceneRenderer renderer;
@@ -643,6 +645,6 @@ int main() {
       "atlas capture, checks and PNG export %.3f ms; payload %zu bytes; no world frame-rate "
       "claim\n",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count(),
-      atlas->Views().size() * 128u * 128u * sizeof(CrownAtlas::Texel));
+      atlas->Views().size() * 128u * 128u * sizeof(Content::ImpostorAtlas::Texel));
   return Report();
 }

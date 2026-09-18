@@ -2,7 +2,7 @@
 #define OUTSHINE_ENGINE_CROWNCACHE_H
 
 #include "ContentStore.h"
-#include "CrownAtlas.h"
+#include "ImpostorPreparation.h"
 #include "Tasks.h"
 #include <deque>
 #include <memory>
@@ -19,7 +19,7 @@ public:
 
   struct Loaded {
     std::string Provenance;
-    std::optional<CrownAtlas> Atlas;
+    std::optional<Content::ImpostorAtlas> Atlas;
     std::string Error;
   };
   enum class Request { Queued, Existing, Full };
@@ -27,7 +27,7 @@ public:
   CrownCache(Tasks &tasks, const Config &config);
   ~CrownCache();
   [[nodiscard]] bool
-  Publish(const CrownAtlas &atlas, std::string_view provenance, std::string &error);
+  Publish(const Content::ImpostorAtlas &atlas, std::string_view provenance, std::string &error);
   [[nodiscard]] Request Read(std::string provenance);
   [[nodiscard]] std::optional<Loaded> Take();
 

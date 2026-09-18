@@ -18,7 +18,9 @@ CrownCache::~CrownCache() {
   for (const auto &pending : Pending_) { Tasks_->Wait(pending.Job); }
 }
 
-bool CrownCache::Publish(const CrownAtlas &atlas, std::string_view provenance, std::string &error) {
+bool CrownCache::Publish(const Content::ImpostorAtlas &atlas,
+                         std::string_view provenance,
+                         std::string &error) {
   auto bytes = atlas.Encode(provenance, error);
   if (!bytes) { return false; }
   if (MostBytes_ == 0 || bytes->size() > MostBytes_) {
@@ -48,7 +50,7 @@ CrownCache::Request CrownCache::Read(std::string provenance) {
       result->Error = "crown artifact is absent, unreadable or exceeds the read budget";
       return;
     }
-    result->Atlas = CrownAtlas::Decode(*bytes, result->Provenance, result->Error);
+    result->Atlas = Content::ImpostorAtlas::Decode(*bytes, result->Provenance, result->Error);
   });
   Pending_.push_back({.Result = std::move(result), .Job = job});
   return Request::Queued;
