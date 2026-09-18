@@ -169,11 +169,9 @@ bool Subject::MorphDeltasFor(const Document &document,
   return true;
 }
 
-AffineTransform Subject::JointMatrix(const Skin &skin, size_t joint, const AffineTransform &world) {
-  if (skin.InverseBind.empty()) { return world; }
-  Mat4 bind;
-  std::copy_n(skin.InverseBind.begin() + static_cast<ptrdiff_t>(joint * 16), 16, bind.begin());
-  return world * AffineTransform::FromColumnMajor(bind);
+AffineTransform
+Subject::JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransform &world) {
+  return world * skeleton.InverseBind[joint];
 }
 
 bool Subject::ReadSkinBinding(const Document &document,
@@ -480,11 +478,14 @@ bool Subject::Refuse(std::string why) {
   return false;
 }
 
-bool Subject::Build(const Document &document, const VariantSelection &variant) {
-  return Flatten(document, nullptr, nullptr, variant);
+bool Subject::Build(const Document &document,
+                    std::span<const Skeleton> skeletons,
+                    const VariantSelection &variant) {
+  return Flatten(document, skeletons, nullptr, nullptr, variant);
 }
 
 bool Subject::Build(const Document &document,
+                    std::span<const Skeleton> skeletons,
                     std::span<const AffineTransform> pose,
                     std::span<const double> weights,
                     const VariantSelection &variant) {
@@ -499,7 +500,8 @@ bool Subject::Build(const Document &document,
                   " morph weights and the file's nodes carry " +
                   std::to_string(document.MorphWeightsTotal()));
   }
-  return Flatten(document, pose.data(), (!weights.empty()) ? weights.data() : nullptr, variant);
+  return Flatten(
+      document, skeletons, pose.data(), (!weights.empty()) ? weights.data() : nullptr, variant);
 }
 
 namespace {
@@ -787,6 +789,31 @@ bool Subject::PlacementOf(const Document &document,
              : document.WorldTransform(node, out);
 }
 
+bool Subject::ResolveJointMatrices(const Document &document,
+                                   const Posing &posed,
+                                   int nodeIndex,
+                                   const Node &node,
+                                   std::vector<AffineTransform> &out) {
+  out.clear();
+  if (node.Skin < 0) { return true; }
+  if (static_cast<size_t>(node.Skin) >= posed.Skeletons.size()) {
+    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                  " names a native skeleton the imported asset does not carry");
+  }
+  const Skeleton &skeleton = posed.Skeletons[static_cast<size_t>(node.Skin)];
+  out.assign(skeleton.JointNodes.size(), AffineTransform());
+  for (size_t joint = 0; joint < skeleton.JointNodes.size(); ++joint) {
+    AffineTransform placed;
+    const uint32_t jointNode = skeleton.JointNodes[joint];
+    if (!PlacementOf(document, posed, static_cast<int>(jointNode), placed)) {
+      return Refuse(document.Path() + ": joint node " + std::to_string(jointNode) +
+                    " has no world transform: " + document.Error());
+    }
+    out[joint] = JointMatrix(skeleton, joint, placed);
+  }
+  return true;
+}
+
 bool Subject::FlattenMesh(const Document &document,
                           const Posing &posed,
                           int nodeIndex,
@@ -818,19 +845,7 @@ bool Subject::FlattenMesh(const Document &document,
   }
 
   std::vector<AffineTransform> &jointMatrices = Scratch_.Joints;
-  jointMatrices.clear();
-  if (node.Skin >= 0) {
-    const Skin &skin = document.Skins()[static_cast<size_t>(node.Skin)];
-    jointMatrices.assign(skin.Joints.size(), AffineTransform());
-    for (size_t joint = 0; joint < skin.Joints.size(); ++joint) {
-      AffineTransform placed;
-      if (!PlacementOf(document, posed, skin.Joints[joint], placed)) {
-        return Refuse(document.Path() + ": joint node " + std::to_string(skin.Joints[joint]) +
-                      " has no world transform: " + document.Error());
-      }
-      jointMatrices[joint] = JointMatrix(skin, joint, placed);
-    }
-  }
+  if (!ResolveJointMatrices(document, posed, nodeIndex, node, jointMatrices)) { return false; }
 
   std::vector<AffineTransform> &instances = Scratch_.Instances;
   instances.clear();
@@ -955,6 +970,7 @@ bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry
 }
 
 bool Subject::Flatten(const Document &document,
+                      std::span<const Skeleton> skeletons,
                       const AffineTransform *pose,
                       const double *weights,
                       const VariantSelection &variant) {
@@ -985,7 +1001,8 @@ bool Subject::Flatten(const Document &document,
       return Refuse(document.Path() + ": the declaration " + why);
     }
   }
-  const Posing posed{.Pose = pose, .Weights = weights, .Variant = activeVariant};
+  const Posing posed{
+      .Skeletons = skeletons, .Pose = pose, .Weights = weights, .Variant = activeVariant};
 
   std::vector<int> pending(document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rbegin(),
                            document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rend());

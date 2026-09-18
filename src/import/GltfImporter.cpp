@@ -18,6 +18,7 @@
 #include "AnimationClip.h"
 #include "CameraFraming.h"
 #include "AnimationImport.h"
+#include "SkeletonImport.h"
 #include "Subject.h"
 #include "Variant.h"
 #include "native/NativeMaterials.h"
@@ -90,6 +91,7 @@ struct GltfImporter::Held {
   Gltf::Document File;
   Gltf::Subject Assembled;
   AnimationClip Motion;
+  std::vector<Skeleton> Skeletons;
   Gltf::VariantSelection Variant;
   Geometry Handed;
   std::vector<AffineTransform> Locals;
@@ -103,10 +105,11 @@ struct GltfImporter::Held {
     const bool built =
         Moves ? (Motion.SamplePose(seconds, Locals, Weights),
                  Assembled.Build(File,
+                                 Skeletons,
                                  std::span<const AffineTransform>(Locals.data(), Locals.size()),
                                  std::span<const double>(Weights.data(), Weights.size()),
                                  Variant))
-              : Assembled.Build(File, Variant);
+              : Assembled.Build(File, Skeletons, Variant);
     if (!built) {
       Why = Assembled.Error();
       return false;
@@ -177,6 +180,9 @@ std::expected<void, std::string> GltfImporter::load(std::string_view path) {
     return std::unexpected(std::move(why));
   };
   if (!candidate->File.ReadFile(path)) { return refuse(candidate->File.Error()); }
+  if (!Gltf::ImportSkeletons(candidate->File, candidate->Skeletons, candidate->Why)) {
+    return refuse(std::move(candidate->Why));
+  }
   if (!candidate->Assemble(0.0)) { return refuse(std::move(candidate->Why)); }
   Held_ = std::move(candidate);
   return {};

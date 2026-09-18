@@ -90,9 +90,9 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
 2. Native Kamera und automatische Bounds-Rahmung liegen in Math/Content; der Importer
    kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
-3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele nativ;
-   Node-Ranges begrenzen Sampling auf O(Nodes + PoseTracks). Als Nächstes Skeletons und Morphdaten
-   importieren; Importer::sampleAnimation baut noch Document-Geometrie neu auf.
+3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele nativ; `Skeleton`
+   besitzt Joint-Nodes und inverse Binds. Node-Ranges begrenzen Sampling auf O(Nodes + PoseTracks).
+   Als Nächstes Morph-/Meshquellen importieren; sampleAnimation baut noch Document-Geometrie neu.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 

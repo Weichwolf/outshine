@@ -17,6 +17,7 @@
 #include "Viewport.h"
 #include "scene/Camera.h"
 #include "AffineTransform.h"
+#include "Skeleton.h"
 #include "Variant.h"
 
 namespace outshine {
@@ -70,9 +71,12 @@ struct PlacedLight {
 
 class Subject {
 public:
-  [[nodiscard]] bool Build(const Document &document, const VariantSelection &variant = {});
+  [[nodiscard]] bool Build(const Document &document,
+                           std::span<const Skeleton> skeletons,
+                           const VariantSelection &variant = {});
 
   [[nodiscard]] bool Build(const Document &document,
+                           std::span<const Skeleton> skeletons,
                            std::span<const AffineTransform> pose,
                            std::span<const double> weights,
                            const VariantSelection &variant = {});
@@ -169,6 +173,7 @@ private:
   void ApplyPartPlacement(const Mat4 &placement, const Part &part);
 
   struct Posing {
+    std::span<const Skeleton> Skeletons;
     const AffineTransform *Pose = nullptr;
     const double *Weights = nullptr;
     int Variant = -1;
@@ -176,6 +181,11 @@ private:
 
   [[nodiscard]] static bool
   PlacementOf(const Document &document, const Posing &posed, int node, AffineTransform &out);
+  [[nodiscard]] bool ResolveJointMatrices(const Document &document,
+                                          const Posing &posed,
+                                          int nodeIndex,
+                                          const Node &node,
+                                          std::vector<AffineTransform> &out);
   [[nodiscard]] bool FlattenMesh(const Document &document,
                                  const Posing &posed,
                                  int nodeIndex,
@@ -243,6 +253,7 @@ private:
 
   [[nodiscard]] bool CopyDeclaredMaterials(const Document &document, outshine::Geometry &made);
   [[nodiscard]] bool Flatten(const Document &document,
+                             std::span<const Skeleton> skeletons,
                              const AffineTransform *pose,
                              const double *weights,
                              const VariantSelection &variant);
@@ -261,7 +272,7 @@ private:
                                     const Deltas &over,
                                     std::vector<double> &out);
   [[nodiscard]] static AffineTransform
-  JointMatrix(const Skin &skin, size_t joint, const AffineTransform &world);
+  JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransform &world);
 
   struct SkinBinding {
     std::vector<double> Index;
