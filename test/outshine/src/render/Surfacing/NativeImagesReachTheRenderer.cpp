@@ -25,6 +25,7 @@ int main() {
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
   material.Unlit = true;
+  material.NormalScale = 0.25f;
   material.BaseColourMap.Image = image;
   material.BaseColourMap.Sampler.Magnify = Filter::Nearest;
   material.BaseColourMap.Sampler.Minify = Filter::Nearest;
@@ -51,9 +52,9 @@ int main() {
   std::string error;
   CHECK(Render::ResolveNativeTextures(geometry, slots, error),
         "all supported native sockets resolve");
-  CHECK(slots[0].Normal.Set == UvSet::Uv1 && slots[0].Normal.Uv.M[2] == 0.25 &&
-            slots[0].Normal.Uv.M[5] == 0.5,
-        "socket-specific UV set and translation survive");
+  CHECK(slots[0].NormalScale == material.NormalScale && slots[0].Normal.Set == UvSet::Uv1 &&
+            slots[0].Normal.Uv.M[2] == 0.25 && slots[0].Normal.Uv.M[5] == 0.5,
+        "normal scale, socket-specific UV set and translation survive");
   for (const auto *texture : {&slots[0].Colour,
                               &slots[0].Normal,
                               &slots[0].MetalRough,

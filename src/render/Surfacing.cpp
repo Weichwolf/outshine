@@ -71,6 +71,7 @@ bool ResolveNativeTextures(std::span<const ImageView> images,
   };
   for (SubjectMaterial &surface : surfaces) {
     const Material &row = surface.Row;
+    surface.NormalScale = row.NormalScale;
     if (!bind(row.BaseColourMap, surface.Colour) || !bind(row.NormalMap, surface.Normal) ||
         !bind(row.MetalRoughMap, surface.MetalRough) || !bind(row.EmissiveMap, surface.Emissive) ||
         !bind(row.SpecularStrengthMap, surface.SpecularStrength) ||

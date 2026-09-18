@@ -41,6 +41,14 @@ int main() {
       reject(candidate);
     }
   }
+  for (const float value : {-0.1f,
+                            1.1f,
+                            std::numeric_limits<float>::quiet_NaN(),
+                            std::numeric_limits<float>::infinity()}) {
+    Material candidate = valid;
+    candidate.OcclusionStrength = value;
+    reject(candidate);
+  }
   for (const float value :
        {-0.1f, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
     Material candidate = valid;
@@ -75,6 +83,9 @@ int main() {
   for (const float value :
        {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
     Material candidate = valid;
+    candidate.NormalScale = value;
+    reject(candidate);
+    candidate = valid;
     candidate.AnisotropyRotationRad = value;
     reject(candidate);
     candidate = valid;

@@ -43,6 +43,7 @@ namespace MaterialValidation {
   for (const float value : {row.Metalness,
                             row.Roughness,
                             row.Transmission,
+                            row.OcclusionStrength,
                             row.SpecularFactor,
                             row.SheenRoughness,
                             row.Clearcoat,
@@ -62,9 +63,9 @@ namespace MaterialValidation {
     return false;
   }
   if (!std::isfinite(row.Ior) || (row.Ior != 0.0f && row.Ior < 1.0f)) { return false; }
-  return std::isfinite(row.AnisotropyRotationRad) && std::isfinite(row.IridescenceIor) &&
-         row.IridescenceIor >= 1.0f && Nonnegative(row.IridescenceThicknessMinNm) &&
-         Nonnegative(row.IridescenceThicknessMaxNm) &&
+  return std::isfinite(row.NormalScale) && std::isfinite(row.AnisotropyRotationRad) &&
+         std::isfinite(row.IridescenceIor) && row.IridescenceIor >= 1.0f &&
+         Nonnegative(row.IridescenceThicknessMinNm) && Nonnegative(row.IridescenceThicknessMaxNm) &&
          row.IridescenceThicknessMinNm <= row.IridescenceThicknessMaxNm &&
          row.AttenuationDistance > 0.0f;
 }

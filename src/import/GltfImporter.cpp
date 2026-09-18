@@ -2,11 +2,11 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <expected>
 #include "Extent.h"
 #include "Viewing.h"
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <limits>
 #include <span>
@@ -19,7 +19,7 @@
 #include "Pose.h"
 #include "Subject.h"
 #include "Variant.h"
-#include "surface/Surfaces.h"
+#include "native/NativeMaterials.h"
 
 namespace outshine {
 namespace {
@@ -65,24 +65,6 @@ ApplyMaterialFactor(Material material, const Gltf::Pose::FactorAt &factor, doubl
       break;
   }
   return material;
-}
-
-MipFilter MipOf(Render::SubjectMip mip) {
-  switch (mip) {
-    case Render::SubjectMip::None: return MipFilter::None;
-    case Render::SubjectMip::Nearest: return MipFilter::Nearest;
-    case Render::SubjectMip::Linear: return MipFilter::Linear;
-  }
-  return MipFilter::Linear;
-}
-
-Wrap WrapOf(Render::SubjectWrap held) {
-  switch (held) {
-    case Render::SubjectWrap::ClampToEdge: return Wrap::ClampToEdge;
-    case Render::SubjectWrap::MirroredRepeat: return Wrap::MirroredRepeat;
-    case Render::SubjectWrap::Repeat: return Wrap::Repeat;
-  }
-  return Wrap::Repeat;
 }
 
 }
@@ -167,92 +149,7 @@ struct GltfImporter::Held {
   }
 
   [[nodiscard]] bool Wears(Geometry &candidate) {
-    Render::SurfaceTable table;
-    Gltf::ResolveSurfaceTable(File, Assembled, true, true, table);
-    if (!Gltf::ResolveFileSurface(
-            File, Assembled, Render::ColourFrom::Row, Render::ColourCarrier::Texture, table, Why)) {
-      return false;
-    }
-    for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
-      const int index = slot < table.Material.size() ? table.Material[slot] : -1;
-      if (index < 0 || index >= candidate.surfaces() ||
-          static_cast<size_t>(index) >= File.Materials().size()) {
-        continue;
-      }
-      Material row = candidate.surfaceAt(MaterialInstance(index));
-      const Render::SubjectMaterial &held = table.Slots[slot];
-      const Gltf::Material &declared = File.Materials()[static_cast<size_t>(index)];
-
-      struct MapRow {
-        const Render::SubjectTexture &From;
-        SurfaceMap &Into;
-        const Gltf::TextureRef &Declared;
-      };
-
-      const std::array<MapRow, 6> maps = {
-          {{.From = held.Colour, .Into = row.BaseColourMap, .Declared = declared.BaseColour},
-           {.From = held.Normal, .Into = row.NormalMap, .Declared = declared.Normal},
-           {.From = held.MetalRough,
-            .Into = row.MetalRoughMap,
-            .Declared = declared.MetallicRoughness},
-           {.From = held.Emissive, .Into = row.EmissiveMap, .Declared = declared.Emissive},
-           {.From = held.SpecularStrength,
-            .Into = row.SpecularStrengthMap,
-            .Declared = declared.SpecularStrength},
-           {.From = held.SpecularTint,
-            .Into = row.SpecularTintMap,
-            .Declared = declared.SpecularTint}}};
-
-      for (const auto &map : maps) {
-        auto named = Names(candidate, map.From, map.Into);
-        if (!named) {
-          Why = std::move(named.error());
-          return false;
-        }
-        map.Into.Uv = map.Declared.Uv;
-      }
-      const auto published = candidate.setSurface(MaterialInstance(index), row);
-      if (!published) {
-        Why = "a surface the file declares could not be named on the geometry handed back: " +
-              std::string(Describe(published.error()));
-        return false;
-      }
-    }
-    return true;
-  }
-
-  [[nodiscard]] static std::expected<void, std::string>
-  Names(Geometry &candidate, const Render::SubjectTexture &from, SurfaceMap &into) {
-    if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return {}; }
-    const auto image = Keeps(candidate, from);
-    if (!image) { return std::unexpected(std::string(Describe(image.error()))); }
-    into.Image = *image;
-    into.Set = from.Set;
-    into.Sampler.Magnify =
-        from.Magnify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
-    into.Sampler.Minify =
-        from.Minify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
-    into.Sampler.Mip = MipOf(from.Mip);
-    into.Sampler.WrapU = WrapOf(from.WrapU);
-    into.Sampler.WrapV = WrapOf(from.WrapV);
-    return {};
-  }
-
-  [[nodiscard]] static std::expected<int, GeometryImageError>
-  Keeps(Geometry &candidate, const Render::SubjectTexture &from) {
-    const size_t bytes = static_cast<size_t>(from.Width) * static_cast<size_t>(from.Height) * 4u;
-    const std::span<const uint8_t> pixels(from.Rgba, bytes);
-    for (int at = 0; at < candidate.images(); ++at) {
-      const ImageView held = candidate.imageAt(at);
-      if (std::cmp_not_equal(held.WidthPx, from.Width) ||
-          std::cmp_not_equal(held.HeightPx, from.Height)) {
-        continue;
-      }
-      if (held.Rgba.size() >= bytes && std::memcmp(held.Rgba.data(), from.Rgba, bytes) == 0) {
-        return at;
-      }
-    }
-    return candidate.addImage(static_cast<int>(from.Width), static_cast<int>(from.Height), pixels);
+    return Gltf::ResolveNativeMaterialImages(File, Assembled, candidate, Why);
   }
 };
 

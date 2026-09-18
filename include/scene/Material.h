@@ -62,6 +62,12 @@ struct Material {
   /// Preparation hint requesting a tangent basis; does not supply tangent data itself.
   bool NeedsTangents = false;
 
+  /// Finite multiplier applied to tangent-space normal-map X/Y components; one preserves them.
+  float NormalScale = 1.0f;
+
+  /// Ambient-occlusion strength in [0,1]; one applies the sampled red channel fully.
+  float OcclusionStrength = 1.0f;
+
   /// Dielectric specular strength in [0,1]; multiplies SpecularStrengthMap alpha.
   float SpecularFactor = 1.0f;
   /// Linear RGB dielectric specular tint in [0,1]; multiplies SpecularTintMap RGB.

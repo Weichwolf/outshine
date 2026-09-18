@@ -65,9 +65,9 @@ setPlacement prüft finite affine Matrizen (letzte Zeile exakt 0,0,0,1) vor Muta
 expected trennt fehlenden Part/ungültige Matrix; Nullskalierung, Spiegelung und Scherung erlaubt.
 Mat4::TransformPoint definiert die Algebra ohne Perspektivdivision. Altcode scheitert am
 NaN/Inf-/Projektions-Test; Erhaltung, Retry, native Render-/Audio-Platzierung: vier Tests grün.
-Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge;
-Überlauf und erschöpfte Bildindizes vor Kopie ablehnen. Fehler verändern weder
-Bilder noch Indexvergabe. Dokumentation verbleibender Lücken akzeptiert sie nicht.
+Image-Import verlangt geprüfte Größenrechnung und exakte RGBA8-Quelllänge. Der glTF-Adapter
+dekodiert Maps direkt in native Geometry, einschließlich Sampler, UV und NormalScale; keine
+Render-SurfaceTable-Rückkonvertierung. Fehler verändern weder Bilder noch Indexvergabe.
 
 ## Direkter Renderer-Zulauf
 Render::PrepareShape/AppendGeometry besitzen gepackte Attribute und Namen und
