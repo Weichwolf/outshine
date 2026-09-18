@@ -1,23 +1,24 @@
-#ifndef OUTSHINE_IMPORT_TRACK_H
-#define OUTSHINE_IMPORT_TRACK_H
+#ifndef OUTSHINE_BASE_MATH_ANIMATIONCURVE_H
+#define OUTSHINE_BASE_MATH_ANIMATIONCURVE_H
 
 #include <span>
 #include <cstddef>
 #include <vector>
 
-#include "Types.h"
+#include "Keyframes.h"
 
-namespace outshine::Gltf {
+namespace outshine {
 
-class Track {
+class AnimationCurve {
 public:
-  Track() = default;
+  enum class Values { Linear, Rotation };
 
-  [[nodiscard]] static bool Build(AnimationPath path,
-                                  Interpolation how,
+  [[nodiscard]] static bool Build(Keyframes::Interpolation how,
                                   std::span<const double> times,
                                   std::span<const double> values,
-                                  Track &out);
+                                  size_t components,
+                                  Values kind,
+                                  AnimationCurve &out);
 
   [[nodiscard]] bool Valid() const { return Curve_.Valid(); }
 
@@ -28,7 +29,7 @@ public:
   void At(double seconds, std::span<double> out) const;
 
 private:
-  outshine::Keyframes Curve_;
+  Keyframes Curve_;
   bool Spherical_ = false;
 };
 

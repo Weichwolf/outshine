@@ -1,12 +1,12 @@
 #include "math/Vec4.h"
-#include "Track.h"
+#include "AnimationCurve.h"
 #include "Keyframes.h"
 
 #include <cmath>
 #include <cstddef>
 #include <span>
 
-namespace outshine::Gltf {
+namespace outshine {
 
 namespace {
 
@@ -42,44 +42,33 @@ void Slerp(const double *from, const double *to, double weight, std::span<double
 
 }
 
-bool Track::Build(AnimationPath path,
-                  Interpolation how,
-                  std::span<const double> times,
-                  std::span<const double> values,
-                  Track &out) {
-  if (times.empty() || times.front() < 0.0) { return false; }
-  switch (path) {
-    case AnimationPath::Translation:
-    case AnimationPath::Rotation:
-    case AnimationPath::Scale:
-    case AnimationPath::Weights:
-    case AnimationPath::MaterialFactor: break;
-    default: return false;
-  }
-  const size_t perKeyframe = how == Interpolation::CubicSpline ? 3u : 1u;
-  size_t components = PathComponents(path);
-  if (components == 0) {
-    if (values.size() % times.size() != 0 || (values.size() / times.size()) % perKeyframe != 0) {
-      return false;
-    }
-    components = values.size() / times.size() / perKeyframe;
+bool AnimationCurve::Build(Keyframes::Interpolation how,
+                           std::span<const double> times,
+                           std::span<const double> values,
+                           size_t components,
+                           Values kind,
+                           AnimationCurve &out) {
+  if (times.empty() || times.front() < 0.0 || components == 0 ||
+      (kind != Values::Linear && kind != Values::Rotation) ||
+      (kind == Values::Rotation && components != 4)) {
+    return false;
   }
   const auto curve = Keyframes::Build(how, times, values, components);
   if (!curve) { return false; }
-  Track candidate;
+  AnimationCurve candidate;
   candidate.Curve_ = *curve;
-  candidate.Spherical_ = path == AnimationPath::Rotation;
+  candidate.Spherical_ = kind == Values::Rotation;
   out = candidate;
   return true;
 }
 
-void Track::At(double seconds, std::span<double> out) const {
+void AnimationCurve::At(double seconds, std::span<double> out) const {
   if (!Valid() || !std::isfinite(seconds) || out.size() < Components()) { return; }
   size_t span = 0;
   double weight = 0.0;
 
-  const bool spherical =
-      Spherical_ && Curve_.How() == Interpolation::Linear && Curve_.Span(seconds, span, weight);
+  const bool spherical = Spherical_ && Curve_.How() == Keyframes::Interpolation::Linear &&
+                         Curve_.Span(seconds, span, weight);
   if (spherical) {
     Slerp(Curve_.ValueAt(span), Curve_.ValueAt(span + 1), weight, out);
     return;

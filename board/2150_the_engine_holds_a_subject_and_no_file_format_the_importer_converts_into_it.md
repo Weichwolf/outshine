@@ -90,9 +90,9 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
 2. Native Kamera und automatische Bounds-Rahmung liegen in Math/Content; der Importer
    kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
-3. Animation, Varianten und Asset-Lebensdauer vollständig migrieren;
-   Clips/Skeletons/Morphziele beim Import besitzen, nur Pose/Deltas im Tick auswerten.
-   Importer::sampleAnimation im Frame wäre keine native Migration. Keine verlorenen Fähigkeiten.
+3. `AnimationCurve` wertet native skalare und Quaternion-Kurven in Math aus. Als Nächstes
+   Clipziele, Restpose, Skeletons und Morphdaten beim Import besitzen und nur Deltas auswerten.
+   Importer::sampleAnimation im Frame ist noch keine native Migration. Keine Fähigkeiten verlieren.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 

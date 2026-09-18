@@ -11,7 +11,7 @@
 #include "math/Vec4.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
-#include "Track.h"
+#include "AnimationCurve.h"
 #include "Transform.h"
 #include "Types.h"
 
@@ -85,7 +85,7 @@ private:
     int Material = -1;
     MaterialFactor Factor = MaterialFactor::BaseColour;
     std::vector<double> Times, Values;
-    Track Curve;
+    AnimationCurve Curve;
   };
 
   std::vector<std::unique_ptr<Channel>> Channels_;

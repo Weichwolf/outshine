@@ -165,7 +165,21 @@ bool Pose::AppendChannel(const Document &document,
   held->Path = channel.Path;
   held->Material = channel.Material;
   held->Factor = channel.Factor;
-  if (!Track::Build(channel.Path, sampler.How, held->Times, held->Values, held->Curve)) {
+  const size_t fixedComponents = PathComponents(channel.Path);
+  const size_t perKeyframe = sampler.How == Interpolation::CubicSpline ? 3u : 1u;
+  size_t components = fixedComponents;
+  if (components == 0 && !held->Times.empty() && held->Values.size() % held->Times.size() == 0) {
+    const size_t perTime = held->Values.size() / held->Times.size();
+    if (perTime % perKeyframe == 0) { components = perTime / perKeyframe; }
+  }
+  if (!AnimationCurve::Build(sampler.How,
+                             held->Times,
+                             held->Values,
+                             components,
+                             channel.Path == AnimationPath::Rotation
+                                 ? AnimationCurve::Values::Rotation
+                                 : AnimationCurve::Values::Linear,
+                             held->Curve)) {
     error = document.Path() + ": the " + PathName(channel.Path) + " channel of node " +
             std::to_string(channel.Node) + " states " + std::to_string(held->Times.size()) +
             " keyframes and " + std::to_string(held->Values.size()) +
