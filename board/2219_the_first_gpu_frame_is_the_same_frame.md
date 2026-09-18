@@ -41,6 +41,17 @@ wait, a hidden render frame, a test-specific sampler, a vendor shader source or 
 changed filter semantic. GLSL stays source of truth. SDL_GPU/Metal details stay in
 the backend adapter behind this resource contract.
 
+`WorldCandidate` is currently a synchronous RAII transaction and cannot own a pending
+GPU operation. Replace its declaration-facing use with an engine-thread
+`PendingWorldPublication`: it owns the private `Live`, private `WorldContent`, all
+`SampledImage` fences and their staging owners. Its state machine is `Preparing`,
+`AwaitingUploads`, `ReadyToPublish`, `Published`, `Rejected`. `advance` polls fences
+without waiting; a declaration replacement or shutdown moves to `Rejected`, retains
+owners until their fences signal, then releases them. The active world remains
+renderable throughout `Preparing` and `AwaitingUploads`. `Published` alone calls the
+existing nonthrowing renderer/world move. This state belongs to `Engine::State`, not
+to `SceneRenderer` and not to the public API.
+
 ## Implementation order
 
 1. **P0-A:** Add a focused `SampledImage` state test with a controllable transfer
@@ -49,9 +60,11 @@ the backend adapter behind this resource contract.
 2. **P0-B:** Route all subject material maps through that owner. Batch levels of one
    image into one declared upload product; do not expose a partially populated mip
    chain. Keep colour sRGB and data/normal linear.
-3. **P0-C:** Make `SceneRenderer` admit only completed content revisions at the
-   existing world-candidate publication boundary. A failed command submission must
-   retain old pixels and allow retry.
+3. **P0-C:** Introduce `PendingWorldPublication` for declaration and geometry
+   replacement. Make `SceneRenderer` admit only completed content revisions at its
+   existing world-candidate publication boundary. A failed command submission,
+   superseding declaration or shutdown retains old pixels and releases private owners
+   only after their fence; retry must work.
 4. **P0-D:** Run the chess and air repeat contracts on the normal client path. If
    filtered sampling still differs, capture the SDL backend, OS, driver and generated
    shader product in one compact diagnostic and reproduce on a second available
