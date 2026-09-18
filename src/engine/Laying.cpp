@@ -542,14 +542,19 @@ bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
              .Eye = {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}})),
         "tiles");
     const Render::Viewpoint &eye = Picture.Standing->Watching();
-    HeightSheets::Detail detail{.EyeM = eye.EyeM};
+    Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
     if (eye.Kind == Render::CameraKind::Orthographic) {
       detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
     } else {
       detail.FocalPx =
           static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
     }
-    if (!build.Sheets.RefineByError(patchwork, World.Stack.Ground(), detail, Error)) {
+    if (!build.Sheets.RefineByError(patchwork,
+                                    World.Stack.Ground(),
+                                    {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                                    detail,
+                                    Render::GroundLattice::kPages,
+                                    Error)) {
       return false;
     }
   }

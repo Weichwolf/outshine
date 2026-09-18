@@ -48,7 +48,7 @@ Stale results are rejected before the existing candidate commit; old world remai
    Reuse PressPoints and Patchwork/Sheet contracts. Pass grid side/halo layout explicitly:
    the algorithm must not read Render::GroundLattice constants. Preserve halo coordinates,
    ECEF/ENU conversion, order, precision and refusal behavior before candidate publication.
-2. Move refinement/mesh algorithms by the same rule; retain IO resolution and renderer
+2. [x] Move refinement/mesh algorithms by the same rule; retain IO resolution and renderer
    resource application in separate integration adapters. Align continuation boundaries
    with WI 2234; do not duplicate the scheduler or change its atomic product contract.
 3. Move Structure scheduling into engine/streaming with truthful names and mirrored tests;
@@ -71,8 +71,14 @@ remaining responsibilities are the next slices, so this WI is not complete.
 `Generators::BuildTerrainMesh` now converts candidate pages to the native indexed mesh and
 relief range without Engine or renderer ownership. `TerrainPageLayout` owns the shared explicit
 side/halo addressing used by pressing and meshing. HeightSheets no longer owns mesh assembly;
-sampling, halo/refinement and GPU application remain. The analytical quad fixes winding,
+sampling, halo resolution and GPU application remain. The analytical quad fixes winding,
 visible-node range and zoom filtering; the public floor-contact Place remains green.
+
+`Generators::RefineTerrain` now selects complete native patches from borrowed immutable
+height fields and returns a private candidate. Engine integration only resolves cached fields
+and commits a successful result. Flat, high-error subdivision, deterministic child identity,
+budget rejection and provider-free virtual passthrough are analytical controls. HeightSheets
+still resolves/halos streamed samples and applies pages; no provider or GPU owner moved.
 
 ## Acceptance and commands
 

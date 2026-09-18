@@ -18,6 +18,7 @@
 #include "GroundTile.h"
 #include <expected>
 #include "TangentFrame.h"
+#include "TerrainRefinement.h"
 
 namespace outshine {
 
@@ -44,16 +45,11 @@ public:
 
   [[nodiscard]] static size_t Refine(Patchwork &laid, Nearer how);
 
-  struct Detail {
-    Vec3 EyeM;
-    double FocalPx = 0.0;
-    double OrthographicPxPerM = 0.0;
-    double ErrorPx = 1.0;
-  };
-
-  [[nodiscard]] bool RefineByError(Patchwork &laid,
+  [[nodiscard]] bool RefineByError(Patchwork &candidate,
                                    const Ground::GroundStream &ground,
-                                   Detail detail,
+                                   Generators::TerrainPageLayout layout,
+                                   Generators::TerrainRefinementDetail detail,
+                                   size_t maximumPatches,
                                    std::string &error);
   [[nodiscard]] size_t Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom);
 
