@@ -42,7 +42,7 @@ Stale results are rejected before the existing candidate commit; old world remai
 
 ## First independent slice, then consumers
 
-1. Extract HeightSheets::Press and its private computational helpers into terrain generation.
+1. [x] Extract HeightSheets::Press and its private computational helpers into terrain generation.
    Input borrows immutable constraints plus exclusively owned candidate height storage;
    return contact diagnostics and mutate only that private storage, not an extra world copy.
    Reuse PressPoints and Patchwork/Sheet contracts. Pass grid side/halo layout explicitly:
@@ -60,6 +60,13 @@ Stale results are rejected before the existing candidate commit; old world remai
 
 No vegetation feature expansion or new atlas algorithm here. Existing renderer-backed
 preparation stays usable while its ownership is separated. Do not use a file move as proof.
+
+`Generators::PressTerrain` now owns the complete pad/corridor earthwork operation over
+private `Patchwork` storage. Its explicit side/halo layout removes GroundLattice from the
+algorithm. Flat-pad, sloped-corridor and invalid-layout controls run without Engine, SDL or
+renderer; the unchanged public floor-contact Place and standalone generator-link claim pass.
+HeightSheets retains sampling, refinement, mesh assembly and resource application; those
+remaining responsibilities are the next slices, so this WI is not complete.
 
 ## Acceptance and commands
 

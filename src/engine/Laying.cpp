@@ -40,6 +40,7 @@
 #include "geo/PlaceKey.h"
 #include "spatial/Refine.h"
 #include "Corridors.h"
+#include "TerrainPress.h"
 #include "EngineHeld.h"
 #include "GroundWorldCandidate.h"
 #include "GroundMesher.h"
@@ -676,7 +677,12 @@ bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
                    static_cast<double>(yielding.size() - builtPads - builtLakes),
                    "pieces");
   const auto pressAt = std::chrono::steady_clock::now();
-  const HeightSheets::Pressed pressed_ = build.Sheets.Press(yielding, patchwork, kMostEarthworkM);
+  const Generators::PressedTerrain pressed_ =
+      Generators::PressTerrain(yielding,
+                               patchwork,
+                               standing,
+                               {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                               kMostEarthworkM);
   Published.Places(
       "ground: lattice nodes the stamps pressed", static_cast<double>(pressed_.Nodes), "nodes");
   Published.Places("ground: stamps refused as STRUCTURES, past the earthwork bound",

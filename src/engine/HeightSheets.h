@@ -11,7 +11,6 @@
 
 #include "Address.h"
 #include "GroundMesher.h"
-#include "GroundYield.h"
 #include "TerrainGrid.h"
 #include <optional>
 #include <utility>
@@ -46,19 +45,6 @@ public:
   [[nodiscard]] Soup SoupOf(const Patchwork &laid, int zoomAtLeast = 0) const;
 
   [[nodiscard]] bool Hands(Patchwork &laid, std::string &error);
-
-  struct Pressed {
-    size_t Nodes = 0;
-    size_t Structures = 0;
-    size_t Held = 0;
-    double DeepestM = 0.0;
-    double RaisedM = 0.0;
-    Floors Pads;
-    Floors Corridors;
-  };
-
-  [[nodiscard]] Pressed
-  Press(std::span<const Yields> yields, Patchwork &laid, double mostEarthworkM) const;
 
   struct Nearer {
     int FinestZoom = 0;
