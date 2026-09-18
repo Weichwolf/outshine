@@ -28,54 +28,43 @@ of whether the backend happens to defer transfer-buffer destruction safely.
 
 ## Architecture decision
 
-`SubjectResidency` publishes a texture as a complete immutable `SampledImage`:
-image, sampler, all declared mip levels, transfer completion and a monotonically
-assigned content revision form one owner. A material slot may bind that owner only
-after the upload submission which writes its final level has completed successfully.
-The renderer consumes a published content revision for the whole frame; a rejected
-or unfinished upload retains the former material world. Texture staging allocations
-live through their submission fence and retire only after it signals.
+The idle-wait probe already disproves incomplete transfer execution as the direct
+cause. A `SampledImage` owner with one complete mip upload and fence-retained staging
+is still required for resource lifetime and belongs under 2190/2191, but it must not
+be presented as a repair for this image defect.
 
-The contract must use the normal asynchronous publication path. It forbids an idle
-wait, a hidden render frame, a test-specific sampler, a vendor shader source or a
-changed filter semantic. GLSL stays source of truth. SDL_GPU/Metal details stay in
-the backend adapter behind this resource contract.
+2219 first reduces the fault to a minimal SDL_GPU filtered-sampling reproducer:
+one immutable texture, one immutable sampler, one static fullscreen primitive and
+linear readback. It uses the same GLSL source and exact sampler state as the engine,
+then compares first, second and freshly recreated device frames. The reproducer must
+also test base-only, nearest-mip and linear-mip textures. It contains no scene graph,
+culling, temporal targets, uploads after setup or engine material code.
 
-`WorldCandidate` is currently a synchronous RAII transaction and cannot own a pending
-GPU operation. Replace its declaration-facing use with an engine-thread
-`PendingWorldPublication`: it owns the private `Live`, private `WorldContent`, all
-`SampledImage` fences and their staging owners. Its state machine is `Preparing`,
-`AwaitingUploads`, `ReadyToPublish`, `Published`, `Rejected`. `advance` polls fences
-without waiting; a declaration replacement or shutdown moves to `Rejected`, retains
-owners until their fences signal, then releases them. The active world remains
-renderable throughout `Preparing` and `AwaitingUploads`. `Published` alone calls the
-existing nonthrowing renderer/world move. This state belongs to `Engine::State`, not
-to `SceneRenderer` and not to the public API.
+If the minimal reproducer fails, the defect is an SDL backend/compiler/driver issue.
+Record SDL commit, backend, OS, GPU, sampler descriptor and generated shader product,
+then test a locally pinned newer SDL or second available backend. Do not carry a
+warm-up, idle wait, vendor shader source or altered filtering into Outshine. If the
+minimal reproducer passes, its differing input is a causal boundary and the engine
+path is reduced from there.
 
 ## Implementation order
 
-1. **P0-A:** Add a focused `SampledImage` state test with a controllable transfer
-   fence: incomplete texture A cannot bind, failure preserves published A, completion
-   publishes B exactly once, and staging survives until the fence.
-2. **P0-B:** Route all subject material maps through that owner. Batch levels of one
-   image into one declared upload product; do not expose a partially populated mip
-   chain. Keep colour sRGB and data/normal linear.
-3. **P0-C:** Introduce `PendingWorldPublication` for declaration and geometry
-   replacement. Make `SceneRenderer` admit only completed content revisions at its
-   existing world-candidate publication boundary. A failed command submission,
-   superseding declaration or shutdown retains old pixels and releases private owners
-   only after their fence; retry must work.
-4. **P0-D:** Run the chess and air repeat contracts on the normal client path. If
-   filtered sampling still differs, capture the SDL backend, OS, driver and generated
-   shader product in one compact diagnostic and reproduce on a second available
-   SDL_GPU backend before changing backend code.
+1. **P0-A:** Build and run the minimal reproducer for every declared mip filter.
+2. **P0-B:** Compare its first-frame results with the engine contracts and identify
+   the first differing input if the reproducer passes.
+3. **P0-C:** If it fails, pin and test a second local SDL/backend product; record the
+   exact upstream reproducer rather than guessing at engine fixes.
+4. **P1, 2190/2191:** Independently add the `SampledImage` lifetime owner and the
+   asynchronous `PendingWorldPublication` transition with failure, shutdown and retry
+   proofs. This work must preserve pixels but does not close 2219 by itself.
 
 ## Acceptance
 
 - [ ] First, second and redeclared static frames are byte-identical for mipmapped
       chess and atmospheric scenes; their existing negative controls remain red.
+- [ ] Minimal SDL_GPU reproducer identifies whether the remaining defect is upstream
+      or isolates the first differing engine input.
 - [ ] A failed or cancelled texture upload exposes neither a partial mip chain nor
-      an invalid descriptor and preserves the previous world and pixels.
-- [ ] Upload staging and GPU texture owners are released only after their final use.
+      an invalid descriptor and preserves the previous world and pixels (2190/2191).
 - [ ] No warm-up, blocking idle wait, vendor shader path or loosened image threshold
       reaches production.
