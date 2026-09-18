@@ -79,36 +79,36 @@ WriteSurfaces(std::string &into, std::span<const Scenario::Surface> surfaces) {
   return {};
 }
 
-void WriteBus(std::string &into, const Scenario::Bus &bus) {
+void WriteBus(std::string &into, const Audio::MixBus &bus) {
   into += "    <bus";
   Said(into, "id", bus.Id);
-  Said(into, "into", bus.Into);
+  Said(into, "into", bus.Output);
   Number(into, "gainDb", bus.GainDb);
-  if (!bus.Reverberates.Declared) {
+  if (!bus.Reverberation.Enabled) {
     into += "/>\n";
     return;
   }
   into += ">\n      <room";
-  Number(into, "secondsRt60", bus.Reverberates.SecondsRt60);
-  Number(into, "damping", bus.Reverberates.Damping);
-  Number(into, "wetShare", bus.Reverberates.WetShare);
+  Number(into, "secondsRt60", bus.Reverberation.DecayTimeS);
+  Number(into, "damping", bus.Reverberation.Damping);
+  Number(into, "wetShare", bus.Reverberation.WetGain);
   into += "/>\n    </bus>\n";
 }
 
 [[nodiscard]] std::expected<void, std::string> WriteVoice(std::string &into,
-                                                          const Scenario::Voice &voice) {
-  const auto processor = SpellingOf(AudioFormat::kMakes, voice.Does, "");
+                                                          const Audio::SignalNode &node) {
+  const auto processor = SpellingOf(AudioFormat::kProcessorKinds, node.Processor, "");
   if (processor.empty()) { return std::unexpected(Says::kInvalidAudioEnum); }
   into += "      <voice";
-  Said(into, "id", voice.Id);
+  Said(into, "id", node.Id);
   Said(into, "does", processor);
   into += ">\n";
-  for (const auto &input : voice.From) {
+  for (const auto &input : node.Inputs) {
     into += "        <from";
     Said(into, "id", input);
     into += "/>\n";
   }
-  for (const auto &parameter : voice.Parameters) {
+  for (const auto &parameter : node.Parameters) {
     into += "        <set";
     Said(into, "name", parameter.Name, true);
     Said(into, "value", parameter.Value, true);
@@ -119,28 +119,29 @@ void WriteBus(std::string &into, const Scenario::Bus &bus) {
 }
 
 [[nodiscard]] std::expected<void, std::string> WriteSound(std::string &into,
-                                                          const Scenario::Sound &sound) {
-  const auto attenuation = SpellingOf(AudioFormat::kFalls, sound.Heard.By, "");
+                                                          const Audio::SoundSource &sound) {
+  const auto attenuation =
+      SpellingOf(AudioFormat::kAttenuationModels, sound.Spatial.Attenuation, "");
   if (attenuation.empty()) { return std::unexpected(Says::kInvalidAudioEnum); }
   into += "    <sound";
   Said(into, "id", sound.Id);
   Said(into, "uri", sound.Uri);
   Said(into, "bus", sound.Bus);
-  Said(into, "on", sound.On);
+  Said(into, "on", sound.Body);
   Yes(into, "streamed", sound.Streamed);
   Yes(into, "loops", sound.Loops);
-  Yes(into, "positional", sound.Heard.Positional);
+  Yes(into, "positional", sound.Spatial.Positional);
   Said(into, "falls", attenuation);
   Number(into, "gainDb", sound.GainDb);
-  Number(into, "sendShare", sound.SendShare);
-  Number(into, "refM", sound.Heard.RefM);
-  Number(into, "mostM", sound.Heard.MostM);
-  Number(into, "rolloff", sound.Heard.Rolloff);
-  Number(into, "innerRad", sound.Heard.InnerRad);
-  Number(into, "outerRad", sound.Heard.OuterRad);
-  Number(into, "outerGain", sound.Heard.OuterGain);
-  Number(into, "blockedGain", sound.Heard.BlockedGain);
-  Number(into, "blockedHz", sound.Heard.BlockedHz);
+  Number(into, "sendShare", sound.ReverbSend);
+  Number(into, "refM", sound.Spatial.ReferenceDistanceM);
+  Number(into, "mostM", sound.Spatial.MaximumDistanceM);
+  Number(into, "rolloff", sound.Spatial.Rolloff);
+  Number(into, "innerRad", sound.Spatial.InnerConeRad);
+  Number(into, "outerRad", sound.Spatial.OuterConeRad);
+  Number(into, "outerGain", sound.Spatial.OuterConeGain);
+  Number(into, "blockedGain", sound.Spatial.ObstructedGain);
+  Number(into, "blockedHz", sound.Spatial.ObstructedCutoffHz);
   into += ">\n";
   for (const auto &voice : sound.Graph) {
     if (auto result = WriteVoice(into, voice); !result) { return result; }

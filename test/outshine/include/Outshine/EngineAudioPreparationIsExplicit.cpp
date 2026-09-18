@@ -17,9 +17,9 @@ int main() {
   CHECK(!engine.prepareAudio(48000), "audio preparation requires a declaration");
   Scenario::Document scene;
   scene.Buses.emplace_back().Id = "master";
-  Scenario::Sound tone;
+  Audio::SoundSource tone;
   tone.Id = "tone";
-  Scenario::Voice oscillator;
+  Audio::SignalNode oscillator;
   oscillator.Id = "osc";
   oscillator.Parameters = {{"frequency", "1000"}};
   tone.Graph.push_back(oscillator);

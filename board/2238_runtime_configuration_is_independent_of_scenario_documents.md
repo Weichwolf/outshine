@@ -55,6 +55,10 @@ world boundary. Scenario XML converts `pin`, `rank` and `whenAbsent` there; Decl
 GroundStack and source registration contain no Scenario provider type or schema-policy string.
 SourceSet batch registration validates every source and duplicate `(kind, priority)` before one
 publication, so a late failure leaves the prior set unchanged and a valid retry succeeds.
+`AudioScene` now owns typed source, spatialization, signal-node, reverb and mix-bus declarations.
+Mixer, BusGraph and SignalGraph contain no Scenario include or type; scenario XML only translates
+spellings. The migration removes the old aliases and replaces metaphorical type/method names with
+`SoundSource`, `SignalNode`, `ProcessorKind`, `AttenuationModel`, `Configure` and `Mix`.
 
 Commands: make format; run existing declared-provider tests with make suite and the
 repository dependency checks through make lint. Later audio/renderer slices run their

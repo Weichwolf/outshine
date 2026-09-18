@@ -83,15 +83,16 @@ Result Engine::prepareAudio(int sampleRateHz) {
     S_->Error = Says::kAudioDeclarationRequired;
     return std::unexpected(S_->Error);
   }
-  const bool bound = std::ranges::any_of(
-      S_->Session.Declared.Sounds, [](const Scenario::Sound &sound) { return !sound.On.empty(); });
+  const bool bound =
+      std::ranges::any_of(S_->Session.Declared.Sounds,
+                          [](const Audio::SoundSource &sound) { return !sound.Body.empty(); });
   if (bound && S_->Simulation->DeclarationRevision != S_->Session.DeclarationRevision) {
     S_->Error = Says::kAudioAssemblyRequired;
     return std::unexpected(S_->Error);
   }
   Audio::Mixer candidate;
   auto setup =
-      candidate.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, sampleRateHz);
+      candidate.Configure(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, sampleRateHz);
   if (!setup) {
     S_->Error = setup.error();
     return setup;
@@ -119,7 +120,7 @@ Result Engine::mix(std::span<float> stereo) {
     return std::unexpected(S_->Error);
   }
   const unsigned told = S_->Session.Told.load(std::memory_order_acquire);
-  if (!S_->Session.Sounding->Fills(
+  if (!S_->Session.Sounding->Mix(
           stereo, S_->Session.Sources[told], S_->Session.Ear[told], S_->Error)) {
     return std::unexpected(S_->Error);
   }

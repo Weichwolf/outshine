@@ -8,14 +8,14 @@
 #include <string_view>
 #include <vector>
 
-#include <scenario/Scenario.h>
+#include <audio/AudioScene.h>
 
 namespace outshine::Audio {
 
 class BusGraph {
 public:
-  [[nodiscard]] std::expected<void, std::string> Build(std::span<const Scenario::Bus> buses,
-                                                       std::span<const Scenario::Sound> sounds);
+  [[nodiscard]] std::expected<void, std::string> Build(std::span<const MixBus> buses,
+                                                       std::span<const SoundSource> sounds);
 
   [[nodiscard]] size_t BusCount() const { return Buses_.size(); }
 
@@ -30,9 +30,9 @@ public:
   [[nodiscard]] double GainOf(std::string_view id) const;
 
 private:
-  [[nodiscard]] bool DefineBuses(std::span<const Scenario::Bus> buses, std::string &error);
-  [[nodiscard]] bool RouteBuses(std::span<const Scenario::Bus> buses, std::string &error);
-  [[nodiscard]] bool DefineSounds(std::span<const Scenario::Sound> sounds, std::string &error);
+  [[nodiscard]] bool DefineBuses(std::span<const MixBus> buses, std::string &error);
+  [[nodiscard]] bool RouteBuses(std::span<const MixBus> buses, std::string &error);
+  [[nodiscard]] bool DefineSounds(std::span<const SoundSource> sounds, std::string &error);
 
   struct Row {
     std::string Id;

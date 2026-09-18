@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <world/SourceProvider.h>
+#include <audio/AudioScene.h>
 
 #include "Earth.h"
 #include "math/Mat4.h"
@@ -541,118 +542,6 @@ struct Volume {
   double DwellS = 0.0;
 };
 
-/// Distance attenuation law; evaluated only for positional emitters.
-enum class Falls : uint8_t {
-  Linear,     ///< Linear attenuation using RefM, MostM and Rolloff, clamped to [0,1].
-  Inverse,    ///< RefM / (RefM + Rolloff * (distance - RefM)), with distance at least RefM.
-  Exponential ///< (distance / RefM) raised to -Rolloff, with distance at least RefM.
-};
-
-/// Copied spatial-source parameters; no resources or borrowed storage.
-/// Mutate only with exclusive access. Audio setup validates positive finite RefM for
-/// positional sources, valid By, finite nonnegative MostM/Rolloff/BlockedHz and finite
-/// BlockedGain in [0,1], including nonpositional declarations. Cone metadata is unchecked.
-/// Current spatialization uses linear stereo panning, distance gain, Doppler and blocking;
-/// it is not a binaural HRTF renderer. Cone parameters are retained but unapplied.
-struct Emitter {
-  bool Positional =
-      false; ///< Enable distance, panning, Doppler and blocking; false sends equally left/right.
-  Falls By = Falls::Inverse; ///< Distance gain law; unknown enum values reject audio preparation.
-  double RefM =
-      1.0; ///< Positive reference distance in metres; nearer sources retain reference gain.
-  /// Linear law only: reference endpoint in metres; values <= RefM select 2 * RefM.
-  /// Not a hard audible-distance cutoff for the other laws.
-  double MostM = 0.0;
-  double Rolloff = 1.0; ///< Finite nonnegative dimensionless distance-attenuation coefficient.
-  double InnerRad =
-      0.0; ///< Stored inner cone angle in radians; angular convention not implemented.
-  double OuterRad =
-      0.0; ///< Stored outer cone angle in radians; angular convention not implemented.
-  double OuterGain = 0.0; ///< Stored dimensionless outer-cone gain; not applied.
-  /// Finite gain in [0,1] at full obstruction; blended from unity by the blocked fraction.
-  double BlockedGain = 1.0;
-  /// Finite nonnegative cutoff in hertz when obstruction is nonzero; zero disables it.
-  double BlockedHz = 0.0;
-};
-
-/// DSP processor category; unsupported processors are rejected during audio setup.
-enum class Makes : uint8_t {
-  Oscillator,     ///< Periodic waveform generator.
-  Noise,          ///< Noise generator.
-  OnePoleLowPass, ///< First-order low-pass filter.
-  Delay,          ///< Prepared delay line with optional internal feedback.
-  Gain,           ///< Scale summed input samples.
-  Shaper,         ///< Unsupported; setup rejects it.
-  Convolver,      ///< Unsupported; setup rejects it.
-  Mix             ///< Sum input nodes.
-};
-
-/** Owned declarative DSP node; setup validates IDs, inputs and processor parameters. */
-struct Voice {
-  /** Nonempty identifier, unique within the containing Sound::Graph. */
-  std::string Id;
-  /** Processor kind; generators produce signals, other processors consume summed inputs. */
-  Makes Does = Makes::Oscillator;
-  /** Input node IDs in summation order; forward references allowed, cycles rejected.
-   * Repeated IDs contribute repeatedly. Feedback belongs inside delay processors.
-   */
-  std::vector<std::string> From;
-  /** Owned processor settings; validated and copied into runtime state at setup. */
-  std::vector<Setting> Parameters;
-};
-
-/// Owned source declaration copied during audio preparation; no live stream or DSP state.
-/// Copies may allocate; mutate only with exclusive access. Setup validates graph topology,
-/// IDs, routing and gains before publishing, preserving prior DSP state on failure.
-/// Currently only Graph produces samples; file and client-buffer playback remain unimplemented.
-struct Sound {
-  std::string Id;  ///< Nonempty source ID, unique in the prepared sound catalogue.
-  std::string Uri; ///< Stored file reference; no decoding or file playback in the current mixer.
-  /** Owned acyclic signal graph; its last declared node is the mono source output.
-   * Declaration order otherwise does not constrain execution. Empty selects no synth.
-   */
-  std::vector<Voice> Graph;
-  bool Streamed = false; ///< Stored client-buffer intent; no buffer submission/playback path yet.
-  /** Owned body name; audio setup requires a unique placed body in the current assembly.
-   * Empty leaves the source unbound; positional unbound sources are silent.
-   */
-  std::string On;
-  std::string
-      Bus; ///< Destination bus ID; empty routes to the unique master, unknown IDs reject setup.
-  Emitter Heard;      ///< Spatialization parameters applied to the current bound source snapshot.
-  bool Loops = false; ///< Stored playback intent; does not gate or restart the current synth graph.
-  /// Source gain in decibels, converted as 10^(GainDb/20); finite gain and route product required.
-  double GainDb = 0.0;
-  /// Finite nonnegative post-spatial-gain send to shared reverb; values above one are allowed.
-  /// This does not guarantee finite output for overflowing derived signals or sums.
-  double SendShare = 0.0;
-};
-
-/** Owned reverberation settings; setup validates declared settings before publication. */
-struct Room {
-  /** Enable interpretation of these settings; false ignores the remaining fields. */
-  bool Declared = false;
-  /** Finite nonnegative decay time in seconds to fall by 60 dB; zero disables the effect. */
-  double SecondsRt60 = 0.0;
-  /** Finite damping coefficient in [0,1]; larger values suppress high frequencies more. */
-  double Damping = 0.5;
-  /** Finite wet output gain in [0,1], added to the dry signal; zero mutes the effect. */
-  double WetShare = 0.0;
-};
-
-/// Owned audio routing declaration copied at setup; mutation requires exclusive access.
-/// Exactly one bus is the master. Routes may reference later buses but must be acyclic
-/// and reach the master. Invalid names/routes/gains reject setup without replacing DSP state.
-struct Bus {
-  std::string Id;   ///< Nonempty bus ID, unique in the prepared bus catalogue.
-  std::string Into; ///< Parent bus ID; empty identifies the unique master output.
-  /// Gain in decibels, converted as 10^(GainDb/20); finite gain and route product required.
-  double GainDb = 0.0;
-  /// Room parameters validated at setup. Only the first declared active room is used,
-  /// globally for source sends; independent per-bus reverberation is not implemented yet.
-  Room Reverberates;
-};
-
 /// Owned typed table declaration, copied by declare() and validated/parsed by assemble().
 /// Assembly publishes tables with the simulation only after the complete candidate succeeds;
 /// invalid tables preserve the previous simulation. Later source edits do not update it.
@@ -988,9 +877,9 @@ struct Document {
   /// Trigger-volume declarations; live overlap state belongs to the engine.
   std::vector<Volume> Volumes;
   /// Owned audio-source declarations, distinct from active voices and generated sample buffers.
-  std::vector<Sound> Sounds;
+  std::vector<Audio::SoundSource> Sounds;
   /// Owned audio routing declarations, distinct from mixer state.
-  std::vector<Bus> Buses;
+  std::vector<Audio::MixBus> Buses;
   /// Declarative lookup tables; assembly validates their domains before publishing simulation
   /// state.
   std::vector<Table> Tables;

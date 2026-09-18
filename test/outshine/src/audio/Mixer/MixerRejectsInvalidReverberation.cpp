@@ -7,19 +7,19 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  std::array<Scenario::Bus, 2> buses{};
+  std::array<Audio::MixBus, 2> buses{};
   buses[0].Id = "master";
   buses[1].Id = "effects";
-  buses[1].Into = "master";
-  buses[0].Reverberates = {.Declared = true, .SecondsRt60 = 0.3, .Damping = 0.4, .WetShare = 0.5};
-  std::array<Scenario::Sound, 1> sounds{};
+  buses[1].Output = "master";
+  buses[0].Reverberation = {.Enabled = true, .DecayTimeS = 0.3, .Damping = 0.4, .WetGain = 0.5};
+  std::array<Audio::SoundSource, 1> sounds{};
   sounds[0].Id = "tone";
-  sounds[0].SendShare = 0.4;
+  sounds[0].ReverbSend = 0.4;
   sounds[0].Graph.push_back({.Id = "osc"});
   Audio::Mixer mixer;
   Audio::Mixer control;
   const bool initialized =
-      mixer.Stands(buses, sounds, 48000) && control.Stands(buses, sounds, 48000);
+      mixer.Configure(buses, sounds, 48000) && control.Configure(buses, sounds, 48000);
   CHECK(initialized, "matching mixers with reverberation prepared");
   if (!initialized) { return Report(); }
   std::array<Audio::Heard, 1> sources{};
@@ -29,7 +29,7 @@ int main() {
   std::array<float, 4096> expected{};
   std::string error;
   const auto compare = [&] {
-    CHECK(mixer.Fills(actual, sources, {}, error) && control.Fills(expected, sources, {}, error),
+    CHECK(mixer.Mix(actual, sources, {}, error) && control.Mix(expected, sources, {}, error),
           "both mixers render");
     CHECK(actual == expected, "rejected room preserves rate, phase and reverberation rings");
   };
@@ -38,29 +38,30 @@ int main() {
   const double infinity = std::numeric_limits<double>::infinity();
   for (const double value : {-1.0, nan, infinity}) {
     auto invalid = buses;
-    invalid[0].Reverberates.SecondsRt60 = value;
-    CHECK(!mixer.Stands(invalid, sounds, 96000), "invalid decay time rejected");
+    invalid[0].Reverberation.DecayTimeS = value;
+    CHECK(!mixer.Configure(invalid, sounds, 96000), "invalid decay time rejected");
     compare();
   }
-  for (auto field : {&Scenario::Room::Damping, &Scenario::Room::WetShare}) {
+  for (auto field : {&Audio::Reverb::Damping, &Audio::Reverb::WetGain}) {
     for (const double value : {-0.1, 1.1, nan, infinity}) {
       auto invalid = buses;
-      invalid[0].Reverberates.*field = value;
-      CHECK(!mixer.Stands(invalid, sounds, 96000), "invalid normalized room parameter rejected");
+      invalid[0].Reverberation.*field = value;
+      CHECK(!mixer.Configure(invalid, sounds, 96000), "invalid normalized room parameter rejected");
       compare();
     }
   }
   auto invalid = buses;
-  invalid[1].Reverberates = buses[0].Reverberates;
-  invalid[1].Reverberates.Damping = nan;
-  CHECK(!mixer.Stands(invalid, sounds, 96000), "all declared rooms are validated");
+  invalid[1].Reverberation = buses[0].Reverberation;
+  invalid[1].Reverberation.Damping = nan;
+  CHECK(!mixer.Configure(invalid, sounds, 96000), "all declared rooms are validated");
   compare();
-  CHECK(!mixer.Stands(buses, sounds, std::numeric_limits<int>::max()),
+  CHECK(!mixer.Configure(buses, sounds, std::numeric_limits<int>::max()),
         "sample rate cannot exceed the ring storage budget");
   compare();
-  CHECK(!mixer.Stands(buses, sounds, 64000000), "combined rings cannot exceed the storage budget");
+  CHECK(!mixer.Configure(buses, sounds, 64000000),
+        "combined rings cannot exceed the storage budget");
   compare();
-  buses[0].Reverberates = {.Declared = true, .SecondsRt60 = 0, .Damping = 0, .WetShare = 1};
-  CHECK(mixer.Stands(buses, sounds, 48000).has_value(), "zero decay disables reverberation");
+  buses[0].Reverberation = {.Enabled = true, .DecayTimeS = 0, .Damping = 0, .WetGain = 1};
+  CHECK(mixer.Configure(buses, sounds, 48000).has_value(), "zero decay disables reverberation");
   return Report();
 }

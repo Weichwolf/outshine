@@ -19,10 +19,10 @@ int main() {
   body.Name = "right";
   body.Stands.AtM[0] = 1;
   scene.Bodies.push_back(body);
-  Scenario::Sound tone;
+  Audio::SoundSource tone;
   tone.Id = "tone";
-  tone.On = "right";
-  tone.Heard.Positional = true;
+  tone.Body = "right";
+  tone.Spatial.Positional = true;
   tone.Graph.emplace_back().Id = "osc";
   tone.Graph.back().Parameters = {{"frequency", "1000"}};
   scene.Sounds.push_back(tone);
@@ -55,15 +55,15 @@ int main() {
         "removed body storage rejects binding without invalid indexing");
   CHECK(engine.assemble().has_value(), "assembly restores the native entity storage");
   render(true);
-  scene.Sounds[0].On = "left";
+  scene.Sounds[0].Body = "left";
   CHECK(engine.declare(scene) && engine.assemble(), "source target changed");
   render(false);
   for (const char *target : {"missing", "template"}) {
-    scene.Sounds[0].On = target;
+    scene.Sounds[0].Body = target;
     CHECK(engine.declare(scene) && engine.assemble(), "invalid audio target awaits setup");
     CHECK(!engine.prepareAudio(48000), "missing or unplaced target rejected");
   }
-  scene.Sounds[0].On = "right";
+  scene.Sounds[0].Body = "right";
   scene.Bodies.push_back(scene.Bodies[1]);
   CHECK(engine.declare(scene) && engine.assemble(), "ambiguous names await binding validation");
   CHECK(!engine.prepareAudio(48000), "ambiguous target is never selected by order");

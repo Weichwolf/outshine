@@ -22,10 +22,10 @@ constexpr auto PlacedBodyRequired = "binding requires a placed body: ";
 }
 
 std::expected<std::vector<std::optional<size_t>>, std::string>
-SimulationState::BindAudio(std::span<const Scenario::Sound> sounds) const {
+SimulationState::BindAudio(std::span<const Audio::SoundSource> sounds) const {
   std::vector<std::string_view> names;
   names.reserve(sounds.size());
-  for (const auto &sound : sounds) { names.push_back(sound.On); }
+  for (const Audio::SoundSource &sound : sounds) { names.push_back(sound.Body); }
   return BindBodies(names);
 }
 

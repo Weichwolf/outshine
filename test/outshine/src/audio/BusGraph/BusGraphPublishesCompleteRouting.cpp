@@ -11,12 +11,12 @@ int main() {
   using namespace outshine::Test;
   Audio::BusGraph graph;
   std::string error;
-  std::array<Scenario::Bus, 2> buses{};
+  std::array<Audio::MixBus, 2> buses{};
   buses[0].Id = "master";
   buses[1].Id = "effects";
-  buses[1].Into = "master";
+  buses[1].Output = "master";
   buses[1].GainDb = -20;
-  std::array<Scenario::Sound, 1> sounds{};
+  std::array<Audio::SoundSource, 1> sounds{};
   sounds[0].Id = "bell";
   sounds[0].Bus = "effects";
   sounds[0].GainDb = -20;
@@ -30,11 +30,11 @@ int main() {
           "failed replacement preserves routing and voice count");
   };
   auto badBuses = buses;
-  badBuses[1].Into = "missing";
+  badBuses[1].Output = "missing";
   CHECK(!graph.Build(badBuses, sounds), "unknown route fails");
   preserved();
   badBuses = buses;
-  badBuses[1].Into = "effects";
+  badBuses[1].Output = "effects";
   CHECK(!graph.Build(badBuses, sounds), "self-cycle fails");
   preserved();
   badBuses = buses;
@@ -62,12 +62,12 @@ int main() {
   CHECK(!graph.Build(badBuses, sounds), "finite factors whose product overflows fail");
   preserved();
   badSounds = sounds;
-  badSounds[0].Heard.Positional = true;
-  badSounds[0].Heard.RefM = std::numeric_limits<double>::infinity();
+  badSounds[0].Spatial.Positional = true;
+  badSounds[0].Spatial.ReferenceDistanceM = std::numeric_limits<double>::infinity();
   CHECK(!graph.Build(buses, badSounds), "positional reference distance must be finite");
   preserved();
-  const std::vector<Scenario::Bus> tooManyBuses(65);
-  const std::vector<Scenario::Sound> tooManySounds(1025);
+  const std::vector<Audio::MixBus> tooManyBuses(65);
+  const std::vector<Audio::SoundSource> tooManySounds(1025);
   CHECK(!graph.Build(tooManyBuses, sounds) && !graph.Build(buses, tooManySounds),
         "capacity exhaustion fails without publishing");
   preserved();

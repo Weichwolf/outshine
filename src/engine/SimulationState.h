@@ -34,7 +34,7 @@ struct SimulationState {
   ~SimulationState() = default;
 
   [[nodiscard]] std::expected<std::vector<std::optional<size_t>>, std::string>
-  BindAudio(std::span<const Scenario::Sound> sounds) const;
+  BindAudio(std::span<const Audio::SoundSource> sounds) const;
   [[nodiscard]] std::expected<std::vector<std::optional<size_t>>, std::string>
   BindBodies(std::span<const std::string_view> names) const;
   void PrepareBodies();

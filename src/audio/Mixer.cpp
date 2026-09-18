@@ -68,13 +68,13 @@ constexpr double kDefaultDelaySeconds = 0.05;
 constexpr size_t kEffectRingSampleBudget = size_t{8} * 1024 * 1024;
 
 [[nodiscard]] std::expected<Running, std::string>
-PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
+PrepareNode(const SignalNode &node, int rate, size_t &remainingSamples) {
   Running result;
-  if (voice.Does == Scenario::Makes::OnePoleLowPass) {
+  if (node.Processor == ProcessorKind::OnePoleLowPass) {
     result.FrequencyHz = kDefaultFilterFrequencyHz;
   }
   double delaySeconds = kDefaultDelaySeconds;
-  for (const auto &parameter : voice.Parameters) {
+  for (const SignalParameter &parameter : node.Parameters) {
     if (parameter.Name == "shape") {
       result.Shape = parameter.Value;
       continue;
@@ -98,7 +98,7 @@ PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
        result.Shape != "triangle")) {
     return std::unexpected(Says::InvalidParameter);
   }
-  if (voice.Does == Scenario::Makes::Delay) {
+  if (node.Processor == ProcessorKind::Delay) {
     const double samples = delaySeconds * rate;
     if (!std::isfinite(samples) || samples >= static_cast<double>(remainingSamples)) {
       return std::unexpected(Says::DelayBudget);
@@ -111,36 +111,40 @@ PrepareVoice(const Scenario::Voice &voice, int rate, size_t &remainingSamples) {
 }
 
 [[nodiscard]] std::expected<void, std::string>
-ValidateSpatialSources(std::span<const Scenario::Sound> sounds) {
+ValidateSpatialSources(std::span<const SoundSource> sounds) {
   for (const auto &sound : sounds) {
-    const auto &emitter = sound.Heard;
-    const std::array magnitudes{emitter.MostM, emitter.Rolloff, emitter.BlockedHz, sound.SendShare};
+    const SpatialSource &emitter = sound.Spatial;
+    const std::array magnitudes{
+        emitter.MaximumDistanceM, emitter.Rolloff, emitter.ObstructedCutoffHz, sound.ReverbSend};
     for (const double value : magnitudes) {
       if (!std::isfinite(value) || value < 0) { return std::unexpected(Says::InvalidSpatial); }
     }
-    if (!std::isfinite(emitter.BlockedGain) || emitter.BlockedGain < 0 || emitter.BlockedGain > 1) {
+    if (!std::isfinite(emitter.ObstructedGain) || emitter.ObstructedGain < 0 ||
+        emitter.ObstructedGain > 1) {
       return std::unexpected(Says::InvalidSpatial);
     }
-    switch (emitter.By) {
-      case Scenario::Falls::Linear:
-      case Scenario::Falls::Inverse:
-      case Scenario::Falls::Exponential: break;
+    switch (emitter.Attenuation) {
+      case AttenuationModel::Linear:
+      case AttenuationModel::Inverse:
+      case AttenuationModel::Exponential: break;
       default: return std::unexpected(Says::InvalidSpatial);
     }
   }
   return {};
 }
 
-[[nodiscard]] double Falloff(const Scenario::Emitter &heard, double awayM) {
-  const double refM = heard.RefM > 0.0 ? heard.RefM : 1.0;
+[[nodiscard]] double Falloff(const SpatialSource &source, double awayM) {
+  const double refM = source.ReferenceDistanceM > 0.0 ? source.ReferenceDistanceM : 1.0;
   const double atM = awayM < refM ? refM : awayM;
-  if (heard.By == Scenario::Falls::Linear) {
-    const double mostM = heard.MostM > refM ? heard.MostM : refM * 2.0;
-    const double held = 1.0 - heard.Rolloff * (atM - refM) / (mostM - refM);
+  if (source.Attenuation == AttenuationModel::Linear) {
+    const double mostM = source.MaximumDistanceM > refM ? source.MaximumDistanceM : refM * 2.0;
+    const double held = 1.0 - source.Rolloff * (atM - refM) / (mostM - refM);
     return std::clamp(held, 0.0, 1.0);
   }
-  if (heard.By == Scenario::Falls::Exponential) { return std::pow(atM / refM, -heard.Rolloff); }
-  return refM / (refM + heard.Rolloff * (atM - refM));
+  if (source.Attenuation == AttenuationModel::Exponential) {
+    return std::pow(atM / refM, -source.Rolloff);
+  }
+  return refM / (refM + source.Rolloff * (atM - refM));
 }
 
 [[nodiscard]] double Doppler(
@@ -171,7 +175,7 @@ struct SpatialMix {
   double Right = 0.5;
 };
 
-[[nodiscard]] SpatialMix Spatialize(const Scenario::Emitter &emitter,
+[[nodiscard]] SpatialMix Spatialize(const SpatialSource &emitter,
                                     const Heard &source,
                                     const Listening &ear,
                                     MixingContext context,
@@ -195,8 +199,10 @@ struct SpatialMix {
   result.Left = 1.0 - result.Right;
 
   const double blocked = std::clamp(source.Blocked, 0.0, 1.0);
-  result.Gain *= 1.0 + blocked * (emitter.BlockedGain - 1.0);
-  if (emitter.BlockedHz > 0.0 && blocked > 0.0) { result.CutoffHz = emitter.BlockedHz; }
+  result.Gain *= 1.0 + blocked * (emitter.ObstructedGain - 1.0);
+  if (emitter.ObstructedCutoffHz > 0.0 && blocked > 0.0) {
+    result.CutoffHz = emitter.ObstructedCutoffHz;
+  }
   return result;
 }
 
@@ -205,7 +211,7 @@ struct Voicing {
   int Rate = 0;
 };
 
-void ProcessSignal(Scenario::Makes kind,
+void ProcessSignal(ProcessorKind kind,
                    Running &kept,
                    Voicing how,
                    std::span<const double> in,
@@ -214,7 +220,7 @@ void ProcessSignal(Scenario::Makes kind,
   const double pitch = how.Pitch;
   const int rate = how.Rate;
   switch (kind) {
-    case Scenario::Makes::Oscillator: {
+    case ProcessorKind::Oscillator: {
       const double hz = kept.FrequencyHz * pitch;
       for (size_t frame = 0; frame < frames; ++frame) {
         out[frame] = Shaped(kept.Shape, kept.Phase);
@@ -223,18 +229,18 @@ void ProcessSignal(Scenario::Makes kind,
       }
       break;
     }
-    case Scenario::Makes::Noise:
+    case ProcessorKind::Noise:
       for (size_t frame = 0; frame < frames; ++frame) {
         kept.Seed = kept.Seed * kLcgWord + kLcgOffset;
         out[frame] = static_cast<double>(kept.Seed >> kNoiseDrop) / kNoiseHalfSteps - 1.0;
       }
       break;
-    case Scenario::Makes::Gain: {
+    case ProcessorKind::Gain: {
       const double by = kept.Gain;
       for (size_t frame = 0; frame < frames; ++frame) { out[frame] = in[frame] * by; }
       break;
     }
-    case Scenario::Makes::OnePoleLowPass: {
+    case ProcessorKind::OnePoleLowPass: {
       const double hz = kept.FrequencyHz;
       const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / static_cast<double>(rate));
       for (size_t frame = 0; frame < frames; ++frame) {
@@ -243,7 +249,7 @@ void ProcessSignal(Scenario::Makes kind,
       }
       break;
     }
-    case Scenario::Makes::Delay: {
+    case ProcessorKind::Delay: {
       const double back = kept.Feedback;
       for (size_t frame = 0; frame < frames; ++frame) {
         out[frame] = kept.Ring[kept.At];
@@ -252,7 +258,7 @@ void ProcessSignal(Scenario::Makes kind,
       }
       break;
     }
-    case Scenario::Makes::Mix: std::ranges::copy(in, out.begin()); break;
+    case ProcessorKind::Mix: std::ranges::copy(in, out.begin()); break;
     default: break;
   }
 }
@@ -264,7 +270,7 @@ struct SignalWorkspace {
   std::array<double, kAudioBlockFrames> Input{};
 };
 
-void Voiced(const Scenario::Sound &sound,
+void Voiced(const SoundSource &sound,
             const SignalGraph &graph,
             std::vector<Running> &state,
             Voicing how,
@@ -276,7 +282,7 @@ void Voiced(const Scenario::Sound &sound,
   const std::span made(workspace.Samples);
   const auto in = std::span(workspace.Input).first(frames);
   for (const size_t at : graph.Order) {
-    const Scenario::Voice &makes = sound.Graph[at];
+    const SignalNode &node = sound.Graph[at];
     Running &kept = state[at];
     const auto out = made.subspan(at * kAudioBlockFrames, frames);
     std::ranges::fill(out, 0.0);
@@ -287,7 +293,7 @@ void Voiced(const Scenario::Sound &sound,
       }
     }
 
-    ProcessSignal(makes.Does, kept, how, in, out);
+    ProcessSignal(node.Processor, kept, how, in, out);
   }
   std::ranges::copy(made.subspan((sound.Graph.size() - 1) * kAudioBlockFrames, frames),
                     into.begin());
@@ -296,11 +302,11 @@ void Voiced(const Scenario::Sound &sound,
 }
 
 namespace {
-[[nodiscard]] bool ValidReverberation(const Scenario::Room &room) noexcept {
-  return !room.Declared ||
-         (std::isfinite(room.SecondsRt60) && room.SecondsRt60 >= 0 && std::isfinite(room.Damping) &&
-          room.Damping >= 0 && room.Damping <= 1 && std::isfinite(room.WetShare) &&
-          room.WetShare >= 0 && room.WetShare <= 1);
+[[nodiscard]] bool ValidReverberation(const Reverb &reverb) noexcept {
+  return !reverb.Enabled ||
+         (std::isfinite(reverb.DecayTimeS) && reverb.DecayTimeS >= 0 &&
+          std::isfinite(reverb.Damping) && reverb.Damping >= 0 && reverb.Damping <= 1 &&
+          std::isfinite(reverb.WetGain) && reverb.WetGain >= 0 && reverb.WetGain <= 1);
 }
 
 struct Reverberation {
@@ -348,13 +354,13 @@ struct Mixer::Held {
                 std::span<const Heard> sources,
                 const Listening &ear,
                 MixingContext context);
-  [[nodiscard]] std::expected<void, std::string> ConfigureRoom(std::span<const Scenario::Bus> buses,
+  [[nodiscard]] std::expected<void, std::string> ConfigureRoom(std::span<const MixBus> buses,
                                                                int rate);
   [[nodiscard]] bool
-  BuildSources(std::span<const Scenario::Sound> declared, int rate, std::string &error);
+  BuildSources(std::span<const SoundSource> declared, int rate, std::string &error);
 
   BusGraph Routing;
-  std::vector<Scenario::Sound> Declared;
+  std::vector<SoundSource> Declared;
   std::vector<std::vector<Running>> State;
   std::vector<SignalGraph> Graphs;
   SignalWorkspace Workspace;
@@ -365,18 +371,18 @@ struct Mixer::Held {
   size_t Voices = 0;
 };
 
-std::expected<void, std::string> Mixer::Held::ConfigureRoom(std::span<const Scenario::Bus> buses,
+std::expected<void, std::string> Mixer::Held::ConfigureRoom(std::span<const MixBus> buses,
                                                             int rate) {
   for (const auto &bus : buses) {
-    if (!ValidReverberation(bus.Reverberates)) { return std::unexpected(Says::InvalidRoom); }
+    if (!ValidReverberation(bus.Reverberation)) { return std::unexpected(Says::InvalidRoom); }
   }
   size_t remainingSamples = kEffectRingSampleBudget;
-  for (const Scenario::Bus &one : buses) {
-    if (!one.Reverberates.Declared || !(one.Reverberates.SecondsRt60 > 0.0)) { continue; }
+  for (const MixBus &one : buses) {
+    if (!one.Reverberation.Enabled || !(one.Reverberation.DecayTimeS > 0.0)) { continue; }
     Room = Reverberation{};
     Room.Standing = true;
-    Room.Damping = one.Reverberates.Damping;
-    Room.WetShare = one.Reverberates.WetShare;
+    Room.Damping = one.Reverberation.Damping;
+    Room.WetShare = one.Reverberation.WetGain;
     constexpr std::array<int, 4> kCombs = {{1116, 1188, 1277, 1356}};
     constexpr std::array<int, 2> kPasses = {{556, 441}};
     for (const int held : kCombs) {
@@ -391,7 +397,7 @@ std::expected<void, std::string> Mixer::Held::ConfigureRoom(std::span<const Scen
       const double delayS =
           static_cast<double>(Room.Combs.back().size()) / static_cast<double>(rate);
       Room.CombBack.push_back(
-          std::pow(kDecadeBase, kRt60Decades * delayS / one.Reverberates.SecondsRt60));
+          std::pow(kDecadeBase, kRt60Decades * delayS / one.Reverberation.DecayTimeS));
     }
     for (const int held : kPasses) {
       const auto taps =
@@ -407,24 +413,24 @@ std::expected<void, std::string> Mixer::Held::ConfigureRoom(std::span<const Scen
   return {};
 }
 
-bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
+bool Mixer::Held::BuildSources(std::span<const SoundSource> declared,
                                int rate,
                                std::string &error) {
   size_t remainingSamples = kEffectRingSampleBudget;
   SignalGraphBudget remainingGraph;
   size_t largestGraph = 0;
-  for (const Scenario::Sound &one : declared) {
+  for (const SoundSource &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
       error = "the sound '" + one.Id +
               "' comes by no way at all -- a source is a file, a graph or a buffer a client "
               "fills, and declaring none of the three names nothing";
       return false;
     }
-    for (const Scenario::Voice &makes : one.Graph) {
-      if (makes.Does == Scenario::Makes::Convolver || makes.Does == Scenario::Makes::Shaper) {
+    for (const SignalNode &node : one.Graph) {
+      if (node.Processor == ProcessorKind::Convolver || node.Processor == ProcessorKind::Shaper) {
         error = "the sound '" + one.Id + "' declares a '" +
-                (makes.Does == Scenario::Makes::Convolver ? std::string("convolver")
-                                                          : std::string("shaper")) +
+                (node.Processor == ProcessorKind::Convolver ? std::string("convolver")
+                                                            : std::string("shaper")) +
                 "' and this mixer does not run one yet -- a declared unit that silently does "
                 "nothing is worse than a refusal, because the mix would sound finished";
         return false;
@@ -439,8 +445,8 @@ bool Mixer::Held::BuildSources(std::span<const Scenario::Sound> declared,
     Graphs.push_back(std::move(*graph));
     auto &states = State.emplace_back();
     states.reserve(one.Graph.size());
-    for (const auto &voice : one.Graph) {
-      auto prepared = PrepareVoice(voice, rate, remainingSamples);
+    for (const SignalNode &node : one.Graph) {
+      auto prepared = PrepareNode(node, rate, remainingSamples);
       if (!prepared) {
         error = std::move(prepared.error());
         return false;
@@ -460,17 +466,16 @@ Mixer::~Mixer() = default;
 Mixer::Mixer(Mixer &&) noexcept = default;
 Mixer &Mixer::operator=(Mixer &&) noexcept = default;
 
-size_t Mixer::Voices() const {
+size_t Mixer::VoiceCount() const {
   return Held_->Voices;
 }
 
-const BusGraph &Mixer::Routing() const {
+const BusGraph &Mixer::Buses() const {
   return Held_->Routing;
 }
 
-std::expected<void, std::string> Mixer::Stands(std::span<const Scenario::Bus> buses,
-                                               std::span<const Scenario::Sound> declared,
-                                               int rate) {
+std::expected<void, std::string>
+Mixer::Configure(std::span<const MixBus> buses, std::span<const SoundSource> declared, int rate) {
   if (rate <= 0) { return std::unexpected(Says::InvalidRate); }
   auto candidate = std::make_unique<Held>();
   auto routing = candidate->Routing.Build(buses, declared);
@@ -486,10 +491,10 @@ std::expected<void, std::string> Mixer::Stands(std::span<const Scenario::Bus> bu
   return {};
 }
 
-bool Mixer::Fills(std::span<float> stereo,
-                  std::span<const Heard> sources,
-                  const Listening &ear,
-                  std::string &error) {
+bool Mixer::Mix(std::span<float> stereo,
+                std::span<const Heard> sources,
+                const Listening &ear,
+                std::string &error) {
   if (stereo.size() % 2 != 0) {
     error = "a stereo buffer holds an even number of samples and this one holds " +
             std::to_string(stereo.size());
@@ -518,7 +523,7 @@ void Mixer::Held::MixBlock(std::span<float> stereo,
   std::ranges::fill(wet, 0.0);
 
   for (size_t at = 0; at < Declared.size(); ++at) {
-    const Scenario::Sound &sound = Declared[at];
+    const SoundSource &sound = Declared[at];
     if (sound.Graph.empty()) { continue; }
     const Heard *standing = nullptr;
     for (const Heard &one : sources) {
@@ -526,7 +531,8 @@ void Mixer::Held::MixBlock(std::span<float> stereo,
     }
     if (standing == nullptr) { continue; }
 
-    const auto spatial = Spatialize(sound.Heard, *standing, ear, context, Routing.GainOf(sound.Id));
+    const auto spatial =
+        Spatialize(sound.Spatial, *standing, ear, context, Routing.GainOf(sound.Id));
     if (!(spatial.Gain > 0.0)) { continue; }
 
     Voiced(sound,
@@ -548,7 +554,7 @@ void Mixer::Held::MixBlock(std::span<float> stereo,
       const double one = scratch[frame] * spatial.Gain;
       stereo[frame * 2 + 0] += static_cast<float>(one * spatial.Left);
       stereo[frame * 2 + 1] += static_cast<float>(one * spatial.Right);
-      wet[frame] += one * sound.SendShare;
+      wet[frame] += one * sound.ReverbSend;
     }
   }
 

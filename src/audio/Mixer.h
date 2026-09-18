@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <scenario/Scenario.h>
+#include <audio/AudioScene.h>
 
 #include "math/Vec3.h"
 #include "BusGraph.h"
@@ -42,15 +42,15 @@ public:
   Mixer &operator=(const Mixer &) = delete;
 
   [[nodiscard]] std::expected<void, std::string>
-  Stands(std::span<const Scenario::Bus> buses, std::span<const Scenario::Sound> declared, int rate);
+  Configure(std::span<const MixBus> buses, std::span<const SoundSource> declared, int rate);
 
-  [[nodiscard]] bool Fills(std::span<float> stereo,
-                           std::span<const Heard> sources,
-                           const Listening &ear,
-                           std::string &error);
+  [[nodiscard]] bool Mix(std::span<float> stereo,
+                         std::span<const Heard> sources,
+                         const Listening &ear,
+                         std::string &error);
 
-  [[nodiscard]] size_t Voices() const;
-  [[nodiscard]] const BusGraph &Routing() const;
+  [[nodiscard]] size_t VoiceCount() const;
+  [[nodiscard]] const BusGraph &Buses() const;
 
   [[nodiscard]] double SpeedOfSoundMs() const { return SpeedOfSoundMs_; }
 

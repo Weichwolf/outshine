@@ -18,27 +18,27 @@ constexpr auto Cycle = "audio signal graph contains a cycle";
 }
 }
 
-std::expected<SignalGraph, std::string>
-SignalGraph::Compile(std::span<const Scenario::Voice> voices, SignalGraphBudget &remaining) {
-  if (voices.size() > remaining.Nodes) { return std::unexpected(Says::Budget); }
+std::expected<SignalGraph, std::string> SignalGraph::Compile(std::span<const SignalNode> nodes,
+                                                             SignalGraphBudget &remaining) {
+  if (nodes.size() > remaining.Nodes) { return std::unexpected(Says::Budget); }
   size_t edges = 0;
-  for (const auto &voice : voices) {
-    if (voice.From.size() > remaining.Edges - edges) { return std::unexpected(Says::Budget); }
-    edges += voice.From.size();
+  for (const SignalNode &node : nodes) {
+    if (node.Inputs.size() > remaining.Edges - edges) { return std::unexpected(Says::Budget); }
+    edges += node.Inputs.size();
   }
   std::map<std::string_view, size_t> names;
-  for (size_t index = 0; index < voices.size(); ++index) {
-    if (voices[index].Id.empty() || !names.emplace(voices[index].Id, index).second) {
+  for (size_t index = 0; index < nodes.size(); ++index) {
+    if (nodes[index].Id.empty() || !names.emplace(nodes[index].Id, index).second) {
       return std::unexpected(Says::Id);
     }
   }
   SignalGraph result;
-  result.Inputs.resize(voices.size());
-  result.Order.reserve(voices.size());
-  std::vector<std::vector<size_t>> consumers(voices.size());
-  std::vector<size_t> pending(voices.size());
-  for (size_t index = 0; index < voices.size(); ++index) {
-    for (const auto &id : voices[index].From) {
+  result.Inputs.resize(nodes.size());
+  result.Order.reserve(nodes.size());
+  std::vector<std::vector<size_t>> consumers(nodes.size());
+  std::vector<size_t> pending(nodes.size());
+  for (size_t index = 0; index < nodes.size(); ++index) {
+    for (const auto &id : nodes[index].Inputs) {
       const auto found = names.find(id);
       if (found == names.end()) { return std::unexpected(Says::Missing); }
       result.Inputs[index].push_back(found->second);
@@ -52,8 +52,8 @@ SignalGraph::Compile(std::span<const Scenario::Voice> voices, SignalGraphBudget 
       if (--pending[consumer] == 0) { result.Order.push_back(consumer); }
     }
   }
-  if (result.Order.size() != voices.size()) { return std::unexpected(Says::Cycle); }
-  remaining.Nodes -= voices.size();
+  if (result.Order.size() != nodes.size()) { return std::unexpected(Says::Cycle); }
+  remaining.Nodes -= nodes.size();
   remaining.Edges -= edges;
   return result;
 }

@@ -173,11 +173,11 @@ void Engine::State::PublishAudioSnapshot() {
   sources.clear();
   sources.reserve(Session.Declared.Sounds.size());
   for (size_t source = 0; source < Session.Declared.Sounds.size(); ++source) {
-    const Scenario::Sound &declared = Session.Declared.Sounds[source];
+    const Audio::SoundSource &declared = Session.Declared.Sounds[source];
     Audio::Heard where;
     where.Id = declared.Id;
-    if (declared.On.empty()) {
-      where.Standing = !declared.Heard.Positional;
+    if (declared.Body.empty()) {
+      where.Standing = !declared.Spatial.Positional;
       sources.push_back(where);
       continue;
     }

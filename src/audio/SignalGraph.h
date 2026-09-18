@@ -6,7 +6,8 @@
 #include <span>
 #include <string>
 #include <vector>
-#include <scenario/Scenario.h>
+
+#include <audio/AudioScene.h>
 
 namespace outshine::Audio {
 
@@ -20,7 +21,7 @@ struct SignalGraph {
   std::vector<size_t> Order;
 
   [[nodiscard]] static std::expected<SignalGraph, std::string>
-  Compile(std::span<const Scenario::Voice> voices, SignalGraphBudget &remaining);
+  Compile(std::span<const SignalNode> nodes, SignalGraphBudget &remaining);
 };
 
 }

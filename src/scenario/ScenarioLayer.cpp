@@ -80,11 +80,11 @@ struct ByDoorEnds {
 };
 
 struct BySoundUri {
-  bool operator()(const Scenario::Sound &a, const Scenario::Sound &b) const {
+  bool operator()(const Audio::SoundSource &a, const Audio::SoundSource &b) const {
     return a.Uri == b.Uri;
   }
 
-  [[nodiscard]] static std::string Identity(const Scenario::Sound &row) { return row.Uri; }
+  [[nodiscard]] static std::string Identity(const Audio::SoundSource &row) { return row.Uri; }
 };
 
 struct ByEventName {
@@ -163,7 +163,7 @@ bool MergeLayer(Scenario::Document &into,
   MergeRows(into.Doors, layer.Doors, named, "door", ByDoorEnds{}, trace);
   MergeRows(into.Volumes, layer.Volumes, named, "volume", ByIdField<Scenario::Volume>{}, trace);
   MergeRows(into.Sounds, layer.Sounds, named, "sound", BySoundUri{}, trace);
-  MergeRows(into.Buses, layer.Buses, named, "bus", ByIdField<Scenario::Bus>{}, trace);
+  MergeRows(into.Buses, layer.Buses, named, "bus", ByIdField<Audio::MixBus>{}, trace);
   MergeRows(into.Tables, layer.Tables, named, "table", ByIdField<Scenario::Table>{}, trace);
   MergeRows(into.Views, layer.Views, named, "view", ByIdField<Scenario::View>{}, trace);
   MergeRows(into.Events, layer.Events, named, "event", ByEventName{}, trace);

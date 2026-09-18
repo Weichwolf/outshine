@@ -7,41 +7,42 @@
 
 int main() {
   using namespace outshine;
+  using namespace outshine::Audio;
   using namespace outshine::Test;
-  std::array<Scenario::Bus, 1> buses{};
+  std::array<MixBus, 1> buses{};
   buses[0].Id = "master";
-  std::array<Scenario::Sound, 1> sounds{};
+  std::array<SoundSource, 1> sounds{};
   sounds[0].Id = "tone";
-  Scenario::Voice oscillator;
+  SignalNode oscillator;
   oscillator.Id = "osc";
   oscillator.Parameters = {{"frequency", "1000"}};
-  Scenario::Voice gain;
+  SignalNode gain;
   gain.Id = "gain";
-  gain.Does = Scenario::Makes::Gain;
-  gain.From = {"osc"};
+  gain.Processor = ProcessorKind::Gain;
+  gain.Inputs = {"osc"};
   gain.Parameters = {{"gain", "0.25"}};
-  Scenario::Voice output;
+  SignalNode output;
   output.Id = "output";
-  output.Does = Scenario::Makes::Mix;
-  output.From = {"gain", "osc"};
-  Scenario::Voice unused = gain;
+  output.Processor = ProcessorKind::Mix;
+  output.Inputs = {"gain", "osc"};
+  SignalNode unused = gain;
   unused.Id = "unused";
-  unused.From = {"output"};
+  unused.Inputs = {"output"};
   sounds[0].Graph = {unused, gain, oscillator, output};
   std::array<Audio::Heard, 1> sources{};
   sources[0].Id = "tone";
   sources[0].Standing = true;
   Audio::Mixer mixer;
   Audio::Mixer control;
-  CHECK(mixer.Stands(buses, sounds, 48000).has_value(), "forward references compile");
+  CHECK(mixer.Configure(buses, sounds, 48000).has_value(), "forward references compile");
   auto ordered = sounds;
   ordered[0].Graph = {oscillator, gain, output};
-  CHECK(control.Stands(buses, ordered, 48000).has_value(), "ordered graph compiles");
+  CHECK(control.Configure(buses, ordered, 48000).has_value(), "ordered graph compiles");
   std::array<float, 128> actual{};
   std::array<float, 128> expected{};
   std::string error;
-  CHECK(mixer.Fills(actual, sources, {}, error), "compiled graph renders");
-  CHECK(control.Fills(expected, sources, {}, error), "ordered graph renders");
+  CHECK(mixer.Mix(actual, sources, {}, error), "compiled graph renders");
+  CHECK(control.Mix(expected, sources, {}, error), "ordered graph renders");
   CHECK(actual == expected, "authored order and unused downstream node do not change output");
   for (size_t frame = 0; frame < actual.size() / 2; ++frame) {
     const double sample = 0.625 * std::sin(2 * std::numbers::pi * static_cast<double>(frame) / 48);
@@ -49,13 +50,13 @@ int main() {
           "two inputs sum at declared output with stereo gain");
   }
   const auto reject = [&](const auto &invalid) {
-    CHECK(!mixer.Stands(buses, invalid, 96000), "invalid graph rejected before publication");
-    CHECK(mixer.Fills(actual, sources, {}, error) && control.Fills(expected, sources, {}, error),
+    CHECK(!mixer.Configure(buses, invalid, 96000), "invalid graph rejected before publication");
+    CHECK(mixer.Mix(actual, sources, {}, error) && control.Mix(expected, sources, {}, error),
           "mixers continue after rejected setup");
     CHECK(actual == expected, "graph rejection preserves state and sample rate");
   };
   auto invalid = sounds;
-  invalid[0].Graph[1].From = {"missing"};
+  invalid[0].Graph[1].Inputs = {"missing"};
   reject(invalid);
   invalid = sounds;
   invalid[0].Graph[1].Id = "osc";
@@ -64,12 +65,12 @@ int main() {
   invalid[0].Graph[1].Id.clear();
   reject(invalid);
   invalid = sounds;
-  invalid[0].Graph[1].From = {"gain"};
+  invalid[0].Graph[1].Inputs = {"gain"};
   reject(invalid);
   invalid = sounds;
-  invalid[0].Graph[1].From = {"output"};
+  invalid[0].Graph[1].Inputs = {"output"};
   reject(invalid);
-  std::array<Scenario::Sound, 2> capacity{sounds[0], sounds[0]};
+  std::array<SoundSource, 2> capacity{sounds[0], sounds[0]};
   capacity[1].Id = "second";
   for (auto &sound : capacity) {
     sound.Graph.clear();
@@ -80,15 +81,15 @@ int main() {
     }
   }
   Audio::Mixer boundary;
-  CHECK(boundary.Stands(buses, capacity, 48000).has_value(), "aggregate node budget accepted");
+  CHECK(boundary.Configure(buses, capacity, 48000).has_value(), "aggregate node budget accepted");
   capacity[1].Graph.push_back(oscillator);
   reject(capacity);
   for (auto &sound : capacity) {
     sound.Graph = {oscillator, output};
-    sound.Graph.back().From.assign(2048, "osc");
+    sound.Graph.back().Inputs.assign(2048, "osc");
   }
-  CHECK(boundary.Stands(buses, capacity, 48000).has_value(), "aggregate edge budget accepted");
-  capacity[1].Graph.back().From.push_back("osc");
+  CHECK(boundary.Configure(buses, capacity, 48000).has_value(), "aggregate edge budget accepted");
+  capacity[1].Graph.back().Inputs.push_back("osc");
   reject(capacity);
   return Report();
 }
