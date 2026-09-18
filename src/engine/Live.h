@@ -62,7 +62,7 @@ struct Declaration {
 
   double MetresPerUnit = 1.0;
 
-  double Fps = Scenario::kFpsUnsaid;
+  double Fps = Render::kDefaultFrameRateHz;
 
   double Fill = 0.0;
 

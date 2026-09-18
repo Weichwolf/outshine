@@ -565,7 +565,7 @@ void WriteIdentity(std::string &said, const Scenario::Identity &identity) {
   said += ">\n";
 }
 
-void WriteRender(std::string &said, const Scenario::RenderPlan &render) {
+void WriteRender(std::string &said, const Render::Configuration &render) {
   if (!render.Declared) { return; }
   said += "  <render";
   Number(said, "widthPx", render.Frame.WidthPx);
@@ -574,10 +574,10 @@ void WriteRender(std::string &said, const Scenario::RenderPlan &render) {
   Number(said, "topFrac", render.Picture.TopFrac);
   Number(said, "widthFrac", render.Picture.WidthFrac);
   Number(said, "heightFrac", render.Picture.HeightFrac);
-  Number(said, "fps", render.Fps);
-  Number(said, "fill", render.Fill);
+  Number(said, "fps", render.FrameRateHz);
+  Number(said, "fill", render.CameraFill);
   Yes(said, "audits", render.Audits);
-  Number(said, "orbitDegPerFrame", render.OrbitDegPerFrame);
+  Number(said, "orbitDegPerFrame", render.OrbitDegreesPerFrame);
   Said(said, "transfer", render.Transfer);
   Number(said, "exposure", render.Exposure);
   Said(said, "precision", render.Precision);

@@ -29,8 +29,8 @@ int main() {
             "identity retains every field");
       const auto &render = document.Render;
       CHECK(render.Declared && render.Frame.WidthPx == 640 && render.Frame.HeightPx == 360 &&
-                render.Fps == 30 && render.Fill == 0.75 && render.Audits &&
-                render.OrbitDegPerFrame == 0.5 && render.Transfer == "filmic" &&
+                render.FrameRateHz == 30 && render.CameraFill == 0.75 && render.Audits &&
+                render.OrbitDegreesPerFrame == 0.5 && render.Transfer == "filmic" &&
                 render.Exposure == 1.25 && render.Precision == "half",
             "render settings retained");
       CHECK(render.Outputs == std::vector<std::string>({"sceneColour", "depth&mask"}) &&

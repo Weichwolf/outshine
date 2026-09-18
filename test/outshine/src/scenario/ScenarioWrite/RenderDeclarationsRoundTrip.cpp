@@ -30,8 +30,9 @@ int main() {
     const auto &a = source.Render;
     const auto &b = copy.Render;
     CHECK(a.Declared == b.Declared && a.Frame.WidthPx == b.Frame.WidthPx &&
-              a.Frame.HeightPx == b.Frame.HeightPx && a.Fps == b.Fps && a.Fill == b.Fill &&
-              a.OrbitDegPerFrame == b.OrbitDegPerFrame && a.Audits == b.Audits,
+              a.Frame.HeightPx == b.Frame.HeightPx && a.FrameRateHz == b.FrameRateHz &&
+              a.CameraFill == b.CameraFill && a.OrbitDegreesPerFrame == b.OrbitDegreesPerFrame &&
+              a.Audits == b.Audits,
           "render dimensions and numerical settings survive");
     CHECK(a.Picture.LeftFrac == b.Picture.LeftFrac && a.Picture.TopFrac == b.Picture.TopFrac &&
               a.Picture.WidthFrac == b.Picture.WidthFrac &&

@@ -59,6 +59,11 @@ publication, so a late failure leaves the prior set unchanged and a valid retry 
 Mixer, BusGraph and SignalGraph contain no Scenario include or type; scenario XML only translates
 spellings. The migration removes the old aliases and replaces metaphorical type/method names with
 `SoundSource`, `SignalNode`, `ProcessorKind`, `AttenuationModel`, `Configure` and `Mix`.
+`Render::Configuration` now owns target-region, sampling, framing and render-plan requests.
+Scenario XML reads and writes that native value directly; `Scenario::RenderPlan` no longer exists.
+The native names state units (`FrameRateHz`, `OrbitDegreesPerFrame`) and camera intent, and a
+standalone public-header test proves construction without scenario. The renderer source tier has
+no scenario include or `Scenario::` operation. Plan compilation remains the single validator.
 
 Commands: make format; run existing declared-provider tests with make suite and the
 repository dependency checks through make lint. Later audio/renderer slices run their
@@ -68,11 +73,11 @@ reaches, or use a private duplicate of Scenario::Document as the supposed native
 
 ## Acceptance
 
-- [ ] Native provider construction compiles/runs without scenario headers or renderer.
-- [ ] Invalid imported/direct inputs reject identically before mutation; retry succeeds.
+- [x] Native provider construction compiles/runs without scenario headers or renderer.
+- [x] Invalid imported/direct inputs reject identically before mutation; retry succeeds.
 - [ ] All source-to-public-header edges are accounted for; deliberate reversed dependency
       fails. Header relocation alone does not count if subsystem types remain importer-owned.
-- [ ] Completed module slices have no Scenario:: type in runtime headers/operations;
+- [x] Completed module slices have no Scenario:: type in runtime headers/operations;
       public client, serialization roundtrip, ABI/source changes and lifetime docs migrate.
-- [ ] make lint including clang-tidy passes; no renderer/audio behavior changes are hidden
+- [x] make lint including clang-tidy passes; no renderer/audio behavior changes are hidden
       as naming work. WI 2151 retains whole-scenario schema and roundtrip responsibility.

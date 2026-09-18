@@ -7,7 +7,6 @@
 #include "math/Vec3.h"
 #include "Extent.h"
 #include "Heap.h"
-#include "scenario/Scenario.h"
 #include <array>
 #include <span>
 #include <cstdint>

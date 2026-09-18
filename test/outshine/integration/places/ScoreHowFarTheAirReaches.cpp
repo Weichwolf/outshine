@@ -119,7 +119,7 @@ int main(void) {
     stands.Ground.SightM = kSightM;
     stands.Render.Declared = true;
     stands.Render.Frame = outshine::Extent{kWidePx, kHighPx};
-    stands.Render.Fill = 0.6;
+    stands.Render.CameraFill = 0.6;
     stands.Lit.Declared = true;
     stands.Lit.Key.Lux = 40000.0;
     stands.Lit.Key.ElevationDeg = 60.0;

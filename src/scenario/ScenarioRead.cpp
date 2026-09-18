@@ -357,10 +357,10 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   into.Render.Picture.TopFrac = from.Num("topFrac", into.Render.Picture.TopFrac);
   into.Render.Picture.WidthFrac = from.Num("widthFrac", into.Render.Picture.WidthFrac);
   into.Render.Picture.HeightFrac = from.Num("heightFrac", into.Render.Picture.HeightFrac);
-  into.Render.Fps = from.Num("fps", into.Render.Fps);
-  into.Render.Fill = from.Num("fill", into.Render.Fill);
+  into.Render.FrameRateHz = from.Num("fps", into.Render.FrameRateHz);
+  into.Render.CameraFill = from.Num("fill", into.Render.CameraFill);
   into.Render.Audits = std::string(from.Said("audits").value_or("no")) == "yes";
-  into.Render.OrbitDegPerFrame = from.Num("orbitDegPerFrame", into.Render.OrbitDegPerFrame);
+  into.Render.OrbitDegreesPerFrame = from.Num("orbitDegPerFrame", into.Render.OrbitDegreesPerFrame);
   into.Render.Transfer = from.Said("transfer").value_or(into.Render.Transfer.c_str());
   into.Render.Exposure = from.Num("exposure", into.Render.Exposure);
   into.Render.Precision = from.Said("precision").value_or(into.Render.Precision.c_str());

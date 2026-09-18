@@ -497,12 +497,12 @@ void PrepareImportedAssets(const Scenario::Document &scenario,
 
 void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration &declared) {
   declared.DrawsSky = scenario.Ground.Declared && scenario.Ground.AirDensityKgM3 > 0.0;
-  const Scenario::Patch whole;
-  const Scenario::Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
+  const Render::ImageRegion whole;
+  const Render::ImageRegion &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
   if (scenario.Render.Declared) {
-    if (scenario.Render.Fps > 0.0) { declared.Fps = scenario.Render.Fps; }
-    declared.Fill = scenario.Render.Fill;
-    declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
+    if (scenario.Render.FrameRateHz > 0.0) { declared.Fps = scenario.Render.FrameRateHz; }
+    declared.Fill = scenario.Render.CameraFill;
+    declared.OrbitDegPerFrame = scenario.Render.OrbitDegreesPerFrame;
     declared.Stages = scenario.Render.Stages;
     declared.Outputs = scenario.Render.Outputs;
     declared.Transfer = scenario.Render.Transfer;

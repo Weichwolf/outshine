@@ -7,6 +7,7 @@
 
 #include <world/SourceProvider.h>
 #include <audio/AudioScene.h>
+#include <render/RenderConfiguration.h>
 
 #include "Earth.h"
 #include "math/Mat4.h"
@@ -25,14 +26,8 @@ constexpr double kPatienceUnsaidS = 30.0;
 /// What SightM stands at when a scenario declares none.
 constexpr double kSightUnsaidM = 240000.0;
 
-/// What Fps stands at when a scenario declares none.
-constexpr double kFpsUnsaid = 60.0;
-
 /// What a view's FovDeg stands at when it declares none: the vertical field of view, in degrees.
 constexpr double kFovUnsaidDeg = 55.0;
-
-/// What Fill stands at when a scenario declares none.
-constexpr double kFillUnsaid = 0.9;
 
 /// What RisesBy stands at when a scenario declares none.
 constexpr double kRisesByUnsaid = 0.35;
@@ -48,7 +43,7 @@ constexpr double kWalkUnsaidMs = 1.4;
 constexpr double kRunUnsaidMs = 4.5;
 
 /// The simulation step a scenario gets when it declares none: one sixtieth of a second.
-constexpr double kStepUnsaidS = 1.0 / kFpsUnsaid;
+constexpr double kStepUnsaidS = 1.0 / 60.0;
 
 /// How far one notch of a wheel scrolls, in pixels.
 constexpr double kWheelStepUnsaidPx = 48.0;
@@ -279,39 +274,6 @@ struct Patch {
   [[nodiscard]] constexpr bool whole() const noexcept {
     return LeftFrac == 0.0 && TopFrac == 0.0 && WidthFrac == 1.0 && HeightFrac == 1.0;
   }
-};
-
-/// Owned render configuration copied with Document; strings and lists may allocate on copy.
-/// Mutation requires exclusive access. Names are checked during render-plan construction;
-/// numeric validation is not uniform yet. Construction alone does not validate a plan.
-struct RenderPlan {
-  bool Declared = false; ///< Whether this section participates in scenario declaration/merging.
-  Extent Frame;  ///< Requested image dimensions in pixels; the host supplies the actual target.
-  Patch Picture; ///< Normalized image region, retained by native and XML declarations.
-  /// Nominal frames per second, also used by the current asset-animation sampling path.
-  /// Positive values replace the engine default; this is not a wall-clock pacing guarantee.
-  double Fps = kFpsUnsaid;
-  /// Dimensionless automatic camera-framing fill. Positive values request framing;
-  /// an explicitly bound camera takes precedence. Nonpositive values use contextual defaults.
-  double Fill = kFillUnsaid;
-  double OrbitDegPerFrame =
-      0.0; ///< Automatic camera orbit increment per update, in degrees; zero disables.
-  /// Additional named render resources to retain. Standard frame/presentation outputs remain;
-  /// empty requests no extras. Unknown names fail plan construction.
-  std::vector<std::string> Outputs;
-  /// Explicit stage selection; nonempty replaces automatic selection, not dependency ordering.
-  /// Empty selects stages from scene content. Unknown or incompatible stages fail construction.
-  std::vector<std::string> Stages;
-  /// Display transfer: empty keeps the default, otherwise "linear" or "filmic".
-  /// An explicit transfer requires a display-transfer stage in the compiled plan.
-  std::string Transfer;
-  /// Positive linear exposure multiplier, not EV. Nonpositive values use the current
-  /// light-meter/default path. Explicit exposure conflicts with an autoExposure stage.
-  double Exposure = 0.0;
-  /// Scene-radiance storage: empty keeps the default, "half" uses 16-bit floats,
-  /// "float" uses 32-bit floats. An explicit choice requires scene-radiance resources.
-  std::string Precision;
-  bool Audits = false; ///< Enable CPU mesh-quality diagnostics; work scales with geometry size.
 };
 
 /// Owned lighting declaration; scalar values only, no allocation on copy.
@@ -852,7 +814,7 @@ struct Document {
   /// Generator requests resolved against registered producer kinds during declaration.
   std::vector<Generating> Generators;
   /// Render configuration; dimensions and live render targets are supplied separately to Engine.
-  RenderPlan Render;
+  Render::Configuration Render;
   /// Scene illumination and exposure declaration; values carry the Lighting field units.
   Lighting Lit;
   /// Ordered asset requests, not loaded assets; their strings and overrides belong to this
