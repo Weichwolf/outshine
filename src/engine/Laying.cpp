@@ -151,7 +151,7 @@ Surrounds::Surrounds() = default;
 Surrounds::~Surrounds() = default;
 
 std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
-                                              const Render::Medium &fallback) {
+                                              const Medium &fallback) {
   const size_t rows = wearing.TemplateCount();
   std::vector<float> palette(kPaletteStride * (rows + 2u) + rows + 1u, 0.0f);
   palette[0] = std::bit_cast<float>(static_cast<uint32_t>(rows));
@@ -177,7 +177,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
   Classed out;
   const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
   const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
-  const Render::Medium fallback = Render::kEarthAir;
+  const Medium fallback = kEarthAir;
   if (classes && wearing.Ready()) {
     out.Structure = classes;
     out.Palette = PaletteOver(wearing, fallback);
@@ -950,7 +950,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
   }
   GroundBuildProducts &build = state.Candidate().Products();
   Material bare;
-  const Render::Medium held = Render::kEarthAir;
+  const Medium held = kEarthAir;
   for (int channel = 0; channel < 3; ++channel) {
     bare.BaseColour[channel] = held.GroundAlbedo[channel];
   }

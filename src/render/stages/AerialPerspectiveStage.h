@@ -11,7 +11,7 @@
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
-#include "ParticipatingMedium.h"
+#include "Atmosphere.h"
 #include "SkyPass.h"
 
 namespace outshine::Render {

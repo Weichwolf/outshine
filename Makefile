@@ -94,7 +94,7 @@ build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard
 shader-tools:    ## build pinned glslang and SDL_shadercross (requires SDL3, SPIRV-Cross, CMake, Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
 
-build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/render/stages/MediumCore.h src/render/stages/MediumConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc
+build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/world/sky/AtmosphereCore.h src/world/sky/AtmosphereConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
 	@$(GLSLANG) -V --target-env vulkan1.0 $< -o $@
 

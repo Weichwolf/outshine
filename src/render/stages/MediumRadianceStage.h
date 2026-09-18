@@ -9,7 +9,7 @@
 
 #include "Gpu.h"
 #include "GpuOwned.h"
-#include "ParticipatingMedium.h"
+#include "Atmosphere.h"
 
 namespace outshine::Render {
 

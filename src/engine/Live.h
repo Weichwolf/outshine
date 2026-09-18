@@ -27,6 +27,7 @@
 #include "SceneRenderer.h"
 #include "Style.h"
 #include "scene/Material.h"
+#include "Atmosphere.h"
 #include "Surfacing.h"
 
 namespace outshine::Core {
@@ -156,7 +157,7 @@ public:
 
   [[nodiscard]] double FramingMs() const { return FramingMs_; }
 
-  [[nodiscard]] size_t SkyIntegrations() const { return SkyIntegrations_; }
+  [[nodiscard]] size_t SkyIntegrations() const { return GroundAir_.Integrations(); }
 
   [[nodiscard]] double MeteredLux() const;
 
@@ -438,22 +439,12 @@ private:
   double ReshapeAgainMs_ = 0.0, ProxyStandsMs_ = 0.0, PlacesMs_ = 0.0, WearsMs_ = 0.0;
   double LampsMs_ = 0.0, LitMs_ = 0.0, MediumMs_ = 0.0, FramingMs_ = 0.0;
 
-  size_t SkyIntegrations_ = 0;
   std::array<double, 3> AmbientStood_ = {0.0, 0.0, 0.0};
   std::array<double, 3> GroundStood_ = {0.0, 0.0, 0.0};
 
-  struct AirReach {
-    Vec3f SunReach;
-    Vec3f Skylight;
-  };
+  [[nodiscard]] Medium DeclaredAir() const;
 
-  [[nodiscard]] AirReach SunThroughTheAir(double cosSun) const;
-  [[nodiscard]] Render::Medium DeclaredAir() const;
-
-  mutable float AirStoodAt_ = -2.0f;
-  mutable Render::Medium AirStood_{};
-  mutable Vec3f SunReachStood_;
-  mutable Vec3f SkylightStood_;
+  GroundAtmosphere GroundAir_;
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;

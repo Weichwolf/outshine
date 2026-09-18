@@ -322,8 +322,8 @@ void Exercise() {
   CHECK(control.RenderFrame().has_value() && actual.RenderFrame().has_value(),
         "a failed in-flight fence wait preserves the temporal retry");
   Match(Capture(control), Capture(actual));
-  control.SetMedium(Hazed(kEarthAir, 0));
-  actual.SetMedium(Hazed(kEarthAir, 0));
+  control.SetMedium(::outshine::Hazed(::outshine::kEarthAir, 0));
+  actual.SetMedium(::outshine::Hazed(::outshine::kEarthAir, 0));
   Reject(actual, faults, Faults::Point::Submit, false);
   CHECK(control.RenderFrame().has_value() && actual.RenderFrame().has_value(),
         "invalidated atmospheric tables are recomputed after failed submission");

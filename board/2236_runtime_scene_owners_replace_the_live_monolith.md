@@ -97,6 +97,9 @@ grid and terrain tiles. Candidate copying and one RestoreGroundResources operati
 complete ground GPU state. Live retains neither classification sources nor a forwarding API; its
 ownership proof moved beside SceneResources.
 
+The physical atmosphere model, CPU integration and exact-state cache now belong to world/sky.
+Render consumes the shared medium contract; Live only translates declarations and lighting output.
+
 Do not let SceneResources duplicate Live's complete import-facing SurfaceTable. The base table is
 an input to scene publication until its separate extraction; registered generated materials are an
 owned extension with a distinct index domain. SubjectDraw keeps the two mappings separate. Retain

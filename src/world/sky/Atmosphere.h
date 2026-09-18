@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_STAGES_PARTICIPATINGMEDIUM_H
-#define OUTSHINE_RENDER_STAGES_PARTICIPATINGMEDIUM_H
+#ifndef OUTSHINE_WORLD_SKY_ATMOSPHERE_H
+#define OUTSHINE_WORLD_SKY_ATMOSPHERE_H
 
 #include <algorithm>
 
@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <string>
 
-namespace outshine::Render {
+namespace outshine {
 
 constexpr size_t kMediumBytes = size_t{5} * 4 * sizeof(float);
 
@@ -105,11 +105,11 @@ static_assert(alignof(Medium) == 16,
               "declaration costs zero padding (80 = 5 x 16)");
 
 namespace medium_core {
-using ::outshine::Render::Medium;
-using ::outshine::Render::MediumLook;
-using ::outshine::Render::MediumLutSize;
-using ::outshine::Render::MediumUv;
-using ::outshine::Render::SkyViewLook;
+using ::outshine::Medium;
+using ::outshine::MediumLook;
+using ::outshine::MediumLutSize;
+using ::outshine::MediumUv;
+using ::outshine::SkyViewLook;
 
 inline float max(float a, float b) {
   return a > b ? a : b;
@@ -128,7 +128,7 @@ using std::sqrt;
 #define MEDIUM_ARG const Medium &
 #define MEDIUM_INLINE static inline
 #define OUTSHINE_PI std::numbers::pi_v<float>
-#include "MediumCore.h"
+#include "AtmosphereCore.h"
 #undef MEDIUM_ARG
 #undef MEDIUM_INLINE
 #undef OUTSHINE_PI
@@ -143,7 +143,7 @@ using medium_core::rayleighPhase;
 #define MEDIUM_UINT(name, value) inline constexpr uint32_t name = value;
 #define MEDIUM_INT(name, value) inline constexpr int name = value;
 #define MEDIUM_FLOAT(name, value) inline constexpr float name = value;
-#include "MediumConstants.inc"
+#include "AtmosphereConstants.inc"
 #undef MEDIUM_UINT
 #undef MEDIUM_INT
 #undef MEDIUM_FLOAT
@@ -384,6 +384,52 @@ template <typename ToSun, typename Psi>
   }
   return out;
 }
+
+inline constexpr double kSolarIlluminanceLx = 133000.0;
+
+struct GroundLight {
+  Vec3f SunTransmittance;
+  Vec3f SkyIrradiance;
+};
+
+class GroundAtmosphere {
+public:
+  [[nodiscard]] GroundLight Evaluate(const Medium &medium, double cosSunZenith) const {
+    const auto cosine = static_cast<float>(cosSunZenith);
+    if (cosine != CachedCosine_ || !(medium == CachedMedium_)) {
+      const float radiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm;
+      const auto toSun = [&](MediumLook look) {
+        return MediumTransmittance(medium, look, kTransmittanceSteps);
+      };
+      const auto secondOrder = [&](MediumLook look) {
+        const MediumUv unit = {.U = look.CosZenith * 0.5f + 0.5f,
+                               .V = (look.RadiusKm - medium.BottomRadiusKm) /
+                                    (medium.TopRadiusKm - medium.BottomRadiusKm)};
+        const MultiScatterSample sample = MediumMultiScatterTexel(medium, unit, toSun);
+        Vec3f result;
+        for (int channel = 0; channel < 3; ++channel) {
+          result[channel] = sample.Luminance[channel] / (1.0f - sample.Transfer[channel]);
+        }
+        return result;
+      };
+      const MediumLook ground = {.RadiusKm = radiusKm, .CosZenith = cosine};
+      CachedLight_.SkyIrradiance = MediumSkyIrradiance(medium, ground, toSun, secondOrder);
+      CachedLight_.SunTransmittance = toSun(ground);
+      CachedCosine_ = cosine;
+      CachedMedium_ = medium;
+      ++Integrations_;
+    }
+    return CachedLight_;
+  }
+
+  [[nodiscard]] size_t Integrations() const noexcept { return Integrations_; }
+
+private:
+  mutable float CachedCosine_ = -2.0f;
+  mutable Medium CachedMedium_{};
+  mutable GroundLight CachedLight_{};
+  mutable size_t Integrations_ = 0;
+};
 
 }
 #endif

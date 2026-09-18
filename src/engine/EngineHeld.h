@@ -372,7 +372,7 @@ struct Engine::State {
   static constexpr size_t kPaletteStride = 4u;
 
   [[nodiscard]] static std::vector<float> PaletteOver(const Ground::VegetationTemplates &wearing,
-                                                      const Render::Medium &fallback);
+                                                      const Medium &fallback);
 
   [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM, Core::Live &candidate);
 
