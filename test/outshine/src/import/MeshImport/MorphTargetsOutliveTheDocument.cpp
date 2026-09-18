@@ -65,6 +65,8 @@ int main() {
   if (primitive != nullptr) {
     CHECK(primitive->Positions == std::vector<float>({0, 0, 0, 1, 0, 0, 0, 1, 0}),
           "native base positions remain complete after the import document is gone");
+    CHECK(primitive->Normals == primitive->Positions,
+          "native base normals remain complete after the import document is gone");
     CHECK(primitive->MorphTargets.size() == 2, "morph target order retained");
     if (primitive->MorphTargets.size() == 2) {
       const MorphTargetDelta &first = primitive->MorphTargets[0];

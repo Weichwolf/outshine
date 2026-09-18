@@ -174,6 +174,11 @@ bool ImportPrimitive(const Document &document,
       return false;
     }
   }
+  const int normal = primitive.Find("NORMAL");
+  if (normal >= 0 &&
+      !ImportFloatAttribute(document, normal, "NORMAL", 3, vertices, out.Normals, error)) {
+    return false;
+  }
   return ImportSkin(document, primitive, vertices, out.Skin, error) &&
          ImportMorphTargets(document, primitive, vertices, out.MorphTargets, error);
 }

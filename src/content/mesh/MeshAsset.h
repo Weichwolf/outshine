@@ -26,6 +26,7 @@ struct MeshPrimitive {
   VertexSkinBinding Skin;
   std::vector<MorphTargetDelta> MorphTargets;
   std::vector<float> Positions;
+  std::vector<float> Normals;
 };
 
 struct MeshAsset {

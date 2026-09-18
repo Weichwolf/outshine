@@ -226,13 +226,11 @@ private:
                                        const Primitive &primitive,
                                        size_t vertices,
                                        Part &part);
-  [[nodiscard]] bool ReadVertexNormals(const Document &document,
-                                       const Primitive &primitive,
-                                       const MeshPrimitive &mesh,
-                                       const VertexPlacement &place,
-                                       Morphing morph,
-                                       size_t vertices,
-                                       Part &part);
+  void ReadVertexNormals(const MeshPrimitive &mesh,
+                         const VertexPlacement &place,
+                         Morphing morph,
+                         size_t vertices,
+                         Part &part);
 
   struct Scratch {
     outshine::Geometry Made;

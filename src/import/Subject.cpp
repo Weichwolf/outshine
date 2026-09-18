@@ -663,27 +663,16 @@ bool Subject::ReadVertexColours(const Document &document,
   return true;
 }
 
-bool Subject::ReadVertexNormals(const Document &document,
-                                const Primitive &primitive,
-                                const MeshPrimitive &mesh,
+void Subject::ReadVertexNormals(const MeshPrimitive &mesh,
                                 const VertexPlacement &place,
                                 Morphing morph,
                                 size_t vertices,
                                 Part &part) {
-  const int normal = primitive.Find("NORMAL");
-  part.HasNormal = normal >= 0;
+  part.HasNormal = !mesh.Normals.empty();
   Scratch_.Nor.assign(vertices * 3, 0.0);
-  if (normal >= 0) {
+  if (part.HasNormal) {
     std::vector<double> &directions = Scratch_.Directions;
-    directions.clear();
-    if (!document.ReadElements(normal, directions)) {
-      return Refuse(document.Path() + ": NORMAL does not decode: " + document.Error());
-    }
-    if (directions.size() != vertices * 3) {
-      return Refuse(document.Path() + ": NORMAL decodes to " +
-                    std::to_string(directions.size() / 3) + " vectors over " +
-                    std::to_string(vertices) + " vertices");
-    }
+    directions.assign(mesh.Normals.begin(), mesh.Normals.end());
     std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
     morphedNormals.clear();
     MorphDeltasFor(mesh,
@@ -703,8 +692,6 @@ bool Subject::ReadVertexNormals(const Document &document,
       }
     }
   }
-
-  return true;
 }
 
 bool Subject::PlacementOf(const Document &document,
@@ -875,10 +862,7 @@ bool Subject::FlattenPrimitive(const Document &document,
 
   if (!ReadVertexColours(document, primitive, vertices, part)) { return false; }
 
-  if (!ReadVertexNormals(
-          document, primitive, under.Primitive, place, under.Morph, vertices, part)) {
-    return false;
-  }
+  ReadVertexNormals(under.Primitive, place, under.Morph, vertices, part);
 
   if (!ReadTriangleRun(document, primitive, under.World, skinned, vertices)) { return false; }
   part.IndexCount = atIdx.size();
