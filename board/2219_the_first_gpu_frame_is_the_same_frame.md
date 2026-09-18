@@ -65,20 +65,18 @@ locally pinned SDL/backend product. Do not add an engine workaround. The current
 green test requires the next reducer to add one missing engine input at a time.
 
 The raw matrix is green. The engine repair therefore belongs to `SubjectDraw`, not
-to SDL submission or image upload. Split the pipeline key into an immutable vertex
-layout (`Position`, `Normal`, `Uv0`, …) and a material program (`Unlit`,
-MetallicRoughness, transmission, …). A normal attribute may select a vertex stream;
-it must never make an explicitly unlit material execute a lit fragment program.
-The key and both selected SPIR-V products are test-visible diagnostics.
+to SDL submission or image upload. `SubjectProxy::Lit` correctly excludes
+`Material::Unlit`; the red Chess clone consequently selects a flat `Position+Uv0`
+layout despite carrying source normals. The defect is in that real flat Subject
+pipeline, not an accidental choice of a lit fragment program. Layout, selected
+SPIR-V products and final texture-coordinate inputs are test-visible diagnostics.
 
-Apply each material texture transform before rasterization in the matching vertex
-program and interpolate the final sampling coordinate. The fragment program samples
-that varying directly. This gives texture filtering one coordinate contract for
-unlit and lit materials, makes derivatives correspond to the declared transformed
-UV, and removes per-fragment transform precision from the sampling path. Preserve
-the Khronos texture-transform semantics, UV-set selection and linear colour-space
-contract. Do not replace filtering with texel fetch, force a LOD, warm a frame, or
-change a tolerance.
+The candidate repair is to apply every material texture transform before
+rasterization and interpolate the final sampling coordinate. The fragment program
+then samples that varying directly. Adopt it only if the reducer proves the current
+fragment-side affine transform causal. It must preserve Khronos texture-transform
+semantics, UV-set selection and linear colour-space. Do not replace filtering with
+texel fetch, force a LOD, warm a frame, or change a tolerance.
 
 ## Order
 
@@ -91,16 +89,17 @@ change a tolerance.
 6. [x] Prove the Chess perspective on a single native mipmapped quad exact.
 7. [x] Reduce to one copied native part: residual is 3 channels; multi-part packing amplifies it.
 8. [x] Replace only the single part's UV0 with a constant: it is exact.
-9. Record the selected vertex layout, material program and SPIR-V products for the
-   red native clone. First prove that its unlit material does not select a lit
-   fragment program merely because the mesh retains normals.
+9. Record the selected vertex layout and SPIR-V products for the red native clone.
+   Prove the unlit clone selects flat `Position+Uv0` even when the imported source
+   retains normals.
 10. Add an actual-Subject reducer: same native part, same perspective and sampler,
     then independently select `Position+Uv0`, `Position+Normal+Uv0`, UV transform
     identity/nonidentity and one/many parts. Every reducer compares first and second
     frame exactly and identifies the selected pipeline key.
-11. Implement the separated layout/program key and vertex-side final UV contract.
-    Re-run the reducer before touching packing. Only if one part is exact, reduce
-    multi-part packing with the same program key and camera.
+11. If the reducer identifies the fragment-side transform, implement the vertex-side
+    final-UV contract and re-run it before touching packing. If it disproves that
+    candidate, retain the evidence and continue reduction; do not redesign material
+    program selection without a failing selector case.
 12. WI 2235 separately repairs incomplete image ownership and publication. It must
     preserve pixels and is not claimed as this defect's repair.
 
@@ -110,8 +109,8 @@ change a tolerance.
       reproducer with its complete local product record.
 - [ ] Existing chess and atmospheric repeat checks become exact without a warm-up,
       blocking idle wait, vendor shader path, changed filter or relaxed threshold.
-- [ ] An explicitly unlit native mesh chooses an unlit material program independently
-      of optional normal/tangent attributes; UV-set and texture-transform semantics
-      remain identical to the Khronos adapter contract.
+- [ ] An explicitly unlit native mesh selects the flat `Position+Uv0` pipeline even
+      when its imported source has normal/tangent attributes; UV-set and texture-
+      transform semantics remain identical to the Khronos adapter contract.
 - [ ] Negative controls still expose a changed mip, descriptor or texel path.
 - [ ] Relevant device/public suites and `make lint` pass.
