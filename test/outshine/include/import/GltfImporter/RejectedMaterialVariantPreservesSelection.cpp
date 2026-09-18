@@ -50,7 +50,8 @@ int main() {
   }
   GltfImporter asset;
   const auto loaded = asset.load((root / "scene.gltf").string());
-  CHECK(loaded.has_value(), "base material loads without unused variant texture");
+  CHECK(loaded.has_value(),
+        loaded ? "base material loads without unused variant texture" : loaded.error().c_str());
   if (!loaded) { return Report(); }
   const auto material = asset.geometry().materialOf(0);
   const Material previous = asset.geometry().surfaceAt(material);

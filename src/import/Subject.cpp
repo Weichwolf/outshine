@@ -66,58 +66,6 @@ namespace {
   return true;
 }
 
-const char *ModeName(PrimitiveMode mode) {
-  switch (mode) {
-    case PrimitiveMode::Points: return "POINTS";
-    case PrimitiveMode::Lines: return "LINES";
-    case PrimitiveMode::LineLoop: return "LINE_LOOP";
-    case PrimitiveMode::LineStrip: return "LINE_STRIP";
-    case PrimitiveMode::Triangles: return "TRIANGLES";
-    case PrimitiveMode::TriangleStrip: return "TRIANGLE_STRIP";
-    case PrimitiveMode::TriangleFan: return "TRIANGLE_FAN";
-  }
-  return "an undeclared mode";
-}
-
-bool DrawsASurface(PrimitiveMode mode) {
-  return mode == PrimitiveMode::Triangles || mode == PrimitiveMode::TriangleStrip ||
-         mode == PrimitiveMode::TriangleFan;
-}
-
-bool RunIsWhole(PrimitiveMode mode, size_t indices) {
-  return (mode == PrimitiveMode::Triangles) ? (indices > 0 && indices % 3 == 0) : (indices >= 3);
-}
-
-enum class Handedness { Preserved, Reversed };
-
-void Triangulate(PrimitiveMode mode,
-                 Handedness handedness,
-                 const std::vector<uint32_t> &run,
-                 std::vector<uint32_t> &out) {
-  out.clear();
-  if (mode == PrimitiveMode::Triangles) {
-    out = run;
-  } else if (mode == PrimitiveMode::TriangleStrip) {
-    for (size_t at = 0; at + 2 < run.size(); ++at) {
-      const size_t flipped = (at % 2 == 0) ? 0u : 1u;
-      out.push_back(run[at + flipped]);
-      out.push_back(run[at + 1u - flipped]);
-      out.push_back(run[at + 2u]);
-    }
-  } else {
-    for (size_t at = 1; at + 1 < run.size(); ++at) {
-      out.push_back(run[0]);
-      out.push_back(run[at]);
-      out.push_back(run[at + 1]);
-    }
-  }
-  if (handedness == Handedness::Reversed) {
-    for (size_t triangle = 0; triangle * 3 + 2 < out.size(); ++triangle) {
-      std::swap(out[triangle * 3 + 1], out[triangle * 3 + 2]);
-    }
-  }
-}
-
 struct BasisKey {
   std::array<uint64_t, 4> Bits = {{}};
 
@@ -202,26 +150,14 @@ bool Subject::BlendJoints(const Document &document,
   return true;
 }
 
-bool Subject::SuppliedTangentsFor(const Document &document,
-                                  const Primitive &primitive,
-                                  const MeshPrimitive &mesh,
+void Subject::SuppliedTangentsFor(const MeshPrimitive &mesh,
                                   const VertexPlacement &place,
                                   std::span<const double> morphWeights,
                                   Part &part,
                                   size_t vertices,
                                   std::vector<double> &into) {
-  const int supplied = primitive.Find("TANGENT");
-  if (supplied >= 0) {
-    std::vector<double> elements;
-    if (!document.ReadElements(supplied, elements)) {
-      return Refuse(document.Path() + ": TANGENT does not decode: " + document.Error());
-    }
-    if (elements.size() != vertices * 4) {
-      return Refuse(document.Path() + ": TANGENT decodes to " +
-                    std::to_string(elements.size() / 4) + " vectors over " +
-                    std::to_string(vertices) + " vertices");
-    }
-
+  if (!mesh.Tangents.empty()) {
+    std::vector<double> elements(mesh.Tangents.begin(), mesh.Tangents.end());
     std::vector<double> morphedTangents;
     MorphDeltasFor(mesh,
                    {.Which = Deltas::Attribute::Tangent,
@@ -249,9 +185,7 @@ bool Subject::SuppliedTangentsFor(const Document &document,
       into[vertex * 4 + 3] = elements[vertex * 4 + 3] * mirrored;
     }
     part.Tangent = TangentSource::Supplied;
-    return true;
   }
-  return true;
 }
 
 Vec3 Subject::FaceNormalOf(std::span<const uint32_t, 3> of) const {
@@ -487,32 +421,14 @@ bool InstanceTransforms(const Document &document,
 }
 
 bool Subject::ReadTriangleRun(const Document &document,
-                              const Primitive &primitive,
+                              const MeshPrimitive &mesh,
                               const AffineTransform &world,
-                              std::span<const AffineTransform> skinned,
-                              size_t vertices) {
-  std::vector<uint32_t> &run = Scratch_.Run;
-  std::vector<uint32_t> &indices = Scratch_.Loop;
-  if (primitive.Indices >= 0) {
-    if (!document.ReadIndices(primitive.Indices, run)) {
-      return Refuse(document.Path() + ": the index accessor does not decode: " + document.Error());
-    }
-  } else {
-    run.resize(vertices);
-    for (size_t vertex = 0; vertex < vertices; ++vertex) {
-      run[vertex] = static_cast<uint32_t>(vertex);
-    }
-  }
-  if (!RunIsWhole(primitive.Mode, run.size())) {
-    return Refuse(document.Path() + ": " + std::to_string(run.size()) +
-                  " indices do not make a whole run of " + ModeName(primitive.Mode));
-  }
-
-  Handedness handedness = Handedness::Preserved;
+                              std::span<const AffineTransform> skinned) {
+  bool mirrored = false;
   if (skinned.empty()) {
-    handedness = world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved;
+    mirrored = world.LinearDeterminant() < 0;
   } else {
-    const bool mirrored = skinned[0].LinearDeterminant() < 0;
+    mirrored = skinned[0].LinearDeterminant() < 0;
     for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
       if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
         return Refuse(document.Path() + ": vertex " + std::to_string(vertex) +
@@ -520,15 +436,12 @@ bool Subject::ReadTriangleRun(const Document &document,
                       "opposite sign to vertex 0's, so the primitive would need two windings");
       }
     }
-    handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
   }
-  Triangulate(primitive.Mode, handedness, run, indices);
-  for (const uint32_t index : indices) {
-    if (index >= vertices) {
-      return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
-                    std::to_string(vertices) + " vertices of its own primitive");
+  Scratch_.Idx = mesh.Triangles;
+  if (mirrored) {
+    for (size_t triangle = 0; triangle * 3 + 2 < Scratch_.Idx.size(); ++triangle) {
+      std::swap(Scratch_.Idx[triangle * 3 + 1], Scratch_.Idx[triangle * 3 + 2]);
     }
-    Scratch_.Idx.push_back(index);
   }
   return true;
 }
@@ -583,84 +496,30 @@ bool Subject::FlattenLight(const Document &document,
   return true;
 }
 
-bool Subject::ReadUvSets(const Document &document,
-                         const Primitive &primitive,
-                         size_t vertices,
-                         Part &part) {
-  struct UvSetRow {
-    const char *Semantic;
+void Subject::ReadUvSets(const MeshPrimitive &mesh, size_t vertices, Part &part) {
+  struct UvSet {
+    const std::vector<float> *Source;
     bool Part::*Carried;
     std::vector<double> *Into;
   };
 
-  const std::array<UvSetRow, kUvSets> sets = {
-      {{.Semantic = "TEXCOORD_0", .Carried = &Part::HasUv, .Into = &Scratch_.Uv},
-       {.Semantic = "TEXCOORD_1", .Carried = &Part::HasUv1, .Into = &Scratch_.Uv1}}};
+  const std::array<UvSet, kUvSets> sets = {
+      {{.Source = &mesh.TextureCoordinates, .Carried = &Part::HasUv, .Into = &Scratch_.Uv},
+       {.Source = &mesh.SecondaryTextureCoordinates,
+        .Carried = &Part::HasUv1,
+        .Into = &Scratch_.Uv1}}};
 
-  for (const UvSetRow &set : sets) {
-    const int uv = primitive.Find(set.Semantic);
-    part.*set.Carried = uv >= 0;
-    set.Into->assign(vertices * 2, 0.0);
-    if (uv < 0) { continue; }
-    std::vector<double> &coordinates = Scratch_.Coordinates;
-    coordinates.clear();
-    if (!document.ReadElements(uv, coordinates)) {
-      return Refuse(document.Path() + ": " + set.Semantic +
-                    " does not decode: " + document.Error());
-    }
-    if (coordinates.size() != vertices * 2) {
-      return Refuse(document.Path() + ": " + set.Semantic + " decodes to " +
-                    std::to_string(coordinates.size() / 2) + " pairs over " +
-                    std::to_string(vertices) + " vertices");
-    }
-    std::ranges::copy(coordinates, set.Into->begin());
+  for (const UvSet &set : sets) {
+    part.*set.Carried = !set.Source->empty();
+    set.Into->assign(set.Source->begin(), set.Source->end());
+    if (set.Source->empty()) { set.Into->assign(vertices * 2, 0.0); }
   }
-  return true;
 }
 
-bool Subject::ReadVertexColours(const Document &document,
-                                const Primitive &primitive,
-                                size_t vertices,
-                                Part &part) {
-  const int colour = primitive.Find("COLOR_0");
-  part.HasColour = colour >= 0;
-  Scratch_.Col.assign(vertices * 4, 0.0);
-  if (colour >= 0) {
-    if (static_cast<size_t>(colour) >= document.Accessors().size()) {
-      return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
-                    ", which the file does not carry");
-    }
-    size_t components = 0;
-    std::string why;
-    if (!VertexColourComponents(
-            document.Accessors()[static_cast<size_t>(colour)], components, why)) {
-      return Refuse(document.Path() + ": COLOR_0 " + why);
-    }
-    std::vector<double> &tints = Scratch_.Tints;
-    tints.clear();
-    if (!document.ReadElements(colour, tints)) {
-      return Refuse(document.Path() + ": COLOR_0 does not decode: " + document.Error());
-    }
-    if (tints.size() != vertices * components) {
-      return Refuse(document.Path() + ": COLOR_0 decodes to " +
-                    std::to_string(tints.size() / components) + " colours over " +
-                    std::to_string(vertices) + " vertices");
-    }
-    for (size_t vertex = 0; vertex < vertices; ++vertex) {
-      for (size_t channel = 0; channel < 4; ++channel) {
-        const double value = channel < components ? tints[vertex * components + channel] : 1.0;
-        if (!(value >= 0.0) || !(value <= 1.0)) {
-          return Refuse(document.Path() + ": COLOR_0 of vertex " + std::to_string(vertex) +
-                        " carries " + std::to_string(value) + " in channel " +
-                        std::to_string(channel) +
-                        ", and the format requires every component in [0, 1]");
-        }
-        Scratch_.Col[vertex * 4 + channel] = value;
-      }
-    }
-  }
-
-  return true;
+void Subject::ReadVertexColours(const MeshPrimitive &mesh, size_t vertices, Part &part) {
+  part.HasColour = !mesh.Colours.empty();
+  Scratch_.Col.assign(mesh.Colours.begin(), mesh.Colours.end());
+  if (mesh.Colours.empty()) { Scratch_.Col.assign(vertices * 4, 0.0); }
 }
 
 void Subject::ReadVertexNormals(const MeshPrimitive &mesh,
@@ -819,10 +678,8 @@ bool Subject::FlattenPrimitive(const Document &document,
   atTan.clear();
   atIdx.clear();
 
-  if (!DrawsASurface(primitive.Mode)) {
+  if (under.Primitive.Triangles.empty()) {
     ++Undrawn_.Primitives;
-    const auto mode = static_cast<size_t>(primitive.Mode);
-    if (mode < 7) { ++Undrawn_.ByMode[mode]; }
     return true;
   }
   elements.assign(under.Primitive.Positions.begin(), under.Primitive.Positions.end());
@@ -858,24 +715,15 @@ bool Subject::FlattenPrimitive(const Document &document,
     for (const double axis : global) { atPos.push_back(axis); }
   }
 
-  if (!ReadUvSets(document, primitive, vertices, part)) { return false; }
+  ReadUvSets(under.Primitive, vertices, part);
 
-  if (!ReadVertexColours(document, primitive, vertices, part)) { return false; }
+  ReadVertexColours(under.Primitive, vertices, part);
 
   ReadVertexNormals(under.Primitive, place, under.Morph, vertices, part);
 
-  if (!ReadTriangleRun(document, primitive, under.World, skinned, vertices)) { return false; }
+  if (!ReadTriangleRun(document, under.Primitive, under.World, skinned)) { return false; }
   part.IndexCount = atIdx.size();
-  if (!SuppliedTangentsFor(document,
-                           primitive,
-                           under.Primitive,
-                           place,
-                           under.Morph.Weights,
-                           part,
-                           vertices,
-                           atTan)) {
-    return false;
-  }
+  SuppliedTangentsFor(under.Primitive, place, under.Morph.Weights, part, vertices, atTan);
   part.VertexCount = atPos.size() / 3;
 
   if (part.IndexCount == 0) { return true; }

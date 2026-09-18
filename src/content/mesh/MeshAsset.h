@@ -27,6 +27,11 @@ struct MeshPrimitive {
   std::vector<MorphTargetDelta> MorphTargets;
   std::vector<float> Positions;
   std::vector<float> Normals;
+  std::vector<float> Tangents;
+  std::vector<float> TextureCoordinates;
+  std::vector<float> SecondaryTextureCoordinates;
+  std::vector<float> Colours;
+  std::vector<uint32_t> Triangles;
 };
 
 struct MeshAsset {

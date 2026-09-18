@@ -211,21 +211,16 @@ private:
                                       const Placing &under,
                                       outshine::Geometry &made);
   [[nodiscard]] bool ReadTriangleRun(const Document &document,
-                                     const Primitive &primitive,
+                                     const MeshPrimitive &mesh,
                                      const AffineTransform &world,
-                                     std::span<const AffineTransform> skinned,
-                                     size_t vertices);
+                                     std::span<const AffineTransform> skinned);
   [[nodiscard]] bool EmitPart(outshine::Geometry &made, const Part &part);
   [[nodiscard]] bool FlattenLight(const Document &document,
                                   int nodeIndex,
                                   const Node &node,
                                   const AffineTransform &placement);
-  [[nodiscard]] bool
-  ReadUvSets(const Document &document, const Primitive &primitive, size_t vertices, Part &part);
-  [[nodiscard]] bool ReadVertexColours(const Document &document,
-                                       const Primitive &primitive,
-                                       size_t vertices,
-                                       Part &part);
+  void ReadUvSets(const MeshPrimitive &mesh, size_t vertices, Part &part);
+  void ReadVertexColours(const MeshPrimitive &mesh, size_t vertices, Part &part);
   void ReadVertexNormals(const MeshPrimitive &mesh,
                          const VertexPlacement &place,
                          Morphing morph,
@@ -237,9 +232,7 @@ private:
     std::vector<float> Narrowed;
     std::vector<double> Pos, Nor, Uv, Uv1, Col, Tan;
     std::vector<uint32_t> Idx;
-    std::vector<double> Elements, NodeWeights, Morphed, MorphedNormals, Coordinates, Tints,
-        Directions;
-    std::vector<uint32_t> Run, Loop;
+    std::vector<double> Elements, NodeWeights, Morphed, MorphedNormals, Directions;
     std::vector<AffineTransform> Joints, Instances, Skinned;
     Scratch() = default;
     ~Scratch() = default;
@@ -285,21 +278,12 @@ private:
   [[nodiscard]] bool FlatNormalsFor(Part &part);
   [[nodiscard]] bool GeneratedTangentsFor(Part &part);
 
-  [[nodiscard]] bool SuppliedTangentsFor(const Document &document,
-                                         const Primitive &primitive,
-                                         const MeshPrimitive &mesh,
-                                         const VertexPlacement &place,
-                                         std::span<const double> morphWeights,
-                                         Part &part,
-                                         size_t vertices,
-                                         std::vector<double> &into);
-  [[nodiscard]] bool BuildTangentsFor(const Document &document,
-                                      const Primitive &primitive,
-                                      const VertexPlacement &place,
-                                      std::span<const double> morphWeights,
-                                      Part &part,
-                                      size_t vertices);
-
+  static void SuppliedTangentsFor(const MeshPrimitive &mesh,
+                                  const VertexPlacement &place,
+                                  std::span<const double> morphWeights,
+                                  Part &part,
+                                  size_t vertices,
+                                  std::vector<double> &into);
   std::string Error_;
   std::vector<double> Positions_;
   std::vector<double> Uv_;

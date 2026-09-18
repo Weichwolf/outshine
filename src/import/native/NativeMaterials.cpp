@@ -112,6 +112,25 @@ struct NativeSocket {
   return true;
 }
 
+[[nodiscard]] bool MaterialIsUsed(const Geometry &geometry, int material) noexcept {
+  for (int part = 0; part < geometry.parts(); ++part) {
+    if (geometry.materialOf(part).index() == material) { return true; }
+  }
+  return false;
+}
+
+[[nodiscard]] bool MaterialIsDeferredVariant(const Document &document, int material) noexcept {
+  bool variant = false;
+  for (const Mesh &mesh : document.Meshes()) {
+    for (const Primitive &primitive : mesh.Primitives) {
+      if (primitive.Material == material) { return false; }
+      variant = variant || std::ranges::find(primitive.VariantMaterials, material) !=
+                               primitive.VariantMaterials.end();
+    }
+  }
+  return variant;
+}
+
 }
 
 bool ResolveNativeMaterialImages(const Document &document,
@@ -122,6 +141,9 @@ bool ResolveNativeMaterialImages(const Document &document,
   const size_t many =
       std::min(static_cast<size_t>(geometry.surfaces()), document.Materials().size());
   for (size_t index = 0; index < many; ++index) {
+    const int material = static_cast<int>(index);
+    const bool deferred =
+        !MaterialIsUsed(geometry, material) && MaterialIsDeferredVariant(document, material);
     const Gltf::Material &declared = document.Materials()[index];
     outshine::Material native = geometry.surfaceAt(MaterialInstance(static_cast<int>(index)));
     native.NormalScale = static_cast<float>(declared.NormalScale);
@@ -149,12 +171,17 @@ bool ResolveNativeMaterialImages(const Document &document,
          .Destination = &outshine::Material::SpecularTintMap,
          .Name = "specularColorTexture"},
     }};
+    bool unresolved = false;
     for (const NativeSocket &socket : sockets) {
       if (!ResolveSocket(
               document, declared, socket, carried, geometry, native.*socket.Destination, error)) {
-        return false;
+        if (!deferred) { return false; }
+        unresolved = true;
+        error.clear();
+        break;
       }
     }
+    if (unresolved) { continue; }
     const auto published = geometry.setSurface(MaterialInstance(static_cast<int>(index)), native);
     if (!published) {
       error = "a decoded glTF material could not be published to native geometry: " +

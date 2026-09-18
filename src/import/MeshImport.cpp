@@ -51,6 +51,112 @@ bool ImportFloatAttribute(const Document &document,
   return true;
 }
 
+bool ImportOptionalFloatAttribute(const Document &document,
+                                  const Primitive &primitive,
+                                  const char *semantic,
+                                  size_t components,
+                                  size_t vertices,
+                                  std::vector<float> &out,
+                                  std::string &error) {
+  const int accessor = primitive.Find(semantic);
+  return accessor < 0 ||
+         ImportFloatAttribute(document, accessor, semantic, components, vertices, out, error);
+}
+
+bool DrawsSurface(PrimitiveMode mode) {
+  return mode == PrimitiveMode::Triangles || mode == PrimitiveMode::TriangleStrip ||
+         mode == PrimitiveMode::TriangleFan;
+}
+
+bool ImportTriangles(const Document &document,
+                     const Primitive &primitive,
+                     size_t vertices,
+                     std::vector<uint32_t> &out,
+                     std::string &error) {
+  if (!DrawsSurface(primitive.Mode)) { return true; }
+  std::vector<uint32_t> run;
+  if (primitive.Indices >= 0) {
+    if (!document.ReadIndices(primitive.Indices, run)) {
+      error = document.Path() + ": primitive indices do not decode: " + document.Error();
+      return false;
+    }
+  } else {
+    run.resize(vertices);
+    for (size_t vertex = 0; vertex < vertices; ++vertex) {
+      run[vertex] = static_cast<uint32_t>(vertex);
+    }
+  }
+  const bool whole = primitive.Mode == PrimitiveMode::Triangles
+                         ? !run.empty() && run.size() % 3 == 0
+                         : run.size() >= 3;
+  if (!whole) {
+    error = document.Path() + ": primitive index run cannot form complete triangles";
+    return false;
+  }
+  for (const uint32_t index : run) {
+    if (index >= vertices) {
+      error = document.Path() + ": primitive index " + std::to_string(index) +
+              " exceeds its vertex count " + std::to_string(vertices);
+      return false;
+    }
+  }
+  if (primitive.Mode == PrimitiveMode::Triangles) {
+    out = std::move(run);
+  } else if (primitive.Mode == PrimitiveMode::TriangleStrip) {
+    out.reserve((run.size() - 2) * 3);
+    for (size_t at = 0; at + 2 < run.size(); ++at) {
+      const size_t flipped = at % 2;
+      out.push_back(run[at + flipped]);
+      out.push_back(run[at + 1 - flipped]);
+      out.push_back(run[at + 2]);
+    }
+  } else {
+    out.reserve((run.size() - 2) * 3);
+    for (size_t at = 1; at + 1 < run.size(); ++at) {
+      out.push_back(run[0]);
+      out.push_back(run[at]);
+      out.push_back(run[at + 1]);
+    }
+  }
+  return true;
+}
+
+bool ImportColours(const Document &document,
+                   const Primitive &primitive,
+                   size_t vertices,
+                   std::vector<float> &out,
+                   std::string &error) {
+  const int accessor = primitive.Find("COLOR_0");
+  if (accessor < 0) { return true; }
+  if (static_cast<size_t>(accessor) >= document.Accessors().size()) {
+    error = document.Path() + ": COLOR_0 accessor is absent";
+    return false;
+  }
+  size_t components = 0;
+  std::string why;
+  if (!VertexColourComponents(
+          document.Accessors()[static_cast<size_t>(accessor)], components, why)) {
+    error = document.Path() + ": COLOR_0 " + why;
+    return false;
+  }
+  std::vector<float> decoded;
+  if (!ImportFloatAttribute(document, accessor, "COLOR_0", components, vertices, decoded, error)) {
+    return false;
+  }
+  out.reserve(vertices * 4);
+  for (size_t vertex = 0; vertex < vertices; ++vertex) {
+    for (size_t channel = 0; channel < 4; ++channel) {
+      const float value = channel < components ? decoded[vertex * components + channel] : 1.0F;
+      if (value < 0.0F || value > 1.0F) {
+        error = document.Path() + ": COLOR_0 component lies outside [0, 1]";
+        return false;
+      }
+      out.push_back(value);
+    }
+  }
+  return true;
+}
+
 struct SkinSet {
   size_t Index = 0;
   size_t Vertices = 0;
@@ -174,9 +280,16 @@ bool ImportPrimitive(const Document &document,
       return false;
     }
   }
-  const int normal = primitive.Find("NORMAL");
-  if (normal >= 0 &&
-      !ImportFloatAttribute(document, normal, "NORMAL", 3, vertices, out.Normals, error)) {
+  if (!ImportOptionalFloatAttribute(
+          document, primitive, "NORMAL", 3, vertices, out.Normals, error) ||
+      !ImportOptionalFloatAttribute(
+          document, primitive, "TANGENT", 4, vertices, out.Tangents, error) ||
+      !ImportOptionalFloatAttribute(
+          document, primitive, "TEXCOORD_0", 2, vertices, out.TextureCoordinates, error) ||
+      !ImportOptionalFloatAttribute(
+          document, primitive, "TEXCOORD_1", 2, vertices, out.SecondaryTextureCoordinates, error) ||
+      !ImportColours(document, primitive, vertices, out.Colours, error) ||
+      !ImportTriangles(document, primitive, vertices, out.Triangles, error)) {
     return false;
   }
   return ImportSkin(document, primitive, vertices, out.Skin, error) &&
