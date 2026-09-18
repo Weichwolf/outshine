@@ -57,6 +57,20 @@ int main() {
     broken.Stands.Facing.W = scalar;
     reject(broken);
   }
+  body.Contacts.emplace_back();
+  for (double invalid :
+       {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+    for (const auto member : std::array{&Physics::PrismaticJoint::ReachM,
+                                        &Physics::PrismaticJoint::StiffnessNPerM,
+                                        &Physics::PrismaticJoint::DampingNsPerM,
+                                        &Physics::PrismaticJoint::TravelM,
+                                        &Physics::PrismaticJoint::StopStiffnessNPerM,
+                                        &Physics::PrismaticJoint::LoadLimitN}) {
+      auto broken = body;
+      broken.Contacts[0].Strut.*member = invalid;
+      reject(broken);
+    }
+  }
   source.Bodies[0].MassKg = 0;
   source.Bodies[0].Stands.Facing.W = -1;
   CHECK(engine.declare(source).has_value() && engine.assemble().has_value(),

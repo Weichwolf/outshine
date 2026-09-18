@@ -8,6 +8,7 @@
 #include <world/SourceProvider.h>
 #include <audio/AudioScene.h>
 #include <render/RenderConfiguration.h>
+#include <physics/PrismaticJoint.h>
 
 #include "Earth.h"
 #include "math/Mat4.h"
@@ -612,23 +613,6 @@ struct View {
   double TimeScale = 1.0;
 };
 
-/// Value parameters for a unilateral spring/damper contact, in SI units.
-/// Independent copies share no state; mutate only with exclusive access. The internal
-/// contact solver consumes these values, but body integration does not yet invoke it.
-/// Nonnegative finite parameters are required by the physical model; declaration and
-/// XML import do not yet enforce this contract. Derived force overflow is unchecked.
-struct Prismatic {
-  double ReachM = 0.0; ///< Uncompressed reach in metres; clearance below it creates compression.
-  double StiffnessNPerM = 0.0; ///< Spring stiffness in newtons per metre of compression.
-  double DampingNsPerM = 0.0;  ///< Damping in newton-seconds per metre; closing speed adds load.
-  /// Metres of spring travel; zero disables the travel stop. Beyond positive travel,
-  /// the solver retains the spring load at the limit and adds the stop load.
-  double TravelM = 0.0;
-  double StopNPerM = 0.0; ///< Additional stop stiffness in newtons per metre beyond travel.
-  /// Load threshold in newtons; zero disables overload reporting. Does not clamp force.
-  double LimitN = 0.0;
-};
-
 /// Stored contact-slip parameters; no runtime tyre/contact-force consumer yet.
 /// Plain copied values with exclusive mutation; no range validation at declaration.
 /// These fields do not currently establish a working friction or tyre model.
@@ -645,10 +629,10 @@ struct Slip {
 /// Mutate only with exclusive access. Anchor resolution and numeric validation are
 /// not implemented; stored coordinates currently receive no world-space transform.
 struct Contact {
-  std::string At;  ///< Owned symbolic anchor name; currently unresolved.
-  Vec3 AtM;        ///< Declared body-local contact position in metres, right-handed and Y-up.
-  Prismatic Strut; ///< Spring/damper parameters; not connected to body integration.
-  Slip Touches;    ///< Stored slip parameters; not connected to body integration.
+  std::string At; ///< Owned symbolic anchor name; currently unresolved.
+  Vec3 AtM;       ///< Declared body-local contact position in metres, right-handed and Y-up.
+  Physics::PrismaticJoint Strut; ///< Spring/damper parameters; not integrated with bodies yet.
+  Slip Touches;                  ///< Stored slip parameters; not connected to body integration.
 };
 
 /// Actuator capability category used when assembling a body.

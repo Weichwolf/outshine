@@ -31,6 +31,15 @@ int main() {
   CHECK(target.Bodies.size() == 1 && target.Bodies[0].MassKg == 2 &&
             target.Bodies[0].Stands.AtM[0] == -3 && target.Bodies[0].InertiaKgM2[2] == 3,
         "valid dynamic values retained");
+  const std::string invalidJoint = "<scenario><body><contact reachM=\"-1\"/></body></scenario>";
+  target.Named.Name = "kept";
+  CHECK(!ReadScenario(invalidJoint.data(), invalidJoint.size(), target, error),
+        "invalid imported joint rejected");
+  Physics::PrismaticJoint direct;
+  direct.ReachM = -1.0;
+  CHECK(error == Physics::ValidatePrismaticJoint(direct).error(),
+        "import and direct joint validation report the same contract");
+  CHECK(target.Named.Name == "kept", "joint failure preserves document");
   const std::string driven =
       "<scenario><body><actuator does=\"torque\" peakNm=\"7\" opposes=\"1\"/></body></scenario>";
   CHECK(ReadScenario(driven.data(), driven.size(), target, error), error.c_str());

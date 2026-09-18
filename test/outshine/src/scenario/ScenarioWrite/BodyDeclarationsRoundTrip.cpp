@@ -79,8 +79,9 @@ int main() {
     CHECK(v.At == w.At && v.Strut.ReachM == w.Strut.ReachM &&
               v.Strut.StiffnessNPerM == w.Strut.StiffnessNPerM &&
               v.Strut.DampingNsPerM == w.Strut.DampingNsPerM &&
-              v.Strut.TravelM == w.Strut.TravelM && v.Strut.StopNPerM == w.Strut.StopNPerM &&
-              v.Strut.LimitN == w.Strut.LimitN && v.Touches.Grip == w.Touches.Grip &&
+              v.Strut.TravelM == w.Strut.TravelM &&
+              v.Strut.StopStiffnessNPerM == w.Strut.StopStiffnessNPerM &&
+              v.Strut.LoadLimitN == w.Strut.LoadLimitN && v.Touches.Grip == w.Touches.Grip &&
               v.Touches.LoadFalloff == w.Touches.LoadFalloff &&
               v.Touches.RadiusM == w.Touches.RadiusM &&
               v.Touches.CorneringNPerRad == w.Touches.CorneringNPerRad &&

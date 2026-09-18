@@ -1,11 +1,9 @@
 #ifndef OUTSHINE_ACTOR_BODY_PRISMATIC_H
 #define OUTSHINE_ACTOR_BODY_PRISMATIC_H
 
-#include <scenario/Scenario.h>
+#include <physics/PrismaticJoint.h>
 
 namespace outshine::Physics {
-
-using outshine::Scenario::Prismatic;
 
 struct Reaction {
   bool Touching = false;
@@ -24,9 +22,9 @@ struct Approach {
   double ClosingMs = 0.0;
 };
 
-[[nodiscard]] Reaction Press(const Prismatic &joint, Approach under);
+[[nodiscard]] Reaction Press(const PrismaticJoint &joint, Approach under);
 
-[[nodiscard]] double PressedForM(const Prismatic &joint, double loadN);
+[[nodiscard]] double PressedForM(const PrismaticJoint &joint, double loadN);
 
 }
 

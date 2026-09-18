@@ -1005,8 +1005,8 @@ bool ReadBodyDrives(const Xml::Ref &from,
       wheel.Strut.StiffnessNPerM = touch.Num("stiffnessNPerM", 0.0);
       wheel.Strut.DampingNsPerM = touch.Num("dampingNsPerM", 0.0);
       wheel.Strut.TravelM = touch.Num("travelM", 0.0);
-      wheel.Strut.StopNPerM = touch.Num("stopNPerM", 0.0);
-      wheel.Strut.LimitN = touch.Num("limitN", 0.0);
+      wheel.Strut.StopStiffnessNPerM = touch.Num("stopNPerM", 0.0);
+      wheel.Strut.LoadLimitN = touch.Num("limitN", 0.0);
       wheel.Touches.Grip = touch.Num("grip", 0.0);
       wheel.Touches.LoadFalloff = touch.Num("loadFalloff", 0.0);
       wheel.Touches.RadiusM = touch.Num("radiusM", 0.0);
@@ -1023,6 +1023,10 @@ bool ReadBodyDrives(const Xml::Ref &from,
       advertised.At = where.Attr("at");
       ReadVector(where, "x", "y", "z", advertised.AtM);
       made.Slots.push_back(advertised);
+    }
+    if (const auto valid = ValidateBodyDynamics(made); !valid) {
+      error = valid.error();
+      return false;
     }
     into.Bodies.push_back(made);
   }

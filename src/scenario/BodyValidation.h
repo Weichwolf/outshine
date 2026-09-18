@@ -53,6 +53,9 @@ ValidateBodyDynamics(const Scenario::Body &body) noexcept {
   for (const auto &drive : body.Driven) {
     if (const auto valid = ValidateBodyDrive(drive); !valid) { return valid; }
   }
+  for (const auto &contact : body.Contacts) {
+    if (const auto valid = Physics::ValidatePrismaticJoint(contact.Strut); !valid) { return valid; }
+  }
   const auto &rotation = body.Stands.Facing;
   const double norm =
       std::hypot(std::hypot(rotation.X, rotation.Y), std::hypot(rotation.Z, rotation.W));

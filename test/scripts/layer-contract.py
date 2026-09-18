@@ -15,6 +15,7 @@ PUBLIC_TIERS = {
     'generation': 'generators',
     'import': 'import',
     'math': 'base',
+    'physics': 'actor',
     'render': 'render',
     'scenario': 'scenario',
     'scene': 'base',
@@ -22,21 +23,19 @@ PUBLIC_TIERS = {
 }
 
 KNOWN_PUBLIC_FINDINGS = {
-    ('actor/body/Prismatic.cpp', target): 2239
-    for target in ('audio', 'render', 'scenario', 'world')
-} | {
     ('world/ground/GroundStack.cpp', target): 2240
-    for target in ('audio', 'engine', 'generators', 'render', 'scenario')
+    for target in ('actor', 'audio', 'engine', 'generators', 'render', 'scenario')
 } | {
     ('world/ground/BuildingField.cpp', 'generators'): 2240,
+    ('engine/streaming/StructureBuildQueue.cpp', 'actor'): 2240,
     ('engine/streaming/StructureBuildQueue.cpp', 'audio'): 2240,
     ('engine/streaming/StructureBuildQueue.cpp', 'scenario'): 2240,
 } | {
     ('generators/Shipped.cpp', target): 2241
-    for target in ('audio', 'engine', 'render', 'scenario')
+    for target in ('actor', 'audio', 'engine', 'render', 'scenario')
 } | {
     ('generators/road/Corridors.cpp', target): 2241
-    for target in ('audio', 'engine', 'render', 'scenario')
+    for target in ('actor', 'audio', 'engine', 'render', 'scenario')
 }
 
 

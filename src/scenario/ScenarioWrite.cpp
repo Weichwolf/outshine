@@ -216,8 +216,8 @@ void WriteContact(std::string &into, const Scenario::Contact &contact) {
   Number(into, "stiffnessNPerM", contact.Strut.StiffnessNPerM);
   Number(into, "dampingNsPerM", contact.Strut.DampingNsPerM);
   Number(into, "travelM", contact.Strut.TravelM);
-  Number(into, "stopNPerM", contact.Strut.StopNPerM);
-  Number(into, "limitN", contact.Strut.LimitN);
+  Number(into, "stopNPerM", contact.Strut.StopStiffnessNPerM);
+  Number(into, "limitN", contact.Strut.LoadLimitN);
   Number(into, "grip", contact.Touches.Grip);
   Number(into, "loadFalloff", contact.Touches.LoadFalloff);
   Number(into, "radiusM", contact.Touches.RadiusM);
