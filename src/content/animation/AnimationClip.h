@@ -42,6 +42,7 @@ struct AnimationTrack {
   std::vector<double> Times;
   std::vector<double> Values;
   AnimationCurve Curve;
+  double EmissionScale = 1.0;
 };
 
 struct AnimatedMaterialSample {

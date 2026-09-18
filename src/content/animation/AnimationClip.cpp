@@ -88,7 +88,9 @@ void AnimationClip::SampleMaterials(double seconds,
     track->Curve.At(seconds, values);
     const size_t width = MaterialComponents(track->Property);
     for (size_t component = 0; component < width; ++component) {
-      sampled.Values[component] = values[component];
+      sampled.Values[component] =
+          values[component] *
+          (track->Property == AnimationTarget::Emission ? track->EmissionScale : 1.0);
     }
     samples.push_back(sampled);
   }

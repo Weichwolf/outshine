@@ -37,6 +37,21 @@ int main() {
         "native material curve built");
   tracks.push_back(std::move(colour));
 
+  auto emission = std::make_unique<AnimationTrack>();
+  emission->Target = 4;
+  emission->Property = AnimationTarget::Emission;
+  emission->Times = {0.0, 2.0};
+  emission->Values = {0.0, 0.0, 0.0, 1.0, 0.5, 0.25};
+  emission->EmissionScale = 8.0;
+  CHECK(AnimationCurve::Build(Keyframes::Interpolation::Linear,
+                              emission->Times,
+                              emission->Values,
+                              3,
+                              AnimationCurve::Values::Linear,
+                              emission->Curve),
+        "native emission curve built");
+  tracks.push_back(std::move(emission));
+
   AnimationClip clip;
   clip.Adopt(
       std::vector<AnimationRestPose>(1), {}, std::move(tracks), {.StartS = 0.0, .EndS = 2.0});
@@ -48,9 +63,12 @@ int main() {
 
   std::vector<AnimatedMaterialSample> materials;
   clip.SampleMaterials(1.0, materials);
-  CHECK((materials.size() == 1 && materials[0].Material == 3 &&
+  CHECK((materials.size() == 2 && materials[0].Material == 3 &&
          materials[0].Property == AnimationTarget::BaseColour &&
          materials[0].Values == Vec4{{0.5, 0.5, 0.5, 1.0}}),
         "native material targets retain their engine meaning");
+  CHECK((materials[1].Material == 4 && materials[1].Property == AnimationTarget::Emission &&
+         materials[1].Values == Vec4{{4.0, 2.0, 1.0, 0.0}}),
+        "native emission carries its radiance scale without an import document");
   return Report();
 }

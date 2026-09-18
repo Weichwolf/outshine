@@ -35,7 +35,7 @@ constexpr auto MaterialPublicationFailed = "sampled material could not be publis
 }
 
 [[nodiscard]] std::expected<Material, std::string>
-ApplyMaterialFactor(Material material, const AnimatedMaterialSample &factor, double strength) {
+ApplyMaterialFactor(Material material, const AnimatedMaterialSample &factor) {
   size_t components = 0;
   switch (factor.Property) {
     case AnimationTarget::BaseColour: components = 4; break;
@@ -50,7 +50,7 @@ ApplyMaterialFactor(Material material, const AnimatedMaterialSample &factor, dou
   }
   for (size_t channel = 0; channel < components; ++channel) {
     if (!std::isfinite(factor.Values[channel]) || factor.Values[channel] < 0.0 ||
-        factor.Values[channel] > 1.0) {
+        (factor.Property != AnimationTarget::Emission && factor.Values[channel] > 1.0)) {
       return std::unexpected(std::string(Says::InvalidMaterialFactor));
     }
   }
@@ -68,7 +68,7 @@ ApplyMaterialFactor(Material material, const AnimatedMaterialSample &factor, dou
       break;
     case AnimationTarget::Emission:
       for (size_t channel = 0; channel < 3; ++channel) {
-        const double value = factor.Values[channel] * strength;
+        const double value = factor.Values[channel];
         if (!std::isfinite(value) || value > std::numeric_limits<float>::max()) {
           return std::unexpected(std::string(Says::EmissionOverflow));
         }
@@ -135,10 +135,7 @@ struct GltfImporter::Held {
         return false;
       }
       const MaterialInstance index(factor.Material);
-      auto sampled = ApplyMaterialFactor(
-          candidate.surfaceAt(index),
-          factor,
-          File.Materials()[static_cast<size_t>(factor.Material)].EmissiveStrength);
+      auto sampled = ApplyMaterialFactor(candidate.surfaceAt(index), factor);
       if (!sampled) {
         Why = std::move(sampled.error());
         return false;

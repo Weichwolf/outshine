@@ -13,7 +13,7 @@ kennen keine glTF-Herkunft mehr. `Posed` besitzt vollständige native Snapshots 
 fügt Bilder, Oberflächen und Parts transaktional zusammen. Statische Assets übernehmen
 Kamera und Geometrie und geben den Importadapter sofort frei. Nur aktive Animationen
 halten ihn für Skinning/Morph-Aufbau. Affine Transformationen, Kurven und Clips samt
-Materialzielen sind nativ; Dokumentgeometrie ist die nächste Formatkopplung.
+skalierter Emissionsziele sind nativ; Materialsampling ist dokumentfrei. Dokumentgeometrie folgt.
 Der ungenutzte glTF→Render-Surface-/Shape-Rückpfad ist entfernt; native Renderer-
 Tests tragen dessen Material-, Bildlebensdauer- und Fehleratomaritätsverträge.
 InitialGeometry wird beim Öffnen nativ kopiert; Live speichert keinen geliehenen

@@ -183,6 +183,10 @@ bool AnimationImport::AppendChannel(const Document &document,
   }
   held->Target = drivesMaterial ? channel.Material : channel.Node;
   held->Property = NativeTarget(channel);
+  if (held->Property == AnimationTarget::Emission) {
+    held->EmissionScale =
+        document.Materials()[static_cast<size_t>(channel.Material)].EmissiveStrength;
+  }
   const size_t fixedComponents = PathComponents(channel.Path);
   const size_t perKeyframe = sampler.How == Interpolation::CubicSpline ? 3u : 1u;
   size_t components = fixedComponents;
