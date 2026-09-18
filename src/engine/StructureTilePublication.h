@@ -16,7 +16,7 @@ namespace outshine {
 PublishStructureTile(Surrounds &world,
                      Render::SceneRenderer &renderer,
                      std::unique_ptr<Core::Live> &scene,
-                     const StructureBakes::Landing &landing,
+                     const StructureBuildQueue::Landing &landing,
                      const Ui::Font *font) {
   assert(scene && landing.Baked);
   Core::WorldCandidate candidate(renderer);
@@ -39,7 +39,7 @@ PublishStructureTile(Surrounds &world,
 PublishStructureTiles(Surrounds &world,
                       Render::SceneRenderer &renderer,
                       std::unique_ptr<Core::Live> &scene,
-                      std::span<const StructureBakes::Landing> landings,
+                      std::span<const StructureBuildQueue::Landing> landings,
                       const Ui::Font *font) {
   assert(scene);
   Core::WorldCandidate candidate(renderer);
@@ -47,7 +47,7 @@ PublishStructureTiles(Surrounds &world,
   TilePieces pieces = world.Pieces;
   pieces.Into(&candidate.Scene());
   std::string error;
-  for (const StructureBakes::Landing &landing : landings) {
+  for (const StructureBuildQueue::Landing &landing : landings) {
     assert(landing.Baked);
     if (!pieces.Hands(landing.Tile, *landing.Baked, landing.AnchorEcef, error)) {
       return std::unexpected(std::move(error));

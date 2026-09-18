@@ -231,7 +231,7 @@ WorldReadiness Engine::State::Readiness() const {
            World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
            World.Grown ? "" : Says::kPendingSnapshot,
            ground && World.Stack.Ingested() &&
-                   World.Bakes.Complete(World.Stack, World.Stack.Footprints()) &&
+                   World.StructureBuilds.Complete(World.Stack, World.Stack.Footprints()) &&
                    ground->Footprints == World.Stack.Footprints().Revision()
                ? ""
                : Says::kPendingIngestion,
@@ -400,7 +400,7 @@ bool Engine::State::CanAdvanceGroundCandidate() const {
 }
 
 Result Engine::State::FinishesPreload() {
-  const bool bakesComplete = World.Bakes.Complete(World.Stack, World.Stack.Footprints());
+  const bool bakesComplete = World.StructureBuilds.Complete(World.Stack, World.Stack.Footprints());
   if ((!World.GroundPublished.Current() || bakesComplete) && !Grounds(true)) {
     return std::unexpected(Error);
   }
@@ -414,7 +414,8 @@ Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, d
     if (const Result finished = FinishesPreload(); !finished) {
       return std::unexpected(finished.error());
     }
-    if (World.Bakes.Complete(World.Stack, World.Stack.Footprints()) && Readiness().Ready() &&
+    if (World.StructureBuilds.Complete(World.Stack, World.Stack.Footprints()) &&
+        Readiness().Ready() &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
       return PreloadFlush::Ready;
     }
@@ -467,16 +468,16 @@ Result Engine::State::PreloadTimeout(double bound) {
   if (!World.Stack.Ingested()) { Error += " (" + World.Stack.IngestionStatus() + ")"; }
   if (!World.GroundPublished.Current() && !pendingGround.empty()) { Error += "; " + pendingGround; }
   if (World.GroundPublished.Current() &&
-      !World.Bakes.Complete(World.Stack, World.Stack.Footprints())) {
-    Error += "; structure bakes=" + std::to_string(World.Bakes.Landed()) + "/" +
-             std::to_string(World.Bakes.Posted()) +
-             ", queued=" + std::to_string(World.Bakes.Queued()) +
-             ", structures=" + std::to_string(World.Bakes.QueuedStructures()) +
-             ", deferred=" + std::to_string(World.Bakes.Deferred()) +
-             ", meanMs=" + std::to_string(World.Bakes.MeanBakeMs()) +
-             ", maxMs=" + std::to_string(World.Bakes.SlowestBakeMs()) +
-             ", maxTaskMs=" + std::to_string(World.Bakes.SlowestTaskMs()) +
-             ", maxSliceMs=" + std::to_string(World.Bakes.SlowestSliceMs());
+      !World.StructureBuilds.Complete(World.Stack, World.Stack.Footprints())) {
+    Error += "; structure bakes=" + std::to_string(World.StructureBuilds.Landed()) + "/" +
+             std::to_string(World.StructureBuilds.Posted()) +
+             ", queued=" + std::to_string(World.StructureBuilds.Queued()) +
+             ", structures=" + std::to_string(World.StructureBuilds.QueuedStructures()) +
+             ", deferred=" + std::to_string(World.StructureBuilds.Deferred()) +
+             ", meanMs=" + std::to_string(World.StructureBuilds.MeanBakeMs()) +
+             ", maxMs=" + std::to_string(World.StructureBuilds.SlowestBakeMs()) +
+             ", maxTaskMs=" + std::to_string(World.StructureBuilds.SlowestTaskMs()) +
+             ", maxSliceMs=" + std::to_string(World.StructureBuilds.SlowestSliceMs());
   }
   if (const auto &ground = World.GroundPublished.Current();
       ground && ground->Footprints != World.Stack.Footprints().Revision()) {
@@ -487,7 +488,7 @@ Result Engine::State::PreloadTimeout(double bound) {
 }
 
 void Engine::State::AwaitPreloadProgress(double seconds) {
-  if (World.Bakes.AwaitSlice(seconds)) { return; }
+  if (World.StructureBuilds.AwaitSlice(seconds)) { return; }
   (void)World.Stack.AwaitProgress(seconds);
 }
 

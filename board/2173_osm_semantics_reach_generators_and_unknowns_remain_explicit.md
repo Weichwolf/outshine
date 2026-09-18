@@ -9,7 +9,7 @@ Depends:
 
 ## Belegter IST-Zustand
 
-`src/engine/StructureBakes.cpp::RawOf` leert `raw.Ways`, füllt im gelesenen Pfad nur
+`src/engine/streaming/StructureBuildQueue.cpp::RawOf` leert `raw.Ways`, füllt im gelesenen Pfad nur
 Außenringe, `height` und einen aus `roof:shape` abgeleiteten Pitched-Wert. Innenringe
 werden übersprungen. Der aktuelle Renderlog meldet für Feldkirch 31 673 Gebäude,
 1 147 mit OSM-Höhe und 30 526 mit Default: 30 526 / 31 673 = 96,4 % Default.
@@ -22,7 +22,7 @@ Anteil Quellenverlust und Defaultgenerator haben, muss die Provenienz zeigen.
 1. Provider-Schema gegen originale OSM-Semantik prüfen: Tiles können Tags schon vor
    outshine verlieren. Verfügbare/fehlende Tags pro Zoom zählen; erforderliche Semantik
    im Providervertrag sichern. Quellwechsel/Ergänzung weiterhin ausschließlich OSM.
-2. `RawTile`/`StructureBakes`/`src/generators/building/StructureBake.*`: stabile Feature-ID,
+2. `RawTile`/`StructureBuildQueue`/`src/generators/building/StructureBake.*`: stabile Feature-ID,
    Multipolygon mit Löchern, building/part, height/min_height, levels/min_level,
    roof shape/height/levels/direction/orientation, Material/Farbe und Nutzung erhalten.
    Zahlen mit Einheiten normalisieren; explizit, abgeleitet, unbekannt unterscheiden.

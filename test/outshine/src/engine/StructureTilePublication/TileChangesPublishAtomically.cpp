@@ -48,7 +48,7 @@ int main() {
       built.Built.RoofCorners = built.Built.WallCorners;
       built.Built.RoofRun = {0, 1, 2};
       built.Digest = 19;
-      StructureBakes::Landing landing{.Tile = 7, .Baked = &built, .AnchorEcef = {}};
+      StructureBuildQueue::Landing landing{.Tile = 7, .Baked = &built, .AnchorEcef = {}};
       CHECK(PublishStructureTile(world, renderer, scene, landing, nullptr).has_value() &&
                 renderer.PiecesStanding() == 2,
             "complete tile publishes wall and roof");
@@ -85,7 +85,7 @@ int main() {
       CHECK(PublishStructureTile(world, renderer, scene, landing, nullptr).has_value() &&
                 renderer.PiecesStanding() == 2 && world.Pieces.Handed() == 3,
             "buildings can return after an empty revision");
-      std::array<StructureBakes::Landing, 2> batch{
+      std::array<StructureBuildQueue::Landing, 2> batch{
           {{.Tile = 8, .Baked = &built, .AnchorEcef = {}},
            {.Tile = 9, .Baked = &built, .AnchorEcef = {}}}};
       CHECK(PublishStructureTiles(world, renderer, scene, batch, nullptr).has_value() &&

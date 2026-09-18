@@ -617,7 +617,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  S_->World.Bakes.Clear();
+  S_->World.StructureBuilds.Clear();
   S_->World.Stack.Footprints().ResetDerived();
   S_->World.Pieces.Clear();
   S_->World.Sheets.Clear();

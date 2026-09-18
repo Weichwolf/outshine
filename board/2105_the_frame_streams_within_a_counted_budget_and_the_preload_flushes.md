@@ -108,7 +108,7 @@ existing preload wait. The worker wake and collect contract has a focused ClassB
 Cause: ground ingestion required accepted structure bakes, while bakes waited for a published ground
 world.
 Structure scheduling is now allowed before the initial ground candidate; road/water ingestion gates
-that candidate, while `StructureBakes::Complete` gates final readiness and the footprint-revision
+that candidate, while `StructureBuildQueue::Complete` gates final readiness and the footprint-revision
 rebuild. The focused Place control must prove the cycle is gone before changing carriers or timeouts.
 
 ## Verbleibende Budgetarbeit

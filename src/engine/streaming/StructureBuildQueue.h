@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STRUCTUREBAKES_H
-#define OUTSHINE_ENGINE_STRUCTUREBAKES_H
+#ifndef OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
+#define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
 #include <expected>
 #include <cstdint>
@@ -15,16 +15,15 @@
 #include "HeightField.h"
 #include "GroundStack.h"
 #include "StructureBake.h"
-#include "StructureBakeTask.h"
+#include "StructureBuildTask.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
-#include "TilePieces.h"
 
 namespace outshine {
 
-class StructureBakes {
+class StructureBuildQueue {
 public:
-  ~StructureBakes();
+  ~StructureBuildQueue();
 
   void Opens(Tasks *pool, const StructureMesher *mesher) {
     Pool_ = pool;
@@ -97,9 +96,9 @@ public:
   }
 
 private:
-  struct QueuedBake {
+  struct QueuedBuild {
     BakeRevision Revision;
-    StructureBakeTask Task;
+    StructureBuildTask Task;
     size_t BakedStructures = 0;
     size_t Slices = 0;
     double SlowestSliceMs = 0.0;
@@ -116,16 +115,16 @@ private:
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
-  void PostSlice(QueuedBake &bake);
+  void PostSlice(QueuedBuild &build);
   void DiscardStale(const Ground::OsmField &vectors,
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye);
 
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
-  std::deque<QueuedBake> Queue_;
+  std::deque<QueuedBuild> Queue_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
-  std::vector<std::unique_ptr<StructureBakeTask::Output>> IdleOut_;
+  std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
   size_t Posted_ = 0;
   size_t Landed_ = 0;

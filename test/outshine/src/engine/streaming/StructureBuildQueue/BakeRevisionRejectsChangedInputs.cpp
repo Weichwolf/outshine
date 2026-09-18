@@ -1,4 +1,4 @@
-#include "StructureBakes.h"
+#include "StructureBuildQueue.h"
 #include "Check.h"
 #include <array>
 #include <string>
@@ -16,10 +16,10 @@ int main() {
   CHECK(footprints.Anchored(), "an anchored field admits bake scheduling");
   footprints.SeenWith(720.0);
   footprints.TilesSpan(2400.0);
-  const StructureBakes::BakeRevision revision{.Vectors = vectors.Generation(),
-                                              .FocalPx = footprints.FocalPx(),
-                                              .TileSpanM = footprints.TileSpanM(),
-                                              .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
+  const StructureBuildQueue::BakeRevision revision{.Vectors = vectors.Generation(),
+                                                   .FocalPx = footprints.FocalPx(),
+                                                   .TileSpanM = footprints.TileSpanM(),
+                                                   .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
         "posted bake inputs still match");
   footprints.SeenWith(1080.0);
@@ -31,10 +31,11 @@ int main() {
         "accepted footprints do not invalidate sibling bakes");
   CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}),
         "a moved camera makes an unfinished bake stale");
-  const StructureBakes::BakeRevision vectorRevision{.Vectors = vectors.Generation(),
-                                                    .FocalPx = footprints.FocalPx(),
-                                                    .TileSpanM = footprints.TileSpanM(),
-                                                    .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
+  const StructureBuildQueue::BakeRevision vectorRevision{
+      .Vectors = vectors.Generation(),
+      .FocalPx = footprints.FocalPx(),
+      .TileSpanM = footprints.TileSpanM(),
+      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
   CHECK(vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
         "declared vector source still matches");
   vectors.Declare(noFeatures, {.X = 19, .Y = 27});

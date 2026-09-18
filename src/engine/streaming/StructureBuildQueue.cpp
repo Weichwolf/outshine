@@ -1,7 +1,7 @@
 #include <expected>
 #include <exception>
 #include <atomic>
-#include "StructureBakes.h"
+#include "StructureBuildQueue.h"
 
 #include <algorithm>
 #include <cassert>
@@ -25,7 +25,7 @@ namespace {
 
 constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
-constexpr size_t kBakesPerThread = 1;
+constexpr size_t kBuildsPerThread = 1;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 int PitchedOf(std::string_view said) {
@@ -137,46 +137,46 @@ BlocksUnder(const Ground::GroundStream &ground,
 
 }
 
-StructureBakes::~StructureBakes() {
+StructureBuildQueue::~StructureBuildQueue() {
   Clear();
 }
 
-bool StructureBakes::Complete(const Ground::GroundStack &stack,
-                              const Ground::BuildingField &footprints) const {
+bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
+                                   const Ground::BuildingField &footprints) const {
   const Ground::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr || (Queue_.empty() && footprints.Ingested(*vectors));
 }
 
-size_t StructureBakes::QueuedStructures() const {
+size_t StructureBuildQueue::QueuedStructures() const {
   size_t count = 0;
-  for (const QueuedBake &bake : Queue_) {
+  for (const QueuedBuild &bake : Queue_) {
     const size_t all = bake.Task.Raw().Structures.size();
     count += all > bake.BakedStructures ? all - bake.BakedStructures : 0;
   }
   return count;
 }
 
-std::unique_ptr<MeshScratch> StructureBakes::LentScratch() {
+std::unique_ptr<MeshScratch> StructureBuildQueue::LentScratch() {
   if (IdleScratch_.empty()) { return Mesher_->Scratch(); }
   std::unique_ptr<MeshScratch> one = std::move(IdleScratch_.back());
   IdleScratch_.pop_back();
   return one;
 }
 
-void StructureBakes::PostSlice(QueuedBake &bake) {
-  if (bake.Slices == 0) {
-    bake.Task.Start(*Pool_, *Mesher_);
+void StructureBuildQueue::PostSlice(QueuedBuild &build) {
+  if (build.Slices == 0) {
+    build.Task.Start(*Pool_, *Mesher_);
   } else {
-    bake.Task.Resume(*Pool_, *Mesher_);
+    build.Task.Resume(*Pool_, *Mesher_);
   }
-  bake.Finished = false;
+  build.Finished = false;
 }
 
-void StructureBakes::DiscardStale(const Ground::OsmField &vectors,
-                                  Ground::BuildingField &prints,
-                                  LongitudeLatitude eye) {
+void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
+                                       Ground::BuildingField &prints,
+                                       LongitudeLatitude eye) {
   while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints, eye)) {
-    QueuedBake &stale = Queue_.front();
+    QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
     IdleRaw_.reserve(IdleRaw_.size() + 1u);
@@ -191,8 +191,8 @@ void StructureBakes::DiscardStale(const Ground::OsmField &vectors,
   }
 }
 
-void StructureBakes::ResumeCompletedSlices() {
-  for (QueuedBake &bake : Queue_) {
+void StructureBuildQueue::ResumeCompletedSlices() {
+  for (QueuedBuild &bake : Queue_) {
     if (!bake.Finished) {
       bake.Finished = bake.Task.TakeCompletion(*Pool_);
       if (bake.Finished) {
@@ -210,15 +210,15 @@ void StructureBakes::ResumeCompletedSlices() {
   }
 }
 
-size_t StructureBakes::Posts(Ground::GroundStack &stack,
-                             Ground::BuildingField &prints,
-                             LongitudeLatitude eye) {
+size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
+                                  Ground::BuildingField &prints,
+                                  LongitudeLatitude eye) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
   const Ground::OsmField &vectors = *stack.Vectors();
   size_t posted = 0;
-  const size_t inFlightMost = static_cast<size_t>(Pool_->Threads()) * kBakesPerThread;
+  const size_t inFlightMost = static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread;
   const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   while (Queue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
@@ -241,7 +241,7 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack,
     prints.Take(next->Tile);
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
     RawOf(vectors, prints, stack.Ways(), *next, eye, *raw);
-    std::unique_ptr<StructureBakeTask::Output> output = Borrowed(IdleOut_);
+    std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
     output->Status = {};
     output->Complete = false;
     output->BakeMs = 0.0;
@@ -249,7 +249,7 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack,
     output->LastTaskMs = 0.0;
     Queue_.push_back(
         {.Revision = revision,
-         .Task = StructureBakeTask(
+         .Task = StructureBuildTask(
              next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch())});
     PostSlice(Queue_.back());
     ++Posted_;
@@ -258,11 +258,11 @@ size_t StructureBakes::Posts(Ground::GroundStack &stack,
   return posted;
 }
 
-std::expected<std::vector<StructureBakes::Landing>, Generators::StructureBakeError>
-StructureBakes::NextLandings(Ground::GroundStack &stack,
-                             Ground::BuildingField &prints,
-                             LongitudeLatitude eye,
-                             size_t most) {
+std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBakeError>
+StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
+                                  Ground::BuildingField &prints,
+                                  LongitudeLatitude eye,
+                                  size_t most) {
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();
@@ -275,7 +275,7 @@ StructureBakes::NextLandings(Ground::GroundStack &stack,
   size_t acrossCount = 0;
   uint32_t largestTile = 0;
   while (count < most && count < Queue_.size()) {
-    QueuedBake &bake = Queue_[count];
+    QueuedBuild &bake = Queue_[count];
     if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye)) { break; }
     if (!bake.Task.Result().Status) {
       if (count == 0) { return std::unexpected(bake.Task.Result().Status.error()); }
@@ -299,7 +299,7 @@ StructureBakes::NextLandings(Ground::GroundStack &stack,
                               .LargestTile = largestTile});
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
-    const QueuedBake &bake = Queue_[at];
+    const QueuedBuild &bake = Queue_[at];
     const Generators::BakedTile &baked = bake.Task.Result().Tile;
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
     landings.push_back(
@@ -318,11 +318,11 @@ StructureBakes::NextLandings(Ground::GroundStack &stack,
   return landings;
 }
 
-void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
-                                     Ground::BuildingField &footprints,
-                                     std::span<Landing> landings) noexcept {
+void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
+                                          Ground::BuildingField &footprints,
+                                          std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
-    QueuedBake &bake = Queue_.front();
+    QueuedBuild &bake = Queue_.front();
     const Generators::BakedTile &baked = bake.Task.Result().Tile;
     assert(landing.Tile == bake.Task.Tile() && landing.Baked == &baked && landing.Footprints);
     if (!landing.Footprints) { std::terminate(); }
@@ -360,8 +360,8 @@ void StructureBakes::CommitsLandings(Ground::GroundStack &stack,
   }
 }
 
-void StructureBakes::Clear() {
-  for (QueuedBake &bake : Queue_) {
+void StructureBuildQueue::Clear() {
+  for (QueuedBuild &bake : Queue_) {
     bake.Task.RequestStop();
     if (Pool_ != nullptr) { bake.Task.Join(*Pool_); }
   }

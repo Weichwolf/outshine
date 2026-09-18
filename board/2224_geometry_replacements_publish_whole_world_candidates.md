@@ -41,7 +41,7 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
 
 1. Die Bake-Übergabe ist jetzt eigentümerscharf: `GroundBuildProducts` besitzt
    `BuildingField` und `TilePieces` bis `GroundWorldCandidate::Publish`.
-   `StructureBakes` erhält den Footprint-Owner ausdrücklich; vor der ersten
+   `StructureBuildQueue` erhält den Footprint-Owner ausdrücklich; vor der ersten
    Ground-Publikation arbeitet `State::Bakes` gegen diesen Kandidaten. Nichtwerfende
    Transfers veröffentlichen Footprints, Pieces, `Live` und GPU-Welt gemeinsam.
    Ein unanchored Field lehnt Bake-Aufnahme ab. `BakeRevisionRejectsChangedInputs`

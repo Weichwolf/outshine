@@ -70,7 +70,7 @@ and runs at most four ranges per task. Prove the existing contract before changi
 
 ## Files and gates
 
-src/engine/StructureBakeTask.cpp, StructureBakes.cpp, GroundWorldCandidate.h and
+src/engine/streaming/StructureBuildTask.cpp, StructureBuildQueue.cpp, GroundWorldCandidate.h and
 StructureTilePublication.h own private progress and publication. Reuse these owners.
 Tests belong under test/outshine/include/Outshine/; analytical generator controls under
 src/generators/building/StructureBake. 64 structures bounds count, not elapsed time:

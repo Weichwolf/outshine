@@ -9,7 +9,7 @@ Depends: 2173, 2121
 
 ## IST / Reparatur
 
-`StructureBakes.cpp::RawOf` leert `RawTile::Ways` und füllt sie im gelesenen Pfad nicht.
+`StructureBuildQueue.cpp::RawOf` leert `RawTile::Ways` und füllt sie im gelesenen Pfad nicht.
 `StructureBake::NearestStreet`/Frontage können so ihre Straße nicht kennen. Die frühere
 Abhängigkeit 2157 ist geschlossen/historisch und wurde durch die tatsächlichen offenen
 Träger ersetzt. Alle Stadtbilder zeigen fast fensterlose Prismen.

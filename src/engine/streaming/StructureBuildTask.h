@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STRUCTUREBAKETASK_H
-#define OUTSHINE_ENGINE_STRUCTUREBAKETASK_H
+#ifndef OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDTASK_H
+#define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDTASK_H
 
 #include <atomic>
 #include <expected>
@@ -12,7 +12,7 @@
 
 namespace outshine {
 
-class StructureBakeTask {
+class StructureBuildTask {
 public:
   struct Output {
     Generators::BakedTile Tile;
@@ -23,16 +23,16 @@ public:
     double LastTaskMs = 0.0;
   };
 
-  StructureBakeTask(uint32_t tile,
-                    std::unique_ptr<Generators::RawTile> raw,
-                    std::shared_ptr<const Ground::HeightField> heights,
-                    std::unique_ptr<Output> output,
-                    std::unique_ptr<MeshScratch> scratch);
-  ~StructureBakeTask();
-  StructureBakeTask(const StructureBakeTask &) = delete;
-  StructureBakeTask &operator=(const StructureBakeTask &) = delete;
-  StructureBakeTask(StructureBakeTask &&) noexcept;
-  StructureBakeTask &operator=(StructureBakeTask &&) noexcept;
+  StructureBuildTask(uint32_t tile,
+                     std::unique_ptr<Generators::RawTile> raw,
+                     std::shared_ptr<const Ground::HeightField> heights,
+                     std::unique_ptr<Output> output,
+                     std::unique_ptr<MeshScratch> scratch);
+  ~StructureBuildTask();
+  StructureBuildTask(const StructureBuildTask &) = delete;
+  StructureBuildTask &operator=(const StructureBuildTask &) = delete;
+  StructureBuildTask(StructureBuildTask &&) noexcept;
+  StructureBuildTask &operator=(StructureBuildTask &&) noexcept;
 
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);

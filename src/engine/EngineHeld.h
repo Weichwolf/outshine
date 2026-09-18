@@ -24,7 +24,7 @@
 #include "Wayfinding.h"
 #include "TilePieces.h"
 #include "WorldPlacement.h"
-#include "StructureBakes.h"
+#include "StructureBuildQueue.h"
 #include "Tasks.h"
 #include "Log.h"
 
@@ -240,7 +240,7 @@ struct Surrounds {
   size_t NetworkOfWays = 0;
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
-  StructureBakes Bakes;
+  StructureBuildQueue StructureBuilds;
   size_t Relaid = 0;
   size_t Asked = 0;
   double RebuildMs = 0.0;

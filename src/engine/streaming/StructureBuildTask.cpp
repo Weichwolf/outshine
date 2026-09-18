@@ -1,4 +1,4 @@
-#include "StructureBakeTask.h"
+#include "StructureBuildTask.h"
 
 #include <algorithm>
 #include <atomic>
@@ -22,11 +22,11 @@ constexpr size_t kRangesPerWorkerTask = 4;
 
 }
 
-StructureBakeTask::StructureBakeTask(uint32_t tile,
-                                     std::unique_ptr<Generators::RawTile> raw,
-                                     std::shared_ptr<const Ground::HeightField> heights,
-                                     std::unique_ptr<Output> output,
-                                     std::unique_ptr<MeshScratch> scratch)
+StructureBuildTask::StructureBuildTask(uint32_t tile,
+                                       std::unique_ptr<Generators::RawTile> raw,
+                                       std::shared_ptr<const Ground::HeightField> heights,
+                                       std::unique_ptr<Output> output,
+                                       std::unique_ptr<MeshScratch> scratch)
     : Tile_(tile),
       Raw_(std::move(raw)),
       Heights_(std::move(heights)),
@@ -37,19 +37,19 @@ StructureBakeTask::StructureBakeTask(uint32_t tile,
   assert(Raw_ != nullptr && Heights_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
 }
 
-StructureBakeTask::~StructureBakeTask() {
+StructureBuildTask::~StructureBuildTask() {
   assert(State_ != State::Running);
 }
 
-StructureBakeTask::StructureBakeTask(StructureBakeTask &&) noexcept = default;
+StructureBuildTask::StructureBuildTask(StructureBuildTask &&) noexcept = default;
 
-StructureBakeTask &StructureBakeTask::operator=(StructureBakeTask &&) noexcept = default;
+StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&) noexcept = default;
 
-bool StructureBakeTask::Running() const noexcept {
+bool StructureBuildTask::Running() const noexcept {
   return State_ == State::Running;
 }
 
-void StructureBakeTask::Posts(Tasks &pool, const StructureMesher &mesher) {
+void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ != State::Running);
   const Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
@@ -84,45 +84,45 @@ void StructureBakeTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   });
 }
 
-void StructureBakeTask::Start(Tasks &pool, const StructureMesher &mesher) {
+void StructureBuildTask::Start(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ == State::Ready);
   Posts(pool, mesher);
 }
 
-void StructureBakeTask::Resume(Tasks &pool, const StructureMesher &mesher) {
+void StructureBuildTask::Resume(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ == State::Completed && Output_->Status && !Output_->Complete);
   Posts(pool, mesher);
 }
 
-void StructureBakeTask::RequestStop() noexcept {
+void StructureBuildTask::RequestStop() noexcept {
   Stopping_->store(true, std::memory_order_relaxed);
 }
 
-bool StructureBakeTask::TakeCompletion(Tasks &pool) {
+bool StructureBuildTask::TakeCompletion(Tasks &pool) {
   if (State_ != State::Running || !pool.Done(Handle_)) { return false; }
   Handle_ = Tasks::kNoTask;
   State_ = State::Completed;
   return true;
 }
 
-void StructureBakeTask::Join(Tasks &pool) {
+void StructureBuildTask::Join(Tasks &pool) {
   if (State_ != State::Running) { return; }
   pool.Wait(Handle_);
   Handle_ = Tasks::kNoTask;
   State_ = State::Completed;
 }
 
-std::unique_ptr<Generators::RawTile> StructureBakeTask::TakeRaw() noexcept {
+std::unique_ptr<Generators::RawTile> StructureBuildTask::TakeRaw() noexcept {
   assert(State_ != State::Running);
   return std::move(Raw_);
 }
 
-std::unique_ptr<StructureBakeTask::Output> StructureBakeTask::TakeOutput() noexcept {
+std::unique_ptr<StructureBuildTask::Output> StructureBuildTask::TakeOutput() noexcept {
   assert(State_ != State::Running);
   return std::move(Output_);
 }
 
-std::unique_ptr<MeshScratch> StructureBakeTask::TakeScratch() noexcept {
+std::unique_ptr<MeshScratch> StructureBuildTask::TakeScratch() noexcept {
   assert(State_ != State::Running);
   return std::move(Scratch_);
 }

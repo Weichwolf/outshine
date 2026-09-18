@@ -58,7 +58,7 @@ verwerfen. expected unterscheidet ungültigen Plan, inkompatiblen Scratch und
 Aufbaufehler; Scratch-Typ am Job-Eingang prüfen statt unchecked static_cast.
 Allokationsfehler früh/mittig/spät gezielt injizieren und vorherige Geometrie erhalten.
 Catch erst nach begrenztem Scratch-/Output-Aufbau aus 2194 entfernen, nicht ersatzlos.
-StructureBake reicht Mesher-/Clusterfehler typisiert bis StructureBakes::Lands weiter;
+StructureBake reicht Mesher-/Clusterfehler typisiert bis StructureBuildQueue::NextLandings weiter;
 fehlgeschlagene Jobs publizieren keine Kachel. Gegenprobe mit verschlucktem Fehler rot.
 Weitere Befunde: Site::Index nutzt Hash als Identität und multipliziert signed int64;
 Kollisionen/Überlauf dürfen keine verschiedenen Vertexpositionen zusammenlegen.

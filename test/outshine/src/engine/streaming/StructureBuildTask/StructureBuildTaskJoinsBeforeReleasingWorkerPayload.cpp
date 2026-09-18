@@ -6,7 +6,7 @@
 #include <thread>
 
 #include "Check.h"
-#include "StructureBakeTask.h"
+#include "StructureBuildTask.h"
 
 namespace {
 
@@ -78,8 +78,8 @@ int main() {
   using namespace outshine::Test;
   Tasks pool(1);
   BlockingMesher mesher;
-  StructureBakeTask task(
-      3, Raw(), Heights(), std::make_unique<StructureBakeTask::Output>(), mesher.Scratch());
+  StructureBuildTask task(
+      3, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), mesher.Scratch());
   task.Start(pool, mesher);
   CHECK(mesher.WaitsInMesh(), "the real bake worker holds its scratch during meshing");
   std::atomic_bool joined{false};

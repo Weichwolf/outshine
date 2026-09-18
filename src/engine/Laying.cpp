@@ -418,7 +418,7 @@ Engine::State::Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWh
                    static_cast<double>(World.Stack.Footprints().PrintBytes()),
                    "bytes");
   Published.Places("world: tiles baking on the workers right now",
-                   static_cast<double>(World.Bakes.Queued()),
+                   static_cast<double>(World.StructureBuilds.Queued()),
                    "tiles");
   Published.Places("world: the building pieces the device holds",
                    Picture.Standing ? static_cast<double>(Picture.Standing->PieceBytesHeld()) : 0.0,
@@ -993,7 +993,7 @@ Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
   if (state.NextStage() != GroundBuildState::Stage::NeedsBakes) {
     return GroundBuildProgress::Ready;
   }
-  if (!World.Bakes.Complete(World.Stack, state.Footprints())) {
+  if (!World.StructureBuilds.Complete(World.Stack, state.Footprints())) {
     return GroundBuildProgress::Pending;
   }
   state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
@@ -1011,20 +1011,20 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   GroundBuildState &state = *World.GroundBuild;
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
-  auto ready =
-      World.Bakes.NextLandings(World.Stack, state.Footprints(), WhereTheEyeStands(), landsMost);
+  auto ready = World.StructureBuilds.NextLandings(
+      World.Stack, state.Footprints(), WhereTheEyeStands(), landsMost);
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
   }
   build.Pieces.Wears(build.Surfaces);
-  for (const StructureBakes::Landing &landing : *ready) {
+  for (const StructureBuildQueue::Landing &landing : *ready) {
     if (!build.Pieces.Hands(landing.Tile, *landing.Baked, landing.AnchorEcef, Error)) {
       return false;
     }
   }
-  World.Bakes.CommitsLandings(World.Stack, state.Footprints(), *ready);
-  (void)World.Bakes.Posts(World.Stack, state.Footprints(), WhereTheEyeStands());
+  World.StructureBuilds.CommitsLandings(World.Stack, state.Footprints(), *ready);
+  (void)World.StructureBuilds.Posts(World.Stack, state.Footprints(), WhereTheEyeStands());
   return true;
 }
 

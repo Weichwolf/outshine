@@ -218,7 +218,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 void Engine::State::HandsPiecesOver() {
   World.BindLiveResources(*Picture.Standing);
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  World.Bakes.Opens(World.Pool.get(), &World.Shipping.Shaping());
+  World.StructureBuilds.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }
   World.Pieces.Framed(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
@@ -232,12 +232,13 @@ bool Engine::State::Bakes(size_t landsMost) {
   if (!World.GroundPublished.Current()) {
     Ground::BuildingField *const footprints = CandidateFootprints();
     if (footprints == nullptr) { return true; }
-    World.Bakes.ResumeCompletedSlices();
+    World.StructureBuilds.ResumeCompletedSlices();
     if (!StagesGroundBakes(landsMost)) { return false; }
-    (void)World.Bakes.Posts(World.Stack, *footprints, eye);
+    (void)World.StructureBuilds.Posts(World.Stack, *footprints, eye);
     return true;
   }
-  auto ready = World.Bakes.NextLandings(World.Stack, World.Stack.Footprints(), eye, landsMost);
+  auto ready =
+      World.StructureBuilds.NextLandings(World.Stack, World.Stack.Footprints(), eye, landsMost);
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
@@ -249,19 +250,24 @@ bool Engine::State::Bakes(size_t landsMost) {
       Error = std::move(published.error());
       return false;
     }
-    World.Bakes.CommitsLandings(World.Stack, World.Stack.Footprints(), *ready);
+    World.StructureBuilds.CommitsLandings(World.Stack, World.Stack.Footprints(), *ready);
   }
-  (void)World.Bakes.Posts(World.Stack, World.Stack.Footprints(), eye);
-  Published.Places(
-      "buildings: tiles posted to the bake", static_cast<double>(World.Bakes.Posted()), "tiles");
-  Published.Places(
-      "buildings: tiles landed from it", static_cast<double>(World.Bakes.Landed()), "tiles");
-  Published.Places(
-      "buildings: tiles in the bake right now", static_cast<double>(World.Bakes.Queued()), "tiles");
-  Published.Places(
-      "buildings: tiles deferred for ground", static_cast<double>(World.Bakes.Deferred()), "asks");
-  Published.Places(
-      "buildings: stale tiles discarded", static_cast<double>(World.Bakes.Discarded()), "tiles");
+  (void)World.StructureBuilds.Posts(World.Stack, World.Stack.Footprints(), eye);
+  Published.Places("buildings: tiles posted to the bake",
+                   static_cast<double>(World.StructureBuilds.Posted()),
+                   "tiles");
+  Published.Places("buildings: tiles landed from it",
+                   static_cast<double>(World.StructureBuilds.Landed()),
+                   "tiles");
+  Published.Places("buildings: tiles in the bake right now",
+                   static_cast<double>(World.StructureBuilds.Queued()),
+                   "tiles");
+  Published.Places("buildings: tiles deferred for ground",
+                   static_cast<double>(World.StructureBuilds.Deferred()),
+                   "asks");
+  Published.Places("buildings: stale tiles discarded",
+                   static_cast<double>(World.StructureBuilds.Discarded()),
+                   "tiles");
   return true;
 }
 

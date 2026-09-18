@@ -32,7 +32,7 @@ The ground 512-MiB limit remains a GroundStack limit until an Engine budget repl
 1. Inventory `Surrounds`, `State`, renderer residency and worker/candidate ownership.
 2. Add byte contracts from leaves upward. Empty retained capacity still counts; only
    genuinely unallocated products report zero. Start with Live slots/payloads, HeightSheets,
-   StructureBakes queued/idle storage and WorldContent buffers/textures.
+   StructureBuildQueue queued/idle storage and WorldContent buffers/textures.
 3. Publish a revision-consistent Engine residency snapshot and measured high-water marks.
 4. Set CPU/GPU budgets from device measurements and enforce them at candidate boundaries.
 

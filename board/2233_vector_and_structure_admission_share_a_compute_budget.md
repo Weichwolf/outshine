@@ -40,7 +40,7 @@ using engine ticks, with stable tie breaks. Avoid waiting for all unrelated vect
 
 ## Implementation order and ownership
 
-1. Measure completion snapshots in src/engine/StructureBakes.cpp, StructureBakeTask.cpp
+1. Measure completion snapshots in src/engine/streaming/StructureBuildQueue.cpp and StructureBuildTask.cpp
    and Engine::State's ingestion/ground path (src/engine/Laying.cpp): queue depth/bytes, oldest age, main-thread work and
    worker time separately. Reproduce Lattice and floor-contact unchanged.
 2. Introduce one private admission record/owner around those existing queues. Preallocate
@@ -61,7 +61,7 @@ using engine ticks, with stable tie breaks. Avoid waiting for all unrelated vect
       result is rejected and cannot overwrite the newer candidate.
 - [ ] Unchanged floor-contact and Lattice cases meet their declared 15 s budgets; compare
       cold/warm runs and disclose IO separately. No sleeps or increased timeouts.
-- [ ] make format; make suite SUITE=outshine/src/engine/StructureBakeTask;
+- [ ] make format; make suite SUITE=outshine/src/engine/streaming/StructureBuildTask;
       make suite SUITE=outshine/integration/places/ScoreTheLatticeMeetsItselfAtALevelBoundary;
       make suite SUITE=outshine/integration/places/ScoreAFootprintStandsOnALevelFloor;
       added admission cases through make suite; make lint.
