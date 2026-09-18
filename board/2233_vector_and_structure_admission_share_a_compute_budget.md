@@ -27,3 +27,10 @@ CPU time and oldest-ready age without frame-path allocation or periodic logs.
   structure ranges; changing arrival order preserves accepted native-world data.
 - The floor-contact Place becomes resident within 15 s with unchanged input, geometry and timeout.
 - CPU time, queue bounds and admission decisions are measurable; focused tests and lint pass.
+
+## Current evidence
+
+2026-09-18: `ScoreTheLatticeMeetsItselfAtALevelBoundary` exhausted its unchanged 15 s preload
+window with `world ingestion pending, terrain classification pending`. It is currently reported as
+unprepared, not accepted. The case has 240 km sight and is the controlled regression to use for
+admission timing after the atomic multi-range candidate fixture in WI 2231 exists.
