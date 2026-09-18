@@ -106,8 +106,8 @@ public:
   void ReleasePiece(PieceId which);
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
-  void WearPieces(std::span<const uint32_t> slotOfSurface,
-                  std::span<const uint32_t> registered = {});
+  void SetNativePieceSurfaces(std::span<const uint32_t> slots);
+  void SetRegisteredPieceSurfaces(std::span<const uint32_t> slots);
   [[nodiscard]] bool HandTables(std::string &error);
 
   [[nodiscard]] uint32_t PiecesStanding() const { return PiecesLive_; }

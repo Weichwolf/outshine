@@ -754,7 +754,8 @@ void Live::WearsPieces() {
       slotOf[static_cast<size_t>(surface)] = static_cast<uint32_t>(slot);
     }
   }
-  Renderer_->WearPieces(slotOf, RegisteredSlots_);
+  Renderer_->SetNativePieceSurfaces(slotOf);
+  Renderer_->SetRegisteredPieceSurfaces(RegisteredSlots_);
 }
 
 void Live::StandsShadowRadius() {

@@ -99,7 +99,7 @@ int main() {
   rows[1][12] = -1;
   rows[2][12] = 1;
   const std::array<uint32_t, 2> surfaces{0, 1};
-  renderer.WearPieces(surfaces);
+  renderer.SetNativePieceSurfaces(surfaces);
   std::filesystem::create_directories("build/instance-native");
   for (const bool clustered : {false, true}) {
     const std::array<DagCluster, 1> clusters{
@@ -273,7 +273,7 @@ int main() {
   CHECK(renderer.ReadSceneLinear(after) == Render::ReadState::Ready && after == before,
         "appending a surface preserves every resident pixel");
   const std::array<uint32_t, 3> extendedSurfaces{0, 1, 2};
-  renderer.WearPieces(extendedSurfaces);
+  renderer.SetNativePieceSurfaces(extendedSurfaces);
   resident.Row = rows[2];
   resident.Surface = Render::PieceSurface(2);
   resident.Textured = true;

@@ -248,9 +248,12 @@ public:
     return ActiveState().Content.Resources.PieceSlotBytes();
   }
 
-  void WearPieces(std::span<const uint32_t> slotOfSurface,
-                  std::span<const uint32_t> registered = {}) {
-    ActiveState().Content.Subjects.WearPieces(slotOfSurface, registered);
+  void SetNativePieceSurfaces(std::span<const uint32_t> slots) {
+    ActiveState().Content.Subjects.SetNativePieceSurfaces(slots);
+  }
+
+  void SetRegisteredPieceSurfaces(std::span<const uint32_t> slots) {
+    ActiveState().Content.Subjects.SetRegisteredPieceSurfaces(slots);
   }
 
   [[nodiscard]] uint32_t PiecesStanding() const {

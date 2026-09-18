@@ -1075,14 +1075,15 @@ void SubjectDraw::ReleasePiece(PieceId which) {
   RowsStale_ = true;
 }
 
-void SubjectDraw::WearPieces(std::span<const uint32_t> slotOfSurface,
-                             std::span<const uint32_t> registered) {
-  if (std::ranges::equal(SlotOf_, slotOfSurface) &&
-      std::ranges::equal(RegisteredSlotOf_, registered)) {
-    return;
-  }
-  SlotOf_.assign(slotOfSurface.begin(), slotOfSurface.end());
-  RegisteredSlotOf_.assign(registered.begin(), registered.end());
+void SubjectDraw::SetNativePieceSurfaces(std::span<const uint32_t> slots) {
+  if (std::ranges::equal(SlotOf_, slots)) { return; }
+  SlotOf_.assign(slots.begin(), slots.end());
+  TablesStale_ = true;
+}
+
+void SubjectDraw::SetRegisteredPieceSurfaces(std::span<const uint32_t> slots) {
+  if (std::ranges::equal(RegisteredSlotOf_, slots)) { return; }
+  RegisteredSlotOf_.assign(slots.begin(), slots.end());
   TablesStale_ = true;
 }
 
