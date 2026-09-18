@@ -25,11 +25,11 @@ int main() {
   material.BaseColour = {{1, 1, 1, 1}};
   material.Unlit = true;
   material.BaseColourMap.Image = image;
-  material.BaseColourMap.Sampler.Magnify = Filter::Nearest;
-  material.BaseColourMap.Sampler.Minify = Filter::Nearest;
+  material.BaseColourMap.Sampler.Magnify = Filter::Linear;
+  material.BaseColourMap.Sampler.Minify = Filter::Linear;
   material.BaseColourMap.Sampler.Mip = MipFilter::Linear;
-  material.BaseColourMap.Sampler.WrapU = Wrap::ClampToEdge;
-  material.BaseColourMap.Sampler.WrapV = Wrap::ClampToEdge;
+  material.BaseColourMap.Sampler.WrapU = Wrap::Repeat;
+  material.BaseColourMap.Sampler.WrapV = Wrap::Repeat;
   const int part =
       geometry.addPart("quad", geometry.addSurface("colour", material).value()).value();
   CHECK(geometry.setPositions(part, std::array<float, 12>{-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0}),

@@ -36,8 +36,10 @@ It changes 504 linear channels (maximum 0.220703) after the first frame. The fai
 therefore survives without `Scenario::Asset` loading and is inside native Geometry to
 Subject construction or its render pipeline.
 
-`PerspectiveNativeMipImagesRepeatLinearPixels` is exact with the Chess camera,
-1280×720 target and the same filtered checker material. Clearing all tangent vectors, UV1 data or vertex colours from the native Chess clone
+`PerspectiveNativeMipImagesRepeatLinearPixels` is exact with the Chess camera and
+1280×720 target using Linear magnify/minify, Linear mip selection and Repeat
+addressing. It has a generated checker image rather than the imported image.
+Clearing all tangent vectors, UV1 data or vertex colours from the native Chess clone
 separately leaves the exact 504-channel, 0.220703 defect. A copied single native part, including its original images/material and attributes, is also
 red but only changes 3 channels (maximum 0.000244141). Multi-part packing amplifies
 rather than solely causes the defect. `ImportedChessSinglePartConstantUvRepeatsLinearPixels`
@@ -89,17 +91,13 @@ texel fetch, force a LOD, warm a frame, or change a tolerance.
 6. [x] Prove the Chess perspective on a single native mipmapped quad exact.
 7. [x] Reduce to one copied native part: residual is 3 channels; multi-part packing amplifies it.
 8. [x] Replace only the single part's UV0 with a constant: it is exact.
-9. Record the selected vertex layout and SPIR-V products for the red native clone.
-   Prove the unlit clone selects flat `Position+Uv0` even when the imported source
-   retains normals.
-10. Add an actual-Subject reducer: same native part, same perspective and sampler,
-    then independently select `Position+Uv0`, `Position+Normal+Uv0`, UV transform
-    identity/nonidentity and one/many parts. Every reducer compares first and second
-    frame exactly and identifies the selected pipeline key.
-11. If the reducer identifies the fragment-side transform, implement the vertex-side
-    final-UV contract and re-run it before touching packing. If it disproves that
-    candidate, retain the evidence and continue reduction; do not redesign material
-    program selection without a failing selector case.
+9. [x] Prove the unlit clone selects flat `Position+Uv0`; the linear/repeat generated
+   checker control is exact, so sampler policy and normal selection are excluded.
+10. Replace the generated checker with the selected imported base-colour image while
+    retaining the quad, camera, sampler and UVs. Then replace only its UV coordinates
+    with the imported part's values. Compare first and second frame at each boundary.
+11. Only a failing transform boundary permits the vertex-side final-UV candidate;
+    otherwise continue reduction without redesigning material program selection.
 12. WI 2235 separately repairs incomplete image ownership and publication. It must
     preserve pixels and is not claimed as this defect's repair.
 
