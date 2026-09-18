@@ -13,7 +13,8 @@ int main() {
   CHECK(engine.declare(scene) && engine.assemble(), "kind and instance have separate namespaces");
   EntityRegistry *const original = &engine.entities();
   const auto marker = original->addEntity(Role::Tool);
-  CHECK(original->alive(marker), "live marker created");
+  CHECK(marker && original->alive(*marker), "live marker created");
+  if (!marker) { return Report(); }
   std::array<Scenario::Document, 4> invalid{scene, scene, scene, scene};
   invalid[0].Kinds[0].Name.clear();
   invalid[0].Instances[0].Of.clear();
@@ -27,7 +28,7 @@ int main() {
     CHECK(assembled || !assembled.error().empty(), "identity failure explains rejection");
     CHECK(&engine.entities() == original, "failed assembly preserves registry object");
     if (&engine.entities() != original) { return Report(); }
-    CHECK(original->alive(marker), "failed assembly preserves live entities");
+    CHECK(original->alive(*marker), "failed assembly preserves live entities");
   }
   auto linked = scene;
   linked.Kinds.push_back({.Name = "derived", .Inherits = "actor"});
