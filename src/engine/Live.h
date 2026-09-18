@@ -129,9 +129,6 @@ public:
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
-  [[nodiscard]] std::optional<uint32_t> RegisterPieceSurfaces(Geometry &&source,
-                                                              std::string &error);
-
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
   [[nodiscard]] std::expected<Render::PieceHandle, std::string>
@@ -473,17 +470,7 @@ private:
   Render::SurfaceTable Table_;
   size_t OverridesWorn_ = 0;
 
-  struct PieceSurfaces {
-    Geometry Source;
-    std::vector<Render::SubjectMaterial> Slots;
-  };
-
-  std::vector<PieceSurfaces> RegisteredSurfaces_;
-  std::vector<uint32_t> RegisteredSlots_;
-  void AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots);
-  void RestorePieceSurfaces();
-
-  [[nodiscard]] bool RestoresPieceResources(const Live &previous, std::string &error);
+  [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
   std::vector<uint32_t> GroundClasses_;
   std::vector<float> GroundPalette_;

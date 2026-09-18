@@ -473,8 +473,8 @@ int main() {
   empty.Anchor = {{kWgs84A, 0, 0}};
   CHECK(renderer.SetSubjectMesh(empty, error),
         "reference mesh leaves while the Live coordinate anchor remains");
-  CHECK(!CrownPieces::Create(*live, *atlas, 0, error), "crown capacity must be positive");
-  auto crowns = CrownPieces::Create(*live, *atlas, 2, error);
+  CHECK(!CrownPieces::Create(renderer, *atlas, 0, error), "crown capacity must be positive");
+  auto crowns = CrownPieces::Create(renderer, *atlas, 2, error);
   CHECK(crowns && renderer.PieceTriangles() == 2 * atlas->Views().size(),
         "one two-triangle prototype stands per captured view");
   if (!crowns) { return Report(); }
@@ -577,7 +577,7 @@ int main() {
   WorldCrowns::Config worldConfig{.Cache = {.Store = cacheStore},
                                   .Shape = {.Pixels = 128, .Views = 4}};
   const auto worldFrame = TangentFrame::At({});
-  auto world = WorldCrowns::Create(*live, catalogue, placements, worldFrame, worldConfig, error);
+  auto world = WorldCrowns::Create(renderer, catalogue, placements, worldFrame, worldConfig, error);
   CHECK(world && world->Wanted() == 1 && !world->Ready(),
         "only tree clusters request resident crown prototypes");
   auto camera = Render::Viewpoint::LookAt(
@@ -628,7 +628,8 @@ int main() {
   worldConfig.Shape.Views = 5;
   const auto missingStart = std::chrono::steady_clock::now();
   {
-    auto absent = WorldCrowns::Create(*live, catalogue, placements, worldFrame, worldConfig, error);
+    auto absent =
+        WorldCrowns::Create(renderer, catalogue, placements, worldFrame, worldConfig, error);
     CHECK(absent != nullptr, "an absent capture shape can request its artifact");
     if (absent) {
       for (int attempt = 0; attempt < 20; ++attempt) {

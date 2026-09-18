@@ -546,6 +546,12 @@ bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials, st
   return true;
 }
 
+void SubjectDraw::TruncateMaterials(size_t count) noexcept {
+  if (count >= Slots.size()) { return; }
+  Slots.resize(count);
+  TablesStale_ = true;
+}
+
 bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
   if (!ValidateMaterials(materials, error)) { return false; }
   auto previousSlots = std::move(Slots);

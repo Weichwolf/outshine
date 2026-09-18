@@ -27,7 +27,7 @@ int main() {
     CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "ground fixture opens");
     if (scene) {
       Surrounds world;
-      world.BindRuntimeResources(*scene, renderer);
+      world.BindSceneResources(renderer);
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
       const auto removed = renderer.PlaceHeightPage(nodes);
       CHECK(removed.has_value(), "a predecessor creates a gap in native slot identity");
@@ -54,12 +54,12 @@ int main() {
       CHECK(Core::Live::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error) &&
                 Core::Live::PublishesPreparedWorld(renderer, scene, candidate, error),
             "an empty declared world publishes its first streamed-ground candidate");
-      world.BindRuntimeResources(*scene, renderer);
+      world.BindSceneResources(renderer);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "first streamed-world publication retains the ground tile topology");
       CHECK(Core::Live::ReplacesGeometry(renderer, *scene, geometry.clone(), nullptr, scene, error),
             "geometry replacement recreates ground resources in its candidate");
-      world.BindRuntimeResources(*scene, renderer);
+      world.BindSceneResources(renderer);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "candidate publication retains the ground tile topology");
       renderer.ReleaseHeightPage(*page);
@@ -101,7 +101,7 @@ int main() {
       CHECK(successor.Prepare(*scene, nullptr) && successor.Publish(scene) &&
                 renderer.SetTerrainTiles({&next, 1}, {}, error),
             "a second candidate publishes the reused native generation");
-      world.BindRuntimeResources(*scene, renderer);
+      world.BindSceneResources(renderer);
       world.Sheets.Clear();
       CHECK(renderer.GroundLatticeTriangles() == 0,
             "rebound streaming owner clears the current world after two replacements");

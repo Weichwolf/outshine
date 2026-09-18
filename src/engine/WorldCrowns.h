@@ -16,14 +16,14 @@ public:
     size_t Instances = 65536;
   };
 
-  static std::unique_ptr<WorldCrowns> Create(Core::Live &live,
+  static std::unique_ptr<WorldCrowns> Create(Render::SceneRenderer &renderer,
                                              const Generators::Shipping &catalogue,
                                              std::span<const WorldInstance> instances,
                                              const TangentFrame &frame,
                                              const Config &config,
                                              std::string &error);
   ~WorldCrowns();
-  void Into(Core::Live &live) noexcept;
+  void Into(Render::SceneRenderer &renderer) noexcept;
   [[nodiscard]] bool Step(const Vec3 &eye, bool prepare, std::string &error);
   [[nodiscard]] bool Ready() const;
   [[nodiscard]] size_t Resident() const;
@@ -41,11 +41,11 @@ private:
     Phase State = Phase::Wanted;
   };
 
-  WorldCrowns(Core::Live &live, const Config &config);
+  WorldCrowns(Render::SceneRenderer &renderer, const Config &config);
   bool PollPreparation(bool prepare, std::string &error);
   bool AcceptCacheResult(std::string &error);
   void PrepareNext();
-  Core::Live *Live_;
+  Render::SceneRenderer *Renderer_;
   std::vector<Group> Groups_;
   Tasks Io_{2};
   Tasks Preparation_{1};

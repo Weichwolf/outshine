@@ -202,6 +202,10 @@ public:
   [[nodiscard]] bool AppendMaterials(std::span<const SubjectMaterial> materials,
                                      std::string &error);
 
+  [[nodiscard]] size_t MaterialSlots() const noexcept { return Slots.size(); }
+
+  void TruncateMaterials(size_t count) noexcept;
+
   [[nodiscard]] bool ValidateMesh(const SubjectMesh &mesh, std::string &error) const;
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
 

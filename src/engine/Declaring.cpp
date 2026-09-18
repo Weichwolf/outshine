@@ -743,7 +743,7 @@ Result Engine::setGeometry(const Geometry &geometry) {
                                     S_->Error)) {
     return std::unexpected(S_->Error);
   }
-  S_->World.BindRuntimeResources(*S_->Picture.Standing, S_->Picture.Device);
+  S_->World.BindSceneResources(S_->Picture.Device);
   S_->World.AudioOcclusion = std::move(*occlusion);
   return {};
 }

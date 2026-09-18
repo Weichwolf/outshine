@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "Live.h"
+#include "SceneRenderer.h"
 #include <algorithm>
 #include <numeric>
 
@@ -18,14 +18,14 @@ constexpr auto Preparation = "world crown preparation must finish before realtim
 constexpr auto Tree = "world crown source cannot produce its tree prototype";
 }
 
-WorldCrowns::WorldCrowns(Core::Live &live, const Config &config)
-    : Live_(&live), Cache_(Io_, config.Cache), Shape_(config.Shape) {}
+WorldCrowns::WorldCrowns(Render::SceneRenderer &renderer, const Config &config)
+    : Renderer_(&renderer), Cache_(Io_, config.Cache), Shape_(config.Shape) {}
 
 WorldCrowns::~WorldCrowns() {
   if (Preparing_ != Tasks::kNoTask) { Preparation_.Wait(Preparing_); }
 }
 
-std::unique_ptr<WorldCrowns> WorldCrowns::Create(Core::Live &live,
+std::unique_ptr<WorldCrowns> WorldCrowns::Create(Render::SceneRenderer &renderer,
                                                  const Generators::Shipping &catalogue,
                                                  std::span<const WorldInstance> instances,
                                                  const TangentFrame &frame,
@@ -35,7 +35,7 @@ std::unique_ptr<WorldCrowns> WorldCrowns::Create(Core::Live &live,
     error = Says::Instances;
     return nullptr;
   }
-  auto result = std::unique_ptr<WorldCrowns>(new WorldCrowns(live, config));
+  auto result = std::unique_ptr<WorldCrowns>(new WorldCrowns(renderer, config));
   std::vector<size_t> order(instances.size());
   std::ranges::iota(order, size_t{0});
   std::ranges::sort(
@@ -66,10 +66,10 @@ bool WorldCrowns::Ready() const {
                              [](const Group &group) { return group.State == Phase::Resident; });
 }
 
-void WorldCrowns::Into(Core::Live &live) noexcept {
-  Live_ = &live;
+void WorldCrowns::Into(Render::SceneRenderer &renderer) noexcept {
+  Renderer_ = &renderer;
   for (Group &group : Groups_) {
-    if (group.Pieces) { group.Pieces->Into(live); }
+    if (group.Pieces) { group.Pieces->Into(renderer); }
   }
 }
 
@@ -106,7 +106,7 @@ bool WorldCrowns::AcceptCacheResult(std::string &error) {
       continue;
     }
     group.Pieces = CrownPieces::Create(
-        *Live_, *loaded->Atlas, static_cast<uint32_t>(group.Models.size()), error);
+        *Renderer_, *loaded->Atlas, static_cast<uint32_t>(group.Models.size()), error);
     if (!group.Pieces) {
       Failure_ = error;
       return false;

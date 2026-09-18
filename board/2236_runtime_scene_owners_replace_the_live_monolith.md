@@ -66,9 +66,8 @@ stores piece slots. The same owner now holds height-page sources and handles, te
 and ground-grid parameters. It translates native `TerrainTile` bindings into GPU instances and
 restores the complete terrain resource set inside a world candidate. `HeightSheets` depends on
 `SceneRenderer` instead of `Live`; all migrated height-page and terrain forwarding methods and
-state have been removed from `Live`. `TilePieces` also uses `SceneRenderer` directly because its
-native material indices need no registration. CrownPieces remains to migrate after its material-slot
-registration is extracted from Live.
+state have been removed from `Live`. `TilePieces`, `CrownPieces` and `WorldCrowns` use
+`SceneRenderer` directly and no longer include or store Live.
 
 ## Registered piece material decision
 
@@ -80,6 +79,12 @@ then appends registered slots and publishes native and registered mappings indep
 resolve, material upload or piece upload failure abandons the whole candidate; it must not append to
 the active table. SceneResources then exposes one registration operation returning a registered
 surface index. CrownPieces uses that operation plus piece handles and no longer includes Live.
+
+Implemented: SceneResources retains each native Geometry beside its resolved slots, clones and
+re-resolves sources for candidates, appends subject and glass materials with rollback, and restores
+registered mappings before resident pieces. Live supplies only its base material table and owns no
+registered sources or indices. The existing native-growth pixel proof verifies that registered
+images and handles survive candidate publication while base slot indices change.
 
 Do not let SceneResources duplicate Live's complete import-facing SurfaceTable. The base table is
 an input to scene publication until its separate extraction; registered generated materials are an

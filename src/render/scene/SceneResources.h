@@ -4,6 +4,7 @@
 #include "ResourceHandle.h"
 #include "SubjectTypes.h"
 #include "TerrainTile.h"
+#include "scene/Geometry.h"
 
 #include <cstddef>
 #include <expected>
@@ -32,8 +33,13 @@ public:
   SetPieceInstances(SubjectDraw &subjects, std::span<const PieceRows> pieces, std::string &error);
   void ReleasePiece(SubjectDraw &subjects, PieceHandle which);
 
-  void CopySourcesFrom(const SceneResources &source);
+  [[nodiscard]] bool CopySourcesFrom(const SceneResources &source, std::string &error);
   [[nodiscard]] bool RestorePieces(SubjectDraw &subjects, std::string &error);
+
+  [[nodiscard]] std::expected<uint32_t, std::string>
+  RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, Geometry source);
+  [[nodiscard]] bool
+  RestorePieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
 
@@ -83,6 +89,18 @@ private:
 
   [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
 
+  struct PieceMaterials {
+    Geometry Source;
+    std::vector<SubjectMaterial> Slots;
+  };
+
+  [[nodiscard]] static std::expected<PieceMaterials, std::string>
+  ResolvePieceMaterials(Geometry source);
+  [[nodiscard]] bool AppendPieceMaterials(SubjectDraw &subjects,
+                                          SubjectDraw *glass,
+                                          const PieceMaterials &materials,
+                                          std::string &error);
+
   struct HeightPage {
     ResourceSlotState State{};
     std::vector<float> Nodes;
@@ -93,6 +111,8 @@ private:
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;
+  std::vector<PieceMaterials> PieceMaterials_;
+  std::vector<uint32_t> RegisteredPieceSlots_;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
   std::vector<float> GroundGrid_;

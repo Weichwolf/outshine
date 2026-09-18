@@ -51,7 +51,7 @@ int main() {
     if (scene) {
       Surrounds world;
       Ground::BuildingField footprints;
-      world.BindRuntimeResources(*scene, renderer);
+      world.BindSceneResources(renderer);
       world.GroundPositionsM = {1, 2, 3};
       world.GroundIndex = {0};
       world.NetworkOfWays = 7;

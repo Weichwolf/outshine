@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "Live.h"
+#include "SceneRenderer.h"
 #include <array>
 #include <limits>
 
@@ -17,7 +17,7 @@ constexpr auto CrownView = "crown view has no native card geometry";
 constexpr auto CrownLimit = "crown instance count exceeds its declared capacity";
 }
 
-std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
+std::unique_ptr<CrownPieces> CrownPieces::Create(Render::SceneRenderer &renderer,
                                                  const Content::ImpostorAtlas &atlas,
                                                  uint32_t maxInstances,
                                                  std::string &error) {
@@ -25,7 +25,8 @@ std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
     error = Says::CrownCapacity;
     return nullptr;
   }
-  auto result = std::unique_ptr<CrownPieces>(new CrownPieces(live, atlas.CentreM(), maxInstances));
+  auto result =
+      std::unique_ptr<CrownPieces>(new CrownPieces(renderer, atlas.CentreM(), maxInstances));
   result->Views_.reserve(atlas.Views().size());
   for (size_t view = 0; view < atlas.Views().size(); ++view) {
     auto geometry = Render::BuildImpostorCard(atlas, view);
@@ -49,27 +50,30 @@ std::unique_ptr<CrownPieces> CrownPieces::Create(Core::Live &live,
     piece.Tangents = geometry->tangentsOf(0);
     piece.Textured = true;
     piece.MaxInstances = maxInstances;
-    const auto material = live.RegisterPieceSurfaces(std::move(*geometry), error);
-    if (!material) { return nullptr; }
+    auto material = renderer.RegisterPieceMaterials(std::move(*geometry));
+    if (!material) {
+      error = std::move(material).error();
+      return nullptr;
+    }
     piece.Surface = Render::PieceSurface::Registered(*material);
     View held;
     held.Direction = atlas.Views()[view].TowardEye;
     held.Rows.reserve(maxInstances);
     held.NextRows.reserve(maxInstances);
-    auto placed = live.PlacePiece(piece);
+    auto placed = renderer.PlacePiece(piece);
     if (!placed) {
       error = std::move(placed.error());
       return nullptr;
     }
     held.Piece = *placed;
     result->Views_.push_back(std::move(held));
-    if (!live.SetPieceInstances(result->Views_.back().Piece, {}, error)) { return nullptr; }
+    if (!renderer.SetPieceInstances(result->Views_.back().Piece, {}, error)) { return nullptr; }
   }
   return result;
 }
 
 CrownPieces::~CrownPieces() {
-  for (const auto &view : Views_) { Live_->ReleasePiece(view.Piece); }
+  for (const auto &view : Views_) { Renderer_->ReleasePiece(view.Piece); }
 }
 
 bool CrownPieces::Update(std::span<const Mat4> models, const Vec3 &eye, std::string &error) {
@@ -91,12 +95,12 @@ bool CrownPieces::Update(std::span<const Mat4> models, const Vec3 &eye, std::str
     }
     Views_[selected].NextRows.push_back(model);
   }
-  std::vector<Core::Live::PieceRows> changes;
+  std::vector<Render::SceneResources::PieceRows> changes;
   changes.reserve(Views_.size());
   for (const auto &view : Views_) {
     changes.push_back({.Piece = view.Piece, .Rows = view.NextRows});
   }
-  if (!Live_->SetPieceInstances(changes, error)) { return false; }
+  if (!Renderer_->SetPieceInstances(changes, error)) { return false; }
   for (auto &view : Views_) { view.Rows.swap(view.NextRows); }
   return true;
 }

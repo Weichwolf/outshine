@@ -236,6 +236,18 @@ public:
     return ActiveState().Content.Resources.RestorePieces(ActiveState().Content.Subjects, error);
   }
 
+  [[nodiscard]] std::expected<uint32_t, std::string> RegisterPieceMaterials(Geometry source) {
+    auto &content = ActiveState().Content;
+    return content.Resources.RegisterPieceMaterials(
+        content.Subjects, content.DrawsGlass ? &content.Glass : nullptr, std::move(source));
+  }
+
+  [[nodiscard]] bool RestorePieceMaterials(std::string &error) {
+    auto &content = ActiveState().Content;
+    return content.Resources.RestorePieceMaterials(
+        content.Subjects, content.DrawsGlass ? &content.Glass : nullptr, error);
+  }
+
   [[nodiscard]] size_t PieceSourceBytes() const noexcept {
     return ActiveState().Content.Resources.PieceSourceBytes();
   }
@@ -250,10 +262,6 @@ public:
 
   void SetNativePieceSurfaces(std::span<const uint32_t> slots) {
     ActiveState().Content.Subjects.SetNativePieceSurfaces(slots);
-  }
-
-  void SetRegisteredPieceSurfaces(std::span<const uint32_t> slots) {
-    ActiveState().Content.Subjects.SetRegisteredPieceSurfaces(slots);
   }
 
   [[nodiscard]] uint32_t PiecesStanding() const {

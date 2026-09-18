@@ -77,7 +77,7 @@ int main() {
   const auto initialPieces = live->PiecesStanding();
   for (int cycle = 0; cycle < 3; ++cycle) {
     auto crowns =
-        WorldCrowns::Create(*live, catalogue, instances, TangentFrame::At({}), config, error);
+        WorldCrowns::Create(renderer, catalogue, instances, TangentFrame::At({}), config, error);
     CHECK(crowns && crowns->Wanted() == 2, "both cluster groups are retained");
     if (!crowns) { return Report(); }
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -96,7 +96,7 @@ int main() {
     if (cycle == 0) {
       CHECK(Core::Live::ReplacesGeometry(renderer, *live, geometry->clone(), nullptr, live, error),
             "world publication retains the crown piece descriptions");
-      crowns->Into(*live);
+      crowns->Into(renderer);
       CHECK(crowns->Step({{0, 0, 10}}, false, error),
             "crown groups rebind their stable piece handles after publication");
       CHECK(live->PiecesStanding() == initialPieces + 2,

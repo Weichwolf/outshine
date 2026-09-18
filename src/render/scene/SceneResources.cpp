@@ -1,6 +1,7 @@
 #include "SceneResources.h"
 
 #include "SubjectDraw.h"
+#include "Surfacing.h"
 #include "TerrainTileUpload.h"
 
 #include <algorithm>
@@ -21,6 +22,9 @@ constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index ran
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
 constexpr auto HeightPageLimit = "height-page storage exceeds the native slot index range";
 constexpr auto HeightPageUploadFailed = "height-page upload failed";
+constexpr auto NoPieceMaterials = "piece material registration requires native materials";
+constexpr auto PieceMaterialLimit = "piece material registration exceeds the slot index range";
+constexpr auto PieceMaterialTables = "subject material tables disagree before piece registration";
 }
 
 PieceMesh SceneResources::Piece::Mesh() const noexcept {
@@ -136,7 +140,7 @@ void SceneResources::ReleasePiece(SubjectDraw &subjects, PieceHandle which) {
   piece.State = state;
 }
 
-void SceneResources::CopySourcesFrom(const SceneResources &source) {
+bool SceneResources::CopySourcesFrom(const SceneResources &source, std::string &error) {
   Pieces_ = source.Pieces_;
   FirstFreePiece_ = source.FirstFreePiece_;
   for (Piece &piece : Pieces_) { piece.Resident = kNoPiece; }
@@ -146,6 +150,102 @@ void SceneResources::CopySourcesFrom(const SceneResources &source) {
   GroundGrid_ = source.GroundGrid_;
   GroundReal_ = source.GroundReal_;
   GroundVirtual_ = source.GroundVirtual_;
+  PieceMaterials_.clear();
+  PieceMaterials_.reserve(source.PieceMaterials_.size());
+  for (const PieceMaterials &materials : source.PieceMaterials_) {
+    auto copied = ResolvePieceMaterials(materials.Source.clone());
+    if (!copied) {
+      error = std::move(copied).error();
+      return false;
+    }
+    PieceMaterials_.push_back(std::move(*copied));
+  }
+  RegisteredPieceSlots_.clear();
+  return true;
+}
+
+std::expected<SceneResources::PieceMaterials, std::string>
+SceneResources::ResolvePieceMaterials(Geometry source) {
+  if (source.surfaces() == 0) { return std::unexpected(Says::NoPieceMaterials); }
+  PieceMaterials held{.Source = std::move(source), .Slots = {}};
+  held.Slots.resize(static_cast<size_t>(held.Source.surfaces()));
+  for (size_t at = 0; at < held.Slots.size(); ++at) {
+    held.Slots[at].Row = held.Source.surfaceAt(MaterialInstance(static_cast<int>(at)));
+  }
+  std::string error;
+  if (!ResolveNativeTextures(held.Source, held.Slots, error)) {
+    return std::unexpected(std::move(error));
+  }
+  return held;
+}
+
+bool SceneResources::AppendPieceMaterials(SubjectDraw &subjects,
+                                          SubjectDraw *glass,
+                                          const PieceMaterials &materials,
+                                          std::string &error) {
+  if (materials.Slots.size() >= kNoSlot || RegisteredPieceSlots_.size() >= kNoSlot ||
+      materials.Slots.size() > kNoSlot - RegisteredPieceSlots_.size() ||
+      subjects.MaterialSlots() >= kNoSlot ||
+      materials.Slots.size() > kNoSlot - subjects.MaterialSlots()) {
+    error = Says::PieceMaterialLimit;
+    return false;
+  }
+  if (!subjects.ValidateMaterials(materials.Slots, error) ||
+      (glass != nullptr && !glass->ValidateMaterials(materials.Slots, error))) {
+    return false;
+  }
+  const size_t subjectBefore = subjects.MaterialSlots();
+  const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
+  if (glass != nullptr && glassBefore != subjectBefore) {
+    error = Says::PieceMaterialTables;
+    return false;
+  }
+  if (!subjects.AppendMaterials(materials.Slots, error)) { return false; }
+  if (glass != nullptr && !glass->AppendMaterials(materials.Slots, error)) {
+    subjects.TruncateMaterials(subjectBefore);
+    return false;
+  }
+  for (size_t at = 0; at < materials.Slots.size(); ++at) {
+    RegisteredPieceSlots_.push_back(static_cast<uint32_t>(subjectBefore + at));
+  }
+  subjects.SetRegisteredPieceSurfaces(RegisteredPieceSlots_);
+  if (glass != nullptr) { glass->SetRegisteredPieceSurfaces(RegisteredPieceSlots_); }
+  return true;
+}
+
+std::expected<uint32_t, std::string>
+SceneResources::RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, Geometry source) {
+  auto materials = ResolvePieceMaterials(std::move(source));
+  if (!materials) { return std::unexpected(std::move(materials).error()); }
+  const auto first = static_cast<uint32_t>(RegisteredPieceSlots_.size());
+  PieceMaterials_.reserve(PieceMaterials_.size() + 1u);
+  RegisteredPieceSlots_.reserve(RegisteredPieceSlots_.size() + materials->Slots.size());
+  std::string error;
+  if (!AppendPieceMaterials(subjects, glass, *materials, error)) {
+    return std::unexpected(std::move(error));
+  }
+  PieceMaterials_.push_back(std::move(*materials));
+  return first;
+}
+
+bool SceneResources::RestorePieceMaterials(SubjectDraw &subjects,
+                                           SubjectDraw *glass,
+                                           std::string &error) {
+  const size_t subjectBefore = subjects.MaterialSlots();
+  const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
+  RegisteredPieceSlots_.clear();
+  for (const PieceMaterials &materials : PieceMaterials_) {
+    if (AppendPieceMaterials(subjects, glass, materials, error)) { continue; }
+    subjects.TruncateMaterials(subjectBefore);
+    subjects.SetRegisteredPieceSurfaces({});
+    if (glass != nullptr) {
+      glass->TruncateMaterials(glassBefore);
+      glass->SetRegisteredPieceSurfaces({});
+    }
+    RegisteredPieceSlots_.clear();
+    return false;
+  }
+  return true;
 }
 
 bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {

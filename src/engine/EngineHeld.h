@@ -211,10 +211,10 @@ struct Surrounds {
   Surrounds(Surrounds &&) = delete;
   Surrounds &operator=(Surrounds &&) = delete;
 
-  void BindRuntimeResources(Core::Live &live, Render::SceneRenderer &renderer) noexcept {
+  void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
     Pieces.Into(&renderer);
     Sheets.Into(&renderer);
-    if (Crowns) { Crowns->Into(live); }
+    if (Crowns) { Crowns->Into(renderer); }
   }
 
   std::unique_ptr<Data::Transport> Wire;

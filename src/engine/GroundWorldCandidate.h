@@ -83,7 +83,7 @@ public:
     world.RimsMissing = Products_.RimsMissing;
     world.Pieces = std::move(Products_.Pieces);
     world.Pieces.Wears(Products_.Surfaces);
-    world.BindRuntimeResources(*published, World_.Renderer());
+    world.BindSceneResources(World_.Renderer());
     if (!world.GroundPublished.Publish(revision)) {
       return std::unexpected("a capture holds the published ground");
     }

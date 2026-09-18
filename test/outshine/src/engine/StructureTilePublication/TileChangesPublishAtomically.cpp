@@ -30,7 +30,7 @@ int main() {
     if (scene) {
       Surrounds world;
       Ground::BuildingField footprints;
-      world.BindRuntimeResources(*scene, renderer);
+      world.BindSceneResources(renderer);
       GroundWorldCandidate ground(renderer, world, footprints);
       CHECK(ground.Prepare(*scene, nullptr).has_value(),
             "ground candidate prepares from an empty world");
@@ -111,7 +111,7 @@ int main() {
           }
           CHECK(outer.Publish(scene).has_value(),
                 "destroying a rejected nested candidate does not abandon its parent");
-          world.BindRuntimeResources(*scene, renderer);
+          world.BindSceneResources(renderer);
         }
       }
       world.Pieces.Forgets(7);

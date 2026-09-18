@@ -216,7 +216,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 }
 
 void Engine::State::HandsPiecesOver() {
-  World.BindRuntimeResources(*Picture.Standing, Picture.Device);
+  World.BindSceneResources(Picture.Device);
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   World.StructureBuilds.Opens(World.Pool.get(), &World.Shipping.Shaping());
   if (World.PiecesFramed) { return; }
@@ -281,8 +281,8 @@ bool Engine::State::UpdateCrowns(bool prepare) {
     const auto frame =
         TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                           .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
-    World.Crowns = WorldCrowns::Create(
-        *Picture.Standing, World.Shipping, World.Instances, frame, config, Error);
+    World.Crowns =
+        WorldCrowns::Create(Picture.Device, World.Shipping, World.Instances, frame, config, Error);
     if (!World.Crowns) { return false; }
   }
   const auto &eye =

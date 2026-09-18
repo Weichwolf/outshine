@@ -42,8 +42,6 @@ namespace Says {
 constexpr auto GroundRendererMissing = "ground storage requires a live renderer";
 constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
-constexpr auto NoPieceSurfaces = "piece registration requires a live renderer and native materials";
-constexpr auto PieceSurfaceLimit = "piece material registration exceeds the slot index range";
 constexpr auto MissingPiece = "the piece handle names no live resource in this world";
 }
 
@@ -258,7 +256,7 @@ bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
   if (!candidate->SetGeometry(std::move(replacement), previous.Carrying_, error) ||
-      !candidate->RestoresPieceResources(previous, error) ||
+      !candidate->RestoresPieceResources(error) ||
       !candidate->RestoresGroundResources(previous, error) ||
       !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
     candidate.reset();
@@ -289,7 +287,7 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
   candidate->GroundAlbedo_ = previous.GroundAlbedo_;
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
-  if (!candidate->RestoresPieceResources(previous, error) ||
+  if (!candidate->RestoresPieceResources(error) ||
       !candidate->RestoresGroundResources(previous, error) ||
       !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
     candidate.reset();
@@ -668,25 +666,7 @@ bool Live::CarriesBuilt(std::string &error) {
   return true;
 }
 
-void Live::AppendPieceSurfaces(std::span<const Render::SubjectMaterial> slots) {
-  for (const auto &slot : slots) {
-    RegisteredSlots_.push_back(static_cast<uint32_t>(Table_.Slots.size()));
-    Table_.Slots.push_back(slot);
-    Table_.Material.push_back(-1);
-    Table_.NativeMaterial.push_back(-1);
-    Table_.Decoded.emplace_back();
-  }
-}
-
-void Live::RestorePieceSurfaces() {
-  RegisteredSlots_.clear();
-  for (const auto &source : RegisteredSurfaces_) { AppendPieceSurfaces(source.Slots); }
-}
-
-bool Live::RestoresPieceResources(const Live &previous, std::string &error) {
-  for (const PieceSurfaces &source : previous.RegisteredSurfaces_) {
-    if (!RegisterPieceSurfaces(source.Source.clone(), error)) { return false; }
-  }
+bool Live::RestoresPieceResources(std::string &error) {
   return Renderer_->RestorePieces(error);
 }
 
@@ -696,51 +676,6 @@ bool Live::RestoresGroundResources(const Live &previous, std::string &error) {
     return false;
   }
   return Renderer_->RestoreTerrain(error);
-}
-
-std::optional<uint32_t> Live::RegisterPieceSurfaces(Geometry &&source, std::string &error) {
-  if (Renderer_ == nullptr || source.surfaces() == 0) {
-    error = Says::NoPieceSurfaces;
-    return std::nullopt;
-  }
-  const auto count = static_cast<size_t>(source.surfaces());
-  if (count >= Render::kNoSlot || RegisteredSlots_.size() >= Render::kNoSlot - count ||
-      Table_.Slots.size() >= Render::kNoSlot - count) {
-    error = Says::PieceSurfaceLimit;
-    return std::nullopt;
-  }
-  std::vector<Render::SubjectMaterial> slots(count);
-  for (size_t at = 0; at < count; ++at) {
-    slots[at].Row = source.surfaceAt(MaterialInstance(static_cast<int>(at)));
-  }
-  if (!Render::ResolveNativeTextures(source, slots, error)) { return std::nullopt; }
-  const auto first = static_cast<uint32_t>(RegisteredSlots_.size());
-  const size_t slotsBefore = Table_.Slots.size();
-  const size_t materialsBefore = Table_.Material.size();
-  const size_t nativeMaterialsBefore = Table_.NativeMaterial.size();
-  const size_t decodedBefore = Table_.Decoded.size();
-  AppendPieceSurfaces(slots);
-  const auto restores =
-      [this, slotsBefore, materialsBefore, nativeMaterialsBefore, decodedBefore, first] {
-        Table_.Slots.resize(slotsBefore);
-        Table_.Material.resize(materialsBefore);
-        Table_.NativeMaterial.resize(nativeMaterialsBefore);
-        Table_.Decoded.resize(decodedBefore);
-        RegisteredSlots_.resize(first);
-      };
-  if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) {
-    restores();
-    return std::nullopt;
-  }
-  if (!Renderer_->AppendSubjectMaterials(slots, error)) {
-    restores();
-    std::string ignored;
-    (void)Stood_.Wears(Table_.PartSlot, Table_.Slots, ignored);
-    return std::nullopt;
-  }
-  RegisteredSurfaces_.push_back({.Source = std::move(source), .Slots = std::move(slots)});
-  WearsPieces();
-  return first;
 }
 
 void Live::WearsPieces() {
@@ -755,7 +690,6 @@ void Live::WearsPieces() {
     }
   }
   Renderer_->SetNativePieceSurfaces(slotOf);
-  Renderer_->SetRegisteredPieceSurfaces(RegisteredSlots_);
 }
 
 void Live::StandsShadowRadius() {
@@ -876,7 +810,6 @@ bool Live::Build(std::string &error) {
   if (Held_.HoldsBuilt() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
   if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
 
-  RestorePieceSurfaces();
   if (!Reshape(error)) { return false; }
   Joined_ = Shaped_.Parts.size();
   if (Carrying_ > 0) { Joined_ = Carrying_; }
@@ -890,6 +823,7 @@ bool Live::Build(std::string &error) {
     error = std::move(bound.error());
     return false;
   }
+  if (!Renderer_->RestorePieceMaterials(error)) { return false; }
   const auto composedFrom = std::chrono::steady_clock::now();
   const bool composed = Compose(error);
   ComposeMs_ =
@@ -930,7 +864,7 @@ std::expected<void, std::string> Live::BindSubject() {
             .count();
   } else {
     if (Aim_ == AimState::Bound) { Aim_ = AimState::Unbound; }
-    if (!RegisteredSurfaces_.empty() && !Renderer_->SetSubjectMaterials(Table_.Slots, error)) {
+    if (!Renderer_->SetSubjectMaterials(Table_.Slots, error)) {
       return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});

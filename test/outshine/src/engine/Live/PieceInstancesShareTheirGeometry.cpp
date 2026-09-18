@@ -310,19 +310,19 @@ int main() {
         "Live rebuilds after the direct renderer registration fixture");
   scene->Eye(eye);
   Geometry empty;
-  CHECK(!scene->RegisterPieceSurfaces(std::move(empty), error),
+  CHECK(!renderer.RegisterPieceMaterials(std::move(empty)),
         "registration refuses an empty material source");
   Geometry missing;
   Material absent;
   absent.BaseColourMap.Image = 0;
   (void)missing.addSurface("missing image", absent).value();
-  CHECK(!scene->RegisterPieceSurfaces(std::move(missing), error),
+  CHECK(!renderer.RegisterPieceMaterials(std::move(missing)),
         "registration refuses a missing native image");
   Geometry glass;
   Material transmitted;
   transmitted.Transmission = 1;
   (void)glass.addSurface("undeclared glass pass", transmitted).value();
-  CHECK(!scene->RegisterPieceSurfaces(std::move(glass), error),
+  CHECK(!renderer.RegisterPieceMaterials(std::move(glass)),
         "registration refuses an unsupported pass");
   error.clear();
   const auto registerColour = [&](const std::array<uint8_t, 4> &colour) {
@@ -332,7 +332,7 @@ int main() {
     material.Unlit = true;
     material.BaseColourMap.Image = *source.addImage(1, 1, colour);
     (void)source.addSurface("registered prototype", material).value();
-    return scene->RegisterPieceSurfaces(std::move(source), error);
+    return renderer.RegisterPieceMaterials(std::move(source));
   };
   const auto registeredGreen = registerColour(green);
   CHECK(registeredGreen && *registeredGreen == 0,

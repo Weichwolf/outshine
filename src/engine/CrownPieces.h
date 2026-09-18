@@ -8,13 +8,13 @@
 #include <memory>
 
 namespace outshine {
-namespace Core {
-class Live;
+namespace Render {
+class SceneRenderer;
 }
 
 class CrownPieces {
 public:
-  static std::unique_ptr<CrownPieces> Create(Core::Live &live,
+  static std::unique_ptr<CrownPieces> Create(Render::SceneRenderer &renderer,
                                              const Content::ImpostorAtlas &atlas,
                                              uint32_t maxInstances,
                                              std::string &error);
@@ -22,13 +22,13 @@ public:
   CrownPieces(const CrownPieces &) = delete;
   CrownPieces &operator=(const CrownPieces &) = delete;
 
-  void Into(Core::Live &live) noexcept { Live_ = &live; }
+  void Into(Render::SceneRenderer &renderer) noexcept { Renderer_ = &renderer; }
 
   [[nodiscard]] bool Update(std::span<const Mat4> models, const Vec3 &eye, std::string &error);
 
 private:
-  CrownPieces(Core::Live &live, const Vec3 &centre, uint32_t maximum)
-      : Live_(&live), Centre_(centre), MaxInstances_(maximum) {}
+  CrownPieces(Render::SceneRenderer &renderer, const Vec3 &centre, uint32_t maximum)
+      : Renderer_(&renderer), Centre_(centre), MaxInstances_(maximum) {}
 
   struct View {
     Vec3 Direction;
@@ -37,7 +37,7 @@ private:
     std::vector<Mat4> NextRows;
   };
 
-  Core::Live *Live_;
+  Render::SceneRenderer *Renderer_;
   Vec3 Centre_;
   uint32_t MaxInstances_;
   std::vector<View> Views_;
