@@ -7,16 +7,15 @@ Depends:
 # Importers and generators deliver one engine-owned geometry model
 
 ## Befund und Entscheidung
-Quellprüfung 2026-09-08: setGeometry kopiert nun native Geometry direkt;
-Clone erhält aktive Daten und Ownership. Asset hält weiterhin Document, Subject,
-Pose und VariantSelection. InitialGeometry wird beim Öffnen nativ kopiert;
-Live speichert danach keinen geliehenen Geometriezeiger. Gemischte Parts ohne
-Material erhalten einen eigenen Default-Slot; Pixel-Orakel prüft dessen Farbe.
-`Subject` mischt dekodierte Meshdaten, Importzugriff, Skinning und Rückkonvertierung
-über `Handed`. Ein Namespace-Wechsel würde diesen Designfehler nicht beheben.
-`Live` koppelt Carry an Joined_ > 0 und Schatten-Caster an Herkunft (2128).
-Draws instanziert dasselbe Subject unabhängig von Body::Asset. Native Asset-/Entity-
-Bindung muss auch Physik ohne Mesh und Renderinstanzen ohne Physik erlauben.
+Quellprüfung 2026-09-18: `Live` konsumiert für importierte und generierte Subjects nur
+noch native `Geometry`; Materialauflösung, Overrides, Shape-Aufbau und Piece-Bindung
+kennen keine glTF-Herkunft mehr. `Posed` besitzt vollständige native Snapshots und
+fügt deren Bilder, Oberflächen und Parts transaktional zusammen. Der Adapter bleibt
+vorläufig pro Asset am Runtime-Besitzer, weil Animation, Varianten und Kameraposen
+noch daraus ausgewertet werden. Das ist die nächste zu entfernende Formatkopplung.
+InitialGeometry wird beim Öffnen nativ kopiert; Live speichert keinen geliehenen
+Geometriezeiger. Draws instanziert dasselbe Subject unabhängig von Body::Asset.
+Native Asset-/Entity-Bindung muss auch Physik ohne Mesh und Rendering ohne Physik erlauben.
 
 Override-Vertrag: `SurfaceTable` trennt glTF- und native Materialherkunft. Direkte und
 gemischte native Geometry verwenden ihre Material- und Partnamen für Named-/Part-Overrides;
@@ -84,13 +83,12 @@ Vollständiger GPU-Rollback und atomarer Welt-/Render-Austausch bleiben offen.
 
 Importer-Namen folgen Khronos (Node/Mesh/Primitive/Material/Animation/Skin), Runtime-Namen
 bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im Adapter.
-1. Asset.h hält Document/Subject/Pose; import/Subject.h verwendet render Viewing/Framing.
-   Native Kamera/Bounds nach Math/Content; import->render pro Consumer entfernen, keine Typ-Tarnung.
-2. Einen vollständigen statischen Pfad migrieren: Generator und glTF-Importer →
-   derselbe native Mesh-/Materialbesitzer → Instanz → Renderer. Bilder/Materialslots beim
-   Append genau einmal relokieren; Overrides danach herkunftsunabhängig auflösen.
-   Importdokument vor Rendern freigeben; Join zweier Assets mit gleichen lokalen Slots prüfen.
-3. Animation, Varianten, Kameras und Asset-Lebensdauer vollständig migrieren;
+1. Der statische Pfad Generator/glTF-Importer → native Geometry → Renderer steht;
+   Bilder und Materialslots werden beim Append einmal relokiert, Overrides danach
+   herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
+2. Native Kamera/Bounds nach Math/Content verschieben; Importer darf Render-Typen nicht
+   kennen. `Posed` durch formatfreien Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
+3. Animation, Varianten und Asset-Lebensdauer vollständig migrieren;
    Clips/Skeletons/Morphziele beim Import besitzen, nur Pose/Deltas im Tick auswerten.
    Importer::sampleAnimation im Frame wäre keine native Migration. Keine verlorenen Fähigkeiten.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an

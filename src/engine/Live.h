@@ -333,18 +333,9 @@ private:
 
   Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
 
-  struct Wearing {
-    size_t Part = 0;
-    uint32_t Slot = 0;
-  };
-
-  void
-  PaintsPart(Wearing what, const Scenario::SurfaceOverride &said, std::vector<uint32_t> &wearers);
-  [[nodiscard]] size_t WornByNodeOrPart();
   [[nodiscard]] size_t WornByNativeSurfaceAndPart(const Geometry &native, size_t firstPart);
   [[nodiscard]] size_t WornByNativeSurface(const Geometry &native);
   [[nodiscard]] size_t WornByNativeParts(const Geometry &native, size_t firstPart);
-  [[nodiscard]] bool WearsOverrides(std::string &error);
   [[nodiscard]] bool RejectsUnwornOverrides(std::string &error) const;
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
@@ -365,7 +356,6 @@ private:
   [[nodiscard]] bool CarriesBuilt(std::string &error);
   [[nodiscard]] bool JoinsSubjects(std::string &error);
   [[nodiscard]] bool StandsSubjects(std::string &error);
-  [[nodiscard]] bool AppendNativeSurfaceTable(const Geometry &native, std::string &error);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] std::expected<void, std::string> BindSubject();
   [[nodiscard]] double Framing() const;

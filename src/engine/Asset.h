@@ -2,18 +2,19 @@
 #define OUTSHINE_ENGINE_ASSET_H
 
 #include <algorithm>
-#include <string>
 #include <cmath>
-#include <vector>
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <span>
+#include <string>
+#include <vector>
 
+#include <import/GltfImporter.h>
 #include <scene/Geometry.h>
 #include <scenario/Scenario.h>
 
-#include "Document.h"
-#include "Pose.h"
-#include "Subject.h"
-#include "Variant.h"
+#include "Viewing.h"
 
 namespace outshine::Core {
 
@@ -35,16 +36,9 @@ public:
   Reads(const Sited &asset, Scenario::AssetAnimation animation, Playing at, std::string &error);
   [[nodiscard]] bool Poses(double seconds, std::string &error);
 
-  void Carries(outshine::Geometry &&built) {
-    Built_ = std::move(built);
-    HoldsBuilt_ = true;
-    Changed_ += 1;
-  }
+  void Carries(outshine::Geometry &&built);
 
-  [[nodiscard]] bool Appends(const Gltf::Subject &more) {
-    Changed_ += 1;
-    return Assembled_.Append(more);
-  }
+  [[nodiscard]] bool Appends(Posed &&more, std::string &error);
 
   [[nodiscard]] uint64_t Changed() const { return Changed_; }
 
@@ -52,11 +46,7 @@ public:
 
   [[nodiscard]] const outshine::Geometry &Built() const { return Built_; }
 
-  [[nodiscard]] const Gltf::Document &File() const { return File_; }
-
   [[nodiscard]] const std::optional<Render::Viewpoint> &Camera() const { return Camera_; }
-
-  [[nodiscard]] const Gltf::Subject &Assembled() const { return Assembled_; }
 
   [[nodiscard]] bool Measures(double seconds, std::string &error);
 
@@ -72,10 +62,10 @@ public:
 
   [[nodiscard]] double AtS() const { return AtS_; }
 
-  [[nodiscard]] double DurationS() const { return Motion_.EndS(); }
+  [[nodiscard]] double DurationS() const { return DurationS_; }
 
   void Advances(double stepS, bool loops) {
-    const double end = Motion_.EndS();
+    const double end = DurationS_;
     const double next = AtS_ + stepS;
     if (!(end > 0.0)) {
       AtS_ = 0.0;
@@ -85,18 +75,22 @@ public:
   }
 
 private:
-  Gltf::Document File_;
+  struct Asset {
+    std::unique_ptr<GltfImporter> Importer;
+    outshine::Geometry Snapshot;
+  };
+
+  std::vector<Asset> Assets_;
   std::optional<Render::Viewpoint> Camera_;
-  Gltf::Subject Assembled_;
   outshine::Geometry Built_;
   bool HoldsBuilt_ = false;
   uint64_t Changed_ = 0;
-  Gltf::Pose Motion_;
-  Gltf::VariantSelection Variant_;
-  std::vector<Gltf::Transform> Locals_;
-  std::vector<double> Weights_;
   [[nodiscard]] bool PoseInto(double seconds, std::string &error);
+  [[nodiscard]] bool Rebuild(std::span<const outshine::Geometry> snapshots, std::string &error);
+  void RefreshCamera();
+  void RefreshDigests();
   bool Moves_ = false;
+  double DurationS_ = 0.0;
   double LocalsDigest_ = 0.0;
   double AssembledDigest_ = 0.0;
   bool Read_ = false;
