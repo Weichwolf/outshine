@@ -80,8 +80,14 @@ public:
   void SampleMaterials(double seconds, std::vector<AnimatedMaterialSample> &samples) const;
 
 private:
+  struct TrackRange {
+    size_t First = 0;
+    size_t Count = 0;
+  };
+
   std::vector<std::unique_ptr<AnimationTrack>> Tracks_;
   std::vector<AnimationRestPose> Nodes_;
+  std::vector<TrackRange> NodeTracks_;
   std::vector<double> RestWeights_;
   double StartS_ = 0;
   double EndS_ = 0;

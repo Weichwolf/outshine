@@ -23,6 +23,20 @@ int main() {
         "native translation curve built");
   tracks.push_back(std::move(translation));
 
+  auto secondTranslation = std::make_unique<AnimationTrack>();
+  secondTranslation->Target = 1;
+  secondTranslation->Property = AnimationTarget::Translation;
+  secondTranslation->Times = {0.0, 2.0};
+  secondTranslation->Values = {10.0, 20.0, 30.0, 14.0, 26.0, 38.0};
+  CHECK(AnimationCurve::Build(Keyframes::Interpolation::Linear,
+                              secondTranslation->Times,
+                              secondTranslation->Values,
+                              3,
+                              AnimationCurve::Values::Linear,
+                              secondTranslation->Curve),
+        "second native translation curve built");
+  tracks.insert(tracks.begin(), std::move(secondTranslation));
+
   auto colour = std::make_unique<AnimationTrack>();
   colour->Target = 3;
   colour->Property = AnimationTarget::BaseColour;
@@ -54,12 +68,13 @@ int main() {
 
   AnimationClip clip;
   clip.Adopt(
-      std::vector<AnimationRestPose>(1), {}, std::move(tracks), {.StartS = 0.0, .EndS = 2.0});
+      std::vector<AnimationRestPose>(2), {}, std::move(tracks), {.StartS = 0.0, .EndS = 2.0});
   std::vector<AffineTransform> pose;
   std::vector<double> weights;
   clip.SamplePose(1.0, pose, weights);
-  CHECK((pose.size() == 1 && pose[0].M.Translation() == Vec3{{2.0, 3.0, 4.0}}),
-        "native pose samples independently of an import document");
+  CHECK((pose.size() == 2 && pose[0].M.Translation() == Vec3{{2.0, 3.0, 4.0}} &&
+         pose[1].M.Translation() == Vec3{{12.0, 23.0, 34.0}}),
+        "grouped node tracks sample independently of input order and an import document");
 
   std::vector<AnimatedMaterialSample> materials;
   clip.SampleMaterials(1.0, materials);

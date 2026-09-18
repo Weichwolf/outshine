@@ -1,8 +1,10 @@
 #include "AnimationClip.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <ranges>
 #include <span>
 #include <utility>
 #include <vector>
@@ -39,6 +41,23 @@ void AnimationClip::Adopt(std::vector<AnimationRestPose> &&nodes,
   Nodes_ = std::move(nodes);
   RestWeights_ = std::move(weights);
   Tracks_ = std::move(tracks);
+  std::ranges::stable_sort(Tracks_, [](const auto &left, const auto &right) {
+    const bool leftMaterial = MaterialTarget(left->Property);
+    const bool rightMaterial = MaterialTarget(right->Property);
+    if (leftMaterial != rightMaterial) { return !leftMaterial; }
+    return !leftMaterial && left->Target < right->Target;
+  });
+  NodeTracks_.assign(Nodes_.size(), {});
+  for (size_t at = 0; at < Tracks_.size(); ++at) {
+    const AnimationTrack &track = *Tracks_[at];
+    if (MaterialTarget(track.Property) || track.Target < 0 ||
+        static_cast<size_t>(track.Target) >= NodeTracks_.size()) {
+      continue;
+    }
+    TrackRange &targetRange = NodeTracks_[static_cast<size_t>(track.Target)];
+    if (targetRange.Count == 0) { targetRange.First = at; }
+    ++targetRange.Count;
+  }
   StartS_ = range.StartS;
   EndS_ = range.EndS;
 }
@@ -50,8 +69,9 @@ void AnimationClip::SamplePose(double seconds,
   weights = RestWeights_;
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     AnimationRestPose posed = Nodes_[node];
-    for (const std::unique_ptr<AnimationTrack> &track : Tracks_) {
-      if (track->Target < 0 || std::cmp_not_equal(track->Target, node)) { continue; }
+    const TrackRange range = NodeTracks_[node];
+    for (size_t at = range.First; at < range.First + range.Count; ++at) {
+      const std::unique_ptr<AnimationTrack> &track = Tracks_[at];
       switch (track->Property) {
         case AnimationTarget::Translation: track->Curve.At(seconds, posed.Translation.Row()); break;
         case AnimationTarget::Rotation: {
