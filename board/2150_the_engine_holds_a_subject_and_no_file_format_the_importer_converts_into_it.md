@@ -13,6 +13,8 @@ kennen keine glTF-Herkunft mehr. `Posed` besitzt vollständige native Snapshots 
 fügt deren Bilder, Oberflächen und Parts transaktional zusammen. Der Adapter bleibt
 vorläufig pro Asset am Runtime-Besitzer, weil Animation, Varianten und Kameraposen
 noch daraus ausgewertet werden. Das ist die nächste zu entfernende Formatkopplung.
+Der ungenutzte glTF→Render-Surface-/Shape-Rückpfad ist entfernt; native Renderer-
+Tests tragen dessen Material-, Bildlebensdauer- und Fehleratomaritätsverträge.
 InitialGeometry wird beim Öffnen nativ kopiert; Live speichert keinen geliehenen
 Geometriezeiger. Draws instanziert dasselbe Subject unabhängig von Body::Asset.
 Native Asset-/Entity-Bindung muss auch Physik ohne Mesh und Rendering ohne Physik erlauben.

@@ -7,9 +7,6 @@
 #include "Live.h"
 #include "AzimuthElevation.h"
 
-#include "Shaped.h"
-#include "Surfaces.h"
-
 #include <cstdint>
 #include <cstddef>
 #include <limits>
@@ -27,8 +24,6 @@
 #include <vector>
 
 #include "Heap.h"
-#include "Image.h"
-
 #include "Framing.h"
 #include "SubjectProxy.h"
 #include "Wgs84.h"
