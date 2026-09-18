@@ -16,7 +16,7 @@
 
 #include "Viewport.h"
 #include "scene/Camera.h"
-#include "Transform.h"
+#include "AffineTransform.h"
 #include "Variant.h"
 
 namespace outshine {
@@ -32,15 +32,15 @@ struct Primitive;
                                      int cameraIndex,
                                      outshine::Camera &out,
                                      std::string &error,
-                                     std::span<const Transform> locals = {});
+                                     std::span<const AffineTransform> locals = {});
 
 enum class TangentSource { None, Supplied, Generated };
 
 struct VertexPlacement {
-  const Transform &Node;
-  const Transform *Skinned = nullptr;
+  const AffineTransform &Node;
+  const AffineTransform *Skinned = nullptr;
 
-  [[nodiscard]] const Transform &At(size_t vertex) const {
+  [[nodiscard]] const AffineTransform &At(size_t vertex) const {
     return (Skinned != nullptr) ? Skinned[vertex] : Node;
   }
 };
@@ -73,7 +73,7 @@ public:
   [[nodiscard]] bool Build(const Document &document, const VariantSelection &variant = {});
 
   [[nodiscard]] bool Build(const Document &document,
-                           std::span<const Transform> pose,
+                           std::span<const AffineTransform> pose,
                            std::span<const double> weights,
                            const VariantSelection &variant = {});
 
@@ -149,7 +149,7 @@ public:
 
   [[nodiscard]] bool Frame(outshine::Camera &out, double fill, double aspect) const;
 
-  [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
+  [[nodiscard]] double ProjectedAreaPx(const Mat4 &clip, const Viewport &viewport) const;
 
 private:
   struct Morphing {
@@ -169,13 +169,13 @@ private:
   void ApplyPartPlacement(const Mat4 &placement, const Part &part);
 
   struct Posing {
-    const Transform *Pose = nullptr;
+    const AffineTransform *Pose = nullptr;
     const double *Weights = nullptr;
     int Variant = -1;
   };
 
   [[nodiscard]] static bool
-  PlacementOf(const Document &document, const Posing &posed, int node, Transform &out);
+  PlacementOf(const Document &document, const Posing &posed, int node, AffineTransform &out);
   [[nodiscard]] bool FlattenMesh(const Document &document,
                                  const Posing &posed,
                                  int nodeIndex,
@@ -184,9 +184,9 @@ private:
 
   struct Placing {
     const Node &Node;
-    const Transform &World;
-    const Transform &Placed;
-    std::span<const Transform> Joints;
+    const AffineTransform &World;
+    const AffineTransform &Placed;
+    std::span<const AffineTransform> Joints;
     Morphing Morph;
     int Variant = -1;
   };
@@ -197,14 +197,14 @@ private:
                                       outshine::Geometry &made);
   [[nodiscard]] bool ReadTriangleRun(const Document &document,
                                      const Primitive &primitive,
-                                     const Transform &world,
-                                     std::span<const Transform> skinned,
+                                     const AffineTransform &world,
+                                     std::span<const AffineTransform> skinned,
                                      size_t vertices);
   [[nodiscard]] bool EmitPart(outshine::Geometry &made, const Part &part);
   [[nodiscard]] bool FlattenLight(const Document &document,
                                   int nodeIndex,
                                   const Node &node,
-                                  const Transform &placement);
+                                  const AffineTransform &placement);
   [[nodiscard]] bool
   ReadUvSets(const Document &document, const Primitive &primitive, size_t vertices, Part &part);
   [[nodiscard]] bool ReadVertexColours(const Document &document,
@@ -226,7 +226,7 @@ private:
     std::vector<double> Elements, NodeWeights, Morphed, MorphedNormals, Coordinates, Tints,
         Directions;
     std::vector<uint32_t> Run, Loop;
-    std::vector<Transform> Joints, Instances, Skinned;
+    std::vector<AffineTransform> Joints, Instances, Skinned;
     Scratch() = default;
     ~Scratch() = default;
 
@@ -243,7 +243,7 @@ private:
 
   [[nodiscard]] bool CopyDeclaredMaterials(const Document &document, outshine::Geometry &made);
   [[nodiscard]] bool Flatten(const Document &document,
-                             const Transform *pose,
+                             const AffineTransform *pose,
                              const double *weights,
                              const VariantSelection &variant);
 
@@ -260,8 +260,8 @@ private:
                                     const Primitive &primitive,
                                     const Deltas &over,
                                     std::vector<double> &out);
-  [[nodiscard]] static Transform
-  JointMatrix(const Skin &skin, size_t joint, const Transform &world);
+  [[nodiscard]] static AffineTransform
+  JointMatrix(const Skin &skin, size_t joint, const AffineTransform &world);
 
   struct SkinBinding {
     std::vector<double> Index;
@@ -274,15 +274,15 @@ private:
                                      size_t vertices,
                                      SkinBinding &into);
   [[nodiscard]] bool BlendJoints(const Document &document,
-                                 std::span<const Transform> joints,
+                                 std::span<const AffineTransform> joints,
                                  const SkinBinding &bound,
                                  size_t vertices,
-                                 std::vector<Transform> &out);
+                                 std::vector<AffineTransform> &out);
   [[nodiscard]] bool BlendSkinFor(const Document &document,
-                                  std::span<const Transform> joints,
+                                  std::span<const AffineTransform> joints,
                                   const Primitive &primitive,
                                   size_t vertices,
-                                  std::vector<Transform> &out);
+                                  std::vector<AffineTransform> &out);
 
   [[nodiscard]] bool FlatNormalsFor(Part &part);
   [[nodiscard]] bool GeneratedTangentsFor(Part &part);

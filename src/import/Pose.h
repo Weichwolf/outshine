@@ -12,7 +12,7 @@
 #include "math/Quat.h"
 #include "math/Vec3.h"
 #include "AnimationCurve.h"
-#include "Transform.h"
+#include "AffineTransform.h"
 #include "Types.h"
 
 namespace outshine::Gltf {
@@ -37,7 +37,7 @@ public:
 
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
 
-  void At(double seconds, std::vector<Transform> &locals, std::vector<double> &weights) const;
+  void At(double seconds, std::vector<AffineTransform> &locals, std::vector<double> &weights) const;
 
   struct FactorAt {
     int Material = -1;

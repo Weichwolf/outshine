@@ -169,11 +169,11 @@ bool Subject::MorphDeltasFor(const Document &document,
   return true;
 }
 
-Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &world) {
+AffineTransform Subject::JointMatrix(const Skin &skin, size_t joint, const AffineTransform &world) {
   if (skin.InverseBind.empty()) { return world; }
   Mat4 bind;
   std::copy_n(skin.InverseBind.begin() + static_cast<ptrdiff_t>(joint * 16), 16, bind.begin());
-  return world * Transform::FromColumnMajor(bind);
+  return world * AffineTransform::FromColumnMajor(bind);
 }
 
 bool Subject::ReadSkinBinding(const Document &document,
@@ -231,11 +231,11 @@ bool Subject::ReadSkinBinding(const Document &document,
 }
 
 bool Subject::BlendJoints(const Document &document,
-                          std::span<const Transform> joints,
+                          std::span<const AffineTransform> joints,
                           const SkinBinding &bound,
                           size_t vertices,
-                          std::vector<Transform> &out) {
-  out.assign(vertices, Transform());
+                          std::vector<AffineTransform> &out) {
+  out.assign(vertices, AffineTransform());
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
     Mat4 blended = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
     double sum = 0;
@@ -252,7 +252,7 @@ bool Subject::BlendJoints(const Document &document,
                         std::to_string(joints.size()));
         }
         sum += share;
-        const Transform &matrix = joints[static_cast<size_t>(named)];
+        const AffineTransform &matrix = joints[static_cast<size_t>(named)];
         for (int at = 0; at < 16; ++at) { blended[at] += share * matrix.M[at]; }
       }
     }
@@ -267,10 +267,10 @@ bool Subject::BlendJoints(const Document &document,
 }
 
 bool Subject::BlendSkinFor(const Document &document,
-                           std::span<const Transform> joints,
+                           std::span<const AffineTransform> joints,
                            const Primitive &primitive,
                            size_t vertices,
-                           std::vector<Transform> &out) {
+                           std::vector<AffineTransform> &out) {
   SkinBinding bound;
   return ReadSkinBinding(document, primitive, vertices, bound) &&
          BlendJoints(document, joints, bound, vertices, out);
@@ -313,7 +313,7 @@ bool Subject::SuppliedTangentsFor(const Document &document,
 
     into.assign(vertices * 4, 0.0);
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
-      const Transform &placed = place.At(vertex);
+      const AffineTransform &placed = place.At(vertex);
       const double mirrored = placed.LinearDeterminant() < 0 ? -1.0 : 1.0;
       const Vec3 local = {
           {elements[vertex * 4], elements[vertex * 4 + 1], elements[vertex * 4 + 2]}};
@@ -485,7 +485,7 @@ bool Subject::Build(const Document &document, const VariantSelection &variant) {
 }
 
 bool Subject::Build(const Document &document,
-                    std::span<const Transform> pose,
+                    std::span<const AffineTransform> pose,
                     std::span<const double> weights,
                     const VariantSelection &variant) {
   if (pose.size() != document.Nodes().size()) {
@@ -512,8 +512,8 @@ struct InstanceChannel {
 
 bool InstanceTransforms(const Document &document,
                         const Node &node,
-                        const Transform &world,
-                        std::vector<Transform> &out) {
+                        const AffineTransform &world,
+                        std::vector<AffineTransform> &out) {
   out.clear();
   std::vector<double> translation;
   std::vector<double> rotation;
@@ -547,7 +547,7 @@ bool InstanceTransforms(const Document &document,
                     .W = held(rotation, at * 4 + 3, 1.0)};
     const Vec3 sc = {
         {held(scale, at * 3 + 0, 1.0), held(scale, at * 3 + 1, 1.0), held(scale, at * 3 + 2, 1.0)}};
-    out.push_back(world * Transform::FromTrs(t, r, sc));
+    out.push_back(world * AffineTransform::FromTrs(t, r, sc));
   }
   return true;
 }
@@ -555,8 +555,8 @@ bool InstanceTransforms(const Document &document,
 
 bool Subject::ReadTriangleRun(const Document &document,
                               const Primitive &primitive,
-                              const Transform &world,
-                              std::span<const Transform> skinned,
+                              const AffineTransform &world,
+                              std::span<const AffineTransform> skinned,
                               size_t vertices) {
   std::vector<uint32_t> &run = Scratch_.Run;
   std::vector<uint32_t> &indices = Scratch_.Loop;
@@ -624,7 +624,7 @@ bool Subject::EmitPart(outshine::Geometry &made, const Part &part) {
 bool Subject::FlattenLight(const Document &document,
                            int nodeIndex,
                            const Node &node,
-                           const Transform &placement) {
+                           const AffineTransform &placement) {
   const LightRef &declared = document.Lights()[static_cast<size_t>(node.Light)];
   PlacedLight placed;
   placed.NodeName = node.Name;
@@ -777,10 +777,13 @@ bool Subject::ReadVertexNormals(const Document &document,
   return true;
 }
 
-bool Subject::PlacementOf(const Document &document, const Posing &posed, int node, Transform &out) {
+bool Subject::PlacementOf(const Document &document,
+                          const Posing &posed,
+                          int node,
+                          AffineTransform &out) {
   return posed.Pose != nullptr
              ? document.WorldTransform(
-                   node, std::span<const Transform>(posed.Pose, document.Nodes().size()), out)
+                   node, std::span<const AffineTransform>(posed.Pose, document.Nodes().size()), out)
              : document.WorldTransform(node, out);
 }
 
@@ -795,7 +798,7 @@ bool Subject::FlattenMesh(const Document &document,
     return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) + " names mesh " +
                   std::to_string(node.Mesh) + ", which the file does not carry");
   }
-  Transform world;
+  AffineTransform world;
   if (!PlacementOf(document, posed, nodeIndex, world)) {
     return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                   " has no world transform: " + document.Error());
@@ -814,13 +817,13 @@ bool Subject::FlattenMesh(const Document &document,
     }
   }
 
-  std::vector<Transform> &jointMatrices = Scratch_.Joints;
+  std::vector<AffineTransform> &jointMatrices = Scratch_.Joints;
   jointMatrices.clear();
   if (node.Skin >= 0) {
     const Skin &skin = document.Skins()[static_cast<size_t>(node.Skin)];
-    jointMatrices.assign(skin.Joints.size(), Transform());
+    jointMatrices.assign(skin.Joints.size(), AffineTransform());
     for (size_t joint = 0; joint < skin.Joints.size(); ++joint) {
-      Transform placed;
+      AffineTransform placed;
       if (!PlacementOf(document, posed, skin.Joints[joint], placed)) {
         return Refuse(document.Path() + ": joint node " + std::to_string(skin.Joints[joint]) +
                       " has no world transform: " + document.Error());
@@ -829,13 +832,13 @@ bool Subject::FlattenMesh(const Document &document,
     }
   }
 
-  std::vector<Transform> &instances = Scratch_.Instances;
+  std::vector<AffineTransform> &instances = Scratch_.Instances;
   instances.clear();
   if (!InstanceTransforms(document, node, world, instances)) {
     return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                   " instances on an accessor this reader cannot decode: " + document.Error());
   }
-  for (const Transform &placedWorld : instances) {
+  for (const AffineTransform &placedWorld : instances) {
     for (const Primitive &primitive :
          document.Meshes()[static_cast<size_t>(node.Mesh)].Primitives) {
       ++primitives;
@@ -908,7 +911,7 @@ bool Subject::FlattenPrimitive(const Document &document,
     return false;
   }
   for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
-  std::vector<Transform> &skinned = Scratch_.Skinned;
+  std::vector<AffineTransform> &skinned = Scratch_.Skinned;
   skinned.clear();
   if (under.Node.Skin >= 0 && !BlendSkinFor(document, under.Joints, primitive, vertices, skinned)) {
     return false;
@@ -952,7 +955,7 @@ bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry
 }
 
 bool Subject::Flatten(const Document &document,
-                      const Transform *pose,
+                      const AffineTransform *pose,
                       const double *weights,
                       const VariantSelection &variant) {
   Error_.clear();
@@ -999,7 +1002,7 @@ bool Subject::Flatten(const Document &document,
     if (!node.Visible) { continue; }
     for (const int child : std::views::reverse(node.Children)) { pending.push_back(child); }
     if (node.Light >= 0) {
-      Transform placement;
+      AffineTransform placement;
       if (!PlacementOf(document, posed, nodeIndex, placement)) {
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and has no world transform: " + document.Error());
@@ -1515,7 +1518,7 @@ bool DeclaredPlacement(const Document &document,
                        int cameraIndex,
                        outshine::Camera &out,
                        std::string &error,
-                       std::span<const Transform> locals) {
+                       std::span<const AffineTransform> locals) {
   if (cameraIndex < 0 || static_cast<size_t>(cameraIndex) >= document.Cameras().size()) {
     error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is asked for and the " +
             "document declares " + std::to_string(document.Cameras().size());
@@ -1535,7 +1538,7 @@ bool DeclaredPlacement(const Document &document,
   }
 
   const Camera &lens = document.Cameras()[static_cast<size_t>(cameraIndex)];
-  Transform world;
+  AffineTransform world;
   const bool transformed = locals.empty()
                                ? document.WorldTransform(static_cast<int>(holder), world)
                                : document.WorldTransform(static_cast<int>(holder), locals, world);
@@ -1569,7 +1572,7 @@ bool DeclaredPlacement(const Document &document,
   return true;
 }
 
-double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const {
+double Subject::ProjectedAreaPx(const Mat4 &clip, const Viewport &viewport) const {
   double total = 0;
   for (size_t triangle = 0; triangle * 3 + 2 < Indices_.size(); ++triangle) {
     std::array<Vec2, 3> raster;
@@ -1577,8 +1580,14 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
       const size_t vertex = Indices_[triangle * 3 + static_cast<size_t>(corner)];
       const Vec3 point = {
           {Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]}};
+      const double w = clip[3] * point[0] + clip[7] * point[1] + clip[11] * point[2] + clip[15];
+      const double reciprocalW = (w != 0.0) ? 1.0 / w : 1.0;
       Vec3 ndc;
-      clip.Point(point, ndc);
+      for (size_t axis = 0; axis < 3; ++axis) {
+        ndc[axis] = (clip[axis] * point[0] + clip[4 + axis] * point[1] + clip[8 + axis] * point[2] +
+                     clip[12 + axis]) *
+                    reciprocalW;
+      }
       viewport.Raster(ndc, raster[corner]);
     }
     total += 0.5 * std::fabs((raster[1][0] - raster[0][0]) * (raster[2][1] - raster[0][1]) -

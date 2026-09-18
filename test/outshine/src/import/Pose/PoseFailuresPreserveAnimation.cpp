@@ -46,7 +46,7 @@ int main() {
   std::string error;
   CHECK(Pose::Build(document, 0, pose, error), "initial pose built");
   const auto preserved = [&] {
-    std::vector<Transform> locals;
+    std::vector<AffineTransform> locals;
     std::vector<double> weights;
     pose.At(0.5, locals, weights);
     return pose.Valid() && pose.NodeCount() == 3 && pose.ChannelCount() == 1 &&
@@ -68,7 +68,7 @@ int main() {
   }
   CHECK(Pose::Build(document, std::array{0, 1}, pose, error),
         "disjoint animation combination accepted");
-  std::vector<Transform> locals;
+  std::vector<AffineTransform> locals;
   std::vector<double> weights;
   pose.At(0.5, locals, weights);
   CHECK(locals.size() == 3 && locals[0].M[12] == 1 && locals[1].M[14] == 3 &&

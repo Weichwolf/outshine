@@ -75,8 +75,8 @@ struct GltfImporter::Held {
   Gltf::Pose Motion;
   Gltf::VariantSelection Variant;
   Geometry Handed;
-  std::vector<Gltf::Transform> Locals;
-  std::vector<Gltf::Transform> PublishedLocals;
+  std::vector<AffineTransform> Locals;
+  std::vector<AffineTransform> PublishedLocals;
   std::vector<double> Weights;
   std::vector<Gltf::Pose::FactorAt> Factors;
   std::string Why;
@@ -86,7 +86,7 @@ struct GltfImporter::Held {
     const bool built =
         Moves ? (Motion.At(seconds, Locals, Weights),
                  Assembled.Build(File,
-                                 std::span<const Gltf::Transform>(Locals.data(), Locals.size()),
+                                 std::span<const AffineTransform>(Locals.data(), Locals.size()),
                                  std::span<const double>(Weights.data(), Weights.size()),
                                  Variant))
               : Assembled.Build(File, Variant);
@@ -139,7 +139,7 @@ struct GltfImporter::Held {
   [[nodiscard]] std::expected<Camera, std::string> ResolveCamera(int index) const {
     Camera placed;
     std::string why;
-    const std::span<const Gltf::Transform> locals = PublishedLocals;
+    const std::span<const AffineTransform> locals = PublishedLocals;
     if (!Gltf::DeclaredPlacement(File, index, placed, why, locals)) {
       return std::unexpected(std::move(why));
     }

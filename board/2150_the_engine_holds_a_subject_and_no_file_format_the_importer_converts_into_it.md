@@ -12,13 +12,13 @@ noch native `Geometry`; Materialauflösung, Overrides, Shape-Aufbau und Piece-Bi
 kennen keine glTF-Herkunft mehr. `Posed` besitzt vollständige native Snapshots und
 fügt Bilder, Oberflächen und Parts transaktional zusammen. Statische Assets übernehmen
 Kamera und Geometrie und geben den Importadapter sofort frei. Nur aktive Animationen
-halten ihn vorläufig zur Auswertung; das ist die nächste Formatkopplung.
+halten ihn vorläufig zur Auswertung; affine Transformationen und Animationskurven
+liegen bereits in nativer Mathematik. Das ist die nächste Formatkopplung.
 Der ungenutzte glTF→Render-Surface-/Shape-Rückpfad ist entfernt; native Renderer-
 Tests tragen dessen Material-, Bildlebensdauer- und Fehleratomaritätsverträge.
 InitialGeometry wird beim Öffnen nativ kopiert; Live speichert keinen geliehenen
 Geometriezeiger. Draws instanziert dasselbe Subject unabhängig von Body::Asset.
 Native Asset-/Entity-Bindung muss auch Physik ohne Mesh und Rendering ohne Physik erlauben.
-
 Override-Vertrag: `SurfaceTable` trennt glTF- und native Materialherkunft. Direkte und
 gemischte native Geometry verwenden ihre Material- und Partnamen für Named-/Part-Overrides;
 keine Übereinstimmung lehnt die Deklaration ab. Das Mischszenen-Pixeloracle fordert eine
@@ -90,8 +90,8 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
 2. Native Kamera und automatische Bounds-Rahmung liegen in Math/Content; der Importer
    kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
-3. `AnimationCurve` wertet native skalare und Quaternion-Kurven in Math aus. Als Nächstes
-   Clipziele, Restpose, Skeletons und Morphdaten beim Import besitzen und nur Deltas auswerten.
+3. `AffineTransform` und `AnimationCurve` liegen in Math. Als Nächstes Clipziele,
+   Restpose, Skeletons und Morphdaten beim Import besitzen und nur Deltas auswerten.
    Importer::sampleAnimation im Frame ist noch keine native Migration. Keine Fähigkeiten verlieren.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.

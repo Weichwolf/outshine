@@ -227,7 +227,9 @@ bool Pose::AppendAnimation(const Document &document,
   return true;
 }
 
-void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double> &weights) const {
+void Pose::At(double seconds,
+              std::vector<AffineTransform> &locals,
+              std::vector<double> &weights) const {
   locals.resize(Nodes_.size());
   weights = RestWeights_;
   for (size_t node = 0; node < Nodes_.size(); ++node) {
@@ -251,8 +253,8 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
       }
     }
     locals[node] = posed.HasMatrix
-                       ? Transform::FromColumnMajor(posed.Matrix)
-                       : Transform::FromTrs(posed.Translation, posed.Rotation, posed.Scale);
+                       ? AffineTransform::FromColumnMajor(posed.Matrix)
+                       : AffineTransform::FromTrs(posed.Translation, posed.Rotation, posed.Scale);
   }
 }
 

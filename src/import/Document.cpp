@@ -559,9 +559,9 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
 
 namespace {
 
-Transform LocalOf(const Node &step) {
-  return step.HasMatrix ? Transform::FromColumnMajor(step.Matrix)
-                        : Transform::FromTrs(step.Translation, step.Rotation, step.Scale);
+AffineTransform LocalOf(const Node &step) {
+  return step.HasMatrix ? AffineTransform::FromColumnMajor(step.Matrix)
+                        : AffineTransform::FromTrs(step.Translation, step.Rotation, step.Scale);
 }
 
 }
@@ -2232,18 +2232,20 @@ bool Document::ReadIndices(int accessorIndex, std::vector<uint32_t> &out) const 
   return true;
 }
 
-bool Document::WorldTransform(int node, Transform &out) const {
+bool Document::WorldTransform(int node, AffineTransform &out) const {
   return Chain(node, nullptr, out);
 }
 
-bool Document::WorldTransform(int node, std::span<const Transform> locals, Transform &out) const {
+bool Document::WorldTransform(int node,
+                              std::span<const AffineTransform> locals,
+                              AffineTransform &out) const {
   if (locals.size() != Nodes_.size()) { return false; }
   return Chain(node, locals.data(), out);
 }
 
-bool Document::Chain(int node, const Transform *posed, Transform &out) const {
+bool Document::Chain(int node, const AffineTransform *posed, AffineTransform &out) const {
   if (node < 0 || static_cast<size_t>(node) >= Nodes_.size()) { return false; }
-  out = Transform::Identity();
+  out = AffineTransform::Identity();
   std::vector<int> chain;
   for (int at = node, steps = 0; at >= 0; at = Parent_[static_cast<size_t>(at)], ++steps) {
     if (static_cast<size_t>(steps) > Nodes_.size()) { return false; }
@@ -2252,14 +2254,14 @@ bool Document::Chain(int node, const Transform *posed, Transform &out) const {
   for (size_t i = chain.size(); i > 0; --i) {
     const auto index = static_cast<size_t>(chain[i - 1]);
     const Node &step = Nodes_[index];
-    const Transform local = (posed != nullptr) ? posed[index] : LocalOf(step);
+    const AffineTransform local = (posed != nullptr) ? posed[index] : LocalOf(step);
     out = out * local;
   }
   return true;
 }
 
-bool Document::ViewTransform(int cameraNode, Transform &out) const {
-  Transform world;
+bool Document::ViewTransform(int cameraNode, AffineTransform &out) const {
+  AffineTransform world;
   if (!WorldTransform(cameraNode, world)) { return false; }
   return world.Inverse(out);
 }

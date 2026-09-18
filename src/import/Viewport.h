@@ -5,7 +5,7 @@
 
 #include "math/Vec2.h"
 #include "math/Vec3.h"
-#include "Transform.h"
+#include "math/Mat4.h"
 #include "Types.h"
 
 namespace outshine::Gltf {
@@ -35,7 +35,7 @@ struct Camera {
   double XMagM = 0;
   double YMagM = 0;
 
-  [[nodiscard]] bool Projection(double viewportAspect, Transform &out) const;
+  [[nodiscard]] bool Projection(double viewportAspect, Mat4 &out) const;
 };
 
 }

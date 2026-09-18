@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "Viewport.h"
-#include "Transform.h"
+#include "AffineTransform.h"
 #include "Types.h"
 
 #include "Json.h"
@@ -104,12 +104,12 @@ public:
 
   [[nodiscard]] bool ReadIndices(int accessor, std::vector<uint32_t> &out) const;
 
-  [[nodiscard]] bool WorldTransform(int node, Transform &out) const;
+  [[nodiscard]] bool WorldTransform(int node, AffineTransform &out) const;
 
   [[nodiscard]] bool
-  WorldTransform(int node, std::span<const Transform> locals, Transform &out) const;
+  WorldTransform(int node, std::span<const AffineTransform> locals, AffineTransform &out) const;
 
-  [[nodiscard]] bool ViewTransform(int cameraNode, Transform &out) const;
+  [[nodiscard]] bool ViewTransform(int cameraNode, AffineTransform &out) const;
 
 private:
   struct Ranged {
@@ -139,7 +139,7 @@ private:
 
   [[nodiscard]] bool Refuse(std::string_view why);
 
-  [[nodiscard]] bool Chain(int node, const Transform *posed, Transform &out) const;
+  [[nodiscard]] bool Chain(int node, const AffineTransform *posed, AffineTransform &out) const;
   [[nodiscard]] bool
   ReadJson(const char *text, size_t length, const uint8_t *binaryChunk, size_t binaryLength);
   [[nodiscard]] bool
