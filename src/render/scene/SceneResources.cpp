@@ -150,6 +150,8 @@ bool SceneResources::CopySourcesFrom(const SceneResources &source, std::string &
   GroundGrid_ = source.GroundGrid_;
   GroundReal_ = source.GroundReal_;
   GroundVirtual_ = source.GroundVirtual_;
+  GroundClasses_ = source.GroundClasses_;
+  GroundPalette_ = source.GroundPalette_;
   PieceMaterials_.clear();
   PieceMaterials_.reserve(source.PieceMaterials_.size());
   for (const PieceMaterials &materials : source.PieceMaterials_) {
@@ -365,6 +367,12 @@ bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
   if (!RestoreHeightPages(subjects, error)) { return false; }
   if (!GroundGrid_.empty() && !subjects.Ground().SetGrid(GroundGrid_, error)) { return false; }
   return SetTerrainTiles(subjects, GroundReal_, GroundVirtual_, error);
+}
+
+void SceneResources::SetGroundClassification(std::span<const uint32_t> classes,
+                                             std::span<const float> palette) {
+  GroundClasses_.assign(classes.begin(), classes.end());
+  GroundPalette_.assign(palette.begin(), palette.end());
 }
 
 size_t SceneResources::HeightPageSourceBytes() const noexcept {

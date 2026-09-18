@@ -73,7 +73,7 @@ int main() {
       std::array<uint32_t, 4> paletteBits{};
       std::memcpy(paletteBits.data(), palette.data(), sizeof(palette));
       capture = true;
-      CHECK(scene->GroundClasses(classes, palette, error), "original classification uploads");
+      CHECK(renderer.SetGroundClasses(classes, palette, error), "original classification uploads");
       capture = false;
       CHECK(buffers.size() == 2 && Contains(0, classes) && Contains(0, paletteBits),
             "original class and palette bytes reach separate GPU buffers");
@@ -90,7 +90,7 @@ int main() {
                 "replacement restores independent copies of both classification inputs");
           const std::array<uint32_t, 4> changed{9, 8, 7, 6};
           const std::array<float, 4> changedPalette{0.75f, 0.5f, 0.25f, 0.0f};
-          CHECK(candidate->GroundClasses(changed, changedPalette, error),
+          CHECK(renderer.SetGroundClasses(changed, changedPalette, error),
                 "candidate classification changes before publication");
           CHECK(!buffers[0].Released && !buffers[1].Released,
                 "candidate upload cannot retire either published buffer");

@@ -61,6 +61,12 @@ public:
                                      std::span<const TerrainTile> virtual_,
                                      std::string &error);
   [[nodiscard]] bool RestoreTerrain(SubjectDraw &subjects, std::string &error);
+  void SetGroundClassification(std::span<const uint32_t> classes, std::span<const float> palette);
+
+  [[nodiscard]] std::span<const uint32_t> GroundClasses() const noexcept { return GroundClasses_; }
+
+  [[nodiscard]] std::span<const float> GroundPalette() const noexcept { return GroundPalette_; }
+
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
 
   [[nodiscard]] size_t HeightPageSlots() const noexcept { return HeightPages_.size(); }
@@ -118,6 +124,8 @@ private:
   std::vector<float> GroundGrid_;
   std::vector<TerrainTile> GroundReal_;
   std::vector<TerrainTile> GroundVirtual_;
+  std::vector<uint32_t> GroundClasses_;
+  std::vector<float> GroundPalette_;
 };
 
 }

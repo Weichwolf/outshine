@@ -94,11 +94,10 @@ int main() {
             CHECK(renderer.SetTerrainTiles({}, {}, error), "candidate changes terrain first");
             rejectSubmit = true;
             const bool accepted =
-                rejectGeometry
-                    ? build.Scene().SetGeometry(geometry.clone(), 0, error)
-                    : build.Scene().GroundClasses(std::array<uint32_t, 4>{1, 2, 3, 4},
-                                                  std::array<float, 4>{1, 0.5f, 0.25f, 0},
-                                                  error);
+                rejectGeometry ? build.Scene().SetGeometry(geometry.clone(), 0, error)
+                               : renderer.SetGroundClasses(std::array<uint32_t, 4>{1, 2, 3, 4},
+                                                           std::array<float, 4>{1, 0.5f, 0.25f, 0},
+                                                           error);
             CHECK(
                 !accepted && !rejectSubmit,
                 (std::string("a later GPU upload fails after terrain staging: ") + error).c_str());

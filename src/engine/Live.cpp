@@ -36,24 +36,8 @@
 namespace outshine::Core {
 
 namespace Says {
-constexpr auto GroundRendererMissing = "ground storage requires a live renderer";
 constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
-}
-
-bool Live::GroundClasses(std::span<const uint32_t> classes,
-                         std::span<const float> palette,
-                         std::string &error) {
-  if (Renderer_ == nullptr) {
-    error = Says::GroundRendererMissing;
-    return false;
-  }
-  std::vector<uint32_t> classData(classes.begin(), classes.end());
-  std::vector<float> paletteData(palette.begin(), palette.end());
-  if (!Renderer_->SetGroundClasses(classes, palette, error)) { return false; }
-  GroundClasses_.swap(classData);
-  GroundPalette_.swap(paletteData);
-  return true;
 }
 
 constexpr double kExposureCalibration = 1.2;
@@ -221,8 +205,7 @@ bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
   if (!candidate->SetGeometry(std::move(replacement), previous.Carrying_, error) ||
-      !candidate->RestoresPieceResources(error) ||
-      !candidate->RestoresGroundResources(previous, error) ||
+      !candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error) ||
       !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -252,8 +235,7 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
   candidate->GroundAlbedo_ = previous.GroundAlbedo_;
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
-  if (!candidate->RestoresPieceResources(error) ||
-      !candidate->RestoresGroundResources(previous, error) ||
+  if (!candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error) ||
       !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -635,12 +617,8 @@ bool Live::RestoresPieceResources(std::string &error) {
   return Renderer_->RestorePieces(error);
 }
 
-bool Live::RestoresGroundResources(const Live &previous, std::string &error) {
-  if ((!previous.GroundClasses_.empty() || !previous.GroundPalette_.empty()) &&
-      !GroundClasses(previous.GroundClasses_, previous.GroundPalette_, error)) {
-    return false;
-  }
-  return Renderer_->RestoreTerrain(error);
+bool Live::RestoresGroundResources(std::string &error) {
+  return Renderer_->RestoreGroundResources(error);
 }
 
 void Live::WearsPieces() {

@@ -130,10 +130,6 @@ public:
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
-  [[nodiscard]] bool GroundClasses(std::span<const uint32_t> classes,
-                                   std::span<const float> palette,
-                                   std::string &error);
-
   void Digests(bool yes) { Scratch_.Digests = yes; }
 
   [[nodiscard]] double BuildMs() const { return BuildMs_; }
@@ -424,9 +420,7 @@ private:
 
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
-  std::vector<uint32_t> GroundClasses_;
-  std::vector<float> GroundPalette_;
-  [[nodiscard]] bool RestoresGroundResources(const Live &previous, std::string &error);
+  [[nodiscard]] bool RestoresGroundResources(std::string &error);
   Posed Held_;
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;

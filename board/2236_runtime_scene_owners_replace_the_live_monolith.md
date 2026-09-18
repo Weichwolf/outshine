@@ -92,6 +92,11 @@ no longer exposes readback, settling or screenshot IO. The implementation shares
 the public orchestration because separating the two archive members creates a Mach-O static-archive
 pull cycle; FrameCapture.h remains the narrow internal contract.
 
+Ground classification words and palette now share SceneResources ownership with height pages,
+grid and terrain tiles. Candidate copying and one RestoreGroundResources operation rebuild the
+complete ground GPU state. Live retains neither classification sources nor a forwarding API; its
+ownership proof moved beside SceneResources.
+
 Do not let SceneResources duplicate Live's complete import-facing SurfaceTable. The base table is
 an input to scene publication until its separate extraction; registered generated materials are an
 owned extension with a distinct index domain. SubjectDraw keeps the two mappings separate. Retain

@@ -178,10 +178,6 @@ public:
     ActiveState().Content.Resources.ReleaseHeightPage(ActiveState().Content.Subjects, which);
   }
 
-  [[nodiscard]] bool RestoreTerrain(std::string &error) {
-    return ActiveState().Content.Resources.RestoreTerrain(ActiveState().Content.Subjects, error);
-  }
-
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept {
     return ActiveState().Content.Resources.HeightPageSourceBytes();
   }
@@ -517,6 +513,15 @@ public:
   [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> classes,
                                       std::span<const float> palette,
                                       std::string &error);
+
+  [[nodiscard]] bool RestoreGroundResources(std::string &error) {
+    auto &content = ActiveState().Content;
+    if (!SetGroundClasses(
+            content.Resources.GroundClasses(), content.Resources.GroundPalette(), error)) {
+      return false;
+    }
+    return content.Resources.RestoreTerrain(content.Subjects, error);
+  }
 
   [[nodiscard]] float NearMetres() const { return ActiveState().NearM; }
 

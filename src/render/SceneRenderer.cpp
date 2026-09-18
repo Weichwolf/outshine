@@ -1089,6 +1089,7 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                              .Palette = ActiveState().Content.Ground.Palette()});
   ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                           .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Resources.SetGroundClassification(classes, palette);
   return true;
 }
 
