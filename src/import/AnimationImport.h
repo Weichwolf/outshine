@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "AnimationClip.h"
+#include "AnimationAsset.h"
 #include "Types.h"
 
 namespace outshine::Gltf {
@@ -14,6 +15,7 @@ class Document;
 
 class AnimationImport {
 public:
+  static void ImportAll(const Document &document, AnimationAssetSet &out);
   [[nodiscard]] static bool
   Build(const Document &document, int animation, AnimationClip &out, std::string &error);
   [[nodiscard]] static bool Build(const Document &document,

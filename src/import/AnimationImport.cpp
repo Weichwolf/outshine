@@ -59,6 +59,18 @@ bool AnimationImport::Build(const Document &document,
   return Build(document, std::span<const int>(one.data(), 1), out, error);
 }
 
+void AnimationImport::ImportAll(const Document &document, AnimationAssetSet &out) {
+  std::vector<AnimationAsset> animations;
+  animations.reserve(document.Animations().size());
+  for (size_t index = 0; index < document.Animations().size(); ++index) {
+    AnimationAsset asset;
+    const bool imported = Build(document, static_cast<int>(index), asset.Clip, asset.Error);
+    if (!imported && asset.Error.empty()) { asset.Error = "animation import failed"; }
+    animations.push_back(std::move(asset));
+  }
+  out.Adopt(std::move(animations));
+}
+
 struct AnimationImport::BuildState {
   std::map<std::tuple<AnimationPath, int, MaterialFactor>, int> Claimed;
 

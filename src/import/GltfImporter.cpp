@@ -93,6 +93,7 @@ struct GltfImporter::Held {
   Gltf::Document File;
   Gltf::Subject Assembled;
   AnimationClip Motion;
+  AnimationAssetSet Animations;
   std::vector<Skeleton> Skeletons;
   MeshAssetSet Meshes;
   MaterialAssetSet Materials;
@@ -206,6 +207,7 @@ std::expected<void, std::string> GltfImporter::load(std::string_view path) {
   if (!Gltf::ImportSceneAsset(candidate->File, candidate->Scene, candidate->Why)) {
     return refuse(std::move(candidate->Why));
   }
+  Gltf::AnimationImport::ImportAll(candidate->File, candidate->Animations);
   if (!candidate->Assemble(0.0)) { return refuse(std::move(candidate->Why)); }
   Held_ = std::move(candidate);
   return {};
@@ -232,8 +234,7 @@ std::expected<void, std::string> GltfImporter::selectMaterialVariant(std::string
 std::expected<void, std::string> GltfImporter::selectAnimations(std::span<const int> animations) {
   Held &held = *Held_;
   AnimationClip candidate;
-  if (!animations.empty() &&
-      !Gltf::AnimationImport::Build(held.File, animations, candidate, held.Why)) {
+  if (!held.Animations.Select(animations, candidate, held.Why)) {
     return std::unexpected(held.Why);
   }
   auto previous = std::move(held.Motion);
@@ -253,7 +254,7 @@ const Geometry &GltfImporter::geometry() const {
 }
 
 int GltfImporter::animationCount() const {
-  return static_cast<int>(Held_->File.Animations().size());
+  return static_cast<int>(Held_->Animations.Count());
 }
 
 double GltfImporter::durationS() const {

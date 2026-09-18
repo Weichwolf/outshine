@@ -14,6 +14,8 @@
 
 namespace outshine {
 
+class AnimationAssetSet;
+
 enum class AnimationTarget : uint8_t {
   Translation,
   Rotation,
@@ -79,6 +81,8 @@ public:
   void SampleMaterials(double seconds, std::vector<AnimatedMaterialSample> &samples) const;
 
 private:
+  friend class AnimationAssetSet;
+
   struct TrackRange {
     size_t First = 0;
     size_t Count = 0;

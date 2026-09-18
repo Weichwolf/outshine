@@ -92,7 +92,7 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
    Joint-Nodes/inverse Binds; `MeshAssetSet` besitzt alle Vertex-/Indexdaten, Skinbindung und Morphdeltas.
    Mesh-Accessors werden nur beim Import dekodiert. `SceneAsset` besitzt Hierarchie, Restpose,
    Roots, Morphbereiche, Instanzen, Lichter und Kameras. `MaterialAssetSet` besitzt Bilder, Namen
-   und Oberflächen; Variantenwahl und Sampling sind dokumentfrei. `AnimationClip` hält Tracks als Werte; nächstens folgt die native Bibliothek.
+   und Oberflächen; Variantenwahl und Sampling sind dokumentfrei. `AnimationAssetSet` besitzt und kombiniert alle Clips; nächstens fällt `Document` aus `Held`.
 4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 
