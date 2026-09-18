@@ -34,8 +34,13 @@ not the defect.
 applies the same unlit surface condition, and sends it through `Engine::setGeometry`.
 It changes 504 linear channels (maximum 0.220703) after the first frame. The failure
 therefore survives without `Scenario::Asset` loading and is inside native Geometry to
-Subject construction or its render pipeline. Atmosphere is already disproved by the
-pre-atmosphere repeat evidence.
+Subject construction or its render pipeline.
+
+`PerspectiveNativeMipImagesRepeatLinearPixels` is exact with the Chess camera,
+1280×720 target and the same filtered checker material. Clearing all tangent vectors
+or all UV1 data from the native Chess clone separately leaves the exact 504-channel,
+0.220703 defect. The remaining input is GeometryPacking's multi-part, position/normal,
+UV0 or material data. Atmosphere is already disproved by the pre-atmosphere evidence.
 
 ## Decision
 
@@ -66,8 +71,8 @@ green test requires the next reducer to add one missing engine input at a time.
 4. [x] Prove a raw static vertexbuffer with interpolated UV derivatives exact.
 5. [x] Send a cloned imported native Geometry through `setGeometry`; it is red.
 6. [x] Prove the Chess perspective on a single native mipmapped quad exact.
-7. Reduce GeometryPacking's multi-part and optional-attribute input before Subject pipeline
-   work. Keep camera, sampler and material fixed. Do not return to atmosphere.
+7. Reduce GeometryPacking's multi-part, position/normal, UV0 and material input before
+   Subject pipeline work. Keep camera and sampler fixed. Do not return to atmosphere.
 8. In parallel but separately, WI 2235 makes complete sampled-image ownership and
    asynchronous candidate publication correct. It must preserve pixels but is not
    claimed as this defect's repair.
