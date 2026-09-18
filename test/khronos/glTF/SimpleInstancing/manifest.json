@@ -2,7 +2,7 @@
   "schema": "outshine/render-oracle-manifest",
   "schemaVersion": 1,
   "id": "render/instancing/simple-instancing",
-  "title": "One mesh placed at several transforms by EXT_mesh_gpu_instancing -- a capability this engine does not yet have, so the case is expected red and says which pixels are missing",
+  "title": "One mesh placed 125 times by EXT_mesh_gpu_instancing",
   "covers": [
     "I.26",
     "I.26.10",
@@ -33,7 +33,7 @@
         "NORMAL",
         "POSITION"
       ],
-      "notes": "Attributes NORMAL, POSITION. EXT_mesh_gpu_instancing carries per-instance TRANSLATION, ROTATION and SCALE on the node. Whether Blender's importer reads the extension is itself a question this case answers, and if it does not, both sides draw one body and the case is green for the wrong reason -- which is why the render is LOOKED AT rather than only scored.",
+      "notes": "Attributes NORMAL, POSITION. EXT_mesh_gpu_instancing carries 125 per-instance TRANSLATION, ROTATION and SCALE tuples on the node. Visual acceptance must show the complete 5 x 5 x 5 body lattice; a single body is a false green regardless of image score.",
       "source": {
         "kind": "khronos-sample-assets",
         "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
@@ -107,7 +107,7 @@
       "clipStartM": 76.58236201026637,
       "clipEndM": 101.52107729648165,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0, 0, 0] to [1, 1, 1], so centre = [0.5, 0.5, 0.5] and radius = 0.8660254037844386 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.1848455772812, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "RE-DERIVED FROM THE FRAMING RULE OVER THE SUBJECT'S REAL BOUNDS (board:1416). The camera this replaced framed ONE body, because that is all this engine drew: `EXT_mesh_gpu_instancing` was unread, so the node's mesh was placed once where the file says it stands 125 times. With the instances expanded the subject is 12.47 m in radius instead of 0.87, and the old eye put 124 of them behind the near plane -- [MEASURED] *vertex 220 sits -0.964029 m along the view axis, inside the engine's fixed near plane of 0.050000 m*. Nothing here was chosen: every number is the rule's own output over the new bounds."
+      "note": "Derived from the framing rule over all 125 instances. Their combined subject radius is 12.47 m; the camera must frame that complete bound with the declared 0.05 m near plane."
     },
     "light": {
       "kind": "none",
@@ -212,7 +212,7 @@
       "value": 0.260319741,
       "unit": "dimensionless",
       "origin": "measured",
-      "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the subject was drawn at its true extent: `EXT_mesh_gpu_instancing` places this mesh 125 times and the engine drew it once, so the placeholder this replaced was declared [SET] and said so (board:1377, board:1416)."
+      "note": "The fraction of the frame covered by the complete 125-instance subject at frame 0, recomputed by the runner and refused on mismatch."
     }
   },
   "referenceImages": [

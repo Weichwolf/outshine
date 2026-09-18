@@ -340,13 +340,15 @@ bool Subject::Refuse(std::string why) {
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
                     const MeshAssetSet &meshes,
+                    const SceneAsset &scene,
                     const VariantSelection &variant) {
-  return Flatten(document, skeletons, meshes, nullptr, nullptr, variant);
+  return Flatten(document, skeletons, meshes, scene, nullptr, nullptr, variant);
 }
 
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
                     const MeshAssetSet &meshes,
+                    const SceneAsset &scene,
                     std::span<const AffineTransform> pose,
                     std::span<const double> weights,
                     const VariantSelection &variant) {
@@ -364,6 +366,7 @@ bool Subject::Build(const Document &document,
   return Flatten(document,
                  skeletons,
                  meshes,
+                 scene,
                  pose.data(),
                  (!weights.empty()) ? weights.data() : nullptr,
                  variant);
@@ -371,52 +374,19 @@ bool Subject::Build(const Document &document,
 
 namespace {
 
-struct InstanceChannel {
-  int Accessor = -1;
-  size_t Stride = 0;
-  std::vector<double> *Into = nullptr;
-};
-
-bool InstanceTransforms(const Document &document,
-                        const Node &node,
+void InstanceTransforms(const SceneAsset &scene,
+                        size_t node,
                         const AffineTransform &world,
                         std::vector<AffineTransform> &out) {
   out.clear();
-  std::vector<double> translation;
-  std::vector<double> rotation;
-  std::vector<double> scale;
-  const std::array<InstanceChannel, 3> channels = {
-      {{.Accessor = node.InstanceTranslation, .Stride = 3, .Into = &translation},
-       {.Accessor = node.InstanceRotation, .Stride = 4, .Into = &rotation},
-       {.Accessor = node.InstanceScale, .Stride = 3, .Into = &scale}}};
-  const auto instanced = [](const InstanceChannel &channel) { return channel.Accessor >= 0; };
-  if (std::ranges::none_of(channels, instanced)) {
+  const SceneNodeAsset *asset = scene.Node(node);
+  assert(asset != nullptr);
+  if (asset->Instances.empty()) {
     out.push_back(world);
-    return true;
+    return;
   }
-  size_t count = 0;
-  for (const InstanceChannel &channel : channels) {
-    if (channel.Accessor < 0) { continue; }
-    if (!document.ReadElements(channel.Accessor, *channel.Into)) { return false; }
-    if (count == 0) { count = channel.Into->size() / channel.Stride; }
-  }
-  out.reserve(count);
-  const auto held = [](const std::vector<double> &from, size_t at, double fallback) {
-    return from.empty() ? fallback : from[at];
-  };
-  for (size_t at = 0; at < count; ++at) {
-    const Vec3 t = {{held(translation, at * 3 + 0, 0.0),
-                     held(translation, at * 3 + 1, 0.0),
-                     held(translation, at * 3 + 2, 0.0)}};
-    const Quat r = {.X = held(rotation, at * 4 + 0, 0.0),
-                    .Y = held(rotation, at * 4 + 1, 0.0),
-                    .Z = held(rotation, at * 4 + 2, 0.0),
-                    .W = held(rotation, at * 4 + 3, 1.0)};
-    const Vec3 sc = {
-        {held(scale, at * 3 + 0, 1.0), held(scale, at * 3 + 1, 1.0), held(scale, at * 3 + 2, 1.0)}};
-    out.push_back(world * AffineTransform::FromTrs(t, r, sc));
-  }
-  return true;
+  out.reserve(asset->Instances.size());
+  for (const AffineTransform &local : asset->Instances) { out.push_back(world * local); }
 }
 }
 
@@ -623,10 +593,7 @@ bool Subject::FlattenMesh(const Document &document,
 
   std::vector<AffineTransform> &instances = Scratch_.Instances;
   instances.clear();
-  if (!InstanceTransforms(document, node, world, instances)) {
-    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                  " instances on an accessor this reader cannot decode: " + document.Error());
-  }
+  InstanceTransforms(*posed.Scene, static_cast<size_t>(nodeIndex), world, instances);
   const Mesh &mesh = document.Meshes()[static_cast<size_t>(node.Mesh)];
   for (const AffineTransform &placedWorld : instances) {
     for (size_t primitiveIndex = 0; primitiveIndex < mesh.Primitives.size(); ++primitiveIndex) {
@@ -744,6 +711,7 @@ bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry
 bool Subject::Flatten(const Document &document,
                       std::span<const Skeleton> skeletons,
                       const MeshAssetSet &meshes,
+                      const SceneAsset &scene,
                       const AffineTransform *pose,
                       const double *weights,
                       const VariantSelection &variant) {
@@ -776,6 +744,7 @@ bool Subject::Flatten(const Document &document,
   }
   const Posing posed{.Skeletons = skeletons,
                      .Meshes = &meshes,
+                     .Scene = &scene,
                      .Pose = pose,
                      .Weights = weights,
                      .Variant = activeVariant};

@@ -18,6 +18,7 @@
 #include "scene/Camera.h"
 #include "AffineTransform.h"
 #include "MeshAsset.h"
+#include "SceneAsset.h"
 #include "Skeleton.h"
 #include "Variant.h"
 
@@ -75,11 +76,13 @@ public:
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
                            const MeshAssetSet &meshes,
+                           const SceneAsset &scene,
                            const VariantSelection &variant = {});
 
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
                            const MeshAssetSet &meshes,
+                           const SceneAsset &scene,
                            std::span<const AffineTransform> pose,
                            std::span<const double> weights,
                            const VariantSelection &variant = {});
@@ -178,6 +181,7 @@ private:
   struct Posing {
     std::span<const Skeleton> Skeletons;
     const MeshAssetSet *Meshes = nullptr;
+    const SceneAsset *Scene = nullptr;
     const AffineTransform *Pose = nullptr;
     const double *Weights = nullptr;
     int Variant = -1;
@@ -252,6 +256,7 @@ private:
   [[nodiscard]] bool Flatten(const Document &document,
                              std::span<const Skeleton> skeletons,
                              const MeshAssetSet &meshes,
+                             const SceneAsset &scene,
                              const AffineTransform *pose,
                              const double *weights,
                              const VariantSelection &variant);

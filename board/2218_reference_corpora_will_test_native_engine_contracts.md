@@ -21,9 +21,9 @@ prüfen, Import-/Render-Integration über öffentliche API bzw. outshine-client.
    dort kaputt: scorer erwartet files statt subjects[].files und prüft keine Engine.
    Keine falsche Prüfung als grüne Referenz weiterführen; Umsetzung Atmosphäre in 2167.
 2. Khronos behalten: Validator-Reports prüfen Import, Sample-Assets/Generator prüfen
-   generische Inhalte. render_corpus.py benutzt teils Emissionsmaterialien: solche
-   Bilder beweisen Layout/UV/Abdeckung, keine Metallic-Roughness-BRDF. Materialerhalt,
-   getrennte PBR-/Geometrieorakel und Animationszeitpunkte mit GPU-Cycles in 2195/2152.
+   generische Inhalte. SimpleInstancing zeigt direkt 125 Körper, bleibt im Corpus schwarz:
+   dessen Emissionsoverride erreicht nur das Oracle. Bildscore erst nach dessen Reparatur;
+   getrennte PBR-/Geometrieorakel und Animationszeitpunkte liegen in 2195/2152.
 3. Parser: JSONTestSuite und geeignete W3C-XML-Fälle für vorhandene Parser anbinden
    (2151/2194). Unterstützte XML-Teilmenge und implementation-defined JSON-Fälle
    ausdrücklich festlegen. Valide XML-Datei ist nicht automatisch valides Szenario.
