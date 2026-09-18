@@ -24,7 +24,7 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 | include/ | Scenario.h combines all domains; runtime headers use its types. Native subsystem config belongs to its subsystem; Document composes it. SDL window/event adapters are legitimate. | 2238, 2096 |
 | base/ | Math, geometry primitives, parsing and task infrastructure are reusable. Wayfinding owns transport constraints as well as search; keep generic graph math here, move transport policy to world/navigation. | 2133, 2124 |
 | content/ | Own native assets and derived CPU artefacts/codecs, no GPU/engine/import dependencies. No second authoritative mesh representation. | 2150, 2237 |
-| import/ | Geometry, materials, cameras and framing are native; engine Asset retains the adapter for animation. Move clips/skeletons/morphs into runtime assets and remove engine -> import. | 2150 |
+| import/ | Geometry, materials, cameras and framing are native; the adapter fills native assets and remains behind the format-neutral loading boundary. Complete native playback ownership. | 2150 |
 | scenario/ | Reader/writer belongs to import composition; TriggerField executes entity-time state and must leave the serialization module. Native input/action/view state is not parser state. | 2151, 2130, 2238 |
 | engine/ | Live and EngineHeld combine subsystem owners; Laying/HeightSheets contain algorithms. Core composes/commits; it must not implement terrain, DSP, sky or GPU resource storage. | 2236, 2237 |
 | generators/ | Existing building/flora/road/water algorithms are appropriate; extract remaining terrain computation from engine. Preserve native outputs and independent library linkage. | 2237, 2150 |

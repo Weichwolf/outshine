@@ -16,7 +16,7 @@
 #include "Viewing.h"
 
 namespace outshine {
-class GltfImporter;
+class AnimatedAsset;
 }
 
 namespace outshine::Core {
@@ -86,7 +86,7 @@ public:
 
 private:
   struct Asset {
-    std::unique_ptr<GltfImporter> Animator;
+    std::unique_ptr<AnimatedAsset> Animator;
     outshine::Geometry Snapshot;
     std::optional<outshine::Camera> Camera;
   };

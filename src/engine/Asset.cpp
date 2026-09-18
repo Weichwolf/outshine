@@ -12,9 +12,8 @@
 #include <utility>
 #include <vector>
 
-#include <import/GltfImporter.h>
-
 #include "Asset.h"
+#include "AnimatedAsset.h"
 #include "Digest.h"
 
 namespace outshine::Core {
@@ -57,7 +56,7 @@ bool Posed::Reads(const Sited &asset,
   if (Read_) { return true; }
   Posed importedAsset;
   Asset imported;
-  imported.Animator = std::make_unique<GltfImporter>();
+  imported.Animator = std::make_unique<AnimatedAsset>();
   if (auto loaded = imported.Animator->load(asset.Path); !loaded) {
     error = std::move(loaded.error());
     return false;

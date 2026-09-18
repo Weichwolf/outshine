@@ -86,14 +86,14 @@ bleiben nativ. Vektor-/Matrixmathematik teilen; nur Formatkonvertierung liegt im
 1. Der statische Pfad Generator/glTF-Importer → native Geometry → Renderer steht;
    Bilder und Materialslots werden beim Append einmal relokiert, Overrides danach
    herkunftsunabhängig aufgelöst. Gleichnamige lokale Slots und Teilfehler weiter prüfen.
-2. Native Kamera und automatische Bounds-Rahmung liegen in Math/Content; der Importer
-   kennt keine Render-Typen. `Posed` durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
+2. Native Kamera und Bounds-Rahmung liegen in Math/Content; der Importer kennt keine Render-Typen. `AnimatedAsset` kapselt formatneutral Laden und Playback;
+   `Posed` noch durch Runtime-Assetbesitzer plus Loader-Orchestrierung ersetzen.
 3. `AnimationClip` besitzt Restpose, Kurven, Morphgewichte und Materialziele; `Skeleton` besitzt
    Joint-Nodes/inverse Binds; `MeshAssetSet` besitzt alle Vertex-/Indexdaten, Skinbindung und Morphdeltas.
    Mesh-Accessors werden nur beim Import dekodiert. `SceneAsset` besitzt Hierarchie, Restpose,
    Roots, Morphbereiche, Instanzen, Lichter und Kameras. `MaterialAssetSet` besitzt Bilder, Namen
    und Oberflächen; Variantenwahl und Sampling sind dokumentfrei. `AnimationAssetSet` besitzt und kombiniert alle Clips; `Document` endet vollständig in `load()`.
-4. Engine-/Render-/Generator-Tiers gegen Importheader sperren. Import/Export nur an
+4. Engine-/Render-/Generator-Tiers sind gegen Importheader gesperrt. Import/Export nur an
    Werkzeug-/Ladegrenzen orchestrieren; installierbarer Client nutzt öffentliche API.
 
 Wertevalidierung 2216 ist nutzbar, ihre Gesamtabnahme kein Startblocker; 2128 behebt Instanz-/Terrain-Schatten;
@@ -111,7 +111,7 @@ Keinen kompletten ECS oder neuen Assetcontainer ohne konkreten Consumer erfinden
       Instanzen, Schatten und Bounds; mehrere Instanzen teilen den Meshbesitzer.
 - [x] Freigabe des Importdokuments beeinflusst Rendering und Animation nicht.
 - [ ] Handles nach Unload/Reload, Teilfehler und veraltete Streaming-Ergebnisse geprüft.
-- [ ] Engine/Render/Generator bauen ohne Importheader; absichtlicher Import-Include
+- [x] Engine/Render/Generator bauen ohne Importheader; absichtlicher Import-Include
       scheitert am Tiervertrag. Format-Corpustests bleiben ausdrücklich erlaubt.
 - [ ] Khronos-Corpus erhält Skinning, Morphs, Varianten, Texturen und Kameras.
 - [ ] Betroffene Places vorher/nachher rendern und PNGs öffnen; strukturelle Migration
