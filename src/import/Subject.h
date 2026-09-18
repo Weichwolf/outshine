@@ -218,6 +218,7 @@ private:
   [[nodiscard]] bool FlattenLight(const Document &document,
                                   size_t nodeIndex,
                                   const SceneNodeAsset &node,
+                                  const SceneLightAsset &light,
                                   const AffineTransform &placement);
   void ReadUvSets(const MeshPrimitive &mesh, size_t vertices, Part &part);
   void ReadVertexColours(const MeshPrimitive &mesh, size_t vertices, Part &part);

@@ -130,7 +130,12 @@ bool ImportSceneAsset(const Document &document, SceneAsset &out, std::string &er
   for (const int root : document.Scenes()[static_cast<size_t>(defaultScene)].Roots) {
     roots.push_back(static_cast<uint32_t>(root));
   }
-  out.Adopt(std::move(nodes), std::move(roots), document.MorphWeightsTotal());
+  std::vector<SceneLightAsset> lights;
+  lights.reserve(document.Lights().size());
+  for (const LightRef &declared : document.Lights()) {
+    lights.push_back({.Name = declared.Name, .Light = declared.Light});
+  }
+  out.Adopt(std::move(nodes), std::move(roots), std::move(lights), document.MorphWeightsTotal());
   error.clear();
   return true;
 }

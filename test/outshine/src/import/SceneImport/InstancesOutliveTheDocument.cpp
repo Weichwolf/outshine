@@ -27,14 +27,17 @@ int main() {
   }
   {
     std::ofstream file(root / "scene.gltf");
-    file << R"({"asset":{"version":"2.0"},"extensionsUsed":["EXT_mesh_gpu_instancing"],
+    file
+        << R"({"asset":{"version":"2.0"},"extensionsUsed":["EXT_mesh_gpu_instancing","KHR_lights_punctual"],
+      "extensions":{"KHR_lights_punctual":{"lights":[{"name":"sun","type":"directional","intensity":2}]}},
       "buffers":[{"uri":"data.bin","byteLength":60}],
       "bufferViews":[{"buffer":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":24}],
       "accessors":[
         {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,0]},
         {"bufferView":1,"componentType":5126,"count":2,"type":"VEC3"}],
       "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
-      "nodes":[{"name":"root","children":[1],"translation":[10,0,0]},
+      "nodes":[{"name":"root","children":[1],"translation":[10,0,0],
+        "extensions":{"KHR_lights_punctual":{"light":0}}},
         {"name":"placed","mesh":0,"extensions":{"EXT_mesh_gpu_instancing":{"attributes":{"TRANSLATION":1}}}}],
       "scenes":[{"nodes":[0]}],"scene":0})";
     CHECK(file.good(), "scene declaration written");
@@ -65,6 +68,10 @@ int main() {
         "native hierarchy, roots and node bindings outlive the import document");
   world.Point({{0, 0, 0}}, origin);
   CHECK(origin == Vec3({{10, 0, 0}}), "native rest hierarchy composes in parent-first order");
+  const SceneLightAsset *light = scene.Light(0);
+  CHECK(light != nullptr && light->Name == "sun" && light->Light.Intensity == 2.0F &&
+            scene.Node(0) != nullptr && scene.Node(0)->Light == 0,
+        "native light and node binding outlive the import document");
 
   std::error_code cleanup;
   std::filesystem::remove_all(root, cleanup);

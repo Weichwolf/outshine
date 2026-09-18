@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "AffineTransform.h"
+#include "scene/PunctualLight.h"
 
 namespace outshine {
 
@@ -25,11 +26,19 @@ struct SceneNodeAsset {
   bool Visible = true;
 };
 
+struct SceneLightAsset {
+  std::string Name;
+  PunctualLight Light;
+};
+
 class SceneAsset {
 public:
-  void
-  Adopt(std::vector<SceneNodeAsset> &&nodes, std::vector<uint32_t> &&roots, size_t morphWeights);
+  void Adopt(std::vector<SceneNodeAsset> &&nodes,
+             std::vector<uint32_t> &&roots,
+             std::vector<SceneLightAsset> &&lights,
+             size_t morphWeights);
   [[nodiscard]] const SceneNodeAsset *Node(size_t index) const noexcept;
+  [[nodiscard]] const SceneLightAsset *Light(size_t index) const noexcept;
 
   [[nodiscard]] std::span<const uint32_t> Roots() const noexcept { return Roots_; }
 
@@ -38,11 +47,14 @@ public:
 
   [[nodiscard]] size_t NodeCount() const noexcept { return Nodes_.size(); }
 
+  [[nodiscard]] size_t LightCount() const noexcept { return Lights_.size(); }
+
   [[nodiscard]] size_t MorphWeightCount() const noexcept { return MorphWeights_; }
 
 private:
   std::vector<SceneNodeAsset> Nodes_;
   std::vector<uint32_t> Roots_;
+  std::vector<SceneLightAsset> Lights_;
   size_t MorphWeights_ = 0;
 };
 

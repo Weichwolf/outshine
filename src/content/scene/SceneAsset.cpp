@@ -11,10 +11,16 @@ namespace outshine {
 
 void SceneAsset::Adopt(std::vector<SceneNodeAsset> &&nodes,
                        std::vector<uint32_t> &&roots,
+                       std::vector<SceneLightAsset> &&lights,
                        size_t morphWeights) {
   Nodes_ = std::move(nodes);
   Roots_ = std::move(roots);
+  Lights_ = std::move(lights);
   MorphWeights_ = morphWeights;
+}
+
+const SceneLightAsset *SceneAsset::Light(size_t index) const noexcept {
+  return index < Lights_.size() ? &Lights_[index] : nullptr;
 }
 
 bool SceneAsset::WorldTransform(size_t node,

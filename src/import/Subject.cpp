@@ -440,12 +440,12 @@ bool Subject::EmitPart(outshine::Geometry &made, const Part &part) {
 bool Subject::FlattenLight(const Document &document,
                            size_t nodeIndex,
                            const SceneNodeAsset &node,
+                           const SceneLightAsset &light,
                            const AffineTransform &placement) {
-  const LightRef &declared = document.Lights()[static_cast<size_t>(node.Light)];
   PlacedLight placed;
   placed.NodeName = node.Name;
-  placed.LightName = declared.Name;
-  placed.Light = declared.Light;
+  placed.LightName = light.Name;
+  placed.Light = light.Light;
 
   const Vec3 origin = {{0, 0, 0}};
   Vec3 position;
@@ -758,12 +758,17 @@ bool Subject::Flatten(const Document &document,
     if (!node.Visible) { continue; }
     for (const uint32_t child : std::views::reverse(node.Children)) { pending.push_back(child); }
     if (node.Light >= 0) {
+      const SceneLightAsset *light = scene.Light(static_cast<size_t>(node.Light));
+      if (light == nullptr) {
+        return Refuse(document.Path() + ": native scene has no light " +
+                      std::to_string(node.Light));
+      }
       AffineTransform placement;
       if (!PlacementOf(posed, static_cast<size_t>(nodeIndex), placement)) {
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and has no world transform: " + document.Error());
       }
-      if (!FlattenLight(document, static_cast<size_t>(nodeIndex), node, placement)) {
+      if (!FlattenLight(document, static_cast<size_t>(nodeIndex), node, *light, placement)) {
         return false;
       }
     }
