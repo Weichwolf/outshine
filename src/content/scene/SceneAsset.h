@@ -3,11 +3,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <span>
 #include <string>
 #include <vector>
 
 #include "AffineTransform.h"
+#include "scene/Camera.h"
 #include "scene/PunctualLight.h"
 
 namespace outshine {
@@ -22,6 +24,7 @@ struct SceneNodeAsset {
   int Mesh = -1;
   int Skin = -1;
   int Light = -1;
+  int Camera = -1;
   size_t MorphWeightFirst = 0;
   bool Visible = true;
 };
@@ -31,14 +34,24 @@ struct SceneLightAsset {
   PunctualLight Light;
 };
 
+struct SceneCameraAsset {
+  std::string Name;
+  Camera Lens;
+};
+
+enum class SceneCameraError { MissingCamera, UnplacedCamera, MultiplyPlacedCamera, InvalidPose };
+
 class SceneAsset {
 public:
   void Adopt(std::vector<SceneNodeAsset> &&nodes,
              std::vector<uint32_t> &&roots,
              std::vector<SceneLightAsset> &&lights,
+             std::vector<SceneCameraAsset> &&cameras,
              size_t morphWeights);
   [[nodiscard]] const SceneNodeAsset *Node(size_t index) const noexcept;
   [[nodiscard]] const SceneLightAsset *Light(size_t index) const noexcept;
+  [[nodiscard]] std::expected<Camera, SceneCameraError>
+  PlacedCamera(size_t index, std::span<const AffineTransform> pose = {}) const;
 
   [[nodiscard]] std::span<const uint32_t> Roots() const noexcept { return Roots_; }
 
@@ -49,12 +62,15 @@ public:
 
   [[nodiscard]] size_t LightCount() const noexcept { return Lights_.size(); }
 
+  [[nodiscard]] size_t CameraCount() const noexcept { return Cameras_.size(); }
+
   [[nodiscard]] size_t MorphWeightCount() const noexcept { return MorphWeights_; }
 
 private:
   std::vector<SceneNodeAsset> Nodes_;
   std::vector<uint32_t> Roots_;
   std::vector<SceneLightAsset> Lights_;
+  std::vector<SceneCameraAsset> Cameras_;
   size_t MorphWeights_ = 0;
 };
 

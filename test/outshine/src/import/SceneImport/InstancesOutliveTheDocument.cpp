@@ -35,8 +35,9 @@ int main() {
       "accessors":[
         {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,0]},
         {"bufferView":1,"componentType":5126,"count":2,"type":"VEC3"}],
+      "cameras":[{"name":"view","type":"perspective","perspective":{"yfov":1,"znear":0.1}}],
       "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
-      "nodes":[{"name":"root","children":[1],"translation":[10,0,0],
+      "nodes":[{"name":"root","children":[1],"translation":[10,0,0],"camera":0,
         "extensions":{"KHR_lights_punctual":{"light":0}}},
         {"name":"placed","mesh":0,"extensions":{"EXT_mesh_gpu_instancing":{"attributes":{"TRANSLATION":1}}}}],
       "scenes":[{"nodes":[0]}],"scene":0})";
@@ -72,6 +73,10 @@ int main() {
   CHECK(light != nullptr && light->Name == "sun" && light->Light.Intensity == 2.0F &&
             scene.Node(0) != nullptr && scene.Node(0)->Light == 0,
         "native light and node binding outlive the import document");
+  const auto camera = scene.PlacedCamera(0);
+  CHECK(camera && camera->PositionM == Vec3({{10, 0, 0}}) && camera->FovDeg > 57.2 &&
+            camera->FovDeg < 57.3,
+        "native camera lens, binding and placement outlive the import document");
 
   std::error_code cleanup;
   std::filesystem::remove_all(root, cleanup);

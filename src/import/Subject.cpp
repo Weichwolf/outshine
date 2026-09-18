@@ -2,7 +2,6 @@
 #include "math/Mat4.h"
 #include "Heap.h"
 #include "MaterialValidation.h"
-#include "math/Units.h"
 #include "math/Vec3.h"
 #include "Subject.h"
 
@@ -17,7 +16,6 @@
 
 #include <scene/Geometry.h>
 
-#include <numbers>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -1279,64 +1277,6 @@ bool Subject::Frame(outshine::Camera &out, double fill, double aspect) const {
   const auto framed = FrameCamera({.Min = Min_, .Max = Max_}, {.Fill = fill, .Aspect = aspect});
   if (!framed) { return false; }
   out = *framed;
-  return true;
-}
-
-bool DeclaredPlacement(const Document &document,
-                       int cameraIndex,
-                       outshine::Camera &out,
-                       std::string &error,
-                       std::span<const AffineTransform> locals) {
-  if (cameraIndex < 0 || static_cast<size_t>(cameraIndex) >= document.Cameras().size()) {
-    error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is asked for and the " +
-            "document declares " + std::to_string(document.Cameras().size());
-    return false;
-  }
-  size_t holder = 0;
-  size_t holders = 0;
-  for (size_t node = 0; node < document.Nodes().size(); ++node) {
-    if (document.Nodes()[node].Camera != cameraIndex) { continue; }
-    holder = node;
-    ++holders;
-  }
-  if (holders != 1) {
-    error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is referenced by " +
-            std::to_string(holders) + " nodes, and a placement is what exactly one node states";
-    return false;
-  }
-
-  const Camera &lens = document.Cameras()[static_cast<size_t>(cameraIndex)];
-  AffineTransform world;
-  const bool transformed = locals.empty()
-                               ? document.WorldTransform(static_cast<int>(holder), world)
-                               : document.WorldTransform(static_cast<int>(holder), locals, world);
-  if (!transformed) {
-    error = document.Path() + ": node " + std::to_string(holder) + " carries camera " +
-            std::to_string(cameraIndex) + " and its world transform does not resolve";
-    return false;
-  }
-  Vec3 up;
-  Vec3 forward;
-  for (int axis = 0; axis < 3; ++axis) {
-    up[axis] = world.M[4 + axis];
-    forward[axis] = -world.M[8 + axis];
-    out.PositionM[axis] = world.M[12 + axis];
-  }
-  if (!Normalise(up) || !Normalise(forward)) {
-    error = document.Path() + ": node " + std::to_string(holder) + " carries camera " +
-            std::to_string(cameraIndex) + " and its basis has collapsed";
-    return false;
-  }
-  out.LooksAt = true;
-  out.LookAtM = out.PositionM + forward;
-  out.UpM = up;
-  if (lens.Kind == CameraKind::Orthographic) {
-    out.setProjection(outshine::Camera::Ortho{
-        .XMagM = lens.XMagM, .YMagM = lens.YMagM, .NearM = lens.ZNearM, .FarM = lens.ZFarM});
-  } else {
-    out.setProjection(outshine::Camera::Perspective{
-        .FovDeg = lens.YfovRad * kRad2Deg, .NearM = lens.ZNearM, .FarM = lens.ZFarM});
-  }
   return true;
 }
 

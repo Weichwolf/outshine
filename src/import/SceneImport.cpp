@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numbers>
 #include <string>
 #include <utility>
 #include <vector>
@@ -83,6 +84,28 @@ bool ImportInstances(const Document &document,
   return true;
 }
 
+std::vector<SceneCameraAsset> ImportCameras(const Document &document) {
+  std::vector<SceneCameraAsset> cameras;
+  cameras.reserve(document.Cameras().size());
+  constexpr double radiansToDegrees = 180.0 / std::numbers::pi;
+  for (const Gltf::Camera &declared : document.Cameras()) {
+    outshine::Camera lens;
+    if (declared.Kind == CameraKind::Orthographic) {
+      lens.setProjection(outshine::Camera::Ortho{.XMagM = declared.XMagM,
+                                                 .YMagM = declared.YMagM,
+                                                 .NearM = declared.ZNearM,
+                                                 .FarM = declared.ZFarM});
+    } else {
+      lens.setProjection(
+          outshine::Camera::Perspective{.FovDeg = declared.YfovRad * radiansToDegrees,
+                                        .NearM = declared.ZNearM,
+                                        .FarM = declared.ZFarM});
+    }
+    cameras.push_back({.Name = declared.Name, .Lens = lens});
+  }
+  return cameras;
+}
+
 }
 
 bool ImportSceneAsset(const Document &document, SceneAsset &out, std::string &error) {
@@ -95,6 +118,7 @@ bool ImportSceneAsset(const Document &document, SceneAsset &out, std::string &er
     native.Mesh = node.Mesh;
     native.Skin = node.Skin;
     native.Light = node.Light;
+    native.Camera = node.Camera;
     native.Visible = node.Visible;
     native.RestLocal = node.HasMatrix
                            ? AffineTransform::FromColumnMajor(node.Matrix)
@@ -135,7 +159,12 @@ bool ImportSceneAsset(const Document &document, SceneAsset &out, std::string &er
   for (const LightRef &declared : document.Lights()) {
     lights.push_back({.Name = declared.Name, .Light = declared.Light});
   }
-  out.Adopt(std::move(nodes), std::move(roots), std::move(lights), document.MorphWeightsTotal());
+  std::vector<SceneCameraAsset> cameras = ImportCameras(document);
+  out.Adopt(std::move(nodes),
+            std::move(roots),
+            std::move(lights),
+            std::move(cameras),
+            document.MorphWeightsTotal());
   error.clear();
   return true;
 }

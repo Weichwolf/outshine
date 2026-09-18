@@ -162,13 +162,25 @@ struct GltfImporter::Held {
   }
 
   [[nodiscard]] std::expected<Camera, std::string> ResolveCamera(int index) const {
-    Camera placed;
-    std::string why;
-    const std::span<const AffineTransform> locals = PublishedLocals;
-    if (!Gltf::DeclaredPlacement(File, index, placed, why, locals)) {
-      return std::unexpected(std::move(why));
+    if (index < 0) {
+      return std::unexpected(File.Path() + ": camera " + std::to_string(index) + " is absent");
     }
-    return placed;
+    const std::span<const AffineTransform> locals = PublishedLocals;
+    auto placed = Scene.PlacedCamera(static_cast<size_t>(index), locals);
+    if (!placed) {
+      std::string reason;
+      if (placed.error() == SceneCameraError::MissingCamera) {
+        reason = "is absent";
+      } else if (placed.error() == SceneCameraError::UnplacedCamera) {
+        reason = "has no scene node";
+      } else if (placed.error() == SceneCameraError::MultiplyPlacedCamera) {
+        reason = "has more than one scene node";
+      } else {
+        reason = "has an invalid world pose";
+      }
+      return std::unexpected(File.Path() + ": camera " + std::to_string(index) + " " + reason);
+    }
+    return *placed;
   }
 };
 
@@ -254,7 +266,7 @@ std::expected<void, std::string> GltfImporter::sampleAnimation(double seconds) {
 }
 
 int GltfImporter::cameraCount() const {
-  return static_cast<int>(Held_->File.Cameras().size());
+  return static_cast<int>(Held_->Scene.CameraCount());
 }
 
 std::expected<Camera, std::string> GltfImporter::camera(int index) const {

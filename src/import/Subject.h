@@ -31,12 +31,6 @@ namespace outshine::Gltf {
 
 class Document;
 
-[[nodiscard]] bool DeclaredPlacement(const Document &document,
-                                     int cameraIndex,
-                                     outshine::Camera &out,
-                                     std::string &error,
-                                     std::span<const AffineTransform> locals = {});
-
 enum class TangentSource { None, Supplied, Generated };
 
 struct VertexPlacement {
