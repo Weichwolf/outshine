@@ -21,6 +21,11 @@ texel reads are not causal. Replacing `texture` with `texelFetch` makes all fram
 equal while retaining the same bound mip resource and descriptor. The remaining
 producer is the first filtered hardware sample or its resource readiness contract.
 
+Today `SubjectResidency::UploadMip` submits every mip level through the raw SDL submit
+function, retains neither a fence nor a texture-upload owner, and returns a bindable
+`BoundImage` immediately. That violates the required publication boundary regardless
+of whether the backend happens to defer transfer-buffer destruction safely.
+
 ## Architecture decision
 
 `SubjectResidency` publishes a texture as a complete immutable `SampledImage`:
