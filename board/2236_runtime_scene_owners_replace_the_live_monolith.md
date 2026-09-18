@@ -70,6 +70,22 @@ state have been removed from `Live`. `TilePieces` also uses `SceneRenderer` dire
 native material indices need no registration. CrownPieces remains to migrate after its material-slot
 registration is extracted from Live.
 
+## Registered piece material decision
+
+`SubjectMaterial` contains borrowed pixel pointers, so copying resolved slots without their native
+`Geometry` source is invalid. The next slice moves registered piece material sources, resolved slots
+and registered surface-to-slot mapping together into WorldContent. Candidate copying clones each
+source and resolves pointers against the clone. Publication uploads the base subject table first,
+then appends registered slots and publishes native and registered mappings independently. Any
+resolve, material upload or piece upload failure abandons the whole candidate; it must not append to
+the active table. SceneResources then exposes one registration operation returning a registered
+surface index. CrownPieces uses that operation plus piece handles and no longer includes Live.
+
+Do not let SceneResources duplicate Live's complete import-facing SurfaceTable. The base table is
+an input to scene publication until its separate extraction; registered generated materials are an
+owned extension with a distinct index domain. SubjectDraw keeps the two mappings separate. Retain
+the native Geometry sources because their images back SubjectTexture pointers and candidate rebuilds.
+
 ## Acceptance
 
 - [ ] Consumers compile against the extracted owner without Live/EngineHeld includes.
