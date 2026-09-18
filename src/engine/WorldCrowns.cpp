@@ -145,7 +145,7 @@ bool WorldCrowns::Step(const Vec3 &eye, bool prepare, std::string &error) {
   if (!PollPreparation(prepare, error) || !AcceptCacheResult(error)) { return false; }
   for (auto &group : Groups_) {
     if (group.State != Phase::Wanted) { continue; }
-    if (Cache_.Read(group.Provenance) == CrownCache::Request::Full) { break; }
+    if (Cache_.Read(group.Provenance) == Data::ImpostorCache::Request::Full) { break; }
     group.State = Phase::Reading;
   }
   if (prepare) { PrepareNext(); }

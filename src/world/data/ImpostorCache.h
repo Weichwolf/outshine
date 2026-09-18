@@ -1,17 +1,17 @@
-#ifndef OUTSHINE_ENGINE_CROWNCACHE_H
-#define OUTSHINE_ENGINE_CROWNCACHE_H
+#ifndef OUTSHINE_WORLD_DATA_IMPOSTORCACHE_H
+#define OUTSHINE_WORLD_DATA_IMPOSTORCACHE_H
 
 #include "ContentStore.h"
-#include "ImpostorPreparation.h"
+#include "ImpostorAtlas.h"
 #include "Tasks.h"
 #include <deque>
 #include <memory>
 
-namespace outshine {
-class CrownCache {
+namespace outshine::Data {
+class ImpostorCache {
 public:
   struct Config {
-    Data::ContentStore::Config Store;
+    ContentStore::Config Store;
     size_t Pending = 2;
     static constexpr size_t kDefaultReadBytes = size_t{16} * 1024 * 1024;
     size_t ReadBytes = kDefaultReadBytes;
@@ -24,8 +24,8 @@ public:
   };
   enum class Request { Queued, Existing, Full };
 
-  CrownCache(Tasks &tasks, const Config &config);
-  ~CrownCache();
+  ImpostorCache(Tasks &tasks, const Config &config);
+  ~ImpostorCache();
   [[nodiscard]] bool
   Publish(const Content::ImpostorAtlas &atlas, std::string_view provenance, std::string &error);
   [[nodiscard]] Request Read(std::string provenance);
@@ -38,7 +38,7 @@ private:
   };
 
   Tasks *Tasks_;
-  Data::ContentStore Store_;
+  ContentStore Store_;
   size_t MostPending_, MostBytes_;
   std::deque<Pending> Pending_;
 };

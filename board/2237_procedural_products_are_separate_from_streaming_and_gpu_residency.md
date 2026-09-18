@@ -92,6 +92,8 @@ versioned binary codec under `content/impostor`. Cache, streaming and preparatio
 neutral type directly; the hand-authored fixture proves byte compatibility and corruption bounds
 without renderer setup. GPU capture and card derivation remain Engine integration functions until
 the renderer resource boundary in WI 2236 can own them without importing `Core::Live` into render.
+`Data::ImpostorCache` now owns bounded asynchronous artifact transport under `world/data`; it
+depends only on the content artifact, ContentStore and Tasks, not Engine preparation or rendering.
 
 ## Acceptance and commands
 

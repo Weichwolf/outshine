@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_WORLDCROWNS_H
 #define OUTSHINE_ENGINE_WORLDCROWNS_H
 
-#include "CrownCache.h"
+#include "ImpostorCache.h"
 #include "CrownPieces.h"
 #include "WorldPlacement.h"
 #include "Shipped.h"
@@ -10,7 +10,7 @@ namespace outshine {
 class WorldCrowns {
 public:
   struct Config {
-    CrownCache::Config Cache;
+    Data::ImpostorCache::Config Cache;
     Content::ImpostorAtlasShape Shape;
     size_t Prototypes = 64;
     size_t Instances = 65536;
@@ -49,7 +49,7 @@ private:
   std::vector<Group> Groups_;
   Tasks Io_{2};
   Tasks Preparation_{1};
-  CrownCache Cache_;
+  Data::ImpostorCache Cache_;
   Content::ImpostorAtlasShape Shape_;
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;

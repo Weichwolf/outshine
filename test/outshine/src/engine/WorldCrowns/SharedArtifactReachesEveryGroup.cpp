@@ -60,7 +60,7 @@ int main() {
   CHECK(atlas.has_value(), "fixture atlas captures");
   if (!atlas) { return Report(); }
   Tasks tasks(1);
-  CrownCache cache(tasks, config.Cache);
+  Data::ImpostorCache cache(tasks, config.Cache);
   CHECK(cache.Publish(*atlas, ImpostorAtlasProvenance(species->Definition(), config.Shape), error),
         "one shared cache artifact published");
   auto geometry = BuildImpostorCard(*atlas, 0);

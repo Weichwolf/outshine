@@ -15,7 +15,7 @@
 #include "math/Units.h"
 #include "Tasks.h"
 #include "Digest.h"
-#include "CrownCache.h"
+#include "ImpostorCache.h"
 #include "Sha256.h"
 #include <latch>
 #include <thread>
@@ -217,7 +217,7 @@ int main() {
   std::filesystem::remove_all(cacheDirectory);
   const Data::ContentStore::Config cacheStore{.Directory = cacheDirectory};
   Data::ContentStore rawStore(cacheStore);
-  CrownCache cache(worker, {.Store = cacheStore});
+  Data::ImpostorCache cache(worker, {.Store = cacheStore});
   const std::string key = Sha256Hex(provenance);
   const auto occupied = cacheDirectory + "/." + key + ".0";
   {
@@ -248,18 +248,18 @@ int main() {
     release.wait();
   });
   entered.wait();
-  CHECK(cache.Read(provenance) == CrownCache::Request::Queued,
+  CHECK(cache.Read(provenance) == Data::ImpostorCache::Request::Queued,
         "a cache read posts while its worker is blocked");
-  CHECK(cache.Read(provenance) == CrownCache::Request::Existing,
+  CHECK(cache.Read(provenance) == Data::ImpostorCache::Request::Existing,
         "duplicate pending keys share one request");
-  CHECK(cache.Read(provenance + "changed") == CrownCache::Request::Queued,
+  CHECK(cache.Read(provenance + "changed") == Data::ImpostorCache::Request::Queued,
         "the second pending slot is available");
-  CHECK(cache.Read(provenance + "third") == CrownCache::Request::Full,
+  CHECK(cache.Read(provenance + "third") == Data::ImpostorCache::Request::Full,
         "the pending budget rejects excess requests");
   CHECK(!cache.Take(), "polling returns without waiting for blocked IO");
   release.count_down();
   worker.Wait(blocker);
-  std::vector<CrownCache::Loaded> loaded;
+  std::vector<Data::ImpostorCache::Loaded> loaded;
   const auto loadStarted = std::chrono::steady_clock::now();
   while (loaded.size() < 2 &&
          std::chrono::steady_clock::now() - loadStarted < std::chrono::seconds(5)) {
@@ -278,8 +278,8 @@ int main() {
     if (loaded[0].Atlas) { restored = std::move(loaded[0].Atlas); }
   }
   {
-    CrownCache draining(worker, {.Store = cacheStore});
-    CHECK(draining.Read(provenance) == CrownCache::Request::Queued,
+    Data::ImpostorCache draining(worker, {.Store = cacheStore});
+    CHECK(draining.Read(provenance) == Data::ImpostorCache::Request::Queued,
           "a pending read can be safely drained during cache destruction");
   }
   atlas = std::move(restored);

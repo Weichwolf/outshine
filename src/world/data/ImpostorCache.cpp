@@ -1,4 +1,4 @@
-#include "CrownCache.h"
+#include "ImpostorCache.h"
 #include <memory>
 #include <optional>
 #include <string>
@@ -7,20 +7,20 @@
 #include "Sha256.h"
 #include <algorithm>
 
-namespace outshine {
-CrownCache::CrownCache(Tasks &tasks, const Config &config)
+namespace outshine::Data {
+ImpostorCache::ImpostorCache(Tasks &tasks, const Config &config)
     : Tasks_(&tasks),
       Store_(config.Store),
       MostPending_(config.Pending),
       MostBytes_(config.ReadBytes) {}
 
-CrownCache::~CrownCache() {
+ImpostorCache::~ImpostorCache() {
   for (const auto &pending : Pending_) { Tasks_->Wait(pending.Job); }
 }
 
-bool CrownCache::Publish(const Content::ImpostorAtlas &atlas,
-                         std::string_view provenance,
-                         std::string &error) {
+bool ImpostorCache::Publish(const Content::ImpostorAtlas &atlas,
+                            std::string_view provenance,
+                            std::string &error) {
   auto bytes = atlas.Encode(provenance, error);
   if (!bytes) { return false; }
   if (MostBytes_ == 0 || bytes->size() > MostBytes_) {
@@ -34,7 +34,7 @@ bool CrownCache::Publish(const Content::ImpostorAtlas &atlas,
   return true;
 }
 
-CrownCache::Request CrownCache::Read(std::string provenance) {
+ImpostorCache::Request ImpostorCache::Read(std::string provenance) {
   if (std::ranges::any_of(Pending_, [&](const Pending &pending) {
         return pending.Result->Provenance == provenance;
       })) {
@@ -56,7 +56,7 @@ CrownCache::Request CrownCache::Read(std::string provenance) {
   return Request::Queued;
 }
 
-std::optional<CrownCache::Loaded> CrownCache::Take() {
+std::optional<ImpostorCache::Loaded> ImpostorCache::Take() {
   if (Pending_.empty() || !Tasks_->Done(Pending_.front().Job)) { return std::nullopt; }
   Loaded result = std::move(*Pending_.front().Result);
   Pending_.pop_front();
