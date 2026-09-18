@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <chrono>
+#include <span>
 #include <string>
-#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -25,7 +25,7 @@ constexpr double kFovDeg = 55.0;
 constexpr double kFloorToleranceM = 0.01;
 constexpr double kStampWorthM = 0.25;
 
-[[nodiscard]] double Measured(const std::vector<outshine::Measure> &measures,
+[[nodiscard]] double Measured(std::span<const outshine::Measure> measures,
                               const std::string &what) {
   for (const outshine::Measure &one : measures) {
     if (one.What == what) { return one.How; }

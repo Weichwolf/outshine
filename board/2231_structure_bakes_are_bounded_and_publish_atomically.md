@@ -68,9 +68,11 @@ und beide Ergebnisse sind identisch. Ein entfernter Tile bündelt seine zwei Geb
 genau einem `Massed`-Mesh; null Meshes war ein falscher, korrigierter Testvertrag.
 Der Test beweist die Generatoraggregation, nicht die öffentliche Kandidatenpublikation.
 
-2026-09-17: candidate-owned footprints and pieces remove the active-world handoff from the
-preload critical path. The cited public Floor-Contact executable is not checked in; its former
-3.55-second claim is historical, not current acceptance evidence.
+2026-09-18: `ScoreAFootprintStandsOnALevelFloor` is checked in and exercises the public Engine
+path. Its current run completed preload in 2,894.869 ms against 15 s, reached 4,415 building pads
+and left at most 0.000015 m above a stamped floor or corridor. It proves the current Place budget
+and contact contract; it does not yet expose an intermediate 257-structure candidate to prove
+that no partial aggregate publishes.
 
 2026-09-17: the prior Graz bake-timeout diagnosis was stale. With the candidate path, all
 structure landings complete and the no-vegetation client capture passes: 1,940,223 building

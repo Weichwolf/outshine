@@ -1,6 +1,6 @@
 #include <cstdio>
+#include <span>
 #include <string>
-#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -23,7 +23,7 @@ constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
 constexpr double kSeamToleranceM = 1.0e-3;
 
-[[nodiscard]] double Measured(const std::vector<outshine::Measure> &measures,
+[[nodiscard]] double Measured(std::span<const outshine::Measure> measures,
                               const std::string &what) {
   for (const outshine::Measure &one : measures) {
     if (one.What == what) { return one.How; }
