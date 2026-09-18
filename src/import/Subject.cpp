@@ -1,4 +1,3 @@
-#include <format>
 #include "math/Vec4.h"
 #include "math/Mat4.h"
 #include "Heap.h"
@@ -174,63 +173,9 @@ Subject::JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransfo
   return world * skeleton.InverseBind[joint];
 }
 
-bool Subject::ReadSkinBinding(const Document &document,
-                              const Primitive &primitive,
-                              size_t vertices,
-                              SkinBinding &into) {
-  into.Index.clear();
-  into.Weight.clear();
-  into.Sets = 0;
-  for (;; ++into.Sets) {
-    const std::string which = std::to_string(into.Sets);
-    const int bones = primitive.Find(("JOINTS_" + which).c_str());
-    const int weights = primitive.Find(("WEIGHTS_" + which).c_str());
-    if (bones < 0 && weights < 0) { break; }
-    if (bones < 0 || weights < 0) {
-      return Refuse(std::format(
-          "{}: a primitive on a skinned node carries {}{} and {}{}, and a set without both "
-          "binds no vertex to any joint",
-          document.Path(),
-          bones < 0 ? "no JOINTS_" : "JOINTS_",
-          which,
-          weights < 0 ? "no WEIGHTS_" : "WEIGHTS_",
-          which));
-    }
-    std::vector<double> theseIndices;
-    std::vector<double> theseWeights;
-    if (!document.ReadElements(bones, theseIndices)) {
-      return Refuse(document.Path() + ": JOINTS_" + which +
-                    " does not decode: " + document.Error());
-    }
-    if (!document.ReadElements(weights, theseWeights)) {
-      return Refuse(document.Path() + ": WEIGHTS_" + which +
-                    " does not decode: " + document.Error());
-    }
-    if (theseIndices.size() != vertices * 4 || theseWeights.size() != vertices * 4) {
-      return Refuse(std::format(
-          "{}: JOINTS_{} decodes to {} and WEIGHTS_{} to {} sets over {} vertices, and glTF "
-          "states both are VEC4",
-          document.Path(),
-          which,
-          theseIndices.size() / 4,
-          which,
-          theseWeights.size() / 4,
-          vertices));
-    }
-    into.Index.insert(into.Index.end(), theseIndices.begin(), theseIndices.end());
-    into.Weight.insert(into.Weight.end(), theseWeights.begin(), theseWeights.end());
-  }
-  if (into.Sets == 0) {
-    return Refuse(document.Path() +
-                  ": a primitive on a skinned node carries no JOINTS_0 and no WEIGHTS_0, and a "
-                  "skin without both binds no vertex to any joint");
-  }
-  return true;
-}
-
 bool Subject::BlendJoints(const Document &document,
                           std::span<const AffineTransform> joints,
-                          const SkinBinding &bound,
+                          const VertexSkinBinding &bound,
                           size_t vertices,
                           std::vector<AffineTransform> &out) {
   out.assign(vertices, AffineTransform());
@@ -240,17 +185,16 @@ bool Subject::BlendJoints(const Document &document,
     for (size_t set = 0; set < bound.Sets; ++set) {
       const size_t base = set * vertices * 4 + vertex * 4;
       for (size_t slot = 0; slot < 4; ++slot) {
-        const double share = bound.Weight[base + slot];
+        const double share = bound.Weights[base + slot];
         if (share == 0.0) { continue; }
-        const double named = bound.Index[base + slot];
-        if (!(named >= 0.0) || static_cast<size_t>(named) >= joints.size()) {
+        const uint32_t named = bound.Joints[base + slot];
+        if (static_cast<size_t>(named) >= joints.size()) {
           return Refuse(document.Path() + ": JOINTS_" + std::to_string(set) + " of vertex " +
-                        std::to_string(vertex) + " names joint " +
-                        std::to_string(static_cast<long long>(named)) + " and the skin declares " +
-                        std::to_string(joints.size()));
+                        std::to_string(vertex) + " names joint " + std::to_string(named) +
+                        " and the skin declares " + std::to_string(joints.size()));
         }
         sum += share;
-        const AffineTransform &matrix = joints[static_cast<size_t>(named)];
+        const AffineTransform &matrix = joints[named];
         for (int at = 0; at < 16; ++at) { blended[at] += share * matrix.M[at]; }
       }
     }
@@ -262,16 +206,6 @@ bool Subject::BlendJoints(const Document &document,
     for (int at = 0; at < 16; ++at) { out[vertex].M[at] = blended[at]; }
   }
   return true;
-}
-
-bool Subject::BlendSkinFor(const Document &document,
-                           std::span<const AffineTransform> joints,
-                           const Primitive &primitive,
-                           size_t vertices,
-                           std::vector<AffineTransform> &out) {
-  SkinBinding bound;
-  return ReadSkinBinding(document, primitive, vertices, bound) &&
-         BlendJoints(document, joints, bound, vertices, out);
 }
 
 bool Subject::SuppliedTangentsFor(const Document &document,
@@ -480,12 +414,14 @@ bool Subject::Refuse(std::string why) {
 
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
+                    const DeformationAsset &deformations,
                     const VariantSelection &variant) {
-  return Flatten(document, skeletons, nullptr, nullptr, variant);
+  return Flatten(document, skeletons, deformations, nullptr, nullptr, variant);
 }
 
 bool Subject::Build(const Document &document,
                     std::span<const Skeleton> skeletons,
+                    const DeformationAsset &deformations,
                     std::span<const AffineTransform> pose,
                     std::span<const double> weights,
                     const VariantSelection &variant) {
@@ -500,8 +436,12 @@ bool Subject::Build(const Document &document,
                   " morph weights and the file's nodes carry " +
                   std::to_string(document.MorphWeightsTotal()));
   }
-  return Flatten(
-      document, skeletons, pose.data(), (!weights.empty()) ? weights.data() : nullptr, variant);
+  return Flatten(document,
+                 skeletons,
+                 deformations,
+                 pose.data(),
+                 (!weights.empty()) ? weights.data() : nullptr,
+                 variant);
 }
 
 namespace {
@@ -853,15 +793,23 @@ bool Subject::FlattenMesh(const Document &document,
     return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                   " instances on an accessor this reader cannot decode: " + document.Error());
   }
+  const Mesh &mesh = document.Meshes()[static_cast<size_t>(node.Mesh)];
   for (const AffineTransform &placedWorld : instances) {
-    for (const Primitive &primitive :
-         document.Meshes()[static_cast<size_t>(node.Mesh)].Primitives) {
+    for (size_t primitiveIndex = 0; primitiveIndex < mesh.Primitives.size(); ++primitiveIndex) {
+      const Primitive &primitive = mesh.Primitives[primitiveIndex];
+      const PrimitiveDeformation *deformation =
+          posed.Deformations->Find(static_cast<size_t>(node.Mesh), primitiveIndex);
+      if (deformation == nullptr) {
+        return Refuse(document.Path() + ": native deformation asset has no mesh " +
+                      std::to_string(node.Mesh) + " primitive " + std::to_string(primitiveIndex));
+      }
       ++primitives;
       const Placing under{
           .Node = node,
           .World = world,
           .Placed = placedWorld,
           .Joints = jointMatrices,
+          .Deformation = *deformation,
           .Morph = {.Weights = std::span<const double>(nodeWeights.data(), morphCount),
                     .Count = morphCount},
           .Variant = posed.Variant};
@@ -928,8 +876,14 @@ bool Subject::FlattenPrimitive(const Document &document,
   for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
   std::vector<AffineTransform> &skinned = Scratch_.Skinned;
   skinned.clear();
-  if (under.Node.Skin >= 0 && !BlendSkinFor(document, under.Joints, primitive, vertices, skinned)) {
-    return false;
+  if (under.Node.Skin >= 0) {
+    const VertexSkinBinding &binding = under.Deformation.Skin;
+    if (binding.Vertices != vertices) {
+      return Refuse(document.Path() + ": native skin binding has " +
+                    std::to_string(binding.Vertices) + " vertices for a primitive carrying " +
+                    std::to_string(vertices));
+    }
+    if (!BlendJoints(document, under.Joints, binding, vertices, skinned)) { return false; }
   }
   const VertexPlacement place{.Node = under.Placed,
                               .Skinned = skinned.empty() ? nullptr : skinned.data()};
@@ -971,6 +925,7 @@ bool Subject::CopyDeclaredMaterials(const Document &document, outshine::Geometry
 
 bool Subject::Flatten(const Document &document,
                       std::span<const Skeleton> skeletons,
+                      const DeformationAsset &deformations,
                       const AffineTransform *pose,
                       const double *weights,
                       const VariantSelection &variant) {
@@ -1001,8 +956,11 @@ bool Subject::Flatten(const Document &document,
       return Refuse(document.Path() + ": the declaration " + why);
     }
   }
-  const Posing posed{
-      .Skeletons = skeletons, .Pose = pose, .Weights = weights, .Variant = activeVariant};
+  const Posing posed{.Skeletons = skeletons,
+                     .Deformations = &deformations,
+                     .Pose = pose,
+                     .Weights = weights,
+                     .Variant = activeVariant};
 
   std::vector<int> pending(document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rbegin(),
                            document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rend());

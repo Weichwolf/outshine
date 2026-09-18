@@ -17,6 +17,7 @@
 #include "Viewport.h"
 #include "scene/Camera.h"
 #include "AffineTransform.h"
+#include "DeformationAsset.h"
 #include "Skeleton.h"
 #include "Variant.h"
 
@@ -73,10 +74,12 @@ class Subject {
 public:
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
+                           const DeformationAsset &deformations,
                            const VariantSelection &variant = {});
 
   [[nodiscard]] bool Build(const Document &document,
                            std::span<const Skeleton> skeletons,
+                           const DeformationAsset &deformations,
                            std::span<const AffineTransform> pose,
                            std::span<const double> weights,
                            const VariantSelection &variant = {});
@@ -174,6 +177,7 @@ private:
 
   struct Posing {
     std::span<const Skeleton> Skeletons;
+    const DeformationAsset *Deformations = nullptr;
     const AffineTransform *Pose = nullptr;
     const double *Weights = nullptr;
     int Variant = -1;
@@ -197,6 +201,7 @@ private:
     const AffineTransform &World;
     const AffineTransform &Placed;
     std::span<const AffineTransform> Joints;
+    const PrimitiveDeformation &Deformation;
     Morphing Morph;
     int Variant = -1;
   };
@@ -254,6 +259,7 @@ private:
   [[nodiscard]] bool CopyDeclaredMaterials(const Document &document, outshine::Geometry &made);
   [[nodiscard]] bool Flatten(const Document &document,
                              std::span<const Skeleton> skeletons,
+                             const DeformationAsset &deformations,
                              const AffineTransform *pose,
                              const double *weights,
                              const VariantSelection &variant);
@@ -274,26 +280,11 @@ private:
   [[nodiscard]] static AffineTransform
   JointMatrix(const Skeleton &skeleton, size_t joint, const AffineTransform &world);
 
-  struct SkinBinding {
-    std::vector<double> Index;
-    std::vector<double> Weight;
-    size_t Sets = 0;
-  };
-
-  [[nodiscard]] bool ReadSkinBinding(const Document &document,
-                                     const Primitive &primitive,
-                                     size_t vertices,
-                                     SkinBinding &into);
   [[nodiscard]] bool BlendJoints(const Document &document,
                                  std::span<const AffineTransform> joints,
-                                 const SkinBinding &bound,
+                                 const VertexSkinBinding &bound,
                                  size_t vertices,
                                  std::vector<AffineTransform> &out);
-  [[nodiscard]] bool BlendSkinFor(const Document &document,
-                                  std::span<const AffineTransform> joints,
-                                  const Primitive &primitive,
-                                  size_t vertices,
-                                  std::vector<AffineTransform> &out);
 
   [[nodiscard]] bool FlatNormalsFor(Part &part);
   [[nodiscard]] bool GeneratedTangentsFor(Part &part);
