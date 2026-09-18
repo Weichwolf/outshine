@@ -1,54 +1,68 @@
 Type: defect
 State: active
+Architecture: ready
 Parent: 2105
-Depends: 2231
+Depends:
 Priority: P0
 Area: engine, world, rendering
 Tags: streaming, realtime, ownership
 
 # Ground candidates build in budgeted resumable phases
 
-## Problem
+## Evidence
 
-`Grounds` synchronously prepares a world candidate, patchwork, sheets, classes, roads, earthworks,
-water and GPU geometry. A repeat floor-contact preload returned success after 16.50 s despite a
-15 s budget because the deadline was checked before this final operation. The existing test now
-enforces wall-clock residency and exposes the violation.
+The historical ground operation returned after a 15 s deadline because the deadline
+was checked before synchronous work. The newer floor-contact result is green (WI 2231);
+the missing per-unit bound is still an architectural gap. Lattice's recorded ingestion/
+classification timeout supplies the next regression fixture. Re-measure the current
+path; historical timing alone does not identify today's longest stage.
 
-## Architecture decision
+## Decision
 
-`GroundCandidateBuild` is a move-only engine-thread state machine. It owns an immutable input
-revision, candidate CPU/GPU products, phase-local cursor and cancellation state. Its phases are
-`Prepare`, `Patchwork`, `Classify`, `Routes`, `Earthworks`, `Water`, `Geometry`, `Validate` and
-`Publish`. Each `Advance(budget)` consumes a bounded measured work unit and returns `Pending`,
-`Ready`, `Rejected` or `Cancelled`; only `Publish` transfers the complete candidate to `Live`.
-The active world is read-only throughout all earlier phases.
+Extend the existing private GroundWorldCandidate owner; do not create a parallel world
+transaction. It retains one coherent input revision, candidate CPU/GPU products and
+phase-local continuation cursors. Suggested phase names describe actual operations:
+Prepare, Patchwork, Classify, Routes, Earthworks, Water, Geometry, Validate.
+Advance returns Pending, Ready, Rejected or Cancelled. Ready transfers a complete product
+to the existing engine-thread publication owner; publication is not a second state machine
+phase with a competing Engine::State swap. The active world remains unchanged until that commit.
 
-Worker and GPU completions return to the owning phase with their input revision. A stale or
-cancelled candidate retains its owners until final worker/fence completion, then releases itself
-without changing the active world. The state machine records phase CPU time, pending queue depth
-and candidate CPU/GPU requested bytes without periodic logging or frame-path allocation.
+Every synchronous unit has bounded input size and a measured tail cost. Splitting a large
+function into named phases does not make it budgeted: continue within the longest phase
+by tile/row/batch, preserving algorithmic dependencies and stable reduction order. Never
+split a topology operation at an arbitrary index if its invariant requires the whole set.
+A unit too expensive for the budget requires a continuation or a bounded worker product.
 
-The first candidate starts after admitted terrain/vector coverage. Its completed phases retain only
-terrain, class and material products; class/footprint revisions therefore still restart a finished
-candidate. WI 2224 supplies the separate candidate `BuildingField` and `TilePieces`: bake planning,
-landing and mesh handoff occur there before publication, while the active world remains unchanged.
-This WI owns the remaining bounded scheduling, phase timing and peak-memory proof; it must not
-reintroduce active-world mutation to shorten preload.
+Retain immutable input owners until worker completion; revision changes cancel the old
+candidate rather than splicing new data into its completed phases. Reserve candidate
+memory before dispatch using existing budgets (2228); defer when unavailable, preserve A.
+GPU lifetimes follow existing SDL owners (2190). Do not require an upload fence solely
+for later GPU sampling; CPU reuse/readback needs its proper completion contract (2235).
 
-## Implementation order
+## Bounded implementation
 
-1. **P0, after 2231:** Extract the existing synchronous stages into the named phase owner without
-   changing their algorithms or publication boundary. Add one analytical phase-boundary test first.
-2. Continue the longest measured stage with a cursor. A phase that cannot state a finite unit of
-   work is not admitted; identify and split it before claiming a budget.
-3. Add stale-input, cancellation, GPU-submit failure and retry tests using production candidate
-   operations. Then enforce the unchanged floor-contact and Lattice deadlines with phase telemetry.
+1. Measure per-stage elapsed time and candidate peak bytes in Engine::State::Grounds (src/engine/Laying.cpp),
+   src/engine/GroundWorldCandidate.h, GroundPublication.h and GroundTileUpload.h.
+   Use completion snapshots, no periodic logs. Keep an uninterrupted control path in
+   tests as an oracle for identical native products, not a second production algorithm.
+2. Make the longest measured stage resumable using the existing candidate. A controlled
+   test pauses/resumes it after each safe unit; world A's revision, contact data, geometry
+   and pixels remain unchanged. Do not first extract every stage into speculative classes.
+3. Test stale input, cancellation while work runs, late GPU submission failure and retry.
+   Commit B once through the existing owner; failure retains A. Continue additional stages
+   only where measurements show unbounded work. Integrate admission under WI 2233 later.
 
-## Acceptance
+WI 2231's unfinished public proof is not a code prerequisite. Reuse its candidate fixture
+when available; avoid duplicating engine-owned publication or exposing public test hooks.
+Expected visual result: unchanged completed world; smoother preparation during movement.
 
-- Deterministic phase tests cover initial build, every phase boundary, stale input, cancellation
-  and publish failure; no candidate state leaks into the current world.
-- The unchanged floor-contact Place passes its enforced 15 s wall-clock budget and all floor/road
-  contact checks.
-- Phase CPU time, queue depth and peak candidate memory are measured; lint passes.
+## Acceptance and commands
+
+- [ ] Interrupted and uninterrupted builds have identical final native products; no partial
+      terrain/building/contact revision is visible. Deliberate early publication fails.
+- [ ] Per-unit time distribution, maximum unit size and candidate peak memory are recorded;
+      deadlines checked before and after work report overruns honestly.
+- [ ] Unchanged floor-contact and Lattice 15 s limits pass with contact checks intact.
+- [ ] make format; make suite SUITE=outshine/integration/places/ScoreAFootprintStandsOnALevelFloor;
+      make suite SUITE=outshine/integration/places/ScoreTheLatticeMeetsItselfAtALevelBoundary;
+      added candidate continuation cases through make suite; make lint.

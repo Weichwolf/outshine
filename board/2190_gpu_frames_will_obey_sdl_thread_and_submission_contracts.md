@@ -65,10 +65,10 @@ für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
       Frische Ressourcen sichern Fehleratomarität beim Weltumbau. Upload-Ringe und
       budgetierte inkrementelle Streaming-Updates bleiben in 2149/2124.
 - Subject-Texturupload prüft Image-, Transfer-, Map-, Acquire-, CopyPass-, Submit- und
-  Samplerfehler als expected. Die frühere Behauptung, kein Surface-Slot publiziere Teilbilder,
-  ist falsch: jeder Mip-Level wird separat eingereicht und `BoundImage` besitzt weder Staging
-  noch Fence. WI 2235 ersetzt diese Lücke durch eine gepackte `SampledImage`-Kette und eine
-  asynchrone Weltpublikation. GroundLattice prüft statische Uploads; abgelehnte Height-Pages
+  Samplerfehler als expected. Upload und BindSurface halten lokale Kandidaten bis zum
+  Erfolg aller Schritte. Separate Mip-Submits belegen keine Teilpublikation: SDL ordnet
+  Uploads vor nachfolgenden Commands und gibt Staging verzögert frei (SDL fa2c02b).
+  WI 2235 bündelt die Kette ohne zusätzliche Fence-/Pending-Weltarchitektur. GroundLattice prüft statische Uploads; abgelehnte Height-Pages
   geben ihre Nummer zurück, Sichtbarkeitsfehler erreichen RenderFrame. Der Stage-Test injiziert
   jede Uploadablehnung; Tile-Tabelle und Zähler bleiben stehen. Budgets offen.
 - [ ] Pass- und Ressourcen-Vorbedingungen nach SDL prüfen; Programmierfehler von echten

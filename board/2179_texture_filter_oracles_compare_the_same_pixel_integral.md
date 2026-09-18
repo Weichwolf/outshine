@@ -1,7 +1,8 @@
 Type: bug
 State: active
+Architecture: ready
 Parent: 2171
-Depends: 2219
+Depends:
 Priority: P1
 Area: test, harness, render
 Tags: khronos, measured
@@ -40,7 +41,7 @@ GPU encoding.
 
 ## Implementation order
 
-1. **P1** After WI 2219, make the existing factory-world translator complete and
+1. **P1, independent of 2219:** Make the existing factory-world translator complete and
    reject every undeclared conversion explicitly.
 2. Run `four-texels-per-pixel` through Make. Its analytical integral must reject a
    base-only chain, gamma-space averaging and a deliberately swapped texel.
@@ -49,6 +50,25 @@ GPU encoding.
    integrated case.
 4. Add linear repeat checks for unlit colour, lit metallic-roughness/normal maps and
    an animation sample. WI 2219's first-frame contract is reused, never warmed up.
+
+## Factory translation decision
+
+render_corpus.py already defines kFactoryWorldRadiance but rejects an explicitly named
+factory world. Verify the pinned oracle provenance against that value and Blender's
+prep/in_blender_render.py factory branch. Translate explicit factory and absent world
+consistently only when the declared oracle contract is identical; never infer lighting
+from the produced image. Unknown kinds still fail before client execution. Unit controls
+cover none, uniform, factory, absent and unknown worlds without starting Blender.
+
+## Implementation boundary
+
+Use test/khronos declarations and test/scripts/render_corpus.py; rendering
+continues through outshine-client/public Engine. Translator and analytical controls can
+ship now. Final exact repeat acceptance remains unresolved until WI 2219 is repaired;
+this is not a reason to block translation work or silently mark the entire WI complete.
+Commands: make format; make corpus-render CASES='ABeautifulGame'; make lint.
+Run make corpus-render CASES='SimpleTexture/four-texels-per-pixel'.
+Normal runs never regenerate reference pins or invoke Blender.
 
 ## Acceptance
 

@@ -1,52 +1,67 @@
 Type: defect
 State: active
+Architecture: ready
 Parent: 2105
-Depends: 2231
-Priority: P0
+Depends:
+Priority: P1
 Area: engine, world, streaming
 Tags: scheduling, osm, realtime
 
-# Vector decoding and structure admission share a compute budget
+# Streaming admits bounded compute work with backpressure
 
-## Problem
+## Evidence
 
-The floor-contact Place receives all 48 terrain and 49 vector tiles with no outstanding IO, then
-misses its 15 s residency bound with four structure bakes remaining. Forcing ingestion while vector
-siblings are pending made the same Place worse: 18/22 bakes landed, mean bake cost 5.06 ms, versus
-27/31 and 2.48 ms after vector settlement. Unbounded overlap steals CPU from the critical path.
+Historical floor-contact timeouts do not describe the current state: WI 2231 records
+2,894.869 ms against its unchanged 15 s limit. Its range scheduler already exists.
+The recorded Lattice run still exhausted 15 s with ingestion/classification pending;
+this identifies a regression fixture, not proof of CPU contention or a scheduler cause.
+Measure current phase/queue costs before changing admission. If the delay is entirely
+one synchronous ground stage, repair that unit under WI 2234 before tuning admission.
 
-## Architecture decision
+## Decision
 
-One engine-thread `StreamingAdmission` owns bounded ready queues for vector decode, field
-ingestion and completed structure ranges. Each item has source identity/revision, deterministic
-tile priority, measured previous CPU cost and a cancellation token. The admission decision takes
-one fixed per-frame work budget and selects the highest-priority ready item whose estimated cost
-fits; starvation prevention promotes the oldest-ready item only at deterministic boundaries.
-Workers never mutate the native world. They return a private result; the admission owner validates
-revision and publishes it through the existing candidate boundary. Queue telemetry is a snapshot
-(depth, oldest ready age, admitted count, measured CPU time), sampled by tests or explicit
-diagnostics; it has no periodic frame log or frame-path allocation.
+An engine-thread admission owner schedules existing vector decode, field ingestion and
+structure continuations. Reuse their task/result owners; workers return private products,
+never mutate the published world. Every item has identity, input revision, deterministic
+priority key, cancellation and declared work units. Queue capacity and bytes are bounded.
+At capacity, defer production or coalesce superseded work for the same identity; do not
+silently discard a current required tile. Completion capacity is reserved before dispatch
+so a worker can always return ownership. Cancellation releases products after worker return.
 
-## Implementation order
+Wall-clock estimates may change when work runs, never its contents or merge order.
+Sort accepted inputs by stable source identity before deterministic generation; do not
+promise identical per-frame admission across CPUs or arrival orders. Stale revisions
+are rejected at the existing candidate commit boundary. Publish complete products only.
 
-1. **P0, after 2231:** Introduce the admission record and a deterministic scheduler fixture with
-   reversed arrival order. Accepted native data must remain identical.
-2. Admit vector decode, field ingestion and one completed structure range through the same budget;
-   retain the former world when a revision becomes stale or a task is cancelled.
-3. Establish budgets from recorded slice measurements, then enforce the unchanged 15-second
-   floor-contact and 240-km Lattice preload limits. No arbitrary sleep, worker-count change or
-   timeout increase is a fix.
+A wall-clock deadline cannot preempt a synchronous call. Each admitted unit must have a
+bounded count/size and measured tail cost. An oversized unit becomes a continuation, not
+permanent starvation or an exception that bypasses the budget. Fairness ages ready work
+using engine ticks, with stable tie breaks. Avoid waiting for all unrelated vector siblings.
 
-## Acceptance
+## Implementation order and ownership
 
-- A controlled fixture proves that bounded overlap neither starves vector settlement nor completed
-  structure ranges; changing arrival order preserves accepted native-world data.
-- The floor-contact Place becomes resident within 15 s with unchanged input, geometry and timeout.
-- CPU time, queue bounds and admission decisions are measurable; focused tests and lint pass.
+1. Measure completion snapshots in src/engine/StructureBakes.cpp, StructureBakeTask.cpp
+   and Engine::State's ingestion/ground path (src/engine/Laying.cpp): queue depth/bytes, oldest age, main-thread work and
+   worker time separately. Reproduce Lattice and floor-contact unchanged.
+2. Introduce one private admission record/owner around those existing queues. Preallocate
+   capacity; establish explicit capacity and slice values from those measurements and
+   label provisional choices. The frame target is 1000/60 = 16.67 ms, not a compute-only
+   allowance. Record p50/p95/p99 and overshoot; no hard real-time guarantee from averages.
+3. Test reversed completions, overload, cancellation, stale revisions and a large item
+   among small ones with a controllable clock. Equal final native products and eventual
+   service are required; identical wall-clock scheduling is not.
+4. Integrate resumable ground work from WI 2234 when available. Admission tests and
+   measurement do not depend on WI 2231's remaining public publication proof.
 
-## Current evidence
+## Acceptance and commands
 
-2026-09-18: `ScoreTheLatticeMeetsItselfAtALevelBoundary` exhausted its unchanged 15 s preload
-window with `world ingestion pending, terrain classification pending`. It is currently reported as
-unprepared, not accepted. The case has 240 km sight and is the controlled regression to use for
-admission timing after the atomic multi-range candidate fixture in WI 2231 exists.
+- [ ] Bounded queue counts/bytes, no blocked completion producer, eventual service under
+      sustained admissible load; overload defers work without losing required coverage.
+- [ ] Reordered completion produces identical accepted native data; an intentionally stale
+      result is rejected and cannot overwrite the newer candidate.
+- [ ] Unchanged floor-contact and Lattice cases meet their declared 15 s budgets; compare
+      cold/warm runs and disclose IO separately. No sleeps or increased timeouts.
+- [ ] make format; make suite SUITE=outshine/src/engine/StructureBakeTask;
+      make suite SUITE=outshine/integration/places/ScoreTheLatticeMeetsItselfAtALevelBoundary;
+      make suite SUITE=outshine/integration/places/ScoreAFootprintStandsOnALevelFloor;
+      added admission cases through make suite; make lint.

@@ -1,5 +1,6 @@
 Type: defect
 State: active
+Architecture: ready
 Parent: 2105
 Depends:
 Priority: P0
@@ -46,8 +47,10 @@ The production scheduler already carries `StructureBakeProgress`, takes 64 struc
 and runs at most four ranges per task. Prove the existing contract before changing its constants.
 
 1. **P0-A:** Add a deterministic public-Engine fixture with world A and 257 structures for B.
-   After every one of the first four completed ranges, read A's footprint set, pieces, revision
-   and GPU output. All must remain A. Only final completion may publish B.
+   Hold worker completion at an internal deterministic test barrier; observe the public
+   state after each consumed completion (up to four ranges share one task). Read A's
+   footprint set, pieces, revision and GPU output; all remain A until complete B commits.
+   Do not expose worker-owned intermediate ranges or add a production public stepping API.
 2. **P0-B:** Run the same input as an uninterrupted one-shot generator control. Source ordering,
    accepted structures and final native products must match exactly.
 3. **P0-C:** Expose range count, maximum structures/range, maximum range CPU time and final
@@ -64,6 +67,17 @@ and runs at most four ranges per task. Prove the existing contract before changi
 - Per-range structure and elapsed-work limits are measured. The unchanged floor-contact Place
   becomes resident within 15 s without reducing geometry or extending its timeout.
 - Small, empty and rejected structures preserve existing output/error contracts; lint passes.
+
+## Files and gates
+
+src/engine/StructureBakeTask.cpp, StructureBakes.cpp, GroundWorldCandidate.h and
+StructureTilePublication.h own private progress and publication. Reuse these owners.
+Tests belong under test/outshine/include/Outshine/; analytical generator controls under
+src/generators/building/StructureBake. 64 structures bounds count, not elapsed time:
+one complex structure and final clustering need separate maximum/percentile measurements.
+Commands: make format; make suite SUITE=outshine/src/generators/building/StructureBake;
+make suite SUITE=outshine/integration/places/ScoreAFootprintStandsOnALevelFloor;
+run the added public candidate case through make suite; make lint.
 
 ## Measurement
 

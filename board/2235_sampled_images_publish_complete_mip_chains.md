@@ -1,54 +1,62 @@
-Type: bug
+Type: refactor
 State: active
+Architecture: ready
 Parent: 2223
-Depends: 2190, 2223
-Priority: P0
+Depends:
+Priority: P1
 Area: render, engine, test
 Tags: gpu, ownership, state
 
-# Sampled images publish complete immutable mip chains
+# Sampled image mip chains use one transactional upload
 
-## Defect
+## Evidence and correction
 
-`SubjectResidency::UploadMip` allocates one staging buffer and submits one raw
-command buffer per level. `BoundImage` retains only texture and sampler, then
-`SubjectDraw::BindSurface` makes it bindable immediately. A failing later level can
-leave a partially initialized image; no owner represents submitted-but-incomplete
-upload work. SDL command ordering cannot replace an explicit engine publication and
-lifetime contract.
+`SubjectResidency::UploadMip` allocates and submits once per level. `Upload` owns a
+local `BoundImage` and returns it only after every level and sampler succeeds.
+`SubjectDraw::BindSurface` likewise builds a local slot. A late failure destroys the
+candidate; separate mip submissions alone do not prove partial publication.
+
+Reference: ../SDL at fa2c02b, include/SDL3/SDL_gpu.h, SDL_UploadToGPUTexture and
+SDL_ReleaseGPUTransferBuffer. Subsequent commands see completed uploads; release is
+GPU-deferred by SDL. An application fence is not required solely to sample this image
+or release its staging owner. This replaces the former mandatory PendingSampledImage
+and per-image fence design. Existing synchronous callers and Result contracts stay.
+WI 2219's differing first frame remains a separate, unexplained defect.
 
 ## Decision
 
-Replace `BoundImage` with move-only `SampledImage`. It owns texture, sampler, one
-packed upload buffer and its submission fence until completion. Encode every mip into
-one aligned upload allocation; record all levels in one copy pass and submit exactly
-once. Any allocation/map/copy/submit failure destroys only the candidate and exposes
-no image. `static_assert` requires nonthrowing moves for the published owner.
+Keep the existing move-only texture/sampler owner and WorldContent commit boundary.
+Prepare the complete encoded chain privately; pack levels in one checked allocation,
+record one copy pass and submit once per image. Publish only after submit and sampler
+creation succeed. A following draw uses SDL ordering on the same device/owner thread.
+Release staging through its existing RAII wrapper after submission; never map or reuse
+released storage. Fences remain appropriate for CPU readback and explicit storage reuse,
+not an additional asynchronous public world state in this change.
 
-`WorldContent` candidates may contain `PendingSampledImage` products. WI 2223 owns
-the only publication point and polls their fences on the render thread; it never
-waits in a frame. Until every required image is ready, the previous published world
-remains drawable. First declaration reports a defined pending/no-world outcome rather
-than sampling a partial product. Completion performs one nonthrowing world swap.
-Cancellation, device loss and shutdown release fences and staging on their owning
-thread; stale completions cannot publish over a newer revision.
+Check size arithmetic before allocating or narrowing to SDL uint32 fields. Validate
+per-level dimensions, offsets, format texel alignment and row/layer layout against SDL.
+Retain linear-light colour reduction and direction-map normalization exactly. An empty
+or invalid source follows the existing validated fallback/error contract, not silent
+truncation. Public callers still receive either a complete candidate or an error.
 
-## Implementation order
+## Bounded implementation
 
-1. Add packed-chain copy recording and failure injection for each level boundary.
-2. Add `SampledImage` lifetime/fence ownership and prove destruction before and after
-   completion is safe.
-3. Integrate the pending product into the existing `WorldContent` candidate from
-   WI 2223; do not add a second transaction framework in SubjectDraw, WorldCandidate
-   or the public Engine facade.
-4. Prove A remains visible while B uploads, B appears once only after all image fences,
-   B failure keeps A, and immediate B retry succeeds. Measure no GPU wait or unbounded
-   allocation in the frame path.
+1. In src/render/stages/SubjectResidency.{h,cpp}, replace per-level UploadMip submissions
+   with a private packed-chain builder and one upload operation. Reuse OwnedTransfer,
+   OwnedTexture and BoundImage; no new renderer transaction framework or public API.
+2. Keep src/render/stages/SubjectDraw.cpp slot commit atomic; inject allocation, map,
+   acquire, submit and sampler failures, including after earlier images succeeded.
+3. Prove public replacement A -> rejected B -> successful B preserves A's material
+   handles, revision and linear pixels on failure. Reuse SceneState candidate tests.
 
 ## Acceptance
 
-- [ ] No material table can bind a partial mip chain.
-- [ ] One image chain has one upload submission and retains staging through its fence.
-- [ ] A→pending-B→B, late upload failure, cancellation, shutdown and stale completion
-      preserve ownership and revision contracts through public Engine tests.
-- [ ] Device injection, relevant public tests and `make lint` pass.
+- [ ] Exactly one staging allocation and copy submission per nonempty image chain;
+      odd sizes, one texel, non-square images and final 1x1 level have correct readback.
+- [ ] Late failure publishes no slot/world and immediate retry succeeds without leaks.
+- [ ] Existing mip texels, sampling and pixels match; deliberately corrupting one level
+      makes the readback oracle fail. No fence wait or warm-up frame is introduced.
+- [ ] Record upload bytes, submissions and peak temporary bytes before/after; this
+      establishes overhead reduction, not a bounded per-frame streaming budget (2149).
+- [ ] make format; make suite SUITE=outshine/src/render/device/FilteredMipSampling;
+      relevant existing public candidate/failure cases; make lint.
