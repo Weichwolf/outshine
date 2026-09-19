@@ -37,74 +37,25 @@ leave the same coupling and is not acceptance.
 - src/engine/: public screenshot orchestration over renderer readback; PNG encoding/IO
   stays outside runtime scene and renderer state. Preserve public saveScreenshot errors.
 
-## First complete implementation slice
+## Current boundary
 
-1. Extract Live's Piece/HeightPage storage, free lists and source byte accounting into
-   the scene resource owner inside WorldContent. Move existing algorithms unchanged;
-   use generation handles and keep data alive until their last renderer use completes.
-2. Route PlacePiece/ReleasePiece/SetPieceInstances and height-page operations through that
-   owner. Migrate TilePieces, CrownPieces and HeightSheets to its narrow concrete API;
-   no generic service locator, callback per field or compatibility Live reference.
-3. Preserve atomic replacement: prepare candidate bindings/resources, validate, then use
-   the existing complete-world commit. A rejected candidate cannot release active handles.
-   Preserve transferred handle identities across candidate publication as existing tests require;
-   only released/reused slots invalidate their old generation. Do not redefine that contract.
-4. Migrate mirrored internal tests and reaches declarations in the same commit. Remove
-   migrated Live fields/methods. Then take the next owner above as a separate full slice.
+`Render::SceneResources` owns piece and height-page sources, generation handles, registered native
+materials, terrain bindings, ground classification and candidate restoration. `SceneRenderer`
+owns camera binding and submitted pose history. `world/sky` owns atmosphere integration/cache.
+`FrameCapture` owns readback, PNG encoding and screenshot IO. TilePieces, CrownPieces, WorldCrowns
+and HeightSheets use these owners directly; none reaches Live. Candidate failure and publication
+preserve complete active resources. Native Geometry remains beside resolved material slots because
+its images back borrowed texture pixels.
 
-Before implementation activate this WI in its own commit. Files: src/engine/Live.{h,cpp},
-WorldCandidate.h, TilePieces.*, CrownPieces.*, HeightSheets.* and src/render/SceneRenderer.*.
-Reuse SceneState/WorldContent from 2223; move ResourceHandle.h to the owning lower tier; no dependency on its remaining
-proofs. Renderer cannot include engine headers. WI 2237 uses this same resource boundary;
-it must not invent a competing one. No new threads or algorithm changes in this slice.
+## Next complete slice
 
-`Render::SceneResources` now owns piece CPU sources, resident IDs, generation slots, free-list
-reuse and atomic instance batches inside `SceneRenderer::WorldContent`. Candidate creation copies
-only source state, then rebuilds candidate GPU residents; rejection leaves the published owner
-untouched and publication moves the complete owner. Live delegates piece operations and no longer
-stores piece slots. The same owner now holds height-page sources and handles, terrain-tile bindings
-and ground-grid parameters. It translates native `TerrainTile` bindings into GPU instances and
-restores the complete terrain resource set inside a world candidate. `HeightSheets` depends on
-`SceneRenderer` instead of `Live`; all migrated height-page and terrain forwarding methods and
-state have been removed from `Live`. `TilePieces`, `CrownPieces` and `WorldCrowns` use
-`SceneRenderer` directly and no longer include or store Live.
-
-## Registered piece material decision
-
-`SubjectMaterial` contains borrowed pixel pointers, so copying resolved slots without their native
-`Geometry` source is invalid. The next slice moves registered piece material sources, resolved slots
-and registered surface-to-slot mapping together into WorldContent. Candidate copying clones each
-source and resolves pointers against the clone. Publication uploads the base subject table first,
-then appends registered slots and publishes native and registered mappings independently. Any
-resolve, material upload or piece upload failure abandons the whole candidate; it must not append to
-the active table. SceneResources then exposes one registration operation returning a registered
-surface index. CrownPieces uses that operation plus piece handles and no longer includes Live.
-
-Implemented: SceneResources retains each native Geometry beside its resolved slots, clones and
-re-resolves sources for candidates, appends subject and glass materials with rollback, and restores
-registered mappings before resident pieces. Live supplies only its base material table and owns no
-registered sources or indices. The existing native-growth pixel proof verifies that registered
-images and handles survive candidate publication while base slot indices change.
-
-Frame readback validation, float-buffer selection, PNG encoding and filesystem output now live in
-the engine FrameCapture boundary over SceneRenderer. Public Engine methods call it directly; Live
-no longer exposes readback, settling or screenshot IO. The implementation shares Framing.cpp with
-the public orchestration because separating the two archive members creates a Mach-O static-archive
-pull cycle; FrameCapture.h remains the narrow internal contract.
-
-Ground classification words and palette now share SceneResources ownership with height pages,
-grid and terrain tiles. Candidate copying and one RestoreGroundResources operation rebuild the
-complete ground GPU state. Live retains neither classification sources nor a forwarding API; its
-ownership proof moved beside SceneResources.
-
-The physical atmosphere model, CPU integration and exact-state cache now belong to world/sky.
-Render consumes the shared medium contract; Live only translates declarations and lighting output.
-Render owners now hold camera binding state and submitted subject-pose history across replacement.
-
-Do not let SceneResources duplicate Live's complete import-facing SurfaceTable. The base table is
-an input to scene publication until its separate extraction; registered generated materials are an
-owned extension with a distinct index domain. SubjectDraw keeps the two mappings separate. Retain
-the native Geometry sources because their images back SubjectTexture pointers and candidate rebuilds.
+`Live` still owns subject import/playback, surface resolution, UI overlay composition, render-plan
+selection and scene orchestration in 443/1123 lines. Inspect every remaining member by owner. Move
+UI overlay state/composition to the engine UI session and base subject material preparation beside
+the native content asset without duplicating `SurfaceTable`. Preserve declaration rollback and
+borrowed image lifetime. Then rename the reduced coordinator and `Live.{h,cpp}` to `RuntimeScene`;
+migrate all callers/tests in one step and leave no alias or compatibility header. A name-only move
+before those responsibilities are separated does not satisfy this slice.
 
 ## Acceptance
 
@@ -113,7 +64,7 @@ the native Geometry sources because their images back SubjectTexture pointers an
       coherent; old owner destruction cannot clear the successor's resources.
 - [x] Stale handle after release/reuse is rejected; failed bulk instance update is atomic.
 - [x] Repeated replacement has bounded retained bytes and unchanged completed-frame pixels.
-- [ ] make format; make suite SUITE=outshine/include/Outshine; focused resource lifetime
-      suites under test/outshine/src/render/scene/SceneResources (PieceHandlesSurviveWorldReplacement,
-      PieceInstanceBatchRejectsPartialUpdates, GroundResourcesSurviveWorldPublication); make lint. Use existing client captures for
-      before/after PNG checks; record existing WI 2219 failures separately, never mask them.
+- [x] Focused SceneResources lifetime suites and make lint pass; the wider public suite retains
+      three exact texture-repeat failures owned by WI 2179.
+- [ ] RuntimeScene owns only coordination; UI and base subject material owners have focused
+      rollback/lifetime tests, public render behavior is unchanged, and make lint passes.
