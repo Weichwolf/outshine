@@ -166,7 +166,7 @@ public:
 
   [[nodiscard]] double FocalPx() const { return FocalPx_; }
 
-  [[nodiscard]] Detail Coarseness() const { return Coarseness_; }
+  [[nodiscard]] LevelOfDetail Coarseness() const { return Coarseness_; }
 
   [[nodiscard]] BuildingScratch &Scratch() { return Scratch_; }
 
@@ -272,7 +272,7 @@ private:
   Vec3 Origin_, East_, North_, Up_;
   double ReachM_ = 0.0;
   double FocalPx_ = 0.0;
-  Detail Coarseness_ = Detail::Fine;
+  LevelOfDetail Coarseness_ = LevelOfDetail::Fine;
 };
 
 class FoundationGround {
@@ -906,7 +906,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
     const double highM = s.TopM() - s.SoleM;
     const double asDetailed = std::min(ArchitectureReachM(focalPx),
                                        FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
-    if (site.Coarseness() != Detail::Fine || outM > asDetailed) {
+    if (site.Coarseness() != LevelOfDetail::Fine || outM > asDetailed) {
       Box(s, Hull(s.Ring), site);
       return;
     }

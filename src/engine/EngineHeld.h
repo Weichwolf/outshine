@@ -436,7 +436,7 @@ struct Engine::State {
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool Composes();
   bool Grows(double atLat, double atLon);
-  [[nodiscard]] bool GrowsOver(const Generators::Tile &region, Generators::Detail coarseness);
+  [[nodiscard]] bool GrowsOver(const Generators::Tile &region, LevelOfDetail coarseness);
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
   [[nodiscard]] bool Stood();
   void HandsPiecesOver();

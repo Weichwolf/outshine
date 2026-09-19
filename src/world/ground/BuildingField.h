@@ -17,7 +17,7 @@
 #include "TileRanges.h"
 #include "TileWatermark.h"
 
-#include <generation/Generate.h>
+#include <scene/LevelOfDetail.h>
 
 namespace outshine::Ground {
 
@@ -34,7 +34,7 @@ public:
     HeightSource Source = HeightSource::Default;
     Frontage Street;
 
-    Generators::Detail Coarseness = Generators::Detail::Fine;
+    LevelOfDetail Coarseness = LevelOfDetail::Fine;
   };
 
   struct Baked {

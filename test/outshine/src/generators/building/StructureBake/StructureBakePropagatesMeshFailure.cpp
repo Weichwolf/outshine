@@ -24,7 +24,7 @@ public:
   }
 
   mutable size_t Calls = 0;
-  mutable outshine::Generators::Detail LastCoarseness = outshine::Generators::Detail::Fine;
+  mutable outshine::LevelOfDetail LastCoarseness = outshine::LevelOfDetail::Fine;
 
 private:
   outshine::StructureMeshError Error_;
@@ -86,10 +86,10 @@ int main() {
   const auto distantResult =
       Generators::BakeStructures(distant, *heights, distantMesher, *distantScratch, distantOutput);
   CHECK(distantResult, "a distant tile finishes its bake");
-  CHECK(distantMesher.Calls == 1 && distantMesher.LastCoarseness == Generators::Detail::Massed,
+  CHECK(distantMesher.Calls == 1 && distantMesher.LastCoarseness == LevelOfDetail::Massed,
         "a distant tile batches its buildings into one massed mesh");
   CHECK(distantOutput.Prints.size() == 2, "a distant tile retains every footprint");
-  CHECK(distantOutput.Prints.front().Coarseness == Generators::Detail::Massed,
+  CHECK(distantOutput.Prints.front().Coarseness == LevelOfDetail::Massed,
         "a distant building uses massed geometry");
 
   RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);

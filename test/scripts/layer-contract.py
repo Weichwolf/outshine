@@ -23,19 +23,8 @@ PUBLIC_TIERS = {
 }
 
 KNOWN_PUBLIC_FINDINGS = {
-    ('world/ground/GroundStack.cpp', target): 2240
-    for target in ('actor', 'audio', 'engine', 'generators', 'render', 'scenario')
-} | {
-    ('world/ground/BuildingField.cpp', 'generators'): 2240,
-    ('engine/streaming/StructureBuildQueue.cpp', 'actor'): 2240,
-    ('engine/streaming/StructureBuildQueue.cpp', 'audio'): 2240,
-    ('engine/streaming/StructureBuildQueue.cpp', 'scenario'): 2240,
-} | {
-    ('generators/Shipped.cpp', target): 2241
-    for target in ('actor', 'audio', 'engine', 'render', 'scenario')
-} | {
-    ('generators/road/Corridors.cpp', target): 2241
-    for target in ('actor', 'audio', 'engine', 'render', 'scenario')
+    ('generators/Shipped.cpp', 'scenario'): 2241,
+    ('generators/road/Corridors.cpp', 'scenario'): 2241,
 }
 
 
@@ -176,12 +165,13 @@ def main():
     failures = [failure for failure in violations if failure not in known]
     stale = sorted(set(known) - set(violations))
     failures.extend(f'stale known finding: {finding}' for finding in stale)
-    for finding in sorted(set(violations) & set(known)):
+    present_known = set(violations) & set(known)
+    for finding in sorted(present_known):
         print(f'KNOWN WI {known[finding]}: {finding}')
     for failure in failures:
         print(failure)
     print(f'{len(graph)} tiers, {len(commands)} compile commands, '
-          f'{len(public_edges)} public edges, {len(violations) - len(failures)} known findings, '
+          f'{len(public_edges)} public edges, {len(present_known)} known findings, '
           f'{len(failures)} violations')
     print('NOT COVERED: preprocessor conditionals, runtime coupling')
     return int(bool(failures))

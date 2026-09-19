@@ -110,10 +110,10 @@ bool Engine::State::Grows(double atLat, double atLon) {
   }
   return GrowsOver(Generators::Tile::Of(World.Stack.Vectors()->Zoom(),
                                         {.LongitudeDeg = atLon, .LatitudeDeg = atLat}),
-                   Generators::Detail::Fine);
+                   LevelOfDetail::Fine);
 }
 
-bool Engine::State::GrowsOver(const Generators::Tile &region, Generators::Detail coarseness) {
+bool Engine::State::GrowsOver(const Generators::Tile &region, LevelOfDetail coarseness) {
   Generators::Fields stands;
   stands.Vectors = World.Stack.Vectors();
   stands.Footprints = &World.Stack.Footprints();
@@ -246,7 +246,9 @@ bool Engine::State::Composes() {
   const std::span<const Data::SourceProvider> providers =
       declared.Providers.empty() ? Data::ShippedProviders() : std::span(declared.Providers);
   Collecting say;
-  if (!World.Stack.Opened() && !World.Stack.Open(Session.Under,
+  const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
+                                         .Cache = Session.Under.Cache};
+  if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
                                                  providers,
                                                  {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                                                  *World.Wire,

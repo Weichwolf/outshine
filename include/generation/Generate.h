@@ -13,6 +13,7 @@
 
 #include "Earth.h"
 #include "scene/Geometry.h"
+#include "scene/LevelOfDetail.h"
 
 namespace outshine::Generators {
 
@@ -44,31 +45,6 @@ protected:
   HeightSampler() = default;
 };
 
-/// Representation classes a generator can produce. These labels do not prescribe distance
-/// thresholds or prove geometric error bounds; the caller must assess the resulting product.
-enum class Detail : uint8_t {
-  Fine,    ///< Full generator detail.
-  Shell,   ///< Exterior shell with secondary surface geometry omitted.
-  Massed,  ///< Aggregated groups preserving their coarse volume.
-  Skyline, ///< Coarse silhouette representation.
-};
-
-/// Map a relative tile rung to a bounded representation class.
-/// @param rungsCoarser Rungs relative to the finest tile; nonpositive selects Fine.
-/// @return Fine, Shell, Massed, or Skyline, saturating at Skyline from rung three onward.
-[[nodiscard]] constexpr Detail DetailAtRung(int rungsCoarser) noexcept {
-  if (rungsCoarser <= 0) { return Detail::Fine; }
-  if (rungsCoarser == 1) { return Detail::Shell; }
-  if (rungsCoarser == 2) { return Detail::Massed; }
-  return Detail::Skyline;
-}
-
-static_assert(DetailAtRung(-1) == Detail::Fine, "a finer rung than the finest is still the finest");
-static_assert(DetailAtRung(0) == Detail::Fine);
-static_assert(DetailAtRung(1) == Detail::Shell);
-static_assert(DetailAtRung(2) == Detail::Massed);
-static_assert(DetailAtRung(9) == Detail::Skyline, "every rung beyond is the horizon");
-
 /// Allowed pinhole-projected geometric error, in pixels. One pixel is a quality policy,
 /// not a guarantee of perceptual invisibility, silhouette stability or material fidelity.
 inline constexpr double kErrorPx = 1.0;
@@ -92,13 +68,6 @@ inline constexpr double kErrorPx = 1.0;
 /// @param one Valid representation class.
 /// @param two Valid representation class.
 /// @return The class with the greater coarseness; does not validate enum values.
-[[nodiscard]] constexpr Detail Coarser(Detail one, Detail two) noexcept {
-  return static_cast<uint8_t>(one) > static_cast<uint8_t>(two) ? one : two;
-}
-
-static_assert(Coarser(Detail::Fine, Detail::Massed) == Detail::Massed);
-static_assert(Coarser(Detail::Skyline, Detail::Shell) == Detail::Skyline);
-
 /// Borrowed, case-sensitive generator setting; values are not parsed or normalized.
 /// Both views remain valid only during make. Copy their characters to retain them.
 /// The receiving generator defines supported names, units, duplicates and value syntax.
@@ -119,7 +88,7 @@ struct Request {
   std::span<const Parameter> Parameters; ///< Borrowed ordered settings; valid only for this call.
   uint64_t Seed = 0; ///< Root seed for reproducible choices with unchanged input data.
   const HeightSampler *Ground = nullptr; ///< Borrowed terrain provider, or nullptr if unavailable.
-  Detail Coarseness = Detail::Fine; ///< Requested representation; support is generator-specific.
+  LevelOfDetail Coarseness = LevelOfDetail::Fine; ///< Requested representation class.
 };
 
 /// Polymorphic CPU-content producer registered by borrowed address.

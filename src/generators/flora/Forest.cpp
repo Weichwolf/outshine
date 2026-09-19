@@ -76,21 +76,21 @@ namespace {
 constexpr double kSpacingPerRung = 2.0;
 constexpr double kExpectedSkylineSpacingScale = 8.0;
 
-[[nodiscard]] constexpr double SpacedFor(Detail coarseness) {
+[[nodiscard]] constexpr double SpacedFor(LevelOfDetail coarseness) {
   double spacing = 1.0;
   for (int rung = 0; rung < static_cast<int>(coarseness); ++rung) { spacing *= kSpacingPerRung; }
   return spacing;
 }
 
-static_assert(SpacedFor(Detail::Fine) == 1.0);
-static_assert(SpacedFor(Detail::Shell) == 2.0);
-static_assert(SpacedFor(Detail::Massed) == 4.0);
-static_assert(SpacedFor(Detail::Skyline) == kExpectedSkylineSpacingScale,
+static_assert(SpacedFor(LevelOfDetail::Fine) == 1.0);
+static_assert(SpacedFor(LevelOfDetail::Shell) == 2.0);
+static_assert(SpacedFor(LevelOfDetail::Massed) == 4.0);
+static_assert(SpacedFor(LevelOfDetail::Skyline) == kExpectedSkylineSpacingScale,
               "the horizon stands them eight steps apart");
 
 }
 
-Forest::Lattice Forest::Of(const Tile &region, Detail coarseness) {
+Forest::Lattice Forest::Of(const Tile &region, LevelOfDetail coarseness) {
   Lattice l;
   const double cellM = kCellM * SpacedFor(coarseness);
   l.Cols = static_cast<int>(std::lround(region.SpanEm() / cellM));

@@ -26,11 +26,12 @@ public:
   };
 
   static std::optional<Ground> Of(const Tile &region, const Snapshot &snapshot);
-  static std::optional<Ground> Of(const Tile &region, const Snapshot &snapshot, Detail coarseness);
+  static std::optional<Ground>
+  Of(const Tile &region, const Snapshot &snapshot, LevelOfDetail coarseness);
 
   [[nodiscard]] const Tile &Where() const noexcept { return Region_; }
 
-  [[nodiscard]] Detail Coarseness() const noexcept { return Coarseness_; }
+  [[nodiscard]] LevelOfDetail Coarseness() const noexcept { return Coarseness_; }
 
   [[nodiscard]] double HeightAslM(EastNorth at) const noexcept { return Patch_->HeightAslM(at); }
 
@@ -51,7 +52,7 @@ public:
   [[nodiscard]] size_t FeatureHeapBytes() const noexcept { return Features_->HeapBytes(); }
 
 private:
-  Ground(const Tile &region, const Snapshot &snapshot, Detail coarseness);
+  Ground(const Tile &region, const Snapshot &snapshot, LevelOfDetail coarseness);
 
   Tile Region_;
   std::shared_ptr<const GroundPatch> Patch_;
@@ -59,7 +60,7 @@ private:
   std::shared_ptr<const FeatureField> Features_;
   std::shared_ptr<const GroundTable> Table_;
   Vec3 AnchorEcef_;
-  Detail Coarseness_ = Detail::Fine;
+  LevelOfDetail Coarseness_ = LevelOfDetail::Fine;
 };
 
 }

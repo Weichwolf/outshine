@@ -2,7 +2,7 @@ Type: refactor
 State: ready
 Architecture: ready
 Parent: 2139
-Depends: 2240
+Depends:
 Priority: P0
 Area: generators, scenario, diagnostics, include, test
 Tags: api, generators, modules

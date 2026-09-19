@@ -17,7 +17,7 @@
 
 namespace outshine::Ground {
 
-bool GroundStack::Open(const Roots &under,
+bool GroundStack::Open(const World::StoragePaths &under,
                        std::span<const Data::SourceProvider> providers,
                        LongitudeLatitude focus,
                        Data::Transport &wire,

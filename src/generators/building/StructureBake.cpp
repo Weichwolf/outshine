@@ -302,7 +302,7 @@ struct Lumped {
   double BaseSum = 0.0, SeatSum = 0.0, HeightSum = 0.0;
   int Count = 0;
   double PitchedAreaM2 = 0.0, RoofAreaM2 = 0.0;
-  Detail Level = Detail::Fine;
+  LevelOfDetail Level = LevelOfDetail::Fine;
 };
 
 struct Spread {
@@ -313,7 +313,7 @@ struct Standing {
   double BaseM = 0.0, SeatM = 0.0, HeightM = 0.0;
   double RoofAreaM2 = 0.0;
   bool Pitched = false;
-  Detail Level = Detail::Fine;
+  LevelOfDetail Level = LevelOfDetail::Fine;
 };
 
 void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cellM) {
@@ -537,18 +537,18 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   fp.FootM = static_cast<float>(base);
   fp.SeatM = static_cast<float>(seat);
 
-  Detail level = Detail::Fine;
+  LevelOfDetail level = LevelOfDetail::Fine;
   if (Unseen(std::max(kArchitectureM, statedM), raw.FocalPx, awayAtLeastM)) {
-    level = Detail::Shell;
+    level = LevelOfDetail::Shell;
   }
-  if (level == Detail::Shell &&
+  if (level == LevelOfDetail::Shell &&
       Unseen(0.5 * raw.TileSpanM / kBlocksPerTile, raw.FocalPx, awayAtLeastM)) {
-    level = Detail::Massed;
+    level = LevelOfDetail::Massed;
   }
   fp.Coarseness = level;
   out.Prints.push_back(fp);
 
-  if (level >= Detail::Massed) {
+  if (level >= LevelOfDetail::Massed) {
     Lump(lumps,
          {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
          {.BaseM = base,

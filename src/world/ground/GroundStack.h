@@ -22,7 +22,7 @@
 #include "VegetationTemplates.h"
 #include "WaterField.h"
 
-#include <Outshine.h>
+#include <world/WorldStorage.h>
 
 namespace outshine {
 class LogSink;
@@ -44,7 +44,7 @@ public:
   GroundStack(const GroundStack &) = delete;
   GroundStack &operator=(const GroundStack &) = delete;
 
-  [[nodiscard]] bool Open(const Roots &under,
+  [[nodiscard]] bool Open(const World::StoragePaths &under,
                           std::span<const Data::SourceProvider> providers,
                           LongitudeLatitude focus,
                           Data::Transport &wire,

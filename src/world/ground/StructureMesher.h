@@ -11,7 +11,7 @@
 
 #include "math/Vec3.h"
 
-#include <generation/Generate.h>
+#include <scene/LevelOfDetail.h>
 
 #include "StoredVertex.h"
 #include "TileMeshes.h"
@@ -83,7 +83,7 @@ struct StructurePlan {
 
   double FocalPx = 0.0;
 
-  Generators::Detail Coarseness = Generators::Detail::Fine;
+  LevelOfDetail Coarseness = LevelOfDetail::Fine;
 
   double PitchedShare = kPitchedShareUnknown;
 };
