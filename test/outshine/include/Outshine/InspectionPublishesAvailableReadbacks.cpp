@@ -43,22 +43,22 @@ int main() {
           peak = std::max(peak, static_cast<int>(pixels[at + channel]));
         }
       }
-      const auto find = [&](std::string_view name) -> const Measure * {
+      const auto find = [&](std::string_view name) -> const DiagnosticSample * {
         for (const auto &measure : engine.measures()) {
-          if (measure.What == name) { return &measure; }
+          if (measure.Name == name) { return &measure; }
         }
         return nullptr;
       };
       const auto *presented = find("the brightest the presented frame shows");
-      CHECK(presented && presented->How == peak && presented->Unit == "of 255",
+      CHECK(presented && presented->Value == peak && presented->Unit == "of 255",
             "inspection publishes RGB peak with byte units, excluding alpha");
       const auto *exposure = find("the exposure the picture applied");
-      CHECK(exposure && std::isfinite(exposure->How) && exposure->How > 0,
+      CHECK(exposure && std::isfinite(exposure->Value) && exposure->Value > 0,
             "inspection publishes a finite positive applied exposure");
       CHECK(engine.inspect().has_value(), "unchanged frame can be inspected repeatedly");
       CHECK(engine.renderer().render({}).has_value(), "empty scene publishes render metrics");
       const auto *emptyDraws = find("subject draws");
-      CHECK(emptyDraws && emptyDraws->How == 0, "empty scene publishes zero subject draws");
+      CHECK(emptyDraws && emptyDraws->Value == 0, "empty scene publishes zero subject draws");
       Geometry geometry;
       Material material;
       material.Unlit = true;
@@ -73,7 +73,7 @@ int main() {
               "geometry changes without a simulation tick");
         CHECK(engine.renderer().render({}).has_value(), "changed geometry renders without a tick");
         const auto *changedDraws = find("subject draws");
-        CHECK(changedDraws && changedDraws->How == 1,
+        CHECK(changedDraws && changedDraws->Value == 1,
               "render replaces the empty scene draw count without advance or inspect");
         CHECK(engine.renderer().readPixels(pixels).has_value(), "changed scene rendered");
         int changedPeak = 0;
@@ -85,7 +85,7 @@ int main() {
         CHECK(changedPeak > peak, "new frame is measurably brighter than the previous one");
         CHECK(engine.inspect().has_value(), "changed frame inspected without advance");
         presented = find("the brightest the presented frame shows");
-        CHECK(presented && presented->How == changedPeak,
+        CHECK(presented && presented->Value == changedPeak,
               "repeated inspection replaces the old value with the current readback");
       }
     }

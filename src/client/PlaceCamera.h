@@ -55,7 +55,7 @@ struct Shot {
   bool Preloaded = false;
   bool Kept = false;
 
-  std::vector<::outshine::Measure> Measures;
+  std::vector<::outshine::DiagnosticSample> Measures;
 };
 
 [[nodiscard]] Shot Draw(class ::outshine::Engine &engine,

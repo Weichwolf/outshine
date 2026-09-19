@@ -208,8 +208,8 @@ int TakeShots(std::span<const Place> places, int argc, const char *const *argv) 
       Tell(shot, one->Name);
     }
     if (options.Measures) {
-      for (const outshine::Measure &measure : shot.Measures) {
-        std::println("        {:<56} {:14.3f} {}", measure.What, measure.How, measure.Unit);
+      for (const outshine::DiagnosticSample &measure : shot.Measures) {
+        std::println("        {:<56} {:14.3f} {}", measure.Name, measure.Value, measure.Unit);
       }
     }
     refused += shot.Why.empty() && shot.Kept ? 0 : 1;
@@ -265,8 +265,8 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     Tell(shot, named);
   }
   if (everyMeasure) {
-    for (const outshine::Measure &one : engine.measures()) {
-      std::println("        {:<56} {:14.3f} {}", one.What, one.How, one.Unit);
+    for (const outshine::DiagnosticSample &one : engine.measures()) {
+      std::println("        {:<56} {:14.3f} {}", one.Name, one.Value, one.Unit);
     }
   }
   return shot.Why.empty() ? 0 : 1;

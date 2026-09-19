@@ -1383,7 +1383,7 @@ Corridors::SharedNodesOf(const outshine::Ground::StreetField &ways,
 bool Corridors::Lay(const Site &site,
                     Geometry &ground,
                     std::vector<Yields> *corridorOut,
-                    std::vector<Measure> *notes) const {
+                    std::vector<DiagnosticSample> *notes) const {
   const TangentFrame &standing = site.Standing;
   const std::shared_ptr<const ClassStructure> &classStructure = site.Classes;
   const Drape &drapedOver = site.Draped;

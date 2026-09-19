@@ -11,6 +11,7 @@ PUBLIC_TIERS = {
     'Logging.h': 'base',
     'Outshine.h': 'engine',
     'audio': 'audio',
+    'diagnostics': 'diagnostics',
     'export': 'import',
     'generation': 'generators',
     'import': 'import',
@@ -22,10 +23,7 @@ PUBLIC_TIERS = {
     'world': 'world',
 }
 
-KNOWN_PUBLIC_FINDINGS = {
-    ('generators/Shipped.cpp', 'scenario'): 2241,
-    ('generators/road/Corridors.cpp', 'scenario'): 2241,
-}
+KNOWN_PUBLIC_FINDINGS = {}
 
 
 def allowed(graph, owner, target):

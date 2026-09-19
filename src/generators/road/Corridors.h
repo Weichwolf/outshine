@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <scenario/Event.h>
+#include <diagnostics/DiagnosticSample.h>
 
 #include "Earth.h"
 #include "Fit.h"
@@ -62,7 +62,7 @@ public:
   [[nodiscard]] bool Lay(const Site &site,
                          Geometry &ground,
                          std::vector<Yields> *corridor,
-                         std::vector<Measure> *notes) const;
+                         std::vector<DiagnosticSample> *notes) const;
 
 private:
   struct Meets {
@@ -117,7 +117,7 @@ private:
   };
 
   struct Paved {
-    std::vector<Measure> Notes;
+    std::vector<DiagnosticSample> Notes;
     std::vector<std::vector<RoadStation>> Designed;
     std::vector<Edge> Edges;
     std::vector<std::pair<uint32_t, uint32_t>> EdgesOf;
@@ -308,7 +308,7 @@ private:
   SharedNodesOf(const outshine::Ground::StreetField &ways, std::span<const double> points);
 
   static void Notes(Paved &into, std::string what, double how, const char *unit) {
-    into.Notes.push_back({.What = std::move(what), .How = how, .Unit = unit});
+    into.Notes.push_back({.Name = std::move(what), .Value = how, .Unit = unit});
   }
 
   const RoadMesher &Sweeper_;

@@ -250,8 +250,8 @@ std::string Prepare(const Place &place, double patienceS) {
     last = how.ElapsedS;
     std::println("PREPARE {} elapsed {:.1f} s", place.Name, how.ElapsedS);
     for (const auto &measure : engine.measures()) {
-      if (measure.What.starts_with("flora: crown")) {
-        std::println("        {}: {:.0f}", measure.What, measure.How);
+      if (measure.Name.starts_with("flora: crown")) {
+        std::println("        {}: {:.0f}", measure.Name, measure.Value);
       }
     }
   });
@@ -388,8 +388,8 @@ Shot Draw(Engine &engine,
     }
 
     const auto measured = [&engine](const char *what) {
-      for (const Measure &held : engine.measures()) {
-        if (held.What == what) { return held.How; }
+      for (const DiagnosticSample &held : engine.measures()) {
+        if (held.Name == what) { return held.Value; }
       }
       return 0.0;
     };

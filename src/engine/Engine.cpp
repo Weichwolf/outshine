@@ -216,7 +216,7 @@ std::span<const std::string> Engine::unacted() const {
   return S_->Session.Carried;
 }
 
-std::span<const Measure> Engine::measures() const {
+std::span<const DiagnosticSample> Engine::measures() const {
   return S_->Published.Numbers();
 }
 

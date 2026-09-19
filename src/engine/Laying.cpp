@@ -1149,7 +1149,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     if (!mapped.Refusal.empty()) { Published.Places("network: refused to weave", 1.0, "yes/no"); }
   }
   {
-    std::vector<Measure> notes;
+    std::vector<DiagnosticSample> notes;
     const bool paved = World.Shipping.Corridors().Lay({.Stack = World.Stack,
                                                        .Network = build.Network.get(),
                                                        .Standing = standing,
@@ -1166,7 +1166,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Error = Says::PavingCreationFailed;
       return false;
     }
-    for (const Measure &one : notes) { Published.Places(one.What, one.How, one.Unit.c_str()); }
+    for (const DiagnosticSample &one : notes) {
+      Published.Places(one.Name, one.Value, one.Unit.c_str());
+    }
     clocks.WiresAt = std::chrono::steady_clock::now();
   }
   build.Sheets.ForgetsFields();

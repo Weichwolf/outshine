@@ -23,10 +23,10 @@ constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
 constexpr double kSeamToleranceM = 1.0e-3;
 
-[[nodiscard]] double Measured(std::span<const outshine::Measure> measures,
+[[nodiscard]] double Measured(std::span<const outshine::DiagnosticSample> measures,
                               const std::string &what) {
-  for (const outshine::Measure &one : measures) {
-    if (one.What == what) { return one.How; }
+  for (const outshine::DiagnosticSample &one : measures) {
+    if (one.Name == what) { return one.Value; }
   }
   return -1.0;
 }
@@ -90,7 +90,7 @@ int main(void) {
     return Report();
   }
 
-  const std::span<const outshine::Measure> told = engine.measures();
+  const std::span<const outshine::DiagnosticSample> told = engine.measures();
   const double virtualEdges = Measured(told, "ground: seam, virtual, edges stitched");
   const double virtualEven =
       Measured(told, "ground: seam, virtual, even nodes off the coarser node, worst");

@@ -7,13 +7,13 @@
 #include <utility>
 #include <vector>
 
-#include <scenario/Event.h>
+#include <diagnostics/DiagnosticSample.h>
 
 namespace outshine::Core {
 
 class Ledger {
 public:
-  void Stands(std::vector<Measure> declared) {
+  void Stands(std::vector<DiagnosticSample> declared) {
     Numbers_ = std::move(declared);
     Standing_ = Numbers_.size();
     Rounds_.assign(Numbers_.size(), 0);
@@ -31,26 +31,26 @@ public:
 
   void Places(const char *what, double how, const char *unit) {
     for (size_t at = Standing_; at < Numbers_.size(); ++at) {
-      if (Numbers_[at].What == what) {
+      if (Numbers_[at].Name == what) {
         if (Rounds_[at] == Round_) {
-          if (Numbers_[at].How != how && std::ranges::find(Clashed_, what) == Clashed_.end()) {
+          if (Numbers_[at].Value != how && std::ranges::find(Clashed_, what) == Clashed_.end()) {
             Clashed_.emplace_back(what);
           }
           return;
         }
         Rounds_[at] = Round_;
-        Numbers_[at].How = how;
+        Numbers_[at].Value = how;
         return;
       }
     }
-    Numbers_.push_back(Measure{.What = what, .How = how, .Unit = unit});
+    Numbers_.push_back(DiagnosticSample{.Name = what, .Value = how, .Unit = unit});
     Rounds_.push_back(Round_);
   }
 
-  [[nodiscard]] const std::vector<Measure> &Numbers() const { return Numbers_; }
+  [[nodiscard]] const std::vector<DiagnosticSample> &Numbers() const { return Numbers_; }
 
 private:
-  std::vector<Measure> Numbers_;
+  std::vector<DiagnosticSample> Numbers_;
   std::vector<uint64_t> Rounds_;
   uint64_t Round_ = 0;
   std::vector<std::string> Clashed_;

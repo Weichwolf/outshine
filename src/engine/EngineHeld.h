@@ -74,8 +74,8 @@ public:
     std::string held = std::string(what) + " = " + Rounded(how);
     if (unit != nullptr && unit[0] != '\0') { held += " " + std::string(unit); }
     Held.push_back(std::move(held));
-    Took.push_back(Measure{
-        .What = what, .How = how, .Unit = unit == nullptr ? std::string() : std::string(unit)});
+    Took.push_back(DiagnosticSample{
+        .Name = what, .Value = how, .Unit = unit == nullptr ? std::string() : std::string(unit)});
   }
 
   void Claim(bool held, const char *why) override {
@@ -100,11 +100,11 @@ public:
 
   [[nodiscard]] std::vector<std::string> &Lines() { return Held; }
 
-  [[nodiscard]] std::vector<Measure> &Numbers() { return Took; }
+  [[nodiscard]] std::vector<DiagnosticSample> &Numbers() { return Took; }
 
 private:
   std::vector<std::string> Held;
-  std::vector<Measure> Took;
+  std::vector<DiagnosticSample> Took;
 
   [[nodiscard]] static std::string Rounded(double how) {
     std::array<char, 32> held{};

@@ -22,10 +22,10 @@ constexpr double kEyeAglM = 1.7;
 constexpr double kPitchDeg = 0.0;
 constexpr double kFovDeg = 55.0;
 
-[[nodiscard]] double Measured(std::span<const outshine::Measure> measures,
+[[nodiscard]] double Measured(std::span<const outshine::DiagnosticSample> measures,
                               const std::string &what) {
-  for (const outshine::Measure &one : measures) {
-    if (one.What == what) { return one.How; }
+  for (const outshine::DiagnosticSample &one : measures) {
+    if (one.Name == what) { return one.Value; }
   }
   return -1.0;
 }
@@ -89,7 +89,7 @@ int main(void) {
     return Report();
   }
 
-  const std::span<const outshine::Measure> told = engine.measures();
+  const std::span<const outshine::DiagnosticSample> told = engine.measures();
   const double took = Measured(told, "streets: the geometry took them");
   const double against = Measured(told, "streets: triangles wound against their normals");
   std::printf("STREETS  the geometry took them %.0f   triangles wound against their normals %.0f\n",

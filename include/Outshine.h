@@ -15,6 +15,7 @@
 #include "Earth.h"
 #include "Logging.h"
 #include "generation/Generate.h"
+#include "diagnostics/DiagnosticSample.h"
 #include "scenario/Event.h"
 #include "scenario/Scenario.h"
 #include "scene/Geometry.h"
@@ -442,12 +443,12 @@ public:
   /// invalidate element references. Serialize access with all Engine mutations.
   /// @return Borrowed diagnostic names; copy to retain across mutations.
   [[nodiscard]] std::span<const std::string> unacted() const;
-  /// Borrow declared and published diagnostics; each Measure supplies its own unit.
+  /// Borrow declared and published diagnostics; each sample supplies its own unit.
   /// Values may come from different updates and persist when not refreshed; not a frame snapshot.
   /// The vector lives until Engine destruction. Publication/declaration may change values or
   /// invalidate element references. Serialize access with Engine mutations; copying allocates.
   /// @return Borrowed measurements with per-entry units and update histories.
-  [[nodiscard]] std::span<const Measure> measures() const;
+  [[nodiscard]] std::span<const DiagnosticSample> measures() const;
 
   /// Allocate two CPU timing rings with up to steps entries each, discarding saved samples.
   /// Zero disables retention; aggregate counters remain. Call during setup and serialize with

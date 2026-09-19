@@ -58,9 +58,10 @@ int main() {
     const auto checkEye = [&](double expected) {
       const auto advanced = engine.advance();
       CHECK(advanced.has_value(), advanced ? "camera advanced" : advanced.error().c_str());
-      const std::span<const Measure> values = engine.measures();
-      const auto found = std::ranges::find(values, "the carried eye, east", &Measure::What);
-      CHECK(found != values.end() && found->How == expected,
+      const std::span<const DiagnosticSample> values = engine.measures();
+      const auto found =
+          std::ranges::find(values, "the carried eye, east", &DiagnosticSample::Name);
+      CHECK(found != values.end() && found->Value == expected,
             "camera position comes from the named entity independently of array order");
     };
     checkEye(4);

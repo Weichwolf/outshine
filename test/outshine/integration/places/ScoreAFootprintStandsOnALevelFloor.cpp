@@ -25,10 +25,10 @@ constexpr double kFovDeg = 55.0;
 constexpr double kFloorToleranceM = 0.01;
 constexpr double kStampWorthM = 0.25;
 
-[[nodiscard]] double Measured(std::span<const outshine::Measure> measures,
+[[nodiscard]] double Measured(std::span<const outshine::DiagnosticSample> measures,
                               const std::string &what) {
-  for (const outshine::Measure &one : measures) {
-    if (one.What == what) { return one.How; }
+  for (const outshine::DiagnosticSample &one : measures) {
+    if (one.Name == what) { return one.Value; }
   }
   return -1.0;
 }
@@ -138,7 +138,7 @@ int main(void) {
     return Report();
   }
 
-  const std::span<const outshine::Measure> told = engine.measures();
+  const std::span<const outshine::DiagnosticSample> told = engine.measures();
   const double pads = Measured(told, "ground: pads with a lattice node inside");
   const double padsUnreached = Measured(told, "ground: pads no lattice node reaches");
   const double padNodes = Measured(told, "ground: nodes inside those pads");

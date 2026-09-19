@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <span>
-#include <string>
 #include <string_view>
 
 namespace outshine {
@@ -38,16 +37,6 @@ public:
   /// @return True if handled; false if refused or unsupported. False does not roll back
   /// application side effects. A rejected script call stops the current script execution.
   [[nodiscard]] virtual bool calls(std::string_view name, std::span<const Argument> args) = 0;
-};
-
-/// Owned diagnostic sample; not a synchronization primitive or persistent metric handle.
-/// Copies own their strings. Engine-returned samples remain borrowed from the engine;
-/// reacquire them after operations that update diagnostics. Concurrent access requires
-/// stable contents or external synchronization. Construction may allocate for strings.
-struct Measure {
-  std::string What; ///< Human-readable metric name; not a stable machine identifier.
-  double How = 0.0; ///< Sample value, interpreted using Unit and the named metric.
-  std::string Unit; ///< Unit label owned by this sample; no automatic conversion.
 };
 
 }
