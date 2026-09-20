@@ -40,13 +40,13 @@ disabling mips or selecting the nearest mip makes every frame bit-identical whil
 linear interpolation between mip levels retains the three-channel first-frame error.
 The failing boundary is therefore trilinear sampling with the imported indexed draw,
 not merely mip upload, sRGB decode, output quantization or any use of UV derivatives.
-The raw control now forces a fractional LOD, a small primitive edge, perspective-varying
-clip W, separate position/UV streams and a 32-bit indexed draw; first, repeated and
-fresh-device RGBA16F bytes still agree. A generic fullscreen or synthetic triangle is
-no longer an adequate next experiment: preserve the imported part and camera exactly.
-The control also reuses one 1280x720 RGBA16F target and D32 target, clears both every draw,
-uses reverse-Z GREATER with depth writes, submits an indirect indexed command and carries
-the imported base-colour dimension of 2048x2048. These controls remain bit-exact.
+The raw control covers fractional LOD, primitive edges, perspective-varying clip W,
+separate streams, 32-bit indexed indirect drawing, persistent 1280x720 RGBA16F/D32 targets,
+reverse-Z and the 2048x2048 source dimension. It now also loads the pinned asset through the
+importer and uses its packed first-part positions, indices, UVs, uploaded sRGB mip chain,
+sampler and exact failing camera. Its visible first and repeated frames are bit-identical.
+The public path still fails at the original three channels. Imported raster inputs alone are
+excluded; the remaining boundary is the engine flat shader/material/binding or submission path.
 Deindexing the imported part made its own frames stable, but its resident image differed
 from the indexed resident image in six channels by at most 1/4096. It is therefore not an
 equivalent negative control and was removed. This topology sensitivity does not authorize
@@ -79,9 +79,8 @@ A changed camera/topology cannot eliminate a subsystem from the original failure
    render state and selected pipeline. Capture immutable test snapshots, never mutable
    borrowed pointers or periodic production logs. Report only the first differing field.
 3. If inputs differ, fix the producing owner/commit boundary and add a negative control.
-   If they match, transfer the exact failing indexed draw, camera transform, RGBA16F target,
-   sRGB texture and linear-mip sampler to the existing raw SDL fixture. Its corrected
-   fullscreen and derivative controls are green but are not equivalent reproducers.
+   If they match, make the green imported raw control use the actual flat shader products,
+   packed material uniform, placement storage binding and SubjectView uniform unchanged.
 4. A failing raw draw requires validation of the fixture and SDL contract first; only
    then classify a possible backend/compiler defect. Record SDL commit, GPU/backend,
    OS and shader product. Compare another locally available backend when available;
