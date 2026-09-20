@@ -1,6 +1,8 @@
 #include <SDL3/SDL.h>
 #include <import/GltfImporter.h>
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <numbers>
@@ -51,6 +53,7 @@ struct Fixture {
   std::vector<float> VertexUniform;
   std::vector<float> FragmentUniform;
   uint32_t IndexCount = 3;
+  bool IndirectDraw = true;
   bool Derivatives = false;
   bool DescriptorTable = false;
 
@@ -65,12 +68,14 @@ uint32_t Levels(MipMode mode);
 bool UploadBuffer(Fixture &fixture,
                   std::span<const std::byte> bytes,
                   SDL_GPUBufferUsageFlags usage,
-                  OwnedBuffer &destination) {
-  SDL_GPUBufferCreateInfo wanted{.usage = usage, .size = static_cast<uint32_t>(bytes.size())};
+                  OwnedBuffer &destination,
+                  uint32_t allocationBytes = 0) {
+  SDL_GPUBufferCreateInfo wanted{
+      .usage = usage, .size = std::max(allocationBytes, static_cast<uint32_t>(bytes.size()))};
   destination =
       OwnedBuffer(fixture.Device.Get(), SDL_CreateGPUBuffer(fixture.Device.Get(), &wanted));
   SDL_GPUTransferBufferCreateInfo stagingInfo{.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-                                              .size = wanted.size};
+                                              .size = static_cast<uint32_t>(bytes.size())};
   const OwnedTransfer staging(fixture.Device.Get(),
                               SDL_CreateGPUTransferBuffer(fixture.Device.Get(), &stagingInfo));
   if (!destination || !staging) { return false; }
@@ -85,11 +90,32 @@ bool UploadBuffer(Fixture &fixture,
     SDL_CancelGPUCommandBuffer(commands);
     return false;
   }
-  const SDL_GPUBufferRegion into{.buffer = destination.Get(), .size = wanted.size};
+  const SDL_GPUBufferRegion into{.buffer = destination.Get(),
+                                 .size = static_cast<uint32_t>(bytes.size())};
   const SDL_GPUTransferBufferLocation from{.transfer_buffer = staging.Get()};
   SDL_UploadToGPUBuffer(copy, &from, &into, false);
   SDL_EndGPUCopyPass(copy);
   return SDL_SubmitGPUCommandBuffer(commands);
+}
+
+bool CreateTargets(Fixture &fixture) {
+  if (fixture.Target) { return static_cast<bool>(fixture.Depth); }
+  SDL_GPUTextureCreateInfo target{};
+  target.type = SDL_GPU_TEXTURETYPE_2D;
+  target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+  target.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+  target.width = kTargetWidth;
+  target.height = kTargetHeight;
+  target.layer_count_or_depth = 1;
+  target.num_levels = 1;
+  target.sample_count = SDL_GPU_SAMPLECOUNT_1;
+  fixture.Target =
+      OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
+  target.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+  target.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+  fixture.Depth =
+      OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
+  return fixture.Target && fixture.Depth;
 }
 
 std::vector<float> Pixels(uint32_t width) {
@@ -333,24 +359,7 @@ bool Configure(Fixture &fixture,
 }
 
 std::vector<uint8_t> Draw(Fixture &fixture) {
-  if (!fixture.Target) {
-    SDL_GPUTextureCreateInfo target{};
-    target.type = SDL_GPU_TEXTURETYPE_2D;
-    target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    target.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
-    target.width = kTargetWidth;
-    target.height = kTargetHeight;
-    target.layer_count_or_depth = 1;
-    target.num_levels = 1;
-    target.sample_count = SDL_GPU_SAMPLECOUNT_1;
-    fixture.Target =
-        OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
-    target.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-    target.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
-    fixture.Depth =
-        OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
-  }
-  if (!fixture.Target || !fixture.Depth) { return {}; }
+  if (!CreateTargets(fixture)) { return {}; }
   SDL_GPUTransferBufferCreateInfo transfer{.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,
                                            .size = kTargetWidth * kTargetHeight * kChannels *
                                                    kHalfBytes};
@@ -366,7 +375,7 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   SDL_GPUDepthStencilTargetInfo depth{.texture = fixture.Depth.Get(),
                                       .clear_depth = 0.0f,
                                       .load_op = SDL_GPU_LOADOP_CLEAR,
-                                      .store_op = SDL_GPU_STOREOP_STORE,
+                                      .store_op = SDL_GPU_STOREOP_DONT_CARE,
                                       .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
                                       .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE};
   SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &attachment, 1, &depth);
@@ -408,7 +417,11 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
       binding, binding, binding, binding, binding, binding, binding, binding};
   SDL_BindGPUFragmentSamplers(pass, 0, descriptors.data(), fixture.DescriptorTable ? 8u : 1u);
   if (fixture.Derivatives) {
-    SDL_DrawGPUIndexedPrimitivesIndirect(pass, fixture.Indirect.Get(), 0, 1);
+    if (fixture.IndirectDraw) {
+      SDL_DrawGPUIndexedPrimitivesIndirect(pass, fixture.Indirect.Get(), 0, 1);
+    } else {
+      SDL_DrawGPUIndexedPrimitives(pass, fixture.IndexCount, 1, 0, 0, 0);
+    }
   } else {
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
   }
@@ -439,6 +452,7 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
 }
 
 bool ConfigureImported(Fixture &fixture) {
+  if (!CreateTargets(fixture)) { return false; }
   const std::string path = PreparedRoot() + "/test-khronos-glTF-ABeautifulGame/scene.gltf";
   outshine::GltfImporter imported;
   const auto loaded = imported.load(path);
@@ -545,18 +559,30 @@ bool ConfigureImported(Fixture &fixture) {
   }
   constexpr std::array<float, 32> placements = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
                                                 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  if (!UploadBuffer(
-          fixture, std::as_bytes(part.PositionsM), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Vertices) ||
-      !UploadBuffer(fixture, std::as_bytes(part.Uv), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Uvs) ||
+  if (!UploadBuffer(fixture,
+                    std::as_bytes(part.PositionsM),
+                    SDL_GPU_BUFFERUSAGE_VERTEX,
+                    fixture.Vertices,
+                    SubjectResidency::kVertexPage * 3u * sizeof(float)) ||
+      !UploadBuffer(fixture,
+                    std::as_bytes(part.Uv),
+                    SDL_GPU_BUFFERUSAGE_VERTEX,
+                    fixture.Uvs,
+                    SubjectResidency::kVertexPage * 2u * sizeof(float)) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(emitted)),
                     SDL_GPU_BUFFERUSAGE_VERTEX,
-                    fixture.Emitted) ||
+                    fixture.Emitted,
+                    SubjectResidency::kVertexPage * 3u * sizeof(float)) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(placements)),
                     SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
                     fixture.Placements) ||
-      !UploadBuffer(fixture, std::as_bytes(indices), SDL_GPU_BUFFERUSAGE_INDEX, fixture.Indices) ||
+      !UploadBuffer(fixture,
+                    std::as_bytes(indices),
+                    SDL_GPU_BUFFERUSAGE_INDEX,
+                    fixture.Indices,
+                    SubjectResidency::kIndexPage * sizeof(uint32_t)) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(&indirect, 1)),
                     SDL_GPU_BUFFERUSAGE_INDIRECT,
@@ -564,6 +590,8 @@ bool ConfigureImported(Fixture &fixture) {
     return false;
   }
   fixture.Derivatives = true;
+  fixture.IndexCount = static_cast<uint32_t>(indices.size());
+  fixture.IndirectDraw = part.ClusterCount > 0;
 
   constexpr outshine::Vec3 eye = {{2.781138576118416, 1.3202289998916963, 1.9473741958039332}};
   constexpr outshine::Vec3 aim = {{0, 0.08449789705936794, 0}};
@@ -669,6 +697,7 @@ int main() {
   CHECK(imported.Device && ConfigureImported(imported),
         "the exact imported chess draw configures through raw SDL");
   if (imported.Device && imported.Pipeline) {
+    CHECK(imported.IndirectDraw, "the imported part uses the engine's clustered indirect draw");
     const auto first = Draw(imported);
     const auto repeated = Draw(imported);
     CHECK(!first.empty(), "the exact imported chess draw produces pixels");

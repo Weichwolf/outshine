@@ -85,9 +85,8 @@ int main() {
   scenario.Views.push_back(view);
   Scenario::View warm = view;
   warm.Id = "warm";
-  warm.Sees.PositionM = {{0.0, 0.25, 0.8}};
-  warm.Sees.LookAtM = {{0.0, 0.08, 0.0}};
-  warm.Sees.setProjection(Camera::Perspective{.FovDeg = 5.0, .NearM = 0.1, .FarM = 2.0});
+  warm.Sees.PositionM[0] += 0.02;
+  warm.Sees.LookAtM[0] += 0.02;
   scenario.Views.push_back(warm);
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
@@ -137,7 +136,7 @@ int main() {
       for (size_t at = 0; at + 3 < magnified.size(); at += 4) {
         visible += magnified[at] > 0 || magnified[at + 1] > 0 || magnified[at + 2] > 0;
       }
-      CHECK(visible > 0, "magnified warm-up camera samples the resident linear-mip texture");
+      CHECK(visible > 0, "shifted warm-up camera samples the resident linear-mip texture");
     }
     std::vector<float> first, previous, repeated;
     CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),
@@ -159,6 +158,12 @@ int main() {
         if (first[at] != repeated[at]) {
           ++changed;
           firstChanged = std::min(firstChanged, at);
+          if (repeat == 0) {
+            std::printf("channel=%zu first=%a repeated=%a\n",
+                        at,
+                        static_cast<double>(first[at]),
+                        static_cast<double>(repeated[at]));
+          }
         }
         worst = std::max(worst, std::abs(first[at] - repeated[at]));
       }

@@ -25,12 +25,11 @@ are not necessary for this reproducer. An explicit plan without temporalResolve 
 the same index, count and magnitude. History, jitter and temporal resolve are therefore not
 causal. Every resident repeat matches its preceding resident frame exactly in all three
 sequences. This proves a one-time first-frame transition rather than continuing instability.
-The current test retains a fresh linear-mip sequence, a nearest-mip control and a linear
-sequence after the same Engine has rendered visible magnified fragments through a near camera.
-The latter keeps the same linear-mip texture, sampler, geometry and pipeline alive and switches
-only the declared view. Both linear sequences fail identically; device, pipeline, texture and
-sampler first-use are not causal. Exact equality remains the contract rather than being relaxed.
-Next action is draw-input comparison.
+The current test retains fresh linear/nearest sequences and a linear sequence after the same
+Engine rendered a parallel-shifted view with identical projection and comparable mip derivatives.
+It keeps texture, sampler, geometry and pipeline alive and exercises the same mip span; the target
+still fails identically. Device, pipeline, texture, sampler and minified-level first use are not
+causal. Exact equality remains the contract rather than being relaxed.
 
 Raw `FilteredMipSampling/FirstFrameMatchesRepeatedSampling` is green, including
 per-level staging/submission, generated mips, eight samplers and interpolated UVs.
@@ -46,9 +45,10 @@ reverse-Z and the 2048x2048 source dimension. It now also loads the pinned asset
 importer and uses its packed first-part positions, indices, UVs, uploaded sRGB mip chain,
 sampler and exact failing camera. It now also uses the production flat vertex/fragment products,
 packed material uniform, emission stream, placement storage and full SubjectView uniform. Its
-visible first and repeated frames remain bit-identical. The public path still fails at the
-original three channels even with only the subject pass. Imported raster inputs, shader products,
-material layout and later passes alone are excluded; submission/input equality remains open.
+visible first and repeated frames remain bit-identical. Its target/depth usage, store policy,
+paged buffers, allocation order and clustered indirect draw now match the engine. The public path
+still fails at the original three channels even with only the subject pass. Imported raster inputs,
+shader products, material layout, target state and later passes alone are excluded.
 Deindexing the imported part made its own frames stable, but its resident image differed
 from the indexed resident image in six channels by at most 1/4096. It is therefore not an
 equivalent negative control and was removed. This topology sensitivity does not authorize
@@ -57,12 +57,12 @@ Perspective native quads are green with generated/imported images and four impor
 UV pairs. A copied imported part becomes green with constant UV0. Source review:
 SubjectProxy::Lit excludes Unlit, selecting the flat Position+Uv0 layout.
 
-These controls narrow the reproducer; they do not exclude upload, geometry, precision,
-shader compilation or sampler interactions for the failing draw. Constant UVs hide
-sampling sensitivity; they do not prove a derivative bug. Different changed-pixel
-counts do not prove that multipart packing amplifies one common cause. Equal rounded
-depth values do not prove identical raster inputs. Cause and responsible layer remain
-unresolved; no vertex-side UV rewrite or backend workaround is approved without proof.
+The internal snapshot proves the inputs differ: first-frame GPU culling emits 121440 indices;
+the repeated frame emits 116448, with the first index difference at 13056. Bypassing clustered
+indirect output or setting CullView.Occludes to zero makes every pixel exact; an eight-ULP and
+even 0.01 normalized-depth bias do not. Temporal Hi-Z cluster occlusion is causal and the gap is
+not roundoff. Depth remains equal while two pixels differ by one half-float step, so the next
+decision must distinguish false-positive cluster rejection from a valid hidden-topology change.
 
 ## Decision and bounded diagnosis
 
@@ -76,13 +76,11 @@ A changed camera/topology cannot eliminate a subsystem from the original failure
    without intermediate depth/screenshot calls, then the original sequence. Live::Screenshot
    performs an additional ReadPixels, not an explicit draw. Audit that readback's commands
    and state changes; attribute a difference to the sequence only after paired evidence.
-2. Compare first/second draw inputs at SubjectProxy, SubjectDraw and submission:
-   vertex/index bytes, placement/origin, frame/material uniforms, texture descriptors,
-   render state and selected pipeline. Capture immutable test snapshots, never mutable
-   borrowed pointers or periodic production logs. Report only the first differing field.
-3. If inputs differ, fix the producing owner/commit boundary and add a negative control.
-   If they match, compare exact target creation, pass state, buffer ranges and command ordering
-   between the now production-shader-equivalent green raw draw and SceneRenderer submission.
+2. Completed input comparison: production shader/material/raster inputs are stable; temporal
+   occlusion changes indirect arguments and compacted indices before the subject draw.
+3. Identify the first rejected cluster, verify its sphere and projected Hi-Z interval against
+   the first-frame depth footprint, then fix the conservative occlusion contract. Do not disable
+   clustered or temporal occlusion, discard the first frame or introduce an empirical bias.
 4. A failing raw draw requires validation of the fixture and SDL contract first; only
    then classify a possible backend/compiler defect. Record SDL commit, GPU/backend,
    OS and shader product. Compare another locally available backend when available;

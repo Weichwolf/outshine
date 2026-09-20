@@ -1566,10 +1566,21 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
   if (read.FromBuffer(Device_.Get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
   const auto *const held = reinterpret_cast<const uint32_t *>(read.Rows());
+  into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
   for (uint32_t at = 0; at < rows; ++at) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
+  SDL_GPUBuffer *const index = resident.Buffer(SubjectResidency::Stream::DrawIndex).Get();
+  if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
+  Readback drawn;
+  const uint32_t indexBytes = into.Indices * static_cast<uint32_t>(sizeof(uint32_t));
+  if (drawn.FromBuffer(Device_.Get(), index, indexBytes) != ReadState::Ready) {
+    into = {};
+    return ReadState::Failed;
+  }
+  const auto *const indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
+  into.DrawIndex.assign(indices, indices + into.Indices);
   return ReadState::Ready;
 }
 

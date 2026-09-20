@@ -50,6 +50,8 @@ namespace outshine::Render {
 struct KeptDraws {
   uint32_t Indices = 0;
   uint32_t Batches = 0;
+  std::vector<uint32_t> Arguments;
+  std::vector<uint32_t> DrawIndex;
 };
 
 struct PyramidDepths {
