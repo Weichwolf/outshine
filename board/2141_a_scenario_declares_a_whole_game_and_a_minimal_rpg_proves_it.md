@@ -2,7 +2,7 @@ Type: feature
 State: active
 Area: scenario, engine
 Tags: architecture, owner, ai-first
-Depends: 2131, 2136
+Depends: 2131, 2136, 2242
 
 # Ein deklaratives Spiel mit wiederholbarem Zustand
 

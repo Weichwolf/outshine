@@ -2,7 +2,7 @@ Type: feature
 State: open
 Area: actor, engine, scenario
 Tags: architecture, owner, ai-first
-Depends: 2127, 2133, 2130
+Depends: 2127, 2133, 2130, 2242
 
 # A thousand minds walk the world inside the frame, each a programme or a prompt
 
