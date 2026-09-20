@@ -41,17 +41,17 @@ constexpr auto kInputHostMissing = "a bound input action requires an offered hos
 
 namespace {
 
-[[nodiscard]] std::vector<Core::Shows>
+[[nodiscard]] std::vector<Core::UiSurface>
 PrepareSurfaces(std::span<const Scenario::Surface> surfaces) {
   std::vector<size_t> ordered(surfaces.size());
   std::ranges::iota(ordered, size_t{0});
   std::ranges::stable_sort(
       ordered, [&surfaces](size_t a, size_t b) { return surfaces[a].Z < surfaces[b].Z; });
-  std::vector<Core::Shows> laid;
+  std::vector<Core::UiSurface> laid;
   laid.reserve(ordered.size());
   for (const size_t at : ordered) {
     const Scenario::Surface *const surface = &surfaces[at];
-    Core::Shows shows;
+    Core::UiSurface shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
     shows.Programme = surface->Programme;
@@ -147,17 +147,17 @@ Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {
 
 namespace {
 
-[[nodiscard]] bool SameShows(const Core::Shows &a, const Core::Shows &b) {
+[[nodiscard]] bool SameUiSurface(const Core::UiSurface &a, const Core::UiSurface &b) {
   return a.Markup == b.Markup && a.Style == b.Style && a.Programme == b.Programme &&
          a.LeftFrac == b.LeftFrac && a.TopFrac == b.TopFrac && a.WidthFrac == b.WidthFrac &&
          a.HeightFrac == b.HeightFrac;
 }
 
-[[nodiscard]] bool SameSurfaces(const std::vector<Core::Shows> &a,
-                                const std::vector<Core::Shows> &b) {
+[[nodiscard]] bool SameSurfaces(const std::vector<Core::UiSurface> &a,
+                                const std::vector<Core::UiSurface> &b) {
   if (a.size() != b.size()) { return false; }
   for (size_t at = 0; at < a.size(); ++at) {
-    if (!SameShows(a[at], b[at])) { return false; }
+    if (!SameUiSurface(a[at], b[at])) { return false; }
   }
   return true;
 }

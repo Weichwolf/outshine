@@ -21,7 +21,7 @@
 #include "CameraState.h"
 #include "SubjectProxy.h"
 #include "SubjectPoseHistory.h"
-#include "Overlay.h"
+#include "UiSession.h"
 #include "Layout.h"
 #include "Markup.h"
 #include "Paint.h"
@@ -81,7 +81,7 @@ struct Declaration {
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
   bool KeyFromClock = false;
 
-  std::vector<Shows> Surfaces;
+  std::vector<UiSurface> Surfaces;
 };
 
 struct Extents {
@@ -128,7 +128,7 @@ public:
                                                    std::string &error);
 
   [[nodiscard]] bool Carries(size_t bodies, std::string &error);
-  [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
+  [[nodiscard]] bool Redeclare(std::vector<UiSurface> surfaces, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
@@ -256,31 +256,23 @@ public:
   void FrameItself() { Camera_.FrameSubject(); }
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const {
-    return Over_.Under(xPx, yPx, surface);
+    return Ui_.Under(xPx, yPx, surface);
   }
 
   [[nodiscard]] Holds<bool> Wheeled(double xPx, double yPx, double byPx, std::string &error) {
-    auto previous = Over_.Scrolled();
-    bool again = false;
-    Over_.Wheeled(xPx, yPx, byPx, again);
-    if (again && !Compose(error)) {
-      Over_.Scrolled(std::move(previous));
-      return std::unexpected(error);
-    }
-    return again;
+    auto changed = Ui_.Wheel(xPx, yPx, byPx);
+    if (changed) { return *changed; }
+    error = std::move(changed.error());
+    return std::unexpected(error);
   }
 
   [[nodiscard]] const std::vector<std::vector<Ui::Layout::Scrolled>> &Scrolled() const {
-    return Over_.Scrolled();
+    return Ui_.ScrollState();
   }
 
   [[nodiscard]] bool Scrolled(std::vector<std::vector<Ui::Layout::Scrolled>> kept,
                               std::string &error) {
-    auto previous = Over_.Scrolled();
-    Over_.Scrolled(std::move(kept));
-    if (Compose(error)) { return true; }
-    Over_.Scrolled(std::move(previous));
-    return false;
+    return Ui_.RestoreScroll(std::move(kept), error);
   }
 
   [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
@@ -381,18 +373,8 @@ private:
   [[nodiscard]] bool ApplyAuthoredCamera(Render::Viewpoint &out) const;
   [[nodiscard]] bool Submit(std::string &error);
 
-  [[nodiscard]] bool Compose(std::string &error) { return Compose(Declared_.Surfaces, error); }
-
-  [[nodiscard]] bool Compose(std::span<const Shows> surfaces, std::string &error) {
-    return Over_.Compose(*Renderer_,
-                         surfaces,
-                         {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
-                          .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)},
-                         error);
-  }
-
   Render::SceneRenderer *Renderer_ = nullptr;
-  Overlay Over_;
+  UiSession Ui_;
   Declaration Declared_;
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;

@@ -122,7 +122,13 @@ Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::F
     Held_.SetGeometry(Declared_.InitialGeometry->clone());
     Declared_.InitialGeometry = nullptr;
   }
-  Over_.Faces(font);
+  std::vector<UiSurface> surfaces = std::move(Declared_.Surfaces);
+  Declared_.Surfaces.clear();
+  Ui_.Configure(renderer,
+                font,
+                std::move(surfaces),
+                {.WidthPx = static_cast<double>(Declared_.SurfaceWidthPx),
+                 .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)});
 }
 
 Live::~Live() {
@@ -193,7 +199,9 @@ bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
                                        std::unique_ptr<Live> &candidate,
                                        std::string &error) {
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
-  if (!Prepare(renderer, previous.Declared_, font, candidate, error)) {
+  Declaration declaration = previous.Declared_;
+  declaration.Surfaces = previous.Ui_.Surfaces();
+  if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
@@ -202,7 +210,7 @@ bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
   if (!candidate->SetGeometry(std::move(replacement), previous.Carrying_, error) ||
       !candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error) ||
-      !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
+      !candidate->Scrolled(previous.Ui_.ScrollState(), error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;
@@ -221,7 +229,9 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
         renderer, previous, previous.Held_.Snapshot().clone(), font, candidate, error);
   }
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
-  if (!Prepare(renderer, previous.Declared_, font, candidate, error)) {
+  Declaration declaration = previous.Declared_;
+  declaration.Surfaces = previous.Ui_.Surfaces();
+  if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
@@ -229,7 +239,7 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
   if (!candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error) ||
-      !candidate->Scrolled(previous.Over_.Scrolled(), error)) {
+      !candidate->Scrolled(previous.Ui_.ScrollState(), error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;
@@ -637,7 +647,7 @@ bool Live::Build(std::string &error) {
   }
   if (!Renderer_->RestorePieceMaterials(error)) { return false; }
   const auto composedFrom = std::chrono::steady_clock::now();
-  const bool composed = Compose(error);
+  const bool composed = Ui_.Compose(error);
   ComposeMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - composedFrom)
           .count();
@@ -908,14 +918,11 @@ bool Live::Submit(std::string &error) {
 }
 
 const std::string &Live::ProgrammeOf(size_t surface) const {
-  static const std::string kNone;
-  return surface < Declared_.Surfaces.size() ? Declared_.Surfaces[surface].Programme : kNone;
+  return Ui_.ProgrammeOf(surface);
 }
 
-bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
-  if (!Compose(surfaces, error)) { return false; }
-  Declared_.Surfaces = std::move(surfaces);
-  return true;
+bool Live::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
+  return Ui_.Redeclare(std::move(surfaces), error);
 }
 
 void Live::SkyEye(double aboveGroundM) {

@@ -1,7 +1,8 @@
-#include "Overlay.h"
+#include "UiSession.h"
 
 #include <algorithm>
 #include <cstdint>
+#include <expected>
 #include <span>
 #include <cstddef>
 #include <string>
@@ -50,18 +51,29 @@ void AsOverlay(const std::vector<Ui::Quad> &from,
 
 }
 
-bool Overlay::Compose(Render::SceneRenderer &renderer,
-                      std::span<const Shows> surfaces,
-                      SurfacePx over,
-                      std::string &error) {
-  const double surfaceWidthPx = over.WidthPx;
-  const double surfaceHeightPx = over.HeightPx;
+void UiSession::Configure(Render::SceneRenderer &renderer,
+                          const Ui::Font *font,
+                          std::vector<UiSurface> surfaces,
+                          SurfacePx over) {
+  Renderer_ = &renderer;
+  Font_ = font;
+  Surface_ = over;
+  Surfaces_ = std::move(surfaces);
+}
+
+bool UiSession::Compose(std::string &error) {
+  return Compose(Surfaces_, error);
+}
+
+bool UiSession::Compose(std::span<const UiSurface> surfaces, std::string &error) {
+  const double surfaceWidthPx = Surface_.WidthPx;
+  const double surfaceHeightPx = Surface_.HeightPx;
   std::vector<Laid> candidate(surfaces.size());
   std::vector<Render::OverlayQuad> quads;
   auto scrolled = Scrolled_;
   scrolled.resize(surfaces.size());
   for (size_t at = 0; at < surfaces.size(); ++at) {
-    const Shows &declared = surfaces[at];
+    const UiSurface &declared = surfaces[at];
     Laid &laid = candidate[at];
     const double widthPx = declared.WidthFrac * surfaceWidthPx;
     const double heightPx = declared.HeightFrac * surfaceHeightPx;
@@ -95,7 +107,10 @@ bool Overlay::Compose(Render::SceneRenderer &renderer,
     atlas = {
         .Rgba = Font_->Sheet(), .Width = Font_->SheetWidthPx(), .Height = Font_->SheetHeightPx()};
   }
-  if (!renderer.ReplaceOverlay(quads, changed ? &atlas : nullptr, error)) { return false; }
+  if (Renderer_ == nullptr ||
+      !Renderer_->ReplaceOverlay(quads, changed ? &atlas : nullptr, error)) {
+    return false;
+  }
   Laid_ = std::move(candidate);
   Quads_ = std::move(quads);
   Scrolled_ = std::move(scrolled);
@@ -103,7 +118,33 @@ bool Overlay::Compose(Render::SceneRenderer &renderer,
   return true;
 }
 
-void Overlay::Wheeled(double xPx, double yPx, double byPx, bool &again) {
+bool UiSession::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
+  if (!Compose(surfaces, error)) { return false; }
+  Surfaces_ = std::move(surfaces);
+  return true;
+}
+
+std::expected<bool, std::string> UiSession::Wheel(double xPx, double yPx, double byPx) {
+  auto previous = Scrolled_;
+  bool changed = false;
+  ApplyWheel(xPx, yPx, byPx, changed);
+  if (!changed) { return false; }
+  std::string error;
+  if (Compose(error)) { return true; }
+  Scrolled_ = std::move(previous);
+  return std::unexpected(std::move(error));
+}
+
+bool UiSession::RestoreScroll(std::vector<std::vector<Ui::Layout::Scrolled>> kept,
+                              std::string &error) {
+  auto previous = std::move(Scrolled_);
+  Scrolled_ = std::move(kept);
+  if (Compose(error)) { return true; }
+  Scrolled_ = std::move(previous);
+  return false;
+}
+
+void UiSession::ApplyWheel(double xPx, double yPx, double byPx, bool &changed) {
   Scrolled_.resize(Laid_.size());
   for (size_t at = Laid_.size(); at > 0; --at) {
     const Laid &laid = Laid_[at - 1];
@@ -123,12 +164,12 @@ void Overlay::Wheeled(double xPx, double yPx, double byPx, bool &again) {
     }
     const double was = *held;
     *held = std::clamp(*held + byPx, 0.0, most);
-    again = *held != was;
+    changed = *held != was;
     return;
   }
 }
 
-Ui::Touched Overlay::Under(double xPx, double yPx, size_t &surface) const {
+Ui::Touched UiSession::Under(double xPx, double yPx, size_t &surface) const {
   for (size_t at = Laid_.size(); at > 0; --at) {
     const Laid &laid = Laid_[at - 1];
     Ui::Touched found = Ui::Under(laid.Placed, laid.Tree, xPx - laid.LeftPx, yPx - laid.TopPx);
@@ -138,6 +179,11 @@ Ui::Touched Overlay::Under(double xPx, double yPx, size_t &surface) const {
     }
   }
   return Ui::Touched{};
+}
+
+const std::string &UiSession::ProgrammeOf(size_t surface) const {
+  static const std::string none;
+  return surface < Surfaces_.size() ? Surfaces_[surface].Programme : none;
 }
 
 }

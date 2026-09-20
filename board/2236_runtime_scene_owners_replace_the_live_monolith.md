@@ -45,17 +45,18 @@ owns camera binding and submitted pose history. `world/sky` owns atmosphere inte
 `FrameCapture` owns readback, PNG encoding and screenshot IO. TilePieces, CrownPieces, WorldCrowns
 and HeightSheets use these owners directly; none reaches Live. Candidate failure and publication
 preserve complete active resources. Native Geometry remains beside resolved material slots because
-its images back borrowed texture pixels.
+its images back borrowed texture pixels. `UiSession` owns declared surfaces, layout, painting,
+scroll state and transactional renderer publication; `Live` only forwards UI input and replacement.
 
 ## Next complete slice
 
-`Live` still owns subject import/playback, surface resolution, UI overlay composition, render-plan
-selection and scene orchestration in 443/1123 lines. Inspect every remaining member by owner. Move
-UI overlay state/composition to the engine UI session and base subject material preparation beside
-the native content asset without duplicating `SurfaceTable`. Preserve declaration rollback and
-borrowed image lifetime. Then rename the reduced coordinator and `Live.{h,cpp}` to `RuntimeScene`;
-migrate all callers/tests in one step and leave no alias or compatibility header. A name-only move
-before those responsibilities are separated does not satisfy this slice.
+`Live` still owns subject import/playback, surface resolution, base subject material preparation,
+render-plan selection and scene orchestration in 425/1130 lines. Inspect every remaining member by
+owner. Move base subject material preparation beside the native content asset without duplicating
+`SurfaceTable`; preserve declaration rollback and borrowed image lifetime. Then rename the reduced
+coordinator and `Live.{h,cpp}` to `RuntimeScene`; migrate all callers/tests in one step and leave no
+alias or compatibility header. A name-only move before those responsibilities are separated does
+not satisfy this slice.
 
 ## Acceptance
 
@@ -66,5 +67,7 @@ before those responsibilities are separated does not satisfy this slice.
 - [x] Repeated replacement has bounded retained bytes and unchanged completed-frame pixels.
 - [x] Focused SceneResources lifetime suites and make lint pass; the wider public suite retains
       three exact texture-repeat failures owned by WI 2179.
-- [ ] RuntimeScene owns only coordination; UI and base subject material owners have focused
-      rollback/lifetime tests, public render behavior is unchanged, and make lint passes.
+- [x] UI declaration, scroll and renderer replacement are owned transactionally by UiSession;
+      focused surface failure and pointer-input suites plus make lint pass.
+- [ ] RuntimeScene owns only coordination; the base subject material owner has focused rollback/
+      lifetime tests, public render behavior is unchanged, and make lint passes.
