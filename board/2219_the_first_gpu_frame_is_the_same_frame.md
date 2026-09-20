@@ -18,6 +18,12 @@ Recorded local failures, to reproduce before changing code:
 Depth/alpha match in the original case. The native clone fails through setGeometry,
 so Scenario::Asset loading is not necessary to trigger it.
 
+Paired public single-part test on 2026-09-20 uses a fresh Engine per sequence. Plain
+render/linear-read pairs and the original additional depth/screenshot sequence both fail
+all three repetitions: 3 channels, first index 2039986, maximum 0.000244141. Extra readbacks
+are not necessary for this reproducer. The test retains both sequences and exact equality;
+six assertions fail, rather than suppressing the defect. Next action is draw-input comparison.
+
 Raw `FilteredMipSampling/FirstFrameMatchesRepeatedSampling` is green, including
 per-level staging/submission, generated mips, eight samplers and interpolated UVs.
 Perspective native quads are green with generated/imported images and four imported
@@ -39,7 +45,7 @@ test for each hypothesis. Preserve placementOf(part), indices, vertex data, view
 camera, material, texture chain and actual selected shader products when reducing.
 A changed camera/topology cannot eliminate a subsystem from the original failure.
 
-1. Reproduce the single-part failure and compare consecutive render/linear-read pairs
+1. Completed paired control: reproduce the single-part failure and compare render/linear-read pairs
    without intermediate depth/screenshot calls, then the original sequence. Live::Screenshot
    performs an additional ReadPixels, not an explicit draw. Audit that readback's commands
    and state changes; attribute a difference to the sequence only after paired evidence.

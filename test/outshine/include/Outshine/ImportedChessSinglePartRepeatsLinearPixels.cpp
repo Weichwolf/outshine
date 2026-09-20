@@ -73,60 +73,73 @@ int main() {
     Unprepared(SDL_GetError());
     return Report();
   }
-  Engine engine;
-  if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
-      !accepted(engine.setGeometry(single)) || !accepted(engine.assemble()) ||
-      !accepted(engine.advance())) {
-    return Report();
-  }
-  std::vector<float> first, repeated, firstDepth, repeatedDepth;
-  CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),
-        "first chess frame renders");
-  CHECK(engine.renderer().readPixels(Buffer::Depth, firstDepth).has_value(), "first depth is read");
-  CHECK(first.size() == 1280u * 720u * 4u, "the full linear frame is read");
-  CHECK(std::all_of(first.begin(), first.end(), [](float v) { return std::isfinite(v); }),
-        "the frame contains finite values");
-  size_t lit = 0;
-  for (size_t at = 0; at + 3 < first.size(); at += 4) {
-    if (first[at] > 0 || first[at + 1] > 0 || first[at + 2] > 0) { ++lit; }
-  }
-  CHECK(lit > 0, "the chess frame contains visible geometry");
-  std::filesystem::create_directories("build/native-materials");
-  CHECK(
-      engine.renderer().saveScreenshot("build/native-materials/chess-native-first.png").has_value(),
-      "first chess PNG is written");
-  for (int repeat = 0; repeat < 3; ++repeat) {
-    CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, repeated),
-          "resident chess frame renders again");
-    size_t changed = 0, firstChanged = first.size();
-    float worst = 0;
-    for (size_t at = 0; at < std::min(first.size(), repeated.size()); ++at) {
-      if (first[at] != repeated[at]) {
-        ++changed;
-        firstChanged = std::min(firstChanged, at);
+  for (const bool additionalReadbacks : {false, true}) {
+    std::printf("additionalReadbacks=%d\n", additionalReadbacks);
+    Engine engine;
+    if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
+        !accepted(engine.setGeometry(single)) || !accepted(engine.assemble()) ||
+        !accepted(engine.advance())) {
+      return Report();
+    }
+    std::vector<float> first, repeated, firstDepth, repeatedDepth;
+    CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),
+          "first chess frame renders");
+    if (additionalReadbacks) {
+      CHECK(engine.renderer().readPixels(Buffer::Depth, firstDepth).has_value(),
+            "first depth is read");
+    }
+    CHECK(first.size() == 1280u * 720u * 4u, "the full linear frame is read");
+    CHECK(std::all_of(first.begin(), first.end(), [](float v) { return std::isfinite(v); }),
+          "the frame contains finite values");
+    size_t lit = 0;
+    for (size_t at = 0; at + 3 < first.size(); at += 4) {
+      if (first[at] > 0 || first[at + 1] > 0 || first[at + 2] > 0) { ++lit; }
+    }
+    CHECK(lit > 0, "the chess frame contains visible geometry");
+    if (additionalReadbacks) {
+      std::filesystem::create_directories("build/native-materials");
+      CHECK(engine.renderer()
+                .saveScreenshot("build/native-materials/chess-native-first.png")
+                .has_value(),
+            "first chess PNG is written");
+    }
+    for (int repeat = 0; repeat < 3; ++repeat) {
+      CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, repeated),
+            "resident chess frame renders again");
+      size_t changed = 0, firstChanged = first.size();
+      float worst = 0;
+      for (size_t at = 0; at < std::min(first.size(), repeated.size()); ++at) {
+        if (first[at] != repeated[at]) {
+          ++changed;
+          firstChanged = std::min(firstChanged, at);
+        }
+        worst = std::max(worst, std::abs(first[at] - repeated[at]));
       }
-      worst = std::max(worst, std::abs(first[at] - repeated[at]));
+      if (additionalReadbacks) {
+        CHECK(engine.renderer().readPixels(Buffer::Depth, repeatedDepth).has_value(),
+              "repeated depth is read");
+        size_t depthChanges = 0;
+        float depthWorst = 0;
+        for (size_t at = 0; at < std::min(firstDepth.size(), repeatedDepth.size()); ++at) {
+          depthChanges += firstDepth[at] != repeatedDepth[at];
+          depthWorst = std::max(depthWorst, std::abs(firstDepth[at] - repeatedDepth[at]));
+        }
+        std::printf("depth changed=%zu worst=%g\n", depthChanges, static_cast<double>(depthWorst));
+      }
+      std::printf("repeat=%d changed=%zu first=%zu worst=%g\n",
+                  repeat,
+                  changed,
+                  firstChanged,
+                  static_cast<double>(worst));
+      CHECK(first == repeated, "single native chess part repeats every linear channel exactly");
     }
-    CHECK(engine.renderer().readPixels(Buffer::Depth, repeatedDepth).has_value(),
-          "repeated depth is read");
-    size_t depthChanges = 0;
-    float depthWorst = 0;
-    for (size_t at = 0; at < std::min(firstDepth.size(), repeatedDepth.size()); ++at) {
-      depthChanges += firstDepth[at] != repeatedDepth[at];
-      depthWorst = std::max(depthWorst, std::abs(firstDepth[at] - repeatedDepth[at]));
+    if (additionalReadbacks) {
+      std::filesystem::create_directories("build/native-materials");
+      CHECK(engine.renderer()
+                .saveScreenshot("build/native-materials/chess-native-repeat.png")
+                .has_value(),
+            "chess repeatability PNG is written");
     }
-    std::printf("depth changed=%zu worst=%g\n", depthChanges, static_cast<double>(depthWorst));
-    std::printf("repeat=%d changed=%zu first=%zu worst=%g\n",
-                repeat,
-                changed,
-                firstChanged,
-                static_cast<double>(worst));
-    CHECK(first == repeated, "single native chess part repeats every linear channel exactly");
   }
-  std::filesystem::create_directories("build/native-materials");
-  CHECK(engine.renderer()
-            .saveScreenshot("build/native-materials/chess-native-repeat.png")
-            .has_value(),
-        "chess repeatability PNG is written");
   return Report();
 }
