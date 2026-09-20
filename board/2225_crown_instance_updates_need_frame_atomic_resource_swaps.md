@@ -9,7 +9,7 @@ Tags: streaming, ownership, transaction
 ## Problem
 
 `WorldCrowns::Step` accepts a finished atlas and then creates prototypes or replaces instance rows
-on the published `RuntimeScene`. `CrownPieces::Update` can fail after earlier groups changed. A frame can
+on the published `RuntimeScene`. `Render::ImpostorInstances::Update` can fail after earlier groups changed. A frame can
 therefore contain a mix of old and new crown resources, while the CPU group state has already
 advanced. Rebuilding the complete world candidate per foliage update would reupload terrain and
 unrelated pieces, violating the streaming budget.

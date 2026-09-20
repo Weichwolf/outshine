@@ -9,7 +9,8 @@
 #include <Outshine.h>
 #include <scenario/Scenario.h>
 #include "ImpostorPreparation.h"
-#include "CrownPieces.h"
+#include "ImpostorInstances.h"
+#include "ImpostorCard.h"
 #include "WorldCrowns.h"
 #include "FrameCapture.h"
 #include "RuntimeScene.h"
@@ -477,8 +478,9 @@ int main() {
   empty.Anchor = {{kWgs84A, 0, 0}};
   CHECK(renderer.SetSubjectMesh(empty, error),
         "reference mesh leaves while the Live coordinate anchor remains");
-  CHECK(!CrownPieces::Create(renderer, *atlas, 0, error), "crown capacity must be positive");
-  auto crowns = CrownPieces::Create(renderer, *atlas, 2, error);
+  CHECK(!Render::ImpostorInstances::Create(renderer, *atlas, 0, error),
+        "crown capacity must be positive");
+  auto crowns = Render::ImpostorInstances::Create(renderer, *atlas, 2, error);
   CHECK(crowns && renderer.PieceTriangles() == 2 * atlas->Views().size(),
         "one two-triangle prototype stands per captured view");
   if (!crowns) { return Report(); }

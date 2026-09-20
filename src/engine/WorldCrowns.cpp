@@ -1,4 +1,6 @@
 #include "WorldCrowns.h"
+#include "ImpostorPreparation.h"
+#include "TreePrototype.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -69,7 +71,7 @@ bool WorldCrowns::Ready() const {
 void WorldCrowns::Into(Render::SceneRenderer &renderer) noexcept {
   Renderer_ = &renderer;
   for (Group &group : Groups_) {
-    if (group.Pieces) { group.Pieces->Into(renderer); }
+    if (group.Pieces) { group.Pieces->MoveTo(renderer); }
   }
 }
 
@@ -105,7 +107,7 @@ bool WorldCrowns::AcceptCacheResult(std::string &error) {
       group.State = Phase::Missing;
       continue;
     }
-    group.Pieces = CrownPieces::Create(
+    group.Pieces = Render::ImpostorInstances::Create(
         *Renderer_, *loaded->Atlas, static_cast<uint32_t>(group.Models.size()), error);
     if (!group.Pieces) {
       Failure_ = error;

@@ -1,4 +1,7 @@
 #include "WorldCrowns.h"
+#include "ImpostorCard.h"
+#include "ImpostorPreparation.h"
+#include "TreePrototype.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "GroundMaterials.h"

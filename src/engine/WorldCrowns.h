@@ -2,7 +2,8 @@
 #define OUTSHINE_ENGINE_WORLDCROWNS_H
 
 #include "ImpostorCache.h"
-#include "CrownPieces.h"
+#include "ImpostorAtlasShape.h"
+#include "ImpostorInstances.h"
 #include "WorldPlacement.h"
 #include "Shipped.h"
 
@@ -37,7 +38,7 @@ private:
     const Generators::TreeSpecies *Species = nullptr;
     std::string Provenance;
     std::vector<Mat4> Models;
-    std::unique_ptr<CrownPieces> Pieces;
+    std::unique_ptr<Render::ImpostorInstances> Pieces;
     Phase State = Phase::Wanted;
   };
 

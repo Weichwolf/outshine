@@ -13,8 +13,8 @@ Tags: ownership, modules, streaming
 
 HeightSheets combines refinement/earthworks/mesh assembly with Live-bound uploads.
 Laying.cpp mixes palette/classification, water/terrain generation and candidate scheduling.
-ImpostorPreparation creates a SceneRenderer plus Core::RuntimeScene for every atlas view. CrownPieces
-owns only render handles, card-view selection and atomic instance batches but lives in Engine.
+ImpostorPreparation creates a SceneRenderer plus Core::RuntimeScene for every atlas view.
+Render::ImpostorInstances now owns render handles, card-view selection and atomic instance batches.
 WorldCrowns starts generation/capture jobs and installs those renderer instances.
 StructureBuildQueue and StructureBuildTask schedule, retain inputs and consume results:
 these are integration responsibilities, not meshing algorithms merely because of their names.
@@ -32,7 +32,7 @@ these are integration responsibilities, not meshing algorithms merely because of
 | ImpostorPreparation GPU capture | render/impostor/ImpostorBaker; native geometry/instances, one preparation renderer |
 | Tree prototype generation | existing generators/flora; no GPU/renderer dependency |
 | CrownCache transport | world/data/ImpostorCache; content codec and existing bounded IO |
-| CrownPieces view selection and instances | render/impostor/ImpostorInstances; existing scene-resource handles |
+| Impostor view selection and instances | render/impostor/ImpostorInstances; existing scene-resource handles |
 | WorldCrowns species resolution, admission, completion | engine/streaming/VegetationStreaming; narrow owners |
 
 No renderer dependency in generators or content. No engine dependency in render/world.
@@ -54,7 +54,7 @@ Stale results are rejected before the existing candidate commit; old world remai
    with WI 2234; do not duplicate the scheduler or change its atomic product contract.
 3. [x] Move Structure scheduling into engine/streaming with truthful names and mirrored tests;
    retain current range bounds, worker ownership and publication proof from WI 2231.
-4. [ ] Rename/move CrownPieces to Render::ImpostorInstances under render/impostor. Keep its
+4. [x] Rename/move CrownPieces to Render::ImpostorInstances under render/impostor. Keep its
    typed PieceHandle ownership, all-view atomic SetPieceInstances batch and release semantics;
    WorldCrowns stores that render owner and contains no card construction or raw handle logic.
 5. [ ] Implement Render::ImpostorBaker over native bark geometry plus optional leaf geometry and
@@ -97,7 +97,8 @@ The moved lifetime, stale-revision and atomic-publication tests preserve those b
 versioned binary codec under `content/impostor`. Cache, streaming and preparation exchange that
 neutral type directly; the hand-authored fixture proves byte compatibility and corruption bounds
 without renderer setup. GPU capture remains Engine integration and imports Core::RuntimeScene; card
-derivation is already Render-owned while its GPU instance owner remains CrownPieces in Engine.
+derivation and GPU instance ownership are now both Render-owned. WorldCrowns retains only the
+integration owner and stores `std::unique_ptr<Render::ImpostorInstances>`.
 `Data::ImpostorCache` now owns bounded asynchronous artifact transport under `world/data`; it
 depends only on the content artifact, ContentStore and Tasks, not Engine preparation or rendering.
 `Render::BuildImpostorCard` now derives native card geometry and material maps under
