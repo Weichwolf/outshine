@@ -1,10 +1,8 @@
 #include <SDL3/SDL.h>
 #include <import/GltfImporter.h>
 
-#include <algorithm>
 #include <array>
 #include <memory>
-#include <numbers>
 #include <string>
 #include <vector>
 
@@ -82,20 +80,7 @@ int main() {
     CHECK(renderer.ReadSceneLinear(pixels[frame]) == Render::ReadState::Ready,
           "linear target reads back");
   }
-  std::printf("first indices=%u batches=%u repeated indices=%u batches=%u\n",
-              kept[0].Indices,
-              kept[0].Batches,
-              kept[1].Indices,
-              kept[1].Batches);
-  const size_t compared = std::min(kept[0].DrawIndex.size(), kept[1].DrawIndex.size());
-  for (size_t at = 0; at < compared; ++at) {
-    if (kept[0].DrawIndex[at] == kept[1].DrawIndex[at]) { continue; }
-    std::printf("first index difference at %zu: %u then %u\n",
-                at,
-                kept[0].DrawIndex[at],
-                kept[1].DrawIndex[at]);
-    break;
-  }
+  CHECK(kept[0].Visibility == kept[1].Visibility, "static cluster visibility repeats exactly");
   CHECK(kept[0].Arguments == kept[1].Arguments, "static indirect arguments repeat exactly");
   CHECK(kept[0].DrawIndex == kept[1].DrawIndex, "static compacted indices repeat exactly");
   CHECK(pixels[0] == pixels[1], "static clustered pixels repeat exactly");

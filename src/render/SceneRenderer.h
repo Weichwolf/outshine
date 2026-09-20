@@ -52,6 +52,7 @@ struct KeptDraws {
   uint32_t Batches = 0;
   std::vector<uint32_t> Arguments;
   std::vector<uint32_t> DrawIndex;
+  std::vector<uint32_t> Visibility;
 };
 
 struct PyramidDepths {

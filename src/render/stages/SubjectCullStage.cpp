@@ -113,7 +113,7 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
     into.PyramidHigh[level] = Pyramid_.High[level];
     into.PyramidAt[level] = Pyramid_.At[level];
   }
-  into.Occludes = PyramidBuffer_ != nullptr && Stood_ ? 1u : 0u;
+  into.Occludes = OccludeThisFrame_ ? 1u : 0u;
   const float *const up = into.Planes.data() + static_cast<size_t>(2U * 4U);
   const float *const down = into.Planes.data() + static_cast<size_t>(3U * 4U);
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
@@ -128,6 +128,10 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
 
 void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
   Swept_ = 0;
+  const uint64_t generation = Subjects_ != nullptr ? Subjects_->Generation() : 0u;
+  OccludeThisFrame_ = PyramidBuffer_ != nullptr && HasResult_ &&
+                      (LastMvp_ != ctx.Mvp || LastPreViewTranslation_ != ctx.PreViewTranslation) &&
+                      LastSubjectGeneration_ == generation;
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
@@ -145,8 +149,11 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Cull_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 5);
-  Stood_ = true;
   SDL_DispatchGPUCompute(into.Dispatch, (jobs + CullShape.GroupX - 1u) / CullShape.GroupX, 1u, 1u);
+  LastMvp_ = ctx.Mvp;
+  LastPreViewTranslation_ = ctx.PreViewTranslation;
+  LastSubjectGeneration_ = generation;
+  HasResult_ = true;
   Swept_ = jobs;
   gJobsSwept.store(jobs, std::memory_order_relaxed);
 }

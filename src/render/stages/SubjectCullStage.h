@@ -17,6 +17,9 @@ class SubjectDraw;
 class SubjectCullStage {
 public:
   void PyramidFrom(SDL_GPUBuffer *pyramid, const PyramidShape &shape) {
+    if (PyramidBuffer_ != pyramid || Pyramid_.Wide != shape.Wide || Pyramid_.High != shape.High) {
+      HasResult_ = false;
+    }
     PyramidBuffer_ = pyramid;
     Pyramid_ = shape;
   }
@@ -30,7 +33,10 @@ public:
 
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
 
-  void Binds(SubjectDraw &subjects) noexcept { Subjects_ = &subjects; }
+  void Binds(SubjectDraw &subjects) noexcept {
+    if (Subjects_ != &subjects) { HasResult_ = false; }
+    Subjects_ = &subjects;
+  }
 
   void EncodeCull(const FrameContext &ctx, const PassRecording &into);
   void EncodeScan(const FrameContext &ctx, const PassRecording &into);
@@ -47,7 +53,11 @@ public:
 private:
   SDL_GPUBuffer *PyramidBuffer_ = nullptr;
   PyramidShape Pyramid_;
-  bool Stood_ = false;
+  bool HasResult_ = false;
+  bool OccludeThisFrame_ = false;
+  Mat4f LastMvp_{};
+  Vec3 LastPreViewTranslation_{};
+  uint64_t LastSubjectGeneration_ = 0;
   [[nodiscard]] static bool EnsurePipeline(const Gpu &gpu,
                                            ComputeShaderId shader,
                                            OwnedComputePipeline &into,

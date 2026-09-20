@@ -1571,6 +1571,18 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
+  const uint32_t jobs = ActiveState().Content.Subjects.ClusterJobs();
+  SDL_GPUBuffer *const kept = resident.Buffer(SubjectResidency::Stream::ClusterKept).Get();
+  if (jobs > 0 && kept != nullptr) {
+    Readback visibility;
+    const uint32_t keptBytes = jobs * static_cast<uint32_t>(sizeof(uint32_t));
+    if (visibility.FromBuffer(Device_.Get(), kept, keptBytes) != ReadState::Ready) {
+      into = {};
+      return ReadState::Failed;
+    }
+    const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
+    into.Visibility.assign(values, values + jobs);
+  }
   SDL_GPUBuffer *const index = resident.Buffer(SubjectResidency::Stream::DrawIndex).Get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
