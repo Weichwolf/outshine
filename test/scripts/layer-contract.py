@@ -38,6 +38,12 @@ def parent_includes(text):
             if '..' in pathlib.PurePosixPath(name).parts]
 
 
+def absolute_includes(text):
+    expression = r'^\s*#\s*include\s*[<"]([^>"]+)[>"]'
+    return [name for name in re.findall(expression, text, re.MULTILINE)
+            if pathlib.PurePosixPath(name).is_absolute()]
+
+
 def allowed(graph, owner, target):
     return target == owner or owner.startswith(target + '/') or target in graph[owner]
 
@@ -142,6 +148,9 @@ def main():
         parent_includes('#include "../../world/sky/AtmosphereCore.h"') ==
         ['../../world/sky/AtmosphereCore.h'],
         not parent_includes('#include "world/sky/AtmosphereCore.h"'),
+        absolute_includes('#include "/tmp/generated/Config.h"') ==
+        ['/tmp/generated/Config.h'],
+        not absolute_includes('#include "OutshineGenerated/CrownBuildIdentity.h"'),
         not errors(good, [('render/Draw.cpp', ['render', 'base/math'])]),
         bool(errors(good, [('render/Draw.cpp', ['world'])])),
         bool(errors({'a': ['b'], 'b': ['c'], 'c': ['a']}, [])),
@@ -179,10 +188,13 @@ def main():
         for source in tree.rglob('*'):
             if source.suffix not in {'.h', '.hpp', '.cpp', '.inc', '.glsl', '.vert', '.frag', '.comp'}:
                 continue
-            for name in physical_build_includes(source.read_text()):
+            text = source.read_text()
+            for name in physical_build_includes(text):
                 violations.append(f'{source.relative_to(root)}: physical build include {name}')
-            for name in parent_includes(source.read_text()):
+            for name in parent_includes(text):
                 violations.append(f'{source.relative_to(root)}: parent-directory include {name}')
+            for name in absolute_includes(text):
+                violations.append(f'{source.relative_to(root)}: absolute include {name}')
     known = {
         f'{source}: undeclared public-header dependency {target}': wi
         for (source, target), wi in KNOWN_PUBLIC_FINDINGS.items()

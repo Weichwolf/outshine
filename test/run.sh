@@ -438,7 +438,7 @@ GroupIncludes() {
   includeReaches=$(LayerReaches "$includeTier") || return 1
   includeSet="-Iinclude"
   case "$includeTier" in
-    engine/streaming) includeSet="$includeSet -Ibuild/generated/engine/streaming" ;;
+    engine/streaming) includeSet="$includeSet -Ibuild/generated" ;;
   esac
   for includeFrom in $includeTier $includeReaches; do
     for includeDir in $(find "src/$includeFrom" -type d | sort); do

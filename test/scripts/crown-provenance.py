@@ -35,12 +35,14 @@ def main():
     for package in ("sdl3", "sdl3-image", "sdl3-shadercross"):
         fold(package, subprocess.check_output(["pkg-config", "--modversion", package], env=env))
     value = digest.hexdigest()
-    target = Path("build/generated/engine/streaming/CrownBuild.h")
+    target = Path("build/generated/OutshineGenerated/CrownBuildIdentity.h")
     content = (
-        "#ifndef OUTSHINE_GENERATED_CROWN_BUILD_H\n"
-        "#define OUTSHINE_GENERATED_CROWN_BUILD_H\n\n"
+        "#ifndef OUTSHINE_GENERATED_CROWN_BUILD_IDENTITY_H\n"
+        "#define OUTSHINE_GENERATED_CROWN_BUILD_IDENTITY_H\n\n"
         "#include <string_view>\n\n"
-        f'inline constexpr std::string_view kCrownBuildIdentity = "{value}";\n\n'
+        "namespace outshine::Build {\n\n"
+        f'inline constexpr std::string_view CrownIdentity = "{value}";\n\n'
+        "}\n\n"
         "#endif\n"
     ).encode()
     if target.exists() and target.read_bytes() == content:
