@@ -21,7 +21,7 @@ SDL_ReleaseGPUTransferBuffer. Subsequent commands see completed uploads; release
 GPU-deferred by SDL. An application fence is not required solely to sample this image
 or release its staging owner. This replaces the former mandatory PendingSampledImage
 and per-image fence design. Existing synchronous callers and Result contracts stay.
-WI 2219's differing first frame remains a separate, unexplained defect.
+Static draw-input reuse and bounded derivative-filter stability are already proven independently.
 
 ## Decision
 

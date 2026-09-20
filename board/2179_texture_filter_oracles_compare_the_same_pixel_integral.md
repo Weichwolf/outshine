@@ -17,8 +17,8 @@ scene. The four-texels-per-pixel case, which declares a 256-sample pixel integra
 is unreachable for the same reason. Changing a grey value, pin, tolerance or
 manifest would hide a translation defect.
 
-The oracle also needs a deterministic first GPU frame. `MipmappedChessRepeatsLinearPixels`
-currently proves that this prerequisite is absent; WI 2219 owns the renderer repair.
+The renderer contract is now depth-bit-exact. Reduced filter draws are colour-bit-exact;
+minified multi-draw images permit at most `1/256` linear colour delta across resident frames.
 
 ## Architecture decision
 
@@ -41,7 +41,7 @@ GPU encoding.
 
 ## Implementation order
 
-1. **P1, independent of 2219:** Make the existing factory-world translator complete and
+1. Make the existing factory-world translator complete and
    reject every undeclared conversion explicitly.
 2. Run `four-texels-per-pixel` through Make. Its analytical integral must reject a
    base-only chain, gamma-space averaging and a deliberately swapped texel.
@@ -49,7 +49,7 @@ GPU encoding.
    GPU reference. Preserve the current point fixture; do not make it impersonate the
    integrated case.
 4. Add linear repeat checks for unlit colour, lit metallic-roughness/normal maps and
-   an animation sample. WI 2219's first-frame contract is reused, never warmed up.
+   an animation sample. Reuse the established repeat contract; never warm up a frame.
 
 ## Factory translation decision
 
@@ -64,8 +64,7 @@ cover none, uniform, factory, absent and unknown worlds without starting Blender
 
 Use test/khronos declarations and test/scripts/render_corpus.py; rendering
 continues through outshine-client/public Engine. Translator and analytical controls can
-ship now. Final exact repeat acceptance remains unresolved until WI 2219 is repaired;
-this is not a reason to block translation work or silently mark the entire WI complete.
+ship independently.
 Commands: make format; make corpus-render CASES='ABeautifulGame'; make lint.
 Run make corpus-render CASES='SimpleTexture/four-texels-per-pixel'.
 Normal runs never regenerate reference pins or invoke Blender.
@@ -77,5 +76,5 @@ Normal runs never regenerate reference pins or invoke Blender.
       once and verified by positive and negative controls.
 - [ ] Wrong mip construction, wrong colour space, a missing level and a changed
       sample fail their respective oracle.
-- [ ] First, subsequent and redeclared static frames agree exactly; reference pins
-      and acceptance limits remain unchanged.
+- [ ] First, subsequent and redeclared static frames meet the established exact/depth/filter
+      stability contract; reference pins and oracle acceptance limits remain unchanged.

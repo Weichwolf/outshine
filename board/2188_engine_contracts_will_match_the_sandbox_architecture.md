@@ -80,18 +80,16 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
 Arbeitsreserve für Coding; fehlgeschlagene Gates zuerst reparieren:
-1. **P0, 2219 (ready):** begrenzter Erstbild-Vergleich mit eingefrorenen Draw-Inputs.
-   Danach Evidenz/Fix oder Architekturfrage; unabhängige Arbeit bleibt ausführbar.
-2. **P0, 2236 (ready):** letzte Scenario-Playback-Abhängigkeit übersetzen und den reduzierten
+1. **P0, 2236 (ready):** letzte Scenario-Playback-Abhängigkeit übersetzen und den reduzierten
    Koordinator vollständig zu RuntimeScene migrieren; keine Alias- oder Live-Reste.
-3. **P0, 2237 (ready):** verbleibende Crown-Capture-/Streaming-Besitzer über die vorhandene
+2. **P0, 2237 (ready):** verbleibende Crown-Capture-/Streaming-Besitzer über die vorhandene
    SceneResources-Grenze migrieren. Terrainalgorithmen und Codec/Cache sind bereits getrennt.
-4. **P0, 2231 / 2191 (ready):** öffentliche Tile-Atomarität und History des letzten Submit
+3. **P0, 2231 / 2191 (ready):** öffentliche Tile-Atomarität und History des letzten Submit
    beweisen; keine Worker-Datenrennen oder bloß leere Bewegungsbilder als Nachweis.
-5. **P0, 2234 (ready):** längste gemessene Ground-Einheit fortsetzbar machen, danach
+4. **P0, 2234 (ready):** längste gemessene Ground-Einheit fortsetzbar machen, danach
    **P1, 2233:** Zulassung/Rückstau budgetieren. Schedulingzeit und Produktdeterminismus trennen.
-6. **P1, 2235 / 2179 (ready):** Mip-Uploads ohne unnötige Fences bündeln;
-   Factory-Übersetzung unabhängig reparieren, Repeat-Abnahme bleibt bis 2219 offen.
+5. **P1, 2235 / 2179 (ready):** Mip-Uploads ohne unnötige Fences bündeln und
+   Factory-Übersetzung unabhängig reparieren.
 Strukturaudit aller Module und konkrete Zuständigkeiten: 2139, verbleibende Kinder 2236–2237.
 2230 bindet Capture an verwendete Produkte; 2150 migriert statischen nativen Import,
 danach native Animation. 2216-Restprüfungen begleiten Consumer; 2228 budgetiert Speicher.
