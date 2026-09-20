@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cmath>
 #include <filesystem>
@@ -73,8 +74,23 @@ int main() {
     Unprepared(SDL_GetError());
     return Report();
   }
-  for (const bool additionalReadbacks : {false, true}) {
-    std::printf("additionalReadbacks=%d\n", additionalReadbacks);
+
+  struct Sequence {
+    bool Temporal;
+    bool AdditionalReadbacks;
+  };
+
+  constexpr std::array sequences = {Sequence{.Temporal = false, .AdditionalReadbacks = false},
+                                    Sequence{.Temporal = true, .AdditionalReadbacks = false},
+                                    Sequence{.Temporal = true, .AdditionalReadbacks = true}};
+  for (const Sequence sequence : sequences) {
+    scenario.Render.Stages =
+        sequence.Temporal
+            ? std::vector<std::string>{}
+            : std::vector<std::string>{
+                  "subjects", "subjectsTransmissive", "compositeTransmission", "overlay"};
+    std::printf(
+        "temporal=%d additionalReadbacks=%d\n", sequence.Temporal, sequence.AdditionalReadbacks);
     Engine engine;
     if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
         !accepted(engine.setGeometry(single)) || !accepted(engine.assemble()) ||
@@ -84,7 +100,7 @@ int main() {
     std::vector<float> first, repeated, firstDepth, repeatedDepth;
     CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),
           "first chess frame renders");
-    if (additionalReadbacks) {
+    if (sequence.AdditionalReadbacks) {
       CHECK(engine.renderer().readPixels(Buffer::Depth, firstDepth).has_value(),
             "first depth is read");
     }
@@ -96,7 +112,7 @@ int main() {
       if (first[at] > 0 || first[at + 1] > 0 || first[at + 2] > 0) { ++lit; }
     }
     CHECK(lit > 0, "the chess frame contains visible geometry");
-    if (additionalReadbacks) {
+    if (sequence.AdditionalReadbacks) {
       std::filesystem::create_directories("build/native-materials");
       CHECK(engine.renderer()
                 .saveScreenshot("build/native-materials/chess-native-first.png")
@@ -115,7 +131,7 @@ int main() {
         }
         worst = std::max(worst, std::abs(first[at] - repeated[at]));
       }
-      if (additionalReadbacks) {
+      if (sequence.AdditionalReadbacks) {
         CHECK(engine.renderer().readPixels(Buffer::Depth, repeatedDepth).has_value(),
               "repeated depth is read");
         size_t depthChanges = 0;
@@ -131,9 +147,11 @@ int main() {
                   changed,
                   firstChanged,
                   static_cast<double>(worst));
-      CHECK(first == repeated, "single native chess part repeats every linear channel exactly");
+      CHECK(first == repeated,
+            sequence.Temporal ? "temporally resolved chess repeats every linear channel exactly"
+                              : "unresolved chess repeats every linear channel exactly");
     }
-    if (additionalReadbacks) {
+    if (sequence.AdditionalReadbacks) {
       std::filesystem::create_directories("build/native-materials");
       CHECK(engine.renderer()
                 .saveScreenshot("build/native-materials/chess-native-repeat.png")
