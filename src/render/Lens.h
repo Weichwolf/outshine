@@ -24,6 +24,8 @@ struct Lens {
   From(const Viewpoint &eye, double widthPx, double heightPx) noexcept;
 
   [[nodiscard]] Mat4f Projection() const noexcept;
+
+  [[nodiscard]] Mat4f ViewProjection(const CameraBasis &camera) const noexcept;
 };
 
 }

@@ -96,4 +96,27 @@ Mat4f Lens::Projection() const noexcept {
   return p;
 }
 
+Mat4f Lens::ViewProjection(const CameraBasis &camera) const noexcept {
+  const Vec3 &right = camera.Right;
+  const Vec3 &up = camera.Up;
+  const Vec3 &forward = camera.Forward;
+  const Mat4f view = {{static_cast<float>(right[0]),
+                       static_cast<float>(up[0]),
+                       -static_cast<float>(forward[0]),
+                       0,
+                       static_cast<float>(right[1]),
+                       static_cast<float>(up[1]),
+                       -static_cast<float>(forward[1]),
+                       0,
+                       static_cast<float>(right[2]),
+                       static_cast<float>(up[2]),
+                       -static_cast<float>(forward[2]),
+                       0,
+                       0,
+                       0,
+                       0,
+                       1}};
+  return Projection() * view;
+}
+
 }

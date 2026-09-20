@@ -72,37 +72,6 @@ constexpr bool kGpuValidation = false;
 
 namespace {
 
-Mat4f MvpCamRel(const CameraBasis &stands, const Lens &through) {
-  const Vec3 &right = stands.Right;
-  const Vec3 &up = stands.Up;
-  const Vec3 &forward = stands.Forward;
-  const Mat4f v = {{static_cast<float>(right[0]),
-                    static_cast<float>(up[0]),
-                    -static_cast<float>(forward[0]),
-                    0,
-                    static_cast<float>(right[1]),
-                    static_cast<float>(up[1]),
-                    -static_cast<float>(forward[1]),
-                    0,
-                    static_cast<float>(right[2]),
-                    static_cast<float>(up[2]),
-                    -static_cast<float>(forward[2]),
-                    0,
-                    0,
-                    0,
-                    0,
-                    1}};
-  const Mat4f p = through.Projection();
-  Mat4f m = {};
-  for (int c = 0; c < 4; c++) {
-    for (int r = 0; r < 4; r++) {
-      m[c * 4 + r] = 0;
-      for (int k = 0; k < 4; k++) { m[c * 4 + r] += p[k * 4 + r] * v[c * 4 + k]; }
-    }
-  }
-  return m;
-}
-
 SDL_GPUTextureFormat FormatOf(TexelFormat declared) {
   switch (declared) {
     case TexelFormat::Handle:
@@ -961,7 +930,7 @@ FrameContext SceneRenderer::Framing() const {
     ctx.PreViewTranslation[axis] = -ActiveState().Camera.EyeM[axis];
   }
 
-  ctx.Mvp = MvpCamRel(ActiveState().Camera, Through());
+  ctx.Mvp = Through().ViewProjection(ActiveState().Camera);
   for (int axis = 0; axis < 3; axis++) {
     ctx.PrevPreViewTranslation[axis] =
         ActiveState().Submitted ? -ActiveState().PrevEye[axis] : ctx.PreViewTranslation[axis];
@@ -1468,7 +1437,7 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   ActiveState().Content.Subjects.CarryFrame();
   ActiveState().Content.Glass.CarryFrame();
 
-  ActiveState().PrevMvp = MvpCamRel(ActiveState().Camera, Through());
+  ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
   ActiveState().Submitted = true;
   return {};
 }
@@ -1797,5 +1766,4 @@ SceneRenderer::Presented() const {
   if (ActiveState().Frame.Shown.WidthPx == 0) { return std::optional<Shown>(); }
   return std::optional<Shown>(ActiveState().Frame.Shown);
 }
-
 }
