@@ -16,7 +16,7 @@ Laying.cpp mixes palette/classification, water/terrain generation and candidate 
 Render::ImpostorBaker owns one SceneRenderer, render plan and resource set for a complete atlas;
 it changes only the camera between views. Render::ImpostorInstances owns render handles,
 card-view selection and atomic instance batches.
-WorldCrowns starts generation/capture jobs and installs those renderer instances.
+VegetationStreaming starts generation/capture jobs and installs those renderer instances.
 StructureBuildQueue and StructureBuildTask schedule, retain inputs and consume results:
 these are integration responsibilities, not meshing algorithms merely because of their names.
 
@@ -34,7 +34,7 @@ these are integration responsibilities, not meshing algorithms merely because of
 | Tree prototype generation | existing generators/flora; no GPU/renderer dependency |
 | CrownCache transport | world/data/ImpostorCache; content codec and existing bounded IO |
 | Impostor view selection and instances | render/impostor/ImpostorInstances; existing scene-resource handles |
-| WorldCrowns species resolution, admission, completion | engine/streaming/VegetationStreaming; narrow owners |
+| VegetationStreaming species resolution, admission, completion | engine/streaming/VegetationStreaming; narrow owners |
 
 No renderer dependency in generators or content. No engine dependency in render/world.
 The integration layer may call both generator and renderer, but owns neither algorithm.
@@ -57,14 +57,14 @@ Stale results are rejected before the existing candidate commit; old world remai
    retain current range bounds, worker ownership and publication proof from WI 2231.
 4. [x] Rename/move CrownPieces to Render::ImpostorInstances under render/impostor. Keep its
    typed PieceHandle ownership, all-view atomic SetPieceInstances batch and release semantics;
-   WorldCrowns stores that render owner and contains no card construction or raw handle logic.
+   VegetationStreaming stores that render owner and contains no card construction or raw handle logic.
 5. [x] Implement Render::ImpostorBaker over native bark geometry plus optional leaf geometry and
    instance transforms. Create/configure one preparation renderer and resource set per atlas,
    then vary only the camera across views. It owns plan, GPU completion and readback conversion;
    it does not accept TreePrototype or Core::RuntimeScene. Engine integration grows TreePrototype once,
    translates the native capture input and publishes the unchanged Content::ImpostorAtlas.
-6. [ ] After those consumers move, rename/move WorldCrowns to engine/streaming/
-   VegetationStreaming. Preserve its bounded IO/preparation tasks, cache state machine, failure
+6. [x] Rename/move WorldCrowns to engine/streaming/VegetationStreaming after its consumers move.
+   Preserve its bounded IO/preparation tasks, cache state machine, failure
    retention and destructor join. No vegetation feature or atlas algorithm change in this WI.
 
 No vegetation feature expansion or new atlas algorithm here. Existing renderer-backed
@@ -97,7 +97,7 @@ The moved lifetime, stale-revision and atomic-publication tests preserve those b
 `Content::ImpostorAtlas` owns validation and its versioned codec; `Data::ImpostorCache` owns bounded
 transport. Card derivation and GPU instance ownership are Render-owned. Their codec, corruption,
 coverage, tangent-space and metallic/roughness tests require neither Engine nor renderer setup.
-WorldCrowns retains integration state and `std::unique_ptr<Render::ImpostorInstances>`.
+VegetationStreaming retains integration state and `std::unique_ptr<Render::ImpostorInstances>`.
 
 `Render::ImpostorBaker` consumes only owned native geometry, instance transforms, bounds and atlas
 shape. One direct renderer registers every material and piece once, then captures all cameras into

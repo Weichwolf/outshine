@@ -1,4 +1,4 @@
-#include "WorldCrowns.h"
+#include "VegetationStreaming.h"
 #include "ImpostorPreparation.h"
 #include "TreePrototype.h"
 #include <cstddef>
@@ -14,30 +14,31 @@
 
 namespace outshine {
 namespace Says {
-constexpr auto Instances = "world crown instance capacity exceeded";
-constexpr auto Prototypes = "world crown prototype capacity exceeded";
-constexpr auto Preparation = "world crown preparation must finish before realtime updates";
-constexpr auto Tree = "world crown source cannot produce its tree prototype";
+constexpr auto Instances = "vegetation streaming instance capacity exceeded";
+constexpr auto Prototypes = "vegetation streaming prototype capacity exceeded";
+constexpr auto Preparation = "vegetation preparation must finish before realtime updates";
+constexpr auto Tree = "vegetation source cannot produce its tree prototype";
 }
 
-WorldCrowns::WorldCrowns(Render::SceneRenderer &renderer, const Config &config)
+VegetationStreaming::VegetationStreaming(Render::SceneRenderer &renderer, const Config &config)
     : Renderer_(&renderer), Cache_(Io_, config.Cache), Shape_(config.Shape) {}
 
-WorldCrowns::~WorldCrowns() {
+VegetationStreaming::~VegetationStreaming() {
   if (Preparing_ != Tasks::kNoTask) { Preparation_.Wait(Preparing_); }
 }
 
-std::unique_ptr<WorldCrowns> WorldCrowns::Create(Render::SceneRenderer &renderer,
-                                                 const Generators::Shipping &catalogue,
-                                                 std::span<const WorldInstance> instances,
-                                                 const TangentFrame &frame,
-                                                 const Config &config,
-                                                 std::string &error) {
+std::unique_ptr<VegetationStreaming>
+VegetationStreaming::Create(Render::SceneRenderer &renderer,
+                            const Generators::Shipping &catalogue,
+                            std::span<const WorldInstance> instances,
+                            const TangentFrame &frame,
+                            const Config &config,
+                            std::string &error) {
   if (instances.size() > config.Instances) {
     error = Says::Instances;
     return nullptr;
   }
-  auto result = std::unique_ptr<WorldCrowns>(new WorldCrowns(renderer, config));
+  auto result = std::unique_ptr<VegetationStreaming>(new VegetationStreaming(renderer, config));
   std::vector<size_t> order(instances.size());
   std::ranges::iota(order, size_t{0});
   std::ranges::sort(
@@ -63,24 +64,24 @@ std::unique_ptr<WorldCrowns> WorldCrowns::Create(Render::SceneRenderer &renderer
   return result;
 }
 
-bool WorldCrowns::Ready() const {
+bool VegetationStreaming::Ready() const {
   return std::ranges::all_of(Groups_,
                              [](const Group &group) { return group.State == Phase::Resident; });
 }
 
-void WorldCrowns::Into(Render::SceneRenderer &renderer) noexcept {
+void VegetationStreaming::Into(Render::SceneRenderer &renderer) noexcept {
   Renderer_ = &renderer;
   for (Group &group : Groups_) {
     if (group.Pieces) { group.Pieces->MoveTo(renderer); }
   }
 }
 
-size_t WorldCrowns::Resident() const {
+size_t VegetationStreaming::Resident() const {
   return static_cast<size_t>(std::ranges::count_if(
       Groups_, [](const Group &group) { return group.State == Phase::Resident; }));
 }
 
-bool WorldCrowns::PollPreparation(bool prepare, std::string &error) {
+bool VegetationStreaming::PollPreparation(bool prepare, std::string &error) {
   if (Preparing_ != Tasks::kNoTask) {
     if (Preparation_.Done(Preparing_)) {
       Preparing_ = Tasks::kNoTask;
@@ -98,7 +99,7 @@ bool WorldCrowns::PollPreparation(bool prepare, std::string &error) {
   return true;
 }
 
-bool WorldCrowns::AcceptCacheResult(std::string &error) {
+bool VegetationStreaming::AcceptCacheResult(std::string &error) {
   auto loaded = Cache_.Take();
   if (!loaded) { return true; }
   for (auto &group : Groups_) {
@@ -118,7 +119,7 @@ bool WorldCrowns::AcceptCacheResult(std::string &error) {
   return true;
 }
 
-void WorldCrowns::PrepareNext() {
+void VegetationStreaming::PrepareNext() {
   if (Preparing_ == Tasks::kNoTask) {
     const auto missing = std::ranges::find(Groups_, Phase::Missing, &Group::State);
     if (missing != Groups_.end()) {
@@ -139,7 +140,7 @@ void WorldCrowns::PrepareNext() {
   }
 }
 
-bool WorldCrowns::Step(const Vec3 &eye, bool prepare, std::string &error) {
+bool VegetationStreaming::Step(const Vec3 &eye, bool prepare, std::string &error) {
   if (!Failure_.empty()) {
     error = Failure_;
     return false;

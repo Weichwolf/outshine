@@ -22,7 +22,7 @@ Materialpfade weiterverwenden, sofern ihre Verträge halten.
 | EngineHeld.h/Live/Asset: Gltf-Typen außerhalb Importgrenze | 2150 |
 | ScenarioRead/Write: getrennte Schema-Walks und unvollständige Tokenvalidierung | 2151, 2131 |
 | Grounds/Laying: globaler Aufbau und nachträgliche Terrainänderung | 2124, 2166, 2144 |
-| WorldCrowns: statische Residency und unvollständige Distanzleiter | 2111, 2123, 2132 |
+| VegetationStreaming: statische Residency und unvollständige Distanzleiter | 2111, 2123, 2132 |
 | Prüfqualität und Mipmap-Vertrag getrennt nachweisen | 2094, 2179 |
 
 Ziel: Plattformadapter → Engine-Fassade → Simulation/Streaming/Rendering.

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_WORLDCROWNS_H
-#define OUTSHINE_ENGINE_WORLDCROWNS_H
+#ifndef OUTSHINE_ENGINE_STREAMING_VEGETATIONSTREAMING_H
+#define OUTSHINE_ENGINE_STREAMING_VEGETATIONSTREAMING_H
 
 #include "ImpostorCache.h"
 #include "ImpostorAtlasShape.h"
@@ -8,7 +8,7 @@
 #include "Shipped.h"
 
 namespace outshine {
-class WorldCrowns {
+class VegetationStreaming {
 public:
   struct Config {
     Data::ImpostorCache::Config Cache;
@@ -17,13 +17,13 @@ public:
     size_t Instances = 65536;
   };
 
-  static std::unique_ptr<WorldCrowns> Create(Render::SceneRenderer &renderer,
-                                             const Generators::Shipping &catalogue,
-                                             std::span<const WorldInstance> instances,
-                                             const TangentFrame &frame,
-                                             const Config &config,
-                                             std::string &error);
-  ~WorldCrowns();
+  static std::unique_ptr<VegetationStreaming> Create(Render::SceneRenderer &renderer,
+                                                     const Generators::Shipping &catalogue,
+                                                     std::span<const WorldInstance> instances,
+                                                     const TangentFrame &frame,
+                                                     const Config &config,
+                                                     std::string &error);
+  ~VegetationStreaming();
   void Into(Render::SceneRenderer &renderer) noexcept;
   [[nodiscard]] bool Step(const Vec3 &eye, bool prepare, std::string &error);
   [[nodiscard]] bool Ready() const;
@@ -42,7 +42,7 @@ private:
     Phase State = Phase::Wanted;
   };
 
-  WorldCrowns(Render::SceneRenderer &renderer, const Config &config);
+  VegetationStreaming(Render::SceneRenderer &renderer, const Config &config);
   bool PollPreparation(bool prepare, std::string &error);
   bool AcceptCacheResult(std::string &error);
   void PrepareNext();

@@ -1,4 +1,4 @@
-#include "WorldCrowns.h"
+#include "VegetationStreaming.h"
 #include "ImpostorCard.h"
 #include "ImpostorPreparation.h"
 #include "TreePrototype.h"
@@ -54,7 +54,7 @@ int main() {
   const auto tree = Generators::TreePrototype::Grow(*species);
   CHECK(tree.has_value(), "fixture prototype grows");
   if (!tree) { return Report(); }
-  WorldCrowns::Config config;
+  VegetationStreaming::Config config;
   config.Shape = {.Pixels = 32, .Views = 1};
   config.Prototypes = 2;
   config.Instances = 2;
@@ -80,8 +80,8 @@ int main() {
   const std::array<WorldInstance, 2> instances{{{.Cluster = 0}, {.Cluster = 1}}};
   const auto initialPieces = renderer.PiecesStanding();
   for (int cycle = 0; cycle < 3; ++cycle) {
-    auto crowns =
-        WorldCrowns::Create(renderer, catalogue, instances, TangentFrame::At({}), config, error);
+    auto crowns = VegetationStreaming::Create(
+        renderer, catalogue, instances, TangentFrame::At({}), config, error);
     CHECK(crowns && crowns->Wanted() == 2, "both cluster groups are retained");
     if (!crowns) { return Report(); }
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

@@ -240,7 +240,7 @@ WorldReadiness Engine::State::Readiness() const {
                : Says::kPendingClassification,
            vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
            !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
-                   (World.Crowns && World.Crowns->Ready())
+                   (World.Vegetation && World.Vegetation->Ready())
                ? ""
                : Says::kPendingVegetation}};
 }

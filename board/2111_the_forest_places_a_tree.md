@@ -14,7 +14,7 @@ danach Weltintegration und Artenausbau in 2176. Keine Place-Sonderbehandlung.
 
 Vorhanden: Species-Identität, geografische Instanzmatrizen, native Materialien,
 geteilte Piece-Geometrie, Kronenatlas und begrenzter Dateicache. Der uncommittete
-WorldCrowns-Consumer zeichnet Kronenkarten, ist aber keine abgenommene Waldpipeline.
+VegetationStreaming-Consumer zeichnet Kronenkarten, ist aber keine abgenommene Waldpipeline.
 Koerbersee-c3a0846c zeigt vergrößerte pixelige Nahkarten und unpassende Arten;
 Rosenheim-4fda4e24 übergroße Kronen im Gebäudebereich. Visuell abgelehnt.
 Aktuelle Vergleichsbilder: `build/shots/reference/terrain-20260908/`.

@@ -274,25 +274,26 @@ bool Engine::State::Bakes(size_t landsMost) {
 bool Engine::State::UpdateCrowns(bool prepare) {
   if (!Session.Declared.Ground.VegetationEnabled) { return true; }
   if (!Picture.Standing || !World.Grown || !World.Shipping.Ready()) { return true; }
-  if (!World.Crowns) {
-    WorldCrowns::Config config;
+  if (!World.Vegetation) {
+    VegetationStreaming::Config config;
     config.Cache.Store.Directory =
         Session.Under.Cache.empty() ? std::string{} : Session.Under.Cache + "/crowns";
     const auto frame =
         TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                           .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
-    World.Crowns =
-        WorldCrowns::Create(Picture.Device, World.Shipping, World.Instances, frame, config, Error);
-    if (!World.Crowns) { return false; }
+    World.Vegetation = VegetationStreaming::Create(
+        Picture.Device, World.Shipping, World.Instances, frame, config, Error);
+    if (!World.Vegetation) { return false; }
   }
   const auto &eye =
       Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
-  const bool updated = World.Crowns->Step(eye.EyeM, prepare, Error);
+  const bool updated = World.Vegetation->Step(eye.EyeM, prepare, Error);
   Published.Places("flora: crown prototypes resident",
-                   static_cast<double>(World.Crowns->Resident()),
+                   static_cast<double>(World.Vegetation->Resident()),
                    "prototypes");
-  Published.Places(
-      "flora: crown prototypes wanted", static_cast<double>(World.Crowns->Wanted()), "prototypes");
+  Published.Places("flora: crown prototypes wanted",
+                   static_cast<double>(World.Vegetation->Wanted()),
+                   "prototypes");
   return updated;
 }
 

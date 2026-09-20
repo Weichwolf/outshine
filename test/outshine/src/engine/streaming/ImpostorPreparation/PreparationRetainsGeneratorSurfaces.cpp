@@ -11,7 +11,7 @@
 #include "ImpostorPreparation.h"
 #include "ImpostorInstances.h"
 #include "ImpostorCard.h"
-#include "WorldCrowns.h"
+#include "VegetationStreaming.h"
 #include "FrameCapture.h"
 #include "RuntimeScene.h"
 #include "math/Units.h"
@@ -580,10 +580,11 @@ int main() {
         "the loaded atlas resolves to its actual catalogue cluster");
   std::array<WorldInstance, 2> placements{
       {{.Body = 17, .Cluster = birch}, {.Body = 18, .Cluster = ~0u}}};
-  WorldCrowns::Config worldConfig{.Cache = {.Store = cacheStore},
-                                  .Shape = {.Pixels = 128, .Views = 4}};
+  VegetationStreaming::Config worldConfig{.Cache = {.Store = cacheStore},
+                                          .Shape = {.Pixels = 128, .Views = 4}};
   const auto worldFrame = TangentFrame::At({});
-  auto world = WorldCrowns::Create(renderer, catalogue, placements, worldFrame, worldConfig, error);
+  auto world =
+      VegetationStreaming::Create(renderer, catalogue, placements, worldFrame, worldConfig, error);
   CHECK(world && world->Wanted() == 1 && !world->Ready(),
         "only tree clusters request resident crown prototypes");
   auto camera = Render::Viewpoint::LookAt(
@@ -633,8 +634,8 @@ int main() {
   worldConfig.Shape.Views = 5;
   const auto missingStart = std::chrono::steady_clock::now();
   {
-    auto absent =
-        WorldCrowns::Create(renderer, catalogue, placements, worldFrame, worldConfig, error);
+    auto absent = VegetationStreaming::Create(
+        renderer, catalogue, placements, worldFrame, worldConfig, error);
     CHECK(absent != nullptr, "an absent capture shape can request its artifact");
     if (absent) {
       for (int attempt = 0; attempt < 20; ++attempt) {

@@ -12,7 +12,7 @@
 #include "Fetching.h"
 #include "HeapProbe.h"
 #include "Shipped.h"
-#include "WorldCrowns.h"
+#include "VegetationStreaming.h"
 #include "WorldReadiness.h"
 #include "GroundPublication.h"
 #include "StructureMesher.h"
@@ -214,7 +214,7 @@ struct Surrounds {
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
     Pieces.Into(&renderer);
     Sheets.Into(&renderer);
-    if (Crowns) { Crowns->Into(renderer); }
+    if (Vegetation) { Vegetation->Into(renderer); }
   }
 
   std::unique_ptr<Data::Transport> Wire;
@@ -225,7 +225,7 @@ struct Surrounds {
   using Standing = WorldInstance;
 
   std::vector<Standing> Instances;
-  std::unique_ptr<WorldCrowns> Crowns;
+  std::unique_ptr<VegetationStreaming> Vegetation;
   size_t Pending = 0;
   size_t Bare = 0;
   size_t Wanted = 0;
