@@ -13,8 +13,7 @@ auf PS4 sind die visuelle Baseline. Ein bewusst gestalteter plausibler Look ist 
 verfehlter Realismus.
 
 Diese Datei enthält dauerhafte Regeln. Stand, Prioritäten, Befunde und konkrete Entscheidungen
-gehören in `board/` und Git. Bei Widerspruch gilt diese Datei vor `CLAUDE.md`; aktuelle
-Nutzeranweisungen gehen vor.
+gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
 
 ## Verantwortung
 

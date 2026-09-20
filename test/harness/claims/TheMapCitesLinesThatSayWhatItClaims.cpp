@@ -164,7 +164,7 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const std::string map = Slurp("CLAUDE.md");
+  const std::string map = Slurp("AGENTS.md");
   CHECK(map.size() > 1000, "the map this claim judges is where it is declared to be");
   const std::vector<std::string> mapRows = Rows(map);
   const std::map<std::string, std::string> byName = TheTreesFilesByName();
@@ -206,10 +206,11 @@ int main(void) {
   }
   Note("file:line citations the map carries", (double)citations, "citations");
   for (const std::string &one : lying) { std::printf("FOUND %s\n", one.c_str()); }
-  CHECK(lying.empty(),
-        "**EVERY LINE THE MAP CITES SAYS WHAT THE MAP CLAIMS**: CLAUDE.md is TARGET now and its "
-        "citations are few, but a citation that has drifted turns an argument into an assertion "
-        "nobody can check (board:1762, 1855)");
+  CHECK(
+      lying.empty(),
+      "**EVERY LINE THE MAP CITES SAYS WHAT THE MAP CLAIMS**: AGENTS.md defines principles and its "
+      "citations are few, but a citation that has drifted turns an argument into an assertion "
+      "nobody can check (board:1762, 1855)");
 
   std::vector<std::string> absent;
   size_t paths = 0;
@@ -224,7 +225,7 @@ int main(void) {
       for (const std::string &cited : Expanded(WithoutLineReference(span))) {
         ++paths;
         if (std::filesystem::exists(cited)) { continue; }
-        absent.push_back("CLAUDE.md:" + std::to_string(line) + " cites " + cited +
+        absent.push_back("AGENTS.md:" + std::to_string(line) + " cites " + cited +
                          ", which is not in the tree");
       }
     }
@@ -243,7 +244,7 @@ int main(void) {
         "**AND EVERY PATH IT CITES IS IN THE TREE**: a tick that names a file is a claim with "
         "something under it, and a path that has moved reads exactly like one that has not");
 
-  Covers("IV.12 CLAUDE.md is TARGET and argues from the tree: every path it names is present and "
+  Covers("IV.12 AGENTS.md defines principles: every path it names is present and "
          "every line it cites carries the text quoted beside it (board:1762, 1768, 1775, 1777, "
          "1779, 1855). It no longer judges STATE.md: the generated map is gone, and what it "
          "carried is read where it lives -- board/ for the items, `make test` for the reds, "

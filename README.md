@@ -53,7 +53,7 @@ did, which is agreement with ourselves.
 
 ## The three documents
 
-- **`CLAUDE.md`** is TARGET and never description: what this engine is meant to be.
+- **`AGENTS.md`** contains the vision, architecture principles and working rules.
 - **`STATE.md`** is what the tree **is**, written by `make` and by no hand.
 - **`board/`** is the distance between them, one file per item.
 
