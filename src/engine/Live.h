@@ -20,6 +20,7 @@
 #include "ScenePlayback.h"
 #include "CameraState.h"
 #include "SubjectProxy.h"
+#include "SubjectMaterials.h"
 #include "SubjectPoseHistory.h"
 #include "UiSession.h"
 #include "Layout.h"
@@ -56,7 +57,7 @@ struct Declaration {
   const Geometry *InitialGeometry = nullptr;
   std::vector<Material> Surfacing{Material{}};
 
-  std::vector<Scenario::SurfaceOverride> Overriding;
+  std::vector<SubjectSurfaceOverride> Overriding;
 
   std::string Variant;
 
@@ -325,10 +326,6 @@ private:
 
   Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
 
-  [[nodiscard]] size_t WornByNativeSurfaceAndPart(const Geometry &native, size_t firstPart);
-  [[nodiscard]] size_t WornByNativeSurface(const Geometry &native);
-  [[nodiscard]] size_t WornByNativeParts(const Geometry &native, size_t firstPart);
-  [[nodiscard]] bool RejectsUnwornOverrides(std::string &error) const;
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
   void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
@@ -386,8 +383,7 @@ private:
   void CapturesRenderedPositions();
   void CoverShapedParts();
   [[nodiscard]] bool PartVolumes(std::string &error);
-  Render::SurfaceTable Table_;
-  size_t OverridesWorn_ = 0;
+  SubjectMaterials Materials_;
 
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 

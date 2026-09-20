@@ -489,7 +489,14 @@ void PrepareImportedAssets(const Scenario::Document &scenario,
       declared.Joins.push_back(Beneath(assets, shown.Uri));
     }
     declared.Variant = subject->Variant;
-    declared.Overriding = subject->Surfaces;
+    declared.Overriding.reserve(subject->Surfaces.size());
+    for (const Scenario::SurfaceOverride &surface : subject->Surfaces) {
+      declared.Overriding.push_back({.MaterialName = surface.Named,
+                                     .PartName = surface.Node,
+                                     .PartIndex = surface.Part,
+                                     .RetainMaps = surface.KeepsMaps,
+                                     .Surface = surface.Row});
+    }
     declared.Animation = subject->Animation;
     declared.Clip = subject->Clip;
   }

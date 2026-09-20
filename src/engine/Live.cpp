@@ -50,7 +50,7 @@ struct Listed {
   const std::vector<std::string> &Outputs;
 };
 
-bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
+bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
                  bool sky,
                  bool shadows,
                  bool presents,
@@ -320,91 +320,6 @@ double Live::MeteredLux() const {
          (straightDown * Photopic(reach.SunTransmittance) + Photopic(reach.SkyIrradiance));
 }
 
-namespace {
-
-void PaintPart(Render::SurfaceTable &table,
-               size_t part,
-               uint32_t slot,
-               const Scenario::SurfaceOverride &said,
-               std::vector<uint32_t> &wearers) {
-  Render::SubjectMaterial made = said.KeepsMaps ? table.Slots[slot] : Render::SubjectMaterial{};
-  made.Row = said.Row;
-  if (slot < wearers.size() && wearers[slot] == 1u) {
-    table.Slots[slot] = made;
-    return;
-  }
-  if (slot < wearers.size()) { wearers[slot] -= 1u; }
-  const int carried = slot < table.Material.size() ? table.Material[slot] : -1;
-  const int native = slot < table.NativeMaterial.size() ? table.NativeMaterial[slot] : -1;
-  table.Slots.push_back(made);
-  table.Material.push_back(carried);
-  table.NativeMaterial.push_back(native);
-  table.Decoded.emplace_back();
-  table.PartSlot[part] = static_cast<uint32_t>(table.Slots.size() - 1u);
-}
-
-}
-
-size_t Live::WornByNativeSurfaceAndPart(const Geometry &native, size_t firstPart) {
-  return WornByNativeSurface(native) + WornByNativeParts(native, firstPart);
-}
-
-size_t Live::WornByNativeSurface(const Geometry &native) {
-  size_t took = 0;
-  for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
-    const int surface = Table_.NativeMaterial[slot];
-    if (surface < 0 || surface >= native.surfaces()) { continue; }
-    const std::string_view named = native.surfaceNameOf(surface);
-    for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
-      if (said.Named != named) { continue; }
-      if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
-      Table_.Slots[slot].Row = said.Row;
-      ++took;
-      break;
-    }
-  }
-  return took;
-}
-
-size_t Live::WornByNativeParts(const Geometry &native, size_t firstPart) {
-  size_t took = 0;
-  std::vector<uint32_t> wearers(Table_.Slots.size(), 0u);
-  for (const uint32_t worn : Table_.PartSlot) {
-    if (worn < wearers.size()) { wearers[worn] += 1u; }
-  }
-  const auto nativeParts = static_cast<size_t>(native.parts());
-  const size_t available =
-      Table_.PartSlot.size() > firstPart ? Table_.PartSlot.size() - firstPart : 0u;
-  const size_t many = std::min(nativeParts, available);
-  Table_.Slots.reserve(Table_.Slots.size() + many);
-  Table_.Material.reserve(Table_.Material.size() + many);
-  Table_.NativeMaterial.reserve(Table_.NativeMaterial.size() + many);
-  Table_.Decoded.reserve(Table_.Decoded.size() + many);
-  for (size_t local = 0; local < many; ++local) {
-    const size_t part = firstPart + local;
-    const uint32_t slot = Table_.PartSlot[part];
-    if (slot >= Table_.Slots.size() || part >= Shaped_.Parts.size()) { continue; }
-    for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
-      const bool byNode = !said.Node.empty() && said.Node == Shaped_.Parts[part].Name;
-      const bool byPart = said.Part >= 0 && std::cmp_equal(said.Part, part);
-      if (!byNode && !byPart) { continue; }
-      PaintPart(Table_, part, slot, said, wearers);
-      ++took;
-      break;
-    }
-  }
-  return took;
-}
-
-bool Live::RejectsUnwornOverrides(std::string &error) const {
-  if (Declared_.Overriding.empty() || OverridesWorn_ > 0) { return true; }
-  error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
-          " surface(s) of '" + Declared_.Stands +
-          "' and the subject carries neither those material names, those part names nor those "
-          "part indices -- a surface declared onto nothing changes no pixel and says it did";
-  return false;
-}
-
 bool Live::JoinsSubjects(std::string &error) {
   const bool animate = Declared_.Animation == Scenario::AssetAnimation::Play ||
                        Declared_.Animation == Scenario::AssetAnimation::Loop;
@@ -442,7 +357,7 @@ bool Live::StandsSubjects(std::string &error) {
 
 void Live::ClearsSubject() {
   Held_.Clear();
-  Table_ = Render::SurfaceTable();
+  Materials_.Clear();
   ShadowRadiusStoodM_ = 0.0;
   Joined_ = 0;
   Carrying_ = 0;
@@ -471,19 +386,15 @@ bool Live::CarriesBuilt(std::string &error) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - reshapedFrom)
           .count();
   const auto resolvedFrom = std::chrono::steady_clock::now();
-  Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
-  Table_.NativeMaterial = Table_.Material;
-  const bool textured = Render::ResolveNativeTextures(Held_.Snapshot(), Table_.Slots, error);
-  if (!textured) { return false; }
-  OverridesWorn_ = 0;
-  OverridesWorn_ += WornByNativeSurfaceAndPart(Held_.Snapshot(), 0);
-  if (!RejectsUnwornOverrides(error)) { return false; }
-  if (GroundSurface_ >= 0) {
-    for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
-      if (Table_.Material[slot] == GroundSurface_) {
-        Table_.Slots[slot].Domain = Render::SurfaceDomain::Ground;
-      }
-    }
+  auto resolved = Materials_.Resolve(Held_.Snapshot(),
+                                     Shaped_,
+                                     Declared_.Surfacing.front(),
+                                     Declared_.Overriding,
+                                     GroundSurface_,
+                                     Declared_.Stands);
+  if (!resolved) {
+    error = std::move(resolved.error());
+    return false;
   }
   ResolveMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
@@ -501,15 +412,8 @@ bool Live::RestoresGroundResources(std::string &error) {
 
 void Live::WearsPieces() {
   if (Renderer_ == nullptr) { return; }
-  const auto surfaces = static_cast<size_t>(Held_.Snapshot().surfaces());
-  std::vector<uint32_t> slotOf(surfaces, Render::kNoSlot);
-  for (size_t slot = 0; slot < Table_.NativeMaterial.size(); ++slot) {
-    const int surface = Table_.NativeMaterial[slot];
-    if (surface >= 0 && static_cast<size_t>(surface) < slotOf.size()) {
-      slotOf[static_cast<size_t>(surface)] = static_cast<uint32_t>(slot);
-    }
-  }
-  Renderer_->SetNativePieceSurfaces(slotOf);
+  Renderer_->SetNativePieceSurfaces(
+      Materials_.NativeSurfaceSlots(static_cast<size_t>(Held_.Snapshot().surfaces())));
 }
 
 void Live::StandsShadowRadius() {
@@ -568,7 +472,7 @@ void Live::StandsKeyLight() {
 
 bool Live::StandsPlan(std::string &error) {
   Render::PlanSpec declaration;
-  if (!DeclarePlan(Table_.Slots,
+  if (!DeclarePlan(Materials_.Slots(),
                    Declared_.DrawsSky,
                    ShadowRadiusStoodM_ > 0.0,
                    Renderer_ != nullptr && Renderer_->Presents(),
@@ -686,7 +590,7 @@ std::expected<void, std::string> Live::BindSubject() {
             .count();
   } else {
     if (!Camera_.NeedsBinding()) { Camera_.Unbind(); }
-    if (!Renderer_->SetSubjectMaterials(Table_.Slots, error)) {
+    if (!Renderer_->SetSubjectMaterials(Materials_.Slots(), error)) {
       return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});
@@ -824,10 +728,12 @@ void Live::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
 }
 
 void Live::EmitsPerPart() {
-  for (size_t part = 0; part < Table_.PartSlot.size(); ++part) {
-    const uint32_t slot = Table_.PartSlot[part];
-    if (slot >= Table_.Slots.size()) { continue; }
-    const Material &row = Table_.Slots[slot].Row;
+  const auto partSlots = Materials_.PartSlots();
+  const auto materials = Materials_.Slots();
+  for (size_t part = 0; part < partSlots.size(); ++part) {
+    const uint32_t slot = partSlots[part];
+    if (slot >= materials.size()) { continue; }
+    const Material &row = materials[slot].Row;
     const bool emits = row.Emission[0] > 0.0f || row.Emission[1] > 0.0f || row.Emission[2] > 0.0f;
     std::array<float, 3> radiance{};
     for (int channel = 0; channel < 3; ++channel) {
@@ -877,7 +783,7 @@ bool Live::Stand(std::string &error) {
     Stood_.Posed(RenderedPositionsM_);
   }
   PlacesMs_ = sinceStand();
-  if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
+  if (!Stood_.Wears(Materials_.PartSlots(), Materials_.Slots(), error)) { return false; }
   WearsMs_ = sinceStand();
   EmitsPerPart();
 
