@@ -19,6 +19,7 @@ using namespace outshine::Test;
 constexpr uint32_t kSourceWidth = 128;
 constexpr uint32_t kTargetWidth = 64;
 constexpr uint32_t kChannels = 4;
+constexpr uint32_t kHalfBytes = 2;
 
 struct Fixture {
   OwnedDevice Device;
@@ -82,14 +83,15 @@ uint32_t Levels(MipMode mode) {
   return levels;
 }
 
-bool UploadChain(Fixture &fixture, MipMode mode, bool separateSubmits) {
+bool UploadChain(Fixture &fixture, MipMode mode, bool separateSubmits, bool srgb) {
   const uint32_t levels = Levels(mode);
   const auto chain = Chain(mode);
   uint32_t bytes = 0;
   for (const auto &level : chain) { bytes += static_cast<uint32_t>(level.size()); }
   SDL_GPUTextureCreateInfo texture{};
   texture.type = SDL_GPU_TEXTURETYPE_2D;
-  texture.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+  texture.format =
+      srgb ? SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB : SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
   texture.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
   texture.width = kSourceWidth;
   texture.height = kSourceWidth;
@@ -175,9 +177,13 @@ bool UploadChain(Fixture &fixture, MipMode mode, bool separateSubmits) {
   return record(0, levels);
 }
 
-bool Configure(
-    Fixture &fixture, MipMode mode, bool separateSubmits, bool descriptorTable, bool derivatives) {
-  if (!UploadChain(fixture, mode, separateSubmits)) { return false; }
+bool Configure(Fixture &fixture,
+               MipMode mode,
+               bool separateSubmits,
+               bool descriptorTable,
+               bool derivatives,
+               bool srgb) {
+  if (!UploadChain(fixture, mode, separateSubmits, srgb)) { return false; }
   fixture.DescriptorTable = descriptorTable;
   fixture.Derivatives = derivatives;
   SDL_GPUSamplerCreateInfo sampler{};
@@ -206,7 +212,7 @@ bool Configure(
     SDL_SetError("%s", error.c_str());
     return false;
   }
-  SDL_GPUColorTargetDescription target{.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM};
+  SDL_GPUColorTargetDescription target{.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT};
   SDL_GPUVertexBufferDescription buffer{.slot = 0, .pitch = 5u * sizeof(float)};
   const std::array<SDL_GPUVertexAttribute, 2> attributes = {
       SDL_GPUVertexAttribute{.location = 0,
@@ -267,7 +273,7 @@ bool Configure(
 std::vector<uint8_t> Draw(Fixture &fixture) {
   SDL_GPUTextureCreateInfo target{};
   target.type = SDL_GPU_TEXTURETYPE_2D;
-  target.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+  target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
   target.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
   target.width = kTargetWidth;
   target.height = kTargetWidth;
@@ -277,7 +283,8 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   OwnedTexture image(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
   if (!image) { return {}; }
   SDL_GPUTransferBufferCreateInfo transfer{.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,
-                                           .size = kTargetWidth * kTargetWidth * kChannels};
+                                           .size = kTargetWidth * kTargetWidth * kChannels *
+                                                   kHalfBytes};
   OwnedTransfer download(fixture.Device.Get(),
                          SDL_CreateGPUTransferBuffer(fixture.Device.Get(), &transfer));
   if (!download) { return {}; }
@@ -329,29 +336,35 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
 }
 
 std::vector<uint8_t>
-Render(MipMode mode, bool separateSubmits, bool descriptorTable, bool derivatives) {
+Render(MipMode mode, bool separateSubmits, bool descriptorTable, bool derivatives, bool srgb) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  if (!fixture.Device || !Configure(fixture, mode, separateSubmits, descriptorTable, derivatives)) {
+  if (!fixture.Device ||
+      !Configure(fixture, mode, separateSubmits, descriptorTable, derivatives, srgb)) {
     return {};
   }
   return Draw(fixture);
 }
 
-void CheckMode(
-    MipMode mode, bool separateSubmits, bool descriptorTable, bool derivatives, const char *name) {
+void CheckMode(MipMode mode,
+               bool separateSubmits,
+               bool descriptorTable,
+               bool derivatives,
+               bool srgb,
+               const char *name) {
   Fixture fixture(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV |
                                           SDL_GPU_SHADERFORMAT_DXIL,
                                       false,
                                       nullptr));
-  CHECK(fixture.Device && Configure(fixture, mode, separateSubmits, descriptorTable, derivatives),
+  CHECK(fixture.Device &&
+            Configure(fixture, mode, separateSubmits, descriptorTable, derivatives, srgb),
         "the raw SDL fixture configures");
   if (!fixture.Device || !fixture.Pipeline) { return; }
   const auto first = Draw(fixture);
   const auto repeated = Draw(fixture);
-  const auto fresh = Render(mode, separateSubmits, descriptorTable, derivatives);
+  const auto fresh = Render(mode, separateSubmits, descriptorTable, derivatives, srgb);
   CHECK(!first.empty(), "the raw SDL fixture renders its first filtered frame");
   CHECK(first == repeated, name);
   CHECK(first == fresh, "a fresh SDL device has the same first filtered frame");
@@ -360,13 +373,25 @@ void CheckMode(
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes for raw filtered sampling");
-  CheckMode(MipMode::None, false, false, false, "base-only linear sampling repeats exactly");
-  CheckMode(MipMode::Nearest, false, false, false, "batched nearest-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, false, false, false, "batched linear-mip sampling repeats exactly");
-  CheckMode(MipMode::Nearest, true, false, false, "per-level nearest-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, true, false, false, "per-level linear-mip sampling repeats exactly");
-  CheckMode(MipMode::Linear, true, true, false, "eight material sampler bindings repeat exactly");
-  CheckMode(MipMode::Linear, true, false, true, "interpolated UV derivatives repeat exactly");
+  CheckMode(MipMode::None, false, false, false, false, "base-only linear sampling repeats exactly");
+  CheckMode(
+      MipMode::Nearest, false, false, false, false, "batched nearest-mip sampling repeats exactly");
+  CheckMode(
+      MipMode::Linear, false, false, false, false, "batched linear-mip sampling repeats exactly");
+  CheckMode(MipMode::Nearest,
+            true,
+            false,
+            false,
+            false,
+            "per-level nearest-mip sampling repeats exactly");
+  CheckMode(
+      MipMode::Linear, true, false, false, false, "per-level linear-mip sampling repeats exactly");
+  CheckMode(
+      MipMode::Linear, true, true, false, false, "eight material sampler bindings repeat exactly");
+  CheckMode(
+      MipMode::Linear, true, false, true, false, "interpolated UV derivatives repeat exactly");
+  CheckMode(
+      MipMode::Linear, true, false, true, true, "sRGB interpolated UV derivatives repeat exactly");
   SDL_Quit();
   return Report();
 }

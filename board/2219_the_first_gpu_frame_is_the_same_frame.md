@@ -25,11 +25,18 @@ are not necessary for this reproducer. An explicit plan without temporalResolve 
 the same index, count and magnitude. History, jitter and temporal resolve are therefore not
 causal. Every resident repeat matches its preceding resident frame exactly in all three
 sequences. This proves a one-time first-frame transition rather than continuing instability.
-The test retains all three discriminating sequences and exact first-frame equality; nine
-assertions fail, rather than suppressing the defect. Next action is draw-input comparison.
+The current test retains linear-, nearest- and disabled-mip sequences. Only the three
+linear-mip first-frame assertions fail; exact equality remains the contract rather than
+being relaxed. Next action is draw-input comparison.
 
 Raw `FilteredMipSampling/FirstFrameMatchesRepeatedSampling` is green, including
 per-level staging/submission, generated mips, eight samplers and interpolated UVs.
+Its former RGBA8 target could not observe the failing 1/4096 linear difference; an
+RGBA16F target and an sRGB-source variant remain green. In the public reproducer,
+disabling mips or selecting the nearest mip makes every frame bit-identical while
+linear interpolation between mip levels retains the three-channel first-frame error.
+The failing boundary is therefore trilinear sampling with the imported indexed draw,
+not merely mip upload, sRGB decode, output quantization or any use of UV derivatives.
 Perspective native quads are green with generated/imported images and four imported
 UV pairs. A copied imported part becomes green with constant UV0. Source review:
 SubjectProxy::Lit excludes Unlit, selecting the flat Position+Uv0 layout.
@@ -58,8 +65,9 @@ A changed camera/topology cannot eliminate a subsystem from the original failure
    render state and selected pipeline. Capture immutable test snapshots, never mutable
    borrowed pointers or periodic production logs. Report only the first differing field.
 3. If inputs differ, fix the producing owner/commit boundary and add a negative control.
-   If they match, transfer the exact failing indexed draw and state to the existing raw
-   SDL fixture. Green fullscreen sampling alone is not an equivalent reproducer.
+   If they match, transfer the exact failing indexed draw, camera transform, RGBA16F target,
+   sRGB texture and linear-mip sampler to the existing raw SDL fixture. Its corrected
+   fullscreen and derivative controls are green but are not equivalent reproducers.
 4. A failing raw draw requires validation of the fixture and SDL contract first; only
    then classify a possible backend/compiler defect. Record SDL commit, GPU/backend,
    OS and shader product. Compare another locally available backend when available;

@@ -2,7 +2,6 @@
 #include <array>
 #include <cstdio>
 #include <cmath>
-#include <filesystem>
 #include <numbers>
 #include <vector>
 #include <SDL3/SDL.h>
@@ -54,6 +53,24 @@ int main() {
             single.setColours(*part, native.coloursOf(selected)) &&
             single.setTriangles(*part, native.trianglesOf(selected)),
         "single part copies every native attribute");
+  const auto withMipFilter = [](const Geometry &source, MipFilter filter) {
+    Geometry result = source.clone();
+    for (int surface = 0; surface < result.surfaces(); ++surface) {
+      Material row = result.surfaceAt(MaterialInstance(surface));
+      row.BaseColourMap.Sampler.Mip = filter;
+      row.NormalMap.Sampler.Mip = filter;
+      row.MetalRoughMap.Sampler.Mip = filter;
+      row.EmissiveMap.Sampler.Mip = filter;
+      row.SpecularStrengthMap.Sampler.Mip = filter;
+      row.SpecularTintMap.Sampler.Mip = filter;
+      if (!result.setSurface(MaterialInstance(surface), row)) { return Geometry{}; }
+    }
+    return result;
+  };
+  Geometry nearestMips = withMipFilter(single, MipFilter::Nearest);
+  Geometry withoutMips = withMipFilter(single, MipFilter::None);
+  CHECK(nearestMips.parts() == single.parts() && withoutMips.parts() == single.parts(),
+        "mip controls retain native geometry");
   Scenario::Document scenario;
   scenario.Render.Declared = true;
   scenario.Render.Frame = {1280, 720};
@@ -76,34 +93,26 @@ int main() {
   }
 
   struct Sequence {
-    bool Temporal;
-    bool AdditionalReadbacks;
+    MipFilter Mip;
+    const Geometry *Source;
   };
 
-  constexpr std::array sequences = {Sequence{.Temporal = false, .AdditionalReadbacks = false},
-                                    Sequence{.Temporal = true, .AdditionalReadbacks = false},
-                                    Sequence{.Temporal = true, .AdditionalReadbacks = true}};
+  const std::array sequences = {Sequence{.Mip = MipFilter::Linear, .Source = &single},
+                                Sequence{.Mip = MipFilter::Nearest, .Source = &nearestMips},
+                                Sequence{.Mip = MipFilter::None, .Source = &withoutMips}};
   for (const Sequence sequence : sequences) {
-    scenario.Render.Stages =
-        sequence.Temporal
-            ? std::vector<std::string>{}
-            : std::vector<std::string>{
-                  "subjects", "subjectsTransmissive", "compositeTransmission", "overlay"};
-    std::printf(
-        "temporal=%d additionalReadbacks=%d\n", sequence.Temporal, sequence.AdditionalReadbacks);
+    scenario.Render.Stages = {
+        "subjects", "subjectsTransmissive", "compositeTransmission", "overlay"};
+    std::printf("mip=%d\n", static_cast<int>(sequence.Mip));
     Engine engine;
     if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
-        !accepted(engine.setGeometry(single)) || !accepted(engine.assemble()) ||
+        !accepted(engine.setGeometry(*sequence.Source)) || !accepted(engine.assemble()) ||
         !accepted(engine.advance())) {
       return Report();
     }
-    std::vector<float> first, previous, repeated, firstDepth, repeatedDepth;
+    std::vector<float> first, previous, repeated;
     CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),
           "first chess frame renders");
-    if (sequence.AdditionalReadbacks) {
-      CHECK(engine.renderer().readPixels(Buffer::Depth, firstDepth).has_value(),
-            "first depth is read");
-    }
     CHECK(first.size() == 1280u * 720u * 4u, "the full linear frame is read");
     CHECK(std::all_of(first.begin(), first.end(), [](float v) { return std::isfinite(v); }),
           "the frame contains finite values");
@@ -112,13 +121,6 @@ int main() {
       if (first[at] > 0 || first[at + 1] > 0 || first[at + 2] > 0) { ++lit; }
     }
     CHECK(lit > 0, "the chess frame contains visible geometry");
-    if (sequence.AdditionalReadbacks) {
-      std::filesystem::create_directories("build/native-materials");
-      CHECK(engine.renderer()
-                .saveScreenshot("build/native-materials/chess-native-first.png")
-                .has_value(),
-            "first chess PNG is written");
-    }
     for (int repeat = 0; repeat < 3; ++repeat) {
       CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, repeated),
             "resident chess frame renders again");
@@ -131,36 +133,16 @@ int main() {
         }
         worst = std::max(worst, std::abs(first[at] - repeated[at]));
       }
-      if (sequence.AdditionalReadbacks) {
-        CHECK(engine.renderer().readPixels(Buffer::Depth, repeatedDepth).has_value(),
-              "repeated depth is read");
-        size_t depthChanges = 0;
-        float depthWorst = 0;
-        for (size_t at = 0; at < std::min(firstDepth.size(), repeatedDepth.size()); ++at) {
-          depthChanges += firstDepth[at] != repeatedDepth[at];
-          depthWorst = std::max(depthWorst, std::abs(firstDepth[at] - repeatedDepth[at]));
-        }
-        std::printf("depth changed=%zu worst=%g\n", depthChanges, static_cast<double>(depthWorst));
-      }
       std::printf("repeat=%d changed=%zu first=%zu worst=%g\n",
                   repeat,
                   changed,
                   firstChanged,
                   static_cast<double>(worst));
-      CHECK(first == repeated,
-            sequence.Temporal ? "temporally resolved chess repeats every linear channel exactly"
-                              : "unresolved chess repeats every linear channel exactly");
+      CHECK(first == repeated, "single native chess part repeats every linear channel exactly");
       if (!previous.empty()) {
         CHECK(previous == repeated, "resident chess frames repeat every linear channel exactly");
       }
       previous = repeated;
-    }
-    if (sequence.AdditionalReadbacks) {
-      std::filesystem::create_directories("build/native-materials");
-      CHECK(engine.renderer()
-                .saveScreenshot("build/native-materials/chess-native-repeat.png")
-                .has_value(),
-            "chess repeatability PNG is written");
     }
   }
   return Report();
