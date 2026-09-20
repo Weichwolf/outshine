@@ -26,6 +26,12 @@ PUBLIC_TIERS = {
 KNOWN_PUBLIC_FINDINGS = {}
 
 
+def physical_build_includes(text):
+    expression = r'^\s*#\s*include\s*[<"]([^>"]+)[>"]'
+    return [name for name in re.findall(expression, text, re.MULTILINE)
+            if 'build' in pathlib.PurePosixPath(name).parts]
+
+
 def allowed(graph, owner, target):
     return target == owner or owner.startswith(target + '/') or target in graph[owner]
 
@@ -123,6 +129,10 @@ def public_dependencies(source, directories, root, include):
 def main():
     good = {'base': [], 'render': ['base'], 'world': ['base']}
     controls = [
+        physical_build_includes('#include "../../build/CrownBuild.h"') ==
+        ['../../build/CrownBuild.h'],
+        not physical_build_includes('#include "CrownBuild.h"'),
+        not physical_build_includes('#include "../../world/sky/AtmosphereCore.h"'),
         not errors(good, [('render/Draw.cpp', ['render', 'base/math'])]),
         bool(errors(good, [('render/Draw.cpp', ['world'])])),
         bool(errors({'a': ['b'], 'b': ['c'], 'c': ['a']}, [])),
@@ -156,6 +166,12 @@ def main():
     if not graph or not commands:
         raise RuntimeError('missing tier graph or compilation commands')
     violations = errors(graph, commands, public_edges)
+    for tree in (src, include):
+        for source in tree.rglob('*'):
+            if source.suffix not in {'.h', '.hpp', '.cpp', '.inc', '.glsl', '.vert', '.frag', '.comp'}:
+                continue
+            for name in physical_build_includes(source.read_text()):
+                violations.append(f'{source.relative_to(root)}: physical build include {name}')
     known = {
         f'{source}: undeclared public-header dependency {target}': wi
         for (source, target), wi in KNOWN_PUBLIC_FINDINGS.items()

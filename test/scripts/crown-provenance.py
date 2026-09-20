@@ -35,7 +35,7 @@ def main():
     for package in ("sdl3", "sdl3-image", "sdl3-shadercross"):
         fold(package, subprocess.check_output(["pkg-config", "--modversion", package], env=env))
     value = digest.hexdigest()
-    target = Path("build/CrownBuild.h")
+    target = Path("build/generated/engine/CrownBuild.h")
     content = (
         "#ifndef OUTSHINE_GENERATED_CROWN_BUILD_H\n"
         "#define OUTSHINE_GENERATED_CROWN_BUILD_H\n\n"

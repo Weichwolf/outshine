@@ -437,6 +437,7 @@ GroupIncludes() {
   includeTier=$(TierOf "$1") || return 1
   includeReaches=$(LayerReaches "$includeTier") || return 1
   includeSet="-Iinclude"
+  case "$includeTier" in engine) includeSet="$includeSet -Ibuild/generated/engine" ;; esac
   for includeFrom in $includeTier $includeReaches; do
     for includeDir in $(find "src/$includeFrom" -type d | sort); do
       case "$includeDir" in */shaders) continue ;; esac

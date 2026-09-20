@@ -9,7 +9,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
-#include "../../build/CrownBuild.h"
+#include "CrownBuild.h"
 #include "Digest.h"
 #include <bit>
 #include <type_traits>
