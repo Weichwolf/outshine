@@ -52,6 +52,16 @@ classification and atomic table replacement. Scenario override names are transla
 
 ## Next complete slice
 
+Review correction before further extraction: SubjectMaterials::Resolve combines the two mutating
+override passes as operands of `+`; C++ does not guarantee their required order. Call material
+overrides in a separate statement before part overrides, then sum the counts. Add a shared-material
+fixture with a material override and a conflicting part override: only the selected part wins the
+second pass. Test both declared selector orderings; neither may reverse the two-pass contract.
+FailedResolutionPreservesPublishedMaterials currently retains committedSlots as a borrowed span.
+Copy expected indices and material values before the failing call; otherwise in-place mutation
+can alter the expected result or replacement can invalidate it. Add valid retry after rejection.
+The existing green checks cover single-pass resolution, not these missing controls.
+
 `Live` still owns subject import/playback, render-plan selection and scene orchestration in
 421/1036 lines. Its declaration retains one parser-owned type: `Scenario::AssetAnimation`, which
 forces all of Scenario.h into the runtime header. Introduce a native playback policy beside
@@ -72,7 +82,7 @@ image bytes. A name-only move before ownership is verified does not satisfy this
       three exact texture-repeat failures owned by WI 2179.
 - [x] UI declaration, scroll and renderer replacement are owned transactionally by UiSession;
       focused surface failure and pointer-input suites plus make lint pass.
-- [x] SubjectMaterials atomically owns base/override resolution while retaining Geometry-backed
-      image lifetime; focused shared-slot, unmatched-override and UI rollback tests pass.
+- [ ] SubjectMaterials preserves explicit material-before-part ordering; rollback tests keep
+      independent expected values and prove retry. Existing single-pass/UI tests pass.
 - [ ] RuntimeScene owns only coordination and no Scenario type; callers/tests use the final name
       without compatibility remnants, public render behavior is unchanged, and make lint passes.
