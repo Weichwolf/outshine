@@ -37,6 +37,10 @@ disabling mips or selecting the nearest mip makes every frame bit-identical whil
 linear interpolation between mip levels retains the three-channel first-frame error.
 The failing boundary is therefore trilinear sampling with the imported indexed draw,
 not merely mip upload, sRGB decode, output quantization or any use of UV derivatives.
+The raw control now forces a fractional LOD, a small primitive edge, perspective-varying
+clip W, separate position/UV streams and a 32-bit indexed draw; first, repeated and
+fresh-device RGBA16F bytes still agree. A generic fullscreen or synthetic triangle is
+no longer an adequate next experiment: preserve the imported part and camera exactly.
 Perspective native quads are green with generated/imported images and four imported
 UV pairs. A copied imported part becomes green with constant UV0. Source review:
 SubjectProxy::Lit excludes Unlit, selecting the flat Position+Uv0 layout.
