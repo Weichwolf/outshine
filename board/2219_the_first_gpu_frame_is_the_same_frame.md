@@ -32,6 +32,8 @@ The full native opaque control still changes 99 channels with identical visibili
 arguments, compacted indices and depth. Transmission adds nine changes; the default plan
 adds a further 214. This is a second boundary after culling, within multi-part raster or later
 passes. Do not attribute it to temporal culling or reopen the proven sphere calculation.
+With native shared material slots and transmission disabled, prefixes through part 6 are exact;
+adding part 7 `Pawn_Body_W2` is the first opaque multi-part failure.
 
 ## Implementation
 
