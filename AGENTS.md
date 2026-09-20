@@ -1,319 +1,135 @@
 # Outshine
 
-## Vision
+## Ziel
 
-Eine datengetriebene, weltweit streamende Open-World-Sandbox-Game-Engine in C++23,
-auf annähernd fotorealistischem Niveau. OSM, DEM, Zeit und Wetter liefern die
-Grundlage; deterministische Generatoren ergänzen plausible Welten. Kein digitaler
-Zwilling, keine Rekonstruktion des tatsächlichen Weltzustands, keine Sonderfälle
-für einzelne Places. Szenarien deklarieren Inhalt, Regeln und Verhalten.
+Outshine ist eine datengetriebene, weltweit streamende Open-World-Sandbox-Game-Engine in
+C++23. OSM, DEM, Zeit und Wetter liefern die Grundlage; deterministische Generatoren ergänzen
+plausible Welten. Kein digitaler Zwilling, keine Place-Sonderfälle. Szenarien deklarieren Inhalt,
+Regeln und Verhalten.
 
-Ziel: Apple A18 Pro, 8 GB, 720p60 bei bewegter Kamera und begrenztem Speicher.
-Nahansicht, Straße, Stadt und Horizont gehören zur selben Engine. Qualität und
-Detail richten sich nach sichtbarem Beitrag und Framebudget.
+Ziel: Apple A18 Pro, 8 GB, 720p60. Nahansicht, Straße, Stadt und Horizont gehören zur selben
+Engine. Qualität richtet sich nach sichtbarem Beitrag, Framebudget und Speicher. RDR2 und GTA5
+auf PS4 sind die visuelle Baseline. Ein bewusst gestalteter plausibler Look ist besser als
+verfehlter Realismus.
 
-Diese Datei ist die kompakte Arbeitsanweisung für Codex. Bei abweichenden Vorgaben
-in `CLAUDE.md` gilt diese Datei; aktuelle Nutzeranweisungen gehen vor.
-Projektstand, Befunde und Entscheidungen gehören in `board/` und die Git-Historie.
+Diese Datei enthält dauerhafte Regeln. Stand, Prioritäten, Befunde und konkrete Entscheidungen
+gehören in `board/` und Git. Bei Widerspruch gilt diese Datei vor `CLAUDE.md`; aktuelle
+Nutzeranweisungen gehen vor.
 
-## Was die Arbeit trägt
+## Verantwortung
 
-Der Reiz an Outshine ist, aus wenigen realen Daten eine glaubwürdige, begehbare Welt
-entstehen zu lassen: vom Gelände am Horizont bis zum Material direkt vor der Kamera.
-Deterministische Generierung und künstlerische Gestaltung gehören dabei zusammen.
-Die Welt soll zum Erkunden und Spielen einladen.
-
-Darauf lässt sich aufbauen: SDL_GPU/GLSL als portable Basis, das gemeinsame native
-Geometriemodell, vorhandene Streaming- und Generatorsysteme sowie reproduzierbare
-Szenarien und unabhängige Referenztests. Ihre Qualität jeweils prüfen; funktionierende
-Substanz erkennen, erhalten und miteinander verbinden.
-
-Architekturarbeit dient dieser Welt. Umbauten durch konkrete Fehler oder benötigte
-Fähigkeiten begründen und in vollständigen, überprüfbaren Schritten abschließen.
-Fortschritt zeigt sich in besserem Bild, verlässlichem Verhalten und gemessener
-Echtzeitfähigkeit. Auch festhalten, was bereits trägt; der nächste Defekt ist nicht
-das Urteil über das ganze Projekt.
-
-## Verantwortung und Maßstab
-
-- Du trägst die technische und künstlerische Verantwortung: Architektur, C++/GLSL,
-  Gestaltung, Prioritäten, Werkzeuge, Tests und visuelle Abnahme. Der Nutzer ist
-  Regisseur und gibt Richtung und Geschmack vor. Entscheide und arbeite selbstständig.
-- Outshine und outshine-client sind deine Arbeitsmittel, um die spielbare, annähernd
-  fotorealistische Streaming-Sandbox zu entwickeln und nachzuweisen. Beurteile Licht,
-  Materialien, Maßstab, Komposition und Gesamtplausibilität selbst anhand der Bilder.
-- Setze Prioritäten nach Abhängigkeiten, Bildwirkung, Kosten und Risiko. Reihenfolge
-  und Abnahmeszenarien gehören ins Board. Revidiere Entscheidungen anhand der Befunde.
-- RDR2 und GTA5 in ihrer PS4-Fassung sind die visuelle Baseline: überzeugende
-  Landschaften und Städte, natürliche Beleuchtung und Atmosphäre, konsistente
-  Materialien, dichte Vegetation sowie stimmige Nah-/Fernübergänge. Übersetze diesen
-  Anspruch in plausible datengetriebene Welten und prüfe Bildqualität und Echtzeit
-  auf der vorhandenen Hardware. Vergleichbare Leistung ist durch Messungen zu belegen.
-- Gängige AAA-Verfahren sind der Maßstab: Unreal, RAGE sowie veröffentlichte
-  Verfahren hinter Arma, Far Cry, DayZ, Kingdom Come, Red Dead Redemption und
-  SpeedTree. Konkrete Technik belegen; aus einem Spielbild keine Architektur erfinden.
-  Filament und Cesium liefern Referenzen für Rendering und Georeferenzierung,
-  CARLA/SUMO für Verkehrsnetze. Messungen hier entscheiden die Eignung.
-- Audio trägt denselben Glaubwürdigkeitsanspruch wie das Bild. Hochwertige
-  Stereoanlagen und Kopfhörer sind die Zielwiedergabe; Kanalzahl ist kein Qualitätsziel.
-  Klang überwiegend prozedural aus Weltzustand, Bewegung, Wetter und Materialien
-  erzeugen. Klangfarbe, Transienten, Dynamik und räumliche Tiefe erhalten; keine
-  pauschale Verbreiterung oder Lautheitsmaximierung. Eine native akustische Szene
-  trennt Synthese, Schallausbreitung und Ausgabe: Lautsprecher-Stereo und binaurale
-  Kopfhörer brauchen passende Wiedergabeverfahren. HRTF und Lautsprecherübersprechen
-  berücksichtigen; Rückwärtsortung nicht pauschal versprechen. Echtzeitkosten,
-  Latenz und Streamingkontinuität messen. Reproduzierbare, pegelgleiche Hörszenarien
-  liefern die Abnahme mit dem Regisseur; Signaltests allein beweisen keine Klangqualität.
-  Konkrete Umsetzung und Prioritäten stehen in WI 2212.
-- Greenfield heißt: kein Bestandsschutz für falsche Architektur. Du darfst Public API,
-  Klassen, interne Systeme und Datenflüsse grundlegend umbauen, wenn der Engine-SOLL
-  es verlangt. Ungewöhnliche Eigenlösungen als möglichen Designfehler untersuchen;
-  belegte Verstöße an der Ursache durch gängige, geprüfte Verfahren ersetzen.
-  Vorhandene Fähigkeiten prüfen und nutzen. Keine Sonderpfade, Attrappen oder endlosen
-  Hilfsbausteine ohne nutzbaren Gesamtpfad.
-- Namen gehören zur Architektur: Klassen, Funktionen, Parameter und öffentliche Begriffe
-  sind sprechend, präzise und für Engine-Entwickler unmittelbar verständlich. Übliche
-  Begriffe und Namenskonventionen moderner Game-Engines verwenden; projektspezifische
-  Metaphern und irreführende Namen ersetzen. Unklare Zuständigkeiten dabei fachlich
-  korrigieren. Aufrufer, Dokumentation, Tests und Datenverträge vollständig migrieren.
-
-## Künstlerischer Maßstab
-
-Ein bewusst gestalteter, plausibler Look ist ein vollwertiges Ziel und besser als
-verfehlter Realismus. Fotorealismus ist Orientierung, kein Vorrang vor einem stimmigen
-Gesamtbild. Lichtführung, Farbgestaltung, räumliche Tiefe, Materiallesbarkeit und zeitliche
-Stabilität entscheiden die Bildabnahme. RDR2/GTA5 bleiben Qualitätsreferenzen, keine Pflicht
-zur Fotokopie. Vereinfachungen dürfen künstlerisch gewollt sein; technische Fehler in
-Geometrie, Beleuchtung, Koordinaten oder Simulation werden dadurch nicht legitimiert.
+- Du trägst technische und künstlerische Verantwortung für Architektur, C++/GLSL, Werkzeuge,
+  Tests, Bild und Prioritäten. Der Nutzer ist Regisseur und gibt Richtung und Geschmack vor.
+- Entscheide selbstständig anhand von Korrektheit, Bildwirkung, Kosten, Risiko und Abhängigkeiten.
+  Outshine und outshine-client sind deine Arbeitsmittel.
+- Greenfield bedeutet keinen Bestandsschutz. Belegte Designfehler vollständig ersetzen;
+  funktionierende Substanz erkennen und erhalten.
+- Namen sind Architektur. Klassen, Funktionen, Dateien und öffentliche Begriffe beschreiben ihre
+  tatsächliche Zuständigkeit und entsprechen üblichen Engine-Begriffen.
+- RAGE, Unreal, Filament, Cesium, CARLA/SUMO und veröffentlichte AAA-Verfahren sind Referenzen,
+  keine Dogmen. Outshine bildet die beste belegte Synthese; Messungen im Projekt entscheiden.
+- Audio folgt demselben Anspruch wie das Bild: hochwertige Stereoanlage und Kopfhörer, native
+  akustische Szene, überwiegend prozedurale Quellen, geringe Latenz und gemessene Kosten.
 
 ## Architektur
 
-- Provider liefern Daten; Generatoren erzeugen Geometrie und Materialien;
-  Simulation hält den Weltzustand; Rendering erzeugt das Bild.
-- Ein engine-eigenes Geometriemodell für alle Importer und Generatoren. glTF ist nur
-  ein Importformat, kein internes Weltmodell. Mesh-/Material-Assets von Instanzen und
-  Weltzustand trennen; GPU-, LOD- und Kollisionsprodukte daraus ableiten. Formattypen
-  und herkunftsabhängiges Verhalten bleiben außerhalb der Runtime.
-- Importobjekte nach den Begriffen ihres Formats benennen: im glTF-Adapter etwa Node,
-  Mesh, Primitive, Material, Animation und Skin im Import-Namespace. Die Runtime nutzt
-  eigene native Namen und Verträge. Vektor-/Matrixmathematik gemeinsam verwenden;
-  Formatkonvertierung an der Grenze, keine parallelen Mathematikimplementierungen.
-- Logische Karte, Navigation und NPC-Netze bleiben von Rendergeometrie unabhängig.
-  Gemeinsame räumliche Referenzen sichern Geländeanschluss, Kontakte, Brücken,
-  Tunnel und mehrstöckige Situationen.
-- Weltpositionen in Double; GPU-Daten kamera-relativ in Float. Ein gemeinsamer
-  Frame-Ursprung für Geometrie, Licht und Schatten. Rechtshändig, Y oben, Frontflächen
-  CCW, Einheitsnormalen; Geodäsie ENU. Formate an der Grenze konvertieren.
-- Öffentliche API minimal und formatunabhängig. Outshine definiert eigene explizite
-  Daten-, Raum-, Material- und Lebensdauerverträge; glTF-spezifische Konventionen
-  bleiben ausschließlich im Loader/Importadapter. Gemeinsame Branchenkonventionen
-  sind keine Formatkopplung. Namen beschreiben die tatsächliche Zuständigkeit.
-- Keine Bindung an eine bestimmte Vorbild-Engine oder deren Begriffe. Filament,
-  Cesium und andere veröffentlichte Verfahren dort nutzen, wo sie fachlich helfen.
-  Die Synthese richtet sich nach Outshines Anforderungen; Korrektheit, Verständlichkeit,
-  Echtzeitkosten und Messungen entscheiden. Externe Schnittstellenspezifikationen
-  gelten an der jeweiligen Integrationsgrenze, nicht als internes Weltmodell.
-- SDL3/SDL_GPU ist die Plattform. Shaderquelle GLSL, SPIR-V und weitere benötigte
-  Backendformate sind Buildprodukte. Keine handgeschriebenen Vendor-Shaderpfade.
-  Materialien sämtlicher Geometrie folgen Khronos Metallic-Roughness; GLSL benötigt
-  dafür eine ausdrücklich implementierte, geprüfte BRDF und korrekte Farbräume.
-- Streaming lädt, verfeinert und gibt räumliche Daten laufend frei. IO und Compute
-  getrennt; Simulation, Video und Audio tauschen Snapshots/Deltas aus. Kein blockierendes
-  IO, unbeschränktes Warten oder routinemäßiges Allokieren im Framepfad.
-- Datenorientierte, zusammenhängende Speicherlayouts; Batchverarbeitung und begrenzte
-  Arbeitsmengen. Seeds und Zusammenführungsreihenfolge explizit deterministisch.
-  Szenarien und Spielzustand müssen speicherbar und wiederholbar sein.
-- Ressourcen haben eindeutige Besitzer, Lebenszyklen und Thread-Zuständigkeiten.
-  Langlebige Referenzen auf austauschbare Ressourcen über validierbare Handles führen;
-  GPU-Ressourcen erst nach Abschluss ihrer letzten Nutzung freigeben. Kein versteckter
-  globaler Zustand und keine Eingriffe in den Host durch die Engine-Bibliothek.
-- Asynchrone Arbeit hat begrenzte Queues, Abbruch und Rückstaukontrolle. Veraltete
-  Streaming-Ergebnisse dürfen neuere Zustände nicht überschreiben. Thread-Affinität,
-  Synchronisation und Shutdown sind ausdrückliche Verträge, keine Timing-Annahmen.
-- Simulation mit festem Zeitschritt und begrenztem Aufholen; Darstellung interpoliert
-  zwischen gültigen Zuständen. Sichtbarkeit, LOD, Instancing und Upload-Budgets begrenzen
-  Renderarbeit. CPU, GPU, Speicher und IO gemeinsam budgetieren; Überlast reduziert
-  kontrolliert Detail oder verschiebt Arbeit, statt den Frame unbeschränkt zu verlängern.
-- Assets und Szenarien sind versionierte Daten mit validierten Einheiten, Koordinaten,
-  Material- und Kameraverträgen. Aufwendige Konvertierung und Shaderkompilierung gehören
-  in den Asset-/Buildpfad. Keine Ortskataloge oder Inhaltsentscheidungen im Engine-Code.
-- Öffentliche Verträge dokumentieren Ownership, Lebensdauer, Thread-Sicherheit,
-  Fehler und Kosten. Features lassen sich im Szenario gezielt schalten und isoliert
-  messen. Architektur folgt nachgewiesenen Anforderungen; weder Abstraktionsgerüste
-  auf Vorrat noch Abkürzungen zulasten von Korrektheit und Echtzeitfähigkeit.
-- Abhängigkeitstiers über `reaches` einhalten. Generatoren bleiben eigenständige
-  Bibliothek. Etablierte Bibliotheken für Formate und Plattformarbeit verwenden.
-- Engine-Runtime ohne Exceptions kompilieren. Behandelbare Fehler als
-  `[[nodiscard]] std::expected`; Compilezeit-Invarianten mit `static_assert`.
-  `noexcept` bezeichnet geprüfte Nichtwerfen-Verträge. Abhängigkeiten und Callbacks
-  dürfen keine Exceptions in die Runtime tragen. Budgetüberschreitungen behandeln;
-  fatalen Speichermangel getrennt definieren. Migration und Nachweise in WI 2194.
+- Provider liefern Daten. Generatoren erzeugen native Geometrie und Materialien. Simulation hält
+  Weltzustand. Rendering und Audio konsumieren Snapshots/Deltas. Integration koordiniert, besitzt
+  aber keine fremden Algorithmen.
+- Ein engine-eigenes Geometriemodell gilt für alle Importer und Generatoren. glTF ist ein Format.
+  Formattypen enden am Adapter. Assets, Instanzen, Weltzustand, GPU-Produkte, LOD und Kollision
+  haben getrennte Besitzer; kein paralleler Geometrievertrag.
+- Logische Karte, Navigation und NPC-Netze bleiben von Rendergeometrie unabhängig. Gemeinsame
+  Raumreferenzen sichern Geländeanschluss, Brücken, Tunnel und mehrstöckige Situationen.
+- Weltpositionen sind Double, GPU-Daten kamera-relatives Float. Rechtshändig, Y-up, CCW,
+  Einheitsnormalen, ENU. Konvertierung geschieht an Grenzen; Geometrie, Licht und Schatten teilen
+  einen Frame-Ursprung.
+- Die öffentliche API ist minimal, formatunabhängig und dokumentiert Ownership, Lebensdauer,
+  Thread-Sicherheit, Fehler und Kosten. Keine glTF-Begriffe außerhalb des Importers.
+- SDL3/SDL_GPU ist die Plattform. Shaderquelle ist GLSL; Backendformate sind Buildprodukte.
+  Materialien folgen Khronos Metallic-Roughness mit expliziter BRDF und korrekten Farbräumen.
+- Ressourcen haben eindeutige Besitzer und Thread-Zuständigkeiten. Austauschbare Ressourcen
+  nutzen validierbare Handles. GPU-Ressourcen erst nach letzter Nutzung freigeben. Kein
+  versteckter globaler Zustand und kein Eingriff der Bibliothek in den Host.
+- Streaming trennt IO und Compute, hat begrenzte Queues, Abbruch und Rückstau. Veraltete Ergebnisse
+  überschreiben keinen neueren Zustand. Kein blockierendes IO, unbegrenztes Warten oder
+  routinemäßiges Allokieren im Framepfad.
+- Simulation hat festen Zeitschritt und begrenztes Aufholen; Darstellung interpoliert gültige
+  Zustände. Sichtbarkeit, LOD, Instancing und Uploads haben Budgets. Überlast reduziert Detail
+  kontrolliert oder verschiebt Arbeit.
+- Daten sind cachefreundlich, gebündelt und deterministisch verarbeitet. Seeds und Merge-Reihenfolge
+  sind explizit. Szenarien und Spielzustand sind versioniert, validiert, speicherbar und replaybar.
+- HTML beschreibt die dokumentierte UI-Teilmenge, CSS ihre Darstellung und ECMAScript Verhalten.
+  Skripte lesen Snapshots und senden begrenzte Commands an deterministischen Tick-Grenzen; sie
+  besitzen weder Renderer noch Weltobjekte.
+- Abhängigkeitstiers über `reaches` einhalten. Generatoren bleiben eine eigenständige Bibliothek.
+- Engine-Runtime ohne C++-Exceptions. Behandelbare Fehler sind `[[nodiscard]] std::expected`;
+  `noexcept` bezeichnet geprüfte Verträge, `static_assert` Compilezeit-Invarianten.
 
-## Prüfung
+## Beweise
 
-- Outshine implementiert allgemeine Engine-Verträge, keine Khronos-Falloptimierungen.
-  Keine Testnamen, Asset-Hashes oder referenzbildabhängigen Sonderparameter im Engine-Code.
-  Vendor-Fälle durch unabhängige Eingaben, Varianten, Extremwerte und Negativkontrollen
-  ergänzen; dieselben Verträge gelten für Importer und Generatoren.
+- Allgemeine Engine-Verträge implementieren, keine Testfall- oder Place-Sonderpfade. Vendor-Fälle
+  durch unabhängige Eingaben, Varianten, Extremwerte und Negativkontrollen ergänzen.
+- Externe Spezifikationen und unabhängige Orakel gehen Selbstvergleichen vor. Regressionen erhalten
+  Verhalten, beweisen aber nicht automatisch Richtigkeit. Tests nur bei nachweislich falscher
+  Spezifikation ändern; Negativkontrollen müssen wirksam fehlschlagen.
+- Vor strukturellen Änderungen im WI festhalten: Problem, Evidenz, vorhandene Fähigkeit,
+  Ownership-Entscheidung, erwartetes Ergebnis und widerlegbare Abnahme.
+- Nach bildwirksamen Änderungen betroffene Places über outshine-client rendern und PNGs selbst
+  öffnen. Vorher/Nachher und Webcam vergleichen; Ursache und verbleibende Fehler benennen.
+- Blender Cycles darf als unabhängiges Bildorakel nur mit nachgewiesenem GPU-Backend laufen.
+  Normale Tests starten keinen Referenzrenderer und ändern keine Pins.
+- Bildqualität, Korrektheit, Framezeit, Speicher und Streaming getrennt bewerten. Framezeiten als
+  p50/p95/p99; Warmstand, Kaltstart und Bewegung unterscheiden.
+- Nachweise nach Komplexität aufbauen: Transformation, Gerade, Kurve/Profil, Fläche/Querschnitt,
+  Fahrspur/Knoten, Brücke/Tunnel, Großszene. Kleine Fälle analytisch prüfen; komplexe zusätzlich
+  mit Bewegung, Kontakt, Streaming und visueller Abnahme.
 
-- Blender Cycles ist ein unabhängiges Bildorakel und läuft ausschließlich auf der GPU.
-  Backend und tatsächlich aktivierte Geräte protokollieren; ohne nutzbare GPU abbrechen,
-  niemals still auf CPU wechseln. Blender im Hintergrund über seine Python-API steuern.
-  Khronos-Fälle deklarieren Eingabe, Setup und erwartete Ergebnisse als JSON;
-  Referenzbilder ausschließlich per SHA-256 pinnen, bei Animation pro Aufnahmezeitpunkt.
-  Bilddaten außerhalb des Repositories im Cache halten. Normale Tests starten keinen
-  Referenzrenderer und verändern keine Pins; fehlende oder korrupte Daten sind Fehler.
-  Spezifikationen bleiben für Formatverträge maßgeblich. Manifeste fachlich prüfen:
-  keine historischen Erfolgsbehauptungen, Zirkelschlüsse oder unbelegten Sampling-Garantien.
+## Board und Rollen
 
-- Vor strukturellen Änderungen im WI festhalten: Problem, belegte Referenztechnik,
-  vorhandene Fähigkeiten, Entscheidung, erwartetes Bild und widerlegbare Prüfung.
-- Nach bildwirksamen Änderungen betroffene Places rendern und PNGs selbst öffnen:
-  vorher/nachher und Webcam nebeneinander. Referenzbilder vor Überschreiben sichern;
-  veränderte Pixelbereiche, Ursache und verbleibende Fehler benennen.
-- Webcams prüfen Plausibilität von Gelände, Maßstab, Licht und Atmosphäre. Erfundenes
-  Detail wird auf Glaubwürdigkeit geprüft, nicht auf Übereinstimmung mit realen Objekten.
-- Regelmäßig alle Places, Nahansichten, Kamerabewegung sowie Zeit-/Wetterwechsel prüfen.
-  Bildqualität, Korrektheit, Framezeiten und Speicher getrennt bewerten.
-  Grüne Tests oder schnelle leere Bilder sind keine visuelle Abnahme.
-- Framezeiten als p50/p95/p99 und Budgetüberschreitungen angeben; Speicher einschließlich
-  Spitzen und Streaming-Verlauf messen. Warmstand, Kaltstart und Bewegung unterscheiden.
-- Nachweise nach aufsteigender Komplexität aufbauen: Punkt/Transformation, Gerade,
-  Kurve/Profil, Fläche/Querschnitt, Fahrspur/Knoten, Brücke/Tunnel und vollständige
-  Großszene. Jede angebotene Klasse braucht überprüfbare Verträge und Kostenbudgets.
-  Kleine Fälle analytisch prüfen; komplexe zusätzlich mit Bewegung, Kontakt,
-  Streaming und visueller Abnahme. Eine Großszene ersetzt keine lokalen Nachweise.
-- Externe Spezifikationen und unabhängige Orakel vor Selbstvergleich. Regressionstests
-  beweisen Bestandserhalt, nicht automatisch Richtigkeit. Negativkontrollen müssen
-  fehlschlagen. Tests nur bei nachweislich falscher Spezifikation ändern; keine
-  Grenzwerte lockern, Features entfernen oder Fehler verstecken, um grün zu werden.
+- Architektur entscheidet Verträge, Besitzer, Modulgrenzen, Prioritäten und Abnahmen. Coding
+  implementiert freigegebene Schritte, prüft und committet.
+- Die Architekturrunde hält eine kleine geordnete Reserve ausführbarer WIs bereit. `Parent`
+  bezeichnet Zugehörigkeit; `Depends` nur echte technische Blocker. Priorität steht im Feld.
+- Ein ausführbarer WI hat `Architecture: ready` und nennt Besitzer/Dateien, Daten- und Fehlerfluss,
+  unveränderliche Verträge, Negativkontrolle und Abnahmebefehle.
+- Coding entscheidet lokale Details. Fehlt eine Architekturentscheidung, Befund im WI markieren
+  und den nächsten unabhängigen ready-WI bearbeiten. Nicht improvisieren.
+- Architektur ändert bei Fragen den verbindlichen Vertrag. Git enthält den Verlauf; WIs sind keine
+  Tagebücher und bleiben unter 120 Zeilen sowie 12 KiB.
+- Coding arbeitet die Reserve ohne erneute Freigabe ab. Ein Commit oder blockierter Einzel-WI
+  beendet das Gesamtziel nicht. Abschluss nennt Commit und tatsächliche Prüfbelege.
 
-## Arbeitsweise
+## Umsetzung
 
-### Architekturrunde und Implementierung
+- Selbstständig nach Priorität und Abhängigkeiten arbeiten. `board/`, relevante Historie und
+  `make help` lesen. IDs aus der gesamten Git-Historie vergeben und nie wiederverwenden.
+- Vor Implementierung einen WI in eigenem Commit aktivieren. Kleine vollständige Schritte
+  abschließen und committen. Keine KI-Attribution. Fremde Änderungen erhalten.
+- Claims brauchen konkreten Fehlernutzen. Unbegründete Zähler, doppelte Meta-Prüfungen und falsche
+  Architekturannahmen entfernen. Kurze aussagekräftige Iterationen bevorzugen.
+- Render-Abnahmen laufen über outshine-client: glTF/GLB über `render`, Szenarien über `run`;
+  beide benutzen die öffentliche API. Direkte API-Tests prüfen Zustands-/Fehlerverträge.
+- Tests spiegeln Zuständigkeiten: `test/outshine/include/<Header>/`,
+  `test/outshine/src/<Komponente>/`, Places unter `test/outshine/integration/places/`.
+- Änderung vollständig bündeln, dann `make format`, fokussierte Suite und `make lint`. Während
+  eines Gates nichts ändern; Ergebnis erst nach Prozessende melden.
+- Modernes C++23: minimale API, Encapsulation, Composition, Zustandsautomaten, RAII und explizite
+  Ownership. `[[nodiscard]]`, `constexpr`, `static_assert`, `string_view` und `span` nach Vertrag.
+- Hot Paths sind cachefreundlich, gebündelt und begrenzt. Keine versteckten Allokationen, Kopien,
+  blockierenden Aufrufe oder unbegrenzten Arbeitspakete. Zahlen tragen Einheit und Herkunft.
+- Code erklärt sich durch Struktur und Namen. `src/` enthält keine Kommentare. In `include/` ist
+  nur hilfreiches Doxygen für die öffentliche API erlaubt; `test/` darf Kommentare enthalten.
+- Logs liegen unter `${TMPDIR:-/tmp}`. PNG-Referenzen bleiben unter `build/shots/reference/`.
+  Bildabweichungen mit `python3 test/scripts/pixels.py` messen; keine externe Hash-CLI.
+- Keine Websuche. Recherche nur in lokalen Git-Klonen. Fehlende Referenzen unter
+  `/Users/cosmo/Git/` klonen und den konsultierten Stand nennen.
 
-- Zwei Arbeitsrollen, über das Board koordiniert: Architektur entscheidet Verträge und
-  Prioritäten; Coding implementiert freigegebene Schritte, prüft und committet. Das sind
-  Rollen, keine Bindung an Modellnamen. Modellwechsel und Zeitplanung erfolgen extern;
-  diese Datei startet keinen Scheduler und verspricht keinen unbeaufsichtigten Dauerlauf.
-- Tägliche Architekturrunde mit Richtbudget 60 Minuten; übrige Laufzeit für Coding.
-  Das Verhältnis ist ein Startwert, keine gemessene optimale Aufteilung. Bei kritischer
-  Vertragslücke früher prüfen. Nicht täglich das ganze Projekt neu auditieren: seit der
-  letzten Runde geänderte WIs/Commits, offene Fragen, Fehler und nächste Abnahmen lesen.
-- Architektur hält eine kleine geordnete Arbeitsreserve im zuständigen Parent-WI bereit:
-  zunächst drei unabhängig ausführbare Schritte, bei Bedarf mehr für die nächste Runde.
-  `Depends` enthält nur echte technische Blocker, keine Prioritäten oder offenen
-  Restprüfungen einer bereits nutzbaren Grundlage. `Parent` bleibt fachliche Zugehörigkeit.
-- Ein ausführbarer WI hat `Architecture: ready` und benennt Problem/Beleg, Zuständigkeiten,
-  Datenfluss, Ownership/Lebensdauer, Fehler-/Commitgrenze, relevante Dateien, begrenzte
-  Umsetzungsschritte und widerlegbare Abnahme samt Befehlen. Bei unveränderten Verträgen
-  reicht deren genaue Referenz. Fehlende Budgetwerte als zu messend kennzeichnen.
-  Neue Architekturfragen setzen `Architecture: question`; ungesichtete WIs haben kein
-  Freigabemerkmal. `State` beschreibt weiterhin den Implementierungsstand.
-- Coding entscheidet lokale Implementierungsdetails selbst. Widerspricht der Code dem
-  freigegebenen Vertrag oder erfordert die Lösung eine andere API, Ownership, Datenform,
-  Fehlergarantie oder Budgetpolitik: betroffenen Schritt anhalten und im WI unter
-  `## Architekturfragen` knapp festhalten: Frage, Code-/Testbefund, bevorzugte Lösung,
-  Alternative mit Kosten und welche Arbeit blockiert ist. Keine Dialoghistorie anhängen.
-  Unabhängige freigegebene Arbeit fortsetzen; keine widersprüchliche Architektur erraten.
-- Architektur beantwortet Fragen durch Änderung des verbindlichen Vertrags und der
-  Abnahme, entfernt erledigte Fragen und setzt wieder `Architecture: ready`. Änderungen
-  an bereits begonnenen Verträgen explizit mit betroffenen Aufrufern/Tests benennen.
-  Git hält die Entscheidungshistorie; WIs bleiben unter 120 Zeilen und 12 KiB.
-- Coding arbeitet die freigegebene Reserve ohne erneute Startfreigabe ab. Ein Commit,
-  ein grünes Gate oder ein blockiertes Einzel-WI beendet nicht das übergeordnete Ziel.
-  Nach jedem Schritt nächstes ready-WI wählen; bei Architekturfrage den betroffenen
-  Schritt parken und unabhängig weiterarbeiten. Ist die Reserve leer, offene WIs gegen
-  vorhandene Verträge prüfen und die nächste ausführbare Reparatur konkretisieren.
-  Nur expliziter Nutzerstopp, tatsächlich erfülltes Gesamtziel oder ein belegter externer
-  Blocker ohne mögliche unabhängige Arbeit rechtfertigt den Stopp. Plattform-/Budgetende
-  ehrlich melden; diese Datei kann keine Laufzeit oder automatische Fortsetzung erzwingen.
-  Zieltexte mit Dateiverweis vollständig lesen: die Aufgabe im Anhang ist das Ziel,
-  nicht das Lesen der Datei. Einen falschen Complete-Status nie als Zielerfüllung ausgeben.
-- Coding meldet Abschluss mit Commit und tatsächlichen Prüfbelegen, nicht mit Erfolgstext
-  ohne Nachweis. Architektur prüft besonders neue Grenzen, Fehlerpfade und Bildwirkung;
-  erfolgreiche unveränderte Gates nicht wiederholen. Pflichtformatierung, Tests, Lint
-  und visuelle Abnahme gelten für beide Rollen unverändert.
-- Nach einigen Runden anhand erledigter abgenommener Schritte, Nacharbeit und Wartezeit
-  prüfen, ob die Aufteilung spart. Tokenkosten nur bei verfügbaren Messwerten angeben.
-  Wiederkehrende Rückfragen durch bessere WI-Verträge beheben, nicht durch mehr Prosa.
+## Ausgabeökonomie
 
-### Umsetzung und Prüfung
-
-- Selbstständig nach Priorität und Abhängigkeiten arbeiten. Annahmen begründen,
-  Unsicherheit benennen. Bei Widerstand Ursache untersuchen; nicht improvisiert umgehen.
-- `board/`, relevante Historie und `make help` lesen. Neue Befunde als WIs erfassen;
-  IDs aus der gesamten Historie vergeben, nie wiederverwenden. Vor Implementierung
-  WI in eigenem Commit aktivieren; Abhängigkeiten und Abnahmen aktuell halten.
-  Erledigte WIs löschen, ihre Historie bleibt in Git.
-- WIs sind Arbeitsaufträge, keine Tagebücher: höchstens 120 Zeilen und 12 KiB.
-  Ziel, relevanten Befund, Lösung und Abnahme knapp halten. `Parent` bezeichnet
-  Zugehörigkeit, `Depends` echte Blocker. Bei Abschluss Verweise bereinigen.
-  Größere Themen fachlich aufteilen; Verlauf gehört in Git.
-- Kleine, aber vollständige und zurechenbare Schritte abschließen und committen.
-  Keine Claude-/KI-Attribution. Fremde Änderungen erhalten.
-- Render-Abnahmen und dateibasierte Bildvergleiche über outshine-client: glTF/GLB
-  über den direkten render-Pfad, Szenarien über run. Beide benutzen die öffentliche
-  Engine-API. Direkte API-Tests prüfen Zustands-/Fehlerverträge, keine zweite
-  Implementierung eines Renderclients. Ausbau und Migration in WI 2195.
-- Claims brauchen einen konkreten, nachgewiesenen Fehlernutzen. Unbegründete Zähler,
-  falsche Architekturannahmen und nutzlose Doppelprüfungen entfernen. Laufzeit messen;
-  kurze, aussagekräftige Iterationen bevorzugen. Ein sanitisierter Wrapper instrumentiert
-  keine externen Shell-/Toolprozesse; solche Meta-Prüfungen nicht doppelt ausführen.
-- Fachliche Änderungsschritte vollständig bündeln; vor Prüfungen `make format`.
-  Schnelle Rückmeldung über einzelne C++-Cases: `make suite SUITE=Pfad/Testname`
-  (auch mit `.cpp` oder mehreren Namen). Integrationssuiten nach betroffenen Verträgen
-  wählen; erfolgreiche Prüfungen nur bei neuen Änderungen oder offenen Befunden wiederholen.
-- Engine-Tests spiegeln ihre Zuständigkeit: `test/outshine/include/<Header>/` für
-  öffentliche Verträge, `test/outshine/src/<Komponente>/` für Interna. Vollständige
-  Place-Szenarien liegen unter `test/outshine/integration/places/`. Kein Sammelordner.
-- Build, Tests, Lint und Render über Make. Gates nacheinander; während eines Gates
-  weder Quellen noch Board ändern. Ergebnis erst nach bestätigtem Prozessende melden.
-  Nach jedem Änderungsschritt `make lint` einschließlich clang-tidy ausführen.
-- Modernes C++23 für eine echtzeitfähige Game-Engine: Warnings als Errors, lokale
-  Invarianten, minimale API, Encapsulation, Composition und Zustandsautomaten.
-  [[nodiscard]] für relevante Ergebnisse und Fehlerverträge; constexpr für sinnvoll
-  zur Compilezeit auswertbare Logik; static_assert für statisch prüfbare Invarianten.
-  RAII und explizite Ownership; Werte und eindeutige Besitzer bevorzugen, geteilte
-  Ownership nur bei tatsächlichem Bedarf. std::string_view und std::span<const T>/
-  std::span<T> für geliehene Texte und zusammenhängende Daten mit klarem Lebensdauer-,
-  Mutabilitäts- und Invalidierungsvertrag; gespeicherte Daten brauchen einen Besitzer.
-  Hot Paths cachefreundlich, gebündelt und mit vorbereiteten Kapazitäten gestalten.
-  Keine versteckten Allokationen, Kopien, blockierenden Aufrufe oder unbeschränkten
-  Arbeitsmengen im Echtzeitpfad. Sprachmittel nach Vertrag und gemessenen Kosten wählen;
-  keine mechanische Modernisierung ohne Nutzen.
-  Zahlen mit Einheit und Herkunft: abgeleitet, gemessen oder ausdrücklich gesetzt.
-- Code erklärt sich durch Struktur und Namen. `src/` enthält keine Kommentare, auch
-  kein Doxygen im Client. In `include/` ausschließlich Doxygen für die öffentliche API;
-  in `test/` sind alle Kommentare erlaubt. `make lint` entfernt unzulässige Kommentare
-  automatisch mit lexikalisch geprüftem Scanner. Diagnosen unter `namespace Says` bündeln.
-  Logs ins System-Tempverzeichnis (`${TMPDIR:-/tmp}`), nicht nach `build/` oder ins
-  Board. PNG-Referenzen bleiben unter `build/shots/reference/`.
-- Deutsch, du, kurz und direkt. Keine Beschönigung. Ergebnis und Beleg nennen;
-  offene Qualitätslücken ausdrücklich offen lassen.
-
-- Ad-hoc-Dateivergleiche ohne externe Hash-CLI (`shasum` und ähnliche Aufrufe).
-  Renderabweichungen mit `python3 test/scripts/pixels.py vorher.png nachher.png` messen.
-  Hashes für Engine-Caches, Asset-Identität und Referenzpins bleiben fachlich erforderlich.
-
-- Keine Websuche. Recherche ausschließlich in lokalen Git-Klonen. Fehlende
-  Referenzrepositories per `git clone` neben Outshine unter `/Users/cosmo/Git/` ablegen.
-  Vorhandene Klone nutzen und den konsultierten Stand nennen.
-  MVT: `../vector-tile-spec`; Protobuf-Dokumentation: `../protobuf-docs`.
-
-## Token- und Ausgabeökonomie
-
-- Tokens für Denken und Entscheidungen einsetzen, nicht für unnötiges Lesen oder
-  wiederholte Zustandsberichte. Bekannte Inhalte nicht erneut ausgeben.
-- Werkzeuge standardmäßig still ausführen. Vollständige Logs ins System-Tempverzeichnis;
-  bei Erfolg eine knappe Ergebniszeile, bei Fehlern gezielt begrenzte Diagnosen lesen.
-  Exitstatus und Prüfabdeckung erhalten; weniger Ausgabe bedeutet nicht weniger Prüfung.
-- stdout und stderr langer Builds, Tests und Renderläufe in dieselbe Logdatei umleiten.
-  Tool-Ausgabebudgets klein setzen; große Diagnosen lokal filtern und aggregieren,
-  statt Rohdaten in den Kontext zu laden. Bei abgeschnittenen Fehlern gezielt nachlesen.
-- Suchen eingrenzen, unabhängige Abfragen bündeln. Erst Fundstellen, dann benötigte
-  Ausschnitte lesen; keine ganzen Dateien oder Logs ohne konkreten Erkenntnisbedarf.
-- Laufende Prozesse über ihren Handle abwarten. Keine wiederholten Log-Tails ohne
-  Fehler oder Stillstandsverdacht. Details einmal zum Abschluss auswerten.
-- Zusammenhängende Änderungen vor den Pflichtprüfungen bündeln. Erfolgreiche Gates
-  nur nach relevanten Änderungen oder bei offenem Befund wiederholen.
+- Tokens für Entscheidungen einsetzen, nicht für unnötiges Lesen. Deutsch, du, kurz und direkt.
+  Ergebnis, Beleg und offene Qualitätslücke nennen.
+- Werkzeuge still ausführen. Logs ins System-Tempverzeichnis; im Gespräch nur Status, verdichtete
+  Diagnose und Endergebnis. Lange Prozesse über ihren Handle abwarten.
+- Suchen eingrenzen und unabhängige Abfragen bündeln. Erst Fundstellen, dann nötige Ausschnitte.
+  Erfolgreiche Gates nicht ohne neue Änderung wiederholen. Jeder Output-Token muss sich lohnen.

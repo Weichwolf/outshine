@@ -10,14 +10,10 @@ allows, temporally *deterministic*.
 
 ## The rule this tree is built on
 
-For every structural question, one of **RAGE** or **Unreal** already has the answer. The job is
-to hold the better of the two, never to invent a third. Where they agree, the matter is closed;
-where they differ, the decision is written down with its reason; where neither faces the
-question, the item says so and says why the choice is ours. **A measurement of this tree
-outranks both.**
-
-That is not deference — they are the only two bodies of evidence that exist for these questions,
-and both were paid for over a decade of shipping.
+Published techniques from **RAGE**, **Unreal** and other shipped engines are evidence, not
+templates. Outshine takes the smallest synthesis that satisfies its own world, portability and
+runtime constraints. Every structural decision states its evidence and tradeoff; measurements in
+this tree outrank analogy to another engine.
 
 ## Build and test
 
