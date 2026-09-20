@@ -205,9 +205,7 @@ void StructureBuildQueue::ResumeCompletedTasks() {
         SlowestTaskMs_ = std::max(SlowestTaskMs_, bake.Task.Result().LastTaskMs);
       }
     }
-    if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Complete) {
-      PostSlice(bake);
-    }
+    if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Tile) { PostSlice(bake); }
   }
 }
 
@@ -244,7 +242,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     RawOf(vectors, prints, stack.Ways(), *next, eye, *raw);
     std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
     output->Status = {};
-    output->Complete = false;
+    output->Tile.reset();
     output->BakeMs = 0.0;
     output->LastRanges = 0;
     output->LastRangeMs = 0.0;
@@ -284,8 +282,9 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
       if (count == 0) { return std::unexpected(bake.Task.Result().Status.error()); }
       break;
     }
-    if (!bake.Task.Result().Complete) { break; }
-    const Generators::BakedTile &baked = bake.Task.Result().Tile;
+    const auto &completed = bake.Task.Result().Tile;
+    if (!completed) { break; }
+    const Generators::BakedTile &baked = *completed;
     printCount += baked.Prints.size();
     spreadCount += baked.SeatSpreadM.size();
     acrossCount += baked.AcrossM.size();
@@ -303,7 +302,9 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
     const QueuedBuild &bake = Queue_[at];
-    const Generators::BakedTile &baked = bake.Task.Result().Tile;
+    const auto &completed = bake.Task.Result().Tile;
+    if (!completed) { std::terminate(); }
+    const Generators::BakedTile &baked = *completed;
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
     landings.push_back(
         {.Tile = bake.Task.Tile(),
@@ -326,7 +327,9 @@ void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
                                           std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
     QueuedBuild &bake = Queue_.front();
-    const Generators::BakedTile &baked = bake.Task.Result().Tile;
+    const auto &completed = bake.Task.Result().Tile;
+    if (!completed) { std::terminate(); }
+    const Generators::BakedTile &baked = *completed;
     assert(landing.Tile == bake.Task.Tile() && landing.Baked == &baked && landing.Footprints);
     if (!landing.Footprints) { std::terminate(); }
     BakedMs_ += bake.Task.Result().BakeMs;

@@ -57,10 +57,10 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
     const Heap::Tagged baking(kBakingTag);
     output->LastRanges = 0;
     output->LastRangeMs = 0.0;
-    for (size_t range = 0; range < RangesPerTask && !output->Complete; ++range) {
+    for (size_t range = 0; range < RangesPerTask && !output->Tile; ++range) {
       const auto rangeBegan = std::chrono::steady_clock::now();
       const auto advanced = progress->AdvanceStructures(
-          *raw, *heights, mesher, *scratch, output->Tile, StructuresPerRange, stopping.get());
+          *raw, *heights, mesher, *scratch, StructuresPerRange, stopping.get());
       const double rangeMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rangeBegan)
               .count();
@@ -72,8 +72,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
       ++output->LastRanges;
       if (*advanced) {
         const auto finalizationBegan = std::chrono::steady_clock::now();
-        const auto finalized =
-            progress->Finalize(*raw, mesher, *scratch, output->Tile, stopping.get());
+        auto finalized = progress->Finalize(*raw, mesher, *scratch, stopping.get());
         output->FinalizationMs = std::chrono::duration<double, std::milli>(
                                      std::chrono::steady_clock::now() - finalizationBegan)
                                      .count();
@@ -81,7 +80,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
           output->Status = std::unexpected(finalized.error());
           break;
         }
-        output->Complete = true;
+        output->Tile = std::move(*finalized);
       }
     }
     const double taskMs =
@@ -97,7 +96,7 @@ void StructureBuildTask::Start(Tasks &pool, const StructureMesher &mesher) {
 }
 
 void StructureBuildTask::Resume(Tasks &pool, const StructureMesher &mesher) {
-  assert(State_ == State::Completed && Output_->Status && !Output_->Complete);
+  assert(State_ == State::Completed && Output_->Status && !Output_->Tile);
   Posts(pool, mesher);
 }
 

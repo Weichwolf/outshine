@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <optional>
 
 #include "HeightField.h"
 #include "StructureBake.h"
@@ -16,9 +17,8 @@ namespace outshine {
 class StructureBuildTask {
 public:
   struct Output {
-    Generators::BakedTile Tile;
+    std::optional<Generators::BakedTile> Tile;
     std::expected<void, Generators::StructureBakeError> Status;
-    bool Complete = false;
     double BakeMs = 0.0;
     size_t LastRanges = 0;
     double LastRangeMs = 0.0;

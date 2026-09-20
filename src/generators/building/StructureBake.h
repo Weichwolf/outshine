@@ -82,28 +82,17 @@ public:
   StructureBakeProgress &operator=(const StructureBakeProgress &) = delete;
 
   [[nodiscard]] std::expected<bool, StructureBakeError>
-  Advance(const RawTile &raw,
-          const outshine::Ground::HeightField &heights,
-          const StructureMesher &mesher,
-          MeshScratch &scratch,
-          BakedTile &out,
-          size_t structuresMost,
-          const std::atomic_bool *stopping = nullptr);
-
-  [[nodiscard]] std::expected<bool, StructureBakeError>
   AdvanceStructures(const RawTile &raw,
                     const outshine::Ground::HeightField &heights,
                     const StructureMesher &mesher,
                     MeshScratch &scratch,
-                    BakedTile &out,
                     size_t structuresMost,
                     const std::atomic_bool *stopping = nullptr);
 
-  [[nodiscard]] std::expected<void, StructureBakeError>
+  [[nodiscard]] std::expected<BakedTile, StructureBakeError>
   Finalize(const RawTile &raw,
            const StructureMesher &mesher,
            MeshScratch &scratch,
-           BakedTile &out,
            const std::atomic_bool *stopping = nullptr);
 
   [[nodiscard]] size_t BakedStructures() const noexcept;

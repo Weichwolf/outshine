@@ -46,17 +46,18 @@ private; a frame never observes partially rebuilt terrain or a partial building 
 The production scheduler already carries `StructureBakeProgress`, takes 64 structures per range
 and runs at most four ranges per task. Prove the existing contract before changing its constants.
 
-1. **P0-A:** Add a deterministic public-Engine fixture with world A and 257 structures for B.
-   Hold worker completion at an internal deterministic test barrier; observe the public
-   state after each consumed completion (up to four ranges share one task). Read A's
-   footprint set, pieces, revision and GPU output; all remain A until complete B commits.
-   Do not expose worker-owned intermediate ranges or add a production public stepping API.
-2. **P0-B:** Run the same input as an uninterrupted one-shot generator control. Source ordering,
-   accepted structures and final native products must match exactly.
+1. **P0-A [done]:** `StructureBakeProgress` owns its mutable aggregate. No accessor exposes it;
+   only successful finalization moves a `BakedTile` into the task's optional completed product.
+   The 257-structure scheduler case has no product after four ranges and one after the fifth.
+   `TileChangesPublishAtomically` separately proves complete B replaces A only at candidate commit.
+   Do not add a public stepping API or a timing-dependent whole-Engine range observer.
+2. **P0-B [done]:** The same 257 inputs run uninterrupted and in five ranges. Ordered footprints,
+   contact arrays, counters, geometry digest and native runs match exactly.
 3. **P0-C [done]:** Expose range count, maximum structures/range, maximum range CPU time and final
    clustering time through the bounded preload diagnostic. It reads completion snapshots only.
-4. **P0-D:** If clustering violates the range bound, make only clustering resumable and preserve
-   source order. Do not split a tile's publication or relax the 15-second Place limit.
+4. **P0-D [measured, no split]:** Finalization is 3.736 ms against a 4.317 ms maximum worker task
+   in the cold Place run. It does not cause the timeout. Reconsider resumable clustering only when
+   a measured finalization exceeds the worker budget; preserve source order and atomic publication.
 
 ## Acceptance
 
@@ -92,9 +93,10 @@ ranges, 64 structures/range, maximum range time and maximum finalization time fr
 snapshots. Its 257-structure test observes four ranges, then one short range and finalization.
 
 2026-09-21: `ScoreAFootprintStandsOnALevelFloor` reached 4,415 pads and 0.000015 m contact error.
-An immediate warm run preloaded in 2,973 ms. The preceding cold run took 15,937 ms and is red
-against 15 s despite all data arriving by 407 ms; cold-start residency therefore remains open.
-Neither run exposes an intermediate 257-structure public candidate.
+An immediate warm run preloaded in 2,973 ms. A genuinely empty-cache run timed out at 15,163 ms:
+all seven bakes landed, maximum range/finalization/task were 0.940/3.736/4.317 ms, while 76 tile
+requests remained and height admission had deferred structures 889 times. Ground first completed
+at 7.359 s. Cold tile residency is the blocker; neither run exposes an intermediate public candidate.
 
 2026-09-17: the prior Graz bake-timeout diagnosis was stale. With the candidate path, all
 structure landings complete and the no-vegetation client capture passes: 1,940,223 building

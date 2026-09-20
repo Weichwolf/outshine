@@ -587,6 +587,7 @@ struct StructureBakeProgress::State {
   std::vector<WayLine> Ways;
   std::map<uint64_t, Lumped> Lumps;
   std::vector<double> Corners;
+  BakedTile Tile;
   size_t Next = 0;
   bool Started = false;
   bool Finalized = false;
@@ -601,32 +602,16 @@ size_t StructureBakeProgress::BakedStructures() const noexcept {
 }
 
 std::expected<bool, StructureBakeError>
-StructureBakeProgress::Advance(const RawTile &raw,
-                               const outshine::Ground::HeightField &heights,
-                               const StructureMesher &mesher,
-                               MeshScratch &scratch,
-                               BakedTile &out,
-                               size_t structuresMost,
-                               const std::atomic_bool *stopping) {
-  const auto advanced =
-      AdvanceStructures(raw, heights, mesher, scratch, out, structuresMost, stopping);
-  if (!advanced || !*advanced) { return advanced; }
-  const auto finalized = Finalize(raw, mesher, scratch, out, stopping);
-  if (!finalized) { return std::unexpected(finalized.error()); }
-  return true;
-}
-
-std::expected<bool, StructureBakeError>
 StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                          const outshine::Ground::HeightField &heights,
                                          const StructureMesher &mesher,
                                          MeshScratch &scratch,
-                                         BakedTile &out,
                                          size_t structuresMost,
                                          const std::atomic_bool *stopping) {
   if (structuresMost == 0) { return false; }
   State &state = *State_;
   assert(!state.Finalized);
+  BakedTile &out = state.Tile;
   if (!state.Started) {
     out.Walls = {};
     out.Roofs = {};
@@ -667,20 +652,19 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
   return state.Next == raw.Structures.size();
 }
 
-std::expected<void, StructureBakeError>
+std::expected<BakedTile, StructureBakeError>
 StructureBakeProgress::Finalize(const RawTile &raw,
                                 const StructureMesher &mesher,
                                 MeshScratch &scratch,
-                                BakedTile &out,
                                 const std::atomic_bool *stopping) {
   assert(State_->Started && State_->Next == raw.Structures.size());
   assert(!State_->Finalized);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-  const auto finished =
-      FinishStructures(State_->Lumps, raw, mesher, scratch, State_->Corners, out, stopping);
+  const auto finished = FinishStructures(
+      State_->Lumps, raw, mesher, scratch, State_->Corners, State_->Tile, stopping);
   if (!finished) { return std::unexpected(finished.error()); }
   State_->Finalized = true;
-  return {};
+  return std::move(State_->Tile);
 }
 
 std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
@@ -691,8 +675,12 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
                                                        const std::atomic_bool *stopping) {
   StructureBakeProgress progress;
   const auto completed =
-      progress.Advance(raw, heights, mesher, scratch, out, raw.Structures.size(), stopping);
+      progress.AdvanceStructures(raw, heights, mesher, scratch, raw.Structures.size(), stopping);
   if (!completed) { return std::unexpected(completed.error()); }
+  assert(*completed);
+  auto finalized = progress.Finalize(raw, mesher, scratch, stopping);
+  if (!finalized) { return std::unexpected(finalized.error()); }
+  out = std::move(*finalized);
   return {};
 }
 

@@ -124,14 +124,14 @@ int main() {
                             unsupported.Scratch());
   ranged.Start(pool, unsupported);
   while (!ranged.TakeCompletion(pool)) { CHECK(pool.AwaitCompletion(1), "first task completes"); }
-  CHECK(ranged.Result().Status && !ranged.Result().Complete &&
+  CHECK(ranged.Result().Status && !ranged.Result().Tile &&
             ranged.Result().LastRanges == StructureBuildTask::RangesPerTask &&
             ranged.Progress().BakedStructures() ==
                 StructureBuildTask::StructuresPerRange * StructureBuildTask::RangesPerTask,
         "one worker task exposes exactly four completed 64-structure ranges");
   ranged.Resume(pool, unsupported);
   while (!ranged.TakeCompletion(pool)) { CHECK(pool.AwaitCompletion(1), "final task completes"); }
-  CHECK(ranged.Result().Status && ranged.Result().Complete && ranged.Result().LastRanges == 1 &&
+  CHECK(ranged.Result().Status && ranged.Result().Tile && ranged.Result().LastRanges == 1 &&
             ranged.Progress().BakedStructures() == 257 && ranged.Result().FinalizationMs >= 0.0,
         "the final task reports its short range and separately timed finalization");
   return Report();
