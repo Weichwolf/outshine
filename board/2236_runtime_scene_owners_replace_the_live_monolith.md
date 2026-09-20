@@ -53,11 +53,13 @@ classification and atomic table replacement. Scenario override names are transla
 ## Next complete slice
 
 `Live` still owns subject import/playback, render-plan selection and scene orchestration in
-421/1036 lines. Inspect every remaining member by owner, then rename the reduced coordinator and
-`Live.{h,cpp}` to `RuntimeScene`; migrate all callers/tests in one step and leave no alias or
-compatibility header. Keep `ScenePlayback` and `SubjectMaterials` adjacent while texture bindings
-borrow native Geometry image bytes. A name-only move before ownership is verified does not satisfy
-this slice.
+421/1036 lines. Its declaration retains one parser-owned type: `Scenario::AssetAnimation`, which
+forces all of Scenario.h into the runtime header. Introduce a native playback policy beside
+ScenePlayback and translate it in Declaring.cpp; do not alias the scenario enum. Inspect every
+remaining member by owner, then rename the reduced coordinator and `Live.{h,cpp}` to
+`RuntimeScene`; migrate all callers/tests in one step and leave no alias or compatibility header.
+Keep ScenePlayback and SubjectMaterials adjacent while texture bindings borrow native Geometry
+image bytes. A name-only move before ownership is verified does not satisfy this slice.
 
 ## Acceptance
 
@@ -72,5 +74,5 @@ this slice.
       focused surface failure and pointer-input suites plus make lint pass.
 - [x] SubjectMaterials atomically owns base/override resolution while retaining Geometry-backed
       image lifetime; focused shared-slot, unmatched-override and UI rollback tests pass.
-- [ ] RuntimeScene owns only coordination; callers/tests use the final name without compatibility
-      remnants, public render behavior is unchanged, and make lint passes.
+- [ ] RuntimeScene owns only coordination and no Scenario type; callers/tests use the final name
+      without compatibility remnants, public render behavior is unchanged, and make lint passes.

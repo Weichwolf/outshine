@@ -55,7 +55,7 @@ explizit messen. Keine Hardware-Kernreservierung ohne Messung und Plattformgaran
 src/scenario/Triggers.* besitzt laufende Entity-/Zeit-Zustände; src/engine/SimulationState.*
 speichert Scenario::Body. Native Simulationszustände und Triggerauswertung gehören unter
 src/simulation/ (bestehende actor/body-Kerne verwenden), nicht in den Szenarioimport.
-Szenario-Volumes/Events/Bodies an der Grenze in native Konfiguration überführen (2238).
+Szenario-Volumes/Events/Bodies an der Grenze in native Simulationskonfiguration überführen.
 Ein Simulationsbesitzer hält Körper, Triggerzustand und Zeitschritt; Engine koordiniert.
 Erster Schritt bleibt seriell: gleicher Ereignisstrom für Enter/Exit/Dwell, feste Zeit,
 gelöschte Entity/Handle-Generation und Queue-Überlauf. Erst danach Snapshot-Parallelisierung.

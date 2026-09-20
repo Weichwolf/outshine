@@ -21,32 +21,33 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 
 | Module | Finding and binding decision | WI |
 |---|---|---|
-| include/ | Scenario.h combines all domains; runtime headers use its types. Native subsystem config belongs to its subsystem; Document composes it. SDL window/event adapters are legitimate. | 2238, 2096 |
+| include/ | Scenario.h composes public declarations. Provider, audio and render configuration now use native owners and transitive public-header edges are checked. Remaining public-door work is API scope/documentation. | 2096, 2131 |
 | base/ | Math, geometry primitives, parsing and task infrastructure are reusable. Wayfinding owns transport constraints as well as search; keep generic graph math here, move transport policy to world/navigation. | 2133, 2124 |
 | content/ | Own native assets and derived CPU artefacts/codecs, no GPU/engine/import dependencies. No second authoritative mesh representation. | 2150, 2237 |
 | import/ | Geometry, materials, cameras and framing are native; the adapter fills native assets and remains behind the format-neutral loading boundary. Complete native playback ownership. | 2150 |
-| scenario/ | Reader/writer belongs to import composition; TriggerField executes entity-time state and must leave the serialization module. Native input/action/view state is not parser state. | 2151, 2130, 2238 |
-| engine/ | Live and EngineHeld combine subsystem owners; Laying/HeightSheets contain algorithms. Core composes/commits; it must not implement terrain, DSP, sky or GPU resource storage. | 2236, 2237 |
+| scenario/ | Reader/writer belongs to import composition; TriggerField executes entity-time state and must leave the serialization module. Native input/action/view state is not parser state. | 2151, 2130 |
+| engine/ | Live has lost resident resources, camera history, capture, sky integration, UI and material resolution; its final playback-policy boundary and RuntimeScene name remain. Laying/HeightSheets still contain integration beside extracted terrain algorithms. | 2236, 2237 |
 | generators/ | Existing building/flora/road/water algorithms are appropriate; extract remaining terrain computation from engine. Preserve native outputs and independent library linkage. | 2237, 2150 |
-| world/ | Geographic/provider/logical-world products fit here; DeclaredSources must consume native provider config. Navigation is independent of visual geometry. | 2238, 2133 |
+| world/ | Geographic/provider/logical-world products fit here; provider configuration is native. Navigation is independent of visual geometry. | 2133 |
 | render/ | SceneState/FrameResources/WorldContent separation is useful. SceneRenderer still exposes individual stage settings; narrow calls by coherent frame/world inputs, reuse existing owners. | 2222, 2223, 2236 |
 | actor/ | Rigid/prismatic computation is a valid simulation kernel. Stateful bodies/triggers currently straddle scenario/engine; gather native simulation state before adding threads. | 2130 |
-| audio/ | DSP graph/mixer separation is useful; scenario-owned input types and engine AudioOcclusion are wrong boundaries. Acoustic BVH belongs to audio; CPU triangle BVH stays base. | 2238, 2212, 2130 |
+| audio/ | DSP graph/mixer configuration is native. Engine AudioOcclusion remains the wrong owner; acoustic BVH belongs to audio while CPU triangle BVH stays base. | 2212, 2130 |
 | ui/ | Layout/style/paint/input are coherent responsibilities; large Layout.cpp alone proves no defect. Host input routing stays at engine boundary. | 2139 |
 | host/ | Fetching implements transport; provider interpretation stays world/data. Bounded queue/cancellation and no blocking frame IO remain required. | 2124, 2210 |
 | client/ | CLI, process setup, captures and file orchestration are valid; no duplicate renderer or engine algorithms. | 2195, 2207 |
 | diagnostics/ | Process allocator replacement is valid only for explicitly opted-in executables, never linked into the engine library. | 2209 |
 | assets/shaders | Declarative content and generated shader products remain outside runtime logic; packaging/provenance is an independent boundary. | 2207, 2152 |
-| test/ | Mirror actual module ownership; public API/client proves integration, local tests prove algorithms. reaches currently checks compile include paths, not all resolved headers. | 2238, 2094 |
+| test/ | Mirror actual module ownership; public API/client proves integration, local tests prove algorithms. Layer checks now walk transitive public headers. | 2094 |
 
 ## Executable reserve and order
 
-1. WI 2237: extract terrain earthworks computation without changing its result or scheduler.
-2. WI 2236: remove resident resource ownership from Live and migrate concrete consumers.
-3. WI 2238: remove Scenario dependency from provider configuration with one validation path.
-These first slices are independent and ready. Later Crown instance migration reuses 2236's
-resource boundary; no competing interface. WI 2188 maintains global priority against actual
-P0 runtime defects. Vegetation features and a new threading model are not part of this refactor.
+1. WI 2236: translate the last playback policy, verify remaining owners and rename Live to
+   RuntimeScene without aliases.
+2. WI 2237: finish Crown capture/streaming migration over the existing scene-resource boundary.
+3. Re-audit this parent against the resulting code and close it or name a concrete remaining
+   dependency; do not keep a generic refactor open as permanent permission to rearrange files.
+WI 2188 maintains global priority against runtime defects. Vegetation features and a new
+threading model are not part of this refactor.
 
 ## Common implementation contract
 
