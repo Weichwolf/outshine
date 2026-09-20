@@ -44,9 +44,11 @@ The raw control covers fractional LOD, primitive edges, perspective-varying clip
 separate streams, 32-bit indexed indirect drawing, persistent 1280x720 RGBA16F/D32 targets,
 reverse-Z and the 2048x2048 source dimension. It now also loads the pinned asset through the
 importer and uses its packed first-part positions, indices, UVs, uploaded sRGB mip chain,
-sampler and exact failing camera. Its visible first and repeated frames are bit-identical.
-The public path still fails at the original three channels. Imported raster inputs alone are
-excluded; the remaining boundary is the engine flat shader/material/binding or submission path.
+sampler and exact failing camera. It now also uses the production flat vertex/fragment products,
+packed material uniform, emission stream, placement storage and full SubjectView uniform. Its
+visible first and repeated frames remain bit-identical. The public path still fails at the
+original three channels even with only the subject pass. Imported raster inputs, shader products,
+material layout and later passes alone are excluded; submission/input equality remains open.
 Deindexing the imported part made its own frames stable, but its resident image differed
 from the indexed resident image in six channels by at most 1/4096. It is therefore not an
 equivalent negative control and was removed. This topology sensitivity does not authorize
@@ -79,8 +81,8 @@ A changed camera/topology cannot eliminate a subsystem from the original failure
    render state and selected pipeline. Capture immutable test snapshots, never mutable
    borrowed pointers or periodic production logs. Report only the first differing field.
 3. If inputs differ, fix the producing owner/commit boundary and add a negative control.
-   If they match, make the green imported raw control use the actual flat shader products,
-   packed material uniform, placement storage binding and SubjectView uniform unchanged.
+   If they match, compare exact target creation, pass state, buffer ranges and command ordering
+   between the now production-shader-equivalent green raw draw and SceneRenderer submission.
 4. A failing raw draw requires validation of the fixture and SDL contract first; only
    then classify a possible backend/compiler defect. Record SDL commit, GPU/backend,
    OS and shader product. Compare another locally available backend when available;

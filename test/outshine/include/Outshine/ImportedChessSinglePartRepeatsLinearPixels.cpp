@@ -30,18 +30,16 @@ int main() {
     CHECK(native.setSurface(MaterialInstance(surface), row), "native chess surface becomes unlit");
   }
   Geometry single;
+  constexpr int selected = 0;
   for (int image = 0; image < native.images(); ++image) {
     const ImageView source = native.imageAt(image);
     CHECK(single.addImage(source.WidthPx, source.HeightPx, source.Rgba),
           "single part copies image");
   }
-  for (int surface = 0; surface < native.surfaces(); ++surface) {
-    CHECK(single.addSurface(native.surfaceNameOf(surface),
-                            native.surfaceAt(MaterialInstance(surface))),
-          "single part copies material");
-  }
-  constexpr int selected = 0;
-  const auto part = single.addPart(native.nameOf(selected), native.materialOf(selected));
+  CHECK(single.addSurface(native.surfaceNameOf(native.materialOf(selected).index()),
+                          native.surfaceAt(native.materialOf(selected))),
+        "single part copies its material");
+  const auto part = single.addPart(native.nameOf(selected), MaterialInstance(0));
   CHECK(part, "single part allocates");
   if (!part) { return Report(); }
   CHECK(single.setPlacement(*part, native.placementOf(selected)) &&
@@ -100,16 +98,25 @@ int main() {
     MipFilter Mip;
     const Geometry *Source;
     bool Warmup;
+    bool SubjectOnly;
   };
 
   const std::array sequences = {
-      Sequence{.Mip = MipFilter::Linear, .Source = &single, .Warmup = false},
-      Sequence{.Mip = MipFilter::Nearest, .Source = &nearestMips, .Warmup = false},
-      Sequence{.Mip = MipFilter::Linear, .Source = &single, .Warmup = true}};
+      Sequence{.Mip = MipFilter::Linear, .Source = &single, .Warmup = false, .SubjectOnly = false},
+      Sequence{
+          .Mip = MipFilter::Nearest, .Source = &nearestMips, .Warmup = false, .SubjectOnly = false},
+      Sequence{.Mip = MipFilter::Linear, .Source = &single, .Warmup = true, .SubjectOnly = false},
+      Sequence{.Mip = MipFilter::Linear, .Source = &single, .Warmup = false, .SubjectOnly = true}};
   for (const Sequence sequence : sequences) {
-    scenario.Render.Stages = {
-        "subjects", "subjectsTransmissive", "compositeTransmission", "overlay"};
-    std::printf("mip=%d warmup=%d\n", static_cast<int>(sequence.Mip), sequence.Warmup);
+    scenario.Render.Stages =
+        sequence.SubjectOnly
+            ? std::vector<std::string>{"subjects"}
+            : std::vector<std::string>{
+                  "subjects", "subjectsTransmissive", "compositeTransmission", "overlay"};
+    std::printf("mip=%d warmup=%d subjectOnly=%d\n",
+                static_cast<int>(sequence.Mip),
+                sequence.Warmup,
+                sequence.SubjectOnly);
     Engine engine;
     if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario))) {
       return Report();

@@ -21,6 +21,7 @@
 #include "KernelShape.h"
 #include "GroundLattice.h"
 #include "SubjectResidency.h"
+#include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
 
 namespace outshine::Render {
@@ -304,14 +305,6 @@ public:
 private:
   static constexpr int kUniFloats = 56;
 
-  static constexpr int kSurfaceScalars = 35;
-
-  static constexpr int kUvMatrixFloats = 6;
-
-  static constexpr int kUvSetFloats = 1;
-  static constexpr int kSurfaceFloats =
-      kSurfaceScalars + (kUvMatrixFloats + kUvSetFloats) * static_cast<int>(kSubjectMaterialImages);
-
   static constexpr int kLightVec4s = 4;
 
   static constexpr int kLightHeaderFloats = 24;
@@ -329,7 +322,7 @@ private:
     SubjectResidency::BoundImage SpecularStrength;
     SubjectResidency::BoundImage SpecularTint;
 
-    std::array<float, kSurfaceFloats> Row{};
+    PackedSubjectMaterial Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
     std::optional<std::array<float, 3>> Unlit;

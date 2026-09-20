@@ -15,6 +15,7 @@
 #include "PreparedRoot.h"
 #include "ShaderFile.h"
 #include "Shape.h"
+#include "SubjectMaterialPacking.h"
 #include "SubjectResidency.h"
 #include "Surfacing.h"
 #include "TexelChain.h"
@@ -43,9 +44,12 @@ struct Fixture {
   OwnedPipeline Pipeline;
   OwnedBuffer Vertices;
   OwnedBuffer Uvs;
+  OwnedBuffer Emitted;
+  OwnedBuffer Placements;
   OwnedBuffer Indices;
   OwnedBuffer Indirect;
   std::vector<float> VertexUniform;
+  std::vector<float> FragmentUniform;
   uint32_t IndexCount = 3;
   bool Derivatives = false;
   bool DescriptorTable = false;
@@ -378,13 +382,25 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
         fixture.VertexUniform.data(),
         static_cast<uint32_t>(fixture.VertexUniform.size() * sizeof(float)));
   }
+  if (!fixture.FragmentUniform.empty()) {
+    SDL_PushGPUFragmentUniformData(
+        commands,
+        0,
+        fixture.FragmentUniform.data(),
+        static_cast<uint32_t>(fixture.FragmentUniform.size() * sizeof(float)));
+  }
   if (fixture.Derivatives) {
-    const std::array<SDL_GPUBufferBinding, 2> streams = {
+    const std::array<SDL_GPUBufferBinding, 3> streams = {
         SDL_GPUBufferBinding{.buffer = fixture.Vertices.Get()},
-        SDL_GPUBufferBinding{.buffer = fixture.Uvs.Get()}};
-    SDL_BindGPUVertexBuffers(pass, 0, streams.data(), static_cast<uint32_t>(streams.size()));
+        SDL_GPUBufferBinding{.buffer = fixture.Uvs.Get()},
+        SDL_GPUBufferBinding{.buffer = fixture.Emitted.Get()}};
+    SDL_BindGPUVertexBuffers(pass, 0, streams.data(), fixture.Emitted ? 3u : 2u);
     const SDL_GPUBufferBinding indices{.buffer = fixture.Indices.Get()};
     SDL_BindGPUIndexBuffer(pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+  }
+  if (fixture.Placements) {
+    const std::array<SDL_GPUBuffer *, 1> storage = {fixture.Placements.Get()};
+    SDL_BindGPUVertexStorageBuffers(pass, 0, storage.data(), 1);
   }
   const SDL_GPUTextureSamplerBinding binding{.texture = fixture.Source.Get(),
                                              .sampler = fixture.Sampler.Get()};
@@ -456,27 +472,30 @@ bool ConfigureImported(Fixture &fixture) {
   fixture.Source = std::move(bound->Image);
   fixture.Sampler = std::move(bound->Sample);
 
-  const OwnedShader vertex(fixture.Device.Get(),
-                           ShaderFrom(fixture.Device.Get(),
-                                      "build/shaders/filteredMipImportedSample.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      DrawShape{.VertexUniformBuffers = 1},
-                                      error));
-  const OwnedShader fragment(fixture.Device.Get(),
-                             ShaderFrom(fixture.Device.Get(),
-                                        "build/shaders/filteredMipDerivativeSample.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        DrawShape{.FragmentSamplers = 1},
-                                        error));
+  const OwnedShader vertex(
+      fixture.Device.Get(),
+      ShaderFrom(fixture.Device.Get(),
+                 "build/shaders/flat-10-0.vert.spv",
+                 SDL_GPU_SHADERSTAGE_VERTEX,
+                 DrawShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1},
+                 error));
+  const OwnedShader fragment(
+      fixture.Device.Get(),
+      ShaderFrom(fixture.Device.Get(),
+                 "build/shaders/flat-01-000.frag.spv",
+                 SDL_GPU_SHADERSTAGE_FRAGMENT,
+                 DrawShape{.FragmentSamplers = 1, .FragmentUniformBuffers = 1},
+                 error));
   if (!vertex || !fragment) {
     SDL_SetError("%s", error.c_str());
     return false;
   }
   SDL_GPUColorTargetDescription target{.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT};
-  const std::array<SDL_GPUVertexBufferDescription, 2> buffers = {
+  const std::array<SDL_GPUVertexBufferDescription, 3> buffers = {
       SDL_GPUVertexBufferDescription{.slot = 0, .pitch = 3u * sizeof(float)},
-      SDL_GPUVertexBufferDescription{.slot = 1, .pitch = 2u * sizeof(float)}};
-  const std::array<SDL_GPUVertexAttribute, 2> attributes = {
+      SDL_GPUVertexBufferDescription{.slot = 1, .pitch = 2u * sizeof(float)},
+      SDL_GPUVertexBufferDescription{.slot = 2, .pitch = 3u * sizeof(float)}};
+  const std::array<SDL_GPUVertexAttribute, 3> attributes = {
       SDL_GPUVertexAttribute{.location = 0,
                              .buffer_slot = 0,
                              .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
@@ -484,6 +503,10 @@ bool ConfigureImported(Fixture &fixture) {
       SDL_GPUVertexAttribute{.location = 1,
                              .buffer_slot = 1,
                              .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+                             .offset = 0},
+      SDL_GPUVertexAttribute{.location = 2,
+                             .buffer_slot = 2,
+                             .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
                              .offset = 0}};
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
   pipeline.vertex_shader = vertex.Get();
@@ -495,6 +518,7 @@ bool ConfigureImported(Fixture &fixture) {
   pipeline.vertex_input_state.num_vertex_attributes = static_cast<uint32_t>(attributes.size());
   pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
   pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
+  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
   pipeline.target_info.color_target_descriptions = &target;
   pipeline.target_info.num_color_targets = 1;
   pipeline.target_info.has_depth_stencil_target = true;
@@ -513,9 +537,25 @@ bool ConfigureImported(Fixture &fixture) {
                                                    .first_index = 0,
                                                    .vertex_offset = 0,
                                                    .first_instance = 0};
+  std::vector<float> emitted(part.VertexCount * 3u);
+  for (size_t vertexIndex = 0; vertexIndex < part.VertexCount; ++vertexIndex) {
+    for (size_t channel = 0; channel < 3; ++channel) {
+      emitted[vertexIndex * 3u + channel] = material.Row.BaseColour[channel];
+    }
+  }
+  constexpr std::array<float, 32> placements = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+                                                1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   if (!UploadBuffer(
           fixture, std::as_bytes(part.PositionsM), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Vertices) ||
       !UploadBuffer(fixture, std::as_bytes(part.Uv), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Uvs) ||
+      !UploadBuffer(fixture,
+                    std::as_bytes(std::span(emitted)),
+                    SDL_GPU_BUFFERUSAGE_VERTEX,
+                    fixture.Emitted) ||
+      !UploadBuffer(fixture,
+                    std::as_bytes(std::span(placements)),
+                    SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+                    fixture.Placements) ||
       !UploadBuffer(fixture, std::as_bytes(indices), SDL_GPU_BUFFERUSAGE_INDEX, fixture.Indices) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(&indirect, 1)),
@@ -536,10 +576,19 @@ bool ConfigureImported(Fixture &fixture) {
   if (!lens) { return false; }
   const outshine::Mat4f viewProjection = lens->ViewProjection(*viewpoint);
   fixture.VertexUniform.assign(viewProjection.begin(), viewProjection.end());
+  fixture.VertexUniform.insert(
+      fixture.VertexUniform.end(), viewProjection.begin(), viewProjection.end());
+  fixture.VertexUniform.insert(fixture.VertexUniform.end(), 16u, 0.0f);
   fixture.VertexUniform.push_back(-static_cast<float>(eye[0]));
   fixture.VertexUniform.push_back(-static_cast<float>(eye[1]));
   fixture.VertexUniform.push_back(-static_cast<float>(eye[2]));
   fixture.VertexUniform.push_back(0.0f);
+  fixture.VertexUniform.push_back(-static_cast<float>(eye[0]));
+  fixture.VertexUniform.push_back(-static_cast<float>(eye[1]));
+  fixture.VertexUniform.push_back(-static_cast<float>(eye[2]));
+  fixture.VertexUniform.push_back(0.0f);
+  const PackedSubjectMaterial packed = PackSubjectMaterial(material, 1.0f);
+  fixture.FragmentUniform.assign(packed.begin(), packed.end());
   return true;
 }
 
