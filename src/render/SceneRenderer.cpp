@@ -1334,9 +1334,6 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
         (ActiveState().Content.DrawsGlass && !ActiveState().Content.Glass.HandTables(why))) {
       return std::unexpected(std::move(why));
     }
-    if (!ActiveState().Content.Subjects.HandDrawArguments(true, why)) {
-      return std::unexpected(std::move(why));
-    }
   }
   return {};
 }

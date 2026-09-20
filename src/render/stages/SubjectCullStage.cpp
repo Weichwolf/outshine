@@ -129,9 +129,16 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
 void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
   Swept_ = 0;
   const uint64_t generation = Subjects_ != nullptr ? Subjects_->Generation() : 0u;
+  CullThisFrame_ = Subjects_ != nullptr && (!HasResult_ || LastMvp_ != ctx.Mvp ||
+                                            LastPreViewTranslation_ != ctx.PreViewTranslation ||
+                                            LastSubjectGeneration_ != generation);
   OccludeThisFrame_ = PyramidBuffer_ != nullptr && HasResult_ &&
                       (LastMvp_ != ctx.Mvp || LastPreViewTranslation_ != ctx.PreViewTranslation) &&
                       LastSubjectGeneration_ == generation;
+  if (!CullThisFrame_) {
+    gJobsSwept.store(0u, std::memory_order_relaxed);
+    return;
+  }
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
@@ -159,6 +166,7 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
 }
 
 void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &into) {
+  if (!CullThisFrame_) { return; }
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   const uint32_t batches = Subjects_ != nullptr ? Subjects_->ClusterBatchRows() : 0u;
@@ -176,6 +184,7 @@ void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &
 }
 
 void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecording &into) {
+  if (!CullThisFrame_) { return; }
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Compact_ || into.Dispatch == nullptr) { return; }

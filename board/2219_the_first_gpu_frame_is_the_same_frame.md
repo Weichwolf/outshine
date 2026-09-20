@@ -23,17 +23,23 @@ Its sphere contains its vertices and projects conservatively: reverse-Z sphere n
 0.533213, actual vertex nearest 0.531105, Hi-Z farthest 0.544359. The rejection is valid,
 but history-only topology refinement changes trilinear results at equal depth.
 
-The reduced case is repaired: cull, scan and compaction always run; previous-frame Hi-Z
-is consulted only when the camera-relative view changes and geometry generation is stable.
-Identical input now preserves visibility, indirect arguments, indices and every linear pixel.
-Moving views retain temporal occlusion.
+The reduced case is repaired: unchanged camera-relative view and geometry generation reuse
+the last visibility, indirect arguments and compacted indices. Cull, scan and compact rerun
+after view or geometry changes; moving views retain temporal occlusion. The former per-frame
+argument reset was redundant because scan writes every batch count and prevented reuse.
 
 The full native opaque control still changes 99 channels with identical visibility,
 arguments, compacted indices and depth. Transmission adds nine changes; the default plan
 adds a further 214. This is a second boundary after culling, within multi-part raster or later
 passes. Do not attribute it to temporal culling or reopen the proven sphere calculation.
 With native shared material slots and transmission disabled, prefixes through part 6 are exact;
-adding part 7 `Pawn_Body_W2` is the first opaque multi-part failure.
+adding part 7 `Pawn_Body_W2` exposed the first failure in one run. The two constituent groups
+remain exact separately, and replacing part 7 with part 8 also failed once but passed after a
+rebuild. Treat this as a multi-draw/resource-layout boundary, not a content-specific threshold.
+An idle wait, explicit/fine gradients, manual trilinear filtering and exact coincident-triangle
+removal leave the full opaque failure. Constant colour, a fixed texel and mip-zero UV filtering
+are exact; the computed derivative LOD itself changes. Vulkan specifies repeatability for
+identical side-effect-free commands, while this path consumes buffers written by compute.
 
 ## Implementation
 

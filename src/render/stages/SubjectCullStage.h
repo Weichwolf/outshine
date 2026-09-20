@@ -54,6 +54,7 @@ private:
   SDL_GPUBuffer *PyramidBuffer_ = nullptr;
   PyramidShape Pyramid_;
   bool HasResult_ = false;
+  bool CullThisFrame_ = false;
   bool OccludeThisFrame_ = false;
   Mat4f LastMvp_{};
   Vec3 LastPreViewTranslation_{};
