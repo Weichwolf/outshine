@@ -379,7 +379,7 @@ void PublishConfiguration(Kept &session,
 
 [[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b) {
   return SamePicture(a, b) && a.Stands == b.Stands && a.Variant == b.Variant &&
-         a.Animation == b.Animation && a.Clip == b.Clip;
+         a.Playback == b.Playback && a.Clip == b.Clip;
 }
 
 }
@@ -497,7 +497,14 @@ void PrepareImportedAssets(const Scenario::Document &scenario,
                                      .RetainMaps = surface.KeepsMaps,
                                      .Surface = surface.Row});
     }
-    declared.Animation = subject->Animation;
+    switch (subject->Animation) {
+      case Scenario::AssetAnimation::Play: declared.Playback = PlaybackPolicy::Once; break;
+      case Scenario::AssetAnimation::Loop: declared.Playback = PlaybackPolicy::Loop; break;
+      case Scenario::AssetAnimation::Ignore: declared.Playback = PlaybackPolicy::RestPose; break;
+      case Scenario::AssetAnimation::Driven:
+        declared.Playback = PlaybackPolicy::ExternallyDriven;
+        break;
+    }
     declared.Clip = subject->Clip;
   }
 }

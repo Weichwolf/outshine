@@ -321,8 +321,7 @@ double Live::MeteredLux() const {
 }
 
 bool Live::JoinsSubjects(std::string &error) {
-  const bool animate = Declared_.Animation == Scenario::AssetAnimation::Play ||
-                       Declared_.Animation == Scenario::AssetAnimation::Loop;
+  const bool animate = ImportsAnimation(Declared_.Playback);
   for (const std::string &joining : Declared_.Joins) {
     ScenePlayback arriving;
     if (!arriving.Load({.Path = joining, .Variant = ""},
@@ -340,8 +339,7 @@ bool Live::JoinsSubjects(std::string &error) {
 
 bool Live::StandsSubjects(std::string &error) {
   if (!Held_.IsLoaded()) {
-    const bool animate = Declared_.Animation == Scenario::AssetAnimation::Play ||
-                         Declared_.Animation == Scenario::AssetAnimation::Loop;
+    const bool animate = ImportsAnimation(Declared_.Playback);
     if (!Held_.Load({.Path = Declared_.Stands, .Variant = Declared_.Variant},
                     animate,
                     {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
@@ -974,7 +972,7 @@ bool Live::Advance(std::string &error) {
 
   if (Held_.IsAnimated() && Held_.DurationS() > 0.0) {
     Held_.Advance(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
-                  Declared_.Animation == Scenario::AssetAnimation::Loop);
+                  Declared_.Playback == PlaybackPolicy::Loop);
     const size_t beforePose = Heap::TakenUnder("live-pose");
     {
       static const Heap::Tag kPosingTag("live-pose");

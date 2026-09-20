@@ -15,8 +15,6 @@
 #include <vector>
 
 #include <Outshine.h>
-#include <scenario/Scenario.h>
-
 #include "ScenePlayback.h"
 #include "CameraState.h"
 #include "SubjectProxy.h"
@@ -39,7 +37,7 @@ constexpr Vec3 kGroundAlbedoUnsaid = {{0.10, 0.13, 0.07}};
 
 struct Declaration {
   double Haze = 1.0;
-  Scenario::AssetAnimation Animation = Scenario::AssetAnimation::Play;
+  PlaybackPolicy Playback = PlaybackPolicy::Once;
   int Clip = 0;
 
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;

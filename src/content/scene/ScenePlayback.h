@@ -19,6 +19,12 @@ class AnimatedAsset;
 
 namespace outshine {
 
+enum class PlaybackPolicy : uint8_t { Once, Loop, RestPose, ExternallyDriven };
+
+[[nodiscard]] constexpr bool ImportsAnimation(PlaybackPolicy policy) noexcept {
+  return policy == PlaybackPolicy::Once || policy == PlaybackPolicy::Loop;
+}
+
 class ScenePlayback {
 public:
   ScenePlayback();

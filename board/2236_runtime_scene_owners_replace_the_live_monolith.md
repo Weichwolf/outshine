@@ -57,11 +57,10 @@ FailedResolutionPreservesPublishedMaterials copies expected indices/material val
 and checks a valid retry. Conflicting material/part selectors in both declaration orders prove that
 the selected part wins the second pass while the other retains the material-wide override.
 
-`Live` still owns subject import/playback, render-plan selection and scene orchestration in
-421/1036 lines. Its declaration retains one parser-owned type: `Scenario::AssetAnimation`, which
-forces all of Scenario.h into the runtime header. Introduce a native playback policy beside
-ScenePlayback and translate it in Declaring.cpp; do not alias the scenario enum. Inspect every
-remaining member by owner, then rename the reduced coordinator and `Live.{h,cpp}` to
+`Live` still owns subject import/playback, render-plan selection and scene orchestration.
+`PlaybackPolicy` now lives beside ScenePlayback; Declaring.cpp exhaustively translates the
+scenario enum and the runtime header no longer includes Scenario.h. Inspect every remaining
+member by owner, then rename the reduced coordinator and `Live.{h,cpp}` to
 `RuntimeScene`; migrate all callers/tests in one step and leave no alias or compatibility header.
 Keep ScenePlayback and SubjectMaterials adjacent while texture bindings borrow native Geometry
 image bytes. A name-only move before ownership is verified does not satisfy this slice.
