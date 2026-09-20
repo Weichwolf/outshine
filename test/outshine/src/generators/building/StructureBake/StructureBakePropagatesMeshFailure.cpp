@@ -132,11 +132,15 @@ int main() {
     CHECK(incomplete && !*incomplete && manyProgress.BakedStructures() == (range + 1) * 64,
           "each complete 64-structure range retains the private aggregate");
   }
-  const auto manyComplete =
-      manyProgress.Advance(many, *heights, manySlicedMesher, *manySlicedScratch, manySliced, 64);
-  CHECK(manyOneShotResult && manyComplete && *manyComplete &&
+  const auto manyStructuresComplete = manyProgress.AdvanceStructures(
+      many, *heights, manySlicedMesher, *manySlicedScratch, manySliced, 64);
+  CHECK(manyStructuresComplete && *manyStructuresComplete && manySliced.Digest == 0,
+        "the final structure range leaves clustering private to its measured finalization phase");
+  const auto manyFinalized =
+      manyProgress.Finalize(many, manySlicedMesher, *manySlicedScratch, manySliced);
+  CHECK(manyOneShotResult && manyFinalized &&
             manyProgress.BakedStructures() == many.Structures.size(),
-        "the final short range alone completes a 257-structure aggregate");
+        "the final short range and finalization complete a 257-structure aggregate");
   CHECK(manySlicedMesher.Calls == manyOneShotMesher.Calls &&
             manySliced.Prints.size() == manyOneShot.Prints.size() &&
             manySliced.UnsupportedMeshes == manyOneShot.UnsupportedMeshes &&

@@ -15,13 +15,6 @@
 
 namespace outshine {
 
-namespace {
-
-constexpr size_t kStructuresPerRange = 64;
-constexpr size_t kRangesPerWorkerTask = 4;
-
-}
-
 StructureBuildTask::StructureBuildTask(uint32_t tile,
                                        std::unique_ptr<Generators::RawTile> raw,
                                        std::shared_ptr<const Ground::HeightField> heights,
@@ -62,20 +55,34 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
     const auto began = std::chrono::steady_clock::now();
     static const Heap::Tag kBakingTag("structure-bake");
     const Heap::Tagged baking(kBakingTag);
-    output->LastSliceMs = 0.0;
-    for (size_t range = 0; range < kRangesPerWorkerTask && !output->Complete; ++range) {
+    output->LastRanges = 0;
+    output->LastRangeMs = 0.0;
+    for (size_t range = 0; range < RangesPerTask && !output->Complete; ++range) {
       const auto rangeBegan = std::chrono::steady_clock::now();
-      const auto advanced = progress->Advance(
-          *raw, *heights, mesher, *scratch, output->Tile, kStructuresPerRange, stopping.get());
+      const auto advanced = progress->AdvanceStructures(
+          *raw, *heights, mesher, *scratch, output->Tile, StructuresPerRange, stopping.get());
       const double rangeMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rangeBegan)
               .count();
-      output->LastSliceMs = std::max(output->LastSliceMs, rangeMs);
+      output->LastRangeMs = std::max(output->LastRangeMs, rangeMs);
       if (!advanced) {
         output->Status = std::unexpected(advanced.error());
         break;
       }
-      output->Complete = *advanced;
+      ++output->LastRanges;
+      if (*advanced) {
+        const auto finalizationBegan = std::chrono::steady_clock::now();
+        const auto finalized =
+            progress->Finalize(*raw, mesher, *scratch, output->Tile, stopping.get());
+        output->FinalizationMs = std::chrono::duration<double, std::milli>(
+                                     std::chrono::steady_clock::now() - finalizationBegan)
+                                     .count();
+        if (!finalized) {
+          output->Status = std::unexpected(finalized.error());
+          break;
+        }
+        output->Complete = true;
+      }
     }
     const double taskMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();

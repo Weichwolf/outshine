@@ -164,7 +164,7 @@ std::unique_ptr<MeshScratch> StructureBuildQueue::LentScratch() {
 }
 
 void StructureBuildQueue::PostSlice(QueuedBuild &build) {
-  if (build.Slices == 0) {
+  if (build.Tasks == 0) {
     build.Task.Start(*Pool_, *Mesher_);
   } else {
     build.Task.Resume(*Pool_, *Mesher_);
@@ -191,16 +191,17 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
   }
 }
 
-void StructureBuildQueue::ResumeCompletedSlices() {
+void StructureBuildQueue::ResumeCompletedTasks() {
   for (QueuedBuild &bake : Queue_) {
     if (!bake.Finished) {
       bake.Finished = bake.Task.TakeCompletion(*Pool_);
       if (bake.Finished) {
         bake.BakedStructures = bake.Task.Progress().BakedStructures();
-        ++bake.Slices;
-        bake.SlowestSliceMs = std::max(bake.SlowestSliceMs, bake.Task.Result().LastSliceMs);
-        bake.SlowestTaskMs = std::max(bake.SlowestTaskMs, bake.Task.Result().LastTaskMs);
-        SlowestSliceMs_ = std::max(SlowestSliceMs_, bake.Task.Result().LastSliceMs);
+        ++bake.Tasks;
+        CompletedRanges_ += bake.Task.Result().LastRanges;
+        SlowestRangeMs_ = std::max(SlowestRangeMs_, bake.Task.Result().LastRangeMs);
+        SlowestFinalizationMs_ =
+            std::max(SlowestFinalizationMs_, bake.Task.Result().FinalizationMs);
         SlowestTaskMs_ = std::max(SlowestTaskMs_, bake.Task.Result().LastTaskMs);
       }
     }
@@ -245,7 +246,9 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     output->Status = {};
     output->Complete = false;
     output->BakeMs = 0.0;
-    output->LastSliceMs = 0.0;
+    output->LastRanges = 0;
+    output->LastRangeMs = 0.0;
+    output->FinalizationMs = 0.0;
     output->LastTaskMs = 0.0;
     Queue_.push_back(
         {.Revision = revision,
@@ -268,7 +271,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
   DiscardStale(*vectors, prints, eye);
-  ResumeCompletedSlices();
+  ResumeCompletedTasks();
   size_t count = 0;
   size_t printCount = 0;
   size_t spreadCount = 0;

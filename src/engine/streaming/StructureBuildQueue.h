@@ -60,7 +60,7 @@ public:
                Ground::BuildingField &footprints,
                LongitudeLatitude eye,
                size_t most);
-  void ResumeCompletedSlices();
+  void ResumeCompletedTasks();
   void CommitsLandings(Ground::GroundStack &stack,
                        Ground::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
@@ -85,7 +85,11 @@ public:
 
   [[nodiscard]] double SlowestBakeMs() const { return SlowestBakeMs_; }
 
-  [[nodiscard]] double SlowestSliceMs() const { return SlowestSliceMs_; }
+  [[nodiscard]] size_t CompletedRanges() const { return CompletedRanges_; }
+
+  [[nodiscard]] double SlowestRangeMs() const { return SlowestRangeMs_; }
+
+  [[nodiscard]] double SlowestFinalizationMs() const { return SlowestFinalizationMs_; }
 
   [[nodiscard]] double SlowestTaskMs() const { return SlowestTaskMs_; }
 
@@ -100,9 +104,7 @@ private:
     BakeRevision Revision;
     StructureBuildTask Task;
     size_t BakedStructures = 0;
-    size_t Slices = 0;
-    double SlowestSliceMs = 0.0;
-    double SlowestTaskMs = 0.0;
+    size_t Tasks = 0;
     bool Finished = false;
   };
 
@@ -132,7 +134,9 @@ private:
   size_t Discarded_ = 0;
   double BakedMs_ = 0.0;
   double SlowestBakeMs_ = 0.0;
-  double SlowestSliceMs_ = 0.0;
+  size_t CompletedRanges_ = 0;
+  double SlowestRangeMs_ = 0.0;
+  double SlowestFinalizationMs_ = 0.0;
   double SlowestTaskMs_ = 0.0;
 };
 

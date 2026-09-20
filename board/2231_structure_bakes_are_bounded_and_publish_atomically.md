@@ -53,7 +53,7 @@ and runs at most four ranges per task. Prove the existing contract before changi
    Do not expose worker-owned intermediate ranges or add a production public stepping API.
 2. **P0-B:** Run the same input as an uninterrupted one-shot generator control. Source ordering,
    accepted structures and final native products must match exactly.
-3. **P0-C:** Expose range count, maximum structures/range, maximum range CPU time and final
+3. **P0-C [done]:** Expose range count, maximum structures/range, maximum range CPU time and final
    clustering time through the bounded preload diagnostic. It reads completion snapshots only.
 4. **P0-D:** If clustering violates the range bound, make only clustering resumable and preserve
    source order. Do not split a tile's publication or relax the 15-second Place limit.
@@ -87,11 +87,14 @@ und beide Ergebnisse sind identisch. Ein entfernter Tile bündelt seine zwei Geb
 genau einem `Massed`-Mesh; null Meshes war ein falscher, korrigierter Testvertrag.
 Der Test beweist die Generatoraggregation, nicht die öffentliche Kandidatenpublikation.
 
-2026-09-18: `ScoreAFootprintStandsOnALevelFloor` is checked in and exercises the public Engine
-path. Its current run completed preload in 2,894.869 ms against 15 s, reached 4,415 building pads
-and left at most 0.000015 m above a stamped floor or corridor. It proves the current Place budget
-and contact contract; it does not yet expose an intermediate 257-structure candidate to prove
-that no partial aggregate publishes.
+Range traversal and finalization are separate generator phases. The scheduler reports completed
+ranges, 64 structures/range, maximum range time and maximum finalization time from consumed worker
+snapshots. Its 257-structure test observes four ranges, then one short range and finalization.
+
+2026-09-21: `ScoreAFootprintStandsOnALevelFloor` reached 4,415 pads and 0.000015 m contact error.
+An immediate warm run preloaded in 2,973 ms. The preceding cold run took 15,937 ms and is red
+against 15 s despite all data arriving by 407 ms; cold-start residency therefore remains open.
+Neither run exposes an intermediate 257-structure public candidate.
 
 2026-09-17: the prior Graz bake-timeout diagnosis was stale. With the candidate path, all
 structure landings complete and the no-vegetation client capture passes: 1,940,223 building

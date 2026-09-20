@@ -232,7 +232,7 @@ bool Engine::State::Bakes(size_t landsMost) {
   if (!World.GroundPublished.Current()) {
     Ground::BuildingField *const footprints = CandidateFootprints();
     if (footprints == nullptr) { return true; }
-    World.StructureBuilds.ResumeCompletedSlices();
+    World.StructureBuilds.ResumeCompletedTasks();
     if (!StagesGroundBakes(landsMost)) { return false; }
     (void)World.StructureBuilds.Posts(World.Stack, *footprints, eye);
     return true;

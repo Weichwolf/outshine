@@ -53,6 +53,22 @@ private:
   mutable bool Released_ = false;
 };
 
+struct Scratch final : outshine::MeshScratch {};
+
+class UnsupportedMesher final : public outshine::StructureMesher {
+public:
+  std::unique_ptr<outshine::MeshScratch> Scratch() const override {
+    return std::make_unique<::Scratch>();
+  }
+
+  std::expected<void, outshine::StructureMeshError>
+  Mesh(const outshine::StructurePlan &,
+       outshine::MeshScratch &,
+       outshine::Raised &) const noexcept override {
+    return std::unexpected(outshine::StructureMeshError::UnsupportedFootprint);
+  }
+};
+
 std::shared_ptr<const outshine::Ground::HeightField> Heights() {
   outshine::Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
@@ -61,10 +77,10 @@ std::shared_ptr<const outshine::Ground::HeightField> Heights() {
   return outshine::Ground::HeightField::Of(0, {std::move(block)});
 }
 
-std::unique_ptr<outshine::Generators::RawTile> Raw() {
+std::unique_ptr<outshine::Generators::RawTile> Raw(size_t structures = 1) {
   auto raw = std::make_unique<outshine::Generators::RawTile>();
   raw->LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
-  raw->Structures.push_back({.PointCount = 4, .HeightM = 6});
+  raw->Structures.assign(structures, {.PointCount = 4, .HeightM = 6});
   raw->FocalPx = 1000;
   raw->Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
   raw->TileSpanM = 1000;
@@ -100,5 +116,23 @@ int main() {
         "joining returns only after the stopped worker has completed");
   CHECK(!task.Result().Status,
         "a stop requested during meshing reaches the task output as an explicit failure");
+  UnsupportedMesher unsupported;
+  StructureBuildTask ranged(4,
+                            Raw(257),
+                            Heights(),
+                            std::make_unique<StructureBuildTask::Output>(),
+                            unsupported.Scratch());
+  ranged.Start(pool, unsupported);
+  while (!ranged.TakeCompletion(pool)) { CHECK(pool.AwaitCompletion(1), "first task completes"); }
+  CHECK(ranged.Result().Status && !ranged.Result().Complete &&
+            ranged.Result().LastRanges == StructureBuildTask::RangesPerTask &&
+            ranged.Progress().BakedStructures() ==
+                StructureBuildTask::StructuresPerRange * StructureBuildTask::RangesPerTask,
+        "one worker task exposes exactly four completed 64-structure ranges");
+  ranged.Resume(pool, unsupported);
+  while (!ranged.TakeCompletion(pool)) { CHECK(pool.AwaitCompletion(1), "final task completes"); }
+  CHECK(ranged.Result().Status && ranged.Result().Complete && ranged.Result().LastRanges == 1 &&
+            ranged.Progress().BakedStructures() == 257 && ranged.Result().FinalizationMs >= 0.0,
+        "the final task reports its short range and separately timed finalization");
   return Report();
 }

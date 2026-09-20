@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDTASK_H
 
 #include <atomic>
+#include <cstddef>
 #include <expected>
 #include <memory>
 
@@ -19,7 +20,9 @@ public:
     std::expected<void, Generators::StructureBakeError> Status;
     bool Complete = false;
     double BakeMs = 0.0;
-    double LastSliceMs = 0.0;
+    size_t LastRanges = 0;
+    double LastRangeMs = 0.0;
+    double FinalizationMs = 0.0;
     double LastTaskMs = 0.0;
   };
 
@@ -41,6 +44,9 @@ public:
   void Join(Tasks &pool);
 
   [[nodiscard]] bool Running() const noexcept;
+
+  static constexpr size_t StructuresPerRange = 64;
+  static constexpr size_t RangesPerTask = 4;
 
   [[nodiscard]] uint32_t Tile() const noexcept { return Tile_; }
 
