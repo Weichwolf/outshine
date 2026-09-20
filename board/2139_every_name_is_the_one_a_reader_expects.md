@@ -51,6 +51,12 @@ threading model are not part of this refactor.
 
 ## Common implementation contract
 
+Generated private headers live under build/generated/<owner>/ and are exposed by a private
+compiler include directory. Source includes use logical names, never relative paths into build/.
+Migrate CrownBuild.h through the provenance generator and GroupIncludes together; preserve its
+identity calculation and regenerate compile_commands. Shared GLSL/C++ atmospheric constants may
+retain relative source includes where they follow render -> world and introduce no build edge.
+
 Engine composes providers, generators, simulation, rendering, audio and UI. Domain modules
 own algorithms and data. Cross-module interfaces carry native values, owned immutable
 products or scoped borrows, not Engine::State/Live references. Published products have one
