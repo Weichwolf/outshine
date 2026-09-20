@@ -108,8 +108,8 @@ SubjectMaterials::Resolve(const Geometry &native,
   if (!Render::ResolveNativeTextures(native, candidate.Slots, error)) {
     return std::unexpected(std::move(error));
   }
-  const size_t applied = OverrideNativeMaterials(candidate, native, overrides) +
-                         OverrideNativeParts(candidate, shaped, native, overrides);
+  size_t applied = OverrideNativeMaterials(candidate, native, overrides);
+  applied += OverrideNativeParts(candidate, shaped, native, overrides);
   if (!overrides.empty() && applied == 0) {
     return std::unexpected(std::format(
         "this declaration names {} surface(s) of '{}' and the subject carries neither those "

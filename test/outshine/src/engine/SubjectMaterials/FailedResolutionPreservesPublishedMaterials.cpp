@@ -1,6 +1,8 @@
 #include <array>
+#include <algorithm>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <scene/Geometry.h>
 
@@ -58,7 +60,9 @@ int main() {
             materials.Slots()[overridden].Row.BaseColour[0] == 1.0f,
         "part override retains maps and replaces the metallic-roughness row");
 
-  const auto committedSlots = materials.PartSlots();
+  const std::vector<uint32_t> committedSlots(materials.PartSlots().begin(),
+                                             materials.PartSlots().end());
+  const Material committedSurface = materials.Slots()[overridden].Row;
   override.PartIndex = 7;
   resolved = materials.Resolve(geometry,
                                *shaped,
@@ -70,5 +74,30 @@ int main() {
   CHECK(materials.PartSlots().size() == committedSlots.size() &&
             materials.PartSlots()[1] == committedSlots[1],
         "unmatched override preserves the committed part mapping");
+  CHECK(materials.Slots()[overridden].Row.BaseColour == committedSurface.BaseColour &&
+            materials.Slots()[overridden].Colour.Rgba == publishedPixels,
+        "rejection preserves independent material values and image binding");
+
+  override.PartIndex = 1;
+  Core::SubjectSurfaceOverride shared;
+  shared.MaterialName = "shared";
+  shared.RetainMaps = true;
+  shared.Surface.BaseColour = {{0, 1, 0, 1}};
+  std::array overrides{shared, override};
+  for (int order = 0; order < 2; ++order) {
+    resolved = materials.Resolve(geometry, *shaped, {}, overrides, -1, "subject");
+    CHECK(resolved.has_value(), "valid retry accepts both selector orderings");
+    if (!resolved || materials.PartSlots().size() != 2) { return Report(); }
+    const auto first = materials.PartSlots()[0];
+    const auto second = materials.PartSlots()[1];
+    CHECK(materials.Slots()[first].Row.BaseColour == shared.Surface.BaseColour,
+          "material override colours the unselected part green");
+    CHECK(materials.Slots()[second].Row.BaseColour == override.Surface.BaseColour,
+          "part override wins over material override regardless of declaration ordering");
+    CHECK(materials.Slots()[first].Colour.Rgba == publishedPixels &&
+              materials.Slots()[second].Colour.Rgba == publishedPixels,
+          "both override passes retain native texture ownership");
+    std::reverse(overrides.begin(), overrides.end());
+  }
   return Report();
 }
