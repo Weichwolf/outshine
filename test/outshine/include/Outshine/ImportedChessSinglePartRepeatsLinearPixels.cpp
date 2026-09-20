@@ -68,9 +68,7 @@ int main() {
     return result;
   };
   Geometry nearestMips = withMipFilter(single, MipFilter::Nearest);
-  Geometry withoutMips = withMipFilter(single, MipFilter::None);
-  CHECK(nearestMips.parts() == single.parts() && withoutMips.parts() == single.parts(),
-        "mip controls retain native geometry");
+  CHECK(nearestMips.parts() == single.parts(), "nearest-mip control retains native geometry");
   Scenario::Document scenario;
   scenario.Render.Declared = true;
   scenario.Render.Frame = {1280, 720};
@@ -95,18 +93,30 @@ int main() {
   struct Sequence {
     MipFilter Mip;
     const Geometry *Source;
+    bool Warmup;
   };
 
-  const std::array sequences = {Sequence{.Mip = MipFilter::Linear, .Source = &single},
-                                Sequence{.Mip = MipFilter::Nearest, .Source = &nearestMips},
-                                Sequence{.Mip = MipFilter::None, .Source = &withoutMips}};
+  const std::array sequences = {
+      Sequence{.Mip = MipFilter::Linear, .Source = &single, .Warmup = false},
+      Sequence{.Mip = MipFilter::Nearest, .Source = &nearestMips, .Warmup = false},
+      Sequence{.Mip = MipFilter::Linear, .Source = &single, .Warmup = true}};
   for (const Sequence sequence : sequences) {
     scenario.Render.Stages = {
         "subjects", "subjectsTransmissive", "compositeTransmission", "overlay"};
-    std::printf("mip=%d\n", static_cast<int>(sequence.Mip));
+    std::printf("mip=%d warmup=%d\n", static_cast<int>(sequence.Mip), sequence.Warmup);
     Engine engine;
-    if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
-        !accepted(engine.setGeometry(*sequence.Source)) || !accepted(engine.assemble()) ||
+    if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario))) {
+      return Report();
+    }
+    if (sequence.Warmup) {
+      std::vector<float> ignored;
+      if (!accepted(engine.setGeometry(nearestMips)) || !accepted(engine.assemble()) ||
+          !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+          !accepted(engine.renderer().readPixels(Buffer::Linear, ignored))) {
+        return Report();
+      }
+    }
+    if (!accepted(engine.setGeometry(*sequence.Source)) || !accepted(engine.assemble()) ||
         !accepted(engine.advance())) {
       return Report();
     }

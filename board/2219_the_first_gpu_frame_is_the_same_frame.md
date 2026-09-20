@@ -25,9 +25,10 @@ are not necessary for this reproducer. An explicit plan without temporalResolve 
 the same index, count and magnitude. History, jitter and temporal resolve are therefore not
 causal. Every resident repeat matches its preceding resident frame exactly in all three
 sequences. This proves a one-time first-frame transition rather than continuing instability.
-The current test retains linear-, nearest- and disabled-mip sequences. Only the three
-linear-mip first-frame assertions fail; exact equality remains the contract rather than
-being relaxed. Next action is draw-input comparison.
+The current test retains a fresh linear-mip sequence, a nearest-mip control and a linear
+sequence after the same Engine has rendered the part through its nearest-mip pipeline.
+Both linear sequences fail identically; general device and pipeline warm-up are not causal.
+Exact equality remains the contract rather than being relaxed. Next action is draw-input comparison.
 
 Raw `FilteredMipSampling/FirstFrameMatchesRepeatedSampling` is green, including
 per-level staging/submission, generated mips, eight samplers and interpolated UVs.
@@ -41,6 +42,10 @@ The raw control now forces a fractional LOD, a small primitive edge, perspective
 clip W, separate position/UV streams and a 32-bit indexed draw; first, repeated and
 fresh-device RGBA16F bytes still agree. A generic fullscreen or synthetic triangle is
 no longer an adequate next experiment: preserve the imported part and camera exactly.
+Deindexing the imported part made its own frames stable, but its resident image differed
+from the indexed resident image in six channels by at most 1/4096. It is therefore not an
+equivalent negative control and was removed. This topology sensitivity does not authorize
+vertex duplication as a fix.
 Perspective native quads are green with generated/imported images and four imported
 UV pairs. A copied imported part becomes green with constant UV0. Source review:
 SubjectProxy::Lit excludes Unlit, selecting the flat Position+Uv0 layout.
@@ -90,6 +95,9 @@ Relevant files: src/render/SubjectProxy.cpp, src/render/stages/SubjectDraw.cpp,
 src/render/stages/SubjectResidency.cpp, src/render/SceneRenderer.cpp,
 src/engine/Live.cpp and the existing public Outshine repeat fixtures.
 Local platform reference: ../SDL at fa2c02b, include/SDL3/SDL_gpu.h.
+Vulkan repeatability reference: ../Vulkan-Docs at 7d39c898c95b, appendices/invariance.adoc;
+identical pipelines and inputs on one device must produce identical results. Precision limits
+do not excuse different results for repeated identical state.
 
 make format; make suite SUITE=outshine/include/Outshine/ImportedChessSinglePartRepeatsLinearPixels;
 make suite SUITE=outshine/src/render/device/FilteredMipSampling; make lint.
