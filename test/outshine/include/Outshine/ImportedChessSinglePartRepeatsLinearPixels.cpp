@@ -97,7 +97,7 @@ int main() {
         !accepted(engine.advance())) {
       return Report();
     }
-    std::vector<float> first, repeated, firstDepth, repeatedDepth;
+    std::vector<float> first, previous, repeated, firstDepth, repeatedDepth;
     CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),
           "first chess frame renders");
     if (sequence.AdditionalReadbacks) {
@@ -150,6 +150,10 @@ int main() {
       CHECK(first == repeated,
             sequence.Temporal ? "temporally resolved chess repeats every linear channel exactly"
                               : "unresolved chess repeats every linear channel exactly");
+      if (!previous.empty()) {
+        CHECK(previous == repeated, "resident chess frames repeat every linear channel exactly");
+      }
+      previous = repeated;
     }
     if (sequence.AdditionalReadbacks) {
       std::filesystem::create_directories("build/native-materials");

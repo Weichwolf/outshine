@@ -23,7 +23,9 @@ render/linear-read pairs and the original additional depth/screenshot sequence b
 all three repetitions: 3 channels, first index 2039986, maximum 0.000244141. Extra readbacks
 are not necessary for this reproducer. An explicit plan without temporalResolve fails at
 the same index, count and magnitude. History, jitter and temporal resolve are therefore not
-causal. The test retains all three discriminating sequences and exact equality; nine
+causal. Every resident repeat matches its preceding resident frame exactly in all three
+sequences. This proves a one-time first-frame transition rather than continuing instability.
+The test retains all three discriminating sequences and exact first-frame equality; nine
 assertions fail, rather than suppressing the defect. Next action is draw-input comparison.
 
 Raw `FilteredMipSampling/FirstFrameMatchesRepeatedSampling` is green, including
