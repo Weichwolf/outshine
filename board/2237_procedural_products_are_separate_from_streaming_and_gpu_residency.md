@@ -13,8 +13,9 @@ Tags: ownership, modules, streaming
 
 HeightSheets combines refinement/earthworks/mesh assembly with Live-bound uploads.
 Laying.cpp mixes palette/classification, water/terrain generation and candidate scheduling.
-ImpostorPreparation creates a SceneRenderer plus Core::RuntimeScene for every atlas view.
-Render::ImpostorInstances now owns render handles, card-view selection and atomic instance batches.
+Render::ImpostorBaker owns one SceneRenderer, render plan and resource set for a complete atlas;
+it changes only the camera between views. Render::ImpostorInstances owns render handles,
+card-view selection and atomic instance batches.
 WorldCrowns starts generation/capture jobs and installs those renderer instances.
 StructureBuildQueue and StructureBuildTask schedule, retain inputs and consume results:
 these are integration responsibilities, not meshing algorithms merely because of their names.
@@ -57,7 +58,7 @@ Stale results are rejected before the existing candidate commit; old world remai
 4. [x] Rename/move CrownPieces to Render::ImpostorInstances under render/impostor. Keep its
    typed PieceHandle ownership, all-view atomic SetPieceInstances batch and release semantics;
    WorldCrowns stores that render owner and contains no card construction or raw handle logic.
-5. [ ] Implement Render::ImpostorBaker over native bark geometry plus optional leaf geometry and
+5. [x] Implement Render::ImpostorBaker over native bark geometry plus optional leaf geometry and
    instance transforms. Create/configure one preparation renderer and resource set per atlas,
    then vary only the camera across views. It owns plan, GPU completion and readback conversion;
    it does not accept TreePrototype or Core::RuntimeScene. Engine integration grows TreePrototype once,
@@ -93,17 +94,16 @@ under `engine/streaming`; `StructureBuildTask` owns each bounded worker continua
 meshing remains in `generators/building`, and atomic candidate publication remains separate.
 The moved lifetime, stale-revision and atomic-publication tests preserve those boundaries.
 
-`Content::ImpostorAtlas` is the sole stored crown artifact and owns validation plus the
-versioned binary codec under `content/impostor`. Cache, streaming and preparation exchange that
-neutral type directly; the hand-authored fixture proves byte compatibility and corruption bounds
-without renderer setup. GPU capture remains Engine integration and imports Core::RuntimeScene; card
-derivation and GPU instance ownership are now both Render-owned. WorldCrowns retains only the
-integration owner and stores `std::unique_ptr<Render::ImpostorInstances>`.
-`Data::ImpostorCache` now owns bounded asynchronous artifact transport under `world/data`; it
-depends only on the content artifact, ContentStore and Tasks, not Engine preparation or rendering.
-`Render::BuildImpostorCard` now derives native card geometry and material maps under
-`render/impostor`; its analytical test fixes coverage padding, tangent-space normals and separate
-metallic/roughness channels without opening a renderer or Engine runtime.
+`Content::ImpostorAtlas` owns validation and its versioned codec; `Data::ImpostorCache` owns bounded
+transport. Card derivation and GPU instance ownership are Render-owned. Their codec, corruption,
+coverage, tangent-space and metallic/roughness tests require neither Engine nor renderer setup.
+WorldCrowns retains integration state and `std::unique_ptr<Render::ImpostorInstances>`.
+
+`Render::ImpostorBaker` consumes only owned native geometry, instance transforms, bounds and atlas
+shape. One direct renderer registers every material and piece once, then captures all cameras into
+the unchanged content artifact. The Engine adapter only translates `TreePrototype` output into this
+input. A render-owned two-sided native fixture proves the path without Engine or generator types;
+the complete crown capture test preserves every prior coverage, normal, lighting and cache check.
 
 ## Acceptance and commands
 
