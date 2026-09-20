@@ -1,4 +1,4 @@
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "Readback.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
@@ -64,9 +64,10 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "initial world opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
+          "initial world opens");
     if (scene) {
       const std::array<uint32_t, 4> classes{123, 456, 789, 1024};
       const std::array<float, 4> palette{0.125f, 0.25f, 0.5f, 1.0f};
@@ -78,11 +79,11 @@ int main() {
       CHECK(buffers.size() == 2 && Contains(0, classes) && Contains(0, paletteBits),
             "original class and palette bytes reach separate GPU buffers");
       if (buffers.size() == 2) {
-        std::unique_ptr<Core::Live> candidate;
+        std::unique_ptr<Core::RuntimeScene> candidate;
         const size_t restoredAt = buffers.size();
         capture = true;
-        const bool prepared =
-            Core::Live::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error);
+        const bool prepared = Core::RuntimeScene::PreparesWorldReplacement(
+            renderer, *scene, nullptr, candidate, error);
         capture = false;
         CHECK(prepared, "replacement world prepares");
         if (prepared) {
@@ -101,20 +102,21 @@ int main() {
                 "rejected candidate leaves original GPU payloads alive and unchanged");
           const size_t retryAt = buffers.size();
           capture = true;
-          const bool retry =
-              Core::Live::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error);
+          const bool retry = Core::RuntimeScene::PreparesWorldReplacement(
+              renderer, *scene, nullptr, candidate, error);
           capture = false;
           CHECK(retry && Contains(retryAt, classes) && Contains(retryAt, paletteBits),
                 "retry restores the original CPU snapshot, not rejected candidate data");
           if (retry) {
-            CHECK(Core::Live::PublishesPreparedWorld(renderer, scene, candidate, error),
+            CHECK(Core::RuntimeScene::PublishesPreparedWorld(renderer, scene, candidate, error),
                   "complete replacement publishes");
             CHECK(buffers[0].Released && buffers[1].Released && Contains(retryAt, classes) &&
                       Contains(retryAt, paletteBits),
                   "publication retires old buffers while retaining replacement payloads");
             const size_t freshAt = buffers.size();
             capture = true;
-            const bool fresh = Core::Live::Open(renderer, declaration, nullptr, scene, error);
+            const bool fresh =
+                Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error);
             capture = false;
             CHECK(fresh && Contains(freshAt, {}) && !Contains(freshAt, classes) &&
                       !Contains(freshAt, paletteBits),

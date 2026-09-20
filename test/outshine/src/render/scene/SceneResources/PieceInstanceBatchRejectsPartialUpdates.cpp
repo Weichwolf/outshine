@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -23,9 +23,9 @@ int main() {
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
     Render::SceneRenderer renderer;
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "fixture opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "fixture opens");
     if (scene) {
       const std::array<StoredVertex, 3> vertices{
           {StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 1, 0}}),

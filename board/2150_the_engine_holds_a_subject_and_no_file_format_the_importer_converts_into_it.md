@@ -7,7 +7,7 @@ Depends:
 # Importers and generators deliver one engine-owned geometry model
 
 ## Befund und Entscheidung
-Quellprüfung 2026-09-18: `Live` konsumiert für importierte und generierte Subjects nur
+Quellprüfung 2026-09-18: `RuntimeScene` konsumiert für importierte und generierte Subjects nur
 noch native `Geometry`; Materialauflösung, Overrides, Shape-Aufbau und Piece-Bindung
 kennen keine glTF-Herkunft mehr. `Posed` besitzt vollständige native Snapshots und
 fügt Bilder, Oberflächen und Parts transaktional zusammen. Statische Assets übernehmen

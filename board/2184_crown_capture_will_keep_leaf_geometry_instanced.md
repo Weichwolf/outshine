@@ -16,7 +16,7 @@ Blatt-/Verbundblatt-Mesh und die vorhandenen Blattinstanzen als Modellmatrizen.
 Dieselben Card-Frames und Materialien wie GeometryAt, keine Blattreduktion und
 kein gröberer Rank. Bounds aus denselben transformierten Blattpunkten bestimmen,
 ohne diese Punkte sämtlich zu speichern. CrownAtlas zeichnet Rinde und instanzierte
-Blätter über vorhandenen Core::Live/PieceMesh-Pfad; pro Kamera frische Capture-
+Blätter über vorhandenen Core::RuntimeScene/PieceMesh-Pfad; pro Kamera frische Capture-
 Residenz, wie bisher. Keine eigene zweite Shader- oder Capture-Geometrie.
 
 Unreal/RAGE-Benchmark: Instanzen teilen Vertex-/Indexströme; abgeleitete Assets

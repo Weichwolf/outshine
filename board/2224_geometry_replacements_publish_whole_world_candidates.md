@@ -10,7 +10,7 @@ Tags: geometry, ownership, state, gpu
 
 ## Architekturvertrag
 
-`Core::Live` besitzt native Weltinputs; `Render::WorldContent` besitzt daraus erzeugte
+`Core::RuntimeScene` besitzt native Weltinputs; `Render::WorldContent` besitzt daraus erzeugte
 GPU-Produkte. `Surrounds` besitzt Streamingzustand, logisches Netz und Ressourcenhalter.
 Ein vorbereiteter Nachfolger veröffentlicht diese Produkte gemeinsam auf dem Engine-Thread.
 Provider-Anfragen und Vorbereitungscaches dürfen fortschreiten; veröffentlichte Geometrie,
@@ -19,7 +19,7 @@ Keine Mutation des aktiven Owners mit anschließendem Snapshot-Rollback.
 
 ## Vorhandene Grundlage
 
-`WorldCandidate.h` kapselt Prepare/Publish/Abandon für `Live` und Renderer. Bei Fehler
+`WorldCandidate.h` kapselt Prepare/Publish/Abandon für `RuntimeScene` und Renderer. Bei Fehler
 zerstört RAII ausschließlich den Kandidaten. Abgelehnte verschachtelte Vorbereitung darf
 den äußeren Kandidaten nicht verwerfen. `GroundWorldCandidate.h` ergänzt Sheets,
 Terrainpositionen/Indizes, Netz, Materialslots und Revision; Revision wird zuletzt gesetzt.
@@ -33,7 +33,7 @@ GPU-Adressdarstellung. HeightSheets bereitet den Seitenersatz vor der alten Frei
 ## Nächste Schritte in Reihenfolge
 
 Die öffentliche Geometrieersetzung hat bereits die richtige Grenze: sie baut die
-Audio-Occlusion vor dem Kandidaten, `Live::ReplacesGeometry` bereitet alle fehlbaren
+Audio-Occlusion vor dem Kandidaten, `RuntimeScene::ReplacesGeometry` bereitet alle fehlbaren
 GPU-Produkte vor, und erst `PublishesPreparedWorld` tauscht den Owner. Danach sind
 `Surrounds::BindSceneResources` und der Occlusion-Move nichtwerfende Übergaben. Ein
 fehlgeschlagener Submit lässt daher Welt, Audio und Bild bei A; ein Retry darf B
@@ -43,7 +43,7 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
    `BuildingField` und `TilePieces` bis `GroundWorldCandidate::Publish`.
    `StructureBuildQueue` erhält den Footprint-Owner ausdrücklich; vor der ersten
    Ground-Publikation arbeitet `State::Bakes` gegen diesen Kandidaten. Nichtwerfende
-   Transfers veröffentlichen Footprints, Pieces, `Live` und GPU-Welt gemeinsam.
+   Transfers veröffentlichen Footprints, Pieces, `RuntimeScene` und GPU-Welt gemeinsam.
    Ein unanchored Field lehnt Bake-Aufnahme ab. `BakeRevisionRejectsChangedInputs`
    prüft den Revisionsvertrag. Ein eingecheckter vollständiger Floor-Contact-Pfad fehlt;
    er darf nicht als Nachweis behauptet werden. Noch offen: A→B→spätes-A über die öffentliche API,

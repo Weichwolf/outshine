@@ -13,7 +13,7 @@ Tags: ownership, modules, streaming
 
 HeightSheets combines refinement/earthworks/mesh assembly with Live-bound uploads.
 Laying.cpp mixes palette/classification, water/terrain generation and candidate scheduling.
-ImpostorPreparation creates a SceneRenderer plus Core::Live for every atlas view. CrownPieces
+ImpostorPreparation creates a SceneRenderer plus Core::RuntimeScene for every atlas view. CrownPieces
 owns only render handles, card-view selection and atomic instance batches but lives in Engine.
 WorldCrowns starts generation/capture jobs and installs those renderer instances.
 StructureBuildQueue and StructureBuildTask schedule, retain inputs and consume results:
@@ -37,7 +37,7 @@ these are integration responsibilities, not meshing algorithms merely because of
 
 No renderer dependency in generators or content. No engine dependency in render/world.
 The integration layer may call both generator and renderer, but owns neither algorithm.
-Only native products cross that boundary; do not move Core::Live into generators to
+Only native products cross that boundary; do not move Core::RuntimeScene into generators to
 make an include compile. Keep immutable producer inputs alive through task completion.
 Stale results are rejected before the existing candidate commit; old world remains usable.
 
@@ -60,7 +60,7 @@ Stale results are rejected before the existing candidate commit; old world remai
 5. [ ] Implement Render::ImpostorBaker over native bark geometry plus optional leaf geometry and
    instance transforms. Create/configure one preparation renderer and resource set per atlas,
    then vary only the camera across views. It owns plan, GPU completion and readback conversion;
-   it does not accept TreePrototype or Core::Live. Engine integration grows TreePrototype once,
+   it does not accept TreePrototype or Core::RuntimeScene. Engine integration grows TreePrototype once,
    translates the native capture input and publishes the unchanged Content::ImpostorAtlas.
 6. [ ] After those consumers move, rename/move WorldCrowns to engine/streaming/
    VegetationStreaming. Preserve its bounded IO/preparation tasks, cache state machine, failure
@@ -96,7 +96,7 @@ The moved lifetime, stale-revision and atomic-publication tests preserve those b
 `Content::ImpostorAtlas` is the sole stored crown artifact and owns validation plus the
 versioned binary codec under `content/impostor`. Cache, streaming and preparation exchange that
 neutral type directly; the hand-authored fixture proves byte compatibility and corruption bounds
-without renderer setup. GPU capture remains Engine integration and imports Core::Live; card
+without renderer setup. GPU capture remains Engine integration and imports Core::RuntimeScene; card
 derivation is already Render-owned while its GPU instance owner remains CrownPieces in Engine.
 `Data::ImpostorCache` now owns bounded asynchronous artifact transport under `world/data`; it
 depends only on the content artifact, ContentStore and Tasks, not Engine preparation or rendering.

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "Check.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "PreparedRoot.h"
 #include "SceneRenderer.h"
 #include "SubjectCullStage.h"
@@ -58,9 +58,10 @@ int main() {
   declaration.Outputs = {"sceneLinear"};
   declaration.Stages = {"subjects"};
   Render::SceneRenderer renderer;
-  std::unique_ptr<Core::Live> scene;
+  std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
-  CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "native scene opens");
+  CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
+        "native scene opens");
   if (!scene) { return Report(); }
   constexpr Vec3 eye = {{2.781138576118416, 1.3202289998916963, 1.9473741958039332}};
   constexpr Vec3 aim = {{0, 0.08449789705936794, 0}};

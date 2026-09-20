@@ -35,6 +35,7 @@ LLVM_BIN := /opt/homebrew/opt/llvm/bin
 .PHONY: crown-provenance all strip shader-tools shaders db lint doc shots corpus-render corpus-prepare test suite clean spotless help
 
 GLSLANG ?= $(SELF_DIR)/build/deps/install/bin/glslangValidator
+GLSLANG_FLAGS := -V --target-env vulkan1.0 -Isrc
 GLSL_SHADERS := $(wildcard src/render/shaders/*.comp src/render/shaders/*.vert src/render/shaders/*.frag)
 SPIRV_SHADERS := $(patsubst src/render/shaders/%,build/shaders/%.spv,$(GLSL_SHADERS))
 
@@ -62,19 +63,19 @@ build/compute-shaders.json: build/compute-shader-contracts
 
 build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) -V --target-env vulkan1.0 -S vert -DLIT_UVS=$${variant:0:1} -DLIT_TINTED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DLIT_UVS=$${variant:0:1} -DLIT_TINTED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} $< -o $@
 
 build/shaders/lit-%.frag.spv: src/render/shaders/litFragment.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) -V --target-env vulkan1.0 -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} $< -o $@
 
 build/shaders/flat-%.vert.spv: src/render/shaders/flatVertex.glsl $(wildcard src/render/shaders/*.glsl)
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) -V --target-env vulkan1.0 -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@
 
 build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl $(wildcard src/render/shaders/*.glsl)
 	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) -V --target-env vulkan1.0 -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} $< -o $@
 
 build/shader-tables: test/scripts/shader-tables.cpp $(wildcard src/render/stages/*.h) $(wildcard src/base/math/*.h)
 	@mkdir -p $(@D)
@@ -86,17 +87,17 @@ build/shaders/brdfTables.glsl: build/shader-tables
 
 build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
-	@$(GLSLANG) -V --target-env vulkan1.0 -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
+	@$(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
 
 build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
-	@variant=$*; $(GLSLANG) -V --target-env vulkan1.0 -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} $< -o $@
+	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} $< -o $@
 
 shader-tools:    ## build pinned glslang and SDL_shadercross (requires SDL3, SPIRV-Cross, CMake, Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
 
 build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/world/sky/AtmosphereCore.h src/world/sky/AtmosphereConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
-	@$(GLSLANG) -V --target-env vulkan1.0 $< -o $@
+	@$(GLSLANG) $(GLSLANG_FLAGS) $< -o $@
 
 crown-provenance: strip shaders ## fingerprint the built crown producer inputs
 	@cd $(SELF_DIR) && python3 test/scripts/crown-provenance.py
@@ -140,7 +141,7 @@ corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASE
 test: test-client-arguments test-client-render all ## the fast gate
 	@$(RUN)
 
-suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/Live/CameraBindingPrecedesDrawing)
+suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
 	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/integration/places))
 	@$(RUN) $(SUITE)
 

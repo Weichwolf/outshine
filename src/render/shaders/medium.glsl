@@ -4,13 +4,13 @@
 #define OUTSHINE_PI acos(-1.0)
 #define MEDIUM_ARG Medium
 #define MEDIUM_INLINE
-#include "../../world/sky/AtmosphereCore.h"
+#include "world/sky/AtmosphereCore.h"
 #undef MEDIUM_ARG
 #undef MEDIUM_INLINE
 #define MEDIUM_UINT(name, value) const uint name = value;
 #define MEDIUM_INT(name, value) const uint name = value;
 #define MEDIUM_FLOAT(name, value) const float name = value;
-#include "../../world/sky/AtmosphereConstants.inc"
+#include "world/sky/AtmosphereConstants.inc"
 #undef MEDIUM_UINT
 #undef MEDIUM_INT
 #undef MEDIUM_FLOAT

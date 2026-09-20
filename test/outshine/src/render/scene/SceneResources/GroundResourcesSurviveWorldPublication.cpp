@@ -1,4 +1,4 @@
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "WorldCandidate.h"
 #include "EngineHeld.h"
 #include "SceneRenderer.h"
@@ -22,9 +22,10 @@ int main() {
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
     Render::SceneRenderer renderer;
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "ground fixture opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
+          "ground fixture opens");
     if (scene) {
       Surrounds world;
       world.BindSceneResources(renderer);
@@ -50,14 +51,16 @@ int main() {
             "ground inputs retain stable page handles");
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "one published ground tile has its full topology");
-      std::unique_ptr<Core::Live> candidate;
-      CHECK(Core::Live::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error) &&
-                Core::Live::PublishesPreparedWorld(renderer, scene, candidate, error),
+      std::unique_ptr<Core::RuntimeScene> candidate;
+      CHECK(Core::RuntimeScene::PreparesWorldReplacement(
+                renderer, *scene, nullptr, candidate, error) &&
+                Core::RuntimeScene::PublishesPreparedWorld(renderer, scene, candidate, error),
             "an empty declared world publishes its first streamed-ground candidate");
       world.BindSceneResources(renderer);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "first streamed-world publication retains the ground tile topology");
-      CHECK(Core::Live::ReplacesGeometry(renderer, *scene, geometry.clone(), nullptr, scene, error),
+      CHECK(Core::RuntimeScene::ReplacesGeometry(
+                renderer, *scene, geometry.clone(), nullptr, scene, error),
             "geometry replacement recreates ground resources in its candidate");
       world.BindSceneResources(renderer);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,

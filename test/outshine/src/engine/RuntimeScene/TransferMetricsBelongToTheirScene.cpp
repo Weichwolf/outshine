@@ -1,4 +1,4 @@
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
@@ -24,12 +24,13 @@ int main() {
     declaration.Outputs = {"sceneLinear"};
     declaration.Surfacing.front().Unlit = true;
     Render::SceneRenderer firstRenderer, secondRenderer;
-    std::unique_ptr<Core::Live> first, second;
+    std::unique_ptr<Core::RuntimeScene> first, second;
     std::string error;
-    CHECK(Core::Live::Open(firstRenderer, declaration, nullptr, first, error), "first scene opens");
+    CHECK(Core::RuntimeScene::Open(firstRenderer, declaration, nullptr, first, error),
+          "first scene opens");
     CHECK(geometry.setPositions(part, std::array<float, 9>{-2, -1, 0, 2, -1, 0, 0, 2, 0}),
           "second scene uses different native geometry");
-    CHECK(Core::Live::Open(secondRenderer, declaration, nullptr, second, error),
+    CHECK(Core::RuntimeScene::Open(secondRenderer, declaration, nullptr, second, error),
           "second scene opens");
     if (first && second) {
       const auto initialUploads = firstRenderer.TotalUploadAttempts();

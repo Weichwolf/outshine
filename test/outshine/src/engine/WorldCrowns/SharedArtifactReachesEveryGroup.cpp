@@ -1,5 +1,5 @@
 #include "WorldCrowns.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "GroundMaterials.h"
 #include "VegetationTemplates.h"
@@ -70,8 +70,9 @@ int main() {
   Core::Declaration declaration;
   declaration.InitialGeometry = &*geometry;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
-  std::unique_ptr<Core::Live> live;
-  CHECK(Core::Live::Open(renderer, declaration, nullptr, live, error), "resident renderer opens");
+  std::unique_ptr<Core::RuntimeScene> live;
+  CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, live, error),
+        "resident renderer opens");
   if (!live) { return Report(); }
   const std::array<WorldInstance, 2> instances{{{.Cluster = 0}, {.Cluster = 1}}};
   const auto initialPieces = renderer.PiecesStanding();
@@ -95,7 +96,8 @@ int main() {
     CHECK(renderer.PiecesStanding() == initialPieces + 2,
           "both crown groups publish render pieces");
     if (cycle == 0) {
-      CHECK(Core::Live::ReplacesGeometry(renderer, *live, geometry->clone(), nullptr, live, error),
+      CHECK(Core::RuntimeScene::ReplacesGeometry(
+                renderer, *live, geometry->clone(), nullptr, live, error),
             "world publication retains the crown piece descriptions");
       crowns->Into(renderer);
       CHECK(crowns->Step({{0, 0, 10}}, false, error),

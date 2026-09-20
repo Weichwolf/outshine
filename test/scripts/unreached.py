@@ -54,7 +54,7 @@ def main():
     dispatched = set()
     # WHAT THE LINKER CANNOT SEE. A call inside the translation unit that DEFINES its target is
     # bound directly or inlined away and leaves no relocation, so the graph reports the callee as
-    # unreached. Measured: `Live::Reshape` is called five times in Live.cpp and stood in this list
+    # unreached. Measured: `RuntimeScene::Reshape` is called five times in RuntimeScene.cpp and stood in this list
     # beside `KeyLight` and `TowardTheKey`, both of which were extracted from a function that calls
     # them. Reading the SOURCE for the name is coarse -- an overload, or a same-named method of
     # another class, reads as a call -- but the error runs ONE WAY: it makes this walk report less,

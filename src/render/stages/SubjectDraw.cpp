@@ -988,6 +988,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   PieceTriangles_ += indices / 3u;
   TablesStale_ = true;
   RowsStale_ = true;
+  ++Reshaped_;
   return id;
 }
 
@@ -1004,6 +1005,7 @@ bool SubjectDraw::SetPieceInstances(PieceId which, std::span<const Mat4> rows, s
   if (std::ranges::equal(piece.Rows, rows)) { return true; }
   piece.Rows.assign(rows.begin(), rows.end());
   RowsStale_ = TablesStale_ = true;
+  ++Reshaped_;
   return true;
 }
 
@@ -1020,6 +1022,7 @@ void SubjectDraw::ReleasePiece(PieceId which) {
   --PiecesLive_;
   TablesStale_ = true;
   RowsStale_ = true;
+  ++Reshaped_;
 }
 
 void SubjectDraw::SetNativePieceSurfaces(std::span<const uint32_t> slots) {

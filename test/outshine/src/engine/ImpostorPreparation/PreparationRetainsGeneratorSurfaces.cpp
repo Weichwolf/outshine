@@ -12,7 +12,7 @@
 #include "CrownPieces.h"
 #include "WorldCrowns.h"
 #include "FrameCapture.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "math/Units.h"
 #include "Tasks.h"
 #include "Digest.h"
@@ -466,8 +466,8 @@ int main() {
   declaration.KeyLux = 20000;
   declaration.KeyBearingDeg = 135;
   declaration.KeyElevationDeg = 40;
-  std::unique_ptr<Core::Live> live;
-  CHECK(Core::Live::Open(renderer, declaration, nullptr, live, error),
+  std::unique_ptr<Core::RuntimeScene> live;
+  CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, live, error),
         "crown piece Live opens with the reference lighting");
   if (!live) { return Report(); }
   const auto screenshot = [&](std::string_view path, std::string &why) {

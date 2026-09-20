@@ -245,10 +245,10 @@ PrepareTargetedDeclaration(Render::SceneRenderer &renderer,
                            const Ui::Font *font,
                            HeadlessDeclaration &headless,
                            std::vector<std::vector<Ui::Layout::Scrolled>> &wasScrolled,
-                           std::unique_ptr<Core::Live> &candidate,
+                           std::unique_ptr<Core::RuntimeScene> &candidate,
                            std::string &error) {
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
-  if (!Core::Live::Prepare(renderer, declared, font, candidate, error)) {
+  if (!Core::RuntimeScene::Prepare(renderer, declared, font, candidate, error)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
@@ -289,7 +289,7 @@ PrepareHeadlessDeclaration(const Scenario::Document &scenario,
 
 struct PreparedRuntimeDeclaration {
   HeadlessDeclaration Headless;
-  std::unique_ptr<Core::Live> Targeted;
+  std::unique_ptr<Core::RuntimeScene> Targeted;
 };
 
 [[nodiscard]] std::expected<PreparedRuntimeDeclaration, std::string>
@@ -552,9 +552,9 @@ void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration
     }
     if (scenario.Ground.Declared && !anglePut) {
       int64_t whenS = 0;
-      const bool live = !scenario.Time.Declared || scenario.Time.Live;
+      const bool usesLiveClock = !scenario.Time.Declared || scenario.Time.Live;
       if (scenario.Time.Start.empty() || !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
-        if (!live && scenario.Time.Declared) {
+        if (!usesLiveClock && scenario.Time.Declared) {
           error = "this scenario declares a clock that is neither LIVE nor a stated instant -- "
                   "'" +
                   scenario.Time.Start +
@@ -655,7 +655,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     PublishConfiguration(S_->Session, *views, bindings);
     return {};
   }
-  Core::Live::HandOffRenderer(S_->Picture.Standing);
+  Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
   S_->Picture.Standing = std::move(prepared->Targeted);
   S_->Session.Declared = scenario;
   ++S_->Session.DeclarationRevision;
@@ -749,12 +749,12 @@ Result Engine::setGeometry(const Geometry &geometry) {
     S_->Error.clear();
     return {};
   }
-  if (!Core::Live::ReplacesGeometry(S_->Picture.Device,
-                                    *S_->Picture.Standing,
-                                    geometry.clone(),
-                                    &S_->Picture.Face,
-                                    S_->Picture.Standing,
-                                    S_->Error)) {
+  if (!Core::RuntimeScene::ReplacesGeometry(S_->Picture.Device,
+                                            *S_->Picture.Standing,
+                                            geometry.clone(),
+                                            &S_->Picture.Face,
+                                            S_->Picture.Standing,
+                                            S_->Error)) {
     return std::unexpected(S_->Error);
   }
   S_->World.BindSceneResources(S_->Picture.Device);

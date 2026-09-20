@@ -56,9 +56,9 @@ public:
 
   [[nodiscard]] GroundBuildProducts &Products() noexcept { return Products_; }
 
-  [[nodiscard]] Core::Live &Scene() noexcept { return World_.Scene(); }
+  [[nodiscard]] Core::RuntimeScene &Scene() noexcept { return World_.Scene(); }
 
-  [[nodiscard]] std::expected<void, std::string> Prepare(const Core::Live &previous,
+  [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,
                                                          const Ui::Font *font) {
     if (auto prepared = World_.Prepare(previous, font); !prepared) { return prepared; }
     Products_.Sheets.Into(&World_.Renderer());
@@ -66,10 +66,11 @@ public:
     return {};
   }
 
-  [[nodiscard]] std::expected<void, std::string> Publish(Surrounds &world,
-                                                         Ground::BuildingField &footprints,
-                                                         std::unique_ptr<Core::Live> &published,
-                                                         const GroundRevision &revision) {
+  [[nodiscard]] std::expected<void, std::string>
+  Publish(Surrounds &world,
+          Ground::BuildingField &footprints,
+          std::unique_ptr<Core::RuntimeScene> &published,
+          const GroundRevision &revision) {
     if (!world.GroundPublished.CanPublish()) {
       return std::unexpected("a capture holds the published ground");
     }

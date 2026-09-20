@@ -1,7 +1,7 @@
 #define GROUND_INT(name, value) const int name = value;
 #define GROUND_UINT(name, value) const uint name = value;
 #define GROUND_FLOAT(name, value) const float name = value;
-#include "../stages/GroundConstants.inc"
+#include "render/stages/GroundConstants.inc"
 #undef GROUND_INT
 #undef GROUND_UINT
 #undef GROUND_FLOAT

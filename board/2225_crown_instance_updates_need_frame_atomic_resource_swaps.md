@@ -9,14 +9,14 @@ Tags: streaming, ownership, transaction
 ## Problem
 
 `WorldCrowns::Step` accepts a finished atlas and then creates prototypes or replaces instance rows
-on the published `Live`. `CrownPieces::Update` can fail after earlier groups changed. A frame can
+on the published `RuntimeScene`. `CrownPieces::Update` can fail after earlier groups changed. A frame can
 therefore contain a mix of old and new crown resources, while the CPU group state has already
 advanced. Rebuilding the complete world candidate per foliage update would reupload terrain and
 unrelated pieces, violating the streaming budget.
 
 ## Decision
 
-Give `Live` and `SceneRenderer` a bounded resource-update transaction: validate every replacement,
+Give `RuntimeScene` and `SceneRenderer` a bounded resource-update transaction: validate every replacement,
 allocate/uploads into inactive GPU resources, submit one ordered swap at a frame boundary, and only
 then commit the matching `WorldCrowns` state. A rejected transaction retains every prior prototype,
 instance row and stable handle. Keep atlas IO/preparation outside the render transaction. Retire old

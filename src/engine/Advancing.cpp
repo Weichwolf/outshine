@@ -25,7 +25,7 @@
 #include "Lens.h"
 #include "Viewing.h"
 #include "Views.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "TileGeodesy.h"
 
 namespace outshine {
@@ -71,7 +71,7 @@ namespace {
 }
 
 [[nodiscard]] std::expected<void, Render::LensError>
-ApplyCamera(Core::Live &live,
+ApplyCamera(Core::RuntimeScene &scene,
             const Render::SceneRenderer &renderer,
             const Camera &camera,
             Render::Viewpoint view) noexcept {
@@ -84,7 +84,7 @@ ApplyCamera(Core::Live &live,
   view.YMagM = camera.YMagM;
   const auto lens = Render::Lens::From(view, renderer.PictureW(), renderer.PictureH());
   if (!lens) { return std::unexpected(lens.error()); }
-  live.Eye(view);
+  scene.Eye(view);
   return {};
 }
 }
@@ -438,7 +438,7 @@ void Engine::State::Drew() {
                    "frames");
   if (Heap::ProcessInstrumentationEnabled()) {
     Published.Places("process C++ bytes allocated during drawing",
-                     static_cast<double>(Core::Live::TookDrawing()),
+                     static_cast<double>(Core::RuntimeScene::TookDrawing()),
                      "bytes");
   }
   Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");

@@ -1,4 +1,4 @@
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
@@ -30,9 +30,10 @@ int main() {
     declaration.Outputs = {"sceneLinear"};
     declaration.Surfacing.front().Unlit = true;
     SceneRenderer renderer;
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "native scene opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
+          "native scene opens");
     if (scene) {
       SubjectPose pose;
       pose.Verts.From = positions.data();

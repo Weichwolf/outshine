@@ -23,7 +23,7 @@ asked at `Hz`. **The choice is mine** for that last part, and it is the AI-first
   Minds, Regions,     carried by Unacted() and acted on by nothing
   Doors
   bodies              Physics::Rigid, gravity only (board:2127); no skeleton runs on a body
-  animation           glTF skins and clips import and pose (Live::Pose) for ONE subject
+  animation           glTF skins and clips import and pose (RuntimeScene::Pose) for ONE subject
   crowds              Instances: placements of one shape; no per-instance pose, no per-instance mind
 ```
 

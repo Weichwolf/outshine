@@ -15,7 +15,7 @@ namespace outshine {
 [[nodiscard]] inline std::expected<void, std::string>
 PublishStructureTile(Surrounds &world,
                      Render::SceneRenderer &renderer,
-                     std::unique_ptr<Core::Live> &scene,
+                     std::unique_ptr<Core::RuntimeScene> &scene,
                      const StructureBuildQueue::Landing &landing,
                      const Ui::Font *font) {
   assert(scene && landing.Baked);
@@ -38,7 +38,7 @@ PublishStructureTile(Surrounds &world,
 [[nodiscard]] inline std::expected<void, std::string>
 PublishStructureTiles(Surrounds &world,
                       Render::SceneRenderer &renderer,
-                      std::unique_ptr<Core::Live> &scene,
+                      std::unique_ptr<Core::RuntimeScene> &scene,
                       std::span<const StructureBuildQueue::Landing> landings,
                       const Ui::Font *font) {
   assert(scene);

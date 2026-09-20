@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <memory>
 #include <SDL3/SDL.h>
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "Check.h"
 
 int main() {
@@ -22,9 +22,9 @@ int main() {
     declaration.DrawsSky = true;
     declaration.KeyFromClock = true;
     declaration.KeyElevationDeg = 45;
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    if (!Core::Live::Open(renderer, declaration, nullptr, scene, error)) {
+    if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) {
       Unprepared(error.c_str());
       return Report();
     }

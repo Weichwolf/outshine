@@ -50,7 +50,7 @@ bool Engine::State::Stood() {
     wanted.SurfaceWidthPx = Picture.Frame.WidthPx;
     wanted.SurfaceHeightPx = Picture.Frame.HeightPx;
     if (Picture.PendingGeometry) { wanted.InitialGeometry = &*Picture.PendingGeometry; }
-    if (!Core::Live::Open(
+    if (!Core::RuntimeScene::Open(
             Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing, Error)) {
       return false;
     }
@@ -61,12 +61,12 @@ bool Engine::State::Stood() {
     }
   }
   if (!Picture.PendingGeometry) { return true; }
-  if (!Core::Live::ReplacesGeometry(Picture.Device,
-                                    *Picture.Standing,
-                                    Picture.PendingGeometry->clone(),
-                                    &Picture.Face,
-                                    Picture.Standing,
-                                    Error)) {
+  if (!Core::RuntimeScene::ReplacesGeometry(Picture.Device,
+                                            *Picture.Standing,
+                                            Picture.PendingGeometry->clone(),
+                                            &Picture.Face,
+                                            Picture.Standing,
+                                            Error)) {
     return false;
   }
   World.BindSceneResources(Picture.Device);

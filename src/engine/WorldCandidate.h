@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_WORLDCANDIDATE_H
 #define OUTSHINE_ENGINE_WORLDCANDIDATE_H
 
-#include "Live.h"
+#include "RuntimeScene.h"
 #include <cassert>
 #include <expected>
 #include <memory>
@@ -25,33 +25,33 @@ public:
     }
   }
 
-  [[nodiscard]] Live &Scene() noexcept {
+  [[nodiscard]] RuntimeScene &Scene() noexcept {
     assert(Scene_);
     return *Scene_;
   }
 
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
 
-  [[nodiscard]] std::expected<void, std::string> Prepare(const Live &previous,
+  [[nodiscard]] std::expected<void, std::string> Prepare(const RuntimeScene &previous,
                                                          const Ui::Font *font) {
     std::string error;
-    if (!Live::PreparesWorldReplacement(Renderer_, previous, font, Scene_, error)) {
+    if (!RuntimeScene::PreparesWorldReplacement(Renderer_, previous, font, Scene_, error)) {
       return std::unexpected(std::move(error));
     }
     return {};
   }
 
-  [[nodiscard]] std::expected<void, std::string> Publish(std::unique_ptr<Live> &published) {
+  [[nodiscard]] std::expected<void, std::string> Publish(std::unique_ptr<RuntimeScene> &published) {
     assert(Scene_);
     std::string error;
-    if (!Live::PublishesPreparedWorld(Renderer_, published, Scene_, error)) {
+    if (!RuntimeScene::PublishesPreparedWorld(Renderer_, published, Scene_, error)) {
       return std::unexpected(std::move(error));
     }
     return {};
   }
 
 private:
-  std::unique_ptr<Live> Scene_;
+  std::unique_ptr<RuntimeScene> Scene_;
   Render::SceneRenderer &Renderer_;
 };
 }

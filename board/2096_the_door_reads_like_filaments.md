@@ -15,7 +15,7 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
   nicht zur Swapchain. Process-globaler Logger und sichere Registrierung bleiben
   in 2208. Frameabschluss und GPU-Warten dokumentieren Zustand und Fehler.
 - Engine::setGeometry besitzt eine native Kopie, aber ohne Entity-/Instanzzuordnung.
-  Live::Carry verlangt Joined_ > 0 und lehnt rein generierte Geometrie ab.
+  RuntimeScene::Carry verlangt Joined_ > 0 und lehnt rein generierte Geometrie ab.
   Draws überträgt alle Simulationskörper als Instanzen desselben SubjectProxy;
   Body::Asset bestimmt dort nicht die tatsächlich instanzierte Geometrie; ungenutzte
   Asset-Fitting-Metadaten sind entfernt, alte XML-Attribute werden verweigert.

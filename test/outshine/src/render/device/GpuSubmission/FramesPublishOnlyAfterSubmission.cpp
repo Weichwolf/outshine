@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include "Check.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "SceneRenderer.h"
 
 namespace {
@@ -338,16 +338,16 @@ void Exercise() {
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
   declaration.Outputs = {"surface"};
   declaration.DrawsSky = true;
-  std::unique_ptr<Core::Live> live;
+  std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
-  CHECK(Core::Live::Open(actual, declaration, nullptr, live, error),
-        "the live API binds the renderer");
-  if (live) {
-    live->Eye(eye);
+  CHECK(Core::RuntimeScene::Open(actual, declaration, nullptr, scene, error),
+        "the runtime scene binds the renderer");
+  if (scene) {
+    scene->Eye(eye);
     faults.Next = Faults::Point::Acquire;
-    CHECK(!live->Draw(error) && error == "injected frame acquire failure",
-          "Live::Draw preserves renderer failure instead of reporting false success");
-    CHECK(live->Draw(error), "Live::Draw recovers on the next successful GPU frame");
+    CHECK(!scene->Draw(error) && error == "injected frame acquire failure",
+          "RuntimeScene::Draw preserves renderer failure instead of reporting false success");
+    CHECK(scene->Draw(error), "RuntimeScene::Draw recovers on the next successful GPU frame");
   }
 }
 
@@ -366,7 +366,7 @@ void ShadowSubmission() {
   Faults faults;
   SceneRenderer actual(faults.Functions()), control;
   const std::array renderers{&control, &actual};
-  std::array<std::unique_ptr<Core::Live>, 2> scenes;
+  std::array<std::unique_ptr<Core::RuntimeScene>, 2> scenes;
   Core::Declaration declaration;
   declaration.InitialGeometry = &geometry;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
@@ -382,7 +382,7 @@ void ShadowSubmission() {
   eye.ZFarM = 100;
   std::string error;
   for (size_t i = 0; i < renderers.size(); ++i) {
-    CHECK(Core::Live::Open(*renderers[i], declaration, nullptr, scenes[i], error),
+    CHECK(Core::RuntimeScene::Open(*renderers[i], declaration, nullptr, scenes[i], error),
           "the shadow scene initializes on the real device");
     if (!scenes[i]) {
       std::printf("shadow setup: %s\n", error.c_str());

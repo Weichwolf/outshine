@@ -6,7 +6,7 @@
 #include <string>
 #include <system_error>
 #include <unistd.h>
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include <cstdint>
 #include <vector>
@@ -58,9 +58,9 @@ void ImportedCameraSurvivesBinding() {
     declaration.Stands = path.string();
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"sceneLinear"};
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    const bool opened = Core::Live::Open(renderer, declaration, nullptr, scene, error);
+    const bool opened = Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error);
     CHECK(opened, "the imported camera and mesh bind without an explicit re-framing request");
     if (opened) {
       const Vec3 importedEye = {{3, 4, 5}};
@@ -72,9 +72,9 @@ void ImportedCameraSurvivesBinding() {
             "first drawing preserves the authored camera instead of silently fitting bounds");
       scene->FrameItself();
       CHECK(scene->Advance(error), "native camera framing is prepared outside the draw call");
-      CHECK(Core::Live::TookAiming() == 0,
+      CHECK(Core::RuntimeScene::TookAiming() == 0,
             "camera validation reuses the published native shape without allocation");
-      const bool rebuilt = Core::Live::Open(renderer, declaration, nullptr, scene, error);
+      const bool rebuilt = Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error);
       CHECK(rebuilt, "the subject can rebind while an explicit framing request is pending");
       if (rebuilt) {
         CHECK(scene->Draw(error), "the pending framing request draws after rebind");
@@ -112,9 +112,9 @@ void ImportedCameraSurvivesBinding() {
     byPart.Surface = declaration.Surfacing.front();
     declaration.Overriding.push_back(byPart);
     Render::SceneRenderer renderer;
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error),
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "imported and native geometry share one scene with a default native material");
     if (scene) {
       CHECK(scene->PartsStanding() == 2, "both imported and native parts are retained");

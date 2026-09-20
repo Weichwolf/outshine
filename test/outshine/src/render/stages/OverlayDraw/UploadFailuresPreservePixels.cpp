@@ -6,7 +6,7 @@
 #include <dlfcn.h>
 #include <string>
 #include <vector>
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "FrameCapture.h"
 #include "SceneRenderer.h"
 #include <memory>
@@ -107,9 +107,10 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "empty scene opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
+          "empty scene opens");
     if (scene) {
       Viewpoint eye;
       eye.EyeM = {{0, 0, 5}};

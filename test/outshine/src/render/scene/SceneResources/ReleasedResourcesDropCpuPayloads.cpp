@@ -1,4 +1,4 @@
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -23,9 +23,9 @@ int main() {
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
     Render::SceneRenderer renderer;
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "world opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
     if (scene) {
       const std::array<StoredVertex, 3> vertices{
           StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
@@ -88,14 +88,14 @@ int main() {
         stalePiece = *piece;
         stalePage = *page;
       }
-      std::unique_ptr<Core::Live> candidate;
+      std::unique_ptr<Core::RuntimeScene> candidate;
       const bool prepared =
-          Core::Live::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error);
+          Core::RuntimeScene::PreparesWorldReplacement(renderer, *scene, nullptr, candidate, error);
       CHECK(prepared, "world replacement accepts the remaining live resources");
       if (prepared) {
         CHECK(renderer.PieceSourceBytes() == 0 && renderer.HeightPageSourceBytes() == 0,
               "world snapshots do not copy retired resource payloads");
-        CHECK(Core::Live::PublishesPreparedWorld(renderer, scene, candidate, error),
+        CHECK(Core::RuntimeScene::PublishesPreparedWorld(renderer, scene, candidate, error),
               "replacement publishes");
         CHECK(!renderer.SetPieceInstances(stalePiece, instances, error),
               "released handles remain invalid after publication");

@@ -15,7 +15,7 @@ Ein Submit verbraucht den Commandbuffer auch im Fehlerpfad. Nach Erwerb einer
 Swapchain-Textur ist Cancel verboten; NULL-Target ohne SDL-Fehler heißt überspringen.
 Device überlebt Ressourcen; SDL verzögert Release selbst. Keine zusätzliche Retirement-Queue ohne tatsächlich außerhalb SDL liegende Lebensdauern.
 PrepareFrame prüft Renderer/Kamera und Tabellen-/Placement-/DrawArgument-Vorbereitung
-vor Acquire. RenderFrame liefert expected; Live::Draw reicht Fehler weiter.
+vor Acquire. RenderFrame liefert expected; RuntimeScene::Draw reicht Fehler weiter.
 Acquire-Fehler endet vor Encode; minimierter NULL-Swapchain-Frame wird verworfen.
 Der Swapchain-Handle wird nach Submit nicht gespeichert. Frame-Transfer besitzt RAII.
 Die vier atmosphärischen LUT-Stages benutzen Dirty/Recorded/Submitted. Ein begrenztes,
@@ -84,7 +84,7 @@ Owner-/Target-Tests prüfen Scope-Erhalt und Größenfehler vor verzögertem Ass
 ## Frame-Abschluss und Fenster-Readback
 SDL_gpu.h (lokal /opt/homebrew/include/SDL3): Swapchain-Acquire führt bei Submit
 bereits zur Präsentation; die Swapchain-Textur ist ausschließlich beschreibbar.
-Live::Present zeichnete nochmals, RenderFrame las für Screenshots aus der Swapchain.
+RuntimeScene::Present zeichnete nochmals, RenderFrame las für Screenshots aus der Swapchain.
 Beide Pfade ersetzt; FrameTex enthält bereits Tonemapping und Overlay.
 Implementiert: Scope Closed/Open/DrawSucceeded statt FrameOpen-Bool. Erfolgreiche
 Draw-Anfragen (auch ein minimiert übersprungener Frame) erfüllen den Scope; endFrame

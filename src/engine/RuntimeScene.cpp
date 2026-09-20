@@ -4,7 +4,7 @@
 #include <chrono>
 #include "math/Units.h"
 #include "math/Mat4.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "AzimuthElevation.h"
 
 #include <cstdint>
@@ -116,7 +116,9 @@ bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
 
 }
 
-Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
+RuntimeScene::RuntimeScene(Render::SceneRenderer &renderer,
+                           Declaration declaration,
+                           const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
   if (Declared_.InitialGeometry != nullptr) {
     Held_.SetGeometry(Declared_.InitialGeometry->clone());
@@ -131,7 +133,7 @@ Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::F
                  .HeightPx = static_cast<double>(Declared_.SurfaceHeightPx)});
 }
 
-Live::~Live() {
+RuntimeScene::~RuntimeScene() {
   if (Renderer_ == nullptr) { return; }
 
   std::string ignored;
@@ -140,14 +142,14 @@ Live::~Live() {
   Renderer_->SetPictureRegion({});
 }
 
-bool Live::Open(Render::SceneRenderer &renderer,
-                Declaration declaration,
-                const Ui::Font *font,
-                std::unique_ptr<Live> &out,
-                std::string &error) {
+bool RuntimeScene::Open(Render::SceneRenderer &renderer,
+                        Declaration declaration,
+                        const Ui::Font *font,
+                        std::unique_ptr<RuntimeScene> &out,
+                        std::string &error) {
   const bool framesSubject = out && !out->Camera_.Prepared().HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
-  std::unique_ptr<Live> candidate;
+  std::unique_ptr<RuntimeScene> candidate;
   if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
     renderer.AbandonsWorldCandidate();
     return false;
@@ -163,28 +165,28 @@ bool Live::Open(Render::SceneRenderer &renderer,
   return true;
 }
 
-bool Live::Prepare(Render::SceneRenderer &renderer,
-                   Declaration declaration,
-                   const Ui::Font *font,
-                   std::unique_ptr<Live> &out,
-                   std::string &error) {
+bool RuntimeScene::Prepare(Render::SceneRenderer &renderer,
+                           Declaration declaration,
+                           const Ui::Font *font,
+                           std::unique_ptr<RuntimeScene> &out,
+                           std::string &error) {
   if (declaration.InitialGeometry != nullptr && !declaration.InitialGeometry->wellFormed()) {
     error = Says::InvalidInitialGeometry;
     return false;
   }
-  std::unique_ptr<Live> live(new Live(renderer, std::move(declaration), font));
-  if (!live->Build(error)) { return false; }
-  out = std::move(live);
+  std::unique_ptr<RuntimeScene> scene(new RuntimeScene(renderer, std::move(declaration), font));
+  if (!scene->Build(error)) { return false; }
+  out = std::move(scene);
   return true;
 }
 
-bool Live::ReplacesGeometry(Render::SceneRenderer &renderer,
-                            const Live &previous,
-                            Geometry replacement,
-                            const Ui::Font *font,
-                            std::unique_ptr<Live> &out,
-                            std::string &error) {
-  std::unique_ptr<Live> candidate;
+bool RuntimeScene::ReplacesGeometry(Render::SceneRenderer &renderer,
+                                    const RuntimeScene &previous,
+                                    Geometry replacement,
+                                    const Ui::Font *font,
+                                    std::unique_ptr<RuntimeScene> &out,
+                                    std::string &error) {
+  std::unique_ptr<RuntimeScene> candidate;
   if (!PreparesGeometryReplacement(
           renderer, previous, std::move(replacement), font, candidate, error)) {
     return false;
@@ -192,12 +194,12 @@ bool Live::ReplacesGeometry(Render::SceneRenderer &renderer,
   return PublishesPreparedWorld(renderer, out, candidate, error);
 }
 
-bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
-                                       const Live &previous,
-                                       Geometry replacement,
-                                       const Ui::Font *font,
-                                       std::unique_ptr<Live> &candidate,
-                                       std::string &error) {
+bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
+                                               const RuntimeScene &previous,
+                                               Geometry replacement,
+                                               const Ui::Font *font,
+                                               std::unique_ptr<RuntimeScene> &candidate,
+                                               std::string &error) {
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
@@ -219,11 +221,11 @@ bool Live::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
   return true;
 }
 
-bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
-                                    const Live &previous,
-                                    const Ui::Font *font,
-                                    std::unique_ptr<Live> &candidate,
-                                    std::string &error) {
+bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
+                                            const RuntimeScene &previous,
+                                            const Ui::Font *font,
+                                            std::unique_ptr<RuntimeScene> &candidate,
+                                            std::string &error) {
   if (previous.Held_.HasGeometry()) {
     return PreparesGeometryReplacement(
         renderer, previous, previous.Held_.Snapshot().clone(), font, candidate, error);
@@ -248,10 +250,10 @@ bool Live::PreparesWorldReplacement(Render::SceneRenderer &renderer,
   return true;
 }
 
-bool Live::PublishesPreparedWorld(Render::SceneRenderer &renderer,
-                                  std::unique_ptr<Live> &out,
-                                  std::unique_ptr<Live> &candidate,
-                                  std::string &error) {
+bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
+                                          std::unique_ptr<RuntimeScene> &out,
+                                          std::unique_ptr<RuntimeScene> &candidate,
+                                          std::string &error) {
   if (!renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -262,11 +264,11 @@ bool Live::PublishesPreparedWorld(Render::SceneRenderer &renderer,
   return true;
 }
 
-double Live::Framing() const {
+double RuntimeScene::Framing() const {
   return Declared_.Fill > 0.0 ? Declared_.Fill : kCameraFramingFill;
 }
 
-bool Live::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const {
+bool RuntimeScene::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const {
   const auto fitted = FrameCamera(
       bounds, {.Fill = Framing(), .Aspect = Renderer_->PictureW() / Renderer_->PictureH()});
   if (!fitted) {
@@ -282,7 +284,7 @@ bool Live::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &er
   return true;
 }
 
-bool Live::Reshape(std::string &error) {
+bool RuntimeScene::Reshape(std::string &error) {
   if (EverShaped_ && ShapedAt_ == Held_.Revision()) { return true; }
   EverShaped_ = false;
   Shaped_ = {};
@@ -307,11 +309,11 @@ double Photopic(const Vec3f &triple) {
 
 }
 
-Medium Live::DeclaredAir() const {
+Medium RuntimeScene::DeclaredAir() const {
   return Hazed(kEarthAir, Declared_.Haze);
 }
 
-double Live::MeteredLux() const {
+double RuntimeScene::MeteredLux() const {
   if (!Declared_.KeyFromClock) { return Declared_.KeyLux; }
   const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
   const GroundLight reach = GroundAir_.Evaluate(DeclaredAir(), cosSun);
@@ -320,7 +322,7 @@ double Live::MeteredLux() const {
          (straightDown * Photopic(reach.SunTransmittance) + Photopic(reach.SkyIrradiance));
 }
 
-bool Live::JoinsSubjects(std::string &error) {
+bool RuntimeScene::JoinsSubjects(std::string &error) {
   const bool animate = ImportsAnimation(Declared_.Playback);
   for (const std::string &joining : Declared_.Joins) {
     ScenePlayback arriving;
@@ -337,7 +339,7 @@ bool Live::JoinsSubjects(std::string &error) {
   return true;
 }
 
-bool Live::StandsSubjects(std::string &error) {
+bool RuntimeScene::StandsSubjects(std::string &error) {
   if (!Held_.IsLoaded()) {
     const bool animate = ImportsAnimation(Declared_.Playback);
     if (!Held_.Load({.Path = Declared_.Stands, .Variant = Declared_.Variant},
@@ -353,7 +355,7 @@ bool Live::StandsSubjects(std::string &error) {
   return CarriesBuilt(error);
 }
 
-void Live::ClearsSubject() {
+void RuntimeScene::ClearsSubject() {
   Held_.Clear();
   Materials_.Clear();
   ShadowRadiusStoodM_ = 0.0;
@@ -368,7 +370,7 @@ void Live::ClearsSubject() {
   }
 }
 
-bool Live::CarriesBuilt(std::string &error) {
+bool RuntimeScene::CarriesBuilt(std::string &error) {
   if (Declared_.Surfacing.empty()) {
     error = "the declaration carries a built subject and no surface -- a body without a "
             "material cannot be resolved, and an empty list is a refusal, not a "
@@ -400,21 +402,21 @@ bool Live::CarriesBuilt(std::string &error) {
   return true;
 }
 
-bool Live::RestoresPieceResources(std::string &error) {
+bool RuntimeScene::RestoresPieceResources(std::string &error) {
   return Renderer_->RestorePieces(error);
 }
 
-bool Live::RestoresGroundResources(std::string &error) {
+bool RuntimeScene::RestoresGroundResources(std::string &error) {
   return Renderer_->RestoreGroundResources(error);
 }
 
-void Live::WearsPieces() {
+void RuntimeScene::WearsPieces() {
   if (Renderer_ == nullptr) { return; }
   Renderer_->SetNativePieceSurfaces(
       Materials_.NativeSurfaceSlots(static_cast<size_t>(Held_.Snapshot().surfaces())));
 }
 
-void Live::StandsShadowRadius() {
+void RuntimeScene::StandsShadowRadius() {
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
   if (ShadowRadiusStoodM_ > 0.0 || Shaped_.TriangleCount() == 0) { return; }
   const auto boundedFrom = std::chrono::steady_clock::now();
@@ -430,7 +432,7 @@ void Live::StandsShadowRadius() {
   ShadowRadiusStoodM_ = 0.5 * std::sqrt(across);
 }
 
-PunctualLight Live::KeyLight() const {
+PunctualLight RuntimeScene::KeyLight() const {
   const Vec3f toSun = TowardTheKey();
   PunctualLight key;
   key.Kind = LightKind::Directional;
@@ -446,7 +448,7 @@ PunctualLight Live::KeyLight() const {
   return key;
 }
 
-Vec3f Live::TowardTheKey() const {
+Vec3f RuntimeScene::TowardTheKey() const {
   const Vec3 direction = EastUpSouthDirection(Declared_.KeyBearingDeg * kDeg2Rad,
                                               Declared_.KeyElevationDeg * kDeg2Rad);
   Vec3f into;
@@ -454,7 +456,7 @@ Vec3f Live::TowardTheKey() const {
   return into;
 }
 
-void Live::StandsKeyLight() {
+void RuntimeScene::StandsKeyLight() {
   if (Declared_.DrawsSky) { Renderer_->SetMedium(DeclaredAir()); }
 
   const Vec3f toSun = TowardTheKey();
@@ -468,7 +470,7 @@ void Live::StandsKeyLight() {
   if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
 }
 
-bool Live::StandsPlan(std::string &error) {
+bool RuntimeScene::StandsPlan(std::string &error) {
   Render::PlanSpec declaration;
   if (!DeclarePlan(Materials_.Slots(),
                    Declared_.DrawsSky,
@@ -529,7 +531,7 @@ bool Live::StandsPlan(std::string &error) {
   return true;
 }
 
-bool Live::Build(std::string &error) {
+bool RuntimeScene::Build(std::string &error) {
   if (!Held_.HasGeometry() && Declared_.Stands.empty()) { ClearsSubject(); }
   if (Held_.HasGeometry() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
   if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
@@ -556,7 +558,7 @@ bool Live::Build(std::string &error) {
   return composed;
 }
 
-std::expected<void, std::string> Live::BindSubject() {
+std::expected<void, std::string> RuntimeScene::BindSubject() {
   std::string error;
   if (Shaped_.TriangleCount() > 0) {
     Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,
@@ -596,23 +598,23 @@ std::expected<void, std::string> Live::BindSubject() {
   return {};
 }
 
-bool Live::Pose(double seconds, std::string &error) {
+bool RuntimeScene::Pose(double seconds, std::string &error) {
   if (!Held_.Sample(seconds, error)) { return false; }
   if (!Reshape(error)) { return false; }
   return true;
 }
 
-bool Live::Measure(double seconds, std::string &error) {
+bool RuntimeScene::Measure(double seconds, std::string &error) {
   if (!Held_.Sample(seconds, error)) { return false; }
   if (!Reshape(error)) { return false; }
   return true;
 }
 
-void Live::Eye(const Render::Viewpoint &from) noexcept {
+void RuntimeScene::Eye(const Render::Viewpoint &from) noexcept {
   Camera_.Override(from);
 }
 
-void Live::CapturesRenderedPositions() {
+void RuntimeScene::CapturesRenderedPositions() {
   RenderedPositionsM_.clear();
   RenderedPositionsM_.reserve(Shaped_.VertexCount() * 3u);
   for (const Render::ShapePart &part : Shaped_.Parts) {
@@ -621,7 +623,7 @@ void Live::CapturesRenderedPositions() {
   }
 }
 
-void Live::CoverShapedParts() {
+void RuntimeScene::CoverShapedParts() {
   for (size_t part = 0; part < PartBounds_.size() && part < Shaped_.Parts.size(); ++part) {
     const Render::ShapePart &one = Shaped_.Parts[part];
     Box &held = PartBounds_[part];
@@ -633,7 +635,7 @@ void Live::CoverShapedParts() {
   }
 }
 
-bool Live::PartVolumes(std::string &error) {
+bool RuntimeScene::PartVolumes(std::string &error) {
   if (!PartBounds_.empty()) { return true; }
   const size_t parts = Shaped_.Parts.size();
   if (parts == 0) { return true; }
@@ -647,7 +649,7 @@ bool Live::PartVolumes(std::string &error) {
   return Held_.FrameCount() <= 1 || Measure(Held_.TimeS(), error);
 }
 
-bool Live::PlacedBounds(Extents &into, std::string &error) {
+bool RuntimeScene::PlacedBounds(Extents &into, std::string &error) {
   if (!PartVolumes(error)) { return false; }
   const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
   Box grown;
@@ -663,7 +665,7 @@ bool Live::PlacedBounds(Extents &into, std::string &error) {
   return true;
 }
 
-bool Live::Look(std::string &error) {
+bool RuntimeScene::Look(std::string &error) {
   if (Camera_.HasOverride()) {
     Camera_.Prepared().Eye = Camera_.Override();
     Camera_.Prepared().HasExplicitCamera = true;
@@ -691,7 +693,7 @@ bool Live::Look(std::string &error) {
   return Render::Aim(*Renderer_, Shaped_, Camera_.Prepared(), Stood_.Anchor(), error);
 }
 
-void Live::StandsEnvironment() {
+void RuntimeScene::StandsEnvironment() {
   Render::SubjectEnvironment environment;
   for (int channel = 0; channel < 3; ++channel) {
     environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
@@ -705,7 +707,7 @@ void Live::StandsEnvironment() {
   Stood_.Around(environment);
 }
 
-void Live::ReadIrradiance(std::span<const float, Render::kIrradianceFloats> irradiance) {
+void RuntimeScene::ReadIrradiance(std::span<const float, Render::kIrradianceFloats> irradiance) {
   const auto &environment = Stood_.IndirectLight();
   const double scale = environment.SkyLux / std::numbers::pi;
   for (size_t channel = 0; channel < 3; ++channel) {
@@ -717,7 +719,7 @@ void Live::ReadIrradiance(std::span<const float, Render::kIrradianceFloats> irra
   }
 }
 
-void Live::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
+void RuntimeScene::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
   environment.SkyLux = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
   environment.CosSunZenith = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
   for (int channel = 0; channel < 3; ++channel) {
@@ -725,7 +727,7 @@ void Live::LightsFromTheSky(Render::SubjectEnvironment &environment) const {
   }
 }
 
-void Live::EmitsPerPart() {
+void RuntimeScene::EmitsPerPart() {
   const auto partSlots = Materials_.PartSlots();
   const auto materials = Materials_.Slots();
   for (size_t part = 0; part < partSlots.size(); ++part) {
@@ -746,7 +748,7 @@ void Live::EmitsPerPart() {
   }
 }
 
-bool Live::ApplyAuthoredCamera(Render::Viewpoint &out) const {
+bool RuntimeScene::ApplyAuthoredCamera(Render::Viewpoint &out) const {
   if (!Held_.AuthoredCamera()) { return false; }
   const auto viewpoint = Render::ViewpointOf(*Held_.AuthoredCamera());
   if (!viewpoint) { return false; }
@@ -754,7 +756,7 @@ bool Live::ApplyAuthoredCamera(Render::Viewpoint &out) const {
   return true;
 }
 
-bool Live::Stand(std::string &error) {
+bool RuntimeScene::Stand(std::string &error) {
   auto standFrom = std::chrono::steady_clock::now();
   const auto sinceStand = [&standFrom] {
     const double ms =
@@ -813,7 +815,7 @@ bool Live::Stand(std::string &error) {
   return true;
 }
 
-bool Live::Submit(std::string &error) {
+bool RuntimeScene::Submit(std::string &error) {
   if (!Stoodup_) {
     Stoodup_ = Render::Place(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error);
     return Stoodup_;
@@ -821,15 +823,15 @@ bool Live::Submit(std::string &error) {
   return Render::Move(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error);
 }
 
-const std::string &Live::ProgrammeOf(size_t surface) const {
+const std::string &RuntimeScene::ProgrammeOf(size_t surface) const {
   return Ui_.ProgrammeOf(surface);
 }
 
-bool Live::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
+bool RuntimeScene::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
   return Ui_.Redeclare(std::move(surfaces), error);
 }
 
-void Live::SkyEye(double aboveGroundM) {
+void RuntimeScene::SkyEye(double aboveGroundM) {
   if (Renderer_ == nullptr) { return; }
 
   constexpr double kSkyEyeStepM = 2.0;
@@ -838,7 +840,7 @@ void Live::SkyEye(double aboveGroundM) {
   Renderer_->SetSkyEye(static_cast<float>(quantisedM));
 }
 
-bool Live::Carries(size_t bodies, std::string &error) {
+bool RuntimeScene::Carries(size_t bodies, std::string &error) {
   if (bodies == 0) {
     error = "a picture was asked to carry no bodies at all, and that is a different statement "
             "from carrying one that has not moved";
@@ -858,11 +860,11 @@ bool Live::Carries(size_t bodies, std::string &error) {
   return true;
 }
 
-bool Live::Carry(const Bearing &held, std::string &error) {
+bool RuntimeScene::Carry(const Bearing &held, std::string &error) {
   return Carry(0, held, error);
 }
 
-Mat4 Live::InMetres(const Mat4 &placed) const {
+Mat4 RuntimeScene::InMetres(const Mat4 &placed) const {
   const double perUnit = Declared_.MetresPerUnit > 0.0 ? Declared_.MetresPerUnit : 1.0;
   Mat4 out = placed;
   for (int column = 0; column < 3; ++column) {
@@ -871,7 +873,7 @@ Mat4 Live::InMetres(const Mat4 &placed) const {
   return out;
 }
 
-bool Live::Carry(size_t body, const Bearing &held, std::string &error) {
+bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
   const Mat4 bodyM = InMetres(held.WorldFromBodyM);
   if (Joined_ == 0) {
     error = "nothing joined this picture from a file, so there is no body to carry -- every part "
@@ -933,7 +935,7 @@ bool Live::Carry(size_t body, const Bearing &held, std::string &error) {
   return true;
 }
 
-bool Live::SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error) {
+bool RuntimeScene::SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error) {
   if (Declared_.Surfacing.empty()) {
     error = Says::NoGeometrySurface;
     return false;
@@ -941,10 +943,10 @@ bool Live::SetGeometry(outshine::Geometry &&built, size_t carried, std::string &
   return SetGeometry(std::move(built), carried, Declared_.Surfacing.front(), error);
 }
 
-bool Live::SetGeometry(outshine::Geometry &&built,
-                       size_t carried,
-                       const Material &wearing,
-                       std::string &error) {
+bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
+                               size_t carried,
+                               const Material &wearing,
+                               std::string &error) {
   Camera_.Invalidate();
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
@@ -960,51 +962,51 @@ bool Live::SetGeometry(outshine::Geometry &&built,
   return stood;
 }
 
-size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0,
-       Live::TookDrawing_ = 0;
-size_t Live::AssetReads_ = 0;
-size_t Live::PlanInits_ = 0;
+size_t RuntimeScene::TookPosing_ = 0, RuntimeScene::TookSubmitting_ = 0,
+       RuntimeScene::TookAiming_ = 0, RuntimeScene::TookDrawing_ = 0;
+size_t RuntimeScene::AssetReads_ = 0;
+size_t RuntimeScene::PlanInits_ = 0;
 
-bool Live::Advance(std::string &error) {
-  static const Heap::Tag kAdvancingTag("live-advance");
+bool RuntimeScene::Advance(std::string &error) {
+  static const Heap::Tag kAdvancingTag("runtime-scene-advance");
   const Heap::Tagged advancing(kAdvancingTag);
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
   if (Held_.IsAnimated() && Held_.DurationS() > 0.0) {
     Held_.Advance(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
                   Declared_.Playback == PlaybackPolicy::Loop);
-    const size_t beforePose = Heap::TakenUnder("live-pose");
+    const size_t beforePose = Heap::TakenUnder("runtime-scene-pose");
     {
-      static const Heap::Tag kPosingTag("live-pose");
+      static const Heap::Tag kPosingTag("runtime-scene-pose");
       const Heap::Tagged posing(kPosingTag);
       if (!Pose(Held_.TimeS(), error)) { return false; }
     }
-    TookPosing_ = took("live-pose", beforePose);
-    const size_t beforeSubmit = Heap::TakenUnder("live-submit");
+    TookPosing_ = took("runtime-scene-pose", beforePose);
+    const size_t beforeSubmit = Heap::TakenUnder("runtime-scene-submit");
     {
-      static const Heap::Tag kSubmittingTag("live-submit");
+      static const Heap::Tag kSubmittingTag("runtime-scene-submit");
       const Heap::Tagged submitting(kSubmittingTag);
       if (!Submit(error)) { return false; }
     }
-    TookSubmitting_ = took("live-submit", beforeSubmit);
+    TookSubmitting_ = took("runtime-scene-submit", beforeSubmit);
   }
 
   const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Shaped_.TriangleCount() > 0;
   if (orbits) { Camera_.AdvanceOrbit(Declared_.OrbitDegPerFrame); }
   if (orbits || Camera_.NeedsBinding()) {
-    const size_t beforeAim = Heap::TakenUnder("live-aim");
+    const size_t beforeAim = Heap::TakenUnder("runtime-scene-aim");
     {
-      static const Heap::Tag kAimingTag("live-aim");
+      static const Heap::Tag kAimingTag("runtime-scene-aim");
       const Heap::Tagged aiming(kAimingTag);
       if (!Look(error)) { return false; }
     }
     Camera_.MarkBound();
-    TookAiming_ = took("live-aim", beforeAim);
+    TookAiming_ = took("runtime-scene-aim", beforeAim);
   }
   return true;
 }
 
-bool Live::Draw(std::string &error) {
+bool RuntimeScene::Draw(std::string &error) {
   if (Renderer_ == nullptr) {
     error = "no device stands, so there is nothing to draw with";
     return false;

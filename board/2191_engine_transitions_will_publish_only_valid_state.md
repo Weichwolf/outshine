@@ -28,7 +28,7 @@ assumed: generator output may depend on borrowed, changing provider data.
   array input, GPU rejection, retry, rendered pixels and hit targets are covered publicly.
 - The headless `declare` path now builds generator geometry and audio occlusion before publishing.
   A generator refusal retains declaration, revision, input, pending geometry and occlusion.
-- `Live::Open` and `Engine::declare` detach a replaced `Live` owner only after its successor,
+- `RuntimeScene::Open` and `Engine::declare` detach a replaced `RuntimeScene` owner only after its successor,
   scroll restoration and generated geometry succeeded. Its destructor therefore cannot clear
   the successor's renderer products; a failed CPU-side build retains the old owner.
 - A changed imported asset, variant or clip no longer takes the in-place reuse path. It builds
@@ -39,12 +39,12 @@ assumed: generator output may depend on borrowed, changing provider data.
   submit failure retains prior linear pixels and retries. Frame-owned cull and shadow stages rebind
   their subject address after the content move.
 ## Remaining defect and implementation
-The targeted full-declaration path builds `Live`, generated geometry, audio occlusion, views,
+The targeted full-declaration path builds `RuntimeScene`, generated geometry, audio occlusion, views,
 bindings and UI state locally, then detaches and replaces the old owner only after the candidate
 is complete. Generation must not mutate live state during preparation. Its remaining failure
 boundary is GPU-visible state, not CPU ownership.
 
-`Live` ownership and CPU products remain local through open, scroll restoration and generated
+`RuntimeScene` ownership and CPU products remain local through open, scroll restoration and generated
 geometry preparation. `SceneState` stages all GPU-visible declaration products under WI 2223;
 snapshot/restore remains rejected because coupled GPU ownership cannot prove complete restoration.
 
@@ -73,8 +73,8 @@ coverage; a helper test does not prove the full public transition.
 
 ## Next bounded change: replacement and animation history
 
-Source audit: Live::Restands changes Declared_ and clears Held_ before Build succeeds.
-Live::Pose replaces PreviousPositionsM_ before Poses/Reshape can fail. This proves
+Source audit: RuntimeScene::Restands changes Declared_ and clears Held_ before Build succeeds.
+RuntimeScene::Pose replaces PreviousPositionsM_ before Poses/Reshape can fail. This proves
 mutation ordering, not that every public caller exposes the failed intermediate state.
 Trace each public caller first; reuse its existing candidate where it already isolates Live.
 
@@ -100,7 +100,7 @@ analytically checked movement fixture proves it.
    with fewer vertices, and bounds measurement between draws. Compare motion data with
    independently computed previous/current transforms; assert no allocation after warmup.
 
-Files: src/engine/Live.cpp, Asset.h, src/render/SceneRenderer.cpp and its SceneState.
+Files: src/engine/RuntimeScene.cpp, Asset.h, src/render/SceneRenderer.cpp and its SceneState.
 Reference: ../SDL at fa2c02b, include/SDL3/SDL_gpu.h submission/fence lifetime.
 Commands: make format; make suite SUITE=outshine/include/Outshine; make lint.
 Animation-history tests additionally belong under test/outshine/src/render/.
@@ -109,7 +109,7 @@ This fix does not require completion of native import migration in WI 2150.
 ## Acceptance
 
 - [ ] Public transition table documents call ordering, invalidation, thread affinity and errors.
-- [ ] Fault injection after validation, `Live::Open`, scroll restoration, generator construction,
+- [ ] Fault injection after validation, `RuntimeScene::Open`, scroll restoration, generator construction,
       geometry upload and publication retains the previous usable target/world/declaration or
       enters explicit Failed.
 - [ ] Retry after every injected failure succeeds; revision changes only on success.

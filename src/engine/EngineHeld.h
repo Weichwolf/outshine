@@ -42,7 +42,7 @@
 #include "Mixer.h"
 #include "Tables.h"
 #include "ScenarioLayer.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "Typeface.h"
 #include "InputPump.h"
 #include "Triggers.h"
@@ -176,7 +176,7 @@ enum class FrameScope { Closed, Open, DrawSucceeded };
 
 struct Seen {
   Render::SceneRenderer Device;
-  std::unique_ptr<Core::Live> Standing;
+  std::unique_ptr<Core::RuntimeScene> Standing;
   Extent Frame{.WidthPx = kFrameUnsaidWidePx, .HeightPx = kFrameUnsaidHighPx};
   bool Targeted = false;
   FrameScope Scope = FrameScope::Closed;
@@ -374,7 +374,8 @@ struct Engine::State {
   [[nodiscard]] static std::vector<float> PaletteOver(const Ground::VegetationTemplates &wearing,
                                                       const Medium &fallback);
 
-  [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM, Core::Live &candidate);
+  [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM,
+                                 Core::RuntimeScene &candidate);
 
   struct Phasing {
     std::chrono::steady_clock::time_point PhaseAt;

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_LIVE_H
-#define OUTSHINE_ENGINE_LIVE_H
+#ifndef OUTSHINE_ENGINE_RUNTIMESCENE_H
+#define OUTSHINE_ENGINE_RUNTIMESCENE_H
 
 #include <algorithm>
 #include <expected>
@@ -88,42 +88,42 @@ struct Extents {
   Vec3 MostM = {{0.0, 0.0, 0.0}};
 };
 
-class Live {
+class RuntimeScene {
 public:
-  ~Live();
-  Live(const Live &) = delete;
-  Live &operator=(const Live &) = delete;
+  ~RuntimeScene();
+  RuntimeScene(const RuntimeScene &) = delete;
+  RuntimeScene &operator=(const RuntimeScene &) = delete;
 
   [[nodiscard]] static bool Open(Render::SceneRenderer &renderer,
                                  Declaration declaration,
                                  const Ui::Font *font,
-                                 std::unique_ptr<Live> &out,
+                                 std::unique_ptr<RuntimeScene> &out,
                                  std::string &error);
   [[nodiscard]] static bool Prepare(Render::SceneRenderer &renderer,
                                     Declaration declaration,
                                     const Ui::Font *font,
-                                    std::unique_ptr<Live> &out,
+                                    std::unique_ptr<RuntimeScene> &out,
                                     std::string &error);
   [[nodiscard]] static bool ReplacesGeometry(Render::SceneRenderer &renderer,
-                                             const Live &previous,
+                                             const RuntimeScene &previous,
                                              Geometry replacement,
                                              const Ui::Font *font,
-                                             std::unique_ptr<Live> &out,
+                                             std::unique_ptr<RuntimeScene> &out,
                                              std::string &error);
   [[nodiscard]] static bool PreparesGeometryReplacement(Render::SceneRenderer &renderer,
-                                                        const Live &previous,
+                                                        const RuntimeScene &previous,
                                                         Geometry replacement,
                                                         const Ui::Font *font,
-                                                        std::unique_ptr<Live> &candidate,
+                                                        std::unique_ptr<RuntimeScene> &candidate,
                                                         std::string &error);
   [[nodiscard]] static bool PreparesWorldReplacement(Render::SceneRenderer &renderer,
-                                                     const Live &previous,
+                                                     const RuntimeScene &previous,
                                                      const Ui::Font *font,
-                                                     std::unique_ptr<Live> &candidate,
+                                                     std::unique_ptr<RuntimeScene> &candidate,
                                                      std::string &error);
   [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
-                                                   std::unique_ptr<Live> &out,
-                                                   std::unique_ptr<Live> &candidate,
+                                                   std::unique_ptr<RuntimeScene> &out,
+                                                   std::unique_ptr<RuntimeScene> &candidate,
                                                    std::string &error);
 
   [[nodiscard]] bool Carries(size_t bodies, std::string &error);
@@ -313,7 +313,7 @@ public:
 private:
   friend class ::outshine::Engine;
 
-  static void HandOffRenderer(std::unique_ptr<Live> &owner) noexcept {
+  static void HandOffRenderer(std::unique_ptr<RuntimeScene> &owner) noexcept {
     if (owner != nullptr) { owner->Renderer_ = nullptr; }
   }
 
@@ -322,7 +322,7 @@ private:
   static size_t PlanInits_;
   Render::PlanSpec PlanDeclared_;
 
-  Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
+  RuntimeScene(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
 
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();

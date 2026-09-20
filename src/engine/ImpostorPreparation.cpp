@@ -13,7 +13,7 @@
 #include "Digest.h"
 #include <bit>
 #include <type_traits>
-#include "Live.h"
+#include "RuntimeScene.h"
 
 #include <algorithm>
 #include <cmath>
@@ -157,8 +157,10 @@ std::optional<Content::ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePr
     declaration.KeyLux = kCaptureIlluminanceLux;
     declaration.KeyBearingDeg = kCaptureLightBearingDeg;
     declaration.KeyElevationDeg = kCaptureLightElevationDeg;
-    std::unique_ptr<Core::Live> live;
-    if (!Core::Live::Open(renderer, declaration, nullptr, live, error)) { return std::nullopt; }
+    std::unique_ptr<Core::RuntimeScene> scene;
+    if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) {
+      return std::nullopt;
+    }
     auto camera = Render::Viewpoint::LookAt(
         {.EyeM = centre + direction * (3 * halfExtent), .AimM = centre}, 0);
     if (!camera) {
@@ -169,7 +171,7 @@ std::optional<Content::ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePr
     camera->XMagM = camera->YMagM = halfExtent;
     camera->ZNearM = halfExtent;
     camera->ZFarM = 5 * halfExtent;
-    live->Eye(*camera);
+    scene->Eye(*camera);
     if (leaves) {
       Render::PieceMesh piece;
       piece.Verts = prepared->Vertices;
@@ -183,7 +185,7 @@ std::optional<Content::ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePr
         return std::nullopt;
       }
     }
-    if (!live->Draw(error)) { return std::nullopt; }
+    if (!scene->Draw(error)) { return std::nullopt; }
     renderer.WaitForGpu();
     if (renderer.ReadDepth(depth) != Render::ReadState::Ready ||
         renderer.ReadShadingNormal(normal) != Render::ReadState::Ready ||

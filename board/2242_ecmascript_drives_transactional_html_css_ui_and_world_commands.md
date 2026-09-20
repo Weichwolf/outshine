@@ -2,7 +2,7 @@ Type: architecture
 State: open
 Architecture: ready
 Parent: 2188
-Depends: 2236
+Depends:
 Priority: P1
 Area: base, ui, engine, scenario, test
 Tags: javascript, ui, determinism, ownership

@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 #include <SDL3/SDL.h>
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "FrameCapture.h"
 #include "Check.h"
 
@@ -77,9 +77,9 @@ int main() {
   declaration.Exposure = 1.0;
   declaration.KeyElevationDeg = 45;
   declaration.KeyBearingDeg = 180;
-  std::unique_ptr<Core::Live> scene;
+  std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
-  if (!Core::Live::Open(renderer, declaration, nullptr, scene, error)) {
+  if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) {
     Unprepared(error.c_str());
     return Report();
   }
@@ -311,7 +311,7 @@ int main() {
   renderer.ReleasePiece(newPiece);
   renderer.ReleasePiece(oldPiece);
   CHECK(scene->SetGeometry(base.clone(), 0, error),
-        "Live rebuilds after the direct renderer registration fixture");
+        "RuntimeScene rebuilds after the direct renderer registration fixture");
   scene->Eye(eye);
   Geometry empty;
   CHECK(!renderer.RegisterPieceMaterials(std::move(empty)),
@@ -366,7 +366,7 @@ int main() {
                    linear,
                    1.0 / 4096,
                    "linear",
-                   "Live-owned prototype images preserve decoded RGB in each instance");
+                   "RuntimeScene-owned prototype images preserve decoded RGB in each instance");
       }
     }
   }
@@ -382,7 +382,7 @@ int main() {
         "registered before-rebuild PNG is written");
   (void)base.addSurface("extra native material one", Material{}).value();
   (void)base.addSurface("extra native material two", Material{}).value();
-  CHECK(Core::Live::ReplacesGeometry(renderer, *scene, base.clone(), nullptr, scene, error),
+  CHECK(Core::RuntimeScene::ReplacesGeometry(renderer, *scene, base.clone(), nullptr, scene, error),
         "native material growth publishes around resident registered pieces");
   scene->Eye(eye);
   CHECK(scene->Draw(error), "registered instances draw after native material indices shift");
@@ -415,7 +415,7 @@ int main() {
     if (!bluePiece) { return Report(); }
     renderer.ReleasePiece(*bluePiece);
     CHECK(!renderer.SetPieceInstances(*bluePiece, {}, error),
-          "a released Live handle cannot address a future renderer piece");
+          "a released RuntimeScene handle cannot address a future renderer piece");
   }
   if (!ownedPiece) { return Report(); }
   renderer.ReleasePiece(*ownedPiece);

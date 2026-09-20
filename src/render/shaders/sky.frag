@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #include "medium.glsl"
 #define SCENE_FLOAT(name, value) const float name = value;
-#include "../stages/SceneConstants.inc"
+#include "render/stages/SceneConstants.inc"
 #undef SCENE_FLOAT
 layout(location = 0) in vec2 ndc;
 layout(location = 0) out vec4 colour;

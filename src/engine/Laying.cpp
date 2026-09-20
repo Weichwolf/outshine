@@ -173,7 +173,7 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
 }
 
 Engine::State::Classed Engine::State::Classify(std::span<const float> groundPositionsM,
-                                               Core::Live &candidate) {
+                                               Core::RuntimeScene &candidate) {
   Classed out;
   const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
   const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
@@ -933,10 +933,10 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
-  Core::Live &live = state.Candidate().Scene();
+  Core::RuntimeScene &scene = state.Candidate().Scene();
   static const Heap::Tag kClassingTag("ground-classify");
   const Heap::Tagged classing(kClassingTag);
-  Classed classed = Classify(build.PositionsM, live);
+  Classed classed = Classify(build.PositionsM, scene);
   build.ClassPalette = std::move(classed.Palette);
   build.ClassStructure = std::move(classed.Structure);
   state.AdvancesTo(GroundBuildState::Stage::NeedsGroundSurface);
@@ -1061,7 +1061,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Around &over = state.Coverage();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
-  Core::Live &live = candidate.Scene();
+  Core::RuntimeScene &scene = candidate.Scene();
 
   const auto rebuildBegan = std::chrono::steady_clock::now();
   {}
@@ -1222,7 +1222,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
-  live.GroundIs(ringSurface.index());
+  scene.GroundIs(ringSurface.index());
   if (classStructure && !classPalette.empty() &&
       !Picture.Device.SetGroundClasses(
           {classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},
@@ -1230,7 +1230,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           Error)) {
     return false;
   }
-  live.Digests(declared.Render.Audits);
+  scene.Digests(declared.Render.Audits);
   {
     size_t handed = 0;
     for (int part = 0; part < ground.parts(); ++part) {
@@ -1240,7 +1240,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
     Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
   }
-  if (!live.SetGeometry(std::move(ground), drivenParts, bare, Error)) { return false; }
+  if (!scene.SetGeometry(std::move(ground), drivenParts, bare, Error)) { return false; }
   state.PublishesFootprints();
   if (auto published =
           candidate.Publish(World, World.Stack.Footprints(), Picture.Standing, state.Revision());

@@ -48,7 +48,8 @@ constexpr Seed kStepSeeds[] = {
 constexpr Seed kPictureSeeds[] = {
     {"Engine6renderENS_6ExtentE", "the picture: one call draws one frame and hands it over"},
     {"Render13SceneRenderer11RenderFrameEv",
-     "what the picture reaches through `Live::Draw` -- a call the graph does follow, seeded "
+     "what the picture reaches through `RuntimeScene::Draw` -- a call the graph does follow, "
+     "seeded "
      "anyway so a change to that chain cannot silently unseed it"},
     {"Engine5State4DrewEv", "what the picture publishes after it draws"},
 };

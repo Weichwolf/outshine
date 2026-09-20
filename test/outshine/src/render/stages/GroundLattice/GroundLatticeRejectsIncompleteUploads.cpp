@@ -10,7 +10,7 @@
 
 #include "Check.h"
 #include "GroundLattice.h"
-#include "Live.h"
+#include "RuntimeScene.h"
 #include "SceneRenderer.h"
 
 namespace {
@@ -106,9 +106,10 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "ground fixture opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
+          "ground fixture opens");
     if (scene) {
       std::vector<float> nodes(GroundLattice::kPageNodes);
       CHECK(renderer.PlaceHeightPage(nodes, error) == 0, "first height page is placed");

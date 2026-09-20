@@ -26,10 +26,10 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 | content/ | Own native assets and derived CPU artefacts/codecs, no GPU/engine/import dependencies. No second authoritative mesh representation. | 2150, 2237 |
 | import/ | Geometry, materials, cameras and framing are native; the adapter fills native assets and remains behind the format-neutral loading boundary. Complete native playback ownership. | 2150 |
 | scenario/ | Reader/writer belongs to import composition; TriggerField executes entity-time state and must leave the serialization module. Native input/action/view state is not parser state. | 2151, 2130 |
-| engine/ | Live has lost resident resources, camera history, capture, sky integration, UI and material resolution; its final playback-policy boundary and RuntimeScene name remain. Laying/HeightSheets still contain integration beside extracted terrain algorithms. | 2236, 2237 |
+| engine/ | RuntimeScene coordinates playback and rendering after resident resources, camera history, capture, sky integration, UI and material resolution moved to their owners. Laying/HeightSheets still contain integration beside extracted terrain algorithms. | 2237 |
 | generators/ | Existing building/flora/road/water algorithms are appropriate; extract remaining terrain computation from engine. Preserve native outputs and independent library linkage. | 2237, 2150 |
 | world/ | Geographic/provider/logical-world products fit here; provider configuration is native. Navigation is independent of visual geometry. | 2133 |
-| render/ | SceneState/FrameResources/WorldContent separation is useful. SceneRenderer still exposes individual stage settings; narrow calls by coherent frame/world inputs, reuse existing owners. | 2222, 2223, 2236 |
+| render/ | SceneState/FrameResources/WorldContent separation is useful. SceneRenderer still exposes individual stage settings; narrow calls by coherent frame/world inputs, reuse existing owners. | 2222, 2223 |
 | actor/ | Rigid/prismatic computation is a valid simulation kernel. Stateful bodies/triggers currently straddle scenario/engine; gather native simulation state before adding threads. | 2130 |
 | audio/ | DSP graph/mixer configuration is native. Engine AudioOcclusion remains the wrong owner; acoustic BVH belongs to audio while CPU triangle BVH stays base. | 2212, 2130 |
 | ui/ | Layout/style/paint/input are coherent responsibilities; large Layout.cpp alone proves no defect. Host input routing stays at engine boundary. | 2139 |
@@ -41,10 +41,8 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 
 ## Executable reserve and order
 
-1. WI 2236: translate the last playback policy, verify remaining owners and rename Live to
-   RuntimeScene without aliases.
-2. WI 2237: finish Crown capture/streaming migration over the existing scene-resource boundary.
-3. Re-audit this parent against the resulting code and close it or name a concrete remaining
+1. WI 2237: finish Crown capture/streaming migration over the existing scene-resource boundary.
+2. Re-audit this parent against the resulting code and close it or name a concrete remaining
    dependency; do not keep a generic refactor open as permanent permission to rearrange files.
 WI 2188 maintains global priority against runtime defects. Vegetation features and a new
 threading model are not part of this refactor.
@@ -54,8 +52,8 @@ threading model are not part of this refactor.
 Generated private headers live under build/generated/<owner>/ and are exposed by a private
 compiler include directory. Source includes use logical names, never relative paths into build/.
 Migrate CrownBuild.h through the provenance generator and GroupIncludes together; preserve its
-identity calculation and regenerate compile_commands. Shared GLSL/C++ atmospheric constants may
-retain relative source includes where they follow render -> world and introduce no build edge.
+identity calculation and regenerate compile_commands. C++ and GLSL include logical names from
+declared include roots; parent-directory paths are forbidden even when the dependency is allowed.
 
 Engine composes providers, generators, simulation, rendering, audio and UI. Domain modules
 own algorithms and data. Cross-module interfaces carry native values, owned immutable

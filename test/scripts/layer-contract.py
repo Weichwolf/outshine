@@ -32,6 +32,12 @@ def physical_build_includes(text):
             if 'build' in pathlib.PurePosixPath(name).parts]
 
 
+def parent_includes(text):
+    expression = r'^\s*#\s*include\s*[<"]([^>"]+)[>"]'
+    return [name for name in re.findall(expression, text, re.MULTILINE)
+            if '..' in pathlib.PurePosixPath(name).parts]
+
+
 def allowed(graph, owner, target):
     return target == owner or owner.startswith(target + '/') or target in graph[owner]
 
@@ -133,6 +139,9 @@ def main():
         ['../../build/CrownBuild.h'],
         not physical_build_includes('#include "CrownBuild.h"'),
         not physical_build_includes('#include "../../world/sky/AtmosphereCore.h"'),
+        parent_includes('#include "../../world/sky/AtmosphereCore.h"') ==
+        ['../../world/sky/AtmosphereCore.h'],
+        not parent_includes('#include "world/sky/AtmosphereCore.h"'),
         not errors(good, [('render/Draw.cpp', ['render', 'base/math'])]),
         bool(errors(good, [('render/Draw.cpp', ['world'])])),
         bool(errors({'a': ['b'], 'b': ['c'], 'c': ['a']}, [])),
@@ -172,6 +181,8 @@ def main():
                 continue
             for name in physical_build_includes(source.read_text()):
                 violations.append(f'{source.relative_to(root)}: physical build include {name}')
+            for name in parent_includes(source.read_text()):
+                violations.append(f'{source.relative_to(root)}: parent-directory include {name}')
     known = {
         f'{source}: undeclared public-header dependency {target}': wi
         for (source, target), wi in KNOWN_PUBLIC_FINDINGS.items()

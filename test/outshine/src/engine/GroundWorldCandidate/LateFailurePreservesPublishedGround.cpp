@@ -45,9 +45,10 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "initial world opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
+          "initial world opens");
     if (scene) {
       Surrounds world;
       Ground::BuildingField footprints;
@@ -59,7 +60,7 @@ int main() {
       const GroundRevision oldRevision{.Region = 17};
       const GroundRevision nextRevision{.Region = 18};
       CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
-      Core::Live *const oldScene = scene.get();
+      Core::RuntimeScene *const oldScene = scene.get();
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
       const auto page = renderer.PlaceHeightPage(nodes);
       CHECK(page.has_value(), "original height page uploads");

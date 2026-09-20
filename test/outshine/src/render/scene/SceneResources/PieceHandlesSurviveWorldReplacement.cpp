@@ -54,9 +54,9 @@ int main() {
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
     Render::SceneRenderer renderer;
-    std::unique_ptr<Core::Live> scene;
+    std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
-    CHECK(Core::Live::Open(renderer, declaration, nullptr, scene, error), "world opens");
+    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
     if (scene) {
       const std::array<StoredVertex, 3> vertices{
           StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
