@@ -85,6 +85,12 @@ int main() {
                           .NearM = 3.107125103623776,
                           .FarM = 4.118946968135317});
   scenario.Views.push_back(view);
+  Scenario::View warm = view;
+  warm.Id = "warm";
+  warm.Sees.PositionM = {{0.0, 0.25, 0.8}};
+  warm.Sees.LookAtM = {{0.0, 0.08, 0.0}};
+  warm.Sees.setProjection(Camera::Perspective{.FovDeg = 5.0, .NearM = 0.1, .FarM = 2.0});
+  scenario.Views.push_back(warm);
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
     return Report();
@@ -108,17 +114,23 @@ int main() {
     if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario))) {
       return Report();
     }
-    if (sequence.Warmup) {
-      std::vector<float> ignored;
-      if (!accepted(engine.setGeometry(nearestMips)) || !accepted(engine.assemble()) ||
-          !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
-          !accepted(engine.renderer().readPixels(Buffer::Linear, ignored))) {
-        return Report();
-      }
-    }
     if (!accepted(engine.setGeometry(*sequence.Source)) || !accepted(engine.assemble()) ||
+        !accepted(engine.setView(sequence.Warmup ? "warm" : "chess")) ||
         !accepted(engine.advance())) {
       return Report();
+    }
+    if (sequence.Warmup) {
+      std::vector<float> magnified;
+      if (!accepted(engine.renderer().render({})) ||
+          !accepted(engine.renderer().readPixels(Buffer::Linear, magnified)) ||
+          !accepted(engine.setView("chess")) || !accepted(engine.advance())) {
+        return Report();
+      }
+      size_t visible = 0;
+      for (size_t at = 0; at + 3 < magnified.size(); at += 4) {
+        visible += magnified[at] > 0 || magnified[at + 1] > 0 || magnified[at + 2] > 0;
+      }
+      CHECK(visible > 0, "magnified warm-up camera samples the resident linear-mip texture");
     }
     std::vector<float> first, previous, repeated;
     CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),

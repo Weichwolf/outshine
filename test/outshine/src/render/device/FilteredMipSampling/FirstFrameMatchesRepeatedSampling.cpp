@@ -16,20 +16,28 @@ namespace {
 using namespace outshine::Render;
 using namespace outshine::Test;
 
-constexpr uint32_t kSourceWidth = 128;
-constexpr uint32_t kTargetWidth = 64;
+constexpr uint32_t kSourceWidth = 2048;
+constexpr uint32_t kTargetWidth = 1280;
+constexpr uint32_t kTargetHeight = 720;
 constexpr uint32_t kChannels = 4;
 constexpr uint32_t kHalfBytes = 2;
-constexpr float kFractionalLodUvScale = 1.3f;
+constexpr float kTexelsPerPixel = 2.6f;
+constexpr float kFractionalLodUvScaleX =
+    kTexelsPerPixel * static_cast<float>(kTargetWidth) / static_cast<float>(kSourceWidth);
+constexpr float kFractionalLodUvScaleY =
+    kTexelsPerPixel * static_cast<float>(kTargetHeight) / static_cast<float>(kSourceWidth);
 
 struct Fixture {
   OwnedDevice Device;
   OwnedTexture Source;
+  OwnedTexture Target;
+  OwnedTexture Depth;
   OwnedSampler Sampler;
   OwnedPipeline Pipeline;
   OwnedBuffer Vertices;
   OwnedBuffer Uvs;
   OwnedBuffer Indices;
+  OwnedBuffer Indirect;
   bool Derivatives = false;
   bool DescriptorTable = false;
 
@@ -244,17 +252,29 @@ bool Configure(Fixture &fixture,
   pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
   pipeline.target_info.color_target_descriptions = &target;
   pipeline.target_info.num_color_targets = 1;
+  pipeline.target_info.has_depth_stencil_target = true;
+  pipeline.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+  pipeline.depth_stencil_state.enable_depth_test = true;
+  pipeline.depth_stencil_state.enable_depth_write = true;
+  pipeline.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
   fixture.Pipeline = OwnedPipeline(fixture.Device.Get(),
                                    SDL_CreateGPUGraphicsPipeline(fixture.Device.Get(), &pipeline));
   if (!fixture.Pipeline || !derivatives) { return static_cast<bool>(fixture.Pipeline); }
-  constexpr std::array<float, 12> fullscreenPositions = {-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
+  constexpr std::array<float, 12> fullscreenPositions = {
+      -1, -1, 0.5f, 1, 3, -1, 0.5f, 1, -1, 3, 0.5f, 1};
   constexpr std::array<float, 6> fullscreenUvs = {
-      0, 0, 2 * kFractionalLodUvScale, 0, 0, 2 * kFractionalLodUvScale};
-  constexpr float kSmallUvSpan = 0.325f;
+      0, 0, 2 * kFractionalLodUvScaleX, 0, 0, 2 * kFractionalLodUvScaleY};
+  constexpr float kSmallUvSpanX = 0.25f * kFractionalLodUvScaleX;
+  constexpr float kSmallUvSpanY = 0.25f * kFractionalLodUvScaleY;
   constexpr std::array<float, 12> smallPositions = {
-      -0.25f, -0.25f, 0, 1, 0.5f, -0.5f, 0, 2, -0.375f, 0.375f, 0, 1.5f};
-  constexpr std::array<float, 6> smallUvs = {0, 0, kSmallUvSpan, 0, 0, kSmallUvSpan};
+      -0.25f, -0.25f, 0.5f, 1, 0.5f, -0.5f, 1, 2, -0.375f, 0.375f, 0.75f, 1.5f};
+  constexpr std::array<float, 6> smallUvs = {0, 0, kSmallUvSpanX, 0, 0, kSmallUvSpanY};
   constexpr std::array<uint32_t, 3> indices = {0, 1, 2};
+  constexpr SDL_GPUIndexedIndirectDrawCommand indirect{.num_indices = 3,
+                                                       .num_instances = 1,
+                                                       .first_index = 0,
+                                                       .vertex_offset = 0,
+                                                       .first_instance = 0};
   const std::array<float, 12> &positions =
       rasterShape == RasterShape::Fullscreen ? fullscreenPositions : smallPositions;
   const std::array<float, 6> &uvs =
@@ -290,34 +310,50 @@ bool Configure(Fixture &fixture,
   const auto bytesOf = [](const auto &values) { return std::as_bytes(std::span(values)); };
   return uploadBuffer(bytesOf(positions), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Vertices) &&
          uploadBuffer(bytesOf(uvs), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Uvs) &&
-         uploadBuffer(bytesOf(indices), SDL_GPU_BUFFERUSAGE_INDEX, fixture.Indices);
+         uploadBuffer(bytesOf(indices), SDL_GPU_BUFFERUSAGE_INDEX, fixture.Indices) &&
+         uploadBuffer(std::as_bytes(std::span(&indirect, 1)),
+                      SDL_GPU_BUFFERUSAGE_INDIRECT,
+                      fixture.Indirect);
 }
 
 std::vector<uint8_t> Draw(Fixture &fixture) {
-  SDL_GPUTextureCreateInfo target{};
-  target.type = SDL_GPU_TEXTURETYPE_2D;
-  target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-  target.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
-  target.width = kTargetWidth;
-  target.height = kTargetWidth;
-  target.layer_count_or_depth = 1;
-  target.num_levels = 1;
-  target.sample_count = SDL_GPU_SAMPLECOUNT_1;
-  OwnedTexture image(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
-  if (!image) { return {}; }
+  if (!fixture.Target) {
+    SDL_GPUTextureCreateInfo target{};
+    target.type = SDL_GPU_TEXTURETYPE_2D;
+    target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+    target.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
+    target.width = kTargetWidth;
+    target.height = kTargetHeight;
+    target.layer_count_or_depth = 1;
+    target.num_levels = 1;
+    target.sample_count = SDL_GPU_SAMPLECOUNT_1;
+    fixture.Target =
+        OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
+    target.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+    target.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
+    fixture.Depth =
+        OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &target));
+  }
+  if (!fixture.Target || !fixture.Depth) { return {}; }
   SDL_GPUTransferBufferCreateInfo transfer{.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,
-                                           .size = kTargetWidth * kTargetWidth * kChannels *
+                                           .size = kTargetWidth * kTargetHeight * kChannels *
                                                    kHalfBytes};
   OwnedTransfer download(fixture.Device.Get(),
                          SDL_CreateGPUTransferBuffer(fixture.Device.Get(), &transfer));
   if (!download) { return {}; }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(fixture.Device.Get());
   if (commands == nullptr) { return {}; }
-  SDL_GPUColorTargetInfo attachment{.texture = image.Get(),
+  SDL_GPUColorTargetInfo attachment{.texture = fixture.Target.Get(),
                                     .clear_color = {0, 0, 0, 0},
                                     .load_op = SDL_GPU_LOADOP_CLEAR,
                                     .store_op = SDL_GPU_STOREOP_STORE};
-  SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &attachment, 1, nullptr);
+  SDL_GPUDepthStencilTargetInfo depth{.texture = fixture.Depth.Get(),
+                                      .clear_depth = 0.0f,
+                                      .load_op = SDL_GPU_LOADOP_CLEAR,
+                                      .store_op = SDL_GPU_STOREOP_STORE,
+                                      .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
+                                      .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE};
+  SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &attachment, 1, &depth);
   if (pass == nullptr) {
     SDL_CancelGPUCommandBuffer(commands);
     return {};
@@ -337,7 +373,7 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
       binding, binding, binding, binding, binding, binding, binding, binding};
   SDL_BindGPUFragmentSamplers(pass, 0, descriptors.data(), fixture.DescriptorTable ? 8u : 1u);
   if (fixture.Derivatives) {
-    SDL_DrawGPUIndexedPrimitives(pass, 3, 1, 0, 0, 0);
+    SDL_DrawGPUIndexedPrimitivesIndirect(pass, fixture.Indirect.Get(), 0, 1);
   } else {
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
   }
@@ -347,10 +383,11 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
     SDL_CancelGPUCommandBuffer(commands);
     return {};
   }
-  SDL_GPUTextureRegion source{.texture = image.Get(), .w = kTargetWidth, .h = kTargetWidth, .d = 1};
+  SDL_GPUTextureRegion source{
+      .texture = fixture.Target.Get(), .w = kTargetWidth, .h = kTargetHeight, .d = 1};
   SDL_GPUTextureTransferInfo destination{.transfer_buffer = download.Get(),
                                          .pixels_per_row = kTargetWidth,
-                                         .rows_per_layer = kTargetWidth};
+                                         .rows_per_layer = kTargetHeight};
   SDL_DownloadFromGPUTexture(copy, &source, &destination);
   SDL_EndGPUCopyPass(copy);
   SDL_GPUFence *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
