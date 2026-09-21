@@ -9,10 +9,17 @@ Tags: ownership, state, gpu
 
 ## Aktueller Arbeitsumfang
 
-SceneState/WorldContent-Kandidaten sind implementiert; WI 2224 nutzt sie bereits.
-Die folgende Problembeschreibung begründet den Vertrag, nicht einen erneuten Umbau.
-Nächste Arbeit ist die noch offene Fehler-/Rebinding-Matrix unter Proof, über bestehende
-Produktionsoperationen. Kein zweiter Candidate-Owner und keine neue Renderer-Fassade.
+Der vorhandene Kandidat erfüllt den behaupteten Besitzvertrag noch nicht. `SceneRenderer::Candidate_`
+ist ein vollständiger `SceneState`; dieser enthält `FrameResources`, Renderplan und `WorldContent`.
+Damit baut ein Weltkandidat weiterhin zielgebundene Frame-Ressourcen auf. WI 2224 nutzt die
+Transaktion, beweist aber keine Trennung der Besitzer. Kein zweiter Candidate-Owner und keine
+neue Renderer-Fassade: der bestehende Typ wird entlang der tatsächlichen Lebensdauern geteilt.
+
+Messung am Floor-Fixture vom 2026-09-21: `SetGeometry` kostet 209.1 ms, davon 207.5 ms
+`RuntimeScene::StandsPlan`; Clustering 0.38 ms, Packing 0.15 ms und Mesh-Upload 0.30 ms.
+Der abschließende World-Swap kostet 0.31 ms. Nur die Stage-Liste des Plans ändert sich: der
+anfangs leere Kandidat besitzt keinen automatisch abgeleiteten Shadow-Pass, Geometrie fügt ihn
+hinzu und erzwingt `InitForTarget`. Das widerlegt die bisher behauptete Typtrennung.
 
 ## Ursprünglicher Defekt
 
@@ -38,6 +45,12 @@ The existing move-only `FrameResources` transaction from WI 2222 is the local re
 RAII ownership, complete candidate construction, `static_assert`ed nonthrowing transfer, then one
 publication point. Snapshot/restore and clearing the active renderer during candidate construction
 are prohibited.
+
+`Candidate_` darf daher kein vollständiger `SceneState` sein. Reiner Weltinhaltstausch baut nur
+`WorldContent` und seine Deklarationen. Bei unverändertem `PlanSpec` verwendet er den bestehenden
+Target-Frameplan. Ändert sich der Plan tatsächlich, baut die vorhandene Frame-Transaktion die
+neuen `FrameResources`, während A renderbar bleibt; Frame und Welt werden danach gemeinsam
+atomar publiziert. Aktive Frame-Ressourcen in den Kandidaten zu verschieben ist verboten.
 
 The candidate remains in a local owner until publication. Only then may `RuntimeScene::Open` hand the
 renderer from the previous output owner to that candidate. Building directly into the output owner

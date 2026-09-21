@@ -96,6 +96,7 @@ public:
     NeedsCorridors,
     NeedsEarthworks,
     NeedsWater,
+    NeedsGeometry,
     NeedsPublication
   };
 
@@ -166,6 +167,7 @@ public:
       case Stage::NeedsCorridors: return "corridors";
       case Stage::NeedsEarthworks: return "earthworks";
       case Stage::NeedsWater: return "water";
+      case Stage::NeedsGeometry: return "geometry";
       case Stage::NeedsPublication: return "publication";
     }
     return "unknown";
@@ -1263,9 +1265,53 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   if (state.NextStage() == GroundBuildState::Stage::NeedsWater) {
     const auto began = std::chrono::steady_clock::now();
     if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
-    state.AdvancesTo(GroundBuildState::Stage::NeedsPublication);
+    state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
     Published.Places(
         "ground candidate: water",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        "ms");
+    return true;
+  }
+  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
+    const auto began = std::chrono::steady_clock::now();
+    const size_t drivenParts = Picture.Standing->CarriedParts();
+    Published.Places("restand: the carried count the world hands over",
+                     static_cast<double>(drivenParts),
+                     "carried");
+    Published.Places(
+        "restand: parts in the geometry", static_cast<double>(ground.parts()), "parts");
+    scene.GroundIs(ringSurface.index());
+    const auto classesBegan = std::chrono::steady_clock::now();
+    if (classStructure && !classPalette.empty() &&
+        !candidate.Renderer().SetGroundClasses(
+            {classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},
+            classPalette,
+            Error)) {
+      return false;
+    }
+    Published.Places(
+        "ground candidate: class upload",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - classesBegan)
+            .count(),
+        "ms");
+    scene.Digests(declared.Render.Audits);
+    size_t handed = 0;
+    for (int part = 0; part < ground.parts(); ++part) {
+      handed += ground.trianglesOf(part).size() / 3u;
+    }
+    Published.Places(
+        "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
+    Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
+    const auto geometryBegan = std::chrono::steady_clock::now();
+    if (!scene.SetGeometry(std::move(ground), drivenParts, bare, Error)) { return false; }
+    Published.Places(
+        "ground candidate: scene geometry",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - geometryBegan)
+            .count(),
+        "ms");
+    state.AdvancesTo(GroundBuildState::Stage::NeedsPublication);
+    Published.Places(
+        "ground candidate: geometry",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
     return true;
@@ -1275,36 +1321,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
     return false;
   }
   phaseAt = std::chrono::steady_clock::now();
-
-  const size_t drivenParts = Picture.Standing->CarriedParts();
-  Published.Places("restand: the carried count the world hands over",
-                   static_cast<double>(drivenParts),
-                   "carried");
-  Published.Places("restand: parts in the geometry", static_cast<double>(ground.parts()), "parts");
-  Published.Places(
-      "rebuild: and assembling one subject took",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
-      "ms");
-  phaseAt = std::chrono::steady_clock::now();
-  scene.GroundIs(ringSurface.index());
-  if (classStructure && !classPalette.empty() &&
-      !Picture.Device.SetGroundClasses(
-          {classStructure->Words(), classStructure->Bytes() / sizeof(uint32_t)},
-          classPalette,
-          Error)) {
-    return false;
-  }
-  scene.Digests(declared.Render.Audits);
-  {
-    size_t handed = 0;
-    for (int part = 0; part < ground.parts(); ++part) {
-      handed += ground.trianglesOf(part).size() / 3u;
-    }
-    Published.Places(
-        "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
-    Published.Places("in this many parts", static_cast<double>(ground.parts()), "parts");
-  }
-  if (!scene.SetGeometry(std::move(ground), drivenParts, bare, Error)) { return false; }
   state.PublishesFootprints();
   if (auto published =
           candidate.Publish(World, World.Stack.Footprints(), Picture.Standing, state.Revision());
@@ -1313,9 +1329,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
     World.GroundBuild.reset();
     return false;
   }
+  Published.Places(
+      "ground candidate: publication",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
+      "ms");
   World.GroundBuild.reset();
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
+  Published.Places("rebuild: standing render plan", Picture.Standing->PlanMs(), "ms");
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
   Published.Places(
       "rebuild: standing and submitting INSIDE Build", Picture.Standing->InsideMs(), "ms");

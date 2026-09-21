@@ -164,6 +164,31 @@ int main(void) {
   }
 
   const std::span<const outshine::DiagnosticSample> told = engine.measures();
+  for (const char *stage : {"ground candidate: corridors",
+                            "ground candidate: earthworks",
+                            "ground candidate: water",
+                            "ground candidate: geometry",
+                            "ground candidate: class upload",
+                            "ground candidate: scene geometry",
+                            "ground candidate: publication"}) {
+    const double elapsedMs = Measured(told, stage);
+    std::printf("STAGE %-31s %8.3f ms\n", stage, elapsedMs);
+    CHECK(elapsedMs >= 0.0, "every resumable ground stage publishes its completion cost");
+  }
+  for (const char *operation : {"rebuild: cutting it into clusters",
+                                "rebuild: of the streams, packing them",
+                                "rebuild: and the device taking them",
+                                "rebuild: of that, walking it into the proxy",
+                                "rebuild: standing render plan",
+                                "rebuild: standing and submitting INSIDE Build",
+                                "rebuild: shaping what was built",
+                                "rebuild: composing it",
+                                "stand: the medium's own tables",
+                                "rebuild: laying the surface",
+                                "rebuild: settling placements and lights",
+                                "rebuild: and the streams to the device"}) {
+    std::printf("DETAIL %-47s %8.3f ms\n", operation, Measured(told, operation));
+  }
   const double pads = Measured(told, "ground: pads with a lattice node inside");
   const double padsUnreached = Measured(told, "ground: pads no lattice node reaches");
   const double padNodes = Measured(told, "ground: nodes inside those pads");

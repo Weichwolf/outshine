@@ -58,6 +58,8 @@ public:
 
   [[nodiscard]] Core::RuntimeScene &Scene() noexcept { return World_.Scene(); }
 
+  [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return World_.Renderer(); }
+
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,
                                                          const Ui::Font *font) {
     if (auto prepared = World_.Prepare(previous, font); !prepared) { return prepared; }

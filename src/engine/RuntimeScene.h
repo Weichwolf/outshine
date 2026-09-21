@@ -136,6 +136,8 @@ public:
 
   [[nodiscard]] double BuildMs() const { return BuildMs_; }
 
+  [[nodiscard]] double PlanMs() const { return PlanMs_; }
+
   [[nodiscard]] double ReshapeMs() const { return ReshapeMs_; }
 
   [[nodiscard]] double ComposeMs() const { return ComposeMs_; }
@@ -397,7 +399,7 @@ private:
   void WearsPieces();
   uint64_t ShapedAt_ = 0;
   bool EverShaped_ = false;
-  double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
+  double BuildMs_ = 0.0, PlanMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
   double ReshapeMs_ = 0.0, ComposeMs_ = 0.0;
   double ReshapeAgainMs_ = 0.0, ProxyStandsMs_ = 0.0, PlacesMs_ = 0.0, WearsMs_ = 0.0;
   double LampsMs_ = 0.0, LitMs_ = 0.0, MediumMs_ = 0.0, FramingMs_ = 0.0;

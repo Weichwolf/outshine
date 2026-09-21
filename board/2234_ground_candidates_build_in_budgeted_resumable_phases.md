@@ -24,11 +24,19 @@ tile. These end-to-end bounds are green; per-stage continuation and tail measure
 remain the work of this WI.
 
 The candidate now retains corridor products and advances separately through Corridors,
-Earthworks, Water and Publication. A normal `advance()` performs at most one of these;
+Earthworks, Water, Geometry and Publication. A normal `advance()` performs at most one of these;
 preload may flush several within its explicit bound. Cold results after the split are
 8.62 s Floor and 10.54 s Lattice. This establishes a real interruption boundary while
 keeping publication atomic. Corridors and Earthworks still operate on whole bounded
 candidate inputs; measure their tails before deciding whether either needs an inner cursor.
+
+Warm Floor completion costs measured on 2026-09-21 are Corridors 36.8 ms, Earthworks
+22.8 ms, Water 0.01 ms, Geometry 210.2 ms and Publication 0.31 ms. Geometry contains a
+1.15 ms class upload and 209.1 ms `RuntimeScene::SetGeometry`; 207.5 ms of that is frame-plan
+setup. Clustering, packing and mesh upload together remain below 1 ms. Ground classes now
+upload into the candidate renderer rather than mutating the published renderer. WI 2223 owns
+the remaining frame/world boundary defect. Corridors and Earthworks need inner continuation
+only after their tail distributions and maximum inputs are recorded.
 
 ## Decision
 

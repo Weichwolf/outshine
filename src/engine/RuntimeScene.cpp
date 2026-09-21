@@ -541,7 +541,10 @@ bool RuntimeScene::Build(std::string &error) {
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   StandsShadowRadius();
 
+  const auto planFrom = std::chrono::steady_clock::now();
   if (!StandsPlan(error)) { return false; }
+  PlanMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - planFrom)
+                .count();
   WearsPieces();
   if (DeclaresKeyLight()) { StandsKeyLight(); }
 
