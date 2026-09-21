@@ -81,6 +81,9 @@ binds the same published state. Candidate construction keeps the private editing
 later resource transactions must replace this implicit route with a narrow candidate editor rather
 than exposing `ActiveState` or a renderer reference to integration owners.
 
+`GroundWorldCandidate` no longer exposes its renderer. Its first narrow editor operation is the
+ground-class upload; `Laying.cpp` cannot reach unrelated candidate renderer state through it.
+
 ## Boundaries
 
 - Device, window claim, frame attachments and GPU fences remain renderer/platform state.

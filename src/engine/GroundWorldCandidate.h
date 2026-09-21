@@ -5,6 +5,7 @@
 #include "WorldCandidate.h"
 #include <expected>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -64,7 +65,11 @@ public:
 
   [[nodiscard]] Core::RuntimeScene &Scene() noexcept { return World_.Scene(); }
 
-  [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return World_.Renderer(); }
+  [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> words,
+                                      std::span<const float> palette,
+                                      std::string &error) {
+    return World_.Renderer().SetGroundClasses(words, palette, error);
+  }
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,
                                                          const Ui::Font *font) {

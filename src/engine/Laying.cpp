@@ -1261,7 +1261,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
   candidate.Scene().GroundIs(build.GroundSurface.index());
   const auto classesBegan = std::chrono::steady_clock::now();
   if (build.ClassStructure && !build.ClassPalette.empty() &&
-      !candidate.Renderer().SetGroundClasses(
+      !candidate.SetGroundClasses(
           {build.ClassStructure->Words(), build.ClassStructure->Bytes() / sizeof(uint32_t)},
           build.ClassPalette,
           Error)) {
