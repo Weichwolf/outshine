@@ -80,10 +80,13 @@ int main() {
   if (server.Port == 0) { return Report(); }
   const auto url = "http://127.0.0.1:" + std::to_string(server.Port) + "/tile";
   {
-    Fetching transport({.Threads = 1, .TimeoutS = 10});
+    Fetching transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
+    CHECK(transport.WorkerCount() == 1, "one multi worker owns every transfer");
     const auto slow = transport.Begin(url);
     CHECK(server.AwaitConnections(1), "first request occupies the sole worker");
     const auto next = transport.Begin(url);
+    CHECK(transport.Begin(url) == Data::Ticket::None,
+          "the bounded request table refuses work beyond its declared capacity");
     transport.Cancel(slow);
     bool received = false;
     const auto deadline = Clock::now() + 3s;
@@ -101,7 +104,7 @@ int main() {
   }
   const auto started = Clock::now();
   {
-    Fetching transport({.Threads = 1, .TimeoutS = 10});
+    Fetching transport({.ConcurrentTransfers = 1, .TimeoutS = 10});
     (void)transport.Begin(url);
     CHECK(server.AwaitConnections(3), "shutdown fixture has a running transfer");
   }

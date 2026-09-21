@@ -1,5 +1,7 @@
 Type: feature
-State: open
+State: active
+Architecture: ready
+Priority: P1
 Area: engine, world, generators
 Tags: architecture, performance, owner
 Depends: 2124, 2123
@@ -51,11 +53,13 @@ a flight at 250 m/s crosses one every second and the engine stands still.
   WALK and a FLIGHT per place, with the walk digest (board:2105) and the frame budget scored on
   both
 
-**And the wire**: `Fetching` opens up to 8 HTTP/1.1 connections; Cesium's request scheduler
-rides HTTP/2, one connection multiplexing every stream, which libcurl's multi interface gives for
-one flag. Measured today: 35 MB in 1.1 s at 260-300 Mbit/s cold -- the wire's rate on 8
-connections; the server's rate limit after 3 601 requests in a burst is what a cold cache hit
-this afternoon, and a scheduler that orders by error asks for fewer tiles first.
+**And the wire**: one `Fetching` worker now owns libcurl multi, negotiates HTTP/2 for HTTPS and
+enables multiplexing. Requests and concurrent transfers are bounded; cancellation wakes multi
+instead of occupying an OS thread in `curl_easy_perform`. The connection cap remains eight because
+the real providers disproved a one-connection assumption: cold floor-contact fetched only 7.20 MB
+with one connection versus 24.55 MB with eight. At eight, mean fetch time improved from the old
+101.15 ms to 92.38 ms and ground completion from 7.36 s to 6.27 s. The Place still missed 15 s
+because admission began late; transport throughput is improved, not the whole cold-start contract.
 
 ## What will be true
 
@@ -65,8 +69,9 @@ this afternoon, and a scheduler that orders by error asks for fewer tiles first.
       moves the eye at speed and counts tiles that were asked for AFTER the eye reached them,
       which reads 0
 - [ ] The far field is resident: a case flies 50 km and the horizon's piece count never drops
-- [ ] The fetch multiplexes on HTTP/2 and a cold place stands no slower than today's warm one
-      divided by the wire's headroom, quoted per place
+- [x] Fetching uses one bounded multi owner, requests HTTP/2, enables multiplexing and retains the
+      measured eight-connection cap; cancel, capacity and shutdown are independently checked
+- [ ] A cold place stands within its budget; quote wire, admission and generation separately
 - [ ] Negative control: centre the ring on the eye again and the late-tile count at a flight
       goes RED
 
