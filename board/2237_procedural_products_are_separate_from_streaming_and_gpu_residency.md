@@ -79,15 +79,15 @@ remaining responsibilities are the next slices, so this WI is not complete.
 
 `Generators::BuildTerrainMesh` now converts candidate pages to the native indexed mesh and
 relief range without Engine or renderer ownership. `TerrainPageLayout` owns the shared explicit
-side/halo addressing used by pressing and meshing. HeightSheets no longer owns mesh assembly;
-sampling, halo resolution and GPU application remain. The analytical quad fixes winding,
-visible-node range and zoom filtering; the public floor-contact Place remains green.
-
+side/halo addressing used by pressing and meshing. HeightSheets no longer owns mesh assembly.
 `Generators::RefineTerrain` now selects complete native patches from borrowed immutable
 height fields and returns a private candidate. Engine integration only resolves cached fields
 and commits a successful result. Flat, high-error subdivision, deterministic child identity,
-budget rejection and provider-free virtual passthrough are analytical controls. HeightSheets
-still resolves/halos streamed samples and applies pages; no provider or GPU owner moved.
+budget rejection and provider-free virtual passthrough are analytical controls. `HeightSheets`
+now owns only streamed-field sampling, halo/seam resolution and its frame. The composed
+`TerrainResidency` under `engine/streaming` exclusively owns height-page handles, tile instances,
+slot indexing, uploads and releases. It consumes the completed native patchwork; generator code
+retains neither duplicate terrain representation nor renderer dependency.
 
 `StructureBuildQueue` now owns admission, revisions, scratch leases and landing preparation
 under `engine/streaming`; `StructureBuildTask` owns each bounded worker continuation. Building

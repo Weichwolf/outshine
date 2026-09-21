@@ -7,17 +7,15 @@
 #include <string>
 #include <vector>
 
-#include "Address.h"
 #include "GroundMesher.h"
 #include "TerrainGrid.h"
 #include <optional>
 #include <utility>
 #include "TerrainLoader.h"
-#include "scene/TerrainTile.h"
 #include <expected>
 #include "TangentFrame.h"
 #include "TerrainRefinement.h"
-#include "FlatMap.h"
+#include "TerrainResidency.h"
 
 namespace outshine {
 
@@ -28,12 +26,12 @@ class SceneRenderer;
 class HeightSheets {
 public:
   HeightSheets() = default;
-  HeightSheets(const HeightSheets &other);
+  HeightSheets(const HeightSheets &other) = default;
   HeightSheets &operator=(const HeightSheets &) = delete;
   HeightSheets(HeightSheets &&) noexcept = default;
   HeightSheets &operator=(HeightSheets &&) noexcept = default;
 
-  void Into(Render::SceneRenderer *renderer) noexcept { Renderer_ = renderer; }
+  void Into(Render::SceneRenderer *renderer) noexcept { Residency_.Into(renderer); }
 
   void Framed(const TangentFrame &frame) {
     Frame_ = frame;
@@ -56,11 +54,11 @@ public:
 
   void Clear();
 
-  [[nodiscard]] size_t Standing() const { return Held_.size(); }
+  [[nodiscard]] size_t Standing() const { return Residency_.Standing(); }
 
-  [[nodiscard]] size_t Instances() const { return Instances_.size() + Virtual_.size(); }
+  [[nodiscard]] size_t Instances() const { return Residency_.Instances(); }
 
-  [[nodiscard]] size_t Flat() const { return Flat_; }
+  [[nodiscard]] size_t Flat() const { return Residency_.Flat(); }
 
   [[nodiscard]] uint64_t Digest() const;
 
@@ -83,27 +81,7 @@ public:
   [[nodiscard]] const Seam &Seams() const { return Seams_; }
 
 private:
-  struct TileHash {
-    [[nodiscard]] uint64_t operator()(const Data::TileId &tile) const noexcept;
-  };
-
-  struct Held {
-    Data::TileId Tile;
-    Render::HeightPageHandle Page{};
-    std::vector<float> Nodes;
-  };
-
-  [[nodiscard]] bool HandsGrid(const Patchwork &laid, std::string &error);
   void StitchEdges(Patchwork &laid);
-  [[nodiscard]] std::expected<Render::HeightPageHandle, std::string>
-  PageFor(Data::TileId tile, std::span<const float> nodes);
-  [[nodiscard]] Render::TerrainTile
-  TileOf(Data::TileId tile, Render::HeightPageHandle page, std::span<const float> nodes) const;
-
-  std::vector<Held> Held_;
-  FlatMap<size_t, Data::TileId, TileHash> PageIndex_;
-  std::vector<Render::TerrainTile> Instances_;
-  std::vector<Render::TerrainTile> Virtual_;
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
                                                     Data::TileId tile);
   [[nodiscard]] const Ground::TerrainField *HeldFieldAt(Data::TileId tile) const;
@@ -113,11 +91,9 @@ private:
   [[nodiscard]] bool HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom);
 
   std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
-  size_t Flat_ = 0;
   size_t RimsMissing_ = 0;
   Seam Seams_;
-  uint32_t GridPostings_ = 0;
-  Render::SceneRenderer *Renderer_ = nullptr;
+  TerrainResidency Residency_;
   TangentFrame Frame_ = TangentFrame::At({});
   bool Framed_ = false;
 };
