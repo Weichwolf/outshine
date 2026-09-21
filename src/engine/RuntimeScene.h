@@ -201,10 +201,14 @@ public:
   [[nodiscard]] double ShadowRadiusStanding() const { return ShadowRadiusStoodM_; }
 
   [[nodiscard]] Render::ReadState Pyramid(Render::PyramidDepths &into) const {
+    const auto published = Renderer_->PublishedWorld();
     return Renderer_->ReadPyramid(into);
   }
 
-  [[nodiscard]] const Vec3 &ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowCentreStanding() const {
+    const auto published = Renderer_->PublishedWorld();
+    return Renderer_->ShadowStoodAtM();
+  }
 
   struct Bearing {
     Mat4 WorldFromBodyM;
@@ -242,7 +246,10 @@ public:
 
   [[nodiscard]] size_t InstancesStanding() const { return Stood_.Instances(); }
 
-  [[nodiscard]] double NearStanding() const { return static_cast<double>(Renderer_->NearMetres()); }
+  [[nodiscard]] double NearStanding() const {
+    const auto published = Renderer_->PublishedWorld();
+    return static_cast<double>(Renderer_->NearMetres());
+  }
 
   [[nodiscard]] static double NearestStandable() {
     return static_cast<double>(Render::SceneRenderer::kNearM);
@@ -261,6 +268,7 @@ public:
   }
 
   [[nodiscard]] Holds<bool> Wheeled(double xPx, double yPx, double byPx, std::string &error) {
+    const auto published = Renderer_->PublishedWorld();
     auto changed = Ui_.Wheel(xPx, yPx, byPx);
     if (changed) { return *changed; }
     error = std::move(changed.error());

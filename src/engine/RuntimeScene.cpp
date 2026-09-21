@@ -829,6 +829,7 @@ const std::string &RuntimeScene::ProgrammeOf(size_t surface) const {
 }
 
 bool RuntimeScene::Redeclare(std::vector<UiSurface> surfaces, std::string &error) {
+  const auto published = Renderer_->PublishedWorld();
   return Ui_.Redeclare(std::move(surfaces), error);
 }
 
@@ -838,10 +839,12 @@ void RuntimeScene::SkyEye(double aboveGroundM) {
   constexpr double kSkyEyeStepM = 2.0;
   const double quantisedM =
       std::floor(std::fmax(0.0, aboveGroundM) / kSkyEyeStepM + 0.5) * kSkyEyeStepM;
+  const auto published = Renderer_->PublishedWorld();
   Renderer_->SetSkyEye(static_cast<float>(quantisedM));
 }
 
 bool RuntimeScene::Carries(size_t bodies, std::string &error) {
+  const auto published = Renderer_->PublishedWorld();
   if (bodies == 0) {
     error = "a picture was asked to carry no bodies at all, and that is a different statement "
             "from carrying one that has not moved";
@@ -875,6 +878,7 @@ Mat4 RuntimeScene::InMetres(const Mat4 &placed) const {
 }
 
 bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
+  const auto published = Renderer_->PublishedWorld();
   const Mat4 bodyM = InMetres(held.WorldFromBodyM);
   if (Joined_ == 0) {
     error = "nothing joined this picture from a file, so there is no body to carry -- every part "
