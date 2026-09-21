@@ -90,6 +90,8 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
   GPU-Floatadressgrenzen sind analytisch geprüft. Absolutes Speicherbudget bleibt WI 2228.
 - Tests liegen unter `test/outshine/src/engine/<Komponente>/`; öffentliche Übergänge
   unter `test/outshine/include/Outshine/`. Produktionsoperation aufrufen, nicht nachbauen.
+  Der RuntimeScene-Piece-Test ersetzt Geometrie über `ReplacesGeometry`, nie über die direkte
+  Kandidatenaufbauoperation auf einer veröffentlichten Szene.
 - Ground-Transaktion: Graz ohne Vegetation unverändert, 0/921600 abweichende Pixel;
   Referenz `build/shots/reference/ground-world-transaction/`. Keine visuelle Qualitätsabnahme.
 - Pro Schritt `make format`, betroffene `make suite SUITE=...`, `make lint`.

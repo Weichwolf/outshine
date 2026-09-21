@@ -310,8 +310,8 @@ int main() {
         "after-arrival PNG is written");
   renderer.ReleasePiece(newPiece);
   renderer.ReleasePiece(oldPiece);
-  CHECK(scene->SetGeometry(base.clone(), 0, error),
-        "RuntimeScene rebuilds after the direct renderer registration fixture");
+  CHECK(Core::RuntimeScene::ReplacesGeometry(renderer, *scene, base.clone(), nullptr, scene, error),
+        "native geometry replacement publishes around the direct renderer registration fixture");
   scene->Eye(eye);
   Geometry empty;
   CHECK(!renderer.RegisterPieceMaterials(std::move(empty)),
