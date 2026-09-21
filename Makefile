@@ -186,6 +186,7 @@ test-documentation: ## verify public documentation coverage and Doxygen failure 
 .PHONY: test-reference-cache corpus-reference
 test-reference-cache: ## validate immutable reference pins and missing/corrupt cache failures
 	@cd $(SELF_DIR) && python3 test/scripts/test_reference_store.py
+	@cd $(SELF_DIR) && python3 test/scripts/test_oracle_seed_shift.py
 	@cd $(SELF_DIR) && python3 test/scripts/reference_store.py
 
 .PHONY: test-client-render

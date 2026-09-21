@@ -252,7 +252,28 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
         for frame in manifest.frame_grid():
             results.append(_render_one(manifest, store, blender, destination, gltf_paths,
                                        subject_pin, name, frame, force))
+    _verify_seed_shift(manifest, results)
     return results
+
+def _verify_seed_shift(manifest, results):
+    by_render = {(row["recipe"], row.get("frame")): row for row in results}
+    for (recipe, frame), default in sorted(by_render.items(), key=lambda item: str(item[0])):
+        if recipe != manifest_module.DEFAULT_RECIPE_NAME:
+            continue
+        shifted = by_render.get((manifest_module.SEED_SHIFT_RECIPE_NAME, frame))
+        if shifted is None:
+            continue
+        expected = default["digests"]["raw"]
+        observed = shifted["digests"]["raw"]
+        if expected != observed:
+            suffix = "" if frame is None else ".f%04d" % frame
+            raise Refusal(
+                "oracle " + manifest.id + " / seed-shift" + suffix,
+                expected=expected,
+                observed=observed,
+                why="the manifest claims an estimator-free render, but changing only the seed "
+                    "changed its float pixels",
+            )
 
 def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, name, frame, force):
     recipe = manifest.renders[name]
