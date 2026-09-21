@@ -41,6 +41,10 @@ int main() {
       std::vector<float> expected;
       CHECK(renderer.ReadSceneLinear(expected) == Render::ReadState::Ready && !expected.empty(),
             "published pixels are readable");
+      CHECK(renderer.BeginsWorldCandidate(error), "an unedited world candidate opens");
+      CHECK(renderer.DeviceUsable(),
+            "an unedited candidate leaves renderer state on the published world");
+      renderer.AbandonsWorldCandidate();
       {
         Core::WorldCandidate candidate(renderer);
         const auto prepared = candidate.Prepare(*scene, nullptr);

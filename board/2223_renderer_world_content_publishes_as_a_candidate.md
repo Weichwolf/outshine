@@ -81,6 +81,8 @@ binds the same published state. Candidate construction owns an explicit move-onl
 an open candidate alone leaves the published state active. Preparation transfers that scope to its
 RuntimeScene and releases it only after a successful renderer commit. This replaces implicit
 `ActiveState` routing without exposing a renderer reference to integration owners.
+The world-content pixel oracle also opens an unedited raw renderer candidate: its direct
+`DeviceUsable` query remains published; restoring automatic routing makes that control red.
 
 `GroundWorldCandidate` exposes weder Renderer noch RuntimeScene. Klassen-, Ground-Albedo-,
 Audit- und Geometrieoperationen sind explizite Kandidatenoperationen; auch der Failure/Retry-
