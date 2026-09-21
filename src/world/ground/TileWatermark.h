@@ -108,6 +108,28 @@ public:
     return Mark_ >= feats.size();
   }
 
+  [[nodiscard]] bool AcceptedWithin(std::span<const OsmField::Feature> feats,
+                                    std::span<const OsmField::Tile> tiles,
+                                    int centreX,
+                                    int centreY,
+                                    int rings) const {
+    if (rings < 0) { return false; }
+    size_t at = 0;
+    while (at < feats.size()) {
+      const size_t first = at;
+      const uint32_t tile = feats[at].Tile;
+      while (at < feats.size() && feats[at].Tile == tile) { ++at; }
+      if (tile >= tiles.size()) { return false; }
+      const OsmField::Tile &source = tiles[tile];
+      if (std::abs(source.X - centreX) > rings || std::abs(source.Y - centreY) > rings) {
+        continue;
+      }
+      const bool skipped = std::ranges::binary_search(Skipped_, tile);
+      if (skipped || (first >= Mark_ && !Taken(tile))) { return false; }
+    }
+    return true;
+  }
+
   [[nodiscard]] int Deferrals() const { return Deferrals_; }
 
   [[nodiscard]] size_t AheadCount() const { return Ahead_.size(); }

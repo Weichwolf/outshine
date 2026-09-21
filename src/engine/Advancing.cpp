@@ -334,7 +334,8 @@ bool Engine::State::Updates() {
         static const Heap::Tag kRestandingTag("world-restand");
         const Heap::Tagged restanding(kRestandingTag);
         HandsPiecesOver();
-        const auto streamed = World.Stack.Restand(stands, Ground::kFrameIngestTiles);
+        const auto streamed =
+            World.Stack.Restand(stands, Ground::kFrameIngestTiles, Ground::kVectorRing);
         if (!streamed) {
           Error = streamed.error();
           return false;

@@ -21,8 +21,11 @@ view serializes playability behind distant refinement.
 The first staged implementation publishes a `Playable` request from exact contact
 coverage while retaining `Refined` for normal streaming. It bounds structure admission
 to one candidate before first publication. A cold floor run fell from 15.45 s (timeout)
-to 11.18 s preload after removing synchronous DEM acquisition from road draping;
-all six contact assertions pass. Crossing sweep reuse costs 0.095 ms. Sampling heights
+to 8.58 s preload after removing synchronous DEM acquisition from road draping and
+requesting only the central vector tile before first publication; all six contact
+assertions pass. Cold Lattice passes in 10.19 s. Ring 3 begins after `Playable`, and its
+mutable producer counters no longer invalidate the atomically published snapshot.
+Crossing sweep reuse costs 0.095 ms. Sampling heights
 for 1,891 crossings had cost 2.35 s because a field miss called `StitchedFieldAwaited`.
 `FieldUpM` now reads prepared candidate fields only and falls back to its candidate BVH.
 
@@ -65,6 +68,7 @@ is deterministic for the same request, never an implicit response to arrival ord
 
 - [x] Cold floor-contact becomes Playable within 15 s with its 0.01 m contact checks
       unchanged; no timeout increase, missing geometry or forced test-only source.
+- [x] Cold Lattice becomes Playable within 15 s with its seam checks unchanged.
 - [ ] A distant delayed DEM cannot block near contact publication. Its later arrival
       produces one atomic revision change and no intermediate mixed frame.
 - [ ] Camera movement cancels obsolete B while A remains capturable; repeated inputs

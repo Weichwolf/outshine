@@ -231,6 +231,7 @@ struct Surrounds {
   size_t Wanted = 0;
   size_t AskedPending = 0;
   size_t AskedWanted = 0;
+  size_t AskedPlayablePending = 0;
   GroundPublication GroundPublished;
   std::unique_ptr<GroundBuildState> GroundBuild;
 
@@ -428,7 +429,6 @@ struct Engine::State {
 
   [[nodiscard]] bool RefineGroundSheets(const TangentFrame &standing,
                                         Patchwork &patchwork,
-                                        const Around &over,
                                         GroundBuildProducts &build);
   [[nodiscard]] bool ApplyGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,

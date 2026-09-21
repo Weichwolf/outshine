@@ -35,6 +35,7 @@ struct Around {
   int Levels = 1;
   int Grid = kPatchGrid;
   bool Asking = false;
+  bool PlayableOnly = false;
 };
 
 struct Sheet {
@@ -54,6 +55,7 @@ struct Patchwork {
   size_t Refused = 0;
   size_t Skipped = 0;
   size_t Bare = 0;
+  size_t ContactPending = 0;
   std::array<int, kZoomLevels> PendingAtZoom = {{}};
   std::array<int, kZoomLevels> WantedAtZoom = {{}};
   size_t Overlapped = 0;

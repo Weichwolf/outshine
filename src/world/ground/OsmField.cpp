@@ -126,6 +126,7 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
   Refused_ = 0;
   CentreX_ = centre->X;
   CentreY_ = centre->Y;
+  RequestedRing_ = std::max(RequestedRing_, ringTiles);
   int added = 0;
 
   for (int64_t ty = window->MinY; ty <= window->MaxY; ++ty) {
@@ -153,6 +154,20 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
 
 bool OsmField::Settled(int x, int y) const {
   return std::ranges::find(Settled_, TileKey(x, y)) != Settled_.end();
+}
+
+bool OsmField::SettledWithin(int rings) const {
+  if (rings < 0 || RequestedRing_ < rings || Zoom_ < 0 ||
+      Zoom_ >= std::numeric_limits<int>::digits) {
+    return false;
+  }
+  const int last = static_cast<int>((uint64_t{1} << static_cast<unsigned>(Zoom_)) - 1);
+  for (int y = std::max(0, CentreY_ - rings); y <= std::min(last, CentreY_ + rings); ++y) {
+    for (int x = std::max(0, CentreX_ - rings); x <= std::min(last, CentreX_ + rings); ++x) {
+      if (!Settled(x, y)) { return false; }
+    }
+  }
+  return true;
 }
 
 void OsmField::Settle(int x, int y) {
@@ -496,6 +511,7 @@ bool OsmField::MatchesDeclaration(std::span<const Declared> input, TileAt over) 
 void OsmField::Declare(std::span<const Declared> these, TileAt over) {
   if (MatchesDeclaration(these, over)) {
     Pending_ = 0;
+    RequestedRing_ = 0;
     return;
   }
   Features_.clear();
@@ -521,6 +537,7 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
                         .FeatureCount = static_cast<uint32_t>(Features_.size())});
   Settle(over.X, over.Y);
   Pending_ = 0;
+  RequestedRing_ = 0;
   ++Generation_;
 }
 

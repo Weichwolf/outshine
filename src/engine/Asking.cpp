@@ -347,6 +347,7 @@ bool Engine::State::Asks() {
   over.LongitudeDeg = focus.LongitudeDeg;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Asking = true;
+  over.PlayableOnly = !World.GroundPublished.Current();
   {
     const double tileSpanM =
         40075017.0 * std::cos(over.LatitudeDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
@@ -365,6 +366,7 @@ bool Engine::State::Asks() {
   World.Wanted = asked->Tiles;
   World.AskedPending = asked->Pending;
   World.AskedWanted = asked->Tiles;
+  if (over.PlayableOnly) { World.AskedPlayablePending = asked->Pending; }
   {
     const Ground::TilePool::Ledger kept = World.Stack.Pool().Counters();
     Published.Places("mesh jobs the pool finished", static_cast<double>(kept.MeshTiles), "tiles");

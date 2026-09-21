@@ -100,8 +100,8 @@ public:
 
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
-  [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at,
-                                                              size_t ingestTilesMost);
+  [[nodiscard]] std::expected<void, std::string_view>
+  Restand(LongitudeLatitude at, size_t ingestTilesMost, int vectorRing);
 
   [[nodiscard]] bool AwaitProgress(double seconds);
 
@@ -110,6 +110,7 @@ public:
   void Settle();
   [[nodiscard]] bool Drained() const;
   [[nodiscard]] bool Ingested() const;
+  [[nodiscard]] bool IngestedWithin(int rings) const;
   [[nodiscard]] std::string IngestionStatus() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 

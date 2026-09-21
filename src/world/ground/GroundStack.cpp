@@ -102,11 +102,11 @@ std::expected<TileAt, std::string_view> GroundStack::ValidatePosition(LongitudeL
   return OsmField::Locate(at, vectorZoom);
 }
 
-std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
-                                                           size_t ingestTilesMost) {
+std::expected<void, std::string_view>
+GroundStack::Restand(LongitudeLatitude at, size_t ingestTilesMost, int vectorRing) {
   const auto vectorTile = ValidatePosition(at);
   if (!vectorTile) { return std::unexpected(vectorTile.error()); }
-  if (!Pool_ || StandsAt(at)) { return {}; }
+  if (!Pool_) { return {}; }
   const auto classified = Cls_.Update(*Pool_, at);
   if (!classified) { return std::unexpected(classified.error()); }
   Stood_ = at;
@@ -124,12 +124,12 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   if (Declared_.empty()) {
-    const auto built = Vectors_->Build(*Pool_, at, kVectorRing, kVectorTiles);
+    const auto built = Vectors_->Build(*Pool_, at, vectorRing, kVectorTiles);
     if (!built) { return std::unexpected(built.error()); }
   } else {
     Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), *vectorTile);
   }
-  if (Vectors_->PendingTiles() > 0) { return {}; }
+  if (!Vectors_->SettledWithin(0)) { return {}; }
   for (size_t pass = 0; pass < ingestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       Settle();
@@ -177,6 +177,12 @@ bool GroundStack::Drained() const {
 bool GroundStack::Ingested() const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
+}
+
+bool GroundStack::IngestedWithin(int rings) const {
+  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
+         Ways_.IngestedWithin(*Vectors_, rings) && WaterBodies_.IngestedWithin(*Vectors_, rings);
 }
 
 std::string GroundStack::IngestionStatus() const {

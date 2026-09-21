@@ -52,6 +52,7 @@ public:
   [[nodiscard]] std::expected<HeightPageHandle, std::string>
   PlaceHeightPage(SubjectDraw &subjects, std::span<const float> nodes);
   void ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which);
+  [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
   [[nodiscard]] bool RestoreHeightPages(SubjectDraw &subjects, std::string &error);
   [[nodiscard]] bool
@@ -112,8 +113,6 @@ private:
     std::vector<float> Nodes;
     PageId Resident = kNoPage;
   };
-
-  [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;

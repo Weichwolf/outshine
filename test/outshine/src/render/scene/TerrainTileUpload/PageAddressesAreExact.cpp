@@ -33,7 +33,9 @@ int main() {
   }
   CHECK(!Render::EncodeTerrainTile(tile, boundary + 1),
         "inexact address cannot alias its neighbor");
-  CHECK(!Render::EncodeTerrainTile(tile, Render::kNoPage), "invalid GPU address is rejected");
+  const auto unavailable = Render::EncodeTerrainTile(tile, Render::kNoPage);
+  CHECK(!unavailable && unavailable.error() == Render::Says::GroundPageUnavailable,
+        "unresident GPU page is distinguished from numeric encoding failure");
   CHECK(!Render::EncodeTerrainTile(tile, std::numeric_limits<uint32_t>::max() - 1),
         "rounding near uint32 maximum never performs a float-to-integer conversion");
   return Report();

@@ -345,7 +345,8 @@ bool SceneResources::SetTerrainTiles(SubjectDraw &subjects,
     for (const TerrainTile &tile : source) {
       const auto encoded = EncodeTerrainTile(tile, HeightPageResident(tile.Page));
       if (!encoded) {
-        error = encoded.error();
+        error = std::string(encoded.error()) + ": slot=" + std::to_string(tile.Page.Slot) +
+                ", generation=" + std::to_string(tile.Page.Generation);
         return false;
       }
       into.push_back(*encoded);

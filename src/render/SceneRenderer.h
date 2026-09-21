@@ -172,6 +172,10 @@ public:
     return ActiveState().Content.Resources.PlaceHeightPage(ActiveState().Content.Subjects, nodes);
   }
 
+  [[nodiscard]] bool HasHeightPage(HeightPageHandle which) const noexcept {
+    return ActiveState().Content.Resources.HasHeightPage(which);
+  }
+
   void ReleaseHeightPage(PageId which) {
     ActiveState().Content.Subjects.Ground().ReleasePage(which);
   }

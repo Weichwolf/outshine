@@ -67,6 +67,11 @@ public:
 
   [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
 
+  [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const {
+    return Mark_.AcceptedWithin(
+        field.Features(), field.Tiles(), field.CentreX(), field.CentreY(), rings);
+  }
+
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:

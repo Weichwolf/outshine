@@ -27,6 +27,8 @@ int main() {
                                                     .LatLon = {5, 6, 7, 8, 5, 8}}}};
   const auto declare = [&] { field.Declare(input, Ground::TileAt{.X = 8, .Y = 9}); };
   declare();
+  CHECK(field.SettledWithin(0), "declared centre is settled");
+  CHECK(!field.SettledWithin(1), "declared centre does not claim surrounding coverage");
   const size_t warmBytes = field.HeapBytes();
   const size_t warmKeys = field.KeyCount();
   const uint64_t originalGeneration = field.Generation();

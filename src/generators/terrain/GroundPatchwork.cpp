@@ -87,20 +87,27 @@ bool RequestTile(TileMeshes &tiles, const Around &over, Data::TileId asked, Patc
   TileBuild built;
   const auto reply =
       over.Asking ? tiles.Wants(asked, over.Grid) : tiles.Mesh(asked, over.Grid, &built);
-  const bool ready = RecordReply(reply, asked.Zoom, out) && built.Side >= 2 && !built.Nodes.empty();
+  const bool available = RecordReply(reply, asked.Zoom, out);
+  const bool ready = available && (over.Asking || (built.Side >= 2 && !built.Nodes.empty()));
   ++out.Tiles;
   if (!over.Asking) {
     if (!ready) { ++out.Bare; }
-    out.Sheets.push_back({.Tile = asked,
-                          .Nodes = std::move(built.Nodes),
-                          .Side = built.Side,
-                          .Postings = built.Postings});
+    if (ready) {
+      out.Sheets.push_back({.Tile = asked,
+                            .Nodes = std::move(built.Nodes),
+                            .Side = built.Side,
+                            .Postings = built.Postings});
+    }
   }
   return ready;
 }
 
-void LayLevel(
-    TileMeshes &tiles, const Around &over, int level, Coverage &coverage, Patchwork &out) {
+void LayLevel(TileMeshes &tiles,
+              const Around &over,
+              int level,
+              int lastLevel,
+              Coverage &coverage,
+              Patchwork &out) {
   const int zoom = over.Zoom - level;
   const long span = 1L << static_cast<unsigned>(level);
   const auto at = Ground::ToTileFracClamped(
@@ -113,6 +120,9 @@ void LayLevel(
     for (long column = 0; column < kBlockTiles; ++column) {
       long x = originX + column;
       const long y = originY + row;
+      const bool contact = level == 0 && x == static_cast<long>(std::floor(at.X)) &&
+                           y == static_cast<long>(std::floor(at.Y));
+      if (over.Asking && over.PlayableOnly && level != lastLevel && !contact) { continue; }
       const TileRegion region{.X = x * span, .Y = y * span, .Span = span};
       const uint64_t covered = coverage.CoveredCells(region);
       if (covered == region.Cells()) {
@@ -123,7 +133,9 @@ void LayLevel(
       if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
       const Data::TileId asked{
           .Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
-      if (RequestTile(tiles, over, asked, out)) { standing[count++] = region; }
+      const bool ready = RequestTile(tiles, over, asked, out);
+      if (contact && !ready) { ++out.ContactPending; }
+      if (ready) { standing[count++] = region; }
     }
   }
   for (const auto &region : std::span(standing).first(count)) { coverage.Add(region); }
@@ -142,7 +154,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   Patchwork out;
   if (!over.Asking) { out.Sheets.reserve(kTilesPerLevel * static_cast<size_t>(levels)); }
   Coverage coverage;
-  for (int level = 0; level < levels; ++level) { LayLevel(tiles, over, level, coverage, out); }
+  for (int level = 0; level < levels; ++level) {
+    LayLevel(tiles, over, level, levels - 1, coverage, out);
+  }
   if (out.Tiles == 0) { return std::unexpected(Says::Empty); }
   return out;
 }

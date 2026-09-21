@@ -95,6 +95,8 @@ public:
 
   [[nodiscard]] bool Settled(int x, int y) const;
 
+  [[nodiscard]] bool SettledWithin(int rings) const;
+
   [[nodiscard]] int TileIndex(int x, int y) const;
 
   [[nodiscard]] std::span<const Feature> OfTile(int index) const;
@@ -174,6 +176,7 @@ private:
   std::vector<uint64_t> Settled_;
   TilePool::Landing Scratch_;
   int Zoom_;
+  int RequestedRing_ = -1;
   int Pending_ = -1;
   int Refused_ = 0;
   long Missing_ = 0, Bad_ = 0;

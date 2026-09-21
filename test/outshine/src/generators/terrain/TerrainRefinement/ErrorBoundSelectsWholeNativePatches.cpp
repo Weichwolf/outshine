@@ -40,6 +40,16 @@ int main() {
   CHECK(!overBudget && overBudget.error().find("needs 4 height patches") != std::string::npos,
         "a complete over-budget result is rejected instead of truncated");
 
+  const Sheet nativeChild{
+      .Tile = {.Zoom = 11, .X = 1024, .Y = 1024}, .Nodes = {}, .Side = layout.Side, .Postings = 33};
+  const std::array overlappingSources{
+      TerrainRefinementSource{.Page = &page, .Heights = &spike},
+      TerrainRefinementSource{.Page = &nativeChild, .Heights = &flat}};
+  const auto resolved = RefineTerrain(overlappingSources, TangentFrame::At({}), layout, detail, 4);
+  CHECK(resolved && resolved->size() == 4 && resolved->front().Tile == nativeChild.Tile &&
+            !resolved->front().Virtual,
+        "a native source replaces the same patch derived from a coarser source");
+
   const Sheet virtualPage{.Tile = {.Zoom = 11, .X = 1024, .Y = 1024},
                           .Nodes = {},
                           .Side = layout.Side,
@@ -51,5 +61,21 @@ int main() {
   CHECK(retained && retained->size() == 1 && retained->front().Tile == virtualPage.Tile &&
             retained->front().Virtual,
         "an already virtual patch passes through without a terrain provider");
+
+  Sheet finerVirtual = virtualPage;
+  finerVirtual.SourceZoom = 11;
+  const std::array virtualOverlap{
+      TerrainRefinementSource{.Page = &virtualPage, .Heights = nullptr},
+      TerrainRefinementSource{.Page = &finerVirtual, .Heights = nullptr}};
+  const auto preferred = RefineTerrain(virtualOverlap, TangentFrame::At({}), layout, detail, 1);
+  CHECK(preferred && preferred->size() == 1 && preferred->front().SourceZoom == 11,
+        "the same virtual patch derived from the finer source wins deterministically");
+
+  const std::array ambiguousOverlap{
+      TerrainRefinementSource{.Page = &virtualPage, .Heights = nullptr},
+      TerrainRefinementSource{.Page = &virtualPage, .Heights = nullptr}};
+  const auto ambiguous = RefineTerrain(ambiguousOverlap, TangentFrame::At({}), layout, detail, 1);
+  CHECK(!ambiguous && ambiguous.error().find("equally authoritative") != std::string::npos,
+        "two equal sources for one patch are rejected");
   return Report();
 }

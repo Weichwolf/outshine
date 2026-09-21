@@ -79,8 +79,6 @@ constexpr float kTileRoughness = 0.72f;
 constexpr double kPadApronM = 6.0;
 constexpr double kWaterBedM = 2.0;
 constexpr double kWaterBankM = kWaterBedM / kBatterRise;
-constexpr int kLatticeVirtualLevels = 4;
-
 constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
@@ -108,6 +106,8 @@ public:
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
            Revision_.Footprints == revision.Footprints &&
+           Revision_.StreetTiles == revision.StreetTiles &&
+           Revision_.WaterTiles == revision.WaterTiles &&
            Revision_.Projection == revision.Projection && Revision_.Coverage == revision.Coverage &&
            Revision_.Quality == revision.Quality;
   }
@@ -408,6 +408,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   ++World.Asked;
   Around asking = over;
   asking.Asking = true;
+  asking.PlayableOnly = quality == GroundQuality::Playable;
   auto sees = World.Shipping.Covering().Lay(World.Stack.Pool(), asking);
   if (!sees) {
     Error = sees.error();
@@ -415,6 +416,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   }
   World.AskedPending = sees->Pending;
   World.AskedWanted = sees->Tiles;
+  if (asking.PlayableOnly) { World.AskedPlayablePending = sees->Pending; }
   const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
   const std::shared_ptr<const ClassStructure> naming = World.Stack.Classes().Read();
   const uint64_t classes = naming ? naming->Version() : 0;
@@ -430,6 +432,8 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                       .ResidentTiles = resident,
                       .Classes = classes,
                       .Footprints = footprints,
+                      .StreetTiles = World.Stack.Ways().IngestedTiles(),
+                      .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
                       .Projection = projection,
                       .Coverage = {.ContactRadiusM = 0.5 * World.Stack.Footprints().TileSpanM(),
                                    .VisualRadiusM = visualRadiusM,
@@ -562,18 +566,9 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
 
 bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
                                        Patchwork &patchwork,
-                                       const Around &over,
                                        GroundBuildProducts &build) {
   {
     build.Sheets.Framed(standing);
-    Published.Places(
-        "ground: virtual tiles the lattice refines to",
-        static_cast<double>(HeightSheets::Refine(
-            patchwork,
-            {.FinestZoom = over.Zoom,
-             .Levels = kLatticeVirtualLevels,
-             .Eye = {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}})),
-        "tiles");
     const Render::Viewpoint &eye = Picture.Standing->Watching();
     Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
     if (eye.Kind == Render::CameraKind::Orthographic) {
@@ -590,6 +585,10 @@ bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
                                     Error)) {
       return false;
     }
+    Published.Places("ground: virtual tiles the lattice refines to",
+                     static_cast<double>(std::ranges::count_if(
+                         patchwork.Sheets, [](const Sheet &sheet) { return sheet.Virtual; })),
+                     "tiles");
   }
   return true;
 }
@@ -921,7 +920,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
   GroundBuildProducts &build = state.Candidate().Products();
   switch (state.SheetBuilding()) {
     case GroundBuildState::SheetPhase::NeedsRefinement:
-      if (!RefineGroundSheets(standing, patchwork, coverage, build)) {
+      if (!RefineGroundSheets(standing, patchwork, build)) {
         World.GroundBuild.reset();
         return GroundBuildProgress::Failed;
       }
@@ -1125,6 +1124,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   auto censusAt = phaseAt;
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared || !Picture.Standing || !World.Stack.Opened()) { return true; }
+  if (quality == GroundQuality::Refined ? !World.Stack.Ingested()
+                                        : !World.Stack.IngestedWithin(0)) {
+    return true;
+  }
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 

@@ -57,11 +57,13 @@ HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes) {
   const auto found = PageIndex_.find(key);
   if (found != PageIndex_.end()) {
     Held &one = Held_[found->second];
-    if (one.Page && std::ranges::equal(one.Nodes, nodes)) { return one.Page; }
+    if (one.Page && Renderer_->HasHeightPage(one.Page) && std::ranges::equal(one.Nodes, nodes)) {
+      return one.Page;
+    }
     std::vector<float> replacement(nodes.begin(), nodes.end());
     const auto page = Renderer_->PlaceHeightPage(replacement);
     if (!page) { return std::unexpected(page.error()); }
-    Renderer_->ReleaseHeightPage(one.Page);
+    if (Renderer_->HasHeightPage(one.Page)) { Renderer_->ReleaseHeightPage(one.Page); }
     one.Page = *page;
     one.Nodes = std::move(replacement);
     return one.Page;
@@ -159,34 +161,6 @@ void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missin
       page[PageNode(i, j)] = page[PageNode(std::clamp(i, 0, side - 1), std::clamp(j, 0, side - 1))];
     }
   }
-}
-
-}
-
-namespace {
-
-constexpr long kBlockTiles = 8;
-constexpr long kHalfBlock = kBlockTiles / 2;
-
-struct Block {
-  long X0 = 0;
-  long Y0 = 0;
-};
-
-[[nodiscard]] Block BlockAround(LongitudeLatitude eye, int zoom) {
-  const Ground::TileFrac at = Ground::ToTileFracClamped(
-      Ground::Geo{.LongitudeDeg = eye.LongitudeDeg, .LatitudeDeg = eye.LatitudeDeg}, zoom);
-  const auto origin = [](double f) {
-    return kHalfBlock *
-           static_cast<long>(std::floor((std::floor(f) - static_cast<double>(kHalfBlock - 1)) /
-                                        static_cast<double>(kHalfBlock)));
-  };
-  return {.X0 = origin(at.X), .Y0 = origin(at.Y)};
-}
-
-[[nodiscard]] bool Covers(Block finer, long x, long y) {
-  return x >= finer.X0 / 2 && x < finer.X0 / 2 + kHalfBlock && y >= finer.Y0 / 2 &&
-         y < finer.Y0 / 2 + kHalfBlock;
 }
 
 }
@@ -418,39 +392,6 @@ size_t HeightSheets::Halos(Patchwork &laid, const Ground::GroundStream &ground, 
   return haloed;
 }
 
-size_t HeightSheets::Refine(Patchwork &laid, Nearer how) {
-  if (how.Levels <= 0) { return 0; }
-  std::vector<Sheet> made;
-  Block finer = BlockAround(how.Eye, how.FinestZoom + how.Levels + 1);
-  for (int level = how.Levels; level >= 1; --level) {
-    const int zoom = how.FinestZoom + level;
-    const Block block = BlockAround(how.Eye, zoom);
-    const bool anyFiner = level < how.Levels;
-    for (long row = 0; row < kBlockTiles; ++row) {
-      for (long column = 0; column < kBlockTiles; ++column) {
-        const long x = block.X0 + column;
-        const long y = block.Y0 + row;
-        if (anyFiner && Covers(finer, x, y)) { continue; }
-        const Data::TileId tile{
-            .Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
-        made.push_back({.Tile = tile,
-                        .Nodes = {},
-                        .Side = Render::GroundLattice::kSide,
-                        .Postings = 0,
-                        .Virtual = true});
-      }
-    }
-    finer = block;
-  }
-  std::erase_if(laid.Sheets, [&](const Sheet &one) {
-    return one.Tile.Zoom == how.FinestZoom &&
-           Covers(finer, static_cast<long>(one.Tile.X), static_cast<long>(one.Tile.Y));
-  });
-  const size_t count = made.size();
-  for (Sheet &one : made) { laid.Sheets.push_back(std::move(one)); }
-  return count;
-}
-
 bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
   for (const Sheet &sheet : laid.Sheets) {
     if (sheet.Side != Render::GroundLattice::kSide || sheet.Virtual || sheet.Postings < 2 ||
@@ -473,7 +414,16 @@ bool HeightSheets::HandsGrid(const Patchwork &laid, std::string &error) {
 bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
   if (Renderer_ == nullptr || !Framed_) { return true; }
   std::map<SheetKey, size_t> wanted;
-  for (size_t i = 0; i < laid.Sheets.size(); ++i) { wanted.emplace(KeyOf(laid.Sheets[i].Tile), i); }
+  for (size_t i = 0; i < laid.Sheets.size(); ++i) {
+    const SheetKey key = KeyOf(laid.Sheets[i].Tile);
+    const auto [found, inserted] = wanted.emplace(key, i);
+    if (!inserted) {
+      error = "ground patchwork repeats tile " + std::to_string(std::get<0>(key)) + "/" +
+              std::to_string(std::get<1>(key)) + "/" + std::to_string(std::get<2>(key)) +
+              " at sheets " + std::to_string(found->second) + " and " + std::to_string(i);
+      return false;
+    }
+  }
   std::erase_if(Held_, [&](const Held &one) {
     if (wanted.contains(KeyOf(one.Tile))) { return false; }
     Renderer_->ReleaseHeightPage(one.Page);

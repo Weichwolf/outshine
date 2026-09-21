@@ -8,9 +8,11 @@
 #include <expected>
 #include <format>
 #include <limits>
+#include <map>
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "HeightFieldError.h"
@@ -23,6 +25,8 @@ namespace {
 namespace Says {
 constexpr std::string_view kTooManyPatches =
     "terrain needs {} height patches for its {} px error bound; the device holds {}";
+constexpr std::string_view kDuplicatePatch =
+    "terrain refinement has two equally authoritative sources for one patch";
 }
 
 struct ErrorPatch {
@@ -162,6 +166,27 @@ RefineTerrain(std::span<const TerrainRefinementSource> sources,
     (void)BuildErrors(tree, reference, side, sheet.Tile, {.Cells = cells}, grid);
     SelectPatches(tree, tree.front(), sheet.Tile.Zoom, frame, layout, detail, selected);
   }
+  std::vector<Sheet> unique;
+  unique.reserve(selected.size());
+  std::map<std::tuple<int, uint32_t, uint32_t>, size_t> indices;
+  for (Sheet &sheet : selected) {
+    const auto key = std::tuple{sheet.Tile.Zoom, sheet.Tile.X, sheet.Tile.Y};
+    const auto [at, inserted] = indices.emplace(key, unique.size());
+    if (inserted) {
+      unique.push_back(std::move(sheet));
+      continue;
+    }
+    Sheet &held = unique[at->second];
+    if (held.Virtual == sheet.Virtual) {
+      if (!held.Virtual || held.SourceZoom == sheet.SourceZoom) {
+        return std::unexpected(std::string(Says::kDuplicatePatch));
+      }
+      if (sheet.SourceZoom > held.SourceZoom) { held = std::move(sheet); }
+      continue;
+    }
+    if (held.Virtual) { held = std::move(sheet); }
+  }
+  selected = std::move(unique);
   if (selected.size() > maximumPatches) {
     return std::unexpected(
         std::format(Says::kTooManyPatches, selected.size(), detail.ErrorPx, maximumPatches));

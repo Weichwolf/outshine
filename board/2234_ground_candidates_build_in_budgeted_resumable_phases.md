@@ -17,10 +17,11 @@ the missing per-unit bound is still an architectural gap. Lattice's recorded ing
 classification timeout supplies the next regression fixture. Re-measure the current
 path; historical timing alone does not identify today's longest stage.
 
-As of 2026-09-21 the cold floor fixture is green at 11.18 s preload through WI 2243.
-The Lattice fixture remains red at height-page publication with `GPU height-page address
-cannot be encoded exactly`; resolve that correctness defect before using its timing as
-the resumable-stage baseline.
+As of 2026-09-21 the cold floor fixture is green at 8.58 s and Lattice at 10.19 s.
+Height-page handles now validate against their owner and duplicate terrain producers are
+rejected. Lattice's former fixed and adaptive refinement paths no longer emit the same
+tile. These end-to-end bounds are green; per-stage continuation and tail measurements
+remain the work of this WI.
 
 ## Decision
 

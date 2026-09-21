@@ -37,14 +37,6 @@ public:
 
   [[nodiscard]] bool Hands(Patchwork &laid, std::string &error);
 
-  struct Nearer {
-    int FinestZoom = 0;
-    int Levels = 0;
-    LongitudeLatitude Eye;
-  };
-
-  [[nodiscard]] static size_t Refine(Patchwork &laid, Nearer how);
-
   [[nodiscard]] bool RefineByError(Patchwork &candidate,
                                    const Ground::GroundStream &ground,
                                    Generators::TerrainPageLayout layout,

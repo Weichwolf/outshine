@@ -94,9 +94,9 @@ Expected CellOracle(const Around &over, const Source &source) {
                                 .X = static_cast<uint32_t>((x % world + world) % world),
                                 .Y = static_cast<uint32_t>(y)};
         result.Calls.push_back(tile);
-        if (!over.Asking && source.Code(tile) == 0) {
-          completed.insert(footprint.begin(), footprint.end());
-        }
+        const bool ready =
+            over.Asking ? source.Status(tile) == TileMeshes::Reply::Ready : source.Code(tile) == 0;
+        if (ready) { completed.insert(footprint.begin(), footprint.end()); }
       }
     }
     covered.insert(completed.begin(), completed.end());
@@ -128,9 +128,12 @@ int main() {
         if (!actual) { continue; }
         CHECK(actual->Skipped == expected.Skipped && actual->Overlapped == expected.Overlapped,
               "full and partial coverage match independent raster");
-        CHECK(actual->Tiles == source.Calls.size() &&
-                  actual->Sheets.size() == (asking ? 0 : source.Calls.size()),
-              "query and mesh products have distinct ownership");
+        const size_t ready =
+            static_cast<size_t>(std::ranges::count_if(expected.Calls, [&source](Data::TileId tile) {
+              return source.Status(tile) == TileMeshes::Reply::Ready && source.Code(tile) == 0;
+            }));
+        CHECK(actual->Tiles == source.Calls.size() && actual->Sheets.size() == (asking ? 0 : ready),
+              "mesh products contain ready coverage and never pending placeholder geometry");
         size_t pending = 0, absent = 0, refused = 0, bare = 0;
         for (const auto tile : expected.Calls) {
           pending += source.Status(tile) == TileMeshes::Reply::Pending;
@@ -147,6 +150,12 @@ int main() {
   }
   Source source;
   source.Mode = Pattern::Pending;
+  const auto playable = LayPatchwork(
+      source, {.Zoom = 6, .Levels = 4, .Grid = 2, .Asking = true, .PlayableOnly = true});
+  CHECK(playable && playable->Tiles == 17 && playable->Pending == 17 &&
+            playable->ContactPending == 1 && playable->PendingAtZoom[3] == 16,
+        "first publication requests one exact contact tile and a complete coarse baseline");
+  source.Calls.clear();
   const auto largest = LayPatchwork(source,
                                     {.Zoom = static_cast<int>(kZoomLevels) - 1,
                                      .Levels = std::numeric_limits<int>::max(),

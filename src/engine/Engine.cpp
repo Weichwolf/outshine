@@ -238,24 +238,28 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const uint64_t version = classes ? classes->Version() : 0;
   const auto *vectors = World.Stack.Vectors();
   const auto &ground = World.GroundPublished.Current();
-  return {{World.AskedWanted > 0 ? "" : Says::kNoTerrainRequests,
-           World.AskedPending == 0 ? "" : Says::kPendingTerrain,
-           World.Bare == 0 ? "" : Says::kMissingTerrain,
-           World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
-           World.Grown ? "" : Says::kPendingSnapshot,
-           ground && ground->Quality >= quality && World.Stack.Ingested() &&
-                   StructuresReady(World.Stack.Footprints(), *ground) &&
-                   ground->Footprints == World.Stack.Footprints().Revision()
-               ? ""
-               : Says::kPendingIngestion,
-           ground && World.Stack.Classes().Complete() && ground->Classes == version
-               ? ""
-               : Says::kPendingClassification,
-           vectors != nullptr && vectors->PendingTiles() == 0 ? "" : Says::kPendingVectors,
-           !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
-                   (World.Vegetation && World.Vegetation->Ready())
-               ? ""
-               : Says::kPendingVegetation}};
+  const bool refined = quality == GroundQuality::Refined;
+  const bool published = ground && ground->Quality >= quality;
+  return {
+      {(!refined || World.AskedWanted > 0) ? "" : Says::kNoTerrainRequests,
+       (!refined || World.AskedPending == 0) ? "" : Says::kPendingTerrain,
+       (!refined || World.Bare == 0) ? "" : Says::kMissingTerrain,
+       (!refined || World.RimsMissing == 0) ? "" : Says::kMissingNeighbours,
+       World.Grown ? "" : Says::kPendingSnapshot,
+       published && (!refined || (World.Stack.Ingested() &&
+                                  StructuresReady(World.Stack.Footprints(), *ground) &&
+                                  ground->Footprints == World.Stack.Footprints().Revision()))
+           ? ""
+           : Says::kPendingIngestion,
+       published && (!refined || (World.Stack.Classes().Complete() && ground->Classes == version))
+           ? ""
+           : Says::kPendingClassification,
+       vectors != nullptr && (!refined || vectors->PendingTiles() == 0) ? ""
+                                                                        : Says::kPendingVectors,
+       !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
+               (World.Vegetation && World.Vegetation->Ready())
+           ? ""
+           : Says::kPendingVegetation}};
 }
 
 bool Engine::settled() const {
@@ -405,11 +409,11 @@ bool Engine::State::CanFinishPreload() const {
 }
 
 bool Engine::State::CanBeginGroundCandidate() const {
-  return World.AskedWanted > 0 && World.AskedPending == 0 && World.Stack.Ingested();
+  return World.AskedWanted > 0 && World.AskedPlayablePending == 0 && World.Stack.IngestedWithin(0);
 }
 
 bool Engine::State::CanAdvanceGroundCandidate() const {
-  return World.GroundBuild != nullptr && World.Stack.Ingested();
+  return World.GroundBuild != nullptr && World.Stack.IngestedWithin(0);
 }
 
 Result Engine::State::FinishesPreload() {
@@ -448,7 +452,8 @@ Result Engine::State::PumpPreload() {
   const double atLat = stands.LatitudeDeg;
   const double atLon = stands.LongitudeDeg;
   HandsPiecesOver();
-  const auto streamed = World.Stack.Restand(stands, Ground::kVectorTiles);
+  const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
+  const auto streamed = World.Stack.Restand(stands, Ground::kVectorTiles, vectorRing);
   if (!streamed) {
     Error = streamed.error();
     return std::unexpected(Error);

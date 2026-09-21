@@ -15,6 +15,8 @@ constexpr double kLevelPercentile = 0.05;
 
 constexpr double kShoreToleranceM = 5.0;
 
+constexpr size_t kWaterCandidatesPerAdmission = 4;
+
 }
 
 namespace {
@@ -130,7 +132,10 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   const auto next =
       Mark_.Ask(features,
                 field.Tiles(),
-                {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
+                {.CentreX = field.CentreX(),
+                 .CentreY = field.CentreY(),
+                 .Rings = kEveryRing,
+                 .CandidatesMost = kWaterCandidatesPerAdmission},
                 [&](size_t from, size_t to) {
                   return TileGroundResolved(ground, field, {.From = from, .To = to}, layers);
                 });
