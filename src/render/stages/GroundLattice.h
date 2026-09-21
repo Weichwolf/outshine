@@ -85,6 +85,9 @@ public:
                                std::string &error);
   [[nodiscard]] bool ConfigureDepth(SDL_GPUDevice *device, std::string &error);
 
+  [[nodiscard]] bool
+  AttachPipelines(GroundPipelineBinding &pipelines, SDL_GPUDevice *device, std::string &error);
+
   void UsePipelines(GroundPipelineBinding &pipelines) noexcept { Pipelines_ = &pipelines; }
 
   [[nodiscard]] bool SetGrid(std::span<const float> fractions, std::string &error);

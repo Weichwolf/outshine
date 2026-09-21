@@ -86,7 +86,9 @@ int main() {
         {
           GroundWorldCandidate build(renderer, world, footprints);
           const auto prepared = build.Prepare(*scene, nullptr);
-          CHECK(prepared.has_value(), "terrain candidate prepares from the active world");
+          CHECK(prepared.has_value(),
+                prepared ? "terrain candidate prepares from the active world"
+                         : prepared.error().c_str());
           if (prepared) {
             build.Products().PositionsM = {9, 8, 7};
             build.Products().Indices = {0, 0, 0};
@@ -117,7 +119,9 @@ int main() {
       {
         GroundWorldCandidate held(renderer, world, footprints);
         const auto heldPrepared = held.Prepare(*scene, nullptr);
-        CHECK(heldPrepared.has_value(), "capture candidate prepares against the published world");
+        CHECK(heldPrepared.has_value(),
+              heldPrepared ? "capture candidate prepares against the published world"
+                           : heldPrepared.error().c_str());
         if (heldPrepared) {
           held.Products().PositionsM = {9, 8, 7};
           held.Products().Indices = {0, 0, 0};
@@ -133,7 +137,9 @@ int main() {
       }
       GroundWorldCandidate retry(renderer, world, footprints);
       const auto prepared = retry.Prepare(*scene, nullptr);
-      CHECK(prepared.has_value(), "an immediate retry can acquire the abandoned candidate slot");
+      CHECK(prepared.has_value(),
+            prepared ? "an immediate retry can acquire the abandoned candidate slot"
+                     : prepared.error().c_str());
       if (prepared) {
         retry.Products().PositionsM = {9, 8, 7};
         retry.Products().Indices = {0, 0, 0};

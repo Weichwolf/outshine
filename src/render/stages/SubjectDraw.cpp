@@ -186,6 +186,16 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   return true;
 }
 
+void SubjectDraw::AttachPipelines(SubjectPipelineBinding &binding, const Gpu &gpu) noexcept {
+  Binding_ = &binding;
+  Bound().StandsOn(gpu.Device);
+  Ground_.UsePipelines(binding.Ground);
+}
+
+bool SubjectDraw::PrepareGroundStorage(const Gpu &gpu, std::string &error) {
+  return Ground_.AttachPipelines(Binding().Ground, gpu.Device, error);
+}
+
 bool SubjectDraw::Configure(SubjectPipelineBinding &binding,
                             const Gpu &gpu,
                             SDL_GPUTexture *behind,

@@ -18,6 +18,7 @@ struct BufferRecord {
 };
 
 bool capture = false;
+size_t pipelineCreations = 0;
 std::vector<BufferRecord> buffers;
 
 bool Contains(size_t first, const std::array<uint32_t, 4> &expected) {
@@ -55,6 +56,16 @@ extern "C" void SDLCALL SDL_ReleaseGPUBuffer(SDL_GPUDevice *device, SDL_GPUBuffe
   original(device, buffer);
 }
 
+extern "C" SDL_GPUGraphicsPipeline *SDLCALL SDL_CreateGPUGraphicsPipeline(
+    SDL_GPUDevice *device, const SDL_GPUGraphicsPipelineCreateInfo *info) {
+  static const auto original = reinterpret_cast<decltype(&SDL_CreateGPUGraphicsPipeline)>(
+      dlsym(RTLD_NEXT, "SDL_CreateGPUGraphicsPipeline"));
+  assert(original != nullptr);
+  SDL_GPUGraphicsPipeline *const pipeline = original(device, info);
+  pipelineCreations += pipeline != nullptr ? 1u : 0u;
+  return pipeline;
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
@@ -69,6 +80,7 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "initial world opens");
     if (scene) {
+      const size_t framePipelines = pipelineCreations;
       const std::array<uint32_t, 4> classes{123, 456, 789, 1024};
       const std::array<float, 4> palette{0.125f, 0.25f, 0.5f, 1.0f};
       std::array<uint32_t, 4> paletteBits{};
@@ -87,6 +99,8 @@ int main() {
         capture = false;
         CHECK(prepared, "replacement world prepares");
         if (prepared) {
+          CHECK(pipelineCreations == framePipelines,
+                "an unchanged render plan reuses target-owned pipelines");
           CHECK(Contains(restoredAt, classes) && Contains(restoredAt, paletteBits),
                 "replacement restores independent copies of both classification inputs");
           const std::array<uint32_t, 4> changed{9, 8, 7, 6};
@@ -121,6 +135,8 @@ int main() {
             CHECK(fresh && Contains(freshAt, {}) && !Contains(freshAt, classes) &&
                       !Contains(freshAt, paletteBits),
                   "a new declaration starts with empty classification, not the previous world");
+            CHECK(pipelineCreations == framePipelines,
+                  "a fresh world with the same plan keeps the target frame");
           }
         }
       }

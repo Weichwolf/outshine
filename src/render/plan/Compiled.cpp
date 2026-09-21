@@ -242,6 +242,7 @@ Compiled::Compile(const PlanSpec &spec) {
   std::string error;
   if (!ValidateSpec(spec, error)) { return std::unexpected(std::move(error)); }
   std::unique_ptr<Compiled> plan(new Compiled());
+  plan->Specification_ = spec;
   if (!plan->ResolveDependencies(spec, error) || !plan->ConfigureOutput(spec, error)) {
     return std::unexpected(std::move(error));
   }

@@ -38,6 +38,12 @@ upload into the candidate renderer rather than mutating the published renderer. 
 the remaining frame/world boundary defect. Corridors and Earthworks need inner continuation
 only after their tail distributions and maximum inputs are recorded.
 
+WI 2223 entfernt nun Frame-Neubau für identische `PlanSpec`s. Der Floor-Kandidat ergänzt
+weiterhin den aus Geometrie abgeleiteten Shadow-Stage und ändert damit den Plan tatsächlich:
+warm 176.0 ms Geometry, davon 173.3 ms Plan-/Frame-Aufbau, gegenüber 0.50 ms Publication.
+Dieser Planwechsel braucht einen begrenzten Frame-Resource-Build oder ein früher stabiles
+Stage-Set; die Arbeit darf nicht zurück in Publication verschoben werden.
+
 ## Decision
 
 Extend the existing private GroundWorldCandidate owner; do not create a parallel world

@@ -87,7 +87,7 @@ public:
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
 
-  void PresentInto(SDL_GPUTexture *surface) { ActiveState().Frame.HostSurface = surface; }
+  void PresentInto(SDL_GPUTexture *surface) { ActiveFrame().HostSurface = surface; }
 
   struct Region {
     double X = 0.0;
@@ -138,7 +138,7 @@ public:
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   [[nodiscard]] static bool Executable(Stage stage);
 
-  void CastsBelow(uint32_t slot) { ActiveState().Frame.Shadow.CastsBelow(slot); }
+  void CastsBelow(uint32_t slot) { ActiveFrame().Shadow.CastsBelow(slot); }
 
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = static_cast<float>(outshine::Camera::kNearestM);
@@ -316,17 +316,17 @@ public:
                                     const OverlayDraw::AtlasPixels *atlas,
                                     std::string &error) {
     return ActiveState().Content.Overlay.Replace(
-        ActiveState().Frame.Handles, quads.data(), quads.size(), atlas, error);
+        ActiveFrame().Handles, quads.data(), quads.size(), atlas, error);
   }
 
   [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
-    return ActiveState().Content.Overlay.SetQuads(ActiveState().Frame.Handles, quads, count, error);
+    return ActiveState().Content.Overlay.SetQuads(ActiveFrame().Handles, quads, count, error);
   }
 
   [[nodiscard]] bool
   SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
     return ActiveState().Content.Overlay.SetAtlas(
-        ActiveState().Frame.Handles, rgba, width, height, error);
+        ActiveFrame().Handles, rgba, width, height, error);
   }
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
@@ -368,7 +368,7 @@ public:
 
   void ForgetSubjectStaging() { ActiveState().Content.Subjects.ForgetStagedCount(); }
 
-  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return ActiveState().Frame.Shadow.StoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return ActiveFrame().Shadow.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
     return ActiveState().Content.Subjects.SetPlacements(models, rows, error) &&
@@ -408,51 +408,42 @@ public:
 
   void SetMedium(const Medium &medium) {
     ActiveState().Medium = medium;
-    ActiveState().Frame.MediumTransmittance.Declare(medium);
-    ActiveState().Frame.MultiScatter.Declare(medium);
-    ActiveState().Frame.Radiance.Declare(
-        medium, ActiveState().CosSunZenith, ActiveState().EyeHeightM);
-    ActiveState().Frame.SkyIrradianceStage.Declare(medium, ActiveState().CosSunZenith);
+    ActiveState().MediumDeclared = true;
+    if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
   void SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM) {
-    ActiveState().Frame.Shadow.Declare({.ToSun = toSun, .Up = up}, radiusM);
+    ActiveState().ShadowToSun = toSun;
+    ActiveState().ShadowUp = up;
+    ActiveState().ShadowRadiusM = radiusM;
+    ActiveState().ShadowDeclared = true;
+    if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
   void SetSky(const Vec3f &toSun, const Vec3f &up, float illuminanceLux, float eyeHeightM) {
     ActiveState().CosSunZenith = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
     ActiveState().EyeHeightM = eyeHeightM;
-    ActiveState().Frame.Radiance.Declare(
-        ActiveState().Medium, ActiveState().CosSunZenith, ActiveState().EyeHeightM);
-    ActiveState().Frame.SkyIrradianceStage.Declare(ActiveState().Medium,
-                                                   ActiveState().CosSunZenith);
-    const SkyStanding stands = {
-        .SunDir = toSun, .WorldUp = up, .IlluminanceLux = illuminanceLux, .EyeHeightM = eyeHeightM};
-    ActiveState().Frame.Sky.Declare(ActiveState().Medium, stands);
-    ActiveState().Frame.Aerial.Declare(ActiveState().Medium, stands);
+    ActiveState().SkyToSun = toSun;
+    ActiveState().SkyUp = up;
+    ActiveState().SkyIlluminanceLux = illuminanceLux;
+    ActiveState().SkyDeclared = true;
+    if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
   void SetSkyEye(float eyeHeightM) {
-    if (!ActiveState().Frame.Sky.Stands()) { return; }
+    if (!ActiveState().SkyDeclared) { return; }
     ActiveState().EyeHeightM = eyeHeightM;
-    ActiveState().Frame.Radiance.Declare(
-        ActiveState().Medium, ActiveState().CosSunZenith, ActiveState().EyeHeightM);
-    ActiveState().Frame.SkyIrradianceStage.Declare(ActiveState().Medium,
-                                                   ActiveState().CosSunZenith);
-    ActiveState().Frame.Sky.Eye(ActiveState().Medium, eyeHeightM);
-    ActiveState().Frame.Aerial.Eye(ActiveState().Medium, eyeHeightM);
+    if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
-  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const {
-    return ActiveState().Frame.SkyViewLut.Get();
-  }
+  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return ActiveFrame().SkyViewLut.Get(); }
 
   [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const {
-    return ActiveState().Frame.MultiScatterLut.Get();
+    return ActiveFrame().MultiScatterLut.Get();
   }
 
   [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const {
-    return ActiveState().Frame.TransmittanceLut.Get();
+    return ActiveFrame().TransmittanceLut.Get();
   }
 
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
@@ -474,7 +465,7 @@ public:
     return many;
   }
 
-  [[nodiscard]] size_t ShadowCastCount() const { return ActiveState().Frame.Shadow.CastBatches(); }
+  [[nodiscard]] size_t ShadowCastCount() const { return ActiveFrame().Shadow.CastBatches(); }
 
   [[nodiscard]] size_t ShadowedFrames() const {
     return ActiveState().Content.Subjects.ShadowedFrames();
@@ -533,9 +524,9 @@ public:
 
   void BeginTemporalRun();
 
-  [[nodiscard]] int SceneW() const { return ActiveState().Frame.Width; }
+  [[nodiscard]] int SceneW() const { return ActiveFrame().Width; }
 
-  [[nodiscard]] int SceneH() const { return ActiveState().Frame.Height; }
+  [[nodiscard]] int SceneH() const { return ActiveFrame().Height; }
 
   [[nodiscard]] double PictureW() const;
   [[nodiscard]] double PictureH() const;
@@ -685,6 +676,7 @@ private:
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
   [[nodiscard]] static SDL_GPUTexture *Target(const FrameResources &frame, Resource resource);
   void BindFrameResources();
+  void ApplyWorldDeclarations();
 
   [[nodiscard]] SDL_GPUBuffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
@@ -745,8 +737,7 @@ private:
     SubjectPipelineBinding GlassPipelines;
   };
 
-  struct SceneState {
-    FrameResources Frame;
+  struct SceneStateCore {
     std::shared_ptr<const Compiled> Plan;
     WorldContent Content;
     Medium Medium = kEarthAir;
@@ -774,19 +765,41 @@ private:
     Vec3 PrevEye = {{0, 0, 0}};
     Mat4f PrevMvp = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 
-    SceneState() = default;
-    SceneState(const SceneState &) = delete;
-    SceneState &operator=(const SceneState &) = delete;
-    SceneState(SceneState &&) noexcept = default;
-    SceneState &operator=(SceneState &&) noexcept = default;
+    bool MediumDeclared = false;
+    bool SkyDeclared = false;
+    bool ShadowDeclared = false;
+    Vec3f SkyToSun = {{0.0f, 1.0f, 0.0f}};
+    Vec3f SkyUp = {{0.0f, 1.0f, 0.0f}};
+    float SkyIlluminanceLux = 0.0f;
+    Vec3f ShadowToSun = {{0.0f, 1.0f, 0.0f}};
+    Vec3f ShadowUp = {{0.0f, 1.0f, 0.0f}};
+    double ShadowRadiusM = 0.0;
+
+    SceneStateCore() = default;
+    SceneStateCore(const SceneStateCore &) = delete;
+    SceneStateCore &operator=(const SceneStateCore &) = delete;
+    SceneStateCore(SceneStateCore &&) noexcept = default;
+    SceneStateCore &operator=(SceneStateCore &&) noexcept = default;
+  };
+
+  struct SceneState : SceneStateCore {
+    FrameResources Frame;
+  };
+
+  struct WorldCandidate : SceneStateCore {
+    std::optional<FrameResources> Frame;
   };
 
   static_assert(std::is_nothrow_move_constructible_v<FrameResources>);
   static_assert(std::is_nothrow_move_assignable_v<FrameResources>);
   static_assert(std::is_nothrow_move_constructible_v<WorldContent>);
   static_assert(std::is_nothrow_move_assignable_v<WorldContent>);
+  static_assert(std::is_nothrow_move_constructible_v<SceneStateCore>);
+  static_assert(std::is_nothrow_move_assignable_v<SceneStateCore>);
   static_assert(std::is_nothrow_move_constructible_v<SceneState>);
   static_assert(std::is_nothrow_move_assignable_v<SceneState>);
+  static_assert(std::is_nothrow_move_constructible_v<WorldCandidate>);
+  static_assert(std::is_nothrow_move_assignable_v<WorldCandidate>);
 
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>
@@ -808,16 +821,28 @@ private:
   [[nodiscard]] Placed PictureRect() const;
   [[nodiscard]] Lens Through() const;
 
-  [[nodiscard]] SceneState &ActiveState() noexcept { return Candidate_ ? *Candidate_ : State_; }
+  [[nodiscard]] SceneStateCore &ActiveState() noexcept {
+    return Candidate_ ? static_cast<SceneStateCore &>(*Candidate_)
+                      : static_cast<SceneStateCore &>(State_);
+  }
 
-  [[nodiscard]] const SceneState &ActiveState() const noexcept {
-    return Candidate_ ? *Candidate_ : State_;
+  [[nodiscard]] const SceneStateCore &ActiveState() const noexcept {
+    return Candidate_ ? static_cast<const SceneStateCore &>(*Candidate_)
+                      : static_cast<const SceneStateCore &>(State_);
+  }
+
+  [[nodiscard]] FrameResources &ActiveFrame() noexcept {
+    return Candidate_ && Candidate_->Frame ? *Candidate_->Frame : State_.Frame;
+  }
+
+  [[nodiscard]] const FrameResources &ActiveFrame() const noexcept {
+    return Candidate_ && Candidate_->Frame ? *Candidate_->Frame : State_.Frame;
   }
 
   std::array<SDL_GPUFence *, kFramesInFlight> Landed_ = {};
   int LandedAt_ = 0;
   SceneState State_;
-  std::optional<SceneState> Candidate_;
+  std::optional<WorldCandidate> Candidate_;
 };
 
 }

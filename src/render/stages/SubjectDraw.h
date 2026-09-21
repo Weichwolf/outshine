@@ -73,6 +73,10 @@ public:
                                bool separateTransmission,
                                std::string &error);
 
+  void AttachPipelines(SubjectPipelineBinding &binding, const Gpu &gpu) noexcept;
+
+  [[nodiscard]] bool PrepareGroundStorage(const Gpu &gpu, std::string &error);
+
   void UsePipelines(SubjectPipelineBinding &binding) noexcept {
     Binding_ = &binding;
     Ground_.UsePipelines(binding.Ground);

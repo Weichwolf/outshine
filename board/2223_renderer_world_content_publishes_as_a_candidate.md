@@ -9,17 +9,24 @@ Tags: ownership, state, gpu
 
 ## Aktueller Arbeitsumfang
 
-Der vorhandene Kandidat erfüllt den behaupteten Besitzvertrag noch nicht. `SceneRenderer::Candidate_`
-ist ein vollständiger `SceneState`; dieser enthält `FrameResources`, Renderplan und `WorldContent`.
-Damit baut ein Weltkandidat weiterhin zielgebundene Frame-Ressourcen auf. WI 2224 nutzt die
-Transaktion, beweist aber keine Trennung der Besitzer. Kein zweiter Candidate-Owner und keine
-neue Renderer-Fassade: der bestehende Typ wird entlang der tatsächlichen Lebensdauern geteilt.
+`SceneRenderer` trennt nun `SceneStateCore`/`WorldContent` vom veröffentlichten
+`FrameResources`-Besitzer. `WorldCandidate` enthält nur bei einem tatsächlich anderen
+`PlanSpec` eine optionale Frame-Transaktion. Bei gleichem Plan übernimmt neuer WorldContent
+die bestehenden Pipelines und Target-Handles, ohne deren Besitzer oder aktive Shadow-/Cull-
+Bindungen vor Publication zu ändern. Atmosphäre, Sky und Shadow bleiben World-Deklarationen
+und werden erst beim Commit auf den Frame angewandt. Kein zweiter Candidate-Owner.
 
 Messung am Floor-Fixture vom 2026-09-21: `SetGeometry` kostet 209.1 ms, davon 207.5 ms
 `RuntimeScene::StandsPlan`; Clustering 0.38 ms, Packing 0.15 ms und Mesh-Upload 0.30 ms.
 Der abschließende World-Swap kostet 0.31 ms. Nur die Stage-Liste des Plans ändert sich: der
 anfangs leere Kandidat besitzt keinen automatisch abgeleiteten Shadow-Pass, Geometrie fügt ihn
-hinzu und erzwingt `InitForTarget`. Das widerlegt die bisher behauptete Typtrennung.
+hinzu und erzwingt `InitForTarget`. Das widerlegte die zuvor behauptete Typtrennung.
+
+Der Pipeline-Interceptor in `GroundClassificationBelongsToItsWorld` beweist nun, dass
+Replacement und frische Declaration bei identischem Plan keine Graphics-Pipeline erzeugen.
+Candidate-Abbruch, unmittelbarer Retry, Ground-Klassifikation, Height-Page-Generationen und
+Structure-Publication bleiben grün. Ein abweichender Plan baut weiterhin isolierte
+`FrameResources` und veröffentlicht sie zusammen mit WorldContent.
 
 ## Ursprünglicher Defekt
 

@@ -170,6 +170,8 @@ public:
 
   [[nodiscard]] const std::string &Digest() const { return Digest_; }
 
+  [[nodiscard]] const PlanSpec &Specification() const { return Specification_; }
+
   [[nodiscard]] const std::vector<std::string> &Merges() const { return Merges_; }
 
   [[nodiscard]] const std::vector<std::string> &Aliases() const { return Aliases_; }
@@ -187,6 +189,7 @@ private:
   std::vector<Pass> Passes_;
   std::vector<std::string> Merges_;
   std::vector<std::string> Aliases_;
+  PlanSpec Specification_;
   std::string Digest_;
   Transfer Display_ = Transfer::Filmic;
   ScenePrecision Precision_ = ScenePrecision::Half;

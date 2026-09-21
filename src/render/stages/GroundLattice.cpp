@@ -352,6 +352,19 @@ bool GroundLattice::Configure(GroundPipelineBinding &pipelines,
                               const SurfaceOutputs &outputs,
                               std::span<const SDL_GPUColorTargetDescription> targets,
                               std::string &error) {
+  if (!AttachPipelines(pipelines, device, error)) { return false; }
+  const LatticeVertexInput in = MakeLatticeVertexInput();
+  const SDL_GPUVertexInputState input{
+      .vertex_buffer_descriptions = in.Buffers.data(),
+      .num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size()),
+      .vertex_attributes = in.Attributes.data(),
+      .num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size())};
+  return pipelines.ConfigureLit(Device_, outputs, targets, input, error);
+}
+
+bool GroundLattice::AttachPipelines(GroundPipelineBinding &pipelines,
+                                    SDL_GPUDevice *device,
+                                    std::string &error) {
   if (device == nullptr) {
     error = std::string(Says::kNoDevice);
     return false;
@@ -370,13 +383,8 @@ bool GroundLattice::Configure(GroundPipelineBinding &pipelines,
       return false;
     }
   }
-  const LatticeVertexInput in = MakeLatticeVertexInput();
-  const SDL_GPUVertexInputState input{
-      .vertex_buffer_descriptions = in.Buffers.data(),
-      .num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size()),
-      .vertex_attributes = in.Attributes.data(),
-      .num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size())};
-  return pipelines.ConfigureLit(Device_, outputs, targets, input, error);
+  Pipelines_ = &pipelines;
+  return true;
 }
 
 bool GroundLattice::ConfigureDepth(GroundPipelineBinding &pipelines,
