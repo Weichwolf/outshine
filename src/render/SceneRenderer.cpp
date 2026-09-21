@@ -294,11 +294,8 @@ void SceneRenderer::AbandonsWorldCandidate() noexcept {
   Candidate_.reset();
 }
 
-std::expected<void, std::string>
-SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents) {
-  ActiveState().WhyNot.clear();
-
-  for (const Stage stage : plan->Order()) {
+std::expected<void, std::string> SceneRenderer::ValidateExecutablePlan(const Compiled &plan) {
+  for (const Stage stage : plan.Order()) {
     if (Executable(stage)) { continue; }
     Log::Error(LogTag::Render, "stage_not_executed", {{"stage", Row(stage).Name}});
     ActiveState().WhyNot = std::string("this device layer does not execute the stage '") +
@@ -306,90 +303,98 @@ SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan,
                            "', which the catalogue offers and the consumer declared";
     return std::unexpected(ActiveState().WhyNot);
   }
+  return {};
+}
 
-  if (!Stands()) { return std::unexpected(ActiveState().WhyNot); }
-
-  const bool reusesFrame = Candidate_ && State_.Ready && State_.Plan != nullptr &&
-                           State_.Frame.Width == frame.WidthPx &&
-                           State_.Frame.Height == frame.HeightPx &&
-                           State_.Plan->Specification() == plan->Specification();
-  if (reusesFrame) {
-    ActiveState().Plan = State_.Plan;
-    ActiveState().Content.DrawsGlass = plan->Holds(Stage::SubjectsTransmissive);
-    ActiveState().Content.Subjects.AttachPipelines(State_.Frame.SubjectPipelines,
-                                                   State_.Frame.Handles);
-    if (!ActiveState().Content.Subjects.PrepareGroundStorage(State_.Frame.Handles,
-                                                             ActiveState().WhyNot)) {
-      return std::unexpected(ActiveState().WhyNot);
-    }
-    ActiveState().Content.Glass.AttachPipelines(State_.Frame.GlassPipelines, State_.Frame.Handles);
-    ActiveState().Content.Glass.Shares(ActiveState().Content.Subjects.Owned());
-    const auto ground =
-        ActiveState().Content.Ground.Replace(State_.Frame.Handles.Device, {}, {}, Submission_);
-    if (!ground) {
-      ActiveState().WhyNot = ground.error();
-      return std::unexpected(ActiveState().WhyNot);
-    }
-    ActiveState().Content.Subjects.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                               .Palette = ActiveState().Content.Ground.Palette()});
-    ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
-                                            .Palette = ActiveState().Content.Ground.Palette()});
-    ActiveState().Content.Subjects.SkyFrom(State_.Frame.IrradianceBuffer.Get());
-    if (ActiveState().Content.DrawsGlass) {
-      ActiveState().Content.Glass.SkyFrom(State_.Frame.IrradianceBuffer.Get());
-    }
-    ActiveState().Submitted = false;
-    ActiveState().Ready = true;
-    return {};
+std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame,
+                                                                    const Compiled &plan) {
+  const bool reusesFrame =
+      Candidate_ && State_.Ready && State_.Plan != nullptr && State_.Frame.Width == frame.WidthPx &&
+      State_.Frame.Height == frame.HeightPx && State_.Plan->Specification() == plan.Specification();
+  if (!reusesFrame) { return false; }
+  ActiveState().Plan = State_.Plan;
+  ActiveState().Content.DrawsGlass = plan.Holds(Stage::SubjectsTransmissive);
+  ActiveState().Content.Subjects.AttachPipelines(State_.Frame.SubjectPipelines,
+                                                 State_.Frame.Handles);
+  if (!ActiveState().Content.Subjects.PrepareGroundStorage(State_.Frame.Handles,
+                                                           ActiveState().WhyNot)) {
+    return std::unexpected(ActiveState().WhyNot);
   }
+  ActiveState().Content.Glass.AttachPipelines(State_.Frame.GlassPipelines, State_.Frame.Handles);
+  ActiveState().Content.Glass.Shares(ActiveState().Content.Subjects.Owned());
+  const auto ground =
+      ActiveState().Content.Ground.Replace(State_.Frame.Handles.Device, {}, {}, Submission_);
+  if (!ground) {
+    ActiveState().WhyNot = ground.error();
+    return std::unexpected(ActiveState().WhyNot);
+  }
+  ActiveState().Content.Subjects.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
+                                             .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
+                                          .Palette = ActiveState().Content.Ground.Palette()});
+  ActiveState().Content.Subjects.SkyFrom(State_.Frame.IrradianceBuffer.Get());
+  if (ActiveState().Content.DrawsGlass) {
+    ActiveState().Content.Glass.SkyFrom(State_.Frame.IrradianceBuffer.Get());
+  }
+  ActiveState().Submitted = false;
+  ActiveState().Ready = true;
+  return true;
+}
 
+std::expected<SceneRenderer::FrameResources, std::string>
+SceneRenderer::BuildFrameResources(Extent frame, const Compiled &plan, bool presents) {
   SDL_GPUDevice *const device = Device_.Get();
   FrameResources candidate;
   candidate.Width = frame.WidthPx;
   candidate.Height = frame.HeightPx;
   candidate.Handles.Device = device;
-  candidate.Handles.HdrFormat = FormatOf(plan->Format(Resource::SceneHdr));
-  candidate.Handles.SurfaceFormat = FormatOf(plan->Format(Resource::FrameTex));
+  candidate.Handles.HdrFormat = FormatOf(plan.Format(Resource::SceneHdr));
+  candidate.Handles.SurfaceFormat = FormatOf(plan.Format(Resource::FrameTex));
   candidate.Handles.Width = candidate.Width;
   candidate.Handles.Height = candidate.Height;
 
-  for (const Compiled::Pass &pass : plan->Passes()) {
+  for (const Compiled::Pass &pass : plan.Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
     candidate.Handles.SceneColours = pass.Targets;
     break;
   }
   for (size_t r = 0; r < kResourceCount; ++r) {
     const auto id = static_cast<Resource>(r);
-    if (!plan->Holds(id)) { continue; }
-    Create(candidate, *plan, id);
+    if (!plan.Holds(id)) { continue; }
+    Create(candidate, plan, id);
     if (Created(candidate, id)) { continue; }
     ActiveState().WhyNot =
         std::string("could not create render resource '") + Row(id).Name + "': " + SDL_GetError();
     return std::unexpected(ActiveState().WhyNot);
   }
-  if (const auto stood = StandsOffscreen(candidate, plan.get(), presents); !stood) {
+  if (const auto stood = StandsOffscreen(candidate, &plan, presents); !stood) {
     return std::unexpected(stood.error());
   }
-
-  const bool drawsGlass = plan->Holds(Stage::SubjectsTransmissive);
-  if (!ConfigurePlanStages(candidate, *plan, drawsGlass)) {
+  if (!ConfigurePlanStages(candidate, plan, plan.Holds(Stage::SubjectsTransmissive))) {
     return std::unexpected(ActiveState().WhyNot);
   }
   if (Device_ && !Settle(ActiveState().WhyNot)) { return std::unexpected(ActiveState().WhyNot); }
+  return candidate;
+}
+
+void SceneRenderer::PublishFrameResources(FrameResources frame,
+                                          std::shared_ptr<const Compiled> plan) {
   ActiveState().Ready = false;
   ActiveState().Submitted = false;
   if (Candidate_) {
-    Candidate_->Frame.emplace(std::move(candidate));
+    Candidate_->Frame.emplace(std::move(frame));
   } else {
-    State_.Frame = std::move(candidate);
+    State_.Frame = std::move(frame);
   }
   ActiveState().Plan = std::move(plan);
-  ActiveState().Content.DrawsGlass = drawsGlass;
+  ActiveState().Content.DrawsGlass = ActiveState().Plan->Holds(Stage::SubjectsTransmissive);
   if (!Candidate_) { ApplyWorldDeclarations(); }
   BindFrameResources();
   if (!Candidate_) { BeginTemporalRun(); }
   ActiveState().Ready = true;
+}
 
+void SceneRenderer::LogReadyPlan(SDL_GPUDevice *device) const {
   Log::Info(LogTag::Render,
             "device_ready",
             {{"width", ActiveFrame().Width},
@@ -409,6 +414,21 @@ SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan,
   for (const std::string &alias : ActiveState().Plan->Aliases()) {
     Log::Info(LogTag::Render, "plan_alias", {{"alias", alias}});
   }
+}
+
+std::expected<void, std::string>
+SceneRenderer::InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents) {
+  ActiveState().WhyNot.clear();
+  if (const auto valid = ValidateExecutablePlan(*plan); !valid) { return valid; }
+  if (!Stands()) { return std::unexpected(ActiveState().WhyNot); }
+  const auto reused = ReuseFrameResources(frame, *plan);
+  if (!reused) { return std::unexpected(reused.error()); }
+  if (*reused) { return {}; }
+  auto candidate = BuildFrameResources(frame, *plan, presents);
+  if (!candidate) { return std::unexpected(candidate.error()); }
+  SDL_GPUDevice *const device = Device_.Get();
+  PublishFrameResources(std::move(*candidate), std::move(plan));
+  LogReadyPlan(device);
   return {};
 }
 

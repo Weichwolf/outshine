@@ -812,6 +812,13 @@ private:
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>
   InitForTarget(Extent frame, std::shared_ptr<const Compiled> plan, bool presents);
+  [[nodiscard]] std::expected<void, std::string> ValidateExecutablePlan(const Compiled &plan);
+  [[nodiscard]] std::expected<bool, std::string> ReuseFrameResources(Extent frame,
+                                                                     const Compiled &plan);
+  [[nodiscard]] std::expected<FrameResources, std::string>
+  BuildFrameResources(Extent frame, const Compiled &plan, bool presents);
+  void PublishFrameResources(FrameResources frame, std::shared_ptr<const Compiled> plan);
+  void LogReadyPlan(SDL_GPUDevice *device) const;
   [[nodiscard]] std::expected<void, std::string>
   StandsOffscreen(FrameResources &frame, const Compiled *plan, bool presents);
   [[nodiscard]] std::expected<OwnedTexture, std::string> MakeOffscreen(const Compiled *plan,
