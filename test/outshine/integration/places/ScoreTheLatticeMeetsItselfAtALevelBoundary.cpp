@@ -91,6 +91,18 @@ int main(void) {
   }
 
   const std::span<const outshine::DiagnosticSample> told = engine.measures();
+  for (const char *stage : {"ground candidate: corridors",
+                            "ground candidate: earthworks",
+                            "ground candidate: terrain mesh",
+                            "ground candidate: water",
+                            "ground candidate: geometry",
+                            "ground candidate: publication"}) {
+    const double elapsedMs = Measured(told, stage);
+    std::printf("STAGE %-31s %8.3f ms\n", stage, elapsedMs);
+    CHECK(elapsedMs >= 0.0, "every resumable ground stage publishes its completion cost");
+  }
+  CHECK(Measured(told, "ground candidate: corridor drape field misses") == 0.0,
+        "corridors resolve every terrain query through the adaptive DEM fields");
   const double virtualEdges = Measured(told, "ground: seam, virtual, edges stitched");
   const double virtualEven =
       Measured(told, "ground: seam, virtual, even nodes off the coarser node, worst");

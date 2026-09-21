@@ -52,6 +52,11 @@ anschließenden Height-page/Mesh-Aufbau getrennt: 14.80 ms Press und 7.10 ms Ter
 liegen alle gemessenen Floor-Phasen unter dem 16.67-ms-Framebudget; Verteilungen und größere
 Eingaben bleiben für die allgemeine Abnahme erforderlich.
 
+Das größere Lattice-Fixture misst warm 0.95 ms Corridors, 12.14 ms Press, 11.59 ms Terrain
+Mesh, 2.02 ms Geometry und 0.023 ms Publication; auch dort bleiben alle DEM-Abfragen gedeckt.
+Beide Integrationsfixtures veröffentlichen jetzt jeden Fortsetzungswert ausdrücklich. Mehrere
+Bewegungs- und Ortsstichproben fehlen weiterhin für p95/p99 und Peak-Memory.
+
 ## Decision
 
 Extend the existing private GroundWorldCandidate owner; do not create a parallel world
