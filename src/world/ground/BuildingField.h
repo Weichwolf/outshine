@@ -71,7 +71,7 @@ public:
           Spread_(baked.SeatSpreadM.size()),
           Across_(baked.AcrossM.size()) {}
 
-    const BuildingField *Owner_ = nullptr;
+    [[maybe_unused]] const BuildingField *Owner_ = nullptr;
     uint32_t Tile_ = 0;
     size_t Prints_ = 0;
     size_t Spread_ = 0;

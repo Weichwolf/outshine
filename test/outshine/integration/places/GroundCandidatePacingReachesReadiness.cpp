@@ -5,7 +5,6 @@
 #include <SDL3/SDL.h>
 #include <chrono>
 #include <thread>
-#include <cstdio>
 
 int main() {
   using namespace outshine::Test;
@@ -39,28 +38,25 @@ int main() {
   v.Geographic.SamplesHeight = false;
   v.Sees.FovDeg = 55;
   s.Views.push_back(v);
-  CHECK(e.declare(s) && e.assemble(), "paced engine declares and assembles the ground scenario");
+  const auto declared = e.declare(s);
+  CHECK(declared.has_value(), declared ? "scenario declared" : declared.error().c_str());
+  if (!declared) { return Report(); }
+  const auto assembled = e.assemble();
+  CHECK(assembled.has_value(), assembled ? "scenario assembled" : assembled.error().c_str());
+  if (!assembled) { return Report(); }
   auto end = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-  int ok = 0, fail = 0;
+
   bool captured = false;
   while (std::chrono::steady_clock::now() < end) {
-    if (e.advance()) {
-      ++ok;
-    } else {
-      ++fail;
-    }
+    const auto advanced = e.advance();
+    CHECK(advanced.has_value(), advanced ? "frame advanced" : advanced.error().c_str());
+    if (!advanced) { return Report(); }
     if (auto capture = e.beginCapture()) {
       captured = true;
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
-  std::printf("settled=%d captured=%d ok=%d fail=%d load=%f\n",
-              e.settled(),
-              captured,
-              ok,
-              fail,
-              e.loadProgress());
   CHECK(captured && e.settled(), "paced advance publishes a capturable world");
   return Report();
 }

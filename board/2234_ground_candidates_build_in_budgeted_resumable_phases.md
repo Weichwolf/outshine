@@ -16,10 +16,11 @@ Lattice and paced-readiness fixtures passed at bd8693885. These establish readin
 and local contracts, not equal native products under different pacing or frame budgets.
 Historical single-run timings are in Git; no p95/p99 claim follows from them.
 
-`src/engine/Laying.cpp`: GroundBuildState::MarksPrepared, CompletesSheetPhase and
-CompletesStage call mutating schedule methods inside assert. With NDEBUG those
-transitions disappear. Fix this first; the standalone GroundBuildSchedule test does
-not exercise these wrappers. This is a release correctness defect, not formatting.
+The release regression is reproduced: with NDEBUG, the paced engine tries to start
+another candidate while its renderer still owns the first. The three mutating schedule
+calls in Laying.cpp now execute outside assert. Place integrations run the same tests
+with NDEBUG in the actual engine, not only in their test translation units. The object
+cache keys include validation/sanitizer defines to prevent stale variant reuse.
 
 ## Decision
 
@@ -43,17 +44,14 @@ end-to-end progress. Do not add a second rendering client.
 
 ## Ordered implementation
 
-1. Fix the NDEBUG transition defect. Add a release-mode integration regression proving
-   preparation, phase progression and publication through the actual engine wrappers.
-   It must fail if a mutating transition is moved back inside assert.
-2. Harden GroundCandidatePacingReachesReadiness: fail immediately on an unexpected
-   advance error; preserve diagnostics. Readiness alone is not equivalence. Compare
+1. Preserve the NDEBUG regression and immediate advance-error diagnostics in
+   GroundCandidatePacingReachesReadiness. Readiness alone is not equivalence. Compare
    native geometry, contact data and revision under identical inputs with different
    interruption schedules. Deliberately early publication must fail the oracle.
-3. Measure bounded units in Laying.cpp, GroundWorldCandidate and TerrainTileUpload.
+2. Measure bounded units in Laying.cpp, GroundWorldCandidate and TerrainTileUpload.
    Record maximum input sizes, p50/p95/p99 and CPU/GPU memory separately. Existing
    OwnedHeapBytes covers selected direct CPU products, not total engine residency.
-4. Continue the longest over-budget unit by tile/row/batch, preserving topology and
+3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
 

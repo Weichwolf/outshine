@@ -129,7 +129,8 @@ public:
 
   void CompletesSheetPhase() noexcept {
     RecordsProductPeak();
-    assert(Schedule_.CompletesSheetPhase());
+    [[maybe_unused]] const bool completed = Schedule_.CompletesSheetPhase();
+    assert(completed);
   }
 
   [[nodiscard]] Core::GroundBuildSchedule::Stage NextStage() const noexcept {
@@ -138,7 +139,8 @@ public:
 
   void CompletesStage() noexcept {
     RecordsProductPeak();
-    assert(Schedule_.CompletesStage());
+    [[maybe_unused]] const bool completed = Schedule_.CompletesStage();
+    assert(completed);
   }
 
   [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeakBytes_; }
@@ -151,7 +153,10 @@ public:
 
   [[nodiscard]] bool Prepared() const noexcept { return Schedule_.Prepared(); }
 
-  void MarksPrepared() noexcept { assert(Schedule_.MarksPrepared()); }
+  void MarksPrepared() noexcept {
+    [[maybe_unused]] const bool prepared = Schedule_.MarksPrepared();
+    assert(prepared);
+  }
 
   [[nodiscard]] std::string_view Status() const noexcept {
     if (!Schedule_.Prepared()) { return "candidate"; }

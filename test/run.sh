@@ -287,6 +287,9 @@ LayerSanitiser() {
 }
 
 LayerValidation() {
+  case "$1" in
+    outshine/integration/places) printf '%s' "-DNDEBUG"; return ;;
+  esac
   case "$(TestProfile "$1")" in
     profile/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
     *) printf '%s' "" ;;
@@ -527,7 +530,7 @@ BuildGroup() {
   # old one, and two of five flag groups is not an identity (board:1751). It is a GROUP's
   # property, so it is computed once here rather than once per unit: at 157 units that was
   # three processes each for a value that could not differ between them.
-  setId=$(printf '%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" | cksum | cut -d' ' -f1)
+  setId=$(printf '%s|%s|%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
   groupPool=$OBJDIR/pool.$$
   groupFailed=$OBJDIR/failed.$$
   groupSaid=
@@ -1562,7 +1565,7 @@ if [ "$AUDITLINK" = 1 ]; then
       # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
     # editing -O2 or the warning set in this file silently reused objects built with the
     # old one, and two of five flag groups is not an identity (board:1751)
-    setId=$(printf '%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" | cksum | cut -d' ' -f1)
+    setId=$(printf '%s|%s|%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
       case "$group" in
         *.cpp) groupUnits=$group ;;
         *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
@@ -2368,7 +2371,7 @@ done
     "$jsHeld" "$jsReduced" "$jsOutside" "$((jsInside + jsReduced + jsOutside))" \
     "$jsInside" "$jsRed"
 [ "$validatedRan" = yes ] && printf '%s\n' \
-  "~validated is an API-CONTRACT arm: it says the pipelines, passes and resources agree with the driver, and NOTHING about whether the picture is right -- that is render/'s domain and its oracle's"
+  "~validated checks the same contracts with alternate compilation: NDEBUG for places, GPU validation for device cases; it is not a visual oracle"
 [ "$inverted" -gt 0 ] &&
   printf 'declared to fail and did, so the verdict stands inverted: %s\n' "$EXPECT_FAIL"
 
