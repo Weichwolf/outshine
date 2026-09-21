@@ -3,8 +3,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <map>
-#include <tuple>
 #include <span>
 #include <string>
 #include <vector>
@@ -19,6 +17,7 @@
 #include <expected>
 #include "TangentFrame.h"
 #include "TerrainRefinement.h"
+#include "FlatMap.h"
 
 namespace outshine {
 
@@ -28,6 +27,12 @@ class SceneRenderer;
 
 class HeightSheets {
 public:
+  HeightSheets() = default;
+  HeightSheets(const HeightSheets &other);
+  HeightSheets &operator=(const HeightSheets &) = delete;
+  HeightSheets(HeightSheets &&) noexcept = default;
+  HeightSheets &operator=(HeightSheets &&) noexcept = default;
+
   void Into(Render::SceneRenderer *renderer) noexcept { Renderer_ = renderer; }
 
   void Framed(const TangentFrame &frame) {
@@ -61,6 +66,8 @@ public:
 
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }
 
+  [[nodiscard]] size_t HeapBytes() const noexcept;
+
   struct SeamKind {
     double EvenM = 0.0;
     double OddBeforeM = 0.0;
@@ -76,6 +83,10 @@ public:
   [[nodiscard]] const Seam &Seams() const { return Seams_; }
 
 private:
+  struct TileHash {
+    [[nodiscard]] uint64_t operator()(const Data::TileId &tile) const noexcept;
+  };
+
   struct Held {
     Data::TileId Tile;
     Render::HeightPageHandle Page{};
@@ -90,7 +101,7 @@ private:
   TileOf(Data::TileId tile, Render::HeightPageHandle page, std::span<const float> nodes) const;
 
   std::vector<Held> Held_;
-  std::map<std::tuple<int, uint32_t, uint32_t>, size_t> PageIndex_;
+  FlatMap<size_t, Data::TileId, TileHash> PageIndex_;
   std::vector<Render::TerrainTile> Instances_;
   std::vector<Render::TerrainTile> Virtual_;
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,

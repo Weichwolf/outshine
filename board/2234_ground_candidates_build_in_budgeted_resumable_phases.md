@@ -57,6 +57,11 @@ Mesh, 2.02 ms Geometry und 0.023 ms Publication; auch dort bleiben alle DEM-Abfr
 Beide Integrationsfixtures veröffentlichen jetzt jeden Fortsetzungswert ausdrücklich. Mehrere
 Bewegungs- und Ortsstichproben fehlen weiterhin für p95/p99 und Peak-Memory.
 
+Die Peak-Memory-Arbeit beginnt an den Leaf-Ownern: `HeightSheets::HeapBytes` zählt Slot-,
+Index-, Instanz-, Feldreferenz- und verschachtelte Node-Kapazitäten ohne globale
+Prozessdeltas. Weitere Candidate-Produkte fehlen noch; daraus wird noch kein Candidate-Total
+ausgegeben.
+
 ## Decision
 
 Extend the existing private GroundWorldCandidate owner; do not create a parallel world

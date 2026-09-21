@@ -23,17 +23,42 @@
 #include "Geodesy.h"
 #include "TerrainGrid.h"
 #include "GroundLattice.h"
+#include "Heap.h"
 #include "SceneRenderer.h"
 #include "TileGeodesy.h"
 #include "math/Vec3.h"
 
 namespace outshine {
 
+namespace Says {
+constexpr auto HeightPageIndexAllocationFailed = "height page index allocation failed";
+constexpr auto HeightPageIndexCapacityExceeded = "height page index capacity exceeded";
+}
+
 static_assert(kPatchGrid + 1 == Render::GroundLattice::kSide,
               "a page holds the nodes the patchwork's chunk was built from, so the lattice draws "
               "the surface the roads are draped on");
 
+HeightSheets::HeightSheets(const HeightSheets &other)
+    : Held_(other.Held_),
+      Instances_(other.Instances_),
+      Virtual_(other.Virtual_),
+      Fields_(other.Fields_),
+      Flat_(other.Flat_),
+      RimsMissing_(other.RimsMissing_),
+      Seams_(other.Seams_),
+      GridPostings_(other.GridPostings_),
+      Renderer_(other.Renderer_),
+      Frame_(other.Frame_),
+      Framed_(other.Framed_) {
+  for (size_t i = 0; i < Held_.size(); ++i) {
+    if (!PageIndex_.Emplace(Held_[i].Tile, i)) { Heap::Exhausted("height page index"); }
+  }
+}
+
 namespace {
+
+constexpr uint64_t kTileHashMix = 0x9E3779B185EBCA87ULL;
 
 [[nodiscard]] Vec3 EcefOf(double lonDeg, double latDeg) {
   const Ground::Ecef at =
@@ -53,10 +78,8 @@ namespace {
 
 std::expected<Render::HeightPageHandle, std::string>
 HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes) {
-  const auto key = std::tuple{tile.Zoom, tile.X, tile.Y};
-  const auto found = PageIndex_.find(key);
-  if (found != PageIndex_.end()) {
-    Held &one = Held_[found->second];
+  if (const size_t *found = PageIndex_.Find(tile)) {
+    Held &one = Held_[*found];
     if (one.Page && Renderer_->HasHeightPage(one.Page) && std::ranges::equal(one.Nodes, nodes)) {
       return one.Page;
     }
@@ -71,7 +94,13 @@ HeightSheets::PageFor(Data::TileId tile, std::span<const float> nodes) {
   std::vector<float> owned(nodes.begin(), nodes.end());
   const auto page = Renderer_->PlaceHeightPage(owned);
   if (!page) { return std::unexpected(page.error()); }
-  PageIndex_.emplace(key, Held_.size());
+  const auto indexed = PageIndex_.Emplace(tile, Held_.size());
+  if (!indexed) {
+    Renderer_->ReleaseHeightPage(*page);
+    return std::unexpected(indexed.error() == FlatMapError::AllocationFailed
+                               ? Says::HeightPageIndexAllocationFailed
+                               : Says::HeightPageIndexCapacityExceeded);
+  }
   Held_.push_back({.Tile = tile, .Page = *page, .Nodes = std::move(owned)});
   return *page;
 }
@@ -429,8 +458,16 @@ bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
     Renderer_->ReleaseHeightPage(one.Page);
     return true;
   });
-  PageIndex_.clear();
-  for (size_t i = 0; i < Held_.size(); ++i) { PageIndex_.emplace(KeyOf(Held_[i].Tile), i); }
+  PageIndex_.Clear();
+  for (size_t i = 0; i < Held_.size(); ++i) {
+    const auto indexed = PageIndex_.Emplace(Held_[i].Tile, i);
+    if (!indexed) {
+      error = indexed.error() == FlatMapError::AllocationFailed
+                  ? Says::HeightPageIndexAllocationFailed
+                  : Says::HeightPageIndexCapacityExceeded;
+      return false;
+    }
+  }
   Flat_ = 0;
   StitchEdges(laid);
   Instances_.clear();
@@ -487,7 +524,7 @@ void HeightSheets::Clear() {
   }
   Renderer_ = nullptr;
   Held_.clear();
-  PageIndex_.clear();
+  PageIndex_.Clear();
   Instances_.clear();
   Virtual_.clear();
   Fields_.clear();
@@ -523,6 +560,21 @@ uint64_t HeightSheets::Digest() const {
     for (const float value : held.Nodes) { foldFloat(value); }
   }
   return digest;
+}
+
+uint64_t HeightSheets::TileHash::operator()(const Data::TileId &tile) const noexcept {
+  uint64_t hash = static_cast<uint32_t>(tile.Zoom);
+  hash = (hash ^ tile.X) * kTileHashMix;
+  return (hash ^ tile.Y) * kTileHashMix;
+}
+
+size_t HeightSheets::HeapBytes() const noexcept {
+  size_t bytes = Held_.capacity() * sizeof(Held) + PageIndex_.HeapBytes() +
+                 Instances_.capacity() * sizeof(Render::TerrainTile) +
+                 Virtual_.capacity() * sizeof(Render::TerrainTile) +
+                 Fields_.capacity() * sizeof(decltype(Fields_)::value_type);
+  for (const Held &held : Held_) { bytes += held.Nodes.capacity() * sizeof(float); }
+  return bytes;
 }
 
 }

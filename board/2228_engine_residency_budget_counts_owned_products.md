@@ -15,6 +15,11 @@ instances, crowns, bake candidates, audio state and renderer-owned GPU buffers/t
 It therefore cannot be reported or enforced as an Engine memory ceiling. Global process
 heap instrumentation also includes the host and cannot substitute for this contract.
 
+`HeightSheets` reports its owned container capacities and nested page-node capacities.
+Its former `std::map` page index hid allocator-node overhead; a deterministic `FlatMap`
+now gives an exact retained-capacity value and keeps index failure atomic with height-page
+upload. Shared terrain fields remain counted at their owning stream, not here.
+
 ## Decision
 
 Each long-lived Engine product exposes owned CPU allocation capacity and requested GPU

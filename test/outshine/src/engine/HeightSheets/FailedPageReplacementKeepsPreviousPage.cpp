@@ -60,8 +60,11 @@ int main() {
                               .Postings = Render::GroundLattice::kSide});
       CHECK(sheets.Hands(patch, error), "initial sheet publishes");
       const auto bytes = renderer.HeightPageSourceBytes();
+      const auto ownerBytes = sheets.HeapBytes();
       const auto triangles = renderer.GroundLatticeTriangles();
       CHECK(bytes > 0 && triangles > 0, "fixture owns actual height data and topology");
+      CHECK(ownerBytes >= Render::GroundLattice::kPageNodes * sizeof(float),
+            "height owner counts its retained node capacity");
       patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes, 7);
       rejectSubmit = true;
       CHECK(!sheets.Hands(patch, error) && !rejectSubmit,
@@ -85,6 +88,8 @@ int main() {
       sheets.Clear();
       CHECK(renderer.HeightPageSourceBytes() == 0 && renderer.GroundLatticeTriangles() == 0,
             "streaming owner releases the successfully replaced page");
+      CHECK(sheets.HeapBytes() > 0 && sheets.HeapBytes() < ownerBytes,
+            "cleared height owner releases node payload and reports reusable index capacity");
     }
   }
   SDL_Quit();
