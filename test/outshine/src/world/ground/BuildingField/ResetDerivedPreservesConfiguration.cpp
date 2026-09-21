@@ -8,6 +8,17 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   OsmField empty(14, {});
+  BuildingField indexed;
+  const size_t unpreparedIndexBytes = indexed.HeapBytes();
+  indexed.PreparesAcceptances({});
+  const size_t preparedIndexBytes = indexed.HeapBytes() - unpreparedIndexBytes;
+  BuildingField measured;
+  const size_t unpreparedBytes = measured.HeapBytes();
+  measured.PreparesAcceptances({.Spread = 7, .Across = 11});
+  CHECK(measured.HeapBytes() - unpreparedBytes ==
+                preparedIndexBytes + measured.MeasurementBytes() &&
+            measured.MeasurementBytes() >= 18u * sizeof(double),
+        "heap budget includes all reserved contact measurements");
   BuildingField field;
   const Vec3 anchor{{1.0, 2.0, 3.0}};
   field.AnchorAt(anchor);
@@ -32,6 +43,7 @@ int main() {
           "prepared acceptance does not publish footprints");
     field.CommitAcceptance(std::move(pending), empty, baked);
     CHECK(field.Footprints().size() == 1, "rebaking does not append stale footprints");
+    CHECK(field.MeasurementBytes() >= 2u * sizeof(double), "accepted measurements own storage");
     CHECK(field.TrianglesHanded() == 12, "new bake owns its own triangle count");
     CHECK(field.Revision() > before, "accepted bake invalidates dependent terrain");
     const auto accepted = field.Revision();

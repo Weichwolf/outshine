@@ -59,8 +59,10 @@ Bewegungs- und Ortsstichproben fehlen weiterhin für p95/p99 und Peak-Memory.
 
 Die Peak-Memory-Arbeit beginnt an den Leaf-Ownern: `HeightSheets::HeapBytes` zählt Slot-,
 Index-, Instanz-, Feldreferenz- und verschachtelte Node-Kapazitäten ohne globale
-Prozessdeltas. Weitere Candidate-Produkte fehlen noch; daraus wird noch kein Candidate-Total
-ausgegeben.
+Prozessdeltas. `BuildingField::HeapBytes` zählt nun auch die eigenen Sitzflächen- und
+Quermaßpuffer; eine isolierte Reservierungsprobe unterscheidet sie vom Tile-Index und wird
+ohne den Summanden rot. Weitere Candidate-Produkte fehlen noch; daraus wird noch kein
+Candidate-Total ausgegeben.
 
 ## Decision
 

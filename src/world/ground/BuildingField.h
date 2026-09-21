@@ -146,9 +146,13 @@ public:
 
   [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_); }
 
+  [[nodiscard]] size_t MeasurementBytes() const {
+    return CapacityBytes(SeatSpread_) + CapacityBytes(Across_);
+  }
+
   [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Prints_) + CapacityBytes(AcceptedTiles_) + Mark_.HeapBytes() +
-           ByTile_.HeapBytes();
+           ByTile_.HeapBytes() + MeasurementBytes();
   }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const {
