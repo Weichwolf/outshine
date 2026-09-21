@@ -17,11 +17,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <map>
 #include <ranges>
 #include <span>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -55,10 +53,33 @@ constexpr uint64_t kTileHashMix = 0x9E3779B185EBCA87ULL;
          static_cast<double>(postings - 1u);
 }
 
-using SheetKey = std::tuple<int, uint32_t, uint32_t>;
+struct SheetHash {
+  [[nodiscard]] constexpr uint64_t operator()(const Data::TileId &tile) const noexcept {
+    uint64_t hash = static_cast<uint32_t>(tile.Zoom);
+    hash = (hash ^ tile.X) * kTileHashMix;
+    return (hash ^ tile.Y) * kTileHashMix;
+  }
+};
 
-[[nodiscard]] SheetKey KeyOf(Data::TileId tile) {
-  return {tile.Zoom, tile.X, tile.Y};
+using SheetIndex = FlatMap<size_t, Data::TileId, SheetHash>;
+
+[[nodiscard]] std::expected<SheetIndex, std::string> IndexSheets(const Patchwork &patchwork) {
+  SheetIndex wanted;
+  for (size_t at = 0; at < patchwork.Sheets.size(); ++at) {
+    const Data::TileId tile = patchwork.Sheets[at].Tile;
+    const auto added = wanted.Emplace(tile, at);
+    if (!added) {
+      return std::unexpected(added.error() == FlatMapError::AllocationFailed
+                                 ? Says::HeightPageIndexAllocationFailed
+                                 : Says::HeightPageIndexCapacityExceeded);
+    }
+    if (!added->second) {
+      return std::unexpected("ground patchwork repeats tile " + std::to_string(tile.Zoom) + "/" +
+                             std::to_string(tile.X) + "/" + std::to_string(tile.Y) + " at sheets " +
+                             std::to_string(*added->first) + " and " + std::to_string(at));
+    }
+  }
+  return wanted;
 }
 
 }
@@ -174,19 +195,13 @@ bool TerrainResidency::Publish(const Patchwork &patchwork,
                                const TangentFrame &frame,
                                std::string &error) {
   if (Renderer_ == nullptr) { return true; }
-  std::map<SheetKey, size_t> wanted;
-  for (size_t at = 0; at < patchwork.Sheets.size(); ++at) {
-    const SheetKey key = KeyOf(patchwork.Sheets[at].Tile);
-    const auto [found, inserted] = wanted.emplace(key, at);
-    if (!inserted) {
-      error = "ground patchwork repeats tile " + std::to_string(std::get<0>(key)) + "/" +
-              std::to_string(std::get<1>(key)) + "/" + std::to_string(std::get<2>(key)) +
-              " at sheets " + std::to_string(found->second) + " and " + std::to_string(at);
-      return false;
-    }
+  auto wanted = IndexSheets(patchwork);
+  if (!wanted) {
+    error = std::move(wanted.error());
+    return false;
   }
   std::erase_if(Held_, [&](const Held &one) {
-    if (wanted.contains(KeyOf(one.Tile))) { return false; }
+    if (wanted->Holds(one.Tile)) { return false; }
     Renderer_->ReleaseHeightPage(one.Page);
     return true;
   });

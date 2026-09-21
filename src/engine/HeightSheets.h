@@ -81,7 +81,7 @@ public:
   [[nodiscard]] const Seam &Seams() const { return Seams_; }
 
 private:
-  void StitchEdges(Patchwork &laid);
+  [[nodiscard]] bool StitchEdges(Patchwork &laid, std::string &error);
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
                                                     Data::TileId tile);
   [[nodiscard]] const Ground::TerrainField *HeldFieldAt(Data::TileId tile) const;

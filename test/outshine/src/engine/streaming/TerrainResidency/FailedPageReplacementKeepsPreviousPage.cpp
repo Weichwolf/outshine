@@ -65,6 +65,13 @@ int main() {
       CHECK(bytes > 0 && triangles > 0, "fixture owns actual height data and topology");
       CHECK(ownerBytes >= Render::GroundLattice::kPageNodes * sizeof(float),
             "height owner counts its retained node capacity");
+      Patchwork repeated = patch;
+      repeated.Sheets.push_back(patch.Sheets.front());
+      CHECK(!sheets.Hands(repeated, error),
+            "duplicate tile identity rejects before it can alter resident terrain");
+      CHECK(renderer.HeightPageSourceBytes() == bytes &&
+                renderer.GroundLatticeTriangles() == triangles,
+            "duplicate validation preserves the complete published terrain");
       patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes, 7);
       rejectSubmit = true;
       CHECK(!sheets.Hands(patch, error) && !rejectSubmit,

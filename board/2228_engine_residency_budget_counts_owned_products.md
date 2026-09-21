@@ -18,7 +18,9 @@ heap instrumentation also includes the host and cannot substitute for this contr
 `HeightSheets` reports its owned container capacities and nested page-node capacities.
 Its former `std::map` page index hid allocator-node overhead; a deterministic `FlatMap`
 now gives an exact retained-capacity value and keeps index failure atomic with height-page
-upload. Shared terrain fields remain counted at their owning stream, not here.
+upload. Its stitch and pre-publication tile indices also use short-lived contiguous maps:
+duplicate identity or allocation failure rejects before either can mutate resident terrain.
+Shared terrain fields remain counted at their owning stream, not here.
 `StructureBakeProgress` uses the same bounded, contiguous `FlatMap` for its massing
 accumulator. Its slot traversal is deterministic for a fixed input and allocation failure
 reaches the existing structure-bake error boundary; per-node `std::map` overhead no longer
