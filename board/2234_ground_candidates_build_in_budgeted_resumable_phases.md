@@ -68,7 +68,6 @@ Publication. Floor und Lattice beweisen ein positives Ergebnis. Geteilte Klassen
 Kandidat-Szene und GPU-Ressourcen fehlen absichtlich; daraus wird noch kein Engine-Total.
 
 ## Decision
-
 Extend the existing private GroundWorldCandidate owner; do not create a parallel world
 transaction. It retains one coherent input revision, candidate CPU/GPU products and
 phase-local continuation cursors. Suggested phase names describe actual operations:
@@ -77,11 +76,9 @@ Advance returns Pending, Ready, Rejected or Cancelled. Ready transfers a complet
 to the existing engine-thread publication owner; publication is not a second state machine
 phase with a competing Engine::State swap. The active world remains unchanged until that commit.
 
-`Engine::advance()` is the normal one-turn streaming path: it ingests one frame budget,
-advances at most the current ground-candidate phase and then draws. `preload()` is only a
-synchronous orchestration loop around the same production operations. The paced oracle must
-therefore drive `advance()` through ordinary frames and compare its final native product with
-the `preload()` control; do not add a test-only stepping API or duplicate candidate execution.
+`Engine::advance()` is the normal one-turn streaming path; `preload()` only orchestrates
+the same operations. The paced oracle drives ordinary `advance()` frames and compares its
+final native product with the `preload()` control; no test-only step API or duplicate path.
 
 Every synchronous unit has bounded input size and a measured tail cost. Splitting a large
 function into named phases does not make it budgeted: continue within the longest phase
@@ -96,7 +93,6 @@ GPU lifetimes follow existing SDL owners (2190). Do not require an upload fence 
 for later GPU sampling; CPU reuse/readback needs its proper completion contract (2235).
 
 ## Bounded implementation
-
 1. Measure per-stage elapsed time and candidate peak bytes in Engine::State::Grounds (src/engine/Laying.cpp),
    src/engine/GroundWorldCandidate.h, GroundPublication.h and
    src/render/scene/TerrainTileUpload.h.
@@ -114,7 +110,6 @@ or exposing public test hooks.
 Expected visual result: unchanged completed world; smoother preparation during movement.
 
 ## Acceptance and commands
-
 - [ ] Interrupted and uninterrupted builds have identical final native products; no partial
       terrain/building/contact revision is visible. Deliberate early publication fails.
 - [ ] Per-unit time distribution, maximum unit size and candidate peak memory are recorded;
