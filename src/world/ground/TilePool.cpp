@@ -4,6 +4,7 @@
 #include "math/Vec3.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -66,7 +67,7 @@ uint64_t FieldKey(int z, uint32_t x, uint32_t y) {
   return (kFieldKind << kKindShift) | (MeshKey(z, x, y) & ~(kTerrainKind << kKindShift));
 }
 
-uint64_t RequestKey(const std::string &key) {
+uint64_t RequestKey(std::string_view key) {
   uint64_t h = kDigestBasis;
   for (const char c : key) {
     h = (h ^ static_cast<uint64_t>(static_cast<uint8_t>(c))) * kDigestPrime;
@@ -161,12 +162,45 @@ TilePool::Ledger TilePool::Counters() const {
 
 size_t TilePool::ByteCacheBytes() const {
   const std::scoped_lock lock(CacheMutex_);
-  size_t bytes = CapacityBytes(Cache_);
+  size_t bytes = CapacityBytes(Cache_) + CapacityBytes(CacheAt_);
   for (const CacheEntry &e : Cache_) {
     bytes += e.Key.capacity() + e.SourceId.capacity() + e.SourceRevision.capacity() +
              CapacityBytes(e.Data);
   }
   return bytes;
+}
+
+std::optional<size_t> TilePool::CacheEntryOf(std::string_view key) const {
+  const uint64_t digest = RequestKey(key);
+  const auto first = std::ranges::lower_bound(CacheAt_, digest, {}, &CacheIndex::Digest);
+  for (auto found = first; found != CacheAt_.end() && found->Digest == digest; ++found) {
+    if (Cache_[found->Entry].Key == key) { return found->Entry; }
+  }
+  return std::nullopt;
+}
+
+void TilePool::IndexCacheEntry(std::string_view key, size_t entry) {
+  const uint64_t digest = RequestKey(key);
+  const auto at = std::ranges::lower_bound(CacheAt_, digest, {}, &CacheIndex::Digest);
+  CacheAt_.insert(at, {.Digest = digest, .Entry = entry});
+}
+
+void TilePool::EraseCacheEntry(std::string_view key, size_t entry) {
+  const uint64_t digest = RequestKey(key);
+  const auto first = std::ranges::lower_bound(CacheAt_, digest, {}, &CacheIndex::Digest);
+  const auto found =
+      std::ranges::find_if(first, CacheAt_.end(), [digest, entry](const CacheIndex &indexed) {
+        return indexed.Digest == digest && indexed.Entry == entry;
+      });
+  assert(found != CacheAt_.end());
+  CacheAt_.erase(found);
+}
+
+void TilePool::RepointCacheEntry(CacheEntryMove move) noexcept {
+  const auto found = std::ranges::find_if(
+      CacheAt_, [move](const CacheIndex &indexed) { return indexed.Entry == move.From; });
+  assert(found != CacheAt_.end());
+  found->Entry = move.To;
 }
 
 size_t TilePool::DemCacheBytes() const {
@@ -200,24 +234,23 @@ size_t TilePool::SchedulerBytes() const {
 
 void TilePool::RefuseUntil(const std::string &key, double untilMs) {
   const std::scoped_lock lock(CacheMutex_);
-  const auto found = CacheAt_.find(key);
-  if (found != CacheAt_.end()) {
-    Cache_[found->second].RefusedUntilMs = untilMs;
+  if (const std::optional<size_t> found = CacheEntryOf(key)) {
+    Cache_[*found].RefusedUntilMs = untilMs;
     return;
   }
   CacheEntry made;
   made.Key = key;
   made.RefusedUntilMs = untilMs;
   made.Used = ++CacheClock_;
-  CacheAt_.emplace(key, Cache_.size());
   Cache_.push_back(std::move(made));
+  IndexCacheEntry(key, Cache_.size() - 1u);
 }
 
 TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
   const std::scoped_lock lock(CacheMutex_);
-  const auto found = CacheAt_.find(key);
-  if (found == CacheAt_.end()) { return Reply::Pending; }
-  CacheEntry &e = Cache_[found->second];
+  const std::optional<size_t> found = CacheEntryOf(key);
+  if (!found) { return Reply::Pending; }
+  CacheEntry &e = Cache_[*found];
   e.Used = ++CacheClock_;
   if (e.RefusedUntilMs > 0.0 && e.RefusedUntilMs > Wire_.NowMs()) { return Reply::Refused; }
   if (e.Absent) { return Reply::Absent; }
@@ -237,7 +270,7 @@ void TilePool::Remember(const std::string &key,
                         std::string_view sourceRevision,
                         bool absent) {
   const std::scoped_lock lock(CacheMutex_);
-  if (CacheAt_.contains(key)) { return; }
+  if (CacheEntryOf(key)) { return; }
   long evicted = 0;
   while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_) {
     size_t victim = 0;
@@ -245,11 +278,11 @@ void TilePool::Remember(const std::string &key,
       if (Cache_[i].Used < Cache_[victim].Used) { victim = i; }
     }
     CacheBytes_ -= Cache_[victim].Data.size();
-    CacheAt_.erase(Cache_[victim].Key);
+    EraseCacheEntry(Cache_[victim].Key, victim);
     const size_t last = Cache_.size() - 1u;
     if (victim != last) {
       Cache_[victim] = std::move(Cache_[last]);
-      CacheAt_[Cache_[victim].Key] = victim;
+      RepointCacheEntry({.From = last, .To = victim});
     }
     Cache_.pop_back();
     evicted++;
@@ -267,8 +300,8 @@ void TilePool::Remember(const std::string &key,
   e.Used = ++CacheClock_;
   if (!absent && len > 0) { e.Data.assign(data, data + len); }
   CacheBytes_ += e.Data.size();
-  CacheAt_.emplace(key, Cache_.size());
   Cache_.push_back(std::move(e));
+  IndexCacheEntry(key, Cache_.size() - 1u);
 }
 
 TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {

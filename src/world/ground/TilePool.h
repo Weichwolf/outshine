@@ -11,7 +11,6 @@
 #include <string>
 #include <string_view>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 #include "Earth.h"
@@ -166,6 +165,16 @@ private:
     uint64_t Used = 0;
   };
 
+  struct CacheIndex {
+    uint64_t Digest = 0;
+    size_t Entry = 0;
+  };
+
+  struct CacheEntryMove {
+    size_t From = 0;
+    size_t To = 0;
+  };
+
   template <size_t Capacity> struct RecentKeys {
     static_assert(Capacity > 0);
 
@@ -217,6 +226,10 @@ private:
                 std::string_view sourceRevision,
                 bool absent);
   [[nodiscard]] Reply FetchInto(const Data::Fetch &request, Landing *out);
+  [[nodiscard]] std::optional<size_t> CacheEntryOf(std::string_view key) const;
+  void IndexCacheEntry(std::string_view key, size_t entry);
+  void EraseCacheEntry(std::string_view key, size_t entry);
+  void RepointCacheEntry(CacheEntryMove move) noexcept;
   [[nodiscard]] bool StoresDone(uint64_t key, Result result);
   [[nodiscard]] Reply PublishesCarried(const Job &job, Result result);
 
@@ -231,7 +244,7 @@ private:
 
   mutable std::mutex CacheMutex_;
   std::vector<CacheEntry> Cache_;
-  std::unordered_map<std::string, size_t> CacheAt_;
+  std::vector<CacheIndex> CacheAt_;
   size_t CacheBytes_ = 0;
   uint64_t CacheClock_ = 0;
 
