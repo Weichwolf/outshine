@@ -23,11 +23,11 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 |---|---|---|
 | include/ | Scenario.h composes public declarations. Provider, audio and render configuration now use native owners and transitive public-header edges are checked. Remaining public-door work is API scope/documentation. | 2096, 2131 |
 | base/ | Math, geometry primitives, parsing and task infrastructure are reusable. Wayfinding owns transport constraints as well as search; keep generic graph math here, move transport policy to world/navigation. | 2133, 2124 |
-| content/ | Own native assets and derived CPU artefacts/codecs, no GPU/engine/import dependencies. No second authoritative mesh representation. | 2150, 2237 |
+| content/ | Own native assets and derived CPU artefacts/codecs, no GPU/engine/import dependencies. No second authoritative mesh representation. | 2150 |
 | import/ | Geometry, materials, cameras and framing are native; the adapter fills native assets and remains behind the format-neutral loading boundary. Complete native playback ownership. | 2150 |
 | scenario/ | Reader/writer belongs to import composition; TriggerField executes entity-time state and must leave the serialization module. Native input/action/view state is not parser state. | 2151, 2130 |
-| engine/ | RuntimeScene coordinates playback and rendering after resident resources, camera history, capture, sky integration, UI and material resolution moved to their owners. Laying/HeightSheets still contain integration beside extracted terrain algorithms. | 2237 |
-| generators/ | Existing building/flora/road/water algorithms are appropriate; extract remaining terrain computation from engine. Preserve native outputs and independent library linkage. | 2237, 2150 |
+| engine/ | RuntimeScene coordinates playback and rendering. Terrain computation, resource residency and streaming scheduling have distinct owners; candidate editing still needs a narrow renderer boundary. | 2223, 2191 |
+| generators/ | Building/flora/road/water/terrain algorithms return native CPU products without Engine or renderer dependencies. Preserve independent library linkage. | 2150 |
 | world/ | Geographic/provider/logical-world products fit here; provider configuration is native. Navigation is independent of visual geometry. | 2133 |
 | render/ | SceneState/FrameResources/WorldContent separation is useful. SceneRenderer still exposes individual stage settings; narrow calls by coherent frame/world inputs, reuse existing owners. | 2222, 2223 |
 | actor/ | Rigid/prismatic computation is a valid simulation kernel. Stateful bodies/triggers currently straddle scenario/engine; gather native simulation state before adding threads. | 2130 |
@@ -41,7 +41,7 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 
 ## Executable reserve and order
 
-1. WI 2237: finish Crown capture/streaming migration over the existing scene-resource boundary.
+1. WI 2223: replace implicit renderer candidate routing with a narrow candidate editor.
 2. Re-audit this parent against the resulting code and close it or name a concrete remaining
    dependency; do not keep a generic refactor open as permanent permission to rearrange files.
 WI 2188 maintains global priority against runtime defects. Vegetation features and a new

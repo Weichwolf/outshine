@@ -80,15 +80,15 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichtern.
 Arbeitsreserve für Coding; fehlgeschlagene Gates zuerst reparieren:
-1. **P0, 2237 (ready):** verbleibende Crown-Capture-/Streaming-Besitzer über die vorhandene
-   SceneResources-Grenze migrieren. Terrainalgorithmen und Codec/Cache sind bereits getrennt.
-2. **P0, 2231 / 2191 (ready):** öffentliche Tile-Atomarität und History des letzten Submit
+1. **P0, 2223 / 2191 (ready):** implizites Renderer-Candidate-Routing durch einen schmalen
+   Editor ersetzen; veröffentlichte Laufzeitupdates dürfen keinen Candidate mutieren.
+2. **P0, 2231 (ready):** öffentliche Tile-Atomarität und History des letzten Submit
    beweisen; keine Worker-Datenrennen oder bloß leere Bewegungsbilder als Nachweis.
 3. **P0, 2234 (ready):** längste gemessene Ground-Einheit fortsetzbar machen, danach
    **P1, 2233:** Zulassung/Rückstau budgetieren. Schedulingzeit und Produktdeterminismus trennen.
 4. **P1, 2235 / 2179 (ready):** Mip-Uploads ohne unnötige Fences bündeln und
    Factory-Übersetzung unabhängig reparieren.
-Strukturaudit aller Module und konkrete Zuständigkeiten: 2139, verbleibendes Kind 2237.
+Strukturaudit aller Module und konkrete Zuständigkeiten: 2139.
 2230 bindet Capture an verwendete Produkte; 2150 migriert statischen nativen Import,
 danach native Animation. 2216-Restprüfungen begleiten Consumer; 2228 budgetiert Speicher.
 Bei Architekturfrage Befund ins WI und nächsten ready-Schritt nehmen. Ein Commit oder ein
