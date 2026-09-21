@@ -15,13 +15,16 @@ int main() {
   CHECK(publication.Publish(initial), "the first complete ground revision publishes");
   CHECK(!publication.NeedsRebuild(initial, true, false),
         "the successfully published revision needs no duplicate build");
-  std::array<GroundRevision, 6> changed{initial, initial, initial, initial, initial, initial};
+  std::array<GroundRevision, 8> changed{
+      initial, initial, initial, initial, initial, initial, initial, initial};
   ++changed[0].Region;
   ++changed[1].Classes;
   ++changed[2].Footprints;
-  changed[3].Projection[0] = 1;
-  changed[4].Projection[1] = 0.5;
-  changed[5].Projection[2] = 4;
+  ++changed[3].StreetTiles;
+  ++changed[4].WaterTiles;
+  changed[5].Projection[0] = 1;
+  changed[6].Projection[1] = 0.5;
+  changed[7].Projection[2] = 4;
   for (const GroundRevision &requested : changed) {
     CHECK(publication.NeedsRebuild(requested, false, false),
           "region, data and projection changes rebuild independently of residency polling");
