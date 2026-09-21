@@ -153,9 +153,11 @@ TilePool::Ledger TilePool::Counters() const {
   out.Repeats = Repeats_;
   out.QueueDepth = static_cast<long long>(Queue_.size());
   out.Outstanding = static_cast<long long>(Posted_.Size() - Done_.Size());
-  out.Parked = static_cast<long long>(Awaiting_.size());
+  out.Parked = static_cast<long long>(Awaiting_.Size());
   out.ParkedJobs = 0;
-  for (const auto &one : Awaiting_) { out.ParkedJobs += static_cast<long long>(one.second.size()); }
+  Awaiting_.Visit([&out](uint64_t, const std::vector<Job> &jobs) {
+    out.ParkedJobs += static_cast<long long>(jobs.size());
+  });
   out.Held = static_cast<long long>(Done_.Size());
   return out;
 }
@@ -184,12 +186,18 @@ size_t TilePool::ResidentBytes() const {
 
 size_t TilePool::SchedulerBytes() const {
   const std::scoped_lock lock(QueueMutex_);
-  size_t bytes = CapacityBytes(Queue_);
-  for (const Job &j : Queue_) { bytes += j.Ask ? j.Ask->Key().capacity() : 0; }
-  bytes += Posted_.HeapBytes() + Done_.HeapBytes();
+  const auto jobBytes = [](const std::vector<Job> &jobs) {
+    size_t bytes = CapacityBytes(jobs);
+    for (const Job &job : jobs) { bytes += job.Ask ? job.Ask->Key().capacity() : 0u; }
+    return bytes;
+  };
+  size_t bytes = jobBytes(Queue_) + jobBytes(Carrying_);
+  bytes += Posted_.HeapBytes() + Done_.HeapBytes() + Awaiting_.HeapBytes();
   Done_.Visit([&bytes](uint64_t, const Result &result) {
     bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Landed.Bytes);
   });
+  Awaiting_.Visit(
+      [&bytes, &jobBytes](uint64_t, const std::vector<Job> &jobs) { bytes += jobBytes(jobs); });
   return bytes;
 }
 
@@ -503,14 +511,13 @@ void TilePool::Carry() {
     {
       const std::scoped_lock lock(QueueMutex_);
       const Reply said = PublishesCarried(job, std::move(result));
-      const auto parked = Awaiting_.find(job.Key);
-      if (parked != Awaiting_.end()) {
+      if (const std::vector<Job> *parked = Awaiting_.Find(job.Key)) {
         if (said != Reply::Pending) {
-          for (const Job &held : parked->second) { Queue_.push_back(held); }
+          for (const Job &held : *parked) { Queue_.push_back(held); }
         } else {
-          for (const Job &held : parked->second) { Posted_.Erase(held.Key); }
+          for (const Job &held : *parked) { Posted_.Erase(held.Key); }
         }
-        Awaiting_.erase(parked);
+        Awaiting_.Erase(job.Key);
       }
       Landed_.notify_all();
       Wake_.notify_all();
@@ -639,7 +646,13 @@ void TilePool::Work(int slot) {
         continue;
       }
       if (Posted_.Holds(awaited)) {
-        Awaiting_[awaited].push_back(job);
+        const auto parked = Awaiting_.Emplace(awaited, {});
+        if (!parked) {
+          Posted_.Erase(job.Key);
+          Landed_.notify_all();
+          continue;
+        }
+        parked->first->push_back(job);
         continue;
       }
     }
@@ -694,10 +707,9 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     } else {
       *out = *done;
     }
-    const auto parked = Awaiting_.find(job.Key);
-    if (parked != Awaiting_.end()) {
-      for (const Job &held : parked->second) { Queue_.push_back(held); }
-      Awaiting_.erase(parked);
+    if (const std::vector<Job> *parked = Awaiting_.Find(job.Key)) {
+      for (const Job &held : *parked) { Queue_.push_back(held); }
+      Awaiting_.Erase(job.Key);
       lock.unlock();
       Wake_.notify_all();
     }

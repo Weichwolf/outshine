@@ -228,7 +228,7 @@ private:
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;
   std::vector<std::thread> Carriers_;
-  std::unordered_map<uint64_t, std::vector<Job>> Awaiting_;
+  FlatMap<std::vector<Job>> Awaiting_;
 };
 
 }
