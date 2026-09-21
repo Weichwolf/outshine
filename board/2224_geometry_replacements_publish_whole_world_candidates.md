@@ -82,7 +82,8 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
   `SDL_SubmitGPUCommandBuffer`-Ablehnungen bei B und spätem A erhalten jeweils das zuvor
   vollständig gerenderte Weltbild; beide unmittelbaren Retries publizieren genau einmal. Der
   Test benutzt nur die öffentliche Engine-API und dieselbe Submit-Grenze wie die Generatorprüfung.
-  Audio-Occlusion bleibt offen, weil die öffentliche API ihre tatsächliche Ray-Antwort nicht misst.
+  Ein positionaler Oszillator hinter A misst dabei den echten Occlusion-Snapshot: Ablehnung hält
+  Pegel und Pixel von A beziehungsweise B; erfolgreicher Commit wechselt den Snapshot atomar.
 - `Live/GroundClassificationBelongsToItsWorld.cpp`: Klassifikationspuffer gehören dem
   richtigen Owner; verworfene Kandidaten erhalten alte Inhalte.
 - `Live/GroundResourcesSurviveWorldPublication.cpp`: Höhenhalter über zwei Ersatzwelten.

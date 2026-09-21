@@ -85,6 +85,7 @@ int main() {
   Product unnamed("", 0.0F, {{0, 0, 0}});
   Product left("left-product", -0.5F, {{1, 0, 0}});
   Product right("right-product", 0.5F, {{0, 1, 0}});
+  Product wall("wall-product", 0.0F, {{0, 0, 1}});
   Engine engine;
   const auto empty = engine.offers(unnamed);
   CHECK(!empty && empty.error() == "generator registration needs a nonempty kind",
@@ -99,6 +100,20 @@ int main() {
   scenario.Render.Frame = {64, 64};
   scenario.Render.Outputs = {"sceneLinear"};
   scenario.Generators = {{.Kind = "left-product"}, {.Kind = "right-product"}};
+  scenario.Buses.emplace_back().Id = "master";
+  Scenario::Body source;
+  source.Name = "occluded-source";
+  source.Placed = true;
+  source.Stands.AtM = {{0, 0, -1}};
+  scenario.Bodies.push_back(source);
+  Audio::SoundSource tone;
+  tone.Id = "occluded-tone";
+  tone.Body = source.Name;
+  tone.Spatial.Positional = true;
+  tone.Spatial.ObstructedGain = 0.25;
+  tone.Graph.emplace_back().Id = "osc";
+  tone.Graph.back().Parameters = {{"frequency", "1000"}};
+  scenario.Sounds.push_back(tone);
   Scenario::View view;
   view.Id = "products";
   view.Person = "first";
@@ -139,26 +154,43 @@ int main() {
   CHECK(engine.renderer().render({}).has_value() &&
             engine.renderer().readPixels(Buffer::Linear, retained).has_value(),
         "retried generated world establishes the native-replacement control image");
-  auto native = right.make({});
-  CHECK(native.has_value(), "native replacement fixture is built");
-  if (!native) { return Report(); }
-  const auto beforeNativeRejection = retained;
-  rejectSubmission = true;
-  CHECK(!engine.setGeometry(*native),
-        "native geometry candidate rejects its injected GPU submission failure");
-  CHECK(rejectedSubmissions == 2 && !rejectSubmission,
-        "native replacement reaches the injected submission failure once");
-  CHECK(engine.renderer().render({}).has_value(),
-        "published generated world remains renderable after native replacement rejection");
-  CHECK(engine.renderer().readPixels(Buffer::Linear, retained).has_value() &&
-            retained == beforeNativeRejection,
-        "rejected native replacement preserves published pixels");
-  CHECK(engine.setGeometry(*native), "native replacement publishes on immediate retry");
+  const auto audioEnergy = [&] {
+    std::array<float, 128> stereo{};
+    CHECK(engine.prepareAudio(48000), "the published world prepares its positional source");
+    CHECK(engine.mix(stereo), "the prepared source mixes from the published snapshot");
+    float energy = 0;
+    for (const float sample : stereo) { energy += std::abs(sample); }
+    return energy;
+  };
+  auto blockingA = wall.make({});
+  CHECK(blockingA.has_value(), "blocking A native fixture is built");
+  if (!blockingA || !engine.setGeometry(*blockingA) || !engine.advance()) { return Report(); }
   CHECK(engine.renderer().render({}).has_value() &&
             engine.renderer().readPixels(Buffer::Linear, retained).has_value(),
-        "successful native replacement renders its published world");
+        "blocking A establishes a rendered and audible published world");
+  const auto publishedA = retained;
+  const float blockedA = audioEnergy();
+  auto native = right.make({});
+  CHECK(native.has_value(), "native B replacement fixture is built");
+  if (!native) { return Report(); }
+  rejectSubmission = true;
+  CHECK(!engine.setGeometry(*native),
+        "native B candidate rejects its injected GPU submission failure");
+  CHECK(rejectedSubmissions == 2 && !rejectSubmission,
+        "native B replacement reaches the injected submission failure once");
+  CHECK(engine.renderer().render({}).has_value() &&
+            engine.renderer().readPixels(Buffer::Linear, retained).has_value() &&
+            retained == publishedA,
+        "rejected native B replacement preserves published A pixels");
+  CHECK(audioEnergy() == blockedA, "rejected native B replacement preserves A audio occlusion");
+  CHECK(engine.setGeometry(*native) && engine.advance(), "native B replacement publishes on retry");
+  CHECK(engine.renderer().render({}).has_value() &&
+            engine.renderer().readPixels(Buffer::Linear, retained).has_value(),
+        "successful native B replacement renders its published world");
   const auto publishedB = retained;
-  auto lateA = left.make({});
+  const float audibleB = audioEnergy();
+  CHECK(audibleB > blockedA * 3.5F, "published B opens the source-to-listener acoustic ray");
+  auto lateA = wall.make({});
   CHECK(lateA.has_value(), "late A native replacement fixture is built");
   if (!lateA) { return Report(); }
   rejectSubmission = true;
@@ -169,10 +201,12 @@ int main() {
             engine.renderer().readPixels(Buffer::Linear, retained).has_value() &&
             retained == publishedB,
         "late A rejection retains the complete published B pixels");
-  CHECK(engine.setGeometry(*lateA), "late A publishes after its immediate retry");
+  CHECK(audioEnergy() == audibleB, "late A rejection retains B audio occlusion");
+  CHECK(engine.setGeometry(*lateA) && engine.advance(),
+        "late A publishes after its immediate retry");
   CHECK(engine.renderer().render({}).has_value() &&
-            engine.renderer().readPixels(Buffer::Linear, retained).has_value() &&
-            retained != publishedB,
-        "successful late A replaces B only after the candidate commits");
+            engine.renderer().readPixels(Buffer::Linear, retained).has_value(),
+        "successful late A keeps the composed generator and native world drawable");
+  CHECK(audioEnergy() == blockedA, "successful late A restores its blocked acoustic ray");
   return Report();
 }
