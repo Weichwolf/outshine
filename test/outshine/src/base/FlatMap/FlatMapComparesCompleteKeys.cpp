@@ -16,6 +16,19 @@ struct PositionKey {
 struct CollisionHash {
   constexpr uint64_t operator()(const PositionKey &) const noexcept { return 0; }
 };
+
+struct NonDefaultValue {
+  int Value;
+
+  NonDefaultValue() = delete;
+
+  constexpr explicit NonDefaultValue(int value) noexcept : Value(value) {}
+
+  constexpr NonDefaultValue(const NonDefaultValue &) noexcept = default;
+  constexpr NonDefaultValue(NonDefaultValue &&) noexcept = default;
+  constexpr NonDefaultValue &operator=(const NonDefaultValue &) noexcept = default;
+  constexpr NonDefaultValue &operator=(NonDefaultValue &&) noexcept = default;
+};
 }
 
 int main() {
@@ -29,7 +42,17 @@ int main() {
           "colliding distinct key inserts its own value");
   }
   CHECK(map.Size() == count, "growth retains all colliding keys");
+  const size_t retainedBytes = map.HeapBytes();
+  CHECK(map.Erase({99, -99, 198}), "erasing a colliding key succeeds");
+  CHECK(!map.Find({99, -99, 198}) && map.Size() == count - 1 && map.HeapBytes() == retainedBytes,
+        "erasure releases one key without changing retained storage");
+  for (int64_t i = 100; i < count; ++i) {
+    const auto *found = map.Find({i, -i, i * 2});
+    CHECK(found && *found == i, "erasure repairs the following collision chain");
+  }
+  CHECK(!map.Erase({999, -999, 1998}), "erasing an absent key changes nothing");
   for (int64_t i = 0; i < count; ++i) {
+    if (i == 99) { continue; }
     const auto *found = map.Find({i, -i, i * 2});
     CHECK(found && *found == i, "full key comparison survives rehashing");
     const auto duplicate = map.Emplace({i, -i, i * 2}, 999);
@@ -56,5 +79,9 @@ int main() {
     CHECK(value == 7, "visitation exposes the stored value");
   });
   CHECK(visits == 1 && visited[0] == 42, "const visitation reaches each occupied slot once");
+  FlatMap<NonDefaultValue> nonDefault;
+  const auto held = nonDefault.Emplace(8, NonDefaultValue{12});
+  CHECK(held && held->second && held->first->Value == 12,
+        "slot storage constructs only occupied non-default values");
   return Report();
 }

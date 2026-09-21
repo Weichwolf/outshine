@@ -2,11 +2,13 @@
 #define OUTSHINE_BASE_FLATMAP_H
 
 #include <cstddef>
+#include <cassert>
 #include <cstdint>
 #include <expected>
 #include <limits>
 #include <memory>
 #include <new>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -27,7 +29,7 @@ class FlatMap {
                 std::is_nothrow_invocable_r_v<uint64_t, Hasher, const Key &>);
   static_assert(noexcept(std::declval<const Key &>() == std::declval<const Key &>()));
   static_assert(std::is_nothrow_default_constructible_v<Key> &&
-                std::is_nothrow_default_constructible_v<Value>);
+                std::is_nothrow_destructible_v<Value>);
   static_assert(std::is_nothrow_copy_constructible_v<Key> &&
                 std::is_nothrow_move_constructible_v<Key> &&
                 std::is_nothrow_copy_assignable_v<Key> &&
@@ -56,10 +58,13 @@ public:
   }
 
   void Clear() noexcept {
-    if (++Epoch_ == 0u) {
-      for (size_t at = 0; at < Capacity_; ++at) { Slots_.get()[at].Epoch = 0u; }
-      Epoch_ = 1u;
+    for (size_t at = 0; at < Capacity_; ++at) {
+      Slot &one = Slots_.get()[at];
+      if (one.Epoch != Epoch_) { continue; }
+      one.Held.reset();
+      one.Epoch = 0u;
     }
+    if (++Epoch_ == 0u) { Epoch_ = 1u; }
     Held_ = 0;
   }
 
@@ -74,7 +79,7 @@ public:
     for (size_t at = Where(key, Capacity_ - 1);; at = (at + 1u) & (Capacity_ - 1)) {
       Slot &one = Slots_.get()[at];
       if (one.Epoch != Epoch_) { return nullptr; }
-      if (one.StoredKey == key) { return &one.Held; }
+      if (one.StoredKey == key) { return &one.ValueOf(); }
     }
   }
 
@@ -84,13 +89,38 @@ public:
 
   [[nodiscard]] bool Holds(const Key &key) const noexcept { return Find(key) != nullptr; }
 
+  bool Erase(const Key &key) noexcept {
+    if (!Slots_) { return false; }
+    const size_t mask = Capacity_ - 1u;
+    for (size_t at = Where(key, mask);; at = (at + 1u) & mask) {
+      Slot &one = Slots_.get()[at];
+      if (one.Epoch != Epoch_) { return false; }
+      if (one.StoredKey != key) { continue; }
+      one.Held.reset();
+      one.Epoch = 0;
+      --Held_;
+      for (size_t next = (at + 1u) & mask; Slots_.get()[next].Epoch == Epoch_;
+           next = (next + 1u) & mask) {
+        Slot &following = Slots_.get()[next];
+        Key displacedKey = following.StoredKey;
+        Value displacedValue = std::move(following.ValueOf());
+        following.Held.reset();
+        following.Epoch = 0;
+        --Held_;
+        (void)Insert(Slots_.get(), Capacity_, displacedKey, std::move(displacedValue));
+        ++Held_;
+      }
+      return true;
+    }
+  }
+
   template <typename Visitor>
   void Visit(Visitor &&visitor) const
       noexcept(noexcept(std::declval<Visitor &>()(std::declval<const Key &>(),
                                                   std::declval<const Value &>()))) {
     for (size_t at = 0; at < Capacity_; ++at) {
       const Slot &one = Slots_.get()[at];
-      if (one.Epoch == Epoch_) { visitor(one.StoredKey, one.Held); }
+      if (one.Epoch == Epoch_) { visitor(one.StoredKey, one.ValueOf()); }
     }
   }
 
@@ -110,7 +140,17 @@ private:
   struct Slot {
     Key StoredKey{};
     uint32_t Epoch = 0;
-    Value Held{};
+    std::optional<Value> Held;
+
+    [[nodiscard]] Value &ValueOf() noexcept {
+      assert(Held.has_value());
+      return Held.value();
+    }
+
+    [[nodiscard]] const Value &ValueOf() const noexcept {
+      assert(Held.has_value());
+      return Held.value();
+    }
   };
 
   struct ReleaseSlots {
@@ -139,11 +179,11 @@ private:
       Slot &one = slots[at];
       if (one.Epoch != Epoch_) {
         one.StoredKey = key;
-        one.Held = std::move(value);
+        one.Held.emplace(std::move(value));
         one.Epoch = Epoch_;
-        return {&one.Held, true};
+        return {&one.ValueOf(), true};
       }
-      if (one.StoredKey == key) { return {&one.Held, false}; }
+      if (one.StoredKey == key) { return {&one.ValueOf(), false}; }
     }
   }
 
@@ -160,7 +200,8 @@ private:
     for (size_t at = 0; at < Capacity_; ++at) {
       Slot &one = Slots_.get()[at];
       if (one.Epoch == Epoch_) {
-        (void)Insert(next.get(), wanted, one.StoredKey, std::move(one.Held));
+        (void)Insert(next.get(), wanted, one.StoredKey, std::move(one.ValueOf()));
+        one.Held.reset();
       }
     }
     Slots_ = std::move(next);

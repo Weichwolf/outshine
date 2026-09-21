@@ -152,11 +152,11 @@ TilePool::Ledger TilePool::Counters() const {
   out.Posts = Posts_;
   out.Repeats = Repeats_;
   out.QueueDepth = static_cast<long long>(Queue_.size());
-  out.Outstanding = static_cast<long long>(Posted_.size() - Done_.size());
+  out.Outstanding = static_cast<long long>(Posted_.Size() - Done_.Size());
   out.Parked = static_cast<long long>(Awaiting_.size());
   out.ParkedJobs = 0;
   for (const auto &one : Awaiting_) { out.ParkedJobs += static_cast<long long>(one.second.size()); }
-  out.Held = static_cast<long long>(Done_.size());
+  out.Held = static_cast<long long>(Done_.Size());
   return out;
 }
 
@@ -186,11 +186,10 @@ size_t TilePool::SchedulerBytes() const {
   const std::scoped_lock lock(QueueMutex_);
   size_t bytes = CapacityBytes(Queue_);
   for (const Job &j : Queue_) { bytes += j.Ask ? j.Ask->Key().capacity() : 0; }
-  bytes += TreeNodeBytes<uint64_t>(Posted_.size());
-  bytes += TreeNodeBytes<std::pair<const uint64_t, Result>>(Done_.size());
-  for (const std::pair<const uint64_t, Result> &d : Done_) {
-    bytes += CapacityBytes(d.second.Build.Nodes) + CapacityBytes(d.second.Landed.Bytes);
-  }
+  bytes += Posted_.HeapBytes() + Done_.HeapBytes();
+  Done_.Visit([&bytes](uint64_t, const Result &result) {
+    bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Landed.Bytes);
+  });
   return bytes;
 }
 
@@ -453,6 +452,29 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   }
 }
 
+bool TilePool::StoresDone(uint64_t key, Result result) {
+  if (Result *const replaced = Done_.Find(key)) {
+    *replaced = std::move(result);
+    return true;
+  }
+  const auto stored = Done_.Emplace(key, std::move(result));
+  return stored.has_value();
+}
+
+TilePool::Reply TilePool::PublishesCarried(const Job &job, Result result) {
+  const Reply said = result.State;
+  if (said == Reply::Pending) {
+    Posted_.Erase(job.Key);
+  } else if (Posted_.Holds(job.Key)) {
+    if (StoresDone(job.Key, std::move(result))) {
+      Lands(job.Key, false);
+    } else {
+      Posted_.Erase(job.Key);
+    }
+  }
+  return said;
+}
+
 void TilePool::Carry() {
   static const Heap::Tag kCarryingTag("tile-carrier");
   const Heap::Tagged carrying(kCarryingTag);
@@ -480,19 +502,13 @@ void TilePool::Carry() {
     }
     {
       const std::scoped_lock lock(QueueMutex_);
-      const Reply said = result.State;
-      if (said == Reply::Pending) {
-        Posted_.erase(job.Key);
-      } else if (Posted_.contains(job.Key)) {
-        Done_[job.Key] = std::move(result);
-        Lands(job.Key, false);
-      }
+      const Reply said = PublishesCarried(job, std::move(result));
       const auto parked = Awaiting_.find(job.Key);
       if (parked != Awaiting_.end()) {
         if (said != Reply::Pending) {
           for (const Job &held : parked->second) { Queue_.push_back(held); }
         } else {
-          for (const Job &held : parked->second) { Posted_.erase(held.Key); }
+          for (const Job &held : parked->second) { Posted_.Erase(held.Key); }
         }
         Awaiting_.erase(parked);
       }
@@ -561,7 +577,7 @@ void TilePool::PublishResult(const Job &job, Result result) {
     const std::scoped_lock lock(QueueMutex_);
 
     if (result.State == Reply::Pending) {
-      Posted_.erase(job.Key);
+      Posted_.Erase(job.Key);
       {
         const std::scoped_lock ledger(LedgerMutex_);
         if (job.Kind == Rank::Mesh) { Ledger_.MeshDropped++; }
@@ -570,13 +586,16 @@ void TilePool::PublishResult(const Job &job, Result result) {
       Landed_.notify_all();
     }
 
-    else if (Posted_.contains(job.Key)) {
+    else if (Posted_.Holds(job.Key)) {
       if (result.State == Reply::Absent || result.State == Reply::Undeclared) {
         result.Build = TileBuild{};
       }
       const bool holds = result.Holds;
-      Done_[job.Key] = std::move(result);
-      Lands(job.Key, holds);
+      if (StoresDone(job.Key, std::move(result))) {
+        Lands(job.Key, holds);
+      } else {
+        Posted_.Erase(job.Key);
+      }
       Landed_.notify_all();
     }
   }
@@ -613,13 +632,13 @@ void TilePool::Work(int slot) {
       const uint64_t awaited = tAwaited;
       tAwaited = 0;
       std::unique_lock<std::mutex> lock(QueueMutex_);
-      if (Done_.contains(awaited)) {
+      if (Done_.Holds(awaited)) {
         Queue_.push_back(job);
         lock.unlock();
         Wake_.notify_all();
         continue;
       }
-      if (Posted_.contains(awaited)) {
+      if (Posted_.Holds(awaited)) {
         Awaiting_[awaited].push_back(job);
         continue;
       }
@@ -655,26 +674,25 @@ void TilePool::Lands(uint64_t key, bool holds) {
     const uint64_t oldest = kept.front();
     kept.pop_front();
     if (std::ranges::find(kept, oldest) != kept.end()) { continue; }
-    Done_.erase(oldest);
-    Posted_.erase(oldest);
+    Done_.Erase(oldest);
+    Posted_.Erase(oldest);
   }
 }
 
 TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   std::unique_lock<std::mutex> lock(QueueMutex_);
-  const auto done = Done_.find(job.Key);
-  if (done != Done_.end()) {
-    if (done->second.State == Reply::Absent || done->second.State == Reply::Undeclared) {
-      out->State = done->second.State;
+  if (Result *done = Done_.Find(job.Key)) {
+    if (done->State == Reply::Absent || done->State == Reply::Undeclared) {
+      out->State = done->State;
       return out->State;
     }
-    const bool consumed = !done->second.Holds;
+    const bool consumed = !done->Holds;
     if (consumed) {
-      *out = std::move(done->second);
-      Done_.erase(done);
-      Posted_.erase(job.Key);
+      *out = std::move(*done);
+      Done_.Erase(job.Key);
+      Posted_.Erase(job.Key);
     } else {
-      *out = done->second;
+      *out = *done;
     }
     const auto parked = Awaiting_.find(job.Key);
     if (parked != Awaiting_.end()) {
@@ -686,7 +704,8 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     (void)consumed;
     return out->State;
   }
-  if (Posted_.insert(job.Key).second) {
+  const auto posted = Posted_.Emplace(job.Key, false);
+  if (posted && posted->second) {
     Posts_++;
     Job posting = job;
     if (posting.Kind == Rank::Mesh || posting.Kind == Rank::Field) {
@@ -709,9 +728,8 @@ TilePool::Reply TilePool::Wants(Data::TileId of, int grid) {
   const uint64_t key = MeshKey(z, x, y);
   {
     const std::scoped_lock lock(QueueMutex_);
-    const auto done = Done_.find(key);
-    if (done != Done_.end()) { return done->second.State; }
-    if (Posted_.contains(key)) { return Reply::Pending; }
+    if (const Result *done = Done_.Find(key)) { return done->State; }
+    if (Posted_.Holds(key)) { return Reply::Pending; }
   }
   Job job;
   job.Kind = Rank::Mesh;
@@ -787,7 +805,7 @@ TilePool::Reply TilePool::FieldAwaited(Data::TileId of, std::shared_ptr<const Te
   const uint64_t key = FieldKey(of.Zoom, of.X, of.Y);
   {
     std::unique_lock<std::mutex> lock(QueueMutex_);
-    Landed_.wait(lock, [&] { return Done_.contains(key) || !Posted_.contains(key); });
+    Landed_.wait(lock, [&] { return Done_.Holds(key) || !Posted_.Holds(key); });
   }
   return Field(of, out);
 }
@@ -798,7 +816,7 @@ TilePool::Reply TilePool::MeshAwaited(Data::TileId of, int grid, TileBuild *out)
   const uint64_t key = MeshKey(of.Zoom, of.X, of.Y);
   {
     std::unique_lock<std::mutex> lock(QueueMutex_);
-    Landed_.wait(lock, [&] { return Done_.contains(key) || !Posted_.contains(key); });
+    Landed_.wait(lock, [&] { return Done_.Holds(key) || !Posted_.Holds(key); });
   }
   return Mesh(of, grid, out);
 }
@@ -813,12 +831,12 @@ bool TilePool::AwaitLanding(double seconds) {
 void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
   const uint64_t key = MeshKey(z, x, y);
   const std::scoped_lock lock(QueueMutex_);
-  Posted_.erase(key);
-  Done_.erase(key);
+  Posted_.Erase(key);
+  Done_.Erase(key);
 }
 
 bool TilePool::Known(uint64_t key) {
   const std::scoped_lock lock(QueueMutex_);
-  return Done_.contains(key) || Posted_.contains(key);
+  return Done_.Holds(key) || Posted_.Holds(key);
 }
 }

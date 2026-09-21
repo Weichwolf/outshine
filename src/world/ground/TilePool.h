@@ -5,11 +5,9 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -18,6 +16,7 @@
 
 #include "Earth.h"
 #include "ClusterDag.h"
+#include "FlatMap.h"
 #include "TerrainGrid.h"
 #include "TerrainTiles.h"
 #include "TileMeshes.h"
@@ -191,6 +190,8 @@ private:
                 std::string_view sourceRevision,
                 bool absent);
   [[nodiscard]] Reply FetchInto(const Data::Fetch &request, Landing *out);
+  [[nodiscard]] bool StoresDone(uint64_t key, Result result);
+  [[nodiscard]] Reply PublishesCarried(const Job &job, Result result);
 
   Data::SourceSet &Sources_;
   Data::Transport &Wire_;
@@ -217,8 +218,8 @@ private:
   std::condition_variable Landed_;
   std::vector<Job> Queue_;
   std::vector<Job> Carrying_;
-  std::map<uint64_t, Result> Done_;
-  std::set<uint64_t> Posted_;
+  FlatMap<Result> Done_;
+  FlatMap<bool> Posted_;
   std::deque<uint64_t> Kept_;
   std::deque<uint64_t> Passing_;
 
