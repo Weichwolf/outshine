@@ -26,6 +26,12 @@ struct GroundBuildProducts {
   size_t NetworkOfWays = 0;
   size_t RimsMissing = 0;
   TilePieces::Surfaces Surfaces;
+
+  [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
+    return Sheets.HeapBytes() + Footprints.HeapBytes() + Pieces.HeapBytes() +
+           Ground.storageBytes() + PositionsM.capacity() * sizeof(float) +
+           Indices.capacity() * sizeof(uint32_t) + ClassPalette.capacity() * sizeof(float);
+  }
 };
 
 class GroundWorldCandidate {

@@ -202,6 +202,8 @@ int main(void) {
   }
   CHECK(Measured(told, "ground candidate: corridor drape field misses") == 0.0,
         "corridors resolve every terrain query through the adaptive DEM fields");
+  CHECK(Measured(told, "ground candidate: direct CPU product peak") > 0.0,
+        "the published candidate records its direct CPU product peak");
   const double pads = Measured(told, "ground: pads with a lattice node inside");
   const double padsUnreached = Measured(told, "ground: pads no lattice node reaches");
   const double padNodes = Measured(told, "ground: nodes inside those pads");

@@ -293,7 +293,7 @@ public:
   [[nodiscard]] int parts() const;
   /// Return retained native CPU storage in bytes, including inactive reusable capacity.
   /// Shared external resources and renderer copies are excluded. O(parts + materials + images +
-  /// lights), no allocation; the object must not have been moved from.
+  /// lights), no allocation; returns zero after move.
   /// @return Owned native storage capacity in bytes.
   [[nodiscard]] size_t storageBytes() const noexcept;
   /// @param part Active owner-local part index.

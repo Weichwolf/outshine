@@ -137,11 +137,19 @@ public:
 
   [[nodiscard]] SheetPhase SheetBuilding() const noexcept { return SheetBuilding_; }
 
-  void AdvancesSheetsTo(SheetPhase phase) noexcept { SheetBuilding_ = phase; }
+  void AdvancesSheetsTo(SheetPhase phase) noexcept {
+    RecordsProductPeak();
+    SheetBuilding_ = phase;
+  }
 
   [[nodiscard]] Stage NextStage() const noexcept { return NextStage_; }
 
-  void AdvancesTo(Stage stage) noexcept { NextStage_ = stage; }
+  void AdvancesTo(Stage stage) noexcept {
+    RecordsProductPeak();
+    NextStage_ = stage;
+  }
+
+  [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeakBytes_; }
 
   void HoldsCorridors(std::vector<Yields> corridors) { Corridors_ = std::move(corridors); }
 
@@ -178,12 +186,22 @@ public:
   }
 
 private:
+  void RecordsProductPeak() noexcept {
+    const size_t phaseBytes =
+        (Patchwork_ ? Patchwork_->HeapBytes() : 0u) + Corridors_.capacity() * sizeof(Yields);
+    size_t corridorBytes = 0;
+    for (const Yields &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
+    ProductPeakBytes_ = std::max(
+        ProductPeakBytes_, Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes);
+  }
+
   Around Coverage_;
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
   std::vector<Yields> Corridors_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
+  size_t ProductPeakBytes_ = 0;
   SheetPhase SheetBuilding_ = SheetPhase::NeedsRefinement;
   Stage NextStage_ = Stage::NeedsClasses;
   bool Prepared_ = false;
@@ -1377,6 +1395,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
       "ground candidate: publication",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
+  Published.Places("ground candidate: direct CPU product peak",
+                   static_cast<double>(state.ProductPeakBytes()),
+                   "bytes");
   World.GroundBuild.reset();
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");

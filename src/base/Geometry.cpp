@@ -440,6 +440,7 @@ int Geometry::parts() const {
 }
 
 size_t Geometry::storageBytes() const noexcept {
+  if (!Held_) { return 0; }
   size_t bytes = sizeof(Held) + Held_->Parts.capacity() * sizeof(Held::Piece) +
                  Held_->Surfaces.capacity() * sizeof(Held::Named) +
                  Held_->Images.capacity() * sizeof(Held::Picture) +

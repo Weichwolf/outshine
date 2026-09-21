@@ -57,12 +57,11 @@ Mesh, 2.02 ms Geometry und 0.023 ms Publication; auch dort bleiben alle DEM-Abfr
 Beide Integrationsfixtures veröffentlichen jetzt jeden Fortsetzungswert ausdrücklich. Mehrere
 Bewegungs- und Ortsstichproben fehlen weiterhin für p95/p99 und Peak-Memory.
 
-Die Peak-Memory-Arbeit beginnt an den Leaf-Ownern: `HeightSheets::HeapBytes` zählt Slot-,
-Index-, Instanz-, Feldreferenz- und verschachtelte Node-Kapazitäten ohne globale
-Prozessdeltas. `BuildingField::HeapBytes` zählt nun auch die eigenen Sitzflächen- und
-Quermaßpuffer; eine isolierte Reservierungsprobe unterscheidet sie vom Tile-Index und wird
-ohne den Summanden rot. Weitere Candidate-Produkte fehlen noch; daraus wird noch kein
-Candidate-Total ausgegeben.
+`GroundBuildProducts::OwnedHeapBytes` zählt direkte CPU-Produkte: Sheets, Gebäude,
+Piece-Slots, native Geometrie sowie Terrain-/Palettenstreams. `GroundBuildState` hält daraus
+mit Patchwork und Corridoren einen High-Water-Mark und veröffentlicht ihn nach atomarer
+Publication. Floor und Lattice beweisen ein positives Ergebnis. Geteilte Klassen, Netzwerk,
+Kandidat-Szene und GPU-Ressourcen fehlen absichtlich; daraus wird noch kein Engine-Total.
 
 ## Decision
 

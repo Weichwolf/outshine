@@ -111,5 +111,8 @@ int main() {
   geometry.clear();
   CHECK(geometry.parts() == 0 && geometry.images() == 0 && !geometry.wellFormed(),
         "repeated clear leaves an empty owner");
+  Geometry moved = std::move(copied);
+  CHECK(copied.storageBytes() == 0 && moved.storageBytes() >= emptyBytes,
+        "moved-from geometry reports no retained storage");
   return Report();
 }

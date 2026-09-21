@@ -103,6 +103,8 @@ int main(void) {
   }
   CHECK(Measured(told, "ground candidate: corridor drape field misses") == 0.0,
         "corridors resolve every terrain query through the adaptive DEM fields");
+  CHECK(Measured(told, "ground candidate: direct CPU product peak") > 0.0,
+        "the published candidate records its direct CPU product peak");
   const double virtualEdges = Measured(told, "ground: seam, virtual, edges stitched");
   const double virtualEven =
       Measured(told, "ground: seam, virtual, even nodes off the coarser node, worst");
