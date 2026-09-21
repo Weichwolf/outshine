@@ -110,8 +110,9 @@ Test nutzt keine breite Flucht mehr.
 - Repeated A→B→A declarations have bounded GPU ownership and no stale content binding.
 - A negative control that writes the active content before candidate success fails the pixel and
   retry oracle.
-- Render a static subject before and after an unrelated target change to prove content rebinding
-  preserves pixels. Run relevant suites and `make lint`.
+- [x] `TargetChangesKeepStaticWorldPixels.cpp` renders a native static world over 64→96→64;
+  the restored 64-pixel readback is bit-identical. Target rebinds retain published world content.
+  Run relevant suites and `make lint`.
 
 ## Strukturaudit: vorhandene Besitzer weiterverwenden
 Die RuntimeScene-Migration verschiebt Ressourcen in vorhandenen WorldContent-Besitz. SceneRenderer
