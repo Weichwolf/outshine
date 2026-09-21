@@ -59,6 +59,7 @@
 namespace outshine {
 struct GroundBuildProducts;
 class GroundBuildState;
+class GroundWorldCandidate;
 
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
@@ -378,7 +379,7 @@ struct Engine::State {
                                                       const Medium &fallback);
 
   [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM,
-                                 Core::RuntimeScene &candidate);
+                                 GroundWorldCandidate &candidate);
 
   struct Phasing {
     std::chrono::steady_clock::time_point PhaseAt;

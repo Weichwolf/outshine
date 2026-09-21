@@ -97,7 +97,7 @@ int main() {
             CHECK(renderer.SetTerrainTiles({}, {}, error), "candidate changes terrain first");
             rejectSubmit = true;
             const bool accepted =
-                rejectGeometry ? build.Scene().SetGeometry(geometry.clone(), 0, error)
+                rejectGeometry ? build.SetGroundGeometry(geometry.clone(), 0, error)
                                : renderer.SetGroundClasses(std::array<uint32_t, 4>{1, 2, 3, 4},
                                                            std::array<float, 4>{1, 0.5f, 0.25f, 0},
                                                            error);
@@ -146,7 +146,7 @@ int main() {
         retry.Products().NetworkOfWays = 19;
         retry.Products().RimsMissing = 0;
         CHECK(renderer.SetTerrainTiles({}, {}, error) &&
-                  retry.Scene().SetGeometry(geometry.clone(), 0, error),
+                  retry.SetGroundGeometry(geometry.clone(), 0, error),
               "retry finishes GPU preparation");
         CHECK(retry.Publish(world, footprints, scene, nextRevision).has_value(),
               "complete retry publishes");

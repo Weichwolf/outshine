@@ -234,7 +234,7 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
 }
 
 Engine::State::Classed Engine::State::Classify(std::span<const float> groundPositionsM,
-                                               Core::RuntimeScene &candidate) {
+                                               GroundWorldCandidate &candidate) {
   Classed out;
   const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
   const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
@@ -1008,10 +1008,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
-  Core::RuntimeScene &scene = state.Candidate().Scene();
   static const Heap::Tag kClassingTag("ground-classify");
   const Heap::Tagged classing(kClassingTag);
-  Classed classed = Classify(build.PositionsM, scene);
+  Classed classed = Classify(build.PositionsM, state.Candidate());
   build.ClassPalette = std::move(classed.Palette);
   build.ClassStructure = std::move(classed.Structure);
   state.AdvancesTo(GroundBuildState::Stage::NeedsGroundSurface);
@@ -1053,7 +1052,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
   if (!Models(standing, build, clocks) ||
-      !candidate.Scene().SetGeometry(build.Ground.clone(), 0, build.GroundMaterial, Error)) {
+      !candidate.SetGroundGeometry(build.Ground.clone(), 0, build.GroundMaterial, Error)) {
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
@@ -1258,7 +1257,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
                    "carried");
   Published.Places(
       "restand: parts in the geometry", static_cast<double>(build.Ground.parts()), "parts");
-  candidate.Scene().GroundIs(build.GroundSurface.index());
+  candidate.GroundIs(build.GroundSurface.index());
   const auto classesBegan = std::chrono::steady_clock::now();
   if (build.ClassStructure && !build.ClassPalette.empty() &&
       !candidate.SetGroundClasses(
@@ -1272,7 +1271,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - classesBegan)
           .count(),
       "ms");
-  candidate.Scene().Digests(Session.Declared.Render.Audits);
+  candidate.Digests(Session.Declared.Render.Audits);
   size_t handed = 0;
   for (int part = 0; part < build.Ground.parts(); ++part) {
     handed += build.Ground.trianglesOf(part).size() / 3u;
@@ -1281,7 +1280,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
       "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
   Published.Places("in this many parts", static_cast<double>(build.Ground.parts()), "parts");
   const auto geometryBegan = std::chrono::steady_clock::now();
-  if (!candidate.Scene().SetGeometry(
+  if (!candidate.SetGroundGeometry(
           std::move(build.Ground), drivenParts, build.GroundMaterial, Error)) {
     return false;
   }

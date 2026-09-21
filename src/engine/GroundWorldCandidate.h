@@ -63,7 +63,26 @@ public:
 
   [[nodiscard]] GroundBuildProducts &Products() noexcept { return Products_; }
 
-  [[nodiscard]] Core::RuntimeScene &Scene() noexcept { return World_.Scene(); }
+  void Grounding(const Vec3 &albedo) { World_.Scene().Grounding(albedo); }
+
+  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() {
+    return World_.Scene().AmbientStanding();
+  }
+
+  void GroundIs(int surface) { World_.Scene().GroundIs(surface); }
+
+  void Digests(bool enabled) { World_.Scene().Digests(enabled); }
+
+  [[nodiscard]] bool SetGroundGeometry(Geometry geometry, size_t carried, std::string &error) {
+    return World_.Scene().SetGeometry(std::move(geometry), carried, error);
+  }
+
+  [[nodiscard]] bool SetGroundGeometry(Geometry geometry,
+                                       size_t carried,
+                                       const Material &material,
+                                       std::string &error) {
+    return World_.Scene().SetGeometry(std::move(geometry), carried, material, error);
+  }
 
   [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> words,
                                       std::span<const float> palette,
