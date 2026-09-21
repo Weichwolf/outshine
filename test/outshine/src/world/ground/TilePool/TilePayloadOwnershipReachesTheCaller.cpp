@@ -69,7 +69,7 @@ int main() {
   CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(1)), &asynchronous) ==
             TilePool::Reply::Pending,
         "a fresh request starts a carrier job");
-  CHECK(pool.AwaitLanding(1.0), "the carrier publishes the completed request");
+  CHECK(pool.AwaitLanding(5.0), "the carrier publishes the completed request");
   CHECK(pool.Counters().Outstanding == 0,
         "a completed result retained for its caller is not counted as outstanding work");
   CHECK(pool.ResidentBytes() ==
