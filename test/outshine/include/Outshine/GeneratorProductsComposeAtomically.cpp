@@ -154,5 +154,25 @@ int main() {
             retained == beforeNativeRejection,
         "rejected native replacement preserves published pixels");
   CHECK(engine.setGeometry(*native), "native replacement publishes on immediate retry");
+  CHECK(engine.renderer().render({}).has_value() &&
+            engine.renderer().readPixels(Buffer::Linear, retained).has_value(),
+        "successful native replacement renders its published world");
+  const auto publishedB = retained;
+  auto lateA = left.make({});
+  CHECK(lateA.has_value(), "late A native replacement fixture is built");
+  if (!lateA) { return Report(); }
+  rejectSubmission = true;
+  CHECK(!engine.setGeometry(*lateA), "late A rejects its injected GPU submission failure");
+  CHECK(rejectedSubmissions == 3 && !rejectSubmission,
+        "late A reaches the injected submission failure once");
+  CHECK(engine.renderer().render({}).has_value() &&
+            engine.renderer().readPixels(Buffer::Linear, retained).has_value() &&
+            retained == publishedB,
+        "late A rejection retains the complete published B pixels");
+  CHECK(engine.setGeometry(*lateA), "late A publishes after its immediate retry");
+  CHECK(engine.renderer().render({}).has_value() &&
+            engine.renderer().readPixels(Buffer::Linear, retained).has_value() &&
+            retained != publishedB,
+        "successful late A replaces B only after the candidate commits");
   return Report();
 }
