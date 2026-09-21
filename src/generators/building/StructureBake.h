@@ -77,6 +77,11 @@ struct BakedTile {
   int Blocks = 0;
   int NoGround = 0;
   size_t UnsupportedMeshes = 0;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() + CapacityBytes(Prints) +
+           CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
+  }
 };
 
 class StructureBakeProgress {

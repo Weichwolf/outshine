@@ -13,6 +13,10 @@ namespace outshine {
 struct ClusteredMesh {
   std::vector<DagCluster> Clusters;
   std::vector<uint32_t> Index;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Clusters.capacity() * sizeof(DagCluster) + Index.capacity() * sizeof(uint32_t);
+  }
 };
 
 struct ClusterMeshInput {
