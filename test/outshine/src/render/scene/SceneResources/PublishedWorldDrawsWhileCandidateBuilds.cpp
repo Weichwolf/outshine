@@ -50,7 +50,7 @@ int main() {
         const auto prepared = candidate.Prepare(*scene, nullptr);
         CHECK(prepared.has_value(), prepared ? "replacement prepares" : prepared.error().c_str());
         if (prepared) {
-          CHECK(candidate.Scene().SetGeometry(Geometry{}, 0, error),
+          CHECK(candidate.SetGeometry(Geometry{}, 0, error),
                 "replacement may hold different geometry while it builds");
           CHECK(scene->Draw(error), "published world remains drawable during replacement");
           renderer.WaitForGpu();

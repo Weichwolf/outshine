@@ -25,9 +25,23 @@ public:
     }
   }
 
-  [[nodiscard]] RuntimeScene &Scene() noexcept {
-    assert(Scene_);
-    return *Scene_;
+  void Grounding(const Vec3 &albedo) { Scene().Grounding(albedo); }
+
+  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() {
+    return Scene().AmbientStanding();
+  }
+
+  void GroundIs(int surface) { Scene().GroundIs(surface); }
+
+  void Digests(bool enabled) { Scene().Digests(enabled); }
+
+  [[nodiscard]] bool SetGeometry(Geometry geometry, size_t carried, std::string &error) {
+    return Scene().SetGeometry(std::move(geometry), carried, error);
+  }
+
+  [[nodiscard]] bool
+  SetGeometry(Geometry geometry, size_t carried, const Material &material, std::string &error) {
+    return Scene().SetGeometry(std::move(geometry), carried, material, error);
   }
 
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
@@ -51,6 +65,11 @@ public:
   }
 
 private:
+  [[nodiscard]] RuntimeScene &Scene() noexcept {
+    assert(Scene_);
+    return *Scene_;
+  }
+
   std::unique_ptr<RuntimeScene> Scene_;
   Render::SceneRenderer &Renderer_;
 };

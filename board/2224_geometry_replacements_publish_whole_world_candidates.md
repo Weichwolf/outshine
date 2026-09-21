@@ -19,9 +19,11 @@ Keine Mutation des aktiven Owners mit anschließendem Snapshot-Rollback.
 
 ## Vorhandene Grundlage
 
-`WorldCandidate.h` kapselt Prepare/Publish/Abandon für `RuntimeScene` und Renderer. Bei Fehler
-zerstört RAII ausschließlich den Kandidaten. Abgelehnte verschachtelte Vorbereitung darf
-den äußeren Kandidaten nicht verwerfen. `GroundWorldCandidate.h` ergänzt Sheets,
+`WorldCandidate.h` kapselt Prepare/Publish/Abandon und die schmalen Kandidatenoperationen für
+`RuntimeScene` und Renderer. Es gibt keinen `RuntimeScene&`-Fluchtweg mehr: Grounding,
+Material-/Geometrieaufbau und Diagnose laufen nur über benannte Kandidatenoperationen. Bei Fehler
+zerstört RAII ausschließlich den Kandidaten. Abgelehnte verschachtelte Vorbereitung darf den
+äußeren Kandidaten nicht verwerfen. `GroundWorldCandidate.h` ergänzt Sheets,
 Terrainpositionen/Indizes, Netz, Materialslots und Revision; Revision wird zuletzt gesetzt.
 `Surrounds::BindSceneResources` bindet Pieces, Sheets und Crowns ohne Allokation neu.
 Ground-Klassen-GPU-Puffer gehören zum WorldContent, ihre CPU-Inputs zu Live.
