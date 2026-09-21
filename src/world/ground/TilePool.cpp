@@ -53,9 +53,6 @@ constexpr int kPollAttempts = 30000;
 
 thread_local double tFetchBlockedMs = 0.0;
 thread_local bool tCarries = false;
-constexpr size_t kMostKept = 1024;
-constexpr size_t kMostPassing = 1024;
-
 thread_local uint64_t tAwaited = 0;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
@@ -680,16 +677,11 @@ void TilePool::Work(int slot) {
 }
 
 void TilePool::Lands(uint64_t key, bool holds) {
-  std::deque<uint64_t> &kept = holds ? Kept_ : Passing_;
-  const size_t most = holds ? kMostKept : kMostPassing;
-  kept.push_back(key);
-  while (kept.size() > most) {
-    const uint64_t oldest = kept.front();
-    kept.pop_front();
-    if (std::ranges::find(kept, oldest) != kept.end()) { continue; }
-    Done_.Erase(oldest);
-    Posted_.Erase(oldest);
-  }
+  RecentKeys<1024> &kept = holds ? Kept_ : Passing_;
+  const std::optional<uint64_t> oldest = kept.Push(key);
+  if (!oldest || kept.Holds(*oldest)) { return; }
+  Done_.Erase(*oldest);
+  Posted_.Erase(*oldest);
 }
 
 TilePool::Reply TilePool::Poll(const Job &job, Result *out) {

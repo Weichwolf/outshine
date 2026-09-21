@@ -2,9 +2,9 @@
 #define OUTSHINE_WORLD_GROUND_TILEPOOL_H
 
 #include <atomic>
+#include <array>
 #include <condition_variable>
 #include <cstdint>
-#include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -166,6 +166,33 @@ private:
     uint64_t Used = 0;
   };
 
+  template <size_t Capacity> struct RecentKeys {
+    static_assert(Capacity > 0);
+
+    [[nodiscard]] std::optional<uint64_t> Push(uint64_t key) noexcept {
+      if (Count < Capacity) {
+        Keys[(First + Count) % Capacity] = key;
+        ++Count;
+        return std::nullopt;
+      }
+      const uint64_t oldest = Keys[First];
+      Keys[First] = key;
+      First = (First + 1u) % Capacity;
+      return oldest;
+    }
+
+    [[nodiscard]] bool Holds(uint64_t key) const noexcept {
+      for (size_t at = 0; at < Count; ++at) {
+        if (Keys[(First + at) % Capacity] == key) { return true; }
+      }
+      return false;
+    }
+
+    std::array<uint64_t, Capacity> Keys{};
+    size_t First = 0;
+    size_t Count = 0;
+  };
+
   [[nodiscard]] std::optional<Job> NextJob();
   [[nodiscard]] Result RunJob(TerrainTiles &tiles, const Job &job);
   void PublishResult(const Job &job, Result result);
@@ -220,8 +247,8 @@ private:
   std::vector<Job> Carrying_;
   FlatMap<Result> Done_;
   FlatMap<bool> Posted_;
-  std::deque<uint64_t> Kept_;
-  std::deque<uint64_t> Passing_;
+  RecentKeys<1024> Kept_;
+  RecentKeys<1024> Passing_;
 
   long long Posts_ = 0, Repeats_ = 0;
   double FocusLatDeg_ = 0.0, FocusLonDeg_ = 0.0;
