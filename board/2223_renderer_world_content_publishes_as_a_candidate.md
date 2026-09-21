@@ -28,6 +28,12 @@ Candidate-Abbruch, unmittelbarer Retry, Ground-Klassifikation, Height-Page-Gener
 Structure-Publication bleiben grün. Ein abweichender Plan baut weiterhin isolierte
 `FrameResources` und veröffentlicht sie zusammen mit WorldContent.
 
+Der automatisch abgeleitete Standardplan enthält `LightVisibility` unabhängig vom aktuellen
+Meshbestand; eine explizite Stage-Liste bleibt die Feature-Abschaltung. Damit ändert eintreffende
+Streaming-Geometrie nicht mehr den Rendergraph. Warm sinkt Floor-Geometry von 176.0 auf 2.61 ms
+und `StandsPlan` von 173.3 auf 0.002 ms. Ein echter Deklarations-/Targetwechsel behält weiterhin
+die isolierte Frame-Transaktion.
+
 ## Ursprünglicher Defekt
 
 `RuntimeScene::Open` constructs a CPU-local `RuntimeScene`, then `RuntimeScene::Build` mutates the active

@@ -52,7 +52,6 @@ struct Listed {
 
 bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
                  bool sky,
-                 bool shadows,
                  bool presents,
                  const Listed &lists,
                  Render::PlanSpec &declaration,
@@ -97,7 +96,7 @@ bool DeclarePlan(std::span<const Render::SubjectMaterial> surfaces,
     declaration.Content.push_back(Render::Stage::Sky);
     declaration.Content.push_back(Render::Stage::AerialPerspective);
   }
-  if (shadows) { declaration.Content.push_back(Render::Stage::LightVisibility); }
+  declaration.Content.push_back(Render::Stage::LightVisibility);
   bool carriesGlass = false;
   for (const Render::SubjectMaterial &surface : surfaces) {
     const SurfaceKind kind = surface.State().Kind();
@@ -474,7 +473,6 @@ bool RuntimeScene::StandsPlan(std::string &error) {
   Render::PlanSpec declaration;
   if (!DeclarePlan(Materials_.Slots(),
                    Declared_.DrawsSky,
-                   ShadowRadiusStoodM_ > 0.0,
                    Renderer_ != nullptr && Renderer_->Presents(),
                    {.Stages = Declared_.Stages, .Outputs = Declared_.Outputs},
                    declaration,
