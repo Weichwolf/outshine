@@ -93,7 +93,10 @@ public:
     NeedsGroundSurface,
     NeedsModels,
     NeedsBakes,
-    NeedsGeometry
+    NeedsCorridors,
+    NeedsEarthworks,
+    NeedsWater,
+    NeedsPublication
   };
 
   GroundBuildState(Render::SceneRenderer &renderer,
@@ -136,6 +139,12 @@ public:
 
   void AdvancesTo(Stage stage) noexcept { NextStage_ = stage; }
 
+  void HoldsCorridors(std::vector<Yields> corridors) { Corridors_ = std::move(corridors); }
+
+  [[nodiscard]] std::vector<Yields> TakesCorridors() { return std::move(Corridors_); }
+
+  [[nodiscard]] std::chrono::steady_clock::time_point Began() const noexcept { return Began_; }
+
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
   void Prepared(bool prepared) noexcept { Prepared_ = prepared; }
@@ -154,7 +163,10 @@ public:
       case Stage::NeedsGroundSurface: return "ground-surface";
       case Stage::NeedsModels: return "models";
       case Stage::NeedsBakes: return "structure-bakes";
-      case Stage::NeedsGeometry: return "geometry";
+      case Stage::NeedsCorridors: return "corridors";
+      case Stage::NeedsEarthworks: return "earthworks";
+      case Stage::NeedsWater: return "water";
+      case Stage::NeedsPublication: return "publication";
     }
     return "unknown";
   }
@@ -164,6 +176,8 @@ private:
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
+  std::vector<Yields> Corridors_;
+  std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   SheetPhase SheetBuilding_ = SheetPhase::NeedsRefinement;
   Stage NextStage_ = Stage::NeedsClasses;
   bool Prepared_ = false;
@@ -1057,7 +1071,7 @@ Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
   if (!StructuresReady(state.Footprints(), state.Revision())) {
     return GroundBuildProgress::Pending;
   }
-  state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
+  state.AdvancesTo(GroundBuildState::Stage::NeedsCorridors);
   return GroundBuildProgress::Pending;
 }
 
@@ -1121,7 +1135,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kLayingTag("world-ground");
   const Heap::Tagged laying(kLayingTag);
   auto phaseAt = std::chrono::steady_clock::now();
-  auto censusAt = phaseAt;
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared || !Picture.Standing || !World.Stack.Opened()) { return true; }
   if (quality == GroundQuality::Refined ? !World.Stack.Ingested()
@@ -1141,7 +1154,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   GroundBuildProducts &build = candidate.Products();
   Core::RuntimeScene &scene = candidate.Scene();
 
-  const auto rebuildBegan = std::chrono::steady_clock::now();
+  const auto rebuildBegan = state.Began();
   {}
 
   const GroundBuildProgress patchwork = BeginsGroundPatchwork(over);
@@ -1172,43 +1185,31 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
   const GroundBuildProgress bakes = BeginsGroundBakes(standing);
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
-  Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = phaseAt};
-
-  std::vector<Yields> corridor;
-  Published.Places(
-      "rebuild: of that, the ring and the buildings into the frame",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
-          .count(),
-      "ms");
-  censusAt = std::chrono::steady_clock::now();
-  const TriangleBvh surface =
-      TriangleBvh::Over(std::span<const float>(build.PositionsM.data(), build.PositionsM.size()),
-                        std::span<const uint32_t>(build.Indices.data(), build.Indices.size()));
-  Published.Places(
-      "rebuild: of that, the surface the world stands on",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
-          .count(),
-      "ms");
-  Published.Places("ground: triangles the drape can reach",
-                   static_cast<double>(build.Indices.size()) / 3.0,
-                   "triangles");
-  Drape drapedOver{.Surface = surface, .Field = {}};
-  drapedOver.Field = [&over, &build](Drape::EastNorth at) {
-    return build.Sheets.FieldUpM(over.Zoom, at);
-  };
-  {
+  if (state.NextStage() == GroundBuildState::Stage::NeedsCorridors) {
+    const auto began = std::chrono::steady_clock::now();
+    const TriangleBvh surface =
+        TriangleBvh::Over(std::span<const float>(build.PositionsM.data(), build.PositionsM.size()),
+                          std::span<const uint32_t>(build.Indices.data(), build.Indices.size()));
+    Published.Places("ground: triangles the drape can reach",
+                     static_cast<double>(build.Indices.size()) / 3.0,
+                     "triangles");
+    Drape drapedOver{.Surface = surface, .Field = {}};
+    drapedOver.Field = [&over, &build](Drape::EastNorth at) {
+      return build.Sheets.FieldUpM(over.Zoom, at);
+    };
+    std::vector<Yields> corridors;
     std::vector<DiagnosticSample> notes;
     const bool paved = World.Shipping.Corridors().Lay({.Stack = World.Stack,
                                                        .Network = build.Network.get(),
                                                        .Standing = standing,
                                                        .Draped = drapedOver,
                                                        .Classes = classStructure,
-                                                       .CensusAt = clocks.CensusAt,
+                                                       .CensusAt = began,
                                                        .EyeLatDeg = over.LatitudeDeg,
                                                        .EyeLonDeg = over.LongitudeDeg,
                                                        .FocalPx = build.Footprints.FocalPx()},
                                                       ground,
-                                                      &corridor,
+                                                      &corridors,
                                                       &notes);
     if (!paved) {
       Error = Says::PavingCreationFailed;
@@ -1217,47 +1218,62 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
     for (const DiagnosticSample &one : notes) {
       Published.Places(one.Name, one.Value, one.Unit.c_str());
     }
-    clocks.WiresAt = std::chrono::steady_clock::now();
-  }
-  build.Sheets.ForgetsFields();
-
-  if (!ApplyGroundEarthworks(standing, laid, build.Footprints, std::move(corridor), build)) {
-    return false;
-  }
-  Published.Places(
-      "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
-  Published.Places(
-      "ground: tiles the lattice draws", static_cast<double>(build.Sheets.Instances()), "tiles");
-  for (const auto &[name, kind] : {std::pair{"virtual", build.Sheets.Seams().Virtual},
-                                   std::pair{"real", build.Sheets.Seams().Real}}) {
-    const std::string at = std::string("ground: seam, ") + name + ", ";
-    Published.Places(at + "edges stitched", static_cast<double>(kind.Edges), "edges");
-    Published.Places(at + "even nodes off the coarser node, worst", kind.EvenM, "m");
+    build.Sheets.ForgetsFields();
+    state.HoldsCorridors(std::move(corridors));
+    state.AdvancesTo(GroundBuildState::Stage::NeedsEarthworks);
     Published.Places(
-        at + "odd nodes off the coarser chord before the stitch, worst", kind.OddBeforeM, "m");
-    Published.Places(at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
+        "ground candidate: corridors",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        "ms");
+    return true;
   }
-  {
+  if (state.NextStage() == GroundBuildState::Stage::NeedsEarthworks) {
+    const auto began = std::chrono::steady_clock::now();
+    if (!ApplyGroundEarthworks(standing, laid, build.Footprints, state.TakesCorridors(), build)) {
+      return false;
+    }
+    Published.Places(
+        "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
+    Published.Places(
+        "ground: tiles the lattice draws", static_cast<double>(build.Sheets.Instances()), "tiles");
+    for (const auto &[name, kind] : {std::pair{"virtual", build.Sheets.Seams().Virtual},
+                                     std::pair{"real", build.Sheets.Seams().Real}}) {
+      const std::string at = std::string("ground: seam, ") + name + ", ";
+      Published.Places(at + "edges stitched", static_cast<double>(kind.Edges), "edges");
+      Published.Places(at + "even nodes off the coarser node, worst", kind.EvenM, "m");
+      Published.Places(
+          at + "odd nodes off the coarser chord before the stitch, worst", kind.OddBeforeM, "m");
+      Published.Places(at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
+    }
     const uint64_t sheets = build.Sheets.Digest();
     Published.Places(
         "ground: the sheets' digest, low half", static_cast<double>(sheets & kLowWord), "digest");
     Published.Places(
         "ground: the sheets' digest, high half", static_cast<double>(sheets >> 32U), "digest");
+    Published.Places("ground: sheets NOT drawn for want of nodes",
+                     static_cast<double>(build.Sheets.Flat()),
+                     "tiles");
+    state.AdvancesTo(GroundBuildState::Stage::NeedsWater);
+    Published.Places(
+        "ground candidate: earthworks",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        "ms");
+    return true;
   }
-  Published.Places("ground: sheets NOT drawn for want of nodes",
-                   static_cast<double>(build.Sheets.Flat()),
-                   "tiles");
-  if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
-
-  Published.Places(
-      "rebuild: of that, the streets and the water",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.WiresAt)
-          .count(),
-      "ms");
-  Published.Places(
-      "rebuild: and the buildings, streets and water took",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
-      "ms");
+  if (state.NextStage() == GroundBuildState::Stage::NeedsWater) {
+    const auto began = std::chrono::steady_clock::now();
+    if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
+    state.AdvancesTo(GroundBuildState::Stage::NeedsPublication);
+    Published.Places(
+        "ground candidate: water",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        "ms");
+    return true;
+  }
+  if (state.NextStage() != GroundBuildState::Stage::NeedsPublication) {
+    Error = "ground candidate reached an invalid stage";
+    return false;
+  }
   phaseAt = std::chrono::steady_clock::now();
 
   const size_t drivenParts = Picture.Standing->CarriedParts();

@@ -23,6 +23,13 @@ rejected. Lattice's former fixed and adaptive refinement paths no longer emit th
 tile. These end-to-end bounds are green; per-stage continuation and tail measurements
 remain the work of this WI.
 
+The candidate now retains corridor products and advances separately through Corridors,
+Earthworks, Water and Publication. A normal `advance()` performs at most one of these;
+preload may flush several within its explicit bound. Cold results after the split are
+8.62 s Floor and 10.54 s Lattice. This establishes a real interruption boundary while
+keeping publication atomic. Corridors and Earthworks still operate on whole bounded
+candidate inputs; measure their tails before deciding whether either needs an inner cursor.
+
 ## Decision
 
 Extend the existing private GroundWorldCandidate owner; do not create a parallel world
