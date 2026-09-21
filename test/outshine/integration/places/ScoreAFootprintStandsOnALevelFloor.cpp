@@ -166,6 +166,7 @@ int main(void) {
   const std::span<const outshine::DiagnosticSample> told = engine.measures();
   for (const char *stage : {"ground candidate: corridors",
                             "ground candidate: earthworks",
+                            "ground candidate: terrain mesh",
                             "ground candidate: water",
                             "ground candidate: geometry",
                             "ground candidate: class upload",
@@ -178,6 +179,16 @@ int main(void) {
   for (const char *operation : {"rebuild: cutting it into clusters",
                                 "rebuild: of the streams, packing them",
                                 "rebuild: and the device taking them",
+                                "ground candidate: corridor drape field misses",
+                                "streets: of that, finding the crossings",
+                                "streets: of that, raising the decks",
+                                "streets: of that, designing every lane",
+                                "streets: of that, shaping the junctions",
+                                "streets: of that, paving every lane",
+                                "streets: of that, raising the junction bodies",
+                                "streets: of that, handing the paving over",
+                                "streets: everything Paves did",
+                                "ground: of that, pressing",
                                 "rebuild: of that, walking it into the proxy",
                                 "rebuild: standing render plan",
                                 "rebuild: standing and submitting INSIDE Build",
@@ -189,6 +200,8 @@ int main(void) {
                                 "rebuild: and the streams to the device"}) {
     std::printf("DETAIL %-47s %8.3f ms\n", operation, Measured(told, operation));
   }
+  CHECK(Measured(told, "ground candidate: corridor drape field misses") == 0.0,
+        "corridors resolve every terrain query through the adaptive DEM fields");
   const double pads = Measured(told, "ground: pads with a lattice node inside");
   const double padsUnreached = Measured(told, "ground: pads no lattice node reaches");
   const double padNodes = Measured(told, "ground: nodes inside those pads");

@@ -430,11 +430,13 @@ struct Engine::State {
   [[nodiscard]] bool RefineGroundSheets(const TangentFrame &standing,
                                         Patchwork &patchwork,
                                         GroundBuildProducts &build);
-  [[nodiscard]] bool ApplyGroundEarthworks(const TangentFrame &standing,
+  [[nodiscard]] bool PressGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,
                                            const Ground::BuildingField &footprints,
-                                           std::vector<Yields> corridor,
-                                           GroundBuildProducts &build);
+                                           std::vector<Yields> corridor);
+  [[nodiscard]] bool BuildPressedGroundMesh(const TangentFrame &standing,
+                                            Patchwork &patchwork,
+                                            GroundBuildProducts &build);
   [[nodiscard]] bool
   BuildWaterSurfaces(const TangentFrame &standing, Geometry &ground, MaterialInstance ringSurface);
   void ReportGroundPlacements();

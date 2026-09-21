@@ -52,6 +52,8 @@ namespace Says {
 constexpr auto WaterCreationFailed = "could not publish water geometry";
 constexpr auto MaterialCreationFailed = "could not create ground materials";
 constexpr auto PavingCreationFailed = "could not publish road geometry";
+constexpr auto CorridorTerrainIncomplete =
+    "corridor generation reached terrain without a DEM field";
 }
 
 constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
@@ -95,6 +97,7 @@ public:
     NeedsBakes,
     NeedsCorridors,
     NeedsEarthworks,
+    NeedsTerrainMesh,
     NeedsWater,
     NeedsGeometry,
     NeedsPublication
@@ -166,6 +169,7 @@ public:
       case Stage::NeedsBakes: return "structure-bakes";
       case Stage::NeedsCorridors: return "corridors";
       case Stage::NeedsEarthworks: return "earthworks";
+      case Stage::NeedsTerrainMesh: return "terrain-mesh";
       case Stage::NeedsWater: return "water";
       case Stage::NeedsGeometry: return "geometry";
       case Stage::NeedsPublication: return "publication";
@@ -707,11 +711,10 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
 }
 }
 
-bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
+bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           const Ground::BuildingField &footprints,
-                                          std::vector<Yields> corridor,
-                                          GroundBuildProducts &build) {
+                                          std::vector<Yields> corridor) {
 
   const Ground::BuildingField &pads = footprints;
   const Ground::OsmField *const shapes = World.Stack.Vectors();
@@ -784,6 +787,12 @@ bool Engine::State::ApplyGroundEarthworks(const TangentFrame &standing,
       "ground: of that, pressing",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt).count(),
       "ms");
+  return true;
+}
+
+bool Engine::State::BuildPressedGroundMesh(const TangentFrame &standing,
+                                           Patchwork &patchwork,
+                                           GroundBuildProducts &build) {
   if (!build.Sheets.Hands(patchwork, Error)) { return false; }
   Generators::TerrainMesh pressed = Generators::BuildTerrainMesh(
       patchwork, standing, {.Side = Render::GroundLattice::kSide, .Halo = 1});
@@ -1189,15 +1198,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
   if (state.NextStage() == GroundBuildState::Stage::NeedsCorridors) {
     const auto began = std::chrono::steady_clock::now();
-    const TriangleBvh surface =
-        TriangleBvh::Over(std::span<const float>(build.PositionsM.data(), build.PositionsM.size()),
-                          std::span<const uint32_t>(build.Indices.data(), build.Indices.size()));
+    const TriangleBvh surface;
     Published.Places("ground: triangles the drape can reach",
                      static_cast<double>(build.Indices.size()) / 3.0,
                      "triangles");
     Drape drapedOver{.Surface = surface, .Field = {}};
-    drapedOver.Field = [&over, &build](Drape::EastNorth at) {
-      return build.Sheets.FieldUpM(over.Zoom, at);
+    size_t fieldMisses = 0;
+    drapedOver.Field = [&over, &build, &fieldMisses](Drape::EastNorth at) {
+      const std::optional<double> sampled = build.Sheets.FieldUpM(over.Zoom, at);
+      fieldMisses += sampled ? 0u : 1u;
+      return sampled;
     };
     std::vector<Yields> corridors;
     std::vector<DiagnosticSample> notes;
@@ -1217,9 +1227,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
       Error = Says::PavingCreationFailed;
       return false;
     }
+    if (fieldMisses > 0) {
+      Error = Says::CorridorTerrainIncomplete;
+      return false;
+    }
     for (const DiagnosticSample &one : notes) {
       Published.Places(one.Name, one.Value, one.Unit.c_str());
     }
+    Published.Places("ground candidate: corridor drape field misses",
+                     static_cast<double>(fieldMisses),
+                     "queries");
     build.Sheets.ForgetsFields();
     state.HoldsCorridors(std::move(corridors));
     state.AdvancesTo(GroundBuildState::Stage::NeedsEarthworks);
@@ -1231,9 +1248,19 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   }
   if (state.NextStage() == GroundBuildState::Stage::NeedsEarthworks) {
     const auto began = std::chrono::steady_clock::now();
-    if (!ApplyGroundEarthworks(standing, laid, build.Footprints, state.TakesCorridors(), build)) {
+    if (!PressGroundEarthworks(standing, laid, build.Footprints, state.TakesCorridors())) {
       return false;
     }
+    state.AdvancesTo(GroundBuildState::Stage::NeedsTerrainMesh);
+    Published.Places(
+        "ground candidate: earthworks",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        "ms");
+    return true;
+  }
+  if (state.NextStage() == GroundBuildState::Stage::NeedsTerrainMesh) {
+    const auto began = std::chrono::steady_clock::now();
+    if (!BuildPressedGroundMesh(standing, laid, build)) { return false; }
     Published.Places(
         "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
     Published.Places(
@@ -1257,7 +1284,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
                      "tiles");
     state.AdvancesTo(GroundBuildState::Stage::NeedsWater);
     Published.Places(
-        "ground candidate: earthworks",
+        "ground candidate: terrain mesh",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
     return true;

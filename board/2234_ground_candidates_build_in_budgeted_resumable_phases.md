@@ -41,8 +41,16 @@ only after their tail distributions and maximum inputs are recorded.
 WI 2223 entfernt Frame-Neubau für identische `PlanSpec`s. Der automatische Standardplan hält
 den Shadow-Stage nun über leere und gestreamte Geometrie stabil; explizite Stage-Listen bleiben
 die Abschaltung. Warm sinkt Geometry von 176.0 auf 2.61 ms, `StandsPlan` von 173.3 auf
-0.002 ms und Publication von 0.50 auf 0.022 ms. Corridors 33.4 ms und Earthworks 20.4 ms
-sind damit die verbleibenden überlangen Ground-Einheiten.
+0.002 ms und Publication von 0.50 auf 0.022 ms.
+
+Die verbleibenden Tails hatten zwei andere Ursachen. `HeightSheets::FieldUpM` suchte nur am
+feinsten Zoom, obwohl adaptive Sheets gröbere DEM-Quellen halten; alle 229 Floor-Misses trafen
+deshalb einen für 25–28 ms neu gebauten Terrain-BVH. Die Suche nimmt nun das feinste vorhandene
+deckende Feld, unaufgelöste Corridor-Abfragen verwerfen den Kandidaten, und der redundante BVH
+entfällt. Corridors misst 8.61 ms. Earthworks ist an seiner vollständigen Press-Transaktion vom
+anschließenden Height-page/Mesh-Aufbau getrennt: 14.80 ms Press und 7.10 ms Terrain Mesh. Damit
+liegen alle gemessenen Floor-Phasen unter dem 16.67-ms-Framebudget; Verteilungen und größere
+Eingaben bleiben für die allgemeine Abnahme erforderlich.
 
 ## Decision
 
