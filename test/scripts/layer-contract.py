@@ -184,7 +184,7 @@ def main():
     if not graph or not commands:
         raise RuntimeError('missing tier graph or compilation commands')
     violations = errors(graph, commands, public_edges)
-    for tree in (src, include):
+    for tree in (src, include, root / 'test'):
         for source in tree.rglob('*'):
             if source.suffix not in {'.h', '.hpp', '.cpp', '.inc', '.glsl', '.vert', '.frag', '.comp'}:
                 continue
