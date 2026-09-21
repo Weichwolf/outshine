@@ -7,9 +7,11 @@
 
 #include <array>
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <ratio>
 #include <span>
@@ -115,6 +117,11 @@ public:
   }
 
   [[nodiscard]] bool Empty() const { return Held_.empty(); }
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return (Held_.capacity() * sizeof(uint64_t)) + (What_.capacity() * sizeof(uint32_t)) +
+           (First_.capacity() * sizeof(uint32_t)) + (Seats_.capacity() * sizeof(uint32_t));
+  }
 
 private:
   [[nodiscard]] size_t SeatOf(uint64_t key) const {
@@ -276,6 +283,47 @@ Pressing PressesAt(std::span<const Yields> these,
   return {};
 }
 
+void RejectAt(std::span<const Yields> these,
+              const CellGrid &buckets,
+              std::span<const EastNorth> at,
+              std::span<const double> upM,
+              std::span<uint8_t> structures,
+              double mostEarthworkM,
+              size_t one) {
+  const Pressing under = PressesAt(these, buckets.At(at[one]), {}, at[one], upM[one], {});
+  if (under.Moves && std::fabs(under.WantedM - upM[one]) > mostEarthworkM) {
+    structures[under.Which] = 1u;
+  }
+}
+
+void ApplyAt(std::span<const Yields> these,
+             const CellGrid &buckets,
+             std::span<const EastNorth> at,
+             std::span<double> upM,
+             std::span<const uint8_t> structures,
+             double mostEarthworkM,
+             Pressed &told,
+             size_t one) {
+  const Pressing under = PressesAt(these,
+                                   buckets.At(at[one]),
+                                   structures,
+                                   at[one],
+                                   upM[one],
+                                   {.Point = static_cast<uint32_t>(one), .Into = &told.Inside});
+  if (!under.Moves) {
+    told.DecidedBy[one] = under.CappedBy;
+    return;
+  }
+  if (std::fabs(under.WantedM - upM[one]) > mostEarthworkM) {
+    told.DecidedBy[one] = kHeldStamp;
+    ++told.Held;
+    return;
+  }
+  told.DecidedBy[one] = under.CappedBy != kNoStamp ? under.CappedBy : under.Which;
+  upM[one] = under.WantedM;
+  ++told.Moved;
+}
+
 }
 
 Pressed PressPoints(std::span<const Yields> these,
@@ -289,33 +337,13 @@ Pressed PressPoints(std::span<const Yields> these,
   const auto bucketed = std::chrono::steady_clock::now();
   std::vector<uint8_t> structures(these.size(), 0u);
   for (size_t one = 0; one < at.size(); ++one) {
-    const Pressing under = PressesAt(these, buckets.At(at[one]), {}, at[one], upM[one], {});
-    if (under.Moves && std::fabs(under.WantedM - upM[one]) > mostEarthworkM) {
-      structures[under.Which] = 1u;
-    }
+    RejectAt(these, buckets, at, upM, structures, mostEarthworkM, one);
   }
   const auto rejected = std::chrono::steady_clock::now();
   for (const uint8_t one : structures) { told.Structures += one; }
   told.DecidedBy.assign(at.size(), kNoStamp);
   for (size_t one = 0; one < at.size(); ++one) {
-    const Pressing under = PressesAt(these,
-                                     buckets.At(at[one]),
-                                     structures,
-                                     at[one],
-                                     upM[one],
-                                     {.Point = static_cast<uint32_t>(one), .Into = &told.Inside});
-    if (!under.Moves) {
-      told.DecidedBy[one] = under.CappedBy;
-      continue;
-    }
-    if (std::fabs(under.WantedM - upM[one]) > mostEarthworkM) {
-      told.DecidedBy[one] = kHeldStamp;
-      ++told.Held;
-      continue;
-    }
-    told.DecidedBy[one] = under.CappedBy != kNoStamp ? under.CappedBy : under.Which;
-    upM[one] = under.WantedM;
-    ++told.Moved;
+    ApplyAt(these, buckets, at, upM, structures, mostEarthworkM, told, one);
   }
   told.Refused = std::move(structures);
   const auto applied = std::chrono::steady_clock::now();
@@ -323,6 +351,108 @@ Pressed PressPoints(std::span<const Yields> these,
   told.RejectMs = std::chrono::duration<double, std::milli>(rejected - bucketed).count();
   told.ApplyMs = std::chrono::duration<double, std::milli>(applied - rejected).count();
   return told;
+}
+
+struct PressPointsJob::State {
+  enum class Phase : uint8_t { Reject, Apply, Done };
+
+  std::span<const Yields> These;
+  std::span<const EastNorth> At;
+  std::span<double> UpM;
+  double MostEarthworkM;
+  std::chrono::steady_clock::time_point Began = std::chrono::steady_clock::now();
+  CellGrid Buckets;
+  std::vector<uint8_t> Structures;
+  Pressed Result;
+  size_t Next = 0;
+  Phase Current = Phase::Reject;
+
+  State(std::span<const Yields> these,
+        std::span<const EastNorth> at,
+        std::span<double> upM,
+        double mostEarthworkM)
+      : These(these),
+        At(at),
+        UpM(upM),
+        MostEarthworkM(mostEarthworkM),
+        Buckets(BucketOver(these)),
+        Structures(these.size(), 0u) {
+    if (these.empty() || at.size() != upM.size()) {
+      Current = Phase::Done;
+      return;
+    }
+    Result.BucketMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Began).count();
+  }
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Buckets.HeapBytes() + Structures.capacity() * sizeof(uint8_t) +
+           Result.Refused.capacity() * sizeof(uint8_t) +
+           Result.DecidedBy.capacity() * sizeof(uint32_t) +
+           Result.Inside.capacity() * sizeof(Covered);
+  }
+};
+
+PressPointsJob::PressPointsJob(std::span<const Yields> these,
+                               std::span<const EastNorth> at,
+                               std::span<double> upM,
+                               double mostEarthworkM)
+    : State_(std::make_unique<State>(these, at, upM, mostEarthworkM)) {}
+
+PressPointsJob::~PressPointsJob() = default;
+PressPointsJob::PressPointsJob(PressPointsJob &&) noexcept = default;
+PressPointsJob &PressPointsJob::operator=(PressPointsJob &&) noexcept = default;
+
+bool PressPointsJob::Advance(size_t pointsMost) {
+  State &state = *State_;
+  if (state.Current == State::Phase::Done) { return true; }
+  if (pointsMost == 0) { return false; }
+  const size_t end = state.Next + std::min(pointsMost, state.At.size() - state.Next);
+  const auto began = std::chrono::steady_clock::now();
+  if (state.Current == State::Phase::Reject) {
+    for (; state.Next < end; ++state.Next) {
+      RejectAt(state.These,
+               state.Buckets,
+               state.At,
+               state.UpM,
+               state.Structures,
+               state.MostEarthworkM,
+               state.Next);
+    }
+    state.Result.RejectMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    if (state.Next < state.At.size()) { return false; }
+    for (const uint8_t rejected : state.Structures) { state.Result.Structures += rejected; }
+    state.Result.DecidedBy.assign(state.At.size(), kNoStamp);
+    state.Next = 0;
+    state.Current = State::Phase::Apply;
+    return false;
+  }
+  for (; state.Next < end; ++state.Next) {
+    ApplyAt(state.These,
+            state.Buckets,
+            state.At,
+            state.UpM,
+            state.Structures,
+            state.MostEarthworkM,
+            state.Result,
+            state.Next);
+  }
+  state.Result.ApplyMs +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  if (state.Next < state.At.size()) { return false; }
+  state.Result.Refused = std::move(state.Structures);
+  state.Current = State::Phase::Done;
+  return true;
+}
+
+Pressed PressPointsJob::Take() noexcept {
+  assert(State_ && State_->Current == State::Phase::Done);
+  return std::move(State_->Result);
+}
+
+size_t PressPointsJob::HeapBytes() const noexcept {
+  return State_ ? State_->HeapBytes() : 0;
 }
 
 Floors FloorsOf(std::span<const Yields> these,

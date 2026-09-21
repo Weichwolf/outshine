@@ -3,6 +3,7 @@
 
 #include <array>
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -35,6 +36,32 @@ int main() {
             std::ranges::all_of(pressed.DecidedBy, [](uint32_t which) { return which == 0; }) &&
             pressed.Inside.size() == points.size(),
         "earlier nodes and ordered claims belong only to the accepted stamp");
+
+  for (const size_t slice : {1u, 2u, 7u}) {
+    heights.fill(0.0);
+    PressPointsJob job(stamps, points, heights, 30.0);
+    bool complete = false;
+    for (int step = 0; step < 16 && !complete; ++step) {
+      complete = job.Advance(slice);
+      if (step == 0) {
+        CHECK(std::ranges::all_of(heights, [](double height) { return height == 0.0; }),
+              "the rejection phase leaves all source heights unchanged");
+      }
+    }
+    CHECK(complete && job.HeapBytes() > 0, "the bounded job completes and reports retained memory");
+    const Pressed staged = job.Take();
+    CHECK(staged.Moved == pressed.Moved && staged.Structures == pressed.Structures &&
+              staged.Held == pressed.Held && staged.Refused == pressed.Refused &&
+              staged.DecidedBy == pressed.DecidedBy &&
+              staged.Inside.size() == pressed.Inside.size() &&
+              std::ranges::equal(staged.Inside,
+                                 pressed.Inside,
+                                 [](const Covered &left, const Covered &right) {
+                                   return left.Point == right.Point && left.Stamp == right.Stamp;
+                                 }) &&
+              std::ranges::all_of(heights, [](double height) { return height == 5.0; }),
+          "different interruption sizes preserve decisions, claims and final heights");
+  }
 
   heights.fill(0.0);
   const Pressed permitted = PressPoints(stamps, points, heights, 100.0);

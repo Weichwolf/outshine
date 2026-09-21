@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -51,6 +52,27 @@ struct Pressed {
                                   std::span<const EastNorth> at,
                                   std::span<double> upM,
                                   double mostEarthworkM);
+
+class PressPointsJob {
+public:
+  PressPointsJob(std::span<const Yields> these,
+                 std::span<const EastNorth> at,
+                 std::span<double> upM,
+                 double mostEarthworkM);
+  ~PressPointsJob();
+  PressPointsJob(const PressPointsJob &) = delete;
+  PressPointsJob &operator=(const PressPointsJob &) = delete;
+  PressPointsJob(PressPointsJob &&) noexcept;
+  PressPointsJob &operator=(PressPointsJob &&) noexcept;
+
+  [[nodiscard]] bool Advance(size_t pointsMost);
+  [[nodiscard]] Pressed Take() noexcept;
+  [[nodiscard]] size_t HeapBytes() const noexcept;
+
+private:
+  struct State;
+  std::unique_ptr<State> State_;
+};
 
 [[nodiscard]] Floors FloorsOf(std::span<const Yields> these,
                               const Pressed &pressed,
