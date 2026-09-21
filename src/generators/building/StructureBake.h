@@ -14,6 +14,7 @@
 #include "BuildingField.h"
 #include "HeightField.h"
 #include "StructureMesher.h"
+#include "spatial/Capacity.h"
 #include "spatial/ClusterCook.h"
 
 namespace outshine::Generators {
@@ -56,6 +57,10 @@ struct RawTile {
   double TileSpanM = 0.0;
   int Extent = 4096;
   uint32_t ClusterTriangles = 0;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return CapacityBytes(LatLon) + CapacityBytes(Structures) + CapacityBytes(Ways);
+  }
 };
 
 struct BakedTile {
