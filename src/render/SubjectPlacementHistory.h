@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_SUBJECTPOSEHISTORY_H
-#define OUTSHINE_RENDER_SUBJECTPOSEHISTORY_H
+#ifndef OUTSHINE_RENDER_SUBJECTPLACEMENTHISTORY_H
+#define OUTSHINE_RENDER_SUBJECTPLACEMENTHISTORY_H
 
 #include <cassert>
 #include <cstddef>
@@ -10,7 +10,7 @@
 
 namespace outshine::Render {
 
-class SubjectPoseHistory {
+class SubjectPlacementHistory {
 public:
   void Reset() noexcept {
     for (Mat4 &body : Bodies_) { body = Unsent(); }
@@ -25,16 +25,16 @@ public:
 
   [[nodiscard]] size_t Bodies() const noexcept { return Bodies_.size(); }
 
-  [[nodiscard]] bool BodyChanged(size_t body, const Mat4 &candidate) const noexcept {
+  [[nodiscard]] bool NeedsBodyUpload(size_t body, const Mat4 &candidate) const noexcept {
     assert(body < Bodies_.size());
     return !(Bodies_[body] == candidate);
   }
 
-  [[nodiscard]] bool BuiltChanged(const Mat4 &candidate) const noexcept {
+  [[nodiscard]] bool NeedsBuiltUpload(const Mat4 &candidate) const noexcept {
     return !(Built_ == candidate);
   }
 
-  void Commit(size_t body, const Mat4 &bodyTransform, const Mat4 &builtTransform) noexcept {
+  void RecordsUpload(size_t body, const Mat4 &bodyTransform, const Mat4 &builtTransform) noexcept {
     assert(body < Bodies_.size());
     Bodies_[body] = bodyTransform;
     Built_ = builtTransform;

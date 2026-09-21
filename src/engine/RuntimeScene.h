@@ -19,7 +19,7 @@
 #include "CameraState.h"
 #include "SubjectProxy.h"
 #include "SubjectMaterials.h"
-#include "SubjectPoseHistory.h"
+#include "SubjectPlacementHistory.h"
 #include "UiSession.h"
 #include "Layout.h"
 #include "Markup.h"
@@ -388,7 +388,7 @@ private:
   std::shared_ptr<const Render::Compiled> Plan_;
   Render::CameraState Camera_;
   std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
-  Render::SubjectPoseHistory SubmittedPose_;
+  Render::SubjectPlacementHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
   void CapturesRenderedPositions();
