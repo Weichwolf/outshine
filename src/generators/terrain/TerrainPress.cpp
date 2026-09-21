@@ -1,7 +1,9 @@
 #include "TerrainPress.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
+#include <ratio>
 #include <span>
 #include <utility>
 #include <vector>
@@ -17,6 +19,7 @@ PressedTerrain PressTerrain(std::span<const Yields> yields,
                             TerrainPageLayout layout,
                             double mostEarthworkM) {
   if (yields.empty() || !layout.Valid()) { return {}; }
+  const auto began = std::chrono::steady_clock::now();
   const size_t pageSide = layout.PageSide();
   std::vector<EastNorth> positions;
   std::vector<double> heights;
@@ -46,14 +49,22 @@ PressedTerrain PressTerrain(std::span<const Yields> yields,
     }
   }
   std::vector<double> previous(heights);
+  const auto gathered = std::chrono::steady_clock::now();
   const Pressed pressed = PressPoints(yields, positions, heights, mostEarthworkM);
-  PressedTerrain result{.Nodes = pressed.Moved,
-                        .Structures = pressed.Structures,
-                        .Held = pressed.Held,
-                        .DeepestM = 0.0,
-                        .RaisedM = 0.0,
-                        .Pads = {},
-                        .Corridors = {}};
+  const auto decided = std::chrono::steady_clock::now();
+  PressedTerrain result{
+      .Nodes = pressed.Moved,
+      .Structures = pressed.Structures,
+      .Held = pressed.Held,
+      .DeepestM = 0.0,
+      .RaisedM = 0.0,
+      .Pads = {},
+      .Corridors = {},
+      .GatherMs = std::chrono::duration<double, std::milli>(gathered - began).count(),
+      .DecideMs = std::chrono::duration<double, std::milli>(decided - gathered).count(),
+      .BucketMs = pressed.BucketMs,
+      .RejectMs = pressed.RejectMs,
+      .ApplyMs = pressed.ApplyMs};
   if (pressed.Moved == 0) { return result; }
   const Vec3 &origin = frame.OriginEcef();
   const Vec3 &east = frame.EastEcef();
@@ -89,9 +100,13 @@ PressedTerrain PressTerrain(std::span<const Yields> yields,
                     .HeightM = static_cast<double>(sheet.Nodes[sources[point].second])})
             .UpM;
   }
+  const auto writtenAt = std::chrono::steady_clock::now();
   const Heights finalHeights{.WrittenM = written, .WasM = previous};
   result.Pads = FloorsOf(yields, pressed, Stamp::Pad, positions, finalHeights);
   result.Corridors = FloorsOf(yields, pressed, Stamp::Corridor, positions, finalHeights);
+  const auto finished = std::chrono::steady_clock::now();
+  result.WriteMs = std::chrono::duration<double, std::milli>(writtenAt - decided).count();
+  result.FloorsMs = std::chrono::duration<double, std::milli>(finished - writtenAt).count();
   return result;
 }
 

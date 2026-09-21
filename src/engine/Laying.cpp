@@ -798,6 +798,13 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                standing,
                                {.Side = Render::GroundLattice::kSide, .Halo = 1},
                                kMostEarthworkM);
+  Published.Places("ground: pressing gather", pressed_.GatherMs, "ms");
+  Published.Places("ground: pressing decide", pressed_.DecideMs, "ms");
+  Published.Places("ground: pressing buckets", pressed_.BucketMs, "ms");
+  Published.Places("ground: pressing reject", pressed_.RejectMs, "ms");
+  Published.Places("ground: pressing apply", pressed_.ApplyMs, "ms");
+  Published.Places("ground: pressing write", pressed_.WriteMs, "ms");
+  Published.Places("ground: pressing floors", pressed_.FloorsMs, "ms");
   Published.Places(
       "ground: lattice nodes the stamps pressed", static_cast<double>(pressed_.Nodes), "nodes");
   Published.Places("ground: stamps refused as STRUCTURES, past the earthwork bound",

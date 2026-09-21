@@ -42,6 +42,9 @@ struct Pressed {
   std::vector<uint8_t> Refused;
   std::vector<uint32_t> DecidedBy;
   std::vector<Covered> Inside;
+  double BucketMs = 0.0;
+  double RejectMs = 0.0;
+  double ApplyMs = 0.0;
 };
 
 [[nodiscard]] Pressed PressPoints(std::span<const Yields> these,

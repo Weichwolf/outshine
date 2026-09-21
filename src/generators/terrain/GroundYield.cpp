@@ -284,7 +284,9 @@ Pressed PressPoints(std::span<const Yields> these,
                     double mostEarthworkM) {
   Pressed told;
   if (these.empty() || at.size() != upM.size()) { return told; }
+  const auto began = std::chrono::steady_clock::now();
   const CellGrid buckets = BucketOver(these);
+  const auto bucketed = std::chrono::steady_clock::now();
   std::vector<uint8_t> structures(these.size(), 0u);
   for (size_t one = 0; one < at.size(); ++one) {
     const Pressing under = PressesAt(these, buckets.At(at[one]), {}, at[one], upM[one], {});
@@ -292,6 +294,7 @@ Pressed PressPoints(std::span<const Yields> these,
       structures[under.Which] = 1u;
     }
   }
+  const auto rejected = std::chrono::steady_clock::now();
   for (const uint8_t one : structures) { told.Structures += one; }
   told.DecidedBy.assign(at.size(), kNoStamp);
   for (size_t one = 0; one < at.size(); ++one) {
@@ -315,6 +318,10 @@ Pressed PressPoints(std::span<const Yields> these,
     ++told.Moved;
   }
   told.Refused = std::move(structures);
+  const auto applied = std::chrono::steady_clock::now();
+  told.BucketMs = std::chrono::duration<double, std::milli>(bucketed - began).count();
+  told.RejectMs = std::chrono::duration<double, std::milli>(rejected - bucketed).count();
+  told.ApplyMs = std::chrono::duration<double, std::milli>(applied - rejected).count();
   return told;
 }
 

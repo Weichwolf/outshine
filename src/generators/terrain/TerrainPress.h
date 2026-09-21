@@ -19,6 +19,13 @@ struct PressedTerrain {
   double RaisedM = 0.0;
   Floors Pads;
   Floors Corridors;
+  double GatherMs = 0.0;
+  double DecideMs = 0.0;
+  double BucketMs = 0.0;
+  double RejectMs = 0.0;
+  double ApplyMs = 0.0;
+  double WriteMs = 0.0;
+  double FloorsMs = 0.0;
 };
 
 [[nodiscard]] PressedTerrain PressTerrain(std::span<const Yields> yields,
