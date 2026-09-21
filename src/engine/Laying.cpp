@@ -423,7 +423,9 @@ Engine::State::Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWh
                       .ResidentTiles = resident,
                       .Classes = classes,
                       .Footprints = footprints,
-                      .Projection = projection};
+                      .Projection = projection,
+                      .Coverage = {},
+                      .Quality = GroundQuality::Refined};
   Published.Places("building triangles the world meshed",
                    static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                    "triangles");

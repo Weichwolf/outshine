@@ -7,12 +7,25 @@
 #include <optional>
 
 namespace outshine {
+enum class GroundQuality : uint8_t { Playable, Refined };
+
+struct GroundCoverage {
+  double ContactRadiusM = 0.0;
+  double VisualRadiusM = 0.0;
+  int MinimumSourceZoom = 0;
+  int TargetSourceZoom = 0;
+
+  auto operator<=>(const GroundCoverage &) const = default;
+};
+
 struct GroundRevision {
   uint64_t Region = 0;
   size_t ResidentTiles = 0;
   uint64_t Classes = 0;
   uint64_t Footprints = 0;
   std::array<double, 3> Projection{};
+  GroundCoverage Coverage;
+  GroundQuality Quality = GroundQuality::Refined;
 };
 
 class GroundPublication {
@@ -25,6 +38,7 @@ public:
     return !Current_ || Current_->Region != requested.Region ||
            Current_->Classes != requested.Classes || Current_->Footprints != requested.Footprints ||
            Current_->Projection != requested.Projection ||
+           Current_->Coverage != requested.Coverage || Current_->Quality < requested.Quality ||
            (includeResidency &&
             (Current_->ResidentTiles != requested.ResidentTiles || missingRims));
   }

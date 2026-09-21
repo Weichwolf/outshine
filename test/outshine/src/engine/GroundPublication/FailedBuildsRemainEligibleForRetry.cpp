@@ -38,6 +38,17 @@ int main() {
   CHECK(!publication.NeedsRebuild(initial, false, true) &&
             publication.NeedsRebuild(initial, true, true),
         "missing neighbour rims remain eligible when residency updates are requested");
+  GroundRevision playable = initial;
+  playable.Quality = GroundQuality::Playable;
+  CHECK(publication.Publish(playable) && !publication.NeedsRebuild(playable, false, false) &&
+            publication.NeedsRebuild(initial, false, false),
+        "a playable publication satisfies playability but remains eligible for refinement");
+  CHECK(publication.Publish(initial) && !publication.NeedsRebuild(playable, false, false),
+        "a refined publication also satisfies the same playable coverage request");
+  GroundRevision wider = initial;
+  wider.Coverage.VisualRadiusM = 8000.0;
+  CHECK(publication.NeedsRebuild(wider, false, false),
+        "a coverage change rebuilds even when its quality label is unchanged");
   CHECK(publication.BeginCapture() && !publication.CanPublish(),
         "capture closes the publication boundary around the complete revision");
   CHECK(!publication.Publish(changed[2]) && publication.Current()->Footprints == initial.Footprints,
