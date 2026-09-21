@@ -55,7 +55,11 @@ Eingaben bleiben für die allgemeine Abnahme erforderlich.
 Das größere Lattice-Fixture misst warm 0.95 ms Corridors, 12.14 ms Press, 11.59 ms Terrain
 Mesh, 2.02 ms Geometry und 0.023 ms Publication; auch dort bleiben alle DEM-Abfragen gedeckt.
 Beide Integrationsfixtures veröffentlichen jetzt jeden Fortsetzungswert ausdrücklich. Mehrere
-Bewegungs- und Ortsstichproben fehlen weiterhin für p95/p99 und Peak-Memory.
+Bewegungs- und Ortsstichproben fehlen weiterhin für p95/p99 und Peak-Memory. Beide grünen
+Fixtures beweisen nur die vollständige Preload-Flushfolge, nicht verschiedene Taktungen desselben
+Kandidaten: `preload()` macht einen unvollständigen Kandidaten absichtlich zum Timeoutfehler und
+bietet keinen erfolgreichen Einzelschritt. Die Fortsetzungsabnahme braucht deshalb einen schmalen
+internen Scheduler-Test an `GroundBuildState`, keinen weiteren öffentlichen Pump-Verb.
 
 `GroundBuildProducts::OwnedHeapBytes` zählt direkte CPU-Produkte: Sheets, Gebäude,
 Piece-Slots, native Geometrie sowie Terrain-/Palettenstreams. `GroundBuildState` hält daraus
