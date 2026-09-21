@@ -31,6 +31,11 @@ Even bounded early overlap did not improve the 15 s result. Full fine-DEM seatin
 every visible building still exceeds cold transfer capacity; staged ground products or
 prioritized refinement must make initial publication independent of complete fine seating.
 
+`StructureBuildQueue` now enforces that measured provisional window at the worker dispatch
+boundary: hardware thread count can no longer increase simultaneous structure candidates
+beyond four. The existing revision-rejection queue case remains green. Byte accounting,
+fairness and shared vector admission remain open.
+
 ## Decision
 
 An engine-thread admission owner schedules existing vector decode, field ingestion and
