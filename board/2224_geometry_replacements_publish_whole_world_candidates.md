@@ -78,6 +78,11 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
 
 - `test/outshine/src/engine/GroundWorldCandidate/LateFailurePreservesPublishedGround.cpp`:
   späte Klassen-/Geometriefehler erhalten CPU-/GPU-Welt und Revision; Retry funktioniert.
+- `test/outshine/include/Outshine/GeneratorProductsComposeAtomically.cpp`: eine echte
+  `SDL_SubmitGPUCommandBuffer`-Ablehnung während `Engine::setGeometry(B)` erhält das
+  vollständig gerenderte A pixelgleich; der unmittelbare B-Retry publiziert. Der Test benutzt
+  die öffentliche Engine-API und dieselbe Submit-Grenze wie die bereits vorhandene
+  Generator-Deklarationsprüfung.
 - `Live/GroundClassificationBelongsToItsWorld.cpp`: Klassifikationspuffer gehören dem
   richtigen Owner; verworfene Kandidaten erhalten alte Inhalte.
 - `Live/GroundResourcesSurviveWorldPublication.cpp`: Höhenhalter über zwei Ersatzwelten.

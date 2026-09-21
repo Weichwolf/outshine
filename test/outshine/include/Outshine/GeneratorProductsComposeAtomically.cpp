@@ -136,5 +136,23 @@ int main() {
         "rejected generated candidate preserves previous world pixels");
   CHECK(engine.declare(scenario) && engine.assemble() && engine.advance(),
         "generated candidate retries after the rejected submission");
+  CHECK(engine.renderer().render({}).has_value() &&
+            engine.renderer().readPixels(Buffer::Linear, retained).has_value(),
+        "retried generated world establishes the native-replacement control image");
+  auto native = right.make({});
+  CHECK(native.has_value(), "native replacement fixture is built");
+  if (!native) { return Report(); }
+  const auto beforeNativeRejection = retained;
+  rejectSubmission = true;
+  CHECK(!engine.setGeometry(*native),
+        "native geometry candidate rejects its injected GPU submission failure");
+  CHECK(rejectedSubmissions == 2 && !rejectSubmission,
+        "native replacement reaches the injected submission failure once");
+  CHECK(engine.renderer().render({}).has_value(),
+        "published generated world remains renderable after native replacement rejection");
+  CHECK(engine.renderer().readPixels(Buffer::Linear, retained).has_value() &&
+            retained == beforeNativeRejection,
+        "rejected native replacement preserves published pixels");
+  CHECK(engine.setGeometry(*native), "native replacement publishes on immediate retry");
   return Report();
 }
