@@ -371,6 +371,11 @@ Shot Draw(Engine &engine,
   Shot shot;
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
+  if (!MeasureFrames(engine, name, shot)) { return shot; }
+  if (!engine.settled(WorldQuality::Refined)) {
+    shot.Why = std::string(name) + " did not reach refined world quality before capture";
+    return shot;
+  }
   {
     auto capture = engine.beginCapture();
     if (!capture) {
@@ -433,8 +438,6 @@ Shot Draw(Engine &engine,
       }
     }
   }
-
-  if (!MeasureFrames(engine, name, shot)) { return shot; }
 
   shot.Measures.assign(engine.measures().begin(), engine.measures().end());
 

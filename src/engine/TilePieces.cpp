@@ -42,7 +42,7 @@ bool TilePieces::Hands(uint32_t tile,
     return false;
   }
   const Mat4 row = RowFor(anchorEcef);
-  Standing stood{.Tile = tile};
+  Standing stood{.Tile = tile, .Digest = baked.Digest};
   std::string why;
   const auto place = [this, &row, &why](std::span<const StoredVertex> corners,
                                         std::span<const uint32_t> run,
@@ -83,8 +83,10 @@ bool TilePieces::Hands(uint32_t tile,
     return false;
   }
   Forgets(tile);
-  if (stood.Walls || stood.Roofs) { Standing_.push_back(stood); }
-  Digest_ = (Digest_ ^ baked.Digest) * kDigestPrime;
+  if (stood.Walls || stood.Roofs) {
+    Standing_.insert(std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile), stood);
+  }
+  RefreshDigest();
   ++Handed_;
   return true;
 }
@@ -97,6 +99,19 @@ void TilePieces::Forgets(uint32_t tile) {
     if (at->Roofs) { Renderer_->ReleasePiece(at->Roofs); }
   }
   Standing_.erase(at);
+  RefreshDigest();
+}
+
+void TilePieces::RefreshDigest() noexcept {
+  if (Standing_.empty()) {
+    Digest_ = 0;
+    return;
+  }
+  Digest_ = kDigestBasis;
+  for (const Standing &stood : Standing_) {
+    Digest_ = (Digest_ ^ static_cast<uint64_t>(stood.Tile)) * kDigestPrime;
+    Digest_ = (Digest_ ^ stood.Digest) * kDigestPrime;
+  }
 }
 
 void TilePieces::Clear() {

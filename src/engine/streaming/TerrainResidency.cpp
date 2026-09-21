@@ -191,6 +191,20 @@ bool TerrainResidency::PublishGrid(const Patchwork &patchwork, std::string &erro
   return true;
 }
 
+bool TerrainResidency::ReindexPages(std::string &error) {
+  PageIndex_.Clear();
+  for (size_t at = 0; at < Held_.size(); ++at) {
+    const auto indexed = PageIndex_.Emplace(Held_[at].Tile, at);
+    if (!indexed) {
+      error = indexed.error() == FlatMapError::AllocationFailed
+                  ? Says::HeightPageIndexAllocationFailed
+                  : Says::HeightPageIndexCapacityExceeded;
+      return false;
+    }
+  }
+  return true;
+}
+
 bool TerrainResidency::Publish(const Patchwork &patchwork,
                                const TangentFrame &frame,
                                std::string &error) {
@@ -205,16 +219,7 @@ bool TerrainResidency::Publish(const Patchwork &patchwork,
     Renderer_->ReleaseHeightPage(one.Page);
     return true;
   });
-  PageIndex_.Clear();
-  for (size_t at = 0; at < Held_.size(); ++at) {
-    const auto indexed = PageIndex_.Emplace(Held_[at].Tile, at);
-    if (!indexed) {
-      error = indexed.error() == FlatMapError::AllocationFailed
-                  ? Says::HeightPageIndexAllocationFailed
-                  : Says::HeightPageIndexCapacityExceeded;
-      return false;
-    }
-  }
+  if (!ReindexPages(error)) { return false; }
   Flat_ = 0;
   Instances_.clear();
   Virtual_.clear();
@@ -232,6 +237,12 @@ bool TerrainResidency::Publish(const Patchwork &patchwork,
     (sheet.Virtual ? Virtual_ : Instances_)
         .push_back(TileOf(sheet.Tile, *page, sheet.Nodes, frame));
   }
+  std::ranges::sort(Held_, [](const Held &left, const Held &right) {
+    if (left.Tile.Zoom != right.Tile.Zoom) { return left.Tile.Zoom < right.Tile.Zoom; }
+    if (left.Tile.X != right.Tile.X) { return left.Tile.X < right.Tile.X; }
+    return left.Tile.Y < right.Tile.Y;
+  });
+  if (!ReindexPages(error)) { return false; }
   return PublishGrid(patchwork, error) && Renderer_->SetTerrainTiles(Instances_, Virtual_, error);
 }
 
@@ -253,16 +264,10 @@ uint64_t TerrainResidency::Digest() const noexcept {
   uint64_t digest = kDigestBasis;
   const auto fold = [&digest](uint32_t word) { digest = (digest ^ word) * kDigestPrime; };
   const auto foldFloat = [&fold](float value) { fold(std::bit_cast<uint32_t>(value)); };
-  const auto foldPage = [&fold](Render::HeightPageHandle page) {
-    fold(page.Slot);
-    fold(static_cast<uint32_t>(page.Generation));
-    fold(static_cast<uint32_t>(page.Generation >> 32u));
-  };
   for (const std::vector<Render::TerrainTile> *tiles : {&Instances_, &Virtual_}) {
     for (const Render::TerrainTile &one : *tiles) {
       for (const float value : one.Row) { foldFloat(value); }
       for (const float value : one.Corners) { foldFloat(value); }
-      foldPage(one.Page);
       foldFloat(one.SagInv);
       foldFloat(one.StepE);
       foldFloat(one.StepN);
@@ -274,7 +279,6 @@ uint64_t TerrainResidency::Digest() const noexcept {
     fold(static_cast<uint32_t>(held.Tile.Zoom));
     fold(held.Tile.X);
     fold(held.Tile.Y);
-    foldPage(held.Page);
     for (const float value : held.Nodes) { foldFloat(value); }
   }
   return digest;

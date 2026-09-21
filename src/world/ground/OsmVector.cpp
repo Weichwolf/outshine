@@ -1,4 +1,5 @@
 #include "OsmVector.h"
+#include "Capacity.h"
 
 #include <cstdint>
 #include <cstddef>
@@ -14,6 +15,15 @@
 #include <vector>
 
 namespace outshine::Ground {
+
+size_t OsmVector::HeapBytes() const {
+  size_t strings = 0;
+  for (const std::string &key : Keys_) { strings += key.capacity(); }
+  for (const std::string &value : ValueStrs_) { strings += value.capacity(); }
+  return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
+         CapacityBytes(Tags_) + CapacityBytes(Keys_) + CapacityBytes(Values_) +
+         CapacityBytes(ValueStrs_) + (ValueIsNum_.capacity() + 7u) / 8u + strings;
+}
 
 constexpr int kVarintShiftMost = 63;
 

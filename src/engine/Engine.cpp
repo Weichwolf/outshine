@@ -262,8 +262,10 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
            : Says::kPendingVegetation}};
 }
 
-bool Engine::settled() const {
-  return S_->Readiness().Ready();
+bool Engine::settled(WorldQuality required) const {
+  const GroundQuality quality =
+      required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
+  return S_->Readiness(quality).Ready();
 }
 
 Holds<Capture> Engine::beginCapture() {

@@ -3,6 +3,7 @@
 #include "GroundStack.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <ratio>
 #include <span>
@@ -123,11 +124,17 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers));
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
+  const uint64_t previousVectorGeneration = Vectors_->Generation();
   if (Declared_.empty()) {
     const auto built = Vectors_->Build(*Pool_, at, budget.VectorRing, kVectorTiles);
     if (!built) { return std::unexpected(built.error()); }
   } else {
     Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), *vectorTile);
+  }
+  if (Vectors_->Generation() != previousVectorGeneration) {
+    Footprints_.ResetDerived();
+    Ways_ = StreetField{};
+    WaterBodies_ = WaterField{};
   }
   if (!Vectors_->SettledWithin(0)) { return {}; }
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {

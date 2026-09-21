@@ -53,6 +53,7 @@ void BuildingField::PreparesAcceptances(AcceptanceCapacity capacity) {
   Prints_.reserve(Prints_.size() + capacity.Prints);
   SeatSpread_.reserve(SeatSpread_.size() + capacity.Spread);
   Across_.reserve(Across_.size() + capacity.Across);
+  AcceptedTiles_.reserve(AcceptedTiles_.size() + capacity.Tiles);
   ByTile_.Prepare(capacity.LargestTile);
 }
 
@@ -66,16 +67,21 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending,
                                      const Baked &baked) noexcept {
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
-  const auto firstPrint = static_cast<uint32_t>(Prints_.size());
-  Prints_.insert(Prints_.end(), baked.Prints.begin(), baked.Prints.end());
+  const auto nextTile = std::ranges::lower_bound(AcceptedTiles_, pending.Tile_);
+  const uint32_t firstPrint = nextTile == AcceptedTiles_.end()
+                                  ? static_cast<uint32_t>(Prints_.size())
+                                  : ByTile_.At(*nextTile).First;
+  Prints_.insert(Prints_.begin() + firstPrint, baked.Prints.begin(), baked.Prints.end());
   SeatSpread_.insert(SeatSpread_.end(), baked.SeatSpreadM.begin(), baked.SeatSpreadM.end());
   Across_.insert(Across_.end(), baked.AcrossM.begin(), baked.AcrossM.end());
   OsmHeights_ += baked.OsmHeights;
   DefaultHeights_ += baked.DefaultHeights;
   Fronted_ += baked.Fronted;
   TrianglesHanded_ += baked.Triangles;
-  ByTile_.Set(pending.Tile_, firstPrint, static_cast<uint32_t>(Prints_.size()));
-  AcceptedTiles_.insert(std::ranges::lower_bound(AcceptedTiles_, pending.Tile_), pending.Tile_);
+  ByTile_.ShiftAfter(
+      {.AfterTile = pending.Tile_, .By = static_cast<uint32_t>(baked.Prints.size())});
+  ByTile_.Set(pending.Tile_, firstPrint, firstPrint + static_cast<uint32_t>(baked.Prints.size()));
+  AcceptedTiles_.insert(nextTile, pending.Tile_);
   Mark_.Advance(field.Features());
   ++Accepted_;
   ++Revision_;

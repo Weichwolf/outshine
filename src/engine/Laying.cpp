@@ -87,6 +87,10 @@ constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
 
+bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
+  return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
+}
+
 }
 
 class GroundBuildState {
@@ -105,6 +109,19 @@ public:
            Revision_.WaterTiles == revision.WaterTiles &&
            Revision_.Projection == revision.Projection && Revision_.Coverage == revision.Coverage &&
            Revision_.Quality == revision.Quality;
+  }
+
+  [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
+    uint32_t difference = 0;
+    difference |= Revision_.Region != revision.Region ? 1u << 0u : 0u;
+    difference |= Revision_.Classes != revision.Classes ? 1u << 1u : 0u;
+    difference |= Revision_.Footprints != revision.Footprints ? 1u << 2u : 0u;
+    difference |= Revision_.StreetTiles != revision.StreetTiles ? 1u << 3u : 0u;
+    difference |= Revision_.WaterTiles != revision.WaterTiles ? 1u << 4u : 0u;
+    difference |= Revision_.Projection != revision.Projection ? 1u << 5u : 0u;
+    difference |= Revision_.Coverage != revision.Coverage ? 1u << 6u : 0u;
+    difference |= Revision_.Quality != revision.Quality ? 1u << 7u : 0u;
+    return difference;
   }
 
   [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }
@@ -162,6 +179,15 @@ public:
     if (!Schedule_.Prepared()) { return "candidate"; }
     if (!Patchwork_) { return "patchwork"; }
     return Schedule_.Status();
+  }
+
+  [[nodiscard]] uint8_t Progress() const noexcept {
+    if (!Schedule_.Prepared()) { return 0; }
+    if (!Patchwork_) { return 1; }
+    if (Schedule_.SheetBuilding() != Core::GroundBuildSchedule::SheetPhase::Ready) {
+      return static_cast<uint8_t>(Schedule_.SheetBuilding()) + 2u;
+    }
+    return static_cast<uint8_t>(Schedule_.NextStage()) + 6u;
   }
 
 private:
@@ -713,6 +739,19 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
 
   const Ground::BuildingField &pads = footprints;
   const Ground::OsmField *const shapes = World.Stack.Vectors();
+  if (shapes != nullptr) {
+    uint64_t tileOrder = kDigestBasis;
+    for (const Ground::OsmField::Tile &tile : shapes->Tiles()) {
+      tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.X)) * kDigestPrime;
+      tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.Y)) * kDigestPrime;
+    }
+    Published.Places("ground candidate: OSM tile order, low half",
+                     static_cast<double>(tileOrder & kLowWord),
+                     "digest");
+    Published.Places("ground candidate: OSM tile order, high half",
+                     static_cast<double>(tileOrder >> 32U),
+                     "digest");
+  }
   std::vector<Yields> yielding;
   if (shapes != nullptr) { AppendBuildingStamps(pads, shapes->Points(), standing, yielding); }
   const size_t builtPads = yielding.size();
@@ -918,11 +957,21 @@ void Engine::State::ReportGroundPlacements() {
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const GroundRequest &request) {
   if (!World.GroundBuild || !World.GroundBuild->Matches(request.Revision)) {
+    if (World.GroundBuild) {
+      Published.Places("ground candidate: revision mismatch mask",
+                       static_cast<double>(World.GroundBuild->RevisionDifference(request.Revision)),
+                       "bits");
+    }
     World.GroundBuild = std::make_unique<GroundBuildState>(
         Picture.Device, World, World.Stack.Footprints(), request.Coverage, request.Revision);
+    ++World.GroundCandidates;
+    Published.Places(
+        "ground candidate: starts", static_cast<double>(World.GroundCandidates), "candidates");
     return GroundBuildProgress::Pending;
   }
   GroundBuildState &state = *World.GroundBuild;
+  Published.Places(
+      "ground candidate: progress", static_cast<double>(state.Progress()), "stage index");
   if (state.Prepared()) { return GroundBuildProgress::Ready; }
   if (auto prepared = state.Candidate().Prepare(*Picture.Standing, &Picture.Face); !prepared) {
     Error = std::move(prepared.error());
@@ -1117,8 +1166,12 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     }
   }
   World.StructureBuilds.CommitsLandings(World.Stack, state.Footprints(), *ready);
+  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  const StructureBuildQueue::HeightSource heightAt = [&build, finestZoom](LongitudeLatitude at) {
+    return build.Sheets.AslMAt(finestZoom, at);
+  };
   (void)World.StructureBuilds.Posts(
-      World.Stack, state.Footprints(), WhereTheEyeStands(), StructureCandidatesMost());
+      World.Stack, state.Footprints(), WhereTheEyeStands(), heightAt, StructureCandidatesMost());
   return true;
 }
 
@@ -1281,10 +1334,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   auto phaseAt = std::chrono::steady_clock::now();
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared || !Picture.Standing || !World.Stack.Opened()) { return true; }
-  if (quality == GroundQuality::Refined ? !World.Stack.Ingested()
-                                        : !World.Stack.IngestedWithin(0)) {
-    return true;
-  }
+  if (!GroundSourcesReady(World.Stack, quality)) { return true; }
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 
@@ -1372,6 +1422,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
       "ground candidate: publication",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
+  Published.Places("ground publication: quality",
+                   state.Revision().Quality == GroundQuality::Refined ? 1.0 : 0.0,
+                   "0=playable 1=refined");
   Published.Places("ground candidate: direct CPU product peak",
                    static_cast<double>(state.ProductPeakBytes()),
                    "bytes");

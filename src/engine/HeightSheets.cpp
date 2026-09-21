@@ -345,19 +345,26 @@ std::optional<double> HeightSheets::FieldUpM(int zoom, EastNorth at) const {
     ecef[axis] = origin[axis] + at.EastM * east[axis] + at.NorthM * north[axis];
   }
   const Ground::Geo geo = Ground::EcefToGeoWgs84({.X = ecef[0], .Y = ecef[1], .Z = ecef[2]});
+  const std::optional<double> aslM =
+      AslMAt(zoom, {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
+  if (!aslM) { return std::nullopt; }
+  return Frame_
+      .Place({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = *aslM})
+      .UpM;
+}
+
+std::optional<double> HeightSheets::AslMAt(int zoom, LongitudeLatitude at) const {
+  if (!Framed_) { return std::nullopt; }
   for (int heldZoom = zoom; heldZoom >= 0; --heldZoom) {
     const Ground::TileFrac frac = Ground::ToTileFracClamped(
-        {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}, heldZoom);
+        {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}, heldZoom);
     const Data::TileId tile{.Zoom = heldZoom,
                             .X = static_cast<uint32_t>(std::floor(frac.X)),
                             .Y = static_cast<uint32_t>(std::floor(frac.Y))};
     const Ground::TerrainField *field = HeldFieldAt(tile);
     if (field == nullptr || !field->Meshable()) { continue; }
-    const double aslM =
-        field->PostingM({.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});
-    return Frame_
-        .Place({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = aslM})
-        .UpM;
+    return field->PostingM(
+        {.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});
   }
   return std::nullopt;
 }

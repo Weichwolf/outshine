@@ -230,19 +230,18 @@ void Engine::State::HandsPiecesOver() {
 bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = WhereTheEyeStands();
+  const StructureBuildQueue::HeightSource heightAt = [this](LongitudeLatitude at) {
+    return World.Stack.Ground().Resident(at).AslM();
+  };
   if (World.GroundBuild) {
     World.StructureBuilds.ResumeCompletedTasks();
-    if (!StagesGroundBakes(landsMost)) { return false; }
-    Ground::BuildingField *const footprints = CandidateFootprints();
-    assert(footprints != nullptr);
-    (void)World.StructureBuilds.Posts(World.Stack, *footprints, eye, StructureCandidatesMost());
-    return true;
+    return StagesGroundBakes(landsMost);
   }
   if (!World.GroundPublished.Current()) {
     World.StructureBuilds.ResumeCompletedTasks();
     if (World.Stack.Ingested()) {
       (void)World.StructureBuilds.Posts(
-          World.Stack, World.Stack.Footprints(), eye, StructureCandidatesMost());
+          World.Stack, World.Stack.Footprints(), eye, heightAt, StructureCandidatesMost());
     }
     return true;
   }
@@ -262,7 +261,7 @@ bool Engine::State::Bakes(size_t landsMost) {
     World.StructureBuilds.CommitsLandings(World.Stack, World.Stack.Footprints(), *ready);
   }
   (void)World.StructureBuilds.Posts(
-      World.Stack, World.Stack.Footprints(), eye, StructureCandidatesMost());
+      World.Stack, World.Stack.Footprints(), eye, heightAt, StructureCandidatesMost());
   Published.Places("buildings: tiles posted to the bake",
                    static_cast<double>(World.StructureBuilds.Posted()),
                    "tiles");
@@ -340,9 +339,9 @@ bool Engine::State::Updates() {
         static const Heap::Tag kRestandingTag("world-restand");
         const Heap::Tagged restanding(kRestandingTag);
         HandsPiecesOver();
+        const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
         const auto streamed = World.Stack.Restand(
-            stands,
-            {.IngestTilesMost = Ground::kFrameIngestTiles, .VectorRing = Ground::kVectorRing});
+            stands, {.IngestTilesMost = Ground::kFrameIngestTiles, .VectorRing = vectorRing});
         if (!streamed) {
           Error = streamed.error();
           return false;
@@ -371,7 +370,9 @@ bool Engine::State::Updates() {
   Ticking.ElapsedS += simulationStepS;
   if (!UpdateTriggers()) { return false; }
   if (!Watches()) { return false; }
-  return Grounds(false, GroundQuality::Refined) && UpdateCrowns(false);
+  const GroundQuality quality =
+      World.GroundPublished.Current() ? GroundQuality::Refined : GroundQuality::Playable;
+  return Grounds(false, quality) && UpdateCrowns(false);
 }
 
 bool Engine::State::Draws() {

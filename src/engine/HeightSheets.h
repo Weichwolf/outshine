@@ -50,6 +50,8 @@ public:
 
   [[nodiscard]] std::optional<double> FieldUpM(int zoom, EastNorth at) const;
 
+  [[nodiscard]] std::optional<double> AslMAt(int zoom, LongitudeLatitude at) const;
+
   void ForgetsFields() { Fields_.clear(); }
 
   void Clear();

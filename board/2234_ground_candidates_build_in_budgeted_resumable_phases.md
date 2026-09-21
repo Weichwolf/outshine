@@ -15,15 +15,19 @@ Candidate ownership, phase scheduling and atomic publication exist. Floor-contac
 Lattice and paced-readiness fixtures passed at bd8693885. These establish readiness
 and local contracts, not equal native products under different pacing or frame budgets.
 Historical single-run timings are in Git; no p95/p99 claim follows from them.
+On 2026-09-21 Malcesine's 120 measured frames after Playable preload gave
+p50 3.03, p95 694.92 and p99 711.90 ms, with 41/120 above 16.67 ms and
+564 MB peak heap. Advance dominates (p99 711.43 ms); render p99 is 4.90 ms.
+These are observed client timings, not accepted budgets. Find and slice the
+responsible native build/publication units without moving work out of the
+measurement window.
 
-The Refined oracle reaches readiness in both paths but native products differ.
-Reversing execution order excludes cache warmth alone. Terrain source, refined and
-haloed nodes are byte-identical; tile IDs and product counts match. Footprint order
-and heights then diverge, followed by pressed terrain and renderer geometry. The
-first differing input is `OsmField::Tiles()` order: `Build` appends successful vector
-downloads in arrival order, so tile/feature/point indices change with pacing. Waiting
-for all terrain meshes does not repair this; the probe was removed. WI 2245 repairs
-the vector identity boundary before product equivalence can pass.
+The Refined oracle now passes for preload, paced advance and a repeated paced run,
+also with NDEBUG. The defect was a combination of arrival-ordered `OsmField` indices,
+completion-ordered footprints and unequal first vector requests: preload asked for
+contact, advance for the full ring. WI 2245 owns source snapshot identity and its
+remaining missing/retry and budget proofs. Equality is proven for this fixture;
+other inputs and per-unit frame bounds remain open.
 
 The release regression is reproduced: with NDEBUG, the paced engine tries to start
 another candidate while its renderer still owns the first. The three mutating schedule
@@ -47,6 +51,11 @@ active world. Failure and cancellation preserve the published world.
 Engine::advance and preload must orchestrate the same production operations. Their
 first publications now both use Playable quality; advance had incorrectly labelled its
 contact-only source request Refined. Both then continue to Refined visual coverage.
+The client now measures 120 streaming frames before pinning capture and requires
+Refined readiness for its shot. Capturing immediately after Playable preload had
+frozen a nearly empty Malcesine frame. The corrected shot has 110345 triangles;
+visual inspection and pixel comparison against the previous completed shot show
+0.8864% changed pixels. This restores the image oracle, not visual acceptance.
 Freeze input revision, coverage, quality and simulation time before comparing results.
 Do not call different-quality image equality a valid oracle.
 Use existing internal contracts for controlled equivalence tests and public API for

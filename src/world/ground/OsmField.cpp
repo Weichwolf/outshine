@@ -32,6 +32,13 @@ constexpr double kNoLeastYet = 1e9;
 
 namespace {
 
+using VectorLayers = std::vector<std::optional<OsmVector>>;
+
+[[nodiscard]] std::expected<VectorLayers, std::string_view>
+ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> names);
+
+[[nodiscard]] bool FitsNativeStorage(OsmStorageUsage &usage, const VectorLayers &layers);
+
 uint64_t TileKey(int x, int y) {
   return (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 32u) | static_cast<uint32_t>(y);
 }
@@ -122,6 +129,7 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
   const auto window =
       TileWindowFor({.Centre = *centre, .Zoom = Zoom_, .Radius = ringTiles, .Budget = tileBudget});
   if (!window) { return std::unexpected(window.error()); }
+  if (CentreX_ != centre->X || CentreY_ != centre->Y) { Stage_ = SnapshotStage::Empty; }
   Pending_ = 0;
   Refused_ = 0;
   CentreX_ = centre->X;
@@ -149,7 +157,26 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
     }
   }
 
+  const auto published = PublishReady(*centre);
+  if (!published) { return std::unexpected(published.error()); }
   return added;
+}
+
+std::expected<void, std::string_view> OsmField::PublishReady(TileAt centre) {
+  if (Stage_ == SnapshotStage::Empty && Settled(centre.X, centre.Y)) {
+    const auto published = PublishParsed(nullptr, centre);
+    if (!published) { return std::unexpected(published.error()); }
+    Stage_ = SnapshotStage::Contact;
+    PublishedSettledTiles_ = 1;
+  } else if (Stage_ != SnapshotStage::Empty && Pending_ == 0 && Refused_ == 0 &&
+             PublishedSettledTiles_ != Settled_.size()) {
+    const auto published = PublishParsed(nullptr, std::nullopt);
+    if (!published) { return std::unexpected(published.error()); }
+    Stage_ = SnapshotStage::Complete;
+    PublishedSettledTiles_ = Settled_.size();
+  }
+
+  return {};
 }
 
 bool OsmField::Settled(int x, int y) const {
@@ -202,14 +229,25 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) {
     return Fetched{.Held = true};
   }
-  const auto accepted = Accept(at.X, at.Y, Scratch_.Bytes);
-  if (!accepted) { return std::unexpected(accepted.error()); }
-  return Fetched{.Held = true, .Added = *accepted};
+  auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_);
+  if (!layers) {
+    ++Bad_;
+    return std::unexpected(layers.error());
+  }
+  OsmStorageUsage usage;
+  for (const ParsedTile &tile : ParsedTiles_) {
+    if (!FitsNativeStorage(usage, tile.Layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
+  }
+  if (!FitsNativeStorage(usage, *layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
+  int added = 0;
+  for (const auto &layer : *layers) {
+    if (layer) { added += static_cast<int>(layer->Features().size()); }
+  }
+  ParsedTiles_.push_back({.At = at, .Layers = std::move(*layers)});
+  return Fetched{.Held = true, .Added = added};
 }
 
 namespace {
-using VectorLayers = std::vector<std::optional<OsmVector>>;
-
 [[nodiscard]] bool ValidTileAddress(TileAt at, int zoom) {
   if (zoom < 0 || zoom > std::numeric_limits<int>::digits || at.X < 0 || at.Y < 0) { return false; }
   const uint64_t side = uint64_t{1} << static_cast<unsigned>(zoom);
@@ -239,7 +277,7 @@ ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> na
   return layers;
 }
 
-[[nodiscard]] bool FitsNativeStorage(OsmStorageUsage usage, const VectorLayers &layers) {
+[[nodiscard]] bool FitsNativeStorage(OsmStorageUsage &usage, const VectorLayers &layers) {
   if (!usage.TryAdd({.Tiles = 1})) { return false; }
   for (const auto &layer : layers) {
     if (!layer) { continue; }
@@ -265,38 +303,83 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   if (!ValidTileAddress({.X = tx, .Y = ty}, Zoom_)) {
     return std::unexpected(Says::kInvalidOsmTile);
   }
-  const auto layers = ReadVectorLayers(vectorTile, Layers_);
+  auto layers = ReadVectorLayers(vectorTile, Layers_);
   if (!layers) {
     ++Bad_;
     return std::unexpected(layers.error());
   }
-  const OsmStorageUsage usage{.Features = Features_.size(),
-                              .Rings = Rings_.size(),
-                              .Points = Points_.size() / 2,
-                              .Tags = Tags_.size(),
-                              .Values = Values_.size(),
-                              .Keys = Keys_.size(),
-                              .Strings = Strings_.size(),
-                              .Tiles = Tiles_.size()};
-  if (!FitsNativeStorage(usage, *layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
-  const size_t first = Features_.size();
-  Tiles_.push_back(Tile{.Z = Zoom_,
-                        .X = tx,
-                        .Y = ty,
-                        .FirstFeature = static_cast<uint32_t>(first),
-                        .FeatureCount = 0});
-  for (size_t i = 0; i < layers->size(); ++i) {
-    const auto &layer = (*layers)[i];
-    if (layer) {
-      AppendLayer(*layer, static_cast<uint16_t>(i));
-    } else {
-      ++Missing_;
-    }
+  ParsedTile parsed{.At = {.X = tx, .Y = ty}, .Layers = std::move(*layers)};
+  const auto published = PublishParsed(&parsed, std::nullopt);
+  if (!published) { return std::unexpected(published.error()); }
+  const auto previous = std::ranges::find_if(ParsedTiles_, [tx, ty](const ParsedTile &tile) {
+    return tile.At.X == tx && tile.At.Y == ty;
+  });
+  if (previous == ParsedTiles_.end()) {
+    ParsedTiles_.push_back(std::move(parsed));
+  } else {
+    *previous = std::move(parsed);
   }
-  const size_t added = Features_.size() - first;
-  Tiles_.back().FeatureCount = static_cast<uint32_t>(added);
   Settle(tx, ty);
-  return static_cast<int>(added);
+  Stage_ = SnapshotStage::Complete;
+  PublishedSettledTiles_ = Settled_.size();
+  return static_cast<int>(OfTile(TileIndex(tx, ty)).size());
+}
+
+std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *replacement,
+                                                              std::optional<TileAt> contact) {
+  std::vector<const ParsedTile *> ordered;
+  ordered.reserve(ParsedTiles_.size() + 1u);
+  for (const ParsedTile &tile : ParsedTiles_) {
+    if (replacement != nullptr && tile.At.X == replacement->At.X &&
+        tile.At.Y == replacement->At.Y) {
+      continue;
+    }
+    if (contact && (tile.At.X != contact->X || tile.At.Y != contact->Y)) { continue; }
+    ordered.push_back(&tile);
+  }
+  if (replacement != nullptr &&
+      (!contact || (replacement->At.X == contact->X && replacement->At.Y == contact->Y))) {
+    ordered.push_back(replacement);
+  }
+  std::ranges::sort(ordered, [](const ParsedTile *left, const ParsedTile *right) {
+    return left->At.Y == right->At.Y ? left->At.X < right->At.X : left->At.Y < right->At.Y;
+  });
+  OsmField rebuilt(Zoom_, Layers_);
+  OsmStorageUsage usage;
+  for (const ParsedTile *tile : ordered) {
+    if (!FitsNativeStorage(usage, tile->Layers)) {
+      return std::unexpected(Says::kOsmIndexCapacity);
+    }
+    const size_t first = rebuilt.Features_.size();
+    rebuilt.Tiles_.push_back(Tile{.Z = Zoom_,
+                                  .X = tile->At.X,
+                                  .Y = tile->At.Y,
+                                  .FirstFeature = static_cast<uint32_t>(first),
+                                  .FeatureCount = 0});
+    for (size_t i = 0; i < tile->Layers.size(); ++i) {
+      const auto &layer = tile->Layers[i];
+      if (layer) {
+        rebuilt.AppendLayer(*layer, static_cast<uint16_t>(i));
+      } else {
+        ++rebuilt.Missing_;
+      }
+    }
+    rebuilt.Tiles_.back().FeatureCount = static_cast<uint32_t>(rebuilt.Features_.size() - first);
+  }
+  Features_ = std::move(rebuilt.Features_);
+  Rings_ = std::move(rebuilt.Rings_);
+  Points_ = std::move(rebuilt.Points_);
+  Tiles_ = std::move(rebuilt.Tiles_);
+  Tags_ = std::move(rebuilt.Tags_);
+  Keys_ = std::move(rebuilt.Keys_);
+  Strings_ = std::move(rebuilt.Strings_);
+  Values_ = std::move(rebuilt.Values_);
+  KeyIndex_ = std::move(rebuilt.KeyIndex_);
+  StringIndex_ = std::move(rebuilt.StringIndex_);
+  Extent_ = rebuilt.Extent_;
+  Missing_ = rebuilt.Missing_;
+  ++Generation_;
+  return {};
 }
 
 void OsmField::AppendLayer(const OsmVector &layer, uint16_t layerIndex) {
@@ -377,12 +460,20 @@ size_t OsmField::HeapBytes() const {
   for (const std::string &s : Strings_) { strings += s.capacity(); }
   for (const std::string &s : Layers_) { strings += s.capacity(); }
 
+  size_t parsed = CapacityBytes(ParsedTiles_);
+  for (const ParsedTile &tile : ParsedTiles_) {
+    parsed += CapacityBytes(tile.Layers);
+    for (const auto &layer : tile.Layers) {
+      if (layer) { parsed += layer->HeapBytes(); }
+    }
+  }
+
   const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
                        (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
          CapacityBytes(Settled_) + CapacityBytes(Scratch_.Bytes) + CapacityBytes(Keys_) +
-         CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes;
+         CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes + parsed;
 }
 
 int OsmField::Layer(const char *name) const {
@@ -518,6 +609,7 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
   Rings_.clear();
   Points_.clear();
   Tiles_.clear();
+  ParsedTiles_.clear();
   Tags_.clear();
   Values_.clear();
   Keys_.clear();
@@ -539,6 +631,8 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
   Pending_ = 0;
   RequestedRing_ = 0;
   ++Generation_;
+  Stage_ = SnapshotStage::Complete;
+  PublishedSettledTiles_ = Settled_.size();
 }
 
 double OsmField::Num(const Feature &f, const char *key, double def) const {

@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
 #include <expected>
+#include <functional>
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -47,9 +48,12 @@ public:
     }
   };
 
+  using HeightSource = std::function<std::optional<double>(LongitudeLatitude)>;
+
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack,
                              Ground::BuildingField &footprints,
                              LongitudeLatitude eye,
+                             const HeightSource &heightAt,
                              size_t candidatesMost);
 
   struct Landing {

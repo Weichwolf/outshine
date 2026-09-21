@@ -18,6 +18,13 @@ proves different `OsmField::Tiles()` order while terrain inputs and counts match
 Footprint order, seating, pressed terrain, building pieces and renderer digest then
 diverge. Sorting footprints by transient tile index did not fix this.
 
+Current focused repair stages decoded tiles independently, publishes a spatially
+ordered contact snapshot, then a complete requested-ring snapshot. Preload and
+advance now request the same first tier. `GroundCandidatePacingReachesReadiness`
+passes normal and NDEBUG variants; Floor/Lattice and six OsmField tests pass.
+Source-revision replacement, refused/missing recovery, assembly cost and bounded
+memory still require proof before this WI closes.
+
 ## Decision
 
 Fetch all requested tiles concurrently; never serialize IO behind the first pending

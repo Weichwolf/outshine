@@ -51,6 +51,7 @@ public:
     size_t Prints = 0;
     size_t Spread = 0;
     size_t Across = 0;
+    size_t Tiles = 0;
     uint32_t LargestTile = 0;
   };
 

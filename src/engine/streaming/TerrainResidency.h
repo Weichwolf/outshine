@@ -61,6 +61,7 @@ private:
                                                   std::span<const float> nodes,
                                                   const TangentFrame &frame);
   [[nodiscard]] bool PublishGrid(const Patchwork &patchwork, std::string &error);
+  [[nodiscard]] bool ReindexPages(std::string &error);
 
   std::vector<Held> Held_;
   FlatMap<size_t, Data::TileId, TileHash> PageIndex_;

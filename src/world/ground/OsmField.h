@@ -13,11 +13,10 @@
 
 #include "GroundQuery.h"
 #include "OsmLayer.h"
+#include "OsmVector.h"
 #include "TilePool.h"
 
 namespace outshine::Ground {
-
-class OsmVector;
 
 struct FeatureRun {
   size_t From = 0;
@@ -155,7 +154,17 @@ private:
     bool Refused = false;
   };
 
+  struct ParsedTile {
+    TileAt At;
+    std::vector<std::optional<OsmVector>> Layers;
+  };
+
+  enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
+
   [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
+                                                                    std::optional<TileAt> contact);
+  [[nodiscard]] std::expected<void, std::string_view> PublishReady(TileAt centre);
   void AppendLayer(const OsmVector &layer, uint16_t layerIndex);
   void Settle(int x, int y);
   void AppendDeclaredFeature(const Declared &one);
@@ -163,6 +172,9 @@ private:
   [[nodiscard]] bool MatchesDeclaration(std::span<const Declared> input, TileAt over) const;
 
   std::vector<std::string> Layers_;
+  std::vector<ParsedTile> ParsedTiles_;
+  SnapshotStage Stage_ = SnapshotStage::Empty;
+  size_t PublishedSettledTiles_ = 0;
   std::vector<Feature> Features_;
   std::vector<Ring> Rings_;
   std::vector<double> Points_;

@@ -57,11 +57,13 @@ public:
 private:
   struct Standing {
     uint32_t Tile = 0;
+    uint64_t Digest = 0;
     Render::PieceHandle Walls{};
     Render::PieceHandle Roofs{};
   };
 
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
+  void RefreshDigest() noexcept;
 
   Render::SceneRenderer *Renderer_ = nullptr;
   TangentFrame Frame_;

@@ -33,6 +33,12 @@ template <typename Value> using Holds = std::expected<Value, std::string>;
 /// A verb with nothing to give back but its refusal.
 using Result = Holds<void>;
 
+/// Required completeness of streamed world products.
+enum class WorldQuality : uint8_t {
+  Playable, ///< Complete near contact and resources required for interaction and capture.
+  Refined   ///< Complete declared visual coverage and its final streamed products.
+};
+
 /// Value snapshot of terrain/vector requests and tile-pool accounting. Copies own
 /// their values and may be read independently; they do not track later engine changes.
 /// Counts describe different streaming stages, not completed GPU residency.
@@ -294,7 +300,12 @@ public:
   /// not imply a render target, an open frame or completion of all device work.
   /// Serialize with Engine mutations. No ownership or references are transferred.
   /// @return Current world-streaming readiness, not general Engine readiness.
-  [[nodiscard]] bool settled() const;
+  /// Test whether all products required at a declared quality are coherently published.
+  /// This is a momentary, allocation-free snapshot. Later movement, declarations or streamed
+  /// source revisions may make more work necessary. Playable is the compatibility default.
+  /// @param required Required near-contact or complete visual-coverage quality.
+  /// @return True only when every readiness component for that quality is complete.
+  [[nodiscard]] bool settled(WorldQuality required = WorldQuality::Playable) const;
   /// Lock the assembled render scene and, when ground is declared, its settled published world.
   /// Rendering, readback and diagnostics remain permitted. Simulation, declarations, geometry,
   /// targets, roots, generator registration, views, preload and state restore are refused until

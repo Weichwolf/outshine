@@ -2,7 +2,7 @@ Type: feature
 State: active
 Architecture: ready
 Parent: 2105
-Depends:
+Depends: 2245
 Priority: P0
 Area: engine, world, streaming
 Tags: terrain, structures, lod, publication
@@ -50,6 +50,17 @@ the scenario's requested visual coverage. Callers choose the required readiness;
 tests retain their declared geometric tolerances. A timeout reports which coverage and
 quality remain missing. Quality reduction follows a measured frame/memory/IO budget and
 is deterministic for the same request, never an implicit response to arrival order.
+
+`Engine::settled(WorldQuality)` is the public snapshot for this choice. The default remains
+`Playable`; tests and clients requiring final visual coverage must request `Refined`
+explicitly. `preload()` still targets Playable and does not claim final refinement.
+Normal advancement now publishes Playable first as well: before any publication, the
+streaming request intentionally contains contact coverage only and therefore cannot be
+labelled Refined. Subsequent advancement requests and publishes the complete ring.
+Structure seating first uses the exact fine DEM field. Outside fine residency it
+samples the candidate's prepared height hierarchy instead of deferring forever;
+contact coverage still receives fine fields. The eventual fine arrival remains a
+revision-triggered replacement.
 
 ## Implementation
 

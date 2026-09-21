@@ -36,6 +36,8 @@ public:
 
   [[nodiscard]] const std::vector<int32_t> &Points() const { return Points_; }
 
+  [[nodiscard]] size_t HeapBytes() const;
+
   double Num(const Feature &f, const char *key, double def) const;
   std::string_view Str(const Feature &f, const char *key) const;
 

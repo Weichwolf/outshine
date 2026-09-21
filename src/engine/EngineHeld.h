@@ -235,6 +235,7 @@ struct Surrounds {
   size_t AskedPlayablePending = 0;
   GroundPublication GroundPublished;
   std::unique_ptr<GroundBuildState> GroundBuild;
+  size_t GroundCandidates = 0;
 
   TilePieces Pieces;
   HeightSheets Sheets;
