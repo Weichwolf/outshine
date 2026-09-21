@@ -80,6 +80,15 @@ end-to-end progress. Do not add a second rendering client.
 3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
+   `PressPoints` in `GroundYield.cpp` has two ordered full-node passes: the first
+   globally marks stamps whose requested cut/fill exceeds the earthwork bound;
+   the second excludes those stamps and changes heights. A resumable press must
+   finish the first pass for all nodes before changing any height. Keep the bucket
+   index, rejection flags, positions, original heights and second-pass cursor in
+   candidate-owned state; then convert changed nodes back to geodetic heights and
+   calculate floors in deterministic source order. Do not split by stamp or publish
+   partly pressed sheets. Prove byte-identical results against the current one-shot
+   algorithm, including overlapping stamps and a late rejected stamp.
 
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
