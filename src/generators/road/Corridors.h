@@ -238,6 +238,17 @@ private:
 
   static void RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into);
 
+  struct BridgeTopology {
+    std::vector<Ends> EndsOfWay;
+    std::vector<uint8_t> HasEnds;
+    std::unordered_map<uint64_t, std::vector<size_t>> WaysAt;
+    std::unordered_map<uint64_t, LongitudeLatitude> PlaceOf;
+  };
+
+  [[nodiscard]] static BridgeTopology BridgeTopologyOf(const Paving &on);
+  [[nodiscard]] static std::vector<uint64_t>
+  RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, const Paved &into);
+
   [[nodiscard]] static double HighestDeckM(const Paved &over);
 
   static void EasesRamps(const outshine::Ground::StreetField &ways,

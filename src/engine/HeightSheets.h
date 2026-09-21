@@ -53,8 +53,7 @@ public:
                                    std::string &error);
   [[nodiscard]] size_t Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom);
 
-  [[nodiscard]] std::optional<double>
-  FieldUpM(const Ground::GroundStream &ground, int zoom, EastNorth at);
+  [[nodiscard]] std::optional<double> FieldUpM(int zoom, EastNorth at) const;
 
   void ForgetsFields() { Fields_.clear(); }
 
@@ -104,6 +103,7 @@ private:
   std::vector<Render::TerrainTile> Virtual_;
   [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
                                                     Data::TileId tile);
+  [[nodiscard]] const Ground::TerrainField *HeldFieldAt(Data::TileId tile) const;
   static void AsksFields(const Ground::GroundStream &ground, const Patchwork &laid, int finestZoom);
   [[nodiscard]] std::optional<float>
   AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFrac at);

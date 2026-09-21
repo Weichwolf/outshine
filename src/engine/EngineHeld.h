@@ -349,7 +349,9 @@ struct Engine::State {
 
   void Drew();
   void Inspected();
-  [[nodiscard]] WorldReadiness Readiness() const;
+  [[nodiscard]] WorldReadiness Readiness(GroundQuality quality = GroundQuality::Playable) const;
+  [[nodiscard]] bool StructuresReady(const Ground::BuildingField &footprints,
+                                     const GroundRevision &revision) const;
   [[nodiscard]] bool CanFinishPreload() const;
   [[nodiscard]] bool CanBeginGroundCandidate() const;
   [[nodiscard]] bool CanAdvanceGroundCandidate() const;
@@ -405,11 +407,14 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginsGroundModels(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing) const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
+  [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
   [[nodiscard]] Ground::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 
-  [[nodiscard]] Laid
-  Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded);
+  [[nodiscard]] Laid Focuses(GroundRequest &request,
+                             LongitudeLatitude at,
+                             bool alsoWhenTilesLanded,
+                             GroundQuality quality);
 
   struct Relieved {
     double Tallest = 0.0;
@@ -418,7 +423,8 @@ struct Engine::State {
   };
 
   void TellsTheRelief(Relieved over);
-  [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded);
+  [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded,
+                                                              GroundQuality quality);
 
   [[nodiscard]] bool RefineGroundSheets(const TangentFrame &standing,
                                         Patchwork &patchwork,
@@ -432,7 +438,7 @@ struct Engine::State {
   [[nodiscard]] bool
   BuildWaterSurfaces(const TangentFrame &standing, Geometry &ground, MaterialInstance ringSurface);
   void ReportGroundPlacements();
-  [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
+  [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);
   [[nodiscard]] bool Asks();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);

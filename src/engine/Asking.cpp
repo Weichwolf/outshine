@@ -334,7 +334,7 @@ bool Engine::State::Composes() {
   }
 
   HandsPiecesOver();
-  return Grounds(true);
+  return Grounds(true, GroundQuality::Playable);
 }
 
 bool Engine::State::Asks() {

@@ -82,6 +82,8 @@ constexpr double kWaterBankM = kWaterBedM / kBatterRise;
 constexpr int kLatticeVirtualLevels = 4;
 
 constexpr size_t kBounceProbeStride = 16;
+constexpr size_t kPlayableStructureCandidates = 1;
+constexpr size_t kRefinedStructureCandidates = 4;
 
 }
 
@@ -106,7 +108,8 @@ public:
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
            Revision_.Footprints == revision.Footprints &&
-           Revision_.Projection == revision.Projection;
+           Revision_.Projection == revision.Projection && Revision_.Coverage == revision.Coverage &&
+           Revision_.Quality == revision.Quality;
   }
 
   [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }
@@ -388,8 +391,10 @@ bool Engine::State::Models(const TangentFrame &standing,
   return true;
 }
 
-Engine::State::Laid
-Engine::State::Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWhenTilesLanded) {
+Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
+                                           LongitudeLatitude at,
+                                           bool alsoWhenTilesLanded,
+                                           GroundQuality quality) {
   const Around &over = request.Coverage;
   const GroundRevision previous = World.GroundPublished.Current().value_or(GroundRevision{});
   const double atLat = at.LatitudeDeg;
@@ -419,13 +424,18 @@ Engine::State::Focuses(GroundRequest &request, LongitudeLatitude at, bool alsoWh
   const Render::Viewpoint &view = Picture.Standing->Watching();
   const std::array<double, 3> projection{
       {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
+  const double visualRadiusM = Session.Declared.Ground.SightM > 0.0 ? Session.Declared.Ground.SightM
+                                                                    : Scenario::kSightUnsaidM;
   request.Revision = {.Region = from,
                       .ResidentTiles = resident,
                       .Classes = classes,
                       .Footprints = footprints,
                       .Projection = projection,
-                      .Coverage = {},
-                      .Quality = GroundQuality::Refined};
+                      .Coverage = {.ContactRadiusM = 0.5 * World.Stack.Footprints().TileSpanM(),
+                                   .VisualRadiusM = visualRadiusM,
+                                   .MinimumSourceZoom = std::max(over.Zoom - 1, 0),
+                                   .TargetSourceZoom = over.Zoom},
+                      .Quality = quality};
   Published.Places("building triangles the world meshed",
                    static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                    "triangles");
@@ -494,7 +504,7 @@ void Engine::State::TellsTheRelief(Relieved over) {
 }
 
 std::expected<Engine::State::GroundRequest, Engine::State::Laid>
-Engine::State::RingWanted(bool alsoWhenTilesLanded) {
+Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
@@ -540,7 +550,8 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded) {
   }
   if (!Watches()) { return std::unexpected(Laid::Refused); }
   GroundRequest request{.Coverage = over, .Revision = {}};
-  switch (Focuses(request, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded)) {
+  switch (Focuses(
+      request, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded, quality)) {
     case Laid::Refused: return std::unexpected(Laid::Refused);
     case Laid::Pending: return std::unexpected(Laid::Pending);
     case Laid::Unchanged: return std::unexpected(Laid::Unchanged);
@@ -1004,6 +1015,35 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
+  if (World.Stack.Ways().Ways().size() != build.NetworkOfWays) {
+    const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
+    build.Network = mapped.Network;
+    build.NetworkOfWays = World.Stack.Ways().Ways().size();
+    Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
+    Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
+    Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
+    Published.Places("network: nodes where three or more edges meet",
+                     static_cast<double>(mapped.Junctions),
+                     "nodes");
+    Published.Places(
+        "network: points with a height", static_cast<double>(mapped.Elevated.Points), "points");
+    Published.Places("network: points the ground refused a height",
+                     static_cast<double>(mapped.Elevated.Refused),
+                     "points");
+    Published.Places("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
+    Published.Places(
+        "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
+    Published.Places("network: sealed points over ten percent grade",
+                     static_cast<double>(mapped.Elevated.SealedOverTenPercent),
+                     "points");
+    Published.Places("network: points over ten percent grade",
+                     static_cast<double>(mapped.Elevated.OverTenPercent),
+                     "points");
+    Published.Places("network: points over thirty percent grade",
+                     static_cast<double>(mapped.Elevated.OverThirtyPercent),
+                     "points");
+    if (!mapped.Refusal.empty()) { Published.Places("network: refused to weave", 1.0, "yes/no"); }
+  }
   state.AdvancesTo(GroundBuildState::Stage::NeedsBakes);
   return GroundBuildProgress::Pending;
 }
@@ -1015,7 +1055,7 @@ Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
   if (state.NextStage() != GroundBuildState::Stage::NeedsBakes) {
     return GroundBuildProgress::Ready;
   }
-  if (!World.StructureBuilds.Complete(World.Stack, state.Footprints())) {
+  if (!StructuresReady(state.Footprints(), state.Revision())) {
     return GroundBuildProgress::Pending;
   }
   state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
@@ -1024,6 +1064,14 @@ Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
 
 std::string_view Engine::State::GroundBuildStatus() const noexcept {
   return World.GroundBuild ? World.GroundBuild->Status() : "absent";
+}
+
+size_t Engine::State::StructureCandidatesMost() const noexcept {
+  return (!World.GroundPublished.Current() && !World.GroundBuild) ||
+                 (World.GroundBuild &&
+                  World.GroundBuild->Revision().Quality == GroundQuality::Playable)
+             ? kPlayableStructureCandidates
+             : kRefinedStructureCandidates;
 }
 
 Ground::BuildingField *Engine::State::CandidateFootprints() const noexcept {
@@ -1050,7 +1098,8 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     }
   }
   World.StructureBuilds.CommitsLandings(World.Stack, state.Footprints(), *ready);
-  (void)World.StructureBuilds.Posts(World.Stack, state.Footprints(), WhereTheEyeStands());
+  (void)World.StructureBuilds.Posts(
+      World.Stack, state.Footprints(), WhereTheEyeStands(), StructureCandidatesMost());
   return true;
 }
 
@@ -1069,7 +1118,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundPatchwork(const Ar
   return GroundBuildProgress::Pending;
 }
 
-bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
+bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kLayingTag("world-ground");
   const Heap::Tagged laying(kLayingTag);
   auto phaseAt = std::chrono::steady_clock::now();
@@ -1079,7 +1128,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 
-  const auto asked = RingWanted(alsoWhenTilesLanded);
+  const auto asked = RingWanted(alsoWhenTilesLanded, quality);
   if (!asked) { return asked.error() == Laid::Unchanged || asked.error() == Laid::Pending; }
   const GroundBuildProgress progress = BeginsGroundBuild(*asked);
   if (progress != GroundBuildProgress::Ready) { return progress != GroundBuildProgress::Failed; }
@@ -1141,39 +1190,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                    static_cast<double>(build.Indices.size()) / 3.0,
                    "triangles");
   Drape drapedOver{.Surface = surface, .Field = {}};
-  build.Sheets.ForgetsFields();
-  drapedOver.Field = [this, &over, &build](Drape::EastNorth at) {
-    return build.Sheets.FieldUpM(World.Stack.Ground(), over.Zoom, at);
+  drapedOver.Field = [&over, &build](Drape::EastNorth at) {
+    return build.Sheets.FieldUpM(over.Zoom, at);
   };
-  if (World.Stack.Ways().Ways().size() != build.NetworkOfWays) {
-    const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
-    build.Network = mapped.Network;
-    build.NetworkOfWays = World.Stack.Ways().Ways().size();
-    Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
-    Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
-    Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
-    Published.Places("network: nodes where three or more edges meet",
-                     static_cast<double>(mapped.Junctions),
-                     "nodes");
-    Published.Places(
-        "network: points with a height", static_cast<double>(mapped.Elevated.Points), "points");
-    Published.Places("network: points the ground refused a height",
-                     static_cast<double>(mapped.Elevated.Refused),
-                     "points");
-    Published.Places("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
-    Published.Places(
-        "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
-    Published.Places("network: sealed points over ten percent grade",
-                     static_cast<double>(mapped.Elevated.SealedOverTenPercent),
-                     "points");
-    Published.Places("network: points over ten percent grade",
-                     static_cast<double>(mapped.Elevated.OverTenPercent),
-                     "points");
-    Published.Places("network: points over thirty percent grade",
-                     static_cast<double>(mapped.Elevated.OverThirtyPercent),
-                     "points");
-    if (!mapped.Refusal.empty()) { Published.Places("network: refused to weave", 1.0, "yes/no"); }
-  }
   {
     std::vector<DiagnosticSample> notes;
     const bool paved = World.Shipping.Corridors().Lay({.Stack = World.Stack,

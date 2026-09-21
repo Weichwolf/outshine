@@ -231,10 +231,14 @@ bool Engine::State::Bakes(size_t landsMost) {
   const LongitudeLatitude eye = WhereTheEyeStands();
   if (!World.GroundPublished.Current()) {
     Ground::BuildingField *const footprints = CandidateFootprints();
-    if (footprints == nullptr) { return true; }
     World.StructureBuilds.ResumeCompletedTasks();
-    if (!StagesGroundBakes(landsMost)) { return false; }
-    (void)World.StructureBuilds.Posts(World.Stack, *footprints, eye);
+    if (footprints != nullptr) {
+      if (!StagesGroundBakes(landsMost)) { return false; }
+      (void)World.StructureBuilds.Posts(World.Stack, *footprints, eye, StructureCandidatesMost());
+    } else if (World.Stack.Ingested()) {
+      (void)World.StructureBuilds.Posts(
+          World.Stack, World.Stack.Footprints(), eye, StructureCandidatesMost());
+    }
     return true;
   }
   auto ready =
@@ -252,7 +256,8 @@ bool Engine::State::Bakes(size_t landsMost) {
     }
     World.StructureBuilds.CommitsLandings(World.Stack, World.Stack.Footprints(), *ready);
   }
-  (void)World.StructureBuilds.Posts(World.Stack, World.Stack.Footprints(), eye);
+  (void)World.StructureBuilds.Posts(
+      World.Stack, World.Stack.Footprints(), eye, StructureCandidatesMost());
   Published.Places("buildings: tiles posted to the bake",
                    static_cast<double>(World.StructureBuilds.Posted()),
                    "tiles");
@@ -358,7 +363,7 @@ bool Engine::State::Updates() {
   Ticking.ElapsedS += simulationStepS;
   if (!UpdateTriggers()) { return false; }
   if (!Watches()) { return false; }
-  return Grounds(false) && UpdateCrowns(false);
+  return Grounds(false, GroundQuality::Refined) && UpdateCrowns(false);
 }
 
 bool Engine::State::Draws() {

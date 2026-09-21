@@ -220,7 +220,20 @@ std::span<const DiagnosticSample> Engine::measures() const {
   return S_->Published.Numbers();
 }
 
-WorldReadiness Engine::State::Readiness() const {
+bool Engine::State::StructuresReady(const Ground::BuildingField &footprints,
+                                    const GroundRevision &revision) const {
+  if (revision.Quality == GroundQuality::Refined) {
+    return World.StructureBuilds.Complete(World.Stack, footprints);
+  }
+  const Ground::OsmField *const vectors = World.Stack.Vectors();
+  if (vectors == nullptr) { return true; }
+  const double tileSpanM = footprints.TileSpanM();
+  const int rings =
+      tileSpanM > 0.0 ? static_cast<int>(revision.Coverage.ContactRadiusM / tileSpanM) : 0;
+  return footprints.IngestedWithin(*vectors, rings);
+}
+
+WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const auto classes = World.Stack.Classes().Read();
   const uint64_t version = classes ? classes->Version() : 0;
   const auto *vectors = World.Stack.Vectors();
@@ -230,8 +243,8 @@ WorldReadiness Engine::State::Readiness() const {
            World.Bare == 0 ? "" : Says::kMissingTerrain,
            World.RimsMissing == 0 ? "" : Says::kMissingNeighbours,
            World.Grown ? "" : Says::kPendingSnapshot,
-           ground && World.Stack.Ingested() &&
-                   World.StructureBuilds.Complete(World.Stack, World.Stack.Footprints()) &&
+           ground && ground->Quality >= quality && World.Stack.Ingested() &&
+                   StructuresReady(World.Stack.Footprints(), *ground) &&
                    ground->Footprints == World.Stack.Footprints().Revision()
                ? ""
                : Says::kPendingIngestion,
@@ -400,11 +413,12 @@ bool Engine::State::CanAdvanceGroundCandidate() const {
 }
 
 Result Engine::State::FinishesPreload() {
-  const bool bakesComplete = World.StructureBuilds.Complete(World.Stack, World.Stack.Footprints());
-  if ((!World.GroundPublished.Current() || bakesComplete) && !Grounds(true)) {
+  const auto &published = World.GroundPublished.Current();
+  const bool structuresReady = published && StructuresReady(World.Stack.Footprints(), *published);
+  if ((!published || structuresReady) && !Grounds(true, GroundQuality::Playable)) {
     return std::unexpected(Error);
   }
-  if (bakesComplete && !UpdateCrowns(true)) { return std::unexpected(Error); }
+  if (structuresReady && !UpdateCrowns(true)) { return std::unexpected(Error); }
   return {};
 }
 
@@ -414,8 +428,7 @@ Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, d
     if (const Result finished = FinishesPreload(); !finished) {
       return std::unexpected(finished.error());
     }
-    if (World.StructureBuilds.Complete(World.Stack, World.Stack.Footprints()) &&
-        Readiness().Ready() &&
+    if (Readiness(GroundQuality::Playable).Ready() &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
       return PreloadFlush::Ready;
     }

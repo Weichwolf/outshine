@@ -45,8 +45,10 @@ public:
     }
   };
 
-  [[nodiscard]] size_t
-  Posts(Ground::GroundStack &stack, Ground::BuildingField &footprints, LongitudeLatitude eye);
+  [[nodiscard]] size_t Posts(Ground::GroundStack &stack,
+                             Ground::BuildingField &footprints,
+                             LongitudeLatitude eye,
+                             size_t candidatesMost);
 
   struct Landing {
     uint32_t Tile = 0;

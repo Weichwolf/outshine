@@ -371,6 +371,8 @@ private:
   std::vector<Node> Nodes_;
   std::vector<Edge> Edges_;
   std::unordered_map<int64_t, std::vector<size_t>> Cells_;
+  mutable std::vector<Crossing> CachedCrossings_;
+  mutable std::optional<Swept> CachedSweep_;
   size_t Tied_ = 0;
   bool Woven_ = false;
 };

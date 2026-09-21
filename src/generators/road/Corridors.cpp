@@ -569,6 +569,11 @@ Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
   }
   made.Ways = net->WayCount();
   if (made.Ways > 0 && !net->Weave(made.Refusal)) { return made; }
+  std::vector<Path::Network::Crossing> crossings;
+  if (const auto swept = net->Crossings(crossings); !swept) {
+    made.Refusal = swept.error();
+    return made;
+  }
   made.Nodes = net->NodeCount();
   made.Edges = net->EdgeCount();
   made.Junctions = net->JunctionCount();
@@ -630,8 +635,6 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
                               const Path::Network &net,
                               Paved &into) {
   const outshine::Ground::StreetField &ways = on.Ways;
-  const TangentFrame &standing = on.Standing;
-  const Drape &drapedOver = on.Draped;
 
   if (one.OverWay >= net.WayCount() || one.UnderWay >= net.WayCount()) { return; }
   const size_t a = net.TagOf(one.OverWay);
@@ -641,14 +644,10 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   if (first.Bridge == second.Bridge) { return; }
   const size_t spans = first.Bridge ? a : b;
   const outshine::Ground::StreetField::Way &below = first.Bridge ? second : first;
-  const std::optional<double> stood =
-      on.Stack.Ground()
-          .At({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg})
-          .AslM();
-  if (!stood) { return; }
-  const EastNorthUp at = standing.Place(
-      {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = *stood});
-  const double onDrawn = drapedOver.At({.EastM = at.EastM, .NorthM = at.NorthM}, at.UpM);
+  const std::optional<Grounded> under =
+      GroundUnder(on, {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg});
+  if (!under) { return; }
+  const double onDrawn = under->GradeM;
   const double need = onDrawn + static_cast<double>(below.ClearanceM);
   if (need <= into.DeckM[spans]) { return; }
   if (into.DeckM[spans] < kUnraisedDeckM) { ++into.DecksRaised; }
@@ -709,6 +708,13 @@ std::optional<Corridors::Grounded> Corridors::GroundUnder(const Paving &on, Long
   const TangentFrame &standing = on.Standing;
   const Drape &drapedOver = on.Draped;
 
+  const EastNorthUp flat = standing.Place(
+      {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = 0.0});
+  const Drape::EastNorth flatHere = {.EastM = flat.EastM, .NorthM = flat.NorthM};
+  if (const std::optional<double> grade = drapedOver.Sample(flatHere)) {
+    return Grounded{.EastM = flatHere.EastM, .NorthM = flatHere.NorthM, .GradeM = *grade};
+  }
+
   const std::optional<double> stood = on.Stack.Ground().At(at).AslM();
   if (!stood) { return std::nullopt; }
   const EastNorthUp enu = standing.Place(
@@ -729,9 +735,12 @@ void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &i
   }
 }
 
-void Corridors::SeedsBridgeEnds(const Paving &on, Paved &into) {
+Corridors::BridgeTopology Corridors::BridgeTopologyOf(const Paving &on) {
   const outshine::Ground::StreetField &ways = on.Ways;
-
+  BridgeTopology topology{.EndsOfWay = std::vector<Ends>(ways.Ways().size()),
+                          .HasEnds = std::vector<uint8_t>(ways.Ways().size()),
+                          .WaysAt = {},
+                          .PlaceOf = {}};
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const outshine::Ground::StreetField::Way &lane = ways.Ways()[at];
     if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
@@ -739,24 +748,70 @@ void Corridors::SeedsBridgeEnds(const Paving &on, Paved &into) {
     }
     const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
     if (!ends) { continue; }
-    const std::array<uint64_t, 2> &key = ends->Key;
-    for (int side = 0; side < 2; ++side) {
-      const size_t axis = static_cast<size_t>(side) * 2u;
-      const std::optional<Grounded> under =
-          GroundUnder(on, {.LongitudeDeg = ends->At[axis + 1u], .LatitudeDeg = ends->At[axis]});
-      if (!under) { continue; }
-      const double stood = under->GradeM;
-      const auto found = into.EndM.find(key[side]);
-      if (found == into.EndM.end()) {
-        into.EndM.emplace(key[side], stood);
-        into.GroundEndM.emplace(key[side], stood);
-      } else {
-        found->second = std::max(found->second, stood);
-        const auto seeded = into.GroundEndM.find(key[side]);
-        if (seeded != into.GroundEndM.end()) { seeded->second = std::max(seeded->second, stood); }
+    topology.EndsOfWay[at] = *ends;
+    topology.HasEnds[at] = 1;
+    for (size_t side = 0; side < 2; ++side) {
+      const uint64_t key = ends->Key[side];
+      const size_t axis = side * 2u;
+      topology.WaysAt[key].push_back(at);
+      topology.PlaceOf.try_emplace(
+          key,
+          LongitudeLatitude{.LongitudeDeg = ends->At[axis + 1u], .LatitudeDeg = ends->At[axis]});
+    }
+  }
+  return topology;
+}
+
+std::vector<uint64_t>
+Corridors::RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, const Paved &into) {
+  std::unordered_set<uint64_t> relevant;
+  std::vector<uint64_t> frontier;
+  std::vector<uint64_t> ordered;
+  const auto admits = [&](uint64_t key, std::vector<uint64_t> &intoFrontier) {
+    if (relevant.insert(key).second) {
+      intoFrontier.push_back(key);
+      ordered.push_back(key);
+    }
+  };
+  for (size_t at = 0; at < on.Ways.Ways().size(); ++at) {
+    if (topology.HasEnds[at] == 0 || !on.Ways.Ways()[at].Bridge ||
+        into.DeckM[at] <= kUnraisedDeckM) {
+      continue;
+    }
+    admits(topology.EndsOfWay[at].Key[0], frontier);
+    admits(topology.EndsOfWay[at].Key[1], frontier);
+  }
+  for (int pass = 0; pass < kRampPasses && !frontier.empty(); ++pass) {
+    std::vector<uint64_t> next;
+    for (const uint64_t key : frontier) {
+      const auto found = topology.WaysAt.find(key);
+      if (found == topology.WaysAt.end()) { continue; }
+      for (const size_t lane : found->second) {
+        if (topology.HasEnds[lane] == 0) { continue; }
+        admits(topology.EndsOfWay[lane].Key[0], next);
+        admits(topology.EndsOfWay[lane].Key[1], next);
       }
     }
-    if (lane.Bridge && into.DeckM[at] > kUnraisedDeckM) { RaisesEnds(key, into.DeckM[at], into); }
+    frontier = std::move(next);
+  }
+  return ordered;
+}
+
+void Corridors::SeedsBridgeEnds(const Paving &on, Paved &into) {
+  const BridgeTopology topology = BridgeTopologyOf(on);
+  const std::vector<uint64_t> ordered = RelevantBridgeEnds(on, topology, into);
+  for (const uint64_t key : ordered) {
+    const auto place = topology.PlaceOf.find(key);
+    if (place == topology.PlaceOf.end()) { continue; }
+    const std::optional<Grounded> under = GroundUnder(on, place->second);
+    if (!under) { continue; }
+    into.EndM.insert_or_assign(key, under->GradeM);
+    into.GroundEndM.insert_or_assign(key, under->GradeM);
+  }
+  for (size_t at = 0; at < on.Ways.Ways().size(); ++at) {
+    if (topology.HasEnds[at] != 0 && on.Ways.Ways()[at].Bridge && into.DeckM[at] > kUnraisedDeckM) {
+      RaisesEnds(topology.EndsOfWay[at].Key, into.DeckM[at], into);
+    }
   }
 }
 
@@ -814,17 +869,14 @@ void Corridors::GradesApproaches(const Paving &on, Paved &into) {
     const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
     if (!ends) { continue; }
     const std::array<uint64_t, 2> &key = ends->Key;
-    const std::optional<Grounded> low =
-        GroundUnder(on, {.LongitudeDeg = ends->At[1], .LatitudeDeg = ends->At[0]});
-    const std::optional<Grounded> high =
-        GroundUnder(on, {.LongitudeDeg = ends->At[3], .LatitudeDeg = ends->At[2]});
-    if (!low || !high) { continue; }
-    const Vec2 stood = {{low->GradeM, high->GradeM}};
     double rose = 0.0;
-    for (int side = 0; side < 2; ++side) {
+    for (size_t side = 0; side < 2; ++side) {
       const auto found = into.EndM.find(key[side]);
       if (found == into.EndM.end()) { continue; }
-      rose = std::max(rose, found->second - stood[side]);
+      const size_t axis = side * 2u;
+      const std::optional<Grounded> under =
+          GroundUnder(on, {.LongitudeDeg = ends->At[axis + 1u], .LatitudeDeg = ends->At[axis]});
+      if (under) { rose = std::max(rose, found->second - under->GradeM); }
     }
     if (rose > kRoseLeast) {
       ++into.RampsRaised;
@@ -834,11 +886,19 @@ void Corridors::GradesApproaches(const Paving &on, Paved &into) {
 }
 
 void Corridors::Bridges(const Paving &on, Paved &into) {
-
+  auto began = std::chrono::steady_clock::now();
+  const auto elapsed = [&began] {
+    const auto previous = began;
+    began = std::chrono::steady_clock::now();
+    return std::chrono::duration<double, std::milli>(began - previous).count();
+  };
   SeedsBridgeEnds(on, into);
+  Notes(into, "streets: of raising decks, seeding bridge ends", elapsed(), "ms");
   Notes(into, "streets: the highest deck a ramp must reach", HighestDeckM(into), "m");
   EasesRamps(on.Ways, on.Vectors, HighestDeckM(into), into);
+  Notes(into, "streets: of raising decks, easing ramps", elapsed(), "ms");
   GradesApproaches(on, into);
+  Notes(into, "streets: of raising decks, grading approaches", elapsed(), "ms");
 }
 
 void Corridors::SplitsEdges(Paved &into) {

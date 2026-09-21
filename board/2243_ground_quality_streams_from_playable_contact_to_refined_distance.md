@@ -1,8 +1,8 @@
 Type: feature
-State: ready
+State: active
 Architecture: ready
 Parent: 2105
-Depends: 2234
+Depends:
 Priority: P0
 Area: engine, world, streaming
 Tags: terrain, structures, lod, publication
@@ -17,6 +17,14 @@ The 2026-09-21 cold floor-contact case has its requested 48 terrain meshes after
 source requests remain. Their workers start within 0.075 ms; compute scheduling is
 not the blocker. Requiring one fine product for the contact area and the entire 8 km
 view serializes playability behind distant refinement.
+
+The first staged implementation publishes a `Playable` request from exact contact
+coverage while retaining `Refined` for normal streaming. It bounds structure admission
+to one candidate before first publication. A cold floor run fell from 15.45 s (timeout)
+to 11.18 s preload after removing synchronous DEM acquisition from road draping;
+all six contact assertions pass. Crossing sweep reuse costs 0.095 ms. Sampling heights
+for 1,891 crossings had cost 2.35 s because a field miss called `StitchedFieldAwaited`.
+`FieldUpM` now reads prepared candidate fields only and falls back to its candidate BVH.
 
 ## Decision
 
@@ -55,7 +63,7 @@ is deterministic for the same request, never an implicit response to arrival ord
 
 ## Acceptance
 
-- [ ] Cold floor-contact becomes Playable within 15 s with its 0.01 m contact checks
+- [x] Cold floor-contact becomes Playable within 15 s with its 0.01 m contact checks
       unchanged; no timeout increase, missing geometry or forced test-only source.
 - [ ] A distant delayed DEM cannot block near contact publication. Its later arrival
       produces one atomic revision change and no intermediate mixed frame.

@@ -94,7 +94,9 @@ public:
   [[nodiscard]] uint64_t Revision() const noexcept { return Revision_; }
 
   [[nodiscard]] std::optional<TileWatermark::Next>
-  Next(const OsmField &field, const std::function<bool(FeatureRun)> &groundStands);
+  Next(const OsmField &field,
+       const std::function<bool(FeatureRun)> &groundStands,
+       size_t candidatesMost);
 
   void Take(uint32_t tile) {
     Mark_.Take(tile);

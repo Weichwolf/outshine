@@ -17,6 +17,11 @@ the missing per-unit bound is still an architectural gap. Lattice's recorded ing
 classification timeout supplies the next regression fixture. Re-measure the current
 path; historical timing alone does not identify today's longest stage.
 
+As of 2026-09-21 the cold floor fixture is green at 11.18 s preload through WI 2243.
+The Lattice fixture remains red at height-page publication with `GPU height-page address
+cannot be encoded exactly`; resolve that correctness defect before using its timing as
+the resumable-stage baseline.
+
 ## Decision
 
 Extend the existing private GroundWorldCandidate owner; do not create a parallel world

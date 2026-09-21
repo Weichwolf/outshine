@@ -200,6 +200,13 @@ const Ground::TerrainField *HeightSheets::FieldAt(const Ground::GroundStream &gr
   return Fields_.back().second.get();
 }
 
+const Ground::TerrainField *HeightSheets::HeldFieldAt(Data::TileId tile) const {
+  for (const auto &one : Fields_) {
+    if (one.first == tile) { return one.second.get(); }
+  }
+  return nullptr;
+}
+
 std::optional<float>
 HeightSheets::AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFrac at) {
   long x = static_cast<long>(std::floor(at.X));
@@ -495,8 +502,7 @@ bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
   return Renderer_->SetTerrainTiles(Instances_, Virtual_, error);
 }
 
-std::optional<double>
-HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastNorth at) {
+std::optional<double> HeightSheets::FieldUpM(int zoom, EastNorth at) const {
   if (!Framed_) { return std::nullopt; }
   const Vec3 &origin = Frame_.OriginEcef();
   const Vec3 &east = Frame_.EastEcef();
@@ -511,7 +517,7 @@ HeightSheets::FieldUpM(const Ground::GroundStream &ground, int zoom, EastNorth a
   const Data::TileId tile{.Zoom = zoom,
                           .X = static_cast<uint32_t>(std::floor(frac.X)),
                           .Y = static_cast<uint32_t>(std::floor(frac.Y))};
-  const Ground::TerrainField *field = FieldAt(ground, tile);
+  const Ground::TerrainField *field = HeldFieldAt(tile);
   if (field == nullptr || !field->Meshable()) { return std::nullopt; }
   const double aslM =
       field->PostingM({.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});

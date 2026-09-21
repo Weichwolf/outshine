@@ -35,14 +35,19 @@ struct Drape {
 
   using EastNorth = outshine::EastNorth;
 
-  [[nodiscard]] double At(EastNorth at, double fallback) const {
+  [[nodiscard]] std::optional<double> Sample(EastNorth at) const {
     if (Field) {
       const std::optional<double> field = Field(at);
-      return field ? *field : fallback;
+      if (field) { return field; }
     }
     const std::optional<float> under = Surface.Under(
         static_cast<float>(at.EastM), static_cast<float>(RenderFrame::ZOfNorth(at.NorthM)));
-    return under ? static_cast<double>(*under) : fallback;
+    return under ? std::optional<double>(static_cast<double>(*under)) : std::nullopt;
+  }
+
+  [[nodiscard]] double At(EastNorth at, double fallback) const {
+    const std::optional<double> sampled = Sample(at);
+    return sampled ? *sampled : fallback;
   }
 };
 

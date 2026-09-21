@@ -222,7 +222,8 @@ void StructureBuildQueue::ResumeCompletedTasks() {
 
 size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   Ground::BuildingField &prints,
-                                  LongitudeLatitude eye) {
+                                  LongitudeLatitude eye,
+                                  size_t candidatesMost) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
@@ -242,7 +243,8 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
       heights = Ground::HeightField::Of(blockZoom, std::move(*blocks));
       return true;
     };
-    const std::optional<Ground::TileWatermark::Next> next = prints.Next(vectors, groundStands);
+    const std::optional<Ground::TileWatermark::Next> next =
+        prints.Next(vectors, groundStands, candidatesMost);
     if (!next || !heights) { break; }
     const BakeRevision revision{.Vectors = vectors.Generation(),
                                 .FocalPx = prints.FocalPx(),

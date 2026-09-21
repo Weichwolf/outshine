@@ -11,12 +11,6 @@
 
 namespace outshine::Ground {
 
-namespace {
-
-constexpr size_t kBuildingCandidatesPerAdmission = 4;
-
-}
-
 void BuildingField::ResetDerived() {
   ++Revision_;
   Prints_.clear();
@@ -37,7 +31,9 @@ void BuildingField::AnchorAt(const Vec3 &ecef) {
 }
 
 std::optional<TileWatermark::Next>
-BuildingField::Next(const OsmField &field, const std::function<bool(FeatureRun)> &groundStands) {
+BuildingField::Next(const OsmField &field,
+                    const std::function<bool(FeatureRun)> &groundStands,
+                    size_t candidatesMost) {
   assert(Anchored_);
   const std::span<const OsmField::Feature> feats = field.Features();
   if (Mark_.Done(feats)) { return std::nullopt; }
@@ -47,7 +43,7 @@ BuildingField::Next(const OsmField &field, const std::function<bool(FeatureRun)>
       {.CentreX = field.CentreX(),
        .CentreY = field.CentreY(),
        .Rings = kEveryRing,
-       .CandidatesMost = kBuildingCandidatesPerAdmission},
+       .CandidatesMost = candidatesMost},
       [&groundStands](size_t from, size_t to) { return groundStands({.From = from, .To = to}); });
   if (!next.Found) { return std::nullopt; }
   return next;

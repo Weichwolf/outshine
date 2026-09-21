@@ -195,6 +195,8 @@ std::expected<void, std::string_view> Network::Lay(std::span<const double> latLo
     way.MaxLon = lon > way.MaxLon ? lon : way.MaxLon;
   }
   Ways_.push_back(way);
+  CachedCrossings_.clear();
+  CachedSweep_.reset();
 
   for (size_t which = 0; which < points; ++which) {
     Points_.push_back(latLonPairs[2 * which]);
@@ -324,6 +326,8 @@ size_t Network::Cross() {
   }
   Points_ = std::move(laid);
   WayOf_ = std::move(owner);
+  CachedCrossings_.clear();
+  CachedSweep_.reset();
   Woven_ = false;
   return Joined_;
 }
@@ -662,6 +666,8 @@ bool Network::TieLooseEnds(OutgoingEdges &outgoing, std::string &error) {
 }
 
 bool Network::Weave(std::string &error) {
+  CachedCrossings_.clear();
+  CachedSweep_.reset();
   Nodes_.clear();
   Edges_.clear();
   Cells_.clear();
@@ -854,6 +860,10 @@ void Network::CrossingsInCell(const Filing &filed,
 std::expected<Network::Swept, std::string_view>
 Network::Crossings(std::vector<Crossing> &into) const {
   into.clear();
+  if (CachedSweep_) {
+    into = CachedCrossings_;
+    return *CachedSweep_;
+  }
   Swept swept;
   const size_t points = Points_.size() / 2;
   if (Ways_.size() < 2 || points < 4) { return swept; }
@@ -927,6 +937,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
         swept);
   }
   swept.Found = into.size();
+  CachedCrossings_ = into;
+  CachedSweep_ = swept;
   return swept;
 }
 
