@@ -196,7 +196,7 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
 
   const bool refused = reply == TilePool::Reply::Refused;
-  if (reply == TilePool::Reply::Pending || refused) {
+  if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Deferred || refused) {
     return Fetched{.Held = false, .Refused = refused};
   }
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) {

@@ -29,6 +29,12 @@ at the scheduling boundary. Use fixed-capacity ring storage for the retained-key
 do not keep `std::deque` blocks with unknowable retained capacity. Preserve the existing
 separate byte-cache, DEM and scheduler categories and count each allocation at one owner.
 
+`TileMeshes::Reply::Deferred` means that a request was not admitted and may be retried;
+it is distinct from `Pending` (admitted work) and `Refused` (a source/product failure).
+`OutstandingMost` bounds every posted job, whether queued, carried, parked or retained as
+a result. Duplicate admitted keys remain `Pending` without consuming another slot. A failed
+`FlatMap` insertion returns `Deferred`; it must never masquerade as a repeated pending job.
+
 Do not count shared decoded terrain fields in the scheduler. Count a queued `Fetch` key,
 completed `Result` payloads, parked job vectors and every retained queue/index allocation.
 A synchronized snapshot may be momentary, but its arithmetic must be exact for the lock

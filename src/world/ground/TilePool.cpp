@@ -85,6 +85,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       Decoded_(std::make_shared<Ground::DecodedCache>(config.DecodedBytes)),
       PollAttempts_(config.PollAttempts),
       CarrierCount_(config.Carriers),
+      OutstandingMost_(config.OutstandingMost),
       Diagnostics_(config.Diagnostics),
       FocusLatDeg_(config.OriginLatDeg),
       FocusLonDeg_(config.OriginLonDeg) {
@@ -418,6 +419,7 @@ public:
       case TilePool::Reply::Absent:
       case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
       case TilePool::Reply::Refused: return TerrainBytes::Wire();
+      case TilePool::Reply::Deferred:
       case TilePool::Reply::Pending:
         if (Pool_.Carries()) { tAwaited = RequestKey(request.Key()); }
         break;
@@ -718,6 +720,11 @@ void TilePool::Lands(uint64_t key, bool holds) {
   Posted_.Erase(*oldest);
 }
 
+void TilePool::DeferredAdmission() {
+  const std::scoped_lock lock(LedgerMutex_);
+  ++Ledger_.AdmissionDeferred;
+}
+
 TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   std::unique_lock<std::mutex> lock(QueueMutex_);
   if (Result *done = Done_.Find(job.Key)) {
@@ -742,20 +749,34 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     (void)consumed;
     return out->State;
   }
-  const auto posted = Posted_.Emplace(job.Key, false);
-  if (posted && posted->second) {
-    Posts_++;
-    Job posting = job;
-    if (posting.Kind == Rank::Mesh || posting.Kind == Rank::Field) {
-      posting.TileDist = TileDistance({.Zoom = posting.Z, .X = posting.X, .Y = posting.Y});
-    }
-    const bool carries = posting.Kind == Rank::Fetch;
-    (carries ? Carrying_ : Queue_).push_back(posting);
-    lock.unlock();
-    Wake_.notify_all();
-  } else {
-    Repeats_++;
+  if (Posted_.Holds(job.Key)) {
+    ++Repeats_;
+    return Reply::Pending;
   }
+  if (OutstandingMost_ == 0 || Posted_.Size() >= OutstandingMost_) {
+    lock.unlock();
+    DeferredAdmission();
+    return Reply::Deferred;
+  }
+  const auto posted = Posted_.Emplace(job.Key, false);
+  if (!posted) {
+    lock.unlock();
+    DeferredAdmission();
+    return Reply::Deferred;
+  }
+  if (!posted->second) {
+    ++Repeats_;
+    return Reply::Pending;
+  }
+  Posts_++;
+  Job posting = job;
+  if (posting.Kind == Rank::Mesh || posting.Kind == Rank::Field) {
+    posting.TileDist = TileDistance({.Zoom = posting.Z, .X = posting.X, .Y = posting.Y});
+  }
+  const bool carries = posting.Kind == Rank::Fetch;
+  (carries ? Carrying_ : Queue_).push_back(posting);
+  lock.unlock();
+  Wake_.notify_all();
   return Reply::Pending;
 }
 

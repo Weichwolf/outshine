@@ -109,6 +109,7 @@ struct GroundStream::Held {
         case TilePool::Reply::Absent:
         case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
         case TilePool::Reply::Refused: return TerrainBytes::Wire();
+        case TilePool::Reply::Deferred:
         case TilePool::Reply::Pending: break;
       }
       Held_.Pending = true;

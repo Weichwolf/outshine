@@ -382,6 +382,8 @@ bool Engine::State::Asks() {
     Published.Places("fetches it gave up on", static_cast<double>(kept.FetchGaveUp), "fetches");
     Published.Places("fetches it refused", static_cast<double>(kept.FetchRefused), "fetches");
     Published.Places("jobs it posted", static_cast<double>(kept.Posts), "jobs");
+    Published.Places(
+        "jobs deferred by bounded admission", static_cast<double>(kept.AdmissionDeferred), "jobs");
     Published.Places("asks that repeated a posted job", static_cast<double>(kept.Repeats), "asks");
     Published.Places("megabytes it fetched", kept.FetchedMB, "MB");
     Published.Places("jobs still outstanding", static_cast<double>(kept.Outstanding), "jobs");

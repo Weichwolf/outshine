@@ -61,7 +61,7 @@ public:
 
     long long FetchRefused = 0, MeshRefused = 0;
 
-    long long Posts = 0, Repeats = 0, QueueDepth = 0;
+    long long Posts = 0, Repeats = 0, AdmissionDeferred = 0, QueueDepth = 0;
     long long Outstanding = 0, Parked = 0, ParkedJobs = 0, Held = 0;
     long long MeshDeferred = 0, MeshDropped = 0;
 
@@ -84,6 +84,8 @@ public:
     int PollAttempts = 0;
 
     int Carriers = 0;
+
+    size_t OutstandingMost = 2048;
 
     LogSink *Diagnostics = nullptr;
   };
@@ -232,6 +234,7 @@ private:
   void RepointCacheEntry(CacheEntryMove move) noexcept;
   [[nodiscard]] bool StoresDone(uint64_t key, Result result);
   [[nodiscard]] Reply PublishesCarried(const Job &job, Result result);
+  void DeferredAdmission();
 
   Data::SourceSet &Sources_;
   Data::Transport &Wire_;
@@ -240,6 +243,7 @@ private:
   std::shared_ptr<Ground::DecodedCache> Decoded_;
   const int PollAttempts_;
   const int CarrierCount_;
+  const size_t OutstandingMost_;
   LogSink *const Diagnostics_;
 
   mutable std::mutex CacheMutex_;

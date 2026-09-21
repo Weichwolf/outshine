@@ -73,6 +73,7 @@ bool RecordReply(TileMeshes::Reply reply, int zoom, Patchwork &out) {
   switch (reply) {
     case TileMeshes::Reply::Ready: return true;
     case TileMeshes::Reply::Pending:
+    case TileMeshes::Reply::Deferred:
       ++out.Pending;
       ++out.PendingAtZoom[zoom];
       return false;

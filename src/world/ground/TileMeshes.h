@@ -19,7 +19,7 @@ struct TileBuild {
 
 class TileMeshes {
 public:
-  enum class Reply { Ready, Pending, Absent, Refused, Undeclared };
+  enum class Reply { Ready, Pending, Deferred, Absent, Refused, Undeclared };
 
   virtual ~TileMeshes() = default;
 
