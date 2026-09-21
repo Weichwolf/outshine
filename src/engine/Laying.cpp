@@ -86,6 +86,7 @@ constexpr double kWaterBankM = kWaterBedM / kBatterRise;
 constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
+constexpr size_t kTerrainSheetsPerFrame = 96;
 
 bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
@@ -139,6 +140,8 @@ public:
 
   [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
 
+  [[nodiscard]] MeshBuild &InitialMeshing() noexcept { return InitialMeshing_; }
+
   [[nodiscard]] Ground::BuildingField &Footprints() noexcept {
     return Candidate_.Products().Footprints;
   }
@@ -170,6 +173,8 @@ public:
   }
 
   [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeakBytes_; }
+
+  void SamplesProductPeak() noexcept { RecordsProductPeak(); }
 
   void HoldsCorridors(std::vector<Yields> corridors) { Corridors_ = std::move(corridors); }
 
@@ -204,7 +209,9 @@ private:
     const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
                               Corridors_.capacity() * sizeof(Yields) +
                               Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-                              Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t);
+                              Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+                              InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
+                              InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t);
     size_t corridorBytes = 0;
     for (const Yields &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
     ProductPeakBytes_ = std::max(
@@ -217,6 +224,7 @@ private:
   std::optional<Patchwork> Patchwork_;
   std::vector<Yields> Corridors_;
   MeshBuild Meshing_;
+  MeshBuild InitialMeshing_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   size_t ProductPeakBytes_ = 0;
   Core::GroundBuildSchedule Schedule_;
@@ -1015,12 +1023,29 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       return GroundBuildProgress::Pending;
     }
     case Core::GroundBuildSchedule::SheetPhase::NeedsMesh: {
-      const Generators::TerrainMesh mesh = Generators::BuildTerrainMesh(
-          patchwork, standing, {.Side = Render::GroundLattice::kSide, .Halo = 1});
-      build.PositionsM = mesh.PositionsM;
-      build.Indices = mesh.Indices;
-      TellsTheRelief(
-          {.Tallest = mesh.TallestM, .Lowest = mesh.LowestM, .TallestOutM = mesh.TallestDistanceM});
+      GroundBuildState::MeshBuild &meshing = state.InitialMeshing();
+      const auto began = std::chrono::steady_clock::now();
+      const size_t end =
+          std::min(meshing.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
+      for (; meshing.NextSheet < end; ++meshing.NextSheet) {
+        Generators::AppendTerrainMeshSheet(meshing.Mesh,
+                                           patchwork.Sheets[meshing.NextSheet],
+                                           standing,
+                                           {.Side = Render::GroundLattice::kSide, .Halo = 1});
+      }
+      const double sliceMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count();
+      meshing.LongestSliceMs = std::max(meshing.LongestSliceMs, sliceMs);
+      state.SamplesProductPeak();
+      if (meshing.NextSheet < patchwork.Sheets.size()) { return GroundBuildProgress::Pending; }
+      Published.Places(
+          "ground candidate: longest initial mesh slice", meshing.LongestSliceMs, "ms");
+      build.PositionsM = std::move(meshing.Mesh.PositionsM);
+      build.Indices = std::move(meshing.Mesh.Indices);
+      TellsTheRelief({.Tallest = meshing.Mesh.TallestM,
+                      .Lowest = meshing.Mesh.LowestM,
+                      .TallestOutM = meshing.Mesh.TallestDistanceM});
       state.CompletesSheetPhase();
       return GroundBuildProgress::Ready;
     }
@@ -1251,16 +1276,18 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
   GroundBuildProducts &build = state.Candidate().Products();
   GroundBuildState::MeshBuild &meshing = state.Meshing();
   if (!meshing.SheetsHanded) {
-    if (!build.Sheets.Hands(patchwork, Error)) { return false; }
+    HeightSheets::HandoffCost cost;
+    if (!build.Sheets.Hands(patchwork, Error, &cost)) { return false; }
     meshing.SheetsHanded = true;
+    Published.Places("ground candidate: sheet stitching", cost.StitchMs, "ms");
+    Published.Places("ground candidate: sheet residency", cost.ResidencyMs, "ms");
     Published.Places(
         "ground candidate: sheet handoff",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
     return true;
   }
-  constexpr size_t kSheetsPerFrame = 64;
-  const size_t end = std::min(meshing.NextSheet + kSheetsPerFrame, patchwork.Sheets.size());
+  const size_t end = std::min(meshing.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
   for (; meshing.NextSheet < end; ++meshing.NextSheet) {
     Generators::AppendTerrainMeshSheet(meshing.Mesh,
                                        patchwork.Sheets[meshing.NextSheet],
@@ -1270,6 +1297,7 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
   const double sliceMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   meshing.LongestSliceMs = std::max(meshing.LongestSliceMs, sliceMs);
+  state.SamplesProductPeak();
   if (meshing.NextSheet < patchwork.Sheets.size()) { return true; }
   Published.Places("ground candidate: longest native mesh slice", meshing.LongestSliceMs, "ms");
   build.PositionsM = std::move(meshing.Mesh.PositionsM);

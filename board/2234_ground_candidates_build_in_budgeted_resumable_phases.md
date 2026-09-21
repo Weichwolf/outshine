@@ -26,12 +26,14 @@ and 39/120 over budget. Its last candidate reported earthworks 395.085 ms,
 terrain mesh 183.774 ms and corridors 72.491 ms. These phase samples identify
 where to instrument next; they are neither per-frame maxima nor distributions.
 The follow-up split measured 47.472 ms in `Sheets.Hands` and 140.658 ms in
-`BuildTerrainMesh`, across 2887 sheets. Native meshing now advances 64 sheets
-per frame in stable order, retaining partial products in the candidate. In the
-repeated Malcesine run its longest slice was 6.670 ms; p95 remained 678.53 ms
-with 40/120 frames over budget. The image is visually unchanged, but 0.0601%
-of pixels differ near one shore building; diagnose whether input readiness or
-geometry is responsible. Handoff, earthworks and corridors remain unbounded.
+`BuildTerrainMesh`, across 2887 sheets. Both initial and post-earthwork native
+meshing now advance 96 sheets per frame in stable order. The Malcesine shot
+reached Refined after 129 measured frames; longest slices were 8.265/8.871 ms,
+yet p95 was 680.30 ms. Handoff split into 0.856 ms stitching and 46.336 ms
+residency. Earthworks, residency and corridors remain unbounded. The image is
+visually unchanged, but 0.0601% of pixels differ near one shore building;
+diagnose input readiness versus geometry. Shot timing now continues after the
+first 120 frames only until Refined, capped at 240 measured frames.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. The defect was a combination of arrival-ordered `OsmField` indices,

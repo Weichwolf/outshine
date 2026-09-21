@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <ratio>
 #include <utility>
 #include <string>
 #include <vector>
@@ -329,10 +331,19 @@ size_t HeightSheets::Halos(Patchwork &laid, const Ground::GroundStream &ground, 
   return haloed;
 }
 
-bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
+bool HeightSheets::Hands(Patchwork &laid, std::string &error, HandoffCost *cost) {
   if (!Framed_) { return true; }
+  const auto began = std::chrono::steady_clock::now();
   if (!StitchEdges(laid, error)) { return false; }
-  return Residency_.Publish(laid, Frame_, error);
+  const auto stitched = std::chrono::steady_clock::now();
+  const bool published = Residency_.Publish(laid, Frame_, error);
+  if (cost != nullptr) {
+    cost->StitchMs = std::chrono::duration<double, std::milli>(stitched - began).count();
+    cost->ResidencyMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stitched)
+            .count();
+  }
+  return published;
 }
 
 std::optional<double> HeightSheets::FieldUpM(int zoom, EastNorth at) const {

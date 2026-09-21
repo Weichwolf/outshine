@@ -54,6 +54,7 @@ constexpr double kProgressEveryS = 0.25;
 namespace {
 
 constexpr int kTimedFrames = 120;
+constexpr int kMaximumTimedFrames = 240;
 
 }
 
@@ -311,10 +312,12 @@ bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
   std::vector<double> heldMs;
   std::vector<double> advancedMs;
   std::vector<double> renderedMs;
-  heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  advancedMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  renderedMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  for (int at = 0; at < kTimedFrames; ++at) {
+  heldMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
+  advancedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
+  renderedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
+  for (int at = 0;
+       at < kMaximumTimedFrames && (at < kTimedFrames || !engine.settled(WorldQuality::Refined));
+       ++at) {
     const auto before = std::chrono::steady_clock::now();
     if (const auto result = engine.advance(); !result) {
       shot.Why = std::string(name) + Says::kTimedAdvanceFailed + result.error();
