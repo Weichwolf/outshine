@@ -11,11 +11,11 @@ Tags: residency, tilepool, realtime
 
 ## Problem
 
-`TilePool::SchedulerBytes` estimates `std::set` and `std::map` nodes through a local
-layout guess. It omits `Carrying_`, `Awaiting_`, `Kept_`, `Passing_`, the fetch-key
-strings stored by queued jobs, and all index storage. The reported number is therefore
-neither an exact retained allocation nor a complete scheduler product. It cannot support
-a candidate or engine memory budget.
+Queue-owned indexes now use FlatMap and completed-key windows use bounded rings.
+Allocation-failure admission has a regression test. This removes guessed tree-node
+layout accounting but does not yet prove complete exact retained-byte accounting.
+Review nested fetch keys, provenance strings, parked vectors and active worker products;
+count retained allocations, not temporary strings or SSO capacity already inside objects.
 
 `Done_`, `Posted_` and `Awaiting_` are queue-owned under `QueueMutex_`; their ordering
 is not an externally visible data contract. Completion order must remain deterministic
@@ -31,8 +31,8 @@ separate byte-cache, DEM and scheduler categories and count each allocation at o
 
 `TileMeshes::Reply::Deferred` means that a request was not admitted and may be retried;
 it is distinct from `Pending` (admitted work) and `Refused` (a source/product failure).
-`OutstandingMost` bounds every posted job, whether queued, carried, parked or retained as
-a result. Duplicate admitted keys remain `Pending` without consuming another slot. A failed
+`OutstandingMost` bounds unfinished posted work: queued, carried or parked. Retained
+completed results have separate bounded windows and must release admission slots. Duplicate admitted keys remain `Pending` without consuming another slot. A failed
 `FlatMap` insertion returns `Deferred`; it must never masquerade as a repeated pending job.
 
 Do not count shared decoded terrain fields in the scheduler. Count a queued `Fetch` key,
@@ -42,14 +42,19 @@ state it observes.
 
 ## Implementation
 
-1. Inventory each `TilePool` allocation and designate ByteCache, DEM or Scheduler owner.
+1. First prove progress with capacity one after a cached completion; retain the old
+   result while admitting a distinct request. Then prove dependency progress: a mesh
+   occupying a slot must still obtain its required fetch/field. Reserve bounded
+   dependency capacity or separate fetch and compute quotas; do not drop the bound
+   or rely on endless retry. Test cold source-backed work, not only analytic shapes.
+2. Inventory each `TilePool` allocation and designate ByteCache, DEM or Scheduler owner.
    Remove `TreeNodeBytes`; it is a library-layout assumption, not a contract.
-2. Give queue-owned containers a direct capacity-byte contract, including nested job keys,
+3. Give queue-owned containers a direct capacity-byte contract, including nested job keys,
    result nodes/payloads and parked dependency lists. Keep result publication, eviction,
    duplicate suppression and wake-up behavior unchanged.
-3. Bound retained completed-key windows and parked queues. At capacity, coalesce a repeated
+4. Bound retained completed-key windows and parked queues. At capacity, coalesce a repeated
    request or return a declared admission error; never overwrite a current required result.
-4. Add fault-injection tests for index growth and tests that independently sum every owned
+5. Add fault-injection tests for index growth and tests that independently sum every owned
    capacity. Check queued, carrying, parked, completed and post-eviction states.
 
 ## Acceptance

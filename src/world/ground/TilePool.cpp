@@ -753,7 +753,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     ++Repeats_;
     return Reply::Pending;
   }
-  if (OutstandingMost_ == 0 || Posted_.Size() >= OutstandingMost_) {
+  if (Posted_.Size() - Done_.Size() >= OutstandingMost_) {
     lock.unlock();
     DeferredAdmission();
     return Reply::Deferred;
