@@ -18,6 +18,12 @@ struct TerrainMesh {
   double TallestDistanceM = 0.0;
 };
 
+void AppendTerrainMeshSheet(TerrainMesh &result,
+                            const Sheet &sheet,
+                            const TangentFrame &frame,
+                            TerrainPageLayout layout,
+                            int minimumZoom = 0);
+
 [[nodiscard]] TerrainMesh BuildTerrainMesh(const Patchwork &candidate,
                                            const TangentFrame &frame,
                                            TerrainPageLayout layout,

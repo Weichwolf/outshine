@@ -33,6 +33,19 @@ int main() {
   CHECK(mesh.PositionsM[1] < mesh.PositionsM[4] && mesh.PositionsM[4] < mesh.PositionsM[10],
         "native positions preserve increasing source heights");
 
+  Sheet second = candidate.Sheets.front();
+  ++second.Tile.X;
+  candidate.Sheets.push_back(std::move(second));
+  TerrainMesh appended;
+  for (const Sheet &page : candidate.Sheets) {
+    AppendTerrainMeshSheet(appended, page, TangentFrame::At({}), layout);
+  }
+  const TerrainMesh complete = BuildTerrainMesh(candidate, TangentFrame::At({}), layout);
+  CHECK(appended.PositionsM == complete.PositionsM && appended.Indices == complete.Indices &&
+            appended.LowestM == complete.LowestM && appended.TallestM == complete.TallestM &&
+            appended.TallestDistanceM == complete.TallestDistanceM,
+        "sheet-wise assembly preserves the complete native mesh and order");
+
   const TerrainMesh filtered = BuildTerrainMesh(candidate, TangentFrame::At({}), layout, zoom + 1);
   CHECK(filtered.PositionsM.empty() && filtered.Indices.empty() && filtered.LowestM == 0.0 &&
             filtered.TallestM == 0.0,

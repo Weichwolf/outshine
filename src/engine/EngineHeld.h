@@ -436,9 +436,6 @@ struct Engine::State {
                                            Patchwork &patchwork,
                                            const Ground::BuildingField &footprints,
                                            std::vector<Yields> corridor);
-  [[nodiscard]] bool BuildPressedGroundMesh(const TangentFrame &standing,
-                                            Patchwork &patchwork,
-                                            GroundBuildProducts &build);
   [[nodiscard]] bool BuildGroundCorridors(const TangentFrame &standing,
                                           const Around &coverage,
                                           GroundBuildState &state);
