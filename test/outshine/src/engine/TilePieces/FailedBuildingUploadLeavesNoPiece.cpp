@@ -43,6 +43,8 @@ int main() {
       pieces.Wears({.Walls = 0, .Roofs = 0});
       CHECK(pieces.Hands(7, baked, {}, error) && renderer.PiecesStanding() == 2,
             "a complete original tile installs its wall and roof");
+      const size_t ownerBytes = pieces.HeapBytes();
+      CHECK(ownerBytes > 0, "piece owner counts its retained handle slots and diagnostic storage");
       const uint64_t originalDigest = pieces.Digest();
       baked.Digest = 7;
       pieces.Wears({.Walls = 0, .Roofs = 1});
@@ -57,6 +59,8 @@ int main() {
       pieces.Forgets(7);
       CHECK(renderer.PiecesStanding() == 0,
             "forgetting the accepted replacement releases both pieces");
+      CHECK(pieces.HeapBytes() == ownerBytes,
+            "forgetting a tile retains and reports its reusable owner capacity");
     }
   }
   SDL_Quit();

@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_TILEPIECES_H
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -48,6 +49,10 @@ public:
   [[nodiscard]] size_t Refused() const { return Refused_; }
 
   [[nodiscard]] const std::string &WhyRefused() const { return Why_; }
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Standing_.capacity() * sizeof(Standing) + Why_.capacity();
+  }
 
 private:
   struct Standing {
