@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2105
-Depends:
+Depends: 2245
 Priority: P0
 Area: engine, world, rendering
 Tags: streaming, realtime, ownership
@@ -15,6 +15,15 @@ Candidate ownership, phase scheduling and atomic publication exist. Floor-contac
 Lattice and paced-readiness fixtures passed at bd8693885. These establish readiness
 and local contracts, not equal native products under different pacing or frame budgets.
 Historical single-run timings are in Git; no p95/p99 claim follows from them.
+
+The Refined oracle reaches readiness in both paths but native products differ.
+Reversing execution order excludes cache warmth alone. Terrain source, refined and
+haloed nodes are byte-identical; tile IDs and product counts match. Footprint order
+and heights then diverge, followed by pressed terrain and renderer geometry. The
+first differing input is `OsmField::Tiles()` order: `Build` appends successful vector
+downloads in arrival order, so tile/feature/point indices change with pacing. Waiting
+for all terrain meshes does not repair this; the probe was removed. WI 2245 repairs
+the vector identity boundary before product equivalence can pass.
 
 The release regression is reproduced: with NDEBUG, the paced engine tries to start
 another candidate while its renderer still owns the first. The three mutating schedule
@@ -36,9 +45,10 @@ new revision data into completed phases. Only complete validated products replac
 active world. Failure and cancellation preserve the published world.
 
 Engine::advance and preload must orchestrate the same production operations. Their
-current calls differ: advance uses Refined quality and advances simulation, preload
-uses Playable quality. Freeze input revision, coverage, quality and simulation time
-before comparing results. Do not call different-quality image equality a valid oracle.
+first publications now both use Playable quality; advance had incorrectly labelled its
+contact-only source request Refined. Both then continue to Refined visual coverage.
+Freeze input revision, coverage, quality and simulation time before comparing results.
+Do not call different-quality image equality a valid oracle.
 Use existing internal contracts for controlled equivalence tests and public API for
 end-to-end progress. Do not add a second rendering client.
 

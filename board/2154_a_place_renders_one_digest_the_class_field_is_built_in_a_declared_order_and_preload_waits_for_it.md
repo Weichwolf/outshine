@@ -2,7 +2,7 @@ Type: bug
 State: active
 Area: world, engine
 Parent: 2169
-Depends:
+Depends: 2245
 
 # Identical declared inputs will reproduce the same world and image
 
