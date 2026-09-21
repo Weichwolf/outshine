@@ -405,7 +405,7 @@ void Tables(SDL_GPUDevice *device) {
   CHECK(materialReady, error.c_str());
   if (!materialReady) { return; }
   const std::array<uint32_t, 1> slots{0};
-  draw.WearPieces(slots);
+  draw.SetNativePieceSurfaces(slots);
   const std::array<StoredVertex, 3> vertices{StoredVertex::Of({{-1, -1, 0}}, {}, {{0, 0, 1}}),
                                              StoredVertex::Of({{1, -1, 0}}, {}, {{0, 0, 1}}),
                                              StoredVertex::Of({{0, 1, 0}}, {}, {{0, 0, 1}})};
