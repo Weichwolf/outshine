@@ -23,34 +23,42 @@ public:
 
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
-  void MarksPrepared() noexcept { Prepared_ = true; }
+  [[nodiscard]] bool MarksPrepared() noexcept {
+    if (Prepared_) { return false; }
+    Prepared_ = true;
+    return true;
+  }
 
   [[nodiscard]] SheetPhase SheetBuilding() const noexcept { return SheetBuilding_; }
 
-  void CompletesSheetPhase() noexcept {
+  [[nodiscard]] bool CompletesSheetPhase() noexcept {
+    if (!Prepared_) { return false; }
     switch (SheetBuilding_) {
-      case SheetPhase::NeedsRefinement: SheetBuilding_ = SheetPhase::NeedsHalos; return;
-      case SheetPhase::NeedsHalos: SheetBuilding_ = SheetPhase::NeedsMesh; return;
-      case SheetPhase::NeedsMesh: SheetBuilding_ = SheetPhase::Ready; return;
-      case SheetPhase::Ready: return;
+      case SheetPhase::NeedsRefinement: SheetBuilding_ = SheetPhase::NeedsHalos; return true;
+      case SheetPhase::NeedsHalos: SheetBuilding_ = SheetPhase::NeedsMesh; return true;
+      case SheetPhase::NeedsMesh: SheetBuilding_ = SheetPhase::Ready; return true;
+      case SheetPhase::Ready: return false;
     }
+    return false;
   }
 
   [[nodiscard]] Stage NextStage() const noexcept { return NextStage_; }
 
-  void CompletesStage() noexcept {
+  [[nodiscard]] bool CompletesStage() noexcept {
+    if (!Prepared_ || SheetBuilding_ != SheetPhase::Ready) { return false; }
     switch (NextStage_) {
-      case Stage::NeedsClasses: NextStage_ = Stage::NeedsGroundSurface; return;
-      case Stage::NeedsGroundSurface: NextStage_ = Stage::NeedsModels; return;
-      case Stage::NeedsModels: NextStage_ = Stage::NeedsBakes; return;
-      case Stage::NeedsBakes: NextStage_ = Stage::NeedsCorridors; return;
-      case Stage::NeedsCorridors: NextStage_ = Stage::NeedsEarthworks; return;
-      case Stage::NeedsEarthworks: NextStage_ = Stage::NeedsTerrainMesh; return;
-      case Stage::NeedsTerrainMesh: NextStage_ = Stage::NeedsWater; return;
-      case Stage::NeedsWater: NextStage_ = Stage::NeedsGeometry; return;
-      case Stage::NeedsGeometry: NextStage_ = Stage::NeedsPublication; return;
-      case Stage::NeedsPublication: return;
+      case Stage::NeedsClasses: NextStage_ = Stage::NeedsGroundSurface; return true;
+      case Stage::NeedsGroundSurface: NextStage_ = Stage::NeedsModels; return true;
+      case Stage::NeedsModels: NextStage_ = Stage::NeedsBakes; return true;
+      case Stage::NeedsBakes: NextStage_ = Stage::NeedsCorridors; return true;
+      case Stage::NeedsCorridors: NextStage_ = Stage::NeedsEarthworks; return true;
+      case Stage::NeedsEarthworks: NextStage_ = Stage::NeedsTerrainMesh; return true;
+      case Stage::NeedsTerrainMesh: NextStage_ = Stage::NeedsWater; return true;
+      case Stage::NeedsWater: NextStage_ = Stage::NeedsGeometry; return true;
+      case Stage::NeedsGeometry: NextStage_ = Stage::NeedsPublication; return true;
+      case Stage::NeedsPublication: return false;
     }
+    return false;
   }
 
   [[nodiscard]] std::string_view Status() const noexcept {

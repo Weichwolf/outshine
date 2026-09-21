@@ -47,6 +47,23 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 WI 2188 maintains global priority against runtime defects. Vegetation features and a new
 threading model are not part of this refactor.
 
+## Re-audit after candidate routing
+
+2026-09-21: `Live` is no longer an engine state facade. The remaining `Time.Live` occurrence
+is scenario configuration. `StructureBuildQueue` and `StructureBuildTask` are correctly inside
+`engine/streaming`: they schedule generator-owned `StructureBake` products and do not contain
+building geometry algorithms. `CrownBuildIdentity` is a generated private provenance header
+included through `OutshineGenerated/`, not a build-relative path. The layer contract finds no
+parent-path, absolute or physical build include in product code.
+
+`GroundBuildState` remains local to `Laying.cpp` because it coordinates one Engine-owned ground
+candidate. Its phase order is now owned by `GroundBuildSchedule`; production cannot start before
+candidate preparation and all sheet phases, and cannot pass Publication. That is a real state
+contract, not a file split. Open ownership work is specific: WI 2225 must atomically replace
+crown resources; WI 2228 must count renderer, candidate and worker residency; WI 2234 still
+needs paced-versus-uninterrupted product equivalence and tail distributions. No generic engine
+module move remains authorized by this parent.
+
 ## Common implementation contract
 
 Generated private headers live under `build/generated/OutshineGenerated/` and are exposed only

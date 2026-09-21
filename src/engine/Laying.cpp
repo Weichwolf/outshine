@@ -20,6 +20,7 @@
 #include "Heap.h"
 #include "TangentFrame.h"
 #include <array>
+#include <cassert>
 #include <functional>
 #include <optional>
 #include <span>
@@ -128,7 +129,7 @@ public:
 
   void CompletesSheetPhase() noexcept {
     RecordsProductPeak();
-    Schedule_.CompletesSheetPhase();
+    assert(Schedule_.CompletesSheetPhase());
   }
 
   [[nodiscard]] Core::GroundBuildSchedule::Stage NextStage() const noexcept {
@@ -137,7 +138,7 @@ public:
 
   void CompletesStage() noexcept {
     RecordsProductPeak();
-    Schedule_.CompletesStage();
+    assert(Schedule_.CompletesStage());
   }
 
   [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeakBytes_; }
@@ -150,7 +151,7 @@ public:
 
   [[nodiscard]] bool Prepared() const noexcept { return Schedule_.Prepared(); }
 
-  void MarksPrepared() noexcept { Schedule_.MarksPrepared(); }
+  void MarksPrepared() noexcept { assert(Schedule_.MarksPrepared()); }
 
   [[nodiscard]] std::string_view Status() const noexcept {
     if (!Schedule_.Prepared()) { return "candidate"; }
